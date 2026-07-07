@@ -1,0 +1,12 @@
+# 本地-only 目录，不进入远端
+.codegraph/
+.omo/
+.docs/
+
+# 当前本地-only 文件，不进入远端
+00_MASTER_PROMPT_v2.md
+AGENTS.md
+CONTEXT.md
+FILE_MANIFEST.md
+INITIALIZE.md
+README.md
