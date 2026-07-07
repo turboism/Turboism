@@ -1,0 +1,7 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 1,
+  "id": "dev.turboism.plugin.demo",
+  "name": "Demo Plugin",
+  "version": "0.1.0"
+}

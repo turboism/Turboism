@@ -12,9 +12,27 @@ dist/
 release/
 .gradle/
 
+# IDE / editor metadata
+.classpath
+.project
+.settings/
+.factorypath
+**/.classpath
+**/.project
+**/.settings/
+**/.factorypath
+**/bin/
+
+# Worktree-local runtime/config state
+.turboism-worktree-id
+turboism.*.config.json
+
+# AI / agent-local process files, not submitted
+AGENTS.md
+docs/migration/subagents/
+
 # 当前本地-only 文件，不进入远端
 00_MASTER_PROMPT_v2.md
-AGENTS.md
 CONTEXT.md
 FILE_MANIFEST.md
 INITIALIZE.md

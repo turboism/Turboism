@@ -1,0 +1,14 @@
+{
+  "format": "turboism.diagnostic.report",
+  "schemaVersion": 1,
+  "createdAt": "2026-07-07T12:00:00Z",
+  "worktreeId": "turboism-m2",
+  "problems": [
+    {
+      "code": "PLUGIN_META_BAD_SCHEMA_VERSION",
+      "severity": "ERROR",
+      "message": "schemaVersion must be 1",
+      "path": "schemaVersion"
+    }
+  ]
+}

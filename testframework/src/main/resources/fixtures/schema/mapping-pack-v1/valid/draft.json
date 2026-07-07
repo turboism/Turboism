@@ -1,0 +1,19 @@
+{
+  "format": "turboism.mapping.pack",
+  "schemaVersion": 1,
+  "status": "DRAFT",
+  "source": "legacy-readonly",
+  "cubismVersion": "5.3.02",
+  "entries": [
+    {
+      "kind": "method",
+      "runtime": "a.b.c",
+      "named": "Project.activeModel",
+      "descriptor": "()Lmodel;",
+      "confidence": "inferred"
+    }
+  ],
+  "metadata": {
+    "validationNotes": "Entry derived from legacy probe only; not verified against live Cubism."
+  }
+}

@@ -2,11 +2,17 @@ package dev.turboism.core.descriptor;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.turboism.core.schema.SchemaValidationError;
+import dev.turboism.core.schema.plugin.PluginMetaValidator;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 /**
  * Parses plugin.json into the SDK {@link PluginDescriptor} contract.
@@ -14,11 +20,12 @@ import java.util.*;
 public final class PluginDescriptorParser {
 
     private final ObjectMapper mapper = new ObjectMapper();
+    private final PluginMetaValidator validator = new PluginMetaValidator();
 
     public PluginDescriptor parse(InputStream source) throws DescriptorParseException {
         try {
             JsonNode root = mapper.readTree(source);
-            return parseNode(root);
+            return parseNode(root, "<input stream>");
         } catch (IOException e) {
             throw new DescriptorParseException("PLUGIN_META_INVALID_JSON", "Failed to parse plugin.json", e);
         }
@@ -27,13 +34,21 @@ public final class PluginDescriptorParser {
     public PluginDescriptor parse(String json) throws DescriptorParseException {
         try {
             JsonNode root = mapper.readTree(json);
-            return parseNode(root);
+            return parseNode(root, "<input string>");
         } catch (IOException e) {
             throw new DescriptorParseException("PLUGIN_META_INVALID_JSON", "Failed to parse plugin.json", e);
         }
     }
 
-    private PluginDescriptor parseNode(JsonNode root) throws DescriptorParseException {
+    public PluginDescriptor parse(JsonNode root, String source) throws DescriptorParseException {
+        return parseNode(root, source);
+    }
+
+    private PluginDescriptor parseNode(JsonNode root, String source) throws DescriptorParseException {
+        List<SchemaValidationError> errors = validator.validate(root, source);
+        if (!errors.isEmpty()) {
+            throw new DescriptorParseException(errors.get(0).code(), errors.get(0).message(), errors.get(0).path());
+        }
         requireField(root, "format");
         requireField(root, "schemaVersion");
         requireField(root, "id");

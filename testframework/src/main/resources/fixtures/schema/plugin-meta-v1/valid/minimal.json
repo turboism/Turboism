@@ -1,0 +1,32 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 1,
+  "id": "dev.turboism.plugin.demo",
+  "name": "Demo Plugin",
+  "version": "0.1.0",
+  "description": "Demo plugin for Turboism framework validation.",
+  "entrypoints": {
+    "plugin": "dev.turboism.plugin.demo.DemoPlugin"
+  },
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    {
+      "name": "Turboism Contributors"
+    }
+  ],
+  "license": "Project License",
+  "homepage": "https://turboism.dev",
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.ui.menu",
+      "scope": "application",
+      "reason": "Adds a demo menu item."
+    }
+  ],
+  "capabilities": [],
+  "environment": {
+    "requiresCubism": false,
+    "ui": "none"
+  }
+}
