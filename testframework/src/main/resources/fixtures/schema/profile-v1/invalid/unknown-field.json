@@ -1,0 +1,10 @@
+{
+  "format": "turboism.profile",
+  "schemaVersion": 1,
+  "id": "cubism-5.3.02",
+  "inherits": [],
+  "mappingPackRefs": [
+    "cubism-5.3.02"
+  ],
+  "unknownTopLevelField": true
+}

@@ -1,0 +1,9 @@
+{
+  "format": "turboism.dependency",
+  "schemaVersion": 1,
+  "id": "dev.turboism.plugin.workspace",
+  "version": "[0.1.0,0.2.0)",
+  "type": "required",
+  "ordering": "before",
+  "reason": "Requires workspace service for project panels."
+}

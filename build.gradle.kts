@@ -56,13 +56,46 @@ subprojects {
 // Repository-wide quality gates
 tasks.register("checkModuleBoundaries") {
     group = "verification"
-    description = "Verify module dependency direction and internal imports."
+    description = "Verify module dependency direction, internal imports, and forbidden packages."
     doLast {
-        val forbiddenPatterns = listOf(
-            "dev.turboism.*.internal.*" to "SDK/public modules must not import runtime internal packages"
+        val forbiddenImportPatterns = listOf(
+            "dev.turboism.*.internal.*" to "SDK/public modules must not import runtime internal packages",
+            "com.live2d.*" to "SDK/plugins must not import Cubism internal packages (com.live2d)",
+            "dev.turboism.core.parameter.*" to "Phase 1/M2 forbids parameter package",
+            "dev.turboism.core.mesh.*" to "Phase 1/M2 forbids mesh package",
+            "dev.turboism.core.psd.*" to "Phase 1/M2 forbids psd package",
+            "dev.turboism.core.mirror.*" to "Phase 1/M2 forbids mirror package"
         )
+
         var failed = false
+
         rootProject.subprojects.forEach { subproject ->
+            // Dependency direction checks
+            val config = subproject.configurations.findByName("compileClasspath")
+            if (config != null) {
+                val resolved = config.resolvedConfiguration.lenientConfiguration.files
+                if (subproject.path == ":sdk") {
+                    resolved.forEach { file ->
+                        if (file.name.contains("runtime")) {
+                            logger.error("SDK must not depend on runtime artifacts: ${file.name} in :sdk")
+                            failed = true
+                        }
+                    }
+                }
+                if (subproject.path == ":plugins:demo") {
+                    val apiDeps = subproject.configurations.findByName("api")?.dependencies?.toList() ?: emptyList<Dependency>()
+                    val compileOnlyDeps = subproject.configurations.findByName("compileOnly")?.dependencies?.toList() ?: emptyList<Dependency>()
+                    val implDeps = subproject.configurations.findByName("implementation")?.dependencies?.toList() ?: emptyList<Dependency>()
+                    val declared: List<Dependency> = apiDeps + compileOnlyDeps + implDeps
+                    declared.filterIsInstance<ProjectDependency>().forEach { dep ->
+                        if (dep.dependencyProject.path != ":sdk") {
+                            logger.error("plugins:demo must only depend on :sdk, found ${dep.dependencyProject.path}")
+                            failed = true
+                        }
+                    }
+                }
+            }
+
             val sourceDir = subproject.file("src/main/java")
             if (sourceDir.exists()) {
                 sourceDir.walkTopDown()
@@ -73,10 +106,10 @@ tasks.register("checkModuleBoundaries") {
                             logger.error("Class exceeds 800 lines: ${file.relativeTo(rootProject.projectDir)}")
                             failed = true
                         }
-                        val isSdk = subproject.path == ":sdk" || subproject.path.startsWith(":plugins:")
-                        if (isSdk) {
+                        val isRestricted = subproject.path == ":sdk" || subproject.path.startsWith(":plugins:")
+                        if (isRestricted) {
                             lines.forEachIndexed { index, line ->
-                                forbiddenPatterns.forEach { (pattern, message) ->
+                                forbiddenImportPatterns.forEach { (pattern, message) ->
                                     if (line.matches(Regex("^import $pattern;"))) {
                                         logger.error("Forbidden import in ${file.relativeTo(rootProject.projectDir)}:${index + 1}: $message")
                                         failed = true
@@ -87,6 +120,7 @@ tasks.register("checkModuleBoundaries") {
                     }
             }
         }
+
         if (failed) {
             throw GradleException("Module boundary checks failed.")
         }

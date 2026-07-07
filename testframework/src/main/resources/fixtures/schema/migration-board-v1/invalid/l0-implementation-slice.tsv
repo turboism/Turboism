@@ -1,0 +1,3 @@
+id	phase	feature	legacyPath	reuseLevel	target	status	notes	salvageTypes
+m2-board-001	M2_SCHEMA_CONFIG_DIAGNOSTICS	Plugin meta schema v1	none	L0	runtime/core/schema	PENDING	L0 row included in implementation plan.	
+m2-board-002	M2_SCHEMA_CONFIG_DIAGNOSTICS	Schema fixtures	none	L4	testframework	READY	Valid and invalid fixtures for each schema.	

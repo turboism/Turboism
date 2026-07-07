@@ -1,0 +1,6 @@
+{
+  "format": "turboism.permission",
+  "schemaVersion": 1,
+  "scope": "application",
+  "reason": "Adds a demo menu item."
+}

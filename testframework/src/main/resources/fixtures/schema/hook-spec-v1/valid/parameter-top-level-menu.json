@@ -1,0 +1,15 @@
+{
+  "format": "turboism.hook.spec",
+  "schemaVersion": 1,
+  "id": "parameterTopLevelMenu",
+  "phase": "BEFORE",
+  "kind": "augmenting",
+  "required": false,
+  "requiresMapping": false,
+  "requiresCubismFacade": false,
+  "requiresTransaction": false,
+  "description": "Contribute an item to the parameter top-level menu.",
+  "owners": [
+    "plugins/parameter"
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "format": "turboism.dependency",
+  "schemaVersion": 1,
+  "id": "dev.turboism.plugin.workspace",
+  "version": "[0.1.0,0.2.0)",
+  "unknownTopLevelField": true
+}

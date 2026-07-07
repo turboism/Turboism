@@ -3,7 +3,6 @@ package dev.turboism.core.plugin;
 import dev.turboism.core.diagnostics.DisabledReason;
 import dev.turboism.core.diagnostics.StartupReport;
 import dev.turboism.core.lifecycle.PluginLifecycleState;
-import dev.turboism.sdk.plugin.TurboismPlugin;
 
 import java.util.Collections;
 import java.util.HashMap;

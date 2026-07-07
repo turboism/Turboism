@@ -1,0 +1,12 @@
+{
+  "format": "turboism.hook.spec",
+  "schemaVersion": 1,
+  "id": "parameterTopLevelMenu",
+  "phase": "BEFORE",
+  "kind": "augmenting",
+  "required": false,
+  "requiresMapping": false,
+  "requiresCubismFacade": false,
+  "requiresTransaction": false,
+  "unknownTopLevelField": true
+}

@@ -7,7 +7,6 @@ import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.sdk.ui.UiScheduler;
 
-import java.nio.file.Path;
 import java.util.List;
 
 /**
