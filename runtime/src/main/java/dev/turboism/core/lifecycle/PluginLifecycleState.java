@@ -1,0 +1,22 @@
+package dev.turboism.core.lifecycle;
+
+public enum PluginLifecycleState {
+    DISCOVERED,
+    RESOLVED,
+    CLASSLOADER_CREATED,
+    CONSTRUCTED,
+    LOADED,
+    ENABLED,
+    DISABLED,
+    SHUTDOWN,
+    UNLOADED,
+
+    INVALID_DESCRIPTOR,
+    DEPENDENCY_FAILED,
+    PERMISSION_DENIED,
+    CLASSLOADER_FAILED,
+    LOAD_FAILED,
+    ENABLE_FAILED,
+    DISABLE_FAILED,
+    SHUTDOWN_FAILED
+}

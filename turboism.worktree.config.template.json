@@ -1,0 +1,21 @@
+{
+  "format": "turboism.runtime.config",
+  "schemaVersion": 1,
+  "worktreeId": "${worktreeId}",
+  "channel": "dev",
+  "safeMode": false,
+  "paths": {
+    "pluginsDir": "${runtimeDir}/plugins",
+    "logsDir": "${runtimeDir}/logs",
+    "stateDir": "${runtimeDir}/state",
+    "cacheDir": "${runtimeDir}/cache"
+  },
+  "update": {
+    "enabled": false,
+    "sourceUrl": "https://turboism.dev/releases/latest.json"
+  },
+  "plugins": {
+    "disabled": [],
+    "loadOrderOverrides": []
+  }
+}

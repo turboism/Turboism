@@ -1,7 +1,16 @@
 # 本地-only 目录，不进入远端
 .codegraph/
+.cortexkit/
 .omo/
 .docs/
+cubism-ref/
+docs-internal/
+
+# 构建产物与运行期目录
+build/
+dist/
+release/
+.gradle/
 
 # 当前本地-only 文件，不进入远端
 00_MASTER_PROMPT_v2.md
