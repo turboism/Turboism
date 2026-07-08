@@ -17,6 +17,7 @@ public final class CubismFacadeImpl implements CubismFacade {
 
     public static final String PROJECT_READ_PERMISSION = "turboism.cubism.project.read";
     public static final String MODEL_READ_PERMISSION = "turboism.cubism.model.read";
+    public static final String MESH_READ_PERMISSION = "turboism.cubism.mesh.read";
 
     private static final HostSnapshotSource.HostSelection EMPTY_SELECTION = new HostSnapshotSource.HostSelection(
         List.of(),

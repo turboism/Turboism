@@ -29,6 +29,11 @@ public final class CubismPermissionGate {
         this.clock = Objects.requireNonNull(clock, "clock");
     }
 
+    public boolean hasPermission(final String permissionId) {
+        Objects.requireNonNull(permissionId, "permissionId");
+        return grantedPermissions.stream().anyMatch(permission -> permissionId.equals(permission.id()));
+    }
+
     public void require(final String permissionId, final String methodName) {
         Objects.requireNonNull(permissionId, "permissionId");
         Objects.requireNonNull(methodName, "methodName");
