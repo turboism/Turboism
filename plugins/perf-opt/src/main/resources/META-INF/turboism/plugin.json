@@ -1,0 +1,30 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 1,
+  "id": "dev.turboism.plugin.perfopt",
+  "name": "Performance Overlay Plugin",
+  "version": "0.1.0",
+  "description": "FPS overlay toggle action/menu and lifecycle provider shell.",
+  "entrypoints": {
+    "plugin": "dev.turboism.plugin.perfopt.PerfOptPlugin"
+  },
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    { "name": "Turboism Contributors" }
+  ],
+  "license": "Project License",
+  "homepage": "https://turboism.dev",
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.cubism.model.read",
+      "scope": "application",
+      "reason": "Reads active model state for FPS overlay display."
+    }
+  ],
+  "capabilities": [],
+  "environment": {
+    "requiresCubism": false,
+    "ui": "none"
+  }
+}

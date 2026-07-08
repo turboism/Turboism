@@ -1,0 +1,24 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 1,
+  "id": "dev.turboism.plugin.renderopt",
+  "name": "Render Optimization Plugin",
+  "version": "0.1.0",
+  "description": "Render optimization lifecycle provider shell. Actual render interception remains adapter/hook work.",
+  "entrypoints": {
+    "plugin": "dev.turboism.plugin.renderopt.RenderOptPlugin"
+  },
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    { "name": "Turboism Contributors" }
+  ],
+  "license": "Project License",
+  "homepage": "https://turboism.dev",
+  "dependencies": [],
+  "permissions": [],
+  "capabilities": [],
+  "environment": {
+    "requiresCubism": false,
+    "ui": "none"
+  }
+}
