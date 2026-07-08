@@ -47,9 +47,18 @@ public final class ProcessSidecarDispatcher implements SidecarDispatcher {
             ));
         }
 
+        final SidecarEnvelope envelope = createEnvelope(task);
+        final SidecarEnvelopeValidator.ValidationResult validation = new SidecarEnvelopeValidator().validate(envelope);
+        if (!validation.valid()) {
+            return CompletableFuture.completedFuture(SidecarResult.error(
+                validation.problemCode(),
+                validation.problemMessage()
+            ));
+        }
+
         final SidecarCommand command;
         try {
-            command = new SidecarCommand(commandLine(), serialize(task), configuration.timeoutMillis());
+            command = new SidecarCommand(commandLine(), serialize(envelope), configuration.timeoutMillis());
         } catch (final JsonProcessingException exception) {
             return CompletableFuture.completedFuture(SidecarResult.error(
                 "SIDECAR_ENVELOPE_SERIALIZATION_FAILED",
@@ -93,8 +102,8 @@ public final class ProcessSidecarDispatcher implements SidecarDispatcher {
         return List.copyOf(command);
     }
 
-    private static String serialize(final PluginTask task) throws JsonProcessingException {
-        final SidecarEnvelope envelope = new SidecarEnvelope(
+    private static SidecarEnvelope createEnvelope(final PluginTask task) {
+        return new SidecarEnvelope(
             task.pluginId(),
             UUID.randomUUID().toString(),
             task.taskType(),
@@ -102,6 +111,9 @@ public final class ProcessSidecarDispatcher implements SidecarDispatcher {
             task.declaredCapability(),
             Instant.now().toString()
         );
+    }
+
+    private static String serialize(final SidecarEnvelope envelope) throws JsonProcessingException {
         return MAPPER.writeValueAsString(envelope);
     }
 

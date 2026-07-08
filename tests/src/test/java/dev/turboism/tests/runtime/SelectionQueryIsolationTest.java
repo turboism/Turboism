@@ -6,7 +6,7 @@ import dev.turboism.adapter.cubism.service.query.SelectionQueryServiceImpl;
 import dev.turboism.core.runtime.PluginExecutorRegistry;
 import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.runtime.RuntimeScheduler;
-import dev.turboism.core.runtime.WorkBudget;
+import dev.turboism.sdk.plugin.WorkBudget;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.core.runtime.sidecar.SidecarResult;
 import dev.turboism.diagnostics.CubismFacadeAuditEvent;
