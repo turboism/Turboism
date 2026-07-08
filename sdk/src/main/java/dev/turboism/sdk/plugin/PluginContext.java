@@ -2,6 +2,9 @@ package dev.turboism.sdk.plugin;
 
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.cubism.CubismFacade;
+import dev.turboism.sdk.cubism.service.query.ModelHierarchyQueryService;
+import dev.turboism.sdk.cubism.service.query.ParameterQueryService;
+import dev.turboism.sdk.cubism.service.query.SelectionQueryService;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
 import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.menu.MenuRegistry;
@@ -22,6 +25,18 @@ public interface PluginContext {
     PluginPaths paths();
 
     CubismFacade cubism();
+
+    default ParameterQueryService parameterQuery() {
+        throw new UnsupportedOperationException("parameterQuery service is not available");
+    }
+
+    default SelectionQueryService selectionQuery() {
+        throw new UnsupportedOperationException("selectionQuery service is not available");
+    }
+
+    default ModelHierarchyQueryService modelHierarchyQuery() {
+        throw new UnsupportedOperationException("modelHierarchyQuery service is not available");
+    }
 
     List<PluginPermission> permissions();
 

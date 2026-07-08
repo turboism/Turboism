@@ -55,6 +55,11 @@ final class FakeHostSnapshotSource implements HostSnapshotSource {
         return host.isRunning();
     }
 
+    @Override
+    public long invalidationToken() {
+        return host.getInvalidationToken();
+    }
+
     private HostProject project(final FakeCubismProject project) {
         return new HostProject(
             project.getId(),
