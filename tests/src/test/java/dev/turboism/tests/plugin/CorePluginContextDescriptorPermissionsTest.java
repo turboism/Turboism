@@ -9,15 +9,17 @@ import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.diagnostics.CubismFacadeAuditEvent;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.event.EventBus;
+import dev.turboism.sdk.event.EventBus.TurboismEvent;
 import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.permission.CubismPermissionException;
-import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.PluginPaths;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.UiScheduler;
+import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
+import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -32,6 +34,7 @@ import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -40,61 +43,81 @@ class CorePluginContextDescriptorPermissionsTest {
     private static final String PLUGIN_ID = "dev.turboism.plugin.descriptor-permission";
     private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-07-08T00:00:00Z"), ZoneOffset.UTC);
 
-    @Test
-    void defaultConstructorUsesDescriptorPermissionsAndDeniesAllWhenEmpty(@TempDir Path dataDir) {
-        // Given
-        List<CubismFacadeAuditEvent> auditEvents = new CopyOnWriteArrayList<>();
-        CorePluginContext context = context(dataDir, List.of(), auditEvents::add);
+    record TestEvent(String payload) implements TurboismEvent {
+    }
 
-        // Then
+    @Test
+    void defaultConstructorDeniesEveryM8OperationWhenDescriptorHasNoPermissions(@TempDir Path dataDir) {
+        // Given: a descriptor with NO declared permissions; the convenience constructor derives the list.
+        List<CubismFacadeAuditEvent> auditEvents = new CopyOnWriteArrayList<>();
+        CorePluginContext context = context(dataDir, descriptorWithPermissions(), auditEvents::add);
+
+        // Then: every M8 seam is denied because the descriptor declares no permissions.
         assertThrows(CubismPermissionException.class, () ->
-            context.actions().register("test.action", new ActionRegistry.Action() {
-                @Override public String id() { return "test.action"; }
-                @Override public String label() { return "Test"; }
-                @Override public Consumer<ActionRegistry.ActionContext> handler() { return ctx -> { }; }
-            })
+            context.actions().register("test.action", actionDefinition("test.action", "Test"))
         );
         assertThrows(CubismPermissionException.class, () ->
-            context.menus().contribute(new MenuRegistry.MenuContribution() {
-                @Override public String menuPath() { return "Test"; }
-                @Override public String actionId() { return "test.action"; }
-                @Override public int order() { return 1; }
-            })
+            context.menus().contribute(menuContribution("Test", "test.action", 1))
         );
         assertThrows(CubismPermissionException.class, () ->
-            context.eventBus().subscribe(EventBus.TurboismEvent.class, event -> { })
+            context.eventBus().subscribe(TurboismEvent.class, e -> { })
         );
         assertThrows(CubismPermissionException.class, () ->
-            context.mainToolbar().contribute(new dev.turboism.sdk.ui.toolbar.MainToolbarRegistry.MainToolbarContribution(
-                "test", "test", "label", "icon", "end", 1
-            ))
+            context.eventBus().publish(new TestEvent("test"))
         );
         assertThrows(CubismPermissionException.class, () ->
-            context.paletteToolbar().contribute(new dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry.PaletteToolbarContribution(
-                "test", "test", "label", "icon", "parameters", "end", 1
-            ))
+            context.mainToolbar().contribute(mainToolbarContribution("test", "label", "icon"))
+        );
+        assertThrows(CubismPermissionException.class, () ->
+            context.paletteToolbar().contribute(paletteToolbarContribution("test", "label", "icon"))
         );
         assertThrows(CubismPermissionException.class, () ->
             context.config().readScope("test/config.json")
         );
-        assertTrue(auditEvents.size() >= 6, "Expected at least one audit event per denied operation");
+        assertThrows(CubismPermissionException.class, () ->
+            context.config().writeString("test/config.json", "key", "value")
+        );
+        assertTrue(auditEvents.size() >= 8, "Expected at least one audit event per denied operation");
     }
 
-    private static CorePluginContext context(Path dataDir, List<PluginPermission> permissions, Consumer<CubismFacadeAuditEvent> auditSink) {
-        List<dev.turboism.core.diagnostics.CallbackBudgetEvent> events = new CopyOnWriteArrayList<>();
-        RuntimeScheduler scheduler = new RuntimeScheduler(
-            new DefaultWorkBudgetPolicy(),
-            new PluginExecutorRegistry(1, 4, events::add, CLOCK),
-            SidecarDispatcher.noop(),
-            events::add
-        );
+    @Test
+    void defaultConstructorGrantsM8OperationsWhenDescriptorDeclaresPermissions(@TempDir Path dataDir) {
+        // Given: a descriptor that declares all M8 permissions.
+        List<CubismFacadeAuditEvent> auditEvents = new CopyOnWriteArrayList<>();
+        CorePluginContext context = context(dataDir, descriptorWithAllM8Permissions(), auditEvents::add);
+
+        // Then: all M8 registrations and uses succeed without throwing.
+        assertDoesNotThrow(() -> {
+            Registration action = context.actions().register("test.action", actionDefinition("test.action", "Test"));
+            Registration menu = context.menus().contribute(menuContribution("Test", "test.action", 1));
+            Registration subscription = context.eventBus().subscribe(TurboismEvent.class, e -> { });
+            Registration mainToolbar = context.mainToolbar().contribute(mainToolbarContribution("test", "label", "icon"));
+            Registration paletteToolbar = context.paletteToolbar().contribute(paletteToolbarContribution("test", "label", "icon"));
+            Registration configReadScope = context.config().readScope("test/config.json");
+            Registration configWriteScope = context.config().writeScope("test/config.json");
+            context.config().writeString("test/config.json", "key", "value");
+            context.eventBus().publish(new TestEvent("test"));
+
+            action.close();
+            menu.close();
+            subscription.close();
+            mainToolbar.close();
+            paletteToolbar.close();
+            configReadScope.close();
+            configWriteScope.close();
+        });
+
+        // And the cubism side is audited from the descriptor-derived permission list, but no host is present.
+        assertTrue(auditEvents.isEmpty(), "No host Cubism reads were attempted");
+    }
+
+    private static CorePluginContext context(Path dataDir, PluginDescriptor descriptor, Consumer<CubismFacadeAuditEvent> auditSink) {
         return new CorePluginContext(new CorePluginContext.Dependencies(
-            descriptor(),
+            descriptor,
             logger(),
             paths(dataDir),
-            permissions,
             uiScheduler(),
-            scheduler,
+            scheduler(),
             diagnostics(),
             new DisposableScope(),
             noopHostSnapshotSource(),
@@ -103,7 +126,58 @@ class CorePluginContextDescriptorPermissionsTest {
         ));
     }
 
-    private static PluginDescriptor descriptor() {
+    private static RuntimeScheduler scheduler() {
+        List<dev.turboism.core.diagnostics.CallbackBudgetEvent> events = new CopyOnWriteArrayList<>();
+        return new RuntimeScheduler(
+            new DefaultWorkBudgetPolicy(),
+            new PluginExecutorRegistry(1, 4, events::add, CLOCK),
+            SidecarDispatcher.noop(),
+            events::add
+        );
+    }
+
+    private static ActionRegistry.Action actionDefinition(String id, String label) {
+        return new ActionRegistry.Action() {
+            @Override public String id() { return id; }
+            @Override public String label() { return label; }
+            @Override public Consumer<ActionRegistry.ActionContext> handler() { return ctx -> { }; }
+        };
+    }
+
+    private static MenuRegistry.MenuContribution menuContribution(String menuPath, String actionId, int order) {
+        return new MenuRegistry.MenuContribution() {
+            @Override public String menuPath() { return menuPath; }
+            @Override public String actionId() { return actionId; }
+            @Override public int order() { return order; }
+        };
+    }
+
+    private static MainToolbarRegistry.MainToolbarContribution mainToolbarContribution(String id, String label, String icon) {
+        return new MainToolbarRegistry.MainToolbarContribution(id, id, label, icon, "end", 1);
+    }
+
+    private static PaletteToolbarRegistry.PaletteToolbarContribution paletteToolbarContribution(String id, String label, String icon) {
+        return new PaletteToolbarRegistry.PaletteToolbarContribution(id, id, label, icon, "parameters", "end", 1);
+    }
+
+    private static PluginDescriptor descriptorWithPermissions() {
+        return descriptorWithPermissions(List.of());
+    }
+
+    private static PluginDescriptor descriptorWithAllM8Permissions() {
+        return descriptorWithPermissions(List.of(
+            "turboism.action.register",
+            "turboism.ui.menu.contribute",
+            "turboism.event.subscribe",
+            "turboism.event.publish",
+            "turboism.ui.toolbar.main.contribute",
+            "turboism.ui.toolbar.palette.contribute",
+            "turboism.config.plugin.read",
+            "turboism.config.plugin.write"
+        ));
+    }
+
+    private static PluginDescriptor descriptorWithPermissions(List<String> ids) {
         return new PluginDescriptor() {
             @Override public String id() { return PLUGIN_ID; }
             @Override public String name() { return "Descriptor Permission Test"; }
@@ -115,7 +189,15 @@ class CorePluginContextDescriptorPermissionsTest {
             @Override public String license() { return "Project License"; }
             @Override public Optional<String> homepage() { return Optional.empty(); }
             @Override public List<DependencyRef> dependencies() { return List.of(); }
-            @Override public List<PermissionRef> permissions() { return List.of(); }
+            @Override public List<PermissionRef> permissions() {
+                return ids.stream()
+                    .<PermissionRef>map(id -> new PermissionRef() {
+                        @Override public String id() { return id; }
+                        @Override public String scope() { return "allow"; }
+                        @Override public Optional<String> reason() { return Optional.empty(); }
+                    })
+                    .toList();
+            }
             @Override public List<String> capabilities() { return List.of(); }
             @Override public Environment environment() { return new Environment() {
                 @Override public boolean requiresCubism() { return false; }
@@ -145,8 +227,8 @@ class CorePluginContextDescriptorPermissionsTest {
 
     private static UiScheduler uiScheduler() {
         return new UiScheduler() {
-            @Override public dev.turboism.sdk.plugin.Registration runOnUiThread(Runnable work) { work.run(); return () -> { }; }
-            @Override public dev.turboism.sdk.plugin.Registration runOnUiThreadLater(Runnable work, java.time.Duration delay) { return () -> { }; }
+            @Override public Registration runOnUiThread(Runnable work) { work.run(); return () -> { }; }
+            @Override public Registration runOnUiThreadLater(Runnable work, Duration delay) { return () -> { }; }
         };
     }
 
@@ -159,10 +241,10 @@ class CorePluginContextDescriptorPermissionsTest {
 
     private static HostSnapshotSource noopHostSnapshotSource() {
         return new HostSnapshotSource() {
-            @Override public Optional<HostSnapshotSource.HostProject> activeProject() { return Optional.empty(); }
-            @Override public Optional<HostSnapshotSource.HostDocument> activeDocument() { return Optional.empty(); }
-            @Override public Optional<HostSnapshotSource.HostModel> activeModel() { return Optional.empty(); }
-            @Override public HostSnapshotSource.HostSelection selection() { return new HostSnapshotSource.HostSelection(List.of(), Optional.empty(), Optional.empty(), Optional.empty()); }
+            @Override public Optional<HostProject> activeProject() { return Optional.empty(); }
+            @Override public Optional<HostDocument> activeDocument() { return Optional.empty(); }
+            @Override public Optional<HostModel> activeModel() { return Optional.empty(); }
+            @Override public HostSelection selection() { return new HostSelection(List.of(), Optional.empty(), Optional.empty(), Optional.empty()); }
             @Override public boolean isHostPresent() { return false; }
             @Override public long invalidationToken() { return 0; }
         };

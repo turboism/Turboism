@@ -142,6 +142,16 @@ public final class CorePluginContext implements PluginContext {
         return dependencies.disposableScope();
     }
 
+    /**
+     * Production dependencies of a plugin context. The convenience constructor derives
+     * {@link #permissions} from {@link PluginDescriptor#permissions()} and constructs the
+     * runtime registries from that list. This is the only path intended for plugin loading.
+     *
+     * <p>The canonical record constructor accepts a caller-supplied {@code permissions} list
+     * and pre-built registries; it exists for tests and internal runtime wiring only. Callers
+     * outside the runtime package should never use it to load a plugin with permissions that
+     * differ from its descriptor.</p>
+     */
     public record Dependencies(
         PluginDescriptor descriptor,
         PluginLogger logger,
@@ -162,16 +172,14 @@ public final class CorePluginContext implements PluginContext {
         Clock clock
     ) {
         /**
-         * Convenience constructor that creates all runtime registries from the
-         * descriptor-declared permissions. This is the production path used by
-         * {@link dev.turboism.core.plugin.PluginManager}; no registry is created with
-         * {@link PermissionChecker#allowAll()}.
+         * Production convenience constructor: all runtime registries are created from the
+         * permissions declared in the plugin descriptor. This guarantees that the runtime
+         * permission model cannot diverge from the descriptor.
          */
         public Dependencies(
             PluginDescriptor descriptor,
             PluginLogger logger,
             PluginPaths paths,
-            List<PluginPermission> permissions,
             UiScheduler uiScheduler,
             RuntimeScheduler runtimeScheduler,
             DiagnosticReport diagnostics,
@@ -184,7 +192,6 @@ public final class CorePluginContext implements PluginContext {
                 descriptor,
                 logger,
                 paths,
-                permissions,
                 uiScheduler,
                 runtimeScheduler,
                 diagnostics,
@@ -192,15 +199,31 @@ public final class CorePluginContext implements PluginContext {
                 hostSnapshotSource,
                 cubismAuditSink,
                 clock,
-                defaultServices(descriptor, permissions, paths, runtimeScheduler, cubismAuditSink, clock, logger)
+                defaultServices(
+                    descriptor,
+                    permissionsFromDescriptor(descriptor),
+                    paths,
+                    runtimeScheduler,
+                    cubismAuditSink,
+                    clock,
+                    logger
+                )
             );
+        }
+
+        private static List<PluginPermission> permissionsFromDescriptor(PluginDescriptor descriptor) {
+            return descriptor.permissions().stream()
+                .<PluginPermission>map(ref -> new DescriptorPermission(ref.id(), ref.scope(), ref.reason().orElse("")))
+                .toList();
+        }
+
+        private record DescriptorPermission(String id, String scope, String reason) implements PluginPermission {
         }
 
         private Dependencies(
             PluginDescriptor descriptor,
             PluginLogger logger,
             PluginPaths paths,
-            List<PluginPermission> permissions,
             UiScheduler uiScheduler,
             RuntimeScheduler runtimeScheduler,
             DiagnosticReport diagnostics,
@@ -214,7 +237,7 @@ public final class CorePluginContext implements PluginContext {
                 descriptor,
                 logger,
                 paths,
-                permissions,
+                permissionsFromDescriptor(descriptor),
                 services.eventBus,
                 services.actions,
                 services.menus,
@@ -251,7 +274,7 @@ public final class CorePluginContext implements PluginContext {
                 new RuntimeMenuRegistry(runtimeScheduler, descriptor.id(), checker),
                 new RuntimeMainToolbarRegistry(checker, runtimeScheduler, descriptor.id()),
                 new RuntimePaletteToolbarRegistry(checker, runtimeScheduler, descriptor.id()),
-                new RuntimePluginConfigRegistry(checker, runtimeScheduler, paths.dataDir(), diagnosticSink)
+                new RuntimePluginConfigRegistry(checker, runtimeScheduler, paths.dataDir(), descriptor.id(), diagnosticSink)
             );
         }
 

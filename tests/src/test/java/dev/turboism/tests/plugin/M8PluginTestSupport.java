@@ -69,7 +69,7 @@ final class M8PluginTestSupport {
         dev.turboism.ui.toolbar.RuntimePaletteToolbarRegistry paletteToolbarDelegate = new dev.turboism.ui.toolbar.RuntimePaletteToolbarRegistry(permissions, scheduler, PLUGIN_ID);
         RuntimeMainToolbarRegistryAdapter mainToolbar = new RuntimeMainToolbarRegistryAdapter(mainToolbarDelegate, toolbarTracker);
         RuntimePaletteToolbarRegistryAdapter paletteToolbar = new RuntimePaletteToolbarRegistryAdapter(paletteToolbarDelegate, toolbarTracker);
-        RuntimePluginConfigRegistry config = new RuntimePluginConfigRegistry(permissions, scheduler, dataDir, problem -> addProblem(report, problem));
+            RuntimePluginConfigRegistry config = new RuntimePluginConfigRegistry(permissions, scheduler, dataDir, "dev.turboism.plugin.m8-test", problem -> addProblem(report, problem));
         TestPluginContext context = new TestPluginContext(
             scope,
             actions,

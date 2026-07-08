@@ -18,6 +18,7 @@ import dev.turboism.sdk.event.cubism.CubismSelectionChangedEvent;
 import dev.turboism.sdk.permission.PluginPermission;
 import org.junit.jupiter.api.Test;
 
+import java.time.Duration;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -51,6 +52,7 @@ class SelectionQueryIsolationTest {
         // Then
         assertEquals(List.of(), events);
         dispatcher.drain();
+        waitFor(() -> events.size() == 1, Duration.ofSeconds(1));
         assertEquals(1, events.size());
         assertEquals(List.of(new ModelObjectId("mesh-face")), events.get(0).currentSelection().selectedModelObjectIds());
     }
@@ -73,6 +75,7 @@ class SelectionQueryIsolationTest {
         // Then
         assertTrue(dispatcher.dispatchCount() <= MAX_COALESCED_DISPATCHES);
         dispatcher.drain();
+        waitFor(() -> events.size() == 1, Duration.ofSeconds(1));
         assertEquals(1, events.size());
         assertEquals(List.of(new ModelObjectId("deformer-root")), events.get(0).currentSelection().selectedModelObjectIds());
     }
@@ -175,6 +178,21 @@ class SelectionQueryIsolationTest {
         @Override
         public long invalidationToken() {
             return invalidationToken;
+        }
+    }
+
+    private static void waitFor(java.util.function.BooleanSupplier condition, Duration timeout) {
+        long deadline = System.nanoTime() + timeout.toNanos();
+        while (!condition.getAsBoolean()) {
+            if (System.nanoTime() > deadline) {
+                throw new AssertionError("Condition was not satisfied within " + timeout);
+            }
+            try {
+                Thread.sleep(10);
+            } catch (InterruptedException exception) {
+                Thread.currentThread().interrupt();
+                throw new AssertionError("Interrupted while waiting", exception);
+            }
         }
     }
 }
