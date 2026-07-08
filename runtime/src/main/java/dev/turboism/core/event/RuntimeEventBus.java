@@ -2,7 +2,9 @@ package dev.turboism.core.event;
 
 import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.runtime.RuntimeScheduler;
+import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.event.EventBus;
+import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.Registration;
 
@@ -19,6 +21,7 @@ public final class RuntimeEventBus implements EventBus {
 
     private final RuntimeScheduler scheduler;
     private final String pluginId;
+    private final PermissionChecker permissionChecker;
     private final ConcurrentMap<Class<? extends TurboismEvent>, CopyOnWriteArrayList<Subscription<? extends TurboismEvent>>> subscribers =
         new ConcurrentHashMap<>();
 
@@ -27,14 +30,20 @@ public final class RuntimeEventBus implements EventBus {
     }
 
     public RuntimeEventBus(RuntimeScheduler scheduler, String pluginId) {
+        this(scheduler, pluginId, PermissionChecker.allowAll());
+    }
+
+    public RuntimeEventBus(RuntimeScheduler scheduler, String pluginId, PermissionChecker permissionChecker) {
         this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
         this.pluginId = requireText(pluginId, "pluginId");
+        this.permissionChecker = Objects.requireNonNull(permissionChecker, "permissionChecker");
     }
 
     @Override
     public <T extends TurboismEvent> Registration subscribe(Class<T> type, Consumer<T> listener) {
         Objects.requireNonNull(type, "type");
         Objects.requireNonNull(listener, "listener");
+        permissionChecker.check(PermissionIds.TURBOISM_EVENT_SUBSCRIBE, "event.subscribe");
         Subscription<T> subscription = new Subscription<>(type, listener);
         subscribers.computeIfAbsent(type, ignored -> new CopyOnWriteArrayList<>()).add(subscription);
         return () -> remove(type, subscription);
@@ -43,6 +52,7 @@ public final class RuntimeEventBus implements EventBus {
     @Override
     public <T extends TurboismEvent> void publish(T event) {
         Objects.requireNonNull(event, "event");
+        permissionChecker.check(PermissionIds.TURBOISM_EVENT_PUBLISH, "event.publish");
         CopyOnWriteArrayList<Subscription<? extends TurboismEvent>> eventSubscribers = subscribers.get(event.getClass());
         if (eventSubscribers == null) {
             return;

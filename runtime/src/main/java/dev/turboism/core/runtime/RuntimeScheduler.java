@@ -30,7 +30,7 @@ public final class RuntimeScheduler {
         Objects.requireNonNull(callback, "callback");
         WorkBudget budget = policy.classify(task);
         switch (budget) {
-            case LIGHTWEIGHT -> executorRegistry.get(task.pluginId()).execute(task, bindCancellation(callback));
+            case LIGHTWEIGHT, HEAVY -> executorRegistry.get(task.pluginId()).execute(task, bindCancellation(callback));
             case SIDECAR -> sidecarDispatcher.dispatch(task, bindCancellation(callback));
             case REJECTED -> emitRejected(task);
         }

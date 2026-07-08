@@ -3,7 +3,9 @@ package dev.turboism.core.action;
 import dev.turboism.core.diagnostics.StartupReport;
 import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.runtime.RuntimeScheduler;
+import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.action.ActionRegistry;
+import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.Registration;
 
 import java.util.Objects;
@@ -26,6 +28,7 @@ public final class RuntimeActionRegistry implements ActionRegistry {
     private final RuntimeScheduler scheduler;
     private final Consumer<StartupReport.DiagnosticProblem> diagnosticSink;
     private final String ownerPluginId;
+    private final PermissionChecker permissionChecker;
     private final ConcurrentHashMap<String, RegisteredAction> actions = new ConcurrentHashMap<>();
 
     public RuntimeActionRegistry(
@@ -40,15 +43,26 @@ public final class RuntimeActionRegistry implements ActionRegistry {
         Consumer<StartupReport.DiagnosticProblem> diagnosticSink,
         String ownerPluginId
     ) {
+        this(scheduler, diagnosticSink, ownerPluginId, PermissionChecker.allowAll());
+    }
+
+    public RuntimeActionRegistry(
+        RuntimeScheduler scheduler,
+        Consumer<StartupReport.DiagnosticProblem> diagnosticSink,
+        String ownerPluginId,
+        PermissionChecker permissionChecker
+    ) {
         this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
         this.diagnosticSink = Objects.requireNonNull(diagnosticSink, "diagnosticSink");
         this.ownerPluginId = Objects.requireNonNull(ownerPluginId, "ownerPluginId");
+        this.permissionChecker = Objects.requireNonNull(permissionChecker, "permissionChecker");
     }
 
     @Override
     public Registration register(String id, Action action) {
         String key = requireText(id, "id");
         Objects.requireNonNull(action, "action");
+        permissionChecker.check(PermissionIds.TURBOISM_ACTION_REGISTER, "action.register");
 
         RegistrationHandle handle = new RegistrationHandle(key);
         RegisteredAction registered = new RegisteredAction(action, handle);
@@ -70,6 +84,7 @@ public final class RuntimeActionRegistry implements ActionRegistry {
     public void execute(String id, ActionContext context) {
         String key = requireText(id, "id");
         Objects.requireNonNull(context, "context");
+        permissionChecker.check(PermissionIds.TURBOISM_ACTION_REGISTER, "action.execute");
 
         RegisteredAction registered = actions.get(key);
         if (registered == null) {
