@@ -47,6 +47,46 @@ class DependencyResolverTest {
     }
 
     @Test
+    void cyclicDependencyDisablesCycleMembers() {
+        PluginDescriptor a = descriptor("dev.turboism.plugin.a", "0.1.0", List.of(dep("dev.turboism.plugin.b", "0.1.0")));
+        PluginDescriptor b = descriptor("dev.turboism.plugin.b", "0.1.0", List.of(dep("dev.turboism.plugin.a", "0.1.0")));
+
+        DependencyResolver.ResolutionResult result = resolver.resolve(List.of(a, b));
+
+        assertTrue(result.cycles().stream().anyMatch(cycle -> cycle.contains("dev.turboism.plugin.a")));
+        assertTrue(result.disabledIds().containsAll(List.of("dev.turboism.plugin.a", "dev.turboism.plugin.b")));
+        assertTrue(result.loadOrder().isEmpty());
+    }
+
+    @Test
+    void transitiveDependencyFailureDisablesDependentPlugin() {
+        PluginDescriptor a = descriptor("dev.turboism.plugin.a", "0.1.0", List.of(dep("dev.turboism.plugin.b", "0.1.0")));
+        PluginDescriptor b = descriptor("dev.turboism.plugin.b", "0.1.0", List.of(dep("dev.turboism.plugin.missing", "0.1.0")));
+
+        DependencyResolver.ResolutionResult result = resolver.resolve(List.of(a, b));
+
+        assertTrue(result.disabledIds().containsAll(List.of("dev.turboism.plugin.a", "dev.turboism.plugin.b")));
+        assertTrue(result.loadOrder().isEmpty());
+    }
+
+    @Test
+    void cycleFailureDisablesTransitiveDependents() {
+        PluginDescriptor a = descriptor("dev.turboism.plugin.a", "0.1.0", List.of(dep("dev.turboism.plugin.b", "0.1.0")));
+        PluginDescriptor b = descriptor("dev.turboism.plugin.b", "0.1.0", List.of(dep("dev.turboism.plugin.c", "0.1.0")));
+        PluginDescriptor c = descriptor("dev.turboism.plugin.c", "0.1.0", List.of(dep("dev.turboism.plugin.b", "0.1.0")));
+
+        DependencyResolver.ResolutionResult result = resolver.resolve(List.of(a, b, c));
+
+        assertFalse(result.cycles().isEmpty());
+        assertTrue(result.disabledIds().containsAll(List.of(
+            "dev.turboism.plugin.a",
+            "dev.turboism.plugin.b",
+            "dev.turboism.plugin.c"
+        )));
+        assertTrue(result.loadOrder().isEmpty());
+    }
+
+    @Test
     void versionMismatchDisablesPlugin() {
         PluginDescriptor a = descriptor("a", "0.1.0", List.of(dep("b", "[0.2.0,0.3.0)")));
         PluginDescriptor b = descriptor("b", "0.1.0", List.of());

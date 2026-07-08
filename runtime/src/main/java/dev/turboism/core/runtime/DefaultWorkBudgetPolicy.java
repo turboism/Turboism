@@ -24,7 +24,8 @@ public final class DefaultWorkBudgetPolicy implements WorkBudgetPolicy {
                  "lifecycle.shutdown",
                  "event.subscribe",
                  "action.handle",
-                 "ui.schedule" -> WorkBudget.LIGHTWEIGHT;
+                 "ui.schedule",
+                 "sidecar.complete" -> WorkBudget.LIGHTWEIGHT;
             case "network",
                  "ai",
                  "file-scan",

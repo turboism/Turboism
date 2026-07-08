@@ -7,9 +7,11 @@ import java.util.List;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ProcessSidecarDispatcherTest {
 
@@ -79,6 +81,29 @@ class ProcessSidecarDispatcherTest {
         assertEquals(SidecarResult.Kind.SUCCESS, result.kind());
         assertEquals("{\"ok\":true}", result.payload());
         assertEquals(1, callbacks.get());
+    }
+
+    @Test
+    void processLaunchUsesTurboismSidecarExecutorNotCommonPool() {
+        // Given
+        AtomicReference<String> launchThread = new AtomicReference<>();
+        ProcessSidecarDispatcher dispatcher = new ProcessSidecarDispatcher(
+            new SidecarDispatcherConfiguration(true, "/unused/java", List.of("runtime.jar"), "sidecar.Main", 1_000L),
+            command -> {
+                launchThread.set(Thread.currentThread().getName());
+                return new ProcessSidecarDispatcher.LaunchResult(0, "{\"ok\":true}", "");
+            }
+        );
+
+        // When
+        SidecarResult result = dispatcher.dispatch(task(), () -> { })
+            .toCompletableFuture()
+            .orTimeout(1, TimeUnit.SECONDS)
+            .join();
+
+        // Then
+        assertEquals(SidecarResult.Kind.SUCCESS, result.kind());
+        assertTrue(launchThread.get().startsWith("turboism-sidecar-dispatch-"), launchThread.get());
     }
 
     @Test

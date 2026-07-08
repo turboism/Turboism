@@ -1,13 +1,8 @@
 package dev.turboism.core.plugin.context;
 
-import dev.turboism.adapter.cubism.CubismFacadeImpl;
 import dev.turboism.adapter.cubism.HostSnapshotSource;
-import dev.turboism.adapter.cubism.service.query.ModelHierarchyQueryServiceImpl;
-import dev.turboism.adapter.cubism.service.query.ParameterQueryServiceImpl;
-import dev.turboism.adapter.cubism.service.query.SelectionQueryServiceImpl;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.diagnostics.CubismFacadeAuditEvent;
-import dev.turboism.permissions.CubismPermissionGate;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.service.query.ModelHierarchyQueryService;
@@ -32,24 +27,16 @@ import java.util.function.Consumer;
 public final class CorePluginContext implements PluginContext {
 
     private final Dependencies dependencies;
-    private final CubismFacade cubismFacade;
-    private final ParameterQueryService parameterQueryService;
-    private final SelectionQueryService selectionQueryService;
-    private final ModelHierarchyQueryService modelHierarchyQueryService;
+    private final CubismContextServices cubismServices;
 
     public CorePluginContext(final Dependencies dependencies) {
+        this(dependencies, new DefaultCubismServicesFactory());
+    }
+
+    CorePluginContext(final Dependencies dependencies, final CubismServicesFactory cubismServicesFactory) {
         this.dependencies = Objects.requireNonNull(dependencies, "dependencies");
-        final CubismPermissionGate permissionGate = new CubismPermissionGate(
-            dependencies.descriptor().id(),
-            dependencies.permissions(),
-            dependencies.cubismAuditSink(),
-            dependencies.clock()
-        );
-        final CubismFacadeImpl facade = new CubismFacadeImpl(dependencies.hostSnapshotSource(), permissionGate);
-        this.cubismFacade = facade;
-        this.parameterQueryService = new ParameterQueryServiceImpl(facade, permissionGate);
-        this.selectionQueryService = new SelectionQueryServiceImpl(facade, permissionGate, dependencies.runtimeScheduler());
-        this.modelHierarchyQueryService = new ModelHierarchyQueryServiceImpl(facade, permissionGate);
+        this.cubismServices = Objects.requireNonNull(cubismServicesFactory, "cubismServicesFactory")
+            .create(this.dependencies);
     }
 
     @Override
@@ -69,22 +56,22 @@ public final class CorePluginContext implements PluginContext {
 
     @Override
     public CubismFacade cubism() {
-        return cubismFacade;
+        return cubismServices.cubismFacade();
     }
 
     @Override
     public ParameterQueryService parameterQuery() {
-        return parameterQueryService;
+        return cubismServices.parameterQueryService();
     }
 
     @Override
     public SelectionQueryService selectionQuery() {
-        return selectionQueryService;
+        return cubismServices.selectionQueryService();
     }
 
     @Override
     public ModelHierarchyQueryService modelHierarchyQuery() {
-        return modelHierarchyQueryService;
+        return cubismServices.modelHierarchyQueryService();
     }
 
     @Override
@@ -155,5 +142,4 @@ public final class CorePluginContext implements PluginContext {
             clock = Objects.requireNonNull(clock, "clock");
         }
     }
-
 }

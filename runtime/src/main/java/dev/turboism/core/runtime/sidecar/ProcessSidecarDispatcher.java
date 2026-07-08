@@ -15,25 +15,42 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public final class ProcessSidecarDispatcher implements SidecarDispatcher {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final Executor DEFAULT_DISPATCH_EXECUTOR = Executors.newSingleThreadExecutor(
+        new SidecarDispatchThreadFactory()
+    );
 
     private final SidecarDispatcherConfiguration configuration;
     private final ProcessLauncher launcher;
+    private final Executor dispatchExecutor;
 
     public ProcessSidecarDispatcher(final SidecarDispatcherConfiguration configuration) {
-        this(configuration, new ProcessBuilderLauncher());
+        this(configuration, new ProcessBuilderLauncher(), DEFAULT_DISPATCH_EXECUTOR);
     }
 
     ProcessSidecarDispatcher(
         final SidecarDispatcherConfiguration configuration,
         final ProcessLauncher launcher
     ) {
+        this(configuration, launcher, DEFAULT_DISPATCH_EXECUTOR);
+    }
+
+    ProcessSidecarDispatcher(
+        final SidecarDispatcherConfiguration configuration,
+        final ProcessLauncher launcher,
+        final Executor dispatchExecutor
+    ) {
         this.configuration = Objects.requireNonNull(configuration, "configuration");
         this.launcher = Objects.requireNonNull(launcher, "launcher");
+        this.dispatchExecutor = Objects.requireNonNull(dispatchExecutor, "dispatchExecutor");
     }
 
     @Override
@@ -66,7 +83,7 @@ public final class ProcessSidecarDispatcher implements SidecarDispatcher {
             ));
         }
 
-        return CompletableFuture.supplyAsync(() -> run(command, callback));
+        return CompletableFuture.supplyAsync(() -> run(command, callback), dispatchExecutor);
     }
 
     private SidecarResult run(final SidecarCommand command, final Runnable callback) {
@@ -161,6 +178,18 @@ public final class ProcessSidecarDispatcher implements SidecarDispatcher {
             final ByteArrayOutputStream output = new ByteArrayOutputStream();
             stream.transferTo(output);
             return output.toString(StandardCharsets.UTF_8);
+        }
+    }
+
+    private static final class SidecarDispatchThreadFactory implements ThreadFactory {
+
+        private final AtomicInteger threadNumber = new AtomicInteger(1);
+
+        @Override
+        public Thread newThread(final Runnable runnable) {
+            Thread thread = new Thread(runnable, "turboism-sidecar-dispatch-" + threadNumber.getAndIncrement());
+            thread.setDaemon(true);
+            return thread;
         }
     }
 }

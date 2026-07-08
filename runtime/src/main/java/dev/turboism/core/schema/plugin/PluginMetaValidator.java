@@ -6,9 +6,9 @@ import dev.turboism.core.schema.SchemaValidationError;
 import dev.turboism.core.version.VersionRange;
 
 import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
-import java.util.Optional;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -21,6 +21,12 @@ public final class PluginMetaValidator extends AbstractJsonValidator {
         "authors", "license", "homepage", "dependencies", "permissions", "capabilities", "environment"
     );
 
+    private static final Set<String> ALLOWED_DEPENDENCY_FIELDS = Set.of(
+        "id", "version", "type", "ordering", "reason"
+    );
+
+    private static final Set<String> ALLOWED_DEPENDENCY_TYPES = Set.of("required", "optional");
+    private static final Set<String> ALLOWED_DEPENDENCY_ORDERINGS = Set.of("none", "before", "after");
     private static final Set<String> ALLOWED_ENV_UI = Set.of("none", "swing", "embedded");
     private static final Set<String> KNOWN_PERMISSION_IDS = Set.of(
         "turboism.ui.menu", "turboism.ui.toolbar", "turboism.ui.palette",
@@ -90,11 +96,83 @@ public final class PluginMetaValidator extends AbstractJsonValidator {
             }
         }
 
+        validateDependencies(node, errors, source);
+
         if (node.has("permissions") && node.get("permissions").isArray()) {
             node.get("permissions").forEach(p -> validatePermission(p, errors, source));
         }
 
         return errors;
+    }
+
+    private void validateDependencies(JsonNode node, List<SchemaValidationError> errors, String source) {
+        if (!node.has("dependencies") || node.get("dependencies").isNull()) {
+            return;
+        }
+        JsonNode dependencies = node.get("dependencies");
+        if (!dependencies.isArray()) {
+            errors.add(error("PLUGIN_META_BAD_DEPENDENCIES", "dependencies must be an array", "dependencies", source));
+            return;
+        }
+        for (int index = 0; index < dependencies.size(); index++) {
+            validateDependency(dependencies.get(index), index, errors, source);
+        }
+    }
+
+    private void validateDependency(
+        JsonNode dependency,
+        int index,
+        List<SchemaValidationError> errors,
+        String source
+    ) {
+        String basePath = "dependencies[" + index + "]";
+        if (!dependency.isObject()) {
+            errors.add(error("DEPENDENCY_INVALID", "Dependency must be an object", basePath, source));
+            return;
+        }
+
+        Iterator<Map.Entry<String, JsonNode>> fields = dependency.fields();
+        while (fields.hasNext()) {
+            Map.Entry<String, JsonNode> field = fields.next();
+            if (!ALLOWED_DEPENDENCY_FIELDS.contains(field.getKey())) {
+                errors.add(error(
+                    "DEPENDENCY_UNKNOWN_FIELD",
+                    "Unknown dependency field: " + field.getKey(),
+                    basePath + "." + field.getKey(),
+                    source
+                ));
+            }
+        }
+
+        if (!dependency.has("id") || dependency.get("id").isNull() || !dependency.get("id").isTextual() || dependency.get("id").asText().isBlank()) {
+            errors.add(error("DEPENDENCY_MISSING_ID", "Dependency id is missing", basePath + ".id", source));
+        } else if (!isValidPluginId(dependency.get("id").asText())) {
+            errors.add(error("DEPENDENCY_BAD_ID", "Dependency id must be a valid reverse-domain string: " + dependency.get("id").asText(), basePath + ".id", source));
+        }
+
+        if (!dependency.has("version") || dependency.get("version").isNull() || !dependency.get("version").isTextual() || dependency.get("version").asText().isBlank()) {
+            errors.add(error("DEPENDENCY_MISSING_VERSION", "Dependency version is missing", basePath + ".version", source));
+        } else {
+            try {
+                VersionRange.parse(dependency.get("version").asText());
+            } catch (IllegalArgumentException e) {
+                errors.add(error("DEPENDENCY_BAD_VERSION_RANGE", e.getMessage(), basePath + ".version", source));
+            }
+        }
+
+        if (dependency.has("type") && !dependency.get("type").isNull()) {
+            String type = dependency.get("type").asText("");
+            if (!ALLOWED_DEPENDENCY_TYPES.contains(type)) {
+                errors.add(error("DEPENDENCY_BAD_TYPE", "type must be required or optional", basePath + ".type", source));
+            }
+        }
+
+        if (dependency.has("ordering") && !dependency.get("ordering").isNull()) {
+            String ordering = dependency.get("ordering").asText("");
+            if (!ALLOWED_DEPENDENCY_ORDERINGS.contains(ordering)) {
+                errors.add(error("DEPENDENCY_BAD_ORDERING", "ordering must be none, before, or after", basePath + ".ordering", source));
+            }
+        }
     }
 
     private void validatePermission(JsonNode p, List<SchemaValidationError> errors, String source) {

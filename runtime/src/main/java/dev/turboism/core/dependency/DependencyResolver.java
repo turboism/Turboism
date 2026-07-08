@@ -4,10 +4,19 @@ import dev.turboism.core.version.PluginVersion;
 import dev.turboism.core.version.VersionRange;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 
-import java.util.*;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Deque;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
- * Resolves plugin dependencies and detects cycles.
+ * Resolves plugin dependencies, propagates dependency failures, and disables cyclic plugins.
  */
 public final class DependencyResolver {
 
@@ -21,123 +30,130 @@ public final class DependencyResolver {
     ) {
     }
 
-    public ResolutionResult resolve(Collection<PluginDescriptor> descriptors) {
-        Map<String, PluginDescriptor> byId = new LinkedHashMap<>();
-        for (PluginDescriptor d : descriptors) {
-            byId.put(d.id(), d);
-        }
-
-        List<String> cycles = detectCycles(byId);
-        List<String> disabledIds = new ArrayList<>();
-        List<ResolvedPlugin> order = new ArrayList<>();
-
-        Set<String> visited = new HashSet<>();
-        Set<String> inStack = new HashSet<>();
-
-        for (String id : byId.keySet()) {
-            if (!visited.contains(id)) {
-                visit(id, byId, visited, inStack, order, disabledIds);
-            }
-        }
-
-        return new ResolutionResult(order, disabledIds, cycles);
+    private enum ResolutionState {
+        RESOLVING,
+        RESOLVED,
+        DISABLED
     }
 
-    private void visit(String id, Map<String, PluginDescriptor> byId, Set<String> visited, Set<String> inStack,
-                       List<ResolvedPlugin> order, List<String> disabledIds) {
-        if (inStack.contains(id)) {
-            return; // cycle handled separately
+    public ResolutionResult resolve(Collection<PluginDescriptor> descriptors) {
+        Map<String, PluginDescriptor> byId = new LinkedHashMap<>();
+        for (PluginDescriptor descriptor : descriptors) {
+            byId.put(descriptor.id(), descriptor);
         }
-        if (visited.contains(id)) {
-            return;
+
+        List<String> cycles = new ArrayList<>();
+        Set<String> disabledIds = new LinkedHashSet<>();
+        List<ResolvedPlugin> order = new ArrayList<>();
+        Map<String, ResolutionState> states = new HashMap<>();
+
+        for (String id : byId.keySet()) {
+            resolvePlugin(id, byId, states, new ArrayDeque<>(), order, disabledIds, cycles);
         }
-        visited.add(id);
-        inStack.add(id);
+
+        return new ResolutionResult(order, List.copyOf(disabledIds), cycles);
+    }
+
+    private boolean resolvePlugin(
+        String id,
+        Map<String, PluginDescriptor> byId,
+        Map<String, ResolutionState> states,
+        Deque<String> stack,
+        List<ResolvedPlugin> order,
+        Set<String> disabledIds,
+        List<String> cycles
+    ) {
+        ResolutionState existing = states.get(id);
+        if (existing == ResolutionState.RESOLVED) {
+            return true;
+        }
+        if (existing == ResolutionState.DISABLED) {
+            return false;
+        }
+        if (existing == ResolutionState.RESOLVING || stack.contains(id)) {
+            disableCycle(id, stack, states, disabledIds, cycles);
+            return false;
+        }
 
         PluginDescriptor descriptor = byId.get(id);
         if (descriptor == null) {
-            inStack.remove(id);
-            return;
+            return false;
         }
 
-        boolean missingDep = false;
-        for (PluginDescriptor.DependencyRef dep : descriptor.dependencies()) {
-            if (!"required".equals(dep.type())) {
+        states.put(id, ResolutionState.RESOLVING);
+        stack.addLast(id);
+        boolean dependenciesOk = true;
+
+        for (PluginDescriptor.DependencyRef dependency : descriptor.dependencies()) {
+            if (!"required".equals(dependency.type())) {
                 continue;
             }
-            PluginDescriptor target = byId.get(dep.id());
-            if (target == null) {
-                missingDep = true;
-                break;
+            if (!dependencySatisfied(dependency, byId)) {
+                dependenciesOk = false;
+                continue;
             }
-            try {
-                PluginVersion targetVersion = PluginVersion.parse(target.version());
-                VersionRange range = VersionRange.parse(dep.version());
-                if (!range.contains(targetVersion)) {
-                    missingDep = true;
-                    break;
-                }
-            } catch (IllegalArgumentException e) {
-                missingDep = true;
-                break;
-            }
-            if (!visited.contains(dep.id())) {
-                visit(dep.id(), byId, visited, inStack, order, disabledIds);
+            if (!resolvePlugin(dependency.id(), byId, states, stack, order, disabledIds, cycles)) {
+                dependenciesOk = false;
             }
         }
 
-        inStack.remove(id);
-        if (missingDep) {
+        stack.removeLast();
+        if (disabledIds.contains(id) || !dependenciesOk) {
+            states.put(id, ResolutionState.DISABLED);
             disabledIds.add(id);
-        } else {
+            return false;
+        }
+
+        try {
             order.add(new ResolvedPlugin(id, PluginVersion.parse(descriptor.version()), descriptor));
+            states.put(id, ResolutionState.RESOLVED);
+            return true;
+        } catch (IllegalArgumentException exception) {
+            states.put(id, ResolutionState.DISABLED);
+            disabledIds.add(id);
+            return false;
         }
     }
 
-    private List<String> detectCycles(Map<String, PluginDescriptor> byId) {
-        List<String> cycles = new ArrayList<>();
-        Set<String> visited = new HashSet<>();
-        Set<String> inStack = new HashSet<>();
-        Deque<String> path = new ArrayDeque<>();
-
-        for (String id : byId.keySet()) {
-            if (!visited.contains(id)) {
-                detectCyclesFrom(id, byId, visited, inStack, path, cycles);
-            }
+    private static boolean dependencySatisfied(
+        PluginDescriptor.DependencyRef dependency,
+        Map<String, PluginDescriptor> byId
+    ) {
+        PluginDescriptor target = byId.get(dependency.id());
+        if (target == null) {
+            return false;
         }
-        return cycles;
+        try {
+            PluginVersion targetVersion = PluginVersion.parse(target.version());
+            VersionRange range = VersionRange.parse(dependency.version());
+            return range.contains(targetVersion);
+        } catch (IllegalArgumentException exception) {
+            return false;
+        }
     }
 
-    private void detectCyclesFrom(String id, Map<String, PluginDescriptor> byId, Set<String> visited, Set<String> inStack,
-                                  Deque<String> path, List<String> cycles) {
-        if (inStack.contains(id)) {
-            StringBuilder cycle = new StringBuilder();
-            boolean recording = false;
-            for (String p : path) {
-                if (p.equals(id)) recording = true;
-                if (recording) cycle.append(p).append(" -> ");
-            }
-            cycle.append(id);
-            cycles.add(cycle.toString());
+    private static void disableCycle(
+        String repeatedId,
+        Deque<String> stack,
+        Map<String, ResolutionState> states,
+        Set<String> disabledIds,
+        List<String> cycles
+    ) {
+        List<String> path = new ArrayList<>(stack);
+        int start = path.indexOf(repeatedId);
+        if (start < 0) {
+            disabledIds.add(repeatedId);
+            states.put(repeatedId, ResolutionState.DISABLED);
+            cycles.add(repeatedId + " -> " + repeatedId);
             return;
         }
-        if (visited.contains(id)) {
-            return;
-        }
-        visited.add(id);
-        inStack.add(id);
-        path.addLast(id);
 
-        PluginDescriptor descriptor = byId.get(id);
-        if (descriptor != null) {
-            for (PluginDescriptor.DependencyRef dep : descriptor.dependencies()) {
-                if ("required".equals(dep.type()) && byId.containsKey(dep.id())) {
-                    detectCyclesFrom(dep.id(), byId, visited, inStack, path, cycles);
-                }
-            }
+        List<String> cycleIds = new ArrayList<>(path.subList(start, path.size()));
+        cycleIds.add(repeatedId);
+        cycles.add(String.join(" -> ", cycleIds));
+        for (String cycleId : cycleIds) {
+            disabledIds.add(cycleId);
+            states.put(cycleId, ResolutionState.DISABLED);
         }
-
-        path.removeLast();
-        inStack.remove(id);
     }
 }

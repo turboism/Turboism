@@ -38,6 +38,7 @@ class SchemaFixtureValidationTest {
     @ParameterizedTest(name = "valid fixture: {0} ({1})")
     @CsvSource({
         "minimal.json, plugin-meta-v1, plugin-meta",
+        "with-required-dependency.json, plugin-meta-v1, plugin-meta",
         "required.json, dependency-v1, dependency",
         "half-open.json, version-range-v1, version-range",
         "menu.json, permission-v1, permission",
@@ -62,6 +63,9 @@ class SchemaFixtureValidationTest {
         "unknown-field.json, plugin-meta-v1, plugin-meta, PLUGIN_META_UNKNOWN_FIELD",
         "missing-entrypoints.json, plugin-meta-v1, plugin-meta, PLUGIN_META_MISSING",
         "bad-schema-version.json, plugin-meta-v1, plugin-meta, PLUGIN_META_BAD_SCHEMA_VERSION",
+        "dependency-missing-version.json, plugin-meta-v1, plugin-meta, DEPENDENCY_MISSING_VERSION",
+        "dependency-bad-type.json, plugin-meta-v1, plugin-meta, DEPENDENCY_BAD_TYPE",
+        "dependency-bad-ordering.json, plugin-meta-v1, plugin-meta, DEPENDENCY_BAD_ORDERING",
         "unknown-field.json, dependency-v1, dependency, DEPENDENCY_UNKNOWN_FIELD",
         "missing-id.json, dependency-v1, dependency, DEPENDENCY_MISSING_ID",
         "bad-schema-version.json, dependency-v1, dependency, DEPENDENCY_BAD_SCHEMA_VERSION",
