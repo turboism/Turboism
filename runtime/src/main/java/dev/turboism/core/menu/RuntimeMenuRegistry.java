@@ -2,7 +2,9 @@ package dev.turboism.core.menu;
 
 import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.runtime.RuntimeScheduler;
+import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.menu.MenuRegistry;
+import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.Registration;
 
 import java.util.Map;
@@ -25,20 +27,39 @@ public final class RuntimeMenuRegistry implements MenuRegistry {
 
     private final BiConsumer<PluginTask, Runnable> dispatcher;
     private final String pluginId;
+    private final PermissionChecker permissionChecker;
     private final Map<String, ContributionHolder> contributions = new ConcurrentHashMap<>();
 
     public RuntimeMenuRegistry(final RuntimeScheduler scheduler, final String pluginId) {
-        this(scheduler::dispatch, pluginId);
+        this(scheduler::dispatch, pluginId, PermissionChecker.allowAll());
+    }
+
+    public RuntimeMenuRegistry(
+        final RuntimeScheduler scheduler,
+        final String pluginId,
+        final PermissionChecker permissionChecker
+    ) {
+        this(scheduler::dispatch, pluginId, permissionChecker);
     }
 
     RuntimeMenuRegistry(final BiConsumer<PluginTask, Runnable> dispatcher, final String pluginId) {
+        this(dispatcher, pluginId, PermissionChecker.allowAll());
+    }
+
+    RuntimeMenuRegistry(
+        final BiConsumer<PluginTask, Runnable> dispatcher,
+        final String pluginId,
+        final PermissionChecker permissionChecker
+    ) {
         this.dispatcher = Objects.requireNonNull(dispatcher, "dispatcher");
         this.pluginId = requireText(pluginId, "pluginId");
+        this.permissionChecker = Objects.requireNonNull(permissionChecker, "permissionChecker");
     }
 
     @Override
     public Registration contribute(final MenuContribution contribution) {
         Objects.requireNonNull(contribution, "contribution");
+        permissionChecker.check(PermissionIds.TURBOISM_UI_MENU_CONTRIBUTE, "menu.contribute");
         final String id = contribution.actionId();
         final ContributionHolder holder = new ContributionHolder(contribution);
         contributions.put(id, holder);

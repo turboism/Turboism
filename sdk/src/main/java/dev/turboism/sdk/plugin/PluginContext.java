@@ -1,6 +1,7 @@
 package dev.turboism.sdk.plugin;
 
 import dev.turboism.sdk.action.ActionRegistry;
+import dev.turboism.sdk.config.PluginConfigRegistry;
 import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.service.query.ModelHierarchyQueryService;
 import dev.turboism.sdk.cubism.service.query.ParameterQueryService;
@@ -10,6 +11,8 @@ import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.sdk.ui.UiScheduler;
+import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
+import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
 
 import java.util.List;
 
@@ -45,6 +48,18 @@ public interface PluginContext {
     ActionRegistry actions();
 
     MenuRegistry menus();
+
+    default MainToolbarRegistry mainToolbar() {
+        throw new UnsupportedOperationException("mainToolbar registry is not available");
+    }
+
+    default PaletteToolbarRegistry paletteToolbar() {
+        throw new UnsupportedOperationException("paletteToolbar registry is not available");
+    }
+
+    default PluginConfigRegistry config() {
+        throw new UnsupportedOperationException("config registry is not available");
+    }
 
     UiScheduler uiScheduler();
 

@@ -6,6 +6,10 @@ import dev.turboism.core.runtime.sidecar.SidecarResult;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginDescriptor;
+import dev.turboism.sdk.plugin.PluginLogger;
+import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
+import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
+import dev.turboism.sdk.plugin.Registration;
 
 import java.lang.reflect.Proxy;
 import java.util.List;
@@ -106,9 +110,51 @@ final class PluginManagerTestFixtures {
             new Class<?>[] { PluginContext.class },
             (proxy, method, args) -> switch (method.getName()) {
                 case "descriptor" -> descriptor();
+                case "logger" -> new NoopPluginLogger();
                 case "disposableScope" -> scope;
                 case "permissions" -> List.of();
+                case "mainToolbar" -> noopMainToolbarRegistry();
+                case "paletteToolbar" -> noopPaletteToolbarRegistry();
+                case "config" -> noopConfigRegistry();
                 case "toString" -> "PluginManagerTestContext";
+                default -> throw new UnsupportedOperationException(method.getName() + " not used");
+            }
+        );
+    }
+
+    private static MainToolbarRegistry noopMainToolbarRegistry() {
+        return (MainToolbarRegistry) Proxy.newProxyInstance(
+            MainToolbarRegistry.class.getClassLoader(),
+            new Class<?>[] { MainToolbarRegistry.class },
+            (proxy, method, args) -> switch (method.getName()) {
+                case "contribute" -> NOOP_REGISTRATION;
+                case "toString" -> "NoopMainToolbarRegistry";
+                default -> throw new UnsupportedOperationException(method.getName() + " not used");
+            }
+        );
+    }
+
+    private static PaletteToolbarRegistry noopPaletteToolbarRegistry() {
+        return (PaletteToolbarRegistry) Proxy.newProxyInstance(
+            PaletteToolbarRegistry.class.getClassLoader(),
+            new Class<?>[] { PaletteToolbarRegistry.class },
+            (proxy, method, args) -> switch (method.getName()) {
+                case "contribute" -> NOOP_REGISTRATION;
+                case "toString" -> "NoopPaletteToolbarRegistry";
+                default -> throw new UnsupportedOperationException(method.getName() + " not used");
+            }
+        );
+    }
+
+    private static dev.turboism.sdk.config.PluginConfigRegistry noopConfigRegistry() {
+        return (dev.turboism.sdk.config.PluginConfigRegistry) Proxy.newProxyInstance(
+            dev.turboism.sdk.config.PluginConfigRegistry.class.getClassLoader(),
+            new Class<?>[] { dev.turboism.sdk.config.PluginConfigRegistry.class },
+            (proxy, method, args) -> switch (method.getName()) {
+                case "readScope", "writeScope" -> NOOP_REGISTRATION;
+                case "readString" -> Optional.empty();
+                case "writeString" -> null;
+                case "toString" -> "NoopPluginConfigRegistry";
                 default -> throw new UnsupportedOperationException(method.getName() + " not used");
             }
         );
@@ -122,4 +168,30 @@ final class PluginManagerTestFixtures {
             return CompletableFuture.completedFuture(SidecarResult.success(""));
         }
     }
+
+    private static final class NoopPluginLogger implements PluginLogger {
+
+        @Override
+        public void debug(String message) {
+        }
+
+        @Override
+        public void info(String message) {
+        }
+
+        @Override
+        public void warn(String message) {
+        }
+
+        @Override
+        public void error(String message) {
+        }
+
+        @Override
+        public void error(String message, Throwable throwable) {
+        }
+    }
+
+    private static final Registration NOOP_REGISTRATION = () -> {
+    };
 }

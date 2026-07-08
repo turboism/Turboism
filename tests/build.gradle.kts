@@ -13,4 +13,6 @@ dependencies {
 
 tasks.test {
     systemProperty("projectRoot", rootProject.projectDir.absolutePath)
+    systemProperty("sdkBuildDir", project(":sdk").buildDir.absolutePath)
+    systemProperty("demoBuildDir", project(":plugins:demo").buildDir.absolutePath)
 }

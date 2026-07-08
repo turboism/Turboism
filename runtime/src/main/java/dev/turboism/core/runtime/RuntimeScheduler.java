@@ -35,7 +35,7 @@ public final class RuntimeScheduler {
         Objects.requireNonNull(callback, "callback");
         WorkBudget budget = policy.classify(task);
         switch (budget) {
-            case LIGHTWEIGHT -> executorRegistry.get(task.pluginId()).execute(task, bindCancellation(callback));
+            case LIGHTWEIGHT, HEAVY -> executorRegistry.get(task.pluginId()).execute(task, bindCancellation(callback));
             case SIDECAR -> dispatchSidecar(task, callback);
             case REJECTED -> emitRejected(task);
         }
@@ -75,14 +75,10 @@ public final class RuntimeScheduler {
         if (result == null || result.kind() == SidecarResult.Kind.SUCCESS) {
             return;
         }
-        if (result.kind() == SidecarResult.Kind.TIMEOUT) {
-            emit(task, CallbackBudgetEvent.Phase.TIMED_OUT, CallbackBudgetEvent.Decision.SIDECAR, CallbackBudgetEvent.Severity.WARNING);
-            return;
-        }
         emit(task, CallbackBudgetEvent.Phase.FAILED, CallbackBudgetEvent.Decision.SIDECAR, CallbackBudgetEvent.Severity.ERROR);
     }
 
-    private static Runnable bindCancellation(Runnable callback) {
+    private Runnable bindCancellation(Runnable callback) {
         return () -> {
             RuntimeCancellationToken token = new RuntimeCancellationToken();
             CancellationContext.set(token);
@@ -104,6 +100,12 @@ public final class RuntimeScheduler {
         CallbackBudgetEvent.Decision decision,
         CallbackBudgetEvent.Severity severity
     ) {
-        diagnosticSink.accept(new CallbackBudgetEvent(task.pluginId(), task.taskType(), phase, decision, severity));
+        diagnosticSink.accept(new CallbackBudgetEvent(
+            task.pluginId(),
+            task.taskType(),
+            phase,
+            decision,
+            severity
+        ));
     }
 }
