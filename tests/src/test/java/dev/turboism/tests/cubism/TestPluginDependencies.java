@@ -6,6 +6,7 @@ import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.PluginLogger;
+import dev.turboism.sdk.plugin.PluginDescriptor.PermissionRef;
 import dev.turboism.sdk.plugin.PluginPaths;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.UiScheduler;
@@ -23,7 +24,14 @@ final class TestPluginDependencies {
     private TestPluginDependencies() {
     }
 
-    static PluginDescriptor descriptor() {
+    static PluginDescriptor descriptor(String... permissionIds) {
+        List<PermissionRef> permissionRefs = List.of(permissionIds).stream()
+            .<PermissionRef>map(id -> new PermissionRef() {
+                @Override public String id() { return id; }
+                @Override public String scope() { return "read"; }
+                @Override public Optional<String> reason() { return Optional.empty(); }
+            })
+            .toList();
         return new PluginDescriptor() {
             @Override public String id() { return CubismQueryIntegrationSupport.PLUGIN_ID; }
             @Override public String name() { return "Query Tests"; }
@@ -35,7 +43,7 @@ final class TestPluginDependencies {
             @Override public String license() { return "Project License"; }
             @Override public Optional<String> homepage() { return Optional.empty(); }
             @Override public List<DependencyRef> dependencies() { return List.of(); }
-            @Override public List<PermissionRef> permissions() { return List.of(); }
+            @Override public List<PermissionRef> permissions() { return permissionRefs; }
             @Override public List<String> capabilities() { return List.of(); }
             @Override
             public Environment environment() {

@@ -99,7 +99,7 @@ class RuntimePluginConfigRegistryTest {
         assertTrue(policy.dispatched.await(1, TimeUnit.SECONDS));
         PluginTask task = policy.task.get();
         assertEquals("config.write", task.taskType());
-        assertEquals("dev.turboism.runtime.config", task.pluginId());
+        assertEquals("dev.turboism.plugin.config-test", task.pluginId());
         assertEquals("probe/config.properties", task.payloadDescription());
         scope.close();
     }
@@ -116,7 +116,7 @@ class RuntimePluginConfigRegistryTest {
             SidecarDispatcher.noop(),
             events::add
         );
-        return new RuntimePluginConfigRegistry(permissionChecker, scheduler, dataDir);
+            return new RuntimePluginConfigRegistry(permissionChecker, scheduler, dataDir, "dev.turboism.plugin.config-test");
     }
 
     private static dev.turboism.permissions.PermissionChecker denied() {

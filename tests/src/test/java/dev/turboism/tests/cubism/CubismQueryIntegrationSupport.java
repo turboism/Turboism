@@ -45,10 +45,9 @@ final class CubismQueryIntegrationSupport {
         final List<CubismFacadeAuditEvent> auditEvents = new ArrayList<>();
         final DisposableScope disposableScope = new DisposableScope();
         final CorePluginContext context = new CorePluginContext(new CorePluginContext.Dependencies(
-            TestPluginDependencies.descriptor(),
+            TestPluginDependencies.descriptor(permissionIds),
             TestPluginDependencies.silentLogger(),
             TestPluginDependencies.paths(),
-            List.of(permissionIds).stream().map(CubismQueryIntegrationSupport::permission).toList(),
             TestPluginDependencies.directUiScheduler(),
             directRuntimeScheduler(),
             TestPluginDependencies.emptyDiagnostics(),

@@ -33,15 +33,17 @@ public final class RuntimePluginConfigRegistry implements PluginConfigRegistry {
     private final RuntimeScheduler scheduler;
     private final Path pluginDataDir;
     private final Consumer<StartupReport.DiagnosticProblem> diagnosticSink;
+    private final String pluginId;
     private final Set<String> readScopes = ConcurrentHashMap.newKeySet();
     private final Set<String> writeScopes = ConcurrentHashMap.newKeySet();
 
     public RuntimePluginConfigRegistry(
         final PermissionChecker permissionChecker,
         final RuntimeScheduler scheduler,
-        final Path pluginDataDir
+        final Path pluginDataDir,
+        final String pluginId
     ) {
-        this(permissionChecker, scheduler, pluginDataDir, ignored -> {
+        this(permissionChecker, scheduler, pluginDataDir, pluginId, ignored -> {
         });
     }
 
@@ -49,11 +51,13 @@ public final class RuntimePluginConfigRegistry implements PluginConfigRegistry {
         final PermissionChecker permissionChecker,
         final RuntimeScheduler scheduler,
         final Path pluginDataDir,
+        final String pluginId,
         final Consumer<StartupReport.DiagnosticProblem> diagnosticSink
     ) {
         this.permissionChecker = Objects.requireNonNull(permissionChecker, "permissionChecker");
         this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
         this.pluginDataDir = Objects.requireNonNull(pluginDataDir, "pluginDataDir").toAbsolutePath().normalize();
+        this.pluginId = Objects.requireNonNull(pluginId, "pluginId");
         this.diagnosticSink = Objects.requireNonNull(diagnosticSink, "diagnosticSink");
     }
 
@@ -162,7 +166,7 @@ public final class RuntimePluginConfigRegistry implements PluginConfigRegistry {
     }
 
     private PluginTask task(final String taskType, final String scope) {
-        return new PluginTask(taskType, "dev.turboism.runtime.config", scope, DEFAULT_CAPABILITY);
+        return new PluginTask(taskType, pluginId, scope, DEFAULT_CAPABILITY);
     }
 
     private void emit(final String code, final IOException exception, final String scope) {
