@@ -2,6 +2,9 @@ package dev.turboism.adapter.cubism.service.query;
 
 import dev.turboism.adapter.cubism.CubismFacadeImpl;
 import dev.turboism.adapter.cubism.HostSnapshotSource;
+import dev.turboism.core.runtime.PluginExecutorRegistry;
+import dev.turboism.core.runtime.RuntimeScheduler;
+import dev.turboism.core.runtime.WorkBudget;
 import dev.turboism.diagnostics.CubismFacadeAuditEvent;
 import dev.turboism.permissions.CubismPermissionGate;
 import dev.turboism.sdk.cubism.CubismServiceException;
@@ -21,6 +24,7 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -94,7 +98,19 @@ class SelectionQueryServiceImplTest {
             auditEvents::add,
             FIXED_CLOCK
         );
-        return new SelectionQueryServiceImpl(new CubismFacadeImpl(source, permissionGate), permissionGate);
+        return new SelectionQueryServiceImpl(new CubismFacadeImpl(source, permissionGate), permissionGate, directScheduler());
+    }
+
+    private static RuntimeScheduler directScheduler() {
+        return new RuntimeScheduler(
+            task -> WorkBudget.SIDECAR,
+            new PluginExecutorRegistry(1, 2, event -> { }, FIXED_CLOCK),
+            (task, callback) -> {
+                callback.run();
+                return CompletableFuture.completedFuture(dev.turboism.core.runtime.sidecar.SidecarResult.success(""));
+            },
+            event -> { }
+        );
     }
 
     private static PluginPermission permission(final String id) {
