@@ -7,6 +7,7 @@ import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.core.runtime.sidecar.SidecarResult;
+import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.event.EventBus;
 import org.junit.jupiter.api.Test;
 
@@ -36,7 +37,7 @@ class RuntimeEventBusTest {
     void subscriberReceivesEventAsynchronously_whenEventIsPublished() throws InterruptedException {
         // Given
         RuntimeScheduler scheduler = scheduler();
-        RuntimeEventBus eventBus = new RuntimeEventBus(scheduler, PLUGIN_ID);
+        RuntimeEventBus eventBus = new RuntimeEventBus(scheduler, PLUGIN_ID, PermissionChecker.allowAll());
         TestEvent event = new TestEvent("model-opened");
         CountDownLatch delivered = new CountDownLatch(1);
         AtomicReference<TestEvent> receivedEvent = new AtomicReference<>();
@@ -62,7 +63,7 @@ class RuntimeEventBusTest {
     void closedRegistrationStopsFutureDeliveries_whenEventIsPublishedAgain() throws InterruptedException {
         // Given
         RuntimeScheduler scheduler = scheduler();
-        RuntimeEventBus eventBus = new RuntimeEventBus(scheduler, PLUGIN_ID);
+        RuntimeEventBus eventBus = new RuntimeEventBus(scheduler, PLUGIN_ID, PermissionChecker.allowAll());
         CountDownLatch firstDelivery = new CountDownLatch(1);
         AtomicInteger deliveries = new AtomicInteger();
         var registration = eventBus.subscribe(TestEvent.class, ignored -> {
@@ -88,7 +89,7 @@ class RuntimeEventBusTest {
     void multipleSubscribersReceiveSameEventType_whenEventIsPublished() throws InterruptedException {
         // Given
         RuntimeScheduler scheduler = scheduler();
-        RuntimeEventBus eventBus = new RuntimeEventBus(scheduler, PLUGIN_ID);
+        RuntimeEventBus eventBus = new RuntimeEventBus(scheduler, PLUGIN_ID, PermissionChecker.allowAll());
         CountDownLatch delivered = new CountDownLatch(2);
         AtomicInteger deliveries = new AtomicInteger();
         eventBus.subscribe(TestEvent.class, ignored -> {
@@ -113,7 +114,7 @@ class RuntimeEventBusTest {
     void publisherThreadReturnsImmediately_whenSubscriberIsBlocked() throws InterruptedException {
         // Given
         RuntimeScheduler scheduler = scheduler();
-        RuntimeEventBus eventBus = new RuntimeEventBus(scheduler, PLUGIN_ID);
+        RuntimeEventBus eventBus = new RuntimeEventBus(scheduler, PLUGIN_ID, PermissionChecker.allowAll());
         CountDownLatch listenerStarted = new CountDownLatch(1);
         CountDownLatch releaseListener = new CountDownLatch(1);
         CountDownLatch listenerCompleted = new CountDownLatch(1);
