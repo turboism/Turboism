@@ -16,6 +16,10 @@ public final class FakeCubismHost {
     private final FakeCubismSelection selection = new FakeCubismSelection();
     private long invalidationToken;
 
+    public FakeCubismHost() {
+        selection.setChangeListener(this::bumpInvalidationToken);
+    }
+
     public void start() {
         running = true;
         bumpInvalidationToken();
@@ -89,17 +93,14 @@ public final class FakeCubismHost {
 
     public void select(String id) {
         selection.select(id);
-        bumpInvalidationToken();
     }
 
     public void deselect(String id) {
         selection.deselect(id);
-        bumpInvalidationToken();
     }
 
     public void clearSelection() {
         selection.clear();
-        bumpInvalidationToken();
     }
 
     public long getInvalidationToken() {

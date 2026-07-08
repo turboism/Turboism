@@ -214,5 +214,10 @@ class CubismFacadeImplTest {
         public boolean isHostPresent() {
             return hostPresent;
         }
+
+        @Override
+        public long invalidationToken() {
+            return 0L;
+        }
     }
 }
