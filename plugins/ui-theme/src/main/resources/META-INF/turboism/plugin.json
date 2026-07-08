@@ -4,7 +4,7 @@
   "id": "dev.turboism.plugin.uitheme",
   "name": "UI Theme Plugin",
   "version": "0.1.0",
-  "description": "Theme package management for Cubism Editor. Data-only manifest with disabled/missing fallback.",
+  "description": "UI theme context-menu shell for future theme package management. No host theme mutation in M11.",
   "entrypoints": {
     "plugin": "dev.turboism.plugin.uitheme.UiThemePlugin"
   },
@@ -20,11 +20,6 @@
       "id": "turboism.ui.context-menu.contribute",
       "scope": "application",
       "reason": "Adds theme management context-menu items (toggle theme, apply theme)."
-    },
-    {
-      "id": "turboism.cubism.model.read",
-      "scope": "application",
-      "reason": "Reads active model for theme configuration."
     }
   ],
   "capabilities": [],
