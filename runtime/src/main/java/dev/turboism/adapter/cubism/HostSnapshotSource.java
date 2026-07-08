@@ -19,6 +19,8 @@ public interface HostSnapshotSource {
 
     boolean isHostPresent();
 
+    long invalidationToken();
+
     record HostProject(
         String projectId,
         String name,

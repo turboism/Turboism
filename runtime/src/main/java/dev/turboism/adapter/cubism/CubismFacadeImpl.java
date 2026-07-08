@@ -45,6 +45,15 @@ public final class CubismFacadeImpl implements CubismFacade {
 
     @Override
     public CubismRuntimeSnapshot runtime() {
+        return runtimeSnapshot();
+    }
+
+    public SnapshotWithVersion runtimeWithVersion() {
+        final CubismRuntimeSnapshot snapshot = runtimeSnapshot();
+        return new SnapshotWithVersion(snapshot, source.invalidationToken());
+    }
+
+    private CubismRuntimeSnapshot runtimeSnapshot() {
         final Optional<HostSnapshotSource.HostProject> project = runtimeProjectSnapshot();
         final Optional<HostSnapshotSource.HostDocument> document = source.activeDocument();
         final Optional<HostSnapshotSource.HostModel> model = source.activeModel();
