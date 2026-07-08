@@ -1,9 +1,11 @@
 package dev.turboism.sdk.cubism;
 
+import dev.turboism.sdk.cubism.transaction.TransactionManager;
 import java.util.Optional;
 
 /**
- * Read-only view of the Cubism host exposed to plugins.
+ * View of the Cubism host exposed to plugins.
+ * Read-only by default; write operations require an open transaction.
  */
 public interface CubismFacade {
 
@@ -16,6 +18,9 @@ public interface CubismFacade {
     Optional<ModelSnapshot> activeModel();
 
     boolean isHostPresent();
+
+    /** Returns the transaction manager for write operations. */
+    TransactionManager transactionManager();
 
     default boolean hasActiveProject() {
         return activeProject().isPresent();
