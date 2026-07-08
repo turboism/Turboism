@@ -22,6 +22,41 @@
       "id": "turboism.ui.menu",
       "scope": "application",
       "reason": "Adds a demo menu item."
+    },
+    {
+      "id": "turboism.action.register",
+      "scope": "application",
+      "reason": "Registers the demo hello action."
+    },
+    {
+      "id": "turboism.ui.menu.contribute",
+      "scope": "application",
+      "reason": "Contributes a demo menu item."
+    },
+    {
+      "id": "turboism.ui.toolbar.main.contribute",
+      "scope": "application",
+      "reason": "Contributes a demo main toolbar button."
+    },
+    {
+      "id": "turboism.ui.toolbar.palette.contribute",
+      "scope": "application",
+      "reason": "Contributes a demo palette toolbar button."
+    },
+    {
+      "id": "turboism.config.plugin.read",
+      "scope": "application",
+      "reason": "Reads demo plugin configuration."
+    },
+    {
+      "id": "turboism.event.subscribe",
+      "scope": "application",
+      "reason": "Subscribes to demo events."
+    },
+    {
+      "id": "turboism.event.publish",
+      "scope": "application",
+      "reason": "Publishes demo events."
     }
   ],
   "capabilities": [],
