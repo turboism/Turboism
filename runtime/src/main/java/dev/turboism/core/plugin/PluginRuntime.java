@@ -2,6 +2,7 @@ package dev.turboism.core.plugin;
 
 import dev.turboism.core.diagnostics.DisabledReason;
 import dev.turboism.core.lifecycle.PluginLifecycleState;
+import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.TurboismPlugin;
 
@@ -11,6 +12,7 @@ public final class PluginRuntime {
     private final PluginDescriptor descriptor;
     private PluginLifecycleState state = PluginLifecycleState.DISCOVERED;
     private TurboismPlugin instance;
+    private PluginContext context;
     private DisabledReason disabledReason;
 
     public PluginRuntime(String id, PluginDescriptor descriptor) {
@@ -40,6 +42,14 @@ public final class PluginRuntime {
 
     public void setInstance(TurboismPlugin instance) {
         this.instance = instance;
+    }
+
+    public PluginContext context() {
+        return context;
+    }
+
+    public void setContext(PluginContext context) {
+        this.context = context;
     }
 
     public DisabledReason disabledReason() {

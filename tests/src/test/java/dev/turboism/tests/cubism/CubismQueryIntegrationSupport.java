@@ -3,6 +3,9 @@ package dev.turboism.tests.cubism;
 import dev.turboism.adapter.cubism.CubismFacadeImpl;
 import dev.turboism.adapter.cubism.HostSnapshotSource;
 import dev.turboism.core.plugin.context.CorePluginContext;
+import dev.turboism.core.runtime.PluginExecutorRegistry;
+import dev.turboism.core.runtime.RuntimeScheduler;
+import dev.turboism.core.runtime.WorkBudget;
 import dev.turboism.diagnostics.CubismFacadeAuditEvent;
 import dev.turboism.sdk.cubism.DeformerType;
 import dev.turboism.sdk.permission.PluginPermission;
@@ -21,6 +24,7 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 
 final class CubismQueryIntegrationSupport {
 
@@ -49,6 +53,7 @@ final class CubismQueryIntegrationSupport {
             TestPluginDependencies.noOpActions(),
             TestPluginDependencies.noOpMenus(),
             TestPluginDependencies.directUiScheduler(),
+            directRuntimeScheduler(),
             TestPluginDependencies.emptyDiagnostics(),
             disposableScope,
             source,
@@ -119,6 +124,18 @@ final class CubismQueryIntegrationSupport {
                 return "integration test";
             }
         };
+    }
+
+    static RuntimeScheduler directRuntimeScheduler() {
+        return new RuntimeScheduler(
+            task -> WorkBudget.SIDECAR,
+            new PluginExecutorRegistry(1, 2, event -> { }, FIXED_CLOCK),
+            (task, callback) -> {
+                callback.run();
+                return CompletableFuture.completedFuture(dev.turboism.core.runtime.sidecar.SidecarResult.success(""));
+            },
+            event -> { }
+        );
     }
 
     record QueryEnvironment(CorePluginContext context, List<CubismFacadeAuditEvent> auditEvents, DisposableScope disposableScope) {

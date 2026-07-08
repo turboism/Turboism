@@ -5,6 +5,7 @@ import dev.turboism.adapter.cubism.HostSnapshotSource;
 import dev.turboism.adapter.cubism.service.query.ModelHierarchyQueryServiceImpl;
 import dev.turboism.adapter.cubism.service.query.ParameterQueryServiceImpl;
 import dev.turboism.adapter.cubism.service.query.SelectionQueryServiceImpl;
+import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.diagnostics.CubismFacadeAuditEvent;
 import dev.turboism.permissions.CubismPermissionGate;
 import dev.turboism.sdk.action.ActionRegistry;
@@ -47,7 +48,7 @@ public final class CorePluginContext implements PluginContext {
         final CubismFacadeImpl facade = new CubismFacadeImpl(dependencies.hostSnapshotSource(), permissionGate);
         this.cubismFacade = facade;
         this.parameterQueryService = new ParameterQueryServiceImpl(facade, permissionGate);
-        this.selectionQueryService = new SelectionQueryServiceImpl(facade, permissionGate);
+        this.selectionQueryService = new SelectionQueryServiceImpl(facade, permissionGate, dependencies.runtimeScheduler());
         this.modelHierarchyQueryService = new ModelHierarchyQueryServiceImpl(facade, permissionGate);
     }
 
@@ -130,6 +131,7 @@ public final class CorePluginContext implements PluginContext {
         ActionRegistry actions,
         MenuRegistry menus,
         UiScheduler uiScheduler,
+        RuntimeScheduler runtimeScheduler,
         DiagnosticReport diagnostics,
         DisposableScope disposableScope,
         HostSnapshotSource hostSnapshotSource,
@@ -145,6 +147,7 @@ public final class CorePluginContext implements PluginContext {
             actions = Objects.requireNonNull(actions, "actions");
             menus = Objects.requireNonNull(menus, "menus");
             uiScheduler = Objects.requireNonNull(uiScheduler, "uiScheduler");
+            runtimeScheduler = Objects.requireNonNull(runtimeScheduler, "runtimeScheduler");
             diagnostics = Objects.requireNonNull(diagnostics, "diagnostics");
             disposableScope = Objects.requireNonNull(disposableScope, "disposableScope");
             hostSnapshotSource = Objects.requireNonNull(hostSnapshotSource, "hostSnapshotSource");
