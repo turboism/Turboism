@@ -2,6 +2,7 @@ package dev.turboism.core.runtime;
 
 import dev.turboism.core.diagnostics.CallbackBudgetEvent;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
+import dev.turboism.sdk.plugin.WorkBudget;
 import java.util.Objects;
 import java.util.function.Consumer;
 

@@ -81,6 +81,33 @@ class ProcessSidecarDispatcherTest {
         assertEquals(1, callbacks.get());
     }
 
+    @Test
+    void payloadWithHostReferenceReturnsErrorAndDoesNotRunCallback() {
+        // Given
+        ProcessSidecarDispatcher dispatcher = new ProcessSidecarDispatcher(
+            new SidecarDispatcherConfiguration(true, "/unused/java", List.of("runtime.jar"), "sidecar.Main", 1_000L),
+            command -> new ProcessSidecarDispatcher.LaunchResult(0, "", "")
+        );
+        AtomicInteger callbacks = new AtomicInteger();
+        PluginTask contaminatedTask = new PluginTask(
+            SidecarWorkAction.EXECUTE.name(),
+            "dev.turboism.plugin.demo",
+            "{\"className\":\"com.live2d.cubism.editor.Parameter\"}",
+            "sidecar"
+        );
+
+        // When
+        SidecarResult result = dispatcher.dispatch(contaminatedTask, callbacks::incrementAndGet)
+            .toCompletableFuture()
+            .orTimeout(1, TimeUnit.SECONDS)
+            .join();
+
+        // Then
+        assertEquals(SidecarResult.Kind.ERROR, result.kind());
+        assertEquals("SIDECAR_HOST_OBJECT", result.errorCode());
+        assertEquals(0, callbacks.get());
+    }
+
     private static PluginTask task() {
         return new PluginTask(
             SidecarWorkAction.EXECUTE.name(),
