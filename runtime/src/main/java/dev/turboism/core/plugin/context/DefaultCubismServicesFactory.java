@@ -4,6 +4,7 @@ import dev.turboism.adapter.cubism.CubismFacadeImpl;
 import dev.turboism.adapter.cubism.service.query.ModelHierarchyQueryServiceImpl;
 import dev.turboism.adapter.cubism.service.query.ParameterQueryServiceImpl;
 import dev.turboism.adapter.cubism.service.query.SelectionQueryServiceImpl;
+import dev.turboism.adapter.cubism.service.read.CubismReadCapabilityServiceImpl;
 import dev.turboism.permissions.CubismPermissionGate;
 
 final class DefaultCubismServicesFactory implements CubismServicesFactory {
@@ -21,7 +22,8 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
             facade,
             new ParameterQueryServiceImpl(facade, permissionGate),
             new SelectionQueryServiceImpl(facade, permissionGate, dependencies.runtimeScheduler()),
-            new ModelHierarchyQueryServiceImpl(facade, permissionGate)
+            new ModelHierarchyQueryServiceImpl(facade, permissionGate),
+            new CubismReadCapabilityServiceImpl(facade)
         );
     }
 }
