@@ -17,9 +17,14 @@
   "dependencies": [],
   "permissions": [
     {
-      "id": "turboism.cubism.model.read",
+      "id": "turboism.action.register",
       "scope": "application",
-      "reason": "Reads active model state for FPS overlay display."
+      "reason": "Registers the FPS overlay toggle action."
+    },
+    {
+      "id": "turboism.ui.menu.contribute",
+      "scope": "application",
+      "reason": "Adds the FPS overlay toggle to the Performance menu."
     }
   ],
   "capabilities": [],
