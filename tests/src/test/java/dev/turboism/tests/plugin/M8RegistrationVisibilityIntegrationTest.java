@@ -24,6 +24,7 @@ class M8RegistrationVisibilityIntegrationTest {
 
             // Then
             assertTrue(harness.toolbarTracker().isVisible(M8PluginTestSupport.PLUGIN_ID, "probe.toolbar"));
+            assertTrue(harness.toolbarTracker().isVisible(M8PluginTestSupport.PLUGIN_ID, "probe.palette"));
             assertTrue(harness.menuTracker().isVisible("probe.action"));
 
             // When
@@ -31,6 +32,7 @@ class M8RegistrationVisibilityIntegrationTest {
 
             // Then
             assertFalse(harness.toolbarTracker().isVisible(M8PluginTestSupport.PLUGIN_ID, "probe.toolbar"));
+            assertFalse(harness.toolbarTracker().isVisible(M8PluginTestSupport.PLUGIN_ID, "probe.palette"));
             assertFalse(harness.menuTracker().isVisible("probe.action"));
         }
     }

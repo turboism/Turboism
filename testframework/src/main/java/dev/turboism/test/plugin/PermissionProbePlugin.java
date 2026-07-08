@@ -2,12 +2,14 @@ package dev.turboism.test.plugin;
 
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.config.PluginConfigRegistry;
+import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.plugin.TurboismPlugin;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
+import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -29,8 +31,10 @@ public class PermissionProbePlugin implements TurboismPlugin {
     private DisposableScope disposableScope;
     private int actionRegistrationCount;
     private int menuRegistrationCount;
-    private int toolbarRegistrationCount;
+    private int mainToolbarRegistrationCount;
+    private int paletteToolbarRegistrationCount;
     private int configRegistrationCount;
+    private int eventSubscriptionCount;
 
     public PermissionProbePlugin() {
         this(false);
@@ -99,7 +103,7 @@ public class PermissionProbePlugin implements TurboismPlugin {
             menuRegistrationCount++;
         });
 
-        tryRegister("toolbar", () -> {
+        tryRegister("mainToolbar", () -> {
             Registration registration = context.mainToolbar().contribute(
                 new MainToolbarRegistry.MainToolbarContribution(
                     "probe.toolbar",
@@ -111,13 +115,36 @@ public class PermissionProbePlugin implements TurboismPlugin {
                 )
             );
             disposableScope.register(registration);
-            toolbarRegistrationCount++;
+            mainToolbarRegistrationCount++;
+        });
+
+        tryRegister("paletteToolbar", () -> {
+            Registration registration = context.paletteToolbar().contribute(
+                new PaletteToolbarRegistry.PaletteToolbarContribution(
+                    "probe.palette",
+                    "probe.action",
+                    "probe.palette.label",
+                    "/probe/palette-icon.png",
+                    "parameters",
+                    "end",
+                    100
+                )
+            );
+            disposableScope.register(registration);
+            paletteToolbarRegistrationCount++;
         });
 
         tryRegister("config", () -> {
             Registration registration = context.config().writeScope("probe/config.json");
             disposableScope.register(registration);
             configRegistrationCount++;
+        });
+
+        tryRegister("event", () -> {
+            Registration registration = context.eventBus().subscribe(ProbeEvent.class, event -> {
+            });
+            disposableScope.register(registration);
+            eventSubscriptionCount++;
         });
 
         if (shouldFailEnable) {
@@ -162,12 +189,20 @@ public class PermissionProbePlugin implements TurboismPlugin {
         return menuRegistrationCount;
     }
 
-    public int toolbarRegistrationCount() {
-        return toolbarRegistrationCount;
+    public int mainToolbarRegistrationCount() {
+        return mainToolbarRegistrationCount;
+    }
+
+    public int paletteToolbarRegistrationCount() {
+        return paletteToolbarRegistrationCount;
     }
 
     public int configRegistrationCount() {
         return configRegistrationCount;
+    }
+
+    public int eventSubscriptionCount() {
+        return eventSubscriptionCount;
     }
 
     private void tryRegister(String name, Runnable operation) {
@@ -177,4 +212,6 @@ public class PermissionProbePlugin implements TurboismPlugin {
             failures.add(t);
         }
     }
+
+    public record ProbeEvent(String message) implements EventBus.TurboismEvent {}
 }
