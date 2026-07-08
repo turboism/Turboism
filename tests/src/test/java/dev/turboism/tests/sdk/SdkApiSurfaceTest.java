@@ -21,6 +21,7 @@ class SdkApiSurfaceTest {
         "dev.turboism.sdk.event",
         "dev.turboism.sdk.menu",
         "dev.turboism.sdk.ui",
+        "dev.turboism.sdk.ui.context",
         "dev.turboism.sdk.ui.toolbar",
         "dev.turboism.sdk.config",
         "dev.turboism.sdk.plugin"
@@ -94,7 +95,7 @@ class SdkApiSurfaceTest {
                 .filter(path -> path.toString().endsWith(".class"))
                 .map(path -> className(classesRoot, path))
                 .filter(SdkApiSurfaceTest::isScannedPackageClass)
-                .map(SdkApiSurfaceTest::loadClass)
+                .<Class<?>>map(SdkApiSurfaceTest::loadClass)
                 .filter(type -> Modifier.isPublic(type.getModifiers()))
                 .toList();
         }
@@ -119,4 +120,3 @@ class SdkApiSurfaceTest {
         }
     }
 }
-

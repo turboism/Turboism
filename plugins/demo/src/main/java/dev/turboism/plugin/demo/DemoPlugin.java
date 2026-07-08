@@ -1,13 +1,13 @@
 package dev.turboism.plugin.demo;
 
 import dev.turboism.sdk.action.ActionRegistry;
-import dev.turboism.sdk.config.PluginConfigRegistry;
 import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.plugin.TurboismPlugin;
+import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
 
@@ -88,6 +88,17 @@ public class DemoPlugin implements TurboismPlugin {
         );
         context.disposableScope().register(paletteToolbarReg);
 
+        Registration contextMenuReg = context.contextMenu().contribute(
+            new ContextMenuRegistry.ContextMenuContribution(
+                "demo.context.hello",
+                "Hello",
+                null,
+                "parameter",
+                5
+            )
+        );
+        context.disposableScope().register(contextMenuReg);
+
         Registration configReg = context.config().readScope("demo/config.json");
         context.disposableScope().register(configReg);
 
@@ -97,7 +108,7 @@ public class DemoPlugin implements TurboismPlugin {
         context.disposableScope().register(eventReg);
         context.eventBus().publish(new DemoEvent("DemoPlugin enabled"));
 
-        logger.info("DemoPlugin enabled: 6 registrations enrolled in disposable scope");
+        logger.info("DemoPlugin enabled: 7 registrations enrolled in disposable scope");
     }
 
     @Override

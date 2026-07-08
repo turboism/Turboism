@@ -26,8 +26,10 @@ import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.PluginPaths;
 import dev.turboism.sdk.ui.UiScheduler;
+import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
+import dev.turboism.ui.context.RuntimeContextMenuRegistry;
 import dev.turboism.ui.toolbar.RuntimeMainToolbarRegistry;
 import dev.turboism.ui.toolbar.RuntimePaletteToolbarRegistry;
 
@@ -42,6 +44,7 @@ public final class CorePluginContext implements PluginContext {
     private final CubismContextServices cubismServices;
     private final MainToolbarRegistry mainToolbarRegistry;
     private final PaletteToolbarRegistry paletteToolbarRegistry;
+    private final ContextMenuRegistry contextMenuRegistry;
     private final PluginConfigRegistry pluginConfigRegistry;
 
     public CorePluginContext(final Dependencies dependencies) {
@@ -54,6 +57,7 @@ public final class CorePluginContext implements PluginContext {
             .create(this.dependencies);
         this.mainToolbarRegistry = dependencies.mainToolbar();
         this.paletteToolbarRegistry = dependencies.paletteToolbar();
+        this.contextMenuRegistry = dependencies.contextMenu();
         this.pluginConfigRegistry = dependencies.config();
     }
 
@@ -123,6 +127,11 @@ public final class CorePluginContext implements PluginContext {
     }
 
     @Override
+    public ContextMenuRegistry contextMenu() {
+        return contextMenuRegistry;
+    }
+
+    @Override
     public PluginConfigRegistry config() {
         return pluginConfigRegistry;
     }
@@ -162,6 +171,7 @@ public final class CorePluginContext implements PluginContext {
         MenuRegistry menus,
         MainToolbarRegistry mainToolbar,
         PaletteToolbarRegistry paletteToolbar,
+        ContextMenuRegistry contextMenu,
         PluginConfigRegistry config,
         UiScheduler uiScheduler,
         RuntimeScheduler runtimeScheduler,
@@ -243,6 +253,7 @@ public final class CorePluginContext implements PluginContext {
                 services.menus,
                 services.mainToolbar,
                 services.paletteToolbar,
+                services.contextMenu,
                 services.config,
                 uiScheduler,
                 runtimeScheduler,
@@ -274,6 +285,7 @@ public final class CorePluginContext implements PluginContext {
                 new RuntimeMenuRegistry(runtimeScheduler, descriptor.id(), checker),
                 new RuntimeMainToolbarRegistry(checker, runtimeScheduler, descriptor.id()),
                 new RuntimePaletteToolbarRegistry(checker, runtimeScheduler, descriptor.id()),
+                new RuntimeContextMenuRegistry(checker, descriptor.id()),
                 new RuntimePluginConfigRegistry(checker, runtimeScheduler, paths.dataDir(), descriptor.id(), diagnosticSink)
             );
         }
@@ -284,6 +296,7 @@ public final class CorePluginContext implements PluginContext {
             MenuRegistry menus,
             MainToolbarRegistry mainToolbar,
             PaletteToolbarRegistry paletteToolbar,
+            ContextMenuRegistry contextMenu,
             PluginConfigRegistry config
         ) {
         }
@@ -298,6 +311,7 @@ public final class CorePluginContext implements PluginContext {
             menus = Objects.requireNonNull(menus, "menus");
             mainToolbar = Objects.requireNonNull(mainToolbar, "mainToolbar");
             paletteToolbar = Objects.requireNonNull(paletteToolbar, "paletteToolbar");
+            contextMenu = Objects.requireNonNull(contextMenu, "contextMenu");
             config = Objects.requireNonNull(config, "config");
             uiScheduler = Objects.requireNonNull(uiScheduler, "uiScheduler");
             runtimeScheduler = Objects.requireNonNull(runtimeScheduler, "runtimeScheduler");
