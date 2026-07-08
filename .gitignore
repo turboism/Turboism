@@ -9,7 +9,7 @@ docs-internal/
 # 构建产物与运行期目录
 build/
 dist/
-release/
+/release/
 .gradle/
 
 # IDE / editor metadata
