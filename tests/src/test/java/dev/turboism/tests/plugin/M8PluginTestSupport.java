@@ -65,10 +65,10 @@ final class M8PluginTestSupport {
         DisposableScope scope = new DisposableScope();
         RuntimeActionRegistry actions = new RuntimeActionRegistry(scheduler, problem -> addProblem(report, problem), PLUGIN_ID, permissions);
         RuntimeMenuRegistry menus = new RuntimeMenuRegistry(scheduler, PLUGIN_ID, permissions);
-        RuntimeMainToolbarRegistryAdapter mainToolbar = new RuntimeMainToolbarRegistryAdapter(
-            new dev.turboism.ui.toolbar.RuntimeMainToolbarRegistry(permissions, scheduler, PLUGIN_ID),
-            toolbarTracker
-        );
+        dev.turboism.ui.toolbar.RuntimeMainToolbarRegistry mainToolbarDelegate = new dev.turboism.ui.toolbar.RuntimeMainToolbarRegistry(permissions, scheduler, PLUGIN_ID);
+        dev.turboism.ui.toolbar.RuntimePaletteToolbarRegistry paletteToolbarDelegate = new dev.turboism.ui.toolbar.RuntimePaletteToolbarRegistry(permissions, scheduler, PLUGIN_ID);
+        RuntimeMainToolbarRegistryAdapter mainToolbar = new RuntimeMainToolbarRegistryAdapter(mainToolbarDelegate, toolbarTracker);
+        RuntimePaletteToolbarRegistryAdapter paletteToolbar = new RuntimePaletteToolbarRegistryAdapter(paletteToolbarDelegate, toolbarTracker);
         RuntimePluginConfigRegistry config = new RuntimePluginConfigRegistry(permissions, scheduler, dataDir, problem -> addProblem(report, problem));
         TestPluginContext context = new TestPluginContext(
             scope,
@@ -76,10 +76,11 @@ final class M8PluginTestSupport {
             new RuntimeEventBus(scheduler, PLUGIN_ID, permissions),
             new MenuRegistryAdapter(menus, menuTracker),
             mainToolbar,
+            paletteToolbar,
             config,
             dataDir
         );
-        return new Harness(scheduler, context, toolbarTracker, menuTracker, mainToolbar, config, report);
+        return new Harness(scheduler, context, toolbarTracker, menuTracker, mainToolbar, paletteToolbar, config, report);
     }
 
     static PluginDescriptor descriptor() {
@@ -110,6 +111,7 @@ final class M8PluginTestSupport {
         FakeToolbarVisibilityTracker toolbarTracker,
         MenuTracker menuTracker,
         RuntimeMainToolbarRegistryAdapter mainToolbar,
+        RuntimePaletteToolbarRegistryAdapter paletteToolbar,
         RuntimePluginConfigRegistry config,
         StartupReport report
     ) implements AutoCloseable {
@@ -156,6 +158,7 @@ final class M8PluginTestSupport {
         private final EventBus eventBus;
         private final MenuRegistry menus;
         private final MainToolbarRegistry mainToolbar;
+        private final PaletteToolbarRegistry paletteToolbar;
         private final PluginConfigRegistry config;
         private final PluginPaths paths;
 
@@ -165,6 +168,7 @@ final class M8PluginTestSupport {
             EventBus eventBus,
             MenuRegistry menus,
             MainToolbarRegistry mainToolbar,
+            PaletteToolbarRegistry paletteToolbar,
             PluginConfigRegistry config,
             Path dataDir
         ) {
@@ -173,6 +177,7 @@ final class M8PluginTestSupport {
             this.eventBus = eventBus;
             this.menus = menus;
             this.mainToolbar = mainToolbar;
+            this.paletteToolbar = paletteToolbar;
             this.config = config;
             this.paths = new TestPaths(dataDir);
         }
@@ -186,6 +191,7 @@ final class M8PluginTestSupport {
         @Override public ActionRegistry actions() { return actions; }
         @Override public MenuRegistry menus() { return menus; }
         @Override public MainToolbarRegistry mainToolbar() { return mainToolbar; }
+        @Override public PaletteToolbarRegistry paletteToolbar() { return paletteToolbar; }
         @Override public PluginConfigRegistry config() { return config; }
         @Override public UiScheduler uiScheduler() { return new FakeDirectUiScheduler(); }
         @Override public DiagnosticReport diagnostics() { return new TestDiagnostics(); }
@@ -200,6 +206,21 @@ final class M8PluginTestSupport {
         public Registration contribute(MainToolbarContribution contribution) {
             Registration registration = delegate.contribute(contribution);
             tracker.markVisible(PLUGIN_ID, contribution.contributionId(), "main");
+            return () -> {
+                registration.close();
+                tracker.markHidden(PLUGIN_ID, contribution.contributionId());
+            };
+        }
+    }
+
+    private record RuntimePaletteToolbarRegistryAdapter(
+        PaletteToolbarRegistry delegate,
+        FakeToolbarVisibilityTracker tracker
+    ) implements PaletteToolbarRegistry {
+        @Override
+        public Registration contribute(PaletteToolbarContribution contribution) {
+            Registration registration = delegate.contribute(contribution);
+            tracker.markVisible(PLUGIN_ID, contribution.contributionId(), "palette");
             return () -> {
                 registration.close();
                 tracker.markHidden(PLUGIN_ID, contribution.contributionId());

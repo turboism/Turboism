@@ -193,10 +193,18 @@ public final class CorePluginContext implements PluginContext {
                 eventBus,
                 actions,
                 menus,
-                new RuntimeMainToolbarRegistry(PermissionChecker.allowAll(), runtimeScheduler, descriptor.id()),
-                new RuntimePaletteToolbarRegistry(PermissionChecker.allowAll(), runtimeScheduler, descriptor.id()),
+                new RuntimeMainToolbarRegistry(
+                    permissionChecker(permissions, descriptor.id(), cubismAuditSink, clock),
+                    runtimeScheduler,
+                    descriptor.id()
+                ),
+                new RuntimePaletteToolbarRegistry(
+                    permissionChecker(permissions, descriptor.id(), cubismAuditSink, clock),
+                    runtimeScheduler,
+                    descriptor.id()
+                ),
                 new RuntimePluginConfigRegistry(
-                    PermissionChecker.allowAll(),
+                    permissionChecker(permissions, descriptor.id(), cubismAuditSink, clock),
                     runtimeScheduler,
                     paths.dataDir(),
                     problem -> logger.warn(problem.code() + ": " + problem.message() + " @ " + problem.path())
@@ -209,6 +217,15 @@ public final class CorePluginContext implements PluginContext {
                 cubismAuditSink,
                 clock
             );
+        }
+
+        private static PermissionChecker permissionChecker(
+            List<PluginPermission> permissions,
+            String pluginId,
+            Consumer<CubismFacadeAuditEvent> cubismAuditSink,
+            Clock clock
+        ) {
+            return PermissionChecker.from(new CubismPermissionGate(pluginId, permissions, cubismAuditSink, clock));
         }
 
         public Dependencies {
