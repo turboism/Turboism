@@ -13,7 +13,6 @@ import java.time.Clock;
 import java.util.Objects;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
-import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -149,12 +148,13 @@ public final class PluginCallbackExecutor {
             emit(callback.task(), CallbackBudgetEvent.Phase.CIRCUIT_OPEN, CallbackBudgetEvent.Decision.REJECTED, CallbackBudgetEvent.Severity.WARNING);
         } else if (cause instanceof BulkheadFullException) {
             emit(callback.task(), CallbackBudgetEvent.Phase.REJECTED, CallbackBudgetEvent.Decision.REJECTED, CallbackBudgetEvent.Severity.WARNING);
+        } else {
+            emit(callback.task(), CallbackBudgetEvent.Phase.FAILED, CallbackBudgetEvent.Decision.LIGHTWEIGHT, CallbackBudgetEvent.Severity.ERROR);
         }
     }
 
     private void reject(PluginTask task) {
         emit(task, CallbackBudgetEvent.Phase.REJECTED, CallbackBudgetEvent.Decision.REJECTED, CallbackBudgetEvent.Severity.WARNING);
-        throw new RejectedExecutionException("Plugin callback executor queue is full for " + pluginId);
     }
 
     private void emit(

@@ -117,23 +117,71 @@ class RuntimeSchedulerTest {
     }
 
     @Test
-    void cancellationContextIsClearedAfterCallbackFinishes() {
+    void cancellationContextIsClearedAfterCallbackFinishes() throws InterruptedException {
         // Given
         List<CallbackBudgetEvent> events = new CopyOnWriteArrayList<>();
         RecordingSidecarDispatcher sidecar = new RecordingSidecarDispatcher();
         RuntimeScheduler scheduler = scheduler(events, sidecar);
+        CountDownLatch completed = new CountDownLatch(1);
         AtomicReference<RuntimeCancellationToken> tokenDuringCallback = new AtomicReference<>();
 
         // When
         scheduler.dispatch(task("ai", "sidecar"), () -> {
             tokenDuringCallback.set(CancellationContext.get());
+            completed.countDown();
         });
         sidecar.callback.get().run();
 
         // Then
+        assertTrue(completed.await(1, TimeUnit.SECONDS));
         assertNotNull(tokenDuringCallback.get());
         assertNull(CancellationContext.get());
         assertTrue(events.isEmpty());
+        scheduler.shutdown();
+    }
+
+    @Test
+    void sidecarCompletionCallbackRunsThroughPluginExecutor() throws InterruptedException {
+        // Given
+        List<CallbackBudgetEvent> events = new CopyOnWriteArrayList<>();
+        RecordingSidecarDispatcher sidecar = new RecordingSidecarDispatcher();
+        RuntimeScheduler scheduler = scheduler(events, sidecar);
+        CountDownLatch completed = new CountDownLatch(1);
+        AtomicReference<String> callbackThread = new AtomicReference<>();
+        String sidecarThread = Thread.currentThread().getName();
+
+        // When
+        scheduler.dispatch(task("ai", "sidecar"), () -> {
+            callbackThread.set(Thread.currentThread().getName());
+            completed.countDown();
+        });
+        sidecar.callback.get().run();
+
+        // Then
+        assertTrue(completed.await(1, TimeUnit.SECONDS));
+        assertNotEquals(sidecarThread, callbackThread.get());
+        assertTrue(events.isEmpty());
+        scheduler.shutdown();
+    }
+
+    @Test
+    void sidecarFailureEmitsDiagnosticEvent() {
+        // Given
+        List<CallbackBudgetEvent> events = new CopyOnWriteArrayList<>();
+        RecordingSidecarDispatcher sidecar = new RecordingSidecarDispatcher(SidecarResult.error("SIDECAR_EXIT_FAILED", "boom"));
+        RuntimeScheduler scheduler = scheduler(events, sidecar);
+
+        // When
+        scheduler.dispatch(task("ai", "sidecar"), () -> { });
+
+        // Then
+        assertEquals(List.of(new CallbackBudgetEvent(
+            PLUGIN_ID,
+            "ai",
+            CallbackBudgetEvent.Phase.FAILED,
+            CallbackBudgetEvent.Decision.SIDECAR,
+            CallbackBudgetEvent.Severity.ERROR
+        )), events);
         scheduler.shutdown();
     }
 
@@ -166,12 +214,21 @@ class RuntimeSchedulerTest {
 
         private final AtomicReference<PluginTask> task = new AtomicReference<>();
         private final AtomicReference<Runnable> callback = new AtomicReference<>();
+        private final SidecarResult result;
+
+        private RecordingSidecarDispatcher() {
+            this(SidecarResult.success(""));
+        }
+
+        private RecordingSidecarDispatcher(SidecarResult result) {
+            this.result = result;
+        }
 
         @Override
         public CompletionStage<SidecarResult> dispatch(PluginTask task, Runnable callback) {
             this.task.set(task);
             this.callback.set(callback);
-            return CompletableFuture.completedFuture(SidecarResult.success(""));
+            return CompletableFuture.completedFuture(result);
         }
     }
 }

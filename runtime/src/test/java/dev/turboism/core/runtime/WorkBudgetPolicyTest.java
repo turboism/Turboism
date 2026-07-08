@@ -46,6 +46,12 @@ class WorkBudgetPolicyTest {
     }
 
     @Test
+    void sidecarCompletionIsLightweight() {
+        PluginTask task = new PluginTask("sidecar.complete", "demo.plugin", "applySidecarResult", "sidecar");
+        assertEquals(WorkBudget.LIGHTWEIGHT, policy.classify(task));
+    }
+
+    @Test
     void networkTaskWithSidecarCapabilityIsSidecar() {
         PluginTask task = new PluginTask("network", "demo.plugin", "fetchRemote", "sidecar");
         assertEquals(WorkBudget.SIDECAR, policy.classify(task));

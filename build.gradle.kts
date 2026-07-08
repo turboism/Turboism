@@ -128,29 +128,36 @@ tasks.register("checkModuleBoundaries") {
     }
 }
 
-tasks.register("validatePluginMeta") {
+tasks.register<JavaExec>("validatePluginMeta") {
     group = "verification"
-    description = "Validate plugin.json files against v1 schema."
-    doLast {
-        val pluginJsonFiles = rootProject.projectDir.walkTopDown()
-            .filter { it.name == "plugin.json" && it.path.contains("META-INF/turboism/") }
-            .toList()
-        if (pluginJsonFiles.isEmpty()) {
-            throw GradleException("No plugin.json files found.")
+    description = "Validate source plugin.json files against v1 schema using the runtime validator."
+    dependsOn(":runtime:classes")
+
+    val pluginMetaFiles = files(
+        fileTree("plugins") {
+            include("**/src/main/resources/META-INF/turboism/plugin.json")
+        },
+        fileTree("testframework/src/main/resources/fixtures/schema/plugin-meta-v1/valid") {
+            include("*.json")
         }
-        pluginJsonFiles.forEach { file ->
-            val text = file.readText()
-            if (!text.contains("\"format\"")) {
-                throw GradleException("plugin.json missing format field: ${file.relativeTo(rootProject.projectDir)}")
-            }
-            if (!text.contains("\"schemaVersion\"")) {
-                throw GradleException("plugin.json missing schemaVersion field: ${file.relativeTo(rootProject.projectDir)}")
-            }
-            if (!text.contains("turboism.plugin.meta")) {
-                throw GradleException("plugin.json has wrong format value: ${file.relativeTo(rootProject.projectDir)}")
-            }
+    )
+
+    inputs.files(pluginMetaFiles)
+    val runtimeMainClasspath = project(":runtime")
+        .extensions
+        .getByType<org.gradle.api.tasks.SourceSetContainer>()
+        .named("main")
+        .get()
+        .runtimeClasspath
+    classpath = runtimeMainClasspath
+    mainClass.set("dev.turboism.core.schema.plugin.PluginMetaValidationCli")
+
+    doFirst {
+        val filesToValidate = pluginMetaFiles.files.sortedBy { it.invariantSeparatorsPath }
+        if (filesToValidate.isEmpty()) {
+            throw GradleException("No source plugin.json files found.")
         }
-        logger.lifecycle("Plugin meta validation passed for ${pluginJsonFiles.size} file(s).")
+        setArgs(filesToValidate.map { it.absolutePath })
     }
 }
 

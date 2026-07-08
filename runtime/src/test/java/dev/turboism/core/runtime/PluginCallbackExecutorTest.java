@@ -12,6 +12,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
@@ -61,7 +62,7 @@ class PluginCallbackExecutorTest {
         executor.execute(task("action.handle"), () -> { });
 
         // When
-        executor.execute(task("ui.schedule"), () -> { });
+        assertDoesNotThrow(() -> executor.execute(task("ui.schedule"), () -> { }));
 
         // Then
         awaitEvent(events, CallbackBudgetEvent.Phase.REJECTED);
@@ -182,6 +183,32 @@ class PluginCallbackExecutorTest {
 
         // Then
         awaitEvent(events, CallbackBudgetEvent.Phase.CIRCUIT_OPEN);
+        executor.shutdown();
+    }
+
+    @Test
+    void callbackFailureEmitsFailedDiagnostic() {
+        // Given
+        List<CallbackBudgetEvent> events = new CopyOnWriteArrayList<>();
+        PluginCallbackExecutor executor = new PluginCallbackExecutor(
+            PLUGIN_ID,
+            PluginCallbackExecutorConfiguration.of(500, 1, 1, 50.0f),
+            events::add,
+            CLOCK
+        );
+
+        // When
+        executor.execute(task("action.handle"), () -> { throw new IllegalStateException("boom"); });
+
+        // Then
+        awaitEvent(events, CallbackBudgetEvent.Phase.FAILED);
+        assertTrue(events.contains(new CallbackBudgetEvent(
+            PLUGIN_ID,
+            "action.handle",
+            CallbackBudgetEvent.Phase.FAILED,
+            CallbackBudgetEvent.Decision.LIGHTWEIGHT,
+            CallbackBudgetEvent.Severity.ERROR
+        )), events.toString());
         executor.shutdown();
     }
 
