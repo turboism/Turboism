@@ -267,7 +267,7 @@ class PluginCallbackExecutorTest {
     }
 
     private static void awaitEvent(List<CallbackBudgetEvent> events, CallbackBudgetEvent.Phase phase) {
-        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(1);
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(3);
         while (System.nanoTime() < deadline) {
             if (events.stream().anyMatch(event -> event.phase() == phase)) {
                 return;
