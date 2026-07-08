@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import java.util.Optional;
 
+import static dev.turboism.tests.cubism.CubismQueryIntegrationSupport.MESH_READ_PERMISSION;
 import static dev.turboism.tests.cubism.CubismQueryIntegrationSupport.MODEL_READ_PERMISSION;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -19,7 +20,8 @@ class ModelHierarchyQueryServiceIntegrationTest {
     void currentHierarchyReturnsModelTreeWhenPermissionIsGranted() throws CubismServiceException {
         final CubismQueryIntegrationSupport.QueryEnvironment environment = CubismQueryIntegrationSupport.environment(
             CubismQueryIntegrationSupport.sampleHost(),
-            MODEL_READ_PERMISSION
+            MODEL_READ_PERMISSION,
+            MESH_READ_PERMISSION
         );
 
         final ModelHierarchy hierarchy = environment.context().modelHierarchyQuery().currentHierarchy().orElseThrow();
@@ -38,7 +40,8 @@ class ModelHierarchyQueryServiceIntegrationTest {
     void childrenOfReturnsDirectChildrenForNode() throws CubismServiceException {
         final CubismQueryIntegrationSupport.QueryEnvironment environment = CubismQueryIntegrationSupport.environment(
             CubismQueryIntegrationSupport.sampleHost(),
-            MODEL_READ_PERMISSION
+            MODEL_READ_PERMISSION,
+            MESH_READ_PERMISSION
         );
 
         final List<HierarchyNode> children = environment.context().modelHierarchyQuery().childrenOf(new ModelObjectId("model-1"));
@@ -55,13 +58,31 @@ class ModelHierarchyQueryServiceIntegrationTest {
     void findNodeReturnsMatchingNodeById() throws CubismServiceException {
         final CubismQueryIntegrationSupport.QueryEnvironment environment = CubismQueryIntegrationSupport.environment(
             CubismQueryIntegrationSupport.sampleHost(),
-            MODEL_READ_PERMISSION
+            MODEL_READ_PERMISSION,
+            MESH_READ_PERMISSION
         );
 
         final Optional<HierarchyNode> node = environment.context().modelHierarchyQuery().findNode(new ModelObjectId("mesh-face"));
 
         assertTrue(node.isPresent());
         assertEquals(HierarchyNode.Kind.ART_MESH, node.orElseThrow().kind());
+    }
+
+    @Test
+    void deniedMeshReadFiltersArtMeshNodes() throws CubismServiceException {
+        final CubismQueryIntegrationSupport.QueryEnvironment environment = CubismQueryIntegrationSupport.environment(
+            CubismQueryIntegrationSupport.sampleHost(),
+            MODEL_READ_PERMISSION
+        );
+
+        final ModelHierarchy hierarchy = environment.context().modelHierarchyQuery().currentHierarchy().orElseThrow();
+
+        assertEquals(List.of(
+            new ModelObjectId("param-angle-x"),
+            new ModelObjectId("param-opacity"),
+            new ModelObjectId("deformer-root")
+        ), hierarchy.rootNode().childIds());
+        assertTrue(environment.context().modelHierarchyQuery().findNode(new ModelObjectId("mesh-face")).isEmpty());
     }
 
     @Test

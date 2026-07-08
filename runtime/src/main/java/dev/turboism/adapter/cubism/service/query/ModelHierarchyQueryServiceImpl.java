@@ -76,8 +76,9 @@ public final class ModelHierarchyQueryServiceImpl implements ModelHierarchyQuery
             return Optional.empty();
         }
         final ModelSnapshot model = snapshot.model().orElseThrow();
+        final boolean canReadMesh = canReadMesh();
         final ModelObjectId rootId = new ModelObjectId(model.modelId());
-        final Map<String, List<ModelObjectId>> childrenByParentId = childrenByParentId(model, rootId.value());
+        final Map<String, List<ModelObjectId>> childrenByParentId = childrenByParentId(model, rootId.value(), canReadMesh);
         final List<HierarchyNode> nodes = new ArrayList<>();
         nodes.add(new HierarchyNode(rootId, model.name(), HierarchyNode.Kind.MODEL, Optional.empty(), childIds(childrenByParentId, rootId.value())));
         for (ParameterSnapshot parameter : model.parameters()) {
@@ -89,16 +90,22 @@ public final class ModelHierarchyQueryServiceImpl implements ModelHierarchyQuery
             final Optional<ModelObjectId> parentId = Optional.of(new ModelObjectId(deformer.parentId().orElse(rootId.value())));
             nodes.add(new HierarchyNode(id, deformer.name(), HierarchyNode.Kind.DEFORMER, parentId, childIds(childrenByParentId, deformer.id())));
         }
-        for (ArtMeshSnapshot artMesh : model.artMeshes()) {
-            final ModelObjectId id = new ModelObjectId(artMesh.id());
-            final Optional<ModelObjectId> parentId = Optional.of(new ModelObjectId(parentIdForArtMesh(childrenByParentId, rootId.value(), artMesh.id())));
-            nodes.add(new HierarchyNode(id, artMesh.name(), HierarchyNode.Kind.ART_MESH, parentId, List.of()));
+        if (canReadMesh) {
+            for (ArtMeshSnapshot artMesh : model.artMeshes()) {
+                final ModelObjectId id = new ModelObjectId(artMesh.id());
+                final Optional<ModelObjectId> parentId = Optional.of(new ModelObjectId(parentIdForArtMesh(childrenByParentId, rootId.value(), artMesh.id())));
+                nodes.add(new HierarchyNode(id, artMesh.name(), HierarchyNode.Kind.ART_MESH, parentId, List.of()));
+            }
         }
         assertUniqueIds(nodes);
         return Optional.of(new ModelHierarchy(nodes.get(0), nodes));
     }
 
-    private Map<String, List<ModelObjectId>> childrenByParentId(final ModelSnapshot model, final String rootId) {
+    private boolean canReadMesh() {
+        return permissionGate.hasPermission(CubismFacadeImpl.MESH_READ_PERMISSION);
+    }
+
+    private Map<String, List<ModelObjectId>> childrenByParentId(final ModelSnapshot model, final String rootId, final boolean canReadMesh) {
         final Map<String, List<ModelObjectId>> childrenByParentId = new LinkedHashMap<>();
         for (ParameterSnapshot parameter : model.parameters()) {
             childrenByParentId.computeIfAbsent(rootId, ignored -> new ArrayList<>()).add(new ModelObjectId(parameter.id()));
@@ -109,9 +116,11 @@ public final class ModelHierarchyQueryServiceImpl implements ModelHierarchyQuery
                 childrenByParentId.computeIfAbsent(deformer.id(), ignored -> new ArrayList<>()).add(new ModelObjectId(childId));
             }
         }
-        for (ArtMeshSnapshot artMesh : model.artMeshes()) {
-            if (!hasParent(childrenByParentId, artMesh.id())) {
-                childrenByParentId.computeIfAbsent(rootId, ignored -> new ArrayList<>()).add(new ModelObjectId(artMesh.id()));
+        if (canReadMesh) {
+            for (ArtMeshSnapshot artMesh : model.artMeshes()) {
+                if (!hasParent(childrenByParentId, artMesh.id())) {
+                    childrenByParentId.computeIfAbsent(rootId, ignored -> new ArrayList<>()).add(new ModelObjectId(artMesh.id()));
+                }
             }
         }
         return childrenByParentId;

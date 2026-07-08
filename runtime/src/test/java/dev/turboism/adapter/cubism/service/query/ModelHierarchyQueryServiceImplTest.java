@@ -33,7 +33,8 @@ class ModelHierarchyQueryServiceImplTest {
     void currentHierarchyFindNodeAndChildrenOfReturnImmutableHierarchyWhenPermissionGranted() throws CubismServiceException {
         final VersionedHierarchySource source = VersionedHierarchySource.withModel();
         final ModelHierarchyQueryServiceImpl service = serviceWith(source, new ArrayList<>(), List.of(
-            permission(CubismFacadeImpl.MODEL_READ_PERMISSION)
+            permission(CubismFacadeImpl.MODEL_READ_PERMISSION),
+            permission(CubismFacadeImpl.MESH_READ_PERMISSION)
         ));
 
         final ModelHierarchy hierarchy = service.currentHierarchy().orElseThrow();
@@ -88,6 +89,20 @@ class ModelHierarchyQueryServiceImplTest {
         assertEquals(CubismFacadeImpl.MODEL_READ_PERMISSION, auditEvents.get(0).permissionId());
         assertEquals("modelHierarchyQuery.currentHierarchy", auditEvents.get(0).methodName());
         assertEquals(FIXED_CLOCK.instant(), auditEvents.get(0).timestamp());
+    }
+
+    @Test
+    void deniedMeshReadFiltersArtMeshNodesFromHierarchy() throws CubismServiceException {
+        final VersionedHierarchySource source = VersionedHierarchySource.withModel();
+        final ModelHierarchyQueryServiceImpl service = serviceWith(source, new ArrayList<>(), List.of(
+            permission(CubismFacadeImpl.MODEL_READ_PERMISSION)
+        ));
+
+        final ModelHierarchy hierarchy = service.currentHierarchy().orElseThrow();
+
+        assertEquals(List.of(new ModelObjectId("param-angle-x"), new ModelObjectId("deformer-root")), hierarchy.rootNode().childIds());
+        assertTrue(service.findNode(new ModelObjectId("mesh-face")).isEmpty());
+        assertTrue(service.childrenOf(new ModelObjectId("deformer-root")).isEmpty());
     }
 
     private static ModelHierarchyQueryServiceImpl serviceWith(
