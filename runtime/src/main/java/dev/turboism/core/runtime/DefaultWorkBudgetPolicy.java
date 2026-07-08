@@ -20,12 +20,15 @@ public final class DefaultWorkBudgetPolicy implements WorkBudgetPolicy {
 
         return switch (type) {
             case "lifecycle.init",
+                 "lifecycle.enable",
                  "lifecycle.disable",
                  "lifecycle.shutdown",
                  "event.subscribe",
                  "action.handle",
                  "ui.schedule",
                  "sidecar.complete" -> WorkBudget.LIGHTWEIGHT;
+            case "config.read",
+                 "config.write" -> WorkBudget.HEAVY;
             case "network",
                  "ai",
                  "file-scan",
