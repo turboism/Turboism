@@ -6,6 +6,7 @@ import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.service.query.ModelHierarchyQueryService;
 import dev.turboism.sdk.cubism.service.query.ParameterQueryService;
 import dev.turboism.sdk.cubism.service.query.SelectionQueryService;
+import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
 import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.menu.MenuRegistry;
@@ -40,6 +41,10 @@ public interface PluginContext {
 
     default ModelHierarchyQueryService modelHierarchyQuery() {
         throw new UnsupportedOperationException("modelHierarchyQuery service is not available");
+    }
+
+    default CubismReadCapabilityService cubismRead() {
+        throw new UnsupportedOperationException("cubismRead service is not available");
     }
 
     List<PluginPermission> permissions();

@@ -15,6 +15,7 @@ import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.service.query.ModelHierarchyQueryService;
 import dev.turboism.sdk.cubism.service.query.ParameterQueryService;
 import dev.turboism.sdk.cubism.service.query.SelectionQueryService;
+import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
 import dev.turboism.sdk.config.PluginConfigRegistry;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
 import dev.turboism.sdk.event.EventBus;
@@ -94,6 +95,11 @@ public final class CorePluginContext implements PluginContext {
     @Override
     public ModelHierarchyQueryService modelHierarchyQuery() {
         return cubismServices.modelHierarchyQueryService();
+    }
+
+    @Override
+    public CubismReadCapabilityService cubismRead() {
+        return cubismServices.cubismReadCapabilityService();
     }
 
     @Override

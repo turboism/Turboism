@@ -34,6 +34,7 @@ class SdkApiSurfaceTest {
         "dev.turboism.sdk.cubism",
         "dev.turboism.sdk.cubism.id",
         "dev.turboism.sdk.cubism.service.query",
+        "dev.turboism.sdk.cubism.service.read",
         "dev.turboism.sdk.cubism.transaction",
         "dev.turboism.sdk.cubism.write",
         "dev.turboism.sdk.plugin",
@@ -42,6 +43,7 @@ class SdkApiSurfaceTest {
     private static final List<String> REQUIRED_M12_PACKAGES = List.of(
         "dev.turboism.sdk.cubism",
         "dev.turboism.sdk.cubism.id",
+        "dev.turboism.sdk.cubism.service.read",
         "dev.turboism.sdk.cubism.transaction",
         "dev.turboism.sdk.cubism.write",
         "dev.turboism.sdk.theme"
