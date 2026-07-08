@@ -68,6 +68,8 @@ for f in features.tsv plugins.tsv mapping-inventory.tsv profile-inventory.tsv ho
   [ -f "${LEGACY_DIR}/${f}" ] || fail "legacy-inventory/${f} missing"
 done
 
+"${SCRIPT_DIR}/test_m12_plugin_readiness_gate.sh"
+
 REPO_ROOT="$REPO_ROOT" python3 - <<'PY'
 from pathlib import Path
 import os, re, sys
@@ -97,16 +99,16 @@ for path in base.rglob('*'):
     if not path.is_file() or path.suffix not in {'.md', '.tsv'}:
         continue
     text = path.read_text(errors='ignore')
-for pat in prohibited_patterns:
-    for m in pat.finditer(text):
-        line_start = text.rfind('\n', 0, m.start()) + 1
-        line_end = text.find('\n', m.start())
-        line = text[line_start:line_end]
-        lowered = line.lower()
-        if any(word in lowered for word in ['no ', 'not ', 'forbidden', 'prohibited', 'out of scope', 'reject', 'evade', 'evasion', 'without', 'avoid']):
-            continue
-        print(f"FAIL: prohibited keyword in {path}:{line.count(chr(10)) + 1}: {m.group(0)}", file=sys.stderr)
-        sys.exit(1)
+    for pat in prohibited_patterns:
+        for m in pat.finditer(text):
+            line_start = text.rfind('\n', 0, m.start()) + 1
+            line_end = text.find('\n', m.start())
+            line = text[line_start:line_end]
+            lowered = line.lower()
+            if any(word in lowered for word in ['no ', 'not ', 'forbidden', 'prohibited', 'out of scope', 'reject', 'evade', 'evasion', 'without', 'avoid']):
+                continue
+            print(f"FAIL: prohibited keyword in {path}:{line.count(chr(10)) + 1}: {m.group(0)}", file=sys.stderr)
+            sys.exit(1)
     count = sum(text.count(ind) for ind in java_indicators)
     if count > 50:
         print(f"FAIL: {path} contains too many Java body indicators: {count}", file=sys.stderr)
