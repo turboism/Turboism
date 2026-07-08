@@ -28,13 +28,16 @@ class M8PermissionDenialIntegrationTest {
             plugin.enable();
 
             // Then
-            assertEquals(4, plugin.failures().size());
+            assertEquals(6, plugin.failures().size());
             plugin.failures().forEach(failure -> assertInstanceOf(CubismPermissionException.class, failure));
             assertEquals(0, plugin.actionRegistrationCount());
             assertEquals(0, plugin.menuRegistrationCount());
-            assertEquals(0, plugin.toolbarRegistrationCount());
+            assertEquals(0, plugin.mainToolbarRegistrationCount());
+            assertEquals(0, plugin.paletteToolbarRegistrationCount());
             assertEquals(0, plugin.configRegistrationCount());
+            assertEquals(0, plugin.eventSubscriptionCount());
             assertFalse(harness.toolbarTracker().isVisible(M8PluginTestSupport.PLUGIN_ID, "probe.toolbar"));
+            assertFalse(harness.toolbarTracker().isVisible(M8PluginTestSupport.PLUGIN_ID, "probe.palette"));
             assertFalse(harness.menuTracker().isVisible("probe.action"));
         }
     }
