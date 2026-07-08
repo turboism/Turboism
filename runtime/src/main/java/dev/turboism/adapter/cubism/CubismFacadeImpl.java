@@ -1,12 +1,16 @@
 package dev.turboism.adapter.cubism;
 
 import dev.turboism.permissions.CubismPermissionGate;
+import dev.turboism.adapter.cubism.write.HostWriteAdapter;
+import dev.turboism.adapter.cubism.write.RuntimeTransactionManager;
+import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.CubismRuntimeSnapshot;
 import dev.turboism.sdk.cubism.DocumentSnapshot;
 import dev.turboism.sdk.cubism.ModelSnapshot;
 import dev.turboism.sdk.cubism.ProjectSnapshot;
 import dev.turboism.sdk.cubism.SelectionSnapshot;
+import dev.turboism.sdk.cubism.transaction.TransactionManager;
 import dev.turboism.sdk.permission.CubismPermissionException;
 
 import java.util.List;
@@ -29,19 +33,33 @@ public final class CubismFacadeImpl implements CubismFacade {
     private final HostSnapshotSource source;
     private final CubismPermissionGate permissionGate;
     private final ImmutableSnapshotFactory snapshotFactory;
+    private final TransactionManager transactionManager;
 
     public CubismFacadeImpl(final HostSnapshotSource source, final CubismPermissionGate permissionGate) {
-        this(source, permissionGate, new ImmutableSnapshotFactory());
+        this(source, permissionGate, new ImmutableSnapshotFactory(), unavailableTransactionManager());
+    }
+
+    public CubismFacadeImpl(
+        final HostSnapshotSource source,
+        final CubismPermissionGate permissionGate,
+        final HostWriteAdapter writeAdapter
+    ) {
+        this(source, permissionGate, new ImmutableSnapshotFactory(), new RuntimeTransactionManager(
+            writeAdapter,
+            PermissionChecker.from(permissionGate)
+        ));
     }
 
     CubismFacadeImpl(
         final HostSnapshotSource source,
         final CubismPermissionGate permissionGate,
-        final ImmutableSnapshotFactory snapshotFactory
+        final ImmutableSnapshotFactory snapshotFactory,
+        final TransactionManager transactionManager
     ) {
         this.source = Objects.requireNonNull(source, "source");
         this.permissionGate = Objects.requireNonNull(permissionGate, "permissionGate");
         this.snapshotFactory = Objects.requireNonNull(snapshotFactory, "snapshotFactory");
+        this.transactionManager = Objects.requireNonNull(transactionManager, "transactionManager");
     }
 
     @Override
@@ -88,6 +106,11 @@ public final class CubismFacadeImpl implements CubismFacade {
         return source.isHostPresent();
     }
 
+    @Override
+    public TransactionManager transactionManager() {
+        return transactionManager;
+    }
+
     private Optional<HostSnapshotSource.HostProject> runtimeProjectSnapshot() {
         final Optional<HostSnapshotSource.HostProject> project = source.activeProject();
         if (project.isEmpty()) {
@@ -125,5 +148,11 @@ public final class CubismFacadeImpl implements CubismFacade {
             List.of(),
             List.of()
         );
+    }
+
+    private static TransactionManager unavailableTransactionManager() {
+        return (ctx, docId) -> {
+            throw new UnsupportedOperationException("transaction manager is not available");
+        };
     }
 }

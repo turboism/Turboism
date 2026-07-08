@@ -266,5 +266,6 @@ final class M8PluginTestSupport {
         @Override public Optional<dev.turboism.sdk.cubism.DocumentSnapshot> activeDocument() { return Optional.empty(); }
         @Override public Optional<dev.turboism.sdk.cubism.ModelSnapshot> activeModel() { return Optional.empty(); }
         @Override public boolean isHostPresent() { return false; }
+        @Override public dev.turboism.sdk.cubism.transaction.TransactionManager transactionManager() { throw new UnsupportedOperationException("transaction manager is not available"); }
     }
 }
