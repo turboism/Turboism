@@ -4,6 +4,7 @@ import dev.turboism.adapter.cubism.HostSnapshotSource;
 import dev.turboism.config.RuntimePluginConfigRegistry;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.diagnostics.CubismFacadeAuditEvent;
+import dev.turboism.permissions.CubismPermissionGate;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.cubism.CubismFacade;
