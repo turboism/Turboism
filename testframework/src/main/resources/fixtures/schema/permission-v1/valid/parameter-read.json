@@ -1,0 +1,7 @@
+{
+  "format": "turboism.permission",
+  "schemaVersion": 1,
+  "id": "turboism.cubism.parameter.read",
+  "scope": "application",
+  "reason": "Reads parameter identity and values."
+}

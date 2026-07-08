@@ -3,7 +3,7 @@
 .cortexkit/
 .omo/
 .docs/
-cubism-ref/
+cubism-ref/Cubism-*/
 docs-internal/
 
 # 构建产物与运行期目录
@@ -29,6 +29,7 @@ turboism.*.config.json
 
 # AI / agent-local process files, not submitted
 AGENTS.md
+docs/agents/
 docs/migration/subagents/
 
 # 当前本地-only 文件，不进入远端
