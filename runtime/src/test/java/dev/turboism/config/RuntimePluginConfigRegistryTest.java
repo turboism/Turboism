@@ -19,12 +19,14 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -86,6 +88,39 @@ class RuntimePluginConfigRegistryTest {
     }
 
     @Test
+    void readStringTimesOutAndReturnsEmptyWhenSchedulerRejectsConfigWork(@TempDir Path dataDir) {
+        // Given
+        List<dev.turboism.core.diagnostics.StartupReport.DiagnosticProblem> diagnostics = new CopyOnWriteArrayList<>();
+        RuntimePluginConfigRegistry registry = registry(dataDir, (permissionId, operation) -> { }, task -> WorkBudget.REJECTED, diagnostics);
+        Registration scope = registry.readScope("probe/config.properties");
+
+        // When
+        Optional<String> value = registry.readString("probe/config.properties", "name");
+
+        // Then
+        assertTrue(value.isEmpty());
+        assertTrue(diagnostics.stream().anyMatch(problem -> problem.code().equals("CONFIG_READ_TIMED_OUT")));
+        scope.close();
+    }
+
+    @Test
+    void writeStringTimesOutAndThrowsWhenSchedulerRejectsConfigWork(@TempDir Path dataDir) {
+        // Given
+        List<dev.turboism.core.diagnostics.StartupReport.DiagnosticProblem> diagnostics = new CopyOnWriteArrayList<>();
+        RuntimePluginConfigRegistry registry = registry(dataDir, (permissionId, operation) -> { }, task -> WorkBudget.REJECTED, diagnostics);
+        Registration scope = registry.writeScope("probe/config.properties");
+
+        // When / Then
+        PluginConfigException exception = assertThrows(
+            PluginConfigException.class,
+            () -> registry.writeString("probe/config.properties", "name", "Turboism")
+        );
+        assertTrue(exception.getMessage().contains("Timed out waiting for plugin config write"));
+        assertTrue(diagnostics.stream().anyMatch(problem -> problem.code().equals("CONFIG_WRITE_TIMED_OUT")));
+        scope.close();
+    }
+
+    @Test
     void writeStringSchedulesThroughRuntimeSchedulerAsHeavyWork(@TempDir Path dataDir) throws InterruptedException, PluginConfigException {
         // Given
         RecordingPolicy policy = new RecordingPolicy();
@@ -109,6 +144,15 @@ class RuntimePluginConfigRegistryTest {
         dev.turboism.permissions.PermissionChecker permissionChecker,
         RecordingPolicy policy
     ) {
+        return registry(dataDir, permissionChecker, policy, new CopyOnWriteArrayList<>());
+    }
+
+    private RuntimePluginConfigRegistry registry(
+        Path dataDir,
+        dev.turboism.permissions.PermissionChecker permissionChecker,
+        WorkBudgetPolicy policy,
+        List<dev.turboism.core.diagnostics.StartupReport.DiagnosticProblem> diagnostics
+    ) {
         List<CallbackBudgetEvent> events = new CopyOnWriteArrayList<>();
         scheduler = new RuntimeScheduler(
             policy,
@@ -116,7 +160,13 @@ class RuntimePluginConfigRegistryTest {
             SidecarDispatcher.noop(),
             events::add
         );
-            return new RuntimePluginConfigRegistry(permissionChecker, scheduler, dataDir, "dev.turboism.plugin.config-test");
+        return new RuntimePluginConfigRegistry(
+            permissionChecker,
+            scheduler,
+            dataDir,
+            "dev.turboism.plugin.config-test",
+            diagnostics::add
+        );
     }
 
     private static dev.turboism.permissions.PermissionChecker denied() {

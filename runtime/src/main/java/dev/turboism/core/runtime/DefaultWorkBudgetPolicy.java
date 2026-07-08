@@ -28,7 +28,9 @@ public final class DefaultWorkBudgetPolicy implements WorkBudgetPolicy {
                  "ui.schedule",
                  "sidecar.complete" -> WorkBudget.LIGHTWEIGHT;
             case "config.read",
-                 "config.write" -> WorkBudget.HEAVY;
+                 "config.write",
+                 "transaction.commit",
+                 "transaction.rollback" -> WorkBudget.HEAVY;
             case "network",
                  "ai",
                  "file-scan",

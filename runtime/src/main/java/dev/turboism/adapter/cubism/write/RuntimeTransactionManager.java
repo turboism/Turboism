@@ -1,5 +1,7 @@
 package dev.turboism.adapter.cubism.write;
 
+import dev.turboism.core.runtime.PluginTask;
+import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.cubism.transaction.DocumentId;
 import dev.turboism.sdk.cubism.transaction.ModelTransaction;
@@ -10,32 +12,45 @@ import dev.turboism.sdk.plugin.PluginContext;
 
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 
 public final class RuntimeTransactionManager implements TransactionManager {
 
     public static final String TURBOISM_CUBISM_WRITE = "turboism.cubism.model.write";
+    static final String DEFAULT_CAPABILITY = "none";
+    private static final long TRANSACTION_WAIT_TIMEOUT_MILLIS = 1_000L;
 
     private final HostWriteAdapter adapter;
     private final PermissionChecker permissionChecker;
     private final TransactionRegistry registry;
     private final TransactionValidator validator;
+    private final RuntimeScheduler scheduler;
     private final AtomicLong nextTransactionId = new AtomicLong(1L);
 
-    public RuntimeTransactionManager(final HostWriteAdapter adapter, final PermissionChecker permissionChecker) {
-        this(adapter, permissionChecker, new TransactionRegistry(), new TransactionValidator());
+    public RuntimeTransactionManager(
+        final HostWriteAdapter adapter,
+        final PermissionChecker permissionChecker,
+        final RuntimeScheduler scheduler
+    ) {
+        this(adapter, permissionChecker, new TransactionRegistry(), new TransactionValidator(), scheduler);
     }
 
     RuntimeTransactionManager(
         final HostWriteAdapter adapter,
         final PermissionChecker permissionChecker,
         final TransactionRegistry registry,
-        final TransactionValidator validator
+        final TransactionValidator validator,
+        final RuntimeScheduler scheduler
     ) {
         this.adapter = Objects.requireNonNull(adapter, "adapter");
         this.permissionChecker = Objects.requireNonNull(permissionChecker, "permissionChecker");
         this.registry = Objects.requireNonNull(registry, "registry");
         this.validator = Objects.requireNonNull(validator, "validator");
+        this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
     }
 
     @Override
@@ -68,5 +83,79 @@ public final class RuntimeTransactionManager implements TransactionManager {
 
     void requireWritePermission(final String operation) {
         permissionChecker.check(TURBOISM_CUBISM_WRITE, operation);
+    }
+
+    void dispatchTransactionWork(
+        final RuntimeModelTransaction transaction,
+        final String taskType,
+        final ThrowingRunnable work
+    ) throws TransactionException {
+        final CompletableFuture<TransactionException> completion = new CompletableFuture<>();
+        final PluginTask task = new PluginTask(
+            taskType,
+            transaction.pluginId(),
+            "transaction:" + transaction.transactionId() + ":" + transaction.documentId().id(),
+            DEFAULT_CAPABILITY
+        );
+        scheduler.dispatch(task, () -> {
+            try {
+                work.run();
+                completion.complete(null);
+            } catch (TransactionException exception) {
+                completion.complete(exception);
+            } catch (RuntimeException exception) {
+                completion.complete(new TransactionException(
+                    transaction.transactionId(),
+                    1203,
+                    "ERROR",
+                    "Transaction scheduler task failed",
+                    exception
+                ));
+            }
+        });
+        awaitTransactionWork(transaction, taskType, completion);
+    }
+
+    private static void awaitTransactionWork(
+        final RuntimeModelTransaction transaction,
+        final String taskType,
+        final CompletableFuture<TransactionException> completion
+    ) throws TransactionException {
+        try {
+            TransactionException failure = completion.get(TRANSACTION_WAIT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+            if (failure != null) {
+                throw failure;
+            }
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new TransactionException(
+                transaction.transactionId(),
+                1204,
+                "ERROR",
+                "Interrupted while waiting for " + taskType,
+                exception
+            );
+        } catch (ExecutionException exception) {
+            throw new TransactionException(
+                transaction.transactionId(),
+                1205,
+                "ERROR",
+                "Failed while waiting for " + taskType,
+                exception
+            );
+        } catch (TimeoutException exception) {
+            throw new TransactionException(
+                transaction.transactionId(),
+                1206,
+                "ERROR",
+                "Timed out waiting for " + taskType,
+                exception
+            );
+        }
+    }
+
+    @FunctionalInterface
+    interface ThrowingRunnable {
+        void run() throws TransactionException;
     }
 }

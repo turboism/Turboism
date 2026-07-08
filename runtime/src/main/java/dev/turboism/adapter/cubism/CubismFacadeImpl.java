@@ -1,5 +1,10 @@
 package dev.turboism.adapter.cubism;
 
+import dev.turboism.core.diagnostics.CallbackBudgetEvent;
+import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
+import dev.turboism.core.runtime.PluginExecutorRegistry;
+import dev.turboism.core.runtime.RuntimeScheduler;
+import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.permissions.CubismPermissionGate;
 import dev.turboism.adapter.cubism.write.HostWriteAdapter;
 import dev.turboism.adapter.cubism.write.RuntimeTransactionManager;
@@ -13,9 +18,11 @@ import dev.turboism.sdk.cubism.SelectionSnapshot;
 import dev.turboism.sdk.cubism.transaction.TransactionManager;
 import dev.turboism.sdk.permission.CubismPermissionException;
 
+import java.time.Clock;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Consumer;
 
 public final class CubismFacadeImpl implements CubismFacade {
 
@@ -44,9 +51,19 @@ public final class CubismFacadeImpl implements CubismFacade {
         final CubismPermissionGate permissionGate,
         final HostWriteAdapter writeAdapter
     ) {
+        this(source, permissionGate, writeAdapter, defaultScheduler());
+    }
+
+    public CubismFacadeImpl(
+        final HostSnapshotSource source,
+        final CubismPermissionGate permissionGate,
+        final HostWriteAdapter writeAdapter,
+        final RuntimeScheduler runtimeScheduler
+    ) {
         this(source, permissionGate, new ImmutableSnapshotFactory(), new RuntimeTransactionManager(
             writeAdapter,
-            PermissionChecker.from(permissionGate)
+            PermissionChecker.from(permissionGate),
+            runtimeScheduler
         ));
     }
 
@@ -154,5 +171,16 @@ public final class CubismFacadeImpl implements CubismFacade {
         return (ctx, docId) -> {
             throw new UnsupportedOperationException("transaction manager is not available");
         };
+    }
+
+    private static RuntimeScheduler defaultScheduler() {
+        final Consumer<CallbackBudgetEvent> diagnostics = ignored -> {
+        };
+        return new RuntimeScheduler(
+            new DefaultWorkBudgetPolicy(),
+            new PluginExecutorRegistry(1, 16, diagnostics, Clock.systemUTC()),
+            SidecarDispatcher.noop(),
+            diagnostics
+        );
     }
 }

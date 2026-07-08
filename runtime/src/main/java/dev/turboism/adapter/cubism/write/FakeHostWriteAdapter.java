@@ -14,7 +14,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
-public final class FakeHostWriteAdapter implements HostWriteAdapter, HostSnapshotSource {
+public class FakeHostWriteAdapter implements HostWriteAdapter, HostSnapshotSource {
 
     private static final int UNKNOWN_DOCUMENT = 1301;
     private static final int UNKNOWN_MODEL = 1302;

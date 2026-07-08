@@ -1,7 +1,10 @@
 package dev.turboism.adapter.cubism.write;
 
+import dev.turboism.sdk.cubism.transaction.CommitFailedException;
 import dev.turboism.sdk.cubism.transaction.DocumentId;
 import dev.turboism.sdk.cubism.transaction.ModelTransaction;
+import dev.turboism.sdk.cubism.transaction.RollbackFailedException;
+import dev.turboism.sdk.cubism.transaction.TransactionClosedException;
 import dev.turboism.sdk.cubism.transaction.TransactionException;
 import dev.turboism.sdk.cubism.transaction.TransactionStatus;
 import dev.turboism.sdk.cubism.write.WriteParameterCommand;
@@ -9,9 +12,6 @@ import dev.turboism.sdk.cubism.write.WriteParameterCommand;
 import java.util.Objects;
 
 public final class RuntimeModelTransaction implements ModelTransaction {
-
-    private static final int COMMIT_FAILED = 1201;
-    private static final int ROLLBACK_FAILED = 1202;
 
     private final String transactionId;
     private final String pluginId;
@@ -45,6 +45,7 @@ public final class RuntimeModelTransaction implements ModelTransaction {
         this.queue = new WriteCommandQueue();
     }
 
+    @Override
     public synchronized void enqueue(final WriteParameterCommand command) throws TransactionException {
         permissionOwner.requireWritePermission("transaction.enqueue");
         validateOpen();
@@ -52,24 +53,38 @@ public final class RuntimeModelTransaction implements ModelTransaction {
     }
 
     @Override
-    public synchronized void commit() throws TransactionException {
-        permissionOwner.requireWritePermission("transaction.commit");
+    public void commit() throws TransactionException {
+        synchronized (this) {
+            permissionOwner.requireWritePermission("transaction.commit");
+            validateOpen();
+        }
+        permissionOwner.dispatchTransactionWork(this, "transaction.commit", this::commitOnScheduler);
+    }
+
+    private synchronized void commitOnScheduler() throws TransactionException {
         validateOpen();
         try {
             adapter.apply(documentId, queue.commands());
             status = TransactionStatus.COMMITTED;
             registry.close(this);
         } catch (TransactionException error) {
-            status = TransactionStatus.FAILED;
-            throw error;
+            rollbackAfterCommitFailure(error);
+            throw new CommitFailedException(transactionId, "Commit failed and transaction was rolled back", error);
         } catch (RuntimeException error) {
-            status = TransactionStatus.FAILED;
-            throw new TransactionException(transactionId, COMMIT_FAILED, "ERROR", "Commit failed", error);
+            rollbackAfterCommitFailure(error);
+            throw new CommitFailedException(transactionId, "Commit failed and transaction was rolled back", error);
         }
     }
 
     @Override
-    public synchronized void rollback() throws TransactionException {
+    public void rollback() throws TransactionException {
+        synchronized (this) {
+            validateOpen();
+        }
+        permissionOwner.dispatchTransactionWork(this, "transaction.rollback", this::rollbackOnScheduler);
+    }
+
+    private synchronized void rollbackOnScheduler() throws TransactionException {
         validateOpen();
         try {
             adapter.restore(snapshot);
@@ -80,7 +95,22 @@ public final class RuntimeModelTransaction implements ModelTransaction {
             throw error;
         } catch (RuntimeException error) {
             status = TransactionStatus.FAILED;
-            throw new TransactionException(transactionId, ROLLBACK_FAILED, "ERROR", "Rollback failed", error);
+            throw new RollbackFailedException(transactionId, "Rollback failed", error);
+        }
+    }
+
+    private void rollbackAfterCommitFailure(final Throwable commitFailure) throws RollbackFailedException {
+        try {
+            adapter.restore(snapshot);
+            status = TransactionStatus.ROLLED_BACK;
+            registry.close(this);
+        } catch (TransactionException | RuntimeException rollbackFailure) {
+            status = TransactionStatus.FAILED;
+            throw new RollbackFailedException(
+                transactionId,
+                "Rollback failed after commit failure",
+                rollbackFailure
+            );
         }
     }
 
@@ -107,6 +137,9 @@ public final class RuntimeModelTransaction implements ModelTransaction {
     }
 
     private void validateOpen() throws TransactionException {
+        if (status != TransactionStatus.OPEN) {
+            throw new TransactionClosedException(transactionId, "Transaction is not open");
+        }
         registry.requireOwner(this, pluginId, documentId);
         validator.validate(this, pluginId, documentId, adapter.version());
     }
