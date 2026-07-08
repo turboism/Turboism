@@ -2,7 +2,6 @@ package dev.turboism.tests.cubism.write;
 
 import dev.turboism.adapter.cubism.CubismFacadeImpl;
 import dev.turboism.adapter.cubism.write.FakeHostWriteAdapter;
-import dev.turboism.adapter.cubism.write.RuntimeModelTransaction;
 import dev.turboism.adapter.cubism.write.RuntimeTransactionManager;
 import dev.turboism.diagnostics.CubismFacadeAuditEvent;
 import dev.turboism.permissions.CubismPermissionGate;
@@ -24,7 +23,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
 class CubismFacadeWriteIntegrationTest {
 
@@ -43,11 +41,10 @@ class CubismFacadeWriteIntegrationTest {
             permission(CubismFacadeImpl.MODEL_READ_PERMISSION)
         );
 
-        final ModelTransaction opened = facade.transactionManager().openTransaction(
+        final ModelTransaction transaction = facade.transactionManager().openTransaction(
             new TestPluginContext("plugin.demo"),
             DOCUMENT_ID
         );
-        final RuntimeModelTransaction transaction = assertInstanceOf(RuntimeModelTransaction.class, opened);
         transaction.enqueue(new WriteParameterCommand("command-1", MODEL_ID, PARAMETER_ID, 0.5F));
         transaction.commit();
 

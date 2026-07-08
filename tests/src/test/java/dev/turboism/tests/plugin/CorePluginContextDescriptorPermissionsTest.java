@@ -202,7 +202,7 @@ class CorePluginContextDescriptorPermissionsTest {
                 return ids.stream()
                     .<PermissionRef>map(id -> new PermissionRef() {
                         @Override public String id() { return id; }
-                        @Override public String scope() { return "allow"; }
+                        @Override public String scope() { return "application"; }
                         @Override public Optional<String> reason() { return Optional.empty(); }
                     })
                     .toList();

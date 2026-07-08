@@ -1,5 +1,7 @@
 package dev.turboism.sdk.cubism.transaction;
 
+import dev.turboism.sdk.cubism.write.WriteParameterCommand;
+
 /**
  * A plugin-scoped, document-scoped write transaction.
  * All write operations must be performed within an open transaction.
@@ -9,6 +11,13 @@ public interface ModelTransaction {
 
     /** Returns the current status of this transaction. */
     TransactionStatus status();
+
+    /**
+     * Enqueues a parameter value write into this transaction.
+     * The write is not visible to read services or host state until commit succeeds.
+     * @throws TransactionException if the transaction is closed, stale, or validation fails.
+     */
+    void enqueue(WriteParameterCommand command) throws TransactionException;
 
     /**
      * Commits all enqueued write operations.

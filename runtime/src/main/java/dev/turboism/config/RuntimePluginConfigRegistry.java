@@ -21,6 +21,9 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 
 public final class RuntimePluginConfigRegistry implements PluginConfigRegistry {
@@ -28,6 +31,7 @@ public final class RuntimePluginConfigRegistry implements PluginConfigRegistry {
     private static final String READ_TASK_TYPE = "config.read";
     private static final String WRITE_TASK_TYPE = "config.write";
     private static final String DEFAULT_CAPABILITY = "none";
+    private static final long CONFIG_WAIT_TIMEOUT_MILLIS = 1_000L;
 
     private final PermissionChecker permissionChecker;
     private final RuntimeScheduler scheduler;
@@ -57,7 +61,7 @@ public final class RuntimePluginConfigRegistry implements PluginConfigRegistry {
         this.permissionChecker = Objects.requireNonNull(permissionChecker, "permissionChecker");
         this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
         this.pluginDataDir = Objects.requireNonNull(pluginDataDir, "pluginDataDir").toAbsolutePath().normalize();
-        this.pluginId = Objects.requireNonNull(pluginId, "pluginId");
+        this.pluginId = requireText(pluginId, "pluginId");
         this.diagnosticSink = Objects.requireNonNull(diagnosticSink, "diagnosticSink");
     }
 
@@ -85,7 +89,19 @@ public final class RuntimePluginConfigRegistry implements PluginConfigRegistry {
         final String propertyKey = requireText(key, "key");
         CompletableFuture<Optional<String>> result = new CompletableFuture<>();
         scheduler.dispatch(task(READ_TASK_TYPE, scope), () -> result.complete(readProperty(scope, propertyKey)));
-        return result.join();
+        try {
+            return result.get(CONFIG_WAIT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            emit("CONFIG_READ_INTERRUPTED", exception.getMessage(), scope);
+            return Optional.empty();
+        } catch (ExecutionException exception) {
+            emit("CONFIG_READ_FAILED", exception.getMessage(), scope);
+            return Optional.empty();
+        } catch (TimeoutException exception) {
+            emit("CONFIG_READ_TIMED_OUT", "Timed out waiting for plugin config read", scope);
+            return Optional.empty();
+        }
     }
 
     @Override
@@ -97,9 +113,28 @@ public final class RuntimePluginConfigRegistry implements PluginConfigRegistry {
         final String propertyValue = Objects.requireNonNull(value, "value");
         CompletableFuture<PluginConfigException> result = new CompletableFuture<>();
         scheduler.dispatch(task(WRITE_TASK_TYPE, scope), () -> result.complete(writeProperty(scope, propertyKey, propertyValue)));
-        PluginConfigException failure = result.join();
+        PluginConfigException failure = awaitWrite(scope, result);
         if (failure != null) {
             throw failure;
+        }
+    }
+
+    private PluginConfigException awaitWrite(
+        final String scope,
+        final CompletableFuture<PluginConfigException> result
+    ) throws PluginConfigException {
+        try {
+            return result.get(CONFIG_WAIT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            emit("CONFIG_WRITE_INTERRUPTED", exception.getMessage(), scope);
+            throw new PluginConfigException("Interrupted while waiting for plugin config write " + scope, exception);
+        } catch (ExecutionException exception) {
+            emit("CONFIG_WRITE_FAILED", exception.getMessage(), scope);
+            throw new PluginConfigException("Failed while waiting for plugin config write " + scope, exception);
+        } catch (TimeoutException exception) {
+            emit("CONFIG_WRITE_TIMED_OUT", "Timed out waiting for plugin config write", scope);
+            throw new PluginConfigException("Timed out waiting for plugin config write " + scope, exception);
         }
     }
 
@@ -113,7 +148,7 @@ public final class RuntimePluginConfigRegistry implements PluginConfigRegistry {
             properties.load(reader);
             return Optional.ofNullable(properties.getProperty(key));
         } catch (IOException exception) {
-            emit("CONFIG_READ_FAILED", exception, scope);
+            emit("CONFIG_READ_FAILED", exception.getMessage(), scope);
             return Optional.empty();
         }
     }
@@ -137,7 +172,7 @@ public final class RuntimePluginConfigRegistry implements PluginConfigRegistry {
             }
             return null;
         } catch (IOException exception) {
-            emit("CONFIG_WRITE_FAILED", exception, scope);
+            emit("CONFIG_WRITE_FAILED", exception.getMessage(), scope);
             return new PluginConfigException("Failed to write plugin config scope " + scope, exception);
         }
     }
@@ -169,10 +204,10 @@ public final class RuntimePluginConfigRegistry implements PluginConfigRegistry {
         return new PluginTask(taskType, pluginId, scope, DEFAULT_CAPABILITY);
     }
 
-    private void emit(final String code, final IOException exception, final String scope) {
+    private void emit(final String code, final String message, final String scope) {
         diagnosticSink.accept(new StartupReport.DiagnosticProblem(
             code,
-            exception.getMessage(),
+            message == null ? "" : message,
             "config://" + scope,
             StartupReport.Severity.WARNING
         ));
