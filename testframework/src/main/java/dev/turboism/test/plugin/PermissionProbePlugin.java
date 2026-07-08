@@ -1,13 +1,13 @@
 package dev.turboism.test.plugin;
 
 import dev.turboism.sdk.action.ActionRegistry;
-import dev.turboism.sdk.config.PluginConfigRegistry;
 import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.plugin.TurboismPlugin;
+import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
 
@@ -33,6 +33,7 @@ public class PermissionProbePlugin implements TurboismPlugin {
     private int menuRegistrationCount;
     private int mainToolbarRegistrationCount;
     private int paletteToolbarRegistrationCount;
+    private int contextMenuRegistrationCount;
     private int configRegistrationCount;
     private int eventSubscriptionCount;
 
@@ -134,6 +135,20 @@ public class PermissionProbePlugin implements TurboismPlugin {
             paletteToolbarRegistrationCount++;
         });
 
+        tryRegister("contextMenu", () -> {
+            Registration registration = context.contextMenu().contribute(
+                new ContextMenuRegistry.ContextMenuContribution(
+                    "probe.context",
+                    "Probe Context",
+                    null,
+                    "parameter",
+                    100
+                )
+            );
+            disposableScope.register(registration);
+            contextMenuRegistrationCount++;
+        });
+
         tryRegister("config", () -> {
             Registration registration = context.config().writeScope("probe/config.json");
             disposableScope.register(registration);
@@ -195,6 +210,10 @@ public class PermissionProbePlugin implements TurboismPlugin {
 
     public int paletteToolbarRegistrationCount() {
         return paletteToolbarRegistrationCount;
+    }
+
+    public int contextMenuRegistrationCount() {
+        return contextMenuRegistrationCount;
     }
 
     public int configRegistrationCount() {

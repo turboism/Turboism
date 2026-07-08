@@ -44,6 +44,11 @@
       "reason": "Contributes a demo palette toolbar button."
     },
     {
+      "id": "turboism.ui.context-menu.contribute",
+      "scope": "application",
+      "reason": "Contributes a demo context menu entry."
+    },
+    {
       "id": "turboism.config.plugin.read",
       "scope": "application",
       "reason": "Reads demo plugin configuration."

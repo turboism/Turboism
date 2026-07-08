@@ -8,7 +8,6 @@ import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.diagnostics.CubismFacadeAuditEvent;
 import dev.turboism.sdk.action.ActionRegistry;
-import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.event.EventBus.TurboismEvent;
 import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.permission.CubismPermissionException;
@@ -72,6 +71,9 @@ class CorePluginContextDescriptorPermissionsTest {
             context.paletteToolbar().contribute(paletteToolbarContribution("test", "label", "icon"))
         );
         assertThrows(CubismPermissionException.class, () ->
+            context.contextMenu().contribute(contextMenuContribution("test", "label"))
+        );
+        assertThrows(CubismPermissionException.class, () ->
             context.config().readScope("test/config.json")
         );
         assertThrows(CubismPermissionException.class, () ->
@@ -93,6 +95,7 @@ class CorePluginContextDescriptorPermissionsTest {
             Registration subscription = context.eventBus().subscribe(TurboismEvent.class, e -> { });
             Registration mainToolbar = context.mainToolbar().contribute(mainToolbarContribution("test", "label", "icon"));
             Registration paletteToolbar = context.paletteToolbar().contribute(paletteToolbarContribution("test", "label", "icon"));
+            Registration contextMenu = context.contextMenu().contribute(contextMenuContribution("test", "label"));
             Registration configReadScope = context.config().readScope("test/config.json");
             Registration configWriteScope = context.config().writeScope("test/config.json");
             context.config().writeString("test/config.json", "key", "value");
@@ -103,6 +106,7 @@ class CorePluginContextDescriptorPermissionsTest {
             subscription.close();
             mainToolbar.close();
             paletteToolbar.close();
+            contextMenu.close();
             configReadScope.close();
             configWriteScope.close();
         });
@@ -160,6 +164,10 @@ class CorePluginContextDescriptorPermissionsTest {
         return new PaletteToolbarRegistry.PaletteToolbarContribution(id, id, label, icon, "parameters", "end", 1);
     }
 
+    private static dev.turboism.sdk.ui.context.ContextMenuRegistry.ContextMenuContribution contextMenuContribution(String id, String label) {
+        return new dev.turboism.sdk.ui.context.ContextMenuRegistry.ContextMenuContribution(id, label, null, "parameter", 1);
+    }
+
     private static PluginDescriptor descriptorWithPermissions() {
         return descriptorWithPermissions(List.of());
     }
@@ -172,6 +180,7 @@ class CorePluginContextDescriptorPermissionsTest {
             "turboism.event.publish",
             "turboism.ui.toolbar.main.contribute",
             "turboism.ui.toolbar.palette.contribute",
+            "turboism.ui.context-menu.contribute",
             "turboism.config.plugin.read",
             "turboism.config.plugin.write"
         ));

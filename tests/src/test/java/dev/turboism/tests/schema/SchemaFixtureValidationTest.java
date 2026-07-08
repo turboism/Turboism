@@ -41,6 +41,7 @@ class SchemaFixtureValidationTest {
         "with-required-dependency.json, plugin-meta-v1, plugin-meta",
         "required.json, dependency-v1, dependency",
         "half-open.json, version-range-v1, version-range",
+        "context-menu-contribute.json, permission-v1, permission",
         "menu.json, permission-v1, permission",
         "parameter-read.json, permission-v1, permission",
         "mesh-read.json, permission-v1, permission",

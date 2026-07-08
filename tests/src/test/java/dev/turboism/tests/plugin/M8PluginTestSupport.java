@@ -27,6 +27,7 @@ import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.PluginPaths;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.UiScheduler;
+import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
 import dev.turboism.test.ui.FakeDirectUiScheduler;
@@ -67,6 +68,7 @@ final class M8PluginTestSupport {
         RuntimeMenuRegistry menus = new RuntimeMenuRegistry(scheduler, PLUGIN_ID, permissions);
         dev.turboism.ui.toolbar.RuntimeMainToolbarRegistry mainToolbarDelegate = new dev.turboism.ui.toolbar.RuntimeMainToolbarRegistry(permissions, scheduler, PLUGIN_ID);
         dev.turboism.ui.toolbar.RuntimePaletteToolbarRegistry paletteToolbarDelegate = new dev.turboism.ui.toolbar.RuntimePaletteToolbarRegistry(permissions, scheduler, PLUGIN_ID);
+        dev.turboism.ui.context.RuntimeContextMenuRegistry contextMenu = new dev.turboism.ui.context.RuntimeContextMenuRegistry(permissions, PLUGIN_ID);
         RuntimeMainToolbarRegistryAdapter mainToolbar = new RuntimeMainToolbarRegistryAdapter(mainToolbarDelegate, toolbarTracker);
         RuntimePaletteToolbarRegistryAdapter paletteToolbar = new RuntimePaletteToolbarRegistryAdapter(paletteToolbarDelegate, toolbarTracker);
             RuntimePluginConfigRegistry config = new RuntimePluginConfigRegistry(permissions, scheduler, dataDir, "dev.turboism.plugin.m8-test", problem -> addProblem(report, problem));
@@ -77,6 +79,7 @@ final class M8PluginTestSupport {
             new MenuRegistryAdapter(menus, menuTracker),
             mainToolbar,
             paletteToolbar,
+            contextMenu,
             config,
             dataDir
         );
@@ -159,6 +162,7 @@ final class M8PluginTestSupport {
         private final MenuRegistry menus;
         private final MainToolbarRegistry mainToolbar;
         private final PaletteToolbarRegistry paletteToolbar;
+        private final ContextMenuRegistry contextMenu;
         private final PluginConfigRegistry config;
         private final PluginPaths paths;
 
@@ -169,6 +173,7 @@ final class M8PluginTestSupport {
             MenuRegistry menus,
             MainToolbarRegistry mainToolbar,
             PaletteToolbarRegistry paletteToolbar,
+            ContextMenuRegistry contextMenu,
             PluginConfigRegistry config,
             Path dataDir
         ) {
@@ -178,6 +183,7 @@ final class M8PluginTestSupport {
             this.menus = menus;
             this.mainToolbar = mainToolbar;
             this.paletteToolbar = paletteToolbar;
+            this.contextMenu = contextMenu;
             this.config = config;
             this.paths = new TestPaths(dataDir);
         }
@@ -192,6 +198,7 @@ final class M8PluginTestSupport {
         @Override public MenuRegistry menus() { return menus; }
         @Override public MainToolbarRegistry mainToolbar() { return mainToolbar; }
         @Override public PaletteToolbarRegistry paletteToolbar() { return paletteToolbar; }
+        @Override public ContextMenuRegistry contextMenu() { return contextMenu; }
         @Override public PluginConfigRegistry config() { return config; }
         @Override public UiScheduler uiScheduler() { return new FakeDirectUiScheduler(); }
         @Override public DiagnosticReport diagnostics() { return new TestDiagnostics(); }
