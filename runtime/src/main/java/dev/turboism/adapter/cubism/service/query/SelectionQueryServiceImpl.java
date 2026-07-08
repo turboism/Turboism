@@ -2,6 +2,8 @@ package dev.turboism.adapter.cubism.service.query;
 
 import dev.turboism.adapter.cubism.CubismFacadeImpl;
 import dev.turboism.adapter.cubism.SnapshotWithVersion;
+import dev.turboism.core.runtime.PluginTask;
+import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.permissions.CubismPermissionGate;
 import dev.turboism.sdk.cubism.ArtMeshSnapshot;
 import dev.turboism.sdk.cubism.CubismRuntimeSnapshot;
@@ -27,16 +29,27 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 public final class SelectionQueryServiceImpl implements SelectionQueryService {
 
+    private static final String SELECTION_TASK_TYPE = "event.subscribe";
+    private static final String DEFAULT_CAPABILITY = "none";
+
     private final CubismFacadeImpl facade;
     private final CubismPermissionGate permissionGate;
+    private final RuntimeScheduler scheduler;
     private final CopyOnWriteArrayList<SelectionSubscription> subscriptions = new CopyOnWriteArrayList<>();
 
-    public SelectionQueryServiceImpl(final CubismFacadeImpl facade, final CubismPermissionGate permissionGate) {
+    public SelectionQueryServiceImpl(
+        final CubismFacadeImpl facade,
+        final CubismPermissionGate permissionGate,
+        final RuntimeScheduler scheduler
+    ) {
         this.facade = Objects.requireNonNull(facade, "facade");
         this.permissionGate = Objects.requireNonNull(permissionGate, "permissionGate");
+        this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
     }
 
     @Override
@@ -117,8 +130,10 @@ public final class SelectionQueryServiceImpl implements SelectionQueryService {
         }
     }
 
-    private static final class SelectionSubscription {
+    private final class SelectionSubscription {
         private final SelectionChangedListener listener;
+        private final AtomicReference<PendingSelectionChange> pendingChange = new AtomicReference<>();
+        private final AtomicBoolean dispatchScheduled = new AtomicBoolean();
         private SelectionSummary previousSelection;
 
         private SelectionSubscription(final SelectionChangedListener listener, final SelectionSummary previousSelection) {
@@ -132,7 +147,41 @@ public final class SelectionQueryServiceImpl implements SelectionQueryService {
             }
             final SelectionSummary eventPreviousSelection = previousSelection;
             previousSelection = currentSelection;
-            listener.selectionChanged(new CubismSelectionChangedEvent(eventPreviousSelection, currentSelection));
+            pendingChange.set(new PendingSelectionChange(eventPreviousSelection, currentSelection));
+            scheduleDispatch(currentSelection);
         }
+
+        private void dispatchLatestSelectionChange() {
+            final PendingSelectionChange change = pendingChange.getAndSet(null);
+            try {
+                if (change != null) {
+                    listener.selectionChanged(new CubismSelectionChangedEvent(change.previousSelection(), change.currentSelection()));
+                }
+            } finally {
+                dispatchScheduled.set(false);
+                final PendingSelectionChange pending = pendingChange.get();
+                if (pending != null) {
+                    scheduleDispatch(pending.currentSelection());
+                }
+            }
+        }
+
+        private void scheduleDispatch(final SelectionSummary selection) {
+            if (dispatchScheduled.compareAndSet(false, true)) {
+                scheduler.dispatch(selectionTask(selection), this::dispatchLatestSelectionChange);
+            }
+        }
+    }
+
+    private static PluginTask selectionTask(final SelectionSummary selection) {
+        return new PluginTask(
+            SELECTION_TASK_TYPE,
+            "turboism.selection-query",
+            "selection changed: " + selection.selectedModelObjectIds().size() + " selected object(s)",
+            DEFAULT_CAPABILITY
+        );
+    }
+
+    private record PendingSelectionChange(SelectionSummary previousSelection, SelectionSummary currentSelection) {
     }
 }

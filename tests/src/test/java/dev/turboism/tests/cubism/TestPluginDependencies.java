@@ -11,6 +11,7 @@ import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.UiScheduler;
 
 import java.nio.file.Path;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -88,8 +89,8 @@ final class TestPluginDependencies {
 
     static UiScheduler directUiScheduler() {
         return new UiScheduler() {
-            @Override public void runOnUiThread(final Runnable work) { work.run(); }
-            @Override public void runOnUiThreadLater(final Runnable work) { work.run(); }
+            @Override public Registration runOnUiThread(final Runnable work) { work.run(); return () -> { }; }
+            @Override public Registration runOnUiThreadLater(final Runnable work, final Duration delay) { work.run(); return () -> { }; }
         };
     }
 

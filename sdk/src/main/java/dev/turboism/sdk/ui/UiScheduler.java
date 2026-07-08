@@ -1,11 +1,14 @@
 package dev.turboism.sdk.ui;
 
+import dev.turboism.sdk.plugin.Registration;
+import java.time.Duration;
+
 /**
  * Scheduler for UI-thread work.
  */
 public interface UiScheduler {
 
-    void runOnUiThread(Runnable work);
+    Registration runOnUiThread(Runnable work);
 
-    void runOnUiThreadLater(Runnable work);
+    Registration runOnUiThreadLater(Runnable work, Duration delay);
 }
