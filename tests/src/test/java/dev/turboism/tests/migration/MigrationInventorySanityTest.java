@@ -23,7 +23,7 @@ class MigrationInventorySanityTest {
     private static final Path MIGRATION_BOARD = MIGRATION_DIR.resolve("migration-board.tsv");
 
     private static final Set<String> ALLOWED_REUSE_LEVELS = Set.of("L0", "L1", "L2", "L3", "L4");
-    private static final Set<String> ALLOWED_STATUSES = Set.of("NEVER", "QUARANTINE", "PENDING", "DRAFT", "READY");
+    private static final Set<String> ALLOWED_STATUSES = Set.of("NEVER", "QUARANTINE", "PENDING", "DRAFT", "DRAFT_IMPORTED", "DEFERRED", "READY", "COMPLETE");
     private static final Set<String> KNOWN_PHASES = Set.of(
         "M1_LEGACY_INVENTORY",
         "M2_SCHEMA_CONFIG_DIAGNOSTICS",
@@ -71,6 +71,7 @@ class MigrationInventorySanityTest {
         "docs/migration/plans/m2-schema-governance-gates-plan.md",
         "docs/migration/plans/m3-mapping-profile-draft-import-plan.md",
         "docs/migration/plans/m4-hookspec-dryrun-plan.md",
+        "docs/migration/plans/m5-profile-resolver-plan.md",
         "docs/migration/plans/m6-readonly-cubism-facade-plan.md",
         "docs/migration/plans/m8-low-risk-plugin-shells-plan.md"
     );

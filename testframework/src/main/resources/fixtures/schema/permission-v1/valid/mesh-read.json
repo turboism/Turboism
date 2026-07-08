@@ -1,0 +1,7 @@
+{
+  "format": "turboism.permission",
+  "schemaVersion": 1,
+  "id": "turboism.cubism.mesh.read",
+  "scope": "application",
+  "reason": "Reads mesh identity and topology."
+}

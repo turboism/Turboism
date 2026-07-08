@@ -1,0 +1,7 @@
+{
+  "format": "turboism.permission",
+  "schemaVersion": 1,
+  "id": "turboism.cubism.unknown.read",
+  "scope": "application",
+  "reason": "Unknown permission ID should be rejected."
+}

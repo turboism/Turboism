@@ -1,7 +1,7 @@
 {
   "format": "turboism.profile",
   "schemaVersion": 1,
-  "id": "cubism-5.3.02",
   "inherits": [],
-  "mappingPackRefs": []
+  "profileId": "cubism-5.3.02",
+  "mappingPacks": []
 }

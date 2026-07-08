@@ -82,14 +82,14 @@ tasks.register("checkModuleBoundaries") {
                         }
                     }
                 }
-                if (subproject.path == ":plugins:demo") {
+                if (subproject.path.startsWith(":plugins:")) {
                     val apiDeps = subproject.configurations.findByName("api")?.dependencies?.toList() ?: emptyList<Dependency>()
                     val compileOnlyDeps = subproject.configurations.findByName("compileOnly")?.dependencies?.toList() ?: emptyList<Dependency>()
                     val implDeps = subproject.configurations.findByName("implementation")?.dependencies?.toList() ?: emptyList<Dependency>()
                     val declared: List<Dependency> = apiDeps + compileOnlyDeps + implDeps
                     declared.filterIsInstance<ProjectDependency>().forEach { dep ->
                         if (dep.dependencyProject.path != ":sdk") {
-                            logger.error("plugins:demo must only depend on :sdk, found ${dep.dependencyProject.path}")
+                            logger.error("${subproject.path} must only depend on :sdk, found ${dep.dependencyProject.path}")
                             failed = true
                         }
                     }

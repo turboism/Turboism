@@ -1,11 +1,18 @@
 {
   "format": "turboism.profile",
   "schemaVersion": 1,
-  "id": "cubism-5.3.02",
-  "inherits": [],
-  "mappingPackRefs": [
+  "profileId": "cubism-5.3.02",
+  "product": "cubism-editor",
+  "versionRange": "[5.3.02,5.3.03)",
+  "fingerprintStrategy": "none",
+  "mappingPacks": [
     "cubism-5.3.02"
   ],
+  "status": "DRAFT",
+  "source": "legacy-inventory",
+  "verifiedBy": "none",
+  "verifiedAt": null,
+  "inherits": [],
   "hookSelectorRefs": [],
   "capabilities": [],
   "notes": "Profile for Cubism 5.3.02."

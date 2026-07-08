@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+if git_root="$(git -C "${SCRIPT_DIR}" rev-parse --show-toplevel 2>/dev/null)"; then
+  REPO_ROOT="${git_root}"
+else
+  REPO_ROOT="$(cd -- "${SCRIPT_DIR}/../.." && pwd -P)"
+fi
 
 fail() {
   echo "FAIL: $1" >&2
@@ -26,14 +30,23 @@ for forbidden in "${HOME}/.turboism"; do
 done
 
 # Worktree artifact naming must include the worktree ID
-for module in turboism-sdk turboism-core turboism-bootstrap-agent; do
+for module in sdk runtime demo testframework tests; do
   artifact="${BUILD_DIR}/${module}/libs"
   [ -d "${artifact}" ] || continue
-  if ls "${artifact}"/*.jar 2>/dev/null | grep -q "${WT_ID}"; then
-    echo "PASS: ${module} artifact includes worktree ID"
-  else
-    echo "INFO: ${module} artifact naming not yet verified in ${artifact}"
-  fi
+
+  shopt -s nullglob
+  jars=("${artifact}"/*.jar)
+  shopt -u nullglob
+
+  [ ${#jars[@]} -gt 0 ] || continue
+
+  for jar in "${jars[@]}"; do
+    name=$(basename -- "${jar}")
+    if [[ "${name}" != *"-${WT_ID}.jar" ]]; then
+      fail "artifact ${module}/build/libs/${name} does not include worktree ID ${WT_ID}"
+    fi
+  done
+  echo "PASS: ${module} artifact includes worktree ID"
 done
 
 echo "PASS: worktree artifact boundary"

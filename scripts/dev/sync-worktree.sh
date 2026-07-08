@@ -1,13 +1,10 @@
 #!/usr/bin/env bash
-# Worktree-isolated sync script
-# Adapted from ../turboism-legacy/sync_worktree.sh for the new Gradle multi-module layout.
+# Worktree-isolated sync script for the current Gradle layout.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 cd "$WT_ROOT"
-
-WT_ID="$(bash "$SCRIPT_DIR/worktree-id.sh")"
 
 die() {
   printf 'error: %s\n' "$*" >&2
@@ -19,7 +16,7 @@ usage() {
 usage: ./scripts/dev/sync-worktree.sh [worktree-id]
        ./scripts/dev/sync-worktree.sh --id <worktree-id>
 
-Copies this worktree's build artifacts and launchers into the configured Windows drop.
+Copies this worktree's build artifacts and optional launchers into a worktree-scoped drop.
 Set TURBOISM_WINDOWS_DROP_ROOT or TURBOISM_WINDOWS_WORKTREES_ROOT.
 EOF
 }
@@ -43,15 +40,18 @@ case "${1:-}" in
     ;;
 esac
 [ "$#" -eq 0 ] || { usage >&2; exit 1; }
-[ -z "$requested_id" ] || TURBOISM_WORKTREE_ID="$requested_id"
+[ -z "$requested_id" ] || export TURBOISM_WORKTREE_ID="$requested_id"
 WT_ID="$(bash "$SCRIPT_DIR/worktree-id.sh")"
 
 BUILD_ROOT="${WT_ROOT}/build/worktree/${WT_ID}"
-AGENT_JAR="${BUILD_ROOT}/turboism-bootstrap-agent/libs/turboism-bootstrap-agent-0.1.0-SNAPSHOT-${WT_ID}.jar"
-SDK_GLOB="${BUILD_ROOT}/turboism-sdk/libs/turboism-sdk-0.1.0-SNAPSHOT-${WT_ID}.jar"
-PLUGINS_DIR="${WT_ROOT}/modules/official-plugins"
+RUNTIME_JAR="${BUILD_ROOT}/runtime/libs/runtime-0.1.0-SNAPSHOT-${WT_ID}.jar"
+SDK_JAR="${BUILD_ROOT}/sdk/libs/sdk-0.1.0-SNAPSHOT-${WT_ID}.jar"
+DEMO_PLUGIN_JAR="${BUILD_ROOT}/demo/libs/demo-0.1.0-SNAPSHOT-${WT_ID}.jar"
+TESTFRAMEWORK_JAR="${BUILD_ROOT}/testframework/libs/testframework-0.1.0-SNAPSHOT-${WT_ID}.jar"
 
-[ -f "$AGENT_JAR" ] || die "agent jar not found: $AGENT_JAR\nrun: ./scripts/dev/build-worktree.sh"
+[ -f "$RUNTIME_JAR" ] || die "runtime jar not found: $RUNTIME_JAR\nrun: ./scripts/dev/build-worktree.sh"
+[ -f "$SDK_JAR" ] || die "sdk jar not found: $SDK_JAR\nrun: ./scripts/dev/build-worktree.sh"
+[ -f "$DEMO_PLUGIN_JAR" ] || die "demo plugin jar not found: $DEMO_PLUGIN_JAR\nrun: ./scripts/dev/build-worktree.sh"
 
 drop_root="${TURBOISM_WINDOWS_DROP_ROOT:-}"
 worktrees_root="${TURBOISM_WINDOWS_WORKTREES_ROOT:-}"
@@ -74,7 +74,8 @@ else
   WT_ROOT_REMOTE="$(join_drop_path "$drop_root" worktrees "$WT_ID")"
 fi
 
-WT_AGENT_DROP="$(join_drop_path "$WT_ROOT_REMOTE" agent "$WT_ID")"
+WT_RUNTIME_DROP="$(join_drop_path "$WT_ROOT_REMOTE" runtime "$WT_ID")"
+WT_SDK_DROP="$(join_drop_path "$WT_ROOT_REMOTE" sdk "$WT_ID")"
 WT_PLUGINS_DROP="$(join_drop_path "$WT_ROOT_REMOTE" plugins "$WT_ID")"
 WT_LAUNCH_DROP="$(join_drop_path "$WT_ROOT_REMOTE" launch)"
 WT_RUNTIME_CONFIG_DROP="$(join_drop_path "$WT_ROOT_REMOTE" runtime config)"
@@ -84,28 +85,31 @@ WT_RUNTIME_STATE_DROP="$(join_drop_path "$WT_ROOT_REMOTE" runtime state)"
 printf '[sync] worktree: %s\n' "$WT_ID"
 printf '[sync] root:     %s\n' "$WT_ROOT_REMOTE"
 
-mkdir -p "$WT_AGENT_DROP" "$WT_PLUGINS_DROP" "$WT_LAUNCH_DROP" "$WT_RUNTIME_CONFIG_DROP" "$WT_RUNTIME_LOGS_DROP" "$WT_RUNTIME_STATE_DROP"
+mkdir -p "$WT_RUNTIME_DROP" "$WT_SDK_DROP" "$WT_PLUGINS_DROP" "$WT_LAUNCH_DROP" "$WT_RUNTIME_CONFIG_DROP" "$WT_RUNTIME_LOGS_DROP" "$WT_RUNTIME_STATE_DROP"
 
-# Copy agent jar
-cp -f "$AGENT_JAR" "$WT_AGENT_DROP/"
+cp -f "$RUNTIME_JAR" "$WT_RUNTIME_DROP/"
+cp -f "$SDK_JAR" "$WT_SDK_DROP/"
+cp -f "$DEMO_PLUGIN_JAR" "$WT_PLUGINS_DROP/"
+[ -f "$TESTFRAMEWORK_JAR" ] && cp -f "$TESTFRAMEWORK_JAR" "$WT_RUNTIME_DROP/"
 
-# Copy SDK jar
-[ -f "$SDK_GLOB" ] && cp -f "$SDK_GLOB" "$WT_AGENT_DROP/"
-
-# Copy plugin jars
-for plugin_jar in "$PLUGINS_DIR"/*/build/worktree/"$WT_ID"/libs/*-"$WT_ID".jar; do
-  [ -f "$plugin_jar" ] && cp -f "$plugin_jar" "$WT_PLUGINS_DROP/"
-done
-
-# Copy launchers
 [ -f "$WT_ROOT/launch_worktree.ps1" ] && cp -f "$WT_ROOT/launch_worktree.ps1" "$WT_LAUNCH_DROP/"
 [ -f "$WT_ROOT/launch_worktree.bat" ] && cp -f "$WT_ROOT/launch_worktree.bat" "$WT_LAUNCH_DROP/"
 
-# Generate runtime config from template if not present
+# Generate runtime config from template if not present.
 CONFIG_FILE="$WT_ROOT/turboism.$WT_ID.config.json"
 if [ ! -f "$CONFIG_FILE" ] && [ -f "$WT_ROOT/turboism.worktree.config.template.json" ]; then
-  sed "s/\${worktreeId}/$WT_ID/g; s|\${runtimeDir}|$WT_ROOT_REMOTE/runtime|g" \
-    "$WT_ROOT/turboism.worktree.config.template.json" > "$CONFIG_FILE"
+  python3 - "$WT_ROOT/turboism.worktree.config.template.json" "$CONFIG_FILE" "$WT_ID" "$WT_ROOT_REMOTE/runtime" <<'PY'
+from pathlib import Path
+import sys
+
+template = Path(sys.argv[1])
+out = Path(sys.argv[2])
+worktree_id = sys.argv[3]
+runtime_dir = sys.argv[4]
+text = template.read_text()
+text = text.replace("${worktreeId}", worktree_id).replace("${runtimeDir}", runtime_dir)
+out.write_text(text)
+PY
 fi
 [ -f "$CONFIG_FILE" ] && cp -f "$CONFIG_FILE" "$WT_RUNTIME_CONFIG_DROP/"
 

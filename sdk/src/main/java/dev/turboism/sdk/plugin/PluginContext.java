@@ -1,6 +1,7 @@
 package dev.turboism.sdk.plugin;
 
 import dev.turboism.sdk.action.ActionRegistry;
+import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
 import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.menu.MenuRegistry;
@@ -19,6 +20,8 @@ public interface PluginContext {
     PluginLogger logger();
 
     PluginPaths paths();
+
+    CubismFacade cubism();
 
     List<PluginPermission> permissions();
 

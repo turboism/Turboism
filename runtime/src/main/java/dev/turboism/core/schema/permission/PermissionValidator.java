@@ -17,6 +17,7 @@ public final class PermissionValidator extends AbstractJsonValidator {
     private static final Set<String> KNOWN_IDS = Set.of(
         "turboism.ui.menu", "turboism.ui.toolbar", "turboism.ui.palette",
         "turboism.cubism.project.read", "turboism.cubism.model.read", "turboism.cubism.model.write",
+        "turboism.cubism.parameter.read", "turboism.cubism.mesh.read",
         "turboism.file.read", "turboism.file.write", "turboism.network.fetch"
     );
 
