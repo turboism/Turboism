@@ -5,7 +5,7 @@ import dev.turboism.adapter.cubism.HostSnapshotSource;
 import dev.turboism.core.plugin.context.CorePluginContext;
 import dev.turboism.core.runtime.PluginExecutorRegistry;
 import dev.turboism.core.runtime.RuntimeScheduler;
-import dev.turboism.core.runtime.WorkBudget;
+import dev.turboism.sdk.plugin.WorkBudget;
 import dev.turboism.diagnostics.CubismFacadeAuditEvent;
 import dev.turboism.sdk.cubism.DeformerType;
 import dev.turboism.sdk.permission.PluginPermission;
