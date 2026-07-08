@@ -30,20 +30,12 @@ public final class RuntimeMenuRegistry implements MenuRegistry {
     private final PermissionChecker permissionChecker;
     private final Map<String, ContributionHolder> contributions = new ConcurrentHashMap<>();
 
-    public RuntimeMenuRegistry(final RuntimeScheduler scheduler, final String pluginId) {
-        this(scheduler::dispatch, pluginId, PermissionChecker.allowAll());
-    }
-
     public RuntimeMenuRegistry(
         final RuntimeScheduler scheduler,
         final String pluginId,
         final PermissionChecker permissionChecker
     ) {
         this(scheduler::dispatch, pluginId, permissionChecker);
-    }
-
-    RuntimeMenuRegistry(final BiConsumer<PluginTask, Runnable> dispatcher, final String pluginId) {
-        this(dispatcher, pluginId, PermissionChecker.allowAll());
     }
 
     RuntimeMenuRegistry(

@@ -33,21 +33,6 @@ public final class RuntimeActionRegistry implements ActionRegistry {
 
     public RuntimeActionRegistry(
         RuntimeScheduler scheduler,
-        Consumer<StartupReport.DiagnosticProblem> diagnosticSink
-    ) {
-        this(scheduler, diagnosticSink, "dev.turboism.runtime.actions");
-    }
-
-    public RuntimeActionRegistry(
-        RuntimeScheduler scheduler,
-        Consumer<StartupReport.DiagnosticProblem> diagnosticSink,
-        String ownerPluginId
-    ) {
-        this(scheduler, diagnosticSink, ownerPluginId, PermissionChecker.allowAll());
-    }
-
-    public RuntimeActionRegistry(
-        RuntimeScheduler scheduler,
         Consumer<StartupReport.DiagnosticProblem> diagnosticSink,
         String ownerPluginId,
         PermissionChecker permissionChecker

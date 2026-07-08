@@ -5,6 +5,7 @@ import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.PluginExecutorRegistry;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
+import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.plugin.Registration;
 import org.junit.jupiter.api.AfterEach;
@@ -155,7 +156,7 @@ class RuntimeActionRegistryTest {
             SidecarDispatcher.noop(),
             events::add
         );
-        return new RuntimeActionRegistry(scheduler, problems::add, PLUGIN_ID);
+        return new RuntimeActionRegistry(scheduler, problems::add, PLUGIN_ID, PermissionChecker.allowAll());
     }
 
     private record TestAction(

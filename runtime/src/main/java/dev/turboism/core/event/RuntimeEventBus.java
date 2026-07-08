@@ -25,14 +25,6 @@ public final class RuntimeEventBus implements EventBus {
     private final ConcurrentMap<Class<? extends TurboismEvent>, CopyOnWriteArrayList<Subscription<? extends TurboismEvent>>> subscribers =
         new ConcurrentHashMap<>();
 
-    public RuntimeEventBus(RuntimeScheduler scheduler, PluginContext pluginContext) {
-        this(scheduler, Objects.requireNonNull(pluginContext, "pluginContext").descriptor().id());
-    }
-
-    public RuntimeEventBus(RuntimeScheduler scheduler, String pluginId) {
-        this(scheduler, pluginId, PermissionChecker.allowAll());
-    }
-
     public RuntimeEventBus(RuntimeScheduler scheduler, String pluginId, PermissionChecker permissionChecker) {
         this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
         this.pluginId = requireText(pluginId, "pluginId");

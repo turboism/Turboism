@@ -2,6 +2,10 @@ package dev.turboism.core.plugin.context;
 
 import dev.turboism.adapter.cubism.HostSnapshotSource;
 import dev.turboism.config.RuntimePluginConfigRegistry;
+import dev.turboism.core.action.RuntimeActionRegistry;
+import dev.turboism.core.diagnostics.StartupReport;
+import dev.turboism.core.event.RuntimeEventBus;
+import dev.turboism.core.menu.RuntimeMenuRegistry;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.diagnostics.CubismFacadeAuditEvent;
 import dev.turboism.permissions.CubismPermissionGate;
@@ -157,14 +161,17 @@ public final class CorePluginContext implements PluginContext {
         Consumer<CubismFacadeAuditEvent> cubismAuditSink,
         Clock clock
     ) {
+        /**
+         * Convenience constructor that creates all runtime registries from the
+         * descriptor-declared permissions. This is the production path used by
+         * {@link dev.turboism.core.plugin.PluginManager}; no registry is created with
+         * {@link PermissionChecker#allowAll()}.
+         */
         public Dependencies(
             PluginDescriptor descriptor,
             PluginLogger logger,
             PluginPaths paths,
             List<PluginPermission> permissions,
-            EventBus eventBus,
-            ActionRegistry actions,
-            MenuRegistry menus,
             UiScheduler uiScheduler,
             RuntimeScheduler runtimeScheduler,
             DiagnosticReport diagnostics,
@@ -178,25 +185,42 @@ public final class CorePluginContext implements PluginContext {
                 logger,
                 paths,
                 permissions,
-                eventBus,
-                actions,
-                menus,
-                new RuntimeMainToolbarRegistry(
-                    permissionChecker(permissions, descriptor.id(), cubismAuditSink, clock),
-                    runtimeScheduler,
-                    descriptor.id()
-                ),
-                new RuntimePaletteToolbarRegistry(
-                    permissionChecker(permissions, descriptor.id(), cubismAuditSink, clock),
-                    runtimeScheduler,
-                    descriptor.id()
-                ),
-                new RuntimePluginConfigRegistry(
-                    permissionChecker(permissions, descriptor.id(), cubismAuditSink, clock),
-                    runtimeScheduler,
-                    paths.dataDir(),
-                    problem -> logger.warn(problem.code() + ": " + problem.message() + " @ " + problem.path())
-                ),
+                uiScheduler,
+                runtimeScheduler,
+                diagnostics,
+                disposableScope,
+                hostSnapshotSource,
+                cubismAuditSink,
+                clock,
+                defaultServices(descriptor, permissions, paths, runtimeScheduler, cubismAuditSink, clock, logger)
+            );
+        }
+
+        private Dependencies(
+            PluginDescriptor descriptor,
+            PluginLogger logger,
+            PluginPaths paths,
+            List<PluginPermission> permissions,
+            UiScheduler uiScheduler,
+            RuntimeScheduler runtimeScheduler,
+            DiagnosticReport diagnostics,
+            DisposableScope disposableScope,
+            HostSnapshotSource hostSnapshotSource,
+            Consumer<CubismFacadeAuditEvent> cubismAuditSink,
+            Clock clock,
+            DefaultServices services
+        ) {
+            this(
+                descriptor,
+                logger,
+                paths,
+                permissions,
+                services.eventBus,
+                services.actions,
+                services.menus,
+                services.mainToolbar,
+                services.paletteToolbar,
+                services.config,
                 uiScheduler,
                 runtimeScheduler,
                 diagnostics,
@@ -207,13 +231,38 @@ public final class CorePluginContext implements PluginContext {
             );
         }
 
-        private static PermissionChecker permissionChecker(
+        private static DefaultServices defaultServices(
+            PluginDescriptor descriptor,
             List<PluginPermission> permissions,
-            String pluginId,
+            PluginPaths paths,
+            RuntimeScheduler runtimeScheduler,
             Consumer<CubismFacadeAuditEvent> cubismAuditSink,
-            Clock clock
+            Clock clock,
+            PluginLogger logger
         ) {
-            return PermissionChecker.from(new CubismPermissionGate(pluginId, permissions, cubismAuditSink, clock));
+            PermissionChecker checker = PermissionChecker.from(
+                new CubismPermissionGate(descriptor.id(), permissions, cubismAuditSink, clock)
+            );
+            Consumer<StartupReport.DiagnosticProblem> diagnosticSink = problem ->
+                logger.warn(problem.code() + ": " + problem.message() + " @ " + problem.path());
+            return new DefaultServices(
+                new RuntimeEventBus(runtimeScheduler, descriptor.id(), checker),
+                new RuntimeActionRegistry(runtimeScheduler, diagnosticSink, descriptor.id(), checker),
+                new RuntimeMenuRegistry(runtimeScheduler, descriptor.id(), checker),
+                new RuntimeMainToolbarRegistry(checker, runtimeScheduler, descriptor.id()),
+                new RuntimePaletteToolbarRegistry(checker, runtimeScheduler, descriptor.id()),
+                new RuntimePluginConfigRegistry(checker, runtimeScheduler, paths.dataDir(), diagnosticSink)
+            );
+        }
+
+        private record DefaultServices(
+            EventBus eventBus,
+            ActionRegistry actions,
+            MenuRegistry menus,
+            MainToolbarRegistry mainToolbar,
+            PaletteToolbarRegistry paletteToolbar,
+            PluginConfigRegistry config
+        ) {
         }
 
         public Dependencies {
