@@ -1,6 +1,8 @@
 package dev.turboism.ui;
 
 import dev.turboism.adapter.ui.SafeModeDiagnostic;
+import dev.turboism.adapter.ui.MainToolbarAdapter;
+import dev.turboism.adapter.ui.MainToolbarAdapterImpl;
 import dev.turboism.adapter.ui.StatusToolbarAdapter;
 import dev.turboism.adapter.ui.StatusToolbarAdapterImpl;
 import dev.turboism.permissions.PermissionChecker;
@@ -49,6 +51,7 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
     private final UiHostStateSource stateSource;
     private final DisposableScope disposableScope;
     private final StatusToolbarAdapter statusToolbarAdapter;
+    private final MainToolbarAdapter mainToolbarAdapter;
     private final CopyOnWriteArrayList<OverlayContribution> overlays = new CopyOnWriteArrayList<>();
     private final CopyOnWriteArrayList<DialogRequest> dialogs = new CopyOnWriteArrayList<>();
     private final CopyOnWriteArrayList<EmbeddedPanelContribution> panels = new CopyOnWriteArrayList<>();
@@ -79,7 +82,14 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         final UiHostStateSource stateSource,
         final DisposableScope disposableScope
     ) {
-        this(permissionChecker, pluginId, stateSource, disposableScope, StatusToolbarAdapterImpl.safeMode());
+        this(
+            permissionChecker,
+            pluginId,
+            stateSource,
+            disposableScope,
+            StatusToolbarAdapterImpl.safeMode(),
+            MainToolbarAdapterImpl.safeMode()
+        );
     }
 
     public RuntimeUiHostCapabilityService(
@@ -89,11 +99,30 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         final DisposableScope disposableScope,
         final StatusToolbarAdapter statusToolbarAdapter
     ) {
+        this(
+            permissionChecker,
+            pluginId,
+            stateSource,
+            disposableScope,
+            statusToolbarAdapter,
+            MainToolbarAdapterImpl.safeMode()
+        );
+    }
+
+    public RuntimeUiHostCapabilityService(
+        final PermissionChecker permissionChecker,
+        final String pluginId,
+        final UiHostStateSource stateSource,
+        final DisposableScope disposableScope,
+        final StatusToolbarAdapter statusToolbarAdapter,
+        final MainToolbarAdapter mainToolbarAdapter
+    ) {
         this.permissionChecker = Objects.requireNonNull(permissionChecker, "permissionChecker");
         this.pluginId = requireText(pluginId, "pluginId");
         this.stateSource = Objects.requireNonNull(stateSource, "stateSource");
         this.disposableScope = Objects.requireNonNull(disposableScope, "disposableScope");
         this.statusToolbarAdapter = Objects.requireNonNull(statusToolbarAdapter, "statusToolbarAdapter");
+        this.mainToolbarAdapter = Objects.requireNonNull(mainToolbarAdapter, "mainToolbarAdapter");
     }
 
     @Override
@@ -172,6 +201,11 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
     public Registration contributeMainToolbar(final MainToolbarRegistry.MainToolbarContribution contribution) {
         Objects.requireNonNull(contribution, "contribution");
         permissionChecker.check(UI_TOOLBAR_MAIN_CONTRIBUTE, "ui.main-toolbar.contribute");
+        final MainToolbarAdapter.AdapterResult<Registration> adapterResult = mainToolbarAdapter.contributeMainToolbar(contribution);
+        if (adapterResult.isAvailable()) {
+            return enrollAdapterRegistration(adapterResult.value().orElseThrow());
+        }
+        adapterResult.diagnostic().ifPresent(statusToolbarDiagnostics::add);
         mainToolbars.add(contribution);
         return scopedRegistration(mainToolbars, contribution);
     }
