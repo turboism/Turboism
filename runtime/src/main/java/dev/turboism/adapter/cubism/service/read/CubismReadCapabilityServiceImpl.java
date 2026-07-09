@@ -1,6 +1,9 @@
 package dev.turboism.adapter.cubism.service.read;
 
 import dev.turboism.adapter.cubism.CubismFacadeImpl;
+import dev.turboism.adapter.ui.SafeModeDiagnostic;
+import dev.turboism.adapter.ui.ThemeStatusAdapter;
+import dev.turboism.adapter.ui.ThemeStatusAdapterImpl;
 import dev.turboism.sdk.cubism.ArtMeshSnapshot;
 import dev.turboism.sdk.cubism.ClipMaskSnapshot;
 import dev.turboism.sdk.cubism.CubismFacade;
@@ -32,14 +35,25 @@ public final class CubismReadCapabilityServiceImpl implements CubismReadCapabili
 
     private final CubismFacade facade;
     private final M12ReadSnapshotSource m12Source;
+    private final ThemeStatusAdapter themeStatusAdapter;
+    private final List<SafeModeDiagnostic> themeStatusDiagnostics = new java.util.concurrent.CopyOnWriteArrayList<>();
 
     public CubismReadCapabilityServiceImpl(final CubismFacade facade) {
         this(facade, M12ReadSnapshotSource.EMPTY);
     }
 
     public CubismReadCapabilityServiceImpl(final CubismFacade facade, final M12ReadSnapshotSource m12Source) {
+        this(facade, m12Source, ThemeStatusAdapterImpl.safeMode());
+    }
+
+    public CubismReadCapabilityServiceImpl(
+        final CubismFacade facade,
+        final M12ReadSnapshotSource m12Source,
+        final ThemeStatusAdapter themeStatusAdapter
+    ) {
         this.facade = Objects.requireNonNull(facade, "facade");
         this.m12Source = Objects.requireNonNull(m12Source, "m12Source");
+        this.themeStatusAdapter = Objects.requireNonNull(themeStatusAdapter, "themeStatusAdapter");
     }
 
     @Override
@@ -115,7 +129,24 @@ public final class CubismReadCapabilityServiceImpl implements CubismReadCapabili
     @Override
     public Optional<ThemeStatusSnapshot> themeStatus() {
         requireProjectRead("themeStatus");
+        final ThemeStatusAdapter.AdapterResult<Optional<ThemeStatusSnapshot>> adapterResult = themeStatusAdapter.themeStatus();
+        if (adapterResult.isAvailable()) {
+            return adapterResult.value().orElseThrow();
+        }
+        adapterResult.diagnostic().ifPresent(themeStatusDiagnostics::add);
         return m12Source.themeStatus();
+    }
+
+    public List<SafeModeDiagnostic> themeStatusDiagnostics() {
+        return List.copyOf(themeStatusDiagnostics);
+    }
+
+    /**
+     * @deprecated use {@link #themeStatusDiagnostics()} after theme status was split from status-toolbar adapter
+     */
+    @Deprecated
+    public List<SafeModeDiagnostic> statusToolbarDiagnostics() {
+        return themeStatusDiagnostics();
     }
 
     private CubismRuntimeSnapshot runtime() {
