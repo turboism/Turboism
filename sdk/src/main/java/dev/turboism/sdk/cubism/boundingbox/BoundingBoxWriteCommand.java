@@ -1,10 +1,17 @@
-package dev.turboism.sdk.cubism.write;
+package dev.turboism.sdk.cubism.boundingbox;
 
 import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.cubism.id.ModelObjectId;
+import dev.turboism.sdk.cubism.write.CubismWriteCommand;
 
-public record WriteModelObjectCommand(String commandId, ModelId modelId, ModelObjectId objectId, String operation) implements CubismWriteCommand {
-    public WriteModelObjectCommand {
+public record BoundingBoxWriteCommand(
+    String commandId,
+    ModelId modelId,
+    ModelObjectId objectId,
+    String action
+) implements CubismWriteCommand {
+
+    public BoundingBoxWriteCommand {
         if (commandId == null || commandId.isBlank()) {
             throw new IllegalArgumentException("commandId must not be null or blank");
         }
@@ -14,8 +21,8 @@ public record WriteModelObjectCommand(String commandId, ModelId modelId, ModelOb
         if (objectId == null) {
             throw new IllegalArgumentException("objectId must not be null");
         }
-        if (operation == null || operation.isBlank()) {
-            throw new IllegalArgumentException("operation must not be null or blank");
+        if (action == null || action.isBlank()) {
+            throw new IllegalArgumentException("action must not be null or blank");
         }
     }
 }

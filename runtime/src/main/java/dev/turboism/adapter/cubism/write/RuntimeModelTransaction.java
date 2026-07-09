@@ -7,7 +7,7 @@ import dev.turboism.sdk.cubism.transaction.RollbackFailedException;
 import dev.turboism.sdk.cubism.transaction.TransactionClosedException;
 import dev.turboism.sdk.cubism.transaction.TransactionException;
 import dev.turboism.sdk.cubism.transaction.TransactionStatus;
-import dev.turboism.sdk.cubism.write.WriteParameterCommand;
+import dev.turboism.sdk.cubism.write.CubismWriteCommand;
 
 import java.util.Objects;
 
@@ -46,7 +46,7 @@ public final class RuntimeModelTransaction implements ModelTransaction {
     }
 
     @Override
-    public synchronized void enqueue(final WriteParameterCommand command) throws TransactionException {
+    public synchronized void enqueue(final CubismWriteCommand command) throws TransactionException {
         permissionOwner.requireWritePermission("transaction.enqueue");
         validateOpen();
         queue.add(command);
