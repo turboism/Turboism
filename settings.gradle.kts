@@ -9,6 +9,7 @@ include(
     "plugins:main-toolbar",
     "plugins:perf-opt",
     "plugins:render-opt",
+    "plugins:clip-mask",
     "testframework",
     "tests"
 )
