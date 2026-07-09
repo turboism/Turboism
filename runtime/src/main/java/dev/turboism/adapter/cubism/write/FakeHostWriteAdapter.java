@@ -1,9 +1,18 @@
 package dev.turboism.adapter.cubism.write;
 
 import dev.turboism.adapter.cubism.HostSnapshotSource;
+import dev.turboism.sdk.cubism.boundingbox.BoundingBoxWriteCommand;
+import dev.turboism.sdk.cubism.deformer.DeformerWriteCommand;
 import dev.turboism.sdk.cubism.id.ModelId;
+import dev.turboism.sdk.cubism.mesh.MeshWriteCommand;
+import dev.turboism.sdk.cubism.mesh.MirrorWritebackCommand;
+import dev.turboism.sdk.cubism.psd.PsdBindingWriteCommand;
 import dev.turboism.sdk.cubism.transaction.DocumentId;
 import dev.turboism.sdk.cubism.transaction.TransactionException;
+import dev.turboism.sdk.cubism.write.CubismWriteCommand;
+import dev.turboism.sdk.cubism.write.WriteCanvasCommand;
+import dev.turboism.sdk.cubism.write.WriteClipMaskCommand;
+import dev.turboism.sdk.cubism.write.WriteModelObjectCommand;
 import dev.turboism.sdk.cubism.write.WriteParameterCommand;
 
 import java.nio.file.Path;
@@ -19,6 +28,7 @@ public class FakeHostWriteAdapter implements HostWriteAdapter, HostSnapshotSourc
     private static final int UNKNOWN_DOCUMENT = 1301;
     private static final int UNKNOWN_MODEL = 1302;
     private static final int UNKNOWN_PARAMETER = 1303;
+    private static final int INVALID_COMMAND = 1304;
 
     private final Map<String, FakeDocument> documents = new LinkedHashMap<>();
     private String activeDocumentId;
@@ -26,14 +36,14 @@ public class FakeHostWriteAdapter implements HostWriteAdapter, HostSnapshotSourc
     private long version;
 
     public synchronized void addDocument(final String documentId, final String documentName, final FakeModel model) {
-        final FakeDocument document = new FakeDocument(documentId, documentName, model.copy());
+        final FakeDocument document = new FakeDocument(documentId, documentName, model.copy(), List.of(), 0, 0);
         documents.put(document.id(), document);
         activeDocumentId = document.id();
         version++;
     }
 
     public synchronized double parameterValue(final String modelId, final String parameterId) {
-        final FakeDocument document = documents.get(activeDocumentId);
+        final FakeDocument document = activeFakeDocument();
         if (document == null || !document.model().id().equals(modelId)) {
             throw new IllegalArgumentException("Unknown model " + modelId);
         }
@@ -44,6 +54,21 @@ public class FakeHostWriteAdapter implements HostWriteAdapter, HostSnapshotSourc
         return parameter.value();
     }
 
+    public synchronized List<String> appliedCommandIds() {
+        FakeDocument document = activeFakeDocument();
+        return document == null ? List.of() : document.operations();
+    }
+
+    public synchronized int canvasWidth() {
+        FakeDocument document = activeFakeDocument();
+        return document == null ? 0 : document.canvasWidth();
+    }
+
+    public synchronized int canvasHeight() {
+        FakeDocument document = activeFakeDocument();
+        return document == null ? 0 : document.canvasHeight();
+    }
+
     @Override
     public synchronized HostSnapshot capture(final DocumentId documentId) throws TransactionException {
         final FakeDocument document = document(documentId);
@@ -51,10 +76,10 @@ public class FakeHostWriteAdapter implements HostWriteAdapter, HostSnapshotSourc
     }
 
     @Override
-    public synchronized void apply(final DocumentId documentId, final List<WriteParameterCommand> commands)
+    public synchronized void apply(final DocumentId documentId, final List<CubismWriteCommand> commands)
         throws TransactionException {
         final FakeDocument document = document(documentId);
-        for (WriteParameterCommand command : commands) {
+        for (CubismWriteCommand command : commands) {
             applyCommand(document, command);
         }
         version++;
@@ -107,16 +132,54 @@ public class FakeHostWriteAdapter implements HostWriteAdapter, HostSnapshotSourc
         return version;
     }
 
-    private void applyCommand(final FakeDocument document, final WriteParameterCommand command) throws TransactionException {
-        final FakeModel model = document.model();
-        if (!model.id().equals(command.modelId().value())) {
-            throw error(command.commandId(), UNKNOWN_MODEL, "Unknown model " + command.modelId().value());
+    private void applyCommand(final FakeDocument document, final CubismWriteCommand command) throws TransactionException {
+        if (command instanceof WriteParameterCommand parameterCommand) {
+            applyParameterCommand(document, parameterCommand);
+        } else if (command instanceof WriteCanvasCommand canvasCommand) {
+            validateModel(document, canvasCommand.modelId(), canvasCommand.commandId());
+            document.addOperation(canvasCommand.commandId());
+        } else if (command instanceof WriteModelObjectCommand modelObjectCommand) {
+            validateModel(document, modelObjectCommand.modelId(), modelObjectCommand.commandId());
+            document.addOperation(modelObjectCommand.commandId());
+        } else if (command instanceof WriteClipMaskCommand clipMaskCommand) {
+            if (clipMaskCommand.clippedMeshIds().isEmpty()) {
+                throw error(clipMaskCommand.commandId(), INVALID_COMMAND, "Clip-mask command requires at least one clipped mesh");
+            }
+            document.addOperation(clipMaskCommand.commandId());
+        } else if (command instanceof MeshWriteCommand meshCommand) {
+            validateModel(document, meshCommand.modelId(), meshCommand.commandId());
+            document.addOperation(meshCommand.commandId());
+        } else if (command instanceof DeformerWriteCommand deformerCommand) {
+            validateModel(document, deformerCommand.modelId(), deformerCommand.commandId());
+            document.addOperation(deformerCommand.commandId());
+        } else if (command instanceof MirrorWritebackCommand mirrorCommand) {
+            validateModel(document, mirrorCommand.modelId(), mirrorCommand.commandId());
+            document.addOperation(mirrorCommand.commandId());
+        } else if (command instanceof PsdBindingWriteCommand psdCommand) {
+            validateModel(document, psdCommand.modelId(), psdCommand.commandId());
+            document.addOperation(psdCommand.commandId());
+        } else if (command instanceof BoundingBoxWriteCommand boundingBoxCommand) {
+            validateModel(document, boundingBoxCommand.modelId(), boundingBoxCommand.commandId());
+            document.addOperation(boundingBoxCommand.commandId());
+        } else {
+            throw error(command.commandId(), INVALID_COMMAND, "Unknown write command type " + command.getClass().getName());
         }
-        final FakeParameter parameter = model.parameters().get(command.parameterId().value());
+    }
+
+    private void applyParameterCommand(final FakeDocument document, final WriteParameterCommand command) throws TransactionException {
+        validateModel(document, command.modelId(), command.commandId());
+        final FakeParameter parameter = document.model().parameters().get(command.parameterId().value());
         if (parameter == null) {
             throw error(command.commandId(), UNKNOWN_PARAMETER, "Unknown parameter " + command.parameterId().value());
         }
         parameter.setValue(command.value());
+        document.addOperation(command.commandId());
+    }
+
+    private void validateModel(final FakeDocument document, final ModelId modelId, final String commandId) throws TransactionException {
+        if (!document.model().id().equals(modelId.value())) {
+            throw error(commandId, UNKNOWN_MODEL, "Unknown model " + modelId.value());
+        }
     }
 
     private FakeDocument document(final DocumentId documentId) throws TransactionException {
@@ -125,6 +188,10 @@ public class FakeHostWriteAdapter implements HostWriteAdapter, HostSnapshotSourc
             throw error(documentId.id(), UNKNOWN_DOCUMENT, "Unknown document " + documentId.id());
         }
         return document;
+    }
+
+    private FakeDocument activeFakeDocument() {
+        return activeDocumentId == null ? null : documents.get(activeDocumentId);
     }
 
     private FakeDocument documentFrom(final HostSnapshot snapshot) throws TransactionException {
@@ -199,9 +266,27 @@ public class FakeHostWriteAdapter implements HostWriteAdapter, HostSnapshotSourc
         }
     }
 
-    private record FakeDocument(String id, String name, FakeModel model) {
+    private record FakeDocument(String id, String name, FakeModel model, List<String> operations, int canvasWidth, int canvasHeight) {
+        private FakeDocument {
+            operations = new ArrayList<>(operations);
+        }
+
         private FakeDocument copy() {
-            return new FakeDocument(id, name, model.copy());
+            return new FakeDocument(id, name, model.copy(), operations, canvasWidth, canvasHeight);
+        }
+
+        private void addOperation(String commandId) {
+            operations.add(commandId);
+        }
+
+        private FakeDocument withOperation(String commandId) {
+            FakeDocument copy = copy();
+            copy.addOperation(commandId);
+            return copy;
+        }
+
+        private FakeDocument withCanvas(int width, int height) {
+            return new FakeDocument(id, name, model, operations, width, height);
         }
     }
 

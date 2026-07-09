@@ -1,6 +1,7 @@
 package dev.turboism.core.plugin.context;
 
 import dev.turboism.adapter.cubism.HostSnapshotSource;
+import dev.turboism.adapter.cubism.service.read.M12ReadSnapshotSource;
 import dev.turboism.config.RuntimePluginConfigRegistry;
 import dev.turboism.core.action.RuntimeActionRegistry;
 import dev.turboism.core.diagnostics.StartupReport;
@@ -15,6 +16,7 @@ import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.service.query.ModelHierarchyQueryService;
 import dev.turboism.sdk.cubism.service.query.ParameterQueryService;
 import dev.turboism.sdk.cubism.service.query.SelectionQueryService;
+import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
 import dev.turboism.sdk.config.PluginConfigRegistry;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
 import dev.turboism.sdk.event.EventBus;
@@ -25,10 +27,13 @@ import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.PluginPaths;
+import dev.turboism.sdk.ui.UiHostCapabilityService;
 import dev.turboism.sdk.ui.UiScheduler;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
+import dev.turboism.ui.RuntimeUiHostCapabilityService;
+import dev.turboism.ui.UiHostStateSource;
 import dev.turboism.ui.context.RuntimeContextMenuRegistry;
 import dev.turboism.ui.toolbar.RuntimeMainToolbarRegistry;
 import dev.turboism.ui.toolbar.RuntimePaletteToolbarRegistry;
@@ -46,6 +51,7 @@ public final class CorePluginContext implements PluginContext {
     private final PaletteToolbarRegistry paletteToolbarRegistry;
     private final ContextMenuRegistry contextMenuRegistry;
     private final PluginConfigRegistry pluginConfigRegistry;
+    private final UiHostCapabilityService uiHostCapabilityService;
 
     public CorePluginContext(final Dependencies dependencies) {
         this(dependencies, new DefaultCubismServicesFactory());
@@ -59,6 +65,17 @@ public final class CorePluginContext implements PluginContext {
         this.paletteToolbarRegistry = dependencies.paletteToolbar();
         this.contextMenuRegistry = dependencies.contextMenu();
         this.pluginConfigRegistry = dependencies.config();
+        this.uiHostCapabilityService = new RuntimeUiHostCapabilityService(
+            PermissionChecker.from(new CubismPermissionGate(
+                this.dependencies.descriptor().id(),
+                this.dependencies.permissions(),
+                this.dependencies.cubismAuditSink(),
+                this.dependencies.clock()
+            )),
+            this.dependencies.descriptor().id(),
+            this.dependencies.uiHostStateSource(),
+            this.dependencies.disposableScope()
+        );
     }
 
     @Override
@@ -97,6 +114,11 @@ public final class CorePluginContext implements PluginContext {
     }
 
     @Override
+    public CubismReadCapabilityService cubismRead() {
+        return cubismServices.cubismReadCapabilityService();
+    }
+
+    @Override
     public List<PluginPermission> permissions() {
         return dependencies.permissions();
     }
@@ -124,6 +146,11 @@ public final class CorePluginContext implements PluginContext {
     @Override
     public PaletteToolbarRegistry paletteToolbar() {
         return paletteToolbarRegistry;
+    }
+
+    @Override
+    public UiHostCapabilityService uiHost() {
+        return uiHostCapabilityService;
     }
 
     @Override
@@ -178,6 +205,8 @@ public final class CorePluginContext implements PluginContext {
         DiagnosticReport diagnostics,
         DisposableScope disposableScope,
         HostSnapshotSource hostSnapshotSource,
+        M12ReadSnapshotSource m12ReadSnapshotSource,
+        UiHostStateSource uiHostStateSource,
         Consumer<CubismFacadeAuditEvent> cubismAuditSink,
         Clock clock
     ) {
@@ -207,6 +236,38 @@ public final class CorePluginContext implements PluginContext {
                 diagnostics,
                 disposableScope,
                 hostSnapshotSource,
+                M12ReadSnapshotSource.EMPTY,
+                UiHostStateSource.DEFAULT,
+                cubismAuditSink,
+                clock
+            );
+        }
+
+        public Dependencies(
+            PluginDescriptor descriptor,
+            PluginLogger logger,
+            PluginPaths paths,
+            UiScheduler uiScheduler,
+            RuntimeScheduler runtimeScheduler,
+            DiagnosticReport diagnostics,
+            DisposableScope disposableScope,
+            HostSnapshotSource hostSnapshotSource,
+            M12ReadSnapshotSource m12ReadSnapshotSource,
+            UiHostStateSource uiHostStateSource,
+            Consumer<CubismFacadeAuditEvent> cubismAuditSink,
+            Clock clock
+        ) {
+            this(
+                descriptor,
+                logger,
+                paths,
+                uiScheduler,
+                runtimeScheduler,
+                diagnostics,
+                disposableScope,
+                hostSnapshotSource,
+                m12ReadSnapshotSource,
+                uiHostStateSource,
                 cubismAuditSink,
                 clock,
                 defaultServices(
@@ -239,6 +300,8 @@ public final class CorePluginContext implements PluginContext {
             DiagnosticReport diagnostics,
             DisposableScope disposableScope,
             HostSnapshotSource hostSnapshotSource,
+            M12ReadSnapshotSource m12ReadSnapshotSource,
+            UiHostStateSource uiHostStateSource,
             Consumer<CubismFacadeAuditEvent> cubismAuditSink,
             Clock clock,
             DefaultServices services
@@ -260,6 +323,8 @@ public final class CorePluginContext implements PluginContext {
                 diagnostics,
                 disposableScope,
                 hostSnapshotSource,
+                m12ReadSnapshotSource,
+                uiHostStateSource,
                 cubismAuditSink,
                 clock
             );
@@ -318,6 +383,8 @@ public final class CorePluginContext implements PluginContext {
             diagnostics = Objects.requireNonNull(diagnostics, "diagnostics");
             disposableScope = Objects.requireNonNull(disposableScope, "disposableScope");
             hostSnapshotSource = Objects.requireNonNull(hostSnapshotSource, "hostSnapshotSource");
+            m12ReadSnapshotSource = Objects.requireNonNull(m12ReadSnapshotSource, "m12ReadSnapshotSource");
+            uiHostStateSource = Objects.requireNonNull(uiHostStateSource, "uiHostStateSource");
             cubismAuditSink = Objects.requireNonNull(cubismAuditSink, "cubismAuditSink");
             clock = Objects.requireNonNull(clock, "clock");
         }
