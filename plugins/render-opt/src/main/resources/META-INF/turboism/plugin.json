@@ -4,7 +4,7 @@
   "id": "dev.turboism.plugin.renderopt",
   "name": "Render Optimization Plugin",
   "version": "0.1.0",
-  "description": "Render optimization lifecycle provider shell. Actual render interception remains adapter/hook work.",
+  "description": "Fake-ready render status overlay using SDK read and UI host capabilities. Actual render interception remains adapter/hook work.",
   "entrypoints": {
     "plugin": "dev.turboism.plugin.renderopt.RenderOptPlugin"
   },
@@ -15,10 +15,35 @@
   "license": "Project License",
   "homepage": "https://turboism.dev",
   "dependencies": [],
-  "permissions": [],
-  "capabilities": [],
+  "permissions": [
+    {
+      "id": "turboism.cubism.model.read",
+      "scope": "application",
+      "reason": "Read fake render status snapshots for the render-status overlay."
+    },
+    {
+      "id": "turboism.ui.overlay.contribute",
+      "scope": "application",
+      "reason": "Contribute the fake render-status overlay to the UI host."
+    },
+    {
+      "id": "turboism.ui.status.notify",
+      "scope": "application",
+      "reason": "Notify render-status refresh and unavailable fallback results."
+    },
+    {
+      "id": "turboism.action.register",
+      "scope": "application",
+      "reason": "Register the render-status overlay refresh action."
+    }
+  ],
+  "capabilities": [
+    "cubism.render.status.read",
+    "ui.overlay.contribute",
+    "ui.status.notify"
+  ],
   "environment": {
     "requiresCubism": false,
-    "ui": "none"
+    "ui": "embedded"
   }
 }
