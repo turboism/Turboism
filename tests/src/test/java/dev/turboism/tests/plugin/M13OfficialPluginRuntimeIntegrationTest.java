@@ -2,6 +2,7 @@ package dev.turboism.tests.plugin;
 
 import dev.turboism.core.descriptor.PluginDescriptorParser;
 import dev.turboism.permissions.PermissionChecker;
+import dev.turboism.plugin.clipmask.ClipMaskPlugin;
 import dev.turboism.plugin.logfilter.LogFilterPlugin;
 import dev.turboism.plugin.maintoolbar.MainToolbarPlugin;
 import dev.turboism.plugin.renderopt.RenderOptPlugin;
@@ -24,6 +25,8 @@ import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.theme.ThemeStatusSnapshot;
+import dev.turboism.sdk.ui.DialogRequest;
+import dev.turboism.sdk.ui.EmbeddedPanelContribution;
 import dev.turboism.sdk.ui.OverlayContribution;
 import dev.turboism.sdk.ui.StatusNotification;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
@@ -227,6 +230,109 @@ class M13OfficialPluginRuntimeIntegrationTest {
     }
 
     @Test
+    void clipMaskEnablesWithDeclaredPermissionsAndCleansUpPanelAndDialog() throws Exception {
+        try (M8PluginTestSupport.Harness harness = harnessFor(
+            "clip-mask",
+            tempDir.resolve("clip-mask"),
+            UiHostStateSource.DEFAULT,
+            new ClipMaskRead()
+        )) {
+            ClipMaskPlugin plugin = new ClipMaskPlugin();
+            plugin.init(harness.context());
+            plugin.enable();
+
+            assertEquals(
+                List.of(new EmbeddedPanelContribution("clip-mask.inspector.panel", "Clip Mask Inspector", "side", 40)),
+                harness.uiHost().panels()
+            );
+            assertEquals(
+                List.of(new DialogRequest(
+                    "clip-mask.inspector.dialog",
+                    "Clip Mask Inspector",
+                    "Clip Mask Inspector is ready. Use Inspect to refresh status."
+                )),
+                harness.uiHost().dialogs()
+            );
+
+            harness.context().disposableScope().close();
+            assertTrue(harness.uiHost().panels().isEmpty());
+            assertTrue(harness.uiHost().dialogs().isEmpty());
+        }
+    }
+
+    @Test
+    void clipMaskEnableFailsWhenPanelPermissionIsMissing() throws Exception {
+        PluginDescriptor descriptor = descriptorFor("clip-mask");
+        List<PluginPermission> permissionsWithoutPanel = withoutPermission(
+            descriptor,
+            "turboism.ui.panel.contribute"
+        );
+
+        try (M8PluginTestSupport.Harness harness = M8PluginTestSupport.harness(
+            tempDir.resolve("clip-mask-denied"),
+            PermissionChecker.from(permissionsWithoutPanel),
+            UiHostStateSource.DEFAULT,
+            new ClipMaskRead()
+        )) {
+            ClipMaskPlugin plugin = new ClipMaskPlugin();
+            plugin.init(harness.context());
+
+            CubismPermissionException failure = assertThrows(CubismPermissionException.class, plugin::enable);
+            assertTrue(failure.getMessage().contains("turboism.ui.panel.contribute"));
+            assertTrue(harness.uiHost().panels().isEmpty());
+            assertTrue(harness.uiHost().dialogs().isEmpty());
+        }
+    }
+
+    @Test
+    void clipMaskEnableFailsWhenDialogPermissionIsMissingAndRollsBackPanel() throws Exception {
+        PluginDescriptor descriptor = descriptorFor("clip-mask");
+        List<PluginPermission> permissionsWithoutDialog = withoutPermission(
+            descriptor,
+            "turboism.ui.dialog.contribute"
+        );
+
+        try (M8PluginTestSupport.Harness harness = M8PluginTestSupport.harness(
+            tempDir.resolve("clip-mask-dialog-denied"),
+            PermissionChecker.from(permissionsWithoutDialog),
+            UiHostStateSource.DEFAULT,
+            new ClipMaskRead()
+        )) {
+            ClipMaskPlugin plugin = new ClipMaskPlugin();
+            plugin.init(harness.context());
+
+            CubismPermissionException failure = assertThrows(CubismPermissionException.class, plugin::enable);
+            assertTrue(failure.getMessage().contains("turboism.ui.dialog.contribute"));
+            assertTrue(harness.uiHost().panels().isEmpty());
+            assertTrue(harness.uiHost().dialogs().isEmpty());
+        }
+    }
+
+    @Test
+    void clipMaskEnableFailsWhenActionPermissionIsMissing() throws Exception {
+        PluginDescriptor descriptor = descriptorFor("clip-mask");
+        List<PluginPermission> permissionsWithoutAction = withoutPermission(
+            descriptor,
+            "turboism.action.register"
+        );
+
+        try (M8PluginTestSupport.Harness harness = M8PluginTestSupport.harness(
+            tempDir.resolve("clip-mask-action-denied"),
+            PermissionChecker.from(permissionsWithoutAction),
+            UiHostStateSource.DEFAULT,
+            new ClipMaskRead()
+        )) {
+            ClipMaskPlugin plugin = new ClipMaskPlugin();
+            plugin.init(harness.context());
+
+            CubismPermissionException failure = assertThrows(CubismPermissionException.class, plugin::enable);
+            assertTrue(failure.getMessage().contains("turboism.action.register"));
+            assertTrue(harness.uiHost().panels().isEmpty());
+            assertTrue(harness.uiHost().dialogs().isEmpty());
+        }
+    }
+
+    @Test
     void officialM13ManifestsDeclareExpectedPermissions() throws Exception {
         assertEquals(
             Set.of(
@@ -264,6 +370,16 @@ class M13OfficialPluginRuntimeIntegrationTest {
                 "turboism.ui.status.notify"
             ),
             permissionIdsFor("render-opt")
+        );
+        assertEquals(
+            Set.of(
+                "turboism.action.register",
+                "turboism.cubism.model.read",
+                "turboism.ui.dialog.contribute",
+                "turboism.ui.panel.contribute",
+                "turboism.ui.status.notify"
+            ),
+            permissionIdsFor("clip-mask")
         );
     }
 
@@ -360,6 +476,23 @@ class M13OfficialPluginRuntimeIntegrationTest {
         @Override
         public Optional<RenderStatusSnapshot> renderStatus() {
             return Optional.of(new RenderStatusSnapshot(true, 60.0, "fake-renderer"));
+        }
+    }
+
+    private static final class ClipMaskRead extends UnsupportedCubismRead {
+        @Override
+        public List<ClipMaskSnapshot> clipMasks() {
+            return List.of(new ClipMaskSnapshot("mask-1", List.of("mesh-src"), List.of("mesh-1"), true));
+        }
+
+        @Override
+        public List<ArtMeshSnapshot> meshes() {
+            return List.of();
+        }
+
+        @Override
+        public SelectionSnapshot selection() {
+            return new SelectionSnapshot(List.of(), Optional.empty(), Optional.empty(), Optional.empty());
         }
     }
 
