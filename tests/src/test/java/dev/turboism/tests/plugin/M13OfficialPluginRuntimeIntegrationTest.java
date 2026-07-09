@@ -4,6 +4,7 @@ import dev.turboism.core.descriptor.PluginDescriptorParser;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.plugin.logfilter.LogFilterPlugin;
 import dev.turboism.plugin.maintoolbar.MainToolbarPlugin;
+import dev.turboism.plugin.renderopt.RenderOptPlugin;
 import dev.turboism.plugin.uitheme.UiThemePlugin;
 import dev.turboism.sdk.cubism.ArtMeshSnapshot;
 import dev.turboism.sdk.cubism.ClipMaskSnapshot;
@@ -23,6 +24,7 @@ import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.theme.ThemeStatusSnapshot;
+import dev.turboism.sdk.ui.OverlayContribution;
 import dev.turboism.sdk.ui.StatusNotification;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
@@ -180,6 +182,51 @@ class M13OfficialPluginRuntimeIntegrationTest {
     }
 
     @Test
+    void renderOptEnablesWithDeclaredPermissionsAndCleansUpOverlayContribution() throws Exception {
+        try (M8PluginTestSupport.Harness harness = harnessFor(
+            "render-opt",
+            tempDir.resolve("render-opt"),
+            UiHostStateSource.DEFAULT,
+            new RenderStatusRead()
+        )) {
+            RenderOptPlugin plugin = new RenderOptPlugin();
+            plugin.init(harness.context());
+            plugin.enable();
+
+            assertEquals(
+                List.of(new OverlayContribution("render-status.overlay", "viewport", 50)),
+                harness.uiHost().overlays()
+            );
+
+            harness.context().disposableScope().close();
+            assertTrue(harness.uiHost().overlays().isEmpty());
+        }
+    }
+
+    @Test
+    void renderOptEnableFailsWhenOverlayPermissionIsMissing() throws Exception {
+        PluginDescriptor descriptor = descriptorFor("render-opt");
+        List<PluginPermission> permissionsWithoutOverlay = withoutPermission(
+            descriptor,
+            "turboism.ui.overlay.contribute"
+        );
+
+        try (M8PluginTestSupport.Harness harness = M8PluginTestSupport.harness(
+            tempDir.resolve("render-opt-denied"),
+            PermissionChecker.from(permissionsWithoutOverlay),
+            UiHostStateSource.DEFAULT,
+            new RenderStatusRead()
+        )) {
+            RenderOptPlugin plugin = new RenderOptPlugin();
+            plugin.init(harness.context());
+
+            CubismPermissionException failure = assertThrows(CubismPermissionException.class, plugin::enable);
+            assertTrue(failure.getMessage().contains("turboism.ui.overlay.contribute"));
+            assertTrue(harness.uiHost().overlays().isEmpty());
+        }
+    }
+
+    @Test
     void officialM13ManifestsDeclareExpectedPermissions() throws Exception {
         assertEquals(
             Set.of(
@@ -208,6 +255,15 @@ class M13OfficialPluginRuntimeIntegrationTest {
                 "turboism.ui.status.notify"
             ),
             permissionIdsFor("ui-theme")
+        );
+        assertEquals(
+            Set.of(
+                "turboism.action.register",
+                "turboism.cubism.model.read",
+                "turboism.ui.overlay.contribute",
+                "turboism.ui.status.notify"
+            ),
+            permissionIdsFor("render-opt")
         );
     }
 
@@ -297,6 +353,13 @@ class M13OfficialPluginRuntimeIntegrationTest {
                 "workspaces/demo",
                 List.of("project-1")
             ));
+        }
+    }
+
+    private static final class RenderStatusRead extends UnsupportedCubismRead {
+        @Override
+        public Optional<RenderStatusSnapshot> renderStatus() {
+            return Optional.of(new RenderStatusSnapshot(true, 60.0, "fake-renderer"));
         }
     }
 
