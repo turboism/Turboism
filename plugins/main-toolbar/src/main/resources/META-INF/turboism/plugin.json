@@ -1,0 +1,45 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 1,
+  "id": "dev.turboism.plugin.maintoolbar",
+  "name": "Main Toolbar Plugin",
+  "version": "0.1.0",
+  "description": "SDK-only main toolbar home entry behavior using M12 project/workspace read and UI host capabilities.",
+  "entrypoints": {
+    "plugin": "dev.turboism.plugin.maintoolbar.MainToolbarPlugin"
+  },
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    { "name": "Turboism Contributors" }
+  ],
+  "license": "Project License",
+  "homepage": "https://turboism.dev",
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.action.register",
+      "scope": "application",
+      "reason": "Registers the main toolbar home entry action."
+    },
+    {
+      "id": "turboism.ui.toolbar.main.contribute",
+      "scope": "application",
+      "reason": "Adds the home entry button to the main toolbar."
+    },
+    {
+      "id": "turboism.cubism.project.read",
+      "scope": "application",
+      "reason": "Reads active project and workspace summaries for the home entry status message."
+    },
+    {
+      "id": "turboism.ui.status.notify",
+      "scope": "application",
+      "reason": "Shows project summary and fallback notifications."
+    }
+  ],
+  "capabilities": [],
+  "environment": {
+    "requiresCubism": false,
+    "ui": "none"
+  }
+}
