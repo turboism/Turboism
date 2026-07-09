@@ -5,9 +5,24 @@ import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.plugin.perfopt.PerfOptPlugin;
 import dev.turboism.plugin.renderopt.RenderOptPlugin;
 import dev.turboism.plugin.uitheme.UiThemePlugin;
+import dev.turboism.sdk.cubism.ArtMeshSnapshot;
+import dev.turboism.sdk.cubism.ClipMaskSnapshot;
+import dev.turboism.sdk.cubism.DeformerSnapshot;
+import dev.turboism.sdk.cubism.DocumentSnapshot;
+import dev.turboism.sdk.cubism.ModelObjectSnapshot;
+import dev.turboism.sdk.cubism.ModelSnapshot;
+import dev.turboism.sdk.cubism.ParameterSnapshot;
+import dev.turboism.sdk.cubism.ProjectSnapshot;
+import dev.turboism.sdk.cubism.PsdDocumentSnapshot;
+import dev.turboism.sdk.cubism.RenderStatusSnapshot;
+import dev.turboism.sdk.cubism.SelectionSnapshot;
+import dev.turboism.sdk.cubism.TextureAtlasSnapshot;
+import dev.turboism.sdk.cubism.WorkspaceSnapshot;
+import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
 import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.sdk.plugin.PluginDescriptor;
+import dev.turboism.sdk.theme.ThemeStatusSnapshot;
 import dev.turboism.ui.context.RuntimeContextMenuRegistry;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -17,6 +32,7 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -57,8 +73,11 @@ class M11OfficialPluginRuntimeIntegrationTest {
             assertFalse(harness.menuTracker().isVisible("perfopt.fps-overlay.toggle"));
         }
 
-        // render-opt: no Cubism/render permission is required while it is only a lifecycle shell.
-        try (M8PluginTestSupport.Harness harness = harnessFor("render-opt", tempDir.resolve("render-opt"))) {
+        try (M8PluginTestSupport.Harness harness = harnessFor(
+            "render-opt",
+            tempDir.resolve("render-opt"),
+            new RenderStatusRead()
+        )) {
             RenderOptPlugin plugin = new RenderOptPlugin();
             plugin.init(harness.context());
             plugin.enable();
@@ -83,7 +102,15 @@ class M11OfficialPluginRuntimeIntegrationTest {
             Set.of("turboism.action.register", "turboism.ui.menu.contribute"),
             permissionIdsFor("perf-opt")
         );
-        assertEquals(Set.of(), permissionIdsFor("render-opt"));
+        assertEquals(
+            Set.of(
+                "turboism.action.register",
+                "turboism.cubism.model.read",
+                "turboism.ui.overlay.contribute",
+                "turboism.ui.status.notify"
+            ),
+            permissionIdsFor("render-opt")
+        );
     }
 
     private static Set<String> permissionIdsFor(String pluginDirectory) throws Exception {
@@ -118,6 +145,20 @@ class M11OfficialPluginRuntimeIntegrationTest {
         return M8PluginTestSupport.harness(dataDir, PermissionChecker.from(toPermissions(descriptor)));
     }
 
+    private static M8PluginTestSupport.Harness harnessFor(
+        String pluginDirectory,
+        Path dataDir,
+        CubismReadCapabilityService cubismRead
+    ) throws Exception {
+        PluginDescriptor descriptor = descriptorFor(pluginDirectory);
+        return M8PluginTestSupport.harness(
+            dataDir,
+            PermissionChecker.from(toPermissions(descriptor)),
+            dev.turboism.ui.UiHostStateSource.DEFAULT,
+            cubismRead
+        );
+    }
+
     private static PluginDescriptor descriptorFor(String pluginDirectory) throws Exception {
         Path root = Path.of(System.getProperty("projectRoot", ".")).toAbsolutePath().normalize();
         Path pluginJson = root.resolve("plugins")
@@ -145,5 +186,31 @@ class M11OfficialPluginRuntimeIntegrationTest {
     }
 
     private record DeclaredPermission(String id, String scope, String reason) implements PluginPermission {
+    }
+
+    private static final class RenderStatusRead implements CubismReadCapabilityService {
+        @Override public Optional<ProjectSnapshot> activeProject() { throw unsupported(); }
+        @Override public Optional<DocumentSnapshot> activeDocument() { throw unsupported(); }
+        @Override public Optional<ModelSnapshot> activeModel() { throw unsupported(); }
+        @Override public SelectionSnapshot selection() { throw unsupported(); }
+        @Override public List<ParameterSnapshot> parameters() { throw unsupported(); }
+        @Override public List<ModelObjectSnapshot> modelObjects() { throw unsupported(); }
+        @Override public List<ArtMeshSnapshot> meshes() { throw unsupported(); }
+        @Override public List<DeformerSnapshot> deformers() { throw unsupported(); }
+        @Override public List<PsdDocumentSnapshot> psdDocuments() { throw unsupported(); }
+        @Override public List<ClipMaskSnapshot> clipMasks() { throw unsupported(); }
+        @Override public List<TextureAtlasSnapshot> textureAtlases() { throw unsupported(); }
+
+        @Override
+        public Optional<RenderStatusSnapshot> renderStatus() {
+            return Optional.of(new RenderStatusSnapshot(true, 60.0, "fake-renderer"));
+        }
+
+        @Override public Optional<WorkspaceSnapshot> workspace() { throw unsupported(); }
+        @Override public Optional<ThemeStatusSnapshot> themeStatus() { throw unsupported(); }
+
+        private static UnsupportedOperationException unsupported() {
+            return new UnsupportedOperationException("not used by this integration test");
+        }
     }
 }
