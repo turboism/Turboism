@@ -32,6 +32,7 @@ class M12CapabilityCatalogSurfaceTest {
         "dev.turboism.sdk.ui.FileChooserRequest",
         "dev.turboism.sdk.ui.OverlayContribution",
         "dev.turboism.sdk.ui.StatusNotification",
+        "dev.turboism.sdk.ui.UiHostCapabilityService",
         "dev.turboism.sdk.ui.ViewportSnapshot"
     );
 

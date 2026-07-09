@@ -26,10 +26,12 @@ import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.PluginPaths;
+import dev.turboism.sdk.ui.UiHostCapabilityService;
 import dev.turboism.sdk.ui.UiScheduler;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
+import dev.turboism.ui.RuntimeUiHostCapabilityService;
 import dev.turboism.ui.context.RuntimeContextMenuRegistry;
 import dev.turboism.ui.toolbar.RuntimeMainToolbarRegistry;
 import dev.turboism.ui.toolbar.RuntimePaletteToolbarRegistry;
@@ -47,6 +49,7 @@ public final class CorePluginContext implements PluginContext {
     private final PaletteToolbarRegistry paletteToolbarRegistry;
     private final ContextMenuRegistry contextMenuRegistry;
     private final PluginConfigRegistry pluginConfigRegistry;
+    private final UiHostCapabilityService uiHostCapabilityService;
 
     public CorePluginContext(final Dependencies dependencies) {
         this(dependencies, new DefaultCubismServicesFactory());
@@ -60,6 +63,15 @@ public final class CorePluginContext implements PluginContext {
         this.paletteToolbarRegistry = dependencies.paletteToolbar();
         this.contextMenuRegistry = dependencies.contextMenu();
         this.pluginConfigRegistry = dependencies.config();
+        this.uiHostCapabilityService = new RuntimeUiHostCapabilityService(
+            PermissionChecker.from(new CubismPermissionGate(
+                this.dependencies.descriptor().id(),
+                this.dependencies.permissions(),
+                this.dependencies.cubismAuditSink(),
+                this.dependencies.clock()
+            )),
+            this.dependencies.descriptor().id()
+        );
     }
 
     @Override
@@ -130,6 +142,11 @@ public final class CorePluginContext implements PluginContext {
     @Override
     public PaletteToolbarRegistry paletteToolbar() {
         return paletteToolbarRegistry;
+    }
+
+    @Override
+    public UiHostCapabilityService uiHost() {
+        return uiHostCapabilityService;
     }
 
     @Override
