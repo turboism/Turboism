@@ -46,6 +46,23 @@ required_rank() {
   esac
 }
 
+known_permission() {
+  case "$1" in
+    "turboism.ui.menu"|"turboism.ui.menu.contribute"|"turboism.ui.toolbar"|\
+    "turboism.ui.toolbar.main.contribute"|"turboism.ui.toolbar.palette.contribute"|\
+    "turboism.ui.context-menu.contribute"|"turboism.ui.context-source.read"|\
+    "turboism.ui.overlay.contribute"|"turboism.ui.viewport.read"|\
+    "turboism.ui.dialog.contribute"|"turboism.ui.panel.contribute"|\
+    "turboism.ui.file-chooser.request"|"turboism.ui.status.notify"|"turboism.ui.palette"|\
+    "turboism.cubism.project.read"|"turboism.cubism.model.read"|"turboism.cubism.model.write"|\
+    "turboism.cubism.parameter.read"|"turboism.cubism.mesh.read"|\
+    "turboism.action.register"|"turboism.event.subscribe"|"turboism.event.publish"|\
+    "turboism.config.plugin.read"|"turboism.config.plugin.write"|\
+    "turboism.file.read"|"turboism.file.write"|"turboism.network.fetch") return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 missing=0
 production_ready=0
 blocked_high_risk=0
@@ -78,6 +95,15 @@ done < "$MATRIX"
 
 while IFS=$'\t' read -r capability_id category sdk_surface runtime_owner adapter_owner permissions requires_transaction requires_hook requires_mapping threading_budget fake_host diagnostics legacy_rows status; do
   [[ "$capability_id" == "capabilityId" || -z "$capability_id" ]] && continue
+  if [[ "$permissions" != no\ additional\ permission* && "$permissions" != "internal only" ]]; then
+    IFS=';' read -ra permission_ids <<< "$permissions"
+    for permission_id in "${permission_ids[@]}"; do
+      if ! known_permission "$permission_id"; then
+        echo "FAIL: $capability_id references unknown permission id $permission_id" >&2
+        missing=1
+      fi
+    done
+  fi
   if [[ $(status_rank "$status") -ge $(status_rank draft) ]] && ! surface_exists "$sdk_surface"; then
     echo "FAIL: $capability_id is $status but surface does not exist: $sdk_surface" >&2
     missing=1
