@@ -7,8 +7,10 @@ import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 public final class RuntimePaletteToolbarRegistry implements PaletteToolbarRegistry {
@@ -19,6 +21,7 @@ public final class RuntimePaletteToolbarRegistry implements PaletteToolbarRegist
     private final PermissionChecker permissionChecker;
     private final RuntimeScheduler scheduler;
     private final String pluginId;
+    private final Optional<ToolbarVisibilitySink> visibilitySink;
     private final Map<String, PaletteToolbarContribution> contributions = new ConcurrentHashMap<>();
 
     public RuntimePaletteToolbarRegistry(
@@ -26,9 +29,19 @@ public final class RuntimePaletteToolbarRegistry implements PaletteToolbarRegist
         final RuntimeScheduler scheduler,
         final String pluginId
     ) {
+        this(permissionChecker, scheduler, pluginId, null);
+    }
+
+    public RuntimePaletteToolbarRegistry(
+        final PermissionChecker permissionChecker,
+        final RuntimeScheduler scheduler,
+        final String pluginId,
+        final ToolbarVisibilitySink visibilitySink
+    ) {
         this.permissionChecker = Objects.requireNonNull(permissionChecker, "permissionChecker");
         this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
         this.pluginId = requireText(pluginId, "pluginId");
+        this.visibilitySink = Optional.ofNullable(visibilitySink);
     }
 
     @Override
@@ -51,10 +64,12 @@ public final class RuntimePaletteToolbarRegistry implements PaletteToolbarRegist
     }
 
     private void dispatchVisibilityUpdate(final PaletteToolbarContribution contribution) {
-        scheduler.dispatch(task(contribution), this::updateVisibility);
+        final List<PaletteToolbarContribution> snapshot = List.copyOf(contributions.values());
+        scheduler.dispatch(task(contribution), () -> updateVisibility(snapshot));
     }
 
-    private void updateVisibility() {
+    private void updateVisibility(final List<PaletteToolbarContribution> snapshot) {
+        visibilitySink.ifPresent(sink -> sink.onPaletteToolbarVisibilityChanged(pluginId, snapshot));
     }
 
     private PluginTask task(final PaletteToolbarContribution contribution) {

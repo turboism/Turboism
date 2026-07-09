@@ -117,6 +117,28 @@ class RuntimeMainToolbarRegistryTest {
         assertEquals("main toolbar visibility for probe.toolbar", task.payloadDescription());
     }
 
+    @Test
+    void visibilitySinkReceivesSnapshotsOnContributeAndClose() throws InterruptedException {
+        // Given
+        RecordingPolicy policy = new RecordingPolicy();
+        RecordingVisibilitySink sink = new RecordingVisibilitySink(2);
+        RuntimeMainToolbarRegistry registry = new RuntimeMainToolbarRegistry(
+            (permissionId, operation) -> { },
+            scheduler(policy),
+            PLUGIN_ID,
+            sink
+        );
+
+        // When
+        Registration registration = registry.contribute(contribution("probe.toolbar"));
+        registration.close();
+
+        // Then
+        assertTrue(sink.updated.await(1, TimeUnit.SECONDS));
+        assertEquals(List.of(1, 0), sink.mainContributionCounts);
+        assertEquals(List.of(PLUGIN_ID, PLUGIN_ID), sink.pluginIds);
+    }
+
     private RuntimeScheduler scheduler(RecordingPolicy policy) {
         List<CallbackBudgetEvent> events = new CopyOnWriteArrayList<>();
         scheduler = new RuntimeScheduler(
@@ -149,6 +171,26 @@ class RuntimeMainToolbarRegistryTest {
             this.task.set(task);
             dispatched.countDown();
             return WorkBudget.LIGHTWEIGHT;
+        }
+    }
+
+    private static final class RecordingVisibilitySink implements ToolbarVisibilitySink {
+        private final CountDownLatch updated;
+        private final List<String> pluginIds = new CopyOnWriteArrayList<>();
+        private final List<Integer> mainContributionCounts = new CopyOnWriteArrayList<>();
+
+        private RecordingVisibilitySink(final int expectedUpdates) {
+            updated = new CountDownLatch(expectedUpdates);
+        }
+
+        @Override
+        public void onMainToolbarVisibilityChanged(
+            final String pluginId,
+            final List<MainToolbarRegistry.MainToolbarContribution> contributions
+        ) {
+            pluginIds.add(pluginId);
+            mainContributionCounts.add(contributions.size());
+            updated.countDown();
         }
     }
 }
