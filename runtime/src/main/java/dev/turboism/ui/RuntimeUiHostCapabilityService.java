@@ -1,6 +1,8 @@
 package dev.turboism.ui;
 
 import dev.turboism.permissions.PermissionChecker;
+import dev.turboism.sdk.permission.PermissionIds;
+import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.DialogRequest;
 import dev.turboism.sdk.ui.EmbeddedPanelContribution;
@@ -10,6 +12,7 @@ import dev.turboism.sdk.ui.StatusNotification;
 import dev.turboism.sdk.ui.UiHostCapabilityService;
 import dev.turboism.sdk.ui.ViewportSnapshot;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry;
+import dev.turboism.sdk.ui.context.ContextSourceSnapshot;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
 
@@ -21,24 +24,27 @@ import java.util.concurrent.CopyOnWriteArrayList;
 /**
  * Fake-first runtime implementation of M12 UI host capabilities.
  *
- * <p>The service stores SDK descriptors only. It performs permission checks and
- * returns idempotent registrations; real host UI placement/adaptation remains a
- * later adapter/UI bridge concern.</p>
+ * <p>The service stores SDK descriptors only. It performs permission checks,
+ * registers every contribution handle in the plugin DisposableScope, and keeps
+ * real host UI placement/adaptation as a later adapter/UI bridge concern.</p>
  */
 public final class RuntimeUiHostCapabilityService implements UiHostCapabilityService {
 
-    public static final String UI_CONTEXT_SOURCE_READ = "turboism.ui.context-source.read";
-    public static final String UI_OVERLAY_CONTRIBUTE = "turboism.ui.overlay.contribute";
-    public static final String UI_DIALOG_CONTRIBUTE = "turboism.ui.dialog.contribute";
-    public static final String UI_PANEL_CONTRIBUTE = "turboism.ui.panel.contribute";
-    public static final String UI_FILE_CHOOSER_REQUEST = "turboism.ui.file-chooser.request";
-    public static final String UI_STATUS_NOTIFY = "turboism.ui.status.notify";
-    public static final String UI_TOOLBAR_CONTRIBUTE = "turboism.ui.toolbar.contribute";
-    public static final String UI_CONTEXT_MENU_CONTRIBUTE = "turboism.ui.context-menu.contribute";
+    public static final String UI_CONTEXT_SOURCE_READ = PermissionIds.TURBOISM_UI_CONTEXT_SOURCE_READ;
+    public static final String UI_OVERLAY_CONTRIBUTE = PermissionIds.TURBOISM_UI_OVERLAY_CONTRIBUTE;
+    public static final String UI_VIEWPORT_READ = PermissionIds.TURBOISM_UI_VIEWPORT_READ;
+    public static final String UI_DIALOG_CONTRIBUTE = PermissionIds.TURBOISM_UI_DIALOG_CONTRIBUTE;
+    public static final String UI_PANEL_CONTRIBUTE = PermissionIds.TURBOISM_UI_PANEL_CONTRIBUTE;
+    public static final String UI_FILE_CHOOSER_REQUEST = PermissionIds.TURBOISM_UI_FILE_CHOOSER_REQUEST;
+    public static final String UI_STATUS_NOTIFY = PermissionIds.TURBOISM_UI_STATUS_NOTIFY;
+    public static final String UI_CONTEXT_MENU_CONTRIBUTE = PermissionIds.TURBOISM_UI_CONTEXT_MENU_CONTRIBUTE;
+    public static final String UI_TOOLBAR_MAIN_CONTRIBUTE = PermissionIds.TURBOISM_UI_TOOLBAR_MAIN_CONTRIBUTE;
+    public static final String UI_TOOLBAR_PALETTE_CONTRIBUTE = PermissionIds.TURBOISM_UI_TOOLBAR_PALETTE_CONTRIBUTE;
 
     private final PermissionChecker permissionChecker;
     private final String pluginId;
     private final UiHostStateSource stateSource;
+    private final DisposableScope disposableScope;
     private final CopyOnWriteArrayList<OverlayContribution> overlays = new CopyOnWriteArrayList<>();
     private final CopyOnWriteArrayList<DialogRequest> dialogs = new CopyOnWriteArrayList<>();
     private final CopyOnWriteArrayList<EmbeddedPanelContribution> panels = new CopyOnWriteArrayList<>();
@@ -51,7 +57,7 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         final PermissionChecker permissionChecker,
         final String pluginId
     ) {
-        this(permissionChecker, pluginId, UiHostStateSource.DEFAULT);
+        this(permissionChecker, pluginId, UiHostStateSource.DEFAULT, new DisposableScope());
     }
 
     public RuntimeUiHostCapabilityService(
@@ -59,9 +65,25 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         final String pluginId,
         final UiHostStateSource stateSource
     ) {
+        this(permissionChecker, pluginId, stateSource, new DisposableScope());
+    }
+
+    public RuntimeUiHostCapabilityService(
+        final PermissionChecker permissionChecker,
+        final String pluginId,
+        final UiHostStateSource stateSource,
+        final DisposableScope disposableScope
+    ) {
         this.permissionChecker = Objects.requireNonNull(permissionChecker, "permissionChecker");
         this.pluginId = requireText(pluginId, "pluginId");
         this.stateSource = Objects.requireNonNull(stateSource, "stateSource");
+        this.disposableScope = Objects.requireNonNull(disposableScope, "disposableScope");
+    }
+
+    @Override
+    public ContextSourceSnapshot contextSource() {
+        permissionChecker.check(UI_CONTEXT_SOURCE_READ, "ui.context-source.read");
+        return stateSource.contextSource();
     }
 
     @Override
@@ -69,12 +91,12 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         Objects.requireNonNull(contribution, "contribution");
         permissionChecker.check(UI_OVERLAY_CONTRIBUTE, "ui.overlay.contribute");
         overlays.add(contribution);
-        return registration(overlays, contribution);
+        return scopedRegistration(overlays, contribution);
     }
 
     @Override
     public ViewportSnapshot viewport() {
-        permissionChecker.check(UI_OVERLAY_CONTRIBUTE, "ui.viewport.read");
+        permissionChecker.check(UI_VIEWPORT_READ, "ui.viewport.read");
         return stateSource.viewport();
     }
 
@@ -83,7 +105,7 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         Objects.requireNonNull(request, "request");
         permissionChecker.check(UI_DIALOG_CONTRIBUTE, "ui.dialog.contribute");
         dialogs.add(request);
-        return registration(dialogs, request);
+        return scopedRegistration(dialogs, request);
     }
 
     @Override
@@ -91,14 +113,14 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         Objects.requireNonNull(contribution, "contribution");
         permissionChecker.check(UI_PANEL_CONTRIBUTE, "ui.panel.contribute");
         panels.add(contribution);
-        return registration(panels, contribution);
+        return scopedRegistration(panels, contribution);
     }
 
     @Override
     public Optional<String> requestFile(final FileChooserRequest request) {
         Objects.requireNonNull(request, "request");
         permissionChecker.check(UI_FILE_CHOOSER_REQUEST, "ui.file-chooser.request");
-        return stateSource.chooseFile(request);
+        return stateSource.chooseFile(request).map(RuntimeUiHostCapabilityService::validateRelativePath);
     }
 
     @Override
@@ -106,7 +128,7 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         Objects.requireNonNull(notification, "notification");
         permissionChecker.check(UI_STATUS_NOTIFY, "ui.status.notify");
         notifications.add(notification);
-        return registration(notifications, notification);
+        return scopedRegistration(notifications, notification);
     }
 
     @Override
@@ -114,23 +136,23 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         Objects.requireNonNull(contribution, "contribution");
         permissionChecker.check(UI_CONTEXT_MENU_CONTRIBUTE, "ui.context-menu.contribute");
         contextMenus.add(contribution);
-        return registration(contextMenus, contribution);
+        return scopedRegistration(contextMenus, contribution);
     }
 
     @Override
     public Registration contributeMainToolbar(final MainToolbarRegistry.MainToolbarContribution contribution) {
         Objects.requireNonNull(contribution, "contribution");
-        permissionChecker.check(UI_TOOLBAR_CONTRIBUTE, "ui.toolbar.main.contribute");
+        permissionChecker.check(UI_TOOLBAR_MAIN_CONTRIBUTE, "ui.toolbar.main.contribute");
         mainToolbars.add(contribution);
-        return registration(mainToolbars, contribution);
+        return scopedRegistration(mainToolbars, contribution);
     }
 
     @Override
     public Registration contributePaletteToolbar(final PaletteToolbarRegistry.PaletteToolbarContribution contribution) {
         Objects.requireNonNull(contribution, "contribution");
-        permissionChecker.check(UI_TOOLBAR_CONTRIBUTE, "ui.toolbar.palette.contribute");
+        permissionChecker.check(UI_TOOLBAR_PALETTE_CONTRIBUTE, "ui.toolbar.palette.contribute");
         paletteToolbars.add(contribution);
-        return registration(paletteToolbars, contribution);
+        return scopedRegistration(paletteToolbars, contribution);
     }
 
     public String pluginId() {
@@ -165,8 +187,8 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         return List.copyOf(paletteToolbars);
     }
 
-    private static <T> Registration registration(final CopyOnWriteArrayList<T> target, final T value) {
-        return new Registration() {
+    private <T> Registration scopedRegistration(final CopyOnWriteArrayList<T> target, final T value) {
+        Registration registration = new Registration() {
             private boolean closed;
 
             @Override
@@ -178,6 +200,16 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
                 target.remove(value);
             }
         };
+        disposableScope.register(registration);
+        return registration;
+    }
+
+    private static String validateRelativePath(final String value) {
+        Objects.requireNonNull(value, "file chooser result");
+        if (value.isBlank() || value.startsWith("/") || value.contains("..") || value.contains("\\")) {
+            throw new IllegalArgumentException("file chooser result must be a relative path without parent segments");
+        }
+        return value;
     }
 
     private static String requireText(final String value, final String name) {

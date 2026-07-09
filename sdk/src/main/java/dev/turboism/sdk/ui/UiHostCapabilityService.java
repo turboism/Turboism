@@ -2,6 +2,7 @@ package dev.turboism.sdk.ui;
 
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry;
+import dev.turboism.sdk.ui.context.ContextSourceSnapshot;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
 
@@ -18,6 +19,8 @@ import java.util.Optional;
 public interface UiHostCapabilityService {
 
     Registration contributeOverlay(OverlayContribution contribution);
+
+    ContextSourceSnapshot contextSource();
 
     ViewportSnapshot viewport();
 
