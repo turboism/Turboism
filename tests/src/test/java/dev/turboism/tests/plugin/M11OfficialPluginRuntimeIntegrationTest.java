@@ -32,7 +32,7 @@ class M11OfficialPluginRuntimeIntegrationTest {
 
     @Test
     void officialM11PluginShellsEnableWithDeclaredRuntimePermissions() throws Exception {
-        // ui-theme: context-menu contributions are checked by RuntimeContextMenuRegistry.
+        // ui-theme: context-menu and action registrations are checked by runtime registries.
         try (M8PluginTestSupport.Harness harness = harnessFor("ui-theme", tempDir.resolve("ui-theme"))) {
             UiThemePlugin plugin = new UiThemePlugin();
             plugin.init(harness.context());
@@ -69,7 +69,14 @@ class M11OfficialPluginRuntimeIntegrationTest {
     @Test
     void officialM11ManifestsDeclareOnlyPermissionsRequiredByCurrentShells() throws Exception {
         assertEquals(
-            Set.of("turboism.ui.context-menu.contribute"),
+            Set.of(
+                "turboism.action.register",
+                "turboism.ui.context-menu.contribute",
+                "turboism.cubism.project.read",
+                "turboism.ui.dialog.contribute",
+                "turboism.ui.file-chooser.request",
+                "turboism.ui.status.notify"
+            ),
             permissionIdsFor("ui-theme")
         );
         assertEquals(

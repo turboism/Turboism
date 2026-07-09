@@ -7,6 +7,8 @@ dependencies {
     testImplementation(project(":sdk"))
     testImplementation(project(":plugins:demo"))
     testImplementation(project(":plugins:ui-theme"))
+    testImplementation(project(":plugins:log-filter"))
+    testImplementation(project(":plugins:main-toolbar"))
     testImplementation(project(":plugins:perf-opt"))
     testImplementation(project(":plugins:render-opt"))
     testImplementation(project(":testframework"))
