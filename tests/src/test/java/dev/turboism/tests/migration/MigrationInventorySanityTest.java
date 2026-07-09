@@ -6,7 +6,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
-import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -76,7 +75,8 @@ class MigrationInventorySanityTest {
         "docs/migration/plans/m4-hookspec-dryrun-plan.md",
         "docs/migration/plans/m5-profile-resolver-plan.md",
         "docs/migration/plans/m6-readonly-cubism-facade-plan.md",
-        "docs/migration/plans/m8-low-risk-plugin-shells-plan.md"
+        "docs/migration/plans/m8-low-risk-plugin-shells-plan.md",
+        "docs/migration/plans/m12-cubism-capability-foundation-prd.md"
     );
 
     @Test
@@ -96,8 +96,6 @@ class MigrationInventorySanityTest {
         int phaseIndex = columns.indexOf("phase");
         int reuseLevelIndex = columns.indexOf("reuseLevel");
         int statusIndex = columns.indexOf("status");
-        int featureIndex = columns.indexOf("feature");
-
         Set<String> seenIds = new LinkedHashSet<>();
         int l0ImplementationCount = 0;
         int rowCount = 0;
@@ -146,4 +144,5 @@ class MigrationInventorySanityTest {
             assertTrue(Files.exists(path), "Plan file must exist: " + plan);
         }
     }
+
 }

@@ -6,10 +6,12 @@ import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.service.query.ModelHierarchyQueryService;
 import dev.turboism.sdk.cubism.service.query.ParameterQueryService;
 import dev.turboism.sdk.cubism.service.query.SelectionQueryService;
+import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
 import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.permission.PluginPermission;
+import dev.turboism.sdk.ui.UiHostCapabilityService;
 import dev.turboism.sdk.ui.UiScheduler;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
@@ -42,6 +44,10 @@ public interface PluginContext {
         throw new UnsupportedOperationException("modelHierarchyQuery service is not available");
     }
 
+    default CubismReadCapabilityService cubismRead() {
+        throw new UnsupportedOperationException("cubismRead service is not available");
+    }
+
     List<PluginPermission> permissions();
 
     EventBus eventBus();
@@ -56,6 +62,10 @@ public interface PluginContext {
 
     default PaletteToolbarRegistry paletteToolbar() {
         throw new UnsupportedOperationException("paletteToolbar registry is not available");
+    }
+
+    default UiHostCapabilityService uiHost() {
+        throw new UnsupportedOperationException("uiHost service is not available");
     }
 
     default ContextMenuRegistry contextMenu() {

@@ -12,7 +12,7 @@ public record WriteParameterCommand(
     ModelId modelId,
     ParameterId parameterId,
     float value
-) {
+) implements CubismWriteCommand {
 
     public WriteParameterCommand {
         if (commandId == null || commandId.isBlank()) {
