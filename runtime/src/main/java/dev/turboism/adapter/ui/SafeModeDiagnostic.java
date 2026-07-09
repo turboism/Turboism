@@ -38,6 +38,14 @@ public record SafeModeDiagnostic(
         );
     }
 
+    static SafeModeDiagnostic timeout(final String capabilityId, final String message) {
+        return new SafeModeDiagnostic(Code.TIMEOUT, capabilityId, message);
+    }
+
+    static SafeModeDiagnostic validationFailure(final String capabilityId, final String message) {
+        return new SafeModeDiagnostic(Code.VALIDATION_FAILURE, capabilityId, message);
+    }
+
     private static String requireText(final String value, final String name) {
         Objects.requireNonNull(value, name);
         if (value.isBlank()) {
@@ -49,6 +57,8 @@ public record SafeModeDiagnostic(
     public enum Code {
         ADAPTER_UNAVAILABLE,
         HOST_VERSION_UNSUPPORTED,
-        CAPABILITY_UNAVAILABLE
+        CAPABILITY_UNAVAILABLE,
+        TIMEOUT,
+        VALIDATION_FAILURE
     }
 }

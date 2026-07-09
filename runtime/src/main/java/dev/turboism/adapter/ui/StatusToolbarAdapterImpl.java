@@ -53,14 +53,18 @@ public final class StatusToolbarAdapterImpl implements StatusToolbarAdapter {
         final Capability capability,
         final HostCall<T> hostCall
     ) {
-        final Optional<SafeModeDiagnostic> versionDiagnostic = HostUiVersionCheck.diagnosticFor(operations.hostVersion());
-        if (versionDiagnostic.isPresent()) {
-            return AdapterResult.unavailable(versionDiagnostic.orElseThrow());
+        try {
+            final Optional<SafeModeDiagnostic> versionDiagnostic = HostUiVersionCheck.diagnosticFor(operations.hostVersion());
+            if (versionDiagnostic.isPresent()) {
+                return AdapterResult.unavailable(versionDiagnostic.orElseThrow());
+            }
+            if (!operations.supports(capability)) {
+                return AdapterResult.unavailable(SafeModeDiagnostic.capabilityUnavailable(capability.id()));
+            }
+            return AdapterResult.available(hostCall.invoke(operations));
+        } catch (AdapterHostException exception) {
+            return AdapterResult.unavailable(exception.diagnostic());
         }
-        if (!operations.supports(capability)) {
-            return AdapterResult.unavailable(SafeModeDiagnostic.capabilityUnavailable(capability.id()));
-        }
-        return AdapterResult.available(hostCall.invoke(operations));
     }
 
     private static <T> Supplier<AdapterResult<T>> unavailable(final Capability capability) {
