@@ -34,7 +34,7 @@ public final class RuntimePaletteToolbarRegistry implements PaletteToolbarRegist
     @Override
     public Registration contribute(final PaletteToolbarContribution contribution) {
         Objects.requireNonNull(contribution, "contribution");
-        permissionChecker.check(PermissionIds.TURBOISM_UI_TOOLBAR_PALETTE_CONTRIBUTE, "toolbar.palette.contribute");
+        permissionChecker.check(PermissionIds.TURBOISM_UI_TOOLBAR_PALETTE_CONTRIBUTE, "ui.palette-toolbar.contribute");
         final String id = requireText(contribution.contributionId(), "contributionId");
         requireText(contribution.paletteId(), "paletteId");
         contributions.put(id, contribution);
