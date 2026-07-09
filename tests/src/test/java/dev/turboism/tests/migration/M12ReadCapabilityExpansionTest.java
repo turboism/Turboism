@@ -19,6 +19,7 @@ import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.PluginPaths;
 import dev.turboism.sdk.theme.ThemeStatusSnapshot;
 import dev.turboism.sdk.ui.UiScheduler;
+import dev.turboism.ui.UiHostStateSource;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -67,6 +68,7 @@ class M12ReadCapabilityExpansionTest {
             new DisposableScope(),
             hostSource(sampleHost()),
             new SupplementalReadSource(),
+            UiHostStateSource.DEFAULT,
             event -> { },
             CLOCK
         ));

@@ -119,11 +119,13 @@ class M12UiHostCapabilityTest {
         return List.of(
             permission(RuntimeUiHostCapabilityService.UI_CONTEXT_SOURCE_READ),
             permission(RuntimeUiHostCapabilityService.UI_OVERLAY_CONTRIBUTE),
+            permission(RuntimeUiHostCapabilityService.UI_VIEWPORT_READ),
             permission(RuntimeUiHostCapabilityService.UI_DIALOG_CONTRIBUTE),
             permission(RuntimeUiHostCapabilityService.UI_PANEL_CONTRIBUTE),
             permission(RuntimeUiHostCapabilityService.UI_FILE_CHOOSER_REQUEST),
             permission(RuntimeUiHostCapabilityService.UI_STATUS_NOTIFY),
-            permission(RuntimeUiHostCapabilityService.UI_TOOLBAR_CONTRIBUTE),
+            permission(RuntimeUiHostCapabilityService.UI_TOOLBAR_MAIN_CONTRIBUTE),
+            permission(RuntimeUiHostCapabilityService.UI_TOOLBAR_PALETTE_CONTRIBUTE),
             permission(RuntimeUiHostCapabilityService.UI_CONTEXT_MENU_CONTRIBUTE)
         );
     }
