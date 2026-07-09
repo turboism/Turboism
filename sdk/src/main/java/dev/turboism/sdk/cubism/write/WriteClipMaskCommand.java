@@ -5,7 +5,7 @@ import dev.turboism.sdk.cubism.id.ModelObjectId;
 
 import java.util.List;
 
-public record WriteClipMaskCommand(String commandId, ModelObjectId clipMaskId, List<ArtMeshId> clippedMeshIds) {
+public record WriteClipMaskCommand(String commandId, ModelObjectId clipMaskId, List<ArtMeshId> clippedMeshIds) implements CubismWriteCommand {
     public WriteClipMaskCommand {
         if (commandId == null || commandId.isBlank()) {
             throw new IllegalArgumentException("commandId must not be null or blank");
