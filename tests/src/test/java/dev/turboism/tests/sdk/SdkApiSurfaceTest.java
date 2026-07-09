@@ -32,6 +32,7 @@ class SdkApiSurfaceTest {
         "dev.turboism.sdk.ui.toolbar",
         "dev.turboism.sdk.config",
         "dev.turboism.sdk.cubism",
+        "dev.turboism.sdk.cubism.event",
         "dev.turboism.sdk.cubism.boundingbox",
         "dev.turboism.sdk.cubism.deformer",
         "dev.turboism.sdk.cubism.id",
@@ -46,6 +47,7 @@ class SdkApiSurfaceTest {
     );
     private static final List<String> REQUIRED_M12_PACKAGES = List.of(
         "dev.turboism.sdk.cubism",
+        "dev.turboism.sdk.cubism.event",
         "dev.turboism.sdk.cubism.boundingbox",
         "dev.turboism.sdk.cubism.deformer",
         "dev.turboism.sdk.cubism.id",
