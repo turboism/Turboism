@@ -87,6 +87,40 @@ class StatusToolbarAdapterContractTest {
     }
 
     @Test
+    void notifyStatusReturnsTimeoutDiagnosticWhenHostTimesOut() {
+        StatusToolbarAdapter adapter = StatusToolbarAdapterImpl.connected(new FailingHost(
+            StatusToolbarAdapter.Capability.STATUS_NOTIFY,
+            new AdapterHostException(SafeModeDiagnostic.Code.TIMEOUT, StatusToolbarAdapter.Capability.STATUS_NOTIFY.id(), "status timeout")
+        ));
+
+        StatusToolbarAdapter.AdapterResult<Registration> result = adapter.notifyStatus(notification("status.timeout"));
+
+        assertFalse(result.isAvailable());
+        SafeModeDiagnostic diagnostic = result.diagnostic().orElseThrow();
+        assertEquals(SafeModeDiagnostic.Code.TIMEOUT, diagnostic.code());
+        assertEquals(StatusToolbarAdapter.Capability.STATUS_NOTIFY.id(), diagnostic.capability());
+    }
+
+    @Test
+    void paletteToolbarReturnsValidationFailureDiagnosticWhenHostRejectsContribution() {
+        StatusToolbarAdapter adapter = StatusToolbarAdapterImpl.connected(new FailingHost(
+            StatusToolbarAdapter.Capability.PALETTE_TOOLBAR_CONTRIBUTE,
+            new AdapterHostException(
+                SafeModeDiagnostic.Code.VALIDATION_FAILURE,
+                StatusToolbarAdapter.Capability.PALETTE_TOOLBAR_CONTRIBUTE.id(),
+                "invalid palette contribution"
+            )
+        ));
+
+        StatusToolbarAdapter.AdapterResult<Registration> result = adapter.contributePaletteToolbar(contribution("palette.invalid"));
+
+        assertFalse(result.isAvailable());
+        SafeModeDiagnostic diagnostic = result.diagnostic().orElseThrow();
+        assertEquals(SafeModeDiagnostic.Code.VALIDATION_FAILURE, diagnostic.code());
+        assertEquals(StatusToolbarAdapter.Capability.PALETTE_TOOLBAR_CONTRIBUTE.id(), diagnostic.capability());
+    }
+
+    @Test
     void runtimeUiHostServiceUsesAdapterForStatusNotifications() {
         RecordingHost host = new RecordingHost("5.3.2", StatusToolbarAdapter.Capability.STATUS_NOTIFY);
         RuntimeUiHostCapabilityService service = new RuntimeUiHostCapabilityService(
@@ -226,6 +260,39 @@ class StatusToolbarAdapterContractTest {
         @Override
         public Registration contributePaletteToolbar(final PaletteToolbarRegistry.PaletteToolbarContribution contribution) {
             return () -> paletteCloseCount++;
+        }
+    }
+
+    private static final class FailingHost implements StatusToolbarAdapter.HostOperations {
+        private final StatusToolbarAdapter.Capability capability;
+        private final AdapterHostException failure;
+
+        private FailingHost(
+            final StatusToolbarAdapter.Capability capability,
+            final AdapterHostException failure
+        ) {
+            this.capability = capability;
+            this.failure = failure;
+        }
+
+        @Override
+        public String hostVersion() {
+            return "5.3.2";
+        }
+
+        @Override
+        public boolean supports(final StatusToolbarAdapter.Capability capability) {
+            return this.capability == capability;
+        }
+
+        @Override
+        public Registration notifyStatus(final StatusNotification notification) {
+            throw failure;
+        }
+
+        @Override
+        public Registration contributePaletteToolbar(final PaletteToolbarRegistry.PaletteToolbarContribution contribution) {
+            throw failure;
         }
     }
 }
