@@ -5,6 +5,8 @@ include(
     "sdk",
     "plugins:demo",
     "plugins:ui-theme",
+    "plugins:log-filter",
+    "plugins:main-toolbar",
     "plugins:perf-opt",
     "plugins:render-opt",
     "testframework",
