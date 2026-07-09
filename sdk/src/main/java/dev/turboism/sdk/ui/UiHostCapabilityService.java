@@ -26,6 +26,15 @@ public interface UiHostCapabilityService {
 
     Registration openDialog(DialogRequest request);
 
+    /**
+     * Requests a yes/no confirmation for the given dialog descriptor.
+     *
+     * <p>Implementations must perform the same permission checks as
+     * {@link #openDialog(DialogRequest)} and must not expose host widgets.
+     * Returning {@code false} means the user declined or the host cancelled.</p>
+     */
+    boolean confirmDialog(DialogRequest request);
+
     Registration contributeEmbeddedPanel(EmbeddedPanelContribution contribution);
 
     Optional<String> requestFile(FileChooserRequest request);
