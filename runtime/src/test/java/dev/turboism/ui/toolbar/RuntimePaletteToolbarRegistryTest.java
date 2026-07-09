@@ -117,6 +117,28 @@ class RuntimePaletteToolbarRegistryTest {
         assertEquals("palette toolbar visibility for parameters:probe.palette.toolbar", task.payloadDescription());
     }
 
+    @Test
+    void visibilitySinkReceivesSnapshotsOnContributeAndClose() throws InterruptedException {
+        // Given
+        RecordingPolicy policy = new RecordingPolicy();
+        RecordingVisibilitySink sink = new RecordingVisibilitySink(2);
+        RuntimePaletteToolbarRegistry registry = new RuntimePaletteToolbarRegistry(
+            (permissionId, operation) -> { },
+            scheduler(policy),
+            PLUGIN_ID,
+            sink
+        );
+
+        // When
+        Registration registration = registry.contribute(contribution("probe.palette.toolbar", "parameters"));
+        registration.close();
+
+        // Then
+        assertTrue(sink.updated.await(1, TimeUnit.SECONDS));
+        assertEquals(List.of(1, 0), sink.paletteContributionCounts);
+        assertEquals(List.of(PLUGIN_ID, PLUGIN_ID), sink.pluginIds);
+    }
+
     private RuntimeScheduler scheduler(RecordingPolicy policy) {
         List<CallbackBudgetEvent> events = new CopyOnWriteArrayList<>();
         scheduler = new RuntimeScheduler(
@@ -150,6 +172,26 @@ class RuntimePaletteToolbarRegistryTest {
             this.task.set(task);
             dispatched.countDown();
             return WorkBudget.LIGHTWEIGHT;
+        }
+    }
+
+    private static final class RecordingVisibilitySink implements ToolbarVisibilitySink {
+        private final CountDownLatch updated;
+        private final List<String> pluginIds = new CopyOnWriteArrayList<>();
+        private final List<Integer> paletteContributionCounts = new CopyOnWriteArrayList<>();
+
+        private RecordingVisibilitySink(final int expectedUpdates) {
+            updated = new CountDownLatch(expectedUpdates);
+        }
+
+        @Override
+        public void onPaletteToolbarVisibilityChanged(
+            final String pluginId,
+            final List<PaletteToolbarRegistry.PaletteToolbarContribution> contributions
+        ) {
+            pluginIds.add(pluginId);
+            paletteContributionCounts.add(contributions.size());
+            updated.countDown();
         }
     }
 }
