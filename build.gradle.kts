@@ -153,6 +153,16 @@ tasks.register<JavaExec>("validatePluginMeta") {
     mainClass.set("dev.turboism.core.schema.plugin.PluginMetaValidationCli")
 
     doFirst {
+        val missingPluginMeta = rootProject.subprojects
+            .filter { it.path.startsWith(":plugins:") }
+            .map { it.file("src/main/resources/META-INF/turboism/plugin.json") }
+            .filterNot { it.isFile }
+        if (missingPluginMeta.isNotEmpty()) {
+            throw GradleException(
+                "Every :plugins:* subproject must provide META-INF/turboism/plugin.json; missing: " +
+                    missingPluginMeta.joinToString { it.relativeTo(rootProject.projectDir).invariantSeparatorsPath }
+            )
+        }
         val filesToValidate = pluginMetaFiles.files.sortedBy { it.invariantSeparatorsPath }
         if (filesToValidate.isEmpty()) {
             throw GradleException("No source plugin.json files found.")
