@@ -4,7 +4,7 @@
   "id": "dev.turboism.plugin.uitheme",
   "name": "UI Theme Plugin",
   "version": "0.1.0",
-  "description": "UI theme context-menu shell for future theme package management. No host theme mutation in M11.",
+  "description": "SDK-only UI theme package/status behavior using M12 read and UI host capabilities. Production host theme mutation remains disabled.",
   "entrypoints": {
     "plugin": "dev.turboism.plugin.uitheme.UiThemePlugin"
   },
@@ -17,9 +17,34 @@
   "dependencies": [],
   "permissions": [
     {
+      "id": "turboism.action.register",
+      "scope": "application",
+      "reason": "Registers theme package status and import actions."
+    },
+    {
       "id": "turboism.ui.context-menu.contribute",
       "scope": "application",
-      "reason": "Adds theme management context-menu items (toggle theme, apply theme)."
+      "reason": "Adds theme management context-menu items."
+    },
+    {
+      "id": "turboism.cubism.project.read",
+      "scope": "application",
+      "reason": "Reads the SDK theme status snapshot through the project-scoped Cubism read capability."
+    },
+    {
+      "id": "turboism.ui.dialog.contribute",
+      "scope": "application",
+      "reason": "Shows the fake-host theme package import confirmation dialog."
+    },
+    {
+      "id": "turboism.ui.file-chooser.request",
+      "scope": "application",
+      "reason": "Requests a ZIP theme package path for the fake-host import workflow."
+    },
+    {
+      "id": "turboism.ui.status.notify",
+      "scope": "application",
+      "reason": "Shows theme package status and import progress notifications."
     }
   ],
   "capabilities": [],
