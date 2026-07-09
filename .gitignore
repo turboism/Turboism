@@ -29,6 +29,7 @@ turboism.*.config.json
 
 # AI / agent-local process files, not submitted
 AGENTS.md
+.pi-subagents/
 docs/agents/
 docs/migration/subagents/
 
