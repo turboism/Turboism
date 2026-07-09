@@ -76,6 +76,29 @@ class M12UiHostCapabilityTest {
 
         assertEquals(new ViewportSnapshot("viewport-1", 1280, 720, 1.5), service.viewport());
         assertEquals(Optional.of("workspace/model.psd"), service.requestFile(new FileChooserRequest("file-1", "Open PSD", List.of("psd"))));
+        assertTrue(service.confirmDialog(new DialogRequest("dialog-confirm", "Confirm", "Proceed?")));
+    }
+
+    @Test
+    void uiHostServiceConfirmDialogHonorsStateSourceAndPermissionGate() {
+        RuntimeUiHostCapabilityService declining = new RuntimeUiHostCapabilityService(
+            PermissionChecker.from(allPermissions()),
+            "plugin.demo",
+            new DecliningUiHostStateSource()
+        );
+        assertFalse(declining.confirmDialog(new DialogRequest("dialog-decline", "Confirm", "Proceed?")));
+        assertEquals(1, declining.dialogs().size());
+
+        RuntimeUiHostCapabilityService denied = new RuntimeUiHostCapabilityService(
+            PermissionChecker.from(List.of(permission(RuntimeUiHostCapabilityService.UI_STATUS_NOTIFY))),
+            "plugin.demo",
+            new TestUiHostStateSource()
+        );
+        assertThrows(
+            CubismPermissionException.class,
+            () -> denied.confirmDialog(new DialogRequest("dialog-denied", "Confirm", "Proceed?"))
+        );
+        assertTrue(denied.dialogs().isEmpty());
     }
 
     @Test
@@ -138,7 +161,7 @@ class M12UiHostCapabilityTest {
         };
     }
 
-    private static final class TestUiHostStateSource implements UiHostStateSource {
+    private static class TestUiHostStateSource implements UiHostStateSource {
         @Override
         public ViewportSnapshot viewport() {
             return new ViewportSnapshot("viewport-1", 1280, 720, 1.5);
@@ -147,6 +170,13 @@ class M12UiHostCapabilityTest {
         @Override
         public Optional<String> chooseFile(FileChooserRequest request) {
             return Optional.of("workspace/model." + request.allowedExtensions().get(0));
+        }
+    }
+
+    private static final class DecliningUiHostStateSource extends TestUiHostStateSource {
+        @Override
+        public boolean confirmDialog(DialogRequest request) {
+            return false;
         }
     }
 }
