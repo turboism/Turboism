@@ -1,0 +1,57 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 1,
+  "id": "dev.turboism.plugin.clipmask",
+  "name": "Clip Mask Inspector Plugin",
+  "version": "0.1.0",
+  "description": "Fake-ready read-only clip-mask inspector using SDK read and UI host capabilities. Writeback and real-host placement remain future work.",
+  "entrypoints": {
+    "plugin": "dev.turboism.plugin.clipmask.ClipMaskPlugin"
+  },
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    { "name": "Turboism Contributors" }
+  ],
+  "license": "Project License",
+  "homepage": "https://turboism.dev",
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.cubism.model.read",
+      "scope": "application",
+      "reason": "Read fake clip-mask, mesh, and selection snapshots for the inspector."
+    },
+    {
+      "id": "turboism.ui.dialog.contribute",
+      "scope": "application",
+      "reason": "Open the read-only clip-mask inspector dialog descriptor."
+    },
+    {
+      "id": "turboism.ui.panel.contribute",
+      "scope": "application",
+      "reason": "Contribute the clip-mask inspector embedded panel."
+    },
+    {
+      "id": "turboism.ui.status.notify",
+      "scope": "application",
+      "reason": "Notify inspect results and empty-mask fallback."
+    },
+    {
+      "id": "turboism.action.register",
+      "scope": "application",
+      "reason": "Register the clip-mask inspect action."
+    }
+  ],
+  "capabilities": [
+    "cubism.clipmask.read",
+    "cubism.mesh.read",
+    "cubism.selection.read",
+    "ui.dialog.contribute",
+    "ui.embedded-panel.contribute",
+    "ui.status.notify"
+  ],
+  "environment": {
+    "requiresCubism": false,
+    "ui": "embedded"
+  }
+}
