@@ -15,6 +15,7 @@ import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.CubismRuntimeSnapshot;
 import dev.turboism.sdk.cubism.SelectionSnapshot;
+import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
 import dev.turboism.sdk.config.PluginConfigRegistry;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
 import dev.turboism.sdk.event.EventBus;
@@ -26,12 +27,15 @@ import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.PluginPaths;
 import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.sdk.ui.UiHostCapabilityService;
 import dev.turboism.sdk.ui.UiScheduler;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
 import dev.turboism.test.ui.FakeDirectUiScheduler;
 import dev.turboism.test.ui.toolbar.FakeToolbarVisibilityTracker;
+import dev.turboism.ui.RuntimeUiHostCapabilityService;
+import dev.turboism.ui.UiHostStateSource;
 
 import java.nio.file.Path;
 import java.time.Clock;
@@ -53,6 +57,15 @@ final class M8PluginTestSupport {
     }
 
     static Harness harness(Path dataDir, PermissionChecker permissions) {
+        return harness(dataDir, permissions, UiHostStateSource.DEFAULT, null);
+    }
+
+    static Harness harness(
+        Path dataDir,
+        PermissionChecker permissions,
+        UiHostStateSource uiHostStateSource,
+        CubismReadCapabilityService cubismRead
+    ) {
         List<CallbackBudgetEvent> events = new CopyOnWriteArrayList<>();
         RuntimeScheduler scheduler = new RuntimeScheduler(
             new DefaultWorkBudgetPolicy(),
@@ -71,7 +84,13 @@ final class M8PluginTestSupport {
         dev.turboism.ui.context.RuntimeContextMenuRegistry contextMenu = new dev.turboism.ui.context.RuntimeContextMenuRegistry(permissions, PLUGIN_ID);
         RuntimeMainToolbarRegistryAdapter mainToolbar = new RuntimeMainToolbarRegistryAdapter(mainToolbarDelegate, toolbarTracker);
         RuntimePaletteToolbarRegistryAdapter paletteToolbar = new RuntimePaletteToolbarRegistryAdapter(paletteToolbarDelegate, toolbarTracker);
-            RuntimePluginConfigRegistry config = new RuntimePluginConfigRegistry(permissions, scheduler, dataDir, "dev.turboism.plugin.m8-test", problem -> addProblem(report, problem));
+        RuntimePluginConfigRegistry config = new RuntimePluginConfigRegistry(permissions, scheduler, dataDir, "dev.turboism.plugin.m8-test", problem -> addProblem(report, problem));
+        RuntimeUiHostCapabilityService uiHost = new RuntimeUiHostCapabilityService(
+            permissions,
+            PLUGIN_ID,
+            uiHostStateSource,
+            scope
+        );
         TestPluginContext context = new TestPluginContext(
             scope,
             actions,
@@ -81,9 +100,11 @@ final class M8PluginTestSupport {
             paletteToolbar,
             contextMenu,
             config,
+            uiHost,
+            cubismRead,
             dataDir
         );
-        return new Harness(scheduler, context, toolbarTracker, menuTracker, mainToolbar, paletteToolbar, config, report);
+        return new Harness(scheduler, context, uiHost, toolbarTracker, menuTracker, mainToolbar, paletteToolbar, config, report);
     }
 
     static PluginDescriptor descriptor() {
@@ -111,6 +132,7 @@ final class M8PluginTestSupport {
     record Harness(
         RuntimeScheduler scheduler,
         TestPluginContext context,
+        RuntimeUiHostCapabilityService uiHost,
         FakeToolbarVisibilityTracker toolbarTracker,
         MenuTracker menuTracker,
         RuntimeMainToolbarRegistryAdapter mainToolbar,
@@ -164,6 +186,8 @@ final class M8PluginTestSupport {
         private final PaletteToolbarRegistry paletteToolbar;
         private final ContextMenuRegistry contextMenu;
         private final PluginConfigRegistry config;
+        private final RuntimeUiHostCapabilityService uiHost;
+        private final CubismReadCapabilityService cubismRead;
         private final PluginPaths paths;
 
         TestPluginContext(
@@ -175,6 +199,8 @@ final class M8PluginTestSupport {
             PaletteToolbarRegistry paletteToolbar,
             ContextMenuRegistry contextMenu,
             PluginConfigRegistry config,
+            RuntimeUiHostCapabilityService uiHost,
+            CubismReadCapabilityService cubismRead,
             Path dataDir
         ) {
             this.scope = scope;
@@ -185,13 +211,21 @@ final class M8PluginTestSupport {
             this.paletteToolbar = paletteToolbar;
             this.contextMenu = contextMenu;
             this.config = config;
+            this.uiHost = uiHost;
+            this.cubismRead = cubismRead;
             this.paths = new TestPaths(dataDir);
         }
 
-        @Override public PluginDescriptor descriptor() { return descriptor(); }
+        @Override public PluginDescriptor descriptor() { return M8PluginTestSupport.descriptor(); }
         @Override public PluginLogger logger() { return new TestLogger(); }
         @Override public PluginPaths paths() { return paths; }
         @Override public CubismFacade cubism() { return NoCubismFacade.INSTANCE; }
+        @Override public CubismReadCapabilityService cubismRead() {
+            if (cubismRead == null) {
+                throw new UnsupportedOperationException("cubismRead service is not available");
+            }
+            return cubismRead;
+        }
         @Override public List<PluginPermission> permissions() { return List.of(); }
         @Override public EventBus eventBus() { return eventBus; }
         @Override public ActionRegistry actions() { return actions; }
@@ -199,6 +233,8 @@ final class M8PluginTestSupport {
         @Override public MainToolbarRegistry mainToolbar() { return mainToolbar; }
         @Override public PaletteToolbarRegistry paletteToolbar() { return paletteToolbar; }
         @Override public ContextMenuRegistry contextMenu() { return contextMenu; }
+        @Override public UiHostCapabilityService uiHost() { return uiHost; }
+        RuntimeUiHostCapabilityService runtimeUiHost() { return uiHost; }
         @Override public PluginConfigRegistry config() { return config; }
         @Override public UiScheduler uiScheduler() { return new FakeDirectUiScheduler(); }
         @Override public DiagnosticReport diagnostics() { return new TestDiagnostics(); }
