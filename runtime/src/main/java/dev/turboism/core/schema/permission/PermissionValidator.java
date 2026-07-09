@@ -21,7 +21,10 @@ public final class PermissionValidator extends AbstractJsonValidator {
         "turboism.file.read", "turboism.file.write", "turboism.network.fetch",
         "turboism.action.register", "turboism.ui.menu.contribute",
         "turboism.ui.toolbar.main.contribute", "turboism.ui.toolbar.palette.contribute",
-        "turboism.ui.context-menu.contribute",
+        "turboism.ui.context-menu.contribute", "turboism.ui.context-source.read",
+        "turboism.ui.overlay.contribute", "turboism.ui.dialog.contribute",
+        "turboism.ui.panel.contribute", "turboism.ui.file-chooser.request",
+        "turboism.ui.status.notify", "turboism.ui.toolbar.contribute",
         "turboism.config.plugin.read", "turboism.config.plugin.write",
         "turboism.event.subscribe", "turboism.event.publish"
     );

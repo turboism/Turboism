@@ -11,6 +11,7 @@ import dev.turboism.sdk.diagnostics.DiagnosticReport;
 import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.permission.PluginPermission;
+import dev.turboism.sdk.ui.UiHostCapabilityService;
 import dev.turboism.sdk.ui.UiScheduler;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
@@ -61,6 +62,10 @@ public interface PluginContext {
 
     default PaletteToolbarRegistry paletteToolbar() {
         throw new UnsupportedOperationException("paletteToolbar registry is not available");
+    }
+
+    default UiHostCapabilityService uiHost() {
+        throw new UnsupportedOperationException("uiHost service is not available");
     }
 
     default ContextMenuRegistry contextMenu() {
