@@ -34,7 +34,7 @@ public final class RuntimeMainToolbarRegistry implements MainToolbarRegistry {
     @Override
     public Registration contribute(final MainToolbarContribution contribution) {
         Objects.requireNonNull(contribution, "contribution");
-        permissionChecker.check(PermissionIds.TURBOISM_UI_TOOLBAR_MAIN_CONTRIBUTE, "toolbar.main.contribute");
+        permissionChecker.check(PermissionIds.TURBOISM_UI_TOOLBAR_MAIN_CONTRIBUTE, "ui.main-toolbar.contribute");
         final String id = requireText(contribution.contributionId(), "contributionId");
         contributions.put(id, contribution);
         dispatchVisibilityUpdate(id);

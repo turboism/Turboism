@@ -1,5 +1,8 @@
 package dev.turboism.ui;
 
+import dev.turboism.adapter.ui.SafeModeDiagnostic;
+import dev.turboism.adapter.ui.StatusToolbarAdapter;
+import dev.turboism.adapter.ui.StatusToolbarAdapterImpl;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.DisposableScope;
@@ -45,6 +48,7 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
     private final String pluginId;
     private final UiHostStateSource stateSource;
     private final DisposableScope disposableScope;
+    private final StatusToolbarAdapter statusToolbarAdapter;
     private final CopyOnWriteArrayList<OverlayContribution> overlays = new CopyOnWriteArrayList<>();
     private final CopyOnWriteArrayList<DialogRequest> dialogs = new CopyOnWriteArrayList<>();
     private final CopyOnWriteArrayList<EmbeddedPanelContribution> panels = new CopyOnWriteArrayList<>();
@@ -52,6 +56,7 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
     private final CopyOnWriteArrayList<ContextMenuRegistry.ContextMenuContribution> contextMenus = new CopyOnWriteArrayList<>();
     private final CopyOnWriteArrayList<MainToolbarRegistry.MainToolbarContribution> mainToolbars = new CopyOnWriteArrayList<>();
     private final CopyOnWriteArrayList<PaletteToolbarRegistry.PaletteToolbarContribution> paletteToolbars = new CopyOnWriteArrayList<>();
+    private final CopyOnWriteArrayList<SafeModeDiagnostic> statusToolbarDiagnostics = new CopyOnWriteArrayList<>();
 
     public RuntimeUiHostCapabilityService(
         final PermissionChecker permissionChecker,
@@ -74,10 +79,21 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         final UiHostStateSource stateSource,
         final DisposableScope disposableScope
     ) {
+        this(permissionChecker, pluginId, stateSource, disposableScope, StatusToolbarAdapterImpl.safeMode());
+    }
+
+    public RuntimeUiHostCapabilityService(
+        final PermissionChecker permissionChecker,
+        final String pluginId,
+        final UiHostStateSource stateSource,
+        final DisposableScope disposableScope,
+        final StatusToolbarAdapter statusToolbarAdapter
+    ) {
         this.permissionChecker = Objects.requireNonNull(permissionChecker, "permissionChecker");
         this.pluginId = requireText(pluginId, "pluginId");
         this.stateSource = Objects.requireNonNull(stateSource, "stateSource");
         this.disposableScope = Objects.requireNonNull(disposableScope, "disposableScope");
+        this.statusToolbarAdapter = Objects.requireNonNull(statusToolbarAdapter, "statusToolbarAdapter");
     }
 
     @Override
@@ -109,6 +125,14 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
     }
 
     @Override
+    public boolean confirmDialog(final DialogRequest request) {
+        Objects.requireNonNull(request, "request");
+        permissionChecker.check(UI_DIALOG_CONTRIBUTE, "ui.dialog.contribute");
+        dialogs.add(request);
+        return stateSource.confirmDialog(request);
+    }
+
+    @Override
     public Registration contributeEmbeddedPanel(final EmbeddedPanelContribution contribution) {
         Objects.requireNonNull(contribution, "contribution");
         permissionChecker.check(UI_PANEL_CONTRIBUTE, "ui.panel.contribute");
@@ -127,6 +151,11 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
     public Registration notifyStatus(final StatusNotification notification) {
         Objects.requireNonNull(notification, "notification");
         permissionChecker.check(UI_STATUS_NOTIFY, "ui.status.notify");
+        final StatusToolbarAdapter.AdapterResult<Registration> adapterResult = statusToolbarAdapter.notifyStatus(notification);
+        if (adapterResult.isAvailable()) {
+            return enrollAdapterRegistration(adapterResult.value().orElseThrow());
+        }
+        adapterResult.diagnostic().ifPresent(statusToolbarDiagnostics::add);
         notifications.add(notification);
         return scopedRegistration(notifications, notification);
     }
@@ -142,7 +171,7 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
     @Override
     public Registration contributeMainToolbar(final MainToolbarRegistry.MainToolbarContribution contribution) {
         Objects.requireNonNull(contribution, "contribution");
-        permissionChecker.check(UI_TOOLBAR_MAIN_CONTRIBUTE, "ui.toolbar.main.contribute");
+        permissionChecker.check(UI_TOOLBAR_MAIN_CONTRIBUTE, "ui.main-toolbar.contribute");
         mainToolbars.add(contribution);
         return scopedRegistration(mainToolbars, contribution);
     }
@@ -150,9 +179,23 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
     @Override
     public Registration contributePaletteToolbar(final PaletteToolbarRegistry.PaletteToolbarContribution contribution) {
         Objects.requireNonNull(contribution, "contribution");
-        permissionChecker.check(UI_TOOLBAR_PALETTE_CONTRIBUTE, "ui.toolbar.palette.contribute");
+        permissionChecker.check(UI_TOOLBAR_PALETTE_CONTRIBUTE, "ui.palette-toolbar.contribute");
+        final StatusToolbarAdapter.AdapterResult<Registration> adapterResult = statusToolbarAdapter.contributePaletteToolbar(contribution);
+        if (adapterResult.isAvailable()) {
+            return enrollAdapterRegistration(adapterResult.value().orElseThrow());
+        }
+        adapterResult.diagnostic().ifPresent(statusToolbarDiagnostics::add);
         paletteToolbars.add(contribution);
         return scopedRegistration(paletteToolbars, contribution);
+    }
+
+    /**
+     * Adapter-backed host registrations are auto-enrolled in the plugin scope.
+     * Plugins may also enroll the returned handle (for SDK stub hosts that do not auto-scope).
+     * Wrap the host registration so dual enrollment cannot double-close the real host handle.
+     */
+    private Registration enrollAdapterRegistration(final Registration hostRegistration) {
+        return disposableScope.register(IdempotentRegistration.of(hostRegistration));
     }
 
     public String pluginId() {
@@ -185,6 +228,10 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
 
     public List<PaletteToolbarRegistry.PaletteToolbarContribution> paletteToolbars() {
         return List.copyOf(paletteToolbars);
+    }
+
+    public List<SafeModeDiagnostic> statusToolbarDiagnostics() {
+        return List.copyOf(statusToolbarDiagnostics);
     }
 
     private <T> Registration scopedRegistration(final CopyOnWriteArrayList<T> target, final T value) {

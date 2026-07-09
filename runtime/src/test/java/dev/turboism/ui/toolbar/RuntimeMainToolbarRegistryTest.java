@@ -56,7 +56,7 @@ class RuntimeMainToolbarRegistryTest {
             CubismPermissionException.class,
             () -> registry.contribute(contribution("probe.toolbar"))
         );
-        assertEquals("toolbar.main.contribute denied", exception.getMessage());
+        assertEquals("ui.main-toolbar.contribute denied", exception.getMessage());
         assertEquals(0, registry.registrationCount());
     }
 

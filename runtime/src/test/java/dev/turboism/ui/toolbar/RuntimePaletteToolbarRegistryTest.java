@@ -56,7 +56,7 @@ class RuntimePaletteToolbarRegistryTest {
             CubismPermissionException.class,
             () -> registry.contribute(contribution("probe.palette.toolbar", "parameters"))
         );
-        assertEquals("toolbar.palette.contribute denied", exception.getMessage());
+        assertEquals("ui.palette-toolbar.contribute denied", exception.getMessage());
         assertEquals(0, registry.registrationCount());
     }
 

@@ -1,5 +1,6 @@
 package dev.turboism.ui;
 
+import dev.turboism.sdk.ui.DialogRequest;
 import dev.turboism.sdk.ui.FileChooserRequest;
 import dev.turboism.sdk.ui.ViewportSnapshot;
 import dev.turboism.sdk.ui.context.ContextSourceSnapshot;
@@ -31,5 +32,13 @@ public interface UiHostStateSource {
 
     default Optional<String> chooseFile(FileChooserRequest request) {
         return Optional.empty();
+    }
+
+    /**
+     * Fake-first confirmation seam. Defaults to confirmed so existing
+     * openDialog-only callers keep working; tests and host adapters can override.
+     */
+    default boolean confirmDialog(DialogRequest request) {
+        return true;
     }
 }
