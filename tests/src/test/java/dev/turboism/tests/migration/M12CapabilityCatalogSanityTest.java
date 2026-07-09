@@ -39,6 +39,19 @@ class M12CapabilityCatalogSanityTest {
     private static final Set<String> ALLOWED_THREADING_BUDGETS = Set.of(
         "editor-critical-enqueue-only", "ui-short", "plugin-bounded", "sidecar-required"
     );
+    private static final Set<String> KNOWN_PERMISSION_IDS = Set.of(
+        "turboism.ui.menu", "turboism.ui.menu.contribute", "turboism.ui.toolbar",
+        "turboism.ui.toolbar.main.contribute", "turboism.ui.toolbar.palette.contribute",
+        "turboism.ui.context-menu.contribute", "turboism.ui.context-source.read",
+        "turboism.ui.overlay.contribute", "turboism.ui.viewport.read",
+        "turboism.ui.dialog.contribute", "turboism.ui.panel.contribute",
+        "turboism.ui.file-chooser.request", "turboism.ui.status.notify", "turboism.ui.palette",
+        "turboism.cubism.project.read", "turboism.cubism.model.read", "turboism.cubism.model.write",
+        "turboism.cubism.parameter.read", "turboism.cubism.mesh.read",
+        "turboism.action.register", "turboism.event.subscribe", "turboism.event.publish",
+        "turboism.config.plugin.read", "turboism.config.plugin.write",
+        "turboism.file.read", "turboism.file.write", "turboism.network.fetch"
+    );
     private static final Set<String> REQUIRED_CAPABILITY_IDS = Set.of(
         "cubism.project.read", "cubism.selection.read", "cubism.parameter.read", "cubism.model-tree.read",
         "cubism.mesh.read", "cubism.deformer.read", "cubism.psd.read", "cubism.clipmask.read",
@@ -169,6 +182,7 @@ class M12CapabilityCatalogSanityTest {
         assertRequired(values, columns, "sdkSurface", capabilityId);
         assertRequired(values, columns, "runtimeOwner", capabilityId);
         assertRequired(values, columns, "permissions", capabilityId);
+        assertPermissionField(capabilityId, value(values, columns, "permissions"));
         assertBoolean(values, columns, "requiresTransaction", capabilityId);
         assertBoolean(values, columns, "requiresHook", capabilityId);
         assertBoolean(values, columns, "requiresMapping", capabilityId);
@@ -198,6 +212,17 @@ class M12CapabilityCatalogSanityTest {
 
     private static void assertBoolean(List<String> values, List<String> columns, String field, String capabilityId) {
         assertTrue(Set.of("true", "false").contains(value(values, columns, field)), field + " must be boolean for " + capabilityId);
+    }
+
+    private static void assertPermissionField(String capabilityId, String permissions) {
+        if (permissions.startsWith("no additional permission") || "internal only".equals(permissions)) {
+            return;
+        }
+        for (String permission : permissions.split(";")) {
+            String trimmed = permission.trim();
+            assertTrue(KNOWN_PERMISSION_IDS.contains(trimmed),
+                capabilityId + " references unknown permission id: " + trimmed);
+        }
     }
 
     private static String value(List<String> values, List<String> columns, String field) {
