@@ -23,7 +23,7 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
             new ParameterQueryServiceImpl(facade, permissionGate),
             new SelectionQueryServiceImpl(facade, permissionGate, dependencies.runtimeScheduler()),
             new ModelHierarchyQueryServiceImpl(facade, permissionGate),
-            new CubismReadCapabilityServiceImpl(facade)
+            new CubismReadCapabilityServiceImpl(facade, dependencies.m12ReadSnapshotSource())
         );
     }
 }

@@ -85,6 +85,10 @@ final class M12RepresentativeFixtures {
         return host;
     }
 
+    static HostSnapshotSource hostSource(FakeCubismHost host) {
+        return new TestHostSnapshotSource(host);
+    }
+
     static FakeHostWriteAdapter adapterWithParameterValue(double value) {
         FakeHostWriteAdapter adapter = new FakeHostWriteAdapter();
         adapter.addDocument("document-1", "Document", new FakeHostWriteAdapter.FakeModel(

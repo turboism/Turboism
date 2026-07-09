@@ -1,6 +1,7 @@
 package dev.turboism.core.plugin.context;
 
 import dev.turboism.adapter.cubism.HostSnapshotSource;
+import dev.turboism.adapter.cubism.service.read.M12ReadSnapshotSource;
 import dev.turboism.config.RuntimePluginConfigRegistry;
 import dev.turboism.core.action.RuntimeActionRegistry;
 import dev.turboism.core.diagnostics.StartupReport;
@@ -201,6 +202,7 @@ public final class CorePluginContext implements PluginContext {
         DiagnosticReport diagnostics,
         DisposableScope disposableScope,
         HostSnapshotSource hostSnapshotSource,
+        M12ReadSnapshotSource m12ReadSnapshotSource,
         Consumer<CubismFacadeAuditEvent> cubismAuditSink,
         Clock clock
     ) {
@@ -230,6 +232,35 @@ public final class CorePluginContext implements PluginContext {
                 diagnostics,
                 disposableScope,
                 hostSnapshotSource,
+                M12ReadSnapshotSource.EMPTY,
+                cubismAuditSink,
+                clock
+            );
+        }
+
+        public Dependencies(
+            PluginDescriptor descriptor,
+            PluginLogger logger,
+            PluginPaths paths,
+            UiScheduler uiScheduler,
+            RuntimeScheduler runtimeScheduler,
+            DiagnosticReport diagnostics,
+            DisposableScope disposableScope,
+            HostSnapshotSource hostSnapshotSource,
+            M12ReadSnapshotSource m12ReadSnapshotSource,
+            Consumer<CubismFacadeAuditEvent> cubismAuditSink,
+            Clock clock
+        ) {
+            this(
+                descriptor,
+                logger,
+                paths,
+                uiScheduler,
+                runtimeScheduler,
+                diagnostics,
+                disposableScope,
+                hostSnapshotSource,
+                m12ReadSnapshotSource,
                 cubismAuditSink,
                 clock,
                 defaultServices(
@@ -262,6 +293,7 @@ public final class CorePluginContext implements PluginContext {
             DiagnosticReport diagnostics,
             DisposableScope disposableScope,
             HostSnapshotSource hostSnapshotSource,
+            M12ReadSnapshotSource m12ReadSnapshotSource,
             Consumer<CubismFacadeAuditEvent> cubismAuditSink,
             Clock clock,
             DefaultServices services
@@ -283,6 +315,7 @@ public final class CorePluginContext implements PluginContext {
                 diagnostics,
                 disposableScope,
                 hostSnapshotSource,
+                m12ReadSnapshotSource,
                 cubismAuditSink,
                 clock
             );
@@ -341,6 +374,7 @@ public final class CorePluginContext implements PluginContext {
             diagnostics = Objects.requireNonNull(diagnostics, "diagnostics");
             disposableScope = Objects.requireNonNull(disposableScope, "disposableScope");
             hostSnapshotSource = Objects.requireNonNull(hostSnapshotSource, "hostSnapshotSource");
+            m12ReadSnapshotSource = Objects.requireNonNull(m12ReadSnapshotSource, "m12ReadSnapshotSource");
             cubismAuditSink = Objects.requireNonNull(cubismAuditSink, "cubismAuditSink");
             clock = Objects.requireNonNull(clock, "clock");
         }
