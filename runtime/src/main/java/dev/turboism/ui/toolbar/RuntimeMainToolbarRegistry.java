@@ -7,8 +7,10 @@ import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 public final class RuntimeMainToolbarRegistry implements MainToolbarRegistry {
@@ -19,6 +21,7 @@ public final class RuntimeMainToolbarRegistry implements MainToolbarRegistry {
     private final PermissionChecker permissionChecker;
     private final RuntimeScheduler scheduler;
     private final String pluginId;
+    private final Optional<ToolbarVisibilitySink> visibilitySink;
     private final Map<String, MainToolbarContribution> contributions = new ConcurrentHashMap<>();
 
     public RuntimeMainToolbarRegistry(
@@ -26,9 +29,19 @@ public final class RuntimeMainToolbarRegistry implements MainToolbarRegistry {
         final RuntimeScheduler scheduler,
         final String pluginId
     ) {
+        this(permissionChecker, scheduler, pluginId, null);
+    }
+
+    public RuntimeMainToolbarRegistry(
+        final PermissionChecker permissionChecker,
+        final RuntimeScheduler scheduler,
+        final String pluginId,
+        final ToolbarVisibilitySink visibilitySink
+    ) {
         this.permissionChecker = Objects.requireNonNull(permissionChecker, "permissionChecker");
         this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
         this.pluginId = requireText(pluginId, "pluginId");
+        this.visibilitySink = Optional.ofNullable(visibilitySink);
     }
 
     @Override
@@ -50,10 +63,12 @@ public final class RuntimeMainToolbarRegistry implements MainToolbarRegistry {
     }
 
     private void dispatchVisibilityUpdate(final String contributionId) {
-        scheduler.dispatch(task(contributionId), this::updateVisibility);
+        final List<MainToolbarContribution> snapshot = List.copyOf(contributions.values());
+        scheduler.dispatch(task(contributionId), () -> updateVisibility(snapshot));
     }
 
-    private void updateVisibility() {
+    private void updateVisibility(final List<MainToolbarContribution> snapshot) {
+        visibilitySink.ifPresent(sink -> sink.onMainToolbarVisibilityChanged(pluginId, snapshot));
     }
 
     private PluginTask task(final String contributionId) {
