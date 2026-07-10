@@ -14,7 +14,7 @@ public record SafeModeDiagnostic(
         message = requireText(message, "message");
     }
 
-    static SafeModeDiagnostic adapterUnavailable(final String capabilityId) {
+    public static SafeModeDiagnostic adapterUnavailable(final String capabilityId) {
         return new SafeModeDiagnostic(
             Code.ADAPTER_UNAVAILABLE,
             capabilityId,
@@ -22,7 +22,7 @@ public record SafeModeDiagnostic(
         );
     }
 
-    static SafeModeDiagnostic hostVersionUnsupported(final String hostVersion) {
+    public static SafeModeDiagnostic hostVersionUnsupported(final String hostVersion) {
         return new SafeModeDiagnostic(
             Code.HOST_VERSION_UNSUPPORTED,
             "adapter.ui",
@@ -30,7 +30,7 @@ public record SafeModeDiagnostic(
         );
     }
 
-    static SafeModeDiagnostic capabilityUnavailable(final String capabilityId) {
+    public static SafeModeDiagnostic capabilityUnavailable(final String capabilityId) {
         return new SafeModeDiagnostic(
             Code.CAPABILITY_UNAVAILABLE,
             capabilityId,
@@ -38,11 +38,11 @@ public record SafeModeDiagnostic(
         );
     }
 
-    static SafeModeDiagnostic timeout(final String capabilityId, final String message) {
+    public static SafeModeDiagnostic timeout(final String capabilityId, final String message) {
         return new SafeModeDiagnostic(Code.TIMEOUT, capabilityId, message);
     }
 
-    static SafeModeDiagnostic validationFailure(final String capabilityId, final String message) {
+    public static SafeModeDiagnostic validationFailure(final String capabilityId, final String message) {
         return new SafeModeDiagnostic(Code.VALIDATION_FAILURE, capabilityId, message);
     }
 
