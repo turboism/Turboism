@@ -15,7 +15,7 @@ public final class HostUiVersionCheck {
     private HostUiVersionCheck() {
     }
 
-    static Optional<SafeModeDiagnostic> diagnosticFor(final String hostVersion) {
+    public static Optional<SafeModeDiagnostic> diagnosticFor(final String hostVersion) {
         Objects.requireNonNull(hostVersion, "hostVersion");
         try {
             if (SUPPORTED_RANGE.contains(PluginVersion.parse(hostVersion))) {
