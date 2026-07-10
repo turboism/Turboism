@@ -4,6 +4,7 @@ import dev.turboism.core.descriptor.PluginDescriptorParser;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.plugin.clipmask.ClipMaskPlugin;
 import dev.turboism.plugin.parameter.ParameterPlugin;
+import dev.turboism.plugin.mesh.MeshPlugin;
 import dev.turboism.plugin.logfilter.LogFilterPlugin;
 import dev.turboism.plugin.maintoolbar.MainToolbarPlugin;
 import dev.turboism.plugin.renderopt.RenderOptPlugin;
@@ -375,6 +376,42 @@ class M13OfficialPluginRuntimeIntegrationTest {
         }
     }
 
+
+    @Test
+    void meshEnablesWithDeclaredPermissions() throws Exception {
+        try (M8PluginTestSupport.Harness harness = harnessFor(
+            "mesh",
+            tempDir.resolve("mesh"),
+            UiHostStateSource.DEFAULT,
+            new MeshRead()
+        )) {
+            MeshPlugin plugin = new MeshPlugin();
+            plugin.init(harness.context());
+            plugin.enable();
+            harness.context().disposableScope().close();
+        }
+    }
+
+    @Test
+    void meshEnableFailsWhenActionPermissionIsMissing() throws Exception {
+        PluginDescriptor descriptor = descriptorFor("mesh");
+        List<PluginPermission> permissionsWithoutAction = withoutPermission(
+            descriptor,
+            "turboism.action.register"
+        );
+        try (M8PluginTestSupport.Harness harness = M8PluginTestSupport.harness(
+            tempDir.resolve("mesh-denied"),
+            PermissionChecker.from(permissionsWithoutAction),
+            UiHostStateSource.DEFAULT,
+            new MeshRead()
+        )) {
+            MeshPlugin plugin = new MeshPlugin();
+            plugin.init(harness.context());
+            CubismPermissionException failure = assertThrows(CubismPermissionException.class, plugin::enable);
+            assertTrue(failure.getMessage().contains("turboism.action.register"));
+        }
+    }
+
     @Test
     void officialM13ManifestsDeclareExpectedPermissions() throws Exception {
         assertEquals(
@@ -433,6 +470,15 @@ class M13OfficialPluginRuntimeIntegrationTest {
                 "turboism.ui.status.notify"
             ),
             permissionIdsFor("parameter")
+        );
+        assertEquals(
+            Set.of(
+                "turboism.action.register",
+                "turboism.cubism.model.read",
+                "turboism.ui.context-source.read",
+                "turboism.ui.status.notify"
+            ),
+            permissionIdsFor("mesh")
         );
     }
 
@@ -529,6 +575,17 @@ class M13OfficialPluginRuntimeIntegrationTest {
         @Override
         public Optional<RenderStatusSnapshot> renderStatus() {
             return Optional.of(new RenderStatusSnapshot(true, 60.0, "fake-renderer"));
+        }
+    }
+
+    private static final class MeshRead extends UnsupportedCubismRead {
+        @Override
+        public List<ArtMeshSnapshot> meshes() {
+            return List.of(new ArtMeshSnapshot("m1", "Mesh1", Optional.empty(), true, true));
+        }
+        @Override
+        public List<DeformerSnapshot> deformers() {
+            return List.of();
         }
     }
 
