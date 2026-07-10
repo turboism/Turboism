@@ -11,6 +11,7 @@ include(
     "plugins:render-opt",
     "plugins:clip-mask",
     "plugins:parameter",
+    "plugins:mesh",
     "testframework",
     "tests"
 )
