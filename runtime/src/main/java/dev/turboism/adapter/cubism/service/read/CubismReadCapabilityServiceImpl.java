@@ -89,11 +89,13 @@ public final class CubismReadCapabilityServiceImpl implements CubismReadCapabili
 
     @Override
     public List<ArtMeshSnapshot> meshes() {
+        requireModelRead("meshes");
         return runtime().artMeshes();
     }
 
     @Override
     public List<DeformerSnapshot> deformers() {
+        requireModelRead("deformers");
         return runtime().deformers();
     }
 
