@@ -1,0 +1,392 @@
+package dev.turboism.adapter.host;
+
+import dev.turboism.adapter.RuntimeHostAdapters;
+import dev.turboism.adapter.cubism.ProjectWorkspaceAdapter;
+import dev.turboism.adapter.ui.StatusToolbarAdapter;
+import dev.turboism.sdk.cubism.ProjectSnapshot;
+import dev.turboism.sdk.cubism.WorkspaceSnapshot;
+import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.sdk.ui.StatusNotification;
+import org.junit.jupiter.api.Test;
+
+import java.io.File;
+import java.net.URI;
+import java.nio.file.FileSystem;
+import java.nio.file.LinkOption;
+import java.nio.file.Path;
+import java.nio.file.WatchEvent;
+import java.nio.file.WatchKey;
+import java.nio.file.WatchService;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
+
+class HostSessionTest {
+
+    @Test
+    void dynamicAdaptersFollowConnectDisconnectAndCloseWithoutLeakingOldDelegate() {
+        AtomicReference<HostInstanceDescriptor> current = new AtomicReference<>();
+        HostInstanceSource source = () -> Optional.ofNullable(current.get());
+        HostSession session = new HostSession(
+            source,
+            descriptor -> HostAdapterConnection.of(adapters(descriptor.sessionId()))
+        );
+        RuntimeHostAdapters dynamic = session.adapters();
+
+        assertEquals(HostSession.State.SAFE_MODE, session.state());
+        assertFalse(dynamic.projectWorkspace().activeProject().isAvailable());
+
+        current.set(descriptor("session-a"));
+        assertEquals(HostSession.State.ACTIVE, session.refresh());
+        assertEquals("session-a", dynamic.projectWorkspace().activeProject()
+            .value().orElseThrow().orElseThrow().projectId());
+
+        current.set(descriptor("session-b"));
+        assertEquals(HostSession.State.ACTIVE, session.refresh());
+        assertEquals("session-b", dynamic.projectWorkspace().activeProject()
+            .value().orElseThrow().orElseThrow().projectId());
+
+        current.set(null);
+        assertEquals(HostSession.State.SAFE_MODE, session.refresh());
+        assertFalse(dynamic.projectWorkspace().activeProject().isAvailable());
+
+        session.close();
+        session.close();
+        assertEquals(HostSession.State.CLOSED, session.state());
+        assertFalse(dynamic.projectWorkspace().activeProject().isAvailable());
+        assertSame(dynamic, session.adapters());
+    }
+
+    @Test
+    void sameSessionIdReconnectsWhenVerifiedConnectionMaterialChanges() {
+        AtomicReference<HostInstanceDescriptor> current = new AtomicReference<>(
+            descriptor("session-a", "host-a.jar", HostSessionTest.class.getClassLoader())
+        );
+        AtomicInteger connections = new AtomicInteger();
+        HostSession session = new HostSession(
+            () -> Optional.of(current.get()),
+            descriptor -> {
+                connections.incrementAndGet();
+                return HostAdapterConnection.of(
+                    adapters(descriptor.verifiedHostArtifact().getFileName().toString())
+                );
+            }
+        );
+
+        assertEquals(HostSession.State.ACTIVE, session.refresh());
+        assertEquals("host-a.jar", session.adapters().projectWorkspace().activeProject()
+            .value().orElseThrow().orElseThrow().projectId());
+
+        current.set(descriptor("session-a", "host-b.jar", new ClassLoader() { }));
+        assertEquals(HostSession.State.ACTIVE, session.refresh());
+        assertEquals(2, connections.get());
+        assertEquals("host-b.jar", session.adapters().projectWorkspace().activeProject()
+            .value().orElseThrow().orElseThrow().projectId());
+
+        session.refresh();
+        assertEquals(2, connections.get());
+    }
+
+    @Test
+    void clearClosesDynamicRegistrationExactlyOnce() {
+        AtomicReference<HostInstanceDescriptor> current = new AtomicReference<>(descriptor("session-a"));
+        AtomicInteger registrationCloses = new AtomicInteger();
+        HostSession session = new HostSession(
+            () -> Optional.ofNullable(current.get()),
+            descriptor -> HostAdapterConnection.of(adaptersWithStatusRegistration(registrationCloses))
+        );
+        session.refresh();
+        Registration registration = session.adapters().statusToolbar().notifyStatus(
+            new StatusNotification("status-1", "INFO", "Connected")
+        ).value().orElseThrow();
+
+        current.set(null);
+        assertEquals(HostSession.State.SAFE_MODE, session.refresh());
+        assertEquals(1, registrationCloses.get());
+
+        registration.close();
+        session.close();
+        assertEquals(1, registrationCloses.get());
+    }
+
+    @Test
+    void connectionKeyUsesNormalizedStringsAndNeverPathEquals() {
+        ThrowingEqualsPath record = new ThrowingEqualsPath(Path.of("records/reviewed.json"));
+        ThrowingEqualsPath artifact = new ThrowingEqualsPath(Path.of("host/Live2D_Cubism.jar"));
+        HostInstanceDescriptor descriptor = new HostInstanceDescriptor(
+            "session-a", record, artifact, getClass().getClassLoader()
+        );
+        AtomicInteger connections = new AtomicInteger();
+        HostSession session = new HostSession(
+            () -> Optional.of(descriptor),
+            ignored -> {
+                connections.incrementAndGet();
+                return HostAdapterConnection.of(adapters("session-a"));
+            }
+        );
+
+        assertEquals(HostSession.State.ACTIVE, session.refresh());
+        assertEquals(HostSession.State.ACTIVE, session.refresh());
+        assertEquals(1, connections.get());
+    }
+
+    @Test
+    void connectionKeyNullNormalizationFailsClosed() {
+        HostInstanceDescriptor descriptor = new HostInstanceDescriptor(
+            "broken-path",
+            new NullNormalizingPath(Path.of("record.json")),
+            Path.of("host/Live2D_Cubism.jar"),
+            getClass().getClassLoader()
+        );
+        HostSession session = new HostSession(
+            () -> Optional.of(descriptor),
+            ignored -> fail("connector must not run")
+        );
+
+        assertEquals(HostSession.State.FAILED, session.refresh());
+        assertEquals(HostSessionFailure.Code.CONNECTION_FAILED, session.lastFailure().orElseThrow().code());
+    }
+
+    @Test
+    void connectionKeyPathFailureIsSanitizedAndFailsClosed() {
+        HostInstanceDescriptor descriptor = new HostInstanceDescriptor(
+            "broken-path",
+            new ThrowingAbsolutePath(Path.of("record.json")),
+            Path.of("host/Live2D_Cubism.jar"),
+            getClass().getClassLoader()
+        );
+        HostSession session = new HostSession(
+            () -> Optional.of(descriptor),
+            ignored -> fail("connector must not run")
+        );
+
+        assertEquals(HostSession.State.FAILED, session.refresh());
+        assertEquals(HostSessionFailure.Code.CONNECTION_FAILED, session.lastFailure().orElseThrow().code());
+        assertFalse(session.lastFailure().orElseThrow().message().contains("private-path-detail"));
+    }
+
+    static void assertCallbackCanReadState(final HostSession session) {
+        Thread callback = new Thread(session::state);
+        callback.start();
+        join(callback);
+    }
+
+    static void captureFailure(final Runnable action, final AtomicReference<Throwable> failure) {
+        try {
+            action.run();
+        } catch (Throwable throwable) {
+            failure.set(throwable);
+        }
+    }
+
+    static void awaitLatch(final CountDownLatch latch) {
+        try {
+            if (!latch.await(5, TimeUnit.SECONDS)) {
+                fail("latch timed out");
+            }
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(exception);
+        }
+    }
+
+    static void join(final Thread thread) {
+        try {
+            thread.join(5_000);
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            fail(exception);
+        }
+        if (thread.isAlive()) {
+            fail("thread did not finish");
+        }
+    }
+
+    static StatusToolbarAdapter statusAdapter(final Registration registration) {
+        return new StatusToolbarAdapter() {
+            @Override public AdapterResult<Registration> notifyStatus(StatusNotification ignored) {
+                return AdapterResult.available(registration);
+            }
+            @Override public AdapterResult<Registration> contributePaletteToolbar(
+                dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry.PaletteToolbarContribution ignored
+            ) {
+                return AdapterResult.available(() -> { });
+            }
+        };
+    }
+
+    private static class DelegatingPath implements Path {
+        final Path delegate;
+        private DelegatingPath(final Path delegate) { this.delegate = delegate; }
+        @Override public FileSystem getFileSystem() { return delegate.getFileSystem(); }
+        @Override public boolean isAbsolute() { return delegate.isAbsolute(); }
+        @Override public Path getRoot() { return delegate.getRoot(); }
+        @Override public Path getFileName() { return delegate.getFileName(); }
+        @Override public Path getParent() { return delegate.getParent(); }
+        @Override public int getNameCount() { return delegate.getNameCount(); }
+        @Override public Path getName(int index) { return delegate.getName(index); }
+        @Override public Path subpath(int beginIndex, int endIndex) { return delegate.subpath(beginIndex, endIndex); }
+        @Override public boolean startsWith(Path other) { return delegate.startsWith(other); }
+        @Override public boolean endsWith(Path other) { return delegate.endsWith(other); }
+        @Override public Path normalize() { return delegate.normalize(); }
+        @Override public Path resolve(Path other) { return delegate.resolve(other); }
+        @Override public Path relativize(Path other) { return delegate.relativize(other); }
+        @Override public URI toUri() { return delegate.toUri(); }
+        @Override public Path toAbsolutePath() { return delegate.toAbsolutePath(); }
+        @Override public Path toRealPath(LinkOption... options) throws java.io.IOException { return delegate.toRealPath(options); }
+        @Override public File toFile() { return delegate.toFile(); }
+        @Override public WatchKey register(WatchService watcher, WatchEvent.Kind<?>[] events, WatchEvent.Modifier... modifiers) throws java.io.IOException { return delegate.register(watcher, events, modifiers); }
+        @Override public int compareTo(Path other) { return delegate.compareTo(other); }
+        @Override public Iterator<Path> iterator() { return delegate.iterator(); }
+        @Override public boolean equals(Object other) { return delegate.equals(other); }
+        @Override public int hashCode() { return delegate.hashCode(); }
+        @Override public String toString() { return delegate.toString(); }
+    }
+
+    private static final class ThrowingEqualsPath extends DelegatingPath {
+        private ThrowingEqualsPath(final Path delegate) { super(delegate); }
+        @Override public Path toAbsolutePath() { return this; }
+        @Override public Path normalize() { return this; }
+        @Override public boolean equals(Object other) { throw new IllegalStateException("path equals called"); }
+    }
+
+    private static final class NullNormalizingPath extends DelegatingPath {
+        private NullNormalizingPath(final Path delegate) { super(delegate); }
+        @Override public Path toAbsolutePath() { return this; }
+        @Override public Path normalize() { return null; }
+    }
+
+    private static final class ThrowingAbsolutePath extends DelegatingPath {
+        private ThrowingAbsolutePath(final Path delegate) { super(delegate); }
+        @Override public Path toAbsolutePath() { throw new IllegalStateException("private-path-detail"); }
+    }
+
+    static void awaitWaiting(final Thread thread) throws InterruptedException {
+        final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+        while (System.nanoTime() < deadline) {
+            final Thread.State state = thread.getState();
+            if (state == Thread.State.WAITING || state == Thread.State.TIMED_WAITING) {
+                return;
+            }
+            Thread.sleep(1);
+        }
+        fail("thread did not wait for the in-flight registration close");
+    }
+
+    static HostInstanceDescriptor descriptor(final String sessionId) {
+        return descriptor(sessionId, "Live2D_Cubism.jar", HostSessionTest.class.getClassLoader());
+    }
+
+    static HostInstanceDescriptor descriptor(
+        final String sessionId,
+        final String artifactName,
+        final ClassLoader classLoader
+    ) {
+        return new HostInstanceDescriptor(
+            sessionId,
+            Path.of("records/reviewed.json"),
+            Path.of("host").resolve(artifactName),
+            classLoader
+        );
+    }
+
+    static HostAdapterConnection connection(
+        final RuntimeHostAdapters adapters,
+        final AtomicInteger closes
+    ) {
+        return new HostAdapterConnection() {
+            @Override public RuntimeHostAdapters adapters() { return adapters; }
+            @Override public void close() { closes.incrementAndGet(); }
+        };
+    }
+
+    static RuntimeHostAdapters adaptersWithFailingStatusRegistration(
+        final AtomicInteger registrationCloses
+    ) {
+        RuntimeHostAdapters safe = RuntimeHostAdapters.safeMode();
+        StatusToolbarAdapter statusToolbar = new StatusToolbarAdapter() {
+            @Override
+            public AdapterResult<Registration> notifyStatus(StatusNotification notification) {
+                return AdapterResult.available(() -> {
+                    if (registrationCloses.incrementAndGet() == 1) {
+                        throw new IllegalStateException("first-registration-close-failed");
+                    }
+                });
+            }
+
+            @Override
+            public AdapterResult<Registration> contributePaletteToolbar(
+                dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry.PaletteToolbarContribution contribution
+            ) {
+                return AdapterResult.available(() -> { });
+            }
+        };
+        return new RuntimeHostAdapters(
+            safe.themeStatus(), safe.renderStatus(), safe.projectWorkspace(), safe.clipMaskRead(),
+            statusToolbar, safe.mainToolbar(), safe.uiSurface()
+        );
+    }
+
+    static RuntimeHostAdapters adaptersWithStatusRegistration(
+        final AtomicInteger registrationCloses
+    ) {
+        RuntimeHostAdapters safe = RuntimeHostAdapters.safeMode();
+        StatusToolbarAdapter statusToolbar = new StatusToolbarAdapter() {
+            @Override
+            public AdapterResult<Registration> notifyStatus(StatusNotification notification) {
+                return AdapterResult.available(registrationCloses::incrementAndGet);
+            }
+
+            @Override
+            public AdapterResult<Registration> contributePaletteToolbar(
+                dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry.PaletteToolbarContribution contribution
+            ) {
+                return AdapterResult.available(registrationCloses::incrementAndGet);
+            }
+        };
+        return new RuntimeHostAdapters(
+            safe.themeStatus(),
+            safe.renderStatus(),
+            safe.projectWorkspace(),
+            safe.clipMaskRead(),
+            statusToolbar,
+            safe.mainToolbar(),
+            safe.uiSurface()
+        );
+    }
+
+    static RuntimeHostAdapters adapters(final String sessionId) {
+        RuntimeHostAdapters safe = RuntimeHostAdapters.safeMode();
+        ProjectWorkspaceAdapter projectWorkspace = ProjectWorkspaceAdapter.Impl.connected(
+            new ProjectWorkspaceAdapter.HostOperations() {
+                @Override public String hostVersion() { return "5.3.02"; }
+                @Override public boolean supportsProjectWorkspaceRead() { return true; }
+                @Override public Optional<ProjectSnapshot> activeProject() {
+                    return Optional.of(new ProjectSnapshot(sessionId, "Demo", Optional.empty(), List.of()));
+                }
+                @Override public Optional<WorkspaceSnapshot> workspace() { return Optional.empty(); }
+            }
+        );
+        return new RuntimeHostAdapters(
+            safe.themeStatus(),
+            safe.renderStatus(),
+            projectWorkspace,
+            safe.clipMaskRead(),
+            safe.statusToolbar(),
+            safe.mainToolbar(),
+            safe.uiSurface()
+        );
+    }
+}
