@@ -3,6 +3,7 @@ package dev.turboism.tests.plugin;
 import dev.turboism.core.descriptor.PluginDescriptorParser;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.plugin.clipmask.ClipMaskPlugin;
+import dev.turboism.plugin.parameter.ParameterPlugin;
 import dev.turboism.plugin.logfilter.LogFilterPlugin;
 import dev.turboism.plugin.maintoolbar.MainToolbarPlugin;
 import dev.turboism.plugin.renderopt.RenderOptPlugin;
@@ -332,6 +333,48 @@ class M13OfficialPluginRuntimeIntegrationTest {
         }
     }
 
+
+    @Test
+    void parameterEnablesWithDeclaredPermissionsAndCleansUpActions() throws Exception {
+        try (M8PluginTestSupport.Harness harness = harnessFor(
+            "parameter",
+            tempDir.resolve("parameter"),
+            UiHostStateSource.DEFAULT,
+            new ParameterRead()
+        )) {
+            ParameterPlugin plugin = new ParameterPlugin();
+            plugin.init(harness.context());
+            plugin.enable();
+
+            harness.context().disposableScope().close();
+            // enable succeeded without residual UI contributions
+            assertTrue(harness.uiHost().panels().isEmpty());
+            assertTrue(harness.uiHost().dialogs().isEmpty());
+        }
+    }
+
+    @Test
+    void parameterEnableFailsWhenActionPermissionIsMissing() throws Exception {
+        PluginDescriptor descriptor = descriptorFor("parameter");
+        List<PluginPermission> permissionsWithoutAction = withoutPermission(
+            descriptor,
+            "turboism.action.register"
+        );
+
+        try (M8PluginTestSupport.Harness harness = M8PluginTestSupport.harness(
+            tempDir.resolve("parameter-denied"),
+            PermissionChecker.from(permissionsWithoutAction),
+            UiHostStateSource.DEFAULT,
+            new ParameterRead()
+        )) {
+            ParameterPlugin plugin = new ParameterPlugin();
+            plugin.init(harness.context());
+
+            CubismPermissionException failure = assertThrows(CubismPermissionException.class, plugin::enable);
+            assertTrue(failure.getMessage().contains("turboism.action.register"));
+        }
+    }
+
     @Test
     void officialM13ManifestsDeclareExpectedPermissions() throws Exception {
         assertEquals(
@@ -380,6 +423,16 @@ class M13OfficialPluginRuntimeIntegrationTest {
                 "turboism.ui.status.notify"
             ),
             permissionIdsFor("clip-mask")
+        );
+        assertEquals(
+            Set.of(
+                "turboism.action.register",
+                "turboism.cubism.model.read",
+                "turboism.cubism.model.write",
+                "turboism.ui.file-chooser.request",
+                "turboism.ui.status.notify"
+            ),
+            permissionIdsFor("parameter")
         );
     }
 
@@ -476,6 +529,13 @@ class M13OfficialPluginRuntimeIntegrationTest {
         @Override
         public Optional<RenderStatusSnapshot> renderStatus() {
             return Optional.of(new RenderStatusSnapshot(true, 60.0, "fake-renderer"));
+        }
+    }
+
+    private static final class ParameterRead extends UnsupportedCubismRead {
+        @Override
+        public List<ParameterSnapshot> parameters() {
+            return List.of(new ParameterSnapshot("p1", "P1", 0.5, 0.0, -1.0, 1.0, true, true));
         }
     }
 
