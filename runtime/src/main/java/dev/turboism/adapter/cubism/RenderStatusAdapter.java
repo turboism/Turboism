@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism;
 
+import dev.turboism.adapter.ui.AdapterHostException;
 import dev.turboism.adapter.ui.HostUiVersionCheck;
 import dev.turboism.adapter.ui.SafeModeDiagnostic;
 import dev.turboism.sdk.cubism.RenderStatusSnapshot;
@@ -70,14 +71,24 @@ public interface RenderStatusAdapter {
         }
 
         private AdapterResult<Optional<RenderStatusSnapshot>> callIfSupported(final HostOperations operations) {
-            final Optional<SafeModeDiagnostic> versionDiagnostic = HostUiVersionCheck.diagnosticFor(operations.hostVersion());
-            if (versionDiagnostic.isPresent()) {
-                return AdapterResult.unavailable(versionDiagnostic.orElseThrow());
+            try {
+                final Optional<SafeModeDiagnostic> versionDiagnostic =
+                    HostUiVersionCheck.diagnosticFor(CAPABILITY_ID, operations.hostVersion());
+                if (versionDiagnostic.isPresent()) {
+                    return AdapterResult.unavailable(versionDiagnostic.orElseThrow());
+                }
+                if (!operations.supportsRenderStatusRead()) {
+                    return AdapterResult.unavailable(SafeModeDiagnostic.capabilityUnavailable(CAPABILITY_ID));
+                }
+                return AdapterResult.available(operations.renderStatus());
+            } catch (AdapterHostException exception) {
+                return AdapterResult.unavailable(exception.diagnostic());
+            } catch (RuntimeException exception) {
+                return AdapterResult.unavailable(SafeModeDiagnostic.validationFailure(
+                    CAPABILITY_ID,
+                    "Host render-status adapter call failed safely."
+                ));
             }
-            if (!operations.supportsRenderStatusRead()) {
-                return AdapterResult.unavailable(SafeModeDiagnostic.capabilityUnavailable(CAPABILITY_ID));
-            }
-            return AdapterResult.available(operations.renderStatus());
         }
 
         private static Supplier<AdapterResult<Optional<RenderStatusSnapshot>>> unavailable() {

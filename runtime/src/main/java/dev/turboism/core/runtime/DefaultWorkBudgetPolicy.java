@@ -24,9 +24,9 @@ public final class DefaultWorkBudgetPolicy implements WorkBudgetPolicy {
                  "lifecycle.disable",
                  "lifecycle.shutdown",
                  "event.subscribe",
-                 "action.handle",
                  "ui.schedule",
                  "sidecar.complete" -> WorkBudget.LIGHTWEIGHT;
+            case "action.handle" -> isHeavyAction(task) ? WorkBudget.HEAVY : WorkBudget.LIGHTWEIGHT;
             case "config.read",
                  "config.write",
                  "transaction.commit",
@@ -43,5 +43,18 @@ public final class DefaultWorkBudgetPolicy implements WorkBudgetPolicy {
 
     private static boolean hasSidecarCapability(PluginTask task) {
         return SIDECAR_CAPABILITY.equals(task.declaredCapability());
+    }
+
+    /**
+     * Parameter CSV import/export may parse large bounded payloads on the action path.
+     * Keep ordinary actions lightweight, but classify those known heavy actions as HEAVY.
+     */
+    private static boolean isHeavyAction(PluginTask task) {
+        final String payload = task.payloadDescription();
+        if (payload == null || payload.isBlank()) {
+            return false;
+        }
+        return payload.contains("parameter.csv.import")
+            || payload.contains("parameter.csv.export");
     }
 }

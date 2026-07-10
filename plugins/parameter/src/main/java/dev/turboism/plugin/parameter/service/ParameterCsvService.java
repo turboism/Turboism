@@ -13,19 +13,17 @@ import dev.turboism.sdk.cubism.transaction.TransactionException;
 import dev.turboism.sdk.cubism.transaction.TransactionStatus;
 import dev.turboism.sdk.cubism.write.WriteParameterCommand;
 import dev.turboism.sdk.plugin.PluginContext;
+import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.ui.FileChooserRequest;
 import dev.turboism.sdk.ui.StatusNotification;
 import dev.turboism.sdk.ui.UiHostCapabilityService;
 
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.function.Function;
 
 /**
  * SDK-only fake-ready parameter CSV import/export service.
@@ -42,11 +40,15 @@ public final class ParameterCsvService {
     public static final String IMPORT_UNAVAILABLE = "parameter.csv.import.unavailable";
     public static final String IMPORT_FAILED = "parameter.csv.import.failed";
 
+    static final int MAX_CSV_CHARACTERS = 1_000_000;
+    static final int MAX_CSV_ROWS = 10_000;
+
     private final CubismReadCapabilityService cubismRead;
     private final CubismFacade cubism;
     private final PluginContext pluginContext;
     private final UiHostCapabilityService uiHost;
-    private final Function<String, Optional<String>> csvContentReader;
+    private final CsvContentProvider csvContentProvider;
+    private final PluginLogger logger;
 
     private String lastExportCsv = "";
 
@@ -56,7 +58,7 @@ public final class ParameterCsvService {
         final PluginContext pluginContext,
         final UiHostCapabilityService uiHost
     ) {
-        this(cubismRead, cubism, pluginContext, uiHost, ParameterCsvService::readPathContent);
+        this(cubismRead, cubism, pluginContext, uiHost, CsvContentProvider.unavailable());
     }
 
     public ParameterCsvService(
@@ -64,13 +66,14 @@ public final class ParameterCsvService {
         final CubismFacade cubism,
         final PluginContext pluginContext,
         final UiHostCapabilityService uiHost,
-        final Function<String, Optional<String>> csvContentReader
+        final CsvContentProvider csvContentProvider
     ) {
         this.cubismRead = Objects.requireNonNull(cubismRead, "cubismRead");
         this.cubism = Objects.requireNonNull(cubism, "cubism");
         this.pluginContext = Objects.requireNonNull(pluginContext, "pluginContext");
         this.uiHost = Objects.requireNonNull(uiHost, "uiHost");
-        this.csvContentReader = Objects.requireNonNull(csvContentReader, "csvContentReader");
+        this.csvContentProvider = Objects.requireNonNull(csvContentProvider, "csvContentProvider");
+        this.logger = Objects.requireNonNull(pluginContext.logger(), "pluginContext.logger()");
     }
 
     public String lastExportCsv() {
@@ -110,7 +113,7 @@ public final class ParameterCsvService {
             ));
             return;
         }
-        final Optional<String> content = csvContentReader.apply(chosen.orElseThrow());
+        final Optional<String> content = csvContentProvider.read(chosen.orElseThrow());
         if (content.isEmpty() || content.orElseThrow().isBlank()) {
             uiHost.notifyStatus(new StatusNotification(
                 IMPORT_UNAVAILABLE,
@@ -137,6 +140,20 @@ public final class ParameterCsvService {
                 IMPORT_UNAVAILABLE,
                 "WARNING",
                 "Parameter CSV content is unavailable."
+            ));
+            return;
+        }
+
+        final Map<String, ParameterSnapshot> parametersById = new LinkedHashMap<>();
+        for (final ParameterSnapshot parameter : cubismRead.parameters()) {
+            parametersById.put(parameter.id(), parameter);
+        }
+        final Optional<String> validationFailure = validateRows(parsed.rows(), parametersById);
+        if (validationFailure.isPresent()) {
+            uiHost.notifyStatus(new StatusNotification(
+                IMPORT_FAILED,
+                "WARNING",
+                "Parameter CSV import failed: " + validationFailure.orElseThrow()
             ));
             return;
         }
@@ -180,14 +197,16 @@ public final class ParameterCsvService {
                     if (status == TransactionStatus.OPEN || status == TransactionStatus.FAILED) {
                         transaction.rollback();
                     }
-                } catch (Exception ignored) {
-                    // best-effort rollback
+                } catch (Exception rollbackFailure) {
+                    logger.warn("Parameter CSV rollback failed safely: "
+                        + rollbackFailure.getClass().getSimpleName());
                 }
             }
+            logger.warn("Parameter CSV import failed safely: " + failure.getClass().getSimpleName());
             uiHost.notifyStatus(new StatusNotification(
                 IMPORT_FAILED,
                 "WARNING",
-                "Parameter CSV import failed: " + failure.getMessage()
+                "Parameter CSV import failed. No changes were retained."
             ));
         }
     }
@@ -198,6 +217,9 @@ public final class ParameterCsvService {
             if (parameter.id().contains(",") || parameter.id().contains("\"") || parameter.id().contains("\n")) {
                 throw new IllegalArgumentException("parameter id must not contain comma, quote, or newline: " + parameter.id());
             }
+            if (!Double.isFinite(parameter.value())) {
+                throw new IllegalArgumentException("parameter value must be finite: " + parameter.id());
+            }
             builder.append(parameter.id())
                 .append(',')
                 .append(parameter.value())
@@ -207,32 +229,54 @@ public final class ParameterCsvService {
     }
 
     static ParseResult parseCsvStrict(final String csvText) {
+        Objects.requireNonNull(csvText, "csvText");
         final List<CsvRow> rows = new ArrayList<>();
         final List<String> errors = new ArrayList<>();
-        final String[] lines = csvText.split("\\R", -1);
+        if (csvText.length() > MAX_CSV_CHARACTERS) {
+            return new ParseResult(List.of(), List.of(
+                "CSV exceeds maximum size of " + MAX_CSV_CHARACTERS + " characters"
+            ));
+        }
+
+        final Map<String, Integer> firstLineById = new LinkedHashMap<>();
         int lineNo = 0;
-        for (final String rawLine : lines) {
+        final java.util.Iterator<String> lines = csvText.lines().iterator();
+        while (lines.hasNext()) {
             lineNo++;
-            final String line = rawLine.trim();
+            final String line = lines.next().trim();
             if (line.isEmpty() || line.startsWith("#")) {
                 continue;
             }
             final int comma = line.indexOf(',');
-            if (comma <= 0 || comma == line.length() - 1) {
-                errors.add("line " + lineNo + ": expected id,value");
+            if (comma <= 0 || comma == line.length() - 1 || comma != line.lastIndexOf(',')) {
+                errors.add("line " + lineNo + ": expected exactly id,value");
                 continue;
             }
             final String id = line.substring(0, comma).trim();
             final String valueText = line.substring(comma + 1).trim();
-            if (id.contains(",") || id.contains("\"") || id.isEmpty()) {
+            if (id.contains("\"") || id.isEmpty()) {
                 errors.add("line " + lineNo + ": invalid parameter id");
                 continue;
             }
             if ("id".equalsIgnoreCase(id) && "value".equalsIgnoreCase(valueText)) {
                 continue;
             }
+            if (firstLineById.containsKey(id)) {
+                errors.add("line " + lineNo + ": duplicate parameter id from line " + firstLineById.get(id));
+                continue;
+            }
+            if (rows.size() >= MAX_CSV_ROWS) {
+                errors.add("CSV exceeds maximum row count of " + MAX_CSV_ROWS);
+                break;
+            }
             try {
-                rows.add(new CsvRow(id, Float.parseFloat(valueText)));
+                final float value = Float.parseFloat(valueText);
+                if (!Float.isFinite(value)) {
+                    errors.add("line " + lineNo + ": numeric value must be finite");
+                    continue;
+                }
+                rows.add(new CsvRow(id, value));
+                firstLineById.put(id, lineNo);
             } catch (NumberFormatException ex) {
                 errors.add("line " + lineNo + ": invalid numeric value");
             }
@@ -246,15 +290,32 @@ public final class ParameterCsvService {
         return parseCsvStrict(csvText).rows();
     }
 
-    private static Optional<String> readPathContent(final String pathText) {
-        try {
-            final Path path = Path.of(pathText);
-            if (!Files.isRegularFile(path)) {
-                return Optional.empty();
+    private static Optional<String> validateRows(
+        final List<CsvRow> rows,
+        final Map<String, ParameterSnapshot> parametersById
+    ) {
+        for (final CsvRow row : rows) {
+            final ParameterSnapshot parameter = parametersById.get(row.id());
+            if (parameter == null) {
+                return Optional.of("unknown parameter " + row.id());
             }
-            return Optional.of(Files.readString(path, StandardCharsets.UTF_8));
-        } catch (IOException | RuntimeException ignored) {
-            return Optional.empty();
+            if (!parameter.editable()) {
+                return Optional.of("parameter " + row.id() + " is not editable");
+            }
+            if (row.value() < parameter.minValue() || row.value() > parameter.maxValue()) {
+                return Optional.of("parameter " + row.id() + " is outside ["
+                    + parameter.minValue() + "," + parameter.maxValue() + "]");
+            }
+        }
+        return Optional.empty();
+    }
+
+    @FunctionalInterface
+    public interface CsvContentProvider {
+        Optional<String> read(String relativePath);
+
+        static CsvContentProvider unavailable() {
+            return ignored -> Optional.empty();
         }
     }
 

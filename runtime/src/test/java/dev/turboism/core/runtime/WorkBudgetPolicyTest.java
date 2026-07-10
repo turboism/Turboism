@@ -40,6 +40,18 @@ class WorkBudgetPolicyTest {
     }
 
     @Test
+    void parameterCsvActionsAreHeavy() {
+        assertEquals(
+            WorkBudget.HEAVY,
+            policy.classify(new PluginTask("action.handle", "demo.plugin", "action:parameter.csv.import", "none"))
+        );
+        assertEquals(
+            WorkBudget.HEAVY,
+            policy.classify(new PluginTask("action.handle", "demo.plugin", "action:parameter.csv.export", "none"))
+        );
+    }
+
+    @Test
     void uiSchedulingIsLightweight() {
         PluginTask task = new PluginTask("ui.schedule", "demo.plugin", "schedulePanelUpdate", "none");
         assertEquals(WorkBudget.LIGHTWEIGHT, policy.classify(task));

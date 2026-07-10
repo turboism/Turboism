@@ -35,9 +35,15 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MainToolbarHomeEntryServiceTest {
+
+    @Test
+    void packagedToolbarIconExists() {
+        assertNotNull(MainToolbarHomeEntryService.class.getResource("/icons/main-toolbar-home.svg"));
+    }
 
     @Test
     void registerHomeEntry_contributesHomeButtonToMainToolbar() {

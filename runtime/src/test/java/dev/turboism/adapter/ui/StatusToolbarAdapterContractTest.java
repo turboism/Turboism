@@ -90,7 +90,7 @@ class StatusToolbarAdapterContractTest {
     void notifyStatusReturnsTimeoutDiagnosticWhenHostTimesOut() {
         StatusToolbarAdapter adapter = StatusToolbarAdapterImpl.connected(new FailingHost(
             StatusToolbarAdapter.Capability.STATUS_NOTIFY,
-            new AdapterHostException(SafeModeDiagnostic.Code.TIMEOUT, StatusToolbarAdapter.Capability.STATUS_NOTIFY.id(), "status timeout")
+            new AdapterHostException(SafeModeDiagnostic.Code.TIMEOUT, StatusToolbarAdapter.Capability.STATUS_NOTIFY.id(), "status timeout private-host-detail")
         ));
 
         StatusToolbarAdapter.AdapterResult<Registration> result = adapter.notifyStatus(notification("status.timeout"));
@@ -99,6 +99,8 @@ class StatusToolbarAdapterContractTest {
         SafeModeDiagnostic diagnostic = result.diagnostic().orElseThrow();
         assertEquals(SafeModeDiagnostic.Code.TIMEOUT, diagnostic.code());
         assertEquals(StatusToolbarAdapter.Capability.STATUS_NOTIFY.id(), diagnostic.capability());
+        assertFalse(diagnostic.message().contains("private-host-detail"));
+        assertEquals("Host adapter call timed out.", diagnostic.message());
     }
 
     @Test
@@ -108,7 +110,7 @@ class StatusToolbarAdapterContractTest {
             new AdapterHostException(
                 SafeModeDiagnostic.Code.VALIDATION_FAILURE,
                 StatusToolbarAdapter.Capability.PALETTE_TOOLBAR_CONTRIBUTE.id(),
-                "invalid palette contribution"
+                "invalid palette contribution private-host-detail"
             )
         ));
 
@@ -118,6 +120,8 @@ class StatusToolbarAdapterContractTest {
         SafeModeDiagnostic diagnostic = result.diagnostic().orElseThrow();
         assertEquals(SafeModeDiagnostic.Code.VALIDATION_FAILURE, diagnostic.code());
         assertEquals(StatusToolbarAdapter.Capability.PALETTE_TOOLBAR_CONTRIBUTE.id(), diagnostic.capability());
+        assertFalse(diagnostic.message().contains("private-host-detail"));
+        assertEquals("Host adapter rejected the request.", diagnostic.message());
     }
 
     @Test
@@ -136,7 +140,7 @@ class StatusToolbarAdapterContractTest {
 
         assertEquals(notification, host.notification);
         assertTrue(service.notifications().isEmpty());
-        assertTrue(service.statusToolbarDiagnostics().isEmpty());
+        assertTrue(service.uiDiagnostics().isEmpty());
     }
 
     @Test
@@ -152,7 +156,7 @@ class StatusToolbarAdapterContractTest {
         assertEquals(List.of(contribution), service.paletteToolbars());
         assertEquals(
             SafeModeDiagnostic.Code.ADAPTER_UNAVAILABLE,
-            service.statusToolbarDiagnostics().get(0).code()
+            service.uiDiagnostics().get(0).code()
         );
     }
 
