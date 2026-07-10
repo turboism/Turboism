@@ -13,6 +13,7 @@ dependencies {
     testImplementation(project(":plugins:render-opt"))
     testImplementation(project(":plugins:clip-mask"))
     testImplementation(project(":plugins:parameter"))
+    testImplementation(project(":plugins:mesh"))
     testImplementation(project(":testframework"))
     testImplementation("com.fasterxml.jackson.core:jackson-databind:2.17.2")
     testImplementation("com.fasterxml.jackson.core:jackson-core:2.17.2")
