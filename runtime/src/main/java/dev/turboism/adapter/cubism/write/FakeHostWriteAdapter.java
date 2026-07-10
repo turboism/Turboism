@@ -29,6 +29,8 @@ public class FakeHostWriteAdapter implements HostWriteAdapter, HostSnapshotSourc
     private static final int UNKNOWN_MODEL = 1302;
     private static final int UNKNOWN_PARAMETER = 1303;
     private static final int INVALID_COMMAND = 1304;
+    private static final int NON_FINITE_VALUE = 1305;
+    private static final int OUT_OF_RANGE = 1306;
 
     private final Map<String, FakeDocument> documents = new LinkedHashMap<>();
     private String activeDocumentId;
@@ -168,11 +170,22 @@ public class FakeHostWriteAdapter implements HostWriteAdapter, HostSnapshotSourc
 
     private void applyParameterCommand(final FakeDocument document, final WriteParameterCommand command) throws TransactionException {
         validateModel(document, command.modelId(), command.commandId());
+        if (!Float.isFinite(command.value())) {
+            throw error(command.commandId(), NON_FINITE_VALUE, "Parameter value must be finite");
+        }
         final FakeParameter parameter = document.model().parameters().get(command.parameterId().value());
         if (parameter == null) {
             throw error(command.commandId(), UNKNOWN_PARAMETER, "Unknown parameter " + command.parameterId().value());
         }
-        parameter.setValue(command.value());
+        final double value = command.value();
+        if (value < parameter.minValue() || value > parameter.maxValue()) {
+            throw error(
+                command.commandId(),
+                OUT_OF_RANGE,
+                "Parameter value out of range [" + parameter.minValue() + "," + parameter.maxValue() + "]"
+            );
+        }
+        parameter.setValue(value);
         document.addOperation(command.commandId());
     }
 
@@ -217,7 +230,16 @@ public class FakeHostWriteAdapter implements HostWriteAdapter, HostSnapshotSourc
     }
 
     private HostParameter hostParameter(final FakeParameter parameter) {
-        return new HostParameter(parameter.id(), parameter.name(), parameter.value(), 0.0, -1.0, 1.0, true, true);
+        return new HostParameter(
+            parameter.id(),
+            parameter.name(),
+            parameter.value(),
+            parameter.defaultValue(),
+            parameter.minValue(),
+            parameter.maxValue(),
+            true,
+            true
+        );
     }
 
     private static TransactionException error(final String id, final int code, final String message) {
@@ -237,11 +259,31 @@ public class FakeHostWriteAdapter implements HostWriteAdapter, HostSnapshotSourc
     public static final class FakeParameter {
         private final String id;
         private final String name;
+        private final double minValue;
+        private final double maxValue;
+        private final double defaultValue;
         private double value;
 
         public FakeParameter(final String id, final String name, final double value) {
+            this(id, name, value, -1.0, 1.0, 0.0);
+        }
+
+        public FakeParameter(
+            final String id,
+            final String name,
+            final double value,
+            final double minValue,
+            final double maxValue,
+            final double defaultValue
+        ) {
             this.id = Objects.requireNonNull(id, "id");
             this.name = Objects.requireNonNull(name, "name");
+            if (minValue > maxValue) {
+                throw new IllegalArgumentException("minValue must be <= maxValue");
+            }
+            this.minValue = minValue;
+            this.maxValue = maxValue;
+            this.defaultValue = defaultValue;
             this.value = value;
         }
 
@@ -257,12 +299,24 @@ public class FakeHostWriteAdapter implements HostWriteAdapter, HostSnapshotSourc
             return value;
         }
 
+        double minValue() {
+            return minValue;
+        }
+
+        double maxValue() {
+            return maxValue;
+        }
+
+        double defaultValue() {
+            return defaultValue;
+        }
+
         void setValue(final double value) {
             this.value = value;
         }
 
         FakeParameter copy() {
-            return new FakeParameter(id, name, value);
+            return new FakeParameter(id, name, value, minValue, maxValue, defaultValue);
         }
     }
 

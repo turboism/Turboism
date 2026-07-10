@@ -17,10 +17,14 @@ public final class AdapterHostException extends RuntimeException {
         this.capabilityId = requireText(capabilityId, "capabilityId");
     }
 
-    SafeModeDiagnostic diagnostic() {
+    public SafeModeDiagnostic diagnostic() {
+        // Never forward host exception text into persisted diagnostics.
         return switch (code) {
-            case TIMEOUT -> SafeModeDiagnostic.timeout(capabilityId, getMessage());
-            case VALIDATION_FAILURE -> SafeModeDiagnostic.validationFailure(capabilityId, getMessage());
+            case TIMEOUT -> SafeModeDiagnostic.timeout(capabilityId, "Host adapter call timed out.");
+            case VALIDATION_FAILURE -> SafeModeDiagnostic.validationFailure(
+                capabilityId,
+                "Host adapter rejected the request."
+            );
             default -> throw new IllegalStateException("Unsupported adapter host failure code " + code);
         };
     }

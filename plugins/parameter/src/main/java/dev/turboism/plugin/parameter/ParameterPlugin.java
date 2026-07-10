@@ -14,9 +14,18 @@ import java.util.function.Consumer;
  */
 public final class ParameterPlugin implements TurboismPlugin {
 
+    private final ParameterCsvService.CsvContentProvider csvContentProvider;
     private PluginContext context;
     private PluginLogger logger;
     private ParameterCsvService csvService;
+
+    public ParameterPlugin() {
+        this(ParameterCsvService.CsvContentProvider.unavailable());
+    }
+
+    public ParameterPlugin(final ParameterCsvService.CsvContentProvider csvContentProvider) {
+        this.csvContentProvider = java.util.Objects.requireNonNull(csvContentProvider, "csvContentProvider");
+    }
 
     @Override
     public void init(final PluginContext context) {
@@ -26,7 +35,8 @@ public final class ParameterPlugin implements TurboismPlugin {
             context.cubismRead(),
             context.cubism(),
             context,
-            context.uiHost()
+            context.uiHost(),
+            csvContentProvider
         );
         logger.info("ParameterPlugin initialized");
     }
