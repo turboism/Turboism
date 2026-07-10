@@ -21,6 +21,7 @@ public final class AdapterHostException extends RuntimeException {
         // Never forward host exception text into persisted diagnostics.
         return switch (code) {
             case TIMEOUT -> SafeModeDiagnostic.timeout(capabilityId, "Host adapter call timed out.");
+            case MAPPING_NOT_VERIFIED -> SafeModeDiagnostic.mappingNotVerified(capabilityId);
             case VALIDATION_FAILURE -> SafeModeDiagnostic.validationFailure(
                 capabilityId,
                 "Host adapter rejected the request."
@@ -31,10 +32,14 @@ public final class AdapterHostException extends RuntimeException {
 
     private static SafeModeDiagnostic.Code requireSupportedCode(final SafeModeDiagnostic.Code code) {
         Objects.requireNonNull(code, "code");
-        if (code == SafeModeDiagnostic.Code.TIMEOUT || code == SafeModeDiagnostic.Code.VALIDATION_FAILURE) {
+        if (code == SafeModeDiagnostic.Code.TIMEOUT
+            || code == SafeModeDiagnostic.Code.MAPPING_NOT_VERIFIED
+            || code == SafeModeDiagnostic.Code.VALIDATION_FAILURE) {
             return code;
         }
-        throw new IllegalArgumentException("AdapterHostException supports TIMEOUT or VALIDATION_FAILURE only");
+        throw new IllegalArgumentException(
+            "AdapterHostException supports TIMEOUT, MAPPING_NOT_VERIFIED, or VALIDATION_FAILURE only"
+        );
     }
 
     private static String requireText(final String value, final String name) {
