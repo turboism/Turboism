@@ -78,6 +78,7 @@ public final class CubismReadCapabilityServiceImpl implements CubismReadCapabili
 
     @Override
     public List<ParameterSnapshot> parameters() {
+        requireModelRead("parameters");
         return runtime().parameters();
     }
 

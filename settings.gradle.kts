@@ -10,6 +10,7 @@ include(
     "plugins:perf-opt",
     "plugins:render-opt",
     "plugins:clip-mask",
+    "plugins:parameter",
     "testframework",
     "tests"
 )
