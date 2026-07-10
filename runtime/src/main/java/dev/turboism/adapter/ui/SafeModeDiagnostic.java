@@ -29,7 +29,7 @@ public record SafeModeDiagnostic(
         return new SafeModeDiagnostic(
             Code.HOST_VERSION_UNSUPPORTED,
             capabilityId,
-            "Host Cubism version " + hostVersion + " is outside supported scope [5.3.0,5.4.0)."
+            "Host Cubism version " + hostVersion + " is outside the adapter's supported scope."
         );
     }
 
