@@ -18,16 +18,25 @@ public record SafeModeDiagnostic(
         return new SafeModeDiagnostic(
             Code.ADAPTER_UNAVAILABLE,
             capabilityId,
-            "UI adapter is not connected; safe-mode fallback is active."
+            "Host adapter is not connected; safe-mode fallback is active."
         );
     }
 
-    public static SafeModeDiagnostic hostVersionUnsupported(final String hostVersion) {
+    public static SafeModeDiagnostic hostVersionUnsupported(
+        final String capabilityId,
+        final String hostVersion
+    ) {
         return new SafeModeDiagnostic(
             Code.HOST_VERSION_UNSUPPORTED,
-            "adapter.ui",
+            capabilityId,
             "Host Cubism version " + hostVersion + " is outside supported scope [5.3.0,5.4.0)."
         );
+    }
+
+    /** @deprecated use {@link #hostVersionUnsupported(String, String)} */
+    @Deprecated
+    public static SafeModeDiagnostic hostVersionUnsupported(final String hostVersion) {
+        return hostVersionUnsupported("adapter.host", hostVersion);
     }
 
     public static SafeModeDiagnostic capabilityUnavailable(final String capabilityId) {
@@ -46,6 +55,30 @@ public record SafeModeDiagnostic(
         return new SafeModeDiagnostic(Code.VALIDATION_FAILURE, capabilityId, message);
     }
 
+    public static SafeModeDiagnostic mappingNotVerified(final String capabilityId) {
+        return new SafeModeDiagnostic(
+            Code.MAPPING_NOT_VERIFIED,
+            capabilityId,
+            "Required mapping/profile evidence is not verified."
+        );
+    }
+
+    public static SafeModeDiagnostic hookNotVerified(final String capabilityId) {
+        return new SafeModeDiagnostic(
+            Code.HOOK_NOT_VERIFIED,
+            capabilityId,
+            "Required hook evidence is not verified."
+        );
+    }
+
+    public static SafeModeDiagnostic permissionDenied(final String capabilityId) {
+        return new SafeModeDiagnostic(
+            Code.PERMISSION_DENIED,
+            capabilityId,
+            "Permission denied for host adapter capability."
+        );
+    }
+
     private static String requireText(final String value, final String name) {
         Objects.requireNonNull(value, name);
         if (value.isBlank()) {
@@ -58,6 +91,9 @@ public record SafeModeDiagnostic(
         ADAPTER_UNAVAILABLE,
         HOST_VERSION_UNSUPPORTED,
         CAPABILITY_UNAVAILABLE,
+        MAPPING_NOT_VERIFIED,
+        HOOK_NOT_VERIFIED,
+        PERMISSION_DENIED,
         TIMEOUT,
         VALIDATION_FAILURE
     }

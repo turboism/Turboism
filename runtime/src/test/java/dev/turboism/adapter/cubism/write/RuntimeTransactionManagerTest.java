@@ -34,6 +34,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -97,6 +98,21 @@ class RuntimeTransactionManagerTest {
         assertEquals(TransactionStatus.ROLLED_BACK, transaction.status());
         assertEquals(0.25, adapter.parameterValue(MODEL_ID.value(), PARAMETER_ID.value()));
         assertFalse(manager.query("plugin.demo", DOCUMENT_ID).isPresent());
+    }
+
+    @Test
+    void rejectsOutOfRangeParameterValuesAndLeavesModelUnchanged() throws TransactionException {
+        final FakeHostWriteAdapter adapter = adapterWithParameterValue(0.25);
+        final RuntimeTransactionManager manager = managerWith(adapter, permission());
+        final ModelTransaction transaction = manager.openTransaction(new TestPluginContext("plugin.demo"), DOCUMENT_ID);
+        transaction.enqueue(new WriteParameterCommand("command-range", MODEL_ID, PARAMETER_ID, 5.0F));
+
+        final CommitFailedException error = assertThrows(CommitFailedException.class, transaction::commit);
+
+        assertEquals(TransactionStatus.ROLLED_BACK, transaction.status());
+        assertEquals(0.25, adapter.parameterValue(MODEL_ID.value(), PARAMETER_ID.value()));
+        assertFalse(manager.query("plugin.demo", DOCUMENT_ID).isPresent());
+        assertNotNull(error);
     }
 
     @Test
