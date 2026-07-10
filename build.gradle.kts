@@ -128,6 +128,33 @@ tasks.register("checkModuleBoundaries") {
     }
 }
 
+tasks.register<JavaExec>("verifyStaticHostSelectors") {
+    group = "verification"
+    description = "Verify an exact-version host JAR against a tracked static verification record."
+    dependsOn(":runtime:classes")
+
+    val recordPath = providers.gradleProperty("turboismStaticVerificationRecord")
+    val artifactPath = providers.gradleProperty("turboismHostArtifact")
+    val runtimeMainClasspath = project(":runtime")
+        .extensions
+        .getByType<org.gradle.api.tasks.SourceSetContainer>()
+        .named("main")
+        .get()
+        .runtimeClasspath
+    classpath = runtimeMainClasspath
+    mainClass.set("dev.turboism.mapping.verification.StaticVerificationCli")
+
+    doFirst {
+        if (!recordPath.isPresent || !artifactPath.isPresent) {
+            throw GradleException(
+                "Pass -PturboismStaticVerificationRecord=<record.json> " +
+                    "-PturboismHostArtifact=<Live2D_Cubism.jar>"
+            )
+        }
+        args(recordPath.get(), artifactPath.get())
+    }
+}
+
 tasks.register<JavaExec>("validatePluginMeta") {
     group = "verification"
     description = "Validate source plugin.json files against v1 schema using the runtime validator."
