@@ -24,5 +24,8 @@ public record WriteParameterCommand(
         if (parameterId == null) {
             throw new IllegalArgumentException("parameterId must not be null");
         }
+        if (!Float.isFinite(value)) {
+            throw new IllegalArgumentException("value must be finite");
+        }
     }
 }

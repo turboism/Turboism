@@ -87,7 +87,7 @@ class M12UiHostCapabilityTest {
             new DecliningUiHostStateSource()
         );
         assertFalse(declining.confirmDialog(new DialogRequest("dialog-decline", "Confirm", "Proceed?")));
-        assertEquals(1, declining.dialogs().size());
+        assertTrue(declining.dialogs().isEmpty());
 
         RuntimeUiHostCapabilityService denied = new RuntimeUiHostCapabilityService(
             PermissionChecker.from(List.of(permission(RuntimeUiHostCapabilityService.UI_STATUS_NOTIFY))),

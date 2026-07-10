@@ -1,5 +1,6 @@
 package dev.turboism.core.plugin.context;
 
+import dev.turboism.adapter.RuntimeHostAdapters;
 import dev.turboism.adapter.cubism.HostSnapshotSource;
 import dev.turboism.adapter.cubism.service.read.M12ReadSnapshotSource;
 import dev.turboism.config.RuntimePluginConfigRegistry;
@@ -54,11 +55,28 @@ public final class CorePluginContext implements PluginContext {
     private final UiHostCapabilityService uiHostCapabilityService;
 
     public CorePluginContext(final Dependencies dependencies) {
-        this(dependencies, new DefaultCubismServicesFactory());
+        this(dependencies, RuntimeHostAdapters.safeMode());
+    }
+
+    /** Production composition seam for connected or safe-mode host adapters. */
+    public CorePluginContext(
+        final Dependencies dependencies,
+        final RuntimeHostAdapters hostAdapters
+    ) {
+        this(dependencies, new DefaultCubismServicesFactory(hostAdapters), hostAdapters);
     }
 
     CorePluginContext(final Dependencies dependencies, final CubismServicesFactory cubismServicesFactory) {
+        this(dependencies, cubismServicesFactory, RuntimeHostAdapters.safeMode());
+    }
+
+    private CorePluginContext(
+        final Dependencies dependencies,
+        final CubismServicesFactory cubismServicesFactory,
+        final RuntimeHostAdapters hostAdapters
+    ) {
         this.dependencies = Objects.requireNonNull(dependencies, "dependencies");
+        final RuntimeHostAdapters adapters = Objects.requireNonNull(hostAdapters, "hostAdapters");
         this.cubismServices = Objects.requireNonNull(cubismServicesFactory, "cubismServicesFactory")
             .create(this.dependencies);
         this.mainToolbarRegistry = dependencies.mainToolbar();
@@ -74,7 +92,10 @@ public final class CorePluginContext implements PluginContext {
             )),
             this.dependencies.descriptor().id(),
             this.dependencies.uiHostStateSource(),
-            this.dependencies.disposableScope()
+            this.dependencies.disposableScope(),
+            adapters.statusToolbar(),
+            adapters.mainToolbar(),
+            adapters.uiSurface()
         );
     }
 

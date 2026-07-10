@@ -54,7 +54,8 @@ public final class StatusToolbarAdapterImpl implements StatusToolbarAdapter {
         final HostCall<T> hostCall
     ) {
         try {
-            final Optional<SafeModeDiagnostic> versionDiagnostic = HostUiVersionCheck.diagnosticFor(operations.hostVersion());
+            final Optional<SafeModeDiagnostic> versionDiagnostic =
+                HostUiVersionCheck.diagnosticFor(capability.id(), operations.hostVersion());
             if (versionDiagnostic.isPresent()) {
                 return AdapterResult.unavailable(versionDiagnostic.orElseThrow());
             }
@@ -64,6 +65,11 @@ public final class StatusToolbarAdapterImpl implements StatusToolbarAdapter {
             return AdapterResult.available(hostCall.invoke(operations));
         } catch (AdapterHostException exception) {
             return AdapterResult.unavailable(exception.diagnostic());
+        } catch (RuntimeException exception) {
+            return AdapterResult.unavailable(SafeModeDiagnostic.validationFailure(
+                capability.id(),
+                "Host status/toolbar adapter call failed safely."
+            ));
         }
     }
 

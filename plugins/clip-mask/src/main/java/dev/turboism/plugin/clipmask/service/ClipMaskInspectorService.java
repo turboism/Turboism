@@ -56,8 +56,6 @@ public final class ClipMaskInspectorService {
 
     public void inspect() {
         final List<ClipMaskSnapshot> masks = cubismRead.clipMasks();
-        cubismRead.meshes();
-        cubismRead.selection();
 
         if (masks.isEmpty()) {
             uiHost.notifyStatus(new StatusNotification(

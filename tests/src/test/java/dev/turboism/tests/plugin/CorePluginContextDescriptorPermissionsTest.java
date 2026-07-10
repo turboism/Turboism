@@ -1,6 +1,15 @@
 package dev.turboism.tests.plugin;
 
+import dev.turboism.adapter.RuntimeHostAdapters;
+import dev.turboism.adapter.cubism.ClipMaskReadAdapter;
 import dev.turboism.adapter.cubism.HostSnapshotSource;
+import dev.turboism.adapter.cubism.ProjectWorkspaceAdapter;
+import dev.turboism.adapter.cubism.RenderStatusAdapter;
+import dev.turboism.adapter.ui.MainToolbarAdapterImpl;
+import dev.turboism.adapter.ui.StatusToolbarAdapterImpl;
+import dev.turboism.adapter.ui.ThemeStatusAdapterImpl;
+import dev.turboism.adapter.ui.UiSurfaceAdapter;
+import dev.turboism.adapter.ui.UiSurfaceAdapterImpl;
 import dev.turboism.core.plugin.context.CorePluginContext;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.PluginExecutorRegistry;
@@ -8,6 +17,10 @@ import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.diagnostics.CubismFacadeAuditEvent;
 import dev.turboism.sdk.action.ActionRegistry;
+import dev.turboism.sdk.cubism.ClipMaskSnapshot;
+import dev.turboism.sdk.cubism.ProjectSnapshot;
+import dev.turboism.sdk.cubism.RenderStatusSnapshot;
+import dev.turboism.sdk.cubism.WorkspaceSnapshot;
 import dev.turboism.sdk.event.EventBus.TurboismEvent;
 import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.permission.CubismPermissionException;
@@ -16,6 +29,10 @@ import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.PluginPaths;
 import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.sdk.ui.DialogRequest;
+import dev.turboism.sdk.ui.EmbeddedPanelContribution;
+import dev.turboism.sdk.ui.FileChooserRequest;
+import dev.turboism.sdk.ui.OverlayContribution;
 import dev.turboism.sdk.ui.UiScheduler;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
@@ -34,6 +51,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -115,7 +133,75 @@ class CorePluginContextDescriptorPermissionsTest {
         assertTrue(auditEvents.isEmpty(), "No host Cubism reads were attempted");
     }
 
+    @Test
+    void connectedReadAdaptersAreAvailableThroughProductionContextConstructor(@TempDir Path dataDir) {
+        RuntimeHostAdapters adapters = adapters(new RecordingUiSurfaceHost());
+        CorePluginContext context = context(
+            dataDir,
+            descriptorWithPermissions(List.of(
+                "turboism.cubism.project.read",
+                "turboism.cubism.model.read"
+            )),
+            ignored -> { },
+            adapters
+        );
+
+        assertEquals("project-1", context.cubismRead().activeProject().orElseThrow().projectId());
+        assertEquals("workspace-1", context.cubismRead().workspace().orElseThrow().workspaceId());
+        assertEquals("fake-renderer", context.cubismRead().renderStatus().orElseThrow().rendererName());
+        assertEquals("mask-1", context.cubismRead().clipMasks().get(0).clipMaskId());
+    }
+
+    @Test
+    void connectedProjectAdapterCannotBypassDescriptorPermission(@TempDir Path dataDir) {
+        CorePluginContext context = context(
+            dataDir,
+            descriptorWithPermissions(),
+            ignored -> { },
+            adapters(new RecordingUiSurfaceHost())
+        );
+
+        assertThrows(CubismPermissionException.class, () -> context.cubismRead().activeProject());
+    }
+
+    @Test
+    void connectedUiSurfaceAdapterIsUsedThroughProductionContextConstructor(@TempDir Path dataDir) {
+        RecordingUiSurfaceHost host = new RecordingUiSurfaceHost();
+        CorePluginContext context = context(
+            dataDir,
+            descriptorWithPermissions(List.of(
+                "turboism.ui.overlay.contribute",
+                "turboism.ui.dialog.contribute",
+                "turboism.ui.panel.contribute",
+                "turboism.ui.file-chooser.request"
+            )),
+            ignored -> { },
+            adapters(host)
+        );
+
+        context.uiHost().contributeOverlay(new OverlayContribution("overlay", "viewport", 1));
+        context.uiHost().openDialog(new DialogRequest("dialog", "Dialog", "Body"));
+        context.uiHost().contributeEmbeddedPanel(new EmbeddedPanelContribution("panel", "Panel", "side", 1));
+        assertTrue(context.uiHost().confirmDialog(new DialogRequest("confirm", "Confirm", "Proceed?")));
+        assertEquals(Optional.of("imports/params.csv"), context.uiHost().requestFile(
+            new FileChooserRequest("file", "File", List.of("csv"))
+        ));
+
+        assertEquals(1, host.overlayCount);
+        assertEquals(1, host.dialogCount);
+        assertEquals(1, host.panelCount);
+    }
+
     private static CorePluginContext context(Path dataDir, PluginDescriptor descriptor, Consumer<CubismFacadeAuditEvent> auditSink) {
+        return context(dataDir, descriptor, auditSink, RuntimeHostAdapters.safeMode());
+    }
+
+    private static CorePluginContext context(
+        Path dataDir,
+        PluginDescriptor descriptor,
+        Consumer<CubismFacadeAuditEvent> auditSink,
+        RuntimeHostAdapters adapters
+    ) {
         return new CorePluginContext(new CorePluginContext.Dependencies(
             descriptor,
             logger(),
@@ -127,7 +213,7 @@ class CorePluginContextDescriptorPermissionsTest {
             noopHostSnapshotSource(),
             auditSink,
             CLOCK
-        ));
+        ), adapters);
     }
 
     private static RuntimeScheduler scheduler() {
@@ -257,5 +343,76 @@ class CorePluginContextDescriptorPermissionsTest {
             @Override public boolean isHostPresent() { return false; }
             @Override public long invalidationToken() { return 0; }
         };
+    }
+
+    private static RuntimeHostAdapters adapters(final RecordingUiSurfaceHost uiSurfaceHost) {
+        RenderStatusAdapter renderStatus = RenderStatusAdapter.Impl.connected(new RenderStatusAdapter.HostOperations() {
+            @Override public String hostVersion() { return "5.3.2"; }
+            @Override public boolean supportsRenderStatusRead() { return true; }
+            @Override public Optional<RenderStatusSnapshot> renderStatus() {
+                return Optional.of(new RenderStatusSnapshot(true, 60.0, "fake-renderer"));
+            }
+        });
+        ProjectWorkspaceAdapter projectWorkspace = ProjectWorkspaceAdapter.Impl.connected(
+            new ProjectWorkspaceAdapter.HostOperations() {
+                @Override public String hostVersion() { return "5.3.2"; }
+                @Override public boolean supportsProjectWorkspaceRead() { return true; }
+                @Override public Optional<ProjectSnapshot> activeProject() {
+                    return Optional.of(new ProjectSnapshot("project-1", "Project", Optional.empty(), List.of()));
+                }
+                @Override public Optional<WorkspaceSnapshot> workspace() {
+                    return Optional.of(new WorkspaceSnapshot("workspace-1", "workspace", List.of("project-1")));
+                }
+            }
+        );
+        ClipMaskReadAdapter clipMask = ClipMaskReadAdapter.Impl.connected(new ClipMaskReadAdapter.HostOperations() {
+            @Override public String hostVersion() { return "5.3.2"; }
+            @Override public boolean supportsClipMaskRead() { return true; }
+            @Override public List<ClipMaskSnapshot> clipMasks() {
+                return List.of(new ClipMaskSnapshot("mask-1", List.of("source"), List.of("mesh-1"), true));
+            }
+        });
+        return new RuntimeHostAdapters(
+            ThemeStatusAdapterImpl.safeMode(),
+            renderStatus,
+            projectWorkspace,
+            clipMask,
+            StatusToolbarAdapterImpl.safeMode(),
+            MainToolbarAdapterImpl.safeMode(),
+            UiSurfaceAdapterImpl.connected(uiSurfaceHost)
+        );
+    }
+
+    private static final class RecordingUiSurfaceHost implements UiSurfaceAdapter.HostOperations {
+        private int overlayCount;
+        private int dialogCount;
+        private int panelCount;
+
+        @Override public String hostVersion() { return "5.3.2"; }
+        @Override public boolean supports(UiSurfaceAdapter.Capability capability) { return true; }
+
+        @Override
+        public Registration contributeOverlay(OverlayContribution contribution) {
+            overlayCount++;
+            return () -> overlayCount--;
+        }
+
+        @Override
+        public Registration openDialog(DialogRequest request) {
+            dialogCount++;
+            return () -> dialogCount--;
+        }
+
+        @Override public boolean confirmDialog(DialogRequest request) { return true; }
+
+        @Override
+        public Registration contributeEmbeddedPanel(EmbeddedPanelContribution contribution) {
+            panelCount++;
+            return () -> panelCount--;
+        }
+
+        @Override public Optional<String> requestFile(FileChooserRequest request) {
+            return Optional.of("imports/params.csv");
+        }
     }
 }

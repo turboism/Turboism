@@ -1,6 +1,7 @@
 package dev.turboism.tests.plugin;
 
 import dev.turboism.core.descriptor.PluginDescriptorParser;
+import dev.turboism.core.diagnostics.CallbackBudgetEvent;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.plugin.clipmask.ClipMaskPlugin;
 import dev.turboism.plugin.parameter.ParameterPlugin;
@@ -11,6 +12,8 @@ import dev.turboism.plugin.renderopt.RenderOptPlugin;
 import dev.turboism.plugin.uitheme.UiThemePlugin;
 import dev.turboism.sdk.cubism.ArtMeshSnapshot;
 import dev.turboism.sdk.cubism.ClipMaskSnapshot;
+import dev.turboism.sdk.cubism.CubismFacade;
+import dev.turboism.sdk.cubism.CubismRuntimeSnapshot;
 import dev.turboism.sdk.cubism.DeformerSnapshot;
 import dev.turboism.sdk.cubism.DocumentSnapshot;
 import dev.turboism.sdk.cubism.ModelObjectSnapshot;
@@ -23,6 +26,11 @@ import dev.turboism.sdk.cubism.SelectionSnapshot;
 import dev.turboism.sdk.cubism.TextureAtlasSnapshot;
 import dev.turboism.sdk.cubism.WorkspaceSnapshot;
 import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
+import dev.turboism.sdk.cubism.transaction.DocumentId;
+import dev.turboism.sdk.cubism.transaction.ModelTransaction;
+import dev.turboism.sdk.cubism.transaction.TransactionManager;
+import dev.turboism.sdk.cubism.transaction.TransactionStatus;
+import dev.turboism.sdk.cubism.write.CubismWriteCommand;
 import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.sdk.plugin.PluginDescriptor;
@@ -232,12 +240,13 @@ class M13OfficialPluginRuntimeIntegrationTest {
     }
 
     @Test
-    void clipMaskEnablesWithDeclaredPermissionsAndCleansUpPanelAndDialog() throws Exception {
+    void clipMaskEnablesRunsInspectActionAndCleansUpPanelAndDialog() throws Exception {
+        ClipMaskRead read = new ClipMaskRead();
         try (M8PluginTestSupport.Harness harness = harnessFor(
             "clip-mask",
             tempDir.resolve("clip-mask"),
             UiHostStateSource.DEFAULT,
-            new ClipMaskRead()
+            read
         )) {
             ClipMaskPlugin plugin = new ClipMaskPlugin();
             plugin.init(harness.context());
@@ -256,9 +265,83 @@ class M13OfficialPluginRuntimeIntegrationTest {
                 harness.uiHost().dialogs()
             );
 
+            harness.executeAction("clip-mask.inspector.inspect");
+            awaitNotificationCount(harness, 1);
+            assertEquals(
+                List.of(new StatusNotification(
+                    "clip-mask.inspector.refreshed",
+                    "INFO",
+                    "Clip masks: 1 total, 1 enabled, 1 clipped mesh refs"
+                )),
+                harness.uiHost().notifications()
+            );
+            assertEquals(1, read.clipMaskReads());
+
             harness.context().disposableScope().close();
             assertTrue(harness.uiHost().panels().isEmpty());
             assertTrue(harness.uiHost().dialogs().isEmpty());
+        }
+    }
+
+    @Test
+    void clipMaskInspectFailsInSchedulerWhenModelReadPermissionIsMissing() throws Exception {
+        PluginDescriptor descriptor = descriptorFor("clip-mask");
+        List<PluginPermission> permissionsWithoutModelRead = withoutPermission(
+            descriptor,
+            "turboism.cubism.model.read"
+        );
+        ClipMaskRead read = new ClipMaskRead();
+
+        try (M8PluginTestSupport.Harness harness = M8PluginTestSupport.harness(
+            tempDir.resolve("clip-mask-model-read-denied"),
+            PermissionChecker.from(permissionsWithoutModelRead),
+            UiHostStateSource.DEFAULT,
+            read
+        )) {
+            ClipMaskPlugin plugin = new ClipMaskPlugin();
+            plugin.init(harness.context());
+            plugin.enable();
+
+            harness.executeAction("clip-mask.inspector.inspect");
+            awaitCallbackPhase(harness, CallbackBudgetEvent.Phase.FAILED);
+
+            assertEquals(0, read.clipMaskReads());
+            assertTrue(harness.uiHost().notifications().isEmpty());
+            assertEquals(1, harness.uiHost().panels().size());
+            assertEquals(1, harness.uiHost().dialogs().size());
+
+            harness.context().disposableScope().close();
+            assertTrue(harness.uiHost().panels().isEmpty());
+            assertTrue(harness.uiHost().dialogs().isEmpty());
+        }
+    }
+
+    @Test
+    void clipMaskInspectFailsInSchedulerWhenStatusPermissionIsMissing() throws Exception {
+        PluginDescriptor descriptor = descriptorFor("clip-mask");
+        List<PluginPermission> permissionsWithoutStatus = withoutPermission(
+            descriptor,
+            "turboism.ui.status.notify"
+        );
+        ClipMaskRead read = new ClipMaskRead();
+
+        try (M8PluginTestSupport.Harness harness = M8PluginTestSupport.harness(
+            tempDir.resolve("clip-mask-status-denied"),
+            PermissionChecker.from(permissionsWithoutStatus),
+            UiHostStateSource.DEFAULT,
+            read
+        )) {
+            ClipMaskPlugin plugin = new ClipMaskPlugin();
+            plugin.init(harness.context());
+            plugin.enable();
+
+            harness.executeAction("clip-mask.inspector.inspect");
+            awaitCallbackPhase(harness, CallbackBudgetEvent.Phase.FAILED);
+
+            assertEquals(1, read.clipMaskReads());
+            assertTrue(harness.uiHost().notifications().isEmpty());
+            assertEquals(1, harness.uiHost().panels().size());
+            assertEquals(1, harness.uiHost().dialogs().size());
         }
     }
 
@@ -413,6 +496,135 @@ class M13OfficialPluginRuntimeIntegrationTest {
     }
 
     @Test
+    void mainToolbarActionDeniesWhenProjectReadPermissionIsMissing() throws Exception {
+        PluginDescriptor descriptor = descriptorFor("main-toolbar");
+        try (M8PluginTestSupport.Harness harness = M8PluginTestSupport.harness(
+            tempDir.resolve("main-toolbar-project-read-denied"),
+            PermissionChecker.from(withoutPermission(descriptor, "turboism.cubism.project.read")),
+            UiHostStateSource.DEFAULT,
+            new ProjectAndWorkspaceRead()
+        )) {
+            MainToolbarPlugin plugin = new MainToolbarPlugin();
+            plugin.init(harness.context());
+            plugin.enable();
+
+            harness.executeAction("main-toolbar.home-entry.open");
+            awaitCallbackPhase(harness, CallbackBudgetEvent.Phase.FAILED);
+            assertTrue(harness.uiHost().notifications().isEmpty());
+        }
+    }
+
+    @Test
+    void renderStatusActionDeniesOperationalPermissions() throws Exception {
+        PluginDescriptor descriptor = descriptorFor("render-opt");
+        for (String denied : List.of("turboism.cubism.model.read", "turboism.ui.status.notify")) {
+            try (M8PluginTestSupport.Harness harness = M8PluginTestSupport.harness(
+                tempDir.resolve("render-opt-" + denied.replace('.', '-')),
+                PermissionChecker.from(withoutPermission(descriptor, denied)),
+                UiHostStateSource.DEFAULT,
+                new RenderStatusRead()
+            )) {
+                RenderOptPlugin plugin = new RenderOptPlugin();
+                plugin.init(harness.context());
+                plugin.enable();
+
+                harness.executeAction("render-status.overlay.refresh");
+                awaitCallbackPhase(harness, CallbackBudgetEvent.Phase.FAILED);
+                assertTrue(harness.uiHost().notifications().isEmpty());
+            }
+        }
+    }
+
+    @Test
+    void meshInspectActionDeniesOperationalPermissions() throws Exception {
+        PluginDescriptor descriptor = descriptorFor("mesh");
+        for (String denied : List.of(
+            "turboism.cubism.model.read",
+            "turboism.ui.context-source.read",
+            "turboism.ui.status.notify"
+        )) {
+            try (M8PluginTestSupport.Harness harness = M8PluginTestSupport.harness(
+                tempDir.resolve("mesh-" + denied.replace('.', '-')),
+                PermissionChecker.from(withoutPermission(descriptor, denied)),
+                UiHostStateSource.DEFAULT,
+                new MeshRead()
+            )) {
+                MeshPlugin plugin = new MeshPlugin();
+                plugin.init(harness.context());
+                plugin.enable();
+
+                harness.executeAction("mesh.inspector.inspect");
+                awaitCallbackPhase(harness, CallbackBudgetEvent.Phase.FAILED);
+                assertTrue(harness.uiHost().notifications().isEmpty());
+            }
+        }
+    }
+
+    @Test
+    void parameterExportActionDeniesReadAndStatusPermissions() throws Exception {
+        PluginDescriptor descriptor = descriptorFor("parameter");
+        for (String denied : List.of("turboism.cubism.model.read", "turboism.ui.status.notify")) {
+            try (M8PluginTestSupport.Harness harness = M8PluginTestSupport.harness(
+                tempDir.resolve("parameter-export-" + denied.replace('.', '-')),
+                PermissionChecker.from(withoutPermission(descriptor, denied)),
+                UiHostStateSource.DEFAULT,
+                new ParameterRead()
+            )) {
+                ParameterPlugin plugin = new ParameterPlugin();
+                plugin.init(harness.context());
+                plugin.enable();
+
+                harness.executeAction("parameter.csv.export");
+                awaitCallbackPhase(harness, CallbackBudgetEvent.Phase.FAILED);
+                assertTrue(harness.uiHost().notifications().isEmpty());
+            }
+        }
+    }
+
+    @Test
+    void parameterImportActionDeniesFileChooserPermission() throws Exception {
+        PluginDescriptor descriptor = descriptorFor("parameter");
+        try (M8PluginTestSupport.Harness harness = M8PluginTestSupport.harness(
+            tempDir.resolve("parameter-file-chooser-denied"),
+            PermissionChecker.from(withoutPermission(descriptor, "turboism.ui.file-chooser.request")),
+            fileChooserSource(),
+            new ParameterImportRead()
+        )) {
+            ParameterPlugin plugin = new ParameterPlugin(ignored -> Optional.of("id,value\np1,0.75\n"));
+            plugin.init(harness.context());
+            plugin.enable();
+
+            harness.executeAction("parameter.csv.import");
+            awaitCallbackPhase(harness, CallbackBudgetEvent.Phase.FAILED);
+            assertTrue(harness.uiHost().notifications().isEmpty());
+        }
+    }
+
+    @Test
+    void parameterImportActionDeniesModelWritePermissionWithoutPartialApply() throws Exception {
+        PluginDescriptor descriptor = descriptorFor("parameter");
+        List<PluginPermission> permissions = withoutPermission(descriptor, "turboism.cubism.model.write");
+        PermissionChecker checker = PermissionChecker.from(permissions);
+        WritePermissionFacade facade = new WritePermissionFacade(checker);
+        try (M8PluginTestSupport.Harness harness = M8PluginTestSupport.harness(
+            tempDir.resolve("parameter-model-write-denied"),
+            checker,
+            fileChooserSource(),
+            new ParameterImportRead(),
+            facade
+        )) {
+            ParameterPlugin plugin = new ParameterPlugin(ignored -> Optional.of("id,value\np1,0.75\n"));
+            plugin.init(harness.context());
+            plugin.enable();
+
+            harness.executeAction("parameter.csv.import");
+            awaitNotificationCount(harness, 1);
+            assertEquals("parameter.csv.import.failed", harness.uiHost().notifications().get(0).id());
+            assertEquals(0, facade.enqueuedCommands);
+        }
+    }
+
+    @Test
     void officialM13ManifestsDeclareExpectedPermissions() throws Exception {
         assertEquals(
             Set.of(
@@ -498,6 +710,32 @@ class M13OfficialPluginRuntimeIntegrationTest {
             PermissionChecker.from(toPermissions(descriptor)),
             uiHostStateSource,
             cubismRead
+        );
+    }
+
+    private static void awaitNotificationCount(
+        final M8PluginTestSupport.Harness harness,
+        final int expectedCount
+    ) throws InterruptedException {
+        final long deadline = System.nanoTime() + 2_000_000_000L;
+        while (harness.uiHost().notifications().size() < expectedCount && System.nanoTime() < deadline) {
+            Thread.sleep(10L);
+        }
+        assertEquals(expectedCount, harness.uiHost().notifications().size());
+    }
+
+    private static void awaitCallbackPhase(
+        final M8PluginTestSupport.Harness harness,
+        final CallbackBudgetEvent.Phase expectedPhase
+    ) throws InterruptedException {
+        final long deadline = System.nanoTime() + 2_000_000_000L;
+        while (harness.callbackEvents().stream().noneMatch(event -> event.phase() == expectedPhase)
+            && System.nanoTime() < deadline) {
+            Thread.sleep(10L);
+        }
+        assertTrue(
+            harness.callbackEvents().stream().anyMatch(event -> event.phase() == expectedPhase),
+            () -> "Missing callback phase " + expectedPhase + "; events=" + harness.callbackEvents()
         );
     }
 
@@ -589,27 +827,89 @@ class M13OfficialPluginRuntimeIntegrationTest {
         }
     }
 
-    private static final class ParameterRead extends UnsupportedCubismRead {
+    private static class ParameterRead extends UnsupportedCubismRead {
         @Override
         public List<ParameterSnapshot> parameters() {
             return List.of(new ParameterSnapshot("p1", "P1", 0.5, 0.0, -1.0, 1.0, true, true));
         }
     }
 
+    private static final class ParameterImportRead extends ParameterRead {
+        @Override
+        public Optional<DocumentSnapshot> activeDocument() {
+            return Optional.of(new DocumentSnapshot(
+                "document-1",
+                "Document",
+                "models/model.cmo3",
+                Optional.empty(),
+                Optional.empty()
+            ));
+        }
+
+        @Override
+        public Optional<ModelSnapshot> activeModel() {
+            return Optional.of(new ModelSnapshot(
+                "model-1",
+                "Model",
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of()
+            ));
+        }
+    }
+
+    private static UiHostStateSource fileChooserSource() {
+        return new UiHostStateSource() {
+            @Override
+            public Optional<String> chooseFile(dev.turboism.sdk.ui.FileChooserRequest request) {
+                return Optional.of("imports/params.csv");
+            }
+        };
+    }
+
+    private static final class WritePermissionFacade implements CubismFacade {
+        private final PermissionChecker permissionChecker;
+        private int enqueuedCommands;
+
+        private WritePermissionFacade(final PermissionChecker permissionChecker) {
+            this.permissionChecker = permissionChecker;
+        }
+
+        @Override public CubismRuntimeSnapshot runtime() { throw new UnsupportedOperationException(); }
+        @Override public Optional<ProjectSnapshot> activeProject() { return Optional.empty(); }
+        @Override public Optional<DocumentSnapshot> activeDocument() { return Optional.empty(); }
+        @Override public Optional<ModelSnapshot> activeModel() { return Optional.empty(); }
+        @Override public boolean isHostPresent() { return true; }
+
+        @Override
+        public TransactionManager transactionManager() {
+            return (context, documentId) -> {
+                permissionChecker.check("turboism.cubism.model.write", "transaction.open");
+                return new ModelTransaction() {
+                    private TransactionStatus status = TransactionStatus.OPEN;
+
+                    @Override public TransactionStatus status() { return status; }
+                    @Override public void enqueue(CubismWriteCommand command) { enqueuedCommands++; }
+                    @Override public void commit() { status = TransactionStatus.COMMITTED; }
+                    @Override public void rollback() { status = TransactionStatus.ROLLED_BACK; }
+                    @Override public String transactionId() { return "permission-test"; }
+                };
+            };
+        }
+    }
+
     private static final class ClipMaskRead extends UnsupportedCubismRead {
+        private int clipMaskReads;
+
         @Override
         public List<ClipMaskSnapshot> clipMasks() {
+            clipMaskReads++;
             return List.of(new ClipMaskSnapshot("mask-1", List.of("mesh-src"), List.of("mesh-1"), true));
         }
 
-        @Override
-        public List<ArtMeshSnapshot> meshes() {
-            return List.of();
-        }
-
-        @Override
-        public SelectionSnapshot selection() {
-            return new SelectionSnapshot(List.of(), Optional.empty(), Optional.empty(), Optional.empty());
+        int clipMaskReads() {
+            return clipMaskReads;
         }
     }
 

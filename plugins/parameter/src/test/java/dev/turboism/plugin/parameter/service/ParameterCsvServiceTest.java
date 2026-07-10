@@ -51,6 +51,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ParameterCsvServiceTest {
@@ -81,6 +82,22 @@ class ParameterCsvServiceTest {
             )),
             uiHost.notifications()
         );
+    }
+
+    @Test
+    void exportCsvRejectsNonFiniteSnapshotValues() {
+        ParameterCsvService service = new ParameterCsvService(
+            new FixedCubismRead(
+                List.of(new ParameterSnapshot("p1", "P1", Double.NaN, 0.0, -1.0, 1.0, true, true)),
+                presentDoc(),
+                presentModel()
+            ),
+            new RecordingFacade(),
+            new MinimalPluginContext(),
+            new RecordingUiHost()
+        );
+
+        assertThrows(IllegalArgumentException.class, service::exportCsv);
     }
 
     @Test
@@ -214,6 +231,96 @@ class ParameterCsvServiceTest {
         assertTrue(facade.transaction().rolledBack());
         assertEquals("parameter.csv.import.failed", uiHost.notifications().get(0).id());
         assertEquals("WARNING", uiHost.notifications().get(0).severity());
+    }
+
+    @Test
+    void defaultContentProviderFailsClosedWithoutFilesystemIo() {
+        RecordingUiHost uiHost = new RecordingUiHost();
+        uiHost.chosenFile = Optional.of("imports/params.csv");
+        ParameterCsvService service = new ParameterCsvService(
+            new FixedCubismRead(SAMPLE_PARAMS, presentDoc(), presentModel()),
+            new RecordingFacade(),
+            new MinimalPluginContext(),
+            uiHost
+        );
+
+        service.importCsv();
+
+        assertEquals("parameter.csv.import.unavailable", uiHost.notifications().get(0).id());
+    }
+
+    @Test
+    void importCsvRejectsUnknownOutOfRangeAndNonEditableParametersBeforeTransaction() {
+        List<ParameterSnapshot> parameters = List.of(
+            new ParameterSnapshot("p1", "P1", 0.5, 0.0, -1.0, 1.0, true, true),
+            new ParameterSnapshot("locked", "Locked", 0.0, 0.0, -1.0, 1.0, true, false)
+        );
+
+        for (String csv : List.of(
+            "id,value\nmissing,0.5\n",
+            "id,value\np1,2.0\n",
+            "id,value\nlocked,0.5\n"
+        )) {
+            RecordingUiHost uiHost = new RecordingUiHost();
+            uiHost.chosenFile = Optional.of("imports/params.csv");
+            RecordingFacade facade = new RecordingFacade();
+            ParameterCsvService service = new ParameterCsvService(
+                new FixedCubismRead(parameters, presentDoc(), presentModel()),
+                facade,
+                new MinimalPluginContext(),
+                uiHost,
+                ignored -> Optional.of(csv)
+            );
+
+            service.importCsv();
+
+            assertTrue(facade.transaction().enqueued().isEmpty());
+            assertEquals("parameter.csv.import.failed", uiHost.notifications().get(0).id());
+        }
+    }
+
+    @Test
+    void parseCsvStrictRejectsNonFiniteDuplicateAndOversizedInput() {
+        assertTrue(ParameterCsvService.parseCsvStrict("id,value\np1,NaN\n").rows().isEmpty());
+        assertTrue(ParameterCsvService.parseCsvStrict("id,value\np1,Infinity\n").rows().isEmpty());
+        assertTrue(ParameterCsvService.parseCsvStrict("id,value\np1,0.1\np1,0.2\n").errors()
+            .stream().anyMatch(message -> message.contains("duplicate")));
+
+        String oversized = "x".repeat(ParameterCsvService.MAX_CSV_CHARACTERS + 1);
+        assertTrue(ParameterCsvService.parseCsvStrict(oversized).errors()
+            .stream().anyMatch(message -> message.contains("maximum size")));
+    }
+
+    @Test
+    void writeParameterCommandRejectsNonFiniteValues() {
+        assertThrows(IllegalArgumentException.class, () -> new WriteParameterCommand(
+            "nan",
+            new ModelId("model-1"),
+            new ParameterId("p1"),
+            Float.NaN
+        ));
+    }
+
+    @Test
+    void transactionFailureUsesSafeUserMessage() {
+        RecordingUiHost uiHost = new RecordingUiHost();
+        uiHost.chosenFile = Optional.of("imports/params.csv");
+        RecordingFacade facade = new RecordingFacade();
+        facade.failOnCommit = true;
+        ParameterCsvService service = new ParameterCsvService(
+            new FixedCubismRead(SAMPLE_PARAMS, presentDoc(), presentModel()),
+            facade,
+            new MinimalPluginContext(),
+            uiHost,
+            ignored -> Optional.of("id,value\np1,0.5\n")
+        );
+
+        service.importCsv();
+
+        assertEquals(
+            "Parameter CSV import failed. No changes were retained.",
+            uiHost.notifications().get(0).message()
+        );
     }
 
     @Test
