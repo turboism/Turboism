@@ -1,0 +1,55 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 1,
+  "id": "dev.turboism.plugin.parameter",
+  "name": "Parameter CSV Plugin",
+  "version": "0.1.0",
+  "description": "Fake-ready parameter CSV import/export using SDK read, write transactions, and UI host file chooser. Real-host parameter adapter remains future work.",
+  "entrypoints": {
+    "plugin": "dev.turboism.plugin.parameter.ParameterPlugin"
+  },
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    { "name": "Turboism Contributors" }
+  ],
+  "license": "Project License",
+  "homepage": "https://turboism.dev",
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.cubism.model.read",
+      "scope": "application",
+      "reason": "Read parameter snapshots for CSV export."
+    },
+    {
+      "id": "turboism.cubism.model.write",
+      "scope": "application",
+      "reason": "Apply imported parameter values through ModelTransaction."
+    },
+    {
+      "id": "turboism.ui.file-chooser.request",
+      "scope": "application",
+      "reason": "Choose CSV files for import."
+    },
+    {
+      "id": "turboism.ui.status.notify",
+      "scope": "application",
+      "reason": "Notify export/import results and fallbacks."
+    },
+    {
+      "id": "turboism.action.register",
+      "scope": "application",
+      "reason": "Register parameter CSV export and import actions."
+    }
+  ],
+  "capabilities": [
+    "cubism.parameter.read",
+    "cubism.parameter.write",
+    "ui.file-chooser.request",
+    "ui.status.notify"
+  ],
+  "environment": {
+    "requiresCubism": false,
+    "ui": "embedded"
+  }
+}
