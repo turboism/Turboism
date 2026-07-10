@@ -15,15 +15,25 @@ public final class HostUiVersionCheck {
     private HostUiVersionCheck() {
     }
 
-    public static Optional<SafeModeDiagnostic> diagnosticFor(final String hostVersion) {
+    public static Optional<SafeModeDiagnostic> diagnosticFor(
+        final String capabilityId,
+        final String hostVersion
+    ) {
+        Objects.requireNonNull(capabilityId, "capabilityId");
         Objects.requireNonNull(hostVersion, "hostVersion");
         try {
             if (SUPPORTED_RANGE.contains(PluginVersion.parse(hostVersion))) {
                 return Optional.empty();
             }
         } catch (IllegalArgumentException ignored) {
-            return Optional.of(SafeModeDiagnostic.hostVersionUnsupported(hostVersion));
+            return Optional.of(SafeModeDiagnostic.hostVersionUnsupported(capabilityId, hostVersion));
         }
-        return Optional.of(SafeModeDiagnostic.hostVersionUnsupported(hostVersion));
+        return Optional.of(SafeModeDiagnostic.hostVersionUnsupported(capabilityId, hostVersion));
+    }
+
+    /** @deprecated pass the affected capability ID explicitly. */
+    @Deprecated
+    public static Optional<SafeModeDiagnostic> diagnosticFor(final String hostVersion) {
+        return diagnosticFor("adapter.host", hostVersion);
     }
 }

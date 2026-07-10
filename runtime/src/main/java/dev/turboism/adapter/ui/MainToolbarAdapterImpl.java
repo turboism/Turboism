@@ -37,7 +37,10 @@ public final class MainToolbarAdapterImpl implements MainToolbarAdapter {
         final MainToolbarRegistry.MainToolbarContribution contribution
     ) {
         try {
-            final Optional<SafeModeDiagnostic> versionDiagnostic = HostUiVersionCheck.diagnosticFor(operations.hostVersion());
+            final Optional<SafeModeDiagnostic> versionDiagnostic = HostUiVersionCheck.diagnosticFor(
+                Capability.MAIN_TOOLBAR_CONTRIBUTE.id(),
+                operations.hostVersion()
+            );
             if (versionDiagnostic.isPresent()) {
                 return AdapterResult.unavailable(versionDiagnostic.orElseThrow());
             }
@@ -47,6 +50,11 @@ public final class MainToolbarAdapterImpl implements MainToolbarAdapter {
             return AdapterResult.available(operations.contributeMainToolbar(contribution));
         } catch (AdapterHostException exception) {
             return AdapterResult.unavailable(exception.diagnostic());
+        } catch (RuntimeException exception) {
+            return AdapterResult.unavailable(SafeModeDiagnostic.validationFailure(
+                Capability.MAIN_TOOLBAR_CONTRIBUTE.id(),
+                "Host main-toolbar adapter call failed safely."
+            ));
         }
     }
 

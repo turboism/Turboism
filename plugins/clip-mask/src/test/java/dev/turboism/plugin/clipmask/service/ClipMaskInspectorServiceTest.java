@@ -54,7 +54,10 @@ class ClipMaskInspectorServiceTest {
     @Test
     void openInspectorDialogContributesStaticReadyBodyWithoutReadingMasks() {
         RecordingUiHost uiHost = new RecordingUiHost();
-        ClipMaskInspectorService service = new ClipMaskInspectorService(new FixedCubismRead(List.of()), uiHost);
+        ClipMaskInspectorService service = new ClipMaskInspectorService(
+            new FixedCubismRead(List.of(), true),
+            uiHost
+        );
 
         service.openInspectorDialog();
 
@@ -120,19 +123,28 @@ class ClipMaskInspectorServiceTest {
         );
     }
 
-    private record FixedCubismRead(List<ClipMaskSnapshot> clipMasks) implements CubismReadCapabilityService {
+    private record FixedCubismRead(
+        List<ClipMaskSnapshot> clipMasks,
+        boolean failOnClipMaskRead
+    ) implements CubismReadCapabilityService {
+        private FixedCubismRead(final List<ClipMaskSnapshot> clipMasks) {
+            this(clipMasks, false);
+        }
         @Override public Optional<ProjectSnapshot> activeProject() { throw unsupported(); }
         @Override public Optional<DocumentSnapshot> activeDocument() { throw unsupported(); }
         @Override public Optional<ModelSnapshot> activeModel() { throw unsupported(); }
-        @Override public SelectionSnapshot selection() {
-            return new SelectionSnapshot(List.of(), Optional.empty(), Optional.empty(), Optional.empty());
-        }
+        @Override public SelectionSnapshot selection() { throw unsupported(); }
         @Override public List<ParameterSnapshot> parameters() { throw unsupported(); }
         @Override public List<ModelObjectSnapshot> modelObjects() { throw unsupported(); }
-        @Override public List<ArtMeshSnapshot> meshes() { return List.of(); }
+        @Override public List<ArtMeshSnapshot> meshes() { throw unsupported(); }
         @Override public List<DeformerSnapshot> deformers() { throw unsupported(); }
         @Override public List<PsdDocumentSnapshot> psdDocuments() { throw unsupported(); }
-        @Override public List<ClipMaskSnapshot> clipMasks() { return clipMasks; }
+        @Override public List<ClipMaskSnapshot> clipMasks() {
+            if (failOnClipMaskRead) {
+                throw new AssertionError("enable-time UI contribution must not read clip masks");
+            }
+            return clipMasks;
+        }
         @Override public List<TextureAtlasSnapshot> textureAtlases() { throw unsupported(); }
         @Override public Optional<RenderStatusSnapshot> renderStatus() { throw unsupported(); }
         @Override public Optional<WorkspaceSnapshot> workspace() { throw unsupported(); }

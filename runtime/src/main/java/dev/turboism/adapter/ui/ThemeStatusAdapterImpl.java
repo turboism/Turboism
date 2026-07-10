@@ -28,14 +28,24 @@ public final class ThemeStatusAdapterImpl implements ThemeStatusAdapter {
     }
 
     private AdapterResult<Optional<ThemeStatusSnapshot>> callIfSupported(final HostOperations operations) {
-        final Optional<SafeModeDiagnostic> versionDiagnostic = HostUiVersionCheck.diagnosticFor(operations.hostVersion());
-        if (versionDiagnostic.isPresent()) {
-            return AdapterResult.unavailable(versionDiagnostic.orElseThrow());
+        try {
+            final Optional<SafeModeDiagnostic> versionDiagnostic =
+                HostUiVersionCheck.diagnosticFor(CAPABILITY_ID, operations.hostVersion());
+            if (versionDiagnostic.isPresent()) {
+                return AdapterResult.unavailable(versionDiagnostic.orElseThrow());
+            }
+            if (!operations.supportsThemeStatusRead()) {
+                return AdapterResult.unavailable(SafeModeDiagnostic.capabilityUnavailable(CAPABILITY_ID));
+            }
+            return AdapterResult.available(operations.themeStatus());
+        } catch (AdapterHostException exception) {
+            return AdapterResult.unavailable(exception.diagnostic());
+        } catch (RuntimeException exception) {
+            return AdapterResult.unavailable(SafeModeDiagnostic.validationFailure(
+                CAPABILITY_ID,
+                "Host theme-status adapter call failed safely."
+            ));
         }
-        if (!operations.supportsThemeStatusRead()) {
-            return AdapterResult.unavailable(SafeModeDiagnostic.capabilityUnavailable(CAPABILITY_ID));
-        }
-        return AdapterResult.available(operations.themeStatus());
     }
 
     private static Supplier<AdapterResult<Optional<ThemeStatusSnapshot>>> unavailable() {

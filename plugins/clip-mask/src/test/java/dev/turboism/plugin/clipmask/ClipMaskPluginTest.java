@@ -95,6 +95,22 @@ class ClipMaskPluginTest {
     }
 
     @Test
+    void enableDoesNotReadClipMasks() {
+        RecordingPluginContext context = new RecordingPluginContext(
+            new FixedCubismRead(List.of(), true),
+            new TestPluginLogger()
+        );
+        ClipMaskPlugin plugin = new ClipMaskPlugin();
+
+        plugin.init(context);
+        plugin.enable();
+
+        assertEquals(1, context.actions().actions().size());
+        assertEquals(1, context.uiHost().panels().size());
+        assertEquals(1, context.uiHost().dialogs().size());
+    }
+
+    @Test
     void disposableScopeClosesActionPanelAndDialog() throws Exception {
         TestPluginLogger logger = new TestPluginLogger();
         RecordingPluginContext context = new RecordingPluginContext(logger);
@@ -176,7 +192,14 @@ class ClipMaskPluginTest {
         }
 
         private RecordingPluginContext(final List<ClipMaskSnapshot> masks, final PluginLogger logger) {
-            this.cubismRead = new FixedCubismRead(masks);
+            this(new FixedCubismRead(masks), logger);
+        }
+
+        private RecordingPluginContext(
+            final CubismReadCapabilityService cubismRead,
+            final PluginLogger logger
+        ) {
+            this.cubismRead = cubismRead;
             this.logger = logger;
         }
 
@@ -195,19 +218,28 @@ class ClipMaskPluginTest {
         @Override public RecordingUiHost uiHost() { return uiHost; }
     }
 
-    private record FixedCubismRead(List<ClipMaskSnapshot> clipMasks) implements CubismReadCapabilityService {
+    private record FixedCubismRead(
+        List<ClipMaskSnapshot> clipMasks,
+        boolean failOnClipMaskRead
+    ) implements CubismReadCapabilityService {
+        private FixedCubismRead(final List<ClipMaskSnapshot> clipMasks) {
+            this(clipMasks, false);
+        }
         @Override public Optional<ProjectSnapshot> activeProject() { throw unsupported(); }
         @Override public Optional<DocumentSnapshot> activeDocument() { throw unsupported(); }
         @Override public Optional<ModelSnapshot> activeModel() { throw unsupported(); }
-        @Override public SelectionSnapshot selection() {
-            return new SelectionSnapshot(List.of(), Optional.empty(), Optional.empty(), Optional.empty());
-        }
+        @Override public SelectionSnapshot selection() { throw unsupported(); }
         @Override public List<ParameterSnapshot> parameters() { throw unsupported(); }
         @Override public List<ModelObjectSnapshot> modelObjects() { throw unsupported(); }
-        @Override public List<ArtMeshSnapshot> meshes() { return List.of(); }
+        @Override public List<ArtMeshSnapshot> meshes() { throw unsupported(); }
         @Override public List<DeformerSnapshot> deformers() { throw unsupported(); }
         @Override public List<PsdDocumentSnapshot> psdDocuments() { throw unsupported(); }
-        @Override public List<ClipMaskSnapshot> clipMasks() { return clipMasks; }
+        @Override public List<ClipMaskSnapshot> clipMasks() {
+            if (failOnClipMaskRead) {
+                throw new AssertionError("enable must not read clip masks");
+            }
+            return clipMasks;
+        }
         @Override public List<TextureAtlasSnapshot> textureAtlases() { throw unsupported(); }
         @Override public Optional<RenderStatusSnapshot> renderStatus() { throw unsupported(); }
         @Override public Optional<WorkspaceSnapshot> workspace() { throw unsupported(); }

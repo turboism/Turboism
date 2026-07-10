@@ -19,7 +19,7 @@
     {
       "id": "turboism.cubism.model.read",
       "scope": "application",
-      "reason": "Read fake clip-mask, mesh, and selection snapshots for the inspector."
+      "reason": "Read fake clip-mask snapshots and their clipped-mesh references for the inspector."
     },
     {
       "id": "turboism.ui.dialog.contribute",
@@ -44,8 +44,6 @@
   ],
   "capabilities": [
     "cubism.clipmask.read",
-    "cubism.mesh.read",
-    "cubism.selection.read",
     "ui.dialog.contribute",
     "ui.embedded-panel.contribute",
     "ui.status.notify"
