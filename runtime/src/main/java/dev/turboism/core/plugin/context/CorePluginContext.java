@@ -2,6 +2,7 @@ package dev.turboism.core.plugin.context;
 
 import dev.turboism.adapter.RuntimeHostAdapters;
 import dev.turboism.adapter.cubism.HostSnapshotSource;
+import dev.turboism.adapter.host.RuntimeHostAdapterAccess;
 import dev.turboism.adapter.cubism.service.read.M12ReadSnapshotSource;
 import dev.turboism.config.RuntimePluginConfigRegistry;
 import dev.turboism.core.action.RuntimeActionRegistry;
@@ -58,8 +59,15 @@ public final class CorePluginContext implements PluginContext {
         this(dependencies, RuntimeHostAdapters.safeMode());
     }
 
-    /** Production composition seam for connected or safe-mode host adapters. */
+    /** Production composition seam for a verified, fail-closed host-session view. */
     public CorePluginContext(
+        final Dependencies dependencies,
+        final RuntimeHostAdapterAccess hostAccess
+    ) {
+        this(dependencies, Objects.requireNonNull(hostAccess, "hostAccess").adapters());
+    }
+
+    CorePluginContext(
         final Dependencies dependencies,
         final RuntimeHostAdapters hostAdapters
     ) {
