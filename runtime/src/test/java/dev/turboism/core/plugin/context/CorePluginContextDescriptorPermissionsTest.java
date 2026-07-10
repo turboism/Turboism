@@ -1,4 +1,4 @@
-package dev.turboism.tests.plugin;
+package dev.turboism.core.plugin.context;
 
 import dev.turboism.adapter.RuntimeHostAdapters;
 import dev.turboism.adapter.cubism.ClipMaskReadAdapter;
