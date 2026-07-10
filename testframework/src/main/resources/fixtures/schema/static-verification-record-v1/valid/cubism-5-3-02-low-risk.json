@@ -1,0 +1,37 @@
+{
+  "format": "turboism.static.verification.record",
+  "schemaVersion": 1,
+  "verificationId": "m15.cubism-5.3.02.low-risk.static",
+  "cubismVersion": "5.3.02",
+  "profileId": "cubism-5.3.02",
+  "artifact": {
+    "name": "Live2D_Cubism.jar",
+    "size": 41922739,
+    "sha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21"
+  },
+  "evidenceType": "JAR_METADATA",
+  "status": "VERIFIED_STATIC",
+  "verifiedBy": "turboism-m15-static-verifier",
+  "verifiedAt": "2026-07-10T00:00:00Z",
+  "selectors": [
+    {
+      "alias": "cubism.app-controller.class",
+      "kind": "class",
+      "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
+      "memberName": null,
+      "descriptor": null,
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC",
+      "mappingId": "cubism.mapping.v5_3_02.fixture.0"
+    }
+  ],
+  "adapterSliceId": "adapter.project-workspace.readonly",
+  "capabilityIds": [
+    "cubism.project.read",
+    "cubism.workspace.read"
+  ],
+  "evidencePath": "docs/migration/verification/static/cubism-5.3.02-project-workspace.json",
+  "owner": "runtime-adapter",
+  "safeMode": "Fail closed with MAPPING_NOT_VERIFIED and keep the adapter unavailable."
+}

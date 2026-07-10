@@ -1,0 +1,29 @@
+{
+  "format": "turboism.static.verification.record",
+  "schemaVersion": 1,
+  "verificationId": "bad.path",
+  "cubismVersion": "5.3.02",
+  "profileId": "cubism-5.3.02",
+  "artifact": {
+    "name": "C:\\absolute-test-path\\Live2D_Cubism.jar",
+    "size": 1,
+    "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "evidenceType": "JAR_METADATA",
+  "status": "VERIFIED_STATIC",
+  "verifiedBy": "test",
+  "verifiedAt": "2026-07-10T00:00:00Z",
+  "selectors": [
+    {
+      "mappingId": "cubism.mapping.v5_3_02.fixture.0"
+    }
+  ],
+  "adapterSliceId": "adapter.project-workspace.readonly",
+  "capabilityIds": [
+    "cubism.project.read",
+    "cubism.workspace.read"
+  ],
+  "evidencePath": "docs/migration/verification/static/cubism-5.3.02-project-workspace.json",
+  "owner": "runtime-adapter",
+  "safeMode": "Fail closed with MAPPING_NOT_VERIFIED and keep the adapter unavailable."
+}
