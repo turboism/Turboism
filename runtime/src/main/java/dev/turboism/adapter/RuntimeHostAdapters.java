@@ -3,6 +3,7 @@ package dev.turboism.adapter;
 import dev.turboism.adapter.cubism.ClipMaskReadAdapter;
 import dev.turboism.adapter.cubism.ProjectWorkspaceAdapter;
 import dev.turboism.adapter.cubism.RenderStatusAdapter;
+import dev.turboism.adapter.cubism.VerifiedProjectWorkspaceHostOperations;
 import dev.turboism.adapter.ui.MainToolbarAdapter;
 import dev.turboism.adapter.ui.MainToolbarAdapterImpl;
 import dev.turboism.adapter.ui.StatusToolbarAdapter;
@@ -11,6 +12,8 @@ import dev.turboism.adapter.ui.ThemeStatusAdapter;
 import dev.turboism.adapter.ui.ThemeStatusAdapterImpl;
 import dev.turboism.adapter.ui.UiSurfaceAdapter;
 import dev.turboism.adapter.ui.UiSurfaceAdapterImpl;
+import dev.turboism.mapping.verification.ProjectWorkspaceVerificationManifest;
+import dev.turboism.mapping.verification.VerifiedMemberResolver;
 
 import java.util.Objects;
 
@@ -45,6 +48,38 @@ public record RuntimeHostAdapters(
             ThemeStatusAdapterImpl.safeMode(),
             RenderStatusAdapter.Impl.safeMode(),
             ProjectWorkspaceAdapter.Impl.safeMode(),
+            ClipMaskReadAdapter.Impl.safeMode(),
+            StatusToolbarAdapterImpl.safeMode(),
+            MainToolbarAdapterImpl.safeMode(),
+            UiSurfaceAdapterImpl.safeMode()
+        );
+    }
+
+    /**
+     * Connects only the statically verified project/workspace slice.
+     * Other adapters remain in safe mode until they receive their own evidence.
+     */
+    static RuntimeHostAdapters withVerifiedProjectWorkspace(
+        final VerifiedMemberResolver resolver
+    ) {
+        Objects.requireNonNull(resolver, "resolver");
+        if (!resolver.isExactCubismVersion(ProjectWorkspaceVerificationManifest.CUBISM_VERSION)
+            || !resolver.authorizes(
+                ProjectWorkspaceVerificationManifest.ADAPTER_SLICE_ID,
+                ProjectWorkspaceVerificationManifest.CAPABILITY_IDS,
+                ProjectWorkspaceVerificationManifest.REQUIRED_ALIASES
+            )) {
+            throw new IllegalArgumentException(
+                "resolver does not authorize the complete project/workspace adapter slice"
+            );
+        }
+        return new RuntimeHostAdapters(
+            ThemeStatusAdapterImpl.safeMode(),
+            RenderStatusAdapter.Impl.safeMode(),
+            ProjectWorkspaceAdapter.Impl.connected(new VerifiedProjectWorkspaceHostOperations(
+                resolver,
+                resolver.cubismVersion()
+            )),
             ClipMaskReadAdapter.Impl.safeMode(),
             StatusToolbarAdapterImpl.safeMode(),
             MainToolbarAdapterImpl.safeMode(),

@@ -13,6 +13,7 @@ import dev.turboism.core.schema.version.VersionRangeValidator;
 import dev.turboism.hook.spec.HookSpecValidator;
 import dev.turboism.mapping.schema.MappingPackValidator;
 import dev.turboism.mapping.schema.ProfileValidator;
+import dev.turboism.mapping.verification.StaticVerificationRecordValidator;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -49,6 +50,7 @@ class SchemaFixtureValidationTest {
         "minimal.json, diagnostic-report-v1, diagnostic-report",
         "draft.json, mapping-pack-v1, mapping-pack",
         "cubism-5-3-02.json, profile-v1, profile",
+        "cubism-5-3-02-low-risk.json, static-verification-record-v1, static-verification-record",
         "parameter-top-level-menu.json, hook-spec-v1, hook-spec"
     })
     void validFixturesPass(String file, String dir, String type) throws Exception {
@@ -89,6 +91,9 @@ class SchemaFixtureValidationTest {
         "unknown-field.json, profile-v1, profile, PROFILE_UNKNOWN_FIELD",
         "empty-mapping-refs.json, profile-v1, profile, PROFILE_EMPTY_MAPPING_REFS",
         "bad-schema-version.json, profile-v1, profile, PROFILE_BAD_SCHEMA_VERSION",
+        "unknown-field.json, static-verification-record-v1, static-verification-record, STATIC_VERIFICATION_RECORD_UNKNOWN_FIELD",
+        "bad-status.json, static-verification-record-v1, static-verification-record, STATIC_VERIFICATION_RECORD_BAD_STATUS",
+        "absolute-path.json, static-verification-record-v1, static-verification-record, STATIC_VERIFICATION_RECORD_ABSOLUTE_PATH",
         "unknown-field.json, hook-spec-v1, hook-spec, HOOK_SPEC_UNKNOWN_FIELD",
         "missing-id.json, hook-spec-v1, hook-spec, HOOK_SPEC_MISSING",
         "bad-schema-version.json, hook-spec-v1, hook-spec, HOOK_SPEC_BAD_SCHEMA_VERSION"
@@ -135,6 +140,7 @@ class SchemaFixtureValidationTest {
             case "diagnostic-report" -> new DiagnosticReportValidator();
             case "mapping-pack" -> new MappingPackValidator();
             case "profile" -> new ProfileValidator();
+            case "static-verification-record" -> new StaticVerificationRecordValidator();
             case "hook-spec" -> new HookSpecValidator();
             default -> throw new IllegalArgumentException("Unknown schema type: " + type);
         };
