@@ -1,5 +1,6 @@
 package dev.turboism.core.plugin.context;
 
+import dev.turboism.adapter.RuntimeHostAdapters;
 import dev.turboism.adapter.cubism.CubismFacadeImpl;
 import dev.turboism.adapter.cubism.service.query.ModelHierarchyQueryServiceImpl;
 import dev.turboism.adapter.cubism.service.query.ParameterQueryServiceImpl;
@@ -8,6 +9,16 @@ import dev.turboism.adapter.cubism.service.read.CubismReadCapabilityServiceImpl;
 import dev.turboism.permissions.CubismPermissionGate;
 
 final class DefaultCubismServicesFactory implements CubismServicesFactory {
+
+    private final RuntimeHostAdapters hostAdapters;
+
+    DefaultCubismServicesFactory() {
+        this(RuntimeHostAdapters.safeMode());
+    }
+
+    DefaultCubismServicesFactory(final RuntimeHostAdapters hostAdapters) {
+        this.hostAdapters = java.util.Objects.requireNonNull(hostAdapters, "hostAdapters");
+    }
 
     @Override
     public CubismContextServices create(final CorePluginContext.Dependencies dependencies) {
@@ -23,7 +34,15 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
             new ParameterQueryServiceImpl(facade, permissionGate),
             new SelectionQueryServiceImpl(facade, permissionGate, dependencies.runtimeScheduler()),
             new ModelHierarchyQueryServiceImpl(facade, permissionGate),
-            new CubismReadCapabilityServiceImpl(facade, dependencies.m12ReadSnapshotSource())
+            new CubismReadCapabilityServiceImpl(
+                facade,
+                dependencies.m12ReadSnapshotSource(),
+                hostAdapters.themeStatus(),
+                hostAdapters.renderStatus(),
+                hostAdapters.projectWorkspace(),
+                hostAdapters.clipMaskRead(),
+                dependencies.descriptor().id()
+            )
         );
     }
 }

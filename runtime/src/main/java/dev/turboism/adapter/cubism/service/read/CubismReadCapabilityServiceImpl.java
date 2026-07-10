@@ -4,6 +4,7 @@ import dev.turboism.adapter.cubism.ClipMaskReadAdapter;
 import dev.turboism.adapter.cubism.CubismFacadeImpl;
 import dev.turboism.adapter.cubism.ProjectWorkspaceAdapter;
 import dev.turboism.adapter.cubism.RenderStatusAdapter;
+import dev.turboism.adapter.ui.BoundedKeyedStore;
 import dev.turboism.adapter.ui.SafeModeDiagnostic;
 import dev.turboism.adapter.ui.ThemeStatusAdapter;
 import dev.turboism.adapter.ui.ThemeStatusAdapterImpl;
@@ -28,7 +29,6 @@ import dev.turboism.sdk.theme.ThemeStatusSnapshot;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * Fake-first runtime implementation of the M12 read-capability aggregation
@@ -37,16 +37,25 @@ import java.util.concurrent.CopyOnWriteArrayList;
  */
 public final class CubismReadCapabilityServiceImpl implements CubismReadCapabilityService {
 
+    private static final String DEFAULT_OWNER_PLUGIN_ID = "runtime.read";
+    private static final int MAX_DIAGNOSTICS = 64;
+
     private final CubismFacade facade;
     private final M12ReadSnapshotSource m12Source;
     private final ThemeStatusAdapter themeStatusAdapter;
     private final RenderStatusAdapter renderStatusAdapter;
     private final ProjectWorkspaceAdapter projectWorkspaceAdapter;
     private final ClipMaskReadAdapter clipMaskReadAdapter;
-    private final List<SafeModeDiagnostic> themeStatusDiagnostics = new CopyOnWriteArrayList<>();
-    private final List<SafeModeDiagnostic> renderStatusDiagnostics = new CopyOnWriteArrayList<>();
-    private final List<SafeModeDiagnostic> projectWorkspaceDiagnostics = new CopyOnWriteArrayList<>();
-    private final List<SafeModeDiagnostic> clipMaskDiagnostics = new CopyOnWriteArrayList<>();
+    private final String ownerPluginId;
+
+    private final BoundedKeyedStore<String, SafeModeDiagnostic> themeStatusDiagnostics =
+        new BoundedKeyedStore<>(MAX_DIAGNOSTICS);
+    private final BoundedKeyedStore<String, SafeModeDiagnostic> renderStatusDiagnostics =
+        new BoundedKeyedStore<>(MAX_DIAGNOSTICS);
+    private final BoundedKeyedStore<String, SafeModeDiagnostic> projectWorkspaceDiagnostics =
+        new BoundedKeyedStore<>(MAX_DIAGNOSTICS);
+    private final BoundedKeyedStore<String, SafeModeDiagnostic> clipMaskDiagnostics =
+        new BoundedKeyedStore<>(MAX_DIAGNOSTICS);
 
     public CubismReadCapabilityServiceImpl(final CubismFacade facade) {
         this(facade, M12ReadSnapshotSource.EMPTY);
@@ -79,22 +88,44 @@ public final class CubismReadCapabilityServiceImpl implements CubismReadCapabili
         final ProjectWorkspaceAdapter projectWorkspaceAdapter,
         final ClipMaskReadAdapter clipMaskReadAdapter
     ) {
+        this(
+            facade,
+            m12Source,
+            themeStatusAdapter,
+            renderStatusAdapter,
+            projectWorkspaceAdapter,
+            clipMaskReadAdapter,
+            DEFAULT_OWNER_PLUGIN_ID
+        );
+    }
+
+    public CubismReadCapabilityServiceImpl(
+        final CubismFacade facade,
+        final M12ReadSnapshotSource m12Source,
+        final ThemeStatusAdapter themeStatusAdapter,
+        final RenderStatusAdapter renderStatusAdapter,
+        final ProjectWorkspaceAdapter projectWorkspaceAdapter,
+        final ClipMaskReadAdapter clipMaskReadAdapter,
+        final String ownerPluginId
+    ) {
         this.facade = Objects.requireNonNull(facade, "facade");
         this.m12Source = Objects.requireNonNull(m12Source, "m12Source");
         this.themeStatusAdapter = Objects.requireNonNull(themeStatusAdapter, "themeStatusAdapter");
         this.renderStatusAdapter = Objects.requireNonNull(renderStatusAdapter, "renderStatusAdapter");
         this.projectWorkspaceAdapter = Objects.requireNonNull(projectWorkspaceAdapter, "projectWorkspaceAdapter");
         this.clipMaskReadAdapter = Objects.requireNonNull(clipMaskReadAdapter, "clipMaskReadAdapter");
+        this.ownerPluginId = requireText(ownerPluginId, "ownerPluginId");
     }
 
     @Override
     public Optional<ProjectSnapshot> activeProject() {
+        requireProjectRead("activeProject");
         final ProjectWorkspaceAdapter.AdapterResult<Optional<ProjectSnapshot>> adapterResult =
             projectWorkspaceAdapter.activeProject();
         if (adapterResult.isAvailable()) {
             return adapterResult.value().orElseThrow();
         }
-        adapterResult.diagnostic().ifPresent(projectWorkspaceDiagnostics::add);
+        adapterResult.diagnostic().ifPresent(diagnostic -> record(projectWorkspaceDiagnostics, diagnostic));
         return facade.activeProject();
     }
 
@@ -149,7 +180,7 @@ public final class CubismReadCapabilityServiceImpl implements CubismReadCapabili
         if (adapterResult.isAvailable()) {
             return List.copyOf(adapterResult.value().orElseThrow());
         }
-        adapterResult.diagnostic().ifPresent(clipMaskDiagnostics::add);
+        adapterResult.diagnostic().ifPresent(diagnostic -> record(clipMaskDiagnostics, diagnostic));
         return List.copyOf(m12Source.clipMasks());
     }
 
@@ -167,7 +198,7 @@ public final class CubismReadCapabilityServiceImpl implements CubismReadCapabili
         if (adapterResult.isAvailable()) {
             return adapterResult.value().orElseThrow();
         }
-        adapterResult.diagnostic().ifPresent(renderStatusDiagnostics::add);
+        adapterResult.diagnostic().ifPresent(diagnostic -> record(renderStatusDiagnostics, diagnostic));
         return m12Source.renderStatus();
     }
 
@@ -179,7 +210,7 @@ public final class CubismReadCapabilityServiceImpl implements CubismReadCapabili
         if (adapterResult.isAvailable()) {
             return adapterResult.value().orElseThrow();
         }
-        adapterResult.diagnostic().ifPresent(projectWorkspaceDiagnostics::add);
+        adapterResult.diagnostic().ifPresent(diagnostic -> record(projectWorkspaceDiagnostics, diagnostic));
         return m12Source.workspace();
     }
 
@@ -190,24 +221,24 @@ public final class CubismReadCapabilityServiceImpl implements CubismReadCapabili
         if (adapterResult.isAvailable()) {
             return adapterResult.value().orElseThrow();
         }
-        adapterResult.diagnostic().ifPresent(themeStatusDiagnostics::add);
+        adapterResult.diagnostic().ifPresent(diagnostic -> record(themeStatusDiagnostics, diagnostic));
         return m12Source.themeStatus();
     }
 
     public List<SafeModeDiagnostic> themeStatusDiagnostics() {
-        return List.copyOf(themeStatusDiagnostics);
+        return themeStatusDiagnostics.snapshot();
     }
 
     public List<SafeModeDiagnostic> renderStatusDiagnostics() {
-        return List.copyOf(renderStatusDiagnostics);
+        return renderStatusDiagnostics.snapshot();
     }
 
     public List<SafeModeDiagnostic> projectWorkspaceDiagnostics() {
-        return List.copyOf(projectWorkspaceDiagnostics);
+        return projectWorkspaceDiagnostics.snapshot();
     }
 
     public List<SafeModeDiagnostic> clipMaskDiagnostics() {
-        return List.copyOf(clipMaskDiagnostics);
+        return clipMaskDiagnostics.snapshot();
     }
 
     /**
@@ -216,6 +247,24 @@ public final class CubismReadCapabilityServiceImpl implements CubismReadCapabili
     @Deprecated
     public List<SafeModeDiagnostic> statusToolbarDiagnostics() {
         return themeStatusDiagnostics();
+    }
+
+    private void record(
+        final BoundedKeyedStore<String, SafeModeDiagnostic> store,
+        final SafeModeDiagnostic diagnostic
+    ) {
+        store.put(
+            ownerPluginId + "|" + diagnostic.code().name() + "|" + diagnostic.capability(),
+            diagnostic
+        );
+    }
+
+    private static String requireText(final String value, final String name) {
+        Objects.requireNonNull(value, name);
+        if (value.isBlank()) {
+            throw new IllegalArgumentException(name + " must not be blank");
+        }
+        return value;
     }
 
     private CubismRuntimeSnapshot runtime() {

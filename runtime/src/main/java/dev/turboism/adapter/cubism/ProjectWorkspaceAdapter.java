@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism;
 
+import dev.turboism.adapter.ui.AdapterHostException;
 import dev.turboism.adapter.ui.HostUiVersionCheck;
 import dev.turboism.adapter.ui.SafeModeDiagnostic;
 import dev.turboism.sdk.cubism.ProjectSnapshot;
@@ -87,14 +88,24 @@ public interface ProjectWorkspaceAdapter {
             final String capabilityId,
             final Supplier<Optional<T>> supplier
         ) {
-            final Optional<SafeModeDiagnostic> versionDiagnostic = HostUiVersionCheck.diagnosticFor(operations.hostVersion());
-            if (versionDiagnostic.isPresent()) {
-                return AdapterResult.unavailable(versionDiagnostic.orElseThrow());
+            try {
+                final Optional<SafeModeDiagnostic> versionDiagnostic =
+                    HostUiVersionCheck.diagnosticFor(capabilityId, operations.hostVersion());
+                if (versionDiagnostic.isPresent()) {
+                    return AdapterResult.unavailable(versionDiagnostic.orElseThrow());
+                }
+                if (!operations.supportsProjectWorkspaceRead()) {
+                    return AdapterResult.unavailable(SafeModeDiagnostic.capabilityUnavailable(capabilityId));
+                }
+                return AdapterResult.available(supplier.get());
+            } catch (AdapterHostException exception) {
+                return AdapterResult.unavailable(exception.diagnostic());
+            } catch (RuntimeException exception) {
+                return AdapterResult.unavailable(SafeModeDiagnostic.validationFailure(
+                    capabilityId,
+                    "Host project/workspace adapter call failed safely."
+                ));
             }
-            if (!operations.supportsProjectWorkspaceRead()) {
-                return AdapterResult.unavailable(SafeModeDiagnostic.capabilityUnavailable(capabilityId));
-            }
-            return AdapterResult.available(supplier.get());
         }
 
         private static <T> Supplier<AdapterResult<Optional<T>>> unavailable(final String capabilityId) {

@@ -66,6 +66,22 @@ final class M8PluginTestSupport {
         UiHostStateSource uiHostStateSource,
         CubismReadCapabilityService cubismRead
     ) {
+        return harness(
+            dataDir,
+            permissions,
+            uiHostStateSource,
+            cubismRead,
+            NoCubismFacade.INSTANCE
+        );
+    }
+
+    static Harness harness(
+        Path dataDir,
+        PermissionChecker permissions,
+        UiHostStateSource uiHostStateSource,
+        CubismReadCapabilityService cubismRead,
+        CubismFacade cubismFacade
+    ) {
         List<CallbackBudgetEvent> events = new CopyOnWriteArrayList<>();
         RuntimeScheduler scheduler = new RuntimeScheduler(
             new DefaultWorkBudgetPolicy(),
@@ -101,10 +117,23 @@ final class M8PluginTestSupport {
             contextMenu,
             config,
             uiHost,
-            cubismRead,
+            PermissionCheckedCubismReadCapabilityService.wrap(permissions, cubismRead),
+            cubismFacade,
             dataDir
         );
-        return new Harness(scheduler, context, uiHost, toolbarTracker, menuTracker, mainToolbar, paletteToolbar, config, report);
+        return new Harness(
+            scheduler,
+            actions,
+            context,
+            uiHost,
+            toolbarTracker,
+            menuTracker,
+            mainToolbar,
+            paletteToolbar,
+            config,
+            report,
+            events
+        );
     }
 
     static PluginDescriptor descriptor() {
@@ -131,6 +160,7 @@ final class M8PluginTestSupport {
 
     record Harness(
         RuntimeScheduler scheduler,
+        RuntimeActionRegistry actions,
         TestPluginContext context,
         RuntimeUiHostCapabilityService uiHost,
         FakeToolbarVisibilityTracker toolbarTracker,
@@ -138,8 +168,14 @@ final class M8PluginTestSupport {
         RuntimeMainToolbarRegistryAdapter mainToolbar,
         RuntimePaletteToolbarRegistryAdapter paletteToolbar,
         RuntimePluginConfigRegistry config,
-        StartupReport report
+        StartupReport report,
+        List<CallbackBudgetEvent> callbackEvents
     ) implements AutoCloseable {
+        void executeAction(final String actionId) {
+            actions.execute(actionId, new ActionRegistry.ActionContext() {
+            });
+        }
+
         @Override
         public void close() {
             scheduler.shutdown();
@@ -188,6 +224,7 @@ final class M8PluginTestSupport {
         private final PluginConfigRegistry config;
         private final RuntimeUiHostCapabilityService uiHost;
         private final CubismReadCapabilityService cubismRead;
+        private final CubismFacade cubismFacade;
         private final PluginPaths paths;
 
         TestPluginContext(
@@ -201,6 +238,7 @@ final class M8PluginTestSupport {
             PluginConfigRegistry config,
             RuntimeUiHostCapabilityService uiHost,
             CubismReadCapabilityService cubismRead,
+            CubismFacade cubismFacade,
             Path dataDir
         ) {
             this.scope = scope;
@@ -213,13 +251,14 @@ final class M8PluginTestSupport {
             this.config = config;
             this.uiHost = uiHost;
             this.cubismRead = cubismRead;
+            this.cubismFacade = java.util.Objects.requireNonNull(cubismFacade, "cubismFacade");
             this.paths = new TestPaths(dataDir);
         }
 
         @Override public PluginDescriptor descriptor() { return M8PluginTestSupport.descriptor(); }
         @Override public PluginLogger logger() { return new TestLogger(); }
         @Override public PluginPaths paths() { return paths; }
-        @Override public CubismFacade cubism() { return NoCubismFacade.INSTANCE; }
+        @Override public CubismFacade cubism() { return cubismFacade; }
         @Override public CubismReadCapabilityService cubismRead() {
             if (cubismRead == null) {
                 throw new UnsupportedOperationException("cubismRead service is not available");

@@ -83,7 +83,10 @@ class MainToolbarAdapterContractTest {
         MainToolbarAdapter.AdapterResult<Registration> result = adapter.contributeMainToolbar(contribution("main.timeout"));
 
         assertFalse(result.isAvailable());
-        assertEquals(SafeModeDiagnostic.Code.TIMEOUT, result.diagnostic().orElseThrow().code());
+        SafeModeDiagnostic timeoutDiagnostic = result.diagnostic().orElseThrow();
+        assertEquals(SafeModeDiagnostic.Code.TIMEOUT, timeoutDiagnostic.code());
+        assertFalse(timeoutDiagnostic.message().contains("timeout boom"));
+        assertEquals("Host adapter call timed out.", timeoutDiagnostic.message());
     }
 
     @Test
@@ -97,7 +100,10 @@ class MainToolbarAdapterContractTest {
         MainToolbarAdapter.AdapterResult<Registration> result = adapter.contributeMainToolbar(contribution("main.invalid"));
 
         assertFalse(result.isAvailable());
-        assertEquals(SafeModeDiagnostic.Code.VALIDATION_FAILURE, result.diagnostic().orElseThrow().code());
+        SafeModeDiagnostic validationDiagnostic = result.diagnostic().orElseThrow();
+        assertEquals(SafeModeDiagnostic.Code.VALIDATION_FAILURE, validationDiagnostic.code());
+        assertFalse(validationDiagnostic.message().contains("private-host-detail"));
+        assertEquals("Host adapter rejected the request.", validationDiagnostic.message());
     }
 
     @Test
@@ -117,7 +123,7 @@ class MainToolbarAdapterContractTest {
 
         assertEquals(contribution, host.contribution);
         assertTrue(service.mainToolbars().isEmpty());
-        assertTrue(service.statusToolbarDiagnostics().isEmpty());
+        assertTrue(service.uiDiagnostics().isEmpty());
     }
 
     @Test
@@ -131,7 +137,7 @@ class MainToolbarAdapterContractTest {
         service.contributeMainToolbar(contribution);
 
         assertEquals(List.of(contribution), service.mainToolbars());
-        assertEquals(SafeModeDiagnostic.Code.ADAPTER_UNAVAILABLE, service.statusToolbarDiagnostics().get(0).code());
+        assertEquals(SafeModeDiagnostic.Code.ADAPTER_UNAVAILABLE, service.uiDiagnostics().get(0).code());
     }
 
     @Test

@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism;
 
+import dev.turboism.adapter.ui.AdapterHostException;
 import dev.turboism.adapter.ui.SafeModeDiagnostic;
 import dev.turboism.sdk.cubism.ClipMaskSnapshot;
 import dev.turboism.sdk.cubism.ProjectSnapshot;
@@ -46,6 +47,26 @@ class M14SimulatedReadonlyAdaptersContractTest {
     }
 
     @Test
+    void renderStatusHostFailureBecomesSafeDiagnostic() {
+        RenderStatusAdapter adapter = RenderStatusAdapter.Impl.connected(new RenderStatusAdapter.HostOperations() {
+            @Override public String hostVersion() {
+                throw new AdapterHostException(
+                    SafeModeDiagnostic.Code.TIMEOUT,
+                    RenderStatusAdapter.CAPABILITY_ID,
+                    "timeout"
+                );
+            }
+            @Override public boolean supportsRenderStatusRead() { return true; }
+            @Override public Optional<RenderStatusSnapshot> renderStatus() { return Optional.empty(); }
+        });
+
+        assertEquals(
+            SafeModeDiagnostic.Code.TIMEOUT,
+            adapter.renderStatus().diagnostic().orElseThrow().code()
+        );
+    }
+
+    @Test
     void projectWorkspaceSafeModeIsUnavailable() {
         ProjectWorkspaceAdapter adapter = ProjectWorkspaceAdapter.Impl.safeMode();
         assertFalse(adapter.activeProject().isAvailable());
@@ -62,6 +83,22 @@ class M14SimulatedReadonlyAdaptersContractTest {
     }
 
     @Test
+    void projectWorkspaceUnexpectedFailureDoesNotLeakHostDetails() {
+        ProjectWorkspaceAdapter adapter = ProjectWorkspaceAdapter.Impl.connected(new ProjectWorkspaceAdapter.HostOperations() {
+            @Override public String hostVersion() { return "5.3.1"; }
+            @Override public boolean supportsProjectWorkspaceRead() { return true; }
+            @Override public Optional<ProjectSnapshot> activeProject() {
+                throw new IllegalStateException("private-project-object");
+            }
+            @Override public Optional<WorkspaceSnapshot> workspace() { return Optional.empty(); }
+        });
+
+        SafeModeDiagnostic diagnostic = adapter.activeProject().diagnostic().orElseThrow();
+        assertEquals(SafeModeDiagnostic.Code.VALIDATION_FAILURE, diagnostic.code());
+        assertFalse(diagnostic.message().contains("private-project-object"));
+    }
+
+    @Test
     void clipMaskSafeModeIsUnavailable() {
         ClipMaskReadAdapter adapter = ClipMaskReadAdapter.Impl.safeMode();
         assertFalse(adapter.clipMasks().isAvailable());
@@ -74,6 +111,21 @@ class M14SimulatedReadonlyAdaptersContractTest {
         assertTrue(adapter.clipMasks().isAvailable());
         assertEquals(1, adapter.clipMasks().value().orElseThrow().size());
         assertEquals("mask-1", adapter.clipMasks().value().orElseThrow().get(0).clipMaskId());
+    }
+
+    @Test
+    void clipMaskUnexpectedFailureBecomesValidationDiagnostic() {
+        ClipMaskReadAdapter adapter = ClipMaskReadAdapter.Impl.connected(new ClipMaskReadAdapter.HostOperations() {
+            @Override public String hostVersion() { return "5.3.2"; }
+            @Override public boolean supportsClipMaskRead() { return true; }
+            @Override public List<ClipMaskSnapshot> clipMasks() {
+                throw new IllegalStateException("private-mask-object");
+            }
+        });
+
+        SafeModeDiagnostic diagnostic = adapter.clipMasks().diagnostic().orElseThrow();
+        assertEquals(SafeModeDiagnostic.Code.VALIDATION_FAILURE, diagnostic.code());
+        assertFalse(diagnostic.message().contains("private-mask-object"));
     }
 
     @Test

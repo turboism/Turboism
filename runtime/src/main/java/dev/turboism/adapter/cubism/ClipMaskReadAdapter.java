@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism;
 
+import dev.turboism.adapter.ui.AdapterHostException;
 import dev.turboism.adapter.ui.HostUiVersionCheck;
 import dev.turboism.adapter.ui.SafeModeDiagnostic;
 import dev.turboism.sdk.cubism.ClipMaskSnapshot;
@@ -71,14 +72,24 @@ public interface ClipMaskReadAdapter {
         }
 
         private AdapterResult<List<ClipMaskSnapshot>> callIfSupported(final HostOperations operations) {
-            final Optional<SafeModeDiagnostic> versionDiagnostic = HostUiVersionCheck.diagnosticFor(operations.hostVersion());
-            if (versionDiagnostic.isPresent()) {
-                return AdapterResult.unavailable(versionDiagnostic.orElseThrow());
+            try {
+                final Optional<SafeModeDiagnostic> versionDiagnostic =
+                    HostUiVersionCheck.diagnosticFor(CAPABILITY_ID, operations.hostVersion());
+                if (versionDiagnostic.isPresent()) {
+                    return AdapterResult.unavailable(versionDiagnostic.orElseThrow());
+                }
+                if (!operations.supportsClipMaskRead()) {
+                    return AdapterResult.unavailable(SafeModeDiagnostic.capabilityUnavailable(CAPABILITY_ID));
+                }
+                return AdapterResult.available(List.copyOf(operations.clipMasks()));
+            } catch (AdapterHostException exception) {
+                return AdapterResult.unavailable(exception.diagnostic());
+            } catch (RuntimeException exception) {
+                return AdapterResult.unavailable(SafeModeDiagnostic.validationFailure(
+                    CAPABILITY_ID,
+                    "Host clip-mask adapter call failed safely."
+                ));
             }
-            if (!operations.supportsClipMaskRead()) {
-                return AdapterResult.unavailable(SafeModeDiagnostic.capabilityUnavailable(CAPABILITY_ID));
-            }
-            return AdapterResult.available(List.copyOf(operations.clipMasks()));
         }
 
         private static Supplier<AdapterResult<List<ClipMaskSnapshot>>> unavailable() {

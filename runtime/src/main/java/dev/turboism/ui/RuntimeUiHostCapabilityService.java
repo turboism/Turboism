@@ -1,10 +1,13 @@
 package dev.turboism.ui;
 
+import dev.turboism.adapter.ui.BoundedKeyedStore;
 import dev.turboism.adapter.ui.SafeModeDiagnostic;
 import dev.turboism.adapter.ui.MainToolbarAdapter;
 import dev.turboism.adapter.ui.MainToolbarAdapterImpl;
 import dev.turboism.adapter.ui.StatusToolbarAdapter;
 import dev.turboism.adapter.ui.StatusToolbarAdapterImpl;
+import dev.turboism.adapter.ui.UiSurfaceAdapter;
+import dev.turboism.adapter.ui.UiSurfaceAdapterImpl;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.DisposableScope;
@@ -50,16 +53,21 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
     private final String pluginId;
     private final UiHostStateSource stateSource;
     private final DisposableScope disposableScope;
+    private static final int MAX_TRANSIENT_ENTRIES = 64;
+
     private final StatusToolbarAdapter statusToolbarAdapter;
     private final MainToolbarAdapter mainToolbarAdapter;
+    private final UiSurfaceAdapter uiSurfaceAdapter;
     private final CopyOnWriteArrayList<OverlayContribution> overlays = new CopyOnWriteArrayList<>();
     private final CopyOnWriteArrayList<DialogRequest> dialogs = new CopyOnWriteArrayList<>();
     private final CopyOnWriteArrayList<EmbeddedPanelContribution> panels = new CopyOnWriteArrayList<>();
-    private final CopyOnWriteArrayList<StatusNotification> notifications = new CopyOnWriteArrayList<>();
+    private final BoundedKeyedStore<String, TrackedNotification> notifications =
+        new BoundedKeyedStore<>(MAX_TRANSIENT_ENTRIES);
     private final CopyOnWriteArrayList<ContextMenuRegistry.ContextMenuContribution> contextMenus = new CopyOnWriteArrayList<>();
     private final CopyOnWriteArrayList<MainToolbarRegistry.MainToolbarContribution> mainToolbars = new CopyOnWriteArrayList<>();
     private final CopyOnWriteArrayList<PaletteToolbarRegistry.PaletteToolbarContribution> paletteToolbars = new CopyOnWriteArrayList<>();
-    private final CopyOnWriteArrayList<SafeModeDiagnostic> statusToolbarDiagnostics = new CopyOnWriteArrayList<>();
+    private final BoundedKeyedStore<String, SafeModeDiagnostic> statusToolbarDiagnostics =
+        new BoundedKeyedStore<>(MAX_TRANSIENT_ENTRIES);
 
     public RuntimeUiHostCapabilityService(
         final PermissionChecker permissionChecker,
@@ -88,7 +96,8 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
             stateSource,
             disposableScope,
             StatusToolbarAdapterImpl.safeMode(),
-            MainToolbarAdapterImpl.safeMode()
+            MainToolbarAdapterImpl.safeMode(),
+            UiSurfaceAdapterImpl.safeMode()
         );
     }
 
@@ -105,7 +114,8 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
             stateSource,
             disposableScope,
             statusToolbarAdapter,
-            MainToolbarAdapterImpl.safeMode()
+            MainToolbarAdapterImpl.safeMode(),
+            UiSurfaceAdapterImpl.safeMode()
         );
     }
 
@@ -117,12 +127,33 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         final StatusToolbarAdapter statusToolbarAdapter,
         final MainToolbarAdapter mainToolbarAdapter
     ) {
+        this(
+            permissionChecker,
+            pluginId,
+            stateSource,
+            disposableScope,
+            statusToolbarAdapter,
+            mainToolbarAdapter,
+            UiSurfaceAdapterImpl.safeMode()
+        );
+    }
+
+    public RuntimeUiHostCapabilityService(
+        final PermissionChecker permissionChecker,
+        final String pluginId,
+        final UiHostStateSource stateSource,
+        final DisposableScope disposableScope,
+        final StatusToolbarAdapter statusToolbarAdapter,
+        final MainToolbarAdapter mainToolbarAdapter,
+        final UiSurfaceAdapter uiSurfaceAdapter
+    ) {
         this.permissionChecker = Objects.requireNonNull(permissionChecker, "permissionChecker");
         this.pluginId = requireText(pluginId, "pluginId");
         this.stateSource = Objects.requireNonNull(stateSource, "stateSource");
         this.disposableScope = Objects.requireNonNull(disposableScope, "disposableScope");
         this.statusToolbarAdapter = Objects.requireNonNull(statusToolbarAdapter, "statusToolbarAdapter");
         this.mainToolbarAdapter = Objects.requireNonNull(mainToolbarAdapter, "mainToolbarAdapter");
+        this.uiSurfaceAdapter = Objects.requireNonNull(uiSurfaceAdapter, "uiSurfaceAdapter");
     }
 
     @Override
@@ -135,6 +166,12 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
     public Registration contributeOverlay(final OverlayContribution contribution) {
         Objects.requireNonNull(contribution, "contribution");
         permissionChecker.check(UI_OVERLAY_CONTRIBUTE, "ui.overlay.contribute");
+        final UiSurfaceAdapter.AdapterResult<Registration> adapterResult =
+            uiSurfaceAdapter.contributeOverlay(contribution);
+        if (adapterResult.isAvailable()) {
+            return enrollAdapterRegistration(adapterResult.value().orElseThrow());
+        }
+        adapterResult.diagnostic().ifPresent(this::recordDiagnostic);
         overlays.add(contribution);
         return scopedRegistration(overlays, contribution);
     }
@@ -149,6 +186,11 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
     public Registration openDialog(final DialogRequest request) {
         Objects.requireNonNull(request, "request");
         permissionChecker.check(UI_DIALOG_CONTRIBUTE, "ui.dialog.contribute");
+        final UiSurfaceAdapter.AdapterResult<Registration> adapterResult = uiSurfaceAdapter.openDialog(request);
+        if (adapterResult.isAvailable()) {
+            return enrollAdapterRegistration(adapterResult.value().orElseThrow());
+        }
+        adapterResult.diagnostic().ifPresent(this::recordDiagnostic);
         dialogs.add(request);
         return scopedRegistration(dialogs, request);
     }
@@ -157,7 +199,11 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
     public boolean confirmDialog(final DialogRequest request) {
         Objects.requireNonNull(request, "request");
         permissionChecker.check(UI_DIALOG_CONTRIBUTE, "ui.dialog.contribute");
-        dialogs.add(request);
+        final UiSurfaceAdapter.AdapterResult<Boolean> adapterResult = uiSurfaceAdapter.confirmDialog(request);
+        if (adapterResult.isAvailable()) {
+            return adapterResult.value().orElseThrow();
+        }
+        adapterResult.diagnostic().ifPresent(this::recordDiagnostic);
         return stateSource.confirmDialog(request);
     }
 
@@ -165,6 +211,12 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
     public Registration contributeEmbeddedPanel(final EmbeddedPanelContribution contribution) {
         Objects.requireNonNull(contribution, "contribution");
         permissionChecker.check(UI_PANEL_CONTRIBUTE, "ui.panel.contribute");
+        final UiSurfaceAdapter.AdapterResult<Registration> adapterResult =
+            uiSurfaceAdapter.contributeEmbeddedPanel(contribution);
+        if (adapterResult.isAvailable()) {
+            return enrollAdapterRegistration(adapterResult.value().orElseThrow());
+        }
+        adapterResult.diagnostic().ifPresent(this::recordDiagnostic);
         panels.add(contribution);
         return scopedRegistration(panels, contribution);
     }
@@ -173,6 +225,11 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
     public Optional<String> requestFile(final FileChooserRequest request) {
         Objects.requireNonNull(request, "request");
         permissionChecker.check(UI_FILE_CHOOSER_REQUEST, "ui.file-chooser.request");
+        final UiSurfaceAdapter.AdapterResult<Optional<String>> adapterResult = uiSurfaceAdapter.requestFile(request);
+        if (adapterResult.isAvailable()) {
+            return adapterResult.value().orElseThrow().map(RuntimeUiHostCapabilityService::validateRelativePath);
+        }
+        adapterResult.diagnostic().ifPresent(this::recordDiagnostic);
         return stateSource.chooseFile(request).map(RuntimeUiHostCapabilityService::validateRelativePath);
     }
 
@@ -184,9 +241,8 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         if (adapterResult.isAvailable()) {
             return enrollAdapterRegistration(adapterResult.value().orElseThrow());
         }
-        adapterResult.diagnostic().ifPresent(statusToolbarDiagnostics::add);
-        notifications.add(notification);
-        return scopedRegistration(notifications, notification);
+        adapterResult.diagnostic().ifPresent(this::recordDiagnostic);
+        return trackNotification(notification);
     }
 
     @Override
@@ -205,7 +261,7 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         if (adapterResult.isAvailable()) {
             return enrollAdapterRegistration(adapterResult.value().orElseThrow());
         }
-        adapterResult.diagnostic().ifPresent(statusToolbarDiagnostics::add);
+        adapterResult.diagnostic().ifPresent(this::recordDiagnostic);
         mainToolbars.add(contribution);
         return scopedRegistration(mainToolbars, contribution);
     }
@@ -218,7 +274,7 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         if (adapterResult.isAvailable()) {
             return enrollAdapterRegistration(adapterResult.value().orElseThrow());
         }
-        adapterResult.diagnostic().ifPresent(statusToolbarDiagnostics::add);
+        adapterResult.diagnostic().ifPresent(this::recordDiagnostic);
         paletteToolbars.add(contribution);
         return scopedRegistration(paletteToolbars, contribution);
     }
@@ -249,7 +305,9 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
     }
 
     public List<StatusNotification> notifications() {
-        return List.copyOf(notifications);
+        return notifications.snapshot().stream()
+            .map(TrackedNotification::notification)
+            .toList();
     }
 
     public List<ContextMenuRegistry.ContextMenuContribution> contextMenus() {
@@ -264,8 +322,27 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         return List.copyOf(paletteToolbars);
     }
 
+    public List<SafeModeDiagnostic> uiDiagnostics() {
+        return statusToolbarDiagnostics.snapshot();
+    }
+
+    /** @deprecated use {@link #uiDiagnostics()} because diagnostics cover all UI adapter families. */
+    @Deprecated
     public List<SafeModeDiagnostic> statusToolbarDiagnostics() {
-        return List.copyOf(statusToolbarDiagnostics);
+        return uiDiagnostics();
+    }
+
+    private Registration trackNotification(final StatusNotification notification) {
+        final TrackedNotification tracked = new TrackedNotification(notification);
+        notifications.put(notification.id(), tracked);
+        return () -> notifications.removeIfSame(notification.id(), tracked);
+    }
+
+    private void recordDiagnostic(final SafeModeDiagnostic diagnostic) {
+        statusToolbarDiagnostics.put(
+            pluginId + "|" + diagnostic.code().name() + "|" + diagnostic.capability(),
+            diagnostic
+        );
     }
 
     private <T> Registration scopedRegistration(final CopyOnWriteArrayList<T> target, final T value) {
@@ -283,6 +360,18 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         };
         disposableScope.register(registration);
         return registration;
+    }
+
+    private static final class TrackedNotification {
+        private final StatusNotification notification;
+
+        private TrackedNotification(final StatusNotification notification) {
+            this.notification = Objects.requireNonNull(notification, "notification");
+        }
+
+        private StatusNotification notification() {
+            return notification;
+        }
     }
 
     private static String validateRelativePath(final String value) {

@@ -19,8 +19,14 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 class LogFilterPaletteServiceTest {
+
+    @Test
+    void packagedToolbarIconExists() {
+        assertNotNull(LogFilterPaletteService.class.getResource("/icons/log-filter-toggle.svg"));
+    }
 
     @Test
     void registerPaletteToolbar_contributesToggleButtonToLogPalette_whenPaletteToolbarAvailable() {
