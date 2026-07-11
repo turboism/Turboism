@@ -39,7 +39,7 @@ REQUIRED_IDENTITIES = {
     "phase0.scope-ledger": ("BOUNDED_SLICE", "AUTO_NOW", "COMPLETE"),
     "phase1.ownership-audit": ("BOUNDED_SLICE", "AUTO_NOW", "COMPLETE"),
     "automation.phase2.dispatcher-contract": ("BOUNDED_SLICE", "AUTO_NOW", "COMPLETE"),
-    "automation.phase3.synthetic-composition": ("BOUNDED_SLICE", "AUTO_NOW", "NOT_STARTED"),
+    "automation.phase3.synthetic-composition": ("BOUNDED_SLICE", "AUTO_NOW", "COMPLETE"),
     "automation.phase4.build-gates": ("BOUNDED_SLICE", "AUTO_NOW", "NOT_STARTED"),
     "automation.phase5.packaging-dryrun": ("BOUNDED_SLICE", "AUTO_NOW", "NOT_STARTED"),
     "automation.phase6.closure": ("BOUNDED_SLICE", "AUTO_NOW", "NOT_STARTED"),
@@ -62,7 +62,7 @@ CRITICAL_DEFERRED = {
     "r5.real-ui",
 }
 SENTINEL_TUPLES = {
-    "tranche.automation.overall": ("PENDING", "VERIFIED_STATIC_FAKE", "CONTRACT_TESTED"),
+    "tranche.automation.overall": ("PENDING", "VERIFIED_STATIC_SYNTHETIC", "SYNTHETIC_COMPOSITION_READY"),
     "milestone.m14.overall": ("IN_PROGRESS", "VERIFIED_STATIC_SYNTHETIC", "VERIFIED_STATIC"),
     "milestone.m16.overall": ("NOT_STARTED", "PLAN", "NONE"),
 }
@@ -73,7 +73,7 @@ CANONICAL_EDGES = {
 }
 PHASE_TUPLES = {
     "automation.phase2.dispatcher-contract": ("COMPLETE", "VERIFIED_STATIC_FAKE", "CONTRACT_TESTED"),
-    "automation.phase3.synthetic-composition": ("NOT_STARTED", "NONE", "NONE"),
+    "automation.phase3.synthetic-composition": ("COMPLETE", "VERIFIED_STATIC_SYNTHETIC", "SYNTHETIC_COMPOSITION_READY"),
     "automation.phase4.build-gates": ("NOT_STARTED", "NONE", "NONE"),
     "automation.phase5.packaging-dryrun": ("NOT_STARTED", "NONE", "NONE"),
     "automation.phase6.closure": ("NOT_STARTED", "NONE", "NONE"),
@@ -222,6 +222,36 @@ def validate(root: Path, ledger: Path) -> list[str]:
             errors.append(f"{work_id}: must retain VERIFIED_STATIC plus synthetic evidence")
         if "manual" not in row["blockers"].lower():
             errors.append(f"{work_id}: manual validation must remain pending")
+
+    phase3 = by_id.get("automation.phase3.synthetic-composition")
+    tranche = by_id.get("tranche.automation.overall")
+    phase4 = by_id.get("automation.phase4.build-gates")
+    if phase3:
+        required_capabilities = {"cubism.project.read", "cubism.workspace.read", "cubism.clipmask.read"}
+        required_adapters = {"adapter.project-workspace.readonly", "adapter.clipmask.readonly"}
+        if set(values(phase3["capabilityIds"])) != required_capabilities:
+            errors.append("automation.phase3.synthetic-composition: must reference both read slices' capability IDs")
+        if set(values(phase3["adapterSliceIds"])) != required_adapters:
+            errors.append("automation.phase3.synthetic-composition: must reference both independent adapter slices")
+        if "docs/migration/phase3-synthetic-composition-report.md" not in values(phase3["evidenceRefs"]):
+            errors.append("automation.phase3.synthetic-composition: missing Phase 3 report evidence")
+        if "manual" not in phase3["blockers"].lower() or "real-host" not in phase3["blockers"].lower():
+            errors.append("automation.phase3.synthetic-composition: real-host and manual validation must remain pending")
+        phase3_notes = phase3["notes"].lower()
+        if "seam-chain" not in phase3_notes or "atomic" not in phase3_notes:
+            errors.append("automation.phase3.synthetic-composition: notes must preserve seam-chain and dual atomic semantics")
+    if phase3 and tranche:
+        phase3_evidence = (phase3["evidenceLevel"], phase3["readinessCeiling"])
+        tranche_evidence = (tranche["evidenceLevel"], tranche["readinessCeiling"])
+        if tranche_evidence != phase3_evidence:
+            errors.append("tranche.automation.overall: must retain the same evidence/ceiling as completed Phase 3")
+        if tranche["nextSlice"] != "automation.phase4.build-gates":
+            errors.append("tranche.automation.overall: nextSlice must advance to automation.phase4.build-gates")
+    if phase4:
+        for work_id in ("automation.phase4.build-gates", "automation.phase5.packaging-dryrun", "automation.phase6.closure"):
+            row = by_id.get(work_id)
+            if row and (row["workStatus"], row["evidenceLevel"], row["readinessCeiling"]) != ("NOT_STARTED", "NONE", "NONE"):
+                errors.append(f"{work_id}: Phase 4-6 must remain NOT_STARTED/NONE/NONE after Phase 3 closure")
     return errors
 
 
