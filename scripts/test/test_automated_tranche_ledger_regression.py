@@ -82,17 +82,29 @@ def main() -> None:
     expect_failure("phase1 status", lambda rows: row(rows, "phase1.ownership-audit").update(workStatus="PENDING"), "expected BOUNDED_SLICE/AUTO_NOW/COMPLETE")
     expect_failure("phase1 evidence", lambda rows: row(rows, "phase1.ownership-audit").update(evidenceLevel="PLAN"), "expected Phase 1 tuple COMPLETE/VERIFIED_STATIC/OWNERSHIP_AUDITED")
     expect_failure("phase1 ceiling", lambda rows: row(rows, "phase1.ownership-audit").update(readinessCeiling="CONTRACT_TESTED"), "expected Phase 1 tuple COMPLETE/VERIFIED_STATIC/OWNERSHIP_AUDITED")
-    for phase_id in sorted(module.PHASE1_FUTURE_WORK):
+    for phase_id, expected_tuple in sorted(module.PHASE_TUPLES.items()):
         expect_failure(f"delete {phase_id}", lambda rows, phase_id=phase_id: rows.remove(row(rows, phase_id)), "missing required identity")
-        expect_failure(f"mutate class {phase_id}", lambda rows, phase_id=phase_id: row(rows, phase_id).update(executionClass="MANUAL_ONLY"), "expected BOUNDED_SLICE/AUTO_NOW/NOT_STARTED")
-    expect_failure("phase2-6 future ceiling", lambda rows: row(rows, "automation.phase6.closure").update(readinessCeiling="AUTOMATED_TRANCHE_CLOSED", evidenceLevel="VERIFIED_STATIC_SYNTHETIC"), "Phase 2-6 must remain NOT_STARTED/NONE/NONE during Phase 1")
-    expect_failure("phase2-6 future evidence", lambda rows: row(rows, "automation.phase2.dispatcher-contract").update(evidenceLevel="PLAN"), "Phase 2-6 must remain NOT_STARTED/NONE/NONE during Phase 1")
+        expected_status = expected_tuple[0]
+        expect_failure(
+            f"mutate class {phase_id}",
+            lambda rows, phase_id=phase_id: row(rows, phase_id).update(executionClass="MANUAL_ONLY"),
+            f"expected BOUNDED_SLICE/AUTO_NOW/{expected_status}",
+        )
+        expect_failure(
+            f"mutate tuple {phase_id}",
+            lambda rows, phase_id=phase_id: row(rows, phase_id).update(evidenceLevel="PLAN"),
+            "expected exact phase tuple",
+        )
+    expect_failure("phase2 status", lambda rows: row(rows, "automation.phase2.dispatcher-contract").update(workStatus="PENDING"), "expected BOUNDED_SLICE/AUTO_NOW/COMPLETE")
+    expect_failure("phase2 ceiling", lambda rows: row(rows, "automation.phase2.dispatcher-contract").update(readinessCeiling="OWNERSHIP_AUDITED"), "expected exact phase tuple COMPLETE/VERIFIED_STATIC_FAKE/CONTRACT_TESTED")
+    expect_failure("phase3 premature start", lambda rows: row(rows, "automation.phase3.synthetic-composition").update(workStatus="IN_PROGRESS"), "expected BOUNDED_SLICE/AUTO_NOW/NOT_STARTED")
+    expect_failure("phase6 premature ceiling", lambda rows: row(rows, "automation.phase6.closure").update(readinessCeiling="AUTOMATED_TRANCHE_CLOSED", evidenceLevel="VERIFIED_STATIC_SYNTHETIC"), "expected exact phase tuple NOT_STARTED/NONE/NONE")
     expect_failure("M14 status", lambda rows: row(rows, "milestone.m14.overall").update(workStatus="BLOCKED"), "expected OVERALL_SENTINEL/MANUAL_ONLY/IN_PROGRESS")
     expect_failure("M16 status", lambda rows: row(rows, "milestone.m16.overall").update(workStatus="PENDING"), "expected OVERALL_SENTINEL/MANUAL_ONLY/NOT_STARTED")
     expect_failure("tranche status", lambda rows: row(rows, "tranche.automation.overall").update(workStatus="IN_PROGRESS"), "expected TRANCHE_SENTINEL/AUTO_NOW/PENDING")
-    expect_failure("premature tranche closed", lambda rows: row(rows, "tranche.automation.overall").update(workStatus="COMPLETE", evidenceLevel="VERIFIED_STATIC_SYNTHETIC", readinessCeiling="AUTOMATED_TRANCHE_CLOSED"), "expected sentinel tuple PENDING/VERIFIED_STATIC/OWNERSHIP_AUDITED")
-    expect_failure("tranche readiness escalation", lambda rows: row(rows, "tranche.automation.overall").update(readinessCeiling="CONTRACT_TESTED"), "expected sentinel tuple PENDING/VERIFIED_STATIC/OWNERSHIP_AUDITED")
-    expect_failure("tranche evidence downgrade", lambda rows: row(rows, "tranche.automation.overall").update(evidenceLevel="PLAN"), "expected sentinel tuple PENDING/VERIFIED_STATIC/OWNERSHIP_AUDITED")
+    expect_failure("premature tranche closed", lambda rows: row(rows, "tranche.automation.overall").update(workStatus="COMPLETE", evidenceLevel="VERIFIED_STATIC_SYNTHETIC", readinessCeiling="AUTOMATED_TRANCHE_CLOSED"), "expected sentinel tuple PENDING/VERIFIED_STATIC_FAKE/CONTRACT_TESTED")
+    expect_failure("tranche readiness escalation", lambda rows: row(rows, "tranche.automation.overall").update(readinessCeiling="SYNTHETIC_COMPOSITION_READY", evidenceLevel="VERIFIED_STATIC_SYNTHETIC"), "expected sentinel tuple PENDING/VERIFIED_STATIC_FAKE/CONTRACT_TESTED")
+    expect_failure("tranche evidence downgrade", lambda rows: row(rows, "tranche.automation.overall").update(evidenceLevel="VERIFIED_STATIC"), "expected sentinel tuple PENDING/VERIFIED_STATIC_FAKE/CONTRACT_TESTED")
     expect_failure("M14 evidence downgrade", lambda rows: row(rows, "milestone.m14.overall").update(evidenceLevel="SYNTHETIC"), "expected sentinel tuple IN_PROGRESS/VERIFIED_STATIC_SYNTHETIC/VERIFIED_STATIC")
     expect_failure("M14 readiness escalation", lambda rows: row(rows, "milestone.m14.overall").update(readinessCeiling="AUTOMATED_TRANCHE_CLOSED"), "expected sentinel tuple IN_PROGRESS/VERIFIED_STATIC_SYNTHETIC/VERIFIED_STATIC")
     expect_failure("M16 premature escalation", lambda rows: row(rows, "milestone.m16.overall").update(evidenceLevel="VERIFIED_STATIC", readinessCeiling="DRY_RUN_READY"), "expected sentinel tuple NOT_STARTED/PLAN/NONE")
@@ -111,7 +123,9 @@ def main() -> None:
     expect_failure("erase R5 render traceability", lambda rows: rows.remove(row(rows, "r5.render-status-and-production-ingress")), "missing required identity")
     expect_failure("erase R5 UI traceability", lambda rows: rows.remove(row(rows, "r5.real-ui")), "missing required identity")
     expect_failure("duplicate", lambda rows: rows.append(dict(rows[0])), "duplicate workId")
-    expect_failure("enum", lambda rows: row(rows, "phase0.scope-ledger").update(workStatus="DONE"), "invalid workStatus")
+    expect_failure("work status enum", lambda rows: row(rows, "phase0.scope-ledger").update(workStatus="DONE"), "invalid workStatus")
+    expect_failure("evidence enum", lambda rows: row(rows, "automation.phase2.dispatcher-contract").update(evidenceLevel="VERIFIED_FAKE"), "invalid evidenceLevel")
+    expect_failure("readiness enum", lambda rows: row(rows, "automation.phase2.dispatcher-contract").update(readinessCeiling="MAILBOX_TESTED"), "invalid readinessCeiling")
     print("PASS: automated tranche ledger regression fixtures")
 
 
