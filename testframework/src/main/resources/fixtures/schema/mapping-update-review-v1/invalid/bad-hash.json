@@ -1,0 +1,8 @@
+{
+  "format": "turboism.mapping.update.review",
+  "schemaVersion": 1,
+  "decision": "PENDING",
+  "candidateSha256": "ABC",
+  "reviewer": null,
+  "reviewedAt": null
+}
