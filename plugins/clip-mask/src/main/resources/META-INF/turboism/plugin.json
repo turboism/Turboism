@@ -19,7 +19,7 @@
     {
       "id": "turboism.cubism.model.read",
       "scope": "application",
-      "reason": "Read fake clip-mask snapshots and their clipped-mesh references for the inspector."
+      "reason": "Read ArtMesh-centric clip-mask snapshots and their ordered mask-source references for the inspector."
     },
     {
       "id": "turboism.ui.dialog.contribute",
