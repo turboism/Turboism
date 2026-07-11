@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.turboism.adapter.cubism.VerifiedClipMaskHostOperations;
 import dev.turboism.adapter.cubism.VerifiedProjectWorkspaceHostOperations;
 import dev.turboism.mapping.verification.ClipMaskVerificationManifest;
+import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ProjectWorkspaceVerificationManifest;
 import dev.turboism.mapping.verification.StaticVerificationRecordValidator;
 import org.junit.jupiter.api.Test;
@@ -13,13 +14,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 
 class StaticVerificationRecordRepositoryTest {
 
@@ -28,204 +30,267 @@ class StaticVerificationRecordRepositoryTest {
     );
     private static final Path RECORDS = PROJECT_ROOT.resolve("docs/migration/verification/static");
 
+    private static final Map<String, SliceExpectation> EXPECTATIONS = Map.of(
+        "docs/migration/verification/static/cubism-5.3.02-project-workspace.json",
+        new SliceExpectation(
+            ProjectWorkspaceVerificationManifest.VERIFICATION_ID,
+            ProjectWorkspaceVerificationManifest.ADAPTER_SLICE_ID,
+            ProjectWorkspaceVerificationManifest.CUBISM_VERSION,
+            ProjectWorkspaceVerificationManifest.PROFILE_ID,
+            ProjectWorkspaceVerificationManifest.CAPABILITY_IDS,
+            "Live2D_Cubism.jar",
+            ProjectWorkspaceVerificationManifest.ARTIFACT_SIZE,
+            ProjectWorkspaceVerificationManifest.ARTIFACT_SHA256,
+            ProjectWorkspaceVerificationManifest.RECORD_SHA256,
+            22,
+            ProjectWorkspaceVerificationManifest.REQUIRED_ALIASES,
+            VerifiedProjectWorkspaceHostOperations.REQUIRED_ALIASES,
+            VerifiedProjectWorkspaceHostOperations.methodAliasesUsed(),
+            difference(
+                VerifiedProjectWorkspaceHostOperations.REQUIRED_ALIASES,
+                VerifiedProjectWorkspaceHostOperations.methodAliasesUsed()
+            ),
+            "cubism-5.3.02-m14-project-workspace",
+            Path.of("cubism-ref/mapping-packs/draft/cubism-5.3.02-m14-project-workspace.json"),
+            Path.of("cubism-ref/profiles/draft/cubism-5.3.02.json"),
+            "[5.3.02,5.3.03)",
+            SliceKind.PROJECT_WORKSPACE
+        ),
+        "docs/migration/verification/static/cubism-5.3.02-clipmask.json",
+        new SliceExpectation(
+            ClipMaskVerificationManifest.VERIFICATION_ID,
+            ClipMaskVerificationManifest.ADAPTER_SLICE_ID,
+            ClipMaskVerificationManifest.CUBISM_VERSION,
+            ClipMaskVerificationManifest.PROFILE_ID,
+            ClipMaskVerificationManifest.CAPABILITY_IDS,
+            "Live2D_Cubism.jar",
+            ClipMaskVerificationManifest.ARTIFACT_SIZE,
+            ClipMaskVerificationManifest.ARTIFACT_SHA256,
+            ClipMaskVerificationManifest.RECORD_SHA256,
+            16,
+            ClipMaskVerificationManifest.REQUIRED_ALIASES,
+            VerifiedClipMaskHostOperations.REQUIRED_ALIASES,
+            VerifiedClipMaskHostOperations.methodAliasesUsed(),
+            VerifiedClipMaskHostOperations.classAliasesUsed(),
+            "cubism-5.3.02-m15-clipmask",
+            Path.of("cubism-ref/mapping-packs/draft/cubism-5.3.02-m15-clipmask.json"),
+            Path.of("cubism-ref/profiles/draft/cubism-5.3.02.json"),
+            "[5.3.02,5.3.03)",
+            SliceKind.CLIP_MASK
+        )
+    );
+
     private final ObjectMapper mapper = new ObjectMapper();
     private final StaticVerificationRecordValidator validator = new StaticVerificationRecordValidator();
 
     @Test
-    void projectWorkspacePackRecordAndOperationAliasesStayInExactSync() throws Exception {
-        Path recordPath = RECORDS.resolve("cubism-5.3.02-project-workspace.json");
-        Path packPath = PROJECT_ROOT.resolve(
-            "cubism-ref/mapping-packs/draft/cubism-5.3.02-m14-project-workspace.json"
-        );
-        JsonNode record = mapper.readTree(recordPath.toFile());
-        JsonNode pack = mapper.readTree(packPath.toFile());
-
-        java.util.Map<String, JsonNode> entriesByMappingId = new java.util.LinkedHashMap<>();
-        for (JsonNode entry : pack.get("entries")) {
-            entriesByMappingId.put(entry.get("semanticName").asText(), entry);
-        }
-        assertEquals(22, entriesByMappingId.size(), "project/workspace DRAFT dependency count drifted");
-        assertEquals(22, record.get("selectors").size(), "project/workspace verified selector count drifted");
-
-        Set<String> aliases = new HashSet<>();
-        Set<String> methodAliases = new HashSet<>();
-        for (JsonNode selector : record.get("selectors")) {
-            String mappingId = selector.get("mappingId").asText();
-            JsonNode entry = entriesByMappingId.remove(mappingId);
-            assertTrue(entry != null, "record selector has no DRAFT mapping entry: " + mappingId);
-            assertEquals(entry.get("name").asText(), selector.get("alias").asText(), mappingId + " alias drift");
-            assertEquals(entry.get("kind").asText(), selector.get("kind").asText(), mappingId + " kind drift");
-            assertEquals(entry.get("x.verification").get("ownerInternalName").asText(),
-                selector.get("ownerInternalName").asText(), mappingId + " owner drift");
-            assertEquals(entry.get("x.verification").get("requiredAccessFlags").asInt(),
-                selector.get("requiredAccessFlags").asInt(), mappingId + " required access drift");
-            assertEquals(entry.get("x.verification").get("forbiddenAccessFlags").asInt(),
-                selector.get("forbiddenAccessFlags").asInt(), mappingId + " forbidden access drift");
-            if (!"class".equals(selector.get("kind").asText())) {
-                methodAliases.add(selector.get("alias").asText());
-                assertEquals(entry.get("runtime").asText(), selector.get("memberName").asText(), mappingId + " member drift");
-                assertEquals(entry.get("descriptor").asText(), selector.get("descriptor").asText(), mappingId + " descriptor drift");
-            } else {
-                assertEquals(entry.get("runtime").asText(), selector.get("ownerInternalName").asText(), mappingId + " class owner drift");
-            }
-            aliases.add(selector.get("alias").asText());
-        }
-        assertTrue(entriesByMappingId.isEmpty(), "DRAFT mapping entries missing from verification record: " + entriesByMappingId.keySet());
-        assertEquals(VerifiedProjectWorkspaceHostOperations.REQUIRED_ALIASES, aliases,
-            "HostOperations required aliases drifted from verified record");
-        assertEquals(VerifiedProjectWorkspaceHostOperations.methodAliasesUsed(), methodAliases,
-            "actual HostOperations invocation aliases drifted from verified method selectors");
-        assertEquals(ProjectWorkspaceVerificationManifest.REQUIRED_ALIASES, aliases,
-            "runtime-owned selector trust manifest drifted from verified record");
-        assertEquals(ProjectWorkspaceVerificationManifest.VERIFICATION_ID, record.get("verificationId").asText());
-        assertEquals(ProjectWorkspaceVerificationManifest.ADAPTER_SLICE_ID, record.get("adapterSliceId").asText());
-        assertEquals(ProjectWorkspaceVerificationManifest.CUBISM_VERSION, record.get("cubismVersion").asText());
-        assertEquals(ProjectWorkspaceVerificationManifest.PROFILE_ID, record.get("profileId").asText());
-        assertEquals(ProjectWorkspaceVerificationManifest.CAPABILITY_IDS,
-            asStringSet(record.get("capabilityIds")));
-        assertEquals(ProjectWorkspaceVerificationManifest.ARTIFACT_SIZE,
-            record.get("artifact").get("size").asLong());
-        assertEquals(ProjectWorkspaceVerificationManifest.ARTIFACT_SHA256,
-            record.get("artifact").get("sha256").asText());
-        assertEquals(ProjectWorkspaceVerificationManifest.RECORD_SHA256,
-            dev.turboism.mapping.verification.HostArtifactDigest.from(recordPath).sha256());
-
-        assertEquals(ProjectWorkspaceVerificationManifest.CUBISM_VERSION,
-            pack.get("cubismVersion").asText(), "mapping pack version drift");
-        for (JsonNode entry : pack.get("entries")) {
-            assertEquals(ProjectWorkspaceVerificationManifest.PROFILE_ID, entry.get("profile").asText(),
-                entry.get("semanticName").asText() + " profile drift");
-        }
-        Path profilePath = PROJECT_ROOT.resolve("cubism-ref/profiles/draft/cubism-5.3.02.json");
-        JsonNode profile = mapper.readTree(profilePath.toFile());
-        assertEquals(ProjectWorkspaceVerificationManifest.PROFILE_ID, profile.get("profileId").asText());
-        assertTrue(asStringSet(profile.get("mappingPacks")).contains("cubism-5.3.02-m14-project-workspace"),
-            "profile must reference project/workspace pack");
-        assertEquals("[5.3.02,5.3.03)", profile.get("versionRange").asText(),
-            "profile version range must stay pinned around exact verified version");
-    }
-
-    @Test
-    void clipMaskPackRecordManifestAndProfileStayInExactSync() throws Exception {
-        Path recordPath = RECORDS.resolve("cubism-5.3.02-clipmask.json");
-        Path packPath = PROJECT_ROOT.resolve(
-            "cubism-ref/mapping-packs/draft/cubism-5.3.02-m15-clipmask.json"
-        );
-        JsonNode record = mapper.readTree(recordPath.toFile());
-        JsonNode pack = mapper.readTree(packPath.toFile());
-
-        java.util.Map<String, JsonNode> entriesByMappingId = new java.util.LinkedHashMap<>();
-        for (JsonNode entry : pack.get("entries")) {
-            entriesByMappingId.put(entry.get("semanticName").asText(), entry);
-        }
-        assertEquals(16, entriesByMappingId.size(), "clip-mask DRAFT dependency count drifted");
-        assertEquals(16, record.get("selectors").size(), "clip-mask verified selector count drifted");
-
-        Set<String> aliases = new HashSet<>();
-        Set<String> classAliases = new HashSet<>();
-        Set<String> methodAliases = new HashSet<>();
-        for (JsonNode selector : record.get("selectors")) {
-            String mappingId = selector.get("mappingId").asText();
-            JsonNode entry = entriesByMappingId.remove(mappingId);
-            assertTrue(entry != null, "record selector has no DRAFT mapping entry: " + mappingId);
-            assertEquals(entry.get("name").asText(), selector.get("alias").asText(), mappingId + " alias drift");
-            assertEquals(entry.get("kind").asText(), selector.get("kind").asText(), mappingId + " kind drift");
-            assertEquals(entry.get("x.verification").get("ownerInternalName").asText(),
-                selector.get("ownerInternalName").asText(), mappingId + " owner drift");
-            assertEquals(entry.get("x.verification").get("requiredAccessFlags").asInt(),
-                selector.get("requiredAccessFlags").asInt(), mappingId + " required access drift");
-            assertEquals(entry.get("x.verification").get("forbiddenAccessFlags").asInt(),
-                selector.get("forbiddenAccessFlags").asInt(), mappingId + " forbidden access drift");
-            if (!"class".equals(selector.get("kind").asText())) {
-                methodAliases.add(selector.get("alias").asText());
-                assertEquals(entry.get("runtime").asText(), selector.get("memberName").asText(), mappingId + " member drift");
-                assertEquals(entry.get("descriptor").asText(), selector.get("descriptor").asText(), mappingId + " descriptor drift");
-            } else {
-                classAliases.add(selector.get("alias").asText());
-                assertEquals(entry.get("runtime").asText(), selector.get("ownerInternalName").asText(), mappingId + " class owner drift");
-            }
-            aliases.add(selector.get("alias").asText());
-        }
-        assertTrue(entriesByMappingId.isEmpty(), "DRAFT mapping entries missing from clip-mask record: " + entriesByMappingId.keySet());
-        assertEquals(VerifiedClipMaskHostOperations.classAliasesUsed(), classAliases,
-            "actual clip-mask HostOperations type aliases drifted from verified class selectors");
-        assertEquals(VerifiedClipMaskHostOperations.methodAliasesUsed(), methodAliases,
-            "actual clip-mask HostOperations invocation aliases drifted from verified method selectors");
-        Set<String> implementationAliases = new HashSet<>(classAliases);
-        implementationAliases.addAll(methodAliases);
-        assertEquals(VerifiedClipMaskHostOperations.REQUIRED_ALIASES, implementationAliases,
-            "clip-mask HostOperations required aliases must be the class/method alias union");
-        assertEquals(aliases, implementationAliases,
-            "verified clip-mask aliases must be the class/method selector union");
-        assertEquals(ClipMaskVerificationManifest.REQUIRED_ALIASES, aliases,
-            "independent clip-mask selector trust manifest drifted from verified record");
-        assertEquals(ClipMaskVerificationManifest.VERIFICATION_ID, record.get("verificationId").asText());
-        assertEquals(ClipMaskVerificationManifest.ADAPTER_SLICE_ID, record.get("adapterSliceId").asText());
-        assertEquals(ClipMaskVerificationManifest.CUBISM_VERSION, record.get("cubismVersion").asText());
-        assertEquals(ClipMaskVerificationManifest.PROFILE_ID, record.get("profileId").asText());
-        assertEquals(ClipMaskVerificationManifest.CAPABILITY_IDS, asStringSet(record.get("capabilityIds")));
-        assertEquals(ClipMaskVerificationManifest.ARTIFACT_SIZE, record.get("artifact").get("size").asLong());
-        assertEquals(ClipMaskVerificationManifest.ARTIFACT_SHA256, record.get("artifact").get("sha256").asText());
-        assertEquals(ClipMaskVerificationManifest.RECORD_SHA256,
-            dev.turboism.mapping.verification.HostArtifactDigest.from(recordPath).sha256());
-
-        assertEquals("DRAFT", pack.get("status").asText(), "mapping pack readiness must remain DRAFT");
-        assertEquals(ClipMaskVerificationManifest.CUBISM_VERSION, pack.get("cubismVersion").asText());
-        for (JsonNode entry : pack.get("entries")) {
-            assertEquals(ClipMaskVerificationManifest.PROFILE_ID, entry.get("profile").asText(),
-                entry.get("semanticName").asText() + " profile drift");
-        }
-        JsonNode profile = mapper.readTree(PROJECT_ROOT.resolve("cubism-ref/profiles/draft/cubism-5.3.02.json").toFile());
-        assertEquals("DRAFT", profile.get("status").asText(), "profile readiness must remain DRAFT");
-        assertTrue(asStringSet(profile.get("mappingPacks")).contains("cubism-5.3.02-m15-clipmask"),
-            "profile must reference independent clip-mask pack");
-        assertFalse(asStringSet(profile.get("mappingPacks")).contains("cubism-5.3.02-m15-project-workspace-clipmask"),
-            "clip-mask evidence must not be coupled to a project/workspace pack");
-    }
-
-    @Test
-    void allTrackedStaticRecordsAreValidatedAndSelfReferencing() throws Exception {
+    void everyStaticVerificationRecordMatchesItsRegisteredRepositoryExpectation() throws Exception {
         assertTrue(Files.isDirectory(RECORDS), "static verification record directory must exist");
-        try (Stream<Path> files = Files.list(RECORDS)) {
-            var records = files.filter(path -> path.toString().endsWith(".json")).sorted().toList();
-            assertFalse(records.isEmpty(), "at least one static verification record must exist");
-            for (Path path : records) {
-                verify(path);
+        final Map<String, Path> discovered = discoverRecords();
+        assertFalse(discovered.isEmpty(), "at least one static verification record must exist");
+        assertEquals(EXPECTATIONS.keySet(), discovered.keySet(),
+            "registered expectations and tracked records must match bidirectionally");
+
+        final Set<String> verificationIds = new HashSet<>();
+        final Set<String> sliceVersions = new HashSet<>();
+        for (Map.Entry<String, Path> discoveredRecord : discovered.entrySet()) {
+            final JsonNode record = mapper.readTree(discoveredRecord.getValue().toFile());
+            assertTrue(verificationIds.add(record.get("verificationId").asText()),
+                "duplicate verificationId: " + record.get("verificationId").asText());
+            final String sliceVersion = record.get("adapterSliceId").asText()
+                + "@" + record.get("cubismVersion").asText();
+            assertTrue(sliceVersions.add(sliceVersion),
+                "duplicate (adapterSliceId,cubismVersion): " + sliceVersion);
+            verifySlice(discoveredRecord.getValue(), record, EXPECTATIONS.get(discoveredRecord.getKey()));
+        }
+    }
+
+    private Map<String, Path> discoverRecords() throws Exception {
+        final Map<String, Path> discovered = new LinkedHashMap<>();
+        try (Stream<Path> paths = Files.walk(RECORDS)) {
+            for (Path path : paths.filter(Files::isRegularFile)
+                .filter(candidate -> candidate.toString().endsWith(".json"))
+                .sorted()
+                .toList()) {
+                final String relativePath = repositoryPath(path);
+                assertTrue(discovered.put(relativePath, path) == null,
+                    "duplicate static verification record path: " + relativePath);
             }
         }
+        return Map.copyOf(discovered);
+    }
+
+    private void verifySlice(
+        final Path recordPath,
+        final JsonNode record,
+        final SliceExpectation expectation
+    ) throws Exception {
+        final String repositoryPath = repositoryPath(recordPath);
+        assertTrue(validator.validate(record, repositoryPath).isEmpty(),
+            recordPath.getFileName() + " validation failed: " + validator.validate(record, repositoryPath));
+        assertEquals(repositoryPath, record.get("evidencePath").asText(), "record must self-reference its path");
+        assertEquals("VERIFIED_STATIC", record.get("status").asText());
+        assertFalse(record.get("cubismVersion").asText().contains("[")
+            || record.get("cubismVersion").asText().contains(","),
+            "record must use an exact Cubism version");
+
+        assertEquals(expectation.verificationId(), record.get("verificationId").asText());
+        assertEquals(expectation.adapterSliceId(), record.get("adapterSliceId").asText());
+        assertEquals(expectation.cubismVersion(), record.get("cubismVersion").asText());
+        assertEquals(expectation.profileId(), record.get("profileId").asText());
+        assertEquals(expectation.capabilityIds(), asStringSet(record.get("capabilityIds")));
+        assertEquals(expectation.artifactName(), record.get("artifact").get("name").asText());
+        assertEquals(expectation.artifactSize(), record.get("artifact").get("size").asLong());
+        assertEquals(expectation.artifactSha256(), record.get("artifact").get("sha256").asText());
+        assertEquals(expectation.recordSha256(), HostArtifactDigest.from(recordPath).sha256());
+        assertEquals(expectation.selectorCount(), record.get("selectors").size(),
+            "verified selector count drifted");
+
+        final JsonNode pack = mapper.readTree(PROJECT_ROOT.resolve(expectation.packPath()).toFile());
+        assertEquals("DRAFT", pack.get("status").asText(), "mapping pack readiness must remain DRAFT");
+        assertEquals(expectation.cubismVersion(), pack.get("cubismVersion").asText(), "mapping pack version drift");
+        final Map<String, JsonNode> packEntries = uniqueNodesBy(
+            pack.get("entries"), "semanticName", expectation.packId() + " pack"
+        );
+        final Map<String, JsonNode> selectors = uniqueNodesBy(
+            record.get("selectors"), "mappingId", expectation.adapterSliceId() + " record"
+        );
+        assertEquals(expectation.selectorCount(), packEntries.size(), "DRAFT dependency count drifted");
+        assertEquals(packEntries.keySet(), selectors.keySet(),
+            "record selectors and mapping entries must match bidirectionally");
+
+        final Set<String> aliases = new HashSet<>();
+        final Set<String> methodAliases = new HashSet<>();
+        final Set<String> attestationClassAliases = new HashSet<>();
+        for (Map.Entry<String, JsonNode> selectorEntry : selectors.entrySet()) {
+            verifySelector(
+                selectorEntry.getKey(),
+                selectorEntry.getValue(),
+                packEntries.get(selectorEntry.getKey()),
+                expectation,
+                aliases,
+                methodAliases,
+                attestationClassAliases
+            );
+        }
+        assertEquals(expectation.manifestAliases(), aliases, "manifest aliases drifted from verified record");
+        assertEquals(expectation.implementationAliases(), aliases,
+            "HostOperations required aliases drifted from verified record");
+        assertEquals(expectation.methodAliases(), methodAliases,
+            "implementation method aliases drifted from verified record");
+        assertEquals(expectation.attestationClassAliases(), attestationClassAliases,
+            "implementation attestation class aliases drifted from verified record");
+
+        verifyProfile(expectation);
+    }
+
+    private static void verifySelector(
+        final String mappingId,
+        final JsonNode selector,
+        final JsonNode packEntry,
+        final SliceExpectation expectation,
+        final Set<String> aliases,
+        final Set<String> methodAliases,
+        final Set<String> attestationClassAliases
+    ) {
+        assertTrue(aliases.add(selector.get("alias").asText()), mappingId + " duplicate alias");
+        assertEquals("VERIFIED_STATIC", selector.get("status").asText(), mappingId + " selector status drift");
+        assertEquals(packEntry.get("name").asText(), selector.get("alias").asText(), mappingId + " alias drift");
+        assertEquals(packEntry.get("kind").asText(), selector.get("kind").asText(), mappingId + " kind drift");
+        assertEquals(packEntry.get("x.verification").get("ownerInternalName").asText(),
+            selector.get("ownerInternalName").asText(), mappingId + " owner drift");
+        assertEquals(packEntry.get("x.verification").get("requiredAccessFlags").asInt(),
+            selector.get("requiredAccessFlags").asInt(), mappingId + " required access drift");
+        assertEquals(packEntry.get("x.verification").get("forbiddenAccessFlags").asInt(),
+            selector.get("forbiddenAccessFlags").asInt(), mappingId + " forbidden access drift");
+        assertEquals(expectation.profileId(), packEntry.get("profile").asText(), mappingId + " profile drift");
+        assertEquals("DRAFT", packEntry.get("status").asText(), mappingId + " mapping readiness drift");
+
+        if ("class".equals(selector.get("kind").asText())) {
+            attestationClassAliases.add(selector.get("alias").asText());
+            assertEquals(packEntry.get("runtime").asText(), selector.get("ownerInternalName").asText(),
+                mappingId + " class owner drift");
+            assertTrue(selector.get("memberName").isNull(), mappingId + " class member must be null");
+            assertTrue(selector.get("descriptor").isNull(), mappingId + " class descriptor must be null");
+        } else {
+            methodAliases.add(selector.get("alias").asText());
+            assertEquals(packEntry.get("runtime").asText(), selector.get("memberName").asText(),
+                mappingId + " member drift");
+            assertEquals(packEntry.get("descriptor").asText(), selector.get("descriptor").asText(),
+                mappingId + " descriptor drift");
+        }
+    }
+
+    private void verifyProfile(final SliceExpectation expectation) throws Exception {
+        final JsonNode profile = mapper.readTree(PROJECT_ROOT.resolve(expectation.profilePath()).toFile());
+        assertEquals("DRAFT", profile.get("status").asText(), "profile readiness must remain DRAFT");
+        assertEquals(expectation.profileId(), profile.get("profileId").asText());
+        assertTrue(asStringSet(profile.get("mappingPacks")).contains(expectation.packId()),
+            "profile must reference " + expectation.packId());
+        assertEquals(expectation.expectedVersionRange(), profile.get("versionRange").asText(),
+            "profile version range drifted");
+        if (expectation.kind() == SliceKind.CLIP_MASK) {
+            assertFalse(asStringSet(profile.get("mappingPacks"))
+                    .contains("cubism-5.3.02-m15-project-workspace-clipmask"),
+                "clip-mask evidence must not be coupled to a project/workspace pack");
+        }
+    }
+
+    private static Map<String, JsonNode> uniqueNodesBy(
+        final JsonNode array,
+        final String identityField,
+        final String source
+    ) {
+        final Map<String, JsonNode> nodes = new LinkedHashMap<>();
+        for (JsonNode node : array) {
+            final String identity = node.get(identityField).asText();
+            assertTrue(nodes.put(identity, node) == null,
+                source + " has duplicate " + identityField + ": " + identity);
+        }
+        return Map.copyOf(nodes);
+    }
+
+    private static String repositoryPath(final Path path) {
+        return PROJECT_ROOT.relativize(path).toString().replace('\\', '/');
+    }
+
+    private static Set<String> difference(final Set<String> all, final Set<String> excluded) {
+        final Set<String> difference = new HashSet<>(all);
+        difference.removeAll(excluded);
+        return Set.copyOf(difference);
     }
 
     private static Set<String> asStringSet(final JsonNode array) {
-        Set<String> values = new HashSet<>();
-        array.forEach(value -> values.add(value.asText()));
+        final Set<String> values = new HashSet<>();
+        array.forEach(value -> assertTrue(values.add(value.asText()), "duplicate array value: " + value.asText()));
         return Set.copyOf(values);
     }
 
-    private void verify(final Path path) {
-        try {
-            JsonNode root = mapper.readTree(path.toFile());
-            var errors = validator.validate(root, PROJECT_ROOT.relativize(path).toString());
-            assertTrue(errors.isEmpty(), path.getFileName() + " validation failed: " + errors);
-            assertEquals(
-                PROJECT_ROOT.relativize(path).toString().replace('\\', '/'),
-                root.get("evidencePath").asText(),
-                path.getFileName() + " must reference its tracked relative path"
-            );
-            assertEquals("VERIFIED_STATIC", root.get("status").asText());
-            assertFalse(root.get("cubismVersion").asText().contains("[")
-                || root.get("cubismVersion").asText().contains(","),
-                path.getFileName() + " must use an exact version, not a range");
+    private enum SliceKind {
+        PROJECT_WORKSPACE,
+        CLIP_MASK
+    }
 
-            Set<String> aliases = new HashSet<>();
-            Set<String> mappingIds = new HashSet<>();
-            for (JsonNode selector : root.get("selectors")) {
-                assertTrue(aliases.add(selector.get("alias").asText()),
-                    path.getFileName() + " has duplicate alias");
-                assertTrue(mappingIds.add(selector.get("mappingId").asText()),
-                    path.getFileName() + " has duplicate mappingId");
-            }
-        } catch (Exception exception) {
-            fail(path.getFileName() + " could not be validated: " + exception.getMessage());
-        }
+    private record SliceExpectation(
+        String verificationId,
+        String adapterSliceId,
+        String cubismVersion,
+        String profileId,
+        Set<String> capabilityIds,
+        String artifactName,
+        long artifactSize,
+        String artifactSha256,
+        String recordSha256,
+        int selectorCount,
+        Set<String> manifestAliases,
+        Set<String> implementationAliases,
+        Set<String> methodAliases,
+        Set<String> attestationClassAliases,
+        String packId,
+        Path packPath,
+        Path profilePath,
+        String expectedVersionRange,
+        SliceKind kind
+    ) {
     }
 }
