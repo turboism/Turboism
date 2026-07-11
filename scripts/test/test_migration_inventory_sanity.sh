@@ -74,5 +74,6 @@ done
 "${SCRIPT_DIR}/test_host_ingress_ownership_structure.sh"
 "${SCRIPT_DIR}/test_automated_tranche_ledger.sh"
 python3 "${SCRIPT_DIR}/test_automated_tranche_ledger_regression.py"
+"${SCRIPT_DIR}/test_phase4_build_gates.sh"
 
 echo "PASS: migration inventory sanity (board rows=${board_rows}, L0=${l0}, L1=${l1}, L2=${l2}, L3=${l3}, L4=${l4})"
