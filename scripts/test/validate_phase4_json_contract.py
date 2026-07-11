@@ -214,7 +214,7 @@ def artifact_path_is_scoped(value: Any, worktree_id: Any, path: str, errors: lis
         errors.append(error("INVALID_ARTIFACT_PATH", f"artifact path must start with {prefix} and end with -{worktree_id}.jar", path))
 
 
-def validate_packaging(document: Any) -> list[dict[str, str]]:
+def validate_packaging(document: Any, *, authoritative: bool = False, repo_root: Path | None = None) -> list[dict[str, str]]:
     document, errors = validate_header(document, PACKAGING_FORMAT, PACKAGING_FIELDS)
     if document is None:
         return errors
@@ -242,6 +242,13 @@ def validate_packaging(document: Any) -> list[dict[str, str]]:
     require_string_list(document.get("forbiddenEntries"), "$.forbiddenEntries", errors)
     for field in ("launcherPlanPath", "installPlanPath", "rollbackPlanPath"):
         require_relative_path(document.get(field), f"$.{field}", errors)
+    if authoritative and repo_root is not None:
+        try:
+            from pre_m16_packaging_dryrun import manifest_errors
+            for message in manifest_errors(document, repo_root):
+                errors.append(error("AUTHORITATIVE_PACKAGING_MISMATCH", message, "$"))
+        except ImportError as exc:
+            errors.append(error("VALIDATOR_IMPORT_FAILED", str(exc), "$"))
     return errors
 
 
@@ -257,8 +264,6 @@ def main() -> int:
     mode.add_argument("--fixture-mode", action="store_true", help="validate schema/semantics without repository file binding")
     parser.add_argument("--repo-root", type=Path)
     args = parser.parse_args()
-    if args.authoritative and args.contract != "synthetic":
-        parser.error("--authoritative is only valid for the synthetic contract")
     if args.authoritative and args.repo_root is None:
         parser.error("--authoritative requires --repo-root")
     if args.repo_root is not None and not args.authoritative:
@@ -268,7 +273,11 @@ def main() -> int:
             document, authoritative=args.authoritative, repo_root=args.repo_root,
         )
     else:
-        validator = validate_packaging
+        if args.authoritative:
+            sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "release"))
+        validator = lambda document: validate_packaging(
+            document, authoritative=args.authoritative, repo_root=args.repo_root,
+        )
     errors = validate_file(args.path, validator)
     for item in errors:
         print(f"{item['severity']} {item['code']} {item['path']}: {item['message']}", file=sys.stderr)
