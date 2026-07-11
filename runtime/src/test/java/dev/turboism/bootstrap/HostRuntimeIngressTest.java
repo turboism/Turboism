@@ -38,11 +38,20 @@ class HostRuntimeIngressTest {
     }
 
     @Test
-    void publishAfterCloseCannotReconnect() {
+    void closeRequestedFenceRejectsPublishClearsCurrentAndClosesSession() {
         HostRuntimeIngress ingress = new HostRuntimeIngress();
-        ingress.close();
-        ingress.publish(descriptor("late"));
 
+        assertEquals(HostSession.State.FAILED, ingress.publish(descriptor("before-close")));
+        assertFalse(ingress.hasCurrentDescriptorForTest());
+
+        ingress.close();
+        ingress.close();
+        assertTrue(ingress.isCloseRequestedForTest());
+        assertFalse(ingress.hasCurrentDescriptorForTest());
+        assertEquals(HostSession.State.CLOSED, ingress.state());
+
+        assertEquals(HostSession.State.CLOSED, ingress.publish(descriptor("late")));
+        assertFalse(ingress.hasCurrentDescriptorForTest());
         assertEquals(HostSession.State.CLOSED, ingress.state());
         assertFalse(ingress.adapters().projectWorkspace().activeProject().isAvailable());
         assertTrue(ingress.lastFailure().isEmpty());

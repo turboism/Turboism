@@ -30,7 +30,7 @@ CEILING_MIN_EVIDENCE = {
 }
 REQUIRED_IDENTITIES = {
     "phase0.scope-ledger": ("BOUNDED_SLICE", "AUTO_NOW", "COMPLETE"),
-    "phase1.ownership-audit": ("BOUNDED_SLICE", "AUTO_NOW", "NOT_STARTED"),
+    "phase1.ownership-audit": ("BOUNDED_SLICE", "AUTO_NOW", "COMPLETE"),
     "automation.phase2.dispatcher-contract": ("BOUNDED_SLICE", "AUTO_NOW", "NOT_STARTED"),
     "automation.phase3.synthetic-composition": ("BOUNDED_SLICE", "AUTO_NOW", "NOT_STARTED"),
     "automation.phase4.build-gates": ("BOUNDED_SLICE", "AUTO_NOW", "NOT_STARTED"),
@@ -55,7 +55,7 @@ CRITICAL_DEFERRED = {
     "r5.real-ui",
 }
 SENTINEL_TUPLES = {
-    "tranche.automation.overall": ("PENDING", "PLAN", "LEDGER_CORRECTED"),
+    "tranche.automation.overall": ("PENDING", "VERIFIED_STATIC", "OWNERSHIP_AUDITED"),
     "milestone.m14.overall": ("IN_PROGRESS", "VERIFIED_STATIC_SYNTHETIC", "VERIFIED_STATIC"),
     "milestone.m16.overall": ("NOT_STARTED", "PLAN", "NONE"),
 }
@@ -64,8 +64,7 @@ CANONICAL_EDGES = {
     "r5.render-status-and-production-ingress": "deferred.r5.render-ingress-plan",
     "r5.real-ui": "deferred.r6.real-ui-plan",
 }
-PHASE0_FUTURE_WORK = {
-    "phase1.ownership-audit",
+PHASE1_FUTURE_WORK = {
     "automation.phase2.dispatcher-contract",
     "automation.phase3.synthetic-composition",
     "automation.phase4.build-gates",
@@ -181,10 +180,16 @@ def validate(root: Path, ledger: Path) -> list[str]:
         actual = (row["workStatus"], row["evidenceLevel"], row["readinessCeiling"])
         if actual != expected:
             errors.append(f"{work_id}: expected sentinel tuple {'/'.join(expected)}")
-    for work_id in PHASE0_FUTURE_WORK & by_id.keys():
+    if "phase1.ownership-audit" in by_id:
+        row = by_id["phase1.ownership-audit"]
+        actual = (row["workStatus"], row["evidenceLevel"], row["readinessCeiling"])
+        expected = ("COMPLETE", "VERIFIED_STATIC", "OWNERSHIP_AUDITED")
+        if actual != expected:
+            errors.append("phase1.ownership-audit: expected Phase 1 tuple COMPLETE/VERIFIED_STATIC/OWNERSHIP_AUDITED")
+    for work_id in PHASE1_FUTURE_WORK & by_id.keys():
         row = by_id[work_id]
         if row["workStatus"] != "NOT_STARTED" or row["evidenceLevel"] != "NONE" or row["readinessCeiling"] != "NONE":
-            errors.append(f"{work_id}: future phase must remain NOT_STARTED/NONE/NONE during Phase 0")
+            errors.append(f"{work_id}: Phase 2-6 must remain NOT_STARTED/NONE/NONE during Phase 1")
 
     for work_id in CRITICAL_DEFERRED & by_id.keys():
         row = by_id[work_id]
