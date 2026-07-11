@@ -84,7 +84,7 @@ class M12ReadCapabilityExpansionTest {
         );
 
         assertThrows(UnsupportedOperationException.class, () -> service.psdDocuments().get(0).layers().add(new PsdDocumentSnapshot.PsdLayerSnapshot("layer-2", "Color", true)));
-        assertThrows(UnsupportedOperationException.class, () -> service.clipMasks().get(0).sourceMeshIds().add("mesh-3"));
+        assertThrows(UnsupportedOperationException.class, () -> service.clipMasks().get(0).orderedMaskSourceIds().add("mesh-3"));
         assertThrows(UnsupportedOperationException.class, () -> service.textureAtlases().get(0).textureIds().add("texture-2"));
         assertThrows(UnsupportedOperationException.class, () -> service.workspace().orElseThrow().recentProjectIds().add("project-2"));
     }
@@ -122,7 +122,7 @@ class M12ReadCapabilityExpansionTest {
         assertEquals("mesh-1", service.meshes().get(0).id());
         assertEquals("deformer-1", service.deformers().get(0).id());
         assertEquals("psd-1", service.psdDocuments().get(0).documentId());
-        assertEquals("mask-1", service.clipMasks().get(0).clipMaskId());
+        assertEquals("mesh-2", service.clipMasks().get(0).targetMeshId());
         assertEquals("atlas-1", service.textureAtlases().get(0).atlasId());
         assertEquals(60.0, service.renderStatus().orElseThrow().framesPerSecond());
         assertEquals("workspace-1", service.workspace().orElseThrow().workspaceId());
@@ -210,7 +210,7 @@ class M12ReadCapabilityExpansionTest {
 
         @Override
         public List<ClipMaskSnapshot> clipMasks() {
-            return List.of(new ClipMaskSnapshot("mask-1", List.of("mesh-1"), List.of("mesh-2"), true));
+            return List.of(new ClipMaskSnapshot("mesh-2", List.of("mesh-1"), true));
         }
 
         @Override

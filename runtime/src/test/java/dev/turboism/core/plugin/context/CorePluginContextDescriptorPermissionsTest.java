@@ -149,7 +149,7 @@ class CorePluginContextDescriptorPermissionsTest {
         assertEquals("project-1", context.cubismRead().activeProject().orElseThrow().projectId());
         assertEquals("workspace-1", context.cubismRead().workspace().orElseThrow().workspaceId());
         assertEquals("fake-renderer", context.cubismRead().renderStatus().orElseThrow().rendererName());
-        assertEquals("mask-1", context.cubismRead().clipMasks().get(0).clipMaskId());
+        assertEquals("mesh-1", context.cubismRead().clipMasks().get(0).targetMeshId());
     }
 
     @Test
@@ -369,7 +369,7 @@ class CorePluginContextDescriptorPermissionsTest {
             @Override public String hostVersion() { return "5.3.2"; }
             @Override public boolean supportsClipMaskRead() { return true; }
             @Override public List<ClipMaskSnapshot> clipMasks() {
-                return List.of(new ClipMaskSnapshot("mask-1", List.of("source"), List.of("mesh-1"), true));
+                return List.of(new ClipMaskSnapshot("mesh-1", List.of("source"), true));
             }
         });
         return new RuntimeHostAdapters(

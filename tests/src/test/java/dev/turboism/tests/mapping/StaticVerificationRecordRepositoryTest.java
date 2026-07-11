@@ -2,7 +2,9 @@ package dev.turboism.tests.mapping;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.turboism.adapter.cubism.VerifiedClipMaskHostOperations;
 import dev.turboism.adapter.cubism.VerifiedProjectWorkspaceHostOperations;
+import dev.turboism.mapping.verification.ClipMaskVerificationManifest;
 import dev.turboism.mapping.verification.ProjectWorkspaceVerificationManifest;
 import dev.turboism.mapping.verification.StaticVerificationRecordValidator;
 import org.junit.jupiter.api.Test;
@@ -101,6 +103,84 @@ class StaticVerificationRecordRepositoryTest {
             "profile must reference project/workspace pack");
         assertEquals("[5.3.02,5.3.03)", profile.get("versionRange").asText(),
             "profile version range must stay pinned around exact verified version");
+    }
+
+    @Test
+    void clipMaskPackRecordManifestAndProfileStayInExactSync() throws Exception {
+        Path recordPath = RECORDS.resolve("cubism-5.3.02-clipmask.json");
+        Path packPath = PROJECT_ROOT.resolve(
+            "cubism-ref/mapping-packs/draft/cubism-5.3.02-m15-clipmask.json"
+        );
+        JsonNode record = mapper.readTree(recordPath.toFile());
+        JsonNode pack = mapper.readTree(packPath.toFile());
+
+        java.util.Map<String, JsonNode> entriesByMappingId = new java.util.LinkedHashMap<>();
+        for (JsonNode entry : pack.get("entries")) {
+            entriesByMappingId.put(entry.get("semanticName").asText(), entry);
+        }
+        assertEquals(16, entriesByMappingId.size(), "clip-mask DRAFT dependency count drifted");
+        assertEquals(16, record.get("selectors").size(), "clip-mask verified selector count drifted");
+
+        Set<String> aliases = new HashSet<>();
+        Set<String> classAliases = new HashSet<>();
+        Set<String> methodAliases = new HashSet<>();
+        for (JsonNode selector : record.get("selectors")) {
+            String mappingId = selector.get("mappingId").asText();
+            JsonNode entry = entriesByMappingId.remove(mappingId);
+            assertTrue(entry != null, "record selector has no DRAFT mapping entry: " + mappingId);
+            assertEquals(entry.get("name").asText(), selector.get("alias").asText(), mappingId + " alias drift");
+            assertEquals(entry.get("kind").asText(), selector.get("kind").asText(), mappingId + " kind drift");
+            assertEquals(entry.get("x.verification").get("ownerInternalName").asText(),
+                selector.get("ownerInternalName").asText(), mappingId + " owner drift");
+            assertEquals(entry.get("x.verification").get("requiredAccessFlags").asInt(),
+                selector.get("requiredAccessFlags").asInt(), mappingId + " required access drift");
+            assertEquals(entry.get("x.verification").get("forbiddenAccessFlags").asInt(),
+                selector.get("forbiddenAccessFlags").asInt(), mappingId + " forbidden access drift");
+            if (!"class".equals(selector.get("kind").asText())) {
+                methodAliases.add(selector.get("alias").asText());
+                assertEquals(entry.get("runtime").asText(), selector.get("memberName").asText(), mappingId + " member drift");
+                assertEquals(entry.get("descriptor").asText(), selector.get("descriptor").asText(), mappingId + " descriptor drift");
+            } else {
+                classAliases.add(selector.get("alias").asText());
+                assertEquals(entry.get("runtime").asText(), selector.get("ownerInternalName").asText(), mappingId + " class owner drift");
+            }
+            aliases.add(selector.get("alias").asText());
+        }
+        assertTrue(entriesByMappingId.isEmpty(), "DRAFT mapping entries missing from clip-mask record: " + entriesByMappingId.keySet());
+        assertEquals(VerifiedClipMaskHostOperations.classAliasesUsed(), classAliases,
+            "actual clip-mask HostOperations type aliases drifted from verified class selectors");
+        assertEquals(VerifiedClipMaskHostOperations.methodAliasesUsed(), methodAliases,
+            "actual clip-mask HostOperations invocation aliases drifted from verified method selectors");
+        Set<String> implementationAliases = new HashSet<>(classAliases);
+        implementationAliases.addAll(methodAliases);
+        assertEquals(VerifiedClipMaskHostOperations.REQUIRED_ALIASES, implementationAliases,
+            "clip-mask HostOperations required aliases must be the class/method alias union");
+        assertEquals(aliases, implementationAliases,
+            "verified clip-mask aliases must be the class/method selector union");
+        assertEquals(ClipMaskVerificationManifest.REQUIRED_ALIASES, aliases,
+            "independent clip-mask selector trust manifest drifted from verified record");
+        assertEquals(ClipMaskVerificationManifest.VERIFICATION_ID, record.get("verificationId").asText());
+        assertEquals(ClipMaskVerificationManifest.ADAPTER_SLICE_ID, record.get("adapterSliceId").asText());
+        assertEquals(ClipMaskVerificationManifest.CUBISM_VERSION, record.get("cubismVersion").asText());
+        assertEquals(ClipMaskVerificationManifest.PROFILE_ID, record.get("profileId").asText());
+        assertEquals(ClipMaskVerificationManifest.CAPABILITY_IDS, asStringSet(record.get("capabilityIds")));
+        assertEquals(ClipMaskVerificationManifest.ARTIFACT_SIZE, record.get("artifact").get("size").asLong());
+        assertEquals(ClipMaskVerificationManifest.ARTIFACT_SHA256, record.get("artifact").get("sha256").asText());
+        assertEquals(ClipMaskVerificationManifest.RECORD_SHA256,
+            dev.turboism.mapping.verification.HostArtifactDigest.from(recordPath).sha256());
+
+        assertEquals("DRAFT", pack.get("status").asText(), "mapping pack readiness must remain DRAFT");
+        assertEquals(ClipMaskVerificationManifest.CUBISM_VERSION, pack.get("cubismVersion").asText());
+        for (JsonNode entry : pack.get("entries")) {
+            assertEquals(ClipMaskVerificationManifest.PROFILE_ID, entry.get("profile").asText(),
+                entry.get("semanticName").asText() + " profile drift");
+        }
+        JsonNode profile = mapper.readTree(PROJECT_ROOT.resolve("cubism-ref/profiles/draft/cubism-5.3.02.json").toFile());
+        assertEquals("DRAFT", profile.get("status").asText(), "profile readiness must remain DRAFT");
+        assertTrue(asStringSet(profile.get("mappingPacks")).contains("cubism-5.3.02-m15-clipmask"),
+            "profile must reference independent clip-mask pack");
+        assertFalse(asStringSet(profile.get("mappingPacks")).contains("cubism-5.3.02-m15-project-workspace-clipmask"),
+            "clip-mask evidence must not be coupled to a project/workspace pack");
     }
 
     @Test

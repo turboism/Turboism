@@ -1,23 +1,15 @@
 package dev.turboism.adapter.host;
 
-import java.nio.file.Path;
 import java.util.Objects;
 
 /** Local-only inputs needed to connect one exact host session. */
 public record HostInstanceDescriptor(
     String sessionId,
-    Path reviewedVerificationRecord,
-    Path verifiedHostArtifact,
-    ClassLoader hostClassLoader
+    HostVerificationEvidence verificationEvidence
 ) {
     public HostInstanceDescriptor {
         sessionId = requireText(sessionId, "sessionId");
-        reviewedVerificationRecord = Objects.requireNonNull(
-            reviewedVerificationRecord,
-            "reviewedVerificationRecord"
-        );
-        verifiedHostArtifact = Objects.requireNonNull(verifiedHostArtifact, "verifiedHostArtifact");
-        hostClassLoader = Objects.requireNonNull(hostClassLoader, "hostClassLoader");
+        verificationEvidence = Objects.requireNonNull(verificationEvidence, "verificationEvidence");
     }
 
     @Override

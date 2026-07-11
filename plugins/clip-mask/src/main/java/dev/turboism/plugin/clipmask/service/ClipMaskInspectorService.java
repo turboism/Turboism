@@ -66,15 +66,15 @@ public final class ClipMaskInspectorService {
             return;
         }
 
-        final long enabledCount = masks.stream().filter(ClipMaskSnapshot::enabled).count();
-        final int clippedMeshRefs = masks.stream().mapToInt(mask -> mask.clippedMeshIds().size()).sum();
+        final long invertedCount = masks.stream().filter(ClipMaskSnapshot::inverted).count();
+        final int maskSourceRefs = masks.stream().mapToInt(mask -> mask.orderedMaskSourceIds().size()).sum();
         uiHost.notifyStatus(new StatusNotification(
             REFRESHED_NOTIFICATION_ID,
             "INFO",
             "Clip masks: " + masks.size()
-                + " total, " + enabledCount
-                + " enabled, " + clippedMeshRefs
-                + " clipped mesh refs"
+                + " target meshes, " + invertedCount
+                + " inverted, " + maskSourceRefs
+                + " mask source refs"
         ));
     }
 }

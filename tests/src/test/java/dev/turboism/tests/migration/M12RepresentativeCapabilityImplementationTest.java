@@ -61,7 +61,7 @@ class M12RepresentativeCapabilityImplementationTest {
         assertEquals("deformer-1", facade.runtime().deformers().get(0).id());
         assertThrows(UnsupportedOperationException.class, () -> facade.runtime().artMeshes().add(facade.runtime().artMeshes().get(0)));
         assertThrows(UnsupportedOperationException.class, () -> new TextureAtlasSnapshot("atlas-1", 1024, 1024, List.of("texture-1")).textureIds().add("texture-2"));
-        assertThrows(UnsupportedOperationException.class, () -> new ClipMaskSnapshot("mask-1", List.of("mesh-1"), List.of("mesh-2"), true).sourceMeshIds().add("mesh-3"));
+        assertThrows(UnsupportedOperationException.class, () -> new ClipMaskSnapshot("mesh-2", List.of("mesh-1"), true).orderedMaskSourceIds().add("mesh-3"));
         assertThrows(UnsupportedOperationException.class, () -> new WorkspaceSnapshot("workspace-1", "workspace", List.of("project-1")).recentProjectIds().add("project-2"));
         assertThrows(UnsupportedOperationException.class, () -> new PsdDocumentSnapshot("psd-1", "psd/source.psd", List.of(new PsdDocumentSnapshot.PsdLayerSnapshot("layer-1", "Line", true))).layers().add(new PsdDocumentSnapshot.PsdLayerSnapshot("layer-2", "Color", true)));
         assertEquals(60.0, new RenderStatusSnapshot(true, 60.0, "fake-renderer").framesPerSecond());
