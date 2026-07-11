@@ -71,6 +71,7 @@ done
 "${SCRIPT_DIR}/test_m12_plugin_readiness_gate.sh"
 
 "${SCRIPT_DIR}/test_migration_docs_safety_scanner.sh"
+"${SCRIPT_DIR}/test_host_ingress_ownership_structure.sh"
 "${SCRIPT_DIR}/test_automated_tranche_ledger.sh"
 python3 "${SCRIPT_DIR}/test_automated_tranche_ledger_regression.py"
 
