@@ -1,0 +1,22 @@
+{
+  "format": "turboism.pre-m16-packaging-dryrun-manifest",
+  "schemaVersion": 1,
+  "worktreeId": "automation-prem16-dryrun",
+  "generatedAt": "2026-07-11T00:00:00Z",
+  "artifacts": [
+    {
+      "path": "build/worktree/automation-prem16-dryrun/runtime/libs/runtime-0.1.0-SNAPSHOT-automation-prem16-dryrun.jar",
+      "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "size": 12345
+    }
+  ],
+  "forbiddenEntries": [
+    ".codegraph/",
+    "AGENTS.md",
+    "turboism-agent-latest.jar",
+    "Live2D_Cubism.jar"
+  ],
+  "launcherPlanPath": "build/worktree/automation-prem16-dryrun/dryrun/launcher-plan.json",
+  "installPlanPath": "build/worktree/automation-prem16-dryrun/dryrun/install-plan.json",
+  "rollbackPlanPath": "build/worktree/automation-prem16-dryrun/dryrun/rollback-plan.json"
+}
