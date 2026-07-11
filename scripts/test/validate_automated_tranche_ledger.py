@@ -16,13 +16,20 @@ FIELDS = [
 ENTITY_TYPES = {"OVERALL_SENTINEL", "TRANCHE_SENTINEL", "BOUNDED_SLICE", "DEFERRED_ITEM", "POLICY_BOUNDARY"}
 EXECUTION_CLASSES = {"AUTO_NOW", "AUTO_WITH_AUTHORIZED_LOCAL_INPUT", "MANUAL_ONLY", "DEFERRED_SCOPE", "FORBIDDEN"}
 WORK_STATUSES = {"NOT_STARTED", "PENDING", "IN_PROGRESS", "COMPLETE", "BLOCKED", "DEFERRED", "PROHIBITED"}
-EVIDENCE_LEVELS = {"NONE", "PLAN", "FAKE", "VERIFIED_STATIC", "SYNTHETIC", "VERIFIED_STATIC_SYNTHETIC"}
+EVIDENCE_LEVELS = {
+    "NONE", "PLAN", "FAKE", "VERIFIED_STATIC", "VERIFIED_STATIC_FAKE",
+    "SYNTHETIC", "VERIFIED_STATIC_SYNTHETIC",
+}
 READINESS_CEILINGS = {
     "NONE", "LEDGER_CORRECTED", "OWNERSHIP_AUDITED", "CONTRACT_TESTED",
     "VERIFIED_STATIC", "SYNTHETIC_COMPOSITION_READY", "BUILD_GATED", "DRY_RUN_READY",
     "AUTOMATED_TRANCHE_CLOSED",
 }
-EVIDENCE_RANK = {"NONE": 0, "PLAN": 1, "FAKE": 2, "VERIFIED_STATIC": 3, "SYNTHETIC": 4, "VERIFIED_STATIC_SYNTHETIC": 4}
+EVIDENCE_RANK = {
+    "NONE": 0, "PLAN": 1, "FAKE": 2, "VERIFIED_STATIC": 3,
+    "VERIFIED_STATIC_FAKE": 3, "SYNTHETIC": 4,
+    "VERIFIED_STATIC_SYNTHETIC": 4,
+}
 CEILING_MIN_EVIDENCE = {
     "NONE": 0, "LEDGER_CORRECTED": 1, "OWNERSHIP_AUDITED": 2,
     "CONTRACT_TESTED": 2, "VERIFIED_STATIC": 3, "SYNTHETIC_COMPOSITION_READY": 4,
@@ -31,7 +38,7 @@ CEILING_MIN_EVIDENCE = {
 REQUIRED_IDENTITIES = {
     "phase0.scope-ledger": ("BOUNDED_SLICE", "AUTO_NOW", "COMPLETE"),
     "phase1.ownership-audit": ("BOUNDED_SLICE", "AUTO_NOW", "COMPLETE"),
-    "automation.phase2.dispatcher-contract": ("BOUNDED_SLICE", "AUTO_NOW", "NOT_STARTED"),
+    "automation.phase2.dispatcher-contract": ("BOUNDED_SLICE", "AUTO_NOW", "COMPLETE"),
     "automation.phase3.synthetic-composition": ("BOUNDED_SLICE", "AUTO_NOW", "NOT_STARTED"),
     "automation.phase4.build-gates": ("BOUNDED_SLICE", "AUTO_NOW", "NOT_STARTED"),
     "automation.phase5.packaging-dryrun": ("BOUNDED_SLICE", "AUTO_NOW", "NOT_STARTED"),
@@ -55,7 +62,7 @@ CRITICAL_DEFERRED = {
     "r5.real-ui",
 }
 SENTINEL_TUPLES = {
-    "tranche.automation.overall": ("PENDING", "VERIFIED_STATIC", "OWNERSHIP_AUDITED"),
+    "tranche.automation.overall": ("PENDING", "VERIFIED_STATIC_FAKE", "CONTRACT_TESTED"),
     "milestone.m14.overall": ("IN_PROGRESS", "VERIFIED_STATIC_SYNTHETIC", "VERIFIED_STATIC"),
     "milestone.m16.overall": ("NOT_STARTED", "PLAN", "NONE"),
 }
@@ -64,12 +71,12 @@ CANONICAL_EDGES = {
     "r5.render-status-and-production-ingress": "deferred.r5.render-ingress-plan",
     "r5.real-ui": "deferred.r6.real-ui-plan",
 }
-PHASE1_FUTURE_WORK = {
-    "automation.phase2.dispatcher-contract",
-    "automation.phase3.synthetic-composition",
-    "automation.phase4.build-gates",
-    "automation.phase5.packaging-dryrun",
-    "automation.phase6.closure",
+PHASE_TUPLES = {
+    "automation.phase2.dispatcher-contract": ("COMPLETE", "VERIFIED_STATIC_FAKE", "CONTRACT_TESTED"),
+    "automation.phase3.synthetic-composition": ("NOT_STARTED", "NONE", "NONE"),
+    "automation.phase4.build-gates": ("NOT_STARTED", "NONE", "NONE"),
+    "automation.phase5.packaging-dryrun": ("NOT_STARTED", "NONE", "NONE"),
+    "automation.phase6.closure": ("NOT_STARTED", "NONE", "NONE"),
 }
 
 
@@ -186,10 +193,13 @@ def validate(root: Path, ledger: Path) -> list[str]:
         expected = ("COMPLETE", "VERIFIED_STATIC", "OWNERSHIP_AUDITED")
         if actual != expected:
             errors.append("phase1.ownership-audit: expected Phase 1 tuple COMPLETE/VERIFIED_STATIC/OWNERSHIP_AUDITED")
-    for work_id in PHASE1_FUTURE_WORK & by_id.keys():
+    for work_id, expected in PHASE_TUPLES.items():
+        if work_id not in by_id:
+            continue
         row = by_id[work_id]
-        if row["workStatus"] != "NOT_STARTED" or row["evidenceLevel"] != "NONE" or row["readinessCeiling"] != "NONE":
-            errors.append(f"{work_id}: Phase 2-6 must remain NOT_STARTED/NONE/NONE during Phase 1")
+        actual = (row["workStatus"], row["evidenceLevel"], row["readinessCeiling"])
+        if actual != expected:
+            errors.append(f"{work_id}: expected exact phase tuple {'/'.join(expected)}")
 
     for work_id in CRITICAL_DEFERRED & by_id.keys():
         row = by_id[work_id]
