@@ -11,6 +11,11 @@ import dev.turboism.core.schema.plugin.PluginMetaValidator;
 import dev.turboism.core.schema.runtimeconfig.RuntimeConfigValidator;
 import dev.turboism.core.schema.version.VersionRangeValidator;
 import dev.turboism.hook.spec.HookSpecValidator;
+import dev.turboism.mapping.draft.DraftMappingException;
+import dev.turboism.mapping.draft.MappingReviewValidator;
+import dev.turboism.mapping.draft.MappingUpdateCandidateValidator;
+import dev.turboism.mapping.draft.MappingUpdateDiffValidator;
+import dev.turboism.mapping.draft.StrictJson;
 import dev.turboism.mapping.schema.MappingPackValidator;
 import dev.turboism.mapping.schema.ProfileValidator;
 import dev.turboism.mapping.verification.StaticVerificationRecordValidator;
@@ -51,11 +56,14 @@ class SchemaFixtureValidationTest {
         "draft.json, mapping-pack-v1, mapping-pack",
         "cubism-5-3-02.json, profile-v1, profile",
         "cubism-5-3-02-low-risk.json, static-verification-record-v1, static-verification-record",
+        "minimal.json, mapping-update-candidate-v1, mapping-update-candidate",
+        "minimal.json, mapping-update-review-v1, mapping-update-review",
+        "minimal.json, mapping-update-diff-v1, mapping-update-diff",
         "parameter-top-level-menu.json, hook-spec-v1, hook-spec"
     })
     void validFixturesPass(String file, String dir, String type) throws Exception {
         Path path = FIXTURES.resolve(dir).resolve("valid").resolve(file);
-        JsonNode root = mapper.readTree(path.toFile());
+        JsonNode root = parseFixture(type, path, "VALID_FIXTURE_INVALID_JSON");
         JsonSchemaValidator validator = validatorFor(type);
         List<SchemaValidationError> errors = validator.validate(root, path.toString());
         assertTrue(errors.isEmpty(), "Expected no errors for valid fixture " + dir + "/valid/" + file + " but got: " + errors);
@@ -94,13 +102,50 @@ class SchemaFixtureValidationTest {
         "unknown-field.json, static-verification-record-v1, static-verification-record, STATIC_VERIFICATION_RECORD_UNKNOWN_FIELD",
         "bad-status.json, static-verification-record-v1, static-verification-record, STATIC_VERIFICATION_RECORD_BAD_STATUS",
         "absolute-path.json, static-verification-record-v1, static-verification-record, STATIC_VERIFICATION_RECORD_ABSOLUTE_PATH",
+        "unknown-field.json, mapping-update-candidate-v1, mapping-update-candidate, MAPPING_UPDATE_CANDIDATE_UNKNOWN_FIELD",
+        "unknown-nested-field.json, mapping-update-candidate-v1, mapping-update-candidate, MAPPING_UPDATE_CANDIDATE_UNKNOWN_FIELD",
+        "bad-format.json, mapping-update-candidate-v1, mapping-update-candidate, MAPPING_UPDATE_CANDIDATE_BAD_FORMAT",
+        "bad-schema-version.json, mapping-update-candidate-v1, mapping-update-candidate, MAPPING_UPDATE_CANDIDATE_BAD_SCHEMA_VERSION",
+        "bad-hash.json, mapping-update-candidate-v1, mapping-update-candidate, MAPPING_UPDATE_CANDIDATE_BAD_HASH",
+        "bad-path.json, mapping-update-candidate-v1, mapping-update-candidate, MAPPING_UPDATE_CANDIDATE_BAD_TARGET",
+        "missing-required.json, mapping-update-candidate-v1, mapping-update-candidate, MAPPING_UPDATE_CANDIDATE_MISSING",
+        "forbidden-selector.json, mapping-update-candidate-v1, mapping-update-candidate, MAPPING_UPDATE_CANDIDATE_FORBIDDEN_SELECTOR",
+        "duplicate-key.json, mapping-update-candidate-v1, mapping-update-candidate, MAPPING_UPDATE_CANDIDATE_INVALID_JSON",
+        "bom.json, mapping-update-candidate-v1, mapping-update-candidate, MAPPING_UPDATE_CANDIDATE_INVALID_JSON",
+        "trailing-token.json, mapping-update-candidate-v1, mapping-update-candidate, MAPPING_UPDATE_CANDIDATE_INVALID_JSON",
+        "unknown-field.json, mapping-update-review-v1, mapping-update-review, MAPPING_UPDATE_REVIEW_UNKNOWN_FIELD",
+        "bad-format.json, mapping-update-review-v1, mapping-update-review, MAPPING_UPDATE_REVIEW_BAD_FORMAT",
+        "bad-schema-version.json, mapping-update-review-v1, mapping-update-review, MAPPING_UPDATE_REVIEW_BAD_SCHEMA_VERSION",
+        "bad-hash.json, mapping-update-review-v1, mapping-update-review, MAPPING_UPDATE_REVIEW_BAD_HASH",
+        "bad-timestamp.json, mapping-update-review-v1, mapping-update-review, MAPPING_UPDATE_REVIEW_BAD_TIME",
+        "bad-status.json, mapping-update-review-v1, mapping-update-review, MAPPING_UPDATE_REVIEW_BAD_DECISION",
+        "missing-required.json, mapping-update-review-v1, mapping-update-review, MAPPING_UPDATE_REVIEW_PENDING_FIELDS",
+        "duplicate-key.json, mapping-update-review-v1, mapping-update-review, MAPPING_UPDATE_REVIEW_INVALID_JSON",
+        "bom.json, mapping-update-review-v1, mapping-update-review, MAPPING_UPDATE_REVIEW_INVALID_JSON",
+        "trailing-token.json, mapping-update-review-v1, mapping-update-review, MAPPING_UPDATE_REVIEW_INVALID_JSON",
+        "unknown-field.json, mapping-update-diff-v1, mapping-update-diff, MAPPING_UPDATE_DIFF_UNKNOWN_FIELD",
+        "unknown-nested-field.json, mapping-update-diff-v1, mapping-update-diff, MAPPING_UPDATE_DIFF_UNKNOWN_FIELD",
+        "bad-format.json, mapping-update-diff-v1, mapping-update-diff, MAPPING_UPDATE_DIFF_BAD_FORMAT",
+        "bad-schema-version.json, mapping-update-diff-v1, mapping-update-diff, MAPPING_UPDATE_DIFF_BAD_SCHEMA_VERSION",
+        "bad-hash.json, mapping-update-diff-v1, mapping-update-diff, MAPPING_UPDATE_DIFF_BAD_HASH",
+        "bad-path.json, mapping-update-diff-v1, mapping-update-diff, MAPPING_UPDATE_DIFF_BAD_CHANGES",
+        "missing-required.json, mapping-update-diff-v1, mapping-update-diff, MAPPING_UPDATE_DIFF_BAD_CHANGES",
+        "duplicate-key.json, mapping-update-diff-v1, mapping-update-diff, MAPPING_UPDATE_DIFF_INVALID_JSON",
+        "bom.json, mapping-update-diff-v1, mapping-update-diff, MAPPING_UPDATE_DIFF_INVALID_JSON",
+        "trailing-token.json, mapping-update-diff-v1, mapping-update-diff, MAPPING_UPDATE_DIFF_INVALID_JSON",
         "unknown-field.json, hook-spec-v1, hook-spec, HOOK_SPEC_UNKNOWN_FIELD",
         "missing-id.json, hook-spec-v1, hook-spec, HOOK_SPEC_MISSING",
         "bad-schema-version.json, hook-spec-v1, hook-spec, HOOK_SPEC_BAD_SCHEMA_VERSION"
     })
     void invalidFixturesFail(String file, String dir, String type, String expectedCode) throws Exception {
         Path path = FIXTURES.resolve(dir).resolve("invalid").resolve(file);
-        JsonNode root = mapper.readTree(path.toFile());
+        JsonNode root;
+        try {
+            root = parseFixture(type, path, expectedCode);
+        } catch (DraftMappingException exception) {
+            assertEquals(expectedCode, exception.code());
+            return;
+        }
         JsonSchemaValidator validator = validatorFor(type);
         List<SchemaValidationError> errors = validator.validate(root, path.toString());
         assertFalse(errors.isEmpty(), "Expected errors for invalid fixture " + dir + "/invalid/" + file);
@@ -130,6 +175,13 @@ class SchemaFixtureValidationTest {
         }
     }
 
+    private JsonNode parseFixture(String type, Path path, String invalidJsonCode) throws Exception {
+        if (type.startsWith("mapping-update-")) {
+            return StrictJson.read(Files.readAllBytes(path), invalidJsonCode);
+        }
+        return mapper.readTree(path.toFile());
+    }
+
     private JsonSchemaValidator validatorFor(String type) {
         return switch (type) {
             case "plugin-meta" -> new PluginMetaValidator();
@@ -141,6 +193,9 @@ class SchemaFixtureValidationTest {
             case "mapping-pack" -> new MappingPackValidator();
             case "profile" -> new ProfileValidator();
             case "static-verification-record" -> new StaticVerificationRecordValidator();
+            case "mapping-update-candidate" -> new MappingUpdateCandidateValidator();
+            case "mapping-update-review" -> new MappingReviewValidator();
+            case "mapping-update-diff" -> new MappingUpdateDiffValidator();
             case "hook-spec" -> new HookSpecValidator();
             default -> throw new IllegalArgumentException("Unknown schema type: " + type);
         };

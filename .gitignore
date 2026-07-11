@@ -7,6 +7,8 @@ cubism-ref/Cubism-*/
 docs-internal/
 
 # 构建产物与运行期目录
+__pycache__/
+*.py[cod]
 build/
 dist/
 /release/
