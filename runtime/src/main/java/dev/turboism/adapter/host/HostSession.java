@@ -5,7 +5,16 @@ import dev.turboism.adapter.RuntimeHostAdapters;
 import java.util.Objects;
 import java.util.Optional;
 
-/** Fail-closed host-session lifecycle with a stable dynamic adapter view. */
+/**
+ * Fail-closed host-session lifecycle with a stable dynamic adapter view.
+ *
+ * <p>A connection is reusable only while the session ID and every verification-evidence slice
+ * retain the same normalized reviewed-record path, normalized verified-artifact path, and defining
+ * host classloader identity. Adding or removing an optional slice is also a material change. A
+ * material change deactivates and closes the complete old adapter bundle before connecting the
+ * replacement; replacement failure leaves the dynamic view in safe mode rather than publishing a
+ * partially refreshed bundle.</p>
+ */
 public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseable {
 
     private static final String CLEANUP_FAILURE_MESSAGE = "Host session cleanup failed safely.";
@@ -371,16 +380,15 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
 
     private record ConnectionKey(
         String sessionId,
-        String reviewedVerificationRecord,
-        String verifiedHostArtifact,
-        ClassLoader hostClassLoader
+        SliceKey projectWorkspace,
+        java.util.Optional<SliceKey> clipMask
     ) {
         private static ConnectionKey from(final HostInstanceDescriptor descriptor) {
+            final HostVerificationEvidence evidence = descriptor.verificationEvidence();
             return new ConnectionKey(
                 descriptor.sessionId(),
-                normalizePath(descriptor.reviewedVerificationRecord()),
-                normalizePath(descriptor.verifiedHostArtifact()),
-                descriptor.hostClassLoader()
+                SliceKey.from(evidence.projectWorkspace()),
+                evidence.clipMask().map(SliceKey::from)
             );
         }
 
@@ -395,8 +403,36 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         private boolean matches(final ConnectionKey other) {
             return other != null
                 && sessionId.equals(other.sessionId)
-                && reviewedVerificationRecord.equals(other.reviewedVerificationRecord)
-                && verifiedHostArtifact.equals(other.verifiedHostArtifact)
+                && projectWorkspace.matches(other.projectWorkspace)
+                && optionalSliceMatches(clipMask, other.clipMask);
+        }
+
+        private static boolean optionalSliceMatches(
+            final java.util.Optional<SliceKey> left,
+            final java.util.Optional<SliceKey> right
+        ) {
+            return left.isEmpty() ? right.isEmpty()
+                : right.isPresent() && left.orElseThrow().matches(right.orElseThrow());
+        }
+    }
+
+    private record SliceKey(
+        String reviewedRecord,
+        String verifiedArtifact,
+        ClassLoader hostClassLoader
+    ) {
+        private static SliceKey from(final HostVerificationEvidence.Slice slice) {
+            return new SliceKey(
+                ConnectionKey.normalizePath(slice.reviewedRecord()),
+                ConnectionKey.normalizePath(slice.verifiedArtifact()),
+                slice.hostClassLoader()
+            );
+        }
+
+        private boolean matches(final SliceKey other) {
+            return other != null
+                && reviewedRecord.equals(other.reviewedRecord)
+                && verifiedArtifact.equals(other.verifiedArtifact)
                 && hostClassLoader == other.hostClassLoader;
         }
     }

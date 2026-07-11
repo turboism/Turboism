@@ -8,6 +8,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class VerifiedMemberResolverTest {
 
@@ -36,6 +37,38 @@ class VerifiedMemberResolverTest {
         assertEquals("static", resolver.invokeStatic("fixture.static-value"));
         assertEquals("instance", resolver.invoke("fixture.instance-value", new SyntheticHost()));
         assertThrows(VerifiedAccessException.class, () -> resolver.invokeStatic("fixture.unverified"));
+    }
+
+    @Test
+    void checksInstancesOnlyAgainstExactVerifiedClassAliases() {
+        VerifiedMemberResolver resolver = new VerifiedMemberResolver(
+            plan(StaticSelector.classSelector(
+                "fixture.host-class",
+                internalName(SyntheticHost.class)
+            )),
+            SyntheticHost.class.getClassLoader()
+        );
+
+        assertTrue(resolver.isInstance("fixture.host-class", new SyntheticHost()));
+        assertFalse(resolver.isInstance("fixture.host-class", new Object()));
+        assertFalse(resolver.isInstance("fixture.host-class", null));
+        assertThrows(VerifiedAccessException.class, () -> resolver.isInstance("fixture.unverified", new SyntheticHost()));
+    }
+
+    @Test
+    void rejectsMethodAliasForInstanceCheck() {
+        VerifiedMemberResolver resolver = new VerifiedMemberResolver(
+            plan(StaticSelector.method(
+                "fixture.instance-value",
+                internalName(SyntheticHost.class),
+                "instanceValue",
+                "()Ljava/lang/String;",
+                StaticSelector.ACCESS_PUBLIC
+            )),
+            SyntheticHost.class.getClassLoader()
+        );
+
+        assertThrows(VerifiedAccessException.class, () -> resolver.isInstance("fixture.instance-value", new SyntheticHost()));
     }
 
     @Test

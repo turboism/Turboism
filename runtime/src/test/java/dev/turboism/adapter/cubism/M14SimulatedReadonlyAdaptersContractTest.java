@@ -110,7 +110,7 @@ class M14SimulatedReadonlyAdaptersContractTest {
         ClipMaskReadAdapter adapter = ClipMaskReadAdapter.Impl.connected(new ClipMaskHost("5.3.2", true));
         assertTrue(adapter.clipMasks().isAvailable());
         assertEquals(1, adapter.clipMasks().value().orElseThrow().size());
-        assertEquals("mask-1", adapter.clipMasks().value().orElseThrow().get(0).clipMaskId());
+        assertEquals("mesh-1", adapter.clipMasks().value().orElseThrow().get(0).targetMeshId());
     }
 
     @Test
@@ -160,7 +160,7 @@ class M14SimulatedReadonlyAdaptersContractTest {
         @Override public String hostVersion() { return hostVersion; }
         @Override public boolean supportsClipMaskRead() { return supports; }
         @Override public List<ClipMaskSnapshot> clipMasks() {
-            return List.of(new ClipMaskSnapshot("mask-1", List.of("src"), List.of("mesh-1"), true));
+            return List.of(new ClipMaskSnapshot("mesh-1", List.of("src"), true));
         }
     }
 }
