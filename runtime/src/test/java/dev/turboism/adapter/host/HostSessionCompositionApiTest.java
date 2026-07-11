@@ -1,30 +1,110 @@
 package dev.turboism.adapter.host;
 
 import dev.turboism.adapter.RuntimeHostAdapters;
+import dev.turboism.bootstrap.HostRuntimeIngress;
 import dev.turboism.core.plugin.context.CorePluginContext;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.Arrays;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class HostSessionCompositionApiTest {
 
     @Test
-    void publicCompositionCannotInjectArbitraryConnectorOrAdapterBundle() {
-        assertFalse(hasPublicConstructor(HostSession.class, HostInstanceSource.class, HostAdapterConnector.class));
+    void publicCompositionCannotInjectArbitraryConnectorOrAdapterBundle() throws ReflectiveOperationException {
+        assertEquals(
+            Set.of(signature(HostInstanceSource.class)),
+            publicConstructorSignatures(HostSession.class)
+        );
+        assertEquals(Set.of(signature()), publicConstructorSignatures(HostRuntimeIngress.class));
+        assertConstructorIsNonPublic(
+            HostSession.class.getDeclaredConstructor(HostInstanceSource.class, HostAdapterConnector.class)
+        );
+        assertConstructorIsNonPublic(HostRuntimeIngress.class.getDeclaredConstructor(Function.class));
+        for (Constructor<?> constructor : VerifiedHostAdapterConnector.class.getDeclaredConstructors()) {
+            assertConstructorIsNonPublic(constructor);
+        }
         assertFalse(hasPublicConstructor(CorePluginContext.class, CorePluginContext.Dependencies.class, RuntimeHostAdapters.class));
         assertFalse(Modifier.isPublic(HostAdapterConnector.class.getModifiers()));
         assertFalse(Modifier.isPublic(HostAdapterConnection.class.getModifiers()));
         assertTrue(RuntimeHostAdapterAccess.class.isSealed());
-        assertTrue(Arrays.equals(
-            new Class<?>[]{HostSession.class, SessionRuntimeHostAdapterAccess.class},
-            RuntimeHostAdapterAccess.class.getPermittedSubclasses()
-        ));
+        assertFalse(AutoCloseable.class.isAssignableFrom(RuntimeHostAdapterAccess.class));
+        assertEquals(
+            Set.of(HostSession.class, SessionRuntimeHostAdapterAccess.class),
+            Set.of(RuntimeHostAdapterAccess.class.getPermittedSubclasses())
+        );
+        assertEquals(
+            1,
+            Arrays.stream(RuntimeHostAdapterAccess.class.getPermittedSubclasses())
+                .filter(AutoCloseable.class::isAssignableFrom)
+                .count()
+        );
+        assertTrue(AutoCloseable.class.isAssignableFrom(HostSession.class));
         assertFalse(Modifier.isPublic(SessionRuntimeHostAdapterAccess.class.getModifiers()));
+
+        assertEquals(
+            Set.of(
+                "refresh():dev.turboism.adapter.host.HostSession$State",
+                "state():dev.turboism.adapter.host.HostSession$State",
+                "lastFailure():java.util.Optional",
+                "adapters():dev.turboism.adapter.RuntimeHostAdapters",
+                "adapterAccess():dev.turboism.adapter.host.RuntimeHostAdapterAccess",
+                "close():void"
+            ),
+            publicMethodSignatures(HostSession.class)
+        );
+        assertEquals(
+            Set.of(
+                "publish(dev.turboism.adapter.host.HostInstanceDescriptor):dev.turboism.adapter.host.HostSession$State",
+                "clear():dev.turboism.adapter.host.HostSession$State",
+                "state():dev.turboism.adapter.host.HostSession$State",
+                "lastFailure():java.util.Optional",
+                "adapters():dev.turboism.adapter.RuntimeHostAdapters",
+                "adapterAccess():dev.turboism.adapter.host.RuntimeHostAdapterAccess",
+                "close():void"
+            ),
+            publicMethodSignatures(HostRuntimeIngress.class)
+        );
+        assertExactAdapterAccessReturn(HostSession.class);
+        assertExactAdapterAccessReturn(HostRuntimeIngress.class);
+    }
+
+    private static Set<String> publicConstructorSignatures(final Class<?> owner) {
+        return Arrays.stream(owner.getConstructors())
+            .map(Constructor::getParameterTypes)
+            .map(HostSessionCompositionApiTest::signature)
+            .collect(Collectors.toUnmodifiableSet());
+    }
+
+    private static Set<String> publicMethodSignatures(final Class<?> owner) {
+        return Arrays.stream(owner.getDeclaredMethods())
+            .filter(method -> Modifier.isPublic(method.getModifiers()))
+            .map(method -> method.getName() + signature(method.getParameterTypes()) + ":" + method.getReturnType().getName())
+            .collect(Collectors.toUnmodifiableSet());
+    }
+
+    private static String signature(final Class<?>... parameterTypes) {
+        return Arrays.stream(parameterTypes)
+            .map(Class::getName)
+            .collect(Collectors.joining(",", "(", ")"));
+    }
+
+    private static void assertExactAdapterAccessReturn(final Class<?> owner) throws NoSuchMethodException {
+        final Method method = owner.getDeclaredMethod("adapterAccess");
+        assertEquals(RuntimeHostAdapterAccess.class, method.getReturnType());
+    }
+
+    private static void assertConstructorIsNonPublic(final Constructor<?> constructor) {
+        assertFalse(Modifier.isPublic(constructor.getModifiers()), () -> constructor + " must not be public");
     }
 
     private static boolean hasPublicConstructor(
