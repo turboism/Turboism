@@ -89,8 +89,8 @@ class ClipMaskInspectorServiceTest {
     void inspectEmitsInfoSummaryWhenMasksPresent() {
         RecordingUiHost uiHost = new RecordingUiHost();
         List<ClipMaskSnapshot> masks = List.of(
-            new ClipMaskSnapshot("mask-1", List.of("mesh-src"), List.of("mesh-a", "mesh-b"), true),
-            new ClipMaskSnapshot("mask-2", List.of("mesh-src-2"), List.of("mesh-c"), false)
+            new ClipMaskSnapshot("mesh-a", List.of("mesh-src", "mesh-src-2"), true),
+            new ClipMaskSnapshot("mesh-b", List.of("mesh-src-3"), false)
         );
         ClipMaskInspectorService service = new ClipMaskInspectorService(new FixedCubismRead(masks), uiHost);
 
@@ -100,7 +100,7 @@ class ClipMaskInspectorServiceTest {
             List.of(new StatusNotification(
                 "clip-mask.inspector.refreshed",
                 "INFO",
-                "Clip masks: 2 total, 1 enabled, 3 clipped mesh refs"
+                "Clip masks: 2 target meshes, 1 inverted, 3 mask source refs"
             )),
             uiHost.notifications()
         );

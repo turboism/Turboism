@@ -3,6 +3,7 @@ package dev.turboism.adapter;
 import dev.turboism.adapter.cubism.ClipMaskReadAdapter;
 import dev.turboism.adapter.cubism.ProjectWorkspaceAdapter;
 import dev.turboism.adapter.cubism.RenderStatusAdapter;
+import dev.turboism.adapter.cubism.VerifiedClipMaskHostOperations;
 import dev.turboism.adapter.cubism.VerifiedProjectWorkspaceHostOperations;
 import dev.turboism.adapter.ui.MainToolbarAdapter;
 import dev.turboism.adapter.ui.MainToolbarAdapterImpl;
@@ -12,6 +13,7 @@ import dev.turboism.adapter.ui.ThemeStatusAdapter;
 import dev.turboism.adapter.ui.ThemeStatusAdapterImpl;
 import dev.turboism.adapter.ui.UiSurfaceAdapter;
 import dev.turboism.adapter.ui.UiSurfaceAdapterImpl;
+import dev.turboism.mapping.verification.ClipMaskVerificationManifest;
 import dev.turboism.mapping.verification.ProjectWorkspaceVerificationManifest;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 
@@ -84,6 +86,54 @@ public record RuntimeHostAdapters(
             StatusToolbarAdapterImpl.safeMode(),
             MainToolbarAdapterImpl.safeMode(),
             UiSurfaceAdapterImpl.safeMode()
+        );
+    }
+
+    /**
+     * Connects only the statically verified clip-mask slice.
+     * Other adapters remain in safe mode until they receive their own evidence.
+     */
+    static RuntimeHostAdapters withVerifiedClipMask(final VerifiedMemberResolver resolver) {
+        Objects.requireNonNull(resolver, "resolver");
+        if (!resolver.isExactCubismVersion(ClipMaskVerificationManifest.CUBISM_VERSION)
+            || !resolver.authorizes(
+                ClipMaskVerificationManifest.ADAPTER_SLICE_ID,
+                ClipMaskVerificationManifest.CAPABILITY_IDS,
+                ClipMaskVerificationManifest.REQUIRED_ALIASES
+            )) {
+            throw new IllegalArgumentException(
+                "resolver does not authorize the complete clip-mask adapter slice"
+            );
+        }
+        return new RuntimeHostAdapters(
+            ThemeStatusAdapterImpl.safeMode(),
+            RenderStatusAdapter.Impl.safeMode(),
+            ProjectWorkspaceAdapter.Impl.safeMode(),
+            ClipMaskReadAdapter.Impl.connected(new VerifiedClipMaskHostOperations(
+                resolver,
+                resolver.cubismVersion()
+            )),
+            StatusToolbarAdapterImpl.safeMode(),
+            MainToolbarAdapterImpl.safeMode(),
+            UiSurfaceAdapterImpl.safeMode()
+        );
+    }
+
+    /** Atomically combines independently verified read-only slices into one adapter bundle. */
+    static RuntimeHostAdapters withVerifiedProjectWorkspaceAndClipMask(
+        final VerifiedMemberResolver projectWorkspaceResolver,
+        final VerifiedMemberResolver clipMaskResolver
+    ) {
+        final RuntimeHostAdapters project = withVerifiedProjectWorkspace(projectWorkspaceResolver);
+        final RuntimeHostAdapters clip = withVerifiedClipMask(clipMaskResolver);
+        return new RuntimeHostAdapters(
+            project.themeStatus(),
+            project.renderStatus(),
+            project.projectWorkspace(),
+            clip.clipMaskRead(),
+            project.statusToolbar(),
+            project.mainToolbar(),
+            project.uiSurface()
         );
     }
 }

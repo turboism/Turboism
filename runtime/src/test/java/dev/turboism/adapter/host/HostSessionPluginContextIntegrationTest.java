@@ -63,9 +63,11 @@ class HostSessionPluginContextIntegrationTest {
 
             current.set(new HostInstanceDescriptor(
                 "session-project",
-                Path.of("records/reviewed.json"),
-                Path.of("host/Live2D_Cubism.jar"),
-                getClass().getClassLoader()
+                HostVerificationEvidence.projectOnly(new HostVerificationEvidence.Slice(
+                    Path.of("records/reviewed.json"),
+                    Path.of("host/Live2D_Cubism.jar"),
+                    getClass().getClassLoader()
+                ))
             ));
             session.refresh();
             assertEquals(

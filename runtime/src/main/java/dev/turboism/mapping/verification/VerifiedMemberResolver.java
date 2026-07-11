@@ -44,6 +44,29 @@ public final class VerifiedMemberResolver {
         return invokeResolved(selector, null, arguments);
     }
 
+    /** Checks a value only against the exact owner named by a verified class alias. */
+    public boolean isInstance(final String alias, final Object value) {
+        final StaticSelector selector = classSelector(alias);
+        if (value == null) {
+            return false;
+        }
+        try {
+            final Class<?> owner = Class.forName(
+                selector.ownerInternalName().replace('/', '.'),
+                false,
+                hostClassLoader
+            );
+            if (owner.getClassLoader() != hostClassLoader) {
+                throw resolutionFailure(alias, "Verified host classloader attestation no longer matches.");
+            }
+            return owner.isInstance(value);
+        } catch (VerifiedAccessException exception) {
+            throw exception;
+        } catch (ClassNotFoundException | LinkageError | SecurityException exception) {
+            throw resolutionFailure(alias, "Verified host class resolution failed safely.");
+        }
+    }
+
     public Object invoke(final String alias, final Object target, final Object... arguments) {
         final StaticSelector selector = methodSelector(alias);
         if ((selector.forbiddenAccessFlags() & StaticSelector.ACCESS_STATIC) == 0) {
@@ -56,26 +79,27 @@ public final class VerifiedMemberResolver {
     }
 
     private StaticSelector methodSelector(final String alias) {
-        final StaticSelector selector;
-        try {
-            selector = accessPlan.selector(alias);
-        } catch (IllegalArgumentException exception) {
-            throw new VerifiedAccessException(
-                alias,
-                VerifiedAccessException.FailureKind.RESOLUTION,
-                "Verified host selector is unavailable in the access plan.",
-                null
-            );
-        }
+        final StaticSelector selector = selector(alias);
         if (selector.kind() != StaticSelector.Kind.METHOD) {
-            throw new VerifiedAccessException(
-                alias,
-                VerifiedAccessException.FailureKind.RESOLUTION,
-                "Verified host selector is not an invocable method.",
-                null
-            );
+            throw resolutionFailure(alias, "Verified host selector is not an invocable method.");
         }
         return selector;
+    }
+
+    private StaticSelector classSelector(final String alias) {
+        final StaticSelector selector = selector(alias);
+        if (selector.kind() != StaticSelector.Kind.CLASS) {
+            throw resolutionFailure(alias, "Verified host selector is not a class.");
+        }
+        return selector;
+    }
+
+    private StaticSelector selector(final String alias) {
+        try {
+            return accessPlan.selector(alias);
+        } catch (IllegalArgumentException exception) {
+            throw resolutionFailure(alias, "Verified host selector is unavailable in the access plan.");
+        }
     }
 
     private Object invokeResolved(
