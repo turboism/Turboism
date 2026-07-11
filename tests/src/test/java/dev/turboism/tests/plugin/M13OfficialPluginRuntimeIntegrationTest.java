@@ -271,7 +271,7 @@ class M13OfficialPluginRuntimeIntegrationTest {
                 List.of(new StatusNotification(
                     "clip-mask.inspector.refreshed",
                     "INFO",
-                    "Clip masks: 1 total, 1 enabled, 1 clipped mesh refs"
+                    "Clip masks: 1 target meshes, 1 inverted, 1 mask source refs"
                 )),
                 harness.uiHost().notifications()
             );
@@ -905,7 +905,7 @@ class M13OfficialPluginRuntimeIntegrationTest {
         @Override
         public List<ClipMaskSnapshot> clipMasks() {
             clipMaskReads++;
-            return List.of(new ClipMaskSnapshot("mask-1", List.of("mesh-src"), List.of("mesh-1"), true));
+            return List.of(new ClipMaskSnapshot("mesh-1", List.of("mesh-src"), true));
         }
 
         int clipMaskReads() {

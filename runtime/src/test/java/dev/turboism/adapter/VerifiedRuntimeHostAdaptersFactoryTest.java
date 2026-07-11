@@ -2,6 +2,7 @@ package dev.turboism.adapter;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.turboism.adapter.cubism.VerifiedProjectWorkspaceHostOperations;
+import dev.turboism.adapter.host.HostVerificationEvidence;
 import org.junit.jupiter.api.Test;
 
 import java.io.InputStream;
@@ -20,6 +21,31 @@ class VerifiedRuntimeHostAdaptersFactoryTest {
 
 
     @Test
+    void dualSliceCreateRejectsDifferentClassloadersBeforeResolverCreation() {
+        ClassLoader projectClassLoader = new ClassLoader() { };
+        ClassLoader clipClassLoader = new ClassLoader() { };
+
+        assertThrows(IllegalArgumentException.class, () -> new VerifiedRuntimeHostAdaptersFactory().create(
+            HostVerificationEvidence.withClipMask(
+                slice("project", "host/Live2D_Cubism.jar", projectClassLoader),
+                slice("clip", "host/Live2D_Cubism.jar", clipClassLoader)
+            )
+        ));
+    }
+
+    @Test
+    void dualSliceCreateRejectsDifferentArtifactsBeforeResolverCreation() {
+        ClassLoader hostClassLoader = new ClassLoader() { };
+
+        assertThrows(IllegalArgumentException.class, () -> new VerifiedRuntimeHostAdaptersFactory().create(
+            HostVerificationEvidence.withClipMask(
+                slice("project", "host/Live2D_Cubism.jar", hostClassLoader),
+                slice("clip", "host/another.jar", hostClassLoader)
+            )
+        ));
+    }
+
+    @Test
     void rejectsAnySelfIssuedRecordEvenWhenItsSelectorsAndSyntheticArtifactMatch() throws Exception {
         Path artifact = jarContaining(Host.class);
         Path record = recordFor(
@@ -34,6 +60,18 @@ class VerifiedRuntimeHostAdaptersFactoryTest {
             artifact,
             Host.class.getClassLoader()
         ));
+    }
+
+    private static HostVerificationEvidence.Slice slice(
+        final String name,
+        final String artifact,
+        final ClassLoader classLoader
+    ) {
+        return new HostVerificationEvidence.Slice(
+            Path.of("records/" + name + ".json"),
+            Path.of(artifact),
+            classLoader
+        );
     }
 
     private Path recordFor(
