@@ -174,15 +174,21 @@ class PluginCallbackExecutorTest {
             CLOCK
         );
 
-        // When
-        executor.execute(task("action.handle"), () -> { throw new IllegalStateException("first failure"); });
-        executor.execute(task("action.handle"), () -> { });
-        executor.execute(task("action.handle"), () -> { throw new IllegalStateException("second failure"); });
-        executor.execute(task("action.handle"), () -> { });
-        executor.execute(task("ui.schedule"), () -> { throw new AssertionError("open circuit must fail fast"); });
+        // When: each failed call emits only after its completion stage has updated the
+        // circuit breaker, so waiting for the diagnostic makes the four-call window deterministic.
+        for (int index = 0; index < 4; index++) {
+            int failureNumber = index + 1;
+            executeAndAwaitFailure(executor, events, index, () -> {
+                throw new IllegalStateException("failure " + failureNumber);
+            });
+        }
+        executor.execute(task("ui.schedule"), () -> {
+            throw new AssertionError("open circuit must fail fast");
+        });
 
         // Then
-        awaitEvent(events, CallbackBudgetEvent.Phase.CIRCUIT_OPEN);
+        awaitEventCount(events, 5);
+        assertEquals(CallbackBudgetEvent.Phase.CIRCUIT_OPEN, events.get(4).phase(), events.toString());
         executor.shutdown();
     }
 
@@ -264,6 +270,36 @@ class PluginCallbackExecutorTest {
             Thread.currentThread().interrupt();
             throw new AssertionError(exception);
         }
+    }
+
+    private static void executeAndAwaitFailure(
+        PluginCallbackExecutor executor,
+        List<CallbackBudgetEvent> events,
+        int eventIndex,
+        Runnable callback
+    ) {
+        CountDownLatch callbackCompleted = new CountDownLatch(1);
+        executor.execute(task("action.handle"), () -> {
+            try {
+                callback.run();
+            } finally {
+                callbackCompleted.countDown();
+            }
+        });
+        await(callbackCompleted);
+        awaitEventCount(events, eventIndex + 1);
+        assertEquals(CallbackBudgetEvent.Phase.FAILED, events.get(eventIndex).phase(), events.toString());
+    }
+
+    private static void awaitEventCount(List<CallbackBudgetEvent> events, int expectedCount) {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(3);
+        while (System.nanoTime() < deadline) {
+            if (events.size() >= expectedCount) {
+                return;
+            }
+            Thread.yield();
+        }
+        throw new AssertionError("Expected at least " + expectedCount + " callback budget events in " + events);
     }
 
     private static void awaitEvent(List<CallbackBudgetEvent> events, CallbackBudgetEvent.Phase phase) {

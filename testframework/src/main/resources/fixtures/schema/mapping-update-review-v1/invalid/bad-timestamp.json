@@ -1,0 +1,8 @@
+{
+  "format": "turboism.mapping.update.review",
+  "schemaVersion": 1,
+  "decision": "APPROVED",
+  "candidateSha256": "3333333333333333333333333333333333333333333333333333333333333333",
+  "reviewer": "human",
+  "reviewedAt": "2026-07-10T01:00:00+01:00"
+}
