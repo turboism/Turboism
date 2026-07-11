@@ -4,6 +4,7 @@ import dev.turboism.adapter.ui.SafeModeDiagnostic;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -13,6 +14,11 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class VerifiedClipMaskHostOperationsTest {
+
+    @AfterEach
+    void clearSyntheticSingleton() {
+        SyntheticApp.instance = null;
+    }
 
     @Test
     void convertsClipMasksPreservingOrderDuplicatesAndInverted() {
@@ -50,6 +56,26 @@ class VerifiedClipMaskHostOperationsTest {
 
         SyntheticApp.instance = new SyntheticApp(new ModelingDocument(new ModelSource(List.of())));
         assertEquals(List.of(), adapter(resolver()).clipMasks().value().orElseThrow());
+    }
+
+    @Test
+    void wrongSingletonTypeIsValidationFailureAndMissingClassAliasIsMappingNotVerified() {
+        SyntheticApp.instance = new SyntheticApp(null);
+        VerifiedMemberResolver wrongSingletonResolver = resolver(
+            StaticSelector.staticMethod(
+                "cubism.clipmask.app-controller.instance",
+                name(WrongSingletonProvider.class),
+                "instance",
+                "()Ljava/lang/Object;",
+                StaticSelector.ACCESS_PUBLIC
+            )
+        );
+        assertDiagnostic(SafeModeDiagnostic.Code.VALIDATION_FAILURE, adapter(wrongSingletonResolver));
+
+        assertDiagnostic(
+            SafeModeDiagnostic.Code.MAPPING_NOT_VERIFIED,
+            adapter(resolverWithout("cubism.clipmask.app-controller.class"))
+        );
     }
 
     @Test
@@ -116,7 +142,28 @@ class VerifiedClipMaskHostOperationsTest {
         return resolverWithout("");
     }
 
+    private static VerifiedMemberResolver resolver(final StaticSelector appInstanceSelector) {
+        return resolverWithout("", appInstanceSelector);
+    }
+
     private static VerifiedMemberResolver resolverWithout(final String omittedAlias) {
+        final String app = name(SyntheticApp.class);
+        return resolverWithout(
+            omittedAlias,
+            StaticSelector.staticMethod(
+                "cubism.clipmask.app-controller.instance",
+                app,
+                "instance",
+                "()L" + app + ";",
+                StaticSelector.ACCESS_PUBLIC
+            )
+        );
+    }
+
+    private static VerifiedMemberResolver resolverWithout(
+        final String omittedAlias,
+        final StaticSelector appInstanceSelector
+    ) {
         final String app = name(SyntheticApp.class);
         final String document = name(Document.class);
         final String modeling = name(ModelingDocument.class);
@@ -130,7 +177,7 @@ class VerifiedClipMaskHostOperationsTest {
             java.util.Set.of(ClipMaskReadAdapter.CAPABILITY_ID),
             List.of(
                 StaticSelector.classSelector("cubism.clipmask.app-controller.class", app),
-                StaticSelector.staticMethod("cubism.clipmask.app-controller.instance", app, "instance", "()L" + app + ";", StaticSelector.ACCESS_PUBLIC),
+                appInstanceSelector,
                 StaticSelector.method("cubism.clipmask.app-controller.current-document", app, "currentDocument", "()Ljava/lang/Object;", StaticSelector.ACCESS_PUBLIC),
                 StaticSelector.classSelector("cubism.clipmask.document.class", document),
                 StaticSelector.classSelector("cubism.clipmask.modeling-document.class", modeling),
@@ -157,6 +204,10 @@ class VerifiedClipMaskHostOperationsTest {
     public interface Document { }
 
     public static final class OtherDocument implements Document { }
+
+    public static final class WrongSingletonProvider {
+        public static Object instance() { return new Object(); }
+    }
 
     public static final class SyntheticApp {
         private static SyntheticApp instance;

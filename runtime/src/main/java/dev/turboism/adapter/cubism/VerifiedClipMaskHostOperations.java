@@ -15,6 +15,7 @@ import java.util.Set;
 /** Clip-mask HostOperations backed only by the exact verified selector slice. */
 public final class VerifiedClipMaskHostOperations implements ClipMaskReadAdapter.HostOperations {
 
+    private static final String APP_CONTROLLER_CLASS = "cubism.clipmask.app-controller.class";
     private static final String APP_INSTANCE = "cubism.clipmask.app-controller.instance";
     private static final String CURRENT_DOCUMENT = "cubism.clipmask.app-controller.current-document";
     private static final String DOCUMENT_CLASS = "cubism.clipmask.document.class";
@@ -42,7 +43,7 @@ public final class VerifiedClipMaskHostOperations implements ClipMaskReadAdapter
         GUID_VALUE
     );
     private static final Set<String> CLASS_ALIASES_REQUIRED = Set.of(
-        "cubism.clipmask.app-controller.class",
+        APP_CONTROLLER_CLASS,
         DOCUMENT_CLASS,
         MODELING_DOCUMENT_CLASS,
         MODEL_SOURCE_CLASS,
@@ -99,6 +100,7 @@ public final class VerifiedClipMaskHostOperations implements ClipMaskReadAdapter
             if (appController == null) {
                 return List.of();
             }
+            requireInstance(APP_CONTROLLER_CLASS, appController);
             final Object document = resolver.invoke(CURRENT_DOCUMENT, appController);
             if (document == null) {
                 return List.of();
