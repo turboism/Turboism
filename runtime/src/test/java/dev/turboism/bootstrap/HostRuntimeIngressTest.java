@@ -1,6 +1,7 @@
 package dev.turboism.bootstrap;
 
 import dev.turboism.adapter.host.HostInstanceDescriptor;
+import dev.turboism.adapter.host.HostVerificationEvidence;
 import dev.turboism.adapter.host.HostSession;
 import dev.turboism.adapter.host.HostSessionFailure;
 import org.junit.jupiter.api.Test;
@@ -151,9 +152,11 @@ class HostRuntimeIngressTest {
     private static HostInstanceDescriptor descriptor(final String sessionId) {
         return new HostInstanceDescriptor(
             sessionId,
-            Path.of("records/reviewed.json"),
-            Path.of("host/Live2D_Cubism.jar"),
-            HostRuntimeIngressTest.class.getClassLoader()
+            HostVerificationEvidence.projectOnly(new HostVerificationEvidence.Slice(
+                Path.of("records/reviewed.json"),
+                Path.of("host/Live2D_Cubism.jar"),
+                HostRuntimeIngressTest.class.getClassLoader()
+            ))
         );
     }
 }

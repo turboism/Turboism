@@ -3,6 +3,7 @@ package dev.turboism.adapter.host;
 import dev.turboism.adapter.RuntimeHostAdapters;
 import dev.turboism.adapter.cubism.ProjectWorkspaceAdapter;
 import dev.turboism.adapter.ui.StatusToolbarAdapter;
+import dev.turboism.sdk.cubism.ClipMaskSnapshot;
 import dev.turboism.sdk.cubism.ProjectSnapshot;
 import dev.turboism.sdk.cubism.WorkspaceSnapshot;
 import dev.turboism.sdk.plugin.Registration;
@@ -80,7 +81,8 @@ class HostSessionTest {
             descriptor -> {
                 connections.incrementAndGet();
                 return HostAdapterConnection.of(
-                    adapters(descriptor.verifiedHostArtifact().getFileName().toString())
+                    adapters(descriptor.verificationEvidence().projectWorkspace()
+                        .verifiedArtifact().getFileName().toString())
                 );
             }
         );
@@ -97,6 +99,164 @@ class HostSessionTest {
 
         session.refresh();
         assertEquals(2, connections.get());
+    }
+
+    @Test
+    void sameSessionReconnectsForClipEvidencePresenceAndRecordChanges() {
+        ClassLoader hostClassLoader = HostSessionTest.class.getClassLoader();
+        Path artifact = Path.of("host/Live2D_Cubism.jar");
+        AtomicReference<HostInstanceDescriptor> current = new AtomicReference<>(descriptor(
+            "session-a", projectOnlyEvidence("project-record-a.json", artifact, hostClassLoader)
+        ));
+        AtomicInteger connections = new AtomicInteger();
+        AtomicInteger closes = new AtomicInteger();
+        HostSession session = new HostSession(
+            () -> Optional.of(current.get()),
+            ignored -> {
+                int marker = connections.incrementAndGet();
+                return connection(adapters("connection-" + marker), closes);
+            }
+        );
+
+        assertEquals(HostSession.State.ACTIVE, session.refresh());
+        assertEquals("connection-1", activeProjectId(session));
+
+        current.set(descriptor(
+            "session-a", projectOnlyEvidence("project-record-a.json", artifact, hostClassLoader)
+        ));
+        assertEquals(HostSession.State.ACTIVE, session.refresh());
+        assertEquals(1, connections.get(), "unchanged project-only material must retain the connection");
+        assertEquals(0, closes.get());
+
+        current.set(descriptor(
+            "session-a",
+            clipEvidence("project-record-a.json", "clip-record-a.json", artifact, hostClassLoader)
+        ));
+        assertEquals(HostSession.State.ACTIVE, session.refresh());
+        assertEquals(2, connections.get());
+        assertEquals(1, closes.get(), "adding clip evidence must close the old connection once");
+        assertEquals("connection-2", activeProjectId(session));
+
+        current.set(descriptor(
+            "session-a",
+            clipEvidence("project-record-a.json", "clip-record-b.json", artifact, hostClassLoader)
+        ));
+        assertEquals(HostSession.State.ACTIVE, session.refresh());
+        assertEquals(3, connections.get());
+        assertEquals(2, closes.get(), "changing the clip record must replace the complete connection");
+        assertEquals("connection-3", activeProjectId(session));
+
+        current.set(descriptor(
+            "session-a", projectOnlyEvidence("project-record-a.json", artifact, hostClassLoader)
+        ));
+        assertEquals(HostSession.State.ACTIVE, session.refresh());
+        assertEquals(4, connections.get());
+        assertEquals(3, closes.get(), "removing clip evidence must close the old connection once");
+        assertEquals("connection-4", activeProjectId(session));
+
+        current.set(descriptor(
+            "session-a", projectOnlyEvidence("project-record-b.json", artifact, hostClassLoader)
+        ));
+        assertEquals(HostSession.State.ACTIVE, session.refresh());
+        assertEquals(5, connections.get());
+        assertEquals(4, closes.get(), "changing the reviewed record must reconnect");
+        assertEquals("connection-5", activeProjectId(session));
+
+        session.close();
+        assertEquals(5, closes.get(), "the final active connection must close exactly once");
+    }
+
+    @Test
+    void activeSessionInvalidSourceEvidenceFailsClosedWithoutHalfBundleOrRepeatedCleanup() {
+        ClassLoader hostClassLoader = HostSessionTest.class.getClassLoader();
+        Path artifact = Path.of("host/Live2D_Cubism.jar");
+        AtomicInteger sourceReads = new AtomicInteger();
+        AtomicInteger connections = new AtomicInteger();
+        AtomicInteger closes = new AtomicInteger();
+        HostInstanceSource source = () -> {
+            if (sourceReads.incrementAndGet() == 1) {
+                return Optional.of(descriptor(
+                    "session-a",
+                    clipEvidence("project.json", "clip.json", artifact, hostClassLoader)
+                ));
+            }
+            return Optional.of(descriptor(
+                "session-a",
+                HostVerificationEvidence.withClipMask(
+                    new HostVerificationEvidence.Slice(
+                        Path.of("records/project.json"), artifact, hostClassLoader
+                    ),
+                    new HostVerificationEvidence.Slice(
+                        Path.of("records/clip.json"), Path.of("host/other.jar"), hostClassLoader
+                    )
+                )
+            ));
+        };
+        HostSession session = new HostSession(
+            source,
+            ignored -> {
+                connections.incrementAndGet();
+                return connection(adaptersWithClip("connected"), closes);
+            }
+        );
+
+        assertEquals(HostSession.State.ACTIVE, session.refresh());
+        assertTrue(session.adapters().projectWorkspace().activeProject().isAvailable());
+        assertTrue(session.adapters().clipMaskRead().clipMasks().isAvailable());
+
+        assertEquals(HostSession.State.FAILED, session.refresh());
+        HostSessionFailure failure = session.lastFailure().orElseThrow();
+        assertEquals(HostSessionFailure.Code.SOURCE_FAILED, failure.code());
+        assertEquals("Host instance source failed safely.", failure.message());
+        assertFalse(failure.message().contains("other.jar"));
+        assertEquals(1, connections.get(), "invalid source evidence must fail before connector creation");
+        assertEquals(1, closes.get(), "the old complete connection must close exactly once");
+        assertFalse(session.adapters().projectWorkspace().activeProject().isAvailable());
+        assertFalse(session.adapters().clipMaskRead().clipMasks().isAvailable());
+
+        session.close();
+        session.close();
+        assertEquals(HostSession.State.CLOSED, session.state());
+        assertEquals(1, closes.get(), "closing after source failure must not repeat old cleanup");
+    }
+
+    @Test
+    void failedReplacementLeavesNoProjectOnlyHalfBundleAndCleansOldConnectionOnce() {
+        ClassLoader hostClassLoader = HostSessionTest.class.getClassLoader();
+        Path artifact = Path.of("host/Live2D_Cubism.jar");
+        AtomicReference<HostInstanceDescriptor> current = new AtomicReference<>(descriptor(
+            "session-a", projectOnlyEvidence("project-record.json", artifact, hostClassLoader)
+        ));
+        AtomicInteger connections = new AtomicInteger();
+        AtomicInteger closes = new AtomicInteger();
+        HostSession session = new HostSession(
+            () -> Optional.of(current.get()),
+            ignored -> {
+                if (connections.incrementAndGet() == 2) {
+                    throw new IllegalStateException("replacement failed");
+                }
+                return connection(adapters("old-project"), closes);
+            }
+        );
+
+        assertEquals(HostSession.State.ACTIVE, session.refresh());
+        assertEquals("old-project", activeProjectId(session));
+
+        current.set(descriptor(
+            "session-a",
+            clipEvidence("project-record.json", "clip-record.json", artifact, hostClassLoader)
+        ));
+        assertEquals(HostSession.State.FAILED, session.refresh());
+        assertEquals(HostSessionFailure.Code.CONNECTION_FAILED, session.lastFailure().orElseThrow().code());
+        assertEquals(2, connections.get());
+        assertEquals(1, closes.get(), "the replaced connection must be cleaned exactly once");
+        assertFalse(session.adapters().projectWorkspace().activeProject().isAvailable(),
+            "failed replacement must expose safe mode, not the old project adapter");
+        assertFalse(session.adapters().clipMaskRead().clipMasks().isAvailable(),
+            "failed replacement must not expose a new project-only half bundle");
+
+        session.close();
+        assertEquals(1, closes.get(), "failed candidate created no additional closeable connection");
     }
 
     @Test
@@ -126,7 +286,10 @@ class HostSessionTest {
         ThrowingEqualsPath record = new ThrowingEqualsPath(Path.of("records/reviewed.json"));
         ThrowingEqualsPath artifact = new ThrowingEqualsPath(Path.of("host/Live2D_Cubism.jar"));
         HostInstanceDescriptor descriptor = new HostInstanceDescriptor(
-            "session-a", record, artifact, getClass().getClassLoader()
+            "session-a",
+            HostVerificationEvidence.projectOnly(new HostVerificationEvidence.Slice(
+                record, artifact, getClass().getClassLoader()
+            ))
         );
         AtomicInteger connections = new AtomicInteger();
         HostSession session = new HostSession(
@@ -146,9 +309,11 @@ class HostSessionTest {
     void connectionKeyNullNormalizationFailsClosed() {
         HostInstanceDescriptor descriptor = new HostInstanceDescriptor(
             "broken-path",
-            new NullNormalizingPath(Path.of("record.json")),
-            Path.of("host/Live2D_Cubism.jar"),
-            getClass().getClassLoader()
+            HostVerificationEvidence.projectOnly(new HostVerificationEvidence.Slice(
+                new NullNormalizingPath(Path.of("record.json")),
+                Path.of("host/Live2D_Cubism.jar"),
+                getClass().getClassLoader()
+            ))
         );
         HostSession session = new HostSession(
             () -> Optional.of(descriptor),
@@ -163,9 +328,11 @@ class HostSessionTest {
     void connectionKeyPathFailureIsSanitizedAndFailsClosed() {
         HostInstanceDescriptor descriptor = new HostInstanceDescriptor(
             "broken-path",
-            new ThrowingAbsolutePath(Path.of("record.json")),
-            Path.of("host/Live2D_Cubism.jar"),
-            getClass().getClassLoader()
+            HostVerificationEvidence.projectOnly(new HostVerificationEvidence.Slice(
+                new ThrowingAbsolutePath(Path.of("record.json")),
+                Path.of("host/Live2D_Cubism.jar"),
+                getClass().getClassLoader()
+            ))
         );
         HostSession session = new HostSession(
             () -> Optional.of(descriptor),
@@ -291,14 +458,54 @@ class HostSessionTest {
 
     static HostInstanceDescriptor descriptor(
         final String sessionId,
+        final HostVerificationEvidence evidence
+    ) {
+        return new HostInstanceDescriptor(sessionId, evidence);
+    }
+
+    static HostVerificationEvidence projectOnlyEvidence(
+        final String projectRecord,
+        final Path artifact,
+        final ClassLoader classLoader
+    ) {
+        return HostVerificationEvidence.projectOnly(new HostVerificationEvidence.Slice(
+            Path.of("records").resolve(projectRecord), artifact, classLoader
+        ));
+    }
+
+    static HostVerificationEvidence clipEvidence(
+        final String projectRecord,
+        final String clipRecord,
+        final Path artifact,
+        final ClassLoader classLoader
+    ) {
+        return HostVerificationEvidence.withClipMask(
+            new HostVerificationEvidence.Slice(
+                Path.of("records").resolve(projectRecord), artifact, classLoader
+            ),
+            new HostVerificationEvidence.Slice(
+                Path.of("records").resolve(clipRecord), artifact, classLoader
+            )
+        );
+    }
+
+    static String activeProjectId(final HostSession session) {
+        return session.adapters().projectWorkspace().activeProject()
+            .value().orElseThrow().orElseThrow().projectId();
+    }
+
+    static HostInstanceDescriptor descriptor(
+        final String sessionId,
         final String artifactName,
         final ClassLoader classLoader
     ) {
         return new HostInstanceDescriptor(
             sessionId,
-            Path.of("records/reviewed.json"),
-            Path.of("host").resolve(artifactName),
-            classLoader
+            HostVerificationEvidence.projectOnly(new HostVerificationEvidence.Slice(
+                Path.of("records/reviewed.json"),
+                Path.of("host").resolve(artifactName),
+                classLoader
+            ))
         );
     }
 
@@ -364,6 +571,24 @@ class HostSessionTest {
             statusToolbar,
             safe.mainToolbar(),
             safe.uiSurface()
+        );
+    }
+
+    static RuntimeHostAdapters adaptersWithClip(final String sessionId) {
+        RuntimeHostAdapters safe = adapters(sessionId);
+        dev.turboism.adapter.cubism.ClipMaskReadAdapter clipMask =
+            dev.turboism.adapter.cubism.ClipMaskReadAdapter.Impl.connected(
+                new dev.turboism.adapter.cubism.ClipMaskReadAdapter.HostOperations() {
+                    @Override public String hostVersion() { return "5.3.02"; }
+                    @Override public boolean supportsClipMaskRead() { return true; }
+                    @Override public List<ClipMaskSnapshot> clipMasks() {
+                        return List.of(new ClipMaskSnapshot("target", List.of("source"), false));
+                    }
+                }
+            );
+        return new RuntimeHostAdapters(
+            safe.themeStatus(), safe.renderStatus(), safe.projectWorkspace(), clipMask,
+            safe.statusToolbar(), safe.mainToolbar(), safe.uiSurface()
         );
     }
 
