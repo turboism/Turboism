@@ -60,8 +60,56 @@ def row(rows, work_id):
     return next(item for item in rows if item["workId"] == work_id)
 
 
+def promote_phase5(rows) -> None:
+    row(rows, "automation.phase5.packaging-dryrun").update(
+        workStatus="COMPLETE", evidenceLevel="VERIFIED_STATIC_FAKE", readinessCeiling="DRY_RUN_READY",
+    )
+    row(rows, "tranche.automation.overall").update(
+        readinessCeiling="DRY_RUN_READY", nextSlice="automation.phase6.closure",
+    )
+
+
 def main() -> None:
     assert module.validate(ROOT, SOURCE) == []
+    authoritative_phase5 = load_rows()
+    promote_phase5(authoritative_phase5)
+    with tempfile.TemporaryDirectory() as directory:
+        fixture = Path(directory) / "ledger.tsv"
+        write_fixture(fixture, authoritative_phase5)
+        assert module.detect_target_phase(authoritative_phase5) == "phase5"
+        assert module.validate(ROOT, fixture) == []
+
+    incomplete_phase5 = load_rows()
+    row(incomplete_phase5, "automation.phase5.packaging-dryrun").update(
+        workStatus="COMPLETE", evidenceLevel="VERIFIED_STATIC_FAKE", readinessCeiling="DRY_RUN_READY",
+    )
+    assert module.detect_target_phase(incomplete_phase5) == "phase4"
+    with tempfile.TemporaryDirectory() as directory:
+        fixture = Path(directory) / "ledger.tsv"
+        write_fixture(fixture, incomplete_phase5)
+        errors = module.validate(ROOT, fixture)
+    assert any("automation.phase5.packaging-dryrun: expected BOUNDED_SLICE/AUTO_NOW/NOT_STARTED" in error for error in errors), errors
+
+    incomplete_phase5 = load_rows()
+    row(incomplete_phase5, "tranche.automation.overall").update(
+        readinessCeiling="DRY_RUN_READY", nextSlice="automation.phase6.closure",
+    )
+    assert module.detect_target_phase(incomplete_phase5) == "phase4"
+    with tempfile.TemporaryDirectory() as directory:
+        fixture = Path(directory) / "ledger.tsv"
+        write_fixture(fixture, incomplete_phase5)
+        errors = module.validate(ROOT, fixture)
+    assert any("expected sentinel tuple PENDING/VERIFIED_STATIC_SYNTHETIC/BUILD_GATED" in error for error in errors), errors
+
+    incomplete_phase5 = load_rows()
+    promote_phase5(incomplete_phase5)
+    row(incomplete_phase5, "automation.phase6.closure").update(workStatus="PENDING")
+    assert module.detect_target_phase(incomplete_phase5) == "phase4"
+    with tempfile.TemporaryDirectory() as directory:
+        fixture = Path(directory) / "ledger.tsv"
+        write_fixture(fixture, incomplete_phase5)
+        errors = module.validate(ROOT, fixture)
+    assert any("automation.phase6.closure: expected BOUNDED_SLICE/AUTO_NOW/NOT_STARTED" in error for error in errors), errors
     expect_raw_failure("extra column", lambda rows: rows[1].append("unexpected"), "expected exactly 14 fields, got 15")
     expect_raw_failure("missing column", lambda rows: rows[1].pop(), "expected exactly 14 fields, got 13")
     expect_failure("unknown board FK", lambda rows: row(rows, "phase0.scope-ledger").update(boardRowIds="not.a.board.row"), "unknown boardRowIds")
