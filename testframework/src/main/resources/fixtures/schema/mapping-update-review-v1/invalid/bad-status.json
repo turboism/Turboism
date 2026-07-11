@@ -1,0 +1,8 @@
+{
+  "format": "turboism.mapping.update.review",
+  "schemaVersion": 1,
+  "decision": "VERIFIED_STATIC",
+  "candidateSha256": "3333333333333333333333333333333333333333333333333333333333333333",
+  "reviewer": "human",
+  "reviewedAt": "2026-07-10T00:00:00Z"
+}
