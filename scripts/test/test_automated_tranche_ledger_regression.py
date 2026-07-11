@@ -104,14 +104,17 @@ def main() -> None:
     expect_failure("phase3 missing report", lambda rows: row(rows, "automation.phase3.synthetic-composition").update(evidenceRefs="docs/migration/plans/automated-tranche-completion-plan.md"), "missing Phase 3 report evidence")
     expect_failure("phase3 manual blocker erased", lambda rows: row(rows, "automation.phase3.synthetic-composition").update(blockers="real-host invocation"), "real-host and manual validation must remain pending")
     expect_failure("phase3 atomic semantics erased", lambda rows: row(rows, "automation.phase3.synthetic-composition").update(notes="synthetic composition passed"), "preserve seam-chain and dual atomic semantics")
+    expect_failure("phase4 downgrade", lambda rows: row(rows, "automation.phase4.build-gates").update(workStatus="NOT_STARTED", evidenceLevel="NONE", readinessCeiling="NONE"), "expected BOUNDED_SLICE/AUTO_NOW/COMPLETE")
+    expect_failure("phase4 missing evidence", lambda rows: row(rows, "automation.phase4.build-gates").update(evidenceRefs="docs/migration/plans/automated-tranche-completion-plan.md"), "missing authoritative Phase 4 evidence refs")
+    expect_failure("phase5 premature start", lambda rows: row(rows, "automation.phase5.packaging-dryrun").update(workStatus="PENDING"), "expected BOUNDED_SLICE/AUTO_NOW/NOT_STARTED")
     expect_failure("phase6 premature ceiling", lambda rows: row(rows, "automation.phase6.closure").update(readinessCeiling="AUTOMATED_TRANCHE_CLOSED", evidenceLevel="VERIFIED_STATIC_SYNTHETIC"), "expected exact phase tuple NOT_STARTED/NONE/NONE")
     expect_failure("M14 status", lambda rows: row(rows, "milestone.m14.overall").update(workStatus="BLOCKED"), "expected OVERALL_SENTINEL/MANUAL_ONLY/IN_PROGRESS")
     expect_failure("M16 status", lambda rows: row(rows, "milestone.m16.overall").update(workStatus="PENDING"), "expected OVERALL_SENTINEL/MANUAL_ONLY/NOT_STARTED")
     expect_failure("tranche status", lambda rows: row(rows, "tranche.automation.overall").update(workStatus="IN_PROGRESS"), "expected TRANCHE_SENTINEL/AUTO_NOW/PENDING")
-    expect_failure("premature tranche closed", lambda rows: row(rows, "tranche.automation.overall").update(workStatus="COMPLETE", readinessCeiling="AUTOMATED_TRANCHE_CLOSED"), "expected sentinel tuple PENDING/VERIFIED_STATIC_SYNTHETIC/SYNTHETIC_COMPOSITION_READY")
-    expect_failure("tranche readiness escalation", lambda rows: row(rows, "tranche.automation.overall").update(readinessCeiling="BUILD_GATED"), "expected sentinel tuple PENDING/VERIFIED_STATIC_SYNTHETIC/SYNTHETIC_COMPOSITION_READY")
-    expect_failure("tranche evidence downgrade", lambda rows: row(rows, "tranche.automation.overall").update(evidenceLevel="VERIFIED_STATIC"), "expected sentinel tuple PENDING/VERIFIED_STATIC_SYNTHETIC/SYNTHETIC_COMPOSITION_READY")
-    expect_failure("tranche wrong next phase", lambda rows: row(rows, "tranche.automation.overall").update(nextSlice="automation.phase5.packaging-dryrun"), "nextSlice must advance to automation.phase4.build-gates")
+    expect_failure("premature tranche closed", lambda rows: row(rows, "tranche.automation.overall").update(workStatus="COMPLETE", readinessCeiling="AUTOMATED_TRANCHE_CLOSED"), "expected sentinel tuple PENDING/VERIFIED_STATIC_SYNTHETIC/BUILD_GATED")
+    expect_failure("tranche readiness downgrade", lambda rows: row(rows, "tranche.automation.overall").update(readinessCeiling="SYNTHETIC_COMPOSITION_READY"), "expected sentinel tuple PENDING/VERIFIED_STATIC_SYNTHETIC/BUILD_GATED")
+    expect_failure("tranche evidence downgrade", lambda rows: row(rows, "tranche.automation.overall").update(evidenceLevel="VERIFIED_STATIC"), "expected sentinel tuple PENDING/VERIFIED_STATIC_SYNTHETIC/BUILD_GATED")
+    expect_failure("tranche wrong next phase", lambda rows: row(rows, "tranche.automation.overall").update(nextSlice="automation.phase4.build-gates"), "nextSlice must advance to automation.phase5.packaging-dryrun")
     expect_failure("M14 evidence downgrade", lambda rows: row(rows, "milestone.m14.overall").update(evidenceLevel="SYNTHETIC"), "expected sentinel tuple IN_PROGRESS/VERIFIED_STATIC_SYNTHETIC/VERIFIED_STATIC")
     expect_failure("M14 readiness escalation", lambda rows: row(rows, "milestone.m14.overall").update(readinessCeiling="AUTOMATED_TRANCHE_CLOSED"), "expected sentinel tuple IN_PROGRESS/VERIFIED_STATIC_SYNTHETIC/VERIFIED_STATIC")
     expect_failure("M16 premature escalation", lambda rows: row(rows, "milestone.m16.overall").update(evidenceLevel="VERIFIED_STATIC", readinessCeiling="DRY_RUN_READY"), "expected sentinel tuple NOT_STARTED/PLAN/NONE")
@@ -133,6 +136,10 @@ def main() -> None:
     expect_failure("work status enum", lambda rows: row(rows, "phase0.scope-ledger").update(workStatus="DONE"), "invalid workStatus")
     expect_failure("evidence enum", lambda rows: row(rows, "automation.phase2.dispatcher-contract").update(evidenceLevel="VERIFIED_FAKE"), "invalid evidenceLevel")
     expect_failure("readiness enum", lambda rows: row(rows, "automation.phase2.dispatcher-contract").update(readinessCeiling="MAILBOX_TESTED"), "invalid readinessCeiling")
+    fixture_root = ROOT / "testframework/src/main/resources/fixtures/schema/automated-tranche-ledger-v1"
+    assert module.validate(ROOT, fixture_root / "valid/minimal.tsv", schema_only=True) == []
+    for fixture in sorted((fixture_root / "invalid").glob("*.tsv")):
+        assert module.validate(ROOT, fixture, schema_only=True), f"invalid schema fixture passed: {fixture}"
     print("PASS: automated tranche ledger regression fixtures")
 
 

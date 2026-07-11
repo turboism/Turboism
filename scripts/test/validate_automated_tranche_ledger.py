@@ -6,7 +6,7 @@ from __future__ import annotations
 import argparse
 import csv
 import sys
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 FIELDS = [
     "workId", "entityType", "executionClass", "workStatus", "evidenceLevel",
@@ -40,7 +40,7 @@ REQUIRED_IDENTITIES = {
     "phase1.ownership-audit": ("BOUNDED_SLICE", "AUTO_NOW", "COMPLETE"),
     "automation.phase2.dispatcher-contract": ("BOUNDED_SLICE", "AUTO_NOW", "COMPLETE"),
     "automation.phase3.synthetic-composition": ("BOUNDED_SLICE", "AUTO_NOW", "COMPLETE"),
-    "automation.phase4.build-gates": ("BOUNDED_SLICE", "AUTO_NOW", "NOT_STARTED"),
+    "automation.phase4.build-gates": ("BOUNDED_SLICE", "AUTO_NOW", "COMPLETE"),
     "automation.phase5.packaging-dryrun": ("BOUNDED_SLICE", "AUTO_NOW", "NOT_STARTED"),
     "automation.phase6.closure": ("BOUNDED_SLICE", "AUTO_NOW", "NOT_STARTED"),
     "milestone.m14.overall": ("OVERALL_SENTINEL", "MANUAL_ONLY", "IN_PROGRESS"),
@@ -62,7 +62,7 @@ CRITICAL_DEFERRED = {
     "r5.real-ui",
 }
 SENTINEL_TUPLES = {
-    "tranche.automation.overall": ("PENDING", "VERIFIED_STATIC_SYNTHETIC", "SYNTHETIC_COMPOSITION_READY"),
+    "tranche.automation.overall": ("PENDING", "VERIFIED_STATIC_SYNTHETIC", "BUILD_GATED"),
     "milestone.m14.overall": ("IN_PROGRESS", "VERIFIED_STATIC_SYNTHETIC", "VERIFIED_STATIC"),
     "milestone.m16.overall": ("NOT_STARTED", "PLAN", "NONE"),
 }
@@ -74,7 +74,7 @@ CANONICAL_EDGES = {
 PHASE_TUPLES = {
     "automation.phase2.dispatcher-contract": ("COMPLETE", "VERIFIED_STATIC_FAKE", "CONTRACT_TESTED"),
     "automation.phase3.synthetic-composition": ("COMPLETE", "VERIFIED_STATIC_SYNTHETIC", "SYNTHETIC_COMPOSITION_READY"),
-    "automation.phase4.build-gates": ("NOT_STARTED", "NONE", "NONE"),
+    "automation.phase4.build-gates": ("COMPLETE", "VERIFIED_STATIC_FAKE", "BUILD_GATED"),
     "automation.phase5.packaging-dryrun": ("NOT_STARTED", "NONE", "NONE"),
     "automation.phase6.closure": ("NOT_STARTED", "NONE", "NONE"),
 }
@@ -100,10 +100,32 @@ def adapter_ids(root: Path) -> set[str]:
     return result
 
 
-def validate(root: Path, ledger: Path) -> list[str]:
+def valid_relative_reference(ref: str) -> bool:
+    rel = ref.split("#", 1)[0]
+    if not rel or "\\" in rel:
+        return False
+    pure = PurePosixPath(rel)
+    return (
+        not pure.is_absolute()
+        and rel == pure.as_posix()
+        and not rel.endswith("/")
+        and all(part not in {"", ".", ".."} for part in rel.split("/"))
+    )
+
+
+def validate(root: Path, ledger: Path, *, schema_only: bool = False) -> list[str]:
     errors: list[str] = []
-    with ledger.open(encoding="utf-8", newline="") as handle:
-        raw_rows = list(csv.reader(handle, delimiter="\t"))
+    try:
+        data = ledger.read_bytes()
+    except OSError as exc:
+        return [f"cannot read ledger: {exc}"]
+    if data.startswith(b"\xef\xbb\xbf"):
+        return ["UTF-8 BOM is not allowed"]
+    try:
+        text = data.decode("utf-8", errors="strict")
+    except UnicodeDecodeError as exc:
+        return [f"invalid UTF-8: {exc}"]
+    raw_rows = list(csv.reader(text.splitlines(), delimiter="\t"))
     if not raw_rows or raw_rows[0] != FIELDS:
         return [f"header must be exactly: {'/'.join(FIELDS)}"]
     for line_number, raw_row in enumerate(raw_rows[1:], start=2):
@@ -126,10 +148,10 @@ def validate(root: Path, ledger: Path) -> list[str]:
         errors.append(f"duplicate workId: {';'.join(duplicates)}")
     by_id = {row["workId"]: row for row in rows}
 
-    board = first_column(root / "docs/migration/migration-board.tsv")
-    capabilities = first_column(root / "docs/migration/capabilities/capability-catalog.tsv")
-    plugins = first_column(root / "docs/migration/capabilities/plugin-readiness-matrix.tsv")
-    adapters = adapter_ids(root)
+    board = first_column(root / "docs/migration/migration-board.tsv") if not schema_only else set()
+    capabilities = first_column(root / "docs/migration/capabilities/capability-catalog.tsv") if not schema_only else set()
+    plugins = first_column(root / "docs/migration/capabilities/plugin-readiness-matrix.tsv") if not schema_only else set()
+    adapters = adapter_ids(root) if not schema_only else set()
 
     for line_number, row in enumerate(rows, start=2):
         label = f"line {line_number} ({row['workId'] or '<empty>'})"
@@ -143,13 +165,14 @@ def validate(root: Path, ledger: Path) -> list[str]:
         if not row["workId"]:
             errors.append(f"{label}: empty workId")
             continue
-        for field, known in (("boardRowIds", board), ("capabilityIds", capabilities), ("adapterSliceIds", adapters), ("pluginIds", plugins)):
-            unknown = sorted(set(values(row[field])) - known)
-            if unknown:
-                errors.append(f"{label}: unknown {field}: {';'.join(unknown)}")
+        if not schema_only:
+            for field, known in (("boardRowIds", board), ("capabilityIds", capabilities), ("adapterSliceIds", adapters), ("pluginIds", plugins)):
+                unknown = sorted(set(values(row[field])) - known)
+                if unknown:
+                    errors.append(f"{label}: unknown {field}: {';'.join(unknown)}")
         for ref in values(row["evidenceRefs"]):
             rel = ref.split("#", 1)[0]
-            if rel.startswith("/") or ".." in Path(rel).parts or not (root / rel).is_file():
+            if not valid_relative_reference(ref) or (not schema_only and not (root / rel).is_file()):
                 errors.append(f"{label}: invalid evidenceRef: {ref}")
 
         if row["evidenceLevel"] in EVIDENCE_RANK and row["readinessCeiling"] in CEILING_MIN_EVIDENCE:
@@ -165,6 +188,9 @@ def validate(root: Path, ledger: Path) -> list[str]:
             errors.append(f"{label}: FORBIDDEN must have PROHIBITED status")
         if row["executionClass"] in {"AUTO_WITH_AUTHORIZED_LOCAL_INPUT", "MANUAL_ONLY"} and row["workStatus"] == "COMPLETE":
             errors.append(f"{label}: {row['executionClass']} cannot be automatically COMPLETE")
+
+    if schema_only:
+        return errors
 
     missing = sorted(REQUIRED_IDENTITIES.keys() - by_id.keys())
     if missing:
@@ -241,17 +267,22 @@ def validate(root: Path, ledger: Path) -> list[str]:
         if "seam-chain" not in phase3_notes or "atomic" not in phase3_notes:
             errors.append("automation.phase3.synthetic-composition: notes must preserve seam-chain and dual atomic semantics")
     if phase3 and tranche:
-        phase3_evidence = (phase3["evidenceLevel"], phase3["readinessCeiling"])
-        tranche_evidence = (tranche["evidenceLevel"], tranche["readinessCeiling"])
-        if tranche_evidence != phase3_evidence:
-            errors.append("tranche.automation.overall: must retain the same evidence/ceiling as completed Phase 3")
-        if tranche["nextSlice"] != "automation.phase4.build-gates":
-            errors.append("tranche.automation.overall: nextSlice must advance to automation.phase4.build-gates")
+        if tranche["evidenceLevel"] != "VERIFIED_STATIC_SYNTHETIC" or tranche["readinessCeiling"] != "BUILD_GATED":
+            errors.append("tranche.automation.overall: must preserve Phase 3 evidence and advance only to BUILD_GATED")
+        if tranche["nextSlice"] != "automation.phase5.packaging-dryrun":
+            errors.append("tranche.automation.overall: nextSlice must advance to automation.phase5.packaging-dryrun")
     if phase4:
-        for work_id in ("automation.phase4.build-gates", "automation.phase5.packaging-dryrun", "automation.phase6.closure"):
-            row = by_id.get(work_id)
-            if row and (row["workStatus"], row["evidenceLevel"], row["readinessCeiling"]) != ("NOT_STARTED", "NONE", "NONE"):
-                errors.append(f"{work_id}: Phase 4-6 must remain NOT_STARTED/NONE/NONE after Phase 3 closure")
+        required_refs = {
+            "docs/migration/evidence/synthetic-composition-evidence-v1.json",
+            "docs/migration/phase4-build-gates-report.md",
+            "scripts/test/test_phase4_build_gates.sh",
+        }
+        if not required_refs.issubset(set(values(phase4["evidenceRefs"]))):
+            errors.append("automation.phase4.build-gates: missing authoritative Phase 4 evidence refs")
+    for work_id in ("automation.phase5.packaging-dryrun", "automation.phase6.closure"):
+        row = by_id.get(work_id)
+        if row and (row["workStatus"], row["evidenceLevel"], row["readinessCeiling"]) != ("NOT_STARTED", "NONE", "NONE"):
+            errors.append(f"{work_id}: must remain locked at NOT_STARTED/NONE/NONE after Phase 4")
     return errors
 
 
@@ -259,8 +290,9 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("ledger", type=Path)
     parser.add_argument("--repo-root", type=Path, default=Path(__file__).resolve().parents[2])
+    parser.add_argument("--schema-only", action="store_true")
     args = parser.parse_args()
-    errors = validate(args.repo_root.resolve(), args.ledger.resolve())
+    errors = validate(args.repo_root.resolve(), args.ledger.resolve(), schema_only=args.schema_only)
     for error in errors:
         print(f"FAIL: {error}", file=sys.stderr)
     if errors:
