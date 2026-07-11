@@ -1,3 +1,5 @@
+import dev.turboism.gradle.internal.MappingReviewArgsFile
+
 plugins {
     id("java")
     id("java-library")
@@ -17,14 +19,16 @@ val defaultWorktreeId = providers.exec {
     workingDir(rootProject.layout.projectDirectory)
 }.standardOutput.asText.get().trim().ifBlank { rootProject.layout.projectDirectory.asFile.name }
 
+val resolvedWorktreeId = providers.gradleProperty("turboismWorktreeId")
+    .orElse(providers.environmentVariable("TURBOISM_WORKTREE_ID"))
+    .orElse(defaultWorktreeId)
+    .get()
+
 subprojects {
     apply(plugin = "java")
     apply(plugin = "java-library")
 
-    val worktreeId = providers.gradleProperty("turboismWorktreeId")
-        .orElse(providers.environmentVariable("TURBOISM_WORKTREE_ID"))
-        .orElse(defaultWorktreeId)
-        .get()
+    val worktreeId = resolvedWorktreeId
 
     layout.buildDirectory.set(file("${rootProject.layout.buildDirectory.get()}/worktree/${worktreeId}/${project.name}"))
 
@@ -96,6 +100,23 @@ tasks.register("checkModuleBoundaries") {
                 }
             }
 
+            val asmDependencies = subproject.configurations
+                .flatMap { configuration -> configuration.dependencies.toList() }
+                .filter { dependency -> dependency.group == "org.ow2.asm" }
+            asmDependencies.forEach { dependency ->
+                val admitted = subproject.path == ":runtime" &&
+                    dependency.name == "asm" &&
+                    dependency.version == "9.7.1" &&
+                    subproject.configurations.getByName("implementation").dependencies.contains(dependency)
+                if (!admitted) {
+                    logger.error(
+                        "Only :runtime implementation(org.ow2.asm:asm:9.7.1) is admitted; " +
+                            "found ${dependency.group}:${dependency.name}:${dependency.version} in ${subproject.path}"
+                    )
+                    failed = true
+                }
+            }
+
             val sourceDir = subproject.file("src/main/java")
             if (sourceDir.exists()) {
                 sourceDir.walkTopDown()
@@ -125,6 +146,156 @@ tasks.register("checkModuleBoundaries") {
             throw GradleException("Module boundary checks failed.")
         }
         logger.lifecycle("Module boundary checks passed.")
+    }
+}
+
+tasks.register("checkResolvedBytecodeDependencyGraph") {
+    group = "verification"
+    description = "Resolve production graphs and reject unadmitted ASM or any Byte Buddy component."
+    doLast {
+        val violations = mutableListOf<String>()
+        allprojects.forEach { candidate ->
+            candidate.configurations
+                .filter { it.isCanBeResolved && (it.name == "runtimeClasspath" || it.name == "compileClasspath") }
+                .forEach { configuration ->
+                    val resolution = configuration.incoming.resolutionResult
+                    resolution.allDependencies.forEach { dependency ->
+                        val requested = dependency.requested
+                        if (requested is org.gradle.api.artifacts.component.ModuleComponentSelector) {
+                            if (requested.group == "net.bytebuddy" || requested.group.startsWith("net.bytebuddy.")) {
+                                violations += "${candidate.path}:${configuration.name} requests forbidden ${requested.group}:${requested.module}:${requested.version}"
+                            }
+                            if (requested.group == "org.ow2.asm" &&
+                                (requested.module != "asm" || requested.version != "9.7.1")) {
+                                violations += "${candidate.path}:${configuration.name} requests unadmitted ${requested.group}:${requested.module}:${requested.version}"
+                            }
+                        }
+                    }
+                    val external = resolution.allComponents.mapNotNull { component ->
+                        val id = component.moduleVersion ?: return@mapNotNull null
+                        Triple(id.group, id.name, id.version)
+                    }
+                    external.forEach { (group, module, version) ->
+                        if (group == "net.bytebuddy" || group.startsWith("net.bytebuddy.")) {
+                            violations += "${candidate.path}:${configuration.name} contains forbidden $group:$module:$version"
+                        }
+                        if (group == "org.ow2.asm" && (module != "asm" || version != "9.7.1")) {
+                            violations += "${candidate.path}:${configuration.name} contains unadmitted $group:$module:$version"
+                        }
+                    }
+                    if (candidate.path == ":runtime" && configuration.name == "runtimeClasspath") {
+                        val asm = external.filter { it.first == "org.ow2.asm" }
+                        if (asm != listOf(Triple("org.ow2.asm", "asm", "9.7.1"))) {
+                            violations += ":runtime:runtimeClasspath must contain exactly org.ow2.asm:asm:9.7.1; found $asm"
+                        }
+                    }
+                }
+        }
+        if (violations.isNotEmpty()) {
+            throw GradleException("Resolved bytecode dependency graph rejected:\n" + violations.joinToString("\n"))
+        }
+    }
+}
+
+tasks.register("checkAsmDependencyModel") {
+    group = "verification"
+    description = "Verify Gradle's configured model admits only runtime implementation ASM 9.7.1 and Maven Central."
+    doLast {
+        val admitted = mutableListOf<String>()
+        allprojects.forEach { candidate ->
+            candidate.configurations.forEach { configuration ->
+                configuration.dependencies.forEach { dependency ->
+                    val isAsm = dependency.group == "org.ow2.asm"
+                    val isByteBuddy = dependency.group == "net.bytebuddy"
+                    if (isByteBuddy) {
+                        throw GradleException("Byte Buddy is not admitted: ${candidate.path}:${configuration.name}")
+                    }
+                    if (isAsm) {
+                        val valid = candidate.path == ":runtime" &&
+                            configuration.name == "implementation" &&
+                            dependency.name == "asm" && dependency.version == "9.7.1"
+                        if (!valid) {
+                            throw GradleException(
+                                "Only :runtime implementation(org.ow2.asm:asm:9.7.1) is admitted; " +
+                                    "found ${dependency.group}:${dependency.name}:${dependency.version} " +
+                                    "in ${candidate.path}:${configuration.name}"
+                            )
+                        }
+                        admitted += "${candidate.path}:${configuration.name}:${dependency.group}:${dependency.name}:${dependency.version}"
+                    }
+                }
+            }
+        }
+        if (admitted != listOf(":runtime:implementation:org.ow2.asm:asm:9.7.1")) {
+            throw GradleException("Expected exactly one admitted ASM dependency; found $admitted")
+        }
+
+        allprojects.forEach { candidate ->
+            candidate.repositories.forEach { repository ->
+                val maven = repository as? org.gradle.api.artifacts.repositories.MavenArtifactRepository
+                    ?: throw GradleException("Only Maven Central is admitted; found ${repository.name} in ${candidate.path}")
+                val url = maven.url.toString().trimEnd('/')
+                if (url !in setOf("https://repo.maven.apache.org/maven2", "https://repo1.maven.org/maven2")) {
+                    throw GradleException("Only Maven Central is admitted; found $url in ${candidate.path}")
+                }
+            }
+        }
+    }
+}
+
+val productionMainSourceSets = subprojects.mapNotNull { candidate ->
+    candidate.extensions.findByType<org.gradle.api.tasks.SourceSetContainer>()
+        ?.findByName(org.gradle.api.tasks.SourceSet.MAIN_SOURCE_SET_NAME)
+        ?.takeIf { sourceSet -> sourceSet.allSource.files.any { it.isFile } }
+        ?.let { candidate to it }
+}
+
+tasks.register<Exec>("checkAsmSupplyChainAdmission") {
+    group = "verification"
+    description = "Verify the exact ASM 9.7.1 dependency, API boundary, and supply-chain evidence."
+    environment("TURBOISM_SKIP_GRADLE_MODEL", "1")
+    dependsOn("checkAsmDependencyModel", "checkResolvedBytecodeDependencyGraph")
+    dependsOn(productionMainSourceSets.map { (candidate, sourceSet) ->
+        candidate.tasks.named(sourceSet.classesTaskName)
+    })
+    environment(
+        "TURBOISM_PRODUCTION_CLASSES_DIRS",
+        productionMainSourceSets
+            .flatMap { (_, sourceSet) -> sourceSet.output.classesDirs.files }
+            .joinToString(File.pathSeparator) { it.absolutePath }
+    )
+    commandLine("bash", "scripts/test/test_asm_supply_chain_admission.sh")
+}
+
+tasks.register<JavaExec>("mappingReview") {
+    group = "verification"
+    description = "Run the local draft mapping review CLI; apply is dry-run unless --write is passed."
+    dependsOn(":runtime:classes")
+
+    val runtimeMainClasspath = project(":runtime")
+        .extensions
+        .getByType<org.gradle.api.tasks.SourceSetContainer>()
+        .named("main")
+        .get()
+        .runtimeClasspath
+    classpath = runtimeMainClasspath
+    mainClass.set("dev.turboism.mapping.draft.MappingReviewCli")
+
+    val cliArgsFile = providers.gradleProperty("turboismMappingReviewArgsFile")
+    val legacyCliArgs = providers.gradleProperty("turboismMappingReviewArgs")
+    systemProperty("turboism.worktree.id", resolvedWorktreeId)
+    doFirst {
+        if (legacyCliArgs.isPresent) {
+            throw GradleException(
+                "-PturboismMappingReviewArgs is unsupported; pass -PturboismMappingReviewArgsFile=<path> instead."
+            )
+        }
+        if (!cliArgsFile.isPresent || cliArgsFile.get().isBlank()) {
+            throw GradleException(
+                "Pass -PturboismMappingReviewArgsFile=<path> containing one Base64-encoded UTF-8 argument per line."
+            )
+        }
+        setArgs(MappingReviewArgsFile.readAndDelete(file(cliArgsFile.get()).toPath()))
     }
 }
 
@@ -199,6 +370,26 @@ tasks.register<JavaExec>("validatePluginMeta") {
 }
 
 // Wire gate tasks into the check lifecycle for the root project
+tasks.register<Exec>("checkMappingPipelineClosure") {
+    group = "verification"
+    description = "Validates the BT5 mapping-pipeline closure evidence and boundaries."
+    workingDir(rootDir)
+    commandLine("bash", "scripts/test/test_bt5_mapping_pipeline_closure.sh")
+}
+
+tasks.register<Exec>("checkMappingReviewWrapperArgs") {
+    group = "verification"
+    description = "Verifies mapping-review wrapper argv transport and args-file hardening offline."
+    workingDir(rootDir)
+    commandLine("bash", "scripts/test/test_mapping_review_wrapper_args.sh")
+}
+
 tasks.named("check") {
-    dependsOn("checkModuleBoundaries", "validatePluginMeta")
+    dependsOn(
+        "checkModuleBoundaries",
+        "checkAsmSupplyChainAdmission",
+        "checkMappingPipelineClosure",
+        "checkMappingReviewWrapperArgs",
+        "validatePluginMeta"
+    )
 }
