@@ -1,0 +1,80 @@
+package dev.turboism.distribution;
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import java.io.ByteArrayOutputStream;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.util.HexFormat;
+import java.util.jar.JarEntry;
+import java.util.jar.JarOutputStream;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
+
+class PluginPackageRaceRegressionTest {
+    @TempDir Path tempDir;
+
+    @Test void rejectsAbaReplacementAfterHashAndAfterInspection() throws Exception {
+        byte[] one = fixture("one");
+        byte[] two = fixture("two");
+        Path input = tempDir.resolve("sample.tplugin");
+        Files.write(input, one);
+        assertChanged(new LocalPluginPackageInspector(TestPackageAccess.replaceAfterHash(input, two)).inspect(input));
+        Files.write(input, one);
+        assertChanged(new LocalPluginPackageInspector(TestPackageAccess.replaceAfterInspection(input, two)).inspect(input));
+    }
+
+    @Test void fifoIsRejectedWithoutOpening() throws Exception {
+        Path fifo = tempDir.resolve("sample.tplugin");
+        Process process = new ProcessBuilder("mkfifo", fifo.toString()).start();
+        assertEquals(0, process.waitFor());
+        assertTimeoutPreemptively(java.time.Duration.ofSeconds(2), () -> {
+            PluginPackageInspector.Rejected rejected = assertInstanceOf(PluginPackageInspector.Rejected.class,
+                new LocalPluginPackageInspector().inspect(fifo));
+            assertEquals(DistributionErrors.PACKAGE_PATH_INVALID, rejected.problems().get(0).code());
+        });
+    }
+
+    private static void assertChanged(PluginPackageInspector.Result result) {
+        PluginPackageInspector.Rejected rejected = assertInstanceOf(PluginPackageInspector.Rejected.class, result);
+        assertEquals(DistributionErrors.PACKAGE_CHANGED, rejected.problems().get(0).code());
+    }
+
+    private static byte[] fixture(String marker) throws Exception {
+        String id = "dev.turboism.plugin.sample";
+        String entrypoint = "dev.turboism.plugin.sample.SamplePlugin";
+        String descriptor = "{\"format\":\"turboism.plugin.meta\",\"schemaVersion\":1,\"id\":\"" + id
+            + "\",\"name\":\"Sample\",\"version\":\"0.1.0\",\"entrypoints\":{\"plugin\":\""
+            + entrypoint + "\"},\"turboismApi\":\"0.1.0\"}";
+        ByteArrayOutputStream jarBytes = new ByteArrayOutputStream();
+        try (JarOutputStream jar = new JarOutputStream(jarBytes)) {
+            add(jar, "META-INF/turboism/plugin.json", descriptor.getBytes(StandardCharsets.UTF_8));
+            add(jar, entrypoint.replace('.', '/') + ".class", marker.getBytes(StandardCharsets.UTF_8));
+        }
+        byte[] payload = jarBytes.toByteArray();
+        String hash = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(payload));
+        String manifest = "{\"format\":\"turboism.plugin.package\",\"schemaVersion\":1,\"kind\":\"plugin\","
+            + "\"id\":\"" + id + "\",\"version\":\"0.1.0\",\"artifacts\":[{\"role\":\"plugin\","
+            + "\"path\":\"payload/plugin.jar\",\"installPath\":\"plugin.jar\",\"sha256\":\"" + hash
+            + "\",\"size\":" + payload.length + "}]}";
+        ByteArrayOutputStream archive = new ByteArrayOutputStream();
+        try (ZipOutputStream zip = new ZipOutputStream(archive)) {
+            add(zip, PluginManifestReader.NAME, manifest.getBytes(StandardCharsets.UTF_8));
+            add(zip, "payload/plugin.jar", payload);
+        }
+        return archive.toByteArray();
+    }
+
+    private static void add(ZipOutputStream zip, String name, byte[] bytes) throws Exception {
+        zip.putNextEntry(new ZipEntry(name));
+        zip.write(bytes);
+        zip.closeEntry();
+    }
+}
