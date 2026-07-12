@@ -76,5 +76,6 @@ done
 python3 "${SCRIPT_DIR}/test_automated_tranche_ledger_regression.py"
 "${SCRIPT_DIR}/test_phase4_build_gates.sh"
 python3 "${SCRIPT_DIR}/test_pre_m16_packaging_dryrun.py"
+"${SCRIPT_DIR}/test_automated_tranche_closure.sh"
 
 echo "PASS: migration inventory sanity (board rows=${board_rows}, L0=${l0}, L1=${l1}, L2=${l2}, L3=${l3}, L4=${l4})"
