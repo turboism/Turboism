@@ -36,7 +36,7 @@ def write_raw_fixture(path: Path, raw_rows: list[list[str]]) -> None:
 
 
 def expect_failure(name: str, mutate, fragment: str) -> None:
-    rows = load_rows()
+    rows = phase4_rows()
     mutate(rows)
     with tempfile.TemporaryDirectory() as directory:
         fixture = Path(directory) / "ledger.tsv"
@@ -64,8 +64,27 @@ def promote_phase5(rows) -> None:
     row(rows, "automation.phase5.packaging-dryrun").update(
         workStatus="COMPLETE", evidenceLevel="VERIFIED_STATIC_FAKE", readinessCeiling="DRY_RUN_READY",
     )
+    row(rows, "automation.phase6.closure").update(
+        workStatus="NOT_STARTED", evidenceLevel="NONE", readinessCeiling="NONE",
+        evidenceRefs="docs/migration/plans/automated-tranche-completion-plan.md",
+        blockers="Phase 0-5 evidence and Oracle closure",
+        nextSlice="manual.real-host-observation",
+        notes="Required AUTO_NOW identity for automated-tranche-closed readiness.",
+    )
     row(rows, "tranche.automation.overall").update(
         readinessCeiling="DRY_RUN_READY", nextSlice="automation.phase6.closure",
+    )
+
+
+def promote_phase6(rows) -> None:
+    promote_phase5(rows)
+    row(rows, "automation.phase6.closure").update(
+        workStatus="COMPLETE", evidenceLevel="VERIFIED_STATIC_SYNTHETIC",
+        readinessCeiling="AUTOMATED_TRANCHE_CLOSED",
+        evidenceRefs="docs/migration/phase6-automated-tranche-closure-report.md;scripts/test/test_automated_tranche_closure.sh;scripts/test/validate_automated_tranche_closure.py",
+    )
+    row(rows, "tranche.automation.overall").update(
+        readinessCeiling="AUTOMATED_TRANCHE_CLOSED", nextSlice="manual.real-host-observation",
     )
 
 
@@ -75,6 +94,13 @@ def phase4_rows() -> list[dict[str, str]]:
         workStatus="NOT_STARTED", evidenceLevel="NONE", readinessCeiling="NONE",
         evidenceRefs="docs/migration/plans/automated-tranche-completion-plan.md",
         blockers="Phase 4 build gates", nextSlice="automation.phase6.closure",
+    )
+    row(rows, "automation.phase6.closure").update(
+        workStatus="NOT_STARTED", evidenceLevel="NONE", readinessCeiling="NONE",
+        evidenceRefs="docs/migration/plans/automated-tranche-completion-plan.md",
+        blockers="Phase 0-5 evidence and Oracle closure",
+        nextSlice="manual.real-host-observation",
+        notes="Required AUTO_NOW identity for automated-tranche-closed readiness.",
     )
     overall = row(rows, "tranche.automation.overall")
     overall.update(
@@ -94,6 +120,39 @@ def main() -> None:
         write_fixture(fixture, authoritative_phase5)
         assert module.detect_target_phase(authoritative_phase5) == "phase5"
         assert module.validate(ROOT, fixture) == []
+
+    authoritative_phase6 = load_rows()
+    promote_phase6(authoritative_phase6)
+    with tempfile.TemporaryDirectory() as directory:
+        fixture = Path(directory) / "ledger.tsv"
+        report = Path(directory) / "phase6-report.md"
+        report.write_text("candidate", encoding="utf-8")
+        write_fixture(fixture, authoritative_phase6)
+        assert module.detect_target_phase(authoritative_phase6) == "phase6"
+        assert module.validate(
+            ROOT, fixture,
+            evidence_overrides={"docs/migration/phase6-automated-tranche-closure-report.md": report},
+        ) == []
+
+    incomplete_phase6 = load_rows()
+    promote_phase6(incomplete_phase6)
+    row(incomplete_phase6, "tranche.automation.overall").update(nextSlice="automation.phase6.closure")
+    assert module.detect_target_phase(incomplete_phase6) == "phase6"
+    with tempfile.TemporaryDirectory() as directory:
+        fixture = Path(directory) / "ledger.tsv"
+        write_fixture(fixture, incomplete_phase6)
+        errors = module.validate(ROOT, fixture)
+    assert any("expected target phase6 tuple" in error for error in errors), errors
+
+    phase6_field_attempt = phase4_rows()
+    row(phase6_field_attempt, "automation.phase6.closure").update(notes="Phase 6 attempted")
+    assert module.detect_target_phase(phase6_field_attempt) == "phase6"
+    with tempfile.TemporaryDirectory() as directory:
+        fixture = Path(directory) / "ledger.tsv"
+        write_fixture(fixture, phase6_field_attempt)
+        errors = module.validate(ROOT, fixture)
+    assert any("automation.phase5.packaging-dryrun: expected BOUNDED_SLICE/AUTO_NOW/COMPLETE" in error for error in errors), errors
+    assert any("expected target phase6 tuple" in error for error in errors), errors
 
     incomplete_phase5 = phase4_rows()
     row(incomplete_phase5, "automation.phase5.packaging-dryrun").update(
@@ -120,12 +179,12 @@ def main() -> None:
     incomplete_phase5 = phase4_rows()
     promote_phase5(incomplete_phase5)
     row(incomplete_phase5, "automation.phase6.closure").update(workStatus="PENDING")
-    assert module.detect_target_phase(incomplete_phase5) == "phase4"
+    assert module.detect_target_phase(incomplete_phase5) == "phase6"
     with tempfile.TemporaryDirectory() as directory:
         fixture = Path(directory) / "ledger.tsv"
         write_fixture(fixture, incomplete_phase5)
         errors = module.validate(ROOT, fixture)
-    assert any("automation.phase6.closure: expected BOUNDED_SLICE/AUTO_NOW/NOT_STARTED" in error for error in errors), errors
+    assert any("automation.phase6.closure: expected BOUNDED_SLICE/AUTO_NOW/COMPLETE" in error for error in errors), errors
     expect_raw_failure("extra column", lambda rows: rows[1].append("unexpected"), "expected exactly 14 fields, got 15")
     expect_raw_failure("missing column", lambda rows: rows[1].pop(), "expected exactly 14 fields, got 13")
     expect_failure("unknown board FK", lambda rows: row(rows, "phase0.scope-ledger").update(boardRowIds="not.a.board.row"), "unknown boardRowIds")
@@ -171,11 +230,11 @@ def main() -> None:
     expect_failure("phase4 downgrade", lambda rows: row(rows, "automation.phase4.build-gates").update(workStatus="NOT_STARTED", evidenceLevel="NONE", readinessCeiling="NONE"), "expected BOUNDED_SLICE/AUTO_NOW/COMPLETE")
     expect_failure("phase4 missing evidence", lambda rows: row(rows, "automation.phase4.build-gates").update(evidenceRefs="docs/migration/plans/automated-tranche-completion-plan.md"), "missing authoritative Phase 4 evidence refs")
     expect_failure("phase5 premature start", lambda rows: row(rows, "automation.phase5.packaging-dryrun").update(workStatus="PENDING"), "expected BOUNDED_SLICE/AUTO_NOW/NOT_STARTED")
-    expect_failure("phase6 premature ceiling", lambda rows: row(rows, "automation.phase6.closure").update(readinessCeiling="AUTOMATED_TRANCHE_CLOSED", evidenceLevel="VERIFIED_STATIC_SYNTHETIC"), "expected exact phase tuple NOT_STARTED/NONE/NONE")
+    expect_failure("phase6 premature ceiling", lambda rows: row(rows, "automation.phase6.closure").update(readinessCeiling="AUTOMATED_TRANCHE_CLOSED", evidenceLevel="VERIFIED_STATIC_SYNTHETIC"), "expected exact phase tuple COMPLETE/VERIFIED_STATIC_SYNTHETIC/AUTOMATED_TRANCHE_CLOSED")
     expect_failure("M14 status", lambda rows: row(rows, "milestone.m14.overall").update(workStatus="BLOCKED"), "expected OVERALL_SENTINEL/MANUAL_ONLY/IN_PROGRESS")
     expect_failure("M16 status", lambda rows: row(rows, "milestone.m16.overall").update(workStatus="PENDING"), "expected OVERALL_SENTINEL/MANUAL_ONLY/NOT_STARTED")
     expect_failure("tranche status", lambda rows: row(rows, "tranche.automation.overall").update(workStatus="IN_PROGRESS"), "expected TRANCHE_SENTINEL/AUTO_NOW/PENDING")
-    expect_failure("premature tranche closed", lambda rows: row(rows, "tranche.automation.overall").update(workStatus="COMPLETE", readinessCeiling="AUTOMATED_TRANCHE_CLOSED"), "expected sentinel tuple PENDING/VERIFIED_STATIC_SYNTHETIC/BUILD_GATED")
+    expect_failure("premature tranche closed", lambda rows: row(rows, "tranche.automation.overall").update(workStatus="COMPLETE", readinessCeiling="AUTOMATED_TRANCHE_CLOSED"), "COMPLETE is legal only for BOUNDED_SLICE")
     expect_failure("tranche readiness downgrade", lambda rows: row(rows, "tranche.automation.overall").update(readinessCeiling="SYNTHETIC_COMPOSITION_READY"), "expected sentinel tuple PENDING/VERIFIED_STATIC_SYNTHETIC/BUILD_GATED")
     expect_failure("tranche evidence downgrade", lambda rows: row(rows, "tranche.automation.overall").update(evidenceLevel="VERIFIED_STATIC"), "expected sentinel tuple PENDING/VERIFIED_STATIC_SYNTHETIC/BUILD_GATED")
     expect_failure("tranche wrong next phase", lambda rows: row(rows, "tranche.automation.overall").update(nextSlice="automation.phase4.build-gates"), "nextSlice must advance to automation.phase5.packaging-dryrun")
