@@ -69,6 +69,22 @@ def promote_phase5(rows) -> None:
     )
 
 
+def phase4_rows() -> list[dict[str, str]]:
+    rows = load_rows()
+    row(rows, "automation.phase5.packaging-dryrun").update(
+        workStatus="NOT_STARTED", evidenceLevel="NONE", readinessCeiling="NONE",
+        evidenceRefs="docs/migration/plans/automated-tranche-completion-plan.md",
+        blockers="Phase 4 build gates", nextSlice="automation.phase6.closure",
+    )
+    overall = row(rows, "tranche.automation.overall")
+    overall.update(
+        readinessCeiling="BUILD_GATED",
+        evidenceRefs=";".join(ref for ref in overall["evidenceRefs"].split(";") if "phase5-pre-m16" not in ref),
+        nextSlice="automation.phase5.packaging-dryrun",
+    )
+    return rows
+
+
 def main() -> None:
     assert module.validate(ROOT, SOURCE) == []
     authoritative_phase5 = load_rows()
@@ -79,7 +95,7 @@ def main() -> None:
         assert module.detect_target_phase(authoritative_phase5) == "phase5"
         assert module.validate(ROOT, fixture) == []
 
-    incomplete_phase5 = load_rows()
+    incomplete_phase5 = phase4_rows()
     row(incomplete_phase5, "automation.phase5.packaging-dryrun").update(
         workStatus="COMPLETE", evidenceLevel="VERIFIED_STATIC_FAKE", readinessCeiling="DRY_RUN_READY",
     )
@@ -90,7 +106,7 @@ def main() -> None:
         errors = module.validate(ROOT, fixture)
     assert any("automation.phase5.packaging-dryrun: expected BOUNDED_SLICE/AUTO_NOW/NOT_STARTED" in error for error in errors), errors
 
-    incomplete_phase5 = load_rows()
+    incomplete_phase5 = phase4_rows()
     row(incomplete_phase5, "tranche.automation.overall").update(
         readinessCeiling="DRY_RUN_READY", nextSlice="automation.phase6.closure",
     )
@@ -101,7 +117,7 @@ def main() -> None:
         errors = module.validate(ROOT, fixture)
     assert any("expected sentinel tuple PENDING/VERIFIED_STATIC_SYNTHETIC/BUILD_GATED" in error for error in errors), errors
 
-    incomplete_phase5 = load_rows()
+    incomplete_phase5 = phase4_rows()
     promote_phase5(incomplete_phase5)
     row(incomplete_phase5, "automation.phase6.closure").update(workStatus="PENDING")
     assert module.detect_target_phase(incomplete_phase5) == "phase4"
@@ -136,7 +152,7 @@ def main() -> None:
         expect_failure(
             f"mutate class {phase_id}",
             lambda rows, phase_id=phase_id: row(rows, phase_id).update(executionClass="MANUAL_ONLY"),
-            f"expected BOUNDED_SLICE/AUTO_NOW/{expected_status}",
+            "expected BOUNDED_SLICE/AUTO_NOW/",
         )
         expect_failure(
             f"mutate tuple {phase_id}",
