@@ -233,6 +233,28 @@ def test_finalize_only_temporary_ledger_report(tmp: Path):
     # Finalize dynamically imports the authoritative validator and resolves all ledger
     # foreign keys/evidence. Copy tracked governance fixtures rather than stubbing it.
     shutil.copytree(REPO / "docs", tmp / "docs")
+    # The caller may run this suite after authoritative Phase 5 finalization has dirtied
+    # the real worktree. Build the fixture from committed H1 governance, not WT state.
+    ledger_bytes = subprocess.check_output(
+        ["git", "-C", str(REPO), "show", "HEAD:docs/migration/automated-tranche-ledger.tsv"]
+    )
+    ledger_rows = list(csv.DictReader(io.StringIO(ledger_bytes.decode("utf-8")), delimiter="\t"))
+    phase5 = next(item for item in ledger_rows if item["workId"] == "automation.phase5.packaging-dryrun")
+    phase5.update(
+        workStatus="NOT_STARTED", evidenceLevel="NONE", readinessCeiling="NONE",
+        evidenceRefs="docs/migration/plans/automated-tranche-completion-plan.md",
+        blockers="Phase 4 build gates", nextSlice="automation.phase6.closure",
+    )
+    overall = next(item for item in ledger_rows if item["workId"] == "tranche.automation.overall")
+    overall.update(
+        readinessCeiling="BUILD_GATED",
+        evidenceRefs=";".join(ref for ref in overall["evidenceRefs"].split(";") if "phase5-pre-m16" not in ref),
+        nextSlice="automation.phase5.packaging-dryrun",
+    )
+    with (tmp / "docs/migration/automated-tranche-ledger.tsv").open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=list(ledger_rows[0]), delimiter="\t", lineterminator="\n")
+        writer.writeheader(); writer.writerows(ledger_rows)
+    (tmp / "docs/migration/phase5-pre-m16-packaging-dryrun-report.md").unlink(missing_ok=True)
     for directory in ("runtime", "scripts"):
         shutil.copytree(REPO / directory, tmp / directory)
     manifest = fixture_manifest(tmp)
