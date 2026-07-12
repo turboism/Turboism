@@ -466,6 +466,15 @@ def test_phase5_ledger_validator_positive_and_negative(tmp: Path):
         "docs/migration/phase4-build-gates-report.md",
         "scripts/test/test_pre_m16_packaging_dryrun.py",
     ]
+    # Build a genuine Phase 5 fixture even when the authoritative repository has
+    # advanced to Phase 6 closure.
+    by_id = {row["workId"]: row for row in rows}
+    by_id["automation.phase6.closure"].update(
+        workStatus="NOT_STARTED", evidenceLevel="NONE", readinessCeiling="NONE",
+        evidenceRefs="docs/migration/plans/automated-tranche-completion-plan.md",
+        blockers="Phase 0-5 evidence and Oracle closure",
+        nextSlice="manual.real-host-observation",
+    )
     transitioned = module.phase5_ledger_transition(rows, refs)
     ledger = tmp / "phase5.tsv"
     with ledger.open("w", encoding="utf-8", newline="") as handle:
