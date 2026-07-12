@@ -245,6 +245,14 @@ def test_finalize_only_temporary_ledger_report(tmp: Path):
         evidenceRefs="docs/migration/plans/automated-tranche-completion-plan.md",
         blockers="Phase 4 build gates", nextSlice="automation.phase6.closure",
     )
+    phase6 = next(item for item in ledger_rows if item["workId"] == "automation.phase6.closure")
+    phase6.update(
+        workStatus="NOT_STARTED", evidenceLevel="NONE", readinessCeiling="NONE",
+        evidenceRefs="docs/migration/plans/automated-tranche-completion-plan.md",
+        blockers="Phase 0-5 evidence and Oracle closure",
+        nextSlice="manual.real-host-observation",
+        notes="Required AUTO_NOW identity for automated-tranche-closed readiness.",
+    )
     overall = next(item for item in ledger_rows if item["workId"] == "tranche.automation.overall")
     overall.update(
         readinessCeiling="BUILD_GATED",
