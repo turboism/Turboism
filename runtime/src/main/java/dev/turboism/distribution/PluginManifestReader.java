@@ -4,13 +4,8 @@ import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.io.InputStream;
-import java.security.MessageDigest;
-import java.time.Instant;
-import java.util.HexFormat;
 import java.util.Set;
 
 final class PluginManifestReader {
@@ -32,7 +27,8 @@ final class PluginManifestReader {
         exact(root, "format", "turboism.distribution.plugin-package");
         integer(root, "schemaVersion", 1);
         exact(root, "packageKind", "PLUGIN");
-        text(root, "packageId", "^[a-z][a-z0-9-]*(\\.[a-z][a-z0-9-]*)+$");
+        require(ManifestPrimitives.packageId(root.path("packageId")),
+            "MANIFEST_FIELD_INVALID", "packageId");
         text(root, "version", strictVersion());
         text(root, "packageHash", "[0-9a-f]{64}");
         exact(root, "pluginDescriptorPath", "plugin/plugin.jar!/META-INF/turboism/plugin.json");
@@ -62,13 +58,14 @@ final class PluginManifestReader {
             require(file.isObject(), "MANIFEST_FIELD_INVALID", "files[" + index + "]");
             unknown(file, FILE, "files[" + index + "].");
             String path = fileText(file, "path", index, ".+");
-            ArchivePolicy.safeRelative(path, "ARCHIVE_PATH_UNSAFE", "files[" + index + "].path");
+            require(ManifestPrimitives.relativePath(path),
+                "ARCHIVE_PATH_UNSAFE", "files[" + index + "].path");
             String orderKey = "plugin/plugin.jar".equals(path) ? "0" : "1" + path;
             require(previous == null || previous.compareTo(orderKey) < 0,
                 "MANIFEST_FILE_ORDER_INVALID", "files");
             previous = orderKey;
             fileText(file, "sha256", index, "[0-9a-f]{64}");
-            require(file.path("size").isIntegralNumber() && file.path("size").longValue() >= 0,
+            require(ManifestPrimitives.byteCount(file.path("size")),
                 "MANIFEST_FIELD_INVALID", "files[" + index + "].size");
             String role = fileText(file, "role", index, "PLUGIN_JAR|PLUGIN_LIBRARY");
             boolean isMain = "plugin/plugin.jar".equals(path) && "PLUGIN_JAR".equals(role);
@@ -87,24 +84,19 @@ final class PluginManifestReader {
     }
 
     private static void timestamp(JsonNode root) throws Exception {
-        require(root.path("createdAt").isTextual(), "MANIFEST_FIELD_INVALID", "createdAt");
-        try { Instant.parse(root.path("createdAt").textValue()); }
-        catch (Exception exception) { throw problem("MANIFEST_FIELD_INVALID", "createdAt"); }
+        require(ManifestPrimitives.timestamp(root.path("createdAt")),
+            "MANIFEST_FIELD_INVALID", "createdAt");
     }
 
     private static String canonicalHash(JsonNode root) throws Exception {
-        ObjectNode copy = ((ObjectNode) root).deepCopy();
-        copy.remove("packageHash");
-        byte[] canonical = JSON.writer().writeValueAsBytes(copy);
-        return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(canonical));
+        return CanonicalJson.sha256Without(root, "packageHash");
     }
 
     private static ObjectMapper mapper() {
         var factory = com.fasterxml.jackson.core.JsonFactory.builder()
             .enable(com.fasterxml.jackson.core.StreamReadFeature.STRICT_DUPLICATE_DETECTION).build();
         return new ObjectMapper(factory).enable(JsonParser.Feature.AUTO_CLOSE_SOURCE)
-            .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
-            .enable(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS);
+            .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
     }
 
     private static String strictVersion() {
