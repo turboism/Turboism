@@ -14,6 +14,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class PluginManifestCanonicalAndPrimitiveTest {
@@ -78,9 +79,27 @@ class PluginManifestCanonicalAndPrimitiveTest {
         assertInvalid(withSize(new BigInteger("-1")), "files[0].size");
     }
 
-    @Test void manifestFilesRejectNormalizationAndCaseFoldCollisions() throws Exception {
+    @Test void schemaVersionMustBeArbitraryPrecisionIntegerOne() throws Exception {
+        assertValid(withSchemaVersion("1"));
+        for (String invalid : List.of("4294967297", "-4294967295", "2147483648", "1.0", "\"1\"")) {
+            assertHeaderInvalid(withSchemaVersion(invalid), "schemaVersion");
+        }
+    }
+
+    @Test void manifestFilesUseTheDocumentedTurboismV1PathIdentityKey() throws Exception {
         assertFileCollision("plugin/lib/e\u0301.jar", "plugin/lib/é.jar");
         assertFileCollision("plugin/lib/Å.jar", "plugin/lib/å.jar");
+        assertFileCollision("plugin/lib/Σ.jar", "plugin/lib/ς.jar");
+        assertFileCollision("plugin/lib/ς.jar", "plugin/lib/σ.jar");
+        assertFileCollision("plugin/lib/ß.jar", "plugin/lib/ẞ.jar");
+        assertNotEquals(ManifestPrimitives.pathIdentityKey("plugin/lib/ß.jar"),
+            ManifestPrimitives.pathIdentityKey("plugin/lib/ss.jar"));
+    }
+
+    private static ObjectNode withSchemaVersion(String literal) throws Exception {
+        ObjectNode root = manifest();
+        root.set("schemaVersion", JSON.readTree(literal));
+        return root;
     }
 
     private static void assertFileCollision(String first, String second) throws Exception {
@@ -113,6 +132,15 @@ class PluginManifestCanonicalAndPrimitiveTest {
 
     private static void assertInvalid(ObjectNode root, String path) throws Exception {
         root.put("packageHash", canonicalHash(root));
+        assertInvalidManifest(root, path);
+    }
+
+    private static void assertHeaderInvalid(ObjectNode root, String path) throws Exception {
+        root.put("packageHash", "0".repeat(64));
+        assertInvalidManifest(root, path);
+    }
+
+    private static void assertInvalidManifest(ObjectNode root, String path) throws Exception {
         DistributionValidationException error = assertThrows(DistributionValidationException.class,
             () -> read(root.toString()));
         assertEquals(path, error.problemPath());
