@@ -24,10 +24,6 @@ final class PluginJarInspector {
         Scan scan = verifiedScan(bytes, path);
         require(scan.descriptors() == 1, "PLUGIN_DESCRIPTOR_COUNT_INVALID", DESCRIPTOR);
         PluginDescriptor descriptor = parse(scan.descriptor());
-        String entrypoint = descriptor.entrypoints().get("plugin");
-        require(descriptor.entrypoints().size() == 1, "PLUGIN_ENTRYPOINT_INVALID", "entrypoints");
-        require(entrypoint != null && scan.classes().contains(entrypoint.replace('.', '/') + ".class"),
-            "PLUGIN_ENTRYPOINT_MISSING", "entrypoints.plugin");
         return new Inspected(descriptor, scan.descriptor().clone());
     }
 
@@ -45,7 +41,6 @@ final class PluginJarInspector {
 
     private static Scan scan(byte[] bytes, String path) throws Exception {
         java.util.ArrayList<String> names = new java.util.ArrayList<>();
-        Set<String> classes = new HashSet<>();
         byte[] descriptor = null;
         int descriptors = 0;
         try (ZipInputStream zip = new ZipInputStream(new ByteArrayInputStream(bytes))) {
@@ -62,11 +57,10 @@ final class PluginJarInspector {
                 else if (name.endsWith("/" + DESCRIPTOR) || forbidden(name)) {
                     fail("PLUGIN_CONTENT_CONTAMINATION", path);
                 }
-                if (name.endsWith(".class")) classes.add(name);
             }
         }
         require(names.size() == new HashSet<>(names).size(), "NESTED_PATH_COLLISION", path);
-        return new Scan(List.copyOf(names), Set.copyOf(classes), descriptor, descriptors);
+        return new Scan(List.copyOf(names), descriptor, descriptors);
     }
 
     private static boolean forbidden(String name) {
@@ -115,5 +109,5 @@ final class PluginJarInspector {
 
     record Inspected(PluginDescriptor descriptor, byte[] descriptorBytes) {}
 
-    private record Scan(List<String> names, Set<String> classes, byte[] descriptor, int descriptors) {}
+    private record Scan(List<String> names, byte[] descriptor, int descriptors) {}
 }
