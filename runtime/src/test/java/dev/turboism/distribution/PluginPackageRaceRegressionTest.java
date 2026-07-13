@@ -7,6 +7,7 @@ import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.concurrent.atomic.AtomicInteger;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 
@@ -70,13 +71,42 @@ class PluginPackageRaceRegressionTest {
 
     @Test void fifoIsRejectedWithoutOpening() throws Exception {
         Path fifo = tempDir.resolve("sample.tplugin");
-        Process process = new ProcessBuilder("mkfifo", fifo.toString()).start();
-        assertEquals(0, process.waitFor());
+        makeFifo(fifo);
         assertTimeoutPreemptively(java.time.Duration.ofSeconds(2), () -> {
             PluginPackageInspector.Rejected rejected = assertInstanceOf(PluginPackageInspector.Rejected.class,
                 new LocalPluginPackageInspector().inspect(fifo));
             assertEquals(DistributionErrors.PACKAGE_PATH_INVALID, rejected.problems().get(0).code());
         });
+    }
+
+    @Test void replacementWithFifoAfterSnapshotNeverReopensMutablePath() throws Exception {
+        Path input = tempDir.resolve("replaced-with-fifo.tplugin");
+        Files.write(input, fixture("snapshot"));
+        AtomicInteger opens = new AtomicInteger();
+        PackageAccess access = new PackageAccess() {
+            @Override public java.io.InputStream open(Path path) throws java.io.IOException {
+                opens.incrementAndGet();
+                return PackageAccess.super.open(path);
+            }
+
+            @Override public void afterInitialHash(Path path) throws java.io.IOException {
+                Files.delete(path);
+                try {
+                    makeFifo(path);
+                } catch (InterruptedException exception) {
+                    Thread.currentThread().interrupt();
+                    throw new java.io.IOException(exception);
+                }
+            }
+        };
+        assertTimeoutPreemptively(java.time.Duration.ofSeconds(2), () ->
+            assertChanged(new LocalPluginPackageInspector(access).inspect(input)));
+        assertEquals(1, opens.get(), "accepted snapshot must be the sole consuming source read");
+    }
+
+    private static void makeFifo(Path path) throws java.io.IOException, InterruptedException {
+        Process process = new ProcessBuilder("mkfifo", path.toString()).start();
+        assertEquals(0, process.waitFor());
     }
 
     private static void assertChanged(PluginPackageInspector.Result result) {
