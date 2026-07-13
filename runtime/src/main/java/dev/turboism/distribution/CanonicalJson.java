@@ -1,7 +1,6 @@
 package dev.turboism.distribution;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.io.ByteArrayOutputStream;
@@ -13,7 +12,6 @@ import java.util.HexFormat;
 import java.util.List;
 
 final class CanonicalJson {
-    private static final ObjectMapper JSON = new ObjectMapper();
     private static final Comparator<String> CODE_POINTS = CanonicalJson::compareCodePoints;
 
     private CanonicalJson() {}
@@ -34,7 +32,7 @@ final class CanonicalJson {
     private static void write(JsonNode value, ByteArrayOutputStream output) throws Exception {
         if (value.isObject()) writeObject(value, output);
         else if (value.isArray()) writeArray(value, output);
-        else if (value.isTextual()) append(JSON.writeValueAsString(value.textValue()), output);
+        else if (value.isTextual()) writeString(value.textValue(), output);
         else if (value.isIntegralNumber()) append(value.bigIntegerValue().toString(), output);
         else if (value.isBoolean()) append(value.booleanValue() ? "true" : "false", output);
         else if (value.isNull()) append("null", output);
@@ -49,7 +47,7 @@ final class CanonicalJson {
         for (int index = 0; index < names.size(); index++) {
             if (index > 0) output.write(',');
             String name = names.get(index);
-            append(JSON.writeValueAsString(name), output);
+            writeString(name, output);
             output.write(':');
             write(value.get(name), output);
         }
@@ -76,6 +74,37 @@ final class CanonicalJson {
             rightIndex += Character.charCount(rightPoint);
         }
         return Integer.compare(left.length() - leftIndex, right.length() - rightIndex);
+    }
+
+    private static void writeString(String value, ByteArrayOutputStream output) {
+        output.write('"');
+        for (int index = 0; index < value.length();) {
+            int point = value.codePointAt(index);
+            if (point == '"' || point == '\\') {
+                output.write('\\');
+                output.write(point);
+            } else if (point <= 0x1f) {
+                writeControlEscape(point, output);
+            } else {
+                append(new String(Character.toChars(point)), output);
+            }
+            index += Character.charCount(point);
+        }
+        output.write('"');
+    }
+
+    private static void writeControlEscape(int point, ByteArrayOutputStream output) {
+        output.write('\\');
+        output.write('u');
+        output.write(hex(point >>> 12));
+        output.write(hex(point >>> 8));
+        output.write(hex(point >>> 4));
+        output.write(hex(point));
+    }
+
+    private static int hex(int value) {
+        int digit = value & 0xf;
+        return digit < 10 ? '0' + digit : 'a' + digit - 10;
     }
 
     private static void append(String value, ByteArrayOutputStream output) {
