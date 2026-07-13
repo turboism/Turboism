@@ -2,6 +2,18 @@ plugins {
     `java-library`
 }
 
+val protocolRecordValidationTest by tasks.registering(Test::class) {
+    group = "verification"
+    description = "Runs the focused Distribution Slice 1A protocol-record validation suite."
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    useJUnitPlatform()
+    filter {
+        includeTestsMatching("dev.turboism.distribution.record.*")
+        isFailOnNoMatchingTests = true
+    }
+}
+
 dependencies {
     implementation(project(":sdk"))
 
