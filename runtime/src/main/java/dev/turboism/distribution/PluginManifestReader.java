@@ -6,9 +6,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.InputStream;
-import java.text.Normalizer;
 import java.util.HashSet;
-import java.util.Locale;
 import java.util.Set;
 
 final class PluginManifestReader {
@@ -28,7 +26,7 @@ final class PluginManifestReader {
         JsonNode root = parse(bytes);
         unknown(root, TOP, "");
         exact(root, "format", "turboism.distribution.plugin-package");
-        integer(root, "schemaVersion", 1);
+        schemaVersion(root, "schemaVersion");
         exact(root, "packageKind", "PLUGIN");
         require(ManifestPrimitives.packageId(root.path("packageId")),
             "MANIFEST_FIELD_INVALID", "packageId");
@@ -55,8 +53,7 @@ final class PluginManifestReader {
     private static void files(JsonNode files) throws Exception {
         require(files.isArray() && !files.isEmpty(), "MANIFEST_FIELD_INVALID", "files");
         String previous = null;
-        Set<String> normalizedPaths = new HashSet<>();
-        Set<String> foldedPaths = new HashSet<>();
+        Set<String> pathIdentityKeys = new HashSet<>();
         String unsafePath = null;
         int main = 0;
         for (int index = 0; index < files.size(); index++) {
@@ -64,9 +61,8 @@ final class PluginManifestReader {
             require(file.isObject(), "MANIFEST_FIELD_INVALID", "files[" + index + "]");
             unknown(file, FILE, "files[" + index + "].");
             String path = fileText(file, "path", index, ".+");
-            String normalizedPath = Normalizer.normalize(path, Normalizer.Form.NFC);
-            require(normalizedPaths.add(normalizedPath)
-                    && foldedPaths.add(normalizedPath.toLowerCase(Locale.ROOT)),
+            String identityKey = ManifestPrimitives.pathIdentityKey(path);
+            require(pathIdentityKeys.add(identityKey),
                 "MANIFEST_FILE_PATH_COLLISION", "files[" + index + "].path");
             if (!ManifestPrimitives.relativePath(path) && unsafePath == null) {
                 unsafePath = "files[" + index + "].path";
@@ -128,9 +124,8 @@ final class PluginManifestReader {
             "MANIFEST_FIELD_INVALID", field);
     }
 
-    private static void integer(JsonNode root, String field, int value) throws Exception {
-        require(root.path(field).isIntegralNumber() && root.path(field).intValue() == value,
-            "MANIFEST_FIELD_INVALID", field);
+    private static void schemaVersion(JsonNode root, String field) throws Exception {
+        require(ManifestPrimitives.schemaVersion(root.path(field)), "MANIFEST_FIELD_INVALID", field);
     }
 
     private static void text(JsonNode root, String field, String regex) throws Exception {
