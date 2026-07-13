@@ -55,7 +55,7 @@ final class ManifestReader {
 
     private static void validateHeader(JsonNode root) throws DistributionValidationException {
         exact(root, "format", "turboism.framework.package");
-        integer(root, "schemaVersion", 1);
+        schemaVersion(root, "schemaVersion");
         exact(root, "kind", "framework");
         exact(root, "id", "dev.turboism.framework");
         text(root, "version");
@@ -82,8 +82,14 @@ final class ManifestReader {
             "MANIFEST_FIELD_INVALID", field + " must be non-empty text", field);
     }
 
+    private static void schemaVersion(JsonNode root, String field) throws DistributionValidationException {
+        require(ManifestPrimitives.schemaVersion(root.path(field)),
+            "MANIFEST_FIELD_INVALID", field + " must be 1", field);
+    }
+
     private static void integer(JsonNode root, String field, int value) throws DistributionValidationException {
-        require(root.path(field).isIntegralNumber() && root.path(field).intValue() == value,
+        JsonNode node = root.path(field);
+        require(node.isIntegralNumber() && java.math.BigInteger.valueOf(value).equals(node.bigIntegerValue()),
             "MANIFEST_FIELD_INVALID", field + " must be " + value, field);
     }
 
