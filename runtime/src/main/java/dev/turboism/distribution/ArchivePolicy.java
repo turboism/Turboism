@@ -35,7 +35,7 @@ final class ArchivePolicy {
             String name = entry.getName();
             safeRelative(name, "ARCHIVE_PATH_UNSAFE", archiveProblemPath(name));
             if (!exact.add(name) || !folded.add(name.toLowerCase(Locale.ROOT))) {
-                throw problem("ARCHIVE_PATH_COLLISION", "Duplicate or case-fold archive path", name);
+                throw problem("ARCHIVE_PATH_COLLISION", "Duplicate or path-identity-colliding archive path", name);
             }
             if (++count > ENTRIES_MAX) throw problem("ARCHIVE_ENTRY_LIMIT", "Too many archive entries", name);
             long size = entry.getSize();

@@ -29,9 +29,30 @@ final class ManifestPrimitives {
         } catch (Exception exception) { return false; }
     }
 
+    static boolean schemaVersion(JsonNode value) {
+        return value.isIntegralNumber() && java.math.BigInteger.ONE.equals(value.bigIntegerValue());
+    }
+
     static boolean byteCount(JsonNode value) {
         return value.isIntegralNumber() && value.bigIntegerValue().signum() >= 0
             && value.bigIntegerValue().bitLength() <= 63;
+    }
+
+    /**
+     * Returns the fixed Turboism v1 path identity key. It normalizes to NFC, then maps each code
+     * point with {@code Character.toLowerCase(Character.toUpperCase(codePoint))} using Java 17
+     * {@link Character} tables. It is deliberately not Unicode Default Case Folding and never
+     * performs multi-code-point expansions such as {@code ß -> ss}.
+     */
+    static String pathIdentityKey(String value) {
+        String normalized = Normalizer.normalize(value, Normalizer.Form.NFC);
+        StringBuilder key = new StringBuilder(normalized.length());
+        for (int index = 0; index < normalized.length();) {
+            int point = normalized.codePointAt(index);
+            key.appendCodePoint(Character.toLowerCase(Character.toUpperCase(point)));
+            index += Character.charCount(point);
+        }
+        return key.toString();
     }
 
     static boolean relativePath(String value) {
