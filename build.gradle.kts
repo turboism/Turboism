@@ -391,13 +391,19 @@ tasks.register<Exec>("checkPluginInspectionContract") {
     commandLine("bash", "scripts/test/test_plugin_inspection_contract.sh")
 }
 
+tasks.register("checkPluginInspectionRuntime") {
+    group = "verification"
+    description = "Runs static plugin inspection gates and the production-backed strict ZIP mutation matrix."
+    dependsOn("checkPluginInspectionContract", ":tests:pluginInspectionMutationTest")
+}
+
 tasks.named("check") {
     dependsOn(
         "checkModuleBoundaries",
         "checkAsmSupplyChainAdmission",
         "checkMappingPipelineClosure",
         "checkMappingReviewWrapperArgs",
-        "checkPluginInspectionContract",
+        "checkPluginInspectionRuntime",
         "validatePluginMeta"
     )
 }

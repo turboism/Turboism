@@ -24,3 +24,15 @@ tasks.test {
     systemProperty("sdkBuildDir", project(":sdk").buildDir.absolutePath)
     systemProperty("demoBuildDir", project(":plugins:demo").buildDir.absolutePath)
 }
+
+tasks.register<Test>("pluginInspectionMutationTest") {
+    group = "verification"
+    description = "Runs the production-backed strict ZIP mutation matrix for plugin inspection."
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    useJUnitPlatform()
+    filter {
+        includeTestsMatching("dev.turboism.tests.distribution.PluginStrictZipMutationIntegrationTest")
+        isFailOnNoMatchingTests = true
+    }
+}
