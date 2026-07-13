@@ -20,17 +20,27 @@ import java.util.zip.ZipInputStream;
 final class PluginJarInspector {
     private static final String DESCRIPTOR = "META-INF/turboism/plugin.json";
 
-    PluginDescriptor inspect(byte[] bytes, String path) throws Exception {
-        List<String> central = NestedZipDirectory.parse(bytes, path);
-        Scan scan = scan(bytes, path);
-        require(central.equals(scan.names()), DistributionErrors.JAR_INVALID, path);
+    Inspected inspect(byte[] bytes, String path) throws Exception {
+        Scan scan = verifiedScan(bytes, path);
         require(scan.descriptors() == 1, "PLUGIN_DESCRIPTOR_COUNT_INVALID", DESCRIPTOR);
         PluginDescriptor descriptor = parse(scan.descriptor());
         String entrypoint = descriptor.entrypoints().get("plugin");
         require(descriptor.entrypoints().size() == 1, "PLUGIN_ENTRYPOINT_INVALID", "entrypoints");
         require(entrypoint != null && scan.classes().contains(entrypoint.replace('.', '/') + ".class"),
             "PLUGIN_ENTRYPOINT_MISSING", "entrypoints.plugin");
-        return descriptor;
+        return new Inspected(descriptor, scan.descriptor().clone());
+    }
+
+    void inspectLibrary(byte[] bytes, String path) throws Exception {
+        Scan scan = verifiedScan(bytes, path);
+        require(scan.descriptors() == 0, "PLUGIN_DESCRIPTOR_COUNT_INVALID", path);
+    }
+
+    private static Scan verifiedScan(byte[] bytes, String path) throws Exception {
+        List<String> central = NestedZipDirectory.parse(bytes, path);
+        Scan scan = scan(bytes, path);
+        require(central.equals(scan.names()), DistributionErrors.JAR_INVALID, path);
+        return scan;
     }
 
     private static Scan scan(byte[] bytes, String path) throws Exception {
@@ -102,6 +112,8 @@ final class PluginJarInspector {
     private static void fail(String code, String path) throws DistributionValidationException {
         throw ArchivePolicy.problem(code, "Invalid plugin JAR content", path);
     }
+
+    record Inspected(PluginDescriptor descriptor, byte[] descriptorBytes) {}
 
     private record Scan(List<String> names, Set<String> classes, byte[] descriptor, int descriptors) {}
 }
