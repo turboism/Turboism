@@ -37,10 +37,10 @@ public final class LocalPluginPackageInspector implements PluginPackageInspector
             snapshot = privateSnapshot();
             RawObservation raw = snapshot(packagePath, snapshot);
             access.afterInitialHash(packagePath);
-            unchanged(packagePath, initial, raw);
+            unchanged(packagePath, initial);
             PluginInstallPlan plan = inspectArchive(snapshot, raw);
             access.afterInspection(packagePath);
-            unchanged(packagePath, initial, raw);
+            unchanged(packagePath, initial);
             return new Accepted(plan);
         } catch (DistributionValidationException exception) {
             return rejected(exception.code(), exception.getMessage(), exception.problemPath());
@@ -104,19 +104,13 @@ public final class LocalPluginPackageInspector implements PluginPackageInspector
         return new RawObservation(HexFormat.of().formatHex(digest.digest()), size);
     }
 
-    private void unchanged(Path path, BasicFileAttributes initial, RawObservation expected) throws Exception {
+    private void unchanged(Path path, BasicFileAttributes initial) throws Exception {
         BasicFileAttributes current = access.attributes(path);
-        require(initial.size() == current.size()
+        require(current.isRegularFile()
+            && initial.size() == current.size()
             && initial.lastModifiedTime().equals(current.lastModifiedTime())
             && Objects.equals(initial.fileKey(), current.fileKey()),
             DistributionErrors.PACKAGE_CHANGED, path.toString());
-        Path verification = privateSnapshot();
-        try {
-            require(expected.equals(snapshot(path, verification)),
-                DistributionErrors.PACKAGE_CHANGED, path.toString());
-        } finally {
-            Files.deleteIfExists(verification);
-        }
     }
 
     private static Path privateSnapshot() throws IOException {
