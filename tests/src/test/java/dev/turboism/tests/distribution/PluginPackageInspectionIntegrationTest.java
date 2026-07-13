@@ -8,6 +8,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -16,6 +17,10 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
 class PluginPackageInspectionIntegrationTest {
     @TempDir Path tempDir;
+
+    @Test void rejectsLegacyPluginPackageContract() throws Exception {
+        assertRejected(PluginPackageFixtures.legacy(), "MANIFEST_UNKNOWN_FIELD");
+    }
 
     @Test void acceptsExactPluginPackageAsReadOnlyPlan() throws Exception {
         byte[] archive = PluginPackageFixtures.valid();
@@ -27,16 +32,38 @@ class PluginPackageInspectionIntegrationTest {
         var plan = accepted.plan();
 
         assertEquals(PackageKind.PLUGIN, plan.packageKind());
-        assertEquals(PluginPackageFixtures.ID, plan.packageIdentity().id());
+        assertEquals(PluginPackageFixtures.ID, plan.packageIdentity().packageId());
         assertEquals(PluginPackageFixtures.VERSION, plan.packageIdentity().version());
-        assertEquals(PluginPackageFixtures.sha256(archive), plan.packageIdentity().sha256());
+        assertEquals(PluginPackageFixtures.sha256(archive), plan.packageIdentity().rawArchiveSha256());
+        assertFalse(plan.packageIdentity().packageHash().equals(plan.packageIdentity().rawArchiveSha256()));
         assertEquals("[0.1.0,0.2.0)", plan.descriptor().turboismApi());
         assertEquals(PluginPackageFixtures.ENTRYPOINT, plan.descriptor().entrypoints().get("plugin"));
-        assertEquals("payload/plugin.jar", plan.files().get(0).archivePath());
-        assertEquals("plugin.jar", plan.files().get(0).installPath());
+        assertEquals("plugin/plugin.jar", plan.files().get(0).archivePath());
+        assertEquals("plugin/plugin.jar", plan.files().get(0).installPath());
         assertEquals("INSPECTION_PREFLIGHT_REVALIDATION_REQUIRED", plan.requirement().name());
         assertArrayEquals(archive, Files.readAllBytes(input));
         assertEquals(1, Files.list(tempDir).count());
+    }
+
+    @Test void acceptsMainAndSortedLibraryInventory() throws Exception {
+        byte[] main = PluginPackageFixtures.jar(
+            PluginPackageFixtures.descriptor(PluginPackageFixtures.ID,
+                PluginPackageFixtures.VERSION, "0.1.0"),
+            PluginPackageFixtures.ENTRYPOINT.replace('.', '/') + ".class", "class");
+        byte[] library = PluginPackageFixtures.jarEntries("example/Support.class", "class");
+        Path input = tempDir.resolve("libraries.tplugin");
+        Files.write(input, PluginPackageFixtures.withLibraries(main, Map.of("support.jar", library)));
+
+        var result = new LocalPluginPackageInspector().inspect(input);
+        if (result instanceof PluginPackageInspector.Rejected rejected) {
+            org.junit.jupiter.api.Assertions.fail(rejected.problems().toString());
+        }
+        var accepted = assertInstanceOf(PluginPackageInspector.Accepted.class, result);
+        assertEquals(2, accepted.plan().files().size());
+        assertEquals("plugin/plugin.jar", accepted.plan().files().get(0).archivePath());
+        assertEquals("PLUGIN_JAR", accepted.plan().files().get(0).role());
+        assertEquals("plugin/lib/support.jar", accepted.plan().files().get(1).archivePath());
+        assertEquals("PLUGIN_LIBRARY", accepted.plan().files().get(1).role());
     }
 
     @Test void rejectsOuterIdentityMismatch() throws Exception {
@@ -44,7 +71,7 @@ class PluginPackageInspectionIntegrationTest {
             PluginPackageFixtures.descriptor(PluginPackageFixtures.ID, "0.2.0", "0.1.0"),
             PluginPackageFixtures.ENTRYPOINT.replace('.', '/') + ".class", "class");
         assertRejected(PluginPackageFixtures.packageWith(jar, PluginPackageFixtures.ID,
-            PluginPackageFixtures.VERSION, ""), "PLUGIN_IDENTITY_MISMATCH");
+            PluginPackageFixtures.VERSION), "PLUGIN_IDENTITY_MISMATCH");
     }
 
     @Test void rejectsInnerIdentityMismatch() throws Exception {
@@ -53,7 +80,7 @@ class PluginPackageInspectionIntegrationTest {
                 PluginPackageFixtures.VERSION, "0.1.0"),
             PluginPackageFixtures.ENTRYPOINT.replace('.', '/') + ".class", "class");
         assertRejected(PluginPackageFixtures.packageWith(jar, PluginPackageFixtures.ID,
-            PluginPackageFixtures.VERSION, ""), "PLUGIN_IDENTITY_MISMATCH");
+            PluginPackageFixtures.VERSION), "PLUGIN_IDENTITY_MISMATCH");
     }
 
     @Test void acceptsOnlyStrictV1ApiForms() throws Exception {
@@ -63,7 +90,7 @@ class PluginPackageInspectionIntegrationTest {
                     PluginPackageFixtures.VERSION, invalid),
                 PluginPackageFixtures.ENTRYPOINT.replace('.', '/') + ".class", "class");
             assertRejected(PluginPackageFixtures.packageWith(jar, PluginPackageFixtures.ID,
-                PluginPackageFixtures.VERSION, ""), "PLUGIN_META_BAD_VERSION_RANGE");
+                PluginPackageFixtures.VERSION), "PLUGIN_META_BAD_VERSION_RANGE");
         }
     }
 
@@ -78,7 +105,7 @@ class PluginPackageInspectionIntegrationTest {
             PluginPackageFixtures.descriptor(PluginPackageFixtures.ID,
                 PluginPackageFixtures.VERSION, "0.1.0"));
         assertRejected(PluginPackageFixtures.packageWith(jar, PluginPackageFixtures.ID,
-            PluginPackageFixtures.VERSION, ""), "PLUGIN_ENTRYPOINT_MISSING");
+            PluginPackageFixtures.VERSION), "PLUGIN_ENTRYPOINT_MISSING");
     }
 
     @Test void rejectsInvalidOuterContract() throws Exception {
@@ -87,7 +114,7 @@ class PluginPackageInspectionIntegrationTest {
                 PluginPackageFixtures.VERSION, "0.1.0"),
             PluginPackageFixtures.ENTRYPOINT.replace('.', '/') + ".class", "class");
         assertRejected(PluginPackageFixtures.packageWith(jar, PluginPackageFixtures.ID,
-            "01.0.0", ""), "MANIFEST_FIELD_INVALID");
+            "01.0.0"), "MANIFEST_FIELD_INVALID");
     }
 
     private void assertRejected(byte[] archive, String code) throws Exception {

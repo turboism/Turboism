@@ -36,7 +36,7 @@ class PluginPackageSecurityIntegrationTest {
             PluginPackageFixtures.ENTRYPOINT.replace('.', '/') + ".class", "class");
         byte[] trailing = java.util.Arrays.copyOf(valid, valid.length + 1);
         assertRejected(PluginPackageFixtures.packageWith(trailing, PluginPackageFixtures.ID,
-            PluginPackageFixtures.VERSION, ""), "ARTIFACT_JAR_INVALID");
+            PluginPackageFixtures.VERSION), "ARTIFACT_JAR_INVALID");
     }
 
     private void assertContamination(String path) throws Exception {
@@ -46,7 +46,7 @@ class PluginPackageSecurityIntegrationTest {
             PluginPackageFixtures.ENTRYPOINT.replace('.', '/') + ".class", "class",
             path, "forbidden");
         assertRejected(PluginPackageFixtures.packageWith(jar, PluginPackageFixtures.ID,
-            PluginPackageFixtures.VERSION, ""), "PLUGIN_CONTENT_CONTAMINATION");
+            PluginPackageFixtures.VERSION), "PLUGIN_CONTENT_CONTAMINATION");
     }
 
     private void assertRejected(byte[] archive, String code) throws Exception {

@@ -7,8 +7,14 @@ import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+
 import java.security.MessageDigest;
 import java.util.HexFormat;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
 import java.util.zip.ZipEntry;
@@ -60,16 +66,30 @@ class PluginPackageRaceRegressionTest {
         }
         byte[] payload = jarBytes.toByteArray();
         String hash = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(payload));
-        String manifest = "{\"format\":\"turboism.plugin.package\",\"schemaVersion\":1,\"kind\":\"plugin\","
-            + "\"id\":\"" + id + "\",\"version\":\"0.1.0\",\"artifacts\":[{\"role\":\"plugin\","
-            + "\"path\":\"payload/plugin.jar\",\"installPath\":\"plugin.jar\",\"sha256\":\"" + hash
-            + "\",\"size\":" + payload.length + "}]}";
+        Map<String, Object> manifest = new LinkedHashMap<>();
+        manifest.put("createdAt", "2026-07-12T18:00:00Z");
+        manifest.put("files", List.of(Map.of("path", "plugin/plugin.jar", "role", "PLUGIN_JAR",
+            "sha256", hash, "size", payload.length)));
+        manifest.put("format", "turboism.distribution.plugin-package");
+        manifest.put("packageId", id);
+        manifest.put("packageKind", "PLUGIN");
+        manifest.put("pluginDescriptorPath", "plugin/plugin.jar!/META-INF/turboism/plugin.json");
+        manifest.put("pluginDescriptorSha256", sha256(descriptor.getBytes(StandardCharsets.UTF_8)));
+        manifest.put("schemaVersion", 1);
+        manifest.put("version", "0.1.0");
+        ObjectMapper canonical = new ObjectMapper().enable(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS);
+        manifest.put("packageHash", sha256(canonical.writeValueAsBytes(manifest)));
+        byte[] manifestBytes = canonical.writeValueAsBytes(manifest);
         ByteArrayOutputStream archive = new ByteArrayOutputStream();
         try (ZipOutputStream zip = new ZipOutputStream(archive)) {
-            add(zip, PluginManifestReader.NAME, manifest.getBytes(StandardCharsets.UTF_8));
-            add(zip, "payload/plugin.jar", payload);
+            add(zip, PluginManifestReader.NAME, manifestBytes);
+            add(zip, "plugin/plugin.jar", payload);
         }
         return archive.toByteArray();
+    }
+
+    private static String sha256(byte[] bytes) throws Exception {
+        return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
     }
 
     private static void add(ZipOutputStream zip, String name, byte[] bytes) throws Exception {
