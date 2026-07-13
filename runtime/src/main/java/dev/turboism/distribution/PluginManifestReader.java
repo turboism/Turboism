@@ -6,6 +6,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.InputStream;
+import java.text.Normalizer;
+import java.util.HashSet;
+import java.util.Locale;
 import java.util.Set;
 
 final class PluginManifestReader {
@@ -52,14 +55,22 @@ final class PluginManifestReader {
     private static void files(JsonNode files) throws Exception {
         require(files.isArray() && !files.isEmpty(), "MANIFEST_FIELD_INVALID", "files");
         String previous = null;
+        Set<String> normalizedPaths = new HashSet<>();
+        Set<String> foldedPaths = new HashSet<>();
+        String unsafePath = null;
         int main = 0;
         for (int index = 0; index < files.size(); index++) {
             JsonNode file = files.get(index);
             require(file.isObject(), "MANIFEST_FIELD_INVALID", "files[" + index + "]");
             unknown(file, FILE, "files[" + index + "].");
             String path = fileText(file, "path", index, ".+");
-            require(ManifestPrimitives.relativePath(path),
-                "ARCHIVE_PATH_UNSAFE", "files[" + index + "].path");
+            String normalizedPath = Normalizer.normalize(path, Normalizer.Form.NFC);
+            require(normalizedPaths.add(normalizedPath)
+                    && foldedPaths.add(normalizedPath.toLowerCase(Locale.ROOT)),
+                "MANIFEST_FILE_PATH_COLLISION", "files[" + index + "].path");
+            if (!ManifestPrimitives.relativePath(path) && unsafePath == null) {
+                unsafePath = "files[" + index + "].path";
+            }
             String orderKey = "plugin/plugin.jar".equals(path) ? "0" : "1" + path;
             require(previous == null || previous.compareTo(orderKey) < 0,
                 "MANIFEST_FILE_ORDER_INVALID", "files");
@@ -73,6 +84,7 @@ final class PluginManifestReader {
             require(isMain || isLibrary, "ARTIFACT_PATH_INVALID", "files[" + index + "].path");
             if (isMain) main++;
         }
+        require(unsafePath == null, "ARCHIVE_PATH_UNSAFE", unsafePath);
         require(main == 1 && "plugin/plugin.jar".equals(files.get(0).path("path").textValue()),
             "ARTIFACT_ROLES_INVALID", "files");
     }

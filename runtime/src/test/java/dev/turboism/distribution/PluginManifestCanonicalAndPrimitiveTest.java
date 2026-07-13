@@ -10,6 +10,7 @@ import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.HexFormat;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -43,11 +44,29 @@ class PluginManifestCanonicalAndPrimitiveTest {
         assertEquals("PACKAGE_HASH_MISMATCH", error.code());
     }
 
+    @Test void canonicalJsonOwnsRequiredStringEscapesForKeysValuesAndArrays() throws Exception {
+        ObjectNode root = JSON.createObjectNode();
+        root.putArray("array").add("\u0002").add("plain/é😀");
+        root.put("key\u0001", "value\u0000\b\t\n\f\r\u001f\"\\/");
+
+        String expected = "{\"array\":[\"\\u0002\",\"plain/é😀\"],\"key\\u0001\":\"value\\u0000\\u0008"
+            + "\\u0009\\u000a\\u000c\\u000d\\u001f\\\"\\\\/\"}";
+
+        assertEquals(expected, new String(CanonicalJson.bytes(root), StandardCharsets.UTF_8));
+    }
+
     @Test void manifestPrimitivesUseExactRecordRules() throws Exception {
         assertValid(manifest().put("packageId", "a.b"));
         assertInvalid(manifest().put("packageId", "ab"), "packageId");
-        assertInvalid(manifest().put("createdAt", "2026-07-12T20:00:00+02:00"), "createdAt");
-        assertInvalid(manifest().put("createdAt", "2026-07-12T18:00:00.000Z"), "createdAt");
+        for (String timestamp : List.of("2026-07-12T18:00:00Z", "2026-07-12T18:00:00.0Z",
+            "2026-07-12T18:00:00.000Z", "2026-07-12T18:00:00.123456789Z",
+            "2024-02-29T00:00:00.000000001Z")) {
+            assertValid(manifest().put("createdAt", timestamp));
+        }
+        for (String timestamp : List.of("2026-07-12T20:00:00+02:00", "2026-02-29T18:00:00Z",
+            "2026-07-12T18:00:00.1234567890Z")) {
+            assertInvalid(manifest().put("createdAt", timestamp), "createdAt");
+        }
         ObjectNode unicodePath = manifest();
         unicodePath.withArray("files").removeAll();
         unicodePath.withArray("files").add(file("plugin/plugin.jar", BigInteger.valueOf(4096)));
@@ -57,6 +76,22 @@ class PluginManifestCanonicalAndPrimitiveTest {
         assertInvalid(withLibraryPath("plugin/lib/../escape.jar"), "files[1].path");
         assertInvalid(withSize(new BigInteger("9223372036854775808")), "files[0].size");
         assertInvalid(withSize(new BigInteger("-1")), "files[0].size");
+    }
+
+    @Test void manifestFilesRejectNormalizationAndCaseFoldCollisions() throws Exception {
+        assertFileCollision("plugin/lib/e\u0301.jar", "plugin/lib/é.jar");
+        assertFileCollision("plugin/lib/Å.jar", "plugin/lib/å.jar");
+    }
+
+    private static void assertFileCollision(String first, String second) throws Exception {
+        ObjectNode root = manifest();
+        root.withArray("files").add(file(first, BigInteger.ZERO));
+        root.withArray("files").add(file(second, BigInteger.ZERO));
+        root.put("packageHash", canonicalHash(root));
+        DistributionValidationException error = assertThrows(DistributionValidationException.class,
+            () -> read(root.toString()));
+        assertEquals("MANIFEST_FILE_PATH_COLLISION", error.code());
+        assertEquals("files[2].path", error.problemPath());
     }
 
     private static ObjectNode withLibraryPath(String path) {
