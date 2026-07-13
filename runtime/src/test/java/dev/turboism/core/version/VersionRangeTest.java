@@ -42,6 +42,15 @@ class VersionRangeTest {
     }
 
     @Test
+    void acceptsIntComponentBoundariesAndRejectsOverflow() {
+        String maximum = "2147483647.2147483647.2147483647";
+        assertEquals(maximum, VersionRange.parse(maximum).toString());
+        assertEquals("[0.0.0," + maximum + ")", VersionRange.parse("[0.0.0," + maximum + ")").toString());
+        assertThrows(IllegalArgumentException.class, () -> VersionRange.parse("2147483648.0.0"));
+        assertThrows(IllegalArgumentException.class, () -> VersionRange.parse("[0.0.0,0.0.2147483648)"));
+    }
+
+    @Test
     void pluginMetadataRequiresExactlyOneLexicalPluginEntrypoint() throws Exception {
         String base = "{\"format\":\"turboism.plugin.meta\",\"schemaVersion\":1,\"id\":\"a.b\","
             + "\"name\":\"A\",\"version\":\"1.0.0\",\"turboismApi\":\"1.0.0\",";
