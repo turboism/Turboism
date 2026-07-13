@@ -78,7 +78,7 @@ final class ProtocolRecordParser {
             () -> exactText(root, "format", "turboism.distribution.protocol"),
             () -> exactInteger(root, "schemaVersion", 1),
             () -> identifier(root, "rootId"),
-            () -> text(root, "rootPath", value -> !value.isEmpty(), "PROTOCOL_ROOT_PATH_INVALID"),
+            () -> text(root, "rootPath", PortableRootPath::isValid, "PROTOCOL_ROOT_PATH_INVALID"),
             () -> exactInteger(root, "protocolVersion", 1),
             () -> exactInteger(root, "javaMajor", 17),
             () -> timestamp(root, "initializedAt"),
