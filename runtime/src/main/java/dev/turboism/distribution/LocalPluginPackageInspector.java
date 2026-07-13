@@ -1,10 +1,10 @@
 package dev.turboism.distribution;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import dev.turboism.sdk.plugin.PluginDescriptor;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
@@ -13,10 +13,11 @@ import java.security.MessageDigest;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Objects;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipFile;
 
 public final class LocalPluginPackageInspector implements PluginPackageInspector {
+    private static final StrictZipArchive.Limits LIMITS = new StrictZipArchive.Limits(
+        PluginArchiveLimits.RAW_MAX, PluginArchiveLimits.ENTRY_MAX, PluginArchiveLimits.TOTAL_MAX,
+        PluginArchiveLimits.ENTRY_COUNT_MAX, PluginArchiveLimits.RATIO_MAX);
     private final PackageAccess access;
 
     public LocalPluginPackageInspector() { this(PackageAccess.FILE_SYSTEM); }
@@ -31,15 +32,15 @@ public final class LocalPluginPackageInspector implements PluginPackageInspector
         try {
             BasicFileAttributes initial = access.attributes(packagePath);
             ArchivePolicy.validatePackagePath(packagePath, initial);
-            if (initial.size() > ArchivePolicy.PACKAGE_MAX) fail("PACKAGE_TOO_LARGE", packagePath.toString());
-            byte[] bytes = readBounded(packagePath);
-            String expectedHash = sha256(bytes);
+            require(initial.size() <= PluginArchiveLimits.RAW_MAX,
+                "PACKAGE_TOO_LARGE", packagePath.toString());
+            snapshot = privateSnapshot();
+            RawObservation raw = snapshot(packagePath, snapshot);
             access.afterInitialHash(packagePath);
-            unchanged(packagePath, initial, expectedHash);
-            snapshot = createPrivateSnapshot(bytes);
-            PluginInstallPlan plan = inspectArchive(snapshot, bytes);
+            unchanged(packagePath, initial, raw);
+            PluginInstallPlan plan = inspectArchive(snapshot, raw);
             access.afterInspection(packagePath);
-            unchanged(packagePath, initial, expectedHash);
+            unchanged(packagePath, initial, raw);
             return new Accepted(plan);
         } catch (DistributionValidationException exception) {
             return rejected(exception.code(), exception.getMessage(), exception.problemPath());
@@ -52,106 +53,94 @@ public final class LocalPluginPackageInspector implements PluginPackageInspector
         }
     }
 
-    private PluginInstallPlan inspectArchive(Path snapshot, byte[] packageBytes) throws Exception {
-        try (ZipFile zip = new ZipFile(snapshot.toFile())) {
-            ArchivePolicy.validateArchive(zip);
-            JsonNode manifest = manifest(zip);
-            PluginArtifactInspector.Inspected artifacts = new PluginArtifactInspector(zip).inspect(manifest);
-            PluginJarInspector jars = new PluginJarInspector();
-            PluginJarInspector.Inspected plugin = jars.inspect(artifacts.mainJar(), "plugin/plugin.jar");
-            inspectLibraries(artifacts, zip, jars);
-            verifyManifest(manifest, plugin);
-            PluginPackageIdentity identity = identity(manifest, packageBytes);
-            return new PluginInstallPlan(identity, plugin.descriptor(), artifacts.files(),
-                PluginInstallPlan.Requirement.INSPECTION_PREFLIGHT_REVALIDATION_REQUIRED);
-        }
-    }
-
-    private static void inspectLibraries(PluginArtifactInspector.Inspected artifacts,
-                                         ZipFile zip, PluginJarInspector jars) throws Exception {
-        for (PlannedFile file : artifacts.files()) {
-            if (!"PLUGIN_LIBRARY".equals(file.role())) continue;
-            try (InputStream input = zip.getInputStream(zip.getEntry(file.archivePath()))) {
-                jars.inspectLibrary(input.readAllBytes(), file.archivePath());
+    private PluginInstallPlan inspectArchive(Path snapshot, RawObservation raw) throws Exception {
+        try (StrictZipArchive archive = StrictZipArchive.open(snapshot, LIMITS)) {
+            StrictZipArchive.Entry manifestEntry = archive.entry(PluginManifestReader.NAME);
+            require(manifestEntry != null && !manifestEntry.directory(),
+                "MANIFEST_MISSING", PluginManifestReader.NAME);
+            JsonNode manifest;
+            try (InputStream input = archive.stream(manifestEntry)) {
+                manifest = PluginManifestReader.read(input);
             }
+            archive.consume(manifestEntry, null);
+            PluginArtifactInspector.Inspected artifacts = new PluginArtifactInspector(archive).inspect(manifest);
+            PluginJarInspector.Inspected plugin = artifacts.plugin();
+            verifyManifest(manifest, plugin);
+            PluginPackageIdentity identity = identity(manifest, raw);
+            return new PluginInstallPlan(identity, plugin.descriptor(), plugin.descriptorSha256(),
+                artifacts.files(), PluginInstallPlan.Requirement.INSPECTION_PREFLIGHT_REVALIDATION_REQUIRED);
         }
     }
 
     private static void verifyManifest(JsonNode manifest, PluginJarInspector.Inspected plugin) throws Exception {
-        PluginDescriptor descriptor = plugin.descriptor();
+        PluginDescriptorSnapshot descriptor = plugin.descriptor();
         require(manifest.path("packageId").textValue().equals(descriptor.id())
             && manifest.path("version").textValue().equals(descriptor.version()),
             "PLUGIN_IDENTITY_MISMATCH", "packageId/version");
-        require(manifest.path("pluginDescriptorSha256").textValue().equals(sha256(plugin.descriptorBytes())),
+        require(manifest.path("pluginDescriptorSha256").textValue().equals(plugin.descriptorSha256()),
             "PLUGIN_DESCRIPTOR_HASH_MISMATCH", "pluginDescriptorSha256");
         require(strictApi(descriptor.turboismApi()), "PLUGIN_META_BAD_VERSION_RANGE", "turboismApi");
     }
 
-    private static PluginPackageIdentity identity(JsonNode manifest, byte[] packageBytes) throws Exception {
+    private static PluginPackageIdentity identity(JsonNode manifest, RawObservation raw) {
         return new PluginPackageIdentity(manifest.path("packageHash").textValue(),
             manifest.path("packageId").textValue(), manifest.path("version").textValue(),
-            sha256(packageBytes), packageBytes.length);
+            raw.sha256(), raw.size());
     }
 
-    private byte[] readBounded(Path path) throws Exception {
-        try (InputStream input = access.open(path)) {
-            byte[] bytes = input.readNBytes((int) ArchivePolicy.PACKAGE_MAX + 1);
-            if (bytes.length > ArchivePolicy.PACKAGE_MAX) fail("PACKAGE_TOO_LARGE", path.toString());
-            return bytes;
+    private RawObservation snapshot(Path source, Path target) throws Exception {
+        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        long size = 0;
+        byte[] buffer = new byte[64 * 1024];
+        try (InputStream input = access.open(source); OutputStream output = Files.newOutputStream(target)) {
+            for (int read; (read = input.read(buffer)) >= 0;) {
+                if (read == 0) continue;
+                require(size <= PluginArchiveLimits.RAW_MAX - read, "PACKAGE_TOO_LARGE", source.toString());
+                size += read;
+                digest.update(buffer, 0, read);
+                output.write(buffer, 0, read);
+            }
         }
+        return new RawObservation(HexFormat.of().formatHex(digest.digest()), size);
     }
 
-    private void unchanged(Path path, BasicFileAttributes initial, String expectedHash) throws Exception {
+    private void unchanged(Path path, BasicFileAttributes initial, RawObservation expected) throws Exception {
         BasicFileAttributes current = access.attributes(path);
         require(initial.size() == current.size()
             && initial.lastModifiedTime().equals(current.lastModifiedTime())
-            && Objects.equals(initial.fileKey(), current.fileKey())
-            && expectedHash.equals(sha256(readBounded(path))),
+            && Objects.equals(initial.fileKey(), current.fileKey()),
             DistributionErrors.PACKAGE_CHANGED, path.toString());
+        Path verification = privateSnapshot();
+        try {
+            require(expected.equals(snapshot(path, verification)),
+                DistributionErrors.PACKAGE_CHANGED, path.toString());
+        } finally {
+            Files.deleteIfExists(verification);
+        }
     }
 
-    private static Path createPrivateSnapshot(byte[] bytes) throws IOException {
-        Path path;
+    private static Path privateSnapshot() throws IOException {
         try {
-            path = Files.createTempFile("turboism-plugin-inspection-", ".zip",
+            return Files.createTempFile("turboism-plugin-inspection-", ".zip",
                 PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------")));
         } catch (UnsupportedOperationException exception) {
-            path = Files.createTempFile("turboism-plugin-inspection-", ".zip");
+            return Files.createTempFile("turboism-plugin-inspection-", ".zip");
         }
-        boolean complete = false;
-        try {
-            Files.write(path, bytes);
-            complete = true;
-            return path;
-        } finally {
-            if (!complete) Files.deleteIfExists(path);
-        }
-    }
-
-    private static JsonNode manifest(ZipFile zip) throws Exception {
-        ZipEntry entry = zip.getEntry(PluginManifestReader.NAME);
-        require(entry != null && !entry.isDirectory(), "MANIFEST_MISSING", PluginManifestReader.NAME);
-        try (InputStream input = zip.getInputStream(entry)) { return PluginManifestReader.read(input); }
     }
 
     private static boolean strictApi(String value) {
-        String v = "(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)";
-        return value != null && (value.matches(v) || value.matches("\\[" + v + "," + v + "\\)"));
-    }
-
-    private static String sha256(byte[] bytes) throws Exception {
-        return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
+        String version = "(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)";
+        return value != null && (value.matches(version)
+            || value.matches("\\[" + version + "," + version + "\\)"));
     }
 
     private static void require(boolean valid, String code, String path) throws Exception {
-        if (!valid) fail(code, path);
-    }
-
-    private static void fail(String code, String path) throws DistributionValidationException {
-        throw ArchivePolicy.problem(code, "Invalid plugin package", path);
+        if (!valid) throw ArchivePolicy.problem(code, "Invalid plugin package", path);
     }
 
     private static Rejected rejected(String code, String message, String path) {
         return new Rejected(List.of(new DistributionProblem(code, message, path)));
     }
+
+    private record RawObservation(String sha256, long size) {}
 }
