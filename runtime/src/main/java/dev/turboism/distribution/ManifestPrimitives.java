@@ -5,12 +5,11 @@ import com.fasterxml.jackson.databind.JsonNode;
 import java.nio.charset.StandardCharsets;
 import java.text.Normalizer;
 import java.time.Instant;
-import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 
 final class ManifestPrimitives {
     private static final String PACKAGE_ID = "[a-z][a-z0-9]*(?:\\.[a-z][a-z0-9-]*)+";
-    private static final String TIMESTAMP = "[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]+)?Z";
+    private static final String TIMESTAMP = "[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,9})?Z";
 
     private ManifestPrimitives() {}
 
@@ -25,8 +24,8 @@ final class ManifestPrimitives {
     static boolean timestamp(JsonNode value) {
         if (!value.isTextual() || !value.textValue().matches(TIMESTAMP)) return false;
         try {
-            Instant instant = Instant.parse(value.textValue());
-            return DateTimeFormatter.ISO_INSTANT.format(instant).equals(value.textValue());
+            Instant.parse(value.textValue());
+            return true;
         } catch (Exception exception) { return false; }
     }
 
