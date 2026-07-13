@@ -90,10 +90,7 @@ public final class PluginMetaValidator extends AbstractJsonValidator {
         }
 
         if (node.has("entrypoints") && node.get("entrypoints").isObject()) {
-            JsonNode entrypoints = node.get("entrypoints");
-            if (!entrypoints.has("plugin") || entrypoints.get("plugin").isNull() || !entrypoints.get("plugin").isTextual()) {
-                errors.add(error("PLUGIN_META_MISSING_ENTRYPOINT", "entrypoints.plugin is required", "entrypoints.plugin", source));
-            }
+            validateEntrypoint(node.get("entrypoints"), errors, source);
         }
 
         if (node.has("environment") && node.get("environment").isObject()) {
@@ -113,6 +110,36 @@ public final class PluginMetaValidator extends AbstractJsonValidator {
         }
 
         return errors;
+    }
+
+    private void validateEntrypoint(JsonNode entrypoints, List<SchemaValidationError> errors, String source) {
+        if (entrypoints.size() != 1 || !entrypoints.has("plugin")) {
+            errors.add(error("PLUGIN_META_MISSING_ENTRYPOINT", "entrypoints must contain exactly plugin",
+                "entrypoints", source));
+            return;
+        }
+        JsonNode plugin = entrypoints.get("plugin");
+        if (!plugin.isTextual() || !isJavaBinaryName(plugin.textValue())) {
+            errors.add(error("PLUGIN_META_BAD_ENTRYPOINT", "entrypoints.plugin must be a Java binary name",
+                "entrypoints.plugin", source));
+        }
+    }
+
+    private boolean isJavaBinaryName(String value) {
+        if (value == null || value.isEmpty()) return false;
+        for (String part : value.split("\\.", -1)) {
+            if (part.isEmpty()) return false;
+            int offset = 0;
+            int point = part.codePointAt(offset);
+            if (!Character.isJavaIdentifierStart(point)) return false;
+            offset += Character.charCount(point);
+            while (offset < part.length()) {
+                point = part.codePointAt(offset);
+                if (!Character.isJavaIdentifierPart(point)) return false;
+                offset += Character.charCount(point);
+            }
+        }
+        return true;
     }
 
     private void validateDependencies(JsonNode node, List<SchemaValidationError> errors, String source) {

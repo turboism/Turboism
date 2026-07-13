@@ -32,7 +32,7 @@ public final class VersionRangeValidator implements JsonSchemaValidator {
             errors.add(error("VERSION_RANGE_EMPTY", "range must be a non-empty string", "range", source));
             return errors;
         }
-        String range = rangeNode.asText().trim();
+        String range = rangeNode.asText();
         if (range.equals("latest") || range.equals("*") || range.startsWith("^") || range.startsWith("~") || range.startsWith(">=") || range.startsWith(">") || range.startsWith("<=") || range.endsWith("]")) {
             errors.add(error("VERSION_RANGE_UNSUPPORTED", "Version range syntax is not supported in v1: " + range, "range", source));
             return errors;
@@ -41,7 +41,9 @@ public final class VersionRangeValidator implements JsonSchemaValidator {
             VersionRange.parse(range);
         } catch (IllegalArgumentException e) {
             String msg = e.getMessage();
-            if (msg != null && msg.contains("interval")) {
+            if (msg != null && msg.contains("inverted")) {
+                errors.add(error("VERSION_RANGE_INVERTED", msg, "range", source));
+            } else if (msg != null && msg.contains("interval")) {
                 errors.add(error("VERSION_RANGE_BAD_INTERVAL", msg, "range", source));
             } else if (msg != null && msg.contains("version")) {
                 errors.add(error("VERSION_RANGE_BAD_VERSION", msg, "range", source));
