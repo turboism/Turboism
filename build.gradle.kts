@@ -384,12 +384,20 @@ tasks.register<Exec>("checkMappingReviewWrapperArgs") {
     commandLine("bash", "scripts/test/test_mapping_review_wrapper_args.sh")
 }
 
+tasks.register<Exec>("checkPluginInspectionContract") {
+    group = "verification"
+    description = "Verifies the strict plugin inspection schema, fixtures, streaming, and evidence boundaries."
+    workingDir(rootDir)
+    commandLine("bash", "scripts/test/test_plugin_inspection_contract.sh")
+}
+
 tasks.named("check") {
     dependsOn(
         "checkModuleBoundaries",
         "checkAsmSupplyChainAdmission",
         "checkMappingPipelineClosure",
         "checkMappingReviewWrapperArgs",
+        "checkPluginInspectionContract",
         "validatePluginMeta"
     )
 }
