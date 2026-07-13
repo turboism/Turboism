@@ -19,7 +19,7 @@ class ProtocolRootAndCapabilitiesTest {
         """;
 
     @Test void acceptsPortableAbsoluteRootForms() {
-        for (String path : Set.of("/", "/srv/turboism", "/é/模型", "C:/Turboism", "Z:/data/root")) {
+        for (String path : Set.of("/", "/srv/turboism", "/é/模型", "C:/", "C:/Turboism", "Z:/data/root")) {
             assertTrue(parse(withRoot(path)).isValid(), path);
         }
     }

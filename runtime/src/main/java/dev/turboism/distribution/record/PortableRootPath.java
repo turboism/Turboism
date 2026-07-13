@@ -15,7 +15,8 @@ final class PortableRootPath {
     static boolean isValid(String value) {
         if (value.equals("/")) return true;
         int start = prefixLength(value);
-        if (start < 0 || start == value.length()) return false;
+        if (start < 0) return false;
+        if (start == value.length()) return start == 3;
         if (value.indexOf('\\') >= 0 || value.indexOf("//", start) >= 0) return false;
         return validSegments(value.substring(start));
     }
