@@ -149,7 +149,10 @@ final class StrictZipParser {
             "ARCHIVE_LOCAL_CENTRAL_MISMATCH", entry.name());
         long dataEnd = expected + 30L + nameLength + extraLength + entry.compressed();
         if ((flags & DATA_DESCRIPTOR) == 0) validateFixedLocal(header, dataEnd, next, entry);
-        else validateDescriptor(channel, dataEnd, next, entry);
+        else {
+            validateDescriptorLocal(header, entry);
+            validateDescriptor(channel, dataEnd, next, entry);
+        }
     }
 
     private static void validateFixedLocal(byte[] header, long dataEnd, long next,
@@ -157,6 +160,17 @@ final class StrictZipParser {
         valid(uint(header, 14) == entry.crc() && uint(header, 18) == entry.compressed()
             && uint(header, 22) == entry.expanded() && dataEnd == next,
             "ARCHIVE_LOCAL_CENTRAL_MISMATCH", entry.name());
+    }
+
+    private static void validateDescriptorLocal(byte[] header, StrictZipArchive.Entry entry)
+            throws Exception {
+        long crc = uint(header, 14);
+        long compressed = uint(header, 18);
+        long expanded = uint(header, 22);
+        boolean zero = crc == 0 && compressed == 0 && expanded == 0;
+        boolean exact = crc == entry.crc() && compressed == entry.compressed()
+            && expanded == entry.expanded();
+        valid(zero || exact, "ARCHIVE_LOCAL_CENTRAL_MISMATCH", entry.name());
     }
 
     private static void validateDescriptor(FileChannel channel, long at, long next,
