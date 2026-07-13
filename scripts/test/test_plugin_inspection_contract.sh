@@ -14,7 +14,12 @@ PRODUCTION=(
   runtime/src/main/java/dev/turboism/distribution/PluginJarInspector.java
   runtime/src/main/java/dev/turboism/distribution/PluginPathPolicy.java
   runtime/src/main/java/dev/turboism/distribution/StrictZipArchive.java
+  runtime/src/main/java/dev/turboism/distribution/StrictZipParser.java
+  runtime/src/main/java/dev/turboism/distribution/StrictZipSupport.java
 )
+MUTATION_TEST="tests/src/test/java/dev/turboism/tests/distribution/PluginStrictZipMutationIntegrationTest.java"
+TEST_BUILD="tests/build.gradle.kts"
+ROOT_BUILD="build.gradle.kts"
 
 fail() { printf 'plugin inspection contract: %s\n' "$*" >&2; exit 1; }
 require_text() { grep -Fq "$2" "$1" || fail "$1 missing: $2"; }
@@ -26,7 +31,9 @@ require_text "$SCHEMA" '10,000 entries per ZIP scope'
 require_text "$SCHEMA" '512 MiB per regular file'
 require_text "$SCHEMA" 'compression ratio 100:1'
 require_text "$SCHEMA" 'Scope-qualified contamination deny table'
-require_text "$SCHEMA" 'Source revalidation is best effort'
+require_text "$SCHEMA" 'Source revalidation is a best-effort, non-consuming `NOFOLLOW` observation'
+require_text "$SCHEMA" 'revalidation never reopens the mutable pathname to recompute a digest'
+require_text "$SCHEMA" 'Lifecycle preflight revalidation remains mandatory'
 require_text "$SCHEMA" 'deep immutable'
 
 [[ -f "$FIXTURES/valid/minimal.json" ]] || fail "missing persistent valid fixture"
@@ -52,5 +59,13 @@ grep -Fq 'PluginArchiveLimits.RAW_MAX' runtime/src/main/java/dev/turboism/distri
   || fail "plugin raw limit is not wired"
 grep -Fq 'PluginArchiveLimits.RATIO_MAX' runtime/src/main/java/dev/turboism/distribution/LocalPluginPackageInspector.java \
   || fail "plugin ratio limit is not wired"
+
+[[ -f "$MUTATION_TEST" ]] || fail "missing production-backed strict ZIP mutation test"
+require_text "$MUTATION_TEST" 'enforcesDescriptorLocalFieldClosureInEveryZipScope'
+require_text "$TEST_BUILD" 'tasks.register<Test>("pluginInspectionMutationTest")'
+require_text "$TEST_BUILD" 'PluginStrictZipMutationIntegrationTest'
+require_text "$ROOT_BUILD" 'tasks.register("checkPluginInspectionRuntime")'
+require_text "$ROOT_BUILD" 'dependsOn("checkPluginInspectionContract", ":tests:pluginInspectionMutationTest")'
+require_text "$ROOT_BUILD" '"checkPluginInspectionRuntime"'
 
 printf 'plugin inspection contract: PASS\n'
