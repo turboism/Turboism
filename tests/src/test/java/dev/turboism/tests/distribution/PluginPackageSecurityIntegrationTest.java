@@ -14,15 +14,30 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 class PluginPackageSecurityIntegrationTest {
     @TempDir Path tempDir;
 
-    @Test void rejectsRuntimeSdkTestsScriptsHostNestedNativeAndMultiRelease() throws Exception {
+    @Test void rejectsExactSchemaDrivenContaminationInventory() throws Exception {
         String[] forbidden = {
             "dev/turboism/core/Manager.class", "dev/turboism/internal/Secret.class",
-            "dev/turboism/sdk/Plugin.class", "dev/turboism/test/Fake.class",
-            "tests/fixture.txt", "scripts/run.txt", "install.sh",
+            "dev/turboism/sample/internal/Secret.class", "dev/turboism/sdk/Plugin.class",
+            "dev/turboism/test/Fake.class", "dev/turboism/testframework/Fake.class",
+            "testframework/fixture.txt", "install.sh", "scripts/setup.ps1",
             "com/live2d/Cubism.class", "lib/nested.jar", "native/plugin.so",
             "META-INF/versions/17/Versioned.class"
         };
         for (String path : forbidden) assertContamination(path);
+    }
+
+    @Test void allowsNamesOutsideTheExactDenyTable() throws Exception {
+        for (String path : new String[]{"tests/fixture.txt", "scripts/run.txt",
+                "docs/cubism-notes.txt", "example/WidgetTest.class"}) {
+            byte[] jar = PluginPackageFixtures.jar(
+                PluginPackageFixtures.descriptor(PluginPackageFixtures.ID,
+                    PluginPackageFixtures.VERSION, "0.1.0"), path, "allowed");
+            Path input = tempDir.resolve(Integer.toHexString(path.hashCode()) + ".tplugin");
+            Files.write(input, PluginPackageFixtures.packageWith(jar,
+                PluginPackageFixtures.ID, PluginPackageFixtures.VERSION));
+            assertInstanceOf(PluginPackageInspector.Accepted.class,
+                new LocalPluginPackageInspector().inspect(input));
+        }
     }
 
     @Test void rejectsOtherPluginMetadata() throws Exception {
