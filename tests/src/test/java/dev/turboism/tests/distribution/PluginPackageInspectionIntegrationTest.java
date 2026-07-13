@@ -100,12 +100,22 @@ class PluginPackageInspectionIntegrationTest {
                 java.lang.reflect.Modifier.isPublic(constructor.getModifiers())));
     }
 
-    @Test void rejectsMissingEntrypointClass() throws Exception {
+    @Test void acceptsLexicalEntrypointWithoutClassOrLocationCheck() throws Exception {
         byte[] jar = PluginPackageFixtures.jar(
             PluginPackageFixtures.descriptor(PluginPackageFixtures.ID,
                 PluginPackageFixtures.VERSION, "0.1.0"));
+        Path input = tempDir.resolve("lexical-entrypoint.tplugin");
+        Files.write(input, PluginPackageFixtures.packageWith(jar, PluginPackageFixtures.ID,
+            PluginPackageFixtures.VERSION));
+        assertInstanceOf(PluginPackageInspector.Accepted.class,
+            new LocalPluginPackageInspector().inspect(input));
+    }
+
+    @Test void rejectsNonJavaBinaryEntrypointName() throws Exception {
+        byte[] jar = PluginPackageFixtures.jar(PluginPackageFixtures.descriptorWithEntrypoint(
+            PluginPackageFixtures.ID, PluginPackageFixtures.VERSION, "0.1.0", "dev.sample.bad-name"));
         assertRejected(PluginPackageFixtures.packageWith(jar, PluginPackageFixtures.ID,
-            PluginPackageFixtures.VERSION), "PLUGIN_ENTRYPOINT_MISSING");
+            PluginPackageFixtures.VERSION), "PLUGIN_META_BAD_ENTRYPOINT");
     }
 
     @Test void rejectsInvalidOuterContract() throws Exception {

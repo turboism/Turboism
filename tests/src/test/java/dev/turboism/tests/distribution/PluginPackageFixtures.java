@@ -89,10 +89,18 @@ final class PluginPackageFixtures {
         return descriptor(id, version, api, "");
     }
 
+    static String descriptorWithEntrypoint(String id, String version, String api, String entrypoint) {
+        return descriptor(id, version, api, entrypoint, "");
+    }
+
     static String descriptor(String id, String version, String api, String extra) {
+        return descriptor(id, version, api, ENTRYPOINT, extra);
+    }
+
+    private static String descriptor(String id, String version, String api, String entrypoint, String extra) {
         return "{\"format\":\"turboism.plugin.meta\",\"schemaVersion\":1,\"id\":\"" + id
             + "\",\"name\":\"Sample\",\"version\":\"" + version + "\",\"entrypoints\":{\"plugin\":\""
-            + ENTRYPOINT + "\"},\"turboismApi\":\"" + api + "\"" + extra + "}";
+            + entrypoint + "\"},\"turboismApi\":\"" + api + "\"" + extra + "}";
     }
 
     static String sha256(byte[] bytes) throws Exception {

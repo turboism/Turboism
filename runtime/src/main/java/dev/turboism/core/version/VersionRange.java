@@ -1,62 +1,47 @@
 package dev.turboism.core.version;
 
 import java.util.Objects;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
-/**
- * v1 version range. Supports exact version or half-open interval [a,b).
- */
+/** v1 version range: exact version or bounded half-open interval {@code [a,b)}. */
 public final class VersionRange {
+    private static final String VERSION = "(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)";
+    private static final Pattern EXACT = Pattern.compile(VERSION);
+    private static final Pattern INTERVAL = Pattern.compile("\\[(" + VERSION + "),(" + VERSION + ")\\)");
 
     private final PluginVersion lower;
-    private final boolean lowerInclusive;
     private final PluginVersion upper;
-    private final boolean upperInclusive;
+    private final boolean exact;
 
-    private VersionRange(PluginVersion lower, boolean lowerInclusive, PluginVersion upper, boolean upperInclusive) {
+    private VersionRange(PluginVersion lower, PluginVersion upper, boolean exact) {
         this.lower = lower;
-        this.lowerInclusive = lowerInclusive;
         this.upper = upper;
-        this.upperInclusive = upperInclusive;
+        this.exact = exact;
     }
 
     public static VersionRange parse(String value) {
-        if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException("version range must not be empty");
+        if (value == null || value.isEmpty()) throw new IllegalArgumentException("version range must not be empty");
+        if (EXACT.matcher(value).matches()) {
+            PluginVersion version = PluginVersion.parse(value);
+            return new VersionRange(version, version, true);
         }
-        value = value.trim();
-        if (value.startsWith("[") || value.startsWith("(")) {
-            int comma = value.indexOf(',');
-            if (comma < 0) {
-                throw new IllegalArgumentException("interval range must contain a comma: " + value);
-            }
-            String left = value.substring(1, comma).trim();
-            String right = value.substring(comma + 1, value.length() - 1).trim();
-            boolean lowerInc = value.startsWith("[");
-            boolean upperInc = value.endsWith("]");
-            PluginVersion lower = PluginVersion.parse(left);
-            PluginVersion upper = PluginVersion.parse(right);
-            return new VersionRange(lower, lowerInc, upper, upperInc);
-        }
-        PluginVersion exact = PluginVersion.parse(value);
-        return new VersionRange(exact, true, exact, true);
+        Matcher interval = INTERVAL.matcher(value);
+        if (!interval.matches()) throw new IllegalArgumentException("unsupported version range: " + value);
+        PluginVersion lower = PluginVersion.parse(interval.group(1));
+        PluginVersion upper = PluginVersion.parse(interval.group(2));
+        if (lower.compareTo(upper) >= 0) throw new IllegalArgumentException("version range inverted or empty");
+        return new VersionRange(lower, upper, false);
     }
 
     public boolean contains(PluginVersion version) {
         Objects.requireNonNull(version);
-        int lowerCmp = version.compareTo(lower);
-        if (lowerCmp < 0) return false;
-        if (lowerCmp == 0 && !lowerInclusive) return false;
-        if (upper == null) return true;
-        int upperCmp = version.compareTo(upper);
-        if (upperCmp > 0) return false;
-        return upperCmp != 0 || upperInclusive;
+        if (exact) return lower.equals(version);
+        return version.compareTo(lower) >= 0 && version.compareTo(upper) < 0;
     }
 
     @Override
     public String toString() {
-        if (lower.equals(upper) && lowerInclusive && upperInclusive) {
-            return lower.toString();
-        }
-        return (lowerInclusive ? "[" : "(") + lower + "," + upper + (upperInclusive ? "]" : ")");
+        return exact ? lower.toString() : "[" + lower + "," + upper + ")";
     }
 }
