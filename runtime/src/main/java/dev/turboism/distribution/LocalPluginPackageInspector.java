@@ -56,17 +56,41 @@ public final class LocalPluginPackageInspector implements PluginPackageInspector
         try (ZipFile zip = new ZipFile(snapshot.toFile())) {
             ArchivePolicy.validateArchive(zip);
             JsonNode manifest = manifest(zip);
-            PluginArtifactInspector.Inspected artifact = new PluginArtifactInspector(zip).inspect(manifest);
-            PluginDescriptor descriptor = new PluginJarInspector().inspect(artifact.bytes(), artifact.file().archivePath());
-            require(manifest.path("id").textValue().equals(descriptor.id())
-                && manifest.path("version").textValue().equals(descriptor.version()),
-                "PLUGIN_IDENTITY_MISMATCH", "id/version");
-            require(strictApi(descriptor.turboismApi()), "PLUGIN_META_BAD_VERSION_RANGE", "turboismApi");
-            PackageIdentity identity = new PackageIdentity(sha256(packageBytes), packageBytes.length,
-                descriptor.id(), descriptor.version(), descriptor.turboismApi(), 17);
-            return new PluginInstallPlan(identity, descriptor, List.of(artifact.file()),
+            PluginArtifactInspector.Inspected artifacts = new PluginArtifactInspector(zip).inspect(manifest);
+            PluginJarInspector jars = new PluginJarInspector();
+            PluginJarInspector.Inspected plugin = jars.inspect(artifacts.mainJar(), "plugin/plugin.jar");
+            inspectLibraries(artifacts, zip, jars);
+            verifyManifest(manifest, plugin);
+            PluginPackageIdentity identity = identity(manifest, packageBytes);
+            return new PluginInstallPlan(identity, plugin.descriptor(), artifacts.files(),
                 PluginInstallPlan.Requirement.INSPECTION_PREFLIGHT_REVALIDATION_REQUIRED);
         }
+    }
+
+    private static void inspectLibraries(PluginArtifactInspector.Inspected artifacts,
+                                         ZipFile zip, PluginJarInspector jars) throws Exception {
+        for (PlannedFile file : artifacts.files()) {
+            if (!"PLUGIN_LIBRARY".equals(file.role())) continue;
+            try (InputStream input = zip.getInputStream(zip.getEntry(file.archivePath()))) {
+                jars.inspectLibrary(input.readAllBytes(), file.archivePath());
+            }
+        }
+    }
+
+    private static void verifyManifest(JsonNode manifest, PluginJarInspector.Inspected plugin) throws Exception {
+        PluginDescriptor descriptor = plugin.descriptor();
+        require(manifest.path("packageId").textValue().equals(descriptor.id())
+            && manifest.path("version").textValue().equals(descriptor.version()),
+            "PLUGIN_IDENTITY_MISMATCH", "packageId/version");
+        require(manifest.path("pluginDescriptorSha256").textValue().equals(sha256(plugin.descriptorBytes())),
+            "PLUGIN_DESCRIPTOR_HASH_MISMATCH", "pluginDescriptorSha256");
+        require(strictApi(descriptor.turboismApi()), "PLUGIN_META_BAD_VERSION_RANGE", "turboismApi");
+    }
+
+    private static PluginPackageIdentity identity(JsonNode manifest, byte[] packageBytes) throws Exception {
+        return new PluginPackageIdentity(manifest.path("packageHash").textValue(),
+            manifest.path("packageId").textValue(), manifest.path("version").textValue(),
+            sha256(packageBytes), packageBytes.length);
     }
 
     private byte[] readBounded(Path path) throws Exception {
