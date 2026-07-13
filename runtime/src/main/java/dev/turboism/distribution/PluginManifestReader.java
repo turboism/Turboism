@@ -4,47 +4,111 @@ import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.io.InputStream;
+import java.security.MessageDigest;
+import java.time.Instant;
+import java.util.HexFormat;
 import java.util.Set;
 
 final class PluginManifestReader {
     static final String NAME = "META-INF/turboism/package.json";
-    private static final Set<String> TOP = Set.of(
-        "format", "schemaVersion", "kind", "id", "version", "artifacts");
-    private static final Set<String> ARTIFACT = Set.of(
-        "role", "path", "installPath", "sha256", "size");
+    private static final Set<String> TOP = Set.of("format", "schemaVersion", "packageKind",
+        "packageId", "version", "packageHash", "pluginDescriptorPath",
+        "pluginDescriptorSha256", "files", "createdAt");
+    private static final Set<String> FILE = Set.of("path", "size", "sha256", "role");
     private static final ObjectMapper JSON = mapper();
 
     private PluginManifestReader() {}
 
     static JsonNode read(InputStream input) throws Exception {
-        byte[] bytes = input.readNBytes(1_048_577);
-        require(bytes.length <= 1_048_576, "MANIFEST_TOO_LARGE", NAME);
+        byte[] bytes = input.readNBytes(PluginArchiveLimits.JSON_MAX + 1);
+        require(bytes.length <= PluginArchiveLimits.JSON_MAX, "MANIFEST_TOO_LARGE", NAME);
         require(!bom(bytes), "MANIFEST_BOM", NAME);
-        JsonNode root;
-        try { root = JSON.readTree(bytes); }
-        catch (Exception exception) { throw problem("MANIFEST_JSON_INVALID", NAME); }
-        require(root != null && root.isObject(), "MANIFEST_JSON_INVALID", NAME);
+        JsonNode root = parse(bytes);
         unknown(root, TOP, "");
-        exact(root, "format", "turboism.plugin.package");
+        exact(root, "format", "turboism.distribution.plugin-package");
         integer(root, "schemaVersion", 1);
-        exact(root, "kind", "plugin");
-        text(root, "id", "^[a-z][a-z0-9-]*(\\.[a-z][a-z0-9-]*)+$");
-        text(root, "version", "(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)");
-        JsonNode artifacts = root.path("artifacts");
-        require(artifacts.isArray() && artifacts.size() == 1, "ARTIFACT_ROLES_INVALID", "artifacts");
-        JsonNode artifact = artifacts.get(0);
-        require(artifact.isObject(), "MANIFEST_FIELD_INVALID", "artifacts[0]");
-        unknown(artifact, ARTIFACT, "artifacts[0].");
+        exact(root, "packageKind", "PLUGIN");
+        text(root, "packageId", "^[a-z][a-z0-9-]*(\\.[a-z][a-z0-9-]*)+$");
+        text(root, "version", strictVersion());
+        text(root, "packageHash", "[0-9a-f]{64}");
+        exact(root, "pluginDescriptorPath", "plugin/plugin.jar!/META-INF/turboism/plugin.json");
+        text(root, "pluginDescriptorSha256", "[0-9a-f]{64}");
+        timestamp(root);
+        files(root.path("files"));
+        require(root.path("packageHash").textValue().equals(canonicalHash(root)),
+            "PACKAGE_HASH_MISMATCH", "packageHash");
         return root;
+    }
+
+    private static JsonNode parse(byte[] bytes) throws Exception {
+        try {
+            JsonNode root = JSON.readTree(bytes);
+            require(root != null && root.isObject(), "MANIFEST_JSON_INVALID", NAME);
+            return root;
+        } catch (DistributionValidationException exception) { throw exception; }
+        catch (Exception exception) { throw problem("MANIFEST_JSON_INVALID", NAME); }
+    }
+
+    private static void files(JsonNode files) throws Exception {
+        require(files.isArray() && !files.isEmpty(), "MANIFEST_FIELD_INVALID", "files");
+        String previous = null;
+        int main = 0;
+        for (int index = 0; index < files.size(); index++) {
+            JsonNode file = files.get(index);
+            require(file.isObject(), "MANIFEST_FIELD_INVALID", "files[" + index + "]");
+            unknown(file, FILE, "files[" + index + "].");
+            String path = fileText(file, "path", index, ".+");
+            ArchivePolicy.safeRelative(path, "ARCHIVE_PATH_UNSAFE", "files[" + index + "].path");
+            String orderKey = "plugin/plugin.jar".equals(path) ? "0" : "1" + path;
+            require(previous == null || previous.compareTo(orderKey) < 0,
+                "MANIFEST_FILE_ORDER_INVALID", "files");
+            previous = orderKey;
+            fileText(file, "sha256", index, "[0-9a-f]{64}");
+            require(file.path("size").isIntegralNumber() && file.path("size").longValue() >= 0,
+                "MANIFEST_FIELD_INVALID", "files[" + index + "].size");
+            String role = fileText(file, "role", index, "PLUGIN_JAR|PLUGIN_LIBRARY");
+            boolean isMain = "plugin/plugin.jar".equals(path) && "PLUGIN_JAR".equals(role);
+            boolean isLibrary = path.matches("plugin/lib/[^/]+\\.jar") && "PLUGIN_LIBRARY".equals(role);
+            require(isMain || isLibrary, "ARTIFACT_PATH_INVALID", "files[" + index + "].path");
+            if (isMain) main++;
+        }
+        require(main == 1 && "plugin/plugin.jar".equals(files.get(0).path("path").textValue()),
+            "ARTIFACT_ROLES_INVALID", "files");
+    }
+
+    private static String fileText(JsonNode node, String field, int index, String regex) throws Exception {
+        require(node.path(field).isTextual() && node.path(field).textValue().matches(regex),
+            "MANIFEST_FIELD_INVALID", "files[" + index + "]." + field);
+        return node.path(field).textValue();
+    }
+
+    private static void timestamp(JsonNode root) throws Exception {
+        require(root.path("createdAt").isTextual(), "MANIFEST_FIELD_INVALID", "createdAt");
+        try { Instant.parse(root.path("createdAt").textValue()); }
+        catch (Exception exception) { throw problem("MANIFEST_FIELD_INVALID", "createdAt"); }
+    }
+
+    private static String canonicalHash(JsonNode root) throws Exception {
+        ObjectNode copy = ((ObjectNode) root).deepCopy();
+        copy.remove("packageHash");
+        byte[] canonical = JSON.writer().writeValueAsBytes(copy);
+        return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(canonical));
     }
 
     private static ObjectMapper mapper() {
         var factory = com.fasterxml.jackson.core.JsonFactory.builder()
             .enable(com.fasterxml.jackson.core.StreamReadFeature.STRICT_DUPLICATE_DETECTION).build();
         return new ObjectMapper(factory).enable(JsonParser.Feature.AUTO_CLOSE_SOURCE)
-            .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
+            .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
+            .enable(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS);
+    }
+
+    private static String strictVersion() {
+        return "(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)";
     }
 
     private static void unknown(JsonNode node, Set<String> fields, String prefix) throws Exception {
