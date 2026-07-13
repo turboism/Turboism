@@ -130,6 +130,13 @@ tasks.register("checkModuleBoundaries") {
                         val isRestricted = subproject.path == ":sdk" || subproject.path.startsWith(":plugins:")
                         if (isRestricted) {
                             lines.forEachIndexed { index, line ->
+                                if (line.matches(Regex("^import dev\\.turboism\\.distribution(?:\\..*)?;"))) {
+                                    logger.error(
+                                        "Forbidden distribution import in " +
+                                            "${file.relativeTo(rootProject.projectDir)}:${index + 1}"
+                                    )
+                                    failed = true
+                                }
                                 forbiddenImportPatterns.forEach { (pattern, message) ->
                                     if (line.matches(Regex("^import $pattern;"))) {
                                         logger.error("Forbidden import in ${file.relativeTo(rootProject.projectDir)}:${index + 1}: $message")
@@ -397,6 +404,26 @@ tasks.register("checkPluginInspectionRuntime") {
     dependsOn("checkPluginInspectionContract", ":tests:pluginInspectionMutationTest")
 }
 
+tasks.register<Exec>("checkDistributionProtocolContract") {
+    group = "verification"
+    description = "Verifies protocol fixtures, package privacy, source boundaries, and compiled module boundaries."
+    val productionProjects = subprojects.filter { candidate ->
+        candidate.path == ":sdk" || candidate.path.startsWith(":plugins:")
+    }
+    dependsOn(":runtime:protocolRecordValidationTest")
+    dependsOn(productionProjects.map { candidate -> candidate.tasks.named("classes") })
+    environment("TURBOISM_SKIP_GRADLE_MODEL", "1")
+    environment("TURBOISM_SDK_CLASSES_DIR", project(":sdk").layout.buildDirectory.dir("classes/java/main").get().asFile)
+    environment(
+        "TURBOISM_PLUGIN_CLASSES_DIRS",
+        productionProjects.filter { it.path.startsWith(":plugins:") }
+            .joinToString(File.pathSeparator) {
+                it.layout.buildDirectory.dir("classes/java/main").get().asFile.absolutePath
+            }
+    )
+    commandLine("bash", "scripts/test/test_distribution_protocol_contract.sh")
+}
+
 tasks.named("check") {
     dependsOn(
         "checkModuleBoundaries",
@@ -404,6 +431,7 @@ tasks.named("check") {
         "checkMappingPipelineClosure",
         "checkMappingReviewWrapperArgs",
         "checkPluginInspectionRuntime",
+        "checkDistributionProtocolContract",
         "validatePluginMeta"
     )
 }
