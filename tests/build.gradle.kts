@@ -23,6 +23,22 @@ tasks.test {
     systemProperty("projectRoot", rootProject.projectDir.absolutePath)
     systemProperty("sdkBuildDir", project(":sdk").buildDir.absolutePath)
     systemProperty("demoBuildDir", project(":plugins:demo").buildDir.absolutePath)
+    systemProperty("projectInspectorBuildDir", project(":plugins:project-inspector").buildDir.absolutePath)
+}
+
+tasks.register<Test>("previewPluginRuntimeTest") {
+    group = "verification"
+    description = "Runs the Turboism 0.1 real local plugin loading lifecycle integration test."
+    dependsOn(":plugins:project-inspector:jar")
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    useJUnitPlatform()
+    systemProperty("java.awt.headless", "true")
+    systemProperty("projectInspectorBuildDir", project(":plugins:project-inspector").buildDir.absolutePath)
+    filter {
+        includeTestsMatching("dev.turboism.tests.preview.LocalPluginRuntimeIntegrationTest")
+        isFailOnNoMatchingTests = true
+    }
 }
 
 tasks.register<Test>("pluginInspectionMutationTest") {

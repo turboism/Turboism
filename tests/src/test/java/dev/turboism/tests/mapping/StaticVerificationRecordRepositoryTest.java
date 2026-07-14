@@ -42,7 +42,7 @@ class StaticVerificationRecordRepositoryTest {
             ProjectWorkspaceVerificationManifest.ARTIFACT_SIZE,
             ProjectWorkspaceVerificationManifest.ARTIFACT_SHA256,
             ProjectWorkspaceVerificationManifest.RECORD_SHA256,
-            22,
+            23,
             ProjectWorkspaceVerificationManifest.REQUIRED_ALIASES,
             VerifiedProjectWorkspaceHostOperations.REQUIRED_ALIASES,
             VerifiedProjectWorkspaceHostOperations.methodAliasesUsed(),
