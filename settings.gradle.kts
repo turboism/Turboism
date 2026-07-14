@@ -1,6 +1,7 @@
 rootProject.name = "turboism-root"
 
 include(
+    "bootstrap",
     "runtime",
     "sdk",
     "plugins:demo",
@@ -12,6 +13,7 @@ include(
     "plugins:clip-mask",
     "plugins:parameter",
     "plugins:mesh",
+    "plugins:project-inspector",
     "testframework",
     "tests"
 )

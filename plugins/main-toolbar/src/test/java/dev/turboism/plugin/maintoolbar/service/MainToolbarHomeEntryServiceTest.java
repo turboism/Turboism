@@ -96,7 +96,7 @@ class MainToolbarHomeEntryServiceTest {
             List.of(new StatusNotification(
                 "main-toolbar.home-entry.project-summary",
                 "INFO",
-                "Project Demo Project has 2 document(s); workspace workspaces/demo with 2 recent project(s)."
+                "Project Demo Project has 2 document(s); layout workspace Modeling."
             )),
             uiHost.notifications()
         );
@@ -177,7 +177,8 @@ class MainToolbarHomeEntryServiceTest {
         public Optional<WorkspaceSnapshot> workspace() {
             return Optional.of(new WorkspaceSnapshot(
                 "workspace-1",
-                "workspaces/demo",
+                "Modeling",
+                "layouts/workspace-1",
                 List.of("project-1", "project-0")
             ));
         }

@@ -14,7 +14,7 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-public final class RuntimeUiScheduler implements UiScheduler {
+public final class RuntimeUiScheduler implements UiScheduler, AutoCloseable {
 
     private static final String UI_TASK_TYPE = "ui.schedule";
     private static final String DEFAULT_CAPABILITY = "none";
@@ -59,6 +59,11 @@ public final class RuntimeUiScheduler implements UiScheduler {
             cancelled.set(true);
             scheduled.cancel(false);
         };
+    }
+
+    @Override
+    public void close() {
+        timer.shutdownNow();
     }
 
     private PluginTask task(String payloadDescription) {

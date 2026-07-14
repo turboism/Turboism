@@ -21,14 +21,15 @@ public final class VerifiedProjectWorkspaceHostOperations implements ProjectWork
 
     private static final String APP_INSTANCE = "cubism.app-controller.instance";
     private static final String CURRENT_PROJECT = "cubism.app-controller.current-project";
+    private static final String CURRENT_DOCUMENT = "cubism.app-controller.current-document";
     private static final String MAIN_FRAME = "cubism.app-controller.main-frame";
-    private static final String PROJECT_NAME = "cubism.project.name";
     private static final String PROJECT_DOCUMENTS = "cubism.project.documents";
     private static final String DOCUMENT_FILE_CONTENT = "cubism.document.file-content";
     private static final String FILE_CONTENT_FILE = "cubism.file-content.file";
     private static final String DOCK_MANAGER = "cubism.main-frame.dock-manager";
     private static final String LAST_WORKSPACE = "cubism.dock-wrapper.last-workspace";
     private static final String WORKSPACE_ID = "cubism.workspace.id";
+    private static final String WORKSPACE_NAME = "cubism.workspace.name";
     private static final String WORKSPACE_GUID = "cubism.workspace.guid";
     private static final String ID_VALUE = "cubism.id.value";
     private static final String GUID_VALUE = "cubism.guid.value";
@@ -36,14 +37,15 @@ public final class VerifiedProjectWorkspaceHostOperations implements ProjectWork
     private static final java.util.Set<String> METHOD_ALIASES_USED = java.util.Set.of(
         APP_INSTANCE,
         CURRENT_PROJECT,
+        CURRENT_DOCUMENT,
         MAIN_FRAME,
-        PROJECT_NAME,
         PROJECT_DOCUMENTS,
         DOCUMENT_FILE_CONTENT,
         FILE_CONTENT_FILE,
         DOCK_MANAGER,
         LAST_WORKSPACE,
         WORKSPACE_ID,
+        WORKSPACE_NAME,
         WORKSPACE_GUID,
         ID_VALUE,
         GUID_VALUE
@@ -100,15 +102,19 @@ public final class VerifiedProjectWorkspaceHostOperations implements ProjectWork
             if (appController == null) {
                 return Optional.empty();
             }
+            final Object currentDocument = resolver.invoke(CURRENT_DOCUMENT, appController);
+            if (currentDocument == null) {
+                return Optional.empty();
+            }
             final Object project = resolver.invoke(CURRENT_PROJECT, appController);
             if (project == null) {
                 return Optional.empty();
             }
-            final String name = text(resolver.invoke(PROJECT_NAME, project), "Untitled Project");
+            final String displayName = projectDisplayName(currentDocument);
             final List<DocumentSnapshot> documents = documents(resolver.invoke(PROJECT_DOCUMENTS, project));
             return Optional.of(new ProjectSnapshot(
                 identities.idFor(project, "project"),
-                name,
+                displayName,
                 Optional.empty(),
                 documents
             ));
@@ -143,6 +149,7 @@ public final class VerifiedProjectWorkspaceHostOperations implements ProjectWork
             }
             final Object id = resolver.invoke(WORKSPACE_ID, workspace);
             final String idValue = id == null ? "" : text(resolver.invoke(ID_VALUE, id), "");
+            final String displayName = text(resolver.invoke(WORKSPACE_NAME, workspace), "Workspace");
             final Object guid = resolver.invoke(WORKSPACE_GUID, workspace);
             final String guidValue = guid == null ? "" : text(resolver.invoke(GUID_VALUE, guid), "");
             if (idValue.isBlank() && guidValue.isBlank()) {
@@ -153,7 +160,8 @@ public final class VerifiedProjectWorkspaceHostOperations implements ProjectWork
                 : idValue;
             return Optional.of(new WorkspaceSnapshot(
                 stableWorkspaceId,
-                "workspaces/" + safeSegment(stableWorkspaceId),
+                displayName,
+                "layouts/" + safeSegment(stableWorkspaceId),
                 List.of()
             ));
         } catch (VerifiedAccessException exception) {
@@ -166,6 +174,22 @@ public final class VerifiedProjectWorkspaceHostOperations implements ProjectWork
         }
     }
 
+    private String projectDisplayName(final Object currentDocument) {
+        final File currentFile = documentFile(currentDocument);
+        if (currentFile != null && !currentFile.getName().isBlank()) {
+            return currentFile.getName();
+        }
+        return "Untitled";
+    }
+
+    private File documentFile(final Object document) {
+        if (document == null) {
+            return null;
+        }
+        final Object fileContent = resolver.invoke(DOCUMENT_FILE_CONTENT, document);
+        return fileContent == null ? null : asFile(resolver.invoke(FILE_CONTENT_FILE, fileContent));
+    }
+
     private List<DocumentSnapshot> documents(final Object rawDocuments) {
         if (!(rawDocuments instanceof Iterable<?> iterable)) {
             return List.of();
@@ -175,8 +199,7 @@ public final class VerifiedProjectWorkspaceHostOperations implements ProjectWork
             if (document == null) {
                 continue;
             }
-            final Object fileContent = resolver.invoke(DOCUMENT_FILE_CONTENT, document);
-            final File file = fileContent == null ? null : asFile(resolver.invoke(FILE_CONTENT_FILE, fileContent));
+            final File file = documentFile(document);
             final String fileName = file == null || file.getName().isBlank()
                 ? "untitled"
                 : file.getName();
