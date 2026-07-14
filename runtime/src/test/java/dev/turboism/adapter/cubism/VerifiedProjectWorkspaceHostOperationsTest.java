@@ -33,24 +33,76 @@ class VerifiedProjectWorkspaceHostOperationsTest {
         var project = operations.activeProject().orElseThrow();
         var workspace = operations.workspace().orElseThrow();
 
-        assertEquals("Demo Project", project.name());
+        assertEquals("model.cmo3", project.name());
         assertEquals(1, project.documents().size());
         assertTrue(project.projectDirectory().isEmpty());
         assertTrue(project.documents().get(0).filePath().isEmpty());
         assertFalse(project.documents().get(0).relativePath().contains("C:"));
         assertEquals("workspace-model", workspace.workspaceId());
-        assertEquals("workspaces/workspace-model", workspace.rootRelativePath());
+        assertEquals("Modeling", workspace.displayName());
+        assertEquals("layouts/workspace-model", workspace.rootRelativePath());
         assertTrue(workspace.recentProjectIds().isEmpty());
     }
 
     @Test
-    void runtimeSelectorFailureIsReportedAsMappingNotVerified() {
+    void activeProjectUsesTheCurrentDocumentFileInsteadOfTheInternalProjectContainerName() {
+        SyntheticDocument first = new SyntheticDocument(
+            new SyntheticFileContent(new File("C:/models/demo/first.cmo3"))
+        );
+        SyntheticDocument current = new SyntheticDocument(
+            new SyntheticFileContent(new File("C:/models/demo/current-model.cmo3"))
+        );
+        SyntheticProject project = new SyntheticProject("MyProject", List.of(first, current));
+        SyntheticAppCtrl.instance = new SyntheticAppCtrl(project, current, null);
+
+        VerifiedProjectWorkspaceHostOperations operations = new VerifiedProjectWorkspaceHostOperations(
+            resolver(),
+            "5.3.02"
+        );
+
+        assertEquals("current-model.cmo3", operations.activeProject().orElseThrow().name());
+    }
+
+    @Test
+    void noCurrentDocumentDoesNotExposeCubismsInternalMyProjectContainer() {
         SyntheticAppCtrl.instance = new SyntheticAppCtrl(
-            new SyntheticProject("Demo", List.of()),
+            new SyntheticProject("MyProject", List.of()),
+            null,
             new SyntheticMainFrame(new SyntheticDockWrapper(null))
         );
         VerifiedProjectWorkspaceHostOperations operations = new VerifiedProjectWorkspaceHostOperations(
-            resolverWithout("cubism.project.name"),
+            resolver(),
+            "5.3.02"
+        );
+
+        assertTrue(operations.activeProject().isEmpty());
+    }
+
+    @Test
+    void unsavedCurrentDocumentIsReportedAsUntitled() {
+        SyntheticDocument unsaved = new SyntheticDocument(new SyntheticFileContent(null));
+        SyntheticProject project = new SyntheticProject("MyProject", List.of(unsaved));
+        SyntheticAppCtrl.instance = new SyntheticAppCtrl(project, unsaved, null);
+        VerifiedProjectWorkspaceHostOperations operations = new VerifiedProjectWorkspaceHostOperations(
+            resolver(),
+            "5.3.02"
+        );
+
+        assertEquals("Untitled", operations.activeProject().orElseThrow().name());
+    }
+
+    @Test
+    void runtimeSelectorFailureIsReportedAsMappingNotVerified() {
+        SyntheticDocument document = new SyntheticDocument(
+            new SyntheticFileContent(new File("C:/models/demo/model.cmo3"))
+        );
+        SyntheticAppCtrl.instance = new SyntheticAppCtrl(
+            new SyntheticProject("Demo", List.of(document)),
+            document,
+            new SyntheticMainFrame(new SyntheticDockWrapper(null))
+        );
+        VerifiedProjectWorkspaceHostOperations operations = new VerifiedProjectWorkspaceHostOperations(
+            resolverWithout("cubism.project.documents"),
             "5.3.02"
         );
         ProjectWorkspaceAdapter adapter = ProjectWorkspaceAdapter.Impl.connected(operations);
@@ -63,12 +115,14 @@ class VerifiedProjectWorkspaceHostOperationsTest {
 
     @Test
     void verifiedHostGetterFailureIsValidationFailureNotMappingFailure() {
+        SyntheticDocument document = new SyntheticDocument(null) {
+            @Override public SyntheticFileContent fileContent() {
+                throw new IllegalStateException("private-host-detail");
+            }
+        };
         SyntheticAppCtrl.instance = new SyntheticAppCtrl(
-            new SyntheticProject("Demo", List.of()) {
-                @Override public String name() {
-                    throw new IllegalStateException("private-host-detail");
-                }
-            },
+            new SyntheticProject("Demo", List.of(document)),
+            document,
             null
         );
         VerifiedProjectWorkspaceHostOperations operations = new VerifiedProjectWorkspaceHostOperations(resolver(), "5.3.02");
@@ -174,14 +228,15 @@ class VerifiedProjectWorkspaceHostOperationsTest {
         List<StaticSelector> selectors = List.of(
             StaticSelector.staticMethod("cubism.app-controller.instance", name(SyntheticAppCtrl.class), "instance", "()L" + name(SyntheticAppCtrl.class) + ";", StaticSelector.ACCESS_PUBLIC),
             StaticSelector.method("cubism.app-controller.current-project", name(SyntheticAppCtrl.class), "currentProject", "()L" + name(SyntheticProject.class) + ";", StaticSelector.ACCESS_PUBLIC),
+            StaticSelector.method("cubism.app-controller.current-document", name(SyntheticAppCtrl.class), "currentDocument", "()L" + name(SyntheticDocument.class) + ";", StaticSelector.ACCESS_PUBLIC),
             StaticSelector.method("cubism.app-controller.main-frame", name(SyntheticAppCtrl.class), "mainFrame", "()L" + name(SyntheticMainFrame.class) + ";", StaticSelector.ACCESS_PUBLIC),
-            StaticSelector.method("cubism.project.name", name(SyntheticProject.class), "name", "()Ljava/lang/String;", StaticSelector.ACCESS_PUBLIC),
             StaticSelector.method("cubism.project.documents", name(SyntheticProject.class), "documents", "()Ljava/util/List;", StaticSelector.ACCESS_PUBLIC),
             StaticSelector.method("cubism.document.file-content", name(SyntheticDocument.class), "fileContent", "()L" + name(SyntheticFileContent.class) + ";", StaticSelector.ACCESS_PUBLIC),
             StaticSelector.method("cubism.file-content.file", name(SyntheticFileContent.class), "file", "()Ljava/io/File;", StaticSelector.ACCESS_PUBLIC),
             StaticSelector.method("cubism.main-frame.dock-manager", name(SyntheticMainFrame.class), "dockManager", "()L" + name(SyntheticDockWrapper.class) + ";", StaticSelector.ACCESS_PUBLIC),
             StaticSelector.method("cubism.dock-wrapper.last-workspace", name(SyntheticDockWrapper.class), "lastWorkspace", "()L" + name(SyntheticWorkspace.class) + ";", StaticSelector.ACCESS_PUBLIC),
             StaticSelector.method("cubism.workspace.id", name(SyntheticWorkspace.class), "id", "()L" + name(SyntheticId.class) + ";", StaticSelector.ACCESS_PUBLIC),
+            StaticSelector.method("cubism.workspace.name", name(SyntheticWorkspace.class), "name", "()Ljava/lang/String;", StaticSelector.ACCESS_PUBLIC),
             StaticSelector.method("cubism.workspace.guid", name(SyntheticWorkspace.class), "guid", "()L" + name(SyntheticGuid.class) + ";", StaticSelector.ACCESS_PUBLIC),
             StaticSelector.method("cubism.id.value", name(SyntheticId.class), "idString", "()Ljava/lang/String;", StaticSelector.ACCESS_PUBLIC),
             StaticSelector.method("cubism.guid.value", name(SyntheticGuid.class), "uuidString", "()Ljava/lang/String;", StaticSelector.ACCESS_PUBLIC)
@@ -204,10 +259,27 @@ class VerifiedProjectWorkspaceHostOperationsTest {
     public static final class SyntheticAppCtrl {
         private static SyntheticAppCtrl instance;
         private final SyntheticProject project;
+        private final SyntheticDocument currentDocument;
         private final SyntheticMainFrame mainFrame;
-        SyntheticAppCtrl(SyntheticProject project, SyntheticMainFrame mainFrame) { this.project = project; this.mainFrame = mainFrame; }
+        SyntheticAppCtrl(SyntheticProject project, SyntheticMainFrame mainFrame) {
+            this(
+                project,
+                project == null || project.documents().isEmpty() ? null : project.documents().get(0),
+                mainFrame
+            );
+        }
+        SyntheticAppCtrl(
+            SyntheticProject project,
+            SyntheticDocument currentDocument,
+            SyntheticMainFrame mainFrame
+        ) {
+            this.project = project;
+            this.currentDocument = currentDocument;
+            this.mainFrame = mainFrame;
+        }
         public static SyntheticAppCtrl instance() { return instance; }
         public SyntheticProject currentProject() { return project; }
+        public SyntheticDocument currentDocument() { return currentDocument; }
         public SyntheticMainFrame mainFrame() { return mainFrame; }
     }
 

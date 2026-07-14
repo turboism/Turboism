@@ -7,7 +7,7 @@ public final class ProjectWorkspaceVerificationManifest {
 
     public static final String VERIFICATION_ID = "m15.cubism-5.3.02.project-workspace.static";
     public static final String RECORD_SHA256 =
-        "447ab125f76f411be8833da375fdc0c743e1797eddfd3bf13b24a277e46ca846";
+        "d91071ebdb3d35ac4a99d7bbdb1763d6066e1806ca8f030c3f899505708878af";
     public static final String CUBISM_VERSION = "5.3.02";
     public static final String PROFILE_ID = "cubism-5.3.02";
     public static final long ARTIFACT_SIZE = 41922739L;
@@ -30,14 +30,15 @@ public final class ProjectWorkspaceVerificationManifest {
         "cubism.guid.class",
         "cubism.app-controller.instance",
         "cubism.app-controller.current-project",
+        "cubism.app-controller.current-document",
         "cubism.app-controller.main-frame",
-        "cubism.project.name",
         "cubism.project.documents",
         "cubism.document.file-content",
         "cubism.file-content.file",
         "cubism.main-frame.dock-manager",
         "cubism.dock-wrapper.last-workspace",
         "cubism.workspace.id",
+        "cubism.workspace.name",
         "cubism.workspace.guid",
         "cubism.id.value",
         "cubism.guid.value"
