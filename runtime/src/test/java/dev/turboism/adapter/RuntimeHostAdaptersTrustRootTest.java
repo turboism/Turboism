@@ -101,14 +101,15 @@ class RuntimeHostAdaptersTrustRootTest {
                     case "cubism.guid.class" -> StaticSelector.classSelector(alias, name(SyntheticGuid.class));
                     case "cubism.app-controller.instance" -> StaticSelector.staticMethod(alias, host, "instance", "()L" + host + ";", StaticSelector.ACCESS_PUBLIC);
                     case "cubism.app-controller.current-project" -> StaticSelector.method(alias, host, "currentProject", "()L" + project + ";", StaticSelector.ACCESS_PUBLIC);
+                    case "cubism.app-controller.current-document" -> StaticSelector.method(alias, host, "currentProjectDocument", "()L" + name(SyntheticProjectDocument.class) + ";", StaticSelector.ACCESS_PUBLIC);
                     case "cubism.app-controller.main-frame" -> StaticSelector.method(alias, host, "mainFrame", "()L" + host + ";", StaticSelector.ACCESS_PUBLIC);
-                    case "cubism.project.name" -> StaticSelector.method(alias, project, "name", "()Ljava/lang/String;", StaticSelector.ACCESS_PUBLIC);
                     case "cubism.project.documents" -> StaticSelector.method(alias, project, "documents", "()Ljava/util/List;", StaticSelector.ACCESS_PUBLIC);
                     case "cubism.document.file-content" -> StaticSelector.method(alias, name(SyntheticProjectDocument.class), "fileContent", "()L" + name(SyntheticFileContent.class) + ";", StaticSelector.ACCESS_PUBLIC);
                     case "cubism.file-content.file" -> StaticSelector.method(alias, name(SyntheticFileContent.class), "file", "()Ljava/io/File;", StaticSelector.ACCESS_PUBLIC);
                     case "cubism.main-frame.dock-manager" -> StaticSelector.method(alias, host, "dockManager", "()L" + host + ";", StaticSelector.ACCESS_PUBLIC);
                     case "cubism.dock-wrapper.last-workspace" -> StaticSelector.method(alias, host, "lastWorkspace", "()L" + workspace + ";", StaticSelector.ACCESS_PUBLIC);
                     case "cubism.workspace.id" -> StaticSelector.method(alias, workspace, "id", "()L" + name(SyntheticId.class) + ";", StaticSelector.ACCESS_PUBLIC);
+                    case "cubism.workspace.name" -> StaticSelector.method(alias, workspace, "name", "()Ljava/lang/String;", StaticSelector.ACCESS_PUBLIC);
                     case "cubism.workspace.guid" -> StaticSelector.method(alias, workspace, "guid", "()L" + name(SyntheticGuid.class) + ";", StaticSelector.ACCESS_PUBLIC);
                     case "cubism.id.value" -> StaticSelector.method(alias, name(SyntheticId.class), "idString", "()Ljava/lang/String;", StaticSelector.ACCESS_PUBLIC);
                     case "cubism.guid.value" -> StaticSelector.method(alias, name(SyntheticGuid.class), "uuidString", "()Ljava/lang/String;", StaticSelector.ACCESS_PUBLIC);
@@ -168,6 +169,11 @@ class RuntimeHostAdaptersTrustRootTest {
         }
         public static SyntheticHost instance() { return instance; }
         public SyntheticProject currentProject() { return project; }
+        public SyntheticProjectDocument currentProjectDocument() {
+            return new SyntheticProjectDocument(
+                new SyntheticFileContent(new java.io.File("C:/models/current.cmo3"))
+            );
+        }
         public SyntheticHost mainFrame() { return this; }
         public SyntheticHost dockManager() { return this; }
         public SyntheticWorkspace lastWorkspace() { return workspace; }

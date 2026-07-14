@@ -70,7 +70,6 @@ public final class MainToolbarHomeEntryService {
     }
 
     private String workspaceSummary(final WorkspaceSnapshot workspace) {
-        return "workspace " + workspace.rootRelativePath() + " with "
-            + workspace.recentProjectIds().size() + " recent project(s)";
+        return "layout workspace " + workspace.displayName();
     }
 }

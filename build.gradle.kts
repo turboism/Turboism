@@ -1,4 +1,5 @@
 import dev.turboism.gradle.internal.MappingReviewArgsFile
+import java.util.jar.JarFile
 
 plugins {
     id("java")
@@ -424,6 +425,112 @@ tasks.register<Exec>("checkDistributionProtocolContract") {
     commandLine("bash", "scripts/test/test_distribution_protocol_contract.sh")
 }
 
+val previewBundleDir = layout.buildDirectory.dir("preview/$resolvedWorktreeId")
+
+val previewBundle by tasks.registering(Sync::class) {
+    group = "distribution"
+    description = "Build the relocatable Turboism 0.1 Developer Preview directory."
+
+    val agentJar = project(":bootstrap").tasks
+        .named<org.gradle.jvm.tasks.Jar>("jar")
+        .flatMap { it.archiveFile }
+    val inspectorJar = project(":plugins:project-inspector").tasks
+        .named<org.gradle.jvm.tasks.Jar>("jar")
+        .flatMap { it.archiveFile }
+
+    dependsOn(":bootstrap:jar", ":plugins:project-inspector:jar")
+    into(previewBundleDir)
+    from(agentJar) {
+        rename { "turboism-agent.jar" }
+    }
+    from(inspectorJar) {
+        into("plugins")
+        rename { "project-inspector.jar" }
+    }
+    from("scripts/preview/launch-cubism-turboism.bat")
+    from("scripts/preview/launch-cubism-turboism.ps1")
+    from("scripts/preview/run-preview.bat")
+    from("docs/release/README-preview.md") {
+        rename { "README.md" }
+    }
+    doLast {
+        val root = previewBundleDir.get().asFile
+        listOf("plugin-data", "state", "logs").forEach { relative ->
+            root.resolve(relative).mkdirs()
+        }
+    }
+}
+
+val previewSmokeDir = layout.buildDirectory.dir("preview-smoke/$resolvedWorktreeId")
+
+val previewAgentSmokeTest by tasks.registering(JavaExec::class) {
+    group = "verification"
+    description = "Starts a child JVM with the built preview agent and proves premain loads the bundled plugin."
+    dependsOn(previewBundle, ":bootstrap:testClasses")
+    val bootstrapTests = project(":bootstrap")
+        .extensions
+        .getByType<org.gradle.api.tasks.SourceSetContainer>()
+        .named("test")
+    classpath(bootstrapTests.map { it.output })
+    mainClass.set("dev.turboism.bootstrap.PreviewAgentSmokeMain")
+    systemProperty("java.awt.headless", "true")
+    doFirst {
+        val source = previewBundleDir.get().asFile
+        val root = previewSmokeDir.get().asFile
+        root.deleteRecursively()
+        copy {
+            from(source)
+            into(root)
+        }
+        systemProperty("turboism.home", root.absolutePath)
+        setJvmArgs(listOf(
+            "-javaagent:${root.resolve("turboism-agent.jar").absolutePath}" +
+                "=hostClass=com.live2d.cubism.CEAppCtrl;timeoutSeconds=10"
+        ))
+    }
+}
+
+tasks.register("checkPreviewBundleLayout") {
+    group = "verification"
+    description = "Build and verify the minimum Turboism 0.1 preview bundle layout."
+    dependsOn(previewBundle)
+    doLast {
+        val root = previewBundleDir.get().asFile
+        val required = listOf(
+            "turboism-agent.jar",
+            "launch-cubism-turboism.bat",
+            "launch-cubism-turboism.ps1",
+            "run-preview.bat",
+            "README.md",
+            "plugins/project-inspector.jar"
+        )
+        val missing = required.filterNot { root.resolve(it).isFile }
+        if (missing.isNotEmpty()) {
+            throw GradleException("Preview bundle is missing: $missing")
+        }
+        val launcherText = root.resolve("launch-cubism-turboism.ps1").readText()
+        if (launcherText.contains("cubism-hook-agent", ignoreCase = true)
+            || launcherText.contains("JAVA_TOOL_OPTIONS", ignoreCase = true)) {
+            throw GradleException("Preview launcher must not reuse the legacy agent or JAVA_TOOL_OPTIONS")
+        }
+        val quickLaunchText = root.resolve("run-preview.bat").readText()
+        if (!quickLaunchText.contains("call \"%~dp0launch-cubism-turboism.bat\"")) {
+            throw GradleException("run-preview.bat must preserve the quoted preview path")
+        }
+        JarFile(root.resolve("turboism-agent.jar")).use { jar ->
+            val attributes = jar.manifest.mainAttributes
+            if (attributes.getValue("Premain-Class") != "dev.turboism.bootstrap.TurboismAgent"
+                || attributes.getValue("Agent-Class") != "dev.turboism.bootstrap.TurboismAgent") {
+                throw GradleException("Preview agent manifest is missing the Turboism agent entrypoints")
+            }
+            val verification = "META-INF/turboism/verification/cubism-5.3.02-project-workspace.json"
+            if (jar.getJarEntry(verification) == null) {
+                throw GradleException("Preview agent is missing embedded verification record $verification")
+            }
+        }
+    }
+}
+
 tasks.named("check") {
     dependsOn(
         "checkModuleBoundaries",
@@ -432,6 +539,9 @@ tasks.named("check") {
         "checkMappingReviewWrapperArgs",
         "checkPluginInspectionRuntime",
         "checkDistributionProtocolContract",
+        "checkPreviewBundleLayout",
+        previewAgentSmokeTest,
+        ":tests:previewPluginRuntimeTest",
         "validatePluginMeta"
     )
 }
