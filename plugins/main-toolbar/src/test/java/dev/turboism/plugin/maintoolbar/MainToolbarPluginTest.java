@@ -93,7 +93,7 @@ class MainToolbarPluginTest {
             List.of(new StatusNotification(
                 "main-toolbar.home-entry.project-summary",
                 "INFO",
-                "Project Demo Project has 1 document(s); workspace workspace/demo with 1 recent project(s)."
+                "Project Demo Project has 1 document(s); layout workspace Modeling."
             )),
             context.uiHost().notifications()
         );
@@ -432,7 +432,12 @@ class MainToolbarPluginTest {
 
         @Override
         public Optional<WorkspaceSnapshot> workspace() {
-            return Optional.of(new WorkspaceSnapshot("workspace-1", "workspace/demo", List.of("project-1")));
+            return Optional.of(new WorkspaceSnapshot(
+                "workspace-1",
+                "Modeling",
+                "layouts/workspace-1",
+                List.of("project-1")
+            ));
         }
 
         @Override

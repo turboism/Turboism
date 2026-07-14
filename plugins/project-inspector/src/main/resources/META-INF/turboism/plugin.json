@@ -1,0 +1,35 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 1,
+  "id": "dev.turboism.plugin.project-inspector",
+  "name": "Project Inspector",
+  "version": "0.1.0",
+  "description": "Developer Preview window showing the active Cubism project and workspace through the Turboism SDK.",
+  "entrypoints": {
+    "plugin": "dev.turboism.plugin.projectinspector.ProjectInspectorPlugin"
+  },
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    {
+      "name": "Turboism Contributors"
+    }
+  ],
+  "license": "Project License",
+  "homepage": "https://turboism.dev",
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.cubism.project.read",
+      "scope": "application",
+      "reason": "Displays the active project and workspace in the Developer Preview inspector."
+    }
+  ],
+  "capabilities": [
+    "cubism.project.read",
+    "cubism.workspace.read"
+  ],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "swing"
+  }
+}
