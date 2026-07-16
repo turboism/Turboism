@@ -294,6 +294,154 @@ class RuntimePluginTaskSchedulerTest {
     }
 
     @Test
+    void scopeOwnershipExistsBeforePhysicalRuntimeAdmission() throws Exception {
+        final CountDownLatch admissionEntered = new CountDownLatch(1);
+        final CountDownLatch releaseAdmission = new CountDownLatch(1);
+        createScheduler(1, 8, task -> {
+            admissionEntered.countDown();
+            await(releaseAdmission);
+            return WorkBudget.LIGHTWEIGHT;
+        });
+        final AtomicReference<TaskSubmission> submitted = new AtomicReference<>();
+        final AtomicReference<Throwable> failure = new AtomicReference<>();
+        final Thread submitter = new Thread(() -> {
+            try {
+                submitted.set(scheduler.submit(request("owned-before-admission", token -> { })));
+            } catch (Throwable throwable) {
+                failure.set(throwable);
+            }
+        }, "task-admission-probe");
+        submitter.start();
+        try {
+            assertTrue(admissionEntered.await(1, TimeUnit.SECONDS));
+            assertEquals(2, scopedRegistrationCount(scope),
+                "the candidate cleanup must belong to the scope before runtime admission");
+        } finally {
+            releaseAdmission.countDown();
+            submitter.join(1_000);
+        }
+
+        assertFalse(submitter.isAlive());
+        assertEquals(null, failure.get());
+        assertTrue(submitted.get().accepted());
+        assertEquals(TaskOutcomeStatus.SUCCEEDED,
+            submitted.get().handle().completion().toCompletableFuture().get(1, TimeUnit.SECONDS).status());
+    }
+
+    @Test
+    void runtimeRejectionDisarmsAndRemovesPreAdmissionScopeOwnership() throws Exception {
+        final CleanupEvidenceCollector evidence = new CleanupEvidenceCollector();
+        final CountDownLatch admissionEntered = new CountDownLatch(1);
+        final CountDownLatch releaseAdmission = new CountDownLatch(1);
+        runtimeScheduler = new RuntimeScheduler(
+            task -> {
+                admissionEntered.countDown();
+                await(releaseAdmission);
+                return WorkBudget.HEAVY;
+            },
+            new PluginExecutorRegistry(500L, 1, 8, ignored -> { }, Clock.systemUTC()),
+            SidecarDispatcher.noop(),
+            ignored -> { }
+        );
+        scope = new DisposableScope();
+        scheduler = new RuntimePluginTaskScheduler("plugin.tasks", runtimeScheduler, scope, evidence);
+        final AtomicReference<TaskSubmission> submitted = new AtomicReference<>();
+        final Thread submitter = new Thread(() ->
+            submitted.set(scheduler.submit(request("runtime-rejected-cleanup", token -> { }))),
+            "runtime-rejection-probe"
+        );
+        submitter.start();
+        try {
+            assertTrue(admissionEntered.await(1, TimeUnit.SECONDS));
+            assertEquals(2, scopedRegistrationCount(scope));
+        } finally {
+            releaseAdmission.countDown();
+            submitter.join(1_000);
+        }
+
+        assertFalse(submitter.isAlive());
+        assertFalse(submitted.get().accepted());
+        assertEquals(Optional.of(TaskRejectionReason.POLICY_REJECTED),
+            submitted.get().rejectionReason());
+        assertEquals(1, scopedRegistrationCount(scope),
+            "runtime rejection must remove the disarmed candidate cleanup");
+        assertEquals(0, scheduler.activeTaskCount());
+        assertEquals(64, scheduler.availableActiveTaskPermits());
+        assertEquals(0, evidence.snapshot().taskHandlesCanceled());
+        assertEquals(0, evidence.snapshot().taskCompletionsSettled());
+        assertEquals(0, evidence.snapshot().pluginContinuationsDrained());
+    }
+
+    @Test
+    void concurrentScopeCloseDuringAdmissionCancelsOwnedCandidateWithoutLeaks() throws Exception {
+        final CleanupEvidenceCollector evidence = new CleanupEvidenceCollector();
+        final CountDownLatch admissionEntered = new CountDownLatch(1);
+        final CountDownLatch releaseAdmission = new CountDownLatch(1);
+        final AtomicBoolean actionStarted = new AtomicBoolean();
+        runtimeScheduler = new RuntimeScheduler(
+            task -> {
+                admissionEntered.countDown();
+                await(releaseAdmission);
+                return WorkBudget.LIGHTWEIGHT;
+            },
+            new PluginExecutorRegistry(500L, 1, 8, ignored -> { }, Clock.systemUTC()),
+            SidecarDispatcher.noop(),
+            ignored -> { }
+        );
+        scope = new DisposableScope();
+        scheduler = new RuntimePluginTaskScheduler("plugin.tasks", runtimeScheduler, scope, evidence);
+        final AtomicReference<TaskSubmission> submitted = new AtomicReference<>();
+        final AtomicReference<Throwable> submitFailure = new AtomicReference<>();
+        final AtomicReference<Throwable> closeFailure = new AtomicReference<>();
+        final Thread submitter = new Thread(() -> {
+            try {
+                submitted.set(scheduler.submit(request(
+                    "close-during-admission",
+                    token -> actionStarted.set(true)
+                )));
+            } catch (Throwable throwable) {
+                submitFailure.set(throwable);
+            }
+        }, "concurrent-admission-submitter");
+        final Thread closer = new Thread(() -> {
+            try {
+                scope.close();
+            } catch (Throwable throwable) {
+                closeFailure.set(throwable);
+            }
+        }, "concurrent-admission-scope-closer");
+        submitter.start();
+        try {
+            assertTrue(admissionEntered.await(1, TimeUnit.SECONDS));
+            assertEquals(2, scopedRegistrationCount(scope));
+            closer.start();
+            waitUntil(() -> scopedRegistrationCountUnchecked(scope) == 0, 1_000);
+        } finally {
+            releaseAdmission.countDown();
+            submitter.join(1_000);
+            if (closer.getState() != Thread.State.NEW) {
+                closer.join(1_000);
+            }
+        }
+
+        assertFalse(submitter.isAlive());
+        assertFalse(closer.isAlive());
+        assertEquals(null, submitFailure.get());
+        assertEquals(null, closeFailure.get());
+        assertNotNull(submitted.get());
+        assertTrue(submitted.get().accepted());
+        assertEquals(TaskOutcomeStatus.CANCELED,
+            submitted.get().handle().completion().toCompletableFuture().get(1, TimeUnit.SECONDS).status());
+        scheduler.awaitContinuationQuiescence();
+        assertFalse(actionStarted.get());
+        assertEquals(0, scheduler.activeTaskCount());
+        assertEquals(64, scheduler.availableActiveTaskPermits());
+        assertEquals(0, scheduler.pendingCompletionCount());
+        assertEquals(1, evidence.snapshot().taskHandlesCanceled());
+        assertEquals(1, evidence.snapshot().taskCompletionsSettled());
+    }
+
+    @Test
     void rejectedRuntimeSubmissionReleasesActiveTaskPermitExactlyOnce() throws Exception {
         createScheduler(1, 1, 5_000L, ignored -> WorkBudget.LIGHTWEIGHT);
         final CountDownLatch firstStarted = new CountDownLatch(1);
@@ -553,7 +701,7 @@ class RuntimePluginTaskSchedulerTest {
     }
 
     @Test
-    void registrationIntoAlreadyClosedScopeFailsWithoutTaskOrPermitLeak() throws Exception {
+    void registrationIntoClosingScopeReturnsStructuredInactiveRejectionWithoutAdmission() throws Exception {
         final CleanupEvidenceCollector evidence = new CleanupEvidenceCollector();
         createScheduler(1, 8, evidence);
         final CountDownLatch scopeCloseStarted = new CountDownLatch(1);
@@ -571,40 +719,30 @@ class RuntimePluginTaskSchedulerTest {
             }
         }, "closed-scope-registration");
         closer.start();
-        assertTrue(scopeCloseStarted.await(1, TimeUnit.SECONDS));
+        final AtomicBoolean actionStarted = new AtomicBoolean();
+        try {
+            assertTrue(scopeCloseStarted.await(1, TimeUnit.SECONDS));
+            final TaskSubmission rejected = scheduler.submit(request(
+                "closed-registration",
+                token -> actionStarted.set(true)
+            ));
 
-        assertThrows(IllegalStateException.class, () -> scheduler.scheduleWithFixedDelay(
-            new FixedDelayTaskRequest(
-                new TaskId("closed-registration"),
-                PluginTaskKind.LOW_FREQUENCY_REFRESH,
-                PluginTaskPriority.LOW,
-                Duration.ofHours(1),
-                Duration.ofHours(1),
-                token -> { }
-            )
-        ));
-        scheduler.awaitContinuationQuiescence();
-        assertEquals(0, scheduler.activeTaskCount());
-        assertEquals(64, scheduler.availableActiveTaskPermits());
-        final CleanupEvidenceCollector.Snapshot failedRegistrationCleanup = evidence.snapshot();
-        assertEquals(1, failedRegistrationCleanup.taskHandlesCanceled());
-        assertEquals(1, failedRegistrationCleanup.taskCompletionsSettled());
-        assertEquals(0, failedRegistrationCleanup.pluginContinuationsDrained());
-
-        final AtomicBoolean secondActionStarted = new AtomicBoolean();
-        final TaskSubmission second = scheduler.submit(request(
-            "after-closed-registration",
-            token -> secondActionStarted.set(true)
-        ));
-        assertFalse(second.accepted());
-        assertEquals(Optional.of(TaskRejectionReason.PLUGIN_INACTIVE), second.rejectionReason());
-        assertFalse(secondActionStarted.get());
-        assertEquals(0, scheduler.activeTaskCount());
-        assertEquals(64, scheduler.availableActiveTaskPermits());
-        assertEquals(failedRegistrationCleanup, evidence.snapshot());
-
-        releaseScopeClose.countDown();
-        closer.join(1_000);
+            assertFalse(rejected.accepted());
+            assertNotNull(rejected.handle());
+            assertTrue(rejected.handle() instanceof RejectedTaskHandle);
+            assertEquals(Optional.of(TaskRejectionReason.PLUGIN_INACTIVE), rejected.rejectionReason());
+            assertEquals(TaskOutcomeStatus.REJECTED,
+                rejected.handle().completion().toCompletableFuture().get(1, TimeUnit.SECONDS).status());
+            assertFalse(actionStarted.get());
+            assertEquals(0, scheduler.activeTaskCount());
+            assertEquals(64, scheduler.availableActiveTaskPermits());
+            assertEquals(0, evidence.snapshot().taskHandlesCanceled());
+            assertEquals(0, evidence.snapshot().taskCompletionsSettled());
+            assertEquals(0, evidence.snapshot().pluginContinuationsDrained());
+        } finally {
+            releaseScopeClose.countDown();
+            closer.join(1_000);
+        }
         assertFalse(closer.isAlive());
         assertEquals(null, closeFailure.get());
     }
@@ -715,7 +853,17 @@ class RuntimePluginTaskSchedulerTest {
     private static int scopedRegistrationCount(final DisposableScope target) throws Exception {
         final var field = DisposableScope.class.getDeclaredField("closeables");
         field.setAccessible(true);
-        return ((java.util.List<?>) field.get(target)).size();
+        synchronized (target) {
+            return ((java.util.List<?>) field.get(target)).size();
+        }
+    }
+
+    private static int scopedRegistrationCountUnchecked(final DisposableScope target) {
+        try {
+            return scopedRegistrationCount(target);
+        } catch (Exception exception) {
+            throw new AssertionError("Could not inspect disposable scope registrations", exception);
+        }
     }
 
     private static PluginTaskRequest request(

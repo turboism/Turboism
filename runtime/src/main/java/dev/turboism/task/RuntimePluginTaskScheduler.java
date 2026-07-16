@@ -75,11 +75,17 @@ public final class RuntimePluginTaskScheduler implements PluginTaskScheduler, Au
     @Override
     public TaskSubmission submit(final PluginTaskRequest request) {
         Objects.requireNonNull(request, "request");
+        final PendingTaskOwnership ownership = registerPendingOwnership();
+        if (ownership == null) {
+            return rejected(request.id(), TaskRejectionReason.PLUGIN_INACTIVE);
+        }
         synchronized (admissionLock) {
-            if (!active) {
+            if (!active || ownership.isClosed()) {
+                ownership.disarm();
                 return rejected(request.id(), TaskRejectionReason.PLUGIN_INACTIVE);
             }
             if (!activeTaskPermits.tryAcquire()) {
+                ownership.disarm();
                 return rejected(request.id(), TaskRejectionReason.BACKPRESSURE);
             }
             final ActiveTaskAdmission admission = new ActiveTaskAdmission(
@@ -95,9 +101,19 @@ public final class RuntimePluginTaskScheduler implements PluginTaskScheduler, Au
                 completionDispatcher::dispatchPluginContinuation
             );
             admission.bind(handle);
+            ownership.ownCandidate(handle);
+            if (ownership.isClosed()) {
+                admission.release();
+                return rejected(request.id(), TaskRejectionReason.PLUGIN_INACTIVE);
+            }
             if (activeTasks.putIfAbsent(request.id(), handle) != null) {
                 admission.release();
+                ownership.disarm();
                 return rejected(request.id(), TaskRejectionReason.DUPLICATE_ACTIVE_ID);
+            }
+            if (ownership.isClosed()) {
+                admission.release();
+                return rejected(request.id(), TaskRejectionReason.PLUGIN_INACTIVE);
             }
             final CallbackSubmission callback = runtimeScheduler.submitLightweight(
                 runtimeTask(request),
@@ -106,9 +122,10 @@ public final class RuntimePluginTaskScheduler implements PluginTaskScheduler, Au
             );
             if (!callback.accepted()) {
                 admission.release();
+                ownership.disarm();
                 return rejected(request.id(), mapRejection(callback.rejectionStatus()));
             }
-            registerAccepted(handle);
+            ownership.bind();
             callback.completion().whenComplete((result, failure) -> {
                 if (failure != null || result == null) {
                     handle.observeExecution(new dev.turboism.core.runtime.CallbackExecutionResult(
@@ -126,11 +143,17 @@ public final class RuntimePluginTaskScheduler implements PluginTaskScheduler, Au
     @Override
     public TaskSubmission scheduleWithFixedDelay(final FixedDelayTaskRequest request) {
         Objects.requireNonNull(request, "request");
+        final PendingTaskOwnership ownership = registerPendingOwnership();
+        if (ownership == null) {
+            return rejected(request.id(), TaskRejectionReason.PLUGIN_INACTIVE);
+        }
         synchronized (admissionLock) {
-            if (!active) {
+            if (!active || ownership.isClosed()) {
+                ownership.disarm();
                 return rejected(request.id(), TaskRejectionReason.PLUGIN_INACTIVE);
             }
             if (!activeTaskPermits.tryAcquire()) {
+                ownership.disarm();
                 return rejected(request.id(), TaskRejectionReason.BACKPRESSURE);
             }
             final ActiveTaskAdmission admission = new ActiveTaskAdmission(
@@ -149,15 +172,26 @@ public final class RuntimePluginTaskScheduler implements PluginTaskScheduler, Au
                 completionDispatcher::dispatchPluginContinuation
             );
             admission.bind(handle);
+            ownership.ownCandidate(handle);
+            if (ownership.isClosed()) {
+                admission.release();
+                return rejected(request.id(), TaskRejectionReason.PLUGIN_INACTIVE);
+            }
             if (activeTasks.putIfAbsent(request.id(), handle) != null) {
                 admission.release();
+                ownership.disarm();
                 return rejected(request.id(), TaskRejectionReason.DUPLICATE_ACTIVE_ID);
+            }
+            if (ownership.isClosed()) {
+                admission.release();
+                return rejected(request.id(), TaskRejectionReason.PLUGIN_INACTIVE);
             }
             if (!handle.start(request.initialDelay())) {
                 admission.release();
+                ownership.disarm();
                 return rejected(request.id(), TaskRejectionReason.BACKPRESSURE);
             }
-            registerAccepted(handle);
+            ownership.bind();
             return accepted(handle);
         }
     }
@@ -209,34 +243,17 @@ public final class RuntimePluginTaskScheduler implements PluginTaskScheduler, Au
         return activeTaskPermits.availablePermits();
     }
 
-    private void registerAccepted(final AbstractRuntimeTaskHandle handle) {
-        final ScopedTaskCleanup scopedCleanup = new ScopedTaskCleanup(handle);
-        if (!active) {
-            scopedCleanup.close();
-            throw new IllegalStateException("Plugin task scheduler is already inactive.");
-        }
+    private PendingTaskOwnership registerPendingOwnership() {
+        final PendingTaskOwnership ownership = new PendingTaskOwnership(
+            completionDispatcher::beginCleanup,
+            cleanupEvidence::taskHandleCanceled
+        );
         try {
-            disposableScope.register(scopedCleanup);
-        } catch (RuntimeException exception) {
-            active = false;
-            scopedCleanup.close();
-            throw exception;
-        }
-    }
-
-    private final class ScopedTaskCleanup implements AutoCloseable {
-        private final AbstractRuntimeTaskHandle handle;
-
-        private ScopedTaskCleanup(final AbstractRuntimeTaskHandle handle) {
-            this.handle = Objects.requireNonNull(handle, "handle");
-        }
-
-        @Override
-        public void close() {
-            completionDispatcher.beginCleanup();
-            if (handle.cancel()) {
-                cleanupEvidence.taskHandleCanceled();
-            }
+            ownership.attachRegistration(disposableScope.register(ownership));
+            return ownership;
+        } catch (IllegalStateException exception) {
+            ownership.disarm();
+            return null;
         }
     }
 
