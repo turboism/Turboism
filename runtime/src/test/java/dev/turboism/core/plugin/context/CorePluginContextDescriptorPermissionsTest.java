@@ -22,6 +22,7 @@ import dev.turboism.sdk.cubism.ProjectSnapshot;
 import dev.turboism.sdk.cubism.RenderStatusSnapshot;
 import dev.turboism.sdk.cubism.WorkspaceSnapshot;
 import dev.turboism.sdk.event.EventBus.TurboismEvent;
+import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.plugin.DisposableScope;
@@ -29,22 +30,30 @@ import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.PluginPaths;
 import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.sdk.storage.PluginStorage;
+import dev.turboism.sdk.task.FixedDelayTaskRequest;
+import dev.turboism.sdk.task.PluginTaskRequest;
+import dev.turboism.sdk.task.PluginTaskScheduler;
+import dev.turboism.sdk.task.TaskSubmission;
 import dev.turboism.sdk.ui.DialogRequest;
 import dev.turboism.sdk.ui.EmbeddedPanelContribution;
 import dev.turboism.sdk.ui.FileChooserRequest;
 import dev.turboism.sdk.ui.OverlayContribution;
 import dev.turboism.sdk.ui.UiScheduler;
+import dev.turboism.sdk.ui.UserFileAccessService;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.lang.reflect.Proxy;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -52,6 +61,7 @@ import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -134,6 +144,70 @@ class CorePluginContextDescriptorPermissionsTest {
     }
 
     @Test
+    void sharedServicesAreExplicitlyInjectedWhileLegacyCompositionFailsClosed(@TempDir Path dataDir) {
+        final PluginLocalization localization = new PluginLocalization() {
+            @Override public Locale locale() { return Locale.SIMPLIFIED_CHINESE; }
+            @Override public String text(String key) { return key; }
+            @Override public String format(String key, Object... arguments) { return key; }
+            @Override public boolean contains(String key) { return true; }
+        };
+        final PluginTaskScheduler tasks = new PluginTaskScheduler() {
+            @Override public TaskSubmission submit(PluginTaskRequest request) { return null; }
+            @Override public TaskSubmission scheduleWithFixedDelay(FixedDelayTaskRequest request) { return null; }
+        };
+        final PluginStorage storage = (PluginStorage) Proxy.newProxyInstance(
+            PluginStorage.class.getClassLoader(),
+            new Class<?>[] {PluginStorage.class},
+            (proxy, method, arguments) -> null
+        );
+        final UserFileAccessService userFiles = (UserFileAccessService) Proxy.newProxyInstance(
+            UserFileAccessService.class.getClassLoader(),
+            new Class<?>[] {UserFileAccessService.class},
+            (proxy, method, arguments) -> null
+        );
+        final PluginDescriptor descriptor = descriptorWithPermissions();
+        final CorePluginContext injected = context(
+            dataDir,
+            descriptor,
+            ignored -> { },
+            RuntimeHostAdapters.safeMode(),
+            localization,
+            tasks,
+            storage,
+            userFiles
+        );
+        assertSame(localization, injected.localization());
+        assertSame(tasks, injected.tasks());
+        assertSame(storage, injected.storage());
+        assertSame(userFiles, injected.userFiles());
+
+        final CorePluginContext legacy = context(dataDir, descriptor, ignored -> { });
+        final UnsupportedOperationException error = assertThrows(
+            UnsupportedOperationException.class,
+            legacy::localization
+        );
+        assertEquals("localization service is not available", error.getMessage());
+        final UnsupportedOperationException taskError = assertThrows(
+            UnsupportedOperationException.class,
+            legacy::tasks
+        );
+        assertEquals("task scheduler is not available", taskError.getMessage());
+        final UnsupportedOperationException storageError = assertThrows(
+            UnsupportedOperationException.class,
+            legacy::storage
+        );
+        assertEquals("storage service is not available", storageError.getMessage());
+        final UnsupportedOperationException userFileError = assertThrows(
+            UnsupportedOperationException.class,
+            legacy::userFiles
+        );
+        assertEquals(
+            "user file access service is not available",
+            userFileError.getMessage()
+        );
+    }
+
+    @Test
     void connectedReadAdaptersAreAvailableThroughProductionContextConstructor(@TempDir Path dataDir) {
         RuntimeHostAdapters adapters = adapters(new RecordingUiSurfaceHost());
         CorePluginContext context = context(
@@ -202,7 +276,35 @@ class CorePluginContextDescriptorPermissionsTest {
         Consumer<CubismFacadeAuditEvent> auditSink,
         RuntimeHostAdapters adapters
     ) {
-        return new CorePluginContext(new CorePluginContext.Dependencies(
+        return new CorePluginContext(dependencies(dataDir, descriptor, auditSink), adapters);
+    }
+
+    private static CorePluginContext context(
+        Path dataDir,
+        PluginDescriptor descriptor,
+        Consumer<CubismFacadeAuditEvent> auditSink,
+        RuntimeHostAdapters adapters,
+        PluginLocalization localization,
+        PluginTaskScheduler tasks,
+        PluginStorage storage,
+        UserFileAccessService userFiles
+    ) {
+        return new CorePluginContext(
+            dependencies(dataDir, descriptor, auditSink),
+            adapters,
+            localization,
+            tasks,
+            storage,
+            userFiles
+        );
+    }
+
+    private static CorePluginContext.Dependencies dependencies(
+        Path dataDir,
+        PluginDescriptor descriptor,
+        Consumer<CubismFacadeAuditEvent> auditSink
+    ) {
+        return new CorePluginContext.Dependencies(
             descriptor,
             logger(),
             paths(dataDir),
@@ -213,7 +315,7 @@ class CorePluginContextDescriptorPermissionsTest {
             noopHostSnapshotSource(),
             auditSink,
             CLOCK
-        ), adapters);
+        );
     }
 
     private static RuntimeScheduler scheduler() {

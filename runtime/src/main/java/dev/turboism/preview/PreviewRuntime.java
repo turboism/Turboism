@@ -9,11 +9,15 @@ import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.PluginExecutorRegistry;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
+import dev.turboism.preview.report.PreviewReportSnapshotFactory;
+import dev.turboism.preview.report.PreviewReportWriter;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
+import java.time.Instant;
+import java.util.UUID;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -26,6 +30,10 @@ public final class PreviewRuntime implements AutoCloseable {
     private final HostRuntimeIngress hostIngress;
     private final LocalPluginRuntime pluginRuntime;
     private final LocalPluginRuntime.LoadReport loadReport;
+    private final PreviewReportWriter reportWriter;
+    private final String runtimeId;
+    private final Path verificationRecord;
+    private final Path hostArtifact;
     private final AtomicBoolean closed = new AtomicBoolean(false);
 
     private PreviewRuntime(
@@ -34,7 +42,11 @@ public final class PreviewRuntime implements AutoCloseable {
         final RuntimeScheduler scheduler,
         final HostRuntimeIngress hostIngress,
         final LocalPluginRuntime pluginRuntime,
-        final LocalPluginRuntime.LoadReport loadReport
+        final LocalPluginRuntime.LoadReport loadReport,
+        final PreviewReportWriter reportWriter,
+        final String runtimeId,
+        final Path verificationRecord,
+        final Path hostArtifact
     ) {
         this.home = home;
         this.log = log;
@@ -42,6 +54,10 @@ public final class PreviewRuntime implements AutoCloseable {
         this.hostIngress = hostIngress;
         this.pluginRuntime = pluginRuntime;
         this.loadReport = loadReport;
+        this.reportWriter = reportWriter;
+        this.runtimeId = runtimeId;
+        this.verificationRecord = verificationRecord;
+        this.hostArtifact = hostArtifact;
     }
 
     public static PreviewRuntime start(
@@ -67,9 +83,17 @@ public final class PreviewRuntime implements AutoCloseable {
             scheduler = createScheduler(log);
             ingress = new HostRuntimeIngress();
 
+            final Path normalizedVerificationRecord = Objects.requireNonNull(
+                verificationRecord,
+                "verificationRecord"
+            ).toAbsolutePath().normalize();
+            final Path normalizedHostArtifact = Objects.requireNonNull(
+                hostArtifact,
+                "hostArtifact"
+            ).toAbsolutePath().normalize();
             final HostVerificationEvidence.Slice projectWorkspace = new HostVerificationEvidence.Slice(
-                verificationRecord.toAbsolutePath().normalize(),
-                hostArtifact.toAbsolutePath().normalize(),
+                normalizedVerificationRecord,
+                normalizedHostArtifact,
                 Objects.requireNonNull(hostClassLoader, "hostClassLoader")
             );
             final HostSession.State hostState = ingress.publish(new HostInstanceDescriptor(
@@ -87,7 +111,28 @@ public final class PreviewRuntime implements AutoCloseable {
 
             plugins = new LocalPluginRuntime(home, scheduler, ingress.adapterAccess(), log);
             final LocalPluginRuntime.LoadReport report = plugins.loadAll();
-            return new PreviewRuntime(home, log, scheduler, ingress, plugins, report);
+            final PreviewReportWriter reportWriter = new PreviewReportWriter(
+                home.resolve("state"),
+                diagnostic -> log.warn(
+                    "preview-report",
+                    diagnostic.code() + " " + diagnostic.reportType() + ": "
+                        + diagnostic.message()
+                )
+            );
+            final PreviewRuntime runtime = new PreviewRuntime(
+                home,
+                log,
+                scheduler,
+                ingress,
+                plugins,
+                report,
+                reportWriter,
+                "runtime-" + UUID.randomUUID(),
+                normalizedVerificationRecord,
+                normalizedHostArtifact
+            );
+            runtime.writeReports(hostState, false);
+            return runtime;
         } catch (RuntimeException | Error failure) {
             closeAfterFailedStart(plugins, ingress, scheduler, log, failure);
             throw failure;
@@ -144,15 +189,41 @@ public final class PreviewRuntime implements AutoCloseable {
         }
     }
 
+    private void writeReports(
+        final HostSession.State observedHostState,
+        final boolean stopped
+    ) {
+        try {
+            reportWriter.writeAll(PreviewReportSnapshotFactory.create(
+                runtimeId,
+                Instant.now(),
+                home,
+                observedHostState,
+                hostArtifact,
+                verificationRecord,
+                loadReport,
+                pluginRuntime.reportSummaries(),
+                stopped
+            ));
+        } catch (RuntimeException exception) {
+            log.warn(
+                "preview-report",
+                "PREVIEW_REPORT_SNAPSHOT_FAILED: report snapshot failed safely."
+            );
+        }
+    }
+
     @Override
     public void close() {
         if (!closed.compareAndSet(false, true)) {
             return;
         }
         log.info("runtime", "Stopping Turboism Developer Preview");
+        final HostSession.State observedHostState = hostIngress.state();
         pluginRuntime.close();
         hostIngress.close();
         scheduler.shutdown();
+        writeReports(observedHostState, true);
         try {
             log.close();
         } catch (IOException exception) {

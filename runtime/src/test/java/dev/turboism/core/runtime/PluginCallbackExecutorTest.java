@@ -193,6 +193,29 @@ class PluginCallbackExecutorTest {
     }
 
     @Test
+    void admittedImmediateFailureRemainsAcceptedAndCompletesFailed() throws Exception {
+        final List<CallbackBudgetEvent> events = new CopyOnWriteArrayList<>();
+        final PluginCallbackExecutor executor = new PluginCallbackExecutor(
+            PLUGIN_ID,
+            PluginCallbackExecutorConfiguration.of(500, 1, 1, 50.0f),
+            events::add,
+            CLOCK
+        );
+
+        final CallbackSubmission submission = executor.submit(
+            task("action.handle"),
+            () -> { throw new IllegalStateException("immediate"); }
+        );
+
+        assertTrue(submission.accepted());
+        assertEquals(
+            CallbackExecutionStatus.FAILED,
+            submission.completion().toCompletableFuture().get(1, TimeUnit.SECONDS).status()
+        );
+        executor.shutdown();
+    }
+
+    @Test
     void callbackFailureEmitsFailedDiagnostic() {
         // Given
         List<CallbackBudgetEvent> events = new CopyOnWriteArrayList<>();

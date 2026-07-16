@@ -25,6 +25,10 @@ public final class DefaultWorkBudgetPolicy implements WorkBudgetPolicy {
                  "lifecycle.shutdown",
                  "event.subscribe",
                  "ui.schedule",
+                 "plugin.compute.normal",
+                 "plugin.compute.low",
+                 "plugin.refresh.normal",
+                 "plugin.refresh.low",
                  "sidecar.complete" -> WorkBudget.LIGHTWEIGHT;
             case "action.handle" -> isHeavyAction(task) ? WorkBudget.HEAVY : WorkBudget.LIGHTWEIGHT;
             case "config.read",

@@ -1,0 +1,14 @@
+action.refresh
+field.active_document
+field.documents
+field.host_read
+field.last_refresh
+field.layout_workspace
+status.available
+status.no_project_open
+status.reading
+status.unavailable
+status.unavailable_with_type
+value.none
+value.starting
+window.title
