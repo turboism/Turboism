@@ -88,7 +88,13 @@ public final class RuntimePluginConfigRegistry implements PluginConfigRegistry {
         requireScope(readScopes, scope, "read");
         final String propertyKey = requireText(key, "key");
         CompletableFuture<Optional<String>> result = new CompletableFuture<>();
-        scheduler.dispatch(task(READ_TASK_TYPE, scope), () -> result.complete(readProperty(scope, propertyKey)));
+        if (!scheduler.dispatch(
+            task(READ_TASK_TYPE, scope),
+            () -> result.complete(readProperty(scope, propertyKey))
+        )) {
+            emit("CONFIG_READ_REJECTED", "Plugin config read was rejected", scope);
+            return Optional.empty();
+        }
         try {
             return result.get(CONFIG_WAIT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
         } catch (InterruptedException exception) {
@@ -112,7 +118,13 @@ public final class RuntimePluginConfigRegistry implements PluginConfigRegistry {
         final String propertyKey = requireText(key, "key");
         final String propertyValue = Objects.requireNonNull(value, "value");
         CompletableFuture<PluginConfigException> result = new CompletableFuture<>();
-        scheduler.dispatch(task(WRITE_TASK_TYPE, scope), () -> result.complete(writeProperty(scope, propertyKey, propertyValue)));
+        if (!scheduler.dispatch(
+            task(WRITE_TASK_TYPE, scope),
+            () -> result.complete(writeProperty(scope, propertyKey, propertyValue))
+        )) {
+            emit("CONFIG_WRITE_REJECTED", "Plugin config write was rejected", scope);
+            throw new PluginConfigException("Plugin config write was rejected for " + scope);
+        }
         PluginConfigException failure = awaitWrite(scope, result);
         if (failure != null) {
             throw failure;

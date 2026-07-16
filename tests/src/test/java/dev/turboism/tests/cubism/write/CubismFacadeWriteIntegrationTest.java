@@ -3,6 +3,9 @@ package dev.turboism.tests.cubism.write;
 import dev.turboism.adapter.cubism.CubismFacadeImpl;
 import dev.turboism.adapter.cubism.write.FakeHostWriteAdapter;
 import dev.turboism.adapter.cubism.write.RuntimeTransactionManager;
+import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
+import dev.turboism.core.runtime.PluginExecutorRegistry;
+import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.diagnostics.CubismFacadeAuditEvent;
 import dev.turboism.permissions.CubismPermissionGate;
 import dev.turboism.sdk.cubism.CubismFacade;
@@ -54,12 +57,23 @@ class CubismFacadeWriteIntegrationTest {
 
     private static CubismFacade facadeWith(final FakeHostWriteAdapter adapter, final PluginPermission... permissions) {
         final List<CubismFacadeAuditEvent> auditEvents = new ArrayList<>();
+        final RuntimeScheduler scheduler = new RuntimeScheduler(
+            new DefaultWorkBudgetPolicy(),
+            new PluginExecutorRegistry(1, 16, ignored -> { }, FIXED_CLOCK),
+            (task, callback) -> {
+                callback.run();
+                return java.util.concurrent.CompletableFuture.completedFuture(
+                    dev.turboism.core.runtime.sidecar.SidecarResult.success("")
+                );
+            },
+            ignored -> { }
+        );
         return new CubismFacadeImpl(adapter, new CubismPermissionGate(
             "plugin.demo",
             List.of(permissions),
             auditEvents::add,
             FIXED_CLOCK
-        ), adapter);
+        ), adapter, scheduler);
     }
 
     private static FakeHostWriteAdapter adapterWithParameterValue(final double value) {
