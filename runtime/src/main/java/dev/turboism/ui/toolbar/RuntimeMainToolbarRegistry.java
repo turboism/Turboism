@@ -3,6 +3,7 @@ package dev.turboism.ui.toolbar;
 import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.permissions.PermissionChecker;
+import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
@@ -23,6 +24,7 @@ public final class RuntimeMainToolbarRegistry implements MainToolbarRegistry {
     private final String pluginId;
     private final Optional<ToolbarVisibilitySink> visibilitySink;
     private final Map<String, MainToolbarContribution> contributions = new ConcurrentHashMap<>();
+    private volatile PluginLocalization localization;
 
     public RuntimeMainToolbarRegistry(
         final PermissionChecker permissionChecker,
@@ -44,14 +46,20 @@ public final class RuntimeMainToolbarRegistry implements MainToolbarRegistry {
         this.visibilitySink = Optional.ofNullable(visibilitySink);
     }
 
+    /** Binds the localization context owned by this registry's contributing plugin. */
+    public void bindLocalization(final PluginLocalization pluginLocalization) {
+        localization = Objects.requireNonNull(pluginLocalization, "pluginLocalization");
+    }
+
     @Override
     public Registration contribute(final MainToolbarContribution contribution) {
         Objects.requireNonNull(contribution, "contribution");
         permissionChecker.check(PermissionIds.TURBOISM_UI_TOOLBAR_MAIN_CONTRIBUTE, "ui.main-toolbar.contribute");
         final String id = requireText(contribution.contributionId(), "contributionId");
-        contributions.put(id, contribution);
+        final MainToolbarContribution resolved = resolveLabel(contribution);
+        contributions.put(id, resolved);
         dispatchVisibilityUpdate(id);
-        return new ToolbarRegistration(id, contribution);
+        return new ToolbarRegistration(id, resolved);
     }
 
     boolean isRegistered(final String contributionId) {
@@ -60,6 +68,21 @@ public final class RuntimeMainToolbarRegistry implements MainToolbarRegistry {
 
     int registrationCount() {
         return contributions.size();
+    }
+
+    private MainToolbarContribution resolveLabel(final MainToolbarContribution contribution) {
+        final PluginLocalization pluginLocalization = localization;
+        if (pluginLocalization == null) {
+            return contribution;
+        }
+        return new MainToolbarContribution(
+            contribution.contributionId(),
+            contribution.actionId(),
+            pluginLocalization.text(requireText(contribution.labelKey(), "labelKey")),
+            contribution.iconResourcePath(),
+            contribution.anchor(),
+            contribution.order()
+        );
     }
 
     private void dispatchVisibilityUpdate(final String contributionId) {
