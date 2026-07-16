@@ -4,7 +4,6 @@ import dev.turboism.sdk.task.TaskFailure;
 import dev.turboism.sdk.task.TaskHandle;
 import dev.turboism.sdk.task.TaskId;
 import dev.turboism.sdk.task.TaskOutcome;
-
 import java.util.Objects;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicReference;
@@ -14,22 +13,25 @@ abstract class AbstractRuntimeTaskHandle implements TaskHandle {
 
     private final TaskId id;
     private final Runnable terminalCleanup;
-    private final Consumer<Runnable> completionDispatcher;
+    private final Consumer<Runnable> settlementDispatcher;
     private final PluginCompletionFuture<TaskOutcome> completion;
     private final AtomicReference<TaskOutcome> terminalOutcome = new AtomicReference<>();
 
     AbstractRuntimeTaskHandle(
         final TaskId id,
         final Runnable terminalCleanup,
-        final Consumer<Runnable> completionDispatcher
+        final Consumer<Runnable> settlementDispatcher,
+        final Consumer<Runnable> continuationDispatcher
     ) {
         this.id = Objects.requireNonNull(id, "id");
         this.terminalCleanup = Objects.requireNonNull(terminalCleanup, "terminalCleanup");
-        this.completionDispatcher = Objects.requireNonNull(
-            completionDispatcher,
-            "completionDispatcher"
+        this.settlementDispatcher = Objects.requireNonNull(
+            settlementDispatcher,
+            "settlementDispatcher"
         );
-        this.completion = new PluginCompletionFuture<>(completionDispatcher);
+        this.completion = new PluginCompletionFuture<>(
+            Objects.requireNonNull(continuationDispatcher, "continuationDispatcher")
+        );
     }
 
     @Override
@@ -49,7 +51,7 @@ abstract class AbstractRuntimeTaskHandle implements TaskHandle {
         }
         terminalCleanup.run();
         onTerminal();
-        completionDispatcher.accept(() -> completion.settle(terminal));
+        settlementDispatcher.accept(() -> completion.settle(terminal));
         return true;
     }
 

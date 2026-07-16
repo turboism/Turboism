@@ -297,30 +297,8 @@ public final class PreviewRuntime implements AutoCloseable {
             summaries,
             stopped
         );
-        applyShutdownReportCounts(reports, summaries, stopped);
         final Map<?, Boolean> results = reportWriter.writeAll(reports);
         return results.values().stream().allMatch(Boolean.TRUE::equals);
-    }
-
-    static void applyShutdownReportCounts(
-        final Map<PreviewReportType, ObjectNode> reports,
-        final List<LocalPluginRuntime.LoadedPluginSummary> summaries,
-        final boolean stopped
-    ) {
-        if (!stopped) {
-            return;
-        }
-        final ShutdownReportCounts counts = shutdownReportCounts(summaries);
-        final ObjectNode payload = (ObjectNode) reports.get(PreviewReportType.PREVIEW_RUNTIME)
-            .get("payload");
-        final ObjectNode shutdownCounts = (ObjectNode) payload.get("shutdownCounts");
-        shutdownCounts.put("attempted", counts.shutdownAttempted());
-        shutdownCounts.put("succeeded", counts.shutdownSucceeded());
-        shutdownCounts.put("failed", counts.shutdownFailed());
-        final ObjectNode cleanupCounts = (ObjectNode) payload.get("cleanupCounts");
-        cleanupCounts.put("scopesClosed", counts.scopesClosed());
-        cleanupCounts.put("classloadersClosed", counts.classloadersClosed());
-        cleanupCounts.put("failures", counts.cleanupFailures());
     }
 
     static ShutdownReportCounts shutdownReportCounts(

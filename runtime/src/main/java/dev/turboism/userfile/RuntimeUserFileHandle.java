@@ -64,7 +64,11 @@ final class RuntimeUserFileHandle implements UserFileHandle {
 
     @Override
     public void revoke() {
-        state.compareAndSet(UserFileHandleState.ACTIVE, UserFileHandleState.REVOKED);
+        revokeIfActive();
+    }
+
+    boolean revokeIfActive() {
+        return state.compareAndSet(UserFileHandleState.ACTIVE, UserFileHandleState.REVOKED);
     }
 
     @Override

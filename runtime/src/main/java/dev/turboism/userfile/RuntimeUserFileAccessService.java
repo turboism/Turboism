@@ -16,6 +16,7 @@ import dev.turboism.sdk.ui.UserFileRequestStatus;
 import dev.turboism.sdk.ui.UserFileWriteResult;
 import dev.turboism.task.PluginCompletionFuture;
 import dev.turboism.task.RuntimePluginTaskScheduler;
+import dev.turboism.cleanup.CleanupEvidenceCollector;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -54,6 +55,7 @@ public final class RuntimeUserFileAccessService
     private final UserFileGrantSource source;
     private final RuntimePluginTaskScheduler tasks;
     private final UserFileIoExecutor io;
+    private final CleanupEvidenceCollector cleanupEvidence;
     private final Object lifecycleLock = new Object();
     private final Set<RuntimeUserFileHandle> grants = new HashSet<>();
     private final Set<PendingRequest> pendingRequests = new HashSet<>();
@@ -66,10 +68,22 @@ public final class RuntimeUserFileAccessService
         final RuntimePluginTaskScheduler tasks,
         final DisposableScope scope
     ) {
+        this(pluginId, permissions, source, tasks, scope, new CleanupEvidenceCollector());
+    }
+
+    public RuntimeUserFileAccessService(
+        final String pluginId,
+        final Set<String> permissions,
+        final UserFileGrantSource source,
+        final RuntimePluginTaskScheduler tasks,
+        final DisposableScope scope,
+        final CleanupEvidenceCollector cleanupEvidence
+    ) {
         this.pluginId = requireText(pluginId, "pluginId");
         this.permissions = Set.copyOf(Objects.requireNonNull(permissions, "permissions"));
         this.source = Objects.requireNonNull(source, "source");
         this.tasks = Objects.requireNonNull(tasks, "tasks");
+        this.cleanupEvidence = Objects.requireNonNull(cleanupEvidence, "cleanupEvidence");
         this.io = new UserFileIoExecutor(pluginId, tasks);
         try {
             Objects.requireNonNull(scope, "scope").register(this);
@@ -202,7 +216,11 @@ public final class RuntimeUserFileAccessService
             toRevoke = new ArrayList<>(grants);
             toSettle = new ArrayList<>(pendingRequests);
         }
-        toRevoke.forEach(RuntimeUserFileHandle::revoke);
+        toRevoke.forEach(handle -> {
+            if (handle.revokeIfActive()) {
+                cleanupEvidence.userFileHandleRevoked();
+            }
+        });
         toSettle.forEach(PendingRequest::unavailable);
         io.close();
         synchronized (lifecycleLock) {
@@ -378,7 +396,7 @@ public final class RuntimeUserFileAccessService
         }
     }
 
-    private static UserFileWriteResult writeBytesNow(
+    private UserFileWriteResult writeBytesNow(
         final Path target,
         final byte[] content
     ) {
@@ -428,8 +446,11 @@ public final class RuntimeUserFileAccessService
         } finally {
             if (temporary != null) {
                 try {
-                    Files.deleteIfExists(temporary);
+                    if (Files.deleteIfExists(temporary)) {
+                        cleanupEvidence.temporaryFileDeleted();
+                    }
                 } catch (IOException ignored) {
+                    cleanupEvidence.cleanupFailed();
                 }
             }
         }

@@ -23,6 +23,7 @@ import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.storage.StoragePath;
 import dev.turboism.sdk.storage.StorageRoot;
 import dev.turboism.task.RuntimePluginTaskScheduler;
+import dev.turboism.cleanup.CleanupEvidenceCollector;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -50,6 +51,7 @@ public final class RuntimeTypedPluginConfigRegistry
     private final Set<String> permissions;
     private final TypedConfigDocumentStore store;
     private final TypedConfigIoExecutor io;
+    private final CleanupEvidenceCollector cleanupEvidence;
     private final Object lifecycleLock = new Object();
     private final Map<String, RegisteredSchema> schemas = new HashMap<>();
     private final Map<String, String> paths = new HashMap<>();
@@ -63,8 +65,22 @@ public final class RuntimeTypedPluginConfigRegistry
         final RuntimePluginTaskScheduler tasks,
         final DisposableScope scope
     ) {
+        this(legacy, pluginId, configRoot, permissions, tasks, scope,
+            new CleanupEvidenceCollector());
+    }
+
+    public RuntimeTypedPluginConfigRegistry(
+        final PluginConfigRegistry legacy,
+        final String pluginId,
+        final Path configRoot,
+        final Set<String> permissions,
+        final RuntimePluginTaskScheduler tasks,
+        final DisposableScope scope,
+        final CleanupEvidenceCollector cleanupEvidence
+    ) {
         this.legacy = Objects.requireNonNull(legacy, "legacy");
         this.permissions = Set.copyOf(Objects.requireNonNull(permissions, "permissions"));
+        this.cleanupEvidence = Objects.requireNonNull(cleanupEvidence, "cleanupEvidence");
         try {
             this.store = new TypedConfigDocumentStore(
                 Objects.requireNonNull(configRoot, "configRoot")
@@ -225,8 +241,10 @@ public final class RuntimeTypedPluginConfigRegistry
         }
         io.close();
         synchronized (lifecycleLock) {
+            final int removed = schemas.size();
             schemas.clear();
             paths.clear();
+            cleanupEvidence.configSchemasUnregistered(removed);
         }
     }
 
