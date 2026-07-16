@@ -273,6 +273,7 @@ public final class CorePluginContext implements PluginContext {
         this.contextMenuRegistry = dependencies.contextMenu();
         this.pluginConfigRegistry = dependencies.config();
         this.localization = localization;
+        bindContributionLocalization(this.mainToolbarRegistry, this.paletteToolbarRegistry, localization);
         this.taskScheduler = taskScheduler;
         this.pluginStorage = pluginStorage;
         this.userFileAccessService = userFileAccessService;
@@ -291,6 +292,22 @@ public final class CorePluginContext implements PluginContext {
             adapters.mainToolbar(),
             adapters.uiSurface()
         );
+    }
+
+    private static void bindContributionLocalization(
+        final MainToolbarRegistry mainToolbar,
+        final PaletteToolbarRegistry paletteToolbar,
+        final PluginLocalization localization
+    ) {
+        if (localization == null) {
+            return;
+        }
+        if (mainToolbar instanceof RuntimeMainToolbarRegistry runtimeMainToolbar) {
+            runtimeMainToolbar.bindLocalization(localization);
+        }
+        if (paletteToolbar instanceof RuntimePaletteToolbarRegistry runtimePaletteToolbar) {
+            runtimePaletteToolbar.bindLocalization(localization);
+        }
     }
 
     @Override

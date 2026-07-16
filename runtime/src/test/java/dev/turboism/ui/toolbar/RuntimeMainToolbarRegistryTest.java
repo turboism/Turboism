@@ -6,6 +6,7 @@ import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.WorkBudgetPolicy;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
+import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.Registration;
@@ -18,6 +19,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -118,6 +120,38 @@ class RuntimeMainToolbarRegistryTest {
     }
 
     @Test
+    void labelKeysResolveWithinTheContributingPluginLocalizationContext() throws InterruptedException {
+        // Given
+        RuntimeScheduler runtimeScheduler = scheduler(new RecordingPolicy());
+        RecordingVisibilitySink firstSink = new RecordingVisibilitySink(1);
+        RecordingVisibilitySink secondSink = new RecordingVisibilitySink(1);
+        RuntimeMainToolbarRegistry first = new RuntimeMainToolbarRegistry(
+            (permissionId, operation) -> { },
+            runtimeScheduler,
+            "dev.turboism.plugin.first",
+            firstSink
+        );
+        RuntimeMainToolbarRegistry second = new RuntimeMainToolbarRegistry(
+            (permissionId, operation) -> { },
+            runtimeScheduler,
+            "dev.turboism.plugin.second",
+            secondSink
+        );
+        first.bindLocalization(localization("First label"));
+        second.bindLocalization(localization("Second label"));
+
+        // When
+        first.contribute(contribution("first.toolbar"));
+        second.contribute(contribution("second.toolbar"));
+
+        // Then
+        assertTrue(firstSink.updated.await(1, TimeUnit.SECONDS));
+        assertTrue(secondSink.updated.await(1, TimeUnit.SECONDS));
+        assertEquals(List.of("First label"), firstSink.mainLabels);
+        assertEquals(List.of("Second label"), secondSink.mainLabels);
+    }
+
+    @Test
     void visibilitySinkReceivesSnapshotsOnContributeAndClose() throws InterruptedException {
         // Given
         RecordingPolicy policy = new RecordingPolicy();
@@ -150,6 +184,15 @@ class RuntimeMainToolbarRegistryTest {
         return scheduler;
     }
 
+    private static PluginLocalization localization(final String value) {
+        return new PluginLocalization() {
+            @Override public Locale locale() { return Locale.ENGLISH; }
+            @Override public String text(final String key) { return value; }
+            @Override public String format(final String key, final Object... arguments) { return value; }
+            @Override public boolean contains(final String key) { return true; }
+        };
+    }
+
     private static MainToolbarRegistry.MainToolbarContribution contribution(String id) {
         return new MainToolbarRegistry.MainToolbarContribution(
             id,
@@ -178,6 +221,7 @@ class RuntimeMainToolbarRegistryTest {
         private final CountDownLatch updated;
         private final List<String> pluginIds = new CopyOnWriteArrayList<>();
         private final List<Integer> mainContributionCounts = new CopyOnWriteArrayList<>();
+        private final List<String> mainLabels = new CopyOnWriteArrayList<>();
 
         private RecordingVisibilitySink(final int expectedUpdates) {
             updated = new CountDownLatch(expectedUpdates);
@@ -190,6 +234,9 @@ class RuntimeMainToolbarRegistryTest {
         ) {
             pluginIds.add(pluginId);
             mainContributionCounts.add(contributions.size());
+            contributions.stream()
+                .map(MainToolbarRegistry.MainToolbarContribution::labelKey)
+                .forEach(mainLabels::add);
             updated.countDown();
         }
     }
