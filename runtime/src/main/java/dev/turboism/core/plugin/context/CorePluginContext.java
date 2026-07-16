@@ -299,14 +299,19 @@ public final class CorePluginContext implements PluginContext {
         final PaletteToolbarRegistry paletteToolbar,
         final PluginLocalization localization
     ) {
-        if (localization == null) {
-            return;
-        }
         if (mainToolbar instanceof RuntimeMainToolbarRegistry runtimeMainToolbar) {
-            runtimeMainToolbar.bindLocalization(localization);
+            if (localization == null) {
+                runtimeMainToolbar.lockWithoutLocalization();
+            } else {
+                runtimeMainToolbar.bindLocalization(localization);
+            }
         }
         if (paletteToolbar instanceof RuntimePaletteToolbarRegistry runtimePaletteToolbar) {
-            runtimePaletteToolbar.bindLocalization(localization);
+            if (localization == null) {
+                runtimePaletteToolbar.lockWithoutLocalization();
+            } else {
+                runtimePaletteToolbar.bindLocalization(localization);
+            }
         }
     }
 
