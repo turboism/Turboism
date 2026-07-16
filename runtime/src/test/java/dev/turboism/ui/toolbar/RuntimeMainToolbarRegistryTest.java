@@ -20,11 +20,13 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -137,8 +139,10 @@ class RuntimeMainToolbarRegistryTest {
             "dev.turboism.plugin.second",
             secondSink
         );
-        first.bindLocalization(localization("First label"));
-        second.bindLocalization(localization("Second label"));
+        RecordingLocalization firstLocalization = localization("First label");
+        RecordingLocalization secondLocalization = localization("Second label");
+        first.bindLocalization(firstLocalization);
+        second.bindLocalization(secondLocalization);
 
         // When
         first.contribute(contribution("first.toolbar"));
@@ -147,8 +151,75 @@ class RuntimeMainToolbarRegistryTest {
         // Then
         assertTrue(firstSink.updated.await(1, TimeUnit.SECONDS));
         assertTrue(secondSink.updated.await(1, TimeUnit.SECONDS));
+        assertEquals(List.of("probe.label"), firstLocalization.textKeys);
+        assertEquals(List.of("probe.label"), secondLocalization.textKeys);
         assertEquals(List.of("First label"), firstSink.mainLabels);
         assertEquals(List.of("Second label"), secondSink.mainLabels);
+    }
+
+    @Test
+    void explicitNoLocalizationLockKeepsTheRawLabelKey() throws InterruptedException {
+        // Given
+        RecordingVisibilitySink sink = new RecordingVisibilitySink(1);
+        RuntimeMainToolbarRegistry registry = new RuntimeMainToolbarRegistry(
+            (permissionId, operation) -> { },
+            scheduler(new RecordingPolicy()),
+            PLUGIN_ID,
+            sink
+        );
+        registry.lockWithoutLocalization();
+
+        // When
+        registry.contribute(contribution("probe.toolbar"));
+
+        // Then
+        assertTrue(sink.updated.await(1, TimeUnit.SECONDS));
+        assertEquals(List.of("probe.label"), sink.mainLabels);
+        IllegalStateException error = assertThrows(
+            IllegalStateException.class,
+            () -> registry.bindLocalization(localization("Late label"))
+        );
+        assertEquals("localization ownership is already locked", error.getMessage());
+    }
+
+    @Test
+    void firstUnboundContributionLocksTheRawFallback() {
+        // Given
+        RuntimeMainToolbarRegistry registry = new RuntimeMainToolbarRegistry(
+            (permissionId, operation) -> { },
+            scheduler(new RecordingPolicy()),
+            PLUGIN_ID
+        );
+
+        // When
+        registry.contribute(contribution("probe.toolbar"));
+
+        // Then
+        IllegalStateException error = assertThrows(
+            IllegalStateException.class,
+            () -> registry.bindLocalization(localization("Late label"))
+        );
+        assertEquals("localization ownership is already locked", error.getMessage());
+    }
+
+    @Test
+    void localizationBindingIsIdempotentOnlyForTheSameInstance() {
+        // Given
+        RuntimeMainToolbarRegistry registry = new RuntimeMainToolbarRegistry(
+            (permissionId, operation) -> { },
+            scheduler(new RecordingPolicy()),
+            PLUGIN_ID
+        );
+        RecordingLocalization localization = localization("Bound label");
+        registry.bindLocalization(localization);
+
+        // When / Then
+        assertDoesNotThrow(() -> registry.bindLocalization(localization));
+        IllegalStateException error = assertThrows(
+            IllegalStateException.class,
+            () -> registry.bindLocalization(localization("Other label"))
+        );
+        assertEquals("localization ownership is already locked", error.getMessage());
     }
 
     @Test
@@ -184,13 +255,8 @@ class RuntimeMainToolbarRegistryTest {
         return scheduler;
     }
 
-    private static PluginLocalization localization(final String value) {
-        return new PluginLocalization() {
-            @Override public Locale locale() { return Locale.ENGLISH; }
-            @Override public String text(final String key) { return value; }
-            @Override public String format(final String key, final Object... arguments) { return value; }
-            @Override public boolean contains(final String key) { return true; }
-        };
+    private static RecordingLocalization localization(final String value) {
+        return new RecordingLocalization(Map.of("probe.label", value));
     }
 
     private static MainToolbarRegistry.MainToolbarContribution contribution(String id) {
@@ -215,6 +281,26 @@ class RuntimeMainToolbarRegistryTest {
             dispatched.countDown();
             return WorkBudget.LIGHTWEIGHT;
         }
+    }
+
+    private static final class RecordingLocalization implements PluginLocalization {
+        private final Map<String, String> catalog;
+        private final List<String> textKeys = new CopyOnWriteArrayList<>();
+
+        private RecordingLocalization(final Map<String, String> catalog) {
+            this.catalog = Map.copyOf(catalog);
+        }
+
+        @Override public Locale locale() { return Locale.ENGLISH; }
+
+        @Override
+        public String text(final String key) {
+            textKeys.add(key);
+            return catalog.getOrDefault(key, key);
+        }
+
+        @Override public String format(final String key, final Object... arguments) { return text(key); }
+        @Override public boolean contains(final String key) { return catalog.containsKey(key); }
     }
 
     private static final class RecordingVisibilitySink implements ToolbarVisibilitySink {
