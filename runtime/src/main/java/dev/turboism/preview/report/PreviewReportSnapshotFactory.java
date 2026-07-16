@@ -131,6 +131,18 @@ public final class PreviewReportSnapshotFactory {
         );
         final ObjectNode cleanup = PreviewReportDocuments.emptyCleanupCounts();
         if (stopped) {
+            cleanup.put("taskHandlesCanceled", summaries.stream().mapToLong(summary ->
+                summary.cleanupEvidence().taskHandlesCanceled()).sum());
+            cleanup.put("taskCompletionsSettled", summaries.stream().mapToLong(summary ->
+                summary.cleanupEvidence().taskCompletionsSettled()).sum());
+            cleanup.put("pluginContinuationsDrained", summaries.stream().mapToLong(summary ->
+                summary.cleanupEvidence().pluginContinuationsDrained()).sum());
+            cleanup.put("userFileHandlesRevoked", summaries.stream().mapToLong(summary ->
+                summary.cleanupEvidence().userFileHandlesRevoked()).sum());
+            cleanup.put("configSchemasUnregistered", summaries.stream().mapToLong(summary ->
+                summary.cleanupEvidence().configSchemasUnregistered()).sum());
+            cleanup.put("temporaryFilesDeleted", summaries.stream().mapToLong(summary ->
+                summary.cleanupEvidence().temporaryFilesDeleted()).sum());
             cleanup.put(
                 "scopesClosed",
                 summaries.stream().filter(summary ->
@@ -145,7 +157,11 @@ public final class PreviewReportSnapshotFactory {
             );
             cleanup.put(
                 "failures",
-                summaries.stream().mapToLong(summary -> summary.failures().size()).sum()
+                summaries.stream().mapToLong(summary ->
+                    summary.cleanupEvidence().failures()
+                        + (summary.scopeCleanupState().equals("FAILED") ? 1 : 0)
+                        + (summary.classloaderCleanupState().equals("FAILED") ? 1 : 0)
+                ).sum()
             );
         }
         payload.set("cleanupCounts", cleanup);
