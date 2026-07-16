@@ -1,5 +1,6 @@
 package dev.turboism.task;
 
+import dev.turboism.cleanup.CleanupEvidenceCollector;
 import dev.turboism.core.runtime.PluginExecutorRegistry;
 import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.runtime.RuntimeScheduler;
@@ -464,6 +465,159 @@ class RuntimePluginTaskSchedulerTest {
     }
 
     @Test
+    void acceptedHandleIsCanceledByItsScopeBeforeSchedulerCleanupAndReportsEvidence() throws Exception {
+        final CleanupEvidenceCollector evidence = new CleanupEvidenceCollector();
+        createScheduler(1, 8, evidence);
+        final CountDownLatch started = new CountDownLatch(1);
+        final CountDownLatch continuationRan = new CountDownLatch(1);
+        final AtomicReference<TaskSubmission> accepted = new AtomicReference<>();
+        scope.register(() -> {
+            assertFalse(accepted.get().handle().cancel(),
+                "the handle cleanup must run before the scheduler cleanup path");
+            assertEquals(1, evidence.snapshot().taskHandlesCanceled());
+        });
+        final TaskSubmission submission = scheduler.submit(request("scoped-cleanup", token -> {
+            started.countDown();
+            while (!token.isCancellationRequested()) {
+                Thread.onSpinWait();
+            }
+        }));
+        accepted.set(submission);
+        submission.handle().completion().thenRun(continuationRan::countDown);
+        assertTrue(started.await(1, TimeUnit.SECONDS));
+
+        scope.close();
+
+        assertEquals(
+            TaskOutcomeStatus.CANCELED,
+            submission.handle().completion().toCompletableFuture().get(1, TimeUnit.SECONDS).status()
+        );
+        assertTrue(continuationRan.await(1, TimeUnit.SECONDS));
+        assertEquals(1, evidence.snapshot().taskHandlesCanceled());
+        assertEquals(1, evidence.snapshot().taskCompletionsSettled());
+        assertEquals(1, evidence.snapshot().pluginContinuationsDrained());
+    }
+
+    @Test
+    void manualCancelBeforeScopeCloseDoesNotBecomeCleanupEvidence() throws Exception {
+        final CleanupEvidenceCollector evidence = new CleanupEvidenceCollector();
+        createScheduler(1, 8, evidence);
+        final TaskSubmission submission = scheduler.scheduleWithFixedDelay(new FixedDelayTaskRequest(
+            new TaskId("manual-before-scope"),
+            PluginTaskKind.LOW_FREQUENCY_REFRESH,
+            PluginTaskPriority.LOW,
+            Duration.ofHours(1),
+            Duration.ofHours(1),
+            token -> { }
+        ));
+        assertTrue(submission.accepted());
+        assertTrue(submission.handle().cancel());
+        submission.handle().completion().toCompletableFuture().get(1, TimeUnit.SECONDS);
+        scheduler.awaitContinuationQuiescence();
+
+        scope.close();
+
+        assertEquals(0, evidence.snapshot().taskHandlesCanceled());
+        assertEquals(0, evidence.snapshot().taskCompletionsSettled());
+        assertEquals(0, evidence.snapshot().pluginContinuationsDrained());
+    }
+
+    @Test
+    void rejectedHandleIsNotRegisteredForScopedCleanup() throws Exception {
+        final CleanupEvidenceCollector evidence = new CleanupEvidenceCollector();
+        createScheduler(1, 8, evidence);
+        final CountDownLatch started = new CountDownLatch(1);
+        final CountDownLatch release = new CountDownLatch(1);
+        final TaskSubmission accepted = scheduler.submit(request("duplicate-scope", token -> {
+            started.countDown();
+            release.await();
+        }));
+        assertTrue(started.await(1, TimeUnit.SECONDS));
+        final TaskSubmission rejected = scheduler.submit(request("duplicate-scope", token -> { }));
+        assertFalse(rejected.accepted());
+        assertEquals(2, scopedRegistrationCount(scope),
+            "only the scheduler and accepted handle belong to the scope");
+        scope.register(() -> {
+            assertEquals(TaskOutcomeStatus.REJECTED,
+                rejected.handle().completion().toCompletableFuture().join().status());
+            assertFalse(rejected.handle().cancel());
+            assertEquals(0, evidence.snapshot().taskHandlesCanceled());
+        });
+
+        scope.close();
+        release.countDown();
+
+        assertEquals(TaskOutcomeStatus.CANCELED,
+            accepted.handle().completion().toCompletableFuture().get(1, TimeUnit.SECONDS).status());
+        assertEquals(1, evidence.snapshot().taskHandlesCanceled());
+    }
+
+    @Test
+    void registrationIntoAlreadyClosedScopeFailsWithoutTaskOrPermitLeak() throws Exception {
+        final CleanupEvidenceCollector evidence = new CleanupEvidenceCollector();
+        createScheduler(1, 8, evidence);
+        final CountDownLatch scopeCloseStarted = new CountDownLatch(1);
+        final CountDownLatch releaseScopeClose = new CountDownLatch(1);
+        scope.register(() -> {
+            scopeCloseStarted.countDown();
+            await(releaseScopeClose);
+        });
+        final AtomicReference<Throwable> closeFailure = new AtomicReference<>();
+        final Thread closer = new Thread(() -> {
+            try {
+                scope.close();
+            } catch (Throwable failure) {
+                closeFailure.set(failure);
+            }
+        }, "closed-scope-registration");
+        closer.start();
+        assertTrue(scopeCloseStarted.await(1, TimeUnit.SECONDS));
+
+        assertThrows(IllegalStateException.class, () -> scheduler.scheduleWithFixedDelay(
+            new FixedDelayTaskRequest(
+                new TaskId("closed-registration"),
+                PluginTaskKind.LOW_FREQUENCY_REFRESH,
+                PluginTaskPriority.LOW,
+                Duration.ofHours(1),
+                Duration.ofHours(1),
+                token -> { }
+            )
+        ));
+        assertEquals(0, scheduler.activeTaskCount());
+        assertEquals(64, scheduler.availableActiveTaskPermits());
+
+        releaseScopeClose.countDown();
+        closer.join(1_000);
+        assertFalse(closer.isAlive());
+        assertEquals(null, closeFailure.get());
+    }
+
+    @Test
+    void repeatedScopeAndSchedulerCloseDoesNotInflateCleanupEvidence() throws Exception {
+        final CleanupEvidenceCollector evidence = new CleanupEvidenceCollector();
+        createScheduler(1, 8, evidence);
+        final TaskSubmission submission = scheduler.scheduleWithFixedDelay(new FixedDelayTaskRequest(
+            new TaskId("idempotent-cleanup"),
+            PluginTaskKind.LOW_FREQUENCY_REFRESH,
+            PluginTaskPriority.LOW,
+            Duration.ofHours(1),
+            Duration.ofHours(1),
+            token -> { }
+        ));
+        assertTrue(submission.accepted());
+
+        scheduler.close();
+        final CleanupEvidenceCollector.Snapshot first = evidence.snapshot();
+        scheduler.close();
+        scope.close();
+        scope.close();
+
+        assertEquals(first, evidence.snapshot());
+        assertEquals(1, first.taskHandlesCanceled());
+        assertEquals(1, first.taskCompletionsSettled());
+    }
+
+    @Test
     void closingScopeCancelsAcceptedTasksAndClosedSchedulerRejectsNewOnes() throws Exception {
         createScheduler(1, 8);
         final CountDownLatch started = new CountDownLatch(1);
@@ -486,6 +640,29 @@ class RuntimePluginTaskSchedulerTest {
 
     private void createScheduler(final int workers, final int queueCapacity) {
         createScheduler(workers, queueCapacity, ignored -> WorkBudget.LIGHTWEIGHT);
+    }
+
+    private void createScheduler(
+        final int workers,
+        final int queueCapacity,
+        final CleanupEvidenceCollector cleanupEvidence
+    ) {
+        runtimeScheduler = new RuntimeScheduler(
+            ignored -> WorkBudget.LIGHTWEIGHT,
+            new PluginExecutorRegistry(
+                500L,
+                workers,
+                queueCapacity,
+                ignored -> { },
+                Clock.systemUTC()
+            ),
+            SidecarDispatcher.noop(),
+            ignored -> { }
+        );
+        scope = new DisposableScope();
+        scheduler = new RuntimePluginTaskScheduler(
+            "plugin.tasks", runtimeScheduler, scope, cleanupEvidence
+        );
     }
 
     private void createScheduler(
@@ -516,6 +693,12 @@ class RuntimePluginTaskSchedulerTest {
         );
         scope = new DisposableScope();
         scheduler = new RuntimePluginTaskScheduler("plugin.tasks", runtimeScheduler, scope);
+    }
+
+    private static int scopedRegistrationCount(final DisposableScope target) throws Exception {
+        final var field = DisposableScope.class.getDeclaredField("closeables");
+        field.setAccessible(true);
+        return ((java.util.List<?>) field.get(target)).size();
     }
 
     private static PluginTaskRequest request(
