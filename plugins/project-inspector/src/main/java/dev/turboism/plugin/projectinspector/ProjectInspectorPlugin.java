@@ -1,14 +1,7 @@
 package dev.turboism.plugin.projectinspector;
 
-import dev.turboism.sdk.hostread.AsyncHostReadError;
-import dev.turboism.sdk.hostread.AsyncHostReadHandle;
-import dev.turboism.sdk.hostread.AsyncHostReadIntent;
-import dev.turboism.sdk.hostread.AsyncHostReadRequest;
-import dev.turboism.sdk.hostread.AsyncHostReadResult;
-import dev.turboism.sdk.hostread.AsyncHostReadSubmission;
-import dev.turboism.sdk.hostread.AsyncHostReadSubmissionStatus;
-import dev.turboism.sdk.hostread.ProjectWorkspaceSnapshot;
-import dev.turboism.sdk.i18n.PluginLocalization;
+import dev.turboism.sdk.cubism.ProjectSnapshot;
+import dev.turboism.sdk.cubism.WorkspaceSnapshot;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.TurboismPlugin;
 
@@ -22,362 +15,175 @@ import javax.swing.WindowConstants;
 import java.awt.BorderLayout;
 import java.awt.GraphicsEnvironment;
 import java.awt.GridLayout;
-import java.lang.reflect.InvocationTargetException;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicReference;
 
-/** First localization + runtime-owned async host-read reference consumer. */
+/** First visible Turboism 0.1 vertical-slice plugin. */
 public final class ProjectInspectorPlugin implements TurboismPlugin {
 
-    private static final Duration READ_TIMEOUT = Duration.ofSeconds(2);
-
-    static int windowCloseOperation() {
-        return WindowConstants.HIDE_ON_CLOSE;
-    }
-
-    private final Object lifecycleLock = new Object();
-    private final UiAccess ui;
-    private final AtomicReference<InspectorView> window = new AtomicReference<>();
-    private final AtomicReference<AsyncHostReadHandle> currentRead = new AtomicReference<>();
+    private final AtomicReference<JFrame> window = new AtomicReference<>();
     private PluginContext context;
-    private PluginLocalization localization;
-    private boolean enabled;
-    private long generation;
-
-    public ProjectInspectorPlugin() {
-        this(new SwingUiAccess());
-    }
-
-    ProjectInspectorPlugin(final UiAccess ui) {
-        this.ui = Objects.requireNonNull(ui, "ui");
-    }
+    private ExecutorService refreshExecutor;
+    private JLabel statusValue;
+    private JLabel projectValue;
+    private JLabel documentsValue;
+    private JLabel workspaceValue;
+    private JLabel refreshedValue;
 
     @Override
     public void init(final PluginContext context) {
         this.context = Objects.requireNonNull(context, "context");
-        this.localization = context.localization();
-        context.hostReads();
-        context.disposableScope().register(this::cancelCurrentRead);
+        this.refreshExecutor = Executors.newSingleThreadExecutor(new InspectorThreadFactory());
+        context.disposableScope().register(() -> refreshExecutor.shutdownNow());
         context.disposableScope().register(this::disposeWindow);
         context.logger().info("Project Inspector initialized");
     }
 
     @Override
     public void enable() {
-        final long enableGeneration;
-        synchronized (lifecycleLock) {
-            enabled = true;
-            enableGeneration = ++generation;
-        }
-        if (ui.isHeadless()) {
+        if (GraphicsEnvironment.isHeadless()) {
             context.logger().warn("Project Inspector cannot open because the JVM is headless");
             return;
         }
-        ui.invokeLater(() -> showWindow(enableGeneration));
+        SwingUtilities.invokeLater(this::showWindow);
     }
 
     @Override
     public void disable() {
-        deactivate();
+        disposeWindow();
     }
 
     @Override
     public void shutdown() {
-        deactivate();
-    }
-
-    private void deactivate() {
-        synchronized (lifecycleLock) {
-            enabled = false;
-            generation++;
-        }
-        cancelCurrentRead();
         disposeWindow();
+        if (refreshExecutor != null) {
+            refreshExecutor.shutdownNow();
+        }
     }
 
-    private void showWindow(final long enableGeneration) {
-        if (!isEnabledGeneration(enableGeneration)) {
-            return;
-        }
-        final InspectorView existing = window.get();
+    private void showWindow() {
+        final JFrame existing = window.get();
         if (existing != null) {
-            if (!isCurrent(enableGeneration)) {
-                return;
-            }
-            existing.showAndFront();
+            existing.setVisible(true);
+            existing.toFront();
             refresh();
             return;
         }
 
-        final InspectorView created = ui.create(localization, this::refresh);
-        synchronized (lifecycleLock) {
-            if (!enabled || generation != enableGeneration || !window.compareAndSet(null, created)) {
-                created.dispose();
-                return;
-            }
+        final JFrame frame = new JFrame("Turboism Project Inspector");
+        frame.setDefaultCloseOperation(WindowConstants.HIDE_ON_CLOSE);
+        frame.setLayout(new BorderLayout(8, 8));
+
+        final JPanel values = new JPanel(new GridLayout(0, 2, 8, 6));
+        values.setBorder(BorderFactory.createEmptyBorder(12, 12, 4, 12));
+        statusValue = addRow(values, "Host read", "Starting…");
+        projectValue = addRow(values, "Active document", "—");
+        documentsValue = addRow(values, "Documents", "—");
+        workspaceValue = addRow(values, "Layout workspace", "—");
+        refreshedValue = addRow(values, "Last refresh", "—");
+
+        final JButton refresh = new JButton("Refresh");
+        refresh.addActionListener(ignored -> refresh());
+        final JPanel actions = new JPanel(new BorderLayout());
+        actions.setBorder(BorderFactory.createEmptyBorder(4, 12, 12, 12));
+        actions.add(refresh, BorderLayout.EAST);
+
+        frame.add(values, BorderLayout.CENTER);
+        frame.add(actions, BorderLayout.SOUTH);
+        frame.pack();
+        frame.setMinimumSize(frame.getSize());
+        frame.setLocationByPlatform(true);
+
+        if (!window.compareAndSet(null, frame)) {
+            frame.dispose();
+            return;
         }
-        created.showAndFront();
+        frame.setVisible(true);
         refresh();
     }
 
+    private static JLabel addRow(final JPanel panel, final String name, final String initialValue) {
+        panel.add(new JLabel(name + ":"));
+        final JLabel value = new JLabel(initialValue);
+        panel.add(value);
+        return value;
+    }
+
     private void refresh() {
-        final long requestGeneration;
-        synchronized (lifecycleLock) {
-            if (!enabled || window.get() == null) {
-                return;
-            }
-            requestGeneration = ++generation;
-        }
-        window.get().showReading();
-        final AsyncHostReadSubmission submission = context.hostReads().submit(
-            new AsyncHostReadRequest(
-                AsyncHostReadIntent.PROJECT_WORKSPACE_SNAPSHOT,
-                READ_TIMEOUT
-            )
-        );
-        if (submission.status() == AsyncHostReadSubmissionStatus.REJECTED) {
-            final AsyncHostReadError error = submission.error().orElseThrow();
-            context.logger().warn("Project Inspector refresh rejected safely: " + error.code().name());
-            ui.invokeLater(() -> applyFailure(requestGeneration, error));
+        final ExecutorService executor = refreshExecutor;
+        if (executor == null || executor.isShutdown()) {
             return;
         }
-        final AsyncHostReadHandle handle = submission.handle().orElseThrow();
-        synchronized (lifecycleLock) {
-            if (!enabled || generation != requestGeneration || window.get() == null) {
-                currentRead.compareAndSet(handle, null);
-                handle.cancel();
-                return;
+        setStatus("Reading…");
+        executor.execute(() -> {
+            try {
+                final Optional<ProjectSnapshot> project = context.cubismRead().activeProject();
+                final Optional<WorkspaceSnapshot> workspace = context.cubismRead().workspace();
+                SwingUtilities.invokeLater(() -> applySnapshot(project, workspace));
+            } catch (RuntimeException exception) {
+                context.logger().error("Project Inspector refresh failed", exception);
+                SwingUtilities.invokeLater(() -> applyFailure(exception));
             }
-            currentRead.set(handle);
-        }
-        handle.completion().thenAccept(result -> ui.invokeLater(
-            () -> applyResult(requestGeneration, handle, result)
-        ));
+        });
     }
 
-    private void applyResult(
-        final long requestGeneration,
-        final AsyncHostReadHandle handle,
-        final AsyncHostReadResult result
+    private void applySnapshot(
+        final Optional<ProjectSnapshot> project,
+        final Optional<WorkspaceSnapshot> workspace
     ) {
-        if (!isCurrent(requestGeneration)) {
-            return;
-        }
-        currentRead.compareAndSet(handle, null);
-        if (result.value().isPresent()) {
-            applySnapshot((ProjectWorkspaceSnapshot) result.value().orElseThrow());
-        } else {
-            applyFailure(requestGeneration, result.error().orElseThrow());
-        }
-    }
-
-    private void applySnapshot(final ProjectWorkspaceSnapshot snapshot) {
-        final InspectorView view = window.get();
-        if (view == null) {
-            return;
-        }
-        view.showSnapshot(snapshot, Instant.now());
+        setStatus("Available");
+        projectValue.setText(project.map(ProjectSnapshot::name).orElse("No project open"));
+        documentsValue.setText(project.map(value -> Integer.toString(value.documents().size())).orElse("0"));
+        workspaceValue.setText(workspace
+            .map(WorkspaceSnapshot::displayName)
+            .orElse("Unavailable"));
+        refreshedValue.setText(Instant.now().toString());
         context.logger().info(
-            "Inspector refresh: project=" + snapshot.project().map(value -> value.name()).orElse("<none>")
-                + ", documents=" + snapshot.project().map(value -> value.documents().size()).orElse(0)
-                + ", layoutWorkspace=" + snapshot.workspace().map(value -> value.displayName()).orElse("<none>")
+            "Inspector refresh: project=" + project.map(ProjectSnapshot::name).orElse("<none>")
+                + ", documents=" + project.map(value -> value.documents().size()).orElse(0)
+                + ", layoutWorkspace=" + workspace.map(WorkspaceSnapshot::displayName).orElse("<none>")
         );
     }
 
-    private void applyFailure(
-        final long requestGeneration,
-        final AsyncHostReadError error
-    ) {
-        if (!isCurrent(requestGeneration)) {
-            return;
-        }
-        final InspectorView view = window.get();
-        if (view != null) {
-            view.showUnavailable(Instant.now());
-        }
-        context.logger().warn("Project Inspector refresh failed safely: " + error.code().name());
+    private void applyFailure(final RuntimeException exception) {
+        setStatus("Unavailable: " + exception.getClass().getSimpleName());
+        projectValue.setText("—");
+        documentsValue.setText("—");
+        workspaceValue.setText("—");
+        refreshedValue.setText(Instant.now().toString());
     }
 
-    private boolean isCurrent(final long expectedGeneration) {
-        synchronized (lifecycleLock) {
-            return enabled && generation == expectedGeneration && window.get() != null;
-        }
-    }
-
-    private boolean isEnabledGeneration(final long expectedGeneration) {
-        synchronized (lifecycleLock) {
-            return enabled && generation == expectedGeneration;
-        }
-    }
-
-    private void cancelCurrentRead() {
-        final AsyncHostReadHandle handle = currentRead.getAndSet(null);
-        if (handle != null) {
-            handle.cancel();
+    private void setStatus(final String value) {
+        if (statusValue != null) {
+            statusValue.setText(value);
         }
     }
 
     private void disposeWindow() {
         final Runnable dispose = () -> {
-            final InspectorView view = window.getAndSet(null);
-            if (view != null) {
-                view.dispose();
+            final JFrame frame = window.getAndSet(null);
+            if (frame != null) {
+                frame.dispose();
             }
         };
-        try {
-            ui.invokeAndWait(dispose);
-        } catch (InterruptedException exception) {
-            Thread.currentThread().interrupt();
-            throw disposalFailure(exception);
-        } catch (InvocationTargetException | RuntimeException exception) {
-            throw disposalFailure(exception);
+        if (SwingUtilities.isEventDispatchThread()) {
+            dispose.run();
+        } else {
+            SwingUtilities.invokeLater(dispose);
         }
     }
 
-    private IllegalStateException disposalFailure(final Exception cause) {
-        context.logger().error("Project Inspector EDT disposal failed safely.");
-        return new IllegalStateException("Project Inspector window disposal failed.", cause);
-    }
-
-    interface UiAccess {
-        boolean isHeadless();
-        void invokeLater(Runnable action);
-        void invokeAndWait(Runnable action) throws InterruptedException, InvocationTargetException;
-        InspectorView create(PluginLocalization localization, Runnable refreshAction);
-    }
-
-    interface InspectorView {
-        void showAndFront();
-        void showReading();
-        void showSnapshot(ProjectWorkspaceSnapshot snapshot, Instant refreshedAt);
-        void showUnavailable(Instant refreshedAt);
-        void dispose();
-    }
-
-    private static final class SwingUiAccess implements UiAccess {
+    private static final class InspectorThreadFactory implements ThreadFactory {
         @Override
-        public boolean isHeadless() {
-            return GraphicsEnvironment.isHeadless();
-        }
-
-        @Override
-        public void invokeLater(final Runnable action) {
-            SwingUtilities.invokeLater(action);
-        }
-
-        @Override
-        public void invokeAndWait(final Runnable action)
-            throws InterruptedException, InvocationTargetException {
-            if (SwingUtilities.isEventDispatchThread()) {
-                action.run();
-            } else {
-                SwingUtilities.invokeAndWait(action);
-            }
-        }
-
-        @Override
-        public InspectorView create(
-            final PluginLocalization localization,
-            final Runnable refreshAction
-        ) {
-            return new SwingInspectorView(localization, refreshAction);
-        }
-    }
-
-    private static final class SwingInspectorView implements InspectorView {
-        private final PluginLocalization localization;
-        private final JFrame frame;
-        private final JLabel statusValue;
-        private final JLabel projectValue;
-        private final JLabel documentsValue;
-        private final JLabel workspaceValue;
-        private final JLabel refreshedValue;
-
-        private SwingInspectorView(
-            final PluginLocalization localization,
-            final Runnable refreshAction
-        ) {
-            this.localization = localization;
-            frame = new JFrame(localization.text("window.title"));
-            frame.setDefaultCloseOperation(windowCloseOperation());
-            frame.setLayout(new BorderLayout(8, 8));
-
-            final JPanel values = new JPanel(new GridLayout(0, 2, 8, 6));
-            values.setBorder(BorderFactory.createEmptyBorder(12, 12, 4, 12));
-            statusValue = addRow(values, "field.host_read", "value.starting");
-            projectValue = addRow(values, "field.active_document", "value.none");
-            documentsValue = addRow(values, "field.documents", "value.none");
-            workspaceValue = addRow(values, "field.layout_workspace", "value.none");
-            refreshedValue = addRow(values, "field.last_refresh", "value.none");
-
-            final JButton refresh = new JButton(localization.text("action.refresh"));
-            refresh.addActionListener(ignored -> refreshAction.run());
-            final JPanel actions = new JPanel(new BorderLayout());
-            actions.setBorder(BorderFactory.createEmptyBorder(4, 12, 12, 12));
-            actions.add(refresh, BorderLayout.EAST);
-
-            frame.add(values, BorderLayout.CENTER);
-            frame.add(actions, BorderLayout.SOUTH);
-            frame.pack();
-            frame.setMinimumSize(frame.getSize());
-            frame.setLocationByPlatform(true);
-        }
-
-        @Override
-        public void showAndFront() {
-            frame.setVisible(true);
-            frame.toFront();
-        }
-
-        @Override
-        public void showReading() {
-            statusValue.setText(localization.text("status.reading"));
-        }
-
-        @Override
-        public void showSnapshot(
-            final ProjectWorkspaceSnapshot snapshot,
-            final Instant refreshedAt
-        ) {
-            statusValue.setText(localization.text("status.available"));
-            projectValue.setText(snapshot.project()
-                .map(value -> value.name())
-                .orElse(localization.text("status.no_project_open")));
-            documentsValue.setText(snapshot.project()
-                .map(value -> Integer.toString(value.documents().size()))
-                .orElse("0"));
-            workspaceValue.setText(snapshot.workspace()
-                .map(value -> value.displayName())
-                .orElse(localization.text("status.unavailable")));
-            refreshedValue.setText(refreshedAt.toString());
-        }
-
-        @Override
-        public void showUnavailable(final Instant refreshedAt) {
-            statusValue.setText(localization.text("status.unavailable"));
-            final String none = localization.text("value.none");
-            projectValue.setText(none);
-            documentsValue.setText(none);
-            workspaceValue.setText(none);
-            refreshedValue.setText(refreshedAt.toString());
-        }
-
-        @Override
-        public void dispose() {
-            frame.dispose();
-        }
-
-        private JLabel addRow(
-            final JPanel panel,
-            final String labelKey,
-            final String initialValueKey
-        ) {
-            panel.add(new JLabel(localization.text(labelKey) + ":"));
-            final JLabel value = new JLabel(localization.text(initialValueKey));
-            panel.add(value);
-            return value;
+        public Thread newThread(final Runnable runnable) {
+            final Thread thread = new Thread(runnable, "turboism-project-inspector-refresh");
+            thread.setDaemon(true);
+            return thread;
         }
     }
 }
