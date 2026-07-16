@@ -583,8 +583,25 @@ class RuntimePluginTaskSchedulerTest {
                 token -> { }
             )
         ));
+        scheduler.awaitContinuationQuiescence();
         assertEquals(0, scheduler.activeTaskCount());
         assertEquals(64, scheduler.availableActiveTaskPermits());
+        final CleanupEvidenceCollector.Snapshot failedRegistrationCleanup = evidence.snapshot();
+        assertEquals(1, failedRegistrationCleanup.taskHandlesCanceled());
+        assertEquals(1, failedRegistrationCleanup.taskCompletionsSettled());
+        assertEquals(0, failedRegistrationCleanup.pluginContinuationsDrained());
+
+        final AtomicBoolean secondActionStarted = new AtomicBoolean();
+        final TaskSubmission second = scheduler.submit(request(
+            "after-closed-registration",
+            token -> secondActionStarted.set(true)
+        ));
+        assertFalse(second.accepted());
+        assertEquals(Optional.of(TaskRejectionReason.PLUGIN_INACTIVE), second.rejectionReason());
+        assertFalse(secondActionStarted.get());
+        assertEquals(0, scheduler.activeTaskCount());
+        assertEquals(64, scheduler.availableActiveTaskPermits());
+        assertEquals(failedRegistrationCleanup, evidence.snapshot());
 
         releaseScopeClose.countDown();
         closer.join(1_000);

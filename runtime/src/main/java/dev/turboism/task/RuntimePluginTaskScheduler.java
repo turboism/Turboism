@@ -218,6 +218,7 @@ public final class RuntimePluginTaskScheduler implements PluginTaskScheduler, Au
         try {
             disposableScope.register(scopedCleanup);
         } catch (RuntimeException exception) {
+            active = false;
             scopedCleanup.close();
             throw exception;
         }
