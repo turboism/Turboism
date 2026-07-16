@@ -97,7 +97,7 @@ public final class RuntimeTransactionManager implements TransactionManager {
             "transaction:" + transaction.transactionId() + ":" + transaction.documentId().id(),
             DEFAULT_CAPABILITY
         );
-        scheduler.dispatch(task, () -> {
+        final boolean accepted = scheduler.dispatch(task, () -> {
             try {
                 work.run();
                 completion.complete(null);
@@ -113,6 +113,14 @@ public final class RuntimeTransactionManager implements TransactionManager {
                 ));
             }
         });
+        if (!accepted) {
+            throw new TransactionException(
+                transaction.transactionId(),
+                1206,
+                "ERROR",
+                "Transaction scheduler rejected " + taskType
+            );
+        }
         awaitTransactionWork(transaction, taskType, completion);
     }
 

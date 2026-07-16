@@ -146,6 +146,23 @@ tasks.register("checkModuleBoundaries") {
                                 }
                             }
                         }
+                        if (subproject.path.startsWith(":plugins:")) {
+                            val source = lines.joinToString("\n")
+                            val forbiddenHostUiTraversal = listOf(
+                                "SwingUtilities.getWindowAncestor(",
+                                "SwingUtilities.getRoot(",
+                                ".getTopLevelAncestor()"
+                            )
+                            forbiddenHostUiTraversal.forEach { token ->
+                                if (source.contains(token)) {
+                                    logger.error(
+                                        "Plugin-owned external Swing views must not discover or mutate host UI trees; " +
+                                            "forbidden token '$token' in ${file.relativeTo(rootProject.projectDir)}"
+                                    )
+                                    failed = true
+                                }
+                            }
+                        }
                     }
             }
         }

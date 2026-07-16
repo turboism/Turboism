@@ -20,11 +20,13 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Semaphore;
 
 /** Plugin-scoped task facade over the existing bounded RuntimeScheduler. */
 public final class RuntimePluginTaskScheduler implements PluginTaskScheduler, AutoCloseable {
 
     private static final String NO_CAPABILITY = "none";
+    private static final int ACTIVE_TASK_LIMIT = 64;
 
     private final Object admissionLock = new Object();
     private final String pluginId;
@@ -33,6 +35,7 @@ public final class RuntimePluginTaskScheduler implements PluginTaskScheduler, Au
     private final RuntimeTaskCompletionDispatcher completionDispatcher;
     private final RuntimeSchedulerLease schedulerLease;
     private final Map<TaskId, AbstractRuntimeTaskHandle> activeTasks = new ConcurrentHashMap<>();
+    private final Semaphore activeTaskPermits = new Semaphore(ACTIVE_TASK_LIMIT);
     private boolean active = true;
 
     public RuntimePluginTaskScheduler(
@@ -63,13 +66,23 @@ public final class RuntimePluginTaskScheduler implements PluginTaskScheduler, Au
             if (!active) {
                 return rejected(request.id(), TaskRejectionReason.PLUGIN_INACTIVE);
             }
+            if (!activeTaskPermits.tryAcquire()) {
+                return rejected(request.id(), TaskRejectionReason.BACKPRESSURE);
+            }
+            final ActiveTaskAdmission admission = new ActiveTaskAdmission(
+                request.id(),
+                activeTasks,
+                activeTaskPermits
+            );
             final OneShotTaskHandle handle = new OneShotTaskHandle(
                 request.id(),
                 request.action(),
-                () -> activeTasks.remove(request.id()),
+                admission::release,
                 completionDispatcher::dispatch
             );
+            admission.bind(handle);
             if (activeTasks.putIfAbsent(request.id(), handle) != null) {
+                admission.release();
                 return rejected(request.id(), TaskRejectionReason.DUPLICATE_ACTIVE_ID);
             }
             final CallbackSubmission callback = runtimeScheduler.submitLightweight(
@@ -78,7 +91,7 @@ public final class RuntimePluginTaskScheduler implements PluginTaskScheduler, Au
                 handle::runAction
             );
             if (!callback.accepted()) {
-                activeTasks.remove(request.id(), handle);
+                admission.release();
                 return rejected(request.id(), mapRejection(callback.rejectionStatus()));
             }
             registerAccepted(handle);
@@ -103,21 +116,31 @@ public final class RuntimePluginTaskScheduler implements PluginTaskScheduler, Au
             if (!active) {
                 return rejected(request.id(), TaskRejectionReason.PLUGIN_INACTIVE);
             }
+            if (!activeTaskPermits.tryAcquire()) {
+                return rejected(request.id(), TaskRejectionReason.BACKPRESSURE);
+            }
+            final ActiveTaskAdmission admission = new ActiveTaskAdmission(
+                request.id(),
+                activeTasks,
+                activeTaskPermits
+            );
             final FixedDelayTaskHandle handle = new FixedDelayTaskHandle(
                 request.id(),
                 runtimeScheduler,
                 runtimeTask(request),
                 request.delay(),
                 request.action(),
-                () -> activeTasks.remove(request.id()),
+                admission::release,
                 completionDispatcher::dispatch
             );
+            admission.bind(handle);
             if (activeTasks.putIfAbsent(request.id(), handle) != null) {
+                admission.release();
                 return rejected(request.id(), TaskRejectionReason.DUPLICATE_ACTIVE_ID);
             }
             if (!handle.start(request.initialDelay())) {
-                activeTasks.remove(request.id(), handle);
-                return rejected(request.id(), TaskRejectionReason.RUNTIME_UNAVAILABLE);
+                admission.release();
+                return rejected(request.id(), TaskRejectionReason.BACKPRESSURE);
             }
             registerAccepted(handle);
             return accepted(handle);
@@ -158,6 +181,10 @@ public final class RuntimePluginTaskScheduler implements PluginTaskScheduler, Au
 
     int pendingCompletionCount() {
         return completionDispatcher.pendingCount();
+    }
+
+    int availableActiveTaskPermits() {
+        return activeTaskPermits.availablePermits();
     }
 
     private void registerAccepted(final AbstractRuntimeTaskHandle handle) {
