@@ -130,6 +130,29 @@ class RuntimePluginTaskSchedulerTest {
     }
 
     @Test
+    void duplicateCleanupNeverRemovesOrReleasesTheOriginalActiveTask() throws Exception {
+        createScheduler(1, 128);
+        final CountDownLatch started = new CountDownLatch(1);
+        final CountDownLatch release = new CountDownLatch(1);
+        final TaskSubmission original = scheduler.submit(request("same-id", token -> {
+            started.countDown();
+            release.await();
+        }));
+        assertTrue(started.await(1, TimeUnit.SECONDS));
+
+        final TaskSubmission duplicate = scheduler.submit(request("same-id", token -> { }));
+
+        assertFalse(duplicate.accepted());
+        assertEquals(Optional.of(TaskRejectionReason.DUPLICATE_ACTIVE_ID), duplicate.rejectionReason());
+        assertEquals(1, scheduler.activeTaskCount());
+        assertEquals(63, scheduler.availableActiveTaskPermits());
+        assertTrue(original.handle().cancel());
+        assertEquals(0, scheduler.activeTaskCount());
+        assertEquals(64, scheduler.availableActiveTaskPermits());
+        release.countDown();
+    }
+
+    @Test
     void cancelBeforeQueuedActionStartsKeepsRunCountZero() throws Exception {
         createScheduler(1, 8);
         final CountDownLatch blockerStarted = new CountDownLatch(1);
@@ -240,6 +263,59 @@ class RuntimePluginTaskSchedulerTest {
         assertEquals(TaskOutcomeStatus.CANCELED, outcome.status());
         assertTrue(outcome.runCount() >= 2);
         assertEquals(TaskRunOutcomeStatus.SUCCEEDED, outcome.lastRunOutcome().orElseThrow().status());
+    }
+
+    @Test
+    void rejectsTheSixtyFifthActiveTaskWithoutBlockingAndReleasesPermitAfterCancellation() throws Exception {
+        createScheduler(1, 128);
+        final CountDownLatch firstStarted = new CountDownLatch(1);
+        final CountDownLatch release = new CountDownLatch(1);
+        final TaskSubmission first = scheduler.submit(request("limited-0", token -> {
+            firstStarted.countDown();
+            release.await();
+        }));
+        assertTrue(firstStarted.await(1, TimeUnit.SECONDS));
+        for (int index = 1; index < 64; index++) {
+            assertTrue(scheduler.submit(request("limited-" + index, token -> { })).accepted());
+        }
+
+        final long startedAt = System.nanoTime();
+        final TaskSubmission overflow = scheduler.submit(request("limited-overflow", token -> { }));
+        final long elapsedMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedAt);
+
+        assertFalse(overflow.accepted());
+        assertEquals(Optional.of(TaskRejectionReason.BACKPRESSURE), overflow.rejectionReason());
+        assertTrue(elapsedMillis < 100, "active-task admission must not block");
+        assertTrue(first.handle().cancel());
+        final TaskSubmission replacement = scheduler.submit(request("limited-replacement", token -> { }));
+        assertTrue(replacement.accepted());
+        release.countDown();
+    }
+
+    @Test
+    void rejectedRuntimeSubmissionReleasesActiveTaskPermitExactlyOnce() throws Exception {
+        createScheduler(1, 1, 5_000L, ignored -> WorkBudget.LIGHTWEIGHT);
+        final CountDownLatch firstStarted = new CountDownLatch(1);
+        final CountDownLatch release = new CountDownLatch(1);
+        assertTrue(scheduler.submit(request("runtime-first", token -> {
+            firstStarted.countDown();
+            release.await();
+        })).accepted());
+        assertTrue(firstStarted.await(1, TimeUnit.SECONDS));
+        assertTrue(scheduler.submit(request("runtime-queued", token -> { })).accepted());
+
+        for (int index = 0; index < 80; index++) {
+            final TaskSubmission rejected = scheduler.submit(request("runtime-rejected-" + index, token -> { }));
+            assertFalse(rejected.accepted());
+            assertTrue(
+                rejected.rejectionReason().filter(reason ->
+                    reason == TaskRejectionReason.BACKPRESSURE
+                        || reason == TaskRejectionReason.CIRCUIT_OPEN
+                ).isPresent()
+            );
+        }
+        assertEquals(2, scheduler.activeTaskCount());
+        release.countDown();
     }
 
     @Test
