@@ -27,9 +27,10 @@ final class OneShotTaskHandle extends AbstractRuntimeTaskHandle {
         final TaskId id,
         final PluginTaskAction action,
         final Runnable terminalCleanup,
-        final java.util.function.Consumer<Runnable> completionDispatcher
+        final java.util.function.Consumer<Runnable> settlementDispatcher,
+        final java.util.function.Consumer<Runnable> continuationDispatcher
     ) {
-        super(id, terminalCleanup, completionDispatcher);
+        super(id, terminalCleanup, settlementDispatcher, continuationDispatcher);
         this.action = java.util.Objects.requireNonNull(action, "action");
     }
 
@@ -125,8 +126,10 @@ final class OneShotTaskHandle extends AbstractRuntimeTaskHandle {
             if (runCount > 0) {
                 lastRunOutcome = Optional.of(run(TaskRunOutcomeStatus.CANCELED, Optional.empty()));
             }
-            complete(outcome(TaskOutcomeStatus.CANCELED, Optional.empty()));
-            return true;
+            return complete(outcome(
+                TaskOutcomeStatus.CANCELED,
+                Optional.empty()
+            ));
         }
     }
 

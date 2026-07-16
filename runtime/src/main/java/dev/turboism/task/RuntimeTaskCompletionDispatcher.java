@@ -1,5 +1,6 @@
 package dev.turboism.task;
 
+import dev.turboism.cleanup.CleanupEvidenceCollector;
 import dev.turboism.core.runtime.CallbackExecutionStatus;
 import dev.turboism.core.runtime.CallbackSubmission;
 import dev.turboism.core.runtime.RuntimeScheduler;
@@ -13,34 +14,47 @@ import java.util.concurrent.atomic.AtomicReference;
 
 final class RuntimeTaskCompletionDispatcher {
 
+    enum DispatchKind {
+        TASK_HANDLE_SETTLEMENT,
+        PLUGIN_CONTINUATION
+    }
+
     private static final Duration RETRY_DELAY = Duration.ofMillis(5);
     private static final Duration CLOSE_TIMEOUT = Duration.ofSeconds(5);
 
     private final String pluginId;
     private final RuntimeScheduler runtimeScheduler;
+    private final CleanupEvidenceCollector cleanupEvidence;
     private final AtomicInteger pending = new AtomicInteger();
     private final AtomicReference<IllegalStateException> dispatchFailure = new AtomicReference<>();
     private final Object quiescenceMonitor = new Object();
+    private volatile boolean cleanup;
     private boolean closed;
 
     RuntimeTaskCompletionDispatcher(
         final String pluginId,
-        final RuntimeScheduler runtimeScheduler
+        final RuntimeScheduler runtimeScheduler,
+        final CleanupEvidenceCollector cleanupEvidence
     ) {
         this.pluginId = Objects.requireNonNull(pluginId, "pluginId");
         this.runtimeScheduler = Objects.requireNonNull(runtimeScheduler, "runtimeScheduler");
+        this.cleanupEvidence = Objects.requireNonNull(cleanupEvidence, "cleanupEvidence");
     }
 
-    void dispatch(final Runnable completionAction) {
+    void dispatchTaskHandleSettlement(final Runnable action) {
+        dispatch(DispatchKind.TASK_HANDLE_SETTLEMENT, action);
+    }
+
+    void dispatchPluginContinuation(final Runnable action) {
+        dispatch(DispatchKind.PLUGIN_CONTINUATION, action);
+    }
+
+    void beginCleanup() {
         synchronized (quiescenceMonitor) {
-            if (closed) {
-                throw new IllegalStateException(
-                    "Plugin task completion dispatcher is already closed."
-                );
+            if (!closed) {
+                cleanup = true;
             }
-            pending.incrementAndGet();
         }
-        attempt(new Settlement(completionAction));
     }
 
     void awaitQuiescence() {
@@ -55,10 +69,23 @@ final class RuntimeTaskCompletionDispatcher {
         awaitQuiescence(CLOSE_TIMEOUT, true);
     }
 
-    private void awaitQuiescence(
-        final Duration timeout,
-        final boolean closeAfterWait
-    ) {
+    int pendingCount() {
+        return pending.get();
+    }
+
+    private void dispatch(final DispatchKind kind, final Runnable action) {
+        synchronized (quiescenceMonitor) {
+            if (closed) {
+                throw new IllegalStateException(
+                    "Plugin task completion dispatcher is already closed."
+                );
+            }
+            pending.incrementAndGet();
+        }
+        attempt(new DispatchedAction(kind, action));
+    }
+
+    private void awaitQuiescence(final Duration timeout, final boolean closeAfterWait) {
         Objects.requireNonNull(timeout, "timeout");
         final long deadline = System.nanoTime() + timeout.toNanos();
         synchronized (quiescenceMonitor) {
@@ -98,41 +125,37 @@ final class RuntimeTaskCompletionDispatcher {
         }
     }
 
-    int pendingCount() {
-        return pending.get();
-    }
-
-    private void attempt(final Settlement settlement) {
-        if (settlement.started.get()) {
+    private void attempt(final DispatchedAction dispatched) {
+        if (dispatched.started.get()) {
             return;
         }
         final CallbackSubmission submission = runtimeScheduler.submitCompletion(
             pluginId,
-            settlement::run
+            dispatched::run
         );
         if (!submission.accepted()) {
-            retry(settlement);
+            retry(dispatched);
             return;
         }
         submission.completion().whenComplete((result, failure) -> {
-            if (settlement.started.get()) {
+            if (dispatched.started.get()) {
                 return;
             }
             if (failure != null
                 || result == null
                 || result.status() != CallbackExecutionStatus.SUCCEEDED) {
-                retry(settlement);
+                retry(dispatched);
             }
         });
     }
 
-    private void retry(final Settlement settlement) {
-        if (settlement.started.get()) {
+    private void retry(final DispatchedAction dispatched) {
+        if (dispatched.started.get()) {
             return;
         }
         final var timer = runtimeScheduler.schedule(
             RETRY_DELAY,
-            () -> attempt(settlement)
+            () -> attempt(dispatched)
         );
         if (!timer.accepted()) {
             failDispatch();
@@ -151,7 +174,14 @@ final class RuntimeTaskCompletionDispatcher {
         }
     }
 
-    private void finished() {
+    private void finished(final DispatchKind kind) {
+        if (cleanup) {
+            if (kind == DispatchKind.TASK_HANDLE_SETTLEMENT) {
+                cleanupEvidence.taskCompletionSettled();
+            } else {
+                cleanupEvidence.pluginContinuationDrained();
+            }
+        }
         if (pending.decrementAndGet() == 0) {
             synchronized (quiescenceMonitor) {
                 quiescenceMonitor.notifyAll();
@@ -159,11 +189,13 @@ final class RuntimeTaskCompletionDispatcher {
         }
     }
 
-    private final class Settlement {
+    private final class DispatchedAction {
+        private final DispatchKind kind;
         private final Runnable action;
         private final AtomicBoolean started = new AtomicBoolean(false);
 
-        private Settlement(final Runnable action) {
+        private DispatchedAction(final DispatchKind kind, final Runnable action) {
+            this.kind = Objects.requireNonNull(kind, "kind");
             this.action = Objects.requireNonNull(action, "action");
         }
 
@@ -174,7 +206,7 @@ final class RuntimeTaskCompletionDispatcher {
             try {
                 action.run();
             } finally {
-                finished();
+                finished(kind);
             }
         }
     }

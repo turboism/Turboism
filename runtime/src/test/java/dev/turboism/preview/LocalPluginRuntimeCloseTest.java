@@ -1,8 +1,9 @@
 package dev.turboism.preview;
 
-import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import dev.turboism.adapter.host.HostSession;
+import dev.turboism.cleanup.CleanupEvidenceCollector;
+import dev.turboism.config.RuntimeTypedPluginConfigRegistry;
 import dev.turboism.core.descriptor.CorePluginDescriptor;
 import dev.turboism.core.lifecycle.PluginLifecycleState;
 import dev.turboism.core.plugin.PluginRuntime;
@@ -12,10 +13,31 @@ import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.hostread.SharedAsyncHostReadLane;
 import dev.turboism.i18n.RuntimePluginLocalization;
+import dev.turboism.preview.report.PreviewReportSnapshotFactory;
 import dev.turboism.preview.report.PreviewReportType;
+import dev.turboism.sdk.config.ConfigCodecs;
+import dev.turboism.sdk.config.ConfigKey;
+import dev.turboism.sdk.config.ConfigSchema;
+import dev.turboism.sdk.config.PluginConfigException;
+import dev.turboism.sdk.config.PluginConfigRegistry;
+import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginDescriptor;
+import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.plugin.TurboismPlugin;
+import dev.turboism.sdk.storage.StoragePath;
+import dev.turboism.sdk.storage.StorageRoot;
+import dev.turboism.sdk.task.FixedDelayTaskRequest;
+import dev.turboism.sdk.task.PluginTaskKind;
+import dev.turboism.sdk.task.PluginTaskPriority;
+import dev.turboism.sdk.task.TaskId;
+import dev.turboism.sdk.ui.UserFileLifetime;
+import dev.turboism.sdk.ui.UserFileMode;
+import dev.turboism.sdk.ui.UserFileRequest;
+import dev.turboism.storage.RuntimePluginStorage;
+import dev.turboism.task.RuntimePluginTaskScheduler;
+import dev.turboism.userfile.RuntimeUserFileAccessService;
+import dev.turboism.userfile.UserFileGrantSource;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -26,11 +48,15 @@ import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -119,12 +145,7 @@ class LocalPluginRuntimeCloseTest {
                 PreviewRuntime.shutdownReportCounts(summaries),
                 "report counts must reflect attempted shutdown and cleanup stages"
             );
-            final ObjectNode report = previewRuntimeReport();
-            PreviewRuntime.applyShutdownReportCounts(
-                Map.of(PreviewReportType.PREVIEW_RUNTIME, report),
-                summaries,
-                true
-            );
+            final ObjectNode report = previewRuntimeReport(summaries);
             assertEquals(2, report.path("payload").path("shutdownCounts").path("attempted").asInt());
             assertEquals(1, report.path("payload").path("shutdownCounts").path("succeeded").asInt());
             assertEquals(1, report.path("payload").path("shutdownCounts").path("failed").asInt());
@@ -143,6 +164,150 @@ class LocalPluginRuntimeCloseTest {
         assertFalse(log.contains("private-disable-detail"));
         assertFalse(log.contains("private-shutdown-detail"));
         assertFalse(log.contains("C:/Users/private/scope"));
+    }
+
+    @Test
+    void realPluginServicesReportExactCleanupEvidenceOnlyDuringScopeClose() throws Exception {
+        final String pluginId = "dev.example.cleanup";
+        final CleanupEvidenceCollector evidence = new CleanupEvidenceCollector();
+        final RuntimeScheduler scheduler = scheduler();
+        final HostSession hostSession = new HostSession(Optional::empty);
+        final DisposableScope scope = new DisposableScope();
+        final Path home = temporary.resolve("cleanup");
+        final Path selected = home.resolve("selected.txt");
+        Files.createDirectories(home);
+        Files.writeString(selected, "selected");
+        try (PreviewLog log = new PreviewLog(home.resolve("logs/turboism.log"))) {
+            final LocalPluginRuntime runtime = new LocalPluginRuntime(
+                home, scheduler, hostSession, log
+            );
+            final RuntimePluginTaskScheduler tasks = new RuntimePluginTaskScheduler(
+                pluginId, scheduler, scope, evidence
+            );
+            final Map<StorageRoot, Path> roots = Map.of(
+                StorageRoot.DATA, home.resolve("data"),
+                StorageRoot.STATE, home.resolve("state"),
+                StorageRoot.CACHE, home.resolve("cache")
+            );
+            final Set<String> permissions = Set.of(
+                PermissionIds.TURBOISM_FILE_READ,
+                PermissionIds.TURBOISM_FILE_WRITE,
+                PermissionIds.TURBOISM_CONFIG_PLUGIN_READ,
+                PermissionIds.TURBOISM_CONFIG_PLUGIN_WRITE,
+                PermissionIds.TURBOISM_UI_FILE_CHOOSER_REQUEST
+            );
+            final RuntimePluginStorage storage = new RuntimePluginStorage(
+                pluginId, roots, permissions, tasks, scope, evidence
+            );
+            final RuntimeTypedPluginConfigRegistry config =
+                new RuntimeTypedPluginConfigRegistry(
+                    new NoopLegacyRegistry(),
+                    pluginId,
+                    home.resolve("typed-config"),
+                    permissions,
+                    tasks,
+                    scope,
+                    evidence
+                );
+            final RuntimeUserFileAccessService userFiles =
+                new RuntimeUserFileAccessService(
+                    pluginId,
+                    permissions,
+                    UserFileGrantSource.fixedSelection(selected),
+                    tasks,
+                    scope,
+                    evidence
+                );
+
+            final var ordinary = tasks.scheduleWithFixedDelay(new FixedDelayTaskRequest(
+                new TaskId("ordinary-cancel"),
+                PluginTaskKind.LOW_FREQUENCY_REFRESH,
+                PluginTaskPriority.LOW,
+                Duration.ofHours(1),
+                Duration.ofHours(1),
+                token -> { }
+            ));
+            assertTrue(ordinary.accepted());
+            assertTrue(ordinary.handle().cancel());
+            ordinary.handle().completion().toCompletableFuture().get(2, TimeUnit.SECONDS);
+            tasks.awaitContinuationQuiescence();
+            assertEquals(0, evidence.snapshot().taskHandlesCanceled());
+            assertEquals(0, evidence.snapshot().taskCompletionsSettled());
+            assertEquals(0, evidence.snapshot().pluginContinuationsDrained());
+
+            final var lifecycleTask = tasks.scheduleWithFixedDelay(new FixedDelayTaskRequest(
+                new TaskId("lifecycle-cancel"),
+                PluginTaskKind.LOW_FREQUENCY_REFRESH,
+                PluginTaskPriority.LOW,
+                Duration.ofHours(1),
+                Duration.ofHours(1),
+                token -> { }
+            ));
+            assertTrue(lifecycleTask.accepted());
+            lifecycleTask.handle().completion().thenRun(() -> { });
+
+            Files.createDirectories(roots.get(StorageRoot.DATA));
+            Files.writeString(roots.get(StorageRoot.DATA).resolve("source.txt"), "source");
+            Files.writeString(roots.get(StorageRoot.DATA).resolve("target.txt"), "target");
+            assertFalse(storage.copy(
+                new StoragePath(StorageRoot.DATA, "source.txt"),
+                new StoragePath(StorageRoot.DATA, "target.txt"),
+                false
+            ).toCompletableFuture().get(2, TimeUnit.SECONDS).changed());
+
+            config.registerSchema(new ConfigSchema(
+                "cleanup",
+                "cleanup.cfg",
+                1,
+                List.of(new ConfigKey<>(
+                    "cleanup", "enabled", true, ConfigCodecs.booleanValue()
+                ))
+            ), List.of()).toCompletableFuture().get(2, TimeUnit.SECONDS);
+
+            assertTrue(userFiles.request(new UserFileRequest(
+                "cleanup-file",
+                "Select cleanup file",
+                List.of("txt"),
+                UserFileMode.READ,
+                UserFileLifetime.UNTIL_DISABLE
+            )).toCompletableFuture().get(2, TimeUnit.SECONDS).handle().isPresent());
+
+            final URLClassLoader loader = new URLClassLoader(
+                new URL[0], LocalPluginRuntimeCloseTest.class.getClassLoader()
+            );
+            addLoaded(runtime, loaded(
+                pluginId,
+                new RecordingPlugin("cleanup", new ArrayList<>(), false),
+                scope,
+                loader
+            ), evidence);
+
+            runtime.close();
+            final ObjectNode report = previewRuntimeReport(runtime.reportSummaries());
+            for (String field : List.of(
+                "taskHandlesCanceled",
+                "taskCompletionsSettled",
+                "pluginContinuationsDrained",
+                "userFileHandlesRevoked",
+                "configSchemasUnregistered",
+                "temporaryFilesDeleted"
+            )) {
+                assertTrue(
+                    report.path("payload").path("cleanupCounts").path(field).asInt() > 0,
+                    field + " must come from a completed production cleanup action"
+                );
+            }
+            final CleanupEvidenceCollector.Snapshot afterClose = evidence.snapshot();
+            runtime.close();
+            assertEquals(afterClose, evidence.snapshot());
+        } finally {
+            try {
+                scope.close();
+            } finally {
+                hostSession.close();
+                scheduler.shutdown();
+            }
+        }
     }
 
     @Test
@@ -239,19 +404,20 @@ class LocalPluginRuntimeCloseTest {
         assertFalse(log.contains("C:/Users/private"));
     }
 
-    private static ObjectNode previewRuntimeReport() {
-        final ObjectNode report = JsonNodeFactory.instance.objectNode();
-        final ObjectNode payload = report.putObject("payload");
-        payload.putObject("shutdownCounts")
-            .put("attempted", 0)
-            .put("succeeded", 0)
-            .put("failed", 0)
-            .put("timedOut", 0);
-        payload.putObject("cleanupCounts")
-            .put("scopesClosed", 0)
-            .put("classloadersClosed", 0)
-            .put("failures", 0);
-        return report;
+    private ObjectNode previewRuntimeReport(
+        final List<LocalPluginRuntime.LoadedPluginSummary> summaries
+    ) {
+        return PreviewReportSnapshotFactory.create(
+            "runtime-test",
+            Instant.EPOCH,
+            temporary,
+            HostSession.State.CLOSED,
+            null,
+            null,
+            new LocalPluginRuntime.LoadReport(List.of(), List.of(), List.of()),
+            summaries,
+            true
+        ).get(PreviewReportType.PREVIEW_RUNTIME);
     }
 
     private static RuntimeScheduler scheduler() {
@@ -319,10 +485,18 @@ class LocalPluginRuntimeCloseTest {
         );
     }
 
-    @SuppressWarnings("unchecked")
     private static void addLoaded(
         final LocalPluginRuntime runtime,
         final LoadedFixture fixture
+    ) throws Exception {
+        addLoaded(runtime, fixture, new CleanupEvidenceCollector());
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void addLoaded(
+        final LocalPluginRuntime runtime,
+        final LoadedFixture fixture,
+        final CleanupEvidenceCollector cleanupEvidence
     ) throws Exception {
         final Class<?> type = Class.forName(
             "dev.turboism.preview.LocalPluginRuntime$LoadedPlugin"
@@ -333,7 +507,8 @@ class LocalPluginRuntimeCloseTest {
             TurboismPlugin.class,
             DisposableScope.class,
             URLClassLoader.class,
-            RuntimePluginLocalization.class
+            RuntimePluginLocalization.class,
+            CleanupEvidenceCollector.class
         );
         constructor.setAccessible(true);
         final Object value = constructor.newInstance(
@@ -342,7 +517,8 @@ class LocalPluginRuntimeCloseTest {
             fixture.plugin(),
             fixture.scope(),
             fixture.loader(),
-            fixture.localization()
+            fixture.localization(),
+            cleanupEvidence
         );
         final Field field = LocalPluginRuntime.class.getDeclaredField("loaded");
         field.setAccessible(true);
@@ -410,6 +586,16 @@ class LocalPluginRuntimeCloseTest {
             order.add(id + "-loader:" + lane.isClosed());
             super.close();
         }
+    }
+
+    private static final class NoopLegacyRegistry implements PluginConfigRegistry {
+        @Override public Registration readScope(String relativePath) { return () -> { }; }
+        @Override public Registration writeScope(String relativePath) { return () -> { }; }
+        @Override public Optional<String> readString(String relativePath, String key) {
+            return Optional.empty();
+        }
+        @Override public void writeString(String relativePath, String key, String value)
+            throws PluginConfigException { }
     }
 
     private record LoadedFixture(

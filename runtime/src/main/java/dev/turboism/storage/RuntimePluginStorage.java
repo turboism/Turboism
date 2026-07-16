@@ -12,6 +12,7 @@ import dev.turboism.sdk.storage.StorageReadResult;
 import dev.turboism.sdk.storage.StorageRoot;
 import dev.turboism.sdk.storage.StorageWriteResult;
 import dev.turboism.task.RuntimePluginTaskScheduler;
+import dev.turboism.cleanup.CleanupEvidenceCollector;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -37,8 +38,20 @@ public final class RuntimePluginStorage implements PluginStorage, AutoCloseable 
         final RuntimePluginTaskScheduler taskScheduler,
         final DisposableScope disposableScope
     ) throws IOException {
+        this(pluginId, roots, permissions, taskScheduler, disposableScope,
+            new CleanupEvidenceCollector());
+    }
+
+    public RuntimePluginStorage(
+        final String pluginId,
+        final Map<StorageRoot, Path> roots,
+        final Set<String> permissions,
+        final RuntimePluginTaskScheduler taskScheduler,
+        final DisposableScope disposableScope,
+        final CleanupEvidenceCollector cleanupEvidence
+    ) throws IOException {
         this.permissions = Set.copyOf(Objects.requireNonNull(permissions, "permissions"));
-        this.backend = new ConfinedStorageBackend(roots);
+        this.backend = new ConfinedStorageBackend(roots, cleanupEvidence);
         this.io = new StorageIoExecutor(
             pluginId,
             taskScheduler,
