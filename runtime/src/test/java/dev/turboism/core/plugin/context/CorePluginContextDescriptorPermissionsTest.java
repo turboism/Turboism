@@ -318,12 +318,21 @@ class CorePluginContextDescriptorPermissionsTest {
         );
     }
 
+    private static SidecarDispatcher availableSidecar() {
+        return (task, callback) -> {
+            callback.run();
+            return java.util.concurrent.CompletableFuture.completedFuture(
+                dev.turboism.core.runtime.sidecar.SidecarResult.success("")
+            );
+        };
+    }
+
     private static RuntimeScheduler scheduler() {
         List<dev.turboism.core.diagnostics.CallbackBudgetEvent> events = new CopyOnWriteArrayList<>();
         return new RuntimeScheduler(
             new DefaultWorkBudgetPolicy(),
             new PluginExecutorRegistry(1, 4, events::add, CLOCK),
-            SidecarDispatcher.noop(),
+            availableSidecar(),
             events::add
         );
     }

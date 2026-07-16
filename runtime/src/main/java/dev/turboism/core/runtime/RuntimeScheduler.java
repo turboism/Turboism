@@ -7,9 +7,12 @@ import dev.turboism.sdk.plugin.WorkBudget;
 
 import java.time.Duration;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
@@ -17,12 +20,15 @@ import java.util.function.Consumer;
 public final class RuntimeScheduler {
 
     private static final String SIDECAR_COMPLETION_TASK_TYPE = "sidecar.complete";
+    private static final int GLOBAL_TIMER_LIMIT = 1024;
 
     private final WorkBudgetPolicy policy;
     private final PluginExecutorRegistry executorRegistry;
     private final SidecarDispatcher sidecarDispatcher;
     private final Consumer<CallbackBudgetEvent> diagnosticSink;
     private final ScheduledThreadPoolExecutor timer;
+    private final Semaphore timerPermits = new Semaphore(GLOBAL_TIMER_LIMIT);
+    private final Set<RuntimeTimerToken> activeTimers = ConcurrentHashMap.newKeySet();
     private final AtomicBoolean closed = new AtomicBoolean(false);
     private final Object lifecycleLock = new Object();
     private int pluginTaskSchedulerLeases;
@@ -45,19 +51,25 @@ public final class RuntimeScheduler {
         this.timer.setRemoveOnCancelPolicy(true);
     }
 
-    public void dispatch(PluginTask task, Runnable callback) {
+    public boolean dispatch(PluginTask task, Runnable callback) {
         Objects.requireNonNull(task, "task");
         Objects.requireNonNull(callback, "callback");
         if (closed.get()) {
             emitRejected(task);
-            return;
+            return false;
         }
         WorkBudget budget = policy.classify(task);
-        switch (budget) {
-            case LIGHTWEIGHT, HEAVY -> executorRegistry.get(task.pluginId()).execute(task, bindCancellation(callback));
-            case SIDECAR -> dispatchSidecar(task, callback);
-            case REJECTED -> emitRejected(task);
-        }
+        return switch (budget) {
+            case LIGHTWEIGHT -> executorRegistry.get(task.pluginId()).submit(
+                task,
+                bindCancellation(callback)
+            ).accepted();
+            case HEAVY, SIDECAR -> dispatchSidecar(task, callback);
+            case REJECTED -> {
+                emitRejected(task);
+                yield false;
+            }
+        };
     }
 
     public CallbackSubmission submitLightweight(
@@ -109,17 +121,32 @@ public final class RuntimeScheduler {
         if (delay.isNegative()) {
             throw new IllegalArgumentException("delay must not be negative");
         }
-        if (closed.get()) {
-            return new RuntimeTimerSubmission(false, () -> false);
+        final RuntimeTimerToken token;
+        synchronized (lifecycleLock) {
+            if (closed.get() || !timerPermits.tryAcquire()) {
+                return new RuntimeTimerSubmission(false, () -> false);
+            }
+            token = new RuntimeTimerToken(released -> {
+                activeTimers.remove(released);
+                timerPermits.release();
+            });
+            activeTimers.add(token);
         }
         try {
-            final var future = timer.schedule(
-                callback,
+            token.bind(timer.schedule(
+                () -> {
+                    try {
+                        callback.run();
+                    } finally {
+                        token.executed();
+                    }
+                },
                 delay.toNanos(),
                 TimeUnit.NANOSECONDS
-            );
-            return new RuntimeTimerSubmission(true, () -> future.cancel(false));
+            ));
+            return new RuntimeTimerSubmission(true, token);
         } catch (RuntimeException exception) {
+            token.rejected();
             return new RuntimeTimerSubmission(false, () -> false);
         }
     }
@@ -138,7 +165,16 @@ public final class RuntimeScheduler {
         return closed.get();
     }
 
+    int activeTimerCount() {
+        return activeTimers.size();
+    }
+
+    int availableTimerPermits() {
+        return timerPermits.availablePermits();
+    }
+
     public void shutdown() {
+        final RuntimeTimerToken[] timersToCancel;
         synchronized (lifecycleLock) {
             if (closed.get()) {
                 return;
@@ -149,6 +185,10 @@ public final class RuntimeScheduler {
                 );
             }
             closed.set(true);
+            timersToCancel = activeTimers.toArray(RuntimeTimerToken[]::new);
+        }
+        for (RuntimeTimerToken token : timersToCancel) {
+            token.cancel();
         }
         timer.shutdownNow();
         executorRegistry.shutdownAll();
@@ -163,15 +203,25 @@ public final class RuntimeScheduler {
         }
     }
 
-    private void dispatchSidecar(PluginTask task, Runnable callback) {
+    private boolean dispatchSidecar(PluginTask task, Runnable callback) {
+        if (!sidecarDispatcher.isAvailable()) {
+            emitRejected(task);
+            return false;
+        }
         try {
             CompletionStage<SidecarResult> stage = sidecarDispatcher.dispatch(
                 task,
                 () -> enqueueSidecarCompletion(task, callback)
             );
+            if (stage == null) {
+                emitRejected(task);
+                return false;
+            }
             stage.whenComplete((result, failure) -> emitSidecarResult(task, result, failure));
+            return true;
         } catch (RuntimeException exception) {
             emit(task, CallbackBudgetEvent.Phase.FAILED, CallbackBudgetEvent.Decision.SIDECAR, CallbackBudgetEvent.Severity.ERROR);
+            return false;
         }
     }
 
