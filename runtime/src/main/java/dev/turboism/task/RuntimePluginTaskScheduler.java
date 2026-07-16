@@ -7,6 +7,7 @@ import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.RuntimeSchedulerLease;
 import dev.turboism.cleanup.CleanupEvidenceCollector;
 import dev.turboism.sdk.plugin.DisposableScope;
+import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.task.FixedDelayTaskRequest;
 import dev.turboism.sdk.task.PluginTaskRequest;
 import dev.turboism.sdk.task.PluginTaskScheduler;
@@ -80,7 +81,7 @@ public final class RuntimePluginTaskScheduler implements PluginTaskScheduler, Au
             return rejected(request.id(), TaskRejectionReason.PLUGIN_INACTIVE);
         }
         synchronized (admissionLock) {
-            if (!active || ownership.isClosed()) {
+            if (!active || ownership.isCloseRequested()) {
                 ownership.disarm();
                 return rejected(request.id(), TaskRejectionReason.PLUGIN_INACTIVE);
             }
@@ -96,14 +97,18 @@ public final class RuntimePluginTaskScheduler implements PluginTaskScheduler, Au
             final OneShotTaskHandle handle = new OneShotTaskHandle(
                 request.id(),
                 request.action(),
-                admission::release,
+                () -> {
+                    admission.release();
+                    ownership.releaseAfterTerminal();
+                },
                 completionDispatcher::dispatchTaskHandleSettlement,
                 completionDispatcher::dispatchPluginContinuation
             );
             admission.bind(handle);
             ownership.ownCandidate(handle);
-            if (ownership.isClosed()) {
+            if (ownership.isCloseRequested()) {
                 admission.release();
+                ownership.disarm();
                 return rejected(request.id(), TaskRejectionReason.PLUGIN_INACTIVE);
             }
             if (activeTasks.putIfAbsent(request.id(), handle) != null) {
@@ -111,19 +116,26 @@ public final class RuntimePluginTaskScheduler implements PluginTaskScheduler, Au
                 ownership.disarm();
                 return rejected(request.id(), TaskRejectionReason.DUPLICATE_ACTIVE_ID);
             }
-            if (ownership.isClosed()) {
+            if (ownership.isCloseRequested()) {
                 admission.release();
+                ownership.disarm();
                 return rejected(request.id(), TaskRejectionReason.PLUGIN_INACTIVE);
             }
             final CallbackSubmission callback = runtimeScheduler.submitLightweight(
                 runtimeTask(request),
                 handle.token(),
-                handle::runAction
+                () -> ownership.runWhenBound(handle::runAction)
             );
             if (!callback.accepted()) {
                 admission.release();
+                final boolean closeRequested = ownership.isCloseRequested();
                 ownership.disarm();
-                return rejected(request.id(), mapRejection(callback.rejectionStatus()));
+                return rejected(
+                    request.id(),
+                    closeRequested
+                        ? TaskRejectionReason.PLUGIN_INACTIVE
+                        : mapRejection(callback.rejectionStatus())
+                );
             }
             ownership.bind();
             callback.completion().whenComplete((result, failure) -> {
@@ -148,7 +160,7 @@ public final class RuntimePluginTaskScheduler implements PluginTaskScheduler, Au
             return rejected(request.id(), TaskRejectionReason.PLUGIN_INACTIVE);
         }
         synchronized (admissionLock) {
-            if (!active || ownership.isClosed()) {
+            if (!active || ownership.isCloseRequested()) {
                 ownership.disarm();
                 return rejected(request.id(), TaskRejectionReason.PLUGIN_INACTIVE);
             }
@@ -166,15 +178,20 @@ public final class RuntimePluginTaskScheduler implements PluginTaskScheduler, Au
                 runtimeScheduler,
                 runtimeTask(request),
                 request.delay(),
+                ownership::runWhenBound,
                 request.action(),
-                admission::release,
+                () -> {
+                    admission.release();
+                    ownership.releaseAfterTerminal();
+                },
                 completionDispatcher::dispatchTaskHandleSettlement,
                 completionDispatcher::dispatchPluginContinuation
             );
             admission.bind(handle);
             ownership.ownCandidate(handle);
-            if (ownership.isClosed()) {
+            if (ownership.isCloseRequested()) {
                 admission.release();
+                ownership.disarm();
                 return rejected(request.id(), TaskRejectionReason.PLUGIN_INACTIVE);
             }
             if (activeTasks.putIfAbsent(request.id(), handle) != null) {
@@ -182,14 +199,21 @@ public final class RuntimePluginTaskScheduler implements PluginTaskScheduler, Au
                 ownership.disarm();
                 return rejected(request.id(), TaskRejectionReason.DUPLICATE_ACTIVE_ID);
             }
-            if (ownership.isClosed()) {
+            if (ownership.isCloseRequested()) {
                 admission.release();
+                ownership.disarm();
                 return rejected(request.id(), TaskRejectionReason.PLUGIN_INACTIVE);
             }
             if (!handle.start(request.initialDelay())) {
                 admission.release();
+                final boolean closeRequested = ownership.isCloseRequested();
                 ownership.disarm();
-                return rejected(request.id(), TaskRejectionReason.BACKPRESSURE);
+                return rejected(
+                    request.id(),
+                    closeRequested
+                        ? TaskRejectionReason.PLUGIN_INACTIVE
+                        : TaskRejectionReason.BACKPRESSURE
+                );
             }
             ownership.bind();
             return accepted(handle);
@@ -248,13 +272,15 @@ public final class RuntimePluginTaskScheduler implements PluginTaskScheduler, Au
             completionDispatcher::beginCleanup,
             cleanupEvidence::taskHandleCanceled
         );
+        final Registration registration;
         try {
-            ownership.attachRegistration(disposableScope.register(ownership));
-            return ownership;
+            registration = disposableScope.register(ownership);
         } catch (IllegalStateException exception) {
             ownership.disarm();
             return null;
         }
+        ownership.attachRegistration(registration);
+        return ownership;
     }
 
     private PluginTask runtimeTask(final PluginTaskRequest request) {
