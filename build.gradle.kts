@@ -150,6 +150,42 @@ tasks.register("checkModuleBoundaries") {
             }
         }
 
+        val opaqueUserFileRuntime = rootProject.file("runtime/src/main/java/dev/turboism/userfile")
+        if (opaqueUserFileRuntime.isDirectory) {
+            opaqueUserFileRuntime.walkTopDown()
+                .filter { it.isFile && it.extension == "java" }
+                .forEach { file ->
+                    val source = file.readText()
+                    if (source.contains("dev.turboism.sdk.ui.FileChooserRequest")
+                        || source.contains("dev.turboism.sdk.ui.UiHostCapabilityService")
+                        || source.contains("requestFile(")) {
+                        logger.error(
+                            "Opaque user-file runtime must not call the predecessor string chooser: " +
+                                file.relativeTo(rootProject.projectDir)
+                        )
+                        failed = true
+                    }
+                }
+        }
+
+        val userFileSdk = rootProject.file("sdk/src/main/java/dev/turboism/sdk/ui")
+        if (userFileSdk.isDirectory) {
+            userFileSdk.walkTopDown()
+                .filter { it.isFile && it.name.startsWith("UserFile") && it.extension == "java" }
+                .forEach { file ->
+                    val source = file.readText()
+                    if (source.contains("java.nio.file.Path")
+                        || source.contains("java.io.File")
+                        || source.contains("java.net.URI")) {
+                        logger.error(
+                            "Opaque user-file SDK must not expose path/file/URI types: " +
+                                file.relativeTo(rootProject.projectDir)
+                        )
+                        failed = true
+                    }
+                }
+        }
+
         if (failed) {
             throw GradleException("Module boundary checks failed.")
         }
@@ -399,6 +435,35 @@ tasks.register<Exec>("checkPluginInspectionContract") {
     commandLine("bash", "scripts/test/test_plugin_inspection_contract.sh")
 }
 
+val checkLegacyFrameworkCapabilityExtraction by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Validates the 13-plugin legacy-to-framework capability extraction and closed governance schema."
+    workingDir(rootDir)
+    inputs.files(
+        "docs/migration/capabilities/legacy-framework-capability-extraction.tsv",
+        "docs/migration/capabilities/capability-catalog.tsv",
+        "docs/migration/capabilities/plugin-readiness-matrix.tsv",
+        "docs/migration/plans/legacy-framework-capability-extraction-prd.md",
+        fileTree("docs/migration/salvage-notes") { include("legacy-turboism-*.md") },
+        "scripts/test/test_legacy_framework_capability_extraction.py"
+    )
+    commandLine("python3", "scripts/test/test_legacy_framework_capability_extraction.py")
+}
+
+val checkLegacyFrameworkCapabilityExtractionMutations by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Runs sandboxed negative mutations for the legacy capability extraction gate."
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/test/test_legacy_framework_capability_extraction.py",
+        "scripts/test/test_legacy_framework_capability_extraction_mutations.py",
+        "docs/migration/capabilities/legacy-framework-capability-extraction.tsv",
+        "docs/migration/capabilities/capability-catalog.tsv",
+        "docs/migration/capabilities/plugin-readiness-matrix.tsv"
+    )
+    commandLine("python3", "scripts/test/test_legacy_framework_capability_extraction_mutations.py")
+}
+
 tasks.register("checkPluginInspectionRuntime") {
     group = "verification"
     description = "Runs static plugin inspection gates and the production-backed strict ZIP mutation matrix."
@@ -423,6 +488,112 @@ tasks.register<Exec>("checkDistributionProtocolContract") {
             }
     )
     commandLine("bash", "scripts/test/test_distribution_protocol_contract.sh")
+}
+
+val sdkApiBaselineTool = layout.projectDirectory.file("scripts/test/sdk_api_baseline_cli.py")
+val sdkApiBaselineCore = layout.projectDirectory.file("scripts/test/sdk_api_baseline.py")
+val sdkApiReferenceBuilder = layout.projectDirectory.file("scripts/test/build_sdk_api_reference.py")
+val sdkPrePhaseBaseline = layout.projectDirectory.file("docs/sdk/baselines/sdk-api-pre-phase-v1.json")
+val sdkBaselineAnchorCommit = "fa76a90c236af7f1b393c807176c8e38dac6977e"
+val sdkPrePhaseReferenceArtifact = layout.buildDirectory.file(
+    "sdk-api-baseline/pre-phase-reference.jar"
+)
+val sdkJarArtifact = project(":sdk").tasks
+    .named<org.gradle.jvm.tasks.Jar>("jar")
+    .flatMap { it.archiveFile }
+
+val checkSdkApiBaselineTool by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Runs deterministic SDK API baseline mutation and compatibility selftests."
+    workingDir(rootDir)
+    inputs.files(sdkApiBaselineTool, sdkApiBaselineCore, "scripts/test/test_sdk_api_baseline.sh")
+    commandLine("bash", "scripts/test/test_sdk_api_baseline.sh")
+}
+
+val checkSdkApiReferenceBuilder by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Verifies deterministic SDK reference reconstruction from the immutable Git anchor."
+    workingDir(rootDir)
+    inputs.files(sdkApiReferenceBuilder, "scripts/test/test_sdk_api_reference_builder.sh")
+    commandLine("bash", "scripts/test/test_sdk_api_reference_builder.sh")
+}
+
+val prepareSdkPrePhaseApiReference by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Rebuilds the deterministic SDK API reference from the immutable pre-Phase Git anchor."
+    workingDir(rootDir)
+    inputs.file(sdkApiReferenceBuilder)
+    inputs.property("anchorCommit", sdkBaselineAnchorCommit)
+    outputs.file(sdkPrePhaseReferenceArtifact)
+    doFirst {
+        val output = sdkPrePhaseReferenceArtifact.get().asFile
+        output.parentFile.mkdirs()
+        commandLine(
+            "python3",
+            sdkApiReferenceBuilder.asFile.absolutePath,
+            "--root", rootDir.absolutePath,
+            "--commit", sdkBaselineAnchorCommit,
+            "--output", output.absolutePath
+        )
+    }
+}
+
+val checkSdkPrePhaseApiCompatibility by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Verifies the compiled SDK remains compatible with the reviewed pre-Phase API baseline."
+    dependsOn(":sdk:jar", prepareSdkPrePhaseApiReference)
+    inputs.files(sdkApiBaselineTool, sdkApiBaselineCore)
+    inputs.file(sdkPrePhaseBaseline)
+    inputs.file(sdkPrePhaseReferenceArtifact)
+    inputs.file(sdkJarArtifact)
+    doFirst {
+        commandLine(
+            "python3",
+            sdkApiBaselineTool.asFile.absolutePath,
+            "verify-compatible",
+            "--input", sdkJarArtifact.get().asFile.absolutePath,
+            "--reference-input", sdkPrePhaseReferenceArtifact.get().asFile.absolutePath,
+            "--package-prefix", "dev.turboism.sdk",
+            "--baseline", sdkPrePhaseBaseline.asFile.absolutePath,
+            "--expected-commit", sdkBaselineAnchorCommit
+        )
+    }
+}
+
+tasks.register<Exec>("generateSdkApiBaseline") {
+    group = "build setup"
+    description = "Explicitly generate an SDK API baseline to a caller-selected non-repository output path."
+    dependsOn(":sdk:jar")
+    val outputPath = providers.gradleProperty("turboismSdkBaselineOutput")
+    val role = providers.gradleProperty("turboismSdkBaselineRole")
+    val commit = providers.gradleProperty("turboismSdkBaselineCommit")
+    doFirst {
+        if (!outputPath.isPresent || !role.isPresent || !commit.isPresent) {
+            throw GradleException(
+                "Pass -PturboismSdkBaselineOutput=<path> " +
+                    "-PturboismSdkBaselineRole=<pre-phase|exact> " +
+                    "-PturboismSdkBaselineCommit=<40-hex-commit>."
+            )
+        }
+        val output = file(outputPath.get()).canonicalFile
+        val reviewedDirectory = file("docs/sdk/baselines").canonicalFile
+        if (output.toPath().startsWith(reviewedDirectory.toPath())) {
+            throw GradleException(
+                "Baseline generation must write to a caller-selected review path outside docs/sdk/baselines; " +
+                    "the check lifecycle never overwrites reviewed baselines."
+            )
+        }
+        commandLine(
+            "python3",
+            sdkApiBaselineTool.asFile.absolutePath,
+            "capture",
+            "--input", sdkJarArtifact.get().asFile.absolutePath,
+            "--package-prefix", "dev.turboism.sdk",
+            "--role", role.get(),
+            "--commit", commit.get(),
+            "--output", output.absolutePath
+        )
+    }
 }
 
 val previewBundleDir = layout.buildDirectory.dir("preview/$resolvedWorktreeId")
@@ -490,6 +661,21 @@ val previewAgentSmokeTest by tasks.registering(JavaExec::class) {
     }
 }
 
+val checkPreviewRuntimeReports by tasks.registering(JavaExec::class) {
+    group = "verification"
+    description = "Strictly validates the four correlated machine-readable preview reports."
+    dependsOn(previewAgentSmokeTest, ":runtime:classes")
+    val runtimeMain = project(":runtime")
+        .extensions
+        .getByType<org.gradle.api.tasks.SourceSetContainer>()
+        .named("main")
+    classpath(runtimeMain.map { it.runtimeClasspath })
+    mainClass.set("dev.turboism.preview.report.PreviewReportValidationCli")
+    doFirst {
+        args(previewSmokeDir.get().asFile.resolve("state").absolutePath)
+    }
+}
+
 tasks.register("checkPreviewBundleLayout") {
     group = "verification"
     description = "Build and verify the minimum Turboism 0.1 preview bundle layout."
@@ -531,17 +717,56 @@ tasks.register("checkPreviewBundleLayout") {
     }
 }
 
+tasks.register("checkOfficialPluginI18nCompleteness") {
+    group = "verification"
+    description = "Verifies baseline key completeness for participating official plugin catalogs."
+    dependsOn(":tests:officialPluginI18nCompletenessTest")
+}
+
+val checkAsyncHostReadStructuralBoundaries by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Rejects plugin-owned Thread, Executor, and Timer resources and synchronous Project Inspector host reads."
+    workingDir(rootDir)
+    inputs.files(
+        fileTree("plugins") { include("*/src/main/java/**/*.java") },
+        "scripts/test/test_async_host_read_foundation.py"
+    )
+    commandLine("python3", "scripts/test/test_async_host_read_foundation.py")
+}
+
+val checkAsyncHostReadFoundation by tasks.registering {
+    group = "verification"
+    description = "Verifies the bounded v1 async host-read foundation and Project Inspector reference consumer."
+    dependsOn(
+        ":sdk:asyncHostReadContractTest",
+        ":runtime:asyncHostReadFoundationTest",
+        ":plugins:project-inspector:asyncHostReadConsumerTest",
+        ":tests:asyncHostReadPreviewIntegrationTest",
+        checkAsyncHostReadStructuralBoundaries,
+        checkLegacyFrameworkCapabilityExtraction,
+        checkLegacyFrameworkCapabilityExtractionMutations
+    )
+}
+
 tasks.named("check") {
     dependsOn(
+        checkAsyncHostReadFoundation,
         "checkModuleBoundaries",
         "checkAsmSupplyChainAdmission",
         "checkMappingPipelineClosure",
         "checkMappingReviewWrapperArgs",
         "checkPluginInspectionRuntime",
         "checkDistributionProtocolContract",
+        checkLegacyFrameworkCapabilityExtraction,
+        checkLegacyFrameworkCapabilityExtractionMutations,
+        checkSdkApiBaselineTool,
+        checkSdkApiReferenceBuilder,
+        checkSdkPrePhaseApiCompatibility,
         "checkPreviewBundleLayout",
         previewAgentSmokeTest,
+        checkPreviewRuntimeReports,
         ":tests:previewPluginRuntimeTest",
+        "checkOfficialPluginI18nCompleteness",
         "validatePluginMeta"
     )
 }

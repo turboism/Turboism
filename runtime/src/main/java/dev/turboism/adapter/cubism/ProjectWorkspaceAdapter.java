@@ -5,6 +5,7 @@ import dev.turboism.adapter.ui.HostUiVersionCheck;
 import dev.turboism.adapter.ui.SafeModeDiagnostic;
 import dev.turboism.sdk.cubism.ProjectSnapshot;
 import dev.turboism.sdk.cubism.WorkspaceSnapshot;
+import dev.turboism.sdk.hostread.ProjectWorkspaceSnapshot;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -23,6 +24,9 @@ public interface ProjectWorkspaceAdapter {
     AdapterResult<Optional<ProjectSnapshot>> activeProject();
 
     AdapterResult<Optional<WorkspaceSnapshot>> workspace();
+
+    /** One ordered adapter admission for a coherent serialized project/workspace observation. */
+    AdapterResult<ProjectWorkspaceSnapshot> projectWorkspaceSnapshot();
 
     interface HostOperations {
         String hostVersion();
@@ -81,6 +85,40 @@ public interface ProjectWorkspaceAdapter {
         public AdapterResult<Optional<WorkspaceSnapshot>> workspace() {
             return host.map(ops -> callIfSupported(ops, WORKSPACE_CAPABILITY_ID, ops::workspace))
                 .orElseGet(unavailable(WORKSPACE_CAPABILITY_ID));
+        }
+
+        @Override
+        public AdapterResult<ProjectWorkspaceSnapshot> projectWorkspaceSnapshot() {
+            return host.map(this::readCombined)
+                .orElseGet(() -> AdapterResult.unavailable(
+                    SafeModeDiagnostic.adapterUnavailable(PROJECT_CAPABILITY_ID)
+                ));
+        }
+
+        private AdapterResult<ProjectWorkspaceSnapshot> readCombined(final HostOperations operations) {
+            try {
+                final Optional<SafeModeDiagnostic> versionDiagnostic =
+                    HostUiVersionCheck.diagnosticFor(PROJECT_CAPABILITY_ID, operations.hostVersion());
+                if (versionDiagnostic.isPresent()) {
+                    return AdapterResult.unavailable(versionDiagnostic.orElseThrow());
+                }
+                if (!operations.supportsProjectWorkspaceRead()) {
+                    return AdapterResult.unavailable(
+                        SafeModeDiagnostic.capabilityUnavailable(PROJECT_CAPABILITY_ID)
+                    );
+                }
+                return AdapterResult.available(new ProjectWorkspaceSnapshot(
+                    operations.activeProject(),
+                    operations.workspace()
+                ));
+            } catch (AdapterHostException exception) {
+                return AdapterResult.unavailable(exception.diagnostic());
+            } catch (RuntimeException exception) {
+                return AdapterResult.unavailable(SafeModeDiagnostic.validationFailure(
+                    PROJECT_CAPABILITY_ID,
+                    "Host project/workspace adapter call failed safely."
+                ));
+            }
         }
 
         private <T> AdapterResult<Optional<T>> callIfSupported(

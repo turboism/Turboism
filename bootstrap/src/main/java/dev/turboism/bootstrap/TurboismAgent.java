@@ -134,10 +134,20 @@ public final class TurboismAgent {
         }
     }
 
+    static boolean shutdownForTesting() {
+        return shutdownRuntime();
+    }
+
     private static void shutdown() {
+        shutdownRuntime();
+    }
+
+    private static boolean shutdownRuntime() {
         final PreviewRuntime runtime = RUNTIME.getAndSet(null);
-        if (runtime != null) {
-            runtime.close();
+        if (runtime == null) {
+            return false;
         }
+        runtime.close();
+        return true;
     }
 }
