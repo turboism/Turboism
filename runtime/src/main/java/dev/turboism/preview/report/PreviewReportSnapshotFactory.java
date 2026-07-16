@@ -298,10 +298,10 @@ public final class PreviewReportSnapshotFactory {
                 final ArrayNode evidence = (ArrayNode) entry.get("evidence");
                 if (verifiedProject && recordPath != null && recordDigest != null) {
                     evidence.add(PreviewReportDocuments.evidence(
-                        runtimeAvailable ? "RUNTIME_OBSERVED" : "STATIC_VERIFIED",
+                        "STATIC_VERIFIED",
                         availability,
                         runtimeAvailable
-                            ? "Exact Cubism 5.3.02 adapter was connected for this runtime session."
+                            ? "Exact Cubism 5.3.02 static record applies to the connected runtime session."
                             : "Exact Cubism 5.3.02 static record exists; runtime availability was not established.",
                         recordPath,
                         recordDigest
