@@ -3,6 +3,7 @@ package dev.turboism.ui.toolbar;
 import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.permissions.PermissionChecker;
+import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
@@ -23,6 +24,7 @@ public final class RuntimePaletteToolbarRegistry implements PaletteToolbarRegist
     private final String pluginId;
     private final Optional<ToolbarVisibilitySink> visibilitySink;
     private final Map<String, PaletteToolbarContribution> contributions = new ConcurrentHashMap<>();
+    private volatile PluginLocalization localization;
 
     public RuntimePaletteToolbarRegistry(
         final PermissionChecker permissionChecker,
@@ -44,15 +46,21 @@ public final class RuntimePaletteToolbarRegistry implements PaletteToolbarRegist
         this.visibilitySink = Optional.ofNullable(visibilitySink);
     }
 
+    /** Binds the localization context owned by this registry's contributing plugin. */
+    public void bindLocalization(final PluginLocalization pluginLocalization) {
+        localization = Objects.requireNonNull(pluginLocalization, "pluginLocalization");
+    }
+
     @Override
     public Registration contribute(final PaletteToolbarContribution contribution) {
         Objects.requireNonNull(contribution, "contribution");
         permissionChecker.check(PermissionIds.TURBOISM_UI_TOOLBAR_PALETTE_CONTRIBUTE, "ui.palette-toolbar.contribute");
         final String id = requireText(contribution.contributionId(), "contributionId");
         requireText(contribution.paletteId(), "paletteId");
-        contributions.put(id, contribution);
-        dispatchVisibilityUpdate(contribution);
-        return new ToolbarRegistration(id, contribution);
+        final PaletteToolbarContribution resolved = resolveLabel(contribution);
+        contributions.put(id, resolved);
+        dispatchVisibilityUpdate(resolved);
+        return new ToolbarRegistration(id, resolved);
     }
 
     boolean isRegistered(final String contributionId) {
@@ -61,6 +69,22 @@ public final class RuntimePaletteToolbarRegistry implements PaletteToolbarRegist
 
     int registrationCount() {
         return contributions.size();
+    }
+
+    private PaletteToolbarContribution resolveLabel(final PaletteToolbarContribution contribution) {
+        final PluginLocalization pluginLocalization = localization;
+        if (pluginLocalization == null) {
+            return contribution;
+        }
+        return new PaletteToolbarContribution(
+            contribution.contributionId(),
+            contribution.actionId(),
+            pluginLocalization.text(requireText(contribution.labelKey(), "labelKey")),
+            contribution.iconResourcePath(),
+            contribution.paletteId(),
+            contribution.anchor(),
+            contribution.order()
+        );
     }
 
     private void dispatchVisibilityUpdate(final PaletteToolbarContribution contribution) {
