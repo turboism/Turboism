@@ -41,9 +41,10 @@ final class FixedDelayTaskHandle extends AbstractRuntimeTaskHandle {
         final Duration delay,
         final PluginTaskAction action,
         final Runnable terminalCleanup,
-        final java.util.function.Consumer<Runnable> completionDispatcher
+        final java.util.function.Consumer<Runnable> settlementDispatcher,
+        final java.util.function.Consumer<Runnable> continuationDispatcher
     ) {
-        super(id, terminalCleanup, completionDispatcher);
+        super(id, terminalCleanup, settlementDispatcher, continuationDispatcher);
         this.runtimeScheduler = java.util.Objects.requireNonNull(runtimeScheduler, "runtimeScheduler");
         this.runtimeTask = java.util.Objects.requireNonNull(runtimeTask, "runtimeTask");
         this.delay = java.util.Objects.requireNonNull(delay, "delay");
@@ -72,8 +73,10 @@ final class FixedDelayTaskHandle extends AbstractRuntimeTaskHandle {
             if (running && runCount > 0) {
                 lastRunOutcome = Optional.of(run(TaskRunOutcomeStatus.CANCELED, Optional.empty()));
             }
-            complete(outcome(TaskOutcomeStatus.CANCELED, Optional.empty()));
-            return true;
+            return complete(outcome(
+                TaskOutcomeStatus.CANCELED,
+                Optional.empty()
+            ));
         }
     }
 

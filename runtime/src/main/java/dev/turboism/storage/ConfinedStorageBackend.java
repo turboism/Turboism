@@ -1,5 +1,7 @@
 package dev.turboism.storage;
 
+import dev.turboism.cleanup.CleanupEvidenceCollector;
+
 import dev.turboism.sdk.storage.StorageEntry;
 import dev.turboism.sdk.storage.StorageEntryType;
 import dev.turboism.sdk.storage.StorageError;
@@ -45,8 +47,17 @@ final class ConfinedStorageBackend {
     private static final long ROOT_QUOTA_BYTES = 64L * 1024L * 1024L;
 
     private final Map<StorageRoot, Path> roots;
+    private final CleanupEvidenceCollector cleanupEvidence;
 
     ConfinedStorageBackend(final Map<StorageRoot, Path> roots) throws IOException {
+        this(roots, new CleanupEvidenceCollector());
+    }
+
+    ConfinedStorageBackend(
+        final Map<StorageRoot, Path> roots,
+        final CleanupEvidenceCollector cleanupEvidence
+    ) throws IOException {
+        this.cleanupEvidence = Objects.requireNonNull(cleanupEvidence, "cleanupEvidence");
         this.roots = validateRoots(roots);
     }
 
@@ -289,9 +300,6 @@ final class ConfinedStorageBackend {
         if (!Files.exists(target, LinkOption.NOFOLLOW_LINKS)) {
             return null;
         }
-        if (!replaceExisting) {
-            return writeFailure(path, StorageErrorCode.ALREADY_EXISTS);
-        }
         if (!Files.isRegularFile(target, LinkOption.NOFOLLOW_LINKS)) {
             return writeFailure(path, StorageErrorCode.TYPE_MISMATCH);
         }
@@ -492,6 +500,9 @@ final class ConfinedStorageBackend {
                 StandardCopyOption.REPLACE_EXISTING
             );
         } else {
+            if (Files.exists(target, LinkOption.NOFOLLOW_LINKS)) {
+                throw new FileAlreadyExistsException(target.toString());
+            }
             Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE);
         }
     }
@@ -592,8 +603,11 @@ final class ConfinedStorageBackend {
     private void deleteTemporary(final Path temporary) {
         if (temporary != null) {
             try {
-                Files.deleteIfExists(temporary);
+                if (Files.deleteIfExists(temporary)) {
+                    cleanupEvidence.temporaryFileDeleted();
+                }
             } catch (IOException ignored) {
+                cleanupEvidence.cleanupFailed();
             }
         }
     }
