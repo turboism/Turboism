@@ -22,9 +22,12 @@ public final class RuntimePaletteToolbarRegistry implements PaletteToolbarRegist
     private final PermissionChecker permissionChecker;
     private final RuntimeScheduler scheduler;
     private final String pluginId;
+    private static final String LOCALIZATION_OWNERSHIP_LOCKED = "localization ownership is already locked";
+
     private final Optional<ToolbarVisibilitySink> visibilitySink;
     private final Map<String, PaletteToolbarContribution> contributions = new ConcurrentHashMap<>();
-    private volatile PluginLocalization localization;
+    private PluginLocalization localization;
+    private boolean localizationLocked;
 
     public RuntimePaletteToolbarRegistry(
         final PermissionChecker permissionChecker,
@@ -47,8 +50,27 @@ public final class RuntimePaletteToolbarRegistry implements PaletteToolbarRegist
     }
 
     /** Binds the localization context owned by this registry's contributing plugin. */
-    public void bindLocalization(final PluginLocalization pluginLocalization) {
-        localization = Objects.requireNonNull(pluginLocalization, "pluginLocalization");
+    public synchronized void bindLocalization(final PluginLocalization pluginLocalization) {
+        final PluginLocalization requested = Objects.requireNonNull(pluginLocalization, "pluginLocalization");
+        if (!localizationLocked) {
+            localization = requested;
+            localizationLocked = true;
+            return;
+        }
+        if (localization != requested) {
+            throw new IllegalStateException(LOCALIZATION_OWNERSHIP_LOCKED);
+        }
+    }
+
+    /** Locks this registry to raw label keys when no localization service is available. */
+    public synchronized void lockWithoutLocalization() {
+        if (!localizationLocked) {
+            localizationLocked = true;
+            return;
+        }
+        if (localization != null) {
+            throw new IllegalStateException(LOCALIZATION_OWNERSHIP_LOCKED);
+        }
     }
 
     @Override
@@ -72,7 +94,7 @@ public final class RuntimePaletteToolbarRegistry implements PaletteToolbarRegist
     }
 
     private PaletteToolbarContribution resolveLabel(final PaletteToolbarContribution contribution) {
-        final PluginLocalization pluginLocalization = localization;
+        final PluginLocalization pluginLocalization = lockLocalizationForContribution();
         if (pluginLocalization == null) {
             return contribution;
         }
@@ -85,6 +107,11 @@ public final class RuntimePaletteToolbarRegistry implements PaletteToolbarRegist
             contribution.anchor(),
             contribution.order()
         );
+    }
+
+    private synchronized PluginLocalization lockLocalizationForContribution() {
+        localizationLocked = true;
+        return localization;
     }
 
     private void dispatchVisibilityUpdate(final PaletteToolbarContribution contribution) {
