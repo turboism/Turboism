@@ -4,6 +4,7 @@ import dev.turboism.cleanup.CleanupEvidenceCollector;
 import dev.turboism.core.runtime.PluginExecutorRegistry;
 import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.runtime.RuntimeScheduler;
+import dev.turboism.core.runtime.RuntimeTimerSubmission;
 import dev.turboism.core.runtime.WorkBudgetPolicy;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.sdk.plugin.DisposableScope;
@@ -23,6 +24,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.Clock;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -98,6 +100,42 @@ class RuntimePluginTaskSchedulerTest {
             reused.handle().completion().toCompletableFuture().get(2, TimeUnit.SECONDS).status()
         );
         assertEquals(2, calls.get());
+    }
+
+    @Test
+    void terminalAcceptedTasksReleaseScopeOwnershipWithoutAccumulation() throws Exception {
+        createScheduler(1, 8);
+        final int baselineScopeRegistrations = scopedRegistrationCount(scope);
+
+        for (int index = 0; index < 64; index++) {
+            final TaskSubmission completed = scheduler.submit(request(
+                "terminal-release-completed-" + index,
+                token -> { }
+            ));
+            assertTrue(completed.accepted());
+            assertEquals(TaskOutcomeStatus.SUCCEEDED, completed.handle().completion()
+                .toCompletableFuture().get(1, TimeUnit.SECONDS).status());
+            assertEquals(baselineScopeRegistrations, scopedRegistrationCount(scope),
+                "naturally completed ownership must leave the scope");
+
+            final TaskSubmission canceled = scheduler.scheduleWithFixedDelay(new FixedDelayTaskRequest(
+                new TaskId("terminal-release-canceled-" + index),
+                PluginTaskKind.LOW_FREQUENCY_REFRESH,
+                PluginTaskPriority.LOW,
+                Duration.ofHours(1),
+                Duration.ofHours(1),
+                token -> { }
+            ));
+            assertTrue(canceled.accepted());
+            assertTrue(canceled.handle().cancel());
+            assertEquals(TaskOutcomeStatus.CANCELED, canceled.handle().completion()
+                .toCompletableFuture().get(1, TimeUnit.SECONDS).status());
+            assertEquals(baselineScopeRegistrations, scopedRegistrationCount(scope),
+                "manually canceled ownership must leave the scope");
+        }
+
+        assertEquals(0, scheduler.activeTaskCount());
+        assertEquals(64, scheduler.availableActiveTaskPermits());
     }
 
     @Test
@@ -311,14 +349,15 @@ class RuntimePluginTaskSchedulerTest {
                 failure.set(throwable);
             }
         }, "task-admission-probe");
-        submitter.start();
+        submitter.setDaemon(true);
         try {
+            submitter.start();
             assertTrue(admissionEntered.await(1, TimeUnit.SECONDS));
             assertEquals(2, scopedRegistrationCount(scope),
                 "the candidate cleanup must belong to the scope before runtime admission");
         } finally {
             releaseAdmission.countDown();
-            submitter.join(1_000);
+            joinOrInterrupt(submitter);
         }
 
         assertFalse(submitter.isAlive());
@@ -346,20 +385,26 @@ class RuntimePluginTaskSchedulerTest {
         scope = new DisposableScope();
         scheduler = new RuntimePluginTaskScheduler("plugin.tasks", runtimeScheduler, scope, evidence);
         final AtomicReference<TaskSubmission> submitted = new AtomicReference<>();
-        final Thread submitter = new Thread(() ->
-            submitted.set(scheduler.submit(request("runtime-rejected-cleanup", token -> { }))),
-            "runtime-rejection-probe"
-        );
-        submitter.start();
+        final AtomicReference<Throwable> failure = new AtomicReference<>();
+        final Thread submitter = new Thread(() -> {
+            try {
+                submitted.set(scheduler.submit(request("runtime-rejected-cleanup", token -> { })));
+            } catch (Throwable throwable) {
+                failure.set(throwable);
+            }
+        }, "runtime-rejection-probe");
+        submitter.setDaemon(true);
         try {
+            submitter.start();
             assertTrue(admissionEntered.await(1, TimeUnit.SECONDS));
             assertEquals(2, scopedRegistrationCount(scope));
         } finally {
             releaseAdmission.countDown();
-            submitter.join(1_000);
+            joinOrInterrupt(submitter);
         }
 
         assertFalse(submitter.isAlive());
+        assertEquals(null, failure.get());
         assertFalse(submitted.get().accepted());
         assertEquals(Optional.of(TaskRejectionReason.POLICY_REJECTED),
             submitted.get().rejectionReason());
@@ -373,10 +418,100 @@ class RuntimePluginTaskSchedulerTest {
     }
 
     @Test
+    void concurrentScopeCloseDuringRuntimeRejectionDisarmsWithoutCleanupEvidence() throws Exception {
+        final CleanupEvidenceCollector evidence = new CleanupEvidenceCollector();
+        final CountDownLatch admissionEntered = new CountDownLatch(1);
+        final CountDownLatch releaseAdmission = new CountDownLatch(1);
+        final CountDownLatch ownershipCloseObserved = new CountDownLatch(1);
+        final CountDownLatch releaseScopeClose = new CountDownLatch(1);
+        runtimeScheduler = new RuntimeScheduler(
+            task -> {
+                admissionEntered.countDown();
+                await(releaseAdmission);
+                return WorkBudget.HEAVY;
+            },
+            new PluginExecutorRegistry(500L, 1, 8, ignored -> { }, Clock.systemUTC()),
+            SidecarDispatcher.noop(),
+            ignored -> { }
+        );
+        scope = new DisposableScope();
+        scheduler = new RuntimePluginTaskScheduler("plugin.tasks", runtimeScheduler, scope, evidence);
+        scope.register(() -> {
+            ownershipCloseObserved.countDown();
+            await(releaseScopeClose);
+        });
+        final AtomicBoolean actionStarted = new AtomicBoolean();
+        final AtomicReference<TaskSubmission> submitted = new AtomicReference<>();
+        final AtomicReference<Throwable> submitFailure = new AtomicReference<>();
+        final AtomicReference<Throwable> closeFailure = new AtomicReference<>();
+        final Thread submitter = new Thread(() -> {
+            try {
+                submitted.set(scheduler.submit(request(
+                    "close-during-runtime-rejection",
+                    token -> actionStarted.set(true)
+                )));
+            } catch (Throwable throwable) {
+                submitFailure.set(throwable);
+            }
+        }, "runtime-rejection-race-submitter");
+        final Thread closer = new Thread(() -> {
+            try {
+                scope.close();
+            } catch (Throwable throwable) {
+                closeFailure.set(throwable);
+            }
+        }, "runtime-rejection-race-closer");
+        submitter.setDaemon(true);
+        closer.setDaemon(true);
+
+        try {
+            submitter.start();
+            assertTrue(admissionEntered.await(1, TimeUnit.SECONDS));
+            closer.start();
+            assertTrue(ownershipCloseObserved.await(1, TimeUnit.SECONDS),
+                "the ownership close must run before runtime admission is decided");
+            releaseAdmission.countDown();
+            submitter.join(1_000);
+
+            assertFalse(submitter.isAlive());
+            assertEquals(null, submitFailure.get());
+            assertNotNull(submitted.get());
+            assertFalse(submitted.get().accepted());
+            assertEquals(Optional.of(TaskRejectionReason.PLUGIN_INACTIVE),
+                submitted.get().rejectionReason());
+            final TaskOutcome outcome = submitted.get().handle().completion()
+                .toCompletableFuture().get(1, TimeUnit.SECONDS);
+            assertEquals(TaskOutcomeStatus.REJECTED, outcome.status());
+            assertEquals(0, outcome.runCount());
+            assertTrue(outcome.lastRunOutcome().isEmpty());
+            assertFalse(actionStarted.get());
+            scheduler.awaitContinuationQuiescence(Duration.ofSeconds(1));
+            assertEquals(0, scopedRegistrationCount(scope),
+                "scope closing must have cleared every registration");
+            assertEquals(0, scheduler.activeTaskCount());
+            assertEquals(64, scheduler.availableActiveTaskPermits());
+            assertEquals(0, scheduler.pendingCompletionCount());
+            assertEquals(0, evidence.snapshot().taskHandlesCanceled(),
+                "runtime rejection must disarm a close-requested ownership without cleanup");
+            assertEquals(0, evidence.snapshot().taskCompletionsSettled());
+            assertEquals(0, evidence.snapshot().pluginContinuationsDrained());
+        } finally {
+            releaseAdmission.countDown();
+            releaseScopeClose.countDown();
+            joinOrInterrupt(submitter);
+            joinOrInterrupt(closer);
+        }
+
+        assertEquals(null, closeFailure.get());
+    }
+
+    @Test
     void concurrentScopeCloseDuringAdmissionCancelsOwnedCandidateWithoutLeaks() throws Exception {
         final CleanupEvidenceCollector evidence = new CleanupEvidenceCollector();
         final CountDownLatch admissionEntered = new CountDownLatch(1);
         final CountDownLatch releaseAdmission = new CountDownLatch(1);
+        final CountDownLatch ownershipCloseObserved = new CountDownLatch(1);
+        final CountDownLatch releaseScopeClose = new CountDownLatch(1);
         final AtomicBoolean actionStarted = new AtomicBoolean();
         runtimeScheduler = new RuntimeScheduler(
             task -> {
@@ -390,6 +525,10 @@ class RuntimePluginTaskSchedulerTest {
         );
         scope = new DisposableScope();
         scheduler = new RuntimePluginTaskScheduler("plugin.tasks", runtimeScheduler, scope, evidence);
+        scope.register(() -> {
+            ownershipCloseObserved.countDown();
+            await(releaseScopeClose);
+        });
         final AtomicReference<TaskSubmission> submitted = new AtomicReference<>();
         final AtomicReference<Throwable> submitFailure = new AtomicReference<>();
         final AtomicReference<Throwable> closeFailure = new AtomicReference<>();
@@ -410,35 +549,168 @@ class RuntimePluginTaskSchedulerTest {
                 closeFailure.set(throwable);
             }
         }, "concurrent-admission-scope-closer");
-        submitter.start();
+        submitter.setDaemon(true);
+        closer.setDaemon(true);
+
         try {
+            submitter.start();
             assertTrue(admissionEntered.await(1, TimeUnit.SECONDS));
-            assertEquals(2, scopedRegistrationCount(scope));
             closer.start();
-            waitUntil(() -> scopedRegistrationCountUnchecked(scope) == 0, 1_000);
+            assertTrue(ownershipCloseObserved.await(1, TimeUnit.SECONDS),
+                "the ownership close must return before runtime admission is released");
+            releaseAdmission.countDown();
+            joinOrInterrupt(submitter);
+
+            assertEquals(null, submitFailure.get());
+            assertNotNull(submitted.get());
+            assertTrue(submitted.get().accepted());
+            final TaskOutcome outcome = submitted.get().handle().completion()
+                .toCompletableFuture().get(1, TimeUnit.SECONDS);
+            assertEquals(TaskOutcomeStatus.CANCELED, outcome.status());
+            assertEquals(0, outcome.runCount());
+            assertTrue(outcome.lastRunOutcome().isEmpty());
+            assertFalse(actionStarted.get());
+            scheduler.awaitContinuationQuiescence(Duration.ofSeconds(1));
+            assertEquals(0, scheduler.activeTaskCount());
+            assertEquals(64, scheduler.availableActiveTaskPermits());
+            assertEquals(0, scheduler.pendingCompletionCount());
+            assertEquals(0, scopedRegistrationCount(scope));
+            assertEquals(1, evidence.snapshot().taskHandlesCanceled());
+            assertEquals(1, evidence.snapshot().taskCompletionsSettled());
+            assertEquals(0, evidence.snapshot().pluginContinuationsDrained());
         } finally {
             releaseAdmission.countDown();
-            submitter.join(1_000);
-            if (closer.getState() != Thread.State.NEW) {
-                closer.join(1_000);
-            }
+            releaseScopeClose.countDown();
+            joinOrInterrupt(submitter);
+            joinOrInterrupt(closer);
         }
 
-        assertFalse(submitter.isAlive());
-        assertFalse(closer.isAlive());
         assertEquals(null, submitFailure.get());
         assertEquals(null, closeFailure.get());
-        assertNotNull(submitted.get());
-        assertTrue(submitted.get().accepted());
-        assertEquals(TaskOutcomeStatus.CANCELED,
-            submitted.get().handle().completion().toCompletableFuture().get(1, TimeUnit.SECONDS).status());
-        scheduler.awaitContinuationQuiescence();
-        assertFalse(actionStarted.get());
-        assertEquals(0, scheduler.activeTaskCount());
-        assertEquals(64, scheduler.availableActiveTaskPermits());
-        assertEquals(0, scheduler.pendingCompletionCount());
-        assertEquals(1, evidence.snapshot().taskHandlesCanceled());
-        assertEquals(1, evidence.snapshot().taskCompletionsSettled());
+    }
+
+    @Test
+    void concurrentScopeCloseDuringFixedDelayIterationAdmissionCancelsOwnedCandidateWithoutLeaks()
+        throws Exception {
+        final CleanupEvidenceCollector evidence = new CleanupEvidenceCollector();
+        final CountDownLatch iterationAdmissionEntered = new CountDownLatch(1);
+        final CountDownLatch releaseIterationAdmission = new CountDownLatch(1);
+        final CountDownLatch ownershipCloseObserved = new CountDownLatch(1);
+        final CountDownLatch releaseScopeClose = new CountDownLatch(1);
+        final AtomicBoolean actionStarted = new AtomicBoolean();
+        runtimeScheduler = new RuntimeScheduler(
+            task -> {
+                iterationAdmissionEntered.countDown();
+                await(releaseIterationAdmission);
+                return WorkBudget.LIGHTWEIGHT;
+            },
+            new PluginExecutorRegistry(500L, 1, 8, ignored -> { }, Clock.systemUTC()),
+            SidecarDispatcher.noop(),
+            ignored -> { }
+        );
+        scope = new DisposableScope();
+        scheduler = new RuntimePluginTaskScheduler("plugin.tasks", runtimeScheduler, scope, evidence);
+        scope.register(() -> {
+            ownershipCloseObserved.countDown();
+            await(releaseScopeClose);
+        });
+        final AtomicReference<Throwable> closeFailure = new AtomicReference<>();
+        final Thread closer = new Thread(() -> {
+            try {
+                scope.close();
+            } catch (Throwable throwable) {
+                closeFailure.set(throwable);
+            }
+        }, "fixed-delay-admission-scope-closer");
+        closer.setDaemon(true);
+
+        final TaskSubmission submitted = scheduler.scheduleWithFixedDelay(new FixedDelayTaskRequest(
+            new TaskId("close-during-fixed-delay-admission"),
+            PluginTaskKind.LOW_FREQUENCY_REFRESH,
+            PluginTaskPriority.LOW,
+            Duration.ZERO,
+            Duration.ofHours(1),
+            token -> actionStarted.set(true)
+        ));
+        assertTrue(submitted.accepted());
+        try {
+            assertTrue(iterationAdmissionEntered.await(1, TimeUnit.SECONDS));
+            closer.start();
+            assertTrue(ownershipCloseObserved.await(1, TimeUnit.SECONDS),
+                "the ownership close must return before iteration admission is released");
+            releaseIterationAdmission.countDown();
+
+            final TaskOutcome outcome = submitted.handle().completion()
+                .toCompletableFuture().get(1, TimeUnit.SECONDS);
+            assertEquals(TaskOutcomeStatus.CANCELED, outcome.status());
+            assertEquals(0, outcome.runCount());
+            assertTrue(outcome.lastRunOutcome().isEmpty());
+            assertFalse(actionStarted.get());
+            scheduler.awaitContinuationQuiescence(Duration.ofSeconds(1));
+            assertEquals(0, scheduler.activeTaskCount());
+            assertEquals(64, scheduler.availableActiveTaskPermits());
+            assertEquals(0, scheduler.pendingCompletionCount());
+            assertEquals(0, scopedRegistrationCount(scope));
+            assertEquals(1, evidence.snapshot().taskHandlesCanceled());
+            assertEquals(1, evidence.snapshot().taskCompletionsSettled());
+            assertEquals(0, evidence.snapshot().pluginContinuationsDrained());
+        } finally {
+            releaseIterationAdmission.countDown();
+            releaseScopeClose.countDown();
+            joinOrInterrupt(closer);
+        }
+
+        assertEquals(null, closeFailure.get());
+    }
+
+    @Test
+    void fixedDelayTimerStartRejectionReturnsBackpressureWithoutOwnershipOrEvidence() throws Exception {
+        final CleanupEvidenceCollector evidence = new CleanupEvidenceCollector();
+        createScheduler(1, 8, evidence);
+        final int baselineScopeRegistrations = scopedRegistrationCount(scope);
+        final ArrayList<RuntimeTimerSubmission> timers = new ArrayList<>();
+        try {
+            for (int index = 0; index < 1_024; index++) {
+                final RuntimeTimerSubmission timer = runtimeScheduler.schedule(
+                    Duration.ofHours(1),
+                    () -> { }
+                );
+                assertTrue(timer.accepted(), "timer admission failed at index " + index);
+                timers.add(timer);
+            }
+            assertFalse(runtimeScheduler.schedule(Duration.ofHours(1), () -> { }).accepted());
+
+            final AtomicBoolean actionStarted = new AtomicBoolean();
+            final TaskSubmission rejected = scheduler.scheduleWithFixedDelay(new FixedDelayTaskRequest(
+                new TaskId("fixed-delay-timer-start-rejected"),
+                PluginTaskKind.LOW_FREQUENCY_REFRESH,
+                PluginTaskPriority.LOW,
+                Duration.ofHours(1),
+                Duration.ofHours(1),
+                token -> actionStarted.set(true)
+            ));
+
+            assertFalse(rejected.accepted());
+            assertEquals(Optional.of(TaskRejectionReason.BACKPRESSURE), rejected.rejectionReason());
+            assertTrue(rejected.handle() instanceof RejectedTaskHandle);
+            final TaskOutcome outcome = rejected.handle().completion()
+                .toCompletableFuture().get(1, TimeUnit.SECONDS);
+            assertEquals(TaskOutcomeStatus.REJECTED, outcome.status());
+            assertEquals(0, outcome.runCount());
+            assertTrue(outcome.lastRunOutcome().isEmpty());
+            assertFalse(actionStarted.get());
+            assertEquals(baselineScopeRegistrations, scopedRegistrationCount(scope));
+            assertEquals(0, scheduler.activeTaskCount());
+            assertEquals(64, scheduler.availableActiveTaskPermits());
+            assertEquals(0, scheduler.pendingCompletionCount());
+            assertEquals(0, evidence.snapshot().taskHandlesCanceled());
+            assertEquals(0, evidence.snapshot().taskCompletionsSettled());
+            assertEquals(0, evidence.snapshot().pluginContinuationsDrained());
+        } finally {
+            for (RuntimeTimerSubmission timer : timers) {
+                timer.handle().cancel();
+            }
+        }
     }
 
     @Test
@@ -718,9 +990,10 @@ class RuntimePluginTaskSchedulerTest {
                 closeFailure.set(failure);
             }
         }, "closed-scope-registration");
-        closer.start();
+        closer.setDaemon(true);
         final AtomicBoolean actionStarted = new AtomicBoolean();
         try {
+            closer.start();
             assertTrue(scopeCloseStarted.await(1, TimeUnit.SECONDS));
             final TaskSubmission rejected = scheduler.submit(request(
                 "closed-registration",
@@ -741,7 +1014,7 @@ class RuntimePluginTaskSchedulerTest {
             assertEquals(0, evidence.snapshot().pluginContinuationsDrained());
         } finally {
             releaseScopeClose.countDown();
-            closer.join(1_000);
+            joinOrInterrupt(closer);
         }
         assertFalse(closer.isAlive());
         assertEquals(null, closeFailure.get());
@@ -884,6 +1157,18 @@ class RuntimePluginTaskSchedulerTest {
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
         }
+    }
+
+    private static void joinOrInterrupt(final Thread thread) throws InterruptedException {
+        if (thread.getState() == Thread.State.NEW) {
+            return;
+        }
+        thread.join(1_000);
+        if (thread.isAlive()) {
+            thread.interrupt();
+            thread.join(1_000);
+        }
+        assertFalse(thread.isAlive(), () -> "thread did not terminate: " + thread.getName());
     }
 
     private static void waitUntil(final java.util.function.BooleanSupplier condition, final long timeoutMillis)
