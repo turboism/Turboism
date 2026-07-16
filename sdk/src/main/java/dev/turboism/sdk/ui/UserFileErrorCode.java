@@ -1,0 +1,15 @@
+package dev.turboism.sdk.ui;
+
+public enum UserFileErrorCode {
+    PERMISSION_DENIED,
+    INVALID_GRANT,
+    MODE_MISMATCH,
+    GRANT_EXPIRED,
+    GRANT_REVOKED,
+    FOREIGN_GRANT,
+    SIZE_LIMIT_EXCEEDED,
+    ATOMIC_REPLACE_UNAVAILABLE,
+    CANCELED,
+    RUNTIME_UNAVAILABLE,
+    IO_FAILURE
+}

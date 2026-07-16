@@ -19,6 +19,8 @@ public final class PermissionIds {
     public static final String TURBOISM_CONFIG_PLUGIN_WRITE = "turboism.config.plugin.write";
     public static final String TURBOISM_EVENT_PUBLISH = "turboism.event.publish";
     public static final String TURBOISM_EVENT_SUBSCRIBE = "turboism.event.subscribe";
+    public static final String TURBOISM_FILE_READ = "turboism.file.read";
+    public static final String TURBOISM_FILE_WRITE = "turboism.file.write";
 
     private PermissionIds() {}
 }

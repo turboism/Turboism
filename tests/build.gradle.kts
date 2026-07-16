@@ -33,6 +33,23 @@ tasks.register<Test>("previewPluginRuntimeTest") {
     testClassesDirs = sourceSets.test.get().output.classesDirs
     classpath = sourceSets.test.get().runtimeClasspath
     useJUnitPlatform()
+    maxParallelForks = 1
+    systemProperty("java.awt.headless", "true")
+    systemProperty("projectInspectorBuildDir", project(":plugins:project-inspector").buildDir.absolutePath)
+    filter {
+        includeTestsMatching("dev.turboism.tests.preview.LocalPluginRuntimeIntegrationTest")
+        isFailOnNoMatchingTests = true
+    }
+}
+
+val asyncHostReadPreviewIntegrationTest by tasks.registering(Test::class) {
+    group = "verification"
+    description = "Verifies Project Inspector production wiring and lifecycle through the local plugin runtime."
+    dependsOn(":plugins:project-inspector:jar")
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    useJUnitPlatform()
+    maxParallelForks = 1
     systemProperty("java.awt.headless", "true")
     systemProperty("projectInspectorBuildDir", project(":plugins:project-inspector").buildDir.absolutePath)
     filter {
@@ -49,6 +66,19 @@ tasks.register<Test>("pluginInspectionMutationTest") {
     useJUnitPlatform()
     filter {
         includeTestsMatching("dev.turboism.tests.distribution.PluginStrictZipMutationIntegrationTest")
+        isFailOnNoMatchingTests = true
+    }
+}
+
+tasks.register<Test>("officialPluginI18nCompletenessTest") {
+    group = "verification"
+    description = "Verifies required official-plugin catalogs against their baseline keys."
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    useJUnitPlatform()
+    systemProperty("projectRoot", rootProject.projectDir.absolutePath)
+    filter {
+        includeTestsMatching("dev.turboism.tests.i18n.OfficialPluginCatalogCompletenessTest")
         isFailOnNoMatchingTests = true
     }
 }

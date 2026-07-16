@@ -69,6 +69,8 @@ for f in features.tsv plugins.tsv mapping-inventory.tsv profile-inventory.tsv ho
 done
 
 "${SCRIPT_DIR}/test_m12_plugin_readiness_gate.sh"
+python3 "${SCRIPT_DIR}/test_legacy_framework_capability_extraction.py"
+python3 "${SCRIPT_DIR}/test_legacy_framework_capability_extraction_mutations.py"
 
 "${SCRIPT_DIR}/test_migration_docs_safety_scanner.sh"
 "${SCRIPT_DIR}/test_host_ingress_ownership_structure.sh"

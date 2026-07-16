@@ -19,6 +19,7 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SdkApiSurfaceTest {
@@ -42,6 +43,7 @@ class SdkApiSurfaceTest {
         "dev.turboism.sdk.cubism.service.read",
         "dev.turboism.sdk.cubism.transaction",
         "dev.turboism.sdk.cubism.write",
+        "dev.turboism.sdk.hostread",
         "dev.turboism.sdk.plugin",
         "dev.turboism.sdk.theme"
     );
@@ -56,7 +58,8 @@ class SdkApiSurfaceTest {
         "dev.turboism.sdk.cubism.service.read",
         "dev.turboism.sdk.cubism.transaction",
         "dev.turboism.sdk.cubism.write",
-        "dev.turboism.sdk.theme"
+        "dev.turboism.sdk.theme",
+        "dev.turboism.sdk.hostread"
     );
 
     private static final Set<String> ALLOWED_OBJECT_METHODS = Set.of("equals", "hashCode", "toString");
@@ -87,6 +90,24 @@ class SdkApiSurfaceTest {
             "SDK API surface gate must cover M12 Cubism, write, transaction, id, and theme packages");
     }
 
+    @Test
+    void genericTypeGateAllowsImplicitObjectTypeVariableBoundButRejectsExplicitObjectExposure() throws Exception {
+        Method typeVariableMethod = GenericTypeFixtures.class.getDeclaredMethod("identity", Object.class);
+        Method rawObjectMethod = GenericTypeFixtures.class.getDeclaredMethod("rawObject", Object.class);
+        Method wildcardListMethod = GenericTypeFixtures.class.getDeclaredMethod("wildcardList", List.class);
+        Method objectListMethod = GenericTypeFixtures.class.getDeclaredMethod("objectList", List.class);
+        Method boundedWildcardListMethod = GenericTypeFixtures.class.getDeclaredMethod("boundedWildcardList", List.class);
+
+        assertMethodTypesAreAllowed(GenericTypeFixtures.class, typeVariableMethod);
+        assertMethodTypesAreAllowed(GenericTypeFixtures.class, wildcardListMethod);
+        assertThrows(AssertionError.class,
+            () -> assertMethodTypesAreAllowed(GenericTypeFixtures.class, rawObjectMethod));
+        assertThrows(AssertionError.class,
+            () -> assertMethodTypesAreAllowed(GenericTypeFixtures.class, objectListMethod));
+        assertThrows(AssertionError.class,
+            () -> assertMethodTypesAreAllowed(GenericTypeFixtures.class, boundedWildcardListMethod));
+    }
+
     private static void assertMethodTypesAreAllowed(Class<?> owner, Method method) {
         assertTypeIsAllowed(owner.getName() + "." + method.getName() + " return", method.getReturnType());
         assertTypesAreAllowed(owner.getName() + "." + method.getName() + " parameters", method.getParameterTypes());
@@ -94,13 +115,17 @@ class SdkApiSurfaceTest {
             assertGenericTypeIsAllowed(owner.getName() + "." + method.getName() + " generic return", method.getGenericReturnType(), new HashSet<>());
             assertGenericTypesAreAllowed(owner.getName() + "." + method.getName() + " generic parameters", method.getGenericParameterTypes(), new HashSet<>());
             assertFalse(
-                method.getReturnType() == Object.class,
+                method.getReturnType() == Object.class && method.getGenericReturnType() == Object.class,
                 () -> owner.getName() + "." + method.getName() + " returns raw Object"
             );
-            for (Class<?> parameterType : method.getParameterTypes()) {
+            Class<?>[] parameterTypes = method.getParameterTypes();
+            Type[] genericParameterTypes = method.getGenericParameterTypes();
+            for (int index = 0; index < parameterTypes.length; index++) {
+                int parameterIndex = index;
                 assertFalse(
-                    parameterType == Object.class,
-                    () -> owner.getName() + "." + method.getName() + " accepts raw Object"
+                    parameterTypes[index] == Object.class && genericParameterTypes[index] == Object.class,
+                    () -> owner.getName() + "." + method.getName()
+                        + " accepts raw Object at parameter " + parameterIndex
                 );
             }
         }
@@ -131,10 +156,17 @@ class SdkApiSurfaceTest {
         } else if (type instanceof GenericArrayType genericArrayType) {
             assertGenericTypeIsAllowed(source, genericArrayType.getGenericComponentType(), seen);
         } else if (type instanceof TypeVariable<?> typeVariable) {
-            assertGenericTypesAreAllowed(source, typeVariable.getBounds(), seen);
+            Type[] bounds = typeVariable.getBounds();
+            if (!(bounds.length == 1 && bounds[0] == Object.class)) {
+                assertGenericTypesAreAllowed(source, bounds, seen);
+            }
         } else if (type instanceof WildcardType wildcardType) {
-            assertGenericTypesAreAllowed(source, wildcardType.getUpperBounds(), seen);
-            assertGenericTypesAreAllowed(source, wildcardType.getLowerBounds(), seen);
+            Type[] upperBounds = wildcardType.getUpperBounds();
+            Type[] lowerBounds = wildcardType.getLowerBounds();
+            if (!(lowerBounds.length == 0 && upperBounds.length == 1 && upperBounds[0] == Object.class)) {
+                assertGenericTypesAreAllowed(source, upperBounds, seen);
+                assertGenericTypesAreAllowed(source, lowerBounds, seen);
+            }
         }
     }
 
@@ -184,6 +216,28 @@ class SdkApiSurfaceTest {
             return Class.forName(className);
         } catch (ClassNotFoundException e) {
             throw new IllegalStateException(e);
+        }
+    }
+
+    private static final class GenericTypeFixtures {
+        private static <T> T identity(T value) {
+            return value;
+        }
+
+        private static Object rawObject(Object value) {
+            return value;
+        }
+
+        private static List<?> wildcardList(List<?> value) {
+            return value;
+        }
+
+        private static List<Object> objectList(List<Object> value) {
+            return value;
+        }
+
+        private static List<? extends Type> boundedWildcardList(List<? extends Type> value) {
+            return value;
         }
     }
 }

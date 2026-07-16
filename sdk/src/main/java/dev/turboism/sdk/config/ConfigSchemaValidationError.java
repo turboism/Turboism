@@ -1,0 +1,18 @@
+package dev.turboism.sdk.config;
+
+public enum ConfigSchemaValidationError {
+    INVALID_SCHEMA,
+    INVALID_CONFIG_ID,
+    INVALID_PATH,
+    INVALID_VERSION,
+    DUPLICATE_CONFIG_ID,
+    DUPLICATE_PATH,
+    INVALID_KEY,
+    DUPLICATE_KEY,
+    INVALID_CODEC,
+    INVALID_DEFAULT_VALUE,
+    INVALID_MIGRATION,
+    MIGRATION_GAP,
+    MIGRATION_BRANCH,
+    MIGRATION_CYCLE
+}
