@@ -61,6 +61,7 @@ public final class LocalPluginRuntime implements AutoCloseable {
     private final RuntimeHostAdapterAccess hostAccess;
     private final SharedAsyncHostReadLane hostReadLane;
     private final PreviewLog log;
+    private final PluginCloseHook pluginCloseHook;
     private final List<LoadedPlugin> loaded = new ArrayList<>();
     private List<LoadedPluginSummary> closedSummaries = List.of();
     private final AtomicBoolean started = new AtomicBoolean(false);
@@ -72,12 +73,23 @@ public final class LocalPluginRuntime implements AutoCloseable {
         final RuntimeHostAdapterAccess hostAccess,
         final PreviewLog log
     ) {
+        this(home, scheduler, hostAccess, log, (pluginId, phase) -> { });
+    }
+
+    LocalPluginRuntime(
+        final Path home,
+        final RuntimeScheduler scheduler,
+        final RuntimeHostAdapterAccess hostAccess,
+        final PreviewLog log,
+        final PluginCloseHook pluginCloseHook
+    ) {
         this.home = Objects.requireNonNull(home, "home").toAbsolutePath().normalize();
         this.pluginDirectory = this.home.resolve("plugins");
         this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
         this.hostAccess = Objects.requireNonNull(hostAccess, "hostAccess");
         this.hostReadLane = new SharedAsyncHostReadLane(32);
         this.log = Objects.requireNonNull(log, "log");
+        this.pluginCloseHook = Objects.requireNonNull(pluginCloseHook, "pluginCloseHook");
     }
 
     public synchronized LoadReport loadAll() {
@@ -452,19 +464,41 @@ public final class LocalPluginRuntime implements AutoCloseable {
             return;
         }
         final List<LoadedPluginSummary> summaries = new ArrayList<>();
-        for (int index = loaded.size() - 1; index >= 0; index--) {
-            summaries.add(closeLoadedPlugin(loaded.get(index)));
+        try {
+            for (int index = loaded.size() - 1; index >= 0; index--) {
+                try {
+                    summaries.add(closeLoadedPlugin(loaded.get(index)));
+                } catch (Throwable failure) {
+                    final LoadedPlugin failedPlugin = loaded.get(index);
+                    try {
+                        summaries.add(closeLoadedPluginFailure(failedPlugin));
+                    } catch (Throwable fallbackFailure) {
+                        summaries.add(closeLoadedPluginFailureWithoutRuntimeMutation(failedPlugin));
+                    }
+                    tryLogStableShutdownFailure(
+                        safePluginId(failedPlugin),
+                        "PLUGIN_CLOSE_STAGE_FAILED"
+                    );
+                }
+            }
+        } finally {
+            try {
+                hostReadLane.close();
+            } catch (Throwable failure) {
+                tryLogStableShutdownFailure("runtime", "HOST_READ_LANE_CLOSE_FAILED");
+            } finally {
+                closedSummaries = summaries.stream()
+                    .sorted(Comparator.comparing(LoadedPluginSummary::id))
+                    .toList();
+                loaded.clear();
+            }
         }
-        hostReadLane.close();
-        closedSummaries = summaries.stream()
-            .sorted(Comparator.comparing(LoadedPluginSummary::id))
-            .toList();
-        loaded.clear();
     }
 
-    private LoadedPluginSummary closeLoadedPlugin(final LoadedPlugin loadedPlugin) {
+    private LoadedPluginSummary closeLoadedPlugin(final LoadedPlugin loadedPlugin) throws Throwable {
         final PluginRuntime runtime = loadedPlugin.runtime();
         final String id = runtime.id();
+        pluginCloseHook.run(id, "close");
         final List<PluginSummaryFailure> failures = new ArrayList<>();
         String disableState = runtime.state() == PluginLifecycleState.ENABLED
             ? "NOT_STARTED"
@@ -474,7 +508,7 @@ public final class LocalPluginRuntime implements AutoCloseable {
                 loadedPlugin.plugin().disable();
                 runtime.transitionTo(PluginLifecycleState.DISABLED);
                 disableState = "SUCCEEDED";
-            } catch (Exception exception) {
+            } catch (Throwable exception) {
                 runtime.transitionTo(PluginLifecycleState.DISABLE_FAILED);
                 disableState = "FAILED";
                 failures.add(new PluginSummaryFailure(
@@ -482,7 +516,7 @@ public final class LocalPluginRuntime implements AutoCloseable {
                     "disable",
                     "Plugin disable failed safely."
                 ));
-                log.error(id, "Plugin disable failed", exception);
+                logStableShutdownFailure(id, "PLUGIN_DISABLE_FAILED");
             }
         }
 
@@ -491,7 +525,7 @@ public final class LocalPluginRuntime implements AutoCloseable {
             loadedPlugin.plugin().shutdown();
             runtime.transitionTo(PluginLifecycleState.SHUTDOWN);
             shutdownState = "SUCCEEDED";
-        } catch (Exception exception) {
+        } catch (Throwable exception) {
             runtime.transitionTo(PluginLifecycleState.SHUTDOWN_FAILED);
             shutdownState = "FAILED";
             failures.add(new PluginSummaryFailure(
@@ -499,7 +533,7 @@ public final class LocalPluginRuntime implements AutoCloseable {
                 "shutdown",
                 "Plugin shutdown failed safely."
             ));
-            log.error(id, "Plugin shutdown failed", exception);
+            logStableShutdownFailure(id, "PLUGIN_SHUTDOWN_FAILED");
         }
 
         boolean scopeClosed = false;
@@ -508,7 +542,7 @@ public final class LocalPluginRuntime implements AutoCloseable {
             loadedPlugin.scope().close();
             scopeClosed = true;
             scopeCleanupState = "SUCCEEDED";
-        } catch (Exception exception) {
+        } catch (Throwable exception) {
             runtime.transitionTo(PluginLifecycleState.SHUTDOWN_FAILED);
             scopeCleanupState = "FAILED";
             failures.add(new PluginSummaryFailure(
@@ -516,7 +550,7 @@ public final class LocalPluginRuntime implements AutoCloseable {
                 "scope-cleanup",
                 "Plugin scope cleanup failed safely."
             ));
-            log.error(id, "Plugin disposable scope cleanup failed", exception);
+            logStableShutdownFailure(id, "PLUGIN_SCOPE_CLEANUP_FAILED");
         }
 
         boolean classLoaderClosed = false;
@@ -526,7 +560,7 @@ public final class LocalPluginRuntime implements AutoCloseable {
                 loadedPlugin.classLoader().close();
                 classLoaderClosed = true;
                 classloaderCleanupState = "SUCCEEDED";
-            } catch (IOException exception) {
+            } catch (Throwable exception) {
                 runtime.transitionTo(PluginLifecycleState.SHUTDOWN_FAILED);
                 classloaderCleanupState = "FAILED";
                 failures.add(new PluginSummaryFailure(
@@ -534,20 +568,16 @@ public final class LocalPluginRuntime implements AutoCloseable {
                     "classloader-cleanup",
                     "Plugin classloader cleanup failed safely."
                 ));
-                log.error(id, "Plugin classloader close failed", exception);
+                logStableShutdownFailure(id, "PLUGIN_CLASSLOADER_CLOSE_FAILED");
             }
         } else {
-            classloaderCleanupState = "FAILED";
+            classloaderCleanupState = "NOT_STARTED";
             failures.add(new PluginSummaryFailure(
                 "PLUGIN_CLASSLOADER_RETAINED",
                 "classloader-cleanup",
                 "Plugin classloader was retained because cleanup did not quiesce."
             ));
-            log.error(
-                id,
-                "Plugin classloader retained because task/registration cleanup did not quiesce",
-                new IllegalStateException("Plugin scope cleanup is incomplete")
-            );
+            logStableShutdownFailure(id, "PLUGIN_CLASSLOADER_RETAINED");
         }
 
         final String unloadState;
@@ -566,6 +596,59 @@ public final class LocalPluginRuntime implements AutoCloseable {
             classloaderCleanupState,
             failures
         );
+    }
+
+    private LoadedPluginSummary closeLoadedPluginFailure(final LoadedPlugin loadedPlugin)
+        throws Throwable {
+        pluginCloseHook.run(safePluginId(loadedPlugin), "fallback-summary");
+        loadedPlugin.runtime().transitionTo(PluginLifecycleState.SHUTDOWN_FAILED);
+        return closeLoadedPluginFailureWithoutRuntimeMutation(loadedPlugin);
+    }
+
+    private LoadedPluginSummary closeLoadedPluginFailureWithoutRuntimeMutation(
+        final LoadedPlugin loadedPlugin
+    ) {
+        return loadedPlugin.summary(
+            "NOT_STARTED",
+            "NOT_STARTED",
+            "NOT_STARTED",
+            "NOT_STARTED",
+            "NOT_STARTED",
+            List.of(new PluginSummaryFailure(
+                "PLUGIN_CLOSE_STAGE_FAILED",
+                "close",
+                "Plugin close stage failed safely."
+            ))
+        );
+    }
+
+    private void logStableShutdownFailure(final String component, final String code) {
+        log.error(
+            component,
+            "Runtime shutdown stage failed safely: " + code,
+            new IllegalStateException(code)
+        );
+    }
+
+    private void tryLogStableShutdownFailure(final String component, final String code) {
+        try {
+            pluginCloseHook.run(component, "fallback-log");
+            logStableShutdownFailure(component, code);
+        } catch (Throwable ignored) {
+        }
+    }
+
+    private static String safePluginId(final LoadedPlugin loadedPlugin) {
+        try {
+            return loadedPlugin.runtime().id();
+        } catch (Throwable ignored) {
+            return "plugin";
+        }
+    }
+
+    @FunctionalInterface
+    interface PluginCloseHook {
+        void run(String pluginId, String phase) throws Throwable;
     }
 
     private record Candidate(Path jar, PluginDescriptor descriptor) {
