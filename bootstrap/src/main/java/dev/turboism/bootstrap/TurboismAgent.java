@@ -147,7 +147,13 @@ public final class TurboismAgent {
         if (runtime == null) {
             return false;
         }
-        runtime.close();
+        try {
+            runtime.close();
+        } catch (Throwable failure) {
+            System.err.println(
+                "Turboism shutdown hook failed safely: RUNTIME_CLOSE_FAILED"
+            );
+        }
         return true;
     }
 }
