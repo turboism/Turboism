@@ -1,16 +1,21 @@
 package dev.turboism.tests.sdk;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
+import javax.tools.ToolProvider;
 import java.io.IOException;
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
 import java.lang.reflect.GenericArrayType;
+import java.lang.reflect.Member;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.lang.reflect.TypeVariable;
 import java.lang.reflect.WildcardType;
+import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashSet;
@@ -24,70 +29,58 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SdkApiSurfaceTest {
 
-    private static final List<String> SCANNED_PACKAGES = List.of(
-        "dev.turboism.sdk.action",
-        "dev.turboism.sdk.event",
-        "dev.turboism.sdk.menu",
-        "dev.turboism.sdk.ui",
-        "dev.turboism.sdk.ui.context",
-        "dev.turboism.sdk.ui.toolbar",
-        "dev.turboism.sdk.config",
-        "dev.turboism.sdk.cubism",
-        "dev.turboism.sdk.cubism.event",
-        "dev.turboism.sdk.cubism.boundingbox",
-        "dev.turboism.sdk.cubism.deformer",
-        "dev.turboism.sdk.cubism.id",
-        "dev.turboism.sdk.cubism.mesh",
-        "dev.turboism.sdk.cubism.psd",
-        "dev.turboism.sdk.cubism.service.query",
-        "dev.turboism.sdk.cubism.service.read",
-        "dev.turboism.sdk.cubism.transaction",
-        "dev.turboism.sdk.cubism.write",
-        "dev.turboism.sdk.hostread",
-        "dev.turboism.sdk.plugin",
-        "dev.turboism.sdk.theme"
-    );
-    private static final List<String> REQUIRED_M12_PACKAGES = List.of(
-        "dev.turboism.sdk.cubism",
-        "dev.turboism.sdk.cubism.event",
-        "dev.turboism.sdk.cubism.boundingbox",
-        "dev.turboism.sdk.cubism.deformer",
-        "dev.turboism.sdk.cubism.id",
-        "dev.turboism.sdk.cubism.mesh",
-        "dev.turboism.sdk.cubism.psd",
-        "dev.turboism.sdk.cubism.service.read",
-        "dev.turboism.sdk.cubism.transaction",
-        "dev.turboism.sdk.cubism.write",
-        "dev.turboism.sdk.theme",
-        "dev.turboism.sdk.hostread"
-    );
+    @TempDir
+    Path temporary;
 
     private static final Set<String> ALLOWED_OBJECT_METHODS = Set.of("equals", "hashCode", "toString");
 
     @Test
     void publicSdkApiSurfaceDoesNotExposeHostUiReflectionOrRawObjectEscapeHatches() throws Exception {
-        // Given
-        List<Class<?>> classes = publicSdkClasses();
-
-        // When / Then
-        for (Class<?> type : classes) {
-            for (Constructor<?> constructor : type.getConstructors()) {
-                assertTypesAreAllowed(type.getName() + constructor, constructor.getParameterTypes());
-                assertGenericTypesAreAllowed(type.getName() + constructor, constructor.getGenericParameterTypes(), new HashSet<>());
-            }
-            for (Method method : type.getMethods()) {
-                if (method.getDeclaringClass() == Object.class || method.isBridge() || method.isSynthetic()) {
-                    continue;
-                }
-                assertMethodTypesAreAllowed(type, method);
-            }
+        for (Class<?> type : publicSdkClasses()) {
+            assertPublicApiTypesAreAllowed(type);
         }
     }
 
     @Test
-    void publicSdkApiSurfaceGateCoversM12Packages() {
-        assertTrue(SCANNED_PACKAGES.containsAll(REQUIRED_M12_PACKAGES),
-            "SDK API surface gate must cover M12 Cubism, write, transaction, id, and theme packages");
+    void compiledGateAutomaticallyDiscoversFutureSdkPackagesAndRejectsForbiddenTypes()
+        throws Exception {
+        Path source = temporary.resolve("src/dev/turboism/sdk/future/ForbiddenApi.java");
+        Path classes = temporary.resolve("classes");
+        Files.createDirectories(source.getParent());
+        Files.createDirectories(classes);
+        Files.writeString(source, """
+            package dev.turboism.sdk.future;
+            public interface ForbiddenApi {
+                java.awt.Color leakedColor();
+            }
+            """);
+        int result = ToolProvider.getSystemJavaCompiler().run(
+            null,
+            null,
+            null,
+            "-d",
+            classes.toString(),
+            source.toString()
+        );
+        assertTrue(result == 0, "compiled SDK fixture must compile");
+
+        try (URLClassLoader fixtureLoader = new URLClassLoader(
+            new java.net.URL[] {classes.toUri().toURL()},
+            getClass().getClassLoader()
+        )) {
+            List<Class<?>> discovered = publicSdkClasses(classes, fixtureLoader);
+
+            assertTrue(
+                discovered.stream().anyMatch(type -> type.getName().equals(
+                    "dev.turboism.sdk.future.ForbiddenApi"
+                )),
+                "compiled gate must automatically discover every dev.turboism.sdk package"
+            );
+            assertThrows(
+                AssertionError.class,
+                () -> discovered.forEach(SdkApiSurfaceTest::assertPublicApiTypesAreAllowed)
+            );
+        }
     }
 
     @Test
@@ -108,25 +101,122 @@ class SdkApiSurfaceTest {
             () -> assertMethodTypesAreAllowed(GenericTypeFixtures.class, boundedWildcardListMethod));
     }
 
+    @Test
+    void objectMethodGateAllowsOnlyStandardObjectOverrideSignatures() throws Exception {
+        Method equalsMethod = ObjectMethodFixtures.class.getDeclaredMethod("equals", Object.class);
+        Method hashCodeMethod = ObjectMethodFixtures.class.getDeclaredMethod("hashCode");
+        Method toStringMethod = ObjectMethodFixtures.class.getDeclaredMethod("toString");
+        Method overloadedEquals = ObjectMethodFixtures.class.getDeclaredMethod("equals", Object.class, Object.class);
+        Method overloadedHashCode = ObjectMethodFixtures.class.getDeclaredMethod("hashCode", Object.class);
+        Method overloadedToString = ObjectMethodFixtures.class.getDeclaredMethod("toString", Object.class);
+
+        assertMethodTypesAreAllowed(ObjectMethodFixtures.class, equalsMethod);
+        assertMethodTypesAreAllowed(ObjectMethodFixtures.class, hashCodeMethod);
+        assertMethodTypesAreAllowed(ObjectMethodFixtures.class, toStringMethod);
+        assertThrows(AssertionError.class,
+            () -> assertMethodTypesAreAllowed(ObjectMethodFixtures.class, overloadedEquals));
+        assertThrows(AssertionError.class,
+            () -> assertMethodTypesAreAllowed(ObjectMethodFixtures.class, overloadedHashCode));
+        assertThrows(AssertionError.class,
+            () -> assertMethodTypesAreAllowed(ObjectMethodFixtures.class, overloadedToString));
+    }
+
+    private static void assertPublicApiTypesAreAllowed(Class<?> type) {
+        String owner = type.getName();
+        Type genericSuperclass = type.getGenericSuperclass();
+        if (genericSuperclass != Object.class) {
+            assertGenericTypeIsAllowed(owner + " generic superclass", genericSuperclass, new HashSet<>());
+        }
+        assertGenericTypesAreAllowed(owner + " generic interfaces", type.getGenericInterfaces(), new HashSet<>());
+        assertTypeVariablesAreAllowed(owner + " type parameters", type.getTypeParameters());
+
+        for (Constructor<?> constructor : type.getDeclaredConstructors()) {
+            if (isApiMember(constructor) && !constructor.isSynthetic()) {
+                assertExecutableTypesAreAllowed(owner + constructor, constructor.getParameterTypes(),
+                    constructor.getGenericParameterTypes(), constructor.getGenericExceptionTypes(),
+                    constructor.getTypeParameters());
+            }
+        }
+        for (Method method : type.getDeclaredMethods()) {
+            if (isApiMember(method) && !method.isBridge() && !method.isSynthetic()) {
+                assertMethodTypesAreAllowed(type, method);
+            }
+        }
+        for (Field field : type.getDeclaredFields()) {
+            if (isApiMember(field) && !field.isSynthetic()) {
+                assertTypeIsAllowed(owner + "." + field.getName(), field.getType());
+                assertGenericTypeIsAllowed(owner + "." + field.getName() + " generic type",
+                    field.getGenericType(), new HashSet<>());
+            }
+        }
+    }
+
+    private static boolean isApiMember(Member member) {
+        return Modifier.isPublic(member.getModifiers()) || Modifier.isProtected(member.getModifiers());
+    }
+
     private static void assertMethodTypesAreAllowed(Class<?> owner, Method method) {
-        assertTypeIsAllowed(owner.getName() + "." + method.getName() + " return", method.getReturnType());
-        assertTypesAreAllowed(owner.getName() + "." + method.getName() + " parameters", method.getParameterTypes());
-        if (!ALLOWED_OBJECT_METHODS.contains(method.getName())) {
-            assertGenericTypeIsAllowed(owner.getName() + "." + method.getName() + " generic return", method.getGenericReturnType(), new HashSet<>());
-            assertGenericTypesAreAllowed(owner.getName() + "." + method.getName() + " generic parameters", method.getGenericParameterTypes(), new HashSet<>());
+        String source = owner.getName() + "." + method.getName();
+        boolean allowedObjectMethod = isAllowedObjectMethod(method);
+        assertTypeIsAllowed(source + " return", method.getReturnType());
+        if (allowedObjectMethod) {
+            assertTypesAreAllowed(source + " parameters", method.getParameterTypes());
+            assertGenericTypesAreAllowed(source + " throws", method.getGenericExceptionTypes(), new HashSet<>());
+            assertTypeVariablesAreAllowed(source + " type parameters", method.getTypeParameters());
+        } else {
+            assertExecutableTypesAreAllowed(source, method.getParameterTypes(), method.getGenericParameterTypes(),
+                method.getGenericExceptionTypes(), method.getTypeParameters());
+        }
+        assertGenericTypeIsAllowed(source + " generic return", method.getGenericReturnType(), new HashSet<>());
+        if (!allowedObjectMethod) {
             assertFalse(
                 method.getReturnType() == Object.class && method.getGenericReturnType() == Object.class,
-                () -> owner.getName() + "." + method.getName() + " returns raw Object"
+                () -> source + " returns raw Object"
             );
-            Class<?>[] parameterTypes = method.getParameterTypes();
-            Type[] genericParameterTypes = method.getGenericParameterTypes();
-            for (int index = 0; index < parameterTypes.length; index++) {
-                int parameterIndex = index;
-                assertFalse(
-                    parameterTypes[index] == Object.class && genericParameterTypes[index] == Object.class,
-                    () -> owner.getName() + "." + method.getName()
-                        + " accepts raw Object at parameter " + parameterIndex
-                );
+        }
+    }
+
+    private static boolean isAllowedObjectMethod(Method method) {
+        if (!ALLOWED_OBJECT_METHODS.contains(method.getName()) || Modifier.isStatic(method.getModifiers())
+            || method.getTypeParameters().length != 0) {
+            return false;
+        }
+        return switch (method.getName()) {
+            case "equals" -> method.getReturnType() == boolean.class
+                && method.getParameterCount() == 1
+                && method.getParameterTypes()[0] == Object.class
+                && method.getGenericParameterTypes()[0] == Object.class;
+            case "hashCode" -> method.getReturnType() == int.class && method.getParameterCount() == 0;
+            case "toString" -> method.getReturnType() == String.class && method.getParameterCount() == 0;
+            default -> false;
+        };
+    }
+
+    private static void assertExecutableTypesAreAllowed(
+        String source,
+        Class<?>[] parameterTypes,
+        Type[] genericParameterTypes,
+        Type[] genericExceptionTypes,
+        TypeVariable<?>[] typeParameters
+    ) {
+        assertTypesAreAllowed(source + " parameters", parameterTypes);
+        assertGenericTypesAreAllowed(source + " generic parameters", genericParameterTypes, new HashSet<>());
+        assertGenericTypesAreAllowed(source + " throws", genericExceptionTypes, new HashSet<>());
+        assertTypeVariablesAreAllowed(source + " type parameters", typeParameters);
+        for (int index = 0; index < parameterTypes.length; index++) {
+            int parameterIndex = index;
+            assertFalse(
+                parameterTypes[index] == Object.class && genericParameterTypes[index] == Object.class,
+                () -> source + " accepts raw Object at parameter " + parameterIndex
+            );
+        }
+    }
+
+    private static void assertTypeVariablesAreAllowed(String source, TypeVariable<?>[] typeVariables) {
+        for (TypeVariable<?> typeVariable : typeVariables) {
+            Type[] bounds = typeVariable.getBounds();
+            if (!(bounds.length == 1 && bounds[0] == Object.class)) {
+                assertGenericTypesAreAllowed(source, bounds, new HashSet<>());
             }
         }
     }
@@ -144,7 +234,7 @@ class SdkApiSurfaceTest {
     }
 
     private static void assertGenericTypeIsAllowed(String source, Type type, Set<Type> seen) {
-        if (!seen.add(type)) {
+        if (type == null || !seen.add(type)) {
             return;
         }
         if (type instanceof Class<?> rawClass) {
@@ -188,32 +278,41 @@ class SdkApiSurfaceTest {
     }
 
     private static List<Class<?>> publicSdkClasses() throws IOException, ClassNotFoundException {
-        Path classesRoot = Path.of(System.getProperty("sdkBuildDir")).resolve("classes/java/main");
+        return publicSdkClasses(
+            Path.of(System.getProperty("sdkBuildDir")).resolve("classes/java/main"),
+            SdkApiSurfaceTest.class.getClassLoader()
+        );
+    }
+
+    private static List<Class<?>> publicSdkClasses(Path classesRoot, ClassLoader classLoader)
+        throws IOException, ClassNotFoundException {
         try (Stream<Path> stream = Files.walk(classesRoot)) {
             return stream
                 .filter(path -> path.toString().endsWith(".class"))
                 .map(path -> className(classesRoot, path))
-                .filter(SdkApiSurfaceTest::isScannedPackageClass)
-                .<Class<?>>map(SdkApiSurfaceTest::loadClass)
-                .filter(type -> Modifier.isPublic(type.getModifiers()))
+                .filter(SdkApiSurfaceTest::isSdkClass)
+                .<Class<?>>map(className -> loadClass(className, classLoader))
+                .filter(type -> !type.isSynthetic())
+                .filter(type -> Modifier.isPublic(type.getModifiers()) || Modifier.isProtected(type.getModifiers()))
                 .toList();
         }
     }
 
     private static String className(Path classesRoot, Path classFile) {
         String relative = classesRoot.relativize(classFile).toString();
-        return relative.substring(0, relative.length() - ".class".length()).replace('/', '.');
+        return relative.substring(0, relative.length() - ".class".length())
+            .replace(classFile.getFileSystem().getSeparator(), ".");
     }
 
-    private static boolean isScannedPackageClass(String className) {
-        return SCANNED_PACKAGES.stream().anyMatch(packageName ->
-            className.startsWith(packageName + ".") && !className.substring(packageName.length() + 1).contains(".")
-        );
+    private static boolean isSdkClass(String className) {
+        return className.startsWith("dev.turboism.sdk.")
+            && !className.endsWith("package-info")
+            && !className.equals("module-info");
     }
 
-    private static Class<?> loadClass(String className) {
+    private static Class<?> loadClass(String className, ClassLoader classLoader) {
         try {
-            return Class.forName(className);
+            return Class.forName(className, false, classLoader);
         } catch (ClassNotFoundException e) {
             throw new IllegalStateException(e);
         }
@@ -238,6 +337,35 @@ class SdkApiSurfaceTest {
 
         private static List<? extends Type> boundedWildcardList(List<? extends Type> value) {
             return value;
+        }
+    }
+
+    private static final class ObjectMethodFixtures {
+        @Override
+        public boolean equals(Object other) {
+            return this == other;
+        }
+
+        @Override
+        public int hashCode() {
+            return 0;
+        }
+
+        @Override
+        public String toString() {
+            return "fixture";
+        }
+
+        private boolean equals(Object first, Object second) {
+            return first == second;
+        }
+
+        private int hashCode(Object value) {
+            return value.hashCode();
+        }
+
+        private String toString(Object value) {
+            return String.valueOf(value);
         }
     }
 }
