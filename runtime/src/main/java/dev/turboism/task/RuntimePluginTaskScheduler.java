@@ -210,9 +210,32 @@ public final class RuntimePluginTaskScheduler implements PluginTaskScheduler, Au
     }
 
     private void registerAccepted(final AbstractRuntimeTaskHandle handle) {
+        final ScopedTaskCleanup scopedCleanup = new ScopedTaskCleanup(handle);
         if (!active) {
-            handle.cancel();
+            scopedCleanup.close();
             throw new IllegalStateException("Plugin task scheduler is already inactive.");
+        }
+        try {
+            disposableScope.register(scopedCleanup);
+        } catch (RuntimeException exception) {
+            scopedCleanup.close();
+            throw exception;
+        }
+    }
+
+    private final class ScopedTaskCleanup implements AutoCloseable {
+        private final AbstractRuntimeTaskHandle handle;
+
+        private ScopedTaskCleanup(final AbstractRuntimeTaskHandle handle) {
+            this.handle = Objects.requireNonNull(handle, "handle");
+        }
+
+        @Override
+        public void close() {
+            completionDispatcher.beginCleanup();
+            if (handle.cancel()) {
+                cleanupEvidence.taskHandleCanceled();
+            }
         }
     }
 
