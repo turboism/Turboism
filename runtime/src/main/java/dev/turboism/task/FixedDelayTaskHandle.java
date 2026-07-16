@@ -19,6 +19,7 @@ import dev.turboism.sdk.task.TaskRunOutcomeStatus;
 
 import java.time.Duration;
 import java.util.Optional;
+import java.util.function.Consumer;
 
 final class FixedDelayTaskHandle extends AbstractRuntimeTaskHandle {
 
@@ -26,6 +27,7 @@ final class FixedDelayTaskHandle extends AbstractRuntimeTaskHandle {
     private final RuntimeScheduler runtimeScheduler;
     private final PluginTask runtimeTask;
     private final Duration delay;
+    private final Consumer<Runnable> initialTimerGate;
     private PluginTaskAction action;
     private RuntimeTimerHandle timerHandle;
     private RuntimeCancellationToken runningToken;
@@ -39,6 +41,7 @@ final class FixedDelayTaskHandle extends AbstractRuntimeTaskHandle {
         final RuntimeScheduler runtimeScheduler,
         final PluginTask runtimeTask,
         final Duration delay,
+        final Consumer<Runnable> initialTimerGate,
         final PluginTaskAction action,
         final Runnable terminalCleanup,
         final java.util.function.Consumer<Runnable> settlementDispatcher,
@@ -48,6 +51,7 @@ final class FixedDelayTaskHandle extends AbstractRuntimeTaskHandle {
         this.runtimeScheduler = java.util.Objects.requireNonNull(runtimeScheduler, "runtimeScheduler");
         this.runtimeTask = java.util.Objects.requireNonNull(runtimeTask, "runtimeTask");
         this.delay = java.util.Objects.requireNonNull(delay, "delay");
+        this.initialTimerGate = java.util.Objects.requireNonNull(initialTimerGate, "initialTimerGate");
         this.action = java.util.Objects.requireNonNull(action, "action");
     }
 
@@ -101,7 +105,7 @@ final class FixedDelayTaskHandle extends AbstractRuntimeTaskHandle {
         }
         final RuntimeTimerSubmission submission = runtimeScheduler.schedule(
             requestedDelay,
-            this::submitIteration
+            () -> initialTimerGate.accept(this::submitIteration)
         );
         if (!submission.accepted()) {
             failWithoutRun("RUNTIME_UNAVAILABLE", "Runtime timer is unavailable.");
