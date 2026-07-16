@@ -22,6 +22,8 @@ public final class PreviewReportWriter {
 
     private final Path stateDirectory;
     private final Consumer<Diagnostic> diagnosticSink;
+    private final PreviewReportSanitizer sanitizer = new PreviewReportSanitizer();
+    private final PreviewReportTruncator truncator = new PreviewReportTruncator();
 
     public PreviewReportWriter(
         final Path stateDirectory,
@@ -54,13 +56,9 @@ public final class PreviewReportWriter {
         Objects.requireNonNull(document, "document");
         Path temporary = null;
         try {
-            final byte[] bytes = PreviewReportDocuments.JSON.writeValueAsBytes(document);
-            if (bytes.length > PreviewReportValidator.MAX_REPORT_BYTES) {
-                throw new PreviewReportValidationException(
-                    "REPORT_SIZE",
-                    "Preview report output exceeds the runtime bound."
-                );
-            }
+            final ObjectNode sanitized = document.deepCopy();
+            sanitizer.sanitize(sanitized);
+            final byte[] bytes = truncator.truncate(sanitized);
             final PreviewReportValidator.ValidatedReport validated =
                 PreviewReportValidator.validate(bytes);
             if (validated.reportType() != expectedType) {
