@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import dev.turboism.adapter.host.HostSession;
 import dev.turboism.core.lifecycle.PluginLifecycleState;
 import dev.turboism.i18n.RuntimePluginLocalization;
+import dev.turboism.cleanup.CleanupEvidenceCollector;
 import dev.turboism.preview.LocalPluginRuntime;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -54,7 +55,8 @@ class PreviewReportSnapshotFactoryTest {
                 "NOT_STARTED",
                 "NOT_STARTED",
                 "NOT_STARTED",
-                List.of()
+                List.of(),
+                CleanupEvidenceCollector.Snapshot.empty()
             );
 
         final Map<PreviewReportType, com.fasterxml.jackson.databind.node.ObjectNode> reports =

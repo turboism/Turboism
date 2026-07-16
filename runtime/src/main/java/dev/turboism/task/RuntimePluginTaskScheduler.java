@@ -5,6 +5,7 @@ import dev.turboism.core.runtime.CallbackSubmission;
 import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.RuntimeSchedulerLease;
+import dev.turboism.cleanup.CleanupEvidenceCollector;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.task.FixedDelayTaskRequest;
 import dev.turboism.sdk.task.PluginTaskRequest;
@@ -36,6 +37,7 @@ public final class RuntimePluginTaskScheduler implements PluginTaskScheduler, Au
     private final RuntimeSchedulerLease schedulerLease;
     private final Map<TaskId, AbstractRuntimeTaskHandle> activeTasks = new ConcurrentHashMap<>();
     private final Semaphore activeTaskPermits = new Semaphore(ACTIVE_TASK_LIMIT);
+    private final CleanupEvidenceCollector cleanupEvidence;
     private boolean active = true;
 
     public RuntimePluginTaskScheduler(
@@ -43,13 +45,24 @@ public final class RuntimePluginTaskScheduler implements PluginTaskScheduler, Au
         final RuntimeScheduler runtimeScheduler,
         final DisposableScope disposableScope
     ) {
+        this(pluginId, runtimeScheduler, disposableScope, new CleanupEvidenceCollector());
+    }
+
+    public RuntimePluginTaskScheduler(
+        final String pluginId,
+        final RuntimeScheduler runtimeScheduler,
+        final DisposableScope disposableScope,
+        final CleanupEvidenceCollector cleanupEvidence
+    ) {
         this.pluginId = requireText(pluginId, "pluginId");
         this.runtimeScheduler = Objects.requireNonNull(runtimeScheduler, "runtimeScheduler");
         this.disposableScope = Objects.requireNonNull(disposableScope, "disposableScope");
+        this.cleanupEvidence = Objects.requireNonNull(cleanupEvidence, "cleanupEvidence");
         this.schedulerLease = this.runtimeScheduler.acquirePluginTaskSchedulerLease();
         this.completionDispatcher = new RuntimeTaskCompletionDispatcher(
             this.pluginId,
-            this.runtimeScheduler
+            this.runtimeScheduler,
+            this.cleanupEvidence
         );
         try {
             disposableScope.register(this);
@@ -78,7 +91,8 @@ public final class RuntimePluginTaskScheduler implements PluginTaskScheduler, Au
                 request.id(),
                 request.action(),
                 admission::release,
-                completionDispatcher::dispatch
+                completionDispatcher::dispatchTaskHandleSettlement,
+                completionDispatcher::dispatchPluginContinuation
             );
             admission.bind(handle);
             if (activeTasks.putIfAbsent(request.id(), handle) != null) {
@@ -131,7 +145,8 @@ public final class RuntimePluginTaskScheduler implements PluginTaskScheduler, Au
                 request.delay(),
                 request.action(),
                 admission::release,
-                completionDispatcher::dispatch
+                completionDispatcher::dispatchTaskHandleSettlement,
+                completionDispatcher::dispatchPluginContinuation
             );
             admission.bind(handle);
             if (activeTasks.putIfAbsent(request.id(), handle) != null) {
@@ -158,13 +173,20 @@ public final class RuntimePluginTaskScheduler implements PluginTaskScheduler, Au
                 toCancel = new ArrayList<>();
             }
         }
-        toCancel.forEach(AbstractRuntimeTaskHandle::cancel);
+        completionDispatcher.beginCleanup();
+        toCancel.forEach(handle -> {
+            if (handle.cancel()) {
+                cleanupEvidence.taskHandleCanceled();
+            }
+        });
         completionDispatcher.closeAndAwaitQuiescence();
         schedulerLease.close();
     }
 
     public void dispatchContinuation(final Runnable continuation) {
-        completionDispatcher.dispatch(Objects.requireNonNull(continuation, "continuation"));
+        completionDispatcher.dispatchPluginContinuation(
+            Objects.requireNonNull(continuation, "continuation")
+        );
     }
 
     public void awaitContinuationQuiescence() {
@@ -188,12 +210,9 @@ public final class RuntimePluginTaskScheduler implements PluginTaskScheduler, Au
     }
 
     private void registerAccepted(final AbstractRuntimeTaskHandle handle) {
-        try {
-            disposableScope.register(handle);
-        } catch (IllegalStateException exception) {
-            active = false;
+        if (!active) {
             handle.cancel();
-            throw exception;
+            throw new IllegalStateException("Plugin task scheduler is already inactive.");
         }
     }
 
@@ -244,7 +263,11 @@ public final class RuntimePluginTaskScheduler implements PluginTaskScheduler, Au
     ) {
         return new TaskSubmission(
             TaskSubmissionStatus.REJECTED,
-            new RejectedTaskHandle(id, reason, completionDispatcher::dispatch),
+            new RejectedTaskHandle(
+                id,
+                reason,
+                completionDispatcher::dispatchPluginContinuation
+            ),
             Optional.of(reason)
         );
     }

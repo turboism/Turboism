@@ -2,6 +2,7 @@ package dev.turboism.preview;
 
 import dev.turboism.adapter.cubism.service.read.M12ReadSnapshotSource;
 import dev.turboism.adapter.host.RuntimeHostAdapterAccess;
+import dev.turboism.cleanup.CleanupEvidenceCollector;
 import dev.turboism.core.dependency.DependencyResolver;
 import dev.turboism.core.descriptor.DescriptorParseException;
 import dev.turboism.core.descriptor.PluginDescriptorParser;
@@ -309,10 +310,12 @@ public final class LocalPluginRuntime implements AutoCloseable {
                     diagnostic.code() + ": " + diagnostic.message()
                 )
             );
+            final CleanupEvidenceCollector cleanupEvidence = new CleanupEvidenceCollector();
             final RuntimePluginTaskScheduler taskScheduler = new RuntimePluginTaskScheduler(
                 descriptor.id(),
                 scheduler,
-                scope
+                scope,
+                cleanupEvidence
             );
             final Set<String> permissionIds = descriptor.permissions().stream()
                 .map(permission -> permission.id())
@@ -326,7 +329,8 @@ public final class LocalPluginRuntime implements AutoCloseable {
                 ),
                 permissionIds,
                 taskScheduler,
-                scope
+                scope,
+                cleanupEvidence
             );
             final RuntimeTypedPluginConfigRegistry typedConfig =
                 new RuntimeTypedPluginConfigRegistry(
@@ -335,7 +339,8 @@ public final class LocalPluginRuntime implements AutoCloseable {
                     pluginPaths.dataDir().resolve("typed-config"),
                     permissionIds,
                     taskScheduler,
-                    scope
+                    scope,
+                    cleanupEvidence
                 );
             final RuntimeUserFileAccessService userFiles =
                 new RuntimeUserFileAccessService(
@@ -343,7 +348,8 @@ public final class LocalPluginRuntime implements AutoCloseable {
                     permissionIds,
                     UserFileGrantSource.unavailable(),
                     taskScheduler,
-                    scope
+                    scope,
+                    cleanupEvidence
                 );
             final RuntimeAsyncHostReadService hostReads = new RuntimeAsyncHostReadService(
                 descriptor.id(),
@@ -386,7 +392,8 @@ public final class LocalPluginRuntime implements AutoCloseable {
                 plugin,
                 scope,
                 classLoader,
-                localization
+                localization,
+                cleanupEvidence
             );
             loaded.add(loadedPlugin);
             log.info(descriptor.id(), "Loaded plugin " + descriptor.name() + " " + descriptor.version());
@@ -660,7 +667,8 @@ public final class LocalPluginRuntime implements AutoCloseable {
         TurboismPlugin plugin,
         DisposableScope scope,
         URLClassLoader classLoader,
-        RuntimePluginLocalization localization
+        RuntimePluginLocalization localization,
+        CleanupEvidenceCollector cleanupEvidence
     ) {
         LoadedPluginSummary summary() {
             final String disable = runtime.state() == PluginLifecycleState.ENABLED
@@ -700,7 +708,8 @@ public final class LocalPluginRuntime implements AutoCloseable {
                 unloadState,
                 scopeCleanupState,
                 classloaderCleanupState,
-                failures
+                failures,
+                cleanupEvidence.snapshot()
             );
         }
     }
@@ -726,12 +735,14 @@ public final class LocalPluginRuntime implements AutoCloseable {
         String unloadState,
         String scopeCleanupState,
         String classloaderCleanupState,
-        List<PluginSummaryFailure> failures
+        List<PluginSummaryFailure> failures,
+        CleanupEvidenceCollector.Snapshot cleanupEvidence
     ) {
         public LoadedPluginSummary {
             capabilities = List.copyOf(capabilities);
             permissionIds = List.copyOf(permissionIds);
             failures = List.copyOf(failures);
+            cleanupEvidence = Objects.requireNonNull(cleanupEvidence, "cleanupEvidence");
         }
     }
 
