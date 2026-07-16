@@ -31,13 +31,14 @@ class M12CapabilityCatalogSanityTest {
         "diagnostics", "legacyRows", "status"
     );
     private static final Set<String> ALLOWED_CAPABILITY_CATEGORIES = Set.of(
-        "read", "write", "ui", "event", "hook-ingress", "diagnostic", "sidecar"
+        "read", "write", "ui", "event", "hook-ingress", "diagnostic", "sidecar", "foundation"
     );
     private static final Set<String> ALLOWED_CAPABILITY_STATUSES = Set.of(
         "planned", "draft", "fake-verified", "adapter-ready", "production-ready", "deferred"
     );
     private static final Set<String> ALLOWED_THREADING_BUDGETS = Set.of(
-        "editor-critical-enqueue-only", "ui-short", "plugin-bounded", "sidecar-required"
+        "editor-critical-enqueue-only", "ui-short", "plugin-bounded", "sidecar-required",
+        "io-bounded", "host-read-bounded", "host-command-bounded"
     );
     private static final Set<String> KNOWN_PERMISSION_IDS = Set.of(
         "turboism.ui.menu", "turboism.ui.menu.contribute", "turboism.ui.toolbar",
