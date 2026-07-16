@@ -1,10 +1,5 @@
 package dev.turboism.plugin.projectinspector;
 
-import dev.turboism.sdk.hostread.AsyncHostReadIntent;
-import dev.turboism.sdk.hostread.AsyncHostReadRequest;
-import dev.turboism.sdk.hostread.AsyncHostReadSubmission;
-import dev.turboism.sdk.hostread.AsyncHostReadSubmissionStatus;
-import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.plugin.PluginContext;
 import org.junit.jupiter.api.Test;
 
@@ -22,35 +17,29 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ProjectInspectorConsumerContractTest {
 
     @Test
-    void consumesLocalizationAndClosedAsyncProjectWorkspaceRead() throws Exception {
+    void productionConsumerRemainsLockedToPredecessorServices() throws Exception {
         final String source = Files.readString(Path.of(
             "src/main/java/dev/turboism/plugin/projectinspector/ProjectInspectorPlugin.java"
         ));
 
-        assertTrue(source.contains("context.localization()"));
-        assertTrue(source.contains("context.hostReads()"));
-        assertTrue(source.contains("AsyncHostReadIntent.PROJECT_WORKSPACE_SNAPSHOT"));
-        assertTrue(source.contains("Duration.ofSeconds(2)"));
-        assertFalse(source.contains("context.cubismRead()"));
-        assertFalse(source.contains("ExecutorService"));
-        assertFalse(source.contains("Executors."));
-        assertFalse(source.contains("new Thread("));
-        assertFalse(source.contains("ThreadFactory"));
+        assertFalse(source.contains("context.localization()"));
+        assertFalse(source.contains("context.hostReads()"));
+        assertFalse(source.contains("dev.turboism.sdk.i18n"));
+        assertFalse(source.contains("dev.turboism.sdk.hostread"));
+        assertTrue(source.contains("context.cubismRead()"));
     }
 
     @Test
-    void ownsOnlySdkServicesAndCurrentAsyncHandle() {
+    void ownsNoNewPhaseOneServiceTypes() {
         final List<Class<?>> fieldTypes = new ArrayList<>();
         for (Field field : ProjectInspectorPlugin.class.getDeclaredFields()) {
             fieldTypes.add(field.getType());
         }
 
         assertTrue(fieldTypes.contains(PluginContext.class));
-        assertTrue(fieldTypes.contains(PluginLocalization.class));
-        assertTrue(fieldTypes.stream().anyMatch(type -> type.getName().contains("AtomicReference")));
         assertFalse(fieldTypes.stream().anyMatch(type ->
-            type.getName().startsWith("java.util.concurrent.Executor")
-                || type == Thread.class
+            type.getName().startsWith("dev.turboism.sdk.i18n.")
+                || type.getName().startsWith("dev.turboism.sdk.hostread.")
         ));
     }
 
