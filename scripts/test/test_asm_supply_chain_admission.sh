@@ -7,6 +7,15 @@ HELPER="$ROOT/scripts/test/asm_admission_gate.py"
 
 fail() { printf 'ASM supply-chain admission selftest: %s\n' "$*" >&2; exit 1; }
 
+copy_source_tree() {
+  local destination="$1"
+  tar \
+    --exclude='./.git' \
+    --exclude='./.gradle' \
+    --exclude='./build' \
+    -C "$ROOT" -cf - . | tar -C "$destination" -xf -
+}
+
 python3 "$HELPER" static --root "$ROOT"
 python3 "$HELPER" evidence --root "$ROOT" --gradle-home "$GRADLE_HOME"
 
@@ -28,7 +37,7 @@ python3 "$HELPER" api "${class_roots[@]}"
 mutation() {
   local name="$1" expected="$2" setup="$3" sandbox log
   sandbox="$(mktemp -d)"; log="$(mktemp)"
-  cp -a "$ROOT/." "$sandbox/"; rm -rf "$sandbox/.git" "$sandbox/.gradle" "$sandbox/build"
+  copy_source_tree "$sandbox"
   eval "$setup"
   if TURBOISM_ADMISSION_ROOT="$sandbox" python3 "$HELPER" static --root "$sandbox" >"$log" 2>&1; then
     rm -rf "$sandbox" "$log"; fail "mutation unexpectedly passed: $name"
@@ -141,7 +150,7 @@ rm -rf "$api_tmp"
 source_api_mutation() {
   local module="$1" sandbox log wt classes
   sandbox="$(mktemp -d)"; log="$(mktemp)"; wt="bt4-${module}-api-leak"
-  cp -a "$ROOT/." "$sandbox/"; rm -rf "$sandbox/.git" "$sandbox/.gradle" "$sandbox/build"
+  copy_source_tree "$sandbox"
   mkdir -p "$sandbox/$module/src/main/java/org/objectweb/asm" "$sandbox/$module/src/main/java/dev/turboism/bt4mutation"
   printf 'package org.objectweb.asm; public @interface Leak {}\n' > "$sandbox/$module/src/main/java/org/objectweb/asm/Leak.java"
   printf 'package dev.turboism.bt4mutation; @org.objectweb.asm.Leak public class ProductionLeak {}\n' > "$sandbox/$module/src/main/java/dev/turboism/bt4mutation/ProductionLeak.java"
@@ -161,7 +170,7 @@ source_api_mutation sdk
 resolved_graph_mutation() {
   local name="$1" group="$2" module="$3" version="$4" expected="$5" sandbox log wt repo_dir source_jar
   sandbox="$(mktemp -d)"; log="$(mktemp)"; wt="bt4-resolved-graph"; repo_dir="$sandbox/mutation-repo"
-  cp -a "$ROOT/." "$sandbox/"; rm -rf "$sandbox/.git" "$sandbox/.gradle" "$sandbox/build"
+  copy_source_tree "$sandbox"
   mkdir -p "$repo_dir/${group//.//}/$module/$version"
   source_jar="$(find "$GRADLE_HOME/caches/modules-2/files-2.1/org.ow2.asm/asm/9.7.1" -name 'asm-9.7.1.jar' -print -quit)"
   cp "$source_jar" "$repo_dir/${group//.//}/$module/$version/$module-$version.jar"

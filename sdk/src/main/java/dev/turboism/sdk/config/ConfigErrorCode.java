@@ -1,0 +1,13 @@
+package dev.turboism.sdk.config;
+
+public enum ConfigErrorCode {
+    SCHEMA_NOT_REGISTERED,
+    INVALID_VALUE,
+    FUTURE_SCHEMA_VERSION,
+    MIGRATION_GAP,
+    MIGRATION_FAILED,
+    REVISION_CONFLICT,
+    PERMISSION_DENIED,
+    PERSISTENCE_FAILED,
+    RUNTIME_UNAVAILABLE
+}
