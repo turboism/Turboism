@@ -4,6 +4,7 @@ import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.PluginExecutorRegistry;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
+import dev.turboism.failure.RuntimeFailureCollector;
 import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.storage.StorageErrorCode;
@@ -91,6 +92,28 @@ class RuntimePluginStorageTest {
         final var write = storage.writeUtf8Atomic(path, "value").toCompletableFuture()
             .get(2, TimeUnit.SECONDS);
         assertEquals(StorageErrorCode.PERMISSION_DENIED, write.error().orElseThrow().code());
+    }
+
+    @Test
+    void storageFailuresAreCollectedOnceWithoutExposingStoragePaths() throws Exception {
+        final RuntimeFailureCollector failures = new RuntimeFailureCollector();
+        createStorage(Set.of(), failures);
+        final StoragePath privatePath = new StoragePath(
+            StorageRoot.STATE,
+            "private/C:/Users/secret/state.json"
+        );
+
+        final var result = storage.readUtf8(privatePath, 16).toCompletableFuture()
+            .get(2, TimeUnit.SECONDS);
+
+        assertEquals(StorageErrorCode.PERMISSION_DENIED, result.error().orElseThrow().code());
+        final var collected = failures.snapshot().storageFailures();
+        assertEquals(1, collected.size());
+        assertEquals("PERMISSION_DENIED", collected.get(0).code());
+        assertEquals("storage.readUtf8", collected.get(0).operationId());
+        assertEquals(PermissionIds.TURBOISM_FILE_READ, collected.get(0).permissionId());
+        assertEquals(null, collected.get(0).relativePath());
+        assertFalse(collected.get(0).message().contains("Users"));
     }
 
     @Test
@@ -285,6 +308,13 @@ class RuntimePluginStorageTest {
     }
 
     private void createStorage(final Set<String> permissions) throws Exception {
+        createStorage(permissions, new RuntimeFailureCollector());
+    }
+
+    private void createStorage(
+        final Set<String> permissions,
+        final RuntimeFailureCollector failures
+    ) throws Exception {
         Files.createDirectories(temporary.resolve("data"));
         Files.createDirectories(temporary.resolve("state"));
         Files.createDirectories(temporary.resolve("cache"));
@@ -314,7 +344,9 @@ class RuntimePluginStorageTest {
             ),
             permissions,
             taskScheduler,
-            scope
+            scope,
+            new dev.turboism.cleanup.CleanupEvidenceCollector(),
+            failures
         );
     }
 }
