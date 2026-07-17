@@ -157,16 +157,27 @@ public final class CubismReadCapabilityServiceImpl implements CubismReadCapabili
 
     @Override
     public Optional<DocumentSnapshot> activeDocument() {
+        requireCapability(
+            CubismFacadeImpl.MODEL_READ_PERMISSION,
+            "activeDocument",
+            "cubism.model-tree.read"
+        );
         return facade.activeDocument();
     }
 
     @Override
     public Optional<ModelSnapshot> activeModel() {
+        requireCapability(
+            CubismFacadeImpl.MODEL_READ_PERMISSION,
+            "activeModel",
+            "cubism.model-tree.read"
+        );
         return facade.activeModel();
     }
 
     @Override
     public SelectionSnapshot selection() {
+        requireModelRead("selection");
         return runtime().selection();
     }
 
@@ -178,6 +189,7 @@ public final class CubismReadCapabilityServiceImpl implements CubismReadCapabili
 
     @Override
     public List<ModelObjectSnapshot> modelObjects() {
+        requireModelRead("modelObjects");
         return runtime().modelObjects();
     }
 
@@ -298,28 +310,33 @@ public final class CubismReadCapabilityServiceImpl implements CubismReadCapabili
     }
 
     private void requireModelRead(final String operation) {
-        if (permissionGate != null) {
-            permissionGate.require(
-                CubismFacadeImpl.MODEL_READ_PERMISSION,
-                "cubismRead." + operation,
-                capabilityIdFor(operation)
-            );
-            return;
-        }
-        if (facade instanceof CubismFacadeImpl impl) {
-            impl.activeModel();
-            return;
-        }
-        facade.runtime();
+        requireCapability(
+            CubismFacadeImpl.MODEL_READ_PERMISSION,
+            operation,
+            capabilityIdFor(operation)
+        );
     }
 
     private void requireProjectRead(final String operation) {
+        requireCapability(
+            CubismFacadeImpl.PROJECT_READ_PERMISSION,
+            operation,
+            capabilityIdFor(operation)
+        );
+    }
+
+    private void requireCapability(
+        final String permissionId,
+        final String operation,
+        final String capabilityId
+    ) {
         if (permissionGate != null) {
-            permissionGate.require(
-                CubismFacadeImpl.PROJECT_READ_PERMISSION,
-                "cubismRead." + operation,
-                capabilityIdFor(operation)
-            );
+            permissionGate.require(permissionId, "cubismRead." + operation, capabilityId);
+            return;
+        }
+        if (permissionId.equals(CubismFacadeImpl.MODEL_READ_PERMISSION)
+            && facade instanceof CubismFacadeImpl impl) {
+            impl.activeModel();
             return;
         }
         facade.activeProject();
@@ -328,8 +345,10 @@ public final class CubismReadCapabilityServiceImpl implements CubismReadCapabili
     private static String capabilityIdFor(final String operation) {
         return switch (operation) {
             case "activeProject" -> ProjectWorkspaceAdapter.PROJECT_CAPABILITY_ID;
-            case "workspace" -> ProjectWorkspaceAdapter.WORKSPACE_CAPABILITY_ID;
+            case "selection" -> "cubism.selection.read";
             case "parameters" -> "cubism.parameter.read";
+            case "modelObjects" -> "cubism.model-tree.read";
+            case "workspace" -> ProjectWorkspaceAdapter.WORKSPACE_CAPABILITY_ID;
             case "meshes" -> "cubism.mesh.read";
             case "deformers" -> "cubism.deformer.read";
             case "psdDocuments" -> "cubism.psd.read";
