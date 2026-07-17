@@ -1,6 +1,9 @@
 package dev.turboism.config;
 
 import dev.turboism.core.diagnostics.StartupReport;
+import dev.turboism.failure.RuntimeFailure;
+import dev.turboism.failure.RuntimeFailureDomain;
+import dev.turboism.failure.RuntimeFailureSink;
 import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.permissions.PermissionChecker;
@@ -31,12 +34,14 @@ public final class RuntimePluginConfigRegistry implements PluginConfigRegistry {
     private static final String READ_TASK_TYPE = "config.read";
     private static final String WRITE_TASK_TYPE = "config.write";
     private static final String DEFAULT_CAPABILITY = "none";
+    private static final String DIAGNOSTIC_LOCATION = "config://<redacted>";
     private static final long CONFIG_WAIT_TIMEOUT_MILLIS = 1_000L;
 
     private final PermissionChecker permissionChecker;
     private final RuntimeScheduler scheduler;
     private final Path pluginDataDir;
     private final Consumer<StartupReport.DiagnosticProblem> diagnosticSink;
+    private final RuntimeFailureSink failureSink;
     private final String pluginId;
     private final Set<String> readScopes = ConcurrentHashMap.newKeySet();
     private final Set<String> writeScopes = ConcurrentHashMap.newKeySet();
@@ -47,8 +52,14 @@ public final class RuntimePluginConfigRegistry implements PluginConfigRegistry {
         final Path pluginDataDir,
         final String pluginId
     ) {
-        this(permissionChecker, scheduler, pluginDataDir, pluginId, ignored -> {
-        });
+        this(
+            permissionChecker,
+            scheduler,
+            pluginDataDir,
+            pluginId,
+            ignored -> { },
+            RuntimeFailureSink.noop()
+        );
     }
 
     public RuntimePluginConfigRegistry(
@@ -58,11 +69,32 @@ public final class RuntimePluginConfigRegistry implements PluginConfigRegistry {
         final String pluginId,
         final Consumer<StartupReport.DiagnosticProblem> diagnosticSink
     ) {
+        this(
+            permissionChecker,
+            scheduler,
+            pluginDataDir,
+            pluginId,
+            diagnosticSink,
+            RuntimeFailureSink.noop()
+        );
+    }
+
+    public RuntimePluginConfigRegistry(
+        final PermissionChecker permissionChecker,
+        final RuntimeScheduler scheduler,
+        final Path pluginDataDir,
+        final String pluginId,
+        final Consumer<StartupReport.DiagnosticProblem> diagnosticSink,
+        final RuntimeFailureSink failureSink
+    ) {
         this.permissionChecker = Objects.requireNonNull(permissionChecker, "permissionChecker");
         this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
-        this.pluginDataDir = Objects.requireNonNull(pluginDataDir, "pluginDataDir").toAbsolutePath().normalize();
+        this.pluginDataDir = Objects.requireNonNull(pluginDataDir, "pluginDataDir")
+            .toAbsolutePath()
+            .normalize();
         this.pluginId = requireText(pluginId, "pluginId");
         this.diagnosticSink = Objects.requireNonNull(diagnosticSink, "diagnosticSink");
+        this.failureSink = RuntimeFailureSink.require(failureSink);
     }
 
     @Override
@@ -216,13 +248,42 @@ public final class RuntimePluginConfigRegistry implements PluginConfigRegistry {
         return new PluginTask(taskType, pluginId, scope, DEFAULT_CAPABILITY);
     }
 
-    private void emit(final String code, final String message, final String scope) {
+    private void emit(final String code, final String ignoredMessage, final String ignoredScope) {
         diagnosticSink.accept(new StartupReport.DiagnosticProblem(
             code,
-            message == null ? "" : message,
-            "config://" + scope,
+            stableDiagnosticMessage(code),
+            DIAGNOSTIC_LOCATION,
             StartupReport.Severity.WARNING
         ));
+        failureSink.record(RuntimeFailureDomain.CONFIG, new RuntimeFailure(
+            code,
+            "ERROR",
+            "legacy-config",
+            pluginId,
+            legacyOperation(code),
+            null,
+            stableFailureMessage(code),
+            null,
+            1
+        ));
+    }
+
+    private static String legacyOperation(final String code) {
+        return code.startsWith("CONFIG_READ_")
+            ? "config.readString"
+            : "config.writeString";
+    }
+
+    private static String stableDiagnosticMessage(final String code) {
+        return code.startsWith("CONFIG_READ_")
+            ? "Plugin config read failed safely."
+            : "Plugin config write failed safely.";
+    }
+
+    private static String stableFailureMessage(final String code) {
+        return code.startsWith("CONFIG_READ_")
+            ? "Plugin config read failed safely."
+            : "Plugin config write failed safely.";
     }
 
     private static String requireText(final String value, final String name) {

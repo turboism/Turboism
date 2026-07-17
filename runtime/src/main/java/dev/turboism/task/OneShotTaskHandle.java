@@ -27,10 +27,11 @@ final class OneShotTaskHandle extends AbstractRuntimeTaskHandle {
         final TaskId id,
         final PluginTaskAction action,
         final Runnable terminalCleanup,
+        final java.util.function.Consumer<TaskOutcome> terminalObserver,
         final java.util.function.Consumer<Runnable> settlementDispatcher,
         final java.util.function.Consumer<Runnable> continuationDispatcher
     ) {
-        super(id, terminalCleanup, settlementDispatcher, continuationDispatcher);
+        super(id, terminalCleanup, terminalObserver, settlementDispatcher, continuationDispatcher);
         this.action = java.util.Objects.requireNonNull(action, "action");
     }
 
