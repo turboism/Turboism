@@ -34,21 +34,41 @@ public final class CubismPermissionGate {
         return grantedPermissions.stream().anyMatch(permission -> permissionId.equals(permission.id()));
     }
 
-    public void require(final String permissionId, final String methodName) {
-        Objects.requireNonNull(permissionId, "permissionId");
-        Objects.requireNonNull(methodName, "methodName");
+    public void require(final String permissionId, final String operationId) {
+        require(permissionId, operationId, null);
+    }
+
+    public void require(
+        final String permissionId,
+        final String operationId,
+        final String capabilityId
+    ) {
+        requireText(permissionId, "permissionId");
+        requireText(operationId, "operationId");
+        if (capabilityId != null) {
+            requireText(capabilityId, "capabilityId");
+        }
         if (grantedPermissions.stream().anyMatch(permission -> permissionId.equals(permission.id()))) {
             return;
         }
         auditSink.accept(new CubismFacadeAuditEvent(
             pluginId,
             permissionId,
-            methodName,
+            operationId,
+            capabilityId,
             DiagnosticReport.Severity.WARNING,
             clock.instant()
         ));
         throw new CubismPermissionException(
-            "Plugin " + pluginId + " is missing required Cubism permission " + permissionId + " for " + methodName
+            "Plugin " + pluginId + " is missing required Cubism permission " + permissionId + " for " + operationId
         );
+    }
+
+    private static String requireText(final String value, final String name) {
+        Objects.requireNonNull(value, name);
+        if (value.isBlank()) {
+            throw new IllegalArgumentException(name + " must not be blank");
+        }
+        return value;
     }
 }

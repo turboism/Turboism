@@ -34,6 +34,11 @@ import java.util.concurrent.atomic.AtomicReference;
 
 public final class SelectionQueryServiceImpl implements SelectionQueryService {
 
+    public static final String SELECTION_READ_CAPABILITY = "cubism.selection.read";
+    public static final String CURRENT_SELECTION_OPERATION = "selectionQuery.currentSelection";
+    public static final String SELECTED_IDS_OPERATION = "selectionQuery.selectedIds";
+    public static final String SELECTION_CHANGED_OPERATION = "selectionQuery.onSelectionChanged";
+
     private static final String SELECTION_TASK_TYPE = "event.subscribe";
     private static final String DEFAULT_CAPABILITY = "none";
 
@@ -54,7 +59,7 @@ public final class SelectionQueryServiceImpl implements SelectionQueryService {
 
     @Override
     public SelectionSummary currentSelection() throws CubismServiceException {
-        permissionGate.require(CubismFacadeImpl.MODEL_READ_PERMISSION, "selectionQuery.currentSelection");
+        requireModelRead(CURRENT_SELECTION_OPERATION);
         final SelectionSummary summary = selectionSummary(runtimeWithServiceError().snapshot());
         publishSelectionChanges(summary);
         return summary;
@@ -63,7 +68,7 @@ public final class SelectionQueryServiceImpl implements SelectionQueryService {
     @Override
     public List<ModelObjectId> selectedIds(final HierarchyNode.Kind kind) throws CubismServiceException {
         Objects.requireNonNull(kind, "kind");
-        permissionGate.require(CubismFacadeImpl.MODEL_READ_PERMISSION, "selectionQuery.selectedIds");
+        requireModelRead(SELECTED_IDS_OPERATION);
         final SelectionSummary summary = selectionSummary(runtimeWithServiceError().snapshot());
         publishSelectionChanges(summary);
         return switch (kind) {
@@ -77,13 +82,21 @@ public final class SelectionQueryServiceImpl implements SelectionQueryService {
     @Override
     public Registration onSelectionChanged(final SelectionChangedListener listener) throws CubismServiceException {
         Objects.requireNonNull(listener, "listener");
-        permissionGate.require(CubismFacadeImpl.MODEL_READ_PERMISSION, "selectionQuery.onSelectionChanged");
+        requireModelRead(SELECTION_CHANGED_OPERATION);
         final SelectionSubscription subscription = new SelectionSubscription(
             listener,
             selectionSummary(runtimeWithServiceError().snapshot())
         );
         subscriptions.add(subscription);
         return () -> subscriptions.remove(subscription);
+    }
+
+    private void requireModelRead(final String operationId) {
+        permissionGate.require(
+            CubismFacadeImpl.MODEL_READ_PERMISSION,
+            operationId,
+            SELECTION_READ_CAPABILITY
+        );
     }
 
     private SnapshotWithVersion runtimeWithServiceError() throws CubismServiceException {
