@@ -290,7 +290,8 @@ public final class CorePluginContext implements PluginContext {
             this.dependencies.disposableScope(),
             adapters.statusToolbar(),
             adapters.mainToolbar(),
-            adapters.uiSurface()
+            adapters.uiSurface(),
+            localization
         );
     }
 

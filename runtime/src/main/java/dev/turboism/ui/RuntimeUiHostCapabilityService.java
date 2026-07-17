@@ -9,6 +9,7 @@ import dev.turboism.adapter.ui.StatusToolbarAdapterImpl;
 import dev.turboism.adapter.ui.UiSurfaceAdapter;
 import dev.turboism.adapter.ui.UiSurfaceAdapterImpl;
 import dev.turboism.permissions.PermissionChecker;
+import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.Registration;
@@ -58,6 +59,7 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
     private final StatusToolbarAdapter statusToolbarAdapter;
     private final MainToolbarAdapter mainToolbarAdapter;
     private final UiSurfaceAdapter uiSurfaceAdapter;
+    private final PluginLocalization localization;
     private final CopyOnWriteArrayList<OverlayContribution> overlays = new CopyOnWriteArrayList<>();
     private final CopyOnWriteArrayList<DialogRequest> dialogs = new CopyOnWriteArrayList<>();
     private final CopyOnWriteArrayList<EmbeddedPanelContribution> panels = new CopyOnWriteArrayList<>();
@@ -147,6 +149,28 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         final MainToolbarAdapter mainToolbarAdapter,
         final UiSurfaceAdapter uiSurfaceAdapter
     ) {
+        this(
+            permissionChecker,
+            pluginId,
+            stateSource,
+            disposableScope,
+            statusToolbarAdapter,
+            mainToolbarAdapter,
+            uiSurfaceAdapter,
+            null
+        );
+    }
+
+    public RuntimeUiHostCapabilityService(
+        final PermissionChecker permissionChecker,
+        final String pluginId,
+        final UiHostStateSource stateSource,
+        final DisposableScope disposableScope,
+        final StatusToolbarAdapter statusToolbarAdapter,
+        final MainToolbarAdapter mainToolbarAdapter,
+        final UiSurfaceAdapter uiSurfaceAdapter,
+        final PluginLocalization localization
+    ) {
         this.permissionChecker = Objects.requireNonNull(permissionChecker, "permissionChecker");
         this.pluginId = requireText(pluginId, "pluginId");
         this.stateSource = Objects.requireNonNull(stateSource, "stateSource");
@@ -154,6 +178,7 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         this.statusToolbarAdapter = Objects.requireNonNull(statusToolbarAdapter, "statusToolbarAdapter");
         this.mainToolbarAdapter = Objects.requireNonNull(mainToolbarAdapter, "mainToolbarAdapter");
         this.uiSurfaceAdapter = Objects.requireNonNull(uiSurfaceAdapter, "uiSurfaceAdapter");
+        this.localization = localization;
     }
 
     @Override
@@ -257,26 +282,28 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
     public Registration contributeMainToolbar(final MainToolbarRegistry.MainToolbarContribution contribution) {
         Objects.requireNonNull(contribution, "contribution");
         permissionChecker.check(UI_TOOLBAR_MAIN_CONTRIBUTE, "ui.main-toolbar.contribute");
-        final MainToolbarAdapter.AdapterResult<Registration> adapterResult = mainToolbarAdapter.contributeMainToolbar(contribution);
+        final MainToolbarRegistry.MainToolbarContribution resolved = resolveMainToolbarLabel(contribution);
+        final MainToolbarAdapter.AdapterResult<Registration> adapterResult = mainToolbarAdapter.contributeMainToolbar(resolved);
         if (adapterResult.isAvailable()) {
             return enrollAdapterRegistration(adapterResult.value().orElseThrow());
         }
         adapterResult.diagnostic().ifPresent(this::recordDiagnostic);
-        mainToolbars.add(contribution);
-        return scopedRegistration(mainToolbars, contribution);
+        mainToolbars.add(resolved);
+        return scopedRegistration(mainToolbars, resolved);
     }
 
     @Override
     public Registration contributePaletteToolbar(final PaletteToolbarRegistry.PaletteToolbarContribution contribution) {
         Objects.requireNonNull(contribution, "contribution");
         permissionChecker.check(UI_TOOLBAR_PALETTE_CONTRIBUTE, "ui.palette-toolbar.contribute");
-        final StatusToolbarAdapter.AdapterResult<Registration> adapterResult = statusToolbarAdapter.contributePaletteToolbar(contribution);
+        final PaletteToolbarRegistry.PaletteToolbarContribution resolved = resolvePaletteToolbarLabel(contribution);
+        final StatusToolbarAdapter.AdapterResult<Registration> adapterResult = statusToolbarAdapter.contributePaletteToolbar(resolved);
         if (adapterResult.isAvailable()) {
             return enrollAdapterRegistration(adapterResult.value().orElseThrow());
         }
         adapterResult.diagnostic().ifPresent(this::recordDiagnostic);
-        paletteToolbars.add(contribution);
-        return scopedRegistration(paletteToolbars, contribution);
+        paletteToolbars.add(resolved);
+        return scopedRegistration(paletteToolbars, resolved);
     }
 
     /**
@@ -388,5 +415,38 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
             throw new IllegalArgumentException(name + " must not be blank");
         }
         return value;
+    }
+
+    private MainToolbarRegistry.MainToolbarContribution resolveMainToolbarLabel(
+        final MainToolbarRegistry.MainToolbarContribution contribution
+    ) {
+        if (localization == null) {
+            return contribution;
+        }
+        return new MainToolbarRegistry.MainToolbarContribution(
+            contribution.contributionId(),
+            contribution.actionId(),
+            localization.text(requireText(contribution.labelKey(), "labelKey")),
+            contribution.iconResourcePath(),
+            contribution.anchor(),
+            contribution.order()
+        );
+    }
+
+    private PaletteToolbarRegistry.PaletteToolbarContribution resolvePaletteToolbarLabel(
+        final PaletteToolbarRegistry.PaletteToolbarContribution contribution
+    ) {
+        if (localization == null) {
+            return contribution;
+        }
+        return new PaletteToolbarRegistry.PaletteToolbarContribution(
+            contribution.contributionId(),
+            contribution.actionId(),
+            localization.text(requireText(contribution.labelKey(), "labelKey")),
+            contribution.iconResourcePath(),
+            contribution.paletteId(),
+            contribution.anchor(),
+            contribution.order()
+        );
     }
 }
