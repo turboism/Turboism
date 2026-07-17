@@ -29,6 +29,22 @@ public final class PreviewReportSnapshotFactory {
         "cubism.project.read",
         "cubism.workspace.read"
     );
+    private static final Map<String, CapabilityBinding> CAPABILITY_BINDINGS = Map.ofEntries(
+        binding("cubism.project.read", "cubismRead.activeProject", "turboism.cubism.project.read"),
+        binding("cubism.workspace.read", "cubismRead.workspace", "turboism.cubism.project.read"),
+        binding("cubism.parameter.read", "parameterQuery.listAll", "turboism.cubism.model.read"),
+        binding("cubism.parameter.write", "cubism.parameter.write", "turboism.cubism.model.write"),
+        binding("cubism.mesh.read", "cubismRead.meshes", "turboism.cubism.model.read"),
+        binding("cubism.deformer.read", "cubismRead.deformers", "turboism.cubism.model.read"),
+        binding("cubism.render.status.read", "cubismRead.renderStatus", "turboism.cubism.model.read"),
+        binding("cubism.clipmask.read", "cubismRead.clipMasks", "turboism.cubism.model.read"),
+        binding("ui.context-source.read", "ui.context-source.read", "turboism.ui.context-source.read"),
+        binding("ui.file-chooser.request", "ui.file-chooser.request", "turboism.ui.file-chooser.request"),
+        binding("ui.overlay.contribute", "ui.overlay.contribute", "turboism.ui.overlay.contribute"),
+        binding("ui.dialog.contribute", "ui.dialog.contribute", "turboism.ui.dialog.contribute"),
+        binding("ui.embedded-panel.contribute", "ui.panel.contribute", "turboism.ui.panel.contribute"),
+        binding("ui.status.notify", "ui.status.notify", "turboism.ui.status.notify")
+    );
 
     private PreviewReportSnapshotFactory() {
     }
@@ -293,7 +309,9 @@ public final class PreviewReportSnapshotFactory {
             .sorted(Comparator.comparing(LocalPluginRuntime.LoadedPluginSummary::id))
             .toList()) {
             for (String capabilityId : summary.capabilities().stream().sorted().toList()) {
-                final String permissionId = permissionFor(summary.permissionIds(), capabilityId);
+                final CapabilityBinding binding = CAPABILITY_BINDINGS.get(capabilityId);
+                final String permissionId = permissionFor(summary.permissionIds(), binding);
+                final String operationId = binding == null ? capabilityId : binding.operationId();
                 final boolean verifiedProject = VERIFIED_PROJECT_CAPABILITIES.contains(capabilityId);
                 final boolean runtimeAvailable = verifiedProject
                     && hostState == HostSession.State.ACTIVE
@@ -305,10 +323,10 @@ public final class PreviewReportSnapshotFactory {
                 final ObjectNode entry = PreviewReportDocuments.capabilityEntry(
                     summary.id(),
                     capabilityId,
-                    capabilityId,
+                    operationId,
                     permissionId,
                     availability,
-                    permissionId == null ? "NOT_DECLARED" : "GRANTED",
+                    binding == null ? "UNKNOWN" : permissionId == null ? "NOT_DECLARED" : "GRANTED",
                     "NONE"
                 );
                 final ArrayNode evidence = (ArrayNode) entry.get("evidence");
@@ -399,17 +417,20 @@ public final class PreviewReportSnapshotFactory {
 
     private static String permissionFor(
         final List<String> permissionIds,
-        final String capabilityId
+        final CapabilityBinding binding
     ) {
-        final String direct = "turboism." + capabilityId;
-        if (permissionIds.contains(direct)) {
-            return direct;
-        }
-        if (capabilityId.equals("cubism.workspace.read")
-            && permissionIds.contains("turboism.cubism.project.read")) {
-            return "turboism.cubism.project.read";
+        if (binding != null && permissionIds.contains(binding.permissionId())) {
+            return binding.permissionId();
         }
         return null;
+    }
+
+    private static Map.Entry<String, CapabilityBinding> binding(
+        final String capabilityId,
+        final String operationId,
+        final String permissionId
+    ) {
+        return Map.entry(capabilityId, new CapabilityBinding(operationId, permissionId));
     }
 
     private static String lifecycle(final String value) {
@@ -487,6 +508,9 @@ public final class PreviewReportSnapshotFactory {
         } catch (IOException | NoSuchAlgorithmException exception) {
             return java.util.Optional.empty();
         }
+    }
+
+    private record CapabilityBinding(String operationId, String permissionId) {
     }
 
     private record FileDigest(String sha256, long size) {
