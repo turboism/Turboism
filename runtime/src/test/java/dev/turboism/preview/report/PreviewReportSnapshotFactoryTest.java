@@ -17,7 +17,6 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 class PreviewReportSnapshotFactoryTest {
 
@@ -48,19 +47,21 @@ class PreviewReportSnapshotFactoryTest {
             "cubismRead.clipMasks",
             "turboism.cubism.model.read"
         );
-        assertCapability(
+        assertCapabilityOperations(
             capabilities,
             "dev.turboism.plugin.parameter",
             "cubism.parameter.read",
-            "parameterQuery.listAll",
-            "turboism.cubism.model.read"
+            "turboism.cubism.model.read",
+            "cubismRead.parameters",
+            "parameterQuery.listAll"
         );
-        assertCapability(
+        assertCapabilityOperations(
             capabilities,
             "dev.turboism.plugin.parameter",
             "cubism.parameter.write",
-            "cubism.parameter.write",
-            "turboism.cubism.model.write"
+            "turboism.cubism.model.write",
+            "parameterCsv.import",
+            "parameterCsv.export"
         );
     }
 
@@ -68,46 +69,22 @@ class PreviewReportSnapshotFactoryTest {
     void everyOfficialDescriptorCapabilityHasAnExplicitClosedBinding() throws Exception {
         final List<LocalPluginRuntime.LoadedPluginSummary> plugins = List.of(
             plugin(
-                "dev.turboism.plugin.mesh",
-                List.of("cubism.mesh.read", "cubism.deformer.read", "ui.context-source.read", "ui.status.notify"),
+                "dev.turboism.plugin.catalog",
                 List.of(
-                    "turboism.cubism.model.read",
-                    "turboism.ui.context-source.read",
-                    "turboism.ui.status.notify"
-                )
-            ),
-            plugin(
-                "dev.turboism.plugin.parameter",
-                List.of("cubism.parameter.read", "cubism.parameter.write", "ui.file-chooser.request", "ui.status.notify"),
+                    "cubism.project.read", "cubism.workspace.read", "cubism.selection.read",
+                    "cubism.parameter.read", "cubism.parameter.write", "cubism.model-tree.read",
+                    "cubism.mesh.read", "cubism.deformer.read", "cubism.psd.read", "cubism.clipmask.read",
+                    "cubism.texture-atlas.read", "cubism.render.status.read", "cubism.theme.status.read",
+                    "ui.context-source.read", "ui.overlay.contribute", "ui.viewport.read", "ui.dialog.contribute",
+                    "ui.embedded-panel.contribute", "ui.file-chooser.request", "ui.status.notify",
+                    "ui.palette-toolbar.contribute", "ui.main-toolbar.contribute"
+                ),
                 List.of(
-                    "turboism.cubism.model.read",
-                    "turboism.cubism.model.write",
-                    "turboism.ui.file-chooser.request",
-                    "turboism.ui.status.notify"
-                )
-            ),
-            plugin(
-                "dev.turboism.plugin.project-inspector",
-                List.of("cubism.project.read", "cubism.workspace.read"),
-                List.of("turboism.cubism.project.read")
-            ),
-            plugin(
-                "dev.turboism.plugin.renderopt",
-                List.of("cubism.render.status.read", "ui.overlay.contribute", "ui.status.notify"),
-                List.of(
-                    "turboism.cubism.model.read",
-                    "turboism.ui.overlay.contribute",
-                    "turboism.ui.status.notify"
-                )
-            ),
-            plugin(
-                "dev.turboism.plugin.clipmask",
-                List.of("cubism.clipmask.read", "ui.dialog.contribute", "ui.embedded-panel.contribute", "ui.status.notify"),
-                List.of(
-                    "turboism.cubism.model.read",
-                    "turboism.ui.dialog.contribute",
-                    "turboism.ui.panel.contribute",
-                    "turboism.ui.status.notify"
+                    "turboism.cubism.project.read", "turboism.cubism.model.read", "turboism.cubism.model.write",
+                    "turboism.ui.context-source.read", "turboism.ui.overlay.contribute", "turboism.ui.viewport.read",
+                    "turboism.ui.dialog.contribute", "turboism.ui.panel.contribute",
+                    "turboism.ui.file-chooser.request", "turboism.ui.status.notify",
+                    "turboism.ui.toolbar.palette.contribute", "turboism.ui.toolbar.main.contribute"
                 )
             )
         );
@@ -136,12 +113,45 @@ class PreviewReportSnapshotFactoryTest {
             .path("capabilities")
             .get(0);
 
-        assertEquals("cubism.parameter.future", capability.path("operationId").textValue());
+        assertEquals("unmapped.capability", capability.path("operationId").textValue());
+        assertFalse(capability.path("operationId").textValue().equals(capability.path("capabilityId").textValue()));
+        assertFalse(capability.path("operationId").textValue().equals("cubism.parameter.future"));
         assertFalse(capability.has("permissionId"));
         assertEquals("UNKNOWN", capability.path("permissionAvailability").textValue());
         assertEquals("UNKNOWN", capability.path("capabilityAvailability").textValue());
         assertEquals("DECLARED", capability.path("evidence").get(0).path("kind").textValue());
         assertEquals("UNKNOWN", capability.path("evidence").get(0).path("state").textValue());
+    }
+
+    @Test
+    void modelAndSelectionCatalogBindingsIncludeEveryRealReadOperation() throws Exception {
+        final LocalPluginRuntime.LoadedPluginSummary plugin = plugin(
+            "dev.turboism.plugin.catalog",
+            List.of("cubism.selection.read", "cubism.model-tree.read"),
+            List.of("turboism.cubism.model.read")
+        );
+
+        final JsonNode capabilities = capabilityReport(List.of(plugin), HostSession.State.SAFE_MODE, false)
+            .path("payload")
+            .path("capabilities");
+
+        assertCapabilityOperations(
+            capabilities,
+            "dev.turboism.plugin.catalog",
+            "cubism.selection.read",
+            "turboism.cubism.model.read",
+            "cubismRead.selection",
+            "selectionQuery.currentSelection"
+        );
+        assertCapabilityOperations(
+            capabilities,
+            "dev.turboism.plugin.catalog",
+            "cubism.model-tree.read",
+            "turboism.cubism.model.read",
+            "cubismRead.activeModel",
+            "cubismRead.modelObjects",
+            "modelHierarchyQuery.currentHierarchy"
+        );
     }
 
     @Test
@@ -269,16 +279,32 @@ class PreviewReportSnapshotFactoryTest {
         final String operationId,
         final String permissionId
     ) {
-        JsonNode found = null;
+        assertCapabilityOperations(capabilities, pluginId, capabilityId, permissionId, operationId);
+    }
+
+    private static void assertCapabilityOperations(
+        final JsonNode capabilities,
+        final String pluginId,
+        final String capabilityId,
+        final String permissionId,
+        final String... operationIds
+    ) {
+        final List<JsonNode> found = new java.util.ArrayList<>();
         for (JsonNode capability : capabilities) {
             if (pluginId.equals(capability.path("pluginId").textValue())
                 && capabilityId.equals(capability.path("capabilityId").textValue())) {
-                found = capability;
-                break;
+                found.add(capability);
             }
         }
-        assertNotNull(found, "missing capability " + pluginId + "/" + capabilityId);
-        assertEquals(operationId, found.path("operationId").textValue());
-        assertEquals(permissionId, found.path("permissionId").textValue());
+        assertEquals(operationIds.length, found.size(), "unexpected binding count for " + pluginId + "/" + capabilityId);
+        assertEquals(
+            java.util.Set.of(operationIds),
+            found.stream()
+                .map(capability -> capability.path("operationId").textValue())
+                .collect(java.util.stream.Collectors.toSet())
+        );
+        for (JsonNode capability : found) {
+            assertEquals(permissionId, capability.path("permissionId").textValue());
+        }
     }
 }

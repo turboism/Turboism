@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -58,6 +59,27 @@ class ClipMaskReadCapabilityServiceTest {
     }
 
     @Test
+    void deniedModelReadOperationsAuditRealIdsBeforeReadingTheFacade() {
+        final List<CubismFacadeAuditEvent> auditEvents = new ArrayList<>();
+        final CubismPermissionGate gate = gate(List.of(), auditEvents);
+        final CubismReadCapabilityServiceImpl service = new CubismReadCapabilityServiceImpl(
+            new CubismFacadeImpl(modelSource(), gate),
+            M12ReadSnapshotSource.EMPTY,
+            ThemeStatusAdapterImpl.safeMode(),
+            RenderStatusAdapter.Impl.safeMode(),
+            ProjectWorkspaceAdapter.Impl.safeMode(),
+            ClipMaskReadAdapter.Impl.safeMode(),
+            "plugin.read.test",
+            gate
+        );
+
+        assertDenied(service::selection, auditEvents, "cubismRead.selection", "cubism.selection.read");
+        assertDenied(service::modelObjects, auditEvents, "cubismRead.modelObjects", "cubism.model-tree.read");
+        assertDenied(service::activeDocument, auditEvents, "cubismRead.activeDocument", "cubism.model-tree.read");
+        assertDenied(service::activeModel, auditEvents, "cubismRead.activeModel", "cubism.model-tree.read");
+    }
+
+    @Test
     void deniedClipMaskReadAuditsRealIdsBeforeTouchingAdapterOrFallback() {
         final AtomicInteger adapterReads = new AtomicInteger();
         final AtomicInteger fallbackReads = new AtomicInteger();
@@ -91,6 +113,22 @@ class ClipMaskReadCapabilityServiceTest {
         assertEquals("cubism.clipmask.read", event.capabilityId());
     }
 
+    private static void assertDenied(
+        final Supplier<?> operation,
+        final List<CubismFacadeAuditEvent> auditEvents,
+        final String expectedOperationId,
+        final String expectedCapabilityId
+    ) {
+        final CubismPermissionException error = assertThrows(CubismPermissionException.class, operation::get);
+
+        assertTrue(error.getMessage().contains(CubismFacadeImpl.MODEL_READ_PERMISSION));
+        assertEquals(1, auditEvents.size());
+        final CubismFacadeAuditEvent event = auditEvents.remove(0);
+        assertEquals(CubismFacadeImpl.MODEL_READ_PERMISSION, event.permissionId());
+        assertEquals(expectedOperationId, event.operationId());
+        assertEquals(expectedCapabilityId, event.capabilityId());
+    }
+
     private static CubismReadCapabilityServiceImpl service(
         final ClipMaskReadAdapter adapter,
         final M12ReadSnapshotSource fallback
@@ -106,6 +144,31 @@ class ClipMaskReadCapabilityServiceTest {
             "plugin.clipmask.test",
             gate
         );
+    }
+
+    private static HostSnapshotSource modelSource() {
+        return new HostSnapshotSource() {
+            @Override public Optional<HostProject> activeProject() { return Optional.empty(); }
+            @Override public Optional<HostDocument> activeDocument() {
+                return Optional.of(new HostDocument(
+                    "document-1",
+                    "Document",
+                    "models/demo/model.cdi3.json",
+                    Optional.empty(),
+                    Optional.of(model())
+                ));
+            }
+            @Override public Optional<HostModel> activeModel() { return Optional.of(model()); }
+            @Override public HostSelection selection() {
+                return new HostSelection(List.of("model-1"), Optional.empty(), Optional.empty(), Optional.empty());
+            }
+            @Override public boolean isHostPresent() { return true; }
+            @Override public long invalidationToken() { return 0L; }
+
+            private HostModel model() {
+                return new HostModel("model-1", "Model", List.of(), List.of(), List.of());
+            }
+        };
     }
 
     private static HostSnapshotSource emptySource() {
