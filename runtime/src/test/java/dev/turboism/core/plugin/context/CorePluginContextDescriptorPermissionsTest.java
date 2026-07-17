@@ -5,7 +5,9 @@ import dev.turboism.adapter.cubism.ClipMaskReadAdapter;
 import dev.turboism.adapter.cubism.HostSnapshotSource;
 import dev.turboism.adapter.cubism.ProjectWorkspaceAdapter;
 import dev.turboism.adapter.cubism.RenderStatusAdapter;
+import dev.turboism.adapter.ui.MainToolbarAdapter;
 import dev.turboism.adapter.ui.MainToolbarAdapterImpl;
+import dev.turboism.adapter.ui.StatusToolbarAdapter;
 import dev.turboism.adapter.ui.StatusToolbarAdapterImpl;
 import dev.turboism.adapter.ui.ThemeStatusAdapterImpl;
 import dev.turboism.adapter.ui.UiSurfaceAdapter;
@@ -43,6 +45,7 @@ import dev.turboism.sdk.ui.UiScheduler;
 import dev.turboism.sdk.ui.UserFileAccessService;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
+import dev.turboism.ui.RuntimeUiHostCapabilityService;
 import dev.turboism.ui.toolbar.RuntimeMainToolbarRegistry;
 import dev.turboism.ui.toolbar.RuntimePaletteToolbarRegistry;
 import dev.turboism.ui.toolbar.ToolbarVisibilitySink;
@@ -275,6 +278,84 @@ class CorePluginContextDescriptorPermissionsTest {
         assertEquals(List.of("palette.label"), rawSink.paletteLabels);
         assertThrows(IllegalStateException.class, () -> rawMain.bindLocalization(localization));
         assertThrows(IllegalStateException.class, () -> rawPalette.bindLocalization(localization));
+    }
+
+    @Test
+    void contextUiHostLocalizesToolbarContributionsForAdaptersAndFallback(@TempDir Path dataDir) {
+        final PluginDescriptor descriptor = descriptorWithAllM8Permissions();
+        final PluginLocalization localization = localization(Map.of(
+            "main.label", "Localized main",
+            "palette.label", "Localized palette"
+        ));
+        final RecordingToolbarHost host = new RecordingToolbarHost();
+        final CorePluginContext adapterContext = new CorePluginContext(
+            dependencies(dataDir, descriptor, ignored -> { }),
+            toolbarAdapters(host),
+            localization
+        );
+
+        adapterContext.uiHost().contributeMainToolbar(
+            mainToolbarContribution("adapter-main", "main.label", "icon")
+        );
+        adapterContext.uiHost().contributePaletteToolbar(
+            paletteToolbarContribution("adapter-palette", "palette.label", "icon")
+        );
+
+        assertEquals("Localized main", host.mainContribution.labelKey());
+        assertEquals("Localized palette", host.paletteContribution.labelKey());
+
+        final CorePluginContext fallbackContext = new CorePluginContext(
+            dependencies(dataDir, descriptor, ignored -> { }),
+            RuntimeHostAdapters.safeMode(),
+            localization
+        );
+        fallbackContext.uiHost().contributeMainToolbar(
+            mainToolbarContribution("fallback-main", "main.label", "icon")
+        );
+        fallbackContext.uiHost().contributePaletteToolbar(
+            paletteToolbarContribution("fallback-palette", "palette.label", "icon")
+        );
+        final RuntimeUiHostCapabilityService fallback =
+            (RuntimeUiHostCapabilityService) fallbackContext.uiHost();
+
+        assertEquals("Localized main", fallback.mainToolbars().get(0).labelKey());
+        assertEquals("Localized palette", fallback.paletteToolbars().get(0).labelKey());
+    }
+
+    @Test
+    void contextUiHostPreservesRawToolbarLabelKeysWithoutLocalization(@TempDir Path dataDir) {
+        final PluginDescriptor descriptor = descriptorWithAllM8Permissions();
+        final RecordingToolbarHost host = new RecordingToolbarHost();
+        final CorePluginContext adapterContext = new CorePluginContext(
+            dependencies(dataDir, descriptor, ignored -> { }),
+            toolbarAdapters(host)
+        );
+
+        adapterContext.uiHost().contributeMainToolbar(
+            mainToolbarContribution("adapter-main", "main.label", "icon")
+        );
+        adapterContext.uiHost().contributePaletteToolbar(
+            paletteToolbarContribution("adapter-palette", "palette.label", "icon")
+        );
+
+        assertEquals("main.label", host.mainContribution.labelKey());
+        assertEquals("palette.label", host.paletteContribution.labelKey());
+
+        final CorePluginContext fallbackContext = new CorePluginContext(
+            dependencies(dataDir, descriptor, ignored -> { }),
+            RuntimeHostAdapters.safeMode()
+        );
+        fallbackContext.uiHost().contributeMainToolbar(
+            mainToolbarContribution("fallback-main", "main.label", "icon")
+        );
+        fallbackContext.uiHost().contributePaletteToolbar(
+            paletteToolbarContribution("fallback-palette", "palette.label", "icon")
+        );
+        final RuntimeUiHostCapabilityService fallback =
+            (RuntimeUiHostCapabilityService) fallbackContext.uiHost();
+
+        assertEquals("main.label", fallback.mainToolbars().get(0).labelKey());
+        assertEquals("palette.label", fallback.paletteToolbars().get(0).labelKey());
     }
 
     @Test
@@ -606,6 +687,18 @@ class CorePluginContextDescriptorPermissionsTest {
         );
     }
 
+    private static RuntimeHostAdapters toolbarAdapters(final RecordingToolbarHost host) {
+        return new RuntimeHostAdapters(
+            ThemeStatusAdapterImpl.safeMode(),
+            RenderStatusAdapter.Impl.safeMode(),
+            ProjectWorkspaceAdapter.Impl.safeMode(),
+            ClipMaskReadAdapter.Impl.safeMode(),
+            StatusToolbarAdapterImpl.connected(host),
+            MainToolbarAdapterImpl.connected(host),
+            UiSurfaceAdapterImpl.safeMode()
+        );
+    }
+
     private static final class RecordingToolbarVisibilitySink implements ToolbarVisibilitySink {
         private final CountDownLatch updated;
         private final List<String> mainLabels = new CopyOnWriteArrayList<>();
@@ -635,6 +728,38 @@ class CorePluginContextDescriptorPermissionsTest {
                 .map(PaletteToolbarRegistry.PaletteToolbarContribution::labelKey)
                 .forEach(paletteLabels::add);
             updated.countDown();
+        }
+    }
+
+    private static final class RecordingToolbarHost
+        implements MainToolbarAdapter.HostOperations, StatusToolbarAdapter.HostOperations {
+
+        private MainToolbarRegistry.MainToolbarContribution mainContribution;
+        private PaletteToolbarRegistry.PaletteToolbarContribution paletteContribution;
+
+        @Override public String hostVersion() { return "5.3.2"; }
+        @Override public boolean supports(final MainToolbarAdapter.Capability capability) { return true; }
+        @Override public boolean supports(final StatusToolbarAdapter.Capability capability) { return true; }
+
+        @Override
+        public Registration contributeMainToolbar(
+            final MainToolbarRegistry.MainToolbarContribution contribution
+        ) {
+            mainContribution = contribution;
+            return () -> mainContribution = null;
+        }
+
+        @Override
+        public Registration notifyStatus(final dev.turboism.sdk.ui.StatusNotification notification) {
+            return () -> { };
+        }
+
+        @Override
+        public Registration contributePaletteToolbar(
+            final PaletteToolbarRegistry.PaletteToolbarContribution contribution
+        ) {
+            paletteContribution = contribution;
+            return () -> paletteContribution = null;
         }
     }
 
