@@ -9,6 +9,7 @@ import dev.turboism.core.descriptor.PluginDescriptorParser;
 import dev.turboism.core.lifecycle.PluginLifecycleState;
 import dev.turboism.core.plugin.PluginRuntime;
 import dev.turboism.config.RuntimeTypedPluginConfigRegistry;
+import dev.turboism.failure.RuntimeFailureCollector;
 import dev.turboism.core.plugin.context.CorePluginContext;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.version.PluginVersion;
@@ -62,6 +63,7 @@ public final class LocalPluginRuntime implements AutoCloseable {
     private final RuntimeHostAdapterAccess hostAccess;
     private final SharedAsyncHostReadLane hostReadLane;
     private final PreviewLog log;
+    private final RuntimeFailureCollector failureCollector;
     private final PluginCloseHook pluginCloseHook;
     private final List<LoadedPlugin> loaded = new ArrayList<>();
     private List<LoadedPluginSummary> closedSummaries = List.of();
@@ -74,14 +76,34 @@ public final class LocalPluginRuntime implements AutoCloseable {
         final RuntimeHostAdapterAccess hostAccess,
         final PreviewLog log
     ) {
-        this(home, scheduler, hostAccess, log, (pluginId, phase) -> { });
+        this(home, scheduler, hostAccess, log, new RuntimeFailureCollector(), (pluginId, phase) -> { });
     }
 
+    /** Package-private close/report-failure seam retained for lifecycle tests. */
     LocalPluginRuntime(
         final Path home,
         final RuntimeScheduler scheduler,
         final RuntimeHostAdapterAccess hostAccess,
         final PreviewLog log,
+        final PluginCloseHook pluginCloseHook
+    ) {
+        this(home, scheduler, hostAccess, log, new RuntimeFailureCollector(), pluginCloseHook);
+    }
+
+    /** Package-private report-failure seam retained for focused preview tests. */
+    LocalPluginRuntime(
+        final Path home,
+        final RuntimeScheduler scheduler,
+        final RuntimeHostAdapterAccess hostAccess,
+        final PreviewLog log,
+        final RuntimeFailureCollector failureCollector
+    ) {
+        this(home, scheduler, hostAccess, log, failureCollector, (pluginId, phase) -> { });
+    }
+
+    private LocalPluginRuntime(
+        final Path home, final RuntimeScheduler scheduler, final RuntimeHostAdapterAccess hostAccess,
+        final PreviewLog log, final RuntimeFailureCollector failureCollector,
         final PluginCloseHook pluginCloseHook
     ) {
         this.home = Objects.requireNonNull(home, "home").toAbsolutePath().normalize();
@@ -90,6 +112,7 @@ public final class LocalPluginRuntime implements AutoCloseable {
         this.hostAccess = Objects.requireNonNull(hostAccess, "hostAccess");
         this.hostReadLane = new SharedAsyncHostReadLane(32);
         this.log = Objects.requireNonNull(log, "log");
+        this.failureCollector = Objects.requireNonNull(failureCollector, "failureCollector");
         this.pluginCloseHook = Objects.requireNonNull(pluginCloseHook, "pluginCloseHook");
     }
 
@@ -102,18 +125,18 @@ public final class LocalPluginRuntime implements AutoCloseable {
         }
 
         final List<PluginFailure> failures = new ArrayList<>();
-        final Map<String, Candidate> candidates = discover(failures);
+        final Map<String, PluginCandidate> candidates = discover(failures);
         if (candidates.isEmpty()) {
             log.warn("plugin-loader", "No valid plugin JARs found in " + pluginDirectory);
             return new LoadReport(List.of(), List.copyOf(failures), List.of());
         }
 
         final DependencyResolver.ResolutionResult resolution = new DependencyResolver().resolve(
-            candidates.values().stream().map(Candidate::descriptor).toList()
+            candidates.values().stream().map(PluginCandidate::descriptor).toList()
         );
         final Set<String> disabled = new LinkedHashSet<>(resolution.disabledIds());
         for (String disabledId : disabled) {
-            final Candidate candidate = candidates.get(disabledId);
+            final PluginCandidate candidate = candidates.get(disabledId);
             failures.add(new PluginFailure(
                 disabledId,
                 candidate == null ? pluginDirectory : candidate.jar(),
@@ -125,7 +148,7 @@ public final class LocalPluginRuntime implements AutoCloseable {
         final List<LoadedPluginSummary> summaries = new ArrayList<>();
         final Set<String> runtimeFailed = new LinkedHashSet<>();
         for (DependencyResolver.ResolvedPlugin resolved : resolution.loadOrder()) {
-            final Candidate candidate = candidates.get(resolved.id());
+            final PluginCandidate candidate = candidates.get(resolved.id());
             if (candidate == null || disabled.contains(resolved.id())) {
                 continue;
             }
@@ -167,8 +190,17 @@ public final class LocalPluginRuntime implements AutoCloseable {
         return loaded.stream().map(LoadedPlugin::summary).toList();
     }
 
-    private Map<String, Candidate> discover(final List<PluginFailure> failures) {
-        final Map<String, Candidate> candidates = new LinkedHashMap<>();
+    /** Immutable point-in-time report evidence for one preview report write. */
+    synchronized LocalPluginRuntimeReportSnapshot reportSnapshot() {
+        return new LocalPluginRuntimeReportSnapshot(
+            closed.get() ? closedSummaries : loaded.stream().map(LoadedPlugin::summary)
+                .sorted(Comparator.comparing(LoadedPluginSummary::id)).toList(),
+            failureCollector.snapshot()
+        );
+    }
+
+    private Map<String, PluginCandidate> discover(final List<PluginFailure> failures) {
+        final Map<String, PluginCandidate> candidates = new LinkedHashMap<>();
         try {
             Files.createDirectories(pluginDirectory);
             final List<Path> jars;
@@ -180,11 +212,11 @@ public final class LocalPluginRuntime implements AutoCloseable {
                     .toList();
             }
             for (Path jar : jars) {
-                final Candidate candidate = readCandidate(jar, failures);
+                final PluginCandidate candidate = readCandidate(jar, failures);
                 if (candidate == null) {
                     continue;
                 }
-                final Candidate previous = candidates.putIfAbsent(candidate.descriptor().id(), candidate);
+                final PluginCandidate previous = candidates.putIfAbsent(candidate.descriptor().id(), candidate);
                 if (previous != null) {
                     failures.add(new PluginFailure(
                         candidate.descriptor().id(),
@@ -206,7 +238,7 @@ public final class LocalPluginRuntime implements AutoCloseable {
         return candidates;
     }
 
-    private Candidate readCandidate(final Path jar, final List<PluginFailure> failures) {
+    private PluginCandidate readCandidate(final Path jar, final List<PluginFailure> failures) {
         try (JarFile archive = new JarFile(jar.toFile())) {
             final JarEntry descriptorEntry = archive.getJarEntry(DESCRIPTOR_PATH);
             if (descriptorEntry == null || descriptorEntry.isDirectory()) {
@@ -228,7 +260,7 @@ public final class LocalPluginRuntime implements AutoCloseable {
                 ));
                 return null;
             }
-            return new Candidate(jar.toAbsolutePath().normalize(), descriptor);
+            return new PluginCandidate(jar.toAbsolutePath().normalize(), descriptor);
         } catch (DescriptorParseException exception) {
             failures.add(new PluginFailure(
                 "<invalid>", jar, exception.code(), exception.getMessage()
@@ -251,7 +283,7 @@ public final class LocalPluginRuntime implements AutoCloseable {
     }
 
     private LoadedPluginSummary load(
-        final Candidate candidate,
+        final PluginCandidate candidate,
         final List<PluginFailure> failures
     ) {
         final PluginDescriptor descriptor = candidate.descriptor();
@@ -297,7 +329,8 @@ public final class LocalPluginRuntime implements AutoCloseable {
                 M12ReadSnapshotSource.EMPTY,
                 UiHostStateSource.DEFAULT,
                 event -> log.debug(descriptor.id(), event.toString()),
-                Clock.systemUTC()
+                Clock.systemUTC(),
+                failureCollector
             );
             final RuntimePluginLocalization localization = RuntimePluginLocalization.create(
                 descriptor.id(),
@@ -315,7 +348,8 @@ public final class LocalPluginRuntime implements AutoCloseable {
                 descriptor.id(),
                 scheduler,
                 scope,
-                cleanupEvidence
+                cleanupEvidence,
+                failureCollector
             );
             final Set<String> permissionIds = descriptor.permissions().stream()
                 .map(permission -> permission.id())
@@ -330,7 +364,8 @@ public final class LocalPluginRuntime implements AutoCloseable {
                 permissionIds,
                 taskScheduler,
                 scope,
-                cleanupEvidence
+                cleanupEvidence,
+                failureCollector
             );
             final RuntimeTypedPluginConfigRegistry typedConfig =
                 new RuntimeTypedPluginConfigRegistry(
@@ -340,7 +375,8 @@ public final class LocalPluginRuntime implements AutoCloseable {
                     permissionIds,
                     taskScheduler,
                     scope,
-                    cleanupEvidence
+                    cleanupEvidence,
+                    failureCollector
                 );
             final RuntimeUserFileAccessService userFiles =
                 new RuntimeUserFileAccessService(
@@ -349,7 +385,8 @@ public final class LocalPluginRuntime implements AutoCloseable {
                     UserFileGrantSource.unavailable(),
                     taskScheduler,
                     scope,
-                    cleanupEvidence
+                    cleanupEvidence,
+                    failureCollector
                 );
             final RuntimeAsyncHostReadService hostReads = new RuntimeAsyncHostReadService(
                 descriptor.id(),
@@ -656,9 +693,6 @@ public final class LocalPluginRuntime implements AutoCloseable {
     @FunctionalInterface
     interface PluginCloseHook {
         void run(String pluginId, String phase) throws Throwable;
-    }
-
-    private record Candidate(Path jar, PluginDescriptor descriptor) {
     }
 
     private record LoadedPlugin(

@@ -4,6 +4,7 @@ import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.PluginExecutorRegistry;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
+import dev.turboism.failure.RuntimeFailureCollector;
 import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.ui.UserFileErrorCode;
@@ -160,6 +161,30 @@ class RuntimeUserFileAccessServiceTest {
     }
 
     @Test
+    void userFileFailuresAreCollectedOnceWithoutExposingGrantPaths() throws Exception {
+        final RuntimeFailureCollector failures = new RuntimeFailureCollector();
+        final RuntimeUserFileAccessService denied = service(
+            Set.of(PermissionIds.TURBOISM_UI_FILE_CHOOSER_REQUEST),
+            UserFileGrantSource.fixedSelection(temporary.resolve("C:/Users/private/denied.csv")),
+            failures
+        );
+
+        final var result = denied.request(request(
+            UserFileMode.WRITE,
+            UserFileLifetime.ONE_OPERATION
+        )).toCompletableFuture().get(2, TimeUnit.SECONDS);
+
+        assertEquals(UserFileRequestStatus.DENIED, result.status());
+        final var collected = failures.snapshot().storageFailures();
+        assertEquals(1, collected.size());
+        assertEquals("PERMISSION_DENIED", collected.get(0).code());
+        assertEquals("user-file.request", collected.get(0).operationId());
+        assertEquals(PermissionIds.TURBOISM_FILE_WRITE, collected.get(0).permissionId());
+        assertEquals(null, collected.get(0).relativePath());
+        assertFalse(collected.get(0).message().contains("Users"));
+    }
+
+    @Test
     void forgedForeignRevokedAndModeMismatchGrantsRemainDistinct() throws Exception {
         final Path selected = temporary.resolve("input.csv");
         Files.writeString(selected, "value");
@@ -302,6 +327,14 @@ class RuntimeUserFileAccessServiceTest {
         final Set<String> permissions,
         final UserFileGrantSource source
     ) {
+        return service(permissions, source, new RuntimeFailureCollector());
+    }
+
+    private RuntimeUserFileAccessService service(
+        final Set<String> permissions,
+        final UserFileGrantSource source,
+        final RuntimeFailureCollector failures
+    ) {
         if (scope == null) {
             scope = new DisposableScope();
             runtimeScheduler = new RuntimeScheduler(
@@ -317,7 +350,9 @@ class RuntimeUserFileAccessServiceTest {
             permissions,
             source,
             tasks,
-            scope
+            scope,
+            new dev.turboism.cleanup.CleanupEvidenceCollector(),
+            failures
         );
     }
 

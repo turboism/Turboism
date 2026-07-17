@@ -4,6 +4,7 @@ import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.PluginExecutorRegistry;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
+import dev.turboism.failure.RuntimeFailureCollector;
 import dev.turboism.sdk.config.ConfigCodecs;
 import dev.turboism.sdk.config.ConfigDocument;
 import dev.turboism.sdk.config.ConfigMigration;
@@ -180,6 +181,38 @@ class RuntimeTypedPluginConfigRegistryTest {
     }
 
     @Test
+    void typedConfigFailuresUseExactPublicCodesWithoutExposingValuesOrPaths() throws Exception {
+        final RuntimeFailureCollector failures = new RuntimeFailureCollector();
+        final RuntimeTypedPluginConfigRegistry registry = registry(Set.of(), failures);
+        final ConfigKey<Boolean> enabled = new ConfigKey<>(
+            "private-config", "enabled", true, ConfigCodecs.booleanValue()
+        );
+
+        final ExecutionException failure = assertThrows(
+            ExecutionException.class,
+            () -> registry.registerSchema(
+                new ConfigSchema(
+                    "private-config",
+                    "private/settings.cfg",
+                    1,
+                    List.of(enabled)
+                ),
+                List.of()
+            ).toCompletableFuture().get(2, TimeUnit.SECONDS)
+        );
+
+        assertEquals(ConfigRegistrationError.PERMISSION_DENIED,
+            ((ConfigRegistrationException) failure.getCause()).error());
+        final var collected = failures.snapshot().configFailures();
+        assertEquals(1, collected.size());
+        assertEquals("PERMISSION_DENIED", collected.get(0).code());
+        assertEquals("config.registerSchema", collected.get(0).operationId());
+        assertEquals(PermissionIds.TURBOISM_CONFIG_PLUGIN_WRITE, collected.get(0).permissionId());
+        assertEquals(null, collected.get(0).relativePath());
+        assertFalse(collected.get(0).message().contains("Users"));
+    }
+
+    @Test
     void migrationFutureVersionAndMalformedPersistenceFailClosed() throws Exception {
         final ConfigKey<Boolean> enabled = new ConfigKey<>(
             "migrated",
@@ -335,6 +368,13 @@ class RuntimeTypedPluginConfigRegistryTest {
     }
 
     private RuntimeTypedPluginConfigRegistry registry(final Set<String> permissions) {
+        return registry(permissions, new RuntimeFailureCollector());
+    }
+
+    private RuntimeTypedPluginConfigRegistry registry(
+        final Set<String> permissions,
+        final RuntimeFailureCollector failures
+    ) {
         scope = new DisposableScope();
         runtimeScheduler = new RuntimeScheduler(
             new DefaultWorkBudgetPolicy(),
@@ -353,7 +393,9 @@ class RuntimeTypedPluginConfigRegistryTest {
             temporary.resolve("typed-config"),
             permissions,
             tasks,
-            scope
+            scope,
+            new dev.turboism.cleanup.CleanupEvidenceCollector(),
+            failures
         );
     }
 

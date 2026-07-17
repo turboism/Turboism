@@ -3,6 +3,8 @@ package dev.turboism.preview.report;
 import com.fasterxml.jackson.databind.JsonNode;
 import dev.turboism.adapter.host.HostSession;
 import dev.turboism.core.lifecycle.PluginLifecycleState;
+import dev.turboism.failure.RuntimeFailure;
+import dev.turboism.failure.RuntimeFailureSnapshot;
 import dev.turboism.i18n.RuntimePluginLocalization;
 import dev.turboism.cleanup.CleanupEvidenceCollector;
 import dev.turboism.preview.LocalPluginRuntime;
@@ -17,11 +19,42 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class PreviewReportSnapshotFactoryTest {
 
     @TempDir
     Path temporary;
+
+    @Test
+    void writesFailureSnapshotIntoClosedRuntimeFailureArrays() {
+        final RuntimeFailure task = failure("TASK_FAILED", "task", "task.run");
+        final RuntimeFailure storage = failure("STORAGE_FAILED", "storage", "storage.readUtf8");
+        final RuntimeFailure config = failure("CONFIG_FAILED", "config", "config.read");
+
+        final var report = PreviewReportSnapshotFactory.create(
+            "runtime-failures",
+            Instant.parse("2026-07-15T00:00:00Z"),
+            temporary,
+            HostSession.State.ACTIVE,
+            null,
+            null,
+            new LocalPluginRuntime.LoadReport(List.of(), List.of(), List.of()),
+            List.of(),
+            new RuntimeFailureSnapshot(List.of(task), List.of(storage), List.of(config)),
+            false
+        ).get(PreviewReportType.PREVIEW_RUNTIME);
+
+        assertEquals("TASK_FAILED", report.path("payload").path("taskFailures").get(0)
+            .path("code").textValue());
+        assertEquals("STORAGE_FAILED", report.path("payload").path("storageFailures").get(0)
+            .path("code").textValue());
+        assertEquals("CONFIG_FAILED", report.path("payload").path("configFailures").get(0)
+            .path("code").textValue());
+        assertThrows(UnsupportedOperationException.class, () -> new RuntimeFailureSnapshot(
+            List.of(task), List.of(storage), List.of(config)
+        ).taskFailures().add(task));
+    }
 
     @Test
     void capabilityReportUsesClosedExplicitBindingsForOfficialDescriptors() throws Exception {
@@ -334,5 +367,23 @@ class PreviewReportSnapshotFactoryTest {
             }
         }
         assertEquals(expected, found, "unexpected bindings for " + pluginId + "/" + capabilityId);
+    }
+
+    private static RuntimeFailure failure(
+        final String code,
+        final String phase,
+        final String operationId
+    ) {
+        return new RuntimeFailure(
+            code,
+            "ERROR",
+            phase,
+            "dev.example.plugin",
+            operationId,
+            null,
+            "Runtime operation failed safely.",
+            null,
+            1
+        );
     }
 }
