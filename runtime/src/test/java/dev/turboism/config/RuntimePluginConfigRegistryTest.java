@@ -88,7 +88,7 @@ class RuntimePluginConfigRegistryTest {
     }
 
     @Test
-    void readStringTimesOutAndReturnsEmptyWhenSchedulerRejectsConfigWork(@TempDir Path dataDir) {
+    void readStringReturnsEmptyImmediatelyWhenSchedulerRejectsConfigWork(@TempDir Path dataDir) {
         // Given
         List<dev.turboism.core.diagnostics.StartupReport.DiagnosticProblem> diagnostics = new CopyOnWriteArrayList<>();
         RuntimePluginConfigRegistry registry = registry(dataDir, (permissionId, operation) -> { }, task -> WorkBudget.REJECTED, diagnostics);
@@ -99,12 +99,12 @@ class RuntimePluginConfigRegistryTest {
 
         // Then
         assertTrue(value.isEmpty());
-        assertTrue(diagnostics.stream().anyMatch(problem -> problem.code().equals("CONFIG_READ_TIMED_OUT")));
+        assertTrue(diagnostics.stream().anyMatch(problem -> problem.code().equals("CONFIG_READ_REJECTED")));
         scope.close();
     }
 
     @Test
-    void writeStringTimesOutAndThrowsWhenSchedulerRejectsConfigWork(@TempDir Path dataDir) {
+    void writeStringThrowsStableFailureImmediatelyWhenSchedulerRejectsConfigWork(@TempDir Path dataDir) {
         // Given
         List<dev.turboism.core.diagnostics.StartupReport.DiagnosticProblem> diagnostics = new CopyOnWriteArrayList<>();
         RuntimePluginConfigRegistry registry = registry(dataDir, (permissionId, operation) -> { }, task -> WorkBudget.REJECTED, diagnostics);
@@ -115,8 +115,11 @@ class RuntimePluginConfigRegistryTest {
             PluginConfigException.class,
             () -> registry.writeString("probe/config.properties", "name", "Turboism")
         );
-        assertTrue(exception.getMessage().contains("Timed out waiting for plugin config write"));
-        assertTrue(diagnostics.stream().anyMatch(problem -> problem.code().equals("CONFIG_WRITE_TIMED_OUT")));
+        assertEquals(
+            "Plugin config write was rejected for probe/config.properties",
+            exception.getMessage()
+        );
+        assertTrue(diagnostics.stream().anyMatch(problem -> problem.code().equals("CONFIG_WRITE_REJECTED")));
         scope.close();
     }
 
@@ -157,7 +160,7 @@ class RuntimePluginConfigRegistryTest {
         scheduler = new RuntimeScheduler(
             policy,
             new PluginExecutorRegistry(1, 4, events::add, CLOCK),
-            SidecarDispatcher.noop(),
+            availableSidecar(),
             events::add
         );
         return new RuntimePluginConfigRegistry(
@@ -167,6 +170,15 @@ class RuntimePluginConfigRegistryTest {
             "dev.turboism.plugin.config-test",
             diagnostics::add
         );
+    }
+
+    private static SidecarDispatcher availableSidecar() {
+        return (task, callback) -> {
+            callback.run();
+            return java.util.concurrent.CompletableFuture.completedFuture(
+                dev.turboism.core.runtime.sidecar.SidecarResult.success("")
+            );
+        };
     }
 
     private static dev.turboism.permissions.PermissionChecker denied() {

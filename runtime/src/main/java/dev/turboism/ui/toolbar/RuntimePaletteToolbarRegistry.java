@@ -3,6 +3,7 @@ package dev.turboism.ui.toolbar;
 import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.permissions.PermissionChecker;
+import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
@@ -21,8 +22,12 @@ public final class RuntimePaletteToolbarRegistry implements PaletteToolbarRegist
     private final PermissionChecker permissionChecker;
     private final RuntimeScheduler scheduler;
     private final String pluginId;
+    private static final String LOCALIZATION_OWNERSHIP_LOCKED = "localization ownership is already locked";
+
     private final Optional<ToolbarVisibilitySink> visibilitySink;
     private final Map<String, PaletteToolbarContribution> contributions = new ConcurrentHashMap<>();
+    private PluginLocalization localization;
+    private boolean localizationLocked;
 
     public RuntimePaletteToolbarRegistry(
         final PermissionChecker permissionChecker,
@@ -44,15 +49,40 @@ public final class RuntimePaletteToolbarRegistry implements PaletteToolbarRegist
         this.visibilitySink = Optional.ofNullable(visibilitySink);
     }
 
+    /** Binds the localization context owned by this registry's contributing plugin. */
+    public synchronized void bindLocalization(final PluginLocalization pluginLocalization) {
+        final PluginLocalization requested = Objects.requireNonNull(pluginLocalization, "pluginLocalization");
+        if (!localizationLocked) {
+            localization = requested;
+            localizationLocked = true;
+            return;
+        }
+        if (localization != requested) {
+            throw new IllegalStateException(LOCALIZATION_OWNERSHIP_LOCKED);
+        }
+    }
+
+    /** Locks this registry to raw label keys when no localization service is available. */
+    public synchronized void lockWithoutLocalization() {
+        if (!localizationLocked) {
+            localizationLocked = true;
+            return;
+        }
+        if (localization != null) {
+            throw new IllegalStateException(LOCALIZATION_OWNERSHIP_LOCKED);
+        }
+    }
+
     @Override
     public Registration contribute(final PaletteToolbarContribution contribution) {
         Objects.requireNonNull(contribution, "contribution");
         permissionChecker.check(PermissionIds.TURBOISM_UI_TOOLBAR_PALETTE_CONTRIBUTE, "ui.palette-toolbar.contribute");
         final String id = requireText(contribution.contributionId(), "contributionId");
         requireText(contribution.paletteId(), "paletteId");
-        contributions.put(id, contribution);
-        dispatchVisibilityUpdate(contribution);
-        return new ToolbarRegistration(id, contribution);
+        final PaletteToolbarContribution resolved = resolveLabel(contribution);
+        contributions.put(id, resolved);
+        dispatchVisibilityUpdate(resolved);
+        return new ToolbarRegistration(id, resolved);
     }
 
     boolean isRegistered(final String contributionId) {
@@ -61,6 +91,27 @@ public final class RuntimePaletteToolbarRegistry implements PaletteToolbarRegist
 
     int registrationCount() {
         return contributions.size();
+    }
+
+    private PaletteToolbarContribution resolveLabel(final PaletteToolbarContribution contribution) {
+        final PluginLocalization pluginLocalization = lockLocalizationForContribution();
+        if (pluginLocalization == null) {
+            return contribution;
+        }
+        return new PaletteToolbarContribution(
+            contribution.contributionId(),
+            contribution.actionId(),
+            pluginLocalization.text(requireText(contribution.labelKey(), "labelKey")),
+            contribution.iconResourcePath(),
+            contribution.paletteId(),
+            contribution.anchor(),
+            contribution.order()
+        );
+    }
+
+    private synchronized PluginLocalization lockLocalizationForContribution() {
+        localizationLocked = true;
+        return localization;
     }
 
     private void dispatchVisibilityUpdate(final PaletteToolbarContribution contribution) {
