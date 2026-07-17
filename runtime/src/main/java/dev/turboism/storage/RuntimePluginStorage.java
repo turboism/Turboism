@@ -1,5 +1,8 @@
 package dev.turboism.storage;
 
+import dev.turboism.failure.RuntimeFailure;
+import dev.turboism.failure.RuntimeFailureDomain;
+import dev.turboism.failure.RuntimeFailureSink;
 import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.storage.PluginStorage;
@@ -27,9 +30,11 @@ import java.util.concurrent.CompletionStage;
 /** Plugin-facing permission facade over confined storage and runtime-owned I/O. */
 public final class RuntimePluginStorage implements PluginStorage, AutoCloseable {
 
+    private final String pluginId;
     private final Set<String> permissions;
     private final ConfinedStorageBackend backend;
     private final StorageIoExecutor io;
+    private final RuntimeFailureSink failureSink;
 
     public RuntimePluginStorage(
         final String pluginId,
@@ -38,8 +43,15 @@ public final class RuntimePluginStorage implements PluginStorage, AutoCloseable 
         final RuntimePluginTaskScheduler taskScheduler,
         final DisposableScope disposableScope
     ) throws IOException {
-        this(pluginId, roots, permissions, taskScheduler, disposableScope,
-            new CleanupEvidenceCollector());
+        this(
+            pluginId,
+            roots,
+            permissions,
+            taskScheduler,
+            disposableScope,
+            new CleanupEvidenceCollector(),
+            RuntimeFailureSink.noop()
+        );
     }
 
     public RuntimePluginStorage(
@@ -50,10 +62,32 @@ public final class RuntimePluginStorage implements PluginStorage, AutoCloseable 
         final DisposableScope disposableScope,
         final CleanupEvidenceCollector cleanupEvidence
     ) throws IOException {
+        this(
+            pluginId,
+            roots,
+            permissions,
+            taskScheduler,
+            disposableScope,
+            cleanupEvidence,
+            RuntimeFailureSink.noop()
+        );
+    }
+
+    public RuntimePluginStorage(
+        final String pluginId,
+        final Map<StorageRoot, Path> roots,
+        final Set<String> permissions,
+        final RuntimePluginTaskScheduler taskScheduler,
+        final DisposableScope disposableScope,
+        final CleanupEvidenceCollector cleanupEvidence,
+        final RuntimeFailureSink failureSink
+    ) throws IOException {
+        this.pluginId = requireText(pluginId, "pluginId");
         this.permissions = Set.copyOf(Objects.requireNonNull(permissions, "permissions"));
         this.backend = new ConfinedStorageBackend(roots, cleanupEvidence);
+        this.failureSink = RuntimeFailureSink.require(failureSink);
         this.io = new StorageIoExecutor(
-            pluginId,
+            this.pluginId,
             taskScheduler,
             disposableScope
         );
@@ -66,15 +100,27 @@ public final class RuntimePluginStorage implements PluginStorage, AutoCloseable 
     ) {
         requireNonNegative(maxBytes, "maxBytes");
         if (!has(PermissionIds.TURBOISM_FILE_READ)) {
-            return io.immediate(readFailure(path, StorageErrorCode.PERMISSION_DENIED));
+            return io.immediate(readFailure(
+                path,
+                StorageErrorCode.PERMISSION_DENIED,
+                "storage.readUtf8"
+            ));
         }
         if (maxBytes > ConfinedStorageBackend.MAX_OPERATION_BYTES) {
-            return io.immediate(readFailure(path, StorageErrorCode.SIZE_LIMIT_EXCEEDED));
+            return io.immediate(readFailure(
+                path,
+                StorageErrorCode.SIZE_LIMIT_EXCEEDED,
+                "storage.readUtf8"
+            ));
         }
         return io.submit(
-            () -> backend.readUtf8(path, maxBytes),
-            () -> readFailure(path, StorageErrorCode.CANCELED),
-            () -> readFailure(path, StorageErrorCode.RUNTIME_UNAVAILABLE)
+            () -> observe(backend.readUtf8(path, maxBytes), "storage.readUtf8"),
+            () -> readFailure(path, StorageErrorCode.CANCELED, "storage.readUtf8"),
+            () -> readFailure(
+                path,
+                StorageErrorCode.RUNTIME_UNAVAILABLE,
+                "storage.readUtf8"
+            )
         );
     }
 
@@ -85,15 +131,27 @@ public final class RuntimePluginStorage implements PluginStorage, AutoCloseable 
     ) {
         requireNonNegative(maxBytes, "maxBytes");
         if (!has(PermissionIds.TURBOISM_FILE_READ)) {
-            return io.immediate(readFailure(path, StorageErrorCode.PERMISSION_DENIED));
+            return io.immediate(readFailure(
+                path,
+                StorageErrorCode.PERMISSION_DENIED,
+                "storage.readBytes"
+            ));
         }
         if (maxBytes > ConfinedStorageBackend.MAX_OPERATION_BYTES) {
-            return io.immediate(readFailure(path, StorageErrorCode.SIZE_LIMIT_EXCEEDED));
+            return io.immediate(readFailure(
+                path,
+                StorageErrorCode.SIZE_LIMIT_EXCEEDED,
+                "storage.readBytes"
+            ));
         }
         return io.submit(
-            () -> backend.readBytes(path, maxBytes),
-            () -> readFailure(path, StorageErrorCode.CANCELED),
-            () -> readFailure(path, StorageErrorCode.RUNTIME_UNAVAILABLE)
+            () -> observe(backend.readBytes(path, maxBytes), "storage.readBytes"),
+            () -> readFailure(path, StorageErrorCode.CANCELED, "storage.readBytes"),
+            () -> readFailure(
+                path,
+                StorageErrorCode.RUNTIME_UNAVAILABLE,
+                "storage.readBytes"
+            )
         );
     }
 
@@ -114,15 +172,30 @@ public final class RuntimePluginStorage implements PluginStorage, AutoCloseable 
         Objects.requireNonNull(path, "path");
         final byte[] snapshot = Objects.requireNonNull(content, "content").clone();
         if (!has(PermissionIds.TURBOISM_FILE_WRITE)) {
-            return io.immediate(writeFailure(path, StorageErrorCode.PERMISSION_DENIED));
+            return io.immediate(writeFailure(
+                path,
+                StorageErrorCode.PERMISSION_DENIED,
+                "storage.writeBytesAtomic"
+            ));
         }
         if (snapshot.length > ConfinedStorageBackend.MAX_OPERATION_BYTES) {
-            return io.immediate(writeFailure(path, StorageErrorCode.SIZE_LIMIT_EXCEEDED));
+            return io.immediate(writeFailure(
+                path,
+                StorageErrorCode.SIZE_LIMIT_EXCEEDED,
+                "storage.writeBytesAtomic"
+            ));
         }
         return io.submit(
-            () -> backend.writeBytesAtomic(path, snapshot, true),
-            () -> writeFailure(path, StorageErrorCode.CANCELED),
-            () -> writeFailure(path, StorageErrorCode.RUNTIME_UNAVAILABLE)
+            () -> observe(
+                backend.writeBytesAtomic(path, snapshot, true),
+                "storage.writeBytesAtomic"
+            ),
+            () -> writeFailure(path, StorageErrorCode.CANCELED, "storage.writeBytesAtomic"),
+            () -> writeFailure(
+                path,
+                StorageErrorCode.RUNTIME_UNAVAILABLE,
+                "storage.writeBytesAtomic"
+            )
         );
     }
 
@@ -136,12 +209,20 @@ public final class RuntimePluginStorage implements PluginStorage, AutoCloseable 
             throw new IllegalArgumentException("maxEntries exceeds runtime limit");
         }
         if (!has(PermissionIds.TURBOISM_FILE_READ)) {
-            return io.immediate(listFailure(directory, StorageErrorCode.PERMISSION_DENIED));
+            return io.immediate(listFailure(
+                directory,
+                StorageErrorCode.PERMISSION_DENIED,
+                "storage.list"
+            ));
         }
         return io.submit(
-            () -> backend.list(directory, maxEntries),
-            () -> listFailure(directory, StorageErrorCode.CANCELED),
-            () -> listFailure(directory, StorageErrorCode.RUNTIME_UNAVAILABLE)
+            () -> observe(backend.list(directory, maxEntries), "storage.list"),
+            () -> listFailure(directory, StorageErrorCode.CANCELED, "storage.list"),
+            () -> listFailure(
+                directory,
+                StorageErrorCode.RUNTIME_UNAVAILABLE,
+                "storage.list"
+            )
         );
     }
 
@@ -153,12 +234,27 @@ public final class RuntimePluginStorage implements PluginStorage, AutoCloseable 
     ) {
         requirePaths(source, target);
         if (!canReadAndWrite()) {
-            return io.immediate(mutationFailure(target, StorageErrorCode.PERMISSION_DENIED));
+            return io.immediate(mutationFailure(
+                target,
+                StorageErrorCode.PERMISSION_DENIED,
+                "storage.copy",
+                !has(PermissionIds.TURBOISM_FILE_READ)
+            ));
         }
         return io.submit(
-            () -> backend.copy(source, target, replaceExisting),
-            () -> mutationFailure(target, StorageErrorCode.CANCELED),
-            () -> mutationFailure(target, StorageErrorCode.RUNTIME_UNAVAILABLE)
+            () -> observe(backend.copy(source, target, replaceExisting), "storage.copy"),
+            () -> mutationFailure(
+                target,
+                StorageErrorCode.CANCELED,
+                "storage.copy",
+                true
+            ),
+            () -> mutationFailure(
+                target,
+                StorageErrorCode.RUNTIME_UNAVAILABLE,
+                "storage.copy",
+                true
+            )
         );
     }
 
@@ -170,18 +266,38 @@ public final class RuntimePluginStorage implements PluginStorage, AutoCloseable 
     ) {
         requirePaths(source, target);
         if (!has(PermissionIds.TURBOISM_FILE_WRITE)) {
-            return io.immediate(mutationFailure(target, StorageErrorCode.PERMISSION_DENIED));
+            return io.immediate(mutationFailure(
+                target,
+                StorageErrorCode.PERMISSION_DENIED,
+                "storage.moveAtomic",
+                false
+            ));
         }
         if (source.root() != target.root()) {
             return io.immediate(mutationFailure(
                 target,
-                StorageErrorCode.CROSS_ROOT_ATOMIC_MOVE_UNSUPPORTED
+                StorageErrorCode.CROSS_ROOT_ATOMIC_MOVE_UNSUPPORTED,
+                "storage.moveAtomic",
+                false
             ));
         }
         return io.submit(
-            () -> backend.moveAtomic(source, target, replaceExisting),
-            () -> mutationFailure(target, StorageErrorCode.CANCELED),
-            () -> mutationFailure(target, StorageErrorCode.RUNTIME_UNAVAILABLE)
+            () -> observe(
+                backend.moveAtomic(source, target, replaceExisting),
+                "storage.moveAtomic"
+            ),
+            () -> mutationFailure(
+                target,
+                StorageErrorCode.CANCELED,
+                "storage.moveAtomic",
+                false
+            ),
+            () -> mutationFailure(
+                target,
+                StorageErrorCode.RUNTIME_UNAVAILABLE,
+                "storage.moveAtomic",
+                false
+            )
         );
     }
 
@@ -192,12 +308,27 @@ public final class RuntimePluginStorage implements PluginStorage, AutoCloseable 
     ) {
         Objects.requireNonNull(path, "path");
         if (!has(PermissionIds.TURBOISM_FILE_WRITE)) {
-            return io.immediate(mutationFailure(path, StorageErrorCode.PERMISSION_DENIED));
+            return io.immediate(mutationFailure(
+                path,
+                StorageErrorCode.PERMISSION_DENIED,
+                "storage.delete",
+                false
+            ));
         }
         return io.submit(
-            () -> backend.delete(path, recursive),
-            () -> mutationFailure(path, StorageErrorCode.CANCELED),
-            () -> mutationFailure(path, StorageErrorCode.RUNTIME_UNAVAILABLE)
+            () -> observe(backend.delete(path, recursive), "storage.delete"),
+            () -> mutationFailure(
+                path,
+                StorageErrorCode.CANCELED,
+                "storage.delete",
+                false
+            ),
+            () -> mutationFailure(
+                path,
+                StorageErrorCode.RUNTIME_UNAVAILABLE,
+                "storage.delete",
+                false
+            )
         );
     }
 
@@ -230,11 +361,69 @@ public final class RuntimePluginStorage implements PluginStorage, AutoCloseable 
         return value;
     }
 
-    private static StorageError error(
-        final StoragePath path,
-        final StorageErrorCode code
+    private <T> StorageReadResult<T> observe(
+        final StorageReadResult<T> result,
+        final String operationId
     ) {
-        return new StorageError(code, message(code), Objects.requireNonNull(path, "path"));
+        result.error().ifPresent(error -> record(error, operationId, null));
+        return result;
+    }
+
+    private StorageWriteResult observe(
+        final StorageWriteResult result,
+        final String operationId
+    ) {
+        result.error().ifPresent(error -> record(error, operationId, null));
+        return result;
+    }
+
+    private StorageListResult observe(
+        final StorageListResult result,
+        final String operationId
+    ) {
+        result.error().ifPresent(error -> record(error, operationId, null));
+        return result;
+    }
+
+    private StorageMutationResult observe(
+        final StorageMutationResult result,
+        final String operationId
+    ) {
+        result.error().ifPresent(error -> record(error, operationId, null));
+        return result;
+    }
+
+    private StorageError error(
+        final StoragePath path,
+        final StorageErrorCode code,
+        final String operationId,
+        final String permissionId
+    ) {
+        final StorageError error = new StorageError(
+            code,
+            message(code),
+            Objects.requireNonNull(path, "path")
+        );
+        record(error, operationId, permissionId);
+        return error;
+    }
+
+    private void record(
+        final StorageError error,
+        final String operationId,
+        final String permissionId
+    ) {
+        failureSink.record(RuntimeFailureDomain.STORAGE, new RuntimeFailure(
+            error.code().name(),
+            "ERROR",
+            "storage",
+            pluginId,
+            operationId,
+            permissionId,
+            error.message(),
+            null,
+            1
+        ));
     }
 
     private static String message(final StorageErrorCode code) {
@@ -248,31 +437,77 @@ public final class RuntimePluginStorage implements PluginStorage, AutoCloseable 
         };
     }
 
-    private static <T> StorageReadResult<T> readFailure(
+    private <T> StorageReadResult<T> readFailure(
         final StoragePath path,
-        final StorageErrorCode code
+        final StorageErrorCode code,
+        final String operationId
     ) {
-        return new StorageReadResult<>(Optional.empty(), Optional.of(error(path, code)), false);
+        return new StorageReadResult<>(
+            Optional.empty(),
+            Optional.of(error(path, code, operationId, permissionFor(code, true, false))),
+            false
+        );
     }
 
-    private static StorageWriteResult writeFailure(
+    private StorageWriteResult writeFailure(
         final StoragePath path,
-        final StorageErrorCode code
+        final StorageErrorCode code,
+        final String operationId
     ) {
-        return new StorageWriteResult(false, Optional.of(error(path, code)));
+        return new StorageWriteResult(
+            false,
+            Optional.of(error(path, code, operationId, permissionFor(code, false, true)))
+        );
     }
 
-    private static StorageListResult listFailure(
+    private StorageListResult listFailure(
         final StoragePath path,
-        final StorageErrorCode code
+        final StorageErrorCode code,
+        final String operationId
     ) {
-        return new StorageListResult(List.of(), Optional.of(error(path, code)), false);
+        return new StorageListResult(
+            List.of(),
+            Optional.of(error(path, code, operationId, permissionFor(code, true, false))),
+            false
+        );
     }
 
-    private static StorageMutationResult mutationFailure(
+    private StorageMutationResult mutationFailure(
         final StoragePath path,
-        final StorageErrorCode code
+        final StorageErrorCode code,
+        final String operationId,
+        final boolean requiresRead
     ) {
-        return new StorageMutationResult(false, Optional.of(error(path, code)));
+        return new StorageMutationResult(
+            false,
+            Optional.of(error(
+                path,
+                code,
+                operationId,
+                permissionFor(code, requiresRead, true)
+            ))
+        );
+    }
+
+    private static String permissionFor(
+        final StorageErrorCode code,
+        final boolean requiresRead,
+        final boolean requiresWrite
+    ) {
+        if (code != StorageErrorCode.PERMISSION_DENIED) {
+            return null;
+        }
+        if (requiresRead) {
+            return PermissionIds.TURBOISM_FILE_READ;
+        }
+        return requiresWrite ? PermissionIds.TURBOISM_FILE_WRITE : null;
+    }
+
+    private static String requireText(final String value, final String name) {
+        Objects.requireNonNull(value, name);
+        if (value.isBlank()) {
+            throw new IllegalArgumentException(name + " must not be blank");
+        }
+        return value;
     }
 }

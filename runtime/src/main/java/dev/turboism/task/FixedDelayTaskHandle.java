@@ -44,10 +44,11 @@ final class FixedDelayTaskHandle extends AbstractRuntimeTaskHandle {
         final Consumer<Runnable> initialTimerGate,
         final PluginTaskAction action,
         final Runnable terminalCleanup,
+        final java.util.function.Consumer<TaskOutcome> terminalObserver,
         final java.util.function.Consumer<Runnable> settlementDispatcher,
         final java.util.function.Consumer<Runnable> continuationDispatcher
     ) {
-        super(id, terminalCleanup, settlementDispatcher, continuationDispatcher);
+        super(id, terminalCleanup, terminalObserver, settlementDispatcher, continuationDispatcher);
         this.runtimeScheduler = java.util.Objects.requireNonNull(runtimeScheduler, "runtimeScheduler");
         this.runtimeTask = java.util.Objects.requireNonNull(runtimeTask, "runtimeTask");
         this.delay = java.util.Objects.requireNonNull(delay, "delay");
