@@ -5,7 +5,9 @@ import dev.turboism.adapter.cubism.ClipMaskReadAdapter;
 import dev.turboism.adapter.cubism.HostSnapshotSource;
 import dev.turboism.adapter.cubism.ProjectWorkspaceAdapter;
 import dev.turboism.adapter.cubism.RenderStatusAdapter;
+import dev.turboism.adapter.ui.MainToolbarAdapter;
 import dev.turboism.adapter.ui.MainToolbarAdapterImpl;
+import dev.turboism.adapter.ui.StatusToolbarAdapter;
 import dev.turboism.adapter.ui.StatusToolbarAdapterImpl;
 import dev.turboism.adapter.ui.ThemeStatusAdapterImpl;
 import dev.turboism.adapter.ui.UiSurfaceAdapter;
@@ -22,6 +24,7 @@ import dev.turboism.sdk.cubism.ProjectSnapshot;
 import dev.turboism.sdk.cubism.RenderStatusSnapshot;
 import dev.turboism.sdk.cubism.WorkspaceSnapshot;
 import dev.turboism.sdk.event.EventBus.TurboismEvent;
+import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.plugin.DisposableScope;
@@ -29,29 +32,44 @@ import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.PluginPaths;
 import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.sdk.storage.PluginStorage;
+import dev.turboism.sdk.task.FixedDelayTaskRequest;
+import dev.turboism.sdk.task.PluginTaskRequest;
+import dev.turboism.sdk.task.PluginTaskScheduler;
+import dev.turboism.sdk.task.TaskSubmission;
 import dev.turboism.sdk.ui.DialogRequest;
 import dev.turboism.sdk.ui.EmbeddedPanelContribution;
 import dev.turboism.sdk.ui.FileChooserRequest;
 import dev.turboism.sdk.ui.OverlayContribution;
 import dev.turboism.sdk.ui.UiScheduler;
+import dev.turboism.sdk.ui.UserFileAccessService;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
+import dev.turboism.ui.RuntimeUiHostCapabilityService;
+import dev.turboism.ui.toolbar.RuntimeMainToolbarRegistry;
+import dev.turboism.ui.toolbar.RuntimePaletteToolbarRegistry;
+import dev.turboism.ui.toolbar.ToolbarVisibilitySink;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.lang.reflect.Proxy;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -134,6 +152,213 @@ class CorePluginContextDescriptorPermissionsTest {
     }
 
     @Test
+    void sharedServicesAreExplicitlyInjectedWhileLegacyCompositionFailsClosed(@TempDir Path dataDir) {
+        final PluginLocalization localization = new PluginLocalization() {
+            @Override public Locale locale() { return Locale.SIMPLIFIED_CHINESE; }
+            @Override public String text(String key) { return key; }
+            @Override public String format(String key, Object... arguments) { return key; }
+            @Override public boolean contains(String key) { return true; }
+        };
+        final PluginTaskScheduler tasks = new PluginTaskScheduler() {
+            @Override public TaskSubmission submit(PluginTaskRequest request) { return null; }
+            @Override public TaskSubmission scheduleWithFixedDelay(FixedDelayTaskRequest request) { return null; }
+        };
+        final PluginStorage storage = (PluginStorage) Proxy.newProxyInstance(
+            PluginStorage.class.getClassLoader(),
+            new Class<?>[] {PluginStorage.class},
+            (proxy, method, arguments) -> null
+        );
+        final UserFileAccessService userFiles = (UserFileAccessService) Proxy.newProxyInstance(
+            UserFileAccessService.class.getClassLoader(),
+            new Class<?>[] {UserFileAccessService.class},
+            (proxy, method, arguments) -> null
+        );
+        final PluginDescriptor descriptor = descriptorWithPermissions();
+        final CorePluginContext injected = context(
+            dataDir,
+            descriptor,
+            ignored -> { },
+            RuntimeHostAdapters.safeMode(),
+            localization,
+            tasks,
+            storage,
+            userFiles
+        );
+        assertSame(localization, injected.localization());
+        assertSame(tasks, injected.tasks());
+        assertSame(storage, injected.storage());
+        assertSame(userFiles, injected.userFiles());
+
+        final CorePluginContext legacy = context(dataDir, descriptor, ignored -> { });
+        final UnsupportedOperationException error = assertThrows(
+            UnsupportedOperationException.class,
+            legacy::localization
+        );
+        assertEquals("localization service is not available", error.getMessage());
+        final UnsupportedOperationException taskError = assertThrows(
+            UnsupportedOperationException.class,
+            legacy::tasks
+        );
+        assertEquals("task scheduler is not available", taskError.getMessage());
+        final UnsupportedOperationException storageError = assertThrows(
+            UnsupportedOperationException.class,
+            legacy::storage
+        );
+        assertEquals("storage service is not available", storageError.getMessage());
+        final UnsupportedOperationException userFileError = assertThrows(
+            UnsupportedOperationException.class,
+            legacy::userFiles
+        );
+        assertEquals(
+            "user file access service is not available",
+            userFileError.getMessage()
+        );
+    }
+
+    @Test
+    void contextAutomaticallyWiresLocalizationAndExplicitRawFallback(@TempDir Path dataDir) throws InterruptedException {
+        final PluginDescriptor descriptor = descriptorWithAllM8Permissions();
+        final RuntimeScheduler runtimeScheduler = scheduler();
+        final RecordingToolbarVisibilitySink localizedSink = new RecordingToolbarVisibilitySink(2);
+        final RuntimeMainToolbarRegistry localizedMain = new RuntimeMainToolbarRegistry(
+            (permissionId, operation) -> { },
+            runtimeScheduler,
+            PLUGIN_ID,
+            localizedSink
+        );
+        final RuntimePaletteToolbarRegistry localizedPalette = new RuntimePaletteToolbarRegistry(
+            (permissionId, operation) -> { },
+            runtimeScheduler,
+            PLUGIN_ID,
+            localizedSink
+        );
+        final PluginLocalization localization = localization(Map.of(
+            "main.label", "Localized main",
+            "palette.label", "Localized palette"
+        ));
+        final CorePluginContext localized = new CorePluginContext(
+            dependencies(dataDir, descriptor, ignored -> { }, runtimeScheduler, localizedMain, localizedPalette),
+            RuntimeHostAdapters.safeMode(),
+            localization
+        );
+
+        localized.mainToolbar().contribute(mainToolbarContribution("main", "main.label", "icon"));
+        localized.paletteToolbar().contribute(paletteToolbarContribution("palette", "palette.label", "icon"));
+
+        assertTrue(localizedSink.updated.await(1, TimeUnit.SECONDS));
+        assertEquals(List.of("Localized main"), localizedSink.mainLabels);
+        assertEquals(List.of("Localized palette"), localizedSink.paletteLabels);
+        assertDoesNotThrow(() -> localizedMain.bindLocalization(localization));
+        assertDoesNotThrow(() -> localizedPalette.bindLocalization(localization));
+
+        final RuntimeScheduler rawScheduler = scheduler();
+        final RecordingToolbarVisibilitySink rawSink = new RecordingToolbarVisibilitySink(2);
+        final RuntimeMainToolbarRegistry rawMain = new RuntimeMainToolbarRegistry(
+            (permissionId, operation) -> { },
+            rawScheduler,
+            PLUGIN_ID,
+            rawSink
+        );
+        final RuntimePaletteToolbarRegistry rawPalette = new RuntimePaletteToolbarRegistry(
+            (permissionId, operation) -> { },
+            rawScheduler,
+            PLUGIN_ID,
+            rawSink
+        );
+        final CorePluginContext raw = new CorePluginContext(
+            dependencies(dataDir, descriptor, ignored -> { }, rawScheduler, rawMain, rawPalette),
+            RuntimeHostAdapters.safeMode()
+        );
+
+        raw.mainToolbar().contribute(mainToolbarContribution("main", "main.label", "icon"));
+        raw.paletteToolbar().contribute(paletteToolbarContribution("palette", "palette.label", "icon"));
+
+        assertTrue(rawSink.updated.await(1, TimeUnit.SECONDS));
+        assertEquals(List.of("main.label"), rawSink.mainLabels);
+        assertEquals(List.of("palette.label"), rawSink.paletteLabels);
+        assertThrows(IllegalStateException.class, () -> rawMain.bindLocalization(localization));
+        assertThrows(IllegalStateException.class, () -> rawPalette.bindLocalization(localization));
+    }
+
+    @Test
+    void contextUiHostLocalizesToolbarContributionsForAdaptersAndFallback(@TempDir Path dataDir) {
+        final PluginDescriptor descriptor = descriptorWithAllM8Permissions();
+        final PluginLocalization localization = localization(Map.of(
+            "main.label", "Localized main",
+            "palette.label", "Localized palette"
+        ));
+        final RecordingToolbarHost host = new RecordingToolbarHost();
+        final CorePluginContext adapterContext = new CorePluginContext(
+            dependencies(dataDir, descriptor, ignored -> { }),
+            toolbarAdapters(host),
+            localization
+        );
+
+        adapterContext.uiHost().contributeMainToolbar(
+            mainToolbarContribution("adapter-main", "main.label", "icon")
+        );
+        adapterContext.uiHost().contributePaletteToolbar(
+            paletteToolbarContribution("adapter-palette", "palette.label", "icon")
+        );
+
+        assertEquals("Localized main", host.mainContribution.labelKey());
+        assertEquals("Localized palette", host.paletteContribution.labelKey());
+
+        final CorePluginContext fallbackContext = new CorePluginContext(
+            dependencies(dataDir, descriptor, ignored -> { }),
+            RuntimeHostAdapters.safeMode(),
+            localization
+        );
+        fallbackContext.uiHost().contributeMainToolbar(
+            mainToolbarContribution("fallback-main", "main.label", "icon")
+        );
+        fallbackContext.uiHost().contributePaletteToolbar(
+            paletteToolbarContribution("fallback-palette", "palette.label", "icon")
+        );
+        final RuntimeUiHostCapabilityService fallback =
+            (RuntimeUiHostCapabilityService) fallbackContext.uiHost();
+
+        assertEquals("Localized main", fallback.mainToolbars().get(0).labelKey());
+        assertEquals("Localized palette", fallback.paletteToolbars().get(0).labelKey());
+    }
+
+    @Test
+    void contextUiHostPreservesRawToolbarLabelKeysWithoutLocalization(@TempDir Path dataDir) {
+        final PluginDescriptor descriptor = descriptorWithAllM8Permissions();
+        final RecordingToolbarHost host = new RecordingToolbarHost();
+        final CorePluginContext adapterContext = new CorePluginContext(
+            dependencies(dataDir, descriptor, ignored -> { }),
+            toolbarAdapters(host)
+        );
+
+        adapterContext.uiHost().contributeMainToolbar(
+            mainToolbarContribution("adapter-main", "main.label", "icon")
+        );
+        adapterContext.uiHost().contributePaletteToolbar(
+            paletteToolbarContribution("adapter-palette", "palette.label", "icon")
+        );
+
+        assertEquals("main.label", host.mainContribution.labelKey());
+        assertEquals("palette.label", host.paletteContribution.labelKey());
+
+        final CorePluginContext fallbackContext = new CorePluginContext(
+            dependencies(dataDir, descriptor, ignored -> { }),
+            RuntimeHostAdapters.safeMode()
+        );
+        fallbackContext.uiHost().contributeMainToolbar(
+            mainToolbarContribution("fallback-main", "main.label", "icon")
+        );
+        fallbackContext.uiHost().contributePaletteToolbar(
+            paletteToolbarContribution("fallback-palette", "palette.label", "icon")
+        );
+        final RuntimeUiHostCapabilityService fallback =
+            (RuntimeUiHostCapabilityService) fallbackContext.uiHost();
+
+        assertEquals("main.label", fallback.mainToolbars().get(0).labelKey());
+        assertEquals("palette.label", fallback.paletteToolbars().get(0).labelKey());
+    }
+
+    @Test
     void connectedReadAdaptersAreAvailableThroughProductionContextConstructor(@TempDir Path dataDir) {
         RuntimeHostAdapters adapters = adapters(new RecordingUiSurfaceHost());
         CorePluginContext context = context(
@@ -202,7 +427,35 @@ class CorePluginContextDescriptorPermissionsTest {
         Consumer<CubismFacadeAuditEvent> auditSink,
         RuntimeHostAdapters adapters
     ) {
-        return new CorePluginContext(new CorePluginContext.Dependencies(
+        return new CorePluginContext(dependencies(dataDir, descriptor, auditSink), adapters);
+    }
+
+    private static CorePluginContext context(
+        Path dataDir,
+        PluginDescriptor descriptor,
+        Consumer<CubismFacadeAuditEvent> auditSink,
+        RuntimeHostAdapters adapters,
+        PluginLocalization localization,
+        PluginTaskScheduler tasks,
+        PluginStorage storage,
+        UserFileAccessService userFiles
+    ) {
+        return new CorePluginContext(
+            dependencies(dataDir, descriptor, auditSink),
+            adapters,
+            localization,
+            tasks,
+            storage,
+            userFiles
+        );
+    }
+
+    private static CorePluginContext.Dependencies dependencies(
+        Path dataDir,
+        PluginDescriptor descriptor,
+        Consumer<CubismFacadeAuditEvent> auditSink
+    ) {
+        return new CorePluginContext.Dependencies(
             descriptor,
             logger(),
             paths(dataDir),
@@ -213,7 +466,49 @@ class CorePluginContextDescriptorPermissionsTest {
             noopHostSnapshotSource(),
             auditSink,
             CLOCK
-        ), adapters);
+        );
+    }
+
+    private static CorePluginContext.Dependencies dependencies(
+        Path dataDir,
+        PluginDescriptor descriptor,
+        Consumer<CubismFacadeAuditEvent> auditSink,
+        RuntimeScheduler runtimeScheduler,
+        MainToolbarRegistry mainToolbar,
+        PaletteToolbarRegistry paletteToolbar
+    ) {
+        final CorePluginContext.Dependencies defaults = dependencies(dataDir, descriptor, auditSink);
+        return new CorePluginContext.Dependencies(
+            defaults.descriptor(),
+            defaults.logger(),
+            defaults.paths(),
+            defaults.permissions(),
+            defaults.eventBus(),
+            defaults.actions(),
+            defaults.menus(),
+            mainToolbar,
+            paletteToolbar,
+            defaults.contextMenu(),
+            defaults.config(),
+            defaults.uiScheduler(),
+            runtimeScheduler,
+            defaults.diagnostics(),
+            defaults.disposableScope(),
+            defaults.hostSnapshotSource(),
+            defaults.m12ReadSnapshotSource(),
+            defaults.uiHostStateSource(),
+            defaults.cubismAuditSink(),
+            defaults.clock()
+        );
+    }
+
+    private static SidecarDispatcher availableSidecar() {
+        return (task, callback) -> {
+            callback.run();
+            return java.util.concurrent.CompletableFuture.completedFuture(
+                dev.turboism.core.runtime.sidecar.SidecarResult.success("")
+            );
+        };
     }
 
     private static RuntimeScheduler scheduler() {
@@ -221,9 +516,18 @@ class CorePluginContextDescriptorPermissionsTest {
         return new RuntimeScheduler(
             new DefaultWorkBudgetPolicy(),
             new PluginExecutorRegistry(1, 4, events::add, CLOCK),
-            SidecarDispatcher.noop(),
+            availableSidecar(),
             events::add
         );
+    }
+
+    private static PluginLocalization localization(final Map<String, String> catalog) {
+        return new PluginLocalization() {
+            @Override public Locale locale() { return Locale.ENGLISH; }
+            @Override public String text(final String key) { return catalog.getOrDefault(key, key); }
+            @Override public String format(final String key, final Object... arguments) { return text(key); }
+            @Override public boolean contains(final String key) { return catalog.containsKey(key); }
+        };
     }
 
     private static ActionRegistry.Action actionDefinition(String id, String label) {
@@ -381,6 +685,82 @@ class CorePluginContextDescriptorPermissionsTest {
             MainToolbarAdapterImpl.safeMode(),
             UiSurfaceAdapterImpl.connected(uiSurfaceHost)
         );
+    }
+
+    private static RuntimeHostAdapters toolbarAdapters(final RecordingToolbarHost host) {
+        return new RuntimeHostAdapters(
+            ThemeStatusAdapterImpl.safeMode(),
+            RenderStatusAdapter.Impl.safeMode(),
+            ProjectWorkspaceAdapter.Impl.safeMode(),
+            ClipMaskReadAdapter.Impl.safeMode(),
+            StatusToolbarAdapterImpl.connected(host),
+            MainToolbarAdapterImpl.connected(host),
+            UiSurfaceAdapterImpl.safeMode()
+        );
+    }
+
+    private static final class RecordingToolbarVisibilitySink implements ToolbarVisibilitySink {
+        private final CountDownLatch updated;
+        private final List<String> mainLabels = new CopyOnWriteArrayList<>();
+        private final List<String> paletteLabels = new CopyOnWriteArrayList<>();
+
+        private RecordingToolbarVisibilitySink(final int expectedUpdates) {
+            updated = new CountDownLatch(expectedUpdates);
+        }
+
+        @Override
+        public void onMainToolbarVisibilityChanged(
+            final String pluginId,
+            final List<MainToolbarRegistry.MainToolbarContribution> contributions
+        ) {
+            contributions.stream()
+                .map(MainToolbarRegistry.MainToolbarContribution::labelKey)
+                .forEach(mainLabels::add);
+            updated.countDown();
+        }
+
+        @Override
+        public void onPaletteToolbarVisibilityChanged(
+            final String pluginId,
+            final List<PaletteToolbarRegistry.PaletteToolbarContribution> contributions
+        ) {
+            contributions.stream()
+                .map(PaletteToolbarRegistry.PaletteToolbarContribution::labelKey)
+                .forEach(paletteLabels::add);
+            updated.countDown();
+        }
+    }
+
+    private static final class RecordingToolbarHost
+        implements MainToolbarAdapter.HostOperations, StatusToolbarAdapter.HostOperations {
+
+        private MainToolbarRegistry.MainToolbarContribution mainContribution;
+        private PaletteToolbarRegistry.PaletteToolbarContribution paletteContribution;
+
+        @Override public String hostVersion() { return "5.3.2"; }
+        @Override public boolean supports(final MainToolbarAdapter.Capability capability) { return true; }
+        @Override public boolean supports(final StatusToolbarAdapter.Capability capability) { return true; }
+
+        @Override
+        public Registration contributeMainToolbar(
+            final MainToolbarRegistry.MainToolbarContribution contribution
+        ) {
+            mainContribution = contribution;
+            return () -> mainContribution = null;
+        }
+
+        @Override
+        public Registration notifyStatus(final dev.turboism.sdk.ui.StatusNotification notification) {
+            return () -> { };
+        }
+
+        @Override
+        public Registration contributePaletteToolbar(
+            final PaletteToolbarRegistry.PaletteToolbarContribution contribution
+        ) {
+            paletteContribution = contribution;
+            return () -> paletteContribution = null;
+        }
     }
 
     private static final class RecordingUiSurfaceHost implements UiSurfaceAdapter.HostOperations {

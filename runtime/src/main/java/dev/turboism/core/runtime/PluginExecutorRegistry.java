@@ -9,8 +9,7 @@ import java.util.function.Consumer;
 
 public final class PluginExecutorRegistry {
 
-    private final int workerCount;
-    private final int queueCapacity;
+    private final PluginCallbackExecutorConfiguration configuration;
     private final Consumer<CallbackBudgetEvent> diagnosticSink;
     private final Clock clock;
     private final ConcurrentMap<String, PluginCallbackExecutor> executors = new ConcurrentHashMap<>();
@@ -21,8 +20,22 @@ public final class PluginExecutorRegistry {
         Consumer<CallbackBudgetEvent> diagnosticSink,
         Clock clock
     ) {
-        this.workerCount = requirePositive(workerCount, "workerCount");
-        this.queueCapacity = requirePositive(queueCapacity, "queueCapacity");
+        this(500L, workerCount, queueCapacity, diagnosticSink, clock);
+    }
+
+    public PluginExecutorRegistry(
+        long timeoutMillis,
+        int workerCount,
+        int queueCapacity,
+        Consumer<CallbackBudgetEvent> diagnosticSink,
+        Clock clock
+    ) {
+        this.configuration = PluginCallbackExecutorConfiguration.of(
+            timeoutMillis,
+            requirePositive(workerCount, "workerCount"),
+            requirePositive(queueCapacity, "queueCapacity"),
+            50.0f
+        );
         this.diagnosticSink = Objects.requireNonNull(diagnosticSink, "diagnosticSink");
         this.clock = Objects.requireNonNull(clock, "clock");
     }
@@ -30,6 +43,14 @@ public final class PluginExecutorRegistry {
     public PluginCallbackExecutor get(String pluginId) {
         String id = requireText(pluginId, "pluginId");
         return executors.computeIfAbsent(id, this::createExecutor);
+    }
+
+    public CallbackSubmission submitCompletion(
+        String pluginId,
+        PluginTask task,
+        Runnable callback
+    ) {
+        return get(pluginId).submitCompletion(task, callback);
     }
 
     public void shutdown(String pluginId) {
@@ -49,7 +70,12 @@ public final class PluginExecutorRegistry {
     }
 
     private PluginCallbackExecutor createExecutor(String pluginId) {
-        return new PluginCallbackExecutor(pluginId, workerCount, queueCapacity, diagnosticSink, clock);
+        return new PluginCallbackExecutor(
+            pluginId,
+            configuration,
+            diagnosticSink,
+            clock
+        );
     }
 
     private static int requirePositive(int value, String name) {

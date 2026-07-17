@@ -17,19 +17,37 @@ public final class PreviewAgentSmokeMain {
         CEAppCtrl.touch();
         final Path home = Path.of(System.getProperty("turboism.home"));
         final Path log = home.resolve("logs/turboism.log");
+        final Path state = home.resolve("state");
         final Instant deadline = Instant.now().plus(Duration.ofSeconds(20));
+        boolean loadObserved = false;
+        boolean shutdownCompleted = false;
         while (Instant.now().isBefore(deadline)) {
-            if (Files.isRegularFile(log)) {
-                final String content = Files.readString(log);
-                if (content.contains("Plugin load complete: loaded=1")) {
-                    return;
-                }
-                if (content.contains("Turboism preview startup failed")) {
-                    throw new IllegalStateException("Agent startup failed:\n" + content);
-                }
+            final String content = Files.isRegularFile(log)
+                ? Files.readString(log)
+                : "";
+            if (content.contains("Turboism preview startup failed")) {
+                throw new IllegalStateException("Agent startup failed:\n" + content);
+            }
+            loadObserved |= content.contains("Plugin load complete: loaded=1");
+            if (loadObserved && !shutdownCompleted) {
+                shutdownCompleted = TurboismAgent.shutdownForTesting();
+            }
+            if (shutdownCompleted
+                && content.contains("Plugin unloaded with state UNLOADED")
+                && finalReportsExist(state)) {
+                return;
             }
             Thread.sleep(100L);
         }
-        throw new IllegalStateException("Timed out waiting for the Turboism agent plugin load log at " + log);
+        throw new IllegalStateException(
+            "Timed out waiting for explicit Turboism shutdown and final reports at " + home
+        );
+    }
+
+    private static boolean finalReportsExist(final Path state) {
+        return Files.isRegularFile(state.resolve("preview-runtime-report.json"))
+            && Files.isRegularFile(state.resolve("plugin-load-report.json"))
+            && Files.isRegularFile(state.resolve("capability-report.json"))
+            && Files.isRegularFile(state.resolve("i18n-report.json"));
     }
 }

@@ -9,9 +9,14 @@ import dev.turboism.sdk.cubism.service.query.SelectionQueryService;
 import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
 import dev.turboism.sdk.event.EventBus;
+import dev.turboism.sdk.i18n.PluginLocalization;
+import dev.turboism.sdk.hostread.AsyncHostReadService;
 import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.permission.PluginPermission;
+import dev.turboism.sdk.storage.PluginStorage;
+import dev.turboism.sdk.task.PluginTaskScheduler;
 import dev.turboism.sdk.ui.UiHostCapabilityService;
+import dev.turboism.sdk.ui.UserFileAccessService;
 import dev.turboism.sdk.ui.UiScheduler;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
@@ -29,6 +34,26 @@ public interface PluginContext {
     PluginLogger logger();
 
     PluginPaths paths();
+
+    default PluginLocalization localization() {
+        throw new UnsupportedOperationException("localization service is not available");
+    }
+
+    default PluginTaskScheduler tasks() {
+        throw new UnsupportedOperationException("task scheduler is not available");
+    }
+
+    default AsyncHostReadService hostReads() {
+        throw new UnsupportedOperationException("async host read service is not available");
+    }
+
+    default PluginStorage storage() {
+        throw new UnsupportedOperationException("storage service is not available");
+    }
+
+    default UserFileAccessService userFiles() {
+        throw new UnsupportedOperationException("user file access service is not available");
+    }
 
     CubismFacade cubism();
 

@@ -97,6 +97,12 @@ final class DynamicRuntimeHostAdapters {
                 public AdapterResult<java.util.Optional<dev.turboism.sdk.cubism.WorkspaceSnapshot>> workspace() {
                     return call(adapters -> adapters.projectWorkspace().workspace());
                 }
+
+                @Override
+                public AdapterResult<dev.turboism.sdk.hostread.ProjectWorkspaceSnapshot>
+                    projectWorkspaceSnapshot() {
+                    return call(adapters -> adapters.projectWorkspace().projectWorkspaceSnapshot());
+                }
             },
             () -> call(adapters -> adapters.clipMaskRead().clipMasks()),
             new StatusToolbarAdapter() {

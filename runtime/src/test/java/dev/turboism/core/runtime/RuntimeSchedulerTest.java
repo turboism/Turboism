@@ -6,6 +6,7 @@ import dev.turboism.core.runtime.sidecar.SidecarResult;
 import org.junit.jupiter.api.Test;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
@@ -18,6 +19,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -89,6 +91,118 @@ class RuntimeSchedulerTest {
         assertNotNull(sidecar.callback.get());
         assertTrue(events.isEmpty());
         scheduler.shutdown();
+    }
+
+    @Test
+    void heavyTaskUsesAvailableSidecarAndNeverEntersPluginExecutor() {
+        final List<CallbackBudgetEvent> events = new CopyOnWriteArrayList<>();
+        final RecordingSidecarDispatcher sidecar = new RecordingSidecarDispatcher();
+        final RuntimeScheduler scheduler = scheduler(events, sidecar);
+        final AtomicInteger executions = new AtomicInteger();
+        final PluginTask heavy = task("config.write", "none");
+
+        scheduler.dispatch(heavy, executions::incrementAndGet);
+
+        assertSame(heavy, sidecar.task.get());
+        assertEquals(0, executions.get());
+        assertTrue(events.isEmpty());
+        scheduler.shutdown();
+    }
+
+    @Test
+    void heavyTaskIsPolicyRejectedWhenSidecarIsUnavailable() {
+        final List<CallbackBudgetEvent> events = new CopyOnWriteArrayList<>();
+        final RuntimeScheduler scheduler = scheduler(events, SidecarDispatcher.noop());
+        final AtomicInteger executions = new AtomicInteger();
+
+        scheduler.dispatch(task("config.write", "none"), executions::incrementAndGet);
+
+        assertEquals(0, executions.get());
+        assertEquals(CallbackBudgetEvent.Phase.REJECTED, events.get(0).phase());
+        scheduler.shutdown();
+    }
+
+    @Test
+    void globalTimerLimitRejectsOverflowWithoutBlockingAndReleasesPermitsExactlyOnce() {
+        final List<CallbackBudgetEvent> events = new CopyOnWriteArrayList<>();
+        final RuntimeScheduler scheduler = scheduler(events, new RecordingSidecarDispatcher());
+        final java.util.ArrayList<RuntimeTimerSubmission> timers = new java.util.ArrayList<>();
+        for (int index = 0; index < 1024; index++) {
+            final RuntimeTimerSubmission submission = scheduler.schedule(Duration.ofHours(1), () -> { });
+            assertTrue(submission.accepted(), "timer " + index + " should be accepted");
+            timers.add(submission);
+        }
+
+        final long startedAt = System.nanoTime();
+        assertFalse(scheduler.schedule(Duration.ofHours(1), () -> { }).accepted());
+        assertTrue(
+            TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedAt) < 100,
+            "timer admission must not block"
+        );
+        assertTrue(timers.get(0).handle().cancel());
+        assertFalse(timers.get(0).handle().cancel());
+        assertTrue(scheduler.schedule(Duration.ofHours(1), () -> { }).accepted());
+        scheduler.shutdown();
+    }
+
+    @Test
+    void executedTimerReleasesPermitExactlyOnce() throws Exception {
+        final List<CallbackBudgetEvent> events = new CopyOnWriteArrayList<>();
+        final RuntimeScheduler scheduler = scheduler(events, new RecordingSidecarDispatcher());
+        final CountDownLatch executed = new CountDownLatch(1);
+        assertTrue(scheduler.schedule(Duration.ZERO, executed::countDown).accepted());
+        assertTrue(executed.await(1, TimeUnit.SECONDS));
+        for (int index = 0; index < 1024; index++) {
+            assertTrue(scheduler.schedule(Duration.ofHours(1), () -> { }).accepted());
+        }
+        assertFalse(scheduler.schedule(Duration.ofHours(1), () -> { }).accepted());
+        scheduler.shutdown();
+    }
+
+    @Test
+    void shutdownReleasesEveryActiveTimerPermitWithoutUnderflow() {
+        final List<CallbackBudgetEvent> events = new CopyOnWriteArrayList<>();
+        final RuntimeScheduler scheduler = scheduler(events, new RecordingSidecarDispatcher());
+        final java.util.ArrayList<RuntimeTimerSubmission> timers = new java.util.ArrayList<>();
+        for (int index = 0; index < 1024; index++) {
+            final RuntimeTimerSubmission submission = scheduler.schedule(Duration.ofHours(1), () -> { });
+            assertTrue(submission.accepted());
+            timers.add(submission);
+        }
+        assertEquals(1024, scheduler.activeTimerCount());
+        assertEquals(0, scheduler.availableTimerPermits());
+
+        scheduler.shutdown();
+
+        assertEquals(0, scheduler.activeTimerCount());
+        assertEquals(1024, scheduler.availableTimerPermits());
+        assertFalse(timers.get(0).handle().cancel());
+        assertEquals(1024, scheduler.availableTimerPermits());
+    }
+
+    @Test
+    void executedCancelAndShutdownRaceDoesNotUnderflowTimerPermits() throws Exception {
+        final List<CallbackBudgetEvent> events = new CopyOnWriteArrayList<>();
+        final RuntimeScheduler scheduler = scheduler(events, new RecordingSidecarDispatcher());
+        final CountDownLatch started = new CountDownLatch(1);
+        final CountDownLatch release = new CountDownLatch(1);
+        final RuntimeTimerSubmission timer = scheduler.schedule(Duration.ZERO, () -> {
+            started.countDown();
+            await(release);
+        });
+        assertTrue(timer.accepted());
+        assertTrue(started.await(1, TimeUnit.SECONDS));
+
+        final Thread shutdown = new Thread(scheduler::shutdown, "timer-shutdown-race");
+        shutdown.start();
+        timer.handle().cancel();
+        release.countDown();
+        shutdown.join(1_000);
+
+        assertFalse(shutdown.isAlive());
+        assertEquals(0, scheduler.activeTimerCount());
+        assertEquals(1024, scheduler.availableTimerPermits());
+        assertFalse(timer.handle().cancel());
     }
 
     @Test

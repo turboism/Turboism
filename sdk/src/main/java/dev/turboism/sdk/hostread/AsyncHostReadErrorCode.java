@@ -1,0 +1,14 @@
+package dev.turboism.sdk.hostread;
+
+public enum AsyncHostReadErrorCode {
+    CAPABILITY_UNAVAILABLE,
+    PERMISSION_DENIED,
+    HOST_VERSION_UNSUPPORTED,
+    MAPPING_NOT_VERIFIED,
+    VALIDATION_FAILURE,
+    TIMEOUT,
+    CANCELED,
+    BACKPRESSURE,
+    RUNTIME_UNAVAILABLE,
+    RUNTIME_FAILURE
+}

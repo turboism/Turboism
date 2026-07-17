@@ -22,6 +22,8 @@ import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
 import dev.turboism.sdk.config.PluginConfigRegistry;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
 import dev.turboism.sdk.event.EventBus;
+import dev.turboism.sdk.hostread.AsyncHostReadService;
+import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.sdk.plugin.DisposableScope;
@@ -29,8 +31,11 @@ import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.PluginPaths;
+import dev.turboism.sdk.storage.PluginStorage;
+import dev.turboism.sdk.task.PluginTaskScheduler;
 import dev.turboism.sdk.ui.UiHostCapabilityService;
 import dev.turboism.sdk.ui.UiScheduler;
+import dev.turboism.sdk.ui.UserFileAccessService;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
@@ -54,9 +59,14 @@ public final class CorePluginContext implements PluginContext {
     private final ContextMenuRegistry contextMenuRegistry;
     private final PluginConfigRegistry pluginConfigRegistry;
     private final UiHostCapabilityService uiHostCapabilityService;
+    private final PluginLocalization localization;
+    private final PluginTaskScheduler taskScheduler;
+    private final PluginStorage pluginStorage;
+    private final UserFileAccessService userFileAccessService;
+    private final AsyncHostReadService asyncHostReadService;
 
     public CorePluginContext(final Dependencies dependencies) {
-        this(dependencies, RuntimeHostAdapters.safeMode());
+        this(dependencies, RuntimeHostAdapters.safeMode(), null, null, null, null, null);
     }
 
     /** Production composition seam for a verified, fail-closed host-session view. */
@@ -64,24 +74,195 @@ public final class CorePluginContext implements PluginContext {
         final Dependencies dependencies,
         final RuntimeHostAdapterAccess hostAccess
     ) {
-        this(dependencies, Objects.requireNonNull(hostAccess, "hostAccess").adapters());
+        this(
+            dependencies,
+            Objects.requireNonNull(hostAccess, "hostAccess").adapters(),
+            null,
+            null,
+            null,
+            null,
+            null
+        );
+    }
+
+    public CorePluginContext(
+        final Dependencies dependencies,
+        final RuntimeHostAdapterAccess hostAccess,
+        final PluginLocalization localization
+    ) {
+        this(dependencies, hostAccess, localization, null, null, null, null);
+    }
+
+    public CorePluginContext(
+        final Dependencies dependencies,
+        final RuntimeHostAdapterAccess hostAccess,
+        final PluginLocalization localization,
+        final PluginTaskScheduler taskScheduler
+    ) {
+        this(dependencies, hostAccess, localization, taskScheduler, null, null, null);
+    }
+
+    public CorePluginContext(
+        final Dependencies dependencies,
+        final RuntimeHostAdapterAccess hostAccess,
+        final PluginLocalization localization,
+        final PluginTaskScheduler taskScheduler,
+        final PluginStorage pluginStorage
+    ) {
+        this(
+            dependencies,
+            hostAccess,
+            localization,
+            taskScheduler,
+            pluginStorage,
+            null,
+            null
+        );
+    }
+
+    public CorePluginContext(
+        final Dependencies dependencies,
+        final RuntimeHostAdapterAccess hostAccess,
+        final PluginLocalization localization,
+        final PluginTaskScheduler taskScheduler,
+        final PluginStorage pluginStorage,
+        final UserFileAccessService userFileAccessService
+    ) {
+        this(
+            dependencies,
+            hostAccess,
+            localization,
+            taskScheduler,
+            pluginStorage,
+            userFileAccessService,
+            null
+        );
+    }
+
+    public CorePluginContext(
+        final Dependencies dependencies,
+        final RuntimeHostAdapterAccess hostAccess,
+        final PluginLocalization localization,
+        final PluginTaskScheduler taskScheduler,
+        final PluginStorage pluginStorage,
+        final UserFileAccessService userFileAccessService,
+        final AsyncHostReadService asyncHostReadService
+    ) {
+        this(
+            dependencies,
+            Objects.requireNonNull(hostAccess, "hostAccess").adapters(),
+            Objects.requireNonNull(localization, "localization"),
+            Objects.requireNonNull(taskScheduler, "taskScheduler"),
+            Objects.requireNonNull(pluginStorage, "pluginStorage"),
+            Objects.requireNonNull(userFileAccessService, "userFileAccessService"),
+            Objects.requireNonNull(asyncHostReadService, "asyncHostReadService")
+        );
     }
 
     CorePluginContext(
         final Dependencies dependencies,
         final RuntimeHostAdapters hostAdapters
     ) {
-        this(dependencies, new DefaultCubismServicesFactory(hostAdapters), hostAdapters);
+        this(dependencies, hostAdapters, null, null, null, null, null);
+    }
+
+    CorePluginContext(
+        final Dependencies dependencies,
+        final RuntimeHostAdapters hostAdapters,
+        final PluginLocalization localization
+    ) {
+        this(dependencies, hostAdapters, localization, null, null, null, null);
+    }
+
+    CorePluginContext(
+        final Dependencies dependencies,
+        final RuntimeHostAdapters hostAdapters,
+        final PluginLocalization localization,
+        final PluginTaskScheduler taskScheduler
+    ) {
+        this(dependencies, hostAdapters, localization, taskScheduler, null, null, null);
+    }
+
+    CorePluginContext(
+        final Dependencies dependencies,
+        final RuntimeHostAdapters hostAdapters,
+        final PluginLocalization localization,
+        final PluginTaskScheduler taskScheduler,
+        final PluginStorage pluginStorage
+    ) {
+        this(
+            dependencies,
+            hostAdapters,
+            localization,
+            taskScheduler,
+            pluginStorage,
+            null,
+            null
+        );
+    }
+
+    CorePluginContext(
+        final Dependencies dependencies,
+        final RuntimeHostAdapters hostAdapters,
+        final PluginLocalization localization,
+        final PluginTaskScheduler taskScheduler,
+        final PluginStorage pluginStorage,
+        final UserFileAccessService userFileAccessService
+    ) {
+        this(
+            dependencies,
+            hostAdapters,
+            localization,
+            taskScheduler,
+            pluginStorage,
+            userFileAccessService,
+            null
+        );
+    }
+
+    CorePluginContext(
+        final Dependencies dependencies,
+        final RuntimeHostAdapters hostAdapters,
+        final PluginLocalization localization,
+        final PluginTaskScheduler taskScheduler,
+        final PluginStorage pluginStorage,
+        final UserFileAccessService userFileAccessService,
+        final AsyncHostReadService asyncHostReadService
+    ) {
+        this(
+            dependencies,
+            new DefaultCubismServicesFactory(hostAdapters),
+            hostAdapters,
+            localization,
+            taskScheduler,
+            pluginStorage,
+            userFileAccessService,
+            asyncHostReadService
+        );
     }
 
     CorePluginContext(final Dependencies dependencies, final CubismServicesFactory cubismServicesFactory) {
-        this(dependencies, cubismServicesFactory, RuntimeHostAdapters.safeMode());
+        this(
+            dependencies,
+            cubismServicesFactory,
+            RuntimeHostAdapters.safeMode(),
+            null,
+            null,
+            null,
+            null,
+            null
+        );
     }
 
     private CorePluginContext(
         final Dependencies dependencies,
         final CubismServicesFactory cubismServicesFactory,
-        final RuntimeHostAdapters hostAdapters
+        final RuntimeHostAdapters hostAdapters,
+        final PluginLocalization localization,
+        final PluginTaskScheduler taskScheduler,
+        final PluginStorage pluginStorage,
+        final UserFileAccessService userFileAccessService,
+        final AsyncHostReadService asyncHostReadService
     ) {
         this.dependencies = Objects.requireNonNull(dependencies, "dependencies");
         final RuntimeHostAdapters adapters = Objects.requireNonNull(hostAdapters, "hostAdapters");
@@ -91,6 +272,12 @@ public final class CorePluginContext implements PluginContext {
         this.paletteToolbarRegistry = dependencies.paletteToolbar();
         this.contextMenuRegistry = dependencies.contextMenu();
         this.pluginConfigRegistry = dependencies.config();
+        this.localization = localization;
+        bindContributionLocalization(this.mainToolbarRegistry, this.paletteToolbarRegistry, localization);
+        this.taskScheduler = taskScheduler;
+        this.pluginStorage = pluginStorage;
+        this.userFileAccessService = userFileAccessService;
+        this.asyncHostReadService = asyncHostReadService;
         this.uiHostCapabilityService = new RuntimeUiHostCapabilityService(
             PermissionChecker.from(new CubismPermissionGate(
                 this.dependencies.descriptor().id(),
@@ -103,8 +290,30 @@ public final class CorePluginContext implements PluginContext {
             this.dependencies.disposableScope(),
             adapters.statusToolbar(),
             adapters.mainToolbar(),
-            adapters.uiSurface()
+            adapters.uiSurface(),
+            localization
         );
+    }
+
+    private static void bindContributionLocalization(
+        final MainToolbarRegistry mainToolbar,
+        final PaletteToolbarRegistry paletteToolbar,
+        final PluginLocalization localization
+    ) {
+        if (mainToolbar instanceof RuntimeMainToolbarRegistry runtimeMainToolbar) {
+            if (localization == null) {
+                runtimeMainToolbar.lockWithoutLocalization();
+            } else {
+                runtimeMainToolbar.bindLocalization(localization);
+            }
+        }
+        if (paletteToolbar instanceof RuntimePaletteToolbarRegistry runtimePaletteToolbar) {
+            if (localization == null) {
+                runtimePaletteToolbar.lockWithoutLocalization();
+            } else {
+                runtimePaletteToolbar.bindLocalization(localization);
+            }
+        }
     }
 
     @Override
@@ -120,6 +329,35 @@ public final class CorePluginContext implements PluginContext {
     @Override
     public PluginPaths paths() {
         return dependencies.paths();
+    }
+
+    @Override
+    public PluginLocalization localization() {
+        return localization == null ? PluginContext.super.localization() : localization;
+    }
+
+    @Override
+    public PluginTaskScheduler tasks() {
+        return taskScheduler == null ? PluginContext.super.tasks() : taskScheduler;
+    }
+
+    @Override
+    public AsyncHostReadService hostReads() {
+        return asyncHostReadService == null
+            ? PluginContext.super.hostReads()
+            : asyncHostReadService;
+    }
+
+    @Override
+    public PluginStorage storage() {
+        return pluginStorage == null ? PluginContext.super.storage() : pluginStorage;
+    }
+
+    @Override
+    public UserFileAccessService userFiles() {
+        return userFileAccessService == null
+            ? PluginContext.super.userFiles()
+            : userFileAccessService;
     }
 
     @Override
@@ -393,6 +631,31 @@ public final class CorePluginContext implements PluginContext {
             ContextMenuRegistry contextMenu,
             PluginConfigRegistry config
         ) {
+        }
+
+        public Dependencies withConfig(final PluginConfigRegistry replacement) {
+            return new Dependencies(
+                descriptor,
+                logger,
+                paths,
+                permissions,
+                eventBus,
+                actions,
+                menus,
+                mainToolbar,
+                paletteToolbar,
+                contextMenu,
+                Objects.requireNonNull(replacement, "replacement"),
+                uiScheduler,
+                runtimeScheduler,
+                diagnostics,
+                disposableScope,
+                hostSnapshotSource,
+                m12ReadSnapshotSource,
+                uiHostStateSource,
+                cubismAuditSink,
+                clock
+            );
         }
 
         public Dependencies {
