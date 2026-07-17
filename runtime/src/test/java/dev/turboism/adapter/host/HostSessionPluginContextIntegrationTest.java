@@ -126,7 +126,8 @@ class HostSessionPluginContextIntegrationTest {
             assertEquals(0, clipOperations.get());
             assertTrue(auditEvents.stream().anyMatch(event ->
                 event.permissionId().equals("turboism.cubism.model.read")
-                    && event.methodName().equals("activeModel")
+                    && event.operationId().equals("cubismRead.clipMasks")
+                    && event.capabilityId().equals("cubism.clipmask.read")
             ));
         } finally {
             session.close();
