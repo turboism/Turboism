@@ -81,7 +81,9 @@ class LocalPluginRuntimeIntegrationTest {
                 failuresByCode.get("DEPENDENCY_LOAD_FAILED").pluginId()
             );
             assertTrue(report.dependencyCycles().isEmpty());
-            assertTrue(Files.readString(home.resolve("logs/turboism.log")).contains("Loaded plugin Project Inspector"));
+            final String runtimeLog = Files.readString(home.resolve("logs/turboism.log"));
+            assertTrue(runtimeLog.contains("Loaded plugin Project Inspector"));
+            assertTrue(runtimeLog.contains("Localization active locale="));
         } finally {
             runtime.close();
             hostIngress.close();

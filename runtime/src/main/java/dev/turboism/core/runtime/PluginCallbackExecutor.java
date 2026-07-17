@@ -11,12 +11,14 @@ import io.github.resilience4j.timelimiter.TimeLimiter;
 import io.github.resilience4j.timelimiter.TimeLimiterConfig;
 import java.time.Clock;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
@@ -31,6 +33,7 @@ public final class PluginCallbackExecutor {
     private final TimeLimiter timeLimiter;
     private final CircuitBreaker circuitBreaker;
     private final ScheduledExecutorService timeoutScheduler;
+    private final AtomicBoolean closed = new AtomicBoolean(false);
 
     public PluginCallbackExecutor(
         String pluginId,
@@ -87,20 +90,71 @@ public final class PluginCallbackExecutor {
     }
 
     public void execute(PluginTask task, Runnable callback) {
+        submit(task, callback);
+    }
+
+    public CallbackSubmission submit(PluginTask task, Runnable callback) {
+        return submitDecorated(task, callback, true);
+    }
+
+    public CallbackSubmission submitCompletion(PluginTask task, Runnable callback) {
+        return submitDecorated(task, callback, false);
+    }
+
+    private CallbackSubmission submitDecorated(
+        PluginTask task,
+        Runnable callback,
+        boolean circuitProtected
+    ) {
         Objects.requireNonNull(task, "task");
         Objects.requireNonNull(callback, "callback");
+        if (closed.get()) {
+            return rejected(CallbackExecutionStatus.RUNTIME_UNAVAILABLE, "RUNTIME_UNAVAILABLE");
+        }
         PluginCallback pluginCallback = new PluginCallback(task, callback);
-        Supplier<CompletionStage<Void>> decorated = decorate(pluginCallback);
+        Supplier<CompletionStage<Void>> decorated = circuitProtected
+            ? decorate(pluginCallback)
+            : decorateCompletion(pluginCallback);
+        final CompletableFuture<CallbackExecutionResult> completion = new CompletableFuture<>();
         try {
-            decorated.get().whenComplete((result, failure) -> emitFailure(pluginCallback, failure));
+            final CompletionStage<Void> stage = decorated.get();
+            final CompletableFuture<Void> future = stage.toCompletableFuture();
+            if (future.isCompletedExceptionally()) {
+                final CallbackExecutionResult immediate = immediateFailure(pluginCallback, future);
+                if (isAdmissionRejection(immediate.status())) {
+                    return rejected(immediate.status(), immediate.failureCode());
+                }
+                completion.complete(immediate);
+                return new CallbackSubmission(
+                    true,
+                    CallbackExecutionStatus.SUCCEEDED,
+                    completion
+                );
+            }
+            stage.whenComplete((result, failure) ->
+                completion.complete(executionResult(pluginCallback, failure))
+            );
+            return new CallbackSubmission(
+                true,
+                CallbackExecutionStatus.SUCCEEDED,
+                completion
+            );
         } catch (CallNotPermittedException exception) {
             emit(task, CallbackBudgetEvent.Phase.CIRCUIT_OPEN, CallbackBudgetEvent.Decision.REJECTED, CallbackBudgetEvent.Severity.WARNING);
+            return rejected(CallbackExecutionStatus.REJECTED_CIRCUIT_OPEN, "CIRCUIT_OPEN");
         } catch (BulkheadFullException exception) {
             reject(task);
+            return rejected(CallbackExecutionStatus.REJECTED_BACKPRESSURE, "BACKPRESSURE");
+        } catch (RuntimeException exception) {
+            emit(task, CallbackBudgetEvent.Phase.FAILED, CallbackBudgetEvent.Decision.LIGHTWEIGHT, CallbackBudgetEvent.Severity.ERROR);
+            return rejected(CallbackExecutionStatus.RUNTIME_UNAVAILABLE, "RUNTIME_UNAVAILABLE");
         }
     }
 
     public void shutdown() {
+        if (!closed.compareAndSet(false, true)) {
+            return;
+        }
         closeBulkhead();
         timeoutScheduler.shutdown();
         try {
@@ -127,30 +181,71 @@ public final class PluginCallbackExecutor {
     }
 
     private Supplier<CompletionStage<Void>> decorate(PluginCallback callback) {
-        Supplier<CompletionStage<Void>> bulkheaded = ThreadPoolBulkhead.decorateRunnable(bulkhead, callback);
-        Supplier<CompletionStage<Void>> timeLimited = TimeLimiter.decorateCompletionStage(
+        return CircuitBreaker.decorateCompletionStage(
+            circuitBreaker,
+            decorateCompletion(callback)
+        );
+    }
+
+    private Supplier<CompletionStage<Void>> decorateCompletion(PluginCallback callback) {
+        Supplier<CompletionStage<Void>> bulkheaded = ThreadPoolBulkhead.decorateRunnable(
+            bulkhead,
+            callback
+        );
+        return TimeLimiter.decorateCompletionStage(
             timeLimiter,
             timeoutScheduler,
             bulkheaded
         );
-        return CircuitBreaker.decorateCompletionStage(circuitBreaker, timeLimited);
     }
 
-    private void emitFailure(PluginCallback callback, Throwable failure) {
+    private CallbackExecutionResult immediateFailure(
+        PluginCallback callback,
+        CompletableFuture<Void> future
+    ) {
+        try {
+            future.join();
+            return CallbackExecutionResult.succeeded();
+        } catch (CompletionException exception) {
+            return executionResult(callback, exception);
+        }
+    }
+
+    private CallbackExecutionResult executionResult(PluginCallback callback, Throwable failure) {
         if (failure == null) {
-            return;
+            return CallbackExecutionResult.succeeded();
         }
         Throwable cause = unwrap(failure);
         if (cause instanceof TimeoutException) {
             callback.interruptRunningThread();
             emit(callback.task(), CallbackBudgetEvent.Phase.TIMED_OUT, CallbackBudgetEvent.Decision.LIGHTWEIGHT, CallbackBudgetEvent.Severity.WARNING);
-        } else if (cause instanceof CallNotPermittedException) {
-            emit(callback.task(), CallbackBudgetEvent.Phase.CIRCUIT_OPEN, CallbackBudgetEvent.Decision.REJECTED, CallbackBudgetEvent.Severity.WARNING);
-        } else if (cause instanceof BulkheadFullException) {
-            emit(callback.task(), CallbackBudgetEvent.Phase.REJECTED, CallbackBudgetEvent.Decision.REJECTED, CallbackBudgetEvent.Severity.WARNING);
-        } else {
-            emit(callback.task(), CallbackBudgetEvent.Phase.FAILED, CallbackBudgetEvent.Decision.LIGHTWEIGHT, CallbackBudgetEvent.Severity.ERROR);
+            return new CallbackExecutionResult(CallbackExecutionStatus.TIMED_OUT, "CALLBACK_TIMED_OUT");
         }
+        if (cause instanceof CallNotPermittedException) {
+            emit(callback.task(), CallbackBudgetEvent.Phase.CIRCUIT_OPEN, CallbackBudgetEvent.Decision.REJECTED, CallbackBudgetEvent.Severity.WARNING);
+            return new CallbackExecutionResult(CallbackExecutionStatus.REJECTED_CIRCUIT_OPEN, "CIRCUIT_OPEN");
+        }
+        if (cause instanceof BulkheadFullException) {
+            emit(callback.task(), CallbackBudgetEvent.Phase.REJECTED, CallbackBudgetEvent.Decision.REJECTED, CallbackBudgetEvent.Severity.WARNING);
+            return new CallbackExecutionResult(CallbackExecutionStatus.REJECTED_BACKPRESSURE, "BACKPRESSURE");
+        }
+        emit(callback.task(), CallbackBudgetEvent.Phase.FAILED, CallbackBudgetEvent.Decision.LIGHTWEIGHT, CallbackBudgetEvent.Severity.ERROR);
+        return new CallbackExecutionResult(CallbackExecutionStatus.FAILED, "CALLBACK_FAILED");
+    }
+
+    private static boolean isAdmissionRejection(final CallbackExecutionStatus status) {
+        return status == CallbackExecutionStatus.REJECTED_BACKPRESSURE
+            || status == CallbackExecutionStatus.REJECTED_CIRCUIT_OPEN
+            || status == CallbackExecutionStatus.POLICY_REJECTED
+            || status == CallbackExecutionStatus.RUNTIME_UNAVAILABLE;
+    }
+
+    private static CallbackSubmission rejected(
+        CallbackExecutionStatus status,
+        String failureCode
+    ) {
+        CallbackExecutionResult result = new CallbackExecutionResult(status, failureCode);
+        return new CallbackSubmission(false, status, CompletableFuture.completedFuture(result));
     }
 
     private void reject(PluginTask task) {
