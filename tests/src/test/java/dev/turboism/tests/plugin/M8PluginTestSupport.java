@@ -86,7 +86,12 @@ final class M8PluginTestSupport {
         RuntimeScheduler scheduler = new RuntimeScheduler(
             new DefaultWorkBudgetPolicy(),
             new PluginExecutorRegistry(1, 8, events::add, CLOCK),
-            SidecarDispatcher.noop(),
+            (task, callback) -> {
+                callback.run();
+                return java.util.concurrent.CompletableFuture.completedFuture(
+                    dev.turboism.core.runtime.sidecar.SidecarResult.success("")
+                );
+            },
             events::add
         );
         StartupReport report = new StartupReport();

@@ -34,6 +34,11 @@ public final class SidecarSupervisor implements SidecarDispatcher {
     }
 
     @Override
+    public boolean isAvailable() {
+        return health.get() != SidecarHealth.UNAVAILABLE && dispatcher.isAvailable();
+    }
+
+    @Override
     public CompletionStage<SidecarResult> dispatch(final PluginTask task, final Runnable callback) {
         Objects.requireNonNull(task, "task");
         Objects.requireNonNull(callback, "callback");

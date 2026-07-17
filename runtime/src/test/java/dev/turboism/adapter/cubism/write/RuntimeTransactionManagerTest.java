@@ -233,7 +233,7 @@ class RuntimeTransactionManagerTest {
         scheduler = new RuntimeScheduler(
             policy,
             new PluginExecutorRegistry(1, 8, events::add, CLOCK),
-            SidecarDispatcher.noop(),
+            availableSidecar(),
             events::add
         );
         return new RuntimeTransactionManager(
@@ -259,10 +259,19 @@ class RuntimeTransactionManagerTest {
         scheduler = new RuntimeScheduler(
             policy,
             new PluginExecutorRegistry(1, 8, events::add, CLOCK),
-            SidecarDispatcher.noop(),
+            availableSidecar(),
             events::add
         );
         return new RuntimeTransactionManager(adapter, permissionChecker, scheduler);
+    }
+
+    private static SidecarDispatcher availableSidecar() {
+        return (task, callback) -> {
+            callback.run();
+            return java.util.concurrent.CompletableFuture.completedFuture(
+                dev.turboism.core.runtime.sidecar.SidecarResult.success("")
+            );
+        };
     }
 
     private static FakeHostWriteAdapter adapterWithParameterValue(final double value) {
