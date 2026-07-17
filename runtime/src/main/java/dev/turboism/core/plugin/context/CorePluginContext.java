@@ -5,6 +5,7 @@ import dev.turboism.adapter.cubism.HostSnapshotSource;
 import dev.turboism.adapter.host.RuntimeHostAdapterAccess;
 import dev.turboism.adapter.cubism.service.read.M12ReadSnapshotSource;
 import dev.turboism.config.RuntimePluginConfigRegistry;
+import dev.turboism.failure.RuntimeFailureSink;
 import dev.turboism.core.action.RuntimeActionRegistry;
 import dev.turboism.core.diagnostics.StartupReport;
 import dev.turboism.core.event.RuntimeEventBus;
@@ -537,6 +538,39 @@ public final class CorePluginContext implements PluginContext {
                 uiHostStateSource,
                 cubismAuditSink,
                 clock,
+                RuntimeFailureSink.noop()
+            );
+        }
+
+        /** Internal composition overload for a preview-session failure collector. */
+        public Dependencies(
+            PluginDescriptor descriptor,
+            PluginLogger logger,
+            PluginPaths paths,
+            UiScheduler uiScheduler,
+            RuntimeScheduler runtimeScheduler,
+            DiagnosticReport diagnostics,
+            DisposableScope disposableScope,
+            HostSnapshotSource hostSnapshotSource,
+            M12ReadSnapshotSource m12ReadSnapshotSource,
+            UiHostStateSource uiHostStateSource,
+            Consumer<CubismFacadeAuditEvent> cubismAuditSink,
+            Clock clock,
+            RuntimeFailureSink failureSink
+        ) {
+            this(
+                descriptor,
+                logger,
+                paths,
+                uiScheduler,
+                runtimeScheduler,
+                diagnostics,
+                disposableScope,
+                hostSnapshotSource,
+                m12ReadSnapshotSource,
+                uiHostStateSource,
+                cubismAuditSink,
+                clock,
                 defaultServices(
                     descriptor,
                     permissionsFromDescriptor(descriptor),
@@ -544,7 +578,8 @@ public final class CorePluginContext implements PluginContext {
                     runtimeScheduler,
                     cubismAuditSink,
                     clock,
-                    logger
+                    logger,
+                    RuntimeFailureSink.require(failureSink)
                 )
             );
         }
@@ -604,7 +639,8 @@ public final class CorePluginContext implements PluginContext {
             RuntimeScheduler runtimeScheduler,
             Consumer<CubismFacadeAuditEvent> cubismAuditSink,
             Clock clock,
-            PluginLogger logger
+            PluginLogger logger,
+            RuntimeFailureSink failureSink
         ) {
             PermissionChecker checker = PermissionChecker.from(
                 new CubismPermissionGate(descriptor.id(), permissions, cubismAuditSink, clock)
@@ -618,7 +654,14 @@ public final class CorePluginContext implements PluginContext {
                 new RuntimeMainToolbarRegistry(checker, runtimeScheduler, descriptor.id()),
                 new RuntimePaletteToolbarRegistry(checker, runtimeScheduler, descriptor.id()),
                 new RuntimeContextMenuRegistry(checker, descriptor.id()),
-                new RuntimePluginConfigRegistry(checker, runtimeScheduler, paths.dataDir(), descriptor.id(), diagnosticSink)
+                new RuntimePluginConfigRegistry(
+                    checker,
+                    runtimeScheduler,
+                    paths.dataDir(),
+                    descriptor.id(),
+                    diagnosticSink,
+                    failureSink
+                )
             );
         }
 

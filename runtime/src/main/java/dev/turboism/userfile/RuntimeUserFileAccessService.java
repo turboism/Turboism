@@ -1,5 +1,8 @@
 package dev.turboism.userfile;
 
+import dev.turboism.failure.RuntimeFailure;
+import dev.turboism.failure.RuntimeFailureDomain;
+import dev.turboism.failure.RuntimeFailureSink;
 import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.ui.UserFileAccessService;
@@ -56,6 +59,7 @@ public final class RuntimeUserFileAccessService
     private final RuntimePluginTaskScheduler tasks;
     private final UserFileIoExecutor io;
     private final CleanupEvidenceCollector cleanupEvidence;
+    private final RuntimeFailureSink failureSink;
     private final Object lifecycleLock = new Object();
     private final Set<RuntimeUserFileHandle> grants = new HashSet<>();
     private final Set<PendingRequest> pendingRequests = new HashSet<>();
@@ -68,7 +72,15 @@ public final class RuntimeUserFileAccessService
         final RuntimePluginTaskScheduler tasks,
         final DisposableScope scope
     ) {
-        this(pluginId, permissions, source, tasks, scope, new CleanupEvidenceCollector());
+        this(
+            pluginId,
+            permissions,
+            source,
+            tasks,
+            scope,
+            new CleanupEvidenceCollector(),
+            RuntimeFailureSink.noop()
+        );
     }
 
     public RuntimeUserFileAccessService(
@@ -79,11 +91,32 @@ public final class RuntimeUserFileAccessService
         final DisposableScope scope,
         final CleanupEvidenceCollector cleanupEvidence
     ) {
+        this(
+            pluginId,
+            permissions,
+            source,
+            tasks,
+            scope,
+            cleanupEvidence,
+            RuntimeFailureSink.noop()
+        );
+    }
+
+    public RuntimeUserFileAccessService(
+        final String pluginId,
+        final Set<String> permissions,
+        final UserFileGrantSource source,
+        final RuntimePluginTaskScheduler tasks,
+        final DisposableScope scope,
+        final CleanupEvidenceCollector cleanupEvidence,
+        final RuntimeFailureSink failureSink
+    ) {
         this.pluginId = requireText(pluginId, "pluginId");
         this.permissions = Set.copyOf(Objects.requireNonNull(permissions, "permissions"));
         this.source = Objects.requireNonNull(source, "source");
         this.tasks = Objects.requireNonNull(tasks, "tasks");
         this.cleanupEvidence = Objects.requireNonNull(cleanupEvidence, "cleanupEvidence");
+        this.failureSink = RuntimeFailureSink.require(failureSink);
         this.io = new UserFileIoExecutor(pluginId, tasks);
         try {
             Objects.requireNonNull(scope, "scope").register(this);
@@ -100,13 +133,21 @@ public final class RuntimeUserFileAccessService
         final UserFileRequest validated = Objects.requireNonNull(request, "request");
         if (!has(PermissionIds.TURBOISM_UI_FILE_CHOOSER_REQUEST)
             || !has(requiredFilePermission(validated.mode()))) {
-            return immediate(requestDenied());
+            return immediate(observe(
+                requestDenied(),
+                "user-file.request",
+                missingRequestPermission(validated.mode())
+            ));
         }
 
         final PendingRequest pending = new PendingRequest(validated);
         synchronized (lifecycleLock) {
             if (!active) {
-                return immediate(requestUnavailable());
+                return immediate(observe(
+                    requestUnavailable(),
+                    "user-file.request",
+                    null
+                ));
             }
             pendingRequests.add(pending);
         }
@@ -132,16 +173,28 @@ public final class RuntimeUserFileAccessService
             PermissionIds.TURBOISM_FILE_READ
         );
         if (authorization.error != null) {
-            return immediate(readFailure(authorization.error));
+            return immediate(observe(
+                readFailure(authorization.error),
+                "user-file.readUtf8",
+                permissionFor(authorization.error, PermissionIds.TURBOISM_FILE_READ)
+            ));
         }
         if (maxBytes > MAX_OPERATION_BYTES) {
-            return immediate(readFailure(UserFileErrorCode.SIZE_LIMIT_EXCEEDED));
+            return immediate(observe(
+                readFailure(UserFileErrorCode.SIZE_LIMIT_EXCEEDED),
+                "user-file.readUtf8",
+                null
+            ));
         }
         return io.submit(
-            () -> readUtf8Now(authorization.target, maxBytes),
-            () -> readFailure(UserFileErrorCode.CANCELED),
-            () -> readFailure(UserFileErrorCode.RUNTIME_UNAVAILABLE),
-            () -> readFailure(UserFileErrorCode.IO_FAILURE)
+            () -> observe(readUtf8Now(authorization.target, maxBytes), "user-file.readUtf8", null),
+            () -> observe(readFailure(UserFileErrorCode.CANCELED), "user-file.readUtf8", null),
+            () -> observe(
+                readFailure(UserFileErrorCode.RUNTIME_UNAVAILABLE),
+                "user-file.readUtf8",
+                null
+            ),
+            () -> observe(readFailure(UserFileErrorCode.IO_FAILURE), "user-file.readUtf8", null)
         );
     }
 
@@ -157,16 +210,28 @@ public final class RuntimeUserFileAccessService
             PermissionIds.TURBOISM_FILE_READ
         );
         if (authorization.error != null) {
-            return immediate(readFailure(authorization.error));
+            return immediate(observe(
+                readFailure(authorization.error),
+                "user-file.readBytes",
+                permissionFor(authorization.error, PermissionIds.TURBOISM_FILE_READ)
+            ));
         }
         if (maxBytes > MAX_OPERATION_BYTES) {
-            return immediate(readFailure(UserFileErrorCode.SIZE_LIMIT_EXCEEDED));
+            return immediate(observe(
+                readFailure(UserFileErrorCode.SIZE_LIMIT_EXCEEDED),
+                "user-file.readBytes",
+                null
+            ));
         }
         return io.submit(
-            () -> readBytesNow(authorization.target, maxBytes),
-            () -> readFailure(UserFileErrorCode.CANCELED),
-            () -> readFailure(UserFileErrorCode.RUNTIME_UNAVAILABLE),
-            () -> readFailure(UserFileErrorCode.IO_FAILURE)
+            () -> observe(readBytesNow(authorization.target, maxBytes), "user-file.readBytes", null),
+            () -> observe(readFailure(UserFileErrorCode.CANCELED), "user-file.readBytes", null),
+            () -> observe(
+                readFailure(UserFileErrorCode.RUNTIME_UNAVAILABLE),
+                "user-file.readBytes",
+                null
+            ),
+            () -> observe(readFailure(UserFileErrorCode.IO_FAILURE), "user-file.readBytes", null)
         );
     }
 
@@ -191,16 +256,40 @@ public final class RuntimeUserFileAccessService
             PermissionIds.TURBOISM_FILE_WRITE
         );
         if (authorization.error != null) {
-            return immediate(writeFailure(authorization.error));
+            return immediate(observe(
+                writeFailure(authorization.error),
+                "user-file.writeBytesAtomic",
+                permissionFor(authorization.error, PermissionIds.TURBOISM_FILE_WRITE)
+            ));
         }
         if (snapshot.length > MAX_OPERATION_BYTES) {
-            return immediate(writeFailure(UserFileErrorCode.SIZE_LIMIT_EXCEEDED));
+            return immediate(observe(
+                writeFailure(UserFileErrorCode.SIZE_LIMIT_EXCEEDED),
+                "user-file.writeBytesAtomic",
+                null
+            ));
         }
         return io.submit(
-            () -> writeBytesNow(authorization.target, snapshot),
-            () -> writeFailure(UserFileErrorCode.CANCELED),
-            () -> writeFailure(UserFileErrorCode.RUNTIME_UNAVAILABLE),
-            () -> writeFailure(UserFileErrorCode.IO_FAILURE)
+            () -> observe(
+                writeBytesNow(authorization.target, snapshot),
+                "user-file.writeBytesAtomic",
+                null
+            ),
+            () -> observe(
+                writeFailure(UserFileErrorCode.CANCELED),
+                "user-file.writeBytesAtomic",
+                null
+            ),
+            () -> observe(
+                writeFailure(UserFileErrorCode.RUNTIME_UNAVAILABLE),
+                "user-file.writeBytesAtomic",
+                null
+            ),
+            () -> observe(
+                writeFailure(UserFileErrorCode.IO_FAILURE),
+                "user-file.writeBytesAtomic",
+                null
+            )
         );
     }
 
@@ -474,6 +563,65 @@ public final class RuntimeUserFileAccessService
         return completion.stage();
     }
 
+    private UserFileRequestResult observe(
+        final UserFileRequestResult result,
+        final String operationId,
+        final String permissionId
+    ) {
+        result.error().ifPresent(error -> record(error, operationId, permissionId));
+        return result;
+    }
+
+    private <T> UserFileReadResult<T> observe(
+        final UserFileReadResult<T> result,
+        final String operationId,
+        final String permissionId
+    ) {
+        result.error().ifPresent(error -> record(error, operationId, permissionId));
+        return result;
+    }
+
+    private UserFileWriteResult observe(
+        final UserFileWriteResult result,
+        final String operationId,
+        final String permissionId
+    ) {
+        result.error().ifPresent(error -> record(error, operationId, permissionId));
+        return result;
+    }
+
+    private void record(
+        final UserFileError error,
+        final String operationId,
+        final String permissionId
+    ) {
+        failureSink.record(RuntimeFailureDomain.STORAGE, new RuntimeFailure(
+            error.code().name(),
+            "ERROR",
+            "user-file",
+            pluginId,
+            operationId,
+            permissionId,
+            error.message(),
+            null,
+            1
+        ));
+    }
+
+    private String missingRequestPermission(final UserFileMode mode) {
+        if (!has(PermissionIds.TURBOISM_UI_FILE_CHOOSER_REQUEST)) {
+            return PermissionIds.TURBOISM_UI_FILE_CHOOSER_REQUEST;
+        }
+        return requiredFilePermission(mode);
+    }
+
+    private static String permissionFor(
+        final UserFileErrorCode code,
+        final String expectedPermission
+    ) {
+        return code == UserFileErrorCode.PERMISSION_DENIED ? expectedPermission : null;
+    }
+
     private static UserFileRequestResult requestDenied() {
         return new UserFileRequestResult(
             UserFileRequestStatus.DENIED,
@@ -610,10 +758,15 @@ public final class RuntimeUserFileAccessService
             if (!settled.compareAndSet(false, true)) {
                 return;
             }
+            final UserFileRequestResult observed = observe(
+                result,
+                "user-file.request",
+                null
+            );
             synchronized (lifecycleLock) {
                 pendingRequests.remove(this);
             }
-            tasks.dispatchContinuation(() -> completion.settle(result));
+            tasks.dispatchContinuation(() -> completion.settle(observed));
         }
     }
 }

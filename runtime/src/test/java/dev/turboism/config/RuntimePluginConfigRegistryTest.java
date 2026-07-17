@@ -6,6 +6,7 @@ import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.WorkBudgetPolicy;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
+import dev.turboism.failure.RuntimeFailureCollector;
 import dev.turboism.sdk.config.PluginConfigException;
 import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.plugin.Registration;
@@ -124,6 +125,62 @@ class RuntimePluginConfigRegistryTest {
     }
 
     @Test
+    void diagnosticsUseFixedRedactedLocationAndMessageWithoutScopeOrExceptionText(
+        @TempDir Path dataDir
+    ) {
+        final List<dev.turboism.core.diagnostics.StartupReport.DiagnosticProblem> diagnostics =
+            new CopyOnWriteArrayList<>();
+        final RuntimePluginConfigRegistry registry = registry(
+            dataDir,
+            (permissionId, operation) -> { },
+            task -> WorkBudget.REJECTED,
+            diagnostics
+        );
+        final String secretScope = "SECRET/legacy.properties";
+        final Registration readScope = registry.readScope(secretScope);
+
+        assertTrue(registry.readString(secretScope, "SECRET").isEmpty());
+
+        final var diagnostic = diagnostics.get(0);
+        assertEquals("CONFIG_READ_REJECTED", diagnostic.code());
+        assertEquals("Plugin config read failed safely.", diagnostic.message());
+        assertEquals("config://<redacted>", diagnostic.path());
+        final String serialized = diagnostic.toString();
+        assertFalse(serialized.contains("SECRET"));
+        assertFalse(serialized.contains("legacy.properties"));
+        assertFalse(serialized.contains(dataDir.toString()));
+        readScope.close();
+    }
+
+    @Test
+    void legacyConfigFailuresAreCollectedOnceWithoutExposingScopePaths(
+        @TempDir Path dataDir
+    ) throws Exception {
+        final RuntimeFailureCollector failures = new RuntimeFailureCollector();
+        final RuntimePluginConfigRegistry registry = registry(
+            dataDir,
+            (permissionId, operation) -> { },
+            task -> WorkBudget.REJECTED,
+            new CopyOnWriteArrayList<>(),
+            failures
+        );
+        final Registration scope = registry.readScope("private/C:/Users/secret.properties");
+
+        assertTrue(registry.readString(
+            "private/C:/Users/secret.properties",
+            "private-value"
+        ).isEmpty());
+
+        final var collected = failures.snapshot().configFailures();
+        assertEquals(1, collected.size());
+        assertEquals("CONFIG_READ_REJECTED", collected.get(0).code());
+        assertEquals("config.readString", collected.get(0).operationId());
+        assertEquals(null, collected.get(0).relativePath());
+        assertFalse(collected.get(0).message().contains("Users"));
+        scope.close();
+    }
+
+    @Test
     void writeStringSchedulesThroughRuntimeSchedulerAsHeavyWork(@TempDir Path dataDir) throws InterruptedException, PluginConfigException {
         // Given
         RecordingPolicy policy = new RecordingPolicy();
@@ -156,6 +213,22 @@ class RuntimePluginConfigRegistryTest {
         WorkBudgetPolicy policy,
         List<dev.turboism.core.diagnostics.StartupReport.DiagnosticProblem> diagnostics
     ) {
+        return registry(
+            dataDir,
+            permissionChecker,
+            policy,
+            diagnostics,
+            new RuntimeFailureCollector()
+        );
+    }
+
+    private RuntimePluginConfigRegistry registry(
+        Path dataDir,
+        dev.turboism.permissions.PermissionChecker permissionChecker,
+        WorkBudgetPolicy policy,
+        List<dev.turboism.core.diagnostics.StartupReport.DiagnosticProblem> diagnostics,
+        RuntimeFailureCollector failures
+    ) {
         List<CallbackBudgetEvent> events = new CopyOnWriteArrayList<>();
         scheduler = new RuntimeScheduler(
             policy,
@@ -168,9 +241,11 @@ class RuntimePluginConfigRegistryTest {
             scheduler,
             dataDir,
             "dev.turboism.plugin.config-test",
-            diagnostics::add
+            diagnostics::add,
+            failures
         );
     }
+
 
     private static SidecarDispatcher availableSidecar() {
         return (task, callback) -> {

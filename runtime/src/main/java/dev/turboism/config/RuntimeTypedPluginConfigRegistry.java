@@ -1,5 +1,6 @@
 package dev.turboism.config;
 
+import dev.turboism.failure.RuntimeFailureSink;
 import dev.turboism.sdk.config.ConfigDocument;
 import dev.turboism.sdk.config.ConfigError;
 import dev.turboism.sdk.config.ConfigErrorCode;
@@ -48,10 +49,12 @@ public final class RuntimeTypedPluginConfigRegistry
     );
 
     private final PluginConfigRegistry legacy;
+    private final String pluginId;
     private final Set<String> permissions;
     private final TypedConfigDocumentStore store;
     private final TypedConfigIoExecutor io;
     private final CleanupEvidenceCollector cleanupEvidence;
+    private final TypedConfigFailureReporter failureReporter;
     private final Object lifecycleLock = new Object();
     private final Map<String, RegisteredSchema> schemas = new HashMap<>();
     private final Map<String, String> paths = new HashMap<>();
@@ -65,8 +68,16 @@ public final class RuntimeTypedPluginConfigRegistry
         final RuntimePluginTaskScheduler tasks,
         final DisposableScope scope
     ) {
-        this(legacy, pluginId, configRoot, permissions, tasks, scope,
-            new CleanupEvidenceCollector());
+        this(
+            legacy,
+            pluginId,
+            configRoot,
+            permissions,
+            tasks,
+            scope,
+            new CleanupEvidenceCollector(),
+            RuntimeFailureSink.noop()
+        );
     }
 
     public RuntimeTypedPluginConfigRegistry(
@@ -78,9 +89,33 @@ public final class RuntimeTypedPluginConfigRegistry
         final DisposableScope scope,
         final CleanupEvidenceCollector cleanupEvidence
     ) {
+        this(
+            legacy,
+            pluginId,
+            configRoot,
+            permissions,
+            tasks,
+            scope,
+            cleanupEvidence,
+            RuntimeFailureSink.noop()
+        );
+    }
+
+    public RuntimeTypedPluginConfigRegistry(
+        final PluginConfigRegistry legacy,
+        final String pluginId,
+        final Path configRoot,
+        final Set<String> permissions,
+        final RuntimePluginTaskScheduler tasks,
+        final DisposableScope scope,
+        final CleanupEvidenceCollector cleanupEvidence,
+        final RuntimeFailureSink failureSink
+    ) {
         this.legacy = Objects.requireNonNull(legacy, "legacy");
+        this.pluginId = requireText(pluginId, "pluginId");
         this.permissions = Set.copyOf(Objects.requireNonNull(permissions, "permissions"));
         this.cleanupEvidence = Objects.requireNonNull(cleanupEvidence, "cleanupEvidence");
+        this.failureReporter = new TypedConfigFailureReporter(this.pluginId, failureSink);
         try {
             this.store = new TypedConfigDocumentStore(
                 Objects.requireNonNull(configRoot, "configRoot")
@@ -88,7 +123,7 @@ public final class RuntimeTypedPluginConfigRegistry
         } catch (IOException exception) {
             throw new IllegalStateException("Typed config storage is unavailable.");
         }
-        this.io = new TypedConfigIoExecutor(pluginId, tasks);
+        this.io = new TypedConfigIoExecutor(this.pluginId, tasks);
         try {
             Objects.requireNonNull(scope, "scope").register(this);
         } catch (RuntimeException exception) {
@@ -129,19 +164,36 @@ public final class RuntimeTypedPluginConfigRegistry
         final ConfigSchema schema,
         final List<ConfigMigration> migrations
     ) {
-        final RegisteredSchema candidate = validate(schema, migrations);
+        final RegisteredSchema candidate;
+        try {
+            candidate = validate(schema, migrations);
+        } catch (ConfigSchemaValidationException failure) {
+            failureReporter.schemaValidationFailed(failure);
+            throw failure;
+        }
         synchronized (lifecycleLock) {
             if (schemas.containsKey(candidate.schema.configId())) {
-                throw validation(ConfigSchemaValidationError.DUPLICATE_CONFIG_ID);
+                final ConfigSchemaValidationException failure = validation(
+                    ConfigSchemaValidationError.DUPLICATE_CONFIG_ID
+                );
+                failureReporter.schemaValidationFailed(failure);
+                throw failure;
             }
             if (paths.containsKey(candidate.schema.relativePath())) {
-                throw validation(ConfigSchemaValidationError.DUPLICATE_PATH);
+                final ConfigSchemaValidationException failure = validation(
+                    ConfigSchemaValidationError.DUPLICATE_PATH
+                );
+                failureReporter.schemaValidationFailed(failure);
+                throw failure;
             }
             if (!active) {
-                return io.failed(registration(ConfigRegistrationError.RUNTIME_UNAVAILABLE));
+                return registrationFailure(ConfigRegistrationError.RUNTIME_UNAVAILABLE, null);
             }
             if (!has(PermissionIds.TURBOISM_CONFIG_PLUGIN_WRITE)) {
-                return io.failed(registration(ConfigRegistrationError.PERMISSION_DENIED));
+                return registrationFailure(
+                    ConfigRegistrationError.PERMISSION_DENIED,
+                    PermissionIds.TURBOISM_CONFIG_PLUGIN_WRITE
+                );
             }
             try {
                 schemas.put(candidate.schema.configId(), candidate);
@@ -150,7 +202,7 @@ public final class RuntimeTypedPluginConfigRegistry
             } catch (RuntimeException exception) {
                 schemas.remove(candidate.schema.configId());
                 paths.remove(candidate.schema.relativePath());
-                return io.failed(registration(ConfigRegistrationError.REGISTRATION_FAILED));
+                return registrationFailure(ConfigRegistrationError.REGISTRATION_FAILED, null);
             }
         }
     }
@@ -159,27 +211,34 @@ public final class RuntimeTypedPluginConfigRegistry
     public <T> CompletionStage<ConfigReadResult<T>> read(final ConfigKey<T> key) {
         final ConfigKey<T> requested = Objects.requireNonNull(key, "key");
         if (!isActive()) {
-            return io.immediate(defaultUnavailable(
-                requested,
-                ConfigErrorCode.RUNTIME_UNAVAILABLE
+            return io.immediate(failureReporter.observe(
+                defaultUnavailable(requested, ConfigErrorCode.RUNTIME_UNAVAILABLE),
+                "config.read",
+                null
             ));
         }
         final RegisteredKey<T> registered = registeredKey(requested);
         if (registered == null) {
-            return io.immediate(defaultUnavailable(
-                requested,
-                ConfigErrorCode.SCHEMA_NOT_REGISTERED
+            return io.immediate(failureReporter.observe(
+                defaultUnavailable(requested, ConfigErrorCode.SCHEMA_NOT_REGISTERED),
+                "config.read",
+                null
             ));
         }
         if (!has(PermissionIds.TURBOISM_CONFIG_PLUGIN_READ)) {
-            return io.immediate(defaultUnavailable(
-                registered.key,
-                ConfigErrorCode.PERMISSION_DENIED
+            return io.immediate(failureReporter.observe(
+                defaultUnavailable(registered.key, ConfigErrorCode.PERMISSION_DENIED),
+                "config.read",
+                PermissionIds.TURBOISM_CONFIG_PLUGIN_READ
             ));
         }
         return io.submit(
-            () -> readNow(registered),
-            () -> defaultUnavailable(registered.key, ConfigErrorCode.RUNTIME_UNAVAILABLE)
+            () -> failureReporter.observe(readNow(registered), "config.read", null),
+            () -> failureReporter.observe(
+                defaultUnavailable(registered.key, ConfigErrorCode.RUNTIME_UNAVAILABLE),
+                "config.read",
+                null
+            )
         );
     }
 
@@ -194,25 +253,25 @@ public final class RuntimeTypedPluginConfigRegistry
         }
         final ConfigKey<T> requested = Objects.requireNonNull(key, "key");
         if (!isActive()) {
-            return io.immediate(writeFailure(
-                requested.name(),
-                ConfigErrorCode.RUNTIME_UNAVAILABLE,
-                0
+            return io.immediate(failureReporter.observe(
+                writeFailure(requested.name(), ConfigErrorCode.RUNTIME_UNAVAILABLE, 0),
+                "config.write",
+                null
             ));
         }
         final RegisteredKey<T> registered = registeredKey(requested);
         if (registered == null) {
-            return io.immediate(writeFailure(
-                requested.name(),
-                ConfigErrorCode.SCHEMA_NOT_REGISTERED,
-                0
+            return io.immediate(failureReporter.observe(
+                writeFailure(requested.name(), ConfigErrorCode.SCHEMA_NOT_REGISTERED, 0),
+                "config.write",
+                null
             ));
         }
         if (!has(PermissionIds.TURBOISM_CONFIG_PLUGIN_WRITE)) {
-            return io.immediate(writeFailure(
-                registered.key.name(),
-                ConfigErrorCode.PERMISSION_DENIED,
-                0
+            return io.immediate(failureReporter.observe(
+                writeFailure(registered.key.name(), ConfigErrorCode.PERMISSION_DENIED, 0),
+                "config.write",
+                PermissionIds.TURBOISM_CONFIG_PLUGIN_WRITE
             ));
         }
         final Optional<String> encoded = TypedConfigCodecSupport.encode(
@@ -220,13 +279,21 @@ public final class RuntimeTypedPluginConfigRegistry
             value
         );
         return io.submit(
-            () -> encoded.isPresent()
-                ? writeNow(registered, encoded.orElseThrow(), expectedRevision)
-                : invalidWriteNow(registered, expectedRevision),
-            () -> writeFailure(
-                registered.key.name(),
-                ConfigErrorCode.RUNTIME_UNAVAILABLE,
-                0
+            () -> failureReporter.observe(
+                encoded.isPresent()
+                    ? writeNow(registered, encoded.orElseThrow(), expectedRevision)
+                    : invalidWriteNow(registered, expectedRevision),
+                "config.write",
+                null
+            ),
+            () -> failureReporter.observe(
+                writeFailure(
+                    registered.key.name(),
+                    ConfigErrorCode.RUNTIME_UNAVAILABLE,
+                    0
+                ),
+                "config.write",
+                null
             )
         );
     }
@@ -595,10 +662,26 @@ public final class RuntimeTypedPluginConfigRegistry
         return value != null && IDENTIFIER.matcher(value).matches();
     }
 
+    private static String requireText(final String value, final String name) {
+        Objects.requireNonNull(value, name);
+        if (value.isBlank()) {
+            throw new IllegalArgumentException(name + " must not be blank");
+        }
+        return value;
+    }
+
     private static ConfigSchemaValidationException validation(
         final ConfigSchemaValidationError error
     ) {
         return new ConfigSchemaValidationException(error);
+    }
+
+    private CompletionStage<Void> registrationFailure(
+        final ConfigRegistrationError error,
+        final String permissionId
+    ) {
+        failureReporter.schemaRegistrationFailed(error, permissionId);
+        return io.failed(registration(error));
     }
 
     private static ConfigRegistrationException registration(
@@ -664,50 +747,4 @@ public final class RuntimeTypedPluginConfigRegistry
         return (T) TypedConfigCodecSupport.immutableDefault(key);
     }
 
-    private record RegisteredSchema(
-        ConfigSchema schema,
-        Map<String, ConfigKey<?>> keys,
-        Map<Integer, ConfigMigration> migrations
-    ) {
-    }
-
-    private record RegisteredKey<T>(
-        RegisteredSchema schema,
-        ConfigKey<T> key
-    ) {
-    }
-
-    private static final class LoadedDocument {
-        private final long revision;
-        private final Map<String, String> values;
-        private final ConfigValueSource source;
-        private final ConfigErrorCode error;
-
-        private LoadedDocument(
-            final long revision,
-            final Map<String, String> values,
-            final ConfigValueSource source,
-            final ConfigErrorCode error
-        ) {
-            this.revision = revision;
-            this.values = values;
-            this.source = source;
-            this.error = error;
-        }
-
-        private static LoadedDocument success(
-            final long revision,
-            final Map<String, String> values
-        ) {
-            return new LoadedDocument(revision, Map.copyOf(values), null, null);
-        }
-
-        private static LoadedDocument failure(
-            final long revision,
-            final ConfigValueSource source,
-            final ConfigErrorCode error
-        ) {
-            return new LoadedDocument(revision, Map.of(), source, error);
-        }
-    }
 }

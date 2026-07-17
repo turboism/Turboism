@@ -44,7 +44,8 @@ public final class PreviewRuntime implements AutoCloseable {
     private final AtomicBoolean closed = new AtomicBoolean(false);
     private volatile List<ShutdownFailure> shutdownFailures = List.of();
 
-    private PreviewRuntime(
+    /** Package-private test composition seam; production startup uses {@link #start}. */
+    PreviewRuntime(
         final Path home,
         final PreviewLog log,
         final RuntimeScheduler scheduler,
@@ -112,6 +113,7 @@ public final class PreviewRuntime implements AutoCloseable {
         };
     }
 
+    /** Package-private shutdown-lifecycle seam for focused runtime tests. */
     PreviewRuntime(final ShutdownLifecycle shutdownLifecycle) {
         this.home = null;
         this.log = null;
@@ -197,7 +199,7 @@ public final class PreviewRuntime implements AutoCloseable {
                 normalizedVerificationRecord,
                 normalizedHostArtifact
             );
-            runtime.writeReports(hostState, false);
+            runtime.writeInitialReports(hostState);
             return runtime;
         } catch (RuntimeException | Error failure) {
             closeAfterFailedStart(plugins, ingress, scheduler, log, failure);
@@ -255,12 +257,10 @@ public final class PreviewRuntime implements AutoCloseable {
         }
     }
 
-    private void writeReports(
-        final HostSession.State observedHostState,
-        final boolean stopped
-    ) {
+    /** Package-private initial-report seam that avoids reflective test access. */
+    void writeInitialReports(final HostSession.State observedHostState) {
         try {
-            writeReportsStrict(observedHostState, stopped);
+            writeReportsStrict(observedHostState, false);
         } catch (RuntimeException failure) {
             try {
                 log.warn(
@@ -285,7 +285,7 @@ public final class PreviewRuntime implements AutoCloseable {
         final HostSession.State observedHostState,
         final boolean stopped
     ) {
-        final List<LocalPluginRuntime.LoadedPluginSummary> summaries = pluginRuntime.reportSummaries();
+        final LocalPluginRuntimeReportSnapshot snapshot = pluginRuntime.reportSnapshot();
         final Map<PreviewReportType, ObjectNode> reports = PreviewReportSnapshotFactory.create(
             runtimeId,
             Instant.now(),
@@ -294,7 +294,8 @@ public final class PreviewRuntime implements AutoCloseable {
             hostArtifact,
             verificationRecord,
             loadReport,
-            summaries,
+            snapshot.pluginSummaries(),
+            snapshot.failures(),
             stopped
         );
         final Map<?, Boolean> results = reportWriter.writeAll(reports);
