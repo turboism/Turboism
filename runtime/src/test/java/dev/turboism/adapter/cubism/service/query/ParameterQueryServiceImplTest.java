@@ -94,6 +94,8 @@ class ParameterQueryServiceImplTest {
         assertTrue(error.getMessage().contains(PARAMETER_READ_PERMISSION));
         assertEquals(1, auditEvents.size());
         assertEquals(PARAMETER_READ_PERMISSION, auditEvents.get(0).permissionId());
+        assertEquals("parameterQuery.listAll", auditEvents.get(0).operationId());
+        assertEquals("cubism.parameter.read", auditEvents.get(0).capabilityId());
         assertEquals("parameterQuery.listAll", auditEvents.get(0).methodName());
         assertEquals(FIXED_CLOCK.instant(), auditEvents.get(0).timestamp());
     }
