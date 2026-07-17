@@ -15,7 +15,6 @@ import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.Comparator;
 import java.util.EnumMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -49,9 +48,9 @@ public final class PreviewReportSnapshotFactory {
         bindings(
             "cubism.parameter.read",
             binding("cubismRead.parameters", "turboism.cubism.model.read"),
-            binding("parameterQuery.findById", "turboism.cubism.model.read"),
-            binding("parameterQuery.listAll", "turboism.cubism.model.read"),
-            binding("parameterQuery.exists", "turboism.cubism.model.read")
+            binding("parameterQuery.findById", "turboism.cubism.parameter.read"),
+            binding("parameterQuery.listAll", "turboism.cubism.parameter.read"),
+            binding("parameterQuery.exists", "turboism.cubism.parameter.read")
         ),
         bindings(
             "cubism.parameter.write",
@@ -78,6 +77,59 @@ public final class PreviewReportSnapshotFactory {
         binding("ui.palette-toolbar.contribute", "ui.palette-toolbar.contribute", "turboism.ui.toolbar.palette.contribute"),
         binding("ui.main-toolbar.contribute", "ui.main-toolbar.contribute", "turboism.ui.toolbar.main.contribute")
     );
+    private static final Set<String> KNOWN_UNMAPPED_CAPABILITIES = Set.of(
+        "cubism.model-tree.write",
+        "cubism.mesh.write",
+        "cubism.deformer.write",
+        "cubism.mirror.writeback",
+        "cubism.psd.binding.write",
+        "cubism.clipmask.write",
+        "cubism.canvas.write",
+        "cubism.bounding-box.action.write",
+        "event.project.lifecycle",
+        "event.selection.changed",
+        "event.texture-atlas.reinit",
+        "event.render.status.changed",
+        "hook-ingress.project.lifecycle",
+        "hook-ingress.selection.changed",
+        "hook-ingress.context-menu.opening",
+        "hook-ingress.texture-atlas.reinit",
+        "hook-ingress.viewport.overlay.lifecycle",
+        "hook-ingress.render.status",
+        "hook-ingress.model.tree.changed",
+        "hook-ingress.parameter.changed",
+        "plugin.localization",
+        "plugin.task.schedule",
+        "plugin.storage",
+        "plugin.config.typed",
+        "plugin.user-file",
+        "runtime.host-read.async",
+        "cubism.selection.write",
+        "cubism.geometry.read",
+        "cubism.parameter-binding.read",
+        "cubism.psd.layer-relationship.read",
+        "cubism.psd.binding-candidate.read",
+        "cubism.psd.layer-bounds.read",
+        "cubism.transaction.real-write-undo",
+        "cubism.recent-preview.manage",
+        "ui.file-chooser.history-policy",
+        "ui.host-settings.open",
+        "ui.log-filter.control",
+        "ui.theme.apply",
+        "cubism.theme.restore",
+        "cubism.render.modify",
+        "cubism.render.restore"
+    );
+
+    static {
+        final Set<String> overlappingPolicies = new java.util.HashSet<>(CAPABILITY_BINDINGS.keySet());
+        overlappingPolicies.retainAll(KNOWN_UNMAPPED_CAPABILITIES);
+        if (!overlappingPolicies.isEmpty()) {
+            throw new IllegalStateException(
+                "Mapped and known-unmapped preview capability policies overlap: " + overlappingPolicies
+            );
+        }
+    }
 
     private PreviewReportSnapshotFactory() {
     }
@@ -344,6 +396,7 @@ public final class PreviewReportSnapshotFactory {
             for (String capabilityId : summary.capabilities().stream().sorted().toList()) {
                 final List<CapabilityBinding> bindings = CAPABILITY_BINDINGS.get(capabilityId);
                 final boolean mapped = bindings != null;
+                final boolean knownUnmapped = KNOWN_UNMAPPED_CAPABILITIES.contains(capabilityId);
                 final boolean verifiedProject = VERIFIED_PROJECT_CAPABILITIES.contains(capabilityId);
                 final boolean runtimeAvailable = verifiedProject
                     && hostState == HostSession.State.ACTIVE
@@ -374,29 +427,43 @@ public final class PreviewReportSnapshotFactory {
                         );
                         entries.add(entry);
                     }
+                } else if (knownUnmapped) {
+                    entries.add(unmappedCapabilityEntry(summary.id(), capabilityId));
                 } else {
-                    final ObjectNode entry = PreviewReportDocuments.capabilityEntry(
-                        summary.id(),
-                        capabilityId,
-                        UNMAPPED_CAPABILITY_OPERATION,
-                        null,
-                        "UNKNOWN",
-                        "UNKNOWN",
-                        "NONE"
-                    );
-                    addCapabilityEvidence(
-                        (ArrayNode) entry.get("evidence"),
-                        false,
-                        false,
-                        "UNKNOWN",
-                        null,
-                        null
-                    );
-                    entries.add(entry);
+                    entries.add(unknownCapabilityFallbackEntry(summary.id(), capabilityId));
                 }
             }
         }
         return report;
+    }
+
+    private static ObjectNode unmappedCapabilityEntry(final String pluginId, final String capabilityId) {
+        return capabilityFallbackEntry(pluginId, capabilityId);
+    }
+
+    private static ObjectNode unknownCapabilityFallbackEntry(final String pluginId, final String capabilityId) {
+        return capabilityFallbackEntry(pluginId, capabilityId);
+    }
+
+    private static ObjectNode capabilityFallbackEntry(final String pluginId, final String capabilityId) {
+        final ObjectNode entry = PreviewReportDocuments.capabilityEntry(
+            pluginId,
+            capabilityId,
+            UNMAPPED_CAPABILITY_OPERATION,
+            null,
+            "UNKNOWN",
+            "UNKNOWN",
+            "NONE"
+        );
+        addCapabilityEvidence(
+            (ArrayNode) entry.get("evidence"),
+            false,
+            false,
+            "UNKNOWN",
+            null,
+            null
+        );
+        return entry;
     }
 
     private static ObjectNode i18n(

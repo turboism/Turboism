@@ -33,7 +33,11 @@ class PreviewReportSnapshotFactoryTest {
         final LocalPluginRuntime.LoadedPluginSummary parameter = plugin(
             "dev.turboism.plugin.parameter",
             List.of("cubism.parameter.read", "cubism.parameter.write"),
-            List.of("turboism.cubism.model.read", "turboism.cubism.model.write")
+            List.of(
+                "turboism.cubism.model.read",
+                "turboism.cubism.parameter.read",
+                "turboism.cubism.model.write"
+            )
         );
 
         final JsonNode capabilities = capabilityReport(List.of(clipMask, parameter), HostSession.State.SAFE_MODE, false)
@@ -53,9 +57,9 @@ class PreviewReportSnapshotFactoryTest {
             "cubism.parameter.read",
             Map.of(
                 "cubismRead.parameters", "turboism.cubism.model.read",
-                "parameterQuery.findById", "turboism.cubism.model.read",
-                "parameterQuery.listAll", "turboism.cubism.model.read",
-                "parameterQuery.exists", "turboism.cubism.model.read"
+                "parameterQuery.findById", "turboism.cubism.parameter.read",
+                "parameterQuery.listAll", "turboism.cubism.parameter.read",
+                "parameterQuery.exists", "turboism.cubism.parameter.read"
             )
         );
         assertCapabilityBindings(
@@ -85,8 +89,10 @@ class PreviewReportSnapshotFactoryTest {
                     "ui.palette-toolbar.contribute", "ui.main-toolbar.contribute"
                 ),
                 List.of(
-                    "turboism.cubism.project.read", "turboism.cubism.model.read", "turboism.cubism.model.write",
-                    "turboism.ui.context-source.read", "turboism.ui.overlay.contribute", "turboism.ui.viewport.read",
+                    "turboism.cubism.project.read", "turboism.cubism.model.read",
+                    "turboism.cubism.parameter.read", "turboism.cubism.model.write",
+                    "turboism.ui.context-source.read", "turboism.ui.overlay.contribute",
+                    "turboism.ui.viewport.read",
                     "turboism.ui.dialog.contribute", "turboism.ui.panel.contribute",
                     "turboism.ui.file-chooser.request", "turboism.ui.status.notify",
                     "turboism.ui.toolbar.palette.contribute", "turboism.ui.toolbar.main.contribute"
