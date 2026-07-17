@@ -23,6 +23,11 @@ import java.util.Optional;
 
 public final class ModelHierarchyQueryServiceImpl implements ModelHierarchyQueryService {
 
+    public static final String MODEL_TREE_READ_CAPABILITY = "cubism.model-tree.read";
+    public static final String CURRENT_HIERARCHY_OPERATION = "modelHierarchyQuery.currentHierarchy";
+    public static final String CHILDREN_OF_OPERATION = "modelHierarchyQuery.childrenOf";
+    public static final String FIND_NODE_OPERATION = "modelHierarchyQuery.findNode";
+
     private final CubismFacadeImpl facade;
     private final CubismPermissionGate permissionGate;
     private volatile HierarchyCache cachedHierarchy = new HierarchyCache(Long.MIN_VALUE, Optional.empty());
@@ -34,22 +39,30 @@ public final class ModelHierarchyQueryServiceImpl implements ModelHierarchyQuery
 
     @Override
     public Optional<ModelHierarchy> currentHierarchy() throws CubismServiceException {
-        permissionGate.require(CubismFacadeImpl.MODEL_READ_PERMISSION, "modelHierarchyQuery.currentHierarchy");
+        requireModelRead(CURRENT_HIERARCHY_OPERATION);
         return hierarchy();
     }
 
     @Override
     public List<HierarchyNode> childrenOf(final ModelObjectId id) throws CubismServiceException {
         Objects.requireNonNull(id, "id");
-        permissionGate.require(CubismFacadeImpl.MODEL_READ_PERMISSION, "modelHierarchyQuery.childrenOf");
+        requireModelRead(CHILDREN_OF_OPERATION);
         return hierarchy().map(modelHierarchy -> modelHierarchy.childrenOf(id)).orElseGet(List::of);
     }
 
     @Override
     public Optional<HierarchyNode> findNode(final ModelObjectId id) throws CubismServiceException {
         Objects.requireNonNull(id, "id");
-        permissionGate.require(CubismFacadeImpl.MODEL_READ_PERMISSION, "modelHierarchyQuery.findNode");
+        requireModelRead(FIND_NODE_OPERATION);
         return hierarchy().flatMap(modelHierarchy -> modelHierarchy.findNode(id));
+    }
+
+    private void requireModelRead(final String operationId) {
+        permissionGate.require(
+            CubismFacadeImpl.MODEL_READ_PERMISSION,
+            operationId,
+            MODEL_TREE_READ_CAPABILITY
+        );
     }
 
     private Optional<ModelHierarchy> hierarchy() throws CubismServiceException {

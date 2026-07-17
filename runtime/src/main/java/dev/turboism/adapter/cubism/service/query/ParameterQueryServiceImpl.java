@@ -20,6 +20,7 @@ import java.util.Optional;
 public final class ParameterQueryServiceImpl implements ParameterQueryService {
 
     public static final String PARAMETER_READ_PERMISSION = "turboism.cubism.parameter.read";
+    public static final String PARAMETER_READ_CAPABILITY = "cubism.parameter.read";
 
     private final CubismFacadeImpl facade;
     private final CubismPermissionGate permissionGate;
@@ -33,20 +34,32 @@ public final class ParameterQueryServiceImpl implements ParameterQueryService {
     @Override
     public Optional<ParameterSummary> findById(final ParameterId id) throws CubismServiceException {
         Objects.requireNonNull(id, "id");
-        permissionGate.require(PARAMETER_READ_PERMISSION, "parameterQuery.findById");
+        permissionGate.require(
+            PARAMETER_READ_PERMISSION,
+            "parameterQuery.findById",
+            PARAMETER_READ_CAPABILITY
+        );
         return Optional.ofNullable(index().parametersById().get(id));
     }
 
     @Override
     public List<ParameterSummary> listAll() throws CubismServiceException {
-        permissionGate.require(PARAMETER_READ_PERMISSION, "parameterQuery.listAll");
+        permissionGate.require(
+            PARAMETER_READ_PERMISSION,
+            "parameterQuery.listAll",
+            PARAMETER_READ_CAPABILITY
+        );
         return index().parameters();
     }
 
     @Override
     public boolean exists(final ParameterId id) throws CubismServiceException {
         Objects.requireNonNull(id, "id");
-        permissionGate.require(PARAMETER_READ_PERMISSION, "parameterQuery.exists");
+        permissionGate.require(
+            PARAMETER_READ_PERMISSION,
+            "parameterQuery.exists",
+            PARAMETER_READ_CAPABILITY
+        );
         return index().parametersById().containsKey(id);
     }
 
