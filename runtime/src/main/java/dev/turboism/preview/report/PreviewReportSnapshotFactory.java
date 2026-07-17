@@ -13,10 +13,8 @@ import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -29,6 +27,109 @@ public final class PreviewReportSnapshotFactory {
         "cubism.project.read",
         "cubism.workspace.read"
     );
+    private static final String UNMAPPED_CAPABILITY_OPERATION = "unmapped.capability";
+    private static final Map<String, List<CapabilityBinding>> CAPABILITY_BINDINGS = Map.ofEntries(
+        binding("cubism.project.read", "cubismRead.activeProject", "turboism.cubism.project.read"),
+        binding("cubism.workspace.read", "cubismRead.workspace", "turboism.cubism.project.read"),
+        binding("cubism.mesh.read", "cubismRead.meshes", "turboism.cubism.model.read"),
+        binding("cubism.deformer.read", "cubismRead.deformers", "turboism.cubism.model.read"),
+        binding("cubism.psd.read", "cubismRead.psdDocuments", "turboism.cubism.model.read"),
+        binding("cubism.clipmask.read", "cubismRead.clipMasks", "turboism.cubism.model.read"),
+        binding("cubism.texture-atlas.read", "cubismRead.textureAtlases", "turboism.cubism.model.read"),
+        binding("cubism.render.status.read", "cubismRead.renderStatus", "turboism.cubism.model.read"),
+        binding("cubism.theme.status.read", "cubismRead.themeStatus", "turboism.cubism.project.read"),
+        bindings(
+            "cubism.selection.read",
+            binding("cubismRead.selection", "turboism.cubism.model.read"),
+            binding("selectionQuery.currentSelection", "turboism.cubism.model.read"),
+            binding("selectionQuery.selectedIds", "turboism.cubism.model.read"),
+            binding("selectionQuery.onSelectionChanged", "turboism.cubism.model.read")
+        ),
+        bindings(
+            "cubism.parameter.read",
+            binding("cubismRead.parameters", "turboism.cubism.model.read"),
+            binding("parameterQuery.findById", "turboism.cubism.parameter.read"),
+            binding("parameterQuery.listAll", "turboism.cubism.parameter.read"),
+            binding("parameterQuery.exists", "turboism.cubism.parameter.read")
+        ),
+        bindings(
+            "cubism.parameter.write",
+            binding("transaction.open", "turboism.cubism.model.write"),
+            binding("transaction.enqueue", "turboism.cubism.model.write"),
+            binding("transaction.commit", "turboism.cubism.model.write")
+        ),
+        bindings(
+            "cubism.model-tree.read",
+            binding("cubismRead.activeDocument", "turboism.cubism.model.read"),
+            binding("cubismRead.activeModel", "turboism.cubism.model.read"),
+            binding("cubismRead.modelObjects", "turboism.cubism.model.read"),
+            binding("modelHierarchyQuery.currentHierarchy", "turboism.cubism.model.read"),
+            binding("modelHierarchyQuery.childrenOf", "turboism.cubism.model.read"),
+            binding("modelHierarchyQuery.findNode", "turboism.cubism.model.read")
+        ),
+        binding("ui.context-source.read", "ui.context-source.read", "turboism.ui.context-source.read"),
+        binding("ui.overlay.contribute", "ui.overlay.contribute", "turboism.ui.overlay.contribute"),
+        binding("ui.viewport.read", "ui.viewport.read", "turboism.ui.viewport.read"),
+        binding("ui.dialog.contribute", "ui.dialog.contribute", "turboism.ui.dialog.contribute"),
+        binding("ui.embedded-panel.contribute", "ui.panel.contribute", "turboism.ui.panel.contribute"),
+        binding("ui.file-chooser.request", "ui.file-chooser.request", "turboism.ui.file-chooser.request"),
+        binding("ui.status.notify", "ui.status.notify", "turboism.ui.status.notify"),
+        binding("ui.palette-toolbar.contribute", "ui.palette-toolbar.contribute", "turboism.ui.toolbar.palette.contribute"),
+        binding("ui.main-toolbar.contribute", "ui.main-toolbar.contribute", "turboism.ui.toolbar.main.contribute")
+    );
+    private static final Set<String> KNOWN_UNMAPPED_CAPABILITIES = Set.of(
+        "cubism.model-tree.write",
+        "cubism.mesh.write",
+        "cubism.deformer.write",
+        "cubism.mirror.writeback",
+        "cubism.psd.binding.write",
+        "cubism.clipmask.write",
+        "cubism.canvas.write",
+        "cubism.bounding-box.action.write",
+        "event.project.lifecycle",
+        "event.selection.changed",
+        "event.texture-atlas.reinit",
+        "event.render.status.changed",
+        "hook-ingress.project.lifecycle",
+        "hook-ingress.selection.changed",
+        "hook-ingress.context-menu.opening",
+        "hook-ingress.texture-atlas.reinit",
+        "hook-ingress.viewport.overlay.lifecycle",
+        "hook-ingress.render.status",
+        "hook-ingress.model.tree.changed",
+        "hook-ingress.parameter.changed",
+        "plugin.localization",
+        "plugin.task.schedule",
+        "plugin.storage",
+        "plugin.config.typed",
+        "plugin.user-file",
+        "runtime.host-read.async",
+        "cubism.selection.write",
+        "cubism.geometry.read",
+        "cubism.parameter-binding.read",
+        "cubism.psd.layer-relationship.read",
+        "cubism.psd.binding-candidate.read",
+        "cubism.psd.layer-bounds.read",
+        "cubism.transaction.real-write-undo",
+        "cubism.recent-preview.manage",
+        "ui.file-chooser.history-policy",
+        "ui.host-settings.open",
+        "ui.log-filter.control",
+        "ui.theme.apply",
+        "cubism.theme.restore",
+        "cubism.render.modify",
+        "cubism.render.restore"
+    );
+
+    static {
+        final Set<String> overlappingPolicies = new java.util.HashSet<>(CAPABILITY_BINDINGS.keySet());
+        overlappingPolicies.retainAll(KNOWN_UNMAPPED_CAPABILITIES);
+        if (!overlappingPolicies.isEmpty()) {
+            throw new IllegalStateException(
+                "Mapped and known-unmapped preview capability policies overlap: " + overlappingPolicies
+            );
+        }
+    }
 
     private PreviewReportSnapshotFactory() {
     }
@@ -293,7 +394,9 @@ public final class PreviewReportSnapshotFactory {
             .sorted(Comparator.comparing(LocalPluginRuntime.LoadedPluginSummary::id))
             .toList()) {
             for (String capabilityId : summary.capabilities().stream().sorted().toList()) {
-                final String permissionId = permissionFor(summary.permissionIds(), capabilityId);
+                final List<CapabilityBinding> bindings = CAPABILITY_BINDINGS.get(capabilityId);
+                final boolean mapped = bindings != null;
+                final boolean knownUnmapped = KNOWN_UNMAPPED_CAPABILITIES.contains(capabilityId);
                 final boolean verifiedProject = VERIFIED_PROJECT_CAPABILITIES.contains(capabilityId);
                 final boolean runtimeAvailable = verifiedProject
                     && hostState == HostSession.State.ACTIVE
@@ -302,39 +405,65 @@ public final class PreviewReportSnapshotFactory {
                 final String availability = verifiedProject
                     ? runtimeAvailable ? "AVAILABLE" : "UNAVAILABLE"
                     : "UNKNOWN";
-                final ObjectNode entry = PreviewReportDocuments.capabilityEntry(
-                    summary.id(),
-                    capabilityId,
-                    capabilityId,
-                    permissionId,
-                    availability,
-                    permissionId == null ? "NOT_DECLARED" : "GRANTED",
-                    "NONE"
-                );
-                final ArrayNode evidence = (ArrayNode) entry.get("evidence");
-                if (verifiedProject && recordPath != null && recordDigest != null) {
-                    evidence.add(PreviewReportDocuments.evidence(
-                        "STATIC_VERIFIED",
-                        availability,
-                        runtimeAvailable
-                            ? "Exact Cubism 5.3.02 static record applies to the connected runtime session."
-                            : "Exact Cubism 5.3.02 static record exists; runtime availability was not established.",
-                        recordPath,
-                        recordDigest
-                    ));
+                if (mapped) {
+                    for (CapabilityBinding binding : bindings) {
+                        final String permissionId = permissionFor(summary.permissionIds(), binding);
+                        final ObjectNode entry = PreviewReportDocuments.capabilityEntry(
+                            summary.id(),
+                            capabilityId,
+                            binding.operationId(),
+                            permissionId,
+                            availability,
+                            permissionId == null ? "NOT_DECLARED" : "GRANTED",
+                            "NONE"
+                        );
+                        addCapabilityEvidence(
+                            (ArrayNode) entry.get("evidence"),
+                            verifiedProject,
+                            runtimeAvailable,
+                            availability,
+                            recordPath,
+                            recordDigest
+                        );
+                        entries.add(entry);
+                    }
+                } else if (knownUnmapped) {
+                    entries.add(unmappedCapabilityEntry(summary.id(), capabilityId));
                 } else {
-                    evidence.add(PreviewReportDocuments.evidence(
-                        "DECLARED",
-                        "UNKNOWN",
-                        "Capability is declared by the plugin descriptor; support is not elevated.",
-                        null,
-                        null
-                    ));
+                    entries.add(unknownCapabilityFallbackEntry(summary.id(), capabilityId));
                 }
-                entries.add(entry);
             }
         }
         return report;
+    }
+
+    private static ObjectNode unmappedCapabilityEntry(final String pluginId, final String capabilityId) {
+        return capabilityFallbackEntry(pluginId, capabilityId);
+    }
+
+    private static ObjectNode unknownCapabilityFallbackEntry(final String pluginId, final String capabilityId) {
+        return capabilityFallbackEntry(pluginId, capabilityId);
+    }
+
+    private static ObjectNode capabilityFallbackEntry(final String pluginId, final String capabilityId) {
+        final ObjectNode entry = PreviewReportDocuments.capabilityEntry(
+            pluginId,
+            capabilityId,
+            UNMAPPED_CAPABILITY_OPERATION,
+            null,
+            "UNKNOWN",
+            "UNKNOWN",
+            "NONE"
+        );
+        addCapabilityEvidence(
+            (ArrayNode) entry.get("evidence"),
+            false,
+            false,
+            "UNKNOWN",
+            null,
+            null
+        );
+        return entry;
     }
 
     private static ObjectNode i18n(
@@ -397,19 +526,59 @@ public final class PreviewReportSnapshotFactory {
         return report;
     }
 
+    private static void addCapabilityEvidence(
+        final ArrayNode evidence,
+        final boolean verifiedProject,
+        final boolean runtimeAvailable,
+        final String availability,
+        final String recordPath,
+        final String recordDigest
+    ) {
+        if (verifiedProject && recordPath != null && recordDigest != null) {
+            evidence.add(PreviewReportDocuments.evidence(
+                "STATIC_VERIFIED",
+                availability,
+                runtimeAvailable
+                    ? "Exact Cubism 5.3.02 static record applies to the connected runtime session."
+                    : "Exact Cubism 5.3.02 static record exists; runtime availability was not established.",
+                recordPath,
+                recordDigest
+            ));
+            return;
+        }
+        evidence.add(PreviewReportDocuments.evidence(
+            "DECLARED",
+            "UNKNOWN",
+            "Capability is declared by the plugin descriptor; support is not elevated.",
+            null,
+            null
+        ));
+    }
+
     private static String permissionFor(
         final List<String> permissionIds,
-        final String capabilityId
+        final CapabilityBinding binding
     ) {
-        final String direct = "turboism." + capabilityId;
-        if (permissionIds.contains(direct)) {
-            return direct;
-        }
-        if (capabilityId.equals("cubism.workspace.read")
-            && permissionIds.contains("turboism.cubism.project.read")) {
-            return "turboism.cubism.project.read";
-        }
-        return null;
+        return permissionIds.contains(binding.permissionId()) ? binding.permissionId() : null;
+    }
+
+    private static Map.Entry<String, List<CapabilityBinding>> binding(
+        final String capabilityId,
+        final String operationId,
+        final String permissionId
+    ) {
+        return bindings(capabilityId, binding(operationId, permissionId));
+    }
+
+    private static Map.Entry<String, List<CapabilityBinding>> bindings(
+        final String capabilityId,
+        final CapabilityBinding... bindings
+    ) {
+        return Map.entry(capabilityId, List.of(bindings));
+    }
+
+    private static CapabilityBinding binding(final String operationId, final String permissionId) {
+        return new CapabilityBinding(operationId, permissionId);
     }
 
     private static String lifecycle(final String value) {
@@ -487,6 +656,9 @@ public final class PreviewReportSnapshotFactory {
         } catch (IOException | NoSuchAlgorithmException exception) {
             return java.util.Optional.empty();
         }
+    }
+
+    private record CapabilityBinding(String operationId, String permissionId) {
     }
 
     private record FileDigest(String sha256, long size) {

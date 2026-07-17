@@ -78,17 +78,46 @@ class ModelHierarchyQueryServiceImplTest {
     }
 
     @Test
-    void deniedModelReadThrowsAndRecordsAuditEvent() {
+    void everyDeniedModelReadOperationRecordsItsOperationAndModelTreeCapability() {
         final List<CubismFacadeAuditEvent> auditEvents = new ArrayList<>();
-        final ModelHierarchyQueryServiceImpl service = serviceWith(VersionedHierarchySource.withModel(), auditEvents, List.of());
+        final ModelHierarchyQueryServiceImpl service = serviceWith(
+            VersionedHierarchySource.withModel(),
+            auditEvents,
+            List.of()
+        );
 
-        final CubismPermissionException error = assertThrows(CubismPermissionException.class, service::currentHierarchy);
+        assertDenied(service::currentHierarchy, auditEvents, ModelHierarchyQueryServiceImpl.CURRENT_HIERARCHY_OPERATION);
+        assertDenied(
+            () -> service.childrenOf(new ModelObjectId("model-1")),
+            auditEvents,
+            ModelHierarchyQueryServiceImpl.CHILDREN_OF_OPERATION
+        );
+        assertDenied(
+            () -> service.findNode(new ModelObjectId("model-1")),
+            auditEvents,
+            ModelHierarchyQueryServiceImpl.FIND_NODE_OPERATION
+        );
+    }
+
+    private static void assertDenied(
+        final ThrowingHierarchyOperation operation,
+        final List<CubismFacadeAuditEvent> auditEvents,
+        final String expectedOperationId
+    ) {
+        final CubismPermissionException error = assertThrows(CubismPermissionException.class, operation::run);
 
         assertTrue(error.getMessage().contains(CubismFacadeImpl.MODEL_READ_PERMISSION));
         assertEquals(1, auditEvents.size());
-        assertEquals(CubismFacadeImpl.MODEL_READ_PERMISSION, auditEvents.get(0).permissionId());
-        assertEquals("modelHierarchyQuery.currentHierarchy", auditEvents.get(0).methodName());
-        assertEquals(FIXED_CLOCK.instant(), auditEvents.get(0).timestamp());
+        final CubismFacadeAuditEvent event = auditEvents.remove(0);
+        assertEquals(CubismFacadeImpl.MODEL_READ_PERMISSION, event.permissionId());
+        assertEquals(expectedOperationId, event.operationId());
+        assertEquals(ModelHierarchyQueryServiceImpl.MODEL_TREE_READ_CAPABILITY, event.capabilityId());
+        assertEquals(FIXED_CLOCK.instant(), event.timestamp());
+    }
+
+    @FunctionalInterface
+    private interface ThrowingHierarchyOperation {
+        void run() throws CubismServiceException;
     }
 
     @Test
