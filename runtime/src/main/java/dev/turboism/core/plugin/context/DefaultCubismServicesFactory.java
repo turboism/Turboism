@@ -41,7 +41,8 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
                 hostAdapters.renderStatus(),
                 hostAdapters.projectWorkspace(),
                 hostAdapters.clipMaskRead(),
-                dependencies.descriptor().id()
+                dependencies.descriptor().id(),
+                permissionGate
             )
         );
     }
