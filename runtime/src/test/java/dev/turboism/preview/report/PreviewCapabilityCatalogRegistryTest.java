@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -43,34 +44,84 @@ class PreviewCapabilityCatalogRegistryTest {
         final JsonNode capabilities = capabilityReport(capabilityIds)
             .path("payload")
             .path("capabilities");
-        final Map<String, List<JsonNode>> entriesByCapability = new java.util.LinkedHashMap<>();
-        for (JsonNode entry : capabilities) {
-            entriesByCapability.computeIfAbsent(entry.path("capabilityId").textValue(), ignored -> new ArrayList<>())
-                .add(entry);
-        }
+        final Map<String, List<JsonNode>> entriesByCapability = entriesByCapability(capabilities);
+        final Set<String> canonicalCapabilities = Set.copyOf(capabilityIds);
+        final Set<String> mappedCapabilities = entriesByCapability.entrySet().stream()
+            .filter(entry -> entry.getValue().stream().noneMatch(this::isUnmappedEntry))
+            .map(Map.Entry::getKey)
+            .collect(Collectors.toUnmodifiableSet());
+        final Set<String> knownUnmappedCapabilities = entriesByCapability.entrySet().stream()
+            .filter(entry -> entry.getValue().stream().allMatch(this::isUnmappedEntry))
+            .map(Map.Entry::getKey)
+            .collect(Collectors.toUnmodifiableSet());
 
-        assertEquals(Set.copyOf(capabilityIds), entriesByCapability.keySet());
+        assertEquals(63, canonicalCapabilities.size());
+        assertEquals(canonicalCapabilities, entriesByCapability.keySet());
+        assertTrue(
+            java.util.Collections.disjoint(mappedCapabilities, knownUnmappedCapabilities),
+            "mapped and known-unmapped capability sets must not overlap"
+        );
+        assertEquals(canonicalCapabilities, union(mappedCapabilities, knownUnmappedCapabilities));
         for (String capabilityId : capabilityIds) {
             final List<JsonNode> entries = entriesByCapability.get(capabilityId);
             assertFalse(entries.isEmpty(), "missing preview policy for " + capabilityId);
-            final boolean unmapped = entries.stream()
-                .allMatch(entry -> UNMAPPED_OPERATION.equals(entry.path("operationId").textValue()));
-            if (unmapped) {
+            if (knownUnmappedCapabilities.contains(capabilityId)) {
                 assertEquals(1, entries.size(), "unmapped policy must have one explicit sentinel entry");
                 final JsonNode entry = entries.get(0);
                 assertFalse(entry.has("permissionId"));
                 assertEquals("UNKNOWN", entry.path("capabilityAvailability").textValue());
                 assertEquals("UNKNOWN", entry.path("permissionAvailability").textValue());
             } else {
-                assertTrue(entries.stream().noneMatch(
-                    entry -> UNMAPPED_OPERATION.equals(entry.path("operationId").textValue())
-                ));
+                assertTrue(entries.stream().noneMatch(this::isUnmappedEntry));
                 for (JsonNode entry : entries) {
                     assertFalse(entry.path("operationId").textValue().isBlank());
                     assertTrue(entry.has("permissionId"));
                 }
             }
         }
+    }
+
+    @Test
+    void nonCanonicalUnknownCapabilityUsesFallbackWithoutChangingCanonicalRegistry() throws Exception {
+        final List<String> canonicalCapabilities = Files.readAllLines(CAPABILITY_CATALOG).stream()
+            .skip(1)
+            .filter(line -> !line.isBlank())
+            .map(line -> line.split("\\t", -1)[0])
+            .toList();
+        final String unknownCapability = "cubism.future.unknown";
+        final List<String> requestedCapabilities = new ArrayList<>(canonicalCapabilities);
+        requestedCapabilities.add(unknownCapability);
+
+        final Map<String, List<JsonNode>> entries = entriesByCapability(
+            capabilityReport(requestedCapabilities).path("payload").path("capabilities")
+        );
+
+        assertEquals(Set.copyOf(requestedCapabilities), entries.keySet());
+        assertEquals(1, entries.get(unknownCapability).size());
+        final JsonNode fallback = entries.get(unknownCapability).get(0);
+        assertEquals(UNMAPPED_OPERATION, fallback.path("operationId").textValue());
+        assertFalse(fallback.has("permissionId"));
+        assertEquals("UNKNOWN", fallback.path("capabilityAvailability").textValue());
+        assertEquals("UNKNOWN", fallback.path("permissionAvailability").textValue());
+    }
+
+    private Map<String, List<JsonNode>> entriesByCapability(final JsonNode capabilities) {
+        final Map<String, List<JsonNode>> entries = new java.util.LinkedHashMap<>();
+        for (JsonNode entry : capabilities) {
+            entries.computeIfAbsent(entry.path("capabilityId").textValue(), ignored -> new ArrayList<>())
+                .add(entry);
+        }
+        return entries;
+    }
+
+    private boolean isUnmappedEntry(final JsonNode entry) {
+        return UNMAPPED_OPERATION.equals(entry.path("operationId").textValue());
+    }
+
+    private static Set<String> union(final Set<String> left, final Set<String> right) {
+        final Set<String> union = new java.util.HashSet<>(left);
+        union.addAll(right);
+        return Set.copyOf(union);
     }
 
     private JsonNode capabilityReport(final List<String> capabilityIds) throws Exception {
@@ -86,7 +137,7 @@ class PreviewCapabilityCatalogRegistryTest {
             capabilityIds,
             List.of(
                 "turboism.cubism.project.read", "turboism.cubism.model.read",
-                "turboism.cubism.model.write", "turboism.cubism.parameter.read",
+                "turboism.cubism.parameter.read", "turboism.cubism.model.write",
                 "turboism.ui.context-source.read", "turboism.ui.overlay.contribute",
                 "turboism.ui.viewport.read", "turboism.ui.dialog.contribute",
                 "turboism.ui.panel.contribute", "turboism.ui.file-chooser.request",
