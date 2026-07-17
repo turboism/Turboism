@@ -13,7 +13,6 @@ import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.HashSet;
@@ -33,31 +32,6 @@ public final class PreviewReportSnapshotFactory {
     private static final Map<String, List<CapabilityBinding>> CAPABILITY_BINDINGS = Map.ofEntries(
         binding("cubism.project.read", "cubismRead.activeProject", "turboism.cubism.project.read"),
         binding("cubism.workspace.read", "cubismRead.workspace", "turboism.cubism.project.read"),
-        binding(
-            "cubism.selection.read",
-            "cubismRead.selection",
-            "turboism.cubism.model.read",
-            "selectionQuery.currentSelection"
-        ),
-        binding(
-            "cubism.parameter.read",
-            "cubismRead.parameters",
-            "turboism.cubism.model.read",
-            "parameterQuery.listAll"
-        ),
-        binding(
-            "cubism.parameter.write",
-            "parameterCsv.import",
-            "turboism.cubism.model.write",
-            "parameterCsv.export"
-        ),
-        binding(
-            "cubism.model-tree.read",
-            "cubismRead.activeModel",
-            "turboism.cubism.model.read",
-            "cubismRead.modelObjects",
-            "modelHierarchyQuery.currentHierarchy"
-        ),
         binding("cubism.mesh.read", "cubismRead.meshes", "turboism.cubism.model.read"),
         binding("cubism.deformer.read", "cubismRead.deformers", "turboism.cubism.model.read"),
         binding("cubism.psd.read", "cubismRead.psdDocuments", "turboism.cubism.model.read"),
@@ -65,6 +39,35 @@ public final class PreviewReportSnapshotFactory {
         binding("cubism.texture-atlas.read", "cubismRead.textureAtlases", "turboism.cubism.model.read"),
         binding("cubism.render.status.read", "cubismRead.renderStatus", "turboism.cubism.model.read"),
         binding("cubism.theme.status.read", "cubismRead.themeStatus", "turboism.cubism.project.read"),
+        bindings(
+            "cubism.selection.read",
+            binding("cubismRead.selection", "turboism.cubism.model.read"),
+            binding("selectionQuery.currentSelection", "turboism.cubism.model.read"),
+            binding("selectionQuery.selectedIds", "turboism.cubism.model.read"),
+            binding("selectionQuery.onSelectionChanged", "turboism.cubism.model.read")
+        ),
+        bindings(
+            "cubism.parameter.read",
+            binding("cubismRead.parameters", "turboism.cubism.model.read"),
+            binding("parameterQuery.findById", "turboism.cubism.model.read"),
+            binding("parameterQuery.listAll", "turboism.cubism.model.read"),
+            binding("parameterQuery.exists", "turboism.cubism.model.read")
+        ),
+        bindings(
+            "cubism.parameter.write",
+            binding("transaction.open", "turboism.cubism.model.write"),
+            binding("transaction.enqueue", "turboism.cubism.model.write"),
+            binding("transaction.commit", "turboism.cubism.model.write")
+        ),
+        bindings(
+            "cubism.model-tree.read",
+            binding("cubismRead.activeDocument", "turboism.cubism.model.read"),
+            binding("cubismRead.activeModel", "turboism.cubism.model.read"),
+            binding("cubismRead.modelObjects", "turboism.cubism.model.read"),
+            binding("modelHierarchyQuery.currentHierarchy", "turboism.cubism.model.read"),
+            binding("modelHierarchyQuery.childrenOf", "turboism.cubism.model.read"),
+            binding("modelHierarchyQuery.findNode", "turboism.cubism.model.read")
+        ),
         binding("ui.context-source.read", "ui.context-source.read", "turboism.ui.context-source.read"),
         binding("ui.overlay.contribute", "ui.overlay.contribute", "turboism.ui.overlay.contribute"),
         binding("ui.viewport.read", "ui.viewport.read", "turboism.ui.viewport.read"),
@@ -341,7 +344,6 @@ public final class PreviewReportSnapshotFactory {
             for (String capabilityId : summary.capabilities().stream().sorted().toList()) {
                 final List<CapabilityBinding> bindings = CAPABILITY_BINDINGS.get(capabilityId);
                 final boolean mapped = bindings != null;
-                final String permissionId = permissionFor(summary.permissionIds(), bindings);
                 final boolean verifiedProject = VERIFIED_PROJECT_CAPABILITIES.contains(capabilityId);
                 final boolean runtimeAvailable = verifiedProject
                     && hostState == HostSession.State.ACTIVE
@@ -352,6 +354,7 @@ public final class PreviewReportSnapshotFactory {
                     : "UNKNOWN";
                 if (mapped) {
                     for (CapabilityBinding binding : bindings) {
+                        final String permissionId = permissionFor(summary.permissionIds(), binding);
                         final ObjectNode entry = PreviewReportDocuments.capabilityEntry(
                             summary.id(),
                             capabilityId,
@@ -487,16 +490,9 @@ public final class PreviewReportSnapshotFactory {
 
     private static String permissionFor(
         final List<String> permissionIds,
-        final List<CapabilityBinding> bindings
+        final CapabilityBinding binding
     ) {
-        if (bindings == null) {
-            return null;
-        }
-        final String permissionId = bindings.get(0).permissionId();
-        if (bindings.stream().anyMatch(binding -> !binding.permissionId().equals(permissionId))) {
-            throw new IllegalStateException("Capability bindings must use one permission ID");
-        }
-        return permissionIds.contains(permissionId) ? permissionId : null;
+        return permissionIds.contains(binding.permissionId()) ? binding.permissionId() : null;
     }
 
     private static Map.Entry<String, List<CapabilityBinding>> binding(
@@ -504,21 +500,18 @@ public final class PreviewReportSnapshotFactory {
         final String operationId,
         final String permissionId
     ) {
-        return Map.entry(capabilityId, List.of(new CapabilityBinding(operationId, permissionId)));
+        return bindings(capabilityId, binding(operationId, permissionId));
     }
 
-    private static Map.Entry<String, List<CapabilityBinding>> binding(
+    private static Map.Entry<String, List<CapabilityBinding>> bindings(
         final String capabilityId,
-        final String operationId,
-        final String permissionId,
-        final String... additionalOperationIds
+        final CapabilityBinding... bindings
     ) {
-        final List<CapabilityBinding> bindings = new ArrayList<>();
-        bindings.add(new CapabilityBinding(operationId, permissionId));
-        for (String additionalOperationId : additionalOperationIds) {
-            bindings.add(new CapabilityBinding(additionalOperationId, permissionId));
-        }
-        return Map.entry(capabilityId, List.copyOf(bindings));
+        return Map.entry(capabilityId, List.of(bindings));
+    }
+
+    private static CapabilityBinding binding(final String operationId, final String permissionId) {
+        return new CapabilityBinding(operationId, permissionId);
     }
 
     private static String lifecycle(final String value) {

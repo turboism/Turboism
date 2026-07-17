@@ -10,6 +10,11 @@ import dev.turboism.adapter.ui.ThemeStatusAdapterImpl;
 import dev.turboism.diagnostics.CubismFacadeAuditEvent;
 import dev.turboism.permissions.CubismPermissionGate;
 import dev.turboism.sdk.cubism.ClipMaskSnapshot;
+import dev.turboism.sdk.cubism.CubismFacade;
+import dev.turboism.sdk.cubism.CubismRuntimeSnapshot;
+import dev.turboism.sdk.cubism.DocumentSnapshot;
+import dev.turboism.sdk.cubism.ModelSnapshot;
+import dev.turboism.sdk.cubism.ProjectSnapshot;
 import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.permission.PluginPermission;
 import org.junit.jupiter.api.Test;
@@ -80,6 +85,78 @@ class ClipMaskReadCapabilityServiceTest {
     }
 
     @Test
+    void everyReadOperationUsesTheInjectedCapabilityAwareGateBeforeReading() {
+        final List<String> calls = new ArrayList<>();
+        final CubismReadCapabilityServiceImpl service = new CubismReadCapabilityServiceImpl(
+            new UncheckedFacade(),
+            M12ReadSnapshotSource.EMPTY,
+            ThemeStatusAdapterImpl.safeMode(),
+            RenderStatusAdapter.Impl.safeMode(),
+            ProjectWorkspaceAdapter.Impl.safeMode(),
+            ClipMaskReadAdapter.Impl.safeMode(),
+            "plugin.read.test",
+            (permissionId, operationId, capabilityId) -> {
+                calls.add(permissionId + "|" + operationId + "|" + capabilityId);
+                throw new CubismPermissionException("denied " + operationId);
+            }
+        );
+
+        final List<ReadOperation> operations = List.of(
+            new ReadOperation(service::activeProject, CubismFacadeImpl.PROJECT_READ_PERMISSION, "cubismRead.activeProject", "cubism.project.read"),
+            new ReadOperation(service::activeDocument, CubismFacadeImpl.MODEL_READ_PERMISSION, "cubismRead.activeDocument", "cubism.model-tree.read"),
+            new ReadOperation(service::activeModel, CubismFacadeImpl.MODEL_READ_PERMISSION, "cubismRead.activeModel", "cubism.model-tree.read"),
+            new ReadOperation(service::selection, CubismFacadeImpl.MODEL_READ_PERMISSION, "cubismRead.selection", "cubism.selection.read"),
+            new ReadOperation(service::parameters, CubismFacadeImpl.MODEL_READ_PERMISSION, "cubismRead.parameters", "cubism.parameter.read"),
+            new ReadOperation(service::modelObjects, CubismFacadeImpl.MODEL_READ_PERMISSION, "cubismRead.modelObjects", "cubism.model-tree.read"),
+            new ReadOperation(service::meshes, CubismFacadeImpl.MODEL_READ_PERMISSION, "cubismRead.meshes", "cubism.mesh.read"),
+            new ReadOperation(service::deformers, CubismFacadeImpl.MODEL_READ_PERMISSION, "cubismRead.deformers", "cubism.deformer.read"),
+            new ReadOperation(service::psdDocuments, CubismFacadeImpl.MODEL_READ_PERMISSION, "cubismRead.psdDocuments", "cubism.psd.read"),
+            new ReadOperation(service::clipMasks, CubismFacadeImpl.MODEL_READ_PERMISSION, "cubismRead.clipMasks", "cubism.clipmask.read"),
+            new ReadOperation(service::textureAtlases, CubismFacadeImpl.MODEL_READ_PERMISSION, "cubismRead.textureAtlases", "cubism.texture-atlas.read"),
+            new ReadOperation(service::renderStatus, CubismFacadeImpl.MODEL_READ_PERMISSION, "cubismRead.renderStatus", "cubism.render.status.read"),
+            new ReadOperation(service::workspace, CubismFacadeImpl.PROJECT_READ_PERMISSION, "cubismRead.workspace", "cubism.workspace.read"),
+            new ReadOperation(service::themeStatus, CubismFacadeImpl.PROJECT_READ_PERMISSION, "cubismRead.themeStatus", "cubism.theme.status.read")
+        );
+
+        for (ReadOperation operation : operations) {
+            assertThrows(CubismPermissionException.class, operation.call()::get);
+            assertEquals(
+                operation.permissionId() + "|" + operation.operationId() + "|" + operation.capabilityId(),
+                calls.remove(0)
+            );
+        }
+        assertTrue(calls.isEmpty());
+    }
+
+    @Test
+    void legacyPublicConstructorRetainsCubismFacadeAuditGate() {
+        final List<CubismFacadeAuditEvent> auditEvents = new ArrayList<>();
+        final CubismPermissionGate gate = gate(List.of(), auditEvents);
+        final CubismReadCapabilityServiceImpl service = new CubismReadCapabilityServiceImpl(
+            new CubismFacadeImpl(emptySource(), gate),
+            M12ReadSnapshotSource.EMPTY
+        );
+
+        assertThrows(CubismPermissionException.class, service::clipMasks);
+
+        assertEquals(1, auditEvents.size());
+        final CubismFacadeAuditEvent event = auditEvents.get(0);
+        assertEquals(CubismFacadeImpl.MODEL_READ_PERMISSION, event.permissionId());
+        assertEquals("cubismRead.clipMasks", event.operationId());
+        assertEquals("cubism.clipmask.read", event.capabilityId());
+    }
+
+    @Test
+    void legacyPublicConstructorRejectsNonAuditableFacadeInsteadOfFabricatingAudit() {
+        final IllegalArgumentException error = assertThrows(
+            IllegalArgumentException.class,
+            () -> new CubismReadCapabilityServiceImpl(new UncheckedFacade(), M12ReadSnapshotSource.EMPTY)
+        );
+
+        assertTrue(error.getMessage().contains("CubismReadPermissionGate"));
+    }
+
+    @Test
     void deniedClipMaskReadAuditsRealIdsBeforeTouchingAdapterOrFallback() {
         final AtomicInteger adapterReads = new AtomicInteger();
         final AtomicInteger fallbackReads = new AtomicInteger();
@@ -144,6 +221,25 @@ class ClipMaskReadCapabilityServiceTest {
             "plugin.clipmask.test",
             gate
         );
+    }
+
+    private record ReadOperation(
+        Supplier<?> call,
+        String permissionId,
+        String operationId,
+        String capabilityId
+    ) {
+    }
+
+    private static final class UncheckedFacade implements CubismFacade {
+        @Override public Optional<ProjectSnapshot> activeProject() { throw new AssertionError("facade must not be read"); }
+        @Override public Optional<DocumentSnapshot> activeDocument() { throw new AssertionError("facade must not be read"); }
+        @Override public Optional<ModelSnapshot> activeModel() { throw new AssertionError("facade must not be read"); }
+        @Override public CubismRuntimeSnapshot runtime() { throw new AssertionError("facade must not be read"); }
+        @Override public boolean isHostPresent() { return false; }
+        @Override public dev.turboism.sdk.cubism.transaction.TransactionManager transactionManager() {
+            throw new UnsupportedOperationException();
+        }
     }
 
     private static HostSnapshotSource modelSource() {
