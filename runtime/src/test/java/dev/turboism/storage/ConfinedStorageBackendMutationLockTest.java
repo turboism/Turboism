@@ -11,6 +11,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
@@ -112,6 +113,94 @@ class ConfinedStorageBackendMutationLockTest {
 
         assertTrue(write.get().written());
         assertOneMutationWon(move.get(), delete.get());
+    }
+
+    @Test
+    void failedWriteCleansTemporaryBeforeReleasingMutationLock() throws Exception {
+        final Roots roots = roots();
+        final CountDownLatch cleanupEntered = new CountDownLatch(1);
+        final CountDownLatch releaseCleanup = new CountDownLatch(1);
+        final ConfinedStorageBackend first = backend(
+            roots,
+            unsupportedMover(),
+            temporary -> {
+                cleanupEntered.countDown();
+                await(releaseCleanup);
+                return Files.deleteIfExists(temporary);
+            }
+        );
+        final ConfinedStorageBackend second = backend(roots, StorageAtomicMover::move);
+        final AtomicReference<StorageWriteResult> failedWrite = new AtomicReference<>();
+        final AtomicReference<StorageWriteResult> competingWrite = new AtomicReference<>();
+
+        final Thread writer = new Thread(
+            () -> failedWrite.set(first.writeBytesAtomic(path("failed.txt"), bytes("first"), true))
+        );
+        writer.start();
+        assertTrue(cleanupEntered.await(2, TimeUnit.SECONDS));
+
+        final Thread contender = new Thread(
+            () -> competingWrite.set(second.writeBytesAtomic(path("second.txt"), bytes("second"), true))
+        );
+        contender.start();
+        assertBlocked(contender, "competing mutation entered before temporary cleanup completed");
+
+        releaseCleanup.countDown();
+        join(writer);
+        join(contender);
+
+        assertEquals(
+            StorageErrorCode.ATOMIC_REPLACE_UNAVAILABLE,
+            failedWrite.get().error().orElseThrow().code()
+        );
+        assertTrue(competingWrite.get().written());
+        assertFalse(Files.exists(roots.data().resolve("failed.txt")));
+        assertEquals("second", Files.readString(roots.data().resolve("second.txt")));
+    }
+
+    @Test
+    void failedCopyCleansTemporaryBeforeReleasingMutationLock() throws Exception {
+        final Roots roots = roots();
+        Files.writeString(roots.data().resolve("source.txt"), "source");
+        final CountDownLatch cleanupEntered = new CountDownLatch(1);
+        final CountDownLatch releaseCleanup = new CountDownLatch(1);
+        final ConfinedStorageBackend first = backend(
+            roots,
+            unsupportedMover(),
+            temporary -> {
+                cleanupEntered.countDown();
+                await(releaseCleanup);
+                return Files.deleteIfExists(temporary);
+            }
+        );
+        final ConfinedStorageBackend second = backend(roots, StorageAtomicMover::move);
+        final AtomicReference<StorageMutationResult> failedCopy = new AtomicReference<>();
+        final AtomicReference<StorageMutationResult> competingDelete = new AtomicReference<>();
+
+        final Thread copier = new Thread(() -> failedCopy.set(first.copy(
+            path("source.txt"),
+            path("failed.txt"),
+            true
+        )));
+        copier.start();
+        assertTrue(cleanupEntered.await(2, TimeUnit.SECONDS));
+
+        final Thread deleter = new Thread(
+            () -> competingDelete.set(second.delete(path("source.txt"), false))
+        );
+        deleter.start();
+        assertBlocked(deleter, "competing mutation entered before temporary cleanup completed");
+
+        releaseCleanup.countDown();
+        join(copier);
+        join(deleter);
+
+        assertEquals(
+            StorageErrorCode.ATOMIC_REPLACE_UNAVAILABLE,
+            failedCopy.get().error().orElseThrow().code()
+        );
+        assertTrue(competingDelete.get().changed());
+        assertFalse(Files.exists(roots.data().resolve("failed.txt")));
     }
 
     @Test
@@ -226,6 +315,14 @@ class ConfinedStorageBackendMutationLockTest {
         final Roots roots,
         final ConfinedStorageBackend.AtomicMover mover
     ) throws IOException {
+        return backend(roots, mover, Files::deleteIfExists);
+    }
+
+    private ConfinedStorageBackend backend(
+        final Roots roots,
+        final ConfinedStorageBackend.AtomicMover mover,
+        final ConfinedStorageBackend.TemporaryFileDeleter deleter
+    ) throws IOException {
         return new ConfinedStorageBackend(
             Map.of(
                 StorageRoot.DATA, roots.data(),
@@ -233,8 +330,19 @@ class ConfinedStorageBackendMutationLockTest {
                 StorageRoot.CACHE, roots.cache()
             ),
             new CleanupEvidenceCollector(),
-            mover
+            mover,
+            deleter
         );
+    }
+
+    private static ConfinedStorageBackend.AtomicMover unsupportedMover() {
+        return (source, target, replaceExisting) -> {
+            throw new AtomicMoveNotSupportedException(
+                source.toString(),
+                target.toString(),
+                "simulated unsupported atomic move"
+            );
+        };
     }
 
     private static StoragePath path(final String relativePath) {
