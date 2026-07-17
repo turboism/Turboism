@@ -13,6 +13,7 @@ abstract class AbstractRuntimeTaskHandle implements TaskHandle {
 
     private final TaskId id;
     private final Runnable terminalCleanup;
+    private final Consumer<TaskOutcome> terminalObserver;
     private final Consumer<Runnable> settlementDispatcher;
     private final PluginCompletionFuture<TaskOutcome> completion;
     private final AtomicReference<TaskOutcome> terminalOutcome = new AtomicReference<>();
@@ -20,11 +21,13 @@ abstract class AbstractRuntimeTaskHandle implements TaskHandle {
     AbstractRuntimeTaskHandle(
         final TaskId id,
         final Runnable terminalCleanup,
+        final Consumer<TaskOutcome> terminalObserver,
         final Consumer<Runnable> settlementDispatcher,
         final Consumer<Runnable> continuationDispatcher
     ) {
         this.id = Objects.requireNonNull(id, "id");
         this.terminalCleanup = Objects.requireNonNull(terminalCleanup, "terminalCleanup");
+        this.terminalObserver = Objects.requireNonNull(terminalObserver, "terminalObserver");
         this.settlementDispatcher = Objects.requireNonNull(
             settlementDispatcher,
             "settlementDispatcher"
@@ -49,6 +52,7 @@ abstract class AbstractRuntimeTaskHandle implements TaskHandle {
         if (!terminalOutcome.compareAndSet(null, terminal)) {
             return false;
         }
+        terminalObserver.accept(terminal);
         terminalCleanup.run();
         onTerminal();
         settlementDispatcher.accept(() -> completion.settle(terminal));

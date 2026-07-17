@@ -3,6 +3,8 @@ package dev.turboism.preview.report;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import dev.turboism.adapter.host.HostSession;
+import dev.turboism.failure.RuntimeFailure;
+import dev.turboism.failure.RuntimeFailureSnapshot;
 import dev.turboism.i18n.RuntimePluginLocalization;
 import dev.turboism.preview.LocalPluginRuntime;
 
@@ -145,7 +147,37 @@ public final class PreviewReportSnapshotFactory {
         final List<LocalPluginRuntime.LoadedPluginSummary> summaries,
         final boolean stopped
     ) {
+        return create(
+            runtimeId,
+            createdAt,
+            home,
+            hostState,
+            hostArtifact,
+            verificationRecord,
+            loadReport,
+            summaries,
+            RuntimeFailureSnapshot.empty(),
+            stopped
+        );
+    }
+
+    public static Map<PreviewReportType, ObjectNode> create(
+        final String runtimeId,
+        final Instant createdAt,
+        final Path home,
+        final HostSession.State hostState,
+        final Path hostArtifact,
+        final Path verificationRecord,
+        final LocalPluginRuntime.LoadReport loadReport,
+        final List<LocalPluginRuntime.LoadedPluginSummary> summaries,
+        final RuntimeFailureSnapshot failureSnapshot,
+        final boolean stopped
+    ) {
         Objects.requireNonNull(loadReport, "loadReport");
+        final RuntimeFailureSnapshot neutralFailures = Objects.requireNonNull(
+            failureSnapshot,
+            "failureSnapshot"
+        );
         final List<LocalPluginRuntime.LoadedPluginSummary> neutralSummaries =
             List.copyOf(Objects.requireNonNull(summaries, "summaries"));
         final EnumMap<PreviewReportType, ObjectNode> reports =
@@ -158,6 +190,7 @@ public final class PreviewReportSnapshotFactory {
                 hostState,
                 hostArtifact,
                 neutralSummaries,
+                neutralFailures,
                 stopped
             )
         );
@@ -190,6 +223,7 @@ public final class PreviewReportSnapshotFactory {
         final HostSession.State hostState,
         final Path hostArtifact,
         final List<LocalPluginRuntime.LoadedPluginSummary> summaries,
+        final RuntimeFailureSnapshot failures,
         final boolean stopped
     ) {
         final ObjectNode report = PreviewReportDocuments.emptyReport(
@@ -220,6 +254,9 @@ public final class PreviewReportSnapshotFactory {
             "runtimeState",
             stopped ? "STOPPED" : hostState == HostSession.State.FAILED ? "DEGRADED" : "RUNNING"
         );
+        writeFailures((ArrayNode) payload.get("taskFailures"), failures.taskFailures());
+        writeFailures((ArrayNode) payload.get("storageFailures"), failures.storageFailures());
+        writeFailures((ArrayNode) payload.get("configFailures"), failures.configFailures());
 
         final long attempted = stopped ? summaries.size() : 0;
         final long succeeded = stopped
@@ -553,6 +590,25 @@ public final class PreviewReportSnapshotFactory {
             null,
             null
         ));
+    }
+
+    private static void writeFailures(
+        final ArrayNode target,
+        final List<RuntimeFailure> failures
+    ) {
+        for (RuntimeFailure failure : failures) {
+            target.add(PreviewReportDocuments.failure(
+                failure.code(),
+                failure.severity(),
+                failure.phase(),
+                failure.pluginId(),
+                failure.operationId(),
+                failure.permissionId(),
+                failure.message(),
+                failure.relativePath(),
+                failure.count()
+            ));
+        }
     }
 
     private static String permissionFor(
