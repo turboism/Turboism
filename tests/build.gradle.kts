@@ -28,7 +28,7 @@ tasks.test {
 
 tasks.register<Test>("previewPluginRuntimeTest") {
     group = "verification"
-    description = "Runs the Turboism 0.1 real local plugin loading lifecycle integration test."
+    description = "Runs real local plugin loading and preview failure-report integration tests."
     dependsOn(":plugins:project-inspector:jar")
     testClassesDirs = sourceSets.test.get().output.classesDirs
     classpath = sourceSets.test.get().runtimeClasspath
@@ -38,6 +38,7 @@ tasks.register<Test>("previewPluginRuntimeTest") {
     systemProperty("projectInspectorBuildDir", project(":plugins:project-inspector").buildDir.absolutePath)
     filter {
         includeTestsMatching("dev.turboism.tests.preview.LocalPluginRuntimeIntegrationTest")
+        includeTestsMatching("dev.turboism.preview.LocalPluginRuntimeFailureReportIntegrationTest")
         isFailOnNoMatchingTests = true
     }
 }
