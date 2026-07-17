@@ -47,21 +47,26 @@ class PreviewReportSnapshotFactoryTest {
             "cubismRead.clipMasks",
             "turboism.cubism.model.read"
         );
-        assertCapabilityOperations(
+        assertCapabilityBindings(
             capabilities,
             "dev.turboism.plugin.parameter",
             "cubism.parameter.read",
-            "turboism.cubism.model.read",
-            "cubismRead.parameters",
-            "parameterQuery.listAll"
+            Map.of(
+                "cubismRead.parameters", "turboism.cubism.model.read",
+                "parameterQuery.findById", "turboism.cubism.model.read",
+                "parameterQuery.listAll", "turboism.cubism.model.read",
+                "parameterQuery.exists", "turboism.cubism.model.read"
+            )
         );
-        assertCapabilityOperations(
+        assertCapabilityBindings(
             capabilities,
             "dev.turboism.plugin.parameter",
             "cubism.parameter.write",
-            "turboism.cubism.model.write",
-            "parameterCsv.import",
-            "parameterCsv.export"
+            Map.of(
+                "transaction.open", "turboism.cubism.model.write",
+                "transaction.enqueue", "turboism.cubism.model.write",
+                "transaction.commit", "turboism.cubism.model.write"
+            )
         );
     }
 
@@ -95,8 +100,11 @@ class PreviewReportSnapshotFactoryTest {
 
         for (JsonNode capability : capabilities) {
             assertFalse(capability.path("operationId").asText().isBlank());
-            assertFalse(capability.path("permissionId").asText().isBlank());
-            assertEquals("GRANTED", capability.path("permissionAvailability").textValue());
+            if (capability.has("permissionId")) {
+                assertEquals("GRANTED", capability.path("permissionAvailability").textValue());
+            } else {
+                assertEquals("NOT_DECLARED", capability.path("permissionAvailability").textValue());
+            }
         }
     }
 
@@ -135,22 +143,29 @@ class PreviewReportSnapshotFactoryTest {
             .path("payload")
             .path("capabilities");
 
-        assertCapabilityOperations(
+        assertCapabilityBindings(
             capabilities,
             "dev.turboism.plugin.catalog",
             "cubism.selection.read",
-            "turboism.cubism.model.read",
-            "cubismRead.selection",
-            "selectionQuery.currentSelection"
+            Map.of(
+                "cubismRead.selection", "turboism.cubism.model.read",
+                "selectionQuery.currentSelection", "turboism.cubism.model.read",
+                "selectionQuery.selectedIds", "turboism.cubism.model.read",
+                "selectionQuery.onSelectionChanged", "turboism.cubism.model.read"
+            )
         );
-        assertCapabilityOperations(
+        assertCapabilityBindings(
             capabilities,
             "dev.turboism.plugin.catalog",
             "cubism.model-tree.read",
-            "turboism.cubism.model.read",
-            "cubismRead.activeModel",
-            "cubismRead.modelObjects",
-            "modelHierarchyQuery.currentHierarchy"
+            Map.of(
+                "cubismRead.activeDocument", "turboism.cubism.model.read",
+                "cubismRead.activeModel", "turboism.cubism.model.read",
+                "cubismRead.modelObjects", "turboism.cubism.model.read",
+                "modelHierarchyQuery.currentHierarchy", "turboism.cubism.model.read",
+                "modelHierarchyQuery.childrenOf", "turboism.cubism.model.read",
+                "modelHierarchyQuery.findNode", "turboism.cubism.model.read"
+            )
         );
     }
 
@@ -289,22 +304,29 @@ class PreviewReportSnapshotFactoryTest {
         final String permissionId,
         final String... operationIds
     ) {
-        final List<JsonNode> found = new java.util.ArrayList<>();
+        final Map<String, String> expected = new java.util.LinkedHashMap<>();
+        for (String operationId : operationIds) {
+            expected.put(operationId, permissionId);
+        }
+        assertCapabilityBindings(capabilities, pluginId, capabilityId, expected);
+    }
+
+    private static void assertCapabilityBindings(
+        final JsonNode capabilities,
+        final String pluginId,
+        final String capabilityId,
+        final Map<String, String> expected
+    ) {
+        final Map<String, String> found = new java.util.LinkedHashMap<>();
         for (JsonNode capability : capabilities) {
             if (pluginId.equals(capability.path("pluginId").textValue())
                 && capabilityId.equals(capability.path("capabilityId").textValue())) {
-                found.add(capability);
+                found.put(
+                    capability.path("operationId").textValue(),
+                    capability.path("permissionId").textValue()
+                );
             }
         }
-        assertEquals(operationIds.length, found.size(), "unexpected binding count for " + pluginId + "/" + capabilityId);
-        assertEquals(
-            java.util.Set.of(operationIds),
-            found.stream()
-                .map(capability -> capability.path("operationId").textValue())
-                .collect(java.util.stream.Collectors.toSet())
-        );
-        for (JsonNode capability : found) {
-            assertEquals(permissionId, capability.path("permissionId").textValue());
-        }
+        assertEquals(expected, found, "unexpected bindings for " + pluginId + "/" + capabilityId);
     }
 }
