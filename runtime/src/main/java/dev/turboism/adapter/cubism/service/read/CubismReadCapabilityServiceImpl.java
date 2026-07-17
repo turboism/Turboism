@@ -8,6 +8,7 @@ import dev.turboism.adapter.ui.BoundedKeyedStore;
 import dev.turboism.adapter.ui.SafeModeDiagnostic;
 import dev.turboism.adapter.ui.ThemeStatusAdapter;
 import dev.turboism.adapter.ui.ThemeStatusAdapterImpl;
+import dev.turboism.permissions.CubismPermissionGate;
 import dev.turboism.sdk.cubism.ArtMeshSnapshot;
 import dev.turboism.sdk.cubism.ClipMaskSnapshot;
 import dev.turboism.sdk.cubism.CubismFacade;
@@ -47,6 +48,7 @@ public final class CubismReadCapabilityServiceImpl implements CubismReadCapabili
     private final ProjectWorkspaceAdapter projectWorkspaceAdapter;
     private final ClipMaskReadAdapter clipMaskReadAdapter;
     private final String ownerPluginId;
+    private final CubismPermissionGate permissionGate;
 
     private final BoundedKeyedStore<String, SafeModeDiagnostic> themeStatusDiagnostics =
         new BoundedKeyedStore<>(MAX_DIAGNOSTICS);
@@ -95,7 +97,8 @@ public final class CubismReadCapabilityServiceImpl implements CubismReadCapabili
             renderStatusAdapter,
             projectWorkspaceAdapter,
             clipMaskReadAdapter,
-            DEFAULT_OWNER_PLUGIN_ID
+            DEFAULT_OWNER_PLUGIN_ID,
+            null
         );
     }
 
@@ -108,6 +111,28 @@ public final class CubismReadCapabilityServiceImpl implements CubismReadCapabili
         final ClipMaskReadAdapter clipMaskReadAdapter,
         final String ownerPluginId
     ) {
+        this(
+            facade,
+            m12Source,
+            themeStatusAdapter,
+            renderStatusAdapter,
+            projectWorkspaceAdapter,
+            clipMaskReadAdapter,
+            ownerPluginId,
+            null
+        );
+    }
+
+    public CubismReadCapabilityServiceImpl(
+        final CubismFacade facade,
+        final M12ReadSnapshotSource m12Source,
+        final ThemeStatusAdapter themeStatusAdapter,
+        final RenderStatusAdapter renderStatusAdapter,
+        final ProjectWorkspaceAdapter projectWorkspaceAdapter,
+        final ClipMaskReadAdapter clipMaskReadAdapter,
+        final String ownerPluginId,
+        final CubismPermissionGate permissionGate
+    ) {
         this.facade = Objects.requireNonNull(facade, "facade");
         this.m12Source = Objects.requireNonNull(m12Source, "m12Source");
         this.themeStatusAdapter = Objects.requireNonNull(themeStatusAdapter, "themeStatusAdapter");
@@ -115,6 +140,7 @@ public final class CubismReadCapabilityServiceImpl implements CubismReadCapabili
         this.projectWorkspaceAdapter = Objects.requireNonNull(projectWorkspaceAdapter, "projectWorkspaceAdapter");
         this.clipMaskReadAdapter = Objects.requireNonNull(clipMaskReadAdapter, "clipMaskReadAdapter");
         this.ownerPluginId = requireText(ownerPluginId, "ownerPluginId");
+        this.permissionGate = permissionGate;
     }
 
     @Override
@@ -271,7 +297,15 @@ public final class CubismReadCapabilityServiceImpl implements CubismReadCapabili
         return facade.runtime();
     }
 
-    private void requireModelRead(String operation) {
+    private void requireModelRead(final String operation) {
+        if (permissionGate != null) {
+            permissionGate.require(
+                CubismFacadeImpl.MODEL_READ_PERMISSION,
+                "cubismRead." + operation,
+                capabilityIdFor(operation)
+            );
+            return;
+        }
         if (facade instanceof CubismFacadeImpl impl) {
             impl.activeModel();
             return;
@@ -279,7 +313,31 @@ public final class CubismReadCapabilityServiceImpl implements CubismReadCapabili
         facade.runtime();
     }
 
-    private void requireProjectRead(String operation) {
+    private void requireProjectRead(final String operation) {
+        if (permissionGate != null) {
+            permissionGate.require(
+                CubismFacadeImpl.PROJECT_READ_PERMISSION,
+                "cubismRead." + operation,
+                capabilityIdFor(operation)
+            );
+            return;
+        }
         facade.activeProject();
+    }
+
+    private static String capabilityIdFor(final String operation) {
+        return switch (operation) {
+            case "activeProject" -> ProjectWorkspaceAdapter.PROJECT_CAPABILITY_ID;
+            case "workspace" -> ProjectWorkspaceAdapter.WORKSPACE_CAPABILITY_ID;
+            case "parameters" -> "cubism.parameter.read";
+            case "meshes" -> "cubism.mesh.read";
+            case "deformers" -> "cubism.deformer.read";
+            case "psdDocuments" -> "cubism.psd.read";
+            case "clipMasks" -> ClipMaskReadAdapter.CAPABILITY_ID;
+            case "textureAtlases" -> "cubism.texture-atlas.read";
+            case "renderStatus" -> RenderStatusAdapter.CAPABILITY_ID;
+            case "themeStatus" -> ThemeStatusAdapter.CAPABILITY_ID;
+            default -> throw new IllegalArgumentException("Unknown Cubism read operation " + operation);
+        };
     }
 }
