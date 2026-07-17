@@ -170,6 +170,195 @@ class SdkApiSurfaceTest {
     }
 
     @Test
+    void compiledGateRejectsProtectedForbiddenMethodInheritedFromNonSdkParent() throws Exception {
+        Path parentSource = temporary.resolve("src/fixture/host/ProtectedForbiddenParent.java");
+        Path sdkSource = temporary.resolve("src/dev/turboism/sdk/future/InheritedProtectedApi.java");
+        Path classes = temporary.resolve("classes");
+        Files.createDirectories(parentSource.getParent());
+        Files.createDirectories(sdkSource.getParent());
+        Files.createDirectories(classes);
+        Files.writeString(parentSource, """
+            package fixture.host;
+            public class ProtectedForbiddenParent {
+                protected java.awt.Color leakedColor() {
+                    return null;
+                }
+            }
+            """);
+        Files.writeString(sdkSource, """
+            package dev.turboism.sdk.future;
+            public class InheritedProtectedApi extends fixture.host.ProtectedForbiddenParent {
+            }
+            """);
+        int result = ToolProvider.getSystemJavaCompiler().run(
+            null,
+            null,
+            null,
+            "-d",
+            classes.toString(),
+            parentSource.toString(),
+            sdkSource.toString()
+        );
+        assertTrue(result == 0, "inherited protected forbidden-type SDK fixture must compile");
+
+        try (URLClassLoader fixtureLoader = new URLClassLoader(
+            new java.net.URL[] {classes.toUri().toURL()},
+            getClass().getClassLoader()
+        )) {
+            List<Class<?>> discovered = publicSdkClasses(classes, fixtureLoader);
+
+            assertThrows(
+                AssertionError.class,
+                () -> discovered.forEach(SdkApiSurfaceTest::assertPublicApiTypesAreAllowed)
+            );
+        }
+    }
+
+    @Test
+    void compiledGateAllowsProtectedSafeMethodInheritedFromNonSdkParent() throws Exception {
+        Path parentSource = temporary.resolve("src/fixture/safe/ProtectedSafeParent.java");
+        Path sdkSource = temporary.resolve("src/dev/turboism/sdk/future/InheritedProtectedSafeApi.java");
+        Path classes = temporary.resolve("classes");
+        Files.createDirectories(parentSource.getParent());
+        Files.createDirectories(sdkSource.getParent());
+        Files.createDirectories(classes);
+        Files.writeString(parentSource, """
+            package fixture.safe;
+            public class ProtectedSafeParent {
+                protected String label() {
+                    return "safe";
+                }
+            }
+            """);
+        Files.writeString(sdkSource, """
+            package dev.turboism.sdk.future;
+            public class InheritedProtectedSafeApi extends fixture.safe.ProtectedSafeParent {
+            }
+            """);
+        int result = ToolProvider.getSystemJavaCompiler().run(
+            null,
+            null,
+            null,
+            "-d",
+            classes.toString(),
+            parentSource.toString(),
+            sdkSource.toString()
+        );
+        assertTrue(result == 0, "inherited protected safe SDK fixture must compile");
+
+        try (URLClassLoader fixtureLoader = new URLClassLoader(
+            new java.net.URL[] {classes.toUri().toURL()},
+            getClass().getClassLoader()
+        )) {
+            List<Class<?>> discovered = publicSdkClasses(classes, fixtureLoader);
+
+            discovered.forEach(SdkApiSurfaceTest::assertPublicApiTypesAreAllowed);
+        }
+    }
+
+    @Test
+    void compiledGateRejectsForbiddenGenericReturnWhenErasedMethodSignaturesCollide() throws Exception {
+        Path safeParentSource = temporary.resolve("src/fixture/safe/SafeValues.java");
+        Path forbiddenParentSource = temporary.resolve("src/fixture/host/ForbiddenValues.java");
+        Path sdkSource = temporary.resolve("src/dev/turboism/sdk/future/DuplicateErasedSignatureApi.java");
+        Path classes = temporary.resolve("classes");
+        Files.createDirectories(safeParentSource.getParent());
+        Files.createDirectories(forbiddenParentSource.getParent());
+        Files.createDirectories(sdkSource.getParent());
+        Files.createDirectories(classes);
+        Files.writeString(safeParentSource, """
+            package fixture.safe;
+            public interface SafeValues {
+                java.util.List<? extends java.io.Serializable> values();
+            }
+            """);
+        Files.writeString(forbiddenParentSource, """
+            package fixture.host;
+            public interface ForbiddenValues {
+                java.util.List<java.awt.Color> values();
+            }
+            """);
+        Files.writeString(sdkSource, """
+            package dev.turboism.sdk.future;
+            public interface DuplicateErasedSignatureApi
+                extends fixture.safe.SafeValues, fixture.host.ForbiddenValues {
+            }
+            """);
+        int result = ToolProvider.getSystemJavaCompiler().run(
+            null,
+            null,
+            null,
+            "-d",
+            classes.toString(),
+            safeParentSource.toString(),
+            forbiddenParentSource.toString(),
+            sdkSource.toString()
+        );
+        assertTrue(result == 0, "duplicate erased-signature SDK fixture must compile");
+
+        try (URLClassLoader fixtureLoader = new URLClassLoader(
+            new java.net.URL[] {classes.toUri().toURL()},
+            getClass().getClassLoader()
+        )) {
+            List<Class<?>> discovered = publicSdkClasses(classes, fixtureLoader);
+
+            assertThrows(
+                AssertionError.class,
+                () -> discovered.forEach(SdkApiSurfaceTest::assertPublicApiTypesAreAllowed)
+            );
+        }
+    }
+
+    @Test
+    void compiledGateAllowsDuplicateSafeMethodsWithDistinctGenericReturns() throws Exception {
+        Path firstParentSource = temporary.resolve("src/fixture/safe/FirstSafeValues.java");
+        Path secondParentSource = temporary.resolve("src/fixture/safe/SecondSafeValues.java");
+        Path sdkSource = temporary.resolve("src/dev/turboism/sdk/future/DuplicateSafeSignatureApi.java");
+        Path classes = temporary.resolve("classes");
+        Files.createDirectories(firstParentSource.getParent());
+        Files.createDirectories(sdkSource.getParent());
+        Files.createDirectories(classes);
+        Files.writeString(firstParentSource, """
+            package fixture.safe;
+            public interface FirstSafeValues {
+                java.util.List<? extends CharSequence> values();
+            }
+            """);
+        Files.writeString(secondParentSource, """
+            package fixture.safe;
+            public interface SecondSafeValues {
+                java.util.List<String> values();
+            }
+            """);
+        Files.writeString(sdkSource, """
+            package dev.turboism.sdk.future;
+            public interface DuplicateSafeSignatureApi
+                extends fixture.safe.FirstSafeValues, fixture.safe.SecondSafeValues {
+            }
+            """);
+        int result = ToolProvider.getSystemJavaCompiler().run(
+            null,
+            null,
+            null,
+            "-d",
+            classes.toString(),
+            firstParentSource.toString(),
+            secondParentSource.toString(),
+            sdkSource.toString()
+        );
+        assertTrue(result == 0, "duplicate safe signature SDK fixture must compile");
+
+        try (URLClassLoader fixtureLoader = new URLClassLoader(
+            new java.net.URL[] {classes.toUri().toURL()},
+            getClass().getClassLoader()
+        )) {
+            List<Class<?>> discovered = publicSdkClasses(classes, fixtureLoader);
+
+            discovered.forEach(SdkApiSurfaceTest::assertPublicApiTypesAreAllowed);
+        }
+    }
+
+    @Test
     void genericTypeGateAllowsImplicitObjectTypeVariableBoundButRejectsExplicitObjectExposure() throws Exception {
         Method typeVariableMethod = GenericTypeFixtures.class.getDeclaredMethod("identity", Object.class);
         Method rawObjectMethod = GenericTypeFixtures.class.getDeclaredMethod("rawObject", Object.class);
@@ -188,23 +377,52 @@ class SdkApiSurfaceTest {
     }
 
     @Test
-    void objectMethodGateAllowsOnlyStandardObjectOverrideSignatures() throws Exception {
+    void objectMethodGateExemptsOnlyExactObjectOverrides() throws Exception {
         Method equalsMethod = ObjectMethodFixtures.class.getDeclaredMethod("equals", Object.class);
         Method hashCodeMethod = ObjectMethodFixtures.class.getDeclaredMethod("hashCode");
         Method toStringMethod = ObjectMethodFixtures.class.getDeclaredMethod("toString");
-        Method overloadedEquals = ObjectMethodFixtures.class.getDeclaredMethod("equals", Object.class, Object.class);
-        Method overloadedHashCode = ObjectMethodFixtures.class.getDeclaredMethod("hashCode", Object.class);
-        Method overloadedToString = ObjectMethodFixtures.class.getDeclaredMethod("toString", Object.class);
 
         assertMethodTypesAreAllowed(ObjectMethodFixtures.class, equalsMethod);
         assertMethodTypesAreAllowed(ObjectMethodFixtures.class, hashCodeMethod);
         assertMethodTypesAreAllowed(ObjectMethodFixtures.class, toStringMethod);
-        assertThrows(AssertionError.class,
+    }
+
+    @Test
+    void objectMethodGateChecksSafeOverloadsAsOrdinaryMethods() throws Exception {
+        Method overloadedEquals = ObjectMethodFixtures.class.getDeclaredMethod("equals", String.class);
+        Method overloadedHashCode = ObjectMethodFixtures.class.getDeclaredMethod("hashCode", String.class);
+        Method overloadedToString = ObjectMethodFixtures.class.getDeclaredMethod("toString", String.class);
+
+        assertMethodTypesAreAllowed(ObjectMethodFixtures.class, overloadedEquals);
+        assertMethodTypesAreAllowed(ObjectMethodFixtures.class, overloadedHashCode);
+        assertMethodTypesAreAllowed(ObjectMethodFixtures.class, overloadedToString);
+    }
+
+    @Test
+    void objectMethodGateRejectsForbiddenOverloadsByOrdinaryMethodRules() throws Exception {
+        Method overloadedEquals = ObjectMethodFixtures.class.getDeclaredMethod("equals", java.awt.Color.class);
+        Method overloadedHashCode = ObjectMethodFixtures.class.getDeclaredMethod("hashCode", java.awt.Color.class);
+        Method overloadedToString = ObjectMethodFixtures.class.getDeclaredMethod("toString", java.awt.Color.class);
+
+        AssertionError equalsError = assertThrows(AssertionError.class,
             () -> assertMethodTypesAreAllowed(ObjectMethodFixtures.class, overloadedEquals));
-        assertThrows(AssertionError.class,
+        AssertionError hashCodeError = assertThrows(AssertionError.class,
             () -> assertMethodTypesAreAllowed(ObjectMethodFixtures.class, overloadedHashCode));
-        assertThrows(AssertionError.class,
+        AssertionError toStringError = assertThrows(AssertionError.class,
             () -> assertMethodTypesAreAllowed(ObjectMethodFixtures.class, overloadedToString));
+        assertTrue(equalsError.getMessage().contains("java.awt.Color"));
+        assertTrue(hashCodeError.getMessage().contains("java.awt.Color"));
+        assertTrue(toStringError.getMessage().contains("java.awt.Color"));
+    }
+
+    @Test
+    void genericTypeGateChecksParameterizedOwnerTypesRecursively() throws Exception {
+        Method safeOwnerMethod = ParameterizedOwnerFixtures.class.getDeclaredMethod("safeOwner");
+        Method forbiddenOwnerMethod = ParameterizedOwnerFixtures.class.getDeclaredMethod("forbiddenOwner");
+
+        assertMethodTypesAreAllowed(ParameterizedOwnerFixtures.class, safeOwnerMethod);
+        assertThrows(AssertionError.class,
+            () -> assertMethodTypesAreAllowed(ParameterizedOwnerFixtures.class, forbiddenOwnerMethod));
     }
 
     private static void assertPublicApiTypesAreAllowed(Class<?> type) {
@@ -252,13 +470,12 @@ class SdkApiSurfaceTest {
         Set<MethodSignature> inspectedMethods,
         Set<Class<?>> inspectedTypes
     ) {
-        if (hierarchyType == null
-            || !isSdkClass(hierarchyType.getName())
-            || !inspectedTypes.add(hierarchyType)) {
+        if (hierarchyType == null || !inspectedTypes.add(hierarchyType)) {
             return;
         }
         for (Method method : hierarchyType.getDeclaredMethods()) {
-            if (Modifier.isProtected(method.getModifiers())
+            if (isScannableHierarchyType(hierarchyType)
+                && Modifier.isProtected(method.getModifiers())
                 && !method.isBridge()
                 && !method.isSynthetic()
                 && inspectedMethods.add(MethodSignature.of(method))) {
@@ -281,15 +498,13 @@ class SdkApiSurfaceTest {
         );
     }
 
+    private static boolean isScannableHierarchyType(Class<?> hierarchyType) {
+        return hierarchyType != Object.class && hierarchyType != Enum.class;
+    }
+
     private static void assertMethodTypesAreAllowed(Class<?> owner, Method method) {
         String source = owner.getName() + "." + method.getName();
         boolean allowedObjectMethod = isAllowedObjectMethod(method);
-        if (ALLOWED_OBJECT_METHODS.contains(method.getName())) {
-            assertTrue(
-                allowedObjectMethod,
-                () -> source + " has non-standard Object method signature"
-            );
-        }
         assertTypeIsAllowed(source + " return", method.getReturnType());
         if (allowedObjectMethod) {
             assertTypesAreAllowed(source + " parameters", method.getParameterTypes());
@@ -300,6 +515,12 @@ class SdkApiSurfaceTest {
                 method.getGenericExceptionTypes(), method.getTypeParameters());
         }
         assertGenericTypeIsAllowed(source + " generic return", method.getGenericReturnType(), new HashSet<>());
+        if (hasObjectOverrideShape(method)) {
+            assertTrue(
+                allowedObjectMethod,
+                () -> source + " has non-standard Object override signature"
+            );
+        }
         if (!allowedObjectMethod) {
             assertFalse(
                 method.getReturnType() == Object.class && method.getGenericReturnType() == Object.class,
@@ -308,9 +529,20 @@ class SdkApiSurfaceTest {
         }
     }
 
+    private static boolean hasObjectOverrideShape(Method method) {
+        return switch (method.getName()) {
+            case "equals" -> method.getParameterCount() == 1
+                && method.getParameterTypes()[0] == Object.class;
+            case "hashCode", "toString" -> method.getParameterCount() == 0;
+            default -> false;
+        };
+    }
+
     private static boolean isAllowedObjectMethod(Method method) {
-        if (!ALLOWED_OBJECT_METHODS.contains(method.getName()) || Modifier.isStatic(method.getModifiers())
-            || method.getTypeParameters().length != 0) {
+        if (!hasObjectOverrideShape(method)
+            || Modifier.isStatic(method.getModifiers())
+            || method.getTypeParameters().length != 0
+            || method.getGenericExceptionTypes().length != 0) {
             return false;
         }
         return switch (method.getName()) {
@@ -326,9 +558,25 @@ class SdkApiSurfaceTest {
         };
     }
 
-    private record MethodSignature(String name, List<Class<?>> parameterTypes) {
+    private record MethodSignature(
+        String name,
+        List<Class<?>> parameterTypes,
+        Class<?> returnType,
+        List<Type> genericParameterTypes,
+        Type genericReturnType,
+        List<Type> genericExceptionTypes,
+        List<TypeVariable<Method>> typeParameters
+    ) {
         private static MethodSignature of(Method method) {
-            return new MethodSignature(method.getName(), List.of(method.getParameterTypes()));
+            return new MethodSignature(
+                method.getName(),
+                List.of(method.getParameterTypes()),
+                method.getReturnType(),
+                List.of(method.getGenericParameterTypes()),
+                method.getGenericReturnType(),
+                List.of(method.getGenericExceptionTypes()),
+                List.of(method.getTypeParameters())
+            );
         }
     }
 
@@ -381,6 +629,7 @@ class SdkApiSurfaceTest {
             assertTypeIsAllowed(source, rawClass);
             assertFalse(rawClass == Object.class, () -> source + " exposes raw Object");
         } else if (type instanceof ParameterizedType parameterizedType) {
+            assertGenericTypeIsAllowed(source, parameterizedType.getOwnerType(), seen);
             assertGenericTypeIsAllowed(source, parameterizedType.getRawType(), seen);
             assertGenericTypesAreAllowed(source, parameterizedType.getActualTypeArguments(), seen);
         } else if (type instanceof GenericArrayType genericArrayType) {
@@ -496,16 +745,48 @@ class SdkApiSurfaceTest {
             return "fixture";
         }
 
-        private boolean equals(Object first, Object second) {
-            return first == second;
+        private boolean equals(String value) {
+            return !value.isEmpty();
         }
 
-        private int hashCode(Object value) {
+        private int hashCode(String value) {
             return value.hashCode();
         }
 
-        private String toString(Object value) {
-            return String.valueOf(value);
+        private String toString(String value) {
+            return value;
+        }
+
+        private boolean equals(java.awt.Color value) {
+            return value != null;
+        }
+
+        private int hashCode(java.awt.Color value) {
+            return value.hashCode();
+        }
+
+        private String toString(java.awt.Color value) {
+            return value.toString();
+        }
+    }
+
+    private static final class ParameterizedOwnerFixtures {
+        private static SafeOwner<String>.Nested<Integer> safeOwner() {
+            return null;
+        }
+
+        private static ForbiddenOwner<java.awt.Color>.Nested<Integer> forbiddenOwner() {
+            return null;
+        }
+    }
+
+    private static final class SafeOwner<T> {
+        private final class Nested<U> {
+        }
+    }
+
+    private static final class ForbiddenOwner<T> {
+        private final class Nested<U> {
         }
     }
 }
