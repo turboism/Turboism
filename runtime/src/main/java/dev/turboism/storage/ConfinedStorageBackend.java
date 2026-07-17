@@ -43,6 +43,7 @@ final class ConfinedStorageBackend {
     private final Map<StorageRoot, Path> roots;
     private final CleanupEvidenceCollector cleanupEvidence;
     private final AtomicMover atomicMover;
+    private final TemporaryFileDeleter temporaryFileDeleter;
 
     ConfinedStorageBackend(final Map<StorageRoot, Path> roots) throws IOException {
         this(roots, new CleanupEvidenceCollector());
@@ -60,8 +61,21 @@ final class ConfinedStorageBackend {
         final CleanupEvidenceCollector cleanupEvidence,
         final AtomicMover atomicMover
     ) throws IOException {
+        this(roots, cleanupEvidence, atomicMover, Files::deleteIfExists);
+    }
+
+    ConfinedStorageBackend(
+        final Map<StorageRoot, Path> roots,
+        final CleanupEvidenceCollector cleanupEvidence,
+        final AtomicMover atomicMover,
+        final TemporaryFileDeleter temporaryFileDeleter
+    ) throws IOException {
         this.cleanupEvidence = Objects.requireNonNull(cleanupEvidence, "cleanupEvidence");
         this.atomicMover = Objects.requireNonNull(atomicMover, "atomicMover");
+        this.temporaryFileDeleter = Objects.requireNonNull(
+            temporaryFileDeleter,
+            "temporaryFileDeleter"
+        );
         this.roots = validateRoots(roots);
     }
 
@@ -122,26 +136,8 @@ final class ConfinedStorageBackend {
         final byte[] content,
         final boolean replaceExisting
     ) {
-        Path temporary = null;
         try (StorageMutationLocks.LockScope ignored = acquireMutationLocks(path.root())) {
-            checkCanceled();
-            final Path target = resolveForWrite(path);
-            final StorageWriteResult existing = validateWriteTarget(
-                path,
-                target,
-                replaceExisting
-            );
-            if (existing != null) {
-                return existing;
-            }
-            if (rootUsage(path.root()) + content.length > ROOT_QUOTA_BYTES) {
-                return writeFailure(path, StorageErrorCode.QUOTA_EXCEEDED);
-            }
-            temporary = uniqueTemporarySibling(target);
-            StorageFiles.writeDurably(temporary, content);
-            atomicMover.move(temporary, target, replaceExisting);
-            temporary = null;
-            return new StorageWriteResult(true, Optional.empty());
+            return writeBytesAtomicLocked(path, content, replaceExisting);
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
             return writeFailure(path, StorageErrorCode.CANCELED);
@@ -155,8 +151,6 @@ final class ConfinedStorageBackend {
             return writeFailure(path, StorageErrorCode.ATOMIC_REPLACE_UNAVAILABLE);
         } catch (IOException exception) {
             return writeFailure(path, StorageErrorCode.IO_FAILURE);
-        } finally {
-            deleteTemporary(temporary);
         }
     }
 
@@ -193,34 +187,11 @@ final class ConfinedStorageBackend {
         final StoragePath target,
         final boolean replaceExisting
     ) {
-        Path temporary = null;
         try (StorageMutationLocks.LockScope ignored = acquireMutationLocks(
             source.root(),
             target.root()
         )) {
-            checkCanceled();
-            final Path sourcePath = resolveExisting(source);
-            final Path targetPath = resolveForWrite(target);
-            if (!Files.isRegularFile(sourcePath, LinkOption.NOFOLLOW_LINKS)) {
-                return mutationFailure(target, StorageErrorCode.TYPE_MISMATCH);
-            }
-            final StorageWriteResult existing = validateWriteTarget(
-                target,
-                targetPath,
-                replaceExisting
-            );
-            if (existing != null) {
-                return mutationFailure(target, existing.error().orElseThrow().code());
-            }
-            final byte[] bytes = readCopySource(sourcePath);
-            if (rootUsage(target.root()) + bytes.length > ROOT_QUOTA_BYTES) {
-                return mutationFailure(target, StorageErrorCode.QUOTA_EXCEEDED);
-            }
-            temporary = uniqueTemporarySibling(targetPath);
-            StorageFiles.writeDurably(temporary, bytes);
-            atomicMover.move(temporary, targetPath, replaceExisting);
-            temporary = null;
-            return new StorageMutationResult(true, Optional.empty());
+            return copyLocked(source, target, replaceExisting);
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
             return mutationFailure(target, StorageErrorCode.CANCELED);
@@ -229,13 +200,76 @@ final class ConfinedStorageBackend {
         } catch (SecurityException exception) {
             return mutationFailure(target, StorageErrorCode.ATOMIC_REPLACE_UNAVAILABLE);
         } catch (NoSuchFileException exception) {
-            return mutationFailure(source, StorageErrorCode.NOT_FOUND);
+            return mutationFailure(target, StorageErrorCode.NOT_FOUND);
         } catch (FileAlreadyExistsException exception) {
             return mutationFailure(target, StorageErrorCode.ALREADY_EXISTS);
         } catch (AtomicMoveNotSupportedException exception) {
             return mutationFailure(target, StorageErrorCode.ATOMIC_REPLACE_UNAVAILABLE);
         } catch (IOException exception) {
             return mutationFailure(target, StorageErrorCode.IO_FAILURE);
+        }
+    }
+
+    private StorageWriteResult writeBytesAtomicLocked(
+        final StoragePath path,
+        final byte[] content,
+        final boolean replaceExisting
+    ) throws IOException, StorageFault, InterruptedException {
+        Path temporary = null;
+        try {
+            checkCanceled();
+            final Path target = resolveForWrite(path);
+            final StorageWriteResult existing = validateWriteTarget(
+                path,
+                target,
+                replaceExisting
+            );
+            if (existing != null) {
+                return existing;
+            }
+            if (rootUsage(path.root()) + content.length > ROOT_QUOTA_BYTES) {
+                return writeFailure(path, StorageErrorCode.QUOTA_EXCEEDED);
+            }
+            temporary = uniqueTemporarySibling(target);
+            StorageFiles.writeDurably(temporary, content);
+            atomicMover.move(temporary, target, replaceExisting);
+            temporary = null;
+            return new StorageWriteResult(true, Optional.empty());
+        } finally {
+            deleteTemporary(temporary);
+        }
+    }
+
+    private StorageMutationResult copyLocked(
+        final StoragePath source,
+        final StoragePath target,
+        final boolean replaceExisting
+    ) throws IOException, StorageFault, InterruptedException {
+        Path temporary = null;
+        try {
+            checkCanceled();
+            final Path sourcePath = resolveExisting(source);
+            if (!Files.isRegularFile(sourcePath, LinkOption.NOFOLLOW_LINKS)) {
+                return mutationFailure(target, StorageErrorCode.TYPE_MISMATCH);
+            }
+            final byte[] bytes = readCopySource(sourcePath);
+            final Path targetPath = resolveForWrite(target);
+            final StorageWriteResult existing = validateWriteTarget(
+                target,
+                targetPath,
+                replaceExisting
+            );
+            if (existing != null) {
+                return mutationFailure(target, existing.error().orElseThrow().code());
+            }
+            if (rootUsage(target.root()) + bytes.length > ROOT_QUOTA_BYTES) {
+                return mutationFailure(target, StorageErrorCode.QUOTA_EXCEEDED);
+            }
+            temporary = uniqueTemporarySibling(targetPath);
+            StorageFiles.writeDurably(temporary, bytes);
+            atomicMover.move(temporary, targetPath, replaceExisting);
+            temporary = null;
+            return new StorageMutationResult(true, Optional.empty());
         } finally {
             deleteTemporary(temporary);
         }
@@ -605,7 +639,7 @@ final class ConfinedStorageBackend {
     private void deleteTemporary(final Path temporary) {
         if (temporary != null) {
             try {
-                if (Files.deleteIfExists(temporary)) {
+                if (temporaryFileDeleter.delete(temporary)) {
                     cleanupEvidence.temporaryFileDeleted();
                 }
             } catch (IOException ignored) {
@@ -635,6 +669,11 @@ final class ConfinedStorageBackend {
     @FunctionalInterface
     interface AtomicMover {
         void move(Path source, Path target, boolean replaceExisting) throws IOException;
+    }
+
+    @FunctionalInterface
+    interface TemporaryFileDeleter {
+        boolean delete(Path temporary) throws IOException;
     }
 
     private static final class StorageFault extends Exception {
