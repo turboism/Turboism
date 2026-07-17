@@ -29,21 +29,51 @@ public final class PreviewReportSnapshotFactory {
         "cubism.project.read",
         "cubism.workspace.read"
     );
-    private static final Map<String, CapabilityBinding> CAPABILITY_BINDINGS = Map.ofEntries(
+    private static final String UNMAPPED_CAPABILITY_OPERATION = "unmapped.capability";
+    private static final Map<String, List<CapabilityBinding>> CAPABILITY_BINDINGS = Map.ofEntries(
         binding("cubism.project.read", "cubismRead.activeProject", "turboism.cubism.project.read"),
         binding("cubism.workspace.read", "cubismRead.workspace", "turboism.cubism.project.read"),
-        binding("cubism.parameter.read", "parameterQuery.listAll", "turboism.cubism.model.read"),
-        binding("cubism.parameter.write", "cubism.parameter.write", "turboism.cubism.model.write"),
+        binding(
+            "cubism.selection.read",
+            "cubismRead.selection",
+            "turboism.cubism.model.read",
+            "selectionQuery.currentSelection"
+        ),
+        binding(
+            "cubism.parameter.read",
+            "cubismRead.parameters",
+            "turboism.cubism.model.read",
+            "parameterQuery.listAll"
+        ),
+        binding(
+            "cubism.parameter.write",
+            "parameterCsv.import",
+            "turboism.cubism.model.write",
+            "parameterCsv.export"
+        ),
+        binding(
+            "cubism.model-tree.read",
+            "cubismRead.activeModel",
+            "turboism.cubism.model.read",
+            "cubismRead.modelObjects",
+            "modelHierarchyQuery.currentHierarchy"
+        ),
         binding("cubism.mesh.read", "cubismRead.meshes", "turboism.cubism.model.read"),
         binding("cubism.deformer.read", "cubismRead.deformers", "turboism.cubism.model.read"),
-        binding("cubism.render.status.read", "cubismRead.renderStatus", "turboism.cubism.model.read"),
+        binding("cubism.psd.read", "cubismRead.psdDocuments", "turboism.cubism.model.read"),
         binding("cubism.clipmask.read", "cubismRead.clipMasks", "turboism.cubism.model.read"),
+        binding("cubism.texture-atlas.read", "cubismRead.textureAtlases", "turboism.cubism.model.read"),
+        binding("cubism.render.status.read", "cubismRead.renderStatus", "turboism.cubism.model.read"),
+        binding("cubism.theme.status.read", "cubismRead.themeStatus", "turboism.cubism.project.read"),
         binding("ui.context-source.read", "ui.context-source.read", "turboism.ui.context-source.read"),
-        binding("ui.file-chooser.request", "ui.file-chooser.request", "turboism.ui.file-chooser.request"),
         binding("ui.overlay.contribute", "ui.overlay.contribute", "turboism.ui.overlay.contribute"),
+        binding("ui.viewport.read", "ui.viewport.read", "turboism.ui.viewport.read"),
         binding("ui.dialog.contribute", "ui.dialog.contribute", "turboism.ui.dialog.contribute"),
         binding("ui.embedded-panel.contribute", "ui.panel.contribute", "turboism.ui.panel.contribute"),
-        binding("ui.status.notify", "ui.status.notify", "turboism.ui.status.notify")
+        binding("ui.file-chooser.request", "ui.file-chooser.request", "turboism.ui.file-chooser.request"),
+        binding("ui.status.notify", "ui.status.notify", "turboism.ui.status.notify"),
+        binding("ui.palette-toolbar.contribute", "ui.palette-toolbar.contribute", "turboism.ui.toolbar.palette.contribute"),
+        binding("ui.main-toolbar.contribute", "ui.main-toolbar.contribute", "turboism.ui.toolbar.main.contribute")
     );
 
     private PreviewReportSnapshotFactory() {
@@ -309,9 +339,9 @@ public final class PreviewReportSnapshotFactory {
             .sorted(Comparator.comparing(LocalPluginRuntime.LoadedPluginSummary::id))
             .toList()) {
             for (String capabilityId : summary.capabilities().stream().sorted().toList()) {
-                final CapabilityBinding binding = CAPABILITY_BINDINGS.get(capabilityId);
-                final String permissionId = permissionFor(summary.permissionIds(), binding);
-                final String operationId = binding == null ? capabilityId : binding.operationId();
+                final List<CapabilityBinding> bindings = CAPABILITY_BINDINGS.get(capabilityId);
+                final boolean mapped = bindings != null;
+                final String permissionId = permissionFor(summary.permissionIds(), bindings);
                 final boolean verifiedProject = VERIFIED_PROJECT_CAPABILITIES.contains(capabilityId);
                 final boolean runtimeAvailable = verifiedProject
                     && hostState == HostSession.State.ACTIVE
@@ -320,36 +350,47 @@ public final class PreviewReportSnapshotFactory {
                 final String availability = verifiedProject
                     ? runtimeAvailable ? "AVAILABLE" : "UNAVAILABLE"
                     : "UNKNOWN";
-                final ObjectNode entry = PreviewReportDocuments.capabilityEntry(
-                    summary.id(),
-                    capabilityId,
-                    operationId,
-                    permissionId,
-                    availability,
-                    binding == null ? "UNKNOWN" : permissionId == null ? "NOT_DECLARED" : "GRANTED",
-                    "NONE"
-                );
-                final ArrayNode evidence = (ArrayNode) entry.get("evidence");
-                if (verifiedProject && recordPath != null && recordDigest != null) {
-                    evidence.add(PreviewReportDocuments.evidence(
-                        "STATIC_VERIFIED",
-                        availability,
-                        runtimeAvailable
-                            ? "Exact Cubism 5.3.02 static record applies to the connected runtime session."
-                            : "Exact Cubism 5.3.02 static record exists; runtime availability was not established.",
-                        recordPath,
-                        recordDigest
-                    ));
+                if (mapped) {
+                    for (CapabilityBinding binding : bindings) {
+                        final ObjectNode entry = PreviewReportDocuments.capabilityEntry(
+                            summary.id(),
+                            capabilityId,
+                            binding.operationId(),
+                            permissionId,
+                            availability,
+                            permissionId == null ? "NOT_DECLARED" : "GRANTED",
+                            "NONE"
+                        );
+                        addCapabilityEvidence(
+                            (ArrayNode) entry.get("evidence"),
+                            verifiedProject,
+                            runtimeAvailable,
+                            availability,
+                            recordPath,
+                            recordDigest
+                        );
+                        entries.add(entry);
+                    }
                 } else {
-                    evidence.add(PreviewReportDocuments.evidence(
-                        "DECLARED",
+                    final ObjectNode entry = PreviewReportDocuments.capabilityEntry(
+                        summary.id(),
+                        capabilityId,
+                        UNMAPPED_CAPABILITY_OPERATION,
+                        null,
                         "UNKNOWN",
-                        "Capability is declared by the plugin descriptor; support is not elevated.",
+                        "UNKNOWN",
+                        "NONE"
+                    );
+                    addCapabilityEvidence(
+                        (ArrayNode) entry.get("evidence"),
+                        false,
+                        false,
+                        "UNKNOWN",
                         null,
                         null
-                    ));
+                    );
+                    entries.add(entry);
                 }
-                entries.add(entry);
             }
         }
         return report;
@@ -415,22 +456,69 @@ public final class PreviewReportSnapshotFactory {
         return report;
     }
 
-    private static String permissionFor(
-        final List<String> permissionIds,
-        final CapabilityBinding binding
+    private static void addCapabilityEvidence(
+        final ArrayNode evidence,
+        final boolean verifiedProject,
+        final boolean runtimeAvailable,
+        final String availability,
+        final String recordPath,
+        final String recordDigest
     ) {
-        if (binding != null && permissionIds.contains(binding.permissionId())) {
-            return binding.permissionId();
+        if (verifiedProject && recordPath != null && recordDigest != null) {
+            evidence.add(PreviewReportDocuments.evidence(
+                "STATIC_VERIFIED",
+                availability,
+                runtimeAvailable
+                    ? "Exact Cubism 5.3.02 static record applies to the connected runtime session."
+                    : "Exact Cubism 5.3.02 static record exists; runtime availability was not established.",
+                recordPath,
+                recordDigest
+            ));
+            return;
         }
-        return null;
+        evidence.add(PreviewReportDocuments.evidence(
+            "DECLARED",
+            "UNKNOWN",
+            "Capability is declared by the plugin descriptor; support is not elevated.",
+            null,
+            null
+        ));
     }
 
-    private static Map.Entry<String, CapabilityBinding> binding(
+    private static String permissionFor(
+        final List<String> permissionIds,
+        final List<CapabilityBinding> bindings
+    ) {
+        if (bindings == null) {
+            return null;
+        }
+        final String permissionId = bindings.get(0).permissionId();
+        if (bindings.stream().anyMatch(binding -> !binding.permissionId().equals(permissionId))) {
+            throw new IllegalStateException("Capability bindings must use one permission ID");
+        }
+        return permissionIds.contains(permissionId) ? permissionId : null;
+    }
+
+    private static Map.Entry<String, List<CapabilityBinding>> binding(
         final String capabilityId,
         final String operationId,
         final String permissionId
     ) {
-        return Map.entry(capabilityId, new CapabilityBinding(operationId, permissionId));
+        return Map.entry(capabilityId, List.of(new CapabilityBinding(operationId, permissionId)));
+    }
+
+    private static Map.Entry<String, List<CapabilityBinding>> binding(
+        final String capabilityId,
+        final String operationId,
+        final String permissionId,
+        final String... additionalOperationIds
+    ) {
+        final List<CapabilityBinding> bindings = new ArrayList<>();
+        bindings.add(new CapabilityBinding(operationId, permissionId));
+        for (String additionalOperationId : additionalOperationIds) {
+            bindings.add(new CapabilityBinding(additionalOperationId, permissionId));
+        }
+        return Map.entry(capabilityId, List.copyOf(bindings));
     }
 
     private static String lifecycle(final String value) {
