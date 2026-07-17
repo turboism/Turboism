@@ -1,12 +1,13 @@
 package dev.turboism.adapter.cubism;
 
+import dev.turboism.adapter.cubism.service.read.CubismReadPermissionGate;
+import dev.turboism.adapter.cubism.write.HostWriteAdapter;
 import dev.turboism.core.diagnostics.CallbackBudgetEvent;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.PluginExecutorRegistry;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.permissions.CubismPermissionGate;
-import dev.turboism.adapter.cubism.write.HostWriteAdapter;
 import dev.turboism.adapter.cubism.write.RuntimeTransactionManager;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.cubism.CubismFacade;
@@ -87,6 +88,11 @@ public final class CubismFacadeImpl implements CubismFacade {
     public SnapshotWithVersion runtimeWithVersion() {
         final CubismRuntimeSnapshot snapshot = runtimeSnapshot();
         return new SnapshotWithVersion(snapshot, source.invalidationToken());
+    }
+
+    /** Returns the original audit-capable gate for capability-aware read services. */
+    public CubismReadPermissionGate readPermissionGate() {
+        return permissionGate::require;
     }
 
     private CubismRuntimeSnapshot runtimeSnapshot() {
