@@ -1,3 +1,5 @@
+import org.gradle.language.jvm.tasks.ProcessResources
+
 plugins {
     `java-library`
 }
@@ -11,6 +13,27 @@ val protocolRecordValidationTest by tasks.registering(Test::class) {
     filter {
         includeTestsMatching("dev.turboism.distribution.record.*")
         isFailOnNoMatchingTests = true
+    }
+}
+
+val asyncHostReadFoundationTest by tasks.registering(Test::class) {
+    group = "verification"
+    description = "Runs the runtime async host-read lane, source, and lifecycle contract tests."
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    useJUnitPlatform()
+    maxParallelForks = 1
+    filter {
+        includeTestsMatching("dev.turboism.hostread.*")
+        isFailOnNoMatchingTests = true
+    }
+}
+
+tasks.named<ProcessResources>("processTestResources") {
+    from(project(":testframework").file(
+        "src/main/resources/fixtures/schema/preview-report-v1"
+    )) {
+        into("fixtures/schema/preview-report-v1")
     }
 }
 

@@ -3,6 +3,7 @@ package dev.turboism.ui.toolbar;
 import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.permissions.PermissionChecker;
+import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
@@ -21,8 +22,12 @@ public final class RuntimeMainToolbarRegistry implements MainToolbarRegistry {
     private final PermissionChecker permissionChecker;
     private final RuntimeScheduler scheduler;
     private final String pluginId;
+    private static final String LOCALIZATION_OWNERSHIP_LOCKED = "localization ownership is already locked";
+
     private final Optional<ToolbarVisibilitySink> visibilitySink;
     private final Map<String, MainToolbarContribution> contributions = new ConcurrentHashMap<>();
+    private PluginLocalization localization;
+    private boolean localizationLocked;
 
     public RuntimeMainToolbarRegistry(
         final PermissionChecker permissionChecker,
@@ -44,14 +49,39 @@ public final class RuntimeMainToolbarRegistry implements MainToolbarRegistry {
         this.visibilitySink = Optional.ofNullable(visibilitySink);
     }
 
+    /** Binds the localization context owned by this registry's contributing plugin. */
+    public synchronized void bindLocalization(final PluginLocalization pluginLocalization) {
+        final PluginLocalization requested = Objects.requireNonNull(pluginLocalization, "pluginLocalization");
+        if (!localizationLocked) {
+            localization = requested;
+            localizationLocked = true;
+            return;
+        }
+        if (localization != requested) {
+            throw new IllegalStateException(LOCALIZATION_OWNERSHIP_LOCKED);
+        }
+    }
+
+    /** Locks this registry to raw label keys when no localization service is available. */
+    public synchronized void lockWithoutLocalization() {
+        if (!localizationLocked) {
+            localizationLocked = true;
+            return;
+        }
+        if (localization != null) {
+            throw new IllegalStateException(LOCALIZATION_OWNERSHIP_LOCKED);
+        }
+    }
+
     @Override
     public Registration contribute(final MainToolbarContribution contribution) {
         Objects.requireNonNull(contribution, "contribution");
         permissionChecker.check(PermissionIds.TURBOISM_UI_TOOLBAR_MAIN_CONTRIBUTE, "ui.main-toolbar.contribute");
         final String id = requireText(contribution.contributionId(), "contributionId");
-        contributions.put(id, contribution);
+        final MainToolbarContribution resolved = resolveLabel(contribution);
+        contributions.put(id, resolved);
         dispatchVisibilityUpdate(id);
-        return new ToolbarRegistration(id, contribution);
+        return new ToolbarRegistration(id, resolved);
     }
 
     boolean isRegistered(final String contributionId) {
@@ -60,6 +90,26 @@ public final class RuntimeMainToolbarRegistry implements MainToolbarRegistry {
 
     int registrationCount() {
         return contributions.size();
+    }
+
+    private MainToolbarContribution resolveLabel(final MainToolbarContribution contribution) {
+        final PluginLocalization pluginLocalization = lockLocalizationForContribution();
+        if (pluginLocalization == null) {
+            return contribution;
+        }
+        return new MainToolbarContribution(
+            contribution.contributionId(),
+            contribution.actionId(),
+            pluginLocalization.text(requireText(contribution.labelKey(), "labelKey")),
+            contribution.iconResourcePath(),
+            contribution.anchor(),
+            contribution.order()
+        );
+    }
+
+    private synchronized PluginLocalization lockLocalizationForContribution() {
+        localizationLocked = true;
+        return localization;
     }
 
     private void dispatchVisibilityUpdate(final String contributionId) {
