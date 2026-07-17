@@ -28,8 +28,10 @@ import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
+import java.nio.file.SecureDirectoryStream;
 import java.nio.file.StandardOpenOption;
+import java.nio.file.attribute.BasicFileAttributeView;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumMap;
@@ -37,6 +39,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 /** Synchronous path-confinement and atomic filesystem implementation. */
@@ -48,16 +51,58 @@ final class ConfinedStorageBackend {
 
     private final Map<StorageRoot, Path> roots;
     private final CleanupEvidenceCollector cleanupEvidence;
+    private final AtomicWriteInterlock atomicWriteInterlock;
+    private final MutationInterlock mutationInterlock;
 
     ConfinedStorageBackend(final Map<StorageRoot, Path> roots) throws IOException {
-        this(roots, new CleanupEvidenceCollector());
+        this(
+            roots,
+            new CleanupEvidenceCollector(),
+            NoopAtomicWriteInterlock.INSTANCE,
+            NoopMutationInterlock.INSTANCE
+        );
     }
 
     ConfinedStorageBackend(
         final Map<StorageRoot, Path> roots,
         final CleanupEvidenceCollector cleanupEvidence
     ) throws IOException {
+        this(
+            roots,
+            cleanupEvidence,
+            NoopAtomicWriteInterlock.INSTANCE,
+            NoopMutationInterlock.INSTANCE
+        );
+    }
+
+    ConfinedStorageBackend(
+        final Map<StorageRoot, Path> roots,
+        final CleanupEvidenceCollector cleanupEvidence,
+        final AtomicWriteInterlock atomicWriteInterlock
+    ) throws IOException {
+        this(
+            roots,
+            cleanupEvidence,
+            atomicWriteInterlock,
+            NoopMutationInterlock.INSTANCE
+        );
+    }
+
+    ConfinedStorageBackend(
+        final Map<StorageRoot, Path> roots,
+        final CleanupEvidenceCollector cleanupEvidence,
+        final AtomicWriteInterlock atomicWriteInterlock,
+        final MutationInterlock mutationInterlock
+    ) throws IOException {
         this.cleanupEvidence = Objects.requireNonNull(cleanupEvidence, "cleanupEvidence");
+        this.atomicWriteInterlock = Objects.requireNonNull(
+            atomicWriteInterlock,
+            "atomicWriteInterlock"
+        );
+        this.mutationInterlock = Objects.requireNonNull(
+            mutationInterlock,
+            "mutationInterlock"
+        );
         this.roots = validateRoots(roots);
     }
 
@@ -116,7 +161,7 @@ final class ConfinedStorageBackend {
         final byte[] content,
         final boolean replaceExisting
     ) {
-        Path temporary = null;
+        AtomicWriteContext context = null;
         try {
             checkCanceled();
             final Path target = resolveForWrite(path);
@@ -131,10 +176,15 @@ final class ConfinedStorageBackend {
             if (rootUsage(path.root()) + content.length > ROOT_QUOTA_BYTES) {
                 return writeFailure(path, StorageErrorCode.QUOTA_EXCEEDED);
             }
-            temporary = uniqueTemporarySibling(target);
-            writeDurably(path, temporary, content);
-            installAtomic(temporary, target, replaceExisting);
-            temporary = null;
+            context = openAtomicWriteContext(path);
+            atomicWriteInterlock.beforeTemporaryCreation();
+            verifyAtomicWriteParent(context);
+            context.temporaryName = uniqueTemporaryName(context.targetName);
+            writeDurably(path, context, content);
+            atomicWriteInterlock.beforeInstall();
+            verifyAtomicWriteParent(context);
+            installAtomic(context, replaceExisting);
+            context.temporaryName = null;
             return new StorageWriteResult(true, Optional.empty());
         } catch (StorageFault failure) {
             return writeFailure(path, failure.code);
@@ -145,7 +195,7 @@ final class ConfinedStorageBackend {
         } catch (IOException exception) {
             return writeFailure(path, StorageErrorCode.IO_FAILURE);
         } finally {
-            deleteTemporary(temporary);
+            cleanupAtomicWrite(context);
         }
     }
 
@@ -205,23 +255,27 @@ final class ConfinedStorageBackend {
         final StoragePath target,
         final boolean replaceExisting
     ) {
+        SecurePathContext sourceContext = null;
+        SecurePathContext targetContext = null;
         try {
             checkCanceled();
-            final Path sourcePath = resolveExisting(source);
-            final Path targetPath = resolveForWrite(target);
-            if (Files.exists(targetPath, LinkOption.NOFOLLOW_LINKS) && !replaceExisting) {
+            sourceContext = openSecurePathContext(source, false, true);
+            targetContext = openSecurePathContext(target, false, false);
+            mutationInterlock.beforeMove();
+            verifySecureParent(sourceContext);
+            verifySecureParent(targetContext);
+            verifyExpectedEntry(sourceContext, true);
+            verifyExpectedEntry(targetContext, false);
+            if (!replaceExisting && entryExists(targetContext.parentStream, targetContext.name)) {
                 return mutationFailure(target, StorageErrorCode.ALREADY_EXISTS);
             }
-            final List<java.nio.file.CopyOption> options = new ArrayList<>();
-            options.add(StandardCopyOption.ATOMIC_MOVE);
-            if (replaceExisting) {
-                options.add(StandardCopyOption.REPLACE_EXISTING);
-            }
-            Files.move(
-                sourcePath,
-                targetPath,
-                options.toArray(java.nio.file.CopyOption[]::new)
+            sourceContext.parentStream.move(
+                sourceContext.name,
+                targetContext.parentStream,
+                targetContext.name
             );
+            verifySecureParent(sourceContext);
+            verifySecureParent(targetContext);
             return new StorageMutationResult(true, Optional.empty());
         } catch (StorageFault failure) {
             return mutationFailure(target, failure.code);
@@ -231,6 +285,8 @@ final class ConfinedStorageBackend {
             return mutationFailure(target, StorageErrorCode.ATOMIC_REPLACE_UNAVAILABLE);
         } catch (IOException exception) {
             return mutationFailure(target, StorageErrorCode.IO_FAILURE);
+        } finally {
+            closeSecurePathContexts(sourceContext, targetContext);
         }
     }
 
@@ -238,15 +294,26 @@ final class ConfinedStorageBackend {
         final StoragePath path,
         final boolean recursive
     ) {
+        SecurePathContext context = null;
         try {
             checkCanceled();
-            final Path target = resolveExisting(path);
-            if (!recursive) {
-                Files.delete(target);
-                return new StorageMutationResult(true, Optional.empty());
-            }
+            context = openSecurePathContext(path, false, true);
+            final RecursiveDeleteSnapshot snapshot = recursive
+                ? captureRecursiveDeleteSnapshot(path, context)
+                : null;
+            mutationInterlock.beforeDelete();
+            verifySecureParent(context);
+            verifyExpectedEntry(context, true);
             final DeleteProgress progress = new DeleteProgress();
-            deleteRecursively(path, target, progress);
+            deleteSecureEntry(
+                path,
+                context.parentStream,
+                context.name,
+                recursive,
+                progress,
+                snapshot
+            );
+            verifySecureParent(context);
             return new StorageMutationResult(true, Optional.empty());
         } catch (PartialDeleteFault failure) {
             final StorageErrorCode code = failure.changed
@@ -262,6 +329,8 @@ final class ConfinedStorageBackend {
             return mutationFailure(path, StorageErrorCode.NOT_FOUND);
         } catch (IOException exception) {
             return mutationFailure(path, StorageErrorCode.IO_FAILURE);
+        } finally {
+            closeSecurePathContexts(context);
         }
     }
 
@@ -308,20 +377,28 @@ final class ConfinedStorageBackend {
 
     private void writeDurably(
         final StoragePath path,
-        final Path temporary,
+        final AtomicWriteContext context,
         final byte[] content
     ) throws IOException, StorageFault {
-        try (FileChannel channel = FileChannel.open(
-            temporary,
-            StandardOpenOption.CREATE_NEW,
-            StandardOpenOption.WRITE
+        try (var channel = context.parentStream.newByteChannel(
+            context.temporaryName,
+            Set.of(StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)
         )) {
+            context.temporaryCreated = true;
+            context.temporaryFileKey = fileKey(context.parentStream, context.temporaryName);
+            if (context.temporaryFileKey == null) {
+                throw new StorageFault(StorageErrorCode.ATOMIC_REPLACE_UNAVAILABLE);
+            }
             final ByteBuffer buffer = ByteBuffer.wrap(content);
             while (buffer.hasRemaining()) {
                 checkCanceled();
                 channel.write(buffer);
             }
-            channel.force(true);
+            if (channel instanceof FileChannel fileChannel) {
+                fileChannel.force(true);
+            } else {
+                throw new StorageFault(StorageErrorCode.ATOMIC_REPLACE_UNAVAILABLE);
+            }
         }
     }
 
@@ -360,47 +437,6 @@ final class ConfinedStorageBackend {
             type,
             size
         );
-    }
-
-    private void deleteRecursively(
-        final StoragePath logicalPath,
-        final Path target,
-        final DeleteProgress progress
-    ) throws PartialDeleteFault {
-        try {
-            checkCanceled();
-            if (Files.isSymbolicLink(target)) {
-                throw new StorageFault(StorageErrorCode.LINK_ESCAPE);
-            }
-            if (Files.isDirectory(target, LinkOption.NOFOLLOW_LINKS)) {
-                for (Path child : children(target, logicalPath)) {
-                    deleteRecursively(
-                        new StoragePath(
-                            logicalPath.root(),
-                            logicalPath.relativePath() + "/" + child.getFileName()
-                        ),
-                        child,
-                        progress
-                    );
-                }
-            }
-            Files.delete(target);
-            progress.changed = true;
-        } catch (StorageFault failure) {
-            throw new PartialDeleteFault(
-                logicalPath,
-                failure.code,
-                progress.changed,
-                failure
-            );
-        } catch (IOException failure) {
-            throw new PartialDeleteFault(
-                logicalPath,
-                StorageErrorCode.IO_FAILURE,
-                progress.changed,
-                failure
-            );
-        }
     }
 
     private Path resolveExisting(final StoragePath path) throws IOException, StorageFault {
@@ -487,29 +523,415 @@ final class ConfinedStorageBackend {
         }
     }
 
-    private void installAtomic(
-        final Path temporary,
-        final Path target,
-        final boolean replaceExisting
-    ) throws IOException {
-        if (replaceExisting) {
-            Files.move(
-                temporary,
-                target,
-                StandardCopyOption.ATOMIC_MOVE,
-                StandardCopyOption.REPLACE_EXISTING
-            );
-        } else {
-            if (Files.exists(target, LinkOption.NOFOLLOW_LINKS)) {
-                throw new FileAlreadyExistsException(target.toString());
+    private AtomicWriteContext openAtomicWriteContext(
+        final StoragePath path
+    ) throws IOException, StorageFault {
+        final SecurePathContext context = openSecurePathContext(path, true, false);
+        return new AtomicWriteContext(
+            context.parentStream,
+            context.parentPath,
+            context.name,
+            context.parentFileKey
+        );
+    }
+
+    private void verifyAtomicWriteParent(final AtomicWriteContext context)
+        throws IOException, StorageFault {
+        verifySecureParent(
+            context.parentStream,
+            context.parentPath,
+            context.parentFileKey
+        );
+    }
+
+    private SecurePathContext openSecurePathContext(
+        final StoragePath path,
+        final boolean createParents,
+        final boolean requireEntry
+    ) throws IOException, StorageFault {
+        Objects.requireNonNull(path, "path");
+        final Path root = roots.get(path.root());
+        if (root == null) {
+            throw new StorageFault(StorageErrorCode.INVALID_PATH);
+        }
+        DirectoryStream<Path> opened = Files.newDirectoryStream(root);
+        if (!(opened instanceof SecureDirectoryStream<Path> rootStream)) {
+            opened.close();
+            throw new StorageFault(StorageErrorCode.ATOMIC_REPLACE_UNAVAILABLE);
+        }
+        SecureDirectoryStream<Path> current = rootStream;
+        Path currentPath = root;
+        try {
+            final String[] segments = path.relativePath().split("/");
+            for (int index = 0; index < segments.length - 1; index++) {
+                final Path segment = Path.of(segments[index]);
+                SecureDirectoryStream<Path> child;
+                try {
+                    child = current.newDirectoryStream(segment, LinkOption.NOFOLLOW_LINKS);
+                } catch (NoSuchFileException exception) {
+                    if (!createParents) {
+                        throw exception;
+                    }
+                    createSecureDirectory(path, current, currentPath, segment);
+                    child = current.newDirectoryStream(segment, LinkOption.NOFOLLOW_LINKS);
+                }
+                current.close();
+                current = child;
+                currentPath = currentPath.resolve(segment);
             }
-            Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE);
+            final Object parentFileKey = fileKey(current);
+            if (parentFileKey == null) {
+                throw new StorageFault(StorageErrorCode.ATOMIC_REPLACE_UNAVAILABLE);
+            }
+            final Path name = Path.of(segments[segments.length - 1]);
+            final Object entryFileKey = fileKey(current, name);
+            if (requireEntry && entryFileKey == null) {
+                throw new NoSuchFileException(path.relativePath());
+            }
+            return new SecurePathContext(
+                current,
+                currentPath,
+                name,
+                parentFileKey,
+                entryFileKey
+            );
+        } catch (IOException | StorageFault failure) {
+            current.close();
+            throw failure;
         }
     }
 
-    private Path uniqueTemporarySibling(final Path target) {
-        return target.resolveSibling(
-            "." + target.getFileName() + ".turboism-" + UUID.randomUUID() + ".tmp"
+    private void createSecureDirectory(
+        final StoragePath path,
+        final SecureDirectoryStream<Path> parentStream,
+        final Path parentPath,
+        final Path name
+    ) throws IOException, StorageFault {
+        verifySecureParent(
+            parentStream,
+            parentPath,
+            fileKey(parentStream)
+        );
+        try {
+            Files.createDirectory(parentPath.resolve(name));
+        } catch (FileAlreadyExistsException ignored) {
+            // A concurrent creator is accepted only after the bound lookup below.
+        }
+        try (SecureDirectoryStream<Path> ignored = parentStream.newDirectoryStream(
+            name,
+            LinkOption.NOFOLLOW_LINKS
+        )) {
+            // The lookup is relative to the still-open parent descriptor.
+        } catch (java.nio.file.NotDirectoryException exception) {
+            throw new StorageFault(StorageErrorCode.TYPE_MISMATCH);
+        }
+        if (Files.isSymbolicLink(parentPath.resolve(name))) {
+            throw new StorageFault(StorageErrorCode.LINK_ESCAPE);
+        }
+        verifyExisting(path, parentPath.resolve(name));
+    }
+
+    private void verifySecureParent(final SecurePathContext context)
+        throws IOException, StorageFault {
+        verifySecureParent(
+            context.parentStream,
+            context.parentPath,
+            context.parentFileKey
+        );
+    }
+
+    private void verifySecureParent(
+        final SecureDirectoryStream<Path> parentStream,
+        final Path parentPath,
+        final Object parentFileKey
+    ) throws IOException, StorageFault {
+        final Object boundFileKey = fileKey(parentStream);
+        if (boundFileKey == null || !parentFileKey.equals(boundFileKey)) {
+            throw new StorageFault(StorageErrorCode.CONFLICT);
+        }
+        final Object currentFileKey;
+        try {
+            currentFileKey = Files.readAttributes(
+                parentPath,
+                BasicFileAttributes.class,
+                LinkOption.NOFOLLOW_LINKS
+            ).fileKey();
+        } catch (NoSuchFileException exception) {
+            throw new StorageFault(StorageErrorCode.CONFLICT);
+        }
+        if (currentFileKey == null || !parentFileKey.equals(currentFileKey)) {
+            throw new StorageFault(StorageErrorCode.CONFLICT);
+        }
+    }
+
+    private void verifyExpectedEntry(
+        final SecurePathContext context,
+        final boolean required
+    ) throws IOException, StorageFault {
+        final BasicFileAttributes attributes = readAttributesIfPresent(
+            context.parentStream,
+            context.name
+        );
+        if (attributes == null) {
+            if (required) {
+                throw new NoSuchFileException(context.name.toString());
+            }
+            if (context.entryFileKey != null) {
+                throw new StorageFault(StorageErrorCode.CONFLICT);
+            }
+            return;
+        }
+        if (context.entryFileKey == null) {
+            throw new StorageFault(StorageErrorCode.CONFLICT);
+        }
+        if (attributes.isSymbolicLink()) {
+            throw new StorageFault(StorageErrorCode.LINK_ESCAPE);
+        }
+        if (context.entryFileKey != null
+            && !context.entryFileKey.equals(attributes.fileKey())) {
+            throw new StorageFault(StorageErrorCode.CONFLICT);
+        }
+    }
+
+    private Object fileKey(final SecureDirectoryStream<Path> stream) throws IOException {
+        final BasicFileAttributeView view = stream.getFileAttributeView(
+            BasicFileAttributeView.class
+        );
+        return view == null ? null : view.readAttributes().fileKey();
+    }
+
+    private void installAtomic(
+        final AtomicWriteContext context,
+        final boolean replaceExisting
+    ) throws IOException, StorageFault {
+        verifyAtomicWriteTarget(context, replaceExisting);
+        final Path temporaryName = context.temporaryName;
+        context.parentStream.move(
+            temporaryName,
+            context.parentStream,
+            context.targetName
+        );
+        context.temporaryCreated = false;
+        context.temporaryName = null;
+        verifyAtomicWriteParentAfterInstall(context);
+    }
+
+    private void verifyAtomicWriteParentAfterInstall(final AtomicWriteContext context)
+        throws IOException, StorageFault {
+        verifyAtomicWriteParent(context);
+    }
+
+    private void verifyAtomicWriteTarget(
+        final AtomicWriteContext context,
+        final boolean replaceExisting
+    ) throws IOException, StorageFault {
+        final BasicFileAttributes attributes = readAttributesIfPresent(
+            context.parentStream,
+            context.targetName
+        );
+        if (attributes == null) {
+            return;
+        }
+        if (attributes.isSymbolicLink()) {
+            throw new StorageFault(StorageErrorCode.LINK_ESCAPE);
+        }
+        if (!attributes.isRegularFile()) {
+            throw new StorageFault(StorageErrorCode.TYPE_MISMATCH);
+        }
+        if (!replaceExisting) {
+            throw new FileAlreadyExistsException(context.targetName.toString());
+        }
+    }
+
+    private boolean entryExists(
+        final SecureDirectoryStream<Path> parent,
+        final Path name
+    ) throws IOException {
+        return fileKey(parent, name) != null;
+    }
+
+    private RecursiveDeleteSnapshot captureRecursiveDeleteSnapshot(
+        final StoragePath logicalPath,
+        final SecurePathContext context
+    ) throws IOException, StorageFault {
+        final BasicFileAttributes attributes = readAttributes(
+            context.parentStream,
+            context.name
+        );
+        if (attributes.isSymbolicLink()) {
+            throw new StorageFault(StorageErrorCode.LINK_ESCAPE);
+        }
+        final RecursiveDeleteSnapshot snapshot = new RecursiveDeleteSnapshot();
+        snapshot.include(logicalPath, attributes);
+        if (!attributes.isDirectory()) {
+            return snapshot;
+        }
+        try (SecureDirectoryStream<Path> directory = context.parentStream.newDirectoryStream(
+            context.name,
+            LinkOption.NOFOLLOW_LINKS
+        )) {
+            captureRecursiveDeleteSnapshot(logicalPath, directory, snapshot);
+        }
+        return snapshot;
+    }
+
+    private void captureRecursiveDeleteSnapshot(
+        final StoragePath logicalDirectory,
+        final SecureDirectoryStream<Path> directory,
+        final RecursiveDeleteSnapshot snapshot
+    ) throws IOException, StorageFault {
+        for (Path child : secureChildren(directory)) {
+            final BasicFileAttributes attributes = readAttributes(directory, child);
+            if (attributes.isSymbolicLink()) {
+                throw new StorageFault(StorageErrorCode.LINK_ESCAPE);
+            }
+            final StoragePath logicalChild = new StoragePath(
+                logicalDirectory.root(),
+                logicalDirectory.relativePath() + "/" + child
+            );
+            snapshot.include(logicalChild, attributes);
+            if (!attributes.isDirectory()) {
+                continue;
+            }
+            try (SecureDirectoryStream<Path> nested = directory.newDirectoryStream(
+                child,
+                LinkOption.NOFOLLOW_LINKS
+            )) {
+                captureRecursiveDeleteSnapshot(logicalChild, nested, snapshot);
+            }
+        }
+    }
+
+    private void deleteSecureEntry(
+        final StoragePath logicalPath,
+        final SecureDirectoryStream<Path> parent,
+        final Path name,
+        final boolean recursive,
+        final DeleteProgress progress,
+        final RecursiveDeleteSnapshot snapshot
+    ) throws PartialDeleteFault {
+        try {
+            checkCanceled();
+            final BasicFileAttributes attributes = readAttributes(parent, name);
+            if (snapshot != null) {
+                snapshot.verify(logicalPath, attributes);
+            }
+            if (attributes.isSymbolicLink()) {
+                throw new StorageFault(StorageErrorCode.LINK_ESCAPE);
+            }
+            if (attributes.isDirectory()) {
+                if (!recursive) {
+                    parent.deleteDirectory(name);
+                    progress.changed = true;
+                    return;
+                }
+                try (SecureDirectoryStream<Path> directory = parent.newDirectoryStream(
+                    name,
+                    LinkOption.NOFOLLOW_LINKS
+                )) {
+                    final List<Path> children = secureChildren(directory);
+                    for (Path child : children) {
+                        deleteSecureEntry(
+                            new StoragePath(
+                                logicalPath.root(),
+                                logicalPath.relativePath() + "/" + child
+                            ),
+                            directory,
+                            child,
+                            true,
+                            progress,
+                            snapshot
+                        );
+                    }
+                }
+                parent.deleteDirectory(name);
+            } else {
+                parent.deleteFile(name);
+            }
+            progress.changed = true;
+        } catch (StorageFault failure) {
+            throw new PartialDeleteFault(
+                logicalPath,
+                failure.code,
+                progress.changed,
+                failure
+            );
+        } catch (IOException failure) {
+            throw new PartialDeleteFault(
+                logicalPath,
+                StorageErrorCode.IO_FAILURE,
+                progress.changed,
+                failure
+            );
+        }
+    }
+
+    private BasicFileAttributes readAttributes(
+        final SecureDirectoryStream<Path> parent,
+        final Path name
+    ) throws IOException, StorageFault {
+        final BasicFileAttributes attributes = readAttributesIfPresent(parent, name);
+        if (attributes == null) {
+            throw new NoSuchFileException(name.toString());
+        }
+        return attributes;
+    }
+
+    private BasicFileAttributes readAttributesIfPresent(
+        final SecureDirectoryStream<Path> parent,
+        final Path name
+    ) throws IOException, StorageFault {
+        final BasicFileAttributeView view = parent.getFileAttributeView(
+            name,
+            BasicFileAttributeView.class,
+            LinkOption.NOFOLLOW_LINKS
+        );
+        if (view == null) {
+            throw new StorageFault(StorageErrorCode.ATOMIC_REPLACE_UNAVAILABLE);
+        }
+        try {
+            return view.readAttributes();
+        } catch (NoSuchFileException exception) {
+            return null;
+        }
+    }
+
+    private List<Path> secureChildren(
+        final SecureDirectoryStream<Path> directory
+    ) throws IOException, StorageFault {
+        final List<Path> children = new ArrayList<>();
+        for (Path child : directory) {
+            checkCanceled();
+            final Path name = child.getFileName();
+            final BasicFileAttributes attributes = readAttributes(directory, name);
+            if (attributes.isSymbolicLink()) {
+                throw new StorageFault(StorageErrorCode.LINK_ESCAPE);
+            }
+            children.add(name);
+        }
+        children.sort(Comparator.comparing(Path::toString));
+        return children;
+    }
+
+    private void closeSecurePathContexts(final SecurePathContext... contexts) {
+        final Set<SecureDirectoryStream<Path>> closed = java.util.Collections.newSetFromMap(
+            new java.util.IdentityHashMap<>()
+        );
+        for (SecurePathContext context : contexts) {
+            if (context == null || !closed.add(context.parentStream)) {
+                continue;
+            }
+            try {
+                context.parentStream.close();
+            } catch (IOException ignored) {
+                // Mutation completion does not report resource-close bookkeeping as a mutation.
+            }
+        }
+    }
+
+    private Path uniqueTemporaryName(final Path targetName) {
+        return Path.of(
+            "." + targetName + ".turboism-" + UUID.randomUUID() + ".tmp"
         );
     }
 
@@ -600,15 +1022,51 @@ final class ConfinedStorageBackend {
         return new StorageMutationResult(false, Optional.of(error(path, code)));
     }
 
-    private void deleteTemporary(final Path temporary) {
-        if (temporary != null) {
-            try {
-                if (Files.deleteIfExists(temporary)) {
+    private void cleanupAtomicWrite(final AtomicWriteContext context) {
+        if (context == null) {
+            return;
+        }
+        try {
+            if (context.temporaryCreated && context.temporaryName != null) {
+                final Object currentFileKey = fileKey(context.parentStream, context.temporaryName);
+                if (context.temporaryFileKey == null
+                    || currentFileKey == null
+                    || !context.temporaryFileKey.equals(currentFileKey)) {
+                    cleanupEvidence.cleanupFailed();
+                } else {
+                    context.parentStream.deleteFile(context.temporaryName);
                     cleanupEvidence.temporaryFileDeleted();
                 }
+            }
+        } catch (IOException ignored) {
+            if (context.temporaryCreated) {
+                cleanupEvidence.cleanupFailed();
+            }
+        } finally {
+            try {
+                context.parentStream.close();
             } catch (IOException ignored) {
                 cleanupEvidence.cleanupFailed();
             }
+        }
+    }
+
+    private Object fileKey(
+        final SecureDirectoryStream<Path> parent,
+        final Path name
+    ) throws IOException {
+        final BasicFileAttributeView view = parent.getFileAttributeView(
+            name,
+            BasicFileAttributeView.class,
+            LinkOption.NOFOLLOW_LINKS
+        );
+        if (view == null) {
+            return null;
+        }
+        try {
+            return view.readAttributes().fileKey();
+        } catch (NoSuchFileException exception) {
+            return null;
         }
     }
 
@@ -628,6 +1086,99 @@ final class ConfinedStorageBackend {
             normalized.put(root, path);
         }
         return Map.copyOf(normalized);
+    }
+
+    private static final class SecurePathContext {
+        private final SecureDirectoryStream<Path> parentStream;
+        private final Path parentPath;
+        private final Path name;
+        private final Object parentFileKey;
+        private final Object entryFileKey;
+
+        private SecurePathContext(
+            final SecureDirectoryStream<Path> parentStream,
+            final Path parentPath,
+            final Path name,
+            final Object parentFileKey,
+            final Object entryFileKey
+        ) {
+            this.parentStream = parentStream;
+            this.parentPath = parentPath;
+            this.name = name;
+            this.parentFileKey = parentFileKey;
+            this.entryFileKey = entryFileKey;
+        }
+    }
+
+    private static final class RecursiveDeleteSnapshot {
+        private final Map<StoragePath, Object> fileKeys = new java.util.HashMap<>();
+
+        private void include(
+            final StoragePath path,
+            final BasicFileAttributes attributes
+        ) throws StorageFault {
+            final Object fileKey = attributes.fileKey();
+            if (fileKey == null) {
+                throw new StorageFault(StorageErrorCode.ATOMIC_REPLACE_UNAVAILABLE);
+            }
+            fileKeys.put(path, fileKey);
+        }
+
+        private void verify(
+            final StoragePath path,
+            final BasicFileAttributes attributes
+        ) throws StorageFault {
+            final Object expectedFileKey = fileKeys.get(path);
+            if (expectedFileKey == null || !expectedFileKey.equals(attributes.fileKey())) {
+                throw new StorageFault(StorageErrorCode.CONFLICT);
+            }
+        }
+    }
+
+    private static final class AtomicWriteContext {
+        private final SecureDirectoryStream<Path> parentStream;
+        private final Path parentPath;
+        private final Path targetName;
+        private final Object parentFileKey;
+        private Path temporaryName;
+        private Object temporaryFileKey;
+        private boolean temporaryCreated;
+
+        private AtomicWriteContext(
+            final SecureDirectoryStream<Path> parentStream,
+            final Path parentPath,
+            final Path targetName,
+            final Object parentFileKey
+        ) {
+            this.parentStream = parentStream;
+            this.parentPath = parentPath;
+            this.targetName = targetName;
+            this.parentFileKey = parentFileKey;
+        }
+    }
+
+    interface AtomicWriteInterlock {
+        default void beforeTemporaryCreation() throws IOException {
+        }
+
+        default void beforeInstall() throws IOException {
+        }
+    }
+
+    interface MutationInterlock {
+        default void beforeMove() throws IOException {
+        }
+
+        default void beforeDelete() throws IOException {
+        }
+    }
+
+    private enum NoopAtomicWriteInterlock implements AtomicWriteInterlock {
+        INSTANCE
+    }
+
+    private enum NoopMutationInterlock implements MutationInterlock {
+        INSTANCE
     }
 
     private static final class StorageFault extends Exception {
