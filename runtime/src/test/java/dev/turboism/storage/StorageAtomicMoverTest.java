@@ -15,6 +15,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class StorageAtomicMoverTest {
 
@@ -81,6 +82,63 @@ class StorageAtomicMoverTest {
         assertNoTemporaryFiles(roots.data());
         assertEquals(1L, evidence.snapshot().temporaryFilesDeleted());
         assertEquals(0L, evidence.snapshot().failures());
+    }
+
+    @Test
+    void oversizedSourceDoesNotCreateTargetParents() throws Exception {
+        final Roots roots = roots();
+        Files.write(
+            roots.data().resolve("source.bin"),
+            new byte[(int) ConfinedStorageBackend.MAX_OPERATION_BYTES + 1]
+        );
+        final ConfinedStorageBackend backend = backend(roots, StorageAtomicMover::move);
+
+        final var result = backend.copy(
+            path("source.bin"),
+            path("created/target.bin"),
+            true
+        );
+
+        assertEquals(
+            StorageErrorCode.SIZE_LIMIT_EXCEEDED,
+            result.error().orElseThrow().code()
+        );
+        assertFalse(Files.exists(roots.data().resolve("created")));
+    }
+
+    @Test
+    void oversizedSourceWinsOverDirectoryTargetTypeMismatch() throws Exception {
+        final Roots roots = roots();
+        Files.write(
+            roots.data().resolve("source.bin"),
+            new byte[(int) ConfinedStorageBackend.MAX_OPERATION_BYTES + 1]
+        );
+        Files.createDirectory(roots.data().resolve("target"));
+        final ConfinedStorageBackend backend = backend(roots, StorageAtomicMover::move);
+
+        final var result = backend.copy(path("source.bin"), path("target"), true);
+
+        assertEquals(
+            StorageErrorCode.SIZE_LIMIT_EXCEEDED,
+            result.error().orElseThrow().code()
+        );
+        assertTrue(Files.isDirectory(roots.data().resolve("target")));
+    }
+
+    @Test
+    void missingSourceReportsBaselineTargetPathWithoutCreatingParents() throws Exception {
+        final Roots roots = roots();
+        final ConfinedStorageBackend backend = backend(roots, StorageAtomicMover::move);
+
+        final var result = backend.copy(
+            path("missing.txt"),
+            path("created/target.txt"),
+            true
+        );
+
+        assertEquals(StorageErrorCode.NOT_FOUND, result.error().orElseThrow().code());
+        assertEquals(path("created/target.txt"), result.error().orElseThrow().path());
+        assertFalse(Files.exists(roots.data().resolve("created")));
     }
 
     @Test
