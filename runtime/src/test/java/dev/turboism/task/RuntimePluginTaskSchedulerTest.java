@@ -7,6 +7,7 @@ import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.RuntimeTimerSubmission;
 import dev.turboism.core.runtime.WorkBudgetPolicy;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
+import dev.turboism.failure.RuntimeFailureCollector;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.WorkBudget;
 import dev.turboism.sdk.task.FixedDelayTaskRequest;
@@ -265,6 +266,103 @@ class RuntimePluginTaskSchedulerTest {
         assertEquals(TaskRunOutcomeStatus.FAILED, outcome.lastRunOutcome().orElseThrow().status());
         assertTrue(outcome.failure().isPresent());
         assertFalse(outcome.failure().orElseThrow().message().contains("private-value"));
+    }
+
+    @Test
+    void acceptedTerminalFailureUsesStableSubmitOperationWithoutLeakingTaskId() throws Exception {
+        final RuntimeFailureCollector failures = new RuntimeFailureCollector();
+        createScheduler(1, 8, failures);
+        final String secretTaskId = "private-one-shot-task-id";
+        final TaskSubmission submission = scheduler.submit(request(secretTaskId, token -> {
+            throw new IllegalStateException("private-value");
+        }));
+
+        final TaskOutcome outcome = submission.handle().completion().toCompletableFuture()
+            .get(2, TimeUnit.SECONDS);
+        submission.handle().cancel();
+
+        assertEquals(TaskOutcomeStatus.FAILED, outcome.status());
+        assertEquals(1, failures.snapshot().taskFailures().size());
+        final var failure = failures.snapshot().taskFailures().get(0);
+        assertEquals("TASK_FAILED", failure.code());
+        assertEquals("execution", failure.phase());
+        assertEquals("plugin.tasks", failure.pluginId());
+        assertEquals("task.submit", failure.operationId());
+        assertFalse(failure.operationId().contains(secretTaskId));
+        assertFalse(failure.message().contains(secretTaskId));
+        assertEquals(1, failure.count());
+    }
+
+    @Test
+    void fixedDelayTerminalFailureUsesStableScheduleOperationWithoutLeakingTaskId() throws Exception {
+        final RuntimeFailureCollector failures = new RuntimeFailureCollector();
+        createScheduler(1, 8, failures);
+        final String secretTaskId = "private-fixed-delay-task-id";
+        final TaskSubmission submission = scheduler.scheduleWithFixedDelay(new FixedDelayTaskRequest(
+            new TaskId(secretTaskId),
+            PluginTaskKind.LOW_FREQUENCY_REFRESH,
+            PluginTaskPriority.LOW,
+            Duration.ZERO,
+            Duration.ofHours(1),
+            token -> { throw new IllegalStateException("private-value"); }
+        ));
+
+        final TaskOutcome outcome = submission.handle().completion().toCompletableFuture()
+            .get(2, TimeUnit.SECONDS);
+        final var failure = failures.snapshot().taskFailures().get(0);
+
+        assertEquals(TaskOutcomeStatus.FAILED, outcome.status());
+        assertEquals("TASK_FAILED", failure.code());
+        assertEquals("task.schedule", failure.operationId());
+        assertFalse(failure.operationId().contains(secretTaskId));
+        assertFalse(failure.message().contains(secretTaskId));
+    }
+
+    @Test
+    void rejectedSubmitUsesStableOperationWithoutLeakingTaskId() {
+        final RuntimeFailureCollector failures = new RuntimeFailureCollector();
+        createScheduler(1, 8, task -> WorkBudget.REJECTED, failures);
+        final String secretTaskId = "secret-submit-task-id";
+
+        final TaskSubmission submission = scheduler.submit(request(secretTaskId, token -> { }));
+
+        assertFalse(submission.accepted());
+        final var failure = failures.snapshot().taskFailures().get(0);
+        assertEquals("TASK_REJECTED_POLICY_REJECTED", failure.code());
+        assertEquals("task.submit", failure.operationId());
+        assertFalse(failure.toString().contains(secretTaskId));
+    }
+
+    @Test
+    void rejectedFixedDelayScheduleUsesStableOperationWithoutLeakingTaskId() {
+        final RuntimeFailureCollector failures = new RuntimeFailureCollector();
+        createScheduler(1, 128, failures);
+        for (int index = 0; index < 64; index++) {
+            assertTrue(scheduler.scheduleWithFixedDelay(new FixedDelayTaskRequest(
+                new TaskId("reserved-schedule-" + index),
+                PluginTaskKind.LOW_FREQUENCY_REFRESH,
+                PluginTaskPriority.LOW,
+                Duration.ofHours(1),
+                Duration.ofHours(1),
+                token -> { }
+            )).accepted());
+        }
+        final String secretTaskId = "secret-scheduled-task-id";
+
+        final TaskSubmission submission = scheduler.scheduleWithFixedDelay(new FixedDelayTaskRequest(
+            new TaskId(secretTaskId),
+            PluginTaskKind.LOW_FREQUENCY_REFRESH,
+            PluginTaskPriority.LOW,
+            Duration.ofHours(1),
+            Duration.ofHours(1),
+            token -> { }
+        ));
+
+        assertFalse(submission.accepted());
+        final var failure = failures.snapshot().taskFailures().get(0);
+        assertEquals("TASK_REJECTED_BACKPRESSURE", failure.code());
+        assertEquals("task.schedule", failure.operationId());
+        assertFalse(failure.toString().contains(secretTaskId));
     }
 
     @Test
@@ -1090,6 +1188,42 @@ class RuntimePluginTaskSchedulerTest {
         scope = new DisposableScope();
         scheduler = new RuntimePluginTaskScheduler(
             "plugin.tasks", runtimeScheduler, scope, cleanupEvidence
+        );
+    }
+
+    private void createScheduler(
+        final int workers,
+        final int queueCapacity,
+        final RuntimeFailureCollector failures
+    ) {
+        createScheduler(workers, queueCapacity, ignored -> WorkBudget.LIGHTWEIGHT, failures);
+    }
+
+    private void createScheduler(
+        final int workers,
+        final int queueCapacity,
+        final WorkBudgetPolicy policy,
+        final RuntimeFailureCollector failures
+    ) {
+        runtimeScheduler = new RuntimeScheduler(
+            policy,
+            new PluginExecutorRegistry(
+                500L,
+                workers,
+                queueCapacity,
+                ignored -> { },
+                Clock.systemUTC()
+            ),
+            SidecarDispatcher.noop(),
+            ignored -> { }
+        );
+        scope = new DisposableScope();
+        scheduler = new RuntimePluginTaskScheduler(
+            "plugin.tasks",
+            runtimeScheduler,
+            scope,
+            new CleanupEvidenceCollector(),
+            failures
         );
     }
 
