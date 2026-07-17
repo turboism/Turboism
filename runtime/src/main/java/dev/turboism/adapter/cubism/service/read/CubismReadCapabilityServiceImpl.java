@@ -48,7 +48,7 @@ public final class CubismReadCapabilityServiceImpl implements CubismReadCapabili
     private final ProjectWorkspaceAdapter projectWorkspaceAdapter;
     private final ClipMaskReadAdapter clipMaskReadAdapter;
     private final String ownerPluginId;
-    private final CubismPermissionGate permissionGate;
+    private final CubismReadPermissionGate permissionGate;
 
     private final BoundedKeyedStore<String, SafeModeDiagnostic> themeStatusDiagnostics =
         new BoundedKeyedStore<>(MAX_DIAGNOSTICS);
@@ -59,18 +59,53 @@ public final class CubismReadCapabilityServiceImpl implements CubismReadCapabili
     private final BoundedKeyedStore<String, SafeModeDiagnostic> clipMaskDiagnostics =
         new BoundedKeyedStore<>(MAX_DIAGNOSTICS);
 
+    /**
+     * @deprecated supply a capability-aware gate so denied reads retain their
+     * operation and capability audit IDs. This constructor rejects facades
+     * without an audit-capable gate.
+     */
+    @Deprecated
     public CubismReadCapabilityServiceImpl(final CubismFacade facade) {
-        this(facade, M12ReadSnapshotSource.EMPTY);
+        this(facade, M12ReadSnapshotSource.EMPTY, legacyGate(facade));
     }
 
+    /**
+     * @deprecated supply a capability-aware gate so denied reads retain their
+     * operation and capability audit IDs. This constructor rejects facades
+     * without an audit-capable gate.
+     */
+    @Deprecated
     public CubismReadCapabilityServiceImpl(final CubismFacade facade, final M12ReadSnapshotSource m12Source) {
-        this(facade, m12Source, ThemeStatusAdapterImpl.safeMode());
+        this(facade, m12Source, legacyGate(facade));
     }
 
     public CubismReadCapabilityServiceImpl(
         final CubismFacade facade,
         final M12ReadSnapshotSource m12Source,
+        final CubismReadPermissionGate permissionGate
+    ) {
+        this(facade, m12Source, ThemeStatusAdapterImpl.safeMode(), permissionGate);
+    }
+
+    /**
+     * @deprecated supply a capability-aware gate so denied reads retain their
+     * operation and capability audit IDs. This constructor rejects facades
+     * without an audit-capable gate.
+     */
+    @Deprecated
+    public CubismReadCapabilityServiceImpl(
+        final CubismFacade facade,
+        final M12ReadSnapshotSource m12Source,
         final ThemeStatusAdapter themeStatusAdapter
+    ) {
+        this(facade, m12Source, themeStatusAdapter, legacyGate(facade));
+    }
+
+    public CubismReadCapabilityServiceImpl(
+        final CubismFacade facade,
+        final M12ReadSnapshotSource m12Source,
+        final ThemeStatusAdapter themeStatusAdapter,
+        final CubismReadPermissionGate permissionGate
     ) {
         this(
             facade,
@@ -78,10 +113,18 @@ public final class CubismReadCapabilityServiceImpl implements CubismReadCapabili
             themeStatusAdapter,
             RenderStatusAdapter.Impl.safeMode(),
             ProjectWorkspaceAdapter.Impl.safeMode(),
-            ClipMaskReadAdapter.Impl.safeMode()
+            ClipMaskReadAdapter.Impl.safeMode(),
+            DEFAULT_OWNER_PLUGIN_ID,
+            permissionGate
         );
     }
 
+    /**
+     * @deprecated supply a capability-aware gate so denied reads retain their
+     * operation and capability audit IDs. This constructor rejects facades
+     * without an audit-capable gate.
+     */
+    @Deprecated
     public CubismReadCapabilityServiceImpl(
         final CubismFacade facade,
         final M12ReadSnapshotSource m12Source,
@@ -98,10 +141,37 @@ public final class CubismReadCapabilityServiceImpl implements CubismReadCapabili
             projectWorkspaceAdapter,
             clipMaskReadAdapter,
             DEFAULT_OWNER_PLUGIN_ID,
-            null
+            legacyGate(facade)
         );
     }
 
+    public CubismReadCapabilityServiceImpl(
+        final CubismFacade facade,
+        final M12ReadSnapshotSource m12Source,
+        final ThemeStatusAdapter themeStatusAdapter,
+        final RenderStatusAdapter renderStatusAdapter,
+        final ProjectWorkspaceAdapter projectWorkspaceAdapter,
+        final ClipMaskReadAdapter clipMaskReadAdapter,
+        final CubismReadPermissionGate permissionGate
+    ) {
+        this(
+            facade,
+            m12Source,
+            themeStatusAdapter,
+            renderStatusAdapter,
+            projectWorkspaceAdapter,
+            clipMaskReadAdapter,
+            DEFAULT_OWNER_PLUGIN_ID,
+            permissionGate
+        );
+    }
+
+    /**
+     * @deprecated supply a capability-aware gate so denied reads retain their
+     * operation and capability audit IDs. This constructor rejects facades
+     * without an audit-capable gate.
+     */
+    @Deprecated
     public CubismReadCapabilityServiceImpl(
         final CubismFacade facade,
         final M12ReadSnapshotSource m12Source,
@@ -119,7 +189,7 @@ public final class CubismReadCapabilityServiceImpl implements CubismReadCapabili
             projectWorkspaceAdapter,
             clipMaskReadAdapter,
             ownerPluginId,
-            null
+            legacyGate(facade)
         );
     }
 
@@ -133,6 +203,28 @@ public final class CubismReadCapabilityServiceImpl implements CubismReadCapabili
         final String ownerPluginId,
         final CubismPermissionGate permissionGate
     ) {
+        this(
+            facade,
+            m12Source,
+            themeStatusAdapter,
+            renderStatusAdapter,
+            projectWorkspaceAdapter,
+            clipMaskReadAdapter,
+            ownerPluginId,
+            CubismReadPermissionGate.from(permissionGate)
+        );
+    }
+
+    public CubismReadCapabilityServiceImpl(
+        final CubismFacade facade,
+        final M12ReadSnapshotSource m12Source,
+        final ThemeStatusAdapter themeStatusAdapter,
+        final RenderStatusAdapter renderStatusAdapter,
+        final ProjectWorkspaceAdapter projectWorkspaceAdapter,
+        final ClipMaskReadAdapter clipMaskReadAdapter,
+        final String ownerPluginId,
+        final CubismReadPermissionGate permissionGate
+    ) {
         this.facade = Objects.requireNonNull(facade, "facade");
         this.m12Source = Objects.requireNonNull(m12Source, "m12Source");
         this.themeStatusAdapter = Objects.requireNonNull(themeStatusAdapter, "themeStatusAdapter");
@@ -140,7 +232,7 @@ public final class CubismReadCapabilityServiceImpl implements CubismReadCapabili
         this.projectWorkspaceAdapter = Objects.requireNonNull(projectWorkspaceAdapter, "projectWorkspaceAdapter");
         this.clipMaskReadAdapter = Objects.requireNonNull(clipMaskReadAdapter, "clipMaskReadAdapter");
         this.ownerPluginId = requireText(ownerPluginId, "ownerPluginId");
-        this.permissionGate = permissionGate;
+        this.permissionGate = Objects.requireNonNull(permissionGate, "permissionGate");
     }
 
     @Override
@@ -330,16 +422,17 @@ public final class CubismReadCapabilityServiceImpl implements CubismReadCapabili
         final String operation,
         final String capabilityId
     ) {
-        if (permissionGate != null) {
-            permissionGate.require(permissionId, "cubismRead." + operation, capabilityId);
-            return;
+        permissionGate.require(permissionId, "cubismRead." + operation, capabilityId);
+    }
+
+    private static CubismReadPermissionGate legacyGate(final CubismFacade facade) {
+        final CubismFacade checkedFacade = Objects.requireNonNull(facade, "facade");
+        if (checkedFacade instanceof CubismFacadeImpl impl) {
+            return impl.readPermissionGate();
         }
-        if (permissionId.equals(CubismFacadeImpl.MODEL_READ_PERMISSION)
-            && facade instanceof CubismFacadeImpl impl) {
-            impl.activeModel();
-            return;
-        }
-        facade.activeProject();
+        throw new IllegalArgumentException(
+            "CubismReadCapabilityServiceImpl requires a CubismReadPermissionGate for a non-runtime facade"
+        );
     }
 
     private static String capabilityIdFor(final String operation) {
