@@ -252,15 +252,22 @@ class ProjectInspectorLifecycleTest {
     }
 
     @Test
-    void appliesRealSnapshotAndShowsOnlyLocalizedUnavailableWhileLoggingCode() {
+    void appliesRealSnapshotWithoutLoggingPrivateHostValuesAndShowsLocalizedFailure() {
         final Fixture fixture = new Fixture();
         final ControlledHandle success = fixture.host.accepted();
         fixture.plugin.enable();
         fixture.ui.runNext();
-        final ProjectWorkspaceSnapshot real = snapshot("project-id", "Real Project", "Real Workspace");
+        final String secret = "phase1-private-host-value-7f51d2";
+        final ProjectWorkspaceSnapshot real = snapshot("project-id", secret, secret);
         success.completeSuccess(real);
         fixture.ui.runNext();
         assertSame(real, fixture.ui.view.snapshot);
+        assertFalse(fixture.logger.infos.stream().anyMatch(message -> message.contains(secret)));
+        assertTrue(fixture.logger.infos.stream().anyMatch(message ->
+            message.contains("projectPresent=true")
+                && message.contains("workspacePresent=true")
+                && message.contains("documents=0")
+        ));
 
         final ControlledHandle failure = fixture.host.accepted();
         fixture.ui.view.refresh();
@@ -470,9 +477,10 @@ class ProjectInspectorLifecycleTest {
     }
 
     private static final class RecordingLogger implements PluginLogger {
+        private final List<String> infos = new ArrayList<>();
         private final List<String> warns = new ArrayList<>();
         @Override public void debug(final String message) {}
-        @Override public void info(final String message) {}
+        @Override public void info(final String message) { infos.add(message); }
         @Override public void warn(final String message) { warns.add(message); }
         @Override public void error(final String message) {}
         @Override public void error(final String message, final Throwable throwable) {}
