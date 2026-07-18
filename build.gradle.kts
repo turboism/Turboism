@@ -783,6 +783,7 @@ tasks.named("check") {
         previewAgentSmokeTest,
         checkPreviewRuntimeReports,
         ":tests:previewPluginRuntimeTest",
+        ":tests:migrationSuiteSafeTest",
         "checkOfficialPluginI18nCompleteness",
         "validatePluginMeta"
     )
