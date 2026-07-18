@@ -1,0 +1,24 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 1,
+  "id": "dev.turboism.plugin.bounding-box",
+  "name": "Bounding Box Plugin",
+  "version": "0.1.0",
+  "description": "SDK-only migration shell for the Bounding Box legacy feature.",
+  "entrypoints": {
+    "plugin": "dev.turboism.plugin.boundingbox.BoundingBoxPlugin"
+  },
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    { "name": "Turboism Contributors" }
+  ],
+  "license": "Project License",
+  "homepage": "https://turboism.dev",
+  "dependencies": [],
+  "permissions": [],
+  "capabilities": [],
+  "environment": {
+    "requiresCubism": false,
+    "ui": "none"
+  }
+}
