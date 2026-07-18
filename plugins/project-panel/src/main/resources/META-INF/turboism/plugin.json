@@ -1,0 +1,24 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 1,
+  "id": "dev.turboism.plugin.project-panel",
+  "name": "Project Panel Plugin",
+  "version": "0.1.0",
+  "description": "SDK-only migration shell for the Project Panel legacy feature.",
+  "entrypoints": {
+    "plugin": "dev.turboism.plugin.projectpanel.ProjectPanelPlugin"
+  },
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    { "name": "Turboism Contributors" }
+  ],
+  "license": "Project License",
+  "homepage": "https://turboism.dev",
+  "dependencies": [],
+  "permissions": [],
+  "capabilities": [],
+  "environment": {
+    "requiresCubism": false,
+    "ui": "none"
+  }
+}
