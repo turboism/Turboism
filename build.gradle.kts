@@ -1,4 +1,5 @@
 import dev.turboism.gradle.internal.MappingReviewArgsFile
+import org.gradle.jvm.tasks.Jar
 import java.util.jar.JarFile
 
 plugins {
@@ -12,6 +13,11 @@ allprojects {
 
     repositories {
         mavenCentral()
+    }
+
+    tasks.withType<Jar>().configureEach {
+        isPreserveFileTimestamps = false
+        isReproducibleFileOrder = true
     }
 }
 
@@ -765,6 +771,21 @@ val checkAsyncHostReadFoundation by tasks.registering {
     )
 }
 
+val checkMigrationSuiteBundleReproducibility by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Rebuilds the migration-suite bundle twice and compares the exact 16-file raw SHA-256 roster."
+    workingDir(rootDir)
+    inputs.files(
+        "build.gradle.kts",
+        "tests/build.gradle.kts",
+        "scripts/test/test_migration_suite_bundle_reproducibility.sh"
+    )
+    onlyIf {
+        providers.environmentVariable("TURBOISM_MIGRATION_SUITE_REPRO_INNER").orNull != "1"
+    }
+    commandLine("bash", "scripts/test/test_migration_suite_bundle_reproducibility.sh")
+}
+
 tasks.named("check") {
     dependsOn(
         checkAsyncHostReadFoundation,
@@ -784,6 +805,7 @@ tasks.named("check") {
         checkPreviewRuntimeReports,
         ":tests:previewPluginRuntimeTest",
         ":tests:migrationSuiteSafeTest",
+        checkMigrationSuiteBundleReproducibility,
         "checkOfficialPluginI18nCompleteness",
         "validatePluginMeta"
     )
