@@ -190,9 +190,9 @@ public final class ProjectInspectorPlugin implements TurboismPlugin {
     ) {
         view.showSnapshot(snapshot, Instant.now());
         context.logger().info(
-            "Inspector refresh: project=" + snapshot.project().map(value -> value.name()).orElse("<none>")
+            "Inspector refresh: projectPresent=" + snapshot.project().isPresent()
+                + ", workspacePresent=" + snapshot.workspace().isPresent()
                 + ", documents=" + snapshot.project().map(value -> value.documents().size()).orElse(0)
-                + ", layoutWorkspace=" + snapshot.workspace().map(value -> value.displayName()).orElse("<none>")
         );
     }
 
