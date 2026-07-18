@@ -32,25 +32,80 @@ tasks.test {
     exclude("**/MigrationSuiteSafeIntegrationTest.class")
 }
 
-val officialPluginProjects = rootProject.subprojects
-    .filter { it.path.startsWith(":plugins:") }
-    .sortedBy { it.path }
+data class MigrationSuitePlugin(
+    val module: String,
+    val pluginId: String,
+    val role: String
+)
+
+val migrationSuiteRoster = listOf(
+    MigrationSuitePlugin("ui-theme", "dev.turboism.plugin.uitheme", "target"),
+    MigrationSuitePlugin("log-filter", "dev.turboism.plugin.logfilter", "target"),
+    MigrationSuitePlugin("main-toolbar", "dev.turboism.plugin.maintoolbar", "target"),
+    MigrationSuitePlugin("context-menu", "dev.turboism.plugin.context-menu", "target"),
+    MigrationSuitePlugin("project-panel", "dev.turboism.plugin.project-panel", "target"),
+    MigrationSuitePlugin("texture-atlas", "dev.turboism.plugin.texture-atlas", "target"),
+    MigrationSuitePlugin("clip-mask", "dev.turboism.plugin.clipmask", "target"),
+    MigrationSuitePlugin("bounding-box", "dev.turboism.plugin.bounding-box", "target"),
+    MigrationSuitePlugin("perf-opt", "dev.turboism.plugin.perfopt", "target"),
+    MigrationSuitePlugin("render-opt", "dev.turboism.plugin.renderopt", "target"),
+    MigrationSuitePlugin("parameter", "dev.turboism.plugin.parameter", "target"),
+    MigrationSuitePlugin("mesh", "dev.turboism.plugin.mesh", "target"),
+    MigrationSuitePlugin("psd-import", "dev.turboism.plugin.psd-import", "target"),
+    MigrationSuitePlugin("demo", "dev.turboism.plugin.demo", "neighbor"),
+    MigrationSuitePlugin("project-inspector", "dev.turboism.plugin.project-inspector", "neighbor")
+)
+val migrationSuiteTargets = migrationSuiteRoster.filter { it.role == "target" }
+val migrationSuiteNeighbors = migrationSuiteRoster.filter { it.role == "neighbor" }
+
+require(migrationSuiteTargets.size == 13) {
+    "migration-suite-safe must declare exactly 13 legacy target modules"
+}
+require(migrationSuiteRoster.map { it.module }.distinct().size == migrationSuiteRoster.size) {
+    "migration-suite-safe roster modules must be unique"
+}
+require(migrationSuiteRoster.map { it.pluginId }.distinct().size == migrationSuiteRoster.size) {
+    "migration-suite-safe roster plugin IDs must be unique"
+}
+require(migrationSuiteRoster.all { it.role == "target" || it.role == "neighbor" }) {
+    "migration-suite-safe roster roles must be target or neighbor"
+}
 
 val migrationSuiteSafeBundleDir = layout.buildDirectory.dir("migration-suite-safe")
+val migrationSuiteRosterManifest = migrationSuiteSafeBundleDir.map {
+    it.file("roster.tsv")
+}
 
 val migrationSuiteSafeBundle by tasks.registering(Sync::class) {
     group = "verification"
-    description = "Assembles a relocatable safe migration-suite test layout from all current official plugin modules."
+    description = "Assembles the explicit 13-target migration suite plus demo/Project Inspector neighbors."
 
-    dependsOn(officialPluginProjects.map { it.tasks.named<org.gradle.jvm.tasks.Jar>("jar") })
+    val bundledProjects = migrationSuiteRoster.map { project(":plugins:${it.module}") }
+    dependsOn(bundledProjects.map { it.tasks.named<org.gradle.jvm.tasks.Jar>("jar") })
+    inputs.property(
+        "migrationSuiteRoster",
+        migrationSuiteRoster.map { "${it.role}|${it.module}|${it.pluginId}" }
+    )
+    outputs.file(migrationSuiteRosterManifest)
     into(migrationSuiteSafeBundleDir)
-    into("plugins") {
-        from(officialPluginProjects.map { project ->
-            project.tasks.named<org.gradle.jvm.tasks.Jar>("jar").flatMap { it.archiveFile }
-        })
-        eachFile {
-            name = name.substringBeforeLast("-") + ".jar"
+    migrationSuiteRoster.forEach { entry ->
+        val pluginProject = project(":plugins:${entry.module}")
+        into(if (entry.role == "target") "targets" else "neighbors") {
+            from(pluginProject.tasks.named<org.gradle.jvm.tasks.Jar>("jar").flatMap { it.archiveFile }) {
+                rename { "${entry.module}.jar" }
+            }
         }
+    }
+    doLast {
+        migrationSuiteRosterManifest.get().asFile.writeText(
+            buildString {
+                append("role\tmodule\tpluginId\n")
+                migrationSuiteRoster.forEach { entry ->
+                    append("${entry.role}\t${entry.module}\t${entry.pluginId}\n")
+                }
+            },
+            Charsets.UTF_8
+        )
     }
 }
 
@@ -58,6 +113,8 @@ tasks.register<Test>("migrationSuiteSafeTest") {
     group = "verification"
     description = "Runs the deterministic child-JVM safe migration-suite lifecycle and preview-report gate."
     dependsOn(migrationSuiteSafeBundle)
+    inputs.dir(migrationSuiteSafeBundleDir)
+    inputs.file(migrationSuiteRosterManifest)
     testClassesDirs = sourceSets.test.get().output.classesDirs
     classpath = sourceSets.test.get().runtimeClasspath
     useJUnitPlatform()
