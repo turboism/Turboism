@@ -14,6 +14,11 @@ include(
     "plugins:parameter",
     "plugins:mesh",
     "plugins:project-inspector",
+    "plugins:bounding-box",
+    "plugins:context-menu",
+    "plugins:project-panel",
+    "plugins:psd-import",
+    "plugins:texture-atlas",
     "testframework",
     "tests"
 )

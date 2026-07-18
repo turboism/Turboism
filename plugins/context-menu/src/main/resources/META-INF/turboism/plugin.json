@@ -1,0 +1,24 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 1,
+  "id": "dev.turboism.plugin.context-menu",
+  "name": "Context Menu Plugin",
+  "version": "0.1.0",
+  "description": "SDK-only migration shell for the Context Menu legacy feature.",
+  "entrypoints": {
+    "plugin": "dev.turboism.plugin.contextmenu.ContextMenuPlugin"
+  },
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    { "name": "Turboism Contributors" }
+  ],
+  "license": "Project License",
+  "homepage": "https://turboism.dev",
+  "dependencies": [],
+  "permissions": [],
+  "capabilities": [],
+  "environment": {
+    "requiresCubism": false,
+    "ui": "none"
+  }
+}
