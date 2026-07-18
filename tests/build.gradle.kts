@@ -29,6 +29,45 @@ tasks.test {
     systemProperty("sdkBuildDir", project(":sdk").buildDir.absolutePath)
     systemProperty("demoBuildDir", project(":plugins:demo").buildDir.absolutePath)
     systemProperty("projectInspectorBuildDir", project(":plugins:project-inspector").buildDir.absolutePath)
+    exclude("**/MigrationSuiteSafeIntegrationTest.class")
+}
+
+val officialPluginProjects = rootProject.subprojects
+    .filter { it.path.startsWith(":plugins:") }
+    .sortedBy { it.path }
+
+val migrationSuiteSafeBundleDir = layout.buildDirectory.dir("migration-suite-safe")
+
+val migrationSuiteSafeBundle by tasks.registering(Sync::class) {
+    group = "verification"
+    description = "Assembles a relocatable safe migration-suite test layout from all current official plugin modules."
+
+    dependsOn(officialPluginProjects.map { it.tasks.named<org.gradle.jvm.tasks.Jar>("jar") })
+    into(migrationSuiteSafeBundleDir)
+    into("plugins") {
+        from(officialPluginProjects.map { project ->
+            project.tasks.named<org.gradle.jvm.tasks.Jar>("jar").flatMap { it.archiveFile }
+        })
+        eachFile {
+            name = name.substringBeforeLast("-") + ".jar"
+        }
+    }
+}
+
+tasks.register<Test>("migrationSuiteSafeTest") {
+    group = "verification"
+    description = "Runs the deterministic child-JVM safe migration-suite lifecycle and preview-report gate."
+    dependsOn(migrationSuiteSafeBundle)
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    useJUnitPlatform()
+    maxParallelForks = 1
+    systemProperty("java.awt.headless", "true")
+    systemProperty("migrationSuiteSafeBundleDir", migrationSuiteSafeBundleDir.get().asFile.absolutePath)
+    filter {
+        includeTestsMatching("dev.turboism.tests.migration.MigrationSuiteSafeIntegrationTest")
+        isFailOnNoMatchingTests = true
+    }
 }
 
 tasks.register<Test>("previewPluginRuntimeTest") {
