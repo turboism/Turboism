@@ -265,7 +265,7 @@ public final class ThemePackageCodec {
         }
         final Properties properties = new Properties();
         try (InputStreamReader reader = new InputStreamReader(
-            new ByteArrayInputStream(entry.bytes()), StandardCharsets.UTF_8
+            new ByteArrayInputStream(text.getBytes(StandardCharsets.UTF_8)), StandardCharsets.UTF_8
         )) {
             properties.load(reader);
         } catch (IOException impossible) {

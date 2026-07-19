@@ -59,6 +59,24 @@ final class LegacyThemePackageCodecTest {
     }
 
     @Test
+    void decodesUtf8AfterBomAndPreservesNonAsciiMetadata() {
+        final byte[] metadata = ("id=turboism.localized\nname=樱花主题\ndescription=柔和配色\n")
+            .getBytes(StandardCharsets.UTF_8);
+        final byte[] withBom = new byte[metadata.length + 3];
+        withBom[0] = (byte) 0xEF;
+        withBom[1] = (byte) 0xBB;
+        withBom[2] = (byte) 0xBF;
+        System.arraycopy(metadata, 0, withBom, 3, metadata.length);
+        final ThemePackageCodec.DecodeResult decoded = ThemePackageCodec.decode(List.of(
+            new ThemePackageEntry("theme.properties", withBom),
+            entry("colors.properties", "Button.background=#AABBCC\n")
+        ));
+        assertTrue(decoded.valid(), decoded.issues().toString());
+        assertEquals("樱花主题", decoded.theme().orElseThrow().metadata().name());
+        assertEquals("柔和配色", decoded.theme().orElseThrow().metadata().description());
+    }
+
+    @Test
     void rejectsMultipleRootsDuplicatesUnknownAndMissingFiles() {
         assertIssue(ThemePackageCodec.IssueCode.MULTIPLE_ROOTS, List.of(
             entry("one/theme.properties", metadata("turboism.one")),
