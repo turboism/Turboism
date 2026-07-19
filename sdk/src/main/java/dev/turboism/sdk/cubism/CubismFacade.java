@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism;
 
+import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.transaction.TransactionManager;
 import java.util.Optional;
 
@@ -20,6 +21,7 @@ public interface CubismFacade {
     boolean isHostPresent();
 
     /** Returns the transaction manager for write operations. */
+    @PreviewApi
     TransactionManager transactionManager();
 
     default boolean hasActiveProject() {
