@@ -5,7 +5,7 @@ public record ThemePackageMetadata(
     String name,
     String description,
     String author,
-    String homepage,
+    String url,
     String version,
     String parentId,
     ThemeBase base,
@@ -15,7 +15,7 @@ public record ThemePackageMetadata(
     public ThemePackageMetadata {
         description = description == null ? "" : description;
         author = author == null ? "" : author;
-        homepage = homepage == null ? "" : homepage;
+        url = url == null ? "" : url;
         version = version == null ? "" : version;
         parentId = parentId == null || parentId.isEmpty() ? null : parentId;
         base = base == null ? ThemeBase.ANY : base;
