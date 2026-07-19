@@ -1,1 +1,5 @@
+context-menu.deformer.label
+context-menu.parameter.label
+context-menu.parts.label
+context-menu.workspace-object.label
 plugin.name

@@ -79,10 +79,19 @@ public final class ParameterCsvCodec {
                 quoted = true; closedQuote = false;
             } else if (value == ',') {
                 fields.add(field.toString()); field = new StringBuilder(); closedQuote = false;
-            } else if (value == '\n' || value == '\r') {
+            } else if (value == '\r') {
+                if (index + 1 >= input.length() || input.charAt(index + 1) != '\n') {
+                    return new ParseRecords(List.of(), ParameterCsvError.at(
+                        ParameterCsvErrorCode.CONTROL_FORBIDDEN, records.size() + 1, index + 1
+                    ));
+                }
                 fields.add(field.toString()); records.add(new Record(List.copyOf(fields), recordColumn));
                 fields = new ArrayList<>(); field = new StringBuilder(); closedQuote = false;
-                if (value == '\r' && index + 1 < input.length() && input.charAt(index + 1) == '\n') index++;
+                index++;
+                recordColumn = index + 2;
+            } else if (value == '\n') {
+                fields.add(field.toString()); records.add(new Record(List.copyOf(fields), recordColumn));
+                fields = new ArrayList<>(); field = new StringBuilder(); closedQuote = false;
                 recordColumn = index + 2;
             } else field.append(value);
         }
