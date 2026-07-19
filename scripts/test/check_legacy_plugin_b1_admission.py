@@ -114,6 +114,8 @@ def verify_documents() -> None:
 
 def main() -> None:
     run("bash", "scripts/test/test_m12_plugin_readiness_gate.sh")
+    run(sys.executable, "scripts/test/test_legacy_plugin_b1_source_boundaries.py")
+    run(sys.executable, "scripts/test/check_legacy_plugin_b1_source_boundaries.py")
     run(sys.executable, "scripts/test/test_legacy_framework_capability_extraction.py")
     run(sys.executable, "scripts/test/test_legacy_framework_capability_extraction_mutations.py")
     run("bash", "scripts/test/test_migration_docs_safety_scanner.sh")

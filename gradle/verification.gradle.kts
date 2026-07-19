@@ -57,6 +57,12 @@ val checkLegacyPluginB1Admission by tasks.registering(Exec::class) {
     dependsOn("checkSdkPhase1ExactApiCompatibility", "checkModuleBoundaries")
     inputs.files(
         "scripts/test/check_legacy_plugin_b1_admission.py",
+        "scripts/test/check_legacy_plugin_b1_source_boundaries.py",
+        "scripts/test/test_legacy_plugin_b1_source_boundaries.py",
+        fileTree("plugins") {
+            include("*/src/main/java/**/*.java")
+            include("*/src/main/resources/META-INF/turboism/plugin.json")
+        },
         "docs/migration/capabilities/legacy-framework-capability-extraction.tsv",
         "docs/migration/legacy-plugin-migration-foundation-closure-report.md",
         "docs/migration/plans/legacy-plugin-b1-execution-plan.md",
