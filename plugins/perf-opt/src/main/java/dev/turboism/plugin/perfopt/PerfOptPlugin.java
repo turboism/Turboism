@@ -1,5 +1,6 @@
 package dev.turboism.plugin.perfopt;
 
+import dev.turboism.plugin.perfopt.b1.application.FpsPreferenceBinding;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.plugin.PluginContext;
@@ -16,6 +17,7 @@ public final class PerfOptPlugin implements TurboismPlugin {
     private static final String PERFORMANCE_MENU_PATH = "Tools/Performance";
     private static final int PERFORMANCE_MENU_ORDER = 200;
 
+    private FpsPreferenceBinding b1Application = new FpsPreferenceBinding();
     private PluginContext context;
     private PluginLogger logger;
     private boolean fpsOverlayEnabled;
@@ -23,6 +25,7 @@ public final class PerfOptPlugin implements TurboismPlugin {
     @Override
     public void init(PluginContext context) {
         this.context = context;
+        b1Application.init(context.config());
         this.logger = context.logger();
         this.fpsOverlayEnabled = false;
         logger.info("PerfOptPlugin initialized");
@@ -30,6 +33,7 @@ public final class PerfOptPlugin implements TurboismPlugin {
 
     @Override
     public void enable() {
+        b1Application.enable();
         Registration actionRegistration = context.actions().register(FPS_OVERLAY_ACTION_ID, fpsOverlayAction());
         context.disposableScope().register(actionRegistration);
 
@@ -41,11 +45,13 @@ public final class PerfOptPlugin implements TurboismPlugin {
 
     @Override
     public void disable() {
+        b1Application.disable();
         logger.info("PerfOptPlugin disabled");
     }
 
     @Override
     public void shutdown() {
+        b1Application.shutdown();
         logger.info("PerfOptPlugin shutdown");
     }
 

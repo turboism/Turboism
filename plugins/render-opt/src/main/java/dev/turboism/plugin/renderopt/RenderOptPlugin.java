@@ -1,5 +1,6 @@
 package dev.turboism.plugin.renderopt;
 
+import dev.turboism.plugin.renderopt.b1.application.RenderPreferenceBinding;
 import dev.turboism.plugin.renderopt.service.RenderStatusOverlayService;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.plugin.PluginContext;
@@ -14,6 +15,7 @@ public class RenderOptPlugin implements TurboismPlugin {
     private static final String REFRESH_ACTION_ID = "render-status.overlay.refresh";
     private static final String REFRESH_ACTION_LABEL = "Refresh Render Status Overlay";
 
+    private RenderPreferenceBinding b1Application = new RenderPreferenceBinding();
     private PluginContext context;
     private PluginLogger logger;
     private RenderStatusOverlayService renderStatusOverlayService;
@@ -21,6 +23,7 @@ public class RenderOptPlugin implements TurboismPlugin {
     @Override
     public void init(PluginContext context) {
         this.context = context;
+        b1Application.init(context.config());
         this.logger = context.logger();
         this.renderStatusOverlayService = new RenderStatusOverlayService(context.cubismRead(), context.uiHost());
         logger.info("RenderOptPlugin initialized");
@@ -28,6 +31,7 @@ public class RenderOptPlugin implements TurboismPlugin {
 
     @Override
     public void enable() {
+        b1Application.enable();
         registerAction(REFRESH_ACTION_ID, REFRESH_ACTION_LABEL, ignored -> renderStatusOverlayService.refreshStatus());
         context.disposableScope().register(renderStatusOverlayService.registerOverlay());
         context.disposableScope().register(new RenderOptimizationLifecycleProvider(logger));
@@ -36,11 +40,13 @@ public class RenderOptPlugin implements TurboismPlugin {
 
     @Override
     public void disable() {
+        b1Application.disable();
         logger.info("RenderOptPlugin disabled");
     }
 
     @Override
     public void shutdown() {
+        b1Application.shutdown();
         logger.info("RenderOptPlugin shutdown");
     }
 
