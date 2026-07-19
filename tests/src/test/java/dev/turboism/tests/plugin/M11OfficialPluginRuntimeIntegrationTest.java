@@ -99,7 +99,12 @@ class M11OfficialPluginRuntimeIntegrationTest {
             permissionIdsFor("ui-theme")
         );
         assertEquals(
-            Set.of("turboism.action.register", "turboism.ui.menu.contribute"),
+            Set.of(
+                "turboism.action.register",
+                "turboism.ui.menu.contribute",
+                "turboism.config.plugin.read",
+                "turboism.config.plugin.write"
+            ),
             permissionIdsFor("perf-opt")
         );
         assertEquals(
@@ -107,7 +112,9 @@ class M11OfficialPluginRuntimeIntegrationTest {
                 "turboism.action.register",
                 "turboism.cubism.model.read",
                 "turboism.ui.overlay.contribute",
-                "turboism.ui.status.notify"
+                "turboism.ui.status.notify",
+                "turboism.config.plugin.read",
+                "turboism.config.plugin.write"
             ),
             permissionIdsFor("render-opt")
         );

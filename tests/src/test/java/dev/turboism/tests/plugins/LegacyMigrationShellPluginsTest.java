@@ -6,6 +6,14 @@ import dev.turboism.plugin.projectpanel.ProjectPanelPlugin;
 import dev.turboism.plugin.psdimport.PsdImportPlugin;
 import dev.turboism.plugin.textureatlas.TextureAtlasPlugin;
 import dev.turboism.sdk.action.ActionRegistry;
+import dev.turboism.sdk.config.ConfigKey;
+import dev.turboism.sdk.config.ConfigReadResult;
+import dev.turboism.sdk.config.ConfigSchema;
+import dev.turboism.sdk.config.ConfigValue;
+import dev.turboism.sdk.config.ConfigValueSource;
+import dev.turboism.sdk.config.ConfigWriteResult;
+import dev.turboism.sdk.config.PluginConfigException;
+import dev.turboism.sdk.config.PluginConfigRegistry;
 import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
 import dev.turboism.sdk.event.EventBus;
@@ -16,12 +24,16 @@ import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.PluginPaths;
+import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.plugin.TurboismPlugin;
 import dev.turboism.sdk.ui.UiScheduler;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
@@ -58,6 +70,7 @@ class LegacyMigrationShellPluginsTest {
 
     private static final class ShellPluginContext implements PluginContext {
         private boolean operationalAccessed;
+        private final PluginConfigRegistry config = new DefaultConfigRegistry();
         private final PluginLogger logger = new PluginLogger() {
             @Override public void debug(String message) {}
             @Override public void info(String message) {}
@@ -69,6 +82,7 @@ class LegacyMigrationShellPluginsTest {
         @Override public PluginDescriptor descriptor() { return accessed(); }
         @Override public PluginLogger logger() { return logger; }
         @Override public PluginPaths paths() { return accessed(); }
+        @Override public PluginConfigRegistry config() { return config; }
         @Override public CubismFacade cubism() { return accessed(); }
         @Override public List<PluginPermission> permissions() { return accessed(); }
         @Override public EventBus eventBus() { return accessed(); }
@@ -88,5 +102,15 @@ class LegacyMigrationShellPluginsTest {
             operationalAccessed = true;
             throw new AssertionError("migration shell must not access an operational PluginContext service");
         }
+    }
+
+    private static final class DefaultConfigRegistry implements PluginConfigRegistry {
+        @Override public CompletionStage<Void> registerSchema(ConfigSchema schema, List<dev.turboism.sdk.config.ConfigMigration> migrations) { return CompletableFuture.completedFuture(null); }
+        @Override public <T> CompletionStage<ConfigReadResult<T>> read(ConfigKey<T> key) { return CompletableFuture.completedFuture(new ConfigReadResult<>(new ConfigValue<>(key.defaultValue(), ConfigValueSource.DEFAULT_MISSING, 0), Optional.empty())); }
+        @Override public <T> CompletionStage<ConfigWriteResult> write(ConfigKey<T> key, T value, long expectedRevision) { return CompletableFuture.completedFuture(new ConfigWriteResult(true, expectedRevision + 1, Optional.empty())); }
+        @Override public Registration readScope(String relativePath) { return () -> { }; }
+        @Override public Registration writeScope(String relativePath) { return () -> { }; }
+        @Override public Optional<String> readString(String relativePath, String key) { return Optional.empty(); }
+        @Override public void writeString(String relativePath, String key, String value) throws PluginConfigException { }
     }
 }
