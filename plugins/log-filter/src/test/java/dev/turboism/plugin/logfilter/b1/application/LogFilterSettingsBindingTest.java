@@ -115,6 +115,23 @@ final class LogFilterSettingsBindingTest {
         assertEquals(LogFilterSettings.defaults(), fresh.confirmed());
     }
 
+    @Test
+    void partialPersistenceStillReconcilesWhenDisabledDuringReadback() {
+        final FakeRegistry registry = new FakeRegistry();
+        final LogFilterSettingsBinding binding = enabled(registry);
+        registry.writeFailures.add(FakeRegistry.SUCCESS_SENTINEL);
+        registry.writeFailures.add(new ConfigWriteResult(false, 1,
+            Optional.of(error(ConfigErrorCode.PERSISTENCE_FAILED, "keywordMode"))));
+        registry.deferReads = true;
+        final CompletionStage<ConfigBindingResult> update = binding.update(
+            new LogFilterSettings(LogLevel.ERROR, KeywordMode.ALL, true, List.of("x"))
+        );
+        binding.disable();
+        registry.completeDeferredReads();
+        assertEquals(ConfigBindingResult.PARTIAL_PERSISTENCE, update.toCompletableFuture().join());
+        assertEquals(8, registry.reads);
+    }
+
     private static LogFilterSettingsBinding enabled(FakeRegistry registry) {
         final LogFilterSettingsBinding binding = new LogFilterSettingsBinding();
         binding.init(registry).toCompletableFuture().join();
