@@ -630,7 +630,9 @@ class M13OfficialPluginRuntimeIntegrationTest {
             Set.of(
                 "turboism.action.register",
                 "turboism.ui.toolbar.palette.contribute",
-                "turboism.ui.status.notify"
+                "turboism.ui.status.notify",
+                "turboism.config.plugin.read",
+                "turboism.config.plugin.write"
             ),
             permissionIdsFor("log-filter")
         );
@@ -659,7 +661,9 @@ class M13OfficialPluginRuntimeIntegrationTest {
                 "turboism.action.register",
                 "turboism.cubism.model.read",
                 "turboism.ui.overlay.contribute",
-                "turboism.ui.status.notify"
+                "turboism.ui.status.notify",
+                "turboism.config.plugin.read",
+                "turboism.config.plugin.write"
             ),
             permissionIdsFor("render-opt")
         );
