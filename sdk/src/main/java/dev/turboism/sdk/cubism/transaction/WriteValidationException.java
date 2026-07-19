@@ -1,5 +1,8 @@
 package dev.turboism.sdk.cubism.transaction;
 
+import dev.turboism.sdk.PreviewApi;
+
+@PreviewApi
 public class WriteValidationException extends TransactionException {
 
     public WriteValidationException(String transactionId, int errorCode, String message) {

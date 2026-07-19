@@ -1,7 +1,9 @@
 package dev.turboism.sdk.cubism.write;
 
+import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.id.ModelId;
 
+@PreviewApi
 public record WriteCanvasCommand(String commandId, ModelId modelId, int width, int height) implements CubismWriteCommand {
     public WriteCanvasCommand {
         if (commandId == null || commandId.isBlank()) {
