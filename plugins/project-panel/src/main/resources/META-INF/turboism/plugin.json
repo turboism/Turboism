@@ -15,7 +15,18 @@
   "license": "Project License",
   "homepage": "https://turboism.dev",
   "dependencies": [],
-  "permissions": [],
+  "permissions": [
+    {
+      "id": "turboism.config.plugin.read",
+      "scope": "application",
+      "reason": "Restores validated B1 project lifecycle counters."
+    },
+    {
+      "id": "turboism.config.plugin.write",
+      "scope": "application",
+      "reason": "Persists validated B1 project lifecycle counters."
+    }
+  ],
   "capabilities": [],
   "environment": {
     "requiresCubism": false,
