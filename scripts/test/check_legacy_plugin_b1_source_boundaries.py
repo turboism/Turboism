@@ -139,6 +139,7 @@ FORBIDDEN_TYPE_NAMES = frozenset(
 )
 FORBIDDEN_MEMBER_PATTERNS = (
     (re.compile(r"\.\s*toCompletableFuture\s*\("), "CompletionStage.toCompletableFuture()"),
+    (re.compile(r"\bCompletableFuture\s*\.\s*(?!completedStage\s*\()"), "CompletableFuture operation other than completedStage()"),
     (re.compile(r"\.\s*parallelStream\s*\("), "parallel stream concurrency"),
     (re.compile(r"\b(?:Files|Path|Paths|FileSystem|FileSystems)\s*\."), "direct filesystem access"),
     (re.compile(r"\b(?:URI|URL|URLConnection|HttpClient|HttpRequest|HttpResponse|Socket|ServerSocket|DatagramSocket)\s*\."), "direct network access"),
@@ -298,10 +299,18 @@ def scan_b1_source(path: Path, source: str, owning_package: str, root: Path) -> 
                 violations.append(Violation(path, number, import_violation_reason(imported, owning_package)))
             continue
         future_variables.update(match.group(1) for match in FUTURE_DECLARATION.finditer(line))
+        allowed_completed_stage = bool(re.search(
+            r"(?<![\w$])(?:java\.util\.concurrent\.)?CompletableFuture\s*\.\s*completedStage\s*\(",
+            line,
+        ))
         for prefix in FORBIDDEN_QUALIFIED_PREFIXES:
+            if prefix == "java.util.concurrent.CompletableFuture" and allowed_completed_stage:
+                continue
             if re.search(rf"(?<![\w$]){re.escape(prefix)}(?:\.|\b)", line):
                 violations.append(Violation(path, number, f"forbidden fully qualified B1 API {prefix}"))
         for token in TYPE_TOKEN.findall(line):
+            if token == "CompletableFuture" and allowed_completed_stage:
+                continue
             if token in FORBIDDEN_TYPE_NAMES:
                 violations.append(Violation(path, number, f"forbidden B1 API/type {token}"))
         for pattern, description in FORBIDDEN_MEMBER_PATTERNS:

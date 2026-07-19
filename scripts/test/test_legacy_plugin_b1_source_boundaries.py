@@ -204,6 +204,9 @@ def add_valid_domain_and_config_application(directory: Path) -> None:
             "    public CompletionStage<Void> bind(final PluginConfigRegistry value, final CompletionStage<Void> stage) {\n"
             "        registry = Objects.requireNonNull(value, \"value\");\n"
             "        return stage.thenRun(() -> { });\n"
+            "    }\n\n"
+            "    public CompletionStage<String> completed(final String value) {\n"
+            "        return java.util.concurrent.CompletableFuture.completedStage(value);\n"
             "    }",
             (
                 "dev.turboism.sdk.config.PluginConfigRegistry",
@@ -436,6 +439,7 @@ def main() -> None:
         ("Executor use", add_forbidden_statement("Executor executor = null;")),
         ("Timer use", add_forbidden_statement("Timer timer = null;")),
         ("CompletableFuture use", add_forbidden_statement("CompletableFuture<Object> future = null;")),
+        ("CompletableFuture supplyAsync", add_forbidden_statement("java.util.concurrent.CompletableFuture.supplyAsync(() -> \"x\");")),
         ("ProcessHandle use", add_forbidden_statement("java.lang.ProcessHandle handle = java.lang.ProcessHandle.current();")),
         ("parallel stream use", add_forbidden_statement("void run(java.util.List<String> items) { items.parallelStream().count(); }")),
         ("toCompletableFuture call", add_forbidden_statement("stage.toCompletableFuture();")),
