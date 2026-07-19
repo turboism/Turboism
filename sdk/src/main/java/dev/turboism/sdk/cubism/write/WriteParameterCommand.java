@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.write;
 
+import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.cubism.id.ParameterId;
 
@@ -7,6 +8,7 @@ import dev.turboism.sdk.cubism.id.ParameterId;
  * DTO for a parameter value write operation.
  * All fields are SDK-owned types — no host references.
  */
+@PreviewApi
 public record WriteParameterCommand(
     String commandId,
     ModelId modelId,

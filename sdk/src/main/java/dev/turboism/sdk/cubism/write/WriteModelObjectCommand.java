@@ -1,8 +1,10 @@
 package dev.turboism.sdk.cubism.write;
 
+import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.cubism.id.ModelObjectId;
 
+@PreviewApi
 public record WriteModelObjectCommand(String commandId, ModelId modelId, ModelObjectId objectId, String operation) implements CubismWriteCommand {
     public WriteModelObjectCommand {
         if (commandId == null || commandId.isBlank()) {
