@@ -72,9 +72,10 @@ final class ThemePackageCatalogTest {
 
         final ThemePackageCatalog.Result invalid = ThemePackageCatalog.build(List.of(
             metadata("Bad.Id", "", null),
-            metadata("vendor.long", "x".repeat(129), null)
+            metadata("vendor.long", "x".repeat(129), null),
+            metadata("vendor.bad-", "Bad trailing dash", null)
         ));
-        assertEquals(2, invalid.rejected().size());
+        assertEquals(3, invalid.rejected().size());
         assertTrue(invalid.issues().stream().anyMatch(issue -> issue.code() == ThemePackageCatalog.IssueCode.INVALID_ID));
         assertTrue(invalid.issues().stream().anyMatch(issue -> issue.code() == ThemePackageCatalog.IssueCode.INVALID_NAME));
     }
