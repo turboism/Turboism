@@ -1,5 +1,6 @@
 package dev.turboism.plugin.logfilter;
 
+import dev.turboism.plugin.logfilter.b1.application.DefaultPluginConfigRegistry;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.config.PluginConfigRegistry;
 import dev.turboism.sdk.cubism.CubismFacade;
@@ -196,7 +197,7 @@ class LogFilterPluginTest {
 
         @Override
         public PluginConfigRegistry config() {
-            return null;
+            return new DefaultPluginConfigRegistry();
         }
 
         @Override
