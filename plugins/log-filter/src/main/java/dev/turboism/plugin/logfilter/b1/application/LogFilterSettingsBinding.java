@@ -103,6 +103,14 @@ public final class LogFilterSettingsBinding {
     }
 
     private CompletionStage<ConfigBindingResult> readAll(final long activeEpoch, final boolean retried) {
+        return readAll(activeEpoch, retried, true);
+    }
+
+    private CompletionStage<ConfigBindingResult> readAll(
+        final long activeEpoch,
+        final boolean retried,
+        final boolean applyRead
+    ) {
         return registry.read(MINIMUM_LEVEL).thenCombine(registry.read(KEYWORD_MODE), Pair::new)
             .thenCombine(registry.read(CASE_SENSITIVE), Triple::new)
             .thenCombine(registry.read(KEYWORDS), Quad::new)
@@ -123,13 +131,16 @@ public final class LogFilterSettingsBinding {
                         : readAll(activeEpoch, true);
                 }
                 try {
-                    confirmed = new LogFilterSettings(
+                    final LogFilterSettings hydrated = new LogFilterSettings(
                         reads.first().value().value(),
                         reads.second().value().value(),
                         reads.third().value().value(),
                         reads.fourth().value().value()
                     );
-                    documentRevision = revision;
+                    if (applyRead) {
+                        confirmed = hydrated;
+                        documentRevision = revision;
+                    }
                     return completed(ConfigBindingResult.APPLIED);
                 } catch (IllegalArgumentException invalid) {
                     return completed(ConfigBindingResult.INVALID_VALUE);
@@ -178,13 +189,8 @@ public final class LogFilterSettingsBinding {
             return completed(ConfigBindingResult.APPLIED);
         }
         if (step.wroteAny()) {
-            final LogFilterSettings lastConfirmed = confirmed;
-            final long lastRevision = documentRevision;
-            return readAll(activeEpoch, false).thenApply(ignored -> {
-                confirmed = lastConfirmed;
-                documentRevision = lastRevision;
-                return ConfigBindingResult.PARTIAL_PERSISTENCE;
-            });
+            return readAll(activeEpoch, false, false)
+                .thenApply(ignored -> ConfigBindingResult.PARTIAL_PERSISTENCE);
         }
         return completed(step.result());
     }

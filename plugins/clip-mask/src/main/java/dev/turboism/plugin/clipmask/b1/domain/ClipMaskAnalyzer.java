@@ -70,7 +70,9 @@ public final class ClipMaskAnalyzer {
         }
         for (String source : uniqueSources) nodes.add(new ClipMaskGraphNode(source, ClipMaskGraphNode.Kind.SOURCE));
         nodes.sort(Comparator.comparing(ClipMaskGraphNode::kind).thenComparing(ClipMaskGraphNode::id));
-        issues.sort(Comparator.comparing(ClipMaskIssue::targetId).thenComparing(ClipMaskIssue::code));
+        issues.sort(Comparator.comparing(ClipMaskIssue::targetId)
+            .thenComparing(ClipMaskIssue::code)
+            .thenComparingInt(ClipMaskIssue::ordinal));
         return new ClipMaskAnalysis(
             accepted, rejected, exact, inversion, order, rows, nodes, edges,
             new ClipMaskCounts(candidates.size(), accepted.size(), rejected.size(), exact.size(), inversion.size(), order.size(), uniqueSources.size(), totalSources),
@@ -111,7 +113,9 @@ public final class ClipMaskAnalyzer {
 
     private static void reject(int index, String id, ClipMaskIssueCode code, Set<Integer> rejected, List<ClipMaskIssue> issues) {
         rejected.add(index);
-        if (issues.stream().noneMatch(issue -> issue.targetId().equals(id == null ? "" : id) && issue.code() == code)) issues.add(new ClipMaskIssue(id, code));
+        if (issues.stream().noneMatch(issue -> issue.ordinal() == index && issue.code() == code)) {
+            issues.add(new ClipMaskIssue(id, code, index));
+        }
     }
 
     private static boolean validId(String value) { return value != null && !value.isEmpty() && value.length() <= 128; }
