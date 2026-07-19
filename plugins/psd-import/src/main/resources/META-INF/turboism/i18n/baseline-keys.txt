@@ -1,1 +1,4 @@
 plugin.name
+psd.action.expand-canvas.label
+psd.action.import-clip-masks.label
+psd.action.repair-layer-bindings.label

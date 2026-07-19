@@ -28,6 +28,7 @@ final class ParameterCsvCodecTest {
         assertError(ParameterCsvErrorCode.QUOTE_TRAILING, "id,value\n\"a\"x,1\n");
         assertError(ParameterCsvErrorCode.VALUE_INVALID, "id,value\na,01\n");
         assertError(ParameterCsvErrorCode.VALUE_NEGATIVE_ZERO, "id,value\na,-0.00\n");
+        assertError(ParameterCsvErrorCode.CONTROL_FORBIDDEN, "id,value\ra,1\r");
         final ParameterCsvParseResult duplicate = ParameterCsvCodec.parse("id,value\na,1\nb,2\na,3\n");
         assertEquals(ParameterCsvErrorCode.DUPLICATE_ID, duplicate.error().orElseThrow().code());
         assertEquals(2, duplicate.error().orElseThrow().firstRecord());
