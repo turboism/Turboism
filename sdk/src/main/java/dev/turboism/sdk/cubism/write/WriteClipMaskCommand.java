@@ -1,10 +1,12 @@
 package dev.turboism.sdk.cubism.write;
 
+import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.ModelObjectId;
 
 import java.util.List;
 
+@PreviewApi
 public record WriteClipMaskCommand(String commandId, ModelObjectId clipMaskId, List<ArtMeshId> clippedMeshIds) implements CubismWriteCommand {
     public WriteClipMaskCommand {
         if (commandId == null || commandId.isBlank()) {

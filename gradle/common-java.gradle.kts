@@ -1,0 +1,40 @@
+import org.gradle.api.plugins.JavaPluginExtension
+import org.gradle.api.tasks.compile.JavaCompile
+import org.gradle.api.tasks.testing.Test
+import org.gradle.jvm.tasks.Jar
+
+val resolvedWorktreeId = rootProject.extra["turboismResolvedWorktreeId"] as String
+
+allprojects {
+    group = "dev.turboism"
+    version = "0.1.0-SNAPSHOT"
+    tasks.withType<Jar>().configureEach {
+        isPreserveFileTimestamps = false
+        isReproducibleFileOrder = true
+    }
+}
+
+subprojects {
+    apply(plugin = "java")
+    apply(plugin = "java-library")
+    layout.buildDirectory.set(
+        file("${rootProject.layout.buildDirectory.get()}/worktree/$resolvedWorktreeId/${project.name}")
+    )
+    tasks.named<Jar>("jar") {
+        archiveClassifier.set(resolvedWorktreeId)
+    }
+    extensions.configure<JavaPluginExtension> {
+        toolchain.languageVersion.set(JavaLanguageVersion.of(17))
+    }
+    tasks.withType<JavaCompile>().configureEach {
+        options.release.set(17)
+    }
+    tasks.named<Test>("test") {
+        useJUnitPlatform()
+    }
+    dependencies {
+        add("testImplementation", platform("org.junit:junit-bom:5.10.3"))
+        add("testImplementation", "org.junit.jupiter:junit-jupiter")
+        add("testRuntimeOnly", "org.junit.platform:junit-platform-launcher")
+    }
+}

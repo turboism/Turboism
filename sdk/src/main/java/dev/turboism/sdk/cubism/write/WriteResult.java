@@ -1,6 +1,9 @@
 package dev.turboism.sdk.cubism.write;
 
+import dev.turboism.sdk.PreviewApi;
+
 /** Result of a single write command. */
+@PreviewApi
 public record WriteResult(
     String commandId,
     boolean success,
