@@ -51,7 +51,7 @@ public final class ThemePackageCatalog {
                 reject(candidate, IssueCode.INVALID_NAME, rejected, issues);
             } else if (value.description().length() > 1024
                 || value.author().length() > 128
-                || value.homepage().length() > 2048
+                || value.url().length() > 2048
                 || value.version().length() > 64) {
                 reject(candidate, IssueCode.FIELD_LIMIT, rejected, issues);
             }
@@ -111,7 +111,11 @@ public final class ThemePackageCatalog {
     }
 
     public static boolean isValidId(final String value) {
-        return value != null && value.length() <= 64 && ID.matcher(value).matches();
+        if (value == null || value.length() > 64 || !ID.matcher(value).matches()) {
+            return false;
+        }
+        final int dot = value.indexOf('.');
+        return value.charAt(dot - 1) != '-' && value.charAt(value.length() - 1) != '-';
     }
 
     private static void classifyInheritance(
