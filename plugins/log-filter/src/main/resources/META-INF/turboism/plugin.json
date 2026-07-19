@@ -30,6 +30,16 @@
       "id": "turboism.ui.status.notify",
       "scope": "application",
       "reason": "Shows filter-level and fallback status notifications."
+    },
+    {
+      "id": "turboism.config.plugin.read",
+      "scope": "application",
+      "reason": "Restores validated B1 log-filter settings."
+    },
+    {
+      "id": "turboism.config.plugin.write",
+      "scope": "application",
+      "reason": "Persists validated B1 log-filter settings."
     }
   ],
   "capabilities": [],

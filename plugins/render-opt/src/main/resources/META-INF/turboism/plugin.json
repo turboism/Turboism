@@ -35,6 +35,16 @@
       "id": "turboism.action.register",
       "scope": "application",
       "reason": "Register the render-status overlay refresh action."
+    },
+    {
+      "id": "turboism.config.plugin.read",
+      "scope": "application",
+      "reason": "Restores the inert B1 render opt-in preference."
+    },
+    {
+      "id": "turboism.config.plugin.write",
+      "scope": "application",
+      "reason": "Persists the inert B1 render opt-in preference."
     }
   ],
   "capabilities": [
