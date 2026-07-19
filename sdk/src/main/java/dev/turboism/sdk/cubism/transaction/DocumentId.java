@@ -1,10 +1,13 @@
 package dev.turboism.sdk.cubism.transaction;
 
+import dev.turboism.sdk.PreviewApi;
+
 /**
  * Opaque identifier for a Cubism editor document.
  * Wraps the underlying host document identity without exposing
  * the raw host object.
  */
+@PreviewApi
 public record DocumentId(String id) {
 
     public DocumentId {
