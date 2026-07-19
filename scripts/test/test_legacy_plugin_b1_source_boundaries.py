@@ -18,6 +18,9 @@ ENTRYPOINT = f"{PACKAGE}.ExamplePlugin"
 ENTRYPOINT_RELATIVE = Path(
     "plugins/example/src/main/java/dev/turboism/plugin/example/ExamplePlugin.java"
 )
+EXISTING_SOURCE_RELATIVE = Path(
+    "plugins/example/src/main/java/dev/turboism/plugin/example/ExistingHelper.java"
+)
 MANIFEST_RELATIVE = Path("plugins/example/src/main/resources/META-INF/turboism/plugin.json")
 B1_DOMAIN = Path("plugins/example/src/main/java/dev/turboism/plugin/example/b1/domain")
 B1_APPLICATION = Path("plugins/example/src/main/java/dev/turboism/plugin/example/b1/application")
@@ -41,6 +44,7 @@ import dev.turboism.sdk.plugin.TurboismPlugin;
 public final class ExamplePlugin implements TurboismPlugin {
 
     private PluginContext context;
+    private final ExistingHelper existingHelper = new ExistingHelper();
     private boolean enabled;
 
     @Override
@@ -93,6 +97,19 @@ def manifest() -> str:
 def initialize_repository(directory: Path) -> str:
     write(directory / MANIFEST_RELATIVE, manifest())
     write(directory / ENTRYPOINT_RELATIVE, baseline_entrypoint())
+    write(
+        directory / EXISTING_SOURCE_RELATIVE,
+        """package dev.turboism.plugin.example;
+
+public final class ExistingHelper {
+    public void enable() { }
+
+    public boolean stable() {
+        return true;
+    }
+}
+""",
+    )
     run_git(directory, "init", "--quiet")
     run_git(directory, "config", "user.email", "b1-scanner@example.invalid")
     run_git(directory, "config", "user.name", "B1 Scanner Test")
@@ -212,6 +229,32 @@ def add_wrong_package(directory: Path) -> None:
     )
 
 
+def add_source_outside_b1(directory: Path) -> None:
+    write(
+        directory / "plugins/example/src/main/java/dev/turboism/plugin/example/UnsafeFeature.java",
+        "package dev.turboism.plugin.example;\n\npublic final class UnsafeFeature { }\n",
+    )
+
+
+def modify_existing_source(directory: Path) -> None:
+    path = directory / EXISTING_SOURCE_RELATIVE
+    path.write_text(
+        path.read_text(encoding="utf-8").replace("return true;", "return false;"),
+        encoding="utf-8",
+    )
+
+
+def delete_existing_source(directory: Path) -> None:
+    (directory / EXISTING_SOURCE_RELATIVE).unlink()
+
+
+def change_manifest_entrypoint(directory: Path) -> None:
+    path = directory / MANIFEST_RELATIVE
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["entrypoints"]["plugin"] = f"{PACKAGE}.ExistingHelper"
+    path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+
+
 def add_import(item: str) -> Callable[[Path], None]:
     return lambda directory: write_domain(directory, "Fixture.java", "", (item,))
 
@@ -282,6 +325,43 @@ def add_entrypoint_host_null_guard(directory: Path) -> None:
     )
 
 
+def add_entrypoint_existing_receiver_wiring(directory: Path) -> None:
+    path = directory / ENTRYPOINT_RELATIVE
+    path.write_text(
+        insert_after(
+            path.read_text(encoding="utf-8"),
+            "        enabled = true;\n",
+            "        existingHelper.enable();\n",
+        ),
+        encoding="utf-8",
+    )
+
+
+def add_entrypoint_non_application_null_guard(directory: Path) -> None:
+    path = directory / ENTRYPOINT_RELATIVE
+    path.write_text(
+        insert_after(
+            path.read_text(encoding="utf-8"),
+            "        this.context = context;\n",
+            "        if (existingHelper == null) return;\n",
+        ),
+        encoding="utf-8",
+    )
+
+
+def add_entrypoint_host_reassignment(directory: Path) -> None:
+    add_valid_entrypoint_wiring(directory)
+    path = directory / ENTRYPOINT_RELATIVE
+    path.write_text(
+        insert_after(
+            path.read_text(encoding="utf-8"),
+            "        b1Application.init(context.config());\n",
+            "        b1Application = new ExampleApplication(context.uiHost());\n",
+        ),
+        encoding="utf-8",
+    )
+
+
 def add_valid_entrypoint_wiring(directory: Path) -> None:
     write(
         directory / B1_APPLICATION / "ExampleApplication.java",
@@ -333,9 +413,15 @@ def main() -> None:
     rejects = [
         ("wrong B1 source path", add_wrong_path),
         ("wrong B1 package", add_wrong_package),
+        ("new production source outside B1", add_source_outside_b1),
+        ("modified baseline production source", modify_existing_source),
+        ("deleted baseline production source", delete_existing_source),
+        ("changed manifest entrypoint", change_manifest_entrypoint),
         ("other plugin import", add_import("dev.turboism.plugin.other.Helper")),
         ("runtime import", add_import("dev.turboism.core.PluginManager")),
         ("SDK Cubism import", add_import("dev.turboism.sdk.cubism.CubismFacade")),
+        ("fully qualified runtime type", add_forbidden_statement("dev.turboism.core.PluginManager manager = null;")),
+        ("fully qualified SDK Cubism type", add_forbidden_statement("dev.turboism.sdk.cubism.CubismFacade facade = null;")),
         ("File import", add_import("java.io.File")),
         ("Files import", add_import("java.nio.file.Files")),
         ("Path import", add_import("java.nio.file.Path")),
@@ -350,6 +436,8 @@ def main() -> None:
         ("Executor use", add_forbidden_statement("Executor executor = null;")),
         ("Timer use", add_forbidden_statement("Timer timer = null;")),
         ("CompletableFuture use", add_forbidden_statement("CompletableFuture<Object> future = null;")),
+        ("ProcessHandle use", add_forbidden_statement("java.lang.ProcessHandle handle = java.lang.ProcessHandle.current();")),
+        ("parallel stream use", add_forbidden_statement("void run(java.util.List<String> items) { items.parallelStream().count(); }")),
         ("toCompletableFuture call", add_forbidden_statement("stage.toCompletableFuture();")),
         ("Future get call", add_forbidden_statement("CompletionStage<Object> future = null; future.get();")),
         ("Future join call", add_forbidden_statement("CompletionStage<Object> stage = null; stage.join();")),
@@ -357,7 +445,10 @@ def main() -> None:
         ("entrypoint modifies baseline behavior", modify_baseline_line),
         ("entrypoint adds UI host call", add_entrypoint_ui_host_call),
         ("entrypoint adds Cubism call", add_entrypoint_cubism_call),
+        ("entrypoint invokes pre-existing receiver", add_entrypoint_existing_receiver_wiring),
+        ("entrypoint guards pre-existing receiver", add_entrypoint_non_application_null_guard),
         ("entrypoint passes host UI into B1 construction", add_entrypoint_host_constructor_argument),
+        ("entrypoint passes host UI into B1 reassignment", add_entrypoint_host_reassignment),
         ("entrypoint uses host UI in a null guard", add_entrypoint_host_null_guard),
     ]
     for name, mutate in accepts:
