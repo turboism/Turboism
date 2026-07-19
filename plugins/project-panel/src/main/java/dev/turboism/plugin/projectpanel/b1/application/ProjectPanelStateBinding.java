@@ -95,6 +95,14 @@ public final class ProjectPanelStateBinding {
     }
 
     private CompletionStage<ConfigBindingResult> readAll(final long activeEpoch, final boolean retried) {
+        return readAll(activeEpoch, retried, true);
+    }
+
+    private CompletionStage<ConfigBindingResult> readAll(
+        final long activeEpoch,
+        final boolean retried,
+        final boolean applyRead
+    ) {
         return registry.read(LAST_PHASE).thenCombine(registry.read(OPENING_COUNT), Pair::new)
             .thenCombine(registry.read(OPENED_COUNT), Triple::new)
             .thenCombine(registry.read(CLOSING_COUNT), Quad::new)
@@ -108,12 +116,15 @@ public final class ProjectPanelStateBinding {
                     return retried ? completed(ConfigBindingResult.REVISION_CONFLICT) : readAll(activeEpoch, true);
                 }
                 try {
-                    confirmed = ProjectPanelStateModel.hydrate(
+                    final ProjectPanelStateModel hydrated = ProjectPanelStateModel.hydrate(
                         phase(reads.first().value().value()),
                         reads.second().value().value(), reads.third().value().value(),
                         reads.fourth().value().value(), reads.fifth().value().value()
                     );
-                    revision = valueRevision;
+                    if (applyRead) {
+                        confirmed = hydrated;
+                        revision = valueRevision;
+                    }
                     return completed(ConfigBindingResult.APPLIED);
                 } catch (IllegalArgumentException invalid) {
                     return completed(ConfigBindingResult.INVALID_VALUE);
@@ -146,13 +157,8 @@ public final class ProjectPanelStateBinding {
             return completed(ConfigBindingResult.APPLIED);
         }
         if (step.wroteAny()) {
-            final ProjectPanelStateModel lastConfirmed = confirmed;
-            final long lastRevision = revision;
-            return readAll(activeEpoch, false).thenApply(ignored -> {
-                confirmed = lastConfirmed;
-                revision = lastRevision;
-                return ConfigBindingResult.PARTIAL_PERSISTENCE;
-            });
+            return readAll(activeEpoch, false, false)
+                .thenApply(ignored -> ConfigBindingResult.PARTIAL_PERSISTENCE);
         }
         return completed(step.result());
     }

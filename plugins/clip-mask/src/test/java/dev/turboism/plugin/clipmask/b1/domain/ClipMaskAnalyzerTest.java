@@ -39,7 +39,8 @@ final class ClipMaskAnalyzerTest {
         ));
         assertEquals(0, result.acceptedTargets().size());
         assertEquals(List.of("bad", "dup", "dup", "empty"), result.rejectedTargets().stream().map(ClipMaskTarget::targetId).toList());
-        assertTrue(result.issues().stream().anyMatch(issue -> issue.code() == ClipMaskIssueCode.DUPLICATE_TARGET_ID));
+        assertEquals(2, result.issues().stream()
+            .filter(issue -> issue.code() == ClipMaskIssueCode.DUPLICATE_TARGET_ID).count());
         assertTrue(result.issues().stream().anyMatch(issue -> issue.code() == ClipMaskIssueCode.EMPTY_MASK_SET));
         assertTrue(result.issues().stream().anyMatch(issue -> issue.code() == ClipMaskIssueCode.INVALID_SOURCE_ID));
     }
