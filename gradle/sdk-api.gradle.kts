@@ -5,6 +5,7 @@ val sdkApiBaselineTool = layout.projectDirectory.file("scripts/test/sdk_api_base
 val sdkApiBaselineCore = layout.projectDirectory.file("scripts/test/sdk_api_baseline.py")
 val sdkApiReferenceBuilder = layout.projectDirectory.file("scripts/test/build_sdk_api_reference.py")
 val sdkPrePhaseBaseline = layout.projectDirectory.file("docs/sdk/baselines/sdk-api-pre-phase-v1.json")
+val sdkPhase1ExactBaseline = layout.projectDirectory.file("docs/sdk/baselines/sdk-api-phase1-exact-v1.json")
 val sdkApiTierPolicy = layout.projectDirectory.file("docs/sdk/baselines/sdk-api-tier-policy-v1.json")
 val sdkInitialPreviewLedger = layout.projectDirectory.file("docs/sdk/baselines/sdk-api-initial-preview-v1.json")
 val sdkApiTierSelftest = layout.projectDirectory.file("scripts/test/test_sdk_api_tiers.py")
@@ -67,6 +68,23 @@ val checkSdkPrePhaseApiCompatibility by tasks.registering(Exec::class) {
             "--package-prefix", "dev.turboism.sdk", "--baseline", sdkPrePhaseBaseline.asFile.absolutePath,
             "--expected-commit", sdkBaselineAnchorCommit, "--tier-policy", sdkApiTierPolicy.asFile.absolutePath,
             "--initial-preview-ledger", sdkInitialPreviewLedger.asFile.absolutePath
+        )
+    }
+}
+
+val checkSdkPhase1ExactApiCompatibility by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Verifies the compiled SDK exactly matches the reviewed Phase 1 frozen API baseline."
+    dependsOn(":sdk:jar")
+    inputs.files(sdkApiHelperFiles, sdkPhase1ExactBaseline, sdkJarArtifact)
+    doFirst {
+        commandLine(
+            "python3", sdkApiBaselineTool.asFile.absolutePath, "verify-exact",
+            "--input", sdkJarArtifact.get().asFile.absolutePath,
+            "--reference-input", sdkJarArtifact.get().asFile.absolutePath,
+            "--package-prefix", "dev.turboism.sdk",
+            "--baseline", sdkPhase1ExactBaseline.asFile.absolutePath,
+            "--expected-commit", "278dad1c48802e06f0ed7c261eaf0666ce8111e0"
         )
     }
 }
