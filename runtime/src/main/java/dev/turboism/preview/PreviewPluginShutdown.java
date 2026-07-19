@@ -1,0 +1,106 @@
+package dev.turboism.preview;
+
+import dev.turboism.core.lifecycle.PluginLifecycleState;
+
+import java.util.ArrayList;
+import java.util.List;
+
+/** Coordinates reverse-order plugin shutdown and failure fallback reporting. */
+final class PreviewPluginShutdown {
+
+    private final PreviewLog log;
+    private final LocalPluginRuntime.PluginCloseHook closeHook;
+    private final PreviewPluginShutdownStages stages;
+
+    PreviewPluginShutdown(
+        final PreviewLog log,
+        final LocalPluginRuntime.PluginCloseHook closeHook
+    ) {
+        this.log = log;
+        this.closeHook = closeHook;
+        this.stages = new PreviewPluginShutdownStages(log);
+    }
+
+    List<LocalPluginRuntime.LoadedPluginSummary> closeAll(
+        final List<LocalPluginRuntime.LoadedPlugin> loaded
+    ) {
+        final List<LocalPluginRuntime.LoadedPluginSummary> summaries = new ArrayList<>();
+        for (int index = loaded.size() - 1; index >= 0; index--) {
+            closeOne(loaded.get(index), summaries);
+        }
+        return summaries;
+    }
+
+    private void closeOne(
+        final LocalPluginRuntime.LoadedPlugin loadedPlugin,
+        final List<LocalPluginRuntime.LoadedPluginSummary> summaries
+    ) {
+        try {
+            summaries.add(closeLoadedPlugin(loadedPlugin));
+        } catch (Throwable failure) {
+            summaries.add(fallbackSummary(loadedPlugin));
+            tryLogStableFailure(safePluginId(loadedPlugin), "PLUGIN_CLOSE_STAGE_FAILED");
+        }
+    }
+
+    private LocalPluginRuntime.LoadedPluginSummary closeLoadedPlugin(
+        final LocalPluginRuntime.LoadedPlugin loadedPlugin
+    ) throws Throwable {
+        final String id = loadedPlugin.runtime().id();
+        closeHook.run(id, "close");
+        final PreviewPluginShutdownResult result = stages.close(loadedPlugin, id);
+        log.info(id, "Plugin unloaded with state " + loadedPlugin.runtime().state());
+        return PreviewPluginSummaryFactory.create(
+            loadedPlugin, result.disableState(), result.shutdownState(), result.unloadState(),
+            result.scopeCleanupState(), result.classloaderCleanupState(), result.failures()
+        );
+    }
+
+    private LocalPluginRuntime.LoadedPluginSummary fallbackSummary(
+        final LocalPluginRuntime.LoadedPlugin loadedPlugin
+    ) {
+        try {
+            closeHook.run(safePluginId(loadedPlugin), "fallback-summary");
+            loadedPlugin.runtime().transitionTo(PluginLifecycleState.SHUTDOWN_FAILED);
+        } catch (Throwable ignored) {
+            // The final summary must remain available when its fallback hook fails.
+        }
+        return fallbackSummaryWithoutRuntimeMutation(loadedPlugin);
+    }
+
+    private static LocalPluginRuntime.LoadedPluginSummary fallbackSummaryWithoutRuntimeMutation(
+        final LocalPluginRuntime.LoadedPlugin loadedPlugin
+    ) {
+        return PreviewPluginSummaryFactory.create(
+            loadedPlugin, "NOT_STARTED", "NOT_STARTED", "NOT_STARTED", "NOT_STARTED",
+            "NOT_STARTED", List.of(new LocalPluginRuntime.PluginSummaryFailure(
+                "PLUGIN_CLOSE_STAGE_FAILED", "close", "Plugin close stage failed safely."
+            ))
+        );
+    }
+
+    void tryLogStableFailure(final String component, final String code) {
+        try {
+            closeHook.run(component, "fallback-log");
+            logStableFailure(component, code);
+        } catch (Throwable ignored) {
+            // A failed fallback logger must not prevent the remaining shutdown.
+        }
+    }
+
+    private void logStableFailure(final String component, final String code) {
+        log.error(
+            component,
+            "Runtime shutdown stage failed safely: " + code,
+            new IllegalStateException(code)
+        );
+    }
+
+    private static String safePluginId(final LocalPluginRuntime.LoadedPlugin loadedPlugin) {
+        try {
+            return loadedPlugin.runtime().id();
+        } catch (Throwable ignored) {
+            return "plugin";
+        }
+    }
+}

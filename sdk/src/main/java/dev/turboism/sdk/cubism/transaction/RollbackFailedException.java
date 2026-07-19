@@ -1,5 +1,8 @@
 package dev.turboism.sdk.cubism.transaction;
 
+import dev.turboism.sdk.PreviewApi;
+
+@PreviewApi
 public class RollbackFailedException extends TransactionException {
 
     public RollbackFailedException(String transactionId, String message) {

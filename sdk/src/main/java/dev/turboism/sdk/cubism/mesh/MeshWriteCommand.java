@@ -1,9 +1,11 @@
 package dev.turboism.sdk.cubism.mesh;
 
+import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.cubism.id.ModelObjectId;
 import dev.turboism.sdk.cubism.write.CubismWriteCommand;
 
+@PreviewApi
 public record MeshWriteCommand(
     String commandId,
     ModelId modelId,

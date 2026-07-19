@@ -1,7 +1,9 @@
 package dev.turboism.sdk.cubism.event;
 
+import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.event.EventBus;
 
+@PreviewApi
 public record ProjectLifecycleEvent(
     String eventId,
     String projectId,
