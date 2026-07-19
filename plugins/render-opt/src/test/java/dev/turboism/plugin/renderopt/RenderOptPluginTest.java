@@ -1,6 +1,8 @@
 package dev.turboism.plugin.renderopt;
 
+import dev.turboism.plugin.renderopt.b1.application.DefaultPluginConfigRegistry;
 import dev.turboism.sdk.action.ActionRegistry;
+import dev.turboism.sdk.config.PluginConfigRegistry;
 import dev.turboism.sdk.cubism.ArtMeshSnapshot;
 import dev.turboism.sdk.cubism.ClipMaskSnapshot;
 import dev.turboism.sdk.cubism.CubismFacade;
@@ -161,6 +163,11 @@ class RenderOptPluginTest {
         @Override
         public PluginPaths paths() {
             throw new UnsupportedOperationException("paths are not required by this test");
+        }
+
+        @Override
+        public PluginConfigRegistry config() {
+            return new DefaultPluginConfigRegistry();
         }
 
         @Override

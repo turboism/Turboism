@@ -1,6 +1,8 @@
 package dev.turboism.plugin.perfopt;
 
+import dev.turboism.plugin.perfopt.b1.application.DefaultPluginConfigRegistry;
 import dev.turboism.sdk.action.ActionRegistry;
+import dev.turboism.sdk.config.PluginConfigRegistry;
 import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
 import dev.turboism.sdk.event.EventBus;
@@ -145,6 +147,11 @@ class PerfOptPluginTest {
                 @Override public Path stateDir() { return dataDir; }
                 @Override public Path cacheDir() { return dataDir; }
             };
+        }
+
+        @Override
+        public PluginConfigRegistry config() {
+            return new DefaultPluginConfigRegistry();
         }
 
         @Override
