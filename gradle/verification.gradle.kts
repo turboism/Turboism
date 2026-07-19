@@ -60,7 +60,10 @@ val checkLegacyPluginB1Admission by tasks.registering(Exec::class) {
         "docs/migration/capabilities/legacy-framework-capability-extraction.tsv",
         "docs/migration/legacy-plugin-migration-foundation-closure-report.md",
         "docs/migration/plans/legacy-plugin-b1-execution-plan.md",
-        "docs/migration/prompts/legacy-plugin-b1-orchestrator-prompt.md"
+        "docs/migration/prompts/legacy-plugin-b1-orchestrator-prompt.md",
+        "docs/migration/behavior-specs/legacy-plugin-b1-pure-behaviors.md",
+        "docs/migration/salvage-notes/legacy-plugin-b1-source-boundary.md",
+        "scripts/test/scan_migration_docs_safety.py"
     )
     commandLine("python3", "scripts/test/check_legacy_plugin_b1_admission.py")
 }
