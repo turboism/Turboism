@@ -50,6 +50,21 @@ val checkLegacyFrameworkCapabilityExtractionMutations by tasks.registering(Exec:
     commandLine("python3", "scripts/test/test_legacy_framework_capability_extraction_mutations.py")
 }
 
+val checkLegacyPluginB1Admission by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Verifies the exact 14 pure-business behaviors admitted after migration-foundation closure."
+    workingDir(rootDir)
+    dependsOn("checkSdkPhase1ExactApiCompatibility", "checkModuleBoundaries")
+    inputs.files(
+        "scripts/test/check_legacy_plugin_b1_admission.py",
+        "docs/migration/capabilities/legacy-framework-capability-extraction.tsv",
+        "docs/migration/legacy-plugin-migration-foundation-closure-report.md",
+        "docs/migration/plans/legacy-plugin-b1-execution-plan.md",
+        "docs/migration/prompts/legacy-plugin-b1-orchestrator-prompt.md"
+    )
+    commandLine("python3", "scripts/test/check_legacy_plugin_b1_admission.py")
+}
+
 tasks.register("checkOfficialPluginI18nCompleteness") {
     group = "verification"
     description = "Verifies baseline key completeness for participating official plugin catalogs."
@@ -89,8 +104,10 @@ tasks.named("check") {
         checkAsyncHostReadFoundation, "checkModuleBoundaries", "checkAsmSupplyChainAdmission",
         "checkMappingPipelineClosure", "checkMappingReviewWrapperArgs", "checkPluginInspectionRuntime",
         "checkDistributionProtocolContract", checkLegacyFrameworkCapabilityExtraction,
-        checkLegacyFrameworkCapabilityExtractionMutations, "checkSdkApiBaselineTool", "checkSdkApiReferenceBuilder",
-        "checkSdkPrePhaseApiCompatibility", "checkPreviewBundleLayout", "previewAgentSmokeTest",
+        checkLegacyFrameworkCapabilityExtractionMutations, checkLegacyPluginB1Admission,
+        "checkSdkApiBaselineTool", "checkSdkApiReferenceBuilder",
+        "checkSdkPrePhaseApiCompatibility", "checkSdkPhase1ExactApiCompatibility",
+        "checkPreviewBundleLayout", "previewAgentSmokeTest",
         "checkPreviewRuntimeReports", ":tests:previewPluginRuntimeTest", ":tests:migrationSuiteSafeTest",
         checkMigrationSuiteBundleReproducibility, "checkOfficialPluginI18nCompleteness", "validatePluginMeta"
     )
