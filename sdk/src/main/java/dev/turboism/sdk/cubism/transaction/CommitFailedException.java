@@ -1,5 +1,8 @@
 package dev.turboism.sdk.cubism.transaction;
 
+import dev.turboism.sdk.PreviewApi;
+
+@PreviewApi
 public class CommitFailedException extends TransactionException {
 
     public CommitFailedException(String transactionId, String message) {
