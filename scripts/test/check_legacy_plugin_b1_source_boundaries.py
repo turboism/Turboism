@@ -64,6 +64,20 @@ FORBIDDEN_JDK_IMPORT_EXACT = frozenset(
         "java.io.RandomAccessFile",
     }
 )
+FORBIDDEN_QUALIFIED_PREFIXES = FORBIDDEN_B1_IMPORT_PREFIXES + (
+    "java.nio.file",
+    "java.net",
+    "java.awt",
+    "javax.swing",
+    "java.lang.reflect",
+    "java.lang.invoke",
+    "java.lang.ProcessHandle",
+    "java.util.concurrent.Executor",
+    "java.util.concurrent.Executors",
+    "java.util.concurrent.CompletableFuture",
+    "java.util.concurrent.Future",
+    "java.util.Timer",
+)
 FORBIDDEN_TYPE_NAMES = frozenset(
     {
         "File",
@@ -105,6 +119,7 @@ FORBIDDEN_TYPE_NAMES = frozenset(
         "MethodHandle",
         "Process",
         "ProcessBuilder",
+        "ProcessHandle",
         "Runtime",
         "Thread",
         "ThreadFactory",
@@ -124,6 +139,7 @@ FORBIDDEN_TYPE_NAMES = frozenset(
 )
 FORBIDDEN_MEMBER_PATTERNS = (
     (re.compile(r"\.\s*toCompletableFuture\s*\("), "CompletionStage.toCompletableFuture()"),
+    (re.compile(r"\.\s*parallelStream\s*\("), "parallel stream concurrency"),
     (re.compile(r"\b(?:Files|Path|Paths|FileSystem|FileSystems)\s*\."), "direct filesystem access"),
     (re.compile(r"\b(?:URI|URL|URLConnection|HttpClient|HttpRequest|HttpResponse|Socket|ServerSocket|DatagramSocket)\s*\."), "direct network access"),
     (re.compile(r"\b(?:Desktop|SwingUtilities|UIManager)\s*\."), "direct host UI access"),
@@ -282,6 +298,9 @@ def scan_b1_source(path: Path, source: str, owning_package: str, root: Path) -> 
                 violations.append(Violation(path, number, import_violation_reason(imported, owning_package)))
             continue
         future_variables.update(match.group(1) for match in FUTURE_DECLARATION.finditer(line))
+        for prefix in FORBIDDEN_QUALIFIED_PREFIXES:
+            if re.search(rf"(?<![\w$]){re.escape(prefix)}(?:\.|\b)", line):
+                violations.append(Violation(path, number, f"forbidden fully qualified B1 API {prefix}"))
         for token in TYPE_TOKEN.findall(line):
             if token in FORBIDDEN_TYPE_NAMES:
                 violations.append(Violation(path, number, f"forbidden B1 API/type {token}"))
@@ -294,6 +313,22 @@ def scan_b1_source(path: Path, source: str, owning_package: str, root: Path) -> 
                     Violation(path, number, f"forbidden B1 operation blocking future {future_call.group(2)}()")
                 )
     return violations
+
+
+def git_tree_files(root: Path, baseline: str, relative_root: Path) -> set[Path]:
+    result = subprocess.run(
+        ["git", "-C", str(root), "ls-tree", "-r", "--name-only", baseline, "--", relative_root.as_posix()],
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if result.returncode != 0:
+        fail(
+            f"cannot enumerate baseline {baseline}:{relative_root.as_posix()}; "
+            f"ensure --root is a Git work tree containing the fixed baseline\n{result.stderr.strip()}"
+        )
+    return {Path(line) for line in result.stdout.splitlines() if line}
 
 
 def git_show(root: Path, baseline: str, relative: Path) -> str | None:
@@ -379,6 +414,20 @@ def is_allowed_entrypoint_field(line: str, owning_package: str, application_type
     )
 
 
+def entrypoint_receiver(line: str) -> str | None:
+    match = re.match(r"^(?:this\.)?([A-Za-z_$][\w$]*)\s*\.", line)
+    return match.group(1) if match else None
+
+
+def entrypoint_guarded_name(line: str) -> str | None:
+    match = re.match(r"^if\s*\(\s*(?:this\.)?([A-Za-z_$][\w$]*)\s*(?:==|!=)\s*null\s*\)", line)
+    return match.group(1) if match else None
+
+
+def is_application_variable(name: str | None) -> bool:
+    return name is not None and (name == "b1Application" or name.lower().endswith("application"))
+
+
 def is_allowed_entrypoint_addition(
     line: str,
     owning_package: str,
@@ -393,17 +442,28 @@ def is_allowed_entrypoint_addition(
         return target == f"{owning_package}.b1.application" or target.startswith(
             f"{owning_package}.b1.application."
         )
-    if ENTRYPOINT_ALLOWED_WIRING.match(stripped) or ENTRYPOINT_ALLOWED_NULL_GUARD.match(stripped):
-        return True
+    if ENTRYPOINT_ALLOWED_WIRING.match(stripped):
+        return is_application_variable(entrypoint_receiver(stripped))
+    if ENTRYPOINT_ALLOWED_NULL_GUARD.match(stripped):
+        return is_application_variable(entrypoint_guarded_name(stripped))
     if ENTRYPOINT_ALLOWED_REQUIRE_NON_NULL.match(stripped):
-        return "." not in stripped.split("(", 1)[1].split(",", 1)[0]
+        guarded = stripped.split("(", 1)[1].split(",", 1)[0].strip()
+        if guarded.startswith("this."):
+            guarded = guarded[5:]
+        return "." not in guarded and is_application_variable(guarded)
     if is_allowed_entrypoint_field(stripped, owning_package, application_types):
         return True
     if ENTRYPOINT_ALLOWED_ASSIGNMENT.match(stripped):
-        return any(
-            re.search(rf"(?:this\.)?\w+\s*=\s*new\s+{re.escape(application_type)}\s*\(", stripped)
-            for application_type in application_types
-        ) or is_own_b1_application_type(stripped, owning_package)
+        assignment = re.match(
+            r"^(?:this\.)?([A-Za-z_$][\w$]*)\s*=\s*new\s+([\w$.]+)\s*\(\s*\)\s*;$",
+            stripped,
+        )
+        if assignment is None or not is_application_variable(assignment.group(1)):
+            return False
+        constructed_type = assignment.group(2)
+        return constructed_type in application_types or is_own_b1_application_type(
+            constructed_type, owning_package
+        )
     return False
 
 
@@ -462,22 +522,58 @@ def plugin_roots(root: Path) -> Iterable[Path]:
 
 def scan(root: Path, baseline: str) -> list[Violation]:
     violations: list[Violation] = []
-    for plugin_root in plugin_roots(root):
+    baseline_plugin_files = git_tree_files(root, baseline, Path("plugins"))
+    current_plugin_roots = list(plugin_roots(root))
+    current_manifests = {
+        (plugin_root / MANIFEST_PATH).relative_to(root)
+        for plugin_root in current_plugin_roots
+        if (plugin_root / MANIFEST_PATH).is_file()
+    }
+    baseline_manifests = {path for path in baseline_plugin_files if path.parts[-len(MANIFEST_PATH.parts):] == MANIFEST_PATH.parts}
+    for missing_manifest in sorted(baseline_manifests - current_manifests):
+        violations.append(Violation(root / missing_manifest, 1, "baseline plugin manifest must not be removed"))
+    for plugin_root in current_plugin_roots:
         manifest = plugin_root / MANIFEST_PATH
         if not manifest.is_file():
             continue
+        manifest_relative = manifest.relative_to(root)
+        baseline_manifest_source = git_show(root, baseline, manifest_relative)
         entrypoint = manifest_entrypoint(manifest, root)
+        if baseline_manifest_source is None:
+            violations.append(Violation(manifest, 1, "plugin manifest is absent from the fixed B1 baseline"))
+        else:
+            try:
+                baseline_entrypoint = json.loads(baseline_manifest_source)["entrypoints"]["plugin"]
+            except (json.JSONDecodeError, KeyError, TypeError) as error:
+                fail(f"{manifest_relative.as_posix()}: cannot read baseline plugin entrypoint: {error}")
+            if entrypoint != baseline_entrypoint:
+                violations.append(Violation(manifest, 1, "manifest entrypoint must remain unchanged from the fixed B1 baseline"))
         owning_package = normalize_plugin_package(entrypoint, manifest, root)
         if owning_package is None:
             continue
         main = plugin_root / JAVA_ROOT
-        if main.is_dir():
-            for path in sorted(main.rglob("*.java")):
-                relative_to_main = path.relative_to(main)
-                if "b1" not in relative_to_main.parts:
-                    continue
-                source = path.read_text(encoding="utf-8")
+        current_java_files = set(main.rglob("*.java")) if main.is_dir() else set()
+        baseline_java_files = {
+            path for path in baseline_plugin_files
+            if path.parts[:2] == ("plugins", plugin_root.name)
+            and path.parts[2:2 + len(JAVA_ROOT.parts)] == JAVA_ROOT.parts
+            and path.suffix == ".java"
+        }
+        current_java_relatives = {path.relative_to(root) for path in current_java_files}
+        for missing in sorted(baseline_java_files - current_java_relatives):
+            violations.append(Violation(root / missing, 1, "baseline production source must not be removed"))
+        for path in sorted(current_java_files):
+            relative = path.relative_to(root)
+            relative_to_main = path.relative_to(main)
+            source = path.read_text(encoding="utf-8")
+            if "b1" in relative_to_main.parts:
                 violations.extend(scan_b1_source(path, source, owning_package, root))
+                continue
+            baseline_source = git_show(root, baseline, relative)
+            if baseline_source is None:
+                violations.append(Violation(path, 1, "new B1 production source must live below b1/domain or b1/application"))
+            elif source != baseline_source and path != entrypoint_path(plugin_root, entrypoint):
+                violations.append(Violation(path, 1, "baseline non-entrypoint production source must remain byte-for-byte unchanged"))
         entrypoint_source_path = entrypoint_path(plugin_root, entrypoint)
         if not entrypoint_source_path.is_file():
             violations.append(Violation(entrypoint_source_path, 1, "manifest entrypoint source file is missing"))
