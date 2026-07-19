@@ -25,6 +25,16 @@
       "id": "turboism.ui.menu.contribute",
       "scope": "application",
       "reason": "Adds the FPS overlay toggle to the Performance menu."
+    },
+    {
+      "id": "turboism.config.plugin.read",
+      "scope": "application",
+      "reason": "Restores the inert B1 FPS presentation preference."
+    },
+    {
+      "id": "turboism.config.plugin.write",
+      "scope": "application",
+      "reason": "Persists the inert B1 FPS presentation preference."
     }
   ],
   "capabilities": [],
