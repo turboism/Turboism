@@ -50,6 +50,44 @@ val checkLegacyFrameworkCapabilityExtractionMutations by tasks.registering(Exec:
     commandLine("python3", "scripts/test/test_legacy_framework_capability_extraction_mutations.py")
 }
 
+val checkLegacyUserEffectCensus by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Validates the closed user-entry-led legacy effect census, Oracle gates, and old-ledger reconciliation."
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/test/test_legacy_user_effect_census.py",
+        "docs/migration/legacy-user-effects.tsv",
+        "docs/migration/legacy-user-effect-census.tsv",
+        "docs/migration/legacy-user-entry-coverage.tsv",
+        "docs/migration/legacy-user-effect-reconciliation.tsv",
+        "docs/migration/effect-clusters.tsv",
+        "docs/migration/history/legacy-user-effects-pre-census.tsv",
+        "docs/migration/capabilities/legacy-framework-capability-extraction.tsv",
+        "docs/migration/legacy-framework-extraction-user-effect-map.tsv",
+        "docs/migration/legacy-user-effect-census-workbook.md",
+        "docs/migration/capabilities/capability-catalog.tsv",
+        "docs/adr/0027-user-effect-led-legacy-migration.md"
+    )
+    commandLine("python3", "scripts/test/test_legacy_user_effect_census.py")
+}
+
+val checkLegacyEffectContracts by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Validates executable Effect Contracts for every MIGRATE User Effect."
+    workingDir(rootDir)
+    dependsOn(checkLegacyUserEffectCensus)
+    inputs.files(
+        "scripts/test/test_legacy_effect_contracts.py",
+        "docs/migration/legacy-user-effects.tsv",
+        "docs/migration/effect-clusters.tsv",
+        "docs/migration/effect-contracts/index.tsv",
+        "docs/migration/effect-contracts/scenarios.tsv",
+        fileTree("docs/migration/effect-contracts") { include("*.md") },
+        "docs/migration/capabilities/capability-catalog.tsv"
+    )
+    commandLine("python3", "scripts/test/test_legacy_effect_contracts.py")
+}
+
 val checkLegacyPluginB1Admission by tasks.registering(Exec::class) {
     group = "verification"
     description = "Verifies the exact 14 pure-business behaviors admitted after migration-foundation closure."
@@ -113,7 +151,8 @@ tasks.named("check") {
         checkAsyncHostReadFoundation, "checkModuleBoundaries", "checkAsmSupplyChainAdmission",
         "checkMappingPipelineClosure", "checkMappingReviewWrapperArgs", "checkPluginInspectionRuntime",
         "checkDistributionProtocolContract", checkLegacyFrameworkCapabilityExtraction,
-        checkLegacyFrameworkCapabilityExtractionMutations, checkLegacyPluginB1Admission,
+        checkLegacyFrameworkCapabilityExtractionMutations, checkLegacyUserEffectCensus,
+        checkLegacyEffectContracts, checkLegacyPluginB1Admission,
         "checkSdkApiBaselineTool", "checkSdkApiReferenceBuilder",
         "checkSdkPrePhaseApiCompatibility", "checkSdkPhase1ExactApiCompatibility",
         "checkPreviewBundleLayout", "previewAgentSmokeTest",
