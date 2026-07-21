@@ -29,6 +29,21 @@ val asyncHostReadFoundationTest by tasks.registering(Test::class) {
     }
 }
 
+val corePublicApiProviderTest by tasks.registering(Test::class) {
+    group = "verification"
+    description = "Runs synthetic Cubism Core admission, lease, call-site, and structural projection tests."
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    useJUnitPlatform()
+    filter {
+        includeTestsMatching("dev.turboism.adapter.cubism.core.*")
+        includeTestsMatching(
+            "dev.turboism.mapping.verification.VerifiedMethodCallSiteTest"
+        )
+        isFailOnNoMatchingTests = true
+    }
+}
+
 tasks.named<ProcessResources>("processTestResources") {
     from(project(":testframework").file(
         "src/main/resources/fixtures/schema/preview-report-v1"
