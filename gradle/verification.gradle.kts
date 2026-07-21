@@ -118,6 +118,21 @@ val checkCubismCoreApiInventory by tasks.registering(Exec::class) {
     commandLine("python3", "scripts/test/test_cubism_core_api_inventory.py")
 }
 
+val checkCubismCoreMemberPolicy by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Classifies every observed Cubism Core public member and checks generated policy drift."
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/cubism_core_policy.py",
+        "scripts/test/test_cubism_core_member_policy.py",
+        "docs/schema/cubism-core-member-policy-v1.md",
+        "docs/migration/cubism-core-member-policy.md",
+        "cubism-ref/core-api/policy/cubism-core-member-policy.json",
+        fileTree("cubism-ref/core-api/observed") { include("*.json") }
+    )
+    commandLine("python3", "scripts/test/test_cubism_core_member_policy.py")
+}
+
 val checkMigrationSuiteBundleReproducibility by tasks.registering(Exec::class) {
     group = "verification"
     description = "Rebuilds the migration-suite bundle twice and compares the exact 16-file raw SHA-256 roster."
@@ -130,6 +145,7 @@ val checkMigrationSuiteBundleReproducibility by tasks.registering(Exec::class) {
 tasks.named("check") {
     dependsOn(
         checkAsyncHostReadFoundation, checkCubismCoreApiInventory,
+        checkCubismCoreMemberPolicy,
         ":runtime:corePublicApiProviderTest", "checkModuleBoundaries", "checkAsmSupplyChainAdmission",
         "checkMappingPipelineClosure", "checkMappingReviewWrapperArgs", "checkPluginInspectionRuntime",
         "checkDistributionProtocolContract", checkLegacyFrameworkCapabilityExtraction,
