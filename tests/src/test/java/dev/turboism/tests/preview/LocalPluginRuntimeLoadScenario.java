@@ -83,8 +83,15 @@ final class LocalPluginRuntimeLoadScenario {
         final Map<String, LocalPluginRuntime.PluginFailure> failuresByCode = report.failures().stream()
             .collect(Collectors.toMap(LocalPluginRuntime.PluginFailure::code, Function.identity()));
         assertTrue(failuresByCode.containsKey("PLUGIN_DESCRIPTOR_MISSING"));
-        assertTrue(failuresByCode.containsKey("LOAD_FAILED"));
-        assertEquals("dev.example.dependent", failuresByCode.get("DEPENDENCY_LOAD_FAILED").pluginId());
+        assertTrue(
+            failuresByCode.containsKey("PLUGIN_ENTRYPOINT_CLASS_MISSING"),
+            report.failures().toString()
+        );
+        assertEquals(
+            "dev.example.dependent",
+            failuresByCode.get("DEPENDENCY_FAILED").pluginId(),
+            report.failures().toString()
+        );
         assertTrue(report.dependencyCycles().isEmpty());
     }
 
@@ -159,7 +166,7 @@ final class LocalPluginRuntimeLoadScenario {
         final ObjectNode descriptor = (ObjectNode) mapper.readTree(bytes);
         descriptor.put("id", id);
         descriptor.put("name", id);
-        ((ObjectNode) descriptor.get("entrypoints")).put("plugin", entrypoint);
+        descriptor.putArray("entrypoints").add(entrypoint);
         descriptor.set("dependencies", dependencies(mapper, requiredDependency));
         return mapper.writeValueAsBytes(descriptor);
     }

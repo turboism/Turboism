@@ -507,15 +507,30 @@ def scan_entrypoint_delta(
     return violations
 
 
-def manifest_entrypoint(manifest: Path, root: Path) -> str:
+def parse_entrypoints(value: object, label: str) -> list[str]:
+    if isinstance(value, list):
+        entries = value
+    elif isinstance(value, dict) and set(value) == {"plugin"}:
+        # Historical B1 baselines predate plugin.meta v2. Runtime never accepts this shape.
+        entries = [value["plugin"]]
+    else:
+        fail(f"{label}: entrypoints must be an ordered array")
+    if not entries or any(not isinstance(entry, str) or not entry for entry in entries):
+        fail(f"{label}: entrypoints must contain non-empty strings")
+    if len(set(entries)) != len(entries):
+        fail(f"{label}: entrypoints must be unique")
+    return list(entries)
+
+
+def manifest_entrypoints(manifest: Path, root: Path) -> list[str]:
     try:
         data = json.loads(manifest.read_text(encoding="utf-8"))
-        entrypoint = data["entrypoints"]["plugin"]
+        return parse_entrypoints(
+            data["entrypoints"],
+            manifest.relative_to(root).as_posix(),
+        )
     except (OSError, UnicodeDecodeError, json.JSONDecodeError, KeyError, TypeError) as error:
-        fail(f"{manifest.relative_to(root).as_posix()}: cannot read plugin entrypoint: {error}")
-    if not isinstance(entrypoint, str) or not entrypoint:
-        fail(f"{manifest.relative_to(root).as_posix()}: entrypoints.plugin must be a non-empty string")
-    return entrypoint
+        fail(f"{manifest.relative_to(root).as_posix()}: cannot read plugin entrypoints: {error}")
 
 
 def entrypoint_path(plugin_root: Path, entrypoint: str) -> Path:
@@ -547,16 +562,24 @@ def scan(root: Path, baseline: str) -> list[Violation]:
             continue
         manifest_relative = manifest.relative_to(root)
         baseline_manifest_source = git_show(root, baseline, manifest_relative)
-        entrypoint = manifest_entrypoint(manifest, root)
+        entrypoints = manifest_entrypoints(manifest, root)
+        entrypoint = entrypoints[0]
         if baseline_manifest_source is None:
             violations.append(Violation(manifest, 1, "plugin manifest is absent from the fixed B1 baseline"))
         else:
             try:
-                baseline_entrypoint = json.loads(baseline_manifest_source)["entrypoints"]["plugin"]
+                baseline_entrypoints = parse_entrypoints(
+                    json.loads(baseline_manifest_source)["entrypoints"],
+                    manifest_relative.as_posix() + " (baseline)",
+                )
             except (json.JSONDecodeError, KeyError, TypeError) as error:
                 fail(f"{manifest_relative.as_posix()}: cannot read baseline plugin entrypoint: {error}")
-            if entrypoint != baseline_entrypoint:
-                violations.append(Violation(manifest, 1, "manifest entrypoint must remain unchanged from the fixed B1 baseline"))
+            if entrypoints[:len(baseline_entrypoints)] != baseline_entrypoints:
+                violations.append(Violation(
+                    manifest,
+                    1,
+                    "historical entrypoints must remain an ordered prefix of plugin.meta v2 entrypoints",
+                ))
         owning_package = normalize_plugin_package(entrypoint, manifest, root)
         if owning_package is None:
             continue
@@ -569,6 +592,9 @@ def scan(root: Path, baseline: str) -> list[Violation]:
             and path.suffix == ".java"
         }
         current_java_relatives = {path.relative_to(root) for path in current_java_files}
+        entrypoint_source_paths = {
+            entrypoint_path(plugin_root, value) for value in entrypoints
+        }
         for missing in sorted(baseline_java_files - current_java_relatives):
             violations.append(Violation(root / missing, 1, "baseline production source must not be removed"))
         for path in sorted(current_java_files):
@@ -581,16 +607,35 @@ def scan(root: Path, baseline: str) -> list[Violation]:
             baseline_source = git_show(root, baseline, relative)
             if baseline_source is None:
                 violations.append(Violation(path, 1, "new B1 production source must live below b1/domain or b1/application"))
-            elif source != baseline_source and path != entrypoint_path(plugin_root, entrypoint):
+            elif source != baseline_source and path not in entrypoint_source_paths:
                 violations.append(Violation(path, 1, "baseline non-entrypoint production source must remain byte-for-byte unchanged"))
-        entrypoint_source_path = entrypoint_path(plugin_root, entrypoint)
-        if not entrypoint_source_path.is_file():
-            violations.append(Violation(entrypoint_source_path, 1, "manifest entrypoint source file is missing"))
-            continue
-        relative = entrypoint_source_path.relative_to(root)
-        baseline_source = git_show(root, baseline, relative)
-        source = entrypoint_source_path.read_text(encoding="utf-8")
-        violations.extend(scan_entrypoint_delta(entrypoint_source_path, source, baseline_source, owning_package, root))
+        for entrypoint_source_path in sorted(entrypoint_source_paths):
+            if not entrypoint_source_path.is_file():
+                violations.append(Violation(
+                    entrypoint_source_path,
+                    1,
+                    "manifest entrypoint source file is missing",
+                ))
+                continue
+            relative = entrypoint_source_path.relative_to(root)
+            baseline_source = git_show(root, baseline, relative)
+            source = entrypoint_source_path.read_text(encoding="utf-8")
+            relative_to_main = entrypoint_source_path.relative_to(main)
+            if baseline_source is None and "b1" in relative_to_main.parts:
+                violations.extend(scan_b1_source(
+                    entrypoint_source_path,
+                    source,
+                    owning_package,
+                    root,
+                ))
+            else:
+                violations.extend(scan_entrypoint_delta(
+                    entrypoint_source_path,
+                    source,
+                    baseline_source,
+                    owning_package,
+                    root,
+                ))
     return violations
 
 
