@@ -9,7 +9,7 @@ import dev.turboism.sdk.ui.OverlayContribution;
 import java.util.Objects;
 import java.util.Optional;
 
-/** M14 adapter seam for non-toolbar host UI surfaces. */
+/** Adapter seam for non-toolbar host UI surfaces. */
 public interface UiSurfaceAdapter {
 
     AdapterResult<Registration> contributeOverlay(OverlayContribution contribution);

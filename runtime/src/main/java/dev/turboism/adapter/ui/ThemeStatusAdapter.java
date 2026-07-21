@@ -6,7 +6,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * M14 draft seam for theme status reads.
+ * Adapter seam for theme status reads.
  *
  * <p>Kept separate from {@link StatusToolbarAdapter} so Cubism-read theme status
  * does not depend on UI status/palette host operations.</p>

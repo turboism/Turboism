@@ -32,9 +32,9 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * Fake-first runtime implementation of the M12 read-capability aggregation
- * surface. It composes the existing M6 facade with a supplemental adapter source
- * and M14 simulated-host adapters for selected capability families.
+ * Runtime implementation of the SDK read-service aggregation surface. It
+ * composes the base facade with supplemental and host-specific adapter sources
+ * for selected read families.
  */
 public final class CubismReadCapabilityServiceImpl implements CubismReadCapabilityService {
 

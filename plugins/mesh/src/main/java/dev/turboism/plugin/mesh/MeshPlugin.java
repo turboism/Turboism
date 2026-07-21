@@ -10,7 +10,7 @@ import dev.turboism.sdk.plugin.TurboismPlugin;
 import java.util.function.Consumer;
 
 /**
- * Official SDK-only plugin shell for M13 mesh.readonly.inspector.
+ * Official SDK-only plugin shell for read-only mesh inspection.
  */
 public final class MeshPlugin implements TurboismPlugin {
 

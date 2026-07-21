@@ -27,7 +27,7 @@ public final class HookIngressDispatcher {
         HookIngressSpec spec = registry.find(hookId)
             .orElseThrow(() -> new IllegalArgumentException("Unknown hook ingress: " + hookId));
         if (spec.productionEnabled()) {
-            throw new IllegalStateException("Production hook ingress is disabled in M12: " + hookId);
+            throw new IllegalStateException("Production hook ingress is disabled: " + hookId);
         }
         if (!spec.emittedEvent().equals(emittedEvent)) {
             throw new IllegalArgumentException(
