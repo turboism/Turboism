@@ -30,7 +30,7 @@ private val forbiddenHostUiTraversal = listOf(
 tasks.register("checkModuleBoundaries") {
     group = "verification"
     description = "Verify module dependency direction, internal imports, and forbidden packages."
-    dependsOn("checkSdkPrePhaseApiCompatibility")
+    dependsOn("checkSdkV2ExactApiCompatibility")
     doLast {
         checkModuleBoundaries(rootProject)
     }
