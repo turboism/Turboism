@@ -3,6 +3,10 @@ package dev.turboism.adapter.cubism.core;
 import dev.turboism.mapping.verification.CorePublicApiSelectorContract;
 import org.junit.jupiter.api.Test;
 
+import java.util.Arrays;
+import java.util.Map;
+import java.util.Set;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -33,6 +37,18 @@ class GeneratedCoreSelectorContractTest {
                 .orElseThrow()
                 .size()
         );
+        assertEquals(
+            15,
+            CorePublicApiSelectorContract.structuralMethodAliasesFor("5.2")
+                .orElseThrow()
+                .size()
+        );
+        assertEquals(
+            16,
+            CorePublicApiSelectorContract.structuralMethodAliasesFor("5.3.02")
+                .orElseThrow()
+                .size()
+        );
         assertTrue(
             CorePublicApiSelectorContract.requiredAliasesFor("5.3.02")
                 .orElseThrow()
@@ -60,6 +76,20 @@ class GeneratedCoreSelectorContractTest {
         );
         assertTrue(
             CorePublicApiSelectorContract.requiredAliasesFor("5.4").isEmpty()
+        );
+    }
+
+    @Test
+    void structuralCallSitesUseOneGeneratedAliasMap() throws Exception {
+        assertEquals(
+            Set.of("callSites", "closed"),
+            Arrays.stream(CoreCallSiteTable.class.getDeclaredFields())
+                .map(java.lang.reflect.Field::getName)
+                .collect(java.util.stream.Collectors.toSet())
+        );
+        assertEquals(
+            Map.class,
+            CoreCallSiteTable.class.getDeclaredField("callSites").getType()
         );
     }
 

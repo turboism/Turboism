@@ -110,6 +110,12 @@ def main() -> int:
         "generated selector contract lost repeat selector",
     )
     require(
+        "structuralMethodAliasesFor" in generated
+        and "STRUCTURAL_METHOD_ALIASES_5_2" in generated
+        and "STRUCTURAL_METHOD_ALIASES_5_3_02" in generated,
+        "generated selector contract lost structural call-site metadata",
+    )
+    require(
         validated["summary"]["selectorRosterSha256"] in generated,
         "generated selector contract lost roster binding",
     )

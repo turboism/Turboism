@@ -322,6 +322,16 @@ def render_java(policy: dict[str, Any], roster: Sequence[dict[str, Any]]) -> str
         ]
         for version in profiles
     }
+    structural_methods = {
+        version: [
+            selector["constant"]
+            for selector in by_constant
+            if version in selector["profiles"]
+            and selector["role"] == "STRUCTURAL"
+            and selector["kind"] == "method"
+        ]
+        for version in profiles
+    }
 
     lines = [
         "package dev.turboism.mapping.verification;",
@@ -385,6 +395,10 @@ def render_java(policy: dict[str, Any], roster: Sequence[dict[str, Any]]) -> str
                 + set_expression(required[version], "        ")
                 + ";",
                 "",
+                f"    public static final Set<String> STRUCTURAL_METHOD_ALIASES_{identifier} = "
+                + set_expression(structural_methods[version], "        ")
+                + ";",
+                "",
             ]
         )
     lines.extend(
@@ -404,6 +418,25 @@ def render_java(policy: dict[str, Any], roster: Sequence[dict[str, Any]]) -> str
         lines.append(
             f"            case ARTIFACT_PROFILE_{identifier} -> "
             f"Optional.of(REQUIRED_ALIASES_{identifier});"
+        )
+    lines.extend(
+        [
+            "            default -> Optional.empty();",
+            "        };",
+            "    }",
+            "",
+            "    public static Optional<Set<String>> structuralMethodAliasesFor(",
+            "        final String artifactProfile",
+            "    ) {",
+            "        Objects.requireNonNull(artifactProfile, \"artifactProfile\");",
+            "        return switch (artifactProfile) {",
+        ]
+    )
+    for version in profiles:
+        identifier = version.replace(".", "_")
+        lines.append(
+            f"            case ARTIFACT_PROFILE_{identifier} -> "
+            f"Optional.of(STRUCTURAL_METHOD_ALIASES_{identifier});"
         )
     lines.extend(
         [
