@@ -7,9 +7,12 @@ import dev.turboism.mapping.verification.VerifiedMethodCallSite;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Profile-specific, prebound call sites for the public Core structural-read surface.
@@ -19,61 +22,15 @@ import java.util.Optional;
  */
 final class CoreCallSiteTable implements AutoCloseable {
 
-    private final VerifiedMethodCallSite modelGetCanvasInfo;
-    private final VerifiedMethodCallSite modelGetParameters;
-    private final VerifiedMethodCallSite canvasGetSizeInPixels;
-    private final VerifiedMethodCallSite canvasGetOriginInPixels;
-    private final VerifiedMethodCallSite canvasGetPixelsPerUnit;
-    private final VerifiedMethodCallSite parametersGetCount;
-    private final VerifiedMethodCallSite parametersGetDefaultValues;
-    private final VerifiedMethodCallSite parametersGetIds;
-    private final VerifiedMethodCallSite parametersGetKeyCounts;
-    private final VerifiedMethodCallSite parametersGetKeyValues;
-    private final VerifiedMethodCallSite parametersGetMaximumValues;
-    private final VerifiedMethodCallSite parametersGetMinimumValues;
-    private final VerifiedMethodCallSite parametersGetTypes;
-    private final VerifiedMethodCallSite parametersGetValues;
-    private final Optional<VerifiedMethodCallSite> parametersGetRepeats;
-    private final VerifiedMethodCallSite parameterTypeGetNumber;
-    private final List<VerifiedMethodCallSite> allCallSites;
+    private final Map<String, VerifiedMethodCallSite> callSites;
     private boolean closed;
 
     private CoreCallSiteTable(
-        final VerifiedMethodCallSite modelGetCanvasInfo,
-        final VerifiedMethodCallSite modelGetParameters,
-        final VerifiedMethodCallSite canvasGetSizeInPixels,
-        final VerifiedMethodCallSite canvasGetOriginInPixels,
-        final VerifiedMethodCallSite canvasGetPixelsPerUnit,
-        final VerifiedMethodCallSite parametersGetCount,
-        final VerifiedMethodCallSite parametersGetDefaultValues,
-        final VerifiedMethodCallSite parametersGetIds,
-        final VerifiedMethodCallSite parametersGetKeyCounts,
-        final VerifiedMethodCallSite parametersGetKeyValues,
-        final VerifiedMethodCallSite parametersGetMaximumValues,
-        final VerifiedMethodCallSite parametersGetMinimumValues,
-        final VerifiedMethodCallSite parametersGetTypes,
-        final VerifiedMethodCallSite parametersGetValues,
-        final Optional<VerifiedMethodCallSite> parametersGetRepeats,
-        final VerifiedMethodCallSite parameterTypeGetNumber,
-        final List<VerifiedMethodCallSite> allCallSites
+        final Map<String, VerifiedMethodCallSite> callSites
     ) {
-        this.modelGetCanvasInfo = modelGetCanvasInfo;
-        this.modelGetParameters = modelGetParameters;
-        this.canvasGetSizeInPixels = canvasGetSizeInPixels;
-        this.canvasGetOriginInPixels = canvasGetOriginInPixels;
-        this.canvasGetPixelsPerUnit = canvasGetPixelsPerUnit;
-        this.parametersGetCount = parametersGetCount;
-        this.parametersGetDefaultValues = parametersGetDefaultValues;
-        this.parametersGetIds = parametersGetIds;
-        this.parametersGetKeyCounts = parametersGetKeyCounts;
-        this.parametersGetKeyValues = parametersGetKeyValues;
-        this.parametersGetMaximumValues = parametersGetMaximumValues;
-        this.parametersGetMinimumValues = parametersGetMinimumValues;
-        this.parametersGetTypes = parametersGetTypes;
-        this.parametersGetValues = parametersGetValues;
-        this.parametersGetRepeats = parametersGetRepeats;
-        this.parameterTypeGetNumber = parameterTypeGetNumber;
-        this.allCallSites = List.copyOf(allCallSites);
+        this.callSites = Collections.unmodifiableMap(
+            new LinkedHashMap<>(callSites)
+        );
     }
 
     static CoreCallSiteTable bind(
@@ -83,115 +40,19 @@ final class CoreCallSiteTable implements AutoCloseable {
         Objects.requireNonNull(resolver, "resolver");
         Objects.requireNonNull(artifactProfile, "artifactProfile");
 
-        final List<VerifiedMethodCallSite> bound = new ArrayList<>();
+        final Set<String> aliases = CorePublicApiSelectorContract
+            .structuralMethodAliasesFor(artifactProfile)
+            .orElseThrow(() -> invalid(
+                "Core structural profile is outside the generated selector contract."
+            ));
+        final Map<String, VerifiedMethodCallSite> bound = new LinkedHashMap<>();
         try {
-            final VerifiedMethodCallSite modelGetCanvasInfo = bind(
-                resolver,
-                CorePublicApiSelectorContract.MODEL_GET_CANVAS_INFO,
-                bound
-            );
-            final VerifiedMethodCallSite modelGetParameters = bind(
-                resolver,
-                CorePublicApiSelectorContract.MODEL_GET_PARAMETERS,
-                bound
-            );
-            final VerifiedMethodCallSite canvasGetSizeInPixels = bind(
-                resolver,
-                CorePublicApiSelectorContract.CANVAS_GET_SIZE_IN_PIXELS,
-                bound
-            );
-            final VerifiedMethodCallSite canvasGetOriginInPixels = bind(
-                resolver,
-                CorePublicApiSelectorContract.CANVAS_GET_ORIGIN_IN_PIXELS,
-                bound
-            );
-            final VerifiedMethodCallSite canvasGetPixelsPerUnit = bind(
-                resolver,
-                CorePublicApiSelectorContract.CANVAS_GET_PIXELS_PER_UNIT,
-                bound
-            );
-            final VerifiedMethodCallSite parametersGetCount = bind(
-                resolver,
-                CorePublicApiSelectorContract.PARAMETERS_GET_COUNT,
-                bound
-            );
-            final VerifiedMethodCallSite parametersGetDefaultValues = bind(
-                resolver,
-                CorePublicApiSelectorContract.PARAMETERS_GET_DEFAULT_VALUES,
-                bound
-            );
-            final VerifiedMethodCallSite parametersGetIds = bind(
-                resolver,
-                CorePublicApiSelectorContract.PARAMETERS_GET_IDS,
-                bound
-            );
-            final VerifiedMethodCallSite parametersGetKeyCounts = bind(
-                resolver,
-                CorePublicApiSelectorContract.PARAMETERS_GET_KEY_COUNTS,
-                bound
-            );
-            final VerifiedMethodCallSite parametersGetKeyValues = bind(
-                resolver,
-                CorePublicApiSelectorContract.PARAMETERS_GET_KEY_VALUES,
-                bound
-            );
-            final VerifiedMethodCallSite parametersGetMaximumValues = bind(
-                resolver,
-                CorePublicApiSelectorContract.PARAMETERS_GET_MAXIMUM_VALUES,
-                bound
-            );
-            final VerifiedMethodCallSite parametersGetMinimumValues = bind(
-                resolver,
-                CorePublicApiSelectorContract.PARAMETERS_GET_MINIMUM_VALUES,
-                bound
-            );
-            final VerifiedMethodCallSite parametersGetTypes = bind(
-                resolver,
-                CorePublicApiSelectorContract.PARAMETERS_GET_TYPES,
-                bound
-            );
-            final VerifiedMethodCallSite parametersGetValues = bind(
-                resolver,
-                CorePublicApiSelectorContract.PARAMETERS_GET_VALUES,
-                bound
-            );
-            final VerifiedMethodCallSite parameterTypeGetNumber = bind(
-                resolver,
-                CorePublicApiSelectorContract.PARAMETER_TYPE_GET_NUMBER,
-                bound
-            );
-            final Optional<VerifiedMethodCallSite> parametersGetRepeats =
-                CorePublicApiSelectorContract.ARTIFACT_PROFILE_5_3_02.equals(
-                    artifactProfile
-                )
-                    ? Optional.of(bind(
-                        resolver,
-                        CorePublicApiSelectorContract.PARAMETERS_GET_REPEATS,
-                        bound
-                    ))
-                    : Optional.empty();
-
-            return new CoreCallSiteTable(
-                modelGetCanvasInfo,
-                modelGetParameters,
-                canvasGetSizeInPixels,
-                canvasGetOriginInPixels,
-                canvasGetPixelsPerUnit,
-                parametersGetCount,
-                parametersGetDefaultValues,
-                parametersGetIds,
-                parametersGetKeyCounts,
-                parametersGetKeyValues,
-                parametersGetMaximumValues,
-                parametersGetMinimumValues,
-                parametersGetTypes,
-                parametersGetValues,
-                parametersGetRepeats,
-                parameterTypeGetNumber,
-                bound
-            );
+            aliases.stream()
+                .sorted()
+                .forEach(alias -> bound.put(alias, resolver.bind(alias)));
+            return new CoreCallSiteTable(bound);
         } catch (RuntimeException exception) {
-            closeReverse(bound);
+            closeReverse(new ArrayList<>(bound.values()));
             throw exception;
         }
     }
@@ -207,11 +68,13 @@ final class CoreCallSiteTable implements AutoCloseable {
             throw invalid("Core structural call-site table is closed.");
         }
         final Object canvas = requireObject(
-            modelGetCanvasInfo.invoke(rawModel),
+            callSite(CorePublicApiSelectorContract.MODEL_GET_CANVAS_INFO)
+                .invoke(rawModel),
             "Core canvas information is unavailable."
         );
         final Object parameters = requireObject(
-            modelGetParameters.invoke(rawModel),
+            callSite(CorePublicApiSelectorContract.MODEL_GET_PARAMETERS)
+                .invoke(rawModel),
             "Core parameters are unavailable."
         );
 
@@ -230,16 +93,20 @@ final class CoreCallSiteTable implements AutoCloseable {
 
     private CoreCanvasSnapshot readCanvas(final Object canvas) {
         final float[] size = exactFloatArray(
-            canvasGetSizeInPixels.invoke(canvas),
+            callSite(CorePublicApiSelectorContract.CANVAS_GET_SIZE_IN_PIXELS)
+                .invoke(canvas),
             2,
             "Core canvas size has an invalid representation."
         );
         final float[] origin = exactFloatArray(
-            canvasGetOriginInPixels.invoke(canvas),
+            callSite(CorePublicApiSelectorContract.CANVAS_GET_ORIGIN_IN_PIXELS)
+                .invoke(canvas),
             2,
             "Core canvas origin has an invalid representation."
         );
-        final Object pixelsPerUnitValue = canvasGetPixelsPerUnit.invoke(canvas);
+        final Object pixelsPerUnitValue = callSite(
+            CorePublicApiSelectorContract.CANVAS_GET_PIXELS_PER_UNIT
+        ).invoke(canvas);
         if (!(pixelsPerUnitValue instanceof Float pixelsPerUnit)
             || !Float.isFinite(pixelsPerUnit)) {
             throw invalid("Core canvas scale has an invalid representation.");
@@ -254,52 +121,64 @@ final class CoreCallSiteTable implements AutoCloseable {
     }
 
     private List<CoreParameterDefinition> readParameters(final Object parameters) {
-        final Object countValue = parametersGetCount.invoke(parameters);
+        final Object countValue = callSite(
+            CorePublicApiSelectorContract.PARAMETERS_GET_COUNT
+        ).invoke(parameters);
         if (!(countValue instanceof Integer count) || count < 0) {
             throw invalid("Core parameter count has an invalid representation.");
         }
 
         final String[] ids = exactStringArray(
-            parametersGetIds.invoke(parameters),
+            callSite(CorePublicApiSelectorContract.PARAMETERS_GET_IDS)
+                .invoke(parameters),
             count,
             "Core parameter identifiers have an invalid representation."
         );
         final Object[] types = exactObjectArray(
-            parametersGetTypes.invoke(parameters),
+            callSite(CorePublicApiSelectorContract.PARAMETERS_GET_TYPES)
+                .invoke(parameters),
             count,
             "Core parameter types have an invalid representation."
         );
         final float[] minimumValues = exactFloatArray(
-            parametersGetMinimumValues.invoke(parameters),
+            callSite(CorePublicApiSelectorContract.PARAMETERS_GET_MINIMUM_VALUES)
+                .invoke(parameters),
             count,
             "Core parameter minimum values have an invalid representation."
         );
         final float[] maximumValues = exactFloatArray(
-            parametersGetMaximumValues.invoke(parameters),
+            callSite(CorePublicApiSelectorContract.PARAMETERS_GET_MAXIMUM_VALUES)
+                .invoke(parameters),
             count,
             "Core parameter maximum values have an invalid representation."
         );
         final float[] defaultValues = exactFloatArray(
-            parametersGetDefaultValues.invoke(parameters),
+            callSite(CorePublicApiSelectorContract.PARAMETERS_GET_DEFAULT_VALUES)
+                .invoke(parameters),
             count,
             "Core parameter default values have an invalid representation."
         );
         final float[] currentValues = exactFloatArray(
-            parametersGetValues.invoke(parameters),
+            callSite(CorePublicApiSelectorContract.PARAMETERS_GET_VALUES)
+                .invoke(parameters),
             count,
             "Core parameter current values have an invalid representation."
         );
         final int[] keyCounts = exactIntArray(
-            parametersGetKeyCounts.invoke(parameters),
+            callSite(CorePublicApiSelectorContract.PARAMETERS_GET_KEY_COUNTS)
+                .invoke(parameters),
             count,
             "Core parameter key counts have an invalid representation."
         );
         final float[][] keyValues = exactKeyValues(
-            parametersGetKeyValues.invoke(parameters),
+            callSite(CorePublicApiSelectorContract.PARAMETERS_GET_KEY_VALUES)
+                .invoke(parameters),
             count,
             keyCounts
         );
-        final boolean[] repeats = parametersGetRepeats
+        final boolean[] repeats = optionalCallSite(
+            CorePublicApiSelectorContract.PARAMETERS_GET_REPEATS
+        )
             .map(callSite -> exactBooleanArray(
                 callSite.invoke(parameters),
                 count,
@@ -321,7 +200,9 @@ final class CoreCallSiteTable implements AutoCloseable {
                 types[index],
                 "Core parameter type is unavailable."
             );
-            final Object typeNumberValue = parameterTypeGetNumber.invoke(type);
+            final Object typeNumberValue = callSite(
+                CorePublicApiSelectorContract.PARAMETER_TYPE_GET_NUMBER
+            ).invoke(type);
             if (!(typeNumberValue instanceof Integer typeNumber)) {
                 throw invalid("Core parameter type has an invalid representation.");
             }
@@ -352,17 +233,21 @@ final class CoreCallSiteTable implements AutoCloseable {
             return;
         }
         closed = true;
-        closeReverse(allCallSites);
+        closeReverse(new ArrayList<>(callSites.values()));
     }
 
-    private static VerifiedMethodCallSite bind(
-        final VerifiedMemberResolver resolver,
-        final String alias,
-        final List<VerifiedMethodCallSite> bound
-    ) {
-        final VerifiedMethodCallSite callSite = resolver.bind(alias);
-        bound.add(callSite);
+    private VerifiedMethodCallSite callSite(final String alias) {
+        final VerifiedMethodCallSite callSite = callSites.get(alias);
+        if (callSite == null) {
+            throw invalid("Core structural call site is unavailable: " + alias);
+        }
         return callSite;
+    }
+
+    private Optional<VerifiedMethodCallSite> optionalCallSite(
+        final String alias
+    ) {
+        return Optional.ofNullable(callSites.get(alias));
     }
 
     private static float[] exactFloatArray(
