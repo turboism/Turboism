@@ -1,6 +1,7 @@
 package dev.turboism.i18n;
 
 import dev.turboism.sdk.i18n.PluginLocalization;
+import dev.turboism.sdk.plugin.PluginDescriptor;
 
 import java.text.MessageFormat;
 import java.util.ArrayList;
@@ -18,21 +19,9 @@ import java.util.concurrent.atomic.AtomicLong;
 /** Runtime implementation of one isolated plugin localization catalog. */
 public final class RuntimePluginLocalization implements PluginLocalization {
 
-    private static final String RESOURCE_BASE = "META-INF/turboism/i18n/messages";
-    private static final List<String> CATALOG_ORDER = List.of(
-        "base", "en", "zh_Hans", "zh_Hant", "ja", "ko"
-    );
-    private static final Map<String, String> RESOURCE_PATHS = Map.of(
-        "base", RESOURCE_BASE + ".properties",
-        "en", RESOURCE_BASE + "_en.properties",
-        "zh_Hans", RESOURCE_BASE + "_zh_Hans.properties",
-        "zh_Hant", RESOURCE_BASE + "_zh_Hant.properties",
-        "ja", RESOURCE_BASE + "_ja.properties",
-        "ko", RESOURCE_BASE + "_ko.properties"
-    );
-
     private final String pluginId;
     private final Locale locale;
+    private final List<String> catalogOrder;
     private final String localeSource;
     private final String requestedLocale;
     private final Map<String, Map<String, String>> catalogs;
@@ -49,6 +38,7 @@ public final class RuntimePluginLocalization implements PluginLocalization {
     private RuntimePluginLocalization(
         final String pluginId,
         final PluginLocaleResolver.Resolution resolution,
+        final List<String> catalogOrder,
         final Map<String, Map<String, String>> catalogs,
         final Set<String> invalidCatalogs,
         final LocalizationDiagnosticSink diagnostics
@@ -59,17 +49,19 @@ public final class RuntimePluginLocalization implements PluginLocalization {
             "resolution"
         );
         this.locale = selected.locale();
+        this.catalogOrder = List.copyOf(catalogOrder);
         this.localeSource = selected.source();
         this.requestedLocale = selected.requestedLocale();
         this.catalogs = Map.copyOf(catalogs);
         this.invalidCatalogs = Set.copyOf(invalidCatalogs);
-        this.fallbackCatalogs = fallbackCatalogs(locale);
+        this.fallbackCatalogs = fallbackCatalogs(locale, this.catalogOrder);
         this.diagnostics = Objects.requireNonNull(diagnostics, "diagnostics");
     }
 
     public static RuntimePluginLocalization create(
         final String pluginId,
         final ClassLoader pluginClassLoader,
+        final PluginDescriptor.I18n i18n,
         final String explicitLocale,
         final Locale displayLocale,
         final Locale jvmDisplayLocale,
@@ -77,6 +69,7 @@ public final class RuntimePluginLocalization implements PluginLocalization {
     ) {
         requireText(pluginId, "pluginId");
         Objects.requireNonNull(pluginClassLoader, "pluginClassLoader");
+        final PluginDescriptor.I18n descriptorI18n = Objects.requireNonNull(i18n, "i18n");
         Objects.requireNonNull(diagnostics, "diagnostics");
         final PluginLocaleResolver.Resolution resolution =
             PluginLocaleResolver.resolveWithSource(
@@ -86,10 +79,11 @@ public final class RuntimePluginLocalization implements PluginLocalization {
                 jvmDisplayLocale,
                 diagnostics
             );
+        final List<String> catalogOrder = List.copyOf(descriptorI18n.locales());
         final Map<String, Map<String, String>> catalogs = new LinkedHashMap<>();
         final Set<String> invalidCatalogs = new LinkedHashSet<>();
-        for (String catalogId : CATALOG_ORDER) {
-            final String resourcePath = RESOURCE_PATHS.get(catalogId);
+        for (String catalogId : catalogOrder) {
+            final String resourcePath = catalogPath(descriptorI18n.baseName(), catalogId);
             final LocalizationDiagnosticSink catalogDiagnostics = diagnostic -> {
                 invalidCatalogs.add(catalogId);
                 diagnostics.record(diagnostic);
@@ -107,6 +101,7 @@ public final class RuntimePluginLocalization implements PluginLocalization {
         return new RuntimePluginLocalization(
             pluginId,
             resolution,
+            catalogOrder,
             catalogs,
             invalidCatalogs,
             diagnostics
@@ -200,7 +195,7 @@ public final class RuntimePluginLocalization implements PluginLocalization {
     }
 
     public ReportSnapshot reportSnapshot() {
-        final List<CatalogSnapshot> catalogSnapshots = CATALOG_ORDER.stream()
+        final List<CatalogSnapshot> catalogSnapshots = catalogOrder.stream()
             .map(catalogId -> {
                 final Map<String, String> values = catalogs.get(catalogId);
                 final String state = values != null
@@ -299,31 +294,51 @@ public final class RuntimePluginLocalization implements PluginLocalization {
         }
     }
 
-    private static List<String> fallbackCatalogs(final Locale locale) {
+    private static List<String> fallbackCatalogs(
+        final Locale locale,
+        final List<String> available
+    ) {
+        final Set<String> supported = Set.copyOf(available);
         final LinkedHashSet<String> ids = new LinkedHashSet<>();
-        exactCatalogId(locale).ifPresent(ids::add);
+        exactCatalogId(locale, supported).ifPresent(ids::add);
         if (!locale.getScript().isBlank()) {
-            supportedCatalogId(locale.getLanguage() + "_" + locale.getScript()).ifPresent(ids::add);
+            supportedCatalogId(locale.getLanguage() + "_" + locale.getScript(), supported)
+                .ifPresent(ids::add);
         }
-        supportedCatalogId(locale.getLanguage()).ifPresent(ids::add);
-        ids.add("base");
+        supportedCatalogId(locale.getLanguage(), supported).ifPresent(ids::add);
+        if (supported.contains("base")) {
+            ids.add("base");
+        }
         return List.copyOf(ids);
     }
 
-    private static Optional<String> exactCatalogId(final Locale locale) {
+    private static Optional<String> exactCatalogId(
+        final Locale locale,
+        final Set<String> supported
+    ) {
         if (!locale.getCountry().isBlank() || !locale.getVariant().isBlank()) {
             return Optional.empty();
         }
         if (!locale.getScript().isBlank()) {
-            return supportedCatalogId(locale.getLanguage() + "_" + locale.getScript());
+            return supportedCatalogId(
+                locale.getLanguage() + "_" + locale.getScript(),
+                supported
+            );
         }
-        return supportedCatalogId(locale.getLanguage());
+        return supportedCatalogId(locale.getLanguage(), supported);
     }
 
-    private static Optional<String> supportedCatalogId(final String candidate) {
-        return RESOURCE_PATHS.containsKey(candidate)
-            ? Optional.of(candidate)
-            : Optional.empty();
+    private static Optional<String> supportedCatalogId(
+        final String candidate,
+        final Set<String> supported
+    ) {
+        return supported.contains(candidate) ? Optional.of(candidate) : Optional.empty();
+    }
+
+    private static String catalogPath(final String baseName, final String catalogId) {
+        return "base".equals(catalogId)
+            ? baseName + ".properties"
+            : baseName + "_" + catalogId + ".properties";
     }
 
     private static String marker(final String key) {
