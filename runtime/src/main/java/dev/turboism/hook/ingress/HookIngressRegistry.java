@@ -7,7 +7,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * Fake-first registry for semantic hook ingress definitions.
+ * Registry for semantic hook ingress definitions.
  *
  * <p>Ingress specs are internal runtime metadata only. They never expose raw
  * hook targets to plugins and never enable production hook injection.</p>
@@ -28,8 +28,8 @@ public final class HookIngressRegistry {
         this.specs = Map.copyOf(keyed);
     }
 
-    public static HookIngressRegistry m12Default() {
-        return new HookIngressRegistry(DefaultHookIngressSpecs.M12_DEFAULT_SPECS);
+    public static HookIngressRegistry defaults() {
+        return new HookIngressRegistry(DefaultHookIngressSpecs.DEFAULT_SPECS);
     }
 
     public Optional<HookIngressSpec> find(String hookId) {

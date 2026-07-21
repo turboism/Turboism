@@ -1,6 +1,7 @@
 package dev.turboism.sdk.cubism.transaction;
 
 import dev.turboism.sdk.PreviewApi;
+import dev.turboism.sdk.cubism.id.DocumentId;
 import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.plugin.PluginContext;
 

@@ -4,7 +4,7 @@ import dev.turboism.sdk.cubism.CubismServiceException;
 import dev.turboism.sdk.cubism.id.ModelObjectId;
 import dev.turboism.sdk.cubism.service.query.HierarchyNode;
 import dev.turboism.sdk.cubism.service.query.SelectionSummary;
-import dev.turboism.sdk.event.cubism.CubismSelectionChangedEvent;
+import dev.turboism.sdk.cubism.event.SelectionChangedEvent;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.test.fake.FakeCubismHost;
 import org.junit.jupiter.api.Test;
@@ -51,7 +51,7 @@ class SelectionQueryServiceIntegrationTest {
         final FakeCubismHost host = CubismQueryIntegrationSupport.sampleHost();
         host.select("param-angle-x");
         final CubismQueryIntegrationSupport.QueryEnvironment environment = CubismQueryIntegrationSupport.environment(host, MODEL_READ_PERMISSION);
-        final List<CubismSelectionChangedEvent> events = new ArrayList<>();
+        final List<SelectionChangedEvent> events = new ArrayList<>();
 
         environment.context().selectionQuery().onSelectionChanged(events::add);
         host.clearSelection();
@@ -68,7 +68,7 @@ class SelectionQueryServiceIntegrationTest {
         final FakeCubismHost host = CubismQueryIntegrationSupport.sampleHost();
         host.select("param-angle-x");
         final CubismQueryIntegrationSupport.QueryEnvironment environment = CubismQueryIntegrationSupport.environment(host, MODEL_READ_PERMISSION);
-        final List<CubismSelectionChangedEvent> events = new ArrayList<>();
+        final List<SelectionChangedEvent> events = new ArrayList<>();
 
         final Registration registration = environment.context().selectionQuery().onSelectionChanged(events::add);
         registration.close();

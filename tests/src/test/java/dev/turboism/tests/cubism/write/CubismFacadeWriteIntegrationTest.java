@@ -11,7 +11,7 @@ import dev.turboism.permissions.CubismPermissionGate;
 import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.cubism.id.ParameterId;
-import dev.turboism.sdk.cubism.transaction.DocumentId;
+import dev.turboism.sdk.cubism.id.DocumentId;
 import dev.turboism.sdk.cubism.transaction.ModelTransaction;
 import dev.turboism.sdk.cubism.transaction.TransactionException;
 import dev.turboism.sdk.cubism.write.WriteParameterCommand;

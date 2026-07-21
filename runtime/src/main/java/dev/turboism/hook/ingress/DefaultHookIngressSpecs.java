@@ -4,7 +4,7 @@ import java.util.List;
 
 public final class DefaultHookIngressSpecs {
 
-    public static final List<HookIngressSpec> M12_DEFAULT_SPECS = List.of(
+    public static final List<HookIngressSpec> DEFAULT_SPECS = List.of(
         new HookIngressSpec("hook-ingress.project.lifecycle", "event.project.lifecycle", false, "enqueue-only"),
         new HookIngressSpec("hook-ingress.selection.changed", "event.selection.changed", false, "enqueue-only"),
         new HookIngressSpec("hook-ingress.context-menu.opening", "ui.context-source.read", false, "enqueue-only"),
