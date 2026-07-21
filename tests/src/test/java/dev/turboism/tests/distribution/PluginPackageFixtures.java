@@ -98,9 +98,12 @@ final class PluginPackageFixtures {
     }
 
     private static String descriptor(String id, String version, String api, String entrypoint, String extra) {
-        return "{\"format\":\"turboism.plugin.meta\",\"schemaVersion\":1,\"id\":\"" + id
-            + "\",\"name\":\"Sample\",\"version\":\"" + version + "\",\"entrypoints\":{\"plugin\":\""
-            + entrypoint + "\"},\"turboismApi\":\"" + api + "\"" + extra + "}";
+        return "{\"format\":\"turboism.plugin.meta\",\"schemaVersion\":2,\"id\":\"" + id
+            + "\",\"name\":\"Sample\",\"version\":\"" + version + "\",\"entrypoints\":[\""
+            + entrypoint + "\"],\"turboismApi\":\"" + api
+            + "\",\"authors\":[{\"name\":\"Turboism Contributors\"}]"
+            + ",\"website\":\"https://turboism.dev\",\"resources\":[]"
+            + ",\"i18n\":{\"baseName\":\"META-INF/turboism/i18n/messages\",\"locales\":[]}" + extra + "}";
     }
 
     static String sha256(byte[] bytes) throws Exception {

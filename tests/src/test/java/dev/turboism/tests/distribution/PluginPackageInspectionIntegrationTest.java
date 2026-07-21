@@ -8,6 +8,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -37,7 +38,7 @@ class PluginPackageInspectionIntegrationTest {
         assertEquals(PluginPackageFixtures.sha256(archive), plan.packageIdentity().rawArchiveSha256());
         assertFalse(plan.packageIdentity().packageHash().equals(plan.packageIdentity().rawArchiveSha256()));
         assertEquals("[0.1.0,0.2.0)", plan.descriptor().turboismApi());
-        assertEquals(PluginPackageFixtures.ENTRYPOINT, plan.descriptor().entrypoints().get("plugin"));
+        assertEquals(List.of(PluginPackageFixtures.ENTRYPOINT), plan.descriptor().entrypoints());
         assertEquals("plugin/plugin.jar", plan.files().get(0).archivePath());
         assertEquals("plugin/plugin.jar", plan.files().get(0).installPath());
         assertEquals("INSPECTION_PREFLIGHT_REVALIDATION_REQUIRED", plan.requirement().name());
@@ -100,15 +101,18 @@ class PluginPackageInspectionIntegrationTest {
                 java.lang.reflect.Modifier.isPublic(constructor.getModifiers())));
     }
 
-    @Test void acceptsLexicalEntrypointWithoutClassOrLocationCheck() throws Exception {
+    @Test void rejectsEntrypointDeclaredButMissingFromJar() throws Exception {
         byte[] jar = PluginPackageFixtures.jar(
             PluginPackageFixtures.descriptor(PluginPackageFixtures.ID,
                 PluginPackageFixtures.VERSION, "0.1.0"));
-        Path input = tempDir.resolve("lexical-entrypoint.tplugin");
-        Files.write(input, PluginPackageFixtures.packageWith(jar, PluginPackageFixtures.ID,
-            PluginPackageFixtures.VERSION));
-        assertInstanceOf(PluginPackageInspector.Accepted.class,
-            new LocalPluginPackageInspector().inspect(input));
+        assertRejected(
+            PluginPackageFixtures.packageWith(
+                jar,
+                PluginPackageFixtures.ID,
+                PluginPackageFixtures.VERSION
+            ),
+            "PLUGIN_ENTRYPOINT_CLASS_MISSING"
+        );
     }
 
     @Test void rejectsNonJavaBinaryEntrypointName() throws Exception {

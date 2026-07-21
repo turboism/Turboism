@@ -51,25 +51,28 @@ class VersionRangeTest {
     }
 
     @Test
-    void pluginMetadataRequiresExactlyOneLexicalPluginEntrypoint() throws Exception {
-        String base = "{\"format\":\"turboism.plugin.meta\",\"schemaVersion\":1,\"id\":\"a.b\","
-            + "\"name\":\"A\",\"version\":\"1.0.0\",\"turboismApi\":\"1.0.0\",";
+    void pluginMetadataAcceptsOrderedMultipleEntrypointsAndRejectsBadNames() throws Exception {
+        String suffix = ",\"turboismApi\":\"1.0.0\""
+            + ",\"authors\":[{\"name\":\"Author\"}]"
+            + ",\"website\":\"https://turboism.dev\",\"resources\":[]"
+            + ",\"i18n\":{\"baseName\":\"META-INF/turboism/i18n/messages\",\"locales\":[]}}";
+        String base = "{\"format\":\"turboism.plugin.meta\",\"schemaVersion\":2,\"id\":\"a.b\","
+            + "\"name\":\"A\",\"version\":\"1.0.0\",\"entrypoints\":";
         var mapper = new ObjectMapper();
         var validator = new PluginMetaValidator();
-        var extra = validator.validate(mapper.readTree(base
-            + "\"entrypoints\":{\"plugin\":\"a.B\",\"other\":\"a.C\"}}"));
-        assertTrue(extra.stream().anyMatch(error -> error.code().equals("PLUGIN_META_MISSING_ENTRYPOINT")
-            && error.path().equals("entrypoints")));
-        var badName = validator.validate(mapper.readTree(base
-            + "\"entrypoints\":{\"plugin\":\"a.bad-name\"}}"));
+        var multiple = validator.validate(mapper.readTree(base + "[\"a.B\",\"a.C\"]" + suffix));
+        assertTrue(multiple.isEmpty(), multiple.toString());
+        var badName = validator.validate(mapper.readTree(base + "[\"a.bad-name\"]" + suffix));
         assertTrue(badName.stream().anyMatch(error -> error.code().equals("PLUGIN_META_BAD_ENTRYPOINT")
-            && error.path().equals("entrypoints.plugin")));
+            && error.path().equals("entrypoints[0]")));
     }
 
     @Test
     void pluginMetadataAppliesStrictRangesToApiAndDependencies() throws Exception {
-        String base = "{\"format\":\"turboism.plugin.meta\",\"schemaVersion\":1,\"id\":\"a.b\","
-            + "\"name\":\"A\",\"version\":\"1.0.0\",\"entrypoints\":{\"plugin\":\"a.B\"},";
+        String base = "{\"format\":\"turboism.plugin.meta\",\"schemaVersion\":2,\"id\":\"a.b\","
+            + "\"name\":\"A\",\"version\":\"1.0.0\",\"entrypoints\":[\"a.B\"],"
+            + "\"authors\":[{\"name\":\"Author\"}],\"website\":\"https://turboism.dev\","
+            + "\"resources\":[],\"i18n\":{\"baseName\":\"META-INF/turboism/i18n/messages\",\"locales\":[]},";
         var mapper = new ObjectMapper();
         var validator = new PluginMetaValidator();
         var apiErrors = validator.validate(mapper.readTree(base + "\"turboismApi\":\" 1.0.0\"}"));

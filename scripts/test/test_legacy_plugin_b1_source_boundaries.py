@@ -75,16 +75,21 @@ def manifest() -> str:
     return json.dumps(
         {
             "format": "turboism.plugin.meta",
-            "schemaVersion": 1,
+            "schemaVersion": 2,
             "id": "dev.turboism.plugin.example",
             "name": "Example",
             "version": "0.1.0",
             "description": "scanner fixture",
-            "entrypoints": {"plugin": ENTRYPOINT},
+            "entrypoints": [ENTRYPOINT],
             "turboismApi": "[0.1.0,0.2.0)",
             "authors": [{"name": "Turboism Contributors"}],
             "license": "Project License",
-            "homepage": "https://turboism.dev",
+            "website": "https://turboism.dev",
+            "resources": [],
+            "i18n": {
+                "baseName": "META-INF/turboism/i18n/messages",
+                "locales": [],
+            },
             "dependencies": [],
             "permissions": [],
             "capabilities": [],
@@ -254,7 +259,7 @@ def delete_existing_source(directory: Path) -> None:
 def change_manifest_entrypoint(directory: Path) -> None:
     path = directory / MANIFEST_RELATIVE
     data = json.loads(path.read_text(encoding="utf-8"))
-    data["entrypoints"]["plugin"] = f"{PACKAGE}.ExistingHelper"
+    data["entrypoints"][0] = f"{PACKAGE}.ExistingHelper"
     path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
 
 

@@ -1,0 +1,37 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 2,
+  "id": "dev.turboism.plugin.sample-dependent",
+  "name": "Dependent Plugin",
+  "version": "1.0.0",
+  "entrypoints": [
+    "dev.turboism.plugin.sample.DependentPlugin",
+    "dev.turboism.plugin.sample.DependentHooks"
+  ],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    { "name": "Turboism Contributors", "email": "dev@turboism.dev" }
+  ],
+  "license": "MIT",
+  "website": "https://turboism.dev",
+  "resources": ["icons/"],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": ["base", "en", "zh_Hans"]
+  },
+  "dependencies": [
+    {
+      "id": "dev.turboism.plugin.sample",
+      "version": "[1.0.0,2.0.0)",
+      "type": "required",
+      "ordering": "after",
+      "reason": "Uses the sample plugin service."
+    }
+  ],
+  "permissions": [],
+  "capabilities": [],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "embedded"
+  }
+}
