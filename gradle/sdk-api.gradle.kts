@@ -102,7 +102,7 @@ val checkSdkV2ExactApiCompatibility by tasks.registering(Exec::class) {
             "--reference-input", sdkJarArtifact.get().asFile.absolutePath,
             "--package-prefix", "dev.turboism.sdk",
             "--baseline", sdkV2ExactBaseline.asFile.absolutePath,
-            "--expected-commit", "75a9fdc7c43fb3f34be18743fbe55c947fb39e16"
+            "--expected-commit", "6ca330b1f332d413a5135a66bc40d19bdae20675"
         )
     }
 }
