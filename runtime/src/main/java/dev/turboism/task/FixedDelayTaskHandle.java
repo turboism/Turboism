@@ -1,7 +1,7 @@
 package dev.turboism.task;
 
-import dev.turboism.core.runtime.CallbackExecutionResult;
-import dev.turboism.core.runtime.CallbackSubmission;
+import dev.turboism.core.runtime.work.PluginWorkResult;
+import dev.turboism.core.runtime.work.PluginWorkSubmission;
 import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.runtime.RuntimeCancellationToken;
 import dev.turboism.core.runtime.RuntimeScheduler;
@@ -131,7 +131,7 @@ final class FixedDelayTaskHandle extends AbstractRuntimeTaskHandle {
             }
             runningToken = token;
         }
-        final CallbackSubmission submission = runtimeScheduler.submitLightweight(
+        final PluginWorkSubmission submission = runtimeScheduler.submitLightweight(
             runtimeTask,
             token,
             () -> runIteration(token)
@@ -193,7 +193,7 @@ final class FixedDelayTaskHandle extends AbstractRuntimeTaskHandle {
     }
 
     private void observeExecution(
-        final CallbackExecutionResult result,
+        final PluginWorkResult result,
         final RuntimeCancellationToken token
     ) {
         synchronized (lock) {

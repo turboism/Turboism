@@ -2,12 +2,12 @@ package dev.turboism.tests.plugin;
 
 import dev.turboism.config.RuntimePluginConfigRegistry;
 import dev.turboism.core.action.RuntimeActionRegistry;
-import dev.turboism.core.diagnostics.CallbackBudgetEvent;
+import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
 import dev.turboism.core.diagnostics.StartupReport;
 import dev.turboism.core.event.RuntimeEventBus;
 import dev.turboism.core.menu.RuntimeMenuRegistry;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
-import dev.turboism.core.runtime.PluginExecutorRegistry;
+import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.permissions.PermissionChecker;
@@ -82,10 +82,10 @@ final class M8PluginTestSupport {
         CubismReadCapabilityService cubismRead,
         CubismFacade cubismFacade
     ) {
-        List<CallbackBudgetEvent> events = new CopyOnWriteArrayList<>();
+        List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         RuntimeScheduler scheduler = new RuntimeScheduler(
             new DefaultWorkBudgetPolicy(),
-            new PluginExecutorRegistry(1, 8, events::add, CLOCK),
+            new PluginWorkExecutorRegistry(1, 8, events::add, CLOCK),
             (task, callback) -> {
                 callback.run();
                 return java.util.concurrent.CompletableFuture.completedFuture(
@@ -181,7 +181,7 @@ final class M8PluginTestSupport {
         RuntimePaletteToolbarRegistryAdapter paletteToolbar,
         RuntimePluginConfigRegistry config,
         StartupReport report,
-        List<CallbackBudgetEvent> callbackEvents
+        List<PluginWorkBudgetEvent> workEvents
     ) implements AutoCloseable {
         void executeAction(final String actionId) {
             actions.execute(actionId, new ActionRegistry.ActionContext() {

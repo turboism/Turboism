@@ -1,7 +1,8 @@
 package dev.turboism.task;
 
-import dev.turboism.core.runtime.CallbackExecutionStatus;
-import dev.turboism.core.runtime.CallbackSubmission;
+import dev.turboism.core.runtime.work.PluginWorkResult;
+import dev.turboism.core.runtime.work.PluginWorkStatus;
+import dev.turboism.core.runtime.work.PluginWorkSubmission;
 import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.RuntimeSchedulerLease;
@@ -152,12 +153,12 @@ public final class RuntimePluginTaskScheduler implements PluginTaskScheduler, Au
                 ownership.disarm();
                 return rejected(request.id(), TaskRejectionReason.PLUGIN_INACTIVE);
             }
-            final CallbackSubmission callback = runtimeScheduler.submitLightweight(
+            final PluginWorkSubmission submission = runtimeScheduler.submitLightweight(
                 runtimeTask(request),
                 handle.token(),
                 () -> ownership.runWhenBound(handle::runAction)
             );
-            if (!callback.accepted()) {
+            if (!submission.accepted()) {
                 admission.release();
                 final boolean closeRequested = ownership.isCloseRequested();
                 ownership.disarm();
@@ -165,14 +166,14 @@ public final class RuntimePluginTaskScheduler implements PluginTaskScheduler, Au
                     request.id(),
                     closeRequested
                         ? TaskRejectionReason.PLUGIN_INACTIVE
-                        : mapRejection(callback.rejectionStatus())
+                        : mapRejection(submission.rejectionStatus())
                 );
             }
             ownership.bind();
-            callback.completion().whenComplete((result, failure) -> {
+            submission.completion().whenComplete((result, failure) -> {
                 if (failure != null || result == null) {
-                    handle.observeExecution(new dev.turboism.core.runtime.CallbackExecutionResult(
-                        CallbackExecutionStatus.FAILED,
+                    handle.observeExecution(new PluginWorkResult(
+                        PluginWorkStatus.FAILED,
                         "TASK_RUNTIME_FAILURE"
                     ));
                 } else {
@@ -417,7 +418,7 @@ public final class RuntimePluginTaskScheduler implements PluginTaskScheduler, Au
         ));
     }
 
-    private static TaskRejectionReason mapRejection(final CallbackExecutionStatus status) {
+    private static TaskRejectionReason mapRejection(final PluginWorkStatus status) {
         return switch (status) {
             case REJECTED_BACKPRESSURE -> TaskRejectionReason.BACKPRESSURE;
             case REJECTED_CIRCUIT_OPEN -> TaskRejectionReason.CIRCUIT_OPEN;

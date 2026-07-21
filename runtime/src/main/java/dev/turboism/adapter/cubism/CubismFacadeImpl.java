@@ -2,9 +2,9 @@ package dev.turboism.adapter.cubism;
 
 import dev.turboism.adapter.cubism.service.read.CubismReadPermissionGate;
 import dev.turboism.adapter.cubism.write.HostWriteAdapter;
-import dev.turboism.core.diagnostics.CallbackBudgetEvent;
+import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
-import dev.turboism.core.runtime.PluginExecutorRegistry;
+import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.permissions.CubismPermissionGate;
@@ -180,11 +180,11 @@ public final class CubismFacadeImpl implements CubismFacade {
     }
 
     private static RuntimeScheduler defaultScheduler() {
-        final Consumer<CallbackBudgetEvent> diagnostics = ignored -> {
+        final Consumer<PluginWorkBudgetEvent> diagnostics = ignored -> {
         };
         return new RuntimeScheduler(
             new DefaultWorkBudgetPolicy(),
-            new PluginExecutorRegistry(1, 16, diagnostics, Clock.systemUTC()),
+            new PluginWorkExecutorRegistry(1, 16, diagnostics, Clock.systemUTC()),
             SidecarDispatcher.noop(),
             diagnostics
         );

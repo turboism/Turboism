@@ -1,6 +1,6 @@
-package dev.turboism.core.runtime;
+package dev.turboism.core.runtime.work;
 
-public enum CallbackExecutionStatus {
+public enum PluginWorkStatus {
     SUCCEEDED,
     FAILED,
     TIMED_OUT,
