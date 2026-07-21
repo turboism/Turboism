@@ -1,8 +1,20 @@
 import org.gradle.api.tasks.Exec
 
+/*
+ * Current verification is intentionally layered:
+ *
+ *   check                 daily code and public-boundary verification
+ *   checkIntegration      packaged/runtime integration
+ *   checkRelease          release and supply-chain verification
+ *   checkLegacyGovernance retired migration-document consistency
+ *
+ * Historical tasks keep their names so old evidence can still be inspected,
+ * but they no longer participate in the default development lifecycle.
+ */
+
 tasks.register<Exec>("checkMappingPipelineClosure") {
-    group = "verification"
-    description = "Validates the BT5 mapping-pipeline closure evidence and boundaries."
+    group = "legacy verification"
+    description = "Validates retired BT5 mapping-pipeline closure evidence."
     workingDir(rootDir)
     commandLine("bash", "scripts/test/test_bt5_mapping_pipeline_closure.sh")
 }
@@ -15,15 +27,15 @@ tasks.register<Exec>("checkMappingReviewWrapperArgs") {
 }
 
 tasks.register<Exec>("checkPluginInspectionContract") {
-    group = "verification"
-    description = "Verifies the strict plugin inspection schema, fixtures, streaming, and evidence boundaries."
+    group = "integration verification"
+    description = "Verifies strict plugin inspection fixtures, streaming, and evidence boundaries."
     workingDir(rootDir)
     commandLine("bash", "scripts/test/test_plugin_inspection_contract.sh")
 }
 
 val checkLegacyFrameworkCapabilityExtraction by tasks.registering(Exec::class) {
-    group = "verification"
-    description = "Validates the 13-plugin legacy-to-framework capability extraction and closed governance schema."
+    group = "legacy verification"
+    description = "Validates the retired legacy-to-framework capability extraction archive."
     workingDir(rootDir)
     inputs.files(
         "docs/migration/capabilities/legacy-framework-capability-extraction.tsv",
@@ -37,8 +49,8 @@ val checkLegacyFrameworkCapabilityExtraction by tasks.registering(Exec::class) {
 }
 
 val checkLegacyFrameworkCapabilityExtractionMutations by tasks.registering(Exec::class) {
-    group = "verification"
-    description = "Runs sandboxed negative mutations for the legacy capability extraction gate."
+    group = "legacy verification"
+    description = "Runs archived negative mutations for the legacy capability extraction gate."
     workingDir(rootDir)
     inputs.files(
         "scripts/test/test_legacy_framework_capability_extraction.py",
@@ -51,8 +63,8 @@ val checkLegacyFrameworkCapabilityExtractionMutations by tasks.registering(Exec:
 }
 
 val checkLegacyUserEffectCensus by tasks.registering(Exec::class) {
-    group = "verification"
-    description = "Validates the closed user-entry-led legacy effect census, Oracle gates, and old-ledger reconciliation."
+    group = "legacy verification"
+    description = "Validates the retired legacy user-effect census archive."
     workingDir(rootDir)
     inputs.files(
         "scripts/test/test_legacy_user_effect_census.py",
@@ -72,8 +84,8 @@ val checkLegacyUserEffectCensus by tasks.registering(Exec::class) {
 }
 
 val checkLegacyEffectContracts by tasks.registering(Exec::class) {
-    group = "verification"
-    description = "Validates executable Effect Contracts for every MIGRATE User Effect."
+    group = "legacy verification"
+    description = "Validates the retired Effect Contract archive."
     workingDir(rootDir)
     dependsOn(checkLegacyUserEffectCensus)
     inputs.files(
@@ -89,8 +101,8 @@ val checkLegacyEffectContracts by tasks.registering(Exec::class) {
 }
 
 val checkLegacyPluginB1Admission by tasks.registering(Exec::class) {
-    group = "verification"
-    description = "Verifies the exact 14 pure-business behaviors admitted after migration-foundation closure."
+    group = "legacy verification"
+    description = "Verifies the retired B1 migration-admission evidence."
     workingDir(rootDir)
     dependsOn("checkSdkPhase1ExactApiCompatibility", "checkModuleBoundaries")
     inputs.files(
@@ -114,49 +126,98 @@ val checkLegacyPluginB1Admission by tasks.registering(Exec::class) {
 
 tasks.register("checkOfficialPluginI18nCompleteness") {
     group = "verification"
-    description = "Verifies baseline key completeness for participating official plugin catalogs."
+    description = "Verifies baseline localization-key completeness for participating official plugins."
     dependsOn(":tests:officialPluginI18nCompletenessTest")
 }
 
 val checkAsyncHostReadStructuralBoundaries by tasks.registering(Exec::class) {
     group = "verification"
-    description = "Rejects plugin-owned Thread, Executor, and Timer resources and synchronous Project Inspector host reads."
+    description = "Rejects plugin-owned Thread, Executor, and Timer resources and synchronous host reads."
     workingDir(rootDir)
-    inputs.files(fileTree("plugins") { include("*/src/main/java/**/*.java") }, "scripts/test/test_async_host_read_foundation.py")
+    inputs.files(
+        fileTree("plugins") { include("*/src/main/java/**/*.java") },
+        "scripts/test/test_async_host_read_foundation.py"
+    )
     commandLine("python3", "scripts/test/test_async_host_read_foundation.py")
 }
 
 val checkAsyncHostReadFoundation by tasks.registering {
     group = "verification"
-    description = "Verifies the bounded v1 async host-read foundation and Project Inspector reference consumer."
+    description = "Verifies async host-read contracts, runtime behavior, consumer behavior, and structural boundaries."
     dependsOn(
-        ":sdk:asyncHostReadContractTest", ":runtime:asyncHostReadFoundationTest",
-        ":plugins:project-inspector:asyncHostReadConsumerTest", ":tests:asyncHostReadPreviewIntegrationTest",
-        checkAsyncHostReadStructuralBoundaries, checkLegacyFrameworkCapabilityExtraction,
-        checkLegacyFrameworkCapabilityExtractionMutations
+        ":sdk:asyncHostReadContractTest",
+        ":runtime:asyncHostReadFoundationTest",
+        ":plugins:project-inspector:asyncHostReadConsumerTest",
+        ":tests:asyncHostReadPreviewIntegrationTest",
+        checkAsyncHostReadStructuralBoundaries
     )
 }
 
 val checkMigrationSuiteBundleReproducibility by tasks.registering(Exec::class) {
-    group = "verification"
-    description = "Rebuilds the migration-suite bundle twice and compares the exact 16-file raw SHA-256 roster."
+    group = "legacy verification"
+    description = "Rebuilds the retired migration-suite bundle twice and compares its exact roster."
     workingDir(rootDir)
-    inputs.files("build.gradle.kts", "tests/build.gradle.kts", "scripts/test/test_migration_suite_bundle_reproducibility.sh")
+    inputs.files(
+        "build.gradle.kts",
+        "tests/build.gradle.kts",
+        "scripts/test/test_migration_suite_bundle_reproducibility.sh"
+    )
     onlyIf { providers.environmentVariable("TURBOISM_MIGRATION_SUITE_REPRO_INNER").orNull != "1" }
     commandLine("bash", "scripts/test/test_migration_suite_bundle_reproducibility.sh")
 }
 
+tasks.register("checkStableSdkCompatibility") {
+    group = "verification"
+    description = "Verifies the current SDK remains compatible with the reviewed Stable API baseline."
+    dependsOn("checkSdkPrePhaseApiCompatibility")
+}
+
+tasks.register("checkIntegration") {
+    group = "verification"
+    description = "Runs packaged runtime, plugin, preview-agent, and cross-module integration verification."
+    dependsOn(
+        checkAsyncHostReadFoundation,
+        "checkPluginInspectionRuntime",
+        "checkDistributionProtocolContract",
+        "checkPreviewBundleLayout",
+        "previewAgentSmokeTest",
+        "checkPreviewRuntimeReports",
+        ":tests:previewPluginRuntimeTest"
+    )
+}
+
+tasks.register("checkRelease") {
+    group = "verification"
+    description = "Runs integration, supply-chain, API-tooling, and release-oriented verification."
+    dependsOn(
+        "checkIntegration",
+        "checkAsmSupplyChainAdmission",
+        "checkMappingReviewWrapperArgs",
+        "checkSdkApiBaselineTool",
+        "checkSdkApiReferenceBuilder",
+        "checkStableSdkCompatibility"
+    )
+}
+
+tasks.register("checkLegacyGovernance") {
+    group = "legacy verification"
+    description = "Opt-in validation for retained historical ledgers, contracts, mapping closure, and the exact SDK snapshot."
+    dependsOn(
+        checkLegacyFrameworkCapabilityExtraction,
+        checkLegacyFrameworkCapabilityExtractionMutations,
+        checkLegacyUserEffectCensus,
+        checkLegacyEffectContracts,
+        "checkMappingPipelineClosure",
+        "checkSdkPhase1ExactApiCompatibility"
+    )
+}
+
 tasks.named("check") {
     dependsOn(
-        checkAsyncHostReadFoundation, "checkModuleBoundaries", "checkAsmSupplyChainAdmission",
-        "checkMappingPipelineClosure", "checkMappingReviewWrapperArgs", "checkPluginInspectionRuntime",
-        "checkDistributionProtocolContract", checkLegacyFrameworkCapabilityExtraction,
-        checkLegacyFrameworkCapabilityExtractionMutations, checkLegacyUserEffectCensus,
-        checkLegacyEffectContracts, checkLegacyPluginB1Admission,
-        "checkSdkApiBaselineTool", "checkSdkApiReferenceBuilder",
-        "checkSdkPrePhaseApiCompatibility", "checkSdkPhase1ExactApiCompatibility",
-        "checkPreviewBundleLayout", "previewAgentSmokeTest",
-        "checkPreviewRuntimeReports", ":tests:previewPluginRuntimeTest", ":tests:migrationSuiteSafeTest",
-        checkMigrationSuiteBundleReproducibility, "checkOfficialPluginI18nCompleteness", "validatePluginMeta"
+        checkAsyncHostReadFoundation,
+        "checkModuleBoundaries",
+        "checkOfficialPluginI18nCompleteness",
+        "checkStableSdkCompatibility",
+        "validatePluginMeta"
     )
 }
