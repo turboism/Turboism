@@ -3,7 +3,7 @@ package dev.turboism.tests.runtime;
 import dev.turboism.adapter.cubism.CubismFacadeImpl;
 import dev.turboism.adapter.cubism.HostSnapshotSource;
 import dev.turboism.adapter.cubism.service.query.SelectionQueryServiceImpl;
-import dev.turboism.core.runtime.PluginExecutorRegistry;
+import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.sdk.plugin.WorkBudget;
@@ -93,7 +93,7 @@ class SelectionQueryIsolationTest {
         );
         final RuntimeScheduler scheduler = new RuntimeScheduler(
             task -> WorkBudget.SIDECAR,
-            new PluginExecutorRegistry(1, 2, event -> { }, FIXED_CLOCK),
+            new PluginWorkExecutorRegistry(1, 2, event -> { }, FIXED_CLOCK),
             dispatcher,
             event -> { }
         );

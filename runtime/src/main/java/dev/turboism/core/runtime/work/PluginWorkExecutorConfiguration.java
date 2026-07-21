@@ -1,18 +1,18 @@
-package dev.turboism.core.runtime;
+package dev.turboism.core.runtime.work;
 
 import java.time.Duration;
 import java.util.Objects;
 
-final class PluginCallbackExecutorConfiguration {
+final class PluginWorkExecutorConfiguration {
 
-    static final PluginCallbackExecutorConfiguration DEFAULT = of(500, 2, 64, 50.0f);
+    static final PluginWorkExecutorConfiguration DEFAULT = of(500, 2, 64, 50.0f);
 
     private final Duration timeoutDuration;
     private final int bulkheadPoolSize;
     private final int queueCapacity;
     private final float circuitBreakerFailureRateThreshold;
 
-    private PluginCallbackExecutorConfiguration(
+    private PluginWorkExecutorConfiguration(
         Duration timeoutDuration,
         int bulkheadPoolSize,
         int queueCapacity,
@@ -27,13 +27,13 @@ final class PluginCallbackExecutorConfiguration {
         );
     }
 
-    static PluginCallbackExecutorConfiguration of(
+    static PluginWorkExecutorConfiguration of(
         long timeoutMillis,
         int bulkheadPoolSize,
         int queueCapacity,
         float circuitBreakerFailureRateThreshold
     ) {
-        return new PluginCallbackExecutorConfiguration(
+        return new PluginWorkExecutorConfiguration(
             Duration.ofMillis(requirePositiveMillis(timeoutMillis, "timeoutMillis")),
             bulkheadPoolSize,
             queueCapacity,

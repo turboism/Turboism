@@ -1,6 +1,6 @@
 package dev.turboism.core.runtime.sidecar;
 
-import dev.turboism.core.diagnostics.CallbackBudgetEvent;
+import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
 import dev.turboism.core.runtime.PluginTask;
 import org.junit.jupiter.api.Test;
 
@@ -26,7 +26,7 @@ class SidecarSupervisorTest {
     @Test
     void successfulSidecarTaskReturnsCompletedFutureAndKeepsHealthHealthy() {
         // Given
-        List<CallbackBudgetEvent> events = new CopyOnWriteArrayList<>();
+        List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         FakeDispatcher dispatcher = new FakeDispatcher(List.of(SidecarResult.success("{\"ok\":true}")));
         SidecarSupervisor supervisor = new SidecarSupervisor(dispatcher, 2, events::add);
 
@@ -50,7 +50,7 @@ class SidecarSupervisorTest {
     @Test
     void crashIncrementsCrashCountAndRestartsBeforeReturningSuccessfulRetry() {
         // Given
-        List<CallbackBudgetEvent> events = new CopyOnWriteArrayList<>();
+        List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         FakeDispatcher dispatcher = new FakeDispatcher(List.of(
             SidecarResult.error("SIDECAR_EXIT_FAILED", "process exited 1"),
             SidecarResult.success("{\"retry\":true}")
@@ -71,8 +71,8 @@ class SidecarSupervisorTest {
             () -> assertEquals(1, supervisor.crashCount()),
             () -> assertEquals(2, dispatcher.dispatchCount()),
             () -> assertEquals(List.of(
-                event("action.handle", CallbackBudgetEvent.Phase.FAILED, CallbackBudgetEvent.Severity.WARNING),
-                event("action.handle", CallbackBudgetEvent.Phase.QUEUED, CallbackBudgetEvent.Severity.INFO)
+                event("action.handle", PluginWorkBudgetEvent.Phase.FAILED, PluginWorkBudgetEvent.Severity.WARNING),
+                event("action.handle", PluginWorkBudgetEvent.Phase.QUEUED, PluginWorkBudgetEvent.Severity.INFO)
             ), events)
         );
     }
@@ -80,7 +80,7 @@ class SidecarSupervisorTest {
     @Test
     void maxRestartsExceededMarksSidecarUnavailableAndSubsequentTasksFailFast() {
         // Given
-        List<CallbackBudgetEvent> events = new CopyOnWriteArrayList<>();
+        List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         FakeDispatcher dispatcher = new FakeDispatcher(List.of(
             SidecarResult.error("SIDECAR_EXIT_FAILED", "first crash"),
             SidecarResult.error("SIDECAR_EXIT_FAILED", "second crash")
@@ -112,7 +112,7 @@ class SidecarSupervisorTest {
     @Test
     void diagnosticsAreEmittedForCrashRestartAndUnavailableTransitions() {
         // Given
-        List<CallbackBudgetEvent> events = new CopyOnWriteArrayList<>();
+        List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         FakeDispatcher dispatcher = new FakeDispatcher(List.of(
             SidecarResult.error("SIDECAR_EXIT_FAILED", "first crash"),
             SidecarResult.error("SIDECAR_EXIT_FAILED", "second crash")
@@ -127,23 +127,23 @@ class SidecarSupervisorTest {
 
         // Then
         assertEquals(List.of(
-            event("action.handle", CallbackBudgetEvent.Phase.FAILED, CallbackBudgetEvent.Severity.WARNING),
-            event("action.handle", CallbackBudgetEvent.Phase.QUEUED, CallbackBudgetEvent.Severity.INFO),
-            event("action.handle", CallbackBudgetEvent.Phase.FAILED, CallbackBudgetEvent.Severity.WARNING),
-            event("action.handle", CallbackBudgetEvent.Phase.CIRCUIT_OPEN, CallbackBudgetEvent.Severity.ERROR)
+            event("action.handle", PluginWorkBudgetEvent.Phase.FAILED, PluginWorkBudgetEvent.Severity.WARNING),
+            event("action.handle", PluginWorkBudgetEvent.Phase.QUEUED, PluginWorkBudgetEvent.Severity.INFO),
+            event("action.handle", PluginWorkBudgetEvent.Phase.FAILED, PluginWorkBudgetEvent.Severity.WARNING),
+            event("action.handle", PluginWorkBudgetEvent.Phase.CIRCUIT_OPEN, PluginWorkBudgetEvent.Severity.ERROR)
         ), events);
     }
 
-    private static CallbackBudgetEvent event(
+    private static PluginWorkBudgetEvent event(
         String taskId,
-        CallbackBudgetEvent.Phase phase,
-        CallbackBudgetEvent.Severity severity
+        PluginWorkBudgetEvent.Phase phase,
+        PluginWorkBudgetEvent.Severity severity
     ) {
-        return new CallbackBudgetEvent(
+        return new PluginWorkBudgetEvent(
             PLUGIN_ID,
             taskId,
             phase,
-            CallbackBudgetEvent.Decision.SIDECAR,
+            PluginWorkBudgetEvent.Decision.SIDECAR,
             severity
         );
     }

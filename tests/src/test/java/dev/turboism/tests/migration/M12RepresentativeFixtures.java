@@ -3,8 +3,8 @@ package dev.turboism.tests.migration;
 import dev.turboism.adapter.cubism.CubismFacadeImpl;
 import dev.turboism.adapter.cubism.HostSnapshotSource;
 import dev.turboism.adapter.cubism.write.FakeHostWriteAdapter;
-import dev.turboism.core.diagnostics.CallbackBudgetEvent;
-import dev.turboism.core.runtime.PluginExecutorRegistry;
+import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
+import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.WorkBudgetPolicy;
@@ -100,8 +100,8 @@ final class M12RepresentativeFixtures {
     }
 
     static RuntimeScheduler scheduler(RecordingPolicy policy) {
-        List<CallbackBudgetEvent> events = new CopyOnWriteArrayList<>();
-        return new RuntimeScheduler(policy, new PluginExecutorRegistry(1, 8, events::add, CLOCK), SidecarDispatcher.noop(), events::add);
+        List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
+        return new RuntimeScheduler(policy, new PluginWorkExecutorRegistry(1, 8, events::add, CLOCK), SidecarDispatcher.noop(), events::add);
     }
 
     static PluginPermission permission(String id) {

@@ -2,7 +2,7 @@ package dev.turboism.tests.preview;
 
 import dev.turboism.bootstrap.HostRuntimeIngress;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
-import dev.turboism.core.runtime.PluginExecutorRegistry;
+import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.preview.LocalPluginRuntime;
@@ -103,7 +103,7 @@ class LocalPluginRuntimeMultiEntrypointIntegrationTest {
     private static RuntimeScheduler scheduler() {
         return new RuntimeScheduler(
             new DefaultWorkBudgetPolicy(),
-            new PluginExecutorRegistry(
+            new PluginWorkExecutorRegistry(
                 1,
                 16,
                 ignored -> { },

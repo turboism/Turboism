@@ -1,36 +1,37 @@
-package dev.turboism.core.runtime;
+package dev.turboism.core.runtime.work;
 
-import dev.turboism.core.diagnostics.CallbackBudgetEvent;
+import dev.turboism.core.runtime.PluginTask;
+import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
 import java.time.Clock;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Consumer;
 
-public final class PluginExecutorRegistry {
+public final class PluginWorkExecutorRegistry {
 
-    private final PluginCallbackExecutorConfiguration configuration;
-    private final Consumer<CallbackBudgetEvent> diagnosticSink;
+    private final PluginWorkExecutorConfiguration configuration;
+    private final Consumer<PluginWorkBudgetEvent> diagnosticSink;
     private final Clock clock;
-    private final ConcurrentMap<String, PluginCallbackExecutor> executors = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, PluginWorkExecutor> executors = new ConcurrentHashMap<>();
 
-    public PluginExecutorRegistry(
+    public PluginWorkExecutorRegistry(
         int workerCount,
         int queueCapacity,
-        Consumer<CallbackBudgetEvent> diagnosticSink,
+        Consumer<PluginWorkBudgetEvent> diagnosticSink,
         Clock clock
     ) {
         this(500L, workerCount, queueCapacity, diagnosticSink, clock);
     }
 
-    public PluginExecutorRegistry(
+    public PluginWorkExecutorRegistry(
         long timeoutMillis,
         int workerCount,
         int queueCapacity,
-        Consumer<CallbackBudgetEvent> diagnosticSink,
+        Consumer<PluginWorkBudgetEvent> diagnosticSink,
         Clock clock
     ) {
-        this.configuration = PluginCallbackExecutorConfiguration.of(
+        this.configuration = PluginWorkExecutorConfiguration.of(
             timeoutMillis,
             requirePositive(workerCount, "workerCount"),
             requirePositive(queueCapacity, "queueCapacity"),
@@ -40,22 +41,22 @@ public final class PluginExecutorRegistry {
         this.clock = Objects.requireNonNull(clock, "clock");
     }
 
-    public PluginCallbackExecutor get(String pluginId) {
+    public PluginWorkExecutor get(String pluginId) {
         String id = requireText(pluginId, "pluginId");
         return executors.computeIfAbsent(id, this::createExecutor);
     }
 
-    public CallbackSubmission submitCompletion(
+    public PluginWorkSubmission submitCompletion(
         String pluginId,
         PluginTask task,
-        Runnable callback
+        Runnable work
     ) {
-        return get(pluginId).submitCompletion(task, callback);
+        return get(pluginId).submitCompletion(task, work);
     }
 
     public void shutdown(String pluginId) {
         String id = requireText(pluginId, "pluginId");
-        PluginCallbackExecutor executor = executors.remove(id);
+        PluginWorkExecutor executor = executors.remove(id);
         if (executor != null) {
             executor.shutdown();
         }
@@ -69,8 +70,8 @@ public final class PluginExecutorRegistry {
         });
     }
 
-    private PluginCallbackExecutor createExecutor(String pluginId) {
-        return new PluginCallbackExecutor(
+    private PluginWorkExecutor createExecutor(String pluginId) {
+        return new PluginWorkExecutor(
             pluginId,
             configuration,
             diagnosticSink,

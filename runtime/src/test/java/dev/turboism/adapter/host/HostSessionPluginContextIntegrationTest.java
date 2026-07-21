@@ -4,10 +4,10 @@ import dev.turboism.adapter.RuntimeHostAdapters;
 import dev.turboism.adapter.cubism.ClipMaskReadAdapter;
 import dev.turboism.adapter.cubism.HostSnapshotSource;
 import dev.turboism.adapter.cubism.ProjectWorkspaceAdapter;
-import dev.turboism.core.diagnostics.CallbackBudgetEvent;
+import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
 import dev.turboism.core.plugin.context.CorePluginContext;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
-import dev.turboism.core.runtime.PluginExecutorRegistry;
+import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.diagnostics.CubismFacadeAuditEvent;
@@ -220,10 +220,10 @@ class HostSessionPluginContextIntegrationTest {
     }
 
     private static RuntimeScheduler scheduler() {
-        List<CallbackBudgetEvent> events = new CopyOnWriteArrayList<>();
+        List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         return new RuntimeScheduler(
             new DefaultWorkBudgetPolicy(),
-            new PluginExecutorRegistry(1, 4, events::add, CLOCK),
+            new PluginWorkExecutorRegistry(1, 4, events::add, CLOCK),
             SidecarDispatcher.noop(),
             events::add
         );

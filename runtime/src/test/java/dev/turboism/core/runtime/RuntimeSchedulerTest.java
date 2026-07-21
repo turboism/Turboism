@@ -1,7 +1,8 @@
 package dev.turboism.core.runtime;
 
-import dev.turboism.core.diagnostics.CallbackBudgetEvent;
+import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
+import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.core.runtime.sidecar.SidecarResult;
 import org.junit.jupiter.api.Test;
 
@@ -34,7 +35,7 @@ class RuntimeSchedulerTest {
     @Test
     void lightweightTaskIsDispatchedToPluginExecutorAndRunsAsynchronously() throws InterruptedException {
         // Given
-        List<CallbackBudgetEvent> events = new CopyOnWriteArrayList<>();
+        List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         RuntimeScheduler scheduler = scheduler(events, new RecordingSidecarDispatcher());
         CountDownLatch completed = new CountDownLatch(1);
         AtomicReference<String> workerThread = new AtomicReference<>();
@@ -56,7 +57,7 @@ class RuntimeSchedulerTest {
     @Test
     void rejectedTaskIsNotExecutedAndEmitsDiagnosticEvent() {
         // Given
-        List<CallbackBudgetEvent> events = new CopyOnWriteArrayList<>();
+        List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         RuntimeScheduler scheduler = scheduler(events, new RecordingSidecarDispatcher());
         AtomicInteger executions = new AtomicInteger();
 
@@ -65,12 +66,12 @@ class RuntimeSchedulerTest {
 
         // Then
         assertEquals(0, executions.get());
-        assertEquals(List.of(new CallbackBudgetEvent(
+        assertEquals(List.of(new PluginWorkBudgetEvent(
             PLUGIN_ID,
             "network",
-            CallbackBudgetEvent.Phase.REJECTED,
-            CallbackBudgetEvent.Decision.REJECTED,
-            CallbackBudgetEvent.Severity.WARNING
+            PluginWorkBudgetEvent.Phase.REJECTED,
+            PluginWorkBudgetEvent.Decision.REJECTED,
+            PluginWorkBudgetEvent.Severity.WARNING
         )), events);
         scheduler.shutdown();
     }
@@ -78,7 +79,7 @@ class RuntimeSchedulerTest {
     @Test
     void sidecarTaskIsHandedToSidecarDispatcher() {
         // Given
-        List<CallbackBudgetEvent> events = new CopyOnWriteArrayList<>();
+        List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         RecordingSidecarDispatcher sidecar = new RecordingSidecarDispatcher();
         RuntimeScheduler scheduler = scheduler(events, sidecar);
         PluginTask task = task("ai", "sidecar");
@@ -95,7 +96,7 @@ class RuntimeSchedulerTest {
 
     @Test
     void heavyTaskUsesAvailableSidecarAndNeverEntersPluginExecutor() {
-        final List<CallbackBudgetEvent> events = new CopyOnWriteArrayList<>();
+        final List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         final RecordingSidecarDispatcher sidecar = new RecordingSidecarDispatcher();
         final RuntimeScheduler scheduler = scheduler(events, sidecar);
         final AtomicInteger executions = new AtomicInteger();
@@ -111,20 +112,20 @@ class RuntimeSchedulerTest {
 
     @Test
     void heavyTaskIsPolicyRejectedWhenSidecarIsUnavailable() {
-        final List<CallbackBudgetEvent> events = new CopyOnWriteArrayList<>();
+        final List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         final RuntimeScheduler scheduler = scheduler(events, SidecarDispatcher.noop());
         final AtomicInteger executions = new AtomicInteger();
 
         scheduler.dispatch(task("config.write", "none"), executions::incrementAndGet);
 
         assertEquals(0, executions.get());
-        assertEquals(CallbackBudgetEvent.Phase.REJECTED, events.get(0).phase());
+        assertEquals(PluginWorkBudgetEvent.Phase.REJECTED, events.get(0).phase());
         scheduler.shutdown();
     }
 
     @Test
     void globalTimerLimitRejectsOverflowWithoutBlockingAndReleasesPermitsExactlyOnce() {
-        final List<CallbackBudgetEvent> events = new CopyOnWriteArrayList<>();
+        final List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         final RuntimeScheduler scheduler = scheduler(events, new RecordingSidecarDispatcher());
         final java.util.ArrayList<RuntimeTimerSubmission> timers = new java.util.ArrayList<>();
         for (int index = 0; index < 1024; index++) {
@@ -147,7 +148,7 @@ class RuntimeSchedulerTest {
 
     @Test
     void executedTimerReleasesPermitExactlyOnce() throws Exception {
-        final List<CallbackBudgetEvent> events = new CopyOnWriteArrayList<>();
+        final List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         final RuntimeScheduler scheduler = scheduler(events, new RecordingSidecarDispatcher());
         final CountDownLatch executed = new CountDownLatch(1);
         assertTrue(scheduler.schedule(Duration.ZERO, executed::countDown).accepted());
@@ -161,7 +162,7 @@ class RuntimeSchedulerTest {
 
     @Test
     void shutdownReleasesEveryActiveTimerPermitWithoutUnderflow() {
-        final List<CallbackBudgetEvent> events = new CopyOnWriteArrayList<>();
+        final List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         final RuntimeScheduler scheduler = scheduler(events, new RecordingSidecarDispatcher());
         final java.util.ArrayList<RuntimeTimerSubmission> timers = new java.util.ArrayList<>();
         for (int index = 0; index < 1024; index++) {
@@ -182,7 +183,7 @@ class RuntimeSchedulerTest {
 
     @Test
     void executedCancelAndShutdownRaceDoesNotUnderflowTimerPermits() throws Exception {
-        final List<CallbackBudgetEvent> events = new CopyOnWriteArrayList<>();
+        final List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         final RuntimeScheduler scheduler = scheduler(events, new RecordingSidecarDispatcher());
         final CountDownLatch started = new CountDownLatch(1);
         final CountDownLatch release = new CountDownLatch(1);
@@ -208,7 +209,7 @@ class RuntimeSchedulerTest {
     @Test
     void shutdownDrainsAllPluginExecutors() throws InterruptedException {
         // Given
-        List<CallbackBudgetEvent> events = new CopyOnWriteArrayList<>();
+        List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         RuntimeScheduler scheduler = scheduler(events, new RecordingSidecarDispatcher());
         CountDownLatch firstStarted = new CountDownLatch(1);
         CountDownLatch releaseFirst = new CountDownLatch(1);
@@ -233,7 +234,7 @@ class RuntimeSchedulerTest {
     @Test
     void cancellationContextIsClearedAfterCallbackFinishes() throws InterruptedException {
         // Given
-        List<CallbackBudgetEvent> events = new CopyOnWriteArrayList<>();
+        List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         RecordingSidecarDispatcher sidecar = new RecordingSidecarDispatcher();
         RuntimeScheduler scheduler = scheduler(events, sidecar);
         CountDownLatch completed = new CountDownLatch(1);
@@ -257,7 +258,7 @@ class RuntimeSchedulerTest {
     @Test
     void sidecarCompletionCallbackRunsThroughPluginExecutor() throws InterruptedException {
         // Given
-        List<CallbackBudgetEvent> events = new CopyOnWriteArrayList<>();
+        List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         RecordingSidecarDispatcher sidecar = new RecordingSidecarDispatcher();
         RuntimeScheduler scheduler = scheduler(events, sidecar);
         CountDownLatch completed = new CountDownLatch(1);
@@ -281,7 +282,7 @@ class RuntimeSchedulerTest {
     @Test
     void sidecarFailureEmitsDiagnosticEvent() {
         // Given
-        List<CallbackBudgetEvent> events = new CopyOnWriteArrayList<>();
+        List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         RecordingSidecarDispatcher sidecar = new RecordingSidecarDispatcher(SidecarResult.error("SIDECAR_EXIT_FAILED", "boom"));
         RuntimeScheduler scheduler = scheduler(events, sidecar);
 
@@ -289,23 +290,23 @@ class RuntimeSchedulerTest {
         scheduler.dispatch(task("ai", "sidecar"), () -> { });
 
         // Then
-        assertEquals(List.of(new CallbackBudgetEvent(
+        assertEquals(List.of(new PluginWorkBudgetEvent(
             PLUGIN_ID,
             "ai",
-            CallbackBudgetEvent.Phase.FAILED,
-            CallbackBudgetEvent.Decision.SIDECAR,
-            CallbackBudgetEvent.Severity.ERROR
+            PluginWorkBudgetEvent.Phase.FAILED,
+            PluginWorkBudgetEvent.Decision.SIDECAR,
+            PluginWorkBudgetEvent.Severity.ERROR
         )), events);
         scheduler.shutdown();
     }
 
     private static RuntimeScheduler scheduler(
-        List<CallbackBudgetEvent> events,
+        List<PluginWorkBudgetEvent> events,
         SidecarDispatcher sidecarDispatcher
     ) {
         return new RuntimeScheduler(
             new DefaultWorkBudgetPolicy(),
-            new PluginExecutorRegistry(1, 2, events::add, CLOCK),
+            new PluginWorkExecutorRegistry(1, 2, events::add, CLOCK),
             sidecarDispatcher,
             events::add
         );

@@ -7,7 +7,7 @@ import dev.turboism.sdk.plugin.TaskCanceledException;
  * Runtime-side cooperative cancellation token.
  *
  * <p>Thread-safe: cancellation may be requested from any thread, and the
- * cancellation check may be performed from plugin callback threads.
+ * cancellation check may be performed from plugin work threads.
  */
 public final class RuntimeCancellationToken implements CancellationToken {
 

@@ -1,18 +1,19 @@
-package dev.turboism.core.runtime;
+package dev.turboism.core.runtime.work;
 
+import dev.turboism.core.runtime.PluginTask;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 
-final class PluginCallback implements Runnable {
+final class PluginWorkItem implements Runnable {
 
     private final PluginTask task;
-    private final Runnable callback;
+    private final Runnable work;
     private final AtomicInteger completed = new AtomicInteger(0);
     private volatile Thread runningThread;
 
-    PluginCallback(PluginTask task, Runnable callback) {
+    PluginWorkItem(PluginTask task, Runnable work) {
         this.task = Objects.requireNonNull(task, "task");
-        this.callback = Objects.requireNonNull(callback, "callback");
+        this.work = Objects.requireNonNull(work, "work");
     }
 
     PluginTask task() {
@@ -23,7 +24,7 @@ final class PluginCallback implements Runnable {
     public void run() {
         runningThread = Thread.currentThread();
         try {
-            callback.run();
+            work.run();
         } finally {
             completed.set(1);
             runningThread = null;

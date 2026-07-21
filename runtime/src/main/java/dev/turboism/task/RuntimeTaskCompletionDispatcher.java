@@ -1,8 +1,8 @@
 package dev.turboism.task;
 
 import dev.turboism.cleanup.CleanupEvidenceCollector;
-import dev.turboism.core.runtime.CallbackExecutionStatus;
-import dev.turboism.core.runtime.CallbackSubmission;
+import dev.turboism.core.runtime.work.PluginWorkStatus;
+import dev.turboism.core.runtime.work.PluginWorkSubmission;
 import dev.turboism.core.runtime.RuntimeScheduler;
 
 import java.time.Duration;
@@ -129,7 +129,7 @@ final class RuntimeTaskCompletionDispatcher {
         if (dispatched.started.get()) {
             return;
         }
-        final CallbackSubmission submission = runtimeScheduler.submitCompletion(
+        final PluginWorkSubmission submission = runtimeScheduler.submitCompletion(
             pluginId,
             dispatched::run
         );
@@ -143,7 +143,7 @@ final class RuntimeTaskCompletionDispatcher {
             }
             if (failure != null
                 || result == null
-                || result.status() != CallbackExecutionStatus.SUCCEEDED) {
+                || result.status() != PluginWorkStatus.SUCCEEDED) {
                 retry(dispatched);
             }
         });

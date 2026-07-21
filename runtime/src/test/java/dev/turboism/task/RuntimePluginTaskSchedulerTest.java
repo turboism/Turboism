@@ -1,7 +1,7 @@
 package dev.turboism.task;
 
 import dev.turboism.cleanup.CleanupEvidenceCollector;
-import dev.turboism.core.runtime.PluginExecutorRegistry;
+import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.RuntimeTimerSubmission;
@@ -476,7 +476,7 @@ class RuntimePluginTaskSchedulerTest {
                 await(releaseAdmission);
                 return WorkBudget.HEAVY;
             },
-            new PluginExecutorRegistry(500L, 1, 8, ignored -> { }, Clock.systemUTC()),
+            new PluginWorkExecutorRegistry(500L, 1, 8, ignored -> { }, Clock.systemUTC()),
             SidecarDispatcher.noop(),
             ignored -> { }
         );
@@ -528,7 +528,7 @@ class RuntimePluginTaskSchedulerTest {
                 await(releaseAdmission);
                 return WorkBudget.HEAVY;
             },
-            new PluginExecutorRegistry(500L, 1, 8, ignored -> { }, Clock.systemUTC()),
+            new PluginWorkExecutorRegistry(500L, 1, 8, ignored -> { }, Clock.systemUTC()),
             SidecarDispatcher.noop(),
             ignored -> { }
         );
@@ -617,7 +617,7 @@ class RuntimePluginTaskSchedulerTest {
                 await(releaseAdmission);
                 return WorkBudget.LIGHTWEIGHT;
             },
-            new PluginExecutorRegistry(500L, 1, 8, ignored -> { }, Clock.systemUTC()),
+            new PluginWorkExecutorRegistry(500L, 1, 8, ignored -> { }, Clock.systemUTC()),
             SidecarDispatcher.noop(),
             ignored -> { }
         );
@@ -702,7 +702,7 @@ class RuntimePluginTaskSchedulerTest {
                 await(releaseIterationAdmission);
                 return WorkBudget.LIGHTWEIGHT;
             },
-            new PluginExecutorRegistry(500L, 1, 8, ignored -> { }, Clock.systemUTC()),
+            new PluginWorkExecutorRegistry(500L, 1, 8, ignored -> { }, Clock.systemUTC()),
             SidecarDispatcher.noop(),
             ignored -> { }
         );
@@ -1175,7 +1175,7 @@ class RuntimePluginTaskSchedulerTest {
     ) {
         runtimeScheduler = new RuntimeScheduler(
             ignored -> WorkBudget.LIGHTWEIGHT,
-            new PluginExecutorRegistry(
+            new PluginWorkExecutorRegistry(
                 500L,
                 workers,
                 queueCapacity,
@@ -1207,7 +1207,7 @@ class RuntimePluginTaskSchedulerTest {
     ) {
         runtimeScheduler = new RuntimeScheduler(
             policy,
-            new PluginExecutorRegistry(
+            new PluginWorkExecutorRegistry(
                 500L,
                 workers,
                 queueCapacity,
@@ -1243,7 +1243,7 @@ class RuntimePluginTaskSchedulerTest {
     ) {
         runtimeScheduler = new RuntimeScheduler(
             policy,
-            new PluginExecutorRegistry(
+            new PluginWorkExecutorRegistry(
                 timeoutMillis,
                 workers,
                 queueCapacity,

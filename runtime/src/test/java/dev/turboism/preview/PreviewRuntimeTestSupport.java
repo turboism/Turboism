@@ -1,7 +1,7 @@
 package dev.turboism.preview;
 
 import dev.turboism.bootstrap.HostRuntimeIngress;
-import dev.turboism.core.runtime.PluginExecutorRegistry;
+import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.preview.report.PreviewReportWriter;
@@ -20,7 +20,7 @@ final class PreviewRuntimeTestSupport {
     static RuntimeScheduler rejectedScheduler() {
         return new RuntimeScheduler(
             task -> WorkBudget.REJECTED,
-            new PluginExecutorRegistry(1, 4, ignored -> { }, Clock.systemUTC()),
+            new PluginWorkExecutorRegistry(1, 4, ignored -> { }, Clock.systemUTC()),
             SidecarDispatcher.noop(),
             ignored -> { }
         );

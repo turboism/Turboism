@@ -2,7 +2,7 @@ package dev.turboism.core.action;
 
 import dev.turboism.core.diagnostics.StartupReport;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
-import dev.turboism.core.runtime.PluginExecutorRegistry;
+import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.permissions.PermissionChecker;
@@ -149,10 +149,10 @@ class RuntimeActionRegistryTest {
 
     private RuntimeActionRegistry registry() {
         problems.clear();
-        List<dev.turboism.core.diagnostics.CallbackBudgetEvent> events = new CopyOnWriteArrayList<>();
+        List<dev.turboism.core.diagnostics.PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         scheduler = new RuntimeScheduler(
             new DefaultWorkBudgetPolicy(),
-            new PluginExecutorRegistry(1, 2, events::add, CLOCK),
+            new PluginWorkExecutorRegistry(1, 2, events::add, CLOCK),
             SidecarDispatcher.noop(),
             events::add
         );
