@@ -6,7 +6,7 @@ import java.util.Objects;
 import java.util.function.Consumer;
 
 /**
- * Fake-first hook ingress dispatcher.
+ * Semantic hook ingress dispatcher.
  *
  * <p>Dispatch validates that semantic ingress exists, remains production-disabled,
  * and only enqueues/publishes SDK-safe event DTOs. It does not execute plugin

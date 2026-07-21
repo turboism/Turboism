@@ -7,7 +7,7 @@ import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.cubism.mesh.MeshWriteCommand;
 import dev.turboism.sdk.cubism.mesh.MirrorWritebackCommand;
 import dev.turboism.sdk.cubism.psd.PsdBindingWriteCommand;
-import dev.turboism.sdk.cubism.transaction.DocumentId;
+import dev.turboism.sdk.cubism.id.DocumentId;
 import dev.turboism.sdk.cubism.transaction.TransactionException;
 import dev.turboism.sdk.cubism.write.CubismWriteCommand;
 import dev.turboism.sdk.cubism.write.WriteCanvasCommand;
@@ -90,8 +90,8 @@ public class FakeHostWriteAdapter implements HostWriteAdapter, HostSnapshotSourc
     @Override
     public synchronized void restore(final HostSnapshot snapshot) throws TransactionException {
         final FakeDocument document = documentFrom(snapshot);
-        documents.put(snapshot.documentId().id(), document.copy());
-        activeDocumentId = snapshot.documentId().id();
+        documents.put(snapshot.documentId().value(), document.copy());
+        activeDocumentId = snapshot.documentId().value();
         version++;
     }
 
@@ -196,9 +196,9 @@ public class FakeHostWriteAdapter implements HostWriteAdapter, HostSnapshotSourc
     }
 
     private FakeDocument document(final DocumentId documentId) throws TransactionException {
-        final FakeDocument document = documents.get(documentId.id());
+        final FakeDocument document = documents.get(documentId.value());
         if (document == null) {
-            throw error(documentId.id(), UNKNOWN_DOCUMENT, "Unknown document " + documentId.id());
+            throw error(documentId.value(), UNKNOWN_DOCUMENT, "Unknown document " + documentId.value());
         }
         return document;
     }
@@ -212,7 +212,7 @@ public class FakeHostWriteAdapter implements HostWriteAdapter, HostSnapshotSourc
             final FakeDocument document = fakeSnapshot.document();
             return document;
         }
-        throw error(snapshot.documentId().id(), UNKNOWN_DOCUMENT, "Invalid fake snapshot");
+        throw error(snapshot.documentId().value(), UNKNOWN_DOCUMENT, "Invalid fake snapshot");
     }
 
     private HostDocument hostDocument(final FakeDocument document) {
