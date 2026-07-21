@@ -1,9 +1,9 @@
 package dev.turboism.sdk.cubism;
 
 import dev.turboism.sdk.PreviewApi;
-import dev.turboism.sdk.cubism.callback.ModelHooks;
-import dev.turboism.sdk.cubism.callback.ParameterHooks;
-import dev.turboism.sdk.cubism.callback.PartHooks;
+import dev.turboism.sdk.cubism.hook.ModelHooks;
+import dev.turboism.sdk.cubism.hook.ParameterHooks;
+import dev.turboism.sdk.cubism.hook.PartHooks;
 import dev.turboism.sdk.plugin.TurboismPlugin;
 
 /**
