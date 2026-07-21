@@ -37,16 +37,24 @@ final class PreviewPluginShutdownStages {
         if (loadedPlugin.runtime().state() != PluginLifecycleState.ENABLED) {
             return "NOT_REQUIRED";
         }
-        try {
-            loadedPlugin.plugin().disable();
-            loadedPlugin.runtime().transitionTo(PluginLifecycleState.DISABLED);
-            return "SUCCEEDED";
-        } catch (Throwable exception) {
-            loadedPlugin.runtime().transitionTo(PluginLifecycleState.DISABLE_FAILED);
-            failures.add(failure("PLUGIN_DISABLE_FAILED", "disable", "Plugin disable failed safely."));
-            logFailure(id, "PLUGIN_DISABLE_FAILED");
-            return "FAILED";
+        boolean failed = false;
+        for (int index = loadedPlugin.entrypoints().size() - 1; index >= 0; index--) {
+            try {
+                loadedPlugin.entrypoints().get(index).disable();
+            } catch (Throwable exception) {
+                failed = true;
+                failures.add(failure(
+                    "PLUGIN_DISABLE_FAILED",
+                    "disable",
+                    "Plugin entrypoint disable failed safely."
+                ));
+                logFailure(id, "PLUGIN_DISABLE_FAILED");
+            }
         }
+        loadedPlugin.runtime().transitionTo(
+            failed ? PluginLifecycleState.DISABLE_FAILED : PluginLifecycleState.DISABLED
+        );
+        return failed ? "FAILED" : "SUCCEEDED";
     }
 
     private String shutdown(
@@ -54,16 +62,24 @@ final class PreviewPluginShutdownStages {
         final List<LocalPluginRuntime.PluginSummaryFailure> failures,
         final String id
     ) {
-        try {
-            loadedPlugin.plugin().shutdown();
-            loadedPlugin.runtime().transitionTo(PluginLifecycleState.SHUTDOWN);
-            return "SUCCEEDED";
-        } catch (Throwable exception) {
-            loadedPlugin.runtime().transitionTo(PluginLifecycleState.SHUTDOWN_FAILED);
-            failures.add(failure("PLUGIN_SHUTDOWN_FAILED", "shutdown", "Plugin shutdown failed safely."));
-            logFailure(id, "PLUGIN_SHUTDOWN_FAILED");
-            return "FAILED";
+        boolean failed = false;
+        for (int index = loadedPlugin.entrypoints().size() - 1; index >= 0; index--) {
+            try {
+                loadedPlugin.entrypoints().get(index).shutdown();
+            } catch (Throwable exception) {
+                failed = true;
+                failures.add(failure(
+                    "PLUGIN_SHUTDOWN_FAILED",
+                    "shutdown",
+                    "Plugin entrypoint shutdown failed safely."
+                ));
+                logFailure(id, "PLUGIN_SHUTDOWN_FAILED");
+            }
         }
+        loadedPlugin.runtime().transitionTo(
+            failed ? PluginLifecycleState.SHUTDOWN_FAILED : PluginLifecycleState.SHUTDOWN
+        );
+        return failed ? "FAILED" : "SUCCEEDED";
     }
 
     private ScopeResult closeScope(

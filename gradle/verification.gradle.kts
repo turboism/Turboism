@@ -104,7 +104,7 @@ val checkLegacyPluginB1Admission by tasks.registering(Exec::class) {
     group = "legacy verification"
     description = "Verifies the retired B1 migration-admission evidence."
     workingDir(rootDir)
-    dependsOn("checkSdkPhase1ExactApiCompatibility", "checkModuleBoundaries")
+    dependsOn("checkSdkV2ExactApiCompatibility", "checkModuleBoundaries")
     inputs.files(
         "scripts/test/check_legacy_plugin_b1_admission.py",
         "scripts/test/check_legacy_plugin_b1_source_boundaries.py",
@@ -153,6 +153,55 @@ val checkAsyncHostReadFoundation by tasks.registering {
     )
 }
 
+val checkCubismCoreApiInventory by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Validates exact-artifact Cubism Core public API inventories and generated reference drift."
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/cubism_core_api.py",
+        "scripts/test/test_cubism_core_api_inventory.py",
+        "docs/schema/cubism-core-public-api-v1.md",
+        "docs/migration/cubism-core-api-reference.md",
+        "cubism-ref/index.md",
+        fileTree("cubism-ref/core-api/observed") { include("*.json") },
+        "cubism-ref/mapping-packs/draft/cubism-5.2-core-model-read.json",
+        "cubism-ref/mapping-packs/draft/cubism-5.3.02-core-model-read.json",
+        "cubism-ref/profiles/draft/cubism-5.2.json",
+        "cubism-ref/profiles/draft/cubism-5.3.02.json"
+    )
+    commandLine("python3", "scripts/test/test_cubism_core_api_inventory.py")
+}
+
+val checkCubismCoreMemberPolicy by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Classifies every observed Cubism Core public member and checks generated policy drift."
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/cubism_core_policy.py",
+        "scripts/test/test_cubism_core_member_policy.py",
+        "docs/schema/cubism-core-member-policy-v1.md",
+        "docs/migration/cubism-core-member-policy.md",
+        "cubism-ref/core-api/policy/cubism-core-member-policy.json",
+        fileTree("cubism-ref/core-api/observed") { include("*.json") }
+    )
+    commandLine("python3", "scripts/test/test_cubism_core_member_policy.py")
+}
+
+val checkCubismCoreSelectorPolicy by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Validates generated Cubism Core selector constants and profile coverage."
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/cubism_core_selector_policy.py",
+        "scripts/test/test_cubism_core_selector_policy.py",
+        "docs/schema/cubism-core-selector-policy-v1.md",
+        "cubism-ref/core-api/policy/cubism-core-selector-policy.json",
+        "cubism-ref/mapping-packs/draft/cubism-5.2-core-model-read.json",
+        "cubism-ref/mapping-packs/draft/cubism-5.3.02-core-model-read.json"
+    )
+    commandLine("python3", "scripts/test/test_cubism_core_selector_policy.py")
+}
+
 val checkMigrationSuiteBundleReproducibility by tasks.registering(Exec::class) {
     group = "legacy verification"
     description = "Rebuilds the retired migration-suite bundle twice and compares its exact roster."
@@ -168,8 +217,8 @@ val checkMigrationSuiteBundleReproducibility by tasks.registering(Exec::class) {
 
 tasks.register("checkStableSdkCompatibility") {
     group = "verification"
-    description = "Verifies the current SDK remains compatible with the reviewed Stable API baseline."
-    dependsOn("checkSdkPrePhaseApiCompatibility")
+    description = "Verifies the current reviewed plugin API v2 contract."
+    dependsOn("checkSdkV2ExactApiCompatibility")
 }
 
 tasks.register("checkIntegration") {
@@ -177,6 +226,10 @@ tasks.register("checkIntegration") {
     description = "Runs packaged runtime, plugin, preview-agent, and cross-module integration verification."
     dependsOn(
         checkAsyncHostReadFoundation,
+        checkCubismCoreApiInventory,
+        checkCubismCoreMemberPolicy,
+        checkCubismCoreSelectorPolicy,
+        ":runtime:corePublicApiProviderTest",
         "checkPluginInspectionRuntime",
         "checkDistributionProtocolContract",
         "checkPreviewBundleLayout",
@@ -201,20 +254,25 @@ tasks.register("checkRelease") {
 
 tasks.register("checkLegacyGovernance") {
     group = "legacy verification"
-    description = "Opt-in validation for retained historical ledgers, contracts, mapping closure, and the exact SDK snapshot."
+    description = "Opt-in validation for retained historical ledgers, contracts, mapping closure, and migration bundles."
     dependsOn(
         checkLegacyFrameworkCapabilityExtraction,
         checkLegacyFrameworkCapabilityExtractionMutations,
         checkLegacyUserEffectCensus,
         checkLegacyEffectContracts,
-        "checkMappingPipelineClosure",
-        "checkSdkPhase1ExactApiCompatibility"
+        checkLegacyPluginB1Admission,
+        checkMigrationSuiteBundleReproducibility,
+        "checkMappingPipelineClosure"
     )
 }
 
 tasks.named("check") {
     dependsOn(
         checkAsyncHostReadFoundation,
+        checkCubismCoreApiInventory,
+        checkCubismCoreMemberPolicy,
+        checkCubismCoreSelectorPolicy,
+        ":runtime:corePublicApiProviderTest",
         "checkModuleBoundaries",
         "checkOfficialPluginI18nCompleteness",
         "checkStableSdkCompatibility",

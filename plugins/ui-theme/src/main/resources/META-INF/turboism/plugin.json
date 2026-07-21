@@ -1,19 +1,24 @@
 {
   "format": "turboism.plugin.meta",
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "dev.turboism.plugin.uitheme",
   "name": "UI Theme Plugin",
   "version": "0.1.0",
   "description": "SDK-only UI theme package and status behavior through Turboism read and UI host services. Production host theme mutation remains disabled.",
-  "entrypoints": {
-    "plugin": "dev.turboism.plugin.uitheme.UiThemePlugin"
-  },
+  "entrypoints": [
+    "dev.turboism.plugin.uitheme.UiThemePlugin"
+  ],
   "turboismApi": "[0.1.0,0.2.0)",
   "authors": [
     { "name": "Turboism Contributors" }
   ],
   "license": "Project License",
-  "homepage": "https://turboism.dev",
+  "website": "https://turboism.dev",
+  "resources": ["themes/"],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": []
+  },
   "dependencies": [],
   "permissions": [
     {

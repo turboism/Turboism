@@ -1,19 +1,24 @@
 {
   "format": "turboism.plugin.meta",
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "dev.turboism.plugin.logfilter",
   "name": "Log Filter Plugin",
   "version": "0.1.0",
   "description": "SDK-only log palette toolbar filtering through Turboism UI host services.",
-  "entrypoints": {
-    "plugin": "dev.turboism.plugin.logfilter.LogFilterPlugin"
-  },
+  "entrypoints": [
+    "dev.turboism.plugin.logfilter.LogFilterPlugin"
+  ],
   "turboismApi": "[0.1.0,0.2.0)",
   "authors": [
     { "name": "Turboism Contributors" }
   ],
   "license": "Project License",
-  "homepage": "https://turboism.dev",
+  "website": "https://turboism.dev",
+  "resources": ["icons/"],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": []
+  },
   "dependencies": [],
   "permissions": [
     {

@@ -117,9 +117,12 @@ class PluginPackageRaceRegressionTest {
     private static byte[] fixture(String marker) throws Exception {
         String id = "dev.turboism.plugin.sample";
         String entrypoint = "dev.turboism.plugin.sample.SamplePlugin";
-        String descriptor = "{\"format\":\"turboism.plugin.meta\",\"schemaVersion\":1,\"id\":\"" + id
-            + "\",\"name\":\"Sample\",\"version\":\"0.1.0\",\"entrypoints\":{\"plugin\":\""
-            + entrypoint + "\"},\"turboismApi\":\"0.1.0\"}";
+        String descriptor = "{\"format\":\"turboism.plugin.meta\",\"schemaVersion\":2,\"id\":\"" + id
+            + "\",\"name\":\"Sample\",\"version\":\"0.1.0\",\"entrypoints\":[\""
+            + entrypoint + "\"],\"turboismApi\":\"0.1.0\","
+            + "\"authors\":[{\"name\":\"Turboism Contributors\"}],"
+            + "\"website\":\"https://turboism.dev\",\"resources\":[],"
+            + "\"i18n\":{\"baseName\":\"META-INF/turboism/i18n/messages\",\"locales\":[]}}";
         ByteArrayOutputStream jarBytes = new ByteArrayOutputStream();
         try (JarOutputStream jar = new JarOutputStream(jarBytes)) {
             add(jar, "META-INF/turboism/plugin.json", descriptor.getBytes(StandardCharsets.UTF_8));

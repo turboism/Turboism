@@ -156,7 +156,7 @@ class PluginManagerScopeLifecycleTest {
 
     private static PluginRuntime runtime(TurboismPlugin plugin) {
         PluginRuntime runtime = new PluginRuntime(PLUGIN_ID, PluginManagerTestFixtures.descriptor());
-        runtime.setInstance(plugin);
+        runtime.setEntrypoints(List.of(plugin));
         runtime.transitionTo(PluginLifecycleState.ENABLED);
         return runtime;
     }
