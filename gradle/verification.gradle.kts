@@ -99,6 +99,25 @@ val checkAsyncHostReadFoundation by tasks.registering {
     )
 }
 
+val checkCubismCoreApiInventory by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Validates exact-artifact Cubism Core public API inventories and generated reference drift."
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/cubism_core_api.py",
+        "scripts/test/test_cubism_core_api_inventory.py",
+        "docs/schema/cubism-core-public-api-v1.md",
+        "docs/migration/cubism-core-api-reference.md",
+        "cubism-ref/index.md",
+        fileTree("cubism-ref/core-api/observed") { include("*.json") },
+        "cubism-ref/mapping-packs/draft/cubism-5.2-core-model-read.json",
+        "cubism-ref/mapping-packs/draft/cubism-5.3.02-core-model-read.json",
+        "cubism-ref/profiles/draft/cubism-5.2.json",
+        "cubism-ref/profiles/draft/cubism-5.3.02.json"
+    )
+    commandLine("python3", "scripts/test/test_cubism_core_api_inventory.py")
+}
+
 val checkMigrationSuiteBundleReproducibility by tasks.registering(Exec::class) {
     group = "verification"
     description = "Rebuilds the migration-suite bundle twice and compares the exact 16-file raw SHA-256 roster."
@@ -110,7 +129,8 @@ val checkMigrationSuiteBundleReproducibility by tasks.registering(Exec::class) {
 
 tasks.named("check") {
     dependsOn(
-        checkAsyncHostReadFoundation, "checkModuleBoundaries", "checkAsmSupplyChainAdmission",
+        checkAsyncHostReadFoundation, checkCubismCoreApiInventory,
+        ":runtime:corePublicApiProviderTest", "checkModuleBoundaries", "checkAsmSupplyChainAdmission",
         "checkMappingPipelineClosure", "checkMappingReviewWrapperArgs", "checkPluginInspectionRuntime",
         "checkDistributionProtocolContract", checkLegacyFrameworkCapabilityExtraction,
         checkLegacyFrameworkCapabilityExtractionMutations, checkLegacyPluginB1Admission,
