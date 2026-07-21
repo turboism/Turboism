@@ -8,7 +8,7 @@ import dev.turboism.core.descriptor.CorePluginDescriptor;
 import dev.turboism.core.lifecycle.PluginLifecycleState;
 import dev.turboism.core.plugin.PluginRuntime;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
-import dev.turboism.core.runtime.PluginExecutorRegistry;
+import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.hostread.SharedAsyncHostReadLane;
@@ -423,7 +423,7 @@ class LocalPluginRuntimeCloseTest {
     private static RuntimeScheduler scheduler() {
         return new RuntimeScheduler(
             new DefaultWorkBudgetPolicy(),
-            new PluginExecutorRegistry(1, 4, ignored -> { }, Clock.systemUTC()),
+            new PluginWorkExecutorRegistry(1, 4, ignored -> { }, Clock.systemUTC()),
             SidecarDispatcher.noop(),
             ignored -> { }
         );

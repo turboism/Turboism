@@ -1,7 +1,7 @@
 package dev.turboism.task;
 
-import dev.turboism.core.runtime.CallbackExecutionResult;
-import dev.turboism.core.runtime.CallbackExecutionStatus;
+import dev.turboism.core.runtime.work.PluginWorkResult;
+import dev.turboism.core.runtime.work.PluginWorkStatus;
 import dev.turboism.core.runtime.RuntimeCancellationToken;
 import dev.turboism.sdk.plugin.TaskCanceledException;
 import dev.turboism.sdk.task.PluginTaskAction;
@@ -74,7 +74,7 @@ final class OneShotTaskHandle extends AbstractRuntimeTaskHandle {
         }
     }
 
-    void observeExecution(final CallbackExecutionResult result) {
+    void observeExecution(final PluginWorkResult result) {
         synchronized (lock) {
             if (isTerminal()) {
                 return;

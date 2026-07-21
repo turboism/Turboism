@@ -1,7 +1,7 @@
 package dev.turboism.adapter.cubism.write;
 
-import dev.turboism.core.diagnostics.CallbackBudgetEvent;
-import dev.turboism.core.runtime.PluginExecutorRegistry;
+import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
+import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.WorkBudgetPolicy;
@@ -229,10 +229,10 @@ class RuntimeTransactionManagerTest {
         final WorkBudgetPolicy policy,
         final PluginPermission... permissions
     ) {
-        List<CallbackBudgetEvent> events = new CopyOnWriteArrayList<>();
+        List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         scheduler = new RuntimeScheduler(
             policy,
-            new PluginExecutorRegistry(1, 8, events::add, CLOCK),
+            new PluginWorkExecutorRegistry(1, 8, events::add, CLOCK),
             availableSidecar(),
             events::add
         );
@@ -255,10 +255,10 @@ class RuntimeTransactionManagerTest {
         final WorkBudgetPolicy policy,
         final dev.turboism.permissions.PermissionChecker permissionChecker
     ) {
-        List<CallbackBudgetEvent> events = new CopyOnWriteArrayList<>();
+        List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         scheduler = new RuntimeScheduler(
             policy,
-            new PluginExecutorRegistry(1, 8, events::add, CLOCK),
+            new PluginWorkExecutorRegistry(1, 8, events::add, CLOCK),
             availableSidecar(),
             events::add
         );

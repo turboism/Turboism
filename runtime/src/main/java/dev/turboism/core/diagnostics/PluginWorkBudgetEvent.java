@@ -2,7 +2,7 @@ package dev.turboism.core.diagnostics;
 
 import java.util.Objects;
 
-public record CallbackBudgetEvent(
+public record PluginWorkBudgetEvent(
     String pluginId,
     String taskId,
     Phase phase,
@@ -10,9 +10,9 @@ public record CallbackBudgetEvent(
     Severity severity
 ) {
 
-    public static final String CODE = "CALLBACK_BUDGET_EVENT";
+    public static final String CODE = "PLUGIN_WORK_BUDGET_EVENT";
 
-    public CallbackBudgetEvent {
+    public PluginWorkBudgetEvent {
         pluginId = Objects.requireNonNull(pluginId, "pluginId");
         taskId = Objects.requireNonNull(taskId, "taskId");
         phase = Objects.requireNonNull(phase, "phase");

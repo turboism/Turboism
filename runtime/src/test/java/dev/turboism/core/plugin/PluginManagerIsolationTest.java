@@ -1,9 +1,9 @@
 package dev.turboism.core.plugin;
 
-import dev.turboism.core.diagnostics.CallbackBudgetEvent;
+import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
 import dev.turboism.core.lifecycle.PluginLifecycleState;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
-import dev.turboism.core.runtime.PluginExecutorRegistry;
+import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.TurboismPlugin;
@@ -32,9 +32,9 @@ class PluginManagerIsolationTest {
     private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-07-08T00:00:00Z"), ZoneOffset.UTC);
 
     @Test
-    void disableReturnsImmediatelyWhenPluginCallbackBlocks() throws Exception {
+    void disableReturnsImmediatelyWhenPluginWorkItemBlocks() throws Exception {
         // Given
-        List<CallbackBudgetEvent> events = new CopyOnWriteArrayList<>();
+        List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         RuntimeScheduler scheduler = scheduler(events);
         PluginManager manager = new PluginManager(scheduler);
         CountDownLatch disableStarted = new CountDownLatch(1);
@@ -62,7 +62,7 @@ class PluginManagerIsolationTest {
     @Test
     void shutdownClosesPluginDisposableScope() throws Exception {
         // Given
-        List<CallbackBudgetEvent> events = new CopyOnWriteArrayList<>();
+        List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         RuntimeScheduler scheduler = scheduler(events);
         PluginManager manager = new PluginManager(scheduler);
         DisposableScope scope = new DisposableScope();
@@ -82,9 +82,9 @@ class PluginManagerIsolationTest {
     }
 
     @Test
-    void repeatedDisableCallsScheduleOnePluginCallback() throws Exception {
+    void repeatedDisableCallsScheduleOnePluginWorkItem() throws Exception {
         // Given
-        List<CallbackBudgetEvent> events = new CopyOnWriteArrayList<>();
+        List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         RuntimeScheduler scheduler = scheduler(events);
         PluginManager manager = new PluginManager(scheduler);
         CountDownLatch firstDisableStarted = new CountDownLatch(1);
@@ -111,9 +111,9 @@ class PluginManagerIsolationTest {
     }
 
     @Test
-    void shutdownTimeoutEmitsCallbackBudgetEvent() throws Exception {
+    void shutdownTimeoutEmitsPluginWorkBudgetEvent() throws Exception {
         // Given
-        List<CallbackBudgetEvent> events = new CopyOnWriteArrayList<>();
+        List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         RuntimeScheduler scheduler = scheduler(events);
         PluginManager manager = new PluginManager(scheduler);
         CountDownLatch shutdownStarted = new CountDownLatch(1);
@@ -124,25 +124,25 @@ class PluginManagerIsolationTest {
             // When
             manager.shutdown(PLUGIN_ID);
             assertTrue(shutdownStarted.await(1, TimeUnit.SECONDS));
-            awaitEvent(events, CallbackBudgetEvent.Phase.TIMED_OUT);
+            awaitEvent(events, PluginWorkBudgetEvent.Phase.TIMED_OUT);
 
             // Then
-            assertEquals(List.of(new CallbackBudgetEvent(
+            assertEquals(List.of(new PluginWorkBudgetEvent(
                 PLUGIN_ID,
                 "lifecycle.shutdown",
-                CallbackBudgetEvent.Phase.TIMED_OUT,
-                CallbackBudgetEvent.Decision.LIGHTWEIGHT,
-                CallbackBudgetEvent.Severity.WARNING
+                PluginWorkBudgetEvent.Phase.TIMED_OUT,
+                PluginWorkBudgetEvent.Decision.LIGHTWEIGHT,
+                PluginWorkBudgetEvent.Severity.WARNING
             )), events);
         } finally {
             scheduler.shutdown();
         }
     }
 
-    private static RuntimeScheduler scheduler(List<CallbackBudgetEvent> events) {
+    private static RuntimeScheduler scheduler(List<PluginWorkBudgetEvent> events) {
         return new RuntimeScheduler(
             new DefaultWorkBudgetPolicy(),
-            new PluginExecutorRegistry(1, 4, events::add, CLOCK),
+            new PluginWorkExecutorRegistry(1, 4, events::add, CLOCK),
             new PluginManagerTestFixtures.ImmediateSidecarDispatcher(),
             events::add
         );
@@ -171,8 +171,8 @@ class PluginManagerIsolationTest {
     }
 
     private static void awaitEvent(
-        List<CallbackBudgetEvent> events,
-        CallbackBudgetEvent.Phase expectedPhase
+        List<PluginWorkBudgetEvent> events,
+        PluginWorkBudgetEvent.Phase expectedPhase
     ) throws InterruptedException {
         long deadlineNanos = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
         while (System.nanoTime() < deadlineNanos && events.stream().noneMatch(event -> event.phase() == expectedPhase)) {

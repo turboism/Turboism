@@ -1,6 +1,6 @@
 package dev.turboism.core.runtime.sidecar;
 
-import dev.turboism.core.diagnostics.CallbackBudgetEvent;
+import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
 import dev.turboism.core.runtime.PluginTask;
 
 import java.util.Objects;
@@ -16,14 +16,14 @@ public final class SidecarSupervisor implements SidecarDispatcher {
 
     private final SidecarDispatcher dispatcher;
     private final int maxRestartCount;
-    private final Consumer<CallbackBudgetEvent> diagnosticSink;
+    private final Consumer<PluginWorkBudgetEvent> diagnosticSink;
     private final AtomicInteger crashCount = new AtomicInteger();
     private final AtomicReference<SidecarHealth> health = new AtomicReference<>(SidecarHealth.HEALTHY);
 
     public SidecarSupervisor(
         final SidecarDispatcher dispatcher,
         final int maxRestartCount,
-        final Consumer<CallbackBudgetEvent> diagnosticSink
+        final Consumer<PluginWorkBudgetEvent> diagnosticSink
     ) {
         this.dispatcher = Objects.requireNonNull(dispatcher, "dispatcher");
         if (maxRestartCount < 0) {
@@ -80,15 +80,15 @@ public final class SidecarSupervisor implements SidecarDispatcher {
         final SidecarResult crash
     ) {
         final int crashes = crashCount.incrementAndGet();
-        emit(task, CallbackBudgetEvent.Phase.FAILED, CallbackBudgetEvent.Severity.WARNING);
+        emit(task, PluginWorkBudgetEvent.Phase.FAILED, PluginWorkBudgetEvent.Severity.WARNING);
         if (crashes > maxRestartCount) {
             health.set(SidecarHealth.UNAVAILABLE);
-            emit(task, CallbackBudgetEvent.Phase.CIRCUIT_OPEN, CallbackBudgetEvent.Severity.ERROR);
+            emit(task, PluginWorkBudgetEvent.Phase.CIRCUIT_OPEN, PluginWorkBudgetEvent.Severity.ERROR);
             supervised.complete(SidecarResult.error(UNAVAILABLE_CODE, crash.errorMessage()));
             return;
         }
         health.set(SidecarHealth.RESTARTING);
-        emit(task, CallbackBudgetEvent.Phase.QUEUED, CallbackBudgetEvent.Severity.INFO);
+        emit(task, PluginWorkBudgetEvent.Phase.QUEUED, PluginWorkBudgetEvent.Severity.INFO);
         dispatchAttempt(task, callback).whenComplete((result, failure) -> {
             if (failure != null) {
                 supervised.completeExceptionally(failure);
@@ -100,14 +100,14 @@ public final class SidecarSupervisor implements SidecarDispatcher {
 
     private void emit(
         final PluginTask task,
-        final CallbackBudgetEvent.Phase phase,
-        final CallbackBudgetEvent.Severity severity
+        final PluginWorkBudgetEvent.Phase phase,
+        final PluginWorkBudgetEvent.Severity severity
     ) {
-        diagnosticSink.accept(new CallbackBudgetEvent(
+        diagnosticSink.accept(new PluginWorkBudgetEvent(
             task.pluginId(),
             task.taskType(),
             phase,
-            CallbackBudgetEvent.Decision.SIDECAR,
+            PluginWorkBudgetEvent.Decision.SIDECAR,
             severity
         ));
     }

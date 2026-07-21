@@ -1,7 +1,7 @@
 package dev.turboism.tests.plugin;
 
 import dev.turboism.core.descriptor.PluginDescriptorParser;
-import dev.turboism.core.diagnostics.CallbackBudgetEvent;
+import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.plugin.clipmask.ClipMaskPlugin;
 import dev.turboism.plugin.parameter.ParameterPlugin;
@@ -303,7 +303,7 @@ class M13OfficialPluginRuntimeIntegrationTest {
             plugin.enable();
 
             harness.executeAction("clip-mask.inspector.inspect");
-            awaitCallbackPhase(harness, CallbackBudgetEvent.Phase.FAILED);
+            awaitWorkPhase(harness, PluginWorkBudgetEvent.Phase.FAILED);
 
             assertEquals(0, read.clipMaskReads());
             assertTrue(harness.uiHost().notifications().isEmpty());
@@ -336,7 +336,7 @@ class M13OfficialPluginRuntimeIntegrationTest {
             plugin.enable();
 
             harness.executeAction("clip-mask.inspector.inspect");
-            awaitCallbackPhase(harness, CallbackBudgetEvent.Phase.FAILED);
+            awaitWorkPhase(harness, PluginWorkBudgetEvent.Phase.FAILED);
 
             assertEquals(1, read.clipMaskReads());
             assertTrue(harness.uiHost().notifications().isEmpty());
@@ -509,7 +509,7 @@ class M13OfficialPluginRuntimeIntegrationTest {
             plugin.enable();
 
             harness.executeAction("main-toolbar.home-entry.open");
-            awaitCallbackPhase(harness, CallbackBudgetEvent.Phase.FAILED);
+            awaitWorkPhase(harness, PluginWorkBudgetEvent.Phase.FAILED);
             assertTrue(harness.uiHost().notifications().isEmpty());
         }
     }
@@ -529,7 +529,7 @@ class M13OfficialPluginRuntimeIntegrationTest {
                 plugin.enable();
 
                 harness.executeAction("render-status.overlay.refresh");
-                awaitCallbackPhase(harness, CallbackBudgetEvent.Phase.FAILED);
+                awaitWorkPhase(harness, PluginWorkBudgetEvent.Phase.FAILED);
                 assertTrue(harness.uiHost().notifications().isEmpty());
             }
         }
@@ -554,7 +554,7 @@ class M13OfficialPluginRuntimeIntegrationTest {
                 plugin.enable();
 
                 harness.executeAction("mesh.inspector.inspect");
-                awaitCallbackPhase(harness, CallbackBudgetEvent.Phase.FAILED);
+                awaitWorkPhase(harness, PluginWorkBudgetEvent.Phase.FAILED);
                 assertTrue(harness.uiHost().notifications().isEmpty());
             }
         }
@@ -575,7 +575,7 @@ class M13OfficialPluginRuntimeIntegrationTest {
                 plugin.enable();
 
                 harness.executeAction("parameter.csv.export");
-                awaitCallbackPhase(harness, CallbackBudgetEvent.Phase.FAILED);
+                awaitWorkPhase(harness, PluginWorkBudgetEvent.Phase.FAILED);
                 assertTrue(harness.uiHost().notifications().isEmpty());
             }
         }
@@ -595,7 +595,7 @@ class M13OfficialPluginRuntimeIntegrationTest {
             plugin.enable();
 
             harness.executeAction("parameter.csv.import");
-            awaitCallbackPhase(harness, CallbackBudgetEvent.Phase.FAILED);
+            awaitWorkPhase(harness, PluginWorkBudgetEvent.Phase.FAILED);
             assertTrue(harness.uiHost().notifications().isEmpty());
         }
     }
@@ -728,18 +728,18 @@ class M13OfficialPluginRuntimeIntegrationTest {
         assertEquals(expectedCount, harness.uiHost().notifications().size());
     }
 
-    private static void awaitCallbackPhase(
+    private static void awaitWorkPhase(
         final M8PluginTestSupport.Harness harness,
-        final CallbackBudgetEvent.Phase expectedPhase
+        final PluginWorkBudgetEvent.Phase expectedPhase
     ) throws InterruptedException {
         final long deadline = System.nanoTime() + 2_000_000_000L;
-        while (harness.callbackEvents().stream().noneMatch(event -> event.phase() == expectedPhase)
+        while (harness.workEvents().stream().noneMatch(event -> event.phase() == expectedPhase)
             && System.nanoTime() < deadline) {
             Thread.sleep(10L);
         }
         assertTrue(
-            harness.callbackEvents().stream().anyMatch(event -> event.phase() == expectedPhase),
-            () -> "Missing callback phase " + expectedPhase + "; events=" + harness.callbackEvents()
+            harness.workEvents().stream().anyMatch(event -> event.phase() == expectedPhase),
+            () -> "Missing plugin work phase " + expectedPhase + "; events=" + harness.workEvents()
         );
     }
 

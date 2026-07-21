@@ -1,6 +1,10 @@
 package dev.turboism.core.runtime;
 
-import dev.turboism.core.diagnostics.CallbackBudgetEvent;
+import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
+import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
+import dev.turboism.core.runtime.work.PluginWorkResult;
+import dev.turboism.core.runtime.work.PluginWorkStatus;
+import dev.turboism.core.runtime.work.PluginWorkSubmission;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.core.runtime.sidecar.SidecarResult;
 import dev.turboism.sdk.plugin.WorkBudget;
@@ -23,9 +27,9 @@ public final class RuntimeScheduler {
     private static final int GLOBAL_TIMER_LIMIT = 1024;
 
     private final WorkBudgetPolicy policy;
-    private final PluginExecutorRegistry executorRegistry;
+    private final PluginWorkExecutorRegistry executorRegistry;
     private final SidecarDispatcher sidecarDispatcher;
-    private final Consumer<CallbackBudgetEvent> diagnosticSink;
+    private final Consumer<PluginWorkBudgetEvent> diagnosticSink;
     private final ScheduledThreadPoolExecutor timer;
     private final Semaphore timerPermits = new Semaphore(GLOBAL_TIMER_LIMIT);
     private final Set<RuntimeTimerToken> activeTimers = ConcurrentHashMap.newKeySet();
@@ -35,9 +39,9 @@ public final class RuntimeScheduler {
 
     public RuntimeScheduler(
         WorkBudgetPolicy policy,
-        PluginExecutorRegistry executorRegistry,
+        PluginWorkExecutorRegistry executorRegistry,
         SidecarDispatcher sidecarDispatcher,
-        Consumer<CallbackBudgetEvent> diagnosticSink
+        Consumer<PluginWorkBudgetEvent> diagnosticSink
     ) {
         this.policy = Objects.requireNonNull(policy, "policy");
         this.executorRegistry = Objects.requireNonNull(executorRegistry, "executorRegistry");
@@ -72,7 +76,7 @@ public final class RuntimeScheduler {
         };
     }
 
-    public CallbackSubmission submitLightweight(
+    public PluginWorkSubmission submitLightweight(
         PluginTask task,
         RuntimeCancellationToken token,
         Runnable callback
@@ -81,11 +85,11 @@ public final class RuntimeScheduler {
         Objects.requireNonNull(token, "token");
         Objects.requireNonNull(callback, "callback");
         if (closed.get()) {
-            return rejected(CallbackExecutionStatus.RUNTIME_UNAVAILABLE, "RUNTIME_UNAVAILABLE");
+            return rejected(PluginWorkStatus.RUNTIME_UNAVAILABLE, "RUNTIME_UNAVAILABLE");
         }
         if (policy.classify(task) != WorkBudget.LIGHTWEIGHT) {
             emitRejected(task);
-            return rejected(CallbackExecutionStatus.POLICY_REJECTED, "POLICY_REJECTED");
+            return rejected(PluginWorkStatus.POLICY_REJECTED, "POLICY_REJECTED");
         }
         return executorRegistry.get(task.pluginId()).submit(
             task,
@@ -93,14 +97,14 @@ public final class RuntimeScheduler {
         );
     }
 
-    public CallbackSubmission submitCompletion(
+    public PluginWorkSubmission submitCompletion(
         String pluginId,
         Runnable callback
     ) {
         requireText(pluginId, "pluginId");
         Objects.requireNonNull(callback, "callback");
         if (closed.get()) {
-            return rejected(CallbackExecutionStatus.RUNTIME_UNAVAILABLE, "RUNTIME_UNAVAILABLE");
+            return rejected(PluginWorkStatus.RUNTIME_UNAVAILABLE, "RUNTIME_UNAVAILABLE");
         }
         PluginTask task = new PluginTask(
             "sidecar.complete",
@@ -220,7 +224,7 @@ public final class RuntimeScheduler {
             stage.whenComplete((result, failure) -> emitSidecarResult(task, result, failure));
             return true;
         } catch (RuntimeException exception) {
-            emit(task, CallbackBudgetEvent.Phase.FAILED, CallbackBudgetEvent.Decision.SIDECAR, CallbackBudgetEvent.Severity.ERROR);
+            emit(task, PluginWorkBudgetEvent.Phase.FAILED, PluginWorkBudgetEvent.Decision.SIDECAR, PluginWorkBudgetEvent.Severity.ERROR);
             return false;
         }
     }
@@ -237,13 +241,13 @@ public final class RuntimeScheduler {
 
     private void emitSidecarResult(PluginTask task, SidecarResult result, Throwable failure) {
         if (failure != null) {
-            emit(task, CallbackBudgetEvent.Phase.FAILED, CallbackBudgetEvent.Decision.SIDECAR, CallbackBudgetEvent.Severity.ERROR);
+            emit(task, PluginWorkBudgetEvent.Phase.FAILED, PluginWorkBudgetEvent.Decision.SIDECAR, PluginWorkBudgetEvent.Severity.ERROR);
             return;
         }
         if (result == null || result.kind() == SidecarResult.Kind.SUCCESS) {
             return;
         }
-        emit(task, CallbackBudgetEvent.Phase.FAILED, CallbackBudgetEvent.Decision.SIDECAR, CallbackBudgetEvent.Severity.ERROR);
+        emit(task, PluginWorkBudgetEvent.Phase.FAILED, PluginWorkBudgetEvent.Decision.SIDECAR, PluginWorkBudgetEvent.Severity.ERROR);
     }
 
     private Runnable bindCancellation(Runnable callback) {
@@ -272,25 +276,25 @@ public final class RuntimeScheduler {
         return value;
     }
 
-    private static CallbackSubmission rejected(
-        CallbackExecutionStatus status,
+    private static PluginWorkSubmission rejected(
+        PluginWorkStatus status,
         String failureCode
     ) {
-        CallbackExecutionResult result = new CallbackExecutionResult(status, failureCode);
-        return new CallbackSubmission(false, status, CompletableFuture.completedFuture(result));
+        PluginWorkResult result = new PluginWorkResult(status, failureCode);
+        return new PluginWorkSubmission(false, status, CompletableFuture.completedFuture(result));
     }
 
     private void emitRejected(PluginTask task) {
-        emit(task, CallbackBudgetEvent.Phase.REJECTED, CallbackBudgetEvent.Decision.REJECTED, CallbackBudgetEvent.Severity.WARNING);
+        emit(task, PluginWorkBudgetEvent.Phase.REJECTED, PluginWorkBudgetEvent.Decision.REJECTED, PluginWorkBudgetEvent.Severity.WARNING);
     }
 
     private void emit(
         PluginTask task,
-        CallbackBudgetEvent.Phase phase,
-        CallbackBudgetEvent.Decision decision,
-        CallbackBudgetEvent.Severity severity
+        PluginWorkBudgetEvent.Phase phase,
+        PluginWorkBudgetEvent.Decision decision,
+        PluginWorkBudgetEvent.Severity severity
     ) {
-        diagnosticSink.accept(new CallbackBudgetEvent(
+        diagnosticSink.accept(new PluginWorkBudgetEvent(
             task.pluginId(),
             task.taskType(),
             phase,
