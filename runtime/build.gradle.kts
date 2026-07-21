@@ -4,6 +4,65 @@ plugins {
     `java-library`
 }
 
+val generatedCoreCatalogRoot = layout.buildDirectory.dir(
+    "generated/sources/cubism-core-catalog/java/main"
+)
+val generatedCoreCatalogFile = generatedCoreCatalogRoot.map {
+    it.file(
+        "dev/turboism/adapter/cubism/core/GeneratedCorePublicApiCatalog.java"
+    )
+}
+
+val generateCorePublicApiCatalog by tasks.registering(Exec::class) {
+    group = "build"
+    description = "Generates the complete internal Cubism Core public-member catalog."
+    inputs.files(
+        rootProject.file("scripts/cubism_core_api.py"),
+        rootProject.file("scripts/cubism_core_policy.py"),
+        rootProject.file(
+            "cubism-ref/core-api/policy/cubism-core-member-policy.json"
+        ),
+        rootProject.file(
+            "cubism-ref/core-api/observed/cubism-core-5.2.json"
+        ),
+        rootProject.file(
+            "cubism-ref/core-api/observed/cubism-core-5.3.02.json"
+        )
+    )
+    outputs.file(generatedCoreCatalogFile)
+    doFirst {
+        val output = generatedCoreCatalogFile.get().asFile
+        output.parentFile.mkdirs()
+        commandLine(
+            "python3",
+            rootProject.file("scripts/cubism_core_policy.py"),
+            "render-java",
+            "--policy",
+            rootProject.file(
+                "cubism-ref/core-api/policy/cubism-core-member-policy.json"
+            ),
+            "--output",
+            output,
+            "--inventory",
+            rootProject.file(
+                "cubism-ref/core-api/observed/cubism-core-5.2.json"
+            ),
+            "--inventory",
+            rootProject.file(
+                "cubism-ref/core-api/observed/cubism-core-5.3.02.json"
+            )
+        )
+    }
+}
+
+sourceSets.named("main") {
+    java.srcDir(generatedCoreCatalogRoot)
+}
+
+tasks.named("compileJava") {
+    dependsOn(generateCorePublicApiCatalog)
+}
+
 val protocolRecordValidationTest by tasks.registering(Test::class) {
     group = "verification"
     description = "Runs the focused Distribution Slice 1A protocol-record validation suite."
