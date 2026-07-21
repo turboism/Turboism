@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.turboism.bootstrap.HostRuntimeIngress;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
-import dev.turboism.core.runtime.PluginExecutorRegistry;
+import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.preview.LocalPluginRuntime;
@@ -367,7 +367,7 @@ class MigrationSuiteSafeIntegrationTest {
         private static RuntimeScheduler scheduler() {
             return new RuntimeScheduler(
                 new DefaultWorkBudgetPolicy(),
-                new PluginExecutorRegistry(1, 64, ignored -> { }, Clock.systemUTC()),
+                new PluginWorkExecutorRegistry(1, 64, ignored -> { }, Clock.systemUTC()),
                 SidecarDispatcher.noop(),
                 ignored -> { }
             );

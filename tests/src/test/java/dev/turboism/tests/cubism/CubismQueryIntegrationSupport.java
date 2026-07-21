@@ -3,7 +3,7 @@ package dev.turboism.tests.cubism;
 import dev.turboism.adapter.cubism.CubismFacadeImpl;
 import dev.turboism.adapter.cubism.HostSnapshotSource;
 import dev.turboism.core.plugin.context.CorePluginContext;
-import dev.turboism.core.runtime.PluginExecutorRegistry;
+import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.sdk.plugin.WorkBudget;
 import dev.turboism.diagnostics.CubismFacadeAuditEvent;
@@ -125,7 +125,7 @@ final class CubismQueryIntegrationSupport {
     static RuntimeScheduler directRuntimeScheduler() {
         return new RuntimeScheduler(
             task -> WorkBudget.SIDECAR,
-            new PluginExecutorRegistry(1, 2, event -> { }, FIXED_CLOCK),
+            new PluginWorkExecutorRegistry(1, 2, event -> { }, FIXED_CLOCK),
             (task, callback) -> {
                 callback.run();
                 return CompletableFuture.completedFuture(dev.turboism.core.runtime.sidecar.SidecarResult.success(""));

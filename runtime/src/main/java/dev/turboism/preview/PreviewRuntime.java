@@ -4,9 +4,9 @@ import dev.turboism.adapter.host.HostInstanceDescriptor;
 import dev.turboism.bootstrap.HostRuntimeIngress;
 import dev.turboism.adapter.host.HostSession;
 import dev.turboism.adapter.host.HostVerificationEvidence;
-import dev.turboism.core.diagnostics.CallbackBudgetEvent;
+import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
-import dev.turboism.core.runtime.PluginExecutorRegistry;
+import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.preview.report.PreviewReportSnapshotFactory;
@@ -221,14 +221,14 @@ public final class PreviewRuntime implements AutoCloseable {
 
     private static RuntimeScheduler createScheduler(final PreviewLog log) {
         final Clock clock = Clock.systemUTC();
-        final java.util.function.Consumer<CallbackBudgetEvent> diagnosticSink = event ->
+        final java.util.function.Consumer<PluginWorkBudgetEvent> diagnosticSink = event ->
             log.warn(
                 "scheduler",
                 event.pluginId() + " " + event.taskId() + " " + event.phase() + " " + event.decision()
             );
         return new RuntimeScheduler(
             new DefaultWorkBudgetPolicy(),
-            new PluginExecutorRegistry(1, 64, diagnosticSink, clock),
+            new PluginWorkExecutorRegistry(1, 64, diagnosticSink, clock),
             SidecarDispatcher.noop(),
             diagnosticSink
         );

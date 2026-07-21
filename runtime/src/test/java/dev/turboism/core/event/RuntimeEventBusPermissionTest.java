@@ -1,8 +1,8 @@
 package dev.turboism.core.event;
 
-import dev.turboism.core.diagnostics.CallbackBudgetEvent;
+import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
-import dev.turboism.core.runtime.PluginExecutorRegistry;
+import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.sdk.event.EventBus;
@@ -69,10 +69,10 @@ class RuntimeEventBusPermissionTest {
     }
 
     private RuntimeEventBus eventBus(dev.turboism.permissions.PermissionChecker permissionChecker) {
-        List<CallbackBudgetEvent> events = new CopyOnWriteArrayList<>();
+        List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         scheduler = new RuntimeScheduler(
             new DefaultWorkBudgetPolicy(),
-            new PluginExecutorRegistry(1, 4, events::add, CLOCK),
+            new PluginWorkExecutorRegistry(1, 4, events::add, CLOCK),
             SidecarDispatcher.noop(),
             events::add
         );
