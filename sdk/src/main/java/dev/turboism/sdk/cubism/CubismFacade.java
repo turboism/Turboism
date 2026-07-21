@@ -33,15 +33,17 @@ public interface CubismFacade {
     }
 
     /**
-     * Returns lifecycle callback registrations for wrapped Cubism methods.
+     * Legacy Preview compatibility stub.
      *
-     * <p>The default keeps existing implementations source-compatible until a
-     * Runtime callback registry is installed.</p>
+     * @deprecated Implement {@link CubismPlugin} and override lifecycle hooks.
+     * This method no longer exposes callback registration semantics.
      */
+    @Deprecated(forRemoval = true)
+    @SuppressWarnings("removal")
     @PreviewApi
     default CubismCallbacks callbacks() {
         throw new UnsupportedOperationException(
-            "Cubism lifecycle callbacks are unavailable"
+            "Callback registration was replaced by CubismPlugin overrides"
         );
     }
 
