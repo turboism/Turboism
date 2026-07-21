@@ -1,0 +1,14 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 2,
+  "id": "dev.turboism.plugin.sample",
+  "name": "Sample",
+  "version": "1.0.0",
+  "entrypoints": ["dev.turboism.plugin.sample.SamplePlugin"],
+  "turboismApi": "0.1.0",
+  "authors": [{"name":"Turboism Contributors"}],
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {"baseName":"META-INF/turboism/i18n/messages","locales":[]},
+  "dependencies": [{"id":"dev.turboism.plugin.other","version":"1.0.0","ordering":"middle"}]
+}

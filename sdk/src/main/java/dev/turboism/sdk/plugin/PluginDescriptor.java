@@ -1,11 +1,11 @@
 package dev.turboism.sdk.plugin;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 /**
- * Public contract of a plugin descriptor as read from {@code META-INF/turboism/plugin.json}.
+ * Public contract of a plugin descriptor read from
+ * {@code META-INF/turboism/plugin.json}.
  */
 public interface PluginDescriptor {
 
@@ -17,7 +17,8 @@ public interface PluginDescriptor {
 
     String description();
 
-    Map<String, String> entrypoints();
+    /** Ordered plugin entrypoint classes. */
+    List<String> entrypoints();
 
     String turboismApi();
 
@@ -25,7 +26,12 @@ public interface PluginDescriptor {
 
     String license();
 
-    Optional<String> homepage();
+    Optional<String> website();
+
+    /** Plugin-owned resource roots, relative to the JAR root. */
+    List<String> resources();
+
+    I18n i18n();
 
     List<DependencyRef> dependencies();
 
@@ -39,6 +45,14 @@ public interface PluginDescriptor {
         String name();
 
         Optional<String> email();
+    }
+
+    interface I18n {
+        /** Resource base without locale suffix or extension. */
+        String baseName();
+
+        /** Declared catalogs such as base, en, ja, or zh_Hans. */
+        List<String> locales();
     }
 
     interface DependencyRef {

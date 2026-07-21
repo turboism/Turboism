@@ -582,11 +582,13 @@ class CorePluginContextDescriptorPermissionsTest {
             @Override public String name() { return "Descriptor Permission Test"; }
             @Override public String version() { return "0.1.0"; }
             @Override public String description() { return "Test"; }
-            @Override public Map<String, String> entrypoints() { return Map.of(); }
+            @Override public List<String> entrypoints() { return List.of("dev.turboism.test.PermissionPlugin"); }
             @Override public String turboismApi() { return "[0.1.0,0.2.0)"; }
             @Override public List<Author> authors() { return List.of(); }
             @Override public String license() { return "Project License"; }
-            @Override public Optional<String> homepage() { return Optional.empty(); }
+            @Override public Optional<String> website() { return Optional.of("https://turboism.dev"); }
+            @Override public List<String> resources() { return List.of(); }
+            @Override public I18n i18n() { return emptyI18n(); }
             @Override public List<DependencyRef> dependencies() { return List.of(); }
             @Override public List<PermissionRef> permissions() {
                 return ids.stream()
@@ -602,6 +604,13 @@ class CorePluginContextDescriptorPermissionsTest {
                 @Override public boolean requiresCubism() { return false; }
                 @Override public String ui() { return "none"; }
             }; }
+        };
+    }
+
+    private static PluginDescriptor.I18n emptyI18n() {
+        return new PluginDescriptor.I18n() {
+            @Override public String baseName() { return "META-INF/turboism/i18n/messages"; }
+            @Override public List<String> locales() { return List.of(); }
         };
     }
 

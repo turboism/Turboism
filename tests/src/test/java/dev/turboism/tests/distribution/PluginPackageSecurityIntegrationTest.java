@@ -26,18 +26,56 @@ class PluginPackageSecurityIntegrationTest {
         for (String path : forbidden) assertContamination(path);
     }
 
-    @Test void allowsNamesOutsideTheExactDenyTable() throws Exception {
-        for (String path : new String[]{"tests/fixture.txt", "scripts/run.txt",
-                "docs/cubism-notes.txt", "example/WidgetTest.class"}) {
+    @Test void rejectsUndeclaredResourcesOutsideTheDenyTable() throws Exception {
+        for (String path : new String[]{
+            "tests/fixture.txt",
+            "scripts/run.txt",
+            "docs/cubism-notes.txt"
+        }) {
             byte[] jar = PluginPackageFixtures.jar(
-                PluginPackageFixtures.descriptor(PluginPackageFixtures.ID,
-                    PluginPackageFixtures.VERSION, "0.1.0"), path, "allowed");
-            Path input = tempDir.resolve(Integer.toHexString(path.hashCode()) + ".tplugin");
-            Files.write(input, PluginPackageFixtures.packageWith(jar,
-                PluginPackageFixtures.ID, PluginPackageFixtures.VERSION));
-            assertInstanceOf(PluginPackageInspector.Accepted.class,
-                new LocalPluginPackageInspector().inspect(input));
+                PluginPackageFixtures.descriptor(
+                    PluginPackageFixtures.ID,
+                    PluginPackageFixtures.VERSION,
+                    "0.1.0"
+                ),
+                PluginPackageFixtures.ENTRYPOINT.replace('.', '/') + ".class",
+                "class",
+                path,
+                "undeclared"
+            );
+            assertRejected(
+                PluginPackageFixtures.packageWith(
+                    jar,
+                    PluginPackageFixtures.ID,
+                    PluginPackageFixtures.VERSION
+                ),
+                "PLUGIN_RESOURCE_UNDECLARED"
+            );
         }
+    }
+
+    @Test void allowsOrdinaryPluginClassesOutsideTheDenyTable() throws Exception {
+        byte[] jar = PluginPackageFixtures.jar(
+            PluginPackageFixtures.descriptor(
+                PluginPackageFixtures.ID,
+                PluginPackageFixtures.VERSION,
+                "0.1.0"
+            ),
+            PluginPackageFixtures.ENTRYPOINT.replace('.', '/') + ".class",
+            "class",
+            "example/WidgetTest.class",
+            "class"
+        );
+        Path input = tempDir.resolve("ordinary-class.tplugin");
+        Files.write(input, PluginPackageFixtures.packageWith(
+            jar,
+            PluginPackageFixtures.ID,
+            PluginPackageFixtures.VERSION
+        ));
+        assertInstanceOf(
+            PluginPackageInspector.Accepted.class,
+            new LocalPluginPackageInspector().inspect(input)
+        );
     }
 
     @Test void rejectsOtherPluginMetadata() throws Exception {

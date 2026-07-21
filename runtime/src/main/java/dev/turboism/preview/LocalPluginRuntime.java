@@ -144,12 +144,15 @@ public final class LocalPluginRuntime implements AutoCloseable {
     static record LoadedPlugin(
         Path jar,
         PluginRuntime runtime,
-        TurboismPlugin plugin,
+        List<TurboismPlugin> entrypoints,
         DisposableScope scope,
         URLClassLoader classLoader,
         RuntimePluginLocalization localization,
         CleanupEvidenceCollector cleanupEvidence
     ) {
+        LoadedPlugin {
+            entrypoints = List.copyOf(entrypoints);
+        }
     }
 
     public record PluginSummaryFailure(String code, String phase, String message) {
