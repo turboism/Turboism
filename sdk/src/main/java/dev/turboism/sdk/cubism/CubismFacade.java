@@ -1,13 +1,12 @@
 package dev.turboism.sdk.cubism;
 
 import dev.turboism.sdk.PreviewApi;
+import dev.turboism.sdk.cubism.callback.CubismCallbacks;
+import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.sdk.cubism.transaction.TransactionManager;
 import java.util.Optional;
 
-/**
- * View of the Cubism host exposed to plugins.
- * Read-only by default; write operations require an open transaction.
- */
+/** View of the Cubism host exposed to plugins. */
 public interface CubismFacade {
 
     CubismRuntimeSnapshot runtime();
@@ -20,7 +19,33 @@ public interface CubismFacade {
 
     boolean isHostPresent();
 
-    /** Returns the transaction manager for write operations. */
+    /**
+     * Returns the unified model object API.
+     *
+     * <p>The default keeps existing implementations source-compatible until a
+     * Runtime backend is installed.</p>
+     */
+    @PreviewApi
+    default CubismModelAccess model() {
+        throw new UnsupportedOperationException(
+            "Unified Cubism model access is unavailable"
+        );
+    }
+
+    /**
+     * Returns lifecycle callback registrations for wrapped Cubism methods.
+     *
+     * <p>The default keeps existing implementations source-compatible until a
+     * Runtime callback registry is installed.</p>
+     */
+    @PreviewApi
+    default CubismCallbacks callbacks() {
+        throw new UnsupportedOperationException(
+            "Cubism lifecycle callbacks are unavailable"
+        );
+    }
+
+    /** Returns the legacy transaction manager for Preview compatibility. */
     @PreviewApi
     TransactionManager transactionManager();
 
