@@ -84,7 +84,7 @@ class ServiceInterfaceShapeTest {
     void selectionChangedListenerUsesSdkEventOnly_whenInspectingSourceContract() throws IOException {
         String source = queryServiceSource("SelectionQueryService");
 
-        assertTrue(source.contains("void selectionChanged(CubismSelectionChangedEvent event)"));
+        assertTrue(source.contains("void selectionChanged(SelectionChangedEvent event)"));
     }
 
     private static String queryServiceSource(String sourceName) throws IOException {

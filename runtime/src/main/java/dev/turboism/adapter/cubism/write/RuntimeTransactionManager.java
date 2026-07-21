@@ -3,7 +3,7 @@ package dev.turboism.adapter.cubism.write;
 import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.permissions.PermissionChecker;
-import dev.turboism.sdk.cubism.transaction.DocumentId;
+import dev.turboism.sdk.cubism.id.DocumentId;
 import dev.turboism.sdk.cubism.transaction.ModelTransaction;
 import dev.turboism.sdk.cubism.transaction.TransactionException;
 import dev.turboism.sdk.cubism.transaction.TransactionManager;
@@ -57,7 +57,7 @@ public final class RuntimeTransactionManager implements TransactionManager {
     public RuntimeModelTransaction openTransaction(final PluginContext ctx, final DocumentId docId)
         throws TransactionException, CubismPermissionException {
         Objects.requireNonNull(ctx, "ctx");
-        Objects.requireNonNull(docId, "docId");
+        requireDocumentId(docId, "docId");
         requireWritePermission("transaction.open");
         final RuntimeModelTransaction transaction = new RuntimeModelTransaction(
             "tx-" + nextTransactionId.getAndIncrement(),
@@ -74,6 +74,7 @@ public final class RuntimeTransactionManager implements TransactionManager {
     }
 
     public Optional<ModelTransaction> query(final String pluginId, final DocumentId documentId) {
+        requireDocumentId(documentId, "documentId");
         return registry.query(pluginId, documentId).map(ModelTransaction.class::cast);
     }
 
@@ -94,7 +95,7 @@ public final class RuntimeTransactionManager implements TransactionManager {
         final PluginTask task = new PluginTask(
             taskType,
             transaction.pluginId(),
-            "transaction:" + transaction.transactionId() + ":" + transaction.documentId().id(),
+            "transaction:" + transaction.transactionId() + ":" + transaction.documentId().value(),
             DEFAULT_CAPABILITY
         );
         final boolean accepted = scheduler.dispatch(task, () -> {
@@ -122,6 +123,14 @@ public final class RuntimeTransactionManager implements TransactionManager {
             );
         }
         awaitTransactionWork(transaction, taskType, completion);
+    }
+
+    private static DocumentId requireDocumentId(final DocumentId documentId, final String name) {
+        Objects.requireNonNull(documentId, name);
+        if (documentId.value().isBlank()) {
+            throw new IllegalArgumentException(name + " must not be blank");
+        }
+        return documentId;
     }
 
     private static void awaitTransactionWork(

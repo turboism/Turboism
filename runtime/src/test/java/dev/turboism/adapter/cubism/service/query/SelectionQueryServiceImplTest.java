@@ -12,7 +12,7 @@ import dev.turboism.sdk.cubism.DeformerType;
 import dev.turboism.sdk.cubism.id.ModelObjectId;
 import dev.turboism.sdk.cubism.service.query.HierarchyNode;
 import dev.turboism.sdk.cubism.service.query.SelectionSummary;
-import dev.turboism.sdk.event.cubism.CubismSelectionChangedEvent;
+import dev.turboism.sdk.cubism.event.SelectionChangedEvent;
 import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.sdk.plugin.Registration;
@@ -56,7 +56,7 @@ class SelectionQueryServiceImplTest {
         final SelectionQueryServiceImpl service = serviceWith(source, new ArrayList<>(), List.of(
             permission(CubismFacadeImpl.MODEL_READ_PERMISSION)
         ));
-        final List<CubismSelectionChangedEvent> events = new ArrayList<>();
+        final List<SelectionChangedEvent> events = new ArrayList<>();
 
         final Registration registration = service.onSelectionChanged(events::add);
         service.currentSelection();

@@ -1,7 +1,7 @@
 package dev.turboism.tests.cubism;
 
 import dev.turboism.sdk.cubism.CubismServiceException;
-import dev.turboism.sdk.event.cubism.CubismSelectionChangedEvent;
+import dev.turboism.sdk.cubism.event.SelectionChangedEvent;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.test.fake.FakeCubismHost;
 import org.junit.jupiter.api.Test;
@@ -38,7 +38,7 @@ class QueryServiceListenerCleanupTest {
         final FakeCubismHost host = CubismQueryIntegrationSupport.sampleHost();
         host.select("param-angle-x");
         final CubismQueryIntegrationSupport.QueryEnvironment environment = CubismQueryIntegrationSupport.environment(host, MODEL_READ_PERMISSION);
-        final List<CubismSelectionChangedEvent> events = new ArrayList<>();
+        final List<SelectionChangedEvent> events = new ArrayList<>();
 
         environment.disposableScope().register(environment.context().selectionQuery().onSelectionChanged(events::add));
         environment.disposableScope().close();
@@ -77,7 +77,7 @@ class QueryServiceListenerCleanupTest {
     }
 
     private static final class ListenerProbe {
-        private void onSelectionChanged(final CubismSelectionChangedEvent event) {
+        private void onSelectionChanged(final SelectionChangedEvent event) {
         }
     }
 }

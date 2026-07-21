@@ -1,6 +1,6 @@
 package dev.turboism.adapter.cubism.write;
 
-import dev.turboism.sdk.cubism.transaction.DocumentId;
+import dev.turboism.sdk.cubism.id.DocumentId;
 import dev.turboism.sdk.cubism.transaction.TransactionAlreadyActiveException;
 import dev.turboism.sdk.cubism.transaction.TransactionException;
 import dev.turboism.sdk.cubism.transaction.TransactionStatus;
@@ -24,7 +24,7 @@ public final class TransactionRegistry {
         if (previous != null && previous.status() == TransactionStatus.OPEN) {
             throw new TransactionAlreadyActiveException(
                 transaction.transactionId(),
-                "Transaction already open for plugin " + transaction.pluginId() + " and document " + transaction.documentId().id()
+                "Transaction already open for plugin " + transaction.pluginId() + " and document " + transaction.documentId().value()
             );
         }
         if (previous != null) {

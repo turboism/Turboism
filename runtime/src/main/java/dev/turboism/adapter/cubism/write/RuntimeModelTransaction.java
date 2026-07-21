@@ -1,7 +1,7 @@
 package dev.turboism.adapter.cubism.write;
 
 import dev.turboism.sdk.cubism.transaction.CommitFailedException;
-import dev.turboism.sdk.cubism.transaction.DocumentId;
+import dev.turboism.sdk.cubism.id.DocumentId;
 import dev.turboism.sdk.cubism.transaction.ModelTransaction;
 import dev.turboism.sdk.cubism.transaction.RollbackFailedException;
 import dev.turboism.sdk.cubism.transaction.TransactionClosedException;

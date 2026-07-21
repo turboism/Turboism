@@ -20,7 +20,7 @@ import dev.turboism.sdk.cubism.id.ProjectId;
 import dev.turboism.sdk.cubism.service.query.HierarchyNode;
 import dev.turboism.sdk.cubism.service.query.SelectionQueryService;
 import dev.turboism.sdk.cubism.service.query.SelectionSummary;
-import dev.turboism.sdk.event.cubism.CubismSelectionChangedEvent;
+import dev.turboism.sdk.cubism.event.SelectionChangedEvent;
 import dev.turboism.sdk.plugin.Registration;
 
 import java.util.ArrayList;
@@ -168,7 +168,7 @@ public final class SelectionQueryServiceImpl implements SelectionQueryService {
             final PendingSelectionChange change = pendingChange.getAndSet(null);
             try {
                 if (change != null) {
-                    listener.selectionChanged(new CubismSelectionChangedEvent(change.previousSelection(), change.currentSelection()));
+                    listener.selectionChanged(new SelectionChangedEvent(change.previousSelection(), change.currentSelection()));
                 }
             } finally {
                 dispatchScheduled.set(false);

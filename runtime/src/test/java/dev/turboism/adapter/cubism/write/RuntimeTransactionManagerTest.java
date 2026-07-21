@@ -9,7 +9,7 @@ import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.cubism.transaction.CommitFailedException;
-import dev.turboism.sdk.cubism.transaction.DocumentId;
+import dev.turboism.sdk.cubism.id.DocumentId;
 import dev.turboism.sdk.cubism.transaction.ModelTransaction;
 import dev.turboism.sdk.cubism.transaction.RollbackFailedException;
 import dev.turboism.sdk.cubism.transaction.TransactionAlreadyActiveException;
@@ -53,6 +53,24 @@ class RuntimeTransactionManagerTest {
         if (scheduler != null) {
             scheduler.shutdown();
         }
+    }
+
+    @Test
+    void rejectsBlankDocumentIdentityAtTransactionBoundary() {
+        final RuntimeTransactionManager manager = managerWith(
+            adapterWithParameterValue(0.25),
+            permission()
+        );
+        final DocumentId blank = new DocumentId("   ");
+
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> manager.openTransaction(new TestPluginContext("plugin.demo"), blank)
+        );
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> manager.query("plugin.demo", blank)
+        );
     }
 
     @Test
@@ -307,7 +325,7 @@ class RuntimeTransactionManagerTest {
 
         @Override
         public synchronized void restore(final HostSnapshot snapshot) throws TransactionException {
-            throw new TransactionException(snapshot.documentId().id(), 1999, "ERROR", "forced restore failure");
+            throw new TransactionException(snapshot.documentId().value(), 1999, "ERROR", "forced restore failure");
         }
     }
 }
