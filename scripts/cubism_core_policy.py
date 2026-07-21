@@ -426,6 +426,169 @@ def validate_policy(
     return policy, classified
 
 
+def java_string(value: str) -> str:
+    return json.dumps(value, ensure_ascii=True)
+
+
+def render_java_catalog(
+    policy: dict[str, Any],
+    classified: Sequence[dict[str, Any]],
+) -> str:
+    rows = []
+    for member in classified:
+        rows.append(
+            "\\t".join(
+                [
+                    member["owner"],
+                    member["kind"],
+                    member["name"],
+                    member["descriptor"],
+                    ",".join(member["versions"]),
+                    member["category"],
+                    member["exposure"],
+                    member["lifecycle"],
+                    member["rule"],
+                ]
+            )
+        )
+    data = "\n".join(rows)
+    digest = policy["summary"]["classifiedRosterSha256"]
+    return f'''package dev.turboism.adapter.cubism.core;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+
+/**
+ * Generated complete Cubism Core public-member catalog.
+ *
+ * <p>Source: cubism-ref/core-api/policy/cubism-core-member-policy.json.
+ * Do not edit by hand. The catalog contains names and descriptors only; no Core
+ * class, reflection object, method handle, or native handle crosses this boundary.</p>
+ */
+final class GeneratedCorePublicApiCatalog {{
+
+    static final String CLASSIFIED_ROSTER_SHA256 = {java_string(digest)};
+
+    enum Category {{
+        CONSTANT,
+        CONSTRUCTION,
+        DIAGNOSTIC,
+        EVALUATION,
+        MODEL_READ,
+        MODEL_WRITE,
+        OWNED_MODEL,
+        RUNTIME_INTERNAL,
+        TYPE_METADATA
+    }}
+
+    enum Exposure {{ INTERNAL, MODEL, OWNED_MODEL }}
+
+    enum Lifecycle {{ NONE, BEFORE_ON_AFTER }}
+
+    record Member(
+        String owner,
+        String kind,
+        String name,
+        String descriptor,
+        List<String> versions,
+        Category category,
+        Exposure exposure,
+        Lifecycle lifecycle,
+        String ruleId
+    ) {{
+        Member {{
+            owner = requireText(owner, "owner");
+            kind = requireText(kind, "kind");
+            name = requireText(name, "name");
+            descriptor = requireText(descriptor, "descriptor");
+            versions = List.copyOf(versions);
+            if (versions.isEmpty()) {{
+                throw new IllegalArgumentException("versions must not be empty");
+            }}
+            Objects.requireNonNull(category, "category");
+            Objects.requireNonNull(exposure, "exposure");
+            Objects.requireNonNull(lifecycle, "lifecycle");
+            ruleId = requireText(ruleId, "ruleId");
+        }}
+
+        boolean supports(final String version) {{
+            return versions.contains(Objects.requireNonNull(version, "version"));
+        }}
+    }}
+
+    private static final String DATA = """
+{data}
+        """;
+
+    private static final List<Member> MEMBERS = parse();
+
+    private GeneratedCorePublicApiCatalog() {{
+    }}
+
+    static List<Member> members() {{
+        return MEMBERS;
+    }}
+
+    static Optional<Member> find(
+        final String version,
+        final String owner,
+        final String name,
+        final String descriptor
+    ) {{
+        Objects.requireNonNull(version, "version");
+        Objects.requireNonNull(owner, "owner");
+        Objects.requireNonNull(name, "name");
+        Objects.requireNonNull(descriptor, "descriptor");
+        return MEMBERS.stream()
+            .filter(member -> member.supports(version))
+            .filter(member -> member.owner().equals(owner))
+            .filter(member -> member.name().equals(name))
+            .filter(member -> member.descriptor().equals(descriptor))
+            .findFirst();
+    }}
+
+    private static List<Member> parse() {{
+        final List<Member> members = new ArrayList<>();
+        DATA.lines()
+            .filter(line -> !line.isBlank())
+            .forEach(line -> members.add(parse(line)));
+        return List.copyOf(members);
+    }}
+
+    private static Member parse(final String line) {{
+        final String[] columns = line.split("\\t", -1);
+        if (columns.length != 9) {{
+            throw new IllegalStateException(
+                "Generated Core member row must have exactly 9 columns."
+            );
+        }}
+        return new Member(
+            columns[0],
+            columns[1],
+            columns[2],
+            columns[3],
+            List.copyOf(Arrays.asList(columns[4].split(","))),
+            Category.valueOf(columns[5]),
+            Exposure.valueOf(columns[6]),
+            Lifecycle.valueOf(columns[7]),
+            columns[8]
+        );
+    }}
+
+    private static String requireText(final String value, final String name) {{
+        Objects.requireNonNull(value, name);
+        if (value.isBlank()) {{
+            throw new IllegalArgumentException(name + " must not be blank");
+        }}
+        return value;
+    }}
+}}
+'''
+
+
 def render_report(policy: dict[str, Any], classified: Sequence[dict[str, Any]]) -> str:
     category_counts = Counter(member["category"] for member in classified)
     exposure_counts = Counter(member["exposure"] for member in classified)
@@ -581,6 +744,25 @@ def command_validate(arguments: argparse.Namespace) -> int:
     return 0
 
 
+def command_render_java(arguments: argparse.Namespace) -> int:
+    policy, classified = validate_policy(
+        load_policy(arguments.policy), inventory_documents(arguments)
+    )
+    rendered = render_java_catalog(policy, classified)
+    if arguments.check:
+        try:
+            committed = arguments.output.read_text(encoding="utf-8")
+        except OSError as exc:
+            fail(f"unable to read generated Java catalog {arguments.output}: {exc}")
+        if committed != rendered:
+            fail(f"generated Java catalog has drifted: {arguments.output}")
+        print(f"OK {arguments.output}: generated Java catalog is current")
+        return 0
+    arguments.output.write_text(rendered, encoding="utf-8")
+    print(f"WROTE {arguments.output}")
+    return 0
+
+
 def command_render(arguments: argparse.Namespace) -> int:
     policy, classified = validate_policy(
         load_policy(arguments.policy), inventory_documents(arguments)
@@ -622,6 +804,13 @@ def build_parser() -> argparse.ArgumentParser:
     validate_parser.add_argument("--policy", type=Path, required=True)
     add_inventory_arguments(validate_parser)
     validate_parser.set_defaults(handler=command_validate)
+
+    java_parser = commands.add_parser("render-java")
+    java_parser.add_argument("--policy", type=Path, required=True)
+    java_parser.add_argument("--output", type=Path, required=True)
+    java_parser.add_argument("--check", action="store_true")
+    add_inventory_arguments(java_parser)
+    java_parser.set_defaults(handler=command_render_java)
 
     render_parser = commands.add_parser("render")
     render_parser.add_argument("--policy", type=Path, required=True)
