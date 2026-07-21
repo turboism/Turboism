@@ -9,7 +9,7 @@ import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
 import java.util.Optional;
 
 /**
- * M12 UI-host capability aggregation surface for SDK-only plugins.
+ * UI-host service surface for SDK-only plugins.
  *
  * <p>Plugins submit descriptors and receive registration handles or SDK-safe
  * values. Implementations own host UI adaptation, scheduling, placement,

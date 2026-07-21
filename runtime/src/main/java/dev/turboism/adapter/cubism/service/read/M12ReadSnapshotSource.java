@@ -11,8 +11,8 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Runtime/adapter seam for M12 read capability families that are not yet part
- * of the minimum M6 CubismFacade snapshot source.
+ * Supplemental runtime/adapter source for typed read families that are not yet
+ * available from the minimum CubismFacade snapshot source.
  */
 public interface M12ReadSnapshotSource {
 

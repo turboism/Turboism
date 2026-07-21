@@ -12,8 +12,8 @@ import java.util.Optional;
 import java.util.function.Supplier;
 
 /**
- * M14 simulated-host seam for read-only project/workspace snapshots.
- * Driven by M13 main-toolbar / project-panel behaviors.
+ * Adapter seam for read-only project/workspace snapshots.
+ * Used by toolbar, project-panel, and workspace consumers.
  */
 public interface ProjectWorkspaceAdapter {
 

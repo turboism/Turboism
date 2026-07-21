@@ -10,7 +10,7 @@ import dev.turboism.sdk.plugin.TurboismPlugin;
 import java.util.function.Consumer;
 
 /**
- * Official SDK-only plugin shell for M13 clip-mask.readonly-inspector fake-ready behavior.
+ * Official SDK-only plugin shell for read-only clip-mask inspection behavior.
  * Enable rolls back the disposable scope if any contribution fails so partial registrations do not leak.
  */
 public final class ClipMaskPlugin implements TurboismPlugin {

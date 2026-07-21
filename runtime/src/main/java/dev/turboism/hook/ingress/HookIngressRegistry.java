@@ -9,7 +9,7 @@ import java.util.Optional;
 /**
  * Fake-first registry for semantic hook ingress definitions.
  *
- * <p>M12 ingress specs are internal runtime metadata only. They never expose raw
+ * <p>Ingress specs are internal runtime metadata only. They never expose raw
  * hook targets to plugins and never enable production hook injection.</p>
  */
 public final class HookIngressRegistry {

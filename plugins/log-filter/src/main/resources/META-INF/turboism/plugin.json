@@ -4,7 +4,7 @@
   "id": "dev.turboism.plugin.logfilter",
   "name": "Log Filter Plugin",
   "version": "0.1.0",
-  "description": "SDK-only log palette toolbar filter behavior using M12 UI host capabilities.",
+  "description": "SDK-only log palette toolbar filtering through Turboism UI host services.",
   "entrypoints": {
     "plugin": "dev.turboism.plugin.logfilter.LogFilterPlugin"
   },

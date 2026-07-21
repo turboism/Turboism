@@ -4,7 +4,7 @@
   "id": "dev.turboism.plugin.maintoolbar",
   "name": "Main Toolbar Plugin",
   "version": "0.1.0",
-  "description": "SDK-only main toolbar home entry behavior using M12 project/workspace read and UI host capabilities.",
+  "description": "SDK-only main toolbar home entry through Turboism project/workspace read and UI host services.",
   "entrypoints": {
     "plugin": "dev.turboism.plugin.maintoolbar.MainToolbarPlugin"
   },
