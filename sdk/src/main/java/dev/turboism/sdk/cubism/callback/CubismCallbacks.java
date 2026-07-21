@@ -1,15 +1,14 @@
 package dev.turboism.sdk.cubism.callback;
 
 import dev.turboism.sdk.PreviewApi;
-import dev.turboism.sdk.plugin.Registration;
 
-/** Registrations for wrapped Cubism method lifecycles. */
+/**
+ * Legacy Preview alias for parameter hooks.
+ *
+ * @deprecated Implement {@link ParameterHooks} or
+ * {@link dev.turboism.sdk.cubism.CubismPlugin} and override lifecycle methods.
+ */
+@Deprecated(forRemoval = true)
 @PreviewApi
-public interface CubismCallbacks {
-
-    Registration beforeSetParameterValue(BeforeSetParameterValue callback);
-
-    Registration onParameterValueChanged(OnParameterValueChanged callback);
-
-    Registration afterSetParameterValue(AfterSetParameterValue callback);
+public interface CubismCallbacks extends ParameterHooks {
 }
