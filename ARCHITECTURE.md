@@ -41,6 +41,35 @@ The authoritative project list is `settings.gradle.kts`.
 
 The platform uses coarse Gradle modules and package-level internal organization. A new conceptual area does not automatically justify a new Gradle module.
 
+Package ownership is intentionally non-overlapping:
+
+```text
+dev.turboism.sdk.cubism.hook
+  Override-based plugin lifecycle hooks; no registration bus.
+
+dev.turboism.sdk.cubism.event
+  Immutable Cubism and Editor semantic event values.
+
+dev.turboism.sdk.event
+  Generic event transport and EventBus contracts.
+
+dev.turboism.sdk.cubism.id
+  Shared identities used across reads, queries, events and transactions.
+
+dev.turboism.core.runtime
+  Scheduling policy, timers and cancellation context.
+
+dev.turboism.core.runtime.work
+  Per-plugin bounded execution, admission, backpressure, timeout and circuit breaking.
+
+dev.turboism.core.runtime.sidecar
+  Isolated heavy-work dispatch and supervision.
+```
+
+Deprecated package shapes such as `sdk.cubism.callback`, `sdk.event.cubism`,
+feature-local `DocumentId`, and callback-named plugin work executors are not
+compatibility surfaces and must not be reintroduced.
+
 ## 3. Public API model
 
 SDK APIs use Turboism-owned types only. They must not expose:
