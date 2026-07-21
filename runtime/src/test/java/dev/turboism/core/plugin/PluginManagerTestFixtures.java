@@ -13,7 +13,6 @@ import dev.turboism.sdk.plugin.Registration;
 
 import java.lang.reflect.Proxy;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -48,8 +47,8 @@ final class PluginManagerTestFixtures {
             }
 
             @Override
-            public Map<String, String> entrypoints() {
-                return Map.of("plugin", "dev.turboism.plugin.TestPlugin");
+            public List<String> entrypoints() {
+                return List.of("dev.turboism.plugin.TestPlugin");
             }
 
             @Override
@@ -68,8 +67,26 @@ final class PluginManagerTestFixtures {
             }
 
             @Override
-            public Optional<String> homepage() {
-                return Optional.empty();
+            public Optional<String> website() {
+                return Optional.of("https://turboism.dev");
+            }
+
+            @Override
+            public List<String> resources() {
+                return List.of();
+            }
+
+            @Override
+            public I18n i18n() {
+                return new I18n() {
+                    @Override public String baseName() {
+                        return "META-INF/turboism/i18n/messages";
+                    }
+
+                    @Override public List<String> locales() {
+                        return List.of();
+                    }
+                };
             }
 
             @Override

@@ -10,9 +10,10 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Modifier;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.util.ArrayList;
 import java.util.List;
 
-/** Loads one resolved plugin and cleans partially-created resources on failure. */
+/** Loads one plugin JAR and all of its ordered entrypoints atomically. */
 final class PreviewPluginLoader {
 
     private final PreviewPluginContextFactory contextFactory;
@@ -38,9 +39,17 @@ final class PreviewPluginLoader {
         runtime.transitionTo(PluginLifecycleState.RESOLVED);
         final LoadResources resources = new LoadResources();
         try {
-            final LocalPluginRuntime.LoadedPlugin loadedPlugin = loadPlugin(candidate, runtime, resources);
+            final LocalPluginRuntime.LoadedPlugin loadedPlugin = loadPlugin(
+                candidate,
+                runtime,
+                resources
+            );
             loaded.add(loadedPlugin);
-            log.info(descriptor.id(), "Loaded plugin " + descriptor.name() + " " + descriptor.version());
+            log.info(
+                descriptor.id(),
+                "Loaded plugin " + descriptor.name() + " " + descriptor.version()
+                    + " entrypoints=" + resources.entrypoints.size()
+            );
             return PreviewPluginSummaryFactory.active(loadedPlugin);
         } catch (Throwable failure) {
             recordFailure(candidate, runtime, resources.classLoader, failures, failure);
@@ -55,47 +64,78 @@ final class PreviewPluginLoader {
         final LoadResources resources
     ) throws Exception {
         resources.classLoader = new URLClassLoader(
-            new URL[]{candidate.jar().toUri().toURL()}, TurboismPlugin.class.getClassLoader()
+            new URL[]{candidate.jar().toUri().toURL()},
+            TurboismPlugin.class.getClassLoader()
         );
         runtime.transitionTo(PluginLifecycleState.CLASSLOADER_CREATED);
-        resources.plugin = instantiate(candidate.descriptor(), resources.classLoader);
-        runtime.setInstance(resources.plugin);
+
+        resources.entrypoints.addAll(instantiateAll(
+            candidate.descriptor(),
+            resources.classLoader
+        ));
+        runtime.setEntrypoints(resources.entrypoints);
         runtime.transitionTo(PluginLifecycleState.CONSTRUCTED);
+
         resources.scope = new DisposableScope();
         final PluginContextBundle contextBundle = contextFactory.create(
-            candidate.descriptor(), resources.classLoader, resources.scope
+            candidate.descriptor(),
+            resources.classLoader,
+            resources.scope
         );
         runtime.setContext(contextBundle.context());
         logLocalization(candidate.descriptor(), contextBundle);
-        resources.plugin.init(contextBundle.context());
+
+        for (TurboismPlugin entrypoint : resources.entrypoints) {
+            entrypoint.init(contextBundle.context());
+            resources.initialized++;
+        }
         runtime.transitionTo(PluginLifecycleState.LOADED);
-        enable(resources.plugin, runtime);
+
+        enableAll(resources, runtime);
         return new LocalPluginRuntime.LoadedPlugin(
-            candidate.jar(), runtime, resources.plugin, resources.scope, resources.classLoader,
-            contextBundle.localization(), contextBundle.cleanupEvidence()
+            candidate.jar(),
+            runtime,
+            resources.entrypoints,
+            resources.scope,
+            resources.classLoader,
+            contextBundle.localization(),
+            contextBundle.cleanupEvidence()
         );
     }
 
-    private TurboismPlugin instantiate(
+    private List<TurboismPlugin> instantiateAll(
         final PluginDescriptor descriptor,
         final URLClassLoader classLoader
     ) throws Exception {
-        final Class<?> type = Class.forName(descriptor.entrypoints().get("plugin"), true, classLoader);
-        verifyEntrypoint(type, classLoader);
-        return (TurboismPlugin) type.getDeclaredConstructor().newInstance();
+        final List<TurboismPlugin> instances = new ArrayList<>();
+        for (String className : descriptor.entrypoints()) {
+            final Class<?> type = Class.forName(className, true, classLoader);
+            verifyEntrypoint(type, classLoader);
+            instances.add((TurboismPlugin) type.getDeclaredConstructor().newInstance());
+        }
+        return List.copyOf(instances);
     }
 
-    private static void verifyEntrypoint(final Class<?> type, final URLClassLoader classLoader)
-        throws NoSuchMethodException {
+    private static void verifyEntrypoint(
+        final Class<?> type,
+        final URLClassLoader classLoader
+    ) throws NoSuchMethodException {
         if (type.getClassLoader() != classLoader) {
-            throw new IllegalArgumentException("Plugin entrypoint must be defined by its own plugin JAR");
+            throw new IllegalArgumentException(
+                "Plugin entrypoint must be defined by its own plugin JAR"
+            );
         }
         if (!TurboismPlugin.class.isAssignableFrom(type)) {
-            throw new IllegalArgumentException("Plugin entrypoint does not implement TurboismPlugin");
+            throw new IllegalArgumentException(
+                "Plugin entrypoint does not implement TurboismPlugin: " + type.getName()
+            );
         }
         final Constructor<?> constructor = type.getDeclaredConstructor();
-        if (!Modifier.isPublic(type.getModifiers()) || !Modifier.isPublic(constructor.getModifiers())) {
-            throw new IllegalArgumentException("Plugin entrypoint and no-arg constructor must be public");
+        if (!Modifier.isPublic(type.getModifiers())
+            || !Modifier.isPublic(constructor.getModifiers())) {
+            throw new IllegalArgumentException(
+                "Plugin entrypoint and no-arg constructor must be public: " + type.getName()
+            );
         }
     }
 
@@ -103,13 +143,23 @@ final class PreviewPluginLoader {
         final PluginDescriptor descriptor,
         final PluginContextBundle contextBundle
     ) {
-        log.debug(descriptor.id(), "Localization active locale="
-            + contextBundle.localization().locale().toLanguageTag());
+        log.debug(
+            descriptor.id(),
+            "Localization active locale="
+                + contextBundle.localization().locale().toLanguageTag()
+                + " catalogs=" + descriptor.i18n().locales()
+        );
     }
 
-    private static void enable(final TurboismPlugin plugin, final PluginRuntime runtime) throws Exception {
+    private static void enableAll(
+        final LoadResources resources,
+        final PluginRuntime runtime
+    ) throws Exception {
         try {
-            plugin.enable();
+            for (TurboismPlugin entrypoint : resources.entrypoints) {
+                entrypoint.enable();
+                resources.enabled++;
+            }
             runtime.transitionTo(PluginLifecycleState.ENABLED);
         } catch (Exception failure) {
             runtime.transitionTo(PluginLifecycleState.ENABLE_FAILED);
@@ -126,32 +176,58 @@ final class PreviewPluginLoader {
     ) {
         if (runtime.state() != PluginLifecycleState.ENABLE_FAILED) {
             runtime.transitionTo(classLoader == null
-                ? PluginLifecycleState.CLASSLOADER_FAILED : PluginLifecycleState.LOAD_FAILED);
+                ? PluginLifecycleState.CLASSLOADER_FAILED
+                : PluginLifecycleState.LOAD_FAILED);
         }
         failures.add(new LocalPluginRuntime.PluginFailure(
-            candidate.descriptor().id(), candidate.jar(), runtime.state().name(), safeMessage(failure)
+            candidate.descriptor().id(),
+            candidate.jar(),
+            runtime.state().name(),
+            safeMessage(failure)
         ));
         log.error(candidate.descriptor().id(), "Plugin load failed", failure);
     }
 
-    private void cleanupFailed(final LoadResources resources, final String pluginId) {
-        shutdownAfterFailure(resources.plugin, pluginId);
+    private void cleanupFailed(
+        final LoadResources resources,
+        final String pluginId
+    ) {
+        disableEnabledAfterFailure(resources, pluginId);
+        shutdownConstructedAfterFailure(resources, pluginId);
         final boolean scopeClosed = closeScopeAfterFailure(resources.scope, pluginId);
         closeLoaderAfterFailure(resources.classLoader, scopeClosed, pluginId);
     }
 
-    private void shutdownAfterFailure(final TurboismPlugin plugin, final String pluginId) {
-        if (plugin == null) {
-            return;
-        }
-        try {
-            plugin.shutdown();
-        } catch (Exception exception) {
-            log.error(pluginId, "Plugin cleanup after load failure failed", exception);
+    private void disableEnabledAfterFailure(
+        final LoadResources resources,
+        final String pluginId
+    ) {
+        for (int index = resources.enabled - 1; index >= 0; index--) {
+            try {
+                resources.entrypoints.get(index).disable();
+            } catch (Exception exception) {
+                log.error(pluginId, "Plugin enable rollback failed", exception);
+            }
         }
     }
 
-    private boolean closeScopeAfterFailure(final DisposableScope scope, final String pluginId) {
+    private void shutdownConstructedAfterFailure(
+        final LoadResources resources,
+        final String pluginId
+    ) {
+        for (int index = resources.entrypoints.size() - 1; index >= 0; index--) {
+            try {
+                resources.entrypoints.get(index).shutdown();
+            } catch (Exception exception) {
+                log.error(pluginId, "Plugin cleanup after load failure failed", exception);
+            }
+        }
+    }
+
+    private boolean closeScopeAfterFailure(
+        final DisposableScope scope,
+        final String pluginId
+    ) {
         if (scope == null) {
             return true;
         }
@@ -173,8 +249,11 @@ final class PreviewPluginLoader {
             return;
         }
         if (!scopeClosed) {
-            log.error(pluginId, "Plugin classloader retained after load failure because cleanup did not quiesce",
-                new IllegalStateException("Plugin scope cleanup is incomplete"));
+            log.error(
+                pluginId,
+                "Plugin classloader retained after load failure because cleanup did not quiesce",
+                new IllegalStateException("Plugin scope cleanup is incomplete")
+            );
             return;
         }
         try {
@@ -186,12 +265,16 @@ final class PreviewPluginLoader {
 
     private static String safeMessage(final Throwable failure) {
         final String message = failure.getMessage();
-        return message == null || message.isBlank() ? failure.getClass().getName() : message;
+        return message == null || message.isBlank()
+            ? failure.getClass().getName()
+            : message;
     }
 
     private static final class LoadResources {
         private URLClassLoader classLoader;
         private DisposableScope scope;
-        private TurboismPlugin plugin;
+        private final List<TurboismPlugin> entrypoints = new ArrayList<>();
+        private int initialized;
+        private int enabled;
     }
 }
