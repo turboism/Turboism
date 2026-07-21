@@ -15,10 +15,10 @@ private class BoundaryState(private val logger: Logger) {
 private val forbiddenImportPatterns = listOf(
     "dev.turboism.*.internal.*" to "SDK/public modules must not import runtime internal packages",
     "com.live2d.*" to "SDK/plugins must not import Cubism internal packages (com.live2d)",
-    "dev.turboism.core.parameter.*" to "Phase 1/M2 forbids parameter package",
-    "dev.turboism.core.mesh.*" to "Phase 1/M2 forbids mesh package",
-    "dev.turboism.core.psd.*" to "Phase 1/M2 forbids psd package",
-    "dev.turboism.core.mirror.*" to "Phase 1/M2 forbids mirror package"
+    "dev.turboism.core.parameter.*" to "SDK/plugins must not import runtime parameter internals",
+    "dev.turboism.core.mesh.*" to "SDK/plugins must not import runtime mesh internals",
+    "dev.turboism.core.psd.*" to "SDK/plugins must not import runtime PSD internals",
+    "dev.turboism.core.mirror.*" to "SDK/plugins must not import runtime mirror internals"
 )
 
 private val forbiddenHostUiTraversal = listOf(
@@ -29,7 +29,7 @@ private val forbiddenHostUiTraversal = listOf(
 
 tasks.register("checkModuleBoundaries") {
     group = "verification"
-    description = "Verify module dependency direction, internal imports, and forbidden packages."
+    description = "Verifies SDK/runtime/plugin dependency direction and host-internal import boundaries."
     dependsOn("checkSdkPrePhaseApiCompatibility")
     doLast {
         checkModuleBoundaries(rootProject)
