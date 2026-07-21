@@ -1,13 +1,13 @@
 {
   "format": "turboism.plugin.meta",
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "dev.turboism.plugin.demo",
   "name": "Demo Plugin",
   "version": "0.1.0",
   "description": "Demo plugin for Turboism framework validation.",
-  "entrypoints": {
-    "plugin": "dev.turboism.plugin.demo.DemoPlugin"
-  },
+  "entrypoints": [
+    "dev.turboism.plugin.demo.DemoPlugin"
+  ],
   "turboismApi": "[0.1.0,0.2.0)",
   "authors": [
     {
@@ -15,7 +15,12 @@
     }
   ],
   "license": "Project License",
-  "homepage": "https://turboism.dev",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": []
+  },
   "dependencies": [],
   "permissions": [
     {

@@ -455,21 +455,28 @@ class LocalPluginRuntimeCloseTest {
             id,
             "1.0.0",
             "test",
-            Map.of(),
+            List.of(plugin.getClass().getName()),
             "0.1.0",
             List.of(),
             "MIT",
-            Optional.empty(),
+            Optional.of("https://turboism.dev"),
+            List.of(),
+            new CorePluginDescriptor.CoreI18n(
+                "META-INF/turboism/i18n/messages",
+                List.of()
+            ),
             List.of(),
             List.of(),
             List.of(),
             new CorePluginDescriptor.CoreEnvironment(false, "none")
         );
         final PluginRuntime pluginRuntime = new PluginRuntime(id, descriptor);
+        pluginRuntime.setEntrypoints(List.of(plugin));
         pluginRuntime.transitionTo(PluginLifecycleState.ENABLED);
         final RuntimePluginLocalization localization = RuntimePluginLocalization.create(
             id,
             loader,
+            descriptor.i18n(),
             null,
             Locale.US,
             Locale.US,
@@ -504,7 +511,7 @@ class LocalPluginRuntimeCloseTest {
         final Constructor<?> constructor = type.getDeclaredConstructor(
             Path.class,
             PluginRuntime.class,
-            TurboismPlugin.class,
+            List.class,
             DisposableScope.class,
             URLClassLoader.class,
             RuntimePluginLocalization.class,
@@ -514,7 +521,7 @@ class LocalPluginRuntimeCloseTest {
         final Object value = constructor.newInstance(
             fixture.jar(),
             fixture.runtime(),
-            fixture.plugin(),
+            List.of(fixture.plugin()),
             fixture.scope(),
             fixture.loader(),
             fixture.localization(),
