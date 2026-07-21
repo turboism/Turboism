@@ -16,6 +16,7 @@ from cubism_core_policy import (  # noqa: E402
     bootstrap,
     compact_json,
     load_policy,
+    render_java_catalog,
     render_report,
     validate_policy,
 )
@@ -168,6 +169,27 @@ def main() -> int:
         REPORT.read_text(encoding="utf-8")
         == render_report(validated, classified),
         "generated member policy report has drifted",
+    )
+
+    generated_java = render_java_catalog(validated, classified)
+    reversed_policy, reversed_classified = validate_policy(
+        policy,
+        list(reversed(inventories)),
+    )
+    require(
+        generated_java
+        == render_java_catalog(reversed_policy, reversed_classified),
+        "generated Java catalog depends on inventory argument ordering",
+    )
+    require(
+        "import com.live2d." not in generated_java
+        and "java.lang.reflect" not in generated_java
+        and "MethodHandle" not in generated_java,
+        "generated Java catalog leaked a Core or reflection type",
+    )
+    require(
+        validated["summary"]["classifiedRosterSha256"] in generated_java,
+        "generated Java catalog lost the classified roster binding",
     )
 
     mutation = copy.deepcopy(policy)
