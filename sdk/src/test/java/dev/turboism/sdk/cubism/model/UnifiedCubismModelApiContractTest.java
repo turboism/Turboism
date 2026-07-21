@@ -7,7 +7,6 @@ import dev.turboism.sdk.cubism.DocumentSnapshot;
 import dev.turboism.sdk.cubism.ModelSnapshot;
 import dev.turboism.sdk.cubism.ProjectSnapshot;
 import dev.turboism.sdk.cubism.SelectionSnapshot;
-import dev.turboism.sdk.cubism.callback.CubismCallbacks;
 import dev.turboism.sdk.cubism.callback.ModelHooks;
 import dev.turboism.sdk.cubism.callback.ParameterHooks;
 import dev.turboism.sdk.cubism.callback.PartHooks;
@@ -34,18 +33,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class UnifiedCubismModelApiContractTest {
 
     @Test
-    @SuppressWarnings("removal")
-    void facadeExposesModelAccessAndOnlyDeprecatedCallbackCompatibility() throws Exception {
+    void facadeExposesModelAccessWithoutCallbackRegistrationService() throws Exception {
         final Method model = CubismFacade.class.getMethod("model");
-        final Method callbacks = CubismFacade.class.getMethod("callbacks");
 
         assertEquals(CubismModelAccess.class, model.getReturnType());
         assertTrue(model.isDefault());
         assertFalseAbstract(model);
-        assertEquals(CubismCallbacks.class, callbacks.getReturnType());
-        assertTrue(callbacks.isDefault());
-        assertTrue(callbacks.isAnnotationPresent(Deprecated.class));
-        assertEquals(0, CubismCallbacks.class.getDeclaredMethods().length);
+        assertThrows(NoSuchMethodException.class, () ->
+            CubismFacade.class.getMethod("callbacks")
+        );
     }
 
     @Test

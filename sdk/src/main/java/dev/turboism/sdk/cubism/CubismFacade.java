@@ -1,7 +1,6 @@
 package dev.turboism.sdk.cubism;
 
 import dev.turboism.sdk.PreviewApi;
-import dev.turboism.sdk.cubism.callback.CubismCallbacks;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.sdk.cubism.transaction.TransactionManager;
 import java.util.Optional;
@@ -29,21 +28,6 @@ public interface CubismFacade {
     default CubismModelAccess model() {
         throw new UnsupportedOperationException(
             "Unified Cubism model access is unavailable"
-        );
-    }
-
-    /**
-     * Legacy Preview compatibility stub.
-     *
-     * @deprecated Implement {@link CubismPlugin} and override lifecycle hooks.
-     * This method no longer exposes callback registration semantics.
-     */
-    @Deprecated(forRemoval = true)
-    @SuppressWarnings("removal")
-    @PreviewApi
-    default CubismCallbacks callbacks() {
-        throw new UnsupportedOperationException(
-            "Callback registration was replaced by CubismPlugin overrides"
         );
     }
 

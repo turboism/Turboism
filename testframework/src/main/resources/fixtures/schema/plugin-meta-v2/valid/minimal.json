@@ -1,23 +1,23 @@
 {
   "format": "turboism.plugin.meta",
   "schemaVersion": 2,
-  "id": "dev.turboism.plugin.psd-import",
-  "name": "PSD Import Plugin",
-  "version": "0.1.0",
-  "description": "SDK-only migration shell for the PSD Import legacy feature.",
+  "id": "dev.turboism.plugin.sample",
+  "name": "Sample Plugin",
+  "version": "1.0.0",
+  "description": "Sample plugin metadata fixture.",
   "entrypoints": [
-    "dev.turboism.plugin.psdimport.PsdImportPlugin"
+    "dev.turboism.plugin.sample.SamplePlugin"
   ],
   "turboismApi": "[0.1.0,0.2.0)",
   "authors": [
     { "name": "Turboism Contributors" }
   ],
-  "license": "Project License",
+  "license": "MIT",
   "website": "https://turboism.dev",
   "resources": [],
   "i18n": {
     "baseName": "META-INF/turboism/i18n/messages",
-    "locales": ["base", "en", "ja", "ko", "zh_Hans", "zh_Hant"]
+    "locales": []
   },
   "dependencies": [],
   "permissions": [],

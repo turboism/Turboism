@@ -5,26 +5,26 @@ import dev.turboism.core.diagnostics.StartupReport;
 import dev.turboism.core.lifecycle.PluginLifecycleState;
 import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.runtime.RuntimeScheduler;
+import dev.turboism.sdk.plugin.TurboismPlugin;
 
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-/**
- * Skeleton plugin manager. Manages lifecycle state without real ClassLoader injection.
- */
+/** Manages JAR-level plugin lifecycle across ordered entrypoint instances. */
 public final class PluginManager {
 
     private final Map<String, PluginRuntime> plugins = new HashMap<>();
     private final StartupReport report = new StartupReport();
     private final RuntimeScheduler scheduler;
 
-    public PluginManager(RuntimeScheduler scheduler) {
+    public PluginManager(final RuntimeScheduler scheduler) {
         this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
     }
 
-    public PluginRuntime get(String id) {
+    public PluginRuntime get(final String id) {
         return plugins.get(id);
     }
 
@@ -36,92 +36,147 @@ public final class PluginManager {
         return report;
     }
 
-    public PluginRuntime registerDescriptor(PluginRuntime runtime) {
+    public PluginRuntime registerDescriptor(final PluginRuntime runtime) {
         plugins.put(runtime.id(), runtime);
         return runtime;
     }
 
-    public void enable(String id) {
-        PluginRuntime runtime = plugins.get(id);
-        if (runtime == null) return;
+    public void enable(final String id) {
+        final PluginRuntime runtime = plugins.get(id);
+        if (runtime == null) {
+            return;
+        }
         scheduler.dispatch(lifecycleTask(runtime, "lifecycle.enable"), () -> enableRuntime(runtime));
     }
 
-    private void enableRuntime(PluginRuntime runtime) {
+    private void enableRuntime(final PluginRuntime runtime) {
+        int enabled = 0;
         try {
-            runtime.instance().enable();
+            for (TurboismPlugin entrypoint : runtime.entrypoints()) {
+                entrypoint.enable();
+                enabled++;
+            }
             runtime.transitionTo(PluginLifecycleState.ENABLED);
-        } catch (Exception e) {
+        } catch (Exception exception) {
+            disablePrefixReverse(runtime.entrypoints(), enabled, runtime);
             closeDisposableScope(runtime, "ENABLE_FAILED");
-            reportProblem(runtime, "ENABLE_FAILED", e);
+            reportProblem(runtime, "ENABLE_FAILED", exception);
             runtime.transitionTo(PluginLifecycleState.ENABLE_FAILED);
         }
     }
 
-    public void disable(String id) {
-        PluginRuntime runtime = plugins.get(id);
-        if (runtime == null) return;
-        if (runtime.state() != PluginLifecycleState.ENABLED) return;
+    public void disable(final String id) {
+        final PluginRuntime runtime = plugins.get(id);
+        if (runtime == null || runtime.state() != PluginLifecycleState.ENABLED) {
+            return;
+        }
         scheduler.dispatch(lifecycleTask(runtime, "lifecycle.disable"), () -> disableRuntime(runtime));
-        if (!closeDisposableScope(runtime, "DISABLE_FAILED")) return;
+        if (!closeDisposableScope(runtime, "DISABLE_FAILED")) {
+            return;
+        }
         if (runtime.state() == PluginLifecycleState.ENABLED) {
             runtime.transitionTo(PluginLifecycleState.DISABLED);
         }
     }
 
-    private void disableRuntime(PluginRuntime runtime) {
-        try {
-            runtime.instance().disable();
-        } catch (Exception e) {
-            reportProblem(runtime, "DISABLE_FAILED", e);
+    private void disableRuntime(final PluginRuntime runtime) {
+        boolean failed = false;
+        final List<TurboismPlugin> entries = runtime.entrypoints();
+        for (int index = entries.size() - 1; index >= 0; index--) {
+            try {
+                entries.get(index).disable();
+            } catch (Exception exception) {
+                failed = true;
+                reportProblem(runtime, "DISABLE_FAILED", exception);
+            }
+        }
+        if (failed) {
             runtime.transitionTo(PluginLifecycleState.DISABLE_FAILED);
         }
     }
 
-    private static PluginTask lifecycleTask(PluginRuntime runtime, String taskType) {
+    private static PluginTask lifecycleTask(
+        final PluginRuntime runtime,
+        final String taskType
+    ) {
         return new PluginTask(taskType, runtime.id(), runtime.descriptor().name(), "none");
     }
 
-    public void shutdown(String id) {
-        PluginRuntime runtime = plugins.get(id);
-        if (runtime == null) return;
+    public void shutdown(final String id) {
+        final PluginRuntime runtime = plugins.get(id);
+        if (runtime == null) {
+            return;
+        }
         scheduler.dispatch(lifecycleTask(runtime, "lifecycle.shutdown"), () -> shutdownRuntime(runtime));
     }
 
-    private void shutdownRuntime(PluginRuntime runtime) {
-        try {
-            if (runtime.instance() != null) {
-                runtime.instance().shutdown();
+    private void shutdownRuntime(final PluginRuntime runtime) {
+        boolean failed = false;
+        final List<TurboismPlugin> entries = runtime.entrypoints();
+        for (int index = entries.size() - 1; index >= 0; index--) {
+            try {
+                entries.get(index).shutdown();
+            } catch (Exception exception) {
+                failed = true;
+                reportProblem(runtime, "SHUTDOWN_FAILED", exception);
             }
-            if (!closeDisposableScope(runtime, "SHUTDOWN_FAILED")) return;
-            runtime.transitionTo(PluginLifecycleState.SHUTDOWN);
-            runtime.transitionTo(PluginLifecycleState.UNLOADED);
-        } catch (Exception e) {
-            closeDisposableScope(runtime, "SHUTDOWN_FAILED");
-            reportProblem(runtime, "SHUTDOWN_FAILED", e);
+        }
+        if (!closeDisposableScope(runtime, "SHUTDOWN_FAILED")) {
+            failed = true;
+        }
+        if (failed) {
             runtime.transitionTo(PluginLifecycleState.SHUTDOWN_FAILED);
+            return;
+        }
+        runtime.transitionTo(PluginLifecycleState.SHUTDOWN);
+        runtime.transitionTo(PluginLifecycleState.UNLOADED);
+    }
+
+    private void disablePrefixReverse(
+        final List<TurboismPlugin> entries,
+        final int count,
+        final PluginRuntime runtime
+    ) {
+        for (int index = count - 1; index >= 0; index--) {
+            try {
+                entries.get(index).disable();
+            } catch (Exception exception) {
+                reportProblem(runtime, "ENABLE_ROLLBACK_FAILED", exception);
+            }
         }
     }
 
-    private boolean closeDisposableScope(PluginRuntime runtime, String failureCode) {
+    private boolean closeDisposableScope(
+        final PluginRuntime runtime,
+        final String failureCode
+    ) {
         if (runtime.context() == null) {
             return true;
         }
         try {
             runtime.context().disposableScope().close();
             return true;
-        } catch (Exception e) {
-            reportProblem(runtime, failureCode, e);
+        } catch (Exception exception) {
+            reportProblem(runtime, failureCode, exception);
             runtime.transitionTo(PluginLifecycleState.valueOf(failureCode));
             return false;
         }
     }
 
-    private void reportProblem(PluginRuntime runtime, String code, Exception e) {
+    private void reportProblem(
+        final PluginRuntime runtime,
+        final String code,
+        final Exception exception
+    ) {
         if (runtime.context() != null) {
-            runtime.context().logger().error(code + ": " + e.getMessage(), e);
+            runtime.context().logger().error(code + ": " + exception.getMessage(), exception);
         }
-        report.addProblem(code, e.getMessage(), runtime.id(), StartupReport.Severity.ERROR);
+        report.addProblem(
+            code,
+            exception.getMessage(),
+            runtime.id(),
+            StartupReport.Severity.ERROR
+        );
     }
 
     public void shutdownAll() {
@@ -130,10 +185,17 @@ public final class PluginManager {
         }
     }
 
-    public void markDisabled(String id, DisabledReason reason) {
-        PluginRuntime runtime = plugins.get(id);
-        if (runtime == null) return;
+    public void markDisabled(final String id, final DisabledReason reason) {
+        final PluginRuntime runtime = plugins.get(id);
+        if (runtime == null) {
+            return;
+        }
         runtime.markDisabled(reason);
-        report.addProblem(reason.name(), "Plugin disabled: " + reason, id, StartupReport.Severity.ERROR);
+        report.addProblem(
+            reason.name(),
+            "Plugin disabled: " + reason,
+            id,
+            StartupReport.Severity.ERROR
+        );
     }
 }

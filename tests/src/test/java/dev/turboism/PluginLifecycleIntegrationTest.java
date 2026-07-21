@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -16,12 +17,19 @@ class PluginLifecycleIntegrationTest {
         String json = """
             {
               "format": "turboism.plugin.meta",
-              "schemaVersion": 1,
+              "schemaVersion": 2,
               "id": "dev.turboism.plugin.demo",
               "name": "Demo Plugin",
               "version": "0.1.0",
-              "entrypoints": { "plugin": "dev.turboism.plugin.demo.DemoPlugin" },
-              "turboismApi": "[0.1.0,0.2.0)"
+              "entrypoints": ["dev.turboism.plugin.demo.DemoPlugin"],
+              "turboismApi": "[0.1.0,0.2.0)",
+              "authors": [{"name":"Turboism Contributors"}],
+              "website": "https://turboism.dev",
+              "resources": [],
+              "i18n": {
+                "baseName": "META-INF/turboism/i18n/messages",
+                "locales": []
+              }
             }
             """;
 
@@ -30,6 +38,6 @@ class PluginLifecycleIntegrationTest {
 
         assertEquals("dev.turboism.plugin.demo", descriptor.id());
         assertEquals("0.1.0", descriptor.version());
-        assertTrue(descriptor.entrypoints().containsKey("plugin"));
+        assertEquals(List.of("dev.turboism.plugin.demo.DemoPlugin"), descriptor.entrypoints());
     }
 }
