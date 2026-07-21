@@ -36,6 +36,22 @@ public final class VerifiedMemberResolver {
         return accessPlan.cubismVersion();
     }
 
+    public VerifiedMethodCallSite bindStatic(final String alias) {
+        final StaticSelector selector = methodSelector(alias);
+        if ((selector.requiredAccessFlags() & StaticSelector.ACCESS_STATIC) == 0) {
+            throw resolutionFailure(alias, "Verified alias is not a static method.");
+        }
+        return bindResolved(selector);
+    }
+
+    public VerifiedMethodCallSite bind(final String alias) {
+        final StaticSelector selector = methodSelector(alias);
+        if ((selector.forbiddenAccessFlags() & StaticSelector.ACCESS_STATIC) == 0) {
+            throw resolutionFailure(alias, "Verified alias is not an instance method.");
+        }
+        return bindResolved(selector);
+    }
+
     public Object invokeStatic(final String alias, final Object... arguments) {
         final StaticSelector selector = methodSelector(alias);
         if ((selector.requiredAccessFlags() & StaticSelector.ACCESS_STATIC) == 0) {
@@ -99,6 +115,47 @@ public final class VerifiedMemberResolver {
             return accessPlan.selector(alias);
         } catch (IllegalArgumentException exception) {
             throw resolutionFailure(alias, "Verified host selector is unavailable in the access plan.");
+        }
+    }
+
+    private VerifiedMethodCallSite bindResolved(final StaticSelector selector) {
+        try {
+            final Class<?> owner = Class.forName(
+                selector.ownerInternalName().replace('/', '.'),
+                false,
+                hostClassLoader
+            );
+            if (owner.getClassLoader() != hostClassLoader) {
+                throw resolutionFailure(
+                    selector.alias(),
+                    "Verified host classloader attestation no longer matches."
+                );
+            }
+            final MethodType type = MethodType.fromMethodDescriptorString(
+                selector.descriptor(),
+                hostClassLoader
+            );
+            final Method method = owner.getDeclaredMethod(
+                selector.memberName(),
+                type.parameterArray()
+            );
+            if (!method.getDeclaringClass().equals(owner)
+                || !method.getReturnType().equals(type.returnType())
+                || !matchesAccess(method, selector)) {
+                throw resolutionFailure(
+                    selector.alias(),
+                    "Verified host selector no longer matches its runtime member."
+                );
+            }
+            return new VerifiedMethodCallSite(selector, method);
+        } catch (VerifiedAccessException exception) {
+            throw exception;
+        } catch (ClassNotFoundException | NoSuchMethodException | IllegalArgumentException
+                 | LinkageError | SecurityException exception) {
+            throw resolutionFailure(
+                selector.alias(),
+                "Verified host selector binding failed safely."
+            );
         }
     }
 
