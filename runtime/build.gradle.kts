@@ -12,6 +12,11 @@ val generatedCoreCatalogFile = generatedCoreCatalogRoot.map {
         "dev/turboism/adapter/cubism/core/GeneratedCorePublicApiCatalog.java"
     )
 }
+val generatedCoreSelectorContractFile = generatedCoreCatalogRoot.map {
+    it.file(
+        "dev/turboism/mapping/verification/CorePublicApiSelectorContract.java"
+    )
+}
 
 val generateCorePublicApiCatalog by tasks.registering(Exec::class) {
     group = "build"
@@ -55,12 +60,57 @@ val generateCorePublicApiCatalog by tasks.registering(Exec::class) {
     }
 }
 
+val generateCorePublicApiSelectorContract by tasks.registering(Exec::class) {
+    group = "build"
+    description = "Generates the exact Cubism Core selector/profile contract."
+    inputs.files(
+        rootProject.file("scripts/cubism_core_api.py"),
+        rootProject.file("scripts/cubism_core_selector_policy.py"),
+        rootProject.file(
+            "cubism-ref/core-api/policy/cubism-core-selector-policy.json"
+        ),
+        rootProject.file(
+            "cubism-ref/mapping-packs/draft/cubism-5.2-core-model-read.json"
+        ),
+        rootProject.file(
+            "cubism-ref/mapping-packs/draft/cubism-5.3.02-core-model-read.json"
+        )
+    )
+    outputs.file(generatedCoreSelectorContractFile)
+    doFirst {
+        val output = generatedCoreSelectorContractFile.get().asFile
+        output.parentFile.mkdirs()
+        commandLine(
+            "python3",
+            rootProject.file("scripts/cubism_core_selector_policy.py"),
+            "render-java",
+            "--policy",
+            rootProject.file(
+                "cubism-ref/core-api/policy/cubism-core-selector-policy.json"
+            ),
+            "--output",
+            output,
+            "--pack",
+            rootProject.file(
+                "cubism-ref/mapping-packs/draft/cubism-5.2-core-model-read.json"
+            ),
+            "--pack",
+            rootProject.file(
+                "cubism-ref/mapping-packs/draft/cubism-5.3.02-core-model-read.json"
+            )
+        )
+    }
+}
+
 sourceSets.named("main") {
     java.srcDir(generatedCoreCatalogRoot)
 }
 
 tasks.named("compileJava") {
-    dependsOn(generateCorePublicApiCatalog)
+    dependsOn(
+        generateCorePublicApiCatalog,
+        generateCorePublicApiSelectorContract
+    )
 }
 
 val protocolRecordValidationTest by tasks.registering(Test::class) {
