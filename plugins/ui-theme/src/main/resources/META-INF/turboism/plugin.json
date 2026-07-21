@@ -4,7 +4,7 @@
   "id": "dev.turboism.plugin.uitheme",
   "name": "UI Theme Plugin",
   "version": "0.1.0",
-  "description": "SDK-only UI theme package/status behavior using M12 read and UI host capabilities. Production host theme mutation remains disabled.",
+  "description": "SDK-only UI theme package and status behavior through Turboism read and UI host services. Production host theme mutation remains disabled.",
   "entrypoints": {
     "plugin": "dev.turboism.plugin.uitheme.UiThemePlugin"
   },
