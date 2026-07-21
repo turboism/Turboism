@@ -18,7 +18,7 @@ import dev.turboism.sdk.cubism.WorkspaceSnapshot;
 import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
-import dev.turboism.sdk.cubism.transaction.DocumentId;
+import dev.turboism.sdk.cubism.id.DocumentId;
 import dev.turboism.sdk.cubism.transaction.ModelTransaction;
 import dev.turboism.sdk.cubism.transaction.TransactionException;
 import dev.turboism.sdk.cubism.transaction.TransactionManager;

@@ -14,7 +14,7 @@ import dev.turboism.permissions.CubismPermissionGate;
 import dev.turboism.sdk.cubism.CubismServiceException;
 import dev.turboism.sdk.cubism.DeformerType;
 import dev.turboism.sdk.cubism.id.ModelObjectId;
-import dev.turboism.sdk.event.cubism.CubismSelectionChangedEvent;
+import dev.turboism.sdk.cubism.event.SelectionChangedEvent;
 import dev.turboism.sdk.permission.PluginPermission;
 import org.junit.jupiter.api.Test;
 
@@ -42,7 +42,7 @@ class SelectionQueryIsolationTest {
         final MutableSelectionSource source = MutableSelectionSource.withSelection(List.of("param-angle-x"));
         final RecordingSidecarDispatcher dispatcher = new RecordingSidecarDispatcher();
         final SelectionQueryServiceImpl service = serviceWith(source, dispatcher);
-        final List<CubismSelectionChangedEvent> events = new ArrayList<>();
+        final List<SelectionChangedEvent> events = new ArrayList<>();
         service.onSelectionChanged(events::add);
         source.replaceSelection(List.of("mesh-face"));
 
@@ -63,7 +63,7 @@ class SelectionQueryIsolationTest {
         final MutableSelectionSource source = MutableSelectionSource.withSelection(List.of("param-angle-x"));
         final RecordingSidecarDispatcher dispatcher = new RecordingSidecarDispatcher();
         final SelectionQueryServiceImpl service = serviceWith(source, dispatcher);
-        final List<CubismSelectionChangedEvent> events = new ArrayList<>();
+        final List<SelectionChangedEvent> events = new ArrayList<>();
         service.onSelectionChanged(events::add);
 
         // When
