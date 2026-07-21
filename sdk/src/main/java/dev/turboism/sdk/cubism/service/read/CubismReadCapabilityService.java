@@ -19,10 +19,9 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * M12 read-capability aggregation surface for SDK-only plugins.
+ * Cubism-facing read service for SDK-only plugins.
  *
- * <p>This service groups the Cubism-facing read families required by legacy
- * business plugins. Implementations must return immutable SDK DTOs and must not
+ * <p>This service groups typed model and Editor read families used by plugins. Implementations must return immutable SDK DTOs and must not
  * expose raw host objects, Swing/AWT handles, adapter classes, or hook state.</p>
  */
 public interface CubismReadCapabilityService {

@@ -11,8 +11,8 @@ import java.util.Optional;
 import java.util.function.Supplier;
 
 /**
- * M14 simulated-host seam for read-only clip-mask snapshots.
- * Driven by M13 behavior {@code clip-mask.readonly-inspector}.
+ * Adapter seam for read-only clip-mask snapshots.
+ * Used by clip-mask inspection consumers.
  */
 public interface ClipMaskReadAdapter {
 

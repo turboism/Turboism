@@ -8,7 +8,7 @@ import dev.turboism.sdk.ui.context.ContextSourceSnapshot;
 import java.util.Optional;
 
 /**
- * Runtime seam for UI host state used by the M12 fake-first UI capability service.
+ * Runtime seam for UI host state consumed by SDK-facing UI services.
  */
 public interface UiHostStateSource {
 

@@ -31,7 +31,7 @@ import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
- * Fake-first runtime implementation of M12 UI host capabilities.
+ * Runtime implementation of SDK UI host services.
  *
  * <p>The service stores SDK descriptors only. It performs permission checks,
  * registers every contribution handle in the plugin DisposableScope, and keeps
