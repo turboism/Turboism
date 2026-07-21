@@ -1,8 +1,8 @@
 package dev.turboism.ui;
 
-import dev.turboism.core.diagnostics.CallbackBudgetEvent;
+import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
-import dev.turboism.core.runtime.PluginExecutorRegistry;
+import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
@@ -71,10 +71,10 @@ class RuntimeUiSchedulerTest {
     }
 
     private static RuntimeScheduler runtimeScheduler() {
-        List<CallbackBudgetEvent> events = new CopyOnWriteArrayList<>();
+        List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         return new RuntimeScheduler(
             new DefaultWorkBudgetPolicy(),
-            new PluginExecutorRegistry(1, 4, events::add, CLOCK),
+            new PluginWorkExecutorRegistry(1, 4, events::add, CLOCK),
             new NoopSidecarDispatcher(),
             events::add
         );

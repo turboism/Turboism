@@ -2,10 +2,10 @@ package dev.turboism.core.runtime;
 
 /**
  * Thread-local context that holds the current cancellation token for the
- * executing plugin callback.
+ * executing plugin work item.
  *
  * <p>Runtime internal: the runtime binds a token before invoking a plugin
- * callback and clears it afterward. This class is part of the runtime
+ * work item and clears it afterward. This class is part of the runtime
  * implementation and must not be exposed to SDK or plugin code.
  */
 public final class CancellationContext {

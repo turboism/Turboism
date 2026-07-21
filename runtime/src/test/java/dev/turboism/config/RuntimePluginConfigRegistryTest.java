@@ -1,7 +1,7 @@
 package dev.turboism.config;
 
-import dev.turboism.core.diagnostics.CallbackBudgetEvent;
-import dev.turboism.core.runtime.PluginExecutorRegistry;
+import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
+import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.WorkBudgetPolicy;
@@ -229,10 +229,10 @@ class RuntimePluginConfigRegistryTest {
         List<dev.turboism.core.diagnostics.StartupReport.DiagnosticProblem> diagnostics,
         RuntimeFailureCollector failures
     ) {
-        List<CallbackBudgetEvent> events = new CopyOnWriteArrayList<>();
+        List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         scheduler = new RuntimeScheduler(
             policy,
-            new PluginExecutorRegistry(1, 4, events::add, CLOCK),
+            new PluginWorkExecutorRegistry(1, 4, events::add, CLOCK),
             availableSidecar(),
             events::add
         );

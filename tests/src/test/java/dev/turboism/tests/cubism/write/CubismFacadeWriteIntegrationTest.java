@@ -4,7 +4,7 @@ import dev.turboism.adapter.cubism.CubismFacadeImpl;
 import dev.turboism.adapter.cubism.write.FakeHostWriteAdapter;
 import dev.turboism.adapter.cubism.write.RuntimeTransactionManager;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
-import dev.turboism.core.runtime.PluginExecutorRegistry;
+import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.diagnostics.CubismFacadeAuditEvent;
 import dev.turboism.permissions.CubismPermissionGate;
@@ -59,7 +59,7 @@ class CubismFacadeWriteIntegrationTest {
         final List<CubismFacadeAuditEvent> auditEvents = new ArrayList<>();
         final RuntimeScheduler scheduler = new RuntimeScheduler(
             new DefaultWorkBudgetPolicy(),
-            new PluginExecutorRegistry(1, 16, ignored -> { }, FIXED_CLOCK),
+            new PluginWorkExecutorRegistry(1, 16, ignored -> { }, FIXED_CLOCK),
             (task, callback) -> {
                 callback.run();
                 return java.util.concurrent.CompletableFuture.completedFuture(
