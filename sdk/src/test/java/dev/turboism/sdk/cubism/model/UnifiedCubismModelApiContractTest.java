@@ -1,21 +1,22 @@
 package dev.turboism.sdk.cubism.model;
 
 import dev.turboism.sdk.cubism.CubismFacade;
+import dev.turboism.sdk.cubism.CubismPlugin;
 import dev.turboism.sdk.cubism.CubismRuntimeSnapshot;
 import dev.turboism.sdk.cubism.DocumentSnapshot;
 import dev.turboism.sdk.cubism.ModelSnapshot;
 import dev.turboism.sdk.cubism.ProjectSnapshot;
 import dev.turboism.sdk.cubism.SelectionSnapshot;
-import dev.turboism.sdk.cubism.callback.AfterSetParameterValue;
-import dev.turboism.sdk.cubism.callback.BeforeSetParameterValue;
 import dev.turboism.sdk.cubism.callback.CubismCallbacks;
-import dev.turboism.sdk.cubism.callback.OnParameterValueChanged;
+import dev.turboism.sdk.cubism.callback.ModelHooks;
+import dev.turboism.sdk.cubism.callback.ParameterHooks;
+import dev.turboism.sdk.cubism.callback.PartHooks;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.cubism.transaction.TransactionManager;
-import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.sdk.plugin.TurboismPlugin;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
@@ -25,6 +26,7 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -32,39 +34,51 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class UnifiedCubismModelApiContractTest {
 
     @Test
-    void facadeExposesSourceCompatibleUnifiedEntryPoints() throws Exception {
+    @SuppressWarnings("removal")
+    void facadeExposesModelAccessAndOnlyDeprecatedCallbackCompatibility() throws Exception {
         final Method model = CubismFacade.class.getMethod("model");
         final Method callbacks = CubismFacade.class.getMethod("callbacks");
 
         assertEquals(CubismModelAccess.class, model.getReturnType());
-        assertEquals(CubismCallbacks.class, callbacks.getReturnType());
         assertTrue(model.isDefault());
-        assertTrue(callbacks.isDefault());
         assertFalseAbstract(model);
-        assertFalseAbstract(callbacks);
+        assertEquals(CubismCallbacks.class, callbacks.getReturnType());
+        assertTrue(callbacks.isDefault());
+        assertTrue(callbacks.isAnnotationPresent(Deprecated.class));
+        assertEquals(0, CubismCallbacks.class.getDeclaredMethods().length);
     }
 
     @Test
-    void sdkOnlyConsumerUsesNaturalModelAndLifecycleMethods() {
-        final RecordingCallbacks callbacks = new RecordingCallbacks();
+    void cubismPluginAggregatesOverrideBasedHookDomains() {
+        assertTrue(TurboismPlugin.class.isAssignableFrom(CubismPlugin.class));
+        assertTrue(ParameterHooks.class.isAssignableFrom(CubismPlugin.class));
+        assertTrue(PartHooks.class.isAssignableFrom(CubismPlugin.class));
+        assertTrue(ModelHooks.class.isAssignableFrom(CubismPlugin.class));
+
+        final CubismPlugin plugin = new CubismPlugin() { };
+        assertEquals(12.0f, plugin.beforeSetParameterValue(null, 12.0f));
+        assertEquals(0.5f, plugin.beforeSetPartOpacity(null, 0.5f));
+        assertDoesNotThrow(() -> plugin.onParameterValueChanged(null, 0.0f, 1.0f));
+        assertDoesNotThrow(() -> plugin.afterSetParameterValue(null, 1.0f));
+        assertDoesNotThrow(() -> plugin.onPartOpacityChanged(null, 0.0f, 1.0f));
+        assertDoesNotThrow(() -> plugin.afterSetPartOpacity(null, 1.0f));
+        assertDoesNotThrow(() -> plugin.beforeUpdateModel(null));
+        assertDoesNotThrow(() -> plugin.onModelUpdated(null));
+        assertDoesNotThrow(() -> plugin.afterUpdateModel(null));
+    }
+
+    @Test
+    void sdkOnlyConsumerUsesOverrideHooksInPluginLoadOrder() {
+        final List<String> events = new ArrayList<>();
+        final List<ParameterHooks> hooks = List.of(
+            new HalvingPlugin(),
+            new RecordingPlugin(events)
+        );
         final FakeParameter parameter = new FakeParameter(
             new ParameterId("ParamAngleX"),
-            callbacks
+            hooks
         );
-        final CubismFacade facade = new FakeFacade(
-            new FakeModel(parameter),
-            callbacks
-        );
-        final List<String> events = new ArrayList<>();
-
-        callbacks.beforeSetParameterValue((target, value) -> value * 0.5f);
-        callbacks.beforeSetParameterValue((target, value) -> Math.min(value, 20.0f));
-        callbacks.onParameterValueChanged((target, oldValue, newValue) ->
-            events.add("on:" + oldValue + "->" + newValue)
-        );
-        callbacks.afterSetParameterValue((target, value) ->
-            events.add("after:" + value)
-        );
+        final CubismFacade facade = new FakeFacade(new FakeModel(parameter));
 
         final Parameter selected = facade
             .model()
@@ -78,6 +92,7 @@ class UnifiedCubismModelApiContractTest {
 
         events.clear();
         selected.setValue(40.0f);
+        assertEquals(20.0f, selected.getValue());
         assertEquals(List.of("after:20.0"), events);
     }
 
@@ -85,7 +100,7 @@ class UnifiedCubismModelApiContractTest {
     void modelCollectionsUseDirectFindAndImmutableSequences() {
         final FakeParameter parameter = new FakeParameter(
             new ParameterId("ParamAngleX"),
-            new RecordingCallbacks()
+            List.of()
         );
         final CubismModel model = new FakeModel(parameter);
 
@@ -142,17 +157,60 @@ class UnifiedCubismModelApiContractTest {
         };
     }
 
+    private static final class HalvingPlugin implements CubismPlugin {
+        @Override
+        public float beforeSetParameterValue(
+            final Parameter parameter,
+            final float value
+        ) {
+            return value * 0.5f;
+        }
+    }
+
+    private static final class RecordingPlugin implements CubismPlugin {
+        private final List<String> events;
+
+        private RecordingPlugin(final List<String> events) {
+            this.events = events;
+        }
+
+        @Override
+        public float beforeSetParameterValue(
+            final Parameter parameter,
+            final float value
+        ) {
+            return Math.min(value, 20.0f);
+        }
+
+        @Override
+        public void onParameterValueChanged(
+            final Parameter parameter,
+            final float oldValue,
+            final float newValue
+        ) {
+            events.add("on:" + oldValue + "->" + newValue);
+        }
+
+        @Override
+        public void afterSetParameterValue(
+            final Parameter parameter,
+            final float value
+        ) {
+            events.add("after:" + value);
+        }
+    }
+
     private static final class FakeParameter implements Parameter {
         private final ParameterId id;
-        private final RecordingCallbacks callbacks;
+        private final List<ParameterHooks> hooks;
         private float value;
 
         private FakeParameter(
             final ParameterId id,
-            final RecordingCallbacks callbacks
+            final List<ParameterHooks> hooks
         ) {
             this.id = id;
-            this.callbacks = callbacks;
+            this.hooks = List.copyOf(hooks);
         }
 
         @Override
@@ -183,19 +241,20 @@ class UnifiedCubismModelApiContractTest {
         @Override
         public void setValue(final float requestedValue) {
             float finalValue = requestedValue;
-            for (BeforeSetParameterValue callback : callbacks.before) {
-                finalValue = callback.beforeSetParameterValue(this, finalValue);
+            for (ParameterHooks hook : hooks) {
+                finalValue = hook.beforeSetParameterValue(this, finalValue);
             }
+
             final float oldValue = value;
             value = finalValue;
             if (Float.compare(oldValue, value) != 0) {
-                callbacks.on.forEach(callback ->
-                    callback.onParameterValueChanged(this, oldValue, value)
-                );
+                for (ParameterHooks hook : hooks) {
+                    hook.onParameterValueChanged(this, oldValue, value);
+                }
             }
-            callbacks.after.forEach(callback ->
-                callback.afterSetParameterValue(this, value)
-            );
+            for (ParameterHooks hook : hooks) {
+                hook.afterSetParameterValue(this, value);
+            }
         }
     }
 
@@ -276,53 +335,11 @@ class UnifiedCubismModelApiContractTest {
         }
     }
 
-    private static final class RecordingCallbacks implements CubismCallbacks {
-        private final List<BeforeSetParameterValue> before = new ArrayList<>();
-        private final List<OnParameterValueChanged> on = new ArrayList<>();
-        private final List<AfterSetParameterValue> after = new ArrayList<>();
-
-        @Override
-        public Registration beforeSetParameterValue(
-            final BeforeSetParameterValue callback
-        ) {
-            before.add(callback);
-            return remove(before, callback);
-        }
-
-        @Override
-        public Registration onParameterValueChanged(
-            final OnParameterValueChanged callback
-        ) {
-            on.add(callback);
-            return remove(on, callback);
-        }
-
-        @Override
-        public Registration afterSetParameterValue(
-            final AfterSetParameterValue callback
-        ) {
-            after.add(callback);
-            return remove(after, callback);
-        }
-
-        private static <T> Registration remove(
-            final List<T> values,
-            final T value
-        ) {
-            return () -> values.remove(value);
-        }
-    }
-
     private static final class FakeFacade implements CubismFacade {
         private final CubismModel model;
-        private final CubismCallbacks callbacks;
 
-        private FakeFacade(
-            final CubismModel model,
-            final CubismCallbacks callbacks
-        ) {
+        private FakeFacade(final CubismModel model) {
             this.model = model;
-            this.callbacks = callbacks;
         }
 
         @Override
@@ -362,10 +379,6 @@ class UnifiedCubismModelApiContractTest {
 
         @Override public CubismModelAccess model() {
             return () -> model;
-        }
-
-        @Override public CubismCallbacks callbacks() {
-            return callbacks;
         }
 
         @Override public TransactionManager transactionManager() {

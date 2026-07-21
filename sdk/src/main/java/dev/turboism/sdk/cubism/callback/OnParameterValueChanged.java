@@ -3,14 +3,14 @@ package dev.turboism.sdk.cubism.callback;
 import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.model.Parameter;
 
-/** Notifies after the authoritative parameter value actually changes. */
+/** Hook notified after a parameter value actually changes. */
 @PreviewApi
-@FunctionalInterface
 public interface OnParameterValueChanged {
 
-    void onParameterValueChanged(
-        Parameter parameter,
-        float oldValue,
-        float newValue
-    );
+    default void onParameterValueChanged(
+        final Parameter parameter,
+        final float oldValue,
+        final float newValue
+    ) {
+    }
 }
