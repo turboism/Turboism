@@ -1,4 +1,4 @@
-package dev.turboism.sdk.cubism.callback;
+package dev.turboism.sdk.cubism.hook;
 
 import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.model.CubismModel;
