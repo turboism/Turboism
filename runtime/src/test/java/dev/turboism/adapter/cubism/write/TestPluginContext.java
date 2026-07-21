@@ -18,7 +18,6 @@ import dev.turboism.sdk.ui.UiScheduler;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 final class TestPluginContext implements PluginContext {
@@ -45,15 +44,22 @@ final class TestPluginContext implements PluginContext {
         @Override public String name() { return "Test Plugin"; }
         @Override public String version() { return "0.1.0"; }
         @Override public String description() { return "Test plugin"; }
-        @Override public Map<String, String> entrypoints() { return Map.of(); }
+        @Override public List<String> entrypoints() { return List.of("dev.turboism.test.TestPlugin"); }
         @Override public String turboismApi() { return "[0.1.0,0.2.0)"; }
         @Override public List<Author> authors() { return List.of(); }
         @Override public String license() { return "Project License"; }
-        @Override public Optional<String> homepage() { return Optional.empty(); }
+        @Override public Optional<String> website() { return Optional.of("https://turboism.dev"); }
+        @Override public List<String> resources() { return List.of(); }
+        @Override public I18n i18n() { return new TestI18n(); }
         @Override public List<DependencyRef> dependencies() { return List.of(); }
         @Override public List<PermissionRef> permissions() { return List.of(); }
         @Override public List<String> capabilities() { return List.of(); }
         @Override public Environment environment() { return new TestEnvironment(); }
+    }
+
+    private record TestI18n() implements PluginDescriptor.I18n {
+        @Override public String baseName() { return "META-INF/turboism/i18n/messages"; }
+        @Override public List<String> locales() { return List.of(); }
     }
 
     private record TestEnvironment() implements PluginDescriptor.Environment {

@@ -1,13 +1,13 @@
 {
   "format": "turboism.plugin.meta",
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "dev.turboism.plugin.project-inspector",
   "name": "Project Inspector",
   "version": "0.1.0",
   "description": "Developer Preview window showing the active Cubism project and workspace through the Turboism SDK.",
-  "entrypoints": {
-    "plugin": "dev.turboism.plugin.projectinspector.ProjectInspectorPlugin"
-  },
+  "entrypoints": [
+    "dev.turboism.plugin.projectinspector.ProjectInspectorPlugin"
+  ],
   "turboismApi": "[0.1.0,0.2.0)",
   "authors": [
     {
@@ -15,7 +15,12 @@
     }
   ],
   "license": "Project License",
-  "homepage": "https://turboism.dev",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": ["base", "en", "ja", "ko", "zh_Hans", "zh_Hant"]
+  },
   "dependencies": [],
   "permissions": [
     {

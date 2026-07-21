@@ -1,19 +1,24 @@
 {
   "format": "turboism.plugin.meta",
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "dev.turboism.plugin.renderopt",
   "name": "Render Optimization Plugin",
   "version": "0.1.0",
   "description": "Fake-ready render status overlay using SDK read and UI host capabilities. Actual render interception remains adapter/hook work.",
-  "entrypoints": {
-    "plugin": "dev.turboism.plugin.renderopt.RenderOptPlugin"
-  },
+  "entrypoints": [
+    "dev.turboism.plugin.renderopt.RenderOptPlugin"
+  ],
   "turboismApi": "[0.1.0,0.2.0)",
   "authors": [
     { "name": "Turboism Contributors" }
   ],
   "license": "Project License",
-  "homepage": "https://turboism.dev",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": []
+  },
   "dependencies": [],
   "permissions": [
     {

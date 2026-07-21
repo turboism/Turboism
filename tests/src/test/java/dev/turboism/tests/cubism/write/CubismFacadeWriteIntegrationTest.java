@@ -114,11 +114,18 @@ class CubismFacadeWriteIntegrationTest {
         @Override public String name() { return "Write Test Plugin"; }
         @Override public String version() { return "0.1.0"; }
         @Override public String description() { return "Write integration test plugin"; }
-        @Override public java.util.Map<String, String> entrypoints() { return java.util.Map.of(); }
+        @Override public java.util.List<String> entrypoints() { return java.util.List.of("dev.turboism.tests.WritePlugin"); }
         @Override public String turboismApi() { return "[0.1.0,0.2.0)"; }
         @Override public List<Author> authors() { return List.of(); }
         @Override public String license() { return "Project License"; }
-        @Override public java.util.Optional<String> homepage() { return java.util.Optional.empty(); }
+        @Override public java.util.Optional<String> website() { return java.util.Optional.of("https://turboism.dev"); }
+        @Override public List<String> resources() { return List.of(); }
+        @Override public I18n i18n() {
+            return new I18n() {
+                @Override public String baseName() { return "META-INF/turboism/i18n/messages"; }
+                @Override public List<String> locales() { return List.of(); }
+            };
+        }
         @Override public List<DependencyRef> dependencies() { return List.of(); }
         @Override public List<PermissionRef> permissions() { return List.of(); }
         @Override public List<String> capabilities() { return List.of(); }
