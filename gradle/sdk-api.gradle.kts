@@ -39,7 +39,7 @@ val checkSdkApiReferenceBuilder by tasks.registering(Exec::class) {
 
 val prepareSdkPrePhaseApiReference by tasks.registering(Exec::class) {
     group = "verification"
-    description = "Rebuilds the deterministic SDK API reference from the immutable pre-Phase Git anchor."
+    description = "Rebuilds the deterministic SDK API reference from the reviewed Stable compatibility anchor."
     workingDir(rootDir)
     inputs.file(sdkApiReferenceBuilder)
     inputs.property("anchorCommit", sdkBaselineAnchorCommit)
@@ -56,7 +56,7 @@ val prepareSdkPrePhaseApiReference by tasks.registering(Exec::class) {
 
 val checkSdkPrePhaseApiCompatibility by tasks.registering(Exec::class) {
     group = "verification"
-    description = "Verifies the compiled SDK remains compatible with the reviewed pre-Phase API baseline."
+    description = "Verifies the compiled SDK remains compatible with the reviewed Stable API baseline."
     dependsOn(":sdk:jar", prepareSdkPrePhaseApiReference)
     inputs.files(sdkApiHelperFiles)
     inputs.files(sdkPrePhaseBaseline, sdkApiTierPolicy, sdkInitialPreviewLedger, sdkPrePhaseReferenceArtifact, sdkJarArtifact)
@@ -74,7 +74,7 @@ val checkSdkPrePhaseApiCompatibility by tasks.registering(Exec::class) {
 
 val checkSdkPhase1ExactApiCompatibility by tasks.registering(Exec::class) {
     group = "verification"
-    description = "Verifies the compiled SDK exactly matches the reviewed Phase 1 frozen API baseline."
+    description = "Opt-in historical check that the compiled SDK exactly matches the retired Phase 1 snapshot."
     dependsOn(":sdk:jar")
     inputs.files(sdkApiHelperFiles, sdkPhase1ExactBaseline, sdkJarArtifact)
     doFirst {
