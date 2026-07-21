@@ -215,6 +215,18 @@ val checkMigrationSuiteBundleReproducibility by tasks.registering(Exec::class) {
     commandLine("bash", "scripts/test/test_migration_suite_bundle_reproducibility.sh")
 }
 
+val checkPackageLayout by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Rejects deprecated SDK/runtime packages and package-only production Java shells."
+    workingDir(rootDir)
+    inputs.file("scripts/test/check_package_layout.py")
+    inputs.files(
+        fileTree("sdk/src/main/java") { include("**/*.java") },
+        fileTree("runtime/src/main/java") { include("**/*.java") }
+    )
+    commandLine("python3", "scripts/test/check_package_layout.py", rootDir.absolutePath)
+}
+
 tasks.register("checkStableSdkCompatibility") {
     group = "verification"
     description = "Verifies the current reviewed plugin API v2 contract."
@@ -272,6 +284,7 @@ tasks.named("check") {
         checkCubismCoreApiInventory,
         checkCubismCoreMemberPolicy,
         checkCubismCoreSelectorPolicy,
+        checkPackageLayout,
         ":runtime:corePublicApiProviderTest",
         "checkModuleBoundaries",
         "checkOfficialPluginI18nCompleteness",
