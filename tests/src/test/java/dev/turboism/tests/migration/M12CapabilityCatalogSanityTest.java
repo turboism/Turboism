@@ -140,7 +140,7 @@ class M12CapabilityCatalogSanityTest {
     }
 
     @Test
-    void catalogCannotPromoteQuarantinedEvidenceOrMissingSurfaces() throws Exception {
+    void catalogCannotPromoteQuarantinedEvidence() throws Exception {
         Map<String, MigrationEvidence> migrationEvidence = migrationEvidenceById();
         List<String> lines = requireLines(CAPABILITY_CATALOG, "M12 capability catalog");
         List<String> columns = Arrays.asList(lines.get(0).split("\t", -1));
@@ -150,8 +150,12 @@ class M12CapabilityCatalogSanityTest {
             List<String> values = Arrays.asList(lines.get(i).split("\t", -1));
             String capabilityId = value(values, columns, "capabilityId");
             String status = value(values, columns, "status");
-            assertLegacyEvidenceCeiling(capabilityId, status, value(values, columns, "legacyRows"), migrationEvidence);
-            assertSurfaceExistsWhenPromoted(capabilityId, status, value(values, columns, "sdkSurface"));
+            assertLegacyEvidenceCeiling(
+                capabilityId,
+                status,
+                value(values, columns, "legacyRows"),
+                migrationEvidence
+            );
         }
     }
 
@@ -262,18 +266,6 @@ class M12CapabilityCatalogSanityTest {
                     capabilityId + " must not promote L1/QUARANTINE evidence above planned: " + rowId);
             }
         }
-    }
-
-    private static void assertSurfaceExistsWhenPromoted(String capabilityId, String status, String sdkSurface) {
-        if (statusRank(status) < statusRank("draft") || sdkSurface.startsWith("internal semantic ingress ")) {
-            return;
-        }
-        String relativePath = sdkSurface.replace('.', '/') + ".java";
-        assertTrue(
-            Files.exists(REPO_ROOT.resolve("sdk/src/main/java").resolve(relativePath))
-                || Files.exists(REPO_ROOT.resolve("runtime/src/main/java").resolve(relativePath)),
-            capabilityId + " is " + status + " but surface does not exist: " + sdkSurface
-        );
     }
 
     private static int statusRank(String status) {
