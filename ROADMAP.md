@@ -10,12 +10,30 @@ The target interaction model is:
 
 ```text
 CubismModel model = context.cubism().model().active();
-CubismParameter parameter = model.parameters().find(ParameterId.of("ParamAngleX"));
+Parameter parameter = model.parameters().find(new ParameterId("ParamAngleX"));
 
 parameter.setValue(parameter.getValue() + 1.0f);
 ```
 
 The runtime may use different providers internally, but plugins should not have to choose among read, write, command, adapter, and synchronization planes for an ordinary object operation.
+
+Two axes define the current program and must land together:
+
+```text
+Core / Editor unification
+  one SDK object graph
+  Editor authoring state as the write truth
+  Core evaluated state as the rendering/evaluation truth
+  verified identity and generation joins
+
+Semantic event lifecycle
+  one canonical operation
+  before -> native operation -> changed-only on -> after
+  override-based Hooks discovered from plugin entrypoints
+  no duplicate Core, Editor and plugin event sources
+```
+
+Tracks A–C are therefore one integration program, not three independently shippable systems. Core reads without Editor joins are an incomplete backend; Editor writes without the unified event lifecycle are incomplete operations; an event system around raw Core setters is invalid.
 
 ## Track A — Unified Cubism object API
 
