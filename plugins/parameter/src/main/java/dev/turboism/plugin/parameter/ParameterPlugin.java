@@ -10,7 +10,7 @@ import dev.turboism.sdk.plugin.TurboismPlugin;
 import java.util.function.Consumer;
 
 /**
- * Official SDK-only plugin shell for M13 parameter.csv.import-export.fake.
+ * Official SDK-only plugin shell for parameter CSV import/export behavior.
  */
 public final class ParameterPlugin implements TurboismPlugin {
 

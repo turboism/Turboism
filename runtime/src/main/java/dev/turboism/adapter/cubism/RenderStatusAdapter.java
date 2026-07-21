@@ -10,8 +10,8 @@ import java.util.Optional;
 import java.util.function.Supplier;
 
 /**
- * M14 simulated-host seam for read-only render status.
- * Driven by M13 behavior {@code render-status.overlay.fake}.
+ * Adapter seam for read-only render status.
+ * Used by render-status and overlay consumers.
  */
 public interface RenderStatusAdapter {
 

@@ -9,7 +9,7 @@ public record HookIngressSpec(String hookId, String emittedEvent, boolean produc
             throw new IllegalArgumentException("emittedEvent must not be null or blank");
         }
         if (productionEnabled) {
-            throw new IllegalArgumentException("M12 hook ingress specs must not enable production hooks");
+            throw new IllegalArgumentException("Hook ingress specs must not enable production hooks");
         }
         if (safeMode == null || safeMode.isBlank()) {
             throw new IllegalArgumentException("safeMode must not be null or blank");
