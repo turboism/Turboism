@@ -22,8 +22,7 @@ class PluginPlanEvidenceIntegrationTest {
     @Test void exposesDeepImmutableDistributionOwnedEvidence() throws Exception {
         String descriptor = PluginPackageFixtures.descriptor(PluginPackageFixtures.ID,
             PluginPackageFixtures.VERSION, "0.1.0",
-            ",\"authors\":[{\"name\":\"Author\",\"email\":\"author@example.test\"}]"
-                + ",\"dependencies\":[{\"id\":\"dev.turboism.plugin.parent\",\"type\":\"required\""
+            ",\"dependencies\":[{\"id\":\"dev.turboism.plugin.parent\",\"type\":\"required\""
                 + ",\"version\":\"0.1.0\",\"ordering\":\"after\",\"reason\":\"needed\"}]"
                 + ",\"permissions\":[{\"id\":\"turboism.ui.menu.contribute\",\"scope\":\"application\""
                 + ",\"reason\":\"menu\"}],\"capabilities\":[\"ui.menu.contribute\"]"
@@ -44,15 +43,22 @@ class PluginPlanEvidenceIntegrationTest {
 
         assertEquals(PluginPackageFixtures.sha256(descriptor.getBytes(java.nio.charset.StandardCharsets.UTF_8)),
             plan.descriptorSha256());
-        assertEquals("Author", evidence.authors().get(0).name());
+        assertEquals("Turboism Contributors", evidence.authors().get(0).name());
+        assertEquals("https://turboism.dev", evidence.website().orElseThrow());
+        assertEquals(List.of(), evidence.resources());
+        assertEquals("META-INF/turboism/i18n/messages", evidence.i18n().baseName());
         assertEquals("dev.turboism.plugin.parent", evidence.dependencies().get(0).id());
         assertEquals("turboism.ui.menu.contribute", evidence.permissions().get(0).id());
         assertEquals(List.of("ui.menu.contribute"), evidence.capabilities());
         assertEquals("none", evidence.environment().ui());
         assertThrows(UnsupportedOperationException.class,
-            () -> evidence.entrypoints().put("other", "example.Other"));
+            () -> evidence.entrypoints().add("example.Other"));
         assertThrows(UnsupportedOperationException.class,
             () -> evidence.capabilities().add("other"));
+        assertThrows(UnsupportedOperationException.class,
+            () -> evidence.resources().add("other/"));
+        assertThrows(UnsupportedOperationException.class,
+            () -> evidence.i18n().locales().add("fr"));
         assertThrows(UnsupportedOperationException.class,
             () -> plan.files().add(plan.files().get(0)));
         assertNotSame(evidence.authors(), evidence.dependencies());

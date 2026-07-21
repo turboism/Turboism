@@ -1,5 +1,6 @@
 package dev.turboism.i18n;
 
+import dev.turboism.sdk.plugin.PluginDescriptor;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -35,18 +36,18 @@ class RuntimePluginLocalizationTest {
             path(null), utf8("value=base\n")
         ))) {
             final RuntimePluginLocalization simplified = RuntimePluginLocalization.create(
-                "plugin.locale", loader, "zh-CN", Locale.JAPAN, Locale.ENGLISH, diagnostics
+                "plugin.locale", loader, metadata(), "zh-CN", Locale.JAPAN, Locale.ENGLISH, diagnostics
             );
             assertEquals("zh-Hans", simplified.locale().toLanguageTag());
             assertEquals("简体", simplified.text("value"));
 
             final RuntimePluginLocalization explicitScript = RuntimePluginLocalization.create(
-                "plugin.locale", loader, "zh-Hant-HK", Locale.JAPAN, Locale.ENGLISH, diagnostics
+                "plugin.locale", loader, metadata(), "zh-Hant-HK", Locale.JAPAN, Locale.ENGLISH, diagnostics
             );
             assertEquals("zh-Hant-HK", explicitScript.locale().toLanguageTag());
 
             final RuntimePluginLocalization invalid = RuntimePluginLocalization.create(
-                "plugin.locale", loader, "bad_tag", Locale.JAPAN, Locale.ENGLISH, diagnostics
+                "plugin.locale", loader, metadata(), "bad_tag", Locale.JAPAN, Locale.ENGLISH, diagnostics
             );
             assertEquals("ja-JP", invalid.locale().toLanguageTag());
             assertEquals("日本語", invalid.text("value"));
@@ -90,7 +91,7 @@ class RuntimePluginLocalizationTest {
         final RecordingDiagnostics diagnostics = new RecordingDiagnostics();
         try (URLClassLoader loader = pluginLoader("missing", Map.of(path(null), utf8("known=value\n")))) {
             final RuntimePluginLocalization localization = RuntimePluginLocalization.create(
-                "plugin.missing", loader, "en", null, Locale.ENGLISH, diagnostics
+                "plugin.missing", loader, metadata(), "en", null, Locale.ENGLISH, diagnostics
             );
 
             assertFalse(localization.contains("missing"));
@@ -108,7 +109,7 @@ class RuntimePluginLocalizationTest {
             path(null), utf8("number={0,number}\nbroken={0,number\n")
         ))) {
             final RuntimePluginLocalization localization = RuntimePluginLocalization.create(
-                "plugin.format", loader, "de-DE", null, Locale.ENGLISH, diagnostics
+                "plugin.format", loader, metadata(), "de-DE", null, Locale.ENGLISH, diagnostics
             );
 
             assertEquals("1.234,5", localization.format("number", 1234.5));
@@ -129,7 +130,7 @@ class RuntimePluginLocalizationTest {
             RuntimePluginLocalizationTest.class.getClassLoader()
         )) {
             final RuntimePluginLocalization localization = RuntimePluginLocalization.create(
-                "plugin.duplicate", loader, "fr", null, Locale.ENGLISH, diagnostics
+                "plugin.duplicate", loader, metadata(), "fr", null, Locale.ENGLISH, diagnostics
             );
 
             assertEquals("⟦value⟧", localization.text("value"));
@@ -149,19 +150,19 @@ class RuntimePluginLocalizationTest {
             path("ko"), utf8("ok=한국어\n")
         ))) {
             final RuntimePluginLocalization english = RuntimePluginLocalization.create(
-                "plugin.invalid", loader, "en", null, Locale.ENGLISH, diagnostics
+                "plugin.invalid", loader, metadata(), "en", null, Locale.ENGLISH, diagnostics
             );
             assertEquals("⟦ok⟧", english.text("ok"));
             assertTrue(diagnostics.hasCode("I18N_CATALOG_BOM"));
             assertTrue(diagnostics.hasCode("I18N_CATALOG_DUPLICATE_KEY"));
 
             final RuntimePluginLocalization korean = RuntimePluginLocalization.create(
-                "plugin.invalid", loader, "ko", null, Locale.ENGLISH, diagnostics
+                "plugin.invalid", loader, metadata(), "ko", null, Locale.ENGLISH, diagnostics
             );
             assertEquals("한국어", korean.text("ok"));
 
             final RuntimePluginLocalization japanese = RuntimePluginLocalization.create(
-                "plugin.invalid", loader, "ja", null, Locale.ENGLISH, diagnostics
+                "plugin.invalid", loader, metadata(), "ja", null, Locale.ENGLISH, diagnostics
             );
             assertEquals("⟦x⟧", japanese.text("x"));
             assertTrue(diagnostics.hasCode("I18N_CATALOG_INVALID_UTF8"));
@@ -173,8 +174,21 @@ class RuntimePluginLocalizationTest {
         final String explicitLocale
     ) {
         return RuntimePluginLocalization.create(
-            "plugin.test", loader, explicitLocale, null, Locale.ENGLISH, diagnostic -> { }
+            "plugin.test", loader, metadata(), explicitLocale, null, Locale.ENGLISH,
+            diagnostic -> { }
         );
+    }
+
+    private static PluginDescriptor.I18n metadata() {
+        return new PluginDescriptor.I18n() {
+            @Override public String baseName() {
+                return "META-INF/turboism/i18n/messages";
+            }
+
+            @Override public List<String> locales() {
+                return List.of("base", "en", "zh_Hans", "zh_Hant", "ja", "ko");
+            }
+        };
     }
 
     private URLClassLoader pluginLoader(

@@ -452,11 +452,18 @@ class ParameterCsvServiceTest {
                 @Override public String name() { return "Parameter"; }
                 @Override public String version() { return "0.1.0"; }
                 @Override public String description() { return "test"; }
-                @Override public java.util.Map<String, String> entrypoints() { return java.util.Map.of(); }
+                @Override public List<String> entrypoints() { return List.of("dev.turboism.plugin.parameter.ParameterPlugin"); }
                 @Override public String turboismApi() { return "[0.1.0,0.2.0)"; }
                 @Override public List<Author> authors() { return List.of(); }
                 @Override public String license() { return "Project License"; }
-                @Override public Optional<String> homepage() { return Optional.empty(); }
+                @Override public Optional<String> website() { return Optional.of("https://turboism.dev"); }
+                @Override public List<String> resources() { return List.of(); }
+                @Override public I18n i18n() {
+                    return new I18n() {
+                        @Override public String baseName() { return "META-INF/turboism/i18n/messages"; }
+                        @Override public List<String> locales() { return List.of(); }
+                    };
+                }
                 @Override public List<DependencyRef> dependencies() { return List.of(); }
                 @Override public List<PermissionRef> permissions() { return List.of(); }
                 @Override public List<String> capabilities() { return List.of(); }

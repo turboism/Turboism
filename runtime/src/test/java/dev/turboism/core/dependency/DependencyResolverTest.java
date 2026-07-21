@@ -94,12 +94,12 @@ class DependencyResolverTest {
         assertEquals(List.of("a"), result.disabledIds());
     }
 
-    private record StubDescriptor(String id, String version, Map<String, String> entrypoints,
+    private record StubDescriptor(String id, String version, List<String> entrypoints,
                                   String turboismApi, List<DependencyRef> dependencies,
                                   List<PermissionRef> permissions, Environment environment) implements PluginDescriptor {
 
         StubDescriptor(String id, String version, List<DependencyRef> deps) {
-            this(id, version, Map.of("plugin", id + ".Plugin"), "[0.1.0,0.2.0)", deps,
+            this(id, version, List.of(id + ".Plugin"), "[0.1.0,0.2.0)", deps,
                 List.of(), new StubEnvironment());
         }
 
@@ -107,8 +107,15 @@ class DependencyResolverTest {
         @Override public String description() { return ""; }
         @Override public List<Author> authors() { return List.of(); }
         @Override public String license() { return "UNSPECIFIED"; }
-        @Override public Optional<String> homepage() { return Optional.empty(); }
+        @Override public Optional<String> website() { return Optional.of("https://turboism.dev"); }
+        @Override public List<String> resources() { return List.of(); }
+        @Override public I18n i18n() { return new StubI18n(); }
         @Override public List<String> capabilities() { return List.of(); }
+    }
+
+    private record StubI18n() implements PluginDescriptor.I18n {
+        @Override public String baseName() { return "META-INF/turboism/i18n/messages"; }
+        @Override public List<String> locales() { return List.of(); }
     }
 
     private record StubDependencyRef(String id, String version) implements PluginDescriptor.DependencyRef {

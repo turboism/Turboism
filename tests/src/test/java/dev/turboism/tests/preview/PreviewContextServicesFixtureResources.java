@@ -28,16 +28,20 @@ final class PreviewContextServicesFixtureResources {
         final ObjectMapper mapper = new ObjectMapper();
         final ObjectNode descriptor = mapper.createObjectNode();
         descriptor.put("format", "turboism.plugin.meta");
-        descriptor.put("schemaVersion", 1);
+        descriptor.put("schemaVersion", 2);
         descriptor.put("id", PreviewContextServicesPluginJarFixture.PLUGIN_ID);
         descriptor.put("name", "Preview Context Services Fixture");
         descriptor.put("version", "0.1.0");
         descriptor.put("description", "Characterizes preview PluginContext service wiring.");
-        descriptor.putObject("entrypoints").put("plugin", ENTRYPOINT);
+        descriptor.putArray("entrypoints").add(ENTRYPOINT);
         descriptor.put("turboismApi", "[0.1.0,0.2.0)");
         descriptor.putArray("authors").addObject().put("name", "Turboism Tests");
         descriptor.put("license", "Test License");
-        descriptor.put("homepage", "https://turboism.dev/tests");
+        descriptor.put("website", "https://turboism.dev/tests");
+        descriptor.putArray("resources");
+        descriptor.putObject("i18n")
+            .put("baseName", "META-INF/turboism/i18n/messages")
+            .putArray("locales");
         descriptor.putArray("dependencies");
         permissions(descriptor.putArray("permissions"));
         descriptor.putArray("capabilities");

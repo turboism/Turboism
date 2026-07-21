@@ -1,19 +1,24 @@
 {
   "format": "turboism.plugin.meta",
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "dev.turboism.plugin.parameter",
   "name": "Parameter CSV Plugin",
   "version": "0.1.0",
   "description": "Fake-ready parameter CSV import/export using SDK read, write transactions, and UI host file chooser. Real-host parameter adapter remains future work.",
-  "entrypoints": {
-    "plugin": "dev.turboism.plugin.parameter.ParameterPlugin"
-  },
+  "entrypoints": [
+    "dev.turboism.plugin.parameter.ParameterPlugin"
+  ],
   "turboismApi": "[0.1.0,0.2.0)",
   "authors": [
     { "name": "Turboism Contributors" }
   ],
   "license": "Project License",
-  "homepage": "https://turboism.dev",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": []
+  },
   "dependencies": [],
   "permissions": [
     {

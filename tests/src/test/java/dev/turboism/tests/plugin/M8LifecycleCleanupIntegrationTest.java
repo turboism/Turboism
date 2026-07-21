@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -85,7 +86,7 @@ class M8LifecycleCleanupIntegrationTest {
 
     private static PluginRuntime runtime(PermissionProbePlugin plugin, M8PluginTestSupport.TestPluginContext context) {
         PluginRuntime runtime = new PluginRuntime(M8PluginTestSupport.PLUGIN_ID, M8PluginTestSupport.descriptor());
-        runtime.setInstance(plugin);
+        runtime.setEntrypoints(List.of(plugin));
         runtime.setContext(context);
         runtime.transitionTo(PluginLifecycleState.LOADED);
         return runtime;

@@ -1,19 +1,24 @@
 {
   "format": "turboism.plugin.meta",
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "dev.turboism.plugin.maintoolbar",
   "name": "Main Toolbar Plugin",
   "version": "0.1.0",
   "description": "SDK-only main toolbar home entry through Turboism project/workspace read and UI host services.",
-  "entrypoints": {
-    "plugin": "dev.turboism.plugin.maintoolbar.MainToolbarPlugin"
-  },
+  "entrypoints": [
+    "dev.turboism.plugin.maintoolbar.MainToolbarPlugin"
+  ],
   "turboismApi": "[0.1.0,0.2.0)",
   "authors": [
     { "name": "Turboism Contributors" }
   ],
   "license": "Project License",
-  "homepage": "https://turboism.dev",
+  "website": "https://turboism.dev",
+  "resources": ["icons/"],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": ["base", "en", "ja", "ko", "zh_Hans", "zh_Hant"]
+  },
   "dependencies": [],
   "permissions": [
     {

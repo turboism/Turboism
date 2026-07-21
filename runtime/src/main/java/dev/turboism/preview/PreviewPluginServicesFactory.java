@@ -95,7 +95,7 @@ final class PreviewPluginServicesFactory {
         final ClassLoader classLoader
     ) {
         return RuntimePluginLocalization.create(
-            descriptor.id(), classLoader, System.getProperty("turboism.locale"),
+            descriptor.id(), classLoader, descriptor.i18n(), System.getProperty("turboism.locale"),
             Locale.getDefault(Locale.Category.DISPLAY), Locale.getDefault(Locale.Category.DISPLAY),
             diagnostic -> log.warn(descriptor.id(), diagnostic.code() + ": " + diagnostic.message())
         );
