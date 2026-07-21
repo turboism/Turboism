@@ -44,12 +44,12 @@ tasks.register<JavaExec>("verifyStaticHostSelectors") {
 
 val pluginMetaFiles = files(
     fileTree("plugins") { include("**/src/main/resources/META-INF/turboism/plugin.json") },
-    fileTree("testframework/src/main/resources/fixtures/schema/plugin-meta-v1/valid") { include("*.json") }
+    fileTree("testframework/src/main/resources/fixtures/schema/plugin-meta-v2/valid") { include("*.json") }
 )
 
 tasks.register<JavaExec>("validatePluginMeta") {
     group = "verification"
-    description = "Validate source plugin.json files against v1 schema using the runtime validator."
+    description = "Validate source plugin.json files against v2 schema using the runtime validator."
     inputs.files(pluginMetaFiles)
     configureRuntimeJavaExec(project, "dev.turboism.core.schema.plugin.PluginMetaValidationCli")
     doFirst {
