@@ -16,13 +16,33 @@ public final class TestVerifiedResolvers {
         final List<StaticSelector> selectors,
         final ClassLoader classLoader
     ) {
-        HostArtifactFingerprint fingerprint = new HostArtifactFingerprint("5.3.02", 1, "a".repeat(64));
+        return create(
+            "5.3.02",
+            adapterSliceId,
+            capabilityIds,
+            selectors,
+            classLoader
+        );
+    }
+
+    public static VerifiedMemberResolver create(
+        final String cubismVersion,
+        final String adapterSliceId,
+        final Set<String> capabilityIds,
+        final List<StaticSelector> selectors,
+        final ClassLoader classLoader
+    ) {
+        HostArtifactFingerprint fingerprint = new HostArtifactFingerprint(
+            cubismVersion,
+            1,
+            "a".repeat(64)
+        );
         StaticVerificationRecord record = new StaticVerificationRecord(
             "fixture.static",
             adapterSliceId,
             List.copyOf(capabilityIds),
-            "5.3.02",
-            "fixture-5.3.02",
+            cubismVersion,
+            "fixture-" + cubismVersion,
             fingerprint,
             "docs/migration/verification/static/fixture.json",
             "runtime-adapter",

@@ -2,6 +2,7 @@ package dev.turboism.preview;
 
 import dev.turboism.core.descriptor.DescriptorParseException;
 import dev.turboism.core.descriptor.PluginDescriptorParser;
+import dev.turboism.core.plugin.PluginJarContract;
 import dev.turboism.core.version.PluginVersion;
 import dev.turboism.core.version.VersionRange;
 import dev.turboism.sdk.plugin.PluginDescriptor;
@@ -114,6 +115,24 @@ final class PreviewPluginDiscovery {
     ) throws IOException, DescriptorParseException {
         try (InputStream source = archive.getInputStream(entry)) {
             final PluginDescriptor descriptor = new PluginDescriptorParser().parse(source);
+            try {
+                PluginJarContract.validate(
+                    descriptor,
+                    archive.stream()
+                        .filter(candidate -> !candidate.isDirectory())
+                        .map(JarEntry::getName)
+                        .toList(),
+                    jar.toString()
+                );
+            } catch (PluginJarContract.PluginJarContractException exception) {
+                failures.add(new LocalPluginRuntime.PluginFailure(
+                    descriptor.id(),
+                    jar,
+                    exception.code(),
+                    exception.path()
+                ));
+                return null;
+            }
             if (!supportsCurrentApi(descriptor)) {
                 failures.add(new LocalPluginRuntime.PluginFailure(
                     descriptor.id(), jar, "TURBOISM_API_INCOMPATIBLE",
