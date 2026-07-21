@@ -2,7 +2,7 @@ package dev.turboism.sdk.cubism.service.query;
 
 import dev.turboism.sdk.cubism.CubismServiceException;
 import dev.turboism.sdk.cubism.id.ModelObjectId;
-import dev.turboism.sdk.event.cubism.CubismSelectionChangedEvent;
+import dev.turboism.sdk.cubism.event.SelectionChangedEvent;
 import dev.turboism.sdk.plugin.Registration;
 import java.util.List;
 
@@ -16,6 +16,6 @@ public interface SelectionQueryService {
 
     @FunctionalInterface
     interface SelectionChangedListener {
-        void selectionChanged(CubismSelectionChangedEvent event);
+        void selectionChanged(SelectionChangedEvent event);
     }
 }

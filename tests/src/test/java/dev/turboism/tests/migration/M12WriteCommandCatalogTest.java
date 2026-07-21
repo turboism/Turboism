@@ -12,7 +12,7 @@ import dev.turboism.sdk.cubism.mesh.MeshWriteCommand;
 import dev.turboism.sdk.cubism.mesh.MirrorWritebackCommand;
 import dev.turboism.sdk.cubism.psd.PsdBindingWriteCommand;
 import dev.turboism.sdk.cubism.transaction.CommitFailedException;
-import dev.turboism.sdk.cubism.transaction.DocumentId;
+import dev.turboism.sdk.cubism.id.DocumentId;
 import dev.turboism.sdk.cubism.transaction.ModelTransaction;
 import dev.turboism.sdk.cubism.transaction.TransactionStatus;
 import dev.turboism.sdk.cubism.write.CubismWriteCommand;

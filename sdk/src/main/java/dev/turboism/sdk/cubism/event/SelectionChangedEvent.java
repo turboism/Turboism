@@ -1,20 +1,15 @@
 package dev.turboism.sdk.cubism.event;
 
-import dev.turboism.sdk.PreviewApi;
-import dev.turboism.sdk.event.EventBus;
+import dev.turboism.sdk.cubism.service.query.SelectionSummary;
+import java.util.Objects;
 
-import java.util.List;
-
-@PreviewApi
+/** Selection transition observed by the Cubism query interface. */
 public record SelectionChangedEvent(
-    String eventId,
-    List<String> selectedObjectIds
-) implements EventBus.TurboismEvent {
-
+    SelectionSummary previousSelection,
+    SelectionSummary currentSelection
+) {
     public SelectionChangedEvent {
-        if (eventId == null || eventId.isBlank()) {
-            throw new IllegalArgumentException("eventId must not be null or blank");
-        }
-        selectedObjectIds = List.copyOf(selectedObjectIds);
+        previousSelection = Objects.requireNonNull(previousSelection, "previousSelection");
+        currentSelection = Objects.requireNonNull(currentSelection, "currentSelection");
     }
 }
