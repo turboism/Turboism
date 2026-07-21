@@ -54,7 +54,7 @@ val checkLegacyPluginB1Admission by tasks.registering(Exec::class) {
     group = "verification"
     description = "Verifies the exact 14 pure-business behaviors admitted after migration-foundation closure."
     workingDir(rootDir)
-    dependsOn("checkSdkPhase1ExactApiCompatibility", "checkModuleBoundaries")
+    dependsOn("checkSdkV2ExactApiCompatibility", "checkModuleBoundaries")
     inputs.files(
         "scripts/test/check_legacy_plugin_b1_admission.py",
         "scripts/test/check_legacy_plugin_b1_source_boundaries.py",
@@ -166,7 +166,7 @@ tasks.named("check") {
         "checkDistributionProtocolContract", checkLegacyFrameworkCapabilityExtraction,
         checkLegacyFrameworkCapabilityExtractionMutations, checkLegacyPluginB1Admission,
         "checkSdkApiBaselineTool", "checkSdkApiReferenceBuilder",
-        "checkSdkPrePhaseApiCompatibility", "checkSdkPhase1ExactApiCompatibility",
+        "checkSdkV2ExactApiCompatibility",
         "checkPreviewBundleLayout", "previewAgentSmokeTest",
         "checkPreviewRuntimeReports", ":tests:previewPluginRuntimeTest", ":tests:migrationSuiteSafeTest",
         checkMigrationSuiteBundleReproducibility, "checkOfficialPluginI18nCompleteness", "validatePluginMeta"
