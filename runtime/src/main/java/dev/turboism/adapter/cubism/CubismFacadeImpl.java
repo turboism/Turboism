@@ -334,6 +334,19 @@ public final class CubismFacadeImpl implements CubismFacade {
         @Override public dev.turboism.sdk.cubism.model.ParameterType type() { return delegate.type(); }
         @Override public java.util.Optional<Boolean> repeat() { return delegate.repeat(); }
         @Override public java.util.Optional<Boolean> combined() { return delegate.combined(); }
+        @Override public java.util.Optional<dev.turboism.sdk.cubism.id.ParameterId> combinedWith() {
+            return delegate.combinedWith();
+        }
+        @Override public void combineWith(
+            final dev.turboism.sdk.cubism.id.ParameterId partnerId
+        ) {
+            permissionGate.require(MODEL_WRITE_PERMISSION, "parameter.combineWith");
+            delegate.combineWith(partnerId);
+        }
+        @Override public void uncombine() {
+            permissionGate.require(MODEL_WRITE_PERMISSION, "parameter.uncombine");
+            delegate.uncombine();
+        }
         @Override public float getValue() { return delegate.getValue(); }
         @Override public float getMinimumValue() { return delegate.getMinimumValue(); }
         @Override public float getMaximumValue() { return delegate.getMaximumValue(); }
