@@ -72,6 +72,81 @@ class EditorBackedCubismModelAccessTest {
     }
 
     @Test
+    void exposesTheParameterGroupHierarchyInStableEditorOrder() {
+        Fixture host = new Fixture("model-a", 12.0F);
+        EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
+            resolver(), "session-a"
+        );
+        Host.install(host);
+
+        var groups = access.active().parameterGroups();
+        var root = groups.root();
+        var face = groups.find(new dev.turboism.sdk.cubism.id.ParameterGroupId("GroupFace"));
+
+        assertEquals(Optional.of("Root"), root.name());
+        assertEquals(Optional.empty(), root.parentId());
+        assertEquals(
+            List.of(new dev.turboism.sdk.cubism.id.ParameterGroupId("GroupFace")),
+            root.childGroupIds()
+        );
+        assertEquals(List.of(), root.parameterIds());
+        assertEquals(Optional.of("Face"), face.name());
+        assertEquals(Optional.of(root.id()), face.parentId());
+        assertEquals(List.of(), face.childGroupIds());
+        assertEquals(List.of(new ParameterId("ParamAngleX")), face.parameterIds());
+        assertEquals(List.of(root.id(), face.id()), groups.all().stream()
+            .map(dev.turboism.sdk.cubism.model.ParameterGroup::id)
+            .toList());
+
+        Host.install(new Fixture("model-b", -5.0F));
+        assertThrows(IllegalStateException.class, root::name);
+        assertThrows(IllegalStateException.class, groups::all);
+    }
+
+    @Test
+    void detachedParameterGroupReferencesFailClosedWithinTheSameModelGeneration() {
+        Fixture host = new Fixture("model-a", 12.0F);
+        Host.install(host);
+        EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
+            resolver(), "session-a"
+        );
+        var face = access.active().parameterGroups().find(
+            new dev.turboism.sdk.cubism.id.ParameterGroupId("GroupFace")
+        );
+
+        host.source.rootGroup.children.clear();
+
+        assertThrows(IllegalStateException.class, face::name);
+    }
+
+    @Test
+    void parameterGroupsRequireTheirSeparateVerifiedCapability() {
+        Fixture host = new Fixture("model-a", 12.0F);
+        Host.install(host);
+        EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
+            resolverWithoutParameterGroups(), "session-a"
+        );
+
+        assertThrows(
+            UnsupportedOperationException.class,
+            () -> access.active().parameterGroups().root()
+        );
+    }
+
+    @Test
+    void malformedParameterGroupTreesFailClosed() {
+        Fixture host = new Fixture("model-a", 12.0F);
+        ParameterGroup face = (ParameterGroup) host.source.rootGroup.children.get(0);
+        face.children.add(host.source.rootGroup);
+        Host.install(host);
+        EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
+            resolver(), "session-a"
+        );
+
+        assertThrows(IllegalStateException.class, () -> access.active().parameterGroups().all());
+    }
+
+    @Test
     void nonModelingDocumentsAndMissingActiveInstancesRemainUnavailable() {
         EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
             resolver(), "session-a"
@@ -95,11 +170,15 @@ class EditorBackedCubismModelAccessTest {
         String set = internal(ParameterSet.class);
         String parameter = internal(Parameter.class);
         String metadata = internal(ParameterSource.class);
+        String group = internal(ParameterGroup.class);
         String id = internal(Id.class);
         return TestVerifiedResolvers.create(
             "5.3.02",
-            "adapter.editor-model.readonly",
-            java.util.Set.of("cubism.editor-model.read"),
+            "adapter.editor-model.readwrite",
+            java.util.Set.of(
+                "cubism.editor-model.read",
+                dev.turboism.mapping.verification.EditorParameterGroupsReadSelectorContract.CAPABILITY_ID
+            ),
             List.of(
                 StaticSelector.classSelector("cubism.editor-model.app-controller.class", host),
                 StaticSelector.staticMethod("cubism.editor-model.app-controller.instance", host, "instance", desc(Host.class), StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC),
@@ -113,6 +192,7 @@ class EditorBackedCubismModelAccessTest {
                 method("cubism.editor-model.model-source.guid", ModelSource.class, "guid", desc(Id.class)),
                 method("cubism.editor-model.model-source.current-instance", ModelSource.class, "currentInstance", desc(Model.class)),
                 method("cubism.editor-model.model-source.all-parameters", ModelSource.class, "allParameters", "()Ljava/util/List;"),
+                method("cubism.editor-model.model-source.root-parameter-group", ModelSource.class, "rootParameterGroup", desc(ParameterGroup.class)),
                 StaticSelector.classSelector("cubism.editor-model.model.class", model),
                 method("cubism.editor-model.model.parameter-set", Model.class, "parameterSet", desc(ParameterSet.class)),
                 StaticSelector.classSelector("cubism.editor-model.parameter-set.class", set),
@@ -129,11 +209,68 @@ class EditorBackedCubismModelAccessTest {
                 method("cubism.editor-model.parameter-source.repeat", ParameterSource.class, "repeat", "()Z"),
                 method("cubism.editor-model.parameter-source.morph-target", ParameterSource.class, "morphTarget", "()Z"),
                 method("cubism.editor-model.parameter-source.combined", ParameterSource.class, "combined", "()Z"),
+                method("cubism.editor-model.parameter-source.id", ParameterSource.class, "id", desc(Id.class)),
+                StaticSelector.classSelector("cubism.editor-model.parameter-group.class", group),
+                method("cubism.editor-model.parameter-group.id", ParameterGroup.class, "id", desc(Id.class)),
+                method("cubism.editor-model.parameter-group.name", ParameterGroup.class, "name", "()Ljava/lang/String;"),
+                method("cubism.editor-model.parameter-group.parent", ParameterGroup.class, "parent", desc(ParameterGroup.class)),
+                method("cubism.editor-model.parameter-group.children", ParameterGroup.class, "children", "()Ljava/util/List;"),
                 StaticSelector.classSelector("cubism.editor-model.id.class", id),
                 method("cubism.editor-model.id.value", Id.class, "value", "()Ljava/lang/String;"),
                 StaticSelector.classSelector("cubism.editor-model.guid.class", id),
                 method("cubism.editor-model.guid.value", Id.class, "value", "()Ljava/lang/String;")
             ),
+            Host.class.getClassLoader()
+        );
+    }
+
+    private static VerifiedMemberResolver resolverWithoutParameterGroups() {
+        final VerifiedMemberResolver full = resolver();
+        final java.util.Set<String> groupAliases =
+            dev.turboism.mapping.verification.EditorParameterGroupsReadSelectorContract.REQUIRED_ALIASES;
+        final java.util.List<StaticSelector> selectors = new java.util.ArrayList<>();
+        for (String alias : java.util.List.of(
+            "cubism.editor-model.app-controller.class",
+            "cubism.editor-model.app-controller.instance",
+            "cubism.editor-model.app-controller.current-document",
+            "cubism.editor-model.modeling-document.class",
+            "cubism.editor-model.modeling-document.model-source",
+            "cubism.editor-model.modeling-document.last-active-view",
+            "cubism.editor-model.modeling-view.class",
+            "cubism.editor-model.modeling-view.model",
+            "cubism.editor-model.model-source.class",
+            "cubism.editor-model.model-source.guid",
+            "cubism.editor-model.model-source.current-instance",
+            "cubism.editor-model.model-source.all-parameters",
+            "cubism.editor-model.model.class",
+            "cubism.editor-model.model.parameter-set",
+            "cubism.editor-model.parameter-set.class",
+            "cubism.editor-model.parameter-set.parameters",
+            "cubism.editor-model.parameter.class",
+            "cubism.editor-model.parameter.id",
+            "cubism.editor-model.parameter.value",
+            "cubism.editor-model.parameter.source",
+            "cubism.editor-model.parameter-source.class",
+            "cubism.editor-model.parameter-source.minimum",
+            "cubism.editor-model.parameter-source.maximum",
+            "cubism.editor-model.parameter-source.default",
+            "cubism.editor-model.parameter-source.name",
+            "cubism.editor-model.parameter-source.repeat",
+            "cubism.editor-model.parameter-source.morph-target",
+            "cubism.editor-model.parameter-source.combined",
+            "cubism.editor-model.parameter-source.id",
+            "cubism.editor-model.id.class",
+            "cubism.editor-model.id.value",
+            "cubism.editor-model.guid.class",
+            "cubism.editor-model.guid.value"
+        )) {
+            if (!groupAliases.contains(alias)) selectors.add(full.verifiedSelector(alias));
+        }
+        return TestVerifiedResolvers.create(
+            "5.3.02",
+            "adapter.editor-model.readwrite",
+            java.util.Set.of("cubism.editor-model.read"),
+            selectors,
             Host.class.getClassLoader()
         );
     }
@@ -159,15 +296,26 @@ class EditorBackedCubismModelAccessTest {
     }
     public static final class ModelSource {
         final Id guid;
+        final ParameterGroup rootGroup;
         Model currentInstance;
-        ModelSource(String id, Model model) { guid = new Id(id); currentInstance = model; }
+        ModelSource(String id, Model model) {
+            guid = new Id(id);
+            currentInstance = model;
+            rootGroup = new ParameterGroup("GroupRoot", "Root", null);
+            ParameterGroup face = new ParameterGroup("GroupFace", "Face", rootGroup);
+            rootGroup.children.add(face);
+            face.children.add(model.parameterSet.parameters.get(0).source());
+        }
         public Id guid() { return guid; }
         public Model currentInstance() { return currentInstance; }
         public List<ParameterSource> allParameters() { return currentInstance.parameterSet.parameters.stream().map(Parameter::source).toList(); }
+        public ParameterGroup rootParameterGroup() { return rootGroup; }
     }
     public static final class Model {
         final ParameterSet parameterSet;
+        ModelSource source;
         Model(ParameterSet parameterSet) { this.parameterSet = parameterSet; }
+        public ModelSource source() { return source; }
         public ParameterSet parameterSet() { return parameterSet; }
     }
     public static final class ParameterSet {
@@ -183,14 +331,31 @@ class EditorBackedCubismModelAccessTest {
         public ParameterSource source() { return source; }
     }
     public static final class ParameterSource {
+        final Id id = new Id("ParamAngleX");
         String name = "Angle X";
         public float minimum() { return -30.0F; }
         public float maximum() { return 30.0F; }
         public float defaultValue() { return 0.0F; }
+        public Id id() { return id; }
         public String name() { return name; }
         public boolean repeat() { return true; }
         public boolean morphTarget() { return true; }
         public boolean combined() { return true; }
+    }
+    public static final class ParameterGroup {
+        final Id id;
+        final String name;
+        final ParameterGroup parent;
+        final java.util.ArrayList<Object> children = new java.util.ArrayList<>();
+        ParameterGroup(String id, String name, ParameterGroup parent) {
+            this.id = new Id(id);
+            this.name = name;
+            this.parent = parent;
+        }
+        public Id id() { return id; }
+        public String name() { return name; }
+        public ParameterGroup parent() { return parent; }
+        public List<Object> children() { return children; }
     }
     public record Id(String value) { public String value() { return value; } }
     static final class Fixture {
@@ -199,6 +364,7 @@ class EditorBackedCubismModelAccessTest {
         Fixture(String id, float value) {
             Model model = new Model(new ParameterSet(List.of(new Parameter("ParamAngleX", value))));
             source = new ModelSource(id, model);
+            model.source = source;
             document = new Document(source);
         }
     }

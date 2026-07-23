@@ -15,6 +15,10 @@ public interface CubismModel {
 
     Parameters parameters();
 
+    default ParameterGroups parameterGroups() {
+        throw new UnsupportedOperationException("Cubism parameter-group access is unavailable.");
+    }
+
     Parts parts();
 
     Drawables drawables();
