@@ -4,7 +4,7 @@
   "id": "dev.turboism.plugin.parameter",
   "name": "Parameter CSV Plugin",
   "version": "0.1.0",
-  "description": "Fake-ready parameter CSV import/export using SDK read, write transactions, and UI host file chooser. Real-host parameter adapter remains future work.",
+  "description": "Parameter CSV import/export using SDK reads, the unified Cubism model setter, and the UI host file chooser.",
   "entrypoints": [
     "dev.turboism.plugin.parameter.ParameterPlugin"
   ],
@@ -29,7 +29,7 @@
     {
       "id": "turboism.cubism.model.write",
       "scope": "application",
-      "reason": "Apply imported parameter values through ModelTransaction."
+      "reason": "Apply imported values through the unified Parameter.setValue API."
     },
     {
       "id": "turboism.ui.file-chooser.request",

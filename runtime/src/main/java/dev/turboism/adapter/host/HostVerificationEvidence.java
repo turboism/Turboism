@@ -14,13 +14,23 @@ import java.util.Optional;
  */
 public record HostVerificationEvidence(
     Slice projectWorkspace,
-    Optional<Slice> clipMask
+    Optional<Slice> clipMask,
+    Optional<Slice> editorModel,
+    Optional<Slice> mainToolbar
 ) {
     public HostVerificationEvidence {
         projectWorkspace = Objects.requireNonNull(projectWorkspace, "projectWorkspace");
         clipMask = Objects.requireNonNull(clipMask, "clipMask");
+        editorModel = Objects.requireNonNull(editorModel, "editorModel");
+        mainToolbar = Objects.requireNonNull(mainToolbar, "mainToolbar");
         if (clipMask.isPresent()) {
             requireSameHostArtifact(projectWorkspace, clipMask.orElseThrow());
+        }
+        if (editorModel.isPresent()) {
+            requireSameHostArtifact(projectWorkspace, editorModel.orElseThrow());
+        }
+        if (mainToolbar.isPresent()) {
+            requireSameHostArtifact(projectWorkspace, mainToolbar.orElseThrow());
         }
     }
 
@@ -47,7 +57,12 @@ public record HostVerificationEvidence(
     }
 
     public static HostVerificationEvidence projectOnly(final Slice projectWorkspace) {
-        return new HostVerificationEvidence(projectWorkspace, Optional.empty());
+        return new HostVerificationEvidence(
+            projectWorkspace,
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty()
+        );
     }
 
     public static HostVerificationEvidence withClipMask(
@@ -56,7 +71,39 @@ public record HostVerificationEvidence(
     ) {
         return new HostVerificationEvidence(
             projectWorkspace,
-            Optional.of(Objects.requireNonNull(clipMask, "clipMask"))
+            Optional.of(Objects.requireNonNull(clipMask, "clipMask")),
+            Optional.empty(),
+            Optional.empty()
+        );
+    }
+
+    public static HostVerificationEvidence withEditorModel(
+        final Slice projectWorkspace,
+        final Slice editorModel
+    ) {
+        return new HostVerificationEvidence(
+            projectWorkspace,
+            Optional.empty(),
+            Optional.of(Objects.requireNonNull(editorModel, "editorModel")),
+            Optional.empty()
+        );
+    }
+
+    public HostVerificationEvidence addingEditorModel(final Slice editorModel) {
+        return new HostVerificationEvidence(
+            projectWorkspace,
+            clipMask,
+            Optional.of(Objects.requireNonNull(editorModel, "editorModel")),
+            mainToolbar
+        );
+    }
+
+    public HostVerificationEvidence addingMainToolbar(final Slice mainToolbar) {
+        return new HostVerificationEvidence(
+            projectWorkspace,
+            clipMask,
+            editorModel,
+            Optional.of(Objects.requireNonNull(mainToolbar, "mainToolbar"))
         );
     }
 

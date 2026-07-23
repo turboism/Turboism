@@ -18,8 +18,14 @@ public final class TurboismAgent {
 
     private static final String VERIFICATION_RESOURCE =
         "/META-INF/turboism/verification/cubism-5.3.02-project-workspace.json";
+    private static final String EDITOR_MODEL_VERIFICATION_RESOURCE =
+        "/META-INF/turboism/verification/cubism-5.3.02-editor-model.json";
+    private static final String MAIN_TOOLBAR_VERIFICATION_RESOURCE =
+        "/META-INF/turboism/verification/cubism-5.3.02-ui-main-toolbar.json";
     private static final AtomicBoolean START_REQUESTED = new AtomicBoolean(false);
     private static final AtomicReference<PreviewRuntime> RUNTIME = new AtomicReference<>();
+    private static final AtomicReference<VerifiedParameterHookInstaller> PARAMETER_HOOK =
+        new AtomicReference<>();
 
     private TurboismAgent() {
     }
@@ -73,9 +79,21 @@ public final class TurboismAgent {
 
             final HostClassLocator.LocatedHost host = located.orElseThrow();
             final Path verificationRecord = extractVerificationRecord(options.home());
+            final Path editorModelVerificationRecord = extractVerificationRecord(
+                options.home(),
+                EDITOR_MODEL_VERIFICATION_RESOURCE,
+                "cubism-5.3.02-editor-model.json"
+            );
+            final Path mainToolbarVerificationRecord = extractVerificationRecord(
+                options.home(),
+                MAIN_TOOLBAR_VERIFICATION_RESOURCE,
+                "cubism-5.3.02-ui-main-toolbar.json"
+            );
             final PreviewRuntime runtime = PreviewRuntime.start(
                 options.home(),
                 verificationRecord,
+                editorModelVerificationRecord,
+                mainToolbarVerificationRecord,
                 host.artifact(),
                 host.classLoader()
             );
@@ -83,6 +101,7 @@ public final class TurboismAgent {
                 runtime.close();
                 return;
             }
+            installParameterHook(runtime, instrumentation, host);
             Runtime.getRuntime().addShutdownHook(new Thread(TurboismAgent::shutdown, "turboism-shutdown"));
             System.err.println(
                 "Turboism Developer Preview started: host=" + runtime.hostState()
@@ -101,19 +120,57 @@ public final class TurboismAgent {
     }
 
     private static Path extractVerificationRecord(final Path home) throws IOException {
+        return extractVerificationRecord(
+            home,
+            VERIFICATION_RESOURCE,
+            "cubism-5.3.02-project-workspace.json"
+        );
+    }
+
+    private static Path extractVerificationRecord(
+        final Path home,
+        final String resource,
+        final String fileName
+    ) throws IOException {
         final Path target = home.resolve("state")
             .resolve("verification")
-            .resolve("cubism-5.3.02-project-workspace.json")
+            .resolve(fileName)
             .toAbsolutePath()
             .normalize();
         Files.createDirectories(target.getParent());
-        try (InputStream source = TurboismAgent.class.getResourceAsStream(VERIFICATION_RESOURCE)) {
+        try (InputStream source = TurboismAgent.class.getResourceAsStream(resource)) {
             if (source == null) {
                 throw new IOException("Embedded Cubism verification record is missing");
             }
             Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
         }
         return target;
+    }
+
+    private static void installParameterHook(
+        final PreviewRuntime runtime,
+        final Instrumentation instrumentation,
+        final HostClassLocator.LocatedHost host
+    ) {
+        VerifiedParameterHookInstaller installer = null;
+        try {
+            installer = VerifiedParameterHookInstaller.fromVerifiedResolver(
+                instrumentation,
+                runtime.editorModelResolver(),
+                host.classLoader(),
+                runtime.hostAccess().parameterLifecycle(),
+                runtime.hostAccess().modelAccess()
+            );
+            installer.install();
+            if (!PARAMETER_HOOK.compareAndSet(null, installer)) {
+                installer.close();
+            }
+        } catch (Throwable failure) {
+            if (installer != null) installer.close();
+            System.err.println(
+                "Turboism parameter hook disabled safely: " + failure.getClass().getName()
+            );
+        }
     }
 
     private static Path defaultHome() {
@@ -143,6 +200,14 @@ public final class TurboismAgent {
     }
 
     private static boolean shutdownRuntime() {
+        final VerifiedParameterHookInstaller parameterHook = PARAMETER_HOOK.getAndSet(null);
+        if (parameterHook != null) {
+            try {
+                parameterHook.close();
+            } catch (Throwable failure) {
+                System.err.println("Turboism parameter hook cleanup failed safely");
+            }
+        }
         final PreviewRuntime runtime = RUNTIME.getAndSet(null);
         if (runtime == null) {
             return false;

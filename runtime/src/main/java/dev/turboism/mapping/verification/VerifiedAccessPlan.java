@@ -90,6 +90,16 @@ final class VerifiedAccessPlan {
             && selectors.keySet().equals(requiredAliases);
     }
 
+    boolean authorizesFeature(
+        final String requiredAdapterSliceId,
+        final String requiredCapabilityId,
+        final java.util.Set<String> requiredAliases
+    ) {
+        return adapterSliceId.equals(requiredAdapterSliceId)
+            && capabilityIds.contains(requiredCapabilityId)
+            && selectors.keySet().containsAll(requiredAliases);
+    }
+
     java.util.List<StaticSelector> selectors() {
         return java.util.List.copyOf(selectors.values());
     }

@@ -38,6 +38,25 @@ class StaticSelectorVerifierTest {
     }
 
     @Test
+    void verifiesConstructorDescriptorFromJarMetadata() throws Exception {
+        Path artifact = jarContaining(SampleTarget.class);
+        HostArtifactFingerprint fingerprint = HostArtifactFingerprint.from("5.3.02", artifact);
+
+        StaticVerificationReport report = new StaticSelectorVerifier().verify(
+            artifact,
+            fingerprint,
+            List.of(StaticSelector.constructor(
+                "sample.constructor",
+                internalName(SampleTarget.class),
+                "(Ljava/lang/String;)V",
+                0
+            ))
+        );
+
+        assertEquals(StaticVerificationStatus.VERIFIED_STATIC, report.results().get(0).status());
+    }
+
+    @Test
     void rejectsSameMethodNameWithWrongDescriptor() throws Exception {
         Path artifact = jarContaining(SampleTarget.class);
         HostArtifactFingerprint fingerprint = HostArtifactFingerprint.from("5.3.02", artifact);
@@ -150,6 +169,9 @@ class StaticSelectorVerifierTest {
     }
 
     static final class SampleTarget {
+        SampleTarget(final String ignored) {
+        }
+
         String greet(final String name) {
             return "Hello " + name;
         }

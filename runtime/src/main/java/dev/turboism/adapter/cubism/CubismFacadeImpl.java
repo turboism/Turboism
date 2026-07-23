@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism;
 
 import dev.turboism.adapter.cubism.service.read.CubismReadPermissionGate;
+import dev.turboism.adapter.cubism.lifecycle.ParameterLifecycleCoordinator;
 import dev.turboism.adapter.cubism.write.HostWriteAdapter;
 import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
@@ -16,6 +17,10 @@ import dev.turboism.sdk.cubism.DocumentSnapshot;
 import dev.turboism.sdk.cubism.ModelSnapshot;
 import dev.turboism.sdk.cubism.ProjectSnapshot;
 import dev.turboism.sdk.cubism.SelectionSnapshot;
+import dev.turboism.sdk.cubism.model.CubismModelAccess;
+import dev.turboism.sdk.cubism.model.CubismModel;
+import dev.turboism.sdk.cubism.model.Parameter;
+import dev.turboism.sdk.cubism.model.Parameters;
 import dev.turboism.sdk.cubism.transaction.TransactionManager;
 import dev.turboism.sdk.permission.CubismPermissionException;
 
@@ -29,6 +34,7 @@ public final class CubismFacadeImpl implements CubismFacade {
 
     public static final String PROJECT_READ_PERMISSION = "turboism.cubism.project.read";
     public static final String MODEL_READ_PERMISSION = "turboism.cubism.model.read";
+    public static final String MODEL_WRITE_PERMISSION = "turboism.cubism.model.write";
     public static final String MESH_READ_PERMISSION = "turboism.cubism.mesh.read";
 
     private static final HostSnapshotSource.HostSelection EMPTY_SELECTION = new HostSnapshotSource.HostSelection(
@@ -42,9 +48,49 @@ public final class CubismFacadeImpl implements CubismFacade {
     private final CubismPermissionGate permissionGate;
     private final ImmutableSnapshotFactory snapshotFactory;
     private final TransactionManager transactionManager;
+    private final CubismModelAccess modelAccess;
+    private final ParameterLifecycleCoordinator parameterLifecycle;
 
     public CubismFacadeImpl(final HostSnapshotSource source, final CubismPermissionGate permissionGate) {
-        this(source, permissionGate, new ImmutableSnapshotFactory(), unavailableTransactionManager());
+        this(
+            source,
+            permissionGate,
+            new ImmutableSnapshotFactory(),
+            unavailableTransactionManager(),
+            unavailableModelAccess(),
+            new ParameterLifecycleCoordinator()
+        );
+    }
+
+    public CubismFacadeImpl(
+        final HostSnapshotSource source,
+        final CubismPermissionGate permissionGate,
+        final CubismModelAccess modelAccess
+    ) {
+        this(
+            source,
+            permissionGate,
+            new ImmutableSnapshotFactory(),
+            unavailableTransactionManager(),
+            modelAccess,
+            new ParameterLifecycleCoordinator()
+        );
+    }
+
+    public CubismFacadeImpl(
+        final HostSnapshotSource source,
+        final CubismPermissionGate permissionGate,
+        final CubismModelAccess modelAccess,
+        final ParameterLifecycleCoordinator parameterLifecycle
+    ) {
+        this(
+            source,
+            permissionGate,
+            new ImmutableSnapshotFactory(),
+            unavailableTransactionManager(),
+            modelAccess,
+            parameterLifecycle
+        );
     }
 
     public CubismFacadeImpl(
@@ -74,10 +120,49 @@ public final class CubismFacadeImpl implements CubismFacade {
         final ImmutableSnapshotFactory snapshotFactory,
         final TransactionManager transactionManager
     ) {
+        this(
+            source,
+            permissionGate,
+            snapshotFactory,
+            transactionManager,
+            unavailableModelAccess(),
+            new ParameterLifecycleCoordinator()
+        );
+    }
+
+    CubismFacadeImpl(
+        final HostSnapshotSource source,
+        final CubismPermissionGate permissionGate,
+        final ImmutableSnapshotFactory snapshotFactory,
+        final TransactionManager transactionManager,
+        final CubismModelAccess modelAccess
+    ) {
+        this(
+            source,
+            permissionGate,
+            snapshotFactory,
+            transactionManager,
+            modelAccess,
+            new ParameterLifecycleCoordinator()
+        );
+    }
+
+    CubismFacadeImpl(
+        final HostSnapshotSource source,
+        final CubismPermissionGate permissionGate,
+        final ImmutableSnapshotFactory snapshotFactory,
+        final TransactionManager transactionManager,
+        final CubismModelAccess modelAccess,
+        final ParameterLifecycleCoordinator parameterLifecycle
+    ) {
         this.source = Objects.requireNonNull(source, "source");
         this.permissionGate = Objects.requireNonNull(permissionGate, "permissionGate");
         this.snapshotFactory = Objects.requireNonNull(snapshotFactory, "snapshotFactory");
         this.transactionManager = Objects.requireNonNull(transactionManager, "transactionManager");
+        this.parameterLifecycle = Objects.requireNonNull(parameterLifecycle, "parameterLifecycle");
+        this.modelAccess = permissionCheckedModelAccess(
+            Objects.requireNonNull(modelAccess, "modelAccess")
+        );
     }
 
     @Override
@@ -130,6 +215,12 @@ public final class CubismFacadeImpl implements CubismFacade {
     }
 
     @Override
+    public CubismModelAccess model() {
+        permissionGate.require(MODEL_READ_PERMISSION, "model");
+        return modelAccess;
+    }
+
+    @Override
     public TransactionManager transactionManager() {
         return transactionManager;
     }
@@ -179,6 +270,14 @@ public final class CubismFacadeImpl implements CubismFacade {
         };
     }
 
+    private static CubismModelAccess unavailableModelAccess() {
+        return () -> {
+            throw new UnsupportedOperationException(
+                "Unified Cubism model access is unavailable"
+            );
+        };
+    }
+
     private static RuntimeScheduler defaultScheduler() {
         final Consumer<PluginWorkBudgetEvent> diagnostics = ignored -> {
         };
@@ -188,5 +287,66 @@ public final class CubismFacadeImpl implements CubismFacade {
             SidecarDispatcher.noop(),
             diagnostics
         );
+    }
+
+    private CubismModelAccess permissionCheckedModelAccess(final CubismModelAccess delegate) {
+        return () -> new PermissionCheckedModel(delegate.active());
+    }
+
+    private final class PermissionCheckedModel implements CubismModel {
+        private final CubismModel delegate;
+
+        private PermissionCheckedModel(final CubismModel delegate) {
+            this.delegate = Objects.requireNonNull(delegate, "delegate");
+        }
+
+        @Override public dev.turboism.sdk.cubism.id.ModelId id() { return delegate.id(); }
+        @Override public dev.turboism.sdk.cubism.model.Canvas canvas() { return delegate.canvas(); }
+        @Override public Parameters parameters() {
+            final Parameters parameters = delegate.parameters();
+            return new Parameters() {
+                @Override public List<Parameter> all() {
+                    return parameters.all().stream()
+                        .map(value -> (Parameter) new PermissionCheckedParameter(value))
+                        .toList();
+                }
+                @Override public Parameter find(final dev.turboism.sdk.cubism.id.ParameterId id) {
+                    return new PermissionCheckedParameter(parameters.find(id));
+                }
+            };
+        }
+        @Override public dev.turboism.sdk.cubism.model.Parts parts() { return delegate.parts(); }
+        @Override public dev.turboism.sdk.cubism.model.Drawables drawables() { return delegate.drawables(); }
+        @Override public dev.turboism.sdk.cubism.model.Deformers deformers() { return delegate.deformers(); }
+        @Override public dev.turboism.sdk.cubism.model.Glues glues() { return delegate.glues(); }
+        @Override public void update() { delegate.update(); }
+    }
+
+    private final class PermissionCheckedParameter implements Parameter {
+        private final Parameter delegate;
+
+        private PermissionCheckedParameter(final Parameter delegate) {
+            this.delegate = Objects.requireNonNull(delegate, "delegate");
+        }
+
+        @Override public dev.turboism.sdk.cubism.id.ParameterId id() { return delegate.id(); }
+        @Override public java.util.Optional<String> name() { return delegate.name(); }
+        @Override public dev.turboism.sdk.cubism.model.ParameterType type() { return delegate.type(); }
+        @Override public java.util.Optional<Boolean> repeat() { return delegate.repeat(); }
+        @Override public java.util.Optional<Boolean> combined() { return delegate.combined(); }
+        @Override public float getValue() { return delegate.getValue(); }
+        @Override public float getMinimumValue() { return delegate.getMinimumValue(); }
+        @Override public float getMaximumValue() { return delegate.getMaximumValue(); }
+        @Override public float getDefaultValue() { return delegate.getDefaultValue(); }
+        @Override public void setValue(final float value) {
+            permissionGate.require(MODEL_WRITE_PERMISSION, "parameter.setValue");
+            parameterLifecycle.setValue(this, value, delegate::setValue);
+        }
+        @Override public void updateDefinition(
+            final dev.turboism.sdk.cubism.model.ParameterDefinition definition
+        ) {
+            permissionGate.require(MODEL_WRITE_PERMISSION, "parameter.updateDefinition");
+            delegate.updateDefinition(definition);
+        }
     }
 }

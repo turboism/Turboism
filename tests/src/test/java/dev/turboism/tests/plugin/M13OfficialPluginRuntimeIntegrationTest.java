@@ -26,11 +26,6 @@ import dev.turboism.sdk.cubism.SelectionSnapshot;
 import dev.turboism.sdk.cubism.TextureAtlasSnapshot;
 import dev.turboism.sdk.cubism.WorkspaceSnapshot;
 import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
-import dev.turboism.sdk.cubism.id.DocumentId;
-import dev.turboism.sdk.cubism.transaction.ModelTransaction;
-import dev.turboism.sdk.cubism.transaction.TransactionManager;
-import dev.turboism.sdk.cubism.transaction.TransactionStatus;
-import dev.turboism.sdk.cubism.write.CubismWriteCommand;
 import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.sdk.plugin.PluginDescriptor;
@@ -605,13 +600,11 @@ class M13OfficialPluginRuntimeIntegrationTest {
         PluginDescriptor descriptor = descriptorFor("parameter");
         List<PluginPermission> permissions = withoutPermission(descriptor, "turboism.cubism.model.write");
         PermissionChecker checker = PermissionChecker.from(permissions);
-        WritePermissionFacade facade = new WritePermissionFacade(checker);
         try (M8PluginTestSupport.Harness harness = M8PluginTestSupport.harness(
             tempDir.resolve("parameter-model-write-denied"),
             checker,
             fileChooserSource(),
-            new ParameterImportRead(),
-            facade
+            new ParameterImportRead()
         )) {
             ParameterPlugin plugin = new ParameterPlugin(ignored -> Optional.of("id,value\np1,0.75\n"));
             plugin.init(harness.context());
@@ -620,7 +613,6 @@ class M13OfficialPluginRuntimeIntegrationTest {
             harness.executeAction("parameter.csv.import");
             awaitNotificationCount(harness, 1);
             assertEquals("parameter.csv.import.failed", harness.uiHost().notifications().get(0).id());
-            assertEquals(0, facade.enqueuedCommands);
         }
     }
 
@@ -652,7 +644,8 @@ class M13OfficialPluginRuntimeIntegrationTest {
                 "turboism.cubism.project.read",
                 "turboism.ui.dialog.contribute",
                 "turboism.ui.file-chooser.request",
-                "turboism.ui.status.notify"
+                "turboism.ui.status.notify",
+                "turboism.ui.appearance.modify"
             ),
             permissionIdsFor("ui-theme")
         );
@@ -870,37 +863,6 @@ class M13OfficialPluginRuntimeIntegrationTest {
                 return Optional.of("imports/params.csv");
             }
         };
-    }
-
-    private static final class WritePermissionFacade implements CubismFacade {
-        private final PermissionChecker permissionChecker;
-        private int enqueuedCommands;
-
-        private WritePermissionFacade(final PermissionChecker permissionChecker) {
-            this.permissionChecker = permissionChecker;
-        }
-
-        @Override public CubismRuntimeSnapshot runtime() { throw new UnsupportedOperationException(); }
-        @Override public Optional<ProjectSnapshot> activeProject() { return Optional.empty(); }
-        @Override public Optional<DocumentSnapshot> activeDocument() { return Optional.empty(); }
-        @Override public Optional<ModelSnapshot> activeModel() { return Optional.empty(); }
-        @Override public boolean isHostPresent() { return true; }
-
-        @Override
-        public TransactionManager transactionManager() {
-            return (context, documentId) -> {
-                permissionChecker.check("turboism.cubism.model.write", "transaction.open");
-                return new ModelTransaction() {
-                    private TransactionStatus status = TransactionStatus.OPEN;
-
-                    @Override public TransactionStatus status() { return status; }
-                    @Override public void enqueue(CubismWriteCommand command) { enqueuedCommands++; }
-                    @Override public void commit() { status = TransactionStatus.COMMITTED; }
-                    @Override public void rollback() { status = TransactionStatus.ROLLED_BACK; }
-                    @Override public String transactionId() { return "permission-test"; }
-                };
-            };
-        }
     }
 
     private static final class ClipMaskRead extends UnsupportedCubismRead {

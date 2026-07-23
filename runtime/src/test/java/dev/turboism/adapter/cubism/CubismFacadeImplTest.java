@@ -1,9 +1,16 @@
 package dev.turboism.adapter.cubism;
 
 import dev.turboism.diagnostics.CubismFacadeAuditEvent;
+import dev.turboism.adapter.cubism.lifecycle.ParameterLifecycleCoordinator;
 import dev.turboism.permissions.CubismPermissionGate;
 import dev.turboism.sdk.cubism.CubismRuntimeSnapshot;
 import dev.turboism.sdk.cubism.DeformerType;
+import dev.turboism.sdk.cubism.id.ModelId;
+import dev.turboism.sdk.cubism.id.ParameterId;
+import dev.turboism.sdk.cubism.model.CubismModel;
+import dev.turboism.sdk.cubism.model.CubismModelAccess;
+import dev.turboism.sdk.cubism.model.ParameterDefinition;
+import dev.turboism.sdk.cubism.model.ParameterType;
 import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.permission.PluginPermission;
 import org.junit.jupiter.api.Test;
@@ -15,6 +22,9 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import dev.turboism.sdk.cubism.CubismPlugin;
+import dev.turboism.sdk.plugin.PluginDescriptor;
+import dev.turboism.sdk.plugin.PluginLogger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -116,6 +126,223 @@ class CubismFacadeImplTest {
         assertTrue(auditEvents.isEmpty());
     }
 
+    @Test
+    void modelDelegatesToRuntimeOwnedAccessAfterPermissionCheck() {
+        final List<CubismFacadeAuditEvent> auditEvents = new ArrayList<>();
+        final CubismModelAccess expected = () -> emptyModel("core-model");
+        final CubismFacadeImpl facade = new CubismFacadeImpl(
+            sampleSource(),
+            new CubismPermissionGate(
+                "plugin.demo",
+                List.of(permission(CubismFacadeImpl.MODEL_READ_PERMISSION)),
+                auditEvents::add,
+                FIXED_CLOCK
+            ),
+            expected
+        );
+
+        assertEquals(new ModelId("core-model"), facade.model().active().id());
+        assertTrue(auditEvents.isEmpty());
+    }
+
+    @Test
+    void modelPermissionDenialDoesNotInvokeRuntimeAccess() {
+        final List<CubismFacadeAuditEvent> auditEvents = new ArrayList<>();
+        final boolean[] invoked = {false};
+        final CubismFacadeImpl facade = new CubismFacadeImpl(
+            sampleSource(),
+            new CubismPermissionGate(
+                "plugin.demo",
+                List.of(),
+                auditEvents::add,
+                FIXED_CLOCK
+            ),
+            () -> {
+                invoked[0] = true;
+                return emptyModel("unexpected");
+            }
+        );
+
+        assertThrows(CubismPermissionException.class, facade::model);
+        assertFalse(invoked[0]);
+        assertEquals("model", auditEvents.get(0).methodName());
+    }
+
+    @Test
+    void pluginPermissionWrapperPreservesParameterMetadata() {
+        final CubismFacadeImpl facade = new CubismFacadeImpl(
+            sampleSource(),
+            new CubismPermissionGate(
+                "plugin.demo",
+                List.of(permission(CubismFacadeImpl.MODEL_READ_PERMISSION)),
+                ignored -> { },
+                FIXED_CLOCK
+            ),
+            () -> modelWithParameter(new float[]{1.0F})
+        );
+
+        final var parameter = facade.model().active().parameters().find(new ParameterId("ParamA"));
+        assertEquals(Optional.of("Parameter A"), parameter.name());
+        assertEquals(ParameterType.BLEND_SHAPE, parameter.type());
+        assertEquals(Optional.of(false), parameter.repeat());
+        assertEquals(Optional.of(true), parameter.combined());
+    }
+
+    @Test
+    void parameterSetterRequiresModelWritePermissionBeforeInvokingBackend() {
+        final List<CubismFacadeAuditEvent> auditEvents = new ArrayList<>();
+        final float[] value = {1.0F};
+        final CubismModelAccess backend = () -> modelWithParameter(value);
+        final CubismFacadeImpl denied = new CubismFacadeImpl(
+            sampleSource(),
+            new CubismPermissionGate(
+                "plugin.demo",
+                List.of(permission(CubismFacadeImpl.MODEL_READ_PERMISSION)),
+                auditEvents::add,
+                FIXED_CLOCK
+            ),
+            backend
+        );
+        final dev.turboism.sdk.cubism.model.Parameter deniedParameter = denied.model()
+            .active()
+            .parameters()
+            .find(new ParameterId("ParamA"));
+
+        assertThrows(CubismPermissionException.class, () -> deniedParameter.setValue(2.0F));
+        assertEquals(1.0F, value[0]);
+        assertEquals(CubismFacadeImpl.MODEL_WRITE_PERMISSION, auditEvents.get(0).permissionId());
+        assertEquals("parameter.setValue", auditEvents.get(0).operationId());
+
+        final CubismFacadeImpl allowed = new CubismFacadeImpl(
+            sampleSource(),
+            new CubismPermissionGate(
+                "plugin.demo",
+                List.of(
+                    permission(CubismFacadeImpl.MODEL_READ_PERMISSION),
+                    permission(CubismFacadeImpl.MODEL_WRITE_PERMISSION)
+                ),
+                auditEvents::add,
+                FIXED_CLOCK
+            ),
+            backend
+        );
+        allowed.model().active().parameters().find(new ParameterId("ParamA")).setValue(3.0F);
+        assertEquals(3.0F, value[0]);
+    }
+
+    @Test
+    void parameterDefinitionUpdateRequiresModelWritePermissionBeforeInvokingBackend() {
+        final List<CubismFacadeAuditEvent> auditEvents = new ArrayList<>();
+        final float[] value = {1.0F};
+        final ParameterDefinition[] updated = {null};
+        final CubismModelAccess backend = () -> modelWithParameter(value, updated);
+        final CubismFacadeImpl denied = new CubismFacadeImpl(
+            sampleSource(),
+            new CubismPermissionGate(
+                "plugin.demo",
+                List.of(permission(CubismFacadeImpl.MODEL_READ_PERMISSION)),
+                auditEvents::add,
+                FIXED_CLOCK
+            ),
+            backend
+        );
+        final ParameterDefinition definition = new ParameterDefinition(
+            new ParameterId("ParamRenamed"),
+            "Renamed",
+            -2.0F,
+            0.0F,
+            2.0F,
+            ParameterType.NORMAL,
+            true
+        );
+
+        assertThrows(CubismPermissionException.class, () -> denied.model().active()
+            .parameters().find(new ParameterId("ParamA")).updateDefinition(definition));
+        assertEquals(null, updated[0]);
+        assertEquals(CubismFacadeImpl.MODEL_WRITE_PERMISSION, auditEvents.get(0).permissionId());
+        assertEquals("parameter.updateDefinition", auditEvents.get(0).operationId());
+
+        final CubismFacadeImpl allowed = new CubismFacadeImpl(
+            sampleSource(),
+            new CubismPermissionGate(
+                "plugin.demo",
+                List.of(
+                    permission(CubismFacadeImpl.MODEL_READ_PERMISSION),
+                    permission(CubismFacadeImpl.MODEL_WRITE_PERMISSION)
+                ),
+                auditEvents::add,
+                FIXED_CLOCK
+            ),
+            backend
+        );
+        allowed.model().active().parameters().find(new ParameterId("ParamA"))
+            .updateDefinition(definition);
+        assertEquals(definition, updated[0]);
+    }
+
+    @Test
+    void legacyConstructorsKeepUnifiedModelAccessExplicitlyUnavailable() {
+        final CubismFacadeImpl facade = facadeWith(
+            sampleSource(),
+            new ArrayList<>(),
+            List.of(permission(CubismFacadeImpl.MODEL_READ_PERMISSION))
+        );
+
+        assertThrows(UnsupportedOperationException.class, () -> facade.model().active());
+    }
+
+    @Test
+    void parameterSetterUsesTheRuntimeLifecycleAroundTheBackendWrite() {
+        final float[] value = {1.0F};
+        final List<String> events = new ArrayList<>();
+        final ParameterLifecycleCoordinator lifecycle = new ParameterLifecycleCoordinator();
+        lifecycle.register(new ParameterLifecycleCoordinator.PluginHooks(
+            descriptor("plugin.hooks"),
+            List.of(new CubismPlugin() {
+                @Override public float beforeSetParameterValue(
+                    final dev.turboism.sdk.cubism.model.Parameter parameter,
+                    final float requested
+                ) {
+                    return requested * 0.5F;
+                }
+                @Override public void onParameterValueChanged(
+                    final dev.turboism.sdk.cubism.model.Parameter parameter,
+                    final float oldValue,
+                    final float newValue
+                ) {
+                    events.add("on:" + oldValue + "->" + newValue);
+                }
+                @Override public void afterSetParameterValue(
+                    final dev.turboism.sdk.cubism.model.Parameter parameter,
+                    final float finalValue
+                ) {
+                    events.add("after:" + finalValue);
+                }
+            }),
+            logger()
+        ));
+        final CubismFacadeImpl facade = new CubismFacadeImpl(
+            sampleSource(),
+            new CubismPermissionGate(
+                "plugin.caller",
+                List.of(
+                    permission(CubismFacadeImpl.MODEL_READ_PERMISSION),
+                    permission(CubismFacadeImpl.MODEL_WRITE_PERMISSION)
+                ),
+                ignored -> { },
+                FIXED_CLOCK
+            ),
+            () -> modelWithParameter(value),
+            lifecycle
+        );
+
+        facade.model().active().parameters().find(new ParameterId("ParamA")).setValue(10.0F);
+        lifecycle.awaitIdle();
+
+        assertEquals(5.0F, value[0]);
+        assertEquals(List.of("on:1.0->5.0", "after:5.0"), events);
+    }
+
     private CubismFacadeImpl facadeWith(
         final HostSnapshotSource source,
         final List<CubismFacadeAuditEvent> auditEvents,
@@ -127,6 +354,72 @@ class CubismFacadeImplTest {
             auditEvents::add,
             FIXED_CLOCK
         ));
+    }
+
+    private static CubismModel modelWithParameter(final float[] value) {
+        return modelWithParameter(value, new ParameterDefinition[] {null});
+    }
+
+    private static CubismModel modelWithParameter(
+        final float[] value,
+        final ParameterDefinition[] updated
+    ) {
+        return new CubismModel() {
+            private final dev.turboism.sdk.cubism.model.Parameter parameter =
+                new dev.turboism.sdk.cubism.model.Parameter() {
+                    @Override public ParameterId id() { return new ParameterId("ParamA"); }
+                    @Override public Optional<String> name() { return Optional.of("Parameter A"); }
+                    @Override public ParameterType type() { return ParameterType.BLEND_SHAPE; }
+                    @Override public Optional<Boolean> repeat() { return Optional.of(false); }
+                    @Override public Optional<Boolean> combined() { return Optional.of(true); }
+                    @Override public float getValue() { return value[0]; }
+                    @Override public float getMinimumValue() { return -1.0F; }
+                    @Override public float getMaximumValue() { return 1.0F; }
+                    @Override public float getDefaultValue() { return 0.0F; }
+                    @Override public void setValue(final float next) { value[0] = next; }
+                    @Override public void updateDefinition(final ParameterDefinition definition) {
+                        updated[0] = definition;
+                    }
+                };
+            @Override public ModelId id() { return new ModelId("model-a"); }
+            @Override public dev.turboism.sdk.cubism.model.Parameters parameters() {
+                return new dev.turboism.sdk.cubism.model.Parameters() {
+                    @Override public List<dev.turboism.sdk.cubism.model.Parameter> all() {
+                        return List.of(parameter);
+                    }
+                    @Override public dev.turboism.sdk.cubism.model.Parameter find(
+                        final ParameterId id
+                    ) {
+                        if (!parameter.id().equals(id)) throw new java.util.NoSuchElementException();
+                        return parameter;
+                    }
+                };
+            }
+            @Override public dev.turboism.sdk.cubism.model.Parts parts() { throw unsupported(); }
+            @Override public dev.turboism.sdk.cubism.model.Drawables drawables() { throw unsupported(); }
+            @Override public dev.turboism.sdk.cubism.model.Deformers deformers() { throw unsupported(); }
+            @Override public dev.turboism.sdk.cubism.model.Glues glues() { throw unsupported(); }
+            @Override public void update() { throw unsupported(); }
+            private UnsupportedOperationException unsupported() {
+                return new UnsupportedOperationException();
+            }
+        };
+    }
+
+    private static CubismModel emptyModel(final String id) {
+        return new CubismModel() {
+            @Override public ModelId id() { return new ModelId(id); }
+            @Override public dev.turboism.sdk.cubism.model.Parameters parameters() { throw unsupported(); }
+            @Override public dev.turboism.sdk.cubism.model.Parts parts() { throw unsupported(); }
+            @Override public dev.turboism.sdk.cubism.model.Drawables drawables() { throw unsupported(); }
+            @Override public dev.turboism.sdk.cubism.model.Deformers deformers() { throw unsupported(); }
+            @Override public dev.turboism.sdk.cubism.model.Glues glues() { throw unsupported(); }
+            @Override public void update() { throw unsupported(); }
+
+            private UnsupportedOperationException unsupported() {
+                return new UnsupportedOperationException();
+            }
+        };
     }
 
     private static PluginPermission permission(final String id) {
@@ -145,6 +438,42 @@ class CubismFacadeImplTest {
             public String reason() {
                 return "test";
             }
+        };
+    }
+
+    private static PluginDescriptor descriptor(final String id) {
+        return new PluginDescriptor() {
+            @Override public String id() { return id; }
+            @Override public String name() { return id; }
+            @Override public String version() { return "1.0.0"; }
+            @Override public String description() { return "test"; }
+            @Override public List<String> entrypoints() { return List.of(); }
+            @Override public String turboismApi() { return "[0.1.0,0.2.0)"; }
+            @Override public List<Author> authors() { return List.of(); }
+            @Override public String license() { return "UNLICENSED"; }
+            @Override public Optional<String> website() { return Optional.empty(); }
+            @Override public List<String> resources() { return List.of(); }
+            @Override public I18n i18n() { return new I18n() {
+                @Override public String baseName() { return "messages"; }
+                @Override public List<String> locales() { return List.of(); }
+            }; }
+            @Override public List<DependencyRef> dependencies() { return List.of(); }
+            @Override public List<PermissionRef> permissions() { return List.of(); }
+            @Override public List<String> capabilities() { return List.of(); }
+            @Override public Environment environment() { return new Environment() {
+                @Override public boolean requiresCubism() { return false; }
+                @Override public String ui() { return "none"; }
+            }; }
+        };
+    }
+
+    private static PluginLogger logger() {
+        return new PluginLogger() {
+            @Override public void debug(final String message) { }
+            @Override public void info(final String message) { }
+            @Override public void warn(final String message) { }
+            @Override public void error(final String message) { }
+            @Override public void error(final String message, final Throwable throwable) { }
         };
     }
 

@@ -9,6 +9,10 @@ public interface CubismModel {
 
     ModelId id();
 
+    default Canvas canvas() {
+        throw new UnsupportedOperationException("Cubism canvas access is unavailable.");
+    }
+
     Parameters parameters();
 
     Parts parts();

@@ -77,7 +77,8 @@ public final class CorePluginContext implements PluginContext {
     ) {
         this(
             dependencies,
-            Objects.requireNonNull(hostAccess, "hostAccess").adapters(),
+            servicesFactory(Objects.requireNonNull(hostAccess, "hostAccess")),
+            hostAccess.adapters(),
             null,
             null,
             null,
@@ -151,12 +152,23 @@ public final class CorePluginContext implements PluginContext {
     ) {
         this(
             dependencies,
-            Objects.requireNonNull(hostAccess, "hostAccess").adapters(),
+            servicesFactory(Objects.requireNonNull(hostAccess, "hostAccess")),
+            hostAccess.adapters(),
             Objects.requireNonNull(localization, "localization"),
             Objects.requireNonNull(taskScheduler, "taskScheduler"),
             Objects.requireNonNull(pluginStorage, "pluginStorage"),
             Objects.requireNonNull(userFileAccessService, "userFileAccessService"),
             Objects.requireNonNull(asyncHostReadService, "asyncHostReadService")
+        );
+    }
+
+    private static DefaultCubismServicesFactory servicesFactory(
+        final RuntimeHostAdapterAccess hostAccess
+    ) {
+        return new DefaultCubismServicesFactory(
+            hostAccess.adapters(),
+            hostAccess.modelAccess(),
+            hostAccess.parameterLifecycle()
         );
     }
 
