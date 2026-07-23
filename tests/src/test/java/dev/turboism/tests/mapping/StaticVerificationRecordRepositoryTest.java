@@ -120,7 +120,7 @@ class StaticVerificationRecordRepositoryTest {
             EditorModelVerificationManifest.ARTIFACT_SIZE,
             EditorModelVerificationManifest.ARTIFACT_SHA256,
             EditorModelVerificationManifest.RECORD_SHA256,
-            82,
+            90,
             EditorModelVerificationManifest.REQUIRED_ALIASES,
             EditorModelVerificationManifest.REQUIRED_ALIASES,
             editorModelMethodAliases(),
@@ -220,7 +220,13 @@ class StaticVerificationRecordRepositoryTest {
             "cubism.editor-model.parameter-controllable.morph-target-set",
             "cubism.editor-model.morph-target-set.contains-parameter",
             "cubism.editor-model.parameter-source.guid",
-            "cubism.editor-model.parameter-refresh-callback.create"
+            "cubism.editor-model.parameter-refresh-callback.create",
+            "cubism.editor-model.parameter-source.set-combined",
+            "cubism.editor-model.parameter-source.parent-group",
+            "cubism.editor-model.parameter-group.children",
+            "cubism.editor-model.parameter-group.remove",
+            "cubism.editor-model.parameter-group.add",
+            "cubism.editor-model.undo.add-listener"
         );
     }
 
