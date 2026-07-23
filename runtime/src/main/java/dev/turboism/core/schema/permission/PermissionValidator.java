@@ -17,6 +17,7 @@ public final class PermissionValidator extends AbstractJsonValidator {
     private static final Set<String> KNOWN_IDS = Set.of(
         "turboism.ui.menu", "turboism.ui.toolbar", "turboism.ui.palette",
         "turboism.cubism.project.read", "turboism.cubism.model.read", "turboism.cubism.model.write",
+        "turboism.cubism.model.observe", "turboism.cubism.model.intercept",
         "turboism.cubism.parameter.read", "turboism.cubism.mesh.read",
         "turboism.file.read", "turboism.file.write", "turboism.network.fetch",
         "turboism.action.register", "turboism.ui.menu.contribute",
@@ -25,7 +26,7 @@ public final class PermissionValidator extends AbstractJsonValidator {
         "turboism.ui.overlay.contribute", "turboism.ui.viewport.read",
         "turboism.ui.dialog.contribute",
         "turboism.ui.panel.contribute", "turboism.ui.file-chooser.request",
-        "turboism.ui.status.notify", "turboism.ui.toolbar.contribute",
+        "turboism.ui.status.notify", "turboism.ui.appearance.modify", "turboism.ui.toolbar.contribute",
         "turboism.config.plugin.read", "turboism.config.plugin.write",
         "turboism.event.subscribe", "turboism.event.publish"
     );

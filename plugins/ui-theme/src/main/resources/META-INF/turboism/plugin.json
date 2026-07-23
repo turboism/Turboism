@@ -4,7 +4,7 @@
   "id": "dev.turboism.plugin.uitheme",
   "name": "UI Theme Plugin",
   "version": "0.1.0",
-  "description": "SDK-only UI theme package and status behavior through Turboism read and UI host services. Production host theme mutation remains disabled.",
+  "description": "SDK-only theme package workflows and semantic appearance requests. Production host mutation remains fail-closed until a verified appearance provider is installed.",
   "entrypoints": [
     "dev.turboism.plugin.uitheme.UiThemePlugin"
   ],
@@ -49,7 +49,12 @@
     {
       "id": "turboism.ui.status.notify",
       "scope": "application",
-      "reason": "Shows theme package status and import progress notifications."
+      "reason": "Shows theme package status, import progress, and appearance apply results."
+    },
+    {
+      "id": "turboism.ui.appearance.modify",
+      "scope": "application",
+      "reason": "Applies or restores a reviewed built-in theme through the semantic appearance service."
     }
   ],
   "capabilities": [],

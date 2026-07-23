@@ -24,6 +24,11 @@ import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 import dev.turboism.sdk.ui.context.ContextSourceSnapshot;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
+import dev.turboism.ui.contribution.EditorUiContribution;
+import dev.turboism.ui.contribution.EditorUiContributionAuthority;
+import dev.turboism.ui.contribution.EditorUiContributionIdentity;
+import dev.turboism.ui.host.EditorUiFamily;
+import dev.turboism.ui.host.RuntimeEditorUiHostLifecycle;
 
 import java.util.List;
 import java.util.Objects;
@@ -60,6 +65,7 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
     private final MainToolbarAdapter mainToolbarAdapter;
     private final UiSurfaceAdapter uiSurfaceAdapter;
     private final PluginLocalization localization;
+    private final EditorUiContributionAuthority contributionAuthority;
     private final CopyOnWriteArrayList<OverlayContribution> overlays = new CopyOnWriteArrayList<>();
     private final CopyOnWriteArrayList<DialogRequest> dialogs = new CopyOnWriteArrayList<>();
     private final CopyOnWriteArrayList<EmbeddedPanelContribution> panels = new CopyOnWriteArrayList<>();
@@ -171,6 +177,30 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         final UiSurfaceAdapter uiSurfaceAdapter,
         final PluginLocalization localization
     ) {
+        this(
+            permissionChecker,
+            pluginId,
+            stateSource,
+            disposableScope,
+            statusToolbarAdapter,
+            mainToolbarAdapter,
+            uiSurfaceAdapter,
+            localization,
+            new EditorUiContributionAuthority(new RuntimeEditorUiHostLifecycle())
+        );
+    }
+
+    public RuntimeUiHostCapabilityService(
+        final PermissionChecker permissionChecker,
+        final String pluginId,
+        final UiHostStateSource stateSource,
+        final DisposableScope disposableScope,
+        final StatusToolbarAdapter statusToolbarAdapter,
+        final MainToolbarAdapter mainToolbarAdapter,
+        final UiSurfaceAdapter uiSurfaceAdapter,
+        final PluginLocalization localization,
+        final EditorUiContributionAuthority contributionAuthority
+    ) {
         this.permissionChecker = Objects.requireNonNull(permissionChecker, "permissionChecker");
         this.pluginId = requireText(pluginId, "pluginId");
         this.stateSource = Objects.requireNonNull(stateSource, "stateSource");
@@ -179,6 +209,10 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         this.mainToolbarAdapter = Objects.requireNonNull(mainToolbarAdapter, "mainToolbarAdapter");
         this.uiSurfaceAdapter = Objects.requireNonNull(uiSurfaceAdapter, "uiSurfaceAdapter");
         this.localization = localization;
+        this.contributionAuthority = Objects.requireNonNull(
+            contributionAuthority,
+            "contributionAuthority"
+        );
     }
 
     @Override
@@ -191,14 +225,13 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
     public Registration contributeOverlay(final OverlayContribution contribution) {
         Objects.requireNonNull(contribution, "contribution");
         permissionChecker.check(UI_OVERLAY_CONTRIBUTE, "ui.overlay.contribute");
-        final UiSurfaceAdapter.AdapterResult<Registration> adapterResult =
-            uiSurfaceAdapter.contributeOverlay(contribution);
-        if (adapterResult.isAvailable()) {
-            return enrollAdapterRegistration(adapterResult.value().orElseThrow());
-        }
-        adapterResult.diagnostic().ifPresent(this::recordDiagnostic);
-        overlays.add(contribution);
-        return scopedRegistration(overlays, contribution);
+        return authoritativeRegistration(
+            EditorUiFamily.OVERLAY_STATUS,
+            contribution.id(),
+            contribution.priority(),
+            contribution,
+            overlays
+        );
     }
 
     @Override
@@ -236,14 +269,13 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
     public Registration contributeEmbeddedPanel(final EmbeddedPanelContribution contribution) {
         Objects.requireNonNull(contribution, "contribution");
         permissionChecker.check(UI_PANEL_CONTRIBUTE, "ui.panel.contribute");
-        final UiSurfaceAdapter.AdapterResult<Registration> adapterResult =
-            uiSurfaceAdapter.contributeEmbeddedPanel(contribution);
-        if (adapterResult.isAvailable()) {
-            return enrollAdapterRegistration(adapterResult.value().orElseThrow());
-        }
-        adapterResult.diagnostic().ifPresent(this::recordDiagnostic);
-        panels.add(contribution);
-        return scopedRegistration(panels, contribution);
+        return authoritativeRegistration(
+            EditorUiFamily.PANEL,
+            contribution.id(),
+            contribution.priority(),
+            contribution,
+            panels
+        );
     }
 
     @Override
@@ -274,8 +306,13 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
     public Registration contributeContextMenu(final ContextMenuRegistry.ContextMenuContribution contribution) {
         Objects.requireNonNull(contribution, "contribution");
         permissionChecker.check(UI_CONTEXT_MENU_CONTRIBUTE, "ui.context-menu.contribute");
-        contextMenus.add(contribution);
-        return scopedRegistration(contextMenus, contribution);
+        return authoritativeRegistration(
+            EditorUiFamily.CONTEXT_MENU,
+            contribution.id(),
+            contribution.priority(),
+            contribution,
+            contextMenus
+        );
     }
 
     @Override
@@ -283,13 +320,13 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         Objects.requireNonNull(contribution, "contribution");
         permissionChecker.check(UI_TOOLBAR_MAIN_CONTRIBUTE, "ui.main-toolbar.contribute");
         final MainToolbarRegistry.MainToolbarContribution resolved = resolveMainToolbarLabel(contribution);
-        final MainToolbarAdapter.AdapterResult<Registration> adapterResult = mainToolbarAdapter.contributeMainToolbar(resolved);
-        if (adapterResult.isAvailable()) {
-            return enrollAdapterRegistration(adapterResult.value().orElseThrow());
-        }
-        adapterResult.diagnostic().ifPresent(this::recordDiagnostic);
-        mainToolbars.add(resolved);
-        return scopedRegistration(mainToolbars, resolved);
+        return authoritativeRegistration(
+            EditorUiFamily.MAIN_TOOLBAR,
+            resolved.contributionId(),
+            resolved.order(),
+            resolved,
+            mainToolbars
+        );
     }
 
     @Override
@@ -297,13 +334,13 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         Objects.requireNonNull(contribution, "contribution");
         permissionChecker.check(UI_TOOLBAR_PALETTE_CONTRIBUTE, "ui.palette-toolbar.contribute");
         final PaletteToolbarRegistry.PaletteToolbarContribution resolved = resolvePaletteToolbarLabel(contribution);
-        final StatusToolbarAdapter.AdapterResult<Registration> adapterResult = statusToolbarAdapter.contributePaletteToolbar(resolved);
-        if (adapterResult.isAvailable()) {
-            return enrollAdapterRegistration(adapterResult.value().orElseThrow());
-        }
-        adapterResult.diagnostic().ifPresent(this::recordDiagnostic);
-        paletteToolbars.add(resolved);
-        return scopedRegistration(paletteToolbars, resolved);
+        return authoritativeRegistration(
+            EditorUiFamily.PALETTE_TOOLBAR,
+            resolved.contributionId(),
+            resolved.order(),
+            resolved,
+            paletteToolbars
+        );
     }
 
     /**
@@ -370,6 +407,39 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
             pluginId + "|" + diagnostic.code().name() + "|" + diagnostic.capability(),
             diagnostic
         );
+    }
+
+    private <T> Registration authoritativeRegistration(
+        final EditorUiFamily family,
+        final String contributionId,
+        final int order,
+        final T value,
+        final CopyOnWriteArrayList<T> target
+    ) {
+        final Registration authorityRegistration = contributionAuthority.contribute(
+            new EditorUiContribution<>(
+                new EditorUiContributionIdentity(pluginId, family, contributionId),
+                order,
+                value
+            )
+        );
+        target.add(value);
+        Registration registration = new Registration() {
+            private boolean closed;
+
+            @Override
+            public void close() {
+                if (closed) {
+                    return;
+                }
+                closed = true;
+                if (target.remove(value)) {
+                    authorityRegistration.close();
+                }
+            }
+        };
+        disposableScope.register(registration);
+        return registration;
     }
 
     private <T> Registration scopedRegistration(final CopyOnWriteArrayList<T> target, final T value) {

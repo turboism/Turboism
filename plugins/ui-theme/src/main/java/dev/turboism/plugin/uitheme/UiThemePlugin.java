@@ -1,5 +1,6 @@
 package dev.turboism.plugin.uitheme;
 
+import dev.turboism.plugin.uitheme.service.BuiltinThemeAppearanceService;
 import dev.turboism.plugin.uitheme.service.ThemePackageStatusService;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.plugin.PluginContext;
@@ -16,10 +17,13 @@ public final class UiThemePlugin implements TurboismPlugin {
     private static final String STATUS_ACTION_LABEL = "Check Theme Package Status";
     private static final String IMPORT_ACTION_ID = "ui-theme.package.import";
     private static final String IMPORT_ACTION_LABEL = "Import Theme Package";
+    private static final String APPLY_BUILTIN_ACTION_ID = "ui-theme.appearance.apply-builtin";
+    private static final String APPLY_BUILTIN_ACTION_LABEL = "Apply Built-in Theme";
 
     private PluginContext context;
     private PluginLogger logger;
     private ThemePackageStatusService themePackageStatusService;
+    private BuiltinThemeAppearanceService builtinThemeAppearanceService;
 
     @Override
     public void init(PluginContext context) {
@@ -27,6 +31,11 @@ public final class UiThemePlugin implements TurboismPlugin {
         this.logger = context.logger();
         this.themePackageStatusService = new ThemePackageStatusService(
             () -> this.context.cubismRead().themeStatus(),
+            this.context.uiHost()
+        );
+        this.builtinThemeAppearanceService = new BuiltinThemeAppearanceService(
+            getClass().getClassLoader(),
+            this.context.appearance(),
             this.context.uiHost()
         );
         logger.info("UiThemePlugin initialized");
@@ -54,6 +63,11 @@ public final class UiThemePlugin implements TurboismPlugin {
         );
         registerAction(STATUS_ACTION_ID, STATUS_ACTION_LABEL, ignored -> themePackageStatusService.checkThemeStatus());
         registerAction(IMPORT_ACTION_ID, IMPORT_ACTION_LABEL, ignored -> themePackageStatusService.handleThemePackageImport());
+        registerAction(
+            APPLY_BUILTIN_ACTION_ID,
+            APPLY_BUILTIN_ACTION_LABEL,
+            ignored -> builtinThemeAppearanceService.applyDefault()
+        );
         logger.info("UiThemePlugin enabled: context menus and theme package actions enrolled in disposable scope");
     }
 

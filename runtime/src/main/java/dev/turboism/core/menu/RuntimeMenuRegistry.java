@@ -6,6 +6,11 @@ import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.ui.contribution.EditorUiContribution;
+import dev.turboism.ui.contribution.EditorUiContributionAuthority;
+import dev.turboism.ui.contribution.EditorUiContributionIdentity;
+import dev.turboism.ui.host.EditorUiFamily;
+import dev.turboism.ui.host.RuntimeEditorUiHostLifecycle;
 
 import java.util.Map;
 import java.util.Objects;
@@ -28,6 +33,7 @@ public final class RuntimeMenuRegistry implements MenuRegistry {
     private final BiConsumer<PluginTask, Runnable> dispatcher;
     private final String pluginId;
     private final PermissionChecker permissionChecker;
+    private EditorUiContributionAuthority contributionAuthority;
     private final Map<String, ContributionHolder> contributions = new ConcurrentHashMap<>();
 
     public RuntimeMenuRegistry(
@@ -35,7 +41,21 @@ public final class RuntimeMenuRegistry implements MenuRegistry {
         final String pluginId,
         final PermissionChecker permissionChecker
     ) {
-        this(scheduler::dispatch, pluginId, permissionChecker);
+        this(
+            scheduler::dispatch,
+            pluginId,
+            permissionChecker,
+            new EditorUiContributionAuthority(new RuntimeEditorUiHostLifecycle())
+        );
+    }
+
+    public RuntimeMenuRegistry(
+        final RuntimeScheduler scheduler,
+        final String pluginId,
+        final PermissionChecker permissionChecker,
+        final EditorUiContributionAuthority contributionAuthority
+    ) {
+        this(scheduler::dispatch, pluginId, permissionChecker, contributionAuthority);
     }
 
     RuntimeMenuRegistry(
@@ -43,9 +63,37 @@ public final class RuntimeMenuRegistry implements MenuRegistry {
         final String pluginId,
         final PermissionChecker permissionChecker
     ) {
+        this(
+            dispatcher,
+            pluginId,
+            permissionChecker,
+            new EditorUiContributionAuthority(new RuntimeEditorUiHostLifecycle())
+        );
+    }
+
+    RuntimeMenuRegistry(
+        final BiConsumer<PluginTask, Runnable> dispatcher,
+        final String pluginId,
+        final PermissionChecker permissionChecker,
+        final EditorUiContributionAuthority contributionAuthority
+    ) {
         this.dispatcher = Objects.requireNonNull(dispatcher, "dispatcher");
         this.pluginId = requireText(pluginId, "pluginId");
         this.permissionChecker = Objects.requireNonNull(permissionChecker, "permissionChecker");
+        this.contributionAuthority = Objects.requireNonNull(
+            contributionAuthority,
+            "contributionAuthority"
+        );
+    }
+
+    public synchronized void bindContributionAuthority(
+        final EditorUiContributionAuthority authority
+    ) {
+        final EditorUiContributionAuthority requested = Objects.requireNonNull(authority, "authority");
+        if (!contributions.isEmpty() && contributionAuthority != requested) {
+            throw new IllegalStateException("menu contribution authority is already in use");
+        }
+        contributionAuthority = requested;
     }
 
     @Override
@@ -54,7 +102,22 @@ public final class RuntimeMenuRegistry implements MenuRegistry {
         permissionChecker.check(PermissionIds.TURBOISM_UI_MENU_CONTRIBUTE, "menu.contribute");
         final String id = contribution.actionId();
         final ContributionHolder holder = new ContributionHolder(contribution);
-        contributions.put(id, holder);
+        final ContributionHolder previous = contributions.put(id, holder);
+        if (previous != null) {
+            previous.registration().close();
+        }
+        final Registration authorityRegistration;
+        try {
+            authorityRegistration = contributionAuthority.contribute(new EditorUiContribution<>(
+                new EditorUiContributionIdentity(pluginId, EditorUiFamily.MENU, id),
+                contribution.order(),
+                contribution
+            ));
+        } catch (RuntimeException | Error failure) {
+            contributions.remove(id, holder);
+            throw failure;
+        }
+        holder.bind(authorityRegistration);
         dispatcher.accept(task(id), this::updateVisibility);
         return new MenuRegistration(id, holder);
     }
@@ -104,16 +167,33 @@ public final class RuntimeMenuRegistry implements MenuRegistry {
                 return;
             }
             closed = true;
-            contributions.remove(id, holder);
+            if (contributions.remove(id, holder)) {
+                holder.registration().close();
+            }
             dispatcher.accept(task(id), RuntimeMenuRegistry.this::updateVisibility);
         }
     }
 
     private static final class ContributionHolder {
         private final MenuContribution contribution;
+        private Registration registration;
 
         ContributionHolder(final MenuContribution contribution) {
             this.contribution = Objects.requireNonNull(contribution, "contribution");
+        }
+
+        void bind(final Registration authorityRegistration) {
+            if (registration != null) {
+                throw new IllegalStateException("menu contribution registration is already bound");
+            }
+            registration = Objects.requireNonNull(authorityRegistration, "authorityRegistration");
+        }
+
+        Registration registration() {
+            if (registration == null) {
+                throw new IllegalStateException("menu contribution registration is not bound");
+            }
+            return registration;
         }
     }
 }
