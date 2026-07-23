@@ -267,6 +267,7 @@ class CoreBackedCubismModelAccessTest {
                 UnsupportedOperationException.class,
                 () -> parameter.setValue(10.0F)
             );
+            assertThrows(UnsupportedOperationException.class, parameter::resetToDefault);
             assertThrows(UnsupportedOperationException.class, model::update);
             assertThrows(
                 NoSuchElementException.class,
