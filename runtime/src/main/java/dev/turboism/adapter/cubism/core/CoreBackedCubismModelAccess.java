@@ -151,6 +151,12 @@ public final class CoreBackedCubismModelAccess implements CubismModelAccess {
         }
 
         @Override
+        public dev.turboism.sdk.cubism.model.ParameterGroups parameterGroups() {
+            readGeneration(generation);
+            return CubismModel.super.parameterGroups();
+        }
+
+        @Override
         public Canvas canvas() {
             return new RuntimeCanvas(generation);
         }

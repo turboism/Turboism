@@ -1,11 +1,14 @@
 package dev.turboism.adapter.host;
 
 import dev.turboism.sdk.cubism.id.ModelId;
+import dev.turboism.sdk.cubism.id.ParameterGroupId;
 import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.sdk.cubism.model.Parameter;
 import dev.turboism.sdk.cubism.model.ParameterDefinition;
+import dev.turboism.sdk.cubism.model.ParameterGroup;
+import dev.turboism.sdk.cubism.model.ParameterGroups;
 import dev.turboism.sdk.cubism.model.ParameterType;
 import dev.turboism.sdk.cubism.model.Parameters;
 import org.junit.jupiter.api.Test;
@@ -38,6 +41,21 @@ class DynamicCubismModelAccessTest {
         assertThrows(IllegalStateException.class, staleParameters::all);
         assertThrows(IllegalStateException.class, staleParameter::getValue);
         assertEquals(new ModelId("model-b"), access.active().id());
+    }
+
+    @Test
+    void sessionWrappersPreserveParameterGroupsAndGuardThemByGeneration() {
+        final DynamicCubismModelAccess access = new DynamicCubismModelAccess();
+        access.connect(() -> model("model-a", parameter(1.0F), parameterGroups()));
+
+        final ParameterGroups groups = access.active().parameterGroups();
+        final ParameterGroup group = groups.find(new ParameterGroupId("GroupFace"));
+        assertEquals(Optional.of("Face"), group.name());
+        assertEquals(List.of(new ParameterId("ParamA")), group.parameterIds());
+
+        access.deactivate();
+        assertThrows(IllegalStateException.class, groups::all);
+        assertThrows(IllegalStateException.class, group::name);
     }
 
     @Test
@@ -215,6 +233,14 @@ class DynamicCubismModelAccessTest {
     }
 
     private static CubismModel model(final String id, final Parameter parameter) {
+        return model(id, parameter, null);
+    }
+
+    private static CubismModel model(
+        final String id,
+        final Parameter parameter,
+        final ParameterGroups parameterGroups
+    ) {
         return new CubismModel() {
             @Override public ModelId id() { return new ModelId(id); }
             @Override public Parameters parameters() {
@@ -228,11 +254,56 @@ class DynamicCubismModelAccessTest {
                     }
                 };
             }
+            @Override public ParameterGroups parameterGroups() {
+                if (parameterGroups == null) return CubismModel.super.parameterGroups();
+                return parameterGroups;
+            }
             @Override public dev.turboism.sdk.cubism.model.Parts parts() { throw unsupported(); }
             @Override public dev.turboism.sdk.cubism.model.Drawables drawables() { throw unsupported(); }
             @Override public dev.turboism.sdk.cubism.model.Deformers deformers() { throw unsupported(); }
             @Override public dev.turboism.sdk.cubism.model.Glues glues() { throw unsupported(); }
             @Override public void update() { throw unsupported(); }
+        };
+    }
+
+    private static ParameterGroups parameterGroups() {
+        final ParameterGroup root = parameterGroup(
+            "GroupRoot",
+            "Root",
+            Optional.empty(),
+            List.of(new ParameterGroupId("GroupFace")),
+            List.of()
+        );
+        final ParameterGroup face = parameterGroup(
+            "GroupFace",
+            "Face",
+            Optional.of(new ParameterGroupId("GroupRoot")),
+            List.of(),
+            List.of(new ParameterId("ParamA"))
+        );
+        return new ParameterGroups() {
+            @Override public List<ParameterGroup> all() { return List.of(root, face); }
+            @Override public ParameterGroup root() { return root; }
+            @Override public ParameterGroup find(final ParameterGroupId id) {
+                return all().stream().filter(group -> group.id().equals(id)).findFirst()
+                    .orElseThrow();
+            }
+        };
+    }
+
+    private static ParameterGroup parameterGroup(
+        final String id,
+        final String name,
+        final Optional<ParameterGroupId> parentId,
+        final List<ParameterGroupId> childGroupIds,
+        final List<ParameterId> parameterIds
+    ) {
+        return new ParameterGroup() {
+            @Override public ParameterGroupId id() { return new ParameterGroupId(id); }
+            @Override public Optional<String> name() { return Optional.of(name); }
+            @Override public Optional<ParameterGroupId> parentId() { return parentId; }
+            @Override public List<ParameterGroupId> childGroupIds() { return childGroupIds; }
+            @Override public List<ParameterId> parameterIds() { return parameterIds; }
         };
     }
 
