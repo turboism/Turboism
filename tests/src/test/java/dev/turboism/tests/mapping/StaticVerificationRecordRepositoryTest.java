@@ -109,6 +109,28 @@ class StaticVerificationRecordRepositoryTest {
             "[5.3.02,5.3.03)",
             SliceKind.EDITOR_UI
         ),
+        "docs/migration/verification/static/cubism-5.2-editor-model.json",
+        new SliceExpectation(
+            "cubism-5.2.editor-model.static",
+            EditorModelVerificationManifest.ADAPTER_SLICE_ID,
+            "5.2.0",
+            "cubism-5.2",
+            EditorModelVerificationManifest.CAPABILITY_IDS,
+            "Live2D_Cubism.jar",
+            40_805_584L,
+            "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
+            "f56774cb211f83654cf76e5cd46b811cee2cc4ccedb43f42b437de13dfede590",
+            108,
+            EditorModelVerificationManifest.REQUIRED_ALIASES,
+            EditorModelVerificationManifest.REQUIRED_ALIASES,
+            editorModelMethodAliases(),
+            difference(EditorModelVerificationManifest.REQUIRED_ALIASES, editorModelMethodAliases()),
+            "cubism-5.2-editor-model-read",
+            Path.of("cubism-ref/mapping-packs/draft/cubism-5.2-editor-model-read.json"),
+            Path.of("cubism-ref/profiles/draft/cubism-5.2.json"),
+            "[5.2.0,5.3.0)",
+            SliceKind.EDITOR_MODEL
+        ),
         "docs/migration/verification/static/cubism-5.3.02-editor-model.json",
         new SliceExpectation(
             EditorModelVerificationManifest.VERIFICATION_ID,
