@@ -17,7 +17,9 @@ public final class MappingPackValidator extends AbstractJsonValidator {
         "status", "source", "cubismVersion", "entries", "metadata", "x.legacy"
     );
     private static final Set<String> ALLOWED_STATUSES = Set.of("DRAFT", "QUARANTINE");
-    private static final Set<String> ALLOWED_KINDS = Set.of("class", "method", "field");
+    private static final Set<String> ALLOWED_KINDS = Set.of(
+        "class", "constructor", "method", "field"
+    );
     private static final Set<String> ALLOWED_CONFIDENCES = Set.of("high", "medium", "low", "inferred", "probe");
 
     public MappingPackValidator() {
@@ -65,7 +67,12 @@ public final class MappingPackValidator extends AbstractJsonValidator {
             return;
         }
         if (!ALLOWED_KINDS.contains(e.get("kind").asText(""))) {
-            errors.add(error("MAPPING_PACK_ENTRY_BAD_KIND", "Entry kind must be class, method, or field", "entries[" + index + "].kind", source));
+            errors.add(error(
+                "MAPPING_PACK_ENTRY_BAD_KIND",
+                "Entry kind must be class, constructor, method, or field",
+                "entries[" + index + "].kind",
+                source
+            ));
         }
         if (!e.has("runtime") || e.get("runtime").isNull() || !e.get("runtime").isTextual() || e.get("runtime").asText().isBlank()) {
             errors.add(error("MAPPING_PACK_ENTRY_MISSING_RUNTIME", "Entry runtime is missing", "entries[" + index + "].runtime", source));

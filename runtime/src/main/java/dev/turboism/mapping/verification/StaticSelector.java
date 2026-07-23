@@ -24,6 +24,9 @@ public record StaticSelector(
         ownerInternalName = requireInternalName(ownerInternalName);
         memberName = kind == Kind.CLASS ? "" : requireText(memberName, "memberName");
         descriptor = kind == Kind.CLASS ? "" : requireText(descriptor, "descriptor");
+        if (kind == Kind.CONSTRUCTOR && !"<init>".equals(memberName)) {
+            throw new IllegalArgumentException("constructor selector memberName must be <init>");
+        }
         if (requiredAccessFlags < 0 || forbiddenAccessFlags < 0) {
             throw new IllegalArgumentException("access flags must not be negative");
         }
@@ -113,6 +116,24 @@ public record StaticSelector(
         );
     }
 
+    public static StaticSelector constructor(
+        final String alias,
+        final String ownerInternalName,
+        final String descriptor,
+        final int requiredAccessFlags
+    ) {
+        return new StaticSelector(
+            alias,
+            alias,
+            Kind.CONSTRUCTOR,
+            ownerInternalName,
+            "<init>",
+            descriptor,
+            requiredAccessFlags,
+            ACCESS_STATIC
+        );
+    }
+
     public static StaticSelector field(
         final String alias,
         final String ownerInternalName,
@@ -151,6 +172,7 @@ public record StaticSelector(
 
     public enum Kind {
         CLASS,
+        CONSTRUCTOR,
         METHOD,
         FIELD
     }

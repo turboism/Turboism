@@ -10,5 +10,7 @@ public interface Part {
 
     float getOpacity();
 
+    int parentIndex();
+
     void setOpacity(float opacity);
 }

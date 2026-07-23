@@ -75,6 +75,14 @@ public final class HostRuntimeIngress implements AutoCloseable {
         return session.adapters();
     }
 
+    public dev.turboism.sdk.cubism.model.CubismModelAccess modelAccess() {
+        return session.modelAccess();
+    }
+
+    public dev.turboism.mapping.verification.VerifiedMemberResolver editorModelResolver() {
+        return session.editorModelResolver();
+    }
+
     /** Trusted non-closeable view for plugin-context composition. */
     public RuntimeHostAdapterAccess adapterAccess() {
         return session.adapterAccess();

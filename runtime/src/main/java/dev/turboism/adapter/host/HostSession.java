@@ -1,6 +1,17 @@
 package dev.turboism.adapter.host;
 
 import dev.turboism.adapter.RuntimeHostAdapters;
+import dev.turboism.adapter.cubism.lifecycle.ParameterLifecycleCoordinator;
+import dev.turboism.sdk.event.EventBus;
+import dev.turboism.ui.action.RuntimeEditorUiActionRouter;
+import dev.turboism.ui.appearance.AppearanceCoordinator;
+import dev.turboism.ui.appearance.UnavailableAppearanceHostProvider;
+import dev.turboism.ui.contribution.EditorUiContributionAuthority;
+import dev.turboism.ui.host.EditorUiHostFailure;
+import dev.turboism.ui.host.EditorUiHostLifecycle;
+import dev.turboism.ui.host.RuntimeEditorUiHostLifecycle;
+import dev.turboism.ui.provider.EditorUiProviderInstaller;
+import dev.turboism.ui.toolbar.EditorUiPluginResourceRegistry;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -21,19 +32,59 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     private final HostInstanceSource source;
     private final HostAdapterConnector connector;
     private final DynamicRuntimeHostAdapters dynamic = new DynamicRuntimeHostAdapters();
+    private final DynamicCubismModelAccess dynamicModelAccess = new DynamicCubismModelAccess();
+    private final ParameterLifecycleCoordinator parameterLifecycle =
+        new ParameterLifecycleCoordinator();
+    private final RuntimeEditorUiHostLifecycle editorUiLifecycle =
+        new RuntimeEditorUiHostLifecycle();
+    private final EditorUiContributionAuthority editorUiContributions =
+        new EditorUiContributionAuthority(editorUiLifecycle);
+    private final RuntimeEditorUiActionRouter editorUiActionRouter =
+        new RuntimeEditorUiActionRouter();
+    private final EditorUiPluginResourceRegistry editorUiPluginResources =
+        new EditorUiPluginResourceRegistry();
+    private final AppearanceCoordinator appearanceCoordinator =
+        new AppearanceCoordinator(new UnavailableAppearanceHostProvider(), new EventBus() {
+            @Override
+            public <T extends TurboismEvent> dev.turboism.sdk.plugin.Registration subscribe(
+                final Class<T> type,
+                final java.util.function.Consumer<T> listener
+            ) {
+                return () -> { };
+            }
+
+            @Override
+            public <T extends TurboismEvent> void publish(final T event) {
+            }
+        });
     private final Object lifecycleMonitor = new Object();
 
     private State state = State.SAFE_MODE;
     private ConnectionKey activeConnectionKey;
     private HostAdapterConnection activeConnection;
     private HostAdapterConnection pendingConnectionCleanup;
+    private EditorUiProviderInstaller.Installation activeEditorUiProviders;
+    private EditorUiProviderInstaller.Installation pendingEditorUiProviderCleanup;
     private Optional<HostSessionFailure> lastFailure = Optional.empty();
     private boolean transitionInProgress;
     private Thread transitionOwner;
     private boolean closeRequested;
 
     public HostSession(final HostInstanceSource source) {
-        this(source, new VerifiedHostAdapterConnector());
+        this.source = Objects.requireNonNull(source, "source");
+        this.connector = new VerifiedHostAdapterConnector(
+            new dev.turboism.adapter.VerifiedRuntimeHostAdaptersFactory()::create,
+            slice -> new dev.turboism.mapping.verification.VerifiedEditorModelResolverFactory().create(
+                slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
+            ),
+            dev.turboism.adapter.cubism.editor.EditorBackedCubismModelAccess::new,
+            slice -> new dev.turboism.mapping.verification.VerifiedMainToolbarResolverFactory().create(
+                slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
+            ),
+            editorUiPluginResources,
+            editorUiActionRouter
+        );
+        dynamic.onOutermostAdapterCallComplete(this::completeDeferredClose);
     }
 
     HostSession(
@@ -90,6 +141,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             if (isCurrentConnection(connectionKey)) {
                 return state();
             }
+            editorUiLifecycle.replacing();
             final CleanupOutcome replacementCleanup = cleanupOwnedResources();
             if (!replacementCleanup.succeeded()) {
                 return finishCleanupFailure(replacementCleanup, false);
@@ -98,6 +150,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
                 return finishRequestedClose(null);
             }
 
+            final long editorUiGeneration = editorUiLifecycle.connecting().generation();
             HostAdapterConnection candidate = null;
             RuntimeHostAdapters candidateAdapters;
             try {
@@ -132,8 +185,39 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
                 return finishRequestedClose(candidate);
             }
             dynamic.connect(candidateAdapters);
+            dynamicModelAccess.connect(candidate.modelAccess());
+            editorUiLifecycle.connected(editorUiGeneration);
             activeConnection = candidate;
+            final EditorUiProviderInstaller.Installation candidateEditorUiProviders;
+            try {
+                candidateEditorUiProviders = EditorUiProviderInstaller.install(
+                    editorUiGeneration,
+                    editorUiContributions,
+                    candidate.editorUiProviders(editorUiGeneration)
+                );
+            } catch (Throwable throwable) {
+                final CleanupOutcome candidateCleanup = cleanupOwnedResources();
+                if (!candidateCleanup.succeeded()) {
+                    return finishCleanupFailure(candidateCleanup, false);
+                }
+                if (throwable instanceof Error error) {
+                    commitFailure(
+                        HostSessionFailure.Code.CONNECTION_FAILED,
+                        "Host adapter connection failed safely."
+                    );
+                    throw error;
+                }
+                return commitFailure(
+                    HostSessionFailure.Code.CONNECTION_FAILED,
+                    "Host adapter connection failed safely."
+                );
+            }
             activeConnectionKey = connectionKey;
+            activeEditorUiProviders = candidateEditorUiProviders;
+            editorUiLifecycle.ready(
+                editorUiGeneration,
+                candidateEditorUiProviders.readyFamilies()
+            );
             if (closeRequested()) {
                 return finishRequestedClose(null);
             }
@@ -160,9 +244,64 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         return dynamic.view();
     }
 
+    @Override
+    public dev.turboism.sdk.cubism.model.CubismModelAccess modelAccess() {
+        return dynamicModelAccess;
+    }
+
+    @Override
+    public ParameterLifecycleCoordinator parameterLifecycle() {
+        return parameterLifecycle;
+    }
+
+    @Override
+    public EditorUiHostLifecycle editorUiLifecycle() {
+        return editorUiLifecycle;
+    }
+
+    @Override
+    public EditorUiContributionAuthority editorUiContributions() {
+        return editorUiContributions;
+    }
+
+    @Override
+    public RuntimeEditorUiActionRouter editorUiActionRouter() {
+        return editorUiActionRouter;
+    }
+
+    @Override
+    public EditorUiPluginResourceRegistry editorUiPluginResources() {
+        return editorUiPluginResources;
+    }
+
+    @Override
+    public AppearanceCoordinator appearanceCoordinator() {
+        return appearanceCoordinator;
+    }
+
+    public dev.turboism.mapping.verification.VerifiedMemberResolver editorModelResolver() {
+        synchronized (lifecycleMonitor) {
+            if (activeConnection == null) {
+                throw new IllegalStateException(
+                    "No verified active Editor model resolver is available."
+                );
+            }
+            return activeConnection.editorModelResolver();
+        }
+    }
+
     /** Returns a non-closeable trusted composition view while lifecycle ownership stays elsewhere. */
     public RuntimeHostAdapterAccess adapterAccess() {
-        return new SessionRuntimeHostAdapterAccess(dynamic.view());
+        return new SessionRuntimeHostAdapterAccess(
+            dynamic.view(),
+            dynamicModelAccess,
+            parameterLifecycle,
+            editorUiLifecycle,
+            editorUiContributions,
+            editorUiActionRouter,
+            editorUiPluginResources,
+            appearanceCoordinator
+        );
     }
 
     /**
@@ -180,6 +319,11 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
                 finishCleanupFailure(cleanup, true);
                 return;
             }
+            appearanceCoordinator.close();
+            editorUiPluginResources.close();
+            editorUiActionRouter.close();
+            editorUiContributions.close();
+            editorUiLifecycle.close();
             commit(State.CLOSED, Optional.empty());
         } finally {
             endTransition();
@@ -187,6 +331,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     }
 
     private State enterSafeMode() {
+        editorUiLifecycle.replacing();
         final CleanupOutcome cleanup = cleanupOwnedResources();
         if (!cleanup.succeeded()) {
             return finishCleanupFailure(cleanup, false);
@@ -194,6 +339,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         if (closeRequested()) {
             return finishRequestedClose(null);
         }
+        editorUiLifecycle.absent();
         return commit(State.SAFE_MODE, Optional.empty());
     }
 
@@ -222,6 +368,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     /** Registration cleanup must succeed before its owning connection can be closed. */
     private CleanupOutcome cleanupOwnedResources() {
         activeConnectionKey = null;
+        dynamicModelAccess.deactivate();
         try {
             dynamic.deactivate();
         } catch (Throwable throwable) {
@@ -229,7 +376,25 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         }
 
         CleanupOutcome outcome = CleanupOutcome.success();
-        if (activeConnection != null) {
+        if (activeEditorUiProviders != null) {
+            try {
+                activeEditorUiProviders.close();
+                activeEditorUiProviders = null;
+            } catch (Throwable throwable) {
+                pendingEditorUiProviderCleanup = activeEditorUiProviders;
+                activeEditorUiProviders = null;
+                outcome = outcome.combine(CleanupOutcome.failed(throwable));
+            }
+        }
+        if (pendingEditorUiProviderCleanup != null) {
+            try {
+                pendingEditorUiProviderCleanup.close();
+                pendingEditorUiProviderCleanup = null;
+            } catch (Throwable throwable) {
+                outcome = outcome.combine(CleanupOutcome.failed(throwable));
+            }
+        }
+        if (activeConnection != null && pendingEditorUiProviderCleanup == null) {
             try {
                 activeConnection.close();
                 activeConnection = null;
@@ -237,7 +402,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
                 outcome = outcome.combine(CleanupOutcome.failed(throwable));
             }
         }
-        if (pendingConnectionCleanup != null) {
+        if (pendingConnectionCleanup != null && pendingEditorUiProviderCleanup == null) {
             try {
                 pendingConnectionCleanup.close();
                 pendingConnectionCleanup = null;
@@ -288,11 +453,21 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         synchronized (lifecycleMonitor) {
             return state == State.ACTIVE
                 && connectionKey.matches(activeConnectionKey)
-                && pendingConnectionCleanup == null;
+                && pendingConnectionCleanup == null
+                && pendingEditorUiProviderCleanup == null;
         }
     }
 
     private State commitFailure(final HostSessionFailure.Code code, final String message) {
+        try {
+            editorUiLifecycle.failed(EditorUiHostFailure.host(
+                code == HostSessionFailure.Code.CLEANUP_FAILED
+                    ? EditorUiHostFailure.Code.CLEANUP_FAILED
+                    : EditorUiHostFailure.Code.REPLACEMENT_FAILED,
+                "Editor UI host connection failed safely."
+            ));
+        } catch (IllegalStateException ignored) {
+        }
         return commit(State.FAILED, Optional.of(new HostSessionFailure(code, message)));
     }
 
@@ -381,14 +556,18 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     private record ConnectionKey(
         String sessionId,
         SliceKey projectWorkspace,
-        java.util.Optional<SliceKey> clipMask
+        java.util.Optional<SliceKey> clipMask,
+        java.util.Optional<SliceKey> editorModel,
+        java.util.Optional<SliceKey> mainToolbar
     ) {
         private static ConnectionKey from(final HostInstanceDescriptor descriptor) {
             final HostVerificationEvidence evidence = descriptor.verificationEvidence();
             return new ConnectionKey(
                 descriptor.sessionId(),
                 SliceKey.from(evidence.projectWorkspace()),
-                evidence.clipMask().map(SliceKey::from)
+                evidence.clipMask().map(SliceKey::from),
+                evidence.editorModel().map(SliceKey::from),
+                evidence.mainToolbar().map(SliceKey::from)
             );
         }
 
@@ -404,7 +583,9 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             return other != null
                 && sessionId.equals(other.sessionId)
                 && projectWorkspace.matches(other.projectWorkspace)
-                && optionalSliceMatches(clipMask, other.clipMask);
+                && optionalSliceMatches(clipMask, other.clipMask)
+                && optionalSliceMatches(editorModel, other.editorModel)
+                && optionalSliceMatches(mainToolbar, other.mainToolbar);
         }
 
         private static boolean optionalSliceMatches(

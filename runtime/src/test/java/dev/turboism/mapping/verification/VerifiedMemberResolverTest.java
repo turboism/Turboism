@@ -1,9 +1,11 @@
 package dev.turboism.mapping.verification;
 
+import dev.turboism.mapping.verification.fixture.PackagePrivateConstructorHost;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -11,6 +13,20 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class VerifiedMemberResolverTest {
+
+    @Test
+    void exposesOnlyTheAttestedDefiningClassloader() {
+        ClassLoader loader = SyntheticHost.class.getClassLoader();
+        VerifiedMemberResolver resolver = new VerifiedMemberResolver(
+            plan(StaticSelector.classSelector(
+                "fixture.host-class",
+                internalName(SyntheticHost.class)
+            )),
+            loader
+        );
+
+        assertEquals(loader, resolver.hostClassLoader());
+    }
 
     @Test
     void invokesOnlyExactVerifiedStaticAndInstanceMethods() {
@@ -37,6 +53,167 @@ class VerifiedMemberResolverTest {
         assertEquals("static", resolver.invokeStatic("fixture.static-value"));
         assertEquals("instance", resolver.invoke("fixture.instance-value", new SyntheticHost()));
         assertThrows(VerifiedAccessException.class, () -> resolver.invokeStatic("fixture.unverified"));
+    }
+
+    @Test
+    void readsOnlyExactVerifiedPublicStaticFields() {
+        VerifiedMemberResolver resolver = new VerifiedMemberResolver(
+            plan(StaticSelector.field(
+                "fixture.static-field",
+                internalName(SyntheticHost.class),
+                "STATIC_VALUE",
+                "Ljava/lang/String;",
+                StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC
+            )),
+            SyntheticHost.class.getClassLoader()
+        );
+
+        assertEquals("field", resolver.readStaticField("fixture.static-field"));
+        assertThrows(
+            VerifiedAccessException.class,
+            () -> resolver.readStaticField("fixture.unverified")
+        );
+    }
+
+    @Test
+    void constructsOnlyExactVerifiedConstructors() {
+        VerifiedMemberResolver resolver = new VerifiedMemberResolver(
+            plan(StaticSelector.constructor(
+                "fixture.constructor",
+                internalName(SyntheticHost.class),
+                "(Ljava/lang/String;)V",
+                StaticSelector.ACCESS_PUBLIC
+            )),
+            SyntheticHost.class.getClassLoader()
+        );
+
+        SyntheticHost host = (SyntheticHost) resolver.construct("fixture.constructor", "constructed");
+
+        assertEquals("constructed", host.instanceValue());
+        assertThrows(VerifiedAccessException.class, () -> resolver.construct("fixture.unverified"));
+    }
+
+    @Test
+    void constructsExactVerifiedPackagePrivateHostConstructors() {
+        VerifiedMemberResolver resolver = new VerifiedMemberResolver(
+            plan(StaticSelector.constructor(
+                "fixture.package-private-constructor",
+                internalName(PackagePrivateConstructorHost.class),
+                "(Ljava/lang/String;)V",
+                0
+            )),
+            SyntheticHost.class.getClassLoader()
+        );
+
+        PackagePrivateConstructorHost host = (PackagePrivateConstructorHost) resolver.construct(
+            "fixture.package-private-constructor",
+            "constructed"
+        );
+
+        assertEquals("constructed", host.value());
+    }
+
+    @Test
+    void doesNotOpenUnverifiedPrivateHostConstructors() {
+        VerifiedMemberResolver resolver = new VerifiedMemberResolver(
+            plan(StaticSelector.constructor(
+                "fixture.private-constructor",
+                internalName(PrivateConstructorHost.class),
+                "()V",
+                0
+            )),
+            SyntheticHost.class.getClassLoader()
+        );
+
+        assertThrows(
+            VerifiedAccessException.class,
+            () -> resolver.construct("fixture.private-constructor")
+        );
+    }
+
+    @Test
+    void createsOnlyExactVerifiedSingleAbstractMethodHostProxies() {
+        VerifiedMemberResolver resolver = new VerifiedMemberResolver(
+            plan(
+                StaticSelector.classSelector(
+                    "fixture.callback",
+                    internalName(SyntheticCallback.class)
+                ),
+                StaticSelector.classSelector(
+                    "fixture.not-interface",
+                    internalName(SyntheticHost.class)
+                ),
+                StaticSelector.classSelector(
+                    "fixture.not-sam",
+                    internalName(NotSingleAbstractMethod.class)
+                )
+            ),
+            SyntheticHost.class.getClassLoader()
+        );
+        AtomicReference<Object> argument = new AtomicReference<>();
+
+        SyntheticCallback callback = (SyntheticCallback) resolver.createFunctionalProxy(
+            "fixture.callback",
+            value -> {
+                argument.set(value);
+                return "handled";
+            }
+        );
+
+        assertEquals("handled", callback.apply("event"));
+        assertEquals("event", argument.get());
+        assertThrows(
+            VerifiedAccessException.class,
+            () -> resolver.createFunctionalProxy("fixture.not-interface", ignored -> null)
+        );
+        assertThrows(
+            VerifiedAccessException.class,
+            () -> resolver.createFunctionalProxy("fixture.not-sam", ignored -> null)
+        );
+    }
+
+    @Test
+    void createsCallbackProxyOnlyFromAnExactVerifiedMethodParameter() {
+        VerifiedMemberResolver resolver = new VerifiedMemberResolver(
+            plan(StaticSelector.staticMethod(
+                "fixture.callback-consumer",
+                internalName(SyntheticHost.class),
+                "callCallback",
+                "(L" + internalName(SyntheticZeroCallback.class) + ";)Ljava/lang/Object;",
+                StaticSelector.ACCESS_PUBLIC
+            )),
+            SyntheticHost.class.getClassLoader()
+        );
+        AtomicReference<Object> argument = new AtomicReference<>("not-called");
+
+        SyntheticZeroCallback callback = (SyntheticZeroCallback)
+            resolver.createFunctionalArgumentProxy(
+                "fixture.callback-consumer",
+                0,
+                value -> {
+                    argument.set(value);
+                    return "handled";
+                }
+            );
+
+        assertEquals("handled", SyntheticHost.callCallback(callback));
+        assertEquals(null, argument.get());
+        assertThrows(
+            VerifiedAccessException.class,
+            () -> resolver.createFunctionalArgumentProxy(
+                "fixture.callback-consumer",
+                1,
+                ignored -> null
+            )
+        );
+        assertThrows(
+            VerifiedAccessException.class,
+            () -> resolver.createFunctionalArgumentProxy(
+                "fixture.unverified",
+                0,
+                ignored -> null
+            )
+        );
     }
 
     @Test
@@ -128,13 +305,45 @@ class VerifiedMemberResolverTest {
         return type.getName().replace('.', '/');
     }
 
+    public interface SyntheticCallback {
+        Object apply(Object value);
+    }
+
+    public interface SyntheticZeroCallback {
+        Object apply();
+    }
+
+    public interface NotSingleAbstractMethod {
+        Object first(Object value);
+        Object second(Object value);
+    }
+
+    public static final class PrivateConstructorHost {
+        private PrivateConstructorHost() { }
+    }
+
     public static final class SyntheticHost {
+        public static final String STATIC_VALUE = "field";
+        private final String value;
+
+        public SyntheticHost() {
+            this("instance");
+        }
+
+        public SyntheticHost(final String value) {
+            this.value = value;
+        }
+
         public static String staticValue() {
             return "static";
         }
 
+        public static Object callCallback(final SyntheticZeroCallback callback) {
+            return callback.apply();
+        }
+
         public String instanceValue() {
-            return "instance";
+            return value;
         }
 
         public String fail() {
