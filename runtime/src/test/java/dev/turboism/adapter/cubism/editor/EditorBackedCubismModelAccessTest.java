@@ -30,6 +30,7 @@ class EditorBackedCubismModelAccessTest {
         var parameter = model.parameters().find(new ParameterId("ParamAngleX"));
 
         assertEquals("model-a", model.id().value());
+        assertTrue(model.defaultKeyformLocked());
         assertEquals(List.of("ParamAngleX"), model.parameters().all().stream()
             .map(value -> value.id().value()).toList());
         assertEquals(12.0F, parameter.getValue());
@@ -151,6 +152,20 @@ class EditorBackedCubismModelAccessTest {
     }
 
     @Test
+    void defaultKeyformLockReadsRequireTheirSeparateVerifiedCapability() {
+        Host.install(new Fixture("model-a", 12.0F));
+        EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
+            resolver(false), "session-a"
+        );
+
+        assertEquals("model-a", access.active().id().value());
+        assertThrows(
+            UnsupportedOperationException.class,
+            () -> access.active().defaultKeyformLocked()
+        );
+    }
+
+    @Test
     void malformedParameterGroupTreesFailClosed() {
         Fixture host = new Fixture("model-a", 12.0F);
         ParameterGroup face = (ParameterGroup) host.source.rootGroup.children.get(0);
@@ -202,7 +217,8 @@ class EditorBackedCubismModelAccessTest {
                 ? java.util.Set.of(
                     "cubism.editor-model.read",
                     dev.turboism.mapping.verification.EditorParameterGroupsReadSelectorContract.CAPABILITY_ID,
-                    dev.turboism.mapping.verification.EditorParameterGroupLabelColorReadSelectorContract.CAPABILITY_ID
+                    dev.turboism.mapping.verification.EditorParameterGroupLabelColorReadSelectorContract.CAPABILITY_ID,
+                    dev.turboism.mapping.verification.EditorDefaultKeyformLockReadSelectorContract.CAPABILITY_ID
                 )
                 : java.util.Set.of(
                     "cubism.editor-model.read",
@@ -220,6 +236,7 @@ class EditorBackedCubismModelAccessTest {
                 StaticSelector.classSelector("cubism.editor-model.model-source.class", source),
                 method("cubism.editor-model.model-source.guid", ModelSource.class, "guid", desc(Id.class)),
                 method("cubism.editor-model.model-source.current-instance", ModelSource.class, "currentInstance", desc(Model.class)),
+                method("cubism.editor-model.model-source.default-keyform-locked", ModelSource.class, "defaultKeyformLocked", "()Z"),
                 method("cubism.editor-model.model-source.all-parameters", ModelSource.class, "allParameters", "()Ljava/util/List;"),
                 method("cubism.editor-model.model-source.root-parameter-group", ModelSource.class, "rootParameterGroup", desc(ParameterGroup.class)),
                 StaticSelector.classSelector("cubism.editor-model.model.class", model),
@@ -345,6 +362,7 @@ class EditorBackedCubismModelAccessTest {
         }
         public Id guid() { return guid; }
         public Model currentInstance() { return currentInstance; }
+        public boolean defaultKeyformLocked() { return true; }
         public List<ParameterSource> allParameters() { return currentInstance.parameterSet.parameters.stream().map(Parameter::source).toList(); }
         public ParameterGroup rootParameterGroup() { return rootGroup; }
     }
