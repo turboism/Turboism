@@ -1,0 +1,50 @@
+package dev.turboism.mapping.verification;
+
+import java.util.Set;
+
+/** Runtime trust root for the Cubism 5.3.02 native main-toolbar provider. */
+public final class MainToolbarVerificationManifest {
+
+    public static final String VERIFICATION_ID =
+        "cubism-5.3.02.ui-main-toolbar.static";
+    public static final String RECORD_SHA256 =
+        "9c560935a216215d85942c6ae1e5193293fab4e87531bc0ba189ffeee9e0c01d";
+    public static final String CUBISM_VERSION = "5.3.02";
+    public static final String PROFILE_ID = "cubism-5.3.02";
+    public static final long ARTIFACT_SIZE = 41_922_739L;
+    public static final String ARTIFACT_SHA256 =
+        "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21";
+    public static final String ADAPTER_SLICE_ID = "adapter.editor-ui.main-toolbar";
+    public static final String CAPABILITY_ID = "cubism.editor-ui.main-toolbar";
+    public static final Set<String> CAPABILITY_IDS = Set.of(CAPABILITY_ID);
+    public static final Set<String> REQUIRED_ALIASES = Set.of(
+        "cubism.ui-main-toolbar.app-controller.class",
+        "cubism.ui-main-toolbar.app-controller.instance",
+        "cubism.ui-main-toolbar.app-controller.main-frame",
+        "cubism.ui-main-toolbar.main-frame.class",
+        "cubism.ui-main-toolbar.main-frame.view",
+        "cubism.ui-main-toolbar.main-frame-view.class",
+        "cubism.ui-main-toolbar.main-frame-view.home-button",
+        "cubism.ui-main-toolbar.widget.class",
+        "cubism.ui-main-toolbar.widget.parent",
+        "cubism.ui-main-toolbar.widget.name",
+        "cubism.ui-main-toolbar.widget.set-name",
+        "cubism.ui-main-toolbar.widget.set-tooltip",
+        "cubism.ui-main-toolbar.widget.set-pref-width",
+        "cubism.ui-main-toolbar.widget.set-pref-height",
+        "cubism.ui-main-toolbar.widget.revalidate",
+        "cubism.ui-main-toolbar.widget.repaint",
+        "cubism.ui-main-toolbar.container.class",
+        "cubism.ui-main-toolbar.container.children",
+        "cubism.ui-main-toolbar.container.add",
+        "cubism.ui-main-toolbar.container.remove",
+        "cubism.ui-main-toolbar.icon-button.class",
+        "cubism.ui-main-toolbar.icon-button.create",
+        "cubism.ui-main-toolbar.icon-button.set-rollover-icon",
+        "cubism.ui-main-toolbar.icon.class",
+        "cubism.ui-main-toolbar.icon.create"
+    );
+
+    private MainToolbarVerificationManifest() {
+    }
+}
