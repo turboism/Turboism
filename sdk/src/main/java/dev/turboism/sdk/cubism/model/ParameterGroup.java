@@ -22,6 +22,13 @@ public interface ParameterGroup {
         );
     }
 
+    /** Changes the Editor label color to a custom RGBA value. */
+    default void setLabelColor(final Color color) {
+        throw new UnsupportedOperationException(
+            "Parameter-group label color editing is unavailable for this backend."
+        );
+    }
+
     Optional<ParameterGroupId> parentId();
 
     List<ParameterGroupId> childGroupIds();
