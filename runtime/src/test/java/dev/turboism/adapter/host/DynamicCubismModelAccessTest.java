@@ -41,6 +41,10 @@ class DynamicCubismModelAccessTest {
 
         assertThrows(IllegalStateException.class, staleModel::id);
         assertThrows(IllegalStateException.class, staleModel::defaultKeyformLocked);
+        assertThrows(
+            IllegalStateException.class,
+            () -> staleModel.setDefaultKeyformLocked(false)
+        );
         assertThrows(IllegalStateException.class, staleParameters::all);
         assertThrows(IllegalStateException.class, staleParameter::getValue);
         assertEquals(new ModelId("model-b"), access.active().id());
@@ -247,8 +251,10 @@ class DynamicCubismModelAccessTest {
         final ParameterGroups parameterGroups
     ) {
         return new CubismModel() {
+            private boolean locked = true;
             @Override public ModelId id() { return new ModelId(id); }
-            @Override public boolean defaultKeyformLocked() { return true; }
+            @Override public boolean defaultKeyformLocked() { return locked; }
+            @Override public void setDefaultKeyformLocked(final boolean value) { locked = value; }
             @Override public Parameters parameters() {
                 return new Parameters() {
                     @Override public List<Parameter> all() { return List.of(parameter); }
