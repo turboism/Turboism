@@ -20,6 +20,7 @@ import dev.turboism.sdk.cubism.SelectionSnapshot;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.Parameter;
+import dev.turboism.sdk.cubism.model.ParameterGroup;
 import dev.turboism.sdk.cubism.model.ParameterGroups;
 import dev.turboism.sdk.cubism.model.Parameters;
 import dev.turboism.sdk.cubism.transaction.TransactionManager;
@@ -321,12 +322,63 @@ public final class CubismFacadeImpl implements CubismFacade {
                 }
             };
         }
-        @Override public ParameterGroups parameterGroups() { return delegate.parameterGroups(); }
+        @Override public ParameterGroups parameterGroups() {
+            final ParameterGroups groups = delegate.parameterGroups();
+            return new ParameterGroups() {
+                @Override public List<ParameterGroup> all() {
+                    return groups.all().stream()
+                        .map(value -> (ParameterGroup) new PermissionCheckedParameterGroup(value))
+                        .toList();
+                }
+                @Override public ParameterGroup root() {
+                    return new PermissionCheckedParameterGroup(groups.root());
+                }
+                @Override public ParameterGroup find(
+                    final dev.turboism.sdk.cubism.id.ParameterGroupId id
+                ) {
+                    return new PermissionCheckedParameterGroup(groups.find(id));
+                }
+            };
+        }
         @Override public dev.turboism.sdk.cubism.model.Parts parts() { return delegate.parts(); }
         @Override public dev.turboism.sdk.cubism.model.Drawables drawables() { return delegate.drawables(); }
         @Override public dev.turboism.sdk.cubism.model.Deformers deformers() { return delegate.deformers(); }
         @Override public dev.turboism.sdk.cubism.model.Glues glues() { return delegate.glues(); }
         @Override public void update() { delegate.update(); }
+    }
+
+    private final class PermissionCheckedParameterGroup implements ParameterGroup {
+        private final ParameterGroup delegate;
+
+        private PermissionCheckedParameterGroup(final ParameterGroup delegate) {
+            this.delegate = Objects.requireNonNull(delegate, "delegate");
+        }
+
+        @Override public dev.turboism.sdk.cubism.id.ParameterGroupId id() {
+            return delegate.id();
+        }
+        @Override public java.util.Optional<String> name() { return delegate.name(); }
+        @Override public dev.turboism.sdk.cubism.model.Color labelColor() {
+            return delegate.labelColor();
+        }
+        @Override public void setLabelColor(
+            final dev.turboism.sdk.cubism.model.Color color
+        ) {
+            permissionGate.require(
+                MODEL_WRITE_PERMISSION,
+                "parameterGroup.setLabelColor"
+            );
+            delegate.setLabelColor(color);
+        }
+        @Override public java.util.Optional<dev.turboism.sdk.cubism.id.ParameterGroupId> parentId() {
+            return delegate.parentId();
+        }
+        @Override public List<dev.turboism.sdk.cubism.id.ParameterGroupId> childGroupIds() {
+            return delegate.childGroupIds();
+        }
+        @Override public List<dev.turboism.sdk.cubism.id.ParameterId> parameterIds() {
+            return delegate.parameterIds();
+        }
     }
 
     private final class PermissionCheckedParameter implements Parameter {
