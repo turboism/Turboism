@@ -151,6 +151,12 @@ public final class CoreBackedCubismModelAccess implements CubismModelAccess {
         }
 
         @Override
+        public boolean defaultKeyformLocked() {
+            readGeneration(generation);
+            return CubismModel.super.defaultKeyformLocked();
+        }
+
+        @Override
         public dev.turboism.sdk.cubism.model.ParameterGroups parameterGroups() {
             readGeneration(generation);
             return CubismModel.super.parameterGroups();
