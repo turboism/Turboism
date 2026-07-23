@@ -4,6 +4,7 @@ import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.id.ParameterId;
+import dev.turboism.sdk.cubism.model.Color;
 import dev.turboism.sdk.cubism.model.ParameterType;
 import org.junit.jupiter.api.Test;
 
@@ -91,6 +92,7 @@ class EditorBackedCubismModelAccessTest {
         );
         assertEquals(List.of(), root.parameterIds());
         assertEquals(Optional.of("Face"), face.name());
+        assertEquals(new Color(0.25F, 0.5F, 0.75F, 1.0F), face.labelColor());
         assertEquals(Optional.of(root.id()), face.parentId());
         assertEquals(List.of(), face.childGroupIds());
         assertEquals(List.of(new ParameterId("ParamAngleX")), face.parameterIds());
@@ -134,6 +136,21 @@ class EditorBackedCubismModelAccessTest {
     }
 
     @Test
+    void parameterGroupLabelColorsRequireTheirSeparateVerifiedCapability() {
+        Host.install(new Fixture("model-a", 12.0F));
+        EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
+            resolver(false), "session-a"
+        );
+
+        var face = access.active().parameterGroups().find(
+            new dev.turboism.sdk.cubism.id.ParameterGroupId("GroupFace")
+        );
+
+        assertEquals(Optional.of("Face"), face.name());
+        assertThrows(UnsupportedOperationException.class, face::labelColor);
+    }
+
+    @Test
     void malformedParameterGroupTreesFailClosed() {
         Fixture host = new Fixture("model-a", 12.0F);
         ParameterGroup face = (ParameterGroup) host.source.rootGroup.children.get(0);
@@ -163,6 +180,10 @@ class EditorBackedCubismModelAccessTest {
     }
 
     private static VerifiedMemberResolver resolver() {
+        return resolver(true);
+    }
+
+    private static VerifiedMemberResolver resolver(final boolean includeLabelColorCapability) {
         String host = internal(Host.class);
         String document = internal(Document.class);
         String source = internal(ModelSource.class);
@@ -171,14 +192,22 @@ class EditorBackedCubismModelAccessTest {
         String parameter = internal(Parameter.class);
         String metadata = internal(ParameterSource.class);
         String group = internal(ParameterGroup.class);
+        String labelColor = internal(LabelColor.class);
+        String color = internal(HostColor.class);
         String id = internal(Id.class);
         return TestVerifiedResolvers.create(
             "5.3.02",
             "adapter.editor-model.readwrite",
-            java.util.Set.of(
-                "cubism.editor-model.read",
-                dev.turboism.mapping.verification.EditorParameterGroupsReadSelectorContract.CAPABILITY_ID
-            ),
+            includeLabelColorCapability
+                ? java.util.Set.of(
+                    "cubism.editor-model.read",
+                    dev.turboism.mapping.verification.EditorParameterGroupsReadSelectorContract.CAPABILITY_ID,
+                    dev.turboism.mapping.verification.EditorParameterGroupLabelColorReadSelectorContract.CAPABILITY_ID
+                )
+                : java.util.Set.of(
+                    "cubism.editor-model.read",
+                    dev.turboism.mapping.verification.EditorParameterGroupsReadSelectorContract.CAPABILITY_ID
+                ),
             List.of(
                 StaticSelector.classSelector("cubism.editor-model.app-controller.class", host),
                 StaticSelector.staticMethod("cubism.editor-model.app-controller.instance", host, "instance", desc(Host.class), StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC),
@@ -215,6 +244,14 @@ class EditorBackedCubismModelAccessTest {
                 method("cubism.editor-model.parameter-group.name", ParameterGroup.class, "name", "()Ljava/lang/String;"),
                 method("cubism.editor-model.parameter-group.parent", ParameterGroup.class, "parent", desc(ParameterGroup.class)),
                 method("cubism.editor-model.parameter-group.children", ParameterGroup.class, "children", "()Ljava/util/List;"),
+                method("cubism.editor-model.parameter-group.label-color", ParameterGroup.class, "labelColor", desc(LabelColor.class)),
+                StaticSelector.classSelector("cubism.editor-model.label-color.class", labelColor),
+                method("cubism.editor-model.label-color.color", LabelColor.class, "color", desc(HostColor.class)),
+                StaticSelector.classSelector("cubism.editor-model.color.class", color),
+                method("cubism.editor-model.color.red", HostColor.class, "red", "()F"),
+                method("cubism.editor-model.color.green", HostColor.class, "green", "()F"),
+                method("cubism.editor-model.color.blue", HostColor.class, "blue", "()F"),
+                method("cubism.editor-model.color.alpha", HostColor.class, "alpha", "()F"),
                 StaticSelector.classSelector("cubism.editor-model.id.class", id),
                 method("cubism.editor-model.id.value", Id.class, "value", "()Ljava/lang/String;"),
                 StaticSelector.classSelector("cubism.editor-model.guid.class", id),
@@ -346,6 +383,7 @@ class EditorBackedCubismModelAccessTest {
         final Id id;
         final String name;
         final ParameterGroup parent;
+        final LabelColor labelColor = new LabelColor(new HostColor(0.25F, 0.5F, 0.75F, 1.0F));
         final java.util.ArrayList<Object> children = new java.util.ArrayList<>();
         ParameterGroup(String id, String name, ParameterGroup parent) {
             this.id = new Id(id);
@@ -355,7 +393,15 @@ class EditorBackedCubismModelAccessTest {
         public Id id() { return id; }
         public String name() { return name; }
         public ParameterGroup parent() { return parent; }
+        public LabelColor labelColor() { return labelColor; }
         public List<Object> children() { return children; }
+    }
+    public record LabelColor(HostColor color) { public HostColor color() { return color; } }
+    public record HostColor(float red, float green, float blue, float alpha) {
+        public float red() { return red; }
+        public float green() { return green; }
+        public float blue() { return blue; }
+        public float alpha() { return alpha; }
     }
     public record Id(String value) { public String value() { return value; } }
     static final class Fixture {
