@@ -303,6 +303,10 @@ public final class CubismFacadeImpl implements CubismFacade {
 
         @Override public dev.turboism.sdk.cubism.id.ModelId id() { return delegate.id(); }
         @Override public boolean defaultKeyformLocked() { return delegate.defaultKeyformLocked(); }
+        @Override public void setDefaultKeyformLocked(final boolean locked) {
+            permissionGate.require(MODEL_WRITE_PERMISSION, "model.setDefaultKeyformLocked");
+            delegate.setDefaultKeyformLocked(locked);
+        }
         @Override public dev.turboism.sdk.cubism.model.Canvas canvas() { return delegate.canvas(); }
         @Override public Parameters parameters() {
             final Parameters parameters = delegate.parameters();

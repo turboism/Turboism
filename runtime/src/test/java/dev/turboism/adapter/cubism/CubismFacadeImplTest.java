@@ -190,6 +190,68 @@ class CubismFacadeImplTest {
     }
 
     @Test
+    void defaultKeyformLockWritesRequireModelWritePermission() {
+        final List<CubismFacadeAuditEvent> auditEvents = new ArrayList<>();
+        final List<Boolean> writes = new ArrayList<>();
+        final CubismModelAccess backend = () -> new CubismModel() {
+            @Override public ModelId id() { return new ModelId("model-a"); }
+            @Override public boolean defaultKeyformLocked() { return false; }
+            @Override public void setDefaultKeyformLocked(final boolean locked) {
+                writes.add(locked);
+            }
+            @Override public dev.turboism.sdk.cubism.model.Parameters parameters() {
+                throw new UnsupportedOperationException();
+            }
+            @Override public dev.turboism.sdk.cubism.model.Parts parts() {
+                throw new UnsupportedOperationException();
+            }
+            @Override public dev.turboism.sdk.cubism.model.Drawables drawables() {
+                throw new UnsupportedOperationException();
+            }
+            @Override public dev.turboism.sdk.cubism.model.Deformers deformers() {
+                throw new UnsupportedOperationException();
+            }
+            @Override public dev.turboism.sdk.cubism.model.Glues glues() {
+                throw new UnsupportedOperationException();
+            }
+            @Override public void update() { throw new UnsupportedOperationException(); }
+        };
+        final CubismFacadeImpl denied = new CubismFacadeImpl(
+            sampleSource(),
+            new CubismPermissionGate(
+                "plugin.demo",
+                List.of(permission(CubismFacadeImpl.MODEL_READ_PERMISSION)),
+                auditEvents::add,
+                FIXED_CLOCK
+            ),
+            backend
+        );
+
+        assertThrows(
+            CubismPermissionException.class,
+            () -> denied.model().active().setDefaultKeyformLocked(true)
+        );
+        assertEquals(List.of(), writes);
+        assertEquals("model.setDefaultKeyformLocked", auditEvents.get(0).operationId());
+
+        final CubismFacadeImpl allowed = new CubismFacadeImpl(
+            sampleSource(),
+            new CubismPermissionGate(
+                "plugin.demo",
+                List.of(
+                    permission(CubismFacadeImpl.MODEL_READ_PERMISSION),
+                    permission(CubismFacadeImpl.MODEL_WRITE_PERMISSION)
+                ),
+                ignored -> { },
+                FIXED_CLOCK
+            ),
+            backend
+        );
+        allowed.model().active().setDefaultKeyformLocked(true);
+        assertEquals(List.of(true), writes);
+    }
+
+    @Test
     void combinedWritesRequireModelWritePermissionBeforeInvokingBackend() {
         final List<CubismFacadeAuditEvent> auditEvents = new ArrayList<>();
         final List<String> calls = new ArrayList<>();
