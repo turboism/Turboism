@@ -284,6 +284,9 @@ final class DynamicCubismModelAccess implements CubismModelAccess {
         @Override public java.util.Optional<String> name() {
             return guarded(generation, delegate::name);
         }
+        @Override public dev.turboism.sdk.cubism.model.Color labelColor() {
+            return guarded(generation, delegate::labelColor);
+        }
         @Override public java.util.Optional<dev.turboism.sdk.cubism.id.ParameterGroupId> parentId() {
             return guarded(generation, delegate::parentId);
         }
