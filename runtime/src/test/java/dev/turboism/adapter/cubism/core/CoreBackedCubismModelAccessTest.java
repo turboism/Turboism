@@ -269,6 +269,10 @@ class CoreBackedCubismModelAccessTest {
             );
             assertThrows(UnsupportedOperationException.class, parameter::resetToDefault);
             assertThrows(UnsupportedOperationException.class, model::defaultKeyformLocked);
+            assertThrows(
+                UnsupportedOperationException.class,
+                () -> model.setDefaultKeyformLocked(true)
+            );
             assertThrows(UnsupportedOperationException.class, model::parameterGroups);
             assertThrows(UnsupportedOperationException.class, model::update);
             assertThrows(

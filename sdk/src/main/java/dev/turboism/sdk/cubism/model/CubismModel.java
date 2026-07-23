@@ -16,6 +16,13 @@ public interface CubismModel {
         );
     }
 
+    /** Changes whether the Editor's default keyform is locked. */
+    default void setDefaultKeyformLocked(final boolean locked) {
+        throw new UnsupportedOperationException(
+            "Cubism default-keyform lock editing is unavailable."
+        );
+    }
+
     default Canvas canvas() {
         throw new UnsupportedOperationException("Cubism canvas access is unavailable.");
     }
