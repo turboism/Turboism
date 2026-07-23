@@ -186,6 +186,67 @@ class CubismFacadeImplTest {
         assertEquals(ParameterType.BLEND_SHAPE, parameter.type());
         assertEquals(Optional.of(false), parameter.repeat());
         assertEquals(Optional.of(true), parameter.combined());
+        assertEquals(Optional.of(new ParameterId("ParamB")), parameter.combinedWith());
+    }
+
+    @Test
+    void combinedWritesRequireModelWritePermissionBeforeInvokingBackend() {
+        final List<CubismFacadeAuditEvent> auditEvents = new ArrayList<>();
+        final List<String> calls = new ArrayList<>();
+        final CubismModelAccess backend = () -> modelWithCombinedCalls(calls);
+        final CubismFacadeImpl denied = new CubismFacadeImpl(
+            sampleSource(),
+            new CubismPermissionGate(
+                "plugin.demo",
+                List.of(permission(CubismFacadeImpl.MODEL_READ_PERMISSION)),
+                auditEvents::add,
+                FIXED_CLOCK
+            ),
+            backend
+        );
+        final var deniedParameter = denied.model().active().parameters()
+            .find(new ParameterId("ParamA"));
+
+        assertThrows(
+            CubismPermissionException.class,
+            () -> deniedParameter.combineWith(new ParameterId("ParamB"))
+        );
+        assertThrows(CubismPermissionException.class, deniedParameter::uncombine);
+        assertEquals(List.of(), calls);
+        assertEquals(
+            List.of("parameter.combineWith", "parameter.uncombine"),
+            auditEvents.stream().map(CubismFacadeAuditEvent::methodName).toList()
+        );
+        assertEquals(
+            List.of(
+                CubismFacadeImpl.MODEL_WRITE_PERMISSION,
+                CubismFacadeImpl.MODEL_WRITE_PERMISSION
+            ),
+            auditEvents.stream().map(CubismFacadeAuditEvent::permissionId).toList()
+        );
+        assertEquals(
+            List.of("parameter.combineWith", "parameter.uncombine"),
+            auditEvents.stream().map(CubismFacadeAuditEvent::operationId).toList()
+        );
+
+        final CubismFacadeImpl allowed = new CubismFacadeImpl(
+            sampleSource(),
+            new CubismPermissionGate(
+                "plugin.demo",
+                List.of(
+                    permission(CubismFacadeImpl.MODEL_READ_PERMISSION),
+                    permission(CubismFacadeImpl.MODEL_WRITE_PERMISSION)
+                ),
+                ignored -> { },
+                FIXED_CLOCK
+            ),
+            backend
+        );
+        final var allowedParameter = allowed.model().active().parameters()
+            .find(new ParameterId("ParamA"));
+        allowedParameter.combineWith(new ParameterId("ParamB"));
+        allowedParameter.uncombine();
+        assertEquals(List.of("combine:ParamB", "uncombine"), calls);
     }
 
     @Test
@@ -360,6 +421,43 @@ class CubismFacadeImplTest {
         return modelWithParameter(value, new ParameterDefinition[] {null});
     }
 
+    private static CubismModel modelWithCombinedCalls(final List<String> calls) {
+        return new CubismModel() {
+            private final dev.turboism.sdk.cubism.model.Parameter parameter =
+                new dev.turboism.sdk.cubism.model.Parameter() {
+                    @Override public ParameterId id() { return new ParameterId("ParamA"); }
+                    @Override public float getValue() { return 0.0F; }
+                    @Override public float getMinimumValue() { return -1.0F; }
+                    @Override public float getMaximumValue() { return 1.0F; }
+                    @Override public float getDefaultValue() { return 0.0F; }
+                    @Override public void setValue(final float value) { }
+                    @Override public void combineWith(final ParameterId partnerId) {
+                        calls.add("combine:" + partnerId.value());
+                    }
+                    @Override public void uncombine() { calls.add("uncombine"); }
+                };
+            @Override public ModelId id() { return new ModelId("model-a"); }
+            @Override public dev.turboism.sdk.cubism.model.Parameters parameters() {
+                return new dev.turboism.sdk.cubism.model.Parameters() {
+                    @Override public List<dev.turboism.sdk.cubism.model.Parameter> all() {
+                        return List.of(parameter);
+                    }
+                    @Override public dev.turboism.sdk.cubism.model.Parameter find(
+                        final ParameterId id
+                    ) { return parameter; }
+                };
+            }
+            @Override public dev.turboism.sdk.cubism.model.Parts parts() { throw unsupported(); }
+            @Override public dev.turboism.sdk.cubism.model.Drawables drawables() { throw unsupported(); }
+            @Override public dev.turboism.sdk.cubism.model.Deformers deformers() { throw unsupported(); }
+            @Override public dev.turboism.sdk.cubism.model.Glues glues() { throw unsupported(); }
+            @Override public void update() { throw unsupported(); }
+            private UnsupportedOperationException unsupported() {
+                return new UnsupportedOperationException();
+            }
+        };
+    }
+
     private static CubismModel modelWithParameter(
         final float[] value,
         final ParameterDefinition[] updated
@@ -372,6 +470,9 @@ class CubismFacadeImplTest {
                     @Override public ParameterType type() { return ParameterType.BLEND_SHAPE; }
                     @Override public Optional<Boolean> repeat() { return Optional.of(false); }
                     @Override public Optional<Boolean> combined() { return Optional.of(true); }
+                    @Override public Optional<ParameterId> combinedWith() {
+                        return Optional.of(new ParameterId("ParamB"));
+                    }
                     @Override public float getValue() { return value[0]; }
                     @Override public float getMinimumValue() { return -1.0F; }
                     @Override public float getMaximumValue() { return 1.0F; }
