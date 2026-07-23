@@ -351,6 +351,10 @@ public final class CubismFacadeImpl implements CubismFacade {
         @Override public float getMinimumValue() { return delegate.getMinimumValue(); }
         @Override public float getMaximumValue() { return delegate.getMaximumValue(); }
         @Override public float getDefaultValue() { return delegate.getDefaultValue(); }
+        @Override public void resetToDefault() {
+            permissionGate.require(MODEL_WRITE_PERMISSION, "parameter.resetToDefault");
+            parameterLifecycle.setValue(this, delegate.getDefaultValue(), delegate::setValue);
+        }
         @Override public void setValue(final float value) {
             permissionGate.require(MODEL_WRITE_PERMISSION, "parameter.setValue");
             parameterLifecycle.setValue(this, value, delegate::setValue);

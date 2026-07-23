@@ -81,6 +81,11 @@ public interface Parameter {
 
     float getDefaultValue();
 
+    /** Resets this parameter to its current default value through the normal write path. */
+    default void resetToDefault() {
+        setValue(getDefaultValue());
+    }
+
     void setValue(float value);
 
     /**
