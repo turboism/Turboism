@@ -1,6 +1,5 @@
 package dev.turboism.adapter.cubism.editor;
 
-import dev.turboism.mapping.verification.EditorDefaultKeyformLockReadSelectorContract;
 import dev.turboism.mapping.verification.EditorParameterDefinitionWriteSelectorContract;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.id.ModelId;
@@ -31,6 +30,7 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess {
     private final String sessionIdentity;
     private final EditorParameterCombinedAccess combinedAccess;
     private final EditorParameterGroupsAccess parameterGroupsAccess;
+    private final EditorDefaultKeyformLockAccess defaultKeyformLockAccess;
 
     public EditorBackedCubismModelAccess(
         final VerifiedMemberResolver resolver,
@@ -44,6 +44,10 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess {
             this::source
         );
         this.parameterGroupsAccess = new EditorParameterGroupsAccess(
+            resolver,
+            this::requireCurrent
+        );
+        this.defaultKeyformLockAccess = new EditorDefaultKeyformLockAccess(
             resolver,
             this::requireCurrent
         );
@@ -506,23 +510,10 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess {
         private void current() { requireCurrent(identity, model); }
         @Override public ModelId id() { current(); return new ModelId(identity.substring(identity.indexOf(':') + 1)); }
         @Override public boolean defaultKeyformLocked() {
-            current();
-            if (!resolver.authorizesFeature(
-                EditorDefaultKeyformLockReadSelectorContract.ADAPTER_SLICE_ID,
-                EditorDefaultKeyformLockReadSelectorContract.CAPABILITY_ID,
-                EditorDefaultKeyformLockReadSelectorContract.REQUIRED_ALIASES
-            )) {
-                throw new UnsupportedOperationException(
-                    "Default-keyform lock access is unavailable without exact verified host evidence."
-                );
-            }
-            final Object value = resolver.invoke(
-                "cubism.editor-model.model-source.default-keyform-locked", source
-            );
-            if (!(value instanceof Boolean locked)) {
-                throw unavailable("Editor default-keyform lock state is unavailable.");
-            }
-            return locked;
+            return defaultKeyformLockAccess.locked(identity, source, model);
+        }
+        @Override public void setDefaultKeyformLocked(final boolean locked) {
+            defaultKeyformLockAccess.setLocked(identity, source, model, locked);
         }
         @Override public Parameters parameters() { current(); return new EditorParameters(identity, model); }
         @Override public ParameterGroups parameterGroups() {

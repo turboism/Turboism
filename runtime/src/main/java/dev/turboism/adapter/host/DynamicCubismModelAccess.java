@@ -156,6 +156,11 @@ final class DynamicCubismModelAccess implements CubismModelAccess {
         }
 
         @Override
+        public void setDefaultKeyformLocked(final boolean locked) {
+            guardedVoid(generation, () -> delegate.setDefaultKeyformLocked(locked));
+        }
+
+        @Override
         public Parameters parameters() {
             return new SessionParameters(generation, current(
                 generation,
