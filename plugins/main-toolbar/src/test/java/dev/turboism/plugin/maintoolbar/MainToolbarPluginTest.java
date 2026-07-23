@@ -68,15 +68,16 @@ class MainToolbarPluginTest {
             context.actions().actions().stream().map(ActionRegistry.Action::id).toList()
         );
         assertEquals(
-            List.of(new MainToolbarRegistry.MainToolbarContribution(
+            List.of(new MainToolbarRegistry.MainToolbarButtonContribution(
                 "main-toolbar.home-entry",
                 "main-toolbar.home-entry.open",
                 "main-toolbar.home-entry.label",
-                "icons/main-toolbar-home.svg",
-                "start",
+                "main-toolbar.home-entry.tooltip",
+                MainToolbarRegistry.IconVariants.normal("icons/main-toolbar-home.svg"),
+                MainToolbarRegistry.Placement.before(MainToolbarRegistry.Anchor.HOST_HOME_ENTRY),
                 10
             )),
-            context.uiHost().mainToolbarContributions()
+            context.mainToolbar().buttonContributions()
         );
     }
 
@@ -109,7 +110,7 @@ class MainToolbarPluginTest {
         context.disposableScope().close();
 
         assertTrue(context.actions().actions().isEmpty());
-        assertTrue(context.uiHost().mainToolbarContributions().isEmpty());
+        assertTrue(context.mainToolbar().buttonContributions().isEmpty());
     }
 
     @Test
@@ -120,7 +121,7 @@ class MainToolbarPluginTest {
         plugin.init(context);
         plugin.enable();
 
-        assertEquals(1, context.uiHost().mainToolbarContributions().size());
+        assertEquals(1, context.mainToolbar().buttonContributions().size());
     }
 
     @Test
@@ -134,7 +135,7 @@ class MainToolbarPluginTest {
             plugin::enable
         );
         assertTrue(denied.getMessage().contains(PermissionIds.TURBOISM_UI_TOOLBAR_MAIN_CONTRIBUTE));
-        assertTrue(context.uiHost().mainToolbarContributions().isEmpty());
+        assertTrue(context.mainToolbar().buttonContributions().isEmpty());
     }
 
     @Test
@@ -156,6 +157,7 @@ class MainToolbarPluginTest {
     private static final class RecordingPluginContext implements PluginContext {
         private final RecordingActionRegistry actions = new RecordingActionRegistry();
         private final RecordingUiHost uiHost;
+        private final RecordingMainToolbarRegistry mainToolbar;
         private final DisposableScope disposableScope = new DisposableScope();
         private final PluginLogger logger = new NoopPluginLogger();
         private final CubismReadCapabilityService cubismRead = new ProjectReadCapabilityService();
@@ -166,6 +168,7 @@ class MainToolbarPluginTest {
 
         RecordingPluginContext(final RecordingUiHost uiHost) {
             this.uiHost = uiHost;
+            this.mainToolbar = new RecordingMainToolbarRegistry(uiHost);
         }
 
         @Override
@@ -211,6 +214,11 @@ class MainToolbarPluginTest {
         @Override
         public MenuRegistry menus() {
             return null;
+        }
+
+        @Override
+        public RecordingMainToolbarRegistry mainToolbar() {
+            return mainToolbar;
         }
 
         @Override
@@ -263,12 +271,35 @@ class MainToolbarPluginTest {
         }
     }
 
+    private static final class RecordingMainToolbarRegistry implements MainToolbarRegistry {
+        private final RecordingUiHost uiHost;
+        private final List<MainToolbarButtonContribution> buttonContributions = new ArrayList<>();
+
+        private RecordingMainToolbarRegistry(final RecordingUiHost uiHost) {
+            this.uiHost = uiHost;
+        }
+
+        List<MainToolbarButtonContribution> buttonContributions() {
+            return buttonContributions;
+        }
+
+        @Override
+        public Registration contribute(final MainToolbarContribution contribution) {
+            return uiHost.contributeMainToolbar(contribution);
+        }
+
+        @Override
+        public Registration contributeButton(final MainToolbarButtonContribution contribution) {
+            uiHost.requireMainToolbarPermission();
+            buttonContributions.add(contribution);
+            return () -> buttonContributions.remove(contribution);
+        }
+    }
+
     private static class RecordingUiHost implements UiHostCapabilityService {
-        private final List<MainToolbarRegistry.MainToolbarContribution> mainToolbarContributions = new ArrayList<>();
         private final List<StatusNotification> notifications = new ArrayList<>();
 
-        List<MainToolbarRegistry.MainToolbarContribution> mainToolbarContributions() {
-            return mainToolbarContributions;
+        void requireMainToolbarPermission() {
         }
 
         List<StatusNotification> notifications() {
@@ -323,8 +354,8 @@ class MainToolbarPluginTest {
 
         @Override
         public Registration contributeMainToolbar(MainToolbarRegistry.MainToolbarContribution contribution) {
-            mainToolbarContributions.add(contribution);
-            return () -> mainToolbarContributions.remove(contribution);
+            requireMainToolbarPermission();
+            return () -> { };
         }
 
         @Override
@@ -343,14 +374,13 @@ class MainToolbarPluginTest {
         }
 
         @Override
-        public Registration contributeMainToolbar(MainToolbarRegistry.MainToolbarContribution contribution) {
+        void requireMainToolbarPermission() {
             if (!allowMainToolbar) {
                 throw new CubismPermissionException(
                     "Missing required permission " + PermissionIds.TURBOISM_UI_TOOLBAR_MAIN_CONTRIBUTE
                         + " for ui.main-toolbar.contribute"
                 );
             }
-            return super.contributeMainToolbar(contribution);
         }
 
         @Override

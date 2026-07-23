@@ -18,32 +18,38 @@ public final class MainToolbarHomeEntryService {
 
     private static final String CONTRIBUTION_ID = "main-toolbar.home-entry";
     private static final String LABEL_KEY = "main-toolbar.home-entry.label";
+    private static final String TOOLTIP_KEY = "main-toolbar.home-entry.tooltip";
     private static final String ICON_RESOURCE_PATH = "icons/main-toolbar-home.svg";
-    private static final String ANCHOR = "start";
     private static final int ORDER = 10;
     private static final String PROJECT_SUMMARY_NOTIFICATION_ID = "main-toolbar.home-entry.project-summary";
     private static final String NO_PROJECT_NOTIFICATION_ID = "main-toolbar.home-entry.no-project";
 
     private final CubismReadCapabilityService cubismRead;
     private final UiHostCapabilityService uiHost;
+    private final MainToolbarRegistry mainToolbar;
 
     public MainToolbarHomeEntryService(
         final CubismReadCapabilityService cubismRead,
-        final UiHostCapabilityService uiHost
+        final UiHostCapabilityService uiHost,
+        final MainToolbarRegistry mainToolbar
     ) {
         this.cubismRead = Objects.requireNonNull(cubismRead, "cubismRead");
         this.uiHost = Objects.requireNonNull(uiHost, "uiHost");
+        this.mainToolbar = Objects.requireNonNull(mainToolbar, "mainToolbar");
     }
 
     public Registration registerHomeEntry() {
-        return uiHost.contributeMainToolbar(new MainToolbarRegistry.MainToolbarContribution(
-            CONTRIBUTION_ID,
-            ACTION_ID,
-            LABEL_KEY,
-            ICON_RESOURCE_PATH,
-            ANCHOR,
-            ORDER
-        ));
+        return mainToolbar.contributeButton(
+            new MainToolbarRegistry.MainToolbarButtonContribution(
+                CONTRIBUTION_ID,
+                ACTION_ID,
+                LABEL_KEY,
+                TOOLTIP_KEY,
+                MainToolbarRegistry.IconVariants.normal(ICON_RESOURCE_PATH),
+                MainToolbarRegistry.Placement.before(MainToolbarRegistry.Anchor.HOST_HOME_ENTRY),
+                ORDER
+            )
+        );
     }
 
     public void showProjectSummary() {
