@@ -7,7 +7,7 @@ public final class EditorModelVerificationManifest {
 
     public static final String VERIFICATION_ID = "cubism-5.3.02.editor-model.static";
     public static final String RECORD_SHA256 =
-        "348d51e6e04068faf93194bd7764e65944c8ea2d31a5a2c2e6a3cffa574a30b4";
+        "1a7b4d44259170ae400e3399c3abdd8c9bce3ba8594e2317cb78a18297144e63";
     public static final String CUBISM_VERSION = "5.3.02";
     public static final String PROFILE_ID = "cubism-5.3.02";
     public static final long ARTIFACT_SIZE = 41_922_739L;
@@ -19,7 +19,8 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.write",
         EditorParameterDefinitionWriteSelectorContract.CAPABILITY_ID,
         EditorParameterCombinedWriteSelectorContract.CAPABILITY_ID,
-        EditorParameterGroupsReadSelectorContract.CAPABILITY_ID
+        EditorParameterGroupsReadSelectorContract.CAPABILITY_ID,
+        EditorParameterGroupLabelColorReadSelectorContract.CAPABILITY_ID
     );
     public static final Set<String> REQUIRED_ALIASES = Set.of(
         "cubism.editor-model.app-controller.class",
@@ -109,6 +110,14 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.parameter-group.id",
         "cubism.editor-model.parameter-group.name",
         "cubism.editor-model.parameter-group.parent",
+        "cubism.editor-model.parameter-group.label-color",
+        "cubism.editor-model.label-color.class",
+        "cubism.editor-model.label-color.color",
+        "cubism.editor-model.color.class",
+        "cubism.editor-model.color.red",
+        "cubism.editor-model.color.green",
+        "cubism.editor-model.color.blue",
+        "cubism.editor-model.color.alpha",
         "cubism.editor-model.undo-listener.class",
         "cubism.editor-model.parameter-source.set-combined",
         "cubism.editor-model.parameter-source.parent-group",
