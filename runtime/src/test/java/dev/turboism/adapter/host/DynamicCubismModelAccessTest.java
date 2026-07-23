@@ -60,11 +60,15 @@ class DynamicCubismModelAccessTest {
         assertEquals(Optional.of("Face"), group.name());
         assertEquals(new Color(0.25F, 0.5F, 0.75F, 1.0F), group.labelColor());
         assertEquals(List.of(new ParameterId("ParamA")), group.parameterIds());
+        final Color updated = new Color(0.1F, 0.2F, 0.3F, 1.0F);
+        group.setLabelColor(updated);
+        assertEquals(updated, group.labelColor());
 
         access.deactivate();
         assertThrows(IllegalStateException.class, groups::all);
         assertThrows(IllegalStateException.class, group::name);
         assertThrows(IllegalStateException.class, group::labelColor);
+        assertThrows(IllegalStateException.class, () -> group.setLabelColor(updated));
     }
 
     @Test
@@ -279,19 +283,23 @@ class DynamicCubismModelAccessTest {
     }
 
     private static ParameterGroups parameterGroups() {
+        final Color[] rootColor = {new Color(0.25F, 0.5F, 0.75F, 1.0F)};
+        final Color[] faceColor = {new Color(0.25F, 0.5F, 0.75F, 1.0F)};
         final ParameterGroup root = parameterGroup(
             "GroupRoot",
             "Root",
             Optional.empty(),
             List.of(new ParameterGroupId("GroupFace")),
-            List.of()
+            List.of(),
+            rootColor
         );
         final ParameterGroup face = parameterGroup(
             "GroupFace",
             "Face",
             Optional.of(new ParameterGroupId("GroupRoot")),
             List.of(),
-            List.of(new ParameterId("ParamA"))
+            List.of(new ParameterId("ParamA")),
+            faceColor
         );
         return new ParameterGroups() {
             @Override public List<ParameterGroup> all() { return List.of(root, face); }
@@ -308,14 +316,14 @@ class DynamicCubismModelAccessTest {
         final String name,
         final Optional<ParameterGroupId> parentId,
         final List<ParameterGroupId> childGroupIds,
-        final List<ParameterId> parameterIds
+        final List<ParameterId> parameterIds,
+        final Color[] color
     ) {
         return new ParameterGroup() {
             @Override public ParameterGroupId id() { return new ParameterGroupId(id); }
             @Override public Optional<String> name() { return Optional.of(name); }
-            @Override public Color labelColor() {
-                return new Color(0.25F, 0.5F, 0.75F, 1.0F);
-            }
+            @Override public Color labelColor() { return color[0]; }
+            @Override public void setLabelColor(final Color next) { color[0] = next; }
             @Override public Optional<ParameterGroupId> parentId() { return parentId; }
             @Override public List<ParameterGroupId> childGroupIds() { return childGroupIds; }
             @Override public List<ParameterId> parameterIds() { return parameterIds; }
