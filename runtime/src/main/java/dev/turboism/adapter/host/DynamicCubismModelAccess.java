@@ -15,6 +15,8 @@ import dev.turboism.sdk.cubism.model.Glue;
 import dev.turboism.sdk.cubism.model.GlueId;
 import dev.turboism.sdk.cubism.model.Glues;
 import dev.turboism.sdk.cubism.model.Parameter;
+import dev.turboism.sdk.cubism.model.ParameterGroup;
+import dev.turboism.sdk.cubism.model.ParameterGroups;
 import dev.turboism.sdk.cubism.model.Parameters;
 import dev.turboism.sdk.cubism.model.Part;
 import dev.turboism.sdk.cubism.model.PartId;
@@ -158,6 +160,14 @@ final class DynamicCubismModelAccess implements CubismModelAccess {
         }
 
         @Override
+        public ParameterGroups parameterGroups() {
+            return new SessionParameterGroups(
+                generation,
+                current(generation, CubismModel::parameterGroups, delegate)
+            );
+        }
+
+        @Override
         public Canvas canvas() {
             return new SessionCanvas(generation, current(generation, CubismModel::canvas, delegate));
         }
@@ -230,6 +240,58 @@ final class DynamicCubismModelAccess implements CubismModelAccess {
                 generation,
                 () -> new SessionParameter(generation, delegate.find(id))
             );
+        }
+    }
+
+    private final class SessionParameterGroups implements ParameterGroups {
+        private final long generation;
+        private final ParameterGroups delegate;
+        private SessionParameterGroups(final long generation, final ParameterGroups delegate) {
+            this.generation = generation;
+            this.delegate = Objects.requireNonNull(delegate, "delegate");
+        }
+        @Override public List<ParameterGroup> all() {
+            return guarded(generation, () -> delegate.all().stream()
+                .map(value -> (ParameterGroup) new SessionParameterGroup(generation, value))
+                .toList());
+        }
+        @Override public ParameterGroup root() {
+            return guarded(
+                generation,
+                () -> new SessionParameterGroup(generation, delegate.root())
+            );
+        }
+        @Override public ParameterGroup find(
+            final dev.turboism.sdk.cubism.id.ParameterGroupId id
+        ) {
+            return guarded(
+                generation,
+                () -> new SessionParameterGroup(generation, delegate.find(id))
+            );
+        }
+    }
+
+    private final class SessionParameterGroup implements ParameterGroup {
+        private final long generation;
+        private final ParameterGroup delegate;
+        private SessionParameterGroup(final long generation, final ParameterGroup delegate) {
+            this.generation = generation;
+            this.delegate = Objects.requireNonNull(delegate, "delegate");
+        }
+        @Override public dev.turboism.sdk.cubism.id.ParameterGroupId id() {
+            return guarded(generation, delegate::id);
+        }
+        @Override public java.util.Optional<String> name() {
+            return guarded(generation, delegate::name);
+        }
+        @Override public java.util.Optional<dev.turboism.sdk.cubism.id.ParameterGroupId> parentId() {
+            return guarded(generation, delegate::parentId);
+        }
+        @Override public List<dev.turboism.sdk.cubism.id.ParameterGroupId> childGroupIds() {
+            return guarded(generation, delegate::childGroupIds);
+        }
+        @Override public List<dev.turboism.sdk.cubism.id.ParameterId> parameterIds() {
+            return guarded(generation, delegate::parameterIds);
         }
     }
 
