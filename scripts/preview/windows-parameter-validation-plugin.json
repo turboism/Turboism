@@ -1,0 +1,50 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 2,
+  "id": "dev.turboism.validation.parameter",
+  "name": "Windows Parameter Validation Probe",
+  "version": "0.1.0",
+  "description": "Manual-test-only SDK probe for unified Parameter queries, metadata, selection, writes, and before/on/after lifecycle behavior.",
+  "entrypoints": [
+    "dev.turboism.tests.plugin.WindowsParameterValidationProbe"
+  ],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    { "name": "Turboism Contributors" }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": []
+  },
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.cubism.model.read",
+      "scope": "application",
+      "reason": "Query active parameters, follow the selected parameter, and read verified parameter metadata during manual validation."
+    },
+    {
+      "id": "turboism.cubism.model.write",
+      "scope": "application",
+      "reason": "Invoke the unified Parameter.setValue operation during manual validation."
+    },
+    {
+      "id": "turboism.cubism.model.observe",
+      "scope": "application",
+      "reason": "Observe changed-only on and normal after lifecycle callbacks."
+    },
+    {
+      "id": "turboism.cubism.model.intercept",
+      "scope": "application",
+      "reason": "Receive the synchronous before lifecycle callback without altering the requested value."
+    }
+  ],
+  "capabilities": [],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "swing"
+  }
+}

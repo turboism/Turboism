@@ -131,6 +131,8 @@ public final class PreviewRuntime implements AutoCloseable {
     public static PreviewRuntime start(
         final Path requestedHome,
         final Path verificationRecord,
+        final Path editorModelVerificationRecord,
+        final Path mainToolbarVerificationRecord,
         final Path hostArtifact,
         final ClassLoader hostClassLoader
     ) throws IOException {
@@ -159,14 +161,31 @@ public final class PreviewRuntime implements AutoCloseable {
                 hostArtifact,
                 "hostArtifact"
             ).toAbsolutePath().normalize();
+            final ClassLoader verifiedHostClassLoader = Objects.requireNonNull(
+                hostClassLoader,
+                "hostClassLoader"
+            );
             final HostVerificationEvidence.Slice projectWorkspace = new HostVerificationEvidence.Slice(
                 normalizedVerificationRecord,
                 normalizedHostArtifact,
-                Objects.requireNonNull(hostClassLoader, "hostClassLoader")
+                verifiedHostClassLoader
+            );
+            final HostVerificationEvidence.Slice editorModel = new HostVerificationEvidence.Slice(
+                Objects.requireNonNull(editorModelVerificationRecord, "editorModelVerificationRecord")
+                    .toAbsolutePath().normalize(),
+                normalizedHostArtifact,
+                verifiedHostClassLoader
+            );
+            final HostVerificationEvidence.Slice mainToolbar = new HostVerificationEvidence.Slice(
+                Objects.requireNonNull(mainToolbarVerificationRecord, "mainToolbarVerificationRecord")
+                    .toAbsolutePath().normalize(),
+                normalizedHostArtifact,
+                verifiedHostClassLoader
             );
             final HostSession.State hostState = ingress.publish(new HostInstanceDescriptor(
                 "cubism-" + ProcessHandle.current().pid(),
-                HostVerificationEvidence.projectOnly(projectWorkspace)
+                HostVerificationEvidence.withEditorModel(projectWorkspace, editorModel)
+                    .addingMainToolbar(mainToolbar)
             ));
             if (hostState == HostSession.State.ACTIVE) {
                 log.info("host", "Verified Cubism project/workspace adapter connected");
@@ -177,7 +196,13 @@ public final class PreviewRuntime implements AutoCloseable {
                 log.warn("host", "Host adapter entered " + hostState + ": " + failure);
             }
 
-            plugins = new LocalPluginRuntime(home, scheduler, ingress.adapterAccess(), log);
+            plugins = new LocalPluginRuntime(
+                home,
+                scheduler,
+                ingress.adapterAccess(),
+                log,
+                ingress.adapterAccess().parameterLifecycle()
+            );
             final LocalPluginRuntime.LoadReport report = plugins.loadAll();
             final PreviewReportWriter reportWriter = new PreviewReportWriter(
                 home.resolve("state"),
@@ -217,6 +242,14 @@ public final class PreviewRuntime implements AutoCloseable {
 
     public LocalPluginRuntime.LoadReport loadReport() {
         return loadReport;
+    }
+
+    public dev.turboism.adapter.host.RuntimeHostAdapterAccess hostAccess() {
+        return hostIngress.adapterAccess();
+    }
+
+    public dev.turboism.mapping.verification.VerifiedMemberResolver editorModelResolver() {
+        return hostIngress.editorModelResolver();
     }
 
     private static RuntimeScheduler createScheduler(final PreviewLog log) {

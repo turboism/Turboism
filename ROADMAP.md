@@ -227,6 +227,28 @@ Every hook requires necessity evidence, exact version routing, bounded execution
 9. harden third-party SDK and release packaging
 ```
 
+Current implementation checkpoint:
+
+- the unified Preview object/reference model is present and the complete supported Core read graph is projected for 5.2 and 5.3.02 through exact digest-pinned resolver evidence;
+- Canvas, Parameters, Parts, Drawables, Deformers and Glues use immutable copied data, version normalization and generation-bound stale rejection without leaking or closing host objects;
+- Cubism 5.3.02 Editor authoring parameters are bound through verified active-document/model selectors and invalidate on document/model-instance replacement;
+- `Parameter.setValue` uses the verified Editor palette operation, plugin-scoped write permission, native `GroupUndo`/`SimpleUndo` history, changed-only dirty state, parameter/canvas refresh, failure cancellation and stale-target rejection;
+- the Runtime-owned parameter lifecycle discovers ordered `ParameterHooks` from real plugin entrypoints, separates intercept/observe permissions, chains synchronous `before`, dispatches bounded changed-only `on` and normal `after`, rejects recursion, and removes Hook references before ClassLoader release;
+- the Java agent has an exact-selector, host-ClassLoader-scoped ASM transformer for the verified palette operation so plugin, UI and supported internal origins converge on one lifecycle; facade/native correlation prevents duplicate publication;
+- the official parameter CSV workflow now implements `CubismPlugin`; export and import use only the unified `CubismModel`/`Parameter` object graph, and import reaches `Parameter.setValue` without `cubismRead`, `ModelTransaction`, or `WriteParameterCommand`;
+- synthetic transformer normal/failure recovery, queue saturation, in-flight unload quiescence, rapid 200-generation model switching, isolated-ClassLoader lifecycle cleanup, and official action/permission integration tests pass;
+- local gates `./gradlew check`, `./gradlew checkIntegration`, and `./gradlew checkRelease` passed for the unified model milestone before later unrelated working-tree changes;
+- Cubism 5.3.02 Windows validation confirmed direct parameter reads/writes, metadata updates and Undo/Redo; the latest object-binding guard bundle is deployed for a final manual bound-parameter type-switch check, while Cubism 5.2 real-host behavior remains unverified. See `docs/research/cubism-5.2-5.3.02-real-host-validation-blocker.md`.
+
+```text
+1. provide or authorize an isolated real-host 5.3.02 session and validate parameter read/write/lifecycle, Undo/Redo, save/reopen and slider performance
+2. add equivalent 5.2 Editor binding evidence and real-host validation without weakening exact-version admission
+3. extend Editor binding and lifecycle to Part opacity and model update from verified consumers
+4. complete Editor project/selection/model-tree API
+5. expand write families only from verified official-plugin consumers
+6. harden third-party SDK, packaging and release evidence
+```
+
 ## Not used as progress measures
 
 The following no longer determine work order or completion:

@@ -73,8 +73,15 @@ class MainToolbarPluginTest {
                 "main-toolbar.home-entry.open",
                 "main-toolbar.home-entry.label",
                 "main-toolbar.home-entry.tooltip",
-                MainToolbarRegistry.IconVariants.normal("icons/main-toolbar-home.svg"),
-                MainToolbarRegistry.Placement.before(MainToolbarRegistry.Anchor.HOST_HOME_ENTRY),
+                new MainToolbarRegistry.IconVariants(
+                    "icons/main-toolbar-home.png",
+                    Optional.of("icons/main-toolbar-home-hover.png"),
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty()
+                ),
+                MainToolbarRegistry.Placement.after(MainToolbarRegistry.Anchor.HOST_HOME_ENTRY),
                 10
             )),
             context.mainToolbar().buttonContributions()

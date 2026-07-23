@@ -469,12 +469,88 @@ def test_core_model_read_mapping_packs(
         "getParameterRepeats",
         "()[Z",
     )
+    families = {
+        "parts": {
+            "class": "CubismParts",
+            "methods": {
+                "count": ("getCount", "()I"),
+                "ids": ("getIds", "()[Ljava/lang/String;"),
+                "opacities": ("getOpacities", "()[F"),
+                "parent-part-indices": ("getParentPartIndices", "()[I"),
+            },
+        },
+        "drawables": {
+            "class": "CubismDrawables",
+            "methods": {
+                "count": ("getCount", "()I"),
+                "ids": ("getIds", "()[Ljava/lang/String;"),
+                "constant-flags": ("getConstantFlags", "()[B"),
+                "dynamic-flags": ("getDynamicFlags", "()[B"),
+                "texture-indices": ("getTextureIndices", "()[I"),
+                "draw-orders": ("getDrawOrders", "()[I"),
+                "opacities": ("getOpacities", "()[F"),
+                "mask-counts": ("getMaskCounts", "()[I"),
+                "masks": ("getMasks", "()[[I"),
+                "vertex-counts": ("getVertexCounts", "()[I"),
+                "vertex-positions": ("getVertexPositions", "()[[F"),
+                "vertex-uvs": ("getVertexUvs", "()[[F"),
+                "index-counts": ("getIndexCounts", "()[I"),
+                "indices": ("getIndices", "()[[S"),
+                "multiply-colors": ("getMultiplyColors", "()[[F"),
+                "screen-colors": ("getScreenColors", "()[[F"),
+                "parent-part-indices": ("getParentPartIndices", "()[I"),
+                "parent-deformer-indices": ("getParentDeformsers", "()[I"),
+                "parameter-counts": ("getParameterCounts", "()[I"),
+                "parameters": ("getParameters", "()[[I"),
+            },
+        },
+        "deformers": {
+            "class": "CubismDeformers",
+            "methods": {
+                "count": ("getCount", "()I"),
+                "ids": ("getIds", "()[Ljava/lang/String;"),
+                "parent-deformer-indices": ("getParentDeformsers", "()[I"),
+                "parameter-counts": ("getParameterCounts", "()[I"),
+                "parameters": ("getParameters", "()[[I"),
+            },
+        },
+        "glues": {
+            "class": "CubismGlues",
+            "methods": {
+                "count": ("getCount", "()I"),
+                "ids": ("getIds", "()[Ljava/lang/String;"),
+                "drawables-a": ("getDrawablesA", "()[I"),
+                "drawables-b": ("getDrawablesB", "()[I"),
+                "parameter-counts": ("getParameterCounts", "()[I"),
+                "parameters": ("getParameters", "()[[I"),
+            },
+        },
+    }
+    for family, facts in families.items():
+        owner = "com/live2d/sdk/cubism/core/" + facts["class"]
+        expected[f"cubism.core.{family}.class"] = class_selector(owner)
+        expected[f"cubism.core.model.get-{family}"] = instance_selector(
+            model_owner,
+            "get" + facts["class"][6:],
+            f"()L{owner};",
+        )
+        for suffix, (runtime, descriptor) in facts["methods"].items():
+            expected[f"cubism.core.{family}.{suffix}"] = instance_selector(
+                owner, runtime, descriptor
+            )
 
     for document in (api_52, api_53):
         version = document["cubismVersion"]
         expected_for_version = dict(expected)
         if version == "5.3.02":
             expected_for_version["cubism.core.parameters.repeats"] = repeat_selector
+            expected_for_version["cubism.core.drawables.blend-modes"] = instance_selector(
+                "com/live2d/sdk/cubism/core/CubismDrawables", "getBlendModes", "()[I"
+            )
+        else:
+            expected_for_version["cubism.core.drawables.render-orders"] = instance_selector(
+                "com/live2d/sdk/cubism/core/CubismDrawables", "getRenderOrders", "()[I"
+            )
         pack_path = CORE_MODEL_READ_PACKS[version]
         pack = decode_json(
             pack_path.read_text(encoding="utf-8"),

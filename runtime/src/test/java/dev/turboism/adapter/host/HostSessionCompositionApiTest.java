@@ -57,6 +57,14 @@ class HostSessionCompositionApiTest {
                 "state():dev.turboism.adapter.host.HostSession$State",
                 "lastFailure():java.util.Optional",
                 "adapters():dev.turboism.adapter.RuntimeHostAdapters",
+                "modelAccess():dev.turboism.sdk.cubism.model.CubismModelAccess",
+                "parameterLifecycle():dev.turboism.adapter.cubism.lifecycle.ParameterLifecycleCoordinator",
+                "editorUiLifecycle():dev.turboism.ui.host.EditorUiHostLifecycle",
+                "editorUiContributions():dev.turboism.ui.contribution.EditorUiContributionAuthority",
+                "editorUiActionRouter():dev.turboism.ui.action.RuntimeEditorUiActionRouter",
+                "editorUiPluginResources():dev.turboism.ui.toolbar.EditorUiPluginResourceRegistry",
+                "appearanceCoordinator():dev.turboism.ui.appearance.AppearanceCoordinator",
+                "editorModelResolver():dev.turboism.mapping.verification.VerifiedMemberResolver",
                 "adapterAccess():dev.turboism.adapter.host.RuntimeHostAdapterAccess",
                 "close():void"
             ),
@@ -69,6 +77,8 @@ class HostSessionCompositionApiTest {
                 "state():dev.turboism.adapter.host.HostSession$State",
                 "lastFailure():java.util.Optional",
                 "adapters():dev.turboism.adapter.RuntimeHostAdapters",
+                "modelAccess():dev.turboism.sdk.cubism.model.CubismModelAccess",
+                "editorModelResolver():dev.turboism.mapping.verification.VerifiedMemberResolver",
                 "adapterAccess():dev.turboism.adapter.host.RuntimeHostAdapterAccess",
                 "close():void"
             ),
