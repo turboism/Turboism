@@ -7,7 +7,7 @@ public final class EditorModelVerificationManifest {
 
     public static final String VERIFICATION_ID = "cubism-5.3.02.editor-model.static";
     public static final String RECORD_SHA256 =
-        "ee7c85d5f35829264d527e71684fdc434857d382ad3089a32cf6b3c3bab678ff";
+        "5e8d7effe00e7c89e1272c345a229df838949a793a50e3e5274e570f907a8bb4";
     public static final String CUBISM_VERSION = "5.3.02";
     public static final String PROFILE_ID = "cubism-5.3.02";
     public static final long ARTIFACT_SIZE = 41_922_739L;
@@ -17,7 +17,8 @@ public final class EditorModelVerificationManifest {
     public static final Set<String> CAPABILITY_IDS = Set.of(
         "cubism.editor-model.read",
         "cubism.editor-model.write",
-        EditorParameterDefinitionWriteSelectorContract.CAPABILITY_ID
+        EditorParameterDefinitionWriteSelectorContract.CAPABILITY_ID,
+        EditorParameterCombinedWriteSelectorContract.CAPABILITY_ID
     );
     public static final Set<String> REQUIRED_ALIASES = Set.of(
         "cubism.editor-model.app-controller.class",
@@ -101,7 +102,15 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.morph-target-set.class",
         "cubism.editor-model.morph-target-set.contains-parameter",
         "cubism.editor-model.parameter-source.guid",
-        "cubism.editor-model.parameter-refresh-callback.create"
+        "cubism.editor-model.parameter-refresh-callback.create",
+        "cubism.editor-model.parameter-group.class",
+        "cubism.editor-model.undo-listener.class",
+        "cubism.editor-model.parameter-source.set-combined",
+        "cubism.editor-model.parameter-source.parent-group",
+        "cubism.editor-model.parameter-group.children",
+        "cubism.editor-model.parameter-group.remove",
+        "cubism.editor-model.parameter-group.add",
+        "cubism.editor-model.undo.add-listener"
     );
 
     private EditorModelVerificationManifest() {
