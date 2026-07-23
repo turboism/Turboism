@@ -136,6 +136,56 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.undo.add-listener"
     );
 
+    static PinnedVerifiedResolverWorkflow.Manifest forArtifact(
+        final HostArtifactDigest artifact
+    ) {
+        if (artifact.size() == EditorModelVerificationManifest52.ARTIFACT_SIZE
+            && artifact.sha256().equals(EditorModelVerificationManifest52.ARTIFACT_SHA256)) {
+            return manifest(
+                EditorModelVerificationManifest52.VERIFICATION_ID,
+                EditorModelVerificationManifest52.RECORD_SHA256,
+                EditorModelVerificationManifest52.CUBISM_VERSION,
+                EditorModelVerificationManifest52.PROFILE_ID,
+                EditorModelVerificationManifest52.ARTIFACT_SIZE,
+                EditorModelVerificationManifest52.ARTIFACT_SHA256
+            );
+        }
+        if (artifact.size() == ARTIFACT_SIZE && artifact.sha256().equals(ARTIFACT_SHA256)) {
+            return manifest(
+                VERIFICATION_ID,
+                RECORD_SHA256,
+                CUBISM_VERSION,
+                PROFILE_ID,
+                ARTIFACT_SIZE,
+                ARTIFACT_SHA256
+            );
+        }
+        throw new IllegalArgumentException(
+            "host artifact is not a reviewed Cubism Editor model artifact"
+        );
+    }
+
+    private static PinnedVerifiedResolverWorkflow.Manifest manifest(
+        final String verificationId,
+        final String recordSha256,
+        final String cubismVersion,
+        final String profileId,
+        final long artifactSize,
+        final String artifactSha256
+    ) {
+        return new PinnedVerifiedResolverWorkflow.Manifest(
+            verificationId,
+            recordSha256,
+            cubismVersion,
+            profileId,
+            artifactSize,
+            artifactSha256,
+            ADAPTER_SLICE_ID,
+            CAPABILITY_IDS,
+            REQUIRED_ALIASES
+        );
+    }
+
     private EditorModelVerificationManifest() {
     }
 }
