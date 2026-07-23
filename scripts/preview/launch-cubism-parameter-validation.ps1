@@ -31,14 +31,17 @@ function Resolve-CubismRoot {
     $candidates += @(
         "F:\Live2D\Live2D Cubism 5.3.02",
         "C:\Program Files\Live2D Cubism 5.3.02",
-        "C:\Program Files (x86)\Live2D Cubism 5.3.02"
+        "C:\Program Files (x86)\Live2D Cubism 5.3.02",
+        "F:\Live2D\Live2D Cubism 5.2",
+        "C:\Program Files\Live2D Cubism 5.2",
+        "C:\Program Files (x86)\Live2D Cubism 5.2"
     )
     foreach ($candidate in $candidates) {
         if (Test-Path -LiteralPath (Join-Path $candidate "app\jre\bin\java.exe") -PathType Leaf) {
             return (Resolve-Path -LiteralPath $candidate).Path
         }
     }
-    throw "Live2D Cubism 5.3.02 was not found. Set CUBISM_ROOT or pass -CubismRoot."
+    throw "Live2D Cubism 5.2 or 5.3.02 was not found. Set CUBISM_ROOT or pass -CubismRoot."
 }
 
 function Read-OfficialClassPath {

@@ -3,6 +3,7 @@ package dev.turboism.adapter.host;
 import dev.turboism.adapter.RuntimeHostAdapters;
 import dev.turboism.adapter.VerifiedRuntimeHostAdaptersFactory;
 import dev.turboism.adapter.cubism.editor.EditorBackedCubismModelAccess;
+import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.MainToolbarVerificationManifest;
 import dev.turboism.mapping.verification.VerifiedEditorModelResolverFactory;
 import dev.turboism.mapping.verification.VerifiedMainToolbarResolverFactory;
@@ -109,6 +110,10 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         }
         final HostVerificationEvidence.Slice toolbarSlice = evidence.mainToolbar().orElseThrow();
         final VerifiedMemberResolver toolbarResolver = mainToolbarResolverFactory.create(toolbarSlice);
+        final MainToolbarVerificationManifest.AdmissionEvidence toolbarAdmission =
+            MainToolbarVerificationManifest.admissionForArtifact(
+                HostArtifactDigest.from(toolbarSlice.verifiedArtifact())
+            );
         return new HostAdapterConnection() {
             @Override
             public RuntimeHostAdapters adapters() {
@@ -134,11 +139,11 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                         EditorUiFamily.MAIN_TOOLBAR,
                         hostGeneration,
                         new EditorUiProviderAdmission.VerificationEvidence(
-                            MainToolbarVerificationManifest.CUBISM_VERSION,
-                            MainToolbarVerificationManifest.ARTIFACT_SIZE,
-                            MainToolbarVerificationManifest.ARTIFACT_SHA256,
-                            MainToolbarVerificationManifest.ADAPTER_SLICE_ID,
-                            MainToolbarVerificationManifest.RECORD_SHA256
+                            toolbarAdmission.cubismVersion(),
+                            toolbarAdmission.artifactSize(),
+                            toolbarAdmission.artifactSha256(),
+                            toolbarAdmission.adapterSliceId(),
+                            toolbarAdmission.recordSha256()
                         )
                     ),
                     new VerifiedMainToolbarHostOperations(

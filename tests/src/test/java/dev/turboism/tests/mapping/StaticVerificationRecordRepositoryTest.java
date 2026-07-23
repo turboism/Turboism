@@ -35,6 +35,31 @@ class StaticVerificationRecordRepositoryTest {
     private static final Path RECORDS = PROJECT_ROOT.resolve("docs/migration/verification/static");
 
     private static final Map<String, SliceExpectation> EXPECTATIONS = Map.of(
+        "docs/migration/verification/static/cubism-5.2-project-workspace.json",
+        new SliceExpectation(
+            "m15.cubism-5.2.project-workspace.static",
+            ProjectWorkspaceVerificationManifest.ADAPTER_SLICE_ID,
+            "5.2.0",
+            "cubism-5.2",
+            ProjectWorkspaceVerificationManifest.CAPABILITY_IDS,
+            "Live2D_Cubism.jar",
+            40_805_584L,
+            "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
+            "a160ecd12044652293991be68a2f3c08f8020688c9d39b8a8f2019defe5c2dcb",
+            23,
+            ProjectWorkspaceVerificationManifest.REQUIRED_ALIASES,
+            VerifiedProjectWorkspaceHostOperations.REQUIRED_ALIASES,
+            VerifiedProjectWorkspaceHostOperations.methodAliasesUsed(),
+            difference(
+                VerifiedProjectWorkspaceHostOperations.REQUIRED_ALIASES,
+                VerifiedProjectWorkspaceHostOperations.methodAliasesUsed()
+            ),
+            "cubism-5.2-project-workspace",
+            Path.of("cubism-ref/mapping-packs/draft/cubism-5.2-project-workspace.json"),
+            Path.of("cubism-ref/profiles/draft/cubism-5.2.json"),
+            "[5.2.0,5.3.0)",
+            SliceKind.PROJECT_WORKSPACE
+        ),
         "docs/migration/verification/static/cubism-5.3.02-project-workspace.json",
         new SliceExpectation(
             ProjectWorkspaceVerificationManifest.VERIFICATION_ID,
@@ -86,6 +111,28 @@ class StaticVerificationRecordRepositoryTest {
             Path.of("cubism-ref/profiles/draft/cubism-5.3.02.json"),
             "[5.3.02,5.3.03)",
             SliceKind.CLIP_MASK
+        ),
+        "docs/migration/verification/static/cubism-5.2-ui-main-toolbar.json",
+        new SliceExpectation(
+            "cubism-5.2.ui-main-toolbar.static",
+            MainToolbarVerificationManifest.ADAPTER_SLICE_ID,
+            "5.2.0",
+            "cubism-5.2",
+            MainToolbarVerificationManifest.CAPABILITY_IDS,
+            "Live2D_Cubism.jar",
+            40_805_584L,
+            "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
+            "2576099f240a6b0c38f275ce59d806d63afa4a9f523ab4a90a72710896fc3682",
+            25,
+            MainToolbarVerificationManifest.REQUIRED_ALIASES,
+            MainToolbarVerificationManifest.REQUIRED_ALIASES,
+            mainToolbarMethodAliases(),
+            difference(MainToolbarVerificationManifest.REQUIRED_ALIASES, mainToolbarMethodAliases()),
+            "cubism-5.2-ui-main-toolbar",
+            Path.of("cubism-ref/mapping-packs/draft/cubism-5.2-ui-main-toolbar.json"),
+            Path.of("cubism-ref/profiles/draft/cubism-5.2.json"),
+            "[5.2.0,5.3.0)",
+            SliceKind.EDITOR_UI
         ),
         "docs/migration/verification/static/cubism-5.3.02-ui-main-toolbar.json",
         new SliceExpectation(

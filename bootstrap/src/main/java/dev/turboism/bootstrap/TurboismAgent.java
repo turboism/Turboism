@@ -1,5 +1,7 @@
 package dev.turboism.bootstrap;
 
+import dev.turboism.mapping.verification.EditorModelVerificationManifest;
+import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.preview.PreviewRuntime;
 
 import java.io.IOException;
@@ -16,12 +18,8 @@ import java.util.concurrent.atomic.AtomicReference;
 /** Java-agent entrypoint for the Turboism 0.1 Developer Preview. */
 public final class TurboismAgent {
 
-    private static final String VERIFICATION_RESOURCE =
-        "/META-INF/turboism/verification/cubism-5.3.02-project-workspace.json";
-    private static final String EDITOR_MODEL_VERIFICATION_RESOURCE =
-        "/META-INF/turboism/verification/cubism-5.3.02-editor-model.json";
-    private static final String MAIN_TOOLBAR_VERIFICATION_RESOURCE =
-        "/META-INF/turboism/verification/cubism-5.3.02-ui-main-toolbar.json";
+    private static final String VERIFICATION_RESOURCE_DIRECTORY =
+        "/META-INF/turboism/verification/";
     private static final AtomicBoolean START_REQUESTED = new AtomicBoolean(false);
     private static final AtomicReference<PreviewRuntime> RUNTIME = new AtomicReference<>();
     private static final AtomicReference<VerifiedParameterHookInstaller> PARAMETER_HOOK =
@@ -78,16 +76,20 @@ public final class TurboismAgent {
             }
 
             final HostClassLocator.LocatedHost host = located.orElseThrow();
-            final Path verificationRecord = extractVerificationRecord(options.home());
+            final String profile = EditorModelVerificationManifest.resourceProfileForArtifact(
+                HostArtifactDigest.from(host.artifact())
+            );
+            final Path verificationRecord = extractVerificationRecord(
+                options.home(),
+                "cubism-" + profile + "-project-workspace.json"
+            );
             final Path editorModelVerificationRecord = extractVerificationRecord(
                 options.home(),
-                EDITOR_MODEL_VERIFICATION_RESOURCE,
-                "cubism-5.3.02-editor-model.json"
+                "cubism-" + profile + "-editor-model.json"
             );
             final Path mainToolbarVerificationRecord = extractVerificationRecord(
                 options.home(),
-                MAIN_TOOLBAR_VERIFICATION_RESOURCE,
-                "cubism-5.3.02-ui-main-toolbar.json"
+                "cubism-" + profile + "-ui-main-toolbar.json"
             );
             final PreviewRuntime runtime = PreviewRuntime.start(
                 options.home(),
@@ -119,19 +121,11 @@ public final class TurboismAgent {
         }
     }
 
-    private static Path extractVerificationRecord(final Path home) throws IOException {
-        return extractVerificationRecord(
-            home,
-            VERIFICATION_RESOURCE,
-            "cubism-5.3.02-project-workspace.json"
-        );
-    }
-
     private static Path extractVerificationRecord(
         final Path home,
-        final String resource,
         final String fileName
     ) throws IOException {
+        final String resource = VERIFICATION_RESOURCE_DIRECTORY + fileName;
         final Path target = home.resolve("state")
             .resolve("verification")
             .resolve(fileName)
