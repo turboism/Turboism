@@ -49,22 +49,23 @@ class MainToolbarHomeEntryServiceTest {
     void registerHomeEntry_contributesHomeButtonToMainToolbar() {
         // Given
         RecordingUiHost uiHost = new RecordingUiHost();
-        MainToolbarHomeEntryService service = new MainToolbarHomeEntryService(new ProjectReadFixtures(), uiHost);
+        MainToolbarHomeEntryService service = new MainToolbarHomeEntryService(new ProjectReadFixtures(), uiHost, toolbar(uiHost));
 
         // When
         service.registerHomeEntry();
 
         // Then
         assertEquals(
-            List.of(new MainToolbarRegistry.MainToolbarContribution(
+            List.of(new MainToolbarRegistry.MainToolbarButtonContribution(
                 "main-toolbar.home-entry",
                 "main-toolbar.home-entry.open",
                 "main-toolbar.home-entry.label",
-                "icons/main-toolbar-home.svg",
-                "start",
+                "main-toolbar.home-entry.tooltip",
+                MainToolbarRegistry.IconVariants.normal("icons/main-toolbar-home.svg"),
+                MainToolbarRegistry.Placement.before(MainToolbarRegistry.Anchor.HOST_HOME_ENTRY),
                 10
             )),
-            uiHost.mainToolbarContributions()
+            uiHost.buttonContributions()
         );
     }
 
@@ -72,21 +73,21 @@ class MainToolbarHomeEntryServiceTest {
     void registerHomeEntry_registrationRemovesToolbarContributionWhenClosed() {
         // Given
         RecordingUiHost uiHost = new RecordingUiHost();
-        MainToolbarHomeEntryService service = new MainToolbarHomeEntryService(new ProjectReadFixtures(), uiHost);
+        MainToolbarHomeEntryService service = new MainToolbarHomeEntryService(new ProjectReadFixtures(), uiHost, toolbar(uiHost));
 
         // When
         Registration registration = service.registerHomeEntry();
         registration.close();
 
         // Then
-        assertTrue(uiHost.mainToolbarContributions().isEmpty());
+        assertTrue(uiHost.buttonContributions().isEmpty());
     }
 
     @Test
     void showProjectSummary_emitsProjectAndWorkspaceSummary_whenProjectIsActive() {
         // Given
         RecordingUiHost uiHost = new RecordingUiHost();
-        MainToolbarHomeEntryService service = new MainToolbarHomeEntryService(new ProjectReadFixtures(), uiHost);
+        MainToolbarHomeEntryService service = new MainToolbarHomeEntryService(new ProjectReadFixtures(), uiHost, toolbar(uiHost));
 
         // When
         service.showProjectSummary();
@@ -106,7 +107,7 @@ class MainToolbarHomeEntryServiceTest {
     void showProjectSummary_emitsNoProjectFallback_whenProjectIsMissing() {
         // Given
         RecordingUiHost uiHost = new RecordingUiHost();
-        MainToolbarHomeEntryService service = new MainToolbarHomeEntryService(new EmptyProjectRead(), uiHost);
+        MainToolbarHomeEntryService service = new MainToolbarHomeEntryService(new EmptyProjectRead(), uiHost, toolbar(uiHost));
 
         // When
         service.showProjectSummary();
@@ -126,7 +127,7 @@ class MainToolbarHomeEntryServiceTest {
     void showProjectSummary_marksWorkspaceUnavailable_whenProjectExistsButWorkspaceMissing() {
         // Given
         RecordingUiHost uiHost = new RecordingUiHost();
-        MainToolbarHomeEntryService service = new MainToolbarHomeEntryService(new ProjectWithoutWorkspace(), uiHost);
+        MainToolbarHomeEntryService service = new MainToolbarHomeEntryService(new ProjectWithoutWorkspace(), uiHost, toolbar(uiHost));
 
         // When
         service.showProjectSummary();
@@ -140,6 +141,21 @@ class MainToolbarHomeEntryServiceTest {
             )),
             uiHost.notifications()
         );
+    }
+
+    private static MainToolbarRegistry toolbar(final RecordingUiHost uiHost) {
+        return new MainToolbarRegistry() {
+            @Override
+            public Registration contribute(final MainToolbarContribution contribution) {
+                return uiHost.contributeMainToolbar(contribution);
+            }
+
+            @Override
+            public Registration contributeButton(final MainToolbarButtonContribution contribution) {
+                uiHost.buttonContributions.add(contribution);
+                return () -> uiHost.buttonContributions.remove(contribution);
+            }
+        };
     }
 
     private static final class ProjectWithoutWorkspace extends EmptyProjectRead {
@@ -261,11 +277,11 @@ class MainToolbarHomeEntryServiceTest {
     }
 
     private static final class RecordingUiHost implements UiHostCapabilityService {
-        private final List<MainToolbarRegistry.MainToolbarContribution> mainToolbarContributions = new ArrayList<>();
+        private final List<MainToolbarRegistry.MainToolbarButtonContribution> buttonContributions = new ArrayList<>();
         private final List<StatusNotification> notifications = new ArrayList<>();
 
-        List<MainToolbarRegistry.MainToolbarContribution> mainToolbarContributions() {
-            return mainToolbarContributions;
+        List<MainToolbarRegistry.MainToolbarButtonContribution> buttonContributions() {
+            return buttonContributions;
         }
 
         List<StatusNotification> notifications() {
@@ -320,8 +336,7 @@ class MainToolbarHomeEntryServiceTest {
 
         @Override
         public Registration contributeMainToolbar(MainToolbarRegistry.MainToolbarContribution contribution) {
-            mainToolbarContributions.add(contribution);
-            return () -> mainToolbarContributions.remove(contribution);
+            throw new UnsupportedOperationException("legacy main toolbar contributions are not used by this service");
         }
 
         @Override
