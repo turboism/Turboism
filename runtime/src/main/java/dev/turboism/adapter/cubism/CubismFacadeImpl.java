@@ -20,6 +20,7 @@ import dev.turboism.sdk.cubism.SelectionSnapshot;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.Parameter;
+import dev.turboism.sdk.cubism.model.ParameterGroups;
 import dev.turboism.sdk.cubism.model.Parameters;
 import dev.turboism.sdk.cubism.transaction.TransactionManager;
 import dev.turboism.sdk.permission.CubismPermissionException;
@@ -315,6 +316,7 @@ public final class CubismFacadeImpl implements CubismFacade {
                 }
             };
         }
+        @Override public ParameterGroups parameterGroups() { return delegate.parameterGroups(); }
         @Override public dev.turboism.sdk.cubism.model.Parts parts() { return delegate.parts(); }
         @Override public dev.turboism.sdk.cubism.model.Drawables drawables() { return delegate.drawables(); }
         @Override public dev.turboism.sdk.cubism.model.Deformers deformers() { return delegate.deformers(); }

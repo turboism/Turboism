@@ -12,6 +12,7 @@ import dev.turboism.sdk.cubism.model.Drawables;
 import dev.turboism.sdk.cubism.model.Glues;
 import dev.turboism.sdk.cubism.model.Parameter;
 import dev.turboism.sdk.cubism.model.ParameterDefinition;
+import dev.turboism.sdk.cubism.model.ParameterGroups;
 import dev.turboism.sdk.cubism.model.ParameterType;
 import dev.turboism.sdk.cubism.model.Parameters;
 import dev.turboism.sdk.cubism.model.Parts;
@@ -28,6 +29,7 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess {
     private final VerifiedMemberResolver resolver;
     private final String sessionIdentity;
     private final EditorParameterCombinedAccess combinedAccess;
+    private final EditorParameterGroupsAccess parameterGroupsAccess;
 
     public EditorBackedCubismModelAccess(
         final VerifiedMemberResolver resolver,
@@ -40,12 +42,16 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess {
             this::requireCurrent,
             this::source
         );
+        this.parameterGroupsAccess = new EditorParameterGroupsAccess(
+            resolver,
+            this::requireCurrent
+        );
     }
 
     @Override
     public CubismModel active() {
         final Binding binding = binding();
-        return new EditorModel(binding.identity(), binding.model());
+        return new EditorModel(binding.identity(), binding.source(), binding.model());
     }
 
     private Binding binding() {
@@ -67,7 +73,7 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess {
         }
         final Object guid = resolver.invoke("cubism.editor-model.model-source.guid", source);
         final String id = text(resolver.invoke("cubism.editor-model.guid.value", guid));
-        return new Binding(sessionIdentity + ":" + id, model);
+        return new Binding(sessionIdentity + ":" + id, source, model);
     }
 
     private void setParameterValue(
@@ -489,14 +495,20 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess {
 
     private final class EditorModel implements CubismModel {
         private final String identity;
+        private final Object source;
         private final Object model;
-        private EditorModel(final String identity, final Object model) {
+        private EditorModel(final String identity, final Object source, final Object model) {
             this.identity = identity;
+            this.source = source;
             this.model = model;
         }
         private void current() { requireCurrent(identity, model); }
         @Override public ModelId id() { current(); return new ModelId(identity.substring(identity.indexOf(':') + 1)); }
         @Override public Parameters parameters() { current(); return new EditorParameters(identity, model); }
+        @Override public ParameterGroups parameterGroups() {
+            current();
+            return parameterGroupsAccess.groups(identity, source, model);
+        }
         @Override public Canvas canvas() { throw new UnsupportedOperationException("Editor canvas projection is not installed."); }
         @Override public Parts parts() { throw new UnsupportedOperationException("Editor Part projection is not installed."); }
         @Override public Drawables drawables() { throw new UnsupportedOperationException("Editor Drawable projection is not installed."); }
@@ -611,6 +623,6 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess {
         return value;
     }
 
-    private record Binding(String identity, Object model) { }
+    private record Binding(String identity, Object source, Object model) { }
     private record ParameterBinding(String id, Object parameter) { }
 }
