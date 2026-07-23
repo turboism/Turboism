@@ -27,6 +27,7 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess {
 
     private final VerifiedMemberResolver resolver;
     private final String sessionIdentity;
+    private final EditorParameterCombinedAccess combinedAccess;
 
     public EditorBackedCubismModelAccess(
         final VerifiedMemberResolver resolver,
@@ -34,6 +35,11 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess {
     ) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.sessionIdentity = requireText(sessionIdentity, "sessionIdentity");
+        this.combinedAccess = new EditorParameterCombinedAccess(
+            resolver,
+            this::requireCurrent,
+            this::source
+        );
     }
 
     @Override
@@ -346,6 +352,13 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess {
         requireCurrent(expectedIdentity, expectedModel);
     }
 
+    private Object source(final Object model, final ParameterId id) {
+        return resolver.invoke(
+            "cubism.editor-model.parameter.source",
+            parameter(model, id).parameter()
+        );
+    }
+
     private ParameterDefinition definition(final Object source, final ParameterId id) {
         final Object rawName = resolver.invoke(
             "cubism.editor-model.parameter-source.name",
@@ -556,6 +569,15 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess {
             return Optional.of(booleanValue(resolver.invoke(
                 "cubism.editor-model.parameter-source.combined", source()
             ), "Editor parameter combined flag is invalid."));
+        }
+        @Override public Optional<ParameterId> combinedWith() {
+            return combinedAccess.partner(identity, model, id);
+        }
+        @Override public void combineWith(final ParameterId partnerId) {
+            combinedAccess.combine(identity, model, id, partnerId);
+        }
+        @Override public void uncombine() {
+            combinedAccess.uncombine(identity, model, id);
         }
         @Override public float getValue() { return number(resolver.invoke("cubism.editor-model.parameter.value", current().parameter())); }
         @Override public float getMinimumValue() { return number(resolver.invoke("cubism.editor-model.parameter-source.minimum", source())); }

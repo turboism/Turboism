@@ -49,6 +49,9 @@ class DynamicCubismModelAccessTest {
             @Override public ParameterType type() { return ParameterType.BLEND_SHAPE; }
             @Override public Optional<Boolean> repeat() { return Optional.of(false); }
             @Override public Optional<Boolean> combined() { return Optional.of(true); }
+            @Override public Optional<ParameterId> combinedWith() {
+                return Optional.of(new ParameterId("ParamSmile"));
+            }
             @Override public float getValue() { return 0.5F; }
             @Override public float getMinimumValue() { return 0.0F; }
             @Override public float getMaximumValue() { return 1.0F; }
@@ -62,12 +65,19 @@ class DynamicCubismModelAccessTest {
         assertEquals(ParameterType.BLEND_SHAPE, parameter.type());
         assertEquals(Optional.of(false), parameter.repeat());
         assertEquals(Optional.of(true), parameter.combined());
+        assertEquals(Optional.of(new ParameterId("ParamSmile")), parameter.combinedWith());
 
         access.deactivate();
         assertThrows(IllegalStateException.class, parameter::name);
         assertThrows(IllegalStateException.class, parameter::type);
         assertThrows(IllegalStateException.class, parameter::repeat);
         assertThrows(IllegalStateException.class, parameter::combined);
+        assertThrows(IllegalStateException.class, parameter::combinedWith);
+        assertThrows(
+            IllegalStateException.class,
+            () -> parameter.combineWith(new ParameterId("ParamSmile"))
+        );
+        assertThrows(IllegalStateException.class, parameter::uncombine);
     }
 
     @Test

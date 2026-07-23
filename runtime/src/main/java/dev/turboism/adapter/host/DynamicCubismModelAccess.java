@@ -257,6 +257,17 @@ final class DynamicCubismModelAccess implements CubismModelAccess {
         @Override public java.util.Optional<Boolean> combined() {
             return guarded(generation, delegate::combined);
         }
+        @Override public java.util.Optional<dev.turboism.sdk.cubism.id.ParameterId> combinedWith() {
+            return guarded(generation, delegate::combinedWith);
+        }
+        @Override public void combineWith(
+            final dev.turboism.sdk.cubism.id.ParameterId partnerId
+        ) {
+            guardedVoid(generation, () -> delegate.combineWith(partnerId));
+        }
+        @Override public void uncombine() {
+            guardedVoid(generation, delegate::uncombine);
+        }
         @Override public float getValue() { return guarded(generation, delegate::getValue); }
         @Override public float getMinimumValue() { return guarded(generation, delegate::getMinimumValue); }
         @Override public float getMaximumValue() { return guarded(generation, delegate::getMaximumValue); }

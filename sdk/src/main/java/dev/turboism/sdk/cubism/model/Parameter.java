@@ -2,6 +2,7 @@ package dev.turboism.sdk.cubism.model;
 
 import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.id.ParameterId;
+import java.util.Objects;
 import java.util.Optional;
 
 /** One Cubism parameter. */
@@ -35,6 +36,37 @@ public interface Parameter {
      */
     default Optional<Boolean> combined() {
         return Optional.empty();
+    }
+
+    /**
+     * Returns the other parameter in this Editor four-corner pair.
+     *
+     * <p>The pair is structural: the first parameter carries the host Combined marker and
+     * the immediately following parameter is its partner. Empty means this parameter is
+     * not currently part of a verified pair or the backend cannot expose pair identity.</p>
+     */
+    default Optional<ParameterId> combinedWith() {
+        return Optional.empty();
+    }
+
+    /**
+     * Creates this parameter's explicit Editor four-corner pairing.
+     *
+     * <p>The parameter and partner must be unpaired members of the same Editor parameter
+     * group. Existing pairs are not silently replaced.</p>
+     */
+    default void combineWith(final ParameterId partnerId) {
+        Objects.requireNonNull(partnerId, "partnerId");
+        throw new UnsupportedOperationException(
+            "Parameter Combined editing is unavailable for this backend."
+        );
+    }
+
+    /** Removes this parameter's current Editor four-corner pairing. */
+    default void uncombine() {
+        throw new UnsupportedOperationException(
+            "Parameter Combined editing is unavailable for this backend."
+        );
     }
 
     default boolean isBlendShape() {
