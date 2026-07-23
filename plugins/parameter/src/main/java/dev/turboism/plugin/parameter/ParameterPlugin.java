@@ -2,17 +2,17 @@ package dev.turboism.plugin.parameter;
 
 import dev.turboism.plugin.parameter.service.ParameterCsvService;
 import dev.turboism.sdk.action.ActionRegistry;
+import dev.turboism.sdk.cubism.CubismPlugin;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.Registration;
-import dev.turboism.sdk.plugin.TurboismPlugin;
 
 import java.util.function.Consumer;
 
 /**
  * Official SDK-only plugin shell for parameter CSV import/export behavior.
  */
-public final class ParameterPlugin implements TurboismPlugin {
+public final class ParameterPlugin implements CubismPlugin {
 
     private final ParameterCsvService.CsvContentProvider csvContentProvider;
     private PluginContext context;
@@ -32,7 +32,6 @@ public final class ParameterPlugin implements TurboismPlugin {
         this.context = context;
         this.logger = context.logger();
         this.csvService = new ParameterCsvService(
-            context.cubismRead(),
             context.cubism(),
             context,
             context.uiHost(),

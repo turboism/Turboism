@@ -1,30 +1,15 @@
 package dev.turboism.plugin.parameter.service;
 
-import dev.turboism.sdk.cubism.ArtMeshSnapshot;
-import dev.turboism.sdk.cubism.ClipMaskSnapshot;
 import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.CubismRuntimeSnapshot;
-import dev.turboism.sdk.cubism.DeformerSnapshot;
 import dev.turboism.sdk.cubism.DocumentSnapshot;
-import dev.turboism.sdk.cubism.ModelObjectSnapshot;
 import dev.turboism.sdk.cubism.ModelSnapshot;
-import dev.turboism.sdk.cubism.ParameterSnapshot;
 import dev.turboism.sdk.cubism.ProjectSnapshot;
-import dev.turboism.sdk.cubism.PsdDocumentSnapshot;
-import dev.turboism.sdk.cubism.RenderStatusSnapshot;
-import dev.turboism.sdk.cubism.SelectionSnapshot;
-import dev.turboism.sdk.cubism.TextureAtlasSnapshot;
-import dev.turboism.sdk.cubism.WorkspaceSnapshot;
 import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.cubism.id.ParameterId;
-import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
-import dev.turboism.sdk.cubism.id.DocumentId;
-import dev.turboism.sdk.cubism.transaction.ModelTransaction;
-import dev.turboism.sdk.cubism.transaction.TransactionException;
+import dev.turboism.sdk.cubism.model.CubismModel;
+import dev.turboism.sdk.cubism.model.Parameter;
 import dev.turboism.sdk.cubism.transaction.TransactionManager;
-import dev.turboism.sdk.cubism.transaction.TransactionStatus;
-import dev.turboism.sdk.cubism.write.CubismWriteCommand;
-import dev.turboism.sdk.cubism.write.WriteParameterCommand;
 import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginContext;
@@ -32,7 +17,6 @@ import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.PluginPaths;
 import dev.turboism.sdk.plugin.Registration;
-import dev.turboism.sdk.theme.ThemeStatusSnapshot;
 import dev.turboism.sdk.ui.DialogRequest;
 import dev.turboism.sdk.ui.EmbeddedPanelContribution;
 import dev.turboism.sdk.ui.FileChooserRequest;
@@ -56,16 +40,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ParameterCsvServiceTest {
 
-    private static final List<ParameterSnapshot> SAMPLE_PARAMS = List.of(
-        new ParameterSnapshot("p1", "P1", 0.5, 0.0, -1.0, 1.0, true, true),
-        new ParameterSnapshot("p2", "P2", 0.25, 0.0, -1.0, 1.0, true, true)
-    );
-
     @Test
     void exportCsvBuildsRowsAndNotifiesInfo() {
         RecordingUiHost uiHost = new RecordingUiHost();
         ParameterCsvService service = new ParameterCsvService(
-            new FixedCubismRead(SAMPLE_PARAMS, presentDoc(), presentModel()),
             new RecordingFacade(),
             new MinimalPluginContext(),
             uiHost
@@ -85,14 +63,26 @@ class ParameterCsvServiceTest {
     }
 
     @Test
-    void exportCsvRejectsNonFiniteSnapshotValues() {
+    void exportCsvUsesUnifiedModelParametersInsteadOfLegacySnapshots() {
+        RecordingUiHost uiHost = new RecordingUiHost();
         ParameterCsvService service = new ParameterCsvService(
-            new FixedCubismRead(
-                List.of(new ParameterSnapshot("p1", "P1", Double.NaN, 0.0, -1.0, 1.0, true, true)),
-                presentDoc(),
-                presentModel()
-            ),
             new RecordingFacade(),
+            new MinimalPluginContext(),
+            uiHost
+        );
+
+        service.exportCsv();
+
+        assertEquals("id,value\np1,0.5\np2,0.25\n", service.lastExportCsv());
+        assertEquals(ParameterCsvService.EXPORT_COMPLETED, uiHost.notifications().get(0).id());
+    }
+
+    @Test
+    void exportCsvRejectsNonFiniteUnifiedModelValues() {
+        RecordingFacade facade = new RecordingFacade();
+        facade.model.parameter("p1").value = Float.NaN;
+        ParameterCsvService service = new ParameterCsvService(
+            facade,
             new MinimalPluginContext(),
             new RecordingUiHost()
         );
@@ -103,9 +93,10 @@ class ParameterCsvServiceTest {
     @Test
     void exportCsvWarnsWhenEmpty() {
         RecordingUiHost uiHost = new RecordingUiHost();
+        RecordingFacade facade = new RecordingFacade();
+        facade.model.parameters.clear();
         ParameterCsvService service = new ParameterCsvService(
-            new FixedCubismRead(List.of(), Optional.empty(), Optional.empty()),
-            new RecordingFacade(),
+            facade,
             new MinimalPluginContext(),
             uiHost
         );
@@ -128,7 +119,6 @@ class ParameterCsvServiceTest {
         RecordingUiHost uiHost = new RecordingUiHost();
         uiHost.chosenFile = Optional.empty();
         ParameterCsvService service = new ParameterCsvService(
-            new FixedCubismRead(List.of(), presentDoc(), presentModel()),
             new RecordingFacade(),
             new MinimalPluginContext(),
             uiHost
@@ -147,12 +137,11 @@ class ParameterCsvServiceTest {
     }
 
     @Test
-    void importCsvCommitsWriteCommandsUsingActiveDocumentAndModel() {
+    void importCsvUsesUnifiedModelParametersWithoutOpeningLegacyTransaction() {
         RecordingUiHost uiHost = new RecordingUiHost();
         uiHost.chosenFile = Optional.of("/tmp/params.csv");
         RecordingFacade facade = new RecordingFacade();
         ParameterCsvService service = new ParameterCsvService(
-            new FixedCubismRead(SAMPLE_PARAMS, presentDoc(), presentModel()),
             facade,
             new MinimalPluginContext(),
             uiHost,
@@ -161,13 +150,11 @@ class ParameterCsvServiceTest {
 
         service.importCsv();
 
-        assertEquals(2, facade.transaction().enqueued().size());
-        assertTrue(facade.transaction().committed());
-        assertEquals(new DocumentId("document-1"), facade.transaction().documentId());
-        WriteParameterCommand first = (WriteParameterCommand) facade.transaction().enqueued().get(0);
-        assertEquals(new ModelId("model-1"), first.modelId());
-        assertEquals(new ParameterId("p1"), first.parameterId());
-        assertEquals(0.75f, first.value());
+        CubismModel model = facade.model().active();
+        assertEquals(0.75f, model.parameters().find(new ParameterId("p1")).getValue());
+        assertEquals(0.1f, model.parameters().find(new ParameterId("p2")).getValue());
+        assertEquals(List.of("p1=0.75", "p2=0.1"), facade.parameterWrites());
+        assertEquals(0, facade.transactionOpenCount());
         assertEquals(
             List.of(new StatusNotification(
                 "parameter.csv.import.completed",
@@ -179,12 +166,13 @@ class ParameterCsvServiceTest {
     }
 
     @Test
-    void importCsvUnavailableWithoutActiveDocument() {
+    void importCsvUnavailableWithoutUnifiedActiveModel() {
         RecordingUiHost uiHost = new RecordingUiHost();
         uiHost.chosenFile = Optional.of("/tmp/params.csv");
+        RecordingFacade facade = new RecordingFacade();
+        facade.modelAvailable = false;
         ParameterCsvService service = new ParameterCsvService(
-            new FixedCubismRead(SAMPLE_PARAMS, Optional.empty(), presentModel()),
-            new RecordingFacade(),
+            facade,
             new MinimalPluginContext(),
             uiHost,
             path -> Optional.of("id,value\np1,0.5\n")
@@ -200,7 +188,6 @@ class ParameterCsvServiceTest {
         RecordingUiHost uiHost = new RecordingUiHost();
         uiHost.chosenFile = Optional.of("/tmp/params.csv");
         ParameterCsvService service = new ParameterCsvService(
-            new FixedCubismRead(SAMPLE_PARAMS, presentDoc(), presentModel()),
             new RecordingFacade(),
             new MinimalPluginContext(),
             uiHost,
@@ -213,13 +200,12 @@ class ParameterCsvServiceTest {
     }
 
     @Test
-    void importCsvRollsBackAndWarnsOnFailure() {
+    void importCsvWarnsWhenUnifiedSetterFails() {
         RecordingUiHost uiHost = new RecordingUiHost();
         uiHost.chosenFile = Optional.of("/tmp/params.csv");
         RecordingFacade facade = new RecordingFacade();
-        facade.failOnCommit = true;
+        facade.failOnParameterId = "p1";
         ParameterCsvService service = new ParameterCsvService(
-            new FixedCubismRead(SAMPLE_PARAMS, presentDoc(), presentModel()),
             facade,
             new MinimalPluginContext(),
             uiHost,
@@ -228,7 +214,7 @@ class ParameterCsvServiceTest {
 
         service.importCsv();
 
-        assertTrue(facade.transaction().rolledBack());
+        assertEquals(0, facade.transactionOpenCount());
         assertEquals("parameter.csv.import.failed", uiHost.notifications().get(0).id());
         assertEquals("WARNING", uiHost.notifications().get(0).severity());
     }
@@ -238,7 +224,6 @@ class ParameterCsvServiceTest {
         RecordingUiHost uiHost = new RecordingUiHost();
         uiHost.chosenFile = Optional.of("imports/params.csv");
         ParameterCsvService service = new ParameterCsvService(
-            new FixedCubismRead(SAMPLE_PARAMS, presentDoc(), presentModel()),
             new RecordingFacade(),
             new MinimalPluginContext(),
             uiHost
@@ -250,22 +235,33 @@ class ParameterCsvServiceTest {
     }
 
     @Test
-    void importCsvRejectsUnknownOutOfRangeAndNonEditableParametersBeforeTransaction() {
-        List<ParameterSnapshot> parameters = List.of(
-            new ParameterSnapshot("p1", "P1", 0.5, 0.0, -1.0, 1.0, true, true),
-            new ParameterSnapshot("locked", "Locked", 0.0, 0.0, -1.0, 1.0, true, false)
+    void importCsvValidatesAgainstUnifiedModelMetadataInsteadOfLegacySnapshots() {
+        RecordingUiHost uiHost = new RecordingUiHost();
+        uiHost.chosenFile = Optional.of("imports/params.csv");
+        RecordingFacade facade = new RecordingFacade();
+        ParameterCsvService service = new ParameterCsvService(
+            facade,
+            new MinimalPluginContext(),
+            uiHost,
+            ignored -> Optional.of("id,value\np1,0.75\n")
         );
 
+        service.importCsv();
+
+        assertEquals(List.of("p1=0.75"), facade.parameterWrites());
+        assertEquals(ParameterCsvService.IMPORT_COMPLETED, uiHost.notifications().get(0).id());
+    }
+
+    @Test
+    void importCsvRejectsUnknownAndOutOfRangeParametersBeforeWrite() {
         for (String csv : List.of(
             "id,value\nmissing,0.5\n",
-            "id,value\np1,2.0\n",
-            "id,value\nlocked,0.5\n"
+            "id,value\np1,2.0\n"
         )) {
             RecordingUiHost uiHost = new RecordingUiHost();
             uiHost.chosenFile = Optional.of("imports/params.csv");
             RecordingFacade facade = new RecordingFacade();
             ParameterCsvService service = new ParameterCsvService(
-                new FixedCubismRead(parameters, presentDoc(), presentModel()),
                 facade,
                 new MinimalPluginContext(),
                 uiHost,
@@ -274,7 +270,7 @@ class ParameterCsvServiceTest {
 
             service.importCsv();
 
-            assertTrue(facade.transaction().enqueued().isEmpty());
+            assertTrue(facade.parameterWrites().isEmpty());
             assertEquals("parameter.csv.import.failed", uiHost.notifications().get(0).id());
         }
     }
@@ -292,23 +288,12 @@ class ParameterCsvServiceTest {
     }
 
     @Test
-    void writeParameterCommandRejectsNonFiniteValues() {
-        assertThrows(IllegalArgumentException.class, () -> new WriteParameterCommand(
-            "nan",
-            new ModelId("model-1"),
-            new ParameterId("p1"),
-            Float.NaN
-        ));
-    }
-
-    @Test
-    void transactionFailureUsesSafeUserMessage() {
+    void unifiedSetterFailureUsesSafeUserMessage() {
         RecordingUiHost uiHost = new RecordingUiHost();
         uiHost.chosenFile = Optional.of("imports/params.csv");
         RecordingFacade facade = new RecordingFacade();
-        facade.failOnCommit = true;
+        facade.failOnParameterId = "p1";
         ParameterCsvService service = new ParameterCsvService(
-            new FixedCubismRead(SAMPLE_PARAMS, presentDoc(), presentModel()),
             facade,
             new MinimalPluginContext(),
             uiHost,
@@ -318,7 +303,7 @@ class ParameterCsvServiceTest {
         service.importCsv();
 
         assertEquals(
-            "Parameter CSV import failed. No changes were retained.",
+            "Parameter CSV import failed. Some values may require Undo in Cubism.",
             uiHost.notifications().get(0).message()
         );
     }
@@ -334,113 +319,103 @@ class ParameterCsvServiceTest {
         assertEquals(1.0f, parsed.rows().get(0).value());
     }
 
-    private static Optional<DocumentSnapshot> presentDoc() {
-        return Optional.of(new DocumentSnapshot(
-            "document-1",
-            "Doc",
-            "models/demo.cmo3",
-            Optional.empty(),
-            Optional.empty()
-        ));
-    }
-
-    private static Optional<ModelSnapshot> presentModel() {
-        return Optional.of(new ModelSnapshot(
-            "model-1",
-            "Model",
-            List.of(),
-            List.of(),
-            List.of(),
-            List.of()
-        ));
-    }
-
-    private record FixedCubismRead(
-        List<ParameterSnapshot> parameters,
-        Optional<DocumentSnapshot> document,
-        Optional<ModelSnapshot> model
-    ) implements CubismReadCapabilityService {
-        @Override public Optional<ProjectSnapshot> activeProject() { throw unsupported(); }
-        @Override public Optional<DocumentSnapshot> activeDocument() { return document; }
-        @Override public Optional<ModelSnapshot> activeModel() { return model; }
-        @Override public SelectionSnapshot selection() { throw unsupported(); }
-        @Override public List<ParameterSnapshot> parameters() { return parameters; }
-        @Override public List<ModelObjectSnapshot> modelObjects() { throw unsupported(); }
-        @Override public List<ArtMeshSnapshot> meshes() { throw unsupported(); }
-        @Override public List<DeformerSnapshot> deformers() { throw unsupported(); }
-        @Override public List<PsdDocumentSnapshot> psdDocuments() { throw unsupported(); }
-        @Override public List<ClipMaskSnapshot> clipMasks() { throw unsupported(); }
-        @Override public List<TextureAtlasSnapshot> textureAtlases() { throw unsupported(); }
-        @Override public Optional<RenderStatusSnapshot> renderStatus() { throw unsupported(); }
-        @Override public Optional<WorkspaceSnapshot> workspace() { throw unsupported(); }
-        @Override public Optional<ThemeStatusSnapshot> themeStatus() { throw unsupported(); }
-
-        private static UnsupportedOperationException unsupported() {
-            return new UnsupportedOperationException("not used");
-        }
-    }
-
     private static final class RecordingFacade implements CubismFacade {
-        private final RecordingTransaction transaction = new RecordingTransaction();
-        private boolean failOnCommit;
+        private final RecordingModel model = new RecordingModel();
+        private boolean modelAvailable = true;
+        private String failOnParameterId;
+        private int transactionOpenCount;
 
-        RecordingTransaction transaction() { return transaction; }
+        List<String> parameterWrites() { return model.parameterWrites(); }
+        int transactionOpenCount() { return transactionOpenCount; }
 
         @Override public CubismRuntimeSnapshot runtime() { throw new UnsupportedOperationException(); }
         @Override public Optional<ProjectSnapshot> activeProject() { return Optional.empty(); }
         @Override public Optional<DocumentSnapshot> activeDocument() { return Optional.empty(); }
         @Override public Optional<ModelSnapshot> activeModel() { return Optional.empty(); }
         @Override public boolean isHostPresent() { return false; }
+        @Override public dev.turboism.sdk.cubism.model.CubismModelAccess model() {
+            return () -> {
+                if (!modelAvailable) {
+                    throw new IllegalStateException("no active model");
+                }
+                model.failOnParameterId = failOnParameterId;
+                return model;
+            };
+        }
 
         @Override
         public TransactionManager transactionManager() {
             return (ctx, docId) -> {
-                transaction.documentId = docId;
-                if (failOnCommit) {
-                    transaction.failOnCommit = true;
-                }
-                return transaction;
+                transactionOpenCount++;
+                throw new AssertionError("legacy transaction manager must not be used");
             };
         }
     }
 
-    private static final class RecordingTransaction implements ModelTransaction {
-        private final List<CubismWriteCommand> enqueued = new ArrayList<>();
-        private TransactionStatus status = TransactionStatus.OPEN;
-        private boolean committed;
-        private boolean rolledBack;
-        private boolean failOnCommit;
-        private DocumentId documentId;
+    private static final class RecordingModel implements CubismModel {
+        private final List<RecordingParameter> parameters = new ArrayList<>(List.of(
+            new RecordingParameter("p1", 0.5f, -1.0f, 1.0f),
+            new RecordingParameter("p2", 0.25f, -1.0f, 1.0f)
+        ));
+        private final List<String> writes = new ArrayList<>();
+        private String failOnParameterId;
 
-        List<CubismWriteCommand> enqueued() { return enqueued; }
-        boolean committed() { return committed; }
-        boolean rolledBack() { return rolledBack; }
-        DocumentId documentId() { return documentId; }
-
-        @Override public TransactionStatus status() { return status; }
-
-        @Override
-        public void enqueue(CubismWriteCommand command) {
-            enqueued.add(command);
+        List<String> parameterWrites() { return List.copyOf(writes); }
+        RecordingParameter parameter(String id) {
+            return parameters.stream()
+                .filter(parameter -> parameter.id.value().equals(id))
+                .findFirst()
+                .orElseThrow();
         }
 
-        @Override
-        public void commit() throws TransactionException {
-            if (failOnCommit) {
-                status = TransactionStatus.FAILED;
-                throw new TransactionException("tx-test", 1, "ERROR", "commit failed");
+        @Override public ModelId id() { return new ModelId("model-1"); }
+        @Override public dev.turboism.sdk.cubism.model.Parameters parameters() {
+            return new dev.turboism.sdk.cubism.model.Parameters() {
+                @Override public List<Parameter> all() { return List.copyOf(parameters); }
+                @Override public Parameter find(ParameterId id) {
+                    return parameters.stream()
+                        .filter(parameter -> parameter.id().equals(id))
+                        .findFirst()
+                        .orElseThrow();
+                }
+            };
+        }
+        @Override public dev.turboism.sdk.cubism.model.Parts parts() { throw unsupported(); }
+        @Override public dev.turboism.sdk.cubism.model.Drawables drawables() { throw unsupported(); }
+        @Override public dev.turboism.sdk.cubism.model.Deformers deformers() { throw unsupported(); }
+        @Override public dev.turboism.sdk.cubism.model.Glues glues() { throw unsupported(); }
+        @Override public void update() { throw unsupported(); }
+
+        private final class RecordingParameter implements Parameter {
+            private final ParameterId id;
+            private final float minimum;
+            private final float maximum;
+            private float value;
+
+            private RecordingParameter(String id, float value, float minimum, float maximum) {
+                this.id = new ParameterId(id);
+                this.value = value;
+                this.minimum = minimum;
+                this.maximum = maximum;
             }
-            committed = true;
-            status = TransactionStatus.COMMITTED;
+
+            @Override public ParameterId id() { return id; }
+            @Override public float getValue() { return value; }
+            @Override public float getMinimumValue() { return minimum; }
+            @Override public float getMaximumValue() { return maximum; }
+            @Override public float getDefaultValue() { return 0.0f; }
+            @Override public void setValue(float value) {
+                if (id.value().equals(failOnParameterId)) {
+                    throw new IllegalStateException("write failed");
+                }
+                this.value = value;
+                writes.add(id.value() + "=" + value);
+            }
         }
 
-        @Override
-        public void rollback() {
-            rolledBack = true;
-            status = TransactionStatus.ROLLED_BACK;
+        private static UnsupportedOperationException unsupported() {
+            return new UnsupportedOperationException("not used");
         }
-
-        @Override public String transactionId() { return "tx-test"; }
     }
 
     private static final class MinimalPluginContext implements PluginContext {

@@ -5,7 +5,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.turboism.adapter.cubism.VerifiedClipMaskHostOperations;
 import dev.turboism.adapter.cubism.VerifiedProjectWorkspaceHostOperations;
 import dev.turboism.mapping.verification.ClipMaskVerificationManifest;
+import dev.turboism.mapping.verification.CorePublicApiSelectorContract;
+import dev.turboism.mapping.verification.CorePublicApiTrustRoots;
+import dev.turboism.mapping.verification.EditorModelVerificationManifest;
 import dev.turboism.mapping.verification.HostArtifactDigest;
+import dev.turboism.mapping.verification.MainToolbarVerificationManifest;
 import dev.turboism.mapping.verification.ProjectWorkspaceVerificationManifest;
 import dev.turboism.mapping.verification.StaticVerificationRecordValidator;
 import org.junit.jupiter.api.Test;
@@ -56,6 +60,11 @@ class StaticVerificationRecordRepositoryTest {
             "[5.3.02,5.3.03)",
             SliceKind.PROJECT_WORKSPACE
         ),
+        "docs/migration/verification/static/cubism-5.2-core-model-read.json",
+        coreExpectation("5.2", "5.2.0", 36_237L,
+            "85959a0572be02ee45d128cfdaf9046631241310b741d6b149d295a0dec7451e",
+            "a32d871209c7449e4adfa84a3a25e928c759f118e36e2bb5349ad5deeff28382",
+            69, "[5.2.0,5.3.0)"),
         "docs/migration/verification/static/cubism-5.3.02-clipmask.json",
         new SliceExpectation(
             ClipMaskVerificationManifest.VERIFICATION_ID,
@@ -77,8 +86,189 @@ class StaticVerificationRecordRepositoryTest {
             Path.of("cubism-ref/profiles/draft/cubism-5.3.02.json"),
             "[5.3.02,5.3.03)",
             SliceKind.CLIP_MASK
-        )
+        ),
+        "docs/migration/verification/static/cubism-5.3.02-ui-main-toolbar.json",
+        new SliceExpectation(
+            MainToolbarVerificationManifest.VERIFICATION_ID,
+            MainToolbarVerificationManifest.ADAPTER_SLICE_ID,
+            MainToolbarVerificationManifest.CUBISM_VERSION,
+            MainToolbarVerificationManifest.PROFILE_ID,
+            MainToolbarVerificationManifest.CAPABILITY_IDS,
+            "Live2D_Cubism.jar",
+            MainToolbarVerificationManifest.ARTIFACT_SIZE,
+            MainToolbarVerificationManifest.ARTIFACT_SHA256,
+            MainToolbarVerificationManifest.RECORD_SHA256,
+            25,
+            MainToolbarVerificationManifest.REQUIRED_ALIASES,
+            MainToolbarVerificationManifest.REQUIRED_ALIASES,
+            mainToolbarMethodAliases(),
+            difference(MainToolbarVerificationManifest.REQUIRED_ALIASES, mainToolbarMethodAliases()),
+            "cubism-5.3.02-ui-main-toolbar",
+            Path.of("cubism-ref/mapping-packs/draft/cubism-5.3.02-ui-main-toolbar.json"),
+            Path.of("cubism-ref/profiles/draft/cubism-5.3.02.json"),
+            "[5.3.02,5.3.03)",
+            SliceKind.EDITOR_UI
+        ),
+        "docs/migration/verification/static/cubism-5.3.02-editor-model.json",
+        new SliceExpectation(
+            EditorModelVerificationManifest.VERIFICATION_ID,
+            EditorModelVerificationManifest.ADAPTER_SLICE_ID,
+            EditorModelVerificationManifest.CUBISM_VERSION,
+            EditorModelVerificationManifest.PROFILE_ID,
+            EditorModelVerificationManifest.CAPABILITY_IDS,
+            "Live2D_Cubism.jar",
+            EditorModelVerificationManifest.ARTIFACT_SIZE,
+            EditorModelVerificationManifest.ARTIFACT_SHA256,
+            EditorModelVerificationManifest.RECORD_SHA256,
+            82,
+            EditorModelVerificationManifest.REQUIRED_ALIASES,
+            EditorModelVerificationManifest.REQUIRED_ALIASES,
+            editorModelMethodAliases(),
+            difference(EditorModelVerificationManifest.REQUIRED_ALIASES, editorModelMethodAliases()),
+            "cubism-5.3.02-editor-model-read",
+            Path.of("cubism-ref/mapping-packs/draft/cubism-5.3.02-editor-model-read.json"),
+            Path.of("cubism-ref/profiles/draft/cubism-5.3.02.json"),
+            "[5.3.02,5.3.03)",
+            SliceKind.EDITOR_MODEL
+        ),
+        "docs/migration/verification/static/cubism-5.3.02-core-model-read.json",
+        coreExpectation("5.3.02", "5.3.2", 42_471L,
+            "98f4dac9a9508a6e255f6f3862608409a83e29c9009a7f0fcf517e06658164e4",
+            "986bcddca88c35dc09b848ccb6737d0a70a12b2fd030a52be838ce533c687073",
+            70, "[5.3.02,5.3.03)")
     );
+
+    private static Set<String> mainToolbarMethodAliases() {
+        return Set.of(
+            "cubism.ui-main-toolbar.app-controller.instance",
+            "cubism.ui-main-toolbar.app-controller.main-frame",
+            "cubism.ui-main-toolbar.main-frame.view",
+            "cubism.ui-main-toolbar.main-frame-view.home-button",
+            "cubism.ui-main-toolbar.widget.parent",
+            "cubism.ui-main-toolbar.widget.name",
+            "cubism.ui-main-toolbar.widget.set-name",
+            "cubism.ui-main-toolbar.widget.set-tooltip",
+            "cubism.ui-main-toolbar.widget.set-pref-width",
+            "cubism.ui-main-toolbar.widget.set-pref-height",
+            "cubism.ui-main-toolbar.widget.revalidate",
+            "cubism.ui-main-toolbar.widget.repaint",
+            "cubism.ui-main-toolbar.container.children",
+            "cubism.ui-main-toolbar.container.add",
+            "cubism.ui-main-toolbar.container.remove",
+            "cubism.ui-main-toolbar.icon-button.create",
+            "cubism.ui-main-toolbar.icon-button.set-rollover-icon",
+            "cubism.ui-main-toolbar.icon.create"
+        );
+    }
+
+    private static Set<String> editorModelMethodAliases() {
+        return Set.of(
+            "cubism.editor-model.app-controller.instance",
+            "cubism.editor-model.app-controller.current-document",
+            "cubism.editor-model.app-controller.complete-pack",
+            "cubism.editor-model.app-controller.main-frame",
+            "cubism.editor-model.modeling-document.model-source",
+            "cubism.editor-model.modeling-document.last-active-view",
+            "cubism.editor-model.modeling-view.model",
+            "cubism.editor-model.model-source.guid",
+            "cubism.editor-model.model-source.current-instance",
+            "cubism.editor-model.model-source.all-parameters",
+            "cubism.editor-model.model.parameter-set",
+            "cubism.editor-model.parameter-set.parameters",
+            "cubism.editor-model.parameter.id",
+            "cubism.editor-model.parameter.value",
+            "cubism.editor-model.parameter.source",
+            "cubism.editor-model.parameter-source.minimum",
+            "cubism.editor-model.parameter-source.maximum",
+            "cubism.editor-model.parameter-source.default",
+            "cubism.editor-model.parameter-source.name",
+            "cubism.editor-model.parameter-source.repeat",
+            "cubism.editor-model.parameter-source.morph-target",
+            "cubism.editor-model.parameter-source.combined",
+            "cubism.editor-model.parameter-source.id",
+            "cubism.editor-model.id.value",
+            "cubism.editor-model.guid.value",
+            "cubism.editor-model.main-frame.parameter-palette",
+            "cubism.editor-model.parameter-palette.view",
+            "cubism.editor-model.parameter-palette-view.operation",
+            "cubism.editor-model.parameter-operation.set-value",
+            "cubism.editor-model.complete-pack.update-parameter",
+            "cubism.editor-model.complete-pack.repaint-canvas",
+            "cubism.editor-model.modeling-document.edit-mode",
+            "cubism.editor-model.modeling-document.mark-dirty",
+            "cubism.editor-model.edit-mode.begin",
+            "cubism.editor-model.edit-mode.end",
+            "cubism.editor-model.undo.add",
+            "cubism.editor-model.simple-undo.create",
+            "cubism.editor-model.parameter-operation.property-editor",
+            "cubism.editor-model.parameter-operation.validator",
+            "cubism.editor-model.parameter-operation.refresh",
+            "cubism.editor-model.parameter-property-editor.update-definition",
+            "cubism.editor-model.parameter-property-editor.rebuild-keep-value",
+            "cubism.editor-model.parameter-validator.valid-id",
+            "cubism.editor-model.parameter-validator.supports-type",
+            "cubism.editor-model.parameter-validator.reject-type-change",
+            "cubism.editor-model.parameter-validator.allow-repeat",
+            "cubism.editor-model.parameter-validator.keys-outside-range",
+            "cubism.editor-model.parameter-validator.default-change-affects-morph-target",
+            "cubism.editor-model.parameter-helper.instance",
+            "cubism.editor-model.parameter-helper.morph-target-eligible",
+            "cubism.editor-model.parameter-source.model-source",
+            "cubism.editor-model.model-source.all-objects",
+            "cubism.editor-model.parameter-controllable.keyform-grid",
+            "cubism.editor-model.keyform-grid.contains-parameter",
+            "cubism.editor-model.parameter-controllable.morph-target-set",
+            "cubism.editor-model.morph-target-set.contains-parameter",
+            "cubism.editor-model.parameter-source.guid",
+            "cubism.editor-model.parameter-refresh-callback.create"
+        );
+    }
+
+    private static SliceExpectation coreExpectation(
+        final String profile,
+        final String exactVersion,
+        final long artifactSize,
+        final String artifactSha256,
+        final String recordSha256,
+        final int selectorCount,
+        final String versionRange
+    ) {
+        final Set<String> aliases = CorePublicApiSelectorContract
+            .requiredAliasesFor(profile)
+            .orElseThrow();
+        final Set<String> methods = CorePublicApiSelectorContract
+            .structuralMethodAliasesFor(profile)
+            .orElseThrow();
+        final Set<String> versionMethods = Set.of(
+            CorePublicApiSelectorContract.GET_VERSION,
+            CorePublicApiSelectorContract.GET_MAJOR,
+            CorePublicApiSelectorContract.GET_MINOR,
+            CorePublicApiSelectorContract.GET_PATCH
+        );
+        final Set<String> allMethods = new HashSet<>(methods);
+        allMethods.addAll(versionMethods);
+        return new SliceExpectation(
+            CorePublicApiTrustRoots.verificationId(profile),
+            CorePublicApiSelectorContract.ADAPTER_SLICE_ID,
+            exactVersion,
+            "cubism-" + profile,
+            CorePublicApiSelectorContract.CAPABILITY_IDS,
+            "Live2DCubismCore.jar",
+            artifactSize,
+            artifactSha256,
+            recordSha256,
+            selectorCount,
+            aliases,
+            aliases,
+            Set.copyOf(allMethods),
+            difference(aliases, allMethods),
+            "cubism-" + profile + "-core-model-read",
+            Path.of("cubism-ref/mapping-packs/draft/cubism-" + profile + "-core-model-read.json"),
+            Path.of("cubism-ref/profiles/draft/cubism-" + profile + ".json"),
+            versionRange,
+            SliceKind.CORE
+        );
+    }
 
     private final ObjectMapper mapper = new ObjectMapper();
     private final StaticVerificationRecordValidator validator = new StaticVerificationRecordValidator();
@@ -148,7 +338,14 @@ class StaticVerificationRecordRepositoryTest {
 
         final JsonNode pack = mapper.readTree(PROJECT_ROOT.resolve(expectation.packPath()).toFile());
         assertEquals("DRAFT", pack.get("status").asText(), "mapping pack readiness must remain DRAFT");
-        assertEquals(expectation.cubismVersion(), pack.get("cubismVersion").asText(), "mapping pack version drift");
+        final String packVersion = pack.get("cubismVersion").asText();
+        if (expectation.kind() == SliceKind.CORE
+            || expectation.kind() == SliceKind.EDITOR_MODEL) {
+            assertTrue(expectation.profileId().equals("cubism-" + packVersion),
+                "Core mapping pack profile label drift");
+        } else {
+            assertEquals(expectation.cubismVersion(), packVersion, "mapping pack version drift");
+        }
         final Map<String, JsonNode> packEntries = uniqueNodesBy(
             pack.get("entries"), "semanticName", expectation.packId() + " pack"
         );
@@ -268,7 +465,10 @@ class StaticVerificationRecordRepositoryTest {
 
     private enum SliceKind {
         PROJECT_WORKSPACE,
-        CLIP_MASK
+        CLIP_MASK,
+        CORE,
+        EDITOR_MODEL,
+        EDITOR_UI
     }
 
     private record SliceExpectation(

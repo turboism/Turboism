@@ -19,7 +19,7 @@ public final class MainToolbarHomeEntryService {
     private static final String CONTRIBUTION_ID = "main-toolbar.home-entry";
     private static final String LABEL_KEY = "main-toolbar.home-entry.label";
     private static final String TOOLTIP_KEY = "main-toolbar.home-entry.tooltip";
-    private static final String ICON_RESOURCE_PATH = "icons/main-toolbar-home.svg";
+    private static final String ICON_RESOURCE_PATH = "icons/main-toolbar-home.png";
     private static final int ORDER = 10;
     private static final String PROJECT_SUMMARY_NOTIFICATION_ID = "main-toolbar.home-entry.project-summary";
     private static final String NO_PROJECT_NOTIFICATION_ID = "main-toolbar.home-entry.no-project";
@@ -45,8 +45,15 @@ public final class MainToolbarHomeEntryService {
                 ACTION_ID,
                 LABEL_KEY,
                 TOOLTIP_KEY,
-                MainToolbarRegistry.IconVariants.normal(ICON_RESOURCE_PATH),
-                MainToolbarRegistry.Placement.before(MainToolbarRegistry.Anchor.HOST_HOME_ENTRY),
+                new MainToolbarRegistry.IconVariants(
+                    ICON_RESOURCE_PATH,
+                    Optional.of("icons/main-toolbar-home-hover.png"),
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty()
+                ),
+                MainToolbarRegistry.Placement.after(MainToolbarRegistry.Anchor.HOST_HOME_ENTRY),
                 ORDER
             )
         );

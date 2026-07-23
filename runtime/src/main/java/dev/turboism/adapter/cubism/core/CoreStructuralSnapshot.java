@@ -10,7 +10,11 @@ record CoreStructuralSnapshot(
     String providerId,
     String artifactProfile,
     CoreCanvasSnapshot canvas,
-    List<CoreParameterDefinition> parameters
+    List<CoreParameterDefinition> parameters,
+    List<CorePartDefinition> parts,
+    List<CoreDrawableDefinition> drawables,
+    List<CoreDeformerDefinition> deformers,
+    List<CoreGlueDefinition> glues
 ) {
 
     CoreStructuralSnapshot {
@@ -22,6 +26,10 @@ record CoreStructuralSnapshot(
         artifactProfile = requireText(artifactProfile, "artifactProfile");
         canvas = Objects.requireNonNull(canvas, "canvas");
         parameters = List.copyOf(Objects.requireNonNull(parameters, "parameters"));
+        parts = List.copyOf(Objects.requireNonNull(parts, "parts"));
+        drawables = List.copyOf(Objects.requireNonNull(drawables, "drawables"));
+        deformers = List.copyOf(Objects.requireNonNull(deformers, "deformers"));
+        glues = List.copyOf(Objects.requireNonNull(glues, "glues"));
     }
 
     private static String requireText(final String value, final String name) {
