@@ -21,7 +21,9 @@ public final class StaticVerificationRecordValidator extends AbstractJsonValidat
         "mappingId", "alias", "kind", "ownerInternalName", "memberName", "descriptor",
         "requiredAccessFlags", "forbiddenAccessFlags", "status"
     );
-    private static final Set<String> ALLOWED_KINDS = Set.of("class", "method", "field");
+    private static final Set<String> ALLOWED_KINDS = Set.of(
+        "class", "constructor", "method", "field"
+    );
 
     public StaticVerificationRecordValidator() {
         super(
@@ -234,7 +236,7 @@ public final class StaticVerificationRecordValidator extends AbstractJsonValidat
             if (!ALLOWED_KINDS.contains(kind)) {
                 errors.add(error(
                     "STATIC_VERIFICATION_RECORD_BAD_SELECTOR",
-                    "selector kind must be class, method, or field",
+                    "selector kind must be class, constructor, method, or field",
                     path + ".kind",
                     source
                 ));
@@ -251,9 +253,20 @@ public final class StaticVerificationRecordValidator extends AbstractJsonValidat
                     ));
                 }
             }
-            if ("method".equals(kind) || "field".equals(kind)) {
+            if ("constructor".equals(kind) || "method".equals(kind) || "field".equals(kind)) {
                 requireSelectorText(selector, "memberName", path, errors, source);
                 requireSelectorText(selector, "descriptor", path, errors, source);
+            }
+            if ("constructor".equals(kind)
+                && selector.has("memberName")
+                && selector.get("memberName").isTextual()
+                && !"<init>".equals(selector.get("memberName").asText())) {
+                errors.add(error(
+                    "STATIC_VERIFICATION_RECORD_BAD_SELECTOR",
+                    "constructor selector memberName must be <init>",
+                    path + ".memberName",
+                    source
+                ));
             }
             requireNonNegativeInteger(selector, "requiredAccessFlags", path, errors, source);
             requireNonNegativeInteger(selector, "forbiddenAccessFlags", path, errors, source);

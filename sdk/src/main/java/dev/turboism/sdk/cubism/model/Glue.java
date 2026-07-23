@@ -7,4 +7,10 @@ import dev.turboism.sdk.PreviewApi;
 public interface Glue {
 
     GlueId id();
+
+    int drawableA();
+
+    int drawableB();
+
+    IntSequence parameters();
 }

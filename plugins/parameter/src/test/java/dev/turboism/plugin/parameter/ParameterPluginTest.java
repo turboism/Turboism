@@ -1,26 +1,17 @@
 package dev.turboism.plugin.parameter;
 
+import dev.turboism.plugin.parameter.service.ParameterCsvService;
 import dev.turboism.sdk.action.ActionRegistry;
-import dev.turboism.sdk.cubism.ArtMeshSnapshot;
-import dev.turboism.sdk.cubism.ClipMaskSnapshot;
 import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.CubismRuntimeSnapshot;
-import dev.turboism.sdk.cubism.DeformerSnapshot;
 import dev.turboism.sdk.cubism.DocumentSnapshot;
-import dev.turboism.sdk.cubism.ModelObjectSnapshot;
 import dev.turboism.sdk.cubism.ModelSnapshot;
-import dev.turboism.sdk.cubism.ParameterSnapshot;
 import dev.turboism.sdk.cubism.ProjectSnapshot;
-import dev.turboism.sdk.cubism.PsdDocumentSnapshot;
-import dev.turboism.sdk.cubism.RenderStatusSnapshot;
-import dev.turboism.sdk.cubism.SelectionSnapshot;
-import dev.turboism.sdk.cubism.TextureAtlasSnapshot;
-import dev.turboism.sdk.cubism.WorkspaceSnapshot;
-import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
-import dev.turboism.sdk.cubism.transaction.ModelTransaction;
+import dev.turboism.sdk.cubism.id.ModelId;
+import dev.turboism.sdk.cubism.id.ParameterId;
+import dev.turboism.sdk.cubism.model.CubismModel;
+import dev.turboism.sdk.cubism.model.Parameter;
 import dev.turboism.sdk.cubism.transaction.TransactionManager;
-import dev.turboism.sdk.cubism.transaction.TransactionStatus;
-import dev.turboism.sdk.cubism.write.CubismWriteCommand;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
 import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.menu.MenuRegistry;
@@ -31,7 +22,6 @@ import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.PluginPaths;
 import dev.turboism.sdk.plugin.Registration;
-import dev.turboism.sdk.theme.ThemeStatusSnapshot;
 import dev.turboism.sdk.ui.DialogRequest;
 import dev.turboism.sdk.ui.EmbeddedPanelContribution;
 import dev.turboism.sdk.ui.FileChooserRequest;
@@ -87,6 +77,23 @@ class ParameterPluginTest {
     }
 
     @Test
+    void importActionWritesThroughUnifiedParameterSetter() {
+        RecordingPluginContext context = new RecordingPluginContext(new TestPluginLogger());
+        context.uiHost().chosenFile = Optional.of("imports/params.csv");
+        ParameterPlugin plugin = new ParameterPlugin(
+            ignored -> Optional.of("id,value\np1,0.75\n")
+        );
+
+        plugin.init(context);
+        plugin.enable();
+        context.actions().execute(ParameterCsvService.IMPORT_ACTION_ID);
+
+        assertEquals(0.75f, context.cubism().parameterValue());
+        assertEquals(List.of("p1=0.75"), context.cubism().writes());
+        assertEquals(ParameterCsvService.IMPORT_COMPLETED, context.uiHost().notifications().get(0).id());
+    }
+
+    @Test
     void disposableScopeClosesActions() throws Exception {
         RecordingPluginContext context = new RecordingPluginContext(new TestPluginLogger());
         ParameterPlugin plugin = new ParameterPlugin();
@@ -101,8 +108,7 @@ class ParameterPluginTest {
         private final RecordingActionRegistry actions = new RecordingActionRegistry();
         private final RecordingUiHost uiHost = new RecordingUiHost();
         private final PluginLogger logger;
-        private final CubismReadCapabilityService cubismRead = new FixedCubismRead();
-        private final CubismFacade cubism = new FixedCubismFacade();
+        private final FixedCubismFacade cubism = new FixedCubismFacade();
 
         RecordingPluginContext(PluginLogger logger) {
             this.logger = logger;
@@ -111,8 +117,7 @@ class ParameterPluginTest {
         @Override public PluginDescriptor descriptor() { throw new UnsupportedOperationException(); }
         @Override public PluginLogger logger() { return logger; }
         @Override public PluginPaths paths() { throw new UnsupportedOperationException(); }
-        @Override public CubismFacade cubism() { return cubism; }
-        @Override public CubismReadCapabilityService cubismRead() { return cubismRead; }
+        @Override public FixedCubismFacade cubism() { return cubism; }
         @Override public List<PluginPermission> permissions() { return List.of(); }
         @Override public EventBus eventBus() { throw new UnsupportedOperationException(); }
         @Override public RecordingActionRegistry actions() { return actions; }
@@ -123,42 +128,54 @@ class ParameterPluginTest {
         @Override public RecordingUiHost uiHost() { return uiHost; }
     }
 
-    private static final class FixedCubismRead implements CubismReadCapabilityService {
-        @Override public Optional<ProjectSnapshot> activeProject() { throw unsupported(); }
-        @Override public Optional<DocumentSnapshot> activeDocument() { throw unsupported(); }
-        @Override public Optional<ModelSnapshot> activeModel() { throw unsupported(); }
-        @Override public SelectionSnapshot selection() { throw unsupported(); }
-        @Override public List<ParameterSnapshot> parameters() {
-            return List.of(new ParameterSnapshot("p1", "P1", 0.5, 0.0, -1.0, 1.0, true, true));
-        }
-        @Override public List<ModelObjectSnapshot> modelObjects() { throw unsupported(); }
-        @Override public List<ArtMeshSnapshot> meshes() { throw unsupported(); }
-        @Override public List<DeformerSnapshot> deformers() { throw unsupported(); }
-        @Override public List<PsdDocumentSnapshot> psdDocuments() { throw unsupported(); }
-        @Override public List<ClipMaskSnapshot> clipMasks() { throw unsupported(); }
-        @Override public List<TextureAtlasSnapshot> textureAtlases() { throw unsupported(); }
-        @Override public Optional<RenderStatusSnapshot> renderStatus() { throw unsupported(); }
-        @Override public Optional<WorkspaceSnapshot> workspace() { throw unsupported(); }
-        @Override public Optional<ThemeStatusSnapshot> themeStatus() { throw unsupported(); }
-        private static UnsupportedOperationException unsupported() {
-            return new UnsupportedOperationException("not used");
-        }
-    }
-
     private static final class FixedCubismFacade implements CubismFacade {
+        private final List<String> writes = new ArrayList<>();
+        private float parameterValue = 0.5f;
+
+        float parameterValue() { return parameterValue; }
+        List<String> writes() { return List.copyOf(writes); }
+
         @Override public CubismRuntimeSnapshot runtime() { throw new UnsupportedOperationException(); }
         @Override public Optional<ProjectSnapshot> activeProject() { return Optional.empty(); }
         @Override public Optional<DocumentSnapshot> activeDocument() { return Optional.empty(); }
         @Override public Optional<ModelSnapshot> activeModel() { return Optional.empty(); }
         @Override public boolean isHostPresent() { return false; }
-        @Override public TransactionManager transactionManager() {
-            return (ctx, docId) -> new ModelTransaction() {
-                @Override public TransactionStatus status() { return TransactionStatus.OPEN; }
-                @Override public void enqueue(CubismWriteCommand command) {}
-                @Override public void commit() {}
-                @Override public void rollback() {}
-                @Override public String transactionId() { return "tx"; }
+        @Override public dev.turboism.sdk.cubism.model.CubismModelAccess model() {
+            return () -> new CubismModel() {
+                private final Parameter parameter = new Parameter() {
+                    @Override public ParameterId id() { return new ParameterId("p1"); }
+                    @Override public float getValue() { return parameterValue; }
+                    @Override public float getMinimumValue() { return -1.0f; }
+                    @Override public float getMaximumValue() { return 1.0f; }
+                    @Override public float getDefaultValue() { return 0.0f; }
+                    @Override public void setValue(float value) {
+                        parameterValue = value;
+                        writes.add("p1=" + value);
+                    }
+                };
+
+                @Override public ModelId id() { return new ModelId("model-1"); }
+                @Override public dev.turboism.sdk.cubism.model.Parameters parameters() {
+                    return new dev.turboism.sdk.cubism.model.Parameters() {
+                        @Override public List<Parameter> all() { return List.of(parameter); }
+                        @Override public Parameter find(ParameterId id) { return parameter; }
+                    };
+                }
+                @Override public dev.turboism.sdk.cubism.model.Parts parts() { throw unsupported(); }
+                @Override public dev.turboism.sdk.cubism.model.Drawables drawables() { throw unsupported(); }
+                @Override public dev.turboism.sdk.cubism.model.Deformers deformers() { throw unsupported(); }
+                @Override public dev.turboism.sdk.cubism.model.Glues glues() { throw unsupported(); }
+                @Override public void update() { throw unsupported(); }
             };
+        }
+        @Override public TransactionManager transactionManager() {
+            return (ctx, docId) -> {
+                throw new AssertionError("legacy transaction manager must not be used");
+            };
+        }
+
+        private static UnsupportedOperationException unsupported() {
+            return new UnsupportedOperationException("not used");
         }
     }
 
@@ -177,6 +194,7 @@ class ParameterPluginTest {
 
     private static final class RecordingUiHost implements UiHostCapabilityService {
         private final List<StatusNotification> notifications = new ArrayList<>();
+        private Optional<String> chosenFile = Optional.empty();
         List<StatusNotification> notifications() { return notifications; }
         @Override public Registration contributeOverlay(OverlayContribution contribution) { throw unsupported(); }
         @Override public ContextSourceSnapshot contextSource() { throw unsupported(); }
@@ -184,7 +202,7 @@ class ParameterPluginTest {
         @Override public Registration openDialog(DialogRequest request) { throw unsupported(); }
         @Override public boolean confirmDialog(DialogRequest request) { throw unsupported(); }
         @Override public Registration contributeEmbeddedPanel(EmbeddedPanelContribution contribution) { throw unsupported(); }
-        @Override public Optional<String> requestFile(FileChooserRequest request) { return Optional.empty(); }
+        @Override public Optional<String> requestFile(FileChooserRequest request) { return chosenFile; }
         @Override public Registration notifyStatus(StatusNotification notification) {
             notifications.add(notification);
             return () -> notifications.remove(notification);

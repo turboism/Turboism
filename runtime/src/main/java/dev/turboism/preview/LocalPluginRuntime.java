@@ -1,6 +1,7 @@
 package dev.turboism.preview;
 
 import dev.turboism.adapter.host.RuntimeHostAdapterAccess;
+import dev.turboism.adapter.cubism.lifecycle.ParameterLifecycleCoordinator;
 import dev.turboism.cleanup.CleanupEvidenceCollector;
 import dev.turboism.core.lifecycle.PluginLifecycleState;
 import dev.turboism.core.plugin.PluginRuntime;
@@ -25,6 +26,7 @@ public final class LocalPluginRuntime implements AutoCloseable {
     private final RuntimeFailureCollector failureCollector;
     private final PreviewPluginLoadCoordinator loadCoordinator;
     private final PreviewPluginShutdown shutdown;
+    private final ParameterLifecycleCoordinator parameterLifecycle;
     private final List<LoadedPlugin> loaded = new ArrayList<>();
     private List<LoadedPluginSummary> closedSummaries = List.of();
     private final AtomicBoolean started = new AtomicBoolean(false);
@@ -36,7 +38,34 @@ public final class LocalPluginRuntime implements AutoCloseable {
         final RuntimeHostAdapterAccess hostAccess,
         final PreviewLog log
     ) {
-        this(home, scheduler, hostAccess, log, new RuntimeFailureCollector(), (pluginId, phase) -> { });
+        this(
+            home,
+            scheduler,
+            hostAccess,
+            log,
+            new RuntimeFailureCollector(),
+            (pluginId, phase) -> { },
+            hostAccess.parameterLifecycle()
+        );
+    }
+
+    /** Package-private parameter-lifecycle seam retained for integration tests. */
+    LocalPluginRuntime(
+        final Path home,
+        final RuntimeScheduler scheduler,
+        final RuntimeHostAdapterAccess hostAccess,
+        final PreviewLog log,
+        final ParameterLifecycleCoordinator parameterLifecycle
+    ) {
+        this(
+            home,
+            scheduler,
+            hostAccess,
+            log,
+            new RuntimeFailureCollector(),
+            (pluginId, phase) -> { },
+            parameterLifecycle
+        );
     }
 
     /** Package-private close/report-failure seam retained for lifecycle tests. */
@@ -47,7 +76,15 @@ public final class LocalPluginRuntime implements AutoCloseable {
         final PreviewLog log,
         final PluginCloseHook pluginCloseHook
     ) {
-        this(home, scheduler, hostAccess, log, new RuntimeFailureCollector(), pluginCloseHook);
+        this(
+            home,
+            scheduler,
+            hostAccess,
+            log,
+            new RuntimeFailureCollector(),
+            pluginCloseHook,
+            hostAccess.parameterLifecycle()
+        );
     }
 
     /** Package-private report-failure seam retained for focused preview tests. */
@@ -58,7 +95,15 @@ public final class LocalPluginRuntime implements AutoCloseable {
         final PreviewLog log,
         final RuntimeFailureCollector failureCollector
     ) {
-        this(home, scheduler, hostAccess, log, failureCollector, (pluginId, phase) -> { });
+        this(
+            home,
+            scheduler,
+            hostAccess,
+            log,
+            failureCollector,
+            (pluginId, phase) -> { },
+            hostAccess.parameterLifecycle()
+        );
     }
 
     private LocalPluginRuntime(
@@ -67,15 +112,20 @@ public final class LocalPluginRuntime implements AutoCloseable {
         final RuntimeHostAdapterAccess hostAccess,
         final PreviewLog log,
         final RuntimeFailureCollector failureCollector,
-        final PluginCloseHook pluginCloseHook
+        final PluginCloseHook pluginCloseHook,
+        final ParameterLifecycleCoordinator parameterLifecycle
     ) {
         final PreviewPluginRuntimeResources resources = PreviewPluginRuntimeResources.create(
-            home, scheduler, hostAccess, log, failureCollector, pluginCloseHook, loaded
+            home, scheduler, hostAccess, log, failureCollector, pluginCloseHook, loaded, parameterLifecycle
         );
         this.hostReadLane = resources.hostReadLane();
         this.failureCollector = resources.failureCollector();
         this.loadCoordinator = resources.loadCoordinator();
         this.shutdown = resources.shutdown();
+        this.parameterLifecycle = java.util.Objects.requireNonNull(
+            parameterLifecycle,
+            "parameterLifecycle"
+        );
     }
 
     public synchronized LoadReport loadAll() {
@@ -107,6 +157,7 @@ public final class LocalPluginRuntime implements AutoCloseable {
         try {
             summaries.addAll(shutdown.closeAll(loaded));
         } finally {
+            parameterLifecycle.close();
             closeHostReadLane();
             closedSummaries = PreviewPluginSummaryFactory.sorted(summaries);
             loaded.clear();

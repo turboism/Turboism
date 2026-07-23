@@ -116,7 +116,11 @@ class CoreStructuralTracerTest {
                 "providerId",
                 "artifactProfile",
                 "canvas",
-                "parameters"
+                "parameters",
+                "parts",
+                "drawables",
+                "deformers",
+                "glues"
             ),
             Arrays.stream(CoreStructuralSnapshot.class.getRecordComponents())
                 .map(java.lang.reflect.RecordComponent::getName)
@@ -127,12 +131,12 @@ class CoreStructuralTracerTest {
     @Test
     void rejectsIncompleteProfileSpecificEvidenceBeforeBinding() {
         assertEquals(
-            25,
+            69,
             CorePublicApiSelectorContract.requiredAliasesFor("5.2")
                 .orElseThrow().size()
         );
         assertEquals(
-            26,
+            70,
             CorePublicApiSelectorContract.requiredAliasesFor("5.3.02")
                 .orElseThrow().size()
         );
