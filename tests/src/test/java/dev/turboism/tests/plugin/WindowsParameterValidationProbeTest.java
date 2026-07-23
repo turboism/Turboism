@@ -235,6 +235,112 @@ class WindowsParameterValidationProbeTest {
     }
 
     @Test
+    void combinedEditorReacquiresParametersAndReportsAuthoritativePairState() {
+        final AtomicInteger finds = new AtomicInteger();
+        final ParameterId firstId = new ParameterId("ParamA");
+        final ParameterId secondId = new ParameterId("ParamB");
+        final ParameterId[] partners = {null, null};
+        final Parameters parameters = new Parameters() {
+            @Override public List<Parameter> all() {
+                return List.of(parameter(firstId, 0), parameter(secondId, 1));
+            }
+            @Override public Parameter find(final ParameterId id) {
+                finds.incrementAndGet();
+                if (firstId.equals(id)) return parameter(firstId, 0);
+                if (secondId.equals(id)) return parameter(secondId, 1);
+                throw new NoSuchElementException(id.value());
+            }
+            private Parameter parameter(final ParameterId id, final int index) {
+                return new Parameter() {
+                    @Override public ParameterId id() { return id; }
+                    @Override public Optional<Boolean> combined() {
+                        return Optional.of(partners[index] != null && index == 0);
+                    }
+                    @Override public Optional<ParameterId> combinedWith() {
+                        return Optional.ofNullable(partners[index]);
+                    }
+                    @Override public float getValue() { return 0.0F; }
+                    @Override public float getMinimumValue() { return -1.0F; }
+                    @Override public float getMaximumValue() { return 1.0F; }
+                    @Override public float getDefaultValue() { return 0.0F; }
+                    @Override public void setValue(final float ignored) { }
+                    @Override public void combineWith(final ParameterId partnerId) {
+                        partners[0] = partnerId;
+                        partners[1] = id;
+                    }
+                    @Override public void uncombine() {
+                        partners[0] = null;
+                        partners[1] = null;
+                    }
+                };
+            }
+        };
+
+        assertEquals(
+            Optional.of(secondId),
+            WindowsParameterValidationProbe.combineParameters(parameters, firstId, secondId)
+        );
+        assertEquals(
+            Optional.empty(),
+            WindowsParameterValidationProbe.uncombineParameter(parameters, secondId)
+        );
+        assertEquals(4, finds.get());
+    }
+
+    @Test
+    void combinedEditorOffersOrderedPartnerChoicesAndUsesTheOnlyChoiceForBlankInput() {
+        final Parameters parameters = parameters(
+            parameter("ParamA", "A", ParameterType.NORMAL, false, false, 0.0F),
+            parameter("ParamB", "B", ParameterType.NORMAL, false, false, 0.0F),
+            parameter("ParamC", "C", ParameterType.NORMAL, false, false, 0.0F)
+        );
+
+        assertEquals(
+            List.of(new ParameterId("ParamB"), new ParameterId("ParamC")),
+            WindowsParameterValidationProbe.partnerCandidates(
+                parameters,
+                new ParameterId("ParamA")
+            )
+        );
+        assertEquals(
+            new ParameterId("ParamB"),
+            WindowsParameterValidationProbe.resolvePartnerId(
+                "   ",
+                List.of(new ParameterId("ParamB"))
+            )
+        );
+        assertEquals(
+            new ParameterId("ParamB"),
+            WindowsParameterValidationProbe.resolvePartnerId(
+                "   ",
+                List.of(new ParameterId("ParamB"), new ParameterId("ParamC"))
+            )
+        );
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> WindowsParameterValidationProbe.combineParameters(
+                parameters,
+                new ParameterId("ParamA"),
+                new ParameterId("ParamA")
+            )
+        );
+    }
+
+    @Test
+    void actionFailureDescriptionIncludesCauseChain() {
+        final IllegalStateException failure = new IllegalStateException(
+            "Combined update failed",
+            new IllegalAccessException("fixture")
+        );
+
+        assertEquals(
+            "IllegalStateException: Combined update failed"
+                + " <- IllegalAccessException: fixture",
+            WindowsParameterValidationProbe.failureDescription(failure)
+        );
+    }
+
+    @Test
     void definitionInputRejectsMalformedNumbersAndUnknownTypeBeforeMutation() {
         assertEquals(
             new ParameterDefinition(

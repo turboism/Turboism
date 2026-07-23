@@ -217,6 +217,8 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
     private JComboBox<ParameterType> definitionTypeBox;
     private JCheckBox definitionRepeatBox;
     private JLabel definitionCombinedLabel;
+    private JComboBox<String> combinedPartnerBox;
+    private JLabel combinedPartnerValueLabel;
     private JLabel countsLabel;
     private JLabel lifecycleLabel;
     private JLabel statusLabel;
@@ -443,9 +445,9 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             ParameterType.BLEND_SHAPE
         });
         definitionRepeatBox = new JCheckBox("Repeat");
-        definitionCombinedLabel = new JLabel("Combined: read-only");
+        definitionCombinedLabel = new JLabel("Combined marker: —");
         definitionCombinedLabel.setToolTipText(
-            "Combined is a paired parameter structure and is intentionally not edited independently."
+            "The first parameter of a four-corner pair carries the Editor Combined marker."
         );
 
         final GridBagConstraints constraints = new GridBagConstraints();
@@ -470,6 +472,22 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         constraints.gridwidth = 1;
         constraints.anchor = GridBagConstraints.EAST;
         editor.add(button("Apply definition", this::writeDefinition), constraints);
+
+        combinedPartnerBox = new JComboBox<>();
+        combinedPartnerBox.setEditable(true);
+        combinedPartnerBox.setPrototypeDisplayValue("ParamExampleLongIdentifier");
+        combinedPartnerValueLabel = new JLabel("Current partner: —");
+        addEditorField(editor, constraints, "Partner (choose or type ID)", combinedPartnerBox, 0, 3);
+        constraints.gridx = 2;
+        constraints.gridy = 3;
+        constraints.gridwidth = 2;
+        constraints.anchor = GridBagConstraints.WEST;
+        editor.add(combinedPartnerValueLabel, constraints);
+        constraints.gridx = 4;
+        constraints.gridwidth = 1;
+        editor.add(button("Combine", this::writeCombined), constraints);
+        constraints.gridx = 5;
+        editor.add(button("Uncombine", this::writeUncombined), constraints);
         return editor;
     }
 
@@ -522,9 +540,12 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         try {
             action.run();
         } catch (RuntimeException failure) {
-            lastActionStatus = "ERROR " + failure.getClass().getSimpleName() + ": "
-                + safeMessage(failure);
-            context.logger().error("Parameter validation action failed safely", failure);
+            final String description = failureDescription(failure);
+            lastActionStatus = "ERROR " + description;
+            context.logger().error(
+                "Parameter validation action failed safely: " + description,
+                failure
+            );
             refresh();
         }
     }
@@ -570,6 +591,43 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         selectedParameterId = Optional.of(authoritative.id());
         lastActionStatus = "Definition updated " + currentId.value() + " -> "
             + authoritative.id().value() + "; use Cubism Undo/Redo and save/reopen to validate";
+        refresh();
+    }
+
+    private void writeCombined() {
+        final ParameterId currentId = selectedParameterId.orElseThrow(() ->
+            new IllegalStateException("Select one filtered parameter first."));
+        final List<ParameterId> candidates = partnerCandidates(activeParameters(), currentId);
+        final Object selectedPartner = combinedPartnerBox.getEditor().getItem();
+        final ParameterId partnerId = resolvePartnerId(
+            selectedPartner == null ? "" : selectedPartner.toString(),
+            candidates
+        );
+        final Optional<ParameterId> authoritative = combineParameters(
+            activeParameters(),
+            currentId,
+            partnerId
+        );
+        lastActionStatus = "Combined " + currentId.value() + " with "
+            + authoritative.orElseThrow().value()
+            + "; use Cubism Undo/Redo and save/reopen to validate";
+        refresh();
+    }
+
+    private void writeUncombined() {
+        final ParameterId currentId = selectedParameterId.orElseThrow(() ->
+            new IllegalStateException("Select one filtered parameter first."));
+        final Optional<ParameterId> authoritative = uncombineParameter(
+            activeParameters(),
+            currentId
+        );
+        if (authoritative.isPresent()) {
+            throw new IllegalStateException(
+                "Editor still reports Combined partner " + authoritative.orElseThrow().value()
+            );
+        }
+        lastActionStatus = "Uncombined " + currentId.value()
+            + "; use Cubism Undo/Redo and save/reopen to validate";
         refresh();
     }
 
@@ -633,6 +691,62 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             authoritative.repeat().orElseThrow(() ->
                 new IllegalStateException("Updated parameter repeat flag is unavailable."))
         );
+    }
+
+    static List<ParameterId> partnerCandidates(
+        final Parameters parameters,
+        final ParameterId currentId
+    ) {
+        Objects.requireNonNull(parameters, "parameters");
+        Objects.requireNonNull(currentId, "currentId");
+        return parameters.all().stream()
+            .map(Parameter::id)
+            .filter(id -> !currentId.equals(id))
+            .toList();
+    }
+
+    static ParameterId resolvePartnerId(
+        final String text,
+        final List<ParameterId> candidates
+    ) {
+        final String normalized = Objects.requireNonNull(text, "text").strip();
+        final List<ParameterId> available = List.copyOf(
+            Objects.requireNonNull(candidates, "candidates")
+        );
+        if (!normalized.isEmpty()) {
+            return new ParameterId(normalized);
+        }
+        if (available.isEmpty()) {
+            throw new IllegalArgumentException(
+                "No other parameter is available as a Combined partner."
+            );
+        }
+        return available.get(0);
+    }
+
+    static Optional<ParameterId> combineParameters(
+        final Parameters parameters,
+        final ParameterId id,
+        final ParameterId partnerId
+    ) {
+        Objects.requireNonNull(parameters, "parameters");
+        Objects.requireNonNull(id, "id");
+        Objects.requireNonNull(partnerId, "partnerId");
+        if (id.equals(partnerId)) {
+            throw new IllegalArgumentException("A parameter cannot be Combined with itself.");
+        }
+        parameters.find(id).combineWith(partnerId);
+        return parameters.find(id).combinedWith();
+    }
+
+    static Optional<ParameterId> uncombineParameter(
+        final Parameters parameters,
+        final ParameterId id
+    ) {
+        Objects.requireNonNull(parameters, "parameters");
+        Objects.requireNonNull(id, "id");
+        parameters.find(id).uncombine();
+        return parameters.find(id).combinedWith();
     }
 
     static float setParameterValue(
@@ -799,8 +913,20 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         }
         if (definitionCombinedLabel != null) {
             definitionCombinedLabel.setText(
-                "Combined: " + booleanText(row.combined()) + " (read-only)"
+                "Combined marker: " + booleanText(row.combined())
             );
+        }
+        if (combinedPartnerValueLabel != null) {
+            try {
+                final Parameters parameters = activeParameters();
+                final Optional<ParameterId> partner = parameters.find(row.id()).combinedWith();
+                combinedPartnerValueLabel.setText(
+                    "Current partner: " + partner.map(ParameterId::value).orElse("none")
+                );
+                updatePartnerChoices(parameters, row.id(), partner);
+            } catch (RuntimeException unavailable) {
+                combinedPartnerValueLabel.setText("Current partner: unavailable");
+            }
         }
     }
 
@@ -839,7 +965,13 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             definitionRepeatBox.setEnabled(false);
         }
         if (definitionCombinedLabel != null) {
-            definitionCombinedLabel.setText("Combined: — (read-only)");
+            definitionCombinedLabel.setText("Combined marker: —");
+        }
+        if (combinedPartnerBox != null) {
+            combinedPartnerBox.removeAllItems();
+        }
+        if (combinedPartnerValueLabel != null) {
+            combinedPartnerValueLabel.setText("Current partner: —");
         }
     }
 
@@ -897,6 +1029,8 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             definitionTypeBox = null;
             definitionRepeatBox = null;
             definitionCombinedLabel = null;
+            combinedPartnerBox = null;
+            combinedPartnerValueLabel = null;
             countsLabel = null;
             lifecycleLabel = null;
             statusLabel = null;
@@ -914,6 +1048,52 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         } catch (Exception failure) {
             throw new IllegalStateException("Validation probe window cleanup failed", failure);
         }
+    }
+
+    private void updatePartnerChoices(
+        final Parameters parameters,
+        final ParameterId currentId,
+        final Optional<ParameterId> currentPartner
+    ) {
+        if (combinedPartnerBox == null) {
+            return;
+        }
+        final Object editorItem = combinedPartnerBox.getEditor().getItem();
+        final String typed = editorItem == null ? "" : editorItem.toString().strip();
+        final List<ParameterId> candidates = partnerCandidates(parameters, currentId);
+        combinedPartnerBox.removeAllItems();
+        candidates.stream().map(ParameterId::value).forEach(combinedPartnerBox::addItem);
+        final Optional<String> typedCandidate = candidates.stream()
+            .map(ParameterId::value)
+            .filter(typed::equals)
+            .findFirst();
+        final String preferred = currentPartner.map(ParameterId::value)
+            .or(() -> typedCandidate)
+            .orElseGet(() -> candidates.isEmpty() ? "" : candidates.get(0).value());
+        combinedPartnerBox.getEditor().setItem(preferred);
+        combinedPartnerBox.setToolTipText(
+            candidates.isEmpty()
+                ? "No other model parameter is available."
+                : "Choose another parameter, or type its exact ID. Runtime validates group and pair eligibility."
+        );
+    }
+
+    static String failureDescription(final Throwable failure) {
+        Objects.requireNonNull(failure, "failure");
+        final StringBuilder description = new StringBuilder();
+        Throwable current = failure;
+        int depth = 0;
+        while (current != null && depth < 4) {
+            if (depth > 0) {
+                description.append(" <- ");
+            }
+            description.append(current.getClass().getSimpleName())
+                .append(": ")
+                .append(safeMessage(current));
+            current = current.getCause();
+            depth++;
+        }
+        return description.toString();
     }
 
     private static String safeMessage(final Throwable failure) {
