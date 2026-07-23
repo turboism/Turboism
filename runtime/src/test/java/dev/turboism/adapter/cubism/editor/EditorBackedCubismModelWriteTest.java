@@ -54,6 +54,26 @@ class EditorBackedCubismModelWriteTest {
     }
 
     @Test
+    void parameterResetUsesTheVerifiedEditorWritePath() {
+        Fixture fixture = new Fixture("model-a", 12.0F);
+        Host.install(fixture);
+        EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
+            resolver(), "session-a"
+        );
+        var parameter = access.active().parameters().find(new ParameterId("ParamAngleX"));
+
+        parameter.resetToDefault();
+
+        assertEquals(0.0F, parameter.getValue());
+        assertEquals(1, fixture.operation.calls);
+        assertEquals(0.0F, fixture.operation.lastValue);
+        assertEquals(1, fixture.editMode.committedEdits);
+        assertEquals(1, fixture.document.dirtyUpdates);
+        assertEquals(1, fixture.completePack.parameterRefreshes);
+        assertEquals(1, fixture.completePack.canvasRepaints);
+    }
+
+    @Test
     void invalidWritesHaveNoHostSideEffects() {
         Fixture fixture = new Fixture("model-a", 12.0F);
         Host.install(fixture);
