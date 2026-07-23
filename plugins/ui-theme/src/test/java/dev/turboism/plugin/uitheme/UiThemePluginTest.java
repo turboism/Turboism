@@ -1,6 +1,12 @@
 package dev.turboism.plugin.uitheme;
 
 import dev.turboism.sdk.action.ActionRegistry;
+import dev.turboism.sdk.appearance.AppearanceApplyResult;
+import dev.turboism.sdk.appearance.AppearanceBase;
+import dev.turboism.sdk.appearance.AppearanceRequest;
+import dev.turboism.sdk.appearance.AppearanceRestoreResult;
+import dev.turboism.sdk.appearance.AppearanceService;
+import dev.turboism.sdk.appearance.AppearanceStatus;
 import dev.turboism.sdk.config.PluginConfigRegistry;
 import dev.turboism.sdk.cubism.ArtMeshSnapshot;
 import dev.turboism.sdk.cubism.ClipMaskSnapshot;
@@ -69,7 +75,11 @@ class UiThemePluginTest {
                 .toList()
         );
         assertEquals(
-            List.of("ui-theme.package.status.check", "ui-theme.package.import"),
+            List.of(
+                "ui-theme.package.status.check",
+                "ui-theme.package.import",
+                "ui-theme.appearance.apply-builtin"
+            ),
             context.actions().actions().stream()
                 .map(ActionRegistry.Action::id)
                 .toList()
@@ -145,6 +155,26 @@ class UiThemePluginTest {
     }
 
     @Test
+    void builtinAppearanceActionUsesSemanticPaletteAndReportsUnavailable() throws Exception {
+        RecordingPluginContext context = new RecordingPluginContext();
+        UiThemePlugin plugin = new UiThemePlugin();
+
+        plugin.init(context);
+        plugin.enable();
+        context.actions().execute("ui-theme.appearance.apply-builtin");
+
+        AppearanceRequest request = context.appearanceService().lastRequest();
+        assertEquals("turboism.nord", request.appearanceId());
+        assertEquals(AppearanceBase.DARK, request.base());
+        assertEquals("#88C0D0", request.palette().accent());
+        assertEquals("#242933", request.palette().viewportBackground());
+        assertEquals(
+            "ui-theme.appearance.apply.unavailable",
+            context.uiHost().notifications().get(0).id()
+        );
+    }
+
+    @Test
     void statusActionAllows_whenStatusNotifyPermissionGranted() throws Exception {
         RecordingPluginContext context = new RecordingPluginContext(
             new PermissionGatedUiHost(true)
@@ -183,6 +213,7 @@ class UiThemePluginTest {
         private final DisposableScope disposableScope = new DisposableScope();
         private final PluginLogger logger = new NoopPluginLogger();
         private final CubismReadCapabilityService cubismRead = new ThemeOnlyReadCapabilityService();
+        private final RecordingAppearanceService appearance = new RecordingAppearanceService();
 
         RecordingPluginContext() {
             this(new RecordingUiHost());
@@ -194,6 +225,10 @@ class UiThemePluginTest {
 
         RecordingContextMenuRegistry contextMenus() {
             return contextMenus;
+        }
+
+        RecordingAppearanceService appearanceService() {
+            return appearance;
         }
 
         @Override
@@ -249,6 +284,11 @@ class UiThemePluginTest {
         @Override
         public RecordingUiHost uiHost() {
             return uiHost;
+        }
+
+        @Override
+        public AppearanceService appearance() {
+            return appearance;
         }
 
         @Override
@@ -407,6 +447,52 @@ class UiThemePluginTest {
                 );
             }
             return super.notifyStatus(notification);
+        }
+    }
+
+    private static final class RecordingAppearanceService implements AppearanceService {
+        private AppearanceRequest lastRequest;
+        private final AppearanceStatus status = new AppearanceStatus(
+            AppearanceStatus.Availability.UNAVAILABLE,
+            AppearanceStatus.Source.NATIVE,
+            Optional.empty(),
+            AppearanceBase.NATIVE,
+            0,
+            Optional.of("appearance.unavailable")
+        );
+
+        AppearanceRequest lastRequest() {
+            return lastRequest;
+        }
+
+        @Override
+        public java.util.concurrent.CompletionStage<AppearanceStatus> current() {
+            return java.util.concurrent.CompletableFuture.completedFuture(status);
+        }
+
+        @Override
+        public java.util.concurrent.CompletionStage<AppearanceApplyResult> apply(
+            final AppearanceRequest request
+        ) {
+            lastRequest = request;
+            return java.util.concurrent.CompletableFuture.completedFuture(
+                new AppearanceApplyResult(
+                    AppearanceApplyResult.Outcome.UNAVAILABLE,
+                    status,
+                    Optional.of("appearance.unavailable")
+                )
+            );
+        }
+
+        @Override
+        public java.util.concurrent.CompletionStage<AppearanceRestoreResult> restoreOwnedAppearance() {
+            return java.util.concurrent.CompletableFuture.completedFuture(
+                new AppearanceRestoreResult(
+                    AppearanceRestoreResult.Outcome.NO_OWNED_OVERRIDE,
+                    status,
+                    Optional.empty()
+                )
+            );
         }
     }
 
