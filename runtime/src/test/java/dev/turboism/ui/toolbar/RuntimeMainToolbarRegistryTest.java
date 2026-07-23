@@ -101,6 +101,46 @@ class RuntimeMainToolbarRegistryTest {
     }
 
     @Test
+    void typedButtonDescriptorReachesAuthorityWithoutLosingVariantsOrTooltip() {
+        dev.turboism.ui.host.RuntimeEditorUiHostLifecycle lifecycle =
+            new dev.turboism.ui.host.RuntimeEditorUiHostLifecycle();
+        dev.turboism.ui.contribution.EditorUiContributionAuthority authority =
+            new dev.turboism.ui.contribution.EditorUiContributionAuthority(lifecycle);
+        RuntimeMainToolbarRegistry registry = new RuntimeMainToolbarRegistry(
+            (permissionId, operation) -> { },
+            scheduler(new RecordingPolicy()),
+            PLUGIN_ID,
+            null,
+            authority
+        );
+        MainToolbarRegistry.MainToolbarButtonContribution contribution =
+            new MainToolbarRegistry.MainToolbarButtonContribution(
+                "probe.toolbar",
+                "probe.action",
+                "probe.label",
+                "probe.tooltip",
+                new MainToolbarRegistry.IconVariants(
+                    "/probe/icon.png",
+                    java.util.Optional.of("/probe/icon-hover.png"),
+                    java.util.Optional.empty(),
+                    java.util.Optional.empty(),
+                    java.util.Optional.of("/probe/icon-light.png"),
+                    java.util.Optional.of("/probe/icon-dark.png")
+                ),
+                MainToolbarRegistry.Placement.before(MainToolbarRegistry.Anchor.HOST_HOME_ENTRY),
+                100
+            );
+
+        registry.contributeButton(contribution);
+
+        assertEquals(
+            contribution,
+            authority.contributions(dev.turboism.ui.host.EditorUiFamily.MAIN_TOOLBAR)
+                .get(0).descriptor()
+        );
+    }
+
+    @Test
     void visibilityUpdateIsDispatchedThroughRuntimeScheduler() throws InterruptedException {
         // Given
         RecordingPolicy policy = new RecordingPolicy();

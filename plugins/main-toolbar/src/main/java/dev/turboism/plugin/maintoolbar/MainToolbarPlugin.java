@@ -19,7 +19,11 @@ public final class MainToolbarPlugin implements TurboismPlugin {
     public void init(final PluginContext context) {
         this.context = context;
         this.logger = context.logger();
-        this.homeEntryService = new MainToolbarHomeEntryService(context.cubismRead(), context.uiHost());
+        this.homeEntryService = new MainToolbarHomeEntryService(
+            context.cubismRead(),
+            context.uiHost(),
+            context.mainToolbar()
+        );
         logger.info("MainToolbarPlugin initialized");
     }
 

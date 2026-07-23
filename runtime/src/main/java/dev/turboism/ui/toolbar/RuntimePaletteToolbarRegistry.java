@@ -7,6 +7,11 @@ import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
+import dev.turboism.ui.contribution.EditorUiContribution;
+import dev.turboism.ui.contribution.EditorUiContributionAuthority;
+import dev.turboism.ui.contribution.EditorUiContributionIdentity;
+import dev.turboism.ui.host.EditorUiFamily;
+import dev.turboism.ui.host.RuntimeEditorUiHostLifecycle;
 
 import java.util.List;
 import java.util.Map;
@@ -25,7 +30,8 @@ public final class RuntimePaletteToolbarRegistry implements PaletteToolbarRegist
     private static final String LOCALIZATION_OWNERSHIP_LOCKED = "localization ownership is already locked";
 
     private final Optional<ToolbarVisibilitySink> visibilitySink;
-    private final Map<String, PaletteToolbarContribution> contributions = new ConcurrentHashMap<>();
+    private EditorUiContributionAuthority contributionAuthority;
+    private final Map<String, StoredContribution> contributions = new ConcurrentHashMap<>();
     private PluginLocalization localization;
     private boolean localizationLocked;
 
@@ -34,7 +40,13 @@ public final class RuntimePaletteToolbarRegistry implements PaletteToolbarRegist
         final RuntimeScheduler scheduler,
         final String pluginId
     ) {
-        this(permissionChecker, scheduler, pluginId, null);
+        this(
+            permissionChecker,
+            scheduler,
+            pluginId,
+            null,
+            new EditorUiContributionAuthority(new RuntimeEditorUiHostLifecycle())
+        );
     }
 
     public RuntimePaletteToolbarRegistry(
@@ -43,10 +55,40 @@ public final class RuntimePaletteToolbarRegistry implements PaletteToolbarRegist
         final String pluginId,
         final ToolbarVisibilitySink visibilitySink
     ) {
+        this(
+            permissionChecker,
+            scheduler,
+            pluginId,
+            visibilitySink,
+            new EditorUiContributionAuthority(new RuntimeEditorUiHostLifecycle())
+        );
+    }
+
+    public RuntimePaletteToolbarRegistry(
+        final PermissionChecker permissionChecker,
+        final RuntimeScheduler scheduler,
+        final String pluginId,
+        final ToolbarVisibilitySink visibilitySink,
+        final EditorUiContributionAuthority contributionAuthority
+    ) {
         this.permissionChecker = Objects.requireNonNull(permissionChecker, "permissionChecker");
         this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
         this.pluginId = requireText(pluginId, "pluginId");
         this.visibilitySink = Optional.ofNullable(visibilitySink);
+        this.contributionAuthority = Objects.requireNonNull(
+            contributionAuthority,
+            "contributionAuthority"
+        );
+    }
+
+    public synchronized void bindContributionAuthority(
+        final EditorUiContributionAuthority authority
+    ) {
+        final EditorUiContributionAuthority requested = Objects.requireNonNull(authority, "authority");
+        if (!contributions.isEmpty() && contributionAuthority != requested) {
+            throw new IllegalStateException("palette toolbar contribution authority is already in use");
+        }
+        contributionAuthority = requested;
     }
 
     /** Binds the localization context owned by this registry's contributing plugin. */
@@ -80,9 +122,25 @@ public final class RuntimePaletteToolbarRegistry implements PaletteToolbarRegist
         final String id = requireText(contribution.contributionId(), "contributionId");
         requireText(contribution.paletteId(), "paletteId");
         final PaletteToolbarContribution resolved = resolveLabel(contribution);
-        contributions.put(id, resolved);
+        final StoredContribution stored = new StoredContribution(resolved);
+        final StoredContribution previous = contributions.put(id, stored);
+        if (previous != null) {
+            previous.registration().close();
+        }
+        final Registration authorityRegistration;
+        try {
+            authorityRegistration = contributionAuthority.contribute(new EditorUiContribution<>(
+                new EditorUiContributionIdentity(pluginId, EditorUiFamily.PALETTE_TOOLBAR, id),
+                resolved.order(),
+                resolved
+            ));
+        } catch (RuntimeException | Error failure) {
+            contributions.remove(id, stored);
+            throw failure;
+        }
+        stored.bind(authorityRegistration);
         dispatchVisibilityUpdate(resolved);
-        return new ToolbarRegistration(id, resolved);
+        return new ToolbarRegistration(id, stored);
     }
 
     boolean isRegistered(final String contributionId) {
@@ -115,7 +173,9 @@ public final class RuntimePaletteToolbarRegistry implements PaletteToolbarRegist
     }
 
     private void dispatchVisibilityUpdate(final PaletteToolbarContribution contribution) {
-        final List<PaletteToolbarContribution> snapshot = List.copyOf(contributions.values());
+        final List<PaletteToolbarContribution> snapshot = contributions.values().stream()
+            .map(StoredContribution::contribution)
+            .toList();
         scheduler.dispatch(task(contribution), () -> updateVisibility(snapshot));
     }
 
@@ -142,12 +202,12 @@ public final class RuntimePaletteToolbarRegistry implements PaletteToolbarRegist
 
     private final class ToolbarRegistration implements Registration {
         private final String id;
-        private final PaletteToolbarContribution contribution;
+        private final StoredContribution stored;
         private boolean closed;
 
-        private ToolbarRegistration(final String id, final PaletteToolbarContribution contribution) {
+        private ToolbarRegistration(final String id, final StoredContribution stored) {
             this.id = id;
-            this.contribution = contribution;
+            this.stored = stored;
         }
 
         @Override
@@ -156,8 +216,34 @@ public final class RuntimePaletteToolbarRegistry implements PaletteToolbarRegist
                 return;
             }
             closed = true;
-            contributions.remove(id, contribution);
-            dispatchVisibilityUpdate(contribution);
+            if (contributions.remove(id, stored)) {
+                stored.registration().close();
+            }
+            dispatchVisibilityUpdate(stored.contribution());
+        }
+    }
+
+    private static final class StoredContribution {
+        private final PaletteToolbarContribution contribution;
+        private Registration registration;
+
+        private StoredContribution(final PaletteToolbarContribution contribution) {
+            this.contribution = Objects.requireNonNull(contribution, "contribution");
+        }
+
+        private PaletteToolbarContribution contribution() {
+            return contribution;
+        }
+
+        private void bind(final Registration authorityRegistration) {
+            registration = Objects.requireNonNull(authorityRegistration, "authorityRegistration");
+        }
+
+        private Registration registration() {
+            if (registration == null) {
+                throw new IllegalStateException("palette toolbar contribution registration is not bound");
+            }
+            return registration;
         }
     }
 }
