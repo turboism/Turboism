@@ -1,6 +1,7 @@
 package dev.turboism.sdk.plugin;
 
 import dev.turboism.sdk.action.ActionRegistry;
+import dev.turboism.sdk.appearance.AppearanceService;
 import dev.turboism.sdk.config.PluginConfigRegistry;
 import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.service.query.ModelHierarchyQueryService;
@@ -91,6 +92,10 @@ public interface PluginContext {
 
     default UiHostCapabilityService uiHost() {
         throw new UnsupportedOperationException("uiHost service is not available");
+    }
+
+    default AppearanceService appearance() {
+        return AppearanceService.unavailable();
     }
 
     default ContextMenuRegistry contextMenu() {
