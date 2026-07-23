@@ -1,6 +1,7 @@
 package dev.turboism.preview;
 
 import dev.turboism.core.lifecycle.PluginLifecycleState;
+import dev.turboism.adapter.cubism.lifecycle.ParameterHookRegistry;
 import dev.turboism.core.plugin.PluginRuntime;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginDescriptor;
@@ -19,15 +20,18 @@ final class PreviewPluginLoader {
     private final PreviewPluginContextFactory contextFactory;
     private final PreviewLog log;
     private final List<LocalPluginRuntime.LoadedPlugin> loaded;
+    private final ParameterHookRegistry hookRegistry;
 
     PreviewPluginLoader(
         final PreviewPluginContextFactory contextFactory,
         final PreviewLog log,
-        final List<LocalPluginRuntime.LoadedPlugin> loaded
+        final List<LocalPluginRuntime.LoadedPlugin> loaded,
+        final ParameterHookRegistry hookRegistry
     ) {
         this.contextFactory = contextFactory;
         this.log = log;
         this.loaded = loaded;
+        this.hookRegistry = java.util.Objects.requireNonNull(hookRegistry, "hookRegistry");
     }
 
     LocalPluginRuntime.LoadedPluginSummary load(
@@ -92,6 +96,12 @@ final class PreviewPluginLoader {
         runtime.transitionTo(PluginLifecycleState.LOADED);
 
         enableAll(resources, runtime);
+        hookRegistry.register(
+            candidate.descriptor(),
+            resources.entrypoints,
+            contextBundle.context().logger()
+        );
+        resources.hooksRegistered = true;
         return new LocalPluginRuntime.LoadedPlugin(
             candidate.jar(),
             runtime,
@@ -192,6 +202,10 @@ final class PreviewPluginLoader {
         final LoadResources resources,
         final String pluginId
     ) {
+        if (resources.hooksRegistered) {
+            hookRegistry.unregister(pluginId);
+            resources.hooksRegistered = false;
+        }
         disableEnabledAfterFailure(resources, pluginId);
         shutdownConstructedAfterFailure(resources, pluginId);
         final boolean scopeClosed = closeScopeAfterFailure(resources.scope, pluginId);
@@ -276,5 +290,6 @@ final class PreviewPluginLoader {
         private final List<TurboismPlugin> entrypoints = new ArrayList<>();
         private int initialized;
         private int enabled;
+        private boolean hooksRegistered;
     }
 }

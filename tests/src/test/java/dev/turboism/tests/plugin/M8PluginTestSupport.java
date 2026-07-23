@@ -1,5 +1,7 @@
 package dev.turboism.tests.plugin;
 
+import dev.turboism.adapter.cubism.CubismFacadeImpl;
+import dev.turboism.adapter.cubism.HostSnapshotSource;
 import dev.turboism.config.RuntimePluginConfigRegistry;
 import dev.turboism.core.action.RuntimeActionRegistry;
 import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
@@ -10,11 +12,16 @@ import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
+import dev.turboism.permissions.CubismPermissionGate;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.CubismRuntimeSnapshot;
 import dev.turboism.sdk.cubism.SelectionSnapshot;
+import dev.turboism.sdk.cubism.id.ModelId;
+import dev.turboism.sdk.cubism.id.ParameterId;
+import dev.turboism.sdk.cubism.model.CubismModel;
+import dev.turboism.sdk.cubism.model.Parameter;
 import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
 import dev.turboism.sdk.config.PluginConfigRegistry;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
@@ -71,7 +78,7 @@ final class M8PluginTestSupport {
             permissions,
             uiHostStateSource,
             cubismRead,
-            NoCubismFacade.INSTANCE
+            defaultCubismFacade(permissions, cubismRead)
         );
     }
 
@@ -163,6 +170,57 @@ final class M8PluginTestSupport {
             @Override public List<PermissionRef> permissions() { return List.of(); }
             @Override public List<String> capabilities() { return List.of(); }
             @Override public Environment environment() { return new TestEnvironment(); }
+        };
+    }
+
+    private static CubismFacade defaultCubismFacade(
+        final PermissionChecker permissions,
+        final CubismReadCapabilityService cubismRead
+    ) {
+        if (cubismRead == null) {
+            return NoCubismFacade.INSTANCE;
+        }
+        final TestCubismModel model = TestCubismModel.from(cubismRead);
+        final List<PluginPermission> granted = allCubismPermissions().stream()
+            .filter(permission -> hasPermission(permissions, permission.id()))
+            .toList();
+        return new CubismFacadeImpl(
+            EmptyHostSnapshotSource.INSTANCE,
+            new CubismPermissionGate(
+                PLUGIN_ID,
+                granted,
+                ignored -> { },
+                CLOCK
+            ),
+            () -> model
+        );
+    }
+
+    private static List<PluginPermission> allCubismPermissions() {
+        return List.of(
+            permission(CubismFacadeImpl.PROJECT_READ_PERMISSION),
+            permission(CubismFacadeImpl.MODEL_READ_PERMISSION),
+            permission(CubismFacadeImpl.MODEL_WRITE_PERMISSION)
+        );
+    }
+
+    private static boolean hasPermission(
+        final PermissionChecker checker,
+        final String permissionId
+    ) {
+        try {
+            checker.check(permissionId, "test-harness.probe");
+            return true;
+        } catch (dev.turboism.sdk.permission.CubismPermissionException denied) {
+            return false;
+        }
+    }
+
+    private static PluginPermission permission(final String id) {
+        return new PluginPermission() {
+            @Override public String id() { return id; }
+            @Override public String scope() { return "application"; }
+            @Override public String reason() { return "test harness"; }
         };
     }
 
@@ -332,6 +390,99 @@ final class M8PluginTestSupport {
                 tracker.markHidden(contribution.actionId());
             };
         }
+    }
+
+    private enum EmptyHostSnapshotSource implements HostSnapshotSource {
+        INSTANCE;
+
+        private static final HostSelection EMPTY_SELECTION = new HostSelection(
+            List.of(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty()
+        );
+
+        @Override public Optional<HostProject> activeProject() { return Optional.empty(); }
+        @Override public Optional<HostDocument> activeDocument() { return Optional.empty(); }
+        @Override public Optional<HostModel> activeModel() { return Optional.empty(); }
+        @Override public HostSelection selection() { return EMPTY_SELECTION; }
+        @Override public boolean isHostPresent() { return true; }
+        @Override public long invalidationToken() { return 0L; }
+    }
+
+    private static final class TestCubismModel implements CubismModel {
+        private final List<TestParameter> parameters;
+
+        private TestCubismModel(final List<TestParameter> parameters) {
+            this.parameters = parameters;
+        }
+
+        private static TestCubismModel from(final CubismReadCapabilityService cubismRead) {
+            try {
+                return new TestCubismModel(cubismRead.parameters().stream()
+                    .map(snapshot -> new TestParameter(
+                        snapshot.id(),
+                        (float) snapshot.value(),
+                        (float) snapshot.minValue(),
+                        (float) snapshot.maxValue(),
+                        (float) snapshot.defaultValue()
+                    ))
+                    .toList());
+            } catch (UnsupportedOperationException unavailable) {
+                return new TestCubismModel(List.of());
+            }
+        }
+
+        @Override public ModelId id() { return new ModelId("model-1"); }
+        @Override public dev.turboism.sdk.cubism.model.Parameters parameters() {
+            return new dev.turboism.sdk.cubism.model.Parameters() {
+                @Override public List<Parameter> all() { return List.copyOf(parameters); }
+                @Override public Parameter find(final ParameterId id) {
+                    return parameters.stream()
+                        .filter(parameter -> parameter.id().equals(id))
+                        .findFirst()
+                        .orElseThrow(() -> new java.util.NoSuchElementException(id.value()));
+                }
+            };
+        }
+        @Override public dev.turboism.sdk.cubism.model.Parts parts() { throw unavailable(); }
+        @Override public dev.turboism.sdk.cubism.model.Drawables drawables() { throw unavailable(); }
+        @Override public dev.turboism.sdk.cubism.model.Deformers deformers() { throw unavailable(); }
+        @Override public dev.turboism.sdk.cubism.model.Glues glues() { throw unavailable(); }
+        @Override public void update() { throw unavailable(); }
+
+        private static UnsupportedOperationException unavailable() {
+            return new UnsupportedOperationException("not used by this test harness");
+        }
+    }
+
+    private static final class TestParameter implements Parameter {
+        private final ParameterId id;
+        private final float minimum;
+        private final float maximum;
+        private final float defaultValue;
+        private float value;
+
+        private TestParameter(
+            final String id,
+            final float value,
+            final float minimum,
+            final float maximum,
+            final float defaultValue
+        ) {
+            this.id = new ParameterId(id);
+            this.value = value;
+            this.minimum = minimum;
+            this.maximum = maximum;
+            this.defaultValue = defaultValue;
+        }
+
+        @Override public ParameterId id() { return id; }
+        @Override public float getValue() { return value; }
+        @Override public float getMinimumValue() { return minimum; }
+        @Override public float getMaximumValue() { return maximum; }
+        @Override public float getDefaultValue() { return defaultValue; }
+        @Override public void setValue(final float value) { this.value = value; }
     }
 
     private enum NoCubismFacade implements CubismFacade {

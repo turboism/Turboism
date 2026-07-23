@@ -14,6 +14,9 @@ import dev.turboism.diagnostics.CubismFacadeAuditEvent;
 import dev.turboism.sdk.cubism.ClipMaskSnapshot;
 import dev.turboism.sdk.cubism.ProjectSnapshot;
 import dev.turboism.sdk.cubism.WorkspaceSnapshot;
+import dev.turboism.sdk.cubism.id.ModelId;
+import dev.turboism.sdk.cubism.model.CubismModel;
+import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginDescriptor;
@@ -95,6 +98,50 @@ class HostSessionPluginContextIntegrationTest {
             assertTrue(context.cubismRead().activeProject().isEmpty());
             assertTrue(context.cubismRead().workspace().isEmpty());
             assertTrue(context.cubismRead().clipMasks().isEmpty());
+        } finally {
+            session.close();
+            scheduler.shutdown();
+        }
+    }
+
+    @Test
+    void existingPluginContextTracksConnectionOwnedModelAccessThroughReplacementAndSafeMode() {
+        AtomicReference<HostInstanceDescriptor> current = new AtomicReference<>();
+        HostSession session = new HostSession(
+            () -> Optional.ofNullable(current.get()),
+            descriptor -> HostAdapterConnection.of(
+                RuntimeHostAdapters.safeMode(),
+                fixedModelAccess(descriptor.sessionId())
+            )
+        );
+        RuntimeScheduler scheduler = scheduler();
+        CorePluginContext context = new CorePluginContext(
+            dependencies(tempDir, scheduler, descriptor(List.of(
+                "turboism.cubism.model.read"
+            )), ignored -> { }),
+            session
+        );
+
+        try {
+            assertThrows(IllegalStateException.class, () -> context.cubism().model().active());
+
+            current.set(dualDescriptor("model-a", "reviewed-a"));
+            assertEquals(HostSession.State.ACTIVE, session.refresh());
+            final CubismModel stale = context.cubism().model().active();
+            final dev.turboism.sdk.cubism.model.Parameter staleParameter =
+                stale.parameters().find(new dev.turboism.sdk.cubism.id.ParameterId("ParamA"));
+            assertEquals(new ModelId("model-a"), stale.id());
+            assertEquals(1.0F, staleParameter.getValue());
+
+            current.set(dualDescriptor("model-b", "reviewed-b"));
+            assertEquals(HostSession.State.ACTIVE, session.refresh());
+            assertEquals(new ModelId("model-b"), context.cubism().model().active().id());
+            assertThrows(IllegalStateException.class, stale::id);
+            assertThrows(IllegalStateException.class, staleParameter::getValue);
+
+            current.set(null);
+            assertEquals(HostSession.State.SAFE_MODE, session.refresh());
+            assertThrows(IllegalStateException.class, () -> context.cubism().model().active());
         } finally {
             session.close();
             scheduler.shutdown();
@@ -197,6 +244,49 @@ class HostSessionPluginContextIntegrationTest {
                 )
             )
         );
+    }
+
+    private static CubismModelAccess fixedModelAccess(final String id) {
+        return () -> new CubismModel() {
+            @Override public ModelId id() { return new ModelId(id); }
+            @Override public dev.turboism.sdk.cubism.model.Parameters parameters() {
+                return new dev.turboism.sdk.cubism.model.Parameters() {
+                    private final dev.turboism.sdk.cubism.model.Parameter parameter =
+                        new dev.turboism.sdk.cubism.model.Parameter() {
+                            @Override public dev.turboism.sdk.cubism.id.ParameterId id() {
+                                return new dev.turboism.sdk.cubism.id.ParameterId("ParamA");
+                            }
+                            @Override public float getValue() { return 1.0F; }
+                            @Override public float getMinimumValue() { return 0.0F; }
+                            @Override public float getMaximumValue() { return 2.0F; }
+                            @Override public float getDefaultValue() { return 1.0F; }
+                            @Override public void setValue(final float value) { throw unsupported(); }
+                        };
+
+                    @Override public List<dev.turboism.sdk.cubism.model.Parameter> all() {
+                        return List.of(parameter);
+                    }
+
+                    @Override public dev.turboism.sdk.cubism.model.Parameter find(
+                        final dev.turboism.sdk.cubism.id.ParameterId parameterId
+                    ) {
+                        if (!parameter.id().equals(parameterId)) {
+                            throw new java.util.NoSuchElementException();
+                        }
+                        return parameter;
+                    }
+                };
+            }
+            @Override public dev.turboism.sdk.cubism.model.Parts parts() { throw unsupported(); }
+            @Override public dev.turboism.sdk.cubism.model.Drawables drawables() { throw unsupported(); }
+            @Override public dev.turboism.sdk.cubism.model.Deformers deformers() { throw unsupported(); }
+            @Override public dev.turboism.sdk.cubism.model.Glues glues() { throw unsupported(); }
+            @Override public void update() { throw unsupported(); }
+
+            private UnsupportedOperationException unsupported() {
+                return new UnsupportedOperationException();
+            }
+        };
     }
 
     private static CorePluginContext.Dependencies dependencies(

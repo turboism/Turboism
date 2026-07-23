@@ -55,17 +55,17 @@ def main() -> int:
     packs = load_packs([PACK_52, PACK_53])
     validated, roster = validate_policy(policy, packs)
 
-    require(len(roster) == 26, "selector count drifted")
+    require(len(roster) == 71, "selector count drifted")
     require(
         validated["summary"]["selectorRosterSha256"]
-        == "4018a437aaec2b65a3c46b7c8b9715f900f93a7c15f3bdfd95012e5c212e227c",
+        == "c78708fe6953a9ce32928b95678d4abbeeb3e2aff2d42fafc5fce8ad02cd1579",
         "selector roster digest drifted",
     )
     require(
         validated["summary"]["versions"]
         == {
-            "5.2": {"entryCount": 25},
-            "5.3.02": {"entryCount": 26},
+            "5.2": {"entryCount": 69},
+            "5.3.02": {"entryCount": 70},
         },
         "selector profile counts drifted",
     )
@@ -172,7 +172,7 @@ def main() -> int:
 
     print(
         "PASS: Cubism Core selector policy "
-        "(26 selectors, 25/26 profile entries, roster 4018a437)"
+        "(71 selectors, 69/70 profile entries, roster c78708fe)"
     )
     return 0
 

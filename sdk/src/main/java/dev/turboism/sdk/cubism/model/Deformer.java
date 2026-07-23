@@ -8,4 +8,8 @@ import dev.turboism.sdk.cubism.id.DeformerId;
 public interface Deformer {
 
     DeformerId id();
+
+    int parentDeformerIndex();
+
+    IntSequence parameters();
 }

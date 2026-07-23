@@ -39,10 +39,20 @@ final class PreviewPluginContextFactory {
         final ClassLoader pluginClassLoader,
         final DisposableScope scope
     ) throws IOException {
+        final PluginDescriptor requestedDescriptor = Objects.requireNonNull(descriptor, "descriptor");
+        final ClassLoader requestedClassLoader = Objects.requireNonNull(
+            pluginClassLoader,
+            "pluginClassLoader"
+        );
+        final DisposableScope requestedScope = Objects.requireNonNull(scope, "scope");
+        requestedScope.register(hostAccess.editorUiPluginResources().register(
+            requestedDescriptor.id(),
+            requestedClassLoader
+        ));
         final PreviewPluginServices services = servicesFactory.create(
-            Objects.requireNonNull(descriptor, "descriptor"),
-            Objects.requireNonNull(pluginClassLoader, "pluginClassLoader"),
-            Objects.requireNonNull(scope, "scope")
+            requestedDescriptor,
+            requestedClassLoader,
+            requestedScope
         );
         final CorePluginContext context = new CorePluginContext(
             services.dependencies().withConfig(services.typedConfig()), hostAccess,
