@@ -1,6 +1,6 @@
 # Turboism Windows Parameter Validation
 
-This directory is an isolated manual-test drop for **Live2D Cubism Editor 5.3.02**. It does not modify Cubism's installation or global launchers. The launcher copies the current Live2D roaming profile into `state\AppData` once, then redirects `APPDATA`/`LOCALAPPDATA` there so the test does not write back to the real profile.
+This directory is an isolated manual-test drop for **Live2D Cubism Editor 5.2 and 5.3.02**. It does not modify Cubism's installation or global launchers. The launcher copies the current Live2D roaming profile into `state\AppData` once, then redirects `APPDATA`/`LOCALAPPDATA` there so the test does not write back to the real profile.
 
 ## 1. Preflight
 
@@ -87,6 +87,27 @@ Use a disposable parameter. Change one field at a time first, then test a combin
 - [ ] After an ID change, the validation window follows the new ID and does not write through the stale old wrapper.
 - [ ] Save the disposable model, close it, reopen it, and confirm the edited definition persists.
 
+### Parameter folder label color
+
+Use a disposable folder in the parameter palette. Select its ID in **Group**, enter finite RGBA values (normally `0.0`–`1.0`), and click **Set label color**.
+
+- [ ] Cubism immediately shows the new custom folder color.
+- [ ] The validation window reports the authoritative RGBA value.
+- [ ] The document becomes dirty.
+- [ ] One Undo restores the prior label color; one Redo restores the custom color.
+- [ ] Re-applying the identical RGBA value does not add another Undo step.
+- [ ] Save, close, and reopen; the custom color persists.
+
+### Default keyform lock
+
+Use **Lock default** and **Unlock default** in the validation window.
+
+- [ ] The displayed `Default keyform locked` state changes immediately.
+- [ ] The document becomes dirty and the parameter palette/canvas remain responsive.
+- [ ] One Undo restores the prior lock state; one Redo reapplies it.
+- [ ] Clicking the button for the already-active state does not add another Undo step.
+- [ ] Save, close, and reopen; the selected lock state persists.
+
 ### Unchanged write
 
 1. Click **Set same**.
@@ -129,4 +150,4 @@ logs\turboism.log
 state\*.json
 ```
 
-Also provide the checklist result and Cubism exact version shown at startup. Do not send the `.cmo3` model unless it is explicitly disposable and safe to share.
+Run the checklist separately on 5.2 and 5.3.02 when both are installed. Also provide the checklist result and Cubism exact version shown at startup. Do not send the `.cmo3` model unless it is explicitly disposable and safe to share.
