@@ -81,6 +81,30 @@ class DynamicCubismModelAccessTest {
     }
 
     @Test
+    void resetIsForwardedOnlyWhileTheSessionGenerationIsCurrent() {
+        final DynamicCubismModelAccess access = new DynamicCubismModelAccess();
+        final float[] value = {0.75F};
+        final Parameter delegate = new Parameter() {
+            @Override public ParameterId id() { return new ParameterId("ParamA"); }
+            @Override public float getValue() { return value[0]; }
+            @Override public float getMinimumValue() { return -1.0F; }
+            @Override public float getMaximumValue() { return 1.0F; }
+            @Override public float getDefaultValue() { return -0.25F; }
+            @Override public void setValue(final float nextValue) { value[0] = nextValue; }
+        };
+        access.connect(() -> model("model-a", delegate));
+        final Parameter parameter = access.active().parameters().find(new ParameterId("ParamA"));
+
+        parameter.resetToDefault();
+        assertEquals(-0.25F, value[0]);
+
+        value[0] = 0.5F;
+        access.connect(modelAccess("model-b", 2.0F));
+        assertThrows(IllegalStateException.class, parameter::resetToDefault);
+        assertEquals(0.5F, value[0]);
+    }
+
+    @Test
     void definitionUpdateIsForwardedOnlyWhileTheSessionGenerationIsCurrent() {
         final DynamicCubismModelAccess access = new DynamicCubismModelAccess();
         final AtomicReference<ParameterDefinition> updated = new AtomicReference<>();
