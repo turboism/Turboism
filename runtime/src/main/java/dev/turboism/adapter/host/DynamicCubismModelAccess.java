@@ -151,6 +151,11 @@ final class DynamicCubismModelAccess implements CubismModelAccess {
         }
 
         @Override
+        public boolean defaultKeyformLocked() {
+            return current(generation, CubismModel::defaultKeyformLocked, delegate);
+        }
+
+        @Override
         public Parameters parameters() {
             return new SessionParameters(generation, current(
                 generation,

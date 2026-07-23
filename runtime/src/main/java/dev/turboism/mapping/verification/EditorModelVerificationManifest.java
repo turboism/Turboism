@@ -7,7 +7,7 @@ public final class EditorModelVerificationManifest {
 
     public static final String VERIFICATION_ID = "cubism-5.3.02.editor-model.static";
     public static final String RECORD_SHA256 =
-        "1a7b4d44259170ae400e3399c3abdd8c9bce3ba8594e2317cb78a18297144e63";
+        "2660f60a02d3d144730e012c490606652f0932568bb33c8280d4c4ceaeb1e1b9";
     public static final String CUBISM_VERSION = "5.3.02";
     public static final String PROFILE_ID = "cubism-5.3.02";
     public static final long ARTIFACT_SIZE = 41_922_739L;
@@ -20,7 +20,8 @@ public final class EditorModelVerificationManifest {
         EditorParameterDefinitionWriteSelectorContract.CAPABILITY_ID,
         EditorParameterCombinedWriteSelectorContract.CAPABILITY_ID,
         EditorParameterGroupsReadSelectorContract.CAPABILITY_ID,
-        EditorParameterGroupLabelColorReadSelectorContract.CAPABILITY_ID
+        EditorParameterGroupLabelColorReadSelectorContract.CAPABILITY_ID,
+        EditorDefaultKeyformLockReadSelectorContract.CAPABILITY_ID
     );
     public static final Set<String> REQUIRED_ALIASES = Set.of(
         "cubism.editor-model.app-controller.class",
@@ -34,6 +35,7 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.model-source.class",
         "cubism.editor-model.model-source.guid",
         "cubism.editor-model.model-source.current-instance",
+        "cubism.editor-model.model-source.default-keyform-locked",
         "cubism.editor-model.model-source.all-parameters",
         "cubism.editor-model.model-source.root-parameter-group",
         "cubism.editor-model.model.class",
