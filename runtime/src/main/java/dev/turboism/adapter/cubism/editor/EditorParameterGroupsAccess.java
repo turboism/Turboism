@@ -1,9 +1,11 @@
 package dev.turboism.adapter.cubism.editor;
 
+import dev.turboism.mapping.verification.EditorParameterGroupLabelColorReadSelectorContract;
 import dev.turboism.mapping.verification.EditorParameterGroupsReadSelectorContract;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.id.ParameterGroupId;
 import dev.turboism.sdk.cubism.id.ParameterId;
+import dev.turboism.sdk.cubism.model.Color;
 import dev.turboism.sdk.cubism.model.ParameterGroup;
 import dev.turboism.sdk.cubism.model.ParameterGroups;
 
@@ -220,6 +222,36 @@ final class EditorParameterGroupsAccess {
         }
 
         @Override
+        public Color labelColor() {
+            current();
+            if (!resolver.authorizesFeature(
+                EditorParameterGroupLabelColorReadSelectorContract.ADAPTER_SLICE_ID,
+                EditorParameterGroupLabelColorReadSelectorContract.CAPABILITY_ID,
+                EditorParameterGroupLabelColorReadSelectorContract.REQUIRED_ALIASES
+            )) {
+                throw new UnsupportedOperationException(
+                    "Parameter-group label color access is unavailable without exact verified host evidence."
+                );
+            }
+            final Object labelColor = resolver.invoke(
+                "cubism.editor-model.parameter-group.label-color", group
+            );
+            if (!resolver.isInstance("cubism.editor-model.label-color.class", labelColor)) {
+                throw unavailable("Editor parameter group label color is unavailable.");
+            }
+            final Object color = resolver.invoke("cubism.editor-model.label-color.color", labelColor);
+            if (!resolver.isInstance("cubism.editor-model.color.class", color)) {
+                throw unavailable("Editor parameter group effective color is unavailable.");
+            }
+            return new Color(
+                number(resolver.invoke("cubism.editor-model.color.red", color)),
+                number(resolver.invoke("cubism.editor-model.color.green", color)),
+                number(resolver.invoke("cubism.editor-model.color.blue", color)),
+                number(resolver.invoke("cubism.editor-model.color.alpha", color))
+            );
+        }
+
+        @Override
         public Optional<ParameterGroupId> parentId() {
             current();
             final Object parent = resolver.invoke(
@@ -265,6 +297,13 @@ final class EditorParameterGroupsAccess {
             throw unavailable("Verified Editor identity is unavailable.");
         }
         return text;
+    }
+
+    private static float number(final Object value) {
+        if (!(value instanceof Number number) || !Float.isFinite(number.floatValue())) {
+            throw unavailable("Editor parameter group color component is invalid.");
+        }
+        return number.floatValue();
     }
 
     private static IllegalStateException unavailable(final String message) {

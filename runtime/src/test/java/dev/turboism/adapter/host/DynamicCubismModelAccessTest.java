@@ -3,6 +3,7 @@ package dev.turboism.adapter.host;
 import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.cubism.id.ParameterGroupId;
 import dev.turboism.sdk.cubism.id.ParameterId;
+import dev.turboism.sdk.cubism.model.Color;
 import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.sdk.cubism.model.Parameter;
@@ -51,11 +52,13 @@ class DynamicCubismModelAccessTest {
         final ParameterGroups groups = access.active().parameterGroups();
         final ParameterGroup group = groups.find(new ParameterGroupId("GroupFace"));
         assertEquals(Optional.of("Face"), group.name());
+        assertEquals(new Color(0.25F, 0.5F, 0.75F, 1.0F), group.labelColor());
         assertEquals(List.of(new ParameterId("ParamA")), group.parameterIds());
 
         access.deactivate();
         assertThrows(IllegalStateException.class, groups::all);
         assertThrows(IllegalStateException.class, group::name);
+        assertThrows(IllegalStateException.class, group::labelColor);
     }
 
     @Test
@@ -301,6 +304,9 @@ class DynamicCubismModelAccessTest {
         return new ParameterGroup() {
             @Override public ParameterGroupId id() { return new ParameterGroupId(id); }
             @Override public Optional<String> name() { return Optional.of(name); }
+            @Override public Color labelColor() {
+                return new Color(0.25F, 0.5F, 0.75F, 1.0F);
+            }
             @Override public Optional<ParameterGroupId> parentId() { return parentId; }
             @Override public List<ParameterGroupId> childGroupIds() { return childGroupIds; }
             @Override public List<ParameterId> parameterIds() { return parameterIds; }
