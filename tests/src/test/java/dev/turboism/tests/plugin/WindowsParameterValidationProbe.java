@@ -1,9 +1,14 @@
 package dev.turboism.tests.plugin;
 
 import dev.turboism.sdk.cubism.CubismPlugin;
+import dev.turboism.sdk.cubism.id.ParameterGroupId;
 import dev.turboism.sdk.cubism.id.ParameterId;
+import dev.turboism.sdk.cubism.model.Color;
+import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.Parameter;
 import dev.turboism.sdk.cubism.model.ParameterDefinition;
+import dev.turboism.sdk.cubism.model.ParameterGroup;
+import dev.turboism.sdk.cubism.model.ParameterGroups;
 import dev.turboism.sdk.cubism.model.ParameterType;
 import dev.turboism.sdk.cubism.model.Parameters;
 import dev.turboism.sdk.plugin.PluginContext;
@@ -219,6 +224,13 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
     private JLabel definitionCombinedLabel;
     private JComboBox<String> combinedPartnerBox;
     private JLabel combinedPartnerValueLabel;
+    private JComboBox<String> parameterGroupBox;
+    private JTextField labelRedField;
+    private JTextField labelGreenField;
+    private JTextField labelBlueField;
+    private JTextField labelAlphaField;
+    private JLabel currentLabelColorLabel;
+    private JLabel defaultKeyformLockLabel;
     private JLabel countsLabel;
     private JLabel lifecycleLabel;
     private JLabel statusLabel;
@@ -296,8 +308,8 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         frame.add(content, BorderLayout.CENTER);
         frame.add(createStatusPanel(), BorderLayout.SOUTH);
 
-        frame.setSize(1080, 680);
-        frame.setMinimumSize(new java.awt.Dimension(900, 560));
+        frame.setSize(1180, 780);
+        frame.setMinimumSize(new java.awt.Dimension(980, 680));
         frame.setLocationByPlatform(true);
         frame.setVisible(true);
         content.setDividerLocation(0.42);
@@ -409,7 +421,10 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         currentValueLabel = addDetail(metadata, "Current value");
         rangeValueLabel = addDetail(metadata, "Range");
         defaultValueLabel = addDetail(metadata, "Default value");
-        panel.add(metadata, BorderLayout.NORTH);
+        final JPanel north = new JPanel(new BorderLayout(6, 6));
+        north.add(metadata, BorderLayout.NORTH);
+        north.add(createModelAuthoringPanel(), BorderLayout.SOUTH);
+        panel.add(north, BorderLayout.NORTH);
 
         final JPanel setter = new JPanel(new BorderLayout(6, 6));
         setter.setBorder(BorderFactory.createTitledBorder("Runtime value setter"));
@@ -428,6 +443,61 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         panel.add(setter, BorderLayout.CENTER);
         panel.add(createDefinitionEditor(), BorderLayout.SOUTH);
         return panel;
+    }
+
+    private JPanel createModelAuthoringPanel() {
+        final JPanel panel = new JPanel(new GridBagLayout());
+        panel.setBorder(BorderFactory.createTitledBorder(
+            "Model and parameter-folder authoring"
+        ));
+        parameterGroupBox = new JComboBox<>();
+        labelRedField = new JTextField("0.25", 5);
+        labelGreenField = new JTextField("0.50", 5);
+        labelBlueField = new JTextField("0.75", 5);
+        labelAlphaField = new JTextField("1.00", 5);
+        currentLabelColorLabel = new JLabel("Current color: —");
+        defaultKeyformLockLabel = new JLabel("Default keyform locked: —");
+
+        final GridBagConstraints constraints = new GridBagConstraints();
+        constraints.insets = new Insets(3, 4, 3, 4);
+        constraints.gridy = 0;
+        constraints.anchor = GridBagConstraints.WEST;
+        addAuthoringField(panel, constraints, "Group", parameterGroupBox, 0);
+        addAuthoringField(panel, constraints, "R", labelRedField, 2);
+        addAuthoringField(panel, constraints, "G", labelGreenField, 4);
+        addAuthoringField(panel, constraints, "B", labelBlueField, 6);
+        addAuthoringField(panel, constraints, "A", labelAlphaField, 8);
+        constraints.gridx = 10;
+        panel.add(button("Set label color", this::writeLabelColor), constraints);
+
+        constraints.gridy = 1;
+        constraints.gridx = 0;
+        constraints.gridwidth = 5;
+        panel.add(currentLabelColorLabel, constraints);
+        constraints.gridx = 5;
+        constraints.gridwidth = 3;
+        panel.add(defaultKeyformLockLabel, constraints);
+        constraints.gridx = 8;
+        constraints.gridwidth = 1;
+        panel.add(button("Lock default", () -> writeDefaultKeyformLock(true)), constraints);
+        constraints.gridx = 9;
+        constraints.gridwidth = 2;
+        panel.add(button("Unlock default", () -> writeDefaultKeyformLock(false)), constraints);
+        return panel;
+    }
+
+    private void addAuthoringField(
+        final JPanel panel,
+        final GridBagConstraints constraints,
+        final String label,
+        final java.awt.Component component,
+        final int column
+    ) {
+        constraints.gridx = column;
+        constraints.gridwidth = 1;
+        panel.add(new JLabel(label + ':'), constraints);
+        constraints.gridx = column + 1;
+        panel.add(component, constraints);
     }
 
     private JPanel createDefinitionEditor() {
@@ -552,6 +622,71 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
 
     private void writeInput() {
         write(parseFiniteValue(setterField.getText()));
+    }
+
+    private void writeLabelColor() {
+        final String selectedGroupId = selected(parameterGroupBox, null);
+        if (selectedGroupId == null) {
+            throw new IllegalStateException("Select one parameter group first.");
+        }
+        final ParameterGroupId groupId = new ParameterGroupId(selectedGroupId);
+        final Color requested = parseColor(
+            labelRedField.getText(),
+            labelGreenField.getText(),
+            labelBlueField.getText(),
+            labelAlphaField.getText()
+        );
+        final Color authoritative = setParameterGroupLabelColor(
+            activeModel().parameterGroups(),
+            groupId,
+            requested
+        );
+        lastActionStatus = "Parameter group " + groupId.value()
+            + " label color=" + colorText(authoritative)
+            + "; use Cubism Undo/Redo and save/reopen to validate";
+        refresh();
+    }
+
+    private void writeDefaultKeyformLock(final boolean locked) {
+        final boolean authoritative = setDefaultKeyformLock(activeModel(), locked);
+        lastActionStatus = "Default keyform locked=" + authoritative
+            + "; use Cubism Undo/Redo and save/reopen to validate";
+        refresh();
+    }
+
+    static Color parseColor(
+        final String red,
+        final String green,
+        final String blue,
+        final String alpha
+    ) {
+        return new Color(
+            parseFiniteValue(red),
+            parseFiniteValue(green),
+            parseFiniteValue(blue),
+            parseFiniteValue(alpha)
+        );
+    }
+
+    static Color setParameterGroupLabelColor(
+        final ParameterGroups groups,
+        final ParameterGroupId id,
+        final Color color
+    ) {
+        Objects.requireNonNull(groups, "groups");
+        Objects.requireNonNull(id, "id");
+        Objects.requireNonNull(color, "color");
+        groups.find(id).setLabelColor(color);
+        return groups.find(id).labelColor();
+    }
+
+    static boolean setDefaultKeyformLock(
+        final CubismModel model,
+        final boolean locked
+    ) {
+        Objects.requireNonNull(model, "model");
+        model.setDefaultKeyformLocked(locked);
+        return model.defaultKeyformLocked();
     }
 
     static float parseFiniteValue(final String text) {
@@ -775,8 +910,12 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         return activeParameters().find(id);
     }
 
+    private CubismModel activeModel() {
+        return context.cubism().model().active();
+    }
+
     private Parameters activeParameters() {
-        return context.cubism().model().active().parameters();
+        return activeModel().parameters();
     }
 
     private Optional<ParameterId> cubismSelection() {
@@ -824,6 +963,7 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 followCubismSelection
             );
             applyRows(rows, nextSelection);
+            refreshModelAuthoring(activeModel());
             statusLabel.setText(
                 lastActionStatus + " — " + rows.size()
                     + " filtered parameter(s); definition editing enabled when verified"
@@ -833,6 +973,43 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             statusLabel.setText("Model unavailable: " + safeMessage(unavailable));
         }
         updateLifecycleLabels();
+    }
+
+    private void refreshModelAuthoring(final CubismModel model) {
+        if (parameterGroupBox == null) {
+            return;
+        }
+        final String prior = selected(parameterGroupBox, null);
+        final List<ParameterGroup> groups = model.parameterGroups().all();
+        parameterGroupBox.removeAllItems();
+        groups.stream().map(group -> group.id().value()).forEach(parameterGroupBox::addItem);
+        final String chosen = groups.stream().map(group -> group.id().value())
+            .filter(id -> id.equals(prior))
+            .findFirst()
+            .orElseGet(() -> groups.isEmpty() ? null : groups.get(0).id().value());
+        if (chosen != null) {
+            parameterGroupBox.setSelectedItem(chosen);
+        }
+        refreshSelectedGroupColor(model);
+        defaultKeyformLockLabel.setText(
+            "Default keyform locked: " + model.defaultKeyformLocked()
+        );
+    }
+
+    private void refreshSelectedGroupColor(final CubismModel model) {
+        final String chosen = selected(parameterGroupBox, null);
+        if (chosen == null) {
+            currentLabelColorLabel.setText("Current color: unavailable");
+            return;
+        }
+        final Color color = model.parameterGroups()
+            .find(new ParameterGroupId(chosen))
+            .labelColor();
+        currentLabelColorLabel.setText("Current color: " + colorText(color));
+        if (!labelRedField.hasFocus()) labelRedField.setText(Float.toString(color.red()));
+        if (!labelGreenField.hasFocus()) labelGreenField.setText(Float.toString(color.green()));
+        if (!labelBlueField.hasFocus()) labelBlueField.setText(Float.toString(color.blue()));
+        if (!labelAlphaField.hasFocus()) labelAlphaField.setText(Float.toString(color.alpha()));
     }
 
     private void applyRows(
@@ -992,6 +1169,11 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         return String.format(Locale.ROOT, "%.3f", value);
     }
 
+    private static String colorText(final Color color) {
+        return "rgba(" + number(color.red()) + ", " + number(color.green()) + ", "
+            + number(color.blue()) + ", " + number(color.alpha()) + ')';
+    }
+
     private enum Bound {
         MINIMUM,
         DEFAULT,
@@ -1031,6 +1213,13 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             definitionCombinedLabel = null;
             combinedPartnerBox = null;
             combinedPartnerValueLabel = null;
+            parameterGroupBox = null;
+            labelRedField = null;
+            labelGreenField = null;
+            labelBlueField = null;
+            labelAlphaField = null;
+            currentLabelColorLabel = null;
+            defaultKeyformLockLabel = null;
             countsLabel = null;
             lifecycleLabel = null;
             statusLabel = null;

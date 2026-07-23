@@ -44,6 +44,56 @@ public final class ProjectWorkspaceVerificationManifest {
         "cubism.guid.value"
     );
 
+    static PinnedVerifiedResolverWorkflow.Manifest forArtifact(
+        final HostArtifactDigest artifact
+    ) {
+        if (artifact.size() == ProjectWorkspaceVerificationManifest52.ARTIFACT_SIZE
+            && artifact.sha256().equals(ProjectWorkspaceVerificationManifest52.ARTIFACT_SHA256)) {
+            return manifest(
+                ProjectWorkspaceVerificationManifest52.VERIFICATION_ID,
+                ProjectWorkspaceVerificationManifest52.RECORD_SHA256,
+                ProjectWorkspaceVerificationManifest52.CUBISM_VERSION,
+                ProjectWorkspaceVerificationManifest52.PROFILE_ID,
+                ProjectWorkspaceVerificationManifest52.ARTIFACT_SIZE,
+                ProjectWorkspaceVerificationManifest52.ARTIFACT_SHA256
+            );
+        }
+        if (artifact.size() == ARTIFACT_SIZE && artifact.sha256().equals(ARTIFACT_SHA256)) {
+            return manifest(
+                VERIFICATION_ID,
+                RECORD_SHA256,
+                CUBISM_VERSION,
+                PROFILE_ID,
+                ARTIFACT_SIZE,
+                ARTIFACT_SHA256
+            );
+        }
+        throw new IllegalArgumentException(
+            "host artifact is not a reviewed Cubism project/workspace artifact"
+        );
+    }
+
+    private static PinnedVerifiedResolverWorkflow.Manifest manifest(
+        final String verificationId,
+        final String recordSha256,
+        final String cubismVersion,
+        final String profileId,
+        final long artifactSize,
+        final String artifactSha256
+    ) {
+        return new PinnedVerifiedResolverWorkflow.Manifest(
+            verificationId,
+            recordSha256,
+            cubismVersion,
+            profileId,
+            artifactSize,
+            artifactSha256,
+            ADAPTER_SLICE_ID,
+            CAPABILITY_IDS,
+            REQUIRED_ALIASES
+        );
+    }
+
     private ProjectWorkspaceVerificationManifest() {
     }
 }

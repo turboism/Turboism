@@ -45,6 +45,78 @@ public final class MainToolbarVerificationManifest {
         "cubism.ui-main-toolbar.icon.create"
     );
 
+    static PinnedVerifiedResolverWorkflow.Manifest forArtifact(
+        final HostArtifactDigest artifact
+    ) {
+        if (artifact.size() == MainToolbarVerificationManifest52.ARTIFACT_SIZE
+            && artifact.sha256().equals(MainToolbarVerificationManifest52.ARTIFACT_SHA256)) {
+            return manifest(
+                MainToolbarVerificationManifest52.VERIFICATION_ID,
+                MainToolbarVerificationManifest52.RECORD_SHA256,
+                MainToolbarVerificationManifest52.CUBISM_VERSION,
+                MainToolbarVerificationManifest52.PROFILE_ID,
+                MainToolbarVerificationManifest52.ARTIFACT_SIZE,
+                MainToolbarVerificationManifest52.ARTIFACT_SHA256
+            );
+        }
+        if (artifact.size() == ARTIFACT_SIZE && artifact.sha256().equals(ARTIFACT_SHA256)) {
+            return manifest(
+                VERIFICATION_ID,
+                RECORD_SHA256,
+                CUBISM_VERSION,
+                PROFILE_ID,
+                ARTIFACT_SIZE,
+                ARTIFACT_SHA256
+            );
+        }
+        throw new IllegalArgumentException(
+            "host artifact is not a reviewed Cubism main-toolbar artifact"
+        );
+    }
+
+    public static AdmissionEvidence admissionForArtifact(
+        final HostArtifactDigest artifact
+    ) {
+        final PinnedVerifiedResolverWorkflow.Manifest manifest = forArtifact(artifact);
+        return new AdmissionEvidence(
+            manifest.cubismVersion(),
+            manifest.artifactSize(),
+            manifest.artifactSha256(),
+            manifest.adapterSliceId(),
+            manifest.recordSha256()
+        );
+    }
+
+    public record AdmissionEvidence(
+        String cubismVersion,
+        long artifactSize,
+        String artifactSha256,
+        String adapterSliceId,
+        String recordSha256
+    ) {
+    }
+
+    private static PinnedVerifiedResolverWorkflow.Manifest manifest(
+        final String verificationId,
+        final String recordSha256,
+        final String cubismVersion,
+        final String profileId,
+        final long artifactSize,
+        final String artifactSha256
+    ) {
+        return new PinnedVerifiedResolverWorkflow.Manifest(
+            verificationId,
+            recordSha256,
+            cubismVersion,
+            profileId,
+            artifactSize,
+            artifactSha256,
+            ADAPTER_SLICE_ID,
+            CAPABILITY_IDS,
+            REQUIRED_ALIASES
+        );
+    }
+
     private MainToolbarVerificationManifest() {
     }
 }

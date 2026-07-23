@@ -1,8 +1,14 @@
 package dev.turboism.tests.plugin;
 
+import dev.turboism.sdk.cubism.id.ModelId;
+import dev.turboism.sdk.cubism.id.ParameterGroupId;
 import dev.turboism.sdk.cubism.id.ParameterId;
+import dev.turboism.sdk.cubism.model.Color;
+import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.Parameter;
 import dev.turboism.sdk.cubism.model.ParameterDefinition;
+import dev.turboism.sdk.cubism.model.ParameterGroup;
+import dev.turboism.sdk.cubism.model.ParameterGroups;
 import dev.turboism.sdk.cubism.model.ParameterType;
 import dev.turboism.sdk.cubism.model.Parameters;
 import org.junit.jupiter.api.Test;
@@ -327,6 +333,53 @@ class WindowsParameterValidationProbeTest {
     }
 
     @Test
+    void groupColorAndDefaultLockWritersReturnAuthoritativeState() {
+        final ParameterGroupId groupId = new ParameterGroupId("GroupFace");
+        final Color[] color = {new Color(0.25F, 0.5F, 0.75F, 1.0F)};
+        final ParameterGroup group = new ParameterGroup() {
+            @Override public ParameterGroupId id() { return groupId; }
+            @Override public Optional<String> name() { return Optional.of("Face"); }
+            @Override public Color labelColor() { return color[0]; }
+            @Override public void setLabelColor(final Color next) { color[0] = next; }
+            @Override public Optional<ParameterGroupId> parentId() { return Optional.empty(); }
+            @Override public List<ParameterGroupId> childGroupIds() { return List.of(); }
+            @Override public List<ParameterId> parameterIds() { return List.of(); }
+        };
+        final ParameterGroups groups = new ParameterGroups() {
+            @Override public List<ParameterGroup> all() { return List.of(group); }
+            @Override public ParameterGroup root() { return group; }
+            @Override public ParameterGroup find(final ParameterGroupId id) { return group; }
+        };
+        final boolean[] locked = {false};
+        final CubismModel model = new CubismModel() {
+            @Override public ModelId id() { return new ModelId("model-a"); }
+            @Override public boolean defaultKeyformLocked() { return locked[0]; }
+            @Override public void setDefaultKeyformLocked(final boolean value) { locked[0] = value; }
+            @Override public Parameters parameters() { throw unsupported(); }
+            @Override public ParameterGroups parameterGroups() { return groups; }
+            @Override public dev.turboism.sdk.cubism.model.Parts parts() { throw unsupported(); }
+            @Override public dev.turboism.sdk.cubism.model.Drawables drawables() { throw unsupported(); }
+            @Override public dev.turboism.sdk.cubism.model.Deformers deformers() { throw unsupported(); }
+            @Override public dev.turboism.sdk.cubism.model.Glues glues() { throw unsupported(); }
+            @Override public void update() { throw unsupported(); }
+        };
+        final Color requested = WindowsParameterValidationProbe.parseColor(
+            "0.1", "0.2", "0.3", "0.4"
+        );
+
+        assertEquals(
+            requested,
+            WindowsParameterValidationProbe.setParameterGroupLabelColor(
+                groups,
+                groupId,
+                requested
+            )
+        );
+        assertEquals(true, WindowsParameterValidationProbe.setDefaultKeyformLock(model, true));
+        assertEquals(false, WindowsParameterValidationProbe.setDefaultKeyformLock(model, false));
+    }
+
+    @Test
     void actionFailureDescriptionIncludesCauseChain() {
         final IllegalStateException failure = new IllegalStateException(
             "Combined update failed",
@@ -428,6 +481,10 @@ class WindowsParameterValidationProbeTest {
         assertEquals(List.of("ParamUnknown"), ids(unknownRows));
         assertEquals(Optional.empty(), unknownRows.get(0).name());
         assertEquals("ParamUnknown", unknownRows.get(0).displayName());
+    }
+
+    private static UnsupportedOperationException unsupported() {
+        return new UnsupportedOperationException();
     }
 
     private static List<String> ids(

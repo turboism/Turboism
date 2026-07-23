@@ -136,6 +136,10 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.undo.add-listener"
     );
 
+    public static String resourceProfileForArtifact(final HostArtifactDigest artifact) {
+        return forArtifact(artifact).profileId().substring("cubism-".length());
+    }
+
     static PinnedVerifiedResolverWorkflow.Manifest forArtifact(
         final HostArtifactDigest artifact
     ) {
