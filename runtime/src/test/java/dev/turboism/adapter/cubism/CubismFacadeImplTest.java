@@ -292,6 +292,47 @@ class CubismFacadeImplTest {
     }
 
     @Test
+    void parameterResetRequiresModelWritePermissionBeforeInvokingBackend() {
+        final List<CubismFacadeAuditEvent> auditEvents = new ArrayList<>();
+        final float[] value = {1.0F};
+        final CubismModelAccess backend = () -> modelWithParameter(value);
+        final CubismFacadeImpl denied = new CubismFacadeImpl(
+            sampleSource(),
+            new CubismPermissionGate(
+                "plugin.demo",
+                List.of(permission(CubismFacadeImpl.MODEL_READ_PERMISSION)),
+                auditEvents::add,
+                FIXED_CLOCK
+            ),
+            backend
+        );
+        final var deniedParameter = denied.model().active().parameters()
+            .find(new ParameterId("ParamA"));
+
+        assertThrows(CubismPermissionException.class, deniedParameter::resetToDefault);
+        assertEquals(1.0F, value[0]);
+        assertEquals(CubismFacadeImpl.MODEL_WRITE_PERMISSION, auditEvents.get(0).permissionId());
+        assertEquals("parameter.resetToDefault", auditEvents.get(0).operationId());
+
+        final CubismFacadeImpl allowed = new CubismFacadeImpl(
+            sampleSource(),
+            new CubismPermissionGate(
+                "plugin.demo",
+                List.of(
+                    permission(CubismFacadeImpl.MODEL_READ_PERMISSION),
+                    permission(CubismFacadeImpl.MODEL_WRITE_PERMISSION)
+                ),
+                auditEvents::add,
+                FIXED_CLOCK
+            ),
+            backend
+        );
+        allowed.model().active().parameters().find(new ParameterId("ParamA"))
+            .resetToDefault();
+        assertEquals(0.0F, value[0]);
+    }
+
+    @Test
     void parameterDefinitionUpdateRequiresModelWritePermissionBeforeInvokingBackend() {
         final List<CubismFacadeAuditEvent> auditEvents = new ArrayList<>();
         final float[] value = {1.0F};
