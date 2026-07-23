@@ -10,55 +10,71 @@ import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class VerifiedEditorModelResolverFactoryTest {
+class VerifiedEditorStartupResolverFactoriesTest {
 
     private static final Path PROJECT_ROOT = locateProjectRoot();
     private static final Path LEGACY_EVIDENCE = locateLegacyEvidence();
-    private final VerifiedEditorModelResolverFactory factory =
-        new VerifiedEditorModelResolverFactory();
 
     @Test
-    void admitsPinnedEditorArtifactsForBothSupportedProfiles() throws Exception {
+    void createsEveryStartupResolverForBothExactEditorProfiles() throws Exception {
         assertAdmitted("5.2", "5.2.0");
         assertAdmitted("5.3.02", "5.3.02");
     }
 
     @Test
-    void rejectsRecordAndArtifactFromDifferentProfiles() throws Exception {
-        Path artifact = editorArtifact("5.3.02");
+    void rejectsEveryCrossVersionStartupPairing() throws Exception {
+        final Path artifact = editorArtifact("5.3.02");
         try (URLClassLoader loader = loader(artifact)) {
-            assertThrows(IllegalArgumentException.class, () -> factory.create(
-                record("5.2"), artifact, loader
-            ));
+            assertThrows(IllegalArgumentException.class, () ->
+                new VerifiedProjectWorkspaceResolverFactory().create(
+                    record("5.2", "project-workspace"), artifact, loader
+                )
+            );
+            assertThrows(IllegalArgumentException.class, () ->
+                new VerifiedEditorModelResolverFactory().create(
+                    record("5.2", "editor-model"), artifact, loader
+                )
+            );
+            assertThrows(IllegalArgumentException.class, () ->
+                new VerifiedMainToolbarResolverFactory().create(
+                    record("5.2", "ui-main-toolbar"), artifact, loader
+                )
+            );
         }
     }
 
-    private void assertAdmitted(
+    private static void assertAdmitted(
         final String profile,
         final String exactVersion
     ) throws Exception {
-        Path artifact = editorArtifact(profile);
-        assertTrue(Files.isRegularFile(artifact), "missing local Editor evidence artifact " + artifact);
+        final Path artifact = editorArtifact(profile);
         try (URLClassLoader loader = loader(artifact)) {
-            VerifiedMemberResolver resolver = factory.create(
-                record(profile), artifact, loader
+            assertEquals(
+                exactVersion,
+                new VerifiedProjectWorkspaceResolverFactory().create(
+                    record(profile, "project-workspace"), artifact, loader
+                ).cubismVersion()
             );
-            assertEquals(exactVersion, resolver.cubismVersion());
-            assertTrue(resolver.isExactCubismVersion(exactVersion));
-            assertTrue(resolver.authorizes(
-                EditorModelVerificationManifest.ADAPTER_SLICE_ID,
-                EditorModelVerificationManifest.CAPABILITY_IDS,
-                EditorModelVerificationManifest.REQUIRED_ALIASES
-            ));
+            assertEquals(
+                exactVersion,
+                new VerifiedEditorModelResolverFactory().create(
+                    record(profile, "editor-model"), artifact, loader
+                ).cubismVersion()
+            );
+            assertEquals(
+                exactVersion,
+                new VerifiedMainToolbarResolverFactory().create(
+                    record(profile, "ui-main-toolbar"), artifact, loader
+                ).cubismVersion()
+            );
         }
     }
 
-    private static Path record(final String profile) {
+    private static Path record(final String profile, final String slice) {
         return PROJECT_ROOT.resolve(Path.of(
             "docs", "migration", "verification", "static",
-            "cubism-" + profile + "-editor-model.json"
+            "cubism-" + profile + '-' + slice + ".json"
         ));
     }
 
@@ -69,8 +85,7 @@ class VerifiedEditorModelResolverFactoryTest {
     }
 
     private static URLClassLoader loader(final Path artifact) throws Exception {
-        final Path directory = artifact.getParent();
-        try (Stream<Path> files = Files.list(directory)) {
+        try (Stream<Path> files = Files.list(artifact.getParent())) {
             final URL[] classpath = files
                 .filter(path -> path.getFileName().toString().endsWith(".jar"))
                 .sorted()
