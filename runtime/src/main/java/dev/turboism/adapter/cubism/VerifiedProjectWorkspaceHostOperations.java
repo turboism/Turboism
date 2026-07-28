@@ -92,7 +92,7 @@ public final class VerifiedProjectWorkspaceHostOperations implements ProjectWork
 
     @Override
     public boolean supportsProjectWorkspaceRead() {
-        return "5.3.02".equals(hostVersion);
+        return "5.2.0".equals(hostVersion) || "5.3.02".equals(hostVersion);
     }
 
     @Override
