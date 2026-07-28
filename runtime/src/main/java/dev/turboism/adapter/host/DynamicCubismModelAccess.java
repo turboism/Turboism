@@ -386,6 +386,7 @@ final class DynamicCubismModelAccess implements CubismModelAccess {
             this.delegate = Objects.requireNonNull(delegate, "delegate");
         }
         @Override public PartId id() { return guarded(generation, delegate::id); }
+        @Override public String name() { return guarded(generation, delegate::name); }
         @Override public float getOpacity() { return guarded(generation, delegate::getOpacity); }
         @Override public int parentIndex() { return guarded(generation, delegate::parentIndex); }
         @Override public void setOpacity(final float opacity) {

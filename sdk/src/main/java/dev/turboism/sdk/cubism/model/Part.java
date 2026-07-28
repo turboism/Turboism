@@ -8,6 +8,12 @@ public interface Part {
 
     PartId id();
 
+
+    /** Editor display name, or the ID text when no authoring name is available. */
+    default String name() {
+        return id().value();
+    }
+
     float getOpacity();
 
     int parentIndex();
