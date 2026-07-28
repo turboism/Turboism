@@ -133,6 +133,7 @@ public final class PreviewRuntime implements AutoCloseable {
         final Path verificationRecord,
         final Path editorModelVerificationRecord,
         final Path mainToolbarVerificationRecord,
+        final Path embeddedPanelVerificationRecord,
         final Path hostArtifact,
         final ClassLoader hostClassLoader
     ) throws IOException {
@@ -182,10 +183,17 @@ public final class PreviewRuntime implements AutoCloseable {
                 normalizedHostArtifact,
                 verifiedHostClassLoader
             );
+            final HostVerificationEvidence.Slice embeddedPanel = new HostVerificationEvidence.Slice(
+                Objects.requireNonNull(embeddedPanelVerificationRecord, "embeddedPanelVerificationRecord")
+                    .toAbsolutePath().normalize(),
+                normalizedHostArtifact,
+                verifiedHostClassLoader
+            );
             final HostSession.State hostState = ingress.publish(new HostInstanceDescriptor(
                 "cubism-" + ProcessHandle.current().pid(),
                 HostVerificationEvidence.withEditorModel(projectWorkspace, editorModel)
                     .addingMainToolbar(mainToolbar)
+                    .addingEmbeddedPanel(embeddedPanel)
             ));
             if (hostState == HostSession.State.ACTIVE) {
                 log.info("host", "Verified Cubism project/workspace adapter connected");
