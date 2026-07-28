@@ -1,0 +1,35 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 2,
+  "id": "dev.turboism.validation.editor-object-peer",
+  "name": "Windows Editor Object Peer Validation Probe",
+  "version": "0.1.0",
+  "description": "Manual-test-only second plugin context for exact-host plugin-scope isolation evidence.",
+  "entrypoints": [
+    "dev.turboism.tests.plugin.WindowsEditorObjectPeerValidationProbe"
+  ],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    { "name": "Turboism Contributors" }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": []
+  },
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.cubism.model.read",
+      "scope": "application",
+      "reason": "Verify a second plugin context can still read the active Editor model after the primary validation plugin closes."
+    }
+  ],
+  "capabilities": [],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "headless"
+  }
+}

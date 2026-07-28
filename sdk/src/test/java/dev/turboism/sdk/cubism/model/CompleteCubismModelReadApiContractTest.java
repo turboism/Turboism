@@ -5,6 +5,7 @@ import dev.turboism.sdk.cubism.id.DeformerId;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.Set;
 
@@ -15,18 +16,21 @@ class CompleteCubismModelReadApiContractTest {
     @Test
     void modelAndChildrenExposeTheCompleteSupportedReadShapeWithoutRawHostTypes() throws Exception {
         assertMethods(CubismModel.class,
-            "canvas", "defaultKeyformLocked", "deformers", "drawables", "glues", "id", "parameterGroups", "parameters", "parts", "setDefaultKeyformLocked", "update");
+            "canvas", "defaultKeyformLocked", "deformers", "drawables", "glues", "id", "parameterGroups", "parameters", "parts", "rotationDeformers", "setDefaultKeyformLocked", "update", "warpDeformers");
         assertMethods(Canvas.class,
             "heightPixels", "originXPixels", "originYPixels", "pixelsPerUnit", "widthPixels");
         assertMethods(Part.class,
             "getOpacity", "id", "name", "parentIndex", "setName", "setOpacity");
         assertMethods(Drawable.class,
-            "blendMode", "constantFlag", "drawOrder", "dynamicFlag", "getOpacity", "id",
-            "indices", "masks", "multiplyColor", "parameters", "parentDeformerIndex",
-            "parentPartIndex", "renderOrder", "screenColor", "textureIndex",
-            "vertexPositions", "vertexUvs");
+            "blendMode", "constantFlag", "culling", "drawOrder", "dynamicFlag", "geometry", "getOpacity", "id",
+            "indices", "invertedMask", "locked", "lockedInHierarchy", "masks", "multiplyColor", "name", "parameters",
+            "parentDeformerIndex", "parentPartIndex", "renderOrder", "replaceGeometry", "screenColor", "setLocked",
+            "setOpacity", "setVisible", "textureIndex", "userData", "vertexPositions", "vertexUvs", "visible",
+            "visibleInHierarchy");
         assertMethods(Deformer.class,
-            "id", "parameters", "parentDeformerIndex");
+            "getOpacity", "id", "locked", "lockedInHierarchy", "multiplyColor", "name", "parameters", "parentDeformerIndex", "parentPartIndex", "screenColor", "setLocked", "setOpacity", "setVisible", "visible", "visibleInHierarchy");
+        assertMethods(WarpDeformer.class, "grid", "replaceGrid");
+        assertMethods(RotationDeformer.class, "baseAngle", "form", "replaceForm", "setBaseAngle");
         assertMethods(Glue.class,
             "drawableA", "drawableB", "id", "parameters");
 
@@ -38,10 +42,10 @@ class CompleteCubismModelReadApiContractTest {
     private static void assertMethods(final Class<?> type, final String... names) {
         assertEquals(
             Set.copyOf(Arrays.asList(names)),
-            Arrays.stream(type.getDeclaredMethods()).map(Method::getName).collect(java.util.stream.Collectors.toSet()),
+            Arrays.stream(type.getDeclaredMethods()).filter(method -> Modifier.isPublic(method.getModifiers())).map(Method::getName).collect(java.util.stream.Collectors.toSet()),
             type.getName()
         );
-        Arrays.stream(type.getDeclaredMethods()).forEach(method -> {
+        Arrays.stream(type.getDeclaredMethods()).filter(method -> Modifier.isPublic(method.getModifiers())).forEach(method -> {
             assertNoRawHostType(method.getReturnType());
             Arrays.stream(method.getParameterTypes()).forEach(
                 CompleteCubismModelReadApiContractTest::assertNoRawHostType

@@ -3,8 +3,10 @@ package dev.turboism.tests.plugin;
 import dev.turboism.sdk.cubism.CubismPlugin;
 import dev.turboism.sdk.cubism.id.ParameterGroupId;
 import dev.turboism.sdk.cubism.id.ParameterId;
+import dev.turboism.sdk.cubism.model.ArtMeshGeometry;
 import dev.turboism.sdk.cubism.model.Color;
 import dev.turboism.sdk.cubism.model.CubismModel;
+import dev.turboism.sdk.cubism.model.Drawable;
 import dev.turboism.sdk.cubism.model.Parameter;
 import dev.turboism.sdk.cubism.model.ParameterDefinition;
 import dev.turboism.sdk.cubism.model.ParameterGroup;
@@ -12,6 +14,11 @@ import dev.turboism.sdk.cubism.model.ParameterGroups;
 import dev.turboism.sdk.cubism.model.ParameterType;
 import dev.turboism.sdk.cubism.model.Parameters;
 import dev.turboism.sdk.cubism.model.Part;
+import dev.turboism.sdk.cubism.model.Point2;
+import dev.turboism.sdk.cubism.model.RotationDeformer;
+import dev.turboism.sdk.cubism.model.RotationDeformerForm;
+import dev.turboism.sdk.cubism.model.WarpDeformer;
+import dev.turboism.sdk.cubism.model.WarpGrid;
 import dev.turboism.sdk.plugin.PluginContext;
 
 import javax.swing.BorderFactory;
@@ -41,6 +48,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Properties;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicReference;
@@ -254,9 +262,21 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
     @Override
     public void enable() {
         partValidationThread = new Thread(() -> {
-            runPartOpacityValidation();
+            final String mode = System.getProperty("turboism.editorObjectValidation.mode", "matrix");
+            if ("persist-write".equals(mode)) {
+                runEditorObjectPersistenceWrite();
+            } else if ("persist-read".equals(mode)) {
+                runEditorObjectPersistenceRead();
+            } else if ("plugin-scope-close".equals(mode)) {
+                runEditorObjectPluginScopeClose();
+            } else if ("document-close".equals(mode)) {
+                runEditorObjectDocumentClose();
+            } else {
+                runEditorObjectValidation();
+                runPartOpacityValidation();
+            }
             SwingUtilities.invokeLater(this::showWindow);
-        }, "turboism-part-opacity-validation");
+        }, "turboism-editor-object-validation");
         partValidationThread.setDaemon(true);
         partValidationThread.start();
     }
@@ -927,6 +947,596 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         return context.cubism().model().active();
     }
 
+    private void runEditorObjectValidation() {
+        final Path artifact = Path.of(
+            System.getProperty("turboism.home"), "logs", "editor-object-validation.txt"
+        );
+        try {
+            Files.createDirectories(artifact.getParent());
+            Files.writeString(artifact, "status=RUNNING phase=await-model\n", StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+            CubismModel model = null;
+            Exception unavailable = null;
+            for (int attempt = 0; attempt < 120 && !Thread.currentThread().isInterrupted(); attempt++) {
+                try {
+                    model = onHostThread(this::activeModel);
+                    final CubismModel candidate = model;
+                    onHostThread(() -> {
+                        if (candidate.drawables().all().isEmpty()) throw new IllegalStateException("No ArtMesh is available.");
+                        if (candidate.warpDeformers().all().isEmpty()) throw new IllegalStateException("No Warp Deformer is available.");
+                        if (candidate.rotationDeformers().all().isEmpty()) throw new IllegalStateException("No Rotation Deformer is available.");
+                        return null;
+                    });
+                    break;
+                } catch (Exception exception) {
+                    model = null;
+                    unavailable = exception;
+                    Files.writeString(
+                        artifact,
+                        "status=RUNNING phase=await-model attempt=" + attempt + " error="
+                            + exception.getClass().getName() + ": " + exception.getMessage() + "\n",
+                        StandardOpenOption.TRUNCATE_EXISTING
+                    );
+                    Thread.sleep(1000L);
+                }
+            }
+            if (model == null) throw unavailable == null
+                ? new IllegalStateException("Editor object validation was interrupted.")
+                : unavailable;
+
+            final CubismModel selectedModel = model;
+            final Drawable mesh = onHostThread(() -> selectedModel.drawables().all().get(0));
+            final WarpDeformer warp = onHostThread(() -> selectedModel.warpDeformers().all().get(0));
+            final RotationDeformer rotation = onHostThread(() -> selectedModel.rotationDeformers().all().get(0));
+            final java.awt.Robot robot = new java.awt.Robot();
+            final StringBuilder report = new StringBuilder();
+            report.append("status=RUNNING\n")
+                .append("meshId=").append(mesh.id().value()).append('\n')
+                .append("meshName=").append(onHostThread(mesh::name)).append('\n')
+                .append("warpId=").append(warp.id().value()).append('\n')
+                .append("warpName=").append(onHostThread(warp::name)).append('\n')
+                .append("rotationId=").append(rotation.id().value()).append('\n')
+                .append("rotationName=").append(onHostThread(rotation::name)).append('\n');
+
+            final boolean meshOpacity = validateFloatEdit("meshOpacity", mesh::getOpacity, mesh::setOpacity, robot, report);
+            final boolean meshVisible = validateBooleanEdit("meshVisible", mesh::visible, mesh::setVisible, robot, report);
+            final boolean meshLocked = validateBooleanEdit("meshLocked", mesh::locked, mesh::setLocked, robot, report);
+            final boolean meshGeometry = validateMeshGeometry(mesh, robot, report);
+
+            final boolean warpOpacity = validateFloatEdit("warpOpacity", warp::getOpacity, warp::setOpacity, robot, report);
+            final boolean warpVisible = validateBooleanEdit("warpVisible", warp::visible, warp::setVisible, robot, report);
+            final boolean warpLocked = validateBooleanEdit("warpLocked", warp::locked, warp::setLocked, robot, report);
+            final boolean warpGrid = validateWarpGrid(warp, robot, report);
+
+            final boolean rotationOpacity = validateFloatEdit("rotationOpacity", rotation::getOpacity, rotation::setOpacity, robot, report);
+            final boolean rotationVisible = validateBooleanEdit("rotationVisible", rotation::visible, rotation::setVisible, robot, report);
+            final boolean rotationLocked = validateBooleanEdit("rotationLocked", rotation::locked, rotation::setLocked, robot, report);
+            final boolean rotationBaseAngle = validateFloatEdit("rotationBaseAngle", rotation::baseAngle, rotation::setBaseAngle, robot, report);
+            final boolean rotationForm = validateRotationForm(rotation, robot, report);
+
+            final boolean passed = meshOpacity && meshVisible && meshLocked && meshGeometry
+                && warpOpacity && warpVisible && warpLocked && warpGrid
+                && rotationOpacity && rotationVisible && rotationLocked && rotationBaseAngle && rotationForm;
+            report.replace(0, "status=RUNNING".length(), "status=" + (passed ? "PASS" : "FAIL"));
+            Files.writeString(artifact, report.toString(), StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+        } catch (Exception exception) {
+            try {
+                Files.writeString(
+                    artifact,
+                    "status=FAIL\nerror=" + exception.getClass().getName() + ": " + exception.getMessage() + "\n",
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.TRUNCATE_EXISTING
+                );
+            } catch (Exception ignored) {
+                context.logger().error("Editor object validation artifact could not be written", exception);
+            }
+        }
+    }
+
+    private CubismModel awaitEditorObjectModel(final Path artifact) throws Exception {
+        CubismModel model = null;
+        Exception unavailable = null;
+        for (int attempt = 0; attempt < 120 && !Thread.currentThread().isInterrupted(); attempt++) {
+            try {
+                model = onHostThread(this::activeModel);
+                final CubismModel candidate = model;
+                onHostThread(() -> {
+                    if (candidate.drawables().all().isEmpty()) throw new IllegalStateException("No ArtMesh is available.");
+                    if (candidate.warpDeformers().all().isEmpty()) throw new IllegalStateException("No Warp Deformer is available.");
+                    if (candidate.rotationDeformers().all().isEmpty()) throw new IllegalStateException("No Rotation Deformer is available.");
+                    return null;
+                });
+                return model;
+            } catch (Exception exception) {
+                model = null;
+                unavailable = exception;
+                Files.writeString(
+                    artifact,
+                    "status=RUNNING phase=await-model attempt=" + attempt + " error="
+                        + exception.getClass().getName() + ": " + exception.getMessage() + "\n",
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.TRUNCATE_EXISTING
+                );
+                Thread.sleep(1000L);
+            }
+        }
+        throw unavailable == null
+            ? new IllegalStateException("Editor object validation was interrupted.")
+            : unavailable;
+    }
+
+    private void runEditorObjectPersistenceWrite() {
+        final Path home = Path.of(System.getProperty("turboism.home"));
+        final Path artifact = home.resolve("logs/editor-object-persistence-write.txt");
+        final Path expectedFile = home.resolve("state/editor-object-persistence.properties");
+        try {
+            Files.createDirectories(artifact.getParent());
+            Files.createDirectories(expectedFile.getParent());
+            final CubismModel model = awaitEditorObjectModel(artifact);
+            final Drawable mesh = onHostThread(() -> model.drawables().all().get(0));
+            final WarpDeformer warp = onHostThread(() -> model.warpDeformers().all().get(0));
+            final RotationDeformer rotation = onHostThread(() -> model.rotationDeformers().all().get(0));
+
+            final float meshOpacity = alternate(onHostThread(mesh::getOpacity));
+            final boolean meshVisible = !onHostThread(mesh::visible);
+            final boolean meshLocked = !onHostThread(mesh::locked);
+            final ArtMeshGeometry meshBefore = onHostThread(mesh::geometry);
+            final ArtMeshGeometry meshGeometry = changedMeshGeometry(meshBefore, 0.375F);
+
+            final float warpOpacity = alternate(onHostThread(warp::getOpacity));
+            final boolean warpVisible = !onHostThread(warp::visible);
+            final boolean warpLocked = !onHostThread(warp::locked);
+            final WarpGrid warpBefore = onHostThread(warp::grid);
+            final WarpGrid warpGrid = changedWarpGrid(warpBefore, 0.375F);
+
+            final float rotationOpacity = alternate(onHostThread(rotation::getOpacity));
+            final boolean rotationVisible = !onHostThread(rotation::visible);
+            final boolean rotationLocked = !onHostThread(rotation::locked);
+            final float rotationBaseAngle = onHostThread(rotation::baseAngle) + 7.0F;
+            final RotationDeformerForm rotationBefore = onHostThread(rotation::form);
+            final RotationDeformerForm rotationForm = changedRotationForm(rotationBefore, 7.0F);
+
+            onHostThread(() -> {
+                mesh.setOpacity(meshOpacity); mesh.setVisible(meshVisible); mesh.setLocked(meshLocked); mesh.replaceGeometry(meshGeometry);
+                warp.setOpacity(warpOpacity); warp.setVisible(warpVisible); warp.setLocked(warpLocked); warp.replaceGrid(warpGrid);
+                rotation.setOpacity(rotationOpacity); rotation.setVisible(rotationVisible); rotation.setLocked(rotationLocked);
+                rotation.setBaseAngle(rotationBaseAngle); rotation.replaceForm(rotationForm);
+                return null;
+            });
+
+            final Properties expected = new Properties();
+            expected.setProperty("mesh.id", mesh.id().value());
+            expected.setProperty("mesh.opacity", Float.toString(meshOpacity));
+            expected.setProperty("mesh.visible", Boolean.toString(meshVisible));
+            expected.setProperty("mesh.locked", Boolean.toString(meshLocked));
+            expected.setProperty("mesh.geometry", meshGeometry.toString());
+            expected.setProperty("warp.id", warp.id().value());
+            expected.setProperty("warp.opacity", Float.toString(warpOpacity));
+            expected.setProperty("warp.visible", Boolean.toString(warpVisible));
+            expected.setProperty("warp.locked", Boolean.toString(warpLocked));
+            expected.setProperty("warp.grid", warpGrid.toString());
+            expected.setProperty("rotation.id", rotation.id().value());
+            expected.setProperty("rotation.opacity", Float.toString(rotationOpacity));
+            expected.setProperty("rotation.visible", Boolean.toString(rotationVisible));
+            expected.setProperty("rotation.locked", Boolean.toString(rotationLocked));
+            expected.setProperty("rotation.baseAngle", Float.toString(rotationBaseAngle));
+            expected.setProperty("rotation.form", rotationForm.toString());
+            try (java.io.OutputStream output = Files.newOutputStream(expectedFile, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)) {
+                expected.store(output, "Turboism editor object persistence expectations");
+            }
+
+            final java.awt.Robot robot = new java.awt.Robot();
+            pressShortcut(robot, java.awt.event.KeyEvent.VK_S);
+            Thread.sleep(2500L);
+            Files.writeString(
+                artifact,
+                "status=PASS\nphase=saved\nmeshId=" + mesh.id().value()
+                    + "\nwarpId=" + warp.id().value()
+                    + "\nrotationId=" + rotation.id().value() + "\n",
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING
+            );
+        } catch (Exception exception) {
+            writeValidationFailure(artifact, exception, "Editor object persistence write artifact could not be written");
+        }
+    }
+
+    private void runEditorObjectPersistenceRead() {
+        final Path home = Path.of(System.getProperty("turboism.home"));
+        final Path artifact = home.resolve("logs/editor-object-persistence-read.txt");
+        final Path expectedFile = home.resolve("state/editor-object-persistence.properties");
+        try {
+            final Properties expected = new Properties();
+            try (java.io.InputStream input = Files.newInputStream(expectedFile)) { expected.load(input); }
+            final CubismModel model = awaitEditorObjectModel(artifact);
+            final Drawable mesh = onHostThread(() -> model.drawables().find(new dev.turboism.sdk.cubism.id.ArtMeshId(expected.getProperty("mesh.id"))));
+            final WarpDeformer warp = onHostThread(() -> model.warpDeformers().find(new dev.turboism.sdk.cubism.id.DeformerId(expected.getProperty("warp.id"))));
+            final RotationDeformer rotation = onHostThread(() -> model.rotationDeformers().find(new dev.turboism.sdk.cubism.id.DeformerId(expected.getProperty("rotation.id"))));
+            final ArtMeshGeometry meshGeometry = onHostThread(mesh::geometry);
+            final WarpGrid warpGrid = onHostThread(warp::grid);
+            final RotationDeformerForm rotationForm = onHostThread(rotation::form);
+            final boolean passed =
+                same(expected, "mesh.opacity", onHostThread(mesh::getOpacity))
+                && same(expected, "mesh.visible", onHostThread(mesh::visible))
+                && same(expected, "mesh.locked", onHostThread(mesh::locked))
+                && expected.getProperty("mesh.geometry").equals(meshGeometry.toString())
+                && same(expected, "warp.opacity", onHostThread(warp::getOpacity))
+                && same(expected, "warp.visible", onHostThread(warp::visible))
+                && same(expected, "warp.locked", onHostThread(warp::locked))
+                && expected.getProperty("warp.grid").equals(warpGrid.toString())
+                && same(expected, "rotation.opacity", onHostThread(rotation::getOpacity))
+                && same(expected, "rotation.visible", onHostThread(rotation::visible))
+                && same(expected, "rotation.locked", onHostThread(rotation::locked))
+                && same(expected, "rotation.baseAngle", onHostThread(rotation::baseAngle))
+                && expected.getProperty("rotation.form").equals(rotationForm.toString());
+            Files.writeString(
+                artifact,
+                "status=" + (passed ? "PASS" : "FAIL") + "\nphase=reopened\n",
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING
+            );
+        } catch (Exception exception) {
+            writeValidationFailure(artifact, exception, "Editor object persistence read artifact could not be written");
+        }
+    }
+
+    private void runEditorObjectPluginScopeClose() {
+        final Path artifact = Path.of(
+            System.getProperty("turboism.home"), "logs", "editor-object-plugin-scope-close.txt"
+        );
+        try {
+            Files.createDirectories(artifact.getParent());
+            final CubismModel model = awaitEditorObjectModel(artifact);
+            final Drawable mesh = onHostThread(() -> model.drawables().all().get(0));
+            final WarpDeformer warp = onHostThread(() -> model.warpDeformers().all().get(0));
+            final RotationDeformer rotation = onHostThread(() -> model.rotationDeformers().all().get(0));
+            context.disposableScope().close();
+            final boolean modelStale = failsClosed(model::id);
+            final boolean meshStale = failsClosed(mesh::geometry);
+            final boolean warpStale = failsClosed(warp::grid);
+            final boolean rotationStale = failsClosed(rotation::form);
+            final Path peerRequest = Path.of(
+                System.getProperty("turboism.home"), "state", "editor-object-peer-request.txt"
+            );
+            final Path peerArtifact = Path.of(
+                System.getProperty("turboism.home"), "logs", "editor-object-peer-scope-close.txt"
+            );
+            Files.createDirectories(peerRequest.getParent());
+            Files.deleteIfExists(peerArtifact);
+            Files.writeString(
+                peerRequest,
+                "primaryScopeClosed=true\n",
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING
+            );
+            for (int attempt = 0; attempt < 600 && !Files.exists(peerArtifact); attempt++) {
+                Thread.sleep(100L);
+            }
+            final String peerEvidence = Files.exists(peerArtifact) ? Files.readString(peerArtifact) : "";
+            final boolean secondPluginUsable = peerEvidence.contains("status=PASS")
+                && peerEvidence.contains("secondPluginUsable=true");
+            final boolean passed = modelStale && meshStale && warpStale && rotationStale && secondPluginUsable;
+            Files.writeString(
+                artifact,
+                "status=" + (passed ? "PASS" : "FAIL")
+                    + "\nphase=plugin-scope-close"
+                    + "\nmodelStale=" + modelStale
+                    + "\nmeshStale=" + meshStale
+                    + "\nwarpStale=" + warpStale
+                    + "\nrotationStale=" + rotationStale
+                    + "\nsharedHostActive=true"
+                    + "\nsecondPluginUsable=" + secondPluginUsable + "\n",
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING
+            );
+        } catch (Exception exception) {
+            writeValidationFailure(artifact, exception, "Editor object plugin-scope lifecycle artifact could not be written");
+        }
+    }
+
+    private void runEditorObjectDocumentClose() {
+        final Path artifact = Path.of(
+            System.getProperty("turboism.home"), "logs", "editor-object-document-close.txt"
+        );
+        try {
+            Files.createDirectories(artifact.getParent());
+            final CubismModel model = awaitEditorObjectModel(artifact);
+            final Drawable mesh = onHostThread(() -> model.drawables().all().get(0));
+            final WarpDeformer warp = onHostThread(() -> model.warpDeformers().all().get(0));
+            final RotationDeformer rotation = onHostThread(() -> model.rotationDeformers().all().get(0));
+            final java.awt.Robot robot = new java.awt.Robot();
+            pressShortcut(robot, java.awt.event.KeyEvent.VK_W);
+            boolean modelStale = false;
+            boolean meshStale = false;
+            boolean warpStale = false;
+            boolean rotationStale = false;
+            for (int attempt = 0; attempt < 60 && !(modelStale && meshStale && warpStale && rotationStale); attempt++) {
+                Thread.sleep(100L);
+                modelStale = failsClosed(model::id);
+                meshStale = failsClosed(mesh::geometry);
+                warpStale = failsClosed(warp::grid);
+                rotationStale = failsClosed(rotation::form);
+            }
+            final boolean passed = modelStale && meshStale && warpStale && rotationStale;
+            Files.writeString(
+                artifact,
+                "status=" + (passed ? "PASS" : "FAIL")
+                    + "\nphase=document-close"
+                    + "\nmodelStale=" + modelStale
+                    + "\nmeshStale=" + meshStale
+                    + "\nwarpStale=" + warpStale
+                    + "\nrotationStale=" + rotationStale + "\n",
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING
+            );
+        } catch (Exception exception) {
+            writeValidationFailure(artifact, exception, "Editor object document-close lifecycle artifact could not be written");
+        }
+    }
+
+    private static boolean failsClosed(final Callable<?> call) {
+        try {
+            call.call();
+            return false;
+        } catch (Exception expected) {
+            return expected instanceof IllegalStateException
+                || expected instanceof UnsupportedOperationException;
+        }
+    }
+
+    private static float alternate(final float before) {
+        return Float.compare(before, 0.625F) == 0 ? 0.75F : 0.625F;
+    }
+
+    private static boolean same(final Properties expected, final String key, final float actual) {
+        return Float.compare(Float.parseFloat(expected.getProperty(key)), actual) == 0;
+    }
+
+    private static boolean same(final Properties expected, final String key, final boolean actual) {
+        return Boolean.parseBoolean(expected.getProperty(key)) == actual;
+    }
+
+    private void writeValidationFailure(final Path artifact, final Exception exception, final String logMessage) {
+        try {
+            Files.createDirectories(artifact.getParent());
+            Files.writeString(
+                artifact,
+                "status=FAIL\nerror=" + exception.getClass().getName() + ": " + exception.getMessage() + "\n",
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING
+            );
+        } catch (Exception ignored) {
+            context.logger().error(logMessage, exception);
+        }
+    }
+
+    @FunctionalInterface
+    private interface FloatWriter { void set(float value); }
+
+    @FunctionalInterface
+    private interface BooleanWriter { void set(boolean value); }
+
+    private boolean validateFloatEdit(
+        final String label,
+        final Callable<Float> reader,
+        final FloatWriter writer,
+        final java.awt.Robot robot,
+        final StringBuilder report
+    ) throws Exception {
+        final float before = onHostThread(reader);
+        final float written = Float.compare(before, 0.625F) == 0 ? 0.75F : 0.625F;
+        onHostThread(() -> { writer.set(written); return null; });
+        final float afterWrite = onHostThread(reader);
+        pressShortcut(robot, java.awt.event.KeyEvent.VK_Z);
+        final float afterUndo = awaitValue(reader, before);
+        pressShortcut(robot, java.awt.event.KeyEvent.VK_Y);
+        final float afterRedo = awaitValue(reader, written);
+        pressShortcut(robot, java.awt.event.KeyEvent.VK_Z);
+        final float restored = awaitValue(reader, before);
+        final boolean passed = Float.compare(afterWrite, written) == 0
+            && Float.compare(afterUndo, before) == 0
+            && Float.compare(afterRedo, written) == 0
+            && Float.compare(restored, before) == 0;
+        appendMatrix(report, label, before, written, afterWrite, afterUndo, afterRedo, restored, passed);
+        return passed;
+    }
+
+    private boolean validateBooleanEdit(
+        final String label,
+        final Callable<Boolean> reader,
+        final BooleanWriter writer,
+        final java.awt.Robot robot,
+        final StringBuilder report
+    ) throws Exception {
+        final boolean before = onHostThread(reader);
+        final boolean written = !before;
+        onHostThread(() -> { writer.set(written); return null; });
+        final boolean afterWrite = onHostThread(reader);
+        pressShortcut(robot, java.awt.event.KeyEvent.VK_Z);
+        final boolean afterUndo = awaitValue(reader, before);
+        pressShortcut(robot, java.awt.event.KeyEvent.VK_Y);
+        final boolean afterRedo = awaitValue(reader, written);
+        pressShortcut(robot, java.awt.event.KeyEvent.VK_Z);
+        final boolean restored = awaitValue(reader, before);
+        final boolean passed = afterWrite == written && afterUndo == before && afterRedo == written && restored == before;
+        appendMatrix(report, label, before, written, afterWrite, afterUndo, afterRedo, restored, passed);
+        return passed;
+    }
+
+    private boolean validateMeshGeometry(
+        final Drawable mesh,
+        final java.awt.Robot robot,
+        final StringBuilder report
+    ) throws Exception {
+        final ArtMeshGeometry before = onHostThread(mesh::geometry);
+        final ArtMeshGeometry written = changedMeshGeometry(before, 0.25F);
+        onHostThread(() -> { mesh.replaceGeometry(written); return null; });
+        final ArtMeshGeometry afterWrite = onHostThread(mesh::geometry);
+        pressShortcut(robot, java.awt.event.KeyEvent.VK_Z);
+        final ArtMeshGeometry afterUndo = awaitValue(mesh::geometry, before);
+        pressShortcut(robot, java.awt.event.KeyEvent.VK_Y);
+        final ArtMeshGeometry afterRedo = awaitValue(mesh::geometry, written);
+        pressShortcut(robot, java.awt.event.KeyEvent.VK_Z);
+        final ArtMeshGeometry restored = awaitValue(mesh::geometry, before);
+        final boolean passed = written.equals(afterWrite) && before.equals(afterUndo)
+            && written.equals(afterRedo) && before.equals(restored);
+        appendMatrix(report, "meshGeometry", before, written, afterWrite, afterUndo, afterRedo, restored, passed);
+        return passed;
+    }
+
+    private boolean validateWarpGrid(
+        final WarpDeformer warp,
+        final java.awt.Robot robot,
+        final StringBuilder report
+    ) throws Exception {
+        final WarpGrid before = onHostThread(warp::grid);
+        final WarpGrid written = changedWarpGrid(before, 0.25F);
+        onHostThread(() -> { warp.replaceGrid(written); return null; });
+        final WarpGrid afterWrite = onHostThread(warp::grid);
+        pressShortcut(robot, java.awt.event.KeyEvent.VK_Z);
+        final WarpGrid afterUndo = awaitValue(warp::grid, before);
+        pressShortcut(robot, java.awt.event.KeyEvent.VK_Y);
+        final WarpGrid afterRedo = awaitValue(warp::grid, written);
+        pressShortcut(robot, java.awt.event.KeyEvent.VK_Z);
+        final WarpGrid restored = awaitValue(warp::grid, before);
+        final boolean passed = written.equals(afterWrite) && before.equals(afterUndo)
+            && written.equals(afterRedo) && before.equals(restored);
+        appendMatrix(report, "warpGrid", before, written, afterWrite, afterUndo, afterRedo, restored, passed);
+        return passed;
+    }
+
+    private boolean validateRotationForm(
+        final RotationDeformer rotation,
+        final java.awt.Robot robot,
+        final StringBuilder report
+    ) throws Exception {
+        final RotationDeformerForm before = onHostThread(rotation::form);
+        final RotationDeformerForm written = changedRotationForm(before, 5.0F);
+        onHostThread(() -> { rotation.replaceForm(written); return null; });
+        final RotationDeformerForm afterWrite = onHostThread(rotation::form);
+        pressShortcut(robot, java.awt.event.KeyEvent.VK_Z);
+        final RotationDeformerForm afterUndo = awaitValue(rotation::form, before);
+        pressShortcut(robot, java.awt.event.KeyEvent.VK_Y);
+        final RotationDeformerForm afterRedo = awaitValue(rotation::form, written);
+        pressShortcut(robot, java.awt.event.KeyEvent.VK_Z);
+        final RotationDeformerForm restored = awaitValue(rotation::form, before);
+        final boolean passed = written.equals(afterWrite) && before.equals(afterUndo)
+            && written.equals(afterRedo) && before.equals(restored);
+        appendMatrix(report, "rotationForm", before, written, afterWrite, afterUndo, afterRedo, restored, passed);
+        return passed;
+    }
+
+    private static ArtMeshGeometry changedMeshGeometry(
+        final ArtMeshGeometry before,
+        final float delta
+    ) {
+        final java.util.ArrayList<Point2> positions = new java.util.ArrayList<>(before.positions());
+        final Point2 firstPosition = positions.get(0);
+        positions.set(0, new Point2(firstPosition.x() + delta, firstPosition.y() + delta));
+        final java.util.ArrayList<Point2> uvs = new java.util.ArrayList<>(before.uvs());
+        final Point2 firstUv = uvs.get(0);
+        final float changedU = firstUv.x() <= 0.5F ? firstUv.x() + 0.125F : firstUv.x() - 0.125F;
+        final float changedV = firstUv.y() <= 0.5F ? firstUv.y() + 0.125F : firstUv.y() - 0.125F;
+        uvs.set(0, new Point2(changedU, changedV));
+        final java.util.ArrayList<Integer> indices = new java.util.ArrayList<>(before.triangleIndices());
+        if (indices.size() < 3 || Objects.equals(indices.get(0), indices.get(1))) {
+            throw new IllegalStateException("ArtMesh fixture must contain a non-degenerate triangle.");
+        }
+        final Integer firstIndex = indices.get(0);
+        indices.set(0, indices.get(1));
+        indices.set(1, firstIndex);
+        return new ArtMeshGeometry(positions, uvs, indices);
+    }
+
+    private static WarpGrid changedWarpGrid(final WarpGrid before, final float delta) {
+        final int rows = before.rows() + 1;
+        final int columns = before.columns() + 1;
+        final java.util.ArrayList<Point2> points = new java.util.ArrayList<>((rows + 1) * (columns + 1));
+        for (int row = 0; row <= rows; row++) {
+            final float sourceRow = ((float) row / rows) * before.rows();
+            for (int column = 0; column <= columns; column++) {
+                final float sourceColumn = ((float) column / columns) * before.columns();
+                final Point2 sampled = sampleWarpPoint(before, sourceRow, sourceColumn);
+                final boolean first = row == 0 && column == 0;
+                points.add(first
+                    ? new Point2(sampled.x() + delta, sampled.y() + delta)
+                    : sampled);
+            }
+        }
+        return new WarpGrid(rows, columns, !before.quadTransform(), points);
+    }
+
+    private static Point2 sampleWarpPoint(
+        final WarpGrid grid,
+        final float sourceRow,
+        final float sourceColumn
+    ) {
+        final int row0 = Math.min((int) Math.floor(sourceRow), grid.rows());
+        final int column0 = Math.min((int) Math.floor(sourceColumn), grid.columns());
+        final int row1 = Math.min(row0 + 1, grid.rows());
+        final int column1 = Math.min(column0 + 1, grid.columns());
+        final float rowWeight = sourceRow - row0;
+        final float columnWeight = sourceColumn - column0;
+        final Point2 topLeft = warpPoint(grid, row0, column0);
+        final Point2 topRight = warpPoint(grid, row0, column1);
+        final Point2 bottomLeft = warpPoint(grid, row1, column0);
+        final Point2 bottomRight = warpPoint(grid, row1, column1);
+        final float topX = topLeft.x() + (topRight.x() - topLeft.x()) * columnWeight;
+        final float topY = topLeft.y() + (topRight.y() - topLeft.y()) * columnWeight;
+        final float bottomX = bottomLeft.x() + (bottomRight.x() - bottomLeft.x()) * columnWeight;
+        final float bottomY = bottomLeft.y() + (bottomRight.y() - bottomLeft.y()) * columnWeight;
+        return new Point2(
+            topX + (bottomX - topX) * rowWeight,
+            topY + (bottomY - topY) * rowWeight
+        );
+    }
+
+    private static Point2 warpPoint(final WarpGrid grid, final int row, final int column) {
+        return grid.controlPoints().get(row * (grid.columns() + 1) + column);
+    }
+
+    private static RotationDeformerForm changedRotationForm(
+        final RotationDeformerForm before,
+        final float angleDelta
+    ) {
+        return new RotationDeformerForm(
+            before.angle() + angleDelta,
+            before.originX() + 0.25F,
+            before.originY() - 0.25F,
+            before.scale() * 1.125F,
+            !before.reflectedX(),
+            !before.reflectedY()
+        );
+    }
+
+    private <T> T awaitValue(final Callable<T> reader, final T expected) throws Exception {
+        T actual = onHostThread(reader);
+        for (int attempt = 0; attempt < 40 && !Objects.equals(expected, actual); attempt++) {
+            Thread.sleep(100L);
+            actual = onHostThread(reader);
+        }
+        return actual;
+    }
+
+    private static void appendMatrix(
+        final StringBuilder report,
+        final String label,
+        final Object before,
+        final Object written,
+        final Object afterWrite,
+        final Object afterUndo,
+        final Object afterRedo,
+        final Object restored,
+        final boolean passed
+    ) {
+        report.append(label).append(".status=").append(passed ? "PASS" : "FAIL").append('\n')
+            .append(label).append(".before=").append(before).append('\n')
+            .append(label).append(".written=").append(written).append('\n')
+            .append(label).append(".afterWrite=").append(afterWrite).append('\n')
+            .append(label).append(".afterUndo=").append(afterUndo).append('\n')
+            .append(label).append(".afterRedo=").append(afterRedo).append('\n')
+            .append(label).append(".restored=").append(restored).append('\n');
+    }
+
     private void runPartOpacityValidation() {
         final Path artifact = Path.of(
             System.getProperty("turboism.home"), "logs", "part-opacity-validation.txt"
@@ -1055,7 +1665,26 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         return result.get();
     }
 
-    private static void pressShortcut(final java.awt.Robot robot, final int key) {
+    private static void pressShortcut(final java.awt.Robot robot, final int key) throws Exception {
+        final AtomicReference<java.awt.Frame> hostFrame = new AtomicReference<>();
+        SwingUtilities.invokeAndWait(() -> {
+            for (java.awt.Frame frame : java.awt.Frame.getFrames()) {
+                if (!frame.isVisible()) continue;
+                final String title = frame.getTitle();
+                if (title != null && (title.contains(".cmo3") || title.contains("Cubism"))) {
+                    hostFrame.set(frame);
+                    break;
+                }
+                if (hostFrame.get() == null) hostFrame.set(frame);
+            }
+            final java.awt.Frame frame = hostFrame.get();
+            if (frame != null) {
+                frame.setState(java.awt.Frame.NORMAL);
+                frame.toFront();
+                frame.requestFocus();
+            }
+        });
+        Thread.sleep(250L);
         robot.keyPress(java.awt.event.KeyEvent.VK_CONTROL);
         robot.keyPress(key);
         robot.keyRelease(key);
