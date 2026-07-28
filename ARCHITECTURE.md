@@ -267,3 +267,14 @@ checkLegacyGovernance
 ```
 
 Real product readiness additionally requires supported Cubism-version observation. Fake providers and document self-consistency do not promote a provider to real-host readiness.
+
+
+## 12. Risk-proportional development governance
+
+TDD is required, but governance is selected by the risk of the changed boundary rather than applied uniformly to every feature.
+
+- Lane A covers plugin-private or internal pure logic using existing contracts: focused TDD, focused verification, and diff review.
+- Lane B covers additive shared Preview SDK/runtime seams without host-sensitive behavior: one design checkpoint, focused TDD, affected integration verification, and final review.
+- Lane C covers host mappings/reflection, Editor writes and Undo, hooks, host UI attachment, security/supply-chain boundaries, Stable contracts, and real-host readiness claims: full human/Oracle and exact-version host gates remain required.
+
+The authoritative classification and evidence rules are in [`docs/architecture/development-governance.md`](docs/architecture/development-governance.md). Historical milestone governance applies only to its named scope and must not be copied onto unrelated ordinary work.
