@@ -18,14 +18,22 @@ public final class WindowsEditorObjectPeerValidationProbe implements CubismPlugi
     @Override
     public void init(final PluginContext context) {
         this.context = context;
+        context.logger().info("Editor object peer validation probe initialized");
     }
 
     @Override
     public void enable() {
         // This class is packaged only in the exact-host validation bundle; always wait for the primary marker.
+        try {
+            final Path home = Path.of(System.getProperty("turboism.home"));
+            writeStage(home.resolve("logs").resolve("editor-object-peer-scope-close.txt"), "enabled");
+        } catch (Exception exception) {
+            context.logger().error("Editor object peer validation enable artifact failed", exception);
+        }
         validationThread = new Thread(this::runPeerValidation, "turboism-editor-object-peer-validation");
         validationThread.setDaemon(true);
         validationThread.start();
+        context.logger().info("Editor object peer validation thread started");
     }
 
     @Override
@@ -34,10 +42,11 @@ public final class WindowsEditorObjectPeerValidationProbe implements CubismPlugi
     }
 
     private void runPeerValidation() {
-        final Path home = Path.of(System.getProperty("turboism.home"));
-        final Path request = home.resolve("state").resolve("editor-object-peer-request.txt");
-        final Path artifact = home.resolve("logs").resolve("editor-object-peer-scope-close.txt");
+        Path artifact = null;
         try {
+            final Path home = Path.of(System.getProperty("turboism.home"));
+            final Path request = home.resolve("state").resolve("editor-object-peer-request.txt");
+            artifact = home.resolve("logs").resolve("editor-object-peer-scope-close.txt");
             writeStage(artifact, "waiting-for-primary");
             for (int attempt = 0; attempt < 600 && !Files.exists(request); attempt++) {
                 Thread.sleep(100L);
@@ -67,6 +76,8 @@ public final class WindowsEditorObjectPeerValidationProbe implements CubismPlugi
                 StandardOpenOption.TRUNCATE_EXISTING
             );
         } catch (Exception exception) {
+            context.logger().error("Editor object peer validation failed", exception);
+            if (artifact == null) return;
             try {
                 Files.createDirectories(artifact.getParent());
                 Files.writeString(
