@@ -97,10 +97,11 @@ public interface ProjectWorkspaceAdapter {
 
         private AdapterResult<ProjectWorkspaceSnapshot> readCombined(final HostOperations operations) {
             try {
-                final Optional<SafeModeDiagnostic> versionDiagnostic =
-                    HostUiVersionCheck.diagnosticFor(PROJECT_CAPABILITY_ID, operations.hostVersion());
-                if (versionDiagnostic.isPresent()) {
-                    return AdapterResult.unavailable(versionDiagnostic.orElseThrow());
+                if (!isReviewedProjectWorkspaceVersion(operations.hostVersion())) {
+                    return AdapterResult.unavailable(SafeModeDiagnostic.hostVersionUnsupported(
+                        PROJECT_CAPABILITY_ID,
+                        operations.hostVersion()
+                    ));
                 }
                 if (!operations.supportsProjectWorkspaceRead()) {
                     return AdapterResult.unavailable(
@@ -127,10 +128,11 @@ public interface ProjectWorkspaceAdapter {
             final Supplier<Optional<T>> supplier
         ) {
             try {
-                final Optional<SafeModeDiagnostic> versionDiagnostic =
-                    HostUiVersionCheck.diagnosticFor(capabilityId, operations.hostVersion());
-                if (versionDiagnostic.isPresent()) {
-                    return AdapterResult.unavailable(versionDiagnostic.orElseThrow());
+                if (!isReviewedProjectWorkspaceVersion(operations.hostVersion())) {
+                    return AdapterResult.unavailable(SafeModeDiagnostic.hostVersionUnsupported(
+                        capabilityId,
+                        operations.hostVersion()
+                    ));
                 }
                 if (!operations.supportsProjectWorkspaceRead()) {
                     return AdapterResult.unavailable(SafeModeDiagnostic.capabilityUnavailable(capabilityId));
@@ -144,6 +146,11 @@ public interface ProjectWorkspaceAdapter {
                     "Host project/workspace adapter call failed safely."
                 ));
             }
+        }
+
+        private static boolean isReviewedProjectWorkspaceVersion(final String hostVersion) {
+            return "5.2.0".equals(hostVersion)
+                || HostUiVersionCheck.diagnosticFor(PROJECT_CAPABILITY_ID, hostVersion).isEmpty();
         }
 
         private static <T> Supplier<AdapterResult<Optional<T>>> unavailable(final String capabilityId) {

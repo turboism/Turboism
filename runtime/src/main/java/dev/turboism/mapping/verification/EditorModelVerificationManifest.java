@@ -208,7 +208,7 @@ public final class EditorModelVerificationManifest {
                 EditorModelVerificationManifest52.PROFILE_ID,
                 EditorModelVerificationManifest52.ARTIFACT_SIZE,
                 EditorModelVerificationManifest52.ARTIFACT_SHA256,
-                CAPABILITY_IDS,
+                cubism52Capabilities(),
                 cubism52Aliases()
             );
         }
@@ -258,6 +258,13 @@ public final class EditorModelVerificationManifest {
         return Set.copyOf(values);
     }
 
+    private static Set<String> cubism52Capabilities() {
+        final java.util.HashSet<String> values = new java.util.HashSet<>(CAPABILITY_IDS);
+        values.remove(EditorPartOpacitySelectorContract.CAPABILITY_ID);
+        values.add(EditorPartOpacity52SelectorContract.CAPABILITY_ID);
+        return Set.copyOf(values);
+    }
+
     private static Set<String> withoutPartOpacityAliases() {
         final java.util.HashSet<String> values = new java.util.HashSet<>(REQUIRED_ALIASES);
         values.removeAll(PART_OPACITY_ADDITIVE_ALIASES);
@@ -277,6 +284,13 @@ public final class EditorModelVerificationManifest {
         values.removeAll(PART_OPACITY_ADDITIVE_ALIASES);
         values.addAll(EditorPartOpacity52SelectorContract.REQUIRED_ALIASES);
         values.addAll(PART_NAME_ADDITIVE_ALIASES);
+        values.addAll(Set.of(
+            "cubism.editor-model.model-source.update-instances",
+            "cubism.editor-model.part-source.handler",
+            "cubism.editor-model.part-handler.class",
+            "cubism.editor-model.part-handler.create-undo-for-all-edit",
+            "cubism.editor-model.complete-pack.update-part-palette"
+        ));
         return Set.copyOf(values);
     }
 
