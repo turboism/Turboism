@@ -30,6 +30,6 @@
   "capabilities": [],
   "environment": {
     "requiresCubism": true,
-    "ui": "headless"
+    "ui": "swing"
   }
 }
