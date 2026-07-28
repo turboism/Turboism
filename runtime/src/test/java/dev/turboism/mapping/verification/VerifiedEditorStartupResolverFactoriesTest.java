@@ -41,6 +41,11 @@ class VerifiedEditorStartupResolverFactoriesTest {
                     record("5.2", "ui-main-toolbar"), artifact, loader
                 )
             );
+            assertThrows(IllegalArgumentException.class, () ->
+                new VerifiedEmbeddedPanelResolverFactory().create(
+                    record("5.2", "ui-embedded-panel"), artifact, loader
+                )
+            );
         }
     }
 
@@ -66,6 +71,12 @@ class VerifiedEditorStartupResolverFactoriesTest {
                 exactVersion,
                 new VerifiedMainToolbarResolverFactory().create(
                     record(profile, "ui-main-toolbar"), artifact, loader
+                ).cubismVersion()
+            );
+            assertEquals(
+                profile.equals("5.2") ? "5.2.03" : exactVersion,
+                new VerifiedEmbeddedPanelResolverFactory().create(
+                    record(profile, "ui-embedded-panel"), artifact, loader
                 ).cubismVersion()
             );
         }

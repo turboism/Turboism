@@ -13,6 +13,7 @@ import dev.turboism.ui.host.EditorUiHostLifecycle;
 import dev.turboism.ui.host.RuntimeEditorUiHostLifecycle;
 import dev.turboism.ui.provider.EditorUiProviderInstaller;
 import dev.turboism.ui.toolbar.EditorUiPluginResourceRegistry;
+import dev.turboism.ui.panel.RuntimeEmbeddedPanelActivationCoordinator;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -42,6 +43,8 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         new RuntimeEditorUiHostLifecycle();
     private final EditorUiContributionAuthority editorUiContributions =
         new EditorUiContributionAuthority(editorUiLifecycle);
+    private final RuntimeEmbeddedPanelActivationCoordinator embeddedPanelActivation =
+        new RuntimeEmbeddedPanelActivationCoordinator();
     private final RuntimeEditorUiActionRouter editorUiActionRouter =
         new RuntimeEditorUiActionRouter();
     private final EditorUiPluginResourceRegistry editorUiPluginResources =
@@ -84,8 +87,12 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             slice -> new dev.turboism.mapping.verification.VerifiedMainToolbarResolverFactory().create(
                 slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
             ),
+            slice -> new dev.turboism.mapping.verification.VerifiedEmbeddedPanelResolverFactory().create(
+                slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
+            ),
             editorUiPluginResources,
-            editorUiActionRouter
+            editorUiActionRouter,
+            embeddedPanelActivation
         );
         dynamic.onOutermostAdapterCallComplete(this::completeDeferredClose);
     }
@@ -273,6 +280,11 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     }
 
     @Override
+    public RuntimeEmbeddedPanelActivationCoordinator embeddedPanelActivation() {
+        return embeddedPanelActivation;
+    }
+
+    @Override
     public RuntimeEditorUiActionRouter editorUiActionRouter() {
         return editorUiActionRouter;
     }
@@ -307,6 +319,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             partLifecycle,
             editorUiLifecycle,
             editorUiContributions,
+            embeddedPanelActivation,
             editorUiActionRouter,
             editorUiPluginResources,
             appearanceCoordinator
@@ -333,6 +346,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             parameterLifecycle.close();
             editorUiPluginResources.close();
             editorUiActionRouter.close();
+            embeddedPanelActivation.close();
             editorUiContributions.close();
             editorUiLifecycle.close();
             commit(State.CLOSED, Optional.empty());

@@ -12,6 +12,8 @@ import dev.turboism.mapping.verification.EditorPartNameSelectorContract;
 import dev.turboism.mapping.verification.EditorPartOpacitySelectorContract;
 import dev.turboism.mapping.verification.EditorPartOpacity52SelectorContract;
 import dev.turboism.mapping.verification.HostArtifactDigest;
+import dev.turboism.mapping.schema.MappingPackValidator;
+import dev.turboism.mapping.verification.EmbeddedPanelVerificationManifest;
 import dev.turboism.mapping.verification.MainToolbarVerificationManifest;
 import dev.turboism.mapping.verification.ProjectWorkspaceVerificationManifest;
 import dev.turboism.mapping.verification.StaticVerificationRecordValidator;
@@ -37,7 +39,7 @@ class StaticVerificationRecordRepositoryTest {
     );
     private static final Path RECORDS = PROJECT_ROOT.resolve("docs/migration/verification/static");
 
-    private static final Map<String, SliceExpectation> EXPECTATIONS = Map.of(
+    private static final Map<String, SliceExpectation> EXPECTATIONS = withEmbeddedPanels(Map.of(
         "docs/migration/verification/static/cubism-5.2-project-workspace.json",
         new SliceExpectation(
             "m15.cubism-5.2.project-workspace.static",
@@ -208,7 +210,83 @@ class StaticVerificationRecordRepositoryTest {
             "98f4dac9a9508a6e255f6f3862608409a83e29c9009a7f0fcf517e06658164e4",
             "986bcddca88c35dc09b848ccb6737d0a70a12b2fd030a52be838ce533c687073",
             70, "[5.3.02,5.3.03)")
-    );
+    ));
+
+    private static Map<String, SliceExpectation> withEmbeddedPanels(
+        final Map<String, SliceExpectation> existing
+    ) {
+        final LinkedHashMap<String, SliceExpectation> expectations = new LinkedHashMap<>(existing);
+        expectations.put(
+            "docs/migration/verification/static/cubism-5.2-ui-embedded-panel.json",
+            new SliceExpectation(
+                "cubism-5.2.03.ui-embedded-panel.static",
+                EmbeddedPanelVerificationManifest.ADAPTER_SLICE_ID,
+                "5.2.03",
+                "cubism-5.2",
+                EmbeddedPanelVerificationManifest.CAPABILITY_IDS,
+                "Live2D_Cubism.jar",
+                40_805_584L,
+                "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
+                "c444fa4483c1eeb8377c7ac49073db178a069aaf5cde403a429cf4b514495b6e",
+                24,
+                EmbeddedPanelVerificationManifest.REQUIRED_ALIASES,
+                EmbeddedPanelVerificationManifest.REQUIRED_ALIASES,
+                embeddedPanelMethodAliases(),
+                difference(EmbeddedPanelVerificationManifest.REQUIRED_ALIASES, embeddedPanelMethodAliases()),
+                "cubism-5.2-ui-embedded-panel",
+                Path.of("cubism-ref/mapping-packs/draft/cubism-5.2-ui-embedded-panel.json"),
+                Path.of("cubism-ref/profiles/draft/cubism-5.2.json"),
+                "[5.2.0,5.3.0)",
+                SliceKind.EDITOR_UI
+            )
+        );
+        expectations.put(
+            "docs/migration/verification/static/cubism-5.3.02-ui-embedded-panel.json",
+            new SliceExpectation(
+                EmbeddedPanelVerificationManifest.VERIFICATION_ID,
+                EmbeddedPanelVerificationManifest.ADAPTER_SLICE_ID,
+                EmbeddedPanelVerificationManifest.CUBISM_VERSION,
+                EmbeddedPanelVerificationManifest.PROFILE_ID,
+                EmbeddedPanelVerificationManifest.CAPABILITY_IDS,
+                "Live2D_Cubism.jar",
+                EmbeddedPanelVerificationManifest.ARTIFACT_SIZE,
+                EmbeddedPanelVerificationManifest.ARTIFACT_SHA256,
+                EmbeddedPanelVerificationManifest.RECORD_SHA256,
+                24,
+                EmbeddedPanelVerificationManifest.REQUIRED_ALIASES,
+                EmbeddedPanelVerificationManifest.REQUIRED_ALIASES,
+                embeddedPanelMethodAliases(),
+                difference(EmbeddedPanelVerificationManifest.REQUIRED_ALIASES, embeddedPanelMethodAliases()),
+                "cubism-5.3.02-ui-embedded-panel",
+                Path.of("cubism-ref/mapping-packs/draft/cubism-5.3.02-ui-embedded-panel.json"),
+                Path.of("cubism-ref/profiles/draft/cubism-5.3.02.json"),
+                "[5.3.02,5.3.03)",
+                SliceKind.EDITOR_UI
+            )
+        );
+        return Map.copyOf(expectations);
+    }
+
+    private static Set<String> embeddedPanelMethodAliases() {
+        return Set.of(
+            "cubism.ui-panel.app-controller.instance",
+            "cubism.ui-panel.app-controller.main-frame",
+            "cubism.ui-panel.app-controller.repaint",
+            "cubism.ui-panel.main-frame.dock-manager",
+            "cubism.ui-panel.dock.palette-manager",
+            "cubism.ui-panel.dock.set-palette-visible",
+            "cubism.ui-panel.dock.update-window-menu",
+            "cubism.ui-panel.palette-manager.get",
+            "cubism.ui-panel.palette-manager.add",
+            "cubism.ui-panel.palette-manager.close",
+            "cubism.ui-panel.palette-manager.current-workspace",
+            "cubism.ui-panel.workspace.activate",
+            "cubism.ui-panel.palette-id.create",
+            "cubism.ui-panel.palette.create",
+            "cubism.ui-panel.palette.set-panel",
+            "cubism.ui-panel.swing-container.create"
+        );
+    }
 
     private static Set<String> mainToolbarMethodAliases() {
         return Set.of(
@@ -413,6 +491,7 @@ class StaticVerificationRecordRepositoryTest {
 
     private final ObjectMapper mapper = new ObjectMapper();
     private final StaticVerificationRecordValidator validator = new StaticVerificationRecordValidator();
+    private final MappingPackValidator mappingPackValidator = new MappingPackValidator();
 
     @Test
     void everyStaticVerificationRecordMatchesItsRegisteredRepositoryExpectation() throws Exception {
@@ -479,6 +558,11 @@ class StaticVerificationRecordRepositoryTest {
 
         final JsonNode pack = mapper.readTree(PROJECT_ROOT.resolve(expectation.packPath()).toFile());
         assertEquals("DRAFT", pack.get("status").asText(), "mapping pack readiness must remain DRAFT");
+        if (EmbeddedPanelVerificationManifest.ADAPTER_SLICE_ID.equals(expectation.adapterSliceId())) {
+            assertTrue(mappingPackValidator.validate(pack, expectation.packPath().toString()).isEmpty(),
+                expectation.packPath() + " validation failed: "
+                    + mappingPackValidator.validate(pack, expectation.packPath().toString()));
+        }
         final String packVersion = pack.get("cubismVersion").asText();
         if (expectation.kind() == SliceKind.CORE
             || expectation.kind() == SliceKind.EDITOR_MODEL) {

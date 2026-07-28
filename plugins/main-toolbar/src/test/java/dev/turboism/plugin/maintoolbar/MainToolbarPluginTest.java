@@ -72,8 +72,8 @@ class MainToolbarPluginTest {
             List.of(new MainToolbarRegistry.MainToolbarButtonContribution(
                 "main-toolbar.home-entry",
                 "main-toolbar.home-entry.open",
-                "main-toolbar.home-entry.label",
-                "main-toolbar.home-entry.tooltip",
+                "main-toolbar.home.aria-label",
+                "main-toolbar.home.tooltip",
                 new MainToolbarRegistry.IconVariants(
                     "icons/main-toolbar-home.png",
                     Optional.of("icons/main-toolbar-home-hover.png"),
