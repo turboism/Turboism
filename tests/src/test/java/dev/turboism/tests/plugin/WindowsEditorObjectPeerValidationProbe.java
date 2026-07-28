@@ -4,6 +4,7 @@ import dev.turboism.sdk.cubism.CubismPlugin;
 import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.plugin.PluginContext;
 
+import javax.swing.SwingUtilities;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
@@ -37,16 +38,20 @@ public final class WindowsEditorObjectPeerValidationProbe implements CubismPlugi
         final Path request = home.resolve("state").resolve("editor-object-peer-request.txt");
         final Path artifact = home.resolve("logs").resolve("editor-object-peer-scope-close.txt");
         try {
+            writeStage(artifact, "waiting-for-primary");
             for (int attempt = 0; attempt < 600 && !Files.exists(request); attempt++) {
                 Thread.sleep(100L);
             }
             if (!Files.exists(request)) throw new IllegalStateException("Primary plugin close request was not observed");
+            writeStage(artifact, "primary-marker-seen");
             final CubismModel model = awaitModel();
-            final boolean modelUsable = model.id() != null;
-            final boolean meshUsable = !model.drawables().all().isEmpty() && model.drawables().all().get(0).geometry() != null;
-            final boolean warpUsable = !model.warpDeformers().all().isEmpty() && model.warpDeformers().all().get(0).grid() != null;
-            final boolean rotationUsable = !model.rotationDeformers().all().isEmpty()
-                && model.rotationDeformers().all().get(0).form() != null;
+            final boolean modelUsable = onHostThread(() -> model.id() != null);
+            final boolean meshUsable = onHostThread(() -> !model.drawables().all().isEmpty()
+                && model.drawables().all().get(0).geometry() != null);
+            final boolean warpUsable = onHostThread(() -> !model.warpDeformers().all().isEmpty()
+                && model.warpDeformers().all().get(0).grid() != null);
+            final boolean rotationUsable = onHostThread(() -> !model.rotationDeformers().all().isEmpty()
+                && model.rotationDeformers().all().get(0).form() != null);
             final boolean passed = modelUsable && meshUsable && warpUsable && rotationUsable;
             Files.createDirectories(artifact.getParent());
             Files.writeString(
@@ -80,10 +85,10 @@ public final class WindowsEditorObjectPeerValidationProbe implements CubismPlugi
         Exception lastFailure = null;
         for (int attempt = 0; attempt < 600; attempt++) {
             try {
-                final CubismModel model = context.cubism().model().active();
-                if (!model.drawables().all().isEmpty()
+                final CubismModel model = onHostThread(() -> context.cubism().model().active());
+                if (onHostThread(() -> !model.drawables().all().isEmpty()
                     && !model.warpDeformers().all().isEmpty()
-                    && !model.rotationDeformers().all().isEmpty()) {
+                    && !model.rotationDeformers().all().isEmpty())) {
                     return model;
                 }
             } catch (Exception exception) {
@@ -92,5 +97,30 @@ public final class WindowsEditorObjectPeerValidationProbe implements CubismPlugi
             Thread.sleep(100L);
         }
         throw new IllegalStateException("Peer plugin did not observe an active Editor model", lastFailure);
+    }
+
+    private void writeStage(final Path artifact, final String stage) throws Exception {
+        Files.createDirectories(artifact.getParent());
+        Files.writeString(
+            artifact,
+            "status=RUNNING\nphase=" + stage + "\n",
+            StandardOpenOption.CREATE,
+            StandardOpenOption.TRUNCATE_EXISTING
+        );
+    }
+
+    private <T> T onHostThread(final java.util.concurrent.Callable<T> operation) throws Exception {
+        if (SwingUtilities.isEventDispatchThread()) return operation.call();
+        final java.util.concurrent.atomic.AtomicReference<T> result = new java.util.concurrent.atomic.AtomicReference<>();
+        final java.util.concurrent.atomic.AtomicReference<Exception> failure = new java.util.concurrent.atomic.AtomicReference<>();
+        SwingUtilities.invokeAndWait(() -> {
+            try {
+                result.set(operation.call());
+            } catch (Exception exception) {
+                failure.set(exception);
+            }
+        });
+        if (failure.get() != null) throw failure.get();
+        return result.get();
     }
 }
