@@ -98,19 +98,18 @@ cp -f "$DEMO_PLUGIN_JAR" "$WT_PLUGINS_DROP/"
 # Generate runtime config from template if not present.
 CONFIG_FILE="$WT_ROOT/turboism.$WT_ID.config.json"
 if [ ! -f "$CONFIG_FILE" ] && [ -f "$WT_ROOT/turboism.worktree.config.template.json" ]; then
-  python3 - "$WT_ROOT/turboism.worktree.config.template.json" "$CONFIG_FILE" "$WT_ID" "$WT_ROOT_REMOTE/runtime" <<'PY'
+  python3 - "$WT_ROOT/turboism.worktree.config.template.json" "$CONFIG_FILE" "$WT_ID" <<'PY'
 from pathlib import Path
 import sys
 
 template = Path(sys.argv[1])
 out = Path(sys.argv[2])
 worktree_id = sys.argv[3]
-runtime_dir = sys.argv[4]
 text = template.read_text()
-text = text.replace("${worktreeId}", worktree_id).replace("${runtimeDir}", runtime_dir)
+text = text.replace("${worktreeId}", worktree_id)
 out.write_text(text)
 PY
 fi
-[ -f "$CONFIG_FILE" ] && cp -f "$CONFIG_FILE" "$WT_RUNTIME_CONFIG_DROP/"
+[ -f "$CONFIG_FILE" ] && cp -f "$CONFIG_FILE" "$WT_RUNTIME_CONFIG_DROP/runtime.json"
 
 printf '[sync] done\n'
