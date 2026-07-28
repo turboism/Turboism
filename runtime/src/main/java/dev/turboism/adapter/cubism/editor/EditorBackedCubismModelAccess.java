@@ -31,6 +31,7 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess {
     private final EditorParameterCombinedAccess combinedAccess;
     private final EditorParameterGroupsAccess parameterGroupsAccess;
     private final EditorDefaultKeyformLockAccess defaultKeyformLockAccess;
+    private final EditorPartOpacityAccess partOpacityAccess;
 
     public EditorBackedCubismModelAccess(
         final VerifiedMemberResolver resolver,
@@ -48,6 +49,10 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess {
             this::requireCurrent
         );
         this.defaultKeyformLockAccess = new EditorDefaultKeyformLockAccess(
+            resolver,
+            this::requireCurrent
+        );
+        this.partOpacityAccess = new EditorPartOpacityAccess(
             resolver,
             this::requireCurrent
         );
@@ -521,7 +526,10 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess {
             return parameterGroupsAccess.groups(identity, source, model);
         }
         @Override public Canvas canvas() { throw new UnsupportedOperationException("Editor canvas projection is not installed."); }
-        @Override public Parts parts() { throw new UnsupportedOperationException("Editor Part projection is not installed."); }
+        @Override public Parts parts() {
+            current();
+            return partOpacityAccess.parts(identity, source, model);
+        }
         @Override public Drawables drawables() { throw new UnsupportedOperationException("Editor Drawable projection is not installed."); }
         @Override public Deformers deformers() { throw new UnsupportedOperationException("Editor Deformer projection is not installed."); }
         @Override public Glues glues() { throw new UnsupportedOperationException("Editor Glue projection is not installed."); }
