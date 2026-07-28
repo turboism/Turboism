@@ -28,6 +28,39 @@ class EditorPartNameAccessTest {
     }
 
     @Test
+    void writesAuthoringNameWithUndoDirtyRefreshAndNoChangeElision() {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        final var access = new EditorBackedCubismModelAccess(resolver(true), "session-a");
+        final var part = access.active().parts().find(new PartId("PartClip"));
+
+        part.setName("Renamed Part");
+
+        assertEquals("Renamed Part", fixture.partSource.localName);
+        assertEquals(1, fixture.editMode.edits.size());
+        assertEquals(1, fixture.source.updateCount);
+        assertEquals(1, fixture.pack.partRefreshCount);
+        assertEquals(1, fixture.pack.repaintCount);
+        assertEquals(true, fixture.document.dirty);
+
+        part.setName("Renamed Part");
+        assertEquals(1, fixture.editMode.edits.size());
+    }
+
+    @Test
+    void rejectsBlankNameAndStaleSameIdWrite() {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        final var access = new EditorBackedCubismModelAccess(resolver(true), "session-a");
+        final var part = access.active().parts().find(new PartId("PartClip"));
+
+        assertThrows(IllegalArgumentException.class, () -> part.setName("  "));
+        fixture.replacePartWithSameId();
+        assertThrows(IllegalStateException.class, () -> part.setName("Renamed Part"));
+        assertEquals(0, fixture.editMode.edits.size());
+    }
+
+    @Test
     void sameIdReplacementMakesNameReferenceStale() {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -56,6 +89,7 @@ class EditorPartNameAccessTest {
             desc(Host.class), StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC
         ));
         selectors.add(method("cubism.editor-model.app-controller.current-document", Host.class, "currentDocument", desc(Document.class)));
+        selectors.add(method("cubism.editor-model.app-controller.complete-pack", Host.class, "completePack", desc(CompletePack.class)));
         selectors.add(StaticSelector.classSelector("cubism.editor-model.modeling-document.class", internal(Document.class)));
         selectors.add(method("cubism.editor-model.modeling-document.model-source", Document.class, "modelSource", desc(ModelSource.class)));
         selectors.add(method("cubism.editor-model.model-source.guid", ModelSource.class, "guid", desc(Id.class)));
@@ -71,13 +105,30 @@ class EditorPartNameAccessTest {
         selectors.add(method("cubism.editor-model.part-source.id", PartSource.class, "id", desc(Id.class)));
         selectors.add(method("cubism.editor-model.part-id.value", Id.class, "value", "()Ljava/lang/String;"));
         if (includeNameCapability) {
+            selectors.add(method("cubism.editor-model.modeling-document.edit-mode", Document.class, "editMode", desc(EditMode.class)));
+            selectors.add(method("cubism.editor-model.modeling-document.mark-dirty", Document.class, "markDirty", "()V"));
+            selectors.add(method("cubism.editor-model.edit-mode.begin", EditMode.class, "begin", "(Ljava/lang/String;)" + type(GroupUndo.class)));
+            selectors.add(method("cubism.editor-model.edit-mode.end", EditMode.class, "end", "(ZLjava/lang/Object;)V"));
+            selectors.add(method("cubism.editor-model.undo.add", GroupUndo.class, "add", "(" + type(Undo.class) + "Z)Z"));
+            selectors.add(method("cubism.editor-model.undo.add-listener", Undo.class, "addListener", "(" + type(Listener.class) + ")Z"));
+            selectors.add(StaticSelector.classSelector("cubism.editor-model.undo-listener.class", internal(Listener.class)));
+            selectors.add(method("cubism.editor-model.model-source.update-instances", ModelSource.class, "updateInstances", "()V"));
             selectors.add(method("cubism.editor-model.part-source.local-name", PartSource.class, "localName", "()Ljava/lang/String;"));
+            selectors.add(method("cubism.editor-model.part-source.set-local-name", PartSource.class, "setLocalName", "(Ljava/lang/String;)V"));
+            selectors.add(method("cubism.editor-model.part-source.handler", PartSource.class, "handler", desc(PartHandler.class)));
+            selectors.add(StaticSelector.classSelector("cubism.editor-model.part-handler.class", internal(PartHandler.class)));
+            selectors.add(method("cubism.editor-model.part-handler.create-undo-for-all-edit", PartHandler.class, "undo", "(Ljava/lang/String;)" + type(Undo.class)));
+            selectors.add(method("cubism.editor-model.complete-pack.update-part-palette", CompletePack.class, "updateParts", "(Z)V"));
+            selectors.add(method("cubism.editor-model.complete-pack.repaint-canvas", CompletePack.class, "repaint", "(Z)V"));
         }
         return TestVerifiedResolvers.create(
             "5.3.02",
             "adapter.editor-model.readwrite",
             includeNameCapability
-                ? java.util.Set.of(EditorPartNameSelectorContract.CAPABILITY_ID)
+                ? java.util.Set.of(
+                    EditorPartNameSelectorContract.CAPABILITY_ID,
+                    EditorPartNameSelectorContract.WRITE_CAPABILITY_ID
+                )
                 : java.util.Set.of("cubism.editor-model.read"),
             selectors,
             Host.class.getClassLoader()
@@ -99,21 +150,29 @@ class EditorPartNameAccessTest {
         static Document document;
         public static Host instance() { return INSTANCE; }
         public Document currentDocument() { return document; }
+        public CompletePack completePack() { return document.pack; }
     }
 
     public static final class Document {
         final ModelSource source;
+        final EditMode editMode = new EditMode();
+        final CompletePack pack = new CompletePack();
+        boolean dirty;
         Document(final ModelSource source) { this.source = source; }
         public ModelSource modelSource() { return source; }
+        public EditMode editMode() { return editMode; }
+        public void markDirty() { dirty = true; }
     }
 
     public static final class ModelSource {
         final Id guid = new Id("model-a");
         final List<PartSource> sources = new ArrayList<>();
         Model model;
+        int updateCount;
         public Id guid() { return guid; }
         public Model currentInstance() { return model; }
         public List<PartSource> parts() { return sources; }
+        public void updateInstances() { updateCount++; }
     }
 
     public static final class Model {
@@ -129,6 +188,7 @@ class EditorPartNameAccessTest {
 
     public static final class PartSource {
         final Id id;
+        final PartHandler handler = new PartHandler();
         String localName;
         PartSource(final String id, final String localName) {
             this.id = new Id(id);
@@ -136,6 +196,37 @@ class EditorPartNameAccessTest {
         }
         public Id id() { return id; }
         public String localName() { return localName; }
+        public void setLocalName(final String value) { localName = value; }
+        public PartHandler handler() { return handler; }
+    }
+
+    public static final class PartHandler {
+        public Undo undo(final String name) { return new Undo(); }
+    }
+
+    public static final class EditMode {
+        final List<Undo> edits = new ArrayList<>();
+        public GroupUndo begin(final String name) { return new GroupUndo(edits); }
+        public void end(final boolean abort, final Object ignored) { }
+    }
+
+    public static final class GroupUndo {
+        final List<Undo> edits;
+        GroupUndo(final List<Undo> edits) { this.edits = edits; }
+        public boolean add(final Undo undo, final boolean significant) { edits.add(undo); return true; }
+    }
+
+    public static final class Undo {
+        public boolean addListener(final Listener listener) { return true; }
+    }
+
+    @FunctionalInterface public interface Listener { void changed(Object ignored); }
+
+    public static final class CompletePack {
+        int partRefreshCount;
+        int repaintCount;
+        public void updateParts(final boolean immediate) { partRefreshCount++; }
+        public void repaint(final boolean immediate) { repaintCount++; }
     }
 
     public static final class Id {
@@ -148,11 +239,15 @@ class EditorPartNameAccessTest {
         final ModelSource source = new ModelSource();
         final PartSource partSource = new PartSource("PartClip", "Clipping Part");
         final Document document;
+        final EditMode editMode;
+        final CompletePack pack;
         Fixture() {
             source.sources.add(partSource);
             source.model = new Model();
             source.model.parts.add(new HostPart(partSource));
             document = new Document(source);
+            editMode = document.editMode;
+            pack = document.pack;
         }
         void replacePartWithSameId() {
             final PartSource replacement = new PartSource("PartClip", "Replacement");
