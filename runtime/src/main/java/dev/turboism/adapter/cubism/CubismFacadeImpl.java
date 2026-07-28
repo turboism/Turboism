@@ -495,6 +495,10 @@ public final class CubismFacadeImpl implements CubismFacade {
 
         @Override public dev.turboism.sdk.cubism.model.PartId id() { return delegate.id(); }
         @Override public String name() { return delegate.name(); }
+        @Override public void setName(final String name) {
+            permissionGate.require(MODEL_WRITE_PERMISSION, "part.setName");
+            partLifecycle.setName(this, name, delegate::setName);
+        }
         @Override public float getOpacity() { return delegate.getOpacity(); }
         @Override public int parentIndex() { return delegate.parentIndex(); }
         @Override public void setOpacity(final float opacity) {

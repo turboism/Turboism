@@ -20,11 +20,13 @@ import java.util.function.Consumer;
 public final class PartLifecycleCoordinator implements AutoCloseable {
 
     public static final String OPERATION_ID = "cubism.model.part.set-opacity";
+    public static final String NAME_OPERATION_ID = "cubism.model.part.set-name";
 
     private final CopyOnWriteArrayList<PluginHooks> plugins = new CopyOnWriteArrayList<>();
     private final PluginWorkExecutorRegistry executors;
     private final CopyOnWriteArrayList<CompletionStage<?>> pending = new CopyOnWriteArrayList<>();
     private final ThreadLocal<Boolean> partWriteActive = ThreadLocal.withInitial(() -> false);
+    private final ThreadLocal<Boolean> partNameWriteActive = ThreadLocal.withInitial(() -> false);
 
     public PartLifecycleCoordinator() {
         this(new PluginWorkExecutorRegistry(1, 64, ignored -> { }, Clock.systemUTC()));
@@ -64,6 +66,24 @@ public final class PartLifecycleCoordinator implements AutoCloseable {
         }
     }
 
+    public void setName(
+        final Part part,
+        final String requestedName,
+        final Consumer<String> nativeOperation
+    ) {
+        Objects.requireNonNull(part, "part");
+        Objects.requireNonNull(nativeOperation, "nativeOperation");
+        if (partNameWriteActive.get()) {
+            throw new IllegalStateException("Recursive Cubism Part name lifecycle is not allowed.");
+        }
+        partNameWriteActive.set(true);
+        try {
+            setNameGuarded(part, requestedName, nativeOperation);
+        } finally {
+            partNameWriteActive.remove();
+        }
+    }
+
     private void setOpacityGuarded(
         final Part part,
         final float requestedOpacity,
@@ -94,6 +114,28 @@ public final class PartLifecycleCoordinator implements AutoCloseable {
         publishCompletion(part, oldOpacity, finalOpacity);
     }
 
+    private void setNameGuarded(
+        final Part part,
+        final String requestedName,
+        final Consumer<String> nativeOperation
+    ) {
+        String effectiveName = requireName(requestedName);
+        for (PluginHooks plugin : plugins) {
+            if (!plugin.interceptAllowed()) continue;
+            for (PartHooks hook : plugin.entrypoints()) {
+                try {
+                    effectiveName = requireName(hook.beforeSetPartName(part, effectiveName));
+                } catch (Throwable failure) {
+                    logHookFailure(plugin, "beforeSetPartName", failure);
+                }
+            }
+        }
+        final String oldName = part.name();
+        nativeOperation.accept(effectiveName);
+        final String finalName = part.name();
+        publishNameCompletion(part, oldName, finalName);
+    }
+
     private void publishCompletion(
         final Part part,
         final float oldOpacity,
@@ -122,6 +164,34 @@ public final class PartLifecycleCoordinator implements AutoCloseable {
         }
     }
 
+    private void publishNameCompletion(
+        final Part part,
+        final String oldName,
+        final String finalName
+    ) {
+        final boolean changed = !oldName.equals(finalName);
+        for (PluginHooks plugin : plugins) {
+            if (!plugin.observeAllowed()) continue;
+            final List<? extends PartHooks> entrypoints = plugin.entrypoints();
+            submit(plugin, NAME_OPERATION_ID, () -> {
+                for (PartHooks hook : entrypoints) {
+                    if (changed) {
+                        try {
+                            hook.onPartNameChanged(part, oldName, finalName);
+                        } catch (Throwable failure) {
+                            logHookFailure(plugin, "onPartNameChanged", failure);
+                        }
+                    }
+                    try {
+                        hook.afterSetPartName(part, finalName);
+                    } catch (Throwable failure) {
+                        logHookFailure(plugin, "afterSetPartName", failure);
+                    }
+                }
+            });
+        }
+    }
+
     /** Waits for callbacks already accepted by the bounded plugin executors. */
     public void awaitIdle() {
         final CompletionStage<?>[] snapshot = pending.toArray(CompletionStage[]::new);
@@ -143,13 +213,21 @@ public final class PartLifecycleCoordinator implements AutoCloseable {
     }
 
     private void submit(final PluginHooks plugin, final Runnable callback) {
+        submit(plugin, OPERATION_ID, callback);
+    }
+
+    private void submit(final PluginHooks plugin, final String operationId, final Runnable callback) {
         final var submission = executors.get(plugin.descriptor().id())
-            .submit(task(plugin.descriptor().id()), callback);
+            .submit(task(plugin.descriptor().id(), operationId), callback);
         if (submission.accepted()) pending.add(submission.completion());
     }
 
     private static PluginTask task(final String pluginId) {
-        return new PluginTask("event.subscribe", pluginId, OPERATION_ID, "none");
+        return task(pluginId, OPERATION_ID);
+    }
+
+    private static PluginTask task(final String pluginId, final String operationId) {
+        return new PluginTask("event.subscribe", pluginId, operationId, "none");
     }
 
     private static void logHookFailure(
@@ -168,6 +246,12 @@ public final class PartLifecycleCoordinator implements AutoCloseable {
         Objects.requireNonNull(value, name);
         if (value.isBlank()) throw new IllegalArgumentException(name + " must not be blank");
         return value;
+    }
+
+    private static String requireName(final String value) {
+        final String name = Objects.requireNonNull(value, "name");
+        if (name.isBlank()) throw new IllegalArgumentException("Part name must not be blank.");
+        return name;
     }
 
     public record PluginHooks(

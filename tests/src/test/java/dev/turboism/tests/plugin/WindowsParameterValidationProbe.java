@@ -963,24 +963,34 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             Files.writeString(artifact, "status=RUNNING phase=read-before\n", StandardOpenOption.TRUNCATE_EXISTING);
             final float before = onHostThread(selectedPart::getOpacity);
             final String partName = onHostThread(selectedPart::name);
+            final String writtenName = partName + " Turboism";
+            onHostThread(() -> { selectedPart.setName(writtenName); return null; });
+            final String afterNameWrite = onHostThread(selectedPart::name);
+            final java.awt.Robot robot = new java.awt.Robot();
+            pressShortcut(robot, java.awt.event.KeyEvent.VK_Z);
+            Thread.sleep(800L);
+            final String afterNameUndo = onHostThread(selectedPart::name);
+            pressShortcut(robot, java.awt.event.KeyEvent.VK_Y);
+            Thread.sleep(800L);
+            final String afterNameRedo = onHostThread(selectedPart::name);
+            pressShortcut(robot, java.awt.event.KeyEvent.VK_Z);
+            Thread.sleep(800L);
+            final String restoredName = onHostThread(selectedPart::name);
             final float written = Float.compare(before, 0.625F) == 0 ? 0.75F : 0.625F;
             onHostThread(() -> { selectedPart.setOpacity(written); return null; });
             Files.writeString(artifact, "status=RUNNING phase=after-write\n", StandardOpenOption.TRUNCATE_EXISTING);
             final float afterWrite = onHostThread(selectedPart::getOpacity);
-            final java.awt.Robot robot = new java.awt.Robot();
-            robot.keyPress(java.awt.event.KeyEvent.VK_CONTROL);
-            robot.keyPress(java.awt.event.KeyEvent.VK_Z);
-            robot.keyRelease(java.awt.event.KeyEvent.VK_Z);
-            robot.keyRelease(java.awt.event.KeyEvent.VK_CONTROL);
+            pressShortcut(robot, java.awt.event.KeyEvent.VK_Z);
             Thread.sleep(800L);
             final float afterUndo = onHostThread(selectedPart::getOpacity);
-            robot.keyPress(java.awt.event.KeyEvent.VK_CONTROL);
-            robot.keyPress(java.awt.event.KeyEvent.VK_Y);
-            robot.keyRelease(java.awt.event.KeyEvent.VK_Y);
-            robot.keyRelease(java.awt.event.KeyEvent.VK_CONTROL);
+            pressShortcut(robot, java.awt.event.KeyEvent.VK_Y);
             Thread.sleep(800L);
             final float afterRedo = onHostThread(selectedPart::getOpacity);
-            final boolean passed = Float.compare(afterWrite, written) == 0
+            final boolean passed = writtenName.equals(afterNameWrite)
+                && partName.equals(afterNameUndo)
+                && writtenName.equals(afterNameRedo)
+                && partName.equals(restoredName)
+                && Float.compare(afterWrite, written) == 0
                 && Float.compare(afterUndo, before) == 0
                 && Float.compare(afterRedo, written) == 0;
             Files.writeString(
@@ -988,6 +998,11 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 "status=" + (passed ? "PASS" : "FAIL") + System.lineSeparator()
                     + "partId=" + part.id().value() + System.lineSeparator()
                     + "partName=" + partName + System.lineSeparator()
+                    + "writtenName=" + writtenName + System.lineSeparator()
+                    + "afterNameWrite=" + afterNameWrite + System.lineSeparator()
+                    + "afterNameUndo=" + afterNameUndo + System.lineSeparator()
+                    + "afterNameRedo=" + afterNameRedo + System.lineSeparator()
+                    + "restoredName=" + restoredName + System.lineSeparator()
                     + "before=" + before + System.lineSeparator()
                     + "written=" + written + System.lineSeparator()
                     + "afterWrite=" + afterWrite + System.lineSeparator()
@@ -1025,6 +1040,13 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         });
         if (failure.get() != null) throw failure.get();
         return result.get();
+    }
+
+    private static void pressShortcut(final java.awt.Robot robot, final int key) {
+        robot.keyPress(java.awt.event.KeyEvent.VK_CONTROL);
+        robot.keyPress(key);
+        robot.keyRelease(key);
+        robot.keyRelease(java.awt.event.KeyEvent.VK_CONTROL);
     }
 
     private Parameters activeParameters() {
