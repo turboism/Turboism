@@ -18,6 +18,7 @@ import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.theme.ThemeStatusSnapshot;
 import dev.turboism.sdk.ui.DialogRequest;
 import dev.turboism.sdk.ui.EmbeddedPanelContribution;
+import dev.turboism.sdk.ui.EmbeddedPanelId;
 import dev.turboism.sdk.ui.FileChooserRequest;
 import dev.turboism.sdk.ui.OverlayContribution;
 import dev.turboism.sdk.ui.StatusNotification;
@@ -49,7 +50,7 @@ class MainToolbarHomeEntryServiceTest {
     void registerHomeEntry_contributesHomeButtonToMainToolbar() {
         // Given
         RecordingUiHost uiHost = new RecordingUiHost();
-        MainToolbarHomeEntryService service = new MainToolbarHomeEntryService(new ProjectReadFixtures(), uiHost, toolbar(uiHost));
+        MainToolbarHomeEntryService service = new MainToolbarHomeEntryService(uiHost, toolbar(uiHost));
 
         // When
         service.registerHomeEntry();
@@ -80,7 +81,7 @@ class MainToolbarHomeEntryServiceTest {
     void registerHomeEntry_registrationRemovesToolbarContributionWhenClosed() {
         // Given
         RecordingUiHost uiHost = new RecordingUiHost();
-        MainToolbarHomeEntryService service = new MainToolbarHomeEntryService(new ProjectReadFixtures(), uiHost, toolbar(uiHost));
+        MainToolbarHomeEntryService service = new MainToolbarHomeEntryService(uiHost, toolbar(uiHost));
 
         // When
         Registration registration = service.registerHomeEntry();
@@ -91,64 +92,22 @@ class MainToolbarHomeEntryServiceTest {
     }
 
     @Test
-    void showProjectSummary_emitsProjectAndWorkspaceSummary_whenProjectIsActive() {
+    void openTurboismPanel_requestsTypedPanelActivation() {
         // Given
         RecordingUiHost uiHost = new RecordingUiHost();
-        MainToolbarHomeEntryService service = new MainToolbarHomeEntryService(new ProjectReadFixtures(), uiHost, toolbar(uiHost));
+        MainToolbarHomeEntryService service = new MainToolbarHomeEntryService(uiHost, toolbar(uiHost));
 
         // When
-        service.showProjectSummary();
+        service.openTurboismPanel();
 
         // Then
         assertEquals(
-            List.of(new StatusNotification(
-                "main-toolbar.home-entry.project-summary",
-                "INFO",
-                "Project Demo Project has 2 document(s); layout workspace Modeling."
-            )),
-            uiHost.notifications()
+            List.of(EmbeddedPanelId.of("turboism.panel.main")),
+            uiHost.activatedPanels()
         );
+        assertTrue(uiHost.notifications().isEmpty());
     }
 
-    @Test
-    void showProjectSummary_emitsNoProjectFallback_whenProjectIsMissing() {
-        // Given
-        RecordingUiHost uiHost = new RecordingUiHost();
-        MainToolbarHomeEntryService service = new MainToolbarHomeEntryService(new EmptyProjectRead(), uiHost, toolbar(uiHost));
-
-        // When
-        service.showProjectSummary();
-
-        // Then
-        assertEquals(
-            List.of(new StatusNotification(
-                "main-toolbar.home-entry.no-project",
-                "WARNING",
-                "No active project is available for the Turboism home entry."
-            )),
-            uiHost.notifications()
-        );
-    }
-
-    @Test
-    void showProjectSummary_marksWorkspaceUnavailable_whenProjectExistsButWorkspaceMissing() {
-        // Given
-        RecordingUiHost uiHost = new RecordingUiHost();
-        MainToolbarHomeEntryService service = new MainToolbarHomeEntryService(new ProjectWithoutWorkspace(), uiHost, toolbar(uiHost));
-
-        // When
-        service.showProjectSummary();
-
-        // Then
-        assertEquals(
-            List.of(new StatusNotification(
-                "main-toolbar.home-entry.project-summary",
-                "INFO",
-                "Project Demo Project has 1 document(s); workspace unavailable."
-            )),
-            uiHost.notifications()
-        );
-    }
 
     private static MainToolbarRegistry toolbar(final RecordingUiHost uiHost) {
         return new MainToolbarRegistry() {
@@ -285,10 +244,15 @@ class MainToolbarHomeEntryServiceTest {
 
     private static final class RecordingUiHost implements UiHostCapabilityService {
         private final List<MainToolbarRegistry.MainToolbarButtonContribution> buttonContributions = new ArrayList<>();
+        private final List<EmbeddedPanelId> activatedPanels = new ArrayList<>();
         private final List<StatusNotification> notifications = new ArrayList<>();
 
         List<MainToolbarRegistry.MainToolbarButtonContribution> buttonContributions() {
             return buttonContributions;
+        }
+
+        List<EmbeddedPanelId> activatedPanels() {
+            return activatedPanels;
         }
 
         List<StatusNotification> notifications() {
@@ -323,6 +287,11 @@ class MainToolbarHomeEntryServiceTest {
         @Override
         public Registration contributeEmbeddedPanel(EmbeddedPanelContribution contribution) {
             throw new UnsupportedOperationException("embedded panels are not used by this service");
+        }
+
+        @Override
+        public void activateEmbeddedPanel(final EmbeddedPanelId panelId) {
+            activatedPanels.add(panelId);
         }
 
         @Override
