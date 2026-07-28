@@ -8,6 +8,9 @@ import dev.turboism.mapping.verification.ClipMaskVerificationManifest;
 import dev.turboism.mapping.verification.CorePublicApiSelectorContract;
 import dev.turboism.mapping.verification.CorePublicApiTrustRoots;
 import dev.turboism.mapping.verification.EditorModelVerificationManifest;
+import dev.turboism.mapping.verification.EditorPartNameSelectorContract;
+import dev.turboism.mapping.verification.EditorPartOpacitySelectorContract;
+import dev.turboism.mapping.verification.EditorPartOpacity52SelectorContract;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.MainToolbarVerificationManifest;
 import dev.turboism.mapping.verification.ProjectWorkspaceVerificationManifest;
@@ -162,16 +165,16 @@ class StaticVerificationRecordRepositoryTest {
             EditorModelVerificationManifest.ADAPTER_SLICE_ID,
             "5.2.0",
             "cubism-5.2",
-            EditorModelVerificationManifest.CAPABILITY_IDS,
+            editorModel52Capabilities(),
             "Live2D_Cubism.jar",
             40_805_584L,
             "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
-            "f56774cb211f83654cf76e5cd46b811cee2cc4ccedb43f42b437de13dfede590",
-            108,
-            EditorModelVerificationManifest.REQUIRED_ALIASES,
-            EditorModelVerificationManifest.REQUIRED_ALIASES,
-            editorModelMethodAliases(),
-            difference(EditorModelVerificationManifest.REQUIRED_ALIASES, editorModelMethodAliases()),
+            "64e9c57b1d8d29d757b43948b6a004107b28feda9c98c31e8febae703a589e80",
+            126,
+            editorModel52Aliases(),
+            editorModel52Aliases(),
+            editorModel52MethodAliases(),
+            difference(editorModel52Aliases(), editorModel52MethodAliases()),
             "cubism-5.2-editor-model-read",
             Path.of("cubism-ref/mapping-packs/draft/cubism-5.2-editor-model-read.json"),
             Path.of("cubism-ref/profiles/draft/cubism-5.2.json"),
@@ -189,7 +192,7 @@ class StaticVerificationRecordRepositoryTest {
             EditorModelVerificationManifest.ARTIFACT_SIZE,
             EditorModelVerificationManifest.ARTIFACT_SHA256,
             EditorModelVerificationManifest.RECORD_SHA256,
-            108,
+            129,
             EditorModelVerificationManifest.REQUIRED_ALIASES,
             EditorModelVerificationManifest.REQUIRED_ALIASES,
             editorModelMethodAliases(),
@@ -310,8 +313,52 @@ class StaticVerificationRecordRepositoryTest {
             "cubism.editor-model.parameter-group.children",
             "cubism.editor-model.parameter-group.remove",
             "cubism.editor-model.parameter-group.add",
-            "cubism.editor-model.undo.add-listener"
+            "cubism.editor-model.undo.add-listener",
+            "cubism.editor-model.model-source.parts",
+            "cubism.editor-model.model-source.update-instances",
+            "cubism.editor-model.model.parts",
+            "cubism.editor-model.part.source",
+            "cubism.editor-model.part.id",
+            "cubism.editor-model.part.current-keyform",
+            "cubism.editor-model.part-form.opacity",
+            "cubism.editor-model.part-form.set-opacity",
+            "cubism.editor-model.part-source.parent",
+            "cubism.editor-model.part-source.id",
+            "cubism.editor-model.part-source.local-name",
+            "cubism.editor-model.part-source.set-local-name",
+            "cubism.editor-model.part-source.handler",
+            "cubism.editor-model.part-handler.create-undo-for-all-edit",
+            "cubism.editor-model.part-id.value",
+            "cubism.editor-model.complete-pack.update-part-palette"
         );
+    }
+
+    private static Set<String> editorModel52Capabilities() {
+        return EditorModelVerificationManifest.CAPABILITY_IDS;
+    }
+
+    private static Set<String> editorModel52Aliases() {
+        final java.util.HashSet<String> aliases = new java.util.HashSet<>(
+            EditorModelVerificationManifest.REQUIRED_ALIASES
+        );
+        aliases.removeAll(EditorPartOpacitySelectorContract.REQUIRED_ALIASES);
+        aliases.addAll(EditorPartOpacity52SelectorContract.REQUIRED_ALIASES);
+        aliases.addAll(EditorPartNameSelectorContract.REQUIRED_ALIASES);
+        aliases.addAll(EditorPartNameSelectorContract.WRITE_REQUIRED_ALIASES);
+        return Set.copyOf(aliases);
+    }
+
+    private static Set<String> editorModel52MethodAliases() {
+        final java.util.HashSet<String> aliases = new java.util.HashSet<>(editorModelMethodAliases());
+        aliases.removeAll(Set.of(
+            "cubism.editor-model.part.id",
+            "cubism.editor-model.part.current-keyform",
+            "cubism.editor-model.part-form.opacity",
+            "cubism.editor-model.part-form.set-opacity"
+        ));
+        aliases.add("cubism.editor-model.part.parts-opacity");
+        aliases.add("cubism.editor-model.part.set-parts-opacity");
+        return Set.copyOf(aliases);
     }
 
     private static SliceExpectation coreExpectation(
@@ -539,6 +586,12 @@ class StaticVerificationRecordRepositoryTest {
 
     private static String repositoryPath(final Path path) {
         return PROJECT_ROOT.relativize(path).toString().replace('\\', '/');
+    }
+
+    private static Set<String> intersection(final Set<String> left, final Set<String> right) {
+        final Set<String> intersection = new HashSet<>(left);
+        intersection.retainAll(right);
+        return Set.copyOf(intersection);
     }
 
     private static Set<String> difference(final Set<String> all, final Set<String> excluded) {

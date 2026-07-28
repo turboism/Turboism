@@ -32,7 +32,7 @@ class EditorPartOpacitySelectorContractTest {
     }
 
     @Test
-    void exact5203RecordDoesNotAdvertisePartOpacity() throws Exception {
+    void exact5203RecordVerifiesTheDedicatedPartOpacityContract() throws Exception {
         final Path artifact = LEGACY_EVIDENCE.resolve("Cubism-5.2/jars/Live2D_Cubism.jar");
         final var resolver = new VerifiedEditorModelResolverFactory().create(
             PROJECT_ROOT.resolve("docs/migration/verification/static/cubism-5.2-editor-model.json"),
@@ -40,6 +40,11 @@ class EditorPartOpacitySelectorContractTest {
             loader(artifact)
         );
 
+        assertTrue(resolver.authorizesFeature(
+            EditorPartOpacity52SelectorContract.ADAPTER_SLICE_ID,
+            EditorPartOpacity52SelectorContract.CAPABILITY_ID,
+            EditorPartOpacity52SelectorContract.REQUIRED_ALIASES
+        ));
         assertFalse(resolver.authorizesFeature(
             EditorPartOpacitySelectorContract.ADAPTER_SLICE_ID,
             EditorPartOpacitySelectorContract.CAPABILITY_ID,
