@@ -1,5 +1,6 @@
 package dev.turboism.bootstrap;
 
+import dev.turboism.adapter.cubism.startup.StartupSuppressionInstaller;
 import dev.turboism.mapping.verification.EditorModelVerificationManifest;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.preview.PreviewRuntime;
@@ -24,19 +25,33 @@ public final class TurboismAgent {
     private static final AtomicReference<PreviewRuntime> RUNTIME = new AtomicReference<>();
     private static final AtomicReference<VerifiedParameterHookInstaller> PARAMETER_HOOK =
         new AtomicReference<>();
+    private static final AtomicReference<StartupSuppressionInstaller.Installation> STARTUP_SUPPRESSION =
+        new AtomicReference<>();
 
     private TurboismAgent() {
     }
 
     public static void premain(final String options, final Instrumentation instrumentation) {
-        requestStart(options, instrumentation);
+        requestStart(
+            StartupSuppressionInstaller.AttachmentMode.PREMAIN,
+            options,
+            instrumentation
+        );
     }
 
     public static void agentmain(final String options, final Instrumentation instrumentation) {
-        requestStart(options, instrumentation);
+        requestStart(
+            StartupSuppressionInstaller.AttachmentMode.AGENTMAIN,
+            options,
+            instrumentation
+        );
     }
 
-    private static void requestStart(final String rawOptions, final Instrumentation instrumentation) {
+    private static void requestStart(
+        final StartupSuppressionInstaller.AttachmentMode attachmentMode,
+        final String rawOptions,
+        final Instrumentation instrumentation
+    ) {
         if (!START_REQUESTED.compareAndSet(false, true)) {
             System.err.println("Turboism agent start ignored: runtime has already been requested");
             return;
@@ -50,6 +65,30 @@ public final class TurboismAgent {
             return;
         }
 
+        final StartupSuppressionInstaller.Installation startupSuppression =
+            StartupSuppressionInstaller.install(
+                attachmentMode,
+                instrumentation,
+                options.home(),
+                System.getProperty("java.class.path", ""),
+                Path.of(System.getProperty("user.dir", ".")),
+                code -> System.err.println("Turboism startup suppression: " + code)
+            );
+        if (!STARTUP_SUPPRESSION.compareAndSet(null, startupSuppression)) {
+            startupSuppression.close();
+        }
+        System.err.println(
+            "Turboism startup suppression status=" + startupSuppression.status()
+                + ", safeMode=" + startupSuppression.policy().safeMode()
+                + ", requestedUpdate="
+                + startupSuppression.policy().requestedSkipStartupUpdateCheck()
+                + ", effectiveUpdate=" + startupSuppression.policy().skipStartupUpdateCheck()
+                + ", requestedSplash=" + startupSuppression.policy().requestedSkipStartupSplash()
+                + ", effectiveSplash=" + startupSuppression.policy().skipStartupSplash()
+                + ", requestedInformation="
+                + startupSuppression.policy().requestedSkipStartupInformation()
+                + ", effectiveInformation=" + startupSuppression.policy().skipStartupInformation()
+        );
         final Thread bootstrap = new Thread(
             () -> start(options, instrumentation),
             "turboism-bootstrap"
@@ -194,6 +233,15 @@ public final class TurboismAgent {
     }
 
     private static boolean shutdownRuntime() {
+        final StartupSuppressionInstaller.Installation startupSuppression =
+            STARTUP_SUPPRESSION.getAndSet(null);
+        if (startupSuppression != null) {
+            try {
+                startupSuppression.close();
+            } catch (Throwable failure) {
+                System.err.println("Turboism startup suppression cleanup failed safely");
+            }
+        }
         final VerifiedParameterHookInstaller parameterHook = PARAMETER_HOOK.getAndSet(null);
         if (parameterHook != null) {
             try {

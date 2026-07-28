@@ -13,6 +13,11 @@
   },
   "hooks": {
     "disabledIds": [],
-    "denylistedClasses": []
+    "denylistedClasses": [],
+    "startup": {
+      "skipUpdateCheck": false,
+      "skipSplash": false,
+      "skipInformation": false
+    }
   }
 }
