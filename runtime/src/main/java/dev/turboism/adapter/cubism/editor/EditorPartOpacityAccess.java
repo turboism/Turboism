@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.editor;
 
 import dev.turboism.mapping.verification.EditorPartNameSelectorContract;
+import dev.turboism.mapping.verification.EditorPartOpacity52SelectorContract;
 import dev.turboism.mapping.verification.EditorPartOpacitySelectorContract;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.model.Part;
@@ -36,11 +37,22 @@ final class EditorPartOpacityAccess {
     }
 
     private boolean opacityAuthorized() {
+        if (isCubism52()) {
+            return resolver.authorizesFeature(
+                EditorPartOpacity52SelectorContract.ADAPTER_SLICE_ID,
+                EditorPartOpacity52SelectorContract.CAPABILITY_ID,
+                EditorPartOpacity52SelectorContract.REQUIRED_ALIASES
+            );
+        }
         return resolver.authorizesFeature(
             EditorPartOpacitySelectorContract.ADAPTER_SLICE_ID,
             EditorPartOpacitySelectorContract.CAPABILITY_ID,
             EditorPartOpacitySelectorContract.REQUIRED_ALIASES
         );
+    }
+
+    private boolean isCubism52() {
+        return resolver.isExactCubismVersion(EditorPartOpacity52SelectorContract.CUBISM_VERSION);
     }
 
     private boolean nameAuthorized() {
@@ -105,8 +117,9 @@ final class EditorPartOpacityAccess {
 
     private float opacity(final Object part) {
         requireOpacityAuthorization();
-        final Object form = currentForm(part);
-        final Object value = resolver.invoke("cubism.editor-model.part-form.opacity", form);
+        final Object value = isCubism52()
+            ? resolver.invoke("cubism.editor-model.part.parts-opacity", part)
+            : resolver.invoke("cubism.editor-model.part-form.opacity", currentForm(part));
         if (!(value instanceof Float opacity) || !Float.isFinite(opacity)) {
             throw unavailable("Editor Part authoring opacity is unavailable.");
         }
@@ -219,11 +232,19 @@ final class EditorPartOpacityAccess {
                 }
             );
             resolver.invoke("cubism.editor-model.undo.add-listener", partUndo, listener);
-            resolver.invoke(
-                "cubism.editor-model.part-form.set-opacity",
-                currentForm(current.part()),
-                Float.valueOf(opacity)
-            );
+            if (isCubism52()) {
+                resolver.invoke(
+                    "cubism.editor-model.part.set-parts-opacity",
+                    current.part(),
+                    Float.valueOf(opacity)
+                );
+            } else {
+                resolver.invoke(
+                    "cubism.editor-model.part-form.set-opacity",
+                    currentForm(current.part()),
+                    Float.valueOf(opacity)
+                );
+            }
             resolver.invoke("cubism.editor-model.model-source.update-instances", source);
             refresh(app);
             resolver.invoke("cubism.editor-model.modeling-document.mark-dirty", document);
