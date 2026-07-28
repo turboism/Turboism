@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.editor;
 
+import dev.turboism.mapping.verification.EditorPartNameSelectorContract;
 import dev.turboism.mapping.verification.EditorPartOpacitySelectorContract;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.model.Part;
@@ -28,16 +29,24 @@ final class EditorPartOpacityAccess {
     }
 
     Parts parts(final String identity, final Object source, final Object model) {
-        requireAuthorization();
+        requireProjectionAuthorization();
         modelGuard.requireCurrent(identity, model);
         return new EditorParts(identity, source, model);
     }
 
-    private boolean authorized() {
+    private boolean opacityAuthorized() {
         return resolver.authorizesFeature(
             EditorPartOpacitySelectorContract.ADAPTER_SLICE_ID,
             EditorPartOpacitySelectorContract.CAPABILITY_ID,
             EditorPartOpacitySelectorContract.REQUIRED_ALIASES
+        );
+    }
+
+    private boolean nameAuthorized() {
+        return resolver.authorizesFeature(
+            EditorPartNameSelectorContract.ADAPTER_SLICE_ID,
+            EditorPartNameSelectorContract.CAPABILITY_ID,
+            EditorPartNameSelectorContract.REQUIRED_ALIASES
         );
     }
 
@@ -86,12 +95,30 @@ final class EditorPartOpacityAccess {
     }
 
     private float opacity(final Object part) {
+        requireOpacityAuthorization();
         final Object form = currentForm(part);
         final Object value = resolver.invoke("cubism.editor-model.part-form.opacity", form);
         if (!(value instanceof Float opacity) || !Float.isFinite(opacity)) {
             throw unavailable("Editor Part authoring opacity is unavailable.");
         }
         return opacity;
+    }
+
+    private String name(final PartBinding binding) {
+        if (!nameAuthorized()) {
+            throw new UnsupportedOperationException(
+                "Part display-name reading is unavailable without exact verified host evidence."
+            );
+        }
+        final Object value = resolver.invoke(
+            "cubism.editor-model.part-source.local-name",
+            binding.source()
+        );
+        if (value == null) return binding.id().value();
+        if (!(value instanceof String name)) {
+            throw unavailable("Editor Part display name is invalid.");
+        }
+        return name.isBlank() ? binding.id().value() : name;
     }
 
     private Object currentForm(final Object part) {
@@ -220,8 +247,16 @@ final class EditorPartOpacityAccess {
         throw unavailable("Editor Part parent is outside the active Part collection.");
     }
 
-    private void requireAuthorization() {
-        if (!authorized()) {
+    private void requireProjectionAuthorization() {
+        if (!opacityAuthorized() && !nameAuthorized()) {
+            throw new UnsupportedOperationException(
+                "Part access is unavailable without exact verified host evidence."
+            );
+        }
+    }
+
+    private void requireOpacityAuthorization() {
+        if (!opacityAuthorized()) {
             throw new UnsupportedOperationException(
                 "Part opacity editing is unavailable without exact verified host evidence."
             );
@@ -289,6 +324,7 @@ final class EditorPartOpacityAccess {
         }
 
         @Override public PartId id() { current(); return id; }
+        @Override public String name() { return EditorPartOpacityAccess.this.name(current()); }
         @Override public float getOpacity() { return opacity(current().part()); }
         @Override public int parentIndex() {
             return EditorPartOpacityAccess.this.parentIndex(source, model, current().source());
