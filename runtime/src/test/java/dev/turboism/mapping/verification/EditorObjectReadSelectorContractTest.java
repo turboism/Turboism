@@ -1,0 +1,92 @@
+package dev.turboism.mapping.verification;
+
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.stream.Stream;
+
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+class EditorObjectReadSelectorContractTest {
+
+    private static final Path PROJECT_ROOT = locateProjectRoot();
+    private static final Path LEGACY_EVIDENCE = locateLegacyEvidence();
+
+    @ParameterizedTest
+    @CsvSource({
+        "Cubism-5.2, cubism-5.2-editor-model.json",
+        "Cubism-5.3.02, cubism-5.3.02-editor-model.json"
+    })
+    void exactRecordVerifiesTheCompleteObjectReadContract(
+        final String evidenceDirectory,
+        final String recordName
+    ) throws Exception {
+        final Path artifact = LEGACY_EVIDENCE.resolve(evidenceDirectory + "/jars/Live2D_Cubism.jar");
+        final var resolver = new VerifiedEditorModelResolverFactory().create(
+            PROJECT_ROOT.resolve("docs/migration/verification/static/" + recordName),
+            artifact,
+            loader(artifact)
+        );
+
+        assertTrue(resolver.authorizesFeature(
+            EditorObjectReadSelectorContract.ADAPTER_SLICE_ID,
+            EditorObjectReadSelectorContract.CAPABILITY_ID,
+            EditorObjectReadSelectorContract.REQUIRED_ALIASES
+        ));
+        assertTrue(resolver.authorizesFeature(
+            EditorObjectWriteSelectorContract.ADAPTER_SLICE_ID,
+            EditorObjectWriteSelectorContract.ART_MESH_CAPABILITY_ID,
+            EditorObjectWriteSelectorContract.ART_MESH_REQUIRED_ALIASES
+        ));
+        assertTrue(resolver.authorizesFeature(
+            EditorObjectWriteSelectorContract.ADAPTER_SLICE_ID,
+            EditorObjectWriteSelectorContract.WARP_CAPABILITY_ID,
+            EditorObjectWriteSelectorContract.WARP_REQUIRED_ALIASES
+        ));
+        assertTrue(resolver.authorizesFeature(
+            EditorObjectWriteSelectorContract.ADAPTER_SLICE_ID,
+            EditorObjectWriteSelectorContract.ROTATION_CAPABILITY_ID,
+            EditorObjectWriteSelectorContract.ROTATION_REQUIRED_ALIASES
+        ));
+    }
+
+    private static Path locateProjectRoot() {
+        Path current = Path.of("").toAbsolutePath().normalize();
+        while (current != null && !Files.isRegularFile(current.resolve("settings.gradle.kts"))) {
+            current = current.getParent();
+        }
+        if (current == null) throw new IllegalStateException("project root is unavailable");
+        return current;
+    }
+
+    private static Path locateLegacyEvidence() {
+        Path current = PROJECT_ROOT;
+        while (current != null) {
+            final Path candidate = current.resolveSibling("turboism-legacy/cubism-ref");
+            if (Files.isDirectory(candidate)) return candidate;
+            current = current.getParent();
+        }
+        throw new IllegalStateException("legacy Cubism evidence directory is unavailable");
+    }
+
+    private static URLClassLoader loader(final Path artifact) throws Exception {
+        try (Stream<Path> files = Files.list(artifact.getParent())) {
+            final URL[] classpath = files
+                .filter(path -> path.getFileName().toString().endsWith(".jar"))
+                .sorted()
+                .map(path -> {
+                    try {
+                        return path.toUri().toURL();
+                    } catch (java.net.MalformedURLException exception) {
+                        throw new IllegalArgumentException(exception);
+                    }
+                })
+                .toArray(URL[]::new);
+            return new URLClassLoader(classpath, ClassLoader.getPlatformClassLoader());
+        }
+    }
+}
