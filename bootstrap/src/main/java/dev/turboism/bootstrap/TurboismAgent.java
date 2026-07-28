@@ -91,11 +91,16 @@ public final class TurboismAgent {
                 options.home(),
                 "cubism-" + profile + "-ui-main-toolbar.json"
             );
+            final Path embeddedPanelVerificationRecord = extractVerificationRecord(
+                options.home(),
+                "cubism-" + profile + "-ui-embedded-panel.json"
+            );
             final PreviewRuntime runtime = PreviewRuntime.start(
                 options.home(),
                 verificationRecord,
                 editorModelVerificationRecord,
                 mainToolbarVerificationRecord,
+                embeddedPanelVerificationRecord,
                 host.artifact(),
                 host.classLoader()
             );
