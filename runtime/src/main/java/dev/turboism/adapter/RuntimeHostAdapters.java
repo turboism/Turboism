@@ -65,12 +65,7 @@ public record RuntimeHostAdapters(
         final VerifiedMemberResolver resolver
     ) {
         Objects.requireNonNull(resolver, "resolver");
-        if (!resolver.isExactCubismVersion(ProjectWorkspaceVerificationManifest.CUBISM_VERSION)
-            || !resolver.authorizes(
-                ProjectWorkspaceVerificationManifest.ADAPTER_SLICE_ID,
-                ProjectWorkspaceVerificationManifest.CAPABILITY_IDS,
-                ProjectWorkspaceVerificationManifest.REQUIRED_ALIASES
-            )) {
+        if (!ProjectWorkspaceVerificationManifest.authorizes(resolver)) {
             throw new IllegalArgumentException(
                 "resolver does not authorize the complete project/workspace adapter slice"
             );

@@ -169,8 +169,8 @@ class StaticVerificationRecordRepositoryTest {
             "Live2D_Cubism.jar",
             40_805_584L,
             "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
-            "64e9c57b1d8d29d757b43948b6a004107b28feda9c98c31e8febae703a589e80",
-            126,
+            "3ce64ac30df1b4ff9f78ab12f9e6d7eb397788082a596546f58c4573425882b3",
+            125,
             editorModel52Aliases(),
             editorModel52Aliases(),
             editorModel52MethodAliases(),
@@ -334,7 +334,12 @@ class StaticVerificationRecordRepositoryTest {
     }
 
     private static Set<String> editorModel52Capabilities() {
-        return EditorModelVerificationManifest.CAPABILITY_IDS;
+        final java.util.HashSet<String> capabilities = new java.util.HashSet<>(
+            EditorModelVerificationManifest.CAPABILITY_IDS
+        );
+        capabilities.remove(EditorPartOpacitySelectorContract.CAPABILITY_ID);
+        capabilities.add(EditorPartOpacity52SelectorContract.CAPABILITY_ID);
+        return Set.copyOf(capabilities);
     }
 
     private static Set<String> editorModel52Aliases() {
@@ -357,7 +362,6 @@ class StaticVerificationRecordRepositoryTest {
             "cubism.editor-model.part-form.set-opacity"
         ));
         aliases.add("cubism.editor-model.part.parts-opacity");
-        aliases.add("cubism.editor-model.part.set-parts-opacity");
         return Set.copyOf(aliases);
     }
 
