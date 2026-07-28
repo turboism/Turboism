@@ -6,6 +6,8 @@ import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.model.PartId;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -15,11 +17,12 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class EditorPartNameAccessTest {
 
-    @Test
-    void readsLocalNameAndFallsBackToIdText() {
+    @ParameterizedTest
+    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    void readsLocalNameAndFallsBackToIdText(final String cubismVersion) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
-        final var access = new EditorBackedCubismModelAccess(resolver(true), "session-a");
+        final var access = new EditorBackedCubismModelAccess(resolver(true, cubismVersion), "session-a");
         final var part = access.active().parts().find(new PartId("PartClip"));
 
         assertEquals("Clipping Part", part.name());
@@ -27,11 +30,12 @@ class EditorPartNameAccessTest {
         assertEquals("PartClip", part.name());
     }
 
-    @Test
-    void writesAuthoringNameWithUndoDirtyRefreshAndNoChangeElision() {
+    @ParameterizedTest
+    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    void writesAuthoringNameWithUndoDirtyRefreshAndNoChangeElision(final String cubismVersion) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
-        final var access = new EditorBackedCubismModelAccess(resolver(true), "session-a");
+        final var access = new EditorBackedCubismModelAccess(resolver(true, cubismVersion), "session-a");
         final var part = access.active().parts().find(new PartId("PartClip"));
 
         part.setName("Renamed Part");
@@ -82,6 +86,13 @@ class EditorPartNameAccessTest {
     }
 
     private static VerifiedMemberResolver resolver(final boolean includeNameCapability) {
+        return resolver(includeNameCapability, "5.3.02");
+    }
+
+    private static VerifiedMemberResolver resolver(
+        final boolean includeNameCapability,
+        final String cubismVersion
+    ) {
         final List<StaticSelector> selectors = new ArrayList<>();
         selectors.add(StaticSelector.classSelector("cubism.editor-model.app-controller.class", internal(Host.class)));
         selectors.add(StaticSelector.staticMethod(
@@ -122,7 +133,7 @@ class EditorPartNameAccessTest {
             selectors.add(method("cubism.editor-model.complete-pack.repaint-canvas", CompletePack.class, "repaint", "(Z)V"));
         }
         return TestVerifiedResolvers.create(
-            "5.3.02",
+            cubismVersion,
             "adapter.editor-model.readwrite",
             includeNameCapability
                 ? java.util.Set.of(
