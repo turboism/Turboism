@@ -14,6 +14,8 @@ public interface Part {
         return id().value();
     }
 
+    void setName(String name);
+
     float getOpacity();
 
     int parentIndex();

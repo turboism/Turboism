@@ -7,7 +7,7 @@ public final class EditorModelVerificationManifest {
 
     public static final String VERIFICATION_ID = "cubism-5.3.02.editor-model.static";
     public static final String RECORD_SHA256 =
-        "a4d15e1a58318c082a9d33a95564c29056479b092b12accea3d80085d967a1a3";
+        "a7d4c1d3229c23c6b10afe2f04e1e5201fb196196cb8605283615a2307c34543";
     public static final String CUBISM_VERSION = "5.3.02";
     public static final String PROFILE_ID = "cubism-5.3.02";
     public static final long ARTIFACT_SIZE = 41_922_739L;
@@ -25,7 +25,8 @@ public final class EditorModelVerificationManifest {
         EditorDefaultKeyformLockReadSelectorContract.CAPABILITY_ID,
         EditorDefaultKeyformLockWriteSelectorContract.CAPABILITY_ID,
         EditorPartOpacitySelectorContract.CAPABILITY_ID,
-        EditorPartNameSelectorContract.CAPABILITY_ID
+        EditorPartNameSelectorContract.CAPABILITY_ID,
+        EditorPartNameSelectorContract.WRITE_CAPABILITY_ID
     );
     public static final Set<String> REQUIRED_ALIASES = Set.of(
         "cubism.editor-model.app-controller.class",
@@ -146,6 +147,7 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.part-source.class",
         "cubism.editor-model.part-source.id",
         "cubism.editor-model.part-source.local-name",
+        "cubism.editor-model.part-source.set-local-name",
         "cubism.editor-model.part-source.parent",
         "cubism.editor-model.part-source.handler",
         "cubism.editor-model.part-handler.class",
@@ -186,6 +188,7 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.part-source.class",
         "cubism.editor-model.part-source.id",
         "cubism.editor-model.part-source.local-name",
+        "cubism.editor-model.part-source.set-local-name",
         "cubism.editor-model.part-id.value"
     );
 
@@ -253,6 +256,7 @@ public final class EditorModelVerificationManifest {
         final java.util.HashSet<String> values = new java.util.HashSet<>(CAPABILITY_IDS);
         values.remove(EditorPartOpacitySelectorContract.CAPABILITY_ID);
         values.remove(EditorPartNameSelectorContract.CAPABILITY_ID);
+        values.remove(EditorPartNameSelectorContract.WRITE_CAPABILITY_ID);
         return Set.copyOf(values);
     }
 

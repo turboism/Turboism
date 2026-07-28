@@ -84,6 +84,7 @@ class PartHookRegistryTest {
     private static final class MutablePart implements Part {
         private float opacity = 1.0F;
         @Override public PartId id() { return new PartId("PartA"); }
+        @Override public void setName(final String name) { }
         @Override public float getOpacity() { return opacity; }
         @Override public int parentIndex() { return -1; }
         @Override public void setOpacity(final float opacity) { this.opacity = opacity; }

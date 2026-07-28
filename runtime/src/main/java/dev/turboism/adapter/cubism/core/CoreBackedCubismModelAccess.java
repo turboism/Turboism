@@ -279,6 +279,7 @@ public final class CoreBackedCubismModelAccess implements CubismModelAccess {
         private RuntimePart(final long generation, final PartId id) { this.generation = generation; this.id = id; }
         private CorePartDefinition current() { return part(readGeneration(generation), id); }
         @Override public PartId id() { current(); return id; }
+        @Override public void setName(final String name) { current(); throw readOnlyFailure(); }
         @Override public float getOpacity() { return current().opacity(); }
         @Override public int parentIndex() { return current().parentIndex(); }
         @Override public void setOpacity(final float opacity) { current(); throw readOnlyFailure(); }

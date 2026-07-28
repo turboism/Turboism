@@ -16,6 +16,7 @@ import java.util.Objects;
 final class EditorPartOpacityAccess {
 
     private static final String ACTION_NAME = "Turboism: Set Part Opacity";
+    private static final String NAME_ACTION_NAME = "Turboism: Set Part Name";
 
     private final VerifiedMemberResolver resolver;
     private final EditorParameterCombinedAccess.ModelGuard modelGuard;
@@ -47,6 +48,14 @@ final class EditorPartOpacityAccess {
             EditorPartNameSelectorContract.ADAPTER_SLICE_ID,
             EditorPartNameSelectorContract.CAPABILITY_ID,
             EditorPartNameSelectorContract.REQUIRED_ALIASES
+        );
+    }
+
+    private boolean nameWriteAuthorized() {
+        return resolver.authorizesFeature(
+            EditorPartNameSelectorContract.ADAPTER_SLICE_ID,
+            EditorPartNameSelectorContract.WRITE_CAPABILITY_ID,
+            EditorPartNameSelectorContract.WRITE_REQUIRED_ALIASES
         );
     }
 
@@ -119,6 +128,31 @@ final class EditorPartOpacityAccess {
             throw unavailable("Editor Part display name is invalid.");
         }
         return name.isBlank() ? binding.id().value() : name;
+    }
+
+    private void setName(
+        final String identity,
+        final Object source,
+        final Object model,
+        final PartId id,
+        final Object expectedSource,
+        final Object expectedPart,
+        final String requestedName
+    ) {
+        final String name = Objects.requireNonNull(requestedName, "name");
+        if (name.isBlank()) throw new IllegalArgumentException("name must not be blank");
+        requireNameWriteAuthorization();
+        final PartBinding current = requireCurrentPart(
+            identity, source, model, id, expectedSource, expectedPart
+        );
+        if (name.equals(name(current))) return;
+        writePartSource(
+            source,
+            current,
+            NAME_ACTION_NAME,
+            () -> resolver.invoke("cubism.editor-model.part-source.set-local-name", current.source(), name)
+        );
+        requireCurrentPart(identity, source, model, id, expectedSource, expectedPart);
     }
 
     private Object currentForm(final Object part) {
@@ -221,6 +255,58 @@ final class EditorPartOpacityAccess {
         );
     }
 
+    private void writePartSource(
+        final Object source,
+        final PartBinding current,
+        final String actionName,
+        final Runnable mutation
+    ) {
+        final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
+        final Object document = resolver.invoke(
+            "cubism.editor-model.app-controller.current-document", app
+        );
+        final Object editMode = resolver.invoke(
+            "cubism.editor-model.modeling-document.edit-mode", document
+        );
+        final Object edit = resolver.invoke("cubism.editor-model.edit-mode.begin", editMode, actionName);
+        boolean completed = false;
+        try {
+            final Object handler = resolver.invoke(
+                "cubism.editor-model.part-source.handler", current.source()
+            );
+            if (!resolver.isInstance("cubism.editor-model.part-handler.class", handler)) {
+                throw unavailable("Editor Part Undo handler is unavailable.");
+            }
+            final Object partUndo = resolver.invoke(
+                "cubism.editor-model.part-handler.create-undo-for-all-edit", handler, actionName
+            );
+            final Object accepted = resolver.invoke(
+                "cubism.editor-model.undo.add", edit, partUndo, Boolean.TRUE
+            );
+            if (!(accepted instanceof Boolean value) || !value) {
+                throw new IllegalStateException("Cubism rejected the Part authoring Undo entry.");
+            }
+            final Object listener = resolver.createFunctionalProxy(
+                "cubism.editor-model.undo-listener.class",
+                ignored -> {
+                    resolver.invoke("cubism.editor-model.model-source.update-instances", source);
+                    refresh(app);
+                    return null;
+                }
+            );
+            resolver.invoke("cubism.editor-model.undo.add-listener", partUndo, listener);
+            mutation.run();
+            resolver.invoke("cubism.editor-model.model-source.update-instances", source);
+            refresh(app);
+            resolver.invoke("cubism.editor-model.modeling-document.mark-dirty", document);
+            completed = true;
+        } finally {
+            resolver.invoke(
+                "cubism.editor-model.edit-mode.end", editMode, Boolean.valueOf(!completed), null
+            );
+        }
+    }
+
     private PartBinding requireCurrentPart(
         final String identity,
         final Object source,
@@ -259,6 +345,14 @@ final class EditorPartOpacityAccess {
         if (!opacityAuthorized()) {
             throw new UnsupportedOperationException(
                 "Part opacity editing is unavailable without exact verified host evidence."
+            );
+        }
+    }
+
+    private void requireNameWriteAuthorization() {
+        if (!nameWriteAuthorized()) {
+            throw new UnsupportedOperationException(
+                "Part display-name writing is unavailable without exact verified host evidence."
             );
         }
     }
@@ -325,6 +419,11 @@ final class EditorPartOpacityAccess {
 
         @Override public PartId id() { current(); return id; }
         @Override public String name() { return EditorPartOpacityAccess.this.name(current()); }
+        @Override public void setName(final String name) {
+            EditorPartOpacityAccess.this.setName(
+                identity, source, model, id, expectedSource, expectedPart, name
+            );
+        }
         @Override public float getOpacity() { return opacity(current().part()); }
         @Override public int parentIndex() {
             return EditorPartOpacityAccess.this.parentIndex(source, model, current().source());
