@@ -962,6 +962,7 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             final Part selectedPart = part;
             Files.writeString(artifact, "status=RUNNING phase=read-before\n", StandardOpenOption.TRUNCATE_EXISTING);
             final float before = onHostThread(selectedPart::getOpacity);
+            final String partName = onHostThread(selectedPart::name);
             final float written = Float.compare(before, 0.625F) == 0 ? 0.75F : 0.625F;
             onHostThread(() -> { selectedPart.setOpacity(written); return null; });
             Files.writeString(artifact, "status=RUNNING phase=after-write\n", StandardOpenOption.TRUNCATE_EXISTING);
@@ -986,6 +987,7 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 artifact,
                 "status=" + (passed ? "PASS" : "FAIL") + System.lineSeparator()
                     + "partId=" + part.id().value() + System.lineSeparator()
+                    + "partName=" + partName + System.lineSeparator()
                     + "before=" + before + System.lineSeparator()
                     + "written=" + written + System.lineSeparator()
                     + "afterWrite=" + afterWrite + System.lineSeparator()
