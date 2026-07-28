@@ -7,6 +7,20 @@ import dev.turboism.sdk.cubism.model.Part;
 @PreviewApi
 public interface PartHooks {
 
+    default String beforeSetPartName(final Part part, final String name) {
+        return name;
+    }
+
+    default void onPartNameChanged(
+        final Part part,
+        final String oldName,
+        final String newName
+    ) {
+    }
+
+    default void afterSetPartName(final Part part, final String name) {
+    }
+
     default float beforeSetPartOpacity(
         final Part part,
         final float opacity

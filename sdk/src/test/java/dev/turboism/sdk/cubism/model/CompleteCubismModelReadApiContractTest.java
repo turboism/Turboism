@@ -19,7 +19,7 @@ class CompleteCubismModelReadApiContractTest {
         assertMethods(Canvas.class,
             "heightPixels", "originXPixels", "originYPixels", "pixelsPerUnit", "widthPixels");
         assertMethods(Part.class,
-            "getOpacity", "id", "name", "parentIndex", "setOpacity");
+            "getOpacity", "id", "name", "parentIndex", "setName", "setOpacity");
         assertMethods(Drawable.class,
             "blendMode", "constantFlag", "drawOrder", "dynamicFlag", "getOpacity", "id",
             "indices", "masks", "multiplyColor", "parameters", "parentDeformerIndex",
