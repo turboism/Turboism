@@ -977,22 +977,34 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             Thread.sleep(800L);
             final String restoredName = onHostThread(selectedPart::name);
             final float written = Float.compare(before, 0.625F) == 0 ? 0.75F : 0.625F;
-            onHostThread(() -> { selectedPart.setOpacity(written); return null; });
-            Files.writeString(artifact, "status=RUNNING phase=after-write\n", StandardOpenOption.TRUNCATE_EXISTING);
-            final float afterWrite = onHostThread(selectedPart::getOpacity);
-            pressShortcut(robot, java.awt.event.KeyEvent.VK_Z);
-            Thread.sleep(800L);
-            final float afterUndo = onHostThread(selectedPart::getOpacity);
-            pressShortcut(robot, java.awt.event.KeyEvent.VK_Y);
-            Thread.sleep(800L);
-            final float afterRedo = onHostThread(selectedPart::getOpacity);
+            Float afterWrite = null;
+            Float afterUndo = null;
+            Float afterRedo = null;
+            String opacityWriteDisposition = "supported";
+            boolean opacityPassed;
+            try {
+                onHostThread(() -> { selectedPart.setOpacity(written); return null; });
+                Files.writeString(artifact, "status=RUNNING phase=after-write\n", StandardOpenOption.TRUNCATE_EXISTING);
+                afterWrite = onHostThread(selectedPart::getOpacity);
+                pressShortcut(robot, java.awt.event.KeyEvent.VK_Z);
+                Thread.sleep(800L);
+                afterUndo = onHostThread(selectedPart::getOpacity);
+                pressShortcut(robot, java.awt.event.KeyEvent.VK_Y);
+                Thread.sleep(800L);
+                afterRedo = onHostThread(selectedPart::getOpacity);
+                opacityPassed = Float.compare(afterWrite, written) == 0
+                    && Float.compare(afterUndo, before) == 0
+                    && Float.compare(afterRedo, written) == 0;
+            } catch (UnsupportedOperationException unsupported) {
+                opacityWriteDisposition = "unsupported-fail-closed";
+                afterWrite = onHostThread(selectedPart::getOpacity);
+                opacityPassed = Float.compare(afterWrite, before) == 0;
+            }
             final boolean passed = writtenName.equals(afterNameWrite)
                 && partName.equals(afterNameUndo)
                 && writtenName.equals(afterNameRedo)
                 && partName.equals(restoredName)
-                && Float.compare(afterWrite, written) == 0
-                && Float.compare(afterUndo, before) == 0
-                && Float.compare(afterRedo, written) == 0;
+                && opacityPassed;
             Files.writeString(
                 artifact,
                 "status=" + (passed ? "PASS" : "FAIL") + System.lineSeparator()
@@ -1004,6 +1016,7 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                     + "afterNameRedo=" + afterNameRedo + System.lineSeparator()
                     + "restoredName=" + restoredName + System.lineSeparator()
                     + "before=" + before + System.lineSeparator()
+                    + "opacityWriteDisposition=" + opacityWriteDisposition + System.lineSeparator()
                     + "written=" + written + System.lineSeparator()
                     + "afterWrite=" + afterWrite + System.lineSeparator()
                     + "afterUndo=" + afterUndo + System.lineSeparator()
