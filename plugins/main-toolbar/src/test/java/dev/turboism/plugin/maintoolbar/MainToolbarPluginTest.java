@@ -32,6 +32,7 @@ import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.theme.ThemeStatusSnapshot;
 import dev.turboism.sdk.ui.DialogRequest;
 import dev.turboism.sdk.ui.EmbeddedPanelContribution;
+import dev.turboism.sdk.ui.EmbeddedPanelId;
 import dev.turboism.sdk.ui.FileChooserRequest;
 import dev.turboism.sdk.ui.OverlayContribution;
 import dev.turboism.sdk.ui.StatusNotification;
@@ -86,10 +87,14 @@ class MainToolbarPluginTest {
             )),
             context.mainToolbar().buttonContributions()
         );
+        assertEquals(
+            List.of(new EmbeddedPanelContribution("turboism.panel.main", "Turboism", "right", 0)),
+            context.uiHost().panelContributions()
+        );
     }
 
     @Test
-    void homeActionUsesCubismReadAndUiHostStatusCapabilities_whenInvoked() throws Exception {
+    void homeActionRequestsTypedTurboismPanelActivation_whenInvoked() throws Exception {
         RecordingPluginContext context = new RecordingPluginContext();
         MainToolbarPlugin plugin = new MainToolbarPlugin();
 
@@ -98,13 +103,10 @@ class MainToolbarPluginTest {
         context.actions().execute("main-toolbar.home-entry.open");
 
         assertEquals(
-            List.of(new StatusNotification(
-                "main-toolbar.home-entry.project-summary",
-                "INFO",
-                "Project Demo Project has 1 document(s); layout workspace Modeling."
-            )),
-            context.uiHost().notifications()
+            List.of(EmbeddedPanelId.of("turboism.panel.main")),
+            context.uiHost().activatedPanels()
         );
+        assertTrue(context.uiHost().notifications().isEmpty());
     }
 
     @Test
@@ -118,6 +120,7 @@ class MainToolbarPluginTest {
 
         assertTrue(context.actions().actions().isEmpty());
         assertTrue(context.mainToolbar().buttonContributions().isEmpty());
+        assertTrue(context.uiHost().panelContributions().isEmpty());
     }
 
     @Test
@@ -146,18 +149,18 @@ class MainToolbarPluginTest {
     }
 
     @Test
-    void homeActionDenies_whenStatusNotifyPermissionMissing() throws Exception {
+    void homeActionDoesNotRequireStatusNotificationPermission() throws Exception {
         RecordingPluginContext context = new RecordingPluginContext(new PermissionGatedUiHost(true, false));
         MainToolbarPlugin plugin = new MainToolbarPlugin();
 
         plugin.init(context);
         plugin.enable();
+        context.actions().execute("main-toolbar.home-entry.open");
 
-        CubismPermissionException denied = assertThrows(
-            CubismPermissionException.class,
-            () -> context.actions().execute("main-toolbar.home-entry.open")
+        assertEquals(
+            List.of(EmbeddedPanelId.of("turboism.panel.main")),
+            context.uiHost().activatedPanels()
         );
-        assertTrue(denied.getMessage().contains(PermissionIds.TURBOISM_UI_STATUS_NOTIFY));
         assertEquals(List.of(), context.uiHost().notifications());
     }
 
@@ -304,9 +307,19 @@ class MainToolbarPluginTest {
     }
 
     private static class RecordingUiHost implements UiHostCapabilityService {
+        private final List<EmbeddedPanelContribution> panelContributions = new ArrayList<>();
+        private final List<EmbeddedPanelId> activatedPanels = new ArrayList<>();
         private final List<StatusNotification> notifications = new ArrayList<>();
 
         void requireMainToolbarPermission() {
+        }
+
+        List<EmbeddedPanelContribution> panelContributions() {
+            return panelContributions;
+        }
+
+        List<EmbeddedPanelId> activatedPanels() {
+            return activatedPanels;
         }
 
         List<StatusNotification> notifications() {
@@ -339,8 +352,14 @@ class MainToolbarPluginTest {
         }
 
         @Override
-        public Registration contributeEmbeddedPanel(EmbeddedPanelContribution contribution) {
-            throw new UnsupportedOperationException("embedded panels are not used by this plugin test");
+        public Registration contributeEmbeddedPanel(final EmbeddedPanelContribution contribution) {
+            panelContributions.add(contribution);
+            return () -> panelContributions.remove(contribution);
+        }
+
+        @Override
+        public void activateEmbeddedPanel(final EmbeddedPanelId panelId) {
+            activatedPanels.add(panelId);
         }
 
         @Override
