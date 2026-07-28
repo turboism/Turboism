@@ -21,7 +21,7 @@ public final class WindowsEditorObjectPeerValidationProbe implements CubismPlugi
 
     @Override
     public void enable() {
-        if (!"plugin-scope-close".equals(System.getProperty("turboism.editorObjectValidation.mode"))) return;
+        // This class is packaged only in the exact-host validation bundle; always wait for the primary marker.
         validationThread = new Thread(this::runPeerValidation, "turboism-editor-object-peer-validation");
         validationThread.setDaemon(true);
         validationThread.start();
