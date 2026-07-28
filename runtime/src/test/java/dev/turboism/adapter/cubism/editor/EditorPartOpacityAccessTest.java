@@ -6,6 +6,8 @@ import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.model.PartId;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -17,12 +19,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class EditorPartOpacityAccessTest {
 
-    @Test
-    void writesCurrentAuthoringFormWithNativeUndoDirtyAndRefresh() {
+    @ParameterizedTest
+    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    void writesVersionSpecificAuthoringOpacityWithNativeUndoDirtyAndRefresh(final String cubismVersion) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
         final EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
-            resolver(true), "session-a"
+            resolver(true, cubismVersion), "session-a"
         );
         final var part = access.active().parts().find(new PartId("PartClip"));
 
@@ -30,7 +33,7 @@ class EditorPartOpacityAccessTest {
         assertEquals(-1, part.parentIndex());
         part.setOpacity(0.625F);
 
-        assertEquals(0.625F, fixture.part.form.opacity);
+        assertEquals(0.625F, fixture.part.opacityFor(cubismVersion));
         assertEquals(1, fixture.editMode.edits.size());
         assertTrue(fixture.document.dirty);
         assertEquals(1, fixture.source.updateCount);
@@ -70,6 +73,13 @@ class EditorPartOpacityAccessTest {
     }
 
     private static VerifiedMemberResolver resolver(final boolean includePartCapability) {
+        return resolver(includePartCapability, "5.3.02");
+    }
+
+    private static VerifiedMemberResolver resolver(
+        final boolean includePartCapability,
+        final String cubismVersion
+    ) {
         final List<StaticSelector> selectors = new ArrayList<>();
         selectors.add(StaticSelector.classSelector(
             "cubism.editor-model.app-controller.class", internal(Host.class)
@@ -101,23 +111,30 @@ class EditorPartOpacityAccessTest {
             selectors.add(StaticSelector.classSelector("cubism.editor-model.part.class", internal(HostPart.class)));
             selectors.add(method("cubism.editor-model.part.id", HostPart.class, "id", desc(Id.class)));
             selectors.add(method("cubism.editor-model.part.source", HostPart.class, "source", desc(PartSource.class)));
-            selectors.add(method("cubism.editor-model.part.current-keyform", HostPart.class, "currentForm", desc(PartForm.class)));
+            if ("5.2.0".equals(cubismVersion)) {
+                selectors.add(method("cubism.editor-model.part.parts-opacity", HostPart.class, "partsOpacity", "()F"));
+                selectors.add(method("cubism.editor-model.part.set-parts-opacity", HostPart.class, "setPartsOpacity", "(F)V"));
+            } else {
+                selectors.add(method("cubism.editor-model.part.current-keyform", HostPart.class, "currentForm", desc(PartForm.class)));
+            }
             selectors.add(StaticSelector.classSelector("cubism.editor-model.part-source.class", internal(PartSource.class)));
             selectors.add(method("cubism.editor-model.part-source.id", PartSource.class, "id", desc(Id.class)));
             selectors.add(method("cubism.editor-model.part-source.parent", PartSource.class, "parent", desc(PartSource.class)));
             selectors.add(method("cubism.editor-model.part-source.handler", PartSource.class, "handler", desc(PartHandler.class)));
             selectors.add(StaticSelector.classSelector("cubism.editor-model.part-handler.class", internal(PartHandler.class)));
             selectors.add(method("cubism.editor-model.part-handler.create-undo-for-all-edit", PartHandler.class, "undo", "(Ljava/lang/String;)" + type(Undo.class)));
-            selectors.add(StaticSelector.classSelector("cubism.editor-model.part-form.class", internal(PartForm.class)));
-            selectors.add(method("cubism.editor-model.part-form.opacity", PartForm.class, "opacity", "()F"));
-            selectors.add(method("cubism.editor-model.part-form.set-opacity", PartForm.class, "setOpacity", "(F)V"));
+            if (!"5.2.0".equals(cubismVersion)) {
+                selectors.add(StaticSelector.classSelector("cubism.editor-model.part-form.class", internal(PartForm.class)));
+                selectors.add(method("cubism.editor-model.part-form.opacity", PartForm.class, "opacity", "()F"));
+                selectors.add(method("cubism.editor-model.part-form.set-opacity", PartForm.class, "setOpacity", "(F)V"));
+            }
             selectors.add(StaticSelector.classSelector("cubism.editor-model.part-id.class", internal(Id.class)));
             selectors.add(method("cubism.editor-model.part-id.value", Id.class, "value", "()Ljava/lang/String;"));
             selectors.add(method("cubism.editor-model.complete-pack.update-part-palette", CompletePack.class, "updateParts", "(Z)V"));
             selectors.add(method("cubism.editor-model.complete-pack.repaint-canvas", CompletePack.class, "repaint", "(Z)V"));
         }
         return TestVerifiedResolvers.create(
-            "5.3.02",
+            cubismVersion,
             "adapter.editor-model.readwrite",
             includePartCapability
                 ? java.util.Set.of("cubism.editor-model.read", EditorPartOpacitySelectorContract.CAPABILITY_ID)
@@ -171,10 +188,16 @@ class EditorPartOpacityAccessTest {
         final Id id;
         final PartSource source;
         final PartForm form = new PartForm();
+        float partsOpacity = 1.0F;
         HostPart(final String id, final PartSource source) { this.id = new Id(id); this.source = source; }
         public Id id() { return id; }
         public PartSource source() { return source; }
         public PartForm currentForm() { return form; }
+        public float partsOpacity() { return partsOpacity; }
+        public void setPartsOpacity(final float value) { partsOpacity = value; }
+        float opacityFor(final String cubismVersion) {
+            return "5.2.0".equals(cubismVersion) ? partsOpacity : form.opacity;
+        }
     }
     public static final class PartSource {
         final Id id;
