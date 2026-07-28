@@ -19,13 +19,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class EditorPartOpacityAccessTest {
 
-    @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
-    void writesVersionSpecificAuthoringOpacityWithNativeUndoDirtyAndRefresh(final String cubismVersion) {
+    @Test
+    void writes5302AuthoringOpacityWithNativeUndoDirtyAndRefresh() {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
         final EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
-            resolver(true, cubismVersion), "session-a"
+            resolver(true, "5.3.02"), "session-a"
         );
         final var part = access.active().parts().find(new PartId("PartClip"));
 
@@ -33,13 +32,29 @@ class EditorPartOpacityAccessTest {
         assertEquals(-1, part.parentIndex());
         part.setOpacity(0.625F);
 
-        assertEquals(0.625F, fixture.part.opacityFor(cubismVersion));
+        assertEquals(0.625F, fixture.part.form.opacity);
         assertEquals(1, fixture.editMode.edits.size());
         assertTrue(fixture.document.dirty);
         assertEquals(1, fixture.source.updateCount);
         assertEquals(1, fixture.pack.partRefreshCount);
         assertEquals(1, fixture.pack.repaintCount);
         assertFalse(fixture.editMode.aborted);
+    }
+
+    @Test
+    void exact5203ExposesEvaluationOpacityReadButRejectsAuthoringWrite() {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        final EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
+            resolver(true, "5.2.0"), "session-a"
+        );
+        final var part = access.active().parts().find(new PartId("PartClip"));
+
+        assertEquals(1.0F, part.getOpacity());
+        assertThrows(UnsupportedOperationException.class, () -> part.setOpacity(0.625F));
+        assertEquals(1.0F, fixture.part.partsOpacity);
+        assertEquals(0, fixture.editMode.edits.size());
+        assertFalse(fixture.document.dirty);
     }
 
     @Test
@@ -137,11 +152,17 @@ class EditorPartOpacityAccessTest {
             cubismVersion,
             "adapter.editor-model.readwrite",
             includePartCapability
-                ? java.util.Set.of("cubism.editor-model.read", EditorPartOpacitySelectorContract.CAPABILITY_ID)
+                ? java.util.Set.of("cubism.editor-model.read", opacityCapability(cubismVersion))
                 : java.util.Set.of("cubism.editor-model.read"),
             selectors,
             Host.class.getClassLoader()
         );
+    }
+
+    private static String opacityCapability(final String cubismVersion) {
+        return "5.2.0".equals(cubismVersion)
+            ? dev.turboism.mapping.verification.EditorPartOpacity52SelectorContract.CAPABILITY_ID
+            : EditorPartOpacitySelectorContract.CAPABILITY_ID;
     }
 
     private static StaticSelector method(

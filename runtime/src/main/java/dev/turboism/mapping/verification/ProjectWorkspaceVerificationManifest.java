@@ -44,6 +44,20 @@ public final class ProjectWorkspaceVerificationManifest {
         "cubism.guid.value"
     );
 
+    /** Authorizes the complete project/workspace slice for an exact reviewed Cubism version. */
+    public static boolean authorizes(final VerifiedMemberResolver resolver) {
+        if (resolver == null) {
+            return false;
+        }
+        final boolean reviewedVersion = resolver.isExactCubismVersion(CUBISM_VERSION)
+            || resolver.isExactCubismVersion(ProjectWorkspaceVerificationManifest52.CUBISM_VERSION);
+        return reviewedVersion && resolver.authorizes(
+            ADAPTER_SLICE_ID,
+            CAPABILITY_IDS,
+            REQUIRED_ALIASES
+        );
+    }
+
     static PinnedVerifiedResolverWorkflow.Manifest forArtifact(
         final HostArtifactDigest artifact
     ) {

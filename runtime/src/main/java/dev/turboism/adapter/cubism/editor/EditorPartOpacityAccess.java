@@ -51,6 +51,14 @@ final class EditorPartOpacityAccess {
         );
     }
 
+    private boolean opacityWriteAuthorized() {
+        return resolver.authorizesFeature(
+            EditorPartOpacitySelectorContract.ADAPTER_SLICE_ID,
+            EditorPartOpacitySelectorContract.CAPABILITY_ID,
+            EditorPartOpacitySelectorContract.REQUIRED_ALIASES
+        );
+    }
+
     private boolean isCubism52() {
         return resolver.isExactCubismVersion(EditorPartOpacity52SelectorContract.CUBISM_VERSION);
     }
@@ -188,6 +196,7 @@ final class EditorPartOpacityAccess {
         if (!Float.isFinite(opacity)) {
             throw new IllegalArgumentException("opacity must be finite");
         }
+        requireOpacityWriteAuthorization();
         final PartBinding current = requireCurrentPart(
             identity, source, model, id, expectedSource, expectedPart
         );
@@ -232,19 +241,11 @@ final class EditorPartOpacityAccess {
                 }
             );
             resolver.invoke("cubism.editor-model.undo.add-listener", partUndo, listener);
-            if (isCubism52()) {
-                resolver.invoke(
-                    "cubism.editor-model.part.set-parts-opacity",
-                    current.part(),
-                    Float.valueOf(opacity)
-                );
-            } else {
-                resolver.invoke(
-                    "cubism.editor-model.part-form.set-opacity",
-                    currentForm(current.part()),
-                    Float.valueOf(opacity)
-                );
-            }
+            resolver.invoke(
+                "cubism.editor-model.part-form.set-opacity",
+                currentForm(current.part()),
+                Float.valueOf(opacity)
+            );
             resolver.invoke("cubism.editor-model.model-source.update-instances", source);
             refresh(app);
             resolver.invoke("cubism.editor-model.modeling-document.mark-dirty", document);
@@ -365,7 +366,15 @@ final class EditorPartOpacityAccess {
     private void requireOpacityAuthorization() {
         if (!opacityAuthorized()) {
             throw new UnsupportedOperationException(
-                "Part opacity editing is unavailable without exact verified host evidence."
+                "Part opacity reading is unavailable without exact verified host evidence."
+            );
+        }
+    }
+
+    private void requireOpacityWriteAuthorization() {
+        if (!opacityWriteAuthorized()) {
+            throw new UnsupportedOperationException(
+                "Part opacity writing is unavailable on this exact Cubism version."
             );
         }
     }

@@ -41,6 +41,24 @@ class RuntimeHostAdaptersVerifiedProjectWorkspaceTest {
         );
     }
 
+    @Test
+    void connectsExactCubism52ProjectWorkspaceResolver() {
+        VerifiedMemberResolver resolver = TestVerifiedResolvers.create(
+            "5.2.0",
+            ProjectWorkspaceAdapter.ADAPTER_SLICE_ID,
+            Set.of(
+                ProjectWorkspaceAdapter.PROJECT_CAPABILITY_ID,
+                ProjectWorkspaceAdapter.WORKSPACE_CAPABILITY_ID
+            ),
+            completeSelectors(),
+            Host.class.getClassLoader()
+        );
+
+        RuntimeHostAdapters adapters = RuntimeHostAdapters.withVerifiedProjectWorkspace(resolver);
+
+        assertTrue(adapters.projectWorkspace().activeProject().isAvailable());
+    }
+
     private static List<StaticSelector> completeSelectors() {
         final String owner = Host.class.getName().replace('.', '/');
         return VerifiedProjectWorkspaceHostOperations.REQUIRED_ALIASES.stream()

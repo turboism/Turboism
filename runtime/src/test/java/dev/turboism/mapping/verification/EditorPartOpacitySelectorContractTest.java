@@ -32,7 +32,7 @@ class EditorPartOpacitySelectorContractTest {
     }
 
     @Test
-    void exact5203RecordVerifiesTheDedicatedPartOpacityContract() throws Exception {
+    void exact5203RecordVerifiesEvaluationReadButNotAuthoringWrite() throws Exception {
         final Path artifact = LEGACY_EVIDENCE.resolve("Cubism-5.2/jars/Live2D_Cubism.jar");
         final var resolver = new VerifiedEditorModelResolverFactory().create(
             PROJECT_ROOT.resolve("docs/migration/verification/static/cubism-5.2-editor-model.json"),
