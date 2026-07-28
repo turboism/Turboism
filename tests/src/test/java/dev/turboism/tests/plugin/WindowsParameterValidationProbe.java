@@ -11,6 +11,7 @@ import dev.turboism.sdk.cubism.model.ParameterGroup;
 import dev.turboism.sdk.cubism.model.ParameterGroups;
 import dev.turboism.sdk.cubism.model.ParameterType;
 import dev.turboism.sdk.cubism.model.Parameters;
+import dev.turboism.sdk.cubism.model.Part;
 import dev.turboism.sdk.plugin.PluginContext;
 
 import javax.swing.BorderFactory;
@@ -41,6 +42,11 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.Callable;
+import java.util.concurrent.atomic.AtomicReference;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 
 /** Manual-test-only SDK plugin packaged into the isolated Windows validation drop. */
 public final class WindowsParameterValidationProbe implements CubismPlugin {
@@ -236,6 +242,7 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
     private JLabel statusLabel;
     private Optional<ParameterId> selectedParameterId = Optional.empty();
     private boolean applyingSelection;
+    private Thread partValidationThread;
 
     @Override
     public void init(final PluginContext context) {
@@ -246,11 +253,17 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
 
     @Override
     public void enable() {
-        SwingUtilities.invokeLater(this::showWindow);
+        partValidationThread = new Thread(() -> {
+            runPartOpacityValidation();
+            SwingUtilities.invokeLater(this::showWindow);
+        }, "turboism-part-opacity-validation");
+        partValidationThread.setDaemon(true);
+        partValidationThread.start();
     }
 
     @Override
     public void disable() {
+        if (partValidationThread != null) partValidationThread.interrupt();
         disposeWindow();
     }
 
@@ -912,6 +925,104 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
 
     private CubismModel activeModel() {
         return context.cubism().model().active();
+    }
+
+    private void runPartOpacityValidation() {
+        final Path artifact = Path.of(
+            System.getProperty("turboism.home"), "logs", "part-opacity-validation.txt"
+        );
+        try {
+            Files.createDirectories(artifact.getParent());
+            Files.writeString(artifact, "status=RUNNING phase=await-model\n", StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+            Part part = null;
+            Exception unavailable = null;
+            for (int attempt = 0; attempt < 120 && !Thread.currentThread().isInterrupted(); attempt++) {
+                try {
+                    part = onHostThread(() -> activeModel().parts().all().stream()
+                        .filter(value -> !"__RootPart__".equals(value.id().value()))
+                        .findFirst()
+                        .orElseThrow(() -> new IllegalStateException("No non-root Part is available.")));
+                    break;
+                } catch (Exception exception) {
+                    unavailable = exception;
+                    Files.writeString(
+                        artifact,
+                        "status=RUNNING phase=await-model attempt=" + attempt + " error="
+                            + exception.getClass().getName() + ": " + exception.getMessage() + "\n",
+                        StandardOpenOption.TRUNCATE_EXISTING
+                    );
+                    Thread.sleep(1000L);
+                }
+            }
+            if (part == null) {
+                throw unavailable == null
+                    ? new IllegalStateException("Part validation was interrupted.")
+                    : unavailable;
+            }
+            final Part selectedPart = part;
+            Files.writeString(artifact, "status=RUNNING phase=read-before\n", StandardOpenOption.TRUNCATE_EXISTING);
+            final float before = onHostThread(selectedPart::getOpacity);
+            final float written = Float.compare(before, 0.625F) == 0 ? 0.75F : 0.625F;
+            onHostThread(() -> { selectedPart.setOpacity(written); return null; });
+            Files.writeString(artifact, "status=RUNNING phase=after-write\n", StandardOpenOption.TRUNCATE_EXISTING);
+            final float afterWrite = onHostThread(selectedPart::getOpacity);
+            final java.awt.Robot robot = new java.awt.Robot();
+            robot.keyPress(java.awt.event.KeyEvent.VK_CONTROL);
+            robot.keyPress(java.awt.event.KeyEvent.VK_Z);
+            robot.keyRelease(java.awt.event.KeyEvent.VK_Z);
+            robot.keyRelease(java.awt.event.KeyEvent.VK_CONTROL);
+            Thread.sleep(800L);
+            final float afterUndo = onHostThread(selectedPart::getOpacity);
+            robot.keyPress(java.awt.event.KeyEvent.VK_CONTROL);
+            robot.keyPress(java.awt.event.KeyEvent.VK_Y);
+            robot.keyRelease(java.awt.event.KeyEvent.VK_Y);
+            robot.keyRelease(java.awt.event.KeyEvent.VK_CONTROL);
+            Thread.sleep(800L);
+            final float afterRedo = onHostThread(selectedPart::getOpacity);
+            final boolean passed = Float.compare(afterWrite, written) == 0
+                && Float.compare(afterUndo, before) == 0
+                && Float.compare(afterRedo, written) == 0;
+            Files.writeString(
+                artifact,
+                "status=" + (passed ? "PASS" : "FAIL") + System.lineSeparator()
+                    + "partId=" + part.id().value() + System.lineSeparator()
+                    + "before=" + before + System.lineSeparator()
+                    + "written=" + written + System.lineSeparator()
+                    + "afterWrite=" + afterWrite + System.lineSeparator()
+                    + "afterUndo=" + afterUndo + System.lineSeparator()
+                    + "afterRedo=" + afterRedo + System.lineSeparator(),
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING
+            );
+        } catch (Exception exception) {
+            try {
+                Files.writeString(
+                    artifact,
+                    "status=FAIL" + System.lineSeparator()
+                        + "error=" + exception.getClass().getName() + ": "
+                        + exception.getMessage() + System.lineSeparator(),
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.TRUNCATE_EXISTING
+                );
+            } catch (Exception ignored) {
+                context.logger().error("Part opacity validation artifact could not be written", exception);
+            }
+        }
+    }
+
+    private static <T> T onHostThread(final Callable<T> call) throws Exception {
+        if (SwingUtilities.isEventDispatchThread()) return call.call();
+        final AtomicReference<T> result = new AtomicReference<>();
+        final AtomicReference<Exception> failure = new AtomicReference<>();
+        SwingUtilities.invokeAndWait(() -> {
+            try {
+                result.set(call.call());
+            } catch (Exception exception) {
+                failure.set(exception);
+            }
+        });
+        if (failure.get() != null) throw failure.get();
+        return result.get();
     }
 
     private Parameters activeParameters() {

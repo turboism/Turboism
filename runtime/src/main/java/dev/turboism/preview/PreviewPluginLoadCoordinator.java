@@ -3,6 +3,7 @@ package dev.turboism.preview;
 import dev.turboism.core.dependency.DependencyResolver;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.adapter.cubism.lifecycle.ParameterHookRegistry;
+import dev.turboism.adapter.cubism.lifecycle.PartHookRegistry;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -24,11 +25,14 @@ final class PreviewPluginLoadCoordinator {
         final PreviewPluginContextFactory contextFactory,
         final PreviewLog log,
         final List<LocalPluginRuntime.LoadedPlugin> loaded,
-        final ParameterHookRegistry hookRegistry
+        final ParameterHookRegistry parameterHookRegistry,
+        final PartHookRegistry partHookRegistry
     ) {
         this.pluginDirectory = pluginDirectory;
         this.discovery = new PreviewPluginDiscovery(pluginDirectory, log);
-        this.loader = new PreviewPluginLoader(contextFactory, log, loaded, hookRegistry);
+        this.loader = new PreviewPluginLoader(
+            contextFactory, log, loaded, parameterHookRegistry, partHookRegistry
+        );
         this.log = log;
     }
 
