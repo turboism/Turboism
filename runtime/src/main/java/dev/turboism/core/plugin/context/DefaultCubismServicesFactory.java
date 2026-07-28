@@ -10,6 +10,9 @@ import dev.turboism.adapter.cubism.service.query.SelectionQueryServiceImpl;
 import dev.turboism.adapter.cubism.service.read.CubismReadCapabilityServiceImpl;
 import dev.turboism.permissions.CubismPermissionGate;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
+import dev.turboism.adapter.host.PluginScopedCubismModelAccess;
+
+import java.util.concurrent.atomic.AtomicBoolean;
 
 final class DefaultCubismServicesFactory implements CubismServicesFactory {
 
@@ -78,12 +81,19 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
             dependencies.cubismAuditSink(),
             dependencies.clock()
         );
+        final AtomicBoolean activeScope = new AtomicBoolean(true);
+        dependencies.disposableScope().register(() -> activeScope.set(false));
+        final CubismModelAccess pluginModelAccess = PluginScopedCubismModelAccess.bind(
+            modelAccess,
+            dependencies.disposableScope()
+        );
         final CubismFacadeImpl facade = new CubismFacadeImpl(
             dependencies.hostSnapshotSource(),
             permissionGate,
-            modelAccess,
+            pluginModelAccess,
             parameterLifecycle,
-            partLifecycle
+            partLifecycle,
+            activeScope::get
         );
         return new CubismContextServices(
             facade,

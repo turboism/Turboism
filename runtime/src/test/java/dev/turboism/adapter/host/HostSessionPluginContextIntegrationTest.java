@@ -149,6 +149,54 @@ class HostSessionPluginContextIntegrationTest {
     }
 
     @Test
+    void pluginScopeCloseInvalidatesOnlyThatContextsCubismReferences() throws Exception {
+        final AtomicReference<HostInstanceDescriptor> current = new AtomicReference<>();
+        final HostSession session = new HostSession(
+            () -> Optional.ofNullable(current.get()),
+            descriptor -> HostAdapterConnection.of(
+                RuntimeHostAdapters.safeMode(),
+                fixedModelAccess(descriptor.sessionId())
+            )
+        );
+        final RuntimeScheduler firstScheduler = scheduler();
+        final RuntimeScheduler secondScheduler = scheduler();
+        final CorePluginContext.Dependencies firstDependencies = dependencies(
+            tempDir.resolve("first"),
+            firstScheduler,
+            descriptor(List.of("turboism.cubism.model.read")),
+            ignored -> { }
+        );
+        final CorePluginContext.Dependencies secondDependencies = dependencies(
+            tempDir.resolve("second"),
+            secondScheduler,
+            descriptor(List.of("turboism.cubism.model.read")),
+            ignored -> { }
+        );
+        final CorePluginContext first = new CorePluginContext(firstDependencies, session);
+        final CorePluginContext second = new CorePluginContext(secondDependencies, session);
+
+        try {
+            current.set(dualDescriptor("model-scope", "reviewed-scope"));
+            assertEquals(HostSession.State.ACTIVE, session.refresh());
+            final CubismModel stale = first.cubism().model().active();
+            assertEquals(new ModelId("model-scope"), stale.id());
+            assertEquals(new ModelId("model-scope"), second.cubism().model().active().id());
+
+            firstDependencies.disposableScope().close();
+
+            assertThrows(IllegalStateException.class, stale::id);
+            assertThrows(IllegalStateException.class, () -> first.cubism().model());
+            assertEquals(HostSession.State.ACTIVE, session.state());
+            assertEquals(new ModelId("model-scope"), second.cubism().model().active().id());
+        } finally {
+            secondDependencies.disposableScope().close();
+            session.close();
+            firstScheduler.shutdown();
+            secondScheduler.shutdown();
+        }
+    }
+
+    @Test
     void missingModelReadPermissionRejectsClipBeforeTouchingHostAndAudits() {
         AtomicInteger clipOperations = new AtomicInteger();
         List<CubismFacadeAuditEvent> auditEvents = new CopyOnWriteArrayList<>();
