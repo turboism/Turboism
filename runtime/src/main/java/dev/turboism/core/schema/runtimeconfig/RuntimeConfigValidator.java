@@ -18,6 +18,13 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
     );
     private static final Set<String> ALLOWED_LOG_LEVELS = Set.of("DEBUG", "INFO", "WARN", "ERROR");
 
+    private static final Set<String> ALLOWED_HOOK_FIELDS = Set.of(
+        "disabledIds", "denylistedClasses", "startup"
+    );
+    private static final Set<String> ALLOWED_STARTUP_FIELDS = Set.of(
+        "skipUpdateCheck", "skipSplash", "skipInformation"
+    );
+
     public RuntimeConfigValidator() {
         super("turboism.runtime.config", "RUNTIME_CONFIG", 1, ALLOWED_FIELDS);
     }
@@ -57,6 +64,108 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
             });
         }
 
+        validateOptionalBoolean(node, "safeMode", errors, source);
+        validateHooks(node, errors, source);
+
         return errors;
+    }
+
+    private void validateHooks(
+        final JsonNode root,
+        final List<SchemaValidationError> errors,
+        final String source
+    ) {
+        if (!root.has("hooks")) {
+            return;
+        }
+        final JsonNode hooks = root.get("hooks");
+        if (hooks == null || !hooks.isObject()) {
+            errors.add(error("RUNTIME_CONFIG_BAD_TYPE", "hooks must be an object", "hooks", source));
+            return;
+        }
+        hooks.fieldNames().forEachRemaining(field -> {
+            if (!ALLOWED_HOOK_FIELDS.contains(field)) {
+                errors.add(error(
+                    "RUNTIME_CONFIG_UNKNOWN_FIELD",
+                    "Unknown hooks field: " + field,
+                    "hooks." + field,
+                    source
+                ));
+            }
+        });
+        validateStringArray(hooks, "disabledIds", "hooks.disabledIds", errors, source);
+        validateStringArray(hooks, "denylistedClasses", "hooks.denylistedClasses", errors, source);
+        if (!hooks.has("startup")) {
+            return;
+        }
+        final JsonNode startup = hooks.get("startup");
+        if (startup == null || !startup.isObject()) {
+            errors.add(error(
+                "RUNTIME_CONFIG_BAD_TYPE",
+                "hooks.startup must be an object",
+                "hooks.startup",
+                source
+            ));
+            return;
+        }
+        startup.fieldNames().forEachRemaining(field -> {
+            if (!ALLOWED_STARTUP_FIELDS.contains(field)) {
+                errors.add(error(
+                    "RUNTIME_CONFIG_UNKNOWN_FIELD",
+                    "Unknown hooks.startup field: " + field,
+                    "hooks.startup." + field,
+                    source
+                ));
+            }
+        });
+        for (String field : ALLOWED_STARTUP_FIELDS) {
+            validateOptionalBoolean(startup, field, "hooks.startup." + field, errors, source);
+        }
+    }
+
+    private void validateOptionalBoolean(
+        final JsonNode node,
+        final String field,
+        final List<SchemaValidationError> errors,
+        final String source
+    ) {
+        validateOptionalBoolean(node, field, field, errors, source);
+    }
+
+    private void validateOptionalBoolean(
+        final JsonNode node,
+        final String field,
+        final String path,
+        final List<SchemaValidationError> errors,
+        final String source
+    ) {
+        if (node.has(field) && !node.get(field).isBoolean()) {
+            errors.add(error("RUNTIME_CONFIG_BAD_TYPE", path + " must be a boolean", path, source));
+        }
+    }
+
+    private void validateStringArray(
+        final JsonNode node,
+        final String field,
+        final String path,
+        final List<SchemaValidationError> errors,
+        final String source
+    ) {
+        if (!node.has(field)) {
+            return;
+        }
+        final JsonNode value = node.get(field);
+        if (!value.isArray() || !allTextual(value)) {
+            errors.add(error("RUNTIME_CONFIG_BAD_TYPE", path + " must be an array of strings", path, source));
+        }
+    }
+
+    private static boolean allTextual(final JsonNode array) {
+        for (JsonNode value : array) {
+            if (!value.isTextual()) {
+                return false;
+            }
+        }
+        return true;
     }
 }
