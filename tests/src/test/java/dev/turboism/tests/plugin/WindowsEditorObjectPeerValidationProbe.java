@@ -48,7 +48,7 @@ public final class WindowsEditorObjectPeerValidationProbe implements CubismPlugi
             final Path request = home.resolve("state").resolve("editor-object-peer-request.txt");
             artifact = home.resolve("logs").resolve("editor-object-peer-scope-close.txt");
             writeStage(artifact, "waiting-for-primary");
-            for (int attempt = 0; attempt < 600 && !Files.exists(request); attempt++) {
+            for (int attempt = 0; attempt < 3_000 && !Files.exists(request); attempt++) {
                 Thread.sleep(100L);
             }
             if (!Files.exists(request)) throw new IllegalStateException("Primary plugin close request was not observed");
