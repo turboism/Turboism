@@ -7,7 +7,7 @@ public final class EditorModelVerificationManifest {
 
     public static final String VERIFICATION_ID = "cubism-5.3.02.editor-model.static";
     public static final String RECORD_SHA256 =
-        "34638af2702b2cf1c572cb8711a6e7efc03ce548718e6d1c7e2abb4d158d72c6";
+        "a4d15e1a58318c082a9d33a95564c29056479b092b12accea3d80085d967a1a3";
     public static final String CUBISM_VERSION = "5.3.02";
     public static final String PROFILE_ID = "cubism-5.3.02";
     public static final long ARTIFACT_SIZE = 41_922_739L;
@@ -24,7 +24,8 @@ public final class EditorModelVerificationManifest {
         EditorParameterGroupLabelColorWriteSelectorContract.CAPABILITY_ID,
         EditorDefaultKeyformLockReadSelectorContract.CAPABILITY_ID,
         EditorDefaultKeyformLockWriteSelectorContract.CAPABILITY_ID,
-        EditorPartOpacitySelectorContract.CAPABILITY_ID
+        EditorPartOpacitySelectorContract.CAPABILITY_ID,
+        EditorPartNameSelectorContract.CAPABILITY_ID
     );
     public static final Set<String> REQUIRED_ALIASES = Set.of(
         "cubism.editor-model.app-controller.class",
@@ -144,6 +145,7 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.part.current-keyform",
         "cubism.editor-model.part-source.class",
         "cubism.editor-model.part-source.id",
+        "cubism.editor-model.part-source.local-name",
         "cubism.editor-model.part-source.parent",
         "cubism.editor-model.part-source.handler",
         "cubism.editor-model.part-handler.class",
@@ -175,6 +177,16 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.part-id.class",
         "cubism.editor-model.part-id.value",
         "cubism.editor-model.complete-pack.update-part-palette"
+    );
+    private static final Set<String> PART_NAME_ADDITIVE_ALIASES = Set.of(
+        "cubism.editor-model.model-source.parts",
+        "cubism.editor-model.model.parts",
+        "cubism.editor-model.part.class",
+        "cubism.editor-model.part.source",
+        "cubism.editor-model.part-source.class",
+        "cubism.editor-model.part-source.id",
+        "cubism.editor-model.part-source.local-name",
+        "cubism.editor-model.part-id.value"
     );
 
     public static String resourceProfileForArtifact(final HostArtifactDigest artifact) {
@@ -240,12 +252,14 @@ public final class EditorModelVerificationManifest {
     private static Set<String> withoutPartCapability() {
         final java.util.HashSet<String> values = new java.util.HashSet<>(CAPABILITY_IDS);
         values.remove(EditorPartOpacitySelectorContract.CAPABILITY_ID);
+        values.remove(EditorPartNameSelectorContract.CAPABILITY_ID);
         return Set.copyOf(values);
     }
 
     private static Set<String> withoutPartAliases() {
         final java.util.HashSet<String> values = new java.util.HashSet<>(REQUIRED_ALIASES);
         values.removeAll(PART_OPACITY_ADDITIVE_ALIASES);
+        values.removeAll(PART_NAME_ADDITIVE_ALIASES);
         return Set.copyOf(values);
     }
 

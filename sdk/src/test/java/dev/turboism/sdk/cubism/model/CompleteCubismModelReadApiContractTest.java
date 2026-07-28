@@ -15,11 +15,11 @@ class CompleteCubismModelReadApiContractTest {
     @Test
     void modelAndChildrenExposeTheCompleteSupportedReadShapeWithoutRawHostTypes() throws Exception {
         assertMethods(CubismModel.class,
-            "canvas", "deformers", "drawables", "glues", "id", "parameters", "parts", "update");
+            "canvas", "defaultKeyformLocked", "deformers", "drawables", "glues", "id", "parameterGroups", "parameters", "parts", "setDefaultKeyformLocked", "update");
         assertMethods(Canvas.class,
             "heightPixels", "originXPixels", "originYPixels", "pixelsPerUnit", "widthPixels");
         assertMethods(Part.class,
-            "getOpacity", "id", "parentIndex", "setOpacity");
+            "getOpacity", "id", "name", "parentIndex", "setOpacity");
         assertMethods(Drawable.class,
             "blendMode", "constantFlag", "drawOrder", "dynamicFlag", "getOpacity", "id",
             "indices", "masks", "multiplyColor", "parameters", "parentDeformerIndex",
