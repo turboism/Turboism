@@ -6,6 +6,8 @@ This roadmap replaces the retired M1–M16 migration sequence. Work is ordered b
 
 Build a usable, version-routed Cubism and Editor API that third-party plugins can consume naturally, then reconnect official modeling workflows through that API.
 
+Legacy 代码的抽取、框架/业务分界与逐阶段移植顺序见 `docs/architecture/legacy-extraction-and-porting-plan.md`。Legacy 仍是只读证据源，不是新框架骨架。
+
 The target interaction model is:
 
 ```text

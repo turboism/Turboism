@@ -2,6 +2,7 @@ package dev.turboism.preview;
 
 import dev.turboism.core.lifecycle.PluginLifecycleState;
 import dev.turboism.adapter.cubism.lifecycle.ParameterHookRegistry;
+import dev.turboism.adapter.cubism.lifecycle.PartHookRegistry;
 import dev.turboism.core.plugin.PluginRuntime;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginDescriptor;
@@ -20,18 +21,24 @@ final class PreviewPluginLoader {
     private final PreviewPluginContextFactory contextFactory;
     private final PreviewLog log;
     private final List<LocalPluginRuntime.LoadedPlugin> loaded;
-    private final ParameterHookRegistry hookRegistry;
+    private final ParameterHookRegistry parameterHookRegistry;
+    private final PartHookRegistry partHookRegistry;
 
     PreviewPluginLoader(
         final PreviewPluginContextFactory contextFactory,
         final PreviewLog log,
         final List<LocalPluginRuntime.LoadedPlugin> loaded,
-        final ParameterHookRegistry hookRegistry
+        final ParameterHookRegistry parameterHookRegistry,
+        final PartHookRegistry partHookRegistry
     ) {
         this.contextFactory = contextFactory;
         this.log = log;
         this.loaded = loaded;
-        this.hookRegistry = java.util.Objects.requireNonNull(hookRegistry, "hookRegistry");
+        this.parameterHookRegistry = java.util.Objects.requireNonNull(
+            parameterHookRegistry,
+            "parameterHookRegistry"
+        );
+        this.partHookRegistry = java.util.Objects.requireNonNull(partHookRegistry, "partHookRegistry");
     }
 
     LocalPluginRuntime.LoadedPluginSummary load(
@@ -96,12 +103,18 @@ final class PreviewPluginLoader {
         runtime.transitionTo(PluginLifecycleState.LOADED);
 
         enableAll(resources, runtime);
-        hookRegistry.register(
+        parameterHookRegistry.register(
             candidate.descriptor(),
             resources.entrypoints,
             contextBundle.context().logger()
         );
-        resources.hooksRegistered = true;
+        resources.parameterHooksRegistered = true;
+        partHookRegistry.register(
+            candidate.descriptor(),
+            resources.entrypoints,
+            contextBundle.context().logger()
+        );
+        resources.partHooksRegistered = true;
         return new LocalPluginRuntime.LoadedPlugin(
             candidate.jar(),
             runtime,
@@ -202,9 +215,13 @@ final class PreviewPluginLoader {
         final LoadResources resources,
         final String pluginId
     ) {
-        if (resources.hooksRegistered) {
-            hookRegistry.unregister(pluginId);
-            resources.hooksRegistered = false;
+        if (resources.partHooksRegistered) {
+            partHookRegistry.unregister(pluginId);
+            resources.partHooksRegistered = false;
+        }
+        if (resources.parameterHooksRegistered) {
+            parameterHookRegistry.unregister(pluginId);
+            resources.parameterHooksRegistered = false;
         }
         disableEnabledAfterFailure(resources, pluginId);
         shutdownConstructedAfterFailure(resources, pluginId);
@@ -290,6 +307,7 @@ final class PreviewPluginLoader {
         private final List<TurboismPlugin> entrypoints = new ArrayList<>();
         private int initialized;
         private int enabled;
-        private boolean hooksRegistered;
+        private boolean parameterHooksRegistered;
+        private boolean partHooksRegistered;
     }
 }

@@ -7,7 +7,7 @@ public final class EditorModelVerificationManifest {
 
     public static final String VERIFICATION_ID = "cubism-5.3.02.editor-model.static";
     public static final String RECORD_SHA256 =
-        "c1079182423258dba5b4deca84a12b15dfcf35851a1b06dd2bd9649ffb483e1d";
+        "34638af2702b2cf1c572cb8711a6e7efc03ce548718e6d1c7e2abb4d158d72c6";
     public static final String CUBISM_VERSION = "5.3.02";
     public static final String PROFILE_ID = "cubism-5.3.02";
     public static final long ARTIFACT_SIZE = 41_922_739L;
@@ -23,7 +23,8 @@ public final class EditorModelVerificationManifest {
         EditorParameterGroupLabelColorReadSelectorContract.CAPABILITY_ID,
         EditorParameterGroupLabelColorWriteSelectorContract.CAPABILITY_ID,
         EditorDefaultKeyformLockReadSelectorContract.CAPABILITY_ID,
-        EditorDefaultKeyformLockWriteSelectorContract.CAPABILITY_ID
+        EditorDefaultKeyformLockWriteSelectorContract.CAPABILITY_ID,
+        EditorPartOpacitySelectorContract.CAPABILITY_ID
     );
     public static final Set<String> REQUIRED_ALIASES = Set.of(
         "cubism.editor-model.app-controller.class",
@@ -133,7 +134,47 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.parameter-group.children",
         "cubism.editor-model.parameter-group.remove",
         "cubism.editor-model.parameter-group.add",
-        "cubism.editor-model.undo.add-listener"
+        "cubism.editor-model.undo.add-listener",
+        "cubism.editor-model.model-source.parts",
+        "cubism.editor-model.model-source.update-instances",
+        "cubism.editor-model.model.parts",
+        "cubism.editor-model.part.class",
+        "cubism.editor-model.part.id",
+        "cubism.editor-model.part.source",
+        "cubism.editor-model.part.current-keyform",
+        "cubism.editor-model.part-source.class",
+        "cubism.editor-model.part-source.id",
+        "cubism.editor-model.part-source.parent",
+        "cubism.editor-model.part-source.handler",
+        "cubism.editor-model.part-handler.class",
+        "cubism.editor-model.part-handler.create-undo-for-all-edit",
+        "cubism.editor-model.part-form.class",
+        "cubism.editor-model.part-form.opacity",
+        "cubism.editor-model.part-form.set-opacity",
+        "cubism.editor-model.part-id.class",
+        "cubism.editor-model.part-id.value",
+        "cubism.editor-model.complete-pack.update-part-palette"
+    );
+    private static final Set<String> PART_OPACITY_ADDITIVE_ALIASES = Set.of(
+        "cubism.editor-model.model-source.parts",
+        "cubism.editor-model.model-source.update-instances",
+        "cubism.editor-model.model.parts",
+        "cubism.editor-model.part.class",
+        "cubism.editor-model.part.id",
+        "cubism.editor-model.part.source",
+        "cubism.editor-model.part.current-keyform",
+        "cubism.editor-model.part-source.class",
+        "cubism.editor-model.part-source.id",
+        "cubism.editor-model.part-source.parent",
+        "cubism.editor-model.part-source.handler",
+        "cubism.editor-model.part-handler.class",
+        "cubism.editor-model.part-handler.create-undo-for-all-edit",
+        "cubism.editor-model.part-form.class",
+        "cubism.editor-model.part-form.opacity",
+        "cubism.editor-model.part-form.set-opacity",
+        "cubism.editor-model.part-id.class",
+        "cubism.editor-model.part-id.value",
+        "cubism.editor-model.complete-pack.update-part-palette"
     );
 
     public static String resourceProfileForArtifact(final HostArtifactDigest artifact) {
@@ -151,7 +192,9 @@ public final class EditorModelVerificationManifest {
                 EditorModelVerificationManifest52.CUBISM_VERSION,
                 EditorModelVerificationManifest52.PROFILE_ID,
                 EditorModelVerificationManifest52.ARTIFACT_SIZE,
-                EditorModelVerificationManifest52.ARTIFACT_SHA256
+                EditorModelVerificationManifest52.ARTIFACT_SHA256,
+                withoutPartCapability(),
+                withoutPartAliases()
             );
         }
         if (artifact.size() == ARTIFACT_SIZE && artifact.sha256().equals(ARTIFACT_SHA256)) {
@@ -161,7 +204,9 @@ public final class EditorModelVerificationManifest {
                 CUBISM_VERSION,
                 PROFILE_ID,
                 ARTIFACT_SIZE,
-                ARTIFACT_SHA256
+                ARTIFACT_SHA256,
+                CAPABILITY_IDS,
+                REQUIRED_ALIASES
             );
         }
         throw new IllegalArgumentException(
@@ -175,7 +220,9 @@ public final class EditorModelVerificationManifest {
         final String cubismVersion,
         final String profileId,
         final long artifactSize,
-        final String artifactSha256
+        final String artifactSha256,
+        final Set<String> capabilityIds,
+        final Set<String> requiredAliases
     ) {
         return new PinnedVerifiedResolverWorkflow.Manifest(
             verificationId,
@@ -185,9 +232,21 @@ public final class EditorModelVerificationManifest {
             artifactSize,
             artifactSha256,
             ADAPTER_SLICE_ID,
-            CAPABILITY_IDS,
-            REQUIRED_ALIASES
+            capabilityIds,
+            requiredAliases
         );
+    }
+
+    private static Set<String> withoutPartCapability() {
+        final java.util.HashSet<String> values = new java.util.HashSet<>(CAPABILITY_IDS);
+        values.remove(EditorPartOpacitySelectorContract.CAPABILITY_ID);
+        return Set.copyOf(values);
+    }
+
+    private static Set<String> withoutPartAliases() {
+        final java.util.HashSet<String> values = new java.util.HashSet<>(REQUIRED_ALIASES);
+        values.removeAll(PART_OPACITY_ADDITIVE_ALIASES);
+        return Set.copyOf(values);
     }
 
     private EditorModelVerificationManifest() {
