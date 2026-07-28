@@ -1208,10 +1208,12 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 StandardOpenOption.CREATE,
                 StandardOpenOption.TRUNCATE_EXISTING
             );
-            for (int attempt = 0; attempt < 600 && !Files.exists(peerArtifact); attempt++) {
+            String peerEvidence = "";
+            for (int attempt = 0; attempt < 3_000; attempt++) {
+                peerEvidence = Files.exists(peerArtifact) ? Files.readString(peerArtifact) : "";
+                if (peerEvidence.contains("status=PASS") || peerEvidence.contains("status=FAIL")) break;
                 Thread.sleep(100L);
             }
-            final String peerEvidence = Files.exists(peerArtifact) ? Files.readString(peerArtifact) : "";
             final boolean secondPluginUsable = peerEvidence.contains("status=PASS")
                 && peerEvidence.contains("secondPluginUsable=true");
             final boolean passed = modelStale && meshStale && warpStale && rotationStale && secondPluginUsable;
