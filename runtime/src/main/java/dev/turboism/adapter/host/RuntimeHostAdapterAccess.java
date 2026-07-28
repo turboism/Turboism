@@ -9,6 +9,7 @@ import dev.turboism.ui.appearance.AppearanceCoordinator;
 import dev.turboism.ui.contribution.EditorUiContributionAuthority;
 import dev.turboism.ui.host.EditorUiHostLifecycle;
 import dev.turboism.ui.toolbar.EditorUiPluginResourceRegistry;
+import dev.turboism.ui.panel.RuntimeEmbeddedPanelActivationCoordinator;
 
 /** Unforgeable runtime composition handle for a verified, fail-closed host session. */
 public sealed interface RuntimeHostAdapterAccess permits HostSession, SessionRuntimeHostAdapterAccess {
@@ -24,6 +25,8 @@ public sealed interface RuntimeHostAdapterAccess permits HostSession, SessionRun
     EditorUiHostLifecycle editorUiLifecycle();
 
     EditorUiContributionAuthority editorUiContributions();
+
+    RuntimeEmbeddedPanelActivationCoordinator embeddedPanelActivation();
 
     RuntimeEditorUiActionRouter editorUiActionRouter();
 
@@ -41,6 +44,7 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     private final PartLifecycleCoordinator partLifecycle;
     private final EditorUiHostLifecycle editorUiLifecycle;
     private final EditorUiContributionAuthority editorUiContributions;
+    private final RuntimeEmbeddedPanelActivationCoordinator embeddedPanelActivation;
     private final RuntimeEditorUiActionRouter editorUiActionRouter;
     private final EditorUiPluginResourceRegistry editorUiPluginResources;
     private final AppearanceCoordinator appearanceCoordinator;
@@ -52,6 +56,7 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
         final PartLifecycleCoordinator partLifecycle,
         final EditorUiHostLifecycle editorUiLifecycle,
         final EditorUiContributionAuthority editorUiContributions,
+        final RuntimeEmbeddedPanelActivationCoordinator embeddedPanelActivation,
         final RuntimeEditorUiActionRouter editorUiActionRouter,
         final EditorUiPluginResourceRegistry editorUiPluginResources,
         final AppearanceCoordinator appearanceCoordinator
@@ -70,6 +75,10 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
         this.editorUiContributions = java.util.Objects.requireNonNull(
             editorUiContributions,
             "editorUiContributions"
+        );
+        this.embeddedPanelActivation = java.util.Objects.requireNonNull(
+            embeddedPanelActivation,
+            "embeddedPanelActivation"
         );
         this.editorUiActionRouter = java.util.Objects.requireNonNull(
             editorUiActionRouter,
@@ -113,6 +122,11 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     @Override
     public EditorUiContributionAuthority editorUiContributions() {
         return editorUiContributions;
+    }
+
+    @Override
+    public RuntimeEmbeddedPanelActivationCoordinator embeddedPanelActivation() {
+        return embeddedPanelActivation;
     }
 
     @Override
