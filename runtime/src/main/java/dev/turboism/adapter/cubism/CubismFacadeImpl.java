@@ -2,6 +2,7 @@ package dev.turboism.adapter.cubism;
 
 import dev.turboism.adapter.cubism.service.read.CubismReadPermissionGate;
 import dev.turboism.adapter.cubism.lifecycle.ParameterLifecycleCoordinator;
+import dev.turboism.adapter.cubism.lifecycle.PartLifecycleCoordinator;
 import dev.turboism.adapter.cubism.write.HostWriteAdapter;
 import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
@@ -52,6 +53,7 @@ public final class CubismFacadeImpl implements CubismFacade {
     private final TransactionManager transactionManager;
     private final CubismModelAccess modelAccess;
     private final ParameterLifecycleCoordinator parameterLifecycle;
+    private final PartLifecycleCoordinator partLifecycle;
 
     public CubismFacadeImpl(final HostSnapshotSource source, final CubismPermissionGate permissionGate) {
         this(
@@ -60,7 +62,8 @@ public final class CubismFacadeImpl implements CubismFacade {
             new ImmutableSnapshotFactory(),
             unavailableTransactionManager(),
             unavailableModelAccess(),
-            new ParameterLifecycleCoordinator()
+            new ParameterLifecycleCoordinator(),
+            new PartLifecycleCoordinator()
         );
     }
 
@@ -75,7 +78,8 @@ public final class CubismFacadeImpl implements CubismFacade {
             new ImmutableSnapshotFactory(),
             unavailableTransactionManager(),
             modelAccess,
-            new ParameterLifecycleCoordinator()
+            new ParameterLifecycleCoordinator(),
+            new PartLifecycleCoordinator()
         );
     }
 
@@ -91,7 +95,26 @@ public final class CubismFacadeImpl implements CubismFacade {
             new ImmutableSnapshotFactory(),
             unavailableTransactionManager(),
             modelAccess,
-            parameterLifecycle
+            parameterLifecycle,
+            new PartLifecycleCoordinator()
+        );
+    }
+
+    public CubismFacadeImpl(
+        final HostSnapshotSource source,
+        final CubismPermissionGate permissionGate,
+        final CubismModelAccess modelAccess,
+        final ParameterLifecycleCoordinator parameterLifecycle,
+        final PartLifecycleCoordinator partLifecycle
+    ) {
+        this(
+            source,
+            permissionGate,
+            new ImmutableSnapshotFactory(),
+            unavailableTransactionManager(),
+            modelAccess,
+            parameterLifecycle,
+            partLifecycle
         );
     }
 
@@ -128,7 +151,8 @@ public final class CubismFacadeImpl implements CubismFacade {
             snapshotFactory,
             transactionManager,
             unavailableModelAccess(),
-            new ParameterLifecycleCoordinator()
+            new ParameterLifecycleCoordinator(),
+            new PartLifecycleCoordinator()
         );
     }
 
@@ -145,7 +169,8 @@ public final class CubismFacadeImpl implements CubismFacade {
             snapshotFactory,
             transactionManager,
             modelAccess,
-            new ParameterLifecycleCoordinator()
+            new ParameterLifecycleCoordinator(),
+            new PartLifecycleCoordinator()
         );
     }
 
@@ -157,11 +182,32 @@ public final class CubismFacadeImpl implements CubismFacade {
         final CubismModelAccess modelAccess,
         final ParameterLifecycleCoordinator parameterLifecycle
     ) {
+        this(
+            source,
+            permissionGate,
+            snapshotFactory,
+            transactionManager,
+            modelAccess,
+            parameterLifecycle,
+            new PartLifecycleCoordinator()
+        );
+    }
+
+    CubismFacadeImpl(
+        final HostSnapshotSource source,
+        final CubismPermissionGate permissionGate,
+        final ImmutableSnapshotFactory snapshotFactory,
+        final TransactionManager transactionManager,
+        final CubismModelAccess modelAccess,
+        final ParameterLifecycleCoordinator parameterLifecycle,
+        final PartLifecycleCoordinator partLifecycle
+    ) {
         this.source = Objects.requireNonNull(source, "source");
         this.permissionGate = Objects.requireNonNull(permissionGate, "permissionGate");
         this.snapshotFactory = Objects.requireNonNull(snapshotFactory, "snapshotFactory");
         this.transactionManager = Objects.requireNonNull(transactionManager, "transactionManager");
         this.parameterLifecycle = Objects.requireNonNull(parameterLifecycle, "parameterLifecycle");
+        this.partLifecycle = Objects.requireNonNull(partLifecycle, "partLifecycle");
         this.modelAccess = permissionCheckedModelAccess(
             Objects.requireNonNull(modelAccess, "modelAccess")
         );
@@ -340,7 +386,21 @@ public final class CubismFacadeImpl implements CubismFacade {
                 }
             };
         }
-        @Override public dev.turboism.sdk.cubism.model.Parts parts() { return delegate.parts(); }
+        @Override public dev.turboism.sdk.cubism.model.Parts parts() {
+            final dev.turboism.sdk.cubism.model.Parts parts = delegate.parts();
+            return new dev.turboism.sdk.cubism.model.Parts() {
+                @Override public List<dev.turboism.sdk.cubism.model.Part> all() {
+                    return parts.all().stream()
+                        .map(value -> (dev.turboism.sdk.cubism.model.Part) new PermissionCheckedPart(value))
+                        .toList();
+                }
+                @Override public dev.turboism.sdk.cubism.model.Part find(
+                    final dev.turboism.sdk.cubism.model.PartId id
+                ) {
+                    return new PermissionCheckedPart(parts.find(id));
+                }
+            };
+        }
         @Override public dev.turboism.sdk.cubism.model.Drawables drawables() { return delegate.drawables(); }
         @Override public dev.turboism.sdk.cubism.model.Deformers deformers() { return delegate.deformers(); }
         @Override public dev.turboism.sdk.cubism.model.Glues glues() { return delegate.glues(); }
@@ -423,6 +483,22 @@ public final class CubismFacadeImpl implements CubismFacade {
         ) {
             permissionGate.require(MODEL_WRITE_PERMISSION, "parameter.updateDefinition");
             delegate.updateDefinition(definition);
+        }
+    }
+
+    private final class PermissionCheckedPart implements dev.turboism.sdk.cubism.model.Part {
+        private final dev.turboism.sdk.cubism.model.Part delegate;
+
+        private PermissionCheckedPart(final dev.turboism.sdk.cubism.model.Part delegate) {
+            this.delegate = Objects.requireNonNull(delegate, "delegate");
+        }
+
+        @Override public dev.turboism.sdk.cubism.model.PartId id() { return delegate.id(); }
+        @Override public float getOpacity() { return delegate.getOpacity(); }
+        @Override public int parentIndex() { return delegate.parentIndex(); }
+        @Override public void setOpacity(final float opacity) {
+            permissionGate.require(MODEL_WRITE_PERMISSION, "part.setOpacity");
+            partLifecycle.setOpacity(this, opacity, delegate::setOpacity);
         }
     }
 }
