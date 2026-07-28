@@ -2,6 +2,7 @@ package dev.turboism.preview;
 
 import dev.turboism.core.lifecycle.PluginLifecycleState;
 import dev.turboism.adapter.cubism.lifecycle.ParameterHookRegistry;
+import dev.turboism.adapter.cubism.lifecycle.PartHookRegistry;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -12,17 +13,23 @@ final class PreviewPluginShutdown {
     private final PreviewLog log;
     private final LocalPluginRuntime.PluginCloseHook closeHook;
     private final PreviewPluginShutdownStages stages;
-    private final ParameterHookRegistry hookRegistry;
+    private final ParameterHookRegistry parameterHookRegistry;
+    private final PartHookRegistry partHookRegistry;
 
     PreviewPluginShutdown(
         final PreviewLog log,
         final LocalPluginRuntime.PluginCloseHook closeHook,
-        final ParameterHookRegistry hookRegistry
+        final ParameterHookRegistry parameterHookRegistry,
+        final PartHookRegistry partHookRegistry
     ) {
         this.log = log;
         this.closeHook = closeHook;
         this.stages = new PreviewPluginShutdownStages(log);
-        this.hookRegistry = java.util.Objects.requireNonNull(hookRegistry, "hookRegistry");
+        this.parameterHookRegistry = java.util.Objects.requireNonNull(
+            parameterHookRegistry,
+            "parameterHookRegistry"
+        );
+        this.partHookRegistry = java.util.Objects.requireNonNull(partHookRegistry, "partHookRegistry");
     }
 
     List<LocalPluginRuntime.LoadedPluginSummary> closeAll(
@@ -51,7 +58,8 @@ final class PreviewPluginShutdown {
         final LocalPluginRuntime.LoadedPlugin loadedPlugin
     ) throws Throwable {
         final String id = loadedPlugin.runtime().id();
-        hookRegistry.unregister(id);
+        partHookRegistry.unregister(id);
+        parameterHookRegistry.unregister(id);
         closeHook.run(id, "close");
         final PreviewPluginShutdownResult result = stages.close(loadedPlugin, id);
         log.info(id, "Plugin unloaded with state " + loadedPlugin.runtime().state());
@@ -65,7 +73,8 @@ final class PreviewPluginShutdown {
         final LocalPluginRuntime.LoadedPlugin loadedPlugin
     ) {
         try {
-            hookRegistry.unregister(safePluginId(loadedPlugin));
+            partHookRegistry.unregister(safePluginId(loadedPlugin));
+            parameterHookRegistry.unregister(safePluginId(loadedPlugin));
             closeHook.run(safePluginId(loadedPlugin), "fallback-summary");
             loadedPlugin.runtime().transitionTo(PluginLifecycleState.SHUTDOWN_FAILED);
         } catch (Throwable ignored) {
