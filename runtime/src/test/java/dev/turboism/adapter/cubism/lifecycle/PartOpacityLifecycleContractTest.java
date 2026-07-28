@@ -81,6 +81,66 @@ class PartOpacityLifecycleContractTest {
     }
 
     @Test
+    void partNameLifecycleChainsBeforeAndPublishesChangedCompletion() {
+        final List<String> events = new ArrayList<>();
+        final PartLifecycleCoordinator coordinator = new PartLifecycleCoordinator();
+        coordinator.register(plugin("plugin-a", List.of(new PartHooks() {
+            @Override public String beforeSetPartName(final Part part, final String name) {
+                events.add("before:" + name);
+                return name + " A";
+            }
+            @Override public void onPartNameChanged(
+                final Part part, final String oldName, final String newName
+            ) {
+                events.add("on:" + oldName + "->" + newName);
+            }
+            @Override public void afterSetPartName(final Part part, final String name) {
+                events.add("after:" + name);
+            }
+        })));
+        final MutablePart part = new MutablePart(0.5F);
+
+        coordinator.setName(part, "Clip", part::writeName);
+        coordinator.awaitIdle();
+
+        assertEquals("Clip A", part.name());
+        assertEquals(List.of(
+            "before:Clip", "on:PartArmL->Clip A", "after:Clip A"
+        ), events);
+    }
+
+    @Test
+    void partNameNoChangePublishesAfterOnlyAndFailureOrRecursionPublishesNothing() {
+        final List<String> events = new ArrayList<>();
+        final PartLifecycleCoordinator coordinator = new PartLifecycleCoordinator();
+        coordinator.register(plugin("plugin-a", List.of(new PartHooks() {
+            @Override public void onPartNameChanged(
+                final Part part, final String oldName, final String newName
+            ) { events.add("on"); }
+            @Override public void afterSetPartName(final Part part, final String name) {
+                events.add("after:" + name);
+            }
+        })));
+        final MutablePart part = new MutablePart(0.5F);
+
+        coordinator.setName(part, "PartArmL", part::writeName);
+        coordinator.awaitIdle();
+        assertEquals(List.of("after:PartArmL"), events);
+
+        events.clear();
+        assertThrows(IllegalStateException.class, () -> coordinator.setName(
+            part, "Broken", ignored -> { throw new IllegalStateException("native failed"); }
+        ));
+        assertEquals(List.of(), events);
+
+        assertThrows(IllegalStateException.class, () -> coordinator.setName(
+            part, "Recursive", name -> coordinator.setName(part, name, part::writeName)
+        ));
+        assertEquals("PartArmL", part.name());
+        assertEquals(List.of(), events);
+    }
+
+    @Test
     void rejectsSameOperationRecursionAndDropsHooksAfterPluginDisable() {
         final List<String> events = new ArrayList<>();
         final PartLifecycleCoordinator coordinator = new PartLifecycleCoordinator();
@@ -174,6 +234,7 @@ class PartOpacityLifecycleContractTest {
 
     private static final class MutablePart implements Part {
         private float opacity;
+        private String name = "PartArmL";
 
         private MutablePart(final float opacity) {
             this.opacity = opacity;
@@ -183,7 +244,11 @@ class PartOpacityLifecycleContractTest {
             this.opacity = opacity;
         }
 
+        private void writeName(final String name) { this.name = name; }
+
         @Override public PartId id() { return new PartId("PartArmL"); }
+        @Override public String name() { return name; }
+        @Override public void setName(final String name) { writeName(name); }
         @Override public float getOpacity() { return opacity; }
         @Override public int parentIndex() { return -1; }
         @Override public void setOpacity(final float opacity) { write(opacity); }

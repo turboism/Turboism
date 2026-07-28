@@ -30,6 +30,11 @@ class EditorPartNameSelectorContractTest {
             EditorPartNameSelectorContract.CAPABILITY_ID,
             EditorPartNameSelectorContract.REQUIRED_ALIASES
         ));
+        assertTrue(resolver.authorizesFeature(
+            EditorPartNameSelectorContract.ADAPTER_SLICE_ID,
+            EditorPartNameSelectorContract.WRITE_CAPABILITY_ID,
+            EditorPartNameSelectorContract.WRITE_REQUIRED_ALIASES
+        ));
     }
 
     @Test
@@ -45,6 +50,11 @@ class EditorPartNameSelectorContractTest {
             EditorPartNameSelectorContract.ADAPTER_SLICE_ID,
             EditorPartNameSelectorContract.CAPABILITY_ID,
             EditorPartNameSelectorContract.REQUIRED_ALIASES
+        ));
+        assertFalse(resolver.authorizesFeature(
+            EditorPartNameSelectorContract.ADAPTER_SLICE_ID,
+            EditorPartNameSelectorContract.WRITE_CAPABILITY_ID,
+            EditorPartNameSelectorContract.WRITE_REQUIRED_ALIASES
         ));
     }
 
