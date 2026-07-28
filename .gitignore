@@ -29,8 +29,7 @@ dist/
 .turboism-worktree-id
 turboism.*.config.json
 
-# AI / agent-local process files, not submitted
-AGENTS.md
+# AI / agent-local scratch files, not submitted
 .pi-subagents/
 docs/agents/
 docs/migration/subagents/
