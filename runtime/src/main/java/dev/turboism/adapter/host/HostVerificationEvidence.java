@@ -9,20 +9,30 @@ import java.util.Optional;
  *
  * <p>Each slice is connection material: record-path changes, artifact-path changes, classloader
  * identity changes, and optional-slice presence changes require {@link HostSession} to replace the
- * complete adapter connection. When both slices are present they must attest the same artifact and
- * defining classloader, while retaining independent reviewed records.</p>
+ * complete adapter connection. All present slices must attest the same artifact and defining
+ * classloader while retaining independent reviewed records.</p>
  */
 public record HostVerificationEvidence(
     Slice projectWorkspace,
     Optional<Slice> clipMask,
     Optional<Slice> editorModel,
-    Optional<Slice> mainToolbar
-) {
+    Optional<Slice> mainToolbar,
+    Optional<Slice> embeddedPanel
+    ) {
+    public HostVerificationEvidence(
+        final Slice projectWorkspace,
+        final Optional<Slice> clipMask,
+        final Optional<Slice> editorModel,
+        final Optional<Slice> mainToolbar
+    ) {
+        this(projectWorkspace, clipMask, editorModel, mainToolbar, Optional.empty());
+    }
     public HostVerificationEvidence {
         projectWorkspace = Objects.requireNonNull(projectWorkspace, "projectWorkspace");
         clipMask = Objects.requireNonNull(clipMask, "clipMask");
         editorModel = Objects.requireNonNull(editorModel, "editorModel");
         mainToolbar = Objects.requireNonNull(mainToolbar, "mainToolbar");
+        embeddedPanel = Objects.requireNonNull(embeddedPanel, "embeddedPanel");
         if (clipMask.isPresent()) {
             requireSameHostArtifact(projectWorkspace, clipMask.orElseThrow());
         }
@@ -31,6 +41,9 @@ public record HostVerificationEvidence(
         }
         if (mainToolbar.isPresent()) {
             requireSameHostArtifact(projectWorkspace, mainToolbar.orElseThrow());
+        }
+        if (embeddedPanel.isPresent()) {
+            requireSameHostArtifact(projectWorkspace, embeddedPanel.orElseThrow());
         }
     }
 
@@ -61,6 +74,7 @@ public record HostVerificationEvidence(
             projectWorkspace,
             Optional.empty(),
             Optional.empty(),
+            Optional.empty(),
             Optional.empty()
         );
     }
@@ -72,6 +86,7 @@ public record HostVerificationEvidence(
         return new HostVerificationEvidence(
             projectWorkspace,
             Optional.of(Objects.requireNonNull(clipMask, "clipMask")),
+            Optional.empty(),
             Optional.empty(),
             Optional.empty()
         );
@@ -85,6 +100,7 @@ public record HostVerificationEvidence(
             projectWorkspace,
             Optional.empty(),
             Optional.of(Objects.requireNonNull(editorModel, "editorModel")),
+            Optional.empty(),
             Optional.empty()
         );
     }
@@ -94,7 +110,8 @@ public record HostVerificationEvidence(
             projectWorkspace,
             clipMask,
             Optional.of(Objects.requireNonNull(editorModel, "editorModel")),
-            mainToolbar
+            mainToolbar,
+            embeddedPanel
         );
     }
 
@@ -103,7 +120,18 @@ public record HostVerificationEvidence(
             projectWorkspace,
             clipMask,
             editorModel,
-            Optional.of(Objects.requireNonNull(mainToolbar, "mainToolbar"))
+            Optional.of(Objects.requireNonNull(mainToolbar, "mainToolbar")),
+            embeddedPanel
+        );
+    }
+
+    public HostVerificationEvidence addingEmbeddedPanel(final Slice embeddedPanel) {
+        return new HostVerificationEvidence(
+            projectWorkspace,
+            clipMask,
+            editorModel,
+            mainToolbar,
+            Optional.of(Objects.requireNonNull(embeddedPanel, "embeddedPanel"))
         );
     }
 

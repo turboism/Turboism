@@ -37,6 +37,15 @@ public interface UiHostCapabilityService {
 
     Registration contributeEmbeddedPanel(EmbeddedPanelContribution contribution);
 
+    /**
+     * Activates an embedded panel owned by the calling plugin.
+     *
+     * <p>Hosts that do not provide a verified panel surface fail closed.</p>
+     */
+    default void activateEmbeddedPanel(final EmbeddedPanelId panelId) {
+        throw new UnsupportedOperationException("embedded-panel activation is unavailable");
+    }
+
     Optional<String> requestFile(FileChooserRequest request);
 
     Registration notifyStatus(StatusNotification notification);

@@ -4,7 +4,7 @@
   "id": "dev.turboism.plugin.maintoolbar",
   "name": "Main Toolbar Plugin",
   "version": "0.1.0",
-  "description": "SDK-only main toolbar home entry through Turboism project/workspace read and UI host services.",
+  "description": "SDK-only Turboism panel and main toolbar settings entry through typed UI services.",
   "entrypoints": [
     "dev.turboism.plugin.maintoolbar.MainToolbarPlugin"
   ],
@@ -32,14 +32,9 @@
       "reason": "Adds the home entry button to the main toolbar."
     },
     {
-      "id": "turboism.cubism.project.read",
+      "id": "turboism.ui.panel.contribute",
       "scope": "application",
-      "reason": "Reads active project and workspace summaries for the home entry status message."
-    },
-    {
-      "id": "turboism.ui.status.notify",
-      "scope": "application",
-      "reason": "Shows project summary and fallback notifications."
+      "reason": "Publishes and activates the Turboism embedded panel."
     }
   ],
   "capabilities": [],
