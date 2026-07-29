@@ -17,13 +17,13 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class VerifiedCubism5302TextureAtlasLayoutProviderTest {
+class VerifiedCubism520TextureAtlasLayoutProviderTest {
 
     @Test
     void projectsCurrentAtlasAndAppliesACompletePlanThroughNativeAtlasTransaction() {
         final Fixture fixture = new Fixture();
-        final VerifiedCubism5302TextureAtlasLayoutProvider provider = provider(
-            resolver("5.3.02", true), "session-a", fixture
+        final VerifiedCubism520TextureAtlasLayoutProvider provider = provider(
+            resolver("5.2.0", true), "session-a", fixture
         );
 
         final TextureAtlasAuthoringState current = provider.current().orElseThrow();
@@ -56,8 +56,8 @@ class VerifiedCubism5302TextureAtlasLayoutProviderTest {
     @Test
     void rejectsStalePlanningStateAndUnsupportedIdentityBeforeMutation() {
         final Fixture fixture = new Fixture();
-        final VerifiedCubism5302TextureAtlasLayoutProvider provider = provider(
-            resolver("5.3.02", true), "session-a", fixture
+        final VerifiedCubism520TextureAtlasLayoutProvider provider = provider(
+            resolver("5.2.0", true), "session-a", fixture
         );
         final TextureAtlasAuthoringState stale = provider.current().orElseThrow();
         fixture.replaceAtlasWithSameId();
@@ -67,19 +67,22 @@ class VerifiedCubism5302TextureAtlasLayoutProviderTest {
             provider.apply(stale, stale.currentPlan())
         );
         assertEquals(0, fixture.data.applyCount);
-        assertFalse(provider(resolver("5.2.0", true), "session-a", fixture).current().isPresent());
-        assertFalse(new VerifiedCubism520TextureAtlasLayoutProvider(
-            resolver("5.3.02", true), "session-a", captured(fixture)
+        assertFalse(provider(resolver("5.3.02", true), "session-a", fixture).current().isPresent());
+        assertTrue(new VerifiedCubism520TextureAtlasLayoutProvider(
+            resolver("5.2.0", true), "session-a", captured(fixture)
         ).current().isPresent());
-        assertFalse(provider(resolver("5.3.02", false), "session-a", fixture).current().isPresent());
+        assertFalse(new VerifiedCubism5302TextureAtlasLayoutProvider(
+            resolver("5.2.0", true), "session-a", captured(fixture)
+        ).current().isPresent());
+        assertFalse(provider(resolver("5.2.0", false), "session-a", fixture).current().isPresent());
     }
 
     @Test
     void stagedConstructionFailureLeavesEditorStateUntouched() {
         final Fixture fixture = new Fixture();
         fixture.data.failAtlasName = "Turboism Atlas 2";
-        final VerifiedCubism5302TextureAtlasLayoutProvider provider = provider(
-            resolver("5.3.02", true), "session-a", fixture
+        final VerifiedCubism520TextureAtlasLayoutProvider provider = provider(
+            resolver("5.2.0", true), "session-a", fixture
         );
         final TextureAtlasAuthoringState current = provider.current().orElseThrow();
         final TextureAtlasLayoutPlan plan = new TextureAtlasLayoutPlan(16, 8, 2, List.of(
@@ -94,14 +97,14 @@ class VerifiedCubism5302TextureAtlasLayoutProviderTest {
         assertTrue(fixture.document.editMode.undos.isEmpty());
     }
 
-    private static VerifiedCubism5302TextureAtlasLayoutProvider provider(
+    private static VerifiedCubism520TextureAtlasLayoutProvider provider(
         final VerifiedMemberResolver resolver,
         final String sessionIdentity,
         final Fixture fixture
     ) {
         final TextureAtlasDataModelCapture capture = new TextureAtlasDataModelCapture();
         capture.capture(fixture.data);
-        return new VerifiedCubism5302TextureAtlasLayoutProvider(resolver, sessionIdentity, capture);
+        return new VerifiedCubism520TextureAtlasLayoutProvider(resolver, sessionIdentity, capture);
     }
 
     private static TextureAtlasDataModelCapture captured(final Fixture fixture) {
@@ -158,8 +161,8 @@ class VerifiedCubism5302TextureAtlasLayoutProviderTest {
         }
         return TestVerifiedResolvers.create(
             version,
-            VerifiedCubism5302TextureAtlasSelectorContract.ADAPTER_SLICE_ID,
-            includeAtlas ? Set.of(VerifiedCubism5302TextureAtlasSelectorContract.CAPABILITY_ID) : Set.of("cubism.editor-model.read"),
+            VerifiedCubism520TextureAtlasSelectorContract.ADAPTER_SLICE_ID,
+            includeAtlas ? Set.of(VerifiedCubism520TextureAtlasSelectorContract.CAPABILITY_ID) : Set.of("cubism.editor-model.read"),
             selectors,
             Host.class.getClassLoader()
         );

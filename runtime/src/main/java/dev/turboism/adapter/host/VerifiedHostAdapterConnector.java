@@ -6,6 +6,7 @@ import dev.turboism.adapter.cubism.editor.EditorBackedCubismModelAccess;
 import dev.turboism.adapter.cubism.textureatlas.TextureAtlasDataModelCapture;
 import dev.turboism.adapter.cubism.textureatlas.TextureAtlasLayoutProvider;
 import dev.turboism.adapter.cubism.textureatlas.VerifiedCubism520TextureAtlasLayoutProvider;
+import dev.turboism.adapter.cubism.textureatlas.VerifiedCubism520TextureAtlasSelectorContract;
 import dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasLayoutProvider;
 import dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract;
 import dev.turboism.mapping.verification.HostArtifactDigest;
@@ -165,18 +166,19 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         final String sessionId,
         final TextureAtlasDataModelCapture capture
     ) {
-        if (!resolver.authorizesFeature(
-            VerifiedCubism5302TextureAtlasSelectorContract.ADAPTER_SLICE_ID,
-            VerifiedCubism5302TextureAtlasSelectorContract.CAPABILITY_ID,
-            VerifiedCubism5302TextureAtlasSelectorContract.REQUIRED_ALIASES
-        )) {
-            return null;
-        }
         if (resolver.isExactCubismVersion("5.3.02")) {
-            return new VerifiedCubism5302TextureAtlasLayoutProvider(resolver, sessionId, capture);
+            return resolver.authorizesFeature(
+                VerifiedCubism5302TextureAtlasSelectorContract.ADAPTER_SLICE_ID,
+                VerifiedCubism5302TextureAtlasSelectorContract.CAPABILITY_ID,
+                VerifiedCubism5302TextureAtlasSelectorContract.REQUIRED_ALIASES
+            ) ? new VerifiedCubism5302TextureAtlasLayoutProvider(resolver, sessionId, capture) : null;
         }
         if (resolver.isExactCubismVersion("5.2.0")) {
-            return new VerifiedCubism520TextureAtlasLayoutProvider(resolver, sessionId, capture);
+            return resolver.authorizesFeature(
+                VerifiedCubism520TextureAtlasSelectorContract.ADAPTER_SLICE_ID,
+                VerifiedCubism520TextureAtlasSelectorContract.CAPABILITY_ID,
+                VerifiedCubism520TextureAtlasSelectorContract.REQUIRED_ALIASES
+            ) ? new VerifiedCubism520TextureAtlasLayoutProvider(resolver, sessionId, capture) : null;
         }
         return null;
     }
