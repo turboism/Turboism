@@ -76,6 +76,16 @@ public final class TextureAtlasAutoLayoutTransformer implements ClassFileTransfo
                         super.visitCode();
                         final Label callback = new Label();
                         final Label nativePath = new Label();
+                        final Label callbackStart = new Label();
+                        final Label callbackEnd = new Label();
+                        final Label callbackFailure = new Label();
+                        visitTryCatchBlock(
+                            callbackStart,
+                            callbackEnd,
+                            callbackFailure,
+                            "java/lang/Throwable"
+                        );
+                        visitLabel(callbackStart);
                         visitMethodInsn(
                             Opcodes.INVOKESTATIC,
                             "java/lang/System",
@@ -95,7 +105,7 @@ public final class TextureAtlasAutoLayoutTransformer implements ClassFileTransfo
                         visitTypeInsn(Opcodes.INSTANCEOF, "java/util/function/BooleanSupplier");
                         visitJumpInsn(Opcodes.IFNE, callback);
                         visitInsn(Opcodes.POP);
-                        visitJumpInsn(Opcodes.GOTO, nativePath);
+                        visitJumpInsn(Opcodes.GOTO, callbackEnd);
                         visitLabel(callback);
                         visitTypeInsn(Opcodes.CHECKCAST, "java/util/function/BooleanSupplier");
                         visitMethodInsn(
@@ -105,9 +115,13 @@ public final class TextureAtlasAutoLayoutTransformer implements ClassFileTransfo
                             "()Z",
                             true
                         );
-                        visitJumpInsn(Opcodes.IFEQ, nativePath);
+                        visitJumpInsn(Opcodes.IFEQ, callbackEnd);
                         visitInsn(Opcodes.ICONST_1);
                         visitInsn(Opcodes.IRETURN);
+                        visitLabel(callbackEnd);
+                        visitJumpInsn(Opcodes.GOTO, nativePath);
+                        visitLabel(callbackFailure);
+                        visitInsn(Opcodes.POP);
                         visitLabel(nativePath);
                     }
                 };
