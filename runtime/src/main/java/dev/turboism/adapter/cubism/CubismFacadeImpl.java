@@ -12,6 +12,8 @@ import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.permissions.CubismPermissionGate;
 import dev.turboism.adapter.cubism.write.RuntimeTransactionManager;
 import dev.turboism.permissions.PermissionChecker;
+import dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutService;
+import dev.turboism.adapter.cubism.textureatlas.TextureAtlasLayoutCoordinator;
 import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.CubismRuntimeSnapshot;
 import dev.turboism.sdk.cubism.DocumentSnapshot;
@@ -25,6 +27,7 @@ import dev.turboism.sdk.cubism.model.ParameterGroup;
 import dev.turboism.sdk.cubism.model.ParameterGroups;
 import dev.turboism.sdk.cubism.model.Parameters;
 import dev.turboism.sdk.cubism.transaction.TransactionManager;
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutService;
 import dev.turboism.sdk.permission.CubismPermissionException;
 
 import java.time.Clock;
@@ -54,6 +57,7 @@ public final class CubismFacadeImpl implements CubismFacade {
     private final CubismModelAccess modelAccess;
     private final ParameterLifecycleCoordinator parameterLifecycle;
     private final PartLifecycleCoordinator partLifecycle;
+    private final TextureAtlasLayoutService textureAtlasLayouts;
 
     public CubismFacadeImpl(final HostSnapshotSource source, final CubismPermissionGate permissionGate) {
         this(
@@ -110,11 +114,30 @@ public final class CubismFacadeImpl implements CubismFacade {
         this(
             source,
             permissionGate,
+            modelAccess,
+            parameterLifecycle,
+            partLifecycle,
+            new TextureAtlasLayoutCoordinator()
+        );
+    }
+
+    public CubismFacadeImpl(
+        final HostSnapshotSource source,
+        final CubismPermissionGate permissionGate,
+        final CubismModelAccess modelAccess,
+        final ParameterLifecycleCoordinator parameterLifecycle,
+        final PartLifecycleCoordinator partLifecycle,
+        final TextureAtlasLayoutCoordinator textureAtlasLayouts
+    ) {
+        this(
+            source,
+            permissionGate,
             new ImmutableSnapshotFactory(),
             unavailableTransactionManager(),
             modelAccess,
             parameterLifecycle,
-            partLifecycle
+            partLifecycle,
+            new RuntimeTextureAtlasLayoutService(textureAtlasLayouts, permissionGate)
         );
     }
 
@@ -202,12 +225,35 @@ public final class CubismFacadeImpl implements CubismFacade {
         final ParameterLifecycleCoordinator parameterLifecycle,
         final PartLifecycleCoordinator partLifecycle
     ) {
+        this(
+            source,
+            permissionGate,
+            snapshotFactory,
+            transactionManager,
+            modelAccess,
+            parameterLifecycle,
+            partLifecycle,
+            new RuntimeTextureAtlasLayoutService(new TextureAtlasLayoutCoordinator(), permissionGate)
+        );
+    }
+
+    CubismFacadeImpl(
+        final HostSnapshotSource source,
+        final CubismPermissionGate permissionGate,
+        final ImmutableSnapshotFactory snapshotFactory,
+        final TransactionManager transactionManager,
+        final CubismModelAccess modelAccess,
+        final ParameterLifecycleCoordinator parameterLifecycle,
+        final PartLifecycleCoordinator partLifecycle,
+        final TextureAtlasLayoutService textureAtlasLayouts
+    ) {
         this.source = Objects.requireNonNull(source, "source");
         this.permissionGate = Objects.requireNonNull(permissionGate, "permissionGate");
         this.snapshotFactory = Objects.requireNonNull(snapshotFactory, "snapshotFactory");
         this.transactionManager = Objects.requireNonNull(transactionManager, "transactionManager");
         this.parameterLifecycle = Objects.requireNonNull(parameterLifecycle, "parameterLifecycle");
         this.partLifecycle = Objects.requireNonNull(partLifecycle, "partLifecycle");
+        this.textureAtlasLayouts = Objects.requireNonNull(textureAtlasLayouts, "textureAtlasLayouts");
         this.modelAccess = permissionCheckedModelAccess(
             Objects.requireNonNull(modelAccess, "modelAccess")
         );
@@ -271,6 +317,11 @@ public final class CubismFacadeImpl implements CubismFacade {
     @Override
     public TransactionManager transactionManager() {
         return transactionManager;
+    }
+
+    @Override
+    public TextureAtlasLayoutService textureAtlasLayouts() {
+        return textureAtlasLayouts;
     }
 
     private Optional<HostSnapshotSource.HostProject> runtimeProjectSnapshot() {

@@ -169,7 +169,8 @@ public final class CorePluginContext implements PluginContext {
             hostAccess.adapters(),
             hostAccess.modelAccess(),
             hostAccess.parameterLifecycle(),
-            hostAccess.partLifecycle()
+            hostAccess.partLifecycle(),
+            hostAccess.textureAtlasLayouts()
         );
     }
 
