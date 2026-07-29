@@ -1,6 +1,7 @@
 package dev.turboism.adapter.host;
 
 import dev.turboism.adapter.RuntimeHostAdapters;
+import dev.turboism.adapter.cubism.textureatlas.TextureAtlasLayoutProvider;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.ui.contribution.EditorUiContributionProvider;
@@ -26,6 +27,10 @@ interface HostAdapterConnection extends AutoCloseable {
             throw new IllegalArgumentException("hostGeneration must be positive");
         }
         return List.of();
+    }
+
+    default java.util.Optional<TextureAtlasLayoutProvider> textureAtlasLayoutProvider() {
+        return java.util.Optional.empty();
     }
 
     @Override
