@@ -16,6 +16,8 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
+import dev.turboism.adapter.cubism.textureatlas.VerifiedTextureAtlasDataModelHookInstaller;
+
 /** Java-agent entrypoint for the Turboism 0.1 Developer Preview. */
 public final class TurboismAgent {
 
@@ -24,6 +26,8 @@ public final class TurboismAgent {
     private static final AtomicBoolean START_REQUESTED = new AtomicBoolean(false);
     private static final AtomicReference<PreviewRuntime> RUNTIME = new AtomicReference<>();
     private static final AtomicReference<VerifiedParameterHookInstaller> PARAMETER_HOOK =
+        new AtomicReference<>();
+    private static final AtomicReference<VerifiedTextureAtlasDataModelHookInstaller> TEXTURE_ATLAS_HOOK =
         new AtomicReference<>();
     private static final AtomicReference<StartupSuppressionInstaller.Installation> STARTUP_SUPPRESSION =
         new AtomicReference<>();
@@ -143,6 +147,7 @@ public final class TurboismAgent {
                 return;
             }
             installParameterHook(runtime, instrumentation, host);
+            installTextureAtlasHook(runtime, instrumentation, host);
             Runtime.getRuntime().addShutdownHook(new Thread(TurboismAgent::shutdown, "turboism-shutdown"));
             System.err.println(
                 "Turboism Developer Preview started: host=" + runtime.hostState()
@@ -250,6 +255,15 @@ public final class TurboismAgent {
                 System.err.println("Turboism parameter hook cleanup failed safely");
             }
         }
+        final VerifiedTextureAtlasDataModelHookInstaller textureAtlasHook =
+            TEXTURE_ATLAS_HOOK.getAndSet(null);
+        if (textureAtlasHook != null) {
+            try {
+                textureAtlasHook.close();
+            } catch (Throwable failure) {
+                System.err.println("Turboism texture-atlas hook cleanup failed safely");
+            }
+        }
         final PreviewRuntime runtime = RUNTIME.getAndSet(null);
         if (runtime == null) {
             return false;
@@ -262,5 +276,30 @@ public final class TurboismAgent {
             );
         }
         return true;
+    }
+
+    private static void installTextureAtlasHook(
+        final PreviewRuntime runtime,
+        final Instrumentation instrumentation,
+        final HostClassLocator.LocatedHost host
+    ) {
+        VerifiedTextureAtlasDataModelHookInstaller installer = null;
+        try {
+            installer = VerifiedTextureAtlasDataModelHookInstaller.fromVerifiedResolver(
+                instrumentation,
+                runtime.editorModelResolver(),
+                host.classLoader(),
+                runtime.textureAtlasDataModelCapture()
+            );
+            installer.install();
+            if (!TEXTURE_ATLAS_HOOK.compareAndSet(null, installer)) {
+                installer.close();
+            }
+        } catch (Throwable failure) {
+            if (installer != null) installer.close();
+            System.err.println(
+                "Turboism texture-atlas hook disabled safely: " + failure.getClass().getName()
+            );
+        }
     }
 }

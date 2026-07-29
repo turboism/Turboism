@@ -68,6 +68,7 @@ class HostSessionCompositionApiTest {
                 "editorUiPluginResources():dev.turboism.ui.toolbar.EditorUiPluginResourceRegistry",
                 "appearanceCoordinator():dev.turboism.ui.appearance.AppearanceCoordinator",
                 "editorModelResolver():dev.turboism.mapping.verification.VerifiedMemberResolver",
+                "textureAtlasDataModelCapture():dev.turboism.adapter.cubism.textureatlas.TextureAtlasDataModelCapture",
                 "adapterAccess():dev.turboism.adapter.host.RuntimeHostAdapterAccess",
                 "close():void"
             ),
@@ -82,6 +83,7 @@ class HostSessionCompositionApiTest {
                 "adapters():dev.turboism.adapter.RuntimeHostAdapters",
                 "modelAccess():dev.turboism.sdk.cubism.model.CubismModelAccess",
                 "editorModelResolver():dev.turboism.mapping.verification.VerifiedMemberResolver",
+                "textureAtlasDataModelCapture():dev.turboism.adapter.cubism.textureatlas.TextureAtlasDataModelCapture",
                 "adapterAccess():dev.turboism.adapter.host.RuntimeHostAdapterAccess",
                 "close():void"
             ),

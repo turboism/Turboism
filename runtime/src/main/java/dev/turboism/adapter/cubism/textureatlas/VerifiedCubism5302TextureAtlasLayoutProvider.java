@@ -14,11 +14,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 /** Exact Cubism 5.3.02 translator for complete texture-atlas authoring plans. */
 public final class VerifiedCubism5302TextureAtlasLayoutProvider implements TextureAtlasLayoutProvider {
 
-    private static final String VERSION = "5.3.02";
+    private static final Set<String> SUPPORTED_VERSIONS = Set.of("5.2.0", "5.3.02");
     private static final int DEFAULT_MAX_ATLAS_COUNT = 32;
 
     private final VerifiedMemberResolver resolver;
@@ -77,7 +78,7 @@ public final class VerifiedCubism5302TextureAtlasLayoutProvider implements Textu
     }
 
     private boolean available() {
-        return resolver.isExactCubismVersion(VERSION)
+        return SUPPORTED_VERSIONS.contains(resolver.cubismVersion())
             && resolver.authorizesFeature(
                 VerifiedCubism5302TextureAtlasSelectorContract.ADAPTER_SLICE_ID,
                 VerifiedCubism5302TextureAtlasSelectorContract.CAPABILITY_ID,

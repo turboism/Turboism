@@ -339,6 +339,18 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         }
     }
 
+    public dev.turboism.adapter.cubism.textureatlas.TextureAtlasDataModelCapture
+        textureAtlasDataModelCapture() {
+        synchronized (lifecycleMonitor) {
+            if (activeConnection == null) {
+                throw new IllegalStateException(
+                    "No verified active texture-atlas capture is available."
+                );
+            }
+            return activeConnection.textureAtlasDataModelCapture();
+        }
+    }
+
     /** Returns a non-closeable trusted composition view while lifecycle ownership stays elsewhere. */
     public RuntimeHostAdapterAccess adapterAccess() {
         return new SessionRuntimeHostAdapterAccess(
