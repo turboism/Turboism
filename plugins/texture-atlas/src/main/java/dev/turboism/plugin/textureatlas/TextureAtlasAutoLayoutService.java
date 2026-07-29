@@ -1,6 +1,6 @@
 package dev.turboism.plugin.textureatlas;
 
-import dev.turboism.plugin.textureatlas.layout.MaxRectsBssfTextureAtlasPlanner;
+import dev.turboism.plugin.textureatlas.layout.PartBucketTextureAtlasPlanner;
 import dev.turboism.plugin.textureatlas.layout.TextureAtlasPackingException;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutApplyResult;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutFailureCode;
@@ -14,19 +14,19 @@ import java.util.Optional;
 public final class TextureAtlasAutoLayoutService {
 
     private final TextureAtlasLayoutService layouts;
-    private final MaxRectsBssfTextureAtlasPlanner planner;
+    private final PartBucketTextureAtlasPlanner planner;
     private final LifecycleLease lifecycle;
 
     public TextureAtlasAutoLayoutService(
         final TextureAtlasLayoutService layouts,
-        final MaxRectsBssfTextureAtlasPlanner planner
+        final PartBucketTextureAtlasPlanner planner
     ) {
         this(layouts, planner, LifecycleLease.alwaysActive());
     }
 
     TextureAtlasAutoLayoutService(
         final TextureAtlasLayoutService layouts,
-        final MaxRectsBssfTextureAtlasPlanner planner,
+        final PartBucketTextureAtlasPlanner planner,
         final LifecycleLease lifecycle
     ) {
         this.layouts = Objects.requireNonNull(layouts, "layouts");

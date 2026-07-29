@@ -1,6 +1,6 @@
 package dev.turboism.plugin.textureatlas;
 
-import dev.turboism.plugin.textureatlas.layout.MaxRectsBssfTextureAtlasPlanner;
+import dev.turboism.plugin.textureatlas.layout.PartBucketTextureAtlasPlanner;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.TurboismPlugin;
 
@@ -20,7 +20,7 @@ public final class TextureAtlasPlugin implements TurboismPlugin {
         this.lifecycle = new TextureAtlasAutoLayoutService.LifecycleLease();
         this.autoLayoutService = new TextureAtlasAutoLayoutService(
             context.cubism().textureAtlasLayouts(),
-            new MaxRectsBssfTextureAtlasPlanner(),
+            new PartBucketTextureAtlasPlanner(),
             lifecycle
         );
         context.logger().info("Texture Atlas migration shell initialized");
