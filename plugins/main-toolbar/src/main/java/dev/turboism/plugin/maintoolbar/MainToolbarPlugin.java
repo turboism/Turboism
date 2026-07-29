@@ -21,7 +21,9 @@ public final class MainToolbarPlugin implements TurboismPlugin {
         this.logger = context.logger();
         this.homeEntryService = new MainToolbarHomeEntryService(
             context.uiHost(),
-            context.mainToolbar()
+            context.mainToolbar(),
+            context.menus(),
+            context.localization()
         );
         logger.info("MainToolbarPlugin initialized");
     }
@@ -36,9 +38,11 @@ public final class MainToolbarPlugin implements TurboismPlugin {
         logger.debug("MainToolbarPlugin registered settings action");
         context.disposableScope().register(homeEntryService.registerTurboismPanel());
         logger.debug("MainToolbarPlugin registered Turboism panel contribution");
+        context.disposableScope().register(homeEntryService.registerSettingsMenu());
+        logger.debug("MainToolbarPlugin registered Turboism settings menu contribution");
         context.disposableScope().register(homeEntryService.registerHomeEntry());
         logger.debug("MainToolbarPlugin registered main toolbar contribution");
-        logger.info("MainToolbarPlugin enabled: Turboism panel, settings action, and toolbar contribution enrolled in disposable scope");
+        logger.info("MainToolbarPlugin enabled: Turboism panel, settings action, menu, and toolbar contribution enrolled in disposable scope");
     }
 
     @Override
