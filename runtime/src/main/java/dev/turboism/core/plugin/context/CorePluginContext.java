@@ -170,7 +170,8 @@ public final class CorePluginContext implements PluginContext {
             hostAccess.modelAccess(),
             hostAccess.parameterLifecycle(),
             hostAccess.partLifecycle(),
-            hostAccess.editorObjectLifecycle()
+            hostAccess.editorObjectLifecycle(),
+            hostAccess.physicsEditorCoordinator()
         );
     }
 
@@ -398,6 +399,11 @@ public final class CorePluginContext implements PluginContext {
     @Override
     public CubismReadCapabilityService cubismRead() {
         return cubismServices.cubismReadCapabilityService();
+    }
+
+    @Override
+    public dev.turboism.sdk.cubism.physics.PhysicsEditorService physicsEditor() {
+        return cubismServices.physicsEditorService();
     }
 
     @Override
