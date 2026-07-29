@@ -3,7 +3,6 @@ package dev.turboism.adapter.host;
 import dev.turboism.adapter.RuntimeHostAdapters;
 import dev.turboism.adapter.VerifiedRuntimeHostAdaptersFactory;
 import dev.turboism.adapter.cubism.editor.EditorBackedCubismModelAccess;
-import dev.turboism.adapter.cubism.textureatlas.NativeTextureAtlasDataModelBridge;
 import dev.turboism.adapter.cubism.textureatlas.TextureAtlasDataModelCapture;
 import dev.turboism.adapter.cubism.textureatlas.TextureAtlasLayoutProvider;
 import dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasLayoutProvider;
@@ -121,7 +120,6 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                     textureAtlasCapture
                 )
                 : null;
-        NativeTextureAtlasDataModelBridge.install(textureAtlasCapture);
         if (evidence.mainToolbar().isEmpty()
             || mainToolbarResolverFactory == null
             || editorUiPluginResources == null
@@ -209,7 +207,6 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
 
             @Override
             public void close() {
-                NativeTextureAtlasDataModelBridge.uninstall(capture);
                 capture.close();
             }
         };
