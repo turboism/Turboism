@@ -6,14 +6,18 @@ import dev.turboism.adapter.cubism.editor.EditorBackedCubismModelAccess;
 import dev.turboism.mapping.verification.EmbeddedPanelVerificationManifest;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.MainToolbarVerificationManifest;
+import dev.turboism.mapping.verification.TopMenuVerificationManifest;
 import dev.turboism.mapping.verification.VerifiedEditorModelResolverFactory;
 import dev.turboism.mapping.verification.VerifiedEmbeddedPanelResolverFactory;
 import dev.turboism.mapping.verification.VerifiedMainToolbarResolverFactory;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
+import dev.turboism.mapping.verification.VerifiedTopMenuResolverFactory;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.ui.contribution.EditorUiContributionProvider;
 import dev.turboism.ui.contribution.EditorUiProviderAdmission;
 import dev.turboism.ui.host.EditorUiFamily;
+import dev.turboism.ui.menu.TopMenuContributionProvider;
+import dev.turboism.ui.menu.VerifiedTopMenuHostOperations;
 import dev.turboism.ui.panel.EmbeddedPanelContributionProvider;
 import dev.turboism.ui.panel.RuntimeEmbeddedPanelActivationCoordinator;
 import dev.turboism.ui.panel.VerifiedEmbeddedPanelHostOperations;
@@ -33,6 +37,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
     private final EditorAccessFactory editorAccessFactory;
     private final MainToolbarResolverFactory mainToolbarResolverFactory;
     private final EmbeddedPanelResolverFactory embeddedPanelResolverFactory;
+    private final TopMenuResolverFactory topMenuResolverFactory;
     private final EditorUiPluginResourceRegistry editorUiPluginResources;
     private final dev.turboism.ui.action.RuntimeEditorUiActionRouter editorUiActionRouter;
     private final RuntimeEmbeddedPanelActivationCoordinator embeddedPanelActivation;
@@ -113,6 +118,32 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         final dev.turboism.ui.action.RuntimeEditorUiActionRouter editorUiActionRouter,
         final RuntimeEmbeddedPanelActivationCoordinator embeddedPanelActivation
     ) {
+        this(
+            factory,
+            editorResolverFactory,
+            editorAccessFactory,
+            mainToolbarResolverFactory,
+            embeddedPanelResolverFactory,
+            editorUiPluginResources,
+            editorUiActionRouter,
+            embeddedPanelActivation,
+            slice -> new VerifiedTopMenuResolverFactory().create(
+                slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
+            )
+        );
+    }
+
+    VerifiedHostAdapterConnector(
+        final VerifiedAdapterFactory factory,
+        final EditorResolverFactory editorResolverFactory,
+        final EditorAccessFactory editorAccessFactory,
+        final MainToolbarResolverFactory mainToolbarResolverFactory,
+        final EmbeddedPanelResolverFactory embeddedPanelResolverFactory,
+        final EditorUiPluginResourceRegistry editorUiPluginResources,
+        final dev.turboism.ui.action.RuntimeEditorUiActionRouter editorUiActionRouter,
+        final RuntimeEmbeddedPanelActivationCoordinator embeddedPanelActivation,
+        final TopMenuResolverFactory topMenuResolverFactory
+    ) {
         this.factory = Objects.requireNonNull(factory, "factory");
         this.editorResolverFactory = Objects.requireNonNull(
             editorResolverFactory, "editorResolverFactory"
@@ -125,6 +156,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         this.editorUiPluginResources = editorUiPluginResources;
         this.editorUiActionRouter = editorUiActionRouter;
         this.embeddedPanelActivation = embeddedPanelActivation;
+        this.topMenuResolverFactory = topMenuResolverFactory;
     }
 
     @Override
@@ -144,10 +176,11 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         );
         final ToolbarMaterial toolbar = toolbarMaterial(evidence);
         final PanelMaterial panel = panelMaterial(evidence);
-        if (toolbar == null && panel == null) {
+        final TopMenuMaterial topMenu = topMenuMaterial(evidence);
+        if (toolbar == null && panel == null && topMenu == null) {
             return HostAdapterConnection.of(adapters, modelAccess, resolver);
         }
-        return connection(adapters, modelAccess, resolver, toolbar, panel);
+        return connection(adapters, modelAccess, resolver, toolbar, panel, topMenu);
     }
 
     private ToolbarMaterial toolbarMaterial(final HostVerificationEvidence evidence) throws Exception {
@@ -181,12 +214,28 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         );
     }
 
+    private TopMenuMaterial topMenuMaterial(final HostVerificationEvidence evidence) throws Exception {
+        if (evidence.topMenu().isEmpty()
+            || topMenuResolverFactory == null
+            || editorUiActionRouter == null) {
+            return null;
+        }
+        final HostVerificationEvidence.Slice slice = evidence.topMenu().orElseThrow();
+        return new TopMenuMaterial(
+            topMenuResolverFactory.create(slice),
+            TopMenuVerificationManifest.admissionForArtifact(
+                HostArtifactDigest.from(slice.verifiedArtifact())
+            )
+        );
+    }
+
     private HostAdapterConnection connection(
         final RuntimeHostAdapters adapters,
         final CubismModelAccess modelAccess,
         final VerifiedMemberResolver resolver,
         final ToolbarMaterial toolbar,
-        final PanelMaterial panel
+        final PanelMaterial panel,
+        final TopMenuMaterial topMenu
     ) {
         return new HostAdapterConnection() {
             @Override
@@ -232,6 +281,17 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                         embeddedPanelActivation
                     ));
                 }
+                if (topMenu != null) {
+                    providers.add(new TopMenuContributionProvider(
+                        EditorUiProviderAdmission.admitted(
+                            EditorUiFamily.MENU,
+                            hostGeneration,
+                            verificationEvidence(topMenu.admission())
+                        ),
+                        new VerifiedTopMenuHostOperations(topMenu.resolver()),
+                        editorUiActionRouter
+                    ));
+                }
                 return List.copyOf(providers);
             }
 
@@ -259,6 +319,15 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         );
     }
 
+    private static EditorUiProviderAdmission.VerificationEvidence verificationEvidence(
+        final TopMenuVerificationManifest.AdmissionEvidence evidence
+    ) {
+        return new EditorUiProviderAdmission.VerificationEvidence(
+            evidence.cubismVersion(), evidence.artifactSize(), evidence.artifactSha256(),
+            evidence.adapterSliceId(), evidence.recordSha256()
+        );
+    }
+
     private record ToolbarMaterial(
         VerifiedMemberResolver resolver,
         MainToolbarVerificationManifest.AdmissionEvidence admission
@@ -268,6 +337,12 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
     private record PanelMaterial(
         VerifiedMemberResolver resolver,
         EmbeddedPanelVerificationManifest.AdmissionEvidence admission
+    ) {
+    }
+
+    private record TopMenuMaterial(
+        VerifiedMemberResolver resolver,
+        TopMenuVerificationManifest.AdmissionEvidence admission
     ) {
     }
 
@@ -293,6 +368,11 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
 
     @FunctionalInterface
     interface EmbeddedPanelResolverFactory {
+        VerifiedMemberResolver create(HostVerificationEvidence.Slice slice) throws Exception;
+    }
+
+    @FunctionalInterface
+    interface TopMenuResolverFactory {
         VerifiedMemberResolver create(HostVerificationEvidence.Slice slice) throws Exception;
     }
 }
