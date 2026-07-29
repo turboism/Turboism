@@ -6,6 +6,7 @@ import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.cubism.model.ArtMeshGeometry;
 import dev.turboism.sdk.cubism.model.Color;
 import dev.turboism.sdk.cubism.model.CubismModel;
+import dev.turboism.sdk.cubism.model.Deformer;
 import dev.turboism.sdk.cubism.model.Drawable;
 import dev.turboism.sdk.cubism.model.Parameter;
 import dev.turboism.sdk.cubism.model.ParameterDefinition;
@@ -50,6 +51,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicReference;
 import java.nio.file.Files;
@@ -205,6 +207,7 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
     private final AtomicInteger beforeCount = new AtomicInteger();
     private final AtomicInteger changedCount = new AtomicInteger();
     private final AtomicInteger afterCount = new AtomicInteger();
+    private final ConcurrentHashMap<String, AtomicInteger> editorObjectLifecycleCounts = new ConcurrentHashMap<>();
     private volatile String lastLifecycle = "none";
     private volatile String lastActionStatus = "Ready";
     private PluginContext context;
@@ -316,6 +319,199 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         afterCount.incrementAndGet();
         lastLifecycle = "after " + parameter.id().value() + " final=" + value;
         refreshLater();
+    }
+
+    @Override
+    public float beforeSetDrawableOpacity(final Drawable drawable, final float opacity) {
+        recordEditorObjectLifecycle("meshOpacity", "before");
+        return opacity;
+    }
+
+    @Override
+    public void onDrawableOpacityChanged(final Drawable drawable, final float oldOpacity, final float newOpacity) {
+        recordEditorObjectLifecycle("meshOpacity", "on");
+    }
+
+    @Override
+    public void afterSetDrawableOpacity(final Drawable drawable, final float opacity) {
+        recordEditorObjectLifecycle("meshOpacity", "after");
+    }
+
+    @Override
+    public boolean beforeSetDrawableVisible(final Drawable drawable, final boolean visible) {
+        recordEditorObjectLifecycle("meshVisible", "before");
+        return visible;
+    }
+
+    @Override
+    public void onDrawableVisibilityChanged(final Drawable drawable, final boolean oldVisible, final boolean newVisible) {
+        recordEditorObjectLifecycle("meshVisible", "on");
+    }
+
+    @Override
+    public void afterSetDrawableVisible(final Drawable drawable, final boolean visible) {
+        recordEditorObjectLifecycle("meshVisible", "after");
+    }
+
+    @Override
+    public boolean beforeSetDrawableLocked(final Drawable drawable, final boolean locked) {
+        recordEditorObjectLifecycle("meshLocked", "before");
+        return locked;
+    }
+
+    @Override
+    public void onDrawableLockChanged(final Drawable drawable, final boolean oldLocked, final boolean newLocked) {
+        recordEditorObjectLifecycle("meshLocked", "on");
+    }
+
+    @Override
+    public void afterSetDrawableLocked(final Drawable drawable, final boolean locked) {
+        recordEditorObjectLifecycle("meshLocked", "after");
+    }
+
+    @Override
+    public ArtMeshGeometry beforeReplaceDrawableGeometry(final Drawable drawable, final ArtMeshGeometry geometry) {
+        recordEditorObjectLifecycle("meshGeometry", "before");
+        return geometry;
+    }
+
+    @Override
+    public void onDrawableGeometryChanged(
+        final Drawable drawable,
+        final ArtMeshGeometry oldGeometry,
+        final ArtMeshGeometry newGeometry
+    ) {
+        recordEditorObjectLifecycle("meshGeometry", "on");
+    }
+
+    @Override
+    public void afterReplaceDrawableGeometry(final Drawable drawable, final ArtMeshGeometry geometry) {
+        recordEditorObjectLifecycle("meshGeometry", "after");
+    }
+
+    @Override
+    public float beforeSetDeformerOpacity(final Deformer deformer, final float opacity) {
+        recordEditorObjectLifecycle(deformerLifecycleLabel(deformer, "Opacity"), "before");
+        return opacity;
+    }
+
+    @Override
+    public void onDeformerOpacityChanged(final Deformer deformer, final float oldOpacity, final float newOpacity) {
+        recordEditorObjectLifecycle(deformerLifecycleLabel(deformer, "Opacity"), "on");
+    }
+
+    @Override
+    public void afterSetDeformerOpacity(final Deformer deformer, final float opacity) {
+        recordEditorObjectLifecycle(deformerLifecycleLabel(deformer, "Opacity"), "after");
+    }
+
+    @Override
+    public boolean beforeSetDeformerVisible(final Deformer deformer, final boolean visible) {
+        recordEditorObjectLifecycle(deformerLifecycleLabel(deformer, "Visible"), "before");
+        return visible;
+    }
+
+    @Override
+    public void onDeformerVisibilityChanged(final Deformer deformer, final boolean oldVisible, final boolean newVisible) {
+        recordEditorObjectLifecycle(deformerLifecycleLabel(deformer, "Visible"), "on");
+    }
+
+    @Override
+    public void afterSetDeformerVisible(final Deformer deformer, final boolean visible) {
+        recordEditorObjectLifecycle(deformerLifecycleLabel(deformer, "Visible"), "after");
+    }
+
+    @Override
+    public boolean beforeSetDeformerLocked(final Deformer deformer, final boolean locked) {
+        recordEditorObjectLifecycle(deformerLifecycleLabel(deformer, "Locked"), "before");
+        return locked;
+    }
+
+    @Override
+    public void onDeformerLockChanged(final Deformer deformer, final boolean oldLocked, final boolean newLocked) {
+        recordEditorObjectLifecycle(deformerLifecycleLabel(deformer, "Locked"), "on");
+    }
+
+    @Override
+    public void afterSetDeformerLocked(final Deformer deformer, final boolean locked) {
+        recordEditorObjectLifecycle(deformerLifecycleLabel(deformer, "Locked"), "after");
+    }
+
+    @Override
+    public WarpGrid beforeReplaceWarpDeformerGrid(final WarpDeformer deformer, final WarpGrid grid) {
+        recordEditorObjectLifecycle("warpGrid", "before");
+        return grid;
+    }
+
+    @Override
+    public void onWarpDeformerGridChanged(
+        final WarpDeformer deformer,
+        final WarpGrid oldGrid,
+        final WarpGrid newGrid
+    ) {
+        recordEditorObjectLifecycle("warpGrid", "on");
+    }
+
+    @Override
+    public void afterReplaceWarpDeformerGrid(final WarpDeformer deformer, final WarpGrid grid) {
+        recordEditorObjectLifecycle("warpGrid", "after");
+    }
+
+    @Override
+    public float beforeSetRotationDeformerBaseAngle(final RotationDeformer deformer, final float angle) {
+        recordEditorObjectLifecycle("rotationBaseAngle", "before");
+        return angle;
+    }
+
+    @Override
+    public void onRotationDeformerBaseAngleChanged(
+        final RotationDeformer deformer,
+        final float oldAngle,
+        final float newAngle
+    ) {
+        recordEditorObjectLifecycle("rotationBaseAngle", "on");
+    }
+
+    @Override
+    public void afterSetRotationDeformerBaseAngle(final RotationDeformer deformer, final float angle) {
+        recordEditorObjectLifecycle("rotationBaseAngle", "after");
+    }
+
+    @Override
+    public RotationDeformerForm beforeReplaceRotationDeformerForm(
+        final RotationDeformer deformer,
+        final RotationDeformerForm form
+    ) {
+        recordEditorObjectLifecycle("rotationForm", "before");
+        return form;
+    }
+
+    @Override
+    public void onRotationDeformerFormChanged(
+        final RotationDeformer deformer,
+        final RotationDeformerForm oldForm,
+        final RotationDeformerForm newForm
+    ) {
+        recordEditorObjectLifecycle("rotationForm", "on");
+    }
+
+    @Override
+    public void afterReplaceRotationDeformerForm(
+        final RotationDeformer deformer,
+        final RotationDeformerForm form
+    ) {
+        recordEditorObjectLifecycle("rotationForm", "after");
+    }
+
+    private void recordEditorObjectLifecycle(final String operation, final String phase) {
+        editorObjectLifecycleCounts.computeIfAbsent(operation + "." + phase, ignored -> new AtomicInteger())
+            .incrementAndGet();
+    }
+
+    private static String deformerLifecycleLabel(final Deformer deformer, final String suffix) {
+        if (deformer instanceof WarpDeformer) return "warp" + suffix;
+        if (deformer instanceof RotationDeformer) return "rotation" + suffix;
+        throw new IllegalArgumentException("Unsupported deformer hook target: " + deformer.getClass().getName());
     }
 
     private void showWindow() {
@@ -988,6 +1184,7 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             final WarpDeformer warp = onHostThread(() -> selectedModel.warpDeformers().all().get(0));
             final RotationDeformer rotation = onHostThread(() -> selectedModel.rotationDeformers().all().get(0));
             final java.awt.Robot robot = new java.awt.Robot();
+            editorObjectLifecycleCounts.clear();
             final StringBuilder report = new StringBuilder();
             report.append("status=RUNNING\n")
                 .append("meshId=").append(mesh.id().value()).append('\n')
@@ -1013,9 +1210,11 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             final boolean rotationBaseAngle = validateFloatEdit("rotationBaseAngle", rotation::baseAngle, rotation::setBaseAngle, robot, report);
             final boolean rotationForm = validateRotationForm(rotation, robot, report);
 
+            final boolean lifecyclePassed = awaitEditorObjectLifecycle(report);
             final boolean passed = meshOpacity && meshVisible && meshLocked && meshGeometry
                 && warpOpacity && warpVisible && warpLocked && warpGrid
-                && rotationOpacity && rotationVisible && rotationLocked && rotationBaseAngle && rotationForm;
+                && rotationOpacity && rotationVisible && rotationLocked && rotationBaseAngle && rotationForm
+                && lifecyclePassed;
             report.replace(0, "status=RUNNING".length(), "status=" + (passed ? "PASS" : "FAIL"));
             Files.writeString(artifact, report.toString(), StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
         } catch (Exception exception) {
@@ -1030,6 +1229,42 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 context.logger().error("Editor object validation artifact could not be written", exception);
             }
         }
+    }
+
+    private boolean awaitEditorObjectLifecycle(final StringBuilder report) throws InterruptedException {
+        final List<String> operations = List.of(
+            "meshOpacity", "meshVisible", "meshLocked", "meshGeometry",
+            "warpOpacity", "warpVisible", "warpLocked", "warpGrid",
+            "rotationOpacity", "rotationVisible", "rotationLocked", "rotationBaseAngle", "rotationForm"
+        );
+        final long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(15L);
+        while (System.nanoTime() < deadline) {
+            if (operations.stream().allMatch(operation -> lifecycleCount(operation, "before") == 1
+                && lifecycleCount(operation, "on") == 1
+                && lifecycleCount(operation, "after") == 1)) {
+                break;
+            }
+            Thread.sleep(50L);
+        }
+        boolean passed = true;
+        for (String operation : operations) {
+            final int before = lifecycleCount(operation, "before");
+            final int on = lifecycleCount(operation, "on");
+            final int after = lifecycleCount(operation, "after");
+            final boolean operationPassed = before == 1 && on == 1 && after == 1;
+            report.append(operation).append("Lifecycle.before=").append(before).append('\n')
+                .append(operation).append("Lifecycle.on=").append(on).append('\n')
+                .append(operation).append("Lifecycle.after=").append(after).append('\n')
+                .append(operation).append("Lifecycle.passed=").append(operationPassed).append('\n');
+            passed &= operationPassed;
+        }
+        report.append("editorObjectLifecycle.passed=").append(passed).append('\n');
+        return passed;
+    }
+
+    private int lifecycleCount(final String operation, final String phase) {
+        final AtomicInteger count = editorObjectLifecycleCounts.get(operation + "." + phase);
+        return count == null ? 0 : count.get();
     }
 
     private CubismModel awaitEditorObjectModel(final Path artifact) throws Exception {

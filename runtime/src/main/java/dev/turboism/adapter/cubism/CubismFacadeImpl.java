@@ -3,6 +3,7 @@ package dev.turboism.adapter.cubism;
 import dev.turboism.adapter.cubism.service.read.CubismReadPermissionGate;
 import dev.turboism.adapter.cubism.lifecycle.ParameterLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.PartLifecycleCoordinator;
+import dev.turboism.adapter.cubism.lifecycle.EditorObjectLifecycleCoordinator;
 import dev.turboism.adapter.cubism.write.HostWriteAdapter;
 import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
@@ -55,6 +56,7 @@ public final class CubismFacadeImpl implements CubismFacade {
     private final CubismModelAccess modelAccess;
     private final ParameterLifecycleCoordinator parameterLifecycle;
     private final PartLifecycleCoordinator partLifecycle;
+    private final EditorObjectLifecycleCoordinator editorObjectLifecycle;
     private final BooleanSupplier activeScope;
 
     public CubismFacadeImpl(final HostSnapshotSource source, final CubismPermissionGate permissionGate) {
@@ -66,6 +68,7 @@ public final class CubismFacadeImpl implements CubismFacade {
             unavailableModelAccess(),
             new ParameterLifecycleCoordinator(),
             new PartLifecycleCoordinator(),
+            new EditorObjectLifecycleCoordinator(),
             () -> true
         );
     }
@@ -83,6 +86,7 @@ public final class CubismFacadeImpl implements CubismFacade {
             modelAccess,
             new ParameterLifecycleCoordinator(),
             new PartLifecycleCoordinator(),
+            new EditorObjectLifecycleCoordinator(),
             () -> true
         );
     }
@@ -101,6 +105,7 @@ public final class CubismFacadeImpl implements CubismFacade {
             modelAccess,
             parameterLifecycle,
             new PartLifecycleCoordinator(),
+            new EditorObjectLifecycleCoordinator(),
             () -> true
         );
     }
@@ -118,6 +123,7 @@ public final class CubismFacadeImpl implements CubismFacade {
             modelAccess,
             parameterLifecycle,
             partLifecycle,
+            new EditorObjectLifecycleCoordinator(),
             () -> true
         );
     }
@@ -133,11 +139,32 @@ public final class CubismFacadeImpl implements CubismFacade {
         this(
             source,
             permissionGate,
+            modelAccess,
+            parameterLifecycle,
+            partLifecycle,
+            new EditorObjectLifecycleCoordinator(),
+            activeScope
+        );
+    }
+
+    public CubismFacadeImpl(
+        final HostSnapshotSource source,
+        final CubismPermissionGate permissionGate,
+        final CubismModelAccess modelAccess,
+        final ParameterLifecycleCoordinator parameterLifecycle,
+        final PartLifecycleCoordinator partLifecycle,
+        final EditorObjectLifecycleCoordinator editorObjectLifecycle,
+        final BooleanSupplier activeScope
+    ) {
+        this(
+            source,
+            permissionGate,
             new ImmutableSnapshotFactory(),
             unavailableTransactionManager(),
             modelAccess,
             parameterLifecycle,
             partLifecycle,
+            editorObjectLifecycle,
             activeScope
         );
     }
@@ -177,6 +204,7 @@ public final class CubismFacadeImpl implements CubismFacade {
             unavailableModelAccess(),
             new ParameterLifecycleCoordinator(),
             new PartLifecycleCoordinator(),
+            new EditorObjectLifecycleCoordinator(),
             () -> true
         );
     }
@@ -196,6 +224,7 @@ public final class CubismFacadeImpl implements CubismFacade {
             modelAccess,
             new ParameterLifecycleCoordinator(),
             new PartLifecycleCoordinator(),
+            new EditorObjectLifecycleCoordinator(),
             () -> true
         );
     }
@@ -216,6 +245,7 @@ public final class CubismFacadeImpl implements CubismFacade {
             modelAccess,
             parameterLifecycle,
             new PartLifecycleCoordinator(),
+            new EditorObjectLifecycleCoordinator(),
             () -> true
         );
     }
@@ -237,6 +267,7 @@ public final class CubismFacadeImpl implements CubismFacade {
             modelAccess,
             parameterLifecycle,
             partLifecycle,
+            new EditorObjectLifecycleCoordinator(),
             () -> true
         );
     }
@@ -251,12 +282,37 @@ public final class CubismFacadeImpl implements CubismFacade {
         final PartLifecycleCoordinator partLifecycle,
         final BooleanSupplier activeScope
     ) {
+        this(
+            source,
+            permissionGate,
+            snapshotFactory,
+            transactionManager,
+            modelAccess,
+            parameterLifecycle,
+            partLifecycle,
+            new EditorObjectLifecycleCoordinator(),
+            activeScope
+        );
+    }
+
+    CubismFacadeImpl(
+        final HostSnapshotSource source,
+        final CubismPermissionGate permissionGate,
+        final ImmutableSnapshotFactory snapshotFactory,
+        final TransactionManager transactionManager,
+        final CubismModelAccess modelAccess,
+        final ParameterLifecycleCoordinator parameterLifecycle,
+        final PartLifecycleCoordinator partLifecycle,
+        final EditorObjectLifecycleCoordinator editorObjectLifecycle,
+        final BooleanSupplier activeScope
+    ) {
         this.source = Objects.requireNonNull(source, "source");
         this.permissionGate = Objects.requireNonNull(permissionGate, "permissionGate");
         this.snapshotFactory = Objects.requireNonNull(snapshotFactory, "snapshotFactory");
         this.transactionManager = Objects.requireNonNull(transactionManager, "transactionManager");
         this.parameterLifecycle = Objects.requireNonNull(parameterLifecycle, "parameterLifecycle");
         this.partLifecycle = Objects.requireNonNull(partLifecycle, "partLifecycle");
+        this.editorObjectLifecycle = Objects.requireNonNull(editorObjectLifecycle, "editorObjectLifecycle");
         this.activeScope = Objects.requireNonNull(activeScope, "activeScope");
         this.modelAccess = permissionCheckedModelAccess(
             Objects.requireNonNull(modelAccess, "modelAccess")
@@ -480,16 +536,26 @@ public final class CubismFacadeImpl implements CubismFacade {
             return new dev.turboism.sdk.cubism.model.Deformers() {
                 @Override public List<dev.turboism.sdk.cubism.model.Deformer> all() {
                     return values.all().stream()
-                        .map(value -> (dev.turboism.sdk.cubism.model.Deformer)
-                            new PermissionCheckedDeformer(value))
+                        .map(PermissionCheckedModel.this::wrapDeformer)
                         .toList();
                 }
                 @Override public dev.turboism.sdk.cubism.model.Deformer find(
                     final dev.turboism.sdk.cubism.id.DeformerId id
                 ) {
-                    return new PermissionCheckedDeformer(values.find(id));
+                    return wrapDeformer(values.find(id));
                 }
             };
+        }
+        private dev.turboism.sdk.cubism.model.Deformer wrapDeformer(
+            final dev.turboism.sdk.cubism.model.Deformer value
+        ) {
+            if (value instanceof dev.turboism.sdk.cubism.model.WarpDeformer warp) {
+                return new PermissionCheckedWarpDeformer(warp);
+            }
+            if (value instanceof dev.turboism.sdk.cubism.model.RotationDeformer rotation) {
+                return new PermissionCheckedRotationDeformer(rotation);
+            }
+            return new PermissionCheckedDeformer(value);
         }
         @Override public dev.turboism.sdk.cubism.model.WarpDeformers warpDeformers() {
             final dev.turboism.sdk.cubism.model.WarpDeformers values = delegate.warpDeformers();
@@ -539,12 +605,12 @@ public final class CubismFacadeImpl implements CubismFacade {
         @Override public boolean visible() { return delegate.visible(); }
         @Override public void setVisible(final boolean visible) {
             requireModelWrite("artMesh.setVisible");
-            delegate.setVisible(visible);
+            editorObjectLifecycle.drawable().setVisible(this, visible, delegate::setVisible);
         }
         @Override public boolean locked() { return delegate.locked(); }
         @Override public void setLocked(final boolean locked) {
             requireModelWrite("artMesh.setLocked");
-            delegate.setLocked(locked);
+            editorObjectLifecycle.drawable().setLocked(this, locked, delegate::setLocked);
         }
         @Override public boolean visibleInHierarchy() { return delegate.visibleInHierarchy(); }
         @Override public boolean lockedInHierarchy() { return delegate.lockedInHierarchy(); }
@@ -559,7 +625,7 @@ public final class CubismFacadeImpl implements CubismFacade {
         @Override public float getOpacity() { return delegate.getOpacity(); }
         @Override public void setOpacity(final float opacity) {
             requireModelWrite("artMesh.setOpacity");
-            delegate.setOpacity(opacity);
+            editorObjectLifecycle.drawable().setOpacity(this, opacity, delegate::setOpacity);
         }
         @Override public dev.turboism.sdk.cubism.model.ArtMeshGeometry geometry() {
             return delegate.geometry();
@@ -568,7 +634,7 @@ public final class CubismFacadeImpl implements CubismFacade {
             final dev.turboism.sdk.cubism.model.ArtMeshGeometry geometry
         ) {
             requireModelWrite("artMesh.replaceGeometry");
-            delegate.replaceGeometry(geometry);
+            editorObjectLifecycle.drawable().replaceGeometry(this, geometry, delegate::replaceGeometry);
         }
         @Override public dev.turboism.sdk.cubism.model.IntSequence masks() {
             return delegate.masks();
@@ -608,19 +674,19 @@ public final class CubismFacadeImpl implements CubismFacade {
         @Override public boolean visible() { return delegate.visible(); }
         @Override public void setVisible(final boolean visible) {
             requireModelWrite("deformer.setVisible");
-            delegate.setVisible(visible);
+            editorObjectLifecycle.deformer().setVisible(this, visible, delegate::setVisible);
         }
         @Override public boolean locked() { return delegate.locked(); }
         @Override public void setLocked(final boolean locked) {
             requireModelWrite("deformer.setLocked");
-            delegate.setLocked(locked);
+            editorObjectLifecycle.deformer().setLocked(this, locked, delegate::setLocked);
         }
         @Override public boolean visibleInHierarchy() { return delegate.visibleInHierarchy(); }
         @Override public boolean lockedInHierarchy() { return delegate.lockedInHierarchy(); }
         @Override public float getOpacity() { return delegate.getOpacity(); }
         @Override public void setOpacity(final float opacity) {
             requireModelWrite("deformer.setOpacity");
-            delegate.setOpacity(opacity);
+            editorObjectLifecycle.deformer().setOpacity(this, opacity, delegate::setOpacity);
         }
         @Override public dev.turboism.sdk.cubism.model.Color multiplyColor() {
             return delegate.multiplyColor();
@@ -647,7 +713,7 @@ public final class CubismFacadeImpl implements CubismFacade {
         @Override public dev.turboism.sdk.cubism.model.WarpGrid grid() { return warp.grid(); }
         @Override public void replaceGrid(final dev.turboism.sdk.cubism.model.WarpGrid grid) {
             requireModelWrite("warpDeformer.replaceGrid");
-            warp.replaceGrid(grid);
+            editorObjectLifecycle.deformer().replaceGrid(this, grid, warp::replaceGrid);
         }
     }
 
@@ -663,7 +729,7 @@ public final class CubismFacadeImpl implements CubismFacade {
         @Override public float baseAngle() { return rotation.baseAngle(); }
         @Override public void setBaseAngle(final float angle) {
             requireModelWrite("rotationDeformer.setBaseAngle");
-            rotation.setBaseAngle(angle);
+            editorObjectLifecycle.deformer().setBaseAngle(this, angle, rotation::setBaseAngle);
         }
         @Override public dev.turboism.sdk.cubism.model.RotationDeformerForm form() {
             return rotation.form();
@@ -672,7 +738,7 @@ public final class CubismFacadeImpl implements CubismFacade {
             final dev.turboism.sdk.cubism.model.RotationDeformerForm form
         ) {
             requireModelWrite("rotationDeformer.replaceForm");
-            rotation.replaceForm(form);
+            editorObjectLifecycle.deformer().replaceForm(this, form, rotation::replaceForm);
         }
     }
 
