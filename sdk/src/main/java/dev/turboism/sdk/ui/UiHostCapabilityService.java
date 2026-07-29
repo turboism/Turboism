@@ -42,6 +42,11 @@ public interface UiHostCapabilityService {
      * Control action IDs resolve through that plugin's {@code ActionRegistry}.
      */
 
+    /** Opens a bounded runtime-rendered single-choice dialog. */
+    default Optional<String> choose(final ChoiceDialogRequest request) {
+        throw new UnsupportedOperationException("choice dialogs are not available");
+    }
+
     Registration contributeEmbeddedPanel(EmbeddedPanelContribution contribution);
 
     /**
