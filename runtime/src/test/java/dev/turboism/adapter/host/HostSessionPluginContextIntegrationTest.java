@@ -11,6 +11,12 @@ import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.diagnostics.CubismFacadeAuditEvent;
+import dev.turboism.sdk.appearance.AppearanceApplyResult;
+import dev.turboism.sdk.appearance.AppearanceBase;
+import dev.turboism.sdk.appearance.AppearancePalette;
+import dev.turboism.sdk.appearance.AppearanceRequest;
+import dev.turboism.sdk.appearance.AppearanceStatus;
+import dev.turboism.ui.appearance.AppearanceHostProvider;
 import dev.turboism.sdk.cubism.ClipMaskSnapshot;
 import dev.turboism.sdk.cubism.ProjectSnapshot;
 import dev.turboism.sdk.cubism.WorkspaceSnapshot;
@@ -54,6 +60,57 @@ class HostSessionPluginContextIntegrationTest {
 
     @TempDir
     Path tempDir;
+
+    @Test
+    void productionContextUsesSessionAppearanceProviderAndRestoresOnPluginScopeClose() throws Exception {
+        final AtomicReference<HostInstanceDescriptor> current = new AtomicReference<>(
+            dualDescriptor("session-appearance", "reviewed")
+        );
+        final RecordingAppearanceProvider provider = new RecordingAppearanceProvider();
+        final HostSession session = new HostSession(
+            () -> Optional.of(current.get()),
+            descriptor -> new HostAdapterConnection() {
+                @Override public RuntimeHostAdapters adapters() {
+                    return HostSessionPluginContextIntegrationTest.adapters(
+                        descriptor.sessionId(), new AtomicInteger()
+                    );
+                }
+                @Override public AppearanceHostProvider appearanceProvider() { return provider; }
+                @Override public void close() { }
+            }
+        );
+        final RuntimeScheduler scheduler = scheduler();
+        final DisposableScope scope = new DisposableScope();
+        final CorePluginContext.Dependencies dependencies = dependencies(
+            tempDir,
+            scheduler,
+            descriptor(List.of("turboism.ui.appearance.modify")),
+            ignored -> { },
+            scope
+        );
+        final CorePluginContext context = new CorePluginContext(dependencies, session);
+
+        try {
+            assertEquals(HostSession.State.ACTIVE, session.refresh());
+            final AppearanceStatus before = context.appearance().current().toCompletableFuture().join();
+            final AppearanceApplyResult result = context.appearance().apply(new AppearanceRequest(
+                "test.theme",
+                AppearanceBase.DARK,
+                new AppearancePalette(
+                    "#112233", "#223344", "#334455", "#445566", "#DDEEFF",
+                    "#AABBCC", "#556677", "#FFFFFF", "#667788", "#101820"
+                ),
+                before.revision()
+            )).toCompletableFuture().join();
+
+            assertEquals(AppearanceApplyResult.Outcome.APPLIED, result.outcome());
+            scope.close();
+            assertEquals(1, provider.restoreCount);
+        } finally {
+            session.close();
+            scheduler.shutdown();
+        }
+    }
 
     @Test
     void existingPluginContextReadsDualTypedSlicesThroughStableCompositionView() {
@@ -309,6 +366,27 @@ class HostSessionPluginContextIntegrationTest {
         );
     }
 
+    private static CorePluginContext.Dependencies dependencies(
+        final Path dataDir,
+        final RuntimeScheduler scheduler,
+        final PluginDescriptor descriptor,
+        final java.util.function.Consumer<CubismFacadeAuditEvent> auditSink,
+        final DisposableScope scope
+    ) {
+        return new CorePluginContext.Dependencies(
+            descriptor,
+            logger(),
+            paths(dataDir),
+            uiScheduler(),
+            scheduler,
+            diagnostics(),
+            scope,
+            emptyHostSnapshotSource(),
+            auditSink,
+            CLOCK
+        );
+    }
+
     private static RuntimeScheduler scheduler() {
         List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         return new RuntimeScheduler(
@@ -317,6 +395,38 @@ class HostSessionPluginContextIntegrationTest {
             SidecarDispatcher.noop(),
             events::add
         );
+    }
+
+    private static final class RecordingAppearanceProvider implements AppearanceHostProvider {
+        private AppearanceStatus status = new AppearanceStatus(
+            AppearanceStatus.Availability.AVAILABLE,
+            AppearanceStatus.Source.NATIVE,
+            Optional.empty(),
+            AppearanceBase.NATIVE,
+            0,
+            Optional.empty()
+        );
+        private int restoreCount;
+
+        @Override public boolean isAvailable() { return true; }
+        @Override public AppearanceStatus readStatus() { return status; }
+        @Override public RestorePoint captureRestorePoint() { return new Point(status); }
+        @Override public ApplyOutcome apply(final AppearanceRequest request) {
+            status = new AppearanceStatus(
+                AppearanceStatus.Availability.AVAILABLE,
+                AppearanceStatus.Source.PLUGIN_OVERLAY,
+                Optional.of(request.appearanceId()),
+                request.base(),
+                status.revision() + 1,
+                Optional.empty()
+            );
+            return ApplyOutcome.APPLIED;
+        }
+        @Override public void restore(final RestorePoint restorePoint) {
+            restoreCount++;
+            status = ((Point) restorePoint).status();
+        }
+        private record Point(AppearanceStatus status) implements RestorePoint { }
     }
 
     private static PluginDescriptor descriptor(final List<String> permissionIds) {
