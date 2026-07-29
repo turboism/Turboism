@@ -36,12 +36,26 @@ final class ThemeSelectionConfigTest {
         assertTrue(selections.selectedThemeId().isEmpty());
     }
 
+    @Test
+    void productionSchemaUsesRuntimeValidIdentifiers() {
+        MemoryConfigRegistry config = new MemoryConfigRegistry();
+        ThemeSelectionConfig selections = new ThemeSelectionConfig(config);
+
+        selections.initialize().toCompletableFuture().join();
+
+        assertEquals("ui-theme.selection", config.schema.configId());
+        assertEquals("ui-theme/selection.cfg", config.schema.relativePath());
+        assertEquals("selected-theme", config.schema.keys().get(0).name());
+    }
+
     private static final class MemoryConfigRegistry implements PluginConfigRegistry {
         private final Map<String, Object> values = new HashMap<>();
+        private ConfigSchema schema;
         private long revision;
 
         @Override
         public CompletionStage<Void> registerSchema(ConfigSchema schema, List<ConfigMigration> migrations) {
+            this.schema = schema;
             return CompletableFuture.completedFuture(null);
         }
 

@@ -645,7 +645,11 @@ class M13OfficialPluginRuntimeIntegrationTest {
                 "turboism.ui.dialog.contribute",
                 "turboism.ui.file-chooser.request",
                 "turboism.ui.status.notify",
-                "turboism.ui.appearance.modify"
+                "turboism.ui.appearance.modify",
+                "turboism.config.plugin.read",
+                "turboism.config.plugin.write",
+                "turboism.file.read",
+                "turboism.file.write"
             ),
             permissionIdsFor("ui-theme")
         );
