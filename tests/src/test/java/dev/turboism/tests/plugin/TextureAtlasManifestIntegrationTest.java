@@ -26,7 +26,8 @@ class TextureAtlasManifestIntegrationTest {
         root.path("permissions").forEach(permission -> permissions.add(permission.path("id").asText()));
 
         assertEquals(
-            Set.of("turboism.cubism.model.read", "turboism.cubism.model.write"),
+            Set.of("turboism.cubism.model.read", "turboism.cubism.model.write",
+                "turboism.config.plugin.read", "turboism.config.plugin.write"),
             permissions
         );
     }
