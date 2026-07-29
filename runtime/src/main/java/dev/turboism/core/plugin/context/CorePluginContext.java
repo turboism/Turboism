@@ -169,7 +169,8 @@ public final class CorePluginContext implements PluginContext {
             hostAccess.adapters(),
             hostAccess.modelAccess(),
             hostAccess.parameterLifecycle(),
-            hostAccess.partLifecycle()
+            hostAccess.partLifecycle(),
+            hostAccess.editorObjectLifecycle()
         );
     }
 
@@ -746,7 +747,7 @@ public final class CorePluginContext implements PluginContext {
                 new RuntimePluginConfigRegistry(
                     checker,
                     runtimeScheduler,
-                    paths.dataDir(),
+                    paths.configDir(),
                     descriptor.id(),
                     diagnosticSink,
                     failureSink
