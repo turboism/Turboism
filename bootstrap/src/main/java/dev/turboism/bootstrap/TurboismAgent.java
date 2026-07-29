@@ -17,6 +17,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import dev.turboism.adapter.cubism.textureatlas.VerifiedTextureAtlasDataModelHookInstaller;
+import dev.turboism.adapter.cubism.textureatlas.VerifiedTextureAtlasAutoLayoutHookInstaller;
 
 /** Java-agent entrypoint for the Turboism 0.1 Developer Preview. */
 public final class TurboismAgent {
@@ -28,6 +29,8 @@ public final class TurboismAgent {
     private static final AtomicReference<VerifiedParameterHookInstaller> PARAMETER_HOOK =
         new AtomicReference<>();
     private static final AtomicReference<VerifiedTextureAtlasDataModelHookInstaller> TEXTURE_ATLAS_HOOK =
+        new AtomicReference<>();
+    private static final AtomicReference<VerifiedTextureAtlasAutoLayoutHookInstaller> TEXTURE_ATLAS_AUTO_LAYOUT_HOOK =
         new AtomicReference<>();
     private static final AtomicReference<StartupSuppressionInstaller.Installation> STARTUP_SUPPRESSION =
         new AtomicReference<>();
@@ -148,6 +151,7 @@ public final class TurboismAgent {
             }
             installParameterHook(runtime, instrumentation, host);
             installTextureAtlasHook(runtime, instrumentation, host);
+            installTextureAtlasAutoLayoutHook(runtime, instrumentation, host);
             Runtime.getRuntime().addShutdownHook(new Thread(TurboismAgent::shutdown, "turboism-shutdown"));
             System.err.println(
                 "Turboism Developer Preview started: host=" + runtime.hostState()
@@ -264,6 +268,15 @@ public final class TurboismAgent {
                 System.err.println("Turboism texture-atlas hook cleanup failed safely");
             }
         }
+        final VerifiedTextureAtlasAutoLayoutHookInstaller textureAtlasAutoLayoutHook =
+            TEXTURE_ATLAS_AUTO_LAYOUT_HOOK.getAndSet(null);
+        if (textureAtlasAutoLayoutHook != null) {
+            try {
+                textureAtlasAutoLayoutHook.close();
+            } catch (Throwable failure) {
+                System.err.println("Turboism texture-atlas automatic-layout hook cleanup failed safely");
+            }
+        }
         final PreviewRuntime runtime = RUNTIME.getAndSet(null);
         if (runtime == null) {
             return false;
@@ -299,6 +312,31 @@ public final class TurboismAgent {
             if (installer != null) installer.close();
             System.err.println(
                 "Turboism texture-atlas hook disabled safely: " + failure.getClass().getName()
+            );
+        }
+    }
+
+    private static void installTextureAtlasAutoLayoutHook(
+        final PreviewRuntime runtime,
+        final Instrumentation instrumentation,
+        final HostClassLocator.LocatedHost host
+    ) {
+        VerifiedTextureAtlasAutoLayoutHookInstaller installer = null;
+        try {
+            installer = VerifiedTextureAtlasAutoLayoutHookInstaller.fromVerifiedResolver(
+                instrumentation,
+                runtime.editorModelResolver(),
+                host.classLoader()
+            );
+            installer.install();
+            if (!TEXTURE_ATLAS_AUTO_LAYOUT_HOOK.compareAndSet(null, installer)) {
+                installer.close();
+            }
+        } catch (Throwable failure) {
+            if (installer != null) installer.close();
+            System.err.println(
+                "Turboism texture-atlas automatic-layout hook disabled safely: "
+                    + failure.getClass().getName()
             );
         }
     }
