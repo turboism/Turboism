@@ -20,7 +20,6 @@ public final class VerifiedCubism5302TextureAtlasSelectorContract {
         "cubism.texture-atlas.data-model.class",
         "cubism.texture-atlas.data-model.atlases",
         "cubism.texture-atlas.data-model.images",
-        "cubism.texture-atlas.data-model.apply",
         "cubism.texture-atlas.atlas.class",
         "cubism.texture-atlas.atlas.create",
         "cubism.texture-atlas.atlas.name",
@@ -38,9 +37,11 @@ public final class VerifiedCubism5302TextureAtlasSelectorContract {
         "cubism.texture-atlas.affine.class",
         "cubism.texture-atlas.affine.create",
         "cubism.texture-atlas.affine.translate",
-        "cubism.texture-atlas.document.transaction",
-        "cubism.texture-atlas.document.mark-dirty",
-        "cubism.texture-atlas.document.refresh"
+        "cubism.editor-model.modeling-document.edit-mode",
+        "cubism.editor-model.edit-mode.begin",
+        "cubism.texture-atlas.undo.create",
+        "cubism.texture-atlas.undo.force-redo",
+        "cubism.texture-atlas.group-undo.add"
     );
 
     private VerifiedCubism5302TextureAtlasSelectorContract() {
