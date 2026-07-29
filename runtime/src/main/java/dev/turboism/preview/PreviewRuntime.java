@@ -9,6 +9,8 @@ import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
+import dev.turboism.home.LegacyHomeMigration;
+import dev.turboism.home.TurboismHomeLayout;
 import dev.turboism.preview.report.PreviewReportSnapshotFactory;
 import dev.turboism.preview.report.PreviewReportType;
 import dev.turboism.preview.report.PreviewReportWriter;
@@ -138,15 +140,11 @@ public final class PreviewRuntime implements AutoCloseable {
         final Path hostArtifact,
         final ClassLoader hostClassLoader
     ) throws IOException {
-        final Path home = Objects.requireNonNull(requestedHome, "requestedHome")
-            .toAbsolutePath()
-            .normalize();
-        Files.createDirectories(home);
-        Files.createDirectories(home.resolve("plugins"));
-        Files.createDirectories(home.resolve("state"));
-        Files.createDirectories(home.resolve("logs"));
+        final TurboismHomeLayout layout = TurboismHomeLayout.create(requestedHome);
+        final Path home = layout.home();
+        LegacyHomeMigration.migrate(home);
 
-        final PreviewLog log = new PreviewLog(home.resolve("logs").resolve("turboism.log"));
+        final PreviewLog log = new PreviewLog(layout.runtimeLogsDir().resolve("turboism.log"));
         RuntimeScheduler scheduler = null;
         HostRuntimeIngress ingress = null;
         LocalPluginRuntime plugins = null;
@@ -221,7 +219,7 @@ public final class PreviewRuntime implements AutoCloseable {
             );
             final LocalPluginRuntime.LoadReport report = plugins.loadAll();
             final PreviewReportWriter reportWriter = new PreviewReportWriter(
-                home.resolve("state"),
+                layout.runtimeStateDir(),
                 diagnostic -> log.warn(
                     "preview-report",
                     diagnostic.code() + " " + diagnostic.reportType() + ": "
