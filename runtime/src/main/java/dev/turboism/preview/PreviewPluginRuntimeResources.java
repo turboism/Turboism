@@ -5,6 +5,8 @@ import dev.turboism.adapter.cubism.lifecycle.ParameterHookRegistry;
 import dev.turboism.adapter.cubism.lifecycle.ParameterLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.PartHookRegistry;
 import dev.turboism.adapter.cubism.lifecycle.PartLifecycleCoordinator;
+import dev.turboism.adapter.cubism.lifecycle.EditorObjectHookRegistry;
+import dev.turboism.adapter.cubism.lifecycle.EditorObjectLifecycleCoordinator;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.failure.RuntimeFailureCollector;
 import dev.turboism.hostread.SharedAsyncHostReadLane;
@@ -29,7 +31,8 @@ record PreviewPluginRuntimeResources(
         final LocalPluginRuntime.PluginCloseHook pluginCloseHook,
         final List<LocalPluginRuntime.LoadedPlugin> loaded,
         final ParameterLifecycleCoordinator parameterLifecycle,
-        final PartLifecycleCoordinator partLifecycle
+        final PartLifecycleCoordinator partLifecycle,
+        final EditorObjectLifecycleCoordinator editorObjectLifecycle
     ) {
         final Path normalizedHome = Objects.requireNonNull(home, "home").toAbsolutePath().normalize();
         final SharedAsyncHostReadLane lane = new SharedAsyncHostReadLane(32);
@@ -43,9 +46,12 @@ record PreviewPluginRuntimeResources(
         final PartHookRegistry partHookRegistry = new PartHookRegistry(
             Objects.requireNonNull(partLifecycle, "partLifecycle")
         );
+        final EditorObjectHookRegistry editorObjectHookRegistry = new EditorObjectHookRegistry(
+            Objects.requireNonNull(editorObjectLifecycle, "editorObjectLifecycle")
+        );
         return assemble(
             normalizedHome, runtimeScheduler, runtimeHostAccess, lane, runtimeLog, collector,
-            pluginCloseHook, loaded, parameterHookRegistry, partHookRegistry
+            pluginCloseHook, loaded, parameterHookRegistry, partHookRegistry, editorObjectHookRegistry
         );
     }
 
@@ -59,7 +65,8 @@ record PreviewPluginRuntimeResources(
         final LocalPluginRuntime.PluginCloseHook pluginCloseHook,
         final List<LocalPluginRuntime.LoadedPlugin> loaded,
         final ParameterHookRegistry parameterHookRegistry,
-        final PartHookRegistry partHookRegistry
+        final PartHookRegistry partHookRegistry,
+        final EditorObjectHookRegistry editorObjectHookRegistry
     ) {
         final PreviewPluginContextFactory contextFactory = new PreviewPluginContextFactory(
             home, scheduler, hostAccess, lane, log, failureCollector
@@ -68,13 +75,14 @@ record PreviewPluginRuntimeResources(
             lane, failureCollector,
             new PreviewPluginLoadCoordinator(
                 home.resolve("plugins"), contextFactory, log, loaded,
-                parameterHookRegistry, partHookRegistry
+                parameterHookRegistry, partHookRegistry, editorObjectHookRegistry
             ),
             new PreviewPluginShutdown(
                 log,
                 Objects.requireNonNull(pluginCloseHook, "pluginCloseHook"),
                 parameterHookRegistry,
-                partHookRegistry
+                partHookRegistry,
+                editorObjectHookRegistry
             )
         );
     }
