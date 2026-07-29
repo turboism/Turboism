@@ -30,6 +30,16 @@
       "id": "turboism.cubism.model.write",
       "scope": "application",
       "reason": "Apply a validated complete texture-atlas layout plan through Editor authoring state."
+    },
+    {
+      "id": "turboism.config.plugin.read",
+      "scope": "application",
+      "reason": "Restore the selected automatic texture-atlas layout mode."
+    },
+    {
+      "id": "turboism.config.plugin.write",
+      "scope": "application",
+      "reason": "Persist the selected automatic texture-atlas layout mode."
     }
   ],
   "capabilities": ["cubism.texture-atlas.layout"],
