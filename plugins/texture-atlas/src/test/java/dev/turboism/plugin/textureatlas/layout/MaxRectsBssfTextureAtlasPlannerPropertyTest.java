@@ -47,9 +47,9 @@ class MaxRectsBssfTextureAtlasPlannerPropertyTest {
                 assertGeometry(forward, constraints);
                 successfulPlans++;
             } catch (TextureAtlasPackingException expected) {
-                assertEquals(
-                    TextureAtlasPackingException.Reason.NO_CANDIDATE_PLAN,
-                    expected.reason()
+                org.junit.jupiter.api.Assertions.assertTrue(
+                    expected.reason() == TextureAtlasPackingException.Reason.PAGE_BUDGET_EXHAUSTED
+                        || expected.reason() == TextureAtlasPackingException.Reason.ITEM_DOES_NOT_FIT
                 );
             }
         }
