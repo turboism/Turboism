@@ -27,6 +27,11 @@
       "reason": "Registers theme manager, package import/export, delete, and status actions."
     },
     {
+      "id": "turboism.ui.menu.contribute",
+      "scope": "application",
+      "reason": "Adds the legacy theme manager and package workflow commands under Tools/Turboism."
+    },
+    {
       "id": "turboism.config.plugin.read",
       "scope": "application",
       "reason": "Reads the selected theme package from plugin-owned typed configuration."
