@@ -14,6 +14,7 @@ import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.DialogRequest;
+import dev.turboism.sdk.ui.ChoiceDialogRequest;
 import dev.turboism.sdk.ui.EmbeddedPanelContribution;
 import dev.turboism.sdk.ui.FileChooserRequest;
 import dev.turboism.sdk.ui.OverlayContribution;
@@ -263,6 +264,13 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         }
         adapterResult.diagnostic().ifPresent(this::recordDiagnostic);
         return stateSource.confirmDialog(request);
+    }
+
+    @Override
+    public Optional<String> choose(final ChoiceDialogRequest request) {
+        Objects.requireNonNull(request, "request");
+        permissionChecker.check(UI_DIALOG_CONTRIBUTE, "ui.dialog.choose");
+        return RuntimeChoiceDialogs.choose(request);
     }
 
     @Override
