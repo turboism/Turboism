@@ -33,7 +33,11 @@ class VerifiedTextureAtlasAutoLayoutHookInstallerTest {
         try (VerifiedTextureAtlasAutoLayoutHookInstaller installer =
                  VerifiedTextureAtlasAutoLayoutHookInstaller.fromVerifiedResolver(
                      instrumentation,
-                     resolver(Set.of(VerifiedTextureAtlasAutoLayoutHookInstaller.CAPABILITY_ID)),
+                     resolver(
+                         "5.3.02",
+                         VerifiedCubism5302TextureAtlasSelectorContract.ADAPTER_SLICE_ID,
+                         Set.of(VerifiedTextureAtlasAutoLayoutHookInstaller.CAPABILITY_ID)
+                     ),
                      Target.class.getClassLoader()
                  )) {
             installer.install();
@@ -47,11 +51,49 @@ class VerifiedTextureAtlasAutoLayoutHookInstallerTest {
         ), calls);
     }
 
+    @Test
+    void admitsExact52AndRejectsUnsupportedVersion() {
+        final Instrumentation instrumentation = instrumentation(new ArrayList<>());
+        VerifiedTextureAtlasAutoLayoutHookInstaller.fromVerifiedResolver(
+            instrumentation,
+            resolver(
+                "5.2.0",
+                VerifiedCubism520TextureAtlasSelectorContract.ADAPTER_SLICE_ID,
+                Set.of(VerifiedTextureAtlasAutoLayoutHookInstaller.CAPABILITY_ID)
+            ),
+            Target.class.getClassLoader()
+        ).close();
+
+        assertThrows(IllegalArgumentException.class, () ->
+            VerifiedTextureAtlasAutoLayoutHookInstaller.fromVerifiedResolver(
+                instrumentation,
+                resolver(
+                    "5.3.01",
+                    VerifiedCubism5302TextureAtlasSelectorContract.ADAPTER_SLICE_ID,
+                    Set.of(VerifiedTextureAtlasAutoLayoutHookInstaller.CAPABILITY_ID)
+                ),
+                Target.class.getClassLoader()
+            )
+        );
+    }
+
     private VerifiedMemberResolver resolver(final Set<String> capabilities) {
-        final String owner = Target.class.getName().replace('.', '/');
-        return TestVerifiedResolvers.create(
+        return resolver(
             "5.3.02",
             VerifiedCubism5302TextureAtlasSelectorContract.ADAPTER_SLICE_ID,
+            capabilities
+        );
+    }
+
+    private VerifiedMemberResolver resolver(
+        final String version,
+        final String adapterSliceId,
+        final Set<String> capabilities
+    ) {
+        final String owner = Target.class.getName().replace('.', '/');
+        return TestVerifiedResolvers.create(
+            version,
+            adapterSliceId,
             capabilities,
             List.of(StaticSelector.method(
                 VerifiedTextureAtlasAutoLayoutHookInstaller.AUTO_LAYOUT_ALIAS,

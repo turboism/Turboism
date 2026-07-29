@@ -35,6 +35,10 @@ class TextureAtlasAutoLayoutTransformerTest {
             assertFalse((Boolean) type.getMethod("a", Object.class).invoke(instance, new Object()));
             System.getProperties().put(key, (BooleanSupplier) () -> true);
             assertTrue((Boolean) type.getMethod("a", Object.class).invoke(instance, new Object()));
+            System.getProperties().put(key, (BooleanSupplier) () -> {
+                throw new AssertionError("callback failure");
+            });
+            assertFalse((Boolean) type.getMethod("a", Object.class).invoke(instance, new Object()));
             assertFalse(java.util.Arrays.toString(transformed).contains("dev/turboism"));
         } finally {
             System.getProperties().remove(key);
