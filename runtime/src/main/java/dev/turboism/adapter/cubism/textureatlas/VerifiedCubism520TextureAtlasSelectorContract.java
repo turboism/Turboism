@@ -49,6 +49,10 @@ public final class VerifiedCubism520TextureAtlasSelectorContract {
         "cubism.texture-atlas.model-image-list.data-model"
     );
 
+    public static final Set<String> AUTO_LAYOUT_HOOK_ALIASES = Set.of(
+        "cubism.texture-atlas.auto-layout.invoke"
+    );
+
     private VerifiedCubism520TextureAtlasSelectorContract() {
     }
 }

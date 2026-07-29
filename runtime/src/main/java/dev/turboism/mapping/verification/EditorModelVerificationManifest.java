@@ -7,7 +7,7 @@ public final class EditorModelVerificationManifest {
 
     public static final String VERIFICATION_ID = "cubism-5.3.02.editor-model.static";
     public static final String RECORD_SHA256 =
-        "792f069149a5729ff8840ee418556279f0890c5318309667f4f08bcfcc03bbf1";
+        "b300caf8cad3008acbe35bbdc0f3f7160c81afe5a87efe74440b8cd49ad0b9cd";
     public static final String CUBISM_VERSION = "5.3.02";
     public static final String PROFILE_ID = "cubism-5.3.02";
     public static final long ARTIFACT_SIZE = 41_922_739L;
@@ -32,12 +32,16 @@ public final class EditorModelVerificationManifest {
         EditorObjectWriteSelectorContract.WARP_CAPABILITY_ID,
         EditorObjectWriteSelectorContract.ROTATION_CAPABILITY_ID,
         "cubism.texture-atlas.layout.write",
-        "cubism.texture-atlas.data-model-hook"
+        "cubism.texture-atlas.data-model-hook",
+        "cubism.texture-atlas.auto-layout-hook"
     );
     private static final Set<String> TEXTURE_ATLAS_ALIASES =
         union(
             dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.REQUIRED_ALIASES,
-            dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.HOOK_ALIASES
+            union(
+                dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.HOOK_ALIASES,
+                dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.AUTO_LAYOUT_HOOK_ALIASES
+            )
         );
     public static final Set<String> REQUIRED_ALIASES = union(Set.of(
         "cubism.editor-model.app-controller.class",
