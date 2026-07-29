@@ -8,6 +8,7 @@ import dev.turboism.adapter.cubism.service.query.ModelHierarchyQueryServiceImpl;
 import dev.turboism.adapter.cubism.service.query.ParameterQueryServiceImpl;
 import dev.turboism.adapter.cubism.service.query.SelectionQueryServiceImpl;
 import dev.turboism.adapter.cubism.service.read.CubismReadCapabilityServiceImpl;
+import dev.turboism.adapter.cubism.textureatlas.TextureAtlasLayoutCoordinator;
 import dev.turboism.permissions.CubismPermissionGate;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
 
@@ -21,6 +22,7 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
     private final CubismModelAccess modelAccess;
     private final ParameterLifecycleCoordinator parameterLifecycle;
     private final PartLifecycleCoordinator partLifecycle;
+    private final TextureAtlasLayoutCoordinator textureAtlasLayouts;
 
     DefaultCubismServicesFactory() {
         this(RuntimeHostAdapters.safeMode());
@@ -61,6 +63,22 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
         final ParameterLifecycleCoordinator parameterLifecycle,
         final PartLifecycleCoordinator partLifecycle
     ) {
+        this(
+            hostAdapters,
+            modelAccess,
+            parameterLifecycle,
+            partLifecycle,
+            new TextureAtlasLayoutCoordinator()
+        );
+    }
+
+    DefaultCubismServicesFactory(
+        final RuntimeHostAdapters hostAdapters,
+        final CubismModelAccess modelAccess,
+        final ParameterLifecycleCoordinator parameterLifecycle,
+        final PartLifecycleCoordinator partLifecycle,
+        final TextureAtlasLayoutCoordinator textureAtlasLayouts
+    ) {
         this.hostAdapters = java.util.Objects.requireNonNull(hostAdapters, "hostAdapters");
         this.modelAccess = java.util.Objects.requireNonNull(modelAccess, "modelAccess");
         this.parameterLifecycle = java.util.Objects.requireNonNull(
@@ -68,6 +86,10 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
             "parameterLifecycle"
         );
         this.partLifecycle = java.util.Objects.requireNonNull(partLifecycle, "partLifecycle");
+        this.textureAtlasLayouts = java.util.Objects.requireNonNull(
+            textureAtlasLayouts,
+            "textureAtlasLayouts"
+        );
     }
 
     @Override
@@ -83,7 +105,8 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
             permissionGate,
             modelAccess,
             parameterLifecycle,
-            partLifecycle
+            partLifecycle,
+            textureAtlasLayouts
         );
         return new CubismContextServices(
             facade,

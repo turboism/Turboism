@@ -4,7 +4,7 @@
   "id": "dev.turboism.plugin.texture-atlas",
   "name": "Texture Atlas Plugin",
   "version": "0.1.0",
-  "description": "SDK-only migration shell for the Texture Atlas legacy feature.",
+  "description": "Deterministic automatic texture-atlas layout through the Turboism SDK authoring boundary.",
   "entrypoints": [
     "dev.turboism.plugin.textureatlas.TextureAtlasPlugin"
   ],
@@ -20,10 +20,21 @@
     "locales": ["base", "en", "ja", "ko", "zh_Hans", "zh_Hant"]
   },
   "dependencies": [],
-  "permissions": [],
-  "capabilities": [],
+  "permissions": [
+    {
+      "id": "turboism.cubism.model.read",
+      "scope": "application",
+      "reason": "Read the complete active texture-atlas authoring snapshot."
+    },
+    {
+      "id": "turboism.cubism.model.write",
+      "scope": "application",
+      "reason": "Apply a validated complete texture-atlas layout plan through Editor authoring state."
+    }
+  ],
+  "capabilities": ["cubism.texture-atlas.layout"],
   "environment": {
-    "requiresCubism": false,
+    "requiresCubism": true,
     "ui": "none"
   }
 }
