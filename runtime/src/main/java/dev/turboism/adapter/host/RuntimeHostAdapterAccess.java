@@ -3,6 +3,7 @@ package dev.turboism.adapter.host;
 import dev.turboism.adapter.RuntimeHostAdapters;
 import dev.turboism.adapter.cubism.lifecycle.ParameterLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.PartLifecycleCoordinator;
+import dev.turboism.adapter.cubism.lifecycle.EditorObjectLifecycleCoordinator;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.ui.action.RuntimeEditorUiActionRouter;
 import dev.turboism.ui.appearance.AppearanceCoordinator;
@@ -21,6 +22,8 @@ public sealed interface RuntimeHostAdapterAccess permits HostSession, SessionRun
     ParameterLifecycleCoordinator parameterLifecycle();
 
     PartLifecycleCoordinator partLifecycle();
+
+    EditorObjectLifecycleCoordinator editorObjectLifecycle();
 
     EditorUiHostLifecycle editorUiLifecycle();
 
@@ -42,6 +45,7 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     private final CubismModelAccess modelAccess;
     private final ParameterLifecycleCoordinator parameterLifecycle;
     private final PartLifecycleCoordinator partLifecycle;
+    private final EditorObjectLifecycleCoordinator editorObjectLifecycle;
     private final EditorUiHostLifecycle editorUiLifecycle;
     private final EditorUiContributionAuthority editorUiContributions;
     private final RuntimeEmbeddedPanelActivationCoordinator embeddedPanelActivation;
@@ -54,6 +58,7 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
         final CubismModelAccess modelAccess,
         final ParameterLifecycleCoordinator parameterLifecycle,
         final PartLifecycleCoordinator partLifecycle,
+        final EditorObjectLifecycleCoordinator editorObjectLifecycle,
         final EditorUiHostLifecycle editorUiLifecycle,
         final EditorUiContributionAuthority editorUiContributions,
         final RuntimeEmbeddedPanelActivationCoordinator embeddedPanelActivation,
@@ -68,6 +73,10 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
             "parameterLifecycle"
         );
         this.partLifecycle = java.util.Objects.requireNonNull(partLifecycle, "partLifecycle");
+        this.editorObjectLifecycle = java.util.Objects.requireNonNull(
+            editorObjectLifecycle,
+            "editorObjectLifecycle"
+        );
         this.editorUiLifecycle = java.util.Objects.requireNonNull(
             editorUiLifecycle,
             "editorUiLifecycle"
@@ -112,6 +121,11 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     @Override
     public PartLifecycleCoordinator partLifecycle() {
         return partLifecycle;
+    }
+
+    @Override
+    public EditorObjectLifecycleCoordinator editorObjectLifecycle() {
+        return editorObjectLifecycle;
     }
 
     @Override

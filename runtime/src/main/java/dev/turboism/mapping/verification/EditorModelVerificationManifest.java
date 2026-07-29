@@ -7,7 +7,7 @@ public final class EditorModelVerificationManifest {
 
     public static final String VERIFICATION_ID = "cubism-5.3.02.editor-model.static";
     public static final String RECORD_SHA256 =
-        "a7d4c1d3229c23c6b10afe2f04e1e5201fb196196cb8605283615a2307c34543";
+        "202cf9dfd8e6fb4ca5e66b07730bc1447d7ecb0b7b0673f7634644fca3c9fbff";
     public static final String CUBISM_VERSION = "5.3.02";
     public static final String PROFILE_ID = "cubism-5.3.02";
     public static final long ARTIFACT_SIZE = 41_922_739L;
@@ -26,7 +26,11 @@ public final class EditorModelVerificationManifest {
         EditorDefaultKeyformLockWriteSelectorContract.CAPABILITY_ID,
         EditorPartOpacitySelectorContract.CAPABILITY_ID,
         EditorPartNameSelectorContract.CAPABILITY_ID,
-        EditorPartNameSelectorContract.WRITE_CAPABILITY_ID
+        EditorPartNameSelectorContract.WRITE_CAPABILITY_ID,
+        EditorObjectReadSelectorContract.CAPABILITY_ID,
+        EditorObjectWriteSelectorContract.ART_MESH_CAPABILITY_ID,
+        EditorObjectWriteSelectorContract.WARP_CAPABILITY_ID,
+        EditorObjectWriteSelectorContract.ROTATION_CAPABILITY_ID
     );
     public static final Set<String> REQUIRED_ALIASES = Set.of(
         "cubism.editor-model.app-controller.class",
@@ -157,7 +161,71 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.part-form.set-opacity",
         "cubism.editor-model.part-id.class",
         "cubism.editor-model.part-id.value",
-        "cubism.editor-model.complete-pack.update-part-palette"
+        "cubism.editor-model.complete-pack.update-part-palette",
+        "cubism.editor-model.model-source.all-art-meshes",
+        "cubism.editor-model.model.all-art-meshes",
+        "cubism.editor-model.art-mesh-source.class",
+        "cubism.editor-model.art-mesh.class",
+        "cubism.editor-model.parameter-controllable-source.id",
+        "cubism.editor-model.parameter-controllable-source.local-name",
+        "cubism.editor-model.parameter-controllable-source.visible",
+        "cubism.editor-model.parameter-controllable-source.locked",
+        "cubism.editor-model.parameter-controllable-source.visible-in-hierarchy",
+        "cubism.editor-model.parameter-controllable-source.locked-in-hierarchy",
+        "cubism.editor-model.art-mesh.source",
+        "cubism.editor-model.art-mesh.current-keyform",
+        "cubism.editor-model.drawable-form.opacity",
+        "cubism.editor-model.drawable-form.draw-order",
+        "cubism.editor-model.art-mesh-form.positions",
+        "cubism.editor-model.art-mesh-source.positions",
+        "cubism.editor-model.art-mesh-source.uvs",
+        "cubism.editor-model.art-mesh-source.indices",
+        "cubism.editor-model.art-mesh-source.culling",
+        "cubism.editor-model.art-mesh-source.user-data",
+        "cubism.editor-model.art-mesh-source.inverted-mask",
+        "cubism.editor-model.model-source.all-deformers",
+        "cubism.editor-model.model.all-deformers",
+        "cubism.editor-model.warp-source.class",
+        "cubism.editor-model.warp.class",
+        "cubism.editor-model.rotation-source.class",
+        "cubism.editor-model.rotation.class",
+        "cubism.editor-model.deformer.source",
+        "cubism.editor-model.deformer.current-keyform",
+        "cubism.editor-model.deformer-form.opacity",
+        "cubism.editor-model.warp-source.row",
+        "cubism.editor-model.warp-source.col",
+        "cubism.editor-model.warp-source.quad-transform",
+        "cubism.editor-model.warp-form.positions",
+        "cubism.editor-model.rotation-source.base-angle",
+        "cubism.editor-model.rotation-form.angle",
+        "cubism.editor-model.rotation-form.origin-x",
+        "cubism.editor-model.rotation-form.origin-y",
+        "cubism.editor-model.rotation-form.scale",
+        "cubism.editor-model.rotation-form.reflect-x",
+        "cubism.editor-model.rotation-form.reflect-y",
+        "cubism.editor-model.parameter-controllable-source.handler",
+        "cubism.editor-model.parameter-controllable-handler.class",
+        "cubism.editor-model.parameter-controllable-handler.create-undo-for-all-edit",
+        "cubism.editor-model.parameter-controllable-source.set-visible",
+        "cubism.editor-model.parameter-controllable-source.set-locked",
+        "cubism.editor-model.drawable-form.set-opacity",
+        "cubism.editor-model.art-mesh-form.set-positions",
+        "cubism.editor-model.art-mesh-source.set-positions",
+        "cubism.editor-model.art-mesh-source.set-uvs",
+        "cubism.editor-model.art-mesh-source.set-indices",
+        "cubism.editor-model.deformer-form.set-opacity",
+        "cubism.editor-model.warp-source.set-row",
+        "cubism.editor-model.warp-source.set-col",
+        "cubism.editor-model.warp-source.set-quad-transform",
+        "cubism.editor-model.warp-form.set-positions",
+        "cubism.editor-model.rotation-source.set-base-angle",
+        "cubism.editor-model.rotation-form.set-angle",
+        "cubism.editor-model.rotation-form.set-origin-x",
+        "cubism.editor-model.rotation-form.set-origin-y",
+        "cubism.editor-model.rotation-form.set-scale",
+        "cubism.editor-model.rotation-form.set-reflect-x",
+        "cubism.editor-model.rotation-form.set-reflect-y",
+        "cubism.editor-model.complete-pack.update-deformer-palette"
     );
     private static final Set<String> PART_OPACITY_ADDITIVE_ALIASES = Set.of(
         "cubism.editor-model.model-source.parts",
