@@ -3,6 +3,7 @@ package dev.turboism.adapter.cubism;
 import dev.turboism.adapter.cubism.service.read.CubismReadPermissionGate;
 import dev.turboism.adapter.cubism.lifecycle.ParameterLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.PartLifecycleCoordinator;
+import dev.turboism.adapter.cubism.lifecycle.EditorObjectLifecycleCoordinator;
 import dev.turboism.adapter.cubism.write.HostWriteAdapter;
 import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
@@ -35,6 +36,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Consumer;
+import java.util.function.BooleanSupplier;
 
 public final class CubismFacadeImpl implements CubismFacade {
 
@@ -58,6 +60,8 @@ public final class CubismFacadeImpl implements CubismFacade {
     private final ParameterLifecycleCoordinator parameterLifecycle;
     private final PartLifecycleCoordinator partLifecycle;
     private final TextureAtlasLayoutService textureAtlasLayouts;
+    private final EditorObjectLifecycleCoordinator editorObjectLifecycle;
+    private final BooleanSupplier activeScope;
 
     public CubismFacadeImpl(final HostSnapshotSource source, final CubismPermissionGate permissionGate) {
         this(
@@ -67,7 +71,9 @@ public final class CubismFacadeImpl implements CubismFacade {
             unavailableTransactionManager(),
             unavailableModelAccess(),
             new ParameterLifecycleCoordinator(),
-            new PartLifecycleCoordinator()
+            new PartLifecycleCoordinator(),
+            new EditorObjectLifecycleCoordinator(),
+            () -> true
         );
     }
 
@@ -83,7 +89,9 @@ public final class CubismFacadeImpl implements CubismFacade {
             unavailableTransactionManager(),
             modelAccess,
             new ParameterLifecycleCoordinator(),
-            new PartLifecycleCoordinator()
+            new PartLifecycleCoordinator(),
+            new EditorObjectLifecycleCoordinator(),
+            () -> true
         );
     }
 
@@ -100,7 +108,9 @@ public final class CubismFacadeImpl implements CubismFacade {
             unavailableTransactionManager(),
             modelAccess,
             parameterLifecycle,
-            new PartLifecycleCoordinator()
+            new PartLifecycleCoordinator(),
+            new EditorObjectLifecycleCoordinator(),
+            () -> true
         );
     }
 
@@ -118,6 +128,8 @@ public final class CubismFacadeImpl implements CubismFacade {
             parameterLifecycle,
             partLifecycle,
             new TextureAtlasLayoutCoordinator()
+            new EditorObjectLifecycleCoordinator(),
+            () -> true
         );
     }
 
@@ -128,6 +140,27 @@ public final class CubismFacadeImpl implements CubismFacade {
         final ParameterLifecycleCoordinator parameterLifecycle,
         final PartLifecycleCoordinator partLifecycle,
         final TextureAtlasLayoutCoordinator textureAtlasLayouts
+        final BooleanSupplier activeScope
+    ) {
+        this(
+            source,
+            permissionGate,
+            modelAccess,
+            parameterLifecycle,
+            partLifecycle,
+            new EditorObjectLifecycleCoordinator(),
+            activeScope
+        );
+    }
+
+    public CubismFacadeImpl(
+        final HostSnapshotSource source,
+        final CubismPermissionGate permissionGate,
+        final CubismModelAccess modelAccess,
+        final ParameterLifecycleCoordinator parameterLifecycle,
+        final PartLifecycleCoordinator partLifecycle,
+        final EditorObjectLifecycleCoordinator editorObjectLifecycle,
+        final BooleanSupplier activeScope
     ) {
         this(
             source,
@@ -138,6 +171,8 @@ public final class CubismFacadeImpl implements CubismFacade {
             parameterLifecycle,
             partLifecycle,
             new RuntimeTextureAtlasLayoutService(textureAtlasLayouts, permissionGate)
+            editorObjectLifecycle,
+            activeScope
         );
     }
 
@@ -175,7 +210,9 @@ public final class CubismFacadeImpl implements CubismFacade {
             transactionManager,
             unavailableModelAccess(),
             new ParameterLifecycleCoordinator(),
-            new PartLifecycleCoordinator()
+            new PartLifecycleCoordinator(),
+            new EditorObjectLifecycleCoordinator(),
+            () -> true
         );
     }
 
@@ -193,7 +230,9 @@ public final class CubismFacadeImpl implements CubismFacade {
             transactionManager,
             modelAccess,
             new ParameterLifecycleCoordinator(),
-            new PartLifecycleCoordinator()
+            new PartLifecycleCoordinator(),
+            new EditorObjectLifecycleCoordinator(),
+            () -> true
         );
     }
 
@@ -212,7 +251,9 @@ public final class CubismFacadeImpl implements CubismFacade {
             transactionManager,
             modelAccess,
             parameterLifecycle,
-            new PartLifecycleCoordinator()
+            new PartLifecycleCoordinator(),
+            new EditorObjectLifecycleCoordinator(),
+            () -> true
         );
     }
 
@@ -234,6 +275,8 @@ public final class CubismFacadeImpl implements CubismFacade {
             parameterLifecycle,
             partLifecycle,
             new RuntimeTextureAtlasLayoutService(new TextureAtlasLayoutCoordinator(), permissionGate)
+            new EditorObjectLifecycleCoordinator(),
+            () -> true
         );
     }
 
@@ -246,6 +289,31 @@ public final class CubismFacadeImpl implements CubismFacade {
         final ParameterLifecycleCoordinator parameterLifecycle,
         final PartLifecycleCoordinator partLifecycle,
         final TextureAtlasLayoutService textureAtlasLayouts
+        final BooleanSupplier activeScope
+    ) {
+        this(
+            source,
+            permissionGate,
+            snapshotFactory,
+            transactionManager,
+            modelAccess,
+            parameterLifecycle,
+            partLifecycle,
+            new EditorObjectLifecycleCoordinator(),
+            activeScope
+        );
+    }
+
+    CubismFacadeImpl(
+        final HostSnapshotSource source,
+        final CubismPermissionGate permissionGate,
+        final ImmutableSnapshotFactory snapshotFactory,
+        final TransactionManager transactionManager,
+        final CubismModelAccess modelAccess,
+        final ParameterLifecycleCoordinator parameterLifecycle,
+        final PartLifecycleCoordinator partLifecycle,
+        final EditorObjectLifecycleCoordinator editorObjectLifecycle,
+        final BooleanSupplier activeScope
     ) {
         this.source = Objects.requireNonNull(source, "source");
         this.permissionGate = Objects.requireNonNull(permissionGate, "permissionGate");
@@ -254,6 +322,8 @@ public final class CubismFacadeImpl implements CubismFacade {
         this.parameterLifecycle = Objects.requireNonNull(parameterLifecycle, "parameterLifecycle");
         this.partLifecycle = Objects.requireNonNull(partLifecycle, "partLifecycle");
         this.textureAtlasLayouts = Objects.requireNonNull(textureAtlasLayouts, "textureAtlasLayouts");
+        this.editorObjectLifecycle = Objects.requireNonNull(editorObjectLifecycle, "editorObjectLifecycle");
+        this.activeScope = Objects.requireNonNull(activeScope, "activeScope");
         this.modelAccess = permissionCheckedModelAccess(
             Objects.requireNonNull(modelAccess, "modelAccess")
         );
@@ -261,10 +331,12 @@ public final class CubismFacadeImpl implements CubismFacade {
 
     @Override
     public CubismRuntimeSnapshot runtime() {
+        requireActiveScope();
         return runtimeSnapshot();
     }
 
     public SnapshotWithVersion runtimeWithVersion() {
+        requireActiveScope();
         final CubismRuntimeSnapshot snapshot = runtimeSnapshot();
         return new SnapshotWithVersion(snapshot, source.invalidationToken());
     }
@@ -287,35 +359,41 @@ public final class CubismFacadeImpl implements CubismFacade {
 
     @Override
     public Optional<ProjectSnapshot> activeProject() {
+        requireActiveScope();
         permissionGate.require(PROJECT_READ_PERMISSION, "activeProject");
         return source.activeProject().map(snapshotFactory::project);
     }
 
     @Override
     public Optional<DocumentSnapshot> activeDocument() {
+        requireActiveScope();
         permissionGate.require(MODEL_READ_PERMISSION, "activeDocument");
         return source.activeDocument().map(snapshotFactory::document);
     }
 
     @Override
     public Optional<ModelSnapshot> activeModel() {
+        requireActiveScope();
         permissionGate.require(MODEL_READ_PERMISSION, "activeModel");
         return source.activeModel().map(snapshotFactory::model);
     }
 
     @Override
     public boolean isHostPresent() {
+        requireActiveScope();
         return source.isHostPresent();
     }
 
     @Override
     public CubismModelAccess model() {
+        requireActiveScope();
         permissionGate.require(MODEL_READ_PERMISSION, "model");
         return modelAccess;
     }
 
     @Override
     public TransactionManager transactionManager() {
+        requireActiveScope();
         return transactionManager;
     }
 
@@ -452,10 +530,242 @@ public final class CubismFacadeImpl implements CubismFacade {
                 }
             };
         }
-        @Override public dev.turboism.sdk.cubism.model.Drawables drawables() { return delegate.drawables(); }
-        @Override public dev.turboism.sdk.cubism.model.Deformers deformers() { return delegate.deformers(); }
+        @Override public dev.turboism.sdk.cubism.model.Drawables drawables() {
+            final dev.turboism.sdk.cubism.model.Drawables values = delegate.drawables();
+            return new dev.turboism.sdk.cubism.model.Drawables() {
+                @Override public List<dev.turboism.sdk.cubism.model.Drawable> all() {
+                    return values.all().stream()
+                        .map(value -> (dev.turboism.sdk.cubism.model.Drawable)
+                            new PermissionCheckedDrawable(value))
+                        .toList();
+                }
+                @Override public dev.turboism.sdk.cubism.model.Drawable find(
+                    final dev.turboism.sdk.cubism.id.ArtMeshId id
+                ) {
+                    return new PermissionCheckedDrawable(values.find(id));
+                }
+            };
+        }
+        @Override public dev.turboism.sdk.cubism.model.Deformers deformers() {
+            final dev.turboism.sdk.cubism.model.Deformers values = delegate.deformers();
+            return new dev.turboism.sdk.cubism.model.Deformers() {
+                @Override public List<dev.turboism.sdk.cubism.model.Deformer> all() {
+                    return values.all().stream()
+                        .map(PermissionCheckedModel.this::wrapDeformer)
+                        .toList();
+                }
+                @Override public dev.turboism.sdk.cubism.model.Deformer find(
+                    final dev.turboism.sdk.cubism.id.DeformerId id
+                ) {
+                    return wrapDeformer(values.find(id));
+                }
+            };
+        }
+        private dev.turboism.sdk.cubism.model.Deformer wrapDeformer(
+            final dev.turboism.sdk.cubism.model.Deformer value
+        ) {
+            if (value instanceof dev.turboism.sdk.cubism.model.WarpDeformer warp) {
+                return new PermissionCheckedWarpDeformer(warp);
+            }
+            if (value instanceof dev.turboism.sdk.cubism.model.RotationDeformer rotation) {
+                return new PermissionCheckedRotationDeformer(rotation);
+            }
+            return new PermissionCheckedDeformer(value);
+        }
+        @Override public dev.turboism.sdk.cubism.model.WarpDeformers warpDeformers() {
+            final dev.turboism.sdk.cubism.model.WarpDeformers values = delegate.warpDeformers();
+            return new dev.turboism.sdk.cubism.model.WarpDeformers() {
+                @Override public List<dev.turboism.sdk.cubism.model.WarpDeformer> all() {
+                    return values.all().stream()
+                        .map(value -> (dev.turboism.sdk.cubism.model.WarpDeformer)
+                            new PermissionCheckedWarpDeformer(value))
+                        .toList();
+                }
+                @Override public dev.turboism.sdk.cubism.model.WarpDeformer find(
+                    final dev.turboism.sdk.cubism.id.DeformerId id
+                ) {
+                    return new PermissionCheckedWarpDeformer(values.find(id));
+                }
+            };
+        }
+        @Override public dev.turboism.sdk.cubism.model.RotationDeformers rotationDeformers() {
+            final dev.turboism.sdk.cubism.model.RotationDeformers values =
+                delegate.rotationDeformers();
+            return new dev.turboism.sdk.cubism.model.RotationDeformers() {
+                @Override public List<dev.turboism.sdk.cubism.model.RotationDeformer> all() {
+                    return values.all().stream()
+                        .map(value -> (dev.turboism.sdk.cubism.model.RotationDeformer)
+                            new PermissionCheckedRotationDeformer(value))
+                        .toList();
+                }
+                @Override public dev.turboism.sdk.cubism.model.RotationDeformer find(
+                    final dev.turboism.sdk.cubism.id.DeformerId id
+                ) {
+                    return new PermissionCheckedRotationDeformer(values.find(id));
+                }
+            };
+        }
         @Override public dev.turboism.sdk.cubism.model.Glues glues() { return delegate.glues(); }
         @Override public void update() { delegate.update(); }
+    }
+
+    private final class PermissionCheckedDrawable
+        implements dev.turboism.sdk.cubism.model.Drawable {
+        private final dev.turboism.sdk.cubism.model.Drawable delegate;
+        private PermissionCheckedDrawable(final dev.turboism.sdk.cubism.model.Drawable delegate) {
+            this.delegate = Objects.requireNonNull(delegate, "delegate");
+        }
+        @Override public dev.turboism.sdk.cubism.id.ArtMeshId id() { return delegate.id(); }
+        @Override public String name() { return delegate.name(); }
+        @Override public boolean visible() { return delegate.visible(); }
+        @Override public void setVisible(final boolean visible) {
+            requireModelWrite("artMesh.setVisible");
+            editorObjectLifecycle.drawable().setVisible(this, visible, delegate::setVisible);
+        }
+        @Override public boolean locked() { return delegate.locked(); }
+        @Override public void setLocked(final boolean locked) {
+            requireModelWrite("artMesh.setLocked");
+            editorObjectLifecycle.drawable().setLocked(this, locked, delegate::setLocked);
+        }
+        @Override public boolean visibleInHierarchy() { return delegate.visibleInHierarchy(); }
+        @Override public boolean lockedInHierarchy() { return delegate.lockedInHierarchy(); }
+        @Override public byte constantFlag() { return delegate.constantFlag(); }
+        @Override public byte dynamicFlag() { return delegate.dynamicFlag(); }
+        @Override public dev.turboism.sdk.cubism.model.BlendMode blendMode() {
+            return delegate.blendMode();
+        }
+        @Override public int textureIndex() { return delegate.textureIndex(); }
+        @Override public int drawOrder() { return delegate.drawOrder(); }
+        @Override public int renderOrder() { return delegate.renderOrder(); }
+        @Override public float getOpacity() { return delegate.getOpacity(); }
+        @Override public void setOpacity(final float opacity) {
+            requireModelWrite("artMesh.setOpacity");
+            editorObjectLifecycle.drawable().setOpacity(this, opacity, delegate::setOpacity);
+        }
+        @Override public dev.turboism.sdk.cubism.model.ArtMeshGeometry geometry() {
+            return delegate.geometry();
+        }
+        @Override public void replaceGeometry(
+            final dev.turboism.sdk.cubism.model.ArtMeshGeometry geometry
+        ) {
+            requireModelWrite("artMesh.replaceGeometry");
+            editorObjectLifecycle.drawable().replaceGeometry(this, geometry, delegate::replaceGeometry);
+        }
+        @Override public dev.turboism.sdk.cubism.model.IntSequence masks() {
+            return delegate.masks();
+        }
+        @Override public boolean invertedMask() { return delegate.invertedMask(); }
+        @Override public boolean culling() { return delegate.culling(); }
+        @Override public String userData() { return delegate.userData(); }
+        @Override public dev.turboism.sdk.cubism.model.FloatSequence vertexPositions() {
+            return delegate.vertexPositions();
+        }
+        @Override public dev.turboism.sdk.cubism.model.FloatSequence vertexUvs() {
+            return delegate.vertexUvs();
+        }
+        @Override public dev.turboism.sdk.cubism.model.IntSequence indices() {
+            return delegate.indices();
+        }
+        @Override public dev.turboism.sdk.cubism.model.Color multiplyColor() {
+            return delegate.multiplyColor();
+        }
+        @Override public dev.turboism.sdk.cubism.model.Color screenColor() {
+            return delegate.screenColor();
+        }
+        @Override public int parentPartIndex() { return delegate.parentPartIndex(); }
+        @Override public int parentDeformerIndex() { return delegate.parentDeformerIndex(); }
+        @Override public dev.turboism.sdk.cubism.model.IntSequence parameters() {
+            return delegate.parameters();
+        }
+    }
+
+    private class PermissionCheckedDeformer implements dev.turboism.sdk.cubism.model.Deformer {
+        protected final dev.turboism.sdk.cubism.model.Deformer delegate;
+        private PermissionCheckedDeformer(final dev.turboism.sdk.cubism.model.Deformer delegate) {
+            this.delegate = Objects.requireNonNull(delegate, "delegate");
+        }
+        @Override public dev.turboism.sdk.cubism.id.DeformerId id() { return delegate.id(); }
+        @Override public String name() { return delegate.name(); }
+        @Override public boolean visible() { return delegate.visible(); }
+        @Override public void setVisible(final boolean visible) {
+            requireModelWrite("deformer.setVisible");
+            editorObjectLifecycle.deformer().setVisible(this, visible, delegate::setVisible);
+        }
+        @Override public boolean locked() { return delegate.locked(); }
+        @Override public void setLocked(final boolean locked) {
+            requireModelWrite("deformer.setLocked");
+            editorObjectLifecycle.deformer().setLocked(this, locked, delegate::setLocked);
+        }
+        @Override public boolean visibleInHierarchy() { return delegate.visibleInHierarchy(); }
+        @Override public boolean lockedInHierarchy() { return delegate.lockedInHierarchy(); }
+        @Override public float getOpacity() { return delegate.getOpacity(); }
+        @Override public void setOpacity(final float opacity) {
+            requireModelWrite("deformer.setOpacity");
+            editorObjectLifecycle.deformer().setOpacity(this, opacity, delegate::setOpacity);
+        }
+        @Override public dev.turboism.sdk.cubism.model.Color multiplyColor() {
+            return delegate.multiplyColor();
+        }
+        @Override public dev.turboism.sdk.cubism.model.Color screenColor() {
+            return delegate.screenColor();
+        }
+        @Override public int parentPartIndex() { return delegate.parentPartIndex(); }
+        @Override public int parentDeformerIndex() { return delegate.parentDeformerIndex(); }
+        @Override public dev.turboism.sdk.cubism.model.IntSequence parameters() {
+            return delegate.parameters();
+        }
+    }
+
+    private final class PermissionCheckedWarpDeformer extends PermissionCheckedDeformer
+        implements dev.turboism.sdk.cubism.model.WarpDeformer {
+        private final dev.turboism.sdk.cubism.model.WarpDeformer warp;
+        private PermissionCheckedWarpDeformer(
+            final dev.turboism.sdk.cubism.model.WarpDeformer delegate
+        ) {
+            super(delegate);
+            this.warp = delegate;
+        }
+        @Override public dev.turboism.sdk.cubism.model.WarpGrid grid() { return warp.grid(); }
+        @Override public void replaceGrid(final dev.turboism.sdk.cubism.model.WarpGrid grid) {
+            requireModelWrite("warpDeformer.replaceGrid");
+            editorObjectLifecycle.deformer().replaceGrid(this, grid, warp::replaceGrid);
+        }
+    }
+
+    private final class PermissionCheckedRotationDeformer extends PermissionCheckedDeformer
+        implements dev.turboism.sdk.cubism.model.RotationDeformer {
+        private final dev.turboism.sdk.cubism.model.RotationDeformer rotation;
+        private PermissionCheckedRotationDeformer(
+            final dev.turboism.sdk.cubism.model.RotationDeformer delegate
+        ) {
+            super(delegate);
+            this.rotation = delegate;
+        }
+        @Override public float baseAngle() { return rotation.baseAngle(); }
+        @Override public void setBaseAngle(final float angle) {
+            requireModelWrite("rotationDeformer.setBaseAngle");
+            editorObjectLifecycle.deformer().setBaseAngle(this, angle, rotation::setBaseAngle);
+        }
+        @Override public dev.turboism.sdk.cubism.model.RotationDeformerForm form() {
+            return rotation.form();
+        }
+        @Override public void replaceForm(
+            final dev.turboism.sdk.cubism.model.RotationDeformerForm form
+        ) {
+            requireModelWrite("rotationDeformer.replaceForm");
+            editorObjectLifecycle.deformer().replaceForm(this, form, rotation::replaceForm);
+        }
+    }
+
+    private void requireModelWrite(final String operation) {
+        requireActiveScope();
+        permissionGate.require(MODEL_WRITE_PERMISSION, operation);
+    }
+
+    private void requireActiveScope() {
+        if (!activeScope.getAsBoolean()) {
+            throw new IllegalStateException("Cubism service reference is stale because the owning plugin is disabled.");
+        }
     }
 
     private final class PermissionCheckedParameterGroup implements ParameterGroup {

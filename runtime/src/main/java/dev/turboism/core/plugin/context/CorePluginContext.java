@@ -171,6 +171,7 @@ public final class CorePluginContext implements PluginContext {
             hostAccess.parameterLifecycle(),
             hostAccess.partLifecycle(),
             hostAccess.textureAtlasLayouts()
+            hostAccess.editorObjectLifecycle()
         );
     }
 
@@ -671,7 +672,7 @@ public final class CorePluginContext implements PluginContext {
                 new RuntimePluginConfigRegistry(
                     checker,
                     runtimeScheduler,
-                    paths.dataDir(),
+                    paths.configDir(),
                     descriptor.id(),
                     diagnosticSink,
                     failureSink

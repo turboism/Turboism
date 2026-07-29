@@ -30,8 +30,7 @@ class RuntimeStartupConfigTest {
 
     @Test
     void loadsExplicitStartupControlsFromTheCanonicalGlobalConfig() throws Exception {
-        final Path configDirectory = Files.createDirectories(temporaryHome.resolve("config"));
-        Files.writeString(configDirectory.resolve("runtime.json"), """
+        Files.writeString(temporaryHome.resolve("config.json"), """
             {
               "format": "turboism.runtime.config",
               "schemaVersion": 1,
@@ -53,6 +52,29 @@ class RuntimeStartupConfigTest {
         assertTrue(config.skipStartupUpdateCheck());
         assertTrue(config.skipStartupSplash());
         assertTrue(config.skipStartupInformation());
+    }
+
+    @Test
+    void canonicalGlobalConfigWinsOverLegacyRuntimeConfig() throws Exception {
+        final Path legacyDirectory = Files.createDirectories(temporaryHome.resolve("config"));
+        Files.writeString(legacyDirectory.resolve("runtime.json"), configJson(false));
+        Files.writeString(temporaryHome.resolve("config.json"), configJson(true));
+
+        final RuntimeStartupConfig config = RuntimeStartupConfig.load(temporaryHome);
+
+        assertTrue(config.safeMode());
+    }
+
+    private static String configJson(final boolean safeMode) {
+        return """
+            {
+              "format": "turboism.runtime.config",
+              "schemaVersion": 1,
+              "worktreeId": "startup-test",
+              "safeMode": %s,
+              "hooks": { "startup": {} }
+            }
+            """.formatted(safeMode);
     }
 
 
