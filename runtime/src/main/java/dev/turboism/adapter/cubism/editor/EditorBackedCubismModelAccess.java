@@ -16,6 +16,8 @@ import dev.turboism.sdk.cubism.model.ParameterGroups;
 import dev.turboism.sdk.cubism.model.ParameterType;
 import dev.turboism.sdk.cubism.model.Parameters;
 import dev.turboism.sdk.cubism.model.Parts;
+import dev.turboism.sdk.cubism.model.RotationDeformers;
+import dev.turboism.sdk.cubism.model.WarpDeformers;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -32,6 +34,7 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess {
     private final EditorParameterGroupsAccess parameterGroupsAccess;
     private final EditorDefaultKeyformLockAccess defaultKeyformLockAccess;
     private final EditorPartOpacityAccess partOpacityAccess;
+    private final EditorObjectReadAccess objectReadAccess;
 
     public EditorBackedCubismModelAccess(
         final VerifiedMemberResolver resolver,
@@ -53,6 +56,10 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess {
             this::requireCurrent
         );
         this.partOpacityAccess = new EditorPartOpacityAccess(
+            resolver,
+            this::requireCurrent
+        );
+        this.objectReadAccess = new EditorObjectReadAccess(
             resolver,
             this::requireCurrent
         );
@@ -530,8 +537,22 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess {
             current();
             return partOpacityAccess.parts(identity, source, model);
         }
-        @Override public Drawables drawables() { throw new UnsupportedOperationException("Editor Drawable projection is not installed."); }
-        @Override public Deformers deformers() { throw new UnsupportedOperationException("Editor Deformer projection is not installed."); }
+        @Override public Drawables drawables() {
+            current();
+            return objectReadAccess.drawables(identity, source, model);
+        }
+        @Override public Deformers deformers() {
+            current();
+            return objectReadAccess.deformers(identity, source, model);
+        }
+        @Override public WarpDeformers warpDeformers() {
+            current();
+            return objectReadAccess.warpDeformers(identity, source, model);
+        }
+        @Override public RotationDeformers rotationDeformers() {
+            current();
+            return objectReadAccess.rotationDeformers(identity, source, model);
+        }
         @Override public Glues glues() { throw new UnsupportedOperationException("Editor Glue projection is not installed."); }
         @Override public void update() { throw new UnsupportedOperationException("Editor model update is not installed."); }
     }

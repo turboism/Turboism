@@ -39,6 +39,14 @@ public interface CubismModel {
 
     Deformers deformers();
 
+    default WarpDeformers warpDeformers() {
+        throw new UnsupportedOperationException("Cubism Warp Deformer access is unavailable.");
+    }
+
+    default RotationDeformers rotationDeformers() {
+        throw new UnsupportedOperationException("Cubism Rotation Deformer access is unavailable.");
+    }
+
     Glues glues();
 
     void update();
