@@ -1,6 +1,6 @@
 package dev.turboism.plugin.textureatlas;
 
-import dev.turboism.plugin.textureatlas.layout.MaxRectsBssfTextureAtlasPlanner;
+import dev.turboism.plugin.textureatlas.layout.PartBucketTextureAtlasPlanner;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutApplyStatus;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutConstraints;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutItem;
@@ -23,7 +23,7 @@ class TextureAtlasAutoLayoutServiceTest {
         final RecordingLayoutService layouts = new RecordingLayoutService();
         final TextureAtlasAutoLayoutService service = new TextureAtlasAutoLayoutService(
             layouts,
-            new MaxRectsBssfTextureAtlasPlanner()
+            new PartBucketTextureAtlasPlanner()
         );
 
         final var result = service.applyAutomaticLayout();
@@ -38,7 +38,7 @@ class TextureAtlasAutoLayoutServiceTest {
         final RecordingLayoutService layouts = new RecordingLayoutService();
         layouts.current = Optional.empty();
         final var result = new TextureAtlasAutoLayoutService(
-            layouts, new MaxRectsBssfTextureAtlasPlanner()
+            layouts, new PartBucketTextureAtlasPlanner()
         ).applyAutomaticLayout();
 
         assertEquals(
@@ -55,7 +55,7 @@ class TextureAtlasAutoLayoutServiceTest {
             List.of(new TextureAtlasLayoutItem("too-large", 11, 1))
         ));
         final var planFailure = new TextureAtlasAutoLayoutService(
-            impossible, new MaxRectsBssfTextureAtlasPlanner()
+            impossible, new PartBucketTextureAtlasPlanner()
         ).applyAutomaticLayout();
         assertEquals(
             Optional.of(dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutFailureCode.PLAN_INVALID),
@@ -68,7 +68,7 @@ class TextureAtlasAutoLayoutServiceTest {
             "stale"
         );
         final var applyFailure = new TextureAtlasAutoLayoutService(
-            rejected, new MaxRectsBssfTextureAtlasPlanner()
+            rejected, new PartBucketTextureAtlasPlanner()
         ).applyAutomaticLayout();
         assertEquals(
             Optional.of(dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutFailureCode.TARGET_STALE),
@@ -79,7 +79,7 @@ class TextureAtlasAutoLayoutServiceTest {
     private static final class RecordingLayoutService implements TextureAtlasLayoutService {
         private final TextureAtlasLayoutTarget target = new TextureAtlasLayoutTarget() { };
         private final TextureAtlasLayoutConstraints constraints =
-            new TextureAtlasLayoutConstraints(10, 10, 0, 0, 1, false, false);
+            new TextureAtlasLayoutConstraints(10, 10, 0, 0, 2, false, false);
         private final List<TextureAtlasLayoutItem> items = List.of(
             new TextureAtlasLayoutItem("texture-b", 4, 4),
             new TextureAtlasLayoutItem("texture-a", 4, 4),
@@ -88,11 +88,11 @@ class TextureAtlasAutoLayoutServiceTest {
         private final TextureAtlasLayoutPlan expectedPlan = new TextureAtlasLayoutPlan(
             10,
             10,
-            1,
+            2,
             List.of(
                 new TextureAtlasPlacement("texture-a", 0, 0, 0, 4, 4, false),
                 new TextureAtlasPlacement("texture-b", 0, 4, 0, 4, 4, false),
-                new TextureAtlasPlacement("texture-c", 0, 8, 0, 2, 2, false)
+                new TextureAtlasPlacement("texture-c", 1, 0, 0, 2, 2, false)
             )
         );
         private TextureAtlasLayoutTarget appliedTarget;
