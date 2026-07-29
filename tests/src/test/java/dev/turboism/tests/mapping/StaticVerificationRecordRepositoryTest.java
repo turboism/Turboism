@@ -8,6 +8,8 @@ import dev.turboism.mapping.verification.ClipMaskVerificationManifest;
 import dev.turboism.mapping.verification.CorePublicApiSelectorContract;
 import dev.turboism.mapping.verification.CorePublicApiTrustRoots;
 import dev.turboism.mapping.verification.EditorModelVerificationManifest;
+import dev.turboism.mapping.verification.EditorObjectReadSelectorContract;
+import dev.turboism.mapping.verification.EditorObjectWriteSelectorContract;
 import dev.turboism.mapping.verification.EditorPartNameSelectorContract;
 import dev.turboism.mapping.verification.EditorPartOpacitySelectorContract;
 import dev.turboism.mapping.verification.EditorPartOpacity52SelectorContract;
@@ -172,8 +174,8 @@ class StaticVerificationRecordRepositoryTest {
             "Live2D_Cubism.jar",
             40_805_584L,
             "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
-            "3ce64ac30df1b4ff9f78ab12f9e6d7eb397788082a596546f58c4573425882b3",
-            125,
+            "892f65f4d60e600842e46a3f6446ee8616cfc3ebca48a2742d6d6dc7123818bf",
+            189,
             editorModel52Aliases(),
             editorModel52Aliases(),
             editorModel52MethodAliases(),
@@ -195,7 +197,7 @@ class StaticVerificationRecordRepositoryTest {
             EditorModelVerificationManifest.ARTIFACT_SIZE,
             EditorModelVerificationManifest.ARTIFACT_SHA256,
             EditorModelVerificationManifest.RECORD_SHA256,
-            129,
+            193,
             EditorModelVerificationManifest.REQUIRED_ALIASES,
             EditorModelVerificationManifest.REQUIRED_ALIASES,
             editorModelMethodAliases(),
@@ -483,7 +485,64 @@ class StaticVerificationRecordRepositoryTest {
             "cubism.editor-model.part-source.handler",
             "cubism.editor-model.part-handler.create-undo-for-all-edit",
             "cubism.editor-model.part-id.value",
-            "cubism.editor-model.complete-pack.update-part-palette"
+            "cubism.editor-model.complete-pack.update-part-palette",
+            "cubism.editor-model.model-source.all-art-meshes",
+            "cubism.editor-model.model.all-art-meshes",
+            "cubism.editor-model.parameter-controllable-source.id",
+            "cubism.editor-model.parameter-controllable-source.local-name",
+            "cubism.editor-model.parameter-controllable-source.visible",
+            "cubism.editor-model.parameter-controllable-source.locked",
+            "cubism.editor-model.parameter-controllable-source.visible-in-hierarchy",
+            "cubism.editor-model.parameter-controllable-source.locked-in-hierarchy",
+            "cubism.editor-model.art-mesh.source",
+            "cubism.editor-model.art-mesh.current-keyform",
+            "cubism.editor-model.drawable-form.opacity",
+            "cubism.editor-model.drawable-form.draw-order",
+            "cubism.editor-model.art-mesh-form.positions",
+            "cubism.editor-model.art-mesh-source.positions",
+            "cubism.editor-model.art-mesh-source.uvs",
+            "cubism.editor-model.art-mesh-source.indices",
+            "cubism.editor-model.art-mesh-source.culling",
+            "cubism.editor-model.art-mesh-source.user-data",
+            "cubism.editor-model.art-mesh-source.inverted-mask",
+            "cubism.editor-model.model-source.all-deformers",
+            "cubism.editor-model.model.all-deformers",
+            "cubism.editor-model.deformer.source",
+            "cubism.editor-model.deformer.current-keyform",
+            "cubism.editor-model.deformer-form.opacity",
+            "cubism.editor-model.warp-source.row",
+            "cubism.editor-model.warp-source.col",
+            "cubism.editor-model.warp-source.quad-transform",
+            "cubism.editor-model.warp-form.positions",
+            "cubism.editor-model.rotation-source.base-angle",
+            "cubism.editor-model.rotation-form.angle",
+            "cubism.editor-model.rotation-form.origin-x",
+            "cubism.editor-model.rotation-form.origin-y",
+            "cubism.editor-model.rotation-form.scale",
+            "cubism.editor-model.rotation-form.reflect-x",
+            "cubism.editor-model.rotation-form.reflect-y",
+            "cubism.editor-model.parameter-controllable-source.handler",
+            "cubism.editor-model.parameter-controllable-handler.create-undo-for-all-edit",
+            "cubism.editor-model.parameter-controllable-source.set-visible",
+            "cubism.editor-model.parameter-controllable-source.set-locked",
+            "cubism.editor-model.drawable-form.set-opacity",
+            "cubism.editor-model.art-mesh-form.set-positions",
+            "cubism.editor-model.art-mesh-source.set-positions",
+            "cubism.editor-model.art-mesh-source.set-uvs",
+            "cubism.editor-model.art-mesh-source.set-indices",
+            "cubism.editor-model.deformer-form.set-opacity",
+            "cubism.editor-model.warp-source.set-row",
+            "cubism.editor-model.warp-source.set-col",
+            "cubism.editor-model.warp-source.set-quad-transform",
+            "cubism.editor-model.warp-form.set-positions",
+            "cubism.editor-model.rotation-source.set-base-angle",
+            "cubism.editor-model.rotation-form.set-angle",
+            "cubism.editor-model.rotation-form.set-origin-x",
+            "cubism.editor-model.rotation-form.set-origin-y",
+            "cubism.editor-model.rotation-form.set-scale",
+            "cubism.editor-model.rotation-form.set-reflect-x",
+            "cubism.editor-model.rotation-form.set-reflect-y",
+            "cubism.editor-model.complete-pack.update-deformer-palette"
         );
     }
 
@@ -504,6 +563,10 @@ class StaticVerificationRecordRepositoryTest {
         aliases.addAll(EditorPartOpacity52SelectorContract.REQUIRED_ALIASES);
         aliases.addAll(EditorPartNameSelectorContract.REQUIRED_ALIASES);
         aliases.addAll(EditorPartNameSelectorContract.WRITE_REQUIRED_ALIASES);
+        aliases.addAll(EditorObjectReadSelectorContract.REQUIRED_ALIASES);
+        aliases.addAll(EditorObjectWriteSelectorContract.ART_MESH_REQUIRED_ALIASES);
+        aliases.addAll(EditorObjectWriteSelectorContract.WARP_REQUIRED_ALIASES);
+        aliases.addAll(EditorObjectWriteSelectorContract.ROTATION_REQUIRED_ALIASES);
         return Set.copyOf(aliases);
     }
 
