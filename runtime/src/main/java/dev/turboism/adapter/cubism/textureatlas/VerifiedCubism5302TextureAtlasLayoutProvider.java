@@ -54,11 +54,21 @@ public final class VerifiedCubism5302TextureAtlasLayoutProvider implements Textu
 
         final Map<String, Object> images = imagesById(binding.dataModel());
         final List<Object> staged = stage(plan, images);
-        resolver.invoke("cubism.texture-atlas.document.transaction", binding.document(), "Update TextureAtlas", (Runnable) () -> {
-            resolver.invoke("cubism.texture-atlas.data-model.apply", binding.dataModel(), staged);
-            resolver.invoke("cubism.texture-atlas.document.mark-dirty", binding.document());
-            resolver.invoke("cubism.texture-atlas.document.refresh", binding.document());
-        });
+        final Object editMode = resolver.invoke(
+            "cubism.editor-model.modeling-document.edit-mode", binding.document()
+        );
+        final Object groupUndo = resolver.invoke(
+            "cubism.editor-model.edit-mode.begin", editMode, "Update TextureAtlas"
+        );
+        final Object undo = resolver.construct(
+            "cubism.texture-atlas.undo.create",
+            "Update TextureAtlas",
+            binding.modelSource(),
+            list(resolver.invoke("cubism.texture-atlas.data-model.atlases", binding.dataModel())),
+            staged
+        );
+        resolver.invoke("cubism.texture-atlas.undo.force-redo", undo);
+        resolver.invoke("cubism.texture-atlas.group-undo.add", groupUndo, undo);
         revisions.put(binding.dataModel(), current.revision() + 1);
         return ApplyOutcome.APPLIED;
     }
@@ -87,7 +97,7 @@ public final class VerifiedCubism5302TextureAtlasLayoutProvider implements Textu
             || !resolver.isInstance("cubism.texture-atlas.data-model.class", dataModel)) {
             return null;
         }
-        return new Binding(document, dataModel, documentId, modelId);
+        return new Binding(document, source, dataModel, documentId, modelId);
     }
 
     private TextureAtlasAuthoringState project(final Binding binding) {
@@ -253,6 +263,6 @@ public final class VerifiedCubism5302TextureAtlasLayoutProvider implements Textu
         return normalized;
     }
 
-    private record Binding(Object document, Object dataModel, String documentId, String modelId) {
+    private record Binding(Object document, Object modelSource, Object dataModel, String documentId, String modelId) {
     }
 }

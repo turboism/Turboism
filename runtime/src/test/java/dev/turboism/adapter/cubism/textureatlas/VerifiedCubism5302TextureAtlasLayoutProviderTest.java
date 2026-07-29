@@ -46,9 +46,8 @@ class VerifiedCubism5302TextureAtlasLayoutProviderTest {
         assertEquals(AffineTransform.getTranslateInstance(2.0, 1.0), fixture.data.atlases.get(0).entries.get(0).transform);
         assertEquals(AffineTransform.getTranslateInstance(5.0, 2.0), fixture.data.atlases.get(1).entries.get(0).transform);
         assertEquals(1, fixture.data.applyCount);
-        assertEquals(1, fixture.document.dirtyCount);
-        assertEquals(1, fixture.document.refreshCount);
-        assertEquals(List.of("Update TextureAtlas"), fixture.document.edits);
+        assertEquals(List.of("Update TextureAtlas"), fixture.document.editMode.edits);
+        assertEquals(1, fixture.document.editMode.undos.size());
 
         final TextureAtlasAuthoringState updated = provider.current().orElseThrow();
         assertEquals(current.revision() + 1, updated.revision());
@@ -91,9 +90,8 @@ class VerifiedCubism5302TextureAtlasLayoutProviderTest {
         assertThrows(RuntimeException.class, () -> provider.apply(current, plan));
         assertEquals(List.of("atlas-a"), fixture.data.atlases.stream().map(Atlas::name).toList());
         assertEquals(0, fixture.data.applyCount);
-        assertEquals(0, fixture.document.dirtyCount);
-        assertEquals(0, fixture.document.refreshCount);
-        assertTrue(fixture.document.edits.isEmpty());
+        assertTrue(fixture.document.editMode.edits.isEmpty());
+        assertTrue(fixture.document.editMode.undos.isEmpty());
     }
 
     private static VerifiedMemberResolver resolver(final String version, final boolean includeAtlas) {
@@ -114,7 +112,6 @@ class VerifiedCubism5302TextureAtlasLayoutProviderTest {
             selectors.add(StaticSelector.classSelector("cubism.texture-atlas.data-model.class", internal(DataModel.class)));
             selectors.add(method("cubism.texture-atlas.data-model.atlases", DataModel.class, "atlases", "()Ljava/util/List;"));
             selectors.add(method("cubism.texture-atlas.data-model.images", DataModel.class, "images", "()Ljava/util/List;"));
-            selectors.add(method("cubism.texture-atlas.data-model.apply", DataModel.class, "apply", "(Ljava/util/List;)V"));
             selectors.add(StaticSelector.classSelector("cubism.texture-atlas.atlas.class", internal(Atlas.class)));
             selectors.add(StaticSelector.constructor("cubism.texture-atlas.atlas.create", internal(Atlas.class), "(Ljava/lang/String;II)V", StaticSelector.ACCESS_PUBLIC));
             selectors.add(method("cubism.texture-atlas.atlas.name", Atlas.class, "name", "()Ljava/lang/String;"));
@@ -132,9 +129,16 @@ class VerifiedCubism5302TextureAtlasLayoutProviderTest {
             selectors.add(StaticSelector.classSelector("cubism.texture-atlas.affine.class", internal(Affine.class)));
             selectors.add(StaticSelector.constructor("cubism.texture-atlas.affine.create", internal(Affine.class), "()V", StaticSelector.ACCESS_PUBLIC));
             selectors.add(method("cubism.texture-atlas.affine.translate", Affine.class, "translate", "(DD)V"));
-            selectors.add(method("cubism.texture-atlas.document.mark-dirty", Document.class, "markDirty", "()V"));
-            selectors.add(method("cubism.texture-atlas.document.refresh", Document.class, "refreshTextureAtlas", "()V"));
-            selectors.add(method("cubism.texture-atlas.document.transaction", Document.class, "commitTextureAtlas", "(Ljava/lang/String;Ljava/lang/Runnable;)V"));
+            selectors.add(method("cubism.editor-model.modeling-document.edit-mode", Document.class, "editMode", desc(EditMode.class)));
+            selectors.add(method("cubism.editor-model.edit-mode.begin", EditMode.class, "beginEdit", "(Ljava/lang/String;)" + type(GroupUndo.class)));
+            selectors.add(StaticSelector.constructor(
+                "cubism.texture-atlas.undo.create",
+                internal(AtlasUndo.class),
+                "(Ljava/lang/String;" + type(ModelSource.class) + "Ljava/util/List;Ljava/util/List;)V",
+                StaticSelector.ACCESS_PUBLIC
+            ));
+            selectors.add(method("cubism.texture-atlas.undo.force-redo", AtlasUndo.class, "forceRedo", "()V"));
+            selectors.add(method("cubism.texture-atlas.group-undo.add", GroupUndo.class, "plusAssign", "(" + type(AtlasUndo.class) + ")V"));
         }
         return TestVerifiedResolvers.create(
             version,
@@ -163,16 +167,46 @@ class VerifiedCubism5302TextureAtlasLayoutProviderTest {
     public static final class Document {
         final ModelSource source;
         final DataModel data;
-        final List<String> edits = new ArrayList<>();
+        final EditMode editMode = new EditMode();
         int dirtyCount;
         int refreshCount;
         Document(final ModelSource source, final DataModel data) { this.source = source; this.data = data; }
         public String documentId() { return "document-a"; }
         public ModelSource modelSource() { return source; }
         public DataModel textureAtlasDataModel() { return data; }
-        public void commitTextureAtlas(final String name, final Runnable mutation) { edits.add(name); mutation.run(); }
-        public void markDirty() { dirtyCount++; }
-        public void refreshTextureAtlas() { refreshCount++; }
+        public EditMode editMode() { return editMode; }
+    }
+
+    public static final class EditMode {
+        final List<String> edits = new ArrayList<>();
+        final List<AtlasUndo> undos = new ArrayList<>();
+        public GroupUndo beginEdit(final String name) {
+            edits.add(name);
+            return new GroupUndo(undos);
+        }
+    }
+
+    public static final class GroupUndo {
+        private final List<AtlasUndo> undos;
+        GroupUndo(final List<AtlasUndo> undos) { this.undos = undos; }
+        public void plusAssign(final AtlasUndo undo) { undos.add(undo); }
+    }
+
+    public static final class AtlasUndo {
+        private final DataModel data;
+        private final List<Atlas> after;
+        public AtlasUndo(
+            final String name,
+            final ModelSource source,
+            final List<Atlas> before,
+            final List<Atlas> after
+        ) {
+            assertEquals("Update TextureAtlas", name);
+            assertEquals(Host.document.data.atlases, before);
+            this.data = Host.document.data;
+            this.after = List.copyOf(after);
+        }
+        public void forceRedo() { data.apply(after); }
     }
 
     public static final class ModelSource {
