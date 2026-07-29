@@ -7,6 +7,7 @@ import dev.turboism.adapter.cubism.textureatlas.NativeTextureAtlasDataModelBridg
 import dev.turboism.adapter.cubism.textureatlas.TextureAtlasDataModelCapture;
 import dev.turboism.adapter.cubism.textureatlas.TextureAtlasLayoutProvider;
 import dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasLayoutProvider;
+import dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.MainToolbarVerificationManifest;
 import dev.turboism.mapping.verification.VerifiedEditorModelResolverFactory;
@@ -109,11 +110,17 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         final TextureAtlasDataModelCapture textureAtlasCapture =
             new TextureAtlasDataModelCapture();
         final TextureAtlasLayoutProvider textureAtlasProvider =
-            new VerifiedCubism5302TextureAtlasLayoutProvider(
-                resolver,
-                descriptor.sessionId(),
-                textureAtlasCapture
-            );
+            resolver.authorizesFeature(
+                VerifiedCubism5302TextureAtlasSelectorContract.ADAPTER_SLICE_ID,
+                VerifiedCubism5302TextureAtlasSelectorContract.CAPABILITY_ID,
+                VerifiedCubism5302TextureAtlasSelectorContract.REQUIRED_ALIASES
+            )
+                ? new VerifiedCubism5302TextureAtlasLayoutProvider(
+                    resolver,
+                    descriptor.sessionId(),
+                    textureAtlasCapture
+                )
+                : null;
         NativeTextureAtlasDataModelBridge.install(textureAtlasCapture);
         if (evidence.mainToolbar().isEmpty()
             || mainToolbarResolverFactory == null
@@ -192,7 +199,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
 
             @Override
             public java.util.Optional<TextureAtlasLayoutProvider> textureAtlasLayoutProvider() {
-                return java.util.Optional.of(provider);
+                return java.util.Optional.ofNullable(provider);
             }
 
             @Override
