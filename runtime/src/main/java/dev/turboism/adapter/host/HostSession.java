@@ -3,6 +3,7 @@ package dev.turboism.adapter.host;
 import dev.turboism.adapter.RuntimeHostAdapters;
 import dev.turboism.adapter.cubism.lifecycle.ParameterLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.PartLifecycleCoordinator;
+import dev.turboism.adapter.cubism.textureatlas.TextureAtlasLayoutCoordinator;
 import dev.turboism.sdk.event.EventBus;
 import dev.turboism.ui.action.RuntimeEditorUiActionRouter;
 import dev.turboism.ui.appearance.AppearanceCoordinator;
@@ -38,6 +39,8 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         new ParameterLifecycleCoordinator();
     private final PartLifecycleCoordinator partLifecycle =
         new PartLifecycleCoordinator();
+    private final TextureAtlasLayoutCoordinator textureAtlasLayouts =
+        new TextureAtlasLayoutCoordinator();
     private final RuntimeEditorUiHostLifecycle editorUiLifecycle =
         new RuntimeEditorUiHostLifecycle();
     private final EditorUiContributionAuthority editorUiContributions =
@@ -187,10 +190,35 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             if (closeRequested()) {
                 return finishRequestedClose(candidate);
             }
-            dynamic.connect(candidateAdapters);
-            dynamicModelAccess.connect(candidate.modelAccess());
-            editorUiLifecycle.connected(editorUiGeneration);
-            activeConnection = candidate;
+            try {
+                dynamic.connect(candidateAdapters);
+                dynamicModelAccess.connect(candidate.modelAccess());
+                candidate.textureAtlasLayoutProvider().ifPresent(textureAtlasLayouts::connect);
+                editorUiLifecycle.connected(editorUiGeneration);
+                activeConnection = candidate;
+            } catch (Throwable throwable) {
+                final CleanupOutcome candidateCleanup = closeCandidate(candidate);
+                dynamicModelAccess.deactivate();
+                textureAtlasLayouts.deactivate();
+                try {
+                    dynamic.deactivate();
+                } catch (Throwable cleanupFailure) {
+                    if (candidateCleanup.succeeded()) {
+                        if (cleanupFailure instanceof Error error) throw error;
+                    }
+                }
+                if (!candidateCleanup.succeeded()) {
+                    return finishCleanupFailure(candidateCleanup, false);
+                }
+                if (throwable instanceof Error error) {
+                    commitFailure(HostSessionFailure.Code.CONNECTION_FAILED, "Host adapter connection failed safely.");
+                    throw error;
+                }
+                return commitFailure(
+                    HostSessionFailure.Code.CONNECTION_FAILED,
+                    "Host adapter connection failed safely."
+                );
+            }
             final EditorUiProviderInstaller.Installation candidateEditorUiProviders;
             try {
                 candidateEditorUiProviders = EditorUiProviderInstaller.install(
@@ -263,6 +291,11 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     }
 
     @Override
+    public TextureAtlasLayoutCoordinator textureAtlasLayouts() {
+        return textureAtlasLayouts;
+    }
+
+    @Override
     public EditorUiHostLifecycle editorUiLifecycle() {
         return editorUiLifecycle;
     }
@@ -305,6 +338,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             dynamicModelAccess,
             parameterLifecycle,
             partLifecycle,
+            textureAtlasLayouts,
             editorUiLifecycle,
             editorUiContributions,
             editorUiActionRouter,
@@ -330,6 +364,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             }
             appearanceCoordinator.close();
             partLifecycle.close();
+            textureAtlasLayouts.close();
             parameterLifecycle.close();
             editorUiPluginResources.close();
             editorUiActionRouter.close();
@@ -380,6 +415,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     private CleanupOutcome cleanupOwnedResources() {
         activeConnectionKey = null;
         dynamicModelAccess.deactivate();
+        textureAtlasLayouts.deactivate();
         try {
             dynamic.deactivate();
         } catch (Throwable throwable) {
