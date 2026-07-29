@@ -39,6 +39,7 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
             UNAVAILABLE_MODEL_ACCESS,
             new ParameterLifecycleCoordinator(),
             new PartLifecycleCoordinator(),
+            new TextureAtlasLayoutCoordinator(),
             new EditorObjectLifecycleCoordinator()
         );
     }
@@ -52,6 +53,7 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
             modelAccess,
             new ParameterLifecycleCoordinator(),
             new PartLifecycleCoordinator(),
+            new TextureAtlasLayoutCoordinator(),
             new EditorObjectLifecycleCoordinator()
         );
     }
@@ -66,6 +68,7 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
             modelAccess,
             parameterLifecycle,
             new PartLifecycleCoordinator(),
+            new TextureAtlasLayoutCoordinator(),
             new EditorObjectLifecycleCoordinator()
         );
     }
@@ -81,7 +84,7 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
             modelAccess,
             parameterLifecycle,
             partLifecycle,
-            new TextureAtlasLayoutCoordinator()
+            new TextureAtlasLayoutCoordinator(),
             new EditorObjectLifecycleCoordinator()
         );
     }
@@ -91,7 +94,7 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
         final CubismModelAccess modelAccess,
         final ParameterLifecycleCoordinator parameterLifecycle,
         final PartLifecycleCoordinator partLifecycle,
-        final TextureAtlasLayoutCoordinator textureAtlasLayouts
+        final TextureAtlasLayoutCoordinator textureAtlasLayouts,
         final EditorObjectLifecycleCoordinator editorObjectLifecycle
     ) {
         this.hostAdapters = java.util.Objects.requireNonNull(hostAdapters, "hostAdapters");
@@ -104,6 +107,7 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
         this.textureAtlasLayouts = java.util.Objects.requireNonNull(
             textureAtlasLayouts,
             "textureAtlasLayouts"
+        );
         this.editorObjectLifecycle = java.util.Objects.requireNonNull(
             editorObjectLifecycle,
             "editorObjectLifecycle"
@@ -130,7 +134,7 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
             pluginModelAccess,
             parameterLifecycle,
             partLifecycle,
-            textureAtlasLayouts
+            textureAtlasLayouts,
             editorObjectLifecycle,
             activeScope::get
         );
