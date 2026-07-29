@@ -296,6 +296,9 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     @Override
     public TextureAtlasLayoutCoordinator textureAtlasLayouts() {
         return textureAtlasLayouts;
+    }
+
+    @Override
     public EditorObjectLifecycleCoordinator editorObjectLifecycle() {
         return editorObjectLifecycle;
     }
