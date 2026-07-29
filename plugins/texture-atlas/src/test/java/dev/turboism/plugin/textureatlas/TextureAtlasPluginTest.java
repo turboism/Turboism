@@ -82,16 +82,23 @@ class TextureAtlasPluginTest {
         assertTrue(((BooleanSupplier) published).getAsBoolean());
         assertEquals(1, layouts.applyCalls);
 
+        layouts.result = dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutApplyResult.noChange();
+        assertTrue(((BooleanSupplier) published).getAsBoolean());
+
         layouts.result = dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutApplyResult.failed(
             dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutFailureCode.PROVIDER_FAILED,
             "failed"
         );
         assertFalse(((BooleanSupplier) published).getAsBoolean());
 
+        final BooleanSupplier replacement = () -> true;
+        System.getProperties().put(TextureAtlasPlugin.NATIVE_AUTO_LAYOUT_CALLBACK_KEY, replacement);
         plugin.disable();
-        assertFalse(System.getProperties().containsKey(TextureAtlasPlugin.NATIVE_AUTO_LAYOUT_CALLBACK_KEY));
+        assertTrue(System.getProperties().get(TextureAtlasPlugin.NATIVE_AUTO_LAYOUT_CALLBACK_KEY) == replacement);
         assertFalse(((BooleanSupplier) published).getAsBoolean());
         plugin.shutdown();
+        assertTrue(System.getProperties().get(TextureAtlasPlugin.NATIVE_AUTO_LAYOUT_CALLBACK_KEY) == replacement);
+        System.getProperties().remove(TextureAtlasPlugin.NATIVE_AUTO_LAYOUT_CALLBACK_KEY, replacement);
     }
     private static final class ShellPluginContext implements PluginContext {
         private final PluginLogger logger = new PluginLogger() {
