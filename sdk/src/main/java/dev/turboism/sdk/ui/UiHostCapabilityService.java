@@ -35,6 +35,11 @@ public interface UiHostCapabilityService {
      */
     boolean confirmDialog(DialogRequest request);
 
+    /** Opens a bounded runtime-rendered single-choice dialog. */
+    default Optional<String> choose(final ChoiceDialogRequest request) {
+        throw new UnsupportedOperationException("choice dialogs are not available");
+    }
+
     Registration contributeEmbeddedPanel(EmbeddedPanelContribution contribution);
 
     Optional<String> requestFile(FileChooserRequest request);
