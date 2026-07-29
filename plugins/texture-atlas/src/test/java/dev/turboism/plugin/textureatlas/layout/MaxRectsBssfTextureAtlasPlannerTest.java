@@ -111,6 +111,63 @@ class MaxRectsBssfTextureAtlasPlannerTest {
     }
 
     @Test
+    void createsTheMinimumContiguousPagesWithinTheIssuedLimit() {
+        final MaxRectsBssfTextureAtlasPlanner planner = new MaxRectsBssfTextureAtlasPlanner();
+        final List<TextureAtlasLayoutItem> items = List.of(
+            new TextureAtlasLayoutItem("texture-b", 6, 6),
+            new TextureAtlasLayoutItem("texture-a", 6, 6)
+        );
+
+        final TextureAtlasLayoutPlan plan = planner.plan(
+            items,
+            new TextureAtlasLayoutConstraints(10, 10, 0, 0, 2, false, false)
+        );
+
+        assertEquals(
+            new TextureAtlasLayoutPlan(
+                10,
+                10,
+                2,
+                List.of(
+                    new TextureAtlasPlacement("texture-a", 0, 0, 0, 6, 6, false),
+                    new TextureAtlasPlacement("texture-b", 1, 0, 0, 6, 6, false)
+                )
+            ),
+            plan
+        );
+        assertThrows(
+            TextureAtlasPackingException.class,
+            () -> planner.plan(items, SINGLE_PAGE)
+        );
+    }
+
+
+    @Test
+    void avoidsGreedyFalseOverflowAcrossTheIssuedPageBudget() {
+        final MaxRectsBssfTextureAtlasPlanner planner = new MaxRectsBssfTextureAtlasPlanner();
+        final List<TextureAtlasLayoutItem> items = List.of(
+            new TextureAtlasLayoutItem("i0", 5, 6),
+            new TextureAtlasLayoutItem("i1", 7, 6),
+            new TextureAtlasLayoutItem("i2", 2, 9),
+            new TextureAtlasLayoutItem("i3", 4, 1),
+            new TextureAtlasLayoutItem("i4", 1, 4),
+            new TextureAtlasLayoutItem("i5", 6, 4),
+            new TextureAtlasLayoutItem("i6", 9, 2),
+            new TextureAtlasLayoutItem("i7", 3, 8)
+        );
+        final TextureAtlasLayoutConstraints constraints =
+            new TextureAtlasLayoutConstraints(10, 10, 0, 0, 2, false, false);
+
+        final TextureAtlasLayoutPlan plan = planner.plan(items, constraints);
+        final java.util.ArrayList<TextureAtlasLayoutItem> reversed = new java.util.ArrayList<>(items);
+        java.util.Collections.reverse(reversed);
+
+        assertEquals(2, plan.pageCount());
+        assertEquals(8, plan.placements().size());
+        assertEquals(plan, planner.plan(reversed, constraints));
+    }
+
+    @Test
     void rejectsUnsupportedOrAmbiguousPlannerInputs() {
         final MaxRectsBssfTextureAtlasPlanner planner = new MaxRectsBssfTextureAtlasPlanner();
 
@@ -127,10 +184,13 @@ class MaxRectsBssfTextureAtlasPlannerTest {
             ),
             SINGLE_PAGE
         ));
-        assertThrows(IllegalArgumentException.class, () -> planner.plan(
-            List.of(),
-            new TextureAtlasLayoutConstraints(10, 10, 0, 0, 2, false, false)
-        ));
+        assertEquals(
+            new TextureAtlasLayoutPlan(10, 10, 1, List.of()),
+            planner.plan(
+                List.of(),
+                new TextureAtlasLayoutConstraints(10, 10, 0, 0, 2, false, false)
+            )
+        );
     }
 
     @Test
@@ -145,7 +205,7 @@ class MaxRectsBssfTextureAtlasPlannerTest {
             )
         );
         assertEquals("too-large", tooLarge.textureId());
-        assertEquals(TextureAtlasPackingException.Reason.NO_CANDIDATE_PLAN, tooLarge.reason());
+        assertEquals(TextureAtlasPackingException.Reason.ITEM_DOES_NOT_FIT, tooLarge.reason());
 
         final TextureAtlasPackingException overflow = assertThrows(
             TextureAtlasPackingException.class,

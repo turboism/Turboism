@@ -6,7 +6,8 @@ import java.util.Objects;
 public final class TextureAtlasPackingException extends IllegalArgumentException {
 
     public enum Reason {
-        NO_CANDIDATE_PLAN,
+        PAGE_BUDGET_EXHAUSTED,
+        ITEM_DOES_NOT_FIT,
         INVALID_RESERVED_SIZE
     }
 
@@ -29,8 +30,10 @@ public final class TextureAtlasPackingException extends IllegalArgumentException
 
     private static String message(final String textureId, final Reason reason) {
         return switch (Objects.requireNonNull(reason, "reason")) {
-            case NO_CANDIDATE_PLAN ->
-                "No approved deterministic candidate produced an atlas plan: " + textureId;
+            case PAGE_BUDGET_EXHAUSTED ->
+                "The issued atlas page budget cannot place every texture: " + textureId;
+            case ITEM_DOES_NOT_FIT ->
+                "The texture cannot fit inside one issued atlas page: " + textureId;
             case INVALID_RESERVED_SIZE ->
                 "Texture size plus padding exceeds the supported integer geometry: " + textureId;
         };
