@@ -4,6 +4,7 @@ import dev.turboism.adapter.RuntimeHostAdapters;
 import dev.turboism.adapter.cubism.lifecycle.ParameterLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.PartLifecycleCoordinator;
 import dev.turboism.adapter.cubism.textureatlas.TextureAtlasLayoutCoordinator;
+import dev.turboism.adapter.cubism.lifecycle.EditorObjectLifecycleCoordinator;
 import dev.turboism.sdk.event.EventBus;
 import dev.turboism.ui.action.RuntimeEditorUiActionRouter;
 import dev.turboism.ui.appearance.AppearanceCoordinator;
@@ -41,6 +42,8 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         new PartLifecycleCoordinator();
     private final TextureAtlasLayoutCoordinator textureAtlasLayouts =
         new TextureAtlasLayoutCoordinator();
+    private final EditorObjectLifecycleCoordinator editorObjectLifecycle =
+        new EditorObjectLifecycleCoordinator();
     private final RuntimeEditorUiHostLifecycle editorUiLifecycle =
         new RuntimeEditorUiHostLifecycle();
     private final EditorUiContributionAuthority editorUiContributions =
@@ -293,6 +296,8 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     @Override
     public TextureAtlasLayoutCoordinator textureAtlasLayouts() {
         return textureAtlasLayouts;
+    public EditorObjectLifecycleCoordinator editorObjectLifecycle() {
+        return editorObjectLifecycle;
     }
 
     @Override
@@ -339,6 +344,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             parameterLifecycle,
             partLifecycle,
             textureAtlasLayouts,
+            editorObjectLifecycle,
             editorUiLifecycle,
             editorUiContributions,
             editorUiActionRouter,
@@ -363,6 +369,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
                 return;
             }
             appearanceCoordinator.close();
+            editorObjectLifecycle.close();
             partLifecycle.close();
             textureAtlasLayouts.close();
             parameterLifecycle.close();

@@ -4,6 +4,7 @@ import dev.turboism.adapter.RuntimeHostAdapters;
 import dev.turboism.adapter.cubism.CubismFacadeImpl;
 import dev.turboism.adapter.cubism.lifecycle.ParameterLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.PartLifecycleCoordinator;
+import dev.turboism.adapter.cubism.lifecycle.EditorObjectLifecycleCoordinator;
 import dev.turboism.adapter.cubism.service.query.ModelHierarchyQueryServiceImpl;
 import dev.turboism.adapter.cubism.service.query.ParameterQueryServiceImpl;
 import dev.turboism.adapter.cubism.service.query.SelectionQueryServiceImpl;
@@ -11,6 +12,9 @@ import dev.turboism.adapter.cubism.service.read.CubismReadCapabilityServiceImpl;
 import dev.turboism.adapter.cubism.textureatlas.TextureAtlasLayoutCoordinator;
 import dev.turboism.permissions.CubismPermissionGate;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
+import dev.turboism.adapter.host.PluginScopedCubismModelAccess;
+
+import java.util.concurrent.atomic.AtomicBoolean;
 
 final class DefaultCubismServicesFactory implements CubismServicesFactory {
 
@@ -23,6 +27,7 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
     private final ParameterLifecycleCoordinator parameterLifecycle;
     private final PartLifecycleCoordinator partLifecycle;
     private final TextureAtlasLayoutCoordinator textureAtlasLayouts;
+    private final EditorObjectLifecycleCoordinator editorObjectLifecycle;
 
     DefaultCubismServicesFactory() {
         this(RuntimeHostAdapters.safeMode());
@@ -33,7 +38,8 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
             hostAdapters,
             UNAVAILABLE_MODEL_ACCESS,
             new ParameterLifecycleCoordinator(),
-            new PartLifecycleCoordinator()
+            new PartLifecycleCoordinator(),
+            new EditorObjectLifecycleCoordinator()
         );
     }
 
@@ -45,7 +51,8 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
             hostAdapters,
             modelAccess,
             new ParameterLifecycleCoordinator(),
-            new PartLifecycleCoordinator()
+            new PartLifecycleCoordinator(),
+            new EditorObjectLifecycleCoordinator()
         );
     }
 
@@ -54,7 +61,13 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
         final CubismModelAccess modelAccess,
         final ParameterLifecycleCoordinator parameterLifecycle
     ) {
-        this(hostAdapters, modelAccess, parameterLifecycle, new PartLifecycleCoordinator());
+        this(
+            hostAdapters,
+            modelAccess,
+            parameterLifecycle,
+            new PartLifecycleCoordinator(),
+            new EditorObjectLifecycleCoordinator()
+        );
     }
 
     DefaultCubismServicesFactory(
@@ -69,6 +82,7 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
             parameterLifecycle,
             partLifecycle,
             new TextureAtlasLayoutCoordinator()
+            new EditorObjectLifecycleCoordinator()
         );
     }
 
@@ -78,6 +92,7 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
         final ParameterLifecycleCoordinator parameterLifecycle,
         final PartLifecycleCoordinator partLifecycle,
         final TextureAtlasLayoutCoordinator textureAtlasLayouts
+        final EditorObjectLifecycleCoordinator editorObjectLifecycle
     ) {
         this.hostAdapters = java.util.Objects.requireNonNull(hostAdapters, "hostAdapters");
         this.modelAccess = java.util.Objects.requireNonNull(modelAccess, "modelAccess");
@@ -89,6 +104,9 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
         this.textureAtlasLayouts = java.util.Objects.requireNonNull(
             textureAtlasLayouts,
             "textureAtlasLayouts"
+        this.editorObjectLifecycle = java.util.Objects.requireNonNull(
+            editorObjectLifecycle,
+            "editorObjectLifecycle"
         );
     }
 
@@ -100,13 +118,21 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
             dependencies.cubismAuditSink(),
             dependencies.clock()
         );
+        final AtomicBoolean activeScope = new AtomicBoolean(true);
+        dependencies.disposableScope().register(() -> activeScope.set(false));
+        final CubismModelAccess pluginModelAccess = PluginScopedCubismModelAccess.bind(
+            modelAccess,
+            dependencies.disposableScope()
+        );
         final CubismFacadeImpl facade = new CubismFacadeImpl(
             dependencies.hostSnapshotSource(),
             permissionGate,
-            modelAccess,
+            pluginModelAccess,
             parameterLifecycle,
             partLifecycle,
             textureAtlasLayouts
+            editorObjectLifecycle,
+            activeScope::get
         );
         return new CubismContextServices(
             facade,

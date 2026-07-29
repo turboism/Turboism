@@ -2,6 +2,8 @@ package dev.turboism.sdk.cubism;
 
 import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.hook.ModelHooks;
+import dev.turboism.sdk.cubism.hook.DrawableHooks;
+import dev.turboism.sdk.cubism.hook.DeformerHooks;
 import dev.turboism.sdk.cubism.hook.ParameterHooks;
 import dev.turboism.sdk.cubism.hook.PartHooks;
 import dev.turboism.sdk.plugin.TurboismPlugin;
@@ -18,5 +20,7 @@ public interface CubismPlugin
     extends TurboismPlugin,
             ParameterHooks,
             PartHooks,
+            DrawableHooks,
+            DeformerHooks,
             ModelHooks {
 }
