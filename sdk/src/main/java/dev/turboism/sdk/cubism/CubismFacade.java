@@ -35,6 +35,14 @@ public interface CubismFacade {
     @PreviewApi
     TransactionManager transactionManager();
 
+    /** Returns complete texture-atlas authoring layout access when installed. */
+    @PreviewApi
+    default dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutService textureAtlasLayouts() {
+        throw new UnsupportedOperationException(
+            "Texture atlas layout service is unavailable"
+        );
+    }
+
     default boolean hasActiveProject() {
         return activeProject().isPresent();
     }
