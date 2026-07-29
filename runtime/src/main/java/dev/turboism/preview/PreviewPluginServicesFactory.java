@@ -11,6 +11,8 @@ import dev.turboism.hostread.ProjectWorkspaceHostReadSource;
 import dev.turboism.hostread.RuntimeAsyncHostReadService;
 import dev.turboism.hostread.SharedAsyncHostReadLane;
 import dev.turboism.i18n.RuntimePluginLocalization;
+import dev.turboism.home.PluginHomePaths;
+import dev.turboism.home.TurboismHomeLayout;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.storage.StorageRoot;
@@ -62,7 +64,7 @@ final class PreviewPluginServicesFactory {
     ) throws IOException {
         final RuntimeUiScheduler uiScheduler = new RuntimeUiScheduler(scheduler, descriptor.id());
         scope.register(uiScheduler);
-        final PreviewPluginPaths paths = PreviewPluginPaths.create(home, descriptor.id());
+        final PluginHomePaths paths = TurboismHomeLayout.create(home).plugin(descriptor.id());
         final CleanupEvidenceCollector evidence = new CleanupEvidenceCollector();
         final RuntimePluginTaskScheduler tasks = tasks(descriptor, scope, evidence);
         final Set<String> permissions = permissionIds(descriptor);
@@ -78,7 +80,7 @@ final class PreviewPluginServicesFactory {
 
     private CorePluginContext.Dependencies dependencies(
         final PluginDescriptor descriptor,
-        final PreviewPluginPaths paths,
+        final PluginHomePaths paths,
         final RuntimeUiScheduler uiScheduler,
         final DisposableScope scope
     ) {
@@ -119,7 +121,7 @@ final class PreviewPluginServicesFactory {
 
     private RuntimePluginStorage storage(
         final PluginDescriptor descriptor,
-        final PreviewPluginPaths paths,
+        final PluginHomePaths paths,
         final Set<String> permissions,
         final RuntimePluginTaskScheduler tasks,
         final DisposableScope scope,
@@ -130,7 +132,7 @@ final class PreviewPluginServicesFactory {
         );
     }
 
-    private static Map<StorageRoot, Path> storageRoots(final PreviewPluginPaths paths) {
+    private static Map<StorageRoot, Path> storageRoots(final PluginHomePaths paths) {
         return Map.of(
             StorageRoot.DATA, paths.dataDir(), StorageRoot.STATE, paths.stateDir(),
             StorageRoot.CACHE, paths.cacheDir()
@@ -140,14 +142,14 @@ final class PreviewPluginServicesFactory {
     private RuntimeTypedPluginConfigRegistry typedConfig(
         final CorePluginContext.Dependencies dependencies,
         final PluginDescriptor descriptor,
-        final PreviewPluginPaths paths,
+        final PluginHomePaths paths,
         final Set<String> permissions,
         final RuntimePluginTaskScheduler tasks,
         final DisposableScope scope,
         final CleanupEvidenceCollector evidence
     ) {
         return new RuntimeTypedPluginConfigRegistry(
-            dependencies.config(), descriptor.id(), paths.dataDir().resolve("typed-config"), permissions,
+            dependencies.config(), descriptor.id(), paths.configDir(), permissions,
             tasks, scope, evidence, failureCollector
         );
     }
