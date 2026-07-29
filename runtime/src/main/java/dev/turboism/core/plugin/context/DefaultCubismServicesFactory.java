@@ -4,6 +4,7 @@ import dev.turboism.adapter.RuntimeHostAdapters;
 import dev.turboism.adapter.cubism.CubismFacadeImpl;
 import dev.turboism.adapter.cubism.lifecycle.ParameterLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.PartLifecycleCoordinator;
+import dev.turboism.adapter.cubism.lifecycle.EditorObjectLifecycleCoordinator;
 import dev.turboism.adapter.cubism.service.query.ModelHierarchyQueryServiceImpl;
 import dev.turboism.adapter.cubism.service.query.ParameterQueryServiceImpl;
 import dev.turboism.adapter.cubism.service.query.SelectionQueryServiceImpl;
@@ -24,6 +25,7 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
     private final CubismModelAccess modelAccess;
     private final ParameterLifecycleCoordinator parameterLifecycle;
     private final PartLifecycleCoordinator partLifecycle;
+    private final EditorObjectLifecycleCoordinator editorObjectLifecycle;
 
     DefaultCubismServicesFactory() {
         this(RuntimeHostAdapters.safeMode());
@@ -34,7 +36,8 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
             hostAdapters,
             UNAVAILABLE_MODEL_ACCESS,
             new ParameterLifecycleCoordinator(),
-            new PartLifecycleCoordinator()
+            new PartLifecycleCoordinator(),
+            new EditorObjectLifecycleCoordinator()
         );
     }
 
@@ -46,7 +49,8 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
             hostAdapters,
             modelAccess,
             new ParameterLifecycleCoordinator(),
-            new PartLifecycleCoordinator()
+            new PartLifecycleCoordinator(),
+            new EditorObjectLifecycleCoordinator()
         );
     }
 
@@ -55,7 +59,13 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
         final CubismModelAccess modelAccess,
         final ParameterLifecycleCoordinator parameterLifecycle
     ) {
-        this(hostAdapters, modelAccess, parameterLifecycle, new PartLifecycleCoordinator());
+        this(
+            hostAdapters,
+            modelAccess,
+            parameterLifecycle,
+            new PartLifecycleCoordinator(),
+            new EditorObjectLifecycleCoordinator()
+        );
     }
 
     DefaultCubismServicesFactory(
@@ -64,6 +74,22 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
         final ParameterLifecycleCoordinator parameterLifecycle,
         final PartLifecycleCoordinator partLifecycle
     ) {
+        this(
+            hostAdapters,
+            modelAccess,
+            parameterLifecycle,
+            partLifecycle,
+            new EditorObjectLifecycleCoordinator()
+        );
+    }
+
+    DefaultCubismServicesFactory(
+        final RuntimeHostAdapters hostAdapters,
+        final CubismModelAccess modelAccess,
+        final ParameterLifecycleCoordinator parameterLifecycle,
+        final PartLifecycleCoordinator partLifecycle,
+        final EditorObjectLifecycleCoordinator editorObjectLifecycle
+    ) {
         this.hostAdapters = java.util.Objects.requireNonNull(hostAdapters, "hostAdapters");
         this.modelAccess = java.util.Objects.requireNonNull(modelAccess, "modelAccess");
         this.parameterLifecycle = java.util.Objects.requireNonNull(
@@ -71,6 +97,10 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
             "parameterLifecycle"
         );
         this.partLifecycle = java.util.Objects.requireNonNull(partLifecycle, "partLifecycle");
+        this.editorObjectLifecycle = java.util.Objects.requireNonNull(
+            editorObjectLifecycle,
+            "editorObjectLifecycle"
+        );
     }
 
     @Override
@@ -93,6 +123,7 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
             pluginModelAccess,
             parameterLifecycle,
             partLifecycle,
+            editorObjectLifecycle,
             activeScope::get
         );
         return new CubismContextServices(
