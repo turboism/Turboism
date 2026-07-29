@@ -46,8 +46,10 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         new RuntimeEditorUiActionRouter();
     private final EditorUiPluginResourceRegistry editorUiPluginResources =
         new EditorUiPluginResourceRegistry();
+    private final dev.turboism.ui.appearance.DynamicAppearanceHostProvider dynamicAppearance =
+        new dev.turboism.ui.appearance.DynamicAppearanceHostProvider();
     private final AppearanceCoordinator appearanceCoordinator =
-        new AppearanceCoordinator(new UnavailableAppearanceHostProvider(), new EventBus() {
+        new AppearanceCoordinator(dynamicAppearance, new EventBus() {
             @Override
             public <T extends TurboismEvent> dev.turboism.sdk.plugin.Registration subscribe(
                 final Class<T> type,
@@ -189,6 +191,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             }
             dynamic.connect(candidateAdapters);
             dynamicModelAccess.connect(candidate.modelAccess());
+            dynamicAppearance.connect(candidate.appearanceProvider());
             editorUiLifecycle.connected(editorUiGeneration);
             activeConnection = candidate;
             final EditorUiProviderInstaller.Installation candidateEditorUiProviders;
@@ -379,6 +382,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     /** Registration cleanup must succeed before its owning connection can be closed. */
     private CleanupOutcome cleanupOwnedResources() {
         activeConnectionKey = null;
+        dynamicAppearance.deactivate();
         dynamicModelAccess.deactivate();
         try {
             dynamic.deactivate();

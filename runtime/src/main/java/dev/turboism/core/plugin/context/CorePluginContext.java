@@ -15,6 +15,7 @@ import dev.turboism.diagnostics.CubismFacadeAuditEvent;
 import dev.turboism.permissions.CubismPermissionGate;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.action.ActionRegistry;
+import dev.turboism.sdk.appearance.AppearanceService;
 import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.service.query.ModelHierarchyQueryService;
 import dev.turboism.sdk.cubism.service.query.ParameterQueryService;
@@ -42,6 +43,8 @@ import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
 import dev.turboism.ui.RuntimeUiHostCapabilityService;
 import dev.turboism.ui.UiHostStateSource;
+import dev.turboism.ui.appearance.AppearanceCoordinator;
+import dev.turboism.ui.appearance.RuntimeAppearanceService;
 import dev.turboism.ui.context.RuntimeContextMenuRegistry;
 import dev.turboism.ui.toolbar.RuntimeMainToolbarRegistry;
 import dev.turboism.ui.toolbar.RuntimePaletteToolbarRegistry;
@@ -60,6 +63,7 @@ public final class CorePluginContext implements PluginContext {
     private final ContextMenuRegistry contextMenuRegistry;
     private final PluginConfigRegistry pluginConfigRegistry;
     private final UiHostCapabilityService uiHostCapabilityService;
+    private final AppearanceService appearanceService;
     private final PluginLocalization localization;
     private final PluginTaskScheduler taskScheduler;
     private final PluginStorage pluginStorage;
@@ -79,6 +83,7 @@ public final class CorePluginContext implements PluginContext {
             dependencies,
             servicesFactory(Objects.requireNonNull(hostAccess, "hostAccess")),
             hostAccess.adapters(),
+            hostAccess.appearanceCoordinator(),
             null,
             null,
             null,
@@ -154,6 +159,7 @@ public final class CorePluginContext implements PluginContext {
             dependencies,
             servicesFactory(Objects.requireNonNull(hostAccess, "hostAccess")),
             hostAccess.adapters(),
+            hostAccess.appearanceCoordinator(),
             Objects.requireNonNull(localization, "localization"),
             Objects.requireNonNull(taskScheduler, "taskScheduler"),
             Objects.requireNonNull(pluginStorage, "pluginStorage"),
@@ -247,6 +253,7 @@ public final class CorePluginContext implements PluginContext {
             dependencies,
             new DefaultCubismServicesFactory(hostAdapters),
             hostAdapters,
+            null,
             localization,
             taskScheduler,
             pluginStorage,
@@ -264,6 +271,7 @@ public final class CorePluginContext implements PluginContext {
             null,
             null,
             null,
+            null,
             null
         );
     }
@@ -272,6 +280,7 @@ public final class CorePluginContext implements PluginContext {
         final Dependencies dependencies,
         final CubismServicesFactory cubismServicesFactory,
         final RuntimeHostAdapters hostAdapters,
+        final AppearanceCoordinator appearanceCoordinator,
         final PluginLocalization localization,
         final PluginTaskScheduler taskScheduler,
         final PluginStorage pluginStorage,
@@ -307,6 +316,27 @@ public final class CorePluginContext implements PluginContext {
             adapters.uiSurface(),
             localization
         );
+        if (appearanceCoordinator == null) {
+            this.appearanceService = AppearanceService.unavailable();
+        } else {
+            final String pluginId = this.dependencies.descriptor().id();
+            final long pluginGeneration = 0L;
+            final PermissionChecker permissionChecker = PermissionChecker.from(new CubismPermissionGate(
+                pluginId,
+                this.dependencies.permissions(),
+                this.dependencies.cubismAuditSink(),
+                this.dependencies.clock()
+            ));
+            this.appearanceService = new RuntimeAppearanceService(
+                pluginId,
+                pluginGeneration,
+                permissionChecker,
+                appearanceCoordinator
+            );
+            this.dependencies.disposableScope().register(
+                () -> appearanceCoordinator.restore(pluginId, pluginGeneration)
+            );
+        }
     }
 
     private static void bindContributionLocalization(
@@ -432,6 +462,11 @@ public final class CorePluginContext implements PluginContext {
     @Override
     public UiHostCapabilityService uiHost() {
         return uiHostCapabilityService;
+    }
+
+    @Override
+    public AppearanceService appearance() {
+        return appearanceService;
     }
 
     @Override
