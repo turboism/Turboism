@@ -17,14 +17,14 @@ import java.util.Optional;
 import java.util.Set;
 
 /** Exact Cubism 5.3.02 translator for complete texture-atlas authoring plans. */
-public final class VerifiedCubism5302TextureAtlasLayoutProvider implements TextureAtlasLayoutProvider {
+public class VerifiedCubism5302TextureAtlasLayoutProvider implements TextureAtlasLayoutProvider {
 
-    private static final Set<String> SUPPORTED_VERSIONS = Set.of("5.2.0", "5.3.02");
     private static final int DEFAULT_MAX_ATLAS_COUNT = 32;
 
     private final VerifiedMemberResolver resolver;
     private final String sessionIdentity;
     private final TextureAtlasDataModelCapture capture;
+    private final String exactVersion;
     private final IdentityHashMap<Object, Long> revisions = new IdentityHashMap<>();
 
     public VerifiedCubism5302TextureAtlasLayoutProvider(
@@ -32,9 +32,19 @@ public final class VerifiedCubism5302TextureAtlasLayoutProvider implements Textu
         final String sessionIdentity,
         final TextureAtlasDataModelCapture capture
     ) {
+        this(resolver, sessionIdentity, capture, "5.3.02");
+    }
+
+    protected VerifiedCubism5302TextureAtlasLayoutProvider(
+        final VerifiedMemberResolver resolver,
+        final String sessionIdentity,
+        final TextureAtlasDataModelCapture capture,
+        final String exactVersion
+    ) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.sessionIdentity = requireText(sessionIdentity, "sessionIdentity");
         this.capture = Objects.requireNonNull(capture, "capture");
+        this.exactVersion = requireText(exactVersion, "exactVersion");
     }
 
     @Override
@@ -78,7 +88,7 @@ public final class VerifiedCubism5302TextureAtlasLayoutProvider implements Textu
     }
 
     private boolean available() {
-        return SUPPORTED_VERSIONS.contains(resolver.cubismVersion())
+        return resolver.isExactCubismVersion(exactVersion)
             && resolver.authorizesFeature(
                 VerifiedCubism5302TextureAtlasSelectorContract.ADAPTER_SLICE_ID,
                 VerifiedCubism5302TextureAtlasSelectorContract.CAPABILITY_ID,
