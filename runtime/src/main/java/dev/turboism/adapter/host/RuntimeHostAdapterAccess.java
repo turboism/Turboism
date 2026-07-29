@@ -4,6 +4,7 @@ import dev.turboism.adapter.RuntimeHostAdapters;
 import dev.turboism.adapter.cubism.lifecycle.ParameterLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.PartLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.EditorObjectLifecycleCoordinator;
+import dev.turboism.adapter.cubism.physics.PhysicsEditorCoordinator;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.ui.action.RuntimeEditorUiActionRouter;
 import dev.turboism.ui.appearance.AppearanceCoordinator;
@@ -24,6 +25,8 @@ public sealed interface RuntimeHostAdapterAccess permits HostSession, SessionRun
 
     EditorObjectLifecycleCoordinator editorObjectLifecycle();
 
+    PhysicsEditorCoordinator physicsEditorCoordinator();
+
     EditorUiHostLifecycle editorUiLifecycle();
 
     EditorUiContributionAuthority editorUiContributions();
@@ -43,6 +46,7 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     private final ParameterLifecycleCoordinator parameterLifecycle;
     private final PartLifecycleCoordinator partLifecycle;
     private final EditorObjectLifecycleCoordinator editorObjectLifecycle;
+    private final PhysicsEditorCoordinator physicsEditorCoordinator;
     private final EditorUiHostLifecycle editorUiLifecycle;
     private final EditorUiContributionAuthority editorUiContributions;
     private final RuntimeEditorUiActionRouter editorUiActionRouter;
@@ -55,6 +59,7 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
         final ParameterLifecycleCoordinator parameterLifecycle,
         final PartLifecycleCoordinator partLifecycle,
         final EditorObjectLifecycleCoordinator editorObjectLifecycle,
+        final PhysicsEditorCoordinator physicsEditorCoordinator,
         final EditorUiHostLifecycle editorUiLifecycle,
         final EditorUiContributionAuthority editorUiContributions,
         final RuntimeEditorUiActionRouter editorUiActionRouter,
@@ -71,6 +76,10 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
         this.editorObjectLifecycle = java.util.Objects.requireNonNull(
             editorObjectLifecycle,
             "editorObjectLifecycle"
+        );
+        this.physicsEditorCoordinator = java.util.Objects.requireNonNull(
+            physicsEditorCoordinator,
+            "physicsEditorCoordinator"
         );
         this.editorUiLifecycle = java.util.Objects.requireNonNull(
             editorUiLifecycle,
@@ -117,6 +126,11 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     @Override
     public EditorObjectLifecycleCoordinator editorObjectLifecycle() {
         return editorObjectLifecycle;
+    }
+
+    @Override
+    public PhysicsEditorCoordinator physicsEditorCoordinator() {
+        return physicsEditorCoordinator;
     }
 
     @Override
