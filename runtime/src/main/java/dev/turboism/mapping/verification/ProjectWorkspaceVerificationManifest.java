@@ -87,6 +87,20 @@ public final class ProjectWorkspaceVerificationManifest {
         );
     }
 
+    /** Returns the exact reviewed Cubism version for an admitted project/workspace artifact. */
+    public static String versionForArtifact(final HostArtifactDigest artifact) {
+        if (artifact.size() == ProjectWorkspaceVerificationManifest52.ARTIFACT_SIZE
+            && artifact.sha256().equals(ProjectWorkspaceVerificationManifest52.ARTIFACT_SHA256)) {
+            return ProjectWorkspaceVerificationManifest52.CUBISM_VERSION;
+        }
+        if (artifact.size() == ARTIFACT_SIZE && artifact.sha256().equals(ARTIFACT_SHA256)) {
+            return CUBISM_VERSION;
+        }
+        throw new IllegalArgumentException(
+            "host artifact is not a reviewed Cubism project/workspace artifact"
+        );
+    }
+
     private static PinnedVerifiedResolverWorkflow.Manifest manifest(
         final String verificationId,
         final String recordSha256,

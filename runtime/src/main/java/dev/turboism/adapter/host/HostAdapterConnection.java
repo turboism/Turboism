@@ -53,8 +53,20 @@ interface HostAdapterConnection extends AutoCloseable {
         final CubismModelAccess modelAccess,
         final VerifiedMemberResolver editorModelResolver
     ) {
+        return of(adapters, modelAccess, editorModelResolver, new UnavailableAppearanceHostProvider());
+    }
+
+    static HostAdapterConnection of(
+        final RuntimeHostAdapters adapters,
+        final CubismModelAccess modelAccess,
+        final VerifiedMemberResolver editorModelResolver,
+        final AppearanceHostProvider appearanceProvider
+    ) {
         final RuntimeHostAdapters ownedAdapters = Objects.requireNonNull(adapters, "adapters");
         final CubismModelAccess ownedModelAccess = Objects.requireNonNull(modelAccess, "modelAccess");
+        final AppearanceHostProvider ownedAppearance = Objects.requireNonNull(
+            appearanceProvider, "appearanceProvider"
+        );
         return new HostAdapterConnection() {
             @Override
             public RuntimeHostAdapters adapters() {
@@ -72,6 +84,11 @@ interface HostAdapterConnection extends AutoCloseable {
                     return HostAdapterConnection.super.editorModelResolver();
                 }
                 return editorModelResolver;
+            }
+
+            @Override
+            public AppearanceHostProvider appearanceProvider() {
+                return ownedAppearance;
             }
 
             @Override
