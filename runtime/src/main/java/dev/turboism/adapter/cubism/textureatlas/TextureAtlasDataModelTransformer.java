@@ -13,15 +13,13 @@ import java.util.Objects;
 /** Instruments one exact model-image-list initialization method to capture its data model. */
 public final class TextureAtlasDataModelTransformer implements ClassFileTransformer {
 
-    private static final String BRIDGE =
-        "dev/turboism/adapter/cubism/textureatlas/NativeTextureAtlasDataModelBridge";
-
     private final String ownerInternalName;
     private final String methodName;
     private final String descriptor;
     private final ClassLoader expectedClassLoader;
     private final String dataModelGetterName;
     private final String dataModelGetterDescriptor;
+    private final String captureKey;
 
     public TextureAtlasDataModelTransformer(
         final String ownerInternalName,
@@ -29,7 +27,8 @@ public final class TextureAtlasDataModelTransformer implements ClassFileTransfor
         final String descriptor,
         final ClassLoader expectedClassLoader,
         final String dataModelGetterName,
-        final String dataModelGetterDescriptor
+        final String dataModelGetterDescriptor,
+        final String captureKey
     ) {
         this.ownerInternalName = requireText(ownerInternalName, "ownerInternalName");
         this.methodName = requireText(methodName, "methodName");
@@ -40,6 +39,7 @@ public final class TextureAtlasDataModelTransformer implements ClassFileTransfor
             dataModelGetterDescriptor,
             "dataModelGetterDescriptor"
         );
+        this.captureKey = requireText(captureKey, "captureKey");
     }
 
     @Override
@@ -86,6 +86,14 @@ public final class TextureAtlasDataModelTransformer implements ClassFileTransfor
                     @Override
                     public void visitInsn(final int opcode) {
                         if (opcode == Opcodes.RETURN) {
+                            visitMethodInsn(
+                                Opcodes.INVOKESTATIC,
+                                "java/lang/System",
+                                "getProperties",
+                                "()Ljava/util/Properties;",
+                                false
+                            );
+                            visitLdcInsn(captureKey);
                             visitVarInsn(Opcodes.ALOAD, 0);
                             visitMethodInsn(
                                 Opcodes.INVOKEVIRTUAL,
@@ -95,12 +103,13 @@ public final class TextureAtlasDataModelTransformer implements ClassFileTransfor
                                 false
                             );
                             visitMethodInsn(
-                                Opcodes.INVOKESTATIC,
-                                BRIDGE,
-                                "initialized",
-                                "(Ljava/lang/Object;)V",
+                                Opcodes.INVOKEVIRTUAL,
+                                "java/util/Properties",
+                                "put",
+                                "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;",
                                 false
                             );
+                            visitInsn(Opcodes.POP);
                         }
                         super.visitInsn(opcode);
                     }
