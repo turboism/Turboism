@@ -72,6 +72,7 @@ public final class CubismFacadeImpl implements CubismFacade {
             unavailableModelAccess(),
             new ParameterLifecycleCoordinator(),
             new PartLifecycleCoordinator(),
+            new RuntimeTextureAtlasLayoutService(new TextureAtlasLayoutCoordinator(), permissionGate),
             new EditorObjectLifecycleCoordinator(),
             () -> true
         );
@@ -90,6 +91,7 @@ public final class CubismFacadeImpl implements CubismFacade {
             modelAccess,
             new ParameterLifecycleCoordinator(),
             new PartLifecycleCoordinator(),
+            new RuntimeTextureAtlasLayoutService(new TextureAtlasLayoutCoordinator(), permissionGate),
             new EditorObjectLifecycleCoordinator(),
             () -> true
         );
@@ -109,6 +111,7 @@ public final class CubismFacadeImpl implements CubismFacade {
             modelAccess,
             parameterLifecycle,
             new PartLifecycleCoordinator(),
+            new RuntimeTextureAtlasLayoutService(new TextureAtlasLayoutCoordinator(), permissionGate),
             new EditorObjectLifecycleCoordinator(),
             () -> true
         );
@@ -124,10 +127,12 @@ public final class CubismFacadeImpl implements CubismFacade {
         this(
             source,
             permissionGate,
+            new ImmutableSnapshotFactory(),
+            unavailableTransactionManager(),
             modelAccess,
             parameterLifecycle,
             partLifecycle,
-            new TextureAtlasLayoutCoordinator()
+            new RuntimeTextureAtlasLayoutService(new TextureAtlasLayoutCoordinator(), permissionGate),
             new EditorObjectLifecycleCoordinator(),
             () -> true
         );
@@ -139,7 +144,6 @@ public final class CubismFacadeImpl implements CubismFacade {
         final CubismModelAccess modelAccess,
         final ParameterLifecycleCoordinator parameterLifecycle,
         final PartLifecycleCoordinator partLifecycle,
-        final TextureAtlasLayoutCoordinator textureAtlasLayouts
         final BooleanSupplier activeScope
     ) {
         this(
@@ -148,7 +152,32 @@ public final class CubismFacadeImpl implements CubismFacade {
             modelAccess,
             parameterLifecycle,
             partLifecycle,
+            new TextureAtlasLayoutCoordinator(),
             new EditorObjectLifecycleCoordinator(),
+            activeScope
+        );
+    }
+
+    public CubismFacadeImpl(
+        final HostSnapshotSource source,
+        final CubismPermissionGate permissionGate,
+        final CubismModelAccess modelAccess,
+        final ParameterLifecycleCoordinator parameterLifecycle,
+        final PartLifecycleCoordinator partLifecycle,
+        final TextureAtlasLayoutCoordinator textureAtlasLayouts,
+        final EditorObjectLifecycleCoordinator editorObjectLifecycle,
+        final BooleanSupplier activeScope
+    ) {
+        this(
+            source,
+            permissionGate,
+            new ImmutableSnapshotFactory(),
+            unavailableTransactionManager(),
+            modelAccess,
+            parameterLifecycle,
+            partLifecycle,
+            new RuntimeTextureAtlasLayoutService(textureAtlasLayouts, permissionGate),
+            editorObjectLifecycle,
             activeScope
         );
     }
@@ -170,7 +199,7 @@ public final class CubismFacadeImpl implements CubismFacade {
             modelAccess,
             parameterLifecycle,
             partLifecycle,
-            new RuntimeTextureAtlasLayoutService(textureAtlasLayouts, permissionGate)
+            new RuntimeTextureAtlasLayoutService(new TextureAtlasLayoutCoordinator(), permissionGate),
             editorObjectLifecycle,
             activeScope
         );
@@ -211,6 +240,7 @@ public final class CubismFacadeImpl implements CubismFacade {
             unavailableModelAccess(),
             new ParameterLifecycleCoordinator(),
             new PartLifecycleCoordinator(),
+            new RuntimeTextureAtlasLayoutService(new TextureAtlasLayoutCoordinator(), permissionGate),
             new EditorObjectLifecycleCoordinator(),
             () -> true
         );
@@ -231,6 +261,7 @@ public final class CubismFacadeImpl implements CubismFacade {
             modelAccess,
             new ParameterLifecycleCoordinator(),
             new PartLifecycleCoordinator(),
+            new RuntimeTextureAtlasLayoutService(new TextureAtlasLayoutCoordinator(), permissionGate),
             new EditorObjectLifecycleCoordinator(),
             () -> true
         );
@@ -252,6 +283,7 @@ public final class CubismFacadeImpl implements CubismFacade {
             modelAccess,
             parameterLifecycle,
             new PartLifecycleCoordinator(),
+            new RuntimeTextureAtlasLayoutService(new TextureAtlasLayoutCoordinator(), permissionGate),
             new EditorObjectLifecycleCoordinator(),
             () -> true
         );
@@ -274,7 +306,7 @@ public final class CubismFacadeImpl implements CubismFacade {
             modelAccess,
             parameterLifecycle,
             partLifecycle,
-            new RuntimeTextureAtlasLayoutService(new TextureAtlasLayoutCoordinator(), permissionGate)
+            new RuntimeTextureAtlasLayoutService(new TextureAtlasLayoutCoordinator(), permissionGate),
             new EditorObjectLifecycleCoordinator(),
             () -> true
         );
@@ -288,30 +320,7 @@ public final class CubismFacadeImpl implements CubismFacade {
         final CubismModelAccess modelAccess,
         final ParameterLifecycleCoordinator parameterLifecycle,
         final PartLifecycleCoordinator partLifecycle,
-        final TextureAtlasLayoutService textureAtlasLayouts
-        final BooleanSupplier activeScope
-    ) {
-        this(
-            source,
-            permissionGate,
-            snapshotFactory,
-            transactionManager,
-            modelAccess,
-            parameterLifecycle,
-            partLifecycle,
-            new EditorObjectLifecycleCoordinator(),
-            activeScope
-        );
-    }
-
-    CubismFacadeImpl(
-        final HostSnapshotSource source,
-        final CubismPermissionGate permissionGate,
-        final ImmutableSnapshotFactory snapshotFactory,
-        final TransactionManager transactionManager,
-        final CubismModelAccess modelAccess,
-        final ParameterLifecycleCoordinator parameterLifecycle,
-        final PartLifecycleCoordinator partLifecycle,
+        final TextureAtlasLayoutService textureAtlasLayouts,
         final EditorObjectLifecycleCoordinator editorObjectLifecycle,
         final BooleanSupplier activeScope
     ) {

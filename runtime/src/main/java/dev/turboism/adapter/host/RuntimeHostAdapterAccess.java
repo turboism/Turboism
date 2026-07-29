@@ -75,6 +75,7 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
         this.textureAtlasLayouts = java.util.Objects.requireNonNull(
             textureAtlasLayouts,
             "textureAtlasLayouts"
+        );
         this.editorObjectLifecycle = java.util.Objects.requireNonNull(
             editorObjectLifecycle,
             "editorObjectLifecycle"
@@ -124,6 +125,9 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     @Override
     public TextureAtlasLayoutCoordinator textureAtlasLayouts() {
         return textureAtlasLayouts;
+    }
+
+    @Override
     public EditorObjectLifecycleCoordinator editorObjectLifecycle() {
         return editorObjectLifecycle;
     }
