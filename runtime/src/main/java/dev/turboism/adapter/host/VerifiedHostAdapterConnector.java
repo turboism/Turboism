@@ -15,6 +15,9 @@ import dev.turboism.ui.host.EditorUiFamily;
 import dev.turboism.ui.toolbar.EditorUiPluginResourceRegistry;
 import dev.turboism.ui.toolbar.MainToolbarContributionProvider;
 import dev.turboism.ui.toolbar.VerifiedMainToolbarHostOperations;
+import dev.turboism.ui.appearance.AppearanceHostProvider;
+import dev.turboism.ui.appearance.FlatLafAppearanceHostProvider;
+import dev.turboism.ui.appearance.SwingFlatLafHostOperations;
 
 import java.util.List;
 import java.util.Objects;
@@ -28,6 +31,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
     private final MainToolbarResolverFactory mainToolbarResolverFactory;
     private final EditorUiPluginResourceRegistry editorUiPluginResources;
     private final dev.turboism.ui.action.RuntimeEditorUiActionRouter editorUiActionRouter;
+    private final AppearanceProviderFactory appearanceProviderFactory;
 
     VerifiedHostAdapterConnector() {
         this(
@@ -40,7 +44,8 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                 slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
             ),
             null,
-            null
+            null,
+            VerifiedHostAdapterConnector::productionAppearanceProvider
         );
     }
 
@@ -55,7 +60,8 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                 slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
             ),
             null,
-            null
+            null,
+            slice -> unavailableAppearanceProvider()
         );
     }
 
@@ -64,7 +70,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         final EditorResolverFactory editorResolverFactory,
         final EditorAccessFactory editorAccessFactory
     ) {
-        this(factory, editorResolverFactory, editorAccessFactory, null, null, null);
+        this(factory, editorResolverFactory, editorAccessFactory, null, null, null, ignored -> unavailableAppearanceProvider());
     }
 
     VerifiedHostAdapterConnector(
@@ -75,16 +81,37 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         final EditorUiPluginResourceRegistry editorUiPluginResources,
         final dev.turboism.ui.action.RuntimeEditorUiActionRouter editorUiActionRouter
     ) {
+        this(
+            factory,
+            editorResolverFactory,
+            editorAccessFactory,
+            mainToolbarResolverFactory,
+            editorUiPluginResources,
+            editorUiActionRouter,
+            ignored -> unavailableAppearanceProvider()
+        );
+    }
+
+    static AppearanceProviderFactory productionAppearanceProviderFactory() {
+        return VerifiedHostAdapterConnector::productionAppearanceProvider;
+    }
+
+    VerifiedHostAdapterConnector(
+        final VerifiedAdapterFactory factory,
+        final EditorResolverFactory editorResolverFactory,
+        final EditorAccessFactory editorAccessFactory,
+        final MainToolbarResolverFactory mainToolbarResolverFactory,
+        final EditorUiPluginResourceRegistry editorUiPluginResources,
+        final dev.turboism.ui.action.RuntimeEditorUiActionRouter editorUiActionRouter,
+        final AppearanceProviderFactory appearanceProviderFactory
+    ) {
         this.factory = Objects.requireNonNull(factory, "factory");
-        this.editorResolverFactory = Objects.requireNonNull(
-            editorResolverFactory, "editorResolverFactory"
-        );
-        this.editorAccessFactory = Objects.requireNonNull(
-            editorAccessFactory, "editorAccessFactory"
-        );
+        this.editorResolverFactory = Objects.requireNonNull(editorResolverFactory, "editorResolverFactory");
+        this.editorAccessFactory = Objects.requireNonNull(editorAccessFactory, "editorAccessFactory");
         this.mainToolbarResolverFactory = mainToolbarResolverFactory;
         this.editorUiPluginResources = editorUiPluginResources;
         this.editorUiActionRouter = editorUiActionRouter;
+        this.appearanceProviderFactory = Objects.requireNonNull(appearanceProviderFactory, "appearanceProviderFactory");
     }
 
     @Override
@@ -92,8 +119,11 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         Objects.requireNonNull(descriptor, "descriptor");
         final HostVerificationEvidence evidence = descriptor.verificationEvidence();
         final RuntimeHostAdapters adapters = factory.create(evidence);
+        final AppearanceHostProvider appearanceProvider = appearanceProviderFactory.create(
+            evidence.projectWorkspace()
+        );
         if (evidence.editorModel().isEmpty()) {
-            return HostAdapterConnection.of(adapters);
+            return HostAdapterConnection.of(adapters, UnavailableCubismModelAccess.INSTANCE, null, appearanceProvider);
         }
         final VerifiedMemberResolver resolver = editorResolverFactory.create(
             evidence.editorModel().orElseThrow()
@@ -106,7 +136,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             || mainToolbarResolverFactory == null
             || editorUiPluginResources == null
             || editorUiActionRouter == null) {
-            return HostAdapterConnection.of(adapters, modelAccess, resolver);
+            return HostAdapterConnection.of(adapters, modelAccess, resolver, appearanceProvider);
         }
         final HostVerificationEvidence.Slice toolbarSlice = evidence.mainToolbar().orElseThrow();
         final VerifiedMemberResolver toolbarResolver = mainToolbarResolverFactory.create(toolbarSlice);
@@ -128,6 +158,11 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             @Override
             public VerifiedMemberResolver editorModelResolver() {
                 return resolver;
+            }
+
+            @Override
+            public AppearanceHostProvider appearanceProvider() {
+                return appearanceProvider;
             }
 
             @Override
@@ -178,5 +213,25 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
     @FunctionalInterface
     interface MainToolbarResolverFactory {
         VerifiedMemberResolver create(HostVerificationEvidence.Slice slice) throws Exception;
+    }
+
+    @FunctionalInterface
+    interface AppearanceProviderFactory {
+        AppearanceHostProvider create(HostVerificationEvidence.Slice projectSlice) throws Exception;
+    }
+
+    private static AppearanceHostProvider unavailableAppearanceProvider() {
+        return new dev.turboism.ui.appearance.UnavailableAppearanceHostProvider();
+    }
+    private static AppearanceHostProvider productionAppearanceProvider(
+        final HostVerificationEvidence.Slice slice
+    ) throws Exception {
+        final HostArtifactDigest artifact = HostArtifactDigest.from(slice.verifiedArtifact());
+        final String version = dev.turboism.mapping.verification.ProjectWorkspaceVerificationManifest
+            .versionForArtifact(artifact);
+        return new FlatLafAppearanceHostProvider(
+            version,
+            new SwingFlatLafHostOperations(slice.hostClassLoader())
+        );
     }
 }
