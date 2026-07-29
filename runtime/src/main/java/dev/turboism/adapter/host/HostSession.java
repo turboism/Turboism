@@ -87,7 +87,8 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
                 slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
             ),
             editorUiPluginResources,
-            editorUiActionRouter
+            editorUiActionRouter,
+            VerifiedHostAdapterConnector.productionAppearanceProviderFactory()
         );
         dynamic.onOutermostAdapterCallComplete(this::completeDeferredClose);
     }
