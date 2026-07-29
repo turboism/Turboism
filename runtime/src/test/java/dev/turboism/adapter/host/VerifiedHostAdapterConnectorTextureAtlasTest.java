@@ -3,6 +3,7 @@ package dev.turboism.adapter.host;
 import dev.turboism.adapter.RuntimeHostAdapters;
 import dev.turboism.adapter.cubism.textureatlas.TextureAtlasDataModelCapture;
 import dev.turboism.adapter.cubism.textureatlas.VerifiedCubism520TextureAtlasLayoutProvider;
+import dev.turboism.adapter.cubism.textureatlas.VerifiedCubism520TextureAtlasSelectorContract;
 import dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasLayoutProvider;
 import dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract;
 import dev.turboism.mapping.verification.EditorModelVerificationManifest;
@@ -56,6 +57,10 @@ class VerifiedHostAdapterConnectorTextureAtlasTest {
             .stream()
             .map(alias -> StaticSelector.classSelector(alias, getClass().getName().replace('.', '/')))
             .toList();
+        final List<StaticSelector> selectors520 = VerifiedCubism520TextureAtlasSelectorContract.REQUIRED_ALIASES
+            .stream()
+            .map(alias -> StaticSelector.classSelector(alias, getClass().getName().replace('.', '/')))
+            .toList();
         final Set<String> capability = Set.of(
             VerifiedCubism5302TextureAtlasSelectorContract.CAPABILITY_ID
         );
@@ -79,9 +84,9 @@ class VerifiedHostAdapterConnectorTextureAtlasTest {
             VerifiedHostAdapterConnector.textureAtlasProvider(
                 TestVerifiedResolvers.create(
                     "5.2.0",
-                    VerifiedCubism5302TextureAtlasSelectorContract.ADAPTER_SLICE_ID,
+                    VerifiedCubism520TextureAtlasSelectorContract.ADAPTER_SLICE_ID,
                     capability,
-                    selectors,
+                    selectors520,
                     getClass().getClassLoader()
                 ),
                 "session-520",
@@ -108,6 +113,17 @@ class VerifiedHostAdapterConnectorTextureAtlasTest {
                 getClass().getClassLoader()
             ),
             "session-incomplete",
+            new TextureAtlasDataModelCapture()
+        ));
+        assertNull(VerifiedHostAdapterConnector.textureAtlasProvider(
+            TestVerifiedResolvers.create(
+                "5.2.0",
+                VerifiedCubism520TextureAtlasSelectorContract.ADAPTER_SLICE_ID,
+                capability,
+                selectors520.subList(1, selectors520.size()),
+                getClass().getClassLoader()
+            ),
+            "session-520-incomplete",
             new TextureAtlasDataModelCapture()
         ));
     }
