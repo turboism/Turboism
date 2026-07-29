@@ -20,7 +20,9 @@ public final class TextureAtlasPlugin implements TurboismPlugin {
     public void init(final PluginContext context) {
         this.context = Objects.requireNonNull(context, "context");
         this.lifecycle = new TextureAtlasAutoLayoutService.LifecycleLease();
-        settings.init(context.config()).toCompletableFuture().join();
+        if (!settings.init(context.config()).toCompletableFuture().join()) {
+            throw new IllegalStateException("Texture Atlas configuration schema registration failed.");
+        }
         composeAutoLayoutService();
         context.logger().info("Texture Atlas migration shell initialized");
     }
@@ -28,7 +30,9 @@ public final class TextureAtlasPlugin implements TurboismPlugin {
     @Override
     public void enable() {
         requireContext();
-        settings.enable().toCompletableFuture().join();
+        if (!settings.enable().toCompletableFuture().join()) {
+            throw new IllegalStateException("Texture Atlas configuration could not be loaded.");
+        }
         if (autoLayoutService == null) composeAutoLayoutService();
         lifecycle.activate();
         enabled = true;
