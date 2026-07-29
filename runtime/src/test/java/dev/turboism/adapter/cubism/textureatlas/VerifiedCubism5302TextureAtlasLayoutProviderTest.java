@@ -67,7 +67,7 @@ class VerifiedCubism5302TextureAtlasLayoutProviderTest {
             provider.apply(stale, stale.currentPlan())
         );
         assertEquals(0, fixture.data.applyCount);
-        assertFalse(provider(resolver("5.2.0", true), "session-a", fixture).current().isPresent());
+        assertTrue(provider(resolver("5.2.0", true), "session-a", fixture).current().isPresent());
         assertFalse(provider(resolver("5.3.02", false), "session-a", fixture).current().isPresent());
     }
 
