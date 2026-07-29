@@ -171,8 +171,8 @@ class StaticVerificationRecordRepositoryTest {
             "Live2D_Cubism.jar",
             40_805_584L,
             "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
-            "631c326e8bb6f0ec7e4b6cfd0aa321fc5fb9c29df3e21e447132e202a2bcaf47",
-            219,
+            "1bdac19903a34110a99a1d0b8b09f0c8221aefc452df9d209ec193b8082df010",
+            220,
             editorModel52Aliases(),
             editorModel52Aliases(),
             editorModel52MethodAliases(),
@@ -194,7 +194,7 @@ class StaticVerificationRecordRepositoryTest {
             EditorModelVerificationManifest.ARTIFACT_SIZE,
             EditorModelVerificationManifest.ARTIFACT_SHA256,
             EditorModelVerificationManifest.RECORD_SHA256,
-            223,
+            224,
             EditorModelVerificationManifest.REQUIRED_ALIASES,
             EditorModelVerificationManifest.REQUIRED_ALIASES,
             editorModelMethodAliases(),
@@ -412,7 +412,8 @@ class StaticVerificationRecordRepositoryTest {
             "cubism.texture-atlas.undo.force-redo",
             "cubism.texture-atlas.group-undo.add",
             "cubism.texture-atlas.model-image-list.init",
-            "cubism.texture-atlas.model-image-list.data-model"
+            "cubism.texture-atlas.model-image-list.data-model",
+            "cubism.texture-atlas.auto-layout.invoke"
         );
     }
 

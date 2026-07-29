@@ -18,6 +18,7 @@ import dev.turboism.sdk.ui.UiScheduler;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.function.BooleanSupplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -66,6 +67,32 @@ class TextureAtlasPluginTest {
         assertEquals(TextureAtlasLayoutMode.COMPACT, plugin.settings().layoutMode());
         plugin.shutdown();
     }
+
+    @Test
+    void nativeEntryPublishesOneLifecycleBoundCallbackAndFallsBackOnFailure() {
+        final RecordingLayoutService layouts = new RecordingLayoutService(
+            java.util.Optional.of(snapshot())
+        );
+        final TextureAtlasPlugin plugin = new TextureAtlasPlugin();
+        plugin.init(new ShellPluginContext(layouts));
+
+        plugin.enable();
+        final Object published = System.getProperties().get(TextureAtlasPlugin.NATIVE_AUTO_LAYOUT_CALLBACK_KEY);
+        assertTrue(published instanceof BooleanSupplier);
+        assertTrue(((BooleanSupplier) published).getAsBoolean());
+        assertEquals(1, layouts.applyCalls);
+
+        layouts.result = dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutApplyResult.failed(
+            dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutFailureCode.PROVIDER_FAILED,
+            "failed"
+        );
+        assertFalse(((BooleanSupplier) published).getAsBoolean());
+
+        plugin.disable();
+        assertFalse(System.getProperties().containsKey(TextureAtlasPlugin.NATIVE_AUTO_LAYOUT_CALLBACK_KEY));
+        assertFalse(((BooleanSupplier) published).getAsBoolean());
+        plugin.shutdown();
+    }
     private static final class ShellPluginContext implements PluginContext {
         private final PluginLogger logger = new PluginLogger() {
             @Override public void debug(String message) {}
@@ -74,6 +101,15 @@ class TextureAtlasPluginTest {
             @Override public void error(String message) {}
             @Override public void error(String message, Throwable throwable) {}
         };
+        private final TextureAtlasLayoutService layouts;
+
+        private ShellPluginContext() {
+            this(new RecordingLayoutService(java.util.Optional.empty()));
+        }
+
+        private ShellPluginContext(final TextureAtlasLayoutService layouts) {
+            this.layouts = layouts;
+        }
 
         @Override public PluginDescriptor descriptor() { throw unused(); }
         @Override public PluginLogger logger() { return logger; }
@@ -88,20 +124,7 @@ class TextureAtlasPluginTest {
                 @Override public boolean isHostPresent() { return false; }
                 @Override public dev.turboism.sdk.cubism.transaction.TransactionManager transactionManager() { throw unused(); }
                 @Override public TextureAtlasLayoutService textureAtlasLayouts() {
-                    return new TextureAtlasLayoutService() {
-                        @Override public java.util.Optional<dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutSnapshot> current() {
-                            return java.util.Optional.empty();
-                        }
-                        @Override public dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutApplyResult apply(
-                            final dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutTarget target,
-                            final dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutPlan plan
-                        ) {
-                            return dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutApplyResult.failed(
-                                dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutFailureCode.CAPABILITY_UNAVAILABLE,
-                                "unavailable"
-                            );
-                        }
-                    };
+                    return layouts;
                 }
             };
         }
@@ -115,6 +138,54 @@ class TextureAtlasPluginTest {
 
         private static UnsupportedOperationException unused() {
             return new UnsupportedOperationException("not used by a migration shell");
+        }
+    }
+
+    private static dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutSnapshot snapshot() {
+        final dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutTarget target =
+            new dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutTarget() { };
+        final dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutConstraints constraints =
+            new dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutConstraints(16, 16, 0, 0, 1, false, false);
+        final java.util.List<dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutItem> items = java.util.List.of(
+            new dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutItem("texture-a", 4, 4)
+        );
+        final dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutPlan plan =
+            new dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutPlan(
+                16,
+                16,
+                1,
+                java.util.List.of(new dev.turboism.sdk.cubism.textureatlas.TextureAtlasPlacement(
+                    "texture-a", 0, 0, 0, 4, 4, false
+                ))
+            );
+        return new dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutSnapshot(
+            target, "document-a", "model-a", "atlas-a", constraints, items, plan
+        );
+    }
+    private static final class RecordingLayoutService implements TextureAtlasLayoutService {
+        private final java.util.Optional<dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutSnapshot> snapshot;
+        private dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutApplyResult result =
+            dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutApplyResult.applied();
+        private int applyCalls;
+
+        private RecordingLayoutService(
+            final java.util.Optional<dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutSnapshot> snapshot
+        ) {
+            this.snapshot = snapshot;
+        }
+
+        @Override
+        public java.util.Optional<dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutSnapshot> current() {
+            return snapshot;
+        }
+
+        @Override
+        public dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutApplyResult apply(
+            final dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutTarget target,
+            final dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutPlan plan
+        ) {
+            applyCalls++;
+            return result;
         }
     }
 }
