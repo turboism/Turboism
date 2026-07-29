@@ -3,6 +3,10 @@ package dev.turboism.adapter.host;
 import dev.turboism.adapter.RuntimeHostAdapters;
 import dev.turboism.adapter.VerifiedRuntimeHostAdaptersFactory;
 import dev.turboism.adapter.cubism.editor.EditorBackedCubismModelAccess;
+import dev.turboism.adapter.cubism.textureatlas.NativeTextureAtlasDataModelBridge;
+import dev.turboism.adapter.cubism.textureatlas.TextureAtlasDataModelCapture;
+import dev.turboism.adapter.cubism.textureatlas.TextureAtlasLayoutProvider;
+import dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasLayoutProvider;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.MainToolbarVerificationManifest;
 import dev.turboism.mapping.verification.VerifiedEditorModelResolverFactory;
@@ -102,11 +106,27 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             resolver,
             descriptor.sessionId()
         );
+        final TextureAtlasDataModelCapture textureAtlasCapture =
+            new TextureAtlasDataModelCapture();
+        final TextureAtlasLayoutProvider textureAtlasProvider =
+            new VerifiedCubism5302TextureAtlasLayoutProvider(
+                resolver,
+                descriptor.sessionId(),
+                textureAtlasCapture
+            );
+        NativeTextureAtlasDataModelBridge.install(textureAtlasCapture);
         if (evidence.mainToolbar().isEmpty()
             || mainToolbarResolverFactory == null
             || editorUiPluginResources == null
             || editorUiActionRouter == null) {
-            return HostAdapterConnection.of(adapters, modelAccess, resolver);
+            return connection(
+                adapters,
+                modelAccess,
+                resolver,
+                textureAtlasCapture,
+                textureAtlasProvider,
+                List.of()
+            );
         }
         final HostVerificationEvidence.Slice toolbarSlice = evidence.mainToolbar().orElseThrow();
         final VerifiedMemberResolver toolbarResolver = mainToolbarResolverFactory.create(toolbarSlice);
@@ -114,6 +134,41 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             MainToolbarVerificationManifest.admissionForArtifact(
                 HostArtifactDigest.from(toolbarSlice.verifiedArtifact())
             );
+        return connection(
+            adapters,
+            modelAccess,
+            resolver,
+            textureAtlasCapture,
+            textureAtlasProvider,
+            List.of(new MainToolbarContributionProvider(
+                EditorUiProviderAdmission.admitted(
+                    EditorUiFamily.MAIN_TOOLBAR,
+                    1L,
+                    new EditorUiProviderAdmission.VerificationEvidence(
+                        toolbarAdmission.cubismVersion(),
+                        toolbarAdmission.artifactSize(),
+                        toolbarAdmission.artifactSha256(),
+                        toolbarAdmission.adapterSliceId(),
+                        toolbarAdmission.recordSha256()
+                    )
+                ),
+                new VerifiedMainToolbarHostOperations(
+                    toolbarResolver,
+                    editorUiPluginResources
+                ),
+                editorUiActionRouter
+            ))
+        );
+    }
+
+    private static HostAdapterConnection connection(
+        final RuntimeHostAdapters adapters,
+        final CubismModelAccess modelAccess,
+        final VerifiedMemberResolver resolver,
+        final TextureAtlasDataModelCapture capture,
+        final TextureAtlasLayoutProvider provider,
+        final List<EditorUiContributionProvider> toolbarProviders
+    ) {
         return new HostAdapterConnection() {
             @Override
             public RuntimeHostAdapters adapters() {
@@ -131,31 +186,24 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             }
 
             @Override
-            public List<EditorUiContributionProvider> editorUiProviders(
-                final long hostGeneration
-            ) {
-                return List.of(new MainToolbarContributionProvider(
-                    EditorUiProviderAdmission.admitted(
-                        EditorUiFamily.MAIN_TOOLBAR,
-                        hostGeneration,
-                        new EditorUiProviderAdmission.VerificationEvidence(
-                            toolbarAdmission.cubismVersion(),
-                            toolbarAdmission.artifactSize(),
-                            toolbarAdmission.artifactSha256(),
-                            toolbarAdmission.adapterSliceId(),
-                            toolbarAdmission.recordSha256()
-                        )
-                    ),
-                    new VerifiedMainToolbarHostOperations(
-                        toolbarResolver,
-                        editorUiPluginResources
-                    ),
-                    editorUiActionRouter
-                ));
+            public TextureAtlasDataModelCapture textureAtlasDataModelCapture() {
+                return capture;
+            }
+
+            @Override
+            public java.util.Optional<TextureAtlasLayoutProvider> textureAtlasLayoutProvider() {
+                return java.util.Optional.of(provider);
+            }
+
+            @Override
+            public List<EditorUiContributionProvider> editorUiProviders(final long hostGeneration) {
+                return toolbarProviders;
             }
 
             @Override
             public void close() {
+                NativeTextureAtlasDataModelBridge.uninstall(capture);
+                capture.close();
             }
         };
     }
