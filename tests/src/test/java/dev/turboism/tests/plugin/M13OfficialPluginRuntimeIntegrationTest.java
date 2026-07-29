@@ -641,6 +641,7 @@ class M13OfficialPluginRuntimeIntegrationTest {
             Set.of(
                 "turboism.action.register",
                 "turboism.ui.context-menu.contribute",
+                "turboism.ui.menu.contribute",
                 "turboism.cubism.project.read",
                 "turboism.ui.dialog.contribute",
                 "turboism.ui.file-chooser.request",
