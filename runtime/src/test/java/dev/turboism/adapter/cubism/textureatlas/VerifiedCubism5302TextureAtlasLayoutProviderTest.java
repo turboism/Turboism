@@ -67,7 +67,13 @@ class VerifiedCubism5302TextureAtlasLayoutProviderTest {
             provider.apply(stale, stale.currentPlan())
         );
         assertEquals(0, fixture.data.applyCount);
-        assertTrue(provider(resolver("5.2.0", true), "session-a", fixture).current().isPresent());
+        assertFalse(provider(resolver("5.2.0", true), "session-a", fixture).current().isPresent());
+        assertTrue(new VerifiedCubism520TextureAtlasLayoutProvider(
+            resolver("5.2.0", true), "session-a", captured(fixture)
+        ).current().isPresent());
+        assertFalse(new VerifiedCubism520TextureAtlasLayoutProvider(
+            resolver("5.3.02", true), "session-a", captured(fixture)
+        ).current().isPresent());
         assertFalse(provider(resolver("5.3.02", false), "session-a", fixture).current().isPresent());
     }
 
@@ -99,6 +105,12 @@ class VerifiedCubism5302TextureAtlasLayoutProviderTest {
         final TextureAtlasDataModelCapture capture = new TextureAtlasDataModelCapture();
         capture.capture(fixture.data);
         return new VerifiedCubism5302TextureAtlasLayoutProvider(resolver, sessionIdentity, capture);
+    }
+
+    private static TextureAtlasDataModelCapture captured(final Fixture fixture) {
+        final TextureAtlasDataModelCapture capture = new TextureAtlasDataModelCapture();
+        capture.capture(fixture.data);
+        return capture;
     }
 
     private static VerifiedMemberResolver resolver(final String version, final boolean includeAtlas) {

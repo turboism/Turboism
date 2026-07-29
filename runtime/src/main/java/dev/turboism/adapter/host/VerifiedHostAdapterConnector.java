@@ -5,6 +5,7 @@ import dev.turboism.adapter.VerifiedRuntimeHostAdaptersFactory;
 import dev.turboism.adapter.cubism.editor.EditorBackedCubismModelAccess;
 import dev.turboism.adapter.cubism.textureatlas.TextureAtlasDataModelCapture;
 import dev.turboism.adapter.cubism.textureatlas.TextureAtlasLayoutProvider;
+import dev.turboism.adapter.cubism.textureatlas.VerifiedCubism520TextureAtlasLayoutProvider;
 import dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasLayoutProvider;
 import dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract;
 import dev.turboism.mapping.verification.HostArtifactDigest;
@@ -108,18 +109,11 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         );
         final TextureAtlasDataModelCapture textureAtlasCapture =
             new TextureAtlasDataModelCapture();
-        final TextureAtlasLayoutProvider textureAtlasProvider =
-            resolver.authorizesFeature(
-                VerifiedCubism5302TextureAtlasSelectorContract.ADAPTER_SLICE_ID,
-                VerifiedCubism5302TextureAtlasSelectorContract.CAPABILITY_ID,
-                VerifiedCubism5302TextureAtlasSelectorContract.REQUIRED_ALIASES
-            )
-                ? new VerifiedCubism5302TextureAtlasLayoutProvider(
-                    resolver,
-                    descriptor.sessionId(),
-                    textureAtlasCapture
-                )
-                : null;
+        final TextureAtlasLayoutProvider textureAtlasProvider = textureAtlasProvider(
+            resolver,
+            descriptor.sessionId(),
+            textureAtlasCapture
+        );
         if (evidence.mainToolbar().isEmpty()
             || mainToolbarResolverFactory == null
             || editorUiPluginResources == null
@@ -164,6 +158,27 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                 editorUiActionRouter
             ))
         );
+    }
+
+    static TextureAtlasLayoutProvider textureAtlasProvider(
+        final VerifiedMemberResolver resolver,
+        final String sessionId,
+        final TextureAtlasDataModelCapture capture
+    ) {
+        if (!resolver.authorizesFeature(
+            VerifiedCubism5302TextureAtlasSelectorContract.ADAPTER_SLICE_ID,
+            VerifiedCubism5302TextureAtlasSelectorContract.CAPABILITY_ID,
+            VerifiedCubism5302TextureAtlasSelectorContract.REQUIRED_ALIASES
+        )) {
+            return null;
+        }
+        if (resolver.isExactCubismVersion("5.3.02")) {
+            return new VerifiedCubism5302TextureAtlasLayoutProvider(resolver, sessionId, capture);
+        }
+        if (resolver.isExactCubismVersion("5.2.0")) {
+            return new VerifiedCubism520TextureAtlasLayoutProvider(resolver, sessionId, capture);
+        }
+        return null;
     }
 
     private static HostAdapterConnection connection(
