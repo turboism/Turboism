@@ -4,7 +4,6 @@ import dev.turboism.plugin.boundingbox.BoundingBoxPlugin;
 import dev.turboism.plugin.contextmenu.ContextMenuPlugin;
 import dev.turboism.plugin.projectpanel.ProjectPanelPlugin;
 import dev.turboism.plugin.psdimport.PsdImportPlugin;
-import dev.turboism.plugin.textureatlas.TextureAtlasPlugin;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.config.ConfigKey;
 import dev.turboism.sdk.config.ConfigReadResult;
@@ -63,8 +62,7 @@ class LegacyMigrationShellPluginsTest {
             BoundingBoxPlugin::new,
             ContextMenuPlugin::new,
             ProjectPanelPlugin::new,
-            PsdImportPlugin::new,
-            TextureAtlasPlugin::new
+            PsdImportPlugin::new
         );
     }
 
