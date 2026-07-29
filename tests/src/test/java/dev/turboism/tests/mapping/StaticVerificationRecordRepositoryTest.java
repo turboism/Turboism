@@ -15,6 +15,7 @@ import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.schema.MappingPackValidator;
 import dev.turboism.mapping.verification.EmbeddedPanelVerificationManifest;
 import dev.turboism.mapping.verification.MainToolbarVerificationManifest;
+import dev.turboism.mapping.verification.TopMenuVerificationManifest;
 import dev.turboism.mapping.verification.ProjectWorkspaceVerificationManifest;
 import dev.turboism.mapping.verification.StaticVerificationRecordValidator;
 import org.junit.jupiter.api.Test;
@@ -39,7 +40,7 @@ class StaticVerificationRecordRepositoryTest {
     );
     private static final Path RECORDS = PROJECT_ROOT.resolve("docs/migration/verification/static");
 
-    private static final Map<String, SliceExpectation> EXPECTATIONS = withEmbeddedPanels(Map.of(
+    private static final Map<String, SliceExpectation> EXPECTATIONS = withTopMenus(withEmbeddedPanels(Map.of(
         "docs/migration/verification/static/cubism-5.2-project-workspace.json",
         new SliceExpectation(
             "m15.cubism-5.2.project-workspace.static",
@@ -210,7 +211,7 @@ class StaticVerificationRecordRepositoryTest {
             "98f4dac9a9508a6e255f6f3862608409a83e29c9009a7f0fcf517e06658164e4",
             "986bcddca88c35dc09b848ccb6737d0a70a12b2fd030a52be838ce533c687073",
             70, "[5.3.02,5.3.03)")
-    ));
+    )));
 
     private static Map<String, SliceExpectation> withEmbeddedPanels(
         final Map<String, SliceExpectation> existing
@@ -265,6 +266,81 @@ class StaticVerificationRecordRepositoryTest {
             )
         );
         return Map.copyOf(expectations);
+    }
+
+    private static Map<String, SliceExpectation> withTopMenus(
+        final Map<String, SliceExpectation> existing
+    ) {
+        final LinkedHashMap<String, SliceExpectation> expectations = new LinkedHashMap<>(existing);
+        expectations.put(
+            "docs/migration/verification/static/cubism-5.2-ui-top-menu.json",
+            new SliceExpectation(
+                "cubism-5.2.03.ui-top-menu.static",
+                TopMenuVerificationManifest.ADAPTER_SLICE_ID,
+                "5.2.03",
+                "cubism-5.2",
+                TopMenuVerificationManifest.CAPABILITY_IDS,
+                "Live2D_Cubism.jar",
+                40_805_584L,
+                "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
+                "b48730d61f09aa685df0d73fdc2579cb1a2e84a0ff597a677e088eb9292ca17b",
+                15,
+                TopMenuVerificationManifest.REQUIRED_ALIASES,
+                TopMenuVerificationManifest.REQUIRED_ALIASES,
+                topMenuMethodAliases(),
+                difference(TopMenuVerificationManifest.REQUIRED_ALIASES, topMenuMethodAliases()),
+                "cubism-5.2-ui-top-menu",
+                Path.of("cubism-ref/mapping-packs/draft/cubism-5.2-ui-top-menu.json"),
+                Path.of("cubism-ref/profiles/draft/cubism-5.2.json"),
+                "[5.2.0,5.3.0)",
+                SliceKind.EDITOR_UI
+            )
+        );
+        expectations.put(
+            "docs/migration/verification/static/cubism-5.3.02-ui-top-menu.json",
+            new SliceExpectation(
+                TopMenuVerificationManifest.VERIFICATION_ID,
+                TopMenuVerificationManifest.ADAPTER_SLICE_ID,
+                TopMenuVerificationManifest.CUBISM_VERSION,
+                TopMenuVerificationManifest.PROFILE_ID,
+                TopMenuVerificationManifest.CAPABILITY_IDS,
+                "Live2D_Cubism.jar",
+                TopMenuVerificationManifest.ARTIFACT_SIZE,
+                TopMenuVerificationManifest.ARTIFACT_SHA256,
+                TopMenuVerificationManifest.RECORD_SHA256,
+                15,
+                TopMenuVerificationManifest.REQUIRED_ALIASES,
+                TopMenuVerificationManifest.REQUIRED_ALIASES,
+                topMenuMethodAliases(),
+                difference(TopMenuVerificationManifest.REQUIRED_ALIASES, topMenuMethodAliases()),
+                "cubism-5.3.02-ui-top-menu",
+                Path.of("cubism-ref/mapping-packs/draft/cubism-5.3.02-ui-top-menu.json"),
+                Path.of("cubism-ref/profiles/draft/cubism-5.3.02.json"),
+                "[5.3.02,5.3.03)",
+                SliceKind.EDITOR_UI
+            )
+        );
+        return Map.copyOf(expectations);
+    }
+
+    private static Set<String> topMenuMethodAliases() {
+        return Set.of(
+            "cubism.ui-top-menu.app-controller.instance",
+            "cubism.ui-top-menu.app-controller.main-frame",
+            "cubism.ui-top-menu.main-frame.window",
+            "cubism.ui-top-menu.window.menu-bar",
+            "cubism.ui-top-menu.menu-bar.menus",
+            "cubism.ui-top-menu.menu-bar.add",
+            "cubism.ui-top-menu.menu-bar.swing",
+            "cubism.ui-top-menu.widget.name",
+            "cubism.ui-top-menu.widget.set-name",
+            "cubism.ui-top-menu.widget.revalidate",
+            "cubism.ui-top-menu.widget.repaint",
+            "cubism.ui-top-menu.menu.add",
+            "cubism.ui-top-menu.menu.swing",
+            "cubism.ui-top-menu.menu.create",
+            "cubism.ui-top-menu.menu-item.create"
+        );
     }
 
     private static Set<String> embeddedPanelMethodAliases() {
