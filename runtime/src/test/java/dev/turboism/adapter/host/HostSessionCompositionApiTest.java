@@ -61,6 +61,7 @@ class HostSessionCompositionApiTest {
                 "parameterLifecycle():dev.turboism.adapter.cubism.lifecycle.ParameterLifecycleCoordinator",
                 "partLifecycle():dev.turboism.adapter.cubism.lifecycle.PartLifecycleCoordinator",
                 "editorObjectLifecycle():dev.turboism.adapter.cubism.lifecycle.EditorObjectLifecycleCoordinator",
+                "physicsEditorCoordinator():dev.turboism.adapter.cubism.physics.PhysicsEditorCoordinator",
                 "editorUiLifecycle():dev.turboism.ui.host.EditorUiHostLifecycle",
                 "editorUiContributions():dev.turboism.ui.contribution.EditorUiContributionAuthority",
                 "editorUiActionRouter():dev.turboism.ui.action.RuntimeEditorUiActionRouter",
