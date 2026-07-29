@@ -3,6 +3,7 @@ package dev.turboism.preview;
 import dev.turboism.core.lifecycle.PluginLifecycleState;
 import dev.turboism.adapter.cubism.lifecycle.ParameterHookRegistry;
 import dev.turboism.adapter.cubism.lifecycle.PartHookRegistry;
+import dev.turboism.adapter.cubism.lifecycle.EditorObjectHookRegistry;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -15,12 +16,14 @@ final class PreviewPluginShutdown {
     private final PreviewPluginShutdownStages stages;
     private final ParameterHookRegistry parameterHookRegistry;
     private final PartHookRegistry partHookRegistry;
+    private final EditorObjectHookRegistry editorObjectHookRegistry;
 
     PreviewPluginShutdown(
         final PreviewLog log,
         final LocalPluginRuntime.PluginCloseHook closeHook,
         final ParameterHookRegistry parameterHookRegistry,
-        final PartHookRegistry partHookRegistry
+        final PartHookRegistry partHookRegistry,
+        final EditorObjectHookRegistry editorObjectHookRegistry
     ) {
         this.log = log;
         this.closeHook = closeHook;
@@ -30,6 +33,10 @@ final class PreviewPluginShutdown {
             "parameterHookRegistry"
         );
         this.partHookRegistry = java.util.Objects.requireNonNull(partHookRegistry, "partHookRegistry");
+        this.editorObjectHookRegistry = java.util.Objects.requireNonNull(
+            editorObjectHookRegistry,
+            "editorObjectHookRegistry"
+        );
     }
 
     List<LocalPluginRuntime.LoadedPluginSummary> closeAll(
@@ -58,6 +65,7 @@ final class PreviewPluginShutdown {
         final LocalPluginRuntime.LoadedPlugin loadedPlugin
     ) throws Throwable {
         final String id = loadedPlugin.runtime().id();
+        editorObjectHookRegistry.unregister(id);
         partHookRegistry.unregister(id);
         parameterHookRegistry.unregister(id);
         closeHook.run(id, "close");
@@ -73,6 +81,7 @@ final class PreviewPluginShutdown {
         final LocalPluginRuntime.LoadedPlugin loadedPlugin
     ) {
         try {
+            editorObjectHookRegistry.unregister(safePluginId(loadedPlugin));
             partHookRegistry.unregister(safePluginId(loadedPlugin));
             parameterHookRegistry.unregister(safePluginId(loadedPlugin));
             closeHook.run(safePluginId(loadedPlugin), "fallback-summary");
