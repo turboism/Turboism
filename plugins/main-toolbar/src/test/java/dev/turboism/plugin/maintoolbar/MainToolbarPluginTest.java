@@ -19,6 +19,7 @@ import dev.turboism.sdk.cubism.WorkspaceSnapshot;
 import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
 import dev.turboism.sdk.event.EventBus;
+import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.permission.PermissionIds;
@@ -46,6 +47,7 @@ import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;
+import java.util.Locale;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -91,6 +93,12 @@ class MainToolbarPluginTest {
             List.of(new EmbeddedPanelContribution("turboism.panel.main", "Turboism", "right", 0)),
             context.uiHost().panelContributions()
         );
+        assertEquals(
+            List.of("Turboism/Settings:main-toolbar.home-entry.open:10"),
+            context.menus().contributions().stream()
+                .map(value -> value.menuPath() + ":" + value.actionId() + ":" + value.order())
+                .toList()
+        );
     }
 
     @Test
@@ -121,6 +129,7 @@ class MainToolbarPluginTest {
         assertTrue(context.actions().actions().isEmpty());
         assertTrue(context.mainToolbar().buttonContributions().isEmpty());
         assertTrue(context.uiHost().panelContributions().isEmpty());
+        assertTrue(context.menus().contributions().isEmpty());
     }
 
     @Test
@@ -166,6 +175,7 @@ class MainToolbarPluginTest {
 
     private static final class RecordingPluginContext implements PluginContext {
         private final RecordingActionRegistry actions = new RecordingActionRegistry();
+        private final RecordingMenuRegistry menus = new RecordingMenuRegistry();
         private final RecordingUiHost uiHost;
         private final RecordingMainToolbarRegistry mainToolbar;
         private final DisposableScope disposableScope = new DisposableScope();
@@ -222,8 +232,8 @@ class MainToolbarPluginTest {
         }
 
         @Override
-        public MenuRegistry menus() {
-            return null;
+        public RecordingMenuRegistry menus() {
+            return menus;
         }
 
         @Override
@@ -234,6 +244,31 @@ class MainToolbarPluginTest {
         @Override
         public RecordingUiHost uiHost() {
             return uiHost;
+        }
+
+        @Override
+        public PluginLocalization localization() {
+            return new PluginLocalization() {
+                @Override
+                public Locale locale() {
+                    return Locale.ENGLISH;
+                }
+
+                @Override
+                public String text(final String key) {
+                    return "main-toolbar.settings-menu.label".equals(key) ? "Settings" : key;
+                }
+
+                @Override
+                public String format(final String key, final Object... arguments) {
+                    return text(key);
+                }
+
+                @Override
+                public boolean contains(final String key) {
+                    return "main-toolbar.settings-menu.label".equals(key);
+                }
+            };
         }
 
         @Override
@@ -278,6 +313,20 @@ class MainToolbarPluginTest {
                 .handler()
                 .accept(new ActionContext() {
                 });
+        }
+    }
+
+    private static final class RecordingMenuRegistry implements MenuRegistry {
+        private final List<MenuContribution> contributions = new ArrayList<>();
+
+        List<MenuContribution> contributions() {
+            return contributions;
+        }
+
+        @Override
+        public Registration contribute(final MenuContribution contribution) {
+            contributions.add(contribution);
+            return () -> contributions.remove(contribution);
         }
     }
 

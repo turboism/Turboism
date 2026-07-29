@@ -14,6 +14,8 @@ import dev.turboism.sdk.cubism.SelectionSnapshot;
 import dev.turboism.sdk.cubism.TextureAtlasSnapshot;
 import dev.turboism.sdk.cubism.WorkspaceSnapshot;
 import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
+import dev.turboism.sdk.i18n.PluginLocalization;
+import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.theme.ThemeStatusSnapshot;
 import dev.turboism.sdk.ui.DialogRequest;
@@ -31,6 +33,7 @@ import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;
+import java.util.Locale;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -50,7 +53,7 @@ class MainToolbarHomeEntryServiceTest {
     void registerHomeEntry_contributesHomeButtonToMainToolbar() {
         // Given
         RecordingUiHost uiHost = new RecordingUiHost();
-        MainToolbarHomeEntryService service = new MainToolbarHomeEntryService(uiHost, toolbar(uiHost));
+        MainToolbarHomeEntryService service = service(uiHost);
 
         // When
         service.registerHomeEntry();
@@ -81,7 +84,7 @@ class MainToolbarHomeEntryServiceTest {
     void registerHomeEntry_registrationRemovesToolbarContributionWhenClosed() {
         // Given
         RecordingUiHost uiHost = new RecordingUiHost();
-        MainToolbarHomeEntryService service = new MainToolbarHomeEntryService(uiHost, toolbar(uiHost));
+        MainToolbarHomeEntryService service = service(uiHost);
 
         // When
         Registration registration = service.registerHomeEntry();
@@ -95,7 +98,7 @@ class MainToolbarHomeEntryServiceTest {
     void openTurboismPanel_requestsTypedPanelActivation() {
         // Given
         RecordingUiHost uiHost = new RecordingUiHost();
-        MainToolbarHomeEntryService service = new MainToolbarHomeEntryService(uiHost, toolbar(uiHost));
+        MainToolbarHomeEntryService service = service(uiHost);
 
         // When
         service.openTurboismPanel();
@@ -108,6 +111,32 @@ class MainToolbarHomeEntryServiceTest {
         assertTrue(uiHost.notifications().isEmpty());
     }
 
+
+    private static MainToolbarHomeEntryService service(final RecordingUiHost uiHost) {
+        final MenuRegistry menus = contribution -> () -> { };
+        final PluginLocalization localization = new PluginLocalization() {
+            @Override
+            public Locale locale() {
+                return Locale.ENGLISH;
+            }
+
+            @Override
+            public String text(final String key) {
+                return "Settings";
+            }
+
+            @Override
+            public String format(final String key, final Object... arguments) {
+                return text(key);
+            }
+
+            @Override
+            public boolean contains(final String key) {
+                return true;
+            }
+        };
+        return new MainToolbarHomeEntryService(uiHost, toolbar(uiHost), menus, localization);
+    }
 
     private static MainToolbarRegistry toolbar(final RecordingUiHost uiHost) {
         return new MainToolbarRegistry() {

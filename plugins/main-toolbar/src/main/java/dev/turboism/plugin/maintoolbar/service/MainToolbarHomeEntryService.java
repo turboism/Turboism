@@ -1,5 +1,8 @@
 package dev.turboism.plugin.maintoolbar.service;
 
+import dev.turboism.sdk.i18n.PluginLocalization;
+import dev.turboism.sdk.menu.MenuRegistry;
+
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.EmbeddedPanelContribution;
 import dev.turboism.sdk.ui.EmbeddedPanelId;
@@ -18,6 +21,8 @@ public final class MainToolbarHomeEntryService {
     private static final String CONTRIBUTION_ID = "main-toolbar.home-entry";
     private static final String LABEL_KEY = "main-toolbar.home.aria-label";
     private static final String TOOLTIP_KEY = "main-toolbar.home.tooltip";
+    private static final String SETTINGS_MENU_LABEL_KEY = "main-toolbar.settings-menu.label";
+    private static final String TURBOISM_MENU_ROOT = "Turboism";
     private static final String ICON_RESOURCE_PATH = "icons/main-toolbar-home.png";
     private static final String PANEL_TITLE = "Turboism";
     private static final String PANEL_PLACEMENT = "right";
@@ -26,13 +31,19 @@ public final class MainToolbarHomeEntryService {
 
     private final UiHostCapabilityService uiHost;
     private final MainToolbarRegistry mainToolbar;
+    private final MenuRegistry menus;
+    private final PluginLocalization localization;
 
     public MainToolbarHomeEntryService(
         final UiHostCapabilityService uiHost,
-        final MainToolbarRegistry mainToolbar
+        final MainToolbarRegistry mainToolbar,
+        final MenuRegistry menus,
+        final PluginLocalization localization
     ) {
         this.uiHost = Objects.requireNonNull(uiHost, "uiHost");
         this.mainToolbar = Objects.requireNonNull(mainToolbar, "mainToolbar");
+        this.menus = Objects.requireNonNull(menus, "menus");
+        this.localization = Objects.requireNonNull(localization, "localization");
     }
 
     public Registration registerTurboismPanel() {
@@ -63,6 +74,26 @@ public final class MainToolbarHomeEntryService {
                 ORDER
             )
         );
+    }
+
+    public Registration registerSettingsMenu() {
+        final String menuPath = TURBOISM_MENU_ROOT + "/" + localization.text(SETTINGS_MENU_LABEL_KEY);
+        return menus.contribute(new MenuRegistry.MenuContribution() {
+            @Override
+            public String menuPath() {
+                return menuPath;
+            }
+
+            @Override
+            public String actionId() {
+                return ACTION_ID;
+            }
+
+            @Override
+            public int order() {
+                return ORDER;
+            }
+        });
     }
 
     public void openTurboismPanel() {
