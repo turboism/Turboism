@@ -22,15 +22,18 @@ public final class VerifiedCubism5302TextureAtlasLayoutProvider implements Textu
     private static final int DEFAULT_MAX_ATLAS_COUNT = 32;
 
     private final VerifiedMemberResolver resolver;
-    @SuppressWarnings("unused") private final String sessionIdentity;
+    private final String sessionIdentity;
+    private final TextureAtlasDataModelCapture capture;
     private final IdentityHashMap<Object, Long> revisions = new IdentityHashMap<>();
 
     public VerifiedCubism5302TextureAtlasLayoutProvider(
         final VerifiedMemberResolver resolver,
-        final String sessionIdentity
+        final String sessionIdentity,
+        final TextureAtlasDataModelCapture capture
     ) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.sessionIdentity = requireText(sessionIdentity, "sessionIdentity");
+        this.capture = Objects.requireNonNull(capture, "capture");
     }
 
     @Override
@@ -52,8 +55,8 @@ public final class VerifiedCubism5302TextureAtlasLayoutProvider implements Textu
         if (!samePlanningState(expected, current)) return ApplyOutcome.REJECTED;
         if (plan.equals(current.currentPlan())) return ApplyOutcome.NO_CHANGE;
 
-        final Map<String, Object> images = imagesById(binding.dataModel());
-        final List<Object> staged = stage(plan, images);
+        final Map<String, Object> images = imagesById(binding.textureManager());
+        final List<Object> staged = stage(plan, images, binding.modelSource());
         final Object editMode = resolver.invoke(
             "cubism.editor-model.modeling-document.edit-mode", binding.document()
         );
@@ -64,7 +67,7 @@ public final class VerifiedCubism5302TextureAtlasLayoutProvider implements Textu
             "cubism.texture-atlas.undo.create",
             "Update TextureAtlas",
             binding.modelSource(),
-            list(resolver.invoke("cubism.texture-atlas.data-model.atlases", binding.dataModel())),
+            atlases(binding.dataModel()),
             staged
         );
         resolver.invoke("cubism.texture-atlas.undo.force-redo", undo);
@@ -83,26 +86,26 @@ public final class VerifiedCubism5302TextureAtlasLayoutProvider implements Textu
     }
 
     private Binding binding() {
-        final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
-        final Object document = app == null ? null : resolver.invoke(
-            "cubism.editor-model.app-controller.current-document", app
-        );
-        if (!resolver.isInstance("cubism.editor-model.modeling-document.class", document)) return null;
-        final Object source = resolver.invoke("cubism.editor-model.modeling-document.model-source", document);
-        final Object guid = source == null ? null : resolver.invoke("cubism.editor-model.model-source.guid", source);
-        final String modelId = text(guid == null ? null : resolver.invoke("cubism.editor-model.guid.value", guid));
-        final String documentId = text(resolver.invoke("cubism.texture-atlas.document.id", document));
-        final Object dataModel = resolver.invoke("cubism.texture-atlas.document.data-model", document);
-        if (modelId == null || documentId == null
-            || !resolver.isInstance("cubism.texture-atlas.data-model.class", dataModel)) {
+        final Object dataModel = capture.current().orElse(null);
+        if (!resolver.isInstance("cubism.texture-atlas.data-model.class", dataModel)) return null;
+        final Object document = resolver.invoke("cubism.texture-atlas.data-model.document", dataModel);
+        final Object source = resolver.invoke("cubism.texture-atlas.data-model.model-source", dataModel);
+        if (!resolver.isInstance("cubism.editor-model.modeling-document.class", document)
+            || source == null) {
             return null;
         }
-        return new Binding(document, source, dataModel, documentId, modelId);
+        final Object guid = resolver.invoke("cubism.editor-model.model-source.guid", source);
+        final String modelId = text(guid == null ? null : resolver.invoke("cubism.editor-model.guid.value", guid));
+        final Object textureManager = resolver.invoke("cubism.texture-atlas.model-source.texture-manager", source);
+        if (modelId == null || textureManager == null) return null;
+        return new Binding(document, source, dataModel, textureManager, sessionIdentity, modelId);
     }
 
     private TextureAtlasAuthoringState project(final Binding binding) {
-        final List<?> atlases = list(resolver.invoke("cubism.texture-atlas.data-model.atlases", binding.dataModel()));
-        final List<?> images = list(resolver.invoke("cubism.texture-atlas.data-model.images", binding.dataModel()));
+        final List<?> atlases = atlases(binding.dataModel());
+        final List<?> images = list(resolver.invoke(
+            "cubism.texture-atlas.texture-manager.images", binding.textureManager()
+        ));
         if (atlases.isEmpty()) throw new IllegalStateException("No verified texture atlas is available.");
         final String atlasId = atlases.stream()
             .map(atlas -> text(resolver.invoke("cubism.texture-atlas.atlas.name", atlas)))
@@ -173,11 +176,16 @@ public final class VerifiedCubism5302TextureAtlasLayoutProvider implements Textu
         );
     }
 
-    private List<Object> stage(final TextureAtlasLayoutPlan plan, final Map<String, Object> images) {
+    private List<Object> stage(
+        final TextureAtlasLayoutPlan plan,
+        final Map<String, Object> images,
+        final Object modelSource
+    ) {
         final List<Object> atlases = new ArrayList<>(plan.pageCount());
         for (int index = 0; index < plan.pageCount(); index++) {
             atlases.add(resolver.construct(
                 "cubism.texture-atlas.atlas.create",
+                modelSource,
                 "Turboism Atlas " + (index + 1),
                 plan.pageWidth(),
                 plan.pageHeight()
@@ -191,7 +199,7 @@ public final class VerifiedCubism5302TextureAtlasLayoutProvider implements Textu
             final Object affine = resolver.construct("cubism.texture-atlas.affine.create");
             resolver.invoke(
                 "cubism.texture-atlas.affine.translate", affine,
-                (double) placement.x(), (double) placement.y()
+                (float) placement.x(), (float) placement.y()
             );
             resolver.construct(
                 "cubism.texture-atlas.entry.create",
@@ -203,13 +211,28 @@ public final class VerifiedCubism5302TextureAtlasLayoutProvider implements Textu
         return List.copyOf(atlases);
     }
 
-    private Map<String, Object> imagesById(final Object dataModel) {
+    private Map<String, Object> imagesById(final Object textureManager) {
         final Map<String, Object> result = new HashMap<>();
-        for (Object image : list(resolver.invoke("cubism.texture-atlas.data-model.images", dataModel))) {
+        for (Object image : list(resolver.invoke(
+            "cubism.texture-atlas.texture-manager.images", textureManager
+        ))) {
             final String id = imageId(image);
             if (id != null) result.put(id, image);
         }
         return result;
+    }
+
+    private List<?> atlases(final Object dataModel) {
+        final List<?> sheets = list(resolver.invoke("cubism.texture-atlas.data-model.sheets", dataModel));
+        final List<Object> result = new ArrayList<>(sheets.size());
+        for (Object sheet : sheets) {
+            final Object atlas = resolver.invoke("cubism.texture-atlas.sheet.atlas", sheet);
+            if (!resolver.isInstance("cubism.texture-atlas.atlas.class", atlas)) {
+                throw new IllegalStateException("Verified texture atlas sheet is unavailable.");
+            }
+            result.add(atlas);
+        }
+        return List.copyOf(result);
     }
 
     private String imageId(final Object image) {
@@ -263,6 +286,13 @@ public final class VerifiedCubism5302TextureAtlasLayoutProvider implements Textu
         return normalized;
     }
 
-    private record Binding(Object document, Object modelSource, Object dataModel, String documentId, String modelId) {
+    private record Binding(
+        Object document,
+        Object modelSource,
+        Object dataModel,
+        Object textureManager,
+        String documentId,
+        String modelId
+    ) {
     }
 }
