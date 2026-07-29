@@ -22,6 +22,11 @@ interface HostAdapterConnection extends AutoCloseable {
         throw new IllegalStateException("Verified Editor model resolver is unavailable.");
     }
 
+    default dev.turboism.adapter.cubism.textureatlas.TextureAtlasDataModelCapture
+        textureAtlasDataModelCapture() {
+        throw new IllegalStateException("Verified texture-atlas capture is unavailable.");
+    }
+
     default List<EditorUiContributionProvider> editorUiProviders(final long hostGeneration) {
         if (hostGeneration <= 0) {
             throw new IllegalArgumentException("hostGeneration must be positive");
