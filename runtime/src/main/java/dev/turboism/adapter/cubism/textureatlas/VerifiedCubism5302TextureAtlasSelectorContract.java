@@ -5,8 +5,8 @@ import java.util.Set;
 /** Exact Cubism 5.3.02 selector contract for the texture-atlas authoring provider. */
 public final class VerifiedCubism5302TextureAtlasSelectorContract {
 
-    public static final String ADAPTER_SLICE_ID = "cubism-5.3.02-editor-model";
-    public static final String CAPABILITY_ID = "cubism.editor-model.texture-atlas-layout.write";
+    public static final String ADAPTER_SLICE_ID = "adapter.editor-model.readwrite";
+    public static final String CAPABILITY_ID = "cubism.texture-atlas.layout.write";
 
     public static final Set<String> REQUIRED_ALIASES = Set.of(
         "cubism.editor-model.modeling-document.class",
@@ -41,6 +41,12 @@ public final class VerifiedCubism5302TextureAtlasSelectorContract {
         "cubism.texture-atlas.undo.create",
         "cubism.texture-atlas.undo.force-redo",
         "cubism.texture-atlas.group-undo.add"
+    );
+
+    public static final Set<String> HOOK_ALIASES = Set.of(
+        "cubism.texture-atlas.model-image-list.class",
+        "cubism.texture-atlas.model-image-list.init",
+        "cubism.texture-atlas.model-image-list.data-model"
     );
 
     private VerifiedCubism5302TextureAtlasSelectorContract() {
