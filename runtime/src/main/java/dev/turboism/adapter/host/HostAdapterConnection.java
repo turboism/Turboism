@@ -4,6 +4,8 @@ import dev.turboism.adapter.RuntimeHostAdapters;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.ui.contribution.EditorUiContributionProvider;
+import dev.turboism.ui.appearance.AppearanceHostProvider;
+import dev.turboism.ui.appearance.UnavailableAppearanceHostProvider;
 
 import java.util.List;
 import java.util.Objects;
@@ -26,6 +28,10 @@ interface HostAdapterConnection extends AutoCloseable {
             throw new IllegalArgumentException("hostGeneration must be positive");
         }
         return List.of();
+    }
+
+    default AppearanceHostProvider appearanceProvider() {
+        return new UnavailableAppearanceHostProvider();
     }
 
     @Override
