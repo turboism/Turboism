@@ -17,7 +17,7 @@
   "resources": ["icons/"],
   "i18n": {
     "baseName": "META-INF/turboism/i18n/messages",
-    "locales": ["base", "en", "ja", "ko", "zh_Hans", "zh_Hant"]
+    "locales": ["base", "en", "ja", "ko", "zh", "zh_Hans", "zh_Hant"]
   },
   "dependencies": [],
   "permissions": [
@@ -35,6 +35,11 @@
       "id": "turboism.ui.panel.contribute",
       "scope": "application",
       "reason": "Publishes and activates the Turboism embedded panel."
+    },
+    {
+      "id": "turboism.ui.menu.contribute",
+      "scope": "application",
+      "reason": "Adds the Settings entry to the Turboism top-level menu."
     }
   ],
   "capabilities": [],
