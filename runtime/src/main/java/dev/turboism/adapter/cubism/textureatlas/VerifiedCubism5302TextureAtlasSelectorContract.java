@@ -9,17 +9,16 @@ public final class VerifiedCubism5302TextureAtlasSelectorContract {
     public static final String CAPABILITY_ID = "cubism.editor-model.texture-atlas-layout.write";
 
     public static final Set<String> REQUIRED_ALIASES = Set.of(
-        "cubism.editor-model.app-controller.instance",
-        "cubism.editor-model.app-controller.current-document",
         "cubism.editor-model.modeling-document.class",
-        "cubism.editor-model.modeling-document.model-source",
         "cubism.editor-model.model-source.guid",
         "cubism.editor-model.guid.value",
-        "cubism.texture-atlas.document.id",
-        "cubism.texture-atlas.document.data-model",
         "cubism.texture-atlas.data-model.class",
-        "cubism.texture-atlas.data-model.atlases",
-        "cubism.texture-atlas.data-model.images",
+        "cubism.texture-atlas.data-model.document",
+        "cubism.texture-atlas.data-model.model-source",
+        "cubism.texture-atlas.data-model.sheets",
+        "cubism.texture-atlas.sheet.atlas",
+        "cubism.texture-atlas.model-source.texture-manager",
+        "cubism.texture-atlas.texture-manager.images",
         "cubism.texture-atlas.atlas.class",
         "cubism.texture-atlas.atlas.create",
         "cubism.texture-atlas.atlas.name",
