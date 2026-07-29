@@ -8,6 +8,7 @@ import dev.turboism.sdk.cubism.service.query.ModelHierarchyQueryService;
 import dev.turboism.sdk.cubism.service.query.ParameterQueryService;
 import dev.turboism.sdk.cubism.service.query.SelectionQueryService;
 import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
+import dev.turboism.sdk.cubism.physics.PhysicsEditorService;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
 import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.i18n.PluginLocalization;
@@ -72,6 +73,10 @@ public interface PluginContext {
 
     default CubismReadCapabilityService cubismRead() {
         throw new UnsupportedOperationException("cubismRead service is not available");
+    }
+
+    default PhysicsEditorService physicsEditor() {
+        return PhysicsEditorService.unavailable();
     }
 
     List<PluginPermission> permissions();
