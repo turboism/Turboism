@@ -1,6 +1,8 @@
 package dev.turboism.plugin.textureatlas;
 
 import dev.turboism.sdk.action.ActionRegistry;
+import dev.turboism.plugin.textureatlas.test.DefaultPluginConfigRegistry;
+import dev.turboism.sdk.config.PluginConfigRegistry;
 import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutService;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
@@ -49,6 +51,21 @@ class TextureAtlasPluginTest {
         assertThrows(IllegalStateException.class, plugin::autoLayoutService);
     }
 
+    @Test
+    void persistsAndRecomposesTheSelectedLayoutMode() {
+        final TextureAtlasPlugin plugin = new TextureAtlasPlugin();
+        plugin.init(new ShellPluginContext());
+        plugin.enable();
+
+        assertEquals(TextureAtlasLayoutMode.PART_BUCKET, plugin.settings().layoutMode());
+        assertTrue(plugin.updateSettings(new TextureAtlasSettings(TextureAtlasLayoutMode.COMPACT)));
+        assertEquals(TextureAtlasLayoutMode.COMPACT, plugin.settings().layoutMode());
+
+        plugin.disable();
+        plugin.enable();
+        assertEquals(TextureAtlasLayoutMode.COMPACT, plugin.settings().layoutMode());
+        plugin.shutdown();
+    }
     private static final class ShellPluginContext implements PluginContext {
         private final PluginLogger logger = new PluginLogger() {
             @Override public void debug(String message) {}
@@ -61,6 +78,7 @@ class TextureAtlasPluginTest {
         @Override public PluginDescriptor descriptor() { throw unused(); }
         @Override public PluginLogger logger() { return logger; }
         @Override public PluginPaths paths() { throw unused(); }
+        @Override public PluginConfigRegistry config() { return new DefaultPluginConfigRegistry(); }
         @Override public CubismFacade cubism() {
             return new CubismFacade() {
                 @Override public dev.turboism.sdk.cubism.CubismRuntimeSnapshot runtime() { throw unused(); }
