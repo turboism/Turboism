@@ -17,7 +17,7 @@ final class TextureAtlasSettingsBinding {
     static final String CONFIG_PATH = "texture-atlas/layout.cfg";
     private static final ConfigKey<TextureAtlasLayoutMode> MODE = new ConfigKey<>(
         CONFIG_ID,
-        "layoutMode",
+        "layout-mode",
         TextureAtlasLayoutMode.PART_BUCKET,
         ConfigCodecs.enumValue(TextureAtlasLayoutMode.class)
     );
