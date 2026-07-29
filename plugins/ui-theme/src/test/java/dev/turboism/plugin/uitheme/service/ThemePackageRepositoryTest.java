@@ -51,6 +51,21 @@ final class ThemePackageRepositoryTest {
         assertEquals(theme("user.aurora"), repository.find("user.aurora").orElseThrow());
     }
 
+    @Test
+    void listsValidArchivesAndDeletesOnePackage() {
+        MemoryPluginStorage storage = new MemoryPluginStorage();
+        ThemePackageRepository repository = new ThemePackageRepository(storage);
+        repository.save(theme("user.aurora"), false);
+        repository.save(theme("user.dusk"), false);
+
+        assertEquals(
+            java.util.List.of("user.aurora", "user.dusk"),
+            repository.list().stream().map(data -> data.metadata().id()).toList()
+        );
+        assertEquals(ThemePackageRepository.DeleteOutcome.DELETED, repository.delete("user.aurora").outcome());
+        assertEquals(Optional.empty(), repository.find("user.aurora"));
+    }
+
     private static ThemePackageData theme(final String id) {
         return new ThemePackageData(
             new ThemePackageMetadata(
@@ -131,7 +146,15 @@ final class ThemePackageRepositoryTest {
 
         @Override
         public CompletionStage<StorageMutationResult> delete(StoragePath path, boolean recursive) {
-            throw new UnsupportedOperationException();
+            boolean removed = files.remove(path) != null;
+            return CompletableFuture.completedFuture(new StorageMutationResult(
+                removed,
+                removed ? Optional.empty() : Optional.of(new StorageError(
+                    dev.turboism.sdk.storage.StorageErrorCode.NOT_FOUND,
+                    "not found",
+                    path
+                ))
+            ));
         }
     }
 }

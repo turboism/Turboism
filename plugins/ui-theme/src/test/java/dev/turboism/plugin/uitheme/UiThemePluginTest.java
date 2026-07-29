@@ -6,6 +6,12 @@ import dev.turboism.sdk.appearance.AppearanceBase;
 import dev.turboism.sdk.appearance.AppearanceRequest;
 import dev.turboism.sdk.appearance.AppearanceRestoreResult;
 import dev.turboism.sdk.appearance.AppearanceService;
+import dev.turboism.sdk.config.ConfigKey;
+import dev.turboism.sdk.config.ConfigReadResult;
+import dev.turboism.sdk.config.ConfigSchema;
+import dev.turboism.sdk.config.ConfigValue;
+import dev.turboism.sdk.config.ConfigValueSource;
+import dev.turboism.sdk.config.ConfigWriteResult;
 import dev.turboism.sdk.appearance.AppearanceStatus;
 import dev.turboism.sdk.config.PluginConfigRegistry;
 import dev.turboism.sdk.cubism.ArtMeshSnapshot;
@@ -35,7 +41,23 @@ import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.PluginPaths;
 import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.sdk.storage.PluginStorage;
+import dev.turboism.sdk.storage.StorageError;
+import dev.turboism.sdk.storage.StorageErrorCode;
+import dev.turboism.sdk.storage.StorageListResult;
+import dev.turboism.sdk.storage.StorageMutationResult;
+import dev.turboism.sdk.storage.StoragePath;
+import dev.turboism.sdk.storage.StorageReadResult;
+import dev.turboism.sdk.storage.StorageWriteResult;
 import dev.turboism.sdk.theme.ThemeStatusSnapshot;
+import dev.turboism.sdk.ui.ChoiceDialogRequest;
+import dev.turboism.sdk.ui.UserFileAccessService;
+import dev.turboism.sdk.ui.UserFileHandle;
+import dev.turboism.sdk.ui.UserFileReadResult;
+import dev.turboism.sdk.ui.UserFileRequest;
+import dev.turboism.sdk.ui.UserFileRequestResult;
+import dev.turboism.sdk.ui.UserFileRequestStatus;
+import dev.turboism.sdk.ui.UserFileWriteResult;
 import dev.turboism.sdk.ui.DialogRequest;
 import dev.turboism.sdk.ui.EmbeddedPanelContribution;
 import dev.turboism.sdk.ui.FileChooserRequest;
@@ -53,6 +75,9 @@ import org.junit.jupiter.api.Test;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -69,7 +94,7 @@ class UiThemePluginTest {
         plugin.enable();
 
         assertEquals(
-            List.of("ui-theme.toggle", "ui-theme.apply"),
+            List.of("ui-theme.manager.open"),
             context.contextMenus().contributions().stream()
                 .map(ContextMenuRegistry.ContextMenuContribution::id)
                 .toList()
@@ -77,7 +102,10 @@ class UiThemePluginTest {
         assertEquals(
             List.of(
                 "ui-theme.package.status.check",
+                "ui-theme.manager.open",
                 "ui-theme.package.import",
+                "ui-theme.package.export",
+                "ui-theme.package.delete",
                 "ui-theme.appearance.apply-builtin"
             ),
             context.actions().actions().stream()
@@ -119,25 +147,8 @@ class UiThemePluginTest {
     }
 
     @Test
-    void importActionDoesNotNotify_whenHostConfirmationDeclines() throws Exception {
-        RecordingPluginContext context = new RecordingPluginContext(
-            new RecordingUiHost(Optional.of("themes/aurora.zip"), false)
-        );
-        UiThemePlugin plugin = new UiThemePlugin();
-
-        plugin.init(context);
-        plugin.enable();
-        context.actions().execute("ui-theme.package.import");
-
-        assertEquals(1, context.uiHost().dialogs().size());
-        assertEquals(List.of(), context.uiHost().notifications());
-    }
-
-    @Test
-    void importActionEmitsStarted_whenHostConfirmationAccepts() throws Exception {
-        RecordingPluginContext context = new RecordingPluginContext(
-            new RecordingUiHost(Optional.of("themes/aurora.zip"), true)
-        );
+    void importActionReportsCanceledWhenNoOpaqueUserFileGrantIsMade() throws Exception {
+        RecordingPluginContext context = new RecordingPluginContext();
         UiThemePlugin plugin = new UiThemePlugin();
 
         plugin.init(context);
@@ -146,9 +157,9 @@ class UiThemePluginTest {
 
         assertEquals(
             List.of(new StatusNotification(
-                "ui-theme.package.import.started",
+                "ui-theme.package.import.canceled",
                 "INFO",
-                "Theme package import started: themes/aurora.zip"
+                "Theme import result: CANCELED"
             )),
             context.uiHost().notifications()
         );
@@ -209,6 +220,10 @@ class UiThemePluginTest {
     private static final class RecordingPluginContext implements PluginContext {
         private final RecordingActionRegistry actions = new RecordingActionRegistry();
         private final RecordingContextMenuRegistry contextMenus = new RecordingContextMenuRegistry();
+        private final RecordingMenuRegistry menus = new RecordingMenuRegistry();
+        private final DefaultPluginConfigRegistry config = new DefaultPluginConfigRegistry();
+        private final EmptyPluginStorage storage = new EmptyPluginStorage();
+        private final CanceledUserFiles userFiles = new CanceledUserFiles();
         private final RecordingUiHost uiHost;
         private final DisposableScope disposableScope = new DisposableScope();
         private final PluginLogger logger = new NoopPluginLogger();
@@ -272,8 +287,8 @@ class UiThemePluginTest {
         }
 
         @Override
-        public MenuRegistry menus() {
-            return null;
+        public RecordingMenuRegistry menus() {
+            return menus;
         }
 
         @Override
@@ -293,7 +308,17 @@ class UiThemePluginTest {
 
         @Override
         public PluginConfigRegistry config() {
-            return null;
+            return config;
+        }
+
+        @Override
+        public PluginStorage storage() {
+            return storage;
+        }
+
+        @Override
+        public UserFileAccessService userFiles() {
+            return userFiles;
         }
 
         @Override
@@ -336,6 +361,45 @@ class UiThemePluginTest {
         }
     }
 
+    private static final class RecordingMenuRegistry implements MenuRegistry {
+        private final List<MenuContribution> contributions = new ArrayList<>();
+
+        @Override
+        public Registration contribute(final MenuContribution contribution) {
+            contributions.add(contribution);
+            return () -> contributions.remove(contribution);
+        }
+    }
+
+    private static final class DefaultPluginConfigRegistry implements PluginConfigRegistry {
+        @Override public CompletionStage<Void> registerSchema(ConfigSchema schema, List<dev.turboism.sdk.config.ConfigMigration> migrations) { return CompletableFuture.completedFuture(null); }
+        @Override public <T> CompletionStage<ConfigReadResult<T>> read(ConfigKey<T> key) { return CompletableFuture.completedFuture(new ConfigReadResult<>(new ConfigValue<>(key.defaultValue(), ConfigValueSource.DEFAULT_MISSING, 0), Optional.empty())); }
+        @Override public <T> CompletionStage<ConfigWriteResult> write(ConfigKey<T> key, T value, long expectedRevision) { return CompletableFuture.completedFuture(new ConfigWriteResult(true, expectedRevision + 1, Optional.empty())); }
+        @Override public Registration readScope(String relativePath) { return () -> { }; }
+        @Override public Registration writeScope(String relativePath) { return () -> { }; }
+        @Override public Optional<String> readString(String relativePath, String key) { return Optional.empty(); }
+        @Override public void writeString(String relativePath, String key, String value) { }
+    }
+
+    private static final class EmptyPluginStorage implements PluginStorage {
+        @Override public CompletionStage<StorageReadResult<String>> readUtf8(StoragePath path, int maxBytes) { throw new UnsupportedOperationException(); }
+        @Override public CompletionStage<StorageReadResult<byte[]>> readBytes(StoragePath path, int maxBytes) { return CompletableFuture.completedFuture(new StorageReadResult<>(Optional.empty(), Optional.of(new StorageError(StorageErrorCode.NOT_FOUND, "not found", path)), false)); }
+        @Override public CompletionStage<StorageWriteResult> writeUtf8Atomic(StoragePath path, String content) { throw new UnsupportedOperationException(); }
+        @Override public CompletionStage<StorageWriteResult> writeBytesAtomic(StoragePath path, byte[] content) { return CompletableFuture.completedFuture(new StorageWriteResult(true, Optional.empty())); }
+        @Override public CompletionStage<StorageListResult> list(StoragePath directory, int maxEntries) { return CompletableFuture.completedFuture(new StorageListResult(List.of(), Optional.empty(), false)); }
+        @Override public CompletionStage<StorageMutationResult> copy(StoragePath source, StoragePath target, boolean replaceExisting) { throw new UnsupportedOperationException(); }
+        @Override public CompletionStage<StorageMutationResult> moveAtomic(StoragePath source, StoragePath target, boolean replaceExisting) { throw new UnsupportedOperationException(); }
+        @Override public CompletionStage<StorageMutationResult> delete(StoragePath path, boolean recursive) { return CompletableFuture.completedFuture(new StorageMutationResult(false, Optional.of(new StorageError(StorageErrorCode.NOT_FOUND, "not found", path)))); }
+    }
+
+    private static final class CanceledUserFiles implements UserFileAccessService {
+        @Override public CompletionStage<UserFileRequestResult> request(UserFileRequest request) { return CompletableFuture.completedFuture(new UserFileRequestResult(UserFileRequestStatus.CANCELED, Optional.empty(), Optional.empty())); }
+        @Override public CompletionStage<UserFileReadResult<String>> readUtf8(UserFileHandle handle, int maxBytes) { throw new UnsupportedOperationException(); }
+        @Override public CompletionStage<UserFileReadResult<byte[]>> readBytes(UserFileHandle handle, int maxBytes) { throw new UnsupportedOperationException(); }
+        @Override public CompletionStage<UserFileWriteResult> writeUtf8Atomic(UserFileHandle handle, String content) { throw new UnsupportedOperationException(); }
+        @Override public CompletionStage<UserFileWriteResult> writeBytesAtomic(UserFileHandle handle, byte[] content) { throw new UnsupportedOperationException(); }
+    }
+
     private static final class RecordingContextMenuRegistry implements ContextMenuRegistry {
         private final List<ContextMenuContribution> contributions = new ArrayList<>();
 
@@ -363,6 +427,11 @@ class UiThemePluginTest {
         RecordingUiHost(final Optional<String> selectedFile, final boolean confirmResult) {
             this.selectedFile = selectedFile;
             this.confirmResult = confirmResult;
+        }
+
+        @Override
+        public Optional<String> choose(final ChoiceDialogRequest request) {
+            return Optional.empty();
         }
 
         List<DialogRequest> dialogs() {
