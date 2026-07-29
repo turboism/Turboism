@@ -1,0 +1,267 @@
+package dev.turboism.adapter.cubism.textureatlas;
+
+import dev.turboism.mapping.verification.StaticSelector;
+import dev.turboism.mapping.verification.TestVerifiedResolvers;
+import dev.turboism.mapping.verification.VerifiedMemberResolver;
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutPlan;
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasPlacement;
+import org.junit.jupiter.api.Test;
+
+import java.awt.geom.AffineTransform;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+class VerifiedCubism5302TextureAtlasLayoutProviderTest {
+
+    @Test
+    void projectsCurrentAtlasAndAppliesACompletePlanThroughNativeAtlasTransaction() {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        final VerifiedCubism5302TextureAtlasLayoutProvider provider = new VerifiedCubism5302TextureAtlasLayoutProvider(
+            resolver("5.3.02", true), "session-a"
+        );
+
+        final TextureAtlasAuthoringState current = provider.current().orElseThrow();
+        assertEquals("document-a", current.documentId());
+        assertEquals("model-a", current.modelId());
+        assertEquals("atlas-a", current.atlasId());
+        assertEquals(2, current.items().size());
+        assertEquals(8, current.currentPlan().placements().get(1).x());
+
+        final TextureAtlasLayoutPlan plan = new TextureAtlasLayoutPlan(16, 8, 2, List.of(
+            new TextureAtlasPlacement("texture-a", 0, 2, 1, 4, 3, false),
+            new TextureAtlasPlacement("texture-b", 1, 5, 2, 2, 2, false)
+        ));
+        assertEquals(TextureAtlasLayoutProvider.ApplyOutcome.APPLIED, provider.apply(current, plan));
+
+        assertEquals(List.of("Turboism Atlas 1", "Turboism Atlas 2"), fixture.data.atlases.stream().map(Atlas::name).toList());
+        assertEquals(List.of("texture-a"), fixture.data.atlases.get(0).entries.stream().map(entry -> entry.image.guid.value).toList());
+        assertEquals(List.of("texture-b"), fixture.data.atlases.get(1).entries.stream().map(entry -> entry.image.guid.value).toList());
+        assertEquals(AffineTransform.getTranslateInstance(2.0, 1.0), fixture.data.atlases.get(0).entries.get(0).transform);
+        assertEquals(AffineTransform.getTranslateInstance(5.0, 2.0), fixture.data.atlases.get(1).entries.get(0).transform);
+        assertEquals(1, fixture.data.applyCount);
+        assertEquals(1, fixture.document.dirtyCount);
+        assertEquals(1, fixture.document.refreshCount);
+        assertEquals(List.of("Update TextureAtlas"), fixture.document.edits);
+
+        final TextureAtlasAuthoringState updated = provider.current().orElseThrow();
+        assertEquals(current.revision() + 1, updated.revision());
+        assertEquals(plan, updated.currentPlan());
+    }
+
+    @Test
+    void rejectsStalePlanningStateAndUnsupportedIdentityBeforeMutation() {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        final VerifiedCubism5302TextureAtlasLayoutProvider provider = new VerifiedCubism5302TextureAtlasLayoutProvider(
+            resolver("5.3.02", true), "session-a"
+        );
+        final TextureAtlasAuthoringState stale = provider.current().orElseThrow();
+        fixture.replaceAtlasWithSameId();
+
+        assertEquals(
+            TextureAtlasLayoutProvider.ApplyOutcome.REJECTED,
+            provider.apply(stale, stale.currentPlan())
+        );
+        assertEquals(0, fixture.data.applyCount);
+        assertFalse(new VerifiedCubism5302TextureAtlasLayoutProvider(resolver("5.2.0", true), "session-a").current().isPresent());
+        assertFalse(new VerifiedCubism5302TextureAtlasLayoutProvider(resolver("5.3.02", false), "session-a").current().isPresent());
+    }
+
+    @Test
+    void stagedConstructionFailureLeavesEditorStateUntouched() {
+        final Fixture fixture = new Fixture();
+        fixture.data.failAtlasName = "Turboism Atlas 2";
+        Host.document = fixture.document;
+        final VerifiedCubism5302TextureAtlasLayoutProvider provider = new VerifiedCubism5302TextureAtlasLayoutProvider(
+            resolver("5.3.02", true), "session-a"
+        );
+        final TextureAtlasAuthoringState current = provider.current().orElseThrow();
+        final TextureAtlasLayoutPlan plan = new TextureAtlasLayoutPlan(16, 8, 2, List.of(
+            new TextureAtlasPlacement("texture-a", 0, 2, 1, 4, 3, false),
+            new TextureAtlasPlacement("texture-b", 1, 5, 2, 2, 2, false)
+        ));
+
+        assertThrows(RuntimeException.class, () -> provider.apply(current, plan));
+        assertEquals(List.of("atlas-a"), fixture.data.atlases.stream().map(Atlas::name).toList());
+        assertEquals(0, fixture.data.applyCount);
+        assertEquals(0, fixture.document.dirtyCount);
+        assertEquals(0, fixture.document.refreshCount);
+        assertTrue(fixture.document.edits.isEmpty());
+    }
+
+    private static VerifiedMemberResolver resolver(final String version, final boolean includeAtlas) {
+        final List<StaticSelector> selectors = new ArrayList<>();
+        selectors.add(StaticSelector.classSelector("cubism.editor-model.app-controller.class", internal(Host.class)));
+        selectors.add(StaticSelector.staticMethod(
+            "cubism.editor-model.app-controller.instance", internal(Host.class), "instance",
+            desc(Host.class), StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC
+        ));
+        selectors.add(method("cubism.editor-model.app-controller.current-document", Host.class, "currentDocument", desc(Document.class)));
+        selectors.add(StaticSelector.classSelector("cubism.editor-model.modeling-document.class", internal(Document.class)));
+        selectors.add(method("cubism.editor-model.modeling-document.model-source", Document.class, "modelSource", desc(ModelSource.class)));
+        selectors.add(method("cubism.editor-model.model-source.guid", ModelSource.class, "guid", desc(Id.class)));
+        selectors.add(method("cubism.editor-model.guid.value", Id.class, "value", "()Ljava/lang/String;"));
+        if (includeAtlas) {
+            selectors.add(method("cubism.texture-atlas.document.id", Document.class, "documentId", "()Ljava/lang/String;"));
+            selectors.add(method("cubism.texture-atlas.document.data-model", Document.class, "textureAtlasDataModel", desc(DataModel.class)));
+            selectors.add(StaticSelector.classSelector("cubism.texture-atlas.data-model.class", internal(DataModel.class)));
+            selectors.add(method("cubism.texture-atlas.data-model.atlases", DataModel.class, "atlases", "()Ljava/util/List;"));
+            selectors.add(method("cubism.texture-atlas.data-model.images", DataModel.class, "images", "()Ljava/util/List;"));
+            selectors.add(method("cubism.texture-atlas.data-model.apply", DataModel.class, "apply", "(Ljava/util/List;)V"));
+            selectors.add(StaticSelector.classSelector("cubism.texture-atlas.atlas.class", internal(Atlas.class)));
+            selectors.add(StaticSelector.constructor("cubism.texture-atlas.atlas.create", internal(Atlas.class), "(Ljava/lang/String;II)V", StaticSelector.ACCESS_PUBLIC));
+            selectors.add(method("cubism.texture-atlas.atlas.name", Atlas.class, "name", "()Ljava/lang/String;"));
+            selectors.add(method("cubism.texture-atlas.atlas.width", Atlas.class, "width", "()I"));
+            selectors.add(method("cubism.texture-atlas.atlas.height", Atlas.class, "height", "()I"));
+            selectors.add(method("cubism.texture-atlas.atlas.entries", Atlas.class, "entries", "()Ljava/util/List;"));
+            selectors.add(StaticSelector.classSelector("cubism.texture-atlas.entry.class", internal(Entry.class)));
+            selectors.add(StaticSelector.constructor("cubism.texture-atlas.entry.create", internal(Entry.class), "(" + type(Atlas.class) + type(Id.class) + type(Affine.class) + ")V", StaticSelector.ACCESS_PUBLIC));
+            selectors.add(method("cubism.texture-atlas.entry.image", Entry.class, "image", desc(Image.class)));
+            selectors.add(method("cubism.texture-atlas.entry.transform", Entry.class, "transform", desc(Affine.class)));
+            selectors.add(StaticSelector.classSelector("cubism.texture-atlas.image.class", internal(Image.class)));
+            selectors.add(method("cubism.texture-atlas.image.guid", Image.class, "guid", desc(Id.class)));
+            selectors.add(method("cubism.texture-atlas.image.width", Image.class, "width", "()I"));
+            selectors.add(method("cubism.texture-atlas.image.height", Image.class, "height", "()I"));
+            selectors.add(StaticSelector.classSelector("cubism.texture-atlas.affine.class", internal(Affine.class)));
+            selectors.add(StaticSelector.constructor("cubism.texture-atlas.affine.create", internal(Affine.class), "()V", StaticSelector.ACCESS_PUBLIC));
+            selectors.add(method("cubism.texture-atlas.affine.translate", Affine.class, "translate", "(DD)V"));
+            selectors.add(method("cubism.texture-atlas.document.mark-dirty", Document.class, "markDirty", "()V"));
+            selectors.add(method("cubism.texture-atlas.document.refresh", Document.class, "refreshTextureAtlas", "()V"));
+            selectors.add(method("cubism.texture-atlas.document.transaction", Document.class, "commitTextureAtlas", "(Ljava/lang/String;Ljava/lang/Runnable;)V"));
+        }
+        return TestVerifiedResolvers.create(
+            version,
+            VerifiedCubism5302TextureAtlasSelectorContract.ADAPTER_SLICE_ID,
+            includeAtlas ? Set.of(VerifiedCubism5302TextureAtlasSelectorContract.CAPABILITY_ID) : Set.of("cubism.editor-model.read"),
+            selectors,
+            Host.class.getClassLoader()
+        );
+    }
+
+    private static StaticSelector method(final String alias, final Class<?> owner, final String name, final String descriptor) {
+        return StaticSelector.method(alias, internal(owner), name, descriptor, StaticSelector.ACCESS_PUBLIC);
+    }
+
+    private static String internal(final Class<?> type) { return type.getName().replace('.', '/'); }
+    private static String type(final Class<?> type) { return "L" + internal(type) + ";"; }
+    private static String desc(final Class<?> type) { return "()" + type(type); }
+
+    public static final class Host {
+        private static final Host INSTANCE = new Host();
+        static Document document;
+        public static Host instance() { return INSTANCE; }
+        public Document currentDocument() { return document; }
+    }
+
+    public static final class Document {
+        final ModelSource source;
+        final DataModel data;
+        final List<String> edits = new ArrayList<>();
+        int dirtyCount;
+        int refreshCount;
+        Document(final ModelSource source, final DataModel data) { this.source = source; this.data = data; }
+        public String documentId() { return "document-a"; }
+        public ModelSource modelSource() { return source; }
+        public DataModel textureAtlasDataModel() { return data; }
+        public void commitTextureAtlas(final String name, final Runnable mutation) { edits.add(name); mutation.run(); }
+        public void markDirty() { dirtyCount++; }
+        public void refreshTextureAtlas() { refreshCount++; }
+    }
+
+    public static final class ModelSource {
+        final Id guid = new Id("model-a");
+        public Id guid() { return guid; }
+    }
+
+    public static final class DataModel {
+        final List<Image> images = new ArrayList<>();
+        final List<Atlas> atlases = new ArrayList<>();
+        int applyCount;
+        String failAtlasName;
+        public List<Image> images() { return images; }
+        public List<Atlas> atlases() { return atlases; }
+        public void apply(final List<Atlas> staged) { atlases.clear(); atlases.addAll(staged); applyCount++; }
+    }
+
+    public static final class Atlas {
+        final String name;
+        final int width;
+        final int height;
+        final List<Entry> entries = new ArrayList<>();
+        public Atlas(final String name, final int width, final int height) {
+            if (Host.document != null && name.equals(Host.document.data.failAtlasName)) throw new IllegalStateException("staging failed");
+            this.name = name; this.width = width; this.height = height;
+        }
+        public String name() { return name; }
+        public int width() { return width; }
+        public int height() { return height; }
+        public List<Entry> entries() { return entries; }
+    }
+
+    public static final class Entry {
+        final Atlas atlas;
+        final Image image;
+        final Affine transform;
+        public Entry(final Atlas atlas, final Id imageId, final Affine transform) {
+            this.atlas = atlas;
+            this.image = Host.document.data.images.stream().filter(value -> value.guid == imageId).findFirst().orElseThrow();
+            this.transform = new Affine(transform);
+            atlas.entries.add(this);
+        }
+        public Image image() { return image; }
+        public Affine transform() { return new Affine(transform); }
+    }
+
+    public static final class Affine extends AffineTransform {
+        public Affine() { }
+        Affine(final AffineTransform value) { super(value); }
+        public void translate(final double x, final double y) { super.translate(x, y); }
+    }
+
+    public static final class Image {
+        final Id guid;
+        final int width;
+        final int height;
+        Image(final String id, final int width, final int height) { this.guid = new Id(id); this.width = width; this.height = height; }
+        public Id guid() { return guid; }
+        public int width() { return width; }
+        public int height() { return height; }
+    }
+
+    public static final class Id {
+        final String value;
+        Id(final String value) { this.value = value; }
+        public String value() { return value; }
+    }
+
+    private static final class Fixture {
+        final ModelSource source = new ModelSource();
+        final DataModel data = new DataModel();
+        final Document document = new Document(source, data);
+        Fixture() {
+            Host.document = document;
+            final Image first = new Image("texture-a", 4, 3);
+            final Image second = new Image("texture-b", 2, 2);
+            data.images.add(first);
+            data.images.add(second);
+            final Atlas atlas = new Atlas("atlas-a", 16, 8);
+            new Entry(atlas, first.guid, new Affine(AffineTransform.getTranslateInstance(1.0, 1.0)));
+            new Entry(atlas, second.guid, new Affine(AffineTransform.getTranslateInstance(8.0, 1.0)));
+            data.atlases.add(atlas);
+        }
+        void replaceAtlasWithSameId() {
+            final Atlas replacement = new Atlas("atlas-a", 16, 8);
+            new Entry(replacement, data.images.get(0).guid, new Affine(AffineTransform.getTranslateInstance(2.0, 1.0)));
+            new Entry(replacement, data.images.get(1).guid, new Affine(AffineTransform.getTranslateInstance(8.0, 1.0)));
+            data.atlases.clear();
+            data.atlases.add(replacement);
+        }
+    }
+}
