@@ -3,6 +3,7 @@ package dev.turboism.preview;
 import dev.turboism.core.lifecycle.PluginLifecycleState;
 import dev.turboism.adapter.cubism.lifecycle.ParameterHookRegistry;
 import dev.turboism.adapter.cubism.lifecycle.PartHookRegistry;
+import dev.turboism.adapter.cubism.lifecycle.EditorObjectHookRegistry;
 import dev.turboism.core.plugin.PluginRuntime;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginDescriptor;
@@ -23,13 +24,15 @@ final class PreviewPluginLoader {
     private final List<LocalPluginRuntime.LoadedPlugin> loaded;
     private final ParameterHookRegistry parameterHookRegistry;
     private final PartHookRegistry partHookRegistry;
+    private final EditorObjectHookRegistry editorObjectHookRegistry;
 
     PreviewPluginLoader(
         final PreviewPluginContextFactory contextFactory,
         final PreviewLog log,
         final List<LocalPluginRuntime.LoadedPlugin> loaded,
         final ParameterHookRegistry parameterHookRegistry,
-        final PartHookRegistry partHookRegistry
+        final PartHookRegistry partHookRegistry,
+        final EditorObjectHookRegistry editorObjectHookRegistry
     ) {
         this.contextFactory = contextFactory;
         this.log = log;
@@ -39,6 +42,10 @@ final class PreviewPluginLoader {
             "parameterHookRegistry"
         );
         this.partHookRegistry = java.util.Objects.requireNonNull(partHookRegistry, "partHookRegistry");
+        this.editorObjectHookRegistry = java.util.Objects.requireNonNull(
+            editorObjectHookRegistry,
+            "editorObjectHookRegistry"
+        );
     }
 
     LocalPluginRuntime.LoadedPluginSummary load(
@@ -115,6 +122,13 @@ final class PreviewPluginLoader {
             contextBundle.context().logger()
         );
         resources.partHooksRegistered = true;
+        editorObjectHookRegistry.register(
+            candidate.descriptor(),
+            resources.entrypoints,
+            contextBundle.context().logger(),
+            resources.scope
+        );
+        resources.editorObjectHooksRegistered = true;
         return new LocalPluginRuntime.LoadedPlugin(
             candidate.jar(),
             runtime,
@@ -215,6 +229,10 @@ final class PreviewPluginLoader {
         final LoadResources resources,
         final String pluginId
     ) {
+        if (resources.editorObjectHooksRegistered) {
+            editorObjectHookRegistry.unregister(pluginId);
+            resources.editorObjectHooksRegistered = false;
+        }
         if (resources.partHooksRegistered) {
             partHookRegistry.unregister(pluginId);
             resources.partHooksRegistered = false;
@@ -309,5 +327,6 @@ final class PreviewPluginLoader {
         private int enabled;
         private boolean parameterHooksRegistered;
         private boolean partHooksRegistered;
+        private boolean editorObjectHooksRegistered;
     }
 }
