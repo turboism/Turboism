@@ -5,6 +5,7 @@ import dev.turboism.mapping.verification.VerifiedMemberResolver;
 
 import java.lang.instrument.Instrumentation;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /** Installs and owns the exact native texture-atlas editor data-model capture transformer. */
@@ -52,11 +53,18 @@ public final class VerifiedTextureAtlasDataModelHookInstaller implements AutoClo
         final TextureAtlasDataModelCapture capture
     ) {
         final VerifiedMemberResolver verified = Objects.requireNonNull(resolver, "resolver");
-        if (!verified.authorizesFeature(
-            VerifiedCubism5302TextureAtlasSelectorContract.ADAPTER_SLICE_ID,
-            CAPABILITY_ID,
-            VerifiedCubism5302TextureAtlasSelectorContract.HOOK_ALIASES
-        )) {
+        final Set<String> hookAliases;
+        final String adapterSliceId;
+        if (verified.isExactCubismVersion("5.3.02")) {
+            hookAliases = VerifiedCubism5302TextureAtlasSelectorContract.HOOK_ALIASES;
+            adapterSliceId = VerifiedCubism5302TextureAtlasSelectorContract.ADAPTER_SLICE_ID;
+        } else if (verified.isExactCubismVersion("5.2.0")) {
+            hookAliases = VerifiedCubism520TextureAtlasSelectorContract.HOOK_ALIASES;
+            adapterSliceId = VerifiedCubism520TextureAtlasSelectorContract.ADAPTER_SLICE_ID;
+        } else {
+            throw new IllegalArgumentException("Texture-atlas data-model hook version is unsupported.");
+        }
+        if (!verified.authorizesFeature(adapterSliceId, CAPABILITY_ID, hookAliases)) {
             throw new IllegalArgumentException("Texture-atlas data-model hook is not authorized.");
         }
         final StaticSelector init = verified.verifiedSelector(INIT_ALIAS);
