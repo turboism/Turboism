@@ -32,6 +32,9 @@ public final class AppearanceCoordinator implements AutoCloseable {
 
     public AppearanceStatus current() {
         synchronized (monitor) {
+            if (activeOwner == null) {
+                status = provider.readStatus();
+            }
             return status;
         }
     }
