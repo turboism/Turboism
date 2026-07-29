@@ -10,6 +10,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /** Installs and owns the exact native texture-atlas editor data-model capture transformer. */
 public final class VerifiedTextureAtlasDataModelHookInstaller implements AutoCloseable {
 
+    public static final String CAPABILITY_ID = "cubism.texture-atlas.data-model-hook";
     static final String INIT_ALIAS = "cubism.texture-atlas.model-image-list.init";
     static final String DATA_MODEL_ALIAS = "cubism.texture-atlas.model-image-list.data-model";
 
@@ -18,6 +19,7 @@ public final class VerifiedTextureAtlasDataModelHookInstaller implements AutoClo
     private final ClassLoader hostClassLoader;
     private final TextureAtlasDataModelTransformer transformer;
     private final AtomicBoolean installed = new AtomicBoolean(false);
+    private volatile Class<?> transformedClass;
 
     private VerifiedTextureAtlasDataModelHookInstaller(
         final Instrumentation instrumentation,
@@ -38,7 +40,8 @@ public final class VerifiedTextureAtlasDataModelHookInstaller implements AutoClo
             init.descriptor(),
             hostClassLoader,
             dataModel.memberName(),
-            dataModel.descriptor()
+            dataModel.descriptor(),
+            capture.key()
         );
     }
 
@@ -48,9 +51,16 @@ public final class VerifiedTextureAtlasDataModelHookInstaller implements AutoClo
         final ClassLoader hostClassLoader,
         final TextureAtlasDataModelCapture capture
     ) {
-        final StaticSelector init = Objects.requireNonNull(resolver, "resolver")
-            .verifiedSelector(INIT_ALIAS);
-        final StaticSelector dataModel = resolver.verifiedSelector(DATA_MODEL_ALIAS);
+        final VerifiedMemberResolver verified = Objects.requireNonNull(resolver, "resolver");
+        if (!verified.authorizesFeature(
+            VerifiedCubism5302TextureAtlasSelectorContract.ADAPTER_SLICE_ID,
+            CAPABILITY_ID,
+            VerifiedCubism5302TextureAtlasSelectorContract.HOOK_ALIASES
+        )) {
+            throw new IllegalArgumentException("Texture-atlas data-model hook is not authorized.");
+        }
+        final StaticSelector init = verified.verifiedSelector(INIT_ALIAS);
+        final StaticSelector dataModel = verified.verifiedSelector(DATA_MODEL_ALIAS);
         if (init.kind() != StaticSelector.Kind.METHOD
             || dataModel.kind() != StaticSelector.Kind.METHOD
             || (init.forbiddenAccessFlags() & StaticSelector.ACCESS_STATIC) == 0
@@ -79,6 +89,7 @@ public final class VerifiedTextureAtlasDataModelHookInstaller implements AutoClo
                     && loaded.getClassLoader() == hostClassLoader
                     && instrumentation.isModifiableClass(loaded)) {
                     instrumentation.retransformClasses(loaded);
+                    transformedClass = loaded;
                     break;
                 }
             }
@@ -92,5 +103,14 @@ public final class VerifiedTextureAtlasDataModelHookInstaller implements AutoClo
     public void close() {
         if (!installed.compareAndSet(true, false)) return;
         instrumentation.removeTransformer(transformer);
+        final Class<?> loaded = transformedClass;
+        transformedClass = null;
+        if (loaded != null && instrumentation.isModifiableClass(loaded)) {
+            try {
+                instrumentation.retransformClasses(loaded);
+            } catch (Throwable failure) {
+                throw new IllegalStateException("Texture-atlas hook restoration failed.", failure);
+            }
+        }
     }
 }

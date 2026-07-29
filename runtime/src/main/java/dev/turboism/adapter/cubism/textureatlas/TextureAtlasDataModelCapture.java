@@ -1,27 +1,31 @@
 package dev.turboism.adapter.cubism.textureatlas;
 
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.UUID;
 
 /** Connection-owned capture of the active native texture-atlas editor data model. */
 public final class TextureAtlasDataModelCapture implements AutoCloseable {
 
-    private final AtomicReference<Object> current = new AtomicReference<>();
+    private final String key = "dev.turboism.texture-atlas.data-model." + UUID.randomUUID();
     private volatile boolean closed;
+
+    String key() {
+        return key;
+    }
 
     void capture(final Object dataModel) {
         if (!closed && dataModel != null) {
-            current.set(dataModel);
+            System.getProperties().put(key, dataModel);
         }
     }
 
     public Optional<Object> current() {
-        return closed ? Optional.empty() : Optional.ofNullable(current.get());
+        return closed ? Optional.empty() : Optional.ofNullable(System.getProperties().get(key));
     }
 
     @Override
     public void close() {
         closed = true;
-        current.set(null);
+        System.getProperties().remove(key);
     }
 }

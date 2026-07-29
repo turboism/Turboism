@@ -14,23 +14,23 @@ class TextureAtlasDataModelTransformerTest {
 
     @Test
     void capturesOnlyAfterSuccessfulExactInitializationAndClearsOnClose() throws Exception {
+        final TextureAtlasDataModelCapture capture = new TextureAtlasDataModelCapture();
         final TextureAtlasDataModelTransformer transformer = new TextureAtlasDataModelTransformer(
             "fixture/ModelImageList",
             "initGui",
             "()V",
             null,
             "getTaeDataModel",
-            "()Ljava/lang/Object;"
+            "()Ljava/lang/Object;",
+            capture.key()
         );
         final byte[] transformed = transformer.transform(
             null, null, "fixture/ModelImageList", null, null, fixtureClass()
         );
-        final FixtureLoader loader = new FixtureLoader();
+        final FixtureLoader loader = new FixtureLoader(null);
         final Class<?> type = loader.define("fixture.ModelImageList", transformed);
         final Object instance = type.getConstructor().newInstance();
         final Object dataModel = type.getField("dataModel").get(instance);
-        final TextureAtlasDataModelCapture capture = new TextureAtlasDataModelCapture();
-        NativeTextureAtlasDataModelBridge.install(capture);
         try {
             type.getMethod("initGui").invoke(instance);
             assertSame(dataModel, capture.current().orElseThrow());
@@ -47,7 +47,7 @@ class TextureAtlasDataModelTransformerTest {
             capture.close();
             assertTrue(capture.current().isEmpty());
         } finally {
-            NativeTextureAtlasDataModelBridge.uninstall(capture);
+            capture.close();
         }
     }
 
@@ -100,6 +100,10 @@ class TextureAtlasDataModelTransformerTest {
     }
 
     private static final class FixtureLoader extends ClassLoader {
+        private FixtureLoader(final ClassLoader parent) {
+            super(parent);
+        }
+
         private Class<?> define(final String name, final byte[] bytes) {
             return defineClass(name, bytes, 0, bytes.length);
         }
