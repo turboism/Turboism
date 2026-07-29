@@ -20,7 +20,7 @@ public final class ThemeSelectionConfig implements ThemeSelectionService.Selecti
     private static final String EMPTY = "__native__";
     private static final ConfigKey<List<String>> SELECTED_THEME = new ConfigKey<>(
         CONFIG_ID,
-        "selectedTheme",
+        "selected-theme",
         List.of(),
         ConfigCodecs.boundedStringList(1, 128)
     );
