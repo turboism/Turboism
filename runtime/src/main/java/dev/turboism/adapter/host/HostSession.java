@@ -3,6 +3,7 @@ package dev.turboism.adapter.host;
 import dev.turboism.adapter.RuntimeHostAdapters;
 import dev.turboism.adapter.cubism.lifecycle.ParameterLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.PartLifecycleCoordinator;
+import dev.turboism.adapter.cubism.lifecycle.EditorObjectLifecycleCoordinator;
 import dev.turboism.sdk.event.EventBus;
 import dev.turboism.ui.action.RuntimeEditorUiActionRouter;
 import dev.turboism.ui.appearance.AppearanceCoordinator;
@@ -38,6 +39,8 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         new ParameterLifecycleCoordinator();
     private final PartLifecycleCoordinator partLifecycle =
         new PartLifecycleCoordinator();
+    private final EditorObjectLifecycleCoordinator editorObjectLifecycle =
+        new EditorObjectLifecycleCoordinator();
     private final RuntimeEditorUiHostLifecycle editorUiLifecycle =
         new RuntimeEditorUiHostLifecycle();
     private final EditorUiContributionAuthority editorUiContributions =
@@ -263,6 +266,11 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     }
 
     @Override
+    public EditorObjectLifecycleCoordinator editorObjectLifecycle() {
+        return editorObjectLifecycle;
+    }
+
+    @Override
     public EditorUiHostLifecycle editorUiLifecycle() {
         return editorUiLifecycle;
     }
@@ -305,6 +313,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             dynamicModelAccess,
             parameterLifecycle,
             partLifecycle,
+            editorObjectLifecycle,
             editorUiLifecycle,
             editorUiContributions,
             editorUiActionRouter,
@@ -329,6 +338,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
                 return;
             }
             appearanceCoordinator.close();
+            editorObjectLifecycle.close();
             partLifecycle.close();
             parameterLifecycle.close();
             editorUiPluginResources.close();

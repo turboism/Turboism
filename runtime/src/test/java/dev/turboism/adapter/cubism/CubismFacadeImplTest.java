@@ -14,6 +14,7 @@ import dev.turboism.sdk.cubism.model.ArtMeshGeometry;
 import dev.turboism.sdk.cubism.model.Drawable;
 import dev.turboism.sdk.cubism.model.Drawables;
 import dev.turboism.sdk.cubism.model.Deformers;
+import dev.turboism.sdk.cubism.model.Deformer;
 import dev.turboism.sdk.cubism.model.Glues;
 import dev.turboism.sdk.cubism.model.IntSequence;
 import dev.turboism.sdk.cubism.model.Parameters;
@@ -49,6 +50,7 @@ import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.PluginLogger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -551,6 +553,13 @@ class CubismFacadeImplTest {
             @Override public ArtMeshId id() { return new ArtMeshId("ArtMeshA"); }
             @Override public void setOpacity(final float opacity) { mutations[0]++; }
             @Override public float getOpacity() { return 1.0F; }
+            @Override public ArtMeshGeometry geometry() {
+                return new ArtMeshGeometry(
+                    List.of(new Point2(0, 0), new Point2(1, 0), new Point2(0, 1)),
+                    List.of(new Point2(0, 0), new Point2(1, 0), new Point2(0, 1)),
+                    List.of(0, 1, 2)
+                );
+            }
             @Override public void replaceGeometry(final ArtMeshGeometry geometry) { mutations[0]++; }
             @Override public byte constantFlag() { return 0; }
             @Override public byte dynamicFlag() { return 0; }
@@ -783,6 +792,292 @@ class CubismFacadeImplTest {
         assertEquals(List.of("on:1.0->5.0", "after:5.0"), events);
     }
 
+    @Test
+    void deniedEditorObjectWriteDoesNotEnterBeforeHooks() {
+        final int[] mutations = {0};
+        final List<String> events = new ArrayList<>();
+        final float[] opacity = {1.0F};
+        final Drawable drawable = new Drawable() {
+            @Override public ArtMeshId id() { return new ArtMeshId("ArtMeshA"); }
+            @Override public float getOpacity() { return opacity[0]; }
+            @Override public void setOpacity(final float value) { mutations[0]++; opacity[0] = value; }
+            @Override public byte constantFlag() { return 0; }
+            @Override public byte dynamicFlag() { return 0; }
+            @Override public dev.turboism.sdk.cubism.model.BlendMode blendMode() { return dev.turboism.sdk.cubism.model.BlendMode.NORMAL; }
+            @Override public int textureIndex() { return 0; }
+            @Override public int drawOrder() { return 0; }
+            @Override public int renderOrder() { return 0; }
+            @Override public IntSequence masks() { return emptyInts(); }
+            @Override public dev.turboism.sdk.cubism.model.FloatSequence vertexPositions() { return emptyFloats(); }
+            @Override public dev.turboism.sdk.cubism.model.FloatSequence vertexUvs() { return emptyFloats(); }
+            @Override public IntSequence indices() { return emptyInts(); }
+            @Override public Color multiplyColor() { return new Color(1, 1, 1, 1); }
+            @Override public Color screenColor() { return new Color(0, 0, 0, 1); }
+            @Override public int parentPartIndex() { return -1; }
+            @Override public int parentDeformerIndex() { return -1; }
+            @Override public IntSequence parameters() { return emptyInts(); }
+        };
+        final var lifecycle = new dev.turboism.adapter.cubism.lifecycle.EditorObjectLifecycleCoordinator();
+        lifecycle.drawable().register(new dev.turboism.adapter.cubism.lifecycle.DrawableLifecycleCoordinator.PluginHooks(
+            descriptor("hook.plugin"),
+            List.of(new dev.turboism.sdk.cubism.hook.DrawableHooks() {
+                @Override public float beforeSetDrawableOpacity(Drawable value, float requested) {
+                    events.add("before"); return requested * 0.5F;
+                }
+            }),
+            logger()
+        ));
+        final CubismFacadeImpl facade = new CubismFacadeImpl(
+            sampleSource(),
+            new CubismPermissionGate(
+                "plugin.caller",
+                List.of(permission(CubismFacadeImpl.MODEL_READ_PERMISSION)),
+                ignored -> { },
+                FIXED_CLOCK
+            ),
+            () -> editorObjectModel(drawable, new WarpDeformer() {
+                @Override public DeformerId id() { return new DeformerId("WarpA"); }
+                @Override public int parentDeformerIndex() { return -1; }
+                @Override public IntSequence parameters() { return emptyInts(); }
+                @Override public WarpGrid grid() { throw new UnsupportedOperationException(); }
+                @Override public void replaceGrid(WarpGrid value) { throw new UnsupportedOperationException(); }
+            }, new RotationDeformer() {
+                @Override public DeformerId id() { return new DeformerId("RotationA"); }
+                @Override public int parentDeformerIndex() { return -1; }
+                @Override public IntSequence parameters() { return emptyInts(); }
+                @Override public float baseAngle() { throw new UnsupportedOperationException(); }
+                @Override public void setBaseAngle(float value) { throw new UnsupportedOperationException(); }
+                @Override public RotationDeformerForm form() { throw new UnsupportedOperationException(); }
+                @Override public void replaceForm(RotationDeformerForm value) { throw new UnsupportedOperationException(); }
+            }),
+            new ParameterLifecycleCoordinator(),
+            new dev.turboism.adapter.cubism.lifecycle.PartLifecycleCoordinator(),
+            lifecycle,
+            () -> true
+        );
+
+        assertThrows(CubismPermissionException.class, () ->
+            facade.model().active().drawables().find(drawable.id()).setOpacity(0.5F)
+        );
+        lifecycle.drawable().awaitIdle();
+        assertEquals(List.of(), events);
+        assertEquals(0, mutations[0]);
+        assertEquals(1.0F, opacity[0]);
+    }
+
+
+    @Test
+    void genericDeformerProjectionPreservesSubtypeWritesAndLifecycle() {
+        final java.util.Map<String, Integer> counts = new java.util.LinkedHashMap<>();
+        final java.util.function.Consumer<String> count = key -> counts.merge(key, 1, Integer::sum);
+        final boolean[] rotationVisible = {true};
+        final boolean[] rotationLocked = {false};
+        final float[] warpOpacity = {1.0F};
+        final boolean[] warpVisible = {true};
+        final boolean[] warpLocked = {false};
+        final WarpGrid[] warpGrid = {new WarpGrid(1, 1, false, List.of(
+            new Point2(0, 0), new Point2(1, 0), new Point2(0, 1), new Point2(1, 1)
+        ))};
+        final WarpDeformer backendWarp = new WarpDeformer() {
+            @Override public DeformerId id() { return new DeformerId("WarpA"); }
+            @Override public boolean visible() { return warpVisible[0]; }
+            @Override public void setVisible(boolean value) { warpVisible[0] = value; }
+            @Override public boolean locked() { return warpLocked[0]; }
+            @Override public void setLocked(boolean value) { warpLocked[0] = value; }
+            @Override public float getOpacity() { return warpOpacity[0]; }
+            @Override public void setOpacity(float value) { warpOpacity[0] = value; }
+            @Override public WarpGrid grid() { return warpGrid[0]; }
+            @Override public void replaceGrid(WarpGrid value) { warpGrid[0] = value; }
+            @Override public int parentDeformerIndex() { return -1; }
+            @Override public IntSequence parameters() { return emptyInts(); }
+        };
+        final float[] rotationOpacity = {1.0F};
+        final float[] rotationAngle = {0.0F};
+        final RotationDeformerForm[] rotationForm = {
+            new RotationDeformerForm(0, 0, 0, 1, false, false)
+        };
+        final RotationDeformer backendRotation = new RotationDeformer() {
+            @Override public DeformerId id() { return new DeformerId("RotationA"); }
+            @Override public boolean visible() { return rotationVisible[0]; }
+            @Override public void setVisible(boolean value) { rotationVisible[0] = value; }
+            @Override public boolean locked() { return rotationLocked[0]; }
+            @Override public void setLocked(boolean value) { rotationLocked[0] = value; }
+            @Override public float getOpacity() { return rotationOpacity[0]; }
+            @Override public void setOpacity(float value) { rotationOpacity[0] = value; }
+            @Override public float baseAngle() { return rotationAngle[0]; }
+            @Override public void setBaseAngle(float value) { rotationAngle[0] = value; }
+            @Override public RotationDeformerForm form() { return rotationForm[0]; }
+            @Override public void replaceForm(RotationDeformerForm value) { rotationForm[0] = value; }
+            @Override public int parentDeformerIndex() { return -1; }
+            @Override public IntSequence parameters() { return emptyInts(); }
+        };
+        final var lifecycle = new dev.turboism.adapter.cubism.lifecycle.EditorObjectLifecycleCoordinator();
+        lifecycle.deformer().register(new dev.turboism.adapter.cubism.lifecycle.DeformerLifecycleCoordinator.PluginHooks(
+            descriptor("hook.plugin"),
+            List.of(new dev.turboism.sdk.cubism.hook.DeformerHooks() {
+                @Override public float beforeSetDeformerOpacity(Deformer value, float requested) {
+                    count.accept(value.id().value() + ":opacity:before"); return requested;
+                }
+                @Override public void onDeformerOpacityChanged(Deformer value, float oldValue, float newValue) {
+                    count.accept(value.id().value() + ":opacity:on");
+                }
+                @Override public void afterSetDeformerOpacity(Deformer value, float finalValue) {
+                    count.accept(value.id().value() + ":opacity:after");
+                }
+                @Override public boolean beforeSetDeformerVisible(Deformer value, boolean requested) {
+                    count.accept(value.id().value() + ":visible:before"); return requested;
+                }
+                @Override public void onDeformerVisibilityChanged(Deformer value, boolean oldValue, boolean newValue) {
+                    count.accept(value.id().value() + ":visible:on");
+                }
+                @Override public void afterSetDeformerVisible(Deformer value, boolean finalValue) {
+                    count.accept(value.id().value() + ":visible:after");
+                }
+                @Override public boolean beforeSetDeformerLocked(Deformer value, boolean requested) {
+                    count.accept(value.id().value() + ":locked:before"); return requested;
+                }
+                @Override public void onDeformerLockChanged(Deformer value, boolean oldValue, boolean newValue) {
+                    count.accept(value.id().value() + ":locked:on");
+                }
+                @Override public void afterSetDeformerLocked(Deformer value, boolean finalValue) {
+                    count.accept(value.id().value() + ":locked:after");
+                }
+                @Override public WarpGrid beforeReplaceWarpDeformerGrid(WarpDeformer value, WarpGrid requested) {
+                    count.accept(value.id().value() + ":grid:before"); return requested;
+                }
+                @Override public void onWarpDeformerGridChanged(WarpDeformer value, WarpGrid oldValue, WarpGrid newValue) {
+                    count.accept(value.id().value() + ":grid:on");
+                }
+                @Override public void afterReplaceWarpDeformerGrid(WarpDeformer value, WarpGrid finalValue) {
+                    count.accept(value.id().value() + ":grid:after");
+                }
+                @Override public float beforeSetRotationDeformerBaseAngle(RotationDeformer value, float requested) {
+                    count.accept(value.id().value() + ":angle:before"); return requested;
+                }
+                @Override public void onRotationDeformerBaseAngleChanged(
+                    RotationDeformer value, float oldValue, float newValue
+                ) { count.accept(value.id().value() + ":angle:on"); }
+                @Override public void afterSetRotationDeformerBaseAngle(RotationDeformer value, float finalValue) {
+                    count.accept(value.id().value() + ":angle:after");
+                }
+                @Override public RotationDeformerForm beforeReplaceRotationDeformerForm(
+                    RotationDeformer value, RotationDeformerForm requested
+                ) { count.accept(value.id().value() + ":form:before"); return requested; }
+                @Override public void onRotationDeformerFormChanged(
+                    RotationDeformer value, RotationDeformerForm oldValue, RotationDeformerForm newValue
+                ) { count.accept(value.id().value() + ":form:on"); }
+                @Override public void afterReplaceRotationDeformerForm(
+                    RotationDeformer value, RotationDeformerForm finalValue
+                ) { count.accept(value.id().value() + ":form:after"); }
+            }), logger()
+        ));
+        final CubismModel backendModel = editorObjectModel(
+            new Drawable() {
+                @Override public ArtMeshId id() { return new ArtMeshId("ArtMeshA"); }
+                @Override public float getOpacity() { return 1.0F; }
+                @Override public void setOpacity(float value) { }
+                @Override public byte constantFlag() { return 0; }
+                @Override public byte dynamicFlag() { return 0; }
+                @Override public dev.turboism.sdk.cubism.model.BlendMode blendMode() {
+                    return dev.turboism.sdk.cubism.model.BlendMode.NORMAL;
+                }
+                @Override public int textureIndex() { return 0; }
+                @Override public int drawOrder() { return 0; }
+                @Override public int renderOrder() { return 0; }
+                @Override public IntSequence masks() { return emptyInts(); }
+                @Override public dev.turboism.sdk.cubism.model.FloatSequence vertexPositions() {
+                    return emptyFloats();
+                }
+                @Override public dev.turboism.sdk.cubism.model.FloatSequence vertexUvs() {
+                    return emptyFloats();
+                }
+                @Override public IntSequence indices() { return emptyInts(); }
+                @Override public Color multiplyColor() { return new Color(1, 1, 1, 1); }
+                @Override public Color screenColor() { return new Color(0, 0, 0, 1); }
+                @Override public int parentPartIndex() { return -1; }
+                @Override public int parentDeformerIndex() { return -1; }
+                @Override public IntSequence parameters() { return emptyInts(); }
+            },
+            backendWarp,
+            backendRotation
+        );
+        final CubismFacadeImpl facade = new CubismFacadeImpl(
+            sampleSource(),
+            new CubismPermissionGate(
+                "plugin.caller",
+                List.of(
+                    permission(CubismFacadeImpl.MODEL_READ_PERMISSION),
+                    permission(CubismFacadeImpl.MODEL_WRITE_PERMISSION)
+                ),
+                ignored -> { }, FIXED_CLOCK
+            ),
+            () -> backendModel,
+            new ParameterLifecycleCoordinator(),
+            new dev.turboism.adapter.cubism.lifecycle.PartLifecycleCoordinator(),
+            lifecycle,
+            () -> true
+        );
+        final List<Deformer> generic = facade.model().active().deformers().all();
+        final WarpDeformer warp = assertInstanceOf(WarpDeformer.class, generic.get(0));
+        final RotationDeformer rotation = assertInstanceOf(
+            RotationDeformer.class,
+            facade.model().active().deformers().find(backendRotation.id())
+        );
+        final WarpGrid replacementGrid = new WarpGrid(1, 1, true, List.of(
+            new Point2(0, 0), new Point2(2, 0), new Point2(0, 2), new Point2(2, 2)
+        ));
+        final RotationDeformerForm replacementForm =
+            new RotationDeformerForm(1, 2, 3, 1.25F, true, false);
+
+        warp.setOpacity(0.5F);
+        warp.setVisible(false);
+        warp.setLocked(true);
+        warp.replaceGrid(replacementGrid);
+        rotation.setOpacity(0.6F);
+        rotation.setVisible(false);
+        rotation.setLocked(true);
+        rotation.setBaseAngle(15.0F);
+        rotation.replaceForm(replacementForm);
+        lifecycle.deformer().awaitIdle();
+
+        assertEquals(0.5F, warpOpacity[0]);
+        assertFalse(warpVisible[0]);
+        assertTrue(warpLocked[0]);
+        assertEquals(replacementGrid, warpGrid[0]);
+        assertEquals(0.6F, rotationOpacity[0]);
+        assertEquals(15.0F, rotationAngle[0]);
+        assertEquals(replacementForm, rotationForm[0]);
+        assertFalse(rotationVisible[0]);
+        assertTrue(rotationLocked[0]);
+        assertEquals(1, counts.get("WarpA:opacity:before"));
+        assertEquals(1, counts.get("WarpA:opacity:on"));
+        assertEquals(1, counts.get("WarpA:opacity:after"));
+        assertEquals(1, counts.get("WarpA:visible:before"));
+        assertEquals(1, counts.get("WarpA:visible:on"));
+        assertEquals(1, counts.get("WarpA:visible:after"));
+        assertEquals(1, counts.get("WarpA:locked:before"));
+        assertEquals(1, counts.get("WarpA:locked:on"));
+        assertEquals(1, counts.get("WarpA:locked:after"));
+        assertEquals(1, counts.get("WarpA:grid:before"));
+        assertEquals(1, counts.get("WarpA:grid:on"));
+        assertEquals(1, counts.get("WarpA:grid:after"));
+        assertEquals(1, counts.get("RotationA:opacity:before"));
+        assertEquals(1, counts.get("RotationA:opacity:on"));
+        assertEquals(1, counts.get("RotationA:opacity:after"));
+        assertEquals(1, counts.get("RotationA:visible:before"));
+        assertEquals(1, counts.get("RotationA:visible:on"));
+        assertEquals(1, counts.get("RotationA:visible:after"));
+        assertEquals(1, counts.get("RotationA:locked:before"));
+        assertEquals(1, counts.get("RotationA:locked:on"));
+        assertEquals(1, counts.get("RotationA:locked:after"));
+        assertEquals(1, counts.get("RotationA:angle:before"));
+        assertEquals(1, counts.get("RotationA:angle:on"));
+        assertEquals(1, counts.get("RotationA:angle:after"));
+        assertEquals(1, counts.get("RotationA:form:before"));
+        assertEquals(1, counts.get("RotationA:form:on"));
+        assertEquals(1, counts.get("RotationA:form:after"));
+    }
+
     private CubismFacadeImpl facadeWith(
         final HostSnapshotSource source,
         final List<CubismFacadeAuditEvent> auditEvents,
@@ -915,7 +1210,16 @@ class CubismFacadeImplTest {
                     @Override public Drawable find(final ArtMeshId id) { return drawable; }
                 };
             }
-            @Override public Deformers deformers() { throw new UnsupportedOperationException(); }
+            @Override public Deformers deformers() {
+                return new Deformers() {
+                    @Override public List<Deformer> all() { return List.of(warp, rotation); }
+                    @Override public Deformer find(final DeformerId id) {
+                        if (warp.id().equals(id)) return warp;
+                        if (rotation.id().equals(id)) return rotation;
+                        throw new java.util.NoSuchElementException(id.value());
+                    }
+                };
+            }
             @Override public WarpDeformers warpDeformers() {
                 return new WarpDeformers() {
                     @Override public List<WarpDeformer> all() { return List.of(warp); }
