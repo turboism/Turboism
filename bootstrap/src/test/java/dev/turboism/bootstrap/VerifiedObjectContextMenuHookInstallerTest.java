@@ -32,7 +32,7 @@ class VerifiedObjectContextMenuHookInstallerTest {
                          ),
                          VerifiedObjectContextMenuHookInstaller.Binding.appendPoint(
                              methodSelector("deformer", owner, "deformer", "(Ljava/lang/Object;)V"),
-                             methodSelector("append", "fixture/Menu", "append", "(Ljava/lang/Object;)V"),
+                             methodSelector("append", "fixture/Menu", "append", "(Ljava/lang/Object;Ljava/lang/Object;)V"),
                              Location.DEFORMER_TAB
                          )
                      ),
@@ -62,7 +62,7 @@ class VerifiedObjectContextMenuHookInstallerTest {
                     ),
                     VerifiedObjectContextMenuHookInstaller.Binding.appendPoint(
                         methodSelector("deformer", owner, "deformer", "(Ljava/lang/Object;)V"),
-                        methodSelector("append", "fixture/Menu", "append", "(Ljava/lang/Object;)V"),
+                        methodSelector("append", "fixture/Menu", "append", "(Ljava/lang/Object;Ljava/lang/Object;)V"),
                         Location.DEFORMER_TAB
                     )
                 ),
@@ -85,7 +85,7 @@ class VerifiedObjectContextMenuHookInstallerTest {
         assertThrows(IllegalArgumentException.class, () ->
             VerifiedObjectContextMenuHookInstaller.Binding.appendPoint(
                 staticOperation,
-                methodSelector("append", "fixture/Menu", "append", "(Ljava/lang/Object;)V"),
+                methodSelector("append", "fixture/Menu", "append", "(Ljava/lang/Object;Ljava/lang/Object;)V"),
                 Location.DEFORMER_TAB
             )
         );

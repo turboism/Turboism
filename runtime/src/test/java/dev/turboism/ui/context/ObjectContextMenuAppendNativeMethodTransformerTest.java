@@ -24,7 +24,7 @@ class ObjectContextMenuAppendNativeMethodTransformerTest {
         final ObjectContextMenuAppendNativeMethodTransformer transformer =
             new ObjectContextMenuAppendNativeMethodTransformer(
                 "fixture/Builder", "build", "(Ljava/lang/Object;)V", loader,
-                "fixture/Menu", "append", "(Ljava/lang/Object;)V",
+                "fixture/Menu", "append", "(Ljava/lang/Object;Ljava/lang/Object;)V",
                 Location.DEFORMER_TAB
             );
 
@@ -86,8 +86,12 @@ class ObjectContextMenuAppendNativeMethodTransformerTest {
             build.visitTypeInsn(Opcodes.NEW, "java/lang/Object");
             build.visitInsn(Opcodes.DUP);
             build.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false);
+            build.visitTypeInsn(Opcodes.NEW, "java/lang/Object");
+            build.visitInsn(Opcodes.DUP);
+            build.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false);
             build.visitMethodInsn(
-                Opcodes.INVOKEVIRTUAL, "fixture/Menu", "append", "(Ljava/lang/Object;)V", false
+                Opcodes.INVOKEVIRTUAL, "fixture/Menu", "append",
+                "(Ljava/lang/Object;Ljava/lang/Object;)V", false
             );
         }
         build.visitInsn(Opcodes.RETURN);
@@ -103,7 +107,7 @@ class ObjectContextMenuAppendNativeMethodTransformerTest {
         writer.visitField(Opcodes.ACC_PUBLIC, "appends", "I", null, null).visitEnd();
         constructor(writer, "fixture/Menu");
         final MethodVisitor append = writer.visitMethod(
-            Opcodes.ACC_PUBLIC, "append", "(Ljava/lang/Object;)V", null, null
+            Opcodes.ACC_PUBLIC, "append", "(Ljava/lang/Object;Ljava/lang/Object;)V", null, null
         );
         append.visitCode();
         append.visitVarInsn(Opcodes.ALOAD, 0);
