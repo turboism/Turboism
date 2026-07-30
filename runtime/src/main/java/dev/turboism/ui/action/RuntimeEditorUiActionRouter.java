@@ -28,6 +28,15 @@ public final class RuntimeEditorUiActionRouter implements EditorUiActionRouter, 
 
     @Override
     public void invoke(final String pluginId, final String actionId) {
+        invoke(pluginId, actionId, EditorUiActionRouter.emptyContext());
+    }
+
+    /** Routes an action with a typed runtime-owned invocation context. */
+    public void invoke(
+        final String pluginId,
+        final String actionId,
+        final ActionRegistry.ActionContext context
+    ) {
         if (closed) {
             return;
         }
@@ -38,7 +47,10 @@ public final class RuntimeEditorUiActionRouter implements EditorUiActionRouter, 
         if (!(registry instanceof RuntimeActionRegistry runtime)) {
             throw new IllegalStateException("Editor UI actions require a runtime-owned action registry");
         }
-        runtime.execute(requireText(actionId, "actionId"), EditorUiActionRouter.emptyContext());
+        runtime.execute(
+            requireText(actionId, "actionId"),
+            Objects.requireNonNull(context, "context")
+        );
     }
 
     @Override
