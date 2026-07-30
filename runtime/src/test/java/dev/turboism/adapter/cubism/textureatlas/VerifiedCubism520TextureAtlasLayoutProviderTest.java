@@ -39,11 +39,12 @@ class VerifiedCubism520TextureAtlasLayoutProviderTest {
         ));
         assertEquals(TextureAtlasLayoutProvider.ApplyOutcome.APPLIED, provider.apply(current, plan));
 
-        assertEquals(List.of("Turboism Atlas 1", "Turboism Atlas 2"), fixture.data.atlases.stream().map(Atlas::name).toList());
-        assertEquals(List.of("texture-a"), fixture.data.atlases.get(0).entries.stream().map(entry -> entry.image.guid.value).toList());
-        assertEquals(List.of("texture-b"), fixture.data.atlases.get(1).entries.stream().map(entry -> entry.image.guid.value).toList());
-        assertEquals(AffineTransform.getTranslateInstance(2.0, 1.0), fixture.data.atlases.get(0).entries.get(0).transform);
-        assertEquals(AffineTransform.getTranslateInstance(5.0, 2.0), fixture.data.atlases.get(1).entries.get(0).transform);
+        assertEquals(List.of("Turboism Atlas 1", "Turboism Atlas 2"), fixture.source.textureManager.atlases.stream().map(Atlas::name).toList());
+        assertEquals(List.of("texture-a"), fixture.source.textureManager.atlases.get(0).entries.stream().map(entry -> entry.image.guid.value).toList());
+        assertEquals(List.of("texture-b"), fixture.source.textureManager.atlases.get(1).entries.stream().map(entry -> entry.image.guid.value).toList());
+        assertEquals(AffineTransform.getTranslateInstance(2.0, 1.0), fixture.source.textureManager.atlases.get(0).entries.get(0).transform);
+        assertEquals(AffineTransform.getTranslateInstance(5.0, 2.0), fixture.source.textureManager.atlases.get(1).entries.get(0).transform);
+        assertEquals(List.of("atlas-a"), fixture.data.atlases.stream().map(Atlas::name).toList());
         assertEquals(1, fixture.data.applyCount);
         assertEquals(List.of("Update TextureAtlas"), fixture.document.editMode.edits);
         assertEquals(1, fixture.document.editMode.undos.size());
@@ -68,9 +69,6 @@ class VerifiedCubism520TextureAtlasLayoutProviderTest {
         );
         assertEquals(0, fixture.data.applyCount);
         assertFalse(provider(resolver("5.3.02", true), "session-a", fixture).current().isPresent());
-        assertTrue(new VerifiedCubism520TextureAtlasLayoutProvider(
-            resolver("5.2.0", true), "session-a", captured(fixture)
-        ).current().isPresent());
         assertFalse(new VerifiedCubism5302TextureAtlasLayoutProvider(
             resolver("5.2.0", true), "session-a", captured(fixture)
         ).current().isPresent());
@@ -91,7 +89,7 @@ class VerifiedCubism520TextureAtlasLayoutProviderTest {
         ));
 
         assertThrows(RuntimeException.class, () -> provider.apply(current, plan));
-        assertEquals(List.of("atlas-a"), fixture.data.atlases.stream().map(Atlas::name).toList());
+        assertEquals(List.of("atlas-a"), fixture.source.textureManager.atlases.stream().map(Atlas::name).toList());
         assertEquals(0, fixture.data.applyCount);
         assertTrue(fixture.document.editMode.edits.isEmpty());
         assertTrue(fixture.document.editMode.undos.isEmpty());
@@ -122,10 +120,9 @@ class VerifiedCubism520TextureAtlasLayoutProviderTest {
             selectors.add(StaticSelector.classSelector("cubism.texture-atlas.data-model.class", internal(DataModel.class)));
             selectors.add(method("cubism.texture-atlas.data-model.document", DataModel.class, "document", desc(Document.class)));
             selectors.add(method("cubism.texture-atlas.data-model.model-source", DataModel.class, "modelSource", desc(ModelSource.class)));
-            selectors.add(method("cubism.texture-atlas.data-model.sheets", DataModel.class, "sheets", "()Ljava/util/List;"));
-            selectors.add(method("cubism.texture-atlas.sheet.atlas", Sheet.class, "atlas", desc(Atlas.class)));
             selectors.add(method("cubism.texture-atlas.model-source.texture-manager", ModelSource.class, "textureManager", desc(TextureManager.class)));
             selectors.add(method("cubism.texture-atlas.texture-manager.images", TextureManager.class, "images", "()Ljava/util/List;"));
+            selectors.add(method("cubism.texture-atlas.texture-manager.atlases", TextureManager.class, "atlases", "()Ljava/util/List;"));
             selectors.add(StaticSelector.classSelector("cubism.texture-atlas.atlas.class", internal(Atlas.class)));
             selectors.add(StaticSelector.constructor(
                 "cubism.texture-atlas.atlas.create",
@@ -209,6 +206,7 @@ class VerifiedCubism520TextureAtlasLayoutProviderTest {
     }
 
     public static final class AtlasUndo {
+        private final TextureManager textureManager;
         private final DataModel data;
         private final List<Atlas> after;
         public AtlasUndo(
@@ -218,11 +216,16 @@ class VerifiedCubism520TextureAtlasLayoutProviderTest {
             final List<Atlas> after
         ) {
             assertEquals("Update TextureAtlas", name);
-            assertEquals(Host.document.data.atlases, before);
+            assertEquals(source.textureManager.atlases, before);
+            this.textureManager = source.textureManager;
             this.data = Host.document.data;
             this.after = List.copyOf(after);
         }
-        public void forceRedo() { data.apply(after); }
+        public void forceRedo() {
+            textureManager.atlases.clear();
+            textureManager.atlases.addAll(after);
+            data.applyCount++;
+        }
     }
 
     public static final class ModelSource {
@@ -234,7 +237,9 @@ class VerifiedCubism520TextureAtlasLayoutProviderTest {
 
     public static final class TextureManager {
         final List<Image> images = new ArrayList<>();
+        final List<Atlas> atlases = new ArrayList<>();
         public List<Image> images() { return images; }
+        public List<Atlas> atlases() { return atlases; }
     }
 
     public static final class DataModel {
@@ -324,13 +329,14 @@ class VerifiedCubism520TextureAtlasLayoutProviderTest {
             new Entry(atlas, first.guid, new Affine(AffineTransform.getTranslateInstance(1.0, 1.0)));
             new Entry(atlas, second.guid, new Affine(AffineTransform.getTranslateInstance(8.0, 1.0)));
             data.atlases.add(atlas);
+            source.textureManager.atlases.add(atlas);
         }
         void replaceAtlasWithSameId() {
             final Atlas replacement = new Atlas(source, "atlas-a", 16, 8);
             new Entry(replacement, source.textureManager.images.get(0).guid, new Affine(AffineTransform.getTranslateInstance(2.0, 1.0)));
             new Entry(replacement, source.textureManager.images.get(1).guid, new Affine(AffineTransform.getTranslateInstance(8.0, 1.0)));
-            data.atlases.clear();
-            data.atlases.add(replacement);
+            source.textureManager.atlases.clear();
+            source.textureManager.atlases.add(replacement);
         }
     }
 }
