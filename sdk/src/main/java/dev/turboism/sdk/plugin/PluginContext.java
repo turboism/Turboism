@@ -8,6 +8,7 @@ import dev.turboism.sdk.cubism.service.query.ModelHierarchyQueryService;
 import dev.turboism.sdk.cubism.service.query.ParameterQueryService;
 import dev.turboism.sdk.cubism.service.query.SelectionQueryService;
 import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
+import dev.turboism.sdk.cubism.physics.PhysicsEditorService;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
 import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.i18n.PluginLocalization;
@@ -16,6 +17,7 @@ import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.sdk.storage.PluginStorage;
 import dev.turboism.sdk.task.PluginTaskScheduler;
+import dev.turboism.sdk.runtime.RuntimeSettingsService;
 import dev.turboism.sdk.ui.UiHostCapabilityService;
 import dev.turboism.sdk.ui.UserFileAccessService;
 import dev.turboism.sdk.ui.UiScheduler;
@@ -74,6 +76,10 @@ public interface PluginContext {
         throw new UnsupportedOperationException("cubismRead service is not available");
     }
 
+    default PhysicsEditorService physicsEditor() {
+        return PhysicsEditorService.unavailable();
+    }
+
     List<PluginPermission> permissions();
 
     EventBus eventBus();
@@ -104,6 +110,11 @@ public interface PluginContext {
 
     default PluginConfigRegistry config() {
         throw new UnsupportedOperationException("config registry is not available");
+    }
+
+
+    default RuntimeSettingsService runtimeSettings() {
+        throw new UnsupportedOperationException("runtime settings service is not available");
     }
 
     UiScheduler uiScheduler();

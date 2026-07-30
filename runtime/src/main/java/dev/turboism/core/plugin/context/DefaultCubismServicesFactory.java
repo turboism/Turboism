@@ -12,6 +12,7 @@ import dev.turboism.adapter.cubism.service.read.CubismReadCapabilityServiceImpl;
 import dev.turboism.permissions.CubismPermissionGate;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.adapter.host.PluginScopedCubismModelAccess;
+import dev.turboism.adapter.cubism.physics.PhysicsEditorCoordinator;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -26,6 +27,7 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
     private final ParameterLifecycleCoordinator parameterLifecycle;
     private final PartLifecycleCoordinator partLifecycle;
     private final EditorObjectLifecycleCoordinator editorObjectLifecycle;
+    private final PhysicsEditorCoordinator physicsEditorCoordinator;
 
     DefaultCubismServicesFactory() {
         this(RuntimeHostAdapters.safeMode());
@@ -90,16 +92,25 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
         final PartLifecycleCoordinator partLifecycle,
         final EditorObjectLifecycleCoordinator editorObjectLifecycle
     ) {
+        this(hostAdapters, modelAccess, parameterLifecycle, partLifecycle, editorObjectLifecycle,
+            new PhysicsEditorCoordinator());
+    }
+
+    DefaultCubismServicesFactory(
+        final RuntimeHostAdapters hostAdapters,
+        final CubismModelAccess modelAccess,
+        final ParameterLifecycleCoordinator parameterLifecycle,
+        final PartLifecycleCoordinator partLifecycle,
+        final EditorObjectLifecycleCoordinator editorObjectLifecycle,
+        final PhysicsEditorCoordinator physicsEditorCoordinator
+    ) {
         this.hostAdapters = java.util.Objects.requireNonNull(hostAdapters, "hostAdapters");
         this.modelAccess = java.util.Objects.requireNonNull(modelAccess, "modelAccess");
-        this.parameterLifecycle = java.util.Objects.requireNonNull(
-            parameterLifecycle,
-            "parameterLifecycle"
-        );
+        this.parameterLifecycle = java.util.Objects.requireNonNull(parameterLifecycle, "parameterLifecycle");
         this.partLifecycle = java.util.Objects.requireNonNull(partLifecycle, "partLifecycle");
-        this.editorObjectLifecycle = java.util.Objects.requireNonNull(
-            editorObjectLifecycle,
-            "editorObjectLifecycle"
+        this.editorObjectLifecycle = java.util.Objects.requireNonNull(editorObjectLifecycle, "editorObjectLifecycle");
+        this.physicsEditorCoordinator = java.util.Objects.requireNonNull(
+            physicsEditorCoordinator, "physicsEditorCoordinator"
         );
     }
 
@@ -140,7 +151,10 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
                 hostAdapters.clipMaskRead(),
                 dependencies.descriptor().id(),
                 permissionGate
-            )
+            ),
+            dependencies.permissions().stream().anyMatch(permission ->
+                CubismFacadeImpl.MODEL_WRITE_PERMISSION.equals(permission.id())
+            ) ? physicsEditorCoordinator : dev.turboism.sdk.cubism.physics.PhysicsEditorService.unavailable()
         );
     }
 }
