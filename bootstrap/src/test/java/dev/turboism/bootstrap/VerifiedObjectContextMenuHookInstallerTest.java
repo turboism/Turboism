@@ -42,7 +42,8 @@ class VerifiedObjectContextMenuHookInstallerTest {
         }
 
         assertEquals(List.of(
-            "add:0", "add:1", "retransform:" + Target.class.getName(), "remove:1", "remove:0"
+            "add:0", "add:1", "retransform:" + Target.class.getName(),
+            "remove:1", "remove:0", "retransform:" + Target.class.getName()
         ), calls);
     }
 
@@ -71,7 +72,8 @@ class VerifiedObjectContextMenuHookInstallerTest {
 
         assertThrows(IllegalStateException.class, installer::install);
         assertEquals(List.of(
-            "add:0", "add:1", "retransform:" + Target.class.getName(), "remove:1", "remove:0"
+            "add:0", "add:1", "retransform:" + Target.class.getName(),
+            "remove:1", "remove:0", "retransform:" + Target.class.getName()
         ), calls);
     }
 

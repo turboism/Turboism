@@ -42,6 +42,7 @@ class ObjectContextMenuAppendNativeMethodTransformerTest {
             null, loader, "fixture/Builder", null, null, builderClass(1)
         );
         assertNotNull(transformed);
+        assertLoaderNeutral(transformed);
 
         final Class<?> menuType = loader.define("fixture.Menu", menuClass());
         final Class<?> builderType = loader.define("fixture.Builder", transformed);
@@ -80,6 +81,7 @@ class ObjectContextMenuAppendNativeMethodTransformerTest {
             null, loader, "fixture/SingleBuilder", null, null, singleBuilderClass()
         );
         assertNotNull(transformed);
+        assertLoaderNeutral(transformed);
 
         final Class<?> menuType = loader.define("fixture.SingleMenu", singleMenuClass());
         final Class<?> builderType = loader.define("fixture.SingleBuilder", transformed);
@@ -206,6 +208,13 @@ class ObjectContextMenuAppendNativeMethodTransformerTest {
         append.visitEnd();
         writer.visitEnd();
         return writer.toByteArray();
+    }
+
+    private static void assertLoaderNeutral(final byte[] transformed) {
+        org.junit.jupiter.api.Assertions.assertFalse(
+            new String(transformed, java.nio.charset.StandardCharsets.ISO_8859_1)
+                .contains("dev/turboism/ui/context/NativeObjectContextMenuBridge")
+        );
     }
 
     private static void constructor(final ClassWriter writer, final String owner) {
