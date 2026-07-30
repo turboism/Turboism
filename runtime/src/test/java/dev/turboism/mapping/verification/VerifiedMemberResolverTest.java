@@ -1,6 +1,7 @@
 package dev.turboism.mapping.verification;
 
 import dev.turboism.mapping.verification.fixture.PackagePrivateConstructorHost;
+import dev.turboism.mapping.verification.fixture.PackagePrivateMethodHost;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
@@ -53,6 +54,25 @@ class VerifiedMemberResolverTest {
         assertEquals("static", resolver.invokeStatic("fixture.static-value"));
         assertEquals("instance", resolver.invoke("fixture.instance-value", new SyntheticHost()));
         assertThrows(VerifiedAccessException.class, () -> resolver.invokeStatic("fixture.unverified"));
+    }
+
+    @Test
+    void invokesExactVerifiedPublicMethodsDeclaredByPackagePrivateHostTypes() {
+        VerifiedMemberResolver resolver = new VerifiedMemberResolver(
+            plan(StaticSelector.method(
+                "fixture.package-private-owner-method",
+                internalName(PackagePrivateMethodHost.type()),
+                "value",
+                "()Ljava/lang/String;",
+                StaticSelector.ACCESS_PUBLIC
+            )),
+            SyntheticHost.class.getClassLoader()
+        );
+
+        assertEquals(
+            "package-private-owner",
+            resolver.invoke("fixture.package-private-owner-method", PackagePrivateMethodHost.create())
+        );
     }
 
     @Test
@@ -217,6 +237,53 @@ class VerifiedMemberResolverTest {
     }
 
     @Test
+    void createsCallbackProxyOnlyFromAnExactVerifiedConstructorParameter() {
+        VerifiedMemberResolver resolver = new VerifiedMemberResolver(
+            plan(StaticSelector.constructor(
+                "fixture.callback-constructor",
+                internalName(SyntheticConstructorConsumer.class),
+                "(L" + internalName(SyntheticZeroCallback.class) + ";)V",
+                StaticSelector.ACCESS_PUBLIC
+            )),
+            SyntheticHost.class.getClassLoader()
+        );
+        AtomicReference<Object> argument = new AtomicReference<>("not-called");
+
+        SyntheticZeroCallback callback = (SyntheticZeroCallback)
+            resolver.createFunctionalConstructorArgumentProxy(
+                "fixture.callback-constructor",
+                0,
+                value -> {
+                    argument.set(value);
+                    return "handled";
+                }
+            );
+        SyntheticConstructorConsumer consumer = (SyntheticConstructorConsumer) resolver.construct(
+            "fixture.callback-constructor",
+            callback
+        );
+
+        assertEquals("handled", consumer.invoke());
+        assertEquals(null, argument.get());
+        assertThrows(
+            VerifiedAccessException.class,
+            () -> resolver.createFunctionalConstructorArgumentProxy(
+                "fixture.callback-constructor",
+                1,
+                ignored -> null
+            )
+        );
+        assertThrows(
+            VerifiedAccessException.class,
+            () -> resolver.createFunctionalConstructorArgumentProxy(
+                "fixture.unverified",
+                0,
+                ignored -> null
+            )
+        );
+    }
+
+    @Test
     void checksInstancesOnlyAgainstExactVerifiedClassAliases() {
         VerifiedMemberResolver resolver = new VerifiedMemberResolver(
             plan(StaticSelector.classSelector(
@@ -320,6 +387,18 @@ class VerifiedMemberResolverTest {
 
     public static final class PrivateConstructorHost {
         private PrivateConstructorHost() { }
+    }
+
+    public static final class SyntheticConstructorConsumer {
+        private final SyntheticZeroCallback callback;
+
+        public SyntheticConstructorConsumer(final SyntheticZeroCallback callback) {
+            this.callback = callback;
+        }
+
+        public Object invoke() {
+            return callback.apply();
+        }
     }
 
     public static final class SyntheticHost {

@@ -29,6 +29,7 @@ class VerifiedHostAdapterConnectorTest {
 
         assertSame(evidence, seenEvidence.get());
         assertTrue(seenEvidence.get().clipMask().isEmpty());
+        assertTrue(seenEvidence.get().topMenu().isEmpty());
         assertSame(expected, connection.adapters());
     }
 
@@ -70,6 +71,21 @@ class VerifiedHostAdapterConnectorTest {
         assertThrows(IllegalArgumentException.class, () -> HostVerificationEvidence.withClipMask(
             slice("project", "host/Live2D_Cubism.jar", hostClassLoader),
             slice("clip", "host/another.jar", hostClassLoader)
+        ));
+    }
+
+    @Test
+    void rejectsTopMenuEvidenceFromAnotherHostIdentity() {
+        ClassLoader hostClassLoader = new ClassLoader() { };
+        HostVerificationEvidence evidence = HostVerificationEvidence.projectOnly(
+            slice("project", "host/Live2D_Cubism.jar", hostClassLoader)
+        );
+
+        assertThrows(IllegalArgumentException.class, () -> evidence.addingTopMenu(
+            slice("top-menu", "host/Live2D_Cubism.jar", new ClassLoader() { })
+        ));
+        assertThrows(IllegalArgumentException.class, () -> evidence.addingTopMenu(
+            slice("top-menu", "host/another.jar", hostClassLoader)
         ));
     }
 

@@ -5,8 +5,6 @@ import dev.turboism.adapter.cubism.ProjectWorkspaceAdapter;
 import dev.turboism.adapter.cubism.RenderStatusAdapter;
 import dev.turboism.adapter.cubism.VerifiedClipMaskHostOperations;
 import dev.turboism.adapter.cubism.VerifiedProjectWorkspaceHostOperations;
-import dev.turboism.adapter.ui.MainToolbarAdapter;
-import dev.turboism.adapter.ui.MainToolbarAdapterImpl;
 import dev.turboism.adapter.ui.StatusToolbarAdapter;
 import dev.turboism.adapter.ui.StatusToolbarAdapterImpl;
 import dev.turboism.adapter.ui.ThemeStatusAdapter;
@@ -31,7 +29,6 @@ public record RuntimeHostAdapters(
     ProjectWorkspaceAdapter projectWorkspace,
     ClipMaskReadAdapter clipMaskRead,
     StatusToolbarAdapter statusToolbar,
-    MainToolbarAdapter mainToolbar,
     UiSurfaceAdapter uiSurface
 ) {
 
@@ -41,7 +38,6 @@ public record RuntimeHostAdapters(
         projectWorkspace = Objects.requireNonNull(projectWorkspace, "projectWorkspace");
         clipMaskRead = Objects.requireNonNull(clipMaskRead, "clipMaskRead");
         statusToolbar = Objects.requireNonNull(statusToolbar, "statusToolbar");
-        mainToolbar = Objects.requireNonNull(mainToolbar, "mainToolbar");
         uiSurface = Objects.requireNonNull(uiSurface, "uiSurface");
     }
 
@@ -52,7 +48,6 @@ public record RuntimeHostAdapters(
             ProjectWorkspaceAdapter.Impl.safeMode(),
             ClipMaskReadAdapter.Impl.safeMode(),
             StatusToolbarAdapterImpl.safeMode(),
-            MainToolbarAdapterImpl.safeMode(),
             UiSurfaceAdapterImpl.safeMode()
         );
     }
@@ -79,7 +74,6 @@ public record RuntimeHostAdapters(
             )),
             ClipMaskReadAdapter.Impl.safeMode(),
             StatusToolbarAdapterImpl.safeMode(),
-            MainToolbarAdapterImpl.safeMode(),
             UiSurfaceAdapterImpl.safeMode()
         );
     }
@@ -109,7 +103,6 @@ public record RuntimeHostAdapters(
                 resolver.cubismVersion()
             )),
             StatusToolbarAdapterImpl.safeMode(),
-            MainToolbarAdapterImpl.safeMode(),
             UiSurfaceAdapterImpl.safeMode()
         );
     }
@@ -127,7 +120,6 @@ public record RuntimeHostAdapters(
             project.projectWorkspace(),
             clip.clipMaskRead(),
             project.statusToolbar(),
-            project.mainToolbar(),
             project.uiSurface()
         );
     }

@@ -41,6 +41,16 @@ class VerifiedEditorStartupResolverFactoriesTest {
                     record("5.2", "ui-main-toolbar"), artifact, loader
                 )
             );
+            assertThrows(IllegalArgumentException.class, () ->
+                new VerifiedEmbeddedPanelResolverFactory().create(
+                    record("5.2", "ui-embedded-panel"), artifact, loader
+                )
+            );
+            assertThrows(IllegalArgumentException.class, () ->
+                new VerifiedTopMenuResolverFactory().create(
+                    record("5.2", "ui-top-menu"), artifact, loader
+                )
+            );
         }
     }
 
@@ -66,6 +76,27 @@ class VerifiedEditorStartupResolverFactoriesTest {
                 exactVersion,
                 new VerifiedMainToolbarResolverFactory().create(
                     record(profile, "ui-main-toolbar"), artifact, loader
+                ).cubismVersion()
+            );
+            assertEquals(
+                profile.equals("5.2") ? "5.2.03" : exactVersion,
+                new VerifiedEmbeddedPanelResolverFactory().create(
+                    record(profile, "ui-embedded-panel"), artifact, loader
+                ).cubismVersion()
+            );
+            final StaticVerificationReport topMenuReport = new StaticVerificationCli().verify(
+                record(profile, "ui-top-menu"),
+                artifact
+            );
+            assertEquals(
+                true,
+                topMenuReport.allSelectorsVerified(),
+                () -> topMenuReport.results().toString()
+            );
+            assertEquals(
+                profile.equals("5.2") ? "5.2.03" : exactVersion,
+                new VerifiedTopMenuResolverFactory().create(
+                    record(profile, "ui-top-menu"), artifact, loader
                 ).cubismVersion()
             );
         }

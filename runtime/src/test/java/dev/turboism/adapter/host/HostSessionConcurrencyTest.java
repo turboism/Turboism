@@ -8,9 +8,7 @@ import dev.turboism.sdk.cubism.ProjectSnapshot;
 import dev.turboism.sdk.cubism.WorkspaceSnapshot;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.DialogRequest;
-import dev.turboism.sdk.ui.EmbeddedPanelContribution;
 import dev.turboism.sdk.ui.FileChooserRequest;
-import dev.turboism.sdk.ui.OverlayContribution;
 import dev.turboism.sdk.ui.StatusNotification;
 import org.junit.jupiter.api.Test;
 
@@ -46,15 +44,12 @@ class HostSessionConcurrencyTest {
                 HostSessionTest.awaitLatch(releaseOperation);
                 return blockingStatus.notifyStatus(ignored);
             }
-            @Override public AdapterResult<Registration> contributePaletteToolbar(
-                dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry.PaletteToolbarContribution ignored
-            ) { return AdapterResult.available(() -> { }); }
         };
         HostSession session = new HostSession(
             () -> Optional.ofNullable(current.get()),
             ignored -> HostSessionTest.connection(new RuntimeHostAdapters(
                 safe.themeStatus(), safe.renderStatus(), safe.projectWorkspace(), safe.clipMaskRead(),
-                hostStatus, safe.mainToolbar(), safe.uiSurface()
+                hostStatus, safe.uiSurface()
             ), connectionCloses)
         );
         session.refresh();
@@ -105,7 +100,7 @@ class HostSessionConcurrencyTest {
                             }
                             @Override public Optional<WorkspaceSnapshot> workspace() { return Optional.empty(); }
                         }
-                    ), safe.clipMaskRead(), safe.statusToolbar(), safe.mainToolbar(), safe.uiSurface()
+                    ), safe.clipMaskRead(), safe.statusToolbar(), safe.uiSurface()
                 ), oldConnectionCloses)
                 : HostAdapterConnection.of(HostSessionTest.adapters("session-b"))
         );
@@ -196,17 +191,12 @@ class HostSessionConcurrencyTest {
                     }
                 });
             }
-            @Override public AdapterResult<Registration> contributePaletteToolbar(
-                dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry.PaletteToolbarContribution contribution
-            ) { return AdapterResult.unavailable(dev.turboism.adapter.ui.SafeModeDiagnostic.adapterUnavailable(
-                Capability.PALETTE_TOOLBAR_CONTRIBUTE.id()
-            )); }
         };
         HostSession session = new HostSession(
             () -> Optional.ofNullable(current.get()),
             descriptor -> HostAdapterConnection.of(new RuntimeHostAdapters(
                 safe.themeStatus(), safe.renderStatus(), HostSessionTest.adapters("session-a").projectWorkspace(),
-                safe.clipMaskRead(), statusToolbar, safe.mainToolbar(), safe.uiSurface()
+                safe.clipMaskRead(), statusToolbar, safe.uiSurface()
             ))
         );
         sessionRef.set(session);
@@ -262,7 +252,7 @@ class HostSessionConcurrencyTest {
             () -> Optional.ofNullable(current.get()),
             ignored -> HostAdapterConnection.of(new RuntimeHostAdapters(
                 safe.themeStatus(), safe.renderStatus(), safe.projectWorkspace(), safe.clipMaskRead(),
-                status, safe.mainToolbar(), safe.uiSurface()
+                status, safe.uiSurface()
             ))
         );
         session.refresh();
@@ -307,7 +297,7 @@ class HostSessionConcurrencyTest {
                     if (attempt == 1) {
                         throw new AssertionError("first-close-error");
                     }
-                }), safe.mainToolbar(), safe.uiSurface()
+                }), safe.uiSurface()
             ))
         );
         session.refresh();
@@ -347,7 +337,7 @@ class HostSessionConcurrencyTest {
                     delegateCloses.incrementAndGet();
                     ownerEntered.countDown();
                     HostSessionTest.awaitLatch(releaseOwner);
-                }), safe.mainToolbar(), safe.uiSurface()
+                }), safe.uiSurface()
             ))
         );
         session.refresh();
@@ -458,7 +448,7 @@ class HostSessionConcurrencyTest {
                         HostSessionTest.statusAdapter(() -> {
                             sessionRef.get().refresh();
                             callbackRefreshes.incrementAndGet();
-                        }), safe.mainToolbar(), safe.uiSurface()
+                        }), safe.uiSurface()
                     );
                 }
                 @Override public void close() {
@@ -485,22 +475,19 @@ class HostSessionConcurrencyTest {
             () -> Optional.of(HostSessionTest.descriptor("session-a")),
             ignored -> HostSessionTest.connection(new RuntimeHostAdapters(
                 safe.themeStatus(), safe.renderStatus(), safe.projectWorkspace(), safe.clipMaskRead(),
-                HostSessionTest.statusAdapter(() -> { }), safe.mainToolbar(),
-                new UiSurfaceAdapter() {
-                    @Override public AdapterResult<Registration> contributeOverlay(OverlayContribution ignored) {
+                HostSessionTest.statusAdapter(() -> { }),                 new UiSurfaceAdapter() {
+                    @Override public AdapterResult<Registration> openDialog(DialogRequest ignored) {
                         sessionRef.get().close();
                         return AdapterResult.available(registrationCloses::incrementAndGet);
                     }
-                    @Override public AdapterResult<Registration> openDialog(DialogRequest ignored) { return AdapterResult.available(() -> { }); }
                     @Override public AdapterResult<Boolean> confirmDialog(DialogRequest ignored) { return AdapterResult.available(false); }
-                    @Override public AdapterResult<Registration> contributeEmbeddedPanel(EmbeddedPanelContribution ignored) { return AdapterResult.available(() -> { }); }
                     @Override public AdapterResult<Optional<String>> requestFile(FileChooserRequest ignored) { return AdapterResult.available(Optional.empty()); }
                 }
             ), connectionCloses)
         );
         sessionRef.set(session);
         session.refresh();
-        session.adapters().uiSurface().contributeOverlay(new OverlayContribution("overlay", "CENTER", 0));
+        session.adapters().uiSurface().openDialog(new DialogRequest("dialog", "Dialog", "Body"));
         assertEquals(HostSession.State.CLOSED, session.state());
         assertEquals(1, registrationCloses.get());
         assertEquals(1, connectionCloses.get());
@@ -517,7 +504,7 @@ class HostSessionConcurrencyTest {
             ignored -> HostAdapterConnection.of(new RuntimeHostAdapters(
                 safe.themeStatus(), safe.renderStatus(), safe.projectWorkspace(), safe.clipMaskRead(),
                 HostSessionTest.statusAdapter(() -> reentrantResult.set(sessionRef.get().refresh())),
-                safe.mainToolbar(), safe.uiSurface()
+                safe.uiSurface()
             ))
         );
         sessionRef.set(session);
