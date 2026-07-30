@@ -78,14 +78,14 @@ WT_RUNTIME_DROP="$(join_drop_path "$WT_ROOT_REMOTE" runtime "$WT_ID")"
 WT_SDK_DROP="$(join_drop_path "$WT_ROOT_REMOTE" sdk "$WT_ID")"
 WT_PLUGINS_DROP="$(join_drop_path "$WT_ROOT_REMOTE" plugins "$WT_ID")"
 WT_LAUNCH_DROP="$(join_drop_path "$WT_ROOT_REMOTE" launch)"
-WT_RUNTIME_CONFIG_DROP="$(join_drop_path "$WT_ROOT_REMOTE" runtime config)"
+WT_CONFIG_DROP="$WT_ROOT_REMOTE"
 WT_RUNTIME_LOGS_DROP="$(join_drop_path "$WT_ROOT_REMOTE" runtime logs)"
 WT_RUNTIME_STATE_DROP="$(join_drop_path "$WT_ROOT_REMOTE" runtime state)"
 
 printf '[sync] worktree: %s\n' "$WT_ID"
 printf '[sync] root:     %s\n' "$WT_ROOT_REMOTE"
 
-mkdir -p "$WT_RUNTIME_DROP" "$WT_SDK_DROP" "$WT_PLUGINS_DROP" "$WT_LAUNCH_DROP" "$WT_RUNTIME_CONFIG_DROP" "$WT_RUNTIME_LOGS_DROP" "$WT_RUNTIME_STATE_DROP"
+mkdir -p "$WT_RUNTIME_DROP" "$WT_SDK_DROP" "$WT_PLUGINS_DROP" "$WT_LAUNCH_DROP" "$WT_CONFIG_DROP" "$WT_RUNTIME_LOGS_DROP" "$WT_RUNTIME_STATE_DROP"
 
 cp -f "$RUNTIME_JAR" "$WT_RUNTIME_DROP/"
 cp -f "$SDK_JAR" "$WT_SDK_DROP/"
@@ -110,6 +110,6 @@ text = text.replace("${worktreeId}", worktree_id)
 out.write_text(text)
 PY
 fi
-[ -f "$CONFIG_FILE" ] && cp -f "$CONFIG_FILE" "$WT_RUNTIME_CONFIG_DROP/runtime.json"
+[ -f "$CONFIG_FILE" ] && cp -f "$CONFIG_FILE" "$WT_CONFIG_DROP/config.json"
 
 printf '[sync] done\n'

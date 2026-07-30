@@ -2,8 +2,6 @@ package dev.turboism.ui;
 
 import dev.turboism.adapter.ui.BoundedKeyedStore;
 import dev.turboism.adapter.ui.SafeModeDiagnostic;
-import dev.turboism.adapter.ui.MainToolbarAdapter;
-import dev.turboism.adapter.ui.MainToolbarAdapterImpl;
 import dev.turboism.adapter.ui.StatusToolbarAdapter;
 import dev.turboism.adapter.ui.StatusToolbarAdapterImpl;
 import dev.turboism.adapter.ui.UiSurfaceAdapter;
@@ -15,6 +13,7 @@ import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.DialogRequest;
 import dev.turboism.sdk.ui.EmbeddedPanelContribution;
+import dev.turboism.sdk.ui.EmbeddedPanelId;
 import dev.turboism.sdk.ui.FileChooserRequest;
 import dev.turboism.sdk.ui.OverlayContribution;
 import dev.turboism.sdk.ui.StatusNotification;
@@ -28,6 +27,7 @@ import dev.turboism.ui.contribution.EditorUiContribution;
 import dev.turboism.ui.contribution.EditorUiContributionAuthority;
 import dev.turboism.ui.contribution.EditorUiContributionIdentity;
 import dev.turboism.ui.host.EditorUiFamily;
+import dev.turboism.ui.panel.RuntimeEmbeddedPanelActivationCoordinator;
 import dev.turboism.ui.host.RuntimeEditorUiHostLifecycle;
 
 import java.util.List;
@@ -62,10 +62,10 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
     private static final int MAX_TRANSIENT_ENTRIES = 64;
 
     private final StatusToolbarAdapter statusToolbarAdapter;
-    private final MainToolbarAdapter mainToolbarAdapter;
     private final UiSurfaceAdapter uiSurfaceAdapter;
     private final PluginLocalization localization;
     private final EditorUiContributionAuthority contributionAuthority;
+    private final RuntimeEmbeddedPanelActivationCoordinator panelActivationCoordinator;
     private final CopyOnWriteArrayList<OverlayContribution> overlays = new CopyOnWriteArrayList<>();
     private final CopyOnWriteArrayList<DialogRequest> dialogs = new CopyOnWriteArrayList<>();
     private final CopyOnWriteArrayList<EmbeddedPanelContribution> panels = new CopyOnWriteArrayList<>();
@@ -104,7 +104,6 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
             stateSource,
             disposableScope,
             StatusToolbarAdapterImpl.safeMode(),
-            MainToolbarAdapterImpl.safeMode(),
             UiSurfaceAdapterImpl.safeMode()
         );
     }
@@ -122,7 +121,6 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
             stateSource,
             disposableScope,
             statusToolbarAdapter,
-            MainToolbarAdapterImpl.safeMode(),
             UiSurfaceAdapterImpl.safeMode()
         );
     }
@@ -133,26 +131,6 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         final UiHostStateSource stateSource,
         final DisposableScope disposableScope,
         final StatusToolbarAdapter statusToolbarAdapter,
-        final MainToolbarAdapter mainToolbarAdapter
-    ) {
-        this(
-            permissionChecker,
-            pluginId,
-            stateSource,
-            disposableScope,
-            statusToolbarAdapter,
-            mainToolbarAdapter,
-            UiSurfaceAdapterImpl.safeMode()
-        );
-    }
-
-    public RuntimeUiHostCapabilityService(
-        final PermissionChecker permissionChecker,
-        final String pluginId,
-        final UiHostStateSource stateSource,
-        final DisposableScope disposableScope,
-        final StatusToolbarAdapter statusToolbarAdapter,
-        final MainToolbarAdapter mainToolbarAdapter,
         final UiSurfaceAdapter uiSurfaceAdapter
     ) {
         this(
@@ -161,7 +139,6 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
             stateSource,
             disposableScope,
             statusToolbarAdapter,
-            mainToolbarAdapter,
             uiSurfaceAdapter,
             null
         );
@@ -173,7 +150,6 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         final UiHostStateSource stateSource,
         final DisposableScope disposableScope,
         final StatusToolbarAdapter statusToolbarAdapter,
-        final MainToolbarAdapter mainToolbarAdapter,
         final UiSurfaceAdapter uiSurfaceAdapter,
         final PluginLocalization localization
     ) {
@@ -183,7 +159,6 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
             stateSource,
             disposableScope,
             statusToolbarAdapter,
-            mainToolbarAdapter,
             uiSurfaceAdapter,
             localization,
             new EditorUiContributionAuthority(new RuntimeEditorUiHostLifecycle())
@@ -196,22 +171,48 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         final UiHostStateSource stateSource,
         final DisposableScope disposableScope,
         final StatusToolbarAdapter statusToolbarAdapter,
-        final MainToolbarAdapter mainToolbarAdapter,
         final UiSurfaceAdapter uiSurfaceAdapter,
         final PluginLocalization localization,
         final EditorUiContributionAuthority contributionAuthority
+    ) {
+        this(
+            permissionChecker,
+            pluginId,
+            stateSource,
+            disposableScope,
+            statusToolbarAdapter,
+            uiSurfaceAdapter,
+            localization,
+            contributionAuthority,
+            new RuntimeEmbeddedPanelActivationCoordinator()
+        );
+    }
+
+    public RuntimeUiHostCapabilityService(
+        final PermissionChecker permissionChecker,
+        final String pluginId,
+        final UiHostStateSource stateSource,
+        final DisposableScope disposableScope,
+        final StatusToolbarAdapter statusToolbarAdapter,
+        final UiSurfaceAdapter uiSurfaceAdapter,
+        final PluginLocalization localization,
+        final EditorUiContributionAuthority contributionAuthority,
+        final RuntimeEmbeddedPanelActivationCoordinator panelActivationCoordinator
     ) {
         this.permissionChecker = Objects.requireNonNull(permissionChecker, "permissionChecker");
         this.pluginId = requireText(pluginId, "pluginId");
         this.stateSource = Objects.requireNonNull(stateSource, "stateSource");
         this.disposableScope = Objects.requireNonNull(disposableScope, "disposableScope");
         this.statusToolbarAdapter = Objects.requireNonNull(statusToolbarAdapter, "statusToolbarAdapter");
-        this.mainToolbarAdapter = Objects.requireNonNull(mainToolbarAdapter, "mainToolbarAdapter");
         this.uiSurfaceAdapter = Objects.requireNonNull(uiSurfaceAdapter, "uiSurfaceAdapter");
         this.localization = localization;
         this.contributionAuthority = Objects.requireNonNull(
             contributionAuthority,
             "contributionAuthority"
+        );
+        this.panelActivationCoordinator = Objects.requireNonNull(
+            panelActivationCoordinator,
+            "panelActivationCoordinator"
         );
     }
 
@@ -276,6 +277,11 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
             contribution,
             panels
         );
+    }
+
+    @Override
+    public void activateEmbeddedPanel(final EmbeddedPanelId panelId) {
+        panelActivationCoordinator.activate(pluginId, Objects.requireNonNull(panelId, "panelId"));
     }
 
     @Override

@@ -4,12 +4,14 @@ import dev.turboism.adapter.RuntimeHostAdapters;
 import dev.turboism.adapter.cubism.lifecycle.ParameterLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.PartLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.EditorObjectLifecycleCoordinator;
+import dev.turboism.adapter.cubism.physics.PhysicsEditorCoordinator;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.ui.action.RuntimeEditorUiActionRouter;
 import dev.turboism.ui.appearance.AppearanceCoordinator;
 import dev.turboism.ui.contribution.EditorUiContributionAuthority;
 import dev.turboism.ui.host.EditorUiHostLifecycle;
 import dev.turboism.ui.toolbar.EditorUiPluginResourceRegistry;
+import dev.turboism.ui.panel.RuntimeEmbeddedPanelActivationCoordinator;
 
 /** Unforgeable runtime composition handle for a verified, fail-closed host session. */
 public sealed interface RuntimeHostAdapterAccess permits HostSession, SessionRuntimeHostAdapterAccess {
@@ -24,13 +26,19 @@ public sealed interface RuntimeHostAdapterAccess permits HostSession, SessionRun
 
     EditorObjectLifecycleCoordinator editorObjectLifecycle();
 
+    PhysicsEditorCoordinator physicsEditorCoordinator();
+
     EditorUiHostLifecycle editorUiLifecycle();
 
     EditorUiContributionAuthority editorUiContributions();
 
+    RuntimeEmbeddedPanelActivationCoordinator embeddedPanelActivation();
+
     RuntimeEditorUiActionRouter editorUiActionRouter();
 
     EditorUiPluginResourceRegistry editorUiPluginResources();
+
+    dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator dockMaintenance();
 
     AppearanceCoordinator appearanceCoordinator();
 }
@@ -43,10 +51,13 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     private final ParameterLifecycleCoordinator parameterLifecycle;
     private final PartLifecycleCoordinator partLifecycle;
     private final EditorObjectLifecycleCoordinator editorObjectLifecycle;
+    private final PhysicsEditorCoordinator physicsEditorCoordinator;
     private final EditorUiHostLifecycle editorUiLifecycle;
     private final EditorUiContributionAuthority editorUiContributions;
+    private final RuntimeEmbeddedPanelActivationCoordinator embeddedPanelActivation;
     private final RuntimeEditorUiActionRouter editorUiActionRouter;
     private final EditorUiPluginResourceRegistry editorUiPluginResources;
+    private final dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator dockMaintenance;
     private final AppearanceCoordinator appearanceCoordinator;
 
     SessionRuntimeHostAdapterAccess(
@@ -55,10 +66,13 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
         final ParameterLifecycleCoordinator parameterLifecycle,
         final PartLifecycleCoordinator partLifecycle,
         final EditorObjectLifecycleCoordinator editorObjectLifecycle,
+        final PhysicsEditorCoordinator physicsEditorCoordinator,
         final EditorUiHostLifecycle editorUiLifecycle,
         final EditorUiContributionAuthority editorUiContributions,
+        final RuntimeEmbeddedPanelActivationCoordinator embeddedPanelActivation,
         final RuntimeEditorUiActionRouter editorUiActionRouter,
         final EditorUiPluginResourceRegistry editorUiPluginResources,
+        final dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator dockMaintenance,
         final AppearanceCoordinator appearanceCoordinator
     ) {
         this.adapters = java.util.Objects.requireNonNull(adapters, "adapters");
@@ -72,6 +86,10 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
             editorObjectLifecycle,
             "editorObjectLifecycle"
         );
+        this.physicsEditorCoordinator = java.util.Objects.requireNonNull(
+            physicsEditorCoordinator,
+            "physicsEditorCoordinator"
+        );
         this.editorUiLifecycle = java.util.Objects.requireNonNull(
             editorUiLifecycle,
             "editorUiLifecycle"
@@ -79,6 +97,10 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
         this.editorUiContributions = java.util.Objects.requireNonNull(
             editorUiContributions,
             "editorUiContributions"
+        );
+        this.embeddedPanelActivation = java.util.Objects.requireNonNull(
+            embeddedPanelActivation,
+            "embeddedPanelActivation"
         );
         this.editorUiActionRouter = java.util.Objects.requireNonNull(
             editorUiActionRouter,
@@ -88,6 +110,7 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
             editorUiPluginResources,
             "editorUiPluginResources"
         );
+        this.dockMaintenance = java.util.Objects.requireNonNull(dockMaintenance, "dockMaintenance");
         this.appearanceCoordinator = java.util.Objects.requireNonNull(
             appearanceCoordinator,
             "appearanceCoordinator"
@@ -120,6 +143,11 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     }
 
     @Override
+    public PhysicsEditorCoordinator physicsEditorCoordinator() {
+        return physicsEditorCoordinator;
+    }
+
+    @Override
     public EditorUiHostLifecycle editorUiLifecycle() {
         return editorUiLifecycle;
     }
@@ -130,6 +158,11 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     }
 
     @Override
+    public RuntimeEmbeddedPanelActivationCoordinator embeddedPanelActivation() {
+        return embeddedPanelActivation;
+    }
+
+    @Override
     public RuntimeEditorUiActionRouter editorUiActionRouter() {
         return editorUiActionRouter;
     }
@@ -137,6 +170,12 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     @Override
     public EditorUiPluginResourceRegistry editorUiPluginResources() {
         return editorUiPluginResources;
+    }
+
+
+    @Override
+    public dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator dockMaintenance() {
+        return dockMaintenance;
     }
 
     @Override
