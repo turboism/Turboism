@@ -35,7 +35,21 @@ public interface UiHostCapabilityService {
      */
     boolean confirmDialog(DialogRequest request);
 
+    /**
+     * Contributes a runtime-rendered panel owned by the calling plugin.
+     * Control action IDs resolve through that plugin's {@code ActionRegistry}.
+     */
+
     Registration contributeEmbeddedPanel(EmbeddedPanelContribution contribution);
+
+    /**
+     * Activates an embedded panel owned by the calling plugin.
+     *
+     * <p>Hosts that do not provide a verified panel surface fail closed.</p>
+     */
+    default void activateEmbeddedPanel(final EmbeddedPanelId panelId) {
+        throw new UnsupportedOperationException("embedded-panel activation is unavailable");
+    }
 
     Optional<String> requestFile(FileChooserRequest request);
 

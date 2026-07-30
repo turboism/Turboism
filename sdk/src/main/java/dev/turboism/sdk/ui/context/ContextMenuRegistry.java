@@ -46,6 +46,15 @@ public interface ContextMenuRegistry {
                 default -> throw new IllegalArgumentException("unsupported context-menu location: " + context);
             };
         }
+
+        String context() {
+            return switch (this) {
+                case DEFORMER_TAB -> "deformer";
+                case PARAMETER_TAB -> "parameter";
+                case PART_TAB -> "part";
+                case WORKSPACE_OBJECT -> "workspace";
+            };
+        }
     }
 
     enum ObjectKind {
@@ -64,22 +73,48 @@ public interface ContextMenuRegistry {
         String actionId,
         String label,
         String icon,
+        String context,
         Location location,
         Set<ObjectKind> objectKinds,
-        int priority
+        int priority,
+        Target target,
+        Operation operation
     ) {
         public ContextMenuContribution {
             id = requireText(id, "id");
             actionId = requireText(actionId, "actionId");
             label = requireText(label, "label");
+            context = requireText(context, "context");
             location = Objects.requireNonNull(location, "location");
             objectKinds = Set.copyOf(Objects.requireNonNull(objectKinds, "objectKinds"));
-            if (objectKinds.isEmpty()) {
-                throw new IllegalArgumentException("objectKinds must not be empty");
+            target = Objects.requireNonNull(target, "target");
+            operation = Objects.requireNonNull(operation, "operation");
+            if (target == Target.SELECTION) {
+                if (operation != Operation.ACTION) {
+                    throw new IllegalArgumentException("selection context menus require ACTION");
+                }
+                if (objectKinds.isEmpty()) {
+                    throw new IllegalArgumentException("objectKinds must not be empty");
+                }
+                if (!location.supportedKinds().containsAll(objectKinds)) {
+                    throw new IllegalArgumentException("objectKinds are not valid for " + location);
+                }
             }
-            if (!location.supportedKinds().containsAll(objectKinds)) {
-                throw new IllegalArgumentException("objectKinds are not valid for " + location);
-            }
+        }
+
+        public ContextMenuContribution(
+            final String id,
+            final String actionId,
+            final String label,
+            final String icon,
+            final Location location,
+            final Set<ObjectKind> objectKinds,
+            final int priority
+        ) {
+            this(
+                id, actionId, label, icon, location.context(), location, objectKinds, priority,
+                Target.SELECTION, Operation.ACTION
+            );
         }
 
         /** Compatibility constructor for the earlier context-string Preview shape. */
@@ -90,25 +125,33 @@ public interface ContextMenuRegistry {
             final String context,
             final int priority
         ) {
+            this(id, label, icon, context, priority, Target.SELECTION, Operation.ACTION);
+        }
+
+        /** Compatibility constructor retained for panel-tab host contributions. */
+        public ContextMenuContribution(
+            final String id,
+            final String label,
+            final String icon,
+            final String context,
+            final int priority,
+            final Target target,
+            final Operation operation
+        ) {
             this(
                 id,
                 id,
                 label,
                 icon,
-                Location.legacy(context),
-                Location.legacy(context).supportedKinds(),
-                priority
+                context,
+                target == Target.SELECTION ? Location.legacy(context) : Location.WORKSPACE_OBJECT,
+                target == Target.SELECTION
+                    ? Location.legacy(context).supportedKinds()
+                    : Set.of(),
+                priority,
+                target,
+                operation
             );
-        }
-
-        /** Compatibility view of the earlier Preview context string. */
-        public String context() {
-            return switch (location) {
-                case DEFORMER_TAB -> "deformer";
-                case PARAMETER_TAB -> "parameter";
-                case PART_TAB -> "part";
-                case WORKSPACE_OBJECT -> "workspace";
-            };
         }
 
         private static String requireText(final String value, final String name) {
@@ -118,5 +161,15 @@ public interface ContextMenuRegistry {
             }
             return value;
         }
+    }
+
+    enum Target {
+        SELECTION,
+        PANEL_TAB
+    }
+
+    enum Operation {
+        ACTION,
+        TOGGLE_PANEL_FLOATING
     }
 }

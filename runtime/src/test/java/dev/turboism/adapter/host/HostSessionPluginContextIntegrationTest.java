@@ -11,6 +11,7 @@ import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.diagnostics.CubismFacadeAuditEvent;
+import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.cubism.ClipMaskSnapshot;
 import dev.turboism.sdk.cubism.ProjectSnapshot;
 import dev.turboism.sdk.cubism.WorkspaceSnapshot;
@@ -24,7 +25,9 @@ import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.plugin.PluginPaths;
 import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.sdk.ui.EmbeddedPanelContribution;
 import dev.turboism.sdk.ui.UiScheduler;
+import dev.turboism.ui.host.EditorUiFamily;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -37,6 +40,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -54,6 +59,88 @@ class HostSessionPluginContextIntegrationTest {
 
     @TempDir
     Path tempDir;
+
+    @Test
+    void pluginContextPublishesEmbeddedPanelsThroughTheSessionAuthorityAndCleansUp() {
+        HostSession session = new HostSession(() -> Optional.empty());
+        RuntimeScheduler scheduler = scheduler();
+        CorePluginContext context = new CorePluginContext(
+            dependencies(
+                tempDir,
+                scheduler,
+                descriptor(List.of("turboism.ui.panel.contribute")),
+                ignored -> { }
+            ),
+            session
+        );
+
+        try {
+            Registration panel = context.uiHost().contributeEmbeddedPanel(new EmbeddedPanelContribution(
+                "turboism.panel.main",
+                "Turboism",
+                "right",
+                0
+            ));
+
+            assertEquals(
+                List.of("turboism.panel.main"),
+                session.editorUiContributions().contributions(EditorUiFamily.PANEL).stream()
+                    .map(contribution -> contribution.identity().contributionId())
+                    .toList()
+            );
+            panel.close();
+            assertTrue(session.editorUiContributions().contributions(EditorUiFamily.PANEL).isEmpty());
+        } finally {
+            session.close();
+            scheduler.shutdown();
+        }
+    }
+
+    @Test
+    void pluginContextBindsItsRuntimeActionRegistryToTheSessionRouterUntilScopeClose() throws Exception {
+        HostSession session = new HostSession(() -> Optional.empty());
+        RuntimeScheduler scheduler = scheduler();
+        CorePluginContext.Dependencies dependencies = dependencies(
+            tempDir,
+            scheduler,
+            descriptor(List.of("turboism.action.register")),
+            ignored -> { }
+        );
+        CorePluginContext context = new CorePluginContext(dependencies, session);
+        AtomicInteger invocations = new AtomicInteger();
+        CountDownLatch invoked = new CountDownLatch(1);
+
+        try {
+            context.actions().register("open-settings", new ActionRegistry.Action() {
+                @Override public String id() { return "open-settings"; }
+                @Override public String label() { return "Open settings"; }
+                @Override public java.util.function.Consumer<ActionRegistry.ActionContext> handler() {
+                    return ignored -> {
+                        invocations.incrementAndGet();
+                        invoked.countDown();
+                    };
+                }
+            });
+
+            session.editorUiActionRouter().invoke(
+                "dev.turboism.plugin.host-session-test",
+                "open-settings"
+            );
+            assertTrue(invoked.await(2, TimeUnit.SECONDS));
+            assertEquals(1, invocations.get());
+
+            dependencies.disposableScope().close();
+            session.editorUiActionRouter().invoke(
+                "dev.turboism.plugin.host-session-test",
+                "open-settings"
+            );
+            Thread.sleep(100L);
+            assertEquals(1, invocations.get());
+        } finally {
+            session.close();
+            scheduler.shutdown();
+        }
+    }
 
     @Test
     void existingPluginContextReadsDualTypedSlicesThroughStableCompositionView() {
@@ -509,8 +596,7 @@ class HostSessionPluginContextIntegrationTest {
             projectWorkspace,
             clipMask,
             safe.statusToolbar(),
-            safe.mainToolbar(),
-            safe.uiSurface()
+                        safe.uiSurface()
         );
     }
 }
