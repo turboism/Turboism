@@ -74,17 +74,28 @@ final class VerifiedTextureAtlasLayoutProviderEngine {
         final Object groupUndo = resolver.invoke(
             "cubism.editor-model.edit-mode.begin", editMode, "Update TextureAtlas"
         );
-        final Object undo = resolver.construct(
-            "cubism.texture-atlas.undo.create",
-            "Update TextureAtlas",
-            binding.modelSource(),
-            atlases(binding.textureManager()),
-            staged
-        );
-        resolver.invoke("cubism.texture-atlas.undo.force-redo", undo);
-        resolver.invoke("cubism.texture-atlas.group-undo.add", groupUndo, undo);
-        revisions.put(binding.dataModel(), current.revision() + 1);
-        return ApplyOutcome.APPLIED;
+        boolean completed = false;
+        try {
+            final Object undo = resolver.construct(
+                "cubism.texture-atlas.undo.create",
+                "Update TextureAtlas",
+                binding.modelSource(),
+                atlases(binding.textureManager()),
+                staged
+            );
+            resolver.invoke("cubism.texture-atlas.undo.force-redo", undo);
+            resolver.invoke("cubism.texture-atlas.group-undo.add", groupUndo, undo);
+            revisions.put(binding.dataModel(), current.revision() + 1);
+            completed = true;
+            return ApplyOutcome.APPLIED;
+        } finally {
+            resolver.invoke(
+                "cubism.editor-model.edit-mode.end",
+                editMode,
+                Boolean.valueOf(!completed),
+                null
+            );
+        }
     }
 
     private boolean available() {
