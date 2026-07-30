@@ -19,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 class ObjectContextMenuNativeMethodTransformerTest {
 
     @Test
-    void injectsOnlyOneExactMenuBuildPointAndCarriesLocationAndSource() throws Exception {
+    void injectsOnlyOneExactMenuBuildPointAndCarriesLocationAndBuilderSource() throws Exception {
         final FixtureLoader loader = new FixtureLoader();
         final ObjectContextMenuNativeMethodTransformer transformer =
             new ObjectContextMenuNativeMethodTransformer(
@@ -65,7 +65,7 @@ class ObjectContextMenuNativeMethodTransformerTest {
         }
 
         assertEquals(Location.PART_TAB, observed.get(1));
-        assertSame(source, observed.get(2));
+        assertSame(builder, observed.get(2));
     }
 
     private static byte[] builderClass(final int matchingReturns) {
