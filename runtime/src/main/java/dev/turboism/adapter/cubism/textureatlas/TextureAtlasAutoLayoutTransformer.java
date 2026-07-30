@@ -116,8 +116,7 @@ public final class TextureAtlasAutoLayoutTransformer implements ClassFileTransfo
                             true
                         );
                         visitJumpInsn(Opcodes.IFEQ, callbackEnd);
-                        visitInsn(Opcodes.ICONST_1);
-                        visitInsn(Opcodes.IRETURN);
+                        visitInsn(Opcodes.RETURN);
                         visitLabel(callbackEnd);
                         visitJumpInsn(Opcodes.GOTO, nativePath);
                         visitLabel(callbackFailure);
