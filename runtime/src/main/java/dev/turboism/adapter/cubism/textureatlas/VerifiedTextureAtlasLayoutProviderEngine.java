@@ -78,7 +78,7 @@ final class VerifiedTextureAtlasLayoutProviderEngine {
             "cubism.texture-atlas.undo.create",
             "Update TextureAtlas",
             binding.modelSource(),
-            atlases(binding.dataModel()),
+            atlases(binding.textureManager()),
             staged
         );
         resolver.invoke("cubism.texture-atlas.undo.force-redo", undo);
@@ -109,7 +109,7 @@ final class VerifiedTextureAtlasLayoutProviderEngine {
     }
 
     private TextureAtlasAuthoringState project(final Binding binding) {
-        final List<?> atlases = atlases(binding.dataModel());
+        final List<?> atlases = atlases(binding.textureManager());
         final List<?> images = list(resolver.invoke(
             "cubism.texture-atlas.texture-manager.images", binding.textureManager()
         ));
@@ -229,17 +229,10 @@ final class VerifiedTextureAtlasLayoutProviderEngine {
         return result;
     }
 
-    private List<?> atlases(final Object dataModel) {
-        final List<?> sheets = list(resolver.invoke("cubism.texture-atlas.data-model.sheets", dataModel));
-        final List<Object> result = new ArrayList<>(sheets.size());
-        for (Object sheet : sheets) {
-            final Object atlas = resolver.invoke("cubism.texture-atlas.sheet.atlas", sheet);
-            if (!resolver.isInstance("cubism.texture-atlas.atlas.class", atlas)) {
-                throw new IllegalStateException("Verified texture atlas sheet is unavailable.");
-            }
-            result.add(atlas);
-        }
-        return List.copyOf(result);
+    private List<?> atlases(final Object textureManager) {
+        return list(resolver.invoke(
+            "cubism.texture-atlas.texture-manager.atlases", textureManager
+        ));
     }
 
     private String imageId(final Object image) {
