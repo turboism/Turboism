@@ -1,0 +1,87 @@
+package dev.turboism.bootstrap;
+
+import dev.turboism.mapping.verification.HostArtifactDigest;
+import dev.turboism.mapping.verification.StaticSelector;
+import dev.turboism.sdk.ui.context.ContextMenuRegistry.Location;
+
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+
+/** Exact reviewed context-menu hook bindings for one supported Cubism artifact. */
+record ObjectContextMenuHostProfile(List<VerifiedObjectContextMenuHookInstaller.Binding> bindings) {
+
+    private static final HostArtifactDigest CUBISM_52 = new HostArtifactDigest(
+        40_805_584L,
+        "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd"
+    );
+    private static final HostArtifactDigest CUBISM_53 = new HostArtifactDigest(
+        41_922_739L,
+        "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21"
+    );
+    private static final String MENU = "com/live2d/ui/menu/k";
+    private static final String ITEM = "Lcom/live2d/ui/menu/CMenuItem;";
+
+    ObjectContextMenuHostProfile {
+        bindings = List.copyOf(Objects.requireNonNull(bindings, "bindings"));
+        if (bindings.size() != 4) {
+            throw new IllegalArgumentException("object context-menu profile requires four bindings");
+        }
+    }
+
+    static Optional<ObjectContextMenuHostProfile> forArtifact(final HostArtifactDigest artifact) {
+        Objects.requireNonNull(artifact, "artifact");
+        if (artifact.equals(CUBISM_52)) return Optional.of(profile("R", 21, 23));
+        if (artifact.equals(CUBISM_53)) return Optional.of(profile("T", 22, 22));
+        return Optional.empty();
+    }
+
+    private static ObjectContextMenuHostProfile profile(
+        final String partsOwner,
+        final int partsAppends,
+        final int workspaceAppends
+    ) {
+        return new ObjectContextMenuHostProfile(List.of(
+            append(
+                "deformer", "com/live2d/cubism/view/palette/deformer/b", "a",
+                "(Ljava/awt/event/MouseEvent;)V", "b", "(" + ITEM + ")V",
+                Location.DEFORMER_TAB, 11
+            ),
+            append(
+                "parameter", "com/live2d/cubism/view/palette/parameter/aL", "a",
+                "(Ljava/awt/event/MouseEvent;)V", "b", "(" + ITEM + ")V",
+                Location.PARAMETER_TAB, 1
+            ),
+            append(
+                "parts", "com/live2d/cubism/view/palette/parts/" + partsOwner, "a",
+                "(Ljava/awt/event/MouseEvent;)V", "b", "(" + ITEM + ")V",
+                Location.PART_TAB, partsAppends
+            ),
+            append(
+                "workspace", "com/live2d/cubism/view/context/U", "b",
+                "(Lcom/live2d/cubism/view/context/actionManager/N;)V", "a",
+                "(" + ITEM + "Ljava/awt/GridBagConstraints;)V",
+                Location.WORKSPACE_OBJECT, workspaceAppends
+            )
+        ));
+    }
+
+    private static VerifiedObjectContextMenuHookInstaller.Binding append(
+        final String id,
+        final String owner,
+        final String method,
+        final String descriptor,
+        final String appendMethod,
+        final String appendDescriptor,
+        final Location location,
+        final int expectedAppends
+    ) {
+        return VerifiedObjectContextMenuHookInstaller.Binding.appendPoint(
+            StaticSelector.method("object-context-menu." + id, owner, method, descriptor, 0),
+            StaticSelector.method("object-context-menu." + id + ".append", MENU, appendMethod, appendDescriptor, 0),
+            location,
+            expectedAppends,
+            1
+        );
+    }
+}
