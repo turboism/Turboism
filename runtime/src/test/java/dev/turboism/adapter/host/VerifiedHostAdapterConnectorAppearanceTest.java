@@ -45,6 +45,23 @@ class VerifiedHostAdapterConnectorAppearanceTest {
         assertEquals("5.3.02", provider.hostVersion());
     }
 
+    @Test
+    void nonJarHostArtifactLeavesAppearanceUnavailableWithoutFailingConnection() throws Exception {
+        Path directoryHost = java.nio.file.Files.createTempDirectory("turboism-host-classes");
+        HostVerificationEvidence.Slice project = new HostVerificationEvidence.Slice(
+            Path.of("project-record.json"),
+            directoryHost,
+            getClass().getClassLoader()
+        );
+
+        var provider = VerifiedHostAdapterConnector.productionAppearanceProviderFactory().create(project);
+
+        assertInstanceOf(
+            dev.turboism.ui.appearance.UnavailableAppearanceHostProvider.class,
+            provider
+        );
+    }
+
     private static final class NoOpHost implements FlatLafAppearanceHostProvider.HostOperations {
         @Override public java.util.Map<String, String> capture() { return java.util.Map.of(); }
         @Override public void replace(final java.util.Map<String, String> defaults) { }
