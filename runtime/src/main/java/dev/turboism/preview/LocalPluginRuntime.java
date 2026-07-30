@@ -32,6 +32,10 @@ public final class LocalPluginRuntime implements AutoCloseable {
     private final PartLifecycleCoordinator partLifecycle;
     private final EditorObjectLifecycleCoordinator editorObjectLifecycle;
     private final List<LoadedPlugin> loaded = new ArrayList<>();
+    private final dev.turboism.pluginmanagement.RuntimePluginManagementService pluginManagement;
+    private final PreviewPluginContextFactory contextFactory;
+    private final dev.turboism.sdk.runtime.RuntimeSettingsService runtimeSettings;
+    private final PreviewLog log;
     private List<LoadedPluginSummary> closedSummaries = List.of();
     private final AtomicBoolean started = new AtomicBoolean(false);
     private final AtomicBoolean closed = new AtomicBoolean(false);
@@ -137,6 +141,10 @@ public final class LocalPluginRuntime implements AutoCloseable {
         this.failureCollector = resources.failureCollector();
         this.loadCoordinator = resources.loadCoordinator();
         this.shutdown = resources.shutdown();
+        this.pluginManagement = resources.pluginManagement();
+        this.contextFactory = resources.contextFactory();
+        this.runtimeSettings = resources.runtimeSettings();
+        this.log = log;
         this.parameterLifecycle = java.util.Objects.requireNonNull(
             parameterLifecycle,
             "parameterLifecycle"
@@ -150,12 +158,26 @@ public final class LocalPluginRuntime implements AutoCloseable {
 
     public synchronized LoadReport loadAll() {
         ensureCanStart();
-        return loadCoordinator.loadAll();
+        final LoadReport external = loadCoordinator.loadAll();
+        try {
+            loaded.add(BuiltinCorePlugin.load(
+                contextFactory,
+                new dev.turboism.plugin.core.CorePluginServices(runtimeSettings, pluginManagement),
+                log
+            ));
+        } catch (Exception failure) {
+            close();
+            throw new IllegalStateException("Runtime-owned core failed to load", failure);
+        }
+        final List<LoadedPluginSummary> summaries = new ArrayList<>(external.loaded());
+        summaries.add(PreviewPluginSummaryFactory.active(loaded.get(loaded.size() - 1)));
+        return new LoadReport(summaries, external.failures(), external.dependencyCycles());
     }
 
     public synchronized List<LoadedPluginSummary> loadedPlugins() {
         return loaded.stream().map(PreviewPluginSummaryFactory::active).toList();
     }
+
 
     /** Immutable point-in-time report evidence for one preview report write. */
     synchronized LocalPluginRuntimeReportSnapshot reportSnapshot() {
