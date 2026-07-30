@@ -18,7 +18,7 @@ class TextureAtlasAutoLayoutTransformerTest {
         final TextureAtlasAutoLayoutTransformer transformer = new TextureAtlasAutoLayoutTransformer(
             "fixture/AutoLayout",
             "a",
-            "(Ljava/lang/Object;)Z",
+            "(Ljava/lang/Object;)V",
             null,
             key
         );
@@ -30,15 +30,19 @@ class TextureAtlasAutoLayoutTransformerTest {
         final Object instance = type.getConstructor().newInstance();
 
         try {
-            assertFalse((Boolean) type.getMethod("a", Object.class).invoke(instance, new Object()));
+            type.getMethod("a", Object.class).invoke(instance, new Object());
+            assertTrue(type.getField("nativeCalls").getInt(null) == 1);
             System.getProperties().put(key, (BooleanSupplier) () -> false);
-            assertFalse((Boolean) type.getMethod("a", Object.class).invoke(instance, new Object()));
+            type.getMethod("a", Object.class).invoke(instance, new Object());
+            assertTrue(type.getField("nativeCalls").getInt(null) == 2);
             System.getProperties().put(key, (BooleanSupplier) () -> true);
-            assertTrue((Boolean) type.getMethod("a", Object.class).invoke(instance, new Object()));
+            type.getMethod("a", Object.class).invoke(instance, new Object());
+            assertTrue(type.getField("nativeCalls").getInt(null) == 2);
             System.getProperties().put(key, (BooleanSupplier) () -> {
                 throw new AssertionError("callback failure");
             });
-            assertFalse((Boolean) type.getMethod("a", Object.class).invoke(instance, new Object()));
+            type.getMethod("a", Object.class).invoke(instance, new Object());
+            assertTrue(type.getField("nativeCalls").getInt(null) == 3);
             assertFalse(java.util.Arrays.toString(transformed).contains("dev/turboism"));
         } finally {
             System.getProperties().remove(key);
@@ -48,6 +52,13 @@ class TextureAtlasAutoLayoutTransformerTest {
     private static byte[] fixtureClass() {
         final ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
         writer.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, "fixture/AutoLayout", null, "java/lang/Object", null);
+        writer.visitField(
+            Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC,
+            "nativeCalls",
+            "I",
+            null,
+            null
+        ).visitEnd();
         final MethodVisitor constructor = writer.visitMethod(
             Opcodes.ACC_PUBLIC, "<init>", "()V", null, null
         );
@@ -59,11 +70,14 @@ class TextureAtlasAutoLayoutTransformerTest {
         constructor.visitEnd();
 
         final MethodVisitor method = writer.visitMethod(
-            Opcodes.ACC_PUBLIC, "a", "(Ljava/lang/Object;)Z", null, null
+            Opcodes.ACC_PUBLIC, "a", "(Ljava/lang/Object;)V", null, null
         );
         method.visitCode();
-        method.visitInsn(Opcodes.ICONST_0);
-        method.visitInsn(Opcodes.IRETURN);
+        method.visitFieldInsn(Opcodes.GETSTATIC, "fixture/AutoLayout", "nativeCalls", "I");
+        method.visitInsn(Opcodes.ICONST_1);
+        method.visitInsn(Opcodes.IADD);
+        method.visitFieldInsn(Opcodes.PUTSTATIC, "fixture/AutoLayout", "nativeCalls", "I");
+        method.visitInsn(Opcodes.RETURN);
         method.visitMaxs(0, 0);
         method.visitEnd();
         writer.visitEnd();

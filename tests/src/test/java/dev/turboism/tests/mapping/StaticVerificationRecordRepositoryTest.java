@@ -171,7 +171,7 @@ class StaticVerificationRecordRepositoryTest {
             "Live2D_Cubism.jar",
             40_805_584L,
             "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
-            "1bdac19903a34110a99a1d0b8b09f0c8221aefc452df9d209ec193b8082df010",
+            "8eba5abe5777a0311672c2a1000873c5dd9a6869f7cce01295aaab29b68fbf12",
             220,
             editorModel52Aliases(),
             editorModel52Aliases(),
