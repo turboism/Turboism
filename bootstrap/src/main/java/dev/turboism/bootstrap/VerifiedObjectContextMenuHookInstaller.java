@@ -65,10 +65,23 @@ final class VerifiedObjectContextMenuHookInstaller implements AutoCloseable {
     @Override
     public void close() {
         if (!installed.compareAndSet(true, false)) return;
+        final Set<String> owners = new LinkedHashSet<>();
+        bindings.forEach(binding -> owners.add(binding.operation().ownerInternalName()));
         for (int index = transformers.size() - 1; index >= 0; index--) {
             instrumentation.removeTransformer(transformers.get(index));
         }
         transformers.clear();
+        try {
+            for (Class<?> loaded : instrumentation.getAllLoadedClasses()) {
+                if (loaded.getClassLoader() == hostClassLoader
+                    && owners.contains(loaded.getName().replace('.', '/'))
+                    && instrumentation.isModifiableClass(loaded)) {
+                    instrumentation.retransformClasses(loaded);
+                }
+            }
+        } catch (Throwable failure) {
+            throw new IllegalStateException("Verified object context-menu hook restoration failed", failure);
+        }
     }
 
     record Binding(
