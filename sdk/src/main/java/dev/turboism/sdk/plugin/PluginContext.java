@@ -8,6 +8,8 @@ import dev.turboism.sdk.cubism.service.query.ModelHierarchyQueryService;
 import dev.turboism.sdk.cubism.service.query.ParameterQueryService;
 import dev.turboism.sdk.cubism.service.query.SelectionQueryService;
 import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
+import dev.turboism.sdk.cubism.mesh.MeshMirrorAxisService;
+import dev.turboism.sdk.cubism.mesh.MeshEditUiService;
 import dev.turboism.sdk.cubism.physics.PhysicsEditorService;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
 import dev.turboism.sdk.event.EventBus;
@@ -78,6 +80,14 @@ public interface PluginContext {
 
     default PhysicsEditorService physicsEditor() {
         return PhysicsEditorService.unavailable();
+    }
+
+    default MeshMirrorAxisService meshMirrorAxis() {
+        throw new UnsupportedOperationException("meshMirrorAxis service is not available");
+    }
+
+    default MeshEditUiService meshEditUi() {
+        throw new UnsupportedOperationException("meshEditUi service is not available");
     }
 
     List<PluginPermission> permissions();

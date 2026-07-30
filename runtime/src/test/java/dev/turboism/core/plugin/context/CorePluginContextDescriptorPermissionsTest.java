@@ -331,6 +331,20 @@ class CorePluginContextDescriptorPermissionsTest {
         assertEquals(1, host.dialogCount);
     }
 
+    @Test
+    void exposesTheRuntimeOwnedMeshMirrorAxisService(@TempDir Path dataDir) {
+        CorePluginContext context = context(
+            dataDir,
+            descriptorWithPermissions(),
+            ignored -> { },
+            RuntimeHostAdapters.safeMode()
+        );
+
+        context.meshMirrorAxis().setCurrentAngleDegrees(225.0f);
+
+        assertEquals(-135.0f, context.meshMirrorAxis().currentAngleDegrees());
+    }
+
     private static CorePluginContext context(Path dataDir, PluginDescriptor descriptor, Consumer<CubismFacadeAuditEvent> auditSink) {
         return context(dataDir, descriptor, auditSink, RuntimeHostAdapters.safeMode());
     }
