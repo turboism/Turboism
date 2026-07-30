@@ -8,6 +8,7 @@ import dev.turboism.adapter.cubism.physics.PhysicsEditorCoordinator;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.ui.action.RuntimeEditorUiActionRouter;
 import dev.turboism.ui.appearance.AppearanceCoordinator;
+import dev.turboism.ui.appearance.control.ControlAppearanceCoordinator;
 import dev.turboism.ui.contribution.EditorUiContributionAuthority;
 import dev.turboism.ui.host.EditorUiHostLifecycle;
 import dev.turboism.ui.toolbar.EditorUiPluginResourceRegistry;
@@ -43,6 +44,8 @@ public sealed interface RuntimeHostAdapterAccess permits HostSession, SessionRun
     java.util.Optional<dev.turboism.mapping.verification.VerifiedMemberResolver> boundingBoxOverlayResolver();
 
     AppearanceCoordinator appearanceCoordinator();
+
+    ControlAppearanceCoordinator controlAppearanceCoordinator();
 }
 
 /** Non-closeable adapter view used when lifecycle ownership remains with bootstrap ingress. */
@@ -62,6 +65,7 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     private final dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator dockMaintenance;
     private final java.util.Optional<dev.turboism.mapping.verification.VerifiedMemberResolver> boundingBoxOverlayResolver;
     private final AppearanceCoordinator appearanceCoordinator;
+    private final ControlAppearanceCoordinator controlAppearanceCoordinator;
 
     SessionRuntimeHostAdapterAccess(
         final RuntimeHostAdapters adapters,
@@ -77,7 +81,8 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
         final EditorUiPluginResourceRegistry editorUiPluginResources,
         final dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator dockMaintenance,
         final java.util.Optional<dev.turboism.mapping.verification.VerifiedMemberResolver> boundingBoxOverlayResolver,
-        final AppearanceCoordinator appearanceCoordinator
+        final AppearanceCoordinator appearanceCoordinator,
+        final ControlAppearanceCoordinator controlAppearanceCoordinator
     ) {
         this.adapters = java.util.Objects.requireNonNull(adapters, "adapters");
         this.modelAccess = java.util.Objects.requireNonNull(modelAccess, "modelAccess");
@@ -122,6 +127,10 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
         this.appearanceCoordinator = java.util.Objects.requireNonNull(
             appearanceCoordinator,
             "appearanceCoordinator"
+        );
+        this.controlAppearanceCoordinator = java.util.Objects.requireNonNull(
+            controlAppearanceCoordinator,
+            "controlAppearanceCoordinator"
         );
     }
 
@@ -194,5 +203,10 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     @Override
     public AppearanceCoordinator appearanceCoordinator() {
         return appearanceCoordinator;
+    }
+
+    @Override
+    public ControlAppearanceCoordinator controlAppearanceCoordinator() {
+        return controlAppearanceCoordinator;
     }
 }
