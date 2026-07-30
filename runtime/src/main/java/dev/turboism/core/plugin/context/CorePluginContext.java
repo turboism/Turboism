@@ -66,6 +66,7 @@ public final class CorePluginContext implements PluginContext {
     private final UserFileAccessService userFileAccessService;
     private final AsyncHostReadService asyncHostReadService;
 
+    private dev.turboism.sdk.runtime.RuntimeSettingsService runtimeSettings;
     public CorePluginContext(final Dependencies dependencies) {
         this(dependencies, RuntimeHostAdapters.safeMode(), null, null, null, null, null);
     }
@@ -152,13 +153,36 @@ public final class CorePluginContext implements PluginContext {
     ) {
         this(
             dependencies,
+            hostAccess,
+            localization,
+            taskScheduler,
+            pluginStorage,
+            userFileAccessService,
+            asyncHostReadService,
+            null
+        );
+    }
+
+    public CorePluginContext(
+        final Dependencies dependencies,
+        final RuntimeHostAdapterAccess hostAccess,
+        final PluginLocalization localization,
+        final PluginTaskScheduler taskScheduler,
+        final PluginStorage pluginStorage,
+        final UserFileAccessService userFileAccessService,
+        final AsyncHostReadService asyncHostReadService,
+        final dev.turboism.sdk.runtime.RuntimeSettingsService runtimeSettings
+    ) {
+        this(
+            dependencies,
             servicesFactory(Objects.requireNonNull(hostAccess, "hostAccess")),
             hostAccess,
             Objects.requireNonNull(localization, "localization"),
             Objects.requireNonNull(taskScheduler, "taskScheduler"),
             Objects.requireNonNull(pluginStorage, "pluginStorage"),
             Objects.requireNonNull(userFileAccessService, "userFileAccessService"),
-            Objects.requireNonNull(asyncHostReadService, "asyncHostReadService")
+            Objects.requireNonNull(asyncHostReadService, "asyncHostReadService"),
+            runtimeSettings
         );
     }
 
@@ -303,6 +327,23 @@ public final class CorePluginContext implements PluginContext {
         final AsyncHostReadService asyncHostReadService
     ) {
         this(
+            dependencies, cubismServicesFactory, hostAccess,
+            localization, taskScheduler, pluginStorage, userFileAccessService, asyncHostReadService, null
+        );
+    }
+
+    private CorePluginContext(
+        final Dependencies dependencies,
+        final CubismServicesFactory cubismServicesFactory,
+        final RuntimeHostAdapterAccess hostAccess,
+        final PluginLocalization localization,
+        final PluginTaskScheduler taskScheduler,
+        final PluginStorage pluginStorage,
+        final UserFileAccessService userFileAccessService,
+        final AsyncHostReadService asyncHostReadService,
+        final dev.turboism.sdk.runtime.RuntimeSettingsService runtimeSettings
+    ) {
+        this(
             dependencies,
             cubismServicesFactory,
             hostAccess,
@@ -313,6 +354,7 @@ public final class CorePluginContext implements PluginContext {
             userFileAccessService,
             asyncHostReadService
         );
+        this.runtimeSettings = runtimeSettings;
     }
 
     private CorePluginContext(
@@ -353,7 +395,6 @@ public final class CorePluginContext implements PluginContext {
                 this.dependencies.uiHostStateSource(),
                 this.dependencies.disposableScope(),
                 adapters.statusToolbar(),
-                adapters.mainToolbar(),
                 adapters.uiSurface(),
                 localization
             )
@@ -363,7 +404,6 @@ public final class CorePluginContext implements PluginContext {
                 this.dependencies.uiHostStateSource(),
                 this.dependencies.disposableScope(),
                 adapters.statusToolbar(),
-                adapters.mainToolbar(),
                 adapters.uiSurface(),
                 localization,
                 hostAccess.editorUiContributions(),
@@ -519,6 +559,12 @@ public final class CorePluginContext implements PluginContext {
     @Override
     public PluginConfigRegistry config() {
         return pluginConfigRegistry;
+    }
+
+
+    @Override
+    public dev.turboism.sdk.runtime.RuntimeSettingsService runtimeSettings() {
+        return runtimeSettings == null ? PluginContext.super.runtimeSettings() : runtimeSettings;
     }
 
     @Override

@@ -487,6 +487,16 @@ public final class VerifiedMemberResolver {
                     null
                 );
             }
+            if (!method.canAccess(target)) {
+                final boolean publicMethodOnNonPublicOwner = Modifier.isPublic(method.getModifiers())
+                    && !Modifier.isPublic(owner.getModifiers());
+                if (!publicMethodOnNonPublicOwner || !method.trySetAccessible()) {
+                    throw resolutionFailure(
+                        selector.alias(),
+                        "Verified host method is not accessible."
+                    );
+                }
+            }
             return method.invoke(target, arguments == null ? new Object[0] : arguments);
         } catch (VerifiedAccessException exception) {
             throw exception;

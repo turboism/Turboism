@@ -5,7 +5,7 @@ final class EmbeddedPanelVerificationManifest52 {
 
     static final String VERIFICATION_ID = "cubism-5.2.03.ui-embedded-panel.static";
     static final String RECORD_SHA256 =
-        "c444fa4483c1eeb8377c7ac49073db178a069aaf5cde403a429cf4b514495b6e";
+        "1207992577d8071e5695d2f40af0d81b2dc619b3d63ba0a410aa9d8fd3ad92bd";
     static final String CUBISM_VERSION = "5.2.03";
     static final String PROFILE_ID = "cubism-5.2";
     static final long ARTIFACT_SIZE = 40_805_584L;

@@ -13,6 +13,28 @@ public interface ContextMenuRegistry {
         String label,
         String icon,
         String context,
-        int priority
-    ) {}
+        int priority,
+        Target target,
+        Operation operation
+    ) {
+        public ContextMenuContribution(
+            final String id,
+            final String label,
+            final String icon,
+            final String context,
+            final int priority
+        ) {
+            this(id, label, icon, context, priority, Target.SELECTION, Operation.ACTION);
+        }
+    }
+
+    enum Target {
+        SELECTION,
+        PANEL_TAB
+    }
+
+    enum Operation {
+        ACTION,
+        TOGGLE_PANEL_FLOATING
+    }
 }

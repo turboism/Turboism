@@ -2,8 +2,6 @@ package dev.turboism.ui;
 
 import dev.turboism.adapter.ui.BoundedKeyedStore;
 import dev.turboism.adapter.ui.SafeModeDiagnostic;
-import dev.turboism.adapter.ui.MainToolbarAdapter;
-import dev.turboism.adapter.ui.MainToolbarAdapterImpl;
 import dev.turboism.adapter.ui.StatusToolbarAdapter;
 import dev.turboism.adapter.ui.StatusToolbarAdapterImpl;
 import dev.turboism.adapter.ui.UiSurfaceAdapter;
@@ -64,7 +62,6 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
     private static final int MAX_TRANSIENT_ENTRIES = 64;
 
     private final StatusToolbarAdapter statusToolbarAdapter;
-    private final MainToolbarAdapter mainToolbarAdapter;
     private final UiSurfaceAdapter uiSurfaceAdapter;
     private final PluginLocalization localization;
     private final EditorUiContributionAuthority contributionAuthority;
@@ -107,7 +104,6 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
             stateSource,
             disposableScope,
             StatusToolbarAdapterImpl.safeMode(),
-            MainToolbarAdapterImpl.safeMode(),
             UiSurfaceAdapterImpl.safeMode()
         );
     }
@@ -125,7 +121,6 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
             stateSource,
             disposableScope,
             statusToolbarAdapter,
-            MainToolbarAdapterImpl.safeMode(),
             UiSurfaceAdapterImpl.safeMode()
         );
     }
@@ -136,26 +131,6 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         final UiHostStateSource stateSource,
         final DisposableScope disposableScope,
         final StatusToolbarAdapter statusToolbarAdapter,
-        final MainToolbarAdapter mainToolbarAdapter
-    ) {
-        this(
-            permissionChecker,
-            pluginId,
-            stateSource,
-            disposableScope,
-            statusToolbarAdapter,
-            mainToolbarAdapter,
-            UiSurfaceAdapterImpl.safeMode()
-        );
-    }
-
-    public RuntimeUiHostCapabilityService(
-        final PermissionChecker permissionChecker,
-        final String pluginId,
-        final UiHostStateSource stateSource,
-        final DisposableScope disposableScope,
-        final StatusToolbarAdapter statusToolbarAdapter,
-        final MainToolbarAdapter mainToolbarAdapter,
         final UiSurfaceAdapter uiSurfaceAdapter
     ) {
         this(
@@ -164,7 +139,6 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
             stateSource,
             disposableScope,
             statusToolbarAdapter,
-            mainToolbarAdapter,
             uiSurfaceAdapter,
             null
         );
@@ -176,7 +150,6 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         final UiHostStateSource stateSource,
         final DisposableScope disposableScope,
         final StatusToolbarAdapter statusToolbarAdapter,
-        final MainToolbarAdapter mainToolbarAdapter,
         final UiSurfaceAdapter uiSurfaceAdapter,
         final PluginLocalization localization
     ) {
@@ -186,7 +159,6 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
             stateSource,
             disposableScope,
             statusToolbarAdapter,
-            mainToolbarAdapter,
             uiSurfaceAdapter,
             localization,
             new EditorUiContributionAuthority(new RuntimeEditorUiHostLifecycle())
@@ -199,7 +171,6 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         final UiHostStateSource stateSource,
         final DisposableScope disposableScope,
         final StatusToolbarAdapter statusToolbarAdapter,
-        final MainToolbarAdapter mainToolbarAdapter,
         final UiSurfaceAdapter uiSurfaceAdapter,
         final PluginLocalization localization,
         final EditorUiContributionAuthority contributionAuthority
@@ -210,7 +181,6 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
             stateSource,
             disposableScope,
             statusToolbarAdapter,
-            mainToolbarAdapter,
             uiSurfaceAdapter,
             localization,
             contributionAuthority,
@@ -224,7 +194,6 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         final UiHostStateSource stateSource,
         final DisposableScope disposableScope,
         final StatusToolbarAdapter statusToolbarAdapter,
-        final MainToolbarAdapter mainToolbarAdapter,
         final UiSurfaceAdapter uiSurfaceAdapter,
         final PluginLocalization localization,
         final EditorUiContributionAuthority contributionAuthority,
@@ -235,7 +204,6 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         this.stateSource = Objects.requireNonNull(stateSource, "stateSource");
         this.disposableScope = Objects.requireNonNull(disposableScope, "disposableScope");
         this.statusToolbarAdapter = Objects.requireNonNull(statusToolbarAdapter, "statusToolbarAdapter");
-        this.mainToolbarAdapter = Objects.requireNonNull(mainToolbarAdapter, "mainToolbarAdapter");
         this.uiSurfaceAdapter = Objects.requireNonNull(uiSurfaceAdapter, "uiSurfaceAdapter");
         this.localization = localization;
         this.contributionAuthority = Objects.requireNonNull(

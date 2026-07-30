@@ -66,10 +66,12 @@ class MainToolbarPluginTest {
         plugin.init(context);
         plugin.enable();
 
-        assertEquals(
-            List.of("main-toolbar.home-entry.open"),
-            context.actions().actions().stream().map(ActionRegistry.Action::id).toList()
-        );
+        assertTrue(context.actions().actions().stream()
+            .map(ActionRegistry.Action::id)
+            .toList()
+            .containsAll(List.of(
+                "main-toolbar.home-entry.open", "settings.save", "settings.clean-empty-docks"
+            )));
         assertEquals(
             List.of(new MainToolbarRegistry.MainToolbarButtonContribution(
                 "main-toolbar.home-entry",
@@ -89,10 +91,11 @@ class MainToolbarPluginTest {
             )),
             context.mainToolbar().buttonContributions()
         );
-        assertEquals(
-            List.of(new EmbeddedPanelContribution("turboism.panel.main", "Turboism", "right", 0)),
-            context.uiHost().panelContributions()
-        );
+        assertEquals(1, context.uiHost().panelContributions().size());
+        final EmbeddedPanelContribution panel = context.uiHost().panelContributions().get(0);
+        assertEquals("turboism.panel.main", panel.id());
+        assertTrue(panel.content().toString().contains("Safe Mode"));
+        assertTrue(panel.content().toString().contains("Clean empty docks"));
         assertEquals(
             List.of("Turboism/Settings:main-toolbar.home-entry.open:10"),
             context.menus().contributions().stream()
@@ -274,6 +277,22 @@ class MainToolbarPluginTest {
         @Override
         public PluginConfigRegistry config() {
             return null;
+        }
+
+
+        @Override
+        public dev.turboism.sdk.runtime.RuntimeSettingsService runtimeSettings() {
+            return new dev.turboism.sdk.runtime.RuntimeSettingsService() {
+                private dev.turboism.sdk.runtime.RuntimeSettings settings =
+                    new dev.turboism.sdk.runtime.RuntimeSettings(false, "INFO", false, false, false);
+                @Override public dev.turboism.sdk.runtime.RuntimeSettings read() { return settings; }
+                @Override public dev.turboism.sdk.runtime.RuntimeSettings save(
+                    final dev.turboism.sdk.runtime.RuntimeSettings value
+                ) { settings = value; return settings; }
+                @Override public DockCleanupResult cleanEmptyDocks() {
+                    return new DockCleanupResult("Empty dock cleanup completed.");
+                }
+            };
         }
 
         @Override

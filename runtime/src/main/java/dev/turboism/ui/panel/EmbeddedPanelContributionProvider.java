@@ -2,6 +2,7 @@ package dev.turboism.ui.panel;
 
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.EmbeddedPanelId;
+import dev.turboism.ui.action.EditorUiActionRouter;
 import dev.turboism.ui.contribution.EditorUiContribution;
 import dev.turboism.ui.contribution.EditorUiContributionIdentity;
 import dev.turboism.ui.contribution.EditorUiContributionProvider;
@@ -21,21 +22,52 @@ public final class EmbeddedPanelContributionProvider implements EditorUiContribu
     private final EditorUiProviderAdmission admission;
     private final EmbeddedPanelHostOperations host;
     private final RuntimeEmbeddedPanelActivationCoordinator activationCoordinator;
+    private final EditorUiActionRouter actionRouter;
+    private final PanelTabMenuCoordinator panelTabMenus;
+    private final RuntimeDockMaintenanceCoordinator dockMaintenance;
 
     public EmbeddedPanelContributionProvider(
         final EditorUiProviderAdmission admission,
         final EmbeddedPanelHostOperations host,
-        final RuntimeEmbeddedPanelActivationCoordinator activationCoordinator
+        final RuntimeEmbeddedPanelActivationCoordinator activationCoordinator,
+        final EditorUiActionRouter actionRouter
+    ) {
+        this(
+            admission, host, activationCoordinator, actionRouter,
+            new PanelTabMenuCoordinator(), new RuntimeDockMaintenanceCoordinator()
+        );
+    }
+
+    public EmbeddedPanelContributionProvider(
+        final EditorUiProviderAdmission admission,
+        final EmbeddedPanelHostOperations host,
+        final RuntimeEmbeddedPanelActivationCoordinator activationCoordinator,
+        final EditorUiActionRouter actionRouter,
+        final PanelTabMenuCoordinator panelTabMenus
+    ) {
+        this(
+            admission, host, activationCoordinator, actionRouter,
+            panelTabMenus, new RuntimeDockMaintenanceCoordinator()
+        );
+    }
+
+    public EmbeddedPanelContributionProvider(
+        final EditorUiProviderAdmission admission,
+        final EmbeddedPanelHostOperations host,
+        final RuntimeEmbeddedPanelActivationCoordinator activationCoordinator,
+        final EditorUiActionRouter actionRouter,
+        final PanelTabMenuCoordinator panelTabMenus,
+        final RuntimeDockMaintenanceCoordinator dockMaintenance
     ) {
         this.admission = Objects.requireNonNull(admission, "admission");
         if (admission.family() != EditorUiFamily.PANEL) {
             throw new IllegalArgumentException("embedded-panel provider requires PANEL admission");
         }
         this.host = Objects.requireNonNull(host, "host");
-        this.activationCoordinator = Objects.requireNonNull(
-            activationCoordinator,
-            "activationCoordinator"
-        );
+        this.activationCoordinator = Objects.requireNonNull(activationCoordinator, "activationCoordinator");
+        this.actionRouter = Objects.requireNonNull(actionRouter, "actionRouter");
+        this.panelTabMenus = Objects.requireNonNull(panelTabMenus, "panelTabMenus");
+        this.dockMaintenance = Objects.requireNonNull(dockMaintenance, "dockMaintenance");
     }
 
     @Override
@@ -56,60 +88,152 @@ public final class EmbeddedPanelContributionProvider implements EditorUiContribu
         if (!admission.isAdmittedTo(hostGeneration)) {
             throw new IllegalStateException("embedded-panel provider admission is stale");
         }
-        final List<EmbeddedPanelContributionDescriptor> descriptors = contributions.stream()
-            .map(EmbeddedPanelContributionDescriptor::from)
-            .toList();
-        final Reconciler reconciler = new Reconciler(descriptors);
-        final List<Registration> registrations = new ArrayList<>();
+        final Session session = new Session(hostGeneration);
         try {
-            reconciler.reconcile();
-            registrations.add(reconciler);
-            registrations.add(activationCoordinator.bind(hostGeneration, reconciler::activate));
-            registrations.add(host.onRebuild(reconciler::reconcile));
-            return () -> closeAll(registrations);
+            session.reconcile(descriptors(contributions));
+            session.bind();
+            return session;
         } catch (RuntimeException | Error failure) {
-            closeAllSuppressing(registrations, failure);
-            if (registrations.isEmpty()) {
-                reconciler.closeSuppressing(failure);
-            }
+            session.closeSuppressing(failure);
             throw failure;
         }
     }
 
-    private final class Reconciler implements Registration {
-        private final List<EmbeddedPanelContributionDescriptor> descriptors;
-        private Map<EditorUiContributionIdentity, EmbeddedPanelHostOperations.PanelHandle> panels = Map.of();
+    @Override
+    public boolean supportsIncrementalReconcile() {
+        return true;
+    }
+
+    @Override
+    public Registration reconcile(
+        final long hostGeneration,
+        final List<EditorUiContribution<?>> contributions,
+        final Registration existing
+    ) {
+        if (!admission.isAdmittedTo(hostGeneration)) {
+            throw new IllegalStateException("embedded-panel provider admission is stale");
+        }
+        if (existing instanceof Session session && session.hostGeneration == hostGeneration) {
+            session.reconcile(descriptors(contributions));
+            return session;
+        }
+        if (existing != null) {
+            existing.close();
+        }
+        return apply(hostGeneration, contributions);
+    }
+
+    private static List<EmbeddedPanelContributionDescriptor> descriptors(
+        final List<EditorUiContribution<?>> contributions
+    ) {
+        return contributions.stream()
+            .map(EmbeddedPanelContributionDescriptor::from)
+            .toList();
+    }
+
+    private final class Session implements Registration {
+        private final long hostGeneration;
+        private Map<EditorUiContributionIdentity, InstalledPanel> panels = Map.of();
+        private List<Registration> bindings = List.of();
         private boolean closed;
 
-        private Reconciler(final List<EmbeddedPanelContributionDescriptor> descriptors) {
-            this.descriptors = List.copyOf(descriptors);
+        private Session(final long hostGeneration) {
+            this.hostGeneration = hostGeneration;
         }
 
-        private synchronized void reconcile() {
+        private synchronized void bind() {
+            if (closed) {
+                throw new IllegalStateException("embedded-panel provider is closed");
+            }
+            if (!bindings.isEmpty()) {
+                return;
+            }
+            final List<Registration> installedBindings = new ArrayList<>();
+            try {
+                installedBindings.add(activationCoordinator.bind(hostGeneration, this::activate));
+                installedBindings.add(host.onRebuild(this::rebuild));
+                installedBindings.add(host.bindPanelTabMenus(panelTabMenus));
+                if (host instanceof VerifiedEmbeddedPanelHostOperations verified) {
+                    installedBindings.add(dockMaintenance.bind(hostGeneration, verified::cleanEmptyDocks));
+                }
+                bindings = List.copyOf(installedBindings);
+            } catch (RuntimeException | Error failure) {
+                closeAllSuppressing(installedBindings, failure);
+                throw failure;
+            }
+        }
+
+        private synchronized void reconcile(
+            final List<EmbeddedPanelContributionDescriptor> descriptors
+        ) {
+            if (closed) {
+                throw new IllegalStateException("embedded-panel provider is closed");
+            }
+            final LinkedHashMap<EditorUiContributionIdentity, EmbeddedPanelContributionDescriptor> desired =
+                new LinkedHashMap<>();
+            for (EmbeddedPanelContributionDescriptor descriptor : descriptors) {
+                desired.put(identity(descriptor), descriptor);
+            }
+
+            final LinkedHashMap<EditorUiContributionIdentity, InstalledPanel> next =
+                new LinkedHashMap<>();
+            final List<EmbeddedPanelHostOperations.PanelHandle> added = new ArrayList<>();
+            try {
+                for (Map.Entry<EditorUiContributionIdentity, EmbeddedPanelContributionDescriptor> entry
+                    : desired.entrySet()) {
+                    final InstalledPanel current = panels.get(entry.getKey());
+                    if (current != null && current.descriptor().equals(entry.getValue())) {
+                        next.put(entry.getKey(), current);
+                        continue;
+                    }
+                    final EmbeddedPanelHostOperations.PanelHandle handle = install(entry.getValue());
+                    added.add(handle);
+                    next.put(entry.getKey(), new InstalledPanel(entry.getValue(), handle));
+                }
+            } catch (RuntimeException | Error failure) {
+                closePanelsSuppressing(added, failure);
+                throw failure;
+            }
+
+            final List<EmbeddedPanelHostOperations.PanelHandle> removed = new ArrayList<>();
+            for (Map.Entry<EditorUiContributionIdentity, InstalledPanel> entry : panels.entrySet()) {
+                if (next.get(entry.getKey()) != entry.getValue()) {
+                    removed.add(entry.getValue().handle());
+                }
+            }
+            panels = Collections.unmodifiableMap(next);
+            closePanels(removed);
+        }
+
+        private EmbeddedPanelHostOperations.PanelHandle install(
+            final EmbeddedPanelContributionDescriptor descriptor
+        ) {
+            return Objects.requireNonNull(
+                host.addPanel(
+                    descriptor,
+                    (actionId, event) -> actionRouter.invoke(
+                        descriptor.pluginId(),
+                        actionId,
+                        event
+                    )
+                ),
+                "host.addPanel()"
+            );
+        }
+
+        private synchronized void rebuild() {
             if (closed) {
                 return;
             }
-            closePanels(panels.values().stream().toList());
+            final List<EmbeddedPanelContributionDescriptor> descriptors = panels.values().stream()
+                .map(InstalledPanel::descriptor)
+                .toList();
+            final List<EmbeddedPanelHostOperations.PanelHandle> installed = panels.values().stream()
+                .map(InstalledPanel::handle)
+                .toList();
             panels = Map.of();
-            final LinkedHashMap<EditorUiContributionIdentity, EmbeddedPanelHostOperations.PanelHandle> installed =
-                new LinkedHashMap<>();
-            try {
-                for (EmbeddedPanelContributionDescriptor descriptor : descriptors) {
-                    final EditorUiContributionIdentity identity = new EditorUiContributionIdentity(
-                        descriptor.pluginId(),
-                        EditorUiFamily.PANEL,
-                        descriptor.contributionId()
-                    );
-                    installed.put(
-                        identity,
-                        Objects.requireNonNull(host.addPanel(descriptor), "host.addPanel()")
-                    );
-                }
-            } catch (RuntimeException | Error failure) {
-                closePanelsSuppressing(installed.values().stream().toList(), failure);
-                throw failure;
-            }
-            panels = Collections.unmodifiableMap(new LinkedHashMap<>(installed));
+            closePanels(installed);
+            reconcile(descriptors);
         }
 
         private synchronized void activate(
@@ -119,16 +243,15 @@ public final class EmbeddedPanelContributionProvider implements EditorUiContribu
             if (closed) {
                 throw new IllegalStateException("embedded-panel provider is closed");
             }
-            final EditorUiContributionIdentity identity = new EditorUiContributionIdentity(
+            final InstalledPanel panel = panels.get(new EditorUiContributionIdentity(
                 pluginId,
                 EditorUiFamily.PANEL,
                 panelId.value()
-            );
-            final EmbeddedPanelHostOperations.PanelHandle panel = panels.get(identity);
+            ));
             if (panel == null) {
                 throw new IllegalStateException("embedded panel is unavailable for the calling plugin");
             }
-            panel.activate();
+            panel.handle().activate();
         }
 
         @Override
@@ -137,10 +260,25 @@ public final class EmbeddedPanelContributionProvider implements EditorUiContribu
                 return;
             }
             closed = true;
-            final List<EmbeddedPanelHostOperations.PanelHandle> installed =
-                panels.values().stream().toList();
+            final List<Registration> installedBindings = bindings;
+            bindings = List.of();
+            final List<EmbeddedPanelHostOperations.PanelHandle> installedPanels = panels.values().stream()
+                .map(InstalledPanel::handle)
+                .toList();
             panels = Map.of();
-            closePanels(installed);
+            RuntimeException first = closeAllReturning(installedBindings);
+            try {
+                closePanels(installedPanels);
+            } catch (RuntimeException failure) {
+                if (first == null) {
+                    first = failure;
+                } else {
+                    first.addSuppressed(failure);
+                }
+            }
+            if (first != null) {
+                throw first;
+            }
         }
 
         private synchronized void closeSuppressing(final Throwable failure) {
@@ -152,7 +290,36 @@ public final class EmbeddedPanelContributionProvider implements EditorUiContribu
         }
     }
 
+    private static EditorUiContributionIdentity identity(
+        final EmbeddedPanelContributionDescriptor descriptor
+    ) {
+        return new EditorUiContributionIdentity(
+            descriptor.pluginId(),
+            EditorUiFamily.PANEL,
+            descriptor.contributionId()
+        );
+    }
+
+    private record InstalledPanel(
+        EmbeddedPanelContributionDescriptor descriptor,
+        EmbeddedPanelHostOperations.PanelHandle handle
+    ) {
+        private InstalledPanel {
+            descriptor = Objects.requireNonNull(descriptor, "descriptor");
+            handle = Objects.requireNonNull(handle, "handle");
+        }
+    }
+
     private static void closeAll(final List<? extends Registration> registrations) {
+        final RuntimeException failure = closeAllReturning(registrations);
+        if (failure != null) {
+            throw failure;
+        }
+    }
+
+    private static RuntimeException closeAllReturning(
+        final List<? extends Registration> registrations
+    ) {
         RuntimeException first = null;
         for (int index = registrations.size() - 1; index >= 0; index--) {
             try {
@@ -165,9 +332,7 @@ public final class EmbeddedPanelContributionProvider implements EditorUiContribu
                 }
             }
         }
-        if (first != null) {
-            throw first;
-        }
+        return first;
     }
 
     private static void closeAllSuppressing(

@@ -30,17 +30,6 @@ public final class StatusToolbarAdapterImpl implements StatusToolbarAdapter {
         return withCapability(Capability.STATUS_NOTIFY, operations -> operations.notifyStatus(notification));
     }
 
-    @Override
-    public AdapterResult<Registration> contributePaletteToolbar(
-        final PaletteToolbarRegistry.PaletteToolbarContribution contribution
-    ) {
-        Objects.requireNonNull(contribution, "contribution");
-        return withCapability(
-            Capability.PALETTE_TOOLBAR_CONTRIBUTE,
-            operations -> operations.contributePaletteToolbar(contribution)
-        );
-    }
-
     private <T> AdapterResult<T> withCapability(final Capability capability, final HostCall<T> hostCall) {
         Objects.requireNonNull(capability, "capability");
         Objects.requireNonNull(hostCall, "hostCall");

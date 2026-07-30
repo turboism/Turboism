@@ -7,7 +7,12 @@ import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.SwingUtilities;
 import java.lang.reflect.InvocationTargetException;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
@@ -62,12 +67,31 @@ public final class VerifiedTopMenuHostOperations implements TopMenuHostOperation
         if (menus.stream().anyMatch(menu -> descriptor.menuId().equals(
             resolver.invoke(WIDGET_NAME, menu)
         ))) {
-            throw new IllegalStateException("Turboism top menu is already materialized");
+            throw new IllegalStateException("plugin-owned top menu is already materialized");
         }
 
         final Object menu = resolver.construct(MENU_CREATE, descriptor.label());
         resolver.invoke(WIDGET_SET_NAME, menu, descriptor.menuId());
+        final Map<List<String>, Object> submenus = new LinkedHashMap<>();
         for (TopMenuItemDescriptor item : descriptor.items()) {
+            Object parent = menu;
+            final List<String> prefix = new ArrayList<>();
+            for (String segment : item.submenuPath()) {
+                prefix.add(segment);
+                final List<String> key = List.copyOf(prefix);
+                Object submenu = submenus.get(key);
+                if (submenu == null) {
+                    submenu = resolver.construct(MENU_CREATE, segment);
+                    resolver.invoke(
+                        WIDGET_SET_NAME,
+                        submenu,
+                        submenuId(descriptor.menuId(), key)
+                    );
+                    resolver.invoke(MENU_ADD, parent, submenu);
+                    submenus.put(key, submenu);
+                }
+                parent = submenu;
+            }
             final Object callback = resolver.createFunctionalConstructorArgumentProxy(
                 MENU_ITEM_CREATE,
                 2,
@@ -83,7 +107,7 @@ public final class VerifiedTopMenuHostOperations implements TopMenuHostOperation
                 callback
             );
             resolver.invoke(WIDGET_SET_NAME, nativeItem, item.nativeItemId());
-            resolver.invoke(MENU_ADD, menu, nativeItem);
+            resolver.invoke(MENU_ADD, parent, nativeItem);
         }
 
         boolean added = false;
@@ -151,7 +175,7 @@ public final class VerifiedTopMenuHostOperations implements TopMenuHostOperation
     private void removeFromHostList(final Object menuBar, final Object menu) {
         final List<Object> mutable = (List<Object>) menus(menuBar);
         if (!mutable.remove(menu)) {
-            throw new IllegalStateException("Turboism top menu is no longer owned by its host list");
+            throw new IllegalStateException("plugin-owned top menu is no longer owned by its host list");
         }
     }
 
@@ -178,6 +202,13 @@ public final class VerifiedTopMenuHostOperations implements TopMenuHostOperation
         } catch (ReflectiveOperationException | LinkageError failure) {
             throw new IllegalStateException("Kotlin Unit is unavailable for top-menu callback", failure);
         }
+    }
+
+    private static String submenuId(final String menuId, final List<String> path) {
+        final String encodedPath = Base64.getUrlEncoder().withoutPadding().encodeToString(
+            String.join("\u0000", path).getBytes(StandardCharsets.UTF_8)
+        );
+        return menuId + ".submenu." + encodedPath;
     }
 
     private void refresh(final Object menuBar) {

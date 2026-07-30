@@ -8,7 +8,7 @@ public final class EmbeddedPanelVerificationManifest {
     public static final String VERIFICATION_ID =
         "cubism-5.3.02.ui-embedded-panel.static";
     public static final String RECORD_SHA256 =
-        "374de8a2831b3c214cfa326764da39676b1e6350aed30843e954c3e56ff98c09";
+        "08f4581ddd564c24702a365db2a8d198817e5945a7e9da2c067ab4b032bf93b2";
     public static final String CUBISM_VERSION = "5.3.02";
     public static final String PROFILE_ID = "cubism-5.3.02";
     public static final long ARTIFACT_SIZE = 41_922_739L;
@@ -35,13 +35,54 @@ public final class EmbeddedPanelVerificationManifest {
         "cubism.ui-panel.palette-manager.current-workspace",
         "cubism.ui-panel.workspace.class",
         "cubism.ui-panel.workspace.activate",
+        "cubism.ui-panel.workspace.palette-box-for",
+        "cubism.ui-panel.palette-box.class",
+        "cubism.ui-panel.palette-box.remove-tab",
+        "cubism.ui-panel.palette-manager.remove-update",
+        "cubism.ui-panel.palette-manager.main-frame-window",
+        "cubism.ui-panel.palette-manager.verify-cleanup",
+        "cubism.ui-panel.palette-manager.fire-state",
+        "cubism.ui-panel.workspace.add-palette-frame",
+        "cubism.ui-panel.workspace.remove-palette-frame",
+        "cubism.ui-panel.workspace.first-palette-box",
+        "cubism.ui-panel.palette-box.create",
+        "cubism.ui-panel.palette-box.add-tab",
+        "cubism.ui-panel.palette-box.set-selected",
+        "cubism.ui-panel.palette-box.palettes",
+        "cubism.ui-panel.palette-box.tab-panel",
+        "cubism.ui-panel.tab-panel.entries",
+        "cubism.ui-panel.tab-entry.palette",
+        "cubism.ui-panel.tab-entry.button",
+        "cubism.ui-panel.widget.jcomponent",
+        "cubism.ui-panel.palette-frame.create",
+        "cubism.ui-panel.palette-frame.root",
+        "cubism.ui-panel.palette-frame.window",
+        "cubism.ui-panel.palette-frame.dispose",
+        "cubism.ui-panel.root.set-component",
+        "cubism.ui-panel.window.set-visible",
         "cubism.ui-panel.palette-id.class",
         "cubism.ui-panel.palette-id.create",
         "cubism.ui-panel.palette.class",
         "cubism.ui-panel.palette.create",
+        "cubism.ui-panel.palette.id",
         "cubism.ui-panel.palette.set-panel",
+        "cubism.ui-panel.dock-tab-popup.operation",
+        "cubism.ui-panel.dock-tab-popup.palette-field",
+        "cubism.ui-panel.dock-tab-popup.menu-append",
         "cubism.ui-panel.swing-container.class",
-        "cubism.ui-panel.swing-container.create"
+        "cubism.ui-panel.swing-container.create",
+        "cubism.ui-panel.main-frame.window",
+        "cubism.ui-panel.window.menu-bar",
+        "cubism.ui-panel.menu-bar.menus",
+        "cubism.ui-panel.widget.name",
+        "cubism.ui-panel.widget.set-name",
+        "cubism.ui-panel.widget.revalidate",
+        "cubism.ui-panel.widget.repaint",
+        "cubism.ui-panel.menu.items",
+        "cubism.ui-panel.menu.add",
+        "cubism.ui-panel.menu.swing",
+        "cubism.ui-panel.menu-item.create",
+        "cubism.ui-panel.menu-item.swing"
     );
 
     static PinnedVerifiedResolverWorkflow.Manifest forArtifact(
