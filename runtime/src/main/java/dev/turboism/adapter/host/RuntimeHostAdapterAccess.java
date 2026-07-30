@@ -35,6 +35,8 @@ public sealed interface RuntimeHostAdapterAccess permits HostSession, SessionRun
 
     EditorUiPluginResourceRegistry editorUiPluginResources();
 
+    dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator dockMaintenance();
+
     AppearanceCoordinator appearanceCoordinator();
 }
 
@@ -51,6 +53,7 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     private final RuntimeEmbeddedPanelActivationCoordinator embeddedPanelActivation;
     private final RuntimeEditorUiActionRouter editorUiActionRouter;
     private final EditorUiPluginResourceRegistry editorUiPluginResources;
+    private final dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator dockMaintenance;
     private final AppearanceCoordinator appearanceCoordinator;
 
     SessionRuntimeHostAdapterAccess(
@@ -64,6 +67,7 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
         final RuntimeEmbeddedPanelActivationCoordinator embeddedPanelActivation,
         final RuntimeEditorUiActionRouter editorUiActionRouter,
         final EditorUiPluginResourceRegistry editorUiPluginResources,
+        final dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator dockMaintenance,
         final AppearanceCoordinator appearanceCoordinator
     ) {
         this.adapters = java.util.Objects.requireNonNull(adapters, "adapters");
@@ -97,6 +101,7 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
             editorUiPluginResources,
             "editorUiPluginResources"
         );
+        this.dockMaintenance = java.util.Objects.requireNonNull(dockMaintenance, "dockMaintenance");
         this.appearanceCoordinator = java.util.Objects.requireNonNull(
             appearanceCoordinator,
             "appearanceCoordinator"
@@ -151,6 +156,12 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     @Override
     public EditorUiPluginResourceRegistry editorUiPluginResources() {
         return editorUiPluginResources;
+    }
+
+
+    @Override
+    public dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator dockMaintenance() {
+        return dockMaintenance;
     }
 
     @Override

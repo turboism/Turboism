@@ -48,6 +48,8 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         new EditorUiContributionAuthority(editorUiLifecycle);
     private final RuntimeEmbeddedPanelActivationCoordinator embeddedPanelActivation =
         new RuntimeEmbeddedPanelActivationCoordinator();
+    private final dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator dockMaintenance =
+        new dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator();
     private final RuntimeEditorUiActionRouter editorUiActionRouter =
         new RuntimeEditorUiActionRouter();
     private final EditorUiPluginResourceRegistry editorUiPluginResources =
@@ -95,7 +97,11 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             ),
             editorUiPluginResources,
             editorUiActionRouter,
-            embeddedPanelActivation
+            embeddedPanelActivation,
+            slice -> new dev.turboism.mapping.verification.VerifiedTopMenuResolverFactory().create(
+                slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
+            ),
+            dockMaintenance
         );
         dynamic.onOutermostAdapterCallComplete(this::completeDeferredClose);
     }
@@ -302,6 +308,12 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         return editorUiPluginResources;
     }
 
+
+    @Override
+    public dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator dockMaintenance() {
+        return dockMaintenance;
+    }
+
     @Override
     public AppearanceCoordinator appearanceCoordinator() {
         return appearanceCoordinator;
@@ -331,6 +343,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             embeddedPanelActivation,
             editorUiActionRouter,
             editorUiPluginResources,
+            dockMaintenance,
             appearanceCoordinator
         );
     }

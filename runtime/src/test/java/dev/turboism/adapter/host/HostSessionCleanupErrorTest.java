@@ -29,7 +29,7 @@ class HostSessionCleanupErrorTest {
             () -> Optional.ofNullable(current.get()),
             ignored -> HostAdapterConnection.of(new RuntimeHostAdapters(
                 safe.themeStatus(), safe.renderStatus(), safe.projectWorkspace(), safe.clipMaskRead(),
-                status, safe.mainToolbar(), safe.uiSurface()
+                status, safe.uiSurface()
             ))
         );
         session.refresh();
