@@ -20,7 +20,12 @@ public interface ActionRegistry {
     }
 
     interface ActionContext {
-        /** Present when the action originated from an object context menu. */
+        /** UI control event for panel-originated actions, if this invocation has one. */
+        default Optional<UiActionEvent> uiEvent() {
+            return Optional.empty();
+        }
+
+        /** Object selection for context-menu-originated actions, if this invocation has one. */
         default Optional<ContextMenuSelection> contextMenuSelection() {
             return Optional.empty();
         }

@@ -17,5 +17,22 @@ public interface EditorUiContributionProvider {
         return admission().isAdmitted();
     }
 
+    /** True only when the provider can safely retain its current native registration. */
+    default boolean supportsIncrementalReconcile() {
+        return false;
+    }
+
     Registration apply(long hostGeneration, List<EditorUiContribution<?>> contributions);
+
+    /**
+     * Reconciles a changed logical snapshot while retaining the existing native registration.
+     * Called only when {@link #supportsIncrementalReconcile()} returns true.
+     */
+    default Registration reconcile(
+        final long hostGeneration,
+        final List<EditorUiContribution<?>> contributions,
+        final Registration existing
+    ) {
+        throw new UnsupportedOperationException("provider does not support incremental reconcile");
+    }
 }
