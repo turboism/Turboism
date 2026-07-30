@@ -59,6 +59,7 @@ import dev.turboism.sdk.ui.UserFileRequestResult;
 import dev.turboism.sdk.ui.UserFileRequestStatus;
 import dev.turboism.sdk.ui.UserFileWriteResult;
 import dev.turboism.sdk.ui.DialogRequest;
+import dev.turboism.sdk.ui.BoundingBoxOverlayButton;
 import dev.turboism.sdk.ui.EmbeddedPanelContribution;
 import dev.turboism.sdk.ui.FileChooserRequest;
 import dev.turboism.sdk.ui.OverlayContribution;
@@ -110,6 +111,17 @@ class UiThemePluginTest {
             ),
             context.actions().actions().stream()
                 .map(ActionRegistry.Action::id)
+                .toList()
+        );
+        assertEquals(
+            List.of(
+                "Turboism/Theme Manager",
+                "Turboism/Import Theme Package",
+                "Turboism/Export Selected Theme",
+                "Turboism/Delete Selected Theme"
+            ),
+            context.menus().contributions().stream()
+                .map(MenuRegistry.MenuContribution::menuPath)
                 .toList()
         );
     }
@@ -364,6 +376,10 @@ class UiThemePluginTest {
     private static final class RecordingMenuRegistry implements MenuRegistry {
         private final List<MenuContribution> contributions = new ArrayList<>();
 
+        List<MenuContribution> contributions() {
+            return contributions;
+        }
+
         @Override
         public Registration contribute(final MenuContribution contribution) {
             contributions.add(contribution);
@@ -447,6 +463,10 @@ class UiThemePluginTest {
             throw new UnsupportedOperationException("overlay contributions are not used by this plugin test");
         }
 
+        @Override
+        public Registration contributeBoundingBoxOverlayButton(BoundingBoxOverlayButton contribution) {
+            throw new UnsupportedOperationException("bounding-box overlay buttons are not used by this plugin test");
+        }
         @Override
         public ContextSourceSnapshot contextSource() {
             throw new UnsupportedOperationException("context source is not used by this plugin test");
