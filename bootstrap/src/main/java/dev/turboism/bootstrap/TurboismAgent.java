@@ -1,6 +1,7 @@
 package dev.turboism.bootstrap;
 
 import dev.turboism.adapter.cubism.startup.StartupSuppressionInstaller;
+import dev.turboism.adapter.cubism.physics.PhysicsEditorHostProfile;
 import dev.turboism.mapping.verification.EditorModelVerificationManifest;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.preview.PreviewRuntime;
@@ -25,7 +26,15 @@ public final class TurboismAgent {
     private static final AtomicReference<PreviewRuntime> RUNTIME = new AtomicReference<>();
     private static final AtomicReference<VerifiedParameterHookInstaller> PARAMETER_HOOK =
         new AtomicReference<>();
+    private static final AtomicReference<VerifiedDockTabPopupHookInstaller> DOCK_TAB_POPUP_HOOK =
+        new AtomicReference<>();
+    private static final AtomicReference<VerifiedPhysicsEditorHookInstaller> PHYSICS_EDITOR_HOOK =
+        new AtomicReference<>();
+    private static final AtomicReference<VerifiedControlAppearanceHookInstaller>
+        CONTROL_APPEARANCE_HOOK = new AtomicReference<>();
     private static final AtomicReference<StartupSuppressionInstaller.Installation> STARTUP_SUPPRESSION =
+        new AtomicReference<>();
+    private static final AtomicReference<dev.turboism.sdk.plugin.Registration> OVERLAY_HOOK =
         new AtomicReference<>();
 
     private TurboismAgent() {
@@ -130,11 +139,30 @@ public final class TurboismAgent {
                 options.home(),
                 "cubism-" + profile + "-ui-main-toolbar.json"
             );
+            final Path embeddedPanelVerificationRecord = extractVerificationRecord(
+                options.home(),
+                "cubism-" + profile + "-ui-embedded-panel.json"
+            );
+            final Path topMenuVerificationRecord = extractVerificationRecord(
+                options.home(),
+                "cubism-" + profile + "-ui-top-menu.json"
+            );
+            final Path boundingBoxOverlayVerificationRecord = extractVerificationRecord(
+                options.home(),
+                "cubism-" + profile + "-ui-bounding-box-overlay.json"
+            );
+            final Path controlAppearanceVerificationRecord = extractVerificationRecord(
+                options.home(),
+                "cubism-" + profile + "-ui-control-appearance.json"
+            );
             final PreviewRuntime runtime = PreviewRuntime.start(
                 options.home(),
                 verificationRecord,
                 editorModelVerificationRecord,
                 mainToolbarVerificationRecord,
+                embeddedPanelVerificationRecord,
+                topMenuVerificationRecord,
+                boundingBoxOverlayVerificationRecord,
                 host.artifact(),
                 host.classLoader()
             );
@@ -143,6 +171,19 @@ public final class TurboismAgent {
                 return;
             }
             installParameterHook(runtime, instrumentation, host);
+            installDockTabPopupHook(
+                embeddedPanelVerificationRecord,
+                instrumentation,
+                host
+            );
+            installPhysicsEditorHook(runtime, instrumentation, host);
+            installBoundingBoxOverlayHook(runtime, instrumentation);
+            installControlAppearanceHook(
+                runtime,
+                instrumentation,
+                host,
+                controlAppearanceVerificationRecord
+            );
             Runtime.getRuntime().addShutdownHook(new Thread(TurboismAgent::shutdown, "turboism-shutdown"));
             System.err.println(
                 "Turboism Developer Preview started: host=" + runtime.hostState()
@@ -206,6 +247,110 @@ public final class TurboismAgent {
         }
     }
 
+    private static void installDockTabPopupHook(
+        final Path embeddedPanelVerificationRecord,
+        final Instrumentation instrumentation,
+        final HostClassLocator.LocatedHost host
+    ) {
+        VerifiedDockTabPopupHookInstaller installer = null;
+        try {
+            final var resolver = new dev.turboism.mapping.verification.VerifiedEmbeddedPanelResolverFactory()
+                .create(
+                    embeddedPanelVerificationRecord,
+                    host.artifact(),
+                    host.classLoader()
+                );
+            installer = new VerifiedDockTabPopupHookInstaller(
+                instrumentation,
+                resolver.verifiedSelector("cubism.ui-panel.dock-tab-popup.operation"),
+                resolver.verifiedSelector("cubism.ui-panel.dock-tab-popup.palette-field"),
+                resolver.verifiedSelector("cubism.ui-panel.dock-tab-popup.menu-append"),
+                host.classLoader()
+            );
+            installer.install();
+            if (!DOCK_TAB_POPUP_HOOK.compareAndSet(null, installer)) installer.close();
+        } catch (Throwable failure) {
+            if (installer != null) installer.close();
+            System.err.println(
+                "Turboism dock-tab popup hook disabled safely: " + failure.getClass().getName()
+            );
+        }
+    }
+
+    private static void installPhysicsEditorHook(
+        final PreviewRuntime runtime,
+        final Instrumentation instrumentation,
+        final HostClassLocator.LocatedHost host
+    ) {
+        VerifiedPhysicsEditorHookInstaller installer = null;
+        try {
+            final PhysicsEditorHostProfile profile = PhysicsEditorHostProfile.forArtifact(
+                HostArtifactDigest.from(host.artifact())
+            ).orElseThrow(() -> new IllegalStateException("Unsupported Physics Settings host artifact"));
+            installer = new VerifiedPhysicsEditorHookInstaller(
+                instrumentation,
+                host.classLoader(),
+                runtime.hostAccess().physicsEditorCoordinator(),
+                profile
+            );
+            installer.install();
+            if (!PHYSICS_EDITOR_HOOK.compareAndSet(null, installer)) installer.close();
+        } catch (Throwable failure) {
+            if (installer != null) installer.close();
+            System.err.println(
+                "Turboism physics editor hook disabled safely: " + failure.getClass().getName()
+            );
+        }
+    }
+
+    private static void installBoundingBoxOverlayHook(
+        final PreviewRuntime runtime,
+        final Instrumentation instrumentation
+    ) {
+        try {
+            final dev.turboism.sdk.plugin.Registration hook =
+                new dev.turboism.ui.overlay.BoundingBoxOverlayButtonHookInstaller(instrumentation)
+                    .install(runtime.hostAccess().boundingBoxOverlayResolver().orElseThrow());
+            if (!OVERLAY_HOOK.compareAndSet(null, hook)) {
+                hook.close();
+            }
+        } catch (Throwable failure) {
+            System.err.println(
+                "Turboism bounding-box overlay hook disabled safely: "
+                    + failure.getClass().getName()
+            );
+        }
+    }
+
+    private static void installControlAppearanceHook(
+        final PreviewRuntime runtime,
+        final Instrumentation instrumentation,
+        final HostClassLocator.LocatedHost host,
+        final Path verificationRecord
+    ) {
+        VerifiedControlAppearanceHookInstaller installer = null;
+        try {
+            final var resolver = new dev.turboism.mapping.verification.VerifiedControlAppearanceResolverFactory()
+                .create(verificationRecord, host.artifact(), host.classLoader());
+            final long generation = runtime.hostAccess().controlAppearanceCoordinator().hostGeneration();
+            installer = VerifiedControlAppearanceHookInstaller.fromVerifiedResolver(
+                instrumentation,
+                resolver,
+                generation,
+                runtime.hostAccess().controlAppearanceCoordinator()
+            );
+            installer.install();
+            if (!CONTROL_APPEARANCE_HOOK.compareAndSet(null, installer)) {
+                installer.close();
+            }
+        } catch (Throwable failure) {
+            if (installer != null) installer.close();
+            System.err.println(
+                "Turboism control-appearance hook disabled safely: " + failure.getClass().getName()
+            );
+        }
+    }
+
     private static Path defaultHome() {
         final String configured = System.getProperty("turboism.home");
         if (configured != null && !configured.isBlank()) {
@@ -242,12 +387,45 @@ public final class TurboismAgent {
                 System.err.println("Turboism startup suppression cleanup failed safely");
             }
         }
+        final VerifiedDockTabPopupHookInstaller dockTabPopupHook = DOCK_TAB_POPUP_HOOK.getAndSet(null);
+        if (dockTabPopupHook != null) {
+            try {
+                dockTabPopupHook.close();
+            } catch (Throwable failure) {
+                System.err.println("Turboism dock-tab popup hook cleanup failed safely");
+            }
+        }
         final VerifiedParameterHookInstaller parameterHook = PARAMETER_HOOK.getAndSet(null);
         if (parameterHook != null) {
             try {
                 parameterHook.close();
             } catch (Throwable failure) {
                 System.err.println("Turboism parameter hook cleanup failed safely");
+            }
+        }
+        final VerifiedPhysicsEditorHookInstaller physicsHook = PHYSICS_EDITOR_HOOK.getAndSet(null);
+        if (physicsHook != null) {
+            try {
+                physicsHook.close();
+            } catch (Throwable failure) {
+                System.err.println("Turboism physics editor hook cleanup failed safely");
+            }
+        }
+        final dev.turboism.sdk.plugin.Registration overlayHook = OVERLAY_HOOK.getAndSet(null);
+        if (overlayHook != null) {
+            try {
+                overlayHook.close();
+            } catch (Throwable failure) {
+                System.err.println("Turboism bounding-box overlay hook cleanup failed safely");
+            }
+        }
+        final VerifiedControlAppearanceHookInstaller controlAppearanceHook =
+            CONTROL_APPEARANCE_HOOK.getAndSet(null);
+        if (controlAppearanceHook != null) {
+            try {
+                controlAppearanceHook.close();
+            } catch (Throwable failure) {
+                System.err.println("Turboism control-appearance hook cleanup failed safely");
             }
         }
         final PreviewRuntime runtime = RUNTIME.getAndSet(null);
