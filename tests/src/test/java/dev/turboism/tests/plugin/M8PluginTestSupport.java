@@ -23,6 +23,8 @@ import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.Parameter;
 import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
+import dev.turboism.sdk.cubism.mesh.MeshEditUiService;
+import dev.turboism.sdk.cubism.mesh.MeshMirrorAxisService;
 import dev.turboism.sdk.config.PluginConfigRegistry;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
 import dev.turboism.sdk.event.EventBus;
@@ -335,6 +337,12 @@ final class M8PluginTestSupport {
             }
             return cubismRead;
         }
+        @Override public MeshMirrorAxisService meshMirrorAxis() { return new MeshMirrorAxisService() {
+            private float angle;
+            @Override public float currentAngleDegrees() { return angle; }
+            @Override public void setCurrentAngleDegrees(float angleDegrees) { angle = angleDegrees; }
+        }; }
+        @Override public MeshEditUiService meshEditUi() { return contribution -> () -> { }; }
         @Override public List<PluginPermission> permissions() { return List.of(); }
         @Override public EventBus eventBus() { return eventBus; }
         @Override public ActionRegistry actions() { return actions; }
