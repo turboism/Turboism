@@ -70,6 +70,7 @@ class HostSessionCompositionApiTest {
                 "dockMaintenance():dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator",
                 "appearanceCoordinator():dev.turboism.ui.appearance.AppearanceCoordinator",
                 "editorModelResolver():dev.turboism.mapping.verification.VerifiedMemberResolver",
+                "boundingBoxOverlayResolver():java.util.Optional",
                 "adapterAccess():dev.turboism.adapter.host.RuntimeHostAdapterAccess",
                 "close():void"
             ),
