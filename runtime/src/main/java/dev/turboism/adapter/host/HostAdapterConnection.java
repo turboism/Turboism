@@ -28,6 +28,11 @@ interface HostAdapterConnection extends AutoCloseable {
         return List.of();
     }
 
+
+    default dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator dockMaintenance() {
+        return new dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator();
+    }
+
     @Override
     void close() throws Exception;
 

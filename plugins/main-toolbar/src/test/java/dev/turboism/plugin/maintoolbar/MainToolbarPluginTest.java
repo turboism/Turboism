@@ -19,6 +19,7 @@ import dev.turboism.sdk.cubism.WorkspaceSnapshot;
 import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
 import dev.turboism.sdk.event.EventBus;
+import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.permission.PermissionIds;
@@ -32,6 +33,7 @@ import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.theme.ThemeStatusSnapshot;
 import dev.turboism.sdk.ui.DialogRequest;
 import dev.turboism.sdk.ui.EmbeddedPanelContribution;
+import dev.turboism.sdk.ui.EmbeddedPanelId;
 import dev.turboism.sdk.ui.FileChooserRequest;
 import dev.turboism.sdk.ui.OverlayContribution;
 import dev.turboism.sdk.ui.StatusNotification;
@@ -45,6 +47,7 @@ import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;
+import java.util.Locale;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -63,16 +66,18 @@ class MainToolbarPluginTest {
         plugin.init(context);
         plugin.enable();
 
-        assertEquals(
-            List.of("main-toolbar.home-entry.open"),
-            context.actions().actions().stream().map(ActionRegistry.Action::id).toList()
-        );
+        assertTrue(context.actions().actions().stream()
+            .map(ActionRegistry.Action::id)
+            .toList()
+            .containsAll(List.of(
+                "main-toolbar.home-entry.open", "settings.save", "settings.clean-empty-docks"
+            )));
         assertEquals(
             List.of(new MainToolbarRegistry.MainToolbarButtonContribution(
                 "main-toolbar.home-entry",
                 "main-toolbar.home-entry.open",
-                "main-toolbar.home-entry.label",
-                "main-toolbar.home-entry.tooltip",
+                "main-toolbar.home.aria-label",
+                "main-toolbar.home.tooltip",
                 new MainToolbarRegistry.IconVariants(
                     "icons/main-toolbar-home.png",
                     Optional.of("icons/main-toolbar-home-hover.png"),
@@ -86,10 +91,21 @@ class MainToolbarPluginTest {
             )),
             context.mainToolbar().buttonContributions()
         );
+        assertEquals(1, context.uiHost().panelContributions().size());
+        final EmbeddedPanelContribution panel = context.uiHost().panelContributions().get(0);
+        assertEquals("turboism.panel.main", panel.id());
+        assertTrue(panel.content().toString().contains("Safe Mode"));
+        assertTrue(panel.content().toString().contains("Clean empty docks"));
+        assertEquals(
+            List.of("Turboism/Settings:main-toolbar.home-entry.open:10"),
+            context.menus().contributions().stream()
+                .map(value -> value.menuPath() + ":" + value.actionId() + ":" + value.order())
+                .toList()
+        );
     }
 
     @Test
-    void homeActionUsesCubismReadAndUiHostStatusCapabilities_whenInvoked() throws Exception {
+    void homeActionRequestsTypedTurboismPanelActivation_whenInvoked() throws Exception {
         RecordingPluginContext context = new RecordingPluginContext();
         MainToolbarPlugin plugin = new MainToolbarPlugin();
 
@@ -98,13 +114,10 @@ class MainToolbarPluginTest {
         context.actions().execute("main-toolbar.home-entry.open");
 
         assertEquals(
-            List.of(new StatusNotification(
-                "main-toolbar.home-entry.project-summary",
-                "INFO",
-                "Project Demo Project has 1 document(s); layout workspace Modeling."
-            )),
-            context.uiHost().notifications()
+            List.of(EmbeddedPanelId.of("turboism.panel.main")),
+            context.uiHost().activatedPanels()
         );
+        assertTrue(context.uiHost().notifications().isEmpty());
     }
 
     @Test
@@ -118,6 +131,8 @@ class MainToolbarPluginTest {
 
         assertTrue(context.actions().actions().isEmpty());
         assertTrue(context.mainToolbar().buttonContributions().isEmpty());
+        assertTrue(context.uiHost().panelContributions().isEmpty());
+        assertTrue(context.menus().contributions().isEmpty());
     }
 
     @Test
@@ -146,23 +161,24 @@ class MainToolbarPluginTest {
     }
 
     @Test
-    void homeActionDenies_whenStatusNotifyPermissionMissing() throws Exception {
+    void homeActionDoesNotRequireStatusNotificationPermission() throws Exception {
         RecordingPluginContext context = new RecordingPluginContext(new PermissionGatedUiHost(true, false));
         MainToolbarPlugin plugin = new MainToolbarPlugin();
 
         plugin.init(context);
         plugin.enable();
+        context.actions().execute("main-toolbar.home-entry.open");
 
-        CubismPermissionException denied = assertThrows(
-            CubismPermissionException.class,
-            () -> context.actions().execute("main-toolbar.home-entry.open")
+        assertEquals(
+            List.of(EmbeddedPanelId.of("turboism.panel.main")),
+            context.uiHost().activatedPanels()
         );
-        assertTrue(denied.getMessage().contains(PermissionIds.TURBOISM_UI_STATUS_NOTIFY));
         assertEquals(List.of(), context.uiHost().notifications());
     }
 
     private static final class RecordingPluginContext implements PluginContext {
         private final RecordingActionRegistry actions = new RecordingActionRegistry();
+        private final RecordingMenuRegistry menus = new RecordingMenuRegistry();
         private final RecordingUiHost uiHost;
         private final RecordingMainToolbarRegistry mainToolbar;
         private final DisposableScope disposableScope = new DisposableScope();
@@ -219,8 +235,8 @@ class MainToolbarPluginTest {
         }
 
         @Override
-        public MenuRegistry menus() {
-            return null;
+        public RecordingMenuRegistry menus() {
+            return menus;
         }
 
         @Override
@@ -234,8 +250,49 @@ class MainToolbarPluginTest {
         }
 
         @Override
+        public PluginLocalization localization() {
+            return new PluginLocalization() {
+                @Override
+                public Locale locale() {
+                    return Locale.ENGLISH;
+                }
+
+                @Override
+                public String text(final String key) {
+                    return "main-toolbar.settings-menu.label".equals(key) ? "Settings" : key;
+                }
+
+                @Override
+                public String format(final String key, final Object... arguments) {
+                    return text(key);
+                }
+
+                @Override
+                public boolean contains(final String key) {
+                    return "main-toolbar.settings-menu.label".equals(key);
+                }
+            };
+        }
+
+        @Override
         public PluginConfigRegistry config() {
             return null;
+        }
+
+
+        @Override
+        public dev.turboism.sdk.runtime.RuntimeSettingsService runtimeSettings() {
+            return new dev.turboism.sdk.runtime.RuntimeSettingsService() {
+                private dev.turboism.sdk.runtime.RuntimeSettings settings =
+                    new dev.turboism.sdk.runtime.RuntimeSettings(false, "INFO", false, false, false);
+                @Override public dev.turboism.sdk.runtime.RuntimeSettings read() { return settings; }
+                @Override public dev.turboism.sdk.runtime.RuntimeSettings save(
+                    final dev.turboism.sdk.runtime.RuntimeSettings value
+                ) { settings = value; return settings; }
+                @Override public DockCleanupResult cleanEmptyDocks() {
+                    return new DockCleanupResult("Empty dock cleanup completed.");
+                }
+            };
         }
 
         @Override
@@ -278,6 +335,20 @@ class MainToolbarPluginTest {
         }
     }
 
+    private static final class RecordingMenuRegistry implements MenuRegistry {
+        private final List<MenuContribution> contributions = new ArrayList<>();
+
+        List<MenuContribution> contributions() {
+            return contributions;
+        }
+
+        @Override
+        public Registration contribute(final MenuContribution contribution) {
+            contributions.add(contribution);
+            return () -> contributions.remove(contribution);
+        }
+    }
+
     private static final class RecordingMainToolbarRegistry implements MainToolbarRegistry {
         private final RecordingUiHost uiHost;
         private final List<MainToolbarButtonContribution> buttonContributions = new ArrayList<>();
@@ -304,9 +375,19 @@ class MainToolbarPluginTest {
     }
 
     private static class RecordingUiHost implements UiHostCapabilityService {
+        private final List<EmbeddedPanelContribution> panelContributions = new ArrayList<>();
+        private final List<EmbeddedPanelId> activatedPanels = new ArrayList<>();
         private final List<StatusNotification> notifications = new ArrayList<>();
 
         void requireMainToolbarPermission() {
+        }
+
+        List<EmbeddedPanelContribution> panelContributions() {
+            return panelContributions;
+        }
+
+        List<EmbeddedPanelId> activatedPanels() {
+            return activatedPanels;
         }
 
         List<StatusNotification> notifications() {
@@ -339,8 +420,14 @@ class MainToolbarPluginTest {
         }
 
         @Override
-        public Registration contributeEmbeddedPanel(EmbeddedPanelContribution contribution) {
-            throw new UnsupportedOperationException("embedded panels are not used by this plugin test");
+        public Registration contributeEmbeddedPanel(final EmbeddedPanelContribution contribution) {
+            panelContributions.add(contribution);
+            return () -> panelContributions.remove(contribution);
+        }
+
+        @Override
+        public void activateEmbeddedPanel(final EmbeddedPanelId panelId) {
+            activatedPanels.add(panelId);
         }
 
         @Override

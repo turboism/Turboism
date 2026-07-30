@@ -4,6 +4,7 @@ import dev.turboism.adapter.RuntimeHostAdapters;
 import dev.turboism.adapter.cubism.lifecycle.ParameterLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.PartLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.EditorObjectLifecycleCoordinator;
+import dev.turboism.adapter.cubism.physics.PhysicsEditorCoordinator;
 import dev.turboism.sdk.event.EventBus;
 import dev.turboism.ui.action.RuntimeEditorUiActionRouter;
 import dev.turboism.ui.appearance.AppearanceCoordinator;
@@ -14,6 +15,7 @@ import dev.turboism.ui.host.EditorUiHostLifecycle;
 import dev.turboism.ui.host.RuntimeEditorUiHostLifecycle;
 import dev.turboism.ui.provider.EditorUiProviderInstaller;
 import dev.turboism.ui.toolbar.EditorUiPluginResourceRegistry;
+import dev.turboism.ui.panel.RuntimeEmbeddedPanelActivationCoordinator;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -41,10 +43,16 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         new PartLifecycleCoordinator();
     private final EditorObjectLifecycleCoordinator editorObjectLifecycle =
         new EditorObjectLifecycleCoordinator();
+    private final PhysicsEditorCoordinator physicsEditorCoordinator =
+        new PhysicsEditorCoordinator();
     private final RuntimeEditorUiHostLifecycle editorUiLifecycle =
         new RuntimeEditorUiHostLifecycle();
     private final EditorUiContributionAuthority editorUiContributions =
         new EditorUiContributionAuthority(editorUiLifecycle);
+    private final RuntimeEmbeddedPanelActivationCoordinator embeddedPanelActivation =
+        new RuntimeEmbeddedPanelActivationCoordinator();
+    private final dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator dockMaintenance =
+        new dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator();
     private final RuntimeEditorUiActionRouter editorUiActionRouter =
         new RuntimeEditorUiActionRouter();
     private final EditorUiPluginResourceRegistry editorUiPluginResources =
@@ -87,8 +95,16 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             slice -> new dev.turboism.mapping.verification.VerifiedMainToolbarResolverFactory().create(
                 slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
             ),
+            slice -> new dev.turboism.mapping.verification.VerifiedEmbeddedPanelResolverFactory().create(
+                slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
+            ),
             editorUiPluginResources,
-            editorUiActionRouter
+            editorUiActionRouter,
+            embeddedPanelActivation,
+            slice -> new dev.turboism.mapping.verification.VerifiedTopMenuResolverFactory().create(
+                slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
+            ),
+            dockMaintenance
         );
         dynamic.onOutermostAdapterCallComplete(this::completeDeferredClose);
     }
@@ -271,6 +287,11 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     }
 
     @Override
+    public PhysicsEditorCoordinator physicsEditorCoordinator() {
+        return physicsEditorCoordinator;
+    }
+
+    @Override
     public EditorUiHostLifecycle editorUiLifecycle() {
         return editorUiLifecycle;
     }
@@ -281,6 +302,11 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     }
 
     @Override
+    public RuntimeEmbeddedPanelActivationCoordinator embeddedPanelActivation() {
+        return embeddedPanelActivation;
+    }
+
+    @Override
     public RuntimeEditorUiActionRouter editorUiActionRouter() {
         return editorUiActionRouter;
     }
@@ -288,6 +314,12 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     @Override
     public EditorUiPluginResourceRegistry editorUiPluginResources() {
         return editorUiPluginResources;
+    }
+
+
+    @Override
+    public dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator dockMaintenance() {
+        return dockMaintenance;
     }
 
     @Override
@@ -314,10 +346,13 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             parameterLifecycle,
             partLifecycle,
             editorObjectLifecycle,
+            physicsEditorCoordinator,
             editorUiLifecycle,
             editorUiContributions,
+            embeddedPanelActivation,
             editorUiActionRouter,
             editorUiPluginResources,
+            dockMaintenance,
             appearanceCoordinator
         );
     }
@@ -338,11 +373,13 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
                 return;
             }
             appearanceCoordinator.close();
+            physicsEditorCoordinator.close();
             editorObjectLifecycle.close();
             partLifecycle.close();
             parameterLifecycle.close();
             editorUiPluginResources.close();
             editorUiActionRouter.close();
+            embeddedPanelActivation.close();
             editorUiContributions.close();
             editorUiLifecycle.close();
             commit(State.CLOSED, Optional.empty());
