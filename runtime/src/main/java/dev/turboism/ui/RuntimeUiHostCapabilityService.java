@@ -2,8 +2,6 @@ package dev.turboism.ui;
 
 import dev.turboism.adapter.ui.BoundedKeyedStore;
 import dev.turboism.adapter.ui.SafeModeDiagnostic;
-import dev.turboism.adapter.ui.MainToolbarAdapter;
-import dev.turboism.adapter.ui.MainToolbarAdapterImpl;
 import dev.turboism.adapter.ui.StatusToolbarAdapter;
 import dev.turboism.adapter.ui.StatusToolbarAdapterImpl;
 import dev.turboism.adapter.ui.UiSurfaceAdapter;
@@ -14,8 +12,9 @@ import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.DialogRequest;
-import dev.turboism.sdk.ui.ChoiceDialogRequest;
+import dev.turboism.sdk.ui.BoundingBoxOverlayButton;
 import dev.turboism.sdk.ui.EmbeddedPanelContribution;
+import dev.turboism.sdk.ui.EmbeddedPanelId;
 import dev.turboism.sdk.ui.FileChooserRequest;
 import dev.turboism.sdk.ui.OverlayContribution;
 import dev.turboism.sdk.ui.StatusNotification;
@@ -29,6 +28,7 @@ import dev.turboism.ui.contribution.EditorUiContribution;
 import dev.turboism.ui.contribution.EditorUiContributionAuthority;
 import dev.turboism.ui.contribution.EditorUiContributionIdentity;
 import dev.turboism.ui.host.EditorUiFamily;
+import dev.turboism.ui.panel.RuntimeEmbeddedPanelActivationCoordinator;
 import dev.turboism.ui.host.RuntimeEditorUiHostLifecycle;
 
 import java.util.List;
@@ -63,13 +63,16 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
     private static final int MAX_TRANSIENT_ENTRIES = 64;
 
     private final StatusToolbarAdapter statusToolbarAdapter;
-    private final MainToolbarAdapter mainToolbarAdapter;
     private final UiSurfaceAdapter uiSurfaceAdapter;
     private final PluginLocalization localization;
     private final EditorUiContributionAuthority contributionAuthority;
+    private final RuntimeEmbeddedPanelActivationCoordinator panelActivationCoordinator;
+    private final CallbackDispatcher callbackDispatcher;
     private final CopyOnWriteArrayList<OverlayContribution> overlays = new CopyOnWriteArrayList<>();
     private final CopyOnWriteArrayList<DialogRequest> dialogs = new CopyOnWriteArrayList<>();
     private final CopyOnWriteArrayList<EmbeddedPanelContribution> panels = new CopyOnWriteArrayList<>();
+    private final CopyOnWriteArrayList<BoundingBoxOverlayButton> boundingBoxOverlayButtons =
+        new CopyOnWriteArrayList<>();
     private final BoundedKeyedStore<String, TrackedNotification> notifications =
         new BoundedKeyedStore<>(MAX_TRANSIENT_ENTRIES);
     private final CopyOnWriteArrayList<ContextMenuRegistry.ContextMenuContribution> contextMenus = new CopyOnWriteArrayList<>();
@@ -105,7 +108,6 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
             stateSource,
             disposableScope,
             StatusToolbarAdapterImpl.safeMode(),
-            MainToolbarAdapterImpl.safeMode(),
             UiSurfaceAdapterImpl.safeMode()
         );
     }
@@ -123,7 +125,6 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
             stateSource,
             disposableScope,
             statusToolbarAdapter,
-            MainToolbarAdapterImpl.safeMode(),
             UiSurfaceAdapterImpl.safeMode()
         );
     }
@@ -134,26 +135,6 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         final UiHostStateSource stateSource,
         final DisposableScope disposableScope,
         final StatusToolbarAdapter statusToolbarAdapter,
-        final MainToolbarAdapter mainToolbarAdapter
-    ) {
-        this(
-            permissionChecker,
-            pluginId,
-            stateSource,
-            disposableScope,
-            statusToolbarAdapter,
-            mainToolbarAdapter,
-            UiSurfaceAdapterImpl.safeMode()
-        );
-    }
-
-    public RuntimeUiHostCapabilityService(
-        final PermissionChecker permissionChecker,
-        final String pluginId,
-        final UiHostStateSource stateSource,
-        final DisposableScope disposableScope,
-        final StatusToolbarAdapter statusToolbarAdapter,
-        final MainToolbarAdapter mainToolbarAdapter,
         final UiSurfaceAdapter uiSurfaceAdapter
     ) {
         this(
@@ -162,7 +143,6 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
             stateSource,
             disposableScope,
             statusToolbarAdapter,
-            mainToolbarAdapter,
             uiSurfaceAdapter,
             null
         );
@@ -174,7 +154,6 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         final UiHostStateSource stateSource,
         final DisposableScope disposableScope,
         final StatusToolbarAdapter statusToolbarAdapter,
-        final MainToolbarAdapter mainToolbarAdapter,
         final UiSurfaceAdapter uiSurfaceAdapter,
         final PluginLocalization localization
     ) {
@@ -184,7 +163,6 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
             stateSource,
             disposableScope,
             statusToolbarAdapter,
-            mainToolbarAdapter,
             uiSurfaceAdapter,
             localization,
             new EditorUiContributionAuthority(new RuntimeEditorUiHostLifecycle())
@@ -197,23 +175,76 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         final UiHostStateSource stateSource,
         final DisposableScope disposableScope,
         final StatusToolbarAdapter statusToolbarAdapter,
-        final MainToolbarAdapter mainToolbarAdapter,
         final UiSurfaceAdapter uiSurfaceAdapter,
         final PluginLocalization localization,
         final EditorUiContributionAuthority contributionAuthority
+    ) {
+        this(
+            permissionChecker,
+            pluginId,
+            stateSource,
+            disposableScope,
+            statusToolbarAdapter,
+            uiSurfaceAdapter,
+            localization,
+            contributionAuthority,
+            new RuntimeEmbeddedPanelActivationCoordinator()
+        );
+    }
+
+    public RuntimeUiHostCapabilityService(
+        final PermissionChecker permissionChecker,
+        final String pluginId,
+        final UiHostStateSource stateSource,
+        final DisposableScope disposableScope,
+        final StatusToolbarAdapter statusToolbarAdapter,
+        final UiSurfaceAdapter uiSurfaceAdapter,
+        final PluginLocalization localization,
+        final EditorUiContributionAuthority contributionAuthority,
+        final RuntimeEmbeddedPanelActivationCoordinator panelActivationCoordinator
+    ) {
+        this(
+            permissionChecker,
+            pluginId,
+            stateSource,
+            disposableScope,
+            statusToolbarAdapter,
+            uiSurfaceAdapter,
+            localization,
+            contributionAuthority,
+            panelActivationCoordinator,
+            CallbackDispatcher.direct()
+        );
+    }
+
+    public RuntimeUiHostCapabilityService(
+        final PermissionChecker permissionChecker,
+        final String pluginId,
+        final UiHostStateSource stateSource,
+        final DisposableScope disposableScope,
+        final StatusToolbarAdapter statusToolbarAdapter,
+        final UiSurfaceAdapter uiSurfaceAdapter,
+        final PluginLocalization localization,
+        final EditorUiContributionAuthority contributionAuthority,
+        final RuntimeEmbeddedPanelActivationCoordinator panelActivationCoordinator,
+        final CallbackDispatcher callbackDispatcher
     ) {
         this.permissionChecker = Objects.requireNonNull(permissionChecker, "permissionChecker");
         this.pluginId = requireText(pluginId, "pluginId");
         this.stateSource = Objects.requireNonNull(stateSource, "stateSource");
         this.disposableScope = Objects.requireNonNull(disposableScope, "disposableScope");
         this.statusToolbarAdapter = Objects.requireNonNull(statusToolbarAdapter, "statusToolbarAdapter");
-        this.mainToolbarAdapter = Objects.requireNonNull(mainToolbarAdapter, "mainToolbarAdapter");
         this.uiSurfaceAdapter = Objects.requireNonNull(uiSurfaceAdapter, "uiSurfaceAdapter");
         this.localization = localization;
         this.contributionAuthority = Objects.requireNonNull(
             contributionAuthority,
             "contributionAuthority"
         );
+        this.panelActivationCoordinator = Objects.requireNonNull(
+            panelActivationCoordinator,
+            "panelActivationCoordinator"
+        );
+        this.callbackDispatcher = Objects.requireNonNull(callbackDispatcher, "callbackDispatcher");
     }
 
     @Override
@@ -232,6 +263,27 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
             contribution.priority(),
             contribution,
             overlays
+        );
+    }
+
+    @Override
+    public Registration contributeBoundingBoxOverlayButton(
+        final BoundingBoxOverlayButton contribution
+    ) {
+        Objects.requireNonNull(contribution, "contribution");
+        permissionChecker.check(
+            UI_OVERLAY_CONTRIBUTE,
+            "ui.bounding-box-overlay-button.contribute"
+        );
+        return authoritativeRegistration(
+            EditorUiFamily.BOUNDING_BOX_OVERLAY_BUTTON,
+            contribution.id(),
+            contribution.order(),
+            contribution.withOnClick(() -> callbackDispatcher.dispatch(
+                contribution.id(),
+                contribution.onClick()
+            )),
+            boundingBoxOverlayButtons
         );
     }
 
@@ -267,13 +319,6 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
     }
 
     @Override
-    public Optional<String> choose(final ChoiceDialogRequest request) {
-        Objects.requireNonNull(request, "request");
-        permissionChecker.check(UI_DIALOG_CONTRIBUTE, "ui.dialog.choose");
-        return RuntimeChoiceDialogs.choose(request);
-    }
-
-    @Override
     public Registration contributeEmbeddedPanel(final EmbeddedPanelContribution contribution) {
         Objects.requireNonNull(contribution, "contribution");
         permissionChecker.check(UI_PANEL_CONTRIBUTE, "ui.panel.contribute");
@@ -284,6 +329,11 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
             contribution,
             panels
         );
+    }
+
+    @Override
+    public void activateEmbeddedPanel(final EmbeddedPanelId panelId) {
+        panelActivationCoordinator.activate(pluginId, Objects.requireNonNull(panelId, "panelId"));
     }
 
     @Override
@@ -465,6 +515,18 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         };
         disposableScope.register(registration);
         return registration;
+    }
+
+    @FunctionalInterface
+    public interface CallbackDispatcher {
+        boolean dispatch(String contributionId, Runnable callback);
+
+        static CallbackDispatcher direct() {
+            return (ignored, callback) -> {
+                callback.run();
+                return true;
+            };
+        }
     }
 
     private static final class TrackedNotification {

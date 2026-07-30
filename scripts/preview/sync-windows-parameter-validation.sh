@@ -49,6 +49,7 @@ files=(
   turboism-agent.jar
   plugins/parameter.jar
   plugins/parameter-validation-probe.jar
+  plugins/editor-object-peer-validation-probe.jar
 )
 for relative in "${files[@]}"; do
   [ -f "$bundle_root/$relative" ] || fail "bundle file not found: $relative"

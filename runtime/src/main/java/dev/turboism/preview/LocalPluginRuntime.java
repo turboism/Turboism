@@ -3,6 +3,7 @@ package dev.turboism.preview;
 import dev.turboism.adapter.host.RuntimeHostAdapterAccess;
 import dev.turboism.adapter.cubism.lifecycle.ParameterLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.PartLifecycleCoordinator;
+import dev.turboism.adapter.cubism.lifecycle.EditorObjectLifecycleCoordinator;
 import dev.turboism.cleanup.CleanupEvidenceCollector;
 import dev.turboism.core.lifecycle.PluginLifecycleState;
 import dev.turboism.core.plugin.PluginRuntime;
@@ -29,6 +30,7 @@ public final class LocalPluginRuntime implements AutoCloseable {
     private final PreviewPluginShutdown shutdown;
     private final ParameterLifecycleCoordinator parameterLifecycle;
     private final PartLifecycleCoordinator partLifecycle;
+    private final EditorObjectLifecycleCoordinator editorObjectLifecycle;
     private final List<LoadedPlugin> loaded = new ArrayList<>();
     private List<LoadedPluginSummary> closedSummaries = List.of();
     private final AtomicBoolean started = new AtomicBoolean(false);
@@ -48,7 +50,8 @@ public final class LocalPluginRuntime implements AutoCloseable {
             new RuntimeFailureCollector(),
             (pluginId, phase) -> { },
             hostAccess.parameterLifecycle(),
-            hostAccess.partLifecycle()
+            hostAccess.partLifecycle(),
+            hostAccess.editorObjectLifecycle()
         );
     }
 
@@ -68,7 +71,8 @@ public final class LocalPluginRuntime implements AutoCloseable {
             new RuntimeFailureCollector(),
             (pluginId, phase) -> { },
             parameterLifecycle,
-            hostAccess.partLifecycle()
+            hostAccess.partLifecycle(),
+            hostAccess.editorObjectLifecycle()
         );
     }
 
@@ -88,7 +92,8 @@ public final class LocalPluginRuntime implements AutoCloseable {
             new RuntimeFailureCollector(),
             pluginCloseHook,
             hostAccess.parameterLifecycle(),
-            hostAccess.partLifecycle()
+            hostAccess.partLifecycle(),
+            hostAccess.editorObjectLifecycle()
         );
     }
 
@@ -108,7 +113,8 @@ public final class LocalPluginRuntime implements AutoCloseable {
             failureCollector,
             (pluginId, phase) -> { },
             hostAccess.parameterLifecycle(),
-            hostAccess.partLifecycle()
+            hostAccess.partLifecycle(),
+            hostAccess.editorObjectLifecycle()
         );
     }
 
@@ -120,11 +126,12 @@ public final class LocalPluginRuntime implements AutoCloseable {
         final RuntimeFailureCollector failureCollector,
         final PluginCloseHook pluginCloseHook,
         final ParameterLifecycleCoordinator parameterLifecycle,
-        final PartLifecycleCoordinator partLifecycle
+        final PartLifecycleCoordinator partLifecycle,
+        final EditorObjectLifecycleCoordinator editorObjectLifecycle
     ) {
         final PreviewPluginRuntimeResources resources = PreviewPluginRuntimeResources.create(
             home, scheduler, hostAccess, log, failureCollector, pluginCloseHook, loaded,
-            parameterLifecycle, partLifecycle
+            parameterLifecycle, partLifecycle, editorObjectLifecycle
         );
         this.hostReadLane = resources.hostReadLane();
         this.failureCollector = resources.failureCollector();
@@ -135,6 +142,10 @@ public final class LocalPluginRuntime implements AutoCloseable {
             "parameterLifecycle"
         );
         this.partLifecycle = java.util.Objects.requireNonNull(partLifecycle, "partLifecycle");
+        this.editorObjectLifecycle = java.util.Objects.requireNonNull(
+            editorObjectLifecycle,
+            "editorObjectLifecycle"
+        );
     }
 
     public synchronized LoadReport loadAll() {
@@ -166,6 +177,7 @@ public final class LocalPluginRuntime implements AutoCloseable {
         try {
             summaries.addAll(shutdown.closeAll(loaded));
         } finally {
+            editorObjectLifecycle.close();
             partLifecycle.close();
             parameterLifecycle.close();
             closeHostReadLane();

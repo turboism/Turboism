@@ -4,8 +4,6 @@ import dev.turboism.adapter.RuntimeHostAdapters;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.ui.contribution.EditorUiContributionProvider;
-import dev.turboism.ui.appearance.AppearanceHostProvider;
-import dev.turboism.ui.appearance.UnavailableAppearanceHostProvider;
 
 import java.util.List;
 import java.util.Objects;
@@ -23,6 +21,10 @@ interface HostAdapterConnection extends AutoCloseable {
         throw new IllegalStateException("Verified Editor model resolver is unavailable.");
     }
 
+    default VerifiedMemberResolver boundingBoxOverlayResolver() {
+        throw new IllegalStateException("Verified bounding-box overlay resolver is unavailable.");
+    }
+
     default List<EditorUiContributionProvider> editorUiProviders(final long hostGeneration) {
         if (hostGeneration <= 0) {
             throw new IllegalArgumentException("hostGeneration must be positive");
@@ -30,8 +32,9 @@ interface HostAdapterConnection extends AutoCloseable {
         return List.of();
     }
 
-    default AppearanceHostProvider appearanceProvider() {
-        return new UnavailableAppearanceHostProvider();
+
+    default dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator dockMaintenance() {
+        return new dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator();
     }
 
     @Override
@@ -53,20 +56,8 @@ interface HostAdapterConnection extends AutoCloseable {
         final CubismModelAccess modelAccess,
         final VerifiedMemberResolver editorModelResolver
     ) {
-        return of(adapters, modelAccess, editorModelResolver, new UnavailableAppearanceHostProvider());
-    }
-
-    static HostAdapterConnection of(
-        final RuntimeHostAdapters adapters,
-        final CubismModelAccess modelAccess,
-        final VerifiedMemberResolver editorModelResolver,
-        final AppearanceHostProvider appearanceProvider
-    ) {
         final RuntimeHostAdapters ownedAdapters = Objects.requireNonNull(adapters, "adapters");
         final CubismModelAccess ownedModelAccess = Objects.requireNonNull(modelAccess, "modelAccess");
-        final AppearanceHostProvider ownedAppearance = Objects.requireNonNull(
-            appearanceProvider, "appearanceProvider"
-        );
         return new HostAdapterConnection() {
             @Override
             public RuntimeHostAdapters adapters() {
@@ -84,11 +75,6 @@ interface HostAdapterConnection extends AutoCloseable {
                     return HostAdapterConnection.super.editorModelResolver();
                 }
                 return editorModelResolver;
-            }
-
-            @Override
-            public AppearanceHostProvider appearanceProvider() {
-                return ownedAppearance;
             }
 
             @Override
