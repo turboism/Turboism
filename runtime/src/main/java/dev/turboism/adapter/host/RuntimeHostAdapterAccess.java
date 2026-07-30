@@ -40,6 +40,8 @@ public sealed interface RuntimeHostAdapterAccess permits HostSession, SessionRun
 
     dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator dockMaintenance();
 
+    java.util.Optional<dev.turboism.mapping.verification.VerifiedMemberResolver> boundingBoxOverlayResolver();
+
     AppearanceCoordinator appearanceCoordinator();
 }
 
@@ -58,6 +60,7 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     private final RuntimeEditorUiActionRouter editorUiActionRouter;
     private final EditorUiPluginResourceRegistry editorUiPluginResources;
     private final dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator dockMaintenance;
+    private final java.util.Optional<dev.turboism.mapping.verification.VerifiedMemberResolver> boundingBoxOverlayResolver;
     private final AppearanceCoordinator appearanceCoordinator;
 
     SessionRuntimeHostAdapterAccess(
@@ -73,6 +76,7 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
         final RuntimeEditorUiActionRouter editorUiActionRouter,
         final EditorUiPluginResourceRegistry editorUiPluginResources,
         final dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator dockMaintenance,
+        final java.util.Optional<dev.turboism.mapping.verification.VerifiedMemberResolver> boundingBoxOverlayResolver,
         final AppearanceCoordinator appearanceCoordinator
     ) {
         this.adapters = java.util.Objects.requireNonNull(adapters, "adapters");
@@ -111,6 +115,10 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
             "editorUiPluginResources"
         );
         this.dockMaintenance = java.util.Objects.requireNonNull(dockMaintenance, "dockMaintenance");
+        this.boundingBoxOverlayResolver = java.util.Objects.requireNonNull(
+            boundingBoxOverlayResolver,
+            "boundingBoxOverlayResolver"
+        );
         this.appearanceCoordinator = java.util.Objects.requireNonNull(
             appearanceCoordinator,
             "appearanceCoordinator"
@@ -176,6 +184,11 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     @Override
     public dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator dockMaintenance() {
         return dockMaintenance;
+    }
+
+    @Override
+    public java.util.Optional<dev.turboism.mapping.verification.VerifiedMemberResolver> boundingBoxOverlayResolver() {
+        return boundingBoxOverlayResolver;
     }
 
     @Override

@@ -408,7 +408,16 @@ public final class CorePluginContext implements PluginContext {
                 adapters.uiSurface(),
                 localization,
                 hostAccess.editorUiContributions(),
-                hostAccess.embeddedPanelActivation()
+                hostAccess.embeddedPanelActivation(),
+                (contributionId, callback) -> this.dependencies.runtimeScheduler().dispatch(
+                    new dev.turboism.core.runtime.PluginTask(
+                        "ui.overlay-button.click",
+                        this.dependencies.descriptor().id(),
+                        contributionId,
+                        "none"
+                    ),
+                    callback
+                )
             );
         if (hostAccess != null) {
             UiContributionContextBinder.bind(

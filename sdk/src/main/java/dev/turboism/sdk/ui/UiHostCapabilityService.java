@@ -20,6 +20,8 @@ public interface UiHostCapabilityService {
 
     Registration contributeOverlay(OverlayContribution contribution);
 
+    Registration contributeBoundingBoxOverlayButton(BoundingBoxOverlayButton contribution);
+
     ContextSourceSnapshot contextSource();
 
     ViewportSnapshot viewport();
