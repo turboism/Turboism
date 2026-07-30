@@ -66,6 +66,91 @@ class ObjectContextMenuAppendNativeMethodTransformerTest {
         assertEquals(1, menuType.getField("appends").getInt(builderType.getField("menu").get(builder)));
     }
 
+    @Test
+    void supportsSingleItemAppendShapeUsedByDeformerAndParameterMenus() throws Exception {
+        final FixtureLoader loader = new FixtureLoader();
+        final ObjectContextMenuAppendNativeMethodTransformer transformer =
+            new ObjectContextMenuAppendNativeMethodTransformer(
+                "fixture/SingleBuilder", "build", "()V", loader,
+                "fixture/SingleMenu", "append", "(Ljava/lang/Object;)V",
+                Location.PARAMETER_TAB
+            );
+
+        final byte[] transformed = transformer.transform(
+            null, loader, "fixture/SingleBuilder", null, null, singleBuilderClass()
+        );
+        assertNotNull(transformed);
+
+        final Class<?> menuType = loader.define("fixture.SingleMenu", singleMenuClass());
+        final Class<?> builderType = loader.define("fixture.SingleBuilder", transformed);
+        final Object builder = builderType.getConstructor().newInstance();
+        final List<Object> observed = new ArrayList<>();
+        try (Registration ignored = NativeObjectContextMenuBridge.install(
+            (menu, location, actualSource) -> {
+                observed.add(menu);
+                observed.add(location);
+                observed.add(actualSource);
+                return menu;
+            }
+        )) {
+            builderType.getMethod("build").invoke(builder);
+        }
+
+        assertSame(builderType.getField("menu").get(builder), observed.get(0));
+        assertEquals(Location.PARAMETER_TAB, observed.get(1));
+        assertSame(builder, observed.get(2));
+        assertEquals(1, menuType.getField("appends").getInt(builderType.getField("menu").get(builder)));
+    }
+
+    private static byte[] singleBuilderClass() {
+        final ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
+        writer.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, "fixture/SingleBuilder", null, "java/lang/Object", null);
+        writer.visitField(Opcodes.ACC_PUBLIC, "menu", "Lfixture/SingleMenu;", null, null).visitEnd();
+        constructor(writer, "fixture/SingleBuilder");
+        final MethodVisitor build = writer.visitMethod(Opcodes.ACC_PUBLIC, "build", "()V", null, null);
+        build.visitCode();
+        build.visitVarInsn(Opcodes.ALOAD, 0);
+        build.visitTypeInsn(Opcodes.NEW, "fixture/SingleMenu");
+        build.visitInsn(Opcodes.DUP);
+        build.visitMethodInsn(Opcodes.INVOKESPECIAL, "fixture/SingleMenu", "<init>", "()V", false);
+        build.visitFieldInsn(Opcodes.PUTFIELD, "fixture/SingleBuilder", "menu", "Lfixture/SingleMenu;");
+        build.visitVarInsn(Opcodes.ALOAD, 0);
+        build.visitFieldInsn(Opcodes.GETFIELD, "fixture/SingleBuilder", "menu", "Lfixture/SingleMenu;");
+        build.visitTypeInsn(Opcodes.NEW, "java/lang/Object");
+        build.visitInsn(Opcodes.DUP);
+        build.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false);
+        build.visitMethodInsn(
+            Opcodes.INVOKEVIRTUAL, "fixture/SingleMenu", "append", "(Ljava/lang/Object;)V", false
+        );
+        build.visitInsn(Opcodes.RETURN);
+        build.visitMaxs(0, 0);
+        build.visitEnd();
+        writer.visitEnd();
+        return writer.toByteArray();
+    }
+
+    private static byte[] singleMenuClass() {
+        final ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
+        writer.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, "fixture/SingleMenu", null, "java/lang/Object", null);
+        writer.visitField(Opcodes.ACC_PUBLIC, "appends", "I", null, null).visitEnd();
+        constructor(writer, "fixture/SingleMenu");
+        final MethodVisitor append = writer.visitMethod(
+            Opcodes.ACC_PUBLIC, "append", "(Ljava/lang/Object;)V", null, null
+        );
+        append.visitCode();
+        append.visitVarInsn(Opcodes.ALOAD, 0);
+        append.visitInsn(Opcodes.DUP);
+        append.visitFieldInsn(Opcodes.GETFIELD, "fixture/SingleMenu", "appends", "I");
+        append.visitInsn(Opcodes.ICONST_1);
+        append.visitInsn(Opcodes.IADD);
+        append.visitFieldInsn(Opcodes.PUTFIELD, "fixture/SingleMenu", "appends", "I");
+        append.visitInsn(Opcodes.RETURN);
+        append.visitMaxs(0, 0);
+        append.visitEnd();
+        writer.visitEnd();
+        return writer.toByteArray();
+    }
+
     private static byte[] builderClass(final int matchingAppends) {
         final ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
         writer.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, "fixture/Builder", null, "java/lang/Object", null);
