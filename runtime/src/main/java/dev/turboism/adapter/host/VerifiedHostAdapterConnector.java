@@ -536,6 +536,9 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
     private static AppearanceHostProvider productionAppearanceProvider(
         final HostVerificationEvidence.Slice slice
     ) throws Exception {
+        if (!java.nio.file.Files.isRegularFile(slice.verifiedArtifact())) {
+            return unavailableAppearanceProvider();
+        }
         final HostArtifactDigest artifact = HostArtifactDigest.from(slice.verifiedArtifact());
         final String version = dev.turboism.mapping.verification.ProjectWorkspaceVerificationManifest
             .versionForArtifact(artifact);
