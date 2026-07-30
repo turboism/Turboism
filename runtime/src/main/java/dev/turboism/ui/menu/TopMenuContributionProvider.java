@@ -8,11 +8,12 @@ import dev.turboism.ui.contribution.EditorUiProviderAdmission;
 import dev.turboism.ui.host.EditorUiFamily;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 
-/** Reversible provider for the bounded runtime-owned Turboism top menu. */
+/** Reversible provider for plugin-owned top-level and nested menus. */
 public final class TopMenuContributionProvider implements EditorUiContributionProvider {
 
     private static final Comparator<TopMenuItemDescriptor> ITEM_ORDER = Comparator
@@ -60,7 +61,21 @@ public final class TopMenuContributionProvider implements EditorUiContributionPr
             .flatMap(java.util.Optional::stream)
             .sorted(ITEM_ORDER)
             .toList();
-        final Reconciler reconciler = new Reconciler(items);
+        final LinkedHashMap<MenuKey, List<TopMenuItemDescriptor>> grouped = new LinkedHashMap<>();
+        for (TopMenuItemDescriptor item : items) {
+            grouped.computeIfAbsent(
+                new MenuKey(item.pluginId(), item.rootLabel()),
+                ignored -> new ArrayList<>()
+            ).add(item);
+        }
+        final List<TopMenuDescriptor> menus = grouped.entrySet().stream()
+            .map(entry -> TopMenuDescriptor.owned(
+                entry.getKey().pluginId(),
+                entry.getKey().rootLabel(),
+                entry.getValue()
+            ))
+            .toList();
+        final Reconciler reconciler = new Reconciler(menus);
         final List<Registration> registrations = new ArrayList<>();
         try {
             reconciler.reconcile();
@@ -77,35 +92,39 @@ public final class TopMenuContributionProvider implements EditorUiContributionPr
     }
 
     private final class Reconciler implements Registration {
-        private final List<TopMenuItemDescriptor> items;
-        private Registration installed = () -> { };
-        private boolean hasInstalled;
+        private final List<TopMenuDescriptor> menus;
+        private List<Registration> installed = List.of();
         private boolean closed;
 
-        private Reconciler(final List<TopMenuItemDescriptor> items) {
-            this.items = List.copyOf(items);
+        private Reconciler(final List<TopMenuDescriptor> menus) {
+            this.menus = List.copyOf(menus);
         }
 
         private synchronized void reconcile() {
             if (closed) {
                 return;
             }
-            if (hasInstalled) {
-                installed.close();
-                installed = () -> { };
-                hasInstalled = false;
-            }
-            if (items.isEmpty()) {
+            closeAll(installed);
+            installed = List.of();
+            if (menus.isEmpty()) {
                 return;
             }
-            installed = Objects.requireNonNull(
-                host.addMenu(
-                    TopMenuDescriptor.turboism(items),
-                    item -> actionRouter.invoke(item.pluginId(), item.actionId())
-                ),
-                "host.addMenu()"
-            );
-            hasInstalled = true;
+            final List<Registration> next = new ArrayList<>();
+            try {
+                for (TopMenuDescriptor menu : menus) {
+                    next.add(Objects.requireNonNull(
+                        host.addMenu(
+                            menu,
+                            item -> actionRouter.invoke(item.pluginId(), item.actionId())
+                        ),
+                        "host.addMenu()"
+                    ));
+                }
+            } catch (RuntimeException | Error failure) {
+                closeAllSuppressing(next, failure);
+                throw failure;
+            }
+            installed = List.copyOf(next);
         }
 
         @Override
@@ -114,12 +133,9 @@ public final class TopMenuContributionProvider implements EditorUiContributionPr
                 return;
             }
             closed = true;
-            if (hasInstalled) {
-                hasInstalled = false;
-                final Registration current = installed;
-                installed = () -> { };
-                current.close();
-            }
+            final List<Registration> current = installed;
+            installed = List.of();
+            closeAll(current);
         }
 
         private void closeSuppressing(final Throwable failure) {
@@ -130,6 +146,8 @@ public final class TopMenuContributionProvider implements EditorUiContributionPr
             }
         }
     }
+
+    private record MenuKey(String pluginId, String rootLabel) { }
 
     private static void closeAll(final List<? extends Registration> registrations) {
         RuntimeException first = null;

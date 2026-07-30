@@ -41,16 +41,17 @@ class VerifiedEmbeddedPanelHostOperationsTest {
     }
 
     @Test
-    void panelCleanupHidesBeforeCloseAndAlwaysRefreshes() {
+    void panelCleanupHidesClosesRemovesWindowEntryAndAlwaysRefreshes() {
         List<String> operations = new ArrayList<>();
 
         VerifiedEmbeddedPanelHostOperations.closePanel(
             () -> operations.add("hide"),
             () -> operations.add("close"),
+            () -> operations.add("remove-window-item"),
             () -> operations.add("refresh")
         );
 
-        assertEquals(List.of("hide", "close", "refresh"), operations);
+        assertEquals(List.of("hide", "close", "remove-window-item", "refresh"), operations);
 
         operations.clear();
         IllegalStateException failure = assertThrows(
@@ -61,11 +62,12 @@ class VerifiedEmbeddedPanelHostOperationsTest {
                     throw new IllegalStateException("hide failed");
                 },
                 () -> operations.add("close"),
+                () -> operations.add("remove-window-item"),
                 () -> operations.add("refresh")
             )
         );
         assertEquals("hide failed", failure.getMessage());
-        assertEquals(List.of("hide", "close", "refresh"), operations);
+        assertEquals(List.of("hide", "close", "remove-window-item", "refresh"), operations);
     }
 
     private static void await(final CountDownLatch latch) {

@@ -14,11 +14,12 @@ import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TopMenuContributionProviderTest {
 
     @Test
-    void materializesOnlyTurboismRootInDeterministicOrderAndRoutesAction() {
+    void materializesPluginOwnedTopLevelAndNestedMenusInDeterministicOrderAndRoutesAction() {
         RecordingHost host = new RecordingHost();
         List<String> actions = new ArrayList<>();
         TopMenuContributionProvider provider = new TopMenuContributionProvider(
@@ -28,26 +29,28 @@ class TopMenuContributionProviderTest {
         );
 
         Registration registration = provider.apply(7, List.of(
-            contribution("plugin-b", "settings", "Turboism/Settings", 20),
-            contribution("plugin-tools", "ignored", "Tools/Ignored", 0),
-            contribution("plugin-a", "plugins", "Turboism/Plugins", 10)
+            contribution("plugin-a", "png", "My Tools/Export/PNG", 20),
+            contribution("plugin-b", "run", "Workspace/Run", 0),
+            contribution("plugin-a", "psd", "My Tools/Import/PSD", 10)
         ));
 
-        TopMenuDescriptor installed = host.installed.get(0);
-        assertEquals("turboism.menu", installed.menuId());
-        assertEquals("Turboism", installed.label());
+        assertEquals(List.of("Workspace", "My Tools"), host.installed.stream()
+            .map(TopMenuDescriptor::label)
+            .toList());
+        TopMenuDescriptor myTools = host.installed.get(1);
+        assertTrue(myTools.menuId().contains("plugin-a"));
         assertEquals(
-            List.of("plugin-a:plugins:Plugins", "plugin-b:settings:Settings"),
-            installed.items().stream()
-                .map(item -> item.pluginId() + ":" + item.contributionId() + ":" + item.label())
+            List.of("Import/PSD", "Export/PNG"),
+            myTools.items().stream()
+                .map(item -> String.join("/", item.submenuPath()) + "/" + item.label())
                 .toList()
         );
 
-        host.actions.get(0).accept(installed.items().get(1));
-        assertEquals(List.of("plugin-b:action.settings"), actions);
+        host.actions.get(1).accept(myTools.items().get(1));
+        assertEquals(List.of("plugin-a:action.png"), actions);
 
         registration.close();
-        assertEquals(1, host.closeCount);
+        assertEquals(2, host.closeCount);
     }
 
     @Test
@@ -83,6 +86,24 @@ class TopMenuContributionProviderTest {
             IllegalStateException.class,
             () -> provider.apply(8, List.of(
                 contribution("plugin-a", "settings", "Turboism/Settings", 0)
+            ))
+        );
+        assertEquals(List.of(), host.installed);
+    }
+
+    @Test
+    void pathWithoutTopLevelAndLeafFailsBeforeHostMutation() {
+        RecordingHost host = new RecordingHost();
+        TopMenuContributionProvider provider = new TopMenuContributionProvider(
+            admission(7),
+            host,
+            (pluginId, actionId) -> { }
+        );
+
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> provider.apply(7, List.of(
+                contribution("plugin-a", "broken", "OnlyRoot", 0)
             ))
         );
         assertEquals(List.of(), host.installed);
