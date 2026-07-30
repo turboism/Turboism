@@ -25,7 +25,7 @@ class ObjectContextMenuAppendNativeMethodTransformerTest {
             new ObjectContextMenuAppendNativeMethodTransformer(
                 "fixture/Builder", "build", "(Ljava/lang/Object;)V", loader,
                 "fixture/Menu", "append", "(Ljava/lang/Object;Ljava/lang/Object;)V",
-                Location.DEFORMER_TAB, 1, 1
+                Location.WORKSPACE_OBJECT, 1, 1, 1
             );
 
         assertNull(transformer.transform(
@@ -62,8 +62,8 @@ class ObjectContextMenuAppendNativeMethodTransformerTest {
         }
 
         assertSame(builderType.getField("menu").get(builder), observed.get(0));
-        assertEquals(Location.DEFORMER_TAB, observed.get(1));
-        assertSame(builder, observed.get(2));
+        assertEquals(Location.WORKSPACE_OBJECT, observed.get(1));
+        assertSame(source, observed.get(2));
         assertEquals(1, menuType.getField("appends").getInt(builderType.getField("menu").get(builder)));
     }
 
@@ -74,7 +74,7 @@ class ObjectContextMenuAppendNativeMethodTransformerTest {
             new ObjectContextMenuAppendNativeMethodTransformer(
                 "fixture/SingleBuilder", "build", "()V", loader,
                 "fixture/SingleMenu", "append", "(Ljava/lang/Object;)V",
-                Location.PARAMETER_TAB, 1, 1
+                Location.PARAMETER_TAB, 1, 1, 0
             );
 
         final byte[] transformed = transformer.transform(
