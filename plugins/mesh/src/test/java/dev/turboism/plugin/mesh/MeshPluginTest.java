@@ -17,6 +17,8 @@ import dev.turboism.sdk.cubism.SelectionSnapshot;
 import dev.turboism.sdk.cubism.TextureAtlasSnapshot;
 import dev.turboism.sdk.cubism.WorkspaceSnapshot;
 import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
+import dev.turboism.sdk.cubism.mesh.MeshMirrorAxisService;
+import dev.turboism.sdk.cubism.mesh.MeshEditUiService;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
 import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.menu.MenuRegistry;
@@ -82,11 +84,46 @@ class MeshPluginTest {
         assertTrue(context.actions().actions().isEmpty());
     }
 
+    @Test
+    void exposesMirrorAxisAngleThroughTheMeshPluginService() {
+        RecordingPluginContext context = new RecordingPluginContext(new TestPluginLogger());
+        MeshPlugin plugin = new MeshPlugin();
+        plugin.init(context);
+        plugin.enable();
+
+        plugin.setMirrorAxisAngleDegrees(225.0f);
+
+        assertEquals(-135.0f, context.meshMirrorAxis().currentAngleDegrees());
+    }
+
+    @Test
+    void registersTheLegacyMirrorAxisAngleControlInPluginScope() throws Exception {
+        RecordingPluginContext context = new RecordingPluginContext(new TestPluginLogger());
+        MeshPlugin plugin = new MeshPlugin();
+        plugin.init(context);
+        plugin.enable();
+
+        MeshEditUiService.MirrorAxisAngleControl control = context.meshEditUi().control;
+        assertEquals("mesh.mirror-axis.angle", control.contributionId());
+        assertEquals(-180.0f, control.minimumDegrees());
+        assertEquals(180.0f, control.maximumDegrees());
+        assertEquals(0.1f, control.stepDegrees());
+
+        control.onAngleChanged().accept(45.0f);
+        assertEquals(45.0f, context.meshMirrorAxis().currentAngleDegrees());
+
+        context.disposableScope().close();
+        assertTrue(context.meshEditUi().control == null);
+    }
+
     private static final class RecordingPluginContext implements PluginContext {
         private final DisposableScope disposableScope = new DisposableScope();
         private final RecordingActionRegistry actions = new RecordingActionRegistry();
         private final RecordingUiHost uiHost = new RecordingUiHost();
         private final PluginLogger logger;
+        private final RecordingMeshMirrorAxisService meshMirrorAxis =
+            new RecordingMeshMirrorAxisService();
+        private final RecordingMeshEditUiService meshEditUi = new RecordingMeshEditUiService();
 
         RecordingPluginContext(PluginLogger logger) { this.logger = logger; }
 
@@ -95,6 +132,8 @@ class MeshPluginTest {
         @Override public PluginPaths paths() { throw new UnsupportedOperationException(); }
         @Override public CubismFacade cubism() { throw new UnsupportedOperationException(); }
         @Override public CubismReadCapabilityService cubismRead() { return new FixedCubismRead(); }
+        @Override public MeshMirrorAxisService meshMirrorAxis() { return meshMirrorAxis; }
+        @Override public RecordingMeshEditUiService meshEditUi() { return meshEditUi; }
         @Override public List<PluginPermission> permissions() { return List.of(); }
         @Override public EventBus eventBus() { throw new UnsupportedOperationException(); }
         @Override public RecordingActionRegistry actions() { return actions; }
@@ -124,6 +163,22 @@ class MeshPluginTest {
         @Override public Optional<ThemeStatusSnapshot> themeStatus() { throw unsupported(); }
         private static UnsupportedOperationException unsupported() {
             return new UnsupportedOperationException("not used");
+        }
+    }
+
+    private static final class RecordingMeshMirrorAxisService implements MeshMirrorAxisService {
+        private float angle;
+        @Override public float currentAngleDegrees() { return angle; }
+        @Override public void setCurrentAngleDegrees(float angleDegrees) {
+            angle = angleDegrees > 180.0f ? angleDegrees - 360.0f : angleDegrees;
+        }
+    }
+
+    private static final class RecordingMeshEditUiService implements MeshEditUiService {
+        private MirrorAxisAngleControl control;
+        @Override public Registration contributeMirrorAxisAngleControl(MirrorAxisAngleControl contribution) {
+            control = contribution;
+            return () -> control = null;
         }
     }
 
