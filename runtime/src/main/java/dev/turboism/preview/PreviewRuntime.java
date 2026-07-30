@@ -144,6 +144,10 @@ public final class PreviewRuntime implements AutoCloseable {
         final TurboismHomeLayout layout = TurboismHomeLayout.create(requestedHome);
         final Path home = layout.home();
         LegacyHomeMigration.migrate(home);
+        final var pendingPlugins = new dev.turboism.pluginmanagement.PendingPluginOperations(home).apply();
+        if (!pendingPlugins.applied()) {
+            throw new IOException(pendingPlugins.code());
+        }
 
         final PreviewLog log = new PreviewLog(layout.runtimeLogsDir().resolve("turboism.log"));
         RuntimeScheduler scheduler = null;
