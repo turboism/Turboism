@@ -19,6 +19,7 @@ include(
     "plugins:project-panel",
     "plugins:psd-import",
     "plugins:texture-atlas",
+    "plugins:physics-editor",
     "testframework",
     "tests"
 )

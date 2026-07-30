@@ -44,7 +44,10 @@ class QueryServiceListenerCleanupTest {
         environment.disposableScope().close();
         host.clearSelection();
         host.select("mesh-face");
-        environment.context().selectionQuery().currentSelection();
+        org.junit.jupiter.api.Assertions.assertThrows(
+            CubismServiceException.class,
+            () -> environment.context().selectionQuery().currentSelection()
+        );
 
         assertEquals(List.of(), events);
     }

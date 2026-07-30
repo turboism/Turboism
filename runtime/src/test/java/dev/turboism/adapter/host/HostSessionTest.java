@@ -386,11 +386,6 @@ class HostSessionTest {
             @Override public AdapterResult<Registration> notifyStatus(StatusNotification ignored) {
                 return AdapterResult.available(registration);
             }
-            @Override public AdapterResult<Registration> contributePaletteToolbar(
-                dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry.PaletteToolbarContribution ignored
-            ) {
-                return AdapterResult.available(() -> { });
-            }
         };
     }
 
@@ -532,17 +527,10 @@ class HostSessionTest {
                     }
                 });
             }
-
-            @Override
-            public AdapterResult<Registration> contributePaletteToolbar(
-                dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry.PaletteToolbarContribution contribution
-            ) {
-                return AdapterResult.available(() -> { });
-            }
         };
         return new RuntimeHostAdapters(
             safe.themeStatus(), safe.renderStatus(), safe.projectWorkspace(), safe.clipMaskRead(),
-            statusToolbar, safe.mainToolbar(), safe.uiSurface()
+            statusToolbar, safe.uiSurface()
         );
     }
 
@@ -555,13 +543,6 @@ class HostSessionTest {
             public AdapterResult<Registration> notifyStatus(StatusNotification notification) {
                 return AdapterResult.available(registrationCloses::incrementAndGet);
             }
-
-            @Override
-            public AdapterResult<Registration> contributePaletteToolbar(
-                dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry.PaletteToolbarContribution contribution
-            ) {
-                return AdapterResult.available(registrationCloses::incrementAndGet);
-            }
         };
         return new RuntimeHostAdapters(
             safe.themeStatus(),
@@ -569,8 +550,7 @@ class HostSessionTest {
             safe.projectWorkspace(),
             safe.clipMaskRead(),
             statusToolbar,
-            safe.mainToolbar(),
-            safe.uiSurface()
+                        safe.uiSurface()
         );
     }
 
@@ -588,7 +568,7 @@ class HostSessionTest {
             );
         return new RuntimeHostAdapters(
             safe.themeStatus(), safe.renderStatus(), safe.projectWorkspace(), clipMask,
-            safe.statusToolbar(), safe.mainToolbar(), safe.uiSurface()
+            safe.statusToolbar(), safe.uiSurface()
         );
     }
 
@@ -610,8 +590,7 @@ class HostSessionTest {
             projectWorkspace,
             safe.clipMaskRead(),
             safe.statusToolbar(),
-            safe.mainToolbar(),
-            safe.uiSurface()
+                        safe.uiSurface()
         );
     }
 }

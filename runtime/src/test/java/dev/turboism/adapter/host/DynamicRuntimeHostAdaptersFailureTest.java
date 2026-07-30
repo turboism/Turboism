@@ -80,17 +80,10 @@ class DynamicRuntimeHostAdaptersFailureTest {
                 throwIfPresent(adapterFailure);
                 return AdapterResult.available(() -> { });
             }
-
-            @Override
-            public AdapterResult<Registration> contributePaletteToolbar(
-                final dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry.PaletteToolbarContribution contribution
-            ) {
-                return AdapterResult.available(() -> { });
-            }
         };
         dynamic.connect(new RuntimeHostAdapters(
             safe.themeStatus(), safe.renderStatus(), safe.projectWorkspace(), safe.clipMaskRead(),
-            statusToolbar, safe.mainToolbar(), safe.uiSurface()
+            statusToolbar, safe.uiSurface()
         ));
         dynamic.onOutermostAdapterCallComplete(() -> throwIfPresent(cleanupFailure));
         return dynamic;
