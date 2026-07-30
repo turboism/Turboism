@@ -49,9 +49,11 @@ public final class ObjectContextMenuAppendNativeMethodTransformer implements Cla
             throw new IllegalArgumentException("object context-menu append operation must return void");
         }
         final Type append = Type.getMethodType(appendDescriptor);
-        if (append.getArgumentTypes().length != 1 || append.getReturnType().getSort() != Type.VOID) {
-            throw new IllegalArgumentException("object context-menu append selector must accept one item");
-        }
+        if (append.getArgumentTypes().length != 2 || append.getReturnType().getSort() != Type.VOID) {
+            throw new IllegalArgumentException(
+                "object context-menu append selector must accept item and constraints"
+            );
+    }
     }
 
     @Override
@@ -104,8 +106,11 @@ public final class ObjectContextMenuAppendNativeMethodTransformer implements Cla
                             && appendOwnerInternalName.equals(owner)
                             && appendMethodName.equals(name)
                             && appendDescriptor.equals(invokedDescriptor)) {
-                            super.visitInsn(Opcodes.DUP2);
-                            super.visitInsn(Opcodes.POP);
+                            // Stack is menu, item, constraints. Duplicate the menu below both
+                            // arguments so the original append invocation remains untouched.
+                            super.visitInsn(Opcodes.DUP2_X1);
+                            super.visitInsn(Opcodes.POP2);
+                            super.visitInsn(Opcodes.DUP_X2);
                             super.visitLdcInsn(location.name());
                             super.visitVarInsn(Opcodes.ALOAD, 0);
                             super.visitMethodInsn(
