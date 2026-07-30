@@ -45,23 +45,23 @@ record ObjectContextMenuHostProfile(List<VerifiedObjectContextMenuHookInstaller.
             append(
                 "deformer", "com/live2d/cubism/view/palette/deformer/b", "a",
                 "(Ljava/awt/event/MouseEvent;)V", "b", "(" + ITEM + ")V",
-                Location.DEFORMER_TAB, 11
+                Location.DEFORMER_TAB, 11, 0
             ),
             append(
                 "parameter", "com/live2d/cubism/view/palette/parameter/aL", "a",
                 "(Ljava/awt/event/MouseEvent;)V", "b", "(" + ITEM + ")V",
-                Location.PARAMETER_TAB, 1
+                Location.PARAMETER_TAB, 1, 0
             ),
             append(
                 "parts", "com/live2d/cubism/view/palette/parts/" + partsOwner, "a",
                 "(Ljava/awt/event/MouseEvent;)V", "b", "(" + ITEM + ")V",
-                Location.PART_TAB, partsAppends
+                Location.PART_TAB, partsAppends, 0
             ),
             append(
                 "workspace", "com/live2d/cubism/view/context/U", "b",
                 "(Lcom/live2d/cubism/view/context/actionManager/N;)V", "a",
                 "(" + ITEM + "Ljava/awt/GridBagConstraints;)V",
-                Location.WORKSPACE_OBJECT, workspaceAppends
+                Location.WORKSPACE_OBJECT, workspaceAppends, 1
             )
         ));
     }
@@ -74,14 +74,16 @@ record ObjectContextMenuHostProfile(List<VerifiedObjectContextMenuHookInstaller.
         final String appendMethod,
         final String appendDescriptor,
         final Location location,
-        final int expectedAppends
+        final int expectedAppends,
+        final int sourceLocal
     ) {
         return VerifiedObjectContextMenuHookInstaller.Binding.appendPoint(
             StaticSelector.method("object-context-menu." + id, owner, method, descriptor, 0),
             StaticSelector.method("object-context-menu." + id + ".append", MENU, appendMethod, appendDescriptor, 0),
             location,
             expectedAppends,
-            1
+            1,
+            sourceLocal
         );
     }
 }
