@@ -45,15 +45,6 @@ final class PreviewPluginLoadCoordinator {
     LocalPluginRuntime.LoadReport loadAll() {
         final List<LocalPluginRuntime.PluginFailure> failures = new ArrayList<>();
         final Map<String, PreviewPluginCandidate> candidates = discovery.discover(failures);
-        final PreviewPluginCandidate externalCore = candidates.remove(
-            dev.turboism.plugin.core.CorePluginManagement.CORE_PLUGIN_ID
-        );
-        if (externalCore != null) {
-            failures.add(new LocalPluginRuntime.PluginFailure(
-                externalCore.descriptor().id(), externalCore.jar(), "PLUGIN_RESERVED_ID",
-                "External plugin packages cannot declare the Runtime-owned core ID."
-            ));
-        }
         final Set<String> configuredDisabled;
         try {
             configuredDisabled = new dev.turboism.config.RuntimeConfigRepository(
