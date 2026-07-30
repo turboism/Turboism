@@ -71,6 +71,8 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             public <T extends TurboismEvent> void publish(final T event) {
             }
         });
+    private final dev.turboism.ui.appearance.control.ControlAppearanceCoordinator controlAppearanceCoordinator =
+        new dev.turboism.ui.appearance.control.ControlAppearanceCoordinator();
     private final Object lifecycleMonitor = new Object();
 
     private State state = State.SAFE_MODE;
@@ -212,6 +214,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             dynamic.connect(candidateAdapters);
             dynamicModelAccess.connect(candidate.modelAccess());
             editorUiLifecycle.connected(editorUiGeneration);
+            controlAppearanceCoordinator.replaceHostGeneration(editorUiGeneration);
             activeConnection = candidate;
             final EditorUiProviderInstaller.Installation candidateEditorUiProviders;
             try {
@@ -330,6 +333,11 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         return appearanceCoordinator;
     }
 
+    @Override
+    public dev.turboism.ui.appearance.control.ControlAppearanceCoordinator controlAppearanceCoordinator() {
+        return controlAppearanceCoordinator;
+    }
+
     public dev.turboism.mapping.verification.VerifiedMemberResolver editorModelResolver() {
         synchronized (lifecycleMonitor) {
             if (activeConnection == null) {
@@ -365,7 +373,8 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             editorUiPluginResources,
             dockMaintenance,
             boundingBoxOverlayResolver(),
-            appearanceCoordinator
+            appearanceCoordinator,
+            controlAppearanceCoordinator
         );
     }
 
@@ -385,6 +394,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
                 return;
             }
             appearanceCoordinator.close();
+            controlAppearanceCoordinator.close();
             physicsEditorCoordinator.close();
             editorObjectLifecycle.close();
             partLifecycle.close();
@@ -438,6 +448,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     /** Registration cleanup must succeed before its owning connection can be closed. */
     private CleanupOutcome cleanupOwnedResources() {
         activeConnectionKey = null;
+        controlAppearanceCoordinator.clearHostGeneration();
         dynamicModelAccess.deactivate();
         try {
             dynamic.deactivate();
