@@ -47,6 +47,10 @@ class ObjectContextMenuNativeMethodTransformerTest {
 
         loader.define("fixture.Menu", menuClass());
         final Class<?> builderType = loader.define("fixture.Builder", transformed);
+        org.junit.jupiter.api.Assertions.assertFalse(
+            new String(transformed, java.nio.charset.StandardCharsets.ISO_8859_1)
+                .contains("dev/turboism/ui/context/NativeObjectContextMenuBridge")
+        );
         final Object builder = builderType.getConstructor().newInstance();
         final Object source = new Object();
         final List<Object> observed = new ArrayList<>();

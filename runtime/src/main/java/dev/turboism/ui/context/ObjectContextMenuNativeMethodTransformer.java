@@ -15,7 +15,7 @@ import java.util.Objects;
 /** Exact-selector transformer for one object context-menu builder. */
 public final class ObjectContextMenuNativeMethodTransformer implements ClassFileTransformer {
 
-    private static final String BRIDGE = NativeObjectContextMenuBridge.class.getName().replace('.', '/');
+    private static final String PROPERTY_PREFIX = "turboism.object-context-menu.";
 
     private final String ownerInternalName;
     private final String methodName;
@@ -82,22 +82,64 @@ public final class ObjectContextMenuNativeMethodTransformer implements ClassFile
                     @Override
                     public void visitInsn(final int opcode) {
                         if (opcode == Opcodes.ARETURN) {
-                            super.visitLdcInsn(location.name());
-                            super.visitVarInsn(Opcodes.ALOAD, 0);
-                            super.visitMethodInsn(
-                                Opcodes.INVOKESTATIC,
-                                BRIDGE,
-                                "augment",
-                                "(Ljava/lang/Object;Ljava/lang/String;Ljava/lang/Object;)Ljava/lang/Object;",
-                                false
-                            );
-                            super.visitTypeInsn(
-                                Opcodes.CHECKCAST,
-                                Type.getReturnType(descriptor).getInternalName()
-                            );
+                            emitAugmentation();
                             returnPoints[0]++;
                         }
                         super.visitInsn(opcode);
+                    }
+
+                    private void emitAugmentation() {
+                        final org.objectweb.asm.Label tryStart = new org.objectweb.asm.Label();
+                        final org.objectweb.asm.Label tryEnd = new org.objectweb.asm.Label();
+                        final org.objectweb.asm.Label callbackMissing = new org.objectweb.asm.Label();
+                        final org.objectweb.asm.Label handler = new org.objectweb.asm.Label();
+                        final org.objectweb.asm.Label complete = new org.objectweb.asm.Label();
+                        super.visitTryCatchBlock(tryStart, tryEnd, handler, "java/lang/Throwable");
+                        super.visitLabel(tryStart);
+                        super.visitInsn(Opcodes.DUP);
+                        super.visitMethodInsn(
+                            Opcodes.INVOKESTATIC,
+                            "java/lang/System",
+                            "getProperties",
+                            "()Ljava/util/Properties;",
+                            false
+                        );
+                        super.visitLdcInsn(PROPERTY_PREFIX + location.name());
+                        super.visitMethodInsn(
+                            Opcodes.INVOKEVIRTUAL,
+                            "java/util/Properties",
+                            "get",
+                            "(Ljava/lang/Object;)Ljava/lang/Object;",
+                            false
+                        );
+                        super.visitTypeInsn(Opcodes.CHECKCAST, "java/util/function/BiFunction");
+                        super.visitInsn(Opcodes.DUP);
+                        super.visitJumpInsn(Opcodes.IFNULL, callbackMissing);
+                        super.visitInsn(Opcodes.SWAP);
+                        super.visitVarInsn(Opcodes.ALOAD, 0);
+                        super.visitMethodInsn(
+                            Opcodes.INVOKEINTERFACE,
+                            "java/util/function/BiFunction",
+                            "apply",
+                            "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;",
+                            true
+                        );
+                        super.visitInsn(Opcodes.SWAP);
+                        super.visitInsn(Opcodes.POP);
+                        super.visitTypeInsn(
+                            Opcodes.CHECKCAST,
+                            Type.getReturnType(descriptor).getInternalName()
+                        );
+                        super.visitJumpInsn(Opcodes.GOTO, tryEnd);
+                        super.visitLabel(callbackMissing);
+                        super.visitInsn(Opcodes.POP);
+                        super.visitInsn(Opcodes.POP);
+                        super.visitLabel(tryEnd);
+                        super.visitJumpInsn(Opcodes.GOTO, complete);
+                        super.visitLabel(handler);
+                        super.visitInsn(Opcodes.POP);
+                        super.visitInsn(Opcodes.ACONST_NULL);
+                        super.visitLabel(complete);
                     }
                 };
             }

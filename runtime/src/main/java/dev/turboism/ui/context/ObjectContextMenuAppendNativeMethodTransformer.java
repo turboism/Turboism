@@ -15,7 +15,7 @@ import java.util.Objects;
 /** Exact-selector transformer for one object context-menu append point. */
 public final class ObjectContextMenuAppendNativeMethodTransformer implements ClassFileTransformer {
 
-    private static final String BRIDGE = NativeObjectContextMenuBridge.class.getName().replace('.', '/');
+    private static final String PROPERTY_PREFIX = "turboism.object-context-menu.";
 
     private final String ownerInternalName;
     private final String methodName;
@@ -67,7 +67,7 @@ public final class ObjectContextMenuAppendNativeMethodTransformer implements Cla
             throw new IllegalArgumentException(
                 "object context-menu append selector must accept one or two reference arguments"
             );
-    }
+        }
     }
 
     @Override
@@ -123,23 +123,39 @@ public final class ObjectContextMenuAppendNativeMethodTransformer implements Cla
                             appendPoints[0]++;
                             if (appendPoints[0] == injectionPoint) {
                                 if (appendArgumentCount == 1) {
-                                    // Stack is menu, item. Duplicate the menu below the argument.
+                                    // Stack is menu, item. Duplicate menu below the argument.
                                     super.visitInsn(Opcodes.DUP2);
                                     super.visitInsn(Opcodes.POP);
                                 } else {
-                                    // Stack is menu, item, constraints. Duplicate the menu below both arguments.
+                                    // Stack is menu, item, constraints. Duplicate menu below both arguments.
                                     super.visitInsn(Opcodes.DUP2_X1);
                                     super.visitInsn(Opcodes.POP2);
                                     super.visitInsn(Opcodes.DUP_X2);
                                 }
-                                super.visitLdcInsn(location.name());
-                                super.visitVarInsn(Opcodes.ALOAD, 0);
                                 super.visitMethodInsn(
                                     Opcodes.INVOKESTATIC,
-                                    BRIDGE,
-                                    "augment",
-                                    "(Ljava/lang/Object;Ljava/lang/String;Ljava/lang/Object;)Ljava/lang/Object;",
+                                    "java/lang/System",
+                                    "getProperties",
+                                    "()Ljava/util/Properties;",
                                     false
+                                );
+                                super.visitLdcInsn(PROPERTY_PREFIX + location.name());
+                                super.visitMethodInsn(
+                                    Opcodes.INVOKEVIRTUAL,
+                                    "java/util/Properties",
+                                    "get",
+                                    "(Ljava/lang/Object;)Ljava/lang/Object;",
+                                    false
+                                );
+                                super.visitTypeInsn(Opcodes.CHECKCAST, "java/util/function/BiFunction");
+                                super.visitInsn(Opcodes.SWAP);
+                                super.visitVarInsn(Opcodes.ALOAD, 0);
+                                super.visitMethodInsn(
+                                    Opcodes.INVOKEINTERFACE,
+                                    "java/util/function/BiFunction",
+                                    "apply",
+                                    "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;",
+                                    true
                                 );
                                 super.visitInsn(Opcodes.POP);
                             }
