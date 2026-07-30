@@ -18,7 +18,7 @@ class TextureAtlasAutoLayoutTransformerTest {
         final TextureAtlasAutoLayoutTransformer transformer = new TextureAtlasAutoLayoutTransformer(
             "fixture/AutoLayout",
             "a",
-            "(Ljava/lang/Object;)V",
+            "(Ljava/lang/Object;)Z",
             null,
             key
         );
@@ -30,18 +30,18 @@ class TextureAtlasAutoLayoutTransformerTest {
         final Object instance = type.getConstructor().newInstance();
 
         try {
-            type.getMethod("a", Object.class).invoke(instance, new Object());
+            assertFalse((Boolean) type.getMethod("a", Object.class).invoke(instance, new Object()));
             assertTrue(type.getField("nativeCalls").getInt(null) == 1);
             System.getProperties().put(key, (BooleanSupplier) () -> false);
-            type.getMethod("a", Object.class).invoke(instance, new Object());
+            assertFalse((Boolean) type.getMethod("a", Object.class).invoke(instance, new Object()));
             assertTrue(type.getField("nativeCalls").getInt(null) == 2);
             System.getProperties().put(key, (BooleanSupplier) () -> true);
-            type.getMethod("a", Object.class).invoke(instance, new Object());
+            assertTrue((Boolean) type.getMethod("a", Object.class).invoke(instance, new Object()));
             assertTrue(type.getField("nativeCalls").getInt(null) == 2);
             System.getProperties().put(key, (BooleanSupplier) () -> {
                 throw new AssertionError("callback failure");
             });
-            type.getMethod("a", Object.class).invoke(instance, new Object());
+            assertFalse((Boolean) type.getMethod("a", Object.class).invoke(instance, new Object()));
             assertTrue(type.getField("nativeCalls").getInt(null) == 3);
             assertFalse(java.util.Arrays.toString(transformed).contains("dev/turboism"));
         } finally {
@@ -70,14 +70,15 @@ class TextureAtlasAutoLayoutTransformerTest {
         constructor.visitEnd();
 
         final MethodVisitor method = writer.visitMethod(
-            Opcodes.ACC_PUBLIC, "a", "(Ljava/lang/Object;)V", null, null
+            Opcodes.ACC_PUBLIC, "a", "(Ljava/lang/Object;)Z", null, null
         );
         method.visitCode();
         method.visitFieldInsn(Opcodes.GETSTATIC, "fixture/AutoLayout", "nativeCalls", "I");
         method.visitInsn(Opcodes.ICONST_1);
         method.visitInsn(Opcodes.IADD);
         method.visitFieldInsn(Opcodes.PUTSTATIC, "fixture/AutoLayout", "nativeCalls", "I");
-        method.visitInsn(Opcodes.RETURN);
+        method.visitInsn(Opcodes.ICONST_0);
+        method.visitInsn(Opcodes.IRETURN);
         method.visitMaxs(0, 0);
         method.visitEnd();
         writer.visitEnd();

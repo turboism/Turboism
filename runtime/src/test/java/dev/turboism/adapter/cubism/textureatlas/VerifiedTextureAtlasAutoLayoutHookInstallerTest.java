@@ -77,6 +77,33 @@ class VerifiedTextureAtlasAutoLayoutHookInstallerTest {
         );
     }
 
+    @Test
+    void rejectsAuthorizedVoidUiEntry() {
+        final Instrumentation instrumentation = instrumentation(new ArrayList<>());
+        final String owner = Target.class.getName().replace('.', '/');
+        final VerifiedMemberResolver resolver = TestVerifiedResolvers.create(
+            "5.3.02",
+            VerifiedCubism5302TextureAtlasSelectorContract.ADAPTER_SLICE_ID,
+            Set.of(VerifiedTextureAtlasAutoLayoutHookInstaller.CAPABILITY_ID),
+            List.of(StaticSelector.method(
+                VerifiedTextureAtlasAutoLayoutHookInstaller.AUTO_LAYOUT_ALIAS,
+                owner,
+                "openDialog",
+                "(Ljava/lang/Object;)V",
+                StaticSelector.ACCESS_PUBLIC
+            )),
+            Target.class.getClassLoader()
+        );
+
+        assertThrows(IllegalArgumentException.class, () ->
+            VerifiedTextureAtlasAutoLayoutHookInstaller.fromVerifiedResolver(
+                instrumentation,
+                resolver,
+                Target.class.getClassLoader()
+            )
+        );
+    }
+
     private VerifiedMemberResolver resolver(final Set<String> capabilities) {
         return resolver(
             "5.3.02",
@@ -99,7 +126,7 @@ class VerifiedTextureAtlasAutoLayoutHookInstallerTest {
                 VerifiedTextureAtlasAutoLayoutHookInstaller.AUTO_LAYOUT_ALIAS,
                 owner,
                 "a",
-                "(Ljava/lang/Object;)V",
+                "(Ljava/lang/Object;)Z",
                 StaticSelector.ACCESS_PUBLIC
             )),
             Target.class.getClassLoader()
@@ -139,6 +166,7 @@ class VerifiedTextureAtlasAutoLayoutHookInstallerTest {
     }
 
     public static final class Target {
-        public void a(final Object settings) { }
+        public boolean a(final Object cancellation) { return false; }
+        public void openDialog(final Object settings) { }
     }
 }

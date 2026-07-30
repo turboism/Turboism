@@ -61,7 +61,7 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
         }
         final StaticSelector entry = verified.verifiedSelector(AUTO_LAYOUT_ALIAS);
         if (entry.kind() != StaticSelector.Kind.METHOD
-            || !entry.descriptor().endsWith(")V")
+            || !entry.descriptor().endsWith(")Z")
             || (entry.forbiddenAccessFlags() & StaticSelector.ACCESS_STATIC) == 0) {
             throw new IllegalArgumentException("Verified texture-atlas automatic-layout selector is invalid.");
         }
