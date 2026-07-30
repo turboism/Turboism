@@ -30,8 +30,7 @@ class RuntimeStartupConfigTest {
 
     @Test
     void loadsExplicitStartupControlsFromTheCanonicalGlobalConfig() throws Exception {
-        final Path configDirectory = Files.createDirectories(temporaryHome.resolve("config"));
-        Files.writeString(configDirectory.resolve("runtime.json"), """
+        Files.writeString(temporaryHome.resolve("config.json"), """
             {
               "format": "turboism.runtime.config",
               "schemaVersion": 1,
@@ -55,11 +54,32 @@ class RuntimeStartupConfigTest {
         assertTrue(config.skipStartupInformation());
     }
 
+    @Test
+    void ignoresLegacyRuntimeConfig() throws Exception {
+        final Path legacyDirectory = Files.createDirectories(temporaryHome.resolve("config"));
+        Files.writeString(legacyDirectory.resolve("runtime.json"), configJson(true));
+
+        final RuntimeStartupConfig config = RuntimeStartupConfig.load(temporaryHome);
+
+        assertFalse(config.safeMode());
+    }
+
+    private static String configJson(final boolean safeMode) {
+        return """
+            {
+              "format": "turboism.runtime.config",
+              "schemaVersion": 1,
+              "worktreeId": "startup-test",
+              "safeMode": %s,
+              "hooks": { "startup": {} }
+            }
+            """.formatted(safeMode);
+    }
+
 
     @Test
     void rejectsTheWholeStartupPolicyWhenAnyStartupFieldHasTheWrongType() throws Exception {
-        final Path configDirectory = Files.createDirectories(temporaryHome.resolve("config"));
-        Files.writeString(configDirectory.resolve("runtime.json"), """
+        Files.writeString(temporaryHome.resolve("config.json"), """
             {
               "format": "turboism.runtime.config",
               "schemaVersion": 1,
@@ -86,8 +106,7 @@ class RuntimeStartupConfigTest {
 
     @Test
     void rejectsUnknownNestedStartupFieldsAsOneInvalidPolicy() throws Exception {
-        final Path configDirectory = Files.createDirectories(temporaryHome.resolve("config"));
-        Files.writeString(configDirectory.resolve("runtime.json"), """
+        Files.writeString(temporaryHome.resolve("config.json"), """
             {
               "format": "turboism.runtime.config",
               "schemaVersion": 1,
@@ -113,8 +132,7 @@ class RuntimeStartupConfigTest {
 
     @Test
     void safeModeOverridesEveryRequestedStartupSuppression() throws Exception {
-        final Path configDirectory = Files.createDirectories(temporaryHome.resolve("config"));
-        Files.writeString(configDirectory.resolve("runtime.json"), """
+        Files.writeString(temporaryHome.resolve("config.json"), """
             {
               "format": "turboism.runtime.config",
               "schemaVersion": 1,

@@ -60,6 +60,32 @@ class EditorUiContributionAuthorityTest {
     }
 
     @Test
+    void panelProviderCanReconcileInPlaceWithoutClosingFamilyRegistration() {
+        RuntimeEditorUiHostLifecycle lifecycle = new RuntimeEditorUiHostLifecycle();
+        long generation = lifecycle.connecting().generation();
+        IncrementalRecordingProvider provider = new IncrementalRecordingProvider();
+        provider.admit(generation);
+        lifecycle.ready(generation, Set.of(EditorUiFamily.PANEL));
+        EditorUiContributionAuthority authority = new EditorUiContributionAuthority(lifecycle);
+        authority.installProvider(provider);
+
+        Registration first = authority.contribute(panelContribution("plugin-a", "first", 0));
+        Registration second = authority.contribute(panelContribution("plugin-b", "second", 1));
+
+        assertEquals(1, provider.applied);
+        assertEquals(1, provider.reconciled);
+        assertEquals(0, provider.closedRegistrations);
+
+        second.close();
+        assertEquals(2, provider.reconciled);
+        assertEquals(0, provider.closedRegistrations);
+
+        first.close();
+        assertEquals(3, provider.reconciled);
+        assertEquals(1, provider.closedRegistrations);
+    }
+
+    @Test
     void hostReplacementRequiresFreshGenerationAdmission() {
         RuntimeEditorUiHostLifecycle lifecycle = new RuntimeEditorUiHostLifecycle();
         RecordingProvider provider = new RecordingProvider(EditorUiFamily.MENU);
@@ -164,6 +190,18 @@ class EditorUiContributionAuthorityTest {
         );
     }
 
+    private static EditorUiContribution<String> panelContribution(
+        final String pluginId,
+        final String id,
+        final int order
+    ) {
+        return new EditorUiContribution<>(
+            new EditorUiContributionIdentity(pluginId, EditorUiFamily.PANEL, id),
+            order,
+            pluginId + ":" + id
+        );
+    }
+
     private static final class RecordingProvider implements EditorUiContributionProvider {
         private static final String ARTIFACT_SHA256 = "a".repeat(64);
         private static final String RECORD_SHA256 = "b".repeat(64);
@@ -214,6 +252,71 @@ class EditorUiContributionAuthorityTest {
             generations.add(hostGeneration);
             snapshots.add(contributions.stream().map(value -> (String) value.descriptor()).toList());
             return () -> closedRegistrations++;
+        }
+    }
+
+    private static final class IncrementalRecordingProvider implements EditorUiContributionProvider {
+        private EditorUiProviderAdmission admission = EditorUiProviderAdmission.safeMode(
+            EditorUiFamily.PANEL,
+            "ui.provider.mapping-not-verified"
+        );
+        private int applied;
+        private int reconciled;
+        private int closedRegistrations;
+
+        private void admit(final long generation) {
+            admission = EditorUiProviderAdmission.admitted(
+                EditorUiFamily.PANEL,
+                generation,
+                new EditorUiProviderAdmission.VerificationEvidence(
+                    "5.3.02",
+                    42,
+                    "a".repeat(64),
+                    "adapter.editor-ui.panel",
+                    "b".repeat(64)
+                )
+            );
+        }
+
+        @Override
+        public EditorUiFamily family() {
+            return EditorUiFamily.PANEL;
+        }
+
+        @Override
+        public EditorUiProviderAdmission admission() {
+            return admission;
+        }
+
+        @Override
+        public boolean supportsIncrementalReconcile() {
+            return true;
+        }
+
+        @Override
+        public Registration apply(
+            final long hostGeneration,
+            final List<EditorUiContribution<?>> contributions
+        ) {
+            applied++;
+            return () -> closedRegistrations++;
+        }
+
+        @Override
+        public Registration reconcile(
+            final long hostGeneration,
+            final List<EditorUiContribution<?>> contributions,
+            final Registration existing
+        ) {
+            if (existing == null) {
+                return contributions.isEmpty() ? null : apply(hostGeneration, contributions);
+            }
+            reconciled++;
+            if (contributions.isEmpty()) {
+                existing.close();
+                return null;
+            }
+            return existing;
         }
     }
 }

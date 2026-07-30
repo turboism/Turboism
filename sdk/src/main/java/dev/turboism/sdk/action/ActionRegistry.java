@@ -2,6 +2,8 @@ package dev.turboism.sdk.action;
 
 import dev.turboism.sdk.plugin.Registration;
 
+import java.util.Optional;
+
 import java.util.function.Consumer;
 
 /**
@@ -20,6 +22,9 @@ public interface ActionRegistry {
     }
 
     interface ActionContext {
-        // context data provided when an action is invoked
+        /** UI control event for panel-originated actions, if this invocation has one. */
+        default Optional<UiActionEvent> uiEvent() {
+            return Optional.empty();
+        }
     }
 }

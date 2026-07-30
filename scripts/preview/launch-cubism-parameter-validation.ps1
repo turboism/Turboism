@@ -101,7 +101,7 @@ $state = Join-Path $bundleRoot "state"
 $logs = Join-Path $bundleRoot "logs"
 $turboismHome = $bundleRoot
 
-foreach ($required in @($java, $hostJar, $agent, (Join-Path $plugins "parameter.jar"), (Join-Path $plugins "parameter-validation-probe.jar"))) {
+foreach ($required in @($java, $hostJar, $agent, (Join-Path $plugins "parameter.jar"), (Join-Path $plugins "parameter-validation-probe.jar"), (Join-Path $plugins "editor-object-peer-validation-probe.jar"))) {
     if (-not (Test-Path -LiteralPath $required -PathType Leaf)) {
         throw "Required file is missing: $required"
     }

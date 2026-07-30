@@ -5,6 +5,7 @@ import dev.turboism.sdk.cubism.service.query.ModelHierarchyQueryService;
 import dev.turboism.sdk.cubism.service.query.ParameterQueryService;
 import dev.turboism.sdk.cubism.service.query.SelectionQueryService;
 import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
+import dev.turboism.sdk.cubism.physics.PhysicsEditorService;
 
 import java.util.Objects;
 
@@ -13,7 +14,8 @@ record CubismContextServices(
     ParameterQueryService parameterQueryService,
     SelectionQueryService selectionQueryService,
     ModelHierarchyQueryService modelHierarchyQueryService,
-    CubismReadCapabilityService cubismReadCapabilityService
+    CubismReadCapabilityService cubismReadCapabilityService,
+    PhysicsEditorService physicsEditorService
 ) {
 
     CubismContextServices {
@@ -22,5 +24,6 @@ record CubismContextServices(
         selectionQueryService = Objects.requireNonNull(selectionQueryService, "selectionQueryService");
         modelHierarchyQueryService = Objects.requireNonNull(modelHierarchyQueryService, "modelHierarchyQueryService");
         cubismReadCapabilityService = Objects.requireNonNull(cubismReadCapabilityService, "cubismReadCapabilityService");
+        physicsEditorService = Objects.requireNonNull(physicsEditorService, "physicsEditorService");
     }
 }

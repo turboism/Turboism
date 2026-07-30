@@ -3,6 +3,8 @@ package dev.turboism.adapter.host;
 import dev.turboism.adapter.RuntimeHostAdapters;
 import dev.turboism.adapter.cubism.lifecycle.ParameterLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.PartLifecycleCoordinator;
+import dev.turboism.adapter.cubism.lifecycle.EditorObjectLifecycleCoordinator;
+import dev.turboism.adapter.cubism.physics.PhysicsEditorCoordinator;
 import dev.turboism.sdk.event.EventBus;
 import dev.turboism.ui.action.RuntimeEditorUiActionRouter;
 import dev.turboism.ui.appearance.AppearanceCoordinator;
@@ -13,6 +15,7 @@ import dev.turboism.ui.host.EditorUiHostLifecycle;
 import dev.turboism.ui.host.RuntimeEditorUiHostLifecycle;
 import dev.turboism.ui.provider.EditorUiProviderInstaller;
 import dev.turboism.ui.toolbar.EditorUiPluginResourceRegistry;
+import dev.turboism.ui.panel.RuntimeEmbeddedPanelActivationCoordinator;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -38,18 +41,24 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         new ParameterLifecycleCoordinator();
     private final PartLifecycleCoordinator partLifecycle =
         new PartLifecycleCoordinator();
+    private final EditorObjectLifecycleCoordinator editorObjectLifecycle =
+        new EditorObjectLifecycleCoordinator();
+    private final PhysicsEditorCoordinator physicsEditorCoordinator =
+        new PhysicsEditorCoordinator();
     private final RuntimeEditorUiHostLifecycle editorUiLifecycle =
         new RuntimeEditorUiHostLifecycle();
     private final EditorUiContributionAuthority editorUiContributions =
         new EditorUiContributionAuthority(editorUiLifecycle);
+    private final RuntimeEmbeddedPanelActivationCoordinator embeddedPanelActivation =
+        new RuntimeEmbeddedPanelActivationCoordinator();
+    private final dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator dockMaintenance =
+        new dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator();
     private final RuntimeEditorUiActionRouter editorUiActionRouter =
         new RuntimeEditorUiActionRouter();
     private final EditorUiPluginResourceRegistry editorUiPluginResources =
         new EditorUiPluginResourceRegistry();
-    private final dev.turboism.ui.appearance.DynamicAppearanceHostProvider dynamicAppearance =
-        new dev.turboism.ui.appearance.DynamicAppearanceHostProvider();
     private final AppearanceCoordinator appearanceCoordinator =
-        new AppearanceCoordinator(dynamicAppearance, new EventBus() {
+        new AppearanceCoordinator(new UnavailableAppearanceHostProvider(), new EventBus() {
             @Override
             public <T extends TurboismEvent> dev.turboism.sdk.plugin.Registration subscribe(
                 final Class<T> type,
@@ -62,6 +71,8 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             public <T extends TurboismEvent> void publish(final T event) {
             }
         });
+    private final dev.turboism.ui.appearance.control.ControlAppearanceCoordinator controlAppearanceCoordinator =
+        new dev.turboism.ui.appearance.control.ControlAppearanceCoordinator();
     private final Object lifecycleMonitor = new Object();
 
     private State state = State.SAFE_MODE;
@@ -86,9 +97,19 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             slice -> new dev.turboism.mapping.verification.VerifiedMainToolbarResolverFactory().create(
                 slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
             ),
+            slice -> new dev.turboism.mapping.verification.VerifiedEmbeddedPanelResolverFactory().create(
+                slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
+            ),
+            slice -> new dev.turboism.mapping.verification.VerifiedBoundingBoxOverlayButtonResolverFactory().create(
+                slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
+            ),
             editorUiPluginResources,
             editorUiActionRouter,
-            VerifiedHostAdapterConnector.productionAppearanceProviderFactory()
+            embeddedPanelActivation,
+            slice -> new dev.turboism.mapping.verification.VerifiedTopMenuResolverFactory().create(
+                slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
+            ),
+            dockMaintenance
         );
         dynamic.onOutermostAdapterCallComplete(this::completeDeferredClose);
     }
@@ -192,8 +213,8 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             }
             dynamic.connect(candidateAdapters);
             dynamicModelAccess.connect(candidate.modelAccess());
-            dynamicAppearance.connect(candidate.appearanceProvider());
             editorUiLifecycle.connected(editorUiGeneration);
+            controlAppearanceCoordinator.replaceHostGeneration(editorUiGeneration);
             activeConnection = candidate;
             final EditorUiProviderInstaller.Installation candidateEditorUiProviders;
             try {
@@ -267,6 +288,16 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     }
 
     @Override
+    public EditorObjectLifecycleCoordinator editorObjectLifecycle() {
+        return editorObjectLifecycle;
+    }
+
+    @Override
+    public PhysicsEditorCoordinator physicsEditorCoordinator() {
+        return physicsEditorCoordinator;
+    }
+
+    @Override
     public EditorUiHostLifecycle editorUiLifecycle() {
         return editorUiLifecycle;
     }
@@ -274,6 +305,11 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     @Override
     public EditorUiContributionAuthority editorUiContributions() {
         return editorUiContributions;
+    }
+
+    @Override
+    public RuntimeEmbeddedPanelActivationCoordinator embeddedPanelActivation() {
+        return embeddedPanelActivation;
     }
 
     @Override
@@ -286,9 +322,20 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         return editorUiPluginResources;
     }
 
+
+    @Override
+    public dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator dockMaintenance() {
+        return dockMaintenance;
+    }
+
     @Override
     public AppearanceCoordinator appearanceCoordinator() {
         return appearanceCoordinator;
+    }
+
+    @Override
+    public dev.turboism.ui.appearance.control.ControlAppearanceCoordinator controlAppearanceCoordinator() {
+        return controlAppearanceCoordinator;
     }
 
     public dev.turboism.mapping.verification.VerifiedMemberResolver editorModelResolver() {
@@ -302,6 +349,14 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         }
     }
 
+    public java.util.Optional<dev.turboism.mapping.verification.VerifiedMemberResolver> boundingBoxOverlayResolver() {
+        synchronized (lifecycleMonitor) {
+            return activeConnection == null
+                ? java.util.Optional.empty()
+                : java.util.Optional.of(activeConnection.boundingBoxOverlayResolver());
+        }
+    }
+
     /** Returns a non-closeable trusted composition view while lifecycle ownership stays elsewhere. */
     public RuntimeHostAdapterAccess adapterAccess() {
         return new SessionRuntimeHostAdapterAccess(
@@ -309,11 +364,17 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             dynamicModelAccess,
             parameterLifecycle,
             partLifecycle,
+            editorObjectLifecycle,
+            physicsEditorCoordinator,
             editorUiLifecycle,
             editorUiContributions,
+            embeddedPanelActivation,
             editorUiActionRouter,
             editorUiPluginResources,
-            appearanceCoordinator
+            dockMaintenance,
+            boundingBoxOverlayResolver(),
+            appearanceCoordinator,
+            controlAppearanceCoordinator
         );
     }
 
@@ -333,10 +394,14 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
                 return;
             }
             appearanceCoordinator.close();
+            controlAppearanceCoordinator.close();
+            physicsEditorCoordinator.close();
+            editorObjectLifecycle.close();
             partLifecycle.close();
             parameterLifecycle.close();
             editorUiPluginResources.close();
             editorUiActionRouter.close();
+            embeddedPanelActivation.close();
             editorUiContributions.close();
             editorUiLifecycle.close();
             commit(State.CLOSED, Optional.empty());
@@ -383,7 +448,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     /** Registration cleanup must succeed before its owning connection can be closed. */
     private CleanupOutcome cleanupOwnedResources() {
         activeConnectionKey = null;
-        dynamicAppearance.deactivate();
+        controlAppearanceCoordinator.clearHostGeneration();
         dynamicModelAccess.deactivate();
         try {
             dynamic.deactivate();

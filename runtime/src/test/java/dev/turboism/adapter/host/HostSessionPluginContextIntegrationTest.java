@@ -11,16 +11,12 @@ import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.diagnostics.CubismFacadeAuditEvent;
-import dev.turboism.sdk.appearance.AppearanceApplyResult;
-import dev.turboism.sdk.appearance.AppearanceBase;
-import dev.turboism.sdk.appearance.AppearancePalette;
-import dev.turboism.sdk.appearance.AppearanceRequest;
-import dev.turboism.sdk.appearance.AppearanceStatus;
-import dev.turboism.ui.appearance.AppearanceHostProvider;
+import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.cubism.ClipMaskSnapshot;
 import dev.turboism.sdk.cubism.ProjectSnapshot;
 import dev.turboism.sdk.cubism.WorkspaceSnapshot;
 import dev.turboism.sdk.cubism.id.ModelId;
+import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
@@ -30,7 +26,9 @@ import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.plugin.PluginPaths;
 import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.sdk.ui.EmbeddedPanelContribution;
 import dev.turboism.sdk.ui.UiScheduler;
+import dev.turboism.ui.host.EditorUiFamily;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -43,6 +41,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -62,50 +62,81 @@ class HostSessionPluginContextIntegrationTest {
     Path tempDir;
 
     @Test
-    void productionContextUsesSessionAppearanceProviderAndRestoresOnPluginScopeClose() throws Exception {
-        final AtomicReference<HostInstanceDescriptor> current = new AtomicReference<>(
-            dualDescriptor("session-appearance", "reviewed")
+    void pluginContextPublishesEmbeddedPanelsThroughTheSessionAuthorityAndCleansUp() {
+        HostSession session = new HostSession(() -> Optional.empty());
+        RuntimeScheduler scheduler = scheduler();
+        CorePluginContext context = new CorePluginContext(
+            dependencies(
+                tempDir,
+                scheduler,
+                descriptor(List.of("turboism.ui.panel.contribute")),
+                ignored -> { }
+            ),
+            session
         );
-        final RecordingAppearanceProvider provider = new RecordingAppearanceProvider();
-        final HostSession session = new HostSession(
-            () -> Optional.of(current.get()),
-            descriptor -> new HostAdapterConnection() {
-                @Override public RuntimeHostAdapters adapters() {
-                    return HostSessionPluginContextIntegrationTest.adapters(
-                        descriptor.sessionId(), new AtomicInteger()
-                    );
-                }
-                @Override public AppearanceHostProvider appearanceProvider() { return provider; }
-                @Override public void close() { }
-            }
-        );
-        final RuntimeScheduler scheduler = scheduler();
-        final DisposableScope scope = new DisposableScope();
-        final CorePluginContext.Dependencies dependencies = dependencies(
-            tempDir,
-            scheduler,
-            descriptor(List.of("turboism.ui.appearance.modify")),
-            ignored -> { },
-            scope
-        );
-        final CorePluginContext context = new CorePluginContext(dependencies, session);
 
         try {
-            assertEquals(HostSession.State.ACTIVE, session.refresh());
-            final AppearanceStatus before = context.appearance().current().toCompletableFuture().join();
-            final AppearanceApplyResult result = context.appearance().apply(new AppearanceRequest(
-                "test.theme",
-                AppearanceBase.DARK,
-                new AppearancePalette(
-                    "#112233", "#223344", "#334455", "#445566", "#DDEEFF",
-                    "#AABBCC", "#556677", "#FFFFFF", "#667788", "#101820"
-                ),
-                before.revision()
-            )).toCompletableFuture().join();
+            Registration panel = context.uiHost().contributeEmbeddedPanel(new EmbeddedPanelContribution(
+                "turboism.panel.main",
+                "Turboism",
+                "right",
+                0
+            ));
 
-            assertEquals(AppearanceApplyResult.Outcome.APPLIED, result.outcome());
-            scope.close();
-            assertEquals(1, provider.restoreCount);
+            assertEquals(
+                List.of("turboism.panel.main"),
+                session.editorUiContributions().contributions(EditorUiFamily.PANEL).stream()
+                    .map(contribution -> contribution.identity().contributionId())
+                    .toList()
+            );
+            panel.close();
+            assertTrue(session.editorUiContributions().contributions(EditorUiFamily.PANEL).isEmpty());
+        } finally {
+            session.close();
+            scheduler.shutdown();
+        }
+    }
+
+    @Test
+    void pluginContextBindsItsRuntimeActionRegistryToTheSessionRouterUntilScopeClose() throws Exception {
+        HostSession session = new HostSession(() -> Optional.empty());
+        RuntimeScheduler scheduler = scheduler();
+        CorePluginContext.Dependencies dependencies = dependencies(
+            tempDir,
+            scheduler,
+            descriptor(List.of("turboism.action.register")),
+            ignored -> { }
+        );
+        CorePluginContext context = new CorePluginContext(dependencies, session);
+        AtomicInteger invocations = new AtomicInteger();
+        CountDownLatch invoked = new CountDownLatch(1);
+
+        try {
+            context.actions().register("open-settings", new ActionRegistry.Action() {
+                @Override public String id() { return "open-settings"; }
+                @Override public String label() { return "Open settings"; }
+                @Override public java.util.function.Consumer<ActionRegistry.ActionContext> handler() {
+                    return ignored -> {
+                        invocations.incrementAndGet();
+                        invoked.countDown();
+                    };
+                }
+            });
+
+            session.editorUiActionRouter().invoke(
+                "dev.turboism.plugin.host-session-test",
+                "open-settings"
+            );
+            assertTrue(invoked.await(2, TimeUnit.SECONDS));
+            assertEquals(1, invocations.get());
+
+            dependencies.disposableScope().close();
+            session.editorUiActionRouter().invoke(
+                "dev.turboism.plugin.host-session-test",
+                "open-settings"
+            );
+            Thread.sleep(100L);
+            assertEquals(1, invocations.get());
         } finally {
             session.close();
             scheduler.shutdown();
@@ -202,6 +233,54 @@ class HostSessionPluginContextIntegrationTest {
         } finally {
             session.close();
             scheduler.shutdown();
+        }
+    }
+
+    @Test
+    void pluginScopeCloseInvalidatesOnlyThatContextsCubismReferences() throws Exception {
+        final AtomicReference<HostInstanceDescriptor> current = new AtomicReference<>();
+        final HostSession session = new HostSession(
+            () -> Optional.ofNullable(current.get()),
+            descriptor -> HostAdapterConnection.of(
+                RuntimeHostAdapters.safeMode(),
+                fixedModelAccess(descriptor.sessionId())
+            )
+        );
+        final RuntimeScheduler firstScheduler = scheduler();
+        final RuntimeScheduler secondScheduler = scheduler();
+        final CorePluginContext.Dependencies firstDependencies = dependencies(
+            tempDir.resolve("first"),
+            firstScheduler,
+            descriptor(List.of("turboism.cubism.model.read")),
+            ignored -> { }
+        );
+        final CorePluginContext.Dependencies secondDependencies = dependencies(
+            tempDir.resolve("second"),
+            secondScheduler,
+            descriptor(List.of("turboism.cubism.model.read")),
+            ignored -> { }
+        );
+        final CorePluginContext first = new CorePluginContext(firstDependencies, session);
+        final CorePluginContext second = new CorePluginContext(secondDependencies, session);
+
+        try {
+            current.set(dualDescriptor("model-scope", "reviewed-scope"));
+            assertEquals(HostSession.State.ACTIVE, session.refresh());
+            final CubismModel stale = first.cubism().model().active();
+            assertEquals(new ModelId("model-scope"), stale.id());
+            assertEquals(new ModelId("model-scope"), second.cubism().model().active().id());
+
+            firstDependencies.disposableScope().close();
+
+            assertThrows(IllegalStateException.class, stale::id);
+            assertThrows(IllegalStateException.class, () -> first.cubism().model());
+            assertEquals(HostSession.State.ACTIVE, session.state());
+            assertEquals(new ModelId("model-scope"), second.cubism().model().active().id());
+        } finally {
+            secondDependencies.disposableScope().close();
+            session.close();
+            firstScheduler.shutdown();
+            secondScheduler.shutdown();
         }
     }
 
@@ -366,27 +445,6 @@ class HostSessionPluginContextIntegrationTest {
         );
     }
 
-    private static CorePluginContext.Dependencies dependencies(
-        final Path dataDir,
-        final RuntimeScheduler scheduler,
-        final PluginDescriptor descriptor,
-        final java.util.function.Consumer<CubismFacadeAuditEvent> auditSink,
-        final DisposableScope scope
-    ) {
-        return new CorePluginContext.Dependencies(
-            descriptor,
-            logger(),
-            paths(dataDir),
-            uiScheduler(),
-            scheduler,
-            diagnostics(),
-            scope,
-            emptyHostSnapshotSource(),
-            auditSink,
-            CLOCK
-        );
-    }
-
     private static RuntimeScheduler scheduler() {
         List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         return new RuntimeScheduler(
@@ -395,38 +453,6 @@ class HostSessionPluginContextIntegrationTest {
             SidecarDispatcher.noop(),
             events::add
         );
-    }
-
-    private static final class RecordingAppearanceProvider implements AppearanceHostProvider {
-        private AppearanceStatus status = new AppearanceStatus(
-            AppearanceStatus.Availability.AVAILABLE,
-            AppearanceStatus.Source.NATIVE,
-            Optional.empty(),
-            AppearanceBase.NATIVE,
-            0,
-            Optional.empty()
-        );
-        private int restoreCount;
-
-        @Override public boolean isAvailable() { return true; }
-        @Override public AppearanceStatus readStatus() { return status; }
-        @Override public RestorePoint captureRestorePoint() { return new Point(status); }
-        @Override public ApplyOutcome apply(final AppearanceRequest request) {
-            status = new AppearanceStatus(
-                AppearanceStatus.Availability.AVAILABLE,
-                AppearanceStatus.Source.PLUGIN_OVERLAY,
-                Optional.of(request.appearanceId()),
-                request.base(),
-                status.revision() + 1,
-                Optional.empty()
-            );
-            return ApplyOutcome.APPLIED;
-        }
-        @Override public void restore(final RestorePoint restorePoint) {
-            restoreCount++;
-            status = ((Point) restorePoint).status();
-        }
-        private record Point(AppearanceStatus status) implements RestorePoint { }
     }
 
     private static PluginDescriptor descriptor(final List<String> permissionIds) {
@@ -571,8 +597,7 @@ class HostSessionPluginContextIntegrationTest {
             projectWorkspace,
             clipMask,
             safe.statusToolbar(),
-            safe.mainToolbar(),
-            safe.uiSurface()
+                        safe.uiSurface()
         );
     }
 }
