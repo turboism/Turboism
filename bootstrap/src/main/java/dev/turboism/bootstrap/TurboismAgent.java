@@ -25,6 +25,8 @@ public final class TurboismAgent {
     private static final AtomicReference<PreviewRuntime> RUNTIME = new AtomicReference<>();
     private static final AtomicReference<VerifiedParameterHookInstaller> PARAMETER_HOOK =
         new AtomicReference<>();
+    private static final AtomicReference<VerifiedDockTabPopupHookInstaller> DOCK_TAB_POPUP_HOOK =
+        new AtomicReference<>();
     private static final AtomicReference<StartupSuppressionInstaller.Installation> STARTUP_SUPPRESSION =
         new AtomicReference<>();
 
@@ -153,6 +155,11 @@ public final class TurboismAgent {
                 return;
             }
             installParameterHook(runtime, instrumentation, host);
+            installDockTabPopupHook(
+                embeddedPanelVerificationRecord,
+                instrumentation,
+                host
+            );
             Runtime.getRuntime().addShutdownHook(new Thread(TurboismAgent::shutdown, "turboism-shutdown"));
             System.err.println(
                 "Turboism Developer Preview started: host=" + runtime.hostState()
@@ -216,6 +223,36 @@ public final class TurboismAgent {
         }
     }
 
+    private static void installDockTabPopupHook(
+        final Path embeddedPanelVerificationRecord,
+        final Instrumentation instrumentation,
+        final HostClassLocator.LocatedHost host
+    ) {
+        VerifiedDockTabPopupHookInstaller installer = null;
+        try {
+            final var resolver = new dev.turboism.mapping.verification.VerifiedEmbeddedPanelResolverFactory()
+                .create(
+                    embeddedPanelVerificationRecord,
+                    host.artifact(),
+                    host.classLoader()
+                );
+            installer = new VerifiedDockTabPopupHookInstaller(
+                instrumentation,
+                resolver.verifiedSelector("cubism.ui-panel.dock-tab-popup.operation"),
+                resolver.verifiedSelector("cubism.ui-panel.dock-tab-popup.palette-field"),
+                resolver.verifiedSelector("cubism.ui-panel.dock-tab-popup.menu-append"),
+                host.classLoader()
+            );
+            installer.install();
+            if (!DOCK_TAB_POPUP_HOOK.compareAndSet(null, installer)) installer.close();
+        } catch (Throwable failure) {
+            if (installer != null) installer.close();
+            System.err.println(
+                "Turboism dock-tab popup hook disabled safely: " + failure.getClass().getName()
+            );
+        }
+    }
+
     private static Path defaultHome() {
         final String configured = System.getProperty("turboism.home");
         if (configured != null && !configured.isBlank()) {
@@ -250,6 +287,14 @@ public final class TurboismAgent {
                 startupSuppression.close();
             } catch (Throwable failure) {
                 System.err.println("Turboism startup suppression cleanup failed safely");
+            }
+        }
+        final VerifiedDockTabPopupHookInstaller dockTabPopupHook = DOCK_TAB_POPUP_HOOK.getAndSet(null);
+        if (dockTabPopupHook != null) {
+            try {
+                dockTabPopupHook.close();
+            } catch (Throwable failure) {
+                System.err.println("Turboism dock-tab popup hook cleanup failed safely");
             }
         }
         final VerifiedParameterHookInstaller parameterHook = PARAMETER_HOOK.getAndSet(null);

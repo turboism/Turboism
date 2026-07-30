@@ -5,24 +5,28 @@ import dev.turboism.ui.contribution.EditorUiContribution;
 import dev.turboism.ui.host.EditorUiFamily;
 
 import java.util.Objects;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
 
-/** One runtime-owned item under the bounded Turboism top-menu root. */
+/** One plugin-owned item under an arbitrary top-level and nested menu path. */
 public record TopMenuItemDescriptor(
     String pluginId,
     String contributionId,
     String nativeItemId,
+    String rootLabel,
+    List<String> submenuPath,
     String label,
     String actionId,
     int order
-) {
-
-    static final String ROOT_LABEL = "Turboism";
-
+    ) {
     public TopMenuItemDescriptor {
         pluginId = requireText(pluginId, "pluginId");
         contributionId = requireText(contributionId, "contributionId");
         nativeItemId = requireText(nativeItemId, "nativeItemId");
+        rootLabel = requireText(rootLabel, "rootLabel");
+        submenuPath = List.copyOf(Objects.requireNonNull(submenuPath, "submenuPath"));
+        submenuPath.forEach(segment -> requireText(segment, "submenuPath segment"));
         label = requireText(label, "label");
         actionId = requireText(actionId, "actionId");
     }
@@ -37,27 +41,26 @@ public record TopMenuItemDescriptor(
         if (!(contribution.descriptor() instanceof MenuRegistry.MenuContribution payload)) {
             throw new IllegalArgumentException("top-menu contribution payload is not a menu contribution");
         }
-        final String[] path = Objects.requireNonNull(payload.menuPath(), "menuPath")
-            .split("/", -1);
-        if (path.length != 2) {
-            if (path.length > 0 && ROOT_LABEL.equals(path[0].trim())) {
-                throw new IllegalArgumentException(
-                    "Turboism top-menu path must contain exactly one item segment"
-                );
-            }
-            return Optional.empty();
+        final List<String> path = Arrays.stream(
+                Objects.requireNonNull(payload.menuPath(), "menuPath").split("/", -1)
+            )
+            .map(String::trim)
+            .toList();
+        if (path.size() < 2) {
+            throw new IllegalArgumentException(
+                "top-menu path must contain a top-level menu and a leaf item"
+            );
         }
-        final String root = path[0].trim();
-        if (!ROOT_LABEL.equals(root)) {
-            return Optional.empty();
-        }
+        path.forEach(segment -> requireText(segment, "menuPath segment"));
         final String pluginId = contribution.identity().pluginId();
         final String contributionId = contribution.identity().contributionId();
         return Optional.of(new TopMenuItemDescriptor(
             pluginId,
             contributionId,
             "turboism.menu." + pluginId + "." + contributionId,
-            path[1].trim(),
+            path.get(0),
+            path.subList(1, path.size() - 1),
+            path.get(path.size() - 1),
             payload.actionId(),
             contribution.order()
         ));

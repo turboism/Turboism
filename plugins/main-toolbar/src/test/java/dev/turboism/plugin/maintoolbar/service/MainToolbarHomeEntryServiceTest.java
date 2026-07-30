@@ -32,11 +32,14 @@ import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
 import org.junit.jupiter.api.Test;
 
+import java.io.InputStream;
 import java.nio.file.Path;
+import java.security.MessageDigest;
 import java.util.Locale;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.HexFormat;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -45,8 +48,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class MainToolbarHomeEntryServiceTest {
 
     @Test
-    void packagedToolbarIconExists() {
-        assertNotNull(MainToolbarHomeEntryService.class.getResource("/icons/main-toolbar-home.png"));
+    void packagedToolbarIconsMatchReviewedLegacyAssets() throws Exception {
+        assertEquals(
+            "79ce45cc0ff477224ba5b3484fd5c0175c869ece823baeb62ff3c777a4e45586",
+            sha256Resource("/icons/main-toolbar-home.png")
+        );
+        assertEquals(
+            "85b256dc4a5d2b6a0c9d6db8c119b14c0afd5634e8d0b66db7fe5cb17b53ec68",
+            sha256Resource("/icons/main-toolbar-home-hover.png")
+        );
     }
 
     @Test
@@ -112,6 +122,14 @@ class MainToolbarHomeEntryServiceTest {
     }
 
 
+    private static String sha256Resource(final String path) throws Exception {
+        try (InputStream stream = MainToolbarHomeEntryService.class.getResourceAsStream(path)) {
+            assertNotNull(stream, "missing packaged toolbar icon " + path);
+            return HexFormat.of().formatHex(
+                MessageDigest.getInstance("SHA-256").digest(stream.readAllBytes())
+            );
+        }
+    }
     private static MainToolbarHomeEntryService service(final RecordingUiHost uiHost) {
         final MenuRegistry menus = contribution -> () -> { };
         final PluginLocalization localization = new PluginLocalization() {

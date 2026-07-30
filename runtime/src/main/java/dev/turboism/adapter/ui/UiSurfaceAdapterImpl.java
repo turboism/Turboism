@@ -2,9 +2,7 @@ package dev.turboism.adapter.ui;
 
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.DialogRequest;
-import dev.turboism.sdk.ui.EmbeddedPanelContribution;
 import dev.turboism.sdk.ui.FileChooserRequest;
-import dev.turboism.sdk.ui.OverlayContribution;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -28,12 +26,6 @@ public final class UiSurfaceAdapterImpl implements UiSurfaceAdapter {
     }
 
     @Override
-    public AdapterResult<Registration> contributeOverlay(final OverlayContribution contribution) {
-        Objects.requireNonNull(contribution, "contribution");
-        return withCapability(Capability.OVERLAY_CONTRIBUTE, operations -> operations.contributeOverlay(contribution));
-    }
-
-    @Override
     public AdapterResult<Registration> openDialog(final DialogRequest request) {
         Objects.requireNonNull(request, "request");
         return withCapability(Capability.DIALOG_CONTRIBUTE, operations -> operations.openDialog(request));
@@ -43,12 +35,6 @@ public final class UiSurfaceAdapterImpl implements UiSurfaceAdapter {
     public AdapterResult<Boolean> confirmDialog(final DialogRequest request) {
         Objects.requireNonNull(request, "request");
         return withCapability(Capability.DIALOG_CONTRIBUTE, operations -> operations.confirmDialog(request));
-    }
-
-    @Override
-    public AdapterResult<Registration> contributeEmbeddedPanel(final EmbeddedPanelContribution contribution) {
-        Objects.requireNonNull(contribution, "contribution");
-        return withCapability(Capability.PANEL_CONTRIBUTE, operations -> operations.contributeEmbeddedPanel(contribution));
     }
 
     @Override

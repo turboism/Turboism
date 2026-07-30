@@ -16,6 +16,7 @@ import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.sdk.storage.PluginStorage;
 import dev.turboism.sdk.task.PluginTaskScheduler;
+import dev.turboism.sdk.runtime.RuntimeSettingsService;
 import dev.turboism.sdk.ui.UiHostCapabilityService;
 import dev.turboism.sdk.ui.UserFileAccessService;
 import dev.turboism.sdk.ui.UiScheduler;
@@ -104,6 +105,11 @@ public interface PluginContext {
 
     default PluginConfigRegistry config() {
         throw new UnsupportedOperationException("config registry is not available");
+    }
+
+
+    default RuntimeSettingsService runtimeSettings() {
+        throw new UnsupportedOperationException("runtime settings service is not available");
     }
 
     UiScheduler uiScheduler();

@@ -35,6 +35,11 @@ public interface UiHostCapabilityService {
      */
     boolean confirmDialog(DialogRequest request);
 
+    /**
+     * Contributes a runtime-rendered panel owned by the calling plugin.
+     * Control action IDs resolve through that plugin's {@code ActionRegistry}.
+     */
+
     Registration contributeEmbeddedPanel(EmbeddedPanelContribution contribution);
 
     /**

@@ -1,6 +1,7 @@
 package dev.turboism.mapping.verification;
 
 import dev.turboism.mapping.verification.fixture.PackagePrivateConstructorHost;
+import dev.turboism.mapping.verification.fixture.PackagePrivateMethodHost;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
@@ -53,6 +54,25 @@ class VerifiedMemberResolverTest {
         assertEquals("static", resolver.invokeStatic("fixture.static-value"));
         assertEquals("instance", resolver.invoke("fixture.instance-value", new SyntheticHost()));
         assertThrows(VerifiedAccessException.class, () -> resolver.invokeStatic("fixture.unverified"));
+    }
+
+    @Test
+    void invokesExactVerifiedPublicMethodsDeclaredByPackagePrivateHostTypes() {
+        VerifiedMemberResolver resolver = new VerifiedMemberResolver(
+            plan(StaticSelector.method(
+                "fixture.package-private-owner-method",
+                internalName(PackagePrivateMethodHost.type()),
+                "value",
+                "()Ljava/lang/String;",
+                StaticSelector.ACCESS_PUBLIC
+            )),
+            SyntheticHost.class.getClassLoader()
+        );
+
+        assertEquals(
+            "package-private-owner",
+            resolver.invoke("fixture.package-private-owner-method", PackagePrivateMethodHost.create())
+        );
     }
 
     @Test
