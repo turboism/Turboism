@@ -1,6 +1,7 @@
 package dev.turboism.ui.panel;
 
 import dev.turboism.sdk.ui.EmbeddedPanelContribution;
+import dev.turboism.sdk.ui.PanelView;
 import dev.turboism.ui.contribution.EditorUiContribution;
 import dev.turboism.ui.host.EditorUiFamily;
 
@@ -12,7 +13,8 @@ public record EmbeddedPanelContributionDescriptor(
     String contributionId,
     String title,
     String placement,
-    int priority
+    int priority,
+    PanelView content
 ) {
 
     public EmbeddedPanelContributionDescriptor {
@@ -20,6 +22,7 @@ public record EmbeddedPanelContributionDescriptor(
         contributionId = requireText(contributionId, "contributionId");
         title = requireText(title, "title");
         placement = requireText(placement, "placement");
+        content = Objects.requireNonNull(content, "content");
     }
 
     public static EmbeddedPanelContributionDescriptor from(
@@ -41,7 +44,8 @@ public record EmbeddedPanelContributionDescriptor(
             panel.id(),
             panel.title(),
             panel.placement(),
-            panel.priority()
+            panel.priority(),
+            panel.content()
         );
     }
 

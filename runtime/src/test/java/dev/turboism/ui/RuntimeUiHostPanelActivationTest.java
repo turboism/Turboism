@@ -1,6 +1,5 @@
 package dev.turboism.ui;
 
-import dev.turboism.adapter.ui.MainToolbarAdapterImpl;
 import dev.turboism.adapter.ui.StatusToolbarAdapterImpl;
 import dev.turboism.adapter.ui.UiSurfaceAdapterImpl;
 import dev.turboism.permissions.PermissionChecker;
@@ -33,7 +32,6 @@ class RuntimeUiHostPanelActivationTest {
             UiHostStateSource.DEFAULT,
             new DisposableScope(),
             StatusToolbarAdapterImpl.safeMode(),
-            MainToolbarAdapterImpl.safeMode(),
             UiSurfaceAdapterImpl.safeMode(),
             null,
             new EditorUiContributionAuthority(new RuntimeEditorUiHostLifecycle()),

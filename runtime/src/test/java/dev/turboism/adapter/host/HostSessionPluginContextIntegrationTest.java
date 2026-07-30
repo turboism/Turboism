@@ -596,8 +596,7 @@ class HostSessionPluginContextIntegrationTest {
             projectWorkspace,
             clipMask,
             safe.statusToolbar(),
-            safe.mainToolbar(),
-            safe.uiSurface()
+                        safe.uiSurface()
         );
     }
 }
