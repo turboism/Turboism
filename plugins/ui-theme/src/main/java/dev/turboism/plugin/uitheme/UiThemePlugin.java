@@ -80,10 +80,10 @@ public final class UiThemePlugin implements TurboismPlugin {
             APPLY_BUILTIN_ACTION_LABEL,
             ignored -> builtinThemeAppearanceService.applyDefault()
         );
-        registerMenu("Tools/Turboism/Theme Manager", MANAGER_ACTION_ID, 40);
-        registerMenu("Tools/Turboism/Import Theme Package", IMPORT_ACTION_ID, 41);
-        registerMenu("Tools/Turboism/Export Selected Theme", EXPORT_ACTION_ID, 42);
-        registerMenu("Tools/Turboism/Delete Selected Theme", DELETE_ACTION_ID, 43);
+        registerMenu("Turboism/Theme Manager", MANAGER_ACTION_ID, 40);
+        registerMenu("Turboism/Import Theme Package", IMPORT_ACTION_ID, 41);
+        registerMenu("Turboism/Export Selected Theme", EXPORT_ACTION_ID, 42);
+        registerMenu("Turboism/Delete Selected Theme", DELETE_ACTION_ID, 43);
         registerContextMenu(new ContextMenuRegistry.ContextMenuContribution(
             MANAGER_ACTION_ID,
             MANAGER_ACTION_LABEL,
