@@ -28,6 +28,7 @@ public final class ObjectContextMenuAppendNativeMethodTransformer implements Cla
     private final int appendArgumentCount;
     private final int expectedAppendPoints;
     private final int injectionPoint;
+    private final int sourceLocal;
 
     public ObjectContextMenuAppendNativeMethodTransformer(
         final String ownerInternalName,
@@ -39,7 +40,8 @@ public final class ObjectContextMenuAppendNativeMethodTransformer implements Cla
         final String appendDescriptor,
         final Location location,
         final int expectedAppendPoints,
-        final int injectionPoint
+        final int injectionPoint,
+        final int sourceLocal
     ) {
         this.ownerInternalName = requireText(ownerInternalName, "ownerInternalName");
         this.methodName = requireText(methodName, "methodName");
@@ -54,6 +56,10 @@ public final class ObjectContextMenuAppendNativeMethodTransformer implements Cla
         }
         this.expectedAppendPoints = expectedAppendPoints;
         this.injectionPoint = injectionPoint;
+        if (sourceLocal < 0) {
+            throw new IllegalArgumentException("source local must not be negative");
+        }
+        this.sourceLocal = sourceLocal;
         final Type method = Type.getMethodType(descriptor);
         if (method.getReturnType().getSort() != Type.VOID) {
             throw new IllegalArgumentException("object context-menu append operation must return void");
@@ -149,7 +155,7 @@ public final class ObjectContextMenuAppendNativeMethodTransformer implements Cla
                                 );
                                 super.visitTypeInsn(Opcodes.CHECKCAST, "java/util/function/BiFunction");
                                 super.visitInsn(Opcodes.SWAP);
-                                super.visitVarInsn(Opcodes.ALOAD, 0);
+                                super.visitVarInsn(Opcodes.ALOAD, sourceLocal);
                                 super.visitMethodInsn(
                                     Opcodes.INVOKEINTERFACE,
                                     "java/util/function/BiFunction",

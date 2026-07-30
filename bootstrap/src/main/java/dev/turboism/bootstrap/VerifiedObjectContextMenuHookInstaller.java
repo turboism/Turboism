@@ -90,7 +90,8 @@ final class VerifiedObjectContextMenuHookInstaller implements AutoCloseable {
         Location location,
         Shape shape,
         int expectedAppendPoints,
-        int injectionPoint
+        int injectionPoint,
+        int sourceLocal
     ) {
         Binding {
             operation = requireInstanceMethod(operation, "operation");
@@ -105,13 +106,16 @@ final class VerifiedObjectContextMenuHookInstaller implements AutoCloseable {
                 && (expectedAppendPoints <= 0 || injectionPoint <= 0 || injectionPoint > expectedAppendPoints)) {
                 throw new IllegalArgumentException("append cardinality and injection point must be positive and bounded");
             }
-            if (shape == Shape.RETURN_POINT && (expectedAppendPoints != 0 || injectionPoint != 0)) {
+            if (shape == Shape.APPEND_POINT && sourceLocal < 0) {
+                throw new IllegalArgumentException("append-point source local must not be negative");
+            }
+            if (shape == Shape.RETURN_POINT && (expectedAppendPoints != 0 || injectionPoint != 0 || sourceLocal != 0)) {
                 throw new IllegalArgumentException("return-point binding must not declare append cardinality");
             }
         }
 
         static Binding returnPoint(final StaticSelector operation, final Location location) {
-            return new Binding(operation, null, location, Shape.RETURN_POINT, 0, 0);
+            return new Binding(operation, null, location, Shape.RETURN_POINT, 0, 0, 0);
         }
 
         static Binding appendPoint(
@@ -119,10 +123,12 @@ final class VerifiedObjectContextMenuHookInstaller implements AutoCloseable {
             final StaticSelector append,
             final Location location,
             final int expectedAppendPoints,
-            final int injectionPoint
+            final int injectionPoint,
+            final int sourceLocal
         ) {
             return new Binding(
-                operation, append, location, Shape.APPEND_POINT, expectedAppendPoints, injectionPoint
+                operation, append, location, Shape.APPEND_POINT,
+                expectedAppendPoints, injectionPoint, sourceLocal
             );
         }
 
@@ -146,7 +152,8 @@ final class VerifiedObjectContextMenuHookInstaller implements AutoCloseable {
                 append.descriptor(),
                 location,
                 expectedAppendPoints,
-                injectionPoint
+                injectionPoint,
+                sourceLocal
             );
         }
 
