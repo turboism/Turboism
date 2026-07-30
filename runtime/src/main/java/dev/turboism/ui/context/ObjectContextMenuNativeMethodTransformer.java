@@ -36,12 +36,8 @@ public final class ObjectContextMenuNativeMethodTransformer implements ClassFile
         this.expectedClassLoader = Objects.requireNonNull(expectedClassLoader, "expectedClassLoader");
         this.location = Objects.requireNonNull(location, "location");
         final Type method = Type.getMethodType(descriptor);
-        if (method.getReturnType().getSort() != Type.OBJECT
-            || method.getArgumentTypes().length == 0
-            || method.getArgumentTypes()[0].getSort() != Type.OBJECT) {
-            throw new IllegalArgumentException(
-                "object context-menu operation must accept a source object and return a menu object"
-            );
+        if (method.getReturnType().getSort() != Type.OBJECT) {
+            throw new IllegalArgumentException("object context-menu operation must return a menu object");
         }
     }
 
@@ -74,6 +70,11 @@ public final class ObjectContextMenuNativeMethodTransformer implements ClassFile
                 final MethodVisitor delegate = super.visitMethod(
                     access, name, methodDescriptor, signature, exceptions
                 );
+                if ((access & Opcodes.ACC_STATIC) != 0
+                    && methodName.equals(name)
+                    && descriptor.equals(methodDescriptor)) {
+                    return delegate;
+                }
                 if (!methodName.equals(name) || !descriptor.equals(methodDescriptor)) {
                     return delegate;
                 }
@@ -82,7 +83,7 @@ public final class ObjectContextMenuNativeMethodTransformer implements ClassFile
                     public void visitInsn(final int opcode) {
                         if (opcode == Opcodes.ARETURN) {
                             super.visitLdcInsn(location.name());
-                            super.visitVarInsn(Opcodes.ALOAD, firstArgumentLocal(access));
+                            super.visitVarInsn(Opcodes.ALOAD, 0);
                             super.visitMethodInsn(
                                 Opcodes.INVOKESTATIC,
                                 BRIDGE,
@@ -104,9 +105,6 @@ public final class ObjectContextMenuNativeMethodTransformer implements ClassFile
         return returnPoints[0] == 1 ? writer.toByteArray() : null;
     }
 
-    private static int firstArgumentLocal(final int access) {
-        return (access & Opcodes.ACC_STATIC) == 0 ? 1 : 0;
-    }
 
     private static String requireText(final String value, final String name) {
         Objects.requireNonNull(value, name);
