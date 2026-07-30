@@ -50,8 +50,8 @@ final class PluginManagementPackageFixture {
 
     private static String descriptor(final String id, final String version, final String entrypoint) {
         return "{\"format\":\"turboism.plugin.meta\",\"schemaVersion\":2,\"id\":\"" + id
-            + "\",\"name\":\"Example\",\"version\":\"" + version + "\",\"description\":\"Example\"," 
-            + "\"entrypoints\":[\"" + entrypoint + "\"],\"turboismApi\":\"[0.1.0,0.2.0)\"," 
+            + "\",\"name\":\"Example\",\"version\":\"" + version + "\",\"description\":\"Example\","
+            + "\"entrypoints\":[\"" + entrypoint + "\"],\"turboismApi\":\"[0.1.0,0.2.0)\","
             + "\"authors\":[{\"name\":\"Test\"}],\"license\":\"Test\",\"website\":\"https://example.test\",\"resources\":[],"
             + "\"i18n\":{\"baseName\":\"META-INF/turboism/i18n/messages\",\"locales\":[]},"
             + "\"dependencies\":[],\"permissions\":[],\"capabilities\":[],"
