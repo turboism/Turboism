@@ -99,7 +99,7 @@ class VerifiedTextureAtlasAutoLayoutHookInstallerTest {
                 VerifiedTextureAtlasAutoLayoutHookInstaller.AUTO_LAYOUT_ALIAS,
                 owner,
                 "a",
-                "(Ljava/lang/Object;)Z",
+                "(Ljava/lang/Object;)V",
                 StaticSelector.ACCESS_PUBLIC
             )),
             Target.class.getClassLoader()
@@ -139,6 +139,6 @@ class VerifiedTextureAtlasAutoLayoutHookInstallerTest {
     }
 
     public static final class Target {
-        public boolean a(final Object cancellation) { return false; }
+        public void a(final Object settings) { }
     }
 }
