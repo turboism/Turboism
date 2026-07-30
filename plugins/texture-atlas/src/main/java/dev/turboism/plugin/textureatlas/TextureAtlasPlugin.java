@@ -101,7 +101,17 @@ public final class TextureAtlasPlugin implements TurboismPlugin {
     private boolean applyFromNativeEntry() {
         try {
             final TextureAtlasLayoutApplyResult result = autoLayoutService().applyAutomaticLayout();
-            return result.status().isPresent();
+            if (result.status().isPresent()) {
+                context.logger().info(
+                    "Texture Atlas native automatic-layout result status=" + result.status().orElseThrow()
+                );
+                return true;
+            }
+            context.logger().warn(
+                "Texture Atlas native automatic-layout result failureCode="
+                    + result.failureCode().orElseThrow()
+            );
+            return false;
         } catch (RuntimeException | Error failure) {
             if (context != null) {
                 context.logger().error("Texture Atlas native automatic-layout entry failed safely.", failure);
