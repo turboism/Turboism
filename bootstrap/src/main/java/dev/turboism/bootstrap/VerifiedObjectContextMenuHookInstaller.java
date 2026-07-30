@@ -75,7 +75,9 @@ final class VerifiedObjectContextMenuHookInstaller implements AutoCloseable {
         StaticSelector operation,
         StaticSelector append,
         Location location,
-        Shape shape
+        Shape shape,
+        int expectedAppendPoints,
+        int injectionPoint
     ) {
         Binding {
             operation = requireInstanceMethod(operation, "operation");
@@ -86,18 +88,29 @@ final class VerifiedObjectContextMenuHookInstaller implements AutoCloseable {
             } else if (append != null) {
                 throw new IllegalArgumentException("return-point binding must not declare append selector");
             }
+            if (shape == Shape.APPEND_POINT
+                && (expectedAppendPoints <= 0 || injectionPoint <= 0 || injectionPoint > expectedAppendPoints)) {
+                throw new IllegalArgumentException("append cardinality and injection point must be positive and bounded");
+            }
+            if (shape == Shape.RETURN_POINT && (expectedAppendPoints != 0 || injectionPoint != 0)) {
+                throw new IllegalArgumentException("return-point binding must not declare append cardinality");
+            }
         }
 
         static Binding returnPoint(final StaticSelector operation, final Location location) {
-            return new Binding(operation, null, location, Shape.RETURN_POINT);
+            return new Binding(operation, null, location, Shape.RETURN_POINT, 0, 0);
         }
 
         static Binding appendPoint(
             final StaticSelector operation,
             final StaticSelector append,
-            final Location location
+            final Location location,
+            final int expectedAppendPoints,
+            final int injectionPoint
         ) {
-            return new Binding(operation, append, location, Shape.APPEND_POINT);
+            return new Binding(
+                operation, append, location, Shape.APPEND_POINT, expectedAppendPoints, injectionPoint
+            );
         }
 
         ClassFileTransformer transformer(final ClassLoader hostClassLoader) {
@@ -118,7 +131,9 @@ final class VerifiedObjectContextMenuHookInstaller implements AutoCloseable {
                 append.ownerInternalName(),
                 append.memberName(),
                 append.descriptor(),
-                location
+                location,
+                expectedAppendPoints,
+                injectionPoint
             );
         }
 

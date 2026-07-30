@@ -26,6 +26,8 @@ public final class ObjectContextMenuAppendNativeMethodTransformer implements Cla
     private final String appendDescriptor;
     private final Location location;
     private final int appendArgumentCount;
+    private final int expectedAppendPoints;
+    private final int injectionPoint;
 
     public ObjectContextMenuAppendNativeMethodTransformer(
         final String ownerInternalName,
@@ -35,7 +37,9 @@ public final class ObjectContextMenuAppendNativeMethodTransformer implements Cla
         final String appendOwnerInternalName,
         final String appendMethodName,
         final String appendDescriptor,
-        final Location location
+        final Location location,
+        final int expectedAppendPoints,
+        final int injectionPoint
     ) {
         this.ownerInternalName = requireText(ownerInternalName, "ownerInternalName");
         this.methodName = requireText(methodName, "methodName");
@@ -45,6 +49,11 @@ public final class ObjectContextMenuAppendNativeMethodTransformer implements Cla
         this.appendMethodName = requireText(appendMethodName, "appendMethodName");
         this.appendDescriptor = requireText(appendDescriptor, "appendDescriptor");
         this.location = Objects.requireNonNull(location, "location");
+        if (expectedAppendPoints <= 0 || injectionPoint <= 0 || injectionPoint > expectedAppendPoints) {
+            throw new IllegalArgumentException("append cardinality and injection point must be positive and bounded");
+        }
+        this.expectedAppendPoints = expectedAppendPoints;
+        this.injectionPoint = injectionPoint;
         final Type method = Type.getMethodType(descriptor);
         if (method.getReturnType().getSort() != Type.VOID) {
             throw new IllegalArgumentException("object context-menu append operation must return void");
@@ -111,34 +120,36 @@ public final class ObjectContextMenuAppendNativeMethodTransformer implements Cla
                             && appendOwnerInternalName.equals(owner)
                             && appendMethodName.equals(name)
                             && appendDescriptor.equals(invokedDescriptor)) {
-                            if (appendArgumentCount == 1) {
-                                // Stack is menu, item. Duplicate the menu below the argument.
-                                super.visitInsn(Opcodes.DUP2);
-                                super.visitInsn(Opcodes.POP);
-                            } else {
-                                // Stack is menu, item, constraints. Duplicate the menu below both arguments.
-                                super.visitInsn(Opcodes.DUP2_X1);
-                                super.visitInsn(Opcodes.POP2);
-                                super.visitInsn(Opcodes.DUP_X2);
-                            }
-                            super.visitLdcInsn(location.name());
-                            super.visitVarInsn(Opcodes.ALOAD, 0);
-                            super.visitMethodInsn(
-                                Opcodes.INVOKESTATIC,
-                                BRIDGE,
-                                "augment",
-                                "(Ljava/lang/Object;Ljava/lang/String;Ljava/lang/Object;)Ljava/lang/Object;",
-                                false
-                            );
-                            super.visitInsn(Opcodes.POP);
                             appendPoints[0]++;
+                            if (appendPoints[0] == injectionPoint) {
+                                if (appendArgumentCount == 1) {
+                                    // Stack is menu, item. Duplicate the menu below the argument.
+                                    super.visitInsn(Opcodes.DUP2);
+                                    super.visitInsn(Opcodes.POP);
+                                } else {
+                                    // Stack is menu, item, constraints. Duplicate the menu below both arguments.
+                                    super.visitInsn(Opcodes.DUP2_X1);
+                                    super.visitInsn(Opcodes.POP2);
+                                    super.visitInsn(Opcodes.DUP_X2);
+                                }
+                                super.visitLdcInsn(location.name());
+                                super.visitVarInsn(Opcodes.ALOAD, 0);
+                                super.visitMethodInsn(
+                                    Opcodes.INVOKESTATIC,
+                                    BRIDGE,
+                                    "augment",
+                                    "(Ljava/lang/Object;Ljava/lang/String;Ljava/lang/Object;)Ljava/lang/Object;",
+                                    false
+                                );
+                                super.visitInsn(Opcodes.POP);
+                            }
                         }
                         super.visitMethodInsn(opcode, owner, name, invokedDescriptor, isInterface);
                     }
                 };
             }
         }, ClassReader.EXPAND_FRAMES);
-        return appendPoints[0] == 1 ? writer.toByteArray() : null;
+        return appendPoints[0] == expectedAppendPoints ? writer.toByteArray() : null;
     }
 
 
