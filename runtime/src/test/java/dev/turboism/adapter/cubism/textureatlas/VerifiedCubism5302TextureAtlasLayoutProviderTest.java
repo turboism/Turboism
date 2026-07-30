@@ -48,6 +48,7 @@ class VerifiedCubism5302TextureAtlasLayoutProviderTest {
         assertEquals(1, fixture.data.applyCount);
         assertEquals(List.of("Update TextureAtlas"), fixture.document.editMode.edits);
         assertEquals(1, fixture.document.editMode.undos.size());
+        assertEquals(List.of(false), fixture.document.editMode.rollbacks);
 
         final TextureAtlasAuthoringState updated = provider.current().orElseThrow();
         assertEquals(current.revision() + 1, updated.revision());
@@ -93,6 +94,24 @@ class VerifiedCubism5302TextureAtlasLayoutProviderTest {
         assertEquals(0, fixture.data.applyCount);
         assertTrue(fixture.document.editMode.edits.isEmpty());
         assertTrue(fixture.document.editMode.undos.isEmpty());
+        assertTrue(fixture.document.editMode.rollbacks.isEmpty());
+    }
+
+    @Test
+    void failedRedoRollsBackTheEditorTransaction() {
+        final Fixture fixture = new Fixture();
+        fixture.data.failRedo = true;
+        final VerifiedCubism5302TextureAtlasLayoutProvider provider = provider(
+            resolver("5.3.02", true), "session-a", fixture
+        );
+        final TextureAtlasAuthoringState current = provider.current().orElseThrow();
+        final TextureAtlasLayoutPlan plan = new TextureAtlasLayoutPlan(16, 8, 1, List.of(
+            new TextureAtlasPlacement("texture-a", 0, 2, 1, 4, 3, false),
+            new TextureAtlasPlacement("texture-b", 0, 8, 1, 2, 2, false)
+        ));
+
+        assertThrows(RuntimeException.class, () -> provider.apply(current, plan));
+        assertEquals(List.of(true), fixture.document.editMode.rollbacks);
     }
 
     private static VerifiedCubism5302TextureAtlasLayoutProvider provider(
@@ -147,6 +166,7 @@ class VerifiedCubism5302TextureAtlasLayoutProviderTest {
             selectors.add(method("cubism.texture-atlas.affine.translate", Affine.class, "translate", "(FF)V"));
             selectors.add(method("cubism.editor-model.modeling-document.edit-mode", Document.class, "editMode", desc(EditMode.class)));
             selectors.add(method("cubism.editor-model.edit-mode.begin", EditMode.class, "beginEdit", "(Ljava/lang/String;)" + type(GroupUndo.class)));
+            selectors.add(method("cubism.editor-model.edit-mode.end", EditMode.class, "endEdit", "(ZLjava/lang/Object;)Z"));
             selectors.add(StaticSelector.constructor(
                 "cubism.texture-atlas.undo.create",
                 internal(AtlasUndo.class),
@@ -193,9 +213,14 @@ class VerifiedCubism5302TextureAtlasLayoutProviderTest {
     public static final class EditMode {
         final List<String> edits = new ArrayList<>();
         final List<AtlasUndo> undos = new ArrayList<>();
+        final List<Boolean> rollbacks = new ArrayList<>();
         public GroupUndo beginEdit(final String name) {
             edits.add(name);
             return new GroupUndo(undos);
+        }
+        public boolean endEdit(final boolean rollback, final Object callback) {
+            rollbacks.add(rollback);
+            return true;
         }
     }
 
@@ -225,6 +250,7 @@ class VerifiedCubism5302TextureAtlasLayoutProviderTest {
             textureManager.atlases.clear();
             textureManager.atlases.addAll(after);
             data.applyCount++;
+            if (data.failRedo) throw new IllegalStateException("redo failed");
         }
     }
 
@@ -248,6 +274,7 @@ class VerifiedCubism5302TextureAtlasLayoutProviderTest {
         final List<Atlas> atlases = new ArrayList<>();
         int applyCount;
         String failAtlasName;
+        boolean failRedo;
         DataModel(final Document document, final ModelSource source) {
             this.document = document;
             this.source = source;

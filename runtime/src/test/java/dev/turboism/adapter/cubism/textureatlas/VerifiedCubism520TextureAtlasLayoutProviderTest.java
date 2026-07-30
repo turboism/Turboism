@@ -48,6 +48,7 @@ class VerifiedCubism520TextureAtlasLayoutProviderTest {
         assertEquals(1, fixture.data.applyCount);
         assertEquals(List.of("Update TextureAtlas"), fixture.document.editMode.edits);
         assertEquals(1, fixture.document.editMode.undos.size());
+        assertEquals(List.of(false), fixture.document.editMode.rollbacks);
 
         final TextureAtlasAuthoringState updated = provider.current().orElseThrow();
         assertEquals(current.revision() + 1, updated.revision());
@@ -93,6 +94,7 @@ class VerifiedCubism520TextureAtlasLayoutProviderTest {
         assertEquals(0, fixture.data.applyCount);
         assertTrue(fixture.document.editMode.edits.isEmpty());
         assertTrue(fixture.document.editMode.undos.isEmpty());
+        assertTrue(fixture.document.editMode.rollbacks.isEmpty());
     }
 
     private static VerifiedCubism520TextureAtlasLayoutProvider provider(
@@ -147,6 +149,7 @@ class VerifiedCubism520TextureAtlasLayoutProviderTest {
             selectors.add(method("cubism.texture-atlas.affine.translate", Affine.class, "translate", "(FF)V"));
             selectors.add(method("cubism.editor-model.modeling-document.edit-mode", Document.class, "editMode", desc(EditMode.class)));
             selectors.add(method("cubism.editor-model.edit-mode.begin", EditMode.class, "beginEdit", "(Ljava/lang/String;)" + type(GroupUndo.class)));
+            selectors.add(method("cubism.editor-model.edit-mode.end", EditMode.class, "endEdit", "(ZLjava/lang/Object;)Z"));
             selectors.add(StaticSelector.constructor(
                 "cubism.texture-atlas.undo.create",
                 internal(AtlasUndo.class),
@@ -193,9 +196,14 @@ class VerifiedCubism520TextureAtlasLayoutProviderTest {
     public static final class EditMode {
         final List<String> edits = new ArrayList<>();
         final List<AtlasUndo> undos = new ArrayList<>();
+        final List<Boolean> rollbacks = new ArrayList<>();
         public GroupUndo beginEdit(final String name) {
             edits.add(name);
             return new GroupUndo(undos);
+        }
+        public boolean endEdit(final boolean rollback, final Object callback) {
+            rollbacks.add(rollback);
+            return true;
         }
     }
 
