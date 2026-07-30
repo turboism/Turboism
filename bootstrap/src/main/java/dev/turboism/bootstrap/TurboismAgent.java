@@ -1,6 +1,7 @@
 package dev.turboism.bootstrap;
 
 import dev.turboism.adapter.cubism.startup.StartupSuppressionInstaller;
+import dev.turboism.adapter.cubism.physics.PhysicsEditorHostProfile;
 import dev.turboism.mapping.verification.EditorModelVerificationManifest;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.preview.PreviewRuntime;
@@ -26,6 +27,8 @@ public final class TurboismAgent {
     private static final AtomicReference<VerifiedParameterHookInstaller> PARAMETER_HOOK =
         new AtomicReference<>();
     private static final AtomicReference<VerifiedDockTabPopupHookInstaller> DOCK_TAB_POPUP_HOOK =
+        new AtomicReference<>();
+    private static final AtomicReference<VerifiedPhysicsEditorHookInstaller> PHYSICS_EDITOR_HOOK =
         new AtomicReference<>();
     private static final AtomicReference<StartupSuppressionInstaller.Installation> STARTUP_SUPPRESSION =
         new AtomicReference<>();
@@ -160,6 +163,7 @@ public final class TurboismAgent {
                 instrumentation,
                 host
             );
+            installPhysicsEditorHook(runtime, instrumentation, host);
             Runtime.getRuntime().addShutdownHook(new Thread(TurboismAgent::shutdown, "turboism-shutdown"));
             System.err.println(
                 "Turboism Developer Preview started: host=" + runtime.hostState()
@@ -253,6 +257,32 @@ public final class TurboismAgent {
         }
     }
 
+    private static void installPhysicsEditorHook(
+        final PreviewRuntime runtime,
+        final Instrumentation instrumentation,
+        final HostClassLocator.LocatedHost host
+    ) {
+        VerifiedPhysicsEditorHookInstaller installer = null;
+        try {
+            final PhysicsEditorHostProfile profile = PhysicsEditorHostProfile.forArtifact(
+                HostArtifactDigest.from(host.artifact())
+            ).orElseThrow(() -> new IllegalStateException("Unsupported Physics Settings host artifact"));
+            installer = new VerifiedPhysicsEditorHookInstaller(
+                instrumentation,
+                host.classLoader(),
+                runtime.hostAccess().physicsEditorCoordinator(),
+                profile
+            );
+            installer.install();
+            if (!PHYSICS_EDITOR_HOOK.compareAndSet(null, installer)) installer.close();
+        } catch (Throwable failure) {
+            if (installer != null) installer.close();
+            System.err.println(
+                "Turboism physics editor hook disabled safely: " + failure.getClass().getName()
+            );
+        }
+    }
+
     private static Path defaultHome() {
         final String configured = System.getProperty("turboism.home");
         if (configured != null && !configured.isBlank()) {
@@ -303,6 +333,14 @@ public final class TurboismAgent {
                 parameterHook.close();
             } catch (Throwable failure) {
                 System.err.println("Turboism parameter hook cleanup failed safely");
+            }
+        }
+        final VerifiedPhysicsEditorHookInstaller physicsHook = PHYSICS_EDITOR_HOOK.getAndSet(null);
+        if (physicsHook != null) {
+            try {
+                physicsHook.close();
+            } catch (Throwable failure) {
+                System.err.println("Turboism physics editor hook cleanup failed safely");
             }
         }
         final PreviewRuntime runtime = RUNTIME.getAndSet(null);

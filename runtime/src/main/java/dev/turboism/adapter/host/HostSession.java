@@ -4,6 +4,7 @@ import dev.turboism.adapter.RuntimeHostAdapters;
 import dev.turboism.adapter.cubism.lifecycle.ParameterLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.PartLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.EditorObjectLifecycleCoordinator;
+import dev.turboism.adapter.cubism.physics.PhysicsEditorCoordinator;
 import dev.turboism.sdk.event.EventBus;
 import dev.turboism.ui.action.RuntimeEditorUiActionRouter;
 import dev.turboism.ui.appearance.AppearanceCoordinator;
@@ -42,6 +43,8 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         new PartLifecycleCoordinator();
     private final EditorObjectLifecycleCoordinator editorObjectLifecycle =
         new EditorObjectLifecycleCoordinator();
+    private final PhysicsEditorCoordinator physicsEditorCoordinator =
+        new PhysicsEditorCoordinator();
     private final RuntimeEditorUiHostLifecycle editorUiLifecycle =
         new RuntimeEditorUiHostLifecycle();
     private final EditorUiContributionAuthority editorUiContributions =
@@ -284,6 +287,11 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     }
 
     @Override
+    public PhysicsEditorCoordinator physicsEditorCoordinator() {
+        return physicsEditorCoordinator;
+    }
+
+    @Override
     public EditorUiHostLifecycle editorUiLifecycle() {
         return editorUiLifecycle;
     }
@@ -338,6 +346,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             parameterLifecycle,
             partLifecycle,
             editorObjectLifecycle,
+            physicsEditorCoordinator,
             editorUiLifecycle,
             editorUiContributions,
             embeddedPanelActivation,
@@ -364,6 +373,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
                 return;
             }
             appearanceCoordinator.close();
+            physicsEditorCoordinator.close();
             editorObjectLifecycle.close();
             partLifecycle.close();
             parameterLifecycle.close();
