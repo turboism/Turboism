@@ -45,6 +45,10 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         new EditorObjectLifecycleCoordinator();
     private final PhysicsEditorCoordinator physicsEditorCoordinator =
         new PhysicsEditorCoordinator();
+    private final dev.turboism.adapter.cubism.mesh.RuntimeMeshMirrorAxisService meshMirrorAxisService =
+        new dev.turboism.adapter.cubism.mesh.RuntimeMeshMirrorAxisService();
+    private final dev.turboism.adapter.cubism.mesh.RuntimeMeshEditUiService meshEditUiService =
+        new dev.turboism.adapter.cubism.mesh.RuntimeMeshEditUiService();
     private final RuntimeEditorUiHostLifecycle editorUiLifecycle =
         new RuntimeEditorUiHostLifecycle();
     private final EditorUiContributionAuthority editorUiContributions =
@@ -292,6 +296,16 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     }
 
     @Override
+    public dev.turboism.adapter.cubism.mesh.RuntimeMeshMirrorAxisService meshMirrorAxisService() {
+        return meshMirrorAxisService;
+    }
+
+    @Override
+    public dev.turboism.adapter.cubism.mesh.RuntimeMeshEditUiService meshEditUiService() {
+        return meshEditUiService;
+    }
+
+    @Override
     public EditorUiHostLifecycle editorUiLifecycle() {
         return editorUiLifecycle;
     }
@@ -347,6 +361,8 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             partLifecycle,
             editorObjectLifecycle,
             physicsEditorCoordinator,
+            meshMirrorAxisService,
+            meshEditUiService,
             editorUiLifecycle,
             editorUiContributions,
             embeddedPanelActivation,
@@ -377,6 +393,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             editorObjectLifecycle.close();
             partLifecycle.close();
             parameterLifecycle.close();
+            meshMirrorAxisService.setCurrentAngleDegrees(0.0f);
             editorUiPluginResources.close();
             editorUiActionRouter.close();
             embeddedPanelActivation.close();

@@ -2,6 +2,7 @@ package dev.turboism.plugin.mesh;
 
 import dev.turboism.plugin.mesh.service.MeshInspectorService;
 import dev.turboism.sdk.action.ActionRegistry;
+import dev.turboism.sdk.cubism.mesh.MeshEditUiService;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.Registration;
@@ -34,6 +35,18 @@ public final class MeshPlugin implements TurboismPlugin {
                 "Inspect Meshes",
                 ignored -> inspectorService.inspect()
             );
+            context.disposableScope().register(
+                context.meshEditUi().contributeMirrorAxisAngleControl(
+                    new MeshEditUiService.MirrorAxisAngleControl(
+                        "mesh.mirror-axis.angle",
+                        "Mirror Axis Rotation",
+                        -180.0f,
+                        180.0f,
+                        0.1f,
+                        this::setMirrorAxisAngleDegrees
+                    )
+                )
+            );
         } catch (RuntimeException failure) {
             closeDisposableScopeQuietly();
             throw failure;
@@ -49,6 +62,11 @@ public final class MeshPlugin implements TurboismPlugin {
     @Override
     public void shutdown() {
         logger.info("MeshPlugin shutdown");
+    }
+
+    /** Called by the native-position mesh-edit control. */
+    public void setMirrorAxisAngleDegrees(final float angleDegrees) {
+        context.meshMirrorAxis().setCurrentAngleDegrees(angleDegrees);
     }
 
     private void registerAction(
