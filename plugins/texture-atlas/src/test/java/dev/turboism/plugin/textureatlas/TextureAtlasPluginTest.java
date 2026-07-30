@@ -73,23 +73,33 @@ class TextureAtlasPluginTest {
         final RecordingLayoutService layouts = new RecordingLayoutService(
             java.util.Optional.of(snapshot())
         );
+        final ShellPluginContext context = new ShellPluginContext(layouts);
         final TextureAtlasPlugin plugin = new TextureAtlasPlugin();
-        plugin.init(new ShellPluginContext(layouts));
+        plugin.init(context);
 
         plugin.enable();
         final Object published = System.getProperties().get(TextureAtlasPlugin.NATIVE_AUTO_LAYOUT_CALLBACK_KEY);
         assertTrue(published instanceof BooleanSupplier);
         assertTrue(((BooleanSupplier) published).getAsBoolean());
         assertEquals(1, layouts.applyCalls);
+        assertTrue(context.infoMessages.contains(
+            "Texture Atlas native automatic-layout result status=APPLIED"
+        ));
 
         layouts.result = dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutApplyResult.noChange();
         assertTrue(((BooleanSupplier) published).getAsBoolean());
+        assertTrue(context.infoMessages.contains(
+            "Texture Atlas native automatic-layout result status=NO_CHANGE"
+        ));
 
         layouts.result = dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutApplyResult.failed(
             dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutFailureCode.PROVIDER_FAILED,
             "failed"
         );
         assertFalse(((BooleanSupplier) published).getAsBoolean());
+        assertTrue(context.warnMessages.contains(
+            "Texture Atlas native automatic-layout result failureCode=PROVIDER_FAILED"
+        ));
 
         final BooleanSupplier replacement = () -> true;
         System.getProperties().put(TextureAtlasPlugin.NATIVE_AUTO_LAYOUT_CALLBACK_KEY, replacement);
@@ -101,10 +111,12 @@ class TextureAtlasPluginTest {
         System.getProperties().remove(TextureAtlasPlugin.NATIVE_AUTO_LAYOUT_CALLBACK_KEY, replacement);
     }
     private static final class ShellPluginContext implements PluginContext {
+        private final java.util.List<String> infoMessages = new java.util.ArrayList<>();
+        private final java.util.List<String> warnMessages = new java.util.ArrayList<>();
         private final PluginLogger logger = new PluginLogger() {
             @Override public void debug(String message) {}
-            @Override public void info(String message) {}
-            @Override public void warn(String message) {}
+            @Override public void info(String message) { infoMessages.add(message); }
+            @Override public void warn(String message) { warnMessages.add(message); }
             @Override public void error(String message) {}
             @Override public void error(String message, Throwable throwable) {}
         };
