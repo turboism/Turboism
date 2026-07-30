@@ -29,7 +29,7 @@
     {
       "id": "turboism.ui.menu.contribute",
       "scope": "application",
-      "reason": "Adds the legacy theme manager and package workflow commands under Tools/Turboism."
+      "reason": "Adds theme management commands under the Turboism top-level menu."
     },
     {
       "id": "turboism.config.plugin.read",
