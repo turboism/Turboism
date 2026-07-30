@@ -8,7 +8,7 @@ import dev.turboism.adapter.cubism.physics.PhysicsEditorCoordinator;
 import dev.turboism.sdk.event.EventBus;
 import dev.turboism.ui.action.RuntimeEditorUiActionRouter;
 import dev.turboism.ui.appearance.AppearanceCoordinator;
-import dev.turboism.ui.appearance.UnavailableAppearanceHostProvider;
+import dev.turboism.ui.appearance.DynamicAppearanceHostProvider;
 import dev.turboism.ui.contribution.EditorUiContributionAuthority;
 import dev.turboism.ui.host.EditorUiHostFailure;
 import dev.turboism.ui.host.EditorUiHostLifecycle;
@@ -57,8 +57,9 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         new RuntimeEditorUiActionRouter();
     private final EditorUiPluginResourceRegistry editorUiPluginResources =
         new EditorUiPluginResourceRegistry();
+    private final DynamicAppearanceHostProvider dynamicAppearance = new DynamicAppearanceHostProvider();
     private final AppearanceCoordinator appearanceCoordinator =
-        new AppearanceCoordinator(new UnavailableAppearanceHostProvider(), new EventBus() {
+        new AppearanceCoordinator(dynamicAppearance, new EventBus() {
             @Override
             public <T extends TurboismEvent> dev.turboism.sdk.plugin.Registration subscribe(
                 final Class<T> type,
@@ -109,7 +110,8 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             slice -> new dev.turboism.mapping.verification.VerifiedTopMenuResolverFactory().create(
                 slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
             ),
-            dockMaintenance
+            dockMaintenance,
+            VerifiedHostAdapterConnector.productionAppearanceProviderFactory()
         );
         dynamic.onOutermostAdapterCallComplete(this::completeDeferredClose);
     }
@@ -213,6 +215,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             }
             dynamic.connect(candidateAdapters);
             dynamicModelAccess.connect(candidate.modelAccess());
+            dynamicAppearance.connect(candidate.appearanceProvider());
             editorUiLifecycle.connected(editorUiGeneration);
             controlAppearanceCoordinator.replaceHostGeneration(editorUiGeneration);
             activeConnection = candidate;
@@ -448,6 +451,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     /** Registration cleanup must succeed before its owning connection can be closed. */
     private CleanupOutcome cleanupOwnedResources() {
         activeConnectionKey = null;
+        dynamicAppearance.deactivate();
         controlAppearanceCoordinator.clearHostGeneration();
         dynamicModelAccess.deactivate();
         try {
