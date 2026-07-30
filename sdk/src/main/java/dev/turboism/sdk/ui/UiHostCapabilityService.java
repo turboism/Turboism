@@ -20,6 +20,8 @@ public interface UiHostCapabilityService {
 
     Registration contributeOverlay(OverlayContribution contribution);
 
+    Registration contributeBoundingBoxOverlayButton(BoundingBoxOverlayButton contribution);
+
     ContextSourceSnapshot contextSource();
 
     ViewportSnapshot viewport();
@@ -35,12 +37,21 @@ public interface UiHostCapabilityService {
      */
     boolean confirmDialog(DialogRequest request);
 
-    /** Opens a bounded runtime-rendered single-choice dialog. */
-    default Optional<String> choose(final ChoiceDialogRequest request) {
-        throw new UnsupportedOperationException("choice dialogs are not available");
-    }
+    /**
+     * Contributes a runtime-rendered panel owned by the calling plugin.
+     * Control action IDs resolve through that plugin's {@code ActionRegistry}.
+     */
 
     Registration contributeEmbeddedPanel(EmbeddedPanelContribution contribution);
+
+    /**
+     * Activates an embedded panel owned by the calling plugin.
+     *
+     * <p>Hosts that do not provide a verified panel surface fail closed.</p>
+     */
+    default void activateEmbeddedPanel(final EmbeddedPanelId panelId) {
+        throw new UnsupportedOperationException("embedded-panel activation is unavailable");
+    }
 
     Optional<String> requestFile(FileChooserRequest request);
 

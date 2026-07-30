@@ -55,7 +55,7 @@ public record RuntimeStartupConfig(
         Objects.requireNonNull(turboismHome, "turboismHome");
         Objects.requireNonNull(diagnostic, "diagnostic");
         final Path home = turboismHome.toAbsolutePath().normalize();
-        final Path configPath = home.resolve("config").resolve("runtime.json").normalize();
+        final Path configPath = home.resolve("config.json").normalize();
         if (!configPath.startsWith(home)) {
             report(diagnostic, "RUNTIME_STARTUP_CONFIG_PATH_REJECTED");
             return DISABLED;
@@ -70,7 +70,7 @@ public record RuntimeStartupConfig(
                 return DISABLED;
             }
             final JsonNode root = JSON.readTree(Files.readAllBytes(configPath));
-            if (!new RuntimeConfigValidator().validate(root, "config/runtime.json").isEmpty()) {
+            if (!new RuntimeConfigValidator().validate(root, configPath.toString()).isEmpty()) {
                 report(diagnostic, "RUNTIME_STARTUP_CONFIG_INVALID");
                 return DISABLED;
             }
