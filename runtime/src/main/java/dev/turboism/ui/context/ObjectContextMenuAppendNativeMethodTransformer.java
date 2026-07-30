@@ -45,12 +45,8 @@ public final class ObjectContextMenuAppendNativeMethodTransformer implements Cla
         this.appendDescriptor = requireText(appendDescriptor, "appendDescriptor");
         this.location = Objects.requireNonNull(location, "location");
         final Type method = Type.getMethodType(descriptor);
-        if (method.getArgumentTypes().length == 0
-            || method.getArgumentTypes()[0].getSort() != Type.OBJECT
-            || method.getReturnType().getSort() != Type.VOID) {
-            throw new IllegalArgumentException(
-                "object context-menu append operation must accept a source object and return void"
-            );
+        if (method.getReturnType().getSort() != Type.VOID) {
+            throw new IllegalArgumentException("object context-menu append operation must return void");
         }
         final Type append = Type.getMethodType(appendDescriptor);
         if (append.getArgumentTypes().length != 1 || append.getReturnType().getSort() != Type.VOID) {
@@ -87,6 +83,11 @@ public final class ObjectContextMenuAppendNativeMethodTransformer implements Cla
                 final MethodVisitor delegate = super.visitMethod(
                     access, name, methodDescriptor, signature, exceptions
                 );
+                if ((access & Opcodes.ACC_STATIC) != 0
+                    && methodName.equals(name)
+                    && descriptor.equals(methodDescriptor)) {
+                    return delegate;
+                }
                 if (!methodName.equals(name) || !descriptor.equals(methodDescriptor)) {
                     return delegate;
                 }
@@ -106,7 +107,7 @@ public final class ObjectContextMenuAppendNativeMethodTransformer implements Cla
                             super.visitInsn(Opcodes.DUP2);
                             super.visitInsn(Opcodes.POP);
                             super.visitLdcInsn(location.name());
-                            super.visitVarInsn(Opcodes.ALOAD, firstArgumentLocal(access));
+                            super.visitVarInsn(Opcodes.ALOAD, 0);
                             super.visitMethodInsn(
                                 Opcodes.INVOKESTATIC,
                                 BRIDGE,
@@ -125,9 +126,6 @@ public final class ObjectContextMenuAppendNativeMethodTransformer implements Cla
         return appendPoints[0] == 1 ? writer.toByteArray() : null;
     }
 
-    private static int firstArgumentLocal(final int access) {
-        return (access & Opcodes.ACC_STATIC) == 0 ? 1 : 0;
-    }
 
     private static String requireText(final String value, final String name) {
         Objects.requireNonNull(value, name);
