@@ -41,6 +41,8 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
     private final EditorUiPluginResourceRegistry editorUiPluginResources;
     private final dev.turboism.ui.action.RuntimeEditorUiActionRouter editorUiActionRouter;
     private final RuntimeEmbeddedPanelActivationCoordinator embeddedPanelActivation;
+    private final dev.turboism.ui.panel.PanelTabMenuCoordinator panelTabMenus;
+    private final dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator dockMaintenance;
 
     VerifiedHostAdapterConnector() {
         this(
@@ -144,19 +146,37 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         final RuntimeEmbeddedPanelActivationCoordinator embeddedPanelActivation,
         final TopMenuResolverFactory topMenuResolverFactory
     ) {
+        this(
+            factory, editorResolverFactory, editorAccessFactory, mainToolbarResolverFactory,
+            embeddedPanelResolverFactory, editorUiPluginResources, editorUiActionRouter,
+            embeddedPanelActivation, topMenuResolverFactory,
+            new dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator()
+        );
+    }
+
+    VerifiedHostAdapterConnector(
+        final VerifiedAdapterFactory factory,
+        final EditorResolverFactory editorResolverFactory,
+        final EditorAccessFactory editorAccessFactory,
+        final MainToolbarResolverFactory mainToolbarResolverFactory,
+        final EmbeddedPanelResolverFactory embeddedPanelResolverFactory,
+        final EditorUiPluginResourceRegistry editorUiPluginResources,
+        final dev.turboism.ui.action.RuntimeEditorUiActionRouter editorUiActionRouter,
+        final RuntimeEmbeddedPanelActivationCoordinator embeddedPanelActivation,
+        final TopMenuResolverFactory topMenuResolverFactory,
+        final dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator dockMaintenance
+    ) {
         this.factory = Objects.requireNonNull(factory, "factory");
-        this.editorResolverFactory = Objects.requireNonNull(
-            editorResolverFactory, "editorResolverFactory"
-        );
-        this.editorAccessFactory = Objects.requireNonNull(
-            editorAccessFactory, "editorAccessFactory"
-        );
+        this.editorResolverFactory = Objects.requireNonNull(editorResolverFactory, "editorResolverFactory");
+        this.editorAccessFactory = Objects.requireNonNull(editorAccessFactory, "editorAccessFactory");
         this.mainToolbarResolverFactory = mainToolbarResolverFactory;
         this.embeddedPanelResolverFactory = embeddedPanelResolverFactory;
         this.editorUiPluginResources = editorUiPluginResources;
         this.editorUiActionRouter = editorUiActionRouter;
         this.embeddedPanelActivation = embeddedPanelActivation;
         this.topMenuResolverFactory = topMenuResolverFactory;
+        this.panelTabMenus = new dev.turboism.ui.panel.PanelTabMenuCoordinator();
+        this.dockMaintenance = Objects.requireNonNull(dockMaintenance, "dockMaintenance");
     }
 
     @Override
@@ -278,7 +298,18 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                             verificationEvidence(panel.admission())
                         ),
                         new VerifiedEmbeddedPanelHostOperations(panel.resolver()),
-                        embeddedPanelActivation
+                        embeddedPanelActivation,
+                        editorUiActionRouter,
+                        panelTabMenus,
+                        dockMaintenance
+                    ));
+                    providers.add(new dev.turboism.ui.context.PanelTabContextMenuContributionProvider(
+                        EditorUiProviderAdmission.admitted(
+                            EditorUiFamily.CONTEXT_MENU,
+                            hostGeneration,
+                            verificationEvidence(panel.admission())
+                        ),
+                        panelTabMenus
                     ));
                 }
                 if (topMenu != null) {
@@ -293,6 +324,11 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                     ));
                 }
                 return List.copyOf(providers);
+            }
+
+            @Override
+            public dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator dockMaintenance() {
+                return dockMaintenance;
             }
 
             @Override

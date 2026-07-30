@@ -179,6 +179,7 @@ public final class EditorUiContributionAuthority implements AutoCloseable {
         final EditorUiContributionProvider provider;
         final EditorUiHostSnapshot snapshot;
         final List<EditorUiContribution<?>> familyContributions;
+        final Registration existing;
         synchronized (monitor) {
             requireOpen();
             provider = providers.get(family);
@@ -188,9 +189,10 @@ public final class EditorUiContributionAuthority implements AutoCloseable {
                 .filter(value -> value.identity().family() == family)
                 .sorted(CONTRIBUTION_ORDER)
                 .toList();
+            existing = nativeRegistrations.remove(family);
         }
-        closeNative(family);
         if (provider == null) {
+            closeNativeRegistration(family, existing);
             return;
         }
         final EditorUiProviderAdmission admission = Objects.requireNonNull(
@@ -198,6 +200,7 @@ public final class EditorUiContributionAuthority implements AutoCloseable {
             "provider.admission()"
         );
         if (admission.family() != family) {
+            closeNativeRegistration(family, existing);
             recordFailure(new EditorUiContributionFailure(
                 EditorUiContributionFailure.Code.PROVIDER_FAILED,
                 family,
@@ -206,6 +209,7 @@ public final class EditorUiContributionAuthority implements AutoCloseable {
             return;
         }
         if (!admission.isAdmitted()) {
+            closeNativeRegistration(family, existing);
             recordFailure(new EditorUiContributionFailure(
                 admission.failureCode().orElse(EditorUiContributionFailure.Code.MAPPING_NOT_VERIFIED),
                 family,
@@ -214,9 +218,11 @@ public final class EditorUiContributionAuthority implements AutoCloseable {
             return;
         }
         if (!snapshot.isReady(family)) {
+            closeNativeRegistration(family, existing);
             return;
         }
         if (!admission.isAdmittedTo(snapshot.generation())) {
+            closeNativeRegistration(family, existing);
             recordFailure(new EditorUiContributionFailure(
                 EditorUiContributionFailure.Code.MAPPING_NOT_VERIFIED,
                 family,
@@ -224,16 +230,23 @@ public final class EditorUiContributionAuthority implements AutoCloseable {
             ));
             return;
         }
-        if (familyContributions.isEmpty()) {
-            clearFailure(family);
-            return;
-        }
         final Registration nativeRegistration;
         try {
-            nativeRegistration = Objects.requireNonNull(
-                provider.apply(snapshot.generation(), familyContributions),
-                "provider.apply()"
-            );
+            if (provider.supportsIncrementalReconcile()) {
+                nativeRegistration = provider.reconcile(
+                    snapshot.generation(),
+                    familyContributions,
+                    existing
+                );
+            } else {
+                closeNativeRegistration(family, existing);
+                nativeRegistration = familyContributions.isEmpty()
+                    ? null
+                    : Objects.requireNonNull(
+                        provider.apply(snapshot.generation(), familyContributions),
+                        "provider.apply()"
+                    );
+            }
         } catch (RuntimeException | Error failure) {
             recordFailure(new EditorUiContributionFailure(
                 EditorUiContributionFailure.Code.PROVIDER_FAILED,
@@ -246,10 +259,14 @@ public final class EditorUiContributionAuthority implements AutoCloseable {
             if (closed
                 || providers.get(family) != provider
                 || !hostLifecycle.snapshot().equals(snapshot)) {
-                nativeRegistration.close();
+                if (nativeRegistration != null) {
+                    nativeRegistration.close();
+                }
                 return;
             }
-            nativeRegistrations.put(family, nativeRegistration);
+            if (nativeRegistration != null) {
+                nativeRegistrations.put(family, nativeRegistration);
+            }
             failures.remove(family);
         }
     }
@@ -259,6 +276,25 @@ public final class EditorUiContributionAuthority implements AutoCloseable {
         synchronized (monitor) {
             registration = nativeRegistrations.remove(family);
         }
+        if (registration == null) {
+            return;
+        }
+        try {
+            registration.close();
+        } catch (RuntimeException | Error failure) {
+            recordFailure(new EditorUiContributionFailure(
+                EditorUiContributionFailure.Code.PROVIDER_CLEANUP_FAILED,
+                family,
+                "Editor UI contribution cleanup failed safely."
+            ));
+            throw failure;
+        }
+    }
+
+    private void closeNativeRegistration(
+        final EditorUiFamily family,
+        final Registration registration
+    ) {
         if (registration == null) {
             return;
         }
