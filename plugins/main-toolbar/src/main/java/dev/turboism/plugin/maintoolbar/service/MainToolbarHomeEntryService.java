@@ -1,10 +1,14 @@
 package dev.turboism.plugin.maintoolbar.service;
 
-import dev.turboism.sdk.cubism.ProjectSnapshot;
-import dev.turboism.sdk.cubism.WorkspaceSnapshot;
-import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
+import dev.turboism.sdk.i18n.PluginLocalization;
+import dev.turboism.sdk.menu.MenuRegistry;
+import dev.turboism.sdk.runtime.RuntimeSettings;
+import dev.turboism.sdk.runtime.RuntimeSettingsService;
+import dev.turboism.sdk.ui.PanelView;
+
 import dev.turboism.sdk.plugin.Registration;
-import dev.turboism.sdk.ui.StatusNotification;
+import dev.turboism.sdk.ui.EmbeddedPanelContribution;
+import dev.turboism.sdk.ui.EmbeddedPanelId;
 import dev.turboism.sdk.ui.UiHostCapabilityService;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 
@@ -14,28 +18,66 @@ import java.util.Optional;
 public final class MainToolbarHomeEntryService {
 
     public static final String ACTION_ID = "main-toolbar.home-entry.open";
-    public static final String ACTION_LABEL = "Open Turboism Home";
+    public static final String ACTION_LABEL = "Open Turboism settings";
+    public static final EmbeddedPanelId TURBOISM_PANEL_ID = EmbeddedPanelId.of("turboism.panel.main");
 
     private static final String CONTRIBUTION_ID = "main-toolbar.home-entry";
-    private static final String LABEL_KEY = "main-toolbar.home-entry.label";
-    private static final String TOOLTIP_KEY = "main-toolbar.home-entry.tooltip";
+    private static final String LABEL_KEY = "main-toolbar.home.aria-label";
+    private static final String TOOLTIP_KEY = "main-toolbar.home.tooltip";
+    private static final String SETTINGS_MENU_LABEL_KEY = "main-toolbar.settings-menu.label";
+    private static final String TURBOISM_MENU_ROOT = "Turboism";
     private static final String ICON_RESOURCE_PATH = "icons/main-toolbar-home.png";
+    private static final String PANEL_TITLE = "Turboism";
+    private static final String PANEL_PLACEMENT = "right";
+    private static final int PANEL_PRIORITY = 0;
     private static final int ORDER = 10;
-    private static final String PROJECT_SUMMARY_NOTIFICATION_ID = "main-toolbar.home-entry.project-summary";
-    private static final String NO_PROJECT_NOTIFICATION_ID = "main-toolbar.home-entry.no-project";
 
-    private final CubismReadCapabilityService cubismRead;
     private final UiHostCapabilityService uiHost;
     private final MainToolbarRegistry mainToolbar;
+    private final MenuRegistry menus;
+    private final PluginLocalization localization;
+    private final RuntimeSettingsService runtimeSettings;
 
     public MainToolbarHomeEntryService(
-        final CubismReadCapabilityService cubismRead,
         final UiHostCapabilityService uiHost,
-        final MainToolbarRegistry mainToolbar
+        final MainToolbarRegistry mainToolbar,
+        final MenuRegistry menus,
+        final PluginLocalization localization
     ) {
-        this.cubismRead = Objects.requireNonNull(cubismRead, "cubismRead");
+        this(uiHost, mainToolbar, menus, localization, new RuntimeSettingsService() {
+            @Override public RuntimeSettings read() {
+                return new RuntimeSettings(false, "INFO", false, false, false);
+            }
+            @Override public RuntimeSettings save(final RuntimeSettings settings) { return settings; }
+            @Override public DockCleanupResult cleanEmptyDocks() {
+                return new DockCleanupResult("Empty dock cleanup completed.");
+            }
+        });
+    }
+
+    public MainToolbarHomeEntryService(
+        final UiHostCapabilityService uiHost,
+        final MainToolbarRegistry mainToolbar,
+        final MenuRegistry menus,
+        final PluginLocalization localization,
+        final RuntimeSettingsService runtimeSettings
+    ) {
         this.uiHost = Objects.requireNonNull(uiHost, "uiHost");
         this.mainToolbar = Objects.requireNonNull(mainToolbar, "mainToolbar");
+        this.menus = Objects.requireNonNull(menus, "menus");
+        this.localization = Objects.requireNonNull(localization, "localization");
+        this.runtimeSettings = Objects.requireNonNull(runtimeSettings, "runtimeSettings");
+    }
+
+    public Registration registerTurboismPanel() {
+        final RuntimeSettings settings = runtimeSettings.read();
+        return uiHost.contributeEmbeddedPanel(new EmbeddedPanelContribution(
+            TURBOISM_PANEL_ID.value(),
+            PANEL_TITLE,
+            PANEL_PLACEMENT,
+            PANEL_PRIORITY,
+            settingsView(settings)
+        ));
     }
 
     public Registration registerHomeEntry() {
@@ -59,30 +101,52 @@ public final class MainToolbarHomeEntryService {
         );
     }
 
-    public void showProjectSummary() {
-        final Optional<ProjectSnapshot> activeProject = cubismRead.activeProject();
-        if (activeProject.isEmpty()) {
-            uiHost.notifyStatus(new StatusNotification(
-                NO_PROJECT_NOTIFICATION_ID,
-                "WARNING",
-                "No active project is available for the Turboism home entry."
-            ));
-            return;
-        }
+    public Registration registerSettingsMenu() {
+        final String menuPath = TURBOISM_MENU_ROOT + "/" + localization.text(SETTINGS_MENU_LABEL_KEY);
+        return menus.contribute(new MenuRegistry.MenuContribution() {
+            @Override
+            public String menuPath() {
+                return menuPath;
+            }
 
-        final ProjectSnapshot project = activeProject.orElseThrow();
-        final String workspaceSummary = cubismRead.workspace()
-            .map(this::workspaceSummary)
-            .orElse("workspace unavailable");
-        uiHost.notifyStatus(new StatusNotification(
-            PROJECT_SUMMARY_NOTIFICATION_ID,
-            "INFO",
-            "Project " + project.name() + " has " + project.documents().size()
-                + " document(s); " + workspaceSummary + "."
-        ));
+            @Override
+            public String actionId() {
+                return ACTION_ID;
+            }
+
+            @Override
+            public int order() {
+                return ORDER;
+            }
+        });
     }
 
-    private String workspaceSummary(final WorkspaceSnapshot workspace) {
-        return "layout workspace " + workspace.displayName();
+    public void openTurboismPanel() {
+        uiHost.activateEmbeddedPanel(TURBOISM_PANEL_ID);
+    }
+
+
+    private static PanelView settingsView(final RuntimeSettings settings) {
+        return PanelView.column(
+            PanelView.text("Runtime"),
+            PanelView.toggle("safe-mode", "Safe Mode", settings.safeMode(), "settings.safe-mode"),
+            PanelView.select(
+                "log-level", "Log level",
+                java.util.List.of(
+                    PanelView.option("DEBUG", "Debug"), PanelView.option("INFO", "Info"),
+                    PanelView.option("WARN", "Warn"), PanelView.option("ERROR", "Error")
+                ),
+                settings.logLevel(), "settings.log-level"
+            ),
+            PanelView.separator(),
+            PanelView.text("Startup (restart required)"),
+            PanelView.toggle("skip-update", "Skip update check", settings.skipStartupUpdateCheck(), "settings.skip-update"),
+            PanelView.toggle("skip-splash", "Skip splash", settings.skipStartupSplash(), "settings.skip-splash"),
+            PanelView.toggle("skip-information", "Skip startup information", settings.skipStartupInformation(), "settings.skip-information"),
+            PanelView.button("save-settings", "Save settings", "settings.save"),
+            PanelView.separator(),
+            PanelView.text("Dock maintenance"),
+            PanelView.button("clean-empty-docks", "Clean empty docks", "settings.clean-empty-docks")
+        );
     }
 }

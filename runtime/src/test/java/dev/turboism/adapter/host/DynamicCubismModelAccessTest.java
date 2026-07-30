@@ -3,6 +3,8 @@ package dev.turboism.adapter.host;
 import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.cubism.id.ParameterGroupId;
 import dev.turboism.sdk.cubism.id.ParameterId;
+import dev.turboism.sdk.cubism.id.ArtMeshId;
+import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.model.Color;
 import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
@@ -12,6 +14,20 @@ import dev.turboism.sdk.cubism.model.ParameterGroup;
 import dev.turboism.sdk.cubism.model.ParameterGroups;
 import dev.turboism.sdk.cubism.model.ParameterType;
 import dev.turboism.sdk.cubism.model.Parameters;
+import dev.turboism.sdk.cubism.model.ArtMeshGeometry;
+import dev.turboism.sdk.cubism.model.Deformers;
+import dev.turboism.sdk.cubism.model.Glues;
+import dev.turboism.sdk.cubism.model.IntSequence;
+import dev.turboism.sdk.cubism.model.Parts;
+import dev.turboism.sdk.cubism.model.Drawable;
+import dev.turboism.sdk.cubism.model.Drawables;
+import dev.turboism.sdk.cubism.model.Point2;
+import dev.turboism.sdk.cubism.model.RotationDeformer;
+import dev.turboism.sdk.cubism.model.RotationDeformerForm;
+import dev.turboism.sdk.cubism.model.RotationDeformers;
+import dev.turboism.sdk.cubism.model.WarpDeformer;
+import dev.turboism.sdk.cubism.model.WarpDeformers;
+import dev.turboism.sdk.cubism.model.WarpGrid;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -195,6 +211,124 @@ class DynamicCubismModelAccessTest {
     }
 
     @Test
+    void sessionWrappersGuardEditorObjectReadsWritesAndFormsByGeneration() {
+        final DynamicCubismModelAccess access = new DynamicCubismModelAccess();
+        final float[] drawableOpacity = {1.0F};
+        final float[] warpOpacity = {1.0F};
+        final ArtMeshGeometry[] geometry = {new ArtMeshGeometry(
+            List.of(new Point2(0.0F, 0.0F), new Point2(1.0F, 0.0F), new Point2(0.0F, 1.0F)),
+            List.of(new Point2(0.0F, 0.0F), new Point2(1.0F, 0.0F), new Point2(0.0F, 1.0F)),
+            List.of(0, 1, 2)
+        )};
+        final WarpGrid[] grid = {new WarpGrid(
+            1,
+            1,
+            false,
+            List.of(new Point2(0.0F, 0.0F), new Point2(1.0F, 0.0F),
+                new Point2(0.0F, 1.0F), new Point2(1.0F, 1.0F))
+        )};
+        final RotationDeformerForm[] rotationForm = {
+            new RotationDeformerForm(0.0F, 0.0F, 0.0F, 1.0F, false, false)
+        };
+        final Drawable drawable = new Drawable() {
+            @Override public ArtMeshId id() { return new ArtMeshId("ArtMeshA"); }
+            @Override public float getOpacity() { return drawableOpacity[0]; }
+            @Override public void setOpacity(final float value) { drawableOpacity[0] = value; }
+            @Override public ArtMeshGeometry geometry() { return geometry[0]; }
+            @Override public void replaceGeometry(final ArtMeshGeometry value) { geometry[0] = value; }
+            @Override public byte constantFlag() { return 0; }
+            @Override public byte dynamicFlag() { return 0; }
+            @Override public dev.turboism.sdk.cubism.model.BlendMode blendMode() {
+                return dev.turboism.sdk.cubism.model.BlendMode.NORMAL;
+            }
+            @Override public int textureIndex() { return 0; }
+            @Override public int drawOrder() { return 0; }
+            @Override public int renderOrder() { return 0; }
+            @Override public Color multiplyColor() { return new Color(1.0F, 1.0F, 1.0F, 1.0F); }
+            @Override public Color screenColor() { return new Color(0.0F, 0.0F, 0.0F, 1.0F); }
+            @Override public IntSequence masks() { return emptyInts(); }
+            @Override public dev.turboism.sdk.cubism.model.FloatSequence vertexPositions() {
+                return emptyFloats();
+            }
+            @Override public dev.turboism.sdk.cubism.model.FloatSequence vertexUvs() {
+                return emptyFloats();
+            }
+            @Override public IntSequence indices() { return emptyInts(); }
+            @Override public IntSequence parameters() { return emptyInts(); }
+            @Override public int parentDeformerIndex() { return -1; }
+            @Override public int parentPartIndex() { return -1; }
+        };
+        final WarpDeformer warp = new WarpDeformer() {
+            @Override public DeformerId id() { return new DeformerId("WarpA"); }
+            @Override public float getOpacity() { return warpOpacity[0]; }
+            @Override public void setOpacity(final float value) { warpOpacity[0] = value; }
+            @Override public WarpGrid grid() { return grid[0]; }
+            @Override public void replaceGrid(final WarpGrid value) { grid[0] = value; }
+            @Override public int parentDeformerIndex() { return -1; }
+            @Override public IntSequence parameters() { return emptyInts(); }
+        };
+        final RotationDeformer rotation = new RotationDeformer() {
+            @Override public DeformerId id() { return new DeformerId("RotationA"); }
+            @Override public float baseAngle() { return 30.0F; }
+            @Override public RotationDeformerForm form() { return rotationForm[0]; }
+            @Override public void replaceForm(final RotationDeformerForm value) {
+                rotationForm[0] = value;
+            }
+            @Override public void setBaseAngle(final float angle) { }
+            @Override public int parentDeformerIndex() { return -1; }
+            @Override public IntSequence parameters() { return emptyInts(); }
+        };
+        access.connect(() -> new CubismModel() {
+            @Override public ModelId id() { return new ModelId("model-a"); }
+            @Override public Parameters parameters() { throw unsupported(); }
+            @Override public Parts parts() { throw unsupported(); }
+            @Override public Drawables drawables() {
+                return new Drawables() {
+                    @Override public List<Drawable> all() { return List.of(drawable); }
+                    @Override public Drawable find(final ArtMeshId id) { return drawable; }
+                };
+            }
+            @Override public Deformers deformers() { throw unsupported(); }
+            @Override public WarpDeformers warpDeformers() {
+                return new WarpDeformers() {
+                    @Override public List<WarpDeformer> all() { return List.of(warp); }
+                    @Override public WarpDeformer find(final DeformerId id) { return warp; }
+                };
+            }
+            @Override public RotationDeformers rotationDeformers() {
+                return new RotationDeformers() {
+                    @Override public List<RotationDeformer> all() { return List.of(rotation); }
+                    @Override public RotationDeformer find(final DeformerId id) { return rotation; }
+                };
+            }
+            @Override public Glues glues() { throw unsupported(); }
+            @Override public void update() { throw unsupported(); }
+        });
+
+        final Drawable wrappedDrawable = access.active().drawables().find(new ArtMeshId("ArtMeshA"));
+        final WarpDeformer wrappedWarp = access.active().warpDeformers().find(new DeformerId("WarpA"));
+        final RotationDeformer wrappedRotation = access.active().rotationDeformers()
+            .find(new DeformerId("RotationA"));
+        wrappedDrawable.setOpacity(0.75F);
+        wrappedWarp.setOpacity(0.5F);
+        wrappedRotation.replaceForm(new RotationDeformerForm(10.0F, 2.0F, 3.0F, 1.5F, true, false));
+        assertEquals(0.75F, wrappedDrawable.getOpacity());
+        assertEquals(0.5F, wrappedWarp.getOpacity());
+        assertEquals(10.0F, wrappedRotation.form().angle());
+
+        access.deactivate();
+        assertThrows(IllegalStateException.class, wrappedDrawable::geometry);
+        assertThrows(IllegalStateException.class, () -> wrappedDrawable.setOpacity(0.25F));
+        assertThrows(IllegalStateException.class, wrappedWarp::grid);
+        assertThrows(IllegalStateException.class, () -> wrappedWarp.setOpacity(0.25F));
+        assertThrows(IllegalStateException.class, wrappedRotation::form);
+        assertThrows(
+            IllegalStateException.class,
+            () -> wrappedRotation.replaceForm(rotationForm[0])
+        );
+    }
+
+    @Test
     void replacementDuringDelegateReadCannotReturnAnApparentlyCurrentValue() throws Exception {
         DynamicCubismModelAccess access = new DynamicCubismModelAccess();
         CountDownLatch entered = new CountDownLatch(1);
@@ -343,6 +477,20 @@ class DynamicCubismModelAccessTest {
 
     private static UnsupportedOperationException unsupported() {
         return new UnsupportedOperationException();
+    }
+
+    private static IntSequence emptyInts() {
+        return new IntSequence() {
+            @Override public int size() { return 0; }
+            @Override public int get(final int index) { throw new IndexOutOfBoundsException(index); }
+        };
+    }
+
+    private static dev.turboism.sdk.cubism.model.FloatSequence emptyFloats() {
+        return new dev.turboism.sdk.cubism.model.FloatSequence() {
+            @Override public int size() { return 0; }
+            @Override public float get(final int index) { throw new IndexOutOfBoundsException(index); }
+        };
     }
 
     private static void await(final CountDownLatch latch) {

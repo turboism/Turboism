@@ -33,6 +33,7 @@ turboism.*.config.json
 .pi-subagents/
 docs/agents/
 docs/migration/subagents/
+.artifacts/
 
 # 当前本地-only 文件，不进入远端
 00_MASTER_PROMPT_v2.md
