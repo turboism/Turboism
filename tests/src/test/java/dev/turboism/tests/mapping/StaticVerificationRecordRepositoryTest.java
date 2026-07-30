@@ -18,6 +18,7 @@ import dev.turboism.mapping.schema.MappingPackValidator;
 import dev.turboism.mapping.verification.EmbeddedPanelVerificationManifest;
 import dev.turboism.mapping.verification.MainToolbarVerificationManifest;
 import dev.turboism.mapping.verification.TopMenuVerificationManifest;
+import dev.turboism.mapping.verification.BoundingBoxOverlayButtonVerificationManifest;
 import dev.turboism.mapping.verification.ProjectWorkspaceVerificationManifest;
 import dev.turboism.mapping.verification.StaticVerificationRecordValidator;
 import org.junit.jupiter.api.Test;
@@ -42,7 +43,7 @@ class StaticVerificationRecordRepositoryTest {
     );
     private static final Path RECORDS = PROJECT_ROOT.resolve("docs/migration/verification/static");
 
-    private static final Map<String, SliceExpectation> EXPECTATIONS = withTopMenus(withEmbeddedPanels(Map.of(
+    private static final Map<String, SliceExpectation> EXPECTATIONS = withBoundingBoxOverlays(withTopMenus(withEmbeddedPanels(Map.of(
         "docs/migration/verification/static/cubism-5.2-project-workspace.json",
         new SliceExpectation(
             "m15.cubism-5.2.project-workspace.static",
@@ -213,7 +214,7 @@ class StaticVerificationRecordRepositoryTest {
             "98f4dac9a9508a6e255f6f3862608409a83e29c9009a7f0fcf517e06658164e4",
             "986bcddca88c35dc09b848ccb6737d0a70a12b2fd030a52be838ce533c687073",
             70, "[5.3.02,5.3.03)")
-    )));
+    ))));
 
     private static Map<String, SliceExpectation> withEmbeddedPanels(
         final Map<String, SliceExpectation> existing
@@ -323,6 +324,72 @@ class StaticVerificationRecordRepositoryTest {
             )
         );
         return Map.copyOf(expectations);
+    }
+
+    private static Map<String, SliceExpectation> withBoundingBoxOverlays(
+        final Map<String, SliceExpectation> existing
+    ) {
+        final LinkedHashMap<String, SliceExpectation> expectations = new LinkedHashMap<>(existing);
+        expectations.put(
+            "docs/migration/verification/static/cubism-5.2-ui-bounding-box-overlay.json",
+            boundingBoxOverlayExpectation(
+                "cubism-5.2.ui-bounding-box-overlay.static",
+                "5.2.0",
+                "cubism-5.2",
+                40_805_584L,
+                "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
+                "2f4324fdca6f212056fd1baf7339419a54d544ef2f17d1b363a17bac67717258",
+                "cubism-5.2-ui-bounding-box-overlay",
+                "[5.2.0,5.3.0)"
+            )
+        );
+        expectations.put(
+            "docs/migration/verification/static/cubism-5.3.02-ui-bounding-box-overlay.json",
+            boundingBoxOverlayExpectation(
+                "cubism-5.3.02.ui-bounding-box-overlay.static",
+                "5.3.02",
+                "cubism-5.3.02",
+                41_922_739L,
+                "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+                "13a9129df6034b5a457c37dee32d37a645f6d99a2048566b5c816a1766021b0f",
+                "cubism-5.3.02-ui-bounding-box-overlay",
+                "[5.3.02,5.3.03)"
+            )
+        );
+        return Map.copyOf(expectations);
+    }
+
+    private static SliceExpectation boundingBoxOverlayExpectation(
+        final String verificationId,
+        final String cubismVersion,
+        final String profileId,
+        final long artifactSize,
+        final String artifactSha256,
+        final String recordSha256,
+        final String packId,
+        final String versionRange
+    ) {
+        return new SliceExpectation(
+            verificationId,
+            BoundingBoxOverlayButtonVerificationManifest.ADAPTER_SLICE_ID,
+            cubismVersion,
+            profileId,
+            BoundingBoxOverlayButtonVerificationManifest.CAPABILITY_IDS,
+            "Live2D_Cubism.jar",
+            artifactSize,
+            artifactSha256,
+            recordSha256,
+            27,
+            BoundingBoxOverlayButtonVerificationManifest.REQUIRED_ALIASES,
+            BoundingBoxOverlayButtonVerificationManifest.REQUIRED_ALIASES,
+            BoundingBoxOverlayButtonVerificationManifest.REQUIRED_ALIASES,
+            Set.of(),
+            packId,
+            Path.of("cubism-ref/mapping-packs/draft/" + packId + ".json"),
+            Path.of("cubism-ref/profiles/draft/" + profileId + ".json"),
+            versionRange,
+            SliceKind.EDITOR_UI
+        );
     }
 
     private static Set<String> topMenuMethodAliases() {

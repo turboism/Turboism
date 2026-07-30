@@ -98,6 +98,9 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             slice -> new dev.turboism.mapping.verification.VerifiedEmbeddedPanelResolverFactory().create(
                 slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
             ),
+            slice -> new dev.turboism.mapping.verification.VerifiedBoundingBoxOverlayButtonResolverFactory().create(
+                slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
+            ),
             editorUiPluginResources,
             editorUiActionRouter,
             embeddedPanelActivation,
@@ -338,6 +341,14 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         }
     }
 
+    public java.util.Optional<dev.turboism.mapping.verification.VerifiedMemberResolver> boundingBoxOverlayResolver() {
+        synchronized (lifecycleMonitor) {
+            return activeConnection == null
+                ? java.util.Optional.empty()
+                : java.util.Optional.of(activeConnection.boundingBoxOverlayResolver());
+        }
+    }
+
     /** Returns a non-closeable trusted composition view while lifecycle ownership stays elsewhere. */
     public RuntimeHostAdapterAccess adapterAccess() {
         return new SessionRuntimeHostAdapterAccess(
@@ -353,6 +364,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             editorUiActionRouter,
             editorUiPluginResources,
             dockMaintenance,
+            boundingBoxOverlayResolver(),
             appearanceCoordinator
         );
     }

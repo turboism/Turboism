@@ -12,6 +12,7 @@ import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.DialogRequest;
+import dev.turboism.sdk.ui.BoundingBoxOverlayButton;
 import dev.turboism.sdk.ui.EmbeddedPanelContribution;
 import dev.turboism.sdk.ui.EmbeddedPanelId;
 import dev.turboism.sdk.ui.FileChooserRequest;
@@ -66,9 +67,12 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
     private final PluginLocalization localization;
     private final EditorUiContributionAuthority contributionAuthority;
     private final RuntimeEmbeddedPanelActivationCoordinator panelActivationCoordinator;
+    private final CallbackDispatcher callbackDispatcher;
     private final CopyOnWriteArrayList<OverlayContribution> overlays = new CopyOnWriteArrayList<>();
     private final CopyOnWriteArrayList<DialogRequest> dialogs = new CopyOnWriteArrayList<>();
     private final CopyOnWriteArrayList<EmbeddedPanelContribution> panels = new CopyOnWriteArrayList<>();
+    private final CopyOnWriteArrayList<BoundingBoxOverlayButton> boundingBoxOverlayButtons =
+        new CopyOnWriteArrayList<>();
     private final BoundedKeyedStore<String, TrackedNotification> notifications =
         new BoundedKeyedStore<>(MAX_TRANSIENT_ENTRIES);
     private final CopyOnWriteArrayList<ContextMenuRegistry.ContextMenuContribution> contextMenus = new CopyOnWriteArrayList<>();
@@ -199,6 +203,32 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         final EditorUiContributionAuthority contributionAuthority,
         final RuntimeEmbeddedPanelActivationCoordinator panelActivationCoordinator
     ) {
+        this(
+            permissionChecker,
+            pluginId,
+            stateSource,
+            disposableScope,
+            statusToolbarAdapter,
+            uiSurfaceAdapter,
+            localization,
+            contributionAuthority,
+            panelActivationCoordinator,
+            CallbackDispatcher.direct()
+        );
+    }
+
+    public RuntimeUiHostCapabilityService(
+        final PermissionChecker permissionChecker,
+        final String pluginId,
+        final UiHostStateSource stateSource,
+        final DisposableScope disposableScope,
+        final StatusToolbarAdapter statusToolbarAdapter,
+        final UiSurfaceAdapter uiSurfaceAdapter,
+        final PluginLocalization localization,
+        final EditorUiContributionAuthority contributionAuthority,
+        final RuntimeEmbeddedPanelActivationCoordinator panelActivationCoordinator,
+        final CallbackDispatcher callbackDispatcher
+    ) {
         this.permissionChecker = Objects.requireNonNull(permissionChecker, "permissionChecker");
         this.pluginId = requireText(pluginId, "pluginId");
         this.stateSource = Objects.requireNonNull(stateSource, "stateSource");
@@ -214,6 +244,7 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
             panelActivationCoordinator,
             "panelActivationCoordinator"
         );
+        this.callbackDispatcher = Objects.requireNonNull(callbackDispatcher, "callbackDispatcher");
     }
 
     @Override
@@ -232,6 +263,27 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
             contribution.priority(),
             contribution,
             overlays
+        );
+    }
+
+    @Override
+    public Registration contributeBoundingBoxOverlayButton(
+        final BoundingBoxOverlayButton contribution
+    ) {
+        Objects.requireNonNull(contribution, "contribution");
+        permissionChecker.check(
+            UI_OVERLAY_CONTRIBUTE,
+            "ui.bounding-box-overlay-button.contribute"
+        );
+        return authoritativeRegistration(
+            EditorUiFamily.BOUNDING_BOX_OVERLAY_BUTTON,
+            contribution.id(),
+            contribution.order(),
+            contribution.withOnClick(() -> callbackDispatcher.dispatch(
+                contribution.id(),
+                contribution.onClick()
+            )),
+            boundingBoxOverlayButtons
         );
     }
 
@@ -463,6 +515,18 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         };
         disposableScope.register(registration);
         return registration;
+    }
+
+    @FunctionalInterface
+    public interface CallbackDispatcher {
+        boolean dispatch(String contributionId, Runnable callback);
+
+        static CallbackDispatcher direct() {
+            return (ignored, callback) -> {
+                callback.run();
+                return true;
+            };
+        }
     }
 
     private static final class TrackedNotification {

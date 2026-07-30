@@ -20,7 +20,9 @@ tasks.processResources {
         "cubism-5.2-ui-embedded-panel.json",
         "cubism-5.3.02-ui-embedded-panel.json",
         "cubism-5.2-ui-top-menu.json",
-        "cubism-5.3.02-ui-top-menu.json"
+        "cubism-5.3.02-ui-top-menu.json",
+        "cubism-5.2-ui-bounding-box-overlay.json",
+        "cubism-5.3.02-ui-bounding-box-overlay.json"
     ).forEach { record ->
         from(rootProject.file("docs/migration/verification/static/$record")) {
             into("META-INF/turboism/verification")
