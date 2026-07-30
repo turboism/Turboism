@@ -37,6 +37,7 @@ public final class VerifiedCubism520TextureAtlasSelectorContract {
         "cubism.texture-atlas.affine.translate",
         "cubism.editor-model.modeling-document.edit-mode",
         "cubism.editor-model.edit-mode.begin",
+        "cubism.editor-model.edit-mode.end",
         "cubism.texture-atlas.undo.create",
         "cubism.texture-atlas.undo.force-redo",
         "cubism.texture-atlas.group-undo.add"
