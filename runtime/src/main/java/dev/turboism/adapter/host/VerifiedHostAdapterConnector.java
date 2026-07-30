@@ -231,11 +231,19 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         final ToolbarMaterial toolbar = toolbarMaterial(evidence);
         final PanelMaterial panel = panelMaterial(evidence);
         final TopMenuMaterial topMenu = topMenuMaterial(evidence);
-        final OverlayMaterial overlay = overlayMaterial(evidence);
+        final OverlayMaterial overlay = optionalOverlayMaterial(evidence);
         if (toolbar == null && panel == null && topMenu == null && overlay == null) {
             return HostAdapterConnection.of(adapters, modelAccess, resolver);
         }
         return connection(adapters, modelAccess, resolver, toolbar, panel, topMenu, overlay);
+    }
+
+    private OverlayMaterial optionalOverlayMaterial(final HostVerificationEvidence evidence) {
+        try {
+            return overlayMaterial(evidence);
+        } catch (Exception unavailable) {
+            return null;
+        }
     }
 
     private ToolbarMaterial toolbarMaterial(final HostVerificationEvidence evidence) throws Exception {
