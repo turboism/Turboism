@@ -42,6 +42,8 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         new PartLifecycleCoordinator();
     private final TextureAtlasLayoutCoordinator textureAtlasLayouts =
         new TextureAtlasLayoutCoordinator();
+    private final dev.turboism.adapter.cubism.textureatlas.TextureAtlasNativeInvocationCoordinator
+        textureAtlasNativeInvocations = new dev.turboism.adapter.cubism.textureatlas.TextureAtlasNativeInvocationCoordinator();
     private final EditorObjectLifecycleCoordinator editorObjectLifecycle =
         new EditorObjectLifecycleCoordinator();
     private final RuntimeEditorUiHostLifecycle editorUiLifecycle =
@@ -203,6 +205,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
                 final CleanupOutcome candidateCleanup = closeCandidate(candidate);
                 dynamicModelAccess.deactivate();
                 textureAtlasLayouts.deactivate();
+                textureAtlasNativeInvocations.deactivate();
                 try {
                     dynamic.deactivate();
                 } catch (Throwable cleanupFailure) {
@@ -299,6 +302,12 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     }
 
     @Override
+    public dev.turboism.adapter.cubism.textureatlas.TextureAtlasNativeInvocationCoordinator
+        textureAtlasNativeInvocations() {
+        return textureAtlasNativeInvocations;
+    }
+
+    @Override
     public EditorObjectLifecycleCoordinator editorObjectLifecycle() {
         return editorObjectLifecycle;
     }
@@ -359,6 +368,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             parameterLifecycle,
             partLifecycle,
             textureAtlasLayouts,
+            textureAtlasNativeInvocations,
             editorObjectLifecycle,
             editorUiLifecycle,
             editorUiContributions,
@@ -387,6 +397,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             editorObjectLifecycle.close();
             partLifecycle.close();
             textureAtlasLayouts.close();
+            textureAtlasNativeInvocations.close();
             parameterLifecycle.close();
             editorUiPluginResources.close();
             editorUiActionRouter.close();
@@ -438,6 +449,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         activeConnectionKey = null;
         dynamicModelAccess.deactivate();
         textureAtlasLayouts.deactivate();
+        textureAtlasNativeInvocations.deactivate();
         try {
             dynamic.deactivate();
         } catch (Throwable throwable) {

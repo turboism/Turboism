@@ -11,7 +11,7 @@ import java.lang.instrument.ClassFileTransformer;
 import java.security.ProtectionDomain;
 import java.util.Objects;
 
-/** Routes one exact native automatic-layout entry through a loader-neutral BooleanSupplier. */
+/** Routes one exact native automatic-layout entry through a loader-neutral Predicate receiver ingress. */
 public final class TextureAtlasAutoLayoutTransformer implements ClassFileTransformer {
 
     private final String ownerInternalName;
@@ -102,17 +102,18 @@ public final class TextureAtlasAutoLayoutTransformer implements ClassFileTransfo
                             false
                         );
                         visitInsn(Opcodes.DUP);
-                        visitTypeInsn(Opcodes.INSTANCEOF, "java/util/function/BooleanSupplier");
+                        visitTypeInsn(Opcodes.INSTANCEOF, "java/util/function/Predicate");
                         visitJumpInsn(Opcodes.IFNE, callback);
                         visitInsn(Opcodes.POP);
                         visitJumpInsn(Opcodes.GOTO, callbackEnd);
                         visitLabel(callback);
-                        visitTypeInsn(Opcodes.CHECKCAST, "java/util/function/BooleanSupplier");
+                        visitTypeInsn(Opcodes.CHECKCAST, "java/util/function/Predicate");
+                        visitVarInsn(Opcodes.ALOAD, 0);
                         visitMethodInsn(
                             Opcodes.INVOKEINTERFACE,
-                            "java/util/function/BooleanSupplier",
-                            "getAsBoolean",
-                            "()Z",
+                            "java/util/function/Predicate",
+                            "test",
+                            "(Ljava/lang/Object;)Z",
                             true
                         );
                         visitJumpInsn(Opcodes.IFEQ, callbackEnd);
