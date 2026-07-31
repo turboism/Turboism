@@ -2,6 +2,7 @@ package dev.turboism.sdk.cubism;
 
 import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
+import dev.turboism.sdk.cubism.history.CubismHistory;
 import dev.turboism.sdk.cubism.transaction.TransactionManager;
 import java.util.Optional;
 
@@ -29,6 +30,12 @@ public interface CubismFacade {
         throw new UnsupportedOperationException(
             "Unified Cubism model access is unavailable"
         );
+    }
+
+    /** Returns active-document native Undo history access when installed by Runtime. */
+    @PreviewApi
+    default CubismHistory history() {
+        return CubismHistory.unavailable();
     }
 
     /** Returns the legacy transaction manager for Preview compatibility. */

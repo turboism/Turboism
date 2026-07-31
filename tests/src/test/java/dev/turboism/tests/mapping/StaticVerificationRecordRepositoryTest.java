@@ -186,8 +186,8 @@ class StaticVerificationRecordRepositoryTest {
             "Live2D_Cubism.jar",
             40_805_584L,
             "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
-            "892f65f4d60e600842e46a3f6446ee8616cfc3ebca48a2742d6d6dc7123818bf",
-            189,
+            "1bfc1d97574dbd08405357b9453f0fc6adbeb5ebe581e9dd6c30f162bd13bae9",
+            199,
             editorModel52Aliases(),
             editorModel52Aliases(),
             editorModel52MethodAliases(),
@@ -209,7 +209,7 @@ class StaticVerificationRecordRepositoryTest {
             EditorModelVerificationManifest.ARTIFACT_SIZE,
             EditorModelVerificationManifest.ARTIFACT_SHA256,
             EditorModelVerificationManifest.RECORD_SHA256,
-            193,
+            203,
             EditorModelVerificationManifest.REQUIRED_ALIASES,
             EditorModelVerificationManifest.REQUIRED_ALIASES,
             editorModelMethodAliases(),
@@ -724,7 +724,15 @@ class StaticVerificationRecordRepositoryTest {
             "cubism.editor-model.rotation-form.set-scale",
             "cubism.editor-model.rotation-form.set-reflect-x",
             "cubism.editor-model.rotation-form.set-reflect-y",
-            "cubism.editor-model.complete-pack.update-deformer-palette"
+            "cubism.editor-model.complete-pack.update-deformer-palette",
+            "cubism.editor-history.document.undo-manager",
+            "cubism.editor-history.manager.entries",
+            "cubism.editor-history.manager.position",
+            "cubism.editor-history.manager.can-undo",
+            "cubism.editor-history.manager.can-redo",
+            "cubism.editor-history.entry.presentation-name",
+            "cubism.editor-history.entry.significant",
+            "cubism.editor-history.manager.move-to"
         );
     }
 

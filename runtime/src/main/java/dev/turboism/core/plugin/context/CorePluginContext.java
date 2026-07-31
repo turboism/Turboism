@@ -200,7 +200,8 @@ public final class CorePluginContext implements PluginContext {
             hostAccess.parameterLifecycle(),
             hostAccess.partLifecycle(),
             hostAccess.editorObjectLifecycle(),
-            hostAccess.physicsEditorCoordinator()
+            hostAccess.physicsEditorCoordinator(),
+            hostAccess.history()
         );
     }
 
