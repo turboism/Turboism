@@ -24,7 +24,7 @@ FORMAT = "turboism.pre-m16-packaging-dryrun-manifest"
 TRACE_FORMAT = "turboism.pre-m16-packaging-dryrun-trace"
 EXPECTED_PROJECTS = (
     ":plugins", ":plugins:clip-mask", ":plugins:demo", ":plugins:log-filter",
-    ":plugins:main-toolbar", ":plugins:mesh", ":plugins:parameter", ":plugins:perf-opt",
+    ":plugins:core", ":plugins:mesh", ":plugins:parameter", ":plugins:perf-opt",
     ":plugins:render-opt", ":plugins:ui-theme", ":runtime", ":sdk", ":testframework", ":tests",
 )
 EXPECTED_LIB_DIRS = {project: ("plugins" if project == ":plugins" else project.rsplit(":", 1)[-1]) for project in EXPECTED_PROJECTS}

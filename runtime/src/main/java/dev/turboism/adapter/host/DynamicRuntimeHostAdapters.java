@@ -112,27 +112,8 @@ final class DynamicRuntimeHostAdapters {
                 ) {
                     return call(adapters -> track(adapters.statusToolbar().notifyStatus(notification)));
                 }
-
-                @Override
-                public AdapterResult<Registration> contributePaletteToolbar(
-                    final dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry.PaletteToolbarContribution contribution
-                ) {
-                    return call(adapters -> track(
-                        adapters.statusToolbar().contributePaletteToolbar(contribution)
-                    ));
-                }
             },
-            contribution -> call(adapters -> track(
-                adapters.mainToolbar().contributeMainToolbar(contribution)
-            )),
             new UiSurfaceAdapter() {
-                @Override
-                public AdapterResult<Registration> contributeOverlay(
-                    final dev.turboism.sdk.ui.OverlayContribution contribution
-                ) {
-                    return call(adapters -> track(adapters.uiSurface().contributeOverlay(contribution)));
-                }
-
                 @Override
                 public AdapterResult<Registration> openDialog(
                     final dev.turboism.sdk.ui.DialogRequest request
@@ -145,15 +126,6 @@ final class DynamicRuntimeHostAdapters {
                     final dev.turboism.sdk.ui.DialogRequest request
                 ) {
                     return call(adapters -> adapters.uiSurface().confirmDialog(request));
-                }
-
-                @Override
-                public AdapterResult<Registration> contributeEmbeddedPanel(
-                    final dev.turboism.sdk.ui.EmbeddedPanelContribution contribution
-                ) {
-                    return call(adapters -> track(
-                        adapters.uiSurface().contributeEmbeddedPanel(contribution)
-                    ));
                 }
 
                 @Override
@@ -254,17 +226,6 @@ final class DynamicRuntimeHostAdapters {
             return result;
         }
         return StatusToolbarAdapter.AdapterResult.available(track(result.value().orElseThrow()));
-    }
-
-    private dev.turboism.adapter.ui.MainToolbarAdapter.AdapterResult<Registration> track(
-        final dev.turboism.adapter.ui.MainToolbarAdapter.AdapterResult<Registration> result
-    ) {
-        if (!result.isAvailable()) {
-            return result;
-        }
-        return dev.turboism.adapter.ui.MainToolbarAdapter.AdapterResult.available(
-            track(result.value().orElseThrow())
-        );
     }
 
     private UiSurfaceAdapter.AdapterResult<Registration> track(

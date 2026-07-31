@@ -5,8 +5,6 @@ import dev.turboism.adapter.cubism.ClipMaskReadAdapter;
 import dev.turboism.adapter.cubism.HostSnapshotSource;
 import dev.turboism.adapter.cubism.ProjectWorkspaceAdapter;
 import dev.turboism.adapter.cubism.RenderStatusAdapter;
-import dev.turboism.adapter.ui.MainToolbarAdapter;
-import dev.turboism.adapter.ui.MainToolbarAdapterImpl;
 import dev.turboism.adapter.ui.StatusToolbarAdapter;
 import dev.turboism.adapter.ui.StatusToolbarAdapterImpl;
 import dev.turboism.adapter.ui.ThemeStatusAdapterImpl;
@@ -281,84 +279,6 @@ class CorePluginContextDescriptorPermissionsTest {
     }
 
     @Test
-    void contextUiHostLocalizesToolbarContributionsForAdaptersAndFallback(@TempDir Path dataDir) {
-        final PluginDescriptor descriptor = descriptorWithAllM8Permissions();
-        final PluginLocalization localization = localization(Map.of(
-            "main.label", "Localized main",
-            "palette.label", "Localized palette"
-        ));
-        final RecordingToolbarHost host = new RecordingToolbarHost();
-        final CorePluginContext adapterContext = new CorePluginContext(
-            dependencies(dataDir, descriptor, ignored -> { }),
-            toolbarAdapters(host),
-            localization
-        );
-
-        adapterContext.uiHost().contributeMainToolbar(
-            mainToolbarContribution("adapter-main", "main.label", "icon")
-        );
-        adapterContext.uiHost().contributePaletteToolbar(
-            paletteToolbarContribution("adapter-palette", "palette.label", "icon")
-        );
-
-        assertEquals("Localized main", host.mainContribution.labelKey());
-        assertEquals("Localized palette", host.paletteContribution.labelKey());
-
-        final CorePluginContext fallbackContext = new CorePluginContext(
-            dependencies(dataDir, descriptor, ignored -> { }),
-            RuntimeHostAdapters.safeMode(),
-            localization
-        );
-        fallbackContext.uiHost().contributeMainToolbar(
-            mainToolbarContribution("fallback-main", "main.label", "icon")
-        );
-        fallbackContext.uiHost().contributePaletteToolbar(
-            paletteToolbarContribution("fallback-palette", "palette.label", "icon")
-        );
-        final RuntimeUiHostCapabilityService fallback =
-            (RuntimeUiHostCapabilityService) fallbackContext.uiHost();
-
-        assertEquals("Localized main", fallback.mainToolbars().get(0).labelKey());
-        assertEquals("Localized palette", fallback.paletteToolbars().get(0).labelKey());
-    }
-
-    @Test
-    void contextUiHostPreservesRawToolbarLabelKeysWithoutLocalization(@TempDir Path dataDir) {
-        final PluginDescriptor descriptor = descriptorWithAllM8Permissions();
-        final RecordingToolbarHost host = new RecordingToolbarHost();
-        final CorePluginContext adapterContext = new CorePluginContext(
-            dependencies(dataDir, descriptor, ignored -> { }),
-            toolbarAdapters(host)
-        );
-
-        adapterContext.uiHost().contributeMainToolbar(
-            mainToolbarContribution("adapter-main", "main.label", "icon")
-        );
-        adapterContext.uiHost().contributePaletteToolbar(
-            paletteToolbarContribution("adapter-palette", "palette.label", "icon")
-        );
-
-        assertEquals("main.label", host.mainContribution.labelKey());
-        assertEquals("palette.label", host.paletteContribution.labelKey());
-
-        final CorePluginContext fallbackContext = new CorePluginContext(
-            dependencies(dataDir, descriptor, ignored -> { }),
-            RuntimeHostAdapters.safeMode()
-        );
-        fallbackContext.uiHost().contributeMainToolbar(
-            mainToolbarContribution("fallback-main", "main.label", "icon")
-        );
-        fallbackContext.uiHost().contributePaletteToolbar(
-            paletteToolbarContribution("fallback-palette", "palette.label", "icon")
-        );
-        final RuntimeUiHostCapabilityService fallback =
-            (RuntimeUiHostCapabilityService) fallbackContext.uiHost();
-
-        assertEquals("main.label", fallback.mainToolbars().get(0).labelKey());
-        assertEquals("palette.label", fallback.paletteToolbars().get(0).labelKey());
-    }
-
-    @Test
     void connectedReadAdaptersAreAvailableThroughProductionContextConstructor(@TempDir Path dataDir) {
         RuntimeHostAdapters adapters = adapters(new RecordingUiSurfaceHost());
         CorePluginContext context = context(
@@ -395,26 +315,20 @@ class CorePluginContextDescriptorPermissionsTest {
         CorePluginContext context = context(
             dataDir,
             descriptorWithPermissions(List.of(
-                "turboism.ui.overlay.contribute",
                 "turboism.ui.dialog.contribute",
-                "turboism.ui.panel.contribute",
                 "turboism.ui.file-chooser.request"
             )),
             ignored -> { },
             adapters(host)
         );
 
-        context.uiHost().contributeOverlay(new OverlayContribution("overlay", "viewport", 1));
         context.uiHost().openDialog(new DialogRequest("dialog", "Dialog", "Body"));
-        context.uiHost().contributeEmbeddedPanel(new EmbeddedPanelContribution("panel", "Panel", "side", 1));
         assertTrue(context.uiHost().confirmDialog(new DialogRequest("confirm", "Confirm", "Proceed?")));
         assertEquals(Optional.of("imports/params.csv"), context.uiHost().requestFile(
             new FileChooserRequest("file", "File", List.of("csv"))
         ));
 
-        assertEquals(1, host.overlayCount);
         assertEquals(1, host.dialogCount);
-        assertEquals(1, host.panelCount);
     }
 
     private static CorePluginContext context(Path dataDir, PluginDescriptor descriptor, Consumer<CubismFacadeAuditEvent> auditSink) {
@@ -691,20 +605,7 @@ class CorePluginContextDescriptorPermissionsTest {
             projectWorkspace,
             clipMask,
             StatusToolbarAdapterImpl.safeMode(),
-            MainToolbarAdapterImpl.safeMode(),
             UiSurfaceAdapterImpl.connected(uiSurfaceHost)
-        );
-    }
-
-    private static RuntimeHostAdapters toolbarAdapters(final RecordingToolbarHost host) {
-        return new RuntimeHostAdapters(
-            ThemeStatusAdapterImpl.safeMode(),
-            RenderStatusAdapter.Impl.safeMode(),
-            ProjectWorkspaceAdapter.Impl.safeMode(),
-            ClipMaskReadAdapter.Impl.safeMode(),
-            StatusToolbarAdapterImpl.connected(host),
-            MainToolbarAdapterImpl.connected(host),
-            UiSurfaceAdapterImpl.safeMode()
         );
     }
 
@@ -740,51 +641,11 @@ class CorePluginContextDescriptorPermissionsTest {
         }
     }
 
-    private static final class RecordingToolbarHost
-        implements MainToolbarAdapter.HostOperations, StatusToolbarAdapter.HostOperations {
-
-        private MainToolbarRegistry.MainToolbarContribution mainContribution;
-        private PaletteToolbarRegistry.PaletteToolbarContribution paletteContribution;
-
-        @Override public String hostVersion() { return "5.3.2"; }
-        @Override public boolean supports(final MainToolbarAdapter.Capability capability) { return true; }
-        @Override public boolean supports(final StatusToolbarAdapter.Capability capability) { return true; }
-
-        @Override
-        public Registration contributeMainToolbar(
-            final MainToolbarRegistry.MainToolbarContribution contribution
-        ) {
-            mainContribution = contribution;
-            return () -> mainContribution = null;
-        }
-
-        @Override
-        public Registration notifyStatus(final dev.turboism.sdk.ui.StatusNotification notification) {
-            return () -> { };
-        }
-
-        @Override
-        public Registration contributePaletteToolbar(
-            final PaletteToolbarRegistry.PaletteToolbarContribution contribution
-        ) {
-            paletteContribution = contribution;
-            return () -> paletteContribution = null;
-        }
-    }
-
     private static final class RecordingUiSurfaceHost implements UiSurfaceAdapter.HostOperations {
-        private int overlayCount;
         private int dialogCount;
-        private int panelCount;
 
         @Override public String hostVersion() { return "5.3.2"; }
         @Override public boolean supports(UiSurfaceAdapter.Capability capability) { return true; }
-
-        @Override
-        public Registration contributeOverlay(OverlayContribution contribution) {
-            overlayCount++;
-            return () -> overlayCount--;
-        }
 
         @Override
         public Registration openDialog(DialogRequest request) {
@@ -793,12 +654,6 @@ class CorePluginContextDescriptorPermissionsTest {
         }
 
         @Override public boolean confirmDialog(DialogRequest request) { return true; }
-
-        @Override
-        public Registration contributeEmbeddedPanel(EmbeddedPanelContribution contribution) {
-            panelCount++;
-            return () -> panelCount--;
-        }
 
         @Override public Optional<String> requestFile(FileChooserRequest request) {
             return Optional.of("imports/params.csv");

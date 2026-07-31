@@ -97,7 +97,7 @@ public final class VerifiedMainToolbarHostOperations implements MainToolbarHostO
         }
 
         final Icon normal = icon(contribution.pluginId(), contribution.icons().normal());
-        final Object callback = resolver.createFunctionalArgumentProxy(
+        final Object callback = resolver.createFunctionalConstructorArgumentProxy(
             ICON_BUTTON_CREATE,
             1,
             ignored -> {

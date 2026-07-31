@@ -1,12 +1,12 @@
 package dev.turboism.sdk.action;
 
 import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.sdk.ui.context.ContextMenuSelection;
 
+import java.util.Optional;
 import java.util.function.Consumer;
 
-/**
- * Registry for actions that can be bound to menus or invoked by the framework.
- */
+/** Registry for actions that can be bound to menus or invoked by the framework. */
 public interface ActionRegistry {
 
     Registration register(String id, Action action);
@@ -20,6 +20,14 @@ public interface ActionRegistry {
     }
 
     interface ActionContext {
-        // context data provided when an action is invoked
+        /** UI control event for panel-originated actions, if this invocation has one. */
+        default Optional<UiActionEvent> uiEvent() {
+            return Optional.empty();
+        }
+
+        /** Object selection for context-menu-originated actions, if this invocation has one. */
+        default Optional<ContextMenuSelection> contextMenuSelection() {
+            return Optional.empty();
+        }
     }
 }

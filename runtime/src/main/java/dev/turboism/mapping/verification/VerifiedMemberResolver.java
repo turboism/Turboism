@@ -216,8 +216,37 @@ public final class VerifiedMemberResolver {
         final int parameterIndex,
         final Function<Object, Object> callback
     ) {
+        return createFunctionalArgumentProxy(
+            methodAlias,
+            methodSelector(methodAlias),
+            parameterIndex,
+            callback
+        );
+    }
+
+    /**
+     * Creates a host-classloader proxy for one exact parameter type in a verified constructor.
+     */
+    public Object createFunctionalConstructorArgumentProxy(
+        final String constructorAlias,
+        final int parameterIndex,
+        final Function<Object, Object> callback
+    ) {
+        return createFunctionalArgumentProxy(
+            constructorAlias,
+            constructorSelector(constructorAlias),
+            parameterIndex,
+            callback
+        );
+    }
+
+    private Object createFunctionalArgumentProxy(
+        final String alias,
+        final StaticSelector selector,
+        final int parameterIndex,
+        final Function<Object, Object> callback
+    ) {
         Objects.requireNonNull(callback, "callback");
-        final StaticSelector selector = methodSelector(methodAlias);
         try {
             final MethodType type = MethodType.fromMethodDescriptorString(
                 selector.descriptor(),
@@ -226,12 +255,12 @@ public final class VerifiedMemberResolver {
             final Class<?>[] parameterTypes = type.parameterArray();
             if (parameterIndex < 0 || parameterIndex >= parameterTypes.length) {
                 throw resolutionFailure(
-                    methodAlias,
+                    alias,
                     "Verified host callback parameter index is out of range."
                 );
             }
             return createFunctionalProxy(
-                methodAlias,
+                alias,
                 parameterTypes[parameterIndex],
                 callback
             );
@@ -239,7 +268,7 @@ public final class VerifiedMemberResolver {
             throw exception;
         } catch (IllegalArgumentException | LinkageError exception) {
             throw resolutionFailure(
-                methodAlias,
+                alias,
                 "Verified host callback parameter resolution failed safely."
             );
         }
@@ -491,6 +520,16 @@ public final class VerifiedMemberResolver {
                     "Verified host selector target type does not match.",
                     null
                 );
+            }
+            if (!method.canAccess(target)) {
+                final boolean publicMethodOnNonPublicOwner = Modifier.isPublic(method.getModifiers())
+                    && !Modifier.isPublic(owner.getModifiers());
+                if (!publicMethodOnNonPublicOwner || !method.trySetAccessible()) {
+                    throw resolutionFailure(
+                        selector.alias(),
+                        "Verified host method is not accessible."
+                    );
+                }
             }
             return method.invoke(target, arguments == null ? new Object[0] : arguments);
         } catch (VerifiedAccessException exception) {

@@ -30,8 +30,8 @@ class LocalPluginRuntimeMultiEntrypointIntegrationTest {
         try {
             final LocalPluginRuntime.LoadReport report = scenario.runtime().loadAll();
             assertTrue(report.failures().isEmpty(), report.failures().toString());
-            assertEquals(1, report.loaded().size());
-            assertEquals("ENABLED", report.loaded().get(0).state().name());
+            assertEquals(2, report.loaded().size());
+            assertEquals("ENABLED", report.loaded().stream().filter(plugin -> !plugin.id().equals("turboism.core")).findFirst().orElseThrow().state().name());
         } finally {
             scenario.close();
         }
@@ -53,7 +53,7 @@ class LocalPluginRuntimeMultiEntrypointIntegrationTest {
         final Scenario scenario = scenario("failure", marker, true);
         try {
             final LocalPluginRuntime.LoadReport report = scenario.runtime().loadAll();
-            assertTrue(report.loaded().isEmpty());
+            assertEquals(List.of("turboism.core"), report.loaded().stream().map(LocalPluginRuntime.LoadedPluginSummary::id).toList());
             assertEquals(1, report.failures().size());
             assertEquals("ENABLE_FAILED", report.failures().get(0).code());
         } finally {

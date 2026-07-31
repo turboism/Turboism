@@ -2,26 +2,19 @@ package dev.turboism.adapter.ui;
 
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.StatusNotification;
-import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
 
 import java.util.Objects;
 import java.util.Optional;
 
 /**
- * Adapter seam for UI status notifications and palette toolbar contributions.
- *
- * <p>Theme status reads live on {@link ThemeStatusAdapter} so Cubism-read does not
- * depend on UI toolbar host operations.</p>
+ * Adapter seam for command-style host UI status notifications.
  */
 public interface StatusToolbarAdapter {
 
     AdapterResult<Registration> notifyStatus(StatusNotification notification);
 
-    AdapterResult<Registration> contributePaletteToolbar(PaletteToolbarRegistry.PaletteToolbarContribution contribution);
-
     enum Capability {
-        STATUS_NOTIFY("ui.status.notify"),
-        PALETTE_TOOLBAR_CONTRIBUTE("ui.palette-toolbar.contribute");
+        STATUS_NOTIFY("ui.status.notify");
 
         private final String id;
 
@@ -40,8 +33,6 @@ public interface StatusToolbarAdapter {
         boolean supports(Capability capability);
 
         Registration notifyStatus(StatusNotification notification);
-
-        Registration contributePaletteToolbar(PaletteToolbarRegistry.PaletteToolbarContribution contribution);
     }
 
     record AdapterResult<T>(
