@@ -23,6 +23,7 @@ private fun configurePreviewSource(task: Sync, previewDirectory: Provider<org.gr
     task.into(previewDirectory)
     configurePreviewAgentJar(task)
     configurePreviewInspectorJar(task)
+    configureScenePaletteEnhancerJar(task)
     task.from("scripts/preview/launch-cubism-turboism.bat")
     task.from("scripts/preview/launch-cubism-turboism.ps1")
     task.from("scripts/preview/run-preview.bat")
@@ -39,6 +40,13 @@ private fun configurePreviewInspectorJar(task: Sync) {
     task.from(project(":plugins:project-inspector").tasks.named<Jar>("jar").flatMap { it.archiveFile }) {
         into("plugins")
         rename { "project-inspector.jar" }
+    }
+}
+
+private fun configureScenePaletteEnhancerJar(task: Sync) {
+    task.from(project(":plugins:scene-palette-enhancer").tasks.named<Jar>("jar").flatMap { it.archiveFile }) {
+        into("plugins")
+        rename { "scene-palette-enhancer.jar" }
     }
 }
 
@@ -61,7 +69,7 @@ private fun pluginClassesDirectories(projects: List<Project>): String = projects
 val previewBundle by tasks.registering(Sync::class) {
     group = "distribution"
     description = "Build the relocatable Turboism 0.1 Developer Preview directory."
-    dependsOn(":bootstrap:jar", ":plugins:project-inspector:jar")
+    dependsOn(":bootstrap:jar", ":plugins:project-inspector:jar", ":plugins:scene-palette-enhancer:jar")
     configurePreviewSource(this, previewBundleDir)
     doLast {
         listOf("plugin-data", "state", "logs").forEach { previewBundleDir.get().asFile.resolve(it).mkdirs() }
@@ -113,7 +121,8 @@ private fun copyPreviewBundleInto(source: File, target: File) {
 private fun verifyPreviewBundle(root: File) {
     val required = listOf(
         "turboism-agent.jar", "launch-cubism-turboism.bat", "launch-cubism-turboism.ps1",
-        "run-preview.bat", "README.md", "plugins/project-inspector.jar"
+        "run-preview.bat", "README.md", "plugins/project-inspector.jar",
+        "plugins/scene-palette-enhancer.jar"
     )
     val missing = required.filterNot { root.resolve(it).isFile }
     if (missing.isNotEmpty()) throw GradleException("Preview bundle is missing: $missing")

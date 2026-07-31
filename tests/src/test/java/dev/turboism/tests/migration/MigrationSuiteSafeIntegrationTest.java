@@ -47,7 +47,7 @@ class MigrationSuiteSafeIntegrationTest {
     private static final List<RosterEntry> ROSTER = List.of(
         target("ui-theme", "dev.turboism.plugin.uitheme"),
         target("log-filter", "dev.turboism.plugin.logfilter"),
-        target("main-toolbar", "dev.turboism.plugin.maintoolbar"),
+        target("core", "turboism.core"),
         target("context-menu", "dev.turboism.plugin.context-menu"),
         target("project-panel", "dev.turboism.plugin.project-panel"),
         target("texture-atlas", "dev.turboism.plugin.texture-atlas"),
@@ -251,7 +251,8 @@ class MigrationSuiteSafeIntegrationTest {
             return false;
         }
         try (JarFile jar = new JarFile(entry.toFile())) {
-            return jar.getEntry(DESCRIPTOR_PATH) != null;
+            return jar.getEntry(DESCRIPTOR_PATH) != null
+                && jar.getEntry("META-INF/turboism/core-plugin.json") == null;
         } catch (IOException ignored) {
             return false;
         }
@@ -277,6 +278,19 @@ class MigrationSuiteSafeIntegrationTest {
     private static Set<String> neighborPluginIds() {
         return ROSTER.stream().filter(entry -> entry.role().equals(NEIGHBOR))
             .map(RosterEntry::pluginId).collect(Collectors.toUnmodifiableSet());
+    }
+
+    private static Set<String> externallyLoadedPluginIds() {
+        final Set<String> ids = new TreeSet<>(targetPluginIds());
+        ids.remove("turboism.core");
+        ids.addAll(neighborPluginIds());
+        return Set.copyOf(ids);
+    }
+
+    private static Set<String> runtimeLoadedPluginIds() {
+        final Set<String> ids = new TreeSet<>(externallyLoadedPluginIds());
+        ids.add("turboism.core");
+        return Set.copyOf(ids);
     }
 
     /** Separate JVM entry point: plugin class loaders never inherit official plugin JARs. */
@@ -333,7 +347,6 @@ class MigrationSuiteSafeIntegrationTest {
                 log
             );
             final LocalPluginRuntime.LoadReport loadReport = plugins.loadAll();
-            assertLoadedRoster(loadReport);
             final PreviewRuntime preview = MigrationSuitePreviewRuntimeSupport.compose(
                 cycleHome,
                 log,
@@ -343,6 +356,7 @@ class MigrationSuiteSafeIntegrationTest {
                 loadReport
             );
             try {
+                assertLoadedRoster(loadReport);
                 MigrationSuitePreviewRuntimeSupport.writeInitialReports(
                     preview,
                     dev.turboism.adapter.host.HostSession.State.SAFE_MODE
@@ -382,11 +396,10 @@ class MigrationSuiteSafeIntegrationTest {
             final Set<String> loadedIds = report.loaded().stream()
                 .map(LocalPluginRuntime.LoadedPluginSummary::id)
                 .collect(Collectors.toUnmodifiableSet());
-            final Set<String> expected = new TreeSet<>(targetPluginIds());
-            expected.addAll(neighborPluginIds());
+            final Set<String> expected = runtimeLoadedPluginIds();
             if (!loadedIds.equals(expected)) {
                 throw new IllegalStateException(
-                    "Expected explicit 13 targets plus demo/Project Inspector only; loaded=" + loadedIds
+                    "Expected external targets plus demo/Project Inspector only; loaded=" + loadedIds
                 );
             }
         }
@@ -398,8 +411,7 @@ class MigrationSuiteSafeIntegrationTest {
             final Set<String> ids = summaries.stream()
                 .map(LocalPluginRuntime.LoadedPluginSummary::id)
                 .collect(Collectors.toUnmodifiableSet());
-            final Set<String> expected = new TreeSet<>(targetPluginIds());
-            expected.addAll(neighborPluginIds());
+            final Set<String> expected = runtimeLoadedPluginIds();
             if (!ids.equals(expected)) {
                 throw new IllegalStateException("Closed runtime summary lost plugins in cycle " + cycle);
             }
@@ -450,7 +462,11 @@ class MigrationSuiteSafeIntegrationTest {
                 }
                 descriptorFailure |= plugin.path("failures").toString().contains("PLUGIN_DESCRIPTOR_MISSING");
                 final String pluginId = plugin.path("pluginId").asText();
-                if (targetPluginIds().contains(pluginId) || neighborPluginIds().contains(pluginId)) {
+                if (pluginId.equals("turboism.core")
+                    && !plugin.path("lifecycleState").asText().equals("UNLOADED")) {
+                    continue;
+                }
+                if (runtimeLoadedPluginIds().contains(pluginId)) {
                     reportedLoaded.add(pluginId);
                     if (!plugin.path("disableState").asText().equals("SUCCEEDED")
                         || !plugin.path("shutdownState").asText().equals("SUCCEEDED")
@@ -463,8 +479,7 @@ class MigrationSuiteSafeIntegrationTest {
                     }
                 }
             }
-            final Set<String> expected = new TreeSet<>(targetPluginIds());
-            expected.addAll(neighborPluginIds());
+            final Set<String> expected = runtimeLoadedPluginIds();
             if (!reportedLoaded.equals(expected)) {
                 throw new IllegalStateException(
                     "Preview report lost explicit roster entries: reported=" + reportedLoaded
@@ -479,10 +494,10 @@ class MigrationSuiteSafeIntegrationTest {
             if (!runtime.path("runtimeState").asText().equals("STOPPED")
                 || !runtime.path("adapterState").asText().equals("UNAVAILABLE")
                 || cleanup.path("failures").asLong(-1) != 0
-                || cleanup.path("scopesClosed").asLong(-1) != 15
-                || cleanup.path("classloadersClosed").asLong(-1) != 15
-                || runtime.path("shutdownCounts").path("attempted").asLong(-1) != 15
-                || runtime.path("shutdownCounts").path("succeeded").asLong(-1) != 15) {
+                || cleanup.path("scopesClosed").asLong(-1) != runtimeLoadedPluginIds().size()
+                || cleanup.path("classloadersClosed").asLong(-1) != runtimeLoadedPluginIds().size()
+                || runtime.path("shutdownCounts").path("attempted").asLong(-1) != runtimeLoadedPluginIds().size()
+                || runtime.path("shutdownCounts").path("succeeded").asLong(-1) != runtimeLoadedPluginIds().size()) {
                 throw new IllegalStateException(
                     "Runtime cleanup counts failed in cycle " + cycle + ": " + runtime
                 );

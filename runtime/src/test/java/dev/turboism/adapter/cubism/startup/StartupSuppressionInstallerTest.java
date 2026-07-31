@@ -56,8 +56,7 @@ class StartupSuppressionInstallerTest {
     }
 
     private void writeEnabledConfig() throws Exception {
-        final Path directory = Files.createDirectories(temporaryHome.resolve("config"));
-        Files.writeString(directory.resolve("runtime.json"), """
+        Files.writeString(temporaryHome.resolve("config.json"), """
             {
               "format": "turboism.runtime.config",
               "schemaVersion": 1,

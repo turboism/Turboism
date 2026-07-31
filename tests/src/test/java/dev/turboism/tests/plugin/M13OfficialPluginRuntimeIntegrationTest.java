@@ -7,7 +7,7 @@ import dev.turboism.plugin.clipmask.ClipMaskPlugin;
 import dev.turboism.plugin.parameter.ParameterPlugin;
 import dev.turboism.plugin.mesh.MeshPlugin;
 import dev.turboism.plugin.logfilter.LogFilterPlugin;
-import dev.turboism.plugin.maintoolbar.MainToolbarPlugin;
+import dev.turboism.plugin.core.MainToolbarPlugin;
 import dev.turboism.plugin.renderopt.RenderOptPlugin;
 import dev.turboism.plugin.uitheme.UiThemePlugin;
 import dev.turboism.sdk.cubism.ArtMeshSnapshot;
@@ -108,35 +108,35 @@ class M13OfficialPluginRuntimeIntegrationTest {
     @Test
     void mainToolbarEnablesWithDeclaredPermissionsAndCleansUpContribution() throws Exception {
         try (M8PluginTestSupport.Harness harness = harnessFor(
-            "main-toolbar",
-            tempDir.resolve("main-toolbar"),
+            "core",
+            tempDir.resolve("core"),
             UiHostStateSource.DEFAULT,
             new ProjectAndWorkspaceRead()
         )) {
-            MainToolbarPlugin plugin = new MainToolbarPlugin();
+            MainToolbarPlugin plugin = corePlugin();
             plugin.init(harness.context());
             plugin.enable();
 
-            assertEquals(
-                List.of(new MainToolbarRegistry.MainToolbarContribution(
-                    "main-toolbar.home-entry",
-                    "main-toolbar.home-entry.open",
-                    "main-toolbar.home-entry.label",
-                    "icons/main-toolbar-home.svg",
-                    "start",
-                    10
-                )),
-                harness.uiHost().mainToolbars()
-            );
+            assertTrue(harness.toolbarTracker().isVisible(
+                M8PluginTestSupport.PLUGIN_ID,
+                "turboism.core.home-entry"
+            ));
+            assertEquals(1, harness.uiHost().panels().size());
+            assertEquals("turboism.panel.main", harness.uiHost().panels().get(0).id());
+            assertTrue(harness.uiHost().panels().get(0).content().toString().contains("Plugin management"));
 
             harness.context().disposableScope().close();
-            assertTrue(harness.uiHost().mainToolbars().isEmpty());
+            assertTrue(!harness.toolbarTracker().isVisible(
+                M8PluginTestSupport.PLUGIN_ID,
+                "turboism.core.home-entry"
+            ));
+            assertTrue(harness.uiHost().panels().isEmpty());
         }
     }
 
     @Test
     void mainToolbarEnableFailsWhenMainToolbarPermissionIsMissing() throws Exception {
-        PluginDescriptor descriptor = descriptorFor("main-toolbar");
+        PluginDescriptor descriptor = descriptorFor("core");
         List<PluginPermission> permissionsWithoutToolbar = withoutPermission(
             descriptor,
             "turboism.ui.toolbar.main.contribute"
@@ -148,7 +148,7 @@ class M13OfficialPluginRuntimeIntegrationTest {
             UiHostStateSource.DEFAULT,
             new ProjectAndWorkspaceRead()
         )) {
-            MainToolbarPlugin plugin = new MainToolbarPlugin();
+            MainToolbarPlugin plugin = corePlugin();
             plugin.init(harness.context());
 
             CubismPermissionException failure = assertThrows(CubismPermissionException.class, plugin::enable);
@@ -491,21 +491,25 @@ class M13OfficialPluginRuntimeIntegrationTest {
     }
 
     @Test
-    void mainToolbarActionDeniesWhenProjectReadPermissionIsMissing() throws Exception {
-        PluginDescriptor descriptor = descriptorFor("main-toolbar");
+    void mainToolbarEnableFailsWhenPanelPermissionIsMissing() throws Exception {
+        PluginDescriptor descriptor = descriptorFor("core");
         try (M8PluginTestSupport.Harness harness = M8PluginTestSupport.harness(
-            tempDir.resolve("main-toolbar-project-read-denied"),
-            PermissionChecker.from(withoutPermission(descriptor, "turboism.cubism.project.read")),
+            tempDir.resolve("main-toolbar-panel-denied"),
+            PermissionChecker.from(withoutPermission(descriptor, "turboism.ui.panel.contribute")),
             UiHostStateSource.DEFAULT,
             new ProjectAndWorkspaceRead()
         )) {
-            MainToolbarPlugin plugin = new MainToolbarPlugin();
+            MainToolbarPlugin plugin = corePlugin();
             plugin.init(harness.context());
-            plugin.enable();
 
-            harness.executeAction("main-toolbar.home-entry.open");
-            awaitWorkPhase(harness, PluginWorkBudgetEvent.Phase.FAILED);
-            assertTrue(harness.uiHost().notifications().isEmpty());
+            CubismPermissionException failure = assertThrows(CubismPermissionException.class, plugin::enable);
+            assertTrue(failure.getMessage().contains("turboism.ui.panel.contribute"));
+            assertTrue(harness.uiHost().panels().isEmpty());
+            assertTrue(!harness.toolbarTracker().isVisible(
+                M8PluginTestSupport.PLUGIN_ID,
+                "turboism.core.home-entry"
+            ));
+            harness.context().disposableScope().close();
         }
     }
 
@@ -632,10 +636,11 @@ class M13OfficialPluginRuntimeIntegrationTest {
             Set.of(
                 "turboism.action.register",
                 "turboism.ui.toolbar.main.contribute",
-                "turboism.cubism.project.read",
-                "turboism.ui.status.notify"
+                "turboism.ui.panel.contribute",
+                "turboism.ui.menu.contribute",
+                "turboism.ui.dialog.contribute"
             ),
-            permissionIdsFor("main-toolbar")
+            permissionIdsFor("core")
         );
         assertEquals(
             Set.of(
@@ -954,4 +959,31 @@ class M13OfficialPluginRuntimeIntegrationTest {
             return new UnsupportedOperationException("not used by this integration test");
         }
     }
+    private static MainToolbarPlugin corePlugin() {
+        return dev.turboism.plugin.core.CorePluginServices.instantiate(
+            new dev.turboism.plugin.core.CorePluginServices(
+                new dev.turboism.sdk.runtime.RuntimeSettingsService() {
+                    private dev.turboism.sdk.runtime.RuntimeSettings value =
+                        new dev.turboism.sdk.runtime.RuntimeSettings(false, "INFO", false, false, false);
+                    @Override public dev.turboism.sdk.runtime.RuntimeSettings read() { return value; }
+                    @Override public dev.turboism.sdk.runtime.RuntimeSettings save(
+                        dev.turboism.sdk.runtime.RuntimeSettings settings
+                    ) { value = settings; return value; }
+                    @Override public DockCleanupResult cleanEmptyDocks() {
+                        return new DockCleanupResult("done");
+                    }
+                },
+                new dev.turboism.plugin.core.CorePluginManagement() {
+                    @Override public List<PluginInfo> plugins() { return List.of(); }
+                    @Override public OperationResult install() { return OperationResult.rejected("Unavailable"); }
+                    @Override public OperationResult uninstall(String id) { return OperationResult.rejected("Unavailable"); }
+                    @Override public OperationResult setEnabled(String id, boolean enabled) {
+                        return OperationResult.rejected("Unavailable");
+                    }
+                }
+            ),
+            MainToolbarPlugin::new
+        );
+    }
+
 }

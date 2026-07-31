@@ -92,6 +92,44 @@ class VerifiedHostAdapterConnectorEditorModelTest {
         assertEquals(Optional.empty(), connection.textureAtlasLayoutProvider());
     }
 
+    @Test
+    void optionalOverlayVerificationFailureDoesNotRejectVerifiedCoreHost() throws Exception {
+        RuntimeHostAdapters adapters = RuntimeHostAdapters.safeMode();
+        VerifiedMemberResolver resolver = dev.turboism.mapping.verification.TestVerifiedResolvers.create(
+            EditorModelVerificationManifest.CUBISM_VERSION,
+            EditorModelVerificationManifest.ADAPTER_SLICE_ID,
+            EditorModelVerificationManifest.CAPABILITY_IDS,
+            java.util.List.of(dev.turboism.mapping.verification.StaticSelector.classSelector(
+                "fixture.class", getClass().getName().replace('.', '/')
+            )),
+            getClass().getClassLoader()
+        );
+        VerifiedHostAdapterConnector connector = new VerifiedHostAdapterConnector(
+            ignored -> adapters,
+            ignored -> resolver,
+            (verified, sessionId) -> () -> { throw new IllegalStateException(sessionId); },
+            null,
+            null,
+            ignored -> { throw new IllegalArgumentException("optional overlay selector missing"); },
+            new dev.turboism.ui.toolbar.EditorUiPluginResourceRegistry(),
+            new dev.turboism.ui.action.RuntimeEditorUiActionRouter(),
+            new dev.turboism.ui.panel.RuntimeEmbeddedPanelActivationCoordinator(),
+            null,
+            new dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator()
+        );
+        HostVerificationEvidence.Slice project = slice("project");
+        HostVerificationEvidence.Slice editor = slice("editor");
+        HostVerificationEvidence evidence = HostVerificationEvidence.withEditorModel(project, editor)
+            .addingBoundingBoxOverlayButton(slice("overlay"));
+
+        HostAdapterConnection connection = connector.connect(new HostInstanceDescriptor("session-a", evidence));
+
+        assertSame(adapters, connection.adapters());
+        org.junit.jupiter.api.Assertions.assertThrows(
+            IllegalStateException.class, connection::boundingBoxOverlayResolver
+        );
+    }
+
     private HostVerificationEvidence.Slice slice(final String name) {
         return new HostVerificationEvidence.Slice(
             Path.of(name + ".json"),

@@ -7,7 +7,7 @@ public final class EditorModelVerificationManifest {
 
     public static final String VERIFICATION_ID = "cubism-5.3.02.editor-model.static";
     public static final String RECORD_SHA256 =
-        "0dc08c5088606686c6f06e873e72c4892c012cdf02841f1ec928525983d3a0a5";
+        "57bbaccbd35c71af537f463a528ea0b35bbc6464943c80684cd4899e1a95975c";
     public static final String CUBISM_VERSION = "5.3.02";
     public static final String PROFILE_ID = "cubism-5.3.02";
     public static final long ARTIFACT_SIZE = 41_922_739L;
@@ -31,6 +31,13 @@ public final class EditorModelVerificationManifest {
         EditorObjectWriteSelectorContract.ART_MESH_CAPABILITY_ID,
         EditorObjectWriteSelectorContract.WARP_CAPABILITY_ID,
         EditorObjectWriteSelectorContract.ROTATION_CAPABILITY_ID,
+        ObjectContextMenuVerificationManifest.CAPABILITY_ID,
+        EditorParameterBindingReadSelectorContract.CAPABILITY_ID,
+        EditorParameterBindingWriteSelectorContract.ART_MESH_CAPABILITY_ID,
+        EditorParameterBindingWriteSelectorContract.WARP_CAPABILITY_ID,
+        EditorParameterBindingWriteSelectorContract.ROTATION_CAPABILITY_ID,
+        EditorParameterBindingBatchWriteSelectorContract.INVERT_CAPABILITY_ID,
+        EditorParameterBindingBatchWriteSelectorContract.TRANSFER_CAPABILITY_ID,
         "cubism.texture-atlas.layout.write",
         "cubism.texture-atlas.data-model-hook",
         "cubism.texture-atlas.auto-layout-hook",
@@ -244,7 +251,48 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.rotation-form.set-scale",
         "cubism.editor-model.rotation-form.set-reflect-x",
         "cubism.editor-model.rotation-form.set-reflect-y",
-        "cubism.editor-model.complete-pack.update-deformer-palette"
+        "cubism.editor-model.complete-pack.update-deformer-palette",
+        "object-context-menu.parameter.group-row.class",
+        "cubism.editor-model.complete-pack.update-deformer-palette",
+        "object-context-menu.parameter.group-row.class",
+        "object-context-menu.parameter.group-row.source",
+        "object-context-menu.parameter.row-parameters",
+        "object-context-menu.workspace.selector",
+        "object-context-menu.workspace.selected",
+        "object-context-menu.workspace.selection.class",
+        "object-context-menu.workspace.selection-source",
+        "object-context-menu.warp.class",
+        "object-context-menu.rotation.class",
+        "object-context-menu.art-mesh.class",
+        "object-context-menu.part.class",
+        "object-context-menu.glue.class",
+        "object-context-menu.parameter.class",
+        "object-context-menu.parameter-group.class",
+        "object-context-menu.object-id",
+        "object-context-menu.parameter-id",
+        "object-context-menu.parameter-group-id",
+        "object-context-menu.id-value",
+        "object-context-menu.menu-item.create",
+        "object-context-menu.menu.append",
+        "object-context-menu.submenu.append",
+        "object-context-menu.menu-separator.create",
+        "object-context-menu.submenu.create",
+        "object-context-menu.menu.items",
+        "object-context-menu.menu-item.label",
+        "object-context-menu.parameter-point.guid-value",
+        "object-context-menu.menu.component",
+        "cubism.editor-model.keyform-grid.bindings",
+        "cubism.editor-model.keyform-binding.class",
+        "cubism.editor-model.keyform-binding.parameter-id",
+        "cubism.editor-model.keyform-binding.parameter-guid",
+        "cubism.editor-model.keyform-binding.keys",
+        "cubism.editor-model.keyform-grid.find-binding",
+        "cubism.editor-model.keyform-grid.reverse-parameter",
+        "cubism.editor-model.keyform-grid.change-parameter",
+        "cubism.editor-model.keyform-grid.add-key",
+        "cubism.editor-model.keyform-grid.remove-key",
+        "cubism.editor-model.keyform-grid.remove-all-key",
+        "cubism.editor-model.keyform-grid.rearrange-keys"
     ), TEXTURE_ATLAS_ALIASES);
     private static final Set<String> PART_OPACITY_ADDITIVE_ALIASES = Set.of(
         "cubism.editor-model.model-source.parts",
@@ -295,8 +343,8 @@ public final class EditorModelVerificationManifest {
                 EditorModelVerificationManifest52.PROFILE_ID,
                 EditorModelVerificationManifest52.ARTIFACT_SIZE,
                 EditorModelVerificationManifest52.ARTIFACT_SHA256,
-                cubism52Capabilities(),
-                cubism52Aliases()
+                ObjectContextMenuVerificationManifest.capabilities(cubism52Capabilities()),
+                ObjectContextMenuVerificationManifest.aliases(cubism52Aliases())
             );
         }
         if (artifact.size() == ARTIFACT_SIZE && artifact.sha256().equals(ARTIFACT_SHA256)) {
@@ -307,8 +355,8 @@ public final class EditorModelVerificationManifest {
                 PROFILE_ID,
                 ARTIFACT_SIZE,
                 ARTIFACT_SHA256,
-                CAPABILITY_IDS,
-                REQUIRED_ALIASES
+                ObjectContextMenuVerificationManifest.capabilities(CAPABILITY_IDS),
+                ObjectContextMenuVerificationManifest.aliases(REQUIRED_ALIASES)
             );
         }
         throw new IllegalArgumentException(

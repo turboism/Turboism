@@ -8,6 +8,7 @@ import dev.turboism.sdk.cubism.service.query.ModelHierarchyQueryService;
 import dev.turboism.sdk.cubism.service.query.ParameterQueryService;
 import dev.turboism.sdk.cubism.service.query.SelectionQueryService;
 import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
+import dev.turboism.sdk.cubism.physics.PhysicsEditorService;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
 import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.i18n.PluginLocalization;
@@ -16,12 +17,15 @@ import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.sdk.storage.PluginStorage;
 import dev.turboism.sdk.task.PluginTaskScheduler;
+import dev.turboism.sdk.runtime.RuntimeSettingsService;
 import dev.turboism.sdk.ui.UiHostCapabilityService;
 import dev.turboism.sdk.ui.UserFileAccessService;
 import dev.turboism.sdk.ui.UiScheduler;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
+import dev.turboism.sdk.ui.table.SceneTableService;
+import dev.turboism.sdk.ui.appearance.ControlAppearanceRegistry;
 
 import java.util.List;
 
@@ -74,6 +78,10 @@ public interface PluginContext {
         throw new UnsupportedOperationException("cubismRead service is not available");
     }
 
+    default PhysicsEditorService physicsEditor() {
+        return PhysicsEditorService.unavailable();
+    }
+
     List<PluginPermission> permissions();
 
     EventBus eventBus();
@@ -90,6 +98,10 @@ public interface PluginContext {
         throw new UnsupportedOperationException("paletteToolbar registry is not available");
     }
 
+    default SceneTableService sceneTable() {
+        return SceneTableService.unavailable();
+    }
+
     default UiHostCapabilityService uiHost() {
         throw new UnsupportedOperationException("uiHost service is not available");
     }
@@ -98,12 +110,21 @@ public interface PluginContext {
         return AppearanceService.unavailable();
     }
 
+    default ControlAppearanceRegistry controlAppearance() {
+        return ControlAppearanceRegistry.unavailable();
+    }
+
     default ContextMenuRegistry contextMenu() {
         throw new UnsupportedOperationException("contextMenu registry is not available");
     }
 
     default PluginConfigRegistry config() {
         throw new UnsupportedOperationException("config registry is not available");
+    }
+
+
+    default RuntimeSettingsService runtimeSettings() {
+        throw new UnsupportedOperationException("runtime settings service is not available");
     }
 
     UiScheduler uiScheduler();

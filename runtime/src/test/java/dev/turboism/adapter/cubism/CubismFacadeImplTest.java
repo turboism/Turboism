@@ -211,6 +211,7 @@ class CubismFacadeImplTest {
         assertEquals(Optional.of(false), parameter.repeat());
         assertEquals(Optional.of(true), parameter.combined());
         assertEquals(Optional.of(new ParameterId("ParamB")), parameter.combinedWith());
+        assertEquals(List.of(), parameter.getParameterBindings());
     }
 
     @Test
@@ -690,6 +691,7 @@ class CubismFacadeImplTest {
             @Override public int parentPartIndex() { return -1; }
             @Override public int parentDeformerIndex() { return -1; }
             @Override public IntSequence parameters() { return emptyInts(); }
+            @Override public List<dev.turboism.sdk.cubism.model.ParameterBinding> getParameterBindings() { return List.of(); }
         };
         final WarpDeformer backendWarp = new WarpDeformer() {
             @Override public DeformerId id() { return new DeformerId("WarpA"); }
@@ -701,6 +703,7 @@ class CubismFacadeImplTest {
             @Override public void replaceGrid(final WarpGrid grid) { }
             @Override public int parentDeformerIndex() { return -1; }
             @Override public IntSequence parameters() { return emptyInts(); }
+            @Override public List<dev.turboism.sdk.cubism.model.ParameterBinding> getParameterBindings() { return List.of(); }
         };
         final RotationDeformer backendRotation = new RotationDeformer() {
             @Override public DeformerId id() { return new DeformerId("RotationA"); }
@@ -712,6 +715,7 @@ class CubismFacadeImplTest {
             @Override public void replaceForm(final RotationDeformerForm form) { }
             @Override public int parentDeformerIndex() { return -1; }
             @Override public IntSequence parameters() { return emptyInts(); }
+            @Override public List<dev.turboism.sdk.cubism.model.ParameterBinding> getParameterBindings() { return List.of(); }
         };
         final CubismFacadeImpl facade = new CubismFacadeImpl(
             sampleSource(),
@@ -733,6 +737,9 @@ class CubismFacadeImplTest {
         final Drawable mesh = model.drawables().all().get(0);
         final WarpDeformer warp = model.warpDeformers().all().get(0);
         final RotationDeformer rotation = model.rotationDeformers().all().get(0);
+        assertEquals(List.of(), mesh.getParameterBindings());
+        assertEquals(List.of(), warp.getParameterBindings());
+        assertEquals(List.of(), rotation.getParameterBindings());
 
         active.set(false);
 
@@ -1161,6 +1168,7 @@ class CubismFacadeImplTest {
                     @Override public Optional<ParameterId> combinedWith() {
                         return Optional.of(new ParameterId("ParamB"));
                     }
+                    @Override public List<dev.turboism.sdk.cubism.model.ParameterBinding> getParameterBindings() { return List.of(); }
                     @Override public float getValue() { return value[0]; }
                     @Override public float getMinimumValue() { return -1.0F; }
                     @Override public float getMaximumValue() { return 1.0F; }

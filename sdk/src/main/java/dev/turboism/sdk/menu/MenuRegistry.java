@@ -10,6 +10,10 @@ public interface MenuRegistry {
     Registration contribute(MenuContribution contribution);
 
     interface MenuContribution {
+        /**
+         * Slash-delimited path whose first segment is a plugin-owned top-level
+         * menu, optional middle segments are submenus, and final segment is the item.
+         */
         String menuPath();
 
         String actionId();

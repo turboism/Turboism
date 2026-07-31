@@ -37,6 +37,20 @@ import static org.junit.jupiter.api.Assertions.fail;
 class HostSessionTest {
 
     @Test
+    void adapterAccessReturnsEmptyWhenActiveConnectionHasNoOptionalOverlayResolver() {
+        HostSession session = new HostSession(
+            () -> Optional.of(descriptor("session-a")),
+            ignored -> new HostAdapterConnection() {
+                @Override public RuntimeHostAdapters adapters() { return HostSessionTest.adapters("session-a"); }
+                @Override public void close() { }
+            }
+        );
+
+        assertEquals(HostSession.State.ACTIVE, session.refresh());
+        assertTrue(session.adapterAccess().boundingBoxOverlayResolver().isEmpty());
+    }
+
+    @Test
     void dynamicAdaptersFollowConnectDisconnectAndCloseWithoutLeakingOldDelegate() {
         AtomicReference<HostInstanceDescriptor> current = new AtomicReference<>();
         HostInstanceSource source = () -> Optional.ofNullable(current.get());
@@ -386,11 +400,6 @@ class HostSessionTest {
             @Override public AdapterResult<Registration> notifyStatus(StatusNotification ignored) {
                 return AdapterResult.available(registration);
             }
-            @Override public AdapterResult<Registration> contributePaletteToolbar(
-                dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry.PaletteToolbarContribution ignored
-            ) {
-                return AdapterResult.available(() -> { });
-            }
         };
     }
 
@@ -532,17 +541,10 @@ class HostSessionTest {
                     }
                 });
             }
-
-            @Override
-            public AdapterResult<Registration> contributePaletteToolbar(
-                dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry.PaletteToolbarContribution contribution
-            ) {
-                return AdapterResult.available(() -> { });
-            }
         };
         return new RuntimeHostAdapters(
             safe.themeStatus(), safe.renderStatus(), safe.projectWorkspace(), safe.clipMaskRead(),
-            statusToolbar, safe.mainToolbar(), safe.uiSurface()
+            statusToolbar, safe.uiSurface()
         );
     }
 
@@ -555,13 +557,6 @@ class HostSessionTest {
             public AdapterResult<Registration> notifyStatus(StatusNotification notification) {
                 return AdapterResult.available(registrationCloses::incrementAndGet);
             }
-
-            @Override
-            public AdapterResult<Registration> contributePaletteToolbar(
-                dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry.PaletteToolbarContribution contribution
-            ) {
-                return AdapterResult.available(registrationCloses::incrementAndGet);
-            }
         };
         return new RuntimeHostAdapters(
             safe.themeStatus(),
@@ -569,8 +564,7 @@ class HostSessionTest {
             safe.projectWorkspace(),
             safe.clipMaskRead(),
             statusToolbar,
-            safe.mainToolbar(),
-            safe.uiSurface()
+                        safe.uiSurface()
         );
     }
 
@@ -588,7 +582,7 @@ class HostSessionTest {
             );
         return new RuntimeHostAdapters(
             safe.themeStatus(), safe.renderStatus(), safe.projectWorkspace(), clipMask,
-            safe.statusToolbar(), safe.mainToolbar(), safe.uiSurface()
+            safe.statusToolbar(), safe.uiSurface()
         );
     }
 
@@ -610,8 +604,7 @@ class HostSessionTest {
             projectWorkspace,
             safe.clipMaskRead(),
             safe.statusToolbar(),
-            safe.mainToolbar(),
-            safe.uiSurface()
+                        safe.uiSurface()
         );
     }
 }
