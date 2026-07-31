@@ -62,6 +62,7 @@ final class VerifiedObjectContextMenuHookInstaller implements AutoCloseable {
         }
     }
 
+
     @Override
     public void close() {
         if (!installed.compareAndSet(true, false)) return;
@@ -91,7 +92,7 @@ final class VerifiedObjectContextMenuHookInstaller implements AutoCloseable {
         Shape shape,
         int expectedAppendPoints,
         int injectionPoint,
-        int sourceLocal
+        int[] sourceLocals
     ) {
         Binding {
             operation = requireInstanceMethod(operation, "operation");
@@ -106,16 +107,17 @@ final class VerifiedObjectContextMenuHookInstaller implements AutoCloseable {
                 && (expectedAppendPoints <= 0 || injectionPoint <= 0 || injectionPoint > expectedAppendPoints)) {
                 throw new IllegalArgumentException("append cardinality and injection point must be positive and bounded");
             }
-            if (shape == Shape.APPEND_POINT && sourceLocal < 0) {
-                throw new IllegalArgumentException("append-point source local must not be negative");
+            if (shape == Shape.APPEND_POINT && (sourceLocals.length == 0
+                || java.util.Arrays.stream(sourceLocals).anyMatch(value -> value < 0))) {
+                throw new IllegalArgumentException("append-point source locals must be non-empty and non-negative");
             }
-            if (shape == Shape.RETURN_POINT && (expectedAppendPoints != 0 || injectionPoint != 0 || sourceLocal != 0)) {
+            if (shape == Shape.RETURN_POINT && (expectedAppendPoints != 0 || injectionPoint != 0 || sourceLocals.length != 0)) {
                 throw new IllegalArgumentException("return-point binding must not declare append cardinality");
             }
         }
 
         static Binding returnPoint(final StaticSelector operation, final Location location) {
-            return new Binding(operation, null, location, Shape.RETURN_POINT, 0, 0, 0);
+            return new Binding(operation, null, location, Shape.RETURN_POINT, 0, 0, new int[0]);
         }
 
         static Binding appendPoint(
@@ -124,11 +126,11 @@ final class VerifiedObjectContextMenuHookInstaller implements AutoCloseable {
             final Location location,
             final int expectedAppendPoints,
             final int injectionPoint,
-            final int sourceLocal
+            final int... sourceLocals
         ) {
             return new Binding(
                 operation, append, location, Shape.APPEND_POINT,
-                expectedAppendPoints, injectionPoint, sourceLocal
+                expectedAppendPoints, injectionPoint, sourceLocals.clone()
             );
         }
 
@@ -153,7 +155,7 @@ final class VerifiedObjectContextMenuHookInstaller implements AutoCloseable {
                 location,
                 expectedAppendPoints,
                 injectionPoint,
-                sourceLocal
+                sourceLocals
             );
         }
 
