@@ -14,6 +14,7 @@ import dev.turboism.permissions.CubismPermissionGate;
 import dev.turboism.adapter.cubism.write.RuntimeTransactionManager;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.cubism.CubismFacade;
+import dev.turboism.sdk.cubism.history.CubismHistory;
 import dev.turboism.sdk.cubism.CubismRuntimeSnapshot;
 import dev.turboism.sdk.cubism.DocumentSnapshot;
 import dev.turboism.sdk.cubism.ModelSnapshot;
@@ -54,6 +55,7 @@ public final class CubismFacadeImpl implements CubismFacade {
     private final ImmutableSnapshotFactory snapshotFactory;
     private final TransactionManager transactionManager;
     private final CubismModelAccess modelAccess;
+    private CubismHistory history = CubismHistory.unavailable();
     private final ParameterLifecycleCoordinator parameterLifecycle;
     private final PartLifecycleCoordinator partLifecycle;
     private final EditorObjectLifecycleCoordinator editorObjectLifecycle;
@@ -167,6 +169,20 @@ public final class CubismFacadeImpl implements CubismFacade {
             editorObjectLifecycle,
             activeScope
         );
+    }
+
+    public CubismFacadeImpl(
+        final HostSnapshotSource source,
+        final CubismPermissionGate permissionGate,
+        final CubismModelAccess modelAccess,
+        final ParameterLifecycleCoordinator parameterLifecycle,
+        final PartLifecycleCoordinator partLifecycle,
+        final EditorObjectLifecycleCoordinator editorObjectLifecycle,
+        final BooleanSupplier activeScope,
+        final CubismHistory history
+    ) {
+        this(source, permissionGate, modelAccess, parameterLifecycle, partLifecycle, editorObjectLifecycle, activeScope);
+        this.history = Objects.requireNonNull(history, "history");
     }
 
     public CubismFacadeImpl(
@@ -379,6 +395,32 @@ public final class CubismFacadeImpl implements CubismFacade {
         requireActiveScope();
         permissionGate.require(MODEL_READ_PERMISSION, "model");
         return modelAccess;
+    }
+
+    @Override
+    public CubismHistory history() {
+        requireActiveScope();
+        permissionGate.require(MODEL_READ_PERMISSION, "history");
+        final CubismHistory delegate = history;
+        return new CubismHistory() {
+            @Override
+            public dev.turboism.sdk.cubism.history.HistorySnapshot snapshot() {
+                requireActiveScope();
+                permissionGate.require(MODEL_READ_PERMISSION, "history.snapshot");
+                return delegate.snapshot();
+            }
+
+            @Override
+            public dev.turboism.sdk.cubism.history.HistoryMoveResult moveTo(
+                final long expectedGeneration,
+                final long expectedRevision,
+                final int position
+            ) {
+                requireActiveScope();
+                permissionGate.require(MODEL_WRITE_PERMISSION, "history.moveTo");
+                return delegate.moveTo(expectedGeneration, expectedRevision, position);
+            }
+        };
     }
 
     @Override

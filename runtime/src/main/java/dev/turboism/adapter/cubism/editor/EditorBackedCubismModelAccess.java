@@ -130,6 +130,17 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess {
         final Object document = resolver.invoke(
             "cubism.editor-model.app-controller.current-document", app
         );
+        final boolean historyAuthorized = resolver.authorizesFeature(
+            "adapter.editor-model.readwrite",
+            "cubism.editor-history.read",
+            dev.turboism.mapping.verification.EditorHistoryReadSelectorContract.REQUIRED_ALIASES
+        );
+        final Object historyManager = historyAuthorized
+            ? resolver.invoke("cubism.editor-history.document.undo-manager", document)
+            : null;
+        final java.util.List<?> historyBefore = historyAuthorized
+            ? historyEntries(historyManager)
+            : java.util.List.of();
         final Object parameterSet = resolver.invoke(
             "cubism.editor-model.model.parameter-set", expectedModel
         );
@@ -195,6 +206,32 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess {
             );
         }
         requireCurrent(expectedIdentity, expectedModel);
+        final float finalValue = number(resolver.invoke(
+            "cubism.editor-model.parameter.value", parameter(expectedModel, id).parameter()
+        ));
+        if (historyAuthorized) {
+            dev.turboism.adapter.cubism.editor.history.EditorHistoryMetadataRegistry.registerAppended(
+                historyBefore,
+                historyEntries(historyManager),
+                new dev.turboism.sdk.cubism.history.HistoryAction(
+                    dev.turboism.sdk.cubism.history.HistoryAction.Kind.SET_PARAMETER_VALUE,
+                    "PARAMETER",
+                    id.value(),
+                    "value",
+                    java.util.Optional.of(Float.toString(oldValue)),
+                    java.util.Optional.of(Float.toString(finalValue)),
+                    dev.turboism.sdk.cubism.history.HistoryAction.DetailLevel.FULL
+                )
+            );
+    }
+        }
+
+    private java.util.List<?> historyEntries(final Object manager) {
+        if (!resolver.isInstance("cubism.editor-history.manager.class", manager)) {
+            return java.util.List.of();
+        }
+        final Object entries = resolver.invoke("cubism.editor-history.manager.entries", manager);
+        return entries instanceof java.util.List<?> values ? java.util.List.copyOf(values) : java.util.List.of();
     }
 
     private void updateParameterDefinition(
