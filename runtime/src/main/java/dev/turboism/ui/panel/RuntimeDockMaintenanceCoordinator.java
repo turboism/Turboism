@@ -12,9 +12,7 @@ public final class RuntimeDockMaintenanceCoordinator {
 
     public synchronized Registration bind(final long hostGeneration, final EmptyDockCleaner target) {
         final EmptyDockCleaner requested = Objects.requireNonNull(target, "target");
-        if (cleaner != null) {
-            throw new IllegalStateException("dock maintenance target is already bound");
-        }
+        // A later panel provider batch replaces the previous maintenance target.
         generation = hostGeneration;
         cleaner = requested;
         return () -> unbind(hostGeneration, requested);

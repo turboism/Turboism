@@ -22,9 +22,8 @@ public final class RuntimeEmbeddedPanelActivationCoordinator implements AutoClos
         );
         synchronized (monitor) {
             requireOpen();
-            if (binding != null) {
-                throw new IllegalStateException("embedded-panel activation target is already bound");
-            }
+            // A new contribution batch replaces the previous activation target
+            // (e.g. a second panel plugin enabling after the first).
             binding = requested;
         }
         return () -> unbind(requested);
