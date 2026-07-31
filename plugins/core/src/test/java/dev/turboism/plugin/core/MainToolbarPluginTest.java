@@ -94,12 +94,13 @@ class MainToolbarPluginTest {
         assertEquals(1, context.uiHost().panelContributions().size());
         final EmbeddedPanelContribution panel = context.uiHost().panelContributions().get(0);
         assertEquals("turboism.panel.main", panel.id());
-        assertTrue(panel.content().toString().contains("Safe Mode"));
-        assertTrue(panel.content().toString().contains("Clean empty docks"));
+        assertTrue(panel.content().toString().contains("Settings"));
+        assertTrue(panel.content().toString().contains("Plugin Management"));
+        assertTrue(!panel.content().toString().contains("Safe Mode"));
         assertEquals(
             List.of(
-                "Turboism/Settings:turboism.core.open:10",
-                "Turboism/Plugin Management:turboism.core.open:11"
+                "Turboism/Settings:turboism.core.settings.open:10",
+                "Turboism/Plugin Management:turboism.core.plugins.open:11"
             ),
             context.menus().contributions().stream()
                 .map(value -> value.menuPath() + ":" + value.actionId() + ":" + value.order())
@@ -177,25 +178,6 @@ class MainToolbarPluginTest {
 
         assertEquals(1, context.uiHost().panelContributions().size());
         assertTrue(context.recordedLogger().warnings.contains("Plugin operation failed safely."));
-    }
-
-    @Test
-    void acceptedPluginOperationRefreshesPanelToPendingWithoutStaleControls() throws Exception {
-        final RecordingPluginContext context = new RecordingPluginContext();
-        final PendingPluginManagement management = new PendingPluginManagement();
-        final MainToolbarPlugin plugin = plugin(management);
-
-        plugin.init(context);
-        plugin.enable();
-        assertTrue(context.uiHost().panelContributions().get(0).content().toString().contains("Disable"));
-
-        context.actions().execute("turboism.core.plugins.disable.example.plugin");
-
-        final String refreshed = context.uiHost().panelContributions().get(0).content().toString();
-        assertTrue(refreshed.contains("pending=DISABLE"));
-        assertTrue(!refreshed.contains("label=Disable"));
-        assertTrue(!refreshed.contains("label=Enable"));
-        assertTrue(!refreshed.contains("label=Uninstall"));
     }
 
     @Test

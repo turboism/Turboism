@@ -20,6 +20,7 @@ public final class MainToolbarPlugin implements TurboismPlugin {
     private CorePluginManagement plugins;
     private dev.turboism.sdk.runtime.RuntimeSettings settings;
     private Registration panelRegistration;
+    private CoreWindows windows;
 
     public MainToolbarPlugin() {
         services = CorePluginServices.consume();
@@ -36,6 +37,7 @@ public final class MainToolbarPlugin implements TurboismPlugin {
             context.uiHost(), context.mainToolbar(), context.menus(), localization(context),
             runtimeSettings, plugins
         );
+        this.windows = new CoreWindows(localization(context), runtimeSettings, plugins);
         logger.info("Turboism core initialized");
     }
 
@@ -43,9 +45,14 @@ public final class MainToolbarPlugin implements TurboismPlugin {
     public void enable() {
         registerAction(MainToolbarHomeEntryService.ACTION_ID, MainToolbarHomeEntryService.ACTION_LABEL,
             ignored -> homeEntryService.openTurboismPanel());
+        registerAction(MainToolbarHomeEntryService.SETTINGS_ACTION_ID,
+            localization(context).text("main-toolbar.settings-menu.label"), ignored -> windows.showSettings());
+        registerAction(MainToolbarHomeEntryService.PLUGINS_ACTION_ID,
+            localization(context).text("main-toolbar.plugins-menu.label"), ignored -> windows.showPlugins());
         registerSettingsActions();
         registerPluginActions();
         context.disposableScope().register(plugins);
+        context.disposableScope().register(windows);
         refreshPanel();
         context.disposableScope().register(homeEntryService.registerSettingsMenu());
         context.disposableScope().register(homeEntryService.registerPluginManagementMenu());
