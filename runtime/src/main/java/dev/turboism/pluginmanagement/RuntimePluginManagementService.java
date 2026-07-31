@@ -17,18 +17,29 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 /** Runtime-owned desired-state manager; package mutation is applied only before next discovery. */
 public final class RuntimePluginManagementService implements CorePluginManagement {
     private final Path pluginsDirectory;
-    private final Supplier<Optional<Path>> packageChooser;
+    private final Supplier<Optional<Path>> synchronousPackageChooser;
+    private final PackageChooser packageChooser;
     private final Supplier<List<PluginInfo>> runtimePlugins;
     private final RuntimeConfigRepository config;
     private final PendingPluginOperations pending;
+    private final ExecutorService installExecutor;
+    private final AtomicBoolean installPending = new AtomicBoolean();
+    private final AtomicBoolean active = new AtomicBoolean(true);
 
     public RuntimePluginManagementService(final Path home, final Supplier<List<PluginInfo>> runtimePlugins) {
-        this(home, RuntimePluginManagementService::choosePluginPackage, runtimePlugins);
+        this(home, RuntimePluginManagementService::choosePluginPackage, new SwingPackageChooser(), runtimePlugins);
     }
 
     public RuntimePluginManagementService(
@@ -36,12 +47,33 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
         final Supplier<Optional<Path>> packageChooser,
         final Supplier<List<PluginInfo>> runtimePlugins
     ) {
+        this(home, packageChooser, completion -> completion.accept(packageChooser.get()), runtimePlugins);
+    }
+
+    RuntimePluginManagementService(
+        final Path home,
+        final PackageChooser packageChooser,
+        final Supplier<List<PluginInfo>> runtimePlugins
+    ) {
+        this(home, Optional::empty, packageChooser, runtimePlugins);
+    }
+
+    private RuntimePluginManagementService(
+        final Path home,
+        final Supplier<Optional<Path>> synchronousPackageChooser,
+        final PackageChooser packageChooser,
+        final Supplier<List<PluginInfo>> runtimePlugins
+    ) {
         final Path normalized = home.toAbsolutePath().normalize();
         pluginsDirectory = normalized.resolve("plugins");
-        this.packageChooser = packageChooser;
-        this.runtimePlugins = runtimePlugins;
+        this.synchronousPackageChooser = java.util.Objects.requireNonNull(
+            synchronousPackageChooser, "synchronousPackageChooser"
+        );
+        this.packageChooser = java.util.Objects.requireNonNull(packageChooser, "packageChooser");
+        this.runtimePlugins = java.util.Objects.requireNonNull(runtimePlugins, "runtimePlugins");
         config = new RuntimeConfigRepository(normalized, ignored -> { });
         pending = new PendingPluginOperations(normalized);
+        installExecutor = Executors.newSingleThreadExecutor(new InstallThreadFactory());
     }
 
     @Override
@@ -70,8 +102,71 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
 
     @Override
     public synchronized OperationResult install() {
-        final Optional<Path> selected = packageChooser.get();
-        if (selected.isEmpty()) return OperationResult.rejected("PLUGIN_INSTALL_CANCELLED", "Plugin installation was cancelled.");
+        return stage(synchronousPackageChooser.get());
+    }
+
+    @Override
+    public void requestInstall(final Consumer<OperationResult> completion) {
+        final Consumer<OperationResult> requested = java.util.Objects.requireNonNull(completion, "completion");
+        if (!active.get() || !installPending.compareAndSet(false, true)) {
+            requested.accept(OperationResult.rejected(
+                "PLUGIN_INSTALL_BUSY", "Another plugin installation is already in progress."
+            ));
+            return;
+        }
+        try {
+            packageChooser.choose(selection -> selected(selection, requested));
+        } catch (RuntimeException failure) {
+            installPending.set(false);
+            if (active.get()) {
+                requested.accept(OperationResult.rejected(
+                    "PLUGIN_INSTALL_CANCELLED", "Plugin installation was cancelled."
+                ));
+            }
+        }
+    }
+
+    private void selected(
+        final Optional<Path> selection,
+        final Consumer<OperationResult> completion
+    ) {
+        if (!active.get()) {
+            installPending.set(false);
+            return;
+        }
+        final Optional<Path> selected = selection == null ? Optional.empty() : selection;
+        if (selected.isEmpty()) {
+            installPending.set(false);
+            completion.accept(OperationResult.rejected(
+                "PLUGIN_INSTALL_CANCELLED", "Plugin installation was cancelled."
+            ));
+            return;
+        }
+        try {
+            installExecutor.execute(() -> {
+                OperationResult result;
+                try {
+                    result = stage(selected);
+                } catch (RuntimeException failure) {
+                    result = OperationResult.rejected(
+                        "PLUGIN_INSTALL_FAILED", "Plugin package was rejected safely."
+                    );
+                } finally {
+                    installPending.set(false);
+                }
+                if (active.get()) completion.accept(result);
+            });
+        } catch (RejectedExecutionException closed) {
+            installPending.set(false);
+        }
+    }
+
+    private synchronized OperationResult stage(final Optional<Path> selected) {
+        if (selected.isEmpty()) {
+            return OperationResult.rejected(
+                "PLUGIN_INSTALL_CANCELLED", "Plugin installation was cancelled."
+            );
+        }
         final PendingPluginOperations.StagedInstall result = pending.stage(selected.orElseThrow());
         return result.accepted()
             ? OperationResult.accepted(result.code(), "Plugin installation is pending; restart Cubism to apply it.")
@@ -112,6 +207,23 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
 
     public static PendingPluginOperations.ApplyResult applyPending(final Path home) {
         return new PendingPluginOperations(home).apply();
+    }
+
+    @Override
+    public void close() {
+        if (!active.compareAndSet(true, false)) return;
+        packageChooser.close();
+        installExecutor.shutdownNow();
+        try {
+            if (!installExecutor.awaitTermination(5L, TimeUnit.SECONDS)) {
+                throw new IllegalStateException("Plugin installation did not quiesce before core scope close");
+            }
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Interrupted while closing plugin installation", interrupted);
+        } finally {
+            installPending.set(false);
+        }
     }
 
     private List<PluginInfo> installed() {
@@ -177,5 +289,51 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
             if (SwingUtilities.isEventDispatchThread()) choose.run(); else SwingUtilities.invokeAndWait(choose);
             return selected[0];
         } catch (Exception failure) { return Optional.empty(); }
+    }
+
+
+    interface PackageChooser extends AutoCloseable {
+        void choose(Consumer<Optional<Path>> completion);
+        @Override default void close() { }
+    }
+
+    private static final class SwingPackageChooser implements PackageChooser {
+        private final AtomicBoolean active = new AtomicBoolean(true);
+        private volatile JFileChooser visible;
+
+        @Override
+        public void choose(final Consumer<Optional<Path>> completion) {
+            final Runnable choose = () -> {
+                if (!active.get()) return;
+                final JFileChooser chooser = new JFileChooser();
+                visible = chooser;
+                chooser.setDialogTitle("Install Turboism plugin");
+                chooser.setFileFilter(new FileNameExtensionFilter(
+                    "Turboism plugin package (*.tplugin)", "tplugin"
+                ));
+                final Optional<Path> selected = chooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION
+                    ? Optional.of(chooser.getSelectedFile().toPath())
+                    : Optional.empty();
+                visible = null;
+                if (active.get()) completion.accept(selected);
+            };
+            if (SwingUtilities.isEventDispatchThread()) choose.run();
+            else SwingUtilities.invokeLater(choose);
+        }
+
+        @Override
+        public void close() {
+            active.set(false);
+            final JFileChooser chooser = visible;
+            if (chooser != null) SwingUtilities.invokeLater(chooser::cancelSelection);
+        }
+    }
+
+    private static final class InstallThreadFactory implements ThreadFactory {
+        @Override public Thread newThread(final Runnable work) {
+            final Thread thread = new Thread(work, "turboism-plugin-install");
+            thread.setDaemon(true);
+            return thread;
+        }
     }
 }
