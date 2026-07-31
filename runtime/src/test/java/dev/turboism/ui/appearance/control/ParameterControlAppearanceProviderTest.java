@@ -1,0 +1,40 @@
+package dev.turboism.ui.appearance.control;
+
+import dev.turboism.sdk.cubism.id.ParameterId;
+import dev.turboism.sdk.ui.appearance.ControlAppearanceContribution;
+import dev.turboism.sdk.ui.appearance.ControlAppearanceStyle;
+import dev.turboism.sdk.ui.appearance.ControlAppearanceTarget;
+import dev.turboism.sdk.ui.appearance.UiColor;
+import org.junit.jupiter.api.Test;
+
+import javax.swing.JLabel;
+import java.awt.Color;
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+class ParameterControlAppearanceProviderTest {
+    @Test
+    void contributionCloseImmediatelyRestoresBoundLongLivedLabel() throws Exception {
+        final ControlAppearanceCoordinator coordinator = new ControlAppearanceCoordinator();
+        coordinator.replaceHostGeneration(5);
+        final RuntimeControlAppearanceRegistry registry = new RuntimeControlAppearanceRegistry(
+            "plugin", 1, (permission, operation) -> { }, coordinator
+        );
+        final var registration = registry.register(new ControlAppearanceContribution(
+            "parameter", new ControlAppearanceTarget.ParameterLabel(new ParameterId("ParamA")),
+            new ControlAppearanceStyle(Optional.of(new UiColor(0xFF123456)), Optional.empty(), Optional.empty())
+        ));
+        final ParameterControlAppearanceProvider provider = new ParameterControlAppearanceProvider(5, coordinator);
+        final JLabel label = new JLabel();
+        label.setForeground(Color.BLACK);
+        javax.swing.SwingUtilities.invokeAndWait(() ->
+            provider.bind(ParameterControlAppearanceProvider.Kind.PARAMETER, "ParamA", label));
+        assertEquals(new Color(0x12, 0x34, 0x56), label.getForeground());
+
+        registration.close();
+        javax.swing.SwingUtilities.invokeAndWait(() -> { });
+        assertEquals(Color.BLACK, label.getForeground());
+        provider.close();
+    }
+}

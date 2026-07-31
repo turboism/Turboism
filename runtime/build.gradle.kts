@@ -163,6 +163,7 @@ tasks.named<ProcessResources>("processTestResources") {
 
 dependencies {
     implementation(project(":sdk"))
+    implementation(project(":plugins:core"))
 
     // JSON parsing implementation stays in runtime, not in SDK
     implementation("com.fasterxml.jackson.core:jackson-databind:2.17.2")

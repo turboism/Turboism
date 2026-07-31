@@ -1,0 +1,5 @@
+
+main-toolbar.home.aria-label
+main-toolbar.home.tooltip
+main-toolbar.plugins-menu.label
+main-toolbar.settings-menu.label
