@@ -42,7 +42,7 @@ class ObjectContextMenuAppendNativeMethodTransformerTest {
             null, loader, "fixture/Builder", null, null, builderClass(1)
         );
         assertNotNull(transformed);
-        assertLoaderNeutral(transformed);
+        assertDirectBridgeCall(transformed);
 
         final Class<?> menuType = loader.define("fixture.Menu", menuClass());
         final Class<?> builderType = loader.define("fixture.Builder", transformed);
@@ -81,7 +81,7 @@ class ObjectContextMenuAppendNativeMethodTransformerTest {
             null, loader, "fixture/SingleBuilder", null, null, singleBuilderClass()
         );
         assertNotNull(transformed);
-        assertLoaderNeutral(transformed);
+        assertDirectBridgeCall(transformed);
 
         final Class<?> menuType = loader.define("fixture.SingleMenu", singleMenuClass());
         final Class<?> builderType = loader.define("fixture.SingleBuilder", transformed);
@@ -102,6 +102,32 @@ class ObjectContextMenuAppendNativeMethodTransformerTest {
         assertEquals(Location.PARAMETER_TAB, observed.get(1));
         assertSame(builder, observed.get(2));
         assertEquals(1, menuType.getField("appends").getInt(builderType.getField("menu").get(builder)));
+    }
+
+    @Test
+    void mergesMultipleSelectionLocalsForDeformerMenus() throws Exception {
+        final FixtureLoader loader = new FixtureLoader();
+        final ObjectContextMenuAppendNativeMethodTransformer transformer =
+            new ObjectContextMenuAppendNativeMethodTransformer(
+                "fixture/Builder", "build", "(Ljava/lang/Object;)V", loader,
+                "fixture/Menu", "append", "(Ljava/lang/Object;Ljava/lang/Object;)V",
+                Location.DEFORMER_TAB, 1, 1, 1, 2
+            );
+        final byte[] transformed = transformer.transform(
+            null, loader, "fixture/Builder", null, null, builderClass(1)
+        );
+        assertNotNull(transformed);
+        loader.define("fixture.Menu", menuClass());
+        final Class<?> builderType = loader.define("fixture.Builder", transformed);
+        final Object builder = builderType.getConstructor().newInstance();
+        final Object first = List.of("warp");
+        final List<Object> observed = new ArrayList<>();
+        try (Registration ignored = NativeObjectContextMenuBridge.install(
+            (menu, location, source) -> { observed.addAll((List<?>) source); return menu; }
+        )) {
+            builderType.getMethod("build", Object.class).invoke(builder, first);
+        }
+        assertEquals(List.of("warp", builder), observed);
     }
 
     private static byte[] singleBuilderClass() {
@@ -163,6 +189,8 @@ class ObjectContextMenuAppendNativeMethodTransformerTest {
         );
         build.visitCode();
         build.visitVarInsn(Opcodes.ALOAD, 0);
+        build.visitVarInsn(Opcodes.ASTORE, 2);
+        build.visitVarInsn(Opcodes.ALOAD, 0);
         build.visitTypeInsn(Opcodes.NEW, "fixture/Menu");
         build.visitInsn(Opcodes.DUP);
         build.visitMethodInsn(Opcodes.INVOKESPECIAL, "fixture/Menu", "<init>", "()V", false);
@@ -210,8 +238,8 @@ class ObjectContextMenuAppendNativeMethodTransformerTest {
         return writer.toByteArray();
     }
 
-    private static void assertLoaderNeutral(final byte[] transformed) {
-        org.junit.jupiter.api.Assertions.assertFalse(
+    private static void assertDirectBridgeCall(final byte[] transformed) {
+        org.junit.jupiter.api.Assertions.assertTrue(
             new String(transformed, java.nio.charset.StandardCharsets.ISO_8859_1)
                 .contains("dev/turboism/ui/context/NativeObjectContextMenuBridge")
         );

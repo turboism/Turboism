@@ -76,6 +76,21 @@ public final class NativeObjectContextMenuBridge {
         }
     }
 
+    /** Combines exact native selection locals without exposing host collection types. */
+    public static Object mergeSources(final Object first, final Object second) {
+        final java.util.ArrayList<Object> merged = new java.util.ArrayList<>();
+        addSources(merged, first);
+        addSources(merged, second);
+        return merged;
+    }
+
+    private static void addSources(final java.util.List<Object> target, final Object source) {
+        if (source instanceof java.util.Collection<?> values) target.addAll(values);
+        else if (source != null) target.add(source);
+    }
+
+
+
     @FunctionalInterface
     public interface Handler {
         Object augment(Object menu, Location location, Object source);

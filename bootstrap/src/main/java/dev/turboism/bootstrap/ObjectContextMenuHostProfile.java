@@ -31,37 +31,39 @@ record ObjectContextMenuHostProfile(List<VerifiedObjectContextMenuHookInstaller.
 
     static Optional<ObjectContextMenuHostProfile> forArtifact(final HostArtifactDigest artifact) {
         Objects.requireNonNull(artifact, "artifact");
-        if (artifact.equals(CUBISM_52)) return Optional.of(profile("R", 21, 23));
-        if (artifact.equals(CUBISM_53)) return Optional.of(profile("T", 22, 22));
+        if (artifact.equals(CUBISM_52)) return Optional.of(profile("R", 21, 23, 3, 2));
+        if (artifact.equals(CUBISM_53)) return Optional.of(profile("T", 22, 22, 1, 1));
         return Optional.empty();
     }
 
     private static ObjectContextMenuHostProfile profile(
         final String partsOwner,
         final int partsAppends,
-        final int workspaceAppends
+        final int workspaceAppends,
+        final int deformerInjectionPoint,
+        final int partsInjectionPoint
     ) {
         return new ObjectContextMenuHostProfile(List.of(
             append(
                 "deformer", "com/live2d/cubism/view/palette/deformer/b", "a",
                 "(Ljava/awt/event/MouseEvent;)V", "b", "(" + ITEM + ")V",
-                Location.DEFORMER_TAB, 11, 0
+                Location.DEFORMER_TAB, 11, deformerInjectionPoint, 2, 3
             ),
             append(
                 "parameter", "com/live2d/cubism/view/palette/parameter/aL", "a",
-                "(Ljava/awt/event/MouseEvent;)V", "b", "(" + ITEM + ")V",
-                Location.PARAMETER_TAB, 1, 0
+                "(Ljava/awt/event/MouseEvent;)V", "c", "(" + ITEM + ")V",
+                Location.PARAMETER_TAB, 7, 3, 2
             ),
             append(
                 "parts", "com/live2d/cubism/view/palette/parts/" + partsOwner, "a",
                 "(Ljava/awt/event/MouseEvent;)V", "b", "(" + ITEM + ")V",
-                Location.PART_TAB, partsAppends, 0
+                Location.PART_TAB, partsAppends, partsInjectionPoint, 5
             ),
             append(
                 "workspace", "com/live2d/cubism/view/context/U", "b",
                 "(Lcom/live2d/cubism/view/context/actionManager/N;)V", "a",
                 "(" + ITEM + "Ljava/awt/GridBagConstraints;)V",
-                Location.WORKSPACE_OBJECT, workspaceAppends, 1
+                Location.WORKSPACE_OBJECT, workspaceAppends, 1, 1
             )
         ));
     }
@@ -75,15 +77,16 @@ record ObjectContextMenuHostProfile(List<VerifiedObjectContextMenuHookInstaller.
         final String appendDescriptor,
         final Location location,
         final int expectedAppends,
-        final int sourceLocal
+        final int injectionPoint,
+        final int... sourceLocals
     ) {
         return VerifiedObjectContextMenuHookInstaller.Binding.appendPoint(
             StaticSelector.method("object-context-menu." + id, owner, method, descriptor, 0),
             StaticSelector.method("object-context-menu." + id + ".append", MENU, appendMethod, appendDescriptor, 0),
             location,
             expectedAppends,
-            1,
-            sourceLocal
+            injectionPoint,
+            sourceLocals
         );
     }
 }

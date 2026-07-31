@@ -7,7 +7,7 @@ public final class EditorModelVerificationManifest {
 
     public static final String VERIFICATION_ID = "cubism-5.3.02.editor-model.static";
     public static final String RECORD_SHA256 =
-        "202cf9dfd8e6fb4ca5e66b07730bc1447d7ecb0b7b0673f7634644fca3c9fbff";
+        "89be832c50ee4b88384867f2800b3ad9a1549b8d9ae0e237e62a69bcccbc318b";
     public static final String CUBISM_VERSION = "5.3.02";
     public static final String PROFILE_ID = "cubism-5.3.02";
     public static final long ARTIFACT_SIZE = 41_922_739L;
@@ -30,7 +30,8 @@ public final class EditorModelVerificationManifest {
         EditorObjectReadSelectorContract.CAPABILITY_ID,
         EditorObjectWriteSelectorContract.ART_MESH_CAPABILITY_ID,
         EditorObjectWriteSelectorContract.WARP_CAPABILITY_ID,
-        EditorObjectWriteSelectorContract.ROTATION_CAPABILITY_ID
+        EditorObjectWriteSelectorContract.ROTATION_CAPABILITY_ID,
+        ObjectContextMenuVerificationManifest.CAPABILITY_ID
     );
     public static final Set<String> REQUIRED_ALIASES = Set.of(
         "cubism.editor-model.app-controller.class",
@@ -225,7 +226,34 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.rotation-form.set-scale",
         "cubism.editor-model.rotation-form.set-reflect-x",
         "cubism.editor-model.rotation-form.set-reflect-y",
-        "cubism.editor-model.complete-pack.update-deformer-palette"
+        "cubism.editor-model.complete-pack.update-deformer-palette",
+        "object-context-menu.parameter.group-row.class",
+        "object-context-menu.parameter.group-row.source",
+        "object-context-menu.parameter.row-parameters",
+        "object-context-menu.workspace.selector",
+        "object-context-menu.workspace.selected",
+        "object-context-menu.workspace.selection.class",
+        "object-context-menu.workspace.selection-source",
+        "object-context-menu.warp.class",
+        "object-context-menu.rotation.class",
+        "object-context-menu.art-mesh.class",
+        "object-context-menu.part.class",
+        "object-context-menu.glue.class",
+        "object-context-menu.parameter.class",
+        "object-context-menu.parameter-group.class",
+        "object-context-menu.object-id",
+        "object-context-menu.parameter-id",
+        "object-context-menu.parameter-group-id",
+        "object-context-menu.id-value",
+        "object-context-menu.menu-item.create",
+        "object-context-menu.menu.append",
+        "object-context-menu.submenu.append",
+        "object-context-menu.menu-separator.create",
+        "object-context-menu.submenu.create",
+        "object-context-menu.menu.items",
+        "object-context-menu.menu-item.label",
+        "object-context-menu.parameter-point.guid-value",
+        "object-context-menu.menu.component"
     );
     private static final Set<String> PART_OPACITY_ADDITIVE_ALIASES = Set.of(
         "cubism.editor-model.model-source.parts",
@@ -276,8 +304,8 @@ public final class EditorModelVerificationManifest {
                 EditorModelVerificationManifest52.PROFILE_ID,
                 EditorModelVerificationManifest52.ARTIFACT_SIZE,
                 EditorModelVerificationManifest52.ARTIFACT_SHA256,
-                cubism52Capabilities(),
-                cubism52Aliases()
+                ObjectContextMenuVerificationManifest.capabilities(cubism52Capabilities()),
+                ObjectContextMenuVerificationManifest.aliases(cubism52Aliases())
             );
         }
         if (artifact.size() == ARTIFACT_SIZE && artifact.sha256().equals(ARTIFACT_SHA256)) {
@@ -288,8 +316,8 @@ public final class EditorModelVerificationManifest {
                 PROFILE_ID,
                 ARTIFACT_SIZE,
                 ARTIFACT_SHA256,
-                CAPABILITY_IDS,
-                REQUIRED_ALIASES
+                ObjectContextMenuVerificationManifest.capabilities(CAPABILITY_IDS),
+                ObjectContextMenuVerificationManifest.aliases(REQUIRED_ALIASES)
             );
         }
         throw new IllegalArgumentException(
