@@ -17,7 +17,9 @@ public record ContextMenuContributionDescriptor(
     String icon,
     ContextMenuRegistry.Location location,
     Set<ContextMenuRegistry.ObjectKind> objectKinds,
-    int priority
+    int priority,
+    ContextMenuRegistry.ContextMenuEntry entry,
+    ContextMenuRegistry.Placement placement
 ) {
     public ContextMenuContributionDescriptor {
         pluginId = requireText(pluginId, "pluginId");
@@ -26,6 +28,25 @@ public record ContextMenuContributionDescriptor(
         label = requireText(label, "label");
         location = Objects.requireNonNull(location, "location");
         objectKinds = Set.copyOf(Objects.requireNonNull(objectKinds, "objectKinds"));
+        entry = Objects.requireNonNull(entry, "entry");
+        placement = Objects.requireNonNull(placement, "placement");
+    }
+
+    public ContextMenuContributionDescriptor(
+        final String pluginId,
+        final String contributionId,
+        final String actionId,
+        final String label,
+        final String icon,
+        final ContextMenuRegistry.Location location,
+        final Set<ContextMenuRegistry.ObjectKind> objectKinds,
+        final int priority
+    ) {
+        this(
+            pluginId, contributionId, actionId, label, icon, location, objectKinds, priority,
+            ContextMenuRegistry.ContextMenuEntry.item(contributionId, label, actionId),
+            ContextMenuRegistry.Placement.last()
+        );
     }
 
     public static ContextMenuContributionDescriptor from(
@@ -46,7 +67,9 @@ public record ContextMenuContributionDescriptor(
             value.icon(),
             value.location(),
             value.objectKinds(),
-            value.priority()
+            value.priority(),
+            value.entry(),
+            value.placement()
         );
     }
 
