@@ -38,6 +38,22 @@ interface HostAdapterConnection extends AutoCloseable {
         return new UnavailableAppearanceHostProvider();
     }
 
+    default dev.turboism.ui.context.NativeObjectContextMenuBridge.Handler objectContextMenuHandler(
+        final long hostGeneration
+    ) {
+        if (hostGeneration <= 0) {
+            throw new IllegalArgumentException("hostGeneration must be positive");
+        }
+        return null;
+    }
+
+    default dev.turboism.ui.context.NativeParameterPointContextMenuBridge.Handler parameterPointMenuHandler(
+        final long hostGeneration
+    ) {
+        if (hostGeneration <= 0) throw new IllegalArgumentException("hostGeneration must be positive");
+        return null;
+    }
+
 
     default dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator dockMaintenance() {
         return new dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator();

@@ -33,7 +33,7 @@ tasks.processResources {
 }
 
 tasks.jar {
-    dependsOn(":runtime:jar", ":sdk:jar")
+    dependsOn(configurations.runtimeClasspath)
     archiveBaseName.set("turboism-agent")
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     manifest {

@@ -6,8 +6,8 @@ import dev.turboism.sdk.action.UiActionEvent;
 import dev.turboism.sdk.plugin.Registration;
 
 import java.util.Objects;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 /** Shared action-router catalog keyed by the contribution owner's plugin ID. */
 public final class RuntimeEditorUiActionRouter implements EditorUiActionRouter, AutoCloseable {
@@ -37,7 +37,7 @@ public final class RuntimeEditorUiActionRouter implements EditorUiActionRouter, 
 
     @Override
     public void invoke(final String pluginId, final String actionId) {
-        invoke(pluginId, actionId, Optional.empty());
+        invoke(pluginId, actionId, EditorUiActionRouter.emptyContext());
     }
 
     @Override
@@ -45,6 +45,15 @@ public final class RuntimeEditorUiActionRouter implements EditorUiActionRouter, 
         final String pluginId,
         final String actionId,
         final Optional<UiActionEvent> event
+    ) {
+        invoke(pluginId, actionId, EditorUiActionRouter.context(Objects.requireNonNull(event, "event")));
+    }
+
+    /** Routes an action with a typed runtime-owned invocation context. */
+    public void invoke(
+        final String pluginId,
+        final String actionId,
+        final ActionRegistry.ActionContext context
     ) {
         if (closed) {
             return;
@@ -59,7 +68,7 @@ public final class RuntimeEditorUiActionRouter implements EditorUiActionRouter, 
         }
         runtime.execute(
             requireText(actionId, "actionId"),
-            EditorUiActionRouter.context(Objects.requireNonNull(event, "event"))
+            Objects.requireNonNull(context, "context")
         );
     }
 
