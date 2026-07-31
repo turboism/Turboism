@@ -40,11 +40,14 @@ import dev.turboism.sdk.ui.UserFileAccessService;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
+import dev.turboism.sdk.ui.table.SceneTableService;
+import dev.turboism.sdk.ui.appearance.ControlAppearanceRegistry;
 import dev.turboism.ui.RuntimeUiHostCapabilityService;
 import dev.turboism.ui.UiHostStateSource;
 import dev.turboism.ui.context.RuntimeContextMenuRegistry;
 import dev.turboism.ui.toolbar.RuntimeMainToolbarRegistry;
 import dev.turboism.ui.toolbar.RuntimePaletteToolbarRegistry;
+import dev.turboism.ui.appearance.control.RuntimeControlAppearanceRegistry;
 
 import java.time.Clock;
 import java.util.List;
@@ -65,7 +68,10 @@ public final class CorePluginContext implements PluginContext {
     private final PluginStorage pluginStorage;
     private final UserFileAccessService userFileAccessService;
     private final AsyncHostReadService asyncHostReadService;
+    private final ControlAppearanceRegistry controlAppearanceRegistry;
 
+    private final SceneTableService sceneTableService;
+    private dev.turboism.sdk.runtime.RuntimeSettingsService runtimeSettings;
     public CorePluginContext(final Dependencies dependencies) {
         this(dependencies, RuntimeHostAdapters.safeMode(), null, null, null, null, null);
     }
@@ -78,7 +84,7 @@ public final class CorePluginContext implements PluginContext {
         this(
             dependencies,
             servicesFactory(Objects.requireNonNull(hostAccess, "hostAccess")),
-            hostAccess.adapters(),
+            hostAccess,
             null,
             null,
             null,
@@ -152,13 +158,36 @@ public final class CorePluginContext implements PluginContext {
     ) {
         this(
             dependencies,
+            hostAccess,
+            localization,
+            taskScheduler,
+            pluginStorage,
+            userFileAccessService,
+            asyncHostReadService,
+            null
+        );
+    }
+
+    public CorePluginContext(
+        final Dependencies dependencies,
+        final RuntimeHostAdapterAccess hostAccess,
+        final PluginLocalization localization,
+        final PluginTaskScheduler taskScheduler,
+        final PluginStorage pluginStorage,
+        final UserFileAccessService userFileAccessService,
+        final AsyncHostReadService asyncHostReadService,
+        final dev.turboism.sdk.runtime.RuntimeSettingsService runtimeSettings
+    ) {
+        this(
+            dependencies,
             servicesFactory(Objects.requireNonNull(hostAccess, "hostAccess")),
-            hostAccess.adapters(),
+            hostAccess,
             Objects.requireNonNull(localization, "localization"),
             Objects.requireNonNull(taskScheduler, "taskScheduler"),
             Objects.requireNonNull(pluginStorage, "pluginStorage"),
             Objects.requireNonNull(userFileAccessService, "userFileAccessService"),
-            Objects.requireNonNull(asyncHostReadService, "asyncHostReadService")
+            Objects.requireNonNull(asyncHostReadService, "asyncHostReadService"),
+            runtimeSettings
         );
     }
 
@@ -172,7 +201,8 @@ public final class CorePluginContext implements PluginContext {
             hostAccess.partLifecycle(),
             hostAccess.textureAtlasLayouts(),
             hostAccess.textureAtlasNativeInvocations(),
-            hostAccess.editorObjectLifecycle()
+            hostAccess.editorObjectLifecycle(),
+            hostAccess.physicsEditorCoordinator()
         );
     }
 
@@ -281,6 +311,71 @@ public final class CorePluginContext implements PluginContext {
         final UserFileAccessService userFileAccessService,
         final AsyncHostReadService asyncHostReadService
     ) {
+        this(
+            dependencies,
+            cubismServicesFactory,
+            null,
+            hostAdapters,
+            localization,
+            taskScheduler,
+            pluginStorage,
+            userFileAccessService,
+            asyncHostReadService
+        );
+    }
+
+    private CorePluginContext(
+        final Dependencies dependencies,
+        final CubismServicesFactory cubismServicesFactory,
+        final RuntimeHostAdapterAccess hostAccess,
+        final PluginLocalization localization,
+        final PluginTaskScheduler taskScheduler,
+        final PluginStorage pluginStorage,
+        final UserFileAccessService userFileAccessService,
+        final AsyncHostReadService asyncHostReadService
+    ) {
+        this(
+            dependencies, cubismServicesFactory, hostAccess,
+            localization, taskScheduler, pluginStorage, userFileAccessService, asyncHostReadService, null
+        );
+    }
+
+    private CorePluginContext(
+        final Dependencies dependencies,
+        final CubismServicesFactory cubismServicesFactory,
+        final RuntimeHostAdapterAccess hostAccess,
+        final PluginLocalization localization,
+        final PluginTaskScheduler taskScheduler,
+        final PluginStorage pluginStorage,
+        final UserFileAccessService userFileAccessService,
+        final AsyncHostReadService asyncHostReadService,
+        final dev.turboism.sdk.runtime.RuntimeSettingsService runtimeSettings
+    ) {
+        this(
+            dependencies,
+            cubismServicesFactory,
+            hostAccess,
+            Objects.requireNonNull(hostAccess, "hostAccess").adapters(),
+            localization,
+            taskScheduler,
+            pluginStorage,
+            userFileAccessService,
+            asyncHostReadService
+        );
+        this.runtimeSettings = runtimeSettings;
+    }
+
+    private CorePluginContext(
+        final Dependencies dependencies,
+        final CubismServicesFactory cubismServicesFactory,
+        final RuntimeHostAdapterAccess hostAccess,
+        final RuntimeHostAdapters hostAdapters,
+        final PluginLocalization localization,
+        final PluginTaskScheduler taskScheduler,
+        final PluginStorage pluginStorage,
+        final UserFileAccessService userFileAccessService,
+        final AsyncHostReadService asyncHostReadService
+    ) {
         this.dependencies = Objects.requireNonNull(dependencies, "dependencies");
         final RuntimeHostAdapters adapters = Objects.requireNonNull(hostAdapters, "hostAdapters");
         this.cubismServices = Objects.requireNonNull(cubismServicesFactory, "cubismServicesFactory")
@@ -295,21 +390,72 @@ public final class CorePluginContext implements PluginContext {
         this.pluginStorage = pluginStorage;
         this.userFileAccessService = userFileAccessService;
         this.asyncHostReadService = asyncHostReadService;
-        this.uiHostCapabilityService = new RuntimeUiHostCapabilityService(
-            PermissionChecker.from(new CubismPermissionGate(
+        this.sceneTableService = hostAccess == null
+            ? SceneTableService.unavailable()
+            : hostAccess.sceneTable();
+        if (hostAccess == null) {
+            this.controlAppearanceRegistry = ControlAppearanceRegistry.unavailable();
+        } else {
+            final RuntimeControlAppearanceRegistry controlAppearance = new RuntimeControlAppearanceRegistry(
                 this.dependencies.descriptor().id(),
-                this.dependencies.permissions(),
-                this.dependencies.cubismAuditSink(),
-                this.dependencies.clock()
-            )),
+                0,
+                PermissionChecker.from(this.dependencies.permissions()),
+                hostAccess.controlAppearanceCoordinator()
+            );
+            controlAppearance.bind(this.dependencies.disposableScope());
+            this.controlAppearanceRegistry = controlAppearance;
+        }
+        final PermissionChecker uiPermissionChecker = PermissionChecker.from(new CubismPermissionGate(
             this.dependencies.descriptor().id(),
-            this.dependencies.uiHostStateSource(),
-            this.dependencies.disposableScope(),
-            adapters.statusToolbar(),
-            adapters.mainToolbar(),
-            adapters.uiSurface(),
-            localization
-        );
+            this.dependencies.permissions(),
+            this.dependencies.cubismAuditSink(),
+            this.dependencies.clock()
+        ));
+        this.uiHostCapabilityService = hostAccess == null
+            ? new RuntimeUiHostCapabilityService(
+                uiPermissionChecker,
+                this.dependencies.descriptor().id(),
+                this.dependencies.uiHostStateSource(),
+                this.dependencies.disposableScope(),
+                adapters.statusToolbar(),
+                adapters.uiSurface(),
+                localization
+            )
+            : new RuntimeUiHostCapabilityService(
+                uiPermissionChecker,
+                this.dependencies.descriptor().id(),
+                this.dependencies.uiHostStateSource(),
+                this.dependencies.disposableScope(),
+                adapters.statusToolbar(),
+                adapters.uiSurface(),
+                localization,
+                hostAccess.editorUiContributions(),
+                hostAccess.embeddedPanelActivation(),
+                (contributionId, callback) -> this.dependencies.runtimeScheduler().dispatch(
+                    new dev.turboism.core.runtime.PluginTask(
+                        "ui.overlay-button.click",
+                        this.dependencies.descriptor().id(),
+                        contributionId,
+                        "none"
+                    ),
+                    callback
+                )
+            );
+        if (hostAccess != null) {
+            UiContributionContextBinder.bind(
+                this.dependencies.menus(),
+                this.mainToolbarRegistry,
+                this.paletteToolbarRegistry,
+                this.contextMenuRegistry,
+                hostAccess.editorUiContributions()
+            );
+            this.dependencies.disposableScope().register(
+                hostAccess.editorUiActionRouter().register(
+                    this.dependencies.descriptor().id(),
+                    this.dependencies.actions()
+                )
+            );
+        }
     }
 
     private static void bindContributionLocalization(
@@ -403,6 +549,11 @@ public final class CorePluginContext implements PluginContext {
     }
 
     @Override
+    public dev.turboism.sdk.cubism.physics.PhysicsEditorService physicsEditor() {
+        return cubismServices.physicsEditorService();
+    }
+
+    @Override
     public List<PluginPermission> permissions() {
         return dependencies.permissions();
     }
@@ -433,8 +584,18 @@ public final class CorePluginContext implements PluginContext {
     }
 
     @Override
+    public SceneTableService sceneTable() {
+        return sceneTableService;
+    }
+
+    @Override
     public UiHostCapabilityService uiHost() {
         return uiHostCapabilityService;
+    }
+
+    @Override
+    public ControlAppearanceRegistry controlAppearance() {
+        return controlAppearanceRegistry;
     }
 
     @Override
@@ -445,6 +606,12 @@ public final class CorePluginContext implements PluginContext {
     @Override
     public PluginConfigRegistry config() {
         return pluginConfigRegistry;
+    }
+
+
+    @Override
+    public dev.turboism.sdk.runtime.RuntimeSettingsService runtimeSettings() {
+        return runtimeSettings == null ? PluginContext.super.runtimeSettings() : runtimeSettings;
     }
 
     @Override
