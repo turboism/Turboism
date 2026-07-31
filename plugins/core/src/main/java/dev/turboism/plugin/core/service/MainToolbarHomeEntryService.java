@@ -21,6 +21,8 @@ public final class MainToolbarHomeEntryService {
 
     public static final String ACTION_ID = "turboism.core.open";
     public static final String ACTION_LABEL = "Open Turboism";
+    public static final String SETTINGS_ACTION_ID = "turboism.core.settings.open";
+    public static final String PLUGINS_ACTION_ID = "turboism.core.plugins.open";
     public static final String INSTALL_ACTION_ID = "turboism.core.plugins.install";
     public static final EmbeddedPanelId TURBOISM_PANEL_ID = EmbeddedPanelId.of("turboism.panel.main");
 
@@ -85,7 +87,10 @@ public final class MainToolbarHomeEntryService {
     public Registration registerTurboismPanel() {
         return uiHost.contributeEmbeddedPanel(new EmbeddedPanelContribution(
             TURBOISM_PANEL_ID.value(), "Turboism", "right", 0,
-            panelView(runtimeSettings.read(), plugins.plugins())
+            panelView(
+                localization.text(SETTINGS_MENU_LABEL_KEY),
+                localization.text(PLUGINS_MENU_LABEL_KEY)
+            )
         ));
     }
 
@@ -101,18 +106,18 @@ public final class MainToolbarHomeEntryService {
     }
 
     public Registration registerSettingsMenu() {
-        return menu(localization.text(SETTINGS_MENU_LABEL_KEY), ORDER);
+        return menu(localization.text(SETTINGS_MENU_LABEL_KEY), SETTINGS_ACTION_ID, ORDER);
     }
 
     public Registration registerPluginManagementMenu() {
-        return menu(localization.text(PLUGINS_MENU_LABEL_KEY), ORDER + 1);
+        return menu(localization.text(PLUGINS_MENU_LABEL_KEY), PLUGINS_ACTION_ID, ORDER + 1);
     }
 
-    private Registration menu(final String label, final int order) {
+    private Registration menu(final String label, final String actionId, final int order) {
         final String menuPath = TURBOISM_MENU_ROOT + "/" + label;
         return menus.contribute(new MenuRegistry.MenuContribution() {
             @Override public String menuPath() { return menuPath; }
-            @Override public String actionId() { return ACTION_ID; }
+            @Override public String actionId() { return actionId; }
             @Override public int order() { return order; }
         });
     }
@@ -122,52 +127,14 @@ public final class MainToolbarHomeEntryService {
     }
 
     private static PanelView panelView(
-        final RuntimeSettings settings,
-        final List<CorePluginManagement.PluginInfo> plugins
+        final String settingsLabel,
+        final String pluginsLabel
     ) {
-        final List<PanelView> content = new ArrayList<>();
-        content.add(PanelView.text("Runtime settings"));
-        content.add(PanelView.toggle("safe-mode", "Safe Mode", settings.safeMode(), "settings.safe-mode"));
-        content.add(PanelView.select(
-            "log-level", "Log level",
-            List.of(
-                PanelView.option("DEBUG", "Debug"), PanelView.option("INFO", "Info"),
-                PanelView.option("WARN", "Warn"), PanelView.option("ERROR", "Error")
-            ),
-            settings.logLevel(), "settings.log-level"
-        ));
-        content.add(PanelView.toggle("skip-update", "Skip update check", settings.skipStartupUpdateCheck(), "settings.skip-update"));
-        content.add(PanelView.toggle("skip-splash", "Skip splash", settings.skipStartupSplash(), "settings.skip-splash"));
-        content.add(PanelView.toggle("skip-information", "Skip startup information", settings.skipStartupInformation(), "settings.skip-information"));
-        content.add(PanelView.row(
-            PanelView.button("save-settings", "Save settings", "settings.save"),
-            PanelView.button("clean-empty-docks", "Clean empty docks", "settings.clean-empty-docks")
-        ));
-        content.add(PanelView.separator());
-        content.add(PanelView.text("Plugin management — changes apply after restarting Cubism"));
-        content.add(PanelView.button("install-plugin", "Install plugin…", INSTALL_ACTION_ID));
-        for (CorePluginManagement.PluginInfo plugin : plugins) {
-            content.add(PanelView.text(
-                plugin.name() + " " + plugin.version() + " [effective=" + plugin.effectiveState()
-                    + ", desired=" + plugin.desiredState() + "]"
-                    + plugin.pendingOperation().map(value -> " pending=" + value).orElse("") + "\n"
-                    + plugin.id() + (plugin.description().isBlank() ? "" : " — " + plugin.description())
-            ));
-            if (!plugin.core()) {
-                final List<PanelView> actions = new ArrayList<>();
-                if (plugin.pendingOperation().isEmpty()) {
-                    actions.add(PanelView.button(
-                        "toggle-" + plugin.id(), plugin.desiredState().equals("ENABLED") ? "Disable" : "Enable",
-                        (plugin.desiredState().equals("ENABLED") ? "turboism.core.plugins.disable." : "turboism.core.plugins.enable.") + plugin.id()
-                    ));
-                    actions.add(PanelView.button(
-                        "uninstall-" + plugin.id(), "Uninstall",
-                        "turboism.core.plugins.uninstall." + plugin.id()
-                    ));
-                }
-                if (!actions.isEmpty()) content.add(new PanelView.Row(actions));
-        }
-        }
-        return new PanelView.Column(content);
+        return PanelView.column(
+            PanelView.text("Turboism"),
+            PanelView.button("open-settings", settingsLabel, SETTINGS_ACTION_ID),
+            PanelView.button("open-plugin-management", pluginsLabel, PLUGINS_ACTION_ID)
+        );
     }
+
 }

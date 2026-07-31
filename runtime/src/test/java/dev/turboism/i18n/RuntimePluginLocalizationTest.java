@@ -67,7 +67,7 @@ class RuntimePluginLocalizationTest {
             assertEquals("base", script.text("baseOnly"));
 
             final RuntimePluginLocalization bareChinese = localization(loader, "zh");
-            assertEquals("base", bareChinese.text("shared"));
+            assertEquals("简体", bareChinese.text("shared"));
 
             final RuntimePluginLocalization french = localization(loader, "fr-FR");
             assertEquals("base", french.text("shared"));
