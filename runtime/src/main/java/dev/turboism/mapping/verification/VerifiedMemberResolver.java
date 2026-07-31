@@ -177,6 +177,47 @@ public final class VerifiedMemberResolver {
     /**
      * Creates a host-classloader proxy for one exact parameter type in a verified method.
      */
+
+    /** Reads a verified instance field from the given target object. */
+    public Object readField(final String alias, final Object target) {
+        final StaticSelector selector = fieldSelector(alias);
+        if ((selector.requiredAccessFlags() & StaticSelector.ACCESS_STATIC) != 0) {
+            throw resolutionFailure(alias, "Verified alias is not an instance field.");
+        }
+        if (target == null) {
+            throw resolutionFailure(alias, "Verified instance field target is unavailable.");
+        }
+        try {
+            final Class<?> owner = Class.forName(
+                selector.ownerInternalName().replace('/', '.'),
+                false,
+                hostClassLoader
+            );
+            if (owner.getClassLoader() != hostClassLoader) {
+                throw resolutionFailure(
+                    alias,
+                    "Verified host classloader attestation no longer matches."
+                );
+            }
+            final Class<?> fieldType = MethodType.fromMethodDescriptorString(
+                "()" + selector.descriptor(),
+                hostClassLoader
+            ).returnType();
+            final Field field = owner.getDeclaredField(selector.memberName());
+            if (!field.getDeclaringClass().equals(owner)
+                || !field.getType().equals(fieldType)
+                || !matchesAccess(field.getModifiers(), selector)) {
+                throw resolutionFailure(alias, "Verified host field no longer matches.");
+            }
+            return field.get(target);
+        } catch (VerifiedAccessException exception) {
+            throw exception;
+        } catch (ClassNotFoundException | NoSuchFieldException | IllegalAccessException
+                 | IllegalArgumentException | LinkageError | SecurityException exception) {
+            throw resolutionFailure(alias, "Verified host field resolution failed safely.");
+        }
+    }
+
     public Object createFunctionalArgumentProxy(
         final String methodAlias,
         final int parameterIndex,

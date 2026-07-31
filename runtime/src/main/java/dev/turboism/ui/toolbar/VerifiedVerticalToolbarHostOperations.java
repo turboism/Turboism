@@ -118,7 +118,7 @@ public final class VerifiedVerticalToolbarHostOperations implements VerticalTool
         if (view == null) {
             throw new IllegalStateException("Cubism main frame view is not ready");
         }
-        final Object container = resolver.invoke(MAIN_CONTAINER, view);
+        final Object container = resolver.readField(MAIN_CONTAINER, view);
         if (container == null) {
             throw new IllegalStateException("Cubism main container is not ready");
         }
