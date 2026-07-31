@@ -126,7 +126,29 @@ public final class TextureAtlasAutoLayoutDialogTransformer implements ClassFileT
                 };
             }
         }, ClassReader.EXPAND_FRAMES);
+        if (transformed[0]) {
+            diag("dialog transform applied owner=" + className + " bytes=" + writer.toByteArray().length);
+        }
         return transformed[0] ? writer.toByteArray() : null;
+    }
+
+    /** Best-effort diagnostic file for exact-host dialog transformation evidence. */
+    private static void diag(final String message) {
+        try {
+            final java.nio.file.Path home =
+                java.nio.file.Path.of(System.getProperty("turboism.home", "."));
+            final java.nio.file.Path file =
+                home.resolve("logs").resolve("dialog-transform.log");
+            java.nio.file.Files.createDirectories(file.getParent());
+            java.nio.file.Files.writeString(
+                file,
+                java.time.Instant.now() + " " + message + "\n",
+                java.nio.file.StandardOpenOption.CREATE,
+                java.nio.file.StandardOpenOption.APPEND
+            );
+        } catch (Throwable ignored) {
+            // diagnostics are best-effort
+        }
     }
 
     private static String requireText(final String value, final String name) {
