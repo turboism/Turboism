@@ -500,6 +500,66 @@ public final class CubismFacadeImpl implements CubismFacade {
                 }
             };
         }
+        @Override public dev.turboism.sdk.cubism.model.ParameterBindingOperations parameterBindings(
+            final dev.turboism.sdk.cubism.id.ParameterId parameterId
+        ) {
+            final dev.turboism.sdk.cubism.model.ParameterBindingOperations operations =
+                delegate.parameterBindings(parameterId);
+            return new dev.turboism.sdk.cubism.model.ParameterBindingOperations() {
+                private void write(final String operation, final Runnable mutation) {
+                    permissionGate.require(MODEL_WRITE_PERMISSION, operation);
+                    mutation.run();
+                }
+                @Override public void bind(
+                    final dev.turboism.sdk.cubism.model.ParameterBindingTarget target,
+                    final List<dev.turboism.sdk.cubism.model.ParameterBindingPoint> points
+                ) {
+                    write("model.parameterBindings.bind", () -> operations.bind(target, points));
+                }
+                @Override public void createPoint(
+                    final dev.turboism.sdk.cubism.model.ParameterBindingTarget target,
+                    final dev.turboism.sdk.cubism.model.ParameterBindingPoint point
+                ) {
+                    write("model.parameterBindings.createPoint", () -> operations.createPoint(target, point));
+                }
+                @Override public void movePoint(
+                    final dev.turboism.sdk.cubism.model.ParameterBindingTarget target,
+                    final dev.turboism.sdk.cubism.id.ParameterBindingPointId pointId,
+                    final float value
+                ) {
+                    write("model.parameterBindings.movePoint", () -> operations.movePoint(target, pointId, value));
+                }
+                @Override public void deletePoint(
+                    final dev.turboism.sdk.cubism.model.ParameterBindingTarget target,
+                    final dev.turboism.sdk.cubism.id.ParameterBindingPointId pointId
+                ) {
+                    write("model.parameterBindings.deletePoint", () -> operations.deletePoint(target, pointId));
+                }
+                @Override public void unbind(
+                    final dev.turboism.sdk.cubism.model.ParameterBindingTarget target
+                ) {
+                    write("model.parameterBindings.unbind", () -> operations.unbind(target));
+                }
+            };
+        }
+        @Override public dev.turboism.sdk.cubism.model.ParameterBindingBatchOperations parameterBindingBatch() {
+            final dev.turboism.sdk.cubism.model.ParameterBindingBatchOperations operations =
+                delegate.parameterBindingBatch();
+            return new dev.turboism.sdk.cubism.model.ParameterBindingBatchOperations() {
+                @Override public void invert(
+                    final List<dev.turboism.sdk.cubism.model.ParameterBindingTarget> targets
+                ) {
+                    permissionGate.require(MODEL_WRITE_PERMISSION, "model.parameterBindingBatch.invert");
+                    operations.invert(targets);
+                }
+                @Override public void transfer(
+                    final dev.turboism.sdk.cubism.model.ParameterBindingTransferPlan plan
+                ) {
+                    permissionGate.require(MODEL_WRITE_PERMISSION, "model.parameterBindingBatch.transfer");
+                    operations.transfer(plan);
+                }
+            };
+        }
         @Override public dev.turboism.sdk.cubism.model.Parts parts() {
             final dev.turboism.sdk.cubism.model.Parts parts = delegate.parts();
             return new dev.turboism.sdk.cubism.model.Parts() {
@@ -662,6 +722,9 @@ public final class CubismFacadeImpl implements CubismFacade {
         @Override public dev.turboism.sdk.cubism.model.IntSequence parameters() {
             return delegate.parameters();
         }
+        @Override public List<dev.turboism.sdk.cubism.model.ParameterBinding> getParameterBindings() {
+            return delegate.getParameterBindings();
+        }
     }
 
     private class PermissionCheckedDeformer implements dev.turboism.sdk.cubism.model.Deformer {
@@ -698,6 +761,9 @@ public final class CubismFacadeImpl implements CubismFacade {
         @Override public int parentDeformerIndex() { return delegate.parentDeformerIndex(); }
         @Override public dev.turboism.sdk.cubism.model.IntSequence parameters() {
             return delegate.parameters();
+        }
+        @Override public List<dev.turboism.sdk.cubism.model.ParameterBinding> getParameterBindings() {
+            return delegate.getParameterBindings();
         }
     }
 
@@ -801,6 +867,9 @@ public final class CubismFacadeImpl implements CubismFacade {
         @Override public java.util.Optional<Boolean> combined() { return delegate.combined(); }
         @Override public java.util.Optional<dev.turboism.sdk.cubism.id.ParameterId> combinedWith() {
             return delegate.combinedWith();
+        }
+        @Override public List<dev.turboism.sdk.cubism.model.ParameterBinding> getParameterBindings() {
+            return delegate.getParameterBindings();
         }
         @Override public void combineWith(
             final dev.turboism.sdk.cubism.id.ParameterId partnerId

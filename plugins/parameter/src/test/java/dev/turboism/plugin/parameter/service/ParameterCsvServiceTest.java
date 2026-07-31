@@ -475,6 +475,7 @@ class ParameterCsvServiceTest {
         List<StatusNotification> notifications() { return notifications; }
 
         @Override public Registration contributeOverlay(OverlayContribution contribution) { throw unsupported(); }
+        @Override public Registration contributeBoundingBoxOverlayButton(dev.turboism.sdk.ui.BoundingBoxOverlayButton contribution) { throw unsupported(); }
         @Override public ContextSourceSnapshot contextSource() { throw unsupported(); }
         @Override public ViewportSnapshot viewport() { throw unsupported(); }
         @Override public Registration openDialog(DialogRequest request) { throw unsupported(); }

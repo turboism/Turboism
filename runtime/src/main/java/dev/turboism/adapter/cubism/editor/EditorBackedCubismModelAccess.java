@@ -11,6 +11,8 @@ import dev.turboism.sdk.cubism.model.Deformers;
 import dev.turboism.sdk.cubism.model.Drawables;
 import dev.turboism.sdk.cubism.model.Glues;
 import dev.turboism.sdk.cubism.model.Parameter;
+import dev.turboism.sdk.cubism.model.ParameterBindingBatchOperations;
+import dev.turboism.sdk.cubism.model.ParameterBindingOperations;
 import dev.turboism.sdk.cubism.model.ParameterDefinition;
 import dev.turboism.sdk.cubism.model.ParameterGroups;
 import dev.turboism.sdk.cubism.model.ParameterType;
@@ -77,7 +79,11 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess {
             "cubism.editor-model.app-controller.current-document", app
         );
         if (!resolver.isInstance("cubism.editor-model.modeling-document.class", document)) {
-            throw unavailable("The active Cubism document is not a modeling document.");
+            final String actualClass = document == null ? "null" : document.getClass().getName();
+            throw unavailable(
+                "The active Cubism document is not a modeling document. [DEBUG-pb-admission] activeDocumentClass=" + actualClass
+                    + " thread=" + Thread.currentThread().getName()
+            );
         }
         final Object source = resolver.invoke(
             "cubism.editor-model.modeling-document.model-source", document
@@ -532,6 +538,33 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess {
             current();
             return parameterGroupsAccess.groups(identity, source, model);
         }
+        @Override public ParameterBindingOperations parameterBindings(final ParameterId parameterId) {
+            current();
+            parameter(model, Objects.requireNonNull(parameterId, "parameterId"));
+            return new EditorParameterBindingAccess(
+                resolver,
+                identity,
+                source,
+                model,
+                parameterId,
+                EditorBackedCubismModelAccess.this::requireCurrent,
+                objectReadAccess::parameterBindings,
+                objectReadAccess::bindingTargetSource,
+                EditorBackedCubismModelAccess.this::source
+            );
+        }
+        @Override public ParameterBindingBatchOperations parameterBindingBatch() {
+            current();
+            return new EditorParameterBindingBatchAccess(
+                resolver,
+                identity,
+                source,
+                model,
+                EditorBackedCubismModelAccess.this::requireCurrent,
+                objectReadAccess::bindingTargetSource,
+                EditorBackedCubismModelAccess.this::source
+            );
+        }
         @Override public Canvas canvas() { throw new UnsupportedOperationException("Editor canvas projection is not installed."); }
         @Override public Parts parts() {
             current();
@@ -624,6 +657,10 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess {
         }
         @Override public Optional<ParameterId> combinedWith() {
             return combinedAccess.partner(identity, model, id);
+        }
+        @Override public List<dev.turboism.sdk.cubism.model.ParameterBinding> getParameterBindings() {
+            current();
+            return objectReadAccess.parameterBindings(identity, binding().source(), model, id);
         }
         @Override public void combineWith(final ParameterId partnerId) {
             combinedAccess.combine(identity, model, id, partnerId);
