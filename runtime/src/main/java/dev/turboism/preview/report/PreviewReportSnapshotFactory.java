@@ -367,6 +367,7 @@ public final class PreviewReportSnapshotFactory {
     ) {
         final boolean dependency = failure.code().contains("DEPENDENCY");
         final boolean badNeighbor = failure.code().equals("DUPLICATE_PLUGIN_ID");
+        final boolean rejectedAtDiscovery = failure.code().equals("PLUGIN_RESERVED_ID");
         final boolean invalidDescriptor = failure.code().contains("DESCRIPTOR")
             || failure.code().contains("JAR_READ")
             || failure.code().equals("TURBOISM_API_INCOMPATIBLE");
@@ -382,10 +383,14 @@ public final class PreviewReportSnapshotFactory {
             relative == null
                 ? null
                 : fileDigest(failure.jar()).map(FileDigest::sha256).orElse(null),
-            badNeighbor
-                ? "BAD_NEIGHBOR"
-                : invalidDescriptor ? "INVALID_DESCRIPTOR" : "DISCOVERED",
-            dependency ? "FAILED" : invalidDescriptor ? "NOT_EVALUATED" : "RESOLVED",
+            rejectedAtDiscovery
+                ? "NOT_DISCOVERED"
+                : badNeighbor
+                    ? "BAD_NEIGHBOR"
+                    : invalidDescriptor ? "INVALID_DESCRIPTOR" : "DISCOVERED",
+            rejectedAtDiscovery || invalidDescriptor
+                ? "NOT_EVALUATED"
+                : dependency ? "FAILED" : "RESOLVED",
             lifecycle,
             badNeighbor
         );
@@ -397,7 +402,7 @@ public final class PreviewReportSnapshotFactory {
         ((ArrayNode) entry.get("failures")).add(PreviewReportDocuments.failure(
             stableCode(failure.code()),
             "ERROR",
-            dependency ? "dependency" : "load",
+            rejectedAtDiscovery ? "discovery" : dependency ? "dependency" : "load",
             sanitizePluginId(failure.pluginId()),
             null,
             null,
@@ -685,6 +690,7 @@ public final class PreviewReportSnapshotFactory {
         return switch (stableCode(code)) {
             case "PLUGIN_DESCRIPTOR_MISSING" -> "Plugin descriptor is missing.";
             case "DUPLICATE_PLUGIN_ID" -> "Plugin ID is duplicated by another artifact.";
+            case "PLUGIN_RESERVED_ID" -> "External plugin declared a Runtime-reserved identity.";
             case "DEPENDENCY_FAILED", "DEPENDENCY_LOAD_FAILED" ->
                 "Required plugin dependency could not be resolved or loaded.";
             case "TURBOISM_API_INCOMPATIBLE" -> "Plugin API range is incompatible.";
