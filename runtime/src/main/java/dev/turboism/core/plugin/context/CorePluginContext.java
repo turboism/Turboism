@@ -2,6 +2,8 @@ package dev.turboism.core.plugin.context;
 
 import dev.turboism.adapter.RuntimeHostAdapters;
 import dev.turboism.adapter.cubism.HostSnapshotSource;
+import dev.turboism.adapter.cubism.mesh.AuthorizedMeshEditUiService;
+import dev.turboism.adapter.cubism.mesh.AuthorizedMeshMirrorAxisService;
 import dev.turboism.adapter.cubism.mesh.RuntimeMeshMirrorAxisService;
 import dev.turboism.adapter.cubism.mesh.RuntimeMeshEditUiService;
 import dev.turboism.adapter.host.RuntimeHostAdapterAccess;
@@ -389,12 +391,27 @@ public final class CorePluginContext implements PluginContext {
         this.pluginStorage = pluginStorage;
         this.userFileAccessService = userFileAccessService;
         this.asyncHostReadService = asyncHostReadService;
-        this.meshMirrorAxisService = hostAccess == null
+        final RuntimeMeshMirrorAxisService sharedMeshMirrorAxis = hostAccess == null
             ? new RuntimeMeshMirrorAxisService()
             : hostAccess.meshMirrorAxisService();
-        this.meshEditUiService = hostAccess == null
+        final RuntimeMeshEditUiService sharedMeshEditUi = hostAccess == null
             ? new RuntimeMeshEditUiService()
             : hostAccess.meshEditUiService();
+        final PermissionChecker meshPermissionChecker = PermissionChecker.from(new CubismPermissionGate(
+            this.dependencies.descriptor().id(),
+            this.dependencies.permissions(),
+            this.dependencies.cubismAuditSink(),
+            this.dependencies.clock()
+        ));
+        this.meshMirrorAxisService = new AuthorizedMeshMirrorAxisService(
+            sharedMeshMirrorAxis,
+            meshPermissionChecker
+        );
+        this.meshEditUiService = new AuthorizedMeshEditUiService(
+            sharedMeshEditUi,
+            meshPermissionChecker,
+            this.dependencies.disposableScope()
+        );
         final PermissionChecker uiPermissionChecker = PermissionChecker.from(new CubismPermissionGate(
             this.dependencies.descriptor().id(),
             this.dependencies.permissions(),

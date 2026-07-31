@@ -393,7 +393,8 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             editorObjectLifecycle.close();
             partLifecycle.close();
             parameterLifecycle.close();
-            meshMirrorAxisService.setCurrentAngleDegrees(0.0f);
+            meshEditUiService.resetSession();
+            meshMirrorAxisService.resetSession();
             editorUiPluginResources.close();
             editorUiActionRouter.close();
             embeddedPanelActivation.close();
@@ -442,6 +443,9 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
 
     /** Registration cleanup must succeed before its owning connection can be closed. */
     private CleanupOutcome cleanupOwnedResources() {
+        dev.turboism.adapter.cubism.mesh.NativeMeshMirrorBridge.clearHostContext();
+        meshEditUiService.resetSession();
+        meshMirrorAxisService.resetSession();
         activeConnectionKey = null;
         dynamicModelAccess.deactivate();
         try {
