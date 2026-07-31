@@ -7,6 +7,7 @@ import dev.turboism.sdk.plugin.Registration;
 import java.util.EnumSet;
 import java.util.Objects;
 import java.util.Set;
+import java.util.List;
 
 @PreviewApi
 @RequiresPermission("turboism.ui.context-menu.contribute")
@@ -68,6 +69,111 @@ public interface ContextMenuRegistry {
         PARAMETER_FOLDER
     }
 
+    enum EntryKind {
+        ITEM,
+        SEPARATOR,
+        SUBMENU
+    }
+
+    enum PlacementKind {
+        FIRST,
+        LAST,
+        BEFORE,
+        AFTER
+    }
+
+    record Placement(PlacementKind kind, String anchorId) {
+        public Placement {
+            kind = Objects.requireNonNull(kind, "kind");
+            anchorId = anchorId == null ? "" : anchorId.trim();
+            if ((kind == PlacementKind.BEFORE || kind == PlacementKind.AFTER) && anchorId.isEmpty()) {
+                throw new IllegalArgumentException("anchorId is required for relative placement");
+            }
+            if ((kind == PlacementKind.FIRST || kind == PlacementKind.LAST) && !anchorId.isEmpty()) {
+                throw new IllegalArgumentException("anchorId is not valid for absolute placement");
+            }
+        }
+
+        public static Placement first() { return new Placement(PlacementKind.FIRST, ""); }
+        public static Placement last() { return new Placement(PlacementKind.LAST, ""); }
+        public static Placement before(final String anchorId) { return new Placement(PlacementKind.BEFORE, anchorId); }
+        public static Placement after(final String anchorId) { return new Placement(PlacementKind.AFTER, anchorId); }
+    }
+
+    record ContextMenuEntry(
+        EntryKind kind,
+        String id,
+        String label,
+        String actionId,
+        List<ContextMenuEntry> children,
+        Placement placement
+    ) {
+        public ContextMenuEntry {
+            kind = Objects.requireNonNull(kind, "kind");
+            id = requireText(id, "id");
+            label = label == null ? "" : label;
+            actionId = actionId == null ? "" : actionId;
+            children = List.copyOf(Objects.requireNonNull(children, "children"));
+            placement = Objects.requireNonNull(placement, "placement");
+            switch (kind) {
+                case ITEM -> {
+                    requireText(label, "label");
+                    requireText(actionId, "actionId");
+                    if (!children.isEmpty()) throw new IllegalArgumentException("items cannot have children");
+                }
+                case SEPARATOR -> {
+                    if (!label.isEmpty() || !actionId.isEmpty() || !children.isEmpty()) {
+                        throw new IllegalArgumentException("separators cannot have content");
+                    }
+                }
+                case SUBMENU -> {
+                    requireText(label, "label");
+                    if (!actionId.isEmpty()) throw new IllegalArgumentException("submenus cannot have actions");
+                    if (children.isEmpty()) throw new IllegalArgumentException("submenus must have children");
+                }
+            }
+        }
+
+        public static ContextMenuEntry item(final String id, final String label, final String actionId) {
+            return item(id, label, actionId, Placement.last());
+        }
+
+        public static ContextMenuEntry item(
+            final String id, final String label, final String actionId, final Placement placement
+        ) {
+            return new ContextMenuEntry(EntryKind.ITEM, id, label, actionId, List.of(), placement);
+        }
+
+        public static ContextMenuEntry separator(final String id) {
+            return separator(id, Placement.last());
+        }
+
+        public static ContextMenuEntry separator(final String id, final Placement placement) {
+            return new ContextMenuEntry(EntryKind.SEPARATOR, id, "", "", List.of(), placement);
+        }
+
+        public static ContextMenuEntry submenu(
+            final String id, final String label, final List<ContextMenuEntry> children
+        ) {
+            return submenu(id, label, children, Placement.last());
+        }
+
+        public static ContextMenuEntry submenu(
+            final String id,
+            final String label,
+            final List<ContextMenuEntry> children,
+            final Placement placement
+        ) {
+            return new ContextMenuEntry(EntryKind.SUBMENU, id, label, "", children, placement);
+        }
+
+        private static String requireText(final String value, final String name) {
+            Objects.requireNonNull(value, name);
+            if (value.isBlank()) throw new IllegalArgumentException(name + " must not be blank");
+            return value;
+        }
+    }
+
     record ContextMenuContribution(
         String id,
         String actionId,
@@ -78,7 +184,9 @@ public interface ContextMenuRegistry {
         Set<ObjectKind> objectKinds,
         int priority,
         Target target,
-        Operation operation
+        Operation operation,
+        ContextMenuEntry entry,
+        Placement placement
     ) {
         public ContextMenuContribution {
             id = requireText(id, "id");
@@ -89,6 +197,8 @@ public interface ContextMenuRegistry {
             objectKinds = Set.copyOf(Objects.requireNonNull(objectKinds, "objectKinds"));
             target = Objects.requireNonNull(target, "target");
             operation = Objects.requireNonNull(operation, "operation");
+            entry = Objects.requireNonNull(entry, "entry");
+            placement = Objects.requireNonNull(placement, "placement");
             if (target == Target.SELECTION) {
                 if (operation != Operation.ACTION) {
                     throw new IllegalArgumentException("selection context menus require ACTION");
@@ -113,7 +223,31 @@ public interface ContextMenuRegistry {
         ) {
             this(
                 id, actionId, label, icon, location.context(), location, objectKinds, priority,
-                Target.SELECTION, Operation.ACTION
+                Target.SELECTION, Operation.ACTION,
+                ContextMenuEntry.item(id, label, actionId), Placement.last()
+            );
+        }
+
+        public ContextMenuContribution(
+            final String id,
+            final Location location,
+            final Set<ObjectKind> objectKinds,
+            final int priority,
+            final ContextMenuEntry entry
+        ) {
+            this(
+                id,
+                firstActionId(entry),
+                entry.label().isBlank() ? id : entry.label(),
+                null,
+                location.context(),
+                location,
+                objectKinds,
+                priority,
+                Target.SELECTION,
+                Operation.ACTION,
+                entry,
+                entry.placement()
             );
         }
 
@@ -150,8 +284,20 @@ public interface ContextMenuRegistry {
                     : Set.of(),
                 priority,
                 target,
-                operation
+                operation,
+                ContextMenuEntry.item(id, label, id),
+                Placement.last()
             );
+        }
+
+        private static String firstActionId(final ContextMenuEntry entry) {
+            Objects.requireNonNull(entry, "entry");
+            if (entry.kind() == EntryKind.ITEM) return entry.actionId();
+            for (ContextMenuEntry child : entry.children()) {
+                final String actionId = firstActionId(child);
+                if (!actionId.startsWith("context-menu.")) return actionId;
+            }
+            return "context-menu." + entry.id();
         }
 
         private static String requireText(final String value, final String name) {

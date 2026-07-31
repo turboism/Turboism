@@ -28,6 +28,14 @@ public final class TurboismAgent {
         new AtomicReference<>();
     private static final AtomicReference<VerifiedDockTabPopupHookInstaller> DOCK_TAB_POPUP_HOOK =
         new AtomicReference<>();
+    private static final AtomicReference<VerifiedObjectContextMenuHookInstaller> OBJECT_CONTEXT_MENU_HOOK =
+        new AtomicReference<>();
+    private static final AtomicReference<VerifiedParameterPointContextMenuHookInstaller> PARAMETER_POINT_MENU_HOOK =
+        new AtomicReference<>();
+    private static final AtomicReference<dev.turboism.sdk.plugin.Registration> OBJECT_CONTEXT_MENU_BRIDGE =
+        new AtomicReference<>();
+    private static final AtomicReference<dev.turboism.sdk.plugin.Registration> PARAMETER_POINT_MENU_BRIDGE =
+        new AtomicReference<>();
     private static final AtomicReference<VerifiedPhysicsEditorHookInstaller> PHYSICS_EDITOR_HOOK =
         new AtomicReference<>();
     private static final AtomicReference<StartupSuppressionInstaller.Installation> STARTUP_SUPPRESSION =
@@ -163,6 +171,7 @@ public final class TurboismAgent {
                 instrumentation,
                 host
             );
+            installObjectContextMenuHook(runtime, instrumentation, host);
             installPhysicsEditorHook(runtime, instrumentation, host);
             Runtime.getRuntime().addShutdownHook(new Thread(TurboismAgent::shutdown, "turboism-shutdown"));
             System.err.println(
@@ -257,6 +266,61 @@ public final class TurboismAgent {
         }
     }
 
+    private static void installObjectContextMenuHook(
+        final PreviewRuntime runtime,
+        final Instrumentation instrumentation,
+        final HostClassLocator.LocatedHost host
+    ) {
+        VerifiedObjectContextMenuHookInstaller installer = null;
+        dev.turboism.sdk.plugin.Registration bridge = null;
+        dev.turboism.sdk.plugin.Registration parameterPointBridge = null;
+        VerifiedParameterPointContextMenuHookInstaller parameterPointInstaller = null;
+        try {
+            final ObjectContextMenuHostProfile profile = ObjectContextMenuHostProfile.forArtifact(
+                HostArtifactDigest.from(host.artifact())
+            ).orElseThrow(() -> new IllegalStateException("Unsupported object context-menu host artifact"));
+            final var handler = runtime.hostAccess().objectContextMenuHandler();
+            if (handler == null) throw new IllegalStateException("Object context-menu runtime handler is unavailable");
+            bridge = dev.turboism.ui.context.NativeObjectContextMenuBridge.install(handler);
+            final var parameterPointHandler = runtime.hostAccess().parameterPointMenuHandler();
+            if (parameterPointHandler == null) {
+                throw new IllegalStateException("Parameter-point context-menu runtime handler is unavailable");
+            }
+            parameterPointBridge =
+                dev.turboism.ui.context.NativeParameterPointContextMenuBridge.install(parameterPointHandler);
+            installer = new VerifiedObjectContextMenuHookInstaller(
+                instrumentation,
+                profile.bindings(),
+                host.classLoader()
+            );
+            installer.install();
+            final ParameterPointContextMenuHostProfile parameterPointProfile =
+                ParameterPointContextMenuHostProfile.forArtifact(HostArtifactDigest.from(host.artifact()))
+                    .orElseThrow(() -> new IllegalStateException("Unsupported parameter-point context-menu host artifact"));
+            parameterPointInstaller = new VerifiedParameterPointContextMenuHookInstaller(
+                instrumentation, parameterPointProfile.owner(), parameterPointProfile.contextDescriptor(), host.classLoader()
+            );
+            parameterPointInstaller.install();
+            if (!OBJECT_CONTEXT_MENU_BRIDGE.compareAndSet(null, bridge)
+                || !PARAMETER_POINT_MENU_BRIDGE.compareAndSet(null, parameterPointBridge)
+                || !PARAMETER_POINT_MENU_HOOK.compareAndSet(null, parameterPointInstaller)
+                || !OBJECT_CONTEXT_MENU_HOOK.compareAndSet(null, installer)) {
+                installer.close();
+                parameterPointInstaller.close();
+                parameterPointBridge.close();
+                bridge.close();
+            }
+        } catch (Throwable failure) {
+            if (installer != null) installer.close();
+            if (parameterPointInstaller != null) parameterPointInstaller.close();
+            if (bridge != null) bridge.close();
+            if (parameterPointBridge != null) parameterPointBridge.close();
+            System.err.println(
+                "Turboism object context-menu hook disabled safely: " + failure.getClass().getName()
+            );
+        }
+    }
+
     private static void installPhysicsEditorHook(
         final PreviewRuntime runtime,
         final Instrumentation instrumentation,
@@ -317,6 +381,42 @@ public final class TurboismAgent {
                 startupSuppression.close();
             } catch (Throwable failure) {
                 System.err.println("Turboism startup suppression cleanup failed safely");
+            }
+        }
+        final VerifiedObjectContextMenuHookInstaller objectContextMenuHook =
+            OBJECT_CONTEXT_MENU_HOOK.getAndSet(null);
+        if (objectContextMenuHook != null) {
+            try {
+                objectContextMenuHook.close();
+            } catch (Throwable failure) {
+                System.err.println("Turboism object context-menu hook cleanup failed safely");
+            }
+        }
+        final VerifiedParameterPointContextMenuHookInstaller parameterPointMenuHook =
+            PARAMETER_POINT_MENU_HOOK.getAndSet(null);
+        if (parameterPointMenuHook != null) {
+            try {
+                parameterPointMenuHook.close();
+            } catch (Throwable failure) {
+                System.err.println("Turboism parameter-point context-menu hook cleanup failed safely");
+            }
+        }
+        final dev.turboism.sdk.plugin.Registration objectContextMenuBridge =
+            OBJECT_CONTEXT_MENU_BRIDGE.getAndSet(null);
+        if (objectContextMenuBridge != null) {
+            try {
+                objectContextMenuBridge.close();
+            } catch (Throwable failure) {
+                System.err.println("Turboism object context-menu bridge cleanup failed safely");
+            }
+        }
+        final dev.turboism.sdk.plugin.Registration parameterPointMenuBridge =
+            PARAMETER_POINT_MENU_BRIDGE.getAndSet(null);
+        if (parameterPointMenuBridge != null) {
+            try {
+                parameterPointMenuBridge.close();
+            } catch (Throwable failure) {
+                System.err.println("Turboism parameter-point context-menu bridge cleanup failed safely");
             }
         }
         final VerifiedDockTabPopupHookInstaller dockTabPopupHook = DOCK_TAB_POPUP_HOOK.getAndSet(null);
