@@ -7,6 +7,7 @@ import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.plugin.TurboismPlugin;
 import dev.turboism.sdk.ui.EmbeddedPanelContribution;
+import dev.turboism.sdk.ui.EmbeddedPanelId;
 import dev.turboism.sdk.ui.VerticalToolbarContribution;
 
 import java.util.List;
@@ -79,8 +80,10 @@ public final class HistoryPanelPlugin implements TurboismPlugin {
             logger
         );
         panelRegistration = service.enable();
+        // Present the pane as a Photoshop-style floating window next to the strip.
+        context.uiHost().activateEmbeddedPanelFloating(EmbeddedPanelId.of(PANEL_ID));
         panelVisible = true;
-        logger.info("History panel toggled on");
+        logger.info("History panel toggled on (floating)");
     }
 
     private void dismissPanel() {

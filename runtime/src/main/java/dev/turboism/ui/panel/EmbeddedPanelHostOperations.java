@@ -22,5 +22,9 @@ public interface EmbeddedPanelHostOperations {
 
     interface PanelHandle extends Registration {
         void activate();
+
+        /** Hosts that support it float the panel into a small window. */
+        default void floatPanel() {
+        }
     }
 }
