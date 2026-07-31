@@ -45,6 +45,8 @@ public sealed interface RuntimeHostAdapterAccess permits HostSession, SessionRun
 
     AppearanceCoordinator appearanceCoordinator();
 
+    dev.turboism.sdk.ui.table.SceneTableService sceneTable();
+
     ControlAppearanceCoordinator controlAppearanceCoordinator();
 }
 
@@ -65,6 +67,7 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     private final dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator dockMaintenance;
     private final java.util.Optional<dev.turboism.mapping.verification.VerifiedMemberResolver> boundingBoxOverlayResolver;
     private final AppearanceCoordinator appearanceCoordinator;
+    private final dev.turboism.sdk.ui.table.SceneTableService sceneTable;
     private final ControlAppearanceCoordinator controlAppearanceCoordinator;
 
     SessionRuntimeHostAdapterAccess(
@@ -82,6 +85,7 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
         final dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator dockMaintenance,
         final java.util.Optional<dev.turboism.mapping.verification.VerifiedMemberResolver> boundingBoxOverlayResolver,
         final AppearanceCoordinator appearanceCoordinator,
+        final dev.turboism.sdk.ui.table.SceneTableService sceneTable,
         final ControlAppearanceCoordinator controlAppearanceCoordinator
     ) {
         this.adapters = java.util.Objects.requireNonNull(adapters, "adapters");
@@ -128,6 +132,7 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
             appearanceCoordinator,
             "appearanceCoordinator"
         );
+        this.sceneTable = java.util.Objects.requireNonNull(sceneTable, "sceneTable");
         this.controlAppearanceCoordinator = java.util.Objects.requireNonNull(
             controlAppearanceCoordinator,
             "controlAppearanceCoordinator"
@@ -203,6 +208,11 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     @Override
     public AppearanceCoordinator appearanceCoordinator() {
         return appearanceCoordinator;
+    }
+
+    @Override
+    public dev.turboism.sdk.ui.table.SceneTableService sceneTable() {
+        return sceneTable;
     }
 
     @Override
