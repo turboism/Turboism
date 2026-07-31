@@ -780,7 +780,7 @@ class StaticVerificationRecordRepositoryTest {
             "cubism.texture-atlas.native.rect.height",
             "cubism.texture-atlas.native.layer-ref.layer",
             "cubism.texture-atlas.native.layer-ref.transform",
-            "cubism.texture-atlas.native.layer-ref.set-transform"
+            "cubism.texture-atlas.native.layer-ref.set-transform",
             "object-context-menu.parameter.group-row.source",
             "object-context-menu.parameter.row-parameters",
             "object-context-menu.workspace.selector",
