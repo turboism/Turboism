@@ -98,7 +98,8 @@ public final class TextureAtlasPlugin implements TurboismPlugin {
         autoLayoutService = new TextureAtlasAutoLayoutService(
             context.cubism().textureAtlasLayouts(),
             planner,
-            lifecycle
+            lifecycle,
+            message -> context.logger().info(message)
         );
     }
 

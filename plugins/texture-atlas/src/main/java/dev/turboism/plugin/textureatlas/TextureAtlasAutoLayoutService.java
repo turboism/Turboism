@@ -4,6 +4,7 @@ import dev.turboism.plugin.textureatlas.layout.TextureAtlasPackingException;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutApplyResult;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutFailureCode;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutService;
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutPlan;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutSnapshot;
 
 import java.util.Objects;
@@ -15,12 +16,13 @@ public final class TextureAtlasAutoLayoutService {
     private final TextureAtlasLayoutService layouts;
     private final TextureAtlasLayoutPlanner planner;
     private final LifecycleLease lifecycle;
+    private final java.util.function.Consumer<String> log;
 
     public TextureAtlasAutoLayoutService(
         final TextureAtlasLayoutService layouts,
         final TextureAtlasLayoutPlanner planner
     ) {
-        this(layouts, planner, LifecycleLease.alwaysActive());
+        this(layouts, planner, LifecycleLease.alwaysActive(), ignored -> { });
     }
 
     public TextureAtlasAutoLayoutService(
@@ -35,9 +37,19 @@ public final class TextureAtlasAutoLayoutService {
         final TextureAtlasLayoutPlanner planner,
         final LifecycleLease lifecycle
     ) {
+        this(layouts, planner, lifecycle, ignored -> { });
+    }
+
+    TextureAtlasAutoLayoutService(
+        final TextureAtlasLayoutService layouts,
+        final TextureAtlasLayoutPlanner planner,
+        final LifecycleLease lifecycle,
+        final java.util.function.Consumer<String> log
+    ) {
         this.layouts = Objects.requireNonNull(layouts, "layouts");
         this.planner = Objects.requireNonNull(planner, "planner");
         this.lifecycle = Objects.requireNonNull(lifecycle, "lifecycle");
+        this.log = Objects.requireNonNull(log, "log");
     }
 
     public TextureAtlasLayoutApplyResult applyAutomaticLayout() {
@@ -56,10 +68,14 @@ public final class TextureAtlasAutoLayoutService {
         }
         final TextureAtlasLayoutSnapshot current = snapshot.orElseThrow();
         try {
-            return layouts.apply(
-                current.target(),
-                planner.plan(current.items(), current.constraints())
+            final TextureAtlasLayoutPlan plan = planner.plan(current.items(), current.constraints());
+            log.accept(
+                "Texture Atlas native automatic-layout plan items=" + current.items().size()
+                    + " page=" + plan.pageWidth() + "x" + plan.pageHeight()
+                    + " pages=" + plan.pageCount()
+                    + " placements=" + plan.placements().size()
             );
+            return layouts.apply(current.target(), plan);
         } catch (TextureAtlasPackingException exception) {
             return TextureAtlasLayoutApplyResult.failed(
                 TextureAtlasLayoutFailureCode.PLAN_INVALID,
