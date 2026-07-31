@@ -33,6 +33,14 @@ public interface CubismModel {
         throw new UnsupportedOperationException("Cubism parameter-group access is unavailable.");
     }
 
+    default ParameterBindingOperations parameterBindings(final dev.turboism.sdk.cubism.id.ParameterId parameterId) {
+        throw new UnsupportedOperationException("Cubism parameter-binding editing is unavailable.");
+    }
+
+    default ParameterBindingBatchOperations parameterBindingBatch() {
+        throw new UnsupportedOperationException("Cubism parameter-binding batch editing is unavailable.");
+    }
+
     Parts parts();
 
     Drawables drawables();
