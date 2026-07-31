@@ -247,6 +247,8 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         final VerifiedMemberResolver resolver = editorResolverFactory.create(
             evidence.editorModel().orElseThrow()
         );
+        final dev.turboism.mapping.verification.EditorModelAdmissionEvidence editorAdmission =
+            editorAdmission(evidence.editorModel().orElseThrow(), resolver);
         final CubismModelAccess modelAccess = editorAccessFactory.create(
             resolver,
             descriptor.sessionId()
@@ -254,11 +256,32 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         final ToolbarMaterial toolbar = toolbarMaterial(evidence);
         final PanelMaterial panel = panelMaterial(evidence);
         final TopMenuMaterial topMenu = topMenuMaterial(evidence);
-        final OverlayMaterial overlay = overlayMaterial(evidence);
+        final OverlayMaterial overlay = optionalOverlayMaterial(evidence);
         if (toolbar == null && panel == null && topMenu == null && overlay == null) {
             return HostAdapterConnection.of(adapters, modelAccess, resolver, appearanceProvider);
         }
-        return connection(adapters, modelAccess, resolver, toolbar, panel, topMenu, overlay, appearanceProvider);
+        return connection(adapters, modelAccess, resolver, editorAdmission, toolbar, panel, topMenu, overlay, appearanceProvider);
+    }
+
+    private static dev.turboism.mapping.verification.EditorModelAdmissionEvidence editorAdmission(
+        final HostVerificationEvidence.Slice slice,
+        final VerifiedMemberResolver resolver
+    ) {
+        try {
+            return dev.turboism.mapping.verification.EditorModelAdmissionEvidence.forArtifact(
+                HostArtifactDigest.from(slice.verifiedArtifact())
+            );
+        } catch (java.io.IOException missingTestArtifact) {
+            return dev.turboism.mapping.verification.EditorModelAdmissionEvidence.forResolver(resolver);
+        }
+    }
+
+    private OverlayMaterial optionalOverlayMaterial(final HostVerificationEvidence evidence) {
+        try {
+            return overlayMaterial(evidence);
+        } catch (Exception unavailable) {
+            return null;
+        }
     }
 
     private ToolbarMaterial toolbarMaterial(final HostVerificationEvidence evidence) throws Exception {
@@ -326,6 +349,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         final RuntimeHostAdapters adapters,
         final CubismModelAccess modelAccess,
         final VerifiedMemberResolver resolver,
+        final dev.turboism.mapping.verification.EditorModelAdmissionEvidence editorAdmission,
         final ToolbarMaterial toolbar,
         final PanelMaterial panel,
         final TopMenuMaterial topMenu,
@@ -333,6 +357,32 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         final AppearanceHostProvider appearanceProvider
     ) {
         return new HostAdapterConnection() {
+            private long menuGeneration = Long.MIN_VALUE;
+            private dev.turboism.ui.context.VerifiedObjectContextMenuHostOperations menuHandler;
+
+            private synchronized dev.turboism.ui.context.VerifiedObjectContextMenuHostOperations menuHandler(
+                final long hostGeneration
+            ) {
+                if (menuHandler != null) {
+                    if (menuGeneration != hostGeneration) {
+                        throw new IllegalStateException("object context-menu host generation changed");
+                    }
+                    return menuHandler;
+                }
+                final dev.turboism.ui.context.VerifiedObjectContextMenuNativeAccess nativeAccess =
+                    new dev.turboism.ui.context.VerifiedObjectContextMenuNativeAccess(
+                        resolver,
+                        hostGeneration,
+                        "host-generation-" + hostGeneration
+                    );
+                menuGeneration = hostGeneration;
+                menuHandler = new dev.turboism.ui.context.VerifiedObjectContextMenuHostOperations(
+                    nativeAccess,
+                    nativeAccess,
+                    nativeAccess::appendPersistent
+                );
+                return menuHandler;
+            }
             @Override
             public RuntimeHostAdapters adapters() {
                 return adapters;
@@ -354,6 +404,24 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             }
 
             @Override
+            public dev.turboism.ui.context.NativeObjectContextMenuBridge.Handler objectContextMenuHandler(
+                final long hostGeneration
+            ) {
+                return menuHandler(hostGeneration);
+            }
+
+            @Override
+            public dev.turboism.ui.context.NativeParameterPointContextMenuBridge.Handler parameterPointMenuHandler(
+                final long hostGeneration
+            ) {
+                final var host = menuHandler(hostGeneration);
+                final var nativeAccess = new dev.turboism.ui.context.VerifiedObjectContextMenuNativeAccess(
+                    resolver, hostGeneration, "host-generation-" + hostGeneration
+                );
+                return dev.turboism.ui.context.NativeParameterPointContextMenuBridge.handler(host, nativeAccess);
+            }
+
+            @Override
             public VerifiedMemberResolver boundingBoxOverlayResolver() {
                 return overlay == null
                     ? HostAdapterConnection.super.boundingBoxOverlayResolver()
@@ -363,6 +431,24 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             @Override
             public List<EditorUiContributionProvider> editorUiProviders(final long hostGeneration) {
                 final List<EditorUiContributionProvider> providers = new ArrayList<>();
+                final dev.turboism.ui.context.NativeObjectContextMenuBridge.Handler menuHandler =
+                    menuHandler(hostGeneration);
+                providers.add(new dev.turboism.ui.context.ContextMenuContributionProvider(
+                    EditorUiProviderAdmission.admitted(
+                        EditorUiFamily.CONTEXT_MENU,
+                        hostGeneration,
+                        new EditorUiProviderAdmission.VerificationEvidence(
+                            editorAdmission.cubismVersion(),
+                            editorAdmission.artifactSize(),
+                            editorAdmission.artifactSha256(),
+                            editorAdmission.adapterSliceId(),
+                            editorAdmission.recordSha256()
+                        )
+                    ),
+                    (dev.turboism.ui.context.ContextMenuHostOperations) menuHandler,
+                    editorUiActionRouter,
+                    panelTabMenus
+                ));
                 if (toolbar != null) {
                     providers.add(new MainToolbarContributionProvider(
                         EditorUiProviderAdmission.admitted(
@@ -389,14 +475,6 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                         editorUiActionRouter,
                         panelTabMenus,
                         dockMaintenance
-                    ));
-                    providers.add(new dev.turboism.ui.context.PanelTabContextMenuContributionProvider(
-                        EditorUiProviderAdmission.admitted(
-                            EditorUiFamily.CONTEXT_MENU,
-                            hostGeneration,
-                            verificationEvidence(panel.admission())
-                        ),
-                        panelTabMenus
                     ));
                 }
                 if (topMenu != null) {

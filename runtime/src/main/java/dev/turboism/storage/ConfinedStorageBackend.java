@@ -491,7 +491,7 @@ final class ConfinedStorageBackend {
             throw new StorageFault(StorageErrorCode.INVALID_PATH);
         }
         final Path rootReal = verifyRoot(root);
-        Path current = root;
+        Path current = rootReal;
         final String[] segments = path.relativePath().split("/");
         for (int index = 0; index < segments.length; index++) {
             current = current.resolve(segments[index]);

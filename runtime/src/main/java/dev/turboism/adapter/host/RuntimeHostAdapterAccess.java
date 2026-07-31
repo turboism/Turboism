@@ -39,11 +39,17 @@ public sealed interface RuntimeHostAdapterAccess permits HostSession, SessionRun
 
     EditorUiPluginResourceRegistry editorUiPluginResources();
 
+    dev.turboism.ui.context.NativeObjectContextMenuBridge.Handler objectContextMenuHandler();
+
+    dev.turboism.ui.context.NativeParameterPointContextMenuBridge.Handler parameterPointMenuHandler();
+
     dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator dockMaintenance();
 
     java.util.Optional<dev.turboism.mapping.verification.VerifiedMemberResolver> boundingBoxOverlayResolver();
 
     AppearanceCoordinator appearanceCoordinator();
+
+    dev.turboism.sdk.ui.table.SceneTableService sceneTable();
 
     ControlAppearanceCoordinator controlAppearanceCoordinator();
 }
@@ -62,9 +68,12 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     private final RuntimeEmbeddedPanelActivationCoordinator embeddedPanelActivation;
     private final RuntimeEditorUiActionRouter editorUiActionRouter;
     private final EditorUiPluginResourceRegistry editorUiPluginResources;
+    private final dev.turboism.ui.context.NativeObjectContextMenuBridge.Handler objectContextMenuHandler;
+    private final dev.turboism.ui.context.NativeParameterPointContextMenuBridge.Handler parameterPointMenuHandler;
     private final dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator dockMaintenance;
     private final java.util.Optional<dev.turboism.mapping.verification.VerifiedMemberResolver> boundingBoxOverlayResolver;
     private final AppearanceCoordinator appearanceCoordinator;
+    private final dev.turboism.sdk.ui.table.SceneTableService sceneTable;
     private final ControlAppearanceCoordinator controlAppearanceCoordinator;
 
     SessionRuntimeHostAdapterAccess(
@@ -79,9 +88,12 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
         final RuntimeEmbeddedPanelActivationCoordinator embeddedPanelActivation,
         final RuntimeEditorUiActionRouter editorUiActionRouter,
         final EditorUiPluginResourceRegistry editorUiPluginResources,
+        final dev.turboism.ui.context.NativeObjectContextMenuBridge.Handler objectContextMenuHandler,
+        final dev.turboism.ui.context.NativeParameterPointContextMenuBridge.Handler parameterPointMenuHandler,
         final dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator dockMaintenance,
         final java.util.Optional<dev.turboism.mapping.verification.VerifiedMemberResolver> boundingBoxOverlayResolver,
         final AppearanceCoordinator appearanceCoordinator,
+        final dev.turboism.sdk.ui.table.SceneTableService sceneTable,
         final ControlAppearanceCoordinator controlAppearanceCoordinator
     ) {
         this.adapters = java.util.Objects.requireNonNull(adapters, "adapters");
@@ -119,6 +131,8 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
             editorUiPluginResources,
             "editorUiPluginResources"
         );
+        this.objectContextMenuHandler = objectContextMenuHandler;
+        this.parameterPointMenuHandler = parameterPointMenuHandler;
         this.dockMaintenance = java.util.Objects.requireNonNull(dockMaintenance, "dockMaintenance");
         this.boundingBoxOverlayResolver = java.util.Objects.requireNonNull(
             boundingBoxOverlayResolver,
@@ -128,6 +142,7 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
             appearanceCoordinator,
             "appearanceCoordinator"
         );
+        this.sceneTable = java.util.Objects.requireNonNull(sceneTable, "sceneTable");
         this.controlAppearanceCoordinator = java.util.Objects.requireNonNull(
             controlAppearanceCoordinator,
             "controlAppearanceCoordinator"
@@ -189,6 +204,16 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
         return editorUiPluginResources;
     }
 
+    @Override
+    public dev.turboism.ui.context.NativeObjectContextMenuBridge.Handler objectContextMenuHandler() {
+        return objectContextMenuHandler;
+    }
+
+    @Override
+    public dev.turboism.ui.context.NativeParameterPointContextMenuBridge.Handler parameterPointMenuHandler() {
+        return parameterPointMenuHandler;
+    }
+
 
     @Override
     public dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator dockMaintenance() {
@@ -203,6 +228,11 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     @Override
     public AppearanceCoordinator appearanceCoordinator() {
         return appearanceCoordinator;
+    }
+
+    @Override
+    public dev.turboism.sdk.ui.table.SceneTableService sceneTable() {
+        return sceneTable;
     }
 
     @Override
