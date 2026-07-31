@@ -6,6 +6,7 @@ import dev.turboism.adapter.cubism.lifecycle.PartLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.EditorObjectLifecycleCoordinator;
 import dev.turboism.adapter.cubism.physics.PhysicsEditorCoordinator;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
+import dev.turboism.sdk.cubism.history.CubismHistory;
 import dev.turboism.ui.action.RuntimeEditorUiActionRouter;
 import dev.turboism.ui.appearance.AppearanceCoordinator;
 import dev.turboism.ui.appearance.control.ControlAppearanceCoordinator;
@@ -20,6 +21,8 @@ public sealed interface RuntimeHostAdapterAccess permits HostSession, SessionRun
     RuntimeHostAdapters adapters();
 
     CubismModelAccess modelAccess();
+
+    CubismHistory history();
 
     ParameterLifecycleCoordinator parameterLifecycle();
 
@@ -55,6 +58,7 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
 
     private final RuntimeHostAdapters adapters;
     private final CubismModelAccess modelAccess;
+    private final CubismHistory history;
     private final ParameterLifecycleCoordinator parameterLifecycle;
     private final PartLifecycleCoordinator partLifecycle;
     private final EditorObjectLifecycleCoordinator editorObjectLifecycle;
@@ -73,6 +77,7 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     SessionRuntimeHostAdapterAccess(
         final RuntimeHostAdapters adapters,
         final CubismModelAccess modelAccess,
+        final CubismHistory history,
         final ParameterLifecycleCoordinator parameterLifecycle,
         final PartLifecycleCoordinator partLifecycle,
         final EditorObjectLifecycleCoordinator editorObjectLifecycle,
@@ -90,6 +95,7 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     ) {
         this.adapters = java.util.Objects.requireNonNull(adapters, "adapters");
         this.modelAccess = java.util.Objects.requireNonNull(modelAccess, "modelAccess");
+        this.history = java.util.Objects.requireNonNull(history, "history");
         this.parameterLifecycle = java.util.Objects.requireNonNull(
             parameterLifecycle,
             "parameterLifecycle"
@@ -147,6 +153,11 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     @Override
     public CubismModelAccess modelAccess() {
         return modelAccess;
+    }
+
+    @Override
+    public CubismHistory history() {
+        return history;
     }
 
     @Override
