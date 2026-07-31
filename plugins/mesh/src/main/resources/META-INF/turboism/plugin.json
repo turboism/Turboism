@@ -2,9 +2,9 @@
   "format": "turboism.plugin.meta",
   "schemaVersion": 2,
   "id": "dev.turboism.plugin.mesh",
-  "name": "Mesh Read-Only Inspector Plugin",
+  "name": "Mesh Inspector and Mirror-Axis Tools",
   "version": "0.1.0",
-  "description": "Fake-ready read-only mesh/deformer inspector using SDK read and context-source capabilities. Writeback remains blocked.",
+  "description": "Inspects mesh/deformer state and contributes the bounded mirror-axis rotation control for verified Cubism hosts.",
   "entrypoints": [
     "dev.turboism.plugin.mesh.MeshPlugin"
   ],
@@ -40,16 +40,28 @@
       "id": "turboism.action.register",
       "scope": "application",
       "reason": "Register the mesh inspect action."
+    },
+    {
+      "id": "turboism.cubism.model.write",
+      "scope": "application",
+      "reason": "Changes the current mesh mirror-axis tool angle."
+    },
+    {
+      "id": "turboism.ui.panel.contribute",
+      "scope": "application",
+      "reason": "Contributes the mirror-axis angle control to Cubism's mesh editor."
     }
   ],
   "capabilities": [
     "cubism.mesh.read",
     "cubism.deformer.read",
+    "cubism.mesh.mirror-axis-angle",
+    "ui.mesh-edit.mirror-axis-angle",
     "ui.context-source.read",
     "ui.status.notify"
   ],
   "environment": {
-    "requiresCubism": false,
+    "requiresCubism": true,
     "ui": "embedded"
   }
 }

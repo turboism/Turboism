@@ -51,7 +51,135 @@ final class VerifiedMeshMirrorHookInstallerTest {
             "retransform:" + TargetMesh.class.getName(),
             "retransform:" + TargetWidget.class.getName(),
             "retransform:" + TargetDraw.class.getName(),
-            "remove"
+            "remove",
+            "retransform:" + TargetMesh.class.getName(),
+            "retransform:" + TargetWidget.class.getName(),
+            "retransform:" + TargetDraw.class.getName()
+        ), calls);
+    }
+
+    @Test
+    void removingTheLiveConsumerRestoresAllOwners() throws Exception {
+        final List<String> calls = new ArrayList<>();
+        final Instrumentation instrumentation = (Instrumentation) Proxy.newProxyInstance(
+            getClass().getClassLoader(),
+            new Class<?>[] {Instrumentation.class},
+            (proxy, method, arguments) -> switch (method.getName()) {
+                case "addTransformer" -> null;
+                case "getAllLoadedClasses" -> new Class<?>[] {TargetMesh.class, TargetWidget.class, TargetDraw.class};
+                case "isModifiableClass" -> true;
+                case "retransformClasses" -> {
+                    calls.add("retransform:" + ((Class<?>[]) arguments[0])[0].getName());
+                    yield null;
+                }
+                case "removeTransformer" -> { calls.add("remove"); yield true; }
+                default -> defaultValue(method.getReturnType());
+            }
+        );
+        final RuntimeMeshEditUiService ui = new RuntimeMeshEditUiService();
+        final var contribution = ui.contributeMirrorAxisAngleControl(
+            new dev.turboism.sdk.cubism.mesh.MeshEditUiService.MirrorAxisAngleControl(
+                "mesh.mirror-axis.angle", "Angle", -180.0f, 180.0f, 0.1f, ignored -> { }
+            )
+        );
+        final MeshMirrorHostProfile profile = new MeshMirrorHostProfile(
+            TargetMesh.class.getName().replace('.', '/'), "a", "b", "(Ljava/lang/Object;)Ljava/lang/Object;",
+            "a", "(Ljava/lang/Object;F)Z",
+            TargetWidget.class.getName().replace('.', '/'), "widget", "(Ljava/lang/Object;)Ljava/lang/Object;",
+            TargetDraw.class.getName().replace('.', '/'), "a", "(FZFLjava/lang/Object;)V"
+        );
+        final VerifiedMeshMirrorHookInstaller installer = new VerifiedMeshMirrorHookInstaller(
+            instrumentation, getClass().getClassLoader(), new RuntimeMeshMirrorAxisService(), ui, profile
+        );
+        installer.install();
+        calls.clear();
+
+        contribution.close();
+
+        assertEquals(List.of(
+            "remove",
+            "retransform:" + TargetMesh.class.getName(),
+            "retransform:" + TargetWidget.class.getName(),
+            "retransform:" + TargetDraw.class.getName()
+        ), calls);
+    }
+
+    @Test
+    void reportsPartialRestorationFailureAndContinuesCleanup() throws Exception {
+        final List<String> calls = new ArrayList<>();
+        final Instrumentation instrumentation = (Instrumentation) Proxy.newProxyInstance(
+            getClass().getClassLoader(),
+            new Class<?>[] {Instrumentation.class},
+            (proxy, method, arguments) -> switch (method.getName()) {
+                case "addTransformer" -> null;
+                case "getAllLoadedClasses" -> new Class<?>[] {TargetMesh.class, TargetWidget.class, TargetDraw.class};
+                case "isModifiableClass" -> true;
+                case "retransformClasses" -> {
+                    final Class<?> type = ((Class<?>[]) arguments[0])[0];
+                    if (type == TargetWidget.class && calls.contains("remove")) throw new IllegalStateException("boom");
+                    yield null;
+                }
+                case "removeTransformer" -> { calls.add("remove"); yield true; }
+                default -> defaultValue(method.getReturnType());
+            }
+        );
+        final MeshMirrorHostProfile profile = new MeshMirrorHostProfile(
+            TargetMesh.class.getName().replace('.', '/'), "a", "b", "(Ljava/lang/Object;)Ljava/lang/Object;",
+            "a", "(Ljava/lang/Object;F)Z",
+            TargetWidget.class.getName().replace('.', '/'), "widget", "(Ljava/lang/Object;)Ljava/lang/Object;",
+            TargetDraw.class.getName().replace('.', '/'), "a", "(FZFLjava/lang/Object;)V"
+        );
+
+        final VerifiedMeshMirrorHookInstaller installer = new VerifiedMeshMirrorHookInstaller(
+            instrumentation, getClass().getClassLoader(), new RuntimeMeshMirrorAxisService(),
+            new RuntimeMeshEditUiService(), profile, calls::add
+        );
+        installer.install();
+        installer.close();
+
+        assertEquals(List.of(
+            "remove", "MESH_MIRROR_RESTORE_FAILED owner=" + TargetWidget.class.getName()
+        ), calls);
+    }
+
+    @Test
+    void instrumentationCleanupFailureStillRevokesRuntimeState() throws Exception {
+        final List<String> calls = new ArrayList<>();
+        final Instrumentation instrumentation = (Instrumentation) Proxy.newProxyInstance(
+            getClass().getClassLoader(),
+            new Class<?>[] {Instrumentation.class},
+            (proxy, method, arguments) -> switch (method.getName()) {
+                case "addTransformer" -> null;
+                case "getAllLoadedClasses" -> {
+                    if (calls.contains("remove")) throw new IllegalStateException("enumeration");
+                    yield new Class<?>[0];
+                }
+                case "removeTransformer" -> { calls.add("remove"); yield false; }
+                default -> defaultValue(method.getReturnType());
+            }
+        );
+        final RuntimeMeshMirrorAxisService axis = new RuntimeMeshMirrorAxisService();
+        axis.setCurrentAngleDegrees(45.0f);
+        final RuntimeMeshEditUiService ui = new RuntimeMeshEditUiService();
+        ui.contributeMirrorAxisAngleControl(new dev.turboism.sdk.cubism.mesh.MeshEditUiService.MirrorAxisAngleControl(
+            "mesh.mirror-axis.angle", "Angle", -180.0f, 180.0f, 0.1f, ignored -> { }
+        ));
+        final MeshMirrorHostProfile profile = new MeshMirrorHostProfile(
+            TargetMesh.class.getName().replace('.', '/'), "a", "b", "(Ljava/lang/Object;)Ljava/lang/Object;",
+            "a", "(Ljava/lang/Object;F)Z",
+            TargetWidget.class.getName().replace('.', '/'), "widget", "(Ljava/lang/Object;)Ljava/lang/Object;",
+            TargetDraw.class.getName().replace('.', '/'), "a", "(FZFLjava/lang/Object;)V"
+        );
+        final VerifiedMeshMirrorHookInstaller installer = new VerifiedMeshMirrorHookInstaller(
+            instrumentation, getClass().getClassLoader(), axis, ui, profile, calls::add
+        );
+        installer.install();
+
+        installer.close();
+
+        assertEquals(0.0f, axis.currentAngleDegrees());
+        assertEquals(List.of(
+            "remove", "MESH_MIRROR_TRANSFORMER_REMOVE_FAILED", "MESH_MIRROR_RESTORE_ENUMERATION_FAILED"
         ), calls);
     }
 
