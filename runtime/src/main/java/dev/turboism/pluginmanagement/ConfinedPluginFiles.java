@@ -14,9 +14,15 @@ import java.util.Set;
 /** Minimal confined filesystem guard for Runtime-owned plugin state. */
 final class ConfinedPluginFiles {
     private final Path home;
+    private final AttributeReader reader;
 
     ConfinedPluginFiles(final Path requestedHome) {
+        this(requestedHome, ConfinedPluginFiles::attributes);
+    }
+
+    ConfinedPluginFiles(final Path requestedHome, final AttributeReader reader) {
         home = requestedHome.toAbsolutePath().normalize();
+        this.reader = java.util.Objects.requireNonNull(reader, "reader");
     }
 
     ParentIdentity parent(final Path requested) throws IOException {
@@ -26,7 +32,7 @@ final class ConfinedPluginFiles {
         if (parent == null) throw new IOException("path has no parent");
         Files.createDirectories(parent);
         rejectLinks(parent);
-        return new ParentIdentity(parent, attributes(parent));
+        return new ParentIdentity(parent, reader.read(parent), reader);
     }
 
     SeekableByteChannel createNew(final Path path, final ParentIdentity parent) throws IOException {
@@ -76,13 +82,16 @@ final class ConfinedPluginFiles {
         return Files.readAttributes(path, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
     }
 
-    record ParentIdentity(Path path, BasicFileAttributes attributes) {
+    @FunctionalInterface
+    interface AttributeReader { BasicFileAttributes read(Path path) throws IOException; }
+
+    record ParentIdentity(Path path, BasicFileAttributes attributes, AttributeReader reader) {
         void verify() throws IOException {
             if (Files.isSymbolicLink(path)) throw new IOException("parent became symbolic link");
-            final BasicFileAttributes current = ConfinedPluginFiles.attributes(path);
+            final BasicFileAttributes current = reader.read(path);
+            final Object expectedKey = attributes.fileKey();
             if (!current.isDirectory()
-                || !java.util.Objects.equals(attributes.fileKey(), current.fileKey())
-                || !attributes.creationTime().equals(current.creationTime())) {
+                || (expectedKey != null && !java.util.Objects.equals(expectedKey, current.fileKey()))) {
                 throw new IOException("parent identity changed");
             }
         }
