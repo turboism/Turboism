@@ -76,9 +76,9 @@ final class LocalPluginRuntimeLoadScenario {
 
     private static void assertLoadReport(final LocalPluginRuntime runtime) {
         final LocalPluginRuntime.LoadReport report = runtime.loadAll();
-        assertEquals(1, report.loaded().size());
-        assertEquals("dev.turboism.plugin.project-inspector", report.loaded().get(0).id());
-        assertEquals("ENABLED", report.loaded().get(0).state().name());
+        assertEquals(2, report.loaded().size());
+        assertEquals("dev.turboism.plugin.project-inspector", report.loaded().stream().filter(plugin -> !plugin.id().equals("turboism.core")).findFirst().orElseThrow().id());
+        assertEquals("ENABLED", report.loaded().stream().filter(plugin -> !plugin.id().equals("turboism.core")).findFirst().orElseThrow().state().name());
         assertEquals(3, report.failures().size());
         final Map<String, LocalPluginRuntime.PluginFailure> failuresByCode = report.failures().stream()
             .collect(Collectors.toMap(LocalPluginRuntime.PluginFailure::code, Function.identity()));

@@ -18,8 +18,9 @@ public record HostVerificationEvidence(
     Optional<Slice> editorModel,
     Optional<Slice> mainToolbar,
     Optional<Slice> embeddedPanel,
-    Optional<Slice> topMenu
-    ) {
+    Optional<Slice> topMenu,
+    Optional<Slice> boundingBoxOverlayButton
+) {
     public HostVerificationEvidence(
         final Slice projectWorkspace,
         final Optional<Slice> clipMask,
@@ -32,6 +33,7 @@ public record HostVerificationEvidence(
             editorModel,
             mainToolbar,
             Optional.empty(),
+            Optional.empty(),
             Optional.empty()
         );
     }
@@ -43,8 +45,17 @@ public record HostVerificationEvidence(
         final Optional<Slice> mainToolbar,
         final Optional<Slice> embeddedPanel
     ) {
-        this(projectWorkspace, clipMask, editorModel, mainToolbar, embeddedPanel, Optional.empty());
+        this(
+            projectWorkspace,
+            clipMask,
+            editorModel,
+            mainToolbar,
+            embeddedPanel,
+            Optional.empty(),
+            Optional.empty()
+        );
     }
+
     public HostVerificationEvidence {
         projectWorkspace = Objects.requireNonNull(projectWorkspace, "projectWorkspace");
         clipMask = Objects.requireNonNull(clipMask, "clipMask");
@@ -52,6 +63,10 @@ public record HostVerificationEvidence(
         mainToolbar = Objects.requireNonNull(mainToolbar, "mainToolbar");
         embeddedPanel = Objects.requireNonNull(embeddedPanel, "embeddedPanel");
         topMenu = Objects.requireNonNull(topMenu, "topMenu");
+        boundingBoxOverlayButton = Objects.requireNonNull(
+            boundingBoxOverlayButton,
+            "boundingBoxOverlayButton"
+        );
         if (clipMask.isPresent()) {
             requireSameHostArtifact(projectWorkspace, clipMask.orElseThrow());
         }
@@ -67,6 +82,9 @@ public record HostVerificationEvidence(
         if (topMenu.isPresent()) {
             requireSameHostArtifact(projectWorkspace, topMenu.orElseThrow());
         }
+        if (boundingBoxOverlayButton.isPresent()) {
+            requireSameHostArtifact(projectWorkspace, boundingBoxOverlayButton.orElseThrow());
+    }
     }
 
     private static void requireSameHostArtifact(final Slice project, final Slice candidate) {
@@ -98,6 +116,7 @@ public record HostVerificationEvidence(
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
+            Optional.empty(),
             Optional.empty()
         );
     }
@@ -109,6 +128,7 @@ public record HostVerificationEvidence(
         return new HostVerificationEvidence(
             projectWorkspace,
             Optional.of(Objects.requireNonNull(clipMask, "clipMask")),
+            Optional.empty(),
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
@@ -126,6 +146,7 @@ public record HostVerificationEvidence(
             Optional.of(Objects.requireNonNull(editorModel, "editorModel")),
             Optional.empty(),
             Optional.empty(),
+            Optional.empty(),
             Optional.empty()
         );
     }
@@ -137,7 +158,8 @@ public record HostVerificationEvidence(
             Optional.of(Objects.requireNonNull(editorModel, "editorModel")),
             mainToolbar,
             embeddedPanel,
-            topMenu
+            topMenu,
+            boundingBoxOverlayButton
         );
     }
 
@@ -148,7 +170,8 @@ public record HostVerificationEvidence(
             editorModel,
             Optional.of(Objects.requireNonNull(mainToolbar, "mainToolbar")),
             embeddedPanel,
-            topMenu
+            topMenu,
+            boundingBoxOverlayButton
         );
     }
 
@@ -159,7 +182,8 @@ public record HostVerificationEvidence(
             editorModel,
             mainToolbar,
             Optional.of(Objects.requireNonNull(embeddedPanel, "embeddedPanel")),
-            topMenu
+            topMenu,
+            boundingBoxOverlayButton
         );
     }
 
@@ -170,7 +194,20 @@ public record HostVerificationEvidence(
             editorModel,
             mainToolbar,
             embeddedPanel,
-            Optional.of(Objects.requireNonNull(topMenu, "topMenu"))
+            Optional.of(Objects.requireNonNull(topMenu, "topMenu")),
+            boundingBoxOverlayButton
+        );
+    }
+
+    public HostVerificationEvidence addingBoundingBoxOverlayButton(final Slice slice) {
+        return new HostVerificationEvidence(
+            projectWorkspace,
+            clipMask,
+            editorModel,
+            mainToolbar,
+            embeddedPanel,
+            topMenu,
+            Optional.of(Objects.requireNonNull(slice, "slice"))
         );
     }
 

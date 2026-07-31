@@ -8,6 +8,7 @@ public enum EditorUiFamily {
     CONTEXT_MENU,
     PANEL,
     OVERLAY_STATUS,
+    BOUNDING_BOX_OVERLAY_BUTTON,
     DIALOG,
     APPEARANCE,
     CX_STRUCTURE

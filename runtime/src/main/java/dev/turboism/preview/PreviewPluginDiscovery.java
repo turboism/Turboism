@@ -115,6 +115,13 @@ final class PreviewPluginDiscovery {
     ) throws IOException, DescriptorParseException {
         try (InputStream source = archive.getInputStream(entry)) {
             final PluginDescriptor descriptor = new PluginDescriptorParser().parse(source);
+            if (dev.turboism.plugin.core.CorePluginManagement.CORE_PLUGIN_ID.equals(descriptor.id())) {
+                failures.add(new LocalPluginRuntime.PluginFailure(
+                    descriptor.id(), jar, "PLUGIN_RESERVED_ID",
+                    "External plugin packages cannot declare the Runtime-owned core ID."
+                ));
+                return null;
+            }
             try {
                 PluginJarContract.validate(
                     descriptor,

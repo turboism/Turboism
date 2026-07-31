@@ -102,11 +102,8 @@ final class PluginLocaleResolver {
         final String script = switch (locale.getCountry()) {
             case "CN", "SG" -> "Hans";
             case "TW", "HK", "MO" -> "Hant";
-            default -> "";
+            default -> "Hans";
         };
-        if (script.isBlank()) {
-            return locale;
-        }
         return new Locale.Builder()
             .setLanguage("zh")
             .setScript(script)

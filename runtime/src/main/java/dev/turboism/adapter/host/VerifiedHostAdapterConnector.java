@@ -3,10 +3,12 @@ package dev.turboism.adapter.host;
 import dev.turboism.adapter.RuntimeHostAdapters;
 import dev.turboism.adapter.VerifiedRuntimeHostAdaptersFactory;
 import dev.turboism.adapter.cubism.editor.EditorBackedCubismModelAccess;
+import dev.turboism.mapping.verification.BoundingBoxOverlayButtonVerificationManifest;
 import dev.turboism.mapping.verification.EmbeddedPanelVerificationManifest;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.MainToolbarVerificationManifest;
 import dev.turboism.mapping.verification.TopMenuVerificationManifest;
+import dev.turboism.mapping.verification.VerifiedBoundingBoxOverlayButtonResolverFactory;
 import dev.turboism.mapping.verification.VerifiedEditorModelResolverFactory;
 import dev.turboism.mapping.verification.VerifiedEmbeddedPanelResolverFactory;
 import dev.turboism.mapping.verification.VerifiedMainToolbarResolverFactory;
@@ -18,6 +20,8 @@ import dev.turboism.ui.contribution.EditorUiProviderAdmission;
 import dev.turboism.ui.host.EditorUiFamily;
 import dev.turboism.ui.menu.TopMenuContributionProvider;
 import dev.turboism.ui.menu.VerifiedTopMenuHostOperations;
+import dev.turboism.ui.overlay.BoundingBoxOverlayButtonContributionProvider;
+import dev.turboism.ui.overlay.VerifiedBoundingBoxOverlayButtonHostOperations;
 import dev.turboism.ui.panel.EmbeddedPanelContributionProvider;
 import dev.turboism.ui.panel.RuntimeEmbeddedPanelActivationCoordinator;
 import dev.turboism.ui.panel.VerifiedEmbeddedPanelHostOperations;
@@ -38,6 +42,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
     private final MainToolbarResolverFactory mainToolbarResolverFactory;
     private final EmbeddedPanelResolverFactory embeddedPanelResolverFactory;
     private final TopMenuResolverFactory topMenuResolverFactory;
+    private final BoundingBoxOverlayResolverFactory boundingBoxOverlayResolverFactory;
     private final EditorUiPluginResourceRegistry editorUiPluginResources;
     private final dev.turboism.ui.action.RuntimeEditorUiActionRouter editorUiActionRouter;
     private final RuntimeEmbeddedPanelActivationCoordinator embeddedPanelActivation;
@@ -166,11 +171,40 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         final TopMenuResolverFactory topMenuResolverFactory,
         final dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator dockMaintenance
     ) {
+        this(
+            factory,
+            editorResolverFactory,
+            editorAccessFactory,
+            mainToolbarResolverFactory,
+            embeddedPanelResolverFactory,
+            null,
+            editorUiPluginResources,
+            editorUiActionRouter,
+            embeddedPanelActivation,
+            topMenuResolverFactory,
+            dockMaintenance
+        );
+    }
+
+    VerifiedHostAdapterConnector(
+        final VerifiedAdapterFactory factory,
+        final EditorResolverFactory editorResolverFactory,
+        final EditorAccessFactory editorAccessFactory,
+        final MainToolbarResolverFactory mainToolbarResolverFactory,
+        final EmbeddedPanelResolverFactory embeddedPanelResolverFactory,
+        final BoundingBoxOverlayResolverFactory boundingBoxOverlayResolverFactory,
+        final EditorUiPluginResourceRegistry editorUiPluginResources,
+        final dev.turboism.ui.action.RuntimeEditorUiActionRouter editorUiActionRouter,
+        final RuntimeEmbeddedPanelActivationCoordinator embeddedPanelActivation,
+        final TopMenuResolverFactory topMenuResolverFactory,
+        final dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator dockMaintenance
+    ) {
         this.factory = Objects.requireNonNull(factory, "factory");
         this.editorResolverFactory = Objects.requireNonNull(editorResolverFactory, "editorResolverFactory");
         this.editorAccessFactory = Objects.requireNonNull(editorAccessFactory, "editorAccessFactory");
         this.mainToolbarResolverFactory = mainToolbarResolverFactory;
         this.embeddedPanelResolverFactory = embeddedPanelResolverFactory;
+        this.boundingBoxOverlayResolverFactory = boundingBoxOverlayResolverFactory;
         this.editorUiPluginResources = editorUiPluginResources;
         this.editorUiActionRouter = editorUiActionRouter;
         this.embeddedPanelActivation = embeddedPanelActivation;
@@ -199,7 +233,11 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         final ToolbarMaterial toolbar = toolbarMaterial(evidence);
         final PanelMaterial panel = panelMaterial(evidence);
         final TopMenuMaterial topMenu = topMenuMaterial(evidence);
-        return connection(adapters, modelAccess, resolver, editorAdmission, toolbar, panel, topMenu);
+        final OverlayMaterial overlay = optionalOverlayMaterial(evidence);
+        if (toolbar == null && panel == null && topMenu == null && overlay == null) {
+            return HostAdapterConnection.of(adapters, modelAccess, resolver);
+        }
+        return connection(adapters, modelAccess, resolver, editorAdmission, toolbar, panel, topMenu, overlay);
     }
 
     private static dev.turboism.mapping.verification.EditorModelAdmissionEvidence editorAdmission(
@@ -212,6 +250,14 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             );
         } catch (java.io.IOException missingTestArtifact) {
             return dev.turboism.mapping.verification.EditorModelAdmissionEvidence.forResolver(resolver);
+        }
+    }
+
+    private OverlayMaterial optionalOverlayMaterial(final HostVerificationEvidence evidence) {
+        try {
+            return overlayMaterial(evidence);
+        } catch (Exception unavailable) {
+            return null;
         }
     }
 
@@ -261,6 +307,21 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         );
     }
 
+    private OverlayMaterial overlayMaterial(final HostVerificationEvidence evidence) throws Exception {
+        if (evidence.boundingBoxOverlayButton().isEmpty()
+            || boundingBoxOverlayResolverFactory == null
+            || editorUiPluginResources == null) {
+            return null;
+        }
+        final HostVerificationEvidence.Slice slice = evidence.boundingBoxOverlayButton().orElseThrow();
+        return new OverlayMaterial(
+            boundingBoxOverlayResolverFactory.create(slice),
+            BoundingBoxOverlayButtonVerificationManifest.admissionForArtifact(
+                HostArtifactDigest.from(slice.verifiedArtifact())
+            )
+        );
+    }
+
     private HostAdapterConnection connection(
         final RuntimeHostAdapters adapters,
         final CubismModelAccess modelAccess,
@@ -268,7 +329,8 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         final dev.turboism.mapping.verification.EditorModelAdmissionEvidence editorAdmission,
         final ToolbarMaterial toolbar,
         final PanelMaterial panel,
-        final TopMenuMaterial topMenu
+        final TopMenuMaterial topMenu,
+        final OverlayMaterial overlay
     ) {
         return new HostAdapterConnection() {
             private long menuGeneration = Long.MIN_VALUE;
@@ -331,6 +393,13 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             }
 
             @Override
+            public VerifiedMemberResolver boundingBoxOverlayResolver() {
+                return overlay == null
+                    ? HostAdapterConnection.super.boundingBoxOverlayResolver()
+                    : overlay.resolver();
+            }
+
+            @Override
             public List<EditorUiContributionProvider> editorUiProviders(final long hostGeneration) {
                 final List<EditorUiContributionProvider> providers = new ArrayList<>();
                 final dev.turboism.ui.context.NativeObjectContextMenuBridge.Handler menuHandler =
@@ -390,6 +459,19 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                         editorUiActionRouter
                     ));
                 }
+                if (overlay != null) {
+                    providers.add(new BoundingBoxOverlayButtonContributionProvider(
+                        EditorUiProviderAdmission.admitted(
+                            EditorUiFamily.BOUNDING_BOX_OVERLAY_BUTTON,
+                            hostGeneration,
+                            verificationEvidence(overlay.admission())
+                        ),
+                        new VerifiedBoundingBoxOverlayButtonHostOperations(
+                            overlay.resolver(),
+                            editorUiPluginResources
+                        )
+                    ));
+                }
                 return List.copyOf(providers);
             }
 
@@ -431,6 +513,18 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         );
     }
 
+    private static EditorUiProviderAdmission.VerificationEvidence verificationEvidence(
+        final BoundingBoxOverlayButtonVerificationManifest.AdmissionEvidence evidence
+    ) {
+        return new EditorUiProviderAdmission.VerificationEvidence(
+            evidence.cubismVersion(), evidence.artifactSize(), evidence.artifactSha256(),
+            evidence.adapterSliceId(),
+            BoundingBoxOverlayButtonVerificationManifest.recordSha256ForVersion(
+                evidence.cubismVersion()
+            )
+        );
+    }
+
     private record ToolbarMaterial(
         VerifiedMemberResolver resolver,
         MainToolbarVerificationManifest.AdmissionEvidence admission
@@ -446,6 +540,12 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
     private record TopMenuMaterial(
         VerifiedMemberResolver resolver,
         TopMenuVerificationManifest.AdmissionEvidence admission
+    ) {
+    }
+
+    private record OverlayMaterial(
+        VerifiedMemberResolver resolver,
+        BoundingBoxOverlayButtonVerificationManifest.AdmissionEvidence admission
     ) {
     }
 
@@ -471,6 +571,11 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
 
     @FunctionalInterface
     interface EmbeddedPanelResolverFactory {
+        VerifiedMemberResolver create(HostVerificationEvidence.Slice slice) throws Exception;
+    }
+
+    @FunctionalInterface
+    interface BoundingBoxOverlayResolverFactory {
         VerifiedMemberResolver create(HostVerificationEvidence.Slice slice) throws Exception;
     }
 

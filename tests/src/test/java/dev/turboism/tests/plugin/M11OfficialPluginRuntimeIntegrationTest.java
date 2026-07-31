@@ -94,7 +94,8 @@ class M11OfficialPluginRuntimeIntegrationTest {
                 "turboism.cubism.project.read",
                 "turboism.ui.dialog.contribute",
                 "turboism.ui.file-chooser.request",
-                "turboism.ui.status.notify"
+                "turboism.ui.status.notify",
+                "turboism.ui.appearance.modify"
             ),
             permissionIdsFor("ui-theme")
         );
