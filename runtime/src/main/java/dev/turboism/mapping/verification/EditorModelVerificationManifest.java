@@ -7,7 +7,7 @@ public final class EditorModelVerificationManifest {
 
     public static final String VERIFICATION_ID = "cubism-5.3.02.editor-model.static";
     public static final String RECORD_SHA256 =
-        "644b1601cc6cd58e908646d34efd9f0cb0dbc686d11b51ab06cc4d1b6d3f4222";
+        "0dc08c5088606686c6f06e873e72c4892c012cdf02841f1ec928525983d3a0a5";
     public static final String CUBISM_VERSION = "5.3.02";
     public static final String PROFILE_ID = "cubism-5.3.02";
     public static final long ARTIFACT_SIZE = 41_922_739L;
@@ -33,14 +33,22 @@ public final class EditorModelVerificationManifest {
         EditorObjectWriteSelectorContract.ROTATION_CAPABILITY_ID,
         "cubism.texture-atlas.layout.write",
         "cubism.texture-atlas.data-model-hook",
-        "cubism.texture-atlas.auto-layout-hook"
+        "cubism.texture-atlas.auto-layout-hook",
+        "cubism.texture-atlas.native-layout-invocation",
+        "cubism.texture-atlas.dialog-injection"
     );
     private static final Set<String> TEXTURE_ATLAS_ALIASES =
         union(
             dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.REQUIRED_ALIASES,
             union(
-                dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.HOOK_ALIASES,
-                dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.AUTO_LAYOUT_HOOK_ALIASES
+                union(
+                    dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.HOOK_ALIASES,
+                    union(
+                        dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.AUTO_LAYOUT_HOOK_ALIASES,
+                        dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.NATIVE_INVOCATION_ALIASES
+                    )
+                ),
+                dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.DIALOG_INJECTION_ALIASES
             )
         );
     public static final Set<String> REQUIRED_ALIASES = union(Set.of(

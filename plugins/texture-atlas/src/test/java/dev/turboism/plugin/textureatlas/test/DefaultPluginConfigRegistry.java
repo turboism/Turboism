@@ -15,7 +15,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 
 public final class DefaultPluginConfigRegistry implements PluginConfigRegistry {
-    private Object value;
+    private final java.util.Map<ConfigKey<?>, Object> values = new java.util.HashMap<>();
     private long revision;
     @Override public CompletionStage<Void> registerSchema(ConfigSchema schema, List<dev.turboism.sdk.config.ConfigMigration> migrations) {
         final java.util.regex.Pattern identifier = java.util.regex.Pattern.compile("[a-z0-9][a-z0-9._-]{0,127}");
@@ -29,13 +29,14 @@ public final class DefaultPluginConfigRegistry implements PluginConfigRegistry {
         return CompletableFuture.completedFuture(null);
     }
     @Override public <T> CompletionStage<ConfigReadResult<T>> read(ConfigKey<T> key) {
-        @SuppressWarnings("unchecked") final T current = value == null ? key.defaultValue() : (T) value;
-        final ConfigValueSource source = value == null ? ConfigValueSource.DEFAULT_MISSING : ConfigValueSource.STORED;
+        final boolean stored = values.containsKey(key);
+        @SuppressWarnings("unchecked") final T current = stored ? (T) values.get(key) : key.defaultValue();
+        final ConfigValueSource source = stored ? ConfigValueSource.STORED : ConfigValueSource.DEFAULT_MISSING;
         return CompletableFuture.completedFuture(new ConfigReadResult<>(new ConfigValue<>(current, source, revision), Optional.empty()));
     }
     @Override public <T> CompletionStage<ConfigWriteResult> write(ConfigKey<T> key, T value, long expectedRevision) {
         if (expectedRevision != revision) return CompletableFuture.completedFuture(new ConfigWriteResult(false, revision, Optional.empty()));
-        this.value = value;
+        values.put(key, value);
         revision++;
         return CompletableFuture.completedFuture(new ConfigWriteResult(true, revision, Optional.empty()));
     }

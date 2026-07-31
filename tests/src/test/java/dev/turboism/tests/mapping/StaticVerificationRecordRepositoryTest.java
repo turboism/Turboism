@@ -171,8 +171,8 @@ class StaticVerificationRecordRepositoryTest {
             "Live2D_Cubism.jar",
             40_805_584L,
             "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
-            "192c2ad09df0cccce59a19b396786a6139d18ad0a7254629ee79b8b2027043b5",
-            219,
+            "0d19d9c9f31a1466cdc48d3fc3d4c58e6cec6ad1f7afeb82e5c0195855d70f90",
+            253,
             editorModel52Aliases(),
             editorModel52Aliases(),
             editorModel52MethodAliases(),
@@ -194,7 +194,7 @@ class StaticVerificationRecordRepositoryTest {
             EditorModelVerificationManifest.ARTIFACT_SIZE,
             EditorModelVerificationManifest.ARTIFACT_SHA256,
             EditorModelVerificationManifest.RECORD_SHA256,
-            223,
+            257,
             EditorModelVerificationManifest.REQUIRED_ALIASES,
             EditorModelVerificationManifest.REQUIRED_ALIASES,
             editorModelMethodAliases(),
@@ -412,7 +412,39 @@ class StaticVerificationRecordRepositoryTest {
             "cubism.texture-atlas.group-undo.add",
             "cubism.texture-atlas.model-image-list.init",
             "cubism.texture-atlas.model-image-list.data-model",
-            "cubism.texture-atlas.auto-layout.invoke"
+            "cubism.texture-atlas.auto-layout.invoke",
+            "cubism.texture-atlas.dialog.init",
+            "cubism.texture-atlas.native.receiver.settings",
+            "cubism.texture-atlas.native.receiver.data",
+            "cubism.texture-atlas.native.receiver.overflow",
+            "cubism.texture-atlas.native.data.current-scale",
+            "cubism.texture-atlas.native.item.current-transform",
+            "cubism.texture-atlas.native.affine.create",
+            "cubism.texture-atlas.native.editor-affine.create",
+            "cubism.texture-atlas.native.settings.margin",
+            "cubism.texture-atlas.native.settings.rotate",
+            "cubism.texture-atlas.native.settings.model-image",
+            "cubism.texture-atlas.native.settings.scale",
+            "cubism.texture-atlas.native.data.items",
+            "cubism.texture-atlas.native.data.width",
+            "cubism.texture-atlas.native.data.height",
+            "cubism.texture-atlas.native.data.scale",
+            "cubism.texture-atlas.native.data.impl",
+            "cubism.texture-atlas.native.impl.container",
+            "cubism.texture-atlas.native.container.children",
+            "cubism.texture-atlas.native.item.rect",
+            "cubism.texture-atlas.native.item.model-rect",
+            "cubism.texture-atlas.native.item.width",
+            "cubism.texture-atlas.native.item.height",
+            "cubism.texture-atlas.native.item.transform",
+            "cubism.texture-atlas.native.item.edit-layer",
+            "cubism.texture-atlas.native.rect.x",
+            "cubism.texture-atlas.native.rect.y",
+            "cubism.texture-atlas.native.rect.width",
+            "cubism.texture-atlas.native.rect.height",
+            "cubism.texture-atlas.native.layer-ref.layer",
+            "cubism.texture-atlas.native.layer-ref.transform",
+            "cubism.texture-atlas.native.layer-ref.set-transform"
         );
     }
 
@@ -449,6 +481,7 @@ class StaticVerificationRecordRepositoryTest {
             "cubism.editor-model.part-form.set-opacity"
         ));
         aliases.add("cubism.editor-model.part.parts-opacity");
+        aliases.add("cubism.texture-atlas.dialog.init");
         return Set.copyOf(aliases);
     }
 

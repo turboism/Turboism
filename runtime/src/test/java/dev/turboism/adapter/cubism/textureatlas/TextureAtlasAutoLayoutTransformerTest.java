@@ -5,7 +5,8 @@ import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
-import java.util.function.BooleanSupplier;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Predicate;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -13,7 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class TextureAtlasAutoLayoutTransformerTest {
 
     @Test
-    void returnsHandledOnlyWhenTheLoaderNeutralCallbackSucceeds() throws Exception {
+    void passesTheReceiverToTheLoaderNeutralRuntimeIngressAndHandlesOnlyItsSuccess() throws Exception {
         final String key = "test.texture-atlas.auto-layout.callback";
         final TextureAtlasAutoLayoutTransformer transformer = new TextureAtlasAutoLayoutTransformer(
             "fixture/AutoLayout",
@@ -29,24 +30,33 @@ class TextureAtlasAutoLayoutTransformerTest {
         final Class<?> type = loader.define("fixture.AutoLayout", transformed);
         final Object instance = type.getConstructor().newInstance();
 
+        final AtomicReference<Object> receiver = new AtomicReference<>();
         try {
             assertFalse((Boolean) type.getMethod("a", Object.class).invoke(instance, new Object()));
             assertTrue(type.getField("nativeCalls").getInt(null) == 1);
-            System.getProperties().put(key, (BooleanSupplier) () -> false);
+            System.getProperties().put(key, (Predicate<Object>) target -> {
+                receiver.set(target);
+                return false;
+            });
             assertFalse((Boolean) type.getMethod("a", Object.class).invoke(instance, new Object()));
             assertTrue(type.getField("nativeCalls").getInt(null) == 2);
-            System.getProperties().put(key, (BooleanSupplier) () -> true);
+            assertTrue(receiver.get() == instance);
+            System.getProperties().put(key, (Predicate<Object>) target -> {
+                receiver.set(target);
+                return true;
+            });
             assertTrue((Boolean) type.getMethod("a", Object.class).invoke(instance, new Object()));
             assertTrue(type.getField("nativeCalls").getInt(null) == 2);
-            System.getProperties().put(key, (BooleanSupplier) () -> {
-                throw new AssertionError("callback failure");
+            assertTrue(receiver.get() == instance);
+            System.getProperties().put(key, (Predicate<Object>) target -> {
+                throw new AssertionError("runtime ingress failure");
             });
             assertFalse((Boolean) type.getMethod("a", Object.class).invoke(instance, new Object()));
             assertTrue(type.getField("nativeCalls").getInt(null) == 3);
             assertFalse(java.util.Arrays.toString(transformed).contains("dev/turboism"));
         } finally {
             System.getProperties().remove(key);
-        }
+    }
     }
 
     private static byte[] fixtureClass() {

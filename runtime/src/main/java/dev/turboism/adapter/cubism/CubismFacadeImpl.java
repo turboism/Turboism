@@ -171,12 +171,36 @@ public final class CubismFacadeImpl implements CubismFacade {
         this(
             source,
             permissionGate,
+            modelAccess,
+            parameterLifecycle,
+            partLifecycle,
+            textureAtlasLayouts,
+            new dev.turboism.adapter.cubism.textureatlas.TextureAtlasNativeInvocationCoordinator(),
+            editorObjectLifecycle,
+            activeScope
+        );
+    }
+
+    public CubismFacadeImpl(
+        final HostSnapshotSource source,
+        final CubismPermissionGate permissionGate,
+        final CubismModelAccess modelAccess,
+        final ParameterLifecycleCoordinator parameterLifecycle,
+        final PartLifecycleCoordinator partLifecycle,
+        final TextureAtlasLayoutCoordinator textureAtlasLayouts,
+        final dev.turboism.adapter.cubism.textureatlas.TextureAtlasNativeInvocationCoordinator nativeInvocations,
+        final EditorObjectLifecycleCoordinator editorObjectLifecycle,
+        final BooleanSupplier activeScope
+    ) {
+        this(
+            source,
+            permissionGate,
             new ImmutableSnapshotFactory(),
             unavailableTransactionManager(),
             modelAccess,
             parameterLifecycle,
             partLifecycle,
-            new RuntimeTextureAtlasLayoutService(textureAtlasLayouts, permissionGate),
+            new RuntimeTextureAtlasLayoutService(textureAtlasLayouts, permissionGate, nativeInvocations),
             editorObjectLifecycle,
             activeScope
         );

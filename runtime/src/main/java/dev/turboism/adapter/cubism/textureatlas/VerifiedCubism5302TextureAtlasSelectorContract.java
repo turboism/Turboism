@@ -53,6 +53,46 @@ public final class VerifiedCubism5302TextureAtlasSelectorContract {
         "cubism.texture-atlas.auto-layout.invoke"
     );
 
+    public static final Set<String> NATIVE_INVOCATION_ALIASES = Set.of(
+        VerifiedTextureAtlasNativeInvocationAdapter.RECEIVER_CLASS,
+        VerifiedTextureAtlasNativeInvocationAdapter.RECEIVER_SETTINGS,
+        VerifiedTextureAtlasNativeInvocationAdapter.RECEIVER_DATA,
+        VerifiedTextureAtlasNativeInvocationAdapter.RECEIVER_OVERFLOW,
+        VerifiedTextureAtlasNativeInvocationAdapter.SETTINGS_MARGIN,
+        VerifiedTextureAtlasNativeInvocationAdapter.SETTINGS_ROTATE,
+        VerifiedTextureAtlasNativeInvocationAdapter.SETTINGS_MODEL_IMAGE,
+        VerifiedTextureAtlasNativeInvocationAdapter.SETTINGS_SCALE,
+        VerifiedTextureAtlasNativeInvocationAdapter.DATA_ITEMS,
+        VerifiedTextureAtlasNativeInvocationAdapter.DATA_WIDTH,
+        VerifiedTextureAtlasNativeInvocationAdapter.DATA_HEIGHT,
+        VerifiedTextureAtlasNativeInvocationAdapter.DATA_SCALE,
+        VerifiedTextureAtlasNativeInvocationAdapter.DATA_CURRENT_SCALE,
+        VerifiedTextureAtlasNativeInvocationAdapter.DATA_IMPL,
+        VerifiedTextureAtlasNativeInvocationAdapter.IMPL_CONTAINER,
+        VerifiedTextureAtlasNativeInvocationAdapter.CONTAINER_CHILDREN,
+        VerifiedTextureAtlasNativeInvocationAdapter.ITEM_RECT,
+        VerifiedTextureAtlasNativeInvocationAdapter.ITEM_MODEL_RECT,
+        VerifiedTextureAtlasNativeInvocationAdapter.ITEM_WIDTH,
+        VerifiedTextureAtlasNativeInvocationAdapter.ITEM_HEIGHT,
+        VerifiedTextureAtlasNativeInvocationAdapter.ITEM_TRANSFORM,
+        VerifiedTextureAtlasNativeInvocationAdapter.ITEM_EDIT_LAYER,
+        VerifiedTextureAtlasNativeInvocationAdapter.ITEM_CURRENT_TRANSFORM,
+        VerifiedTextureAtlasNativeInvocationAdapter.RECT_X,
+        VerifiedTextureAtlasNativeInvocationAdapter.RECT_Y,
+        VerifiedTextureAtlasNativeInvocationAdapter.RECT_WIDTH,
+        VerifiedTextureAtlasNativeInvocationAdapter.RECT_HEIGHT,
+        VerifiedTextureAtlasNativeInvocationAdapter.AFFINE_CREATE,
+        VerifiedTextureAtlasNativeInvocationAdapter.LAYER_REF_LAYER,
+        VerifiedTextureAtlasNativeInvocationAdapter.LAYER_REF_TRANSFORM,
+        VerifiedTextureAtlasNativeInvocationAdapter.LAYER_REF_SET_TRANSFORM,
+        VerifiedTextureAtlasNativeInvocationAdapter.EDITOR_AFFINE_CREATE
+    );
+
+    public static final Set<String> DIALOG_INJECTION_ALIASES = Set.of(
+        VerifiedTextureAtlasNativeInvocationAdapter.DIALOG_CLASS,
+        VerifiedTextureAtlasNativeInvocationAdapter.DIALOG_INIT
+    );
+
     private VerifiedCubism5302TextureAtlasSelectorContract() {
     }
 }
