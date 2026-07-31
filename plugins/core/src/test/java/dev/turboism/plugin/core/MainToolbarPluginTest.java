@@ -139,6 +139,22 @@ class MainToolbarPluginTest {
     }
 
     @Test
+    void installActionUsesInteractiveRequestAndScopeClosesManagement() throws Exception {
+        final RecordingPluginContext context = new RecordingPluginContext();
+        final RecordingPluginManagement management = new RecordingPluginManagement();
+        final MainToolbarPlugin plugin = plugin(management);
+
+        plugin.init(context);
+        plugin.enable();
+        context.actions().execute("turboism.core.plugins.install");
+
+        assertEquals(1, management.requests);
+        assertEquals(0, management.synchronousInstalls);
+        context.disposableScope().close();
+        assertTrue(management.closed);
+    }
+
+    @Test
     void enableAllowsMainToolbar_whenPermissionGranted() throws Exception {
         RecordingPluginContext context = new RecordingPluginContext(new PermissionGatedUiHost(true, true));
         MainToolbarPlugin plugin = plugin();
@@ -180,8 +196,12 @@ class MainToolbarPluginTest {
     }
 
     private static MainToolbarPlugin plugin() {
+        return plugin(plugins());
+    }
+
+    private static MainToolbarPlugin plugin(final CorePluginManagement management) {
         return CorePluginServices.instantiate(
-            new CorePluginServices(settings(), plugins()),
+            new CorePluginServices(settings(), management),
             MainToolbarPlugin::new
         );
     }
@@ -209,6 +229,27 @@ class MainToolbarPluginTest {
                 return OperationResult.rejected("Unavailable");
             }
         };
+    }
+
+    private static final class RecordingPluginManagement implements CorePluginManagement {
+        private int requests;
+        private int synchronousInstalls;
+        private boolean closed;
+
+        @Override public List<PluginInfo> plugins() { return List.of(); }
+        @Override public OperationResult install() {
+            synchronousInstalls++;
+            return OperationResult.rejected("Unavailable");
+        }
+        @Override public void requestInstall(final java.util.function.Consumer<OperationResult> completion) {
+            requests++;
+            completion.accept(OperationResult.rejected("Cancelled"));
+        }
+        @Override public OperationResult uninstall(final String id) { return OperationResult.rejected("Unavailable"); }
+        @Override public OperationResult setEnabled(final String id, final boolean enabled) {
+            return OperationResult.rejected("Unavailable");
+        }
+        @Override public void close() { closed = true; }
     }
 
     private static final class RecordingPluginContext implements PluginContext {
