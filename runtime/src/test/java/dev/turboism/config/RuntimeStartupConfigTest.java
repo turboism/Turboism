@@ -129,6 +129,23 @@ class RuntimeStartupConfigTest {
         assertEquals(List.of("RUNTIME_STARTUP_CONFIG_INVALID"), diagnostics);
     }
 
+    @Test
+    void readsBoundedHookKillSwitch() throws Exception {
+        Files.writeString(temporaryHome.resolve("config.json"), """
+            {
+              "format": "turboism.runtime.config",
+              "schemaVersion": 1,
+              "worktreeId": "startup-test",
+              "hooks": { "disabledIds": ["cubism.mesh.mirror-axis"] }
+            }
+            """);
+
+        final RuntimeStartupConfig config = RuntimeStartupConfig.load(temporaryHome);
+
+        assertFalse(config.hookEnabled("cubism.mesh.mirror-axis"));
+        assertTrue(config.hookEnabled("cubism.parameter.lifecycle"));
+    }
+
 
     @Test
     void safeModeOverridesEveryRequestedStartupSuppression() throws Exception {

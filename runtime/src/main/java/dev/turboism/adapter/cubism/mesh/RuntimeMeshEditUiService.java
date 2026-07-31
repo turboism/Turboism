@@ -22,6 +22,9 @@ import java.util.concurrent.atomic.AtomicReference;
 public final class RuntimeMeshEditUiService implements MeshEditUiService {
     private final AtomicReference<MirrorAxisAngleControl> contribution = new AtomicReference<>();
     private final List<Attachment> attachments = new ArrayList<>();
+    private final AtomicReference<java.util.function.Consumer<Boolean>> contributionObserver =
+        new AtomicReference<>();
+    private final java.util.concurrent.atomic.AtomicLong epoch = new java.util.concurrent.atomic.AtomicLong();
 
     @Override
     public Registration contributeMirrorAxisAngleControl(final MirrorAxisAngleControl requested) {
@@ -29,11 +32,37 @@ public final class RuntimeMeshEditUiService implements MeshEditUiService {
         if (!contribution.compareAndSet(null, requested)) {
             throw new IllegalStateException("mesh mirror-axis angle control is already registered");
         }
+        notifyContribution(true);
         return () -> clear(requested);
+    }
+
+    public Registration observeContribution(final java.util.function.Consumer<Boolean> observer) {
+        Objects.requireNonNull(observer, "observer");
+        if (!contributionObserver.compareAndSet(null, observer)) {
+            throw new IllegalStateException("mesh mirror contribution observer is already registered");
+        }
+        observer.accept(contribution.get() != null);
+        return () -> contributionObserver.compareAndSet(observer, null);
     }
 
     public MirrorAxisAngleControl contribution() {
         return contribution.get();
+    }
+
+    Attachment nativeAttachment() {
+        synchronized (attachments) {
+            return attachments.isEmpty() ? null : attachments.get(0);
+        }
+    }
+
+    public void resetSession() {
+        epoch.incrementAndGet();
+        final List<Attachment> stale;
+        synchronized (attachments) {
+            stale = List.copyOf(attachments);
+            attachments.clear();
+        }
+        runOnEdt(() -> stale.forEach(attachment -> remove(attachment.container, attachment.root)));
     }
 
     void attachNative(
@@ -43,8 +72,9 @@ public final class RuntimeMeshEditUiService implements MeshEditUiService {
     ) {
         final MirrorAxisAngleControl active = contribution.get();
         if (active == null || panel == null || widget == null) return;
+        final long attachmentEpoch = epoch.get();
         runOnEdt(() -> {
-            if (contribution.get() != active || find(panel) != null) return;
+            if (epoch.get() != attachmentEpoch || contribution.get() != active || find(panel) != null) return;
             final Container container = container(widget);
             if (container == null) return;
             final JComponent root = build(active, axis);
@@ -87,6 +117,8 @@ public final class RuntimeMeshEditUiService implements MeshEditUiService {
 
     private void clear(final MirrorAxisAngleControl expected) {
         if (!contribution.compareAndSet(expected, null)) return;
+        notifyContribution(false);
+        epoch.incrementAndGet();
         final List<Attachment> stale;
         synchronized (attachments) {
             stale = List.copyOf(attachments);
@@ -99,6 +131,11 @@ public final class RuntimeMeshEditUiService implements MeshEditUiService {
         synchronized (attachments) {
             return attachments.stream().filter(value -> value.panel == panel).findFirst().orElse(null);
         }
+    }
+
+    private void notifyContribution(final boolean available) {
+        final java.util.function.Consumer<Boolean> observer = contributionObserver.get();
+        if (observer != null) observer.accept(available);
     }
 
     private static Container container(final Object widget) {
@@ -123,14 +160,8 @@ public final class RuntimeMeshEditUiService implements MeshEditUiService {
 
     private static void runOnEdt(final Runnable action) {
         if (SwingUtilities.isEventDispatchThread()) action.run();
-        else {
-            try {
-                SwingUtilities.invokeAndWait(action);
-            } catch (Exception failure) {
-                throw new IllegalStateException("mesh mirror UI dispatch failed", failure);
-            }
-        }
+        else SwingUtilities.invokeLater(action);
     }
 
-    private record Attachment(Object panel, Container container, JComponent root) { }
+    record Attachment(Object panel, Container container, JComponent root) { }
 }
