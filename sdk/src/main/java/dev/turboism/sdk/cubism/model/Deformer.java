@@ -3,6 +3,8 @@ package dev.turboism.sdk.cubism.model;
 import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.id.DeformerId;
 
+import java.util.List;
+
 /** One Cubism deformer. */
 @PreviewApi
 public interface Deformer {
@@ -60,6 +62,11 @@ public interface Deformer {
     int parentDeformerIndex();
 
     IntSequence parameters();
+
+    /** Returns this Deformer's generation-bound Editor authoring bindings. */
+    default List<ParameterBinding> getParameterBindings() {
+        throw unavailable("Deformer parameter binding projection");
+    }
 
 
     private static UnsupportedOperationException unavailable(final String feature) {
