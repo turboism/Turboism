@@ -166,7 +166,15 @@ public final class TurboismAgent {
                 host
             );
             installPhysicsEditorHook(runtime, instrumentation, host);
-            installMeshMirrorHook(runtime, instrumentation, host);
+            installMeshMirrorHook(
+                runtime,
+                instrumentation,
+                host,
+                dev.turboism.adapter.cubism.mesh.MeshMirrorHookAdmission.admitted(
+                    runtime.loadReport().loaded()
+                ) && STARTUP_SUPPRESSION.get() != null
+                    && STARTUP_SUPPRESSION.get().policy().hookEnabled("cubism.mesh.mirror-axis")
+            );
             Runtime.getRuntime().addShutdownHook(new Thread(TurboismAgent::shutdown, "turboism-shutdown"));
             System.err.println(
                 "Turboism Developer Preview started: host=" + runtime.hostState()
@@ -289,8 +297,13 @@ public final class TurboismAgent {
     private static void installMeshMirrorHook(
         final PreviewRuntime runtime,
         final Instrumentation instrumentation,
-        final HostClassLocator.LocatedHost host
+        final HostClassLocator.LocatedHost host,
+        final boolean enabled
     ) {
+        if (!enabled) {
+            System.err.println("Turboism mesh mirror hook disabled by policy or missing authorized consumer");
+            return;
+        }
         VerifiedMeshMirrorHookInstaller installer = null;
         try {
             final var profile = dev.turboism.adapter.cubism.mesh.MeshMirrorHostProfile.forArtifact(

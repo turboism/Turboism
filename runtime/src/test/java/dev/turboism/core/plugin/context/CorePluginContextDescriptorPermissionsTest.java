@@ -335,7 +335,11 @@ class CorePluginContextDescriptorPermissionsTest {
     void exposesTheRuntimeOwnedMeshMirrorAxisService(@TempDir Path dataDir) {
         CorePluginContext context = context(
             dataDir,
-            descriptorWithPermissions(),
+            descriptorWithPermissions(List.of(
+                "turboism.cubism.model.read",
+                "turboism.cubism.model.write",
+                "turboism.ui.panel.contribute"
+            )),
             ignored -> { },
             RuntimeHostAdapters.safeMode()
         );
