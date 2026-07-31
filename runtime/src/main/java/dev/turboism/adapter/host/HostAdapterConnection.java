@@ -21,6 +21,10 @@ interface HostAdapterConnection extends AutoCloseable {
         throw new IllegalStateException("Verified Editor model resolver is unavailable.");
     }
 
+    default VerifiedMemberResolver boundingBoxOverlayResolver() {
+        throw new IllegalStateException("Verified bounding-box overlay resolver is unavailable.");
+    }
+
     default List<EditorUiContributionProvider> editorUiProviders(final long hostGeneration) {
         if (hostGeneration <= 0) {
             throw new IllegalArgumentException("hostGeneration must be positive");

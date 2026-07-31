@@ -2,9 +2,12 @@ package dev.turboism.adapter.cubism.editor;
 
 import dev.turboism.mapping.verification.EditorObjectReadSelectorContract;
 import dev.turboism.mapping.verification.EditorObjectWriteSelectorContract;
+import dev.turboism.mapping.verification.EditorParameterBindingReadSelectorContract;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.DeformerId;
+import dev.turboism.sdk.cubism.id.ParameterBindingPointId;
+import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.cubism.model.ArtMeshGeometry;
 import dev.turboism.sdk.cubism.model.BlendMode;
 import dev.turboism.sdk.cubism.model.Color;
@@ -14,6 +17,10 @@ import dev.turboism.sdk.cubism.model.Drawable;
 import dev.turboism.sdk.cubism.model.Drawables;
 import dev.turboism.sdk.cubism.model.FloatSequence;
 import dev.turboism.sdk.cubism.model.IntSequence;
+import dev.turboism.sdk.cubism.model.ParameterBinding;
+import dev.turboism.sdk.cubism.model.ParameterBindingFamily;
+import dev.turboism.sdk.cubism.model.ParameterBindingPoint;
+import dev.turboism.sdk.cubism.model.ParameterBindingTarget;
 import dev.turboism.sdk.cubism.model.Point2;
 import dev.turboism.sdk.cubism.model.RotationDeformer;
 import dev.turboism.sdk.cubism.model.RotationDeformerForm;
@@ -70,6 +77,55 @@ final class EditorObjectReadAccess {
         return new EditorRotationDeformers(identity, source, model);
     }
 
+    List<ParameterBinding> parameterBindings(
+        final String identity,
+        final Object source,
+        final Object model,
+        final ParameterId parameterId
+    ) {
+        Objects.requireNonNull(parameterId, "parameterId");
+        requireBindingReadAuthorized();
+        final ArrayList<ParameterBinding> result = new ArrayList<>();
+        for (ObjectRef value : artMeshes(identity, source, model)) {
+            parameterBindings(
+                value.source(),
+                ParameterBindingTarget.artMesh(new ArtMeshId(value.id()))
+            ).stream().filter(binding -> binding.parameterId().equals(parameterId)).forEach(result::add);
+        }
+        for (DeformerRef value : deformerRefs(identity, source, model)) {
+            final ParameterBindingTarget target = value.kind() == Kind.WARP
+                ? ParameterBindingTarget.warpDeformer(new DeformerId(value.id()))
+                : ParameterBindingTarget.rotationDeformer(new DeformerId(value.id()));
+            parameterBindings(value.source(), target).stream()
+                .filter(binding -> binding.parameterId().equals(parameterId))
+                .forEach(result::add);
+        }
+        return List.copyOf(result);
+    }
+
+    Object bindingTargetSource(
+        final String identity,
+        final Object source,
+        final Object model,
+        final ParameterBindingTarget target
+    ) {
+        Objects.requireNonNull(target, "target");
+        return switch (target.type()) {
+            case ART_MESH -> artMeshes(identity, source, model).stream()
+                .filter(value -> value.id().equals(target.id()))
+                .map(ObjectRef::source)
+                .findFirst()
+                .orElseThrow(() -> stale("ArtMesh", target.id()));
+            case WARP_DEFORMER, ROTATION_DEFORMER -> deformerRefs(identity, source, model).stream()
+                .filter(value -> value.id().equals(target.id()))
+                .filter(value -> value.kind() == (target.type() == dev.turboism.sdk.cubism.model.ParameterBindingTargetType.WARP_DEFORMER
+                    ? Kind.WARP : Kind.ROTATION))
+                .map(DeformerRef::source)
+                .findFirst()
+                .orElseThrow(() -> stale("Deformer", target.id()));
+        };
+    }
+
     private void requireAuthorized() {
         if (!resolver.authorizesFeature(
             EditorObjectReadSelectorContract.ADAPTER_SLICE_ID,
@@ -78,6 +134,18 @@ final class EditorObjectReadAccess {
         )) {
             throw new UnsupportedOperationException(
                 "Editor ArtMesh and Deformer reads require exact verified host evidence."
+            );
+        }
+    }
+
+    private void requireBindingReadAuthorized() {
+        if (!resolver.authorizesFeature(
+            EditorParameterBindingReadSelectorContract.ADAPTER_SLICE_ID,
+            EditorParameterBindingReadSelectorContract.CAPABILITY_ID,
+            EditorParameterBindingReadSelectorContract.REQUIRED_ALIASES
+        )) {
+            throw new UnsupportedOperationException(
+                "Editor parameter-binding reads require exact verified host evidence."
             );
         }
     }
@@ -612,6 +680,57 @@ final class EditorObjectReadAccess {
         );
     }
 
+    private List<ParameterBinding> parameterBindings(
+        final Object objectSource,
+        final ParameterBindingTarget target
+    ) {
+        requireBindingReadAuthorized();
+        final Object grid = resolver.invoke(
+            "cubism.editor-model.parameter-controllable.keyform-grid",
+            objectSource
+        );
+        if (!resolver.isInstance("cubism.editor-model.keyform-grid.class", grid)) {
+            throw unavailable("Editor keyform grid is unavailable.");
+        }
+        final List<?> hostBindings = list(
+            resolver.invoke("cubism.editor-model.keyform-grid.bindings", grid),
+            "Editor keyform bindings"
+        );
+        final ArrayList<ParameterBinding> result = new ArrayList<>(hostBindings.size());
+        for (Object hostBinding : hostBindings) {
+            if (!resolver.isInstance("cubism.editor-model.keyform-binding.class", hostBinding)) {
+                throw unavailable("Editor keyform binding is invalid.");
+            }
+            final Object hostId = resolver.invoke(
+                "cubism.editor-model.keyform-binding.parameter-id",
+                hostBinding
+            );
+            final ParameterId parameterId = new ParameterId(text(
+                resolver.invoke("cubism.editor-model.id.value", hostId),
+                "Editor binding parameter ID"
+            ));
+            final List<?> hostKeys = list(
+                resolver.invoke("cubism.editor-model.keyform-binding.keys", hostBinding),
+                "Editor binding keys"
+            );
+            final ArrayList<ParameterBindingPoint> points = new ArrayList<>(hostKeys.size());
+            for (int index = 0; index < hostKeys.size(); index++) {
+                final float value = number(hostKeys.get(index), "Editor binding key");
+                points.add(new ParameterBindingPoint(
+                    new ParameterBindingPointId(parameterId.value() + ":" + index),
+                    value
+                ));
+            }
+            result.add(new ParameterBinding(
+                target,
+                parameterId,
+                ParameterBindingFamily.KEYFORM_GRID,
+                points
+            ));
+        }
+        return List.copyOf(result);
+    }
+
     private abstract class ObjectView {
         final String identity;
         final Object modelSource;
@@ -660,6 +779,10 @@ final class EditorObjectReadAccess {
         @Override public int parentPartIndex() { throw unsupported("ArtMesh parent Part"); }
         @Override public int parentDeformerIndex() { throw unsupported("ArtMesh parent Deformer"); }
         @Override public IntSequence parameters() { throw unsupported("ArtMesh parameter bindings"); }
+        @Override public List<ParameterBinding> getParameterBindings() {
+            final ObjectRef value = current();
+            return parameterBindings(value.source(), ParameterBindingTarget.artMesh(new ArtMeshId(value.id())));
+        }
     }
 
     private abstract class DeformerView implements Deformer {
@@ -689,6 +812,13 @@ final class EditorObjectReadAccess {
         @Override public int parentPartIndex() { throw unsupported("Deformer parent Part"); }
         @Override public int parentDeformerIndex() { throw unsupported("Deformer parent Deformer"); }
         @Override public IntSequence parameters() { throw unsupported("Deformer parameter bindings"); }
+        @Override public List<ParameterBinding> getParameterBindings() {
+            final DeformerRef value = current();
+            final ParameterBindingTarget target = value.kind() == Kind.WARP
+                ? ParameterBindingTarget.warpDeformer(new DeformerId(value.id()))
+                : ParameterBindingTarget.rotationDeformer(new DeformerId(value.id()));
+            return parameterBindings(value.source(), target);
+        }
     }
 
     private final class EditorWarp extends DeformerView implements WarpDeformer {
