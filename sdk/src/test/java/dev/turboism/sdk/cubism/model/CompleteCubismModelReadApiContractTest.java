@@ -16,19 +16,19 @@ class CompleteCubismModelReadApiContractTest {
     @Test
     void modelAndChildrenExposeTheCompleteSupportedReadShapeWithoutRawHostTypes() throws Exception {
         assertMethods(CubismModel.class,
-            "canvas", "defaultKeyformLocked", "deformers", "drawables", "glues", "id", "parameterGroups", "parameters", "parts", "rotationDeformers", "setDefaultKeyformLocked", "update", "warpDeformers");
+            "canvas", "defaultKeyformLocked", "deformers", "drawables", "glues", "id", "parameterBindingBatch", "parameterBindings", "parameterGroups", "parameters", "parts", "rotationDeformers", "setDefaultKeyformLocked", "update", "warpDeformers");
         assertMethods(Canvas.class,
             "heightPixels", "originXPixels", "originYPixels", "pixelsPerUnit", "widthPixels");
         assertMethods(Part.class,
             "getOpacity", "id", "name", "parentIndex", "setName", "setOpacity");
         assertMethods(Drawable.class,
-            "blendMode", "constantFlag", "culling", "drawOrder", "dynamicFlag", "geometry", "getOpacity", "id",
+            "blendMode", "constantFlag", "culling", "drawOrder", "dynamicFlag", "geometry", "getOpacity", "getParameterBindings", "id",
             "indices", "invertedMask", "locked", "lockedInHierarchy", "masks", "multiplyColor", "name", "parameters",
             "parentDeformerIndex", "parentPartIndex", "renderOrder", "replaceGeometry", "screenColor", "setLocked",
             "setOpacity", "setVisible", "textureIndex", "userData", "vertexPositions", "vertexUvs", "visible",
             "visibleInHierarchy");
         assertMethods(Deformer.class,
-            "getOpacity", "id", "locked", "lockedInHierarchy", "multiplyColor", "name", "parameters", "parentDeformerIndex", "parentPartIndex", "screenColor", "setLocked", "setOpacity", "setVisible", "visible", "visibleInHierarchy");
+            "getOpacity", "getParameterBindings", "id", "locked", "lockedInHierarchy", "multiplyColor", "name", "parameters", "parentDeformerIndex", "parentPartIndex", "screenColor", "setLocked", "setOpacity", "setVisible", "visible", "visibleInHierarchy");
         assertMethods(WarpDeformer.class, "grid", "replaceGrid");
         assertMethods(RotationDeformer.class, "baseAngle", "form", "replaceForm", "setBaseAngle");
         assertMethods(Glue.class,

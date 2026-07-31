@@ -58,6 +58,126 @@ class EditorObjectReadAccessTest {
         assertTrue(rotation.form().reflectedX());
     }
 
+
+    @ParameterizedTest
+    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    void readsOrderedKeyformBindingsForArtMeshWarpAndRotation(final String version) {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        final var model = new EditorBackedCubismModelAccess(resolver(version), "session-a").active();
+
+        final var mesh = model.drawables().find(new ArtMeshId("ArtMeshFace"));
+        final var warp = model.warpDeformers().find(new DeformerId("WarpFace"));
+        final var rotation = model.rotationDeformers().find(new DeformerId("RotationHead"));
+
+        assertBinding(mesh.getParameterBindings(), dev.turboism.sdk.cubism.model.ParameterBindingTargetType.ART_MESH);
+        assertBinding(warp.getParameterBindings(), dev.turboism.sdk.cubism.model.ParameterBindingTargetType.WARP_DEFORMER);
+        assertBinding(rotation.getParameterBindings(), dev.turboism.sdk.cubism.model.ParameterBindingTargetType.ROTATION_DEFORMER);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    void editsParameterBindingsWithStrictConflictsAndExplicitUnbind(final String version) {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        final var model = new EditorBackedCubismModelAccess(resolver(version, true), "session-a").active();
+        final var operations = model.parameterBindings(new dev.turboism.sdk.cubism.id.ParameterId("ParamAngleX"));
+        final var target = dev.turboism.sdk.cubism.model.ParameterBindingTarget.artMesh(new ArtMeshId("ArtMeshFace"));
+
+        operations.unbind(target);
+        operations.bind(target, List.of(
+            point("new:0", -30.0F),
+            point("new:1", 30.0F)
+        ));
+        operations.createPoint(target, point("ignored", 0.0F));
+        var binding = model.drawables().find(new ArtMeshId("ArtMeshFace")).getParameterBindings().get(0);
+        assertThrows(IllegalStateException.class, () -> operations.createPoint(target, point("conflict", 0.0F)));
+        operations.movePoint(target, binding.points().get(1).id(), 5.0F);
+        binding = model.drawables().find(new ArtMeshId("ArtMeshFace")).getParameterBindings().get(0);
+        assertEquals(List.of(-30.0F, 5.0F, 30.0F), binding.points().stream().map(point -> point.value()).toList());
+        operations.deletePoint(target, binding.points().get(0).id());
+        binding = model.drawables().find(new ArtMeshId("ArtMeshFace")).getParameterBindings().get(0);
+        operations.deletePoint(target, binding.points().get(0).id());
+        final var last = model.drawables().find(new ArtMeshId("ArtMeshFace")).getParameterBindings().get(0).points().get(0);
+        assertThrows(IllegalStateException.class, () -> operations.deletePoint(target, last.id()));
+        operations.unbind(target);
+        operations.bind(target, List.of(
+            point("batch:0", -30.0F), point("batch:1", 0.0F), point("batch:2", 30.0F)
+        ));
+
+        assertTrue(fixture.document.dirty);
+        assertEquals(8, fixture.document.editMode.edits.size());
+        assertEquals(8, fixture.source.updateCount);
+        assertEquals(8, fixture.document.pack.parameterRefreshCount);
+        assertEquals(8, fixture.document.pack.partRefreshCount);
+        assertEquals(0, fixture.document.pack.deformerRefreshCount);
+        assertEquals(8, fixture.document.pack.repaintCount);
+
+        final var warpTarget = dev.turboism.sdk.cubism.model.ParameterBindingTarget.warpDeformer(
+            new DeformerId("WarpFace")
+        );
+        final var rotationTarget = dev.turboism.sdk.cubism.model.ParameterBindingTarget.rotationDeformer(
+            new DeformerId("RotationHead")
+        );
+        operations.unbind(warpTarget);
+        operations.bind(warpTarget, List.of(point("warp:0", -30.0F), point("warp:1", 0.0F), point("warp:2", 30.0F)));
+        operations.unbind(rotationTarget);
+        operations.bind(rotationTarget, List.of(point("rotation:0", -30.0F), point("rotation:1", 0.0F), point("rotation:2", 30.0F)));
+        assertBinding(
+            model.warpDeformers().find(new DeformerId("WarpFace")).getParameterBindings(),
+            dev.turboism.sdk.cubism.model.ParameterBindingTargetType.WARP_DEFORMER
+        );
+        assertBinding(
+            model.rotationDeformers().find(new DeformerId("RotationHead")).getParameterBindings(),
+            dev.turboism.sdk.cubism.model.ParameterBindingTargetType.ROTATION_DEFORMER
+        );
+        assertEquals(4, fixture.document.pack.deformerRefreshCount);
+
+        final var batch = model.parameterBindingBatch();
+        batch.invert(List.of(target));
+        assertEquals(List.of(30.0F, 0.0F, -30.0F), model.drawables().find(new ArtMeshId("ArtMeshFace")).getParameterBindings().get(0).points().stream()
+            .map(point -> point.value()).toList());
+        batch.transfer(new dev.turboism.sdk.cubism.model.ParameterBindingTransferPlan(
+            new dev.turboism.sdk.cubism.id.ParameterId("ParamAngleX"),
+            new dev.turboism.sdk.cubism.id.ParameterId("ParamAngleY"),
+            List.of(target),
+            true
+        ));
+        final var transferred = model.drawables().find(new ArtMeshId("ArtMeshFace")).getParameterBindings();
+        assertEquals("ParamAngleY", transferred.get(0).parameterId().value());
+        assertEquals(List.of(-30.0F, 0.0F, 30.0F), transferred.get(0).points().stream()
+            .map(point -> point.value()).toList());
+        assertEquals(14, fixture.document.editMode.edits.size());
+
+        operations.unbind(rotationTarget);
+        final int editsBeforeEmptyInversion = fixture.document.editMode.edits.size();
+        batch.invert(List.of(rotationTarget));
+        assertEquals(editsBeforeEmptyInversion, fixture.document.editMode.edits.size());
+    }
+
+    private static dev.turboism.sdk.cubism.model.ParameterBindingPoint point(
+        final String id,
+        final float value
+    ) {
+        return new dev.turboism.sdk.cubism.model.ParameterBindingPoint(
+            new dev.turboism.sdk.cubism.id.ParameterBindingPointId(id),
+            value
+        );
+    }
+
+    private static void assertBinding(
+        final List<dev.turboism.sdk.cubism.model.ParameterBinding> bindings,
+        final dev.turboism.sdk.cubism.model.ParameterBindingTargetType targetType
+    ) {
+        assertEquals(1, bindings.size());
+        final var binding = bindings.get(0);
+        assertEquals(targetType, binding.target().type());
+        assertEquals("ParamAngleX", binding.parameterId().value());
+        assertEquals(dev.turboism.sdk.cubism.model.ParameterBindingFamily.KEYFORM_GRID, binding.family());
+        assertEquals(List.of(-30.0F, 0.0F, 30.0F), binding.points().stream().map(point -> point.value()).toList());
+        assertEquals(List.of("ParamAngleX:0", "ParamAngleX:1", "ParamAngleX:2"), binding.points().stream().map(point -> point.id().value()).toList());
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"5.2.0", "5.3.02"})
     void sameIdSourceReplacementMakesReferencesStale(final String version) {
@@ -73,6 +193,23 @@ class EditorObjectReadAccessTest {
         assertThrows(IllegalStateException.class, mesh::name);
         assertThrows(IllegalStateException.class, warp::grid);
         assertThrows(IllegalStateException.class, rotation::form);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    void staleParameterBindingBatchOperationsFailBeforeOpeningAnEdit(final String version) {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        final var model = new EditorBackedCubismModelAccess(resolver(version, true), "session-a").active();
+        final var batch = model.parameterBindingBatch();
+        final var target = dev.turboism.sdk.cubism.model.ParameterBindingTarget.artMesh(
+            new ArtMeshId("ArtMeshFace")
+        );
+
+        fixture.replaceAllWithSameIds();
+
+        assertThrows(IllegalStateException.class, () -> batch.invert(List.of(target)));
+        assertEquals(0, fixture.document.editMode.edits.size());
     }
 
     @ParameterizedTest
@@ -221,10 +358,16 @@ class EditorObjectReadAccessTest {
     private static VerifiedMemberResolver resolver(final String version, final boolean includeWrite) {
         final java.util.HashSet<String> capabilities = new java.util.HashSet<>();
         capabilities.add(EditorObjectReadSelectorContract.CAPABILITY_ID);
+        capabilities.add(dev.turboism.mapping.verification.EditorParameterBindingReadSelectorContract.CAPABILITY_ID);
         if (includeWrite) {
             capabilities.add(dev.turboism.mapping.verification.EditorObjectWriteSelectorContract.ART_MESH_CAPABILITY_ID);
             capabilities.add(dev.turboism.mapping.verification.EditorObjectWriteSelectorContract.WARP_CAPABILITY_ID);
             capabilities.add(dev.turboism.mapping.verification.EditorObjectWriteSelectorContract.ROTATION_CAPABILITY_ID);
+            capabilities.add(dev.turboism.mapping.verification.EditorParameterBindingWriteSelectorContract.ART_MESH_CAPABILITY_ID);
+            capabilities.add(dev.turboism.mapping.verification.EditorParameterBindingWriteSelectorContract.WARP_CAPABILITY_ID);
+            capabilities.add(dev.turboism.mapping.verification.EditorParameterBindingWriteSelectorContract.ROTATION_CAPABILITY_ID);
+            capabilities.add(dev.turboism.mapping.verification.EditorParameterBindingBatchWriteSelectorContract.INVERT_CAPABILITY_ID);
+            capabilities.add(dev.turboism.mapping.verification.EditorParameterBindingBatchWriteSelectorContract.TRANSFER_CAPABILITY_ID);
         }
         return TestVerifiedResolvers.create(
             version,
@@ -234,6 +377,7 @@ class EditorObjectReadAccessTest {
             Host.class.getClassLoader()
         );
     }
+
 
     private static List<StaticSelector> selectors() {
         return List.of(
@@ -253,8 +397,15 @@ class EditorObjectReadAccessTest {
             method("cubism.editor-model.model-source.guid", ModelSource.class, "guid", desc(Id.class)),
             method("cubism.editor-model.model-source.current-instance", ModelSource.class, "currentInstance", desc(Model.class)),
             StaticSelector.classSelector("cubism.editor-model.model.class", internal(Model.class)),
+            method("cubism.editor-model.model.parameter-set", Model.class, "parameterSet", desc(ParameterSet.class)),
+            method("cubism.editor-model.parameter.source", Parameter.class, "source", desc(ParameterSource.class)),
+            method("cubism.editor-model.parameter-source.guid", ParameterSource.class, "guid", desc(Id.class)),
             method("cubism.editor-model.guid.value", Id.class, "value", "()Ljava/lang/String;"),
             method("cubism.editor-model.id.value", Id.class, "value", "()Ljava/lang/String;"),
+            StaticSelector.classSelector("cubism.editor-model.parameter-set.class", internal(ParameterSet.class)),
+            method("cubism.editor-model.parameter-set.parameters", ParameterSet.class, "parameters", "()Ljava/util/List;"),
+            StaticSelector.classSelector("cubism.editor-model.parameter.class", internal(Parameter.class)),
+            method("cubism.editor-model.parameter.id", Parameter.class, "id", desc(Id.class)),
             method("cubism.editor-model.model-source.all-art-meshes", ModelSource.class, "allArtMeshes", "()Ljava/util/List;"),
             method("cubism.editor-model.model.all-art-meshes", Model.class, "allArtMeshes", "()Ljava/util/List;"),
             StaticSelector.classSelector("cubism.editor-model.art-mesh-source.class", internal(ArtMeshSource.class)),
@@ -318,8 +469,24 @@ class EditorObjectReadAccessTest {
             method("cubism.editor-model.rotation-form.set-reflect-x", RotationForm.class, "setReflectX", "(Z)V"),
             method("cubism.editor-model.rotation-form.reflect-y", RotationForm.class, "reflectY", "()Z"),
             method("cubism.editor-model.rotation-form.set-reflect-y", RotationForm.class, "setReflectY", "(Z)V"),
+            StaticSelector.classSelector("cubism.editor-model.keyform-grid.class", internal(KeyformGrid.class)),
+            method("cubism.editor-model.parameter-controllable.keyform-grid", ObjectSource.class, "keyformGrid", desc(KeyformGrid.class)),
+            method("cubism.editor-model.keyform-grid.bindings", KeyformGrid.class, "bindings", "()Ljava/util/List;"),
+            method("cubism.editor-model.keyform-grid.add-key", KeyformGrid.class, "addKey", "(F" + type(Id.class) + ")V"),
+            method("cubism.editor-model.keyform-grid.remove-key", KeyformGrid.class, "removeKey", "(F" + type(Id.class) + ")V"),
+            method("cubism.editor-model.keyform-grid.remove-all-key", KeyformGrid.class, "removeAllKey", "(" + type(ParameterSet.class) + type(Id.class) + ")V"),
+            method("cubism.editor-model.keyform-grid.rearrange-keys", KeyformGrid.class, "rearrange", "(" + type(Id.class) + "Ljava/util/List;Ljava/util/List;)V"),
+            method("cubism.editor-model.keyform-grid.find-binding", KeyformGrid.class, "findBinding", "(" + type(Id.class) + ")" + type(KeyformBinding.class)),
+            method("cubism.editor-model.keyform-grid.reverse-parameter", KeyformGrid.class, "reverse", "(" + type(Id.class) + ")V"),
+            method("cubism.editor-model.keyform-grid.change-parameter", KeyformGrid.class, "change", "(" + type(Id.class) + type(Id.class) + ")V"),
+            StaticSelector.classSelector("cubism.editor-model.keyform-binding.class", internal(KeyformBinding.class)),
+            method("cubism.editor-model.keyform-binding.parameter-id", KeyformBinding.class, "parameterId", desc(Id.class)),
+            method("cubism.editor-model.keyform-binding.parameter-guid", KeyformBinding.class, "parameterGuid", desc(Id.class)),
+            method("cubism.editor-model.id.guid", Id.class, "guid", desc(Id.class)),
+            method("cubism.editor-model.keyform-binding.keys", KeyformBinding.class, "keys", "()Ljava/util/List;"),
             method("cubism.editor-model.complete-pack.update-part-palette", CompletePack.class, "updateParts", "(Z)V"),
             method("cubism.editor-model.complete-pack.update-deformer-palette", CompletePack.class, "updateDeformers", "(Z)V"),
+            method("cubism.editor-model.complete-pack.update-parameter", CompletePack.class, "updateParameter", "(Z)V"),
             method("cubism.editor-model.complete-pack.repaint-canvas", CompletePack.class, "repaint", "(Z)V"),
             method("cubism.editor-model.model-source.update-instances", ModelSource.class, "updateInstances", "()V")
         );
@@ -356,9 +523,11 @@ class EditorObjectReadAccessTest {
     public static final class CompletePack {
         int partRefreshCount;
         int deformerRefreshCount;
+        int parameterRefreshCount;
         int repaintCount;
         public void updateParts(final boolean force) { partRefreshCount++; }
         public void updateDeformers(final boolean force) { deformerRefreshCount++; }
+        public void updateParameter(final boolean force) { parameterRefreshCount++; }
         public void repaint(final boolean force) { repaintCount++; }
     }
     public static final class Handler {
@@ -378,6 +547,7 @@ class EditorObjectReadAccessTest {
         final String value;
         Id(final String value) { this.value = value; }
         public String value() { return value; }
+        public Id guid() { return this; }
     }
     public static final class Failures {
         private int call;
@@ -392,11 +562,61 @@ class EditorObjectReadAccessTest {
             }
         }
     }
+
+
+    public static final class KeyformBinding {
+        Id parameterId = new Id("ParamAngleX");
+        List<Float> keys = new java.util.ArrayList<>(List.of(-30F, 0F, 30F));
+        KeyformBinding() { this(List.of(-30.0F, 0.0F, 30.0F)); }
+        KeyformBinding(final List<Float> keys) { this.keys = new java.util.ArrayList<>(keys); }
+        public Id parameterId() { return parameterId; }
+        public Id parameterGuid() { return parameterId; }
+        public List<Float> keys() { return keys; }
+    }
+
+    public static final class KeyformGrid {
+        final List<KeyformBinding> bindings = new java.util.ArrayList<>(List.of(new KeyformBinding()));
+        public List<KeyformBinding> bindings() { return bindings; }
+        public void addKey(final float value, final Id parameterGuid) {
+            KeyformBinding binding = binding(parameterGuid);
+            if (binding == null) { binding = new KeyformBinding(List.of()); bindings.add(binding); }
+            binding.keys.add(value); binding.keys.sort(Float::compare);
+        }
+        public void removeKey(final float value, final Id parameterGuid) {
+            final KeyformBinding binding = binding(parameterGuid);
+            if (binding != null) binding.keys.remove(Float.valueOf(value));
+        }
+        public void removeAllKey(final ParameterSet ignored, final Id parameterGuid) {
+            bindings.removeIf(value -> value.parameterId.value.equals(parameterGuid.value));
+        }
+        public void rearrange(final Id parameterGuid, final List<Float> before, final List<Float> after) {
+            final KeyformBinding binding = binding(parameterGuid);
+            if (binding == null || !binding.keys.equals(before)) throw new IllegalStateException("stale key list");
+            binding.keys.clear(); binding.keys.addAll(after);
+        }
+        public KeyformBinding findBinding(final Id parameterGuid) {
+            return bindings.stream().filter(value -> value.parameterId.value.equals(parameterGuid.value)).findFirst().orElse(null);
+        }
+        public void reverse(final Id parameterGuid) {
+            final KeyformBinding binding = findBinding(parameterGuid);
+            final java.util.ArrayList<Float> reversed = new java.util.ArrayList<>(binding.keys);
+            java.util.Collections.reverse(reversed);
+            binding.keys = reversed;
+        }
+        public void change(final Id from, final Id to) {
+            final KeyformBinding binding = findBinding(from);
+            binding.parameterId = to;
+        }
+        private KeyformBinding binding(final Id parameterGuid) {
+            return bindings.stream().filter(value -> value.parameterId.value.equals(parameterGuid.value)).findFirst().orElse(null);
+        }
+    }
     public static class ObjectSource {
         final Id id;
         final String localName;
         final Handler handler = new Handler();
         final Failures failures;
+        final KeyformGrid keyformGrid = new KeyformGrid();
         boolean visible = true;
         boolean locked;
         ObjectSource(final String id, final String localName, final Failures failures) {
@@ -413,6 +633,7 @@ class EditorObjectReadAccessTest {
         public boolean visibleInHierarchy() { return visible; }
         public boolean lockedInHierarchy() { return locked; }
         public Handler handler() { return handler; }
+        public KeyformGrid keyformGrid() { return keyformGrid; }
     }
     public static class Form {
         float opacity;
@@ -531,8 +752,26 @@ class EditorObjectReadAccessTest {
     public static final class Model {
         final List<ArtMesh> artMeshes = new java.util.ArrayList<>();
         final List<Deformer> deformers = new java.util.ArrayList<>();
+        final ParameterSet parameterSet = new ParameterSet();
         public List<ArtMesh> allArtMeshes() { return artMeshes; }
         public List<Deformer> allDeformers() { return deformers; }
+        public ParameterSet parameterSet() { return parameterSet; }
+    }
+    public static final class ParameterSet {
+        final List<Parameter> parameters = List.of(new Parameter("ParamAngleX"), new Parameter("ParamAngleY"));
+        public List<Parameter> parameters() { return parameters; }
+    }
+    public static final class ParameterSource {
+        final Id guid;
+        ParameterSource(String id) { guid = new Id(id); }
+        public Id guid() { return guid; }
+    }
+    public static final class Parameter {
+        final Id id;
+        final ParameterSource source;
+        Parameter(String id) { this.id = new Id(id); this.source = new ParameterSource(id); }
+        public Id id() { return id; }
+        public ParameterSource source() { return source; }
     }
     private static final class Fixture {
         final Failures failures = new Failures();
