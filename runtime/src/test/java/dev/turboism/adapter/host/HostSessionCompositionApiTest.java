@@ -70,6 +70,7 @@ class HostSessionCompositionApiTest {
                 "editorUiPluginResources():dev.turboism.ui.toolbar.EditorUiPluginResourceRegistry",
                 "dockMaintenance():dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator",
                 "appearanceCoordinator():dev.turboism.ui.appearance.AppearanceCoordinator",
+                "sceneTable():dev.turboism.sdk.ui.table.SceneTableService",
                 "editorModelResolver():dev.turboism.mapping.verification.VerifiedMemberResolver",
                 "boundingBoxOverlayResolver():java.util.Optional",
                 "adapterAccess():dev.turboism.adapter.host.RuntimeHostAdapterAccess",
