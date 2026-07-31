@@ -19,7 +19,6 @@ final class PreviewPluginContextFactory {
 
     private final RuntimeHostAdapterAccess hostAccess;
     private final PreviewPluginServicesFactory servicesFactory;
-    private final dev.turboism.sdk.runtime.RuntimeSettingsService runtimeSettings;
 
     PreviewPluginContextFactory(
         final Path home,
@@ -32,9 +31,6 @@ final class PreviewPluginContextFactory {
         this.hostAccess = Objects.requireNonNull(hostAccess, "hostAccess");
         this.servicesFactory = new PreviewPluginServicesFactory(
             home, scheduler, hostAccess, hostReadLane, log, failureCollector
-        );
-        this.runtimeSettings = new dev.turboism.config.RuntimeSettingsFileService(
-            home, hostAccess.dockMaintenance()
         );
     }
 
@@ -50,8 +46,7 @@ final class PreviewPluginContextFactory {
         );
         final DisposableScope requestedScope = Objects.requireNonNull(scope, "scope");
         requestedScope.register(hostAccess.editorUiPluginResources().register(
-            requestedDescriptor.id(),
-            requestedClassLoader
+            requestedDescriptor.id(), requestedClassLoader
         ));
         final PreviewPluginServices services = servicesFactory.create(
             requestedDescriptor,
@@ -61,8 +56,7 @@ final class PreviewPluginContextFactory {
         final CorePluginContext context = new CorePluginContext(
             services.dependencies().withConfig(services.typedConfig()), hostAccess,
             services.localization(), services.taskScheduler(), services.pluginStorage(),
-            services.userFiles(), services.hostReads(),
-            "dev.turboism.plugin.maintoolbar".equals(requestedDescriptor.id()) ? runtimeSettings : null
+            services.userFiles(), services.hostReads()
         );
         return new PluginContextBundle(context, services.localization(), services.cleanupEvidence());
     }

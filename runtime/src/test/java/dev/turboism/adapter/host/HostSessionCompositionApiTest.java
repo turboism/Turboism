@@ -62,6 +62,7 @@ class HostSessionCompositionApiTest {
                 "partLifecycle():dev.turboism.adapter.cubism.lifecycle.PartLifecycleCoordinator",
                 "editorObjectLifecycle():dev.turboism.adapter.cubism.lifecycle.EditorObjectLifecycleCoordinator",
                 "physicsEditorCoordinator():dev.turboism.adapter.cubism.physics.PhysicsEditorCoordinator",
+                "controlAppearanceCoordinator():dev.turboism.ui.appearance.control.ControlAppearanceCoordinator",
                 "editorUiLifecycle():dev.turboism.ui.host.EditorUiHostLifecycle",
                 "editorUiContributions():dev.turboism.ui.contribution.EditorUiContributionAuthority",
                 "embeddedPanelActivation():dev.turboism.ui.panel.RuntimeEmbeddedPanelActivationCoordinator",
@@ -69,9 +70,12 @@ class HostSessionCompositionApiTest {
                 "editorUiPluginResources():dev.turboism.ui.toolbar.EditorUiPluginResourceRegistry",
                 "dockMaintenance():dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator",
                 "appearanceCoordinator():dev.turboism.ui.appearance.AppearanceCoordinator",
+                "sceneTable():dev.turboism.sdk.ui.table.SceneTableService",
                 "editorModelResolver():dev.turboism.mapping.verification.VerifiedMemberResolver",
                 "boundingBoxOverlayResolver():java.util.Optional",
                 "adapterAccess():dev.turboism.adapter.host.RuntimeHostAdapterAccess",
+                "objectContextMenuHandler():dev.turboism.ui.context.NativeObjectContextMenuBridge$Handler",
+                "parameterPointMenuHandler():dev.turboism.ui.context.NativeParameterPointContextMenuBridge$Handler",
                 "close():void"
             ),
             publicMethodSignatures(HostSession.class)
