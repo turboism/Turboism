@@ -135,12 +135,19 @@ public final class PreviewRuntime implements AutoCloseable {
         final Path verificationRecord,
         final Path editorModelVerificationRecord,
         final Path mainToolbarVerificationRecord,
+        final Path embeddedPanelVerificationRecord,
+        final Path topMenuVerificationRecord,
+        final Path boundingBoxOverlayVerificationRecord,
         final Path hostArtifact,
         final ClassLoader hostClassLoader
     ) throws IOException {
         final TurboismHomeLayout layout = TurboismHomeLayout.create(requestedHome);
         final Path home = layout.home();
         LegacyHomeMigration.migrate(home);
+        final var pendingPlugins = new dev.turboism.pluginmanagement.PendingPluginOperations(home).apply();
+        if (!pendingPlugins.applied()) {
+            throw new IOException(pendingPlugins.code());
+        }
 
         final PreviewLog log = new PreviewLog(layout.runtimeLogsDir().resolve("turboism.log"));
         RuntimeScheduler scheduler = null;
@@ -180,10 +187,34 @@ public final class PreviewRuntime implements AutoCloseable {
                 normalizedHostArtifact,
                 verifiedHostClassLoader
             );
+            final HostVerificationEvidence.Slice embeddedPanel = new HostVerificationEvidence.Slice(
+                Objects.requireNonNull(embeddedPanelVerificationRecord, "embeddedPanelVerificationRecord")
+                    .toAbsolutePath().normalize(),
+                normalizedHostArtifact,
+                verifiedHostClassLoader
+            );
+            final HostVerificationEvidence.Slice topMenu = new HostVerificationEvidence.Slice(
+                Objects.requireNonNull(topMenuVerificationRecord, "topMenuVerificationRecord")
+                    .toAbsolutePath().normalize(),
+                normalizedHostArtifact,
+                verifiedHostClassLoader
+            );
+            final HostVerificationEvidence.Slice boundingBoxOverlayButton =
+                new HostVerificationEvidence.Slice(
+                    Objects.requireNonNull(
+                        boundingBoxOverlayVerificationRecord,
+                        "boundingBoxOverlayVerificationRecord"
+                    ).toAbsolutePath().normalize(),
+                    normalizedHostArtifact,
+                    verifiedHostClassLoader
+                );
             final HostSession.State hostState = ingress.publish(new HostInstanceDescriptor(
                 "cubism-" + ProcessHandle.current().pid(),
                 HostVerificationEvidence.withEditorModel(projectWorkspace, editorModel)
                     .addingMainToolbar(mainToolbar)
+                    .addingEmbeddedPanel(embeddedPanel)
+                    .addingTopMenu(topMenu)
+                    .addingBoundingBoxOverlayButton(boundingBoxOverlayButton)
             ));
             if (hostState == HostSession.State.ACTIVE) {
                 log.info("host", "Verified Cubism project/workspace adapter connected");

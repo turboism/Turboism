@@ -27,6 +27,10 @@ interface HostAdapterConnection extends AutoCloseable {
         throw new IllegalStateException("Verified texture-atlas capture is unavailable.");
     }
 
+    default VerifiedMemberResolver boundingBoxOverlayResolver() {
+        throw new IllegalStateException("Verified bounding-box overlay resolver is unavailable.");
+    }
+
     default List<EditorUiContributionProvider> editorUiProviders(final long hostGeneration) {
         if (hostGeneration <= 0) {
             throw new IllegalArgumentException("hostGeneration must be positive");
@@ -36,6 +40,27 @@ interface HostAdapterConnection extends AutoCloseable {
 
     default java.util.Optional<TextureAtlasLayoutProvider> textureAtlasLayoutProvider() {
         return java.util.Optional.empty();
+    }
+
+    default dev.turboism.ui.context.NativeObjectContextMenuBridge.Handler objectContextMenuHandler(
+        final long hostGeneration
+    ) {
+        if (hostGeneration <= 0) {
+            throw new IllegalArgumentException("hostGeneration must be positive");
+        }
+        return null;
+    }
+
+    default dev.turboism.ui.context.NativeParameterPointContextMenuBridge.Handler parameterPointMenuHandler(
+        final long hostGeneration
+    ) {
+        if (hostGeneration <= 0) throw new IllegalArgumentException("hostGeneration must be positive");
+        return null;
+    }
+
+
+    default dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator dockMaintenance() {
+        return new dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator();
     }
 
     @Override
