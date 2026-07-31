@@ -32,6 +32,11 @@
       "reason": "Contribute the History embedded dock panel."
     },
     {
+      "id": "turboism.ui.toolbar.main.contribute",
+      "scope": "application",
+      "reason": "Attach the vertical History tool-strip button to the Cubism main frame."
+    },
+    {
       "id": "turboism.ui.status.notify",
       "scope": "application",
       "reason": "Notify history snapshot availability and move attempts."

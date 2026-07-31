@@ -12,6 +12,7 @@ import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.UiScheduler;
 import dev.turboism.sdk.ui.EmbeddedPanelContribution;
 import dev.turboism.sdk.ui.UiHostCapabilityService;
+import dev.turboism.sdk.ui.VerticalToolbarContribution;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -24,26 +25,34 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 class HistoryPanelPluginTest {
 
     @Test
-    void enableRegistersHistoryPanelThroughUiHost() {
+    void enableRegistersVerticalToolStripAndToggleShowsAndHidesPanel() {
         final RecordingContext context = new RecordingContext();
         final HistoryPanelPlugin plugin = new HistoryPanelPlugin();
 
         plugin.init(context);
         plugin.enable();
 
+        assertEquals(1, context.uiHost().verticalToolbars().size());
+        assertEquals("history.toolstrip", context.uiHost().verticalToolbars().get(0).contributionId());
+        assertEquals(0, context.uiHost().panels().size());
+
+        // Toggle action shows the panel.
+        context.actions().execute(HistoryPanelPlugin.TOGGLE_ACTION_ID);
         assertEquals(1, context.uiHost().panels().size());
         final EmbeddedPanelContribution panel = context.uiHost().panels().get(0);
         assertEquals("history.panel", panel.id());
-        assertEquals("History", panel.title());
-        assertEquals("side", panel.placement());
-        assertEquals(50, panel.priority());
         assertNotNull(panel.content());
+
+        // Toggle again hides it.
+        context.actions().execute(HistoryPanelPlugin.TOGGLE_ACTION_ID);
+        assertEquals(0, context.uiHost().panels().size());
     }
 
     private static final class RecordingContext implements PluginContext {
 
         private final RecordingUiHost uiHost = new RecordingUiHost();
         private final DisposableScope scope = new DisposableScope();
+        private final RecordingActionRegistry actionRegistry = new RecordingActionRegistry();
 
         @Override
         public RecordingUiHost uiHost() {
@@ -129,6 +138,11 @@ class HistoryPanelPluginTest {
         }
 
         @Override
+        public RecordingActionRegistry actions() {
+            return actionRegistry;
+        }
+
+        @Override
         public dev.turboism.sdk.plugin.PluginDescriptor descriptor() {
             return null;
         }
@@ -145,11 +159,6 @@ class HistoryPanelPluginTest {
 
         @Override
         public dev.turboism.sdk.event.EventBus eventBus() {
-            return null;
-        }
-
-        @Override
-        public dev.turboism.sdk.action.ActionRegistry actions() {
             return null;
         }
 
@@ -181,18 +190,46 @@ class HistoryPanelPluginTest {
 
     }
 
+    private static final class RecordingActionRegistry implements dev.turboism.sdk.action.ActionRegistry {
+
+        private final List<dev.turboism.sdk.action.ActionRegistry.Action> actions = new ArrayList<>();
+
+        private void execute(final String id) {
+            actions.stream().filter(action -> action.id().equals(id)).findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("unknown action " + id))
+                .handler().accept(null);
+        }
+
+        @Override
+        public Registration register(final String id, final dev.turboism.sdk.action.ActionRegistry.Action action) {
+            actions.add(action);
+            return () -> actions.remove(action);
+        }
+    }
+
     private static final class RecordingUiHost implements UiHostCapabilityService {
 
         private final List<EmbeddedPanelContribution> panels = new ArrayList<>();
+        private final List<VerticalToolbarContribution> verticalToolbars = new ArrayList<>();
 
         List<EmbeddedPanelContribution> panels() {
             return List.copyOf(panels);
+        }
+
+        List<VerticalToolbarContribution> verticalToolbars() {
+            return List.copyOf(verticalToolbars);
         }
 
         @Override
         public Registration contributeEmbeddedPanel(final EmbeddedPanelContribution contribution) {
             panels.add(contribution);
             return () -> panels.remove(contribution);
+        }
+
+        @Override
+        public Registration contributeVerticalToolbar(final VerticalToolbarContribution contribution) {
+            verticalToolbars.add(contribution);
+            return () -> verticalToolbars.remove(contribution);
         }
 
         @Override
