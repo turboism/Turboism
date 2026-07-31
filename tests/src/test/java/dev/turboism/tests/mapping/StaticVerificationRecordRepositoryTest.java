@@ -132,8 +132,8 @@ class StaticVerificationRecordRepositoryTest {
             "Live2D_Cubism.jar",
             40_805_584L,
             "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
-            "2576099f240a6b0c38f275ce59d806d63afa4a9f523ab4a90a72710896fc3682",
-            25,
+            "9291ec52f9a3eabebb86d4294ff778e3020f3b24410ccb4c7cb29d54bbee0e70",
+            27,
             MainToolbarVerificationManifest.REQUIRED_ALIASES,
             MainToolbarVerificationManifest.REQUIRED_ALIASES,
             mainToolbarMethodAliases(),
@@ -155,7 +155,7 @@ class StaticVerificationRecordRepositoryTest {
             MainToolbarVerificationManifest.ARTIFACT_SIZE,
             MainToolbarVerificationManifest.ARTIFACT_SHA256,
             MainToolbarVerificationManifest.RECORD_SHA256,
-            25,
+            27,
             MainToolbarVerificationManifest.REQUIRED_ALIASES,
             MainToolbarVerificationManifest.REQUIRED_ALIASES,
             mainToolbarMethodAliases(),
@@ -567,7 +567,9 @@ class StaticVerificationRecordRepositoryTest {
             "cubism.ui-main-toolbar.container.remove",
             "cubism.ui-main-toolbar.icon-button.create",
             "cubism.ui-main-toolbar.icon-button.set-rollover-icon",
-            "cubism.ui-main-toolbar.icon.create"
+            "cubism.ui-main-toolbar.icon.create",
+            "cubism.ui-main-toolbar.main-frame-view.main-container",
+            "cubism.ui-main-toolbar.vbox.create"
         );
     }
 

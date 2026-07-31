@@ -19,6 +19,7 @@ import dev.turboism.sdk.ui.FileChooserRequest;
 import dev.turboism.sdk.ui.OverlayContribution;
 import dev.turboism.sdk.ui.StatusNotification;
 import dev.turboism.sdk.ui.UiHostCapabilityService;
+import dev.turboism.sdk.ui.VerticalToolbarContribution;
 import dev.turboism.sdk.ui.ViewportSnapshot;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 import dev.turboism.sdk.ui.context.ContextSourceSnapshot;
@@ -77,6 +78,7 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         new BoundedKeyedStore<>(MAX_TRANSIENT_ENTRIES);
     private final CopyOnWriteArrayList<ContextMenuRegistry.ContextMenuContribution> contextMenus = new CopyOnWriteArrayList<>();
     private final CopyOnWriteArrayList<MainToolbarRegistry.MainToolbarContribution> mainToolbars = new CopyOnWriteArrayList<>();
+    private final CopyOnWriteArrayList<VerticalToolbarContribution> verticalToolbars = new CopyOnWriteArrayList<>();
     private final CopyOnWriteArrayList<PaletteToolbarRegistry.PaletteToolbarContribution> paletteToolbars = new CopyOnWriteArrayList<>();
     private final BoundedKeyedStore<String, SafeModeDiagnostic> statusToolbarDiagnostics =
         new BoundedKeyedStore<>(MAX_TRANSIENT_ENTRIES);
@@ -388,6 +390,19 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
     }
 
     @Override
+    public Registration contributeVerticalToolbar(final VerticalToolbarContribution contribution) {
+        Objects.requireNonNull(contribution, "contribution");
+        permissionChecker.check(UI_TOOLBAR_MAIN_CONTRIBUTE, "ui.vertical-toolbar.contribute");
+        return authoritativeRegistration(
+            EditorUiFamily.VERTICAL_TOOLBAR,
+            contribution.contributionId(),
+            0,
+            contribution,
+            verticalToolbars
+        );
+    }
+
+    @Override
     public Registration contributePaletteToolbar(final PaletteToolbarRegistry.PaletteToolbarContribution contribution) {
         Objects.requireNonNull(contribution, "contribution");
         permissionChecker.check(UI_TOOLBAR_PALETTE_CONTRIBUTE, "ui.palette-toolbar.contribute");
@@ -438,6 +453,10 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
 
     public List<MainToolbarRegistry.MainToolbarContribution> mainToolbars() {
         return List.copyOf(mainToolbars);
+    }
+
+    public List<VerticalToolbarContribution> verticalToolbars() {
+        return List.copyOf(verticalToolbars);
     }
 
     public List<PaletteToolbarRegistry.PaletteToolbarContribution> paletteToolbars() {

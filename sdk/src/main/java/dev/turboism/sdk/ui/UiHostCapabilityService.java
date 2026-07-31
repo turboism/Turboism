@@ -6,6 +6,7 @@ import dev.turboism.sdk.ui.context.ContextSourceSnapshot;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
 
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -62,4 +63,15 @@ public interface UiHostCapabilityService {
     Registration contributeMainToolbar(MainToolbarRegistry.MainToolbarContribution contribution);
 
     Registration contributePaletteToolbar(PaletteToolbarRegistry.PaletteToolbarContribution contribution);
+
+    /**
+     * Contributes a Photoshop-style vertical icon tool strip to the main frame.
+     *
+     * <p>Hosts that do not provide a verified vertical-toolbar surface fail
+     * closed.</p>
+     */
+    default Registration contributeVerticalToolbar(final VerticalToolbarContribution contribution) {
+        Objects.requireNonNull(contribution, "contribution");
+        throw new UnsupportedOperationException("vertical-toolbar contribution is unavailable");
+    }
 }
