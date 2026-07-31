@@ -27,6 +27,8 @@ import dev.turboism.sdk.plugin.PluginPaths;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.plugin.TurboismPlugin;
 import dev.turboism.sdk.ui.UiScheduler;
+import dev.turboism.sdk.i18n.PluginLocalization;
+import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
@@ -61,7 +63,6 @@ class LegacyMigrationShellPluginsTest {
     private static Stream<Supplier<TurboismPlugin>> shellPlugins() {
         return Stream.of(
             BoundingBoxPlugin::new,
-            ContextMenuPlugin::new,
             ProjectPanelPlugin::new,
             PsdImportPlugin::new,
             TextureAtlasPlugin::new
@@ -89,6 +90,15 @@ class LegacyMigrationShellPluginsTest {
         @Override public ActionRegistry actions() { return accessed(); }
         @Override public MenuRegistry menus() { return accessed(); }
         @Override public UiScheduler uiScheduler() { return accessed(); }
+        @Override public ContextMenuRegistry contextMenu() { return contribution -> () -> { }; }
+        @Override public PluginLocalization localization() {
+            return new PluginLocalization() {
+                @Override public java.util.Locale locale() { return java.util.Locale.ENGLISH; }
+                @Override public String text(String key) { return key; }
+                @Override public String format(String key, Object... arguments) { return key; }
+                @Override public boolean contains(String key) { return true; }
+            };
+        }
         @Override public DiagnosticReport diagnostics() { return accessed(); }
         @Override public DisposableScope disposableScope() { return accessed(); }
 

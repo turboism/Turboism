@@ -7,7 +7,7 @@ public final class EditorModelVerificationManifest {
 
     public static final String VERIFICATION_ID = "cubism-5.3.02.editor-model.static";
     public static final String RECORD_SHA256 =
-        "89be832c50ee4b88384867f2800b3ad9a1549b8d9ae0e237e62a69bcccbc318b";
+        "30d1885322aa505465062055548e2ab8234e30f3d8c07da0367d966e72ea03e7";
     public static final String CUBISM_VERSION = "5.3.02";
     public static final String PROFILE_ID = "cubism-5.3.02";
     public static final long ARTIFACT_SIZE = 41_922_739L;
@@ -31,7 +31,13 @@ public final class EditorModelVerificationManifest {
         EditorObjectWriteSelectorContract.ART_MESH_CAPABILITY_ID,
         EditorObjectWriteSelectorContract.WARP_CAPABILITY_ID,
         EditorObjectWriteSelectorContract.ROTATION_CAPABILITY_ID,
-        ObjectContextMenuVerificationManifest.CAPABILITY_ID
+        ObjectContextMenuVerificationManifest.CAPABILITY_ID,
+        EditorParameterBindingReadSelectorContract.CAPABILITY_ID,
+        EditorParameterBindingWriteSelectorContract.ART_MESH_CAPABILITY_ID,
+        EditorParameterBindingWriteSelectorContract.WARP_CAPABILITY_ID,
+        EditorParameterBindingWriteSelectorContract.ROTATION_CAPABILITY_ID,
+        EditorParameterBindingBatchWriteSelectorContract.INVERT_CAPABILITY_ID,
+        EditorParameterBindingBatchWriteSelectorContract.TRANSFER_CAPABILITY_ID
     );
     public static final Set<String> REQUIRED_ALIASES = Set.of(
         "cubism.editor-model.app-controller.class",
@@ -253,7 +259,19 @@ public final class EditorModelVerificationManifest {
         "object-context-menu.menu.items",
         "object-context-menu.menu-item.label",
         "object-context-menu.parameter-point.guid-value",
-        "object-context-menu.menu.component"
+        "object-context-menu.menu.component",
+        "cubism.editor-model.keyform-grid.bindings",
+        "cubism.editor-model.keyform-binding.class",
+        "cubism.editor-model.keyform-binding.parameter-id",
+        "cubism.editor-model.keyform-binding.parameter-guid",
+        "cubism.editor-model.keyform-binding.keys",
+        "cubism.editor-model.keyform-grid.find-binding",
+        "cubism.editor-model.keyform-grid.reverse-parameter",
+        "cubism.editor-model.keyform-grid.change-parameter",
+        "cubism.editor-model.keyform-grid.add-key",
+        "cubism.editor-model.keyform-grid.remove-key",
+        "cubism.editor-model.keyform-grid.remove-all-key",
+        "cubism.editor-model.keyform-grid.rearrange-keys"
     );
     private static final Set<String> PART_OPACITY_ADDITIVE_ALIASES = Set.of(
         "cubism.editor-model.model-source.parts",

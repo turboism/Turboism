@@ -73,6 +73,11 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             public <T extends TurboismEvent> void publish(final T event) {
             }
         });
+    private final dev.turboism.ui.table.SceneTableHostOperations sceneTableHost =
+        new dev.turboism.ui.table.SceneTableHostOperations();
+    private final dev.turboism.sdk.ui.table.SceneTableService sceneTable = sceneTableHost.service();
+    private final dev.turboism.ui.appearance.control.ControlAppearanceCoordinator controlAppearanceCoordinator =
+        new dev.turboism.ui.appearance.control.ControlAppearanceCoordinator();
     private final Object lifecycleMonitor = new Object();
 
     private State state = State.SAFE_MODE;
@@ -98,6 +103,9 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
                 slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
             ),
             slice -> new dev.turboism.mapping.verification.VerifiedEmbeddedPanelResolverFactory().create(
+                slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
+            ),
+            slice -> new dev.turboism.mapping.verification.VerifiedBoundingBoxOverlayButtonResolverFactory().create(
                 slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
             ),
             editorUiPluginResources,
@@ -149,6 +157,9 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             }
 
             final HostInstanceDescriptor descriptor = available.orElseThrow();
+            sceneTableHost.connect(
+                descriptor.verificationEvidence().projectWorkspace().hostClassLoader()
+            );
             final ConnectionKey connectionKey;
             try {
                 connectionKey = ConnectionKey.from(descriptor);
@@ -211,6 +222,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             dynamic.connect(candidateAdapters);
             dynamicModelAccess.connect(candidate.modelAccess());
             editorUiLifecycle.connected(editorUiGeneration);
+            controlAppearanceCoordinator.replaceHostGeneration(editorUiGeneration);
             activeConnection = candidate;
             objectContextMenuHandler = candidate.objectContextMenuHandler(editorUiGeneration);
             parameterPointMenuHandler = candidate.parameterPointMenuHandler(editorUiGeneration);
@@ -340,6 +352,15 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         return appearanceCoordinator;
     }
 
+    @Override
+    public dev.turboism.sdk.ui.table.SceneTableService sceneTable() {
+        return sceneTable;
+    }
+
+    @Override
+    public dev.turboism.ui.appearance.control.ControlAppearanceCoordinator controlAppearanceCoordinator() {
+        return controlAppearanceCoordinator;
+    }
     public dev.turboism.mapping.verification.VerifiedMemberResolver editorModelResolver() {
         synchronized (lifecycleMonitor) {
             if (activeConnection == null) {
@@ -349,6 +370,17 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             }
             return activeConnection.editorModelResolver();
         }
+    }
+
+    public java.util.Optional<dev.turboism.mapping.verification.VerifiedMemberResolver> boundingBoxOverlayResolver() {
+        synchronized (lifecycleMonitor) {
+            if (activeConnection == null) return java.util.Optional.empty();
+            try {
+                return java.util.Optional.of(activeConnection.boundingBoxOverlayResolver());
+            } catch (IllegalStateException unavailable) {
+                return java.util.Optional.empty();
+        }
+            }
     }
 
     /** Returns a non-closeable trusted composition view while lifecycle ownership stays elsewhere. */
@@ -368,7 +400,10 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             objectContextMenuHandler,
             parameterPointMenuHandler,
             dockMaintenance,
-            appearanceCoordinator
+            boundingBoxOverlayResolver(),
+            appearanceCoordinator,
+            sceneTable,
+            controlAppearanceCoordinator
         );
     }
 
@@ -388,6 +423,8 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
                 return;
             }
             appearanceCoordinator.close();
+            sceneTableHost.disconnect();
+            controlAppearanceCoordinator.close();
             physicsEditorCoordinator.close();
             editorObjectLifecycle.close();
             partLifecycle.close();
@@ -441,6 +478,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     /** Registration cleanup must succeed before its owning connection can be closed. */
     private CleanupOutcome cleanupOwnedResources() {
         activeConnectionKey = null;
+        controlAppearanceCoordinator.clearHostGeneration();
         dynamicModelAccess.deactivate();
         try {
             dynamic.deactivate();

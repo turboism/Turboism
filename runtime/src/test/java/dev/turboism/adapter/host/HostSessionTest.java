@@ -37,6 +37,20 @@ import static org.junit.jupiter.api.Assertions.fail;
 class HostSessionTest {
 
     @Test
+    void adapterAccessReturnsEmptyWhenActiveConnectionHasNoOptionalOverlayResolver() {
+        HostSession session = new HostSession(
+            () -> Optional.of(descriptor("session-a")),
+            ignored -> new HostAdapterConnection() {
+                @Override public RuntimeHostAdapters adapters() { return HostSessionTest.adapters("session-a"); }
+                @Override public void close() { }
+            }
+        );
+
+        assertEquals(HostSession.State.ACTIVE, session.refresh());
+        assertTrue(session.adapterAccess().boundingBoxOverlayResolver().isEmpty());
+    }
+
+    @Test
     void dynamicAdaptersFollowConnectDisconnectAndCloseWithoutLeakingOldDelegate() {
         AtomicReference<HostInstanceDescriptor> current = new AtomicReference<>();
         HostInstanceSource source = () -> Optional.ofNullable(current.get());
