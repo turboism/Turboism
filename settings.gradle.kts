@@ -17,6 +17,7 @@ include(
     "plugins:bounding-box",
     "plugins:context-menu",
     "plugins:project-panel",
+    "plugins:scene-palette-enhancer",
     "plugins:psd-import",
     "plugins:texture-atlas",
     "plugins:physics-editor",
