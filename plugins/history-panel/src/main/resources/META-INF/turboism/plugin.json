@@ -1,0 +1,54 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 2,
+  "id": "dev.turboism.plugin.historypanel",
+  "name": "History Panel Plugin",
+  "version": "0.1.0",
+  "description": "Read-only Photoshop-style history pane: projects the active document's native Undo history into an embedded dock tab. Move-to stays fail-closed in production.",
+  "entrypoints": [
+    "dev.turboism.plugin.historypanel.HistoryPanelPlugin"
+  ],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    { "name": "Turboism Contributors" }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": []
+  },
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.cubism.model.read",
+      "scope": "application",
+      "reason": "Read the active document's native Undo history snapshot for the pane."
+    },
+    {
+      "id": "turboism.ui.panel.contribute",
+      "scope": "application",
+      "reason": "Contribute the History embedded dock panel."
+    },
+    {
+      "id": "turboism.ui.status.notify",
+      "scope": "application",
+      "reason": "Notify history snapshot availability and move attempts."
+    },
+    {
+      "id": "turboism.action.register",
+      "scope": "application",
+      "reason": "Register history entry move actions for the panel."
+    }
+  ],
+  "capabilities": [
+    "cubism.editor-history.read",
+    "ui.embedded-panel.contribute",
+    "ui.status.notify"
+  ],
+  "environment": {
+    "requiresCubism": false,
+    "ui": "embedded"
+  }
+}

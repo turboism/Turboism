@@ -743,7 +743,7 @@ class StaticVerificationRecordRepositoryTest {
             "cubism.editor-model.keyform-grid.add-key",
             "cubism.editor-model.keyform-grid.remove-key",
             "cubism.editor-model.keyform-grid.remove-all-key",
-            "cubism.editor-model.keyform-grid.rearrange-keys
+            "cubism.editor-model.keyform-grid.rearrange-keys"
         );
     }
 
