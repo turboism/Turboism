@@ -104,7 +104,7 @@ def test_exact_set_hash_size_and_plan_binding(tmp: Path):
     assert len(inventory) == 14
     assert set(module.EXPECTED_PROJECTS) == {
         ":plugins", ":plugins:clip-mask", ":plugins:demo", ":plugins:log-filter",
-        ":plugins:main-toolbar", ":plugins:mesh", ":plugins:parameter", ":plugins:perf-opt",
+        ":plugins:core", ":plugins:mesh", ":plugins:parameter", ":plugins:perf-opt",
         ":plugins:render-opt", ":plugins:ui-theme", ":runtime", ":sdk", ":testframework", ":tests",
     }
     assert module.manifest_errors(manifest, tmp) == []

@@ -74,6 +74,8 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     private final dev.turboism.ui.table.SceneTableHostOperations sceneTableHost =
         new dev.turboism.ui.table.SceneTableHostOperations();
     private final dev.turboism.sdk.ui.table.SceneTableService sceneTable = sceneTableHost.service();
+    private final dev.turboism.ui.appearance.control.ControlAppearanceCoordinator controlAppearanceCoordinator =
+        new dev.turboism.ui.appearance.control.ControlAppearanceCoordinator();
     private final Object lifecycleMonitor = new Object();
 
     private State state = State.SAFE_MODE;
@@ -218,6 +220,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             dynamic.connect(candidateAdapters);
             dynamicModelAccess.connect(candidate.modelAccess());
             editorUiLifecycle.connected(editorUiGeneration);
+            controlAppearanceCoordinator.replaceHostGeneration(editorUiGeneration);
             activeConnection = candidate;
             final EditorUiProviderInstaller.Installation candidateEditorUiProviders;
             try {
@@ -341,7 +344,10 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         return sceneTable;
     }
 
-
+    @Override
+    public dev.turboism.ui.appearance.control.ControlAppearanceCoordinator controlAppearanceCoordinator() {
+        return controlAppearanceCoordinator;
+    }
     public dev.turboism.mapping.verification.VerifiedMemberResolver editorModelResolver() {
         synchronized (lifecycleMonitor) {
             if (activeConnection == null) {
@@ -355,10 +361,13 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
 
     public java.util.Optional<dev.turboism.mapping.verification.VerifiedMemberResolver> boundingBoxOverlayResolver() {
         synchronized (lifecycleMonitor) {
-            return activeConnection == null
-                ? java.util.Optional.empty()
-                : java.util.Optional.of(activeConnection.boundingBoxOverlayResolver());
+            if (activeConnection == null) return java.util.Optional.empty();
+            try {
+                return java.util.Optional.of(activeConnection.boundingBoxOverlayResolver());
+            } catch (IllegalStateException unavailable) {
+                return java.util.Optional.empty();
         }
+            }
     }
 
     /** Returns a non-closeable trusted composition view while lifecycle ownership stays elsewhere. */
@@ -378,7 +387,8 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             dockMaintenance,
             boundingBoxOverlayResolver(),
             appearanceCoordinator,
-            sceneTable
+            sceneTable,
+            controlAppearanceCoordinator
         );
     }
 
@@ -399,6 +409,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             }
             appearanceCoordinator.close();
             sceneTableHost.disconnect();
+            controlAppearanceCoordinator.close();
             physicsEditorCoordinator.close();
             editorObjectLifecycle.close();
             partLifecycle.close();
@@ -452,6 +463,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     /** Registration cleanup must succeed before its owning connection can be closed. */
     private CleanupOutcome cleanupOwnedResources() {
         activeConnectionKey = null;
+        controlAppearanceCoordinator.clearHostGeneration();
         dynamicModelAccess.deactivate();
         try {
             dynamic.deactivate();
