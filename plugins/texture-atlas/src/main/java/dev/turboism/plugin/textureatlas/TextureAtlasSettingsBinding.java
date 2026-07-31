@@ -1,12 +1,16 @@
 package dev.turboism.plugin.textureatlas;
 
 import dev.turboism.sdk.config.ConfigCodecs;
+import dev.turboism.sdk.config.ConfigDocument;
 import dev.turboism.sdk.config.ConfigKey;
+import dev.turboism.sdk.config.ConfigMigration;
 import dev.turboism.sdk.config.ConfigRegistrationException;
 import dev.turboism.sdk.config.ConfigSchema;
 import dev.turboism.sdk.config.PluginConfigRegistry;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -33,6 +37,27 @@ final class TextureAtlasSettingsBinding {
         false,
         ConfigCodecs.booleanValue()
     );
+    private static final ConfigMigration V1_TO_V2 = new ConfigMigration() {
+        @Override
+        public int fromVersion() {
+            return 1;
+        }
+
+        @Override
+        public int toVersion() {
+            return 2;
+        }
+
+        @Override
+        public ConfigDocument migrate(final ConfigDocument input) {
+            final Map<String, String> values = new LinkedHashMap<>(
+                input.encodedValues() == null ? Map.of() : input.encodedValues()
+            );
+            values.putIfAbsent(ALGORITHM.name(), TextureAtlasLayoutAlgorithm.MAXRECTS.name());
+            values.putIfAbsent(PARALLEL.name(), "false");
+            return new ConfigDocument(2, values);
+        }
+    };
     private static final ConfigSchema SCHEMA = new ConfigSchema(
         CONFIG_ID,
         CONFIG_PATH,
@@ -50,7 +75,7 @@ final class TextureAtlasSettingsBinding {
     CompletionStage<Boolean> init(final PluginConfigRegistry value) {
         registry = Objects.requireNonNull(value, "value");
         try {
-            return registry.registerSchema(SCHEMA, List.of()).handle((ignored, failure) -> {
+            return registry.registerSchema(SCHEMA, List.of(V1_TO_V2)).handle((ignored, failure) -> {
                 initialized = failure == null;
                 return initialized;
             });
