@@ -38,6 +38,10 @@ public sealed interface RuntimeHostAdapterAccess permits HostSession, SessionRun
 
     EditorUiPluginResourceRegistry editorUiPluginResources();
 
+    dev.turboism.ui.context.NativeObjectContextMenuBridge.Handler objectContextMenuHandler();
+
+    dev.turboism.ui.context.NativeParameterPointContextMenuBridge.Handler parameterPointMenuHandler();
+
     dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator dockMaintenance();
 
     AppearanceCoordinator appearanceCoordinator();
@@ -57,6 +61,8 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     private final RuntimeEmbeddedPanelActivationCoordinator embeddedPanelActivation;
     private final RuntimeEditorUiActionRouter editorUiActionRouter;
     private final EditorUiPluginResourceRegistry editorUiPluginResources;
+    private final dev.turboism.ui.context.NativeObjectContextMenuBridge.Handler objectContextMenuHandler;
+    private final dev.turboism.ui.context.NativeParameterPointContextMenuBridge.Handler parameterPointMenuHandler;
     private final dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator dockMaintenance;
     private final AppearanceCoordinator appearanceCoordinator;
 
@@ -72,6 +78,8 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
         final RuntimeEmbeddedPanelActivationCoordinator embeddedPanelActivation,
         final RuntimeEditorUiActionRouter editorUiActionRouter,
         final EditorUiPluginResourceRegistry editorUiPluginResources,
+        final dev.turboism.ui.context.NativeObjectContextMenuBridge.Handler objectContextMenuHandler,
+        final dev.turboism.ui.context.NativeParameterPointContextMenuBridge.Handler parameterPointMenuHandler,
         final dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator dockMaintenance,
         final AppearanceCoordinator appearanceCoordinator
     ) {
@@ -110,6 +118,8 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
             editorUiPluginResources,
             "editorUiPluginResources"
         );
+        this.objectContextMenuHandler = objectContextMenuHandler;
+        this.parameterPointMenuHandler = parameterPointMenuHandler;
         this.dockMaintenance = java.util.Objects.requireNonNull(dockMaintenance, "dockMaintenance");
         this.appearanceCoordinator = java.util.Objects.requireNonNull(
             appearanceCoordinator,
@@ -170,6 +180,16 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     @Override
     public EditorUiPluginResourceRegistry editorUiPluginResources() {
         return editorUiPluginResources;
+    }
+
+    @Override
+    public dev.turboism.ui.context.NativeObjectContextMenuBridge.Handler objectContextMenuHandler() {
+        return objectContextMenuHandler;
+    }
+
+    @Override
+    public dev.turboism.ui.context.NativeParameterPointContextMenuBridge.Handler parameterPointMenuHandler() {
+        return parameterPointMenuHandler;
     }
 
 

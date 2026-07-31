@@ -71,6 +71,8 @@ class HostSessionCompositionApiTest {
                 "appearanceCoordinator():dev.turboism.ui.appearance.AppearanceCoordinator",
                 "editorModelResolver():dev.turboism.mapping.verification.VerifiedMemberResolver",
                 "adapterAccess():dev.turboism.adapter.host.RuntimeHostAdapterAccess",
+                "objectContextMenuHandler():dev.turboism.ui.context.NativeObjectContextMenuBridge$Handler",
+                "parameterPointMenuHandler():dev.turboism.ui.context.NativeParameterPointContextMenuBridge$Handler",
                 "close():void"
             ),
             publicMethodSignatures(HostSession.class)

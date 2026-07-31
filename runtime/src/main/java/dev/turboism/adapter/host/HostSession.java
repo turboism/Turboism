@@ -57,6 +57,8 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         new RuntimeEditorUiActionRouter();
     private final EditorUiPluginResourceRegistry editorUiPluginResources =
         new EditorUiPluginResourceRegistry();
+    private volatile dev.turboism.ui.context.NativeObjectContextMenuBridge.Handler objectContextMenuHandler;
+    private volatile dev.turboism.ui.context.NativeParameterPointContextMenuBridge.Handler parameterPointMenuHandler;
     private final AppearanceCoordinator appearanceCoordinator =
         new AppearanceCoordinator(new UnavailableAppearanceHostProvider(), new EventBus() {
             @Override
@@ -210,6 +212,8 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             dynamicModelAccess.connect(candidate.modelAccess());
             editorUiLifecycle.connected(editorUiGeneration);
             activeConnection = candidate;
+            objectContextMenuHandler = candidate.objectContextMenuHandler(editorUiGeneration);
+            parameterPointMenuHandler = candidate.parameterPointMenuHandler(editorUiGeneration);
             final EditorUiProviderInstaller.Installation candidateEditorUiProviders;
             try {
                 candidateEditorUiProviders = EditorUiProviderInstaller.install(
@@ -316,6 +320,15 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         return editorUiPluginResources;
     }
 
+    @Override
+    public dev.turboism.ui.context.NativeObjectContextMenuBridge.Handler objectContextMenuHandler() {
+        return objectContextMenuHandler;
+    }
+
+    public dev.turboism.ui.context.NativeParameterPointContextMenuBridge.Handler parameterPointMenuHandler() {
+        return parameterPointMenuHandler;
+    }
+
 
     @Override
     public dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator dockMaintenance() {
@@ -352,6 +365,8 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             embeddedPanelActivation,
             editorUiActionRouter,
             editorUiPluginResources,
+            objectContextMenuHandler,
+            parameterPointMenuHandler,
             dockMaintenance,
             appearanceCoordinator
         );
@@ -456,6 +471,8 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             try {
                 activeConnection.close();
                 activeConnection = null;
+                objectContextMenuHandler = null;
+                parameterPointMenuHandler = null;
             } catch (Throwable throwable) {
                 outcome = outcome.combine(CleanupOutcome.failed(throwable));
             }
@@ -702,6 +719,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             return this;
         }
     }
+
 
     public enum State {
         SAFE_MODE,

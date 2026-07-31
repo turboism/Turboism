@@ -28,7 +28,7 @@ public final class ObjectContextMenuAppendNativeMethodTransformer implements Cla
     private final int appendArgumentCount;
     private final int expectedAppendPoints;
     private final int injectionPoint;
-    private final int sourceLocal;
+    private final int[] sourceLocals;
 
     public ObjectContextMenuAppendNativeMethodTransformer(
         final String ownerInternalName,
@@ -41,7 +41,7 @@ public final class ObjectContextMenuAppendNativeMethodTransformer implements Cla
         final Location location,
         final int expectedAppendPoints,
         final int injectionPoint,
-        final int sourceLocal
+        final int... sourceLocals
     ) {
         this.ownerInternalName = requireText(ownerInternalName, "ownerInternalName");
         this.methodName = requireText(methodName, "methodName");
@@ -56,10 +56,10 @@ public final class ObjectContextMenuAppendNativeMethodTransformer implements Cla
         }
         this.expectedAppendPoints = expectedAppendPoints;
         this.injectionPoint = injectionPoint;
-        if (sourceLocal < 0) {
-            throw new IllegalArgumentException("source local must not be negative");
+        if (sourceLocals.length == 0 || java.util.Arrays.stream(sourceLocals).anyMatch(value -> value < 0)) {
+            throw new IllegalArgumentException("source locals must be non-empty and non-negative");
         }
-        this.sourceLocal = sourceLocal;
+        this.sourceLocals = sourceLocals.clone();
         final Type method = Type.getMethodType(descriptor);
         if (method.getReturnType().getSort() != Type.VOID) {
             throw new IllegalArgumentException("object context-menu append operation must return void");
@@ -138,41 +138,40 @@ public final class ObjectContextMenuAppendNativeMethodTransformer implements Cla
                                     super.visitInsn(Opcodes.POP2);
                                     super.visitInsn(Opcodes.DUP_X2);
                                 }
+                                super.visitLdcInsn(location.name());
+                                emitSource();
                                 super.visitMethodInsn(
                                     Opcodes.INVOKESTATIC,
-                                    "java/lang/System",
-                                    "getProperties",
-                                    "()Ljava/util/Properties;",
+                                    "dev/turboism/ui/context/NativeObjectContextMenuBridge",
+                                    "augment",
+                                    "(Ljava/lang/Object;Ljava/lang/String;Ljava/lang/Object;)Ljava/lang/Object;",
                                     false
-                                );
-                                super.visitLdcInsn(PROPERTY_PREFIX + location.name());
-                                super.visitMethodInsn(
-                                    Opcodes.INVOKEVIRTUAL,
-                                    "java/util/Properties",
-                                    "get",
-                                    "(Ljava/lang/Object;)Ljava/lang/Object;",
-                                    false
-                                );
-                                super.visitTypeInsn(Opcodes.CHECKCAST, "java/util/function/BiFunction");
-                                super.visitInsn(Opcodes.SWAP);
-                                super.visitVarInsn(Opcodes.ALOAD, sourceLocal);
-                                super.visitMethodInsn(
-                                    Opcodes.INVOKEINTERFACE,
-                                    "java/util/function/BiFunction",
-                                    "apply",
-                                    "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;",
-                                    true
                                 );
                                 super.visitInsn(Opcodes.POP);
                             }
                         }
                         super.visitMethodInsn(opcode, owner, name, invokedDescriptor, isInterface);
                     }
+
+                    private void emitSource() {
+                        super.visitVarInsn(Opcodes.ALOAD, sourceLocals[0]);
+                        for (int index = 1; index < sourceLocals.length; index++) {
+                            super.visitVarInsn(Opcodes.ALOAD, sourceLocals[index]);
+                            super.visitMethodInsn(
+                                Opcodes.INVOKESTATIC,
+                                "dev/turboism/ui/context/NativeObjectContextMenuBridge",
+                                "mergeSources",
+                                "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;",
+                                false
+                            );
+                        }
+                    }
                 };
             }
         }, ClassReader.EXPAND_FRAMES);
         return appendPoints[0] == expectedAppendPoints ? writer.toByteArray() : null;
     }
+
 
 
     private static String requireText(final String value, final String name) {

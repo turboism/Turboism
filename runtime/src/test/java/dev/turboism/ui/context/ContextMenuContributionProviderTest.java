@@ -80,7 +80,7 @@ class ContextMenuContributionProviderTest {
         host.action.run(selection(
             ContextMenuRegistry.Location.DEFORMER_TAB,
             ContextMenuRegistry.ObjectKind.WARP_DEFORMER
-        ));
+        ), "action.warp");
         assertEquals(List.of("plugin-a:action.warp:WARP_DEFORMER"), actions);
 
         registration.close();
