@@ -8,7 +8,7 @@ dependencies {
     testImplementation(project(":plugins:demo"))
     testImplementation(project(":plugins:ui-theme"))
     testImplementation(project(":plugins:log-filter"))
-    testImplementation(project(":plugins:main-toolbar"))
+    testImplementation(project(":plugins:core"))
     testImplementation(project(":plugins:perf-opt"))
     testImplementation(project(":plugins:render-opt"))
     testImplementation(project(":plugins:clip-mask"))
@@ -25,6 +25,7 @@ dependencies {
 }
 
 tasks.test {
+    dependsOn(":plugins:project-inspector:jar")
     systemProperty("projectRoot", rootProject.projectDir.absolutePath)
     systemProperty("sdkBuildDir", project(":sdk").buildDir.absolutePath)
     systemProperty("demoBuildDir", project(":plugins:demo").buildDir.absolutePath)
@@ -41,7 +42,7 @@ data class MigrationSuitePlugin(
 val migrationSuiteRoster = listOf(
     MigrationSuitePlugin("ui-theme", "dev.turboism.plugin.uitheme", "target"),
     MigrationSuitePlugin("log-filter", "dev.turboism.plugin.logfilter", "target"),
-    MigrationSuitePlugin("main-toolbar", "dev.turboism.plugin.maintoolbar", "target"),
+    MigrationSuitePlugin("core", "turboism.core", "target"),
     MigrationSuitePlugin("context-menu", "dev.turboism.plugin.context-menu", "target"),
     MigrationSuitePlugin("project-panel", "dev.turboism.plugin.project-panel", "target"),
     MigrationSuitePlugin("texture-atlas", "dev.turboism.plugin.texture-atlas", "target"),
