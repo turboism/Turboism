@@ -186,6 +186,17 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
             }
 
             @Override
+            public void floatPanel() {
+                if (closed.get()) {
+                    throw new IllegalStateException("embedded panel is closed");
+                }
+                onEdt(() -> {
+                    VerifiedEmbeddedPanelHostOperations.this.floatPanel(nativePanel(palette));
+                    return null;
+                });
+            }
+
+            @Override
             public void close() {
                 if (!closed.compareAndSet(false, true)) {
                     return;
