@@ -44,6 +44,20 @@ public final class RuntimeEmbeddedPanelActivationCoordinator implements AutoClos
         target.activate(owner, requested);
     }
 
+    public void activateFloating(final String pluginId, final EmbeddedPanelId panelId) {
+        final String owner = requireText(pluginId, "pluginId");
+        final EmbeddedPanelId requested = Objects.requireNonNull(panelId, "panelId");
+        final ActivationTarget target;
+        synchronized (monitor) {
+            requireOpen();
+            if (binding == null) {
+                throw new IllegalStateException("embedded-panel activation is unavailable");
+            }
+            target = binding.target();
+        }
+        target.activateFloating(owner, requested);
+    }
+
     @Override
     public void close() {
         synchronized (monitor) {
@@ -83,5 +97,9 @@ public final class RuntimeEmbeddedPanelActivationCoordinator implements AutoClos
     @FunctionalInterface
     public interface ActivationTarget {
         void activate(String pluginId, EmbeddedPanelId panelId);
+
+        default void activateFloating(final String pluginId, final EmbeddedPanelId panelId) {
+            activate(pluginId, panelId);
+        }
     }
 }

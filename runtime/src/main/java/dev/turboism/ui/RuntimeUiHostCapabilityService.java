@@ -339,6 +339,11 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
     }
 
     @Override
+    public void activateEmbeddedPanelFloating(final EmbeddedPanelId panelId) {
+        panelActivationCoordinator.activateFloating(pluginId, Objects.requireNonNull(panelId, "panelId"));
+    }
+
+    @Override
     public Optional<String> requestFile(final FileChooserRequest request) {
         Objects.requireNonNull(request, "request");
         permissionChecker.check(UI_FILE_CHOOSER_REQUEST, "ui.file-chooser.request");

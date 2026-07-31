@@ -131,7 +131,8 @@ public final class EmbeddedPanelContributionProvider implements EditorUiContribu
             .toList();
     }
 
-    private final class Session implements Registration {
+    private final class Session implements Registration,
+        dev.turboism.ui.panel.RuntimeEmbeddedPanelActivationCoordinator.ActivationTarget {
         private final long hostGeneration;
         private Map<EditorUiContributionIdentity, InstalledPanel> panels = Map.of();
         private List<Registration> bindings = List.of();
@@ -150,7 +151,7 @@ public final class EmbeddedPanelContributionProvider implements EditorUiContribu
             }
             final List<Registration> installedBindings = new ArrayList<>();
             try {
-                installedBindings.add(activationCoordinator.bind(hostGeneration, this::activate));
+                installedBindings.add(activationCoordinator.bind(hostGeneration, this));
                 installedBindings.add(host.onRebuild(this::rebuild));
                 installedBindings.add(host.bindPanelTabMenus(panelTabMenus));
                 if (host instanceof VerifiedEmbeddedPanelHostOperations verified) {
@@ -236,7 +237,8 @@ public final class EmbeddedPanelContributionProvider implements EditorUiContribu
             reconcile(descriptors);
         }
 
-        private synchronized void activate(
+        @Override
+        public synchronized void activate(
             final String pluginId,
             final EmbeddedPanelId panelId
         ) {
@@ -252,6 +254,26 @@ public final class EmbeddedPanelContributionProvider implements EditorUiContribu
                 throw new IllegalStateException("embedded panel is unavailable for the calling plugin");
             }
             panel.handle().activate();
+        }
+
+        @Override
+        public synchronized void activateFloating(
+            final String pluginId,
+            final EmbeddedPanelId panelId
+        ) {
+            if (closed) {
+                throw new IllegalStateException("embedded-panel provider is closed");
+            }
+            final InstalledPanel panel = panels.get(new EditorUiContributionIdentity(
+                pluginId,
+                EditorUiFamily.PANEL,
+                panelId.value()
+            ));
+            if (panel == null) {
+                throw new IllegalStateException("embedded panel is unavailable for the calling plugin");
+            }
+            panel.handle().activate();
+            panel.handle().floatPanel();
         }
 
         @Override
