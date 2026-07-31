@@ -44,6 +44,7 @@ public final class MainToolbarPlugin implements TurboismPlugin {
             ignored -> homeEntryService.openTurboismPanel());
         registerSettingsActions();
         registerPluginActions();
+        context.disposableScope().register(plugins);
         context.disposableScope().register(homeEntryService.registerTurboismPanel());
         context.disposableScope().register(homeEntryService.registerSettingsMenu());
         context.disposableScope().register(homeEntryService.registerPluginManagementMenu());
@@ -70,7 +71,7 @@ public final class MainToolbarPlugin implements TurboismPlugin {
 
     private void registerPluginActions() {
         registerAction(MainToolbarHomeEntryService.INSTALL_ACTION_ID, "Install plugin", ignored ->
-            report(plugins.install()));
+            plugins.requestInstall(this::report));
         for (CorePluginManagement.PluginInfo plugin : plugins.plugins()) {
             if (plugin.core()) continue;
             registerAction("turboism.core.plugins.enable." + plugin.id(), "Enable " + plugin.name(), ignored ->

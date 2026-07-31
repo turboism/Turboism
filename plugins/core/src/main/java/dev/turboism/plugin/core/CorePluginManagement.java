@@ -4,13 +4,17 @@ import java.util.List;
 import java.util.Optional;
 
 /** Runtime-supplied private management seam for the built-in core plugin only. */
-public interface CorePluginManagement {
+public interface CorePluginManagement extends AutoCloseable {
     String CORE_PLUGIN_ID = "turboism.core";
 
     List<PluginInfo> plugins();
     OperationResult install();
+    default void requestInstall(final java.util.function.Consumer<OperationResult> completion) {
+        completion.accept(install());
+    }
     OperationResult uninstall(String pluginId);
     OperationResult setEnabled(String pluginId, boolean enabled);
+    @Override default void close() { }
 
     record PluginInfo(
         String id, String name, String version, String description,
