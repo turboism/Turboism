@@ -3,6 +3,8 @@ package dev.turboism.sdk.cubism.model;
 import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 
+import java.util.List;
+
 /** One evaluated Cubism drawable/ArtMesh. */
 @PreviewApi
 public interface Drawable {
@@ -92,6 +94,11 @@ public interface Drawable {
     int parentDeformerIndex();
 
     IntSequence parameters();
+
+    /** Returns this ArtMesh's generation-bound Editor authoring bindings. */
+    default List<ParameterBinding> getParameterBindings() {
+        throw unavailable("ArtMesh parameter binding projection");
+    }
 
 
     private static UnsupportedOperationException unavailable(final String feature) {

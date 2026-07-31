@@ -3,6 +3,7 @@ package dev.turboism.tests.plugin;
 import dev.turboism.sdk.cubism.CubismPlugin;
 import dev.turboism.sdk.cubism.id.ParameterGroupId;
 import dev.turboism.sdk.cubism.id.ParameterId;
+import dev.turboism.sdk.cubism.id.ParameterBindingPointId;
 import dev.turboism.sdk.cubism.model.ArtMeshGeometry;
 import dev.turboism.sdk.cubism.model.Color;
 import dev.turboism.sdk.cubism.model.CubismModel;
@@ -12,6 +13,11 @@ import dev.turboism.sdk.cubism.model.Parameter;
 import dev.turboism.sdk.cubism.model.ParameterDefinition;
 import dev.turboism.sdk.cubism.model.ParameterGroup;
 import dev.turboism.sdk.cubism.model.ParameterGroups;
+import dev.turboism.sdk.cubism.model.ParameterBinding;
+import dev.turboism.sdk.cubism.model.ParameterBindingOperations;
+import dev.turboism.sdk.cubism.model.ParameterBindingPoint;
+import dev.turboism.sdk.cubism.model.ParameterBindingTarget;
+import dev.turboism.sdk.cubism.model.ParameterBindingTransferPlan;
 import dev.turboism.sdk.cubism.model.ParameterType;
 import dev.turboism.sdk.cubism.model.Parameters;
 import dev.turboism.sdk.cubism.model.Part;
@@ -266,7 +272,13 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
     public void enable() {
         partValidationThread = new Thread(() -> {
             final String mode = System.getProperty("turboism.editorObjectValidation.mode", "matrix");
-            if ("persist-write".equals(mode)) {
+            if ("binding-read".equals(mode)) {
+                runParameterBindingDiscoveryRead();
+            } else if ("binding-matrix".equals(mode)) {
+                runParameterBindingValidation();
+            } else if ("parameter-menu-smoke".equals(mode)) {
+                runParameterMenuSmoke();
+            } else if ("persist-write".equals(mode)) {
                 runEditorObjectPersistenceWrite();
             } else if ("persist-read".equals(mode)) {
                 runEditorObjectPersistenceRead();
@@ -1143,6 +1155,347 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         return context.cubism().model().active();
     }
 
+    private void runParameterBindingDiscoveryRead() {
+        final Path artifact = Path.of(
+            System.getProperty("turboism.home"), "logs", "binding-read-driver.txt"
+        );
+        try {
+            final CubismModel model = awaitEditorObjectModel(artifact);
+            final Parameter parameter = onHostThread(() -> model.parameters().all().stream()
+                .filter(candidate -> !candidate.getParameterBindings().isEmpty())
+                .findFirst().orElseThrow(() -> new IllegalStateException(
+                    "No parameter with Editor object bindings is available."
+                )));
+            final List<ParameterBinding> bindings = onHostThread(parameter::getParameterBindings);
+            final StringBuilder report = new StringBuilder("status=PASS\n")
+                .append("modelId=").append(onHostThread(() -> model.id().value())).append('\n')
+                .append("parameterId=").append(onHostThread(() -> parameter.id().value())).append('\n')
+                .append("bindingCount=").append(bindings.size()).append('\n');
+            for (int index = 0; index < bindings.size(); index++) {
+                final ParameterBinding binding = bindings.get(index);
+                report.append("binding.").append(index).append(".targetType=")
+                    .append(binding.target().type()).append('\n')
+                    .append("binding.").append(index).append(".targetId=")
+                    .append(binding.target().id()).append('\n')
+                    .append("binding.").append(index).append(".family=")
+                    .append(binding.family()).append('\n')
+                    .append("binding.").append(index).append(".points=")
+                    .append(binding.points().stream().map(point -> point.id().value() + ":" + point.value()).toList())
+                    .append('\n');
+            }
+            Files.writeString(artifact, report.toString(), StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING);
+        } catch (Exception exception) {
+            writeValidationFailure(artifact, exception, "Parameter binding discovery read failed");
+        }
+    }
+
+    private void runParameterMenuSmoke() {
+        final Path artifact = Path.of(
+            System.getProperty("turboism.home"), "logs", "parameter-menu-smoke.txt"
+        );
+        try {
+            Files.createDirectories(artifact.getParent());
+            java.util.Set<String> items = java.util.Set.of();
+            Exception lastFailure = null;
+            for (int attempt = 0; attempt < 30; attempt++) {
+                try {
+                    items = onHostThread(() -> {
+                        final java.util.LinkedHashSet<String> found = new java.util.LinkedHashSet<>();
+                        for (java.awt.Frame frame : java.awt.Frame.getFrames()) {
+                            if (!(frame instanceof javax.swing.JFrame swingFrame) || !frame.isVisible()) continue;
+                            final javax.swing.JMenuBar bar = swingFrame.getJMenuBar();
+                            if (bar == null) continue;
+                            for (int index = 0; index < bar.getMenuCount(); index++) {
+                                final javax.swing.JMenu menu = bar.getMenu(index);
+                                if (menu == null || !"Parameter Tools".equals(menu.getText())) continue;
+                                for (java.awt.Component component : menu.getMenuComponents()) {
+                                    if (component instanceof javax.swing.JMenuItem item) found.add(item.getText());
+                                }
+                            }
+                        }
+                        return java.util.Set.copyOf(found);
+                    });
+                    if (items.contains("Invert Bindings") && items.contains("Transfer Bindings")) break;
+                } catch (Exception failure) {
+                    lastFailure = failure;
+                }
+                Thread.sleep(1000L);
+            }
+            final boolean passed = items.contains("Invert Bindings") && items.contains("Transfer Bindings");
+            if (!passed && lastFailure != null && items.isEmpty()) throw lastFailure;
+            Files.writeString(
+                artifact,
+                "status=" + (passed ? "PASS" : "FAIL") + "\nitems=" + items + "\n",
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING
+            );
+        } catch (Exception failure) {
+            writeValidationFailure(artifact, failure, "Parameter menu smoke failed");
+    }
+    }
+    private void runParameterBindingValidation() {
+        final Path artifact = Path.of(
+            System.getProperty("turboism.home"), "logs", "parameter-binding-validation.txt"
+        );
+        try {
+            Files.createDirectories(artifact.getParent());
+            Files.writeString(artifact, "status=RUNNING phase=await-model\n",
+                StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+            final CubismModel model = awaitEditorObjectModel(artifact);
+            final Parameter parameter = onHostThread(() -> model.parameters().all().stream()
+                .filter(candidate -> candidate.getMaximumValue() > candidate.getMinimumValue())
+                .findFirst().orElseThrow(() -> new IllegalStateException("No writable parameter is available.")));
+            final float minimum = onHostThread(parameter::getMinimumValue);
+            final float maximum = onHostThread(parameter::getMaximumValue);
+            final float middle = minimum + (maximum - minimum) / 2.0F;
+            final Drawable mesh = onHostThread(() -> model.drawables().all().get(0));
+            final WarpDeformer warp = onHostThread(() -> model.warpDeformers().all().get(0));
+            final RotationDeformer rotation = onHostThread(() -> model.rotationDeformers().all().get(0));
+            final List<ParameterBindingTarget> targets = List.of(
+                ParameterBindingTarget.artMesh(mesh.id()),
+                ParameterBindingTarget.warpDeformer(warp.id()),
+                ParameterBindingTarget.rotationDeformer(rotation.id())
+            );
+            final List<ParameterBindingPoint> points = List.of(
+                new ParameterBindingPoint(new ParameterBindingPointId("probe:min"), minimum),
+                new ParameterBindingPoint(new ParameterBindingPointId("probe:mid"), middle),
+                new ParameterBindingPoint(new ParameterBindingPointId("probe:max"), maximum)
+            );
+            final java.awt.Robot robot = new java.awt.Robot();
+            final StringBuilder report = new StringBuilder("status=RUNNING\n")
+                .append("parameterId=").append(parameter.id().value()).append('\n')
+                .append("meshId=").append(mesh.id().value()).append('\n')
+                .append("warpId=").append(warp.id().value()).append('\n')
+                .append("rotationId=").append(rotation.id().value()).append('\n')
+                .append("hostThread=").append(onHostThread(() -> Thread.currentThread().getName())).append('\n');
+            boolean passed = true;
+            for (ParameterBindingTarget target : targets) {
+                final ParameterBindingOperations operations = onHostThread(() -> model.parameterBindings(parameter.id()));
+                final List<ParameterBindingPoint> originalPoints = onHostThread(() -> parameter.getParameterBindings().stream()
+                    .filter(binding -> binding.target().equals(target)).findFirst()
+                    .map(ParameterBinding::points).orElseGet(List::of));
+                onHostThread(() -> { operations.unbind(target); return null; });
+                onHostThread(() -> { operations.bind(target, points); return null; });
+                final List<Float> written = bindingValues(parameter, target);
+                pressShortcut(robot, java.awt.event.KeyEvent.VK_Z);
+                final List<Float> undone = awaitBindingValues(parameter, target, List.of());
+                pressShortcut(robot, java.awt.event.KeyEvent.VK_Y);
+                final List<Float> redone = awaitBindingValues(parameter, target, List.of(minimum, middle, maximum));
+                final ParameterBindingPointId middleId = onHostThread(() -> parameter.getParameterBindings().stream()
+                    .filter(binding -> binding.target().equals(target)).findFirst().orElseThrow()
+                    .points().get(1).id());
+                final float movedValue = minimum + (maximum - minimum) * 0.6F;
+                onHostThread(() -> { operations.movePoint(target, middleId, movedValue); return null; });
+                final List<Float> moved = bindingValues(parameter, target);
+                pressShortcut(robot, java.awt.event.KeyEvent.VK_Z);
+                final List<Float> moveUndone = awaitBindingValues(parameter, target, List.of(minimum, middle, maximum));
+                pressShortcut(robot, java.awt.event.KeyEvent.VK_Y);
+                final List<Float> moveRedone = awaitBindingValues(parameter, target, List.of(minimum, movedValue, maximum));
+                pressShortcut(robot, java.awt.event.KeyEvent.VK_Z);
+                awaitBindingValues(parameter, target, List.of(minimum, middle, maximum));
+                final float createdValue = minimum + (maximum - minimum) * 0.8F;
+                onHostThread(() -> {
+                    operations.createPoint(target, new ParameterBindingPoint(
+                        new ParameterBindingPointId("probe:create"), createdValue
+                    ));
+                    return null;
+                });
+                final List<Float> created = bindingValues(parameter, target);
+                final ParameterBindingPointId createdId = onHostThread(() -> parameter.getParameterBindings().stream()
+                    .filter(binding -> binding.target().equals(target)).findFirst().orElseThrow()
+                    .points().stream().filter(point -> point.value() == createdValue).findFirst().orElseThrow().id());
+                onHostThread(() -> { operations.deletePoint(target, createdId); return null; });
+                final List<Float> deleted = bindingValues(parameter, target);
+                onHostThread(() -> { operations.unbind(target); return null; });
+                if (!originalPoints.isEmpty()) {
+                    onHostThread(() -> { operations.bind(target, originalPoints); return null; });
+                }
+                final List<Float> restored = bindingValues(parameter, target);
+                final boolean targetPassed = written.equals(List.of(minimum, middle, maximum))
+                    && undone.isEmpty() && redone.equals(List.of(minimum, middle, maximum))
+                    && moved.equals(List.of(minimum, movedValue, maximum))
+                    && moveUndone.equals(List.of(minimum, middle, maximum))
+                    && moveRedone.equals(List.of(minimum, movedValue, maximum))
+                    && created.equals(List.of(minimum, middle, createdValue, maximum))
+                    && deleted.equals(List.of(minimum, middle, maximum))
+                    && restored.equals(originalPoints.stream().map(ParameterBindingPoint::value).toList());
+                report.append("target.").append(target.type()).append(".written=").append(written).append('\n')
+                    .append("target.").append(target.type()).append(".undo=").append(undone).append('\n')
+                    .append("target.").append(target.type()).append(".redo=").append(redone).append('\n')
+                    .append("target.").append(target.type()).append(".moved=").append(moved).append('\n')
+                    .append("target.").append(target.type()).append(".moveUndo=").append(moveUndone).append('\n')
+                    .append("target.").append(target.type()).append(".moveRedo=").append(moveRedone).append('\n')
+                    .append("target.").append(target.type()).append(".created=").append(created).append('\n')
+                    .append("target.").append(target.type()).append(".deleted=").append(deleted).append('\n')
+                    .append("target.").append(target.type()).append(".restored=").append(restored).append('\n')
+                    .append("target.").append(target.type()).append(".passed=").append(targetPassed).append('\n');
+                passed &= targetPassed;
+            }
+            final Parameter transferTarget = onHostThread(() -> model.parameters().all().stream()
+                .filter(candidate -> !candidate.id().equals(parameter.id()))
+                .findFirst().orElseThrow(() -> new IllegalStateException(
+                    "No destination parameter is available for binding transfer."
+                )));
+            final java.util.Map<ParameterBindingTarget, List<ParameterBindingPoint>> originalSource = new java.util.LinkedHashMap<>();
+            final java.util.Map<ParameterBindingTarget, List<ParameterBindingPoint>> originalDestination = new java.util.LinkedHashMap<>();
+            final ParameterBindingOperations sourceOperations = onHostThread(() -> model.parameterBindings(parameter.id()));
+            final ParameterBindingOperations destinationOperations = onHostThread(() -> model.parameterBindings(transferTarget.id()));
+            for (ParameterBindingTarget target : targets) {
+                originalSource.put(target, bindingPoints(parameter, target));
+                originalDestination.put(target, bindingPoints(transferTarget, target));
+                onHostThread(() -> { sourceOperations.unbind(target); destinationOperations.unbind(target); return null; });
+                onHostThread(() -> { sourceOperations.bind(target, points); return null; });
+            }
+            final var batch = onHostThread(model::parameterBindingBatch);
+            final float originalValue = onHostThread(parameter::getValue);
+            final java.util.Map<ParameterBindingTarget, Object> beforeMinimum = targetStates(
+                model, parameter, minimum, targets, mesh, warp, rotation
+            );
+            final java.util.Map<ParameterBindingTarget, Object> beforeMaximum = targetStates(
+                model, parameter, maximum, targets, mesh, warp, rotation
+            );
+            onHostThread(() -> { parameter.setValue(originalValue); return null; });
+            onHostThread(() -> { batch.invert(targets); return null; });
+            final java.util.Map<ParameterBindingTarget, Object> afterMinimum = targetStates(
+                model, parameter, minimum, targets, mesh, warp, rotation
+            );
+            final java.util.Map<ParameterBindingTarget, Object> afterMaximum = targetStates(
+                model, parameter, maximum, targets, mesh, warp, rotation
+            );
+            onHostThread(() -> { parameter.setValue(originalValue); return null; });
+            final boolean batchInverted = targets.stream().allMatch(target ->
+                beforeMinimum.get(target).equals(afterMaximum.get(target))
+                    && beforeMaximum.get(target).equals(afterMinimum.get(target))
+            );
+            onHostThread(() -> { batch.invert(targets); return null; });
+            final java.util.Map<ParameterBindingTarget, Object> restoredMinimum = targetStates(
+                model, parameter, minimum, targets, mesh, warp, rotation
+            );
+            final java.util.Map<ParameterBindingTarget, Object> restoredMaximum = targetStates(
+                model, parameter, maximum, targets, mesh, warp, rotation
+            );
+            onHostThread(() -> { parameter.setValue(originalValue); return null; });
+            final boolean batchInvertUndone = targets.stream().allMatch(target ->
+                beforeMinimum.get(target).equals(restoredMinimum.get(target))
+                    && beforeMaximum.get(target).equals(restoredMaximum.get(target))
+            );
+            final boolean batchInvertRedone = batchInverted && batchInvertUndone;
+            onHostThread(() -> {
+                batch.transfer(new ParameterBindingTransferPlan(
+                    parameter.id(), transferTarget.id(), targets, false
+                ));
+                return null;
+            });
+            final boolean batchTransferred = targets.stream().allMatch(target -> {
+                try {
+                    return bindingValues(parameter, target).isEmpty()
+                        && bindingValues(transferTarget, target).equals(List.of(minimum, middle, maximum));
+                } catch (Exception exception) { throw new IllegalStateException(exception); }
+            });
+            pressShortcut(robot, java.awt.event.KeyEvent.VK_Z);
+            final boolean batchTransferUndone = targets.stream().allMatch(target -> {
+                try {
+                    return awaitBindingValues(parameter, target, List.of(minimum, middle, maximum)).equals(List.of(minimum, middle, maximum))
+                        && awaitBindingValues(transferTarget, target, List.of()).isEmpty();
+                } catch (Exception exception) { throw new IllegalStateException(exception); }
+            });
+            pressShortcut(robot, java.awt.event.KeyEvent.VK_Y);
+            final boolean batchTransferRedone = targets.stream().allMatch(target -> {
+                try {
+                    return awaitBindingValues(parameter, target, List.of()).isEmpty()
+                        && awaitBindingValues(transferTarget, target, List.of(minimum, middle, maximum)).equals(List.of(minimum, middle, maximum));
+                } catch (Exception exception) { throw new IllegalStateException(exception); }
+            });
+            pressShortcut(robot, java.awt.event.KeyEvent.VK_Z);
+            for (ParameterBindingTarget target : targets) {
+                awaitBindingValues(parameter, target, List.of(minimum, middle, maximum));
+                onHostThread(() -> { sourceOperations.unbind(target); destinationOperations.unbind(target); return null; });
+                if (!originalSource.get(target).isEmpty()) {
+                    onHostThread(() -> { sourceOperations.bind(target, originalSource.get(target)); return null; });
+                }
+                if (!originalDestination.get(target).isEmpty()) {
+                    onHostThread(() -> { destinationOperations.bind(target, originalDestination.get(target)); return null; });
+                }
+            }
+            final boolean batchRestored = targets.stream().allMatch(target -> {
+                try {
+                    return bindingValues(parameter, target).equals(originalSource.get(target).stream().map(ParameterBindingPoint::value).toList())
+                        && bindingValues(transferTarget, target).equals(originalDestination.get(target).stream().map(ParameterBindingPoint::value).toList());
+                } catch (Exception exception) { throw new IllegalStateException(exception); }
+            });
+            final boolean batchPassed = batchInverted && batchInvertUndone && batchInvertRedone
+                && batchTransferred && batchTransferUndone && batchTransferRedone && batchRestored;
+            passed &= batchPassed;
+            report.append("batch.destinationParameterId=").append(transferTarget.id().value()).append('\n')
+                .append("batch.inverted=").append(batchInverted).append('\n')
+                .append("batch.invertUndo=").append(batchInvertUndone).append('\n')
+                .append("batch.invertRedo=").append(batchInvertRedone).append('\n')
+                .append("batch.transferred=").append(batchTransferred).append('\n')
+                .append("batch.transferUndo=").append(batchTransferUndone).append('\n')
+                .append("batch.transferRedo=").append(batchTransferRedone).append('\n')
+                .append("batch.restored=").append(batchRestored).append('\n')
+                .append("batch.passed=").append(batchPassed).append('\n');
+            report.replace(0, "status=RUNNING".length(), "status=" + (passed ? "PASS" : "FAIL"));
+            Files.writeString(artifact, report.toString(), StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING);
+        } catch (Exception exception) {
+            writeValidationFailure(artifact, exception, "Parameter binding validation failed");
+        }
+    }
+
+    private List<Float> bindingValues(final Parameter parameter, final ParameterBindingTarget target) throws Exception {
+        return onHostThread(() -> parameter.getParameterBindings().stream()
+            .filter(binding -> binding.target().equals(target))
+            .findFirst().map(binding -> binding.points().stream().map(ParameterBindingPoint::value).toList())
+            .orElseGet(List::of));
+    }
+
+    private List<ParameterBindingPoint> bindingPoints(
+        final Parameter parameter,
+        final ParameterBindingTarget target
+    ) throws Exception {
+        return onHostThread(() -> parameter.getParameterBindings().stream()
+            .filter(binding -> binding.target().equals(target))
+            .findFirst().map(ParameterBinding::points).orElseGet(List::of));
+    }
+
+    private java.util.Map<ParameterBindingTarget, Object> targetStates(
+        final CubismModel model,
+        final Parameter parameter,
+        final float value,
+        final List<ParameterBindingTarget> targets,
+        final Drawable mesh,
+        final WarpDeformer warp,
+        final RotationDeformer rotation
+    ) throws Exception {
+        return onHostThread(() -> {
+            parameter.setValue(value);
+            final java.util.Map<ParameterBindingTarget, Object> states = new java.util.LinkedHashMap<>();
+            for (ParameterBindingTarget target : targets) {
+                states.put(target, switch (target.type()) {
+                    case ART_MESH -> mesh.geometry();
+                    case WARP_DEFORMER -> warp.grid();
+                    case ROTATION_DEFORMER -> rotation.form();
+                });
+            }
+            return java.util.Map.copyOf(states);
+        });
+    }
+
+    private List<Float> awaitBindingValues(
+        final Parameter parameter,
+        final ParameterBindingTarget target,
+        final List<Float> expected
+    ) throws Exception {
+        List<Float> actual = bindingValues(parameter, target);
+        for (int attempt = 0; attempt < 40 && !actual.equals(expected); attempt++) {
+            Thread.sleep(100L);
+            actual = bindingValues(parameter, target);
+        }
+        return actual;
+    }
+
     private void runEditorObjectValidation() {
         final Path artifact = Path.of(
             System.getProperty("turboism.home"), "logs", "editor-object-validation.txt"
@@ -1891,18 +2244,29 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         if (SwingUtilities.isEventDispatchThread()) return call.call();
         final AtomicReference<T> result = new AtomicReference<>();
         final AtomicReference<Exception> failure = new AtomicReference<>();
-        SwingUtilities.invokeAndWait(() -> {
+        final java.util.concurrent.CountDownLatch completed = new java.util.concurrent.CountDownLatch(1);
+        SwingUtilities.invokeLater(() -> {
             try {
                 result.set(call.call());
             } catch (Exception exception) {
                 failure.set(exception);
+            } finally {
+                completed.countDown();
             }
         });
+        if (!completed.await(5L, java.util.concurrent.TimeUnit.SECONDS)) {
+            throw new IllegalStateException("Cubism EDT did not accept the probe within 5 seconds.");
+        }
         if (failure.get() != null) throw failure.get();
         return result.get();
     }
 
     private static void pressShortcut(final java.awt.Robot robot, final int key) throws Exception {
+        if ((key == java.awt.event.KeyEvent.VK_Z || key == java.awt.event.KeyEvent.VK_Y)
+            && invokeMenuShortcut(key)) {
+            Thread.sleep(250L);
+            return;
+        }
         final AtomicReference<java.awt.Frame> hostFrame = new AtomicReference<>();
         SwingUtilities.invokeAndWait(() -> {
             for (java.awt.Frame frame : java.awt.Frame.getFrames()) {
@@ -1921,11 +2285,55 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 frame.requestFocus();
             }
         });
-        Thread.sleep(250L);
+        final java.awt.Frame frame = hostFrame.get();
+        if (frame != null) {
+            final java.awt.Rectangle bounds = frame.getBounds();
+            robot.mouseMove(bounds.x + Math.max(20, bounds.width / 2), bounds.y + 12);
+            robot.mousePress(java.awt.event.InputEvent.BUTTON1_DOWN_MASK);
+            robot.mouseRelease(java.awt.event.InputEvent.BUTTON1_DOWN_MASK);
+        }
+        Thread.sleep(400L);
         robot.keyPress(java.awt.event.KeyEvent.VK_CONTROL);
         robot.keyPress(key);
         robot.keyRelease(key);
         robot.keyRelease(java.awt.event.KeyEvent.VK_CONTROL);
+        Thread.sleep(250L);
+    }
+
+    private static boolean invokeMenuShortcut(final int key) throws Exception {
+        final AtomicReference<javax.swing.JMenuItem> match = new AtomicReference<>();
+        SwingUtilities.invokeAndWait(() -> {
+            for (java.awt.Frame frame : java.awt.Frame.getFrames()) {
+                if (!(frame instanceof javax.swing.JFrame swingFrame) || !frame.isVisible()) continue;
+                final javax.swing.JMenuBar bar = swingFrame.getJMenuBar();
+                if (bar == null) continue;
+                for (int index = 0; index < bar.getMenuCount() && match.get() == null; index++) {
+                    findMenuShortcut(bar.getMenu(index), key, match);
+                }
+            }
+            final javax.swing.JMenuItem item = match.get();
+            if (item != null && item.isEnabled()) item.doClick(0);
+        });
+        return match.get() != null && match.get().isEnabled();
+    }
+
+    private static void findMenuShortcut(
+        final javax.swing.JMenuItem item,
+        final int key,
+        final AtomicReference<javax.swing.JMenuItem> match
+    ) {
+        if (item == null || match.get() != null) return;
+        final javax.swing.KeyStroke accelerator = item.getAccelerator();
+        if (accelerator != null && accelerator.getKeyCode() == key
+            && (accelerator.getModifiers() & java.awt.event.InputEvent.CTRL_DOWN_MASK) != 0) {
+            match.set(item);
+            return;
+        }
+        if (item instanceof javax.swing.JMenu menu) {
+            for (java.awt.Component component : menu.getMenuComponents()) {
+                if (component instanceof javax.swing.JMenuItem child) findMenuShortcut(child, key, match);
+            }
+        }
     }
 
     private Parameters activeParameters() {

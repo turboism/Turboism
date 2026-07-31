@@ -1,2 +1,0 @@
-main-toolbar.home.aria-label
-main-toolbar.home.tooltip

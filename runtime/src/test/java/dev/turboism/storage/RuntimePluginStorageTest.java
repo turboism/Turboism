@@ -81,6 +81,23 @@ class RuntimePluginStorageTest {
     }
 
     @Test
+    void canonicalParentAliasDoesNotEscapeStorageRoot() throws Exception {
+        final Path realHome = Files.createDirectories(temporary.resolve("real-home"));
+        final Path alias = temporary.resolve("home-alias");
+        Files.createSymbolicLink(alias, realHome);
+        final Path state = Files.createDirectories(alias.resolve("state"));
+        final ConfinedStorageBackend backend = new ConfinedStorageBackend(Map.of(
+            StorageRoot.DATA, Files.createDirectories(realHome.resolve("data")),
+            StorageRoot.STATE, state,
+            StorageRoot.CACHE, Files.createDirectories(realHome.resolve("cache"))
+        ));
+
+        final StoragePath path = new StoragePath(StorageRoot.STATE, "manual-order.txt");
+        assertTrue(backend.writeBytesAtomic(path, "saved".getBytes(java.nio.charset.StandardCharsets.UTF_8), true).written());
+        assertEquals("saved", Files.readString(realHome.resolve("state/manual-order.txt")));
+    }
+
+    @Test
     void missingPermissionsFailAsStructuredResults() throws Exception {
         createStorage(Set.of());
         final StoragePath path = new StoragePath(StorageRoot.STATE, "state.json");
