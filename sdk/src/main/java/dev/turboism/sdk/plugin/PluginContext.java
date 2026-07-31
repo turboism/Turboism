@@ -24,6 +24,7 @@ import dev.turboism.sdk.ui.UiScheduler;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
+import dev.turboism.sdk.ui.table.SceneTableService;
 
 import java.util.List;
 
@@ -94,6 +95,10 @@ public interface PluginContext {
 
     default PaletteToolbarRegistry paletteToolbar() {
         throw new UnsupportedOperationException("paletteToolbar registry is not available");
+    }
+
+    default SceneTableService sceneTable() {
+        return SceneTableService.unavailable();
     }
 
     default UiHostCapabilityService uiHost() {
