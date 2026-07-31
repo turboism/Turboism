@@ -54,6 +54,15 @@ public interface UiHostCapabilityService {
         throw new UnsupportedOperationException("embedded-panel activation is unavailable");
     }
 
+    /**
+     * Activates an embedded panel owned by the calling plugin as a floating
+     * window (Photoshop-style popup). Hosts that do not provide a verified
+     * floating surface fail closed to plain activation.
+     */
+    default void activateEmbeddedPanelFloating(final EmbeddedPanelId panelId) {
+        activateEmbeddedPanel(panelId);
+    }
+
     Optional<String> requestFile(FileChooserRequest request);
 
     Registration notifyStatus(StatusNotification notification);

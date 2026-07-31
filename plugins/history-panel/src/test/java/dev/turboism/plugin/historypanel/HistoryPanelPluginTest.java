@@ -36,9 +36,10 @@ class HistoryPanelPluginTest {
         assertEquals("history.toolstrip", context.uiHost().verticalToolbars().get(0).contributionId());
         assertEquals(0, context.uiHost().panels().size());
 
-        // Toggle action shows the panel.
+        // Toggle action shows the panel as a floating window.
         context.actions().execute(HistoryPanelPlugin.TOGGLE_ACTION_ID);
         assertEquals(1, context.uiHost().panels().size());
+        assertEquals(List.of("history.panel"), context.uiHost().floatingActivations());
         final EmbeddedPanelContribution panel = context.uiHost().panels().get(0);
         assertEquals("history.panel", panel.id());
         assertNotNull(panel.content());
@@ -230,6 +231,17 @@ class HistoryPanelPluginTest {
         public Registration contributeVerticalToolbar(final VerticalToolbarContribution contribution) {
             verticalToolbars.add(contribution);
             return () -> verticalToolbars.remove(contribution);
+        }
+
+        private final List<String> floatingActivations = new ArrayList<>();
+
+        List<String> floatingActivations() {
+            return List.copyOf(floatingActivations);
+        }
+
+        @Override
+        public void activateEmbeddedPanelFloating(final dev.turboism.sdk.ui.EmbeddedPanelId panelId) {
+            floatingActivations.add(panelId.value());
         }
 
         @Override
