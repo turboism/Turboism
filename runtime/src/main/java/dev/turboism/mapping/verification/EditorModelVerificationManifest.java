@@ -7,7 +7,7 @@ public final class EditorModelVerificationManifest {
 
     public static final String VERIFICATION_ID = "cubism-5.3.02.editor-model.static";
     public static final String RECORD_SHA256 =
-        "202cf9dfd8e6fb4ca5e66b07730bc1447d7ecb0b7b0673f7634644fca3c9fbff";
+        "7b625b882fc63b2068413bccfcef34edbd750e5368247ad362f2877774443ec6";
     public static final String CUBISM_VERSION = "5.3.02";
     public static final String PROFILE_ID = "cubism-5.3.02";
     public static final long ARTIFACT_SIZE = 41_922_739L;
@@ -30,7 +30,8 @@ public final class EditorModelVerificationManifest {
         EditorObjectReadSelectorContract.CAPABILITY_ID,
         EditorObjectWriteSelectorContract.ART_MESH_CAPABILITY_ID,
         EditorObjectWriteSelectorContract.WARP_CAPABILITY_ID,
-        EditorObjectWriteSelectorContract.ROTATION_CAPABILITY_ID
+        EditorObjectWriteSelectorContract.ROTATION_CAPABILITY_ID,
+        EditorHistoryReadSelectorContract.CAPABILITY_ID
     );
     public static final Set<String> REQUIRED_ALIASES = Set.of(
         "cubism.editor-model.app-controller.class",
@@ -225,7 +226,17 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.rotation-form.set-scale",
         "cubism.editor-model.rotation-form.set-reflect-x",
         "cubism.editor-model.rotation-form.set-reflect-y",
-        "cubism.editor-model.complete-pack.update-deformer-palette"
+        "cubism.editor-model.complete-pack.update-deformer-palette",
+        "cubism.editor-history.document.undo-manager",
+        "cubism.editor-history.manager.class",
+        "cubism.editor-history.manager.entries",
+        "cubism.editor-history.manager.position",
+        "cubism.editor-history.manager.can-undo",
+        "cubism.editor-history.manager.can-redo",
+        "cubism.editor-history.entry.class",
+        "cubism.editor-history.entry.presentation-name",
+        "cubism.editor-history.entry.significant",
+        "cubism.editor-history.manager.move-to"
     );
     private static final Set<String> PART_OPACITY_ADDITIVE_ALIASES = Set.of(
         "cubism.editor-model.model-source.parts",
