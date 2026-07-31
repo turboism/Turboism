@@ -14,16 +14,21 @@ final class ConfinedStagingFiles {
     private ConfinedStagingFiles() { }
 
     static Target create(final Path requestedDirectory, final String targetName) throws IOException {
+        return create(requestedDirectory, targetName, ConfinedStagingFiles::attributes);
+    }
+
+    static Target create(final Path requestedDirectory, final String targetName,
+                         final AttributeReader reader) throws IOException {
         final Path directory = requestedDirectory.toAbsolutePath().normalize();
         Files.createDirectories(directory);
         rejectLinks(directory);
-        final BasicFileAttributes identity = attributes(directory);
+        final BasicFileAttributes identity = reader.read(directory);
         final Path target = directory.resolve(targetName).normalize();
         if (!target.getParent().equals(directory)) throw new IOException("staging target escaped");
         final Path temporary = directory.resolve("." + targetName + "-" + UUID.randomUUID() + ".tmp");
         final var output = Files.newOutputStream(temporary, StandardOpenOption.CREATE_NEW,
             StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS);
-        return new Target(directory, identity, temporary, target, output);
+        return new Target(directory, identity, temporary, target, output, reader);
     }
 
     private static void rejectLinks(Path path) throws IOException {
@@ -39,8 +44,11 @@ final class ConfinedStagingFiles {
         return Files.readAttributes(path, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
     }
 
+    @FunctionalInterface
+    interface AttributeReader { BasicFileAttributes read(Path path) throws IOException; }
+
     record Target(Path directory, BasicFileAttributes identity, Path temporary, Path target,
-                  java.io.OutputStream output) {
+                  java.io.OutputStream output, AttributeReader reader) {
         void publish() throws IOException {
             output.close();
             verify();
@@ -53,10 +61,11 @@ final class ConfinedStagingFiles {
 
         private void verify() throws IOException {
             rejectLinks(directory);
-            final BasicFileAttributes current = attributes(directory);
+            final BasicFileAttributes current = reader.read(directory);
+            final Object expectedKey = identity.fileKey();
+            final Object currentKey = current.fileKey();
             if (!current.isDirectory()
-                || !java.util.Objects.equals(identity.fileKey(), current.fileKey())
-                || !identity.creationTime().equals(current.creationTime())) {
+                || (expectedKey != null && !java.util.Objects.equals(expectedKey, currentKey))) {
                 throw new IOException("staging directory identity changed");
             }
         }
