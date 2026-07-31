@@ -119,7 +119,8 @@ class PreviewReportSnapshotFactoryTest {
                     "cubism.texture-atlas.read", "cubism.render.status.read", "cubism.theme.status.read",
                     "ui.context-source.read", "ui.overlay.contribute", "ui.viewport.read", "ui.dialog.contribute",
                     "ui.embedded-panel.contribute", "ui.file-chooser.request", "ui.status.notify",
-                    "ui.palette-toolbar.contribute", "ui.main-toolbar.contribute"
+                    "ui.palette-toolbar.contribute", "ui.main-toolbar.contribute",
+                    "cubism.mesh.mirror-axis-angle", "ui.mesh-edit.mirror-axis-angle"
                 ),
                 List.of(
                     "turboism.cubism.project.read", "turboism.cubism.model.read",
@@ -128,7 +129,8 @@ class PreviewReportSnapshotFactoryTest {
                     "turboism.ui.viewport.read",
                     "turboism.ui.dialog.contribute", "turboism.ui.panel.contribute",
                     "turboism.ui.file-chooser.request", "turboism.ui.status.notify",
-                    "turboism.ui.toolbar.palette.contribute", "turboism.ui.toolbar.main.contribute"
+                    "turboism.ui.toolbar.palette.contribute", "turboism.ui.toolbar.main.contribute",
+                    "turboism.cubism.model.write", "turboism.ui.panel.contribute"
                 )
             )
         );
