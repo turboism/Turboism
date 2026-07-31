@@ -253,8 +253,6 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.rotation-form.set-reflect-y",
         "cubism.editor-model.complete-pack.update-deformer-palette",
         "object-context-menu.parameter.group-row.class",
-        "cubism.editor-model.complete-pack.update-deformer-palette",
-        "object-context-menu.parameter.group-row.class",
         "object-context-menu.parameter.group-row.source",
         "object-context-menu.parameter.row-parameters",
         "object-context-menu.workspace.selector",
