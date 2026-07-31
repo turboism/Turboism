@@ -24,6 +24,7 @@ public sealed interface RuntimeHostAdapterAccess permits HostSession, SessionRun
     PartLifecycleCoordinator partLifecycle();
 
     TextureAtlasLayoutCoordinator textureAtlasLayouts();
+    dev.turboism.adapter.cubism.textureatlas.TextureAtlasNativeInvocationCoordinator textureAtlasNativeInvocations();
     EditorObjectLifecycleCoordinator editorObjectLifecycle();
 
     EditorUiHostLifecycle editorUiLifecycle();
@@ -45,6 +46,7 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     private final ParameterLifecycleCoordinator parameterLifecycle;
     private final PartLifecycleCoordinator partLifecycle;
     private final TextureAtlasLayoutCoordinator textureAtlasLayouts;
+    private final dev.turboism.adapter.cubism.textureatlas.TextureAtlasNativeInvocationCoordinator textureAtlasNativeInvocations;
     private final EditorObjectLifecycleCoordinator editorObjectLifecycle;
     private final EditorUiHostLifecycle editorUiLifecycle;
     private final EditorUiContributionAuthority editorUiContributions;
@@ -58,6 +60,7 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
         final ParameterLifecycleCoordinator parameterLifecycle,
         final PartLifecycleCoordinator partLifecycle,
         final TextureAtlasLayoutCoordinator textureAtlasLayouts,
+        final dev.turboism.adapter.cubism.textureatlas.TextureAtlasNativeInvocationCoordinator textureAtlasNativeInvocations,
         final EditorObjectLifecycleCoordinator editorObjectLifecycle,
         final EditorUiHostLifecycle editorUiLifecycle,
         final EditorUiContributionAuthority editorUiContributions,
@@ -75,6 +78,10 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
         this.textureAtlasLayouts = java.util.Objects.requireNonNull(
             textureAtlasLayouts,
             "textureAtlasLayouts"
+        );
+        this.textureAtlasNativeInvocations = java.util.Objects.requireNonNull(
+            textureAtlasNativeInvocations,
+            "textureAtlasNativeInvocations"
         );
         this.editorObjectLifecycle = java.util.Objects.requireNonNull(
             editorObjectLifecycle,
@@ -125,6 +132,12 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     @Override
     public TextureAtlasLayoutCoordinator textureAtlasLayouts() {
         return textureAtlasLayouts;
+    }
+
+    @Override
+    public dev.turboism.adapter.cubism.textureatlas.TextureAtlasNativeInvocationCoordinator
+        textureAtlasNativeInvocations() {
+        return textureAtlasNativeInvocations;
     }
 
     @Override
