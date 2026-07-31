@@ -624,6 +624,20 @@ public final class TurboismAgent {
                 "Turboism texture-atlas automatic-layout hook disabled safely: "
                     + failure.getClass().getName()
             );
+            try {
+                final Path home = Path.of(System.getProperty("turboism.home", "."));
+                final Path diag = home.resolve("logs").resolve("bootstrap-diagnostic.log");
+                java.nio.file.Files.createDirectories(diag.getParent());
+                java.nio.file.Files.writeString(
+                    diag,
+                    java.time.Instant.now() + " texture-atlas auto-layout hook install failed: "
+                        + failure + "\n",
+                    java.nio.file.StandardOpenOption.CREATE,
+                    java.nio.file.StandardOpenOption.APPEND
+                );
+            } catch (Throwable ignored) {
+                // diagnostics are best-effort
+            }
         }
     }
 }
