@@ -40,6 +40,7 @@ import dev.turboism.sdk.ui.UserFileAccessService;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
+import dev.turboism.sdk.ui.table.SceneTableService;
 import dev.turboism.ui.RuntimeUiHostCapabilityService;
 import dev.turboism.ui.UiHostStateSource;
 import dev.turboism.ui.context.RuntimeContextMenuRegistry;
@@ -66,6 +67,7 @@ public final class CorePluginContext implements PluginContext {
     private final UserFileAccessService userFileAccessService;
     private final AsyncHostReadService asyncHostReadService;
 
+    private final SceneTableService sceneTableService;
     private dev.turboism.sdk.runtime.RuntimeSettingsService runtimeSettings;
     public CorePluginContext(final Dependencies dependencies) {
         this(dependencies, RuntimeHostAdapters.safeMode(), null, null, null, null, null);
@@ -383,6 +385,9 @@ public final class CorePluginContext implements PluginContext {
         this.pluginStorage = pluginStorage;
         this.userFileAccessService = userFileAccessService;
         this.asyncHostReadService = asyncHostReadService;
+        this.sceneTableService = hostAccess == null
+            ? SceneTableService.unavailable()
+            : hostAccess.sceneTable();
         final PermissionChecker uiPermissionChecker = PermissionChecker.from(new CubismPermissionGate(
             this.dependencies.descriptor().id(),
             this.dependencies.permissions(),
@@ -559,6 +564,11 @@ public final class CorePluginContext implements PluginContext {
     @Override
     public PaletteToolbarRegistry paletteToolbar() {
         return paletteToolbarRegistry;
+    }
+
+    @Override
+    public SceneTableService sceneTable() {
+        return sceneTableService;
     }
 
     @Override

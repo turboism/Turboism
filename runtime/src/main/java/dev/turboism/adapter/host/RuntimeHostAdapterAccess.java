@@ -43,6 +43,8 @@ public sealed interface RuntimeHostAdapterAccess permits HostSession, SessionRun
     java.util.Optional<dev.turboism.mapping.verification.VerifiedMemberResolver> boundingBoxOverlayResolver();
 
     AppearanceCoordinator appearanceCoordinator();
+
+    dev.turboism.sdk.ui.table.SceneTableService sceneTable();
 }
 
 /** Non-closeable adapter view used when lifecycle ownership remains with bootstrap ingress. */
@@ -62,6 +64,7 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     private final dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator dockMaintenance;
     private final java.util.Optional<dev.turboism.mapping.verification.VerifiedMemberResolver> boundingBoxOverlayResolver;
     private final AppearanceCoordinator appearanceCoordinator;
+    private final dev.turboism.sdk.ui.table.SceneTableService sceneTable;
 
     SessionRuntimeHostAdapterAccess(
         final RuntimeHostAdapters adapters,
@@ -77,7 +80,8 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
         final EditorUiPluginResourceRegistry editorUiPluginResources,
         final dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator dockMaintenance,
         final java.util.Optional<dev.turboism.mapping.verification.VerifiedMemberResolver> boundingBoxOverlayResolver,
-        final AppearanceCoordinator appearanceCoordinator
+        final AppearanceCoordinator appearanceCoordinator,
+        final dev.turboism.sdk.ui.table.SceneTableService sceneTable
     ) {
         this.adapters = java.util.Objects.requireNonNull(adapters, "adapters");
         this.modelAccess = java.util.Objects.requireNonNull(modelAccess, "modelAccess");
@@ -123,6 +127,7 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
             appearanceCoordinator,
             "appearanceCoordinator"
         );
+        this.sceneTable = java.util.Objects.requireNonNull(sceneTable, "sceneTable");
     }
 
     @Override
@@ -194,5 +199,10 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     @Override
     public AppearanceCoordinator appearanceCoordinator() {
         return appearanceCoordinator;
+    }
+
+    @Override
+    public dev.turboism.sdk.ui.table.SceneTableService sceneTable() {
+        return sceneTable;
     }
 }
