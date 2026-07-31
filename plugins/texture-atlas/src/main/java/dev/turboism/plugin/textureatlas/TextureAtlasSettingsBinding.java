@@ -21,11 +21,23 @@ final class TextureAtlasSettingsBinding {
         TextureAtlasLayoutMode.PART_BUCKET,
         ConfigCodecs.enumValue(TextureAtlasLayoutMode.class)
     );
+    private static final ConfigKey<TextureAtlasLayoutAlgorithm> ALGORITHM = new ConfigKey<>(
+        CONFIG_ID,
+        "algorithm",
+        TextureAtlasLayoutAlgorithm.MAXRECTS,
+        ConfigCodecs.enumValue(TextureAtlasLayoutAlgorithm.class)
+    );
+    private static final ConfigKey<Boolean> PARALLEL = new ConfigKey<>(
+        CONFIG_ID,
+        "parallel",
+        false,
+        ConfigCodecs.booleanValue()
+    );
     private static final ConfigSchema SCHEMA = new ConfigSchema(
         CONFIG_ID,
         CONFIG_PATH,
-        1,
-        List.of(MODE)
+        2,
+        List.of(MODE, ALGORITHM, PARALLEL)
     );
 
     private PluginConfigRegistry registry;
@@ -52,11 +64,26 @@ final class TextureAtlasSettingsBinding {
         enabled = true;
         final long active = ++epoch;
         try {
-            return registry.read(MODE).handle((read, failure) -> {
-                if (failure != null || !enabled || epoch != active || read.error().isPresent()) return false;
-                confirmed = new TextureAtlasSettings(read.value().value());
-                revision = read.value().revision();
-                return true;
+            return registry.read(MODE).thenCompose(modeRead ->
+                registry.read(ALGORITHM).thenCompose(algorithmRead ->
+                    registry.read(PARALLEL).thenApply(parallelRead -> {
+                        if (modeRead.error().isPresent()
+                            || algorithmRead.error().isPresent()
+                            || parallelRead.error().isPresent()) {
+                            return false;
+                        }
+                        confirmed = new TextureAtlasSettings(
+                            modeRead.value().value(),
+                            algorithmRead.value().value(),
+                            parallelRead.value().value()
+                        );
+                        revision = modeRead.value().revision();
+                        return true;
+                    })
+                )
+            ).handle((ignored, failure) -> {
+                if (failure != null || !enabled || epoch != active) return false;
+                return Boolean.TRUE.equals(ignored);
             });
         } catch (UnsupportedOperationException failure) {
             return CompletableFuture.completedStage(false);
@@ -69,11 +96,22 @@ final class TextureAtlasSettingsBinding {
         if (value.equals(confirmed)) return CompletableFuture.completedStage(true);
         final long active = epoch;
         try {
-            return registry.write(MODE, value.layoutMode(), revision).handle((write, failure) -> {
-                if (failure != null || !enabled || epoch != active || !write.written()) return false;
-                confirmed = value;
-                revision = write.revision();
-                return true;
+            return registry.write(MODE, value.layoutMode(), revision).thenCompose(modeWrite -> {
+                if (!modeWrite.written()) return CompletableFuture.completedStage(false);
+                return registry.write(ALGORITHM, value.algorithm(), modeWrite.revision())
+                    .thenCompose(algorithmWrite -> {
+                        if (!algorithmWrite.written()) return CompletableFuture.completedStage(false);
+                        return registry.write(PARALLEL, value.parallel(), algorithmWrite.revision())
+                            .thenApply(parallelWrite -> {
+                                if (!parallelWrite.written()) return false;
+                                confirmed = value;
+                                revision = parallelWrite.revision();
+                                return true;
+                            });
+                    });
+            }).handle((written, failure) -> {
+                if (failure != null || !enabled || epoch != active) return false;
+                return Boolean.TRUE.equals(written);
             });
         } catch (UnsupportedOperationException failure) {
             return CompletableFuture.completedStage(false);

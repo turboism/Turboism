@@ -39,6 +39,14 @@ public final class MaxRectsBssfTextureAtlasPlanner {
         final List<TextureAtlasLayoutItem> items,
         final TextureAtlasLayoutConstraints constraints
     ) {
+        return plan(items, constraints, false);
+    }
+
+    public TextureAtlasLayoutPlan plan(
+        final List<TextureAtlasLayoutItem> items,
+        final TextureAtlasLayoutConstraints constraints,
+        final boolean parallel
+    ) {
         Objects.requireNonNull(items, "items");
         Objects.requireNonNull(constraints, "constraints");
 
@@ -56,7 +64,7 @@ public final class MaxRectsBssfTextureAtlasPlanner {
 
         inputs.sort(ID_ORDER);
         for (TextureAtlasLayoutItem input : inputs) {
-            if (pageCandidates(List.of(input), constraints, 0).isEmpty()) {
+            if (pageCandidates(List.of(input), constraints, 0, false).isEmpty()) {
                 throw new TextureAtlasPackingException(
                     input.textureId(),
                     TextureAtlasPackingException.Reason.ITEM_DOES_NOT_FIT
@@ -67,7 +75,8 @@ public final class MaxRectsBssfTextureAtlasPlanner {
             inputs,
             constraints,
             0,
-            new HashMap<>()
+            new HashMap<>(),
+            parallel
         );
         if (result == null) {
             throw new TextureAtlasPackingException(
@@ -86,7 +95,8 @@ public final class MaxRectsBssfTextureAtlasPlanner {
         final List<TextureAtlasLayoutItem> remaining,
         final TextureAtlasLayoutConstraints constraints,
         final int pageIndex,
-        final Map<SearchKey, SearchResult> memo
+        final Map<SearchKey, SearchResult> memo,
+        final boolean parallel
     ) {
         if (remaining.isEmpty()) return new SearchResult(pageIndex, List.of());
         final int pagesLeft = constraints.maxPages() - pageIndex;
@@ -98,14 +108,14 @@ public final class MaxRectsBssfTextureAtlasPlanner {
         if (memo.containsKey(key)) return memo.get(key);
 
         SearchResult best = null;
-        for (CandidatePlan page : pageCandidates(remaining, constraints, pageIndex)) {
+        for (CandidatePlan page : pageCandidates(remaining, constraints, pageIndex, parallel)) {
             final Set<String> placedIds = page.plan().placements().stream()
                 .map(TextureAtlasPlacement::textureId)
                 .collect(java.util.stream.Collectors.toSet());
             final List<TextureAtlasLayoutItem> next = remaining.stream()
                 .filter(item -> !placedIds.contains(item.textureId()))
                 .toList();
-            final SearchResult tail = search(next, constraints, pageIndex + 1, memo);
+            final SearchResult tail = search(next, constraints, pageIndex + 1, memo, parallel);
             if (tail == null) continue;
             final List<TextureAtlasPlacement> combined = new ArrayList<>(page.plan().placements());
             combined.addAll(tail.placements());
@@ -119,17 +129,17 @@ public final class MaxRectsBssfTextureAtlasPlanner {
     private static List<CandidatePlan> pageCandidates(
         final List<TextureAtlasLayoutItem> items,
         final TextureAtlasLayoutConstraints constraints,
-        final int pageIndex
+        final int pageIndex,
+        final boolean parallel
     ) {
         final List<PreparedItem> prepared = prepare(items, constraints.itemPadding());
+        final java.util.stream.IntStream orders = java.util.stream.IntStream.range(0, CANDIDATE_ORDERS.size());
+        final List<CandidatePlan> computed = (parallel ? orders.parallel() : orders)
+            .mapToObj(orderIndex -> candidateForOrder(prepared, constraints, orderIndex, pageIndex))
+            .filter(candidate -> candidate != null && !candidate.plan().placements().isEmpty())
+            .toList();
         final Map<List<String>, CandidatePlan> unique = new LinkedHashMap<>();
-        for (int orderIndex = 0; orderIndex < CANDIDATE_ORDERS.size(); orderIndex++) {
-            final Comparator<TextureAtlasLayoutItem> order = CANDIDATE_ORDERS.get(orderIndex)
-                .thenComparing(ID_ORDER);
-            final List<PreparedItem> ordered = new ArrayList<>(prepared);
-            ordered.sort(Comparator.comparing(PreparedItem::item, order));
-            final CandidatePlan candidate = tryCandidate(ordered, constraints, orderIndex, pageIndex);
-            if (candidate == null || candidate.plan().placements().isEmpty()) continue;
+        for (CandidatePlan candidate : computed) {
             final List<String> ids = candidate.plan().placements().stream()
                 .map(TextureAtlasPlacement::textureId).sorted().toList();
             unique.merge(ids, candidate, (left, right) ->
@@ -138,6 +148,19 @@ public final class MaxRectsBssfTextureAtlasPlanner {
         final List<CandidatePlan> candidates = new ArrayList<>(unique.values());
         candidates.sort(CandidatePlan.ORDER);
         return candidates;
+    }
+
+    private static CandidatePlan candidateForOrder(
+        final List<PreparedItem> prepared,
+        final TextureAtlasLayoutConstraints constraints,
+        final int orderIndex,
+        final int pageIndex
+    ) {
+        final Comparator<TextureAtlasLayoutItem> order = CANDIDATE_ORDERS.get(orderIndex)
+            .thenComparing(ID_ORDER);
+        final List<PreparedItem> ordered = new ArrayList<>(prepared);
+        ordered.sort(Comparator.comparing(PreparedItem::item, order));
+        return tryCandidate(ordered, constraints, orderIndex, pageIndex);
     }
 
     private static CandidatePlan bestPage(

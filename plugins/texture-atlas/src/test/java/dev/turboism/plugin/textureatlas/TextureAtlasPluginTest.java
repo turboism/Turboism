@@ -59,7 +59,7 @@ class TextureAtlasPluginTest {
         plugin.enable();
 
         assertEquals(TextureAtlasLayoutMode.PART_BUCKET, plugin.settings().layoutMode());
-        assertTrue(plugin.updateSettings(new TextureAtlasSettings(TextureAtlasLayoutMode.COMPACT)));
+        assertTrue(plugin.updateSettings(new TextureAtlasSettings(TextureAtlasLayoutMode.COMPACT, TextureAtlasLayoutAlgorithm.MAXRECTS, false)));
         assertEquals(TextureAtlasLayoutMode.COMPACT, plugin.settings().layoutMode());
 
         plugin.disable();

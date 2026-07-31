@@ -45,8 +45,12 @@ class VerifiedTextureAtlasAutoLayoutHookInstallerTest {
 
         assertEquals(List.of(
             "add:true",
+            "add:true",
+            "retransform:" + Target.class.getName(),
             "retransform:" + Target.class.getName(),
             "remove",
+            "remove",
+            "retransform:" + Target.class.getName(),
             "retransform:" + Target.class.getName()
         ), calls);
     }
@@ -118,17 +122,35 @@ class VerifiedTextureAtlasAutoLayoutHookInstallerTest {
         final Set<String> capabilities
     ) {
         final String owner = Target.class.getName().replace('.', '/');
+        final List<StaticSelector> selectors = new ArrayList<>();
+        selectors.add(StaticSelector.method(
+            VerifiedTextureAtlasAutoLayoutHookInstaller.AUTO_LAYOUT_ALIAS,
+            owner,
+            "a",
+            "(Ljava/lang/Object;)Z",
+            StaticSelector.ACCESS_PUBLIC
+        ));
+        for (String alias : version.equals("5.2.0")
+            ? VerifiedCubism520TextureAtlasSelectorContract.NATIVE_INVOCATION_ALIASES
+            : VerifiedCubism5302TextureAtlasSelectorContract.NATIVE_INVOCATION_ALIASES) {
+            selectors.add(StaticSelector.classSelector(alias, owner));
+        }
+        for (String alias : version.equals("5.2.0")
+            ? VerifiedCubism520TextureAtlasSelectorContract.DIALOG_INJECTION_ALIASES
+            : VerifiedCubism5302TextureAtlasSelectorContract.DIALOG_INJECTION_ALIASES) {
+            if (alias.equals(VerifiedTextureAtlasAutoLayoutHookInstaller.DIALOG_INIT_ALIAS)) {
+                selectors.add(StaticSelector.method(
+                    alias, owner, "openDialog", "(Ljava/lang/Object;)V", StaticSelector.ACCESS_PUBLIC
+                ));
+            } else {
+                selectors.add(StaticSelector.classSelector(alias, owner));
+            }
+        }
         return TestVerifiedResolvers.create(
             version,
             adapterSliceId,
             capabilities,
-            List.of(StaticSelector.method(
-                VerifiedTextureAtlasAutoLayoutHookInstaller.AUTO_LAYOUT_ALIAS,
-                owner,
-                "a",
-                "(Ljava/lang/Object;)Z",
-                StaticSelector.ACCESS_PUBLIC
-            )),
+            selectors,
             Target.class.getClassLoader()
         );
     }
