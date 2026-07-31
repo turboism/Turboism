@@ -155,6 +155,50 @@ class MainToolbarPluginTest {
     }
 
     @Test
+    void pluginActionFailureIsReportedAndPanelRefreshesWithoutThrowing() throws Exception {
+        final RecordingPluginContext context = new RecordingPluginContext();
+        final CorePluginManagement management = new CorePluginManagement() {
+            @Override public List<PluginInfo> plugins() {
+                return List.of(new PluginInfo(
+                    "example.plugin", "Example", "1.0.0", "", "ENABLED", "ENABLED", false, Optional.empty()
+                ));
+            }
+            @Override public OperationResult install() { return OperationResult.rejected("Unavailable"); }
+            @Override public OperationResult uninstall(final String id) { return OperationResult.rejected("Unavailable"); }
+            @Override public OperationResult setEnabled(final String id, final boolean enabled) {
+                throw new IllegalStateException("duplicate desired-state write");
+            }
+        };
+        final MainToolbarPlugin plugin = plugin(management);
+
+        plugin.init(context);
+        plugin.enable();
+        context.actions().execute("turboism.core.plugins.disable.example.plugin");
+
+        assertEquals(1, context.uiHost().panelContributions().size());
+        assertTrue(context.recordedLogger().warnings.contains("Plugin operation failed safely."));
+    }
+
+    @Test
+    void acceptedPluginOperationRefreshesPanelToPendingWithoutStaleControls() throws Exception {
+        final RecordingPluginContext context = new RecordingPluginContext();
+        final PendingPluginManagement management = new PendingPluginManagement();
+        final MainToolbarPlugin plugin = plugin(management);
+
+        plugin.init(context);
+        plugin.enable();
+        assertTrue(context.uiHost().panelContributions().get(0).content().toString().contains("Disable"));
+
+        context.actions().execute("turboism.core.plugins.disable.example.plugin");
+
+        final String refreshed = context.uiHost().panelContributions().get(0).content().toString();
+        assertTrue(refreshed.contains("pending=DISABLE"));
+        assertTrue(!refreshed.contains("label=Disable"));
+        assertTrue(!refreshed.contains("label=Enable"));
+        assertTrue(!refreshed.contains("label=Uninstall"));
+    }
+
+    @Test
     void enableAllowsMainToolbar_whenPermissionGranted() throws Exception {
         RecordingPluginContext context = new RecordingPluginContext(new PermissionGatedUiHost(true, true));
         MainToolbarPlugin plugin = plugin();
@@ -252,6 +296,26 @@ class MainToolbarPluginTest {
         @Override public void close() { closed = true; }
     }
 
+    private static final class PendingPluginManagement implements CorePluginManagement {
+        private boolean disabled;
+        @Override public List<PluginInfo> plugins() {
+            return List.of(new PluginInfo(
+                "example.plugin", "Example", "1.0.0", "", "ENABLED",
+                disabled ? "DISABLED" : "ENABLED", false,
+                disabled ? Optional.of("DISABLE") : Optional.empty()
+            ));
+        }
+        @Override public OperationResult install() { return OperationResult.rejected("Unavailable"); }
+        @Override public OperationResult uninstall(final String id) { return OperationResult.rejected("Unavailable"); }
+        @Override public OperationResult setEnabled(final String id, final boolean enabled) {
+            disabled = !enabled;
+            return OperationResult.accepted(
+                enabled ? "PLUGIN_ENABLE_PENDING" : "PLUGIN_DISABLE_PENDING",
+                (enabled ? "Enable" : "Disable") + " is pending; restart Cubism to apply it."
+            );
+        }
+    }
+
     private static final class RecordingPluginContext implements PluginContext {
         private final RecordingActionRegistry actions = new RecordingActionRegistry();
         private final RecordingMenuRegistry menus = new RecordingMenuRegistry();
@@ -269,6 +333,8 @@ class MainToolbarPluginTest {
             this.uiHost = uiHost;
             this.mainToolbar = new RecordingMainToolbarRegistry(uiHost);
         }
+
+        NoopPluginLogger recordedLogger() { return (NoopPluginLogger) logger; }
 
         @Override
         public PluginDescriptor descriptor() {
@@ -664,24 +730,11 @@ class MainToolbarPluginTest {
     }
 
     private static final class NoopPluginLogger implements PluginLogger {
-        @Override
-        public void debug(String message) {
-        }
-
-        @Override
-        public void info(String message) {
-        }
-
-        @Override
-        public void warn(String message) {
-        }
-
-        @Override
-        public void error(String message) {
-        }
-
-        @Override
-        public void error(String message, Throwable throwable) {
-        }
+        private final List<String> warnings = new ArrayList<>();
+        @Override public void debug(String message) { }
+        @Override public void info(String message) { }
+        @Override public void warn(String message) { warnings.add(message); }
+        @Override public void error(String message) { }
+        @Override public void error(String message, Throwable throwable) { }
     }
 }

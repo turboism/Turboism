@@ -68,6 +68,26 @@ class RuntimePluginManagementServiceTest {
     }
 
     @Test
+    void repeatedInstallAndUninstallReplaceTheSamePendingIntent() throws Exception {
+        installNow("example.plugin", "1.0.0");
+        final Path update = home.resolve("update.tplugin");
+        Files.write(update, PluginManagementPackageFixture.packageBytes("example.plugin", "2.0.0"));
+        final RuntimePluginManagementService service = service(() -> Optional.of(update));
+
+        assertEquals("PLUGIN_INSTALL_PENDING", service.install().code());
+        assertEquals("PLUGIN_INSTALL_PENDING", service.install().code());
+        assertEquals(1, service.plugins().stream().filter(plugin ->
+            plugin.id().equals("example.plugin") && plugin.pendingOperation().orElse("").equals("INSTALL")
+        ).count());
+
+        assertEquals("PLUGIN_UNINSTALL_PENDING", service.uninstall("example.plugin").code());
+        assertEquals("PLUGIN_UNINSTALL_PENDING", service.uninstall("example.plugin").code());
+        assertEquals(1, service.plugins().stream().filter(plugin ->
+            plugin.id().equals("example.plugin") && plugin.pendingOperation().orElse("").equals("UNINSTALL")
+        ).count());
+    }
+
+    @Test
     void rejectsReservedCorePackage() throws Exception {
         final Path source = home.resolve("core.tplugin");
         Files.write(source, PluginManagementPackageFixture.packageBytes(CorePluginManagement.CORE_PLUGIN_ID, "1.0.0"));
