@@ -1,0 +1,37 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 2,
+  "id": "dev.turboism.validation.history-float",
+  "name": "History Float Probe",
+  "version": "0.1.0",
+  "description": "Manual-test-only probe for floating an embedded panel via the SDK.",
+  "entrypoints": [
+    "dev.turboism.tests.plugin.WindowsHistoryFloatProbe"
+  ],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    { "name": "Turboism Contributors" }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": []
+  },
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.ui.panel.contribute",
+      "scope": "application",
+      "reason": "Contribute and float a probe panel on the exact host."
+    }
+  ],
+  "capabilities": [
+    "ui.embedded-panel.contribute"
+  ],
+  "environment": {
+    "requiresCubism": false,
+    "ui": "embedded"
+  }
+}

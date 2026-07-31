@@ -14,7 +14,9 @@
   ],
   "license": "Project License",
   "website": "https://turboism.dev",
-  "resources": [],
+  "resources": [
+    "icons/"
+  ],
   "i18n": {
     "baseName": "META-INF/turboism/i18n/messages",
     "locales": []
