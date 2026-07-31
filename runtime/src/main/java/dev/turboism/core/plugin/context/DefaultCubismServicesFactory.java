@@ -14,6 +14,7 @@ import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.adapter.host.PluginScopedCubismModelAccess;
 import dev.turboism.adapter.cubism.physics.PhysicsEditorCoordinator;
 
+import dev.turboism.sdk.cubism.history.CubismHistory;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 final class DefaultCubismServicesFactory implements CubismServicesFactory {
@@ -28,6 +29,7 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
     private final PartLifecycleCoordinator partLifecycle;
     private final EditorObjectLifecycleCoordinator editorObjectLifecycle;
     private final PhysicsEditorCoordinator physicsEditorCoordinator;
+    private CubismHistory history = CubismHistory.unavailable();
 
     DefaultCubismServicesFactory() {
         this(RuntimeHostAdapters.safeMode());
@@ -114,6 +116,19 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
         );
     }
 
+    DefaultCubismServicesFactory(
+        final RuntimeHostAdapters hostAdapters,
+        final CubismModelAccess modelAccess,
+        final ParameterLifecycleCoordinator parameterLifecycle,
+        final PartLifecycleCoordinator partLifecycle,
+        final EditorObjectLifecycleCoordinator editorObjectLifecycle,
+        final PhysicsEditorCoordinator physicsEditorCoordinator,
+        final CubismHistory history
+    ) {
+        this(hostAdapters, modelAccess, parameterLifecycle, partLifecycle, editorObjectLifecycle, physicsEditorCoordinator);
+        this.history = java.util.Objects.requireNonNull(history, "history");
+    }
+
     @Override
     public CubismContextServices create(final CorePluginContext.Dependencies dependencies) {
         final CubismPermissionGate permissionGate = new CubismPermissionGate(
@@ -135,7 +150,8 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
             parameterLifecycle,
             partLifecycle,
             editorObjectLifecycle,
-            activeScope::get
+            activeScope::get,
+            history
         );
         return new CubismContextServices(
             facade,
