@@ -29,19 +29,40 @@ public final class RuntimeTextureAtlasLayoutService implements TextureAtlasLayou
 
     private final TextureAtlasLayoutCoordinator coordinator;
     private final CubismPermissionGate permissionGate;
+    private final TextureAtlasNativeInvocationCoordinator nativeInvocations;
     private final Object ownerToken = new Object();
 
     public RuntimeTextureAtlasLayoutService(
         final TextureAtlasLayoutCoordinator coordinator,
         final CubismPermissionGate permissionGate
     ) {
+        this(coordinator, permissionGate, new TextureAtlasNativeInvocationCoordinator());
+    }
+
+    public RuntimeTextureAtlasLayoutService(
+        final TextureAtlasLayoutCoordinator coordinator,
+        final CubismPermissionGate permissionGate,
+        final TextureAtlasNativeInvocationCoordinator nativeInvocations
+    ) {
         this.coordinator = Objects.requireNonNull(coordinator, "coordinator");
         this.permissionGate = Objects.requireNonNull(permissionGate, "permissionGate");
+        this.nativeInvocations = Objects.requireNonNull(nativeInvocations, "nativeInvocations");
     }
 
     @Override
     public Optional<TextureAtlasLayoutSnapshot> current() {
         permissionGate.require(READ_PERMISSION, "textureAtlasLayouts.current", CAPABILITY);
+        final Optional<TextureAtlasNativeInvocationCoordinator.Invocation> nativeInvocation =
+            nativeInvocations.current();
+        if (nativeInvocation.isPresent()) {
+            final TextureAtlasNativeInvocationCoordinator.Invocation invocation = nativeInvocation.orElseThrow();
+            final TextureAtlasAuthoringState state = invocation.session().state();
+            return Optional.of(new TextureAtlasLayoutSnapshot(
+                new NativeTarget(ownerToken, invocation),
+                state.documentId(), state.modelId(), state.atlasId(),
+                state.constraints(), state.items(), state.currentPlan()
+            ));
+        }
         return coordinator.current().map(snapshot -> {
             final TextureAtlasAuthoringState state = snapshot.state();
             return new TextureAtlasLayoutSnapshot(
@@ -67,6 +88,28 @@ public final class RuntimeTextureAtlasLayoutService implements TextureAtlasLayou
             permissionGate.require(WRITE_PERMISSION, "textureAtlasLayouts.apply", CAPABILITY);
         } catch (CubismPermissionException exception) {
             return failed(TextureAtlasLayoutFailureCode.PERMISSION_DENIED, "Texture atlas write permission is denied.");
+        }
+        if (target instanceof NativeTarget nativeTarget) {
+            final Optional<TextureAtlasNativeInvocationCoordinator.Invocation> current = nativeInvocations.current();
+            if (!nativeTarget.ownedBy(ownerToken)
+                || current.isEmpty()
+                || current.orElseThrow() != nativeTarget.invocation()) {
+                return failed(TextureAtlasLayoutFailureCode.TARGET_STALE, "The texture atlas target is stale.");
+            }
+            final TextureAtlasNativeInvocationCoordinator.Invocation invocation = current.orElseThrow();
+            final TextureAtlasAuthoringState state = invocation.session().state();
+            final Optional<String> issue = validate(state, plan);
+            if (issue.isPresent()) {
+                return failed(TextureAtlasLayoutFailureCode.PLAN_INVALID, issue.orElseThrow());
+            }
+            final TextureAtlasLayoutProvider.ApplyOutcome outcome = invocation.session().apply(plan);
+            if (outcome == TextureAtlasLayoutProvider.ApplyOutcome.REJECTED) {
+                return failed(TextureAtlasLayoutFailureCode.PROVIDER_REJECTED, "Native texture atlas invocation rejected the validated plan.");
+            }
+            invocation.handled(true);
+            return outcome == TextureAtlasLayoutProvider.ApplyOutcome.NO_CHANGE
+                ? TextureAtlasLayoutApplyResult.noChange()
+                : TextureAtlasLayoutApplyResult.applied();
         }
         if (!(target instanceof RuntimeTarget runtimeTarget) || !runtimeTarget.ownedBy(ownerToken)) {
             return failed(TextureAtlasLayoutFailureCode.TARGET_STALE, "The texture atlas target is stale.");
@@ -150,6 +193,17 @@ public final class RuntimeTextureAtlasLayoutService implements TextureAtlasLayou
         final String message
     ) {
         return TextureAtlasLayoutApplyResult.failed(code, message);
+    }
+
+    private record NativeTarget(
+        Object ownerToken,
+        TextureAtlasNativeInvocationCoordinator.Invocation invocation
+    ) implements TextureAtlasLayoutTarget {
+        private NativeTarget {
+            ownerToken = Objects.requireNonNull(ownerToken, "ownerToken");
+            invocation = Objects.requireNonNull(invocation, "invocation");
+        }
+        boolean ownedBy(final Object candidate) { return ownerToken == candidate; }
     }
 
     private record RuntimeTarget(

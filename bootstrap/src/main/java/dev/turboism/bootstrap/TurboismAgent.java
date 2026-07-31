@@ -326,7 +326,15 @@ public final class TurboismAgent {
             installer = VerifiedTextureAtlasAutoLayoutHookInstaller.fromVerifiedResolver(
                 instrumentation,
                 runtime.editorModelResolver(),
-                host.classLoader()
+                host.classLoader(),
+                runtime.hostAccess().textureAtlasNativeInvocations(),
+                () -> {
+                    final Object callback = System.getProperties().get(
+                        VerifiedTextureAtlasAutoLayoutHookInstaller.PLUGIN_CALLBACK_KEY
+                    );
+                    return callback instanceof java.util.function.BooleanSupplier supplier
+                        && supplier.getAsBoolean();
+                }
             );
             installer.install();
             if (!TEXTURE_ATLAS_AUTO_LAYOUT_HOOK.compareAndSet(null, installer)) {

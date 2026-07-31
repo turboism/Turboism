@@ -14,6 +14,8 @@ public final class TextureAtlasPlugin implements TurboismPlugin {
 
     static final String NATIVE_AUTO_LAYOUT_CALLBACK_KEY =
         "dev.turboism.texture-atlas.auto-layout.callback";
+    static final String DIALOG_ALGORITHM_KEY = "dev.turboism.texture-atlas.dialog.algorithm";
+    static final String DIALOG_PARALLEL_KEY = "dev.turboism.texture-atlas.dialog.parallel";
 
     private PluginContext context;
     private boolean enabled;
@@ -42,12 +44,13 @@ public final class TextureAtlasPlugin implements TurboismPlugin {
         if (autoLayoutService == null) composeAutoLayoutService();
         lifecycle.activate();
         enabled = true;
-        System.getProperties().put(NATIVE_AUTO_LAYOUT_CALLBACK_KEY, nativeAutoLayoutCallback);
+        System.getProperties().putIfAbsent(NATIVE_AUTO_LAYOUT_CALLBACK_KEY, nativeAutoLayoutCallback);
+        publishDialogState();
     }
 
     @Override
     public void disable() {
-        System.getProperties().remove(NATIVE_AUTO_LAYOUT_CALLBACK_KEY, nativeAutoLayoutCallback);
+        removeNativeCallback();
         enabled = false;
         settings.disable();
         if (lifecycle != null) lifecycle.deactivate();
@@ -55,7 +58,7 @@ public final class TextureAtlasPlugin implements TurboismPlugin {
 
     @Override
     public void shutdown() {
-        System.getProperties().remove(NATIVE_AUTO_LAYOUT_CALLBACK_KEY, nativeAutoLayoutCallback);
+        removeNativeCallback();
         enabled = false;
         settings.shutdown();
         if (lifecycle != null) lifecycle.close();
@@ -87,9 +90,10 @@ public final class TextureAtlasPlugin implements TurboismPlugin {
     }
 
     private void composeAutoLayoutService() {
+        final boolean parallel = settings.confirmed().parallel();
         final TextureAtlasLayoutPlanner planner = settings.confirmed().layoutMode()
             == TextureAtlasLayoutMode.COMPACT
-            ? new MaxRectsBssfTextureAtlasPlanner()::plan
+            ? (items, constraints) -> new MaxRectsBssfTextureAtlasPlanner().plan(items, constraints, parallel)
             : new PartBucketTextureAtlasPlanner()::plan;
         autoLayoutService = new TextureAtlasAutoLayoutService(
             context.cubism().textureAtlasLayouts(),
@@ -100,6 +104,11 @@ public final class TextureAtlasPlugin implements TurboismPlugin {
 
     private boolean applyFromNativeEntry() {
         try {
+            syncDialogState();
+            if (settings.confirmed().algorithm() == TextureAtlasLayoutAlgorithm.NATIVE) {
+                context.logger().info("Texture Atlas automatic layout delegated to Cubism native algorithm");
+                return false;
+            }
             final TextureAtlasLayoutApplyResult result = autoLayoutService().applyAutomaticLayout();
             if (result.status().isPresent()) {
                 context.logger().info(
@@ -117,6 +126,39 @@ public final class TextureAtlasPlugin implements TurboismPlugin {
                 context.logger().error("Texture Atlas native automatic-layout entry failed safely.", failure);
             }
             return false;
+        }
+    }
+
+    /** Publishes the persisted policy to the runtime dialog ingress so the dialog restores it. */
+    private void publishDialogState() {
+        final TextureAtlasSettings confirmed = settings.confirmed();
+        System.getProperties().put(
+            DIALOG_ALGORITHM_KEY,
+            confirmed.algorithm() == TextureAtlasLayoutAlgorithm.NATIVE ? "native" : "maxrects"
+        );
+        System.getProperties().put(DIALOG_PARALLEL_KEY, String.valueOf(confirmed.parallel()));
+    }
+
+    /** Bridges a dialog change back into the persisted global Turboism configuration. */
+    private void syncDialogState() {
+        final String algorithm = System.getProperty(DIALOG_ALGORITHM_KEY, "maxrects");
+        final boolean parallel = "true".equals(System.getProperty(DIALOG_PARALLEL_KEY, "false"));
+        final TextureAtlasSettings confirmed = settings.confirmed();
+        final TextureAtlasLayoutAlgorithm selected = "native".equals(algorithm)
+            ? TextureAtlasLayoutAlgorithm.NATIVE
+            : TextureAtlasLayoutAlgorithm.MAXRECTS;
+        if (confirmed.algorithm() == selected && confirmed.parallel() == parallel) {
+            return;
+        }
+        updateSettings(new TextureAtlasSettings(
+            confirmed.layoutMode(), selected, parallel
+        ));
+    }
+
+    private void removeNativeCallback() {
+        final Object value = System.getProperties().get(NATIVE_AUTO_LAYOUT_CALLBACK_KEY);
+        if (value == nativeAutoLayoutCallback) {
+            System.getProperties().remove(NATIVE_AUTO_LAYOUT_CALLBACK_KEY);
         }
     }
 
