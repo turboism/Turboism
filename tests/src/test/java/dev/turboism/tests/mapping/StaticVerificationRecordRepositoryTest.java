@@ -186,8 +186,8 @@ class StaticVerificationRecordRepositoryTest {
             "Live2D_Cubism.jar",
             40_805_584L,
             "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
-            "1bfc1d97574dbd08405357b9453f0fc6adbeb5ebe581e9dd6c30f162bd13bae9",
-            199,
+            "7330600cbb73d595811b2a2e76c5ea81793ee807534bf7a68c4dedb8deb261f7",
+            211,
             editorModel52Aliases(),
             editorModel52Aliases(),
             editorModel52MethodAliases(),
@@ -209,7 +209,7 @@ class StaticVerificationRecordRepositoryTest {
             EditorModelVerificationManifest.ARTIFACT_SIZE,
             EditorModelVerificationManifest.ARTIFACT_SHA256,
             EditorModelVerificationManifest.RECORD_SHA256,
-            203,
+            215,
             EditorModelVerificationManifest.REQUIRED_ALIASES,
             EditorModelVerificationManifest.REQUIRED_ALIASES,
             editorModelMethodAliases(),
@@ -413,7 +413,7 @@ class StaticVerificationRecordRepositoryTest {
                 "cubism-5.2",
                 40_805_584L,
                 "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
-                "2f4324fdca6f212056fd1baf7339419a54d544ef2f17d1b363a17bac67717258",
+                "3a4c23ebf6f20d991596e3959a11df53b9a363f9749e045691ca93087f897fa1",
                 "cubism-5.2-ui-bounding-box-overlay",
                 "[5.2.0,5.3.0)"
             )
@@ -426,7 +426,7 @@ class StaticVerificationRecordRepositoryTest {
                 "cubism-5.3.02",
                 41_922_739L,
                 "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
-                "13a9129df6034b5a457c37dee32d37a645f6d99a2048566b5c816a1766021b0f",
+                "dd7df8bb72f753eba385fe9b3880addca3b7b03e4deb958d2bfd3c5ad23863b9",
                 "cubism-5.3.02-ui-bounding-box-overlay",
                 "[5.3.02,5.3.03)"
             )
@@ -732,7 +732,18 @@ class StaticVerificationRecordRepositoryTest {
             "cubism.editor-history.manager.can-redo",
             "cubism.editor-history.entry.presentation-name",
             "cubism.editor-history.entry.significant",
-            "cubism.editor-history.manager.move-to"
+            "cubism.editor-history.manager.move-to",
+            "cubism.editor-model.keyform-grid.bindings",
+            "cubism.editor-model.keyform-binding.parameter-id",
+            "cubism.editor-model.keyform-binding.parameter-guid",
+            "cubism.editor-model.keyform-binding.keys",
+            "cubism.editor-model.keyform-grid.find-binding",
+            "cubism.editor-model.keyform-grid.reverse-parameter",
+            "cubism.editor-model.keyform-grid.change-parameter",
+            "cubism.editor-model.keyform-grid.add-key",
+            "cubism.editor-model.keyform-grid.remove-key",
+            "cubism.editor-model.keyform-grid.remove-all-key",
+            "cubism.editor-model.keyform-grid.rearrange-keys
         );
     }
 
