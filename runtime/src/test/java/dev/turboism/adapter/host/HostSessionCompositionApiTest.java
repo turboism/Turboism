@@ -61,6 +61,7 @@ class HostSessionCompositionApiTest {
                 "parameterLifecycle():dev.turboism.adapter.cubism.lifecycle.ParameterLifecycleCoordinator",
                 "partLifecycle():dev.turboism.adapter.cubism.lifecycle.PartLifecycleCoordinator",
                 "textureAtlasLayouts():dev.turboism.adapter.cubism.textureatlas.TextureAtlasLayoutCoordinator",
+                "textureAtlasNativeInvocations():dev.turboism.adapter.cubism.textureatlas.TextureAtlasNativeInvocationCoordinator",
                 "editorObjectLifecycle():dev.turboism.adapter.cubism.lifecycle.EditorObjectLifecycleCoordinator",
                 "physicsEditorCoordinator():dev.turboism.adapter.cubism.physics.PhysicsEditorCoordinator",
                 "controlAppearanceCoordinator():dev.turboism.ui.appearance.control.ControlAppearanceCoordinator",
