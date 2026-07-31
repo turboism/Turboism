@@ -154,17 +154,19 @@ public final class MainToolbarHomeEntryService {
                     + plugin.id() + (plugin.description().isBlank() ? "" : " — " + plugin.description())
             ));
             if (!plugin.core()) {
-                content.add(PanelView.row(
-                    PanelView.button(
+                final List<PanelView> actions = new ArrayList<>();
+                if (plugin.pendingOperation().isEmpty()) {
+                    actions.add(PanelView.button(
                         "toggle-" + plugin.id(), plugin.desiredState().equals("ENABLED") ? "Disable" : "Enable",
                         (plugin.desiredState().equals("ENABLED") ? "turboism.core.plugins.disable." : "turboism.core.plugins.enable.") + plugin.id()
-                    ),
-                    PanelView.button(
+                    ));
+                    actions.add(PanelView.button(
                         "uninstall-" + plugin.id(), "Uninstall",
                         "turboism.core.plugins.uninstall." + plugin.id()
-                    )
-                ));
-            }
+                    ));
+                }
+                if (!actions.isEmpty()) content.add(new PanelView.Row(actions));
+        }
         }
         return new PanelView.Column(content);
     }

@@ -19,6 +19,7 @@ public final class MainToolbarPlugin implements TurboismPlugin {
     private final CorePluginServices services;
     private CorePluginManagement plugins;
     private dev.turboism.sdk.runtime.RuntimeSettings settings;
+    private Registration panelRegistration;
 
     public MainToolbarPlugin() {
         services = CorePluginServices.consume();
@@ -45,7 +46,7 @@ public final class MainToolbarPlugin implements TurboismPlugin {
         registerSettingsActions();
         registerPluginActions();
         context.disposableScope().register(plugins);
-        context.disposableScope().register(homeEntryService.registerTurboismPanel());
+        refreshPanel();
         context.disposableScope().register(homeEntryService.registerSettingsMenu());
         context.disposableScope().register(homeEntryService.registerPluginManagementMenu());
         context.disposableScope().register(homeEntryService.registerHomeEntry());
@@ -71,20 +72,45 @@ public final class MainToolbarPlugin implements TurboismPlugin {
 
     private void registerPluginActions() {
         registerAction(MainToolbarHomeEntryService.INSTALL_ACTION_ID, "Install plugin", ignored ->
-            plugins.requestInstall(this::report));
+            plugins.requestInstall(this::completeOperation));
         for (CorePluginManagement.PluginInfo plugin : plugins.plugins()) {
             if (plugin.core()) continue;
             registerAction("turboism.core.plugins.enable." + plugin.id(), "Enable " + plugin.name(), ignored ->
-                report(plugins.setEnabled(plugin.id(), true)));
+                runOperation(() -> plugins.setEnabled(plugin.id(), true)));
             registerAction("turboism.core.plugins.disable." + plugin.id(), "Disable " + plugin.name(), ignored ->
-                report(plugins.setEnabled(plugin.id(), false)));
+                runOperation(() -> plugins.setEnabled(plugin.id(), false)));
             registerAction("turboism.core.plugins.uninstall." + plugin.id(), "Uninstall " + plugin.name(), ignored -> {
                 if (context.uiHost().confirmDialog(new DialogRequest(
                     "turboism.core.plugins.uninstall.confirm", "Uninstall plugin",
                     "Uninstall " + plugin.name() + "? Plugin settings and data will be kept."
-                ))) report(plugins.uninstall(plugin.id()));
+                ))) runOperation(() -> plugins.uninstall(plugin.id()));
             });
         }
+    }
+
+    private void runOperation(final java.util.function.Supplier<CorePluginManagement.OperationResult> operation) {
+        try {
+            completeOperation(operation.get());
+        } catch (RuntimeException failure) {
+            completeOperation(CorePluginManagement.OperationResult.rejected(
+                "PLUGIN_OPERATION_FAILED", "Plugin operation failed safely."
+            ));
+        }
+    }
+
+    private void completeOperation(final CorePluginManagement.OperationResult result) {
+        report(result);
+        try {
+            refreshPanel();
+        } catch (RuntimeException failure) {
+            logger.warn("Plugin management panel refresh failed safely");
+        }
+    }
+
+    private void refreshPanel() {
+        if (panelRegistration != null) panelRegistration.close();
+        panelRegistration = homeEntryService.registerTurboismPanel();
+        context.disposableScope().register(panelRegistration);
     }
 
     private void report(final CorePluginManagement.OperationResult result) {
