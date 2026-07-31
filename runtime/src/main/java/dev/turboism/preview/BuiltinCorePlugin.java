@@ -27,6 +27,7 @@ final class BuiltinCorePlugin {
         final PreviewLog log
     ) throws Exception {
         final ClassLoader loader = MainToolbarPlugin.class.getClassLoader();
+        final URLClassLoader resources = resourceLoader(loader);
         final PluginDescriptor descriptor;
         try (InputStream input = loader.getResourceAsStream(DESCRIPTOR)) {
             if (input == null) throw new IllegalStateException("built-in core descriptor is missing");
@@ -39,7 +40,7 @@ final class BuiltinCorePlugin {
         runtime.transitionTo(PluginLifecycleState.RESOLVED);
         runtime.transitionTo(PluginLifecycleState.CLASSLOADER_CREATED);
         final DisposableScope scope = new DisposableScope();
-        final PluginContextBundle context = contexts.create(descriptor, loader, scope);
+        final PluginContextBundle context = contexts.create(descriptor, resources, scope);
         final TurboismPlugin plugin = CorePluginServices.instantiate(services, MainToolbarPlugin::new);
         runtime.setEntrypoints(List.of(plugin));
         runtime.transitionTo(PluginLifecycleState.CONSTRUCTED);
@@ -51,8 +52,13 @@ final class BuiltinCorePlugin {
         final Path artifact = Path.of(source.toURI()).toAbsolutePath().normalize();
         log.info(descriptor.id(), "Loaded Runtime-owned built-in core " + descriptor.version());
         return new LocalPluginRuntime.LoadedPlugin(
-            artifact, runtime, List.of(plugin), scope, new URLClassLoader(new URL[0], loader),
+            artifact, runtime, List.of(plugin), scope, resources,
             context.localization(), context.cleanupEvidence()
         );
+    }
+
+    static URLClassLoader resourceLoader(final ClassLoader loader) {
+        final URL source = MainToolbarPlugin.class.getProtectionDomain().getCodeSource().getLocation();
+        return new URLClassLoader(new URL[]{source}, loader);
     }
 }
