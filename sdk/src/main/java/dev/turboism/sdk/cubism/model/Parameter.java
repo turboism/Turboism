@@ -4,6 +4,7 @@ import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.id.ParameterId;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.List;
 
 /** One Cubism parameter. */
 @PreviewApi
@@ -47,6 +48,13 @@ public interface Parameter {
      */
     default Optional<ParameterId> combinedWith() {
         return Optional.empty();
+    }
+
+    /** Returns this parameter's generation-bound Editor authoring bindings. */
+    default List<ParameterBinding> getParameterBindings() {
+        throw new UnsupportedOperationException(
+            "Parameter binding projection is unavailable for this backend."
+        );
     }
 
     /**
