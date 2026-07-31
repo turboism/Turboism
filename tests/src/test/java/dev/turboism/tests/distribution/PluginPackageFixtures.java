@@ -149,6 +149,39 @@ final class PluginPackageFixtures {
         return output.toByteArray();
     }
 
+    static byte[] zipEntries(Map<String, byte[]> entries) throws Exception { return zip(entries); }
+
+    static byte[] clearUtf8Flags(byte[] source) { return rewriteFlags(source, flags -> flags & ~0x0800); }
+
+    static byte[] addFlag(byte[] source, int flag) { return rewriteFlags(source, flags -> flags | flag); }
+
+    private static byte[] rewriteFlags(byte[] source, java.util.function.IntUnaryOperator change) {
+        final byte[] bytes = source.clone();
+        for (int at = 0; at <= bytes.length - 4; at++) {
+            final boolean local = uint(bytes, at) == 0x04034b50L;
+            final boolean central = uint(bytes, at) == 0x02014b50L;
+            if (local || central) {
+                final int flagAt = at + (local ? 6 : 8);
+                putShort(bytes, flagAt, change.applyAsInt(ushort(bytes, flagAt)));
+            }
+        }
+        return bytes;
+    }
+
+    private static int ushort(byte[] bytes, int at) {
+        return (bytes[at] & 255) | (bytes[at + 1] & 255) << 8;
+    }
+
+    private static long uint(byte[] bytes, int at) {
+        return (bytes[at] & 255L) | (bytes[at + 1] & 255L) << 8
+            | (bytes[at + 2] & 255L) << 16 | (bytes[at + 3] & 255L) << 24;
+    }
+
+    private static void putShort(byte[] bytes, int at, int value) {
+        bytes[at] = (byte) value;
+        bytes[at + 1] = (byte) (value >>> 8);
+    }
+
     private static void add(ZipOutputStream zip, String name, byte[] bytes) throws Exception {
         ZipEntry entry = new ZipEntry(name);
         entry.setComment(null);
