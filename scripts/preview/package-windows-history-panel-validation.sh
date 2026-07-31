@@ -13,6 +13,8 @@ probe_class_dir="dev/turboism/tests/plugin"
 probe_class="WindowsHistoryManagerValidationProbe"
 probe_descriptor="$repo_root/scripts/preview/windows-history-manager-validation-plugin.json"
 seed_class="WindowsHistorySeedValidationProbe"
+float_class="WindowsHistoryFloatProbe"
+float_descriptor="$repo_root/scripts/preview/windows-history-float-plugin.json"
 seed_descriptor="$repo_root/scripts/preview/windows-history-seed-validation-plugin.json"
 launcher="$repo_root/scripts/preview/launch-cubism-history-validation.ps1"
 
@@ -85,10 +87,30 @@ if jar tf "$bundle_root/plugins/history-validation-probe.jar" | grep -Eq 'Window
   exit 1
 fi
 
+tmp3="$(mktemp -d "$repo_root/build/.history-float.XXXXXX")"
+trap 'rm -rf "$tmp" "$tmp2" "$tmp3"' EXIT
+mkdir -p "$tmp3/$probe_class_dir" "$tmp3/META-INF/turboism"
+find "$test_classes/$probe_class_dir" -maxdepth 1 -type f \
+  \( -name "$float_class.class" -o -name "$float_class\$*.class" \) \
+  -exec cp {} "$tmp3/$probe_class_dir/" \;
+cp "$float_descriptor" "$tmp3/META-INF/turboism/plugin.json"
+(
+  cd "$tmp3"
+  mapfile -t classes < <(find "$probe_class_dir" -type f -printf '%p\n' | LC_ALL=C sort)
+  [ "${#classes[@]}" -gt 0 ] || { printf 'error: float classes missing\n' >&2; exit 1; }
+  jar --create --file "$bundle_root/plugins/history-float-probe.jar" \
+    "${classes[@]}" META-INF/turboism/plugin.json
+)
+if jar tf "$bundle_root/plugins/history-float-probe.jar" | grep -Eq 'WindowsHistoryFloatProbeTest|\.java$'; then
+  printf 'error: float package contains test/source artifacts\n' >&2
+  exit 1
+fi
+
 (
   cd "$bundle_root"
   sha256sum turboism-agent.jar plugins/history-panel.jar plugins/history-seed-validation-probe.jar \
     plugins/history-validation-probe.jar \
+    plugins/history-float-probe.jar \
     launch-cubism-history-validation.ps1 run-history-validation.bat README.md config.json > SHA256SUMS.txt
 )
 
