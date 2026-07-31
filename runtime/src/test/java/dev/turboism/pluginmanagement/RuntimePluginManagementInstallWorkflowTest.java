@@ -117,8 +117,79 @@ class RuntimePluginManagementInstallWorkflowTest {
         Thread.sleep(100L);
 
         assertTrue(chooser.closed.get());
-        assertTrue(results.isEmpty());
+        assertEquals(1, results.size());
+        assertEquals("PLUGIN_INSTALL_CANCELLED", results.get(0).code());
         assertFalse(Files.exists(home.resolve("state/runtime/plugin-management/pending.json")));
+    }
+
+    @Test
+    void closeFencesEdtChooserBetweenActiveCheckAndDialogPublication() throws Exception {
+        final Path source = home.resolve("sample.tplugin");
+        Files.write(source, PluginManagementPackageFixture.packageBytes("example.plugin", "1.0.0"));
+        final CountDownLatch passedActiveCheck = new CountDownLatch(1);
+        final CountDownLatch allowPublication = new CountDownLatch(1);
+        final CountDownLatch closeDeactivated = new CountDownLatch(1);
+        final AtomicBoolean dialogCreated = new AtomicBoolean();
+        final RuntimePluginManagementService.SwingPackageChooser chooser =
+            new RuntimePluginManagementService.SwingPackageChooser(
+                () -> {
+                    dialogCreated.set(true);
+                    return new javax.swing.JFileChooser();
+                },
+                () -> {
+                    passedActiveCheck.countDown();
+                    await(allowPublication);
+                },
+                closeDeactivated::countDown
+            );
+        final RuntimePluginManagementService service = new RuntimePluginManagementService(home, chooser, List::of);
+        final List<dev.turboism.plugin.core.CorePluginManagement.OperationResult> results = new CopyOnWriteArrayList<>();
+        final CountDownLatch completed = new CountDownLatch(1);
+
+        service.requestInstall(result -> {
+            results.add(result);
+            completed.countDown();
+        });
+        assertTrue(passedActiveCheck.await(1, TimeUnit.SECONDS));
+
+        final Thread close = new Thread(service::close, "close-plugin-management");
+        close.start();
+        assertTrue(closeDeactivated.await(1, TimeUnit.SECONDS));
+        allowPublication.countDown();
+        close.join(1_000L);
+
+        assertFalse(close.isAlive());
+        assertTrue(completed.await(1, TimeUnit.SECONDS));
+        assertEquals("PLUGIN_INSTALL_CANCELLED", results.get(0).code());
+        assertFalse(dialogCreated.get());
+        assertFalse(Files.exists(home.resolve("state/runtime/plugin-management/pending.json")));
+    }
+
+    @Test
+    void overlappingInstallRequestIsRejectedAsBusy() throws Exception {
+        final ControlledChooser chooser = new ControlledChooser();
+        final RuntimePluginManagementService service = new RuntimePluginManagementService(home, chooser, List::of);
+        final List<dev.turboism.plugin.core.CorePluginManagement.OperationResult> second = new CopyOnWriteArrayList<>();
+
+        try {
+            service.requestInstall(ignored -> { });
+            assertTrue(chooser.opened.await(1, TimeUnit.SECONDS));
+            service.requestInstall(second::add);
+
+            assertEquals(1, second.size());
+            assertEquals("PLUGIN_INSTALL_BUSY", second.get(0).code());
+        } finally {
+            service.close();
+        }
+    }
+
+    private static void await(final CountDownLatch latch) {
+        try {
+            if (!latch.await(1, TimeUnit.SECONDS)) throw new AssertionError("Timed out waiting for test barrier");
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw new AssertionError(interrupted);
+        }
     }
 
     private static ActionRegistry.Action action(

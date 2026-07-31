@@ -114,15 +114,15 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
             ));
             return;
         }
+        final AtomicBoolean settled = new AtomicBoolean();
+        final Consumer<OperationResult> terminal = result -> {
+            if (settled.compareAndSet(false, true)) requested.accept(result);
+        };
         try {
-            packageChooser.choose(selection -> selected(selection, requested));
+            packageChooser.choose(selection -> selected(selection, terminal));
         } catch (RuntimeException failure) {
             installPending.set(false);
-            if (active.get()) {
-                requested.accept(OperationResult.rejected(
-                    "PLUGIN_INSTALL_CANCELLED", "Plugin installation was cancelled."
-                ));
-            }
+            terminal.accept(cancelledInstall());
         }
     }
 
@@ -132,14 +132,13 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
     ) {
         if (!active.get()) {
             installPending.set(false);
+            completion.accept(cancelledInstall());
             return;
         }
         final Optional<Path> selected = selection == null ? Optional.empty() : selection;
         if (selected.isEmpty()) {
             installPending.set(false);
-            completion.accept(OperationResult.rejected(
-                "PLUGIN_INSTALL_CANCELLED", "Plugin installation was cancelled."
-            ));
+            completion.accept(cancelledInstall());
             return;
         }
         try {
@@ -171,6 +170,12 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
         return result.accepted()
             ? OperationResult.accepted(result.code(), "Plugin installation is pending; restart Cubism to apply it.")
             : OperationResult.rejected(result.code(), "Plugin package was rejected safely.");
+    }
+
+    private static OperationResult cancelledInstall() {
+        return OperationResult.rejected(
+            "PLUGIN_INSTALL_CANCELLED", "Plugin installation was cancelled."
+        );
     }
 
     @Override
@@ -297,16 +302,54 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
         @Override default void close() { }
     }
 
-    private static final class SwingPackageChooser implements PackageChooser {
-        private final AtomicBoolean active = new AtomicBoolean(true);
-        private volatile JFileChooser visible;
+    static final class SwingPackageChooser implements PackageChooser {
+        private final Object lifecycleLock = new Object();
+        private final Supplier<JFileChooser> chooserFactory;
+        private final Runnable afterInitialActiveCheck;
+        private final Runnable afterCloseDeactivated;
+        private boolean active = true;
+        private Consumer<Optional<Path>> pending;
+        private JFileChooser visible;
+
+        SwingPackageChooser() {
+            this(JFileChooser::new, () -> { }, () -> { });
+        }
+
+        SwingPackageChooser(
+            final Supplier<JFileChooser> chooserFactory,
+            final Runnable afterInitialActiveCheck,
+            final Runnable afterCloseDeactivated
+        ) {
+            this.chooserFactory = java.util.Objects.requireNonNull(chooserFactory, "chooserFactory");
+            this.afterInitialActiveCheck = java.util.Objects.requireNonNull(
+                afterInitialActiveCheck, "afterInitialActiveCheck"
+            );
+            this.afterCloseDeactivated = java.util.Objects.requireNonNull(
+                afterCloseDeactivated, "afterCloseDeactivated"
+            );
+        }
 
         @Override
         public void choose(final Consumer<Optional<Path>> completion) {
+            final Consumer<Optional<Path>> requested = java.util.Objects.requireNonNull(completion, "completion");
+            synchronized (lifecycleLock) {
+                if (!active) {
+                    requested.accept(Optional.empty());
+                    return;
+                }
+                pending = requested;
+            }
             final Runnable choose = () -> {
-                if (!active.get()) return;
-                final JFileChooser chooser = new JFileChooser();
-                visible = chooser;
+                synchronized (lifecycleLock) {
+                    if (!active) return;
+                }
+                afterInitialActiveCheck.run();
+                final JFileChooser chooser;
+                synchronized (lifecycleLock) {
+                    if (!active) return;
+                    chooser = chooserFactory.get();
+                    visible = chooser;
+                }
                 chooser.setDialogTitle("Install Turboism plugin");
                 chooser.setFileFilter(new FileNameExtensionFilter(
                     "Turboism plugin package (*.tplugin)", "tplugin"
@@ -314,8 +357,13 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
                 final Optional<Path> selected = chooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION
                     ? Optional.of(chooser.getSelectedFile().toPath())
                     : Optional.empty();
-                visible = null;
-                if (active.get()) completion.accept(selected);
+                final Consumer<Optional<Path>> terminal;
+                synchronized (lifecycleLock) {
+                    visible = null;
+                    terminal = pending;
+                    pending = null;
+                }
+                if (terminal != null) terminal.accept(selected);
             };
             if (SwingUtilities.isEventDispatchThread()) choose.run();
             else SwingUtilities.invokeLater(choose);
@@ -323,9 +371,34 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
 
         @Override
         public void close() {
-            active.set(false);
-            final JFileChooser chooser = visible;
-            if (chooser != null) SwingUtilities.invokeLater(chooser::cancelSelection);
+            final Consumer<Optional<Path>> terminal;
+            synchronized (lifecycleLock) {
+                if (!active) return;
+                active = false;
+                terminal = pending;
+                pending = null;
+            }
+            afterCloseDeactivated.run();
+            runOnEdtAndWait(() -> {
+                final JFileChooser chooser;
+                synchronized (lifecycleLock) {
+                    chooser = visible;
+                }
+                if (chooser != null) chooser.cancelSelection();
+            });
+            if (terminal != null) terminal.accept(Optional.empty());
+        }
+
+        private static void runOnEdtAndWait(final Runnable action) {
+            if (SwingUtilities.isEventDispatchThread()) {
+                action.run();
+                return;
+            }
+            try {
+                SwingUtilities.invokeAndWait(action);
+            } catch (Exception failure) {
+                throw new IllegalStateException("Could not close plugin package chooser on the EDT", failure);
+            }
         }
     }
 
