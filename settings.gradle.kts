@@ -7,7 +7,7 @@ include(
     "plugins:demo",
     "plugins:ui-theme",
     "plugins:log-filter",
-    "plugins:main-toolbar",
+    "plugins:core",
     "plugins:perf-opt",
     "plugins:render-opt",
     "plugins:clip-mask",

@@ -351,10 +351,13 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
 
     public java.util.Optional<dev.turboism.mapping.verification.VerifiedMemberResolver> boundingBoxOverlayResolver() {
         synchronized (lifecycleMonitor) {
-            return activeConnection == null
-                ? java.util.Optional.empty()
-                : java.util.Optional.of(activeConnection.boundingBoxOverlayResolver());
+            if (activeConnection == null) return java.util.Optional.empty();
+            try {
+                return java.util.Optional.of(activeConnection.boundingBoxOverlayResolver());
+            } catch (IllegalStateException unavailable) {
+                return java.util.Optional.empty();
         }
+            }
     }
 
     /** Returns a non-closeable trusted composition view while lifecycle ownership stays elsewhere. */
