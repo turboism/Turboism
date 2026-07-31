@@ -53,6 +53,33 @@ public final class LocalPluginPackageInspector implements PluginPackageInspector
         }
     }
 
+    public Preparation prepare(final Path packagePath, final Path stagingDirectory) {
+        Objects.requireNonNull(packagePath, "packagePath");
+        Objects.requireNonNull(stagingDirectory, "stagingDirectory");
+        Path snapshot = null;
+        try {
+            final BasicFileAttributes initial = access.attributes(packagePath);
+            ArchivePolicy.validatePackagePath(packagePath, initial);
+            require(initial.size() <= PluginArchiveLimits.RAW_MAX,
+                "PACKAGE_TOO_LARGE", packagePath.toString());
+            snapshot = privateSnapshot();
+            final RawObservation raw = snapshot(packagePath, snapshot);
+            access.afterInitialHash(packagePath);
+            unchanged(packagePath, initial);
+            final PluginInstallPlan plan = inspectArchive(snapshot, raw);
+            access.afterInspection(packagePath);
+            unchanged(packagePath, initial);
+            final Path staged = stagePluginJar(snapshot, stagingDirectory, plan);
+            return new Prepared(new PreparedPluginPackage(plan, staged));
+        } catch (DistributionValidationException exception) {
+            return new PreparationRejected(exception.code());
+        } catch (Exception exception) {
+            return new PreparationRejected("PLUGIN_STAGE_FAILED");
+        } finally {
+            if (snapshot != null) try { Files.deleteIfExists(snapshot); } catch (IOException ignored) { }
+        }
+    }
+
     private PluginInstallPlan inspectArchive(Path snapshot, RawObservation raw) throws Exception {
         try (StrictZipArchive archive = StrictZipArchive.open(snapshot, LIMITS)) {
             StrictZipArchive.Entry manifestEntry = archive.entry(PluginManifestReader.NAME);
@@ -120,6 +147,57 @@ public final class LocalPluginPackageInspector implements PluginPackageInspector
         } catch (UnsupportedOperationException exception) {
             return Files.createTempFile("turboism-plugin-inspection-", ".zip");
         }
+    }
+
+    private static Path stagePluginJar(
+        final Path snapshot,
+        final Path requestedDirectory,
+        final PluginInstallPlan plan
+    ) throws Exception {
+        final PlannedFile planned = plan.files().stream()
+            .filter(file -> file.role().equals("PLUGIN_JAR"))
+            .findFirst().orElseThrow();
+        final String targetName = plan.descriptor().id() + "-"
+            + plan.packageIdentity().rawArchiveSha256() + ".jar";
+        final ConfinedStagingFiles.Target staged = ConfinedStagingFiles.create(requestedDirectory, targetName);
+        try (StrictZipArchive archive = StrictZipArchive.open(snapshot, LIMITS)) {
+            final StrictZipArchive.Entry entry = archive.entry(planned.archivePath());
+            require(entry != null && !entry.directory(), "ARTIFACT_MISSING", planned.archivePath());
+            final MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            try (OutputStream output = new DigestingOutputStream(staged.output(), digest)) {
+                final StrictZipArchive.Observation observation = archive.consume(entry, output);
+                require(observation.size() == planned.size(), "ARTIFACT_SIZE_MISMATCH", planned.archivePath());
+            }
+            require(HexFormat.of().formatHex(digest.digest()).equals(planned.sha256()),
+                "ARTIFACT_HASH_MISMATCH", planned.archivePath());
+            staged.publish();
+            return staged.target();
+        } catch (Exception failure) {
+            staged.cleanup();
+            throw failure;
+        }
+    }
+
+    public sealed interface Preparation permits Prepared, PreparationRejected { }
+    public record Prepared(PreparedPluginPackage value) implements Preparation { }
+    public record PreparationRejected(String code) implements Preparation { }
+
+    private static final class DigestingOutputStream extends OutputStream {
+        private final OutputStream delegate;
+        private final MessageDigest digest;
+        private DigestingOutputStream(final OutputStream delegate, final MessageDigest digest) {
+            this.delegate = delegate;
+            this.digest = digest;
+        }
+        @Override public void write(final int value) throws IOException {
+            delegate.write(value);
+            digest.update((byte) value);
+        }
+        @Override public void write(final byte[] bytes, final int offset, final int length) throws IOException {
+            delegate.write(bytes, offset, length);
+            digest.update(bytes, offset, length);
+        }
+        @Override public void close() throws IOException { delegate.close(); }
     }
 
     private static boolean strictApi(String value) {
