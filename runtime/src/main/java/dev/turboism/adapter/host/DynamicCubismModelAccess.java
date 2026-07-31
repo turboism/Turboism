@@ -185,6 +185,70 @@ final class DynamicCubismModelAccess implements CubismModelAccess {
         }
 
         @Override
+        public dev.turboism.sdk.cubism.model.ParameterBindingOperations parameterBindings(
+            final dev.turboism.sdk.cubism.id.ParameterId parameterId
+        ) {
+            final dev.turboism.sdk.cubism.model.ParameterBindingOperations operations = current(
+                generation,
+                model -> model.parameterBindings(parameterId),
+                delegate
+            );
+            return new dev.turboism.sdk.cubism.model.ParameterBindingOperations() {
+                @Override public void bind(
+                    final dev.turboism.sdk.cubism.model.ParameterBindingTarget target,
+                    final List<dev.turboism.sdk.cubism.model.ParameterBindingPoint> points
+                ) {
+                    guardedVoid(generation, () -> operations.bind(target, points));
+                }
+                @Override public void createPoint(
+                    final dev.turboism.sdk.cubism.model.ParameterBindingTarget target,
+                    final dev.turboism.sdk.cubism.model.ParameterBindingPoint point
+                ) {
+                    guardedVoid(generation, () -> operations.createPoint(target, point));
+                }
+                @Override public void movePoint(
+                    final dev.turboism.sdk.cubism.model.ParameterBindingTarget target,
+                    final dev.turboism.sdk.cubism.id.ParameterBindingPointId pointId,
+                    final float value
+                ) {
+                    guardedVoid(generation, () -> operations.movePoint(target, pointId, value));
+                }
+                @Override public void deletePoint(
+                    final dev.turboism.sdk.cubism.model.ParameterBindingTarget target,
+                    final dev.turboism.sdk.cubism.id.ParameterBindingPointId pointId
+                ) {
+                    guardedVoid(generation, () -> operations.deletePoint(target, pointId));
+                }
+                @Override public void unbind(
+                    final dev.turboism.sdk.cubism.model.ParameterBindingTarget target
+                ) {
+                    guardedVoid(generation, () -> operations.unbind(target));
+                }
+            };
+        }
+
+        @Override
+        public dev.turboism.sdk.cubism.model.ParameterBindingBatchOperations parameterBindingBatch() {
+            final dev.turboism.sdk.cubism.model.ParameterBindingBatchOperations operations = current(
+                generation,
+                CubismModel::parameterBindingBatch,
+                delegate
+            );
+            return new dev.turboism.sdk.cubism.model.ParameterBindingBatchOperations() {
+                @Override public void invert(
+                    final List<dev.turboism.sdk.cubism.model.ParameterBindingTarget> targets
+                ) {
+                    guardedVoid(generation, () -> operations.invert(targets));
+                }
+                @Override public void transfer(
+                    final dev.turboism.sdk.cubism.model.ParameterBindingTransferPlan plan
+                ) {
+                    guardedVoid(generation, () -> operations.transfer(plan));
+                }
+            };
+        }
+
+        @Override
         public Canvas canvas() {
             return new SessionCanvas(generation, current(generation, CubismModel::canvas, delegate));
         }
@@ -363,6 +427,9 @@ final class DynamicCubismModelAccess implements CubismModelAccess {
         @Override public java.util.Optional<dev.turboism.sdk.cubism.id.ParameterId> combinedWith() {
             return guarded(generation, delegate::combinedWith);
         }
+        @Override public List<dev.turboism.sdk.cubism.model.ParameterBinding> getParameterBindings() {
+            return guarded(generation, delegate::getParameterBindings);
+        }
         @Override public void combineWith(
             final dev.turboism.sdk.cubism.id.ParameterId partnerId
         ) {
@@ -505,6 +572,9 @@ final class DynamicCubismModelAccess implements CubismModelAccess {
         @Override public dev.turboism.sdk.cubism.model.IntSequence parameters() {
             return new SessionIntSequence(generation, guarded(generation, delegate::parameters));
         }
+        @Override public List<dev.turboism.sdk.cubism.model.ParameterBinding> getParameterBindings() {
+            return guarded(generation, delegate::getParameterBindings);
+        }
     }
 
     private final class SessionFloatSequence
@@ -591,6 +661,9 @@ final class DynamicCubismModelAccess implements CubismModelAccess {
         @Override public dev.turboism.sdk.cubism.model.IntSequence parameters() {
             return new SessionIntSequence(generation, guarded(generation, delegate::parameters));
         }
+        @Override public List<dev.turboism.sdk.cubism.model.ParameterBinding> getParameterBindings() {
+            return guarded(generation, delegate::getParameterBindings);
+        }
     }
 
     private final class SessionWarpDeformers implements WarpDeformers {
@@ -646,6 +719,9 @@ final class DynamicCubismModelAccess implements CubismModelAccess {
         @Override public int parentDeformerIndex() { return guarded(generation, delegate::parentDeformerIndex); }
         @Override public dev.turboism.sdk.cubism.model.IntSequence parameters() {
             return new SessionIntSequence(generation, guarded(generation, delegate::parameters));
+        }
+        @Override public List<dev.turboism.sdk.cubism.model.ParameterBinding> getParameterBindings() {
+            return guarded(generation, delegate::getParameterBindings);
         }
         @Override public WarpGrid grid() { return guarded(generation, delegate::grid); }
         @Override public void replaceGrid(final WarpGrid grid) {
@@ -712,6 +788,9 @@ final class DynamicCubismModelAccess implements CubismModelAccess {
         @Override public int parentDeformerIndex() { return guarded(generation, delegate::parentDeformerIndex); }
         @Override public dev.turboism.sdk.cubism.model.IntSequence parameters() {
             return new SessionIntSequence(generation, guarded(generation, delegate::parameters));
+        }
+        @Override public List<dev.turboism.sdk.cubism.model.ParameterBinding> getParameterBindings() {
+            return guarded(generation, delegate::getParameterBindings);
         }
         @Override public float baseAngle() { return guarded(generation, delegate::baseAngle); }
         @Override public void setBaseAngle(final float angle) {
