@@ -186,8 +186,8 @@ class StaticVerificationRecordRepositoryTest {
             "Live2D_Cubism.jar",
             40_805_584L,
             "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
-            "892f65f4d60e600842e46a3f6446ee8616cfc3ebca48a2742d6d6dc7123818bf",
-            189,
+            "538cf63518d5534d3e13602e32d85b838b9f8323a2da4a5de6e20844289b3fbd",
+            201,
             editorModel52Aliases(),
             editorModel52Aliases(),
             editorModel52MethodAliases(),
@@ -209,7 +209,7 @@ class StaticVerificationRecordRepositoryTest {
             EditorModelVerificationManifest.ARTIFACT_SIZE,
             EditorModelVerificationManifest.ARTIFACT_SHA256,
             EditorModelVerificationManifest.RECORD_SHA256,
-            193,
+            205,
             EditorModelVerificationManifest.REQUIRED_ALIASES,
             EditorModelVerificationManifest.REQUIRED_ALIASES,
             editorModelMethodAliases(),
@@ -413,7 +413,7 @@ class StaticVerificationRecordRepositoryTest {
                 "cubism-5.2",
                 40_805_584L,
                 "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
-                "2f4324fdca6f212056fd1baf7339419a54d544ef2f17d1b363a17bac67717258",
+                "3a4c23ebf6f20d991596e3959a11df53b9a363f9749e045691ca93087f897fa1",
                 "cubism-5.2-ui-bounding-box-overlay",
                 "[5.2.0,5.3.0)"
             )
@@ -426,7 +426,7 @@ class StaticVerificationRecordRepositoryTest {
                 "cubism-5.3.02",
                 41_922_739L,
                 "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
-                "13a9129df6034b5a457c37dee32d37a645f6d99a2048566b5c816a1766021b0f",
+                "dd7df8bb72f753eba385fe9b3880addca3b7b03e4deb958d2bfd3c5ad23863b9",
                 "cubism-5.3.02-ui-bounding-box-overlay",
                 "[5.3.02,5.3.03)"
             )
@@ -724,7 +724,18 @@ class StaticVerificationRecordRepositoryTest {
             "cubism.editor-model.rotation-form.set-scale",
             "cubism.editor-model.rotation-form.set-reflect-x",
             "cubism.editor-model.rotation-form.set-reflect-y",
-            "cubism.editor-model.complete-pack.update-deformer-palette"
+            "cubism.editor-model.complete-pack.update-deformer-palette",
+            "cubism.editor-model.keyform-grid.bindings",
+            "cubism.editor-model.keyform-binding.parameter-id",
+            "cubism.editor-model.keyform-binding.parameter-guid",
+            "cubism.editor-model.keyform-binding.keys",
+            "cubism.editor-model.keyform-grid.find-binding",
+            "cubism.editor-model.keyform-grid.reverse-parameter",
+            "cubism.editor-model.keyform-grid.change-parameter",
+            "cubism.editor-model.keyform-grid.add-key",
+            "cubism.editor-model.keyform-grid.remove-key",
+            "cubism.editor-model.keyform-grid.remove-all-key",
+            "cubism.editor-model.keyform-grid.rearrange-keys"
         );
     }
 
