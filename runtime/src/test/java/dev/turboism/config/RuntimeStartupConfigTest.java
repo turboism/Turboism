@@ -55,14 +55,13 @@ class RuntimeStartupConfigTest {
     }
 
     @Test
-    void canonicalGlobalConfigWinsOverLegacyRuntimeConfig() throws Exception {
+    void ignoresLegacyRuntimeConfig() throws Exception {
         final Path legacyDirectory = Files.createDirectories(temporaryHome.resolve("config"));
-        Files.writeString(legacyDirectory.resolve("runtime.json"), configJson(false));
-        Files.writeString(temporaryHome.resolve("config.json"), configJson(true));
+        Files.writeString(legacyDirectory.resolve("runtime.json"), configJson(true));
 
         final RuntimeStartupConfig config = RuntimeStartupConfig.load(temporaryHome);
 
-        assertTrue(config.safeMode());
+        assertFalse(config.safeMode());
     }
 
     private static String configJson(final boolean safeMode) {
@@ -80,8 +79,7 @@ class RuntimeStartupConfigTest {
 
     @Test
     void rejectsTheWholeStartupPolicyWhenAnyStartupFieldHasTheWrongType() throws Exception {
-        final Path configDirectory = Files.createDirectories(temporaryHome.resolve("config"));
-        Files.writeString(configDirectory.resolve("runtime.json"), """
+        Files.writeString(temporaryHome.resolve("config.json"), """
             {
               "format": "turboism.runtime.config",
               "schemaVersion": 1,
@@ -108,8 +106,7 @@ class RuntimeStartupConfigTest {
 
     @Test
     void rejectsUnknownNestedStartupFieldsAsOneInvalidPolicy() throws Exception {
-        final Path configDirectory = Files.createDirectories(temporaryHome.resolve("config"));
-        Files.writeString(configDirectory.resolve("runtime.json"), """
+        Files.writeString(temporaryHome.resolve("config.json"), """
             {
               "format": "turboism.runtime.config",
               "schemaVersion": 1,
@@ -135,8 +132,7 @@ class RuntimeStartupConfigTest {
 
     @Test
     void safeModeOverridesEveryRequestedStartupSuppression() throws Exception {
-        final Path configDirectory = Files.createDirectories(temporaryHome.resolve("config"));
-        Files.writeString(configDirectory.resolve("runtime.json"), """
+        Files.writeString(temporaryHome.resolve("config.json"), """
             {
               "format": "turboism.runtime.config",
               "schemaVersion": 1,

@@ -17,11 +17,13 @@ import java.util.Set;
 final class PreviewPluginLoadCoordinator {
 
     private final Path pluginDirectory;
+    private final Path home;
     private final PreviewPluginDiscovery discovery;
     private final PreviewPluginLoader loader;
     private final PreviewLog log;
 
     PreviewPluginLoadCoordinator(
+        final Path home,
         final Path pluginDirectory,
         final PreviewPluginContextFactory contextFactory,
         final PreviewLog log,
@@ -31,6 +33,7 @@ final class PreviewPluginLoadCoordinator {
         final EditorObjectHookRegistry editorObjectHookRegistry
     ) {
         this.pluginDirectory = pluginDirectory;
+        this.home = home.toAbsolutePath().normalize();
         this.discovery = new PreviewPluginDiscovery(pluginDirectory, log);
         this.loader = new PreviewPluginLoader(
             contextFactory, log, loaded, parameterHookRegistry, partHookRegistry,
@@ -42,6 +45,20 @@ final class PreviewPluginLoadCoordinator {
     LocalPluginRuntime.LoadReport loadAll() {
         final List<LocalPluginRuntime.PluginFailure> failures = new ArrayList<>();
         final Map<String, PreviewPluginCandidate> candidates = discovery.discover(failures);
+        final Set<String> configuredDisabled;
+        try {
+            configuredDisabled = new dev.turboism.config.RuntimeConfigRepository(
+                home, code -> log.warn("plugin-loader", code)
+            ).disabledPlugins();
+        } catch (RuntimeException invalidConfig) {
+            candidates.clear();
+            failures.add(new LocalPluginRuntime.PluginFailure(
+                "<config>", home.resolve("config.json"), "RUNTIME_CONFIG_INVALID",
+                "Plugin discovery failed closed because canonical runtime config is invalid."
+            ));
+            return new LocalPluginRuntime.LoadReport(List.of(), List.copyOf(failures), List.of());
+        }
+        configuredDisabled.forEach(candidates::remove);
         if (candidates.isEmpty()) {
             log.warn("plugin-loader", "No valid plugin JARs found in " + pluginDirectory);
             return new LocalPluginRuntime.LoadReport(List.of(), List.copyOf(failures), List.of());

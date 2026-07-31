@@ -37,6 +37,9 @@ mkdir -p "$bundle_root/plugins" "$bundle_root/logs" "$bundle_root/state" "$bundl
 cp "$agent_jar" "$bundle_root/turboism-agent.jar"
 cp "$parameter_jar" "$bundle_root/plugins/parameter.jar"
 cp "$launcher_script" "$bundle_root/"
+SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-1785456000}" \
+  python3 "$repo_root/scripts/release/package-plugin.py" \
+  "$parameter_jar" "$bundle_root/parameter.tplugin"
 cp "$repo_root/scripts/preview/run-parameter-validation.bat" "$bundle_root/"
 cp "$repo_root/scripts/preview/README-parameter-validation.md" "$bundle_root/README.md"
 
@@ -86,6 +89,7 @@ cp "$peer_probe_descriptor" "$peer_tmp/META-INF/turboism/plugin.json"
   sha256sum \
     turboism-agent.jar \
     plugins/parameter.jar \
+    parameter.tplugin \
     plugins/parameter-validation-probe.jar \
     plugins/editor-object-peer-validation-probe.jar \
     launch-cubism-parameter-validation.ps1 \

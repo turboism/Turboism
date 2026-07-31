@@ -46,8 +46,7 @@ final class PreviewPluginContextFactory {
         );
         final DisposableScope requestedScope = Objects.requireNonNull(scope, "scope");
         requestedScope.register(hostAccess.editorUiPluginResources().register(
-            requestedDescriptor.id(),
-            requestedClassLoader
+            requestedDescriptor.id(), requestedClassLoader
         ));
         final PreviewPluginServices services = servicesFactory.create(
             requestedDescriptor,

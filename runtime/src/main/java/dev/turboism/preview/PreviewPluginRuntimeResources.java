@@ -20,7 +20,10 @@ record PreviewPluginRuntimeResources(
     SharedAsyncHostReadLane hostReadLane,
     RuntimeFailureCollector failureCollector,
     PreviewPluginLoadCoordinator loadCoordinator,
-    PreviewPluginShutdown shutdown
+    PreviewPluginShutdown shutdown,
+    dev.turboism.pluginmanagement.RuntimePluginManagementService pluginManagement,
+    PreviewPluginContextFactory contextFactory,
+    dev.turboism.sdk.runtime.RuntimeSettingsService runtimeSettings
 ) {
     static PreviewPluginRuntimeResources create(
         final Path home,
@@ -68,22 +71,37 @@ record PreviewPluginRuntimeResources(
         final PartHookRegistry partHookRegistry,
         final EditorObjectHookRegistry editorObjectHookRegistry
     ) {
+        final dev.turboism.pluginmanagement.RuntimePluginManagementService pluginManagement =
+            new dev.turboism.pluginmanagement.RuntimePluginManagementService(home, () -> loaded.stream()
+                .map(plugin -> {
+                    final var descriptor = plugin.runtime().descriptor();
+                    return new dev.turboism.plugin.core.CorePluginManagement.PluginInfo(
+                        descriptor.id(), descriptor.name(), descriptor.version(), descriptor.description(),
+                        plugin.runtime().state().name(),
+                        plugin.runtime().state() == dev.turboism.core.lifecycle.PluginLifecycleState.ENABLED
+                            ? "ENABLED" : "DISABLED",
+                        false,
+                        java.util.Optional.empty()
+                    );
+                })
+                .toList());
         final PreviewPluginContextFactory contextFactory = new PreviewPluginContextFactory(
             home, scheduler, hostAccess, lane, log, failureCollector
         );
         return new PreviewPluginRuntimeResources(
             lane, failureCollector,
             new PreviewPluginLoadCoordinator(
-                home.resolve("plugins"), contextFactory, log, loaded,
+                home, home.resolve("plugins"), contextFactory, log, loaded,
                 parameterHookRegistry, partHookRegistry, editorObjectHookRegistry
             ),
             new PreviewPluginShutdown(
                 log,
                 Objects.requireNonNull(pluginCloseHook, "pluginCloseHook"),
-                parameterHookRegistry,
-                partHookRegistry,
-                editorObjectHookRegistry
-            )
+                parameterHookRegistry, partHookRegistry, editorObjectHookRegistry
+            ),
+            pluginManagement,
+            contextFactory,
+            new dev.turboism.config.RuntimeSettingsFileService(home, hostAccess.dockMaintenance())
         );
     }
 }
