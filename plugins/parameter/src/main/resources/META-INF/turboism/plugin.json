@@ -2,9 +2,9 @@
   "format": "turboism.plugin.meta",
   "schemaVersion": 2,
   "id": "dev.turboism.plugin.parameter",
-  "name": "Parameter CSV Plugin",
+  "name": "Parameter Tools Plugin",
   "version": "0.1.0",
-  "description": "Parameter CSV import/export using SDK reads, the unified Cubism model setter, and the UI host file chooser.",
+  "description": "Parameter CSV import/export plus typed batch binding inversion and transfer workflows.",
   "entrypoints": [
     "dev.turboism.plugin.parameter.ParameterPlugin"
   ],
@@ -24,12 +24,12 @@
     {
       "id": "turboism.cubism.model.read",
       "scope": "application",
-      "reason": "Read parameter snapshots for CSV export."
+      "reason": "Read parameter snapshots, selection, and binding state for CSV and batch workflows."
     },
     {
       "id": "turboism.cubism.model.write",
       "scope": "application",
-      "reason": "Apply imported values through the unified Parameter.setValue API."
+      "reason": "Apply parameter values and confirmed binding inversion/transfer through typed Editor authoring APIs."
     },
     {
       "id": "turboism.ui.file-chooser.request",
@@ -44,17 +44,24 @@
     {
       "id": "turboism.action.register",
       "scope": "application",
-      "reason": "Register parameter CSV export and import actions."
+      "reason": "Register parameter CSV, binding inversion, and binding transfer actions."
+    },
+    {
+      "id": "turboism.ui.menu.contribute",
+      "scope": "application",
+      "reason": "Expose parameter binding inversion and transfer through the Parameter Tools menu."
     }
   ],
   "capabilities": [
     "cubism.parameter.read",
     "cubism.parameter.write",
+    "cubism.parameter.bindings.invert",
+    "cubism.parameter.bindings.transfer",
     "ui.file-chooser.request",
     "ui.status.notify"
   ],
   "environment": {
-    "requiresCubism": false,
+    "requiresCubism": true,
     "ui": "embedded"
   }
 }

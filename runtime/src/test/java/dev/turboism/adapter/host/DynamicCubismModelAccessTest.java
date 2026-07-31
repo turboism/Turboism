@@ -104,6 +104,7 @@ class DynamicCubismModelAccessTest {
             @Override public float getMaximumValue() { return 1.0F; }
             @Override public float getDefaultValue() { return 0.0F; }
             @Override public void setValue(final float value) { throw unsupported(); }
+            @Override public List<dev.turboism.sdk.cubism.model.ParameterBinding> getParameterBindings() { return List.of(); }
         };
         access.connect(() -> model("model-a", delegate));
 
@@ -113,6 +114,7 @@ class DynamicCubismModelAccessTest {
         assertEquals(Optional.of(false), parameter.repeat());
         assertEquals(Optional.of(true), parameter.combined());
         assertEquals(Optional.of(new ParameterId("ParamSmile")), parameter.combinedWith());
+        assertEquals(List.of(), parameter.getParameterBindings());
 
         access.deactivate();
         assertThrows(IllegalStateException.class, parameter::name);
@@ -120,6 +122,7 @@ class DynamicCubismModelAccessTest {
         assertThrows(IllegalStateException.class, parameter::repeat);
         assertThrows(IllegalStateException.class, parameter::combined);
         assertThrows(IllegalStateException.class, parameter::combinedWith);
+        assertThrows(IllegalStateException.class, parameter::getParameterBindings);
         assertThrows(
             IllegalStateException.class,
             () -> parameter.combineWith(new ParameterId("ParamSmile"))
