@@ -150,6 +150,10 @@ class HistoryPanelServiceTest {
             column.children().forEach(child -> flatten(child, builder));
         } else if (view instanceof PanelView.Row row) {
             row.children().forEach(child -> flatten(child, builder));
+        } else if (view instanceof PanelView.Scroll scroll) {
+            flatten(scroll.child(), builder);
+        } else if (view instanceof PanelView.Button button) {
+            builder.append("[button:").append(button.label()).append("]\n");
         } else if (view instanceof PanelView.Text text) {
             builder.append(text.value()).append('\n');
         }

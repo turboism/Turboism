@@ -13,7 +13,8 @@ public sealed interface PanelView permits
     PanelView.TextInput,
     PanelView.Select,
     PanelView.Toggle,
-    PanelView.Separator {
+    PanelView.Separator,
+    PanelView.Scroll {
 
     static Column column(final PanelView... children) {
         return new Column(List.of(children));
@@ -65,6 +66,11 @@ public sealed interface PanelView permits
 
     static Separator separator() {
         return new Separator();
+    }
+
+    /** Wraps a single child in a scrollable viewport. */
+    static Scroll scroll(final PanelView child) {
+        return new Scroll(child);
     }
 
     record Column(List<PanelView> children) implements PanelView {
@@ -152,6 +158,12 @@ public sealed interface PanelView permits
     }
 
     record Separator() implements PanelView { }
+
+    record Scroll(PanelView child) implements PanelView {
+        public Scroll {
+            child = Objects.requireNonNull(child, "child");
+        }
+    }
 
     private static List<PanelView> immutableChildren(final List<PanelView> children) {
         final List<PanelView> snapshot = List.copyOf(Objects.requireNonNull(children, "children"));

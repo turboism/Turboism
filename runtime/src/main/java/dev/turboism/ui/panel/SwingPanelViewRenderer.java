@@ -12,6 +12,7 @@ import javax.swing.JComboBox;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.JScrollPane;
 import javax.swing.JSeparator;
 import javax.swing.JTextField;
 import java.awt.BorderLayout;
@@ -90,6 +91,13 @@ final class SwingPanelViewRenderer {
                 Optional.of(UiActionEvent.toggle(toggle.id(), component.isSelected()))
             ));
             return component;
+        }
+        if (view instanceof PanelView.Scroll scroll) {
+            return new JScrollPane(
+                renderNode(scroll.child(), action),
+                JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,
+                JScrollPane.HORIZONTAL_SCROLLBAR_NEVER
+            );
         }
         if (view instanceof PanelView.Separator) {
             return new JSeparator();

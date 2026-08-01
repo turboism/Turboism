@@ -4,16 +4,29 @@ import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.VerticalToolbarContribution;
 
+import javax.swing.BorderFactory;
+import javax.swing.Box;
+import javax.swing.BoxLayout;
 import javax.swing.Icon;
 import javax.swing.ImageIcon;
+import javax.swing.JButton;
+import javax.swing.JComponent;
+import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
+import java.awt.Component;
 import java.lang.reflect.InvocationTargetException;
 import java.net.URL;
-import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
 
-/** Exact-version vertical tool-strip operations restricted to verified aliases. */
+/**
+ * Exact-version vertical tool-strip operations restricted to verified aliases.
+ *
+ * <p>The strip is a Swing panel attached to the right edge of the modeling
+ * canvas container (the container that holds the OpenGL canvas and the native
+ * draw-depth control on its left), so it hugs the canvas instead of the main
+ * frame border.</p>
+ */
 public final class VerifiedVerticalToolbarHostOperations implements VerticalToolbarHostOperations {
 
     private static final String APP_INSTANCE =
@@ -24,23 +37,21 @@ public final class VerifiedVerticalToolbarHostOperations implements VerticalTool
         "cubism.ui-main-toolbar.main-frame.view";
     private static final String MAIN_CONTAINER =
         "cubism.ui-main-toolbar.main-frame-view.main-container";
-    private static final String WIDGET_NAME = "cubism.ui-main-toolbar.widget.name";
+    private static final String WIDGET_JCOMPONENT =
+        "cubism.ui-main-toolbar.widget.jcomponent";
     private static final String WIDGET_SET_NAME = "cubism.ui-main-toolbar.widget.set-name";
-    private static final String WIDGET_SET_TOOLTIP = "cubism.ui-main-toolbar.widget.set-tooltip";
+    private static final String WIDGET_REVALIDATE = "cubism.ui-main-toolbar.widget.revalidate";
+    private static final String WIDGET_REPAINT = "cubism.ui-main-toolbar.widget.repaint";
     private static final String WIDGET_SET_PREF_WIDTH =
         "cubism.ui-main-toolbar.widget.set-pref-width";
     private static final String WIDGET_SET_PREF_HEIGHT =
         "cubism.ui-main-toolbar.widget.set-pref-height";
-    private static final String WIDGET_REVALIDATE = "cubism.ui-main-toolbar.widget.revalidate";
-    private static final String WIDGET_REPAINT = "cubism.ui-main-toolbar.widget.repaint";
-    private static final String CONTAINER_CHILDREN =
-        "cubism.ui-main-toolbar.container.children";
-    private static final String CONTAINER_ADD = "cubism.ui-main-toolbar.container.add";
-    private static final String CONTAINER_REMOVE = "cubism.ui-main-toolbar.container.remove";
-    private static final String VBOX_CREATE = "cubism.ui-main-toolbar.vbox.create";
     private static final String ICON_BUTTON_CREATE =
         "cubism.ui-main-toolbar.icon-button.create";
-    private static final String ICON_CREATE = "cubism.ui-main-toolbar.icon.create";
+
+    private static final String GL_CANVAS_TYPE = "com.jogamp.opengl.awt.GLJPanel";
+    private static final int STRIP_WIDTH = 32;
+    private static final int BUTTON_SIZE = 28;
 
     private final VerifiedMemberResolver resolver;
     private final EditorUiPluginResourceRegistry resources;
@@ -68,44 +79,116 @@ public final class VerifiedVerticalToolbarHostOperations implements VerticalTool
         final Consumer<String> click
     ) {
         final Object mainContainer = mainContainer();
-        final List<?> children = children(mainContainer);
-        final String stripId = "turboism:" + descriptor.pluginId() + ":" + descriptor.contributionId();
-        if (children.stream().anyMatch(widget -> stripId.equals(resolver.invoke(WIDGET_NAME, widget)))) {
-            throw new IllegalStateException("vertical tool strip is already materialized");
+        final JComponent root = jComponent(mainContainer);
+        final JComponent canvasContainer = canvasContainer(root);
+        if (canvasContainer == null) {
+            throw new IllegalStateException("Cubism modeling canvas container is unavailable");
+        }
+        final JComponent host = descriptor.contribution().side()
+            == VerticalToolbarContribution.CanvasSide.RIGHT
+            ? canvasContainer
+            : canvasParent(root);
+        if (host == null) {
+            throw new IllegalStateException("Cubism canvas host container is unavailable");
         }
 
-        final Object strip = resolver.construct(VBOX_CREATE);
-        resolver.invoke(WIDGET_SET_NAME, strip, stripId);
+        final String stripId = "turboism:" + descriptor.pluginId() + ":" + descriptor.contributionId();
+        final boolean right = descriptor.contribution().side()
+            == VerticalToolbarContribution.CanvasSide.RIGHT;
+        final JPanel strip = new JPanel();
+        strip.setLayout(new BoxLayout(strip, right ? BoxLayout.Y_AXIS : BoxLayout.X_AXIS));
+        strip.setName(stripId);
+        strip.setBorder(BorderFactory.createEmptyBorder(2, 2, 2, 2));
+        if (right) {
+            strip.setMaximumSize(new java.awt.Dimension(STRIP_WIDTH, Integer.MAX_VALUE));
+            strip.setPreferredSize(new java.awt.Dimension(STRIP_WIDTH, 200));
+        } else {
+            strip.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, STRIP_WIDTH));
+            strip.setPreferredSize(new java.awt.Dimension(200, STRIP_WIDTH));
+        }
 
         for (final VerticalToolbarContribution.ToolButton button : descriptor.contribution().buttons()) {
-            final Icon icon = icon(descriptor.pluginId(), button.iconResourcePath());
-            final Object callback = resolver.createFunctionalConstructorArgumentProxy(
-                ICON_BUTTON_CREATE,
-                1,
-                ignored -> {
-                    click.accept(button.actionId());
-                    return kotlinUnit();
-                }
-            );
-            final Object nativeButton = resolver.construct(ICON_BUTTON_CREATE, icon, callback);
-            resolver.invoke(WIDGET_SET_NAME, nativeButton, stripId + "." + button.id());
-            resolver.invoke(WIDGET_SET_TOOLTIP, nativeButton, button.tooltipKey());
-            resolver.invoke(WIDGET_SET_PREF_WIDTH, nativeButton, 28);
-            resolver.invoke(WIDGET_SET_PREF_HEIGHT, nativeButton, 28);
-            resolver.invoke(CONTAINER_ADD, strip, nativeButton, children(strip).size());
+            final JButton nativeButton = new JButton(icon(descriptor.pluginId(), button.iconResourcePath()));
+            nativeButton.setName(stripId + "." + button.id());
+            nativeButton.setToolTipText(button.tooltipKey());
+            nativeButton.setBorderPainted(false);
+            nativeButton.setContentAreaFilled(false);
+            nativeButton.setFocusable(false);
+            nativeButton.setPreferredSize(new java.awt.Dimension(BUTTON_SIZE, BUTTON_SIZE));
+            nativeButton.setMaximumSize(new java.awt.Dimension(BUTTON_SIZE, BUTTON_SIZE));
+            nativeButton.addActionListener(ignored -> click.accept(button.actionId()));
+            strip.add(nativeButton);
+            strip.add(right ? Box.createVerticalStrut(4) : Box.createHorizontalStrut(4));
         }
 
-        // Left edge of the main frame: first position in mainContainer.
-        resolver.invoke(CONTAINER_ADD, mainContainer, strip, 0);
-        resolver.invoke(WIDGET_REVALIDATE, mainContainer);
-        resolver.invoke(WIDGET_REPAINT, mainContainer);
+        // RIGHT: append after the GL canvas inside the horizontal canvas container.
+        // BOTTOM: append after the canvas container inside its vertical parent.
+        host.add(strip, host.getComponentCount());
+        host.revalidate();
+        host.repaint();
 
         return () -> onEdt(() -> {
-            resolver.invoke(CONTAINER_REMOVE, mainContainer, strip);
-            resolver.invoke(WIDGET_REVALIDATE, mainContainer);
-            resolver.invoke(WIDGET_REPAINT, mainContainer);
+            host.remove(strip);
+            host.revalidate();
+            host.repaint();
             return null;
         });
+    }
+
+    private JComponent canvasContainer(final JComponent root) {
+        return findCanvasContainer(root, 0);
+    }
+
+    private JComponent findCanvasContainer(final JComponent component, final int depth) {
+        if (depth > 12) {
+            return null;
+        }
+        for (final Component child : component.getComponents()) {
+            if (!(child instanceof JComponent swing)) {
+                continue;
+            }
+            // The container whose DIRECT child is the GL canvas holds the
+            // horizontal [draw-depth | canvas] layout.
+            if (containsGlCanvas(swing)) {
+                return swing;
+            }
+            final JComponent found = findCanvasContainer(swing, depth + 1);
+            if (found != null) {
+                return found;
+            }
+        }
+        return null;
+    }
+
+    /** The vertical parent that stacks the canvas container and its bottom bar. */
+    private JComponent canvasParent(final JComponent root) {
+        final JComponent canvas = canvasContainer(root);
+        if (canvas == null) {
+            return null;
+        }
+        for (final Component component : root.getComponents()) {
+            if (component == canvas) {
+                return root;
+            }
+        }
+        return canvas.getParent() instanceof JComponent parent ? parent : null;
+    }
+
+    private boolean containsGlCanvas(final JComponent component) {
+        for (final Component child : component.getComponents()) {
+            if (child.getClass().getName().equals(GL_CANVAS_TYPE)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private JComponent jComponent(final Object widget) {
+        final Object value = resolver.invoke(WIDGET_JCOMPONENT, widget);
+        if (!(value instanceof JComponent component)) {
+            throw new IllegalStateException("Cubism widget JComponent is unavailable");
+        }
+        return component;
     }
 
     private Object mainContainer() {
@@ -125,14 +208,6 @@ public final class VerifiedVerticalToolbarHostOperations implements VerticalTool
         return container;
     }
 
-    private List<?> children(final Object container) {
-        final Object raw = resolver.invoke(CONTAINER_CHILDREN, container);
-        if (!(raw instanceof List<?> values)) {
-            throw new IllegalStateException("Cubism container children are unavailable");
-        }
-        return values;
-    }
-
     private Icon icon(final String pluginId, final String resourcePath) {
         final URL url = resources.resource(pluginId, resourcePath).orElse(null);
         if (url == null) {
@@ -141,15 +216,6 @@ public final class VerifiedVerticalToolbarHostOperations implements VerticalTool
             );
         }
         return new ImageIcon(url);
-    }
-
-    private Object kotlinUnit() {
-        try {
-            final Class<?> unit = Class.forName("kotlin.Unit", false, resolver.hostClassLoader());
-            return unit.getField("INSTANCE").get(null);
-        } catch (ReflectiveOperationException | LinkageError failure) {
-            throw new IllegalStateException("Kotlin Unit is unavailable for toolbar callback", failure);
-        }
     }
 
     private static <T> T onEdt(final Operation<T> operation) {
