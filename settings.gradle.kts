@@ -20,6 +20,7 @@ include(
     "plugins:scene-palette-enhancer",
     "plugins:psd-import",
     "plugins:texture-atlas",
+    "plugins:texture-atlas-stats",
     "plugins:physics-editor",
     "testframework",
     "tests"
