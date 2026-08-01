@@ -25,12 +25,6 @@ public final class UiThemePlugin implements TurboismPlugin {
     private static final String STATUS_ACTION_LABEL = "Check Theme Package Status";
     private static final String MANAGER_ACTION_ID = "ui-theme.manager.open";
     private static final String MANAGER_ACTION_LABEL = "Theme Manager";
-    private static final String IMPORT_ACTION_ID = "ui-theme.package.import";
-    private static final String IMPORT_ACTION_LABEL = "Import Theme Package";
-    private static final String EXPORT_ACTION_ID = "ui-theme.package.export";
-    private static final String EXPORT_ACTION_LABEL = "Export Selected Theme";
-    private static final String DELETE_ACTION_ID = "ui-theme.package.delete";
-    private static final String DELETE_ACTION_LABEL = "Delete Selected Theme";
     private static final String APPLY_BUILTIN_ACTION_ID = "ui-theme.appearance.apply-builtin";
     private static final String APPLY_BUILTIN_ACTION_LABEL = "Apply Built-in Theme";
 
@@ -72,18 +66,14 @@ public final class UiThemePlugin implements TurboismPlugin {
     public void enable() {
         registerAction(STATUS_ACTION_ID, STATUS_ACTION_LABEL, ignored -> themePackageStatusService.checkThemeStatus());
         registerAction(MANAGER_ACTION_ID, MANAGER_ACTION_LABEL, ignored -> themeManagerService.open());
-        registerAction(IMPORT_ACTION_ID, IMPORT_ACTION_LABEL, ignored -> themeManagerService.importPackage());
-        registerAction(EXPORT_ACTION_ID, EXPORT_ACTION_LABEL, ignored -> themeManagerService.exportSelected());
-        registerAction(DELETE_ACTION_ID, DELETE_ACTION_LABEL, ignored -> themeManagerService.deleteSelected());
         registerAction(
             APPLY_BUILTIN_ACTION_ID,
             APPLY_BUILTIN_ACTION_LABEL,
             ignored -> builtinThemeAppearanceService.applyDefault()
         );
+        // The Turboism top-level menu keeps a single theme entry; all theme
+        // workflows (apply/import/export/delete) live inside the manager window.
         registerMenu("Turboism/Theme Manager", MANAGER_ACTION_ID, 40);
-        registerMenu("Turboism/Import Theme Package", IMPORT_ACTION_ID, 41);
-        registerMenu("Turboism/Export Selected Theme", EXPORT_ACTION_ID, 42);
-        registerMenu("Turboism/Delete Selected Theme", DELETE_ACTION_ID, 43);
         registerContextMenu(new ContextMenuRegistry.ContextMenuContribution(
             MANAGER_ACTION_ID,
             MANAGER_ACTION_LABEL,
