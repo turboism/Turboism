@@ -125,20 +125,20 @@ public final class HistoryPanelService {
 
     static PanelView render(final HistorySnapshot snapshot) {
         if (snapshot.availability() != HistorySnapshot.Availability.AVAILABLE) {
-            return PanelView.column(
+            return PanelView.scroll(PanelView.column(
                 PanelView.text("History unavailable"),
                 PanelView.text("The active document does not expose a verified history manager.")
-            );
+            ));
         }
         final List<PanelView> children = new ArrayList<>();
         children.add(PanelView.text(statusLine(snapshot)));
         children.add(PanelView.separator());
         for (final HistoryEntry entry : snapshot.entries()) {
             children.add(renderEntry(snapshot.position(), entry));
+            children.add(PanelView.separator());
         }
-        children.add(PanelView.separator());
         children.add(PanelView.text("Move-to is not enabled for this build; the pane is read-only."));
-        return PanelView.column(children.toArray(PanelView[]::new));
+        return PanelView.scroll(PanelView.column(children.toArray(PanelView[]::new)));
     }
 
     private static String statusLine(final HistorySnapshot snapshot) {
@@ -152,9 +152,16 @@ public final class HistoryPanelService {
         final String marker = entry.index() == cursor ? "▶ " : "  ";
         final String label = (entry.index() + 1) + " " + entry.label();
         final String detail = detail(entry);
-        return PanelView.column(
-            PanelView.text(marker + label),
-            PanelView.text("    " + detail)
+        return PanelView.row(
+            PanelView.button(
+                "history.entry.undo." + entry.index(),
+                "↺",
+                "history.entry.undo." + entry.index()
+            ),
+            PanelView.column(
+                PanelView.text(marker + label),
+                PanelView.text("    " + detail)
+            )
         );
     }
 
