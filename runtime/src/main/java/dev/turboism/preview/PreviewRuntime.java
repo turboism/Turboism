@@ -155,6 +155,14 @@ public final class PreviewRuntime implements AutoCloseable {
         LocalPluginRuntime plugins = null;
         try {
             log.info("runtime", "Starting Turboism 0.1 Developer Preview at " + home);
+            // Inject the persisted theme before the Cubism GL scene initializes so
+            // the off-canvas background color (cached in a singleton Lazy) takes
+            // effect on restart, matching the legacy hook agent's startup timing.
+            new dev.turboism.ui.appearance.EarlyThemeAppearanceBootstrap(
+                home,
+                hostClassLoader,
+                () -> log.info("runtime", "Early theme appearance injected from persisted selection")
+            ).start();
             scheduler = createScheduler(log);
             ingress = new HostRuntimeIngress();
 
