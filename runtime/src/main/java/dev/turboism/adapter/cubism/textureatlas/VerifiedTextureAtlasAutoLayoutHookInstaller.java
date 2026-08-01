@@ -29,6 +29,7 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
     private final TextureAtlasAutoLayoutDialogTransformer dialogTransformer;
     private final TextureAtlasAutoLayoutDialogTransformer statisticsTransformer;
     private final java.util.function.Consumer<Object> dialogIngress;
+    private final TextureAtlasAutoLayoutDialogContributor dialogContributor;
     private final java.util.function.Consumer<Object> statisticsIngress;
     private final RuntimeTextureAtlasEditorUi editorUi;
     private final AtomicBoolean installed = new AtomicBoolean(false);
@@ -47,7 +48,8 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
         final VerifiedMemberResolver resolverForConstructor,
         final TextureAtlasNativeInvocationCoordinator nativeInvocations,
         final BooleanSupplier pluginCallback,
-        final RuntimeTextureAtlasEditorUi editorUi
+        final RuntimeTextureAtlasEditorUi editorUi,
+        final RuntimeTextureAtlasLayoutAlgorithmRegistry algorithmRegistry
     ) {
         this.instrumentation = Objects.requireNonNull(instrumentation, "instrumentation");
         this.targetClassName = entry.ownerInternalName().replace('/', '.');
@@ -73,7 +75,10 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
             hostClassLoader,
             DIALOG_INGRESS_KEY
         );
-        this.dialogIngress = TextureAtlasAutoLayoutDialogContributor::contribute;
+        this.dialogContributor = new TextureAtlasAutoLayoutDialogContributor(
+            algorithmRegistry, java.util.Locale.getDefault()
+        );
+        this.dialogIngress = dialogContributor.ingress();
         if (resolverForConstructor.isExactCubismVersion("5.3.02")) {
             final StaticSelector statisticsEntry =
                 resolverForConstructor.verifiedSelector(STATISTICS_VIEW_INIT_ALIAS);
@@ -102,7 +107,8 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
         return fromVerifiedResolver(
             instrumentation, resolver, hostClassLoader,
             new TextureAtlasNativeInvocationCoordinator(), callback,
-            new RuntimeTextureAtlasEditorUi()
+            new RuntimeTextureAtlasEditorUi(),
+            new RuntimeTextureAtlasLayoutAlgorithmRegistry()
         );
     }
 
@@ -112,7 +118,8 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
         final ClassLoader hostClassLoader,
         final TextureAtlasNativeInvocationCoordinator nativeInvocations,
         final BooleanSupplier pluginCallback,
-        final RuntimeTextureAtlasEditorUi editorUi
+        final RuntimeTextureAtlasEditorUi editorUi,
+        final RuntimeTextureAtlasLayoutAlgorithmRegistry algorithmRegistry
     ) {
         final VerifiedMemberResolver verified = Objects.requireNonNull(resolver, "resolver");
         final Set<String> aliases;
@@ -157,7 +164,8 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
             verified,
             nativeInvocations,
             pluginCallback,
-            editorUi
+            editorUi,
+            algorithmRegistry
         );
     }
 
