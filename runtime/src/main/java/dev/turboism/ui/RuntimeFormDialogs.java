@@ -214,6 +214,13 @@ final class RuntimeFormDialogs {
                 return window;
             }
         }
+        // Fall back to the first showing frame (e.g. the Cubism main window) so
+        // dialogs opened right after another dialog closes keep a stable owner.
+        for (Window window : Window.getWindows()) {
+            if (window instanceof Frame frame && frame.isShowing()) {
+                return frame;
+            }
+        }
         return null;
     }
 }
