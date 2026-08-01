@@ -95,6 +95,19 @@ public interface UiHostCapabilityService {
         throw new UnsupportedOperationException("open-directory is not available");
     }
 
+    /**
+     * Opens a bounded runtime-rendered form dialog (text and color fields)
+     * without blocking the caller. The listener receives the field values when
+     * the user accepts, a secondary action id when one is pressed, or an empty
+     * map on cancel.
+     */
+    default void openFormDialog(
+        final FormDialogRequest request,
+        final FormDialogResultListener listener
+    ) {
+        throw new UnsupportedOperationException("form dialogs are not available");
+    }
+
     Registration notifyStatus(StatusNotification notification);
 
     Registration contributeContextMenu(ContextMenuRegistry.ContextMenuContribution contribution);

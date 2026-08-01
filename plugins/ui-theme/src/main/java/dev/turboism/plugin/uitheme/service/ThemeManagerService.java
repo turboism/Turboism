@@ -31,6 +31,7 @@ public final class ThemeManagerService {
     private final ThemeSelectionConfig selectionConfig;
     private final PluginLogger logger;
     private final PluginLocalization localization;
+    private final ThemeEditorService editor;
 
     public ThemeManagerService(
         final UiHostCapabilityService uiHost,
@@ -40,7 +41,8 @@ public final class ThemeManagerService {
         final ThemeSelectionService selection,
         final ThemeSelectionConfig selectionConfig,
         final PluginLogger logger,
-        final PluginLocalization localization
+        final PluginLocalization localization,
+        final ThemeEditorService editor
     ) {
         this.uiHost = Objects.requireNonNull(uiHost, "uiHost");
         this.builtins = Objects.requireNonNull(builtins, "builtins");
@@ -50,12 +52,15 @@ public final class ThemeManagerService {
         this.selectionConfig = Objects.requireNonNull(selectionConfig, "selectionConfig");
         this.logger = Objects.requireNonNull(logger, "logger");
         this.localization = Objects.requireNonNull(localization, "localization");
+        this.editor = Objects.requireNonNull(editor, "editor");
     }
 
     private static final String ACTION_IMPORT = "import";
     private static final String ACTION_EXPORT = "export";
     private static final String ACTION_DELETE = "delete";
     private static final String ACTION_OPEN_DIR = "open-dir";
+    private static final String ACTION_NEW_THEME = "new-theme";
+    private static final String ACTION_EDIT_THEME = "edit-theme";
 
     private final java.util.concurrent.atomic.AtomicBoolean dialogOpen =
         new java.util.concurrent.atomic.AtomicBoolean();
@@ -94,10 +99,10 @@ public final class ThemeManagerService {
                 localization.text("theme.button.apply"),
                 localization.text("theme.button.close"),
                 List.of(
+                    new dev.turboism.sdk.ui.ChoiceDialogAction(ACTION_NEW_THEME, localization.text("theme.button.newTheme")),
+                    new dev.turboism.sdk.ui.ChoiceDialogAction(ACTION_EDIT_THEME, localization.text("theme.button.editTheme")),
                     new dev.turboism.sdk.ui.ChoiceDialogAction(ACTION_OPEN_DIR, localization.text("theme.button.openDir")),
-                    new dev.turboism.sdk.ui.ChoiceDialogAction(ACTION_IMPORT, localization.text("theme.button.import")),
-                    new dev.turboism.sdk.ui.ChoiceDialogAction(ACTION_EXPORT, localization.text("theme.button.export")),
-                    new dev.turboism.sdk.ui.ChoiceDialogAction(ACTION_DELETE, localization.text("theme.button.delete"))
+                    new dev.turboism.sdk.ui.ChoiceDialogAction(ACTION_IMPORT, localization.text("theme.button.import"))
                 ),
                 Optional.of(this::refreshOptions),
                 localization.text("theme.button.reload")
@@ -144,6 +149,10 @@ public final class ThemeManagerService {
             work = () -> deleteSelected(optionId);
         } else if (ACTION_OPEN_DIR.equals(actionId)) {
             work = this::openThemeDirectory;
+        } else if (ACTION_NEW_THEME.equals(actionId)) {
+            work = editor::openNew;
+        } else if (ACTION_EDIT_THEME.equals(actionId)) {
+            work = () -> find(optionId).ifPresent(editor::openEdit);
         } else {
             return;
         }
