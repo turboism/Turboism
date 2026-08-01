@@ -264,9 +264,10 @@ public final class ThemeEditorService {
 
     private void refreshOffCanvas() {
         try {
-            uiHost.refreshOffCanvasAppearance();
-        } catch (RuntimeException ignored) {
-            // Off-canvas refresh is best-effort; an unsupported host must not fail the save.
+            final boolean refreshed = uiHost.refreshOffCanvasAppearance();
+            logger.info("THEME_OFFCANVAS_REFRESH result=" + refreshed);
+        } catch (RuntimeException failure) {
+            logger.warn("THEME_OFFCANVAS_REFRESH failed: " + failure);
         }
     }
 
