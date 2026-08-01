@@ -112,18 +112,29 @@ final class RuntimeChoiceDialogs {
             return label;
         });
         request.selectedOptionId().ifPresent(id -> select(choices, id));
+        final JPanel detailHost = new JPanel(new BorderLayout());
         final JTextArea detail = textArea("");
         detail.setRows(8);
         detail.setColumns(48);
+        final JScrollPane detailScroll = new JScrollPane(detail);
+        detailScroll.setBorder(javax.swing.BorderFactory.createEmptyBorder());
         final Runnable refresh = () -> {
             final ChoiceDialogOption option = (ChoiceDialogOption) choices.getSelectedItem();
-            detail.setText(option == null ? "" : option.detail());
-            detail.setCaretPosition(0);
+            detailHost.removeAll();
+            if (option != null && !option.detailRows().isEmpty()) {
+                detailHost.add(detailRows(option.detailRows()), BorderLayout.CENTER);
+            } else {
+                detail.setText(option == null ? "" : option.detail());
+                detail.setCaretPosition(0);
+                detailHost.add(detailScroll, BorderLayout.CENTER);
+            }
+            detailHost.revalidate();
+            detailHost.repaint();
         };
         choices.addActionListener(ignored -> refresh.run());
         refresh.run();
         center.add(choices, BorderLayout.NORTH);
-        center.add(new JScrollPane(detail), BorderLayout.CENTER);
+        center.add(detailHost, BorderLayout.CENTER);
         content.add(center, BorderLayout.CENTER);
 
         final JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT));
@@ -139,6 +150,25 @@ final class RuntimeChoiceDialogs {
         cancel.addActionListener(ignored -> {
             dialog.dispose();
             selected.set(new DialogResult(null, null).encode());
+        });
+        request.refresher().ifPresent(refresher -> {
+            final JButton reload = new JButton(
+                request.reloadLabel().isBlank() ? "Reload" : request.reloadLabel()
+            );
+            reload.addActionListener(ignored -> {
+                final String previousId = ((ChoiceDialogOption) choices.getSelectedItem()) == null
+                    ? null
+                    : ((ChoiceDialogOption) choices.getSelectedItem()).id();
+                model.removeAllElements();
+                refresher.refresh().forEach(model::addElement);
+                if (previousId != null) {
+                    select(choices, previousId);
+                }
+                final ChoiceDialogOption option = (ChoiceDialogOption) choices.getSelectedItem();
+                accept.setEnabled(option != null && option.enabled());
+                refresh.run();
+            });
+            buttons.add(reload);
         });
         for (ChoiceDialogAction action : request.actions()) {
             final JButton button = new JButton(action.label());
@@ -207,6 +237,58 @@ final class RuntimeChoiceDialogs {
                 action.isEmpty() ? null : action
             );
         }
+    }
+
+    private static JPanel detailRows(final java.util.List<dev.turboism.sdk.ui.ChoiceDialogDetailRow> rows) {
+        final JPanel panel = new JPanel(new java.awt.GridBagLayout());
+        panel.setBorder(javax.swing.BorderFactory.createCompoundBorder(
+            javax.swing.BorderFactory.createLineBorder(new java.awt.Color(0xCCCCCC)),
+            javax.swing.BorderFactory.createEmptyBorder(8, 10, 8, 10)
+        ));
+        final java.awt.GridBagConstraints gbc = new java.awt.GridBagConstraints();
+        gbc.insets = new java.awt.Insets(3, 4, 3, 8);
+        gbc.anchor = java.awt.GridBagConstraints.NORTHWEST;
+        int row = 0;
+        for (dev.turboism.sdk.ui.ChoiceDialogDetailRow detail : rows) {
+            gbc.gridx = 0;
+            gbc.gridy = row;
+            gbc.weightx = 0;
+            gbc.fill = java.awt.GridBagConstraints.NONE;
+            final JLabel label = new JLabel(detail.label());
+            label.setFont(label.getFont().deriveFont(java.awt.Font.BOLD));
+            panel.add(label, gbc);
+            gbc.gridx = 1;
+            gbc.weightx = 1.0;
+            gbc.fill = java.awt.GridBagConstraints.HORIZONTAL;
+            if (detail.url() != null && !detail.url().isBlank()) {
+                panel.add(urlLabel(detail.value(), detail.url()), gbc);
+            } else {
+                panel.add(new JLabel(detail.value().isEmpty() ? "-" : detail.value()), gbc);
+            }
+            row++;
+        }
+        panel.revalidate();
+        return panel;
+    }
+
+    private static JLabel urlLabel(final String text, final String url) {
+        final String escaped = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
+        final JLabel link = new JLabel("<html><a href=''>" + escaped + "</a></html>");
+        link.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR));
+        link.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseClicked(final java.awt.event.MouseEvent event) {
+                if (!java.awt.Desktop.isDesktopSupported()) {
+                    return;
+                }
+                try {
+                    java.awt.Desktop.getDesktop().browse(new java.net.URI(url));
+                } catch (Exception ignored) {
+                    // Browsing is best-effort; a missing browser must not fail the dialog.
+                }
+            }
+        });
+        return link;
     }
 
     private static JTextArea textArea(final String text) {
