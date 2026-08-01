@@ -28,6 +28,8 @@ import dev.turboism.ui.panel.VerifiedEmbeddedPanelHostOperations;
 import dev.turboism.ui.toolbar.EditorUiPluginResourceRegistry;
 import dev.turboism.ui.toolbar.MainToolbarContributionProvider;
 import dev.turboism.ui.toolbar.VerifiedMainToolbarHostOperations;
+import dev.turboism.ui.toolbar.HorizontalToolbarContributionProvider;
+import dev.turboism.ui.toolbar.VerifiedHorizontalToolbarHostOperations;
 import dev.turboism.ui.toolbar.VerifiedVerticalToolbarHostOperations;
 import dev.turboism.ui.toolbar.VerticalToolbarContributionProvider;
 
@@ -364,6 +366,18 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                             verificationEvidence(toolbar.admission())
                         ),
                         new VerifiedVerticalToolbarHostOperations(
+                            toolbar.resolver(),
+                            editorUiPluginResources
+                        ),
+                        editorUiActionRouter
+                    ));
+                    providers.add(new HorizontalToolbarContributionProvider(
+                        EditorUiProviderAdmission.admitted(
+                            EditorUiFamily.HORIZONTAL_TOOLBAR,
+                            hostGeneration,
+                            verificationEvidence(toolbar.admission())
+                        ),
+                        new VerifiedHorizontalToolbarHostOperations(
                             toolbar.resolver(),
                             editorUiPluginResources
                         ),

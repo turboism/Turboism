@@ -19,6 +19,7 @@ import dev.turboism.sdk.ui.FileChooserRequest;
 import dev.turboism.sdk.ui.OverlayContribution;
 import dev.turboism.sdk.ui.StatusNotification;
 import dev.turboism.sdk.ui.UiHostCapabilityService;
+import dev.turboism.sdk.ui.HorizontalToolbarContribution;
 import dev.turboism.sdk.ui.VerticalToolbarContribution;
 import dev.turboism.sdk.ui.ViewportSnapshot;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry;
@@ -79,6 +80,7 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
     private final CopyOnWriteArrayList<ContextMenuRegistry.ContextMenuContribution> contextMenus = new CopyOnWriteArrayList<>();
     private final CopyOnWriteArrayList<MainToolbarRegistry.MainToolbarContribution> mainToolbars = new CopyOnWriteArrayList<>();
     private final CopyOnWriteArrayList<VerticalToolbarContribution> verticalToolbars = new CopyOnWriteArrayList<>();
+    private final CopyOnWriteArrayList<HorizontalToolbarContribution> horizontalToolbars = new CopyOnWriteArrayList<>();
     private final CopyOnWriteArrayList<PaletteToolbarRegistry.PaletteToolbarContribution> paletteToolbars = new CopyOnWriteArrayList<>();
     private final BoundedKeyedStore<String, SafeModeDiagnostic> statusToolbarDiagnostics =
         new BoundedKeyedStore<>(MAX_TRANSIENT_ENTRIES);
@@ -395,6 +397,19 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
     }
 
     @Override
+    public Registration contributeHorizontalToolbar(final HorizontalToolbarContribution contribution) {
+        Objects.requireNonNull(contribution, "contribution");
+        permissionChecker.check(UI_TOOLBAR_MAIN_CONTRIBUTE, "ui.horizontal-toolbar.contribute");
+        return authoritativeRegistration(
+            EditorUiFamily.HORIZONTAL_TOOLBAR,
+            contribution.contributionId(),
+            0,
+            contribution,
+            horizontalToolbars
+        );
+    }
+
+    @Override
     public Registration contributeVerticalToolbar(final VerticalToolbarContribution contribution) {
         Objects.requireNonNull(contribution, "contribution");
         permissionChecker.check(UI_TOOLBAR_MAIN_CONTRIBUTE, "ui.vertical-toolbar.contribute");
@@ -462,6 +477,10 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
 
     public List<VerticalToolbarContribution> verticalToolbars() {
         return List.copyOf(verticalToolbars);
+    }
+
+    public List<HorizontalToolbarContribution> horizontalToolbars() {
+        return List.copyOf(horizontalToolbars);
     }
 
     public List<PaletteToolbarRegistry.PaletteToolbarContribution> paletteToolbars() {

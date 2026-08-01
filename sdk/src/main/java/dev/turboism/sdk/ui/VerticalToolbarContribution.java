@@ -4,7 +4,7 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * Photoshop-style vertical icon tool strip attached to the Cubism main frame.
+ * Photoshop-style vertical icon tool strip attached to the modeling canvas.
  *
  * <p>Each button routes clicks through the calling plugin's
  * {@code ActionRegistry}; the plugin decides the toggle semantics (e.g. show
@@ -13,7 +13,7 @@ import java.util.Objects;
 public record VerticalToolbarContribution(
     String contributionId,
     List<ToolButton> buttons,
-    CanvasSide side
+    VerticalSide side
 ) {
 
     public VerticalToolbarContribution {
@@ -31,15 +31,15 @@ public record VerticalToolbarContribution(
         final String contributionId,
         final List<ToolButton> buttons
     ) {
-        this(contributionId, buttons, CanvasSide.RIGHT);
+        this(contributionId, buttons, VerticalSide.RIGHT);
     }
 
-    /** Where the tool strip attaches relative to the modeling canvas. */
-    public enum CanvasSide {
+    /** Where the vertical strip attaches relative to the modeling canvas. */
+    public enum VerticalSide {
+        /** Vertical strip at the canvas left edge, next to the native draw-depth control. */
+        LEFT,
         /** Vertical strip at the canvas right edge (Photoshop-style). */
-        RIGHT,
-        /** Horizontal strip below the canvas. */
-        BOTTOM
+        RIGHT
     }
 
     /**
