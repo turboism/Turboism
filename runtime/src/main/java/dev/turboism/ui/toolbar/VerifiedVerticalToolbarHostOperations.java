@@ -84,17 +84,12 @@ public final class VerifiedVerticalToolbarHostOperations implements VerticalTool
         if (canvasContainer == null) {
             throw new IllegalStateException("Cubism modeling canvas container is unavailable");
         }
-        final JComponent host = descriptor.contribution().side()
-            == VerticalToolbarContribution.CanvasSide.RIGHT
-            ? canvasContainer
-            : canvasParent(root);
-        if (host == null) {
-            throw new IllegalStateException("Cubism canvas host container is unavailable");
-        }
+        final JComponent host = canvasContainer;
+        final boolean left = descriptor.contribution().side()
+            == VerticalToolbarContribution.VerticalSide.LEFT;
+        final boolean right = !left;
 
         final String stripId = "turboism:" + descriptor.pluginId() + ":" + descriptor.contributionId();
-        final boolean right = descriptor.contribution().side()
-            == VerticalToolbarContribution.CanvasSide.RIGHT;
         final JPanel strip = new JPanel();
         strip.setLayout(new BoxLayout(strip, right ? BoxLayout.Y_AXIS : BoxLayout.X_AXIS));
         strip.setName(stripId);
@@ -121,9 +116,8 @@ public final class VerifiedVerticalToolbarHostOperations implements VerticalTool
             strip.add(right ? Box.createVerticalStrut(4) : Box.createHorizontalStrut(4));
         }
 
-        // RIGHT: append after the GL canvas inside the horizontal canvas container.
-        // BOTTOM: append after the canvas container inside its vertical parent.
-        host.add(strip, host.getComponentCount());
+        // RIGHT: append after the GL canvas; LEFT: insert before the draw-depth control.
+        host.add(strip, left ? 0 : host.getComponentCount());
         host.revalidate();
         host.repaint();
 
@@ -135,11 +129,19 @@ public final class VerifiedVerticalToolbarHostOperations implements VerticalTool
         });
     }
 
-    private JComponent canvasContainer(final JComponent root) {
+    static JComponent canvasContainer(final JComponent root) {
         return findCanvasContainer(root, 0);
     }
 
-    private JComponent findCanvasContainer(final JComponent component, final int depth) {
+    static JComponent canvasParent(final JComponent root) {
+        final JComponent canvas = canvasContainer(root);
+        if (canvas == null) {
+            return null;
+        }
+        return canvas.getParent() instanceof JComponent parent ? parent : null;
+    }
+
+    private static JComponent findCanvasContainer(final JComponent component, final int depth) {
         if (depth > 12) {
             return null;
         }
@@ -160,21 +162,8 @@ public final class VerifiedVerticalToolbarHostOperations implements VerticalTool
         return null;
     }
 
-    /** The vertical parent that stacks the canvas container and its bottom bar. */
-    private JComponent canvasParent(final JComponent root) {
-        final JComponent canvas = canvasContainer(root);
-        if (canvas == null) {
-            return null;
-        }
-        for (final Component component : root.getComponents()) {
-            if (component == canvas) {
-                return root;
-            }
-        }
-        return canvas.getParent() instanceof JComponent parent ? parent : null;
-    }
 
-    private boolean containsGlCanvas(final JComponent component) {
+    private static boolean containsGlCanvas(final JComponent component) {
         for (final Component child : component.getComponents()) {
             if (child.getClass().getName().equals(GL_CANVAS_TYPE)) {
                 return true;
