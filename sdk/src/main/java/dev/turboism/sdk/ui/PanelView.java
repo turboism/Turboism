@@ -25,7 +25,12 @@ public sealed interface PanelView permits
     }
 
     static Text text(final String value) {
-        return new Text(value);
+        return new Text(value, false);
+    }
+
+    /** Text rendered in a grayed (disabled-looking) style, e.g. redo entries. */
+    static Text text(final String value, final boolean grayed) {
+        return new Text(value, grayed);
     }
 
     static Button button(final String id, final String label, final String actionId) {
@@ -85,9 +90,13 @@ public sealed interface PanelView permits
         }
     }
 
-    record Text(String value) implements PanelView {
+    record Text(String value, boolean grayed) implements PanelView {
         public Text {
             value = Objects.requireNonNull(value, "value");
+        }
+
+        public Text(final String value) {
+            this(value, false);
         }
     }
 

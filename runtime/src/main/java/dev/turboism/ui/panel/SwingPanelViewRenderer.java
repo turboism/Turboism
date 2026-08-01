@@ -54,6 +54,10 @@ final class SwingPanelViewRenderer {
             area.setLineWrap(true);
             area.setWrapStyleWord(true);
             area.setFont(javax.swing.UIManager.getFont("Label.font"));
+            if (text.grayed()) {
+                final java.awt.Color grayed = javax.swing.UIManager.getColor("Label.disabledForeground");
+                area.setForeground(grayed == null ? new java.awt.Color(0x999999) : grayed);
+            }
             return area;
         }
         if (view instanceof PanelView.Button button) {
