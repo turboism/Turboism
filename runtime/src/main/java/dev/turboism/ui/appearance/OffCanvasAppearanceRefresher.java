@@ -76,7 +76,7 @@ public final class OffCanvasAppearanceRefresher {
             );
             setColor.invoke(material, COLOR_SLOT, cColor, null);
             System.err.println("DEBUG-offcanvas setColor done slot=" + COLOR_SLOT + " color=" + colorHex);
-            repaintHost();
+            forceRepaintCanvas(appCtrl);
             return true;
         } catch (ReflectiveOperationException | RuntimeException failure) {
             System.err.println("DEBUG-offcanvas failed: " + failure);
@@ -122,24 +122,12 @@ public final class OffCanvasAppearanceRefresher {
         );
     }
 
-    /** Best-effort repaint so the updated mesh color is re-rendered. */
-    private static void repaintHost() {
+    /** Forces the Cubism canvas to re-render so the updated mesh color is drawn. */
+    private static void forceRepaintCanvas(final Object appCtrl) {
         try {
-            for (java.awt.Window window : java.awt.Window.getWindows()) {
-                repaintChildren(window);
-            }
-        } catch (RuntimeException ignored) {
+            appCtrl.getClass().getMethod("forceRepaintCanvas$cubism").invoke(appCtrl);
+        } catch (ReflectiveOperationException | RuntimeException ignored) {
             // Repaint is best-effort.
-        }
-    }
-
-    private static void repaintChildren(final java.awt.Container container) {
-        for (java.awt.Component component : container.getComponents()) {
-            if (component.getClass().getName().startsWith("com.jogamp.opengl.awt.GLJPanel")) {
-                component.repaint();
-            } else if (component instanceof java.awt.Container child) {
-                repaintChildren(child);
-            }
         }
     }
 
