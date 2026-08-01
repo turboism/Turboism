@@ -82,11 +82,13 @@ final class RuntimeFormDialogs {
             gbc.weightx = 1.0;
             gbc.fill = GridBagConstraints.HORIZONTAL;
             if (field.kind() == dev.turboism.sdk.ui.FormFieldKind.COLOR) {
-                final JPanel colorRow = new JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 4, 0));
+                final JPanel colorRow = new JPanel(new BorderLayout(4, 0));
                 final JButton picker = new JButton(normalizeColor(field.value()));
                 picker.setToolTipText(field.value());
                 final JLabel swatch = new JLabel("  ");
                 swatch.setOpaque(true);
+                swatch.setPreferredSize(new Dimension(22, 22));
+                swatch.setMinimumSize(new Dimension(22, 22));
                 swatch.setBackground(parseColor(normalizeColor(field.value())));
                 swatch.setBorder(BorderFactory.createLineBorder(new Color(0x999999)));
                 final Runnable refreshSwatch = () -> {
@@ -109,8 +111,8 @@ final class RuntimeFormDialogs {
                     }
                 });
                 refreshSwatch.run();
-                colorRow.add(picker);
-                colorRow.add(swatch);
+                colorRow.add(picker, BorderLayout.CENTER);
+                colorRow.add(swatch, BorderLayout.EAST);
                 colorButtons.put(field.id(), picker);
                 fields.add(colorRow, gbc);
             } else if (field.kind() == dev.turboism.sdk.ui.FormFieldKind.SELECT) {

@@ -58,6 +58,7 @@ public final class ThemeEditorService {
     private final PluginLogger logger;
     private final java.util.concurrent.atomic.AtomicBoolean dialogOpen =
         new java.util.concurrent.atomic.AtomicBoolean();
+    private volatile Runnable backToManager = () -> { };
 
     public ThemeEditorService(
         final UiHostCapabilityService uiHost,
@@ -71,6 +72,11 @@ public final class ThemeEditorService {
         this.appearance = Objects.requireNonNull(appearance, "appearance");
         this.localization = Objects.requireNonNull(localization, "localization");
         this.logger = Objects.requireNonNull(logger, "logger");
+    }
+
+    /** Reopens the theme manager window when the editor is dismissed. */
+    public void setBackToManager(final Runnable backToManager) {
+        this.backToManager = Objects.requireNonNull(backToManager, "backToManager");
     }
 
     /** Opens the generator for a brand new theme. */
@@ -138,6 +144,7 @@ public final class ThemeEditorService {
             (accepted, actionId, values) -> {
                 dialogOpen.set(false);
                 if (!accepted) {
+                    backToManager.run();
                     return;
                 }
                 final Thread thread = new Thread(
