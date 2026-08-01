@@ -16,7 +16,9 @@ public record ChoiceDialogRequest(
     Optional<String> selectedOptionId,
     String acceptLabel,
     String cancelLabel,
-    List<ChoiceDialogAction> actions
+    List<ChoiceDialogAction> actions,
+    Optional<ChoiceDialogRefresher> refresher,
+    String reloadLabel
 ) {
     public ChoiceDialogRequest {
         id = requireText(id, "id", 128);
@@ -55,6 +57,24 @@ public record ChoiceDialogRequest(
         if (actions.stream().map(ChoiceDialogAction::id).distinct().count() != actions.size()) {
             throw new IllegalArgumentException("action ids must be unique");
         }
+        refresher = Objects.requireNonNull(refresher, "refresher");
+        reloadLabel = Objects.requireNonNull(reloadLabel, "reloadLabel");
+        if (reloadLabel.length() > 64) {
+            throw new IllegalArgumentException("reloadLabel exceeds 64 characters");
+        }
+    }
+
+    public ChoiceDialogRequest(
+        final String id,
+        final String title,
+        final String notice,
+        final List<ChoiceDialogOption> options,
+        final Optional<String> selectedOptionId,
+        final String acceptLabel,
+        final String cancelLabel,
+        final List<ChoiceDialogAction> actions
+    ) {
+        this(id, title, notice, options, selectedOptionId, acceptLabel, cancelLabel, actions, Optional.empty(), "");
     }
 
     public ChoiceDialogRequest(

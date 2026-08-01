@@ -338,6 +338,18 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
     }
 
     @Override
+    public dev.turboism.sdk.ui.UiHostColorMode currentColorMode() {
+        return stateSource.currentColorMode();
+    }
+
+    @Override
+    public void openDirectory(final dev.turboism.sdk.storage.StoragePath directory) {
+        Objects.requireNonNull(directory, "directory");
+        permissionChecker.check(UI_DIALOG_CONTRIBUTE, "ui.dialog.contribute");
+        stateSource.openDirectory(directory);
+    }
+
+    @Override
     public Registration contributeEmbeddedPanel(final EmbeddedPanelContribution contribution) {
         Objects.requireNonNull(contribution, "contribution");
         permissionChecker.check(UI_PANEL_CONTRIBUTE, "ui.panel.contribute");
