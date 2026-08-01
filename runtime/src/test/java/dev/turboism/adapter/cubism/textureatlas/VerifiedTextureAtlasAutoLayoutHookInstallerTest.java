@@ -46,10 +46,14 @@ class VerifiedTextureAtlasAutoLayoutHookInstallerTest {
         assertEquals(List.of(
             "add:true",
             "add:true",
+            "add:true",
+            "retransform:" + Target.class.getName(),
             "retransform:" + Target.class.getName(),
             "retransform:" + Target.class.getName(),
             "remove",
             "remove",
+            "remove",
+            "retransform:" + Target.class.getName(),
             "retransform:" + Target.class.getName(),
             "retransform:" + Target.class.getName()
         ), calls);
@@ -141,6 +145,17 @@ class VerifiedTextureAtlasAutoLayoutHookInstallerTest {
             if (alias.equals(VerifiedTextureAtlasAutoLayoutHookInstaller.DIALOG_INIT_ALIAS)) {
                 selectors.add(StaticSelector.method(
                     alias, owner, "openDialog", "(Ljava/lang/Object;)V", StaticSelector.ACCESS_PUBLIC
+                ));
+            } else {
+                selectors.add(StaticSelector.classSelector(alias, owner));
+            }
+        }
+        for (String alias : version.equals("5.2.0")
+            ? java.util.Set.<String>of()
+            : VerifiedCubism5302TextureAtlasSelectorContract.STATISTICS_ALIASES) {
+            if (alias.equals(VerifiedTextureAtlasAutoLayoutHookInstaller.STATISTICS_VIEW_INIT_ALIAS)) {
+                selectors.add(StaticSelector.method(
+                    alias, owner, "openView", "(Ljava/lang/Object;)V", StaticSelector.ACCESS_PUBLIC
                 ));
             } else {
                 selectors.add(StaticSelector.classSelector(alias, owner));

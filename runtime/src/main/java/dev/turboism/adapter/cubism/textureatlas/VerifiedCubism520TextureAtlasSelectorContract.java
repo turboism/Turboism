@@ -93,6 +93,8 @@ public final class VerifiedCubism520TextureAtlasSelectorContract {
         VerifiedTextureAtlasNativeInvocationAdapter.DIALOG_INIT
     );
 
+    // Statistics view contribution is 5.3-only: 5.2 uses a differently structured editor view.
+
     private VerifiedCubism520TextureAtlasSelectorContract() {
     }
 }
