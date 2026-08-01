@@ -5,6 +5,7 @@ public enum EditorUiFamily {
     MENU,
     MAIN_TOOLBAR,
     VERTICAL_TOOLBAR,
+    HORIZONTAL_TOOLBAR,
     PALETTE_TOOLBAR,
     CONTEXT_MENU,
     PANEL,
