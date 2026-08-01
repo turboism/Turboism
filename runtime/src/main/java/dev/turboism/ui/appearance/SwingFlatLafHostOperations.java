@@ -9,8 +9,13 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 
-/** Runtime-owned bridge for the legacy UIManager injection + FlatLaf.updateUI sequence. */
+/** Runtime-owned bridge for UIManager injection, native fallback capture and FlatLaf refresh. */
 public final class SwingFlatLafHostOperations implements FlatLafAppearanceHostProvider.HostOperations {
+
+    private static final String OFF_CANVAS_BACKGROUND =
+        "CubismCommon.gl.viewArea.background";
+    private static final String NATIVE_OFF_CANVAS_BACKGROUND =
+        "Turboism.native.CubismCommon.gl.viewArea.background";
 
     private final ClassLoader hostClassLoader;
     private final java.util.Set<String> ownedKeys;
@@ -18,6 +23,7 @@ public final class SwingFlatLafHostOperations implements FlatLafAppearanceHostPr
     public SwingFlatLafHostOperations(final ClassLoader hostClassLoader) {
         this.hostClassLoader = Objects.requireNonNull(hostClassLoader, "hostClassLoader");
         this.ownedKeys = FlatLafAppearanceHostProvider.ownedKeys();
+        captureNativeOffCanvasBackground();
     }
 
     @Override
@@ -33,6 +39,19 @@ public final class SwingFlatLafHostOperations implements FlatLafAppearanceHostPr
                 }
             }
             return Map.copyOf(captured);
+        });
+    }
+
+    /** Captures Cubism's resolved derived default before any persisted theme is injected. */
+    static void captureNativeOffCanvasBackground() {
+        onEdt(() -> {
+            if (UIManager.get(NATIVE_OFF_CANVAS_BACKGROUND) == null) {
+                final Object value = UIManager.get(OFF_CANVAS_BACKGROUND);
+                if (value instanceof Color color) {
+                    UIManager.put(NATIVE_OFF_CANVAS_BACKGROUND, new ColorUIResource(color));
+                }
+            }
+            return null;
         });
     }
 
@@ -52,14 +71,15 @@ public final class SwingFlatLafHostOperations implements FlatLafAppearanceHostPr
     }
 
     /**
-     * Restores the native look: drops owned overrides and deletes the shared
-     * custom-defaults file so the next FlatLaf update skips it, exactly like
-     * the legacy agent's deleteRuntimeProperties + updateUI sequence.
+     * Restores the native look: drops owned overrides, reinstates Cubism's
+     * captured derived GL background, deletes the shared custom-defaults file,
+     * and refreshes Swing components.
      */
     @Override
     public void restoreNative() {
         onEdt(() -> {
             removeOwnedKeys();
+            restoreNativeOffCanvasBackground();
             ThemeRuntimeProperties.delete();
             refresh();
             return null;
@@ -72,6 +92,13 @@ public final class SwingFlatLafHostOperations implements FlatLafAppearanceHostPr
         }
     }
 
+    private static void restoreNativeOffCanvasBackground() {
+        final Object value = UIManager.get(NATIVE_OFF_CANVAS_BACKGROUND);
+        if (value instanceof Color color) {
+            UIManager.put(OFF_CANVAS_BACKGROUND, new ColorUIResource(color));
+        }
+    }
+
     @Override
     public void refresh() {
         onEdt(() -> {
@@ -81,12 +108,9 @@ public final class SwingFlatLafHostOperations implements FlatLafAppearanceHostPr
                     false,
                     hostClassLoader
                 );
-                // Register the shared runtime file as a FlatLaf custom defaults
-                // source (the legacy applier's mechanism) so updateUI keeps
-                // derived keys (e.g. CubismCommon.gl.viewArea.background =
-                // darken(@background,8%)) overridden instead of recomputing
-                // them. The file is written by apply() and deleted by
-                // restoreNative(); FlatLaf skips missing sources.
+                // Keep the fixed file registered for look-and-feel reinstalls.
+                // Runtime apply/restore update UIManager directly; FlatLaf.updateUI()
+                // only refreshes component trees and does not rebuild UIDefaults.
                 flatLaf.getMethod("registerCustomDefaultsSource", java.io.File.class)
                     .invoke(null, ThemeRuntimeProperties.path().toFile());
                 flatLaf.getMethod("updateUI").invoke(null);

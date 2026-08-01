@@ -61,6 +61,7 @@ public final class EarlyThemeAppearanceBootstrap {
             if (!waitForFlatLaf()) {
                 return;
             }
+            SwingFlatLafHostOperations.captureNativeOffCanvasBackground();
             final Optional<Map<String, String>> colors = loadPersistedThemeColors();
             if (colors.isEmpty()) {
                 return;
