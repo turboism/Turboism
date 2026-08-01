@@ -76,6 +76,7 @@ public final class OffCanvasAppearanceRefresher {
             );
             setColor.invoke(material, COLOR_SLOT, cColor, null);
             System.err.println("DEBUG-offcanvas setColor done slot=" + COLOR_SLOT + " color=" + colorHex);
+            setMeshVertexColors(mesh, color);
             forceRepaintCanvas(appCtrl);
             return true;
         } catch (ReflectiveOperationException | RuntimeException failure) {
@@ -120,6 +121,44 @@ public final class OffCanvasAppearanceRefresher {
         return cColor.getConstructor(int.class, int.class, int.class).newInstance(
             color.getRed(), color.getGreen(), color.getBlue()
         );
+    }
+
+    /**
+     * Some host meshes render from vertex colors instead of the material
+     * uniform, so also rewrite the background mesh's per-vertex RGBA.
+     */
+    private static void setMeshVertexColors(final Object mesh, final Color color) {
+        try {
+            final Object container = mesh.getClass().getMethod("getMeshContainer").invoke(mesh);
+            if (container == null) {
+                return;
+            }
+            final Object meshData = container.getClass().getMethod("getMesh").invoke(container);
+            if (meshData == null) {
+                return;
+            }
+            final Method getColors = meshData.getClass().getMethod("getColors");
+            final float[] current = (float[]) getColors.invoke(meshData);
+            if (current == null || current.length == 0) {
+                return;
+            }
+            final float[] target = new float[current.length];
+            final float r = color.getRed() / 255.0f;
+            final float g = color.getGreen() / 255.0f;
+            final float b = color.getBlue() / 255.0f;
+            for (int index = 0; index < target.length; index += 4) {
+                target[index] = r;
+                target[index + 1] = g;
+                target[index + 2] = b;
+                if (index + 3 < target.length) {
+                    target[index + 3] = current[index + 3];
+                }
+            }
+            meshData.getClass().getMethod("setColors", float[].class).invoke(meshData, target);
+            System.err.println("DEBUG-offcanvas vertexColors set count=" + (target.length / 4));
+        } catch (ReflectiveOperationException | RuntimeException failure) {
+            System.err.println("DEBUG-offcanvas vertexColors failed: " + failure);
+        }
     }
 
     /** Forces the Cubism canvas to re-render so the updated mesh color is drawn. */
