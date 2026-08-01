@@ -180,13 +180,15 @@ public final class HistoryPanelService {
         final String label = (entry.index() + 1) + " " + entry.label();
         final String detail = detail(entry);
         // PS-style: the row is clickable and jumps to that history state.
+        // Entries beyond the cursor are undone/redo entries -> grayed.
+        final boolean grayed = entry.index() >= cursor;
         return PanelView.column(
             PanelView.button(
                 "history.entry.move." + entry.index(),
                 marker + label,
                 "history.entry.move." + entry.index()
             ),
-            PanelView.text("    " + detail)
+            PanelView.text("    " + detail, grayed)
         );
     }
 
