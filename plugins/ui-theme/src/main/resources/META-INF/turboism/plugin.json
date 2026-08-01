@@ -17,7 +17,7 @@
   "resources": ["themes/"],
   "i18n": {
     "baseName": "META-INF/turboism/i18n/messages",
-    "locales": []
+    "locales": ["base", "zh"]
   },
   "dependencies": [],
   "permissions": [
