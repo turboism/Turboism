@@ -2,15 +2,17 @@ package dev.turboism.sdk.ui;
 
 import dev.turboism.sdk.PreviewApi;
 
+import java.util.List;
 import java.util.Objects;
 
-/** One bounded text or color field of a runtime-rendered form dialog. */
+/** One bounded text, select, or color field of a runtime-rendered form dialog. */
 @PreviewApi
 public record FormDialogField(
     String id,
     String label,
     String value,
-    FormFieldKind kind
+    FormFieldKind kind,
+    List<String> options
 ) {
     public FormDialogField {
         Objects.requireNonNull(id, "id");
@@ -26,5 +28,21 @@ public record FormDialogField(
             throw new IllegalArgumentException("value exceeds 4096 characters");
         }
         kind = Objects.requireNonNull(kind, "kind");
+        options = List.copyOf(Objects.requireNonNull(options, "options"));
+        if (options.size() > 32) {
+            throw new IllegalArgumentException("options must contain at most 32 entries");
+        }
+        if (kind == FormFieldKind.SELECT && options.isEmpty()) {
+            throw new IllegalArgumentException("select fields require at least one option");
+        }
+    }
+
+    public FormDialogField(
+        final String id,
+        final String label,
+        final String value,
+        final FormFieldKind kind
+    ) {
+        this(id, label, value, kind, List.of());
     }
 }

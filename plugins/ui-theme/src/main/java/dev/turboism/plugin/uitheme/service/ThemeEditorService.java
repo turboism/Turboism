@@ -33,6 +33,8 @@ public final class ThemeEditorService {
     private static final String F_SLUG = "slug";
     private static final String F_NAME = "name";
     private static final String F_AUTHOR = "author";
+    private static final String F_VERSION = "version";
+    private static final String F_URL = "url";
     private static final String F_BASE = "base";
 
     private static final Map<String, String> SLOT_KEYS = Map.ofEntries(
@@ -95,7 +97,18 @@ public final class ThemeEditorService {
             existing.map(theme -> theme.metadata().name()).orElse("")));
         fields.add(field(F_AUTHOR, "theme.gen.displayAuthor",
             existing.map(theme -> theme.metadata().author()).orElse("")));
-        fields.add(field(F_BASE, "theme.gen.base", baseDefault));
+        fields.add(field(F_VERSION, "theme.detail.version",
+            existing.map(theme -> theme.metadata().version() == null || theme.metadata().version().isBlank()
+                ? "1.0.0" : theme.metadata().version()).orElse("1.0.0")));
+        fields.add(field(F_URL, "theme.detail.url",
+            existing.map(theme -> theme.metadata().url() == null ? "" : theme.metadata().url()).orElse("")));
+        fields.add(new FormDialogField(
+            F_BASE,
+            localization.text("theme.gen.base"),
+            baseDefault,
+            FormFieldKind.SELECT,
+            java.util.List.of("light", "dark", "any")
+        ));
         final Map<String, String> colors = existing
             .map(theme -> theme.colors())
             .orElseGet(() -> ThemePaletteGenerator.fallbackDefaults(
@@ -144,6 +157,8 @@ public final class ThemeEditorService {
         final String slug = values.getOrDefault(F_SLUG, "").trim();
         final String name = values.getOrDefault(F_NAME, "").trim();
         final String author = values.getOrDefault(F_AUTHOR, "").trim();
+        final String version = values.getOrDefault(F_VERSION, "1.0.0").trim();
+        final String url = values.getOrDefault(F_URL, "").trim();
         final String baseText = values.getOrDefault(F_BASE, "light").trim();
         if (!SLUG.matcher(slug).matches() || name.isEmpty()) {
             notify("ui-theme.editor.invalid", "WARNING", localization.text("theme.gen.invalidSlug"));
@@ -174,8 +189,8 @@ public final class ThemeEditorService {
             name,
             "",
             author,
-            "",
-            "1.0.0",
+            url,
+            version,
             null,
             base,
             ThemeIcons.LIGHT,
