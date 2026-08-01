@@ -6,5 +6,6 @@ import dev.turboism.sdk.PreviewApi;
 @PreviewApi
 public enum FormFieldKind {
     TEXT,
-    COLOR
+    COLOR,
+    SELECT
 }
