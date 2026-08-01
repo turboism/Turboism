@@ -6,8 +6,12 @@ import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.plugin.TurboismPlugin;
+import dev.turboism.sdk.cubism.history.CubismHistory;
+import dev.turboism.sdk.cubism.history.HistoryMoveResult;
+import dev.turboism.sdk.cubism.history.HistorySnapshot;
 import dev.turboism.sdk.ui.EmbeddedPanelContribution;
 import dev.turboism.sdk.ui.EmbeddedPanelId;
+import dev.turboism.sdk.ui.StatusNotification;
 import dev.turboism.sdk.ui.VerticalToolbarContribution;
 
 import java.util.List;
@@ -31,6 +35,7 @@ public final class HistoryPanelPlugin implements TurboismPlugin {
     private PluginContext context;
     private PluginLogger logger;
     private Registration panelRegistration;
+    private final java.util.List<Registration> undoActions = new java.util.ArrayList<>();
     private boolean panelVisible;
 
     @Override
@@ -43,7 +48,7 @@ public final class HistoryPanelPlugin implements TurboismPlugin {
     @Override
     public void enable() {
         try {
-            registerAction(TOGGLE_ACTION_ID, "History", ignored -> toggle());
+            context.disposableScope().register(registerAction(TOGGLE_ACTION_ID, "History", ignored -> toggle()));
             context.disposableScope().register(context.uiHost().contributeVerticalToolbar(
                 new VerticalToolbarContribution(
                     STRIP_ID,
@@ -74,15 +79,24 @@ public final class HistoryPanelPlugin implements TurboismPlugin {
         if (panelVisible) {
             return;
         }
-        final HistoryPanelService service = new HistoryPanelService(
-            context.cubism().history(),
-            context.uiHost(),
-            logger
-        );
-        panelRegistration = service.enable();
-        // Present the pane as a Photoshop-style floating window next to the strip.
-        context.uiHost().activateEmbeddedPanelFloating(EmbeddedPanelId.of(PANEL_ID));
         panelVisible = true;
+        if (panelRegistration == null) {
+            try {
+                final HistoryPanelService service = new HistoryPanelService(
+                    context.cubism().history(),
+                    context.uiHost(),
+                    logger
+                );
+                panelRegistration = service.enable();
+            } catch (RuntimeException failure) {
+                // A previous incomplete close may have left the panel contributed;
+                // fall through to activation so the toggle still works.
+                logger.warn("History panel contribution retried safely: " + failure.getMessage());
+            }
+        }
+        registerUndoActions();
+        // Present the pane as a floating window next to the strip.
+        context.uiHost().activateEmbeddedPanelFloating(EmbeddedPanelId.of(PANEL_ID));
         logger.info("History panel toggled on (floating)");
     }
 
@@ -91,12 +105,49 @@ public final class HistoryPanelPlugin implements TurboismPlugin {
             return;
         }
         panelVisible = false;
+        unregisterUndoActions();
         final Registration current = panelRegistration;
         panelRegistration = null;
         if (current != null) {
-            current.close();
+            try {
+                current.close();
+            } catch (RuntimeException failure) {
+                // Host teardown of a floating frame can fail partially; the pane
+                // is still dismissed from the toggle state.
+                logger.warn("History panel close failed safely: " + failure.getMessage());
+            }
         }
         logger.info("History panel toggled off");
+    }
+
+    private void registerUndoActions() {
+        unregisterUndoActions();
+        final CubismHistory history = context.cubism().history();
+        final HistorySnapshot snapshot = history.snapshot();
+        if (snapshot.availability() != HistorySnapshot.Availability.AVAILABLE) {
+            return;
+        }
+        final long generation = snapshot.generation();
+        final long revision = snapshot.revision();
+        for (final dev.turboism.sdk.cubism.history.HistoryEntry entry : snapshot.entries()) {
+            final String actionId = "history.entry.undo." + entry.index();
+            undoActions.add(registerAction(actionId, "Undo to " + (entry.index() + 1), ignored -> {
+                final HistoryMoveResult result = history.moveTo(generation, revision, entry.index());
+                context.uiHost().notifyStatus(new StatusNotification(
+                    "history.entry.undo.result",
+                    result.outcome() == HistoryMoveResult.Outcome.MOVED ? "INFO" : "WARNING",
+                    "History move to " + entry.index() + ": " + result.outcome()
+                        + result.diagnosticId().map(value -> " (" + value + ")").orElse("")
+                ));
+            }));
+        }
+    }
+
+    private void unregisterUndoActions() {
+        for (final Registration registration : undoActions) {
+            registration.close();
+        }
+        undoActions.clear();
     }
 
     private void closeDisposableScopeQuietly() {
@@ -118,12 +169,12 @@ public final class HistoryPanelPlugin implements TurboismPlugin {
         logger.info("HistoryPanelPlugin shutdown");
     }
 
-    private void registerAction(
+    private Registration registerAction(
         final String id,
         final String label,
         final Consumer<ActionRegistry.ActionContext> handler
     ) {
-        final Registration registration = context.actions().register(id, new ActionRegistry.Action() {
+        return context.actions().register(id, new ActionRegistry.Action() {
             @Override
             public String id() {
                 return id;
@@ -139,6 +190,5 @@ public final class HistoryPanelPlugin implements TurboismPlugin {
                 return handler;
             }
         });
-        context.disposableScope().register(registration);
     }
 }
