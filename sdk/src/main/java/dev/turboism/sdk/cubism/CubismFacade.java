@@ -43,6 +43,22 @@ public interface CubismFacade {
         );
     }
 
+    /** Returns read access to the active native texture-atlas editor session. */
+    @PreviewApi
+    default dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorSession textureAtlasEditorSession() {
+        throw new UnsupportedOperationException(
+            "Texture atlas editor session is unavailable"
+        );
+    }
+
+    /** Returns UI contribution access to the native texture-atlas editor window. */
+    @PreviewApi
+    default dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorUi textureAtlasEditorUi() {
+        throw new UnsupportedOperationException(
+            "Texture atlas editor UI contribution is unavailable"
+        );
+    }
+
     default boolean hasActiveProject() {
         return activeProject().isPresent();
     }
