@@ -135,7 +135,19 @@ public final class HistoryPanelService {
             ));
         }
         final List<PanelView> children = new ArrayList<>();
-        children.add(PanelView.text(statusLine(snapshot)));
+        children.add(PanelView.row(
+            PanelView.button(
+                "history.panel.undo",
+                localization.text("history.panel.undo"),
+                "history.undo"
+            ),
+            PanelView.button(
+                "history.panel.redo",
+                localization.text("history.panel.redo"),
+                "history.redo"
+            ),
+            PanelView.text(statusLine(snapshot))
+        ));
         children.add(PanelView.separator());
         for (final HistoryEntry entry : snapshot.entries()) {
             children.add(renderEntry(snapshot.position(), entry));
