@@ -34,7 +34,6 @@ public final class TextureAtlasPlugin implements TurboismPlugin {
         if (!settings.init(context.config()).toCompletableFuture().join()) {
             throw new IllegalStateException("Texture Atlas configuration schema registration failed.");
         }
-        composeAutoLayoutService();
         context.logger().info("Texture Atlas migration shell initialized");
     }
 
@@ -44,11 +43,13 @@ public final class TextureAtlasPlugin implements TurboismPlugin {
         if (!settings.enable().toCompletableFuture().join()) {
             throw new IllegalStateException("Texture Atlas configuration could not be loaded.");
         }
-        if (autoLayoutService == null) composeAutoLayoutService();
         lifecycle.activate();
         enabled = true;
         System.getProperties().putIfAbsent(NATIVE_AUTO_LAYOUT_CALLBACK_KEY, nativeAutoLayoutCallback);
         registerAlgorithms();
+        if (autoLayoutService == null) {
+            composeAutoLayoutService();
+        }
         publishDialogState();
         attachEditorStatistics();
     }
