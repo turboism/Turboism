@@ -65,6 +65,7 @@ class VerifiedHostAdapterConnectorAppearanceTest {
     private static final class NoOpHost implements FlatLafAppearanceHostProvider.HostOperations {
         @Override public java.util.Map<String, String> capture() { return java.util.Map.of(); }
         @Override public void replace(final java.util.Map<String, String> defaults) { }
+        @Override public void restoreNative() { }
         @Override public void refresh() { }
     }
 }
