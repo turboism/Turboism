@@ -194,6 +194,40 @@ class UiThemePluginTest {
     }
 
     @Test
+    void managerWindowApplyWithBlankActionAppliesSelectedTheme() throws Exception {
+        RecordingPluginContext context = new RecordingPluginContext();
+        UiThemePlugin plugin = new UiThemePlugin();
+
+        plugin.init(context);
+        plugin.enable();
+        context.actions().execute("ui-theme.manager.open");
+
+        dev.turboism.sdk.ui.ChoiceDialogRequest request = context.uiHost().lastChoiceRequest();
+        assertNotNull(request);
+        // Accepting the dialog reports the selected option with a blank (not null) action id.
+        context.uiHost().lastChoiceListener().onResult(request.options().get(0).id(), "");
+
+        final dev.turboism.sdk.appearance.AppearanceRequest applied =
+            awaitAppearanceRequest(context.appearanceService(), 5);
+        assertNotNull(applied);
+        assertEquals(request.options().get(0).id(), applied.appearanceId());
+    }
+
+    private static dev.turboism.sdk.appearance.AppearanceRequest awaitAppearanceRequest(
+        final RecordingAppearanceService service,
+        final int seconds
+    ) throws Exception {
+        final long deadline = System.nanoTime() + seconds * 1_000_000_000L;
+        while (System.nanoTime() < deadline) {
+            if (service.lastRequest() != null) {
+                return service.lastRequest();
+            }
+            Thread.sleep(50);
+        }
+        return service.lastRequest();
+    }
+
+    @Test
     void builtinAppearanceActionUsesSemanticPaletteAndReportsUnavailable() throws Exception {
         RecordingPluginContext context = new RecordingPluginContext();
         UiThemePlugin plugin = new UiThemePlugin();
