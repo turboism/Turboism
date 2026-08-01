@@ -32,6 +32,8 @@ public sealed interface RuntimeHostAdapterAccess permits HostSession, SessionRun
     dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi textureAtlasEditorUi();
 
     dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorSession textureAtlasEditorSession();
+
+    dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorithmRegistry textureAtlasAlgorithms();
     EditorObjectLifecycleCoordinator editorObjectLifecycle();
 
     PhysicsEditorCoordinator physicsEditorCoordinator();
@@ -86,6 +88,7 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     private final ControlAppearanceCoordinator controlAppearanceCoordinator;
     private final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi textureAtlasEditorUi;
     private final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorSession textureAtlasEditorSession;
+    private final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorithmRegistry textureAtlasAlgorithms;
 
     SessionRuntimeHostAdapterAccess(
         final RuntimeHostAdapters adapters,
@@ -109,7 +112,8 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
         final dev.turboism.sdk.ui.table.SceneTableService sceneTable,
         final ControlAppearanceCoordinator controlAppearanceCoordinator,
         final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi textureAtlasEditorUi,
-        final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorSession textureAtlasEditorSession
+        final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorSession textureAtlasEditorSession,
+        final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorithmRegistry textureAtlasAlgorithms
     ) {
         this.adapters = java.util.Objects.requireNonNull(adapters, "adapters");
         this.modelAccess = java.util.Objects.requireNonNull(modelAccess, "modelAccess");
@@ -174,6 +178,8 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
             textureAtlasEditorUi, "textureAtlasEditorUi");
         this.textureAtlasEditorSession = java.util.Objects.requireNonNull(
             textureAtlasEditorSession, "textureAtlasEditorSession");
+        this.textureAtlasAlgorithms = java.util.Objects.requireNonNull(
+            textureAtlasAlgorithms, "textureAtlasAlgorithms");
     }
 
     @Override
@@ -284,5 +290,9 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
 
     public dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorSession textureAtlasEditorSession() {
         return textureAtlasEditorSession;
+    }
+
+    public dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorithmRegistry textureAtlasAlgorithms() {
+        return textureAtlasAlgorithms;
     }
 }

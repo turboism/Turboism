@@ -59,7 +59,7 @@ class TextureAtlasPluginTest {
         plugin.enable();
 
         assertEquals(TextureAtlasLayoutMode.PART_BUCKET, plugin.settings().layoutMode());
-        assertTrue(plugin.updateSettings(new TextureAtlasSettings(TextureAtlasLayoutMode.COMPACT, TextureAtlasLayoutAlgorithm.MAXRECTS, false)));
+        assertTrue(plugin.updateSettings(new TextureAtlasSettings(TextureAtlasLayoutMode.COMPACT, TextureAtlasPlugin.ALGORITHM_MAXRECTS, false)));
         assertEquals(TextureAtlasLayoutMode.COMPACT, plugin.settings().layoutMode());
 
         plugin.disable();
@@ -121,6 +121,8 @@ class TextureAtlasPluginTest {
             @Override public void error(String message, Throwable throwable) {}
         };
         private final TextureAtlasLayoutService layouts;
+        private final dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithmRegistry registry =
+            new TestAlgorithmRegistry();
 
         private ShellPluginContext() {
             this(new RecordingLayoutService(java.util.Optional.empty()));
@@ -128,6 +130,15 @@ class TextureAtlasPluginTest {
 
         private ShellPluginContext(final TextureAtlasLayoutService layouts) {
             this.layouts = layouts;
+            registry.register(new dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithm(
+                TextureAtlasPlugin.ALGORITHM_MAXRECTS, "MaxRects-BSSF", true,
+                (items, constraints) ->
+                    new dev.turboism.plugin.textureatlas.layout.MaxRectsBssfTextureAtlasPlanner()
+                        .plan(items, constraints, false)
+            ));
+            registry.register(new dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithm(
+                TextureAtlasPlugin.ALGORITHM_NATIVE, "Native", false, null
+            ));
         }
 
         @Override public PluginDescriptor descriptor() { throw unused(); }
@@ -145,6 +156,17 @@ class TextureAtlasPluginTest {
                 @Override public TextureAtlasLayoutService textureAtlasLayouts() {
                     return layouts;
                 }
+                @Override public dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithmRegistry textureAtlasAlgorithms() {
+                    return registry;
+                }
+            };
+        }
+        @Override public dev.turboism.sdk.i18n.PluginLocalization localization() {
+            return new dev.turboism.sdk.i18n.PluginLocalization() {
+                @Override public java.util.Locale locale() { return java.util.Locale.ENGLISH; }
+                @Override public String text(String key) { return key; }
+                @Override public String format(String key, Object... arguments) { return key; }
+                @Override public boolean contains(String key) { return true; }
             };
         }
         @Override public List<PluginPermission> permissions() { return List.of(); }
@@ -205,6 +227,25 @@ class TextureAtlasPluginTest {
         ) {
             applyCalls++;
             return result;
+        }
+    }
+
+    private static final class TestAlgorithmRegistry
+        implements dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithmRegistry {
+        private final java.util.Map<String, dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithm>
+            algorithms = new java.util.LinkedHashMap<>();
+
+        @Override public void register(dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithm algorithm) {
+            algorithms.put(algorithm.id(), algorithm);
+        }
+
+        @Override public java.util.Optional<dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithm>
+            find(String id) {
+            return java.util.Optional.ofNullable(algorithms.get(id));
+        }
+
+        @Override public java.util.List<dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithm> algorithms() {
+            return java.util.List.copyOf(algorithms.values());
         }
     }
 }

@@ -204,7 +204,8 @@ public final class CorePluginContext implements PluginContext {
             hostAccess.editorObjectLifecycle(),
             hostAccess.physicsEditorCoordinator(),
             hostAccess.textureAtlasEditorUi(),
-            hostAccess.textureAtlasEditorSession()
+            hostAccess.textureAtlasEditorSession(),
+            hostAccess.textureAtlasAlgorithms()
         );
     }
 
