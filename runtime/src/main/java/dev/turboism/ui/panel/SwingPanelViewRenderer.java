@@ -46,7 +46,15 @@ final class SwingPanelViewRenderer {
             return container(row.children(), BoxLayout.X_AXIS, action);
         }
         if (view instanceof PanelView.Text text) {
-            return new JLabel(text.value());
+            final javax.swing.JTextArea area = new javax.swing.JTextArea(text.value());
+            area.setEditable(false);
+            area.setFocusable(false);
+            area.setOpaque(false);
+            area.setBorder(null);
+            area.setLineWrap(true);
+            area.setWrapStyleWord(true);
+            area.setFont(javax.swing.UIManager.getFont("Label.font"));
+            return area;
         }
         if (view instanceof PanelView.Button button) {
             final JButton component = new JButton(button.label());
