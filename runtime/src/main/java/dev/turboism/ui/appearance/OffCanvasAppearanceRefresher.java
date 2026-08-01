@@ -11,9 +11,9 @@ import java.util.Optional;
  * <p>Cubism caches the off-canvas color in a singleton Lazy on first GL scene
  * access, so UIManager changes alone never repaint it. This refresher walks the
  * host's public appearance API — {@code CEAppCtrl.currentViewContext →
- * appearanceSetting → viewAreaBackgroundPanel → meshRenderer → material → setColor}
- * — and pushes the current color onto the background mesh so theme switches and
- * editor saves take effect immediately instead of only after a restart.</p>
+ * appearanceSetting → viewAreaBackgroundPanel → meshRenderer → current material → baseColor}
+ * — and pushes the current color onto the same uniform used when Cubism creates
+ * the background plane.</p>
  *
  * <p>All host access is through public methods and getters; no private fields
  * are touched. Unknown or changed host structures fail closed.</p>
@@ -21,7 +21,7 @@ import java.util.Optional;
 public final class OffCanvasAppearanceRefresher {
 
     private static final String CE_APP_CTRL = "com.live2d.cubism.CEAppCtrl";
-    private static final String COLOR_SLOT = "lightColor";
+    private static final String COLOR_SLOT = "baseColor";
 
     public OffCanvasAppearanceRefresher() {
     }
@@ -64,7 +64,7 @@ public final class OffCanvasAppearanceRefresher {
             if (renderer == null) {
                 return false;
             }
-            final Object material = invoke(renderer, "getMaterial");
+            final Object material = invoke(renderer, "getCurMaterial");
             System.err.println("DEBUG-offcanvas material=" + material);
             if (material == null) {
                 return false;
@@ -76,7 +76,6 @@ public final class OffCanvasAppearanceRefresher {
             );
             setColor.invoke(material, COLOR_SLOT, cColor, null);
             System.err.println("DEBUG-offcanvas setColor done slot=" + COLOR_SLOT + " color=" + colorHex);
-            setMeshVertexColors(mesh, color);
             forceRepaintCanvas(appCtrl);
             return true;
         } catch (ReflectiveOperationException | RuntimeException failure) {
@@ -123,43 +122,6 @@ public final class OffCanvasAppearanceRefresher {
         );
     }
 
-    /**
-     * Some host meshes render from vertex colors instead of the material
-     * uniform, so also rewrite the background mesh's per-vertex RGBA.
-     */
-    private static void setMeshVertexColors(final Object mesh, final Color color) {
-        try {
-            final Object container = mesh.getClass().getMethod("getMeshContainer").invoke(mesh);
-            if (container == null) {
-                return;
-            }
-            final Object meshData = container.getClass().getMethod("getMesh").invoke(container);
-            if (meshData == null) {
-                return;
-            }
-            final Method getColors = meshData.getClass().getMethod("getColors");
-            final float[] current = (float[]) getColors.invoke(meshData);
-            if (current == null || current.length == 0) {
-                return;
-            }
-            final float[] target = new float[current.length];
-            final float r = color.getRed() / 255.0f;
-            final float g = color.getGreen() / 255.0f;
-            final float b = color.getBlue() / 255.0f;
-            for (int index = 0; index < target.length; index += 4) {
-                target[index] = r;
-                target[index + 1] = g;
-                target[index + 2] = b;
-                if (index + 3 < target.length) {
-                    target[index + 3] = current[index + 3];
-                }
-            }
-            meshData.getClass().getMethod("setColors", float[].class).invoke(meshData, target);
-            System.err.println("DEBUG-offcanvas vertexColors set count=" + (target.length / 4));
-        } catch (ReflectiveOperationException | RuntimeException failure) {
-            System.err.println("DEBUG-offcanvas vertexColors failed: " + failure);
-        }
-    }
 
     /** Forces the Cubism canvas to re-render so the updated mesh color is drawn. */
     private static void forceRepaintCanvas(final Object appCtrl) {
