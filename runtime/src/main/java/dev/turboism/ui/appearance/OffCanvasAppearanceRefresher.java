@@ -76,6 +76,7 @@ public final class OffCanvasAppearanceRefresher {
             );
             setColor.invoke(material, COLOR_SLOT, cColor, null);
             System.err.println("DEBUG-offcanvas setColor done slot=" + COLOR_SLOT + " color=" + colorHex);
+            repaintHost();
             return true;
         } catch (ReflectiveOperationException | RuntimeException failure) {
             System.err.println("DEBUG-offcanvas failed: " + failure);
@@ -119,6 +120,27 @@ public final class OffCanvasAppearanceRefresher {
         return cColor.getConstructor(int.class, int.class, int.class).newInstance(
             color.getRed(), color.getGreen(), color.getBlue()
         );
+    }
+
+    /** Best-effort repaint so the updated mesh color is re-rendered. */
+    private static void repaintHost() {
+        try {
+            for (java.awt.Window window : java.awt.Window.getWindows()) {
+                repaintChildren(window);
+            }
+        } catch (RuntimeException ignored) {
+            // Repaint is best-effort.
+        }
+    }
+
+    private static void repaintChildren(final java.awt.Container container) {
+        for (java.awt.Component component : container.getComponents()) {
+            if (component.getClass().getName().startsWith("com.jogamp.opengl.awt.GLJPanel")) {
+                component.repaint();
+            } else if (component instanceof java.awt.Container child) {
+                repaintChildren(child);
+            }
+        }
     }
 
     private static Color parse(final String value) {
