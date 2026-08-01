@@ -354,12 +354,6 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
     }
 
     @Override
-    public boolean refreshOffCanvasAppearance(final String colorHex) {
-        Objects.requireNonNull(colorHex, "colorHex");
-        return new dev.turboism.ui.appearance.OffCanvasAppearanceRefresher().refresh(colorHex);
-    }
-
-    @Override
     public void openDirectory(final dev.turboism.sdk.storage.StoragePath directory) {
         Objects.requireNonNull(directory, "directory");
         permissionChecker.check(UI_DIALOG_CONTRIBUTE, "ui.dialog.contribute");
