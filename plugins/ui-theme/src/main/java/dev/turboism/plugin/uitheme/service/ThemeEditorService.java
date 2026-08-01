@@ -161,6 +161,19 @@ public final class ThemeEditorService {
         final Optional<ThemePackageData> existing,
         final Map<String, String> values
     ) {
+        try {
+            saveInternal(existing, values);
+        } catch (RuntimeException failure) {
+            logger.warn("THEME_EDITOR_SAVE_FAILED " + failure);
+            notify("ui-theme.editor.save-failed", "WARNING",
+                localization.text("theme.gen.saveFailed") + failure.getMessage());
+        }
+    }
+
+    private void saveInternal(
+        final Optional<ThemePackageData> existing,
+        final Map<String, String> values
+    ) {
         final String slug = values.getOrDefault(F_SLUG, "").trim();
         final String name = values.getOrDefault(F_NAME, "").trim();
         final String author = values.getOrDefault(F_AUTHOR, "").trim();
@@ -213,11 +226,15 @@ public final class ThemeEditorService {
             notify("ui-theme.editor.save-failed", "WARNING", localization.text("theme.gen.saveFailed") + saved.outcome());
             return;
         }
+        logger.info("THEME_EDITOR_SAVED id=" + id + " colors=" + colors.size());
         // Save-and-apply: commit the selection through the same production path.
         final long revision = appearance.current().toCompletableFuture().join().revision();
+        logger.info("THEME_EDITOR_APPLY revision=" + revision);
         final AppearanceApplyResult applied = appearance.apply(
             LegacyThemePaletteResolver.resolve(theme, revision)
         ).toCompletableFuture().join();
+        logger.info("THEME_EDITOR_APPLY outcome=" + applied.outcome()
+            + " diagnostic=" + applied.diagnosticId().orElse("none"));
         if (applied.outcome() == AppearanceApplyResult.Outcome.APPLIED
             || applied.outcome() == AppearanceApplyResult.Outcome.NO_CHANGE) {
             notify(
