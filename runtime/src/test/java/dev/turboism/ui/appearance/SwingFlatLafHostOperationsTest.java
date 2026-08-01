@@ -17,6 +17,9 @@ class SwingFlatLafHostOperationsTest {
     @AfterEach
     void clear() {
         UIManager.getDefaults().remove("CubismCommon.blue");
+        UIManager.getDefaults().remove("CubismCommon.gl.viewArea.background");
+        UIManager.getDefaults().remove("Turboism.native.CubismCommon.gl.viewArea.background");
+        ThemeRuntimeProperties.delete();
         UIManager.getDefaults().remove("Panel.background");
     }
 
@@ -36,7 +39,25 @@ class SwingFlatLafHostOperationsTest {
     }
 
     @Test
-    void restoreNativeDropsOwnedKeysAndDeletesTheRuntimeSource() throws Exception {
+    void restoreNativeReinstatesTheOffCanvasDefaultCapturedBeforeThemeInjection() {
+        UIManager.put("CubismCommon.gl.viewArea.background", new Color(222, 223, 224));
+        SwingFlatLafHostOperations.captureNativeOffCanvasBackground();
+        SwingFlatLafHostOperations host = new SwingFlatLafHostOperations(getClass().getClassLoader());
+
+        host.replace(Map.of("CubismCommon.gl.viewArea.background", "#F0E0E5"));
+        SwingFlatLafHostOperations.captureNativeOffCanvasBackground();
+        try {
+            host.restoreNative();
+            org.junit.jupiter.api.Assertions.fail("expected FlatLaf failure outside the host");
+        } catch (IllegalStateException expected) {
+            // The unit environment has no com.formdev.flatlaf.FlatLaf class.
+        }
+
+        assertEquals(new Color(222, 223, 224), UIManager.get("CubismCommon.gl.viewArea.background"));
+    }
+
+    @Test
+    void restoreNativeDropsOwnedKeysAndDeletesTheRuntimeSource() {
         UIManager.put("CubismCommon.blue", new Color(1, 2, 3));
         SwingFlatLafHostOperations host = new SwingFlatLafHostOperations(getClass().getClassLoader());
 
