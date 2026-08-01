@@ -3,6 +3,7 @@
   "schemaVersion": 2,
   "id": "dev.turboism.plugin.historypanel",
   "name": "History Panel Plugin",
+  "nameKey": "plugin.name",
   "version": "0.1.0",
   "description": "Read-only Photoshop-style history pane: projects the active document's native Undo history into an embedded dock tab. Move-to stays fail-closed in production.",
   "entrypoints": [
@@ -19,7 +20,7 @@
   ],
   "i18n": {
     "baseName": "META-INF/turboism/i18n/messages",
-    "locales": []
+    "locales": ["base", "en", "ja", "ko", "zh_Hans", "zh_Hant"]
   },
   "dependencies": [],
   "permissions": [
