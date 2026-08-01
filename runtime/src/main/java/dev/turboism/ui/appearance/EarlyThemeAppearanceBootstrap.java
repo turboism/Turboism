@@ -106,9 +106,10 @@ public final class EarlyThemeAppearanceBootstrap {
             return Optional.empty();
         }
         final String id = themeId.orElseThrow();
-        Optional<Map<String, String>> colors = loadBuiltinColors(id);
+        // A saved package (user-edited copy) overrides the immutable built-in.
+        Optional<Map<String, String>> colors = loadImportedColors(id);
         if (colors.isEmpty()) {
-            colors = loadImportedColors(id);
+            colors = loadBuiltinColors(id);
         }
         if (colors.isEmpty()) {
             System.err.println("Early theme bootstrap: theme not found id=" + id);
