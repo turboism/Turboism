@@ -30,10 +30,9 @@ class FlatLafAppearanceHostProviderTest {
 
         provider.restore(baseline);
 
-        assertEquals(Map.of(
-            "CubismCommon.blue", "#010203",
-            "Panel.background", "#040506"
-        ), host.values);
+        // Native restore drops owned overrides; it does not re-put captured
+        // values (the early bootstrap may already have injected the theme).
+        assertEquals(Map.of(), host.values);
         assertEquals(2, host.refreshes);
         assertEquals(AppearanceBase.NATIVE, provider.readStatus().base());
     }
@@ -85,6 +84,12 @@ class FlatLafAppearanceHostProviderTest {
         public void replace(final Map<String, String> defaults) {
             values.clear();
             values.putAll(defaults);
+        }
+
+        @Override
+        public void restoreNative() {
+            values.clear();
+            refresh();
         }
 
         @Override
