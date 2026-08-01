@@ -327,6 +327,17 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
     }
 
     @Override
+    public void openChoiceDialog(
+        final ChoiceDialogRequest request,
+        final dev.turboism.sdk.ui.ChoiceDialogResultListener listener
+    ) {
+        Objects.requireNonNull(request, "request");
+        Objects.requireNonNull(listener, "listener");
+        permissionChecker.check(UI_DIALOG_CONTRIBUTE, "ui.dialog.choose");
+        RuntimeChoiceDialogs.openAsync(request, listener);
+    }
+
+    @Override
     public Registration contributeEmbeddedPanel(final EmbeddedPanelContribution contribution) {
         Objects.requireNonNull(contribution, "contribution");
         permissionChecker.check(UI_PANEL_CONTRIBUTE, "ui.panel.contribute");
