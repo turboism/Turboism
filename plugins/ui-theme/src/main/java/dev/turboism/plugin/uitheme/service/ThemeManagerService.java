@@ -47,26 +47,66 @@ public final class ThemeManagerService {
         this.logger = Objects.requireNonNull(logger, "logger");
     }
 
+    private static final String ACTION_IMPORT = "import";
+    private static final String ACTION_EXPORT = "export";
+    private static final String ACTION_DELETE = "delete";
+
+    private final java.util.concurrent.atomic.AtomicBoolean dialogOpen =
+        new java.util.concurrent.atomic.AtomicBoolean();
+
+    /** Opens the non-blocking theme manager window. The window owns all theme workflows. */
     public void open() {
+        if (!dialogOpen.compareAndSet(false, true)) {
+            return;
+        }
         final List<ThemePackageData> themes = themes();
         if (themes.isEmpty()) {
+            dialogOpen.set(false);
             notify("ui-theme.manager.empty", "WARNING", "No valid theme packages are available.");
             return;
         }
         final List<ChoiceDialogOption> options = themes.stream().map(this::option).toList();
         final Optional<String> selected = selectionConfig.selectedThemeId()
             .filter(id -> options.stream().anyMatch(option -> option.id().equals(id)));
-        final Optional<String> chosen = uiHost.choose(new ChoiceDialogRequest(
-            DIALOG_ID,
-            "Theme Manager",
-            "Choose a theme package. Applying changes Cubism's semantic colors; package metadata and optional UI capabilities remain grouped under the same theme.",
-            options,
-            selected,
-            "Apply",
-            "Cancel"
-        ));
-        chosen.flatMap(id -> themes.stream().filter(theme -> theme.metadata().id().equals(id)).findFirst())
-            .ifPresent(this::apply);
+        uiHost.openChoiceDialog(
+            new ChoiceDialogRequest(
+                DIALOG_ID,
+                "Theme Manager",
+                "Choose a theme to apply, or manage theme packages from this window.",
+                options,
+                selected,
+                "Apply",
+                "Close",
+                List.of(
+                    new dev.turboism.sdk.ui.ChoiceDialogAction(ACTION_IMPORT, "Import Theme Package"),
+                    new dev.turboism.sdk.ui.ChoiceDialogAction(ACTION_EXPORT, "Export Selected Theme"),
+                    new dev.turboism.sdk.ui.ChoiceDialogAction(ACTION_DELETE, "Delete Selected Theme")
+                )
+            ),
+            this::handleResult
+        );
+    }
+
+    private void handleResult(final String optionId, final String actionId) {
+        dialogOpen.set(false);
+        if (optionId == null && actionId == null) {
+            return;
+        }
+        final Runnable work;
+        if (actionId == null) {
+            work = () -> find(optionId).ifPresent(this::apply);
+        } else if (ACTION_IMPORT.equals(actionId)) {
+            work = this::importPackage;
+        } else if (ACTION_EXPORT.equals(actionId)) {
+            work = () -> exportSelected(optionId);
+        } else if (ACTION_DELETE.equals(actionId)) {
+            work = () -> deleteSelected(optionId);
+        } else {
+            return;
+        }
+        final Thread thread = new Thread(work, "ui-theme-manager-op");
+        thread.setDaemon(true);
+        thread.start();
     }
 
     public void importPackage() {
@@ -92,8 +132,11 @@ public final class ThemeManagerService {
         );
     }
 
-    public void exportSelected() {
-        final Optional<ThemePackageData> selected = selectionConfig.selectedThemeId().flatMap(this::find);
+    public void exportSelected(final String windowOptionId) {
+        final Optional<ThemePackageData> selected =
+            Optional.ofNullable(windowOptionId)
+                .flatMap(this::find)
+                .or(() -> selectionConfig.selectedThemeId().flatMap(this::find));
         if (selected.isEmpty()) {
             notify("ui-theme.package.export.no-selection", "WARNING", "Select a theme before exporting it.");
             return;
@@ -106,8 +149,10 @@ public final class ThemeManagerService {
         );
     }
 
-    public void deleteSelected() {
-        final Optional<String> selected = selectionConfig.selectedThemeId();
+    public void deleteSelected(final String windowOptionId) {
+        final Optional<String> selected =
+            Optional.ofNullable(windowOptionId)
+                .or(() -> selectionConfig.selectedThemeId());
         if (selected.isEmpty()) {
             notify("ui-theme.package.delete.no-selection", "WARNING", "No selected theme can be deleted.");
             return;

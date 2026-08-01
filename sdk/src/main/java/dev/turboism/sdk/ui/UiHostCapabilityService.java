@@ -38,6 +38,24 @@ public interface UiHostCapabilityService {
     boolean confirmDialog(DialogRequest request);
 
     /**
+     * Opens a bounded runtime-rendered choice dialog without blocking the caller.
+     *
+     * <p>Returns immediately after scheduling the dialog on the UI thread. The
+     * listener receives the selected option id and the secondary action id (or
+     * {@code null}s for accept/cancel) once the user closes the dialog.</p>
+     */
+    default void openChoiceDialog(
+        final ChoiceDialogRequest request,
+        final ChoiceDialogResultListener listener
+    ) {
+        throw new UnsupportedOperationException("async choice dialogs are not available");
+    }
+
+    /**
+     * Contributes a runtime-rendered panel owned by the calling plugin.
+     * Control action IDs resolve through that plugin's {@code ActionRegistry}.
+     */
+    /**
      * Contributes a runtime-rendered panel owned by the calling plugin.
      * Control action IDs resolve through that plugin's {@code ActionRegistry}.
      */

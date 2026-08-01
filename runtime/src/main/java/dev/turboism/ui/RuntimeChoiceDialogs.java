@@ -1,6 +1,9 @@
 package dev.turboism.ui;
 
+import dev.turboism.sdk.ui.ChoiceDialogAction;
 import dev.turboism.sdk.ui.ChoiceDialogOption;
+import dev.turboism.sdk.ui.ChoiceDialogRequest;
+import dev.turboism.sdk.ui.ChoiceDialogResultListener;
 import dev.turboism.sdk.ui.ChoiceDialogRequest;
 
 import javax.swing.BorderFactory;
@@ -33,22 +36,51 @@ final class RuntimeChoiceDialogs {
         if (java.awt.GraphicsEnvironment.isHeadless()) {
             return Optional.empty();
         }
+        final DialogResult result;
         if (SwingUtilities.isEventDispatchThread()) {
-            return show(request);
+            result = show(request);
+        } else {
+            final AtomicReference<DialogResult> ref = new AtomicReference<>();
+            try {
+                SwingUtilities.invokeAndWait(() -> ref.set(show(request)));
+            } catch (InterruptedException exception) {
+                Thread.currentThread().interrupt();
+                return Optional.empty();
+            } catch (InvocationTargetException exception) {
+                return Optional.empty();
+            }
+            result = ref.get();
         }
-        final AtomicReference<Optional<String>> result = new AtomicReference<>(Optional.empty());
-        try {
-            SwingUtilities.invokeAndWait(() -> result.set(show(request)));
-        } catch (InterruptedException exception) {
-            Thread.currentThread().interrupt();
-            return Optional.empty();
-        } catch (InvocationTargetException exception) {
-            return Optional.empty();
-        }
-        return result.get();
+        return result.actionId() == null
+            ? Optional.ofNullable(result.optionId())
+            : Optional.empty();
     }
 
-    private static Optional<String> show(final ChoiceDialogRequest request) {
+    /**
+     * Non-blocking dialog open. The dialog is shown on the EDT; the listener
+     * receives {@code (optionId, actionId)} when the user acts. Accept and
+     * cancel pass a {@code null} actionId; cancel passes a {@code null} optionId.
+     */
+    static void openAsync(
+        final ChoiceDialogRequest request,
+        final ChoiceDialogResultListener listener
+    ) {
+        if (java.awt.GraphicsEnvironment.isHeadless()) {
+            listener.onResult(null, null);
+            return;
+        }
+        final Runnable showTask = () -> {
+            final DialogResult result = show(request);
+            listener.onResult(result.optionId(), result.actionId());
+        };
+        if (SwingUtilities.isEventDispatchThread()) {
+            showTask.run();
+        } else {
+            SwingUtilities.invokeLater(showTask);
+        }
+    }
+
+    private static DialogResult show(final ChoiceDialogRequest request) {
         final Window owner = activeOwner();
         final JDialog dialog = owner instanceof Frame frame
             ? new JDialog(frame, request.title(), true)
@@ -100,11 +132,26 @@ final class RuntimeChoiceDialogs {
         accept.addActionListener(ignored -> {
             final ChoiceDialogOption option = (ChoiceDialogOption) choices.getSelectedItem();
             if (option != null && option.enabled()) {
-                selected.set(option.id());
                 dialog.dispose();
+                selected.set(new DialogResult(option.id(), null).encode());
             }
         });
-        cancel.addActionListener(ignored -> dialog.dispose());
+        cancel.addActionListener(ignored -> {
+            dialog.dispose();
+            selected.set(new DialogResult(null, null).encode());
+        });
+        for (ChoiceDialogAction action : request.actions()) {
+            final JButton button = new JButton(action.label());
+            button.addActionListener(ignored -> {
+                final ChoiceDialogOption option = (ChoiceDialogOption) choices.getSelectedItem();
+                dialog.dispose();
+                selected.set(new DialogResult(
+                    option == null ? null : option.id(),
+                    action.id()
+                ).encode());
+            });
+            buttons.add(button);
+        }
         choices.addActionListener(ignored -> {
             final ChoiceDialogOption option = (ChoiceDialogOption) choices.getSelectedItem();
             accept.setEnabled(option != null && option.enabled());
@@ -121,7 +168,41 @@ final class RuntimeChoiceDialogs {
         dialog.setMinimumSize(new Dimension(480, 340));
         dialog.setLocationRelativeTo(owner);
         dialog.setVisible(true);
-        return Optional.ofNullable(selected.get());
+        return DialogResult.decode(selected.get());
+    }
+
+    private static final class DialogResult {
+        private final String optionId;
+        private final String actionId;
+
+        private DialogResult(final String optionId, final String actionId) {
+            this.optionId = optionId;
+            this.actionId = actionId;
+        }
+
+        private String optionId() {
+            return optionId;
+        }
+
+        private String actionId() {
+            return actionId;
+        }
+
+        private String encode() {
+            return (optionId == null ? "\n" : optionId) + "\0" + (actionId == null ? "" : actionId);
+        }
+
+        private static DialogResult decode(final String encoded) {
+            if (encoded == null) {
+                return new DialogResult(null, null);
+            }
+            final int separator = encoded.indexOf('\0');
+            if (separator < 0) {
+                return new DialogResult(encoded, null);
+            }
+            final String option = encoded.substring(0, separator);
+            return new DialogResult("\n".equals(option) ? null : option, encoded.substring(separator + 1));
+        }
     }
 
     private static JTextArea textArea(final String text) {
