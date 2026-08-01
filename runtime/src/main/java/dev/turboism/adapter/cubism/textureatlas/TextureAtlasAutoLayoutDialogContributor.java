@@ -1,5 +1,8 @@
 package dev.turboism.adapter.cubism.textureatlas;
 
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithm;
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithmRegistry;
+
 import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
 import javax.swing.JDialog;
@@ -12,32 +15,53 @@ import java.awt.Container;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
+import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
+import java.util.ResourceBundle;
 
 /**
- * Contributes the Turboism algorithm-selection controls into the exact native
- * automatic-layout settings dialog (port of the verified legacy dialog injection).
+ * Loader-neutral ingress contributing the algorithm selector and parallel-search
+ * checkbox into the native automatic-layout settings dialog.
  *
- * <p>Only standard Swing APIs are used; the host dialog is treated as an opaque
- * {@link JDialog}. The selected algorithm is bridged to the plugin through a
- * system property, and any failure fails open to the untouched native dialog.</p>
+ * <p>The algorithm list is read live from {@link TextureAtlasLayoutAlgorithmRegistry}:
+ * any plugin-registered algorithm appears in the combo. The parallel checkbox is
+ * enabled only while the selected algorithm declares {@code supportsParallel};
+ * selecting a non-parallel algorithm (for example the native pass-through) unchecks
+ * and disables the control. All static UI strings come from the runtime resource
+ * bundle {@code dev.turboism.adapter.cubism.textureatlas.messages}.</p>
  */
 public final class TextureAtlasAutoLayoutDialogContributor {
 
     /** Shared bridge key consumed by the texture-atlas plugin and the runtime dialog ingress. */
     public static final String ALGORITHM_KEY = "dev.turboism.texture-atlas.dialog.algorithm";
+    public static final String PARALLEL_KEY = "dev.turboism.texture-atlas.dialog.parallel";
     public static final String ALGO_NATIVE = "native";
     public static final String ALGO_MAXRECTS = "maxrects";
-    public static final String PARALLEL_KEY = "dev.turboism.texture-atlas.dialog.parallel";
 
     private static final int SPACER_ROW = 5;
     private static final int SPACER_ROW_PUSHED = 8;
 
-    private TextureAtlasAutoLayoutDialogContributor() {
+    private final TextureAtlasLayoutAlgorithmRegistry registry;
+    private final ResourceBundle bundle;
+
+    public TextureAtlasAutoLayoutDialogContributor(
+        final TextureAtlasLayoutAlgorithmRegistry registry,
+        final Locale locale
+    ) {
+        this.registry = Objects.requireNonNull(registry, "registry");
+        this.bundle = ResourceBundle.getBundle(
+            "dev.turboism.adapter.cubism.textureatlas.messages",
+            locale == null ? Locale.getDefault() : locale
+        );
     }
 
     /** Loader-neutral ingress entry; fails open on any non-JDialog or UI failure. */
-    public static void contribute(final Object dialog) {
+    public java.util.function.Consumer<Object> ingress() {
+        return this::contribute;
+    }
+
+    private void contribute(final Object dialog) {
         try {
             inject(Objects.requireNonNull(dialog, "dialog"));
         } catch (RuntimeException | LinkageError failure) {
@@ -47,7 +71,7 @@ public final class TextureAtlasAutoLayoutDialogContributor {
         }
     }
 
-    private static void inject(final Object dialog) {
+    private void inject(final Object dialog) {
         if (!(dialog instanceof JDialog jDialog)) {
             return;
         }
@@ -63,7 +87,7 @@ public final class TextureAtlasAutoLayoutDialogContributor {
         center.repaint();
     }
 
-    static void injectInto(final JPanel center) {
+    void injectInto(final JPanel center) {
         if (!(center.getLayout() instanceof GridBagLayout layout)) {
             return;
         }
@@ -89,7 +113,7 @@ public final class TextureAtlasAutoLayoutDialogContributor {
         separatorConstraints.insets = new Insets(insetY + 4, 0, insetY + 4, 0);
         center.add(separator, separatorConstraints);
 
-        final JLabel algorithmLabel = new JLabel("排版算法");
+        final JLabel algorithmLabel = new JLabel(bundle.getString("dialog.algorithm.label"));
         final GridBagConstraints labelConstraints = new GridBagConstraints();
         labelConstraints.gridx = 0;
         labelConstraints.gridy = 6;
@@ -97,20 +121,53 @@ public final class TextureAtlasAutoLayoutDialogContributor {
         labelConstraints.insets = new Insets(insetY, 0, insetY, 12);
         center.add(algorithmLabel, labelConstraints);
 
-        final JComboBox<String> algorithmCombo = new JComboBox<>(new String[]{
-            "原生算法", "MaxRects-BSSF"
-        });
-        algorithmCombo.setSelectedIndex(resolveAlgorithm());
-        algorithmCombo.setToolTipText(
-            "<html><b>原生算法</b>：Cubism 内置排版，不经过 Turboism。<br>"
-                + "<b>MaxRects-BSSF</b>（推荐）：确定性矩形装箱，空间利用率高。</html>"
+        final List<TextureAtlasLayoutAlgorithm> algorithms = registry.algorithms();
+        final String[] names = algorithms.stream()
+            .map(TextureAtlasLayoutAlgorithm::displayName)
+            .toArray(String[]::new);
+        final JComboBox<String> algorithmCombo = new JComboBox<>(names);
+        final String configured = System.getProperty(ALGORITHM_KEY, "");
+        int initialIndex = 0;
+        for (int i = 0; i < algorithms.size(); i++) {
+            if (algorithms.get(i).id().equals(configured)) {
+                initialIndex = i;
+                break;
+            }
+        }
+        algorithmCombo.setSelectedIndex(initialIndex);
+        algorithmCombo.setToolTipText(bundle.getString("dialog.algorithm.tooltip"));
+
+        final JCheckBox parallelCheck = new JCheckBox(
+            bundle.getString("dialog.parallel.check"),
+            "true".equals(System.getProperty(PARALLEL_KEY, "false"))
         );
+        parallelCheck.setToolTipText(bundle.getString("dialog.parallel.tooltip"));
+
+        final Runnable syncParallel = () -> {
+            final TextureAtlasLayoutAlgorithm selected =
+                algorithms.get(Math.min(algorithmCombo.getSelectedIndex(), algorithms.size() - 1));
+            final boolean supported = selected.supportsParallel();
+            parallelCheck.setEnabled(supported);
+            if (!supported) {
+                if (parallelCheck.isSelected()) {
+                    parallelCheck.setSelected(false);
+                }
+                System.getProperties().put(PARALLEL_KEY, "false");
+            }
+        };
+        syncParallel.run();
+
         algorithmCombo.addActionListener(event -> {
             final int selected = algorithmCombo.getSelectedIndex();
-            System.getProperties().put(
-                ALGORITHM_KEY, selected == 0 ? ALGO_NATIVE : ALGO_MAXRECTS
-            );
+            final TextureAtlasLayoutAlgorithm algorithm =
+                algorithms.get(Math.min(selected, algorithms.size() - 1));
+            System.getProperties().put(ALGORITHM_KEY, algorithm.id());
+            syncParallel.run();
         });
+        parallelCheck.addActionListener(event -> System.getProperties().put(
+            PARALLEL_KEY, String.valueOf(parallelCheck.isSelected())
+        ));
+
         final GridBagConstraints comboConstraints = new GridBagConstraints();
         comboConstraints.gridx = 1;
         comboConstraints.gridy = 6;
@@ -120,7 +177,7 @@ public final class TextureAtlasAutoLayoutDialogContributor {
         comboConstraints.insets = new Insets(insetY, 0, insetY, 0);
         center.add(algorithmCombo, comboConstraints);
 
-        final JLabel parallelLabel = new JLabel("并行化");
+        final JLabel parallelLabel = new JLabel(bundle.getString("dialog.parallel.label"));
         final GridBagConstraints parallelLabelConstraints = new GridBagConstraints();
         parallelLabelConstraints.gridx = 0;
         parallelLabelConstraints.gridy = 7;
@@ -128,17 +185,6 @@ public final class TextureAtlasAutoLayoutDialogContributor {
         parallelLabelConstraints.insets = new Insets(insetY, 0, insetY, 12);
         center.add(parallelLabel, parallelLabelConstraints);
 
-        final JCheckBox parallelCheck = new JCheckBox(
-            "启用并行搜索（纹理 ≥16 时生效）",
-            "true".equals(System.getProperty(PARALLEL_KEY, "false"))
-        );
-        parallelCheck.setToolTipText(
-            "<html>将纹理按大小分组后在独立线程并行执行排版搜索，<br>"
-                + "适合纹理数量较多时加速；纹理过少（&lt;16）时自动禁用。</html>"
-        );
-        parallelCheck.addActionListener(event -> System.getProperties().put(
-            PARALLEL_KEY, String.valueOf(parallelCheck.isSelected())
-        ));
         final GridBagConstraints parallelConstraints = new GridBagConstraints();
         parallelConstraints.gridx = 1;
         parallelConstraints.gridy = 7;
@@ -149,19 +195,10 @@ public final class TextureAtlasAutoLayoutDialogContributor {
         center.add(parallelCheck, parallelConstraints);
     }
 
-    private static int resolveAlgorithm() {
-        final String configured = System.getProperty(ALGORITHM_KEY, ALGO_MAXRECTS);
-        return ALGO_NATIVE.equals(configured) ? 0 : 1;
-    }
-
     private static JPanel findGridBagPanel(final Container container) {
         for (Component component : container.getComponents()) {
             if (component instanceof JPanel panel && panel.getLayout() instanceof GridBagLayout) {
                 return panel;
-            }
-            if (component instanceof Container nested) {
-                final JPanel found = findGridBagPanel(nested);
-                if (found != null) return found;
             }
         }
         return null;

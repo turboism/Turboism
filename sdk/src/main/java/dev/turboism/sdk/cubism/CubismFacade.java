@@ -59,6 +59,14 @@ public interface CubismFacade {
         );
     }
 
+    /** Returns the registry of registered texture-atlas layout algorithms. */
+    @PreviewApi
+    default dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithmRegistry textureAtlasAlgorithms() {
+        throw new UnsupportedOperationException(
+            "Texture atlas algorithm registry is unavailable"
+        );
+    }
+
     default boolean hasActiveProject() {
         return activeProject().isPresent();
     }

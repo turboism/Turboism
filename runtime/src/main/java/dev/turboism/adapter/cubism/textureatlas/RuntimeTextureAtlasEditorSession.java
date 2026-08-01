@@ -27,7 +27,9 @@ public final class RuntimeTextureAtlasEditorSession implements TextureAtlasEdito
         final VerifiedMemberResolver resolver,
         final Supplier<Object> view
     ) {
-        this.resolver = Objects.requireNonNull(resolver, "resolver");
+        // resolver may be null for the unavailable (unattached) session; every read
+        // guards on it and reports empty
+        this.resolver = resolver;
         this.view = Objects.requireNonNull(view, "view");
     }
 

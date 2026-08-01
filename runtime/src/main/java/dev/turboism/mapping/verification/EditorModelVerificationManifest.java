@@ -437,6 +437,7 @@ public final class EditorModelVerificationManifest {
 
     private static Set<String> cubism52Aliases() {
         final java.util.HashSet<String> values = new java.util.HashSet<>(REQUIRED_ALIASES);
+        values.removeAll(dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.STATISTICS_ALIASES);
         values.removeAll(PART_OPACITY_ADDITIVE_ALIASES);
         values.addAll(EditorPartOpacity52SelectorContract.REQUIRED_ALIASES);
         values.addAll(PART_NAME_ADDITIVE_ALIASES);
