@@ -70,11 +70,35 @@ public final class SwingFlatLafHostOperations implements FlatLafAppearanceHostPr
                         .invoke(null, customDefaultsSource.toFile());
                 }
                 flatLaf.getMethod("updateUI").invoke(null);
+                repaintGlViewports();
+                final Object glBackground = UIManager.get("CubismCommon.gl.viewArea.background");
+                System.err.println("DEBUG-gl-background=" + glBackground);
                 return null;
             } catch (ReflectiveOperationException exception) {
                 throw new IllegalStateException("FlatLaf updateUI is unavailable", exception);
             }
         });
+    }
+
+    /** Best-effort repaint of JOGL viewports so off-canvas colors are re-read. */
+    private static void repaintGlViewports() {
+        try {
+            for (java.awt.Window window : java.awt.Window.getWindows()) {
+                repaintGlChildren(window);
+            }
+        } catch (RuntimeException ignored) {
+            // Repaint is best-effort and must never fail the appearance apply.
+        }
+    }
+
+    private static void repaintGlChildren(final java.awt.Container container) {
+        for (java.awt.Component component : container.getComponents()) {
+            if (component.getClass().getName().startsWith("com.jogamp.opengl.awt.GLJPanel")) {
+                component.repaint();
+            } else if (component instanceof java.awt.Container child) {
+                repaintGlChildren(child);
+            }
+        }
     }
 
     private void writeCustomDefaultsSource(final Map<String, String> defaults) {
