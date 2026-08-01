@@ -14,6 +14,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -44,10 +45,25 @@ class TextureAtlasAutoLayoutDialogTransformerTest {
         assertTrue(constructionCompleted.get());
     }
 
+    private static TextureAtlasAutoLayoutDialogContributor contributor() {
+        final RuntimeTextureAtlasLayoutAlgorithmRegistry registry =
+            new RuntimeTextureAtlasLayoutAlgorithmRegistry();
+        registry.register(new dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithm(
+            "native", "Native", false, null
+        ));
+        registry.register(new dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithm(
+            "maxrects", "MaxRects-BSSF", true,
+            (items, constraints) -> new dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutPlan(
+                4096, 4096, 1, java.util.List.of()
+            )
+        ));
+        return new TextureAtlasAutoLayoutDialogContributor(registry, java.util.Locale.ENGLISH);
+    }
+
     @Test
     void contributorIngressSwallowsItsOwnFailures() throws Exception {
         final String key = "test.texture-atlas.dialog-ingress.safe";
-        System.getProperties().put(key, (Consumer<Object>) TextureAtlasAutoLayoutDialogContributor::contribute);
+        System.getProperties().put(key, contributor().ingress());
         try {
             final TextureAtlasAutoLayoutDialogTransformer transformer =
                 new TextureAtlasAutoLayoutDialogTransformer(
@@ -94,7 +110,7 @@ class TextureAtlasAutoLayoutDialogTransformerTest {
             TextureAtlasAutoLayoutDialogContributor.ALGO_MAXRECTS
         );
         try {
-            TextureAtlasAutoLayoutDialogContributor.injectInto(center);
+            contributor().injectInto(center);
             assertEquals(8, grid.getConstraints(spacer).gridy);
 
             JComboBox<?> combo = null;
@@ -117,15 +133,43 @@ class TextureAtlasAutoLayoutDialogTransformerTest {
 
     @Test
     void contributorFailsOpenOnNonDialogInput() {
-        TextureAtlasAutoLayoutDialogContributor.contribute(new Object());
+        contributor().ingress().accept(new Object());
         assertTrue(true);
     }
 
     @Test
     void contributorFailsOpenOnNonGridBagPanel() {
         final JPanel plain = new JPanel();
-        TextureAtlasAutoLayoutDialogContributor.injectInto(plain);
+        contributor().injectInto(plain);
         assertTrue(true);
+    }
+
+    @Test
+    void parallelCheckboxDisabledForNonParallelAlgorithm() {
+        final JPanel center = new JPanel(new GridBagLayout());
+        System.getProperties().put(TextureAtlasAutoLayoutDialogContributor.ALGORITHM_KEY, "native");
+        System.getProperties().put(TextureAtlasAutoLayoutDialogContributor.PARALLEL_KEY, "true");
+        try {
+            contributor().injectInto(center);
+            javax.swing.JCheckBox check = null;
+            javax.swing.JComboBox<?> combo = null;
+            for (java.awt.Component component : center.getComponents()) {
+                if (component instanceof javax.swing.JCheckBox candidate) check = candidate;
+                if (component instanceof javax.swing.JComboBox<?> candidate) combo = candidate;
+            }
+            assertNotNull(check);
+            assertNotNull(combo);
+            assertEquals(0, combo.getSelectedIndex());
+            assertFalse(check.isEnabled());
+            assertFalse(check.isSelected());
+            assertEquals("false", System.getProperty(TextureAtlasAutoLayoutDialogContributor.PARALLEL_KEY));
+
+            combo.setSelectedIndex(1);
+            assertTrue(check.isEnabled());
+        } finally {
+            System.getProperties().remove(TextureAtlasAutoLayoutDialogContributor.ALGORITHM_KEY);
+            System.getProperties().remove(TextureAtlasAutoLayoutDialogContributor.PARALLEL_KEY);
+        }
     }
 
     private static byte[] fixtureClass() {

@@ -2,6 +2,7 @@ package dev.turboism.plugin.textureatlas;
 
 import dev.turboism.plugin.textureatlas.layout.TextureAtlasPackingException;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutApplyResult;
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutPlanner;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutFailureCode;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutService;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutPlan;
