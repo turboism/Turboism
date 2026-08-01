@@ -135,7 +135,8 @@ public final class EarlyThemeAppearanceBootstrap {
                 }
                 final String value = new String(decoder.decode(line.substring(separator + 1)), StandardCharsets.UTF_8);
                 // Encoded as a bounded string list: ["theme-id"]
-                if (value.startsWith("[\"") && value.endsWith("\"]") && value.indexOf('"') == value.lastIndexOf('"')) {
+                if (value.startsWith("[\"") && value.endsWith("\"]")
+                    && value.indexOf('"', 2) == value.length() - 2) {
                     return Optional.of(value.substring(2, value.length() - 2));
                 }
             }
