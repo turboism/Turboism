@@ -354,9 +354,14 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
     }
 
     @Override
-    public boolean refreshOffCanvasAppearance(final String colorHex) {
-        Objects.requireNonNull(colorHex, "colorHex");
-        return new dev.turboism.ui.appearance.OffCanvasAppearanceRefresher().refresh(colorHex);
+    public boolean refreshOffCanvasAppearance() {
+        final Object value = javax.swing.UIManager.get("CubismCommon.gl.viewArea.background");
+        if (!(value instanceof java.awt.Color color)) {
+            return false;
+        }
+        final String hex = String.format("#%02X%02X%02X",
+            color.getRed(), color.getGreen(), color.getBlue());
+        return new dev.turboism.ui.appearance.OffCanvasAppearanceRefresher().refresh(hex);
     }
 
     @Override
