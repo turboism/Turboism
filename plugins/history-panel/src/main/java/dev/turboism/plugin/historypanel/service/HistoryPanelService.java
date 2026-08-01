@@ -141,7 +141,7 @@ public final class HistoryPanelService {
             children.add(renderEntry(snapshot.position(), entry));
             children.add(PanelView.separator());
         }
-        children.add(PanelView.text(localization.text("history.panel.readonly")));
+        children.add(PanelView.text(localization.text("history.panel.click-hint")));
         return PanelView.scroll(PanelView.column(children.toArray(PanelView[]::new)));
     }
 
@@ -167,8 +167,13 @@ public final class HistoryPanelService {
             : "  ";
         final String label = (entry.index() + 1) + " " + entry.label();
         final String detail = detail(entry);
+        // PS-style: the row is clickable and jumps to that history state.
         return PanelView.column(
-            PanelView.text(marker + label),
+            PanelView.button(
+                "history.entry.move." + entry.index(),
+                marker + label,
+                "history.entry.move." + entry.index()
+            ),
             PanelView.text("    " + detail)
         );
     }

@@ -29,6 +29,11 @@
       "reason": "Read the active document's native Undo history snapshot for the pane."
     },
     {
+      "id": "turboism.cubism.model.write",
+      "scope": "application",
+      "reason": "Move the native Undo cursor when the user clicks a history entry (PS-style jump)."
+    },
+    {
       "id": "turboism.ui.panel.contribute",
       "scope": "application",
       "reason": "Contribute the History embedded dock panel."
@@ -51,6 +56,7 @@
   ],
   "capabilities": [
     "cubism.editor-history.read",
+    "cubism.editor-history.move",
     "ui.embedded-panel.contribute",
     "ui.status.notify"
   ],
