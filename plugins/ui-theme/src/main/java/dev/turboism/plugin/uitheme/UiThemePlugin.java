@@ -74,7 +74,7 @@ public final class UiThemePlugin implements TurboismPlugin {
         );
         // The Turboism top-level menu keeps a single theme entry; all theme
         // workflows (apply/import/export/delete) live inside the manager window.
-        registerMenu("Turboism/Theme Manager", MANAGER_ACTION_ID, 40);
+        registerMenu("Turboism/" + context.localization().text("menu.themeManager"), MANAGER_ACTION_ID, 40);
         registerContextMenu(new ContextMenuRegistry.ContextMenuContribution(
             MANAGER_ACTION_ID,
             MANAGER_ACTION_LABEL,
