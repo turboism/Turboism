@@ -70,6 +70,7 @@ public final class UiThemePlugin implements TurboismPlugin {
             this.context.localization(),
             this.themeEditorService
         );
+        this.themeEditorService.setBackToManager(this.themeManagerService::open);
         logger.info("UiThemePlugin initialized");
     }
 
