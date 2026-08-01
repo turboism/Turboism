@@ -37,6 +37,21 @@ public final class ThemeSelectionService {
         return new SelectionResult(SelectionOutcome.APPLY_FAILED, applied.diagnosticId());
     }
 
+    /** Restores the host's native appearance and clears the persisted selection. */
+    public SelectionResult restoreNative() {
+        final AppearanceRestoreResult restored = appearance.restoreOwnedAppearance()
+            .toCompletableFuture().join();
+        if (restored.outcome() == AppearanceRestoreResult.Outcome.RESTORED
+            || restored.outcome() == AppearanceRestoreResult.Outcome.NO_OWNED_OVERRIDE) {
+            selections.clearSelectedThemeId();
+            return new SelectionResult(
+                SelectionOutcome.RESTORED_NATIVE,
+                restored.diagnosticId()
+            );
+        }
+        return new SelectionResult(SelectionOutcome.RESTORE_FAILED, restored.diagnosticId());
+    }
+
     public SelectionResult restoreIfSelectionIsMissing(final ThemeLookup themes) {
         Objects.requireNonNull(themes, "themes");
         final Optional<String> selectedId = selections.selectedThemeId();
@@ -80,6 +95,7 @@ public final class ThemeSelectionService {
         SELECTED,
         APPLY_FAILED,
         INVALID_SELECTION_CLEARED,
+        RESTORED_NATIVE,
         RESTORE_FAILED,
         NO_CHANGE,
         DELETED

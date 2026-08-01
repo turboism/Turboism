@@ -61,6 +61,7 @@ public final class ThemeManagerService {
     private static final String ACTION_OPEN_DIR = "open-dir";
     private static final String ACTION_NEW_THEME = "new-theme";
     private static final String ACTION_EDIT_THEME = "edit-theme";
+    private static final String ACTION_NATIVE = "native";
 
     private final java.util.concurrent.atomic.AtomicBoolean dialogOpen =
         new java.util.concurrent.atomic.AtomicBoolean();
@@ -86,9 +87,12 @@ public final class ThemeManagerService {
             );
             return;
         }
-        final List<ChoiceDialogOption> options = themes.stream().map(this::option).toList();
+        final List<ChoiceDialogOption> options = new ArrayList<>();
+        options.add(nativeOption());
+        options.addAll(themes.stream().map(this::option).toList());
         final Optional<String> selected = selectionConfig.selectedThemeId()
-            .filter(id -> options.stream().anyMatch(option -> option.id().equals(id)));
+            .filter(id -> options.stream().anyMatch(option -> option.id().equals(id)))
+            .or(() -> Optional.of(ThemeSelectionConfig.NATIVE_ID));
         uiHost.openChoiceDialog(
             new ChoiceDialogRequest(
                 DIALOG_ID,
@@ -140,7 +144,7 @@ public final class ThemeManagerService {
         }
         final Runnable work;
         if (actionId == null || actionId.isBlank()) {
-            work = () -> find(optionId).ifPresent(this::apply);
+            work = () -> applyOption(optionId);
         } else if (ACTION_IMPORT.equals(actionId)) {
             work = this::importPackage;
         } else if (ACTION_EXPORT.equals(actionId)) {
@@ -270,6 +274,26 @@ public final class ThemeManagerService {
                 .findFirst()
                 .map(entry -> builtins.load(entry.id())));
     }
+    /** Applies the chosen option; the native option restores the host appearance. */
+    private void applyOption(final String optionId) {
+        if (ThemeSelectionConfig.NATIVE_ID.equals(optionId)) {
+            restoreNative();
+            return;
+        }
+        find(optionId).ifPresent(this::apply);
+    }
+
+    private void restoreNative() {
+        final ThemeSelectionService.SelectionResult result = selection.restoreNative();
+        refreshOffCanvas();
+        notify(
+            "ui-theme.selection." + result.outcome().name().toLowerCase(java.util.Locale.ROOT),
+            result.outcome() == ThemeSelectionService.SelectionOutcome.RESTORED_NATIVE ? "INFO" : "WARNING",
+            result.outcome() == ThemeSelectionService.SelectionOutcome.RESTORED_NATIVE
+                ? localization.text("theme.selection.native")
+                : localization.text("theme.selection.failed")
+        );
+    }
 
     private void apply(final ThemePackageData theme) {
         final ThemeSelectionService.SelectionResult result = selection.select(theme);
@@ -297,6 +321,19 @@ public final class ThemeManagerService {
             dev.turboism.sdk.storage.StorageRoot.DATA,
             "themes"
         ));
+    }
+    private ChoiceDialogOption nativeOption() {
+        return new ChoiceDialogOption(
+            ThemeSelectionConfig.NATIVE_ID,
+            localization.text("theme.native.label"),
+            "",
+            true,
+            List.of(new ChoiceDialogDetailRow(
+                localization.text("theme.detail.description"),
+                localization.text("theme.native.description"),
+                ""
+            ))
+        );
     }
 
     private ChoiceDialogOption option(final ThemePackageData theme) {
