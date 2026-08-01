@@ -242,13 +242,12 @@ public final class EarlyThemeAppearanceBootstrap {
     }
 
     private void registerCustomDefaultsSource(final Map<String, String> colors) throws Exception {
-        final Path temp = Files.createTempFile("turboism-early-theme-", ".properties");
-        final StringBuilder content = new StringBuilder();
-        for (Map.Entry<String, String> entry : colors.entrySet()) {
-            content.append(entry.getKey()).append('=').append(entry.getValue()).append('\n');
-        }
-        Files.writeString(temp, content.toString());
+        // Write the shared runtime properties file so the appearance provider
+        // can delete it (restoreNative) and FlatLaf skips it on the next
+        // updateUI, restoring the native look exactly like the legacy agent.
+        ThemeRuntimeProperties.write(colors);
         final Class<?> flatLaf = Class.forName("com.formdev.flatlaf.FlatLaf", false, hostClassLoader);
-        flatLaf.getMethod("registerCustomDefaultsSource", java.io.File.class).invoke(null, temp.toFile());
+        flatLaf.getMethod("registerCustomDefaultsSource", java.io.File.class)
+            .invoke(null, ThemeRuntimeProperties.path().toFile());
     }
 }
