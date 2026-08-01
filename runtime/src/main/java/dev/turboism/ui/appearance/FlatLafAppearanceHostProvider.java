@@ -64,8 +64,11 @@ public final class FlatLafAppearanceHostProvider implements AppearanceHostProvid
         if (!(restorePoint instanceof Point point)) {
             throw new IllegalArgumentException("restore point was not created by this provider");
         }
-        host.replace(point.defaults());
-        host.refresh();
+        // Native restore drops owned overrides and deletes the shared
+        // custom-defaults source file; captured baseline values are unreliable
+        // because the early bootstrap may already have injected the theme
+        // before the first apply.
+        host.restoreNative();
         lastRequest = null;
         status = nativeStatus(status.revision() + 1);
     }
@@ -155,7 +158,11 @@ public final class FlatLafAppearanceHostProvider implements AppearanceHostProvid
 
     public interface HostOperations {
         Map<String, String> capture();
+
         void replace(Map<String, String> defaults);
+
+        void restoreNative();
+
         void refresh();
     }
 }

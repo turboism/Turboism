@@ -14,7 +14,6 @@ public final class SwingFlatLafHostOperations implements FlatLafAppearanceHostPr
 
     private final ClassLoader hostClassLoader;
     private final java.util.Set<String> ownedKeys;
-    private java.nio.file.Path customDefaultsSource;
 
     public SwingFlatLafHostOperations(final ClassLoader hostClassLoader) {
         this.hostClassLoader = Objects.requireNonNull(hostClassLoader, "hostClassLoader");
@@ -41,13 +40,36 @@ public final class SwingFlatLafHostOperations implements FlatLafAppearanceHostPr
     public void replace(final Map<String, String> defaults) {
         Objects.requireNonNull(defaults, "defaults");
         onEdt(() -> {
-            for (String key : ownedKeys) {
-                UIManager.getDefaults().remove(key);
-            }
+            removeOwnedKeys();
             defaults.forEach((key, value) -> UIManager.put(key, uiValue(value)));
-            writeCustomDefaultsSource(defaults);
+            try {
+                ThemeRuntimeProperties.write(defaults);
+            } catch (java.io.IOException exception) {
+                throw new IllegalStateException("Could not write FlatLaf custom defaults source", exception);
+            }
             return null;
         });
+    }
+
+    /**
+     * Restores the native look: drops owned overrides and deletes the shared
+     * custom-defaults file so the next FlatLaf update skips it, exactly like
+     * the legacy agent's deleteRuntimeProperties + updateUI sequence.
+     */
+    @Override
+    public void restoreNative() {
+        onEdt(() -> {
+            removeOwnedKeys();
+            ThemeRuntimeProperties.delete();
+            refresh();
+            return null;
+        });
+    }
+
+    private void removeOwnedKeys() {
+        for (String key : ownedKeys) {
+            UIManager.getDefaults().remove(key);
+        }
     }
 
     @Override
@@ -59,16 +81,14 @@ public final class SwingFlatLafHostOperations implements FlatLafAppearanceHostPr
                     false,
                     hostClassLoader
                 );
-                // Register the injected values as a FlatLaf custom defaults source
-                // (the legacy applier's mechanism) so updateUI keeps derived keys
-                // (e.g. CubismCommon.gl.viewArea.background = darken(@background,8%))
-                // overridden instead of recomputing them. Later registrations win,
-                // so restoring registers the baseline values over the theme without
-                // clearing the host's own sources.
-                if (customDefaultsSource != null) {
-                    flatLaf.getMethod("registerCustomDefaultsSource", java.io.File.class)
-                        .invoke(null, customDefaultsSource.toFile());
-                }
+                // Register the shared runtime file as a FlatLaf custom defaults
+                // source (the legacy applier's mechanism) so updateUI keeps
+                // derived keys (e.g. CubismCommon.gl.viewArea.background =
+                // darken(@background,8%)) overridden instead of recomputing
+                // them. The file is written by apply() and deleted by
+                // restoreNative(); FlatLaf skips missing sources.
+                flatLaf.getMethod("registerCustomDefaultsSource", java.io.File.class)
+                    .invoke(null, ThemeRuntimeProperties.path().toFile());
                 flatLaf.getMethod("updateUI").invoke(null);
                 repaintGlViewports();
                 return null;
@@ -99,21 +119,6 @@ public final class SwingFlatLafHostOperations implements FlatLafAppearanceHostPr
         }
     }
 
-    private void writeCustomDefaultsSource(final Map<String, String> defaults) {
-        try {
-            final java.nio.file.Path temp = java.nio.file.Files.createTempFile(
-                "turboism-theme-", ".properties"
-            );
-            final StringBuilder content = new StringBuilder();
-            for (Map.Entry<String, String> entry : defaults.entrySet()) {
-                content.append(entry.getKey()).append('=').append(entry.getValue()).append('\n');
-            }
-            java.nio.file.Files.writeString(temp, content.toString());
-            customDefaultsSource = temp;
-        } catch (java.io.IOException exception) {
-            throw new IllegalStateException("Could not write FlatLaf custom defaults source", exception);
-        }
-    }
 
     private static Object uiValue(final String value) {
         if (value.matches("#[0-9A-Fa-f]{6}")) {
