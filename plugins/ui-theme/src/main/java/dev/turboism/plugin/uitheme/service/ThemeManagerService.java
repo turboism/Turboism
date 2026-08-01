@@ -285,10 +285,9 @@ public final class ThemeManagerService {
 
     private void refreshOffCanvas() {
         try {
-            final boolean refreshed = uiHost.refreshOffCanvasAppearance();
-            logger.info("THEME_OFFCANVAS_REFRESH result=" + refreshed);
-        } catch (RuntimeException failure) {
-            logger.warn("THEME_OFFCANVAS_REFRESH failed: " + failure);
+            uiHost.refreshOffCanvasAppearance();
+        } catch (RuntimeException ignored) {
+            // Off-canvas refresh is best-effort.
         }
     }
 
