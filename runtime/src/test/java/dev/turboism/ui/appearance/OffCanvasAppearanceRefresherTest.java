@@ -27,6 +27,17 @@ final class OffCanvasAppearanceRefresherTest {
     }
 
     @Test
+    void fallsBackToTwoArgumentSetColorLikeCubism52() {
+        CEAppCtrl.useTwoArgumentMaterialOnly();
+        assertTrue(new OffCanvasAppearanceRefresher().refresh("#FF0000"));
+        assertEquals("baseColor", CEAppCtrl.material().slot());
+        assertEquals(255, CEAppCtrl.material().color().red());
+        assertEquals(0, CEAppCtrl.material().color().green());
+        assertEquals(0, CEAppCtrl.material().color().blue());
+        assertTrue(CEAppCtrl.repainted());
+    }
+
+    @Test
     void failsClosedOnInvalidColor() {
         assertFalse(new OffCanvasAppearanceRefresher().refresh("not-a-color"));
     }
