@@ -74,13 +74,21 @@ public interface UiHostCapabilityService {
     Registration contributePaletteToolbar(PaletteToolbarRegistry.PaletteToolbarContribution contribution);
 
     /**
-     * Contributes a Photoshop-style vertical icon tool strip to the main frame.
-     *
-     * <p>Hosts that do not provide a verified vertical-toolbar surface fail
-     * closed.</p>
+     * Contributes a vertical icon tool strip to the left or right of the
+     * modeling canvas. Hosts that do not provide a verified surface fail
+     * closed.
      */
     default Registration contributeVerticalToolbar(final VerticalToolbarContribution contribution) {
         Objects.requireNonNull(contribution, "contribution");
         throw new UnsupportedOperationException("vertical-toolbar contribution is unavailable");
+    }
+
+    /**
+     * Contributes a horizontal icon tool strip above or below the modeling
+     * canvas. Hosts that do not provide a verified surface fail closed.
+     */
+    default Registration contributeHorizontalToolbar(final HorizontalToolbarContribution contribution) {
+        Objects.requireNonNull(contribution, "contribution");
+        throw new UnsupportedOperationException("horizontal-toolbar contribution is unavailable");
     }
 }
