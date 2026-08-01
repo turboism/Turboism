@@ -218,7 +218,11 @@ final class RuntimeChoiceDialogs {
         dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
         dialog.setContentPane(content);
         dialog.pack();
-        dialog.setMinimumSize(new Dimension(480, 340));
+        final Dimension packed = dialog.getPreferredSize();
+        final int width = Math.max(480, Math.min(packed.width, 720));
+        final int height = Math.max(340, Math.min(packed.height, 560));
+        dialog.setSize(width, height);
+        dialog.setMinimumSize(new Dimension(width, height));
         dialog.setLocationRelativeTo(owner);
         dialog.setVisible(true);
         return DialogResult.decode(selected.get());
@@ -341,6 +345,13 @@ final class RuntimeChoiceDialogs {
         for (Window window : Window.getWindows()) {
             if (window.isShowing() && window.isActive()) {
                 return window;
+            }
+        }
+        // Fall back to the first showing frame (e.g. the Cubism main window) so
+        // dialogs opened right after another dialog closes keep a stable owner.
+        for (Window window : Window.getWindows()) {
+            if (window instanceof Frame frame && frame.isShowing()) {
+                return frame;
             }
         }
         return null;
