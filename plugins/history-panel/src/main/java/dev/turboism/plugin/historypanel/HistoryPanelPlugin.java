@@ -98,6 +98,7 @@ public final class HistoryPanelPlugin implements TurboismPlugin {
                 logger.warn("History panel contribution retried safely: " + failure.getMessage());
             }
         }
+        registerMoveActions();
         // Present the pane as a floating window next to the strip.
         context.uiHost().activateEmbeddedPanelFloating(EmbeddedPanelId.of(PANEL_ID));
         logger.info("History panel toggled on (floating)");
@@ -108,6 +109,7 @@ public final class HistoryPanelPlugin implements TurboismPlugin {
             return;
         }
         panelVisible = false;
+        unregisterMoveActions();
         final Registration current = panelRegistration;
         panelRegistration = null;
         if (current != null) {
@@ -120,6 +122,33 @@ public final class HistoryPanelPlugin implements TurboismPlugin {
             }
         }
         logger.info("History panel toggled off");
+    }
+
+    private final java.util.List<Registration> moveActions = new java.util.ArrayList<>();
+
+    private void registerMoveActions() {
+        unregisterMoveActions();
+        final dev.turboism.sdk.cubism.history.HistorySnapshot snapshot =
+            context.cubism().history().snapshot();
+        if (snapshot.availability() != dev.turboism.sdk.cubism.history.HistorySnapshot.Availability.AVAILABLE) {
+            return;
+        }
+        final long generation = snapshot.generation();
+        final long revision = snapshot.revision();
+        for (final dev.turboism.sdk.cubism.history.HistoryEntry entry : snapshot.entries()) {
+            final String actionId = "history.entry.move." + entry.index();
+            final int target = entry.index();
+            moveActions.add(registerAction(actionId, entry.label(), ignored ->
+                context.cubism().history().moveTo(generation, revision, target)
+            ));
+        }
+    }
+
+    private void unregisterMoveActions() {
+        for (final Registration registration : moveActions) {
+            registration.close();
+        }
+        moveActions.clear();
     }
 
     private void closeDisposableScopeQuietly() {
