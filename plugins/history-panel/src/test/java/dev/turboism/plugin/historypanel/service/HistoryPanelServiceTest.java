@@ -46,7 +46,7 @@ class HistoryPanelServiceTest {
         assertTrue(text.contains("History: 2 entries · cursor 1 · undo ✓ · redo —"), text);
         assertTrue(text.contains("▶ 2 Set Parameter Value"), text);
         assertTrue(text.contains("ParamAngleX value: -4.199999 → 12.599998 (SET_PARAMETER_VALUE, FULL)"), text);
-        assertTrue(text.contains("read-only"), text);
+        assertTrue(text.contains("jump to that state"), text);
     }
 
     @Test
@@ -307,7 +307,7 @@ class HistoryPanelServiceTest {
                 case "history.panel.redo-unavailable" -> "redo —";
                 case "history.entry.cursor-marker" -> "▶";
                 case "history.entry.no-detail" -> "no structured detail";
-                case "history.panel.readonly" -> "Move-to is not enabled for this build; the pane is read-only.";
+                case "history.panel.click-hint" -> "Click an entry to jump to that state.";
                 default -> key;
             };
         }
