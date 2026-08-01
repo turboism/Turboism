@@ -21,10 +21,18 @@ public final class CEAppCtrl {
         repainted = true;
     }
 
+    private static boolean twoArgumentMaterialOnly;
+
+    public static void useTwoArgumentMaterialOnly() {
+        twoArgumentMaterialOnly = true;
+    }
+
     public static void reset() {
+        twoArgumentMaterialOnly = false;
         INSTANCE.repainted = false;
         INSTANCE.currentViewContext.appearance.renderer.material = null;
-        INSTANCE.currentViewContext.appearance.renderer.sharedMaterial = new Material();
+        INSTANCE.currentViewContext.appearance.renderer.sharedMaterial =
+            twoArgumentMaterialOnly ? new TwoArgumentMaterial() : new Material();
     }
 
     public static Material material() {
@@ -83,11 +91,16 @@ public final class CEAppCtrl {
         }
     }
 
-    public static final class Material {
+    public static class Material {
         private String slot;
         private CColor color;
 
         public void setColor(final String slot, final CColor color, final Integer pass) {
+            this.slot = slot;
+            this.color = color;
+        }
+
+        public void setColor(final String slot, final CColor color) {
             this.slot = slot;
             this.color = color;
         }
@@ -98,6 +111,14 @@ public final class CEAppCtrl {
 
         public CColor color() {
             return color;
+        }
+    }
+
+    /** Material that only exposes the two-argument setColor (Cubism 5.2 shape). */
+    public static final class TwoArgumentMaterial extends Material {
+        @Override
+        public void setColor(final String slot, final CColor color, final Integer pass) {
+            throw new UnsupportedOperationException("three-argument setColor is not available");
         }
     }
 }

@@ -64,10 +64,9 @@ public final class OffCanvasAppearanceRefresher {
             }
             final Object cColor = newCColor(color);
             final Class<?> materialClass = material.getClass();
-            final Method setColor = materialClass.getMethod(
-                "setColor", String.class, cColor.getClass(), Integer.class
-            );
-            setColor.invoke(material, COLOR_SLOT, cColor, null);
+            if (!setMaterialColor(material, cColor, color)) {
+                return false;
+            }
             forceRepaintCanvas(appCtrl);
             return true;
         } catch (ReflectiveOperationException | RuntimeException failure) {
@@ -113,6 +112,33 @@ public final class OffCanvasAppearanceRefresher {
         );
     }
 
+
+    /**
+     * Applies the color to the material. Cubism 5.3.02 exposes
+     * {@code setColor(String, CColor, Integer)} while 5.2.03 exposes the
+     * two-argument {@code setColor(String, CColor)}; probe both so the same
+     * refresher works across versions.
+     */
+    private static boolean setMaterialColor(
+        final Object material,
+        final Object cColor,
+        final Color color
+    ) {
+        try {
+            final Class<?> materialClass = material.getClass();
+            try {
+                materialClass.getMethod("setColor", String.class, cColor.getClass(), Integer.class)
+                    .invoke(material, COLOR_SLOT, cColor, null);
+                return true;
+            } catch (NoSuchMethodException ignored) {
+                materialClass.getMethod("setColor", String.class, cColor.getClass())
+                    .invoke(material, COLOR_SLOT, cColor);
+                return true;
+            }
+        } catch (ReflectiveOperationException | RuntimeException failure) {
+            return false;
+        }
+    }
 
     /** Forces the Cubism canvas to re-render so the updated mesh color is drawn. */
     private static void forceRepaintCanvas(final Object appCtrl) {
