@@ -71,8 +71,6 @@ public final class SwingFlatLafHostOperations implements FlatLafAppearanceHostPr
                 }
                 flatLaf.getMethod("updateUI").invoke(null);
                 repaintGlViewports();
-                final Object glBackground = UIManager.get("CubismCommon.gl.viewArea.background");
-                System.err.println("DEBUG-gl-background=" + glBackground);
                 return null;
             } catch (ReflectiveOperationException exception) {
                 throw new IllegalStateException("FlatLaf updateUI is unavailable", exception);
