@@ -81,7 +81,10 @@ public final class OffCanvasAppearanceRefresher {
             if (companion == null) {
                 return Optional.empty();
             }
-            for (String methodName : new String[] { "a", "b", "c" }) {
+            // Companion.c() returns the singleton _instance; Companion.b() is its
+            // non-null alias. Companion.a() constructs a brand new CEAppCtrl and
+            // must never be used.
+            for (String methodName : new String[] { "c", "b" }) {
                 try {
                     final Object instance = companion.getClass().getMethod(methodName).invoke(companion);
                     if (instance != null) {
