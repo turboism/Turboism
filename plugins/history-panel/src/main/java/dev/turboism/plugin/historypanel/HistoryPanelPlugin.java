@@ -37,7 +37,6 @@ public final class HistoryPanelPlugin implements TurboismPlugin {
     private PluginLogger logger;
     private dev.turboism.sdk.i18n.PluginLocalization localization;
     private Registration panelRegistration;
-    private final java.util.List<Registration> undoActions = new java.util.ArrayList<>();
     private boolean panelVisible;
 
     @Override
@@ -99,7 +98,6 @@ public final class HistoryPanelPlugin implements TurboismPlugin {
                 logger.warn("History panel contribution retried safely: " + failure.getMessage());
             }
         }
-        registerUndoActions();
         // Present the pane as a floating window next to the strip.
         context.uiHost().activateEmbeddedPanelFloating(EmbeddedPanelId.of(PANEL_ID));
         logger.info("History panel toggled on (floating)");
@@ -110,7 +108,6 @@ public final class HistoryPanelPlugin implements TurboismPlugin {
             return;
         }
         panelVisible = false;
-        unregisterUndoActions();
         final Registration current = panelRegistration;
         panelRegistration = null;
         if (current != null) {
@@ -123,39 +120,6 @@ public final class HistoryPanelPlugin implements TurboismPlugin {
             }
         }
         logger.info("History panel toggled off");
-    }
-
-    private void registerUndoActions() {
-        unregisterUndoActions();
-        final CubismHistory history = context.cubism().history();
-        final HistorySnapshot snapshot = history.snapshot();
-        if (snapshot.availability() != HistorySnapshot.Availability.AVAILABLE) {
-            return;
-        }
-        final long generation = snapshot.generation();
-        final long revision = snapshot.revision();
-        for (final dev.turboism.sdk.cubism.history.HistoryEntry entry : snapshot.entries()) {
-            final String actionId = "history.entry.undo." + entry.index();
-            undoActions.add(registerAction(
-                actionId,
-                localization.format("history.undo.action", entry.index() + 1),
-                ignored -> {
-                final HistoryMoveResult result = history.moveTo(generation, revision, entry.index());
-                context.uiHost().notifyStatus(new StatusNotification(
-                    "history.entry.undo.result",
-                    result.outcome() == HistoryMoveResult.Outcome.MOVED ? "INFO" : "WARNING",
-                    "History move to " + entry.index() + ": " + result.outcome()
-                        + result.diagnosticId().map(value -> " (" + value + ")").orElse("")
-                ));
-            }));
-        }
-    }
-
-    private void unregisterUndoActions() {
-        for (final Registration registration : undoActions) {
-            registration.close();
-        }
-        undoActions.clear();
     }
 
     private void closeDisposableScopeQuietly() {

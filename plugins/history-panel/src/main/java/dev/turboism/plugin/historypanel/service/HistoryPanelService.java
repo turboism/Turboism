@@ -167,16 +167,9 @@ public final class HistoryPanelService {
             : "  ";
         final String label = (entry.index() + 1) + " " + entry.label();
         final String detail = detail(entry);
-        return PanelView.row(
-            PanelView.button(
-                "history.entry.undo." + entry.index(),
-                "↺",
-                "history.entry.undo." + entry.index()
-            ),
-            PanelView.column(
-                PanelView.text(marker + label),
-                PanelView.text("    " + detail)
-            )
+        return PanelView.column(
+            PanelView.text(marker + label),
+            PanelView.text("    " + detail)
         );
     }
 
