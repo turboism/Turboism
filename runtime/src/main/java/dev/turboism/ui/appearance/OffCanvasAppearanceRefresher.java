@@ -35,37 +35,30 @@ public final class OffCanvasAppearanceRefresher {
     public boolean refresh(final String colorHex) {
         final Color color = parse(colorHex);
         if (color == null) {
-            System.err.println("DEBUG-offcanvas invalid color=" + colorHex);
             return false;
         }
         try {
             final Object appCtrl = currentAppCtrl().orElse(null);
-            System.err.println("DEBUG-offcanvas appCtrl=" + appCtrl);
             if (appCtrl == null) {
                 return false;
             }
             final Object viewContext = invoke(appCtrl, "getCurrentViewContext");
-            System.err.println("DEBUG-offcanvas viewContext=" + viewContext);
             if (viewContext == null) {
                 return false;
             }
             final Object appearance = invoke(viewContext, "getAppearanceSetting");
-            System.err.println("DEBUG-offcanvas appearance=" + appearance);
             if (appearance == null) {
                 return false;
             }
             final Object mesh = invoke(appearance, "f");
-            System.err.println("DEBUG-offcanvas mesh=" + mesh);
             if (mesh == null) {
                 return false;
             }
             final Object renderer = invoke(mesh, "getMeshRenderer");
-            System.err.println("DEBUG-offcanvas renderer=" + renderer);
             if (renderer == null) {
                 return false;
             }
             final Object material = invoke(renderer, "getCurMaterial");
-            System.err.println("DEBUG-offcanvas material=" + material);
             if (material == null) {
                 return false;
             }
@@ -75,11 +68,9 @@ public final class OffCanvasAppearanceRefresher {
                 "setColor", String.class, cColor.getClass(), Integer.class
             );
             setColor.invoke(material, COLOR_SLOT, cColor, null);
-            System.err.println("DEBUG-offcanvas setColor done slot=" + COLOR_SLOT + " color=" + colorHex);
             forceRepaintCanvas(appCtrl);
             return true;
         } catch (ReflectiveOperationException | RuntimeException failure) {
-            System.err.println("DEBUG-offcanvas failed: " + failure);
             return false;
         }
     }
