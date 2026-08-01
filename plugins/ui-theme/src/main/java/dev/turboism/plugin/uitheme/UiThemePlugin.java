@@ -1,6 +1,7 @@
 package dev.turboism.plugin.uitheme;
 
 import dev.turboism.plugin.uitheme.service.BuiltinThemeAppearanceService;
+import dev.turboism.plugin.uitheme.service.ThemeEditorService;
 import dev.turboism.plugin.uitheme.service.ThemeManagerService;
 import dev.turboism.plugin.uitheme.service.ThemePackageRepository;
 import dev.turboism.plugin.uitheme.service.ThemePackageStatusService;
@@ -33,6 +34,7 @@ public final class UiThemePlugin implements TurboismPlugin {
     private ThemePackageStatusService themePackageStatusService;
     private ThemeManagerService themeManagerService;
     private BuiltinThemeAppearanceService builtinThemeAppearanceService;
+    private ThemeEditorService themeEditorService;
 
     @Override
     public void init(final PluginContext context) {
@@ -50,6 +52,13 @@ public final class UiThemePlugin implements TurboismPlugin {
         final ThemeSelectionConfig selectionConfig = new ThemeSelectionConfig(this.context.config());
         selectionConfig.initialize().toCompletableFuture().join();
         final ThemePackageRepository repository = new ThemePackageRepository(this.context.storage());
+        this.themeEditorService = new ThemeEditorService(
+            this.context.uiHost(),
+            repository,
+            this.context.appearance(),
+            this.context.localization(),
+            logger
+        );
         this.themeManagerService = new ThemeManagerService(
             this.context.uiHost(),
             builtinThemeAppearanceService,
@@ -58,7 +67,8 @@ public final class UiThemePlugin implements TurboismPlugin {
             new ThemeSelectionService(this.context.appearance(), selectionConfig),
             selectionConfig,
             logger,
-            this.context.localization()
+            this.context.localization(),
+            this.themeEditorService
         );
         logger.info("UiThemePlugin initialized");
     }

@@ -338,6 +338,17 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
     }
 
     @Override
+    public void openFormDialog(
+        final dev.turboism.sdk.ui.FormDialogRequest request,
+        final dev.turboism.sdk.ui.FormDialogResultListener listener
+    ) {
+        Objects.requireNonNull(request, "request");
+        Objects.requireNonNull(listener, "listener");
+        permissionChecker.check(UI_DIALOG_CONTRIBUTE, "ui.dialog.contribute");
+        RuntimeFormDialogs.openAsync(request, listener);
+    }
+
+    @Override
     public dev.turboism.sdk.ui.UiHostColorMode currentColorMode() {
         return stateSource.currentColorMode();
     }
