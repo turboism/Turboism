@@ -137,7 +137,9 @@ final class RuntimeChoiceDialogs {
         center.add(detailHost, BorderLayout.CENTER);
         content.add(center, BorderLayout.CENTER);
 
-        final JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        final JPanel buttons = new JPanel();
+        buttons.setLayout(new javax.swing.BoxLayout(buttons, javax.swing.BoxLayout.Y_AXIS));
+        buttons.setBorder(BorderFactory.createEmptyBorder(0, 8, 0, 0));
         final JButton accept = new JButton(request.acceptLabel());
         final JButton cancel = new JButton(request.cancelLabel());
         accept.addActionListener(ignored -> {
@@ -169,6 +171,7 @@ final class RuntimeChoiceDialogs {
                 refresh.run();
             });
             buttons.add(reload);
+            buttons.add(javax.swing.Box.createVerticalStrut(4));
         });
         for (ChoiceDialogAction action : request.actions()) {
             final JButton button = new JButton(action.label());
@@ -181,6 +184,7 @@ final class RuntimeChoiceDialogs {
                 ).encode());
             });
             buttons.add(button);
+            buttons.add(javax.swing.Box.createVerticalStrut(4));
         }
         choices.addActionListener(ignored -> {
             final ChoiceDialogOption option = (ChoiceDialogOption) choices.getSelectedItem();
@@ -189,8 +193,15 @@ final class RuntimeChoiceDialogs {
         final ChoiceDialogOption initial = (ChoiceDialogOption) choices.getSelectedItem();
         accept.setEnabled(initial != null && initial.enabled());
         buttons.add(accept);
+        buttons.add(javax.swing.Box.createVerticalStrut(4));
         buttons.add(cancel);
-        content.add(buttons, BorderLayout.SOUTH);
+        for (java.awt.Component component : buttons.getComponents()) {
+            if (component instanceof JButton button) {
+                button.setAlignmentX(java.awt.Component.CENTER_ALIGNMENT);
+                button.setMaximumSize(new Dimension(Integer.MAX_VALUE, button.getPreferredSize().height));
+            }
+        }
+        content.add(buttons, BorderLayout.EAST);
 
         dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
         dialog.setContentPane(content);
