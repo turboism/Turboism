@@ -25,11 +25,11 @@ final class TextureAtlasSettingsBinding {
         TextureAtlasLayoutMode.PART_BUCKET,
         ConfigCodecs.enumValue(TextureAtlasLayoutMode.class)
     );
-    private static final ConfigKey<TextureAtlasLayoutAlgorithm> ALGORITHM = new ConfigKey<>(
+    private static final ConfigKey<String> ALGORITHM = new ConfigKey<>(
         CONFIG_ID,
         "algorithm",
-        TextureAtlasLayoutAlgorithm.MAXRECTS,
-        ConfigCodecs.enumValue(TextureAtlasLayoutAlgorithm.class)
+        TextureAtlasPlugin.ALGORITHM_MAXRECTS,
+        ConfigCodecs.stringValue(64)
     );
     private static final ConfigKey<Boolean> PARALLEL = new ConfigKey<>(
         CONFIG_ID,
@@ -53,15 +53,39 @@ final class TextureAtlasSettingsBinding {
             final Map<String, String> values = new LinkedHashMap<>(
                 input.encodedValues() == null ? Map.of() : input.encodedValues()
             );
-            values.putIfAbsent(ALGORITHM.name(), TextureAtlasLayoutAlgorithm.MAXRECTS.name());
+            values.putIfAbsent(ALGORITHM.name(), TextureAtlasPlugin.ALGORITHM_MAXRECTS);
             values.putIfAbsent(PARALLEL.name(), "false");
             return new ConfigDocument(2, values);
+        }
+    };
+    private static final ConfigMigration V2_TO_V3 = new ConfigMigration() {
+        @Override
+        public int fromVersion() {
+            return 2;
+        }
+
+        @Override
+        public int toVersion() {
+            return 3;
+        }
+
+        @Override
+        public ConfigDocument migrate(final ConfigDocument input) {
+            final java.util.Map<String, String> values = new java.util.LinkedHashMap<>(
+                input.encodedValues() == null ? java.util.Map.of() : input.encodedValues()
+            );
+            // v2 stored the enum name; v3 stores the algorithm id
+            values.computeIfPresent("algorithm", (key, value) ->
+                "NATIVE".equals(value) ? TextureAtlasPlugin.ALGORITHM_NATIVE
+                    : "MAXRECTS".equals(value) ? TextureAtlasPlugin.ALGORITHM_MAXRECTS
+                    : value);
+            return new ConfigDocument(3, values);
         }
     };
     private static final ConfigSchema SCHEMA = new ConfigSchema(
         CONFIG_ID,
         CONFIG_PATH,
-        2,
+        3,
         List.of(MODE, ALGORITHM, PARALLEL)
     );
 
@@ -75,7 +99,7 @@ final class TextureAtlasSettingsBinding {
     CompletionStage<Boolean> init(final PluginConfigRegistry value) {
         registry = Objects.requireNonNull(value, "value");
         try {
-            return registry.registerSchema(SCHEMA, List.of(V1_TO_V2)).handle((ignored, failure) -> {
+            return registry.registerSchema(SCHEMA, List.of(V1_TO_V2, V2_TO_V3)).handle((ignored, failure) -> {
                 initialized = failure == null;
                 return initialized;
             });
@@ -123,7 +147,7 @@ final class TextureAtlasSettingsBinding {
         try {
             return registry.write(MODE, value.layoutMode(), revision).thenCompose(modeWrite -> {
                 if (!modeWrite.written()) return CompletableFuture.completedStage(false);
-                return registry.write(ALGORITHM, value.algorithm(), modeWrite.revision())
+                return registry.write(ALGORITHM, value.algorithmId(), modeWrite.revision())
                     .thenCompose(algorithmWrite -> {
                         if (!algorithmWrite.written()) return CompletableFuture.completedStage(false);
                         return registry.write(PARALLEL, value.parallel(), algorithmWrite.revision())

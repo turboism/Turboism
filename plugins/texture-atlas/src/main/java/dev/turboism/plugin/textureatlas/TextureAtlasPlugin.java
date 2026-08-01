@@ -16,6 +16,8 @@ public final class TextureAtlasPlugin implements TurboismPlugin {
         "dev.turboism.texture-atlas.auto-layout.callback";
     static final String DIALOG_ALGORITHM_KEY = "dev.turboism.texture-atlas.dialog.algorithm";
     static final String DIALOG_PARALLEL_KEY = "dev.turboism.texture-atlas.dialog.parallel";
+    static final String ALGORITHM_NATIVE = "native";
+    static final String ALGORITHM_MAXRECTS = "maxrects";
 
     private PluginContext context;
     private boolean enabled;
@@ -46,8 +48,33 @@ public final class TextureAtlasPlugin implements TurboismPlugin {
         lifecycle.activate();
         enabled = true;
         System.getProperties().putIfAbsent(NATIVE_AUTO_LAYOUT_CALLBACK_KEY, nativeAutoLayoutCallback);
+        registerAlgorithms();
         publishDialogState();
         attachEditorStatistics();
+    }
+
+    /** Registers this plugin's algorithms with the framework registry. */
+    private void registerAlgorithms() {
+        try {
+            final dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithmRegistry registry =
+                context.cubism().textureAtlasAlgorithms();
+            final boolean parallel = settings.confirmed().parallel();
+            registry.register(new dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithm(
+                ALGORITHM_MAXRECTS,
+                context.localization().text("texture-atlas.algorithm.maxrects"),
+                true,
+                (items, constraints) ->
+                    new MaxRectsBssfTextureAtlasPlanner().plan(items, constraints, parallel)
+            ));
+            registry.register(new dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithm(
+                ALGORITHM_NATIVE,
+                context.localization().text("texture-atlas.algorithm.native"),
+                false,
+                null
+            ));
+        } catch (Throwable failure) {
+            context.logger().warn("Texture Atlas algorithm registration failed safely: " + failure);
+        }
     }
 
     private void attachEditorStatistics() {
@@ -76,29 +103,31 @@ public final class TextureAtlasPlugin implements TurboismPlugin {
         }
     }
 
-    private static String editorStatisticsText(
+    private String editorStatisticsText(
         final dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorSession session
     ) {
-        final StringBuilder out = new StringBuilder("Turboism 纹理统计");
+        final dev.turboism.sdk.i18n.PluginLocalization i18n = context.localization();
+        final StringBuilder out = new StringBuilder(i18n.text("texture-atlas.stats.title"));
         final var selected = session.selectedTexture();
         if (selected.isPresent()) {
             final var summary = selected.orElseThrow();
-            out.append("\n选中纹理: ").append(summary.imageCount()).append(" 图像");
+            out.append("\n").append(i18n.format("texture-atlas.stats.selected", summary.imageCount()));
             out.append("\n  ").append(sizeDistributionText(summary));
         } else {
-            out.append("\n选中纹理: (未选择)");
+            out.append("\n").append(i18n.text("texture-atlas.stats.selected.none"));
         }
         final var whole = session.summary();
         if (whole.isPresent()) {
             final var summary = whole.orElseThrow();
-            out.append("\n纹理集: 共 ").append(summary.imageCount()).append(" 图像 / ")
-                .append(summary.pageCount()).append(" 页");
+            out.append("\n").append(i18n.format(
+                "texture-atlas.stats.whole", summary.imageCount(), summary.pageCount()
+            ));
             out.append("\n  ").append(sizeDistributionText(summary));
         }
         return out.toString();
     }
 
-    private static String sizeDistributionText(
+    private String sizeDistributionText(
         final dev.turboism.sdk.cubism.textureatlas.TextureAtlasSummary summary
     ) {
         final StringBuilder out = new StringBuilder();
@@ -107,7 +136,7 @@ public final class TextureAtlasPlugin implements TurboismPlugin {
             out.append(bucket.width()).append("x").append(bucket.height())
                 .append(" ×").append(bucket.count());
         }
-        if (out.length() == 0) out.append("(空)");
+        if (out.length() == 0) out.append(context.localization().text("texture-atlas.stats.empty"));
         return out.toString();
     }
 
@@ -157,11 +186,16 @@ public final class TextureAtlasPlugin implements TurboismPlugin {
     }
 
     private void composeAutoLayoutService() {
-        final boolean parallel = settings.confirmed().parallel();
-        final TextureAtlasLayoutPlanner planner = settings.confirmed().layoutMode()
-            == TextureAtlasLayoutMode.COMPACT
-            ? (items, constraints) -> new MaxRectsBssfTextureAtlasPlanner().plan(items, constraints, parallel)
-            : new PartBucketTextureAtlasPlanner()::plan;
+        final dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutPlanner planner =
+            context.cubism().textureAtlasAlgorithms()
+                .find(settings.confirmed().algorithmId())
+                .map(dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithm::planner)
+                .orElse(null);
+        if (planner == null) {
+            // pass-through (native) or unregistered algorithm: delegate to Cubism
+            autoLayoutService = null;
+            return;
+        }
         autoLayoutService = new TextureAtlasAutoLayoutService(
             context.cubism().textureAtlasLayouts(),
             planner,
@@ -173,7 +207,8 @@ public final class TextureAtlasPlugin implements TurboismPlugin {
     private boolean applyFromNativeEntry() {
         try {
             syncDialogState();
-            if (settings.confirmed().algorithm() == TextureAtlasLayoutAlgorithm.NATIVE) {
+            if (TextureAtlasPlugin.ALGORITHM_NATIVE.equals(settings.confirmed().algorithmId())
+                || autoLayoutService == null) {
                 context.logger().info("Texture Atlas automatic layout delegated to Cubism native algorithm");
                 return false;
             }
@@ -200,10 +235,7 @@ public final class TextureAtlasPlugin implements TurboismPlugin {
     /** Publishes the persisted policy to the runtime dialog ingress so the dialog restores it. */
     private void publishDialogState() {
         final TextureAtlasSettings confirmed = settings.confirmed();
-        System.getProperties().put(
-            DIALOG_ALGORITHM_KEY,
-            confirmed.algorithm() == TextureAtlasLayoutAlgorithm.NATIVE ? "native" : "maxrects"
-        );
+        System.getProperties().put(DIALOG_ALGORITHM_KEY, confirmed.algorithmId());
         System.getProperties().put(DIALOG_PARALLEL_KEY, String.valueOf(confirmed.parallel()));
     }
 
@@ -212,14 +244,11 @@ public final class TextureAtlasPlugin implements TurboismPlugin {
         final String algorithm = System.getProperty(DIALOG_ALGORITHM_KEY, "maxrects");
         final boolean parallel = "true".equals(System.getProperty(DIALOG_PARALLEL_KEY, "false"));
         final TextureAtlasSettings confirmed = settings.confirmed();
-        final TextureAtlasLayoutAlgorithm selected = "native".equals(algorithm)
-            ? TextureAtlasLayoutAlgorithm.NATIVE
-            : TextureAtlasLayoutAlgorithm.MAXRECTS;
-        if (confirmed.algorithm() == selected && confirmed.parallel() == parallel) {
+        if (confirmed.algorithmId().equals(algorithm) && confirmed.parallel() == parallel) {
             return;
         }
         updateSettings(new TextureAtlasSettings(
-            confirmed.layoutMode(), selected, parallel
+            confirmed.layoutMode(), algorithm, parallel
         ));
     }
 
