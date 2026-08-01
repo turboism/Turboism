@@ -81,6 +81,7 @@ public final class UiThemePlugin implements TurboismPlugin {
             "workspace",
             40
         ));
+        themeManagerService.refreshCache();
         themeManagerService.restorePersistedSelection();
         logger.info("UiThemePlugin enabled: unified theme manager and package actions enrolled in disposable scope");
     }
