@@ -201,7 +201,11 @@ final class RuntimeChoiceDialogs {
                 return new DialogResult(encoded, null);
             }
             final String option = encoded.substring(0, separator);
-            return new DialogResult("\n".equals(option) ? null : option, encoded.substring(separator + 1));
+            final String action = encoded.substring(separator + 1);
+            return new DialogResult(
+                "\n".equals(option) ? null : option,
+                action.isEmpty() ? null : action
+            );
         }
     }
 

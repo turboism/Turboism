@@ -53,13 +53,19 @@ public final class ThemeManagerService {
 
     private final java.util.concurrent.atomic.AtomicBoolean dialogOpen =
         new java.util.concurrent.atomic.AtomicBoolean();
+    private volatile java.util.List<ThemePackageData> cachedThemes = java.util.List.of();
+
+    /** Rebuilds the theme list off the action path; called on enable and after package changes. */
+    public void refreshCache() {
+        cachedThemes = themes();
+    }
 
     /** Opens the non-blocking theme manager window. The window owns all theme workflows. */
     public void open() {
         if (!dialogOpen.compareAndSet(false, true)) {
             return;
         }
-        final List<ThemePackageData> themes = themes();
+        final List<ThemePackageData> themes = cachedThemes;
         if (themes.isEmpty()) {
             dialogOpen.set(false);
             notify("ui-theme.manager.empty", "WARNING", "No valid theme packages are available.");
@@ -93,7 +99,7 @@ public final class ThemeManagerService {
             return;
         }
         final Runnable work;
-        if (actionId == null) {
+        if (actionId == null || actionId.isBlank()) {
             work = () -> find(optionId).ifPresent(this::apply);
         } else if (ACTION_IMPORT.equals(actionId)) {
             work = this::importPackage;
@@ -121,6 +127,7 @@ public final class ThemeManagerService {
         }
         final ThemePackageData theme = imported.theme().orElseThrow();
         final ThemePackageRepository.SaveResult saved = repository.save(theme, false);
+        refreshCache();
         if (saved.outcome() == ThemePackageRepository.SaveOutcome.CONFLICT) {
             notify("ui-theme.package.import.conflict", "WARNING", "A theme with this id already exists.");
             return;
@@ -170,6 +177,7 @@ public final class ThemeManagerService {
                     && deleted.outcome() != ThemePackageRepository.DeleteOutcome.NOT_FOUND) {
                     throw new IllegalStateException("theme package delete failed");
                 }
+                refreshCache();
             }
         );
         notify(
