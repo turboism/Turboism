@@ -5,18 +5,19 @@ import java.util.Objects;
 /** Persisted plugin-owned automatic-layout policy (persisted through the Turboism config registry). */
 public record TextureAtlasSettings(
     TextureAtlasLayoutMode layoutMode,
-    TextureAtlasLayoutAlgorithm algorithm,
+    String algorithmId,
     boolean parallel
 ) {
     public TextureAtlasSettings {
         Objects.requireNonNull(layoutMode, "layoutMode");
-        Objects.requireNonNull(algorithm, "algorithm");
+        Objects.requireNonNull(algorithmId, "algorithmId");
+        if (algorithmId.isBlank()) throw new IllegalArgumentException("algorithmId must not be blank");
     }
 
     public static TextureAtlasSettings defaults() {
         return new TextureAtlasSettings(
             TextureAtlasLayoutMode.PART_BUCKET,
-            TextureAtlasLayoutAlgorithm.MAXRECTS,
+            TextureAtlasPlugin.ALGORITHM_MAXRECTS,
             false
         );
     }

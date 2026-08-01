@@ -17,6 +17,7 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
+import dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi;
 import dev.turboism.adapter.cubism.textureatlas.VerifiedTextureAtlasDataModelHookInstaller;
 import dev.turboism.adapter.cubism.textureatlas.VerifiedTextureAtlasAutoLayoutHookInstaller;
 
@@ -615,7 +616,8 @@ public final class TurboismAgent {
                     return callback instanceof java.util.function.BooleanSupplier supplier
                         && supplier.getAsBoolean();
                 },
-                editorUi
+                editorUi,
+                runtime.hostAccess().textureAtlasAlgorithms()
             );
             installer.install();
             if (!TEXTURE_ATLAS_AUTO_LAYOUT_HOOK.compareAndSet(null, installer)) {
