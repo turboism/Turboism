@@ -71,6 +71,7 @@ public final class UiThemePlugin implements TurboismPlugin {
             this.themeEditorService
         );
         this.themeEditorService.setBackToManager(this.themeManagerService::open);
+        this.themeEditorService.setOnSaved(this.themeManagerService::refreshCache);
         logger.info("UiThemePlugin initialized");
     }
 
