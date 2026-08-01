@@ -40,7 +40,7 @@ class HistoryPanelServiceTest {
             false
         );
 
-        final PanelView view = HistoryPanelService.render(snapshot);
+        final PanelView view = service(new FakeHistory(snapshot), new RecordingUiHost()).render(snapshot);
 
         final String text = flatten(view);
         assertTrue(text.contains("History: 2 entries · cursor 1 · undo ✓ · redo —"), text);
@@ -51,7 +51,7 @@ class HistoryPanelServiceTest {
 
     @Test
     void rendersUnavailableStateWithoutEntries() {
-        final PanelView view = HistoryPanelService.render(HistorySnapshot.unavailable());
+        final PanelView view = service(new FakeHistory(HistorySnapshot.unavailable()), new RecordingUiHost()).render(HistorySnapshot.unavailable());
 
         final String text = flatten(view);
         assertTrue(text.contains("History unavailable"), text);
@@ -69,7 +69,7 @@ class HistoryPanelServiceTest {
             false
         );
 
-        final String text = flatten(HistoryPanelService.render(snapshot));
+        final String text = flatten(service(new FakeHistory(snapshot), new RecordingUiHost()).render(snapshot));
         assertTrue(text.contains("1 Native Action"), text);
         assertTrue(text.contains("no structured detail"), text);
     }
@@ -78,7 +78,7 @@ class HistoryPanelServiceTest {
     void enableRegistersPanelAndPollingThenCloseStopsBoth() {
         final FakeHistory history = new FakeHistory(available(1, 0, 0, List.of(), false, false));
         final RecordingUiHost uiHost = new RecordingUiHost();
-        final HistoryPanelService service = new HistoryPanelService(history, uiHost, new NullLogger());
+        final HistoryPanelService service = new HistoryPanelService(history, uiHost, new NullLogger(), new FakeLocalization());
 
         final Registration registration = service.enable();
 
@@ -99,7 +99,7 @@ class HistoryPanelServiceTest {
     void unchangedSnapshotDoesNotRecontribute() {
         final FakeHistory history = new FakeHistory(available(1, 0, 0, List.of(), false, false));
         final RecordingUiHost uiHost = new RecordingUiHost();
-        final HistoryPanelService service = new HistoryPanelService(history, uiHost, new NullLogger());
+        final HistoryPanelService service = new HistoryPanelService(history, uiHost, new NullLogger(), new FakeLocalization());
 
         service.enable();
         awaitPoll();
@@ -281,6 +281,49 @@ class HistoryPanelServiceTest {
         } catch (InterruptedException interruption) {
             Thread.currentThread().interrupt();
             throw new RuntimeException(interruption);
+        }
+    }
+
+    private static HistoryPanelService service(
+        final FakeHistory history,
+        final RecordingUiHost uiHost
+    ) {
+        return new HistoryPanelService(history, uiHost, new NullLogger(), new FakeLocalization());
+    }
+
+    private static final class FakeLocalization implements dev.turboism.sdk.i18n.PluginLocalization {
+        @Override
+        public java.util.Locale locale() {
+            return java.util.Locale.ENGLISH;
+        }
+
+        @Override
+        public String text(final String key) {
+            return switch (key) {
+                case "history.panel.unavailable" -> "History unavailable";
+                case "history.panel.undo-available" -> "undo ✓";
+                case "history.panel.undo-unavailable" -> "undo —";
+                case "history.panel.redo-available" -> "redo ✓";
+                case "history.panel.redo-unavailable" -> "redo —";
+                case "history.entry.cursor-marker" -> "▶";
+                case "history.entry.no-detail" -> "no structured detail";
+                case "history.panel.readonly" -> "Move-to is not enabled for this build; the pane is read-only.";
+                default -> key;
+            };
+        }
+
+        @Override
+        public String format(final String key, final Object... arguments) {
+            if (key.equals("history.panel.status")) {
+                return "History: " + arguments[0] + " entries · cursor " + arguments[1]
+                    + " · " + arguments[2] + " · " + arguments[3];
+            }
+            return text(key);
+        }
+
+        @Override
+        public boolean contains(final String key) {
+            return true;
         }
     }
 

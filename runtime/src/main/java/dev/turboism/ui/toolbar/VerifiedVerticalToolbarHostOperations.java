@@ -9,7 +9,6 @@ import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.Icon;
 import javax.swing.ImageIcon;
-import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
@@ -40,8 +39,7 @@ public final class VerifiedVerticalToolbarHostOperations implements VerticalTool
     private static final String WIDGET_JCOMPONENT =
         "cubism.ui-main-toolbar.widget.jcomponent";
     private static final String WIDGET_SET_NAME = "cubism.ui-main-toolbar.widget.set-name";
-    private static final String WIDGET_REVALIDATE = "cubism.ui-main-toolbar.widget.revalidate";
-    private static final String WIDGET_REPAINT = "cubism.ui-main-toolbar.widget.repaint";
+    private static final String WIDGET_SET_TOOLTIP = "cubism.ui-main-toolbar.widget.set-tooltip";
     private static final String WIDGET_SET_PREF_WIDTH =
         "cubism.ui-main-toolbar.widget.set-pref-width";
     private static final String WIDGET_SET_PREF_HEIGHT =
@@ -52,6 +50,7 @@ public final class VerifiedVerticalToolbarHostOperations implements VerticalTool
     private static final String GL_CANVAS_TYPE = "com.jogamp.opengl.awt.GLJPanel";
     private static final int STRIP_WIDTH = 32;
     private static final int BUTTON_SIZE = 28;
+    private static final int ICON_SIZE = 22;
 
     private final VerifiedMemberResolver resolver;
     private final EditorUiPluginResourceRegistry resources;
@@ -94,25 +93,20 @@ public final class VerifiedVerticalToolbarHostOperations implements VerticalTool
         strip.setLayout(new BoxLayout(strip, right ? BoxLayout.Y_AXIS : BoxLayout.X_AXIS));
         strip.setName(stripId);
         strip.setBorder(BorderFactory.createEmptyBorder(2, 2, 2, 2));
-        if (right) {
-            strip.setMaximumSize(new java.awt.Dimension(STRIP_WIDTH, Integer.MAX_VALUE));
-            strip.setPreferredSize(new java.awt.Dimension(STRIP_WIDTH, 200));
-        } else {
-            strip.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, STRIP_WIDTH));
-            strip.setPreferredSize(new java.awt.Dimension(200, STRIP_WIDTH));
-        }
+        // Lock the strip to its exact width so custom canvas layouts cannot
+        // stretch it (the native draw-depth control on the left is ~20px).
+        strip.setMinimumSize(new java.awt.Dimension(STRIP_WIDTH, 28));
+        strip.setPreferredSize(new java.awt.Dimension(STRIP_WIDTH, 200));
+        strip.setMaximumSize(new java.awt.Dimension(STRIP_WIDTH, Integer.MAX_VALUE));
 
         for (final VerticalToolbarContribution.ToolButton button : descriptor.contribution().buttons()) {
-            final JButton nativeButton = new JButton(icon(descriptor.pluginId(), button.iconResourcePath()));
-            nativeButton.setName(stripId + "." + button.id());
-            nativeButton.setToolTipText(button.tooltipKey());
-            nativeButton.setBorderPainted(false);
-            nativeButton.setContentAreaFilled(false);
-            nativeButton.setFocusable(false);
-            nativeButton.setPreferredSize(new java.awt.Dimension(BUTTON_SIZE, BUTTON_SIZE));
-            nativeButton.setMaximumSize(new java.awt.Dimension(BUTTON_SIZE, BUTTON_SIZE));
-            nativeButton.addActionListener(ignored -> click.accept(button.actionId()));
-            strip.add(nativeButton);
+            final Object nativeButton = nativeButton(
+                descriptor.pluginId(),
+                button,
+                stripId + "." + button.id(),
+                click
+            );
+            strip.add(jComponent(nativeButton));
             strip.add(right ? Box.createVerticalStrut(4) : Box.createHorizontalStrut(4));
         }
 
@@ -195,6 +189,42 @@ public final class VerifiedVerticalToolbarHostOperations implements VerticalTool
             throw new IllegalStateException("Cubism main container is not ready");
         }
         return container;
+    }
+
+    /** Builds a native Cubism CIconButton (host hover/pressed visuals) and wires the click. */
+    private Object nativeButton(
+        final String pluginId,
+        final VerticalToolbarContribution.ToolButton button,
+        final String nativeId,
+        final Consumer<String> click
+    ) {
+        final Object callback = resolver.createFunctionalConstructorArgumentProxy(
+            ICON_BUTTON_CREATE,
+            1,
+            ignored -> {
+                click.accept(button.actionId());
+                return kotlinUnit();
+            }
+        );
+        final Object nativeButton = resolver.construct(
+            ICON_BUTTON_CREATE,
+            icon(pluginId, button.iconResourcePath()),
+            callback
+        );
+        resolver.invoke(WIDGET_SET_NAME, nativeButton, nativeId);
+        resolver.invoke(WIDGET_SET_TOOLTIP, nativeButton, button.tooltipKey());
+        resolver.invoke(WIDGET_SET_PREF_WIDTH, nativeButton, BUTTON_SIZE);
+        resolver.invoke(WIDGET_SET_PREF_HEIGHT, nativeButton, BUTTON_SIZE);
+        return nativeButton;
+    }
+
+    private Object kotlinUnit() {
+        try {
+            final Class<?> unit = Class.forName("kotlin.Unit", false, resolver.hostClassLoader());
+            return unit.getField("INSTANCE").get(null);
+        } catch (ReflectiveOperationException | LinkageError failure) {
+            throw new IllegalStateException("Kotlin Unit is unavailable for toolbar callback", failure);
+        }
     }
 
     private Icon icon(final String pluginId, final String resourcePath) {

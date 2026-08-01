@@ -11,6 +11,7 @@ import dev.turboism.sdk.cubism.history.HistoryMoveResult;
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
 import dev.turboism.sdk.ui.EmbeddedPanelContribution;
 import dev.turboism.sdk.ui.EmbeddedPanelId;
+import dev.turboism.sdk.ui.HorizontalToolbarContribution;
 import dev.turboism.sdk.ui.StatusNotification;
 import dev.turboism.sdk.ui.VerticalToolbarContribution;
 
@@ -34,6 +35,7 @@ public final class HistoryPanelPlugin implements TurboismPlugin {
 
     private PluginContext context;
     private PluginLogger logger;
+    private dev.turboism.sdk.i18n.PluginLocalization localization;
     private Registration panelRegistration;
     private final java.util.List<Registration> undoActions = new java.util.ArrayList<>();
     private boolean panelVisible;
@@ -42,6 +44,7 @@ public final class HistoryPanelPlugin implements TurboismPlugin {
     public void init(final PluginContext context) {
         this.context = context;
         this.logger = context.logger();
+        this.localization = context.localization();
         logger.info("HistoryPanelPlugin initialized");
     }
 
@@ -55,9 +58,10 @@ public final class HistoryPanelPlugin implements TurboismPlugin {
                     List.of(new VerticalToolbarContribution.ToolButton(
                         STRIP_BUTTON_ID,
                         "icons/history.png",
-                        "History",
+                        localization.text("history.button.tooltip"),
                         TOGGLE_ACTION_ID
-                    ))
+                    )),
+                    VerticalToolbarContribution.VerticalSide.RIGHT
                 )
             ));
         } catch (RuntimeException failure) {
@@ -85,7 +89,8 @@ public final class HistoryPanelPlugin implements TurboismPlugin {
                 final HistoryPanelService service = new HistoryPanelService(
                     context.cubism().history(),
                     context.uiHost(),
-                    logger
+                    logger,
+                    localization
                 );
                 panelRegistration = service.enable();
             } catch (RuntimeException failure) {
@@ -131,7 +136,10 @@ public final class HistoryPanelPlugin implements TurboismPlugin {
         final long revision = snapshot.revision();
         for (final dev.turboism.sdk.cubism.history.HistoryEntry entry : snapshot.entries()) {
             final String actionId = "history.entry.undo." + entry.index();
-            undoActions.add(registerAction(actionId, "Undo to " + (entry.index() + 1), ignored -> {
+            undoActions.add(registerAction(
+                actionId,
+                localization.format("history.undo.action", entry.index() + 1),
+                ignored -> {
                 final HistoryMoveResult result = history.moveTo(generation, revision, entry.index());
                 context.uiHost().notifyStatus(new StatusNotification(
                     "history.entry.undo.result",
