@@ -17,7 +17,8 @@ public final class ThemeSelectionConfig implements ThemeSelectionService.Selecti
 
     public static final String CONFIG_ID = "ui-theme.selection";
     public static final String CONFIG_PATH = "ui-theme/selection.cfg";
-    private static final String EMPTY = "__native__";
+    public static final String NATIVE_ID = "__native__";
+    private static final String EMPTY = NATIVE_ID;
     private static final ConfigKey<List<String>> SELECTED_THEME = new ConfigKey<>(
         CONFIG_ID,
         "selected-theme",
@@ -75,7 +76,7 @@ public final class ThemeSelectionConfig implements ThemeSelectionService.Selecti
         if (value.size() > 1) {
             throw new IllegalStateException("theme selection config contains multiple values");
         }
-        selectedThemeId = value.stream().findFirst().filter(candidate -> !EMPTY.equals(candidate));
+        selectedThemeId = value.stream().findFirst().filter(candidate -> !NATIVE_ID.equals(candidate));
         revision = read.value().revision();
         initialized = true;
     }

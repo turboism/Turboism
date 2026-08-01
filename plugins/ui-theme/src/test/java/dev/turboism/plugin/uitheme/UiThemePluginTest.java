@@ -205,12 +205,56 @@ class UiThemePluginTest {
         dev.turboism.sdk.ui.ChoiceDialogRequest request = context.uiHost().lastChoiceRequest();
         assertNotNull(request);
         // Accepting the dialog reports the selected option with a blank (not null) action id.
-        context.uiHost().lastChoiceListener().onResult(request.options().get(0).id(), "");
+        // The first option is the native entry; apply a real theme option instead.
+        final String themeId = request.options().stream()
+            .filter(option -> !"__native__".equals(option.id()))
+            .findFirst()
+            .orElseThrow().id();
+        context.uiHost().lastChoiceListener().onResult(themeId, "");
 
         final dev.turboism.sdk.appearance.AppearanceRequest applied =
             awaitAppearanceRequest(context.appearanceService(), 5);
         assertNotNull(applied);
-        assertEquals(request.options().get(0).id(), applied.appearanceId());
+        assertEquals(themeId, applied.appearanceId());
+    }
+
+    @org.junit.jupiter.api.Test
+    void managerWindowNativeOptionRestoresAppearance() throws Exception {
+        RecordingPluginContext context = new RecordingPluginContext();
+        UiThemePlugin plugin = new UiThemePlugin();
+
+        plugin.init(context);
+        plugin.enable();
+        context.actions().execute("ui-theme.manager.open");
+
+        final dev.turboism.sdk.ui.ChoiceDialogRequest request = context.uiHost().lastChoiceRequest();
+        assertNotNull(request);
+        assertEquals("__native__", request.options().get(0).id());
+        assertEquals("__native__", request.selectedOptionId().orElseThrow());
+
+        context.uiHost().lastChoiceListener().onResult("__native__", "");
+
+        final dev.turboism.sdk.appearance.AppearanceRestoreResult restored =
+            awaitAppearanceRestore(context.appearanceService(), 5);
+        assertNotNull(restored);
+        assertEquals(
+            dev.turboism.sdk.appearance.AppearanceRestoreResult.Outcome.NO_OWNED_OVERRIDE,
+            restored.outcome()
+        );
+    }
+
+    private static dev.turboism.sdk.appearance.AppearanceRestoreResult awaitAppearanceRestore(
+        final RecordingAppearanceService service,
+        final int seconds
+    ) throws Exception {
+        final long deadline = System.nanoTime() + seconds * 1_000_000_000L;
+        while (System.nanoTime() < deadline) {
+            if (service.lastRestore() != null) {
+                return service.lastRestore();
+            }
+            Thread.sleep(50);
+        }
+        return service.lastRestore();
     }
 
     private static dev.turboism.sdk.appearance.AppearanceRequest awaitAppearanceRequest(
@@ -620,6 +664,7 @@ class UiThemePluginTest {
 
     private static final class RecordingAppearanceService implements AppearanceService {
         private AppearanceRequest lastRequest;
+        private AppearanceRestoreResult lastRestore;
         private final AppearanceStatus status = new AppearanceStatus(
             AppearanceStatus.Availability.UNAVAILABLE,
             AppearanceStatus.Source.NATIVE,
@@ -631,6 +676,10 @@ class UiThemePluginTest {
 
         AppearanceRequest lastRequest() {
             return lastRequest;
+        }
+
+        AppearanceRestoreResult lastRestore() {
+            return lastRestore;
         }
 
         @Override
@@ -654,13 +703,13 @@ class UiThemePluginTest {
 
         @Override
         public java.util.concurrent.CompletionStage<AppearanceRestoreResult> restoreOwnedAppearance() {
-            return java.util.concurrent.CompletableFuture.completedFuture(
-                new AppearanceRestoreResult(
-                    AppearanceRestoreResult.Outcome.NO_OWNED_OVERRIDE,
-                    status,
-                    Optional.empty()
-                )
+            final AppearanceRestoreResult result = new AppearanceRestoreResult(
+                AppearanceRestoreResult.Outcome.NO_OWNED_OVERRIDE,
+                status,
+                Optional.empty()
             );
+            lastRestore = result;
+            return java.util.concurrent.CompletableFuture.completedFuture(result);
         }
     }
 
