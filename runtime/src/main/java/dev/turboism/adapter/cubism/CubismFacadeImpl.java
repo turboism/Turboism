@@ -13,6 +13,8 @@ import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.permissions.CubismPermissionGate;
 import dev.turboism.adapter.cubism.write.RuntimeTransactionManager;
 import dev.turboism.permissions.PermissionChecker;
+import dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorSession;
+import dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi;
 import dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutService;
 import dev.turboism.adapter.cubism.textureatlas.TextureAtlasLayoutCoordinator;
 import dev.turboism.sdk.cubism.CubismFacade;
@@ -62,6 +64,8 @@ public final class CubismFacadeImpl implements CubismFacade {
     private final TextureAtlasLayoutService textureAtlasLayouts;
     private final EditorObjectLifecycleCoordinator editorObjectLifecycle;
     private final BooleanSupplier activeScope;
+    private final RuntimeTextureAtlasEditorUi textureAtlasEditorUi;
+    private final RuntimeTextureAtlasEditorSession textureAtlasEditorSession;
 
     public CubismFacadeImpl(final HostSnapshotSource source, final CubismPermissionGate permissionGate) {
         this(
@@ -74,7 +78,9 @@ public final class CubismFacadeImpl implements CubismFacade {
             new PartLifecycleCoordinator(),
             new RuntimeTextureAtlasLayoutService(new TextureAtlasLayoutCoordinator(), permissionGate),
             new EditorObjectLifecycleCoordinator(),
-            () -> true
+            () -> true,
+            new RuntimeTextureAtlasEditorUi(),
+            RuntimeTextureAtlasEditorSession.unavailable()
         );
     }
 
@@ -93,7 +99,9 @@ public final class CubismFacadeImpl implements CubismFacade {
             new PartLifecycleCoordinator(),
             new RuntimeTextureAtlasLayoutService(new TextureAtlasLayoutCoordinator(), permissionGate),
             new EditorObjectLifecycleCoordinator(),
-            () -> true
+            () -> true,
+            new RuntimeTextureAtlasEditorUi(),
+            RuntimeTextureAtlasEditorSession.unavailable()
         );
     }
 
@@ -113,7 +121,9 @@ public final class CubismFacadeImpl implements CubismFacade {
             new PartLifecycleCoordinator(),
             new RuntimeTextureAtlasLayoutService(new TextureAtlasLayoutCoordinator(), permissionGate),
             new EditorObjectLifecycleCoordinator(),
-            () -> true
+            () -> true,
+            new RuntimeTextureAtlasEditorUi(),
+            RuntimeTextureAtlasEditorSession.unavailable()
         );
     }
 
@@ -134,7 +144,9 @@ public final class CubismFacadeImpl implements CubismFacade {
             partLifecycle,
             new RuntimeTextureAtlasLayoutService(new TextureAtlasLayoutCoordinator(), permissionGate),
             new EditorObjectLifecycleCoordinator(),
-            () -> true
+            () -> true,
+            new RuntimeTextureAtlasEditorUi(),
+            RuntimeTextureAtlasEditorSession.unavailable()
         );
     }
 
@@ -177,7 +189,9 @@ public final class CubismFacadeImpl implements CubismFacade {
             textureAtlasLayouts,
             new dev.turboism.adapter.cubism.textureatlas.TextureAtlasNativeInvocationCoordinator(),
             editorObjectLifecycle,
-            activeScope
+            activeScope,
+            new RuntimeTextureAtlasEditorUi(),
+            RuntimeTextureAtlasEditorSession.unavailable()
         );
     }
 
@@ -190,7 +204,9 @@ public final class CubismFacadeImpl implements CubismFacade {
         final TextureAtlasLayoutCoordinator textureAtlasLayouts,
         final dev.turboism.adapter.cubism.textureatlas.TextureAtlasNativeInvocationCoordinator nativeInvocations,
         final EditorObjectLifecycleCoordinator editorObjectLifecycle,
-        final BooleanSupplier activeScope
+        final BooleanSupplier activeScope,
+        final RuntimeTextureAtlasEditorUi textureAtlasEditorUi,
+        final RuntimeTextureAtlasEditorSession textureAtlasEditorSession
     ) {
         this(
             source,
@@ -202,7 +218,9 @@ public final class CubismFacadeImpl implements CubismFacade {
             partLifecycle,
             new RuntimeTextureAtlasLayoutService(textureAtlasLayouts, permissionGate, nativeInvocations),
             editorObjectLifecycle,
-            activeScope
+            activeScope,
+            textureAtlasEditorUi,
+            textureAtlasEditorSession
         );
     }
 
@@ -225,7 +243,9 @@ public final class CubismFacadeImpl implements CubismFacade {
             partLifecycle,
             new RuntimeTextureAtlasLayoutService(new TextureAtlasLayoutCoordinator(), permissionGate),
             editorObjectLifecycle,
-            activeScope
+            activeScope,
+            new RuntimeTextureAtlasEditorUi(),
+            RuntimeTextureAtlasEditorSession.unavailable()
         );
     }
 
@@ -266,7 +286,9 @@ public final class CubismFacadeImpl implements CubismFacade {
             new PartLifecycleCoordinator(),
             new RuntimeTextureAtlasLayoutService(new TextureAtlasLayoutCoordinator(), permissionGate),
             new EditorObjectLifecycleCoordinator(),
-            () -> true
+            () -> true,
+            new RuntimeTextureAtlasEditorUi(),
+            RuntimeTextureAtlasEditorSession.unavailable()
         );
     }
 
@@ -287,7 +309,9 @@ public final class CubismFacadeImpl implements CubismFacade {
             new PartLifecycleCoordinator(),
             new RuntimeTextureAtlasLayoutService(new TextureAtlasLayoutCoordinator(), permissionGate),
             new EditorObjectLifecycleCoordinator(),
-            () -> true
+            () -> true,
+            new RuntimeTextureAtlasEditorUi(),
+            RuntimeTextureAtlasEditorSession.unavailable()
         );
     }
 
@@ -309,7 +333,9 @@ public final class CubismFacadeImpl implements CubismFacade {
             new PartLifecycleCoordinator(),
             new RuntimeTextureAtlasLayoutService(new TextureAtlasLayoutCoordinator(), permissionGate),
             new EditorObjectLifecycleCoordinator(),
-            () -> true
+            () -> true,
+            new RuntimeTextureAtlasEditorUi(),
+            RuntimeTextureAtlasEditorSession.unavailable()
         );
     }
 
@@ -332,7 +358,9 @@ public final class CubismFacadeImpl implements CubismFacade {
             partLifecycle,
             new RuntimeTextureAtlasLayoutService(new TextureAtlasLayoutCoordinator(), permissionGate),
             new EditorObjectLifecycleCoordinator(),
-            () -> true
+            () -> true,
+            new RuntimeTextureAtlasEditorUi(),
+            RuntimeTextureAtlasEditorSession.unavailable()
         );
     }
 
@@ -346,7 +374,9 @@ public final class CubismFacadeImpl implements CubismFacade {
         final PartLifecycleCoordinator partLifecycle,
         final TextureAtlasLayoutService textureAtlasLayouts,
         final EditorObjectLifecycleCoordinator editorObjectLifecycle,
-        final BooleanSupplier activeScope
+        final BooleanSupplier activeScope,
+        final RuntimeTextureAtlasEditorUi textureAtlasEditorUi,
+        final RuntimeTextureAtlasEditorSession textureAtlasEditorSession
     ) {
         this.source = Objects.requireNonNull(source, "source");
         this.permissionGate = Objects.requireNonNull(permissionGate, "permissionGate");
@@ -357,6 +387,12 @@ public final class CubismFacadeImpl implements CubismFacade {
         this.textureAtlasLayouts = Objects.requireNonNull(textureAtlasLayouts, "textureAtlasLayouts");
         this.editorObjectLifecycle = Objects.requireNonNull(editorObjectLifecycle, "editorObjectLifecycle");
         this.activeScope = Objects.requireNonNull(activeScope, "activeScope");
+        this.textureAtlasEditorUi = textureAtlasEditorUi == null
+            ? new RuntimeTextureAtlasEditorUi()
+            : textureAtlasEditorUi;
+        this.textureAtlasEditorSession = textureAtlasEditorSession == null
+            ? RuntimeTextureAtlasEditorSession.unavailable()
+            : textureAtlasEditorSession;
         this.modelAccess = permissionCheckedModelAccess(
             Objects.requireNonNull(modelAccess, "modelAccess")
         );

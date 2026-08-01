@@ -46,6 +46,8 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         new TextureAtlasLayoutCoordinator();
     private final dev.turboism.adapter.cubism.textureatlas.TextureAtlasNativeInvocationCoordinator
         textureAtlasNativeInvocations = new dev.turboism.adapter.cubism.textureatlas.TextureAtlasNativeInvocationCoordinator();
+    private dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi textureAtlasEditorUi;
+    private dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorSession textureAtlasEditorSession;
     private final EditorObjectLifecycleCoordinator editorObjectLifecycle =
         new EditorObjectLifecycleCoordinator();
     private final PhysicsEditorCoordinator physicsEditorCoordinator =
@@ -378,6 +380,31 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     public dev.turboism.ui.appearance.control.ControlAppearanceCoordinator controlAppearanceCoordinator() {
         return controlAppearanceCoordinator;
     }
+    public dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi textureAtlasEditorUi() {
+        synchronized (lifecycleMonitor) {
+            dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi ui = textureAtlasEditorUi;
+            if (ui == null) {
+                ui = new dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi();
+                textureAtlasEditorUi = ui;
+            }
+            return ui;
+        }
+    }
+
+    public dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorSession textureAtlasEditorSession() {
+        synchronized (lifecycleMonitor) {
+            dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorSession session = textureAtlasEditorSession;
+            if (session == null) {
+                session = new dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorSession(
+                    editorModelResolver(),
+                    () -> textureAtlasEditorUi().view()
+                );
+                textureAtlasEditorSession = session;
+            }
+            return session;
+        }
+    }
+
     public dev.turboism.mapping.verification.VerifiedMemberResolver editorModelResolver() {
         synchronized (lifecycleMonitor) {
             if (activeConnection == null) {
@@ -434,7 +461,9 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             boundingBoxOverlayResolver(),
             appearanceCoordinator,
             sceneTable,
-            controlAppearanceCoordinator
+            controlAppearanceCoordinator,
+            textureAtlasEditorUi(),
+            textureAtlasEditorSession()
         );
     }
 

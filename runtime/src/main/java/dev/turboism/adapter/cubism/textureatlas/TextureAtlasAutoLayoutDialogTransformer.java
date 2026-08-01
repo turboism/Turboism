@@ -127,7 +127,8 @@ public final class TextureAtlasAutoLayoutDialogTransformer implements ClassFileT
             }
         }, ClassReader.EXPAND_FRAMES);
         if (transformed[0]) {
-            diag("dialog transform applied owner=" + className + " bytes=" + writer.toByteArray().length);
+            diag("ingress transform applied key=" + ingressKey + " owner=" + className
+                + " bytes=" + writer.toByteArray().length);
         }
         return transformed[0] ? writer.toByteArray() : null;
     }

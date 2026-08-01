@@ -20,6 +20,7 @@ public final class TextureAtlasPlugin implements TurboismPlugin {
     private PluginContext context;
     private boolean enabled;
     private TextureAtlasAutoLayoutService autoLayoutService;
+    private javax.swing.Timer statisticsTimer;
     private TextureAtlasAutoLayoutService.LifecycleLease lifecycle;
     private final TextureAtlasSettingsBinding settings = new TextureAtlasSettingsBinding();
     private final BooleanSupplier nativeAutoLayoutCallback = this::applyFromNativeEntry;
@@ -46,10 +47,76 @@ public final class TextureAtlasPlugin implements TurboismPlugin {
         enabled = true;
         System.getProperties().putIfAbsent(NATIVE_AUTO_LAYOUT_CALLBACK_KEY, nativeAutoLayoutCallback);
         publishDialogState();
+        attachEditorStatistics();
+    }
+
+    private void attachEditorStatistics() {
+        try {
+            final dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorSession session =
+                context.cubism().textureAtlasEditorSession();
+            final dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorUi editorUi =
+                context.cubism().textureAtlasEditorUi();
+            final javax.swing.JTextArea text = new javax.swing.JTextArea(4, 42);
+            text.setEditable(false);
+            text.setLineWrap(true);
+            text.setWrapStyleWord(true);
+            final javax.swing.Timer timer = new javax.swing.Timer(1000, event -> {
+                try {
+                    text.setText(editorStatisticsText(session));
+                } catch (Throwable failure) {
+                    text.setText("Turboism 纹理统计: " + failure);
+                }
+            });
+            timer.setRepeats(true);
+            timer.start();
+            editorUi.attach(text);
+            statisticsTimer = timer;
+        } catch (Throwable failure) {
+            context.logger().warn("Texture Atlas editor statistics panel unavailable: " + failure);
+        }
+    }
+
+    private static String editorStatisticsText(
+        final dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorSession session
+    ) {
+        final StringBuilder out = new StringBuilder("Turboism 纹理统计");
+        final var selected = session.selectedTexture();
+        if (selected.isPresent()) {
+            final var summary = selected.orElseThrow();
+            out.append("\n选中纹理: ").append(summary.imageCount()).append(" 图像");
+            out.append("\n  ").append(sizeDistributionText(summary));
+        } else {
+            out.append("\n选中纹理: (未选择)");
+        }
+        final var whole = session.summary();
+        if (whole.isPresent()) {
+            final var summary = whole.orElseThrow();
+            out.append("\n纹理集: 共 ").append(summary.imageCount()).append(" 图像 / ")
+                .append(summary.pageCount()).append(" 页");
+            out.append("\n  ").append(sizeDistributionText(summary));
+        }
+        return out.toString();
+    }
+
+    private static String sizeDistributionText(
+        final dev.turboism.sdk.cubism.textureatlas.TextureAtlasSummary summary
+    ) {
+        final StringBuilder out = new StringBuilder();
+        for (var bucket : summary.sizeDistribution()) {
+            if (out.length() > 0) out.append("  ");
+            out.append(bucket.width()).append("x").append(bucket.height())
+                .append(" ×").append(bucket.count());
+        }
+        if (out.length() == 0) out.append("(空)");
+        return out.toString();
     }
 
     @Override
     public void disable() {
+        if (statisticsTimer != null) {
+            statisticsTimer.stop();
+            statisticsTimer = null;
+        }
         removeNativeCallback();
         enabled = false;
         settings.disable();
