@@ -261,11 +261,14 @@ public final class ThemeManagerService {
     }
 
     private Optional<ThemePackageData> find(final String id) {
-        return BuiltinThemeCatalog.visibleEntries().stream()
-            .filter(entry -> entry.id().equals(id))
-            .findFirst()
-            .map(entry -> builtins.load(entry.id()))
-            .or(() -> repository.find(id));
+        // A saved package overrides a built-in with the same id (editing a
+        // built-in theme persists the edited copy), so consult the repository
+        // first and fall back to the immutable built-in catalog.
+        return repository.find(id)
+            .or(() -> BuiltinThemeCatalog.visibleEntries().stream()
+                .filter(entry -> entry.id().equals(id))
+                .findFirst()
+                .map(entry -> builtins.load(entry.id())));
     }
 
     private void apply(final ThemePackageData theme) {
