@@ -146,8 +146,8 @@ public final class RuntimeTextureAtlasEditorSession implements TextureAtlasEdito
     private List<TextureAtlasSizeBucket> sizeDistribution(final List<?> images) {
         final Map<String, Integer> counts = new LinkedHashMap<>();
         for (Object image : images) {
-            final int width = intValue(resolver.invoke("cubism.editor-model.image.width", image));
-            final int height = intValue(resolver.invoke("cubism.editor-model.image.height", image));
+            final int width = intValue(resolver.invoke("cubism.texture-atlas.image.width", image));
+            final int height = intValue(resolver.invoke("cubism.texture-atlas.image.height", image));
             if (width < 1 || height < 1) continue;
             counts.merge(width + "x" + height, 1, Integer::sum);
         }

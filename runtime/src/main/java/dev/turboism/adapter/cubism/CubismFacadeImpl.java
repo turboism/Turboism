@@ -489,6 +489,21 @@ public final class CubismFacadeImpl implements CubismFacade {
         return textureAtlasLayouts;
     }
 
+    @Override
+    public dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorSession textureAtlasEditorSession() {
+        return textureAtlasEditorSession;
+    }
+
+    @Override
+    public dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorUi textureAtlasEditorUi() {
+        return textureAtlasEditorUi;
+    }
+
+    @Override
+    public dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithmRegistry textureAtlasAlgorithms() {
+        return textureAtlasAlgorithms;
+    }
+
     private Optional<HostSnapshotSource.HostProject> runtimeProjectSnapshot() {
         final Optional<HostSnapshotSource.HostProject> project = source.activeProject();
         if (project.isEmpty()) {
