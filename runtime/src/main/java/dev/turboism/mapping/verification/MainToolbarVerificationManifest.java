@@ -8,7 +8,7 @@ public final class MainToolbarVerificationManifest {
     public static final String VERIFICATION_ID =
         "cubism-5.3.02.ui-main-toolbar.static";
     public static final String RECORD_SHA256 =
-        "ebbf163a453d979032917b4acf6429f52b091dfd82b3fbacafc31c09a3008b4c";
+        "f38f670ba1dad79a2b05e7eb09b46e2b65cf5ba79bba19fdc6f50d7d0ef1f6f7";
     public static final String CUBISM_VERSION = "5.3.02";
     public static final String PROFILE_ID = "cubism-5.3.02";
     public static final long ARTIFACT_SIZE = 41_922_739L;
@@ -28,6 +28,7 @@ public final class MainToolbarVerificationManifest {
         "cubism.ui-main-toolbar.main-frame-view.main-container",
         "cubism.ui-main-toolbar.vbox.create",
         "cubism.ui-main-toolbar.widget.class",
+        "cubism.ui-main-toolbar.widget.jcomponent",
         "cubism.ui-main-toolbar.widget.parent",
         "cubism.ui-main-toolbar.widget.name",
         "cubism.ui-main-toolbar.widget.set-name",

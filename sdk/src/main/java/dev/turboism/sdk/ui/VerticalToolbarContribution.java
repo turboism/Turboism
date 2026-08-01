@@ -12,7 +12,8 @@ import java.util.Objects;
  */
 public record VerticalToolbarContribution(
     String contributionId,
-    List<ToolButton> buttons
+    List<ToolButton> buttons,
+    CanvasSide side
 ) {
 
     public VerticalToolbarContribution {
@@ -23,6 +24,22 @@ public record VerticalToolbarContribution(
         if (buttons.isEmpty()) {
             throw new IllegalArgumentException("buttons must not be empty");
         }
+        side = Objects.requireNonNull(side, "side");
+    }
+
+    public VerticalToolbarContribution(
+        final String contributionId,
+        final List<ToolButton> buttons
+    ) {
+        this(contributionId, buttons, CanvasSide.RIGHT);
+    }
+
+    /** Where the tool strip attaches relative to the modeling canvas. */
+    public enum CanvasSide {
+        /** Vertical strip at the canvas right edge (Photoshop-style). */
+        RIGHT,
+        /** Horizontal strip below the canvas. */
+        BOTTOM
     }
 
     /**
