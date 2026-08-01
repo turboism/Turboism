@@ -112,7 +112,7 @@ class UiThemePluginTest {
                 .toList()
         );
         assertEquals(
-            List.of("Turboism/Theme Manager"),
+            List.of("Turboism/menu.themeManager"),
             context.menus().contributions().stream()
                 .map(MenuRegistry.MenuContribution::menuPath)
                 .toList()
