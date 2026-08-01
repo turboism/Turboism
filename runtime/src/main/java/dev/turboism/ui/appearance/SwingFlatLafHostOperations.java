@@ -71,6 +71,13 @@ public final class SwingFlatLafHostOperations implements FlatLafAppearanceHostPr
                 }
                 flatLaf.getMethod("updateUI").invoke(null);
                 repaintGlViewports();
+                // Push the injected off-canvas color onto the host background mesh
+                // so theme switches take effect immediately (the host caches the
+                // color in a singleton Lazy otherwise).
+                final Object offCanvas = UIManager.get("CubismCommon.gl.viewArea.background");
+                if (offCanvas instanceof Color offCanvasColor) {
+                    new OffCanvasAppearanceRefresher().refresh(hex(offCanvasColor));
+                }
                 return null;
             } catch (ReflectiveOperationException exception) {
                 throw new IllegalStateException("FlatLaf updateUI is unavailable", exception);
