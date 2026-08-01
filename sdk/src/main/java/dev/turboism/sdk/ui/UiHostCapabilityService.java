@@ -110,14 +110,15 @@ public interface UiHostCapabilityService {
 
     /**
      * Framework capability: pushes the current off-canvas (GL viewport)
-     * background color onto the host's background mesh so theme changes take
-     * effect immediately instead of only after a restart. The runtime owns the
-     * host navigation; plugins must not touch host objects directly.
+     * background color (read from UIManager by the runtime) onto the host's
+     * background mesh so theme changes take effect immediately instead of only
+     * after a restart. The runtime owns the host navigation; plugins must not
+     * touch host objects directly.
      *
      * @return {@code true} when the host scene was refreshed, {@code false}
      *     when the host structure is unavailable (fail closed).
      */
-    default boolean refreshOffCanvasAppearance(final String colorHex) {
+    default boolean refreshOffCanvasAppearance() {
         throw new UnsupportedOperationException("off-canvas refresh is not available");
     }
 
