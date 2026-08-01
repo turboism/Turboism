@@ -53,6 +53,12 @@ final class VerifiedTextureAtlasNativeInvocationAdapter {
     static final String EDITOR_AFFINE_CREATE = "cubism.texture-atlas.native.editor-affine.create";
     static final String DIALOG_CLASS = "cubism.texture-atlas.dialog.class";
     static final String DIALOG_INIT = "cubism.texture-atlas.dialog.init";
+    static final String STATISTICS_VIEW_INIT = "cubism.texture-atlas.statistics.view-init";
+    static final String STATISTICS_VIEW_DATA_MODEL = "cubism.texture-atlas.statistics.view-data-model";
+    static final String STATISTICS_VIEW_IMAGE_LIST = "cubism.texture-atlas.statistics.view-image-list";
+    static final String STATISTICS_IMAGE_LIST_ITEMS = "cubism.texture-atlas.statistics.image-list.items";
+    static final String STATISTICS_LIST_SELECTED = "cubism.texture-atlas.statistics.list-selected";
+    static final String STATISTICS_IMAGE_ENTRY_IMAGE = "cubism.texture-atlas.statistics.image-entry.image";
 
     private final VerifiedMemberResolver resolver;
 

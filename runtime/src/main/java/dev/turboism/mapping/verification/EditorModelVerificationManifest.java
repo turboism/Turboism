@@ -7,7 +7,7 @@ public final class EditorModelVerificationManifest {
 
     public static final String VERIFICATION_ID = "cubism-5.3.02.editor-model.static";
     public static final String RECORD_SHA256 =
-        "57bbaccbd35c71af537f463a528ea0b35bbc6464943c80684cd4899e1a95975c";
+        "c7fc939381bada604fa3373c145cba9ba7d42af2cc14e351e1ec610749d8ee7f";
     public static final String CUBISM_VERSION = "5.3.02";
     public static final String PROFILE_ID = "cubism-5.3.02";
     public static final long ARTIFACT_SIZE = 41_922_739L;
@@ -49,13 +49,30 @@ public final class EditorModelVerificationManifest {
             dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.REQUIRED_ALIASES,
             union(
                 union(
-                    dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.HOOK_ALIASES,
                     union(
-                        dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.AUTO_LAYOUT_HOOK_ALIASES,
-                        dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.NATIVE_INVOCATION_ALIASES
+                        dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.HOOK_ALIASES,
+                        union(
+                            dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.AUTO_LAYOUT_HOOK_ALIASES,
+                            dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.NATIVE_INVOCATION_ALIASES
+                        )
+                    ),
+                    dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.DIALOG_INJECTION_ALIASES
+                ),
+                dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.STATISTICS_ALIASES
+            )
+        );
+    private static final Set<String> TEXTURE_ATLAS_ALIASES_52 =
+        union(
+            dev.turboism.adapter.cubism.textureatlas.VerifiedCubism520TextureAtlasSelectorContract.REQUIRED_ALIASES,
+            union(
+                union(
+                    dev.turboism.adapter.cubism.textureatlas.VerifiedCubism520TextureAtlasSelectorContract.HOOK_ALIASES,
+                    union(
+                        dev.turboism.adapter.cubism.textureatlas.VerifiedCubism520TextureAtlasSelectorContract.AUTO_LAYOUT_HOOK_ALIASES,
+                        dev.turboism.adapter.cubism.textureatlas.VerifiedCubism520TextureAtlasSelectorContract.NATIVE_INVOCATION_ALIASES
                     )
                 ),
-                dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.DIALOG_INJECTION_ALIASES
+                dev.turboism.adapter.cubism.textureatlas.VerifiedCubism520TextureAtlasSelectorContract.DIALOG_INJECTION_ALIASES
             )
         );
     public static final Set<String> REQUIRED_ALIASES = union(Set.of(
@@ -430,7 +447,7 @@ public final class EditorModelVerificationManifest {
             "cubism.editor-model.part-handler.create-undo-for-all-edit",
             "cubism.editor-model.complete-pack.update-part-palette"
         ));
-        values.addAll(TEXTURE_ATLAS_ALIASES);
+        values.addAll(TEXTURE_ATLAS_ALIASES_52);
         return Set.copyOf(values);
     }
 

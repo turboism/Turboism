@@ -209,7 +209,7 @@ class StaticVerificationRecordRepositoryTest {
             EditorModelVerificationManifest.ARTIFACT_SIZE,
             EditorModelVerificationManifest.ARTIFACT_SHA256,
             EditorModelVerificationManifest.RECORD_SHA256,
-            296,
+            302,
             EditorModelVerificationManifest.REQUIRED_ALIASES,
             EditorModelVerificationManifest.REQUIRED_ALIASES,
             editorModelMethodAliases(),
@@ -572,7 +572,13 @@ class StaticVerificationRecordRepositoryTest {
     }
 
     private static Set<String> editorModelMethodAliases() {
-        return Set.of(
+        return Set.of(            "cubism.texture-atlas.statistics.view-init",
+            "cubism.texture-atlas.statistics.view-data-model",
+            "cubism.texture-atlas.statistics.view-image-list",
+            "cubism.texture-atlas.statistics.image-list.items",
+            "cubism.texture-atlas.statistics.list-selected",
+            "cubism.texture-atlas.statistics.image-entry.image",
+
             "cubism.editor-model.app-controller.instance",
             "cubism.editor-model.app-controller.current-document",
             "cubism.editor-model.app-controller.complete-pack",
@@ -826,6 +832,7 @@ class StaticVerificationRecordRepositoryTest {
         final java.util.HashSet<String> aliases = new java.util.HashSet<>(
             EditorModelVerificationManifest.REQUIRED_ALIASES
         );
+        aliases.removeAll(dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.STATISTICS_ALIASES);
         aliases.removeAll(EditorPartOpacitySelectorContract.REQUIRED_ALIASES);
         aliases.addAll(EditorPartOpacity52SelectorContract.REQUIRED_ALIASES);
         aliases.addAll(EditorPartNameSelectorContract.REQUIRED_ALIASES);
@@ -839,6 +846,7 @@ class StaticVerificationRecordRepositoryTest {
 
     private static Set<String> editorModel52MethodAliases() {
         final java.util.HashSet<String> aliases = new java.util.HashSet<>(editorModelMethodAliases());
+        aliases.removeAll(dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.STATISTICS_ALIASES);
         aliases.removeAll(Set.of(
             "cubism.editor-model.part.id",
             "cubism.editor-model.part.current-keyform",
@@ -1001,6 +1009,23 @@ class StaticVerificationRecordRepositoryTest {
                 methodAliases,
                 attestationClassAliases
             );
+        }
+        if (!expectation.manifestAliases().equals(aliases)) {
+            System.err.println("DIAG slice=" + expectation.verificationId()
+                + " manifestAliases=" + expectation.manifestAliases().size()
+                + " aliases=" + aliases.size()
+                + " missing=" + (expectation.manifestAliases().size() - aliases.size()));
+            try {
+                java.nio.file.Files.writeString(
+                    java.nio.file.Path.of("/tmp/diag-aliases.txt"),
+                    "slice=" + expectation.verificationId() + " missing="
+                        + difference(expectation.manifestAliases(), aliases) + "\n",
+                    java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND
+                );
+            } catch (Throwable ignored) { }
+            for (String missing : difference(expectation.manifestAliases(), aliases)) {
+                System.err.println("DIAG missing=" + missing);
+            }
         }
         assertEquals(expectation.manifestAliases(), aliases, "manifest aliases drifted from verified record");
         assertEquals(expectation.implementationAliases(), aliases,
