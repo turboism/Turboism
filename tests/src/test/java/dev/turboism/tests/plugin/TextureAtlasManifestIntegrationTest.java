@@ -19,7 +19,7 @@ class TextureAtlasManifestIntegrationTest {
     void officialTextureAtlasManifestDeclaresTheAdmittedAuthoringPermissions() throws Exception {
         final Path projectRoot = Path.of(System.getProperty("projectRoot"));
         final Path manifest = projectRoot.resolve(
-            "plugins/texture-atlas/src/main/resources/META-INF/turboism/plugin.json"
+            "plugins/atlas-maxrects-bssf/src/main/resources/META-INF/turboism/plugin.json"
         );
         final JsonNode root = JSON.readTree(Files.readString(manifest));
         final Set<String> permissions = new HashSet<>();
