@@ -173,7 +173,7 @@ class UiThemePluginTest {
             List.of(new StatusNotification(
                 "ui-theme.package.import.canceled",
                 "INFO",
-                "Theme import result: CANCELED"
+                "theme.package.importCanceled"
             )),
             notifications
         );
@@ -314,6 +314,15 @@ class UiThemePluginTest {
         }
 
         @Override
+        public dev.turboism.sdk.i18n.PluginLocalization localization() {
+            return new dev.turboism.sdk.i18n.PluginLocalization() {
+                @Override public java.util.Locale locale() { return java.util.Locale.ENGLISH; }
+                @Override public String text(final String key) { return key; }
+                @Override public String format(final String key, final Object... arguments) { return key; }
+                @Override public boolean contains(final String key) { return true; }
+            };
+        }
+
         public PluginLogger logger() {
             return logger;
         }
