@@ -59,6 +59,7 @@ public final class ThemeEditorService {
     private final java.util.concurrent.atomic.AtomicBoolean dialogOpen =
         new java.util.concurrent.atomic.AtomicBoolean();
     private volatile Runnable backToManager = () -> { };
+    private volatile Runnable onSaved = () -> { };
 
     public ThemeEditorService(
         final UiHostCapabilityService uiHost,
@@ -77,6 +78,11 @@ public final class ThemeEditorService {
     /** Reopens the theme manager window when the editor is dismissed. */
     public void setBackToManager(final Runnable backToManager) {
         this.backToManager = Objects.requireNonNull(backToManager, "backToManager");
+    }
+
+    /** Refreshes external theme caches after a successful save. */
+    public void setOnSaved(final Runnable onSaved) {
+        this.onSaved = Objects.requireNonNull(onSaved, "onSaved");
     }
 
     /** Opens the generator for a brand new theme. */
