@@ -2,9 +2,9 @@
   "format": "turboism.plugin.meta",
   "schemaVersion": 2,
   "id": "dev.turboism.plugin.texture-atlas",
-  "name": "Texture Atlas Plugin",
+  "name": "MaxRects-BSSF Layout Algorithm",
   "version": "0.1.0",
-  "description": "Deterministic automatic texture-atlas layout through the Turboism SDK authoring boundary.",
+  "description": "Registers the MaxRects-BSSF texture-atlas packing algorithm with parallel search.",
   "entrypoints": [
     "dev.turboism.plugin.textureatlas.TextureAtlasPlugin"
   ],

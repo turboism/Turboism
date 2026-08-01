@@ -105,22 +105,37 @@ public final class RuntimeTextureAtlasEditorSession implements TextureAtlasEdito
     private Object selectedImage() {
         if (resolver == null) return null;
         try {
-            final Object imageList = resolver.invoke(
-                VerifiedTextureAtlasNativeInvocationAdapter.STATISTICS_VIEW_IMAGE_LIST, view.get()
+            final Object viewValue = view.get();
+            final Object imageList = viewValue == null ? null : resolver.invoke(
+                VerifiedTextureAtlasNativeInvocationAdapter.STATISTICS_VIEW_IMAGE_LIST, viewValue
             );
-            if (imageList == null) return null;
+            if (imageList == null) {
+                System.err.println("TURBOISM_STATS_PROBE view-image-list null (view=" + viewValue + ")");
+                return null;
+            }
             final Object list = resolver.invoke(
                 VerifiedTextureAtlasNativeInvocationAdapter.STATISTICS_IMAGE_LIST_ITEMS, imageList
             );
-            if (list == null) return null;
+            if (list == null) {
+                System.err.println("TURBOISM_STATS_PROBE image-list-items null");
+                return null;
+            }
             final Object item = resolver.invoke(
                 VerifiedTextureAtlasNativeInvocationAdapter.STATISTICS_LIST_SELECTED, list
             );
-            if (item == null) return null;
-            return resolver.invoke(
+            if (item == null) {
+                System.err.println("TURBOISM_STATS_PROBE list-selected null");
+                return null;
+            }
+            final Object image = resolver.invoke(
                 VerifiedTextureAtlasNativeInvocationAdapter.STATISTICS_IMAGE_ENTRY_IMAGE, item
             );
+            if (image == null) {
+                System.err.println("TURBOISM_STATS_PROBE entry-image null");
+            }
+            return image;
         } catch (RuntimeException failure) {
+            System.err.println("TURBOISM_STATS_PROBE failure: " + failure);
             return null;
         }
     }

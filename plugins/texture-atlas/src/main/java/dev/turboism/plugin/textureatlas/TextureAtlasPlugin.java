@@ -22,7 +22,6 @@ public final class TextureAtlasPlugin implements TurboismPlugin {
     private PluginContext context;
     private boolean enabled;
     private TextureAtlasAutoLayoutService autoLayoutService;
-    private javax.swing.Timer statisticsTimer;
     private TextureAtlasAutoLayoutService.LifecycleLease lifecycle;
     private final TextureAtlasSettingsBinding settings = new TextureAtlasSettingsBinding();
     private final BooleanSupplier nativeAutoLayoutCallback = this::applyFromNativeEntry;
@@ -51,7 +50,6 @@ public final class TextureAtlasPlugin implements TurboismPlugin {
             composeAutoLayoutService();
         }
         publishDialogState();
-        attachEditorStatistics();
     }
 
     /** Registers this plugin's algorithms with the framework registry. */
@@ -78,75 +76,11 @@ public final class TextureAtlasPlugin implements TurboismPlugin {
         }
     }
 
-    private void attachEditorStatistics() {
-        try {
-            final dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorSession session =
-                context.cubism().textureAtlasEditorSession();
-            final dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorUi editorUi =
-                context.cubism().textureAtlasEditorUi();
-            final javax.swing.JTextArea text = new javax.swing.JTextArea(4, 42);
-            text.setEditable(false);
-            text.setLineWrap(true);
-            text.setWrapStyleWord(true);
-            final javax.swing.Timer timer = new javax.swing.Timer(1000, event -> {
-                try {
-                    text.setText(editorStatisticsText(session));
-                } catch (Throwable failure) {
-                    text.setText("Turboism 纹理统计: " + failure);
-                }
-            });
-            timer.setRepeats(true);
-            timer.start();
-            editorUi.attach(text);
-            statisticsTimer = timer;
-        } catch (Throwable failure) {
-            context.logger().warn("Texture Atlas editor statistics panel unavailable: " + failure);
-        }
-    }
 
-    private String editorStatisticsText(
-        final dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorSession session
-    ) {
-        final dev.turboism.sdk.i18n.PluginLocalization i18n = context.localization();
-        final StringBuilder out = new StringBuilder(i18n.text("texture-atlas.stats.title"));
-        final var selected = session.selectedTexture();
-        if (selected.isPresent()) {
-            final var summary = selected.orElseThrow();
-            out.append("\n").append(i18n.format("texture-atlas.stats.selected", summary.imageCount()));
-            out.append("\n  ").append(sizeDistributionText(summary));
-        } else {
-            out.append("\n").append(i18n.text("texture-atlas.stats.selected.none"));
-        }
-        final var whole = session.summary();
-        if (whole.isPresent()) {
-            final var summary = whole.orElseThrow();
-            out.append("\n").append(i18n.format(
-                "texture-atlas.stats.whole", summary.imageCount(), summary.pageCount()
-            ));
-            out.append("\n  ").append(sizeDistributionText(summary));
-        }
-        return out.toString();
-    }
 
-    private String sizeDistributionText(
-        final dev.turboism.sdk.cubism.textureatlas.TextureAtlasSummary summary
-    ) {
-        final StringBuilder out = new StringBuilder();
-        for (var bucket : summary.sizeDistribution()) {
-            if (out.length() > 0) out.append("  ");
-            out.append(bucket.width()).append("x").append(bucket.height())
-                .append(" ×").append(bucket.count());
-        }
-        if (out.length() == 0) out.append(context.localization().text("texture-atlas.stats.empty"));
-        return out.toString();
-    }
 
     @Override
     public void disable() {
-        if (statisticsTimer != null) {
-            statisticsTimer.stop();
-            statisticsTimer = null;
-        }
         removeNativeCallback();
         enabled = false;
         settings.disable();
