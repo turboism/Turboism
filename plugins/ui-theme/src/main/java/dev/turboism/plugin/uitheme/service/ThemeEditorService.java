@@ -232,17 +232,15 @@ public final class ThemeEditorService {
             notify("ui-theme.editor.save-failed", "WARNING", localization.text("theme.gen.saveFailed") + saved.outcome());
             return;
         }
-        logger.info("THEME_EDITOR_SAVED id=" + id + " colors=" + colors.size());
+        onSaved.run();
         // Save-and-apply: commit the selection through the same production path.
         final long revision = appearance.current().toCompletableFuture().join().revision();
-        logger.info("THEME_EDITOR_APPLY revision=" + revision);
         final AppearanceApplyResult applied = appearance.apply(
             LegacyThemePaletteResolver.resolve(theme, revision)
         ).toCompletableFuture().join();
-        logger.info("THEME_EDITOR_APPLY outcome=" + applied.outcome()
-            + " diagnostic=" + applied.diagnosticId().orElse("none"));
         if (applied.outcome() == AppearanceApplyResult.Outcome.APPLIED
             || applied.outcome() == AppearanceApplyResult.Outcome.NO_CHANGE) {
+            refreshOffCanvas();
             notify(
                 "ui-theme.editor.saved-applied",
                 "INFO",
@@ -262,6 +260,14 @@ public final class ThemeEditorService {
 
     private FormDialogField field(final String id, final String labelKey, final String value) {
         return new FormDialogField(id, localization.text(labelKey), value, FormFieldKind.TEXT);
+    }
+
+    private void refreshOffCanvas() {
+        try {
+            uiHost.refreshOffCanvasAppearance();
+        } catch (RuntimeException ignored) {
+            // Off-canvas refresh is best-effort; an unsupported host must not fail the save.
+        }
     }
 
     private void notify(final String id, final String level, final String message) {
