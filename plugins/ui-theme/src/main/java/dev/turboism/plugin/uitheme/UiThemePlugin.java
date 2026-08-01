@@ -57,7 +57,8 @@ public final class UiThemePlugin implements TurboismPlugin {
             new ThemePackageTransferService(this.context.userFiles()),
             new ThemeSelectionService(this.context.appearance(), selectionConfig),
             selectionConfig,
-            logger
+            logger,
+            this.context.localization()
         );
         logger.info("UiThemePlugin initialized");
     }
