@@ -57,9 +57,9 @@ final class BuiltinThemeResourcesTest {
         final LinkedHashMap<String, ExpectedResource> values = new LinkedHashMap<>();
         values.put("/themes/cherry-blossom/colors.properties", new ExpectedResource(2171, "717f09a75fe5cfc2012803c034a17cd04039e0af17814ee2404f322039f7659b"));
         values.put("/themes/cherry-blossom/theme.properties", new ExpectedResource(213, "aca0ac5c57c3c5ad87bea1065fe1951e28f37accb5da81ba3ebb98babd18364b"));
-        values.put("/themes/cubism-dark/colors.properties", new ExpectedResource(526, "519f1a9ae511a0decc4298c215e7f26b30ccd893eb3d5c665e7654e5e4b76dad"));
+        values.put("/themes/cubism-dark/colors.properties", new ExpectedResource(613, "859040cfa1551e17e6603c67d9d076a30fc47e8ab93a3455e34ee6f48431e60e"));
         values.put("/themes/cubism-dark/theme.properties", new ExpectedResource(112, "65846e0c3a896408a81544a48a905e93fa32db6f94a14a579491bc185d4ada1b"));
-        values.put("/themes/cubism-light/colors.properties", new ExpectedResource(650, "ea7c006daca3cc83adc26f6c3efd74c44d70e784a23a88c7c6e79e127bb01794"));
+        values.put("/themes/cubism-light/colors.properties", new ExpectedResource(737, "6f4e020597bf661684f6f19abef4b970a7c2d77b92f5ac3866f4ec7c48c39f55"));
         values.put("/themes/cubism-light/theme.properties", new ExpectedResource(115, "aa56923544143df401b9943dd106ef718a9fb44b742d2494574edfbb326ed215"));
         values.put("/themes/mint/colors.properties", new ExpectedResource(2284, "3d16c2b24f858026f1bc58321f65ad916f6398f22c67bf9f1b7988f026f2bf9c"));
         values.put("/themes/mint/theme.properties", new ExpectedResource(197, "6d0a2965f0bf28c515ab0924b5536aff0e9f0900c9fb87627e942a95322ac199"));
