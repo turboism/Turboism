@@ -12,6 +12,7 @@ import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.UiScheduler;
 import dev.turboism.sdk.ui.EmbeddedPanelContribution;
 import dev.turboism.sdk.ui.UiHostCapabilityService;
+import dev.turboism.sdk.ui.HorizontalToolbarContribution;
 import dev.turboism.sdk.ui.VerticalToolbarContribution;
 import org.junit.jupiter.api.Test;
 
@@ -34,6 +35,7 @@ class HistoryPanelPluginTest {
 
         assertEquals(1, context.uiHost().verticalToolbars().size());
         assertEquals("history.toolstrip", context.uiHost().verticalToolbars().get(0).contributionId());
+        assertEquals(0, context.uiHost().horizontalToolbars().size());
         assertEquals(0, context.uiHost().panels().size());
 
         // Toggle action shows the panel as a floating window.
@@ -144,6 +146,35 @@ class HistoryPanelPluginTest {
         }
 
         @Override
+        public dev.turboism.sdk.i18n.PluginLocalization localization() {
+            return new dev.turboism.sdk.i18n.PluginLocalization() {
+                @Override
+                public java.util.Locale locale() {
+                    return java.util.Locale.ENGLISH;
+                }
+
+                @Override
+                public String text(final String key) {
+                    return key;
+                }
+
+                @Override
+                public String format(final String key, final Object... arguments) {
+                    final StringBuilder builder = new StringBuilder(key);
+                    for (final Object argument : arguments) {
+                        builder.append(' ').append(argument);
+                    }
+                    return builder.toString();
+                }
+
+                @Override
+                public boolean contains(final String key) {
+                    return true;
+                }
+            };
+        }
+
+        @Override
         public dev.turboism.sdk.plugin.PluginDescriptor descriptor() {
             return null;
         }
@@ -212,6 +243,7 @@ class HistoryPanelPluginTest {
 
         private final List<EmbeddedPanelContribution> panels = new ArrayList<>();
         private final List<VerticalToolbarContribution> verticalToolbars = new ArrayList<>();
+        private final List<HorizontalToolbarContribution> horizontalToolbars = new ArrayList<>();
 
         List<EmbeddedPanelContribution> panels() {
             return List.copyOf(panels);
@@ -219,6 +251,10 @@ class HistoryPanelPluginTest {
 
         List<VerticalToolbarContribution> verticalToolbars() {
             return List.copyOf(verticalToolbars);
+        }
+
+        List<HorizontalToolbarContribution> horizontalToolbars() {
+            return List.copyOf(horizontalToolbars);
         }
 
         @Override
@@ -231,6 +267,12 @@ class HistoryPanelPluginTest {
         public Registration contributeVerticalToolbar(final VerticalToolbarContribution contribution) {
             verticalToolbars.add(contribution);
             return () -> verticalToolbars.remove(contribution);
+        }
+
+        @Override
+        public Registration contributeHorizontalToolbar(final HorizontalToolbarContribution contribution) {
+            horizontalToolbars.add(contribution);
+            return () -> horizontalToolbars.remove(contribution);
         }
 
         private final List<String> floatingActivations = new ArrayList<>();
