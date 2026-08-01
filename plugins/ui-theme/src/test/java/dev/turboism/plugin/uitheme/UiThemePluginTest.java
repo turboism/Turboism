@@ -81,6 +81,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -104,9 +105,6 @@ class UiThemePluginTest {
             List.of(
                 "ui-theme.package.status.check",
                 "ui-theme.manager.open",
-                "ui-theme.package.import",
-                "ui-theme.package.export",
-                "ui-theme.package.delete",
                 "ui-theme.appearance.apply-builtin"
             ),
             context.actions().actions().stream()
@@ -114,12 +112,7 @@ class UiThemePluginTest {
                 .toList()
         );
         assertEquals(
-            List.of(
-                "Turboism/Theme Manager",
-                "Turboism/Import Theme Package",
-                "Turboism/Export Selected Theme",
-                "Turboism/Delete Selected Theme"
-            ),
+            List.of("Turboism/Theme Manager"),
             context.menus().contributions().stream()
                 .map(MenuRegistry.MenuContribution::menuPath)
                 .toList()
@@ -159,22 +152,45 @@ class UiThemePluginTest {
     }
 
     @Test
-    void importActionReportsCanceledWhenNoOpaqueUserFileGrantIsMade() throws Exception {
+    void managerWindowImportActionReportsCanceledWhenNoOpaqueUserFileGrantIsMade() throws Exception {
         RecordingPluginContext context = new RecordingPluginContext();
         UiThemePlugin plugin = new UiThemePlugin();
 
         plugin.init(context);
         plugin.enable();
-        context.actions().execute("ui-theme.package.import");
+        context.actions().execute("ui-theme.manager.open");
 
+        dev.turboism.sdk.ui.ChoiceDialogRequest request = context.uiHost().lastChoiceRequest();
+        assertNotNull(request);
+        assertTrue(request.actions().stream()
+            .map(dev.turboism.sdk.ui.ChoiceDialogAction::id)
+            .anyMatch("import"::equals));
+        context.uiHost().lastChoiceListener().onResult(request.options().get(0).id(), "import");
+
+        final List<StatusNotification> notifications =
+            awaitNotifications(context.uiHost(), 5);
         assertEquals(
             List.of(new StatusNotification(
                 "ui-theme.package.import.canceled",
                 "INFO",
                 "Theme import result: CANCELED"
             )),
-            context.uiHost().notifications()
+            notifications
         );
+    }
+
+    private static List<StatusNotification> awaitNotifications(
+        final RecordingUiHost host,
+        final int seconds
+    ) throws Exception {
+        final long deadline = System.nanoTime() + seconds * 1_000_000_000L;
+        while (System.nanoTime() < deadline) {
+            if (!host.notifications().isEmpty()) {
+                return host.notifications();
+            }
+            Thread.sleep(50);
+        }
+        return host.notifications();
     }
 
     @Test
@@ -448,6 +464,26 @@ class UiThemePluginTest {
         @Override
         public Optional<String> choose(final ChoiceDialogRequest request) {
             return Optional.empty();
+        }
+
+        private ChoiceDialogRequest lastChoiceRequest;
+        private dev.turboism.sdk.ui.ChoiceDialogResultListener lastChoiceListener;
+
+        @Override
+        public void openChoiceDialog(
+            final ChoiceDialogRequest request,
+            final dev.turboism.sdk.ui.ChoiceDialogResultListener listener
+        ) {
+            this.lastChoiceRequest = request;
+            this.lastChoiceListener = listener;
+        }
+
+        ChoiceDialogRequest lastChoiceRequest() {
+            return lastChoiceRequest;
+        }
+
+        dev.turboism.sdk.ui.ChoiceDialogResultListener lastChoiceListener() {
+            return lastChoiceListener;
         }
 
         List<DialogRequest> dialogs() {

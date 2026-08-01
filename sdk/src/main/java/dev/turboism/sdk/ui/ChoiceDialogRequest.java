@@ -15,7 +15,8 @@ public record ChoiceDialogRequest(
     List<ChoiceDialogOption> options,
     Optional<String> selectedOptionId,
     String acceptLabel,
-    String cancelLabel
+    String cancelLabel,
+    List<ChoiceDialogAction> actions
 ) {
     public ChoiceDialogRequest {
         id = requireText(id, "id", 128);
@@ -47,6 +48,25 @@ public record ChoiceDialogRequest(
         }
         acceptLabel = requireText(acceptLabel, "acceptLabel", 64);
         cancelLabel = requireText(cancelLabel, "cancelLabel", 64);
+        actions = List.copyOf(Objects.requireNonNull(actions, "actions"));
+        if (actions.size() > 4) {
+            throw new IllegalArgumentException("actions must contain at most 4 entries");
+        }
+        if (actions.stream().map(ChoiceDialogAction::id).distinct().count() != actions.size()) {
+            throw new IllegalArgumentException("action ids must be unique");
+        }
+    }
+
+    public ChoiceDialogRequest(
+        final String id,
+        final String title,
+        final String notice,
+        final List<ChoiceDialogOption> options,
+        final Optional<String> selectedOptionId,
+        final String acceptLabel,
+        final String cancelLabel
+    ) {
+        this(id, title, notice, options, selectedOptionId, acceptLabel, cancelLabel, List.of());
     }
 
     private static String requireText(final String value, final String name, final int maxLength) {
