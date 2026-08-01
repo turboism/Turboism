@@ -78,6 +78,23 @@ public interface UiHostCapabilityService {
 
     Optional<String> requestFile(FileChooserRequest request);
 
+    /**
+     * Reports the host's active color theme mode (Cubism light/dark). Used by
+     * plugins to filter base-compatible options such as theme packages.
+     */
+    default UiHostColorMode currentColorMode() {
+        return UiHostColorMode.LIGHT;
+    }
+
+    /**
+     * Opens the host file manager at the given plugin storage directory.
+     * Implementations must confine the resolved directory to the plugin's
+     * storage roots and fail closed when the host cannot open directories.
+     */
+    default void openDirectory(final dev.turboism.sdk.storage.StoragePath directory) {
+        throw new UnsupportedOperationException("open-directory is not available");
+    }
+
     Registration notifyStatus(StatusNotification notification);
 
     Registration contributeContextMenu(ContextMenuRegistry.ContextMenuContribution contribution);
