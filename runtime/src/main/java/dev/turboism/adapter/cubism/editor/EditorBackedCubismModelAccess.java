@@ -20,6 +20,8 @@ import dev.turboism.sdk.cubism.model.Parameters;
 import dev.turboism.sdk.cubism.model.Parts;
 import dev.turboism.sdk.cubism.model.RotationDeformers;
 import dev.turboism.sdk.cubism.model.WarpDeformers;
+import dev.turboism.sdk.cubism.model.FloatSequence;
+import dev.turboism.sdk.cubism.model.ParameterDefinitions;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -496,6 +498,83 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess {
         return List.copyOf(values);
     }
 
+    private ParameterDefinitions parameterDefinitions(final String identity, final Object model) {
+        requireCurrent(identity, model);
+        return new ParameterDefinitions() {
+            @Override public List<ParameterDefinition> all() {
+                requireCurrent(identity, model);
+                return parameters(model).stream()
+                    .map(value -> definition(
+                        resolver.invoke("cubism.editor-model.parameter.source", value.parameter()),
+                        new ParameterId(value.id())
+                    ))
+                    .toList();
+            }
+
+            @Override public ParameterDefinition find(final ParameterId id) {
+                Objects.requireNonNull(id, "id");
+                requireCurrent(identity, model);
+                final ParameterBinding value = parameter(model, id);
+                return definition(
+                    resolver.invoke("cubism.editor-model.parameter.source", value.parameter()),
+                    id
+                );
+            }
+        };
+    }
+
+    private int parameterIndex(final Object model, final ParameterId id) {
+        final List<ParameterBinding> values = parameters(model);
+        for (int index = 0; index < values.size(); index++) {
+            if (values.get(index).id().equals(id.value())) return index;
+        }
+        throw new NoSuchElementException("Cubism parameter is absent: " + id.value());
+    }
+
+    private FloatSequence parameterKeyValues(final Object model, final ParameterId id) {
+        requireParameterBindingReadAuthorized();
+        final Object source = source(model, id);
+        final Object grid = resolver.invoke("cubism.editor-model.parameter-controllable.keyform-grid", source);
+        final Object rawBindings = resolver.invoke("cubism.editor-model.keyform-grid.bindings", grid);
+        if (!(rawBindings instanceof Iterable<?> bindings)) {
+            throw unavailable("Editor parameter key values are unavailable.");
+        }
+        for (Object binding : bindings) {
+            final Object rawId = resolver.invoke("cubism.editor-model.keyform-binding.parameter-id", binding);
+            final String bindingId = text(resolver.invoke("cubism.editor-model.id.value", rawId));
+            if (!id.value().equals(bindingId)) continue;
+            final Object rawKeys = resolver.invoke("cubism.editor-model.keyform-binding.keys", binding);
+            if (!(rawKeys instanceof Iterable<?> keys)) {
+                throw unavailable("Editor parameter key values are unavailable.");
+            }
+            final List<Float> values = new ArrayList<>();
+            for (Object key : keys) values.add(number(key));
+            return floatSequence(values);
+        }
+        throw unavailable("Editor parameter key values are unavailable.");
+    }
+
+    private void requireParameterBindingReadAuthorized() {
+        if (!resolver.authorizesFeature(
+            dev.turboism.mapping.verification.EditorParameterBindingReadSelectorContract.ADAPTER_SLICE_ID,
+            dev.turboism.mapping.verification.EditorParameterBindingReadSelectorContract.CAPABILITY_ID,
+            dev.turboism.mapping.verification.EditorParameterBindingReadSelectorContract.REQUIRED_ALIASES
+        )) {
+            throw new UnsupportedOperationException(
+                "Editor parameter key values require exact verified host evidence."
+            );
+        }
+    }
+
+    private static FloatSequence floatSequence(final List<Float> values) {
+        final float[] copy = new float[values.size()];
+        for (int index = 0; index < copy.length; index++) copy[index] = values.get(index);
+        return new FloatSequence() {
+            @Override public int size() { return copy.length; }
+            @Override public float get(final int index) { return copy[index]; }
+        };
+    }
+
     private ParameterBinding parameter(final Object model, final ParameterId id) {
         return parameters(model).stream()
             .filter(value -> value.id().equals(id.value()))
@@ -527,6 +606,9 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess {
         }
         private void current() { requireCurrent(identity, model); }
         @Override public ModelId id() { current(); return new ModelId(identity.substring(identity.indexOf(':') + 1)); }
+        @Override public ParameterDefinitions parameterDefinitions() {
+            return EditorBackedCubismModelAccess.this.parameterDefinitions(identity, model);
+        }
         @Override public boolean defaultKeyformLocked() {
             return defaultKeyformLockAccess.locked(identity, source, model);
         }
@@ -628,6 +710,8 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess {
             return resolver.invoke("cubism.editor-model.parameter.source", current().parameter());
         }
         @Override public ParameterId id() { current(); return id; }
+        @Override public int index() { current(); return parameterIndex(model, id); }
+        @Override public FloatSequence keyValues() { current(); return parameterKeyValues(model, id); }
         @Override public Optional<String> name() {
             final Object value = resolver.invoke("cubism.editor-model.parameter-source.name", source());
             if (value == null) {
