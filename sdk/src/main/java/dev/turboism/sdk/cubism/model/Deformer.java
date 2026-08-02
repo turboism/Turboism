@@ -2,14 +2,26 @@ package dev.turboism.sdk.cubism.model;
 
 import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.id.DeformerId;
+import dev.turboism.sdk.cubism.id.ParameterId;
 
 import java.util.List;
+import java.util.Optional;
 
 /** One Cubism deformer. */
 @PreviewApi
 public interface Deformer {
 
     DeformerId id();
+
+    default int index() { throw unavailable("Deformer index"); }
+
+    default Optional<PartId> parentPartId() { throw unavailable("Deformer parent Part"); }
+
+    default Optional<DeformerId> parentDeformerId() {
+        throw unavailable("Deformer parent Deformer");
+    }
+
+    default List<ParameterId> parameterIds() { throw unavailable("Deformer parameters"); }
 
     default String name() {
         throw unavailable("Deformer name");
