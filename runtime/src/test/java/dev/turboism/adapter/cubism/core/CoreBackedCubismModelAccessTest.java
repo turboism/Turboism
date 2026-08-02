@@ -182,6 +182,22 @@ class CoreBackedCubismModelAccessTest {
     }
 
     @Test
+    void failsClosedForUnknownOrContradictoryFiveTwoBlendFlags() {
+        for (byte constantFlag : new byte[]{0x10, 0x03}) {
+            try (Harness harness = harness("5.2", model(
+                new String[0],
+                new float[0],
+                TestCoreApiFixture.Parts.empty(),
+                drawableWithConstantFlag(constantFlag),
+                TestCoreApiFixture.Deformers.empty(),
+                TestCoreApiFixture.Glues.empty()
+            ))) {
+                assertThrows(IllegalStateException.class, harness.access::active);
+            }
+        }
+    }
+
+    @Test
     void malformedCrossFamilyIndicesFailClosed() {
         final TestCoreApiFixture.Model invalid = model(
             new String[]{"ParamAngleX"}, new float[]{20.0F},
@@ -343,6 +359,20 @@ class CoreBackedCubismModelAccessTest {
             new CoreBackedCubismModelAccess(source, provider, tracer),
             source,
             tracer
+        );
+    }
+
+    private static TestCoreApiFixture.Drawables drawableWithConstantFlag(
+        final byte constantFlag
+    ) {
+        return new TestCoreApiFixture.Drawables(
+            new String[]{"Mesh"}, new byte[]{constantFlag}, new byte[]{0}, new int[]{0},
+            new int[]{0}, new int[]{0}, new int[]{0}, new float[]{1.0F},
+            new int[]{0}, new int[][]{{}}, new int[]{0}, new float[][]{{}},
+            new float[][]{{}}, new int[]{0}, new short[][]{{}},
+            new float[][]{{1.0F, 1.0F, 1.0F, 1.0F}},
+            new float[][]{{0.0F, 0.0F, 0.0F, 1.0F}},
+            new int[]{-1}, new int[]{-1}, new int[]{0}, new int[][]{{}}
         );
     }
 
