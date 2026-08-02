@@ -135,24 +135,26 @@ chmod +x /tmp/theme-launch.sh
 "${scp_cmd[@]}" /tmp/theme-launch.sh "$ssh_host:$task_dir/launch.sh"
 
 # --- Launch + readiness poll -------------------------------------------------
-log_file="$home_dir/logs/runtime/turboism.log"
+latest_runtime_log() {
+  "${ssh_cmd[@]}" "$ssh_host" "ls -1t '$home_dir'/logs/runtime/*/*.log 2>/dev/null | head -n 1"
+}
+log_file=''
 echo "[run] launching Cubism $version (task $task_id)..."
 "${ssh_cmd[@]}" "$ssh_host" "cd '$task_dir' && nohup ./launch.sh > /dev/null 2>&1 & echo \$! > '$evidence_dir/wrapper.pid'; echo started"
 echo "[run] waiting for host=ACTIVE + probe ready..."
 ready=0
 deadline=$((SECONDS + 240))
 while [ $SECONDS -lt $deadline ]; do
-  if "${ssh_cmd[@]}" "$ssh_host" "test -f '$log_file'" 2>/dev/null; then
-    if "${ssh_cmd[@]}" "$ssh_host" "grep -q 'THEME_EXERCISER_READY' '$log_file' && grep -q 'Plugin load complete' '$log_file' && grep -q 'UiThemePlugin enabled' '$log_file'" 2>/dev/null; then
-      ready=1
-      break
-    fi
+  log_file="$(latest_runtime_log 2>/dev/null || true)"
+  if [ -n "$log_file" ] && "${ssh_cmd[@]}" "$ssh_host" "grep -q 'THEME_EXERCISER_READY' '$log_file' && grep -q 'Plugin load complete' '$log_file' && grep -q 'UiThemePlugin enabled' '$log_file'" 2>/dev/null; then
+    ready=1
+    break
   fi
   sleep 5
 done
 if [ "$ready" != 1 ]; then
   echo "error: readiness timeout" >&2
-  "${ssh_cmd[@]}" "$ssh_host" "tail -40 '$log_file' 2>/dev/null; tail -20 '$evidence_dir/launcher.out' 2>/dev/null" || true
+  "${ssh_cmd[@]}" "$ssh_host" "tail -40 '${log_file:-/dev/null}' 2>/dev/null; tail -20 '$evidence_dir/launcher.out' 2>/dev/null" || true
   exit 1
 fi
 echo "[run] ready; menu and appearance evidence is collected from logs by the exerciser"
@@ -186,7 +188,8 @@ echo "[run] matrix done; waiting for process exit..."
 "${ssh_cmd[@]}" "$ssh_host" "bash -s -- '$task_dir' '$fixture_src'" <<REMOTE
 set -euo pipefail
 task="\$1"; fixture_src="\$2"
-cp "\$task/turboism-home/logs/runtime/turboism.log" "\$task/evidence/turboism.log" 2>/dev/null || true
+runtime_log="\$(ls -1t "\$task"/turboism-home/logs/runtime/*/*.log 2>/dev/null | head -n 1 || true)"
+[ -z "\$runtime_log" ] || cp "\$runtime_log" "\$task/evidence/turboism.log"
 find "\$task/turboism-home/logs" -name '*.log' -exec cp {} "\$task/evidence/" \; 2>/dev/null || true
 cp "\$task/turboism-home/state/plugin-load-report.json" "\$task/evidence/" 2>/dev/null || true
 cp "\$task/turboism-home/state/preview-runtime-report.json" "\$task/evidence/" 2>/dev/null || true
