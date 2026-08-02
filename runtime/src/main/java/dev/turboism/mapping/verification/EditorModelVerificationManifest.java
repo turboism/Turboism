@@ -7,7 +7,7 @@ public final class EditorModelVerificationManifest {
 
     public static final String VERIFICATION_ID = "cubism-5.3.02.editor-model.static";
     public static final String RECORD_SHA256 =
-        "30d1885322aa505465062055548e2ab8234e30f3d8c07da0367d966e72ea03e7";
+        "558cc95f4e380ee7d0e5a1d74f5fdb1ce75d051eb93a0363771030dfe7a0b628";
     public static final String CUBISM_VERSION = "5.3.02";
     public static final String PROFILE_ID = "cubism-5.3.02";
     public static final long ARTIFACT_SIZE = 41_922_739L;
@@ -26,6 +26,7 @@ public final class EditorModelVerificationManifest {
         EditorDefaultKeyformLockWriteSelectorContract.CAPABILITY_ID,
         EditorPartOpacitySelectorContract.CAPABILITY_ID,
         EditorPartNameSelectorContract.CAPABILITY_ID,
+        EditorPartTreeSelectorContract.CAPABILITY_ID,
         EditorPartNameSelectorContract.WRITE_CAPABILITY_ID,
         EditorObjectReadSelectorContract.CAPABILITY_ID,
         EditorObjectWriteSelectorContract.ART_MESH_CAPABILITY_ID,

@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.editor;
 
 import dev.turboism.mapping.verification.EditorPartOpacitySelectorContract;
+import dev.turboism.mapping.verification.EditorPartTreeSelectorContract;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
@@ -87,6 +88,20 @@ class EditorPartOpacityAccessTest {
         assertEquals(0, fixture.editMode.edits.size());
     }
 
+
+    @Test
+    void retainedPartsFindChecksCurrentDocumentBeforeReadingSavedSource() {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        final EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
+            resolver(true), "session-a"
+        );
+        final var parts = access.active().parts();
+        Host.document = new Fixture().document;
+
+        assertThrows(IllegalStateException.class, () -> parts.find(new PartId("PartClip")));
+    }
+
     @Test
     void exactResolverWithoutPartCapabilityFailsClosedBeforeSelectorUse() {
         final Fixture fixture = new Fixture();
@@ -163,7 +178,11 @@ class EditorPartOpacityAccessTest {
             cubismVersion,
             "adapter.editor-model.readwrite",
             includePartCapability
-                ? java.util.Set.of("cubism.editor-model.read", opacityCapability(cubismVersion))
+                ? java.util.Set.of(
+                    "cubism.editor-model.read",
+                    opacityCapability(cubismVersion),
+                    EditorPartTreeSelectorContract.CAPABILITY_ID
+                )
                 : java.util.Set.of("cubism.editor-model.read"),
             selectors,
             Host.class.getClassLoader()

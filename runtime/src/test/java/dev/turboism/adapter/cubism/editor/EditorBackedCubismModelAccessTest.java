@@ -74,6 +74,21 @@ class EditorBackedCubismModelAccessTest {
         );
     }
 
+
+    @Test
+    void documentReplacementWithTheSameSourceAndModelInvalidatesOldReferences() {
+        final Fixture host = new Fixture("model-a", 12.0F);
+        final EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
+            resolver(), "session-a"
+        );
+        Host.install(host);
+        final var parameter = access.active().parameters().find(new ParameterId("ParamAngleX"));
+
+        Host.currentDocument = new Document(host.source);
+
+        assertThrows(IllegalStateException.class, parameter::getValue);
+    }
+
     @Test
     void exposesParameterDefinitionsIndexAndKeyValuesFromAdmittedEditorSources() {
         Fixture host = new Fixture("model-a", 12.0F);
