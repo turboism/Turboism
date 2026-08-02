@@ -72,6 +72,7 @@ class HostSessionCompositionApiTest {
                 "appearanceCoordinator():dev.turboism.ui.appearance.AppearanceCoordinator",
                 "sceneTable():dev.turboism.sdk.ui.table.SceneTableService",
                 "paletteFilterSink():dev.turboism.ui.filter.PaletteFilterVisibilitySink",
+                "cubismLog():dev.turboism.sdk.runtime.CubismLogService",
                 "editorModelResolver():dev.turboism.mapping.verification.VerifiedMemberResolver",
                 "boundingBoxOverlayResolver():java.util.Optional",
                 "adapterAccess():dev.turboism.adapter.host.RuntimeHostAdapterAccess",
