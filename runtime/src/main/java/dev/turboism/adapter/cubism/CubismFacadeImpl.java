@@ -54,6 +54,7 @@ public final class CubismFacadeImpl implements CubismFacade {
     private final ImmutableSnapshotFactory snapshotFactory;
     private final TransactionManager transactionManager;
     private final CubismModelAccess modelAccess;
+    private final dev.turboism.sdk.cubism.core.CoreRuntimeInfo coreRuntime;
     private final ParameterLifecycleCoordinator parameterLifecycle;
     private final PartLifecycleCoordinator partLifecycle;
     private final EditorObjectLifecycleCoordinator editorObjectLifecycle;
@@ -298,9 +299,71 @@ public final class CubismFacadeImpl implements CubismFacade {
     CubismFacadeImpl(
         final HostSnapshotSource source,
         final CubismPermissionGate permissionGate,
+        final dev.turboism.adapter.cubism.core.RuntimeCoreModelBackend coreBackend
+    ) {
+        this(
+            source,
+            permissionGate,
+            new ImmutableSnapshotFactory(),
+            unavailableTransactionManager(),
+            coreBackend.modelAccess(),
+            coreBackend.coreRuntimeInfo(),
+            new ParameterLifecycleCoordinator(),
+            new PartLifecycleCoordinator(),
+            new EditorObjectLifecycleCoordinator(),
+            () -> true
+        );
+    }
+
+    CubismFacadeImpl(
+        final HostSnapshotSource source,
+        final CubismPermissionGate permissionGate,
+        final dev.turboism.sdk.cubism.core.CoreRuntimeInfo coreRuntime
+    ) {
+        this.source = Objects.requireNonNull(source, "source");
+        this.permissionGate = Objects.requireNonNull(permissionGate, "permissionGate");
+        this.snapshotFactory = new ImmutableSnapshotFactory();
+        this.transactionManager = unavailableTransactionManager();
+        this.parameterLifecycle = new ParameterLifecycleCoordinator();
+        this.partLifecycle = new PartLifecycleCoordinator();
+        this.editorObjectLifecycle = new EditorObjectLifecycleCoordinator();
+        this.activeScope = () -> true;
+        this.coreRuntime = Objects.requireNonNull(coreRuntime, "coreRuntime");
+        this.modelAccess = permissionCheckedModelAccess(unavailableModelAccess());
+    }
+
+    CubismFacadeImpl(
+        final HostSnapshotSource source,
+        final CubismPermissionGate permissionGate,
         final ImmutableSnapshotFactory snapshotFactory,
         final TransactionManager transactionManager,
         final CubismModelAccess modelAccess,
+        final ParameterLifecycleCoordinator parameterLifecycle,
+        final PartLifecycleCoordinator partLifecycle,
+        final EditorObjectLifecycleCoordinator editorObjectLifecycle,
+        final BooleanSupplier activeScope
+    ) {
+        this(
+            source,
+            permissionGate,
+            snapshotFactory,
+            transactionManager,
+            modelAccess,
+            unavailableCoreRuntime(),
+            parameterLifecycle,
+            partLifecycle,
+            editorObjectLifecycle,
+            activeScope
+        );
+    }
+
+    CubismFacadeImpl(
+        final HostSnapshotSource source,
+        final CubismPermissionGate permissionGate,
+        final ImmutableSnapshotFactory snapshotFactory,
+        final TransactionManager transactionManager,
+        final CubismModelAccess modelAccess,
+        final dev.turboism.sdk.cubism.core.CoreRuntimeInfo coreRuntime,
         final ParameterLifecycleCoordinator parameterLifecycle,
         final PartLifecycleCoordinator partLifecycle,
         final EditorObjectLifecycleCoordinator editorObjectLifecycle,
@@ -314,6 +377,7 @@ public final class CubismFacadeImpl implements CubismFacade {
         this.partLifecycle = Objects.requireNonNull(partLifecycle, "partLifecycle");
         this.editorObjectLifecycle = Objects.requireNonNull(editorObjectLifecycle, "editorObjectLifecycle");
         this.activeScope = Objects.requireNonNull(activeScope, "activeScope");
+        this.coreRuntime = Objects.requireNonNull(coreRuntime, "coreRuntime");
         this.modelAccess = permissionCheckedModelAccess(
             Objects.requireNonNull(modelAccess, "modelAccess")
         );
@@ -366,6 +430,13 @@ public final class CubismFacadeImpl implements CubismFacade {
         requireActiveScope();
         permissionGate.require(MODEL_READ_PERMISSION, "activeModel");
         return source.activeModel().map(snapshotFactory::model);
+    }
+
+    @Override
+    public dev.turboism.sdk.cubism.core.CoreRuntimeInfo coreRuntime() {
+        requireActiveScope();
+        permissionGate.require(MODEL_READ_PERMISSION, "coreRuntime");
+        return coreRuntime;
     }
 
     @Override
@@ -449,6 +520,20 @@ public final class CubismFacadeImpl implements CubismFacade {
             SidecarDispatcher.noop(),
             diagnostics
         );
+    }
+
+    private static dev.turboism.sdk.cubism.core.CoreRuntimeInfo unavailableCoreRuntime() {
+        return new dev.turboism.sdk.cubism.core.CoreRuntimeInfo() {
+            @Override public dev.turboism.sdk.cubism.core.CoreVersion version() {
+                throw new UnsupportedOperationException("Core runtime metadata is unavailable.");
+            }
+            @Override public dev.turboism.sdk.cubism.core.CoreCapabilities capabilities() {
+                throw new UnsupportedOperationException("Core runtime capabilities are unavailable.");
+            }
+            @Override public dev.turboism.sdk.cubism.core.MocInspector mocInspector() {
+                throw new UnsupportedOperationException("Core MOC inspection is unavailable.");
+            }
+        };
     }
 
     private CubismModelAccess permissionCheckedModelAccess(final CubismModelAccess delegate) {
