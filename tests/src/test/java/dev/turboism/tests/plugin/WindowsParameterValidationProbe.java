@@ -1205,8 +1205,9 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             }
             report.append("parameters.count=").append(parameterValues.size()).append('\n')
                 .append("parameter.id=").append(onHostThread(() -> parameter.id().value())).append('\n')
-                .append("parameter.index=").append(parameterIndex).append('\n')
-                .append("parameter.keyValueCount=").append(onHostThread(() -> parameter.keyValues().size())).append('\n');
+                .append("parameter.index=").append(parameterIndex).append('\n');
+            appendFixedOutcome(report, "parameter.keyValues", () ->
+                onHostThread(() -> parameter.keyValues().size()));
             phase.set("parameter-definitions");
 
             final dev.turboism.sdk.cubism.model.ParameterDefinitions definitions =

@@ -90,7 +90,7 @@ class EditorBackedCubismModelAccessTest {
     }
 
     @Test
-    void exposesParameterDefinitionsIndexAndKeyValuesFromAdmittedEditorSources() {
+    void exposesParameterDefinitionsAndIndexWhileEditorKeyValuesFailClosed() {
         Fixture host = new Fixture("model-a", 12.0F);
         Host.install(host);
         EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
@@ -101,7 +101,7 @@ class EditorBackedCubismModelAccessTest {
         var parameter = model.parameters().find(new ParameterId("ParamAngleX"));
 
         assertEquals(0, parameter.index());
-        assertEquals(List.of(-30.0F, 0.0F, 30.0F), sequence(parameter.keyValues()));
+        assertThrows(UnsupportedOperationException.class, parameter::keyValues);
         assertEquals(
             List.of(new ParameterId("ParamAngleX")),
             model.parameterDefinitions().all().stream()
@@ -120,6 +120,9 @@ class EditorBackedCubismModelAccessTest {
             ),
             model.parameterDefinitions().find(new ParameterId("ParamAngleX"))
         );
+
+        Host.install(new Fixture("model-b", -5.0F));
+        assertThrows(IllegalStateException.class, parameter::keyValues);
     }
 
     @Test
