@@ -14,6 +14,7 @@ import javax.swing.SwingUtilities;
 import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Container;
+import java.awt.Dimension;
 import java.lang.reflect.InvocationTargetException;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
@@ -21,6 +22,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Focused tests for the palette filter host operations: pure logic and Swing attachment. */
@@ -55,6 +58,36 @@ class PaletteFilterHostOperationsTest {
         onEdt(() -> box.clearButton.doClick());
         assertEquals("", box.field.getText());
         assertEquals("", lastText.get());
+    }
+
+    @Test
+    void frameworkPlacementKeepsFilterLeftAndNativeToolbarRightAndRestoresHostToolbar() {
+        onEdt(() -> {
+            final JPanel parent = new JPanel(new BorderLayout());
+            final JPanel nativeToolbar = new JPanel();
+            nativeToolbar.setPreferredSize(new Dimension(120, 26));
+            nativeToolbar.add(new JButton("native"));
+            parent.add(nativeToolbar, BorderLayout.NORTH);
+            final JPanel filter = new JPanel();
+            filter.setPreferredSize(new Dimension(140, 26));
+
+            final PaletteFilterHostOperations.ToolbarPlacement placement =
+                PaletteFilterHostOperations.attachToolbarContribution(nativeToolbar, filter);
+            parent.setSize(500, 30);
+            parent.doLayout();
+            nativeToolbar.getParent().doLayout();
+
+            assertEquals(0, filter.getX());
+            assertEquals(
+                nativeToolbar.getParent().getWidth(),
+                nativeToolbar.getX() + nativeToolbar.getWidth()
+            );
+
+            placement.detach();
+            assertSame(parent, nativeToolbar.getParent());
+            assertEquals(0, parent.getComponentZOrder(nativeToolbar));
+            assertNull(filter.getParent());
+        });
     }
 
     // --------------------------------------------------------- pure matching
@@ -108,6 +141,9 @@ class PaletteFilterHostOperationsTest {
                 ? paletteRoot
                 : null
         );
+        final dev.turboism.sdk.runtime.CubismLogService logService =
+            dev.turboism.sdk.runtime.CubismLogService.unavailable();
+        host.bindCubismLogService(logService);
         host.onPaletteFilterVisibilityChanged("probe", List.of(contribution("log", "LOG")));
         SwingUtilities.invokeAndWait(() -> { });
 
@@ -118,8 +154,15 @@ class PaletteFilterHostOperationsTest {
         assertNotNull(field, "filter field must be installed");
         onEdt(() -> field.setText("alpha"));
         assertEquals("INFO alpha", source.getText());
+        assertEquals("alpha", logService.filter().keyword());
 
         onEdt(() -> field.setText(""));
+        assertEquals("INFO alpha\nWARN beta", source.getText());
+
+        onEdt(() -> field.setText("beta"));
+        host.onPaletteFilterVisibilityChanged("probe", List.of());
+        SwingUtilities.invokeAndWait(() -> { });
+        assertEquals(dev.turboism.sdk.runtime.CubismLogService.LogFilter.all(), logService.filter());
         assertEquals("INFO alpha\nWARN beta", source.getText());
     }
 
@@ -173,7 +216,7 @@ class PaletteFilterHostOperationsTest {
         final javax.swing.tree.DefaultTreeModel delegate = new javax.swing.tree.DefaultTreeModel(root);
 
         final PaletteFilterHostOperations.FilteredTreeModel filtered =
-            new PaletteFilterHostOperations.FilteredTreeModel(delegate, "angle");
+            new PaletteFilterHostOperations.FilteredTreeModel(delegate, "angle", String::valueOf);
 
         // root visible (always), folderA visible (descendant matches), child1 visible, child2 hidden
         assertEquals(1, filtered.getChildCount(root));
@@ -189,8 +232,156 @@ class PaletteFilterHostOperationsTest {
         root.add(new javax.swing.tree.DefaultMutableTreeNode("Beta"));
         final javax.swing.tree.DefaultTreeModel delegate = new javax.swing.tree.DefaultTreeModel(root);
         final PaletteFilterHostOperations.FilteredTreeModel filtered =
-            new PaletteFilterHostOperations.FilteredTreeModel(delegate, "");
+            new PaletteFilterHostOperations.FilteredTreeModel(delegate, "", String::valueOf);
         assertEquals(2, filtered.getChildCount(root));
+    }
+
+    @Test
+    void deformerSearchTextUsesOnlyVerifiedSourceEditableIdAndLocalName() {
+        final DeformerSource source = new DeformerSource(
+            new EditableId("Warp4"), "矩形变形器", "wrong-name-1", 1.0f
+        );
+
+        assertEquals(
+            "warp4 矩形变形器",
+            PaletteFilterHostOperations.deformerNodeSearchText(new DeformerNode(source))
+        );
+    }
+
+    @Test
+    void filteredDeformerTreeExpandsAncestorsToRevealMatchingDescendant() {
+        final javax.swing.tree.DefaultMutableTreeNode root = new javax.swing.tree.DefaultMutableTreeNode("root");
+        final DeformerNode parent = new DeformerNode(
+            new DeformerSource(new EditableId("Warp4"), "父变形器", "ignored", 4.0f)
+        );
+        final DeformerNode child = new DeformerNode(
+            new DeformerSource(new EditableId("ArtMesh16"), "矩形 16", "ignored", 16.0f)
+        );
+        root.add(parent);
+        parent.add(child);
+        final javax.swing.tree.DefaultTreeModel delegate = new javax.swing.tree.DefaultTreeModel(root);
+        final PaletteFilterHostOperations.FilteredTreeModel filtered =
+            new PaletteFilterHostOperations.FilteredTreeModel(
+                delegate,
+                "artmesh16",
+                PaletteFilterHostOperations::deformerNodeSearchText
+            );
+        final javax.swing.JTree tree = onEdt(() -> new javax.swing.JTree(filtered));
+
+        assertEquals(2, onEdt(tree::getRowCount));
+        onEdt(() -> PaletteFilterHostOperations.expandFilteredTree(tree));
+        assertEquals(3, onEdt(tree::getRowCount));
+        assertEquals(child, onEdt(() -> tree.getPathForRow(2).getLastPathComponent()));
+
+        filtered.setKeyword("矩形 16");
+        assertEquals(1, filtered.getChildCount(root));
+        assertEquals(child, filtered.getChild(parent, 0));
+
+        filtered.setKeyword("wrongnode1");
+        assertEquals(0, filtered.getChildCount(root));
+    }
+
+    @Test
+    void parameterRowsMatchNameOrEditableIdAndKeepAncestorGroups() {
+        final JPanel root = new JPanel();
+        final JPanel folder = new JPanel();
+        final JPanel child = new JPanel();
+        final JPanel sibling = new JPanel();
+        root.add(folder);
+        folder.add(child);
+        root.add(sibling);
+        final List<PaletteFilterHostOperations.ParameterFilterRow> rows = List.of(
+            new PaletteFilterHostOperations.ParameterFilterRow(folder, "facefolder face", true),
+            new PaletteFilterHostOperations.ParameterFilterRow(child, "paramanglex angle x", false),
+            new PaletteFilterHostOperations.ParameterFilterRow(sibling, "parammouth mouth", false)
+        );
+        final java.util.Map<JComponent, Boolean> original = new java.util.IdentityHashMap<>();
+        rows.forEach(row -> original.put(row.component(), row.component().isVisible()));
+
+        onEdt(() -> PaletteFilterHostOperations.applyParameterRows(rows, original, "paramanglex"));
+        assertTrue(folder.isVisible());
+        assertTrue(child.isVisible());
+        assertFalse(sibling.isVisible());
+
+        onEdt(() -> PaletteFilterHostOperations.applyParameterRows(rows, original, "mouth"));
+        assertFalse(folder.isVisible());
+        assertFalse(child.isVisible());
+        assertTrue(sibling.isVisible());
+
+        onEdt(() -> PaletteFilterHostOperations.applyParameterRows(rows, original, ""));
+        assertTrue(folder.isVisible());
+        assertTrue(child.isVisible());
+        assertTrue(sibling.isVisible());
+    }
+
+    private static final class DeformerNode extends javax.swing.tree.DefaultMutableTreeNode {
+        private final DeformerSource source;
+
+        private DeformerNode(final DeformerSource source) {
+            super(source);
+            this.source = source;
+        }
+
+        Object i() {
+            return source;
+        }
+
+        EditableId getId() {
+            return new EditableId("WrongNode1");
+        }
+
+        String getLocalName() {
+            return "错误节点名称 1";
+        }
+
+        @Override public Object getUserObject() {
+            return new DeformerSource(new EditableId("WrongUser1"), "错误用户物体 1", "ignored", 1.0f);
+        }
+
+        Object getSource() {
+            return new DeformerSource(new EditableId("WrongSource1"), "错误来源 1", "ignored", 1.0f);
+        }
+    }
+
+    private static final class DeformerSource {
+        private final EditableId id;
+        private final String localName;
+        private final String wrongName;
+        private final float wrongValue;
+
+        private DeformerSource(
+            final EditableId id,
+            final String localName,
+            final String wrongName,
+            final float wrongValue
+        ) {
+            this.id = id;
+            this.localName = localName;
+            this.wrongName = wrongName;
+            this.wrongValue = wrongValue;
+        }
+
+        EditableId getId() {
+            return id;
+        }
+
+        String getLocalName() {
+            return localName;
+        }
+
+        String getName() {
+            return wrongName;
+        }
+
+        float getValue() {
+            return wrongValue;
+        }
+    }
+
+    private record EditableId(String value) {
+        String getIdString() {
+            return value;
+        }
     }
 
     // ------------------------------------------------------------- helpers

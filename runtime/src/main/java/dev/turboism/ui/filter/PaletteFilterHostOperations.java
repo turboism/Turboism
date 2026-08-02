@@ -1,6 +1,7 @@
 package dev.turboism.ui.filter;
 
 import dev.turboism.sdk.ui.filter.PaletteFilterRegistry;
+import dev.turboism.mapping.verification.VerifiedMemberResolver;
 
 import javax.swing.AbstractButton;
 import javax.swing.BorderFactory;
@@ -39,7 +40,6 @@ import java.awt.Window;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -47,7 +47,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
-import java.util.function.Predicate;
+import java.util.function.Function;
 
 /**
  * Session-level host attachment for palette tab filter boxes.
@@ -60,10 +60,10 @@ import java.util.function.Predicate;
  * <p>5.3.02 host facts (window-tree evidence): palette content components use
  * generic obfuscated class names ({@code com.live2d.ui.swingImpl.*}); deformer
  * and parts are tree-tables ({@code CDeformerTreeTable.e},
- * {@code CPartsTreeTable.g}); the parameter palette is a {@code JTree}
- * ({@code swingImpl.L}) with a three-button toolbar; the LOG palette is a
- * non-editable {@code JTextPane} inside a custom scroll shell
- * ({@code swingImpl.y} + {@code JViewport}, not {@code JScrollPane}); the
+ * {@code CPartsTreeTable.g}); parameter rows are native row widgets rendered as
+ * Swing components under a viewport; the LOG palette is a non-editable
+ * {@code JTextPane} inside a custom scroll shell ({@code swingImpl.y} +
+ * {@code JViewport}, not {@code JScrollPane}); the
  * scene palette is located through the validated
  * {@code SceneTableHostOperations} remembered property.</p>
  *
@@ -93,6 +93,16 @@ public final class PaletteFilterHostOperations implements PaletteFilterVisibilit
     private static final String FILTERED_TEXT_PANE_KEY = "turboism.paletteFilter.filteredTextPane";
     private static final String WRAPPER_MARKER_KEY = "turboism.paletteFilter.wrapper";
     private static final String SCENE_PALETTE_PROPERTY = "dev.turboism.scenePalette";
+    private static final String TOOLBAR_ROW_MARKER_KEY = "turboism.paletteFilter.toolbarRow";
+    private static final String APP_INSTANCE = "cubism.editor-model.app-controller.instance";
+    private static final String APP_MAIN_FRAME = "cubism.editor-model.app-controller.main-frame";
+    private static final String MAIN_FRAME_PARAMETER_PALETTE =
+        "cubism.editor-model.main-frame.parameter-palette";
+    private static final String PARAMETER_PALETTE_VIEW = "cubism.editor-model.parameter-palette.view";
+    private static final String PARAMETER_VIEW_OPERATION =
+        "cubism.editor-model.parameter-palette-view.operation";
+    private static final String PARAMETER_OPERATION_ROWS =
+        "cubism.editor-model.parameter-operation.rows";
 
     /** Palette kind names understood by this host. */
     public enum PaletteKind {
@@ -114,10 +124,13 @@ public final class PaletteFilterHostOperations implements PaletteFilterVisibilit
     private final PaletteControllerResolver controllerResolver;
     private final Map<PaletteKind, String> lastAttachStatus = new ConcurrentHashMap<>();
     private volatile SceneFilterSink sceneFilterSink;
+    private volatile dev.turboism.sdk.runtime.CubismLogService cubismLogService;
+    private volatile dev.turboism.ui.appearance.control.ControlAppearanceCoordinator parameterRows;
+    private volatile VerifiedMemberResolver parameterRowsResolver;
     private volatile ClassLoader hostClassLoader;
     private volatile long connectionToken;
     private volatile boolean connected;
-    private volatile long lastTreeDumpMillis;
+    private long lastParameterReplayMillis;
 
     /** Test seam: resolves the palette root object for a palette kind. */
     interface PaletteControllerResolver {
@@ -143,6 +156,37 @@ public final class PaletteFilterHostOperations implements PaletteFilterVisibilit
     /** Binds the scene table host as the single owner of scene row filtering. */
     public void bindSceneFilterSink(final SceneFilterSink sink) {
         this.sceneFilterSink = Objects.requireNonNull(sink, "sink");
+    }
+
+    /** Binds the framework Cubism log service so log filtering drives pre-render filtering. */
+    public void bindCubismLogService(final dev.turboism.sdk.runtime.CubismLogService service) {
+        this.cubismLogService = Objects.requireNonNull(service, "service");
+    }
+
+    /** Binds the exact native parameter-row catalog populated by the verified row hook. */
+    public void bindParameterRows(
+        final dev.turboism.ui.appearance.control.ControlAppearanceCoordinator source
+    ) {
+        this.parameterRows = Objects.requireNonNull(source, "source");
+    }
+
+    /** Binds the exact Editor-model resolver used to enumerate rows created before hook installation. */
+    public void bindParameterRowsResolver(final VerifiedMemberResolver resolver) {
+        this.parameterRowsResolver = Objects.requireNonNull(resolver, "resolver");
+    }
+
+    /** Clears the session-owned parameter-row resolver during host replacement or shutdown. */
+    public void clearParameterRowsResolver() {
+        this.parameterRowsResolver = null;
+    }
+
+    /** Publishes the current log filter to the framework service (pre-render interception). */
+    private void publishLogFilter(final PaletteFilterState state) {
+        if (cubismLogService == null) {
+            return;
+        }
+        cubismLogService.setFilter(new dev.turboism.sdk.runtime.CubismLogService.LogFilter(
+            state.showInfo, state.showWarn, state.showError, state.filterText));
     }
 
     /** Starts EDT polling for the four palette controllers. */
@@ -213,17 +257,6 @@ public final class PaletteFilterHostOperations implements PaletteFilterVisibilit
                 .append(" status=").append(lastAttachStatus.getOrDefault(kind, "not-attempted"))
                 .append("\n");
         }
-        boolean anyRootNotFound = false;
-        for (PaletteKind kind : PaletteKind.values()) {
-            if ("root-not-found".equals(lastAttachStatus.get(kind))) {
-                anyRootNotFound = true;
-            }
-        }
-        if (anyRootNotFound && System.currentTimeMillis() - lastTreeDumpMillis > 30_000) {
-            lastTreeDumpMillis = System.currentTimeMillis();
-            lines.append(treeSummary());
-        }
-        appendTreeDump(lines);
         try {
             final String home = System.getProperty("turboism.home", "");
             if (!home.isEmpty()) {
@@ -239,25 +272,6 @@ public final class PaletteFilterHostOperations implements PaletteFilterVisibilit
         }
     }
 
-    /** Appends the window-tree summary to its own evidence file so the 30s limit cannot overwrite it. */
-    private void appendTreeDump(final StringBuilder statusLines) {
-        final int treeIndex = statusLines.indexOf("window class=");
-        if (treeIndex < 0) {
-            return;
-        }
-        try {
-            final String home = System.getProperty("turboism.home", "");
-            if (!home.isEmpty()) {
-                final java.nio.file.Path output = java.nio.file.Path.of(home, "logs", "runtime", "palette-filter-tree.tsv");
-                java.nio.file.Files.writeString(
-                    output,
-                    statusLines.substring(treeIndex),
-                    java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.TRUNCATE_EXISTING, java.nio.file.StandardOpenOption.WRITE
-                );
-            }
-        } catch (Exception ignored) {
-        }
-    }
 
     private PaletteFilterRegistry.PaletteFilterContribution highestOrderContribution(final PaletteKind kind) {
         return contributionsByPlugin.values().stream()
@@ -358,7 +372,7 @@ public final class PaletteFilterHostOperations implements PaletteFilterVisibilit
                 if (state.scrollShell != null && state.filterBox.panel.getParent() != state.toolbarPanel) {
                     return false;
                 }
-            } else if (state.toolbar != null && state.filterBox.panel.getParent() != state.toolbar) {
+            } else if (state.toolbarPlacement == null || !state.toolbarPlacement.isCurrent()) {
                 return false;
             }
         }
@@ -378,6 +392,7 @@ public final class PaletteFilterHostOperations implements PaletteFilterVisibilit
      * re-location; plugin removal/close passes false.
      */
     private static void resetBinding(final PaletteFilterState state, final boolean preserveFilterText) {
+        restoreParameterRows(state);
         final String filterText = preserveFilterText ? state.filterText : "";
         detachFilterBox(state);
         if (state.sourceDocumentListener != null && state.sourceDoc != null) {
@@ -392,6 +407,15 @@ public final class PaletteFilterHostOperations implements PaletteFilterVisibilit
             if (parent != null) {
                 replaceComponent(parent, state.wrapper, state.scrollShell);
             }
+        }
+        if (state.filteredTreeModel != null) {
+            if (state.tree != null && state.treeModel != null
+                && state.tree.getModel() == state.filteredTreeModel) {
+                state.tree.setModel(state.treeModel);
+                refreshTableModel(state.table);
+            }
+            state.filteredTreeModel.dispose();
+            state.filteredTreeModel = null;
         }
         state.controller = null;
         state.scenePalette = null;
@@ -412,20 +436,11 @@ public final class PaletteFilterHostOperations implements PaletteFilterVisibilit
         state.errorButton = null;
         // Level toggles survive re-binding: they are user preferences, not binding state.
         // (kept out of reset so the log filter state persists across reconciles)
-        if (state.filteredTreeModel != null) {
-            if (state.tree != null && state.treeModel != null
-                && state.tree.getModel() == state.filteredTreeModel) {
-                state.tree.setModel(state.treeModel);
-                refreshTableModel(state.table);
-            }
-            state.filteredTreeModel.dispose();
-            state.filteredTreeModel = null;
-        }
         state.tree = null;
         state.treeModel = null;
         state.tableModel = null;
-        state.nodeDisplayText = Map.of();
         state.rows = List.of();
+        state.originalRowVisibility.clear();
         state.lastRawText = "";
         state.lastKeyword = "";
         state.lastFiltered = "";
@@ -456,7 +471,7 @@ public final class PaletteFilterHostOperations implements PaletteFilterVisibilit
      * Resolves the palette root per kind using 5.3.02 structural anchors rather
      * than a uniform class-name substring scan.
      */
-    private static Object resolvePaletteController(final PaletteKind kind) {
+    private Object resolvePaletteController(final PaletteKind kind) {
         switch (kind) {
             case SCENE -> {
                 final JTable remembered = findRememberedSceneTable();
@@ -471,9 +486,9 @@ public final class PaletteFilterHostOperations implements PaletteFilterVisibilit
                 }
             }
             case PARAMETER -> {
-                final JTree tree = findParameterTree();
-                if (tree != null) {
-                    return tree;
+                final JComponent root = findParameterRowsRoot();
+                if (root != null) {
+                    return root;
                 }
             }
             case LOG -> {
@@ -595,77 +610,62 @@ public final class PaletteFilterHostOperations implements PaletteFilterVisibilit
         return null;
     }
 
-    /** Finds the parameter palette JTree: visible main frame, JTree with a three-button parameter toolbar nearby. */
-    private static JTree findParameterTree() {
-        for (Window window : Window.getWindows()) {
-            if (!window.isVisible() || !window.getClass().getName().startsWith("com.live2d.ui.window.CFrame")) {
+    /** Resolves the parameter viewport from exact row bindings, never from an unrelated JTree. */
+    private JComponent findParameterRowsRoot() {
+        final dev.turboism.ui.appearance.control.ControlAppearanceCoordinator source = parameterRows;
+        if (source == null) {
+            return null;
+        }
+        JComponent root = parameterRowsRoot(source);
+        if (root != null) {
+            return root;
+        }
+        final long now = System.currentTimeMillis();
+        if (now - lastParameterReplayMillis >= 1_000) {
+            lastParameterReplayMillis = now;
+            replayExistingParameterRows();
+            root = parameterRowsRoot(source);
+        }
+        return root;
+    }
+
+    private static JComponent parameterRowsRoot(
+        final dev.turboism.ui.appearance.control.ControlAppearanceCoordinator source
+    ) {
+        for (dev.turboism.ui.appearance.control.ControlAppearanceCoordinator.ParameterControlBinding binding
+            : source.parameterControlBindings()) {
+            final Component label = binding.label();
+            if (!label.isDisplayable() || !isInVisibleCubismWindow(label)) {
                 continue;
             }
-            final List<JTree> candidates = collectTrees(window);
-            // Prefer the exact 5.3.02 parameter tree class first.
-            for (JTree candidate : candidates) {
-                if (candidate.getClass().getName().equals("com.live2d.ui.swingImpl.L")
-                    && findParameterToolbar(candidate) != null) {
-                    return candidate;
-                }
-            }
-            // Fallback: any JTree whose local palette subtree carries the parameter toolbar.
-            for (JTree candidate : candidates) {
-                if (findParameterToolbar(candidate) != null) {
-                    return candidate;
-                }
+            final JViewport viewport = findAncestorViewport(label);
+            if (viewport != null && viewport.getView() instanceof JComponent root
+                && findParameterToolbar(root) != null) {
+                return root;
             }
         }
         return null;
     }
 
-    private static List<JTree> collectTrees(final Component component) {
-        final List<JTree> trees = new ArrayList<>();
-        collectTrees(component, trees);
-        return trees;
-    }
-
-    private static void collectTrees(final Component component, final List<JTree> trees) {
-        if (component instanceof JTree tree && tree.isDisplayable()) {
-            trees.add(tree);
+    private void replayExistingParameterRows() {
+        final VerifiedMemberResolver resolver = parameterRowsResolver;
+        if (resolver == null) {
+            return;
         }
-        if (component instanceof Container container) {
-            for (Component child : container.getComponents()) {
-                collectTrees(child, trees);
+        try {
+            final Object app = resolver.invokeStatic(APP_INSTANCE);
+            final Object mainFrame = app == null ? null : resolver.invoke(APP_MAIN_FRAME, app);
+            final Object palette = mainFrame == null
+                ? null : resolver.invoke(MAIN_FRAME_PARAMETER_PALETTE, mainFrame);
+            final Object view = palette == null ? null : resolver.invoke(PARAMETER_PALETTE_VIEW, palette);
+            final Object operation = view == null ? null : resolver.invoke(PARAMETER_VIEW_OPERATION, view);
+            final Object rows = operation == null ? null : resolver.invoke(PARAMETER_OPERATION_ROWS, operation);
+            if (rows instanceof Iterable<?> iterable) {
+                dev.turboism.ui.appearance.control.NativeParameterAppearanceBridge.replayExistingRows(iterable);
             }
+        } catch (RuntimeException ignored) {
+            // Palette/document may not be ready yet; the bounded connector retries.
         }
-    }
-
-    private static JTree findParameterTree(final Component component) {
-        if (component instanceof JTree tree && tree.isDisplayable()) {
-            return tree;
-        }
-        if (component instanceof Container container) {
-            for (Component child : container.getComponents()) {
-                final JTree found = findParameterTree(child);
-                if (found != null) {
-                    return found;
-                }
-            }
-        }
-        return null;
-    }
-
-    /** Legacy parameter toolbar shape: a sibling container with add/folder/delete buttons. */
-    private static boolean hasParameterToolbarNearby(final JTree tree) {
-        Component current = tree;
-        int hops = 0;
-        while (current != null && current.getParent() != null && hops < 8) {
-            final Container parent = current.getParent();
-            for (Component sibling : parent.getComponents()) {
-                if (sibling != current && isParameterToolbar(sibling)) {
-                    return true;
-                }
-            }
-            current = parent;
-            hops++;
-        }
-        return false;
     }
 
     private static final String PARAM_ADD_COMMAND = "CMD_PARAMETER_PALETTE_ADD_NEW_PARAMETER";
@@ -677,7 +677,7 @@ public final class PaletteFilterHostOperations implements PaletteFilterVisibilit
             return false;
         }
         final List<AbstractButton> buttons = collectButtons(container, 2);
-        if (buttons.size() < 3) {
+        if (buttons.size() != 3) {
             return false;
         }
         boolean hasAdd = false;
@@ -837,7 +837,6 @@ public final class PaletteFilterHostOperations implements PaletteFilterVisibilit
         if (state.treeModel == null) {
             state.treeModel = tree.getModel();
         }
-        state.nodeDisplayText = buildNodeDisplayText(tree, table);
         ensureFilterBox(state, toolbar, contribution, text -> applyTreeFilter(state, tree, text));
         applyTreeFilter(state, tree, state.filterText);
         lastAttachStatus.put(state.kind, "attached table=" + table.getClass().getName()
@@ -845,7 +844,7 @@ public final class PaletteFilterHostOperations implements PaletteFilterVisibilit
             + " treeModel=" + tree.getModel().getClass().getName()
             + " tableModel=" + table.getModel().getClass().getName()
             + " treeRows=" + tree.getRowCount() + " tableRows=" + table.getRowCount()
-            + " " + treeDiagnostics(tree, table));
+            + " filterText=[" + state.filterText + "]");
         return true;
     }
 
@@ -854,143 +853,167 @@ public final class PaletteFilterHostOperations implements PaletteFilterVisibilit
         if (component == null) {
             return false;
         }
-        final JTree tree = component instanceof JTree treeValue ? treeValue : findParameterTree(component);
-        if (tree == null) {
-            lastAttachStatus.put(state.kind, "parameter-tree-not-found root=" + component.getClass().getName());
+        final Container toolbar = findParameterToolbar(component);
+        if (toolbar == null) {
+            lastAttachStatus.put(state.kind, "parameter-toolbar-not-found root=" + component.getClass().getName());
             return false;
         }
-        final Container toolbar = findParameterToolbar(tree);
-        if (toolbar == null) {
-            lastAttachStatus.put(state.kind, "parameter-toolbar-not-found tree=" + tree.getClass().getName());
+        final List<ParameterFilterRow> rows = parameterFilterRows(component);
+        if (rows.isEmpty()) {
+            lastAttachStatus.put(state.kind, "parameter-rows-not-found root=" + component.getClass().getName());
             return false;
         }
         state.toolbar = toolbar;
-        state.tree = tree;
-        if (state.treeModel == null) {
-            state.treeModel = tree.getModel();
+        state.rows = rows;
+        final Set<JComponent> live = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+        for (ParameterFilterRow row : rows) {
+            live.add(row.component());
+            state.originalRowVisibility.putIfAbsent(row.component(), row.component().isVisible());
         }
-        state.nodeDisplayText = buildNodeDisplayText(tree, null);
-        ensureFilterBox(state, toolbar, contribution, text -> applyTreeFilter(state, tree, text));
-        applyTreeFilter(state, tree, state.filterText);
-        lastAttachStatus.put(state.kind, "attached tree=" + tree.getClass().getName()
+        restoreDiscardedParameterRows(state.originalRowVisibility, live);
+        ensureFilterBox(state, toolbar, contribution, text -> applyParameterFilter(state, text));
+        applyParameterFilter(state, state.filterText);
+        lastAttachStatus.put(state.kind, "attached rows=" + rows.size()
+            + " root=" + component.getClass().getName()
             + " toolbar=" + toolbar.getClass().getName()
-            + " treeModel=" + tree.getModel().getClass().getName()
-            + " treeRows=" + tree.getRowCount()
-            + " " + treeDiagnostics(tree, null));
+            + " filterText=[" + state.filterText + "]");
         return true;
     }
 
-    /**
-     * Builds the node -> UI display text map from the tree-table model columns.
-     * The UI display name (e.g. "矩形 1") is the user-visible, editable ID that
-     * filtering must match; it is not the node's internal id (e.g. "artmesh6").
-     */
-    private static Map<Object, String> buildNodeDisplayText(final JTree tree, final JTable table) {
-        final Map<Object, String> map = new java.util.HashMap<>();
-        if (table == null) {
-            return map;
+    private List<ParameterFilterRow> parameterFilterRows(final JComponent root) {
+        final dev.turboism.ui.appearance.control.ControlAppearanceCoordinator source = parameterRows;
+        if (source == null) {
+            return List.of();
         }
-        final int rows = Math.min(tree.getRowCount(), 2000);
-        final int columns = Math.min(table.getColumnCount(), 8);
-        for (int row = 0; row < rows; row++) {
-            final TreePath path = tree.getPathForRow(row);
-            if (path == null) {
+        final Map<JComponent, StringBuilder> textByRow = new java.util.IdentityHashMap<>();
+        final Map<JComponent, Boolean> folderByRow = new java.util.IdentityHashMap<>();
+        final List<JComponent> order = new ArrayList<>();
+        for (dev.turboism.ui.appearance.control.ControlAppearanceCoordinator.ParameterControlBinding binding
+            : source.parameterControlBindings()) {
+            final Component label = binding.label();
+            if (!SwingUtilities.isDescendingFrom(label, root)) {
                 continue;
             }
-            final Object node = path.getLastPathComponent();
-            final StringBuilder builder = new StringBuilder();
-            for (int col = 0; col < columns; col++) {
-                try {
-                    final Object value = table.getValueAt(row, col);
-                    if (value != null) {
-                        final String text = String.valueOf(value).trim();
-                        if (!text.isEmpty()) {
-                            if (builder.length() > 0) {
-                                builder.append(' ');
-                            }
-                            builder.append(text);
-                        }
-                    }
-                } catch (RuntimeException ignored) {
-                    // Cell values may be unavailable for some rows/columns.
-                }
-            }
-            map.put(node, builder.toString());
-        }
-        return map;
-    }
-
-    /** Dumps the first tree rows' node classes, UI display values and search text for host-shape diagnosis. */
-    private static String treeDiagnostics(final JTree tree) {
-        return treeDiagnostics(tree, null);
-    }
-
-    private static String treeDiagnostics(final JTree tree, final JTable table) {
-        final StringBuilder builder = new StringBuilder();
-        final int rows = Math.min(tree.getRowCount(), 12);
-        for (int row = 0; row < rows; row++) {
-            final TreePath path = tree.getPathForRow(row);
-            if (path == null) {
+            final JComponent row = parameterRowComponent(label, binding.folder());
+            if (row == null) {
                 continue;
             }
-            final Object node = path.getLastPathComponent();
-            builder.append("row").append(row).append("=")
-                .append(node == null ? "null" : node.getClass().getSimpleName())
-                .append(" depth=").append(path.getPathCount());
-            // Ancestor match text: a container matching a token keeps its subtree.
-            if (path.getPathCount() > 2) {
-                builder.append(" parent=[").append(nodeSearchTextTokens(path.getPathComponent(path.getPathCount() - 2))).append(']');
+            final StringBuilder searchText = textByRow.computeIfAbsent(row, ignored -> {
+                order.add(row);
+                return new StringBuilder();
+            });
+            appendToken(searchText, binding.id());
+            if (label instanceof JLabel swingLabel) {
+                appendToken(searchText, swingLabel.getText());
             }
-            if (path.getPathCount() > 3) {
-                builder.append(" grand=[").append(nodeSearchTextTokens(path.getPathComponent(path.getPathCount() - 3))).append(']');
-            }
-            if (table != null) {
-                // UI display values as rendered by the tree-table model.
-                builder.append(" ui=[");
-                for (int col = 0; col < table.getColumnCount() && col < 4; col++) {
-                    if (col > 0) {
-                        builder.append('|');
-                    }
-                    builder.append(String.valueOf(table.getValueAt(row, col)));
-                }
-                builder.append(']');
-            }
-            builder.append(":[").append(nodeSearchTextTokens(node)).append("]");
-            if (table != null) {
-                builder.append(" match=[").append(nodeSearchText(node)).append(' ')
-                    .append(table == null ? "" : String.valueOf(
-                        nodeDisplayTextOf(table, tree, row, node))).append("];");
-            } else {
-                builder.append(';');
-            }
+            folderByRow.merge(row, binding.folder(), Boolean::logicalOr);
         }
-        return builder.toString();
+        final List<ParameterFilterRow> rows = new ArrayList<>(order.size());
+        for (JComponent row : order) {
+            rows.add(new ParameterFilterRow(
+                row,
+                textByRow.get(row).toString(),
+                Boolean.TRUE.equals(folderByRow.get(row))
+            ));
+        }
+        return List.copyOf(rows);
     }
 
-    /** Best-effort display text for one row (used for diagnostics). */
-    private static String nodeDisplayTextOf(final JTable table, final JTree tree, final int row, final Object node) {
-        if (table == null) {
-            return "";
+    private static JComponent parameterRowComponent(final Component label, final boolean folder) {
+        final String expected = folder
+            ? "com.live2d.ui.swingImpl.n"
+            : "com.live2d.ui.swingImpl.p";
+        Component current = label;
+        while (current != null && !(current instanceof JViewport)) {
+            if (current instanceof JComponent component && current.getClass().getName().equals(expected)) {
+                return component;
+            }
+            current = current.getParent();
         }
-        final StringBuilder builder = new StringBuilder();
-        final int columns = Math.min(table.getColumnCount(), 8);
-        for (int col = 0; col < columns; col++) {
-            try {
-                final Object value = table.getValueAt(row, col);
-                if (value != null) {
-                    final String text = String.valueOf(value).trim();
-                    if (!text.isEmpty()) {
-                        if (builder.length() > 0) {
-                            builder.append('|');
+        return null;
+    }
+
+    private static void applyParameterFilter(final PaletteFilterState state, final String text) {
+        state.filterText = normalize(text);
+        applyParameterRows(state.rows, state.originalRowVisibility, state.filterText);
+    }
+
+    static void applyParameterRows(
+        final List<ParameterFilterRow> rows,
+        final Map<JComponent, Boolean> originalVisibility,
+        final String text
+    ) {
+        final String keyword = normalize(text);
+        final Set<JComponent> visible = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+        if (!keyword.isEmpty()) {
+            for (ParameterFilterRow row : rows) {
+                if (row.searchText().contains(keyword)) {
+                    visible.add(row.component());
+                    // ponytail: O(n²) ancestor scan; index folder ancestry only if EDT typing becomes measurable.
+                    for (ParameterFilterRow candidate : rows) {
+                        if (candidate.folder() && (candidate.component() == row.component()
+                            || SwingUtilities.isDescendingFrom(row.component(), candidate.component()))) {
+                            visible.add(candidate.component());
                         }
-                        builder.append(text);
                     }
                 }
-            } catch (RuntimeException ignored) {
             }
         }
-        return builder.toString();
+        final Set<Container> dirty = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+        for (ParameterFilterRow row : rows) {
+            final boolean next = keyword.isEmpty()
+                ? originalVisibility.getOrDefault(row.component(), true)
+                : visible.contains(row.component());
+            if (row.component().isVisible() != next) {
+                row.component().setVisible(next);
+            }
+            if (row.component().getParent() != null) {
+                dirty.add(row.component().getParent());
+            }
+        }
+        for (Container container : dirty) {
+            container.revalidate();
+            container.repaint();
+        }
     }
+
+    private static void restoreParameterRows(final PaletteFilterState state) {
+        for (Map.Entry<JComponent, Boolean> entry : state.originalRowVisibility.entrySet()) {
+            entry.getKey().setVisible(entry.getValue());
+            if (entry.getKey().getParent() != null) {
+                entry.getKey().getParent().revalidate();
+                entry.getKey().getParent().repaint();
+            }
+        }
+    }
+
+    private static void restoreDiscardedParameterRows(
+        final Map<JComponent, Boolean> originalVisibility,
+        final Set<JComponent> live
+    ) {
+        final java.util.Iterator<Map.Entry<JComponent, Boolean>> iterator =
+            originalVisibility.entrySet().iterator();
+        while (iterator.hasNext()) {
+            final Map.Entry<JComponent, Boolean> entry = iterator.next();
+            if (live.contains(entry.getKey())) {
+                continue;
+            }
+            entry.getKey().setVisible(entry.getValue());
+            if (entry.getKey().getParent() != null) {
+                entry.getKey().getParent().revalidate();
+                entry.getKey().getParent().repaint();
+            }
+            iterator.remove();
+        }
+    }
+
+    static record ParameterFilterRow(JComponent component, String searchText, boolean folder) {
+        ParameterFilterRow {
+            component = Objects.requireNonNull(component, "component");
+            searchText = normalize(searchText);
+        }
+    }
+
 
     private boolean attachLog(final PaletteFilterState state, final PaletteFilterRegistry.PaletteFilterContribution contribution) {
         // Installed fast path: keep identity stable across reconciles.
@@ -1145,13 +1168,111 @@ public final class PaletteFilterHostOperations implements PaletteFilterVisibilit
         }
     }
 
+    /** Framework-owned placement: contribution left, untouched host toolbar right. */
+    static ToolbarPlacement attachToolbarContribution(
+        final Container toolbar,
+        final JComponent contribution
+    ) {
+        Objects.requireNonNull(toolbar, "toolbar");
+        Objects.requireNonNull(contribution, "contribution");
+        final Container parent = toolbar.getParent();
+        if (parent == null) {
+            toolbar.add(contribution, 0);
+            toolbar.revalidate();
+            toolbar.repaint();
+            return new ToolbarPlacement(toolbar, contribution, null, null, -1, null);
+        }
+
+        final LayoutManager layout = parent.getLayout();
+        final Object constraint = layout instanceof BorderLayout
+            ? ((BorderLayout) layout).getConstraints(toolbar)
+            : null;
+        final int index = parent.getComponentZOrder(toolbar);
+        final JPanel wrapper = new JPanel(new BorderLayout(8, 0));
+        wrapper.setOpaque(false);
+        wrapper.putClientProperty(TOOLBAR_ROW_MARKER_KEY, Boolean.TRUE);
+
+        parent.remove(toolbar);
+        wrapper.add(contribution, BorderLayout.WEST);
+        wrapper.add(toolbar, BorderLayout.EAST);
+        if (constraint != null) {
+            parent.add(wrapper, constraint);
+        } else {
+            parent.add(wrapper, Math.max(0, Math.min(index, parent.getComponentCount())));
+        }
+        parent.revalidate();
+        parent.repaint();
+        return new ToolbarPlacement(toolbar, contribution, wrapper, parent, index, constraint);
+    }
+
+    static final class ToolbarPlacement {
+        private final Container toolbar;
+        private final JComponent contribution;
+        private final JPanel wrapper;
+        private final Container originalParent;
+        private final int originalIndex;
+        private final Object originalConstraint;
+        private boolean attached = true;
+
+        private ToolbarPlacement(
+            final Container toolbar,
+            final JComponent contribution,
+            final JPanel wrapper,
+            final Container originalParent,
+            final int originalIndex,
+            final Object originalConstraint
+        ) {
+            this.toolbar = toolbar;
+            this.contribution = contribution;
+            this.wrapper = wrapper;
+            this.originalParent = originalParent;
+            this.originalIndex = originalIndex;
+            this.originalConstraint = originalConstraint;
+        }
+
+        boolean isCurrent() {
+            return attached && (wrapper == null
+                ? contribution.getParent() == toolbar
+                : wrapper.getParent() == originalParent
+                    && contribution.getParent() == wrapper
+                    && toolbar.getParent() == wrapper);
+        }
+
+        void detach() {
+            if (!attached) return;
+            attached = false;
+            if (wrapper == null) {
+                toolbar.remove(contribution);
+                toolbar.revalidate();
+                toolbar.repaint();
+                return;
+            }
+            wrapper.remove(contribution);
+            wrapper.remove(toolbar);
+            if (wrapper.getParent() == originalParent) {
+                originalParent.remove(wrapper);
+                if (originalConstraint != null) {
+                    originalParent.add(toolbar, originalConstraint);
+                } else {
+                    originalParent.add(
+                        toolbar,
+                        Math.max(0, Math.min(originalIndex, originalParent.getComponentCount()))
+                    );
+                }
+                originalParent.revalidate();
+                originalParent.repaint();
+            }
+        }
+    }
+
     private void ensureFilterBox(
         final PaletteFilterState state,
         final Container toolbar,
         final PaletteFilterRegistry.PaletteFilterContribution contribution,
         final Consumer<String> onTextChanged
     ) {
-        if (state.filterBox != null && state.filterBox.panel.getParent() == toolbar) {
+        if (state.filterBox != null && state.toolbarPlacement != null
+            && state.toolbarPlacement.isCurrent()) {
             return;
         }
         detachFilterBox(state);
@@ -1159,20 +1280,20 @@ public final class PaletteFilterHostOperations implements PaletteFilterVisibilit
             state.filterText = normalize(text);
             onTextChanged.accept(text);
         });
-        toolbar.add(state.filterBox.panel, 0);
-        toolbar.revalidate();
-        toolbar.repaint();
+        state.toolbarPlacement = attachToolbarContribution(toolbar, state.filterBox.panel);
     }
 
     private static void detachFilterBox(final PaletteFilterState state) {
-        if (state.filterBox == null) {
-            return;
-        }
-        final Container parent = state.filterBox.panel.getParent();
-        if (parent != null) {
-            parent.remove(state.filterBox.panel);
-            parent.revalidate();
-            parent.repaint();
+        if (state.toolbarPlacement != null) {
+            state.toolbarPlacement.detach();
+            state.toolbarPlacement = null;
+        } else if (state.filterBox != null) {
+            final Container parent = state.filterBox.panel.getParent();
+            if (parent != null) {
+                parent.remove(state.filterBox.panel);
+                parent.revalidate();
+                parent.repaint();
+            }
         }
         state.filterBox = null;
     }
@@ -1306,6 +1427,7 @@ public final class PaletteFilterHostOperations implements PaletteFilterVisibilit
             state.filterBox = createFilterBox(contribution.placeholderKey(), state.filterText, text -> {
                 state.filterText = normalize(text);
                 refreshFilteredLogText(state);
+                publishLogFilter(state);
             });
         }
         if (state.filterBox.panel.getParent() != state.toolbarPanel) {
@@ -1318,16 +1440,19 @@ public final class PaletteFilterHostOperations implements PaletteFilterVisibilit
                 state.showInfo = !state.showInfo;
                 refreshLogLevelButtons(state);
                 refreshFilteredLogText(state);
+                publishLogFilter(state);
             });
             state.warnButton = createLogLevelButton("warn", LOG_WARN_ON, () -> {
                 state.showWarn = !state.showWarn;
                 refreshLogLevelButtons(state);
                 refreshFilteredLogText(state);
+                publishLogFilter(state);
             });
             state.errorButton = createLogLevelButton("error", LOG_ERROR_ON, () -> {
                 state.showError = !state.showError;
                 refreshLogLevelButtons(state);
                 refreshFilteredLogText(state);
+                publishLogFilter(state);
             });
             state.levelPanel.add(state.infoButton);
             state.levelPanel.add(state.warnButton);
@@ -1564,16 +1689,15 @@ public final class PaletteFilterHostOperations implements PaletteFilterVisibilit
                 return;
             }
             if (state.filteredTreeModel == null) {
-                state.filteredTreeModel = new FilteredTreeModel(original, keyword, state.nodeDisplayText);
+                state.filteredTreeModel = new FilteredTreeModel(
+                    original, keyword, PaletteFilterHostOperations::deformerNodeSearchText
+                );
                 tree.setModel(state.filteredTreeModel);
-                refreshTableModel(state.table);
             } else {
-                final String previous = state.filteredTreeModel.currentKeyword();
                 state.filteredTreeModel.setKeyword(keyword);
-                if (!previous.equals(keyword)) {
-                    refreshTableModel(state.table);
-                }
             }
+            expandFilteredTree(tree);
+            refreshTableModel(state.table);
             lastAttachStatus.put(state.kind, "tree-filter keyword=" + keyword
                 + " original=" + original.getClass().getSimpleName()
                 + " treeRows=" + tree.getRowCount()
@@ -1584,26 +1708,32 @@ public final class PaletteFilterHostOperations implements PaletteFilterVisibilit
         }
     }
 
+    static void expandFilteredTree(final JTree tree) {
+        for (int row = 0; row < tree.getRowCount() && row < 2_000; row++) {
+            tree.expandRow(row);
+        }
+    }
+
     static final class FilteredTreeModel implements TreeModel {
         private final TreeModel delegate;
-        private final Map<Object, String> displayText;
+        private final Function<Object, String> searchText;
         private final List<TreeModelListener> listeners = new ArrayList<>();
-        private final Map<Object, List<Object>> childrenCache = new java.util.HashMap<>();
-        private final Map<Object, Boolean> matchCache = new java.util.HashMap<>();
+        // Host nodes may have colliding equals/hashCode, so cache by identity.
+        private final Map<Object, List<Object>> childrenCache = new java.util.IdentityHashMap<>();
+        private final Map<Object, Boolean> matchCache = new java.util.IdentityHashMap<>();
         private final TreeModelListener delegateListener;
         private String keyword = "";
-        private String[] tokens = new String[0];
         private boolean disposed;
 
-        FilteredTreeModel(final TreeModel delegate, final String keyword) {
-            this(delegate, keyword, Map.of());
-        }
 
-        FilteredTreeModel(final TreeModel delegate, final String keyword, final Map<Object, String> displayText) {
+        FilteredTreeModel(
+            final TreeModel delegate,
+            final String keyword,
+            final Function<Object, String> searchText
+        ) {
             this.delegate = Objects.requireNonNull(delegate, "delegate");
-            this.displayText = displayText == null ? Map.of() : displayText;
+            this.searchText = Objects.requireNonNull(searchText, "searchText");
             this.keyword = normalize(keyword);
-            this.tokens = this.keyword.isEmpty() ? new String[0] : this.keyword.split("\\s+");
             this.delegateListener = new TreeModelListener() {
                 @Override public void treeNodesChanged(final TreeModelEvent event) { onDelegateEvent(); }
                 @Override public void treeNodesInserted(final TreeModelEvent event) { onDelegateEvent(); }
@@ -1617,18 +1747,13 @@ public final class PaletteFilterHostOperations implements PaletteFilterVisibilit
             delegate.addTreeModelListener(delegateListener);
         }
 
-        String currentKeyword() {
-            return keyword;
-        }
 
-        /** Updates the keyword in place and notifies listeners; avoids wrapper churn on every keystroke. */
         void setKeyword(final String keyword) {
             final String next = normalize(keyword);
             if (this.keyword.equals(next)) {
                 return;
             }
             this.keyword = next;
-            this.tokens = next.isEmpty() ? new String[0] : next.split("\\s+");
             invalidate();
             fireStructureChanged();
         }
@@ -1714,14 +1839,7 @@ public final class PaletteFilterHostOperations implements PaletteFilterVisibilit
             if (cached != null) {
                 return cached;
             }
-            boolean matches = tokens.length == 0;
-            final String nodeText = normalize(nodeSearchText(node) + " " + displayText.getOrDefault(node, ""));
-            for (String token : tokens) {
-                if (nodeText.contains(token)) {
-                    matches = true;
-                    break;
-                }
-            }
+            boolean matches = keyword.isEmpty() || normalize(searchText.apply(node)).contains(keyword);
             if (!matches) {
                 final int count = delegate.getChildCount(node);
                 for (int index = 0; index < count; index++) {
@@ -1802,77 +1920,23 @@ public final class PaletteFilterHostOperations implements PaletteFilterVisibilit
         return null;
     }
 
-    /** Search text for a tree node value: bounded unwrapping + name/id tokens. */
-    static String nodeSearchText(final Object node) {
-        if (node == null) {
-            return "";
-        }
-        if (node instanceof String text) {
-            return text;
-        }
-        if (node instanceof JLabel label) {
-            return label.getText();
-        }
-        final StringBuilder builder = new StringBuilder();
-        final Set<Integer> visited = new HashSet<>();
-        collectNodeTokens(node, 0, visited, builder);
-        if (builder.length() > 0) {
-            return builder.toString();
-        }
-        return String.valueOf(node);
-    }
-
-    /** Diagnostics: every token collected for the node, space-separated. */
-    static String nodeSearchTextTokens(final Object node) {
-        if (node == null) {
+    /** Exact 5.3.02 deformer fields: verified node {@code i()} source ID and local name. */
+    static String deformerNodeSearchText(final Object node) {
+        final Object source = invoke(node, "i");
+        if (source == null || source == node) {
             return "";
         }
         final StringBuilder builder = new StringBuilder();
-        final Set<Integer> visited = new HashSet<>();
-        collectNodeTokens(node, 0, visited, builder);
+        final Object id = invoke(source, "getId");
+        if (id instanceof String value) {
+            appendToken(builder, value);
+        } else {
+            appendToken(builder, text(invoke(id, "getIdString")));
+        }
+        appendToken(builder, text(invoke(source, "getLocalName")));
         return builder.toString();
     }
 
-    private static void collectNodeTokens(
-        final Object node,
-        final int depth,
-        final Set<Integer> visited,
-        final StringBuilder builder
-    ) {
-        if (node == null || depth > 3 || node instanceof String || !visited.add(System.identityHashCode(node))) {
-            return;
-        }
-        if (node instanceof JLabel label) {
-            appendToken(builder, label.getText());
-        }
-        final Object userObject = invoke(node, "getUserObject");
-        if (userObject != null && userObject != node) {
-            collectNodeTokens(userObject, depth + 1, visited, builder);
-        }
-        for (String method : new String[] {"getParameterName", "getFolderName", "getName",
-            "getDeformerName", "getDisplayName", "getText", "getLabel",
-            "getIdentifier", "getParamId", "getId", "getDeformerId", "getFormID", "getFormId"}) {
-            final Object value = invoke(node, method);
-            if (value != null && value != node && !(value instanceof Container)) {
-                appendToken(builder, String.valueOf(value));
-                if (value instanceof String && !((String) value).isBlank()
-                    && method.startsWith("get") && method.endsWith("Id")) {
-                    appendToken(builder, value.toString());
-                }
-            }
-        }
-        // Note: the GUID/UUID is deliberately excluded from search tokens: it is
-        // host-internal and invisible to the user. Filtering matches the
-        // user-visible display name / editable ID only.
-        // Bounded unwrap of wrapper-style accessors (5.3.02 i(), plus common names).
-        for (String method : new String[] {"i", "getSource", "getItem", "getEntry", "getValue",
-            "getPayload", "getTarget", "getTargetObject", "getObject"}) {
-            final Object unwrapped = invoke(node, method);
-            if (unwrapped != null && unwrapped != node) {
-                collectNodeTokens(unwrapped, depth + 1, visited, builder);
-            }
-        }
-    }
 
     private static void appendToken(final StringBuilder builder, final String value) {
         if (value == null || value.isBlank()) {
@@ -1917,10 +1981,10 @@ public final class PaletteFilterHostOperations implements PaletteFilterVisibilit
         return false;
     }
 
-    private static Container findParameterToolbar(final JTree tree) {
-        // Search the tree's local palette subtree: walk up from the tree, and at each
-        // ancestor search sibling subtrees recursively (bounded) for the exact toolbar.
-        Component current = tree;
+    private static Container findParameterToolbar(final Component component) {
+        // Walk up from the parameter viewport and inspect bounded sibling subtrees
+        // for the exact three-button toolbar.
+        Component current = component;
         int hops = 0;
         while (current != null && current.getParent() != null && hops < 8) {
             final Container parent = current.getParent();
@@ -1986,42 +2050,15 @@ public final class PaletteFilterHostOperations implements PaletteFilterVisibilit
         return null;
     }
 
-    /** Compact window-tree summary (up to 60 levels per window) for host-shape diagnosis. */
-    private static String treeSummary() {
-        final StringBuilder builder = new StringBuilder();
-        final Set<String> seen = new HashSet<>();
-        for (Window window : Window.getWindows()) {
-            builder.append("window class=").append(window.getClass().getName())
-                .append(" visible=").append(window.isVisible()).append('\n');
-            dumpTreeSummary(window, 0, builder, seen);
-        }
-        return builder.toString();
-    }
 
-    private static void dumpTreeSummary(
-        final Component component,
-        final int depth,
-        final StringBuilder builder,
-        final Set<String> seen
-    ) {
-        if (component == null || depth > 60 || seen.size() > 1500) {
-            return;
-        }
-        seen.add(component.getClass().getName());
-        builder.append("  tree:").append(depth)
-            .append(" class=").append(component.getClass().getName()).append('\n');
-        if (component instanceof Container container) {
-            for (Component child : container.getComponents()) {
-                dumpTreeSummary(child, depth + 1, builder, seen);
-            }
-        }
-    }
-
-    private static void detach(final PaletteFilterState state) {
+    private void detach(final PaletteFilterState state) {
         if (state == null) {
             return;
         }
         resetBinding(state, false);
+        if (state.kind == PaletteKind.LOG && cubismLogService != null) {
+            cubismLogService.setFilter(dev.turboism.sdk.runtime.CubismLogService.LogFilter.all());
+        }
     }
 
     // ------------------------------------------------------------------ util
@@ -2091,6 +2128,7 @@ public final class PaletteFilterHostOperations implements PaletteFilterVisibilit
         volatile JPanel toolbarPanel;
         volatile Container toolbar;
         volatile FilterBox filterBox;
+        volatile ToolbarPlacement toolbarPlacement;
         volatile JPanel levelPanel;
         volatile JButton infoButton;
         volatile JButton warnButton;
@@ -2102,8 +2140,8 @@ public final class PaletteFilterHostOperations implements PaletteFilterVisibilit
         volatile TreeModel treeModel;
         volatile FilteredTreeModel filteredTreeModel;
         volatile Object tableModel;
-        volatile Map<Object, String> nodeDisplayText = Map.of();
-        volatile List<Component> rows = List.of();
+        volatile List<ParameterFilterRow> rows = List.of();
+        final Map<JComponent, Boolean> originalRowVisibility = new java.util.IdentityHashMap<>();
         volatile String filterText = "";
         volatile boolean refreshScheduled;
         volatile String lastRawText = "";

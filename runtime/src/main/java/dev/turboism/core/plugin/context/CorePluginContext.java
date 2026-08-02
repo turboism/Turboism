@@ -77,6 +77,7 @@ public final class CorePluginContext implements PluginContext {
     private final ControlAppearanceRegistry controlAppearanceRegistry;
 
     private final SceneTableService sceneTableService;
+    private final dev.turboism.sdk.runtime.CubismLogService cubismLogService;
     private dev.turboism.sdk.runtime.RuntimeSettingsService runtimeSettings;
     public CorePluginContext(final Dependencies dependencies) {
         this(dependencies, RuntimeHostAdapters.safeMode(), null, null, null, null, null);
@@ -403,6 +404,9 @@ public final class CorePluginContext implements PluginContext {
         this.sceneTableService = hostAccess == null
             ? SceneTableService.unavailable()
             : hostAccess.sceneTable();
+        this.cubismLogService = hostAccess == null
+            ? dev.turboism.sdk.runtime.CubismLogService.unavailable()
+            : hostAccess.cubismLog();
         if (hostAccess == null) {
             this.controlAppearanceRegistry = ControlAppearanceRegistry.unavailable();
         } else {
@@ -661,6 +665,11 @@ public final class CorePluginContext implements PluginContext {
         return pluginConfigRegistry;
     }
 
+
+    @Override
+    public dev.turboism.sdk.runtime.CubismLogService cubismLog() {
+        return cubismLogService;
+    }
 
     @Override
     public dev.turboism.sdk.runtime.RuntimeSettingsService runtimeSettings() {

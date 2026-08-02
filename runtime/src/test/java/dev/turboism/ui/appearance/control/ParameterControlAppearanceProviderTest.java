@@ -37,4 +37,26 @@ class ParameterControlAppearanceProviderTest {
         assertEquals(Color.BLACK, label.getForeground());
         provider.close();
     }
+
+
+    @Test
+    void publishesExactParameterIdAndLabelToTheSharedRowCatalog() throws Exception {
+        final ControlAppearanceCoordinator coordinator = new ControlAppearanceCoordinator();
+        coordinator.replaceHostGeneration(5);
+        final ParameterControlAppearanceProvider provider = new ParameterControlAppearanceProvider(5, coordinator);
+        final JLabel label = new JLabel("Angle X");
+
+        javax.swing.SwingUtilities.invokeAndWait(() ->
+            provider.bind(ParameterControlAppearanceProvider.Kind.PARAMETER, "ParamAngleX", label));
+
+        final ControlAppearanceCoordinator.ParameterControlBinding binding =
+            coordinator.parameterControlBindings().get(0);
+        assertEquals(false, binding.folder());
+        assertEquals("ParamAngleX", binding.id());
+        assertEquals(label, binding.label());
+
+        provider.close();
+        javax.swing.SwingUtilities.invokeAndWait(() -> { });
+        assertEquals(0, coordinator.parameterControlBindings().size());
+    }
 }
