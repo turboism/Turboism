@@ -2,12 +2,31 @@ package dev.turboism.sdk.cubism.model;
 
 import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.id.ModelId;
+import dev.turboism.sdk.cubism.core.MocInfo;
 
 /** One Cubism model exposed as natural objects and methods. */
 @PreviewApi
 public interface CubismModel {
 
     ModelId id();
+
+    default String name() {
+        throw new UnsupportedOperationException("Cubism model name is unavailable.");
+    }
+
+    default void setName(final String name) {
+        throw new UnsupportedOperationException("Cubism model-name editing is unavailable.");
+    }
+
+    default MocInfo mocInfo() {
+        throw new UnsupportedOperationException("Cubism MOC metadata is unavailable.");
+    }
+
+    default ParameterDefinitions parameterDefinitions() {
+        throw new UnsupportedOperationException(
+            "Cubism parameter-definition access is unavailable."
+        );
+    }
 
     /** Returns whether the Editor's default keyform is locked. */
     default boolean defaultKeyformLocked() {

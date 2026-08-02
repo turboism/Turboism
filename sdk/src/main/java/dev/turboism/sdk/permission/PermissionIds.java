@@ -22,6 +22,10 @@ public final class PermissionIds {
         "turboism.cubism.model.observe";
     public static final String TURBOISM_CUBISM_MODEL_INTERCEPT =
         "turboism.cubism.model.intercept";
+    public static final String TURBOISM_CUBISM_MODEL_READ =
+        "turboism.cubism.model.read";
+    public static final String TURBOISM_CUBISM_MODEL_WRITE =
+        "turboism.cubism.model.write";
     public static final String TURBOISM_EVENT_PUBLISH = "turboism.event.publish";
     public static final String TURBOISM_EVENT_SUBSCRIBE = "turboism.event.subscribe";
     public static final String TURBOISM_FILE_READ = "turboism.file.read";
