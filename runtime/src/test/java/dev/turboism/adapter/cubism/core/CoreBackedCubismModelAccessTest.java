@@ -122,7 +122,7 @@ class CoreBackedCubismModelAccessTest {
             assertEquals(0.75F, part.getOpacity());
             assertEquals(-1, part.parentIndex());
             assertEquals(BlendMode.ADDITIVE, drawable.blendMode());
-            assertEquals(4, drawable.renderOrder());
+            assertEquals(7, drawable.renderOrder());
             assertEquals(new Color(1.0F, 0.5F, 0.25F, 1.0F), drawable.multiplyColor());
             assertEquals(6, drawable.vertexPositions().size());
             assertEquals(2, drawable.indices().get(2));
@@ -137,6 +137,47 @@ class CoreBackedCubismModelAccessTest {
             coreModel.getDrawables().vertexPositions()[0][0] = 12.0F;
             assertEquals(99.0F, copied.get(0));
             assertThrows(UnsupportedOperationException.class, () -> part.setOpacity(0.5F));
+        }
+    }
+
+    @Test
+    void normalizesFiveTwoBlendModeFromPublicConstantFlags() {
+        final TestCoreApiFixture.Model coreModel = model(
+            new String[]{"Additive", "Multiplicative", "Normal"},
+            new float[]{0.0F, 0.0F, 0.0F},
+            TestCoreApiFixture.Parts.empty(),
+            new TestCoreApiFixture.Drawables(
+                new String[]{"Additive", "Multiplicative", "Normal"},
+                new byte[]{1, 2, 0}, new byte[]{0, 0, 0}, new int[]{0, 0, 0},
+                new int[]{0, 0, 0}, new int[]{0, 1, 2}, new int[]{10, 11, 12},
+                new float[]{1.0F, 1.0F, 1.0F},
+                new int[]{0, 0, 0}, new int[][]{{}, {}, {}},
+                new int[]{0, 0, 0}, new float[][]{{}, {}, {}}, new float[][]{{}, {}, {}},
+                new int[]{0, 0, 0}, new short[][]{{}, {}, {}},
+                new float[][]{
+                    {1.0F, 1.0F, 1.0F, 1.0F},
+                    {1.0F, 1.0F, 1.0F, 1.0F},
+                    {1.0F, 1.0F, 1.0F, 1.0F}
+                },
+                new float[][]{
+                    {0.0F, 0.0F, 0.0F, 1.0F},
+                    {0.0F, 0.0F, 0.0F, 1.0F},
+                    {0.0F, 0.0F, 0.0F, 1.0F}
+                },
+                new int[]{-1, -1, -1}, new int[]{-1, -1, -1},
+                new int[]{0, 0, 0}, new int[][]{{}, {}, {}}
+            ),
+            TestCoreApiFixture.Deformers.empty(),
+            TestCoreApiFixture.Glues.empty()
+        );
+
+        try (Harness harness = harness("5.2", coreModel)) {
+            assertEquals(
+                List.of(BlendMode.ADDITIVE, BlendMode.MULTIPLICATIVE, BlendMode.NORMAL),
+                harness.access.active().drawables().all().stream()
+                    .map(drawable -> drawable.blendMode())
+                    .toList()
+            );
         }
     }
 
