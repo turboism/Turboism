@@ -555,49 +555,6 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess {
         throw new NoSuchElementException("Cubism parameter is absent: " + id.value());
     }
 
-    private FloatSequence parameterKeyValues(final Object model, final ParameterId id) {
-        requireParameterBindingReadAuthorized();
-        final Object source = source(model, id);
-        final Object grid = resolver.invoke("cubism.editor-model.parameter-controllable.keyform-grid", source);
-        final Object rawBindings = resolver.invoke("cubism.editor-model.keyform-grid.bindings", grid);
-        if (!(rawBindings instanceof Iterable<?> bindings)) {
-            throw unavailable("Editor parameter key values are unavailable.");
-        }
-        for (Object binding : bindings) {
-            final Object rawId = resolver.invoke("cubism.editor-model.keyform-binding.parameter-id", binding);
-            final String bindingId = text(resolver.invoke("cubism.editor-model.id.value", rawId));
-            if (!id.value().equals(bindingId)) continue;
-            final Object rawKeys = resolver.invoke("cubism.editor-model.keyform-binding.keys", binding);
-            if (!(rawKeys instanceof Iterable<?> keys)) {
-                throw unavailable("Editor parameter key values are unavailable.");
-            }
-            final List<Float> values = new ArrayList<>();
-            for (Object key : keys) values.add(number(key));
-            return floatSequence(values);
-        }
-        throw unavailable("Editor parameter key values are unavailable.");
-    }
-
-    private void requireParameterBindingReadAuthorized() {
-        if (!resolver.authorizesFeature(
-            dev.turboism.mapping.verification.EditorParameterBindingReadSelectorContract.ADAPTER_SLICE_ID,
-            dev.turboism.mapping.verification.EditorParameterBindingReadSelectorContract.CAPABILITY_ID,
-            dev.turboism.mapping.verification.EditorParameterBindingReadSelectorContract.REQUIRED_ALIASES
-        )) {
-            throw new UnsupportedOperationException(
-                "Editor parameter key values require exact verified host evidence."
-            );
-        }
-    }
-
-    private static FloatSequence floatSequence(final List<Float> values) {
-        final float[] copy = new float[values.size()];
-        for (int index = 0; index < copy.length; index++) copy[index] = values.get(index);
-        return new FloatSequence() {
-            @Override public int size() { return copy.length; }
-            @Override public float get(final int index) { return copy[index]; }
-        };
-    }
 
     private ParameterBinding parameter(final Object model, final ParameterId id) {
         return parameters(model).stream()
@@ -742,7 +699,7 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess {
         }
         @Override public ParameterId id() { current(); return id; }
         @Override public int index() { current(); return parameterIndex(model, id); }
-        @Override public FloatSequence keyValues() { current(); return parameterKeyValues(model, id); }
+        @Override public FloatSequence keyValues() { current(); return Parameter.super.keyValues(); }
         @Override public Optional<String> name() {
             final Object value = resolver.invoke("cubism.editor-model.parameter-source.name", source());
             if (value == null) {
