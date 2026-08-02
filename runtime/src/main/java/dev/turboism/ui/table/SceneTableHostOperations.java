@@ -25,7 +25,8 @@ import java.util.Locale;
 import java.util.Map;
 
 /** Exact 5.3.02 Scene palette host operations ported from the validated legacy path. */
-public final class SceneTableHostOperations implements RuntimeSceneTableService.Host {
+public final class SceneTableHostOperations implements RuntimeSceneTableService.Host,
+    dev.turboism.ui.filter.PaletteFilterHostOperations.SceneFilterSink {
 
     private static final int FAST_CONNECT_ATTEMPTS = 600;
     private static final int CONNECT_DELAY_MS = 250;
@@ -36,6 +37,8 @@ public final class SceneTableHostOperations implements RuntimeSceneTableService.
     private static final String PALETTE_PROPERTY = "dev.turboism.scenePalette";
 
     private final RuntimeSceneTableService service;
+    private volatile String filterText = "";
+    private volatile List<Object> currentOrder;
     private volatile Object palette;
     private JTable table;
     private MouseInputAdapter headerClickListener;
@@ -105,6 +108,45 @@ public final class SceneTableHostOperations implements RuntimeSceneTableService.
     }
 
 
+    @Override
+    public void setSceneFilter(final String keyword) {
+        onEdt(() -> {
+            filterText = keyword == null ? "" : keyword.trim().toLowerCase(Locale.ROOT);
+            applyViewState();
+        });
+    }
+
+    /** Rebuilds the visible table cells from the full document list plus the active filter. */
+    private void applyViewState() {
+        final Object currentPalette = palette;
+        final JTable currentTable = table;
+        final List<Object> rows = tableData(currentPalette);
+        if (currentPalette == null || currentTable == null || rows == null) return;
+        final List<Object> documents = currentOrder != null
+            ? new ArrayList<>(currentOrder)
+            : new ArrayList<>(sceneDocs(currentPalette));
+        final List<Object> visible = new ArrayList<>();
+        for (Object document : documents) {
+            if (matchesSceneFilter(document, filterText)) {
+                visible.add(document);
+            }
+        }
+        rewriteTableRows(rows, visible);
+        fireTableChanged(currentTable);
+    }
+
+    private static boolean matchesSceneFilter(final Object document, final String keyword) {
+        if (keyword == null || keyword.isEmpty()) {
+            return true;
+        }
+        final Object source = invoke(document, "getSceneSource");
+        final Object movieInfo = source == null ? null : invoke(source, "getMovieInfo");
+        final String haystack = (text(invoke(source, "getSceneName")) + "\n"
+            + text(invoke(movieInfo, "getDisplayDuration")) + "\n"
+            + text(invoke(source, "getTag"))).toLowerCase(Locale.ROOT);
+        return haystack.contains(keyword);
+    }
+
     public void disconnect() {
         connectionToken++;
         onEdt(() -> {
@@ -138,6 +180,7 @@ public final class SceneTableHostOperations implements RuntimeSceneTableService.
         }
         palette = nativePalette;
         table = resolvedTable;
+        currentOrder = null;
         table.putClientProperty(PALETTE_PROPERTY, new java.lang.ref.WeakReference<>(nativePalette));
         ensureHeaderClickHandler();
         installManualReordering();
@@ -197,8 +240,8 @@ public final class SceneTableHostOperations implements RuntimeSceneTableService.
         if (ordered.size() != currentDocuments.size()) return;
 
         if (persistNativeOrder) replaceSceneDocOrder(currentPalette, ordered, true);
-        rewriteTableRows(rows, ordered);
-        fireTableChanged(currentTable);
+        currentOrder = new ArrayList<>(ordered);
+        applyViewState();
         if (persistNativeOrder) notifySceneOrderChanged(currentPalette);
         if (persistNativeOrder) {
             final SceneTableService.TableSnapshot changed = snapshot(currentPalette);
@@ -300,8 +343,8 @@ public final class SceneTableHostOperations implements RuntimeSceneTableService.
         documents.add(targetRow, moving);
         final List<Object> ordered = new ArrayList<>(documents);
         syncAnimationOrder(currentPalette, ordered);
-        rewriteTableRows(rows, ordered);
-        fireTableChanged(currentTable);
+        currentOrder = new ArrayList<>(ordered);
+        applyViewState();
         notifySceneOrderChanged(currentPalette);
         if (!sameOrder(sceneDocs(currentPalette), ordered)) {
             final List<Object> restoredDocuments = sceneDocs(currentPalette);
