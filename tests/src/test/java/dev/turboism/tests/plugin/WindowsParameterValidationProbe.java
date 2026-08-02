@@ -2518,7 +2518,9 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
     }
 
     private static void pressShortcut(final java.awt.Robot robot, final int key) throws Exception {
-        if ((key == java.awt.event.KeyEvent.VK_Z || key == java.awt.event.KeyEvent.VK_Y)
+        if ((key == java.awt.event.KeyEvent.VK_Z
+            || key == java.awt.event.KeyEvent.VK_Y
+            || key == java.awt.event.KeyEvent.VK_W)
             && invokeMenuShortcut(key)) {
             Thread.sleep(250L);
             return;
