@@ -12,6 +12,7 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
+import java.util.Optional;
 
 /** Exact, generation-bound Editor authoring projection for Part opacity. */
 final class EditorPartOpacityAccess {
@@ -346,13 +347,19 @@ final class EditorPartOpacityAccess {
     }
 
     private int parentIndex(final Object source, final Object model, final Object partSource) {
+        return parentIndex(bindings(source, model), partSource);
+    }
+
+    private int parentIndex(final List<PartBinding> parts, final Object partSource) {
         final Object parent = resolver.invoke("cubism.editor-model.part-source.parent", partSource);
-        if (parent == null) return -1;
-        final List<PartBinding> parts = bindings(source, model);
+        return parent == null ? -1 : partIndex(parts, parent);
+    }
+
+    private static int partIndex(final List<PartBinding> parts, final Object partSource) {
         for (int index = 0; index < parts.size(); index++) {
-            if (parts.get(index).source() == parent) return index;
+            if (parts.get(index).source() == partSource) return index;
         }
-        throw unavailable("Editor Part parent is outside the active Part collection.");
+        throw unavailable("Editor Part is outside the active Part collection.");
     }
 
     private void requireProjectionAuthorization() {
@@ -448,6 +455,25 @@ final class EditorPartOpacityAccess {
         }
 
         @Override public PartId id() { current(); return id; }
+        @Override public int index() {
+            final PartBinding value = current();
+            return partIndex(bindings(source, model), value.source());
+        }
+        @Override public Optional<PartId> parentId() {
+            final PartBinding value = current();
+            final List<PartBinding> parts = bindings(source, model);
+            final int parent = EditorPartOpacityAccess.this.parentIndex(parts, value.source());
+            return parent < 0 ? Optional.empty() : Optional.of(parts.get(parent).id());
+        }
+        @Override public List<PartId> childIds() {
+            final PartBinding value = current();
+            final List<PartBinding> parts = bindings(source, model);
+            final int index = partIndex(parts, value.source());
+            return parts.stream()
+                .filter(candidate -> EditorPartOpacityAccess.this.parentIndex(parts, candidate.source()) == index)
+                .map(PartBinding::id)
+                .toList();
+        }
         @Override public String name() { return EditorPartOpacityAccess.this.name(current()); }
         @Override public void setName(final String name) {
             EditorPartOpacityAccess.this.setName(
