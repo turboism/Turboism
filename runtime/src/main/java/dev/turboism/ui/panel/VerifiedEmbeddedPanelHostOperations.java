@@ -3,6 +3,7 @@ package dev.turboism.ui.panel;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.action.UiActionEvent;
+import dev.turboism.sdk.ui.context.PanelTabSelection;
 
 import javax.swing.JComponent;
 import javax.swing.JMenu;
@@ -38,6 +39,7 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
     private static final String WORKSPACE_ACTIVATE = "cubism.ui-panel.workspace.activate";
     private static final String WORKSPACE_PALETTE_BOX_FOR =
         "cubism.ui-panel.workspace.palette-box-for";
+    private static final String PALETTE_BOX_CLASS = "cubism.ui-panel.palette-box.class";
     private static final String PALETTE_BOX_REMOVE_TAB = "cubism.ui-panel.palette-box.remove-tab";
     private static final String PALETTE_MANAGER_REMOVE_UPDATE =
         "cubism.ui-panel.palette-manager.remove-update";
@@ -66,6 +68,11 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
     private static final String PALETTE_FRAME_ROOT = "cubism.ui-panel.palette-frame.root";
     private static final String PALETTE_FRAME_WINDOW = "cubism.ui-panel.palette-frame.window";
     private static final String PALETTE_FRAME_DISPOSE = "cubism.ui-panel.palette-frame.dispose";
+    private static final String WORKSPACE_ROOT_CONTAINER = "cubism.ui-panel.workspace.root-container";
+    private static final String ROOT_COMPONENT = "cubism.ui-panel.root.component";
+    private static final String SPLIT_CONTENTS = "cubism.ui-panel.split.contents";
+    private static final String SPLIT_REMOVE = "cubism.ui-panel.split.remove";
+    private static final String COMPONENT_PALETTE_COUNT = "cubism.ui-panel.component.palette-count";
     private static final String ROOT_SET_COMPONENT = "cubism.ui-panel.root.set-component";
     private static final String WINDOW_SET_VISIBLE = "cubism.ui-panel.window.set-visible";
     private static final String PALETTE_ID_CREATE = "cubism.ui-panel.palette-id.create";
@@ -82,6 +89,7 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
     private static final String WIDGET_REPAINT = "cubism.ui-panel.widget.repaint";
     private static final String MENU_ITEMS = "cubism.ui-panel.menu.items";
     private static final String MENU_ADD = "cubism.ui-panel.menu.add";
+    private static final String TAB_POPUP_ADD = "cubism.ui-panel.dock-tab-popup.menu-append";
     private static final String MENU_SWING = "cubism.ui-panel.menu.swing";
     private static final String MENU_ITEM_CREATE = "cubism.ui-panel.menu-item.create";
     private static final String MENU_ITEM_SWING = "cubism.ui-panel.menu-item.swing";
@@ -92,9 +100,20 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
     private final VerifiedMemberResolver resolver;
     private final Map<Object, NativePanel> panels = new IdentityHashMap<>();
     private final Map<Object, FloatingPanel> floatingPanels = new IdentityHashMap<>();
+    private final FloatingFrameLifecycle floatingFrameLifecycle = new FloatingFrameLifecycle();
+    private long hostGeneration = Long.MIN_VALUE;
 
     public VerifiedEmbeddedPanelHostOperations(final VerifiedMemberResolver resolver) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
+
+    }
+
+    @Override
+    public void bindHostGeneration(final long generation) {
+        if (generation <= 0) {
+            throw new IllegalArgumentException("generation must be positive");
+        }
+        hostGeneration = generation;
     }
 
     @Override
@@ -115,14 +134,52 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
     }
 
 
-    /** Removes only host palette boxes that Cubism itself identifies as empty. */
+    /** Removes empty dock palette boxes from the current workspace split tree. */
     public void cleanEmptyDocks() {
         onEdt(() -> {
             final NativeDock dock = resolveDock();
+            final Object workspace = currentWorkspace(dock);
+            final Object rootContainer = resolver.invoke(WORKSPACE_ROOT_CONTAINER, workspace);
+            if (rootContainer == null) {
+                throw new IllegalStateException("Cubism workspace root container is unavailable");
+            }
+            final Object rootComponent = resolver.invoke(ROOT_COMPONENT, rootContainer);
+            if (rootComponent == null) {
+                throw new IllegalStateException("Cubism workspace root component is unavailable");
+            }
+            pruneEmptyBoxes(rootComponent);
             resolver.invoke(PALETTE_MANAGER_VERIFY_CLEANUP, dock.paletteManager());
             refresh(dock);
             return null;
         });
+    }
+
+    /**
+     * Recursively removes empty palette boxes and split branches.
+     * The root component itself is never removed; singleton branches stay intact because
+     * no verified reparent operation exists.
+     */
+    void pruneEmptyBoxes(final Object component) {
+        if (component == null || isPaletteBox(component)) {
+            return;
+        }
+        for (Object child : new ArrayList<>(splitContents(component))) {
+            Objects.requireNonNull(child, "Cubism split child");
+            if (isEmptyDockComponent(child)) {
+                System.err.println(
+                    "Turboism removing empty dock component: " + child.getClass().getName()
+                );
+                resolver.invoke(SPLIT_REMOVE, component, child);
+            }
+        }
+    }
+
+    private boolean isEmptyDockComponent(final Object component) {
+        if (isPaletteBox(component)) {
+            return (Integer) resolver.invoke(COMPONENT_PALETTE_COUNT, component) == 0;
+        }
+        pruneEmptyBoxes(component);
+        return splitContents(component).isEmpty();
     }
 
     private PanelHandle install(
@@ -224,16 +281,16 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
     private void augmentNativeTabMenu(
         final Object menu,
         final Object palette,
-        final List<dev.turboism.sdk.ui.context.ContextMenuRegistry.ContextMenuContribution> contributions
+        final List<PanelTabMenuContribution> contributions
     ) {
         final boolean floating = floatingPanels.containsKey(palette);
         final String context = floating ? "panel.floating" : "panel.docked";
         contributions.stream()
-            .filter(value -> value.context().equals(context))
-            .filter(value -> value.operation()
+            .filter(value -> value.contribution().context().equals(context))
+            .filter(value -> value.contribution().operation()
                 == dev.turboism.sdk.ui.context.ContextMenuRegistry.Operation.TOGGLE_PANEL_FLOATING)
             .sorted(java.util.Comparator.comparingInt(
-                dev.turboism.sdk.ui.context.ContextMenuRegistry.ContextMenuContribution::priority
+                value -> value.contribution().priority()
             ))
             .forEach(value -> {
                 final Object callback = resolver.createFunctionalConstructorArgumentProxy(
@@ -244,8 +301,15 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
                         return kotlinUnit();
                     }
                 );
-                final Object nativeItem = resolver.construct(MENU_ITEM_CREATE, value.label(), null, callback);
-                resolver.invoke(MENU_ADD, menu, nativeItem);
+                final Object nativeItem = resolver.construct(
+                    MENU_ITEM_CREATE,
+                    value.contribution().label(),
+                    null,
+                    callback
+                );
+                // The tab popup is a com.live2d.ui.menu.k container, not a CMenu;
+                // items are appended through its k#c(CMenuItem) method.
+                resolver.invoke(TAB_POPUP_ADD, menu, nativeItem);
             });
     }
 
@@ -258,7 +322,11 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
         if (paletteId == null) {
             throw new IllegalStateException("Cubism palette identity is unavailable");
         }
-        return new NativePanel(resolveDock(), palette, paletteId);
+        // Cache every palette we touch so floating/docking stays consistent for
+        // native Cubism tabs (parameter, parts, ...) as well as Turboism panels.
+        final NativePanel created = new NativePanel(resolveDock(), palette, paletteId);
+        panels.put(palette, created);
+        return created;
     }
 
     private void togglePanelFloating(final NativePanel panel) {
@@ -271,6 +339,19 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
             refresh(panel.dock());
             return null;
         });
+    }
+
+    /** Runtime action entry point; selection is validated before native lookup. */
+    public void togglePanelFloating(final PanelTabSelection selection) {
+        Objects.requireNonNull(selection, "selection");
+        if (selection.hostGeneration() != hostGeneration) {
+            throw new IllegalStateException("panel-tab selection is stale");
+        }
+        final NativePanel panel = panels.values().stream()
+            .filter(candidate -> selection.panelId().equals(String.valueOf(candidate.paletteId())))
+            .findFirst()
+            .orElseThrow(() -> new IllegalStateException("panel-tab selection is stale"));
+        togglePanelFloating(panel);
     }
 
     private void floatPanel(final NativePanel panel) {
@@ -323,21 +404,23 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
         resolver.invoke(PALETTE_MANAGER_VERIFY_CLEANUP, panel.dock().paletteManager());
         resolver.invoke(PALETTE_MANAGER_FIRE_STATE, panel.dock().paletteManager(), panel.palette());
         resolver.invoke(WINDOW_SET_VISIBLE, resolver.invoke(PALETTE_FRAME_WINDOW, frame), true);
-        floatingPanels.put(panel.palette(), new FloatingPanel(panel, siblingAnchor, frame, floatingBox));
+        floatingPanels.put(panel.palette(), new FloatingPanel(panel, siblingAnchor, sourceBox, frame, floatingBox));
+        floatingFrameLifecycle.remember(frame, panel.palette(), siblingAnchor, sourceBox);
     }
 
     private void dockFloatingPanel(final FloatingPanel floating) {
         if (floating == null) {
             return;
         }
+        // Consume the lifecycle entries before the frame is disposed: the verified
+        // dispose transformer fires afterDispose for this same frame, and the entries
+        // must already be gone so the callback does not dock the palette a second time.
+        floatingFrameLifecycle.beginClose(floating.frame());
         final NativePanel panel = floating.panel();
         final Object workspace = currentWorkspace(panel.dock());
-        Object targetBox = floating.siblingAnchor() == null
-            ? null
-            : resolver.invoke(WORKSPACE_PALETTE_BOX_FOR, workspace, floating.siblingAnchor());
-        if (targetBox == null) {
-            targetBox = resolver.invoke(WORKSPACE_FIRST_PALETTE_BOX, workspace);
-        }
+        final Object targetBox = resolveDockTargetBox(
+            workspace, floating.siblingAnchor(), floating.originalBox()
+        );
         if (targetBox == null) {
             throw new IllegalStateException("Cubism dock target is unavailable");
         }
@@ -351,10 +434,112 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
             floating.floatingBox(),
             paletteArray(panel.palette())
         );
-        resolver.invoke(WORKSPACE_REMOVE_PALETTE_FRAME, workspace, floating.frame());
-        resolver.invoke(PALETTE_FRAME_DISPOSE, floating.frame());
+    }
+
+
+    /**
+     * Prefers the palette's original dock box (where it lived before floating),
+     * falling back to the sibling anchor box, then the first palette box.
+     */
+    private Object resolveDockTargetBox(
+        final Object workspace,
+        final Object siblingAnchor,
+        final Object originalBox
+    ) {
+        if (originalBox != null && isDockBoxInWorkspaceTree(workspace, originalBox)) {
+            return originalBox;
+        }
+        if (siblingAnchor != null) {
+            final Object siblingBox = resolver.invoke(
+                WORKSPACE_PALETTE_BOX_FOR, workspace, siblingAnchor
+            );
+            if (siblingBox != null) {
+                return siblingBox;
+            }
+        }
+        return resolver.invoke(WORKSPACE_FIRST_PALETTE_BOX, workspace);
+    }
+
+    /** Returns whether the exact box identity is still attached to the current workspace tree. */
+    boolean isDockBoxInWorkspaceTree(final Object workspace, final Object box) {
+        if (workspace == null || box == null) {
+            return false;
+        }
+        try {
+            final Object rootContainer = resolver.invoke(WORKSPACE_ROOT_CONTAINER, workspace);
+            if (rootContainer == null) {
+                return false;
+            }
+            return containsComponent(resolver.invoke(ROOT_COMPONENT, rootContainer), box);
+        } catch (RuntimeException failure) {
+            System.err.println(
+                "Turboism original dock box tree validation failed safely: "
+                    + failure.getClass().getName() + ": " + failure.getMessage()
+            );
+            return false;
+    }
+    }
+
+    private boolean containsComponent(final Object component, final Object target) {
+        if (component == target) {
+            return true;
+        }
+        if (component == null || isPaletteBox(component)) {
+            return false;
+        }
+        for (Object child : splitContents(component)) {
+            if (containsComponent(child, target)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean isPaletteBox(final Object component) {
+        return resolver.isInstance(PALETTE_BOX_CLASS, component);
+    }
+
+    private List<?> splitContents(final Object splitContainer) {
+        final Object rawContents = resolver.invoke(SPLIT_CONTENTS, splitContainer);
+        if (rawContents instanceof List<?> contents) {
+            return contents;
+        }
+        throw new IllegalStateException("Cubism split contents are not a list");
+    }
+
+    private void dockEntry(
+        final Object workspace,
+        final Object sourceBox,
+        final NativePanel panel,
+        final Object siblingAnchor,
+        final Object originalBox
+    ) {
+        final Object targetBox = resolveDockTargetBox(workspace, siblingAnchor, originalBox);
+        if (targetBox == null) {
+            throw new IllegalStateException("Cubism dock target is unavailable");
+        }
+        // Idempotent docking: skip when the palette is already in the target box,
+        // which can happen when the tab close and the frame dispose both fire.
+        if (paletteBoxContains(targetBox, panel.palette())) {
+            System.err.println(
+                "Turboism dock entry skipped: palette already docked in target box"
+            );
+            return;
+        }
+        resolver.invoke(PALETTE_BOX_REMOVE_TAB, sourceBox, panel.palette());
+        resolver.invoke(PALETTE_BOX_ADD_TAB, targetBox, panel.palette());
+        resolver.invoke(PALETTE_BOX_SET_SELECTED, targetBox, panel.paletteId());
+        resolver.invoke(
+            PALETTE_MANAGER_REMOVE_UPDATE,
+            panel.dock().paletteManager(),
+            workspace,
+            sourceBox,
+            paletteArray(panel.palette())
+        );
         resolver.invoke(PALETTE_MANAGER_VERIFY_CLEANUP, panel.dock().paletteManager());
         resolver.invoke(PALETTE_MANAGER_FIRE_STATE, panel.dock().paletteManager(), panel.palette());
+        // Restore palette visibility in the dock wrapper, matching the legacy merge path.
+        resolver.invoke(DOCK_SET_PALETTE_VISIBLE, panel.dock().dockManager(), panel.palette(), true);
     }
 
     private Object findPaletteBox(final NativePanel panel) {
@@ -376,6 +561,103 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
         final Object array = java.lang.reflect.Array.newInstance(palette.getClass(), 1);
         java.lang.reflect.Array.set(array, 0, palette);
         return array;
+    }
+
+    private boolean paletteBoxContains(final Object box, final Object palette) {
+        if (box == null || palette == null) {
+            return false;
+        }
+        final Object rawPalettes = resolver.invoke(PALETTE_BOX_PALETTES, box);
+        if (!(rawPalettes instanceof List<?> palettes)) {
+            return false;
+        }
+        for (Object candidate : palettes) {
+            if (candidate == palette) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Handles the exact palette-frame disposal callback after the host has detached the frame. */
+    public void onFloatingFrameDisposed(final Object frame) {
+        if (frame == null) {
+            return;
+        }
+        final List<FloatingFrameLifecycle.Entry> entries = floatingFrameLifecycle.beginClose(frame);
+        if (entries.isEmpty()) {
+            return;
+        }
+        onEdt(() -> {
+            final FloatingPanel template = entries.stream()
+                .map(entry -> floatingPanels.get(entry.palette()))
+                .filter(Objects::nonNull)
+                .findFirst()
+                .orElse(null);
+            if (template == null) {
+                return null;
+            }
+            final Object workspace = currentWorkspace(template.panel().dock());
+            for (FloatingFrameLifecycle.Entry entry : entries) {
+                // Any palette can be floating; the FloatingPanel carries the NativePanel.
+                final FloatingPanel floating = floatingPanels.get(entry.palette());
+                if (floating == null) {
+                    continue;
+                }
+                // The palette lives in the floating palette box, not in any workspace box.
+                final Object sourceBox = floating.floatingBox();
+                if (sourceBox != null) {
+                    dockEntry(
+                        workspace,
+                        sourceBox,
+                        floating.panel(),
+                        entry.siblingAnchor(),
+                        entry.originalBox()
+                    );
+                }
+                floatingPanels.remove(entry.palette());
+            }
+            refresh(template.panel().dock());
+            return null;
+        });
+    }
+
+    /**
+     * Handles the floating-tab close button callback. When the palette is floating,
+     * it is docked back and the native close is cancelled; otherwise the native close
+     * proceeds unchanged.
+     *
+     * @param palette the native palette whose floating tab was closed by the user
+     * @return {@code true} when the native close was cancelled and the palette docked
+     */
+    public boolean onFloatingTabCloseRequested(final Object palette) {
+        if (palette == null) {
+            return false;
+        }
+        if (!floatingPanels.containsKey(palette)) {
+            return false;
+        }
+        final NativePanel panel = nativePanel(palette);
+        final FloatingPanel floating = floatingPanels.get(palette);
+        onEdt(() -> {
+            final Object workspace = currentWorkspace(panel.dock());
+            System.err.println(
+                "Turboism floating-tab close: docking palette class=" + palette.getClass().getName()
+                    + " frame=" + floating.frame().getClass().getName()
+            );
+            dockEntry(
+                workspace,
+                floating.floatingBox(),
+                panel,
+                floating.siblingAnchor(),
+                floating.originalBox()
+            );
+            floatingPanels.remove(palette);
+            floatingFrameLifecycle.forget(palette);
+            refresh(panel.dock());
+            return null;
+        });
+        return true;
     }
 
     private static void closeRegistrations(final List<Registration> registrations) {
@@ -631,6 +913,7 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
     private record FloatingPanel(
         NativePanel panel,
         Object siblingAnchor,
+        Object originalBox,
         Object frame,
         Object floatingBox
     ) {

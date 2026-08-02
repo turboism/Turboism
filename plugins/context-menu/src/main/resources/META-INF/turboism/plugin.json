@@ -20,13 +20,7 @@
     "locales": ["base", "en", "ja", "ko", "zh_Hans", "zh_Hant"]
   },
   "dependencies": [],
-  "permissions": [
-    {
-      "id": "turboism.ui.context-menu.contribute",
-      "scope": "application",
-      "reason": "Contributes typed panel-tab dock and float menu operations."
-    }
-  ],
+  "permissions": [],
   "capabilities": [],
   "environment": {
     "requiresCubism": true,

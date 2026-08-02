@@ -28,6 +28,10 @@ public final class TurboismAgent {
         new AtomicReference<>();
     private static final AtomicReference<VerifiedDockTabPopupHookInstaller> DOCK_TAB_POPUP_HOOK =
         new AtomicReference<>();
+    private static final AtomicReference<VerifiedFloatingFrameDisposeHookInstaller> FLOATING_FRAME_DISPOSE_HOOK =
+        new AtomicReference<>();
+    private static final AtomicReference<VerifiedFloatingTabCloseHookInstaller> FLOATING_TAB_CLOSE_HOOK =
+        new AtomicReference<>();
     private static final AtomicReference<VerifiedObjectContextMenuHookInstaller> OBJECT_CONTEXT_MENU_HOOK =
         new AtomicReference<>();
     private static final AtomicReference<VerifiedParameterPointContextMenuHookInstaller> PARAMETER_POINT_MENU_HOOK =
@@ -184,6 +188,17 @@ public final class TurboismAgent {
                 instrumentation,
                 host
             );
+            installFloatingFrameDisposeHook(
+                embeddedPanelVerificationRecord,
+                instrumentation,
+                host,
+                runtime
+            );
+            installFloatingTabCloseHook(
+                embeddedPanelVerificationRecord,
+                instrumentation,
+                host
+            );
             installObjectContextMenuHook(runtime, instrumentation, host);
             installPhysicsEditorHook(runtime, instrumentation, host);
             installBoundingBoxOverlayHook(runtime, instrumentation);
@@ -282,6 +297,60 @@ public final class TurboismAgent {
             if (installer != null) installer.close();
             System.err.println(
                 "Turboism dock-tab popup hook disabled safely: " + failure.getClass().getName()
+            );
+        }
+    }
+
+    private static void installFloatingFrameDisposeHook(
+        final Path embeddedPanelVerificationRecord,
+        final Instrumentation instrumentation,
+        final HostClassLocator.LocatedHost host,
+        final PreviewRuntime runtime
+    ) {
+        VerifiedFloatingFrameDisposeHookInstaller installer = null;
+        try {
+            final var resolver = new dev.turboism.mapping.verification.VerifiedEmbeddedPanelResolverFactory()
+                .create(embeddedPanelVerificationRecord, host.artifact(), host.classLoader());
+            installer = new VerifiedFloatingFrameDisposeHookInstaller(
+                instrumentation,
+                resolver.verifiedSelector("cubism.ui-panel.palette-frame.raw-disposed"),
+                host.classLoader()
+            );
+            installer.install();
+            if (!FLOATING_FRAME_DISPOSE_HOOK.compareAndSet(null, installer)) installer.close();
+            System.err.println("Turboism floating-frame dispose hook installed");
+        } catch (Throwable failure) {
+            if (installer != null) installer.close();
+            System.err.println(
+                "Turboism floating-frame dispose hook disabled safely: "
+                    + failure.getClass().getName()
+            );
+        }
+    }
+
+    private static void installFloatingTabCloseHook(
+        final Path embeddedPanelVerificationRecord,
+        final Instrumentation instrumentation,
+        final HostClassLocator.LocatedHost host
+    ) {
+        VerifiedFloatingTabCloseHookInstaller installer = null;
+        try {
+            final var resolver = new dev.turboism.mapping.verification.VerifiedEmbeddedPanelResolverFactory()
+                .create(embeddedPanelVerificationRecord, host.artifact(), host.classLoader());
+            installer = new VerifiedFloatingTabCloseHookInstaller(
+                instrumentation,
+                resolver.verifiedSelector("cubism.ui-panel.floating-tab-close.operation"),
+                resolver.verifiedSelector("cubism.ui-panel.floating-tab-close.palette-field"),
+                host.classLoader()
+            );
+            installer.install();
+            if (!FLOATING_TAB_CLOSE_HOOK.compareAndSet(null, installer)) installer.close();
+            System.err.println("Turboism floating-tab close hook installed");
+        } catch (Throwable failure) {
+            if (installer != null) installer.close();
+            System.err.println(
+                "Turboism floating-tab close hook disabled safely: "
+                    + failure.getClass().getName()
             );
         }
     }
@@ -493,6 +562,24 @@ public final class TurboismAgent {
                 dockTabPopupHook.close();
             } catch (Throwable failure) {
                 System.err.println("Turboism dock-tab popup hook cleanup failed safely");
+            }
+        }
+        final VerifiedFloatingFrameDisposeHookInstaller floatingFrameHook =
+            FLOATING_FRAME_DISPOSE_HOOK.getAndSet(null);
+        if (floatingFrameHook != null) {
+            try {
+                floatingFrameHook.close();
+            } catch (Throwable failure) {
+                System.err.println("Turboism floating-frame dispose hook cleanup failed safely");
+            }
+        }
+        final VerifiedFloatingTabCloseHookInstaller floatingTabCloseHook =
+            FLOATING_TAB_CLOSE_HOOK.getAndSet(null);
+        if (floatingTabCloseHook != null) {
+            try {
+                floatingTabCloseHook.close();
+            } catch (Throwable failure) {
+                System.err.println("Turboism floating-tab close hook cleanup failed safely");
             }
         }
         final VerifiedParameterHookInstaller parameterHook = PARAMETER_HOOK.getAndSet(null);

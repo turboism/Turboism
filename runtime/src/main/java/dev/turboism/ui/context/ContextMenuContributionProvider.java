@@ -88,11 +88,16 @@ public final class ContextMenuContributionProvider implements EditorUiContributi
         }
         final List<Registration> registrations = new ArrayList<>();
         if (panelTabMenus != null) {
-            panelTabMenus.update(contributions.stream()
-                .map(EditorUiContribution::descriptor)
-                .filter(dev.turboism.sdk.ui.context.ContextMenuRegistry.ContextMenuContribution.class::isInstance)
-                .map(dev.turboism.sdk.ui.context.ContextMenuRegistry.ContextMenuContribution.class::cast)
-                .filter(value -> value.target() == dev.turboism.sdk.ui.context.ContextMenuRegistry.Target.PANEL_TAB)
+            panelTabMenus.update(hostGeneration, contributions.stream()
+                .filter(value -> value.descriptor()
+                    instanceof dev.turboism.sdk.ui.context.ContextMenuRegistry.ContextMenuContribution)
+                .map(value -> new dev.turboism.ui.panel.PanelTabMenuContribution(
+                    hostGeneration,
+                    value.identity().pluginId(),
+                    (dev.turboism.sdk.ui.context.ContextMenuRegistry.ContextMenuContribution) value.descriptor()
+                ))
+                .filter(value -> value.contribution().target()
+                    == dev.turboism.sdk.ui.context.ContextMenuRegistry.Target.PANEL_TAB)
                 .toList());
         }
         try {
@@ -115,7 +120,7 @@ public final class ContextMenuContributionProvider implements EditorUiContributi
         }
         return () -> {
             closeAll(registrations);
-            if (panelTabMenus != null) panelTabMenus.update(List.of());
+            if (panelTabMenus != null) panelTabMenus.update(hostGeneration, List.of());
         };
     }
 

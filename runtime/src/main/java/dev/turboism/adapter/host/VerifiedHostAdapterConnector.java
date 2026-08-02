@@ -332,6 +332,20 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         final TopMenuMaterial topMenu,
         final OverlayMaterial overlay
     ) {
+        final dev.turboism.ui.panel.VerifiedEmbeddedPanelHostOperations panelOperations = panel == null
+            ? null
+            : new dev.turboism.ui.panel.VerifiedEmbeddedPanelHostOperations(panel.resolver());
+        final dev.turboism.ui.panel.NativePanelTabFloatingBridge.Handler floatingToggle =
+            panelOperations == null ? null : panelOperations::togglePanelFloating;
+        final dev.turboism.ui.panel.NativeFloatingFrameDisposeBridge.Handler floatingDispose =
+            panelOperations == null ? null : panelOperations::onFloatingFrameDisposed;
+        final dev.turboism.ui.panel.NativeFloatingTabCloseBridge.Handler floatingTabClose =
+            panelOperations == null ? null : panelOperations::onFloatingTabCloseRequested;
+        if (panelOperations != null) {
+            dev.turboism.ui.panel.NativePanelTabFloatingBridge.install(floatingToggle);
+            dev.turboism.ui.panel.NativeFloatingFrameDisposeBridge.install(floatingDispose);
+            dev.turboism.ui.panel.NativeFloatingTabCloseBridge.install(floatingTabClose);
+        }
         return new HostAdapterConnection() {
             private long menuGeneration = Long.MIN_VALUE;
             private dev.turboism.ui.context.VerifiedObjectContextMenuHostOperations menuHandler;
@@ -441,7 +455,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                             hostGeneration,
                             verificationEvidence(panel.admission())
                         ),
-                        new VerifiedEmbeddedPanelHostOperations(panel.resolver()),
+                        panelOperations,
                         embeddedPanelActivation,
                         editorUiActionRouter,
                         panelTabMenus,
@@ -480,8 +494,15 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                 return dockMaintenance;
             }
 
+
+
             @Override
             public void close() {
+                if (panelOperations != null) {
+                    dev.turboism.ui.panel.NativePanelTabFloatingBridge.uninstall(floatingToggle);
+                    dev.turboism.ui.panel.NativeFloatingFrameDisposeBridge.uninstall(floatingDispose);
+                    dev.turboism.ui.panel.NativeFloatingTabCloseBridge.uninstall(floatingTabClose);
+                }
             }
         };
     }
