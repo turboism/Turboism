@@ -3,6 +3,7 @@ package dev.turboism.adapter.cubism.editor;
 import dev.turboism.mapping.verification.EditorPartNameSelectorContract;
 import dev.turboism.mapping.verification.EditorPartOpacity52SelectorContract;
 import dev.turboism.mapping.verification.EditorPartOpacitySelectorContract;
+import dev.turboism.mapping.verification.EditorPartTreeSelectorContract;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.model.Part;
 import dev.turboism.sdk.cubism.model.PartId;
@@ -77,6 +78,15 @@ final class EditorPartOpacityAccess {
             EditorPartNameSelectorContract.ADAPTER_SLICE_ID,
             EditorPartNameSelectorContract.WRITE_CAPABILITY_ID,
             EditorPartNameSelectorContract.WRITE_REQUIRED_ALIASES
+        );
+    }
+
+
+    private boolean treeAuthorized() {
+        return resolver.authorizesFeature(
+            EditorPartTreeSelectorContract.ADAPTER_SLICE_ID,
+            EditorPartTreeSelectorContract.CAPABILITY_ID,
+            EditorPartTreeSelectorContract.REQUIRED_ALIASES
         );
     }
 
@@ -363,9 +373,17 @@ final class EditorPartOpacityAccess {
     }
 
     private void requireProjectionAuthorization() {
-        if (!opacityAuthorized() && !nameAuthorized()) {
+        if (!opacityAuthorized() && !nameAuthorized() && !treeAuthorized()) {
             throw new UnsupportedOperationException(
                 "Part access is unavailable without exact verified host evidence."
+            );
+        }
+    }
+
+    private void requireTreeAuthorization() {
+        if (!treeAuthorized()) {
+            throw new UnsupportedOperationException(
+                "Part index and tree reading are unavailable without exact verified host evidence."
             );
         }
     }
@@ -419,6 +437,7 @@ final class EditorPartOpacityAccess {
         }
 
         @Override public Part find(final PartId id) {
+            modelGuard.requireCurrent(identity, model);
             final PartBinding value = binding(source, model, Objects.requireNonNull(id, "id"));
             return new EditorPart(identity, source, model, value.id(), value.source(), value.part());
         }
@@ -457,16 +476,19 @@ final class EditorPartOpacityAccess {
         @Override public PartId id() { current(); return id; }
         @Override public int index() {
             final PartBinding value = current();
+            requireTreeAuthorization();
             return partIndex(bindings(source, model), value.source());
         }
         @Override public Optional<PartId> parentId() {
             final PartBinding value = current();
+            requireTreeAuthorization();
             final List<PartBinding> parts = bindings(source, model);
             final int parent = EditorPartOpacityAccess.this.parentIndex(parts, value.source());
             return parent < 0 ? Optional.empty() : Optional.of(parts.get(parent).id());
         }
         @Override public List<PartId> childIds() {
             final PartBinding value = current();
+            requireTreeAuthorization();
             final List<PartBinding> parts = bindings(source, model);
             final int index = partIndex(parts, value.source());
             return parts.stream()
@@ -482,7 +504,9 @@ final class EditorPartOpacityAccess {
         }
         @Override public float getOpacity() { return opacity(current().part()); }
         @Override public int parentIndex() {
-            return EditorPartOpacityAccess.this.parentIndex(source, model, current().source());
+            final PartBinding value = current();
+            requireTreeAuthorization();
+            return EditorPartOpacityAccess.this.parentIndex(source, model, value.source());
         }
         @Override public void setOpacity(final float opacity) {
             EditorPartOpacityAccess.this.setOpacity(
