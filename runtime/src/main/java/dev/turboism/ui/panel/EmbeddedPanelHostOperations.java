@@ -16,6 +16,9 @@ public interface EmbeddedPanelHostOperations {
 
     Registration onRebuild(Runnable reconcile);
 
+    default void bindHostGeneration(final long generation) {
+    }
+
     default Registration bindPanelTabMenus(final PanelTabMenuCoordinator coordinator) {
         return () -> { };
     }

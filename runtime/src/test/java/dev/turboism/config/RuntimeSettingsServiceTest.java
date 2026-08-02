@@ -6,6 +6,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -57,9 +58,14 @@ class RuntimeSettingsServiceTest {
 
     @Test
     void delegatesEmptyDockCleanup() {
-        RuntimeSettingsFileService service = new RuntimeSettingsFileService(home, coordinator());
+        final AtomicInteger cleanups = new AtomicInteger();
+        final dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator coordinator =
+            new dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator();
+        coordinator.bind(1, cleanups::incrementAndGet);
+        RuntimeSettingsFileService service = new RuntimeSettingsFileService(home, coordinator);
 
         assertEquals("Empty dock cleanup completed.", service.cleanEmptyDocks().message());
+        assertEquals(1, cleanups.get());
     }
 
 
