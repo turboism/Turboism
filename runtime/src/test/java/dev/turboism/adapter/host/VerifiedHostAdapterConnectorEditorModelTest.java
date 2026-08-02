@@ -81,7 +81,8 @@ class VerifiedHostAdapterConnectorEditorModelTest {
             new dev.turboism.ui.action.RuntimeEditorUiActionRouter(),
             new dev.turboism.ui.panel.RuntimeEmbeddedPanelActivationCoordinator(),
             null,
-            new dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator()
+            new dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator(),
+            ignored -> new dev.turboism.ui.appearance.UnavailableAppearanceHostProvider()
         );
         HostVerificationEvidence.Slice project = slice("project");
         HostVerificationEvidence.Slice editor = slice("editor");

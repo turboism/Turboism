@@ -8,6 +8,7 @@ import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
+import dev.turboism.config.RuntimeConfigRepository;
 import dev.turboism.preview.LocalPluginRuntime;
 import dev.turboism.preview.PreviewLog;
 
@@ -57,6 +58,10 @@ final class LocalPluginRuntimeLoadScenario {
     }
 
     private static void loadAndAssert(final Path home) throws Exception {
+        new RuntimeConfigRepository(home, ignored -> {}).update(config -> {
+            config.put("logLevel", "DEBUG");
+            return config;
+        });
         final PreviewLog log = new PreviewLog(home.resolve("logs/turboism.log"));
         final RuntimeScheduler scheduler = scheduler();
         final HostRuntimeIngress hostIngress = new HostRuntimeIngress();
