@@ -115,6 +115,9 @@ final class TestCoreApiFixture {
             objectDescriptor(Parameters.class)
         ));
         selectors.add(instanceMethod(CorePublicApiSelectorContract.MODEL_GET_PARTS, Model.class, "getParts", objectDescriptor(Parts.class)));
+        if (CorePublicApiSelectorContract.ARTIFACT_PROFILE_5_3_02.equals(artifactProfile)) {
+            selectors.add(instanceMethod(CorePublicApiSelectorContract.MODEL_GET_RENDER_ORDERS, Model.class, "getRenderOrders", "()[I"));
+        }
         selectors.add(instanceMethod(CorePublicApiSelectorContract.MODEL_GET_DRAWABLES, Model.class, "getDrawables", objectDescriptor(Drawables.class)));
         selectors.add(instanceMethod(CorePublicApiSelectorContract.MODEL_GET_DEFORMERS, Model.class, "getDeformers", objectDescriptor(Deformers.class)));
         selectors.add(instanceMethod(CorePublicApiSelectorContract.MODEL_GET_GLUES, Model.class, "getGlues", objectDescriptor(Glues.class)));
@@ -361,6 +364,7 @@ final class TestCoreApiFixture {
         public CanvasInfo getCanvasInfo() { beforeCanvasRead.run(); return canvasInfo; }
         public Parameters getParameters() { return parameters; }
         public Parts getParts() { return parts; }
+        public int[] getRenderOrders() { return drawables.getRenderOrders(); }
         public Drawables getDrawables() { return drawables; }
         public Deformers getDeformers() { return deformers; }
         public Glues getGlues() { return glues; }
