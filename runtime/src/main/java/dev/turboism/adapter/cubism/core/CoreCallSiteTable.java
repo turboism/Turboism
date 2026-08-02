@@ -306,6 +306,7 @@ final class CoreCallSiteTable implements AutoCloseable {
         final int[][] parameters = exactNestedIntArrays(callSite(CorePublicApiSelectorContract.DRAWABLES_PARAMETERS).invoke(drawables), count, parameterCounts, "Core Drawable parameters have an invalid representation.");
         final List<CoreDrawableDefinition> values = new ArrayList<>(count);
         for (int index = 0; index < count; index++) {
+            validateFlags(constantFlags[index], dynamicFlags[index]);
             values.add(new CoreDrawableDefinition(
                 ids[index], constantFlags[index], dynamicFlags[index],
                 blendMode(blendModes[index], constantFlags[index], blendModeCallSite.isPresent()),
@@ -570,6 +571,19 @@ final class CoreCallSiteTable implements AutoCloseable {
     private static List<Integer> shorts(final short[] values) { final List<Integer> copy = new ArrayList<>(values.length); for (short value : values) copy.add((int) value); return List.copyOf(copy); }
     private static List<Float> floats(final float[] values) { final List<Float> copy = new ArrayList<>(values.length); for (float value : values) copy.add(value); return List.copyOf(copy); }
     private static Color color(final float[] values) { return new Color(values[0], values[1], values[2], values[3]); }
+    private static void validateFlags(final byte constantFlags, final byte dynamicFlags) {
+        if ((Byte.toUnsignedInt(constantFlags) & ~0x0F) != 0) {
+            throw invalid("Core Drawable constant flags contain unknown bits.");
+        }
+        if ((Byte.toUnsignedInt(dynamicFlags) & ~0x7F) != 0) {
+            throw invalid("Core Drawable dynamic flags contain unknown bits.");
+        }
+        final int flags = Byte.toUnsignedInt(constantFlags);
+        if ((flags & 0x03) == 0x03) {
+            throw invalid("Core Drawable blend flags are contradictory.");
+        }
+    }
+
     private static BlendMode blendMode(
         final int value,
         final byte constantFlags,
@@ -579,9 +593,6 @@ final class CoreCallSiteTable implements AutoCloseable {
             // Exact Core public ConstantFlag values: BLEND_ADDITIVE=1, BLEND_MULTIPLICATIVE=2,
             // IS_DOUBLE_SIDED=4, and IS_INVERTED_MASK=8.
             final int flags = Byte.toUnsignedInt(constantFlags);
-            if ((flags & ~0x0F) != 0) {
-                throw invalid("Core Drawable constant flags contain unknown bits.");
-            }
             final boolean additive = (flags & 1) != 0;
             final boolean multiplicative = (flags & 2) != 0;
             if (additive && multiplicative) {
@@ -595,7 +606,7 @@ final class CoreCallSiteTable implements AutoCloseable {
             case 0 -> BlendMode.NORMAL;
             case 1 -> BlendMode.ADDITIVE;
             case 2 -> BlendMode.MULTIPLICATIVE;
-            default -> BlendMode.ADVANCED;
+            default -> throw invalid("Core Drawable blend mode contains an unknown value.");
         };
     }
 

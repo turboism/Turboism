@@ -18,6 +18,7 @@ import dev.turboism.sdk.cubism.model.Part;
 import dev.turboism.sdk.cubism.model.Drawable;
 import dev.turboism.sdk.cubism.model.Deformer;
 import dev.turboism.sdk.cubism.model.Glue;
+import dev.turboism.sdk.cubism.model.DrawableEvaluationState;
 import dev.turboism.sdk.cubism.model.GlueId;
 import dev.turboism.sdk.cubism.model.PartId;
 import dev.turboism.sdk.cubism.model.BlendMode;
@@ -252,6 +253,13 @@ public final class CoreBackedCubismModelAccess implements CubismModelAccess {
             return definition(readGeneration(generation), id);
         }
         @Override public ParameterId id() { current(); return id; }
+        @Override public int index() {
+            final CoreStructuralSnapshot snapshot = readGeneration(generation);
+            return snapshot.parameters().indexOf(definition(snapshot, id));
+        }
+        @Override public FloatSequence keyValues() {
+            return ImmutableCoreSequences.floats(current().keyValues());
+        }
         @Override public ParameterType type() {
             return switch (current().typeNumber()) {
                 case 0 -> ParameterType.NORMAL;
@@ -279,6 +287,25 @@ public final class CoreBackedCubismModelAccess implements CubismModelAccess {
         private RuntimePart(final long generation, final PartId id) { this.generation = generation; this.id = id; }
         private CorePartDefinition current() { return part(readGeneration(generation), id); }
         @Override public PartId id() { current(); return id; }
+        @Override public int index() {
+            final CoreStructuralSnapshot snapshot = readGeneration(generation);
+            return snapshot.parts().indexOf(part(snapshot, id));
+        }
+        @Override public Optional<PartId> parentId() {
+            final CoreStructuralSnapshot snapshot = readGeneration(generation);
+            final int parentIndex = part(snapshot, id).parentIndex();
+            return parentIndex < 0
+                ? Optional.empty()
+                : Optional.of(new PartId(snapshot.parts().get(parentIndex).id()));
+        }
+        @Override public List<PartId> childIds() {
+            final CoreStructuralSnapshot snapshot = readGeneration(generation);
+            final int partIndex = snapshot.parts().indexOf(part(snapshot, id));
+            return java.util.stream.IntStream.range(0, snapshot.parts().size())
+                .filter(index -> snapshot.parts().get(index).parentIndex() == partIndex)
+                .mapToObj(index -> new PartId(snapshot.parts().get(index).id()))
+                .toList();
+        }
         @Override public void setName(final String name) { current(); throw readOnlyFailure(); }
         @Override public float getOpacity() { return current().opacity(); }
         @Override public int parentIndex() { return current().parentIndex(); }
@@ -297,6 +324,49 @@ public final class CoreBackedCubismModelAccess implements CubismModelAccess {
         private RuntimeDrawable(final long generation, final ArtMeshId id) { this.generation = generation; this.id = id; }
         private CoreDrawableDefinition current() { return drawable(readGeneration(generation), id); }
         @Override public ArtMeshId id() { current(); return id; }
+        @Override public int index() {
+            final CoreStructuralSnapshot snapshot = readGeneration(generation);
+            return snapshot.drawables().indexOf(drawable(snapshot, id));
+        }
+        @Override public boolean doubleSided() {
+            return (Byte.toUnsignedInt(current().constantFlag()) & 0x04) != 0;
+        }
+        @Override public DrawableEvaluationState evaluationState() {
+            final int flags = Byte.toUnsignedInt(current().dynamicFlag());
+            return new DrawableEvaluationState(
+                (flags & 0x01) != 0,
+                (flags & 0x02) != 0,
+                (flags & 0x04) != 0,
+                (flags & 0x08) != 0,
+                (flags & 0x10) != 0,
+                (flags & 0x20) != 0,
+                (flags & 0x40) != 0
+            );
+        }
+        @Override public Optional<PartId> parentPartId() {
+            final CoreStructuralSnapshot snapshot = readGeneration(generation);
+            final int parentIndex = drawable(snapshot, id).parentPartIndex();
+            return parentIndex < 0
+                ? Optional.empty()
+                : Optional.of(new PartId(snapshot.parts().get(parentIndex).id()));
+        }
+        @Override public Optional<DeformerId> parentDeformerId() {
+            final CoreStructuralSnapshot snapshot = readGeneration(generation);
+            final int parentIndex = drawable(snapshot, id).parentDeformerIndex();
+            return parentIndex < 0
+                ? Optional.empty()
+                : Optional.of(new DeformerId(snapshot.deformers().get(parentIndex).id()));
+        }
+        @Override public List<ParameterId> parameterIds() {
+            final CoreStructuralSnapshot snapshot = readGeneration(generation);
+            return CoreBackedCubismModelAccess.parameterIds(snapshot, drawable(snapshot, id).parameters());
+        }
+        @Override public List<ArtMeshId> maskIds() {
+            final CoreStructuralSnapshot snapshot = readGeneration(generation);
+            return drawable(snapshot, id).masks().stream()
+                .map(index -> new ArtMeshId(snapshot.drawables().get(index).id()))
+                .toList();
+        }
         @Override public byte constantFlag() { return current().constantFlag(); }
         @Override public byte dynamicFlag() { return current().dynamicFlag(); }
         @Override public BlendMode blendMode() { return current().blendMode(); }
@@ -327,6 +397,21 @@ public final class CoreBackedCubismModelAccess implements CubismModelAccess {
         private RuntimeDeformer(final long generation, final DeformerId id) { this.generation = generation; this.id = id; }
         private CoreDeformerDefinition current() { return deformer(readGeneration(generation), id); }
         @Override public DeformerId id() { current(); return id; }
+        @Override public int index() {
+            final CoreStructuralSnapshot snapshot = readGeneration(generation);
+            return snapshot.deformers().indexOf(deformer(snapshot, id));
+        }
+        @Override public Optional<DeformerId> parentDeformerId() {
+            final CoreStructuralSnapshot snapshot = readGeneration(generation);
+            final int parentIndex = deformer(snapshot, id).parentDeformerIndex();
+            return parentIndex < 0
+                ? Optional.empty()
+                : Optional.of(new DeformerId(snapshot.deformers().get(parentIndex).id()));
+        }
+        @Override public List<ParameterId> parameterIds() {
+            final CoreStructuralSnapshot snapshot = readGeneration(generation);
+            return CoreBackedCubismModelAccess.parameterIds(snapshot, deformer(snapshot, id).parameters());
+        }
         @Override public int parentDeformerIndex() { return current().parentDeformerIndex(); }
         @Override public IntSequence parameters() { return ImmutableCoreSequences.ints(current().parameters()); }
     }
@@ -343,6 +428,22 @@ public final class CoreBackedCubismModelAccess implements CubismModelAccess {
         private RuntimeGlue(final long generation, final GlueId id) { this.generation = generation; this.id = id; }
         private CoreGlueDefinition current() { return glue(readGeneration(generation), id); }
         @Override public GlueId id() { current(); return id; }
+        @Override public int index() {
+            final CoreStructuralSnapshot snapshot = readGeneration(generation);
+            return snapshot.glues().indexOf(glue(snapshot, id));
+        }
+        @Override public ArtMeshId drawableAId() {
+            final CoreStructuralSnapshot snapshot = readGeneration(generation);
+            return new ArtMeshId(snapshot.drawables().get(glue(snapshot, id).drawableA()).id());
+        }
+        @Override public ArtMeshId drawableBId() {
+            final CoreStructuralSnapshot snapshot = readGeneration(generation);
+            return new ArtMeshId(snapshot.drawables().get(glue(snapshot, id).drawableB()).id());
+        }
+        @Override public List<ParameterId> parameterIds() {
+            final CoreStructuralSnapshot snapshot = readGeneration(generation);
+            return CoreBackedCubismModelAccess.parameterIds(snapshot, glue(snapshot, id).parameters());
+        }
         @Override public int drawableA() { return current().drawableA(); }
         @Override public int drawableB() { return current().drawableB(); }
         @Override public IntSequence parameters() { return ImmutableCoreSequences.ints(current().parameters()); }
@@ -371,6 +472,15 @@ public final class CoreBackedCubismModelAccess implements CubismModelAccess {
     }
     private static CoreGlueDefinition glue(final CoreStructuralSnapshot snapshot, final GlueId id) {
         return snapshot.glues().stream().filter(value -> value.id().equals(id.value())).findFirst().orElseThrow(() -> absent("Glue", id.value()));
+    }
+
+    private static List<ParameterId> parameterIds(
+        final CoreStructuralSnapshot snapshot,
+        final List<Integer> indices
+    ) {
+        return indices.stream()
+            .map(index -> new ParameterId(snapshot.parameters().get(index).id()))
+            .toList();
     }
     private static NoSuchElementException absent(final String family, final String id) {
         return new NoSuchElementException("Cubism " + family + " is absent: " + id);
