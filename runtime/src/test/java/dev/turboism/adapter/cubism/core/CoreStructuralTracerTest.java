@@ -136,7 +136,7 @@ class CoreStructuralTracerTest {
                 .orElseThrow().size()
         );
         assertEquals(
-            70,
+            71,
             CorePublicApiSelectorContract.requiredAliasesFor("5.3.02")
                 .orElseThrow().size()
         );

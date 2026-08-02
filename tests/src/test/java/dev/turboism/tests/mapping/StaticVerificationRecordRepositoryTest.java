@@ -223,8 +223,8 @@ class StaticVerificationRecordRepositoryTest {
         "docs/migration/verification/static/cubism-5.3.02-core-model-read.json",
         coreExpectation("5.3.02", "5.3.2", 42_471L,
             "98f4dac9a9508a6e255f6f3862608409a83e29c9009a7f0fcf517e06658164e4",
-            "986bcddca88c35dc09b848ccb6737d0a70a12b2fd030a52be838ce533c687073",
-            70, "[5.3.02,5.3.03)")
+            "a527470036f5929e4283bd3f46ee35b09d1cf1d7dbc4834ef5a06abb4551b866",
+            71, "[5.3.02,5.3.03)")
     )))));
 
     private static Map<String, SliceExpectation> withEmbeddedPanels(

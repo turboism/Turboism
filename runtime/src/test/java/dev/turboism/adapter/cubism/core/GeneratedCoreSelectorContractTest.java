@@ -17,7 +17,7 @@ class GeneratedCoreSelectorContractTest {
     @Test
     void generatedContractBindsTheExactProfileSets() {
         assertEquals(
-            "c78708fe6953a9ce32928b95678d4abbeeb3e2aff2d42fafc5fce8ad02cd1579",
+            "fdcc3a45b3c9caf4a281692da2ff6989fd39b91bf46ca6ef316f7a7e6df4b607",
             CorePublicApiSelectorContract.SELECTOR_ROSTER_SHA256
         );
         assertEquals(6, CorePublicApiSelectorContract.VERSION_PROBE_ALIASES.size());
@@ -32,7 +32,7 @@ class GeneratedCoreSelectorContractTest {
                 .size()
         );
         assertEquals(
-            70,
+            71,
             CorePublicApiSelectorContract.requiredAliasesFor("5.3.02")
                 .orElseThrow()
                 .size()
@@ -44,7 +44,7 @@ class GeneratedCoreSelectorContractTest {
                 .size()
         );
         assertEquals(
-            56,
+            57,
             CorePublicApiSelectorContract.structuralMethodAliasesFor("5.3.02")
                 .orElseThrow()
                 .size()
@@ -53,6 +53,11 @@ class GeneratedCoreSelectorContractTest {
             CorePublicApiSelectorContract.requiredAliasesFor("5.3.02")
                 .orElseThrow()
                 .contains(CorePublicApiSelectorContract.PARAMETERS_GET_REPEATS)
+        );
+        assertTrue(
+            CorePublicApiSelectorContract.requiredAliasesFor("5.3.02")
+                .orElseThrow()
+                .contains(CorePublicApiSelectorContract.MODEL_GET_RENDER_ORDERS)
         );
         assertFalse(
             CorePublicApiSelectorContract.requiredAliasesFor("5.2")

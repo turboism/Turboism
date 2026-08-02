@@ -99,7 +99,7 @@ final class CoreCallSiteTable implements AutoCloseable {
         final CoreCanvasSnapshot canvasSnapshot = readCanvas(canvas);
         final List<CoreParameterDefinition> parameterDefinitions = readParameters(parameters);
         final List<CorePartDefinition> partDefinitions = readParts(parts);
-        final List<CoreDrawableDefinition> drawableDefinitions = readDrawables(drawables);
+        final List<CoreDrawableDefinition> drawableDefinitions = readDrawables(rawModel, drawables);
         final List<CoreDeformerDefinition> deformerDefinitions = readDeformers(deformers);
         final List<CoreGlueDefinition> glueDefinitions = readGlues(glues);
         validateReferences(
@@ -273,7 +273,7 @@ final class CoreCallSiteTable implements AutoCloseable {
         return List.copyOf(values);
     }
 
-    private List<CoreDrawableDefinition> readDrawables(final Object drawables) {
+    private List<CoreDrawableDefinition> readDrawables(final Object rawModel, final Object drawables) {
         final int count = count(drawables, CorePublicApiSelectorContract.DRAWABLES_COUNT, "Drawable");
         final String[] ids = exactStringArray(callSite(CorePublicApiSelectorContract.DRAWABLES_IDS).invoke(drawables), count, "Core Drawable identifiers have an invalid representation.");
         requireUniqueIds(ids, "Drawable");
@@ -283,8 +283,11 @@ final class CoreCallSiteTable implements AutoCloseable {
         final int[] drawOrders = exactIntArray(callSite(CorePublicApiSelectorContract.DRAWABLES_DRAW_ORDERS).invoke(drawables), count, "Core Drawable draw orders have an invalid representation.");
         final int[] renderOrders = optionalCallSite(CorePublicApiSelectorContract.DRAWABLES_RENDER_ORDERS)
             .map(site -> exactIntArray(site.invoke(drawables), count, "Core Drawable render orders have an invalid representation."))
-            .orElseGet(() -> drawOrders.clone());
-        final int[] blendModes = optionalCallSite(CorePublicApiSelectorContract.DRAWABLES_BLEND_MODES)
+            .orElseGet(() -> optionalCallSite(CorePublicApiSelectorContract.MODEL_GET_RENDER_ORDERS)
+                .map(site -> exactIntArray(site.invoke(rawModel), count, "Core Drawable render orders have an invalid representation."))
+                .orElseThrow(() -> invalid("Core Drawable render orders are unavailable.")));
+        final Optional<VerifiedMethodCallSite> blendModeCallSite = optionalCallSite(CorePublicApiSelectorContract.DRAWABLES_BLEND_MODES);
+        final int[] blendModes = blendModeCallSite
             .map(site -> exactIntArray(site.invoke(drawables), count, "Core Drawable blend modes have an invalid representation."))
             .orElseGet(() -> new int[count]);
         final float[] opacities = exactFloatArray(callSite(CorePublicApiSelectorContract.DRAWABLES_OPACITIES).invoke(drawables), count, "Core Drawable opacities have an invalid representation.");
@@ -304,7 +307,8 @@ final class CoreCallSiteTable implements AutoCloseable {
         final List<CoreDrawableDefinition> values = new ArrayList<>(count);
         for (int index = 0; index < count; index++) {
             values.add(new CoreDrawableDefinition(
-                ids[index], constantFlags[index], dynamicFlags[index], blendMode(blendModes[index]),
+                ids[index], constantFlags[index], dynamicFlags[index],
+                blendMode(blendModes[index], constantFlags[index], blendModeCallSite.isPresent()),
                 textureIndices[index], drawOrders[index], renderOrders[index], opacities[index],
                 ints(masks[index]), floats(positions[index]), floats(uvs[index]), shorts(indices[index]),
                 color(multiplyColors[index]), color(screenColors[index]), parentParts[index],
@@ -566,7 +570,34 @@ final class CoreCallSiteTable implements AutoCloseable {
     private static List<Integer> shorts(final short[] values) { final List<Integer> copy = new ArrayList<>(values.length); for (short value : values) copy.add((int) value); return List.copyOf(copy); }
     private static List<Float> floats(final float[] values) { final List<Float> copy = new ArrayList<>(values.length); for (float value : values) copy.add(value); return List.copyOf(copy); }
     private static Color color(final float[] values) { return new Color(values[0], values[1], values[2], values[3]); }
-    private static BlendMode blendMode(final int value) { return switch (value) { case 0 -> BlendMode.NORMAL; case 1 -> BlendMode.ADDITIVE; case 2 -> BlendMode.MULTIPLICATIVE; default -> BlendMode.ADVANCED; }; }
+    private static BlendMode blendMode(
+        final int value,
+        final byte constantFlags,
+        final boolean hasBlendModes
+    ) {
+        if (!hasBlendModes) {
+            // Exact Core public ConstantFlag values: BLEND_ADDITIVE=1, BLEND_MULTIPLICATIVE=2,
+            // IS_DOUBLE_SIDED=4, and IS_INVERTED_MASK=8.
+            final int flags = Byte.toUnsignedInt(constantFlags);
+            if ((flags & ~0x0F) != 0) {
+                throw invalid("Core Drawable constant flags contain unknown bits.");
+            }
+            final boolean additive = (flags & 1) != 0;
+            final boolean multiplicative = (flags & 2) != 0;
+            if (additive && multiplicative) {
+                throw invalid("Core Drawable blend flags are contradictory.");
+            }
+            return additive
+                ? BlendMode.ADDITIVE
+                : multiplicative ? BlendMode.MULTIPLICATIVE : BlendMode.NORMAL;
+        }
+        return switch (value) {
+            case 0 -> BlendMode.NORMAL;
+            case 1 -> BlendMode.ADDITIVE;
+            case 2 -> BlendMode.MULTIPLICATIVE;
+            default -> BlendMode.ADVANCED;
+        };
+    }
 
     private static void closeReverse(
         final List<VerifiedMethodCallSite> callSites
