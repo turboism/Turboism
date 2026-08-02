@@ -401,7 +401,8 @@ public final class CorePluginContext implements PluginContext {
                 this.dependencies.descriptor().id(),
                 0,
                 PermissionChecker.from(this.dependencies.permissions()),
-                hostAccess.controlAppearanceCoordinator()
+                hostAccess.controlAppearanceCoordinator(),
+                hostAccess.nativeControlAppearance()
             );
             controlAppearance.bind(this.dependencies.disposableScope());
             this.controlAppearanceRegistry = controlAppearance;
