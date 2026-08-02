@@ -39,9 +39,32 @@ public interface UiHostCapabilityService {
     boolean confirmDialog(DialogRequest request);
 
     /**
+     * Opens a bounded runtime-rendered choice dialog without blocking the caller.
+     *
+     * <p>Returns immediately after scheduling the dialog on the UI thread. The
+     * listener receives the selected option id and the secondary action id (or
+     * {@code null}s for accept/cancel) once the user closes the dialog.</p>
+     */
+    default void openChoiceDialog(
+        final ChoiceDialogRequest request,
+        final ChoiceDialogResultListener listener
+    ) {
+        throw new UnsupportedOperationException("async choice dialogs are not available");
+    }
+
+    /**
      * Contributes a runtime-rendered panel owned by the calling plugin.
      * Control action IDs resolve through that plugin's {@code ActionRegistry}.
      */
+    /**
+     * Contributes a runtime-rendered panel owned by the calling plugin.
+     * Control action IDs resolve through that plugin's {@code ActionRegistry}.
+     */
+
+    /** Opens a bounded runtime-rendered single-choice dialog. */
+    default Optional<String> choose(final ChoiceDialogRequest request) {
+        throw new UnsupportedOperationException("choice dialogs are not available");
+    }
 
     Registration contributeEmbeddedPanel(EmbeddedPanelContribution contribution);
 
@@ -55,6 +78,50 @@ public interface UiHostCapabilityService {
     }
 
     Optional<String> requestFile(FileChooserRequest request);
+
+    /**
+     * Reports the host's active color theme mode (Cubism light/dark). Used by
+     * plugins to filter base-compatible options such as theme packages.
+     */
+    default UiHostColorMode currentColorMode() {
+        return UiHostColorMode.LIGHT;
+    }
+
+    /**
+     * Opens the host file manager at the given plugin storage directory.
+     * Implementations must confine the resolved directory to the plugin's
+     * storage roots and fail closed when the host cannot open directories.
+     */
+    default void openDirectory(final dev.turboism.sdk.storage.StoragePath directory) {
+        throw new UnsupportedOperationException("open-directory is not available");
+    }
+
+    /**
+     * Opens a bounded runtime-rendered form dialog (text and color fields)
+     * without blocking the caller. The listener receives the field values when
+     * the user accepts, a secondary action id when one is pressed, or an empty
+     * map on cancel.
+     */
+    default void openFormDialog(
+        final FormDialogRequest request,
+        final FormDialogResultListener listener
+    ) {
+        throw new UnsupportedOperationException("form dialogs are not available");
+    }
+
+    /**
+     * Framework capability: pushes the current off-canvas (GL viewport)
+     * background color (read from UIManager by the runtime) onto the host's
+     * background mesh so theme changes take effect immediately instead of only
+     * after a restart. The runtime owns the host navigation; plugins must not
+     * touch host objects directly.
+     *
+     * @return {@code true} when the host scene was refreshed, {@code false}
+     *     when the host structure is unavailable (fail closed).
+     */
+    default boolean refreshOffCanvasAppearance() {
+        throw new UnsupportedOperationException("off-canvas refresh is not available");
+    }
 
     Registration notifyStatus(StatusNotification notification);
 

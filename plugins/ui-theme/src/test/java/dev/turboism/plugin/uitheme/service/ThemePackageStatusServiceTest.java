@@ -3,6 +3,7 @@ package dev.turboism.plugin.uitheme.service;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.theme.ThemeStatusSnapshot;
 import dev.turboism.sdk.ui.DialogRequest;
+import dev.turboism.sdk.ui.BoundingBoxOverlayButton;
 import dev.turboism.sdk.ui.EmbeddedPanelContribution;
 import dev.turboism.sdk.ui.FileChooserRequest;
 import dev.turboism.sdk.ui.OverlayContribution;
@@ -192,6 +193,10 @@ class ThemePackageStatusServiceTest {
             throw new UnsupportedOperationException("overlay contributions are not used by this service");
         }
 
+        @Override
+        public Registration contributeBoundingBoxOverlayButton(BoundingBoxOverlayButton contribution) {
+            throw new UnsupportedOperationException("bounding-box overlay buttons are not used by this service");
+        }
         @Override
         public ContextSourceSnapshot contextSource() {
             throw new UnsupportedOperationException("context source is not used by this service");

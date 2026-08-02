@@ -1,5 +1,6 @@
 package dev.turboism.plugin.core;
 
+import dev.turboism.sdk.runtime.RuntimeLogReader;
 import dev.turboism.sdk.runtime.RuntimeSettingsService;
 
 import java.util.Objects;
@@ -8,14 +9,24 @@ import java.util.function.Supplier;
 /** One-shot Runtime-owned service handoff consumed only by the built-in core instance. */
 public record CorePluginServices(
     RuntimeSettingsService settings,
-    CorePluginManagement plugins
+    CorePluginManagement plugins,
+    RuntimeLogReader logs
 ) {
     private static final ThreadLocal<CorePluginServices> PENDING = new ThreadLocal<>();
+
+    public CorePluginServices(
+        final RuntimeSettingsService settings,
+        final CorePluginManagement plugins
+    ) {
+        this(settings, plugins, RuntimeLogReader.unavailable());
+    }
 
     public CorePluginServices {
         settings = Objects.requireNonNull(settings, "settings");
         plugins = Objects.requireNonNull(plugins, "plugins");
+        logs = Objects.requireNonNull(logs, "logs");
     }
+
 
     public static <T> T instantiate(
         final CorePluginServices services,

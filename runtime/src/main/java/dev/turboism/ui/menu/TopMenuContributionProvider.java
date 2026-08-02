@@ -61,19 +61,12 @@ public final class TopMenuContributionProvider implements EditorUiContributionPr
             .flatMap(java.util.Optional::stream)
             .sorted(ITEM_ORDER)
             .toList();
-        final LinkedHashMap<MenuKey, List<TopMenuItemDescriptor>> grouped = new LinkedHashMap<>();
+        final LinkedHashMap<String, List<TopMenuItemDescriptor>> grouped = new LinkedHashMap<>();
         for (TopMenuItemDescriptor item : items) {
-            grouped.computeIfAbsent(
-                new MenuKey(item.pluginId(), item.rootLabel()),
-                ignored -> new ArrayList<>()
-            ).add(item);
+            grouped.computeIfAbsent(item.rootLabel(), ignored -> new ArrayList<>()).add(item);
         }
         final List<TopMenuDescriptor> menus = grouped.entrySet().stream()
-            .map(entry -> TopMenuDescriptor.owned(
-                entry.getKey().pluginId(),
-                entry.getKey().rootLabel(),
-                entry.getValue()
-            ))
+            .map(entry -> TopMenuDescriptor.owned(entry.getKey(), entry.getValue()))
             .toList();
         final Reconciler reconciler = new Reconciler(menus);
         final List<Registration> registrations = new ArrayList<>();
@@ -147,7 +140,6 @@ public final class TopMenuContributionProvider implements EditorUiContributionPr
         }
     }
 
-    private record MenuKey(String pluginId, String rootLabel) { }
 
     private static void closeAll(final List<? extends Registration> registrations) {
         RuntimeException first = null;
