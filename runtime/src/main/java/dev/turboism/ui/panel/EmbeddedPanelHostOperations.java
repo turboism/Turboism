@@ -19,6 +19,10 @@ public interface EmbeddedPanelHostOperations {
     default void bindHostGeneration(final long generation) {
     }
 
+    /** Marks the host binding as no longer usable; queued host operations must abort. */
+    default void invalidateHost() {
+    }
+
     default Registration bindPanelTabMenus(final PanelTabMenuCoordinator coordinator) {
         return () -> { };
     }

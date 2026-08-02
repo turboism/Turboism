@@ -271,11 +271,20 @@ public final class TurboismAgent {
         }
     }
 
+    private static boolean safeModeActive() {
+        final StartupSuppressionInstaller.Installation suppression = STARTUP_SUPPRESSION.get();
+        return suppression != null && suppression.policy().safeMode();
+    }
+
     private static void installDockTabPopupHook(
         final Path embeddedPanelVerificationRecord,
         final Instrumentation instrumentation,
         final HostClassLocator.LocatedHost host
     ) {
+        if (safeModeActive()) {
+            System.err.println("Turboism dock-tab popup hook skipped in safe mode");
+            return;
+        }
         VerifiedDockTabPopupHookInstaller installer = null;
         try {
             final var resolver = new dev.turboism.mapping.verification.VerifiedEmbeddedPanelResolverFactory()
@@ -307,6 +316,10 @@ public final class TurboismAgent {
         final HostClassLocator.LocatedHost host,
         final PreviewRuntime runtime
     ) {
+        if (safeModeActive()) {
+            System.err.println("Turboism floating-frame dispose hook skipped in safe mode");
+            return;
+        }
         VerifiedFloatingFrameDisposeHookInstaller installer = null;
         try {
             final var resolver = new dev.turboism.mapping.verification.VerifiedEmbeddedPanelResolverFactory()
@@ -333,6 +346,10 @@ public final class TurboismAgent {
         final Instrumentation instrumentation,
         final HostClassLocator.LocatedHost host
     ) {
+        if (safeModeActive()) {
+            System.err.println("Turboism floating-tab close hook skipped in safe mode");
+            return;
+        }
         VerifiedFloatingTabCloseHookInstaller installer = null;
         try {
             final var resolver = new dev.turboism.mapping.verification.VerifiedEmbeddedPanelResolverFactory()
