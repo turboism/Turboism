@@ -17,6 +17,7 @@ import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.sdk.storage.PluginStorage;
 import dev.turboism.sdk.task.PluginTaskScheduler;
+import dev.turboism.sdk.runtime.CubismLogService;
 import dev.turboism.sdk.runtime.RuntimeSettingsService;
 import dev.turboism.sdk.ui.UiHostCapabilityService;
 import dev.turboism.sdk.ui.UserFileAccessService;
@@ -127,6 +128,10 @@ public interface PluginContext {
         throw new UnsupportedOperationException("config registry is not available");
     }
 
+
+    default CubismLogService cubismLog() {
+        return CubismLogService.unavailable();
+    }
 
     default RuntimeSettingsService runtimeSettings() {
         throw new UnsupportedOperationException("runtime settings service is not available");
