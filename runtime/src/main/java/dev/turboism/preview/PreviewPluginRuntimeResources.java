@@ -88,6 +88,16 @@ record PreviewPluginRuntimeResources(
         final PreviewPluginContextFactory contextFactory = new PreviewPluginContextFactory(
             home, scheduler, hostAccess, lane, log, failureCollector
         );
+        final dev.turboism.config.RuntimeSettingsFileService runtimeSettings =
+            new dev.turboism.config.RuntimeSettingsFileService(
+                home,
+                hostAccess.dockMaintenance(),
+                log::setMinimumLevel,
+                log::setMaxStorageMiB
+            );
+        final dev.turboism.sdk.runtime.RuntimeSettings settings = runtimeSettings.read();
+        log.setMinimumLevel(settings.logLevel());
+        log.setMaxStorageMiB(settings.maxLogStorageMiB());
         return new PreviewPluginRuntimeResources(
             lane, failureCollector,
             new PreviewPluginLoadCoordinator(
@@ -101,7 +111,7 @@ record PreviewPluginRuntimeResources(
             ),
             pluginManagement,
             contextFactory,
-            new dev.turboism.config.RuntimeSettingsFileService(home, hostAccess.dockMaintenance())
+            runtimeSettings
         );
     }
 }

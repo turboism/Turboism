@@ -4,6 +4,8 @@ import dev.turboism.adapter.RuntimeHostAdapters;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.ui.contribution.EditorUiContributionProvider;
+import dev.turboism.ui.appearance.AppearanceHostProvider;
+import dev.turboism.ui.appearance.UnavailableAppearanceHostProvider;
 
 import java.util.List;
 import java.util.Objects;
@@ -30,6 +32,10 @@ interface HostAdapterConnection extends AutoCloseable {
             throw new IllegalArgumentException("hostGeneration must be positive");
         }
         return List.of();
+    }
+
+    default AppearanceHostProvider appearanceProvider() {
+        return new UnavailableAppearanceHostProvider();
     }
 
     default dev.turboism.ui.context.NativeObjectContextMenuBridge.Handler objectContextMenuHandler(
@@ -72,8 +78,18 @@ interface HostAdapterConnection extends AutoCloseable {
         final CubismModelAccess modelAccess,
         final VerifiedMemberResolver editorModelResolver
     ) {
+        return of(adapters, modelAccess, editorModelResolver, new UnavailableAppearanceHostProvider());
+    }
+
+    static HostAdapterConnection of(
+        final RuntimeHostAdapters adapters,
+        final CubismModelAccess modelAccess,
+        final VerifiedMemberResolver editorModelResolver,
+        final AppearanceHostProvider appearanceProvider
+    ) {
         final RuntimeHostAdapters ownedAdapters = Objects.requireNonNull(adapters, "adapters");
         final CubismModelAccess ownedModelAccess = Objects.requireNonNull(modelAccess, "modelAccess");
+        final AppearanceHostProvider ownedAppearance = Objects.requireNonNull(appearanceProvider, "appearanceProvider");
         return new HostAdapterConnection() {
             @Override
             public RuntimeHostAdapters adapters() {
@@ -91,6 +107,11 @@ interface HostAdapterConnection extends AutoCloseable {
                     return HostAdapterConnection.super.editorModelResolver();
                 }
                 return editorModelResolver;
+            }
+
+            @Override
+            public AppearanceHostProvider appearanceProvider() {
+                return ownedAppearance;
             }
 
             @Override

@@ -7,7 +7,7 @@ set "EXIT_CODE=%ERRORLEVEL%"
 if not "%EXIT_CODE%"=="0" (
   echo.
   echo [Turboism] Validation launch failed with exit code %EXIT_CODE%.
-  echo [Turboism] Check logs\cubism-console.log and logs\turboism.log.
+  echo [Turboism] Check logs\cubism-console.log and logs\runtime\YYYY-MM-DD\turboism-*.log.
   pause
 )
 
