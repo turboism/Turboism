@@ -151,6 +151,14 @@ class CubismFacadeImplTest {
     }
 
     @Test
+    void coreRuntimeChecksModelPermissionBeforeUnavailableRoute() {
+        final CubismFacadeImpl facade = facadeWith(emptySource(), new ArrayList<>(), List.of());
+
+        assertThrows(CubismPermissionException.class, facade::coreRuntime);
+    }
+
+
+    @Test
     void modelDelegatesToRuntimeOwnedAccessAfterPermissionCheck() {
         final List<CubismFacadeAuditEvent> auditEvents = new ArrayList<>();
         final CubismModelAccess expected = () -> emptyModel("core-model");
