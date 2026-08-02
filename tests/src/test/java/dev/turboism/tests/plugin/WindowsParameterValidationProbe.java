@@ -2525,15 +2525,20 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         }
         final AtomicReference<java.awt.Frame> hostFrame = new AtomicReference<>();
         SwingUtilities.invokeAndWait(() -> {
+            java.awt.Frame fallback = null;
             for (java.awt.Frame frame : java.awt.Frame.getFrames()) {
                 if (!frame.isVisible()) continue;
+                if (fallback == null) fallback = frame;
                 final String title = frame.getTitle();
-                if (title != null && (title.contains(".cmo3") || title.contains("Cubism"))) {
+                if (title != null && title.contains(".cmo3")) {
                     hostFrame.set(frame);
                     break;
                 }
-                if (hostFrame.get() == null) hostFrame.set(frame);
+                if (hostFrame.get() == null && title != null && title.contains("Cubism")) {
+                    hostFrame.set(frame);
+                }
             }
+            if (hostFrame.get() == null) hostFrame.set(fallback);
             final java.awt.Frame frame = hostFrame.get();
             if (frame != null) {
                 frame.setState(java.awt.Frame.NORMAL);
