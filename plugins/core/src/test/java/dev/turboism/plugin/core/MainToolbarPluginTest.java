@@ -30,6 +30,8 @@ import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.PluginPaths;
 import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.sdk.runtime.RuntimeSettings;
+import dev.turboism.sdk.runtime.RuntimeSettingsService;
 import dev.turboism.sdk.theme.ThemeStatusSnapshot;
 import dev.turboism.sdk.ui.DialogRequest;
 import dev.turboism.sdk.ui.EmbeddedPanelContribution;
@@ -122,6 +124,36 @@ class MainToolbarPluginTest {
             context.uiHost().activatedPanels()
         );
         assertTrue(context.uiHost().notifications().isEmpty());
+    }
+
+    @Test
+    void cleanEmptyDocksActionUsesRuntimeSettingsService() throws Exception {
+        final int[] cleanups = {0};
+        final RuntimeSettingsService settings = new RuntimeSettingsService() {
+            private RuntimeSettings value =
+                new RuntimeSettings(false, "INFO", false, false, false);
+
+            @Override public RuntimeSettings read() { return value; }
+            @Override public RuntimeSettings save(final RuntimeSettings next) {
+                value = next;
+                return value;
+            }
+            @Override public DockCleanupResult cleanEmptyDocks() {
+                cleanups[0]++;
+                return new DockCleanupResult("Empty dock cleanup completed.");
+            }
+        };
+        final MainToolbarPlugin plugin = CorePluginServices.instantiate(
+            new CorePluginServices(settings, plugins()),
+            MainToolbarPlugin::new
+        );
+        final RecordingPluginContext context = new RecordingPluginContext();
+
+        plugin.init(context);
+        plugin.enable();
+        context.actions().execute("settings.clean-empty-docks");
+
+        assertEquals(1, cleanups[0]);
     }
 
     @Test
@@ -302,6 +334,12 @@ class MainToolbarPluginTest {
         private final RecordingActionRegistry actions = new RecordingActionRegistry();
         private final RecordingMenuRegistry menus = new RecordingMenuRegistry();
         private final RecordingUiHost uiHost;
+        private final ContextMenuRegistry contextMenu = new ContextMenuRegistry() {
+            @Override
+            public Registration contribute(final ContextMenuContribution contribution) {
+                return () -> { };
+            }
+        };
         private final RecordingMainToolbarRegistry mainToolbar;
         private final DisposableScope disposableScope = new DisposableScope();
         private final PluginLogger logger = new NoopPluginLogger();
@@ -369,6 +407,11 @@ class MainToolbarPluginTest {
         }
 
         @Override
+        public ContextMenuRegistry contextMenu() {
+            return contextMenu;
+        }
+
+        @Override
         public RecordingUiHost uiHost() {
             return uiHost;
         }
@@ -386,6 +429,7 @@ class MainToolbarPluginTest {
                     return switch (key) {
                         case "main-toolbar.settings-menu.label" -> "Settings";
                         case "main-toolbar.plugins-menu.label" -> "Plugin Management";
+                        case "context-menu.panel-tab.float" -> "Float";
                         default -> key;
                     };
                 }
@@ -398,7 +442,8 @@ class MainToolbarPluginTest {
                 @Override
                 public boolean contains(final String key) {
                     return key.equals("main-toolbar.settings-menu.label")
-                        || key.equals("main-toolbar.plugins-menu.label");
+                        || key.equals("main-toolbar.plugins-menu.label")
+                        || key.equals("context-menu.panel-tab.float");
                 }
             };
         }

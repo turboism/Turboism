@@ -51,6 +51,7 @@ public final class MainToolbarPlugin implements TurboismPlugin {
             localization(context).text("main-toolbar.plugins-menu.label"), ignored -> windows.showPlugins());
         registerSettingsActions();
         registerPluginActions();
+        registerPanelTabActions();
         context.disposableScope().register(plugins);
         context.disposableScope().register(windows);
         refreshPanel();
@@ -75,6 +76,49 @@ public final class MainToolbarPlugin implements TurboismPlugin {
         });
         registerAction("settings.clean-empty-docks", "Clean empty docks", ignored ->
             logger.info(services.settings().cleanEmptyDocks().message()));
+    }
+
+    private void registerPanelTabActions() {
+        registerAction(
+            "turboism.panel-tab.toggle-floating",
+            localization(context).text("context-menu.panel-tab.float"),
+            action -> action.panelTabSelection()
+                .ifPresentOrElse(
+                    services.floatingPanelActions()::togglePanelFloating,
+                    () -> logger.warn("Panel-tab floating action ignored without a native Tab selection")
+                )
+        );
+        // Floating is offered only for docked tabs; closing a floating tab docks it
+        // back (native close interception), matching the legacy semantics.
+        context.disposableScope().register(context.contextMenu().contribute(
+            panelTabContribution("turboism.panel-tab.float", "context-menu.panel-tab.float", "panel.docked")
+        ));
+    }
+
+    private dev.turboism.sdk.ui.context.ContextMenuRegistry.ContextMenuContribution panelTabContribution(
+        final String id,
+        final String labelKey,
+        final String context
+    ) {
+        final String label = localization(this.context).text(labelKey);
+        return new dev.turboism.sdk.ui.context.ContextMenuRegistry.ContextMenuContribution(
+            id,
+            "turboism.panel-tab.toggle-floating",
+            label,
+            null,
+            context,
+            dev.turboism.sdk.ui.context.ContextMenuRegistry.Location.WORKSPACE_OBJECT,
+            java.util.Set.of(),
+            100,
+            dev.turboism.sdk.ui.context.ContextMenuRegistry.Target.PANEL_TAB,
+            dev.turboism.sdk.ui.context.ContextMenuRegistry.Operation.TOGGLE_PANEL_FLOATING,
+            dev.turboism.sdk.ui.context.ContextMenuRegistry.ContextMenuEntry.item(
+                id,
+                label,
+                "turboism.panel-tab.toggle-floating"
+            ),
+            dev.turboism.sdk.ui.context.ContextMenuRegistry.Placement.last()
+        );
     }
 
     private void registerPluginActions() {
@@ -159,11 +203,16 @@ public final class MainToolbarPlugin implements TurboismPlugin {
                     return switch (key) {
                         case "main-toolbar.settings-menu.label" -> "Settings";
                         case "main-toolbar.plugins-menu.label" -> "Plugin Management";
+                        case "context-menu.panel-tab.float" -> "Float";
                         default -> key;
                     };
                 }
                 @Override public String format(final String key, final Object... arguments) { return text(key); }
-                @Override public boolean contains(final String key) { return true; }
+                @Override public boolean contains(final String key) {
+                    return key.equals("main-toolbar.settings-menu.label")
+                        || key.equals("main-toolbar.plugins-menu.label")
+                        || key.equals("context-menu.panel-tab.float");
+                }
             };
         }
     }
