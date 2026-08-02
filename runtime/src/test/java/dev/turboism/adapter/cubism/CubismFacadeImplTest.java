@@ -157,6 +157,69 @@ class CubismFacadeImplTest {
         assertThrows(CubismPermissionException.class, facade::coreRuntime);
     }
 
+    @Test
+    void retainedCoreRuntimeHandlesRecheckPluginScopeBeforeProviderCalls() {
+        final AtomicBoolean active = new AtomicBoolean(true);
+        final int[] calls = new int[3];
+        final dev.turboism.sdk.cubism.core.CoreRuntimeInfo backend =
+            new dev.turboism.sdk.cubism.core.CoreRuntimeInfo() {
+                @Override public dev.turboism.sdk.cubism.core.CoreVersion version() {
+                    calls[0]++;
+                    return new dev.turboism.sdk.cubism.core.CoreVersion(5, 3, 2);
+                }
+                @Override public dev.turboism.sdk.cubism.core.CoreCapabilities capabilities() {
+                    calls[1]++;
+                    return new dev.turboism.sdk.cubism.core.CoreCapabilities(true, true, true);
+                }
+                @Override public dev.turboism.sdk.cubism.core.MocInspector mocInspector() {
+                    calls[2]++;
+                    return new dev.turboism.sdk.cubism.core.MocInspector() {
+                        @Override public dev.turboism.sdk.cubism.core.MocVersion latestVersion() {
+                            return dev.turboism.sdk.cubism.core.MocVersion.V5_3;
+                        }
+                        @Override public dev.turboism.sdk.cubism.core.MocInfo inspect(
+                            final dev.turboism.sdk.cubism.core.MocData data
+                        ) {
+                            return new dev.turboism.sdk.cubism.core.MocInfo(
+                                dev.turboism.sdk.cubism.core.MocVersion.V5_3,
+                                dev.turboism.sdk.cubism.core.MocConsistency.CONSISTENT
+                            );
+                        }
+                    };
+                }
+            };
+        final CubismFacadeImpl facade = new CubismFacadeImpl(
+            emptySource(),
+            new CubismPermissionGate(
+                "plugin.demo",
+                List.of(permission(CubismFacadeImpl.MODEL_READ_PERMISSION)),
+                ignored -> { },
+                FIXED_CLOCK
+            ),
+            new ImmutableSnapshotFactory(),
+            (context, document) -> { throw new UnsupportedOperationException(); },
+            () -> emptyModel("core-model"),
+            backend,
+            new ParameterLifecycleCoordinator(),
+            new dev.turboism.adapter.cubism.lifecycle.PartLifecycleCoordinator(),
+            new dev.turboism.adapter.cubism.lifecycle.EditorObjectLifecycleCoordinator(),
+            active::get
+        );
+        final var runtime = facade.coreRuntime();
+        assertEquals(new dev.turboism.sdk.cubism.core.CoreVersion(5, 3, 2), runtime.version());
+        assertTrue(runtime.capabilities().mocInspection());
+        final var inspector = runtime.mocInspector();
+        assertEquals(1, calls[0]);
+        assertEquals(1, calls[1]);
+        assertEquals(1, calls[2]);
+
+        active.set(false);
+
+        assertThrows(IllegalStateException.class, runtime::version);
+        assertThrows(IllegalStateException.class, inspector::latestVersion);
+        assertEquals(1, calls[0]);
+        assertEquals(1, calls[2]);
+    }
 
     @Test
     void modelDelegatesToRuntimeOwnedAccessAfterPermissionCheck() {
@@ -214,6 +277,8 @@ class CubismFacadeImplTest {
         );
 
         final var parameter = facade.model().active().parameters().find(new ParameterId("ParamA"));
+        assertEquals(3, parameter.index());
+        assertEquals(0, parameter.keyValues().size());
         assertEquals(Optional.of("Parameter A"), parameter.name());
         assertEquals(ParameterType.BLEND_SHAPE, parameter.type());
         assertEquals(Optional.of(false), parameter.repeat());
@@ -1169,6 +1234,10 @@ class CubismFacadeImplTest {
             private final dev.turboism.sdk.cubism.model.Parameter parameter =
                 new dev.turboism.sdk.cubism.model.Parameter() {
                     @Override public ParameterId id() { return new ParameterId("ParamA"); }
+                    @Override public int index() { return 3; }
+                    @Override public dev.turboism.sdk.cubism.model.FloatSequence keyValues() {
+                        return emptyFloats();
+                    }
                     @Override public Optional<String> name() { return Optional.of("Parameter A"); }
                     @Override public ParameterType type() { return ParameterType.BLEND_SHAPE; }
                     @Override public Optional<Boolean> repeat() { return Optional.of(false); }

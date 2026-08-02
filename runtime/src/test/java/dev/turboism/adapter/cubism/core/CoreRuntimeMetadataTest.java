@@ -34,18 +34,21 @@ class CoreRuntimeMetadataTest {
                 return CoreProviderResult.success(99);
             }
             @Override public CoreProviderResult<Integer> mocVersion(final byte[] bytes) {
+                bytes[0] = 0;
                 return CoreProviderResult.success(99);
             }
             @Override public CoreProviderResult<Boolean> hasMocConsistency(final byte[] bytes) {
-                return CoreProviderResult.success(false);
+                return CoreProviderResult.success(bytes[0] == 1);
             }
         };
 
         final var inspector = new CoreRuntimeMetadata(provider).mocInspector();
         org.junit.jupiter.api.Assertions.assertEquals(MocVersion.UNKNOWN, inspector.latestVersion());
+        final var info = inspector.inspect(MocData.copyOf(new byte[]{1}));
+        org.junit.jupiter.api.Assertions.assertEquals(MocVersion.UNKNOWN, info.version());
         org.junit.jupiter.api.Assertions.assertEquals(
-            MocVersion.UNKNOWN,
-            inspector.inspect(MocData.copyOf(new byte[]{1})).version()
+            dev.turboism.sdk.cubism.core.MocConsistency.CONSISTENT,
+            info.consistency()
         );
     }
 }

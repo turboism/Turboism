@@ -15,13 +15,20 @@ import java.util.Objects;
 final class CoreRuntimeMetadata implements CoreRuntimeInfo {
 
     private final CorePublicApiProvider provider;
+    private final Runnable freshness;
 
     CoreRuntimeMetadata(final CorePublicApiProvider provider) {
+        this(provider, () -> { });
+    }
+
+    CoreRuntimeMetadata(final CorePublicApiProvider provider, final Runnable freshness) {
         this.provider = Objects.requireNonNull(provider, "provider");
+        this.freshness = Objects.requireNonNull(freshness, "freshness");
     }
 
     @Override
     public CoreVersion version() {
+        freshness.run();
         final CoreRuntimeVersion version = requireValue(
             provider.runtimeVersion(),
             "Core runtime version"
@@ -31,6 +38,7 @@ final class CoreRuntimeMetadata implements CoreRuntimeInfo {
 
     @Override
     public CoreCapabilities capabilities() {
+        freshness.run();
         return provider.capabilities();
     }
 
@@ -42,6 +50,7 @@ final class CoreRuntimeMetadata implements CoreRuntimeInfo {
         return new MocInspector() {
             @Override
             public MocVersion latestVersion() {
+                freshness.run();
                 return normalizeVersion(requireValue(
                     provider.latestMocVersion(),
                     "Core latest MOC version"
@@ -52,12 +61,13 @@ final class CoreRuntimeMetadata implements CoreRuntimeInfo {
             public MocInfo inspect(final MocData data) {
                 final MocData value = Objects.requireNonNull(data, "data");
                 final byte[] bytes = value.toByteArray();
+                freshness.run();
                 final int version = requireValue(
-                    provider.mocVersion(bytes),
+                    provider.mocVersion(bytes.clone()),
                     "Core MOC version"
                 );
                 final boolean consistent = requireValue(
-                    provider.hasMocConsistency(bytes),
+                    provider.hasMocConsistency(bytes.clone()),
                     "Core MOC consistency"
                 );
                 return new MocInfo(
@@ -69,13 +79,6 @@ final class CoreRuntimeMetadata implements CoreRuntimeInfo {
     }
 
     private static <T> T requireValue(
-        final CoreProviderResult<T> result,
-        final String feature
-    ) {
-        return requireResultValue(result, feature);
-    }
-
-    private static <T> T requireResultValue(
         final CoreProviderResult<T> result,
         final String feature
     ) {
