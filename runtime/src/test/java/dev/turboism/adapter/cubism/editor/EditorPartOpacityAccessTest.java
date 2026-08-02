@@ -22,14 +22,25 @@ class EditorPartOpacityAccessTest {
     @Test
     void writes5302AuthoringOpacityWithNativeUndoDirtyAndRefresh() {
         final Fixture fixture = new Fixture();
+        final PartSource childSource = new PartSource("PartChild");
+        childSource.parent = fixture.partSource;
+        fixture.source.sources.add(childSource);
+        fixture.source.model.parts.add(new HostPart("PartChild", childSource));
         Host.document = fixture.document;
         final EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
             resolver(true, "5.3.02"), "session-a"
         );
         final var part = access.active().parts().find(new PartId("PartClip"));
+        final var child = access.active().parts().find(new PartId("PartChild"));
 
         assertEquals(1.0F, part.getOpacity());
         assertEquals(-1, part.parentIndex());
+        assertEquals(0, part.index());
+        assertTrue(part.parentId().isEmpty());
+        assertEquals(List.of(new PartId("PartChild")), part.childIds());
+        assertEquals(1, child.index());
+        assertEquals(new PartId("PartClip"), child.parentId().orElseThrow());
+        assertTrue(child.childIds().isEmpty());
         part.setOpacity(0.625F);
 
         assertEquals(0.625F, fixture.part.form.opacity);
