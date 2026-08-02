@@ -628,7 +628,29 @@ public final class CubismFacadeImpl implements CubismFacade {
         }
         @Override public dev.turboism.sdk.cubism.model.Canvas canvas() {
             requireModelRead("model.canvas");
-            return delegate.canvas();
+            final dev.turboism.sdk.cubism.model.Canvas canvas = delegate.canvas();
+            return new dev.turboism.sdk.cubism.model.Canvas() {
+                @Override public float widthPixels() {
+                    requireModelRead("model.canvas.widthPixels");
+                    return canvas.widthPixels();
+                }
+                @Override public float heightPixels() {
+                    requireModelRead("model.canvas.heightPixels");
+                    return canvas.heightPixels();
+                }
+                @Override public float originXPixels() {
+                    requireModelRead("model.canvas.originXPixels");
+                    return canvas.originXPixels();
+                }
+                @Override public float originYPixels() {
+                    requireModelRead("model.canvas.originYPixels");
+                    return canvas.originYPixels();
+                }
+                @Override public float pixelsPerUnit() {
+                    requireModelRead("model.canvas.pixelsPerUnit");
+                    return canvas.pixelsPerUnit();
+                }
+            };
         }
         @Override public Parameters parameters() {
             requireModelRead("model.parameters");
