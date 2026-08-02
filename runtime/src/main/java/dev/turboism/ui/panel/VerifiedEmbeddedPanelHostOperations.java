@@ -98,14 +98,19 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
     );
 
     private final VerifiedMemberResolver resolver;
+    private final dev.turboism.ui.action.EditorUiActionRouter actionRouter;
     private final Map<Object, NativePanel> panels = new IdentityHashMap<>();
     private final Map<Object, FloatingPanel> floatingPanels = new IdentityHashMap<>();
     private final FloatingFrameLifecycle floatingFrameLifecycle = new FloatingFrameLifecycle();
-    private long hostGeneration = Long.MIN_VALUE;
+    private volatile long hostGeneration = Long.MIN_VALUE;
+    private volatile boolean hostActive;
 
-    public VerifiedEmbeddedPanelHostOperations(final VerifiedMemberResolver resolver) {
+    public VerifiedEmbeddedPanelHostOperations(
+        final VerifiedMemberResolver resolver,
+        final dev.turboism.ui.action.EditorUiActionRouter actionRouter
+    ) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
-
+        this.actionRouter = Objects.requireNonNull(actionRouter, "actionRouter");
     }
 
     @Override
@@ -114,6 +119,12 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
             throw new IllegalArgumentException("generation must be positive");
         }
         hostGeneration = generation;
+        hostActive = true;
+    }
+
+    @Override
+    public void invalidateHost() {
+        hostActive = false;
     }
 
     @Override
@@ -136,7 +147,12 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
 
     /** Removes empty dock palette boxes from the current workspace split tree. */
     public void cleanEmptyDocks() {
+        cleanEmptyDocks(hostGeneration);
+    }
+
+    void cleanEmptyDocks(final long expectedGeneration) {
         onEdt(() -> {
+            requireActiveHost(expectedGeneration);
             final NativeDock dock = resolveDock();
             final Object workspace = currentWorkspace(dock);
             final Object rootContainer = resolver.invoke(WORKSPACE_ROOT_CONTAINER, workspace);
@@ -297,7 +313,7 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
                     MENU_ITEM_CREATE,
                     2,
                     ignored -> {
-                        togglePanelFloating(nativePanel(palette));
+                        routePanelTabAction(value, palette);
                         return kotlinUnit();
                     }
                 );
@@ -311,6 +327,42 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
                 // items are appended through its k#c(CMenuItem) method.
                 resolver.invoke(TAB_POPUP_ADD, menu, nativeItem);
             });
+    }
+
+    /**
+     * Routes a panel-tab menu click through the plugin action registry so that
+     * permission checks and the plugin-owned handler (core plugin) are exercised,
+     * instead of invoking the runtime toggle directly.
+     */
+    void routePanelTabAction(
+        final PanelTabMenuContribution contribution,
+        final Object palette
+    ) {
+        if (palette == null
+            || !hostActive
+            || contribution.hostGeneration() != hostGeneration) {
+            return;
+        }
+        final boolean floating = floatingPanels.containsKey(palette);
+        final NativePanel panel = nativePanel(palette);
+        final PanelTabSelection selection = new PanelTabSelection(
+            contribution.hostGeneration(),
+            String.valueOf(panel.paletteId()),
+            floating
+        );
+        actionRouter.invoke(
+            contribution.pluginId(),
+            contribution.contribution().actionId(),
+            new PanelTabActionContext(selection)
+        );
+    }
+
+    private record PanelTabActionContext(PanelTabSelection selection)
+        implements dev.turboism.sdk.action.ActionRegistry.ActionContext {
+        @Override
+        public java.util.Optional<PanelTabSelection> panelTabSelection() {
+            return java.util.Optional.of(selection);
+        }
     }
 
     private NativePanel nativePanel(final Object palette) {
@@ -344,14 +396,15 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
     /** Runtime action entry point; selection is validated before native lookup. */
     public void togglePanelFloating(final PanelTabSelection selection) {
         Objects.requireNonNull(selection, "selection");
-        if (selection.hostGeneration() != hostGeneration) {
-            throw new IllegalStateException("panel-tab selection is stale");
-        }
-        final NativePanel panel = panels.values().stream()
-            .filter(candidate -> selection.panelId().equals(String.valueOf(candidate.paletteId())))
-            .findFirst()
-            .orElseThrow(() -> new IllegalStateException("panel-tab selection is stale"));
-        togglePanelFloating(panel);
+        onEdt(() -> {
+            requireActiveHost(selection.hostGeneration());
+            final NativePanel panel = panels.values().stream()
+                .filter(candidate -> selection.panelId().equals(String.valueOf(candidate.paletteId())))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("panel-tab selection is stale"));
+            togglePanelFloating(panel);
+            return null;
+        });
     }
 
     private void floatPanel(final NativePanel panel) {
@@ -584,42 +637,63 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
         if (frame == null) {
             return;
         }
+        final long disposedGeneration = hostGeneration;
         final List<FloatingFrameLifecycle.Entry> entries = floatingFrameLifecycle.beginClose(frame);
-        if (entries.isEmpty()) {
+        if (entries.isEmpty() || !hostActive) {
             return;
         }
-        onEdt(() -> {
-            final FloatingPanel template = entries.stream()
-                .map(entry -> floatingPanels.get(entry.palette()))
-                .filter(Objects::nonNull)
-                .findFirst()
-                .orElse(null);
-            if (template == null) {
-                return null;
+        // The dispose transformer fires before the host method returns. Defer the
+        // merge with two EDT hops (matching the approved legacy sequence) so the
+        // host's own post-dispose cleanup cannot overwrite our docking result.
+        SwingUtilities.invokeLater(() -> SwingUtilities.invokeLater(() -> {
+            if (!hostActive || hostGeneration != disposedGeneration) {
+                return;
             }
-            final Object workspace = currentWorkspace(template.panel().dock());
-            for (FloatingFrameLifecycle.Entry entry : entries) {
-                // Any palette can be floating; the FloatingPanel carries the NativePanel.
-                final FloatingPanel floating = floatingPanels.get(entry.palette());
-                if (floating == null) {
-                    continue;
-                }
-                // The palette lives in the floating palette box, not in any workspace box.
-                final Object sourceBox = floating.floatingBox();
-                if (sourceBox != null) {
-                    dockEntry(
-                        workspace,
-                        sourceBox,
-                        floating.panel(),
-                        entry.siblingAnchor(),
-                        entry.originalBox()
-                    );
-                }
-                floatingPanels.remove(entry.palette());
+            try {
+                mergeDisposedFrameEntries(frame, entries);
+            } catch (RuntimeException | Error failure) {
+                System.err.println(
+                    "Turboism floating-frame merge failed safely: "
+                        + failure.getClass().getName() + ": " + failure.getMessage()
+                );
             }
-            refresh(template.panel().dock());
-            return null;
-        });
+        }));
+    }
+
+    private void mergeDisposedFrameEntries(
+        final Object disposedFrame,
+        final List<FloatingFrameLifecycle.Entry> entries
+    ) {
+        final FloatingPanel template = entries.stream()
+            .map(entry -> floatingPanels.get(entry.palette()))
+            .filter(Objects::nonNull)
+            .filter(floating -> floating.frame() == disposedFrame)
+            .findFirst()
+            .orElse(null);
+        if (template == null) {
+            return;
+        }
+        final Object workspace = currentWorkspace(template.panel().dock());
+        for (FloatingFrameLifecycle.Entry entry : entries) {
+            // Any palette can be floating; the FloatingPanel carries the NativePanel.
+            final FloatingPanel floating = floatingPanels.get(entry.palette());
+            if (floating == null || floating.frame() != disposedFrame) {
+                continue;
+            }
+            // The palette lives in the floating palette box, not in any workspace box.
+            final Object sourceBox = floating.floatingBox();
+            if (sourceBox != null) {
+                dockEntry(
+                    workspace,
+                    sourceBox,
+                    floating.panel(),
+                    entry.siblingAnchor(),
+                    entry.originalBox()
+                );
+            }
+            floatingPanels.remove(entry.palette());
+        }
+        refresh(template.panel().dock());
     }
 
     /**
@@ -634,12 +708,15 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
         if (palette == null) {
             return false;
         }
-        if (!floatingPanels.containsKey(palette)) {
-            return false;
-        }
-        final NativePanel panel = nativePanel(palette);
-        final FloatingPanel floating = floatingPanels.get(palette);
-        onEdt(() -> {
+        return onEdt(() -> {
+            if (!hostActive) {
+                return false;
+            }
+            final FloatingPanel floating = floatingPanels.get(palette);
+            if (floating == null) {
+                return false;
+            }
+            final NativePanel panel = nativePanel(palette);
             final Object workspace = currentWorkspace(panel.dock());
             System.err.println(
                 "Turboism floating-tab close: docking palette class=" + palette.getClass().getName()
@@ -655,9 +732,14 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
             floatingPanels.remove(palette);
             floatingFrameLifecycle.forget(palette);
             refresh(panel.dock());
-            return null;
+            return true;
         });
-        return true;
+    }
+
+    private void requireActiveHost(final long expectedGeneration) {
+        if (!hostActive || hostGeneration != expectedGeneration) {
+            throw new IllegalStateException("embedded-panel host binding is no longer active");
+        }
     }
 
     private static void closeRegistrations(final List<Registration> registrations) {
