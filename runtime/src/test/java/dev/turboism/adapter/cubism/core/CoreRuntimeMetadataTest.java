@@ -51,4 +51,38 @@ class CoreRuntimeMetadataTest {
             info.consistency()
         );
     }
+
+
+    @Test
+    void oversizedMocDataFailsBeforeProviderCalls() {
+        final int[] calls = {0};
+        final CorePublicApiProvider provider = new CorePublicApiProvider() {
+            @Override public String providerId() { return "test"; }
+            @Override public String artifactProfile() { return "test"; }
+            @Override public boolean available() { return true; }
+            @Override public CoreProviderResult<CoreRuntimeVersion> runtimeVersion() {
+                return CoreProviderResult.success(new CoreRuntimeVersion(1, 2, 3));
+            }
+            @Override public dev.turboism.sdk.cubism.core.CoreCapabilities capabilities() {
+                return new dev.turboism.sdk.cubism.core.CoreCapabilities(false, false, true);
+            }
+            @Override public CoreProviderResult<Integer> latestMocVersion() {
+                return CoreProviderResult.success(6);
+            }
+            @Override public CoreProviderResult<Integer> mocVersion(final byte[] bytes) {
+                calls[0]++;
+                return CoreProviderResult.success(6);
+            }
+            @Override public CoreProviderResult<Boolean> hasMocConsistency(final byte[] bytes) {
+                calls[0]++;
+                return CoreProviderResult.success(true);
+            }
+        };
+        final var inspector = new CoreRuntimeMetadata(provider, () -> { }, 1).mocInspector();
+
+        assertThrows(IllegalArgumentException.class, () ->
+            inspector.inspect(MocData.copyOf(new byte[]{1, 2}))
+        );
+        org.junit.jupiter.api.Assertions.assertEquals(0, calls[0]);
+    }
 }
