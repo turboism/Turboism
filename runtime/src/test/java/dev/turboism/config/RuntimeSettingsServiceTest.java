@@ -6,6 +6,8 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -31,7 +33,7 @@ class RuntimeSettingsServiceTest {
             """);
         RuntimeSettingsFileService service = new RuntimeSettingsFileService(home, coordinator());
 
-        RuntimeSettings saved = service.save(new RuntimeSettings(true, "DEBUG", true, true, true));
+        RuntimeSettings saved = service.save(new RuntimeSettings(true, "DEBUG", 64, true, true, true));
         RuntimeSettings reloaded = service.read();
 
         assertEquals(saved, reloaded);
@@ -40,8 +42,38 @@ class RuntimeSettingsServiceTest {
         assertTrue(reloaded.skipStartupSplash());
         assertTrue(reloaded.skipStartupInformation());
         assertEquals("DEBUG", reloaded.logLevel());
+        assertEquals(64, reloaded.maxLogStorageMiB());
         assertFalse(Files.exists(home.resolve("config/runtime.json")));
         assertFalse(Files.exists(home.resolve("config.json.tmp")));
+    }
+
+    @Test
+    void appliesSavedLogLevelToTheRunningLogger() {
+        final AtomicReference<String> applied = new AtomicReference<>();
+        final RuntimeSettingsFileService service = new RuntimeSettingsFileService(
+            home,
+            coordinator(),
+            applied::set
+        );
+
+        service.save(new RuntimeSettings(false, "TRACE", false, false, false));
+
+        assertEquals("TRACE", applied.get());
+    }
+
+    @Test
+    void appliesSavedStorageLimitToTheRunningLogger() {
+        final AtomicInteger applied = new AtomicInteger();
+        final RuntimeSettingsFileService service = new RuntimeSettingsFileService(
+            home,
+            coordinator(),
+            ignored -> {},
+            applied::set
+        );
+
+        service.save(new RuntimeSettings(false, "INFO", 32, false, false, false));
+
+        assertEquals(32, applied.get());
     }
 
     @Test
@@ -53,6 +85,7 @@ class RuntimeSettingsServiceTest {
 
         assertTrue(Files.isRegularFile(home.resolve("config.json")));
         assertEquals("INFO", settings.logLevel());
+        assertEquals(100, settings.maxLogStorageMiB());
     }
 
     @Test
