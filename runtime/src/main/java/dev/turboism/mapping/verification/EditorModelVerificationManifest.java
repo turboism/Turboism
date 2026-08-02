@@ -7,7 +7,7 @@ public final class EditorModelVerificationManifest {
 
     public static final String VERIFICATION_ID = "cubism-5.3.02.editor-model.static";
     public static final String RECORD_SHA256 =
-        "30d1885322aa505465062055548e2ab8234e30f3d8c07da0367d966e72ea03e7";
+        "1e80ce189a337d7ff1fdad65a1b0e2eac24a6220e5c3ed79f20cafe6ca7aa96a";
     public static final String CUBISM_VERSION = "5.3.02";
     public static final String PROFILE_ID = "cubism-5.3.02";
     public static final long ARTIFACT_SIZE = 41_922_739L;
@@ -20,8 +20,8 @@ public final class EditorModelVerificationManifest {
         EditorParameterDefinitionWriteSelectorContract.CAPABILITY_ID,
         EditorParameterCombinedWriteSelectorContract.CAPABILITY_ID,
         EditorParameterGroupsReadSelectorContract.CAPABILITY_ID,
-        EditorParameterGroupLabelColorReadSelectorContract.CAPABILITY_ID,
-        EditorParameterGroupLabelColorWriteSelectorContract.CAPABILITY_ID,
+        EditorNativeControlAppearanceReadSelectorContract.CAPABILITY_ID,
+        EditorNativeControlAppearanceWriteSelectorContract.CAPABILITY_ID,
         EditorDefaultKeyformLockReadSelectorContract.CAPABILITY_ID,
         EditorDefaultKeyformLockWriteSelectorContract.CAPABILITY_ID,
         EditorPartOpacitySelectorContract.CAPABILITY_ID,
@@ -135,6 +135,18 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.label-color.set-color",
         "cubism.editor-model.label-color-type.class",
         "cubism.editor-model.label-color-type.custom",
+        "cubism.editor-model.label-color-type.undefined",
+        "cubism.editor-model.label-color-type.red",
+        "cubism.editor-model.label-color-type.orange",
+        "cubism.editor-model.label-color-type.yellow",
+        "cubism.editor-model.label-color-type.green",
+        "cubism.editor-model.label-color-type.blue",
+        "cubism.editor-model.label-color-type.purple",
+        "cubism.editor-model.label-color-type.gray",
+        "cubism.editor-model.label-color.label-type",
+        "cubism.editor-model.label-color.customized-color",
+        "cubism.editor-model.parameter-controllable-source.label-color",
+        "cubism.editor-model.deformer-source.class",
         "cubism.editor-model.color.class",
         "cubism.editor-model.color.create",
         "cubism.editor-model.color.red",
