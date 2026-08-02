@@ -58,7 +58,8 @@ public final class PreviewLog implements AutoCloseable {
         final Throwable failure
     ) {
         final String line = Instant.now(clock) + " [" + level + "] [" + safe(component) + "] " + safe(message);
-        System.err.println(line);
+        // stdout keeps Cubism's log panel from classifying every preview line as ERROR.
+        System.out.println(line);
         try {
             writer.write(line);
             writer.newLine();
@@ -67,7 +68,7 @@ public final class PreviewLog implements AutoCloseable {
             }
             writer.flush();
         } catch (IOException exception) {
-            System.err.println("Turboism preview log write failed: " + exception.getMessage());
+            System.out.println("Turboism preview log write failed: " + exception.getMessage());
         }
     }
 
