@@ -1168,6 +1168,7 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             System.getProperty("turboism.home"), "logs",
             closeDocument ? "fixed-api-document-close.txt" : "fixed-api-validation.txt"
         );
+        final AtomicReference<String> phase = new AtomicReference<>("await-model");
         try {
             Files.createDirectories(artifact.getParent());
             Files.writeString(
@@ -1177,6 +1178,7 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 StandardOpenOption.TRUNCATE_EXISTING
             );
             final CubismModel model = awaitEditorObjectModel(artifact);
+            phase.set("identity");
             final StringBuilder report = new StringBuilder("status=RUNNING\n")
                 .append("phase=fixed-api-read\n")
                 .append("hostThread=").append(onHostThread(() ->
@@ -1189,6 +1191,7 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                     .map(document -> document.documentId() + "|" + document.name())
                     .orElse("none")
             ));
+            phase.set("parameters");
 
             final Parameters parameters = onHostThread(model::parameters);
             final List<Parameter> parameterValues = onHostThread(parameters::all);
@@ -1204,6 +1207,7 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 .append("parameter.id=").append(onHostThread(() -> parameter.id().value())).append('\n')
                 .append("parameter.index=").append(parameterIndex).append('\n')
                 .append("parameter.keyValueCount=").append(onHostThread(() -> parameter.keyValues().size())).append('\n');
+            phase.set("parameter-definitions");
 
             final dev.turboism.sdk.cubism.model.ParameterDefinitions definitions =
                 onHostThread(model::parameterDefinitions);
@@ -1218,6 +1222,7 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             }
             report.append("parameterDefinitions.count=").append(definitionValues.size()).append('\n')
                 .append("parameterDefinition.first=").append(fixedText(definition)).append('\n');
+            phase.set("parts");
 
             final dev.turboism.sdk.cubism.model.Parts parts = onHostThread(model::parts);
             final List<Part> partValues = onHostThread(parts::all);
@@ -1251,6 +1256,7 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 .append("part.first.parentId=").append(fixedText(onHostThread(part::parentId))).append('\n')
                 .append("part.first.childIds=").append(fixedText(onHostThread(part::childIds))).append('\n')
                 .append("fixedReads.status=PASS\n");
+            phase.set("optional-fixed-api");
 
             appendFixedOutcome(report, "coreRuntime.version", () ->
                 onHostThread(() -> context.cubism().coreRuntime().version()));
@@ -1313,6 +1319,7 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 appendFixedOutcome(report, "glue.drawableBId", () -> onHostThread(glue.get()::drawableBId));
                 appendFixedOutcome(report, "glue.parameterIds", () -> onHostThread(glue.get()::parameterIds));
             }
+            phase.set("lifecycle");
 
             boolean modelStale;
             boolean definitionsStale;
@@ -1358,8 +1365,18 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 StandardOpenOption.TRUNCATE_EXISTING
             );
         } catch (Exception exception) {
-            writeValidationFailure(artifact, exception, "Fixed API validation artifact could not be written");
-        }
+            try {
+                Files.writeString(
+                    artifact,
+                    "status=FAIL\nphase=" + phase.get() + "\nerror="
+                        + failureDescription(exception) + "\n",
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.TRUNCATE_EXISTING
+                );
+            } catch (Exception ignored) {
+                context.logger().error("Fixed API validation artifact could not be written", exception);
+            }
+    }
     }
 
     private static void appendFixedOutcome(
