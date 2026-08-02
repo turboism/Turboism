@@ -18,6 +18,7 @@ public final class RuntimeCoreModelBackend implements AutoCloseable {
     private final BorrowedCoreModelSource source;
     private final CoreStructuralTracer tracer;
     private final CubismModelAccess modelAccess;
+    private final dev.turboism.sdk.cubism.core.CoreRuntimeInfo runtimeInfo;
     private final Object lifecycle = new Object();
     private boolean closed;
 
@@ -28,6 +29,7 @@ public final class RuntimeCoreModelBackend implements AutoCloseable {
     ) {
         this.source = Objects.requireNonNull(source, "source");
         this.tracer = Objects.requireNonNull(tracer, "tracer");
+        this.runtimeInfo = new CoreRuntimeMetadata(provider);
         this.modelAccess = new CoreBackedCubismModelAccess(source, provider, tracer);
     }
 
@@ -63,6 +65,11 @@ public final class RuntimeCoreModelBackend implements AutoCloseable {
     /** Returns the plugin-facing model access without exposing provider or host objects. */
     public CubismModelAccess modelAccess() {
         return modelAccess;
+    }
+
+    /** Returns normalized metadata for the admitted Core provider. */
+    public dev.turboism.sdk.cubism.core.CoreRuntimeInfo coreRuntimeInfo() {
+        return runtimeInfo;
     }
 
     /** Publishes the current Editor-owned Core model after verified Runtime acquisition. */
