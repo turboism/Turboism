@@ -23,7 +23,7 @@ public final class SwingFlatLafHostOperations implements FlatLafAppearanceHostPr
     public SwingFlatLafHostOperations(final ClassLoader hostClassLoader) {
         this.hostClassLoader = Objects.requireNonNull(hostClassLoader, "hostClassLoader");
         this.ownedKeys = FlatLafAppearanceHostProvider.ownedKeys();
-        captureNativeOffCanvasBackground();
+        captureNativeOffCanvasBackgroundNow();
     }
 
     @Override
@@ -42,17 +42,44 @@ public final class SwingFlatLafHostOperations implements FlatLafAppearanceHostPr
         });
     }
 
-    /** Captures Cubism's resolved derived default before any persisted theme is injected. */
+    private static final long NATIVE_CAPTURE_TIMEOUT_MILLIS = 60_000L;
+    private static final long NATIVE_CAPTURE_POLL_MILLIS = 100L;
+
+    /**
+     * Captures Cubism's resolved derived GL background before any persisted
+     * theme is injected (bootstrap path). Cubism registers its classpath
+     * custom-defaults source while the main window initializes, later than
+     * FlatLaf's look-and-feel is set, so poll until the derived key resolves
+     * (or the timeout elapses) before the theme is injected.
+     */
     static void captureNativeOffCanvasBackground() {
-        onEdt(() -> {
-            if (UIManager.get(NATIVE_OFF_CANVAS_BACKGROUND) == null) {
-                final Object value = UIManager.get(OFF_CANVAS_BACKGROUND);
-                if (value instanceof Color color) {
-                    UIManager.put(NATIVE_OFF_CANVAS_BACKGROUND, new ColorUIResource(color));
-                }
+        captureNativeOffCanvasBackground(true);
+    }
+
+    /** One-shot capture for the runtime provider path, where Cubism has settled. */
+    static void captureNativeOffCanvasBackgroundNow() {
+        captureNativeOffCanvasBackground(false);
+    }
+
+    private static void captureNativeOffCanvasBackground(final boolean poll) {
+        if (UIManager.get(NATIVE_OFF_CANVAS_BACKGROUND) != null) {
+            return;
+        }
+        final long deadline = System.currentTimeMillis()
+            + (poll ? NATIVE_CAPTURE_TIMEOUT_MILLIS : 0L);
+        while (System.currentTimeMillis() < deadline) {
+            final Object value = UIManager.get(OFF_CANVAS_BACKGROUND);
+            if (value instanceof Color color) {
+                UIManager.put(NATIVE_OFF_CANVAS_BACKGROUND, new ColorUIResource(color));
+                return;
             }
-            return null;
-        });
+            try {
+                Thread.sleep(NATIVE_CAPTURE_POLL_MILLIS);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+        }
     }
 
     @Override
