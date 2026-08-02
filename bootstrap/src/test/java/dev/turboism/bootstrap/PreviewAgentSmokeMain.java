@@ -16,15 +16,13 @@ public final class PreviewAgentSmokeMain {
     public static void main(final String[] args) throws Exception {
         CEAppCtrl.touch();
         final Path home = Path.of(System.getProperty("turboism.home"));
-        final Path log = home.resolve("logs/turboism.log");
+        final Path logs = home.resolve("logs/runtime");
         final Path state = home.resolve("state");
         final Instant deadline = Instant.now().plus(Duration.ofSeconds(20));
         boolean loadObserved = false;
         boolean shutdownCompleted = false;
         while (Instant.now().isBefore(deadline)) {
-            final String content = Files.isRegularFile(log)
-                ? Files.readString(log)
-                : "";
+            final String content = readRuntimeLog(logs);
             if (content.contains("Turboism preview startup failed")) {
                 throw new IllegalStateException("Agent startup failed:\n" + content);
             }
@@ -42,6 +40,19 @@ public final class PreviewAgentSmokeMain {
         throw new IllegalStateException(
             "Timed out waiting for explicit Turboism shutdown and final reports at " + home
         );
+    }
+
+    private static String readRuntimeLog(final Path directory) throws Exception {
+        if (!Files.isDirectory(directory)) {
+            return "";
+        }
+        try (var paths = Files.walk(directory)) {
+            final var latest = paths
+                .filter(Files::isRegularFile)
+                .filter(path -> path.getFileName().toString().endsWith(".log"))
+                .max(Path::compareTo);
+            return latest.isPresent() ? Files.readString(latest.orElseThrow()) : "";
+        }
     }
 
     private static boolean finalReportsExist(final Path state) {
