@@ -228,6 +228,15 @@ class CubismFacadeImplTest {
         final int[] activeCalls = {0};
         final int[] collectionCalls = {0};
         final int[] parameterCalls = {0};
+        final int[] canvasCalls = {0};
+        final dev.turboism.sdk.cubism.model.Canvas backendCanvas =
+            new dev.turboism.sdk.cubism.model.Canvas() {
+                @Override public float widthPixels() { canvasCalls[0]++; return 100.0F; }
+                @Override public float heightPixels() { return 100.0F; }
+                @Override public float originXPixels() { return 0.0F; }
+                @Override public float originYPixels() { return 0.0F; }
+                @Override public float pixelsPerUnit() { return 100.0F; }
+            };
         final dev.turboism.sdk.cubism.model.Parameter backendParameter =
             new dev.turboism.sdk.cubism.model.Parameter() {
                 @Override public ParameterId id() { return new ParameterId("ParamA"); }
@@ -250,6 +259,7 @@ class CubismFacadeImplTest {
         final CubismModel backendModel = new CubismModel() {
             @Override public ModelId id() { return new ModelId("model-a"); }
             @Override public Parameters parameters() { return backendParameters; }
+            @Override public dev.turboism.sdk.cubism.model.Canvas canvas() { return backendCanvas; }
             @Override public Parts parts() { throw new UnsupportedOperationException(); }
             @Override public Drawables drawables() { throw new UnsupportedOperationException(); }
             @Override public Deformers deformers() { throw new UnsupportedOperationException(); }
@@ -277,6 +287,7 @@ class CubismFacadeImplTest {
         );
         final CubismModelAccess retainedAccess = facade.model();
         final CubismModel retainedModel = retainedAccess.active();
+        final dev.turboism.sdk.cubism.model.Canvas retainedCanvas = retainedModel.canvas();
         final Parameters retainedParameters = retainedModel.parameters();
         final dev.turboism.sdk.cubism.model.Parameter retainedParameter =
             retainedParameters.all().get(0);
@@ -288,9 +299,11 @@ class CubismFacadeImplTest {
         assertThrows(IllegalStateException.class, retainedAccess::active);
         assertThrows(IllegalStateException.class, retainedParameters::all);
         assertThrows(IllegalStateException.class, retainedParameter::getValue);
+        assertThrows(IllegalStateException.class, retainedCanvas::widthPixels);
         assertEquals(0, activeCalls[0]);
         assertEquals(0, collectionCalls[0]);
         assertEquals(0, parameterCalls[0]);
+        assertEquals(0, canvasCalls[0]);
     }
 
     @Test
