@@ -76,6 +76,8 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     private final dev.turboism.ui.table.SceneTableHostOperations sceneTableHost =
         new dev.turboism.ui.table.SceneTableHostOperations();
     private final dev.turboism.sdk.ui.table.SceneTableService sceneTable = sceneTableHost.service();
+    private final dev.turboism.ui.filter.PaletteFilterHostOperations paletteFilterHost =
+        new dev.turboism.ui.filter.PaletteFilterHostOperations();
     private final dev.turboism.ui.appearance.control.ControlAppearanceCoordinator controlAppearanceCoordinator =
         new dev.turboism.ui.appearance.control.ControlAppearanceCoordinator();
     private final Object lifecycleMonitor = new Object();
@@ -158,6 +160,10 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
 
             final HostInstanceDescriptor descriptor = available.orElseThrow();
             sceneTableHost.connect(
+                descriptor.verificationEvidence().projectWorkspace().hostClassLoader()
+            );
+            paletteFilterHost.bindSceneFilterSink(sceneTableHost);
+            paletteFilterHost.connect(
                 descriptor.verificationEvidence().projectWorkspace().hostClassLoader()
             );
             final ConnectionKey connectionKey;
@@ -358,6 +364,11 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     }
 
     @Override
+    public dev.turboism.ui.filter.PaletteFilterVisibilitySink paletteFilterSink() {
+        return paletteFilterHost;
+    }
+
+    @Override
     public dev.turboism.ui.appearance.control.ControlAppearanceCoordinator controlAppearanceCoordinator() {
         return controlAppearanceCoordinator;
     }
@@ -403,6 +414,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             boundingBoxOverlayResolver(),
             appearanceCoordinator,
             sceneTable,
+            paletteFilterHost,
             controlAppearanceCoordinator
         );
     }
@@ -424,6 +436,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             }
             appearanceCoordinator.close();
             sceneTableHost.disconnect();
+            paletteFilterHost.close();
             controlAppearanceCoordinator.close();
             physicsEditorCoordinator.close();
             editorObjectLifecycle.close();
