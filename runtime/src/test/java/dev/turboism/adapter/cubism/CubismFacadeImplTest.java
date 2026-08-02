@@ -221,6 +221,133 @@ class CubismFacadeImplTest {
         assertEquals(1, calls[2]);
     }
 
+
+    @Test
+    void retainedModelServicesRecheckPluginScopeBeforeBackendCalls() {
+        final AtomicBoolean active = new AtomicBoolean(true);
+        final int[] activeCalls = {0};
+        final int[] collectionCalls = {0};
+        final int[] parameterCalls = {0};
+        final dev.turboism.sdk.cubism.model.Parameter backendParameter =
+            new dev.turboism.sdk.cubism.model.Parameter() {
+                @Override public ParameterId id() { return new ParameterId("ParamA"); }
+                @Override public float getValue() { parameterCalls[0]++; return 0.0F; }
+                @Override public float getMinimumValue() { return -1.0F; }
+                @Override public float getMaximumValue() { return 1.0F; }
+                @Override public float getDefaultValue() { return 0.0F; }
+                @Override public void setValue(final float value) { parameterCalls[0]++; }
+            };
+        final Parameters backendParameters = new Parameters() {
+            @Override public List<dev.turboism.sdk.cubism.model.Parameter> all() {
+                collectionCalls[0]++;
+                return List.of(backendParameter);
+            }
+            @Override public dev.turboism.sdk.cubism.model.Parameter find(final ParameterId id) {
+                collectionCalls[0]++;
+                throw new java.util.NoSuchElementException();
+            }
+        };
+        final CubismModel backendModel = new CubismModel() {
+            @Override public ModelId id() { return new ModelId("model-a"); }
+            @Override public Parameters parameters() { return backendParameters; }
+            @Override public Parts parts() { throw new UnsupportedOperationException(); }
+            @Override public Drawables drawables() { throw new UnsupportedOperationException(); }
+            @Override public Deformers deformers() { throw new UnsupportedOperationException(); }
+            @Override public Glues glues() { throw new UnsupportedOperationException(); }
+            @Override public void update() { throw new UnsupportedOperationException(); }
+        };
+        final CubismFacadeImpl facade = new CubismFacadeImpl(
+            emptySource(),
+            new CubismPermissionGate(
+                "plugin.demo",
+                List.of(permission(CubismFacadeImpl.MODEL_READ_PERMISSION)),
+                ignored -> { },
+                FIXED_CLOCK
+            ),
+            new ImmutableSnapshotFactory(),
+            (context, document) -> { throw new UnsupportedOperationException(); },
+            () -> {
+                activeCalls[0]++;
+                return backendModel;
+            },
+            new ParameterLifecycleCoordinator(),
+            new dev.turboism.adapter.cubism.lifecycle.PartLifecycleCoordinator(),
+            new dev.turboism.adapter.cubism.lifecycle.EditorObjectLifecycleCoordinator(),
+            active::get
+        );
+        final CubismModelAccess retainedAccess = facade.model();
+        final CubismModel retainedModel = retainedAccess.active();
+        final Parameters retainedParameters = retainedModel.parameters();
+        final dev.turboism.sdk.cubism.model.Parameter retainedParameter =
+            retainedParameters.all().get(0);
+        activeCalls[0] = 0;
+        collectionCalls[0] = 0;
+
+        active.set(false);
+
+        assertThrows(IllegalStateException.class, retainedAccess::active);
+        assertThrows(IllegalStateException.class, retainedParameters::all);
+        assertThrows(IllegalStateException.class, retainedParameter::getValue);
+        assertEquals(0, activeCalls[0]);
+        assertEquals(0, collectionCalls[0]);
+        assertEquals(0, parameterCalls[0]);
+    }
+
+    @Test
+    void fixedWritesValidateArgumentsBeforeUnavailableDelegates() {
+        final dev.turboism.sdk.cubism.model.Part backendPart =
+            new dev.turboism.sdk.cubism.model.Part() {
+                @Override public dev.turboism.sdk.cubism.model.PartId id() {
+                    return new dev.turboism.sdk.cubism.model.PartId("PartA");
+                }
+                @Override public void setName(final String name) { }
+                @Override public float getOpacity() { return 1.0F; }
+                @Override public int parentIndex() { return -1; }
+                @Override public void setOpacity(final float opacity) { }
+            };
+        final CubismModel backendModel = new CubismModel() {
+            @Override public ModelId id() { return new ModelId("model-a"); }
+            @Override public Parameters parameters() { throw new UnsupportedOperationException(); }
+            @Override public Parts parts() {
+                return new Parts() {
+                    @Override public List<dev.turboism.sdk.cubism.model.Part> all() {
+                        return List.of(backendPart);
+                    }
+                    @Override public dev.turboism.sdk.cubism.model.Part find(
+                        final dev.turboism.sdk.cubism.model.PartId id
+                    ) {
+                        return backendPart;
+                    }
+                };
+            }
+            @Override public Drawables drawables() { throw new UnsupportedOperationException(); }
+            @Override public Deformers deformers() { throw new UnsupportedOperationException(); }
+            @Override public Glues glues() { throw new UnsupportedOperationException(); }
+            @Override public void update() { throw new UnsupportedOperationException(); }
+        };
+        final CubismFacadeImpl facade = new CubismFacadeImpl(
+            emptySource(),
+            new CubismPermissionGate(
+                "plugin.demo",
+                List.of(
+                    permission(CubismFacadeImpl.MODEL_READ_PERMISSION),
+                    permission(CubismFacadeImpl.MODEL_WRITE_PERMISSION)
+                ),
+                ignored -> { },
+                FIXED_CLOCK
+            ),
+            () -> backendModel
+        );
+        final CubismModel model = facade.model().active();
+        final dev.turboism.sdk.cubism.model.Part part = model.parts().all().get(0);
+
+        assertThrows(NullPointerException.class, () -> model.setName(null));
+        assertThrows(IllegalArgumentException.class, () -> model.setName("  \t"));
+        assertThrows(NullPointerException.class, () -> part.setShortName(null));
+        assertThrows(IllegalArgumentException.class, () -> part.setShortName(Optional.of("  ")));
+        assertThrows(NullPointerException.class, () -> part.setEditColor(null));
+    }
+
     @Test
     void modelDelegatesToRuntimeOwnedAccessAfterPermissionCheck() {
         final List<CubismFacadeAuditEvent> auditEvents = new ArrayList<>();

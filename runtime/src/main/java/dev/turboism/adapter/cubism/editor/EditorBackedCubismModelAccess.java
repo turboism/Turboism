@@ -39,6 +39,11 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess {
     private final EditorDefaultKeyformLockAccess defaultKeyformLockAccess;
     private final EditorPartOpacityAccess partOpacityAccess;
     private final EditorObjectReadAccess objectReadAccess;
+    private final Object generationLock = new Object();
+    private Object activeDocument;
+    private Object activeSource;
+    private Object activeModel;
+    private long generation;
 
     public EditorBackedCubismModelAccess(
         final VerifiedMemberResolver resolver,
@@ -72,7 +77,9 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess {
     @Override
     public CubismModel active() {
         final Binding binding = binding();
-        return new EditorModel(binding.identity(), binding.source(), binding.model());
+        return new EditorModel(
+            binding.identity(), binding.modelId(), binding.source(), binding.model()
+        );
     }
 
     private Binding binding() {
@@ -98,7 +105,24 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess {
         }
         final Object guid = resolver.invoke("cubism.editor-model.model-source.guid", source);
         final String id = text(resolver.invoke("cubism.editor-model.guid.value", guid));
-        return new Binding(sessionIdentity + ":" + id, source, model);
+        return new Binding(bindingIdentity(id, document, source, model), id, source, model);
+    }
+
+    private String bindingIdentity(
+        final String modelId,
+        final Object document,
+        final Object source,
+        final Object model
+    ) {
+        synchronized (generationLock) {
+            if (document != activeDocument || source != activeSource || model != activeModel) {
+                activeDocument = document;
+                activeSource = source;
+                activeModel = model;
+                generation = Math.incrementExact(generation);
+            }
+            return sessionIdentity + ":" + modelId + ":" + generation;
+        }
     }
 
     private void setParameterValue(
@@ -597,15 +621,22 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess {
 
     private final class EditorModel implements CubismModel {
         private final String identity;
+        private final String modelId;
         private final Object source;
         private final Object model;
-        private EditorModel(final String identity, final Object source, final Object model) {
+        private EditorModel(
+            final String identity,
+            final String modelId,
+            final Object source,
+            final Object model
+        ) {
             this.identity = identity;
+            this.modelId = modelId;
             this.source = source;
             this.model = model;
         }
         private void current() { requireCurrent(identity, model); }
-        @Override public ModelId id() { current(); return new ModelId(identity.substring(identity.indexOf(':') + 1)); }
+        @Override public ModelId id() { current(); return new ModelId(modelId); }
         @Override public ParameterDefinitions parameterDefinitions() {
             return EditorBackedCubismModelAccess.this.parameterDefinitions(identity, model);
         }
@@ -784,6 +815,6 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess {
         return value;
     }
 
-    private record Binding(String identity, Object source, Object model) { }
+    private record Binding(String identity, String modelId, Object source, Object model) { }
     private record ParameterBinding(String id, Object parameter) { }
 }

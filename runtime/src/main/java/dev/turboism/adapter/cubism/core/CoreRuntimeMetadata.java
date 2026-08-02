@@ -14,16 +14,29 @@ import java.util.Objects;
 /** Runtime-owned normalization of admitted Core metadata and byte inspection. */
 final class CoreRuntimeMetadata implements CoreRuntimeInfo {
 
+    static final int DEFAULT_MOC_BYTE_QUOTA = 64 * 1024 * 1024;
+
     private final CorePublicApiProvider provider;
     private final Runnable freshness;
+    private final int mocByteQuota;
 
     CoreRuntimeMetadata(final CorePublicApiProvider provider) {
-        this(provider, () -> { });
+        this(provider, () -> { }, DEFAULT_MOC_BYTE_QUOTA);
     }
 
     CoreRuntimeMetadata(final CorePublicApiProvider provider, final Runnable freshness) {
+        this(provider, freshness, DEFAULT_MOC_BYTE_QUOTA);
+    }
+
+    CoreRuntimeMetadata(
+        final CorePublicApiProvider provider,
+        final Runnable freshness,
+        final int mocByteQuota
+    ) {
         this.provider = Objects.requireNonNull(provider, "provider");
         this.freshness = Objects.requireNonNull(freshness, "freshness");
+        if (mocByteQuota < 1) throw new IllegalArgumentException("mocByteQuota must be positive");
+        this.mocByteQuota = mocByteQuota;
     }
 
     @Override
@@ -60,6 +73,11 @@ final class CoreRuntimeMetadata implements CoreRuntimeInfo {
             @Override
             public MocInfo inspect(final MocData data) {
                 final MocData value = Objects.requireNonNull(data, "data");
+                if (value.size() > mocByteQuota) {
+                    throw new IllegalArgumentException(
+                        "MOC data exceeds the configured byte quota of " + mocByteQuota + "."
+                    );
+                }
                 final byte[] bytes = value.toByteArray();
                 freshness.run();
                 final int version = requireValue(
