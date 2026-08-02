@@ -830,18 +830,7 @@ public final class CubismFacadeImpl implements CubismFacade {
             return delegate.id();
         }
         @Override public java.util.Optional<String> name() { return delegate.name(); }
-        @Override public dev.turboism.sdk.cubism.model.Color labelColor() {
-            return delegate.labelColor();
-        }
-        @Override public void setLabelColor(
-            final dev.turboism.sdk.cubism.model.Color color
-        ) {
-            permissionGate.require(
-                MODEL_WRITE_PERMISSION,
-                "parameterGroup.setLabelColor"
-            );
-            delegate.setLabelColor(color);
-        }
+
         @Override public java.util.Optional<dev.turboism.sdk.cubism.id.ParameterGroupId> parentId() {
             return delegate.parentId();
         }
