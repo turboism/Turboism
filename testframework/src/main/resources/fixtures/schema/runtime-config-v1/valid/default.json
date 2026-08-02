@@ -6,6 +6,7 @@
     "plugins/"
   ],
   "logLevel": "INFO",
+  "maxLogStorageMiB": 100,
   "safeMode": false,
   "diagnostics": {
     "enabled": true,
