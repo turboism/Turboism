@@ -38,6 +38,7 @@ import dev.turboism.sdk.ui.UiHostCapabilityService;
 import dev.turboism.sdk.ui.UiScheduler;
 import dev.turboism.sdk.ui.UserFileAccessService;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry;
+import dev.turboism.sdk.ui.filter.PaletteFilterRegistry;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
 import dev.turboism.sdk.ui.table.SceneTableService;
@@ -45,6 +46,7 @@ import dev.turboism.sdk.ui.appearance.ControlAppearanceRegistry;
 import dev.turboism.ui.RuntimeUiHostCapabilityService;
 import dev.turboism.ui.UiHostStateSource;
 import dev.turboism.ui.context.RuntimeContextMenuRegistry;
+import dev.turboism.ui.filter.RuntimePaletteFilterRegistry;
 import dev.turboism.ui.toolbar.RuntimeMainToolbarRegistry;
 import dev.turboism.ui.toolbar.RuntimePaletteToolbarRegistry;
 import dev.turboism.ui.appearance.control.RuntimeControlAppearanceRegistry;
@@ -60,6 +62,7 @@ public final class CorePluginContext implements PluginContext {
     private final CubismContextServices cubismServices;
     private final MainToolbarRegistry mainToolbarRegistry;
     private final PaletteToolbarRegistry paletteToolbarRegistry;
+    private final PaletteFilterRegistry paletteFilterRegistry;
     private final ContextMenuRegistry contextMenuRegistry;
     private final PluginConfigRegistry pluginConfigRegistry;
     private final UiHostCapabilityService uiHostCapabilityService;
@@ -380,10 +383,16 @@ public final class CorePluginContext implements PluginContext {
             .create(this.dependencies);
         this.mainToolbarRegistry = dependencies.mainToolbar();
         this.paletteToolbarRegistry = dependencies.paletteToolbar();
+        this.paletteFilterRegistry = dependencies.paletteFilter();
         this.contextMenuRegistry = dependencies.contextMenu();
         this.pluginConfigRegistry = dependencies.config();
         this.localization = localization;
-        bindContributionLocalization(this.mainToolbarRegistry, this.paletteToolbarRegistry, localization);
+        bindContributionLocalization(
+            this.mainToolbarRegistry,
+            this.paletteToolbarRegistry,
+            this.paletteFilterRegistry,
+            localization
+        );
         this.taskScheduler = taskScheduler;
         this.pluginStorage = pluginStorage;
         this.userFileAccessService = userFileAccessService;
@@ -444,9 +453,13 @@ public final class CorePluginContext implements PluginContext {
                 this.dependencies.menus(),
                 this.mainToolbarRegistry,
                 this.paletteToolbarRegistry,
+                this.paletteFilterRegistry,
                 this.contextMenuRegistry,
                 hostAccess.editorUiContributions()
             );
+            if (this.paletteFilterRegistry instanceof RuntimePaletteFilterRegistry runtimePaletteFilter) {
+                runtimePaletteFilter.bindVisibilitySink(hostAccess.paletteFilterSink());
+            }
             this.dependencies.disposableScope().register(
                 hostAccess.editorUiActionRouter().register(
                     this.dependencies.descriptor().id(),
@@ -459,6 +472,7 @@ public final class CorePluginContext implements PluginContext {
     private static void bindContributionLocalization(
         final MainToolbarRegistry mainToolbar,
         final PaletteToolbarRegistry paletteToolbar,
+        final PaletteFilterRegistry paletteFilter,
         final PluginLocalization localization
     ) {
         if (mainToolbar instanceof RuntimeMainToolbarRegistry runtimeMainToolbar) {
@@ -473,6 +487,13 @@ public final class CorePluginContext implements PluginContext {
                 runtimePaletteToolbar.lockWithoutLocalization();
             } else {
                 runtimePaletteToolbar.bindLocalization(localization);
+            }
+        }
+        if (paletteFilter instanceof RuntimePaletteFilterRegistry runtimePaletteFilter) {
+            if (localization == null) {
+                runtimePaletteFilter.lockWithoutLocalization();
+            } else {
+                runtimePaletteFilter.bindLocalization(localization);
             }
         }
     }
@@ -582,6 +603,11 @@ public final class CorePluginContext implements PluginContext {
     }
 
     @Override
+    public PaletteFilterRegistry paletteFilter() {
+        return paletteFilterRegistry;
+    }
+
+    @Override
     public SceneTableService sceneTable() {
         return sceneTableService;
     }
@@ -647,6 +673,7 @@ public final class CorePluginContext implements PluginContext {
         MenuRegistry menus,
         MainToolbarRegistry mainToolbar,
         PaletteToolbarRegistry paletteToolbar,
+        PaletteFilterRegistry paletteFilter,
         ContextMenuRegistry contextMenu,
         PluginConfigRegistry config,
         UiScheduler uiScheduler,
@@ -799,6 +826,7 @@ public final class CorePluginContext implements PluginContext {
                 services.menus,
                 services.mainToolbar,
                 services.paletteToolbar,
+                services.paletteFilter,
                 services.contextMenu,
                 services.config,
                 uiScheduler,
@@ -834,6 +862,7 @@ public final class CorePluginContext implements PluginContext {
                 new RuntimeMenuRegistry(runtimeScheduler, descriptor.id(), checker),
                 new RuntimeMainToolbarRegistry(checker, runtimeScheduler, descriptor.id()),
                 new RuntimePaletteToolbarRegistry(checker, runtimeScheduler, descriptor.id()),
+                new RuntimePaletteFilterRegistry(checker, runtimeScheduler, descriptor.id()),
                 new RuntimeContextMenuRegistry(checker, descriptor.id()),
                 new RuntimePluginConfigRegistry(
                     checker,
@@ -852,6 +881,7 @@ public final class CorePluginContext implements PluginContext {
             MenuRegistry menus,
             MainToolbarRegistry mainToolbar,
             PaletteToolbarRegistry paletteToolbar,
+            PaletteFilterRegistry paletteFilter,
             ContextMenuRegistry contextMenu,
             PluginConfigRegistry config
         ) {
@@ -868,6 +898,7 @@ public final class CorePluginContext implements PluginContext {
                 menus,
                 mainToolbar,
                 paletteToolbar,
+                paletteFilter,
                 contextMenu,
                 Objects.requireNonNull(replacement, "replacement"),
                 uiScheduler,
@@ -892,6 +923,7 @@ public final class CorePluginContext implements PluginContext {
             menus = Objects.requireNonNull(menus, "menus");
             mainToolbar = Objects.requireNonNull(mainToolbar, "mainToolbar");
             paletteToolbar = Objects.requireNonNull(paletteToolbar, "paletteToolbar");
+            paletteFilter = Objects.requireNonNull(paletteFilter, "paletteFilter");
             contextMenu = Objects.requireNonNull(contextMenu, "contextMenu");
             config = Objects.requireNonNull(config, "config");
             uiScheduler = Objects.requireNonNull(uiScheduler, "uiScheduler");
