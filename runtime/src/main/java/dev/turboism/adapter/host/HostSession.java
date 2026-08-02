@@ -364,6 +364,11 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     public dev.turboism.ui.appearance.control.ControlAppearanceCoordinator controlAppearanceCoordinator() {
         return controlAppearanceCoordinator;
     }
+
+    @Override
+    public dev.turboism.adapter.cubism.NativeControlAppearanceAuthoring nativeControlAppearance() {
+        return dynamicModelAccess;
+    }
     public dev.turboism.mapping.verification.VerifiedMemberResolver editorModelResolver() {
         synchronized (lifecycleMonitor) {
             if (activeConnection == null) {
@@ -406,7 +411,8 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             boundingBoxOverlayResolver(),
             appearanceCoordinator,
             sceneTable,
-            controlAppearanceCoordinator
+            controlAppearanceCoordinator,
+            dynamicModelAccess
         );
     }
 
