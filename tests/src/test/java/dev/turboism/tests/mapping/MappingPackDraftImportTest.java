@@ -214,7 +214,23 @@ class MappingPackDraftImportTest {
     }
 
     @Test
+    void editorModel52PackUsesExactEditorProvenance() throws Exception {
+        JsonNode metadata = mapper.readTree(
+            DRAFT_DIR.resolve("cubism-5.2-editor-model-read.json").toFile()
+        ).path("metadata");
+        assertEquals(
+            "docs/migration/verification/static/cubism-5.2-editor-model.json",
+            metadata.path("inventoryRef").asText()
+        );
+        assertEquals(
+            "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
+            metadata.path("artifactSha256").asText()
+        );
+    }
+
+    @Test
     void draftPacksAreNotInRuntimeEnabledResources() throws Exception {
+
         Path runtimeMapping = Paths.get(System.getProperty("projectRoot", System.getProperty("user.dir")))
             .resolve("runtime/src/main/resources/turboism/mapping");
         if (!Files.exists(runtimeMapping)) {
