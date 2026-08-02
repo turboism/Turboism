@@ -12,6 +12,14 @@ public interface Parameter {
 
     ParameterId id();
 
+    default int index() {
+        throw new UnsupportedOperationException("Cubism parameter index is unavailable.");
+    }
+
+    default FloatSequence keyValues() {
+        throw new UnsupportedOperationException("Cubism parameter key values are unavailable.");
+    }
+
     /**
      * Returns the user-facing parameter name when the active backend exposes it.
      *
