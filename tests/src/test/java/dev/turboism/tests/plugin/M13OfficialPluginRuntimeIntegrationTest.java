@@ -638,7 +638,8 @@ class M13OfficialPluginRuntimeIntegrationTest {
                 "turboism.ui.toolbar.main.contribute",
                 "turboism.ui.panel.contribute",
                 "turboism.ui.menu.contribute",
-                "turboism.ui.dialog.contribute"
+                "turboism.ui.dialog.contribute",
+                "turboism.ui.context-menu.contribute"
             ),
             permissionIdsFor("core")
         );
