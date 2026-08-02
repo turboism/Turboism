@@ -36,7 +36,7 @@ Record pass/fail for each item.
 ### Startup and binding
 
 - [ ] Cubism starts normally.
-- [ ] `logs\turboism.log` contains `Host adapter ... connected`, not `FAILED`.
+- [ ] `logs\runtime\<UTC-date>\turboism-*.log` contains `Host adapter ... connected`, not `FAILED`.
 - [ ] No `Turboism parameter hook disabled safely` appears in the console log.
 - [ ] The validation window lists active-model parameters.
 - [ ] Selecting a parameter displays ID, name, type, Blend Shape, Combined, Repeat, current value, range and default.
@@ -137,7 +137,7 @@ Use **Lock default** and **Unlock default** in the validation window.
 
 1. Close Cubism normally.
 
-- [ ] `logs\turboism.log` reports plugin unload/cleanup without failure.
+- [ ] `logs\runtime\<UTC-date>\turboism-*.log` reports plugin unload/cleanup without failure.
 - [ ] No stale validation window remains.
 
 ## 4. Return evidence
@@ -146,7 +146,7 @@ Send back:
 
 ```text
 logs\cubism-console.log
-logs\turboism.log
+logs\runtime\<UTC-date>\turboism-*.log
 state\*.json
 ```
 

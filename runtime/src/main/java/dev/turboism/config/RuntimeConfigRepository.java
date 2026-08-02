@@ -163,6 +163,10 @@ public final class RuntimeConfigRepository {
         root.putArray("pluginDirs").add("plugins");
         root.putArray("disabledPlugins");
         root.put("logLevel", "INFO");
+        root.put(
+            "maxLogStorageMiB",
+            dev.turboism.sdk.runtime.RuntimeSettings.DEFAULT_MAX_LOG_STORAGE_MIB
+        );
         root.put("safeMode", false);
         final ObjectNode hooks = root.putObject("hooks");
         hooks.putArray("disabledIds");
