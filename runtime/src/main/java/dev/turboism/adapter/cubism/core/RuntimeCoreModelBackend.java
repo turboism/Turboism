@@ -20,7 +20,7 @@ public final class RuntimeCoreModelBackend implements AutoCloseable {
     private final CubismModelAccess modelAccess;
     private final dev.turboism.sdk.cubism.core.CoreRuntimeInfo runtimeInfo;
     private final Object lifecycle = new Object();
-    private boolean closed;
+    private volatile boolean closed;
 
     private RuntimeCoreModelBackend(
         final BorrowedCoreModelSource source,
@@ -29,7 +29,7 @@ public final class RuntimeCoreModelBackend implements AutoCloseable {
     ) {
         this.source = Objects.requireNonNull(source, "source");
         this.tracer = Objects.requireNonNull(tracer, "tracer");
-        this.runtimeInfo = new CoreRuntimeMetadata(provider);
+        this.runtimeInfo = new CoreRuntimeMetadata(provider, this::requireOpen);
         this.modelAccess = new CoreBackedCubismModelAccess(source, provider, tracer);
     }
 

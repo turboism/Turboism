@@ -46,12 +46,19 @@ class RuntimeCoreModelBackendTest {
                 ignored -> { },
                 Clock.systemUTC()
             ),
-            backend.modelAccess()
+            backend
+        );
+        final var runtimeInfo = facade.coreRuntime();
+        assertEquals(
+            new dev.turboism.sdk.cubism.core.CoreVersion(11, 12, 13),
+            runtimeInfo.version()
         );
         final Parameter parameter = facade.model().active()
             .parameters()
             .find(new ParameterId("ParamAngleX"));
         assertEquals(10.0F, parameter.getValue());
+        assertEquals(0, parameter.index());
+        assertEquals(0, parameter.keyValues().size());
 
         backend.clearBorrowedModel();
         final IllegalStateException stale = assertThrows(
@@ -65,6 +72,7 @@ class RuntimeCoreModelBackendTest {
         backend.close();
         assertEquals(0, hostCloseCalls.get());
         assertThrows(IllegalStateException.class, () -> backend.modelAccess().active());
+        assertThrows(IllegalStateException.class, runtimeInfo::version);
         assertThrows(
             IllegalStateException.class,
             () -> backend.publishBorrowedModel(model.coreModel, "model-b")
