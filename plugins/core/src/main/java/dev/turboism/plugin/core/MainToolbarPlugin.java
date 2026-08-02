@@ -37,7 +37,7 @@ public final class MainToolbarPlugin implements TurboismPlugin {
             context.uiHost(), context.mainToolbar(), context.menus(), localization(context),
             runtimeSettings, plugins
         );
-        this.windows = new CoreWindows(localization(context), runtimeSettings, plugins);
+        this.windows = new CoreWindows(localization(context), runtimeSettings, plugins, services.logs());
         logger.info("Turboism core initialized");
     }
 
@@ -49,6 +49,8 @@ public final class MainToolbarPlugin implements TurboismPlugin {
             localization(context).text("main-toolbar.settings-menu.label"), ignored -> windows.showSettings());
         registerAction(MainToolbarHomeEntryService.PLUGINS_ACTION_ID,
             localization(context).text("main-toolbar.plugins-menu.label"), ignored -> windows.showPlugins());
+        registerAction(MainToolbarHomeEntryService.LOGS_ACTION_ID,
+            localization(context).text("main-toolbar.logs-menu.label"), ignored -> windows.showLogs());
         registerSettingsActions();
         registerPluginActions();
         context.disposableScope().register(plugins);
@@ -56,6 +58,7 @@ public final class MainToolbarPlugin implements TurboismPlugin {
         refreshPanel();
         context.disposableScope().register(homeEntryService.registerSettingsMenu());
         context.disposableScope().register(homeEntryService.registerPluginManagementMenu());
+        context.disposableScope().register(homeEntryService.registerLogsMenu());
         context.disposableScope().register(homeEntryService.registerHomeEntry());
         logger.info("Turboism core enabled");
     }
@@ -130,20 +133,24 @@ public final class MainToolbarPlugin implements TurboismPlugin {
             .orElseThrow(() -> new IllegalArgumentException("settings action requires a UI event")).value();
         settings = switch (field) {
             case "safe-mode" -> new dev.turboism.sdk.runtime.RuntimeSettings(
-                ((dev.turboism.sdk.action.UiActionEvent.ToggleValue) value).value(), settings.logLevel(),
+                ((dev.turboism.sdk.action.UiActionEvent.ToggleValue) value).value(),
+                settings.logLevel(), settings.maxLogStorageMiB(),
                 settings.skipStartupUpdateCheck(), settings.skipStartupSplash(), settings.skipStartupInformation());
             case "log-level" -> new dev.turboism.sdk.runtime.RuntimeSettings(
                 settings.safeMode(), ((dev.turboism.sdk.action.UiActionEvent.SelectionValue) value).value(),
-                settings.skipStartupUpdateCheck(), settings.skipStartupSplash(), settings.skipStartupInformation());
+                settings.maxLogStorageMiB(), settings.skipStartupUpdateCheck(),
+                settings.skipStartupSplash(), settings.skipStartupInformation());
             case "skip-update" -> new dev.turboism.sdk.runtime.RuntimeSettings(
-                settings.safeMode(), settings.logLevel(),
+                settings.safeMode(), settings.logLevel(), settings.maxLogStorageMiB(),
                 ((dev.turboism.sdk.action.UiActionEvent.ToggleValue) value).value(),
                 settings.skipStartupSplash(), settings.skipStartupInformation());
             case "skip-splash" -> new dev.turboism.sdk.runtime.RuntimeSettings(
-                settings.safeMode(), settings.logLevel(), settings.skipStartupUpdateCheck(),
+                settings.safeMode(), settings.logLevel(), settings.maxLogStorageMiB(),
+                settings.skipStartupUpdateCheck(),
                 ((dev.turboism.sdk.action.UiActionEvent.ToggleValue) value).value(), settings.skipStartupInformation());
             case "skip-information" -> new dev.turboism.sdk.runtime.RuntimeSettings(
-                settings.safeMode(), settings.logLevel(), settings.skipStartupUpdateCheck(), settings.skipStartupSplash(),
+                settings.safeMode(), settings.logLevel(), settings.maxLogStorageMiB(),
+                settings.skipStartupUpdateCheck(), settings.skipStartupSplash(),
                 ((dev.turboism.sdk.action.UiActionEvent.ToggleValue) value).value());
             default -> throw new IllegalArgumentException("unknown settings field: " + field);
         };
@@ -159,6 +166,7 @@ public final class MainToolbarPlugin implements TurboismPlugin {
                     return switch (key) {
                         case "main-toolbar.settings-menu.label" -> "Settings";
                         case "main-toolbar.plugins-menu.label" -> "Plugin Management";
+                        case "main-toolbar.logs-menu.label" -> "Logs";
                         default -> key;
                     };
                 }

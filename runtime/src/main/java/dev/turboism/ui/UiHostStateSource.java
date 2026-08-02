@@ -41,4 +41,25 @@ public interface UiHostStateSource {
     default boolean confirmDialog(DialogRequest request) {
         return true;
     }
+
+    /**
+     * Detects the host color mode from the running UIManager; falls back to light.
+     * Uses the same luminance heuristic as the legacy theme system.
+     */
+    default dev.turboism.sdk.ui.UiHostColorMode currentColorMode() {
+        final java.awt.Color background = javax.swing.UIManager.getColor("Panel.background");
+        if (background != null) {
+            final int luma = (background.getRed() * 299 + background.getGreen() * 587
+                + background.getBlue() * 114) / 1000;
+            return luma < 140
+                ? dev.turboism.sdk.ui.UiHostColorMode.DARK
+                : dev.turboism.sdk.ui.UiHostColorMode.LIGHT;
+        }
+        return dev.turboism.sdk.ui.UiHostColorMode.LIGHT;
+    }
+
+    /** Opens the host file manager at a plugin storage directory; fail-closed by default. */
+    default void openDirectory(final dev.turboism.sdk.storage.StoragePath directory) {
+        // no-op unless a runtime adapter resolves storage roots
+    }
 }
