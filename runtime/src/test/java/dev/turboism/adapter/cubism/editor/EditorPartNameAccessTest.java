@@ -28,6 +28,7 @@ class EditorPartNameAccessTest {
         assertEquals("Clipping Part", part.name());
         fixture.partSource.localName = "";
         assertEquals("PartClip", part.name());
+        assertThrows(UnsupportedOperationException.class, part::parentId);
     }
 
     @ParameterizedTest
