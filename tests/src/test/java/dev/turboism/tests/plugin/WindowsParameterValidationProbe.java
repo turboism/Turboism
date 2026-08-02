@@ -272,6 +272,14 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
     public void enable() {
         partValidationThread = new Thread(() -> {
             final String mode = System.getProperty("turboism.editorObjectValidation.mode", "matrix");
+            if ("fixed-api".equals(mode)) {
+                runFixedApiValidation(false);
+                return;
+            }
+            if ("fixed-api-document-close".equals(mode)) {
+                runFixedApiValidation(true);
+                return;
+            }
             if ("binding-read".equals(mode)) {
                 runParameterBindingDiscoveryRead();
             } else if ("binding-matrix".equals(mode)) {
@@ -1153,6 +1161,236 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
 
     private CubismModel activeModel() {
         return context.cubism().model().active();
+    }
+
+    private void runFixedApiValidation(final boolean closeDocument) {
+        final Path artifact = Path.of(
+            System.getProperty("turboism.home"), "logs",
+            closeDocument ? "fixed-api-document-close.txt" : "fixed-api-validation.txt"
+        );
+        try {
+            Files.createDirectories(artifact.getParent());
+            Files.writeString(
+                artifact,
+                "status=RUNNING phase=await-model\n",
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING
+            );
+            final CubismModel model = awaitEditorObjectModel(artifact);
+            final StringBuilder report = new StringBuilder("status=RUNNING\n")
+                .append("phase=fixed-api-read\n")
+                .append("hostThread=").append(onHostThread(() ->
+                    Thread.currentThread().getName() + "|edt=" + SwingUtilities.isEventDispatchThread()
+                )).append('\n')
+                .append("modelId=").append(onHostThread(() -> model.id().value())).append('\n');
+
+            appendFixedOutcome(report, "activeDocument", () -> onHostThread(() ->
+                context.cubism().activeDocument()
+                    .map(document -> document.documentId() + "|" + document.name())
+                    .orElse("none")
+            ));
+
+            final Parameters parameters = onHostThread(model::parameters);
+            final List<Parameter> parameterValues = onHostThread(parameters::all);
+            if (parameterValues.isEmpty()) {
+                throw new IllegalStateException("No Parameter is available.");
+            }
+            final Parameter parameter = parameterValues.get(0);
+            final int parameterIndex = onHostThread(parameter::index);
+            if (parameterIndex < 0) {
+                throw new IllegalStateException("Parameter index must be non-negative.");
+            }
+            report.append("parameters.count=").append(parameterValues.size()).append('\n')
+                .append("parameter.id=").append(onHostThread(() -> parameter.id().value())).append('\n')
+                .append("parameter.index=").append(parameterIndex).append('\n')
+                .append("parameter.keyValueCount=").append(onHostThread(() -> parameter.keyValues().size())).append('\n');
+
+            final dev.turboism.sdk.cubism.model.ParameterDefinitions definitions =
+                onHostThread(model::parameterDefinitions);
+            final List<ParameterDefinition> definitionValues = onHostThread(definitions::all);
+            if (definitionValues.isEmpty()) {
+                throw new IllegalStateException("No Parameter definition is available.");
+            }
+            final ParameterDefinition definition = definitionValues.get(0);
+            final ParameterDefinition foundDefinition = onHostThread(() -> definitions.find(definition.id()));
+            if (!definition.equals(foundDefinition)) {
+                throw new IllegalStateException("Parameter definition lookup does not match stable order.");
+            }
+            report.append("parameterDefinitions.count=").append(definitionValues.size()).append('\n')
+                .append("parameterDefinition.first=").append(fixedText(definition)).append('\n');
+
+            final dev.turboism.sdk.cubism.model.Parts parts = onHostThread(model::parts);
+            final List<Part> partValues = onHostThread(parts::all);
+            if (partValues.isEmpty()) {
+                throw new IllegalStateException("No Part is available.");
+            }
+            for (int index = 0; index < partValues.size(); index++) {
+                final Part current = partValues.get(index);
+                if (onHostThread(current::index) != index) {
+                    throw new IllegalStateException("Part index does not match stable model order at " + index + '.');
+                }
+                final Optional<dev.turboism.sdk.cubism.model.PartId> parentId =
+                    onHostThread(current::parentId);
+                if (parentId.isPresent()) {
+                    final Part parent = onHostThread(() -> parts.find(parentId.orElseThrow()));
+                    if (!onHostThread(parent::childIds).contains(onHostThread(current::id))) {
+                        throw new IllegalStateException("Part parent does not contain child " + current.id().value());
+                    }
+                }
+                for (dev.turboism.sdk.cubism.model.PartId childId : onHostThread(current::childIds)) {
+                    final Part child = onHostThread(() -> parts.find(childId));
+                    if (!onHostThread(child::parentId).equals(Optional.of(onHostThread(current::id)))) {
+                        throw new IllegalStateException("Part child does not point back to parent " + current.id().value());
+                    }
+                }
+            }
+            final Part part = partValues.get(0);
+            report.append("parts.count=").append(partValues.size()).append('\n')
+                .append("part.first.id=").append(onHostThread(() -> part.id().value())).append('\n')
+                .append("part.first.index=").append(onHostThread(part::index)).append('\n')
+                .append("part.first.parentId=").append(fixedText(onHostThread(part::parentId))).append('\n')
+                .append("part.first.childIds=").append(fixedText(onHostThread(part::childIds))).append('\n')
+                .append("fixedReads.status=PASS\n");
+
+            appendFixedOutcome(report, "coreRuntime.version", () ->
+                onHostThread(() -> context.cubism().coreRuntime().version()));
+            appendFixedOutcome(report, "coreRuntime.capabilities", () ->
+                onHostThread(() -> context.cubism().coreRuntime().capabilities()));
+            appendFixedOutcome(report, "coreRuntime.latestMocVersion", () ->
+                onHostThread(() -> context.cubism().coreRuntime().mocInspector().latestVersion()));
+            appendFixedOutcome(report, "model.name", () -> onHostThread(model::name));
+            appendFixedOutcome(report, "model.mocInfo", () -> onHostThread(model::mocInfo));
+
+            appendFixedOutcome(report, "part.shortName", () -> onHostThread(part::shortName));
+            appendFixedOutcome(report, "part.visible", () -> onHostThread(part::visible));
+            appendFixedOutcome(report, "part.visibleInHierarchy", () -> onHostThread(part::visibleInHierarchy));
+            appendFixedOutcome(report, "part.locked", () -> onHostThread(part::locked));
+            appendFixedOutcome(report, "part.lockedInHierarchy", () -> onHostThread(part::lockedInHierarchy));
+            appendFixedOutcome(report, "part.editColor", () -> onHostThread(part::editColor));
+            appendFixedOutcome(report, "part.sketch", () -> onHostThread(part::sketch));
+            appendFixedOutcome(report, "part.defaultOrder", () -> onHostThread(part::defaultOrder));
+
+            final Drawable drawable = onHostThread(() -> model.drawables().all().get(0));
+            appendFixedOutcome(report, "drawable.index", () -> onHostThread(drawable::index));
+            appendFixedOutcome(report, "drawable.doubleSided", () -> onHostThread(drawable::doubleSided));
+            appendFixedOutcome(report, "drawable.evaluationState", () -> onHostThread(drawable::evaluationState));
+            appendFixedOutcome(report, "drawable.parentPartId", () -> onHostThread(drawable::parentPartId));
+            appendFixedOutcome(report, "drawable.parentDeformerId", () -> onHostThread(drawable::parentDeformerId));
+            appendFixedOutcome(report, "drawable.parameterIds", () -> onHostThread(drawable::parameterIds));
+            appendFixedOutcome(report, "drawable.maskIds", () -> onHostThread(drawable::maskIds));
+
+            final AtomicReference<Deformer> deformer = new AtomicReference<>();
+            appendFixedOutcome(report, "deformers.count", () -> {
+                final List<Deformer> values = onHostThread(() -> model.deformers().all());
+                if (!values.isEmpty()) deformer.set(values.get(0));
+                return values.size();
+            });
+            if (deformer.get() != null) {
+                appendFixedOutcome(report, "deformer.index", () -> onHostThread(deformer.get()::index));
+                appendFixedOutcome(report, "deformer.parentPartId", () -> onHostThread(deformer.get()::parentPartId));
+                appendFixedOutcome(report, "deformer.parentDeformerId", () -> onHostThread(deformer.get()::parentDeformerId));
+                appendFixedOutcome(report, "deformer.parameterIds", () -> onHostThread(deformer.get()::parameterIds));
+                appendFixedOutcome(report, "deformer.name", () -> onHostThread(deformer.get()::name));
+                appendFixedOutcome(report, "deformer.visible", () -> onHostThread(deformer.get()::visible));
+                appendFixedOutcome(report, "deformer.visibleInHierarchy", () -> onHostThread(deformer.get()::visibleInHierarchy));
+                appendFixedOutcome(report, "deformer.locked", () -> onHostThread(deformer.get()::locked));
+                appendFixedOutcome(report, "deformer.lockedInHierarchy", () -> onHostThread(deformer.get()::lockedInHierarchy));
+                appendFixedOutcome(report, "deformer.opacity", () -> onHostThread(deformer.get()::getOpacity));
+                appendFixedOutcome(report, "deformer.multiplyColor", () -> onHostThread(deformer.get()::multiplyColor));
+                appendFixedOutcome(report, "deformer.screenColor", () -> onHostThread(deformer.get()::screenColor));
+            }
+
+            final AtomicReference<dev.turboism.sdk.cubism.model.Glue> glue = new AtomicReference<>();
+            appendFixedOutcome(report, "glues.count", () -> {
+                final List<dev.turboism.sdk.cubism.model.Glue> values =
+                    onHostThread(() -> model.glues().all());
+                if (!values.isEmpty()) glue.set(values.get(0));
+                return values.size();
+            });
+            if (glue.get() != null) {
+                appendFixedOutcome(report, "glue.index", () -> onHostThread(glue.get()::index));
+                appendFixedOutcome(report, "glue.drawableAId", () -> onHostThread(glue.get()::drawableAId));
+                appendFixedOutcome(report, "glue.drawableBId", () -> onHostThread(glue.get()::drawableBId));
+                appendFixedOutcome(report, "glue.parameterIds", () -> onHostThread(glue.get()::parameterIds));
+            }
+
+            boolean modelStale;
+            boolean definitionsStale;
+            boolean parameterStale;
+            boolean partsStale;
+            boolean partStale;
+            if (closeDocument) {
+                final java.awt.Robot robot = new java.awt.Robot();
+                pressShortcut(robot, java.awt.event.KeyEvent.VK_W);
+                modelStale = definitionsStale = parameterStale = partsStale = partStale = false;
+                for (int attempt = 0; attempt < 60
+                    && !(modelStale && definitionsStale && parameterStale && partsStale && partStale);
+                    attempt++) {
+                    Thread.sleep(100L);
+                    modelStale = failsStale(model::id);
+                    definitionsStale = failsStale(definitions::all);
+                    parameterStale = failsStale(parameter::index);
+                    partsStale = failsStale(parts::all);
+                    partStale = failsStale(part::parentId);
+                }
+            } else {
+                context.disposableScope().close();
+                modelStale = failsStale(model::id);
+                definitionsStale = failsStale(definitions::all);
+                parameterStale = failsStale(parameter::index);
+                partsStale = failsStale(parts::all);
+                partStale = failsStale(part::parentId);
+            }
+            final boolean passed = modelStale && definitionsStale && parameterStale
+                && partsStale && partStale;
+            report.append("lifecycle.phase=")
+                .append(closeDocument ? "document-close" : "plugin-scope-close").append('\n')
+                .append("modelStale=").append(modelStale).append('\n')
+                .append("parameterDefinitionsStale=").append(definitionsStale).append('\n')
+                .append("parameterStale=").append(parameterStale).append('\n')
+                .append("partsStale=").append(partsStale).append('\n')
+                .append("partStale=").append(partStale).append('\n');
+            report.replace(0, "status=RUNNING".length(), "status=" + (passed ? "PASS" : "FAIL"));
+            Files.writeString(
+                artifact,
+                report.toString(),
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING
+            );
+        } catch (Exception exception) {
+            writeValidationFailure(artifact, exception, "Fixed API validation artifact could not be written");
+        }
+    }
+
+    private static void appendFixedOutcome(
+        final StringBuilder report,
+        final String key,
+        final Callable<?> call
+    ) {
+        try {
+            final Object value = call.call();
+            report.append(key).append(".status=AVAILABLE\n")
+                .append(key).append(".value=").append(fixedText(value)).append('\n');
+        } catch (UnsupportedOperationException | IllegalStateException unavailable) {
+            report.append(key).append(".status=UNAVAILABLE\n")
+                .append(key).append(".reason=").append(fixedText(unavailable.getMessage())).append('\n');
+        } catch (Exception failure) {
+            report.append(key).append(".status=ERROR\n")
+                .append(key).append(".reason=").append(fixedText(failureDescription(failure))).append('\n');
+        }
+    }
+
+    private static boolean failsStale(final Callable<?> call) {
+        try {
+            call.call();
+            return false;
+        } catch (Exception expected) {
+            return expected instanceof IllegalStateException;
+        }
+    }
+
+    private static String fixedText(final Object value) {
+        return String.valueOf(value).replace('\r', ' ').replace('\n', ' ');
     }
 
     private void runParameterBindingDiscoveryRead() {
