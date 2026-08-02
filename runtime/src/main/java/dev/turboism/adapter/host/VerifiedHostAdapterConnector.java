@@ -280,7 +280,8 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
     private PanelMaterial panelMaterial(final HostVerificationEvidence evidence) throws Exception {
         if (evidence.embeddedPanel().isEmpty()
             || embeddedPanelResolverFactory == null
-            || embeddedPanelActivation == null) {
+            || embeddedPanelActivation == null
+            || editorUiActionRouter == null) {
             return null;
         }
         final HostVerificationEvidence.Slice slice = evidence.embeddedPanel().orElseThrow();
@@ -334,7 +335,10 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
     ) {
         final dev.turboism.ui.panel.VerifiedEmbeddedPanelHostOperations panelOperations = panel == null
             ? null
-            : new dev.turboism.ui.panel.VerifiedEmbeddedPanelHostOperations(panel.resolver());
+            : new dev.turboism.ui.panel.VerifiedEmbeddedPanelHostOperations(
+                panel.resolver(),
+                editorUiActionRouter
+            );
         final dev.turboism.ui.panel.NativePanelTabFloatingBridge.Handler floatingToggle =
             panelOperations == null ? null : panelOperations::togglePanelFloating;
         final dev.turboism.ui.panel.NativeFloatingFrameDisposeBridge.Handler floatingDispose =
@@ -499,6 +503,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             @Override
             public void close() {
                 if (panelOperations != null) {
+                    panelOperations.invalidateHost();
                     dev.turboism.ui.panel.NativePanelTabFloatingBridge.uninstall(floatingToggle);
                     dev.turboism.ui.panel.NativeFloatingFrameDisposeBridge.uninstall(floatingDispose);
                     dev.turboism.ui.panel.NativeFloatingTabCloseBridge.uninstall(floatingTabClose);
