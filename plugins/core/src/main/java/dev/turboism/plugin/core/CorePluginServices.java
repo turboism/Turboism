@@ -1,5 +1,6 @@
 package dev.turboism.plugin.core;
 
+import dev.turboism.sdk.runtime.RuntimeLogReader;
 import dev.turboism.sdk.runtime.RuntimeSettingsService;
 
 import java.util.Objects;
@@ -8,14 +9,35 @@ import java.util.function.Supplier;
 /** One-shot Runtime-owned service handoff consumed only by the built-in core instance. */
 public record CorePluginServices(
     RuntimeSettingsService settings,
-    CorePluginManagement plugins
+    CorePluginManagement plugins,
+    FloatingPanelActions floatingPanelActions,
+    RuntimeLogReader logs
 ) {
+    public CorePluginServices(
+        final RuntimeSettingsService settings,
+        final CorePluginManagement plugins
+    ) {
+        this(settings, plugins, FloatingPanelActions.unavailable(), RuntimeLogReader.unavailable());
+    }
+
+    public interface FloatingPanelActions {
+        void togglePanelFloating(dev.turboism.sdk.ui.context.PanelTabSelection selection);
+
+        static FloatingPanelActions unavailable() {
+            return selection -> {
+                throw new IllegalStateException("panel-tab floating action is unavailable");
+            };
+        }
+    }
     private static final ThreadLocal<CorePluginServices> PENDING = new ThreadLocal<>();
 
     public CorePluginServices {
         settings = Objects.requireNonNull(settings, "settings");
         plugins = Objects.requireNonNull(plugins, "plugins");
+        floatingPanelActions = Objects.requireNonNull(floatingPanelActions, "floatingPanelActions");
+        logs = Objects.requireNonNull(logs, "logs");
     }
+
 
     public static <T> T instantiate(
         final CorePluginServices services,
