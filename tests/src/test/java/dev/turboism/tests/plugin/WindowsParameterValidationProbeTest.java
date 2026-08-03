@@ -17,6 +17,7 @@ import dev.turboism.sdk.ui.appearance.ControlAppearanceStyle;
 import dev.turboism.sdk.ui.appearance.ControlAppearanceTarget;
 import dev.turboism.sdk.ui.appearance.NativeControlAppearance;
 import dev.turboism.sdk.ui.appearance.NativeControlBackground;
+import dev.turboism.sdk.ui.appearance.PresetColor;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -25,6 +26,7 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class WindowsParameterValidationProbeTest {
@@ -413,6 +415,49 @@ class WindowsParameterValidationProbeTest {
             WindowsParameterValidationProbe.setParameterFolderBackground(
                 registry, groupId, new Color(1.0F, 0.0F, 0.0F, 1.0F)
             ));
+    }
+
+    @Test
+    void customCandidateNeverEqualsTheSemanticBeforeState() {
+        // The failing case: semantic is Custom(red) while the effective color differs.
+        final NativeControlAppearance before = new NativeControlAppearance(
+            new NativeControlBackground.Custom(new Color(1.0F, 0.0F, 0.0F, 1.0F)),
+            new Color(0.9F, 0.1F, 0.1F, 1.0F)
+        );
+
+        final NativeControlBackground chosen =
+            WindowsParameterValidationProbe.chooseCustomCandidate(before);
+
+        assertFalse(
+            chosen.equals(before.background()),
+            "the chosen Custom request must differ from the semantic before-state"
+        );
+        assertEquals(
+            new NativeControlBackground.Custom(new Color(0.0F, 1.0F, 0.0F, 1.0F)),
+            chosen
+        );
+    }
+
+    @Test
+    void matrixRejectsSameSemanticRequestBeforeAnyWrite() {
+        final NativeControlBackground request =
+            new NativeControlBackground.Custom(new Color(0.1F, 0.2F, 0.3F, 0.4F));
+
+        assertThrows(IllegalStateException.class, () ->
+            WindowsParameterValidationProbe.requireDistinctBackgroundRequest(request, request));
+        assertThrows(IllegalStateException.class, () ->
+            WindowsParameterValidationProbe.requireDistinctBackgroundRequest(
+                new NativeControlBackground.Default(),
+                new NativeControlBackground.Default()
+            ));
+        WindowsParameterValidationProbe.requireDistinctBackgroundRequest(
+            request,
+            new NativeControlBackground.Default()
+        );
+        WindowsParameterValidationProbe.requireDistinctBackgroundRequest(
+            new NativeControlBackground.Preset(PresetColor.BLUE),
+            new NativeControlBackground.Preset(PresetColor.RED)
+        );
     }
 
     @Test

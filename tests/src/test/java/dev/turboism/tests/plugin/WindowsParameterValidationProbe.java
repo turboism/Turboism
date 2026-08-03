@@ -2323,14 +2323,9 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             boolean partPassed = false;
             boolean deformerPassed = false;
             try {
-                final Color custom = java.util.Arrays.stream(CUSTOM_CANDIDATES)
-                    .filter(color -> !color.equals(folderOriginal.effectiveBackground()))
-                    .findFirst()
-                    .orElseThrow(() -> new IllegalStateException(
-                        "No fixed custom color differs from the folder before-state."
-                    ));
+                final NativeControlBackground customRequested = chooseCustomCandidate(folderOriginal);
                 final MatrixValues folderMatrix = runBackgroundMatrix(
-                    registry, folderTarget, folderTarget, new NativeControlBackground.Custom(custom)
+                    registry, folderTarget, folderTarget, customRequested
                 );
                 folderPassed = folderMatrix.passed();
                 appendBackgroundReport(
@@ -2487,10 +2482,12 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
     ) throws Exception {
         final NativeControlAppearance before =
             onHostThread(() -> nativeAppearance(registry, writeTarget));
+        requireDistinctBackgroundRequest(requested, before.background());
         onHostThread(() -> {
             registry.setNativeBackground(writeTarget, requested);
             return null;
         });
+        awaitBackground(registry, writeTarget, requested);
         final NativeControlAppearance afterWrite =
             onHostThread(() -> nativeAppearance(registry, writeTarget));
         final NativeControlAppearance aliasAfterWrite =
@@ -2503,15 +2500,15 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             onHostThread(() -> nativeAppearance(registry, writeTarget));
         final java.awt.Robot robot = new java.awt.Robot();
         pressShortcut(robot, java.awt.event.KeyEvent.VK_Z);
-        Thread.sleep(800L);
+        awaitBackground(registry, writeTarget, before);
         final NativeControlAppearance afterUndo =
             onHostThread(() -> nativeAppearance(registry, writeTarget));
         pressShortcut(robot, java.awt.event.KeyEvent.VK_Y);
-        Thread.sleep(800L);
+        awaitBackground(registry, writeTarget, afterWrite);
         final NativeControlAppearance afterRedo =
             onHostThread(() -> nativeAppearance(registry, writeTarget));
         pressShortcut(robot, java.awt.event.KeyEvent.VK_Z);
-        Thread.sleep(800L);
+        awaitBackground(registry, writeTarget, before);
         final NativeControlAppearance restored =
             onHostThread(() -> nativeAppearance(registry, writeTarget));
         return new MatrixValues(
@@ -2599,6 +2596,70 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 + "restore." + label + ".error=" + exception.getClass().getName() + ": "
                 + exception.getMessage() + System.lineSeparator();
         }
+    }
+
+    /** Fixed Custom request that differs from the semantic before-state, never the effective only. */
+    static NativeControlBackground chooseCustomCandidate(final NativeControlAppearance before) {
+        Objects.requireNonNull(before, "before");
+        for (Color candidate : CUSTOM_CANDIDATES) {
+            final NativeControlBackground custom = new NativeControlBackground.Custom(candidate);
+            if (!custom.equals(before.background())) {
+                return custom;
+            }
+        }
+        throw new IllegalStateException("No fixed custom color differs from the folder before-state.");
+    }
+
+    /** Hard fail-closed guard: a same-value request would create no Undo and must not be written. */
+    static void requireDistinctBackgroundRequest(
+        final NativeControlBackground requested,
+        final NativeControlBackground before
+    ) {
+        Objects.requireNonNull(requested, "requested");
+        Objects.requireNonNull(before, "before");
+        if (requested.equals(before)) {
+            throw new IllegalStateException(
+                "Requested background " + backgroundText(requested)
+                    + " equals the before-state; a same-value write would create no Undo."
+            );
+        }
+    }
+
+    private NativeControlAppearance awaitBackground(
+        final ControlAppearanceRegistry registry,
+        final ControlAppearanceTarget target,
+        final NativeControlBackground semantic
+    ) throws Exception {
+        return awaitBackground(registry, target,
+            appearance -> semantic.equals(appearance.background()));
+    }
+
+    private NativeControlAppearance awaitBackground(
+        final ControlAppearanceRegistry registry,
+        final ControlAppearanceTarget target,
+        final NativeControlAppearance expected
+    ) throws Exception {
+        return awaitBackground(registry, target, expected::equals);
+    }
+
+    private NativeControlAppearance awaitBackground(
+        final ControlAppearanceRegistry registry,
+        final ControlAppearanceTarget target,
+        final java.util.function.Predicate<NativeControlAppearance> predicate
+    ) throws Exception {
+        NativeControlAppearance actual = onHostThread(() -> nativeAppearance(registry, target));
+        for (int attempt = 0; attempt < 40 && !predicate.test(actual); attempt++) {
+            Thread.sleep(100L);
+            actual = onHostThread(() -> nativeAppearance(registry, target));
+        }
+        if (!predicate.test(actual)) {
+            throw new IllegalStateException(
+                "Native background did not converge within the bounded await window; last="
+                    + backgroundText(actual.background())
+                    + " effective=" + colorText(actual.effectiveBackground())
+            );
+        }
+        return actual;
     }
 
     private static NativeControlBackground presetDifferentFrom(final NativeControlBackground current) {
