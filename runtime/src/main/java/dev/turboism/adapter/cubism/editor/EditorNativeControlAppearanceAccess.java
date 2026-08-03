@@ -77,6 +77,10 @@ final class EditorNativeControlAppearanceAccess implements NativeControlAppearan
         }
         requireCurrent(binding);
         requireSameLabelColor(binding, target, labelColor);
+        final String sourceId = sourceId(target);
+        final long transaction = EditorObjectValidationTrace.begin(
+            TRACE_KIND, TRACE_ACTION, sourceId, binding.document(), binding.source()
+        );
         final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
         final Object document = binding.document();
         final Object editMode = resolver.invoke(
@@ -85,13 +89,22 @@ final class EditorNativeControlAppearanceAccess implements NativeControlAppearan
         final Object undo = resolver.invoke(
             "cubism.editor-model.edit-mode.begin", editMode, ACTION_NAME
         );
+        trace(transaction, "edit-begin", binding, sourceId, "action=" + ACTION_NAME);
         boolean completed = false;
         try {
             addUndo(undo, labelColor);
+            trace(transaction, "undo-admitted", binding, sourceId, "undoAccepted=true");
             final Object listener = resolver.createFunctionalProxy(
                 "cubism.editor-model.undo-listener.class",
                 ignored -> {
-                    refresh(app, target);
+                    refresh(app, target, transaction, binding, sourceId);
+                    trace(
+                        transaction,
+                        "undo-redo-listener",
+                        binding,
+                        sourceId,
+                        "refresh=" + refreshFamily(target)
+                    );
                     return null;
                 }
             );
@@ -99,6 +112,13 @@ final class EditorNativeControlAppearanceAccess implements NativeControlAppearan
             requireCurrent(binding);
             requireSameLabelColor(binding, target, labelColor);
             apply(labelColor, requested);
+            trace(
+                transaction,
+                "mutation",
+                binding,
+                sourceId,
+                "requested=" + backgroundText(background)
+            );
             requireCurrent(binding);
             requireSameLabelColor(binding, target, labelColor);
             if (!exactMatch(requested, readBackground(labelColor))) {
@@ -106,10 +126,11 @@ final class EditorNativeControlAppearanceAccess implements NativeControlAppearan
                     "Cubism native control background write was not applied exactly."
                 );
             }
-            refresh(app, target);
+            refresh(app, target, transaction, binding, sourceId);
             requireCurrent(binding);
             requireSameLabelColor(binding, target, labelColor);
             resolver.invoke("cubism.editor-model.modeling-document.mark-dirty", document);
+            trace(transaction, "dirty", binding, sourceId, "documentMarkedDirty=true");
             completed = true;
         } finally {
             resolver.invoke(
@@ -117,6 +138,13 @@ final class EditorNativeControlAppearanceAccess implements NativeControlAppearan
                 editMode,
                 Boolean.valueOf(!completed),
                 null
+            );
+            trace(
+                transaction,
+                "edit-end",
+                binding,
+                sourceId,
+                "cancelled=" + !completed
             );
         }
         requireCurrent(binding);
@@ -448,9 +476,23 @@ final class EditorNativeControlAppearanceAccess implements NativeControlAppearan
         }
     }
 
-    private void refresh(final Object app, final ControlAppearanceTarget target) {
+    private void refresh(
+        final Object app,
+        final ControlAppearanceTarget target,
+        final long transaction,
+        final EditorBackedCubismModelAccess.Binding binding,
+        final String sourceId
+    ) {
         final Object completePack = resolver.invoke(
             "cubism.editor-model.app-controller.complete-pack", app
+        );
+        trace(
+            transaction,
+            "refresh",
+            binding,
+            sourceId,
+            "family=" + refreshFamily(target) + " palette=" + refreshPalette(target)
+                + " canvas=repaintCanvas"
         );
         if (target instanceof ControlAppearanceTarget.ParameterFolder) {
             resolver.invoke(
@@ -500,6 +542,91 @@ final class EditorNativeControlAppearanceAccess implements NativeControlAppearan
             Boolean.TRUE
         );
     }
+
+    private void trace(
+        final long transaction,
+        final String phase,
+        final EditorBackedCubismModelAccess.Binding binding,
+        final String sourceId,
+        final String detail
+    ) {
+        EditorObjectValidationTrace.event(
+            transaction,
+            phase,
+            TRACE_KIND,
+            TRACE_ACTION,
+            sourceId,
+            binding.document(),
+            binding.source(),
+            detail
+        );
+    }
+
+    private static String sourceId(final ControlAppearanceTarget target) {
+        if (target instanceof ControlAppearanceTarget.ParameterFolder value) {
+            return "ParameterFolder:" + value.id().value();
+        }
+        if (target instanceof ControlAppearanceTarget.PartFolder value) {
+            return "PartFolder:" + value.id().value();
+        }
+        if (target instanceof ControlAppearanceTarget.PartLabel value) {
+            return "PartLabel:" + value.id().value();
+        }
+        if (target instanceof ControlAppearanceTarget.DeformerControlRow value) {
+            return "DeformerControlRow:" + value.id().value();
+        }
+        if (target instanceof ControlAppearanceTarget.DeformerLabel value) {
+            return "DeformerLabel:" + value.id().value();
+        }
+        return target.getClass().getSimpleName();
+    }
+
+    private static String refreshFamily(final ControlAppearanceTarget target) {
+        if (target instanceof ControlAppearanceTarget.ParameterFolder) {
+            return "parameterFolder";
+        }
+        if (target instanceof ControlAppearanceTarget.PartLabel
+            || target instanceof ControlAppearanceTarget.PartFolder) {
+            return "part";
+        }
+        if (target instanceof ControlAppearanceTarget.DeformerLabel
+            || target instanceof ControlAppearanceTarget.DeformerControlRow) {
+            return "deformer";
+        }
+        return "unknown";
+    }
+
+    private static String refreshPalette(final ControlAppearanceTarget target) {
+        if (target instanceof ControlAppearanceTarget.ParameterFolder) {
+            return "parameterOperation";
+        }
+        if (target instanceof ControlAppearanceTarget.PartLabel
+            || target instanceof ControlAppearanceTarget.PartFolder) {
+            return "partPalette";
+        }
+        if (target instanceof ControlAppearanceTarget.DeformerLabel
+            || target instanceof ControlAppearanceTarget.DeformerControlRow) {
+            return "deformerPalette";
+        }
+        return "unknown";
+    }
+
+    private static String backgroundText(final NativeControlBackground background) {
+        if (background instanceof NativeControlBackground.Default) {
+            return "default";
+        }
+        if (background instanceof NativeControlBackground.Preset preset) {
+            return "preset(" + preset.color().name() + ")";
+        }
+        if (background instanceof NativeControlBackground.Custom custom) {
+            return "custom(rgba(" + custom.color().red() + "," + custom.color().green() + ","
+                + custom.color().blue() + "," + custom.color().alpha() + "))";
+        }
+        return background.getClass().getSimpleName();
+    }
+
+    private static final String TRACE_KIND = "native-control-background";
+    private static final String TRACE_ACTION = "set-native-background";
 
     private void requireReadAuthorization() {
         if (!resolver.authorizesFeature(

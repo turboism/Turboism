@@ -296,6 +296,14 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 runEditorObjectDocumentClose();
             } else if ("native-control-background".equals(mode)) {
                 runNativeControlBackgroundValidation();
+            } else if ("native-control-background-document-close".equals(mode)) {
+                runNativeControlBackgroundDocumentClose();
+            } else if ("native-control-background-persist-write".equals(mode)) {
+                runNativeControlBackgroundPersistWrite();
+            } else if ("native-control-background-persist-reopen".equals(mode)) {
+                runNativeControlBackgroundPersistReopen();
+            } else if ("native-control-background-persist-final".equals(mode)) {
+                runNativeControlBackgroundPersistFinal();
             } else {
                 runEditorObjectValidation();
                 runPartOpacityValidation();
@@ -2277,26 +2285,9 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             final ControlAppearanceRegistry registry = context.controlAppearance();
             final String modelId = onHostThread(() -> model.id().value());
             final String hostThread = onHostThread(() -> Thread.currentThread().getName());
-            final ParameterGroupId folderId = onHostThread(() -> {
-                final ParameterGroups groups = model.parameterGroups();
-                final ParameterGroupId root = groups.root().id();
-                return groups.all().stream()
-                    .map(ParameterGroup::id)
-                    .filter(id -> !id.equals(root))
-                    .findFirst()
-                    .orElseThrow(() -> new IllegalStateException(
-                        "No non-root parameter group is available."
-                    ));
-            });
-            final PartId partId = onHostThread(() -> model.parts().all().stream()
-                .filter(part -> !"__RootPart__".equals(part.id().value()))
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException("No non-root Part is available."))
-                .id());
-            final DeformerId deformerId = onHostThread(() -> model.deformers().all().stream()
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException("No Deformer is available."))
-                .id());
+            final ParameterGroupId folderId = firstNonRootParameterGroup(model);
+            final PartId partId = firstNonRootPart(model);
+            final DeformerId deformerId = firstDeformer(model);
 
             final ControlAppearanceTarget.ParameterFolder folderTarget =
                 new ControlAppearanceTarget.ParameterFolder(folderId);
@@ -2318,6 +2309,7 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
 
             final StringBuilder report = new StringBuilder();
             final StringBuilder restoreReport = new StringBuilder();
+            final StringBuilder scopeReport = new StringBuilder();
             final AtomicBoolean restoreFailed = new AtomicBoolean();
             boolean folderPassed = false;
             boolean partPassed = false;
@@ -2390,8 +2382,10 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                     "deformer", registry, rowTarget, deformerOriginal, restoreFailed
                 ));
             }
+            final boolean scopeClosePassed =
+                verifyNativeControlScopeClose(model, registry, folderTarget, scopeReport);
             final boolean overall = folderPassed && partPassed && deformerPassed
-                && !restoreFailed.get();
+                && !restoreFailed.get() && scopeClosePassed;
             Files.writeString(
                 artifact,
                 "status=" + (overall ? "PASS" : "FAIL") + System.lineSeparator()
@@ -2400,7 +2394,8 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                     + "hostThread=" + hostThread + System.lineSeparator()
                     + "overall=" + (overall ? "PASS" : "FAIL") + System.lineSeparator()
                     + report
-                    + restoreReport,
+                    + restoreReport
+                    + scopeReport,
                 StandardOpenOption.CREATE,
                 StandardOpenOption.TRUNCATE_EXISTING
             );
@@ -2421,6 +2416,454 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 );
             }
         }
+    }
+
+    /**
+     * Document-close staleness: hold model/registry/target, close the active document (Ctrl+W),
+     * and prove the held model and registry snapshot/write all fail closed with no active
+     * modeling document. Only close-stale is verified; reopening is a separate persistence stage.
+     */
+    private void runNativeControlBackgroundDocumentClose() {
+        final Path artifact = Path.of(
+            System.getProperty("turboism.home"), "logs", "native-control-background-document-close.txt"
+        );
+        try {
+            Files.createDirectories(artifact.getParent());
+            Files.writeString(
+                artifact,
+                "status=RUNNING phase=await-model\n",
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING
+            );
+            final CubismModel model = awaitNativeControlBackgroundModel(artifact);
+            final ControlAppearanceRegistry registry = context.controlAppearance();
+            final ControlAppearanceTarget.ParameterFolder folderTarget =
+                new ControlAppearanceTarget.ParameterFolder(firstNonRootParameterGroup(model));
+            onHostThread(() -> nativeAppearance(registry, folderTarget));
+            final java.awt.Robot robot = new java.awt.Robot();
+            pressShortcut(robot, java.awt.event.KeyEvent.VK_W);
+            boolean modelStale = false;
+            boolean snapshotStale = false;
+            boolean writeStale = false;
+            for (int attempt = 0;
+                attempt < 60 && !(modelStale && snapshotStale && writeStale);
+                attempt++) {
+                Thread.sleep(100L);
+                modelStale = failsClosed(() -> onHostThread(model::id));
+                snapshotStale = failsClosed(() -> onHostThread(() -> {
+                    registry.snapshot(folderTarget);
+                    return null;
+                }));
+                writeStale = failsClosed(() -> onHostThread(() -> {
+                    registry.setNativeBackground(folderTarget, new NativeControlBackground.Default());
+                    return null;
+                }));
+            }
+            final boolean passed = modelStale && snapshotStale && writeStale;
+            Files.writeString(
+                artifact,
+                "status=" + (passed ? "PASS" : "FAIL") + System.lineSeparator()
+                    + "phase=document-close" + System.lineSeparator()
+                    + "modelStale=" + modelStale + System.lineSeparator()
+                    + "snapshotStale=" + snapshotStale + System.lineSeparator()
+                    + "writeStale=" + writeStale + System.lineSeparator(),
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING
+            );
+        } catch (Exception exception) {
+            writeValidationFailure(
+                artifact,
+                exception,
+                "Native control background document-close artifact could not be written"
+            );
+        }
+    }
+
+    /**
+     * Persistence stage 1: write requested native backgrounds for the parameter folder, the Part
+     * (folder write + label alias), and the Deformer (row write + label alias), then save the
+     * document. Originals and requesteds are stored in the task-home properties file.
+     */
+    private void runNativeControlBackgroundPersistWrite() {
+        final Path home = Path.of(System.getProperty("turboism.home"));
+        final Path artifact = home.resolve("logs/native-control-background-persist-write.txt");
+        final Path propertiesFile = home.resolve("state/native-control-background-persist.properties");
+        try {
+            Files.createDirectories(artifact.getParent());
+            Files.createDirectories(propertiesFile.getParent());
+            Files.writeString(
+                artifact,
+                "status=RUNNING phase=await-model\n",
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING
+            );
+            final CubismModel model = awaitNativeControlBackgroundModel(artifact);
+            final ControlAppearanceRegistry registry = context.controlAppearance();
+            final ParameterGroupId folderId = firstNonRootParameterGroup(model);
+            final PartId partId = firstNonRootPart(model);
+            final DeformerId deformerId = firstDeformer(model);
+            final ControlAppearanceTarget.ParameterFolder folderTarget =
+                new ControlAppearanceTarget.ParameterFolder(folderId);
+            final ControlAppearanceTarget.PartFolder partFolderTarget =
+                new ControlAppearanceTarget.PartFolder(partId);
+            final ControlAppearanceTarget.PartLabel partLabelTarget =
+                new ControlAppearanceTarget.PartLabel(partId);
+            final ControlAppearanceTarget.DeformerControlRow rowTarget =
+                new ControlAppearanceTarget.DeformerControlRow(deformerId);
+            final ControlAppearanceTarget.DeformerLabel labelTarget =
+                new ControlAppearanceTarget.DeformerLabel(deformerId);
+
+            final NativeControlAppearance folderOriginal =
+                onHostThread(() -> nativeAppearance(registry, folderTarget));
+            final NativeControlAppearance partOriginal =
+                onHostThread(() -> nativeAppearance(registry, partFolderTarget));
+            final NativeControlAppearance deformerOriginal =
+                onHostThread(() -> nativeAppearance(registry, rowTarget));
+            final NativeControlBackground folderRequested = chooseCustomCandidate(folderOriginal);
+            final NativeControlBackground partRequested = presetDifferentFrom(partOriginal.background());
+            final NativeControlBackground deformerRequested =
+                presetDifferentFrom(deformerOriginal.background());
+
+            onHostThread(() -> {
+                registry.setNativeBackground(folderTarget, folderRequested);
+                return null;
+            });
+            awaitBackground(registry, folderTarget, folderRequested);
+            onHostThread(() -> {
+                registry.setNativeBackground(partFolderTarget, partRequested);
+                return null;
+            });
+            awaitBackground(registry, partFolderTarget, partRequested);
+            awaitBackground(registry, partLabelTarget, partRequested);
+            onHostThread(() -> {
+                registry.setNativeBackground(rowTarget, deformerRequested);
+                return null;
+            });
+            awaitBackground(registry, rowTarget, deformerRequested);
+            awaitBackground(registry, labelTarget, deformerRequested);
+
+            final Properties stored = new Properties();
+            stored.setProperty("folder.id", folderId.value());
+            stored.setProperty("part.id", partId.value());
+            stored.setProperty("deformer.id", deformerId.value());
+            storeStoredBackground(stored, "folder.original", folderOriginal.background());
+            storeStoredBackground(stored, "folder.requested", folderRequested);
+            storeStoredBackground(stored, "part.original", partOriginal.background());
+            storeStoredBackground(stored, "part.requested", partRequested);
+            storeStoredBackground(stored, "deformer.original", deformerOriginal.background());
+            storeStoredBackground(stored, "deformer.requested", deformerRequested);
+            try (java.io.OutputStream output = Files.newOutputStream(
+                propertiesFile, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING
+            )) {
+                stored.store(output, "Turboism native control background persistence expectations");
+            }
+
+            final java.awt.Robot robot = new java.awt.Robot();
+            pressShortcut(robot, java.awt.event.KeyEvent.VK_S);
+            Thread.sleep(2500L);
+            Files.writeString(
+                artifact,
+                "status=PASS\nphase=saved\nfolderId=" + folderId.value()
+                    + "\npartId=" + partId.value()
+                    + "\ndeformerId=" + deformerId.value() + "\n",
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING
+            );
+        } catch (Exception exception) {
+            writeValidationFailure(
+                artifact,
+                exception,
+                "Native control background persistence write artifact could not be written"
+            );
+        }
+    }
+
+    /**
+     * Persistence stage 2: after the operator reopened the saved document, verify each requested
+     * background persisted (write target and alias), restore every original, and save again.
+     */
+    private void runNativeControlBackgroundPersistReopen() {
+        final Path home = Path.of(System.getProperty("turboism.home"));
+        final Path artifact = home.resolve("logs/native-control-background-persist-reopen.txt");
+        final Path propertiesFile = home.resolve("state/native-control-background-persist.properties");
+        try {
+            Files.createDirectories(artifact.getParent());
+            Files.writeString(
+                artifact,
+                "status=RUNNING phase=await-model\n",
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING
+            );
+            final CubismModel model = awaitNativeControlBackgroundModel(artifact);
+            final ControlAppearanceRegistry registry = context.controlAppearance();
+            final Properties stored = new Properties();
+            try (java.io.InputStream input = Files.newInputStream(propertiesFile)) {
+                stored.load(input);
+            }
+            final ControlAppearanceTarget.ParameterFolder folderTarget =
+                new ControlAppearanceTarget.ParameterFolder(
+                    new ParameterGroupId(stored.getProperty("folder.id")));
+            final ControlAppearanceTarget.PartFolder partFolderTarget =
+                new ControlAppearanceTarget.PartFolder(new PartId(stored.getProperty("part.id")));
+            final ControlAppearanceTarget.PartLabel partLabelTarget =
+                new ControlAppearanceTarget.PartLabel(new PartId(stored.getProperty("part.id")));
+            final ControlAppearanceTarget.DeformerControlRow rowTarget =
+                new ControlAppearanceTarget.DeformerControlRow(
+                    new DeformerId(stored.getProperty("deformer.id")));
+            final ControlAppearanceTarget.DeformerLabel labelTarget =
+                new ControlAppearanceTarget.DeformerLabel(new DeformerId(stored.getProperty("deformer.id")));
+            final NativeControlBackground folderRequested =
+                parseStoredBackground(stored, "folder.requested");
+            final NativeControlBackground partRequested = parseStoredBackground(stored, "part.requested");
+            final NativeControlBackground deformerRequested =
+                parseStoredBackground(stored, "deformer.requested");
+            final NativeControlBackground folderOriginal = parseStoredBackground(stored, "folder.original");
+            final NativeControlBackground partOriginal = parseStoredBackground(stored, "part.original");
+            final NativeControlBackground deformerOriginal = parseStoredBackground(stored, "deformer.original");
+
+            awaitBackground(registry, folderTarget, folderRequested);
+            awaitBackground(registry, partFolderTarget, partRequested);
+            awaitBackground(registry, partLabelTarget, partRequested);
+            awaitBackground(registry, rowTarget, deformerRequested);
+            awaitBackground(registry, labelTarget, deformerRequested);
+
+            onHostThread(() -> {
+                registry.setNativeBackground(folderTarget, folderOriginal);
+                registry.setNativeBackground(partFolderTarget, partOriginal);
+                registry.setNativeBackground(rowTarget, deformerOriginal);
+                return null;
+            });
+            awaitBackground(registry, folderTarget, folderOriginal);
+            awaitBackground(registry, partFolderTarget, partOriginal);
+            awaitBackground(registry, rowTarget, deformerOriginal);
+
+            final java.awt.Robot robot = new java.awt.Robot();
+            pressShortcut(robot, java.awt.event.KeyEvent.VK_S);
+            Thread.sleep(2500L);
+            Files.writeString(
+                artifact,
+                "status=PASS\nphase=reopen-restored-saved\n"
+                    + "verifiedRequested=parameterFolder,part,deformer\n"
+                    + "restored=parameterFolder,part,deformer\n",
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING
+            );
+        } catch (Exception exception) {
+            writeValidationFailure(
+                artifact,
+                exception,
+                "Native control background persistence reopen artifact could not be written"
+            );
+        }
+    }
+
+    /**
+     * Persistence stage 3: after the operator reopened the document a final time, verify every
+     * restored original background persisted (write target and alias).
+     */
+    private void runNativeControlBackgroundPersistFinal() {
+        final Path home = Path.of(System.getProperty("turboism.home"));
+        final Path artifact = home.resolve("logs/native-control-background-persist-final.txt");
+        final Path propertiesFile = home.resolve("state/native-control-background-persist.properties");
+        try {
+            Files.createDirectories(artifact.getParent());
+            Files.writeString(
+                artifact,
+                "status=RUNNING phase=await-model\n",
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING
+            );
+            final CubismModel model = awaitNativeControlBackgroundModel(artifact);
+            final ControlAppearanceRegistry registry = context.controlAppearance();
+            final Properties stored = new Properties();
+            try (java.io.InputStream input = Files.newInputStream(propertiesFile)) {
+                stored.load(input);
+            }
+            final ControlAppearanceTarget.ParameterFolder folderTarget =
+                new ControlAppearanceTarget.ParameterFolder(
+                    new ParameterGroupId(stored.getProperty("folder.id")));
+            final ControlAppearanceTarget.PartFolder partFolderTarget =
+                new ControlAppearanceTarget.PartFolder(new PartId(stored.getProperty("part.id")));
+            final ControlAppearanceTarget.PartLabel partLabelTarget =
+                new ControlAppearanceTarget.PartLabel(new PartId(stored.getProperty("part.id")));
+            final ControlAppearanceTarget.DeformerControlRow rowTarget =
+                new ControlAppearanceTarget.DeformerControlRow(
+                    new DeformerId(stored.getProperty("deformer.id")));
+            final ControlAppearanceTarget.DeformerLabel labelTarget =
+                new ControlAppearanceTarget.DeformerLabel(new DeformerId(stored.getProperty("deformer.id")));
+            final NativeControlBackground folderOriginal = parseStoredBackground(stored, "folder.original");
+            final NativeControlBackground partOriginal = parseStoredBackground(stored, "part.original");
+            final NativeControlBackground deformerOriginal = parseStoredBackground(stored, "deformer.original");
+
+            awaitBackground(registry, folderTarget, folderOriginal);
+            awaitBackground(registry, partFolderTarget, partOriginal);
+            awaitBackground(registry, partLabelTarget, partOriginal);
+            awaitBackground(registry, rowTarget, deformerOriginal);
+            awaitBackground(registry, labelTarget, deformerOriginal);
+
+            Files.writeString(
+                artifact,
+                "status=PASS\nphase=final-verify-restored\n"
+                    + "verifiedRestored=parameterFolder,part,deformer\n",
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING
+            );
+        } catch (Exception exception) {
+            writeValidationFailure(
+                artifact,
+                exception,
+                "Native control background persistence final artifact could not be written"
+            );
+        }
+    }
+
+    /**
+     * Closes the owning plugin scope and proves the held model and the control-appearance
+     * registry fail closed, while the existing peer probe handshake proves the shared host
+     * remains usable. No native color changes or overlays are left behind.
+     */
+    private boolean verifyNativeControlScopeClose(
+        final CubismModel model,
+        final ControlAppearanceRegistry registry,
+        final ControlAppearanceTarget.ParameterFolder folderTarget,
+        final StringBuilder scopeReport
+    ) {
+        try {
+            context.disposableScope().close();
+            final boolean modelStale = failsClosed(() -> onHostThread(model::id));
+            final boolean registrySnapshotStale = failsClosed(() -> onHostThread(() -> {
+                registry.snapshot(folderTarget);
+                return null;
+            }));
+            final boolean registryWriteStale = failsClosed(() -> onHostThread(() -> {
+                registry.setNativeBackground(folderTarget, new NativeControlBackground.Default());
+                return null;
+            }));
+            final Path peerRequest = Path.of(
+                System.getProperty("turboism.home"), "state", "editor-object-peer-request.txt"
+            );
+            final Path peerArtifact = Path.of(
+                System.getProperty("turboism.home"), "logs", "editor-object-peer-scope-close.txt"
+            );
+            Files.createDirectories(peerRequest.getParent());
+            Files.deleteIfExists(peerArtifact);
+            Files.writeString(
+                peerRequest,
+                "primaryScopeClosed=true\n",
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING
+            );
+            String peerEvidence = "";
+            for (int attempt = 0; attempt < 3_000; attempt++) {
+                peerEvidence = Files.exists(peerArtifact) ? Files.readString(peerArtifact) : "";
+                if (peerEvidence.contains("status=PASS") || peerEvidence.contains("status=FAIL")) {
+                    break;
+                }
+                Thread.sleep(100L);
+            }
+            final boolean secondPluginUsable = peerEvidence.contains("status=PASS")
+                && peerEvidence.contains("secondPluginUsable=true");
+            final boolean passed = modelStale && registrySnapshotStale && registryWriteStale
+                && secondPluginUsable;
+            scopeReport.append("phase=plugin-scope-close\n")
+                .append("modelStale=").append(modelStale).append('\n')
+                .append("registrySnapshotStale=").append(registrySnapshotStale).append('\n')
+                .append("registryWriteStale=").append(registryWriteStale).append('\n')
+                .append("secondPluginUsable=").append(secondPluginUsable).append('\n')
+                .append("scopeClose=").append(passed ? "PASS" : "FAIL").append('\n');
+            return passed;
+        } catch (Exception exception) {
+            scopeReport.append("phase=plugin-scope-close\n")
+                .append("scopeClose=FAIL\n")
+                .append("scopeClose.error=").append(exception.getClass().getName())
+                .append(": ").append(exception.getMessage()).append('\n');
+            return false;
+        }
+    }
+
+    private ParameterGroupId firstNonRootParameterGroup(final CubismModel model) throws Exception {
+        return onHostThread(() -> {
+            final ParameterGroups groups = model.parameterGroups();
+            final ParameterGroupId root = groups.root().id();
+            return groups.all().stream()
+                .map(ParameterGroup::id)
+                .filter(id -> !id.equals(root))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException(
+                    "No non-root parameter group is available."
+                ));
+        });
+    }
+
+    private PartId firstNonRootPart(final CubismModel model) throws Exception {
+        return onHostThread(() -> model.parts().all().stream()
+            .filter(part -> !"__RootPart__".equals(part.id().value()))
+            .findFirst()
+            .orElseThrow(() -> new IllegalStateException("No non-root Part is available."))
+            .id());
+    }
+
+    private DeformerId firstDeformer(final CubismModel model) throws Exception {
+        return onHostThread(() -> model.deformers().all().stream()
+            .findFirst()
+            .orElseThrow(() -> new IllegalStateException("No Deformer is available."))
+            .id());
+    }
+
+    /** Properties serialization of a native background for cross-mode persistence stages. */
+    static void storeStoredBackground(
+        final Properties properties,
+        final String prefix,
+        final NativeControlBackground background
+    ) {
+        Objects.requireNonNull(properties, "properties");
+        Objects.requireNonNull(prefix, "prefix");
+        Objects.requireNonNull(background, "background");
+        if (background instanceof NativeControlBackground.Default) {
+            properties.setProperty(prefix + ".type", "default");
+        } else if (background instanceof NativeControlBackground.Preset preset) {
+            properties.setProperty(prefix + ".type", "preset");
+            properties.setProperty(prefix + ".preset", preset.color().name());
+        } else if (background instanceof NativeControlBackground.Custom custom) {
+            properties.setProperty(prefix + ".type", "custom");
+            properties.setProperty(prefix + ".red", Float.toString(custom.color().red()));
+            properties.setProperty(prefix + ".green", Float.toString(custom.color().green()));
+            properties.setProperty(prefix + ".blue", Float.toString(custom.color().blue()));
+            properties.setProperty(prefix + ".alpha", Float.toString(custom.color().alpha()));
+        } else {
+            throw new IllegalArgumentException(
+                "unsupported native control background: " + background.getClass().getName()
+            );
+        }
+    }
+
+    /** Inverse of {@link #storeStoredBackground}; fails closed on malformed properties. */
+    static NativeControlBackground parseStoredBackground(
+        final Properties properties,
+        final String prefix
+    ) {
+        Objects.requireNonNull(properties, "properties");
+        Objects.requireNonNull(prefix, "prefix");
+        final String type = properties.getProperty(prefix + ".type");
+        if ("default".equals(type)) {
+            return new NativeControlBackground.Default();
+        }
+        if ("preset".equals(type)) {
+            final String preset = properties.getProperty(prefix + ".preset");
+            if (preset == null) {
+                throw new IllegalArgumentException("Stored preset background is missing its preset name.");
+            }
+            return new NativeControlBackground.Preset(PresetColor.valueOf(preset));
+        }
+        if ("custom".equals(type)) {
+            return new NativeControlBackground.Custom(new Color(
+                parseFiniteValue(properties.getProperty(prefix + ".red")),
+                parseFiniteValue(properties.getProperty(prefix + ".green")),
+                parseFiniteValue(properties.getProperty(prefix + ".blue")),
+                parseFiniteValue(properties.getProperty(prefix + ".alpha"))
+            ));
+        }
+        throw new IllegalArgumentException("Unsupported stored background type: " + type);
     }
 
     private CubismModel awaitNativeControlBackgroundModel(final Path artifact) throws Exception {
@@ -2564,6 +3007,10 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             .append(matrix.afterRedo().equals(matrix.afterWrite()) ? "PASS" : "FAIL").append('\n')
             .append(prefix).append("check.restored=")
             .append(matrix.restored().equals(matrix.before()) ? "PASS" : "FAIL").append('\n')
+            .append(prefix).append("check.singleUndoGroup=")
+            .append(matrix.afterUndo().equals(matrix.before()) ? "PASS" : "FAIL")
+            .append(" // one Undo returned directly to before; the same-value second write added no Undo group")
+            .append('\n')
             .append(prefix).append("status=").append(passed ? "PASS" : "FAIL").append('\n');
     }
 
