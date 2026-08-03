@@ -464,18 +464,27 @@ class WindowsParameterValidationProbeTest {
     }
 
     @Test
-    void peerWaitBoundsAreAtMostSixtySeconds() {
-        assertEquals(600, WindowsParameterValidationProbe.PEER_MAX_ATTEMPTS);
-        assertEquals(100L, WindowsParameterValidationProbe.PEER_POLL_MILLIS);
+    void primaryPeerResponseBudgetIsAtMostSixtySeconds() {
+        assertEquals(600, WindowsParameterValidationProbe.PEER_RESPONSE_MAX_ATTEMPTS);
+        assertEquals(100L, WindowsParameterValidationProbe.PEER_RESPONSE_POLL_MILLIS);
         assertTrue(
-            WindowsParameterValidationProbe.PEER_MAX_ATTEMPTS
-                * WindowsParameterValidationProbe.PEER_POLL_MILLIS <= 60_000L
+            WindowsParameterValidationProbe.PEER_RESPONSE_MAX_ATTEMPTS
+                * WindowsParameterValidationProbe.PEER_RESPONSE_POLL_MILLIS <= 60_000L
         );
-        assertEquals(600, WindowsEditorObjectPeerValidationProbe.PEER_MAX_ATTEMPTS);
-        assertEquals(100L, WindowsEditorObjectPeerValidationProbe.PEER_POLL_MILLIS);
+    }
+
+    @Test
+    void peerPluginStartupBudgetAllowsRealisticExactHostStartup() {
+        assertEquals(2400, WindowsEditorObjectPeerValidationProbe.PEER_STARTUP_MAX_ATTEMPTS);
+        assertEquals(100L, WindowsEditorObjectPeerValidationProbe.PEER_STARTUP_POLL_MILLIS);
+        assertEquals(
+            240_000L,
+            WindowsEditorObjectPeerValidationProbe.PEER_STARTUP_MAX_ATTEMPTS
+                * WindowsEditorObjectPeerValidationProbe.PEER_STARTUP_POLL_MILLIS
+        );
         assertTrue(
-            WindowsEditorObjectPeerValidationProbe.PEER_MAX_ATTEMPTS
-                * WindowsEditorObjectPeerValidationProbe.PEER_POLL_MILLIS <= 60_000L
+            WindowsEditorObjectPeerValidationProbe.PEER_STARTUP_MAX_ATTEMPTS
+                * WindowsEditorObjectPeerValidationProbe.PEER_STARTUP_POLL_MILLIS <= 240_000L
         );
     }
 
