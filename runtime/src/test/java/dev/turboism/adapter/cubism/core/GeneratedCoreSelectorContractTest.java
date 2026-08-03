@@ -17,22 +17,22 @@ class GeneratedCoreSelectorContractTest {
     @Test
     void generatedContractBindsTheExactProfileSets() {
         assertEquals(
-            "fdcc3a45b3c9caf4a281692da2ff6989fd39b91bf46ca6ef316f7a7e6df4b607",
+            "a0f14a73201282f50e6970181d2277ad2ce8fa9c121e7b45fc525bcaa474e699",
             CorePublicApiSelectorContract.SELECTOR_ROSTER_SHA256
         );
-        assertEquals(6, CorePublicApiSelectorContract.VERSION_PROBE_ALIASES.size());
+        assertEquals(9, CorePublicApiSelectorContract.VERSION_PROBE_ALIASES.size());
         assertEquals(
             62,
             CorePublicApiSelectorContract.COMMON_STRUCTURAL_ALIASES.size()
         );
         assertEquals(
-            69,
+            72,
             CorePublicApiSelectorContract.requiredAliasesFor("5.2")
                 .orElseThrow()
                 .size()
         );
         assertEquals(
-            71,
+            74,
             CorePublicApiSelectorContract.requiredAliasesFor("5.3.02")
                 .orElseThrow()
                 .size()

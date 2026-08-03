@@ -37,6 +37,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     private final HostAdapterConnector connector;
     private final DynamicRuntimeHostAdapters dynamic = new DynamicRuntimeHostAdapters();
     private final DynamicCubismModelAccess dynamicModelAccess = new DynamicCubismModelAccess();
+    private final DynamicCoreRuntimeInfo dynamicCoreRuntime = new DynamicCoreRuntimeInfo();
     private final ParameterLifecycleCoordinator parameterLifecycle =
         new ParameterLifecycleCoordinator();
     private final PartLifecycleCoordinator partLifecycle =
@@ -223,6 +224,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             }
             dynamic.connect(candidateAdapters);
             dynamicModelAccess.connect(candidate.modelAccess());
+            dynamicCoreRuntime.connect(candidate.coreRuntimeInfo());
             dynamicAppearance.connect(candidate.appearanceProvider());
             editorUiLifecycle.connected(editorUiGeneration);
             controlAppearanceCoordinator.replaceHostGeneration(editorUiGeneration);
@@ -288,6 +290,11 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     @Override
     public dev.turboism.sdk.cubism.model.CubismModelAccess modelAccess() {
         return dynamicModelAccess;
+    }
+
+    @Override
+    public dev.turboism.sdk.cubism.core.CoreRuntimeInfo coreRuntimeInfo() {
+        return dynamicCoreRuntime;
     }
 
     @Override
@@ -391,6 +398,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         return new SessionRuntimeHostAdapterAccess(
             dynamic.view(),
             dynamicModelAccess,
+            dynamicCoreRuntime,
             parameterLifecycle,
             partLifecycle,
             editorObjectLifecycle,
@@ -484,6 +492,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         dynamicAppearance.deactivate();
         controlAppearanceCoordinator.clearHostGeneration();
         dynamicModelAccess.deactivate();
+        dynamicCoreRuntime.deactivate();
         try {
             dynamic.deactivate();
         } catch (Throwable throwable) {
@@ -675,6 +684,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         SliceKey projectWorkspace,
         java.util.Optional<SliceKey> clipMask,
         java.util.Optional<SliceKey> editorModel,
+        java.util.Optional<SliceKey> coreRuntime,
         java.util.Optional<SliceKey> mainToolbar
     ) {
         private static ConnectionKey from(final HostInstanceDescriptor descriptor) {
@@ -684,6 +694,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
                 SliceKey.from(evidence.projectWorkspace()),
                 evidence.clipMask().map(SliceKey::from),
                 evidence.editorModel().map(SliceKey::from),
+                evidence.coreRuntime().map(SliceKey::from),
                 evidence.mainToolbar().map(SliceKey::from)
             );
         }
@@ -702,6 +713,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
                 && projectWorkspace.matches(other.projectWorkspace)
                 && optionalSliceMatches(clipMask, other.clipMask)
                 && optionalSliceMatches(editorModel, other.editorModel)
+                && optionalSliceMatches(coreRuntime, other.coreRuntime)
                 && optionalSliceMatches(mainToolbar, other.mainToolbar);
         }
 

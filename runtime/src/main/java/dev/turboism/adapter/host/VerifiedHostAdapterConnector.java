@@ -3,6 +3,8 @@ package dev.turboism.adapter.host;
 import dev.turboism.adapter.RuntimeHostAdapters;
 import dev.turboism.adapter.VerifiedRuntimeHostAdaptersFactory;
 import dev.turboism.adapter.cubism.editor.EditorBackedCubismModelAccess;
+import dev.turboism.adapter.cubism.core.CoreVersionExpectation;
+import dev.turboism.adapter.cubism.core.RuntimeCoreModelBackend;
 import dev.turboism.mapping.verification.BoundingBoxOverlayButtonVerificationManifest;
 import dev.turboism.mapping.verification.EmbeddedPanelVerificationManifest;
 import dev.turboism.mapping.verification.HostArtifactDigest;
@@ -14,6 +16,7 @@ import dev.turboism.mapping.verification.VerifiedEmbeddedPanelResolverFactory;
 import dev.turboism.mapping.verification.VerifiedMainToolbarResolverFactory;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.mapping.verification.VerifiedTopMenuResolverFactory;
+import dev.turboism.mapping.verification.VerifiedCorePublicApiResolverFactory;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.ui.contribution.EditorUiContributionProvider;
 import dev.turboism.ui.contribution.EditorUiProviderAdmission;
@@ -242,7 +245,15 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         final RuntimeHostAdapters adapters = factory.create(evidence);
         final AppearanceHostProvider appearanceProvider = appearanceProviderFactory.create(evidence.projectWorkspace());
         if (evidence.editorModel().isEmpty()) {
-            return HostAdapterConnection.of(adapters, UnavailableCubismModelAccess.INSTANCE, null, appearanceProvider);
+            final RuntimeCoreModelBackend core = coreMaterial(evidence);
+            return HostAdapterConnection.of(
+                adapters,
+                UnavailableCubismModelAccess.INSTANCE,
+                null,
+                appearanceProvider,
+                core == null ? DynamicCoreRuntimeInfo.unavailableRuntime() : core.coreRuntimeInfo(),
+                core
+            );
         }
         final VerifiedMemberResolver resolver = editorResolverFactory.create(
             evidence.editorModel().orElseThrow()
@@ -257,10 +268,29 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         final PanelMaterial panel = panelMaterial(evidence);
         final TopMenuMaterial topMenu = topMenuMaterial(evidence);
         final OverlayMaterial overlay = optionalOverlayMaterial(evidence);
+        final RuntimeCoreModelBackend core = coreMaterial(evidence);
         if (toolbar == null && panel == null && topMenu == null && overlay == null) {
-            return HostAdapterConnection.of(adapters, modelAccess, resolver, appearanceProvider);
+            return HostAdapterConnection.of(
+                adapters,
+                modelAccess,
+                resolver,
+                appearanceProvider,
+                core == null ? DynamicCoreRuntimeInfo.unavailableRuntime() : core.coreRuntimeInfo(),
+                core
+            );
         }
-        return connection(adapters, modelAccess, resolver, editorAdmission, toolbar, panel, topMenu, overlay, appearanceProvider);
+        return connection(
+            adapters,
+            modelAccess,
+            resolver,
+            editorAdmission,
+            toolbar,
+            panel,
+            topMenu,
+            overlay,
+            appearanceProvider,
+            core
+        );
     }
 
     private static dev.turboism.mapping.verification.EditorModelAdmissionEvidence editorAdmission(
@@ -275,6 +305,29 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             return dev.turboism.mapping.verification.EditorModelAdmissionEvidence.forResolver(resolver);
         }
     }
+
+    private static RuntimeCoreModelBackend coreMaterial(
+        final HostVerificationEvidence evidence
+    ) throws Exception {
+        if (evidence.coreRuntime().isEmpty()) return null;
+        final HostVerificationEvidence.Slice slice = evidence.coreRuntime().orElseThrow();
+        final VerifiedMemberResolver resolver = new VerifiedCorePublicApiResolverFactory().create(
+            slice.reviewedRecord(),
+            slice.verifiedArtifact(),
+            slice.hostClassLoader()
+        );
+        final var admission = RuntimeCoreModelBackend.admit(
+            resolver,
+            CoreVersionExpectation.reviewedProfile(resolver.cubismVersion())
+        );
+        if (!admission.isSuccess()) {
+            throw new IllegalArgumentException(
+                "Verified Cubism Core runtime admission failed safely."
+            );
+        }
+        return admission.value().orElseThrow();
+    }
+
 
     private OverlayMaterial optionalOverlayMaterial(final HostVerificationEvidence evidence) {
         try {
@@ -354,7 +407,8 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         final PanelMaterial panel,
         final TopMenuMaterial topMenu,
         final OverlayMaterial overlay,
-        final AppearanceHostProvider appearanceProvider
+        final AppearanceHostProvider appearanceProvider,
+        final RuntimeCoreModelBackend core
     ) {
         return new HostAdapterConnection() {
             private long menuGeneration = Long.MIN_VALUE;
@@ -391,6 +445,13 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             @Override
             public CubismModelAccess modelAccess() {
                 return modelAccess;
+            }
+
+            @Override
+            public dev.turboism.sdk.cubism.core.CoreRuntimeInfo coreRuntimeInfo() {
+                return core == null
+                    ? DynamicCoreRuntimeInfo.unavailableRuntime()
+                    : core.coreRuntimeInfo();
             }
 
             @Override
@@ -511,6 +572,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
 
             @Override
             public void close() {
+                if (core != null) core.close();
             }
         };
     }

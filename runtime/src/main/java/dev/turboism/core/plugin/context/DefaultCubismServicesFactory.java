@@ -11,6 +11,7 @@ import dev.turboism.adapter.cubism.service.query.SelectionQueryServiceImpl;
 import dev.turboism.adapter.cubism.service.read.CubismReadCapabilityServiceImpl;
 import dev.turboism.permissions.CubismPermissionGate;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
+import dev.turboism.sdk.cubism.core.CoreRuntimeInfo;
 import dev.turboism.adapter.host.PluginScopedCubismModelAccess;
 import dev.turboism.adapter.cubism.physics.PhysicsEditorCoordinator;
 
@@ -22,8 +23,18 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
         throw new IllegalStateException("No verified active Cubism Core model is available.");
     };
 
+    private static final CoreRuntimeInfo UNAVAILABLE_CORE_RUNTIME = new CoreRuntimeInfo() {
+        private UnsupportedOperationException unavailable() {
+            return new UnsupportedOperationException("Core runtime metadata is unavailable.");
+        }
+        @Override public dev.turboism.sdk.cubism.core.CoreVersion version() { throw unavailable(); }
+        @Override public dev.turboism.sdk.cubism.core.CoreCapabilities capabilities() { throw unavailable(); }
+        @Override public dev.turboism.sdk.cubism.core.MocInspector mocInspector() { throw unavailable(); }
+    };
+
     private final RuntimeHostAdapters hostAdapters;
     private final CubismModelAccess modelAccess;
+    private final CoreRuntimeInfo coreRuntimeInfo;
     private final ParameterLifecycleCoordinator parameterLifecycle;
     private final PartLifecycleCoordinator partLifecycle;
     private final EditorObjectLifecycleCoordinator editorObjectLifecycle;
@@ -104,8 +115,29 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
         final EditorObjectLifecycleCoordinator editorObjectLifecycle,
         final PhysicsEditorCoordinator physicsEditorCoordinator
     ) {
+        this(
+            hostAdapters,
+            modelAccess,
+            UNAVAILABLE_CORE_RUNTIME,
+            parameterLifecycle,
+            partLifecycle,
+            editorObjectLifecycle,
+            physicsEditorCoordinator
+        );
+    }
+
+    DefaultCubismServicesFactory(
+        final RuntimeHostAdapters hostAdapters,
+        final CubismModelAccess modelAccess,
+        final CoreRuntimeInfo coreRuntimeInfo,
+        final ParameterLifecycleCoordinator parameterLifecycle,
+        final PartLifecycleCoordinator partLifecycle,
+        final EditorObjectLifecycleCoordinator editorObjectLifecycle,
+        final PhysicsEditorCoordinator physicsEditorCoordinator
+    ) {
         this.hostAdapters = java.util.Objects.requireNonNull(hostAdapters, "hostAdapters");
         this.modelAccess = java.util.Objects.requireNonNull(modelAccess, "modelAccess");
+        this.coreRuntimeInfo = java.util.Objects.requireNonNull(coreRuntimeInfo, "coreRuntimeInfo");
         this.parameterLifecycle = java.util.Objects.requireNonNull(parameterLifecycle, "parameterLifecycle");
         this.partLifecycle = java.util.Objects.requireNonNull(partLifecycle, "partLifecycle");
         this.editorObjectLifecycle = java.util.Objects.requireNonNull(editorObjectLifecycle, "editorObjectLifecycle");
@@ -132,6 +164,7 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
             dependencies.hostSnapshotSource(),
             permissionGate,
             pluginModelAccess,
+            coreRuntimeInfo,
             parameterLifecycle,
             partLifecycle,
             editorObjectLifecycle,
