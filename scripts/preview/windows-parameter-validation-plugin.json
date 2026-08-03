@@ -4,7 +4,7 @@
   "id": "dev.turboism.validation.parameter",
   "name": "Windows Parameter Validation Probe",
   "version": "0.1.0",
-  "description": "Manual-test-only SDK probe for parameter queries, values, definitions, Combined pairing, native control label backgrounds, default-keyform lock, and lifecycle behavior."
+  "description": "Manual-test-only SDK probe for parameter queries, values, definitions, Combined pairing, native control label backgrounds, default-keyform lock, and lifecycle behavior.",
   "entrypoints": [
     "dev.turboism.tests.plugin.WindowsParameterValidationProbe"
   ],
