@@ -28,6 +28,9 @@ import dev.turboism.ui.panel.VerifiedEmbeddedPanelHostOperations;
 import dev.turboism.ui.toolbar.EditorUiPluginResourceRegistry;
 import dev.turboism.ui.toolbar.MainToolbarContributionProvider;
 import dev.turboism.ui.toolbar.VerifiedMainToolbarHostOperations;
+import dev.turboism.ui.appearance.AppearanceHostProvider;
+import dev.turboism.ui.appearance.FlatLafAppearanceHostProvider;
+import dev.turboism.ui.appearance.SwingFlatLafHostOperations;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -48,6 +51,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
     private final RuntimeEmbeddedPanelActivationCoordinator embeddedPanelActivation;
     private final dev.turboism.ui.panel.PanelTabMenuCoordinator panelTabMenus;
     private final dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator dockMaintenance;
+    private final AppearanceProviderFactory appearanceProviderFactory;
 
     VerifiedHostAdapterConnector() {
         this(
@@ -64,7 +68,11 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             ),
             null,
             null,
-            null
+            null,
+            null,
+            null,
+            new dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator(),
+            VerifiedHostAdapterConnector::productionAppearanceProvider
         );
     }
 
@@ -83,7 +91,11 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             ),
             null,
             null,
-            null
+            null,
+            null,
+            null,
+            new dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator(),
+            ignored -> unavailableAppearanceProvider()
         );
     }
 
@@ -92,7 +104,28 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         final EditorResolverFactory editorResolverFactory,
         final EditorAccessFactory editorAccessFactory
     ) {
-        this(factory, editorResolverFactory, editorAccessFactory, null, null, null, null, null);
+        this(
+            factory, editorResolverFactory, editorAccessFactory,
+            null, null, null, null, null, null, null,
+            new dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator(),
+            ignored -> unavailableAppearanceProvider()
+        );
+    }
+
+    VerifiedHostAdapterConnector(
+        final VerifiedAdapterFactory factory,
+        final EditorResolverFactory editorResolverFactory,
+        final EditorAccessFactory editorAccessFactory,
+        final MainToolbarResolverFactory mainToolbarResolverFactory,
+        final EditorUiPluginResourceRegistry editorUiPluginResources,
+        final dev.turboism.ui.action.RuntimeEditorUiActionRouter editorUiActionRouter,
+        final AppearanceProviderFactory appearanceProviderFactory
+    ) {
+        this(
+            factory, editorResolverFactory, editorAccessFactory, mainToolbarResolverFactory,
+            null, null, editorUiPluginResources, editorUiActionRouter, null, null,
+            new dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator(), appearanceProviderFactory
+        );
     }
 
     VerifiedHostAdapterConnector(
@@ -104,14 +137,10 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         final dev.turboism.ui.action.RuntimeEditorUiActionRouter editorUiActionRouter
     ) {
         this(
-            factory,
-            editorResolverFactory,
-            editorAccessFactory,
-            mainToolbarResolverFactory,
-            null,
-            editorUiPluginResources,
-            editorUiActionRouter,
-            null
+            factory, editorResolverFactory, editorAccessFactory, mainToolbarResolverFactory,
+            null, null, editorUiPluginResources, editorUiActionRouter, null, null,
+            new dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator(),
+            ignored -> unavailableAppearanceProvider()
         );
     }
 
@@ -126,17 +155,14 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         final RuntimeEmbeddedPanelActivationCoordinator embeddedPanelActivation
     ) {
         this(
-            factory,
-            editorResolverFactory,
-            editorAccessFactory,
-            mainToolbarResolverFactory,
-            embeddedPanelResolverFactory,
-            editorUiPluginResources,
-            editorUiActionRouter,
+            factory, editorResolverFactory, editorAccessFactory, mainToolbarResolverFactory,
+            embeddedPanelResolverFactory, null, editorUiPluginResources, editorUiActionRouter,
             embeddedPanelActivation,
             slice -> new VerifiedTopMenuResolverFactory().create(
                 slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
-            )
+            ),
+            new dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator(),
+            ignored -> unavailableAppearanceProvider()
         );
     }
 
@@ -153,9 +179,10 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
     ) {
         this(
             factory, editorResolverFactory, editorAccessFactory, mainToolbarResolverFactory,
-            embeddedPanelResolverFactory, editorUiPluginResources, editorUiActionRouter,
+            embeddedPanelResolverFactory, null, editorUiPluginResources, editorUiActionRouter,
             embeddedPanelActivation, topMenuResolverFactory,
-            new dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator()
+            new dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator(),
+            ignored -> unavailableAppearanceProvider()
         );
     }
 
@@ -172,17 +199,10 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         final dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator dockMaintenance
     ) {
         this(
-            factory,
-            editorResolverFactory,
-            editorAccessFactory,
-            mainToolbarResolverFactory,
-            embeddedPanelResolverFactory,
-            null,
-            editorUiPluginResources,
-            editorUiActionRouter,
-            embeddedPanelActivation,
-            topMenuResolverFactory,
-            dockMaintenance
+            factory, editorResolverFactory, editorAccessFactory, mainToolbarResolverFactory,
+            embeddedPanelResolverFactory, null, editorUiPluginResources, editorUiActionRouter,
+            embeddedPanelActivation, topMenuResolverFactory, dockMaintenance,
+            ignored -> unavailableAppearanceProvider()
         );
     }
 
@@ -197,7 +217,8 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         final dev.turboism.ui.action.RuntimeEditorUiActionRouter editorUiActionRouter,
         final RuntimeEmbeddedPanelActivationCoordinator embeddedPanelActivation,
         final TopMenuResolverFactory topMenuResolverFactory,
-        final dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator dockMaintenance
+        final dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator dockMaintenance,
+        final AppearanceProviderFactory appearanceProviderFactory
     ) {
         this.factory = Objects.requireNonNull(factory, "factory");
         this.editorResolverFactory = Objects.requireNonNull(editorResolverFactory, "editorResolverFactory");
@@ -211,6 +232,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         this.topMenuResolverFactory = topMenuResolverFactory;
         this.panelTabMenus = new dev.turboism.ui.panel.PanelTabMenuCoordinator();
         this.dockMaintenance = Objects.requireNonNull(dockMaintenance, "dockMaintenance");
+        this.appearanceProviderFactory = Objects.requireNonNull(appearanceProviderFactory, "appearanceProviderFactory");
     }
 
     @Override
@@ -218,8 +240,9 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         Objects.requireNonNull(descriptor, "descriptor");
         final HostVerificationEvidence evidence = descriptor.verificationEvidence();
         final RuntimeHostAdapters adapters = factory.create(evidence);
+        final AppearanceHostProvider appearanceProvider = appearanceProviderFactory.create(evidence.projectWorkspace());
         if (evidence.editorModel().isEmpty()) {
-            return HostAdapterConnection.of(adapters);
+            return HostAdapterConnection.of(adapters, UnavailableCubismModelAccess.INSTANCE, null, appearanceProvider);
         }
         final VerifiedMemberResolver resolver = editorResolverFactory.create(
             evidence.editorModel().orElseThrow()
@@ -235,9 +258,9 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         final TopMenuMaterial topMenu = topMenuMaterial(evidence);
         final OverlayMaterial overlay = optionalOverlayMaterial(evidence);
         if (toolbar == null && panel == null && topMenu == null && overlay == null) {
-            return HostAdapterConnection.of(adapters, modelAccess, resolver);
+            return HostAdapterConnection.of(adapters, modelAccess, resolver, appearanceProvider);
         }
-        return connection(adapters, modelAccess, resolver, editorAdmission, toolbar, panel, topMenu, overlay);
+        return connection(adapters, modelAccess, resolver, editorAdmission, toolbar, panel, topMenu, overlay, appearanceProvider);
     }
 
     private static dev.turboism.mapping.verification.EditorModelAdmissionEvidence editorAdmission(
@@ -331,7 +354,8 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         final ToolbarMaterial toolbar,
         final PanelMaterial panel,
         final TopMenuMaterial topMenu,
-        final OverlayMaterial overlay
+        final OverlayMaterial overlay,
+        final AppearanceHostProvider appearanceProvider
     ) {
         final dev.turboism.ui.panel.VerifiedEmbeddedPanelHostOperations panelOperations = panel == null
             ? null
@@ -390,6 +414,11 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             @Override
             public VerifiedMemberResolver editorModelResolver() {
                 return resolver;
+            }
+
+            @Override
+            public AppearanceHostProvider appearanceProvider() {
+                return appearanceProvider;
             }
 
             @Override
@@ -593,6 +622,34 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
     @FunctionalInterface
     interface MainToolbarResolverFactory {
         VerifiedMemberResolver create(HostVerificationEvidence.Slice slice) throws Exception;
+    }
+
+    @FunctionalInterface
+    interface AppearanceProviderFactory {
+        AppearanceHostProvider create(HostVerificationEvidence.Slice projectSlice) throws Exception;
+    }
+
+    static AppearanceProviderFactory productionAppearanceProviderFactory() {
+        return VerifiedHostAdapterConnector::productionAppearanceProvider;
+    }
+
+    private static AppearanceHostProvider unavailableAppearanceProvider() {
+        return new dev.turboism.ui.appearance.UnavailableAppearanceHostProvider();
+    }
+
+    private static AppearanceHostProvider productionAppearanceProvider(
+        final HostVerificationEvidence.Slice slice
+    ) throws Exception {
+        if (!java.nio.file.Files.isRegularFile(slice.verifiedArtifact())) {
+            return unavailableAppearanceProvider();
+        }
+        final HostArtifactDigest artifact = HostArtifactDigest.from(slice.verifiedArtifact());
+        final String version = dev.turboism.mapping.verification.ProjectWorkspaceVerificationManifest
+            .versionForArtifact(artifact);
+        return new FlatLafAppearanceHostProvider(
+            version,
+            new SwingFlatLafHostOperations(slice.hostClassLoader())
+        );
     }
 
     @FunctionalInterface

@@ -165,7 +165,8 @@ public final class LocalPluginRuntime implements AutoCloseable {
                 new dev.turboism.plugin.core.CorePluginServices(
                     runtimeSettings,
                     pluginManagement,
-                    dev.turboism.ui.panel.NativePanelTabFloatingBridge::toggle
+                    dev.turboism.ui.panel.NativePanelTabFloatingBridge::toggle,
+                    log
                 ),
                 log
             ));
