@@ -37,7 +37,45 @@ final class TestCoreApiFixture {
         );
     }
 
+    static VerifiedMemberResolver resolverForReviewedVersion(
+        final String reviewedVersion,
+        final String artifactProfile
+    ) {
+        return resolver(
+            reviewedVersion,
+            artifactProfile,
+            Core.class,
+            Version.class,
+            objectDescriptor(Version.class),
+            "()I",
+            null,
+            Core.class.getClassLoader()
+        );
+    }
+
     static VerifiedMemberResolver resolver(
+        final String artifactProfile,
+        final Class<?> coreType,
+        final Class<?> versionType,
+        final String versionDescriptor,
+        final String majorDescriptor,
+        final String omittedAlias,
+        final ClassLoader classLoader
+    ) {
+        return resolver(
+            artifactProfile,
+            artifactProfile,
+            coreType,
+            versionType,
+            versionDescriptor,
+            majorDescriptor,
+            omittedAlias,
+            classLoader
+        );
+    }
+
+    private static VerifiedMemberResolver resolver(
+        final String reviewedVersion,
         final String artifactProfile,
         final Class<?> coreType,
         final Class<?> versionType,
@@ -60,6 +98,27 @@ final class TestCoreApiFixture {
             internalName(coreType),
             "getVersion",
             versionDescriptor,
+            StaticSelector.ACCESS_PUBLIC
+        ));
+        selectors.add(StaticSelector.staticMethod(
+            CorePublicApiSelectorContract.GET_LATEST_MOC_VERSION,
+            internalName(coreType),
+            "getLatestMocVersion",
+            "()I",
+            StaticSelector.ACCESS_PUBLIC
+        ));
+        selectors.add(StaticSelector.staticMethod(
+            CorePublicApiSelectorContract.GET_MOC_VERSION,
+            internalName(coreType),
+            "getMocVersion",
+            "([B)I",
+            StaticSelector.ACCESS_PUBLIC
+        ));
+        selectors.add(StaticSelector.staticMethod(
+            CorePublicApiSelectorContract.HAS_MOC_CONSISTENCY,
+            internalName(coreType),
+            "hasMocConsistency",
+            "([B)Z",
             StaticSelector.ACCESS_PUBLIC
         ));
         selectors.add(instanceMethod(
@@ -212,7 +271,7 @@ final class TestCoreApiFixture {
         addFamilySelectors(selectors, artifactProfile);
 
         return TestVerifiedResolvers.create(
-            artifactProfile,
+            reviewedVersion,
             CorePublicApiSelectorContract.ADAPTER_SLICE_ID,
             CorePublicApiSelectorContract.CAPABILITY_IDS,
             selectors.stream()
@@ -309,6 +368,18 @@ final class TestCoreApiFixture {
 
         public static Version getVersion() {
             return version;
+        }
+
+        public static int getLatestMocVersion() {
+            return 6;
+        }
+
+        public static int getMocVersion(final byte[] bytes) {
+            return bytes.length == 0 ? 0 : Byte.toUnsignedInt(bytes[0]);
+        }
+
+        public static boolean hasMocConsistency(final byte[] bytes) {
+            return bytes.length > 1 && bytes[1] == 1;
         }
     }
 

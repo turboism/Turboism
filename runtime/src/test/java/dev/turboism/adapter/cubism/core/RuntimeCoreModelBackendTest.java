@@ -79,6 +79,22 @@ class RuntimeCoreModelBackendTest {
         );
     }
 
+
+    @Test
+    void admitsReviewedRecordVersionsThroughCanonicalStructuralProfiles() {
+        final RuntimeCoreModelBackend backend52 = RuntimeCoreModelBackend.admit(
+            TestCoreApiFixture.resolverForReviewedVersion("5.2.0", "5.2"),
+            CoreVersionExpectation.exact(11, 12, 13)
+        ).value().orElseThrow();
+        final RuntimeCoreModelBackend backend53 = RuntimeCoreModelBackend.admit(
+            TestCoreApiFixture.resolverForReviewedVersion("5.3.2", "5.3.02"),
+            CoreVersionExpectation.exact(11, 12, 13)
+        ).value().orElseThrow();
+
+        backend52.close();
+        backend53.close();
+    }
+
     @Test
     void rejectedProviderDoesNotPublishPartialBackend() {
         final CoreProviderResult<RuntimeCoreModelBackend> result =
