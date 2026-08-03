@@ -277,6 +277,43 @@ class EditorNativeControlAppearanceAccessTest {
     }
 
     @Test
+    void snapshotFailsClosedWhenLabelColorIsReplacedDuringRead() {
+        Fixture fixture = new Fixture("model-a");
+        Host.install(fixture);
+        final LabelColor original = fixture.face.labelColor;
+        original.onRead = () -> fixture.face.labelColor = new LabelColor();
+        EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
+            resolver(true), "session-a"
+        );
+
+        assertThrows(IllegalStateException.class, () -> access.snapshot(
+            new ControlAppearanceTarget.ParameterFolder(new ParameterGroupId("GroupFace"))
+        ));
+        assertEquals(LabelColorType.BLUE, original.type, "read must not mutate anything");
+    }
+
+    @Test
+    void noOpWriteFailsClosedWhenLabelColorIsReplacedDuringRead() {
+        Fixture fixture = new Fixture("model-a");
+        fixture.face.labelColor.type = LabelColorType.BLUE;
+        Host.install(fixture);
+        final LabelColor original = fixture.face.labelColor;
+        original.onRead = () -> fixture.face.labelColor = new LabelColor();
+        EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
+            resolver(true), "session-a"
+        );
+        ControlAppearanceTarget.ParameterFolder folder =
+            new ControlAppearanceTarget.ParameterFolder(new ParameterGroupId("GroupFace"));
+
+        assertThrows(IllegalStateException.class, () -> access.setNativeBackground(
+            folder, new NativeControlBackground.Preset(PresetColor.BLUE)
+        ));
+        assertEquals(0, fixture.editMode.beginCalls, "a no-op must not open a transaction");
+        assertEquals(0, fixture.face.labelColor.setterCalls);
+        assertEquals(0, fixture.document.dirtyUpdates);
+    }
+
+    @Test
     void documentReplacementBetweenTargetResolutionAndMutationFailsClosedAndRestores() {
         Fixture fixture = new Fixture("model-a");
         Host.install(fixture);
@@ -293,9 +330,14 @@ class EditorNativeControlAppearanceAccessTest {
         ));
 
         assertEquals(
+            0,
+            fixture.face.labelColor.setterCalls,
+            "the stale target must never reach the native setter"
+        );
+        assertEquals(
             LabelColorType.BLUE,
             fixture.face.labelColor.type,
-            "the cancelled transaction must restore the mutated old label color"
+            "the old label color must remain untouched"
         );
         assertEquals(0, fixture.editMode.committedEdits, "no wrong history may be committed");
         assertEquals(1, fixture.editMode.cancelledEnds);
@@ -304,6 +346,16 @@ class EditorNativeControlAppearanceAccessTest {
             0,
             replaced.document.dirtyUpdates,
             "the replacement document must not be marked dirty"
+        );
+        assertEquals(
+            0,
+            replaced.completePack.canvasRepaints,
+            "the replacement complete pack must not be refreshed"
+        );
+        assertEquals(
+            0,
+            replaced.operation.refreshes,
+            "the replacement parameter operation must not be refreshed"
         );
     }
 
@@ -331,6 +383,11 @@ class EditorNativeControlAppearanceAccessTest {
         assertEquals(0, fixture.editMode.committedEdits, "no wrong history may be committed");
         assertEquals(1, fixture.editMode.cancelledEnds);
         assertEquals(0, fixture.document.dirtyUpdates);
+        assertEquals(
+            0,
+            fixture.completePack.canvasRepaints,
+            "the UI refresh must not run against the replaced target"
+        );
     }
 
     @Test
@@ -670,16 +727,24 @@ class EditorNativeControlAppearanceAccessTest {
         HostColor color = new HostColor(0.25F, 0.5F, 0.75F, 1.0F);
         HostColor custom = new HostColor(0.25F, 0.5F, 0.75F, 1.0F);
 
-        public LabelColorType getLabelType() { return type; }
+        public LabelColorType getLabelType() {
+            if (onRead != null) {
+                onRead.run();
+            }
+            return type;
+        }
 
         public HostColor getCustomizedColor() { return custom; }
 
         public HostColor getColor() { return color; }
 
         boolean rejectWrites;
+        int setterCalls;
+        Runnable onRead;
         Runnable onMutated;
 
         public void setLabelType(final LabelColorType nextType) {
+            setterCalls++;
             if (rejectWrites) {
                 return;
             }
@@ -690,6 +755,7 @@ class EditorNativeControlAppearanceAccessTest {
         }
 
         public void setColor(final LabelColorType nextType, final HostColor nextColor) {
+            setterCalls++;
             if (rejectWrites) {
                 return;
             }

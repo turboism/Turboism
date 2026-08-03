@@ -48,6 +48,7 @@ final class EditorNativeControlAppearanceAccess implements NativeControlAppearan
             background(labelColor), effectiveColor(labelColor)
         );
         requireCurrent(binding);
+        requireSameLabelColor(binding, target, labelColor);
         return result;
     }
 
@@ -69,6 +70,7 @@ final class EditorNativeControlAppearanceAccess implements NativeControlAppearan
         final NativeBackgroundValue requested = nativeValue(background);
         if (exactMatch(requested, readBackground(labelColor))) {
             requireCurrent(binding);
+            requireSameLabelColor(binding, target, labelColor);
             return;
         }
         requireCurrent(binding);
@@ -92,8 +94,9 @@ final class EditorNativeControlAppearanceAccess implements NativeControlAppearan
                 }
             );
             resolver.invoke("cubism.editor-model.undo.add-listener", undo, listener);
+            requireCurrent(binding);
+            requireSameLabelColor(binding, target, labelColor);
             apply(labelColor, requested);
-            refresh(app, target);
             requireCurrent(binding);
             requireSameLabelColor(binding, target, labelColor);
             if (!exactMatch(requested, readBackground(labelColor))) {
@@ -101,6 +104,9 @@ final class EditorNativeControlAppearanceAccess implements NativeControlAppearan
                     "Cubism native control background write was not applied exactly."
                 );
             }
+            refresh(app, target);
+            requireCurrent(binding);
+            requireSameLabelColor(binding, target, labelColor);
             resolver.invoke("cubism.editor-model.modeling-document.mark-dirty", document);
             completed = true;
         } finally {
@@ -112,6 +118,7 @@ final class EditorNativeControlAppearanceAccess implements NativeControlAppearan
             );
         }
         requireCurrent(binding);
+        requireSameLabelColor(binding, target, labelColor);
     }
 
     private void apply(final Object labelColor, final NativeBackgroundValue requested) {
