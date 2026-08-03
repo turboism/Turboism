@@ -400,7 +400,12 @@ public final class CorePluginContext implements PluginContext {
             final RuntimeControlAppearanceRegistry controlAppearance = new RuntimeControlAppearanceRegistry(
                 this.dependencies.descriptor().id(),
                 0,
-                PermissionChecker.from(this.dependencies.permissions()),
+                PermissionChecker.from(new CubismPermissionGate(
+                    this.dependencies.descriptor().id(),
+                    this.dependencies.permissions(),
+                    this.dependencies.cubismAuditSink(),
+                    this.dependencies.clock()
+                )),
                 hostAccess.controlAppearanceCoordinator(),
                 hostAccess.nativeControlAppearance()
             );

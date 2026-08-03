@@ -168,6 +168,138 @@ class EditorNativeControlAppearanceAccessTest {
     }
 
     @Test
+    void defaultAndPresetWritesAreExactNoOpsWithoutCreatingHistory() {
+        Fixture fixture = new Fixture("model-a");
+        fixture.face.labelColor.type = LabelColorType.UNDEFINED;
+        Host.install(fixture);
+        EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
+            resolver(true), "session-a"
+        );
+        ControlAppearanceTarget.ParameterFolder folder =
+            new ControlAppearanceTarget.ParameterFolder(new ParameterGroupId("GroupFace"));
+
+        access.setNativeBackground(folder, new NativeControlBackground.Default());
+        assertEquals(0, fixture.editMode.beginCalls, "Default on UNDEFINED must be an exact no-op");
+        assertEquals(0, fixture.document.dirtyUpdates);
+
+        fixture.face.labelColor.type = LabelColorType.BLUE;
+        access.setNativeBackground(folder, new NativeControlBackground.Preset(PresetColor.BLUE));
+        assertEquals(0, fixture.editMode.beginCalls, "Preset on the same preset must be an exact no-op");
+        assertEquals(0, fixture.document.dirtyUpdates);
+
+        access.setNativeBackground(folder, new NativeControlBackground.Preset(PresetColor.GREEN));
+        assertEquals(1, fixture.editMode.beginCalls);
+        assertEquals(1, fixture.document.dirtyUpdates);
+        assertEquals(LabelColorType.GREEN, fixture.face.labelColor.type);
+
+        access.setNativeBackground(folder, new NativeControlBackground.Preset(PresetColor.GREEN));
+        assertEquals(1, fixture.editMode.beginCalls, "Preset on the same preset after a mode change must no-op");
+    }
+
+    @Test
+    void customWriteIsAnExactNoOpWhenTypeAndRgbaAlreadyMatch() {
+        Fixture fixture = new Fixture("model-a");
+        fixture.face.labelColor.type = LabelColorType.CUSTOM;
+        fixture.face.labelColor.custom = new HostColor(0.1F, 0.2F, 0.3F, 0.4F);
+        Host.install(fixture);
+        EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
+            resolver(true), "session-a"
+        );
+        ControlAppearanceTarget.ParameterFolder folder =
+            new ControlAppearanceTarget.ParameterFolder(new ParameterGroupId("GroupFace"));
+
+        access.setNativeBackground(
+            folder,
+            new NativeControlBackground.Custom(new Color(0.1F, 0.2F, 0.3F, 0.4F))
+        );
+        assertEquals(0, fixture.editMode.beginCalls, "identical custom RGBA must be an exact no-op");
+        assertEquals(0, fixture.document.dirtyUpdates);
+
+        access.setNativeBackground(
+            folder,
+            new NativeControlBackground.Custom(new Color(0.1F, 0.2F, 0.3F, 0.5F))
+        );
+        assertEquals(1, fixture.editMode.beginCalls, "different alpha must write");
+    }
+
+    @Test
+    void modeChangesPreserveTheLatentCustomizedColor() {
+        Fixture fixture = new Fixture("model-a");
+        fixture.face.labelColor.custom = new HostColor(0.7F, 0.6F, 0.5F, 0.4F);
+        Host.install(fixture);
+        EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
+            resolver(true), "session-a"
+        );
+        ControlAppearanceTarget.ParameterFolder folder =
+            new ControlAppearanceTarget.ParameterFolder(new ParameterGroupId("GroupFace"));
+
+        access.setNativeBackground(folder, new NativeControlBackground.Preset(PresetColor.RED));
+        assertEquals(LabelColorType.RED, fixture.face.labelColor.type);
+        assertEquals(
+            new HostColor(0.7F, 0.6F, 0.5F, 0.4F),
+            fixture.face.labelColor.custom,
+            "setLabelType must preserve the latent custom color"
+        );
+
+        access.setNativeBackground(folder, new NativeControlBackground.Default());
+        assertEquals(LabelColorType.UNDEFINED, fixture.face.labelColor.type);
+        assertEquals(
+            new HostColor(0.7F, 0.6F, 0.5F, 0.4F),
+            fixture.face.labelColor.custom,
+            "Default restore must preserve the latent custom color"
+        );
+        assertEquals(2, fixture.editMode.beginCalls);
+        assertEquals(2, fixture.document.dirtyUpdates);
+    }
+
+    @Test
+    void postCheckRejectsAWronglyAppliedWriteFailClosed() {
+        Fixture fixture = new Fixture("model-a");
+        fixture.face.labelColor.rejectWrites = true;
+        Host.install(fixture);
+        EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
+            resolver(true), "session-a"
+        );
+        ControlAppearanceTarget.ParameterFolder folder =
+            new ControlAppearanceTarget.ParameterFolder(new ParameterGroupId("GroupFace"));
+
+        assertThrows(IllegalStateException.class, () -> access.setNativeBackground(
+            folder, new NativeControlBackground.Preset(PresetColor.RED)
+        ));
+        assertEquals(0, fixture.document.dirtyUpdates, "failed write must not mark the document dirty");
+    }
+
+    @Test
+    void readOnlyCapabilityAllowsSnapshotButDeniesWrite() {
+        Host.install(new Fixture("model-a"));
+        EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
+            resolverReadOnly(), "session-a"
+        );
+        ControlAppearanceTarget.PartLabel target =
+            new ControlAppearanceTarget.PartLabel(new PartId("PartA"));
+        assertEquals(
+            new NativeControlBackground.Preset(PresetColor.RED),
+            access.snapshot(target).background()
+        );
+        assertThrows(UnsupportedOperationException.class, () -> access.setNativeBackground(
+            target, new NativeControlBackground.Default()
+        ));
+    }
+
+    @Test
+    void writeOnlyCapabilityAllowsWriteButDeniesSnapshot() {
+        Host.install(new Fixture("model-a"));
+        EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
+            resolverWriteOnly(), "session-a"
+        );
+        ControlAppearanceTarget.PartLabel target =
+            new ControlAppearanceTarget.PartLabel(new PartId("PartA"));
+        assertThrows(UnsupportedOperationException.class, () -> access.snapshot(target));
+        access.setNativeBackground(target, new NativeControlBackground.Preset(PresetColor.GREEN));
+        assertEquals(LabelColorType.GREEN, Host.currentDocument.modelSource().parts().get(0).labelColor.type);
+    }
+
+    @Test
     void missingDuplicateAndStaleTargetsFailClosedBeforeMutation() {
         Fixture fixture = new Fixture("model-a");
         Host.install(fixture);
@@ -239,6 +371,34 @@ class EditorNativeControlAppearanceAccessTest {
         assertEquals(0, Host.INSTANCE.currentDocument().dirtyUpdates);
     }
 
+    private static VerifiedMemberResolver resolverReadOnly() {
+        return TestVerifiedResolvers.create(
+            "5.3.02",
+            "adapter.editor-model.readwrite",
+            java.util.Set.of(
+                "cubism.editor-model.read",
+                "cubism.editor-model.write",
+                EditorNativeControlAppearanceReadSelectorContract.CAPABILITY_ID
+            ),
+            selectors(),
+            Host.class.getClassLoader()
+        );
+    }
+
+    private static VerifiedMemberResolver resolverWriteOnly() {
+        return TestVerifiedResolvers.create(
+            "5.3.02",
+            "adapter.editor-model.readwrite",
+            java.util.Set.of(
+                "cubism.editor-model.read",
+                "cubism.editor-model.write",
+                EditorNativeControlAppearanceWriteSelectorContract.CAPABILITY_ID
+            ),
+            selectors(),
+            Host.class.getClassLoader()
+        );
+    }
+
     private static VerifiedMemberResolver resolver(final boolean authorized) {
         final String host = internal(Host.class);
         final String document = internal(Document.class);
@@ -270,7 +430,40 @@ class EditorNativeControlAppearanceAccessTest {
             EditorNativeControlAppearanceReadSelectorContract.CAPABILITY_ID,
             EditorNativeControlAppearanceWriteSelectorContract.CAPABILITY_ID
         );
-        final List<StaticSelector> selectors = List.of(
+        return TestVerifiedResolvers.create(
+            "5.3.02",
+            "adapter.editor-model.readwrite",
+            authorized ? capabilities : java.util.Set.of("cubism.editor-model.read", "cubism.editor-model.write"),
+            selectors(),
+            Host.class.getClassLoader()
+        );
+    }
+
+    private static List<StaticSelector> selectors() {
+        String host = internal(Host.class);
+        String document = internal(Document.class);
+        String source = internal(ModelSource.class);
+        String model = internal(Model.class);
+        String id = internal(Id.class);
+        String group = internal(ParameterGroup.class);
+        String partSource = internal(PartSource.class);
+        String partId = internal(CPartId.class);
+        String deformerSource = internal(DeformerSource.class);
+        String controllableSource = internal(ParameterControllableSource.class);
+        String labelColor = internal(LabelColor.class);
+        String labelColorType = internal(LabelColorType.class);
+        String color = internal(HostColor.class);
+        String completePack = internal(CompletePack.class);
+        String mainFrame = internal(MainFrame.class);
+        String palette = internal(ParameterPalette.class);
+        String paletteView = internal(ParameterPaletteView.class);
+        String operation = internal(ParameterOperation.class);
+        String editMode = internal(EditMode.class);
+        String undo = internal(Undo.class);
+        String copyable = internal(Copyable.class);
+        String undoListener = internal(UndoListener.class);
+        String simpleUndo = internal(SimpleUndo.class);
+        return List.of(
             StaticSelector.classSelector("cubism.editor-model.app-controller.class", host),
             StaticSelector.staticMethod("cubism.editor-model.app-controller.instance", host, "instance", desc(Host.class), StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC),
             method("cubism.editor-model.app-controller.current-document", Host.class, "currentDocument", desc(Document.class)),
@@ -306,6 +499,7 @@ class EditorNativeControlAppearanceAccessTest {
             method("cubism.editor-model.label-color.customized-color", LabelColor.class, "getCustomizedColor", desc(HostColor.class)),
             method("cubism.editor-model.label-color.color", LabelColor.class, "getColor", desc(HostColor.class)),
             method("cubism.editor-model.label-color.set-color", LabelColor.class, "setColor", "(L" + labelColorType + ";L" + color + ";)V"),
+            method("cubism.editor-model.label-color.set-label-type", LabelColor.class, "setLabelType", "(L" + labelColorType + ";)V"),
             StaticSelector.classSelector("cubism.editor-model.label-color-type.class", labelColorType),
             StaticSelector.field("cubism.editor-model.label-color-type.undefined", labelColorType, "UNDEFINED", "L" + labelColorType + ";", StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC),
             StaticSelector.field("cubism.editor-model.label-color-type.custom", labelColorType, "CUSTOM", "L" + labelColorType + ";", StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC),
@@ -343,13 +537,6 @@ class EditorNativeControlAppearanceAccessTest {
             method("cubism.editor-model.undo.add-listener", Undo.class, "addListener", "(L" + undoListener + ";)Z"),
             StaticSelector.classSelector("cubism.editor-model.undo-listener.class", undoListener),
             StaticSelector.constructor("cubism.editor-model.simple-undo.create", simpleUndo, "(Ljava/lang/String;L" + copyable + ";Ljava/lang/Object;)V", StaticSelector.ACCESS_PUBLIC)
-        );
-        return TestVerifiedResolvers.create(
-            "5.3.02",
-            "adapter.editor-model.readwrite",
-            authorized ? capabilities : java.util.Set.of("cubism.editor-model.read", "cubism.editor-model.write"),
-            selectors,
-            Host.class.getClassLoader()
         );
     }
 
@@ -425,7 +612,19 @@ class EditorNativeControlAppearanceAccessTest {
 
         public HostColor getColor() { return color; }
 
+        boolean rejectWrites;
+
+        public void setLabelType(final LabelColorType nextType) {
+            if (rejectWrites) {
+                return;
+            }
+            type = nextType;
+        }
+
         public void setColor(final LabelColorType nextType, final HostColor nextColor) {
+            if (rejectWrites) {
+                return;
+            }
             type = nextType;
             if (nextType == LabelColorType.CUSTOM) {
                 custom = nextColor;

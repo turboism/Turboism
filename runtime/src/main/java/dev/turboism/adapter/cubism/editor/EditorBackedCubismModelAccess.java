@@ -1,14 +1,11 @@
 package dev.turboism.adapter.cubism.editor;
 
 import dev.turboism.adapter.cubism.NativeControlAppearanceAuthoring;
-import dev.turboism.mapping.verification.EditorNativeControlAppearanceReadSelectorContract;
-import dev.turboism.mapping.verification.EditorNativeControlAppearanceWriteSelectorContract;
 import dev.turboism.mapping.verification.EditorParameterDefinitionWriteSelectorContract;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.cubism.model.Canvas;
-import dev.turboism.sdk.cubism.model.Color;
 import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.sdk.cubism.model.Deformers;
@@ -27,7 +24,6 @@ import dev.turboism.sdk.cubism.model.WarpDeformers;
 import dev.turboism.sdk.ui.appearance.ControlAppearanceTarget;
 import dev.turboism.sdk.ui.appearance.NativeControlAppearance;
 import dev.turboism.sdk.ui.appearance.NativeControlBackground;
-import dev.turboism.sdk.ui.appearance.PresetColor;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -45,6 +41,7 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess, N
     private final EditorDefaultKeyformLockAccess defaultKeyformLockAccess;
     private final EditorPartOpacityAccess partOpacityAccess;
     private final EditorObjectReadAccess objectReadAccess;
+    private final EditorNativeControlAppearanceAccess nativeControlAppearanceAccess;
 
     public EditorBackedCubismModelAccess(
         final VerifiedMemberResolver resolver,
@@ -72,6 +69,10 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess, N
         this.objectReadAccess = new EditorObjectReadAccess(
             resolver,
             this::requireCurrent
+        );
+        this.nativeControlAppearanceAccess = new EditorNativeControlAppearanceAccess(
+            resolver,
+            () -> binding().source()
         );
     }
 
@@ -526,9 +527,7 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess, N
 
     @Override
     public NativeControlAppearance snapshot(final ControlAppearanceTarget target) {
-        requireReadAuthorization();
-        final Object labelColor = labelColor(Objects.requireNonNull(target, "target"));
-        return new NativeControlAppearance(background(labelColor), effectiveColor(labelColor));
+        return nativeControlAppearanceAccess.snapshot(target);
     }
 
     @Override
@@ -536,385 +535,7 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess, N
         final ControlAppearanceTarget target,
         final NativeControlBackground background
     ) {
-        Objects.requireNonNull(target, "target");
-        Objects.requireNonNull(background, "background");
-        if (target instanceof ControlAppearanceTarget.ParameterLabel) {
-            throw new UnsupportedOperationException(
-                "ParameterLabel is overlay-only; native label-background authoring is unsupported."
-            );
-        }
-        requireWriteAuthorization();
-        final Object labelColor = labelColor(target);
-        final NativeBackgroundValue requested = nativeValue(background);
-        if (requested.equals(readBackground(labelColor))) {
-            return;
-        }
-        final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
-        final Object document = resolver.invoke(
-            "cubism.editor-model.app-controller.current-document", app
-        );
-        final Object editMode = resolver.invoke(
-            "cubism.editor-model.modeling-document.edit-mode", document
-        );
-        final Object undo = resolver.invoke(
-            "cubism.editor-model.edit-mode.begin", editMode, ACTION_NAME
-        );
-        boolean completed = false;
-        try {
-            addUndo(undo, labelColor);
-            final Object listener = resolver.createFunctionalProxy(
-                "cubism.editor-model.undo-listener.class",
-                ignored -> {
-                    refresh(app, target);
-                    return null;
-                }
-            );
-            resolver.invoke("cubism.editor-model.undo.add-listener", undo, listener);
-            final Object hostColor = resolver.construct(
-                "cubism.editor-model.color.create",
-                Float.valueOf(requested.color().red()),
-                Float.valueOf(requested.color().green()),
-                Float.valueOf(requested.color().blue()),
-                Float.valueOf(requested.color().alpha())
-            );
-            resolver.invoke(
-                "cubism.editor-model.label-color.set-color",
-                labelColor,
-                requested.type(),
-                hostColor
-            );
-            refresh(app, target);
-            resolver.invoke("cubism.editor-model.modeling-document.mark-dirty", document);
-            completed = true;
-        } finally {
-            resolver.invoke(
-                "cubism.editor-model.edit-mode.end",
-                editMode,
-                Boolean.valueOf(!completed),
-                null
-            );
-        }
-        labelColor(target);
-    }
-
-    private Object labelColor(final ControlAppearanceTarget target) {
-        if (target instanceof ControlAppearanceTarget.ParameterLabel) {
-            throw new UnsupportedOperationException(
-                "ParameterLabel is overlay-only; native label-background authoring is unsupported."
-            );
-        }
-        final Binding binding = binding();
-        final Object value;
-        if (target instanceof ControlAppearanceTarget.ParameterFolder folder) {
-            value = groupLabelColor(binding, folder.id().value());
-        } else if (target instanceof ControlAppearanceTarget.PartLabel label) {
-            value = sourceLabelColor(partSource(binding, label.id().value()));
-        } else if (target instanceof ControlAppearanceTarget.PartFolder folder) {
-            value = sourceLabelColor(partSource(binding, folder.id().value()));
-        } else if (target instanceof ControlAppearanceTarget.DeformerLabel label) {
-            value = sourceLabelColor(deformerSource(binding, label.id().value()));
-        } else if (target instanceof ControlAppearanceTarget.DeformerControlRow row) {
-            value = sourceLabelColor(deformerSource(binding, row.id().value()));
-        } else {
-            throw new IllegalArgumentException(
-                "unsupported control appearance target: " + target.getClass().getName()
-            );
-        }
-        if (!resolver.isInstance("cubism.editor-model.label-color.class", value)) {
-            throw unavailable("Editor native control label color is unavailable.");
-        }
-        return value;
-    }
-
-    private Object groupLabelColor(final Binding binding, final String id) {
-        final Object root = resolver.invoke(
-            "cubism.editor-model.model-source.root-parameter-group", binding.source()
-        );
-        if (!resolver.isInstance("cubism.editor-model.parameter-group.class", root)) {
-            throw unavailable("Editor root parameter group is unavailable.");
-        }
-        final java.util.ArrayDeque<Object> pending = new java.util.ArrayDeque<>();
-        final java.util.Set<Object> identities = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
-        final java.util.Set<String> ids = new java.util.HashSet<>();
-        pending.add(root);
-        while (!pending.isEmpty()) {
-            final Object group = pending.removeFirst();
-            if (!identities.add(group)) {
-                throw unavailable("Editor parameter group hierarchy contains a cycle.");
-            }
-            final String groupId = text(resolver.invoke(
-                "cubism.editor-model.id.value",
-                resolver.invoke("cubism.editor-model.parameter-group.id", group)
-            ));
-            if (!ids.add(groupId)) {
-                throw unavailable("Editor parameter group identifiers are not unique.");
-            }
-            if (groupId.equals(id)) {
-                return resolver.invoke("cubism.editor-model.parameter-group.label-color", group);
-            }
-            final Object raw = resolver.invoke("cubism.editor-model.parameter-group.children", group);
-            if (!(raw instanceof List<?> children)) {
-                throw unavailable("Editor parameter group children are unavailable.");
-            }
-            for (Object child : children) {
-                if (resolver.isInstance("cubism.editor-model.parameter-group.class", child)) {
-                    pending.addLast(child);
-                }
-            }
-        }
-        throw new NoSuchElementException("Cubism parameter group is absent: " + id);
-    }
-
-    private Object partSource(final Binding binding, final String id) {
-        final Object raw = resolver.invoke("cubism.editor-model.model-source.parts", binding.source());
-        if (!(raw instanceof List<?> sources)) {
-            throw unavailable("Editor Part source collection is unavailable.");
-        }
-        return findSource("cubism.editor-model.part-source.class", "cubism.editor-model.part-source.id",
-            "cubism.editor-model.part-id.value", "Cubism Part", id, sources);
-    }
-
-    private Object deformerSource(final Binding binding, final String id) {
-        final Object raw = resolver.invoke(
-            "cubism.editor-model.model-source.all-deformers", binding.source()
-        );
-        if (!(raw instanceof List<?> sources)) {
-            throw unavailable("Editor Deformer source collection is unavailable.");
-        }
-        return findSource("cubism.editor-model.deformer-source.class",
-            "cubism.editor-model.parameter-controllable-source.id",
-            "cubism.editor-model.id.value", "Cubism Deformer", id, sources);
-    }
-
-    private Object findSource(
-        final String sourceClassAlias,
-        final String idMethodAlias,
-        final String idValueAlias,
-        final String label,
-        final String id,
-        final List<?> sources
-    ) {
-        Object match = null;
-        for (Object source : sources) {
-            if (!resolver.isInstance(sourceClassAlias, source)) {
-                throw unavailable("Editor " + label + " source collection contains an invalid value.");
-            }
-            final String candidate = text(resolver.invoke(
-                idValueAlias, resolver.invoke(idMethodAlias, source)
-            ));
-            if (match != null && candidate.equals(id)) {
-                throw unavailable("Editor " + label + " source identifiers are not unique.");
-            }
-            if (candidate.equals(id)) {
-                match = source;
-            }
-        }
-        if (match == null) {
-            throw new NoSuchElementException(label + " is absent: " + id);
-        }
-        return match;
-    }
-
-    private Object sourceLabelColor(final Object source) {
-        final Object value = resolver.invoke(
-            "cubism.editor-model.parameter-controllable-source.label-color", source
-        );
-        if (!resolver.isInstance("cubism.editor-model.label-color.class", value)) {
-            throw unavailable("Editor native control label color is unavailable.");
-        }
-        return value;
-    }
-
-    private NativeBackgroundValue readBackground(final Object labelColor) {
-        final Object type = resolver.invoke("cubism.editor-model.label-color.label-type", labelColor);
-        if (type == resolver.readStaticField("cubism.editor-model.label-color-type.undefined")) {
-            return new NativeBackgroundValue(type, effectiveColor(labelColor));
-        }
-        if (type == resolver.readStaticField("cubism.editor-model.label-color-type.custom")) {
-            return new NativeBackgroundValue(type, customizedColor(labelColor));
-        }
-        for (PresetColor preset : PresetColor.values()) {
-            if (type == resolver.readStaticField(presetAlias(preset))) {
-                return new NativeBackgroundValue(type, effectiveColor(labelColor));
-            }
-        }
-        throw unavailable("Editor native control label color type is unsupported.");
-    }
-
-    private NativeControlBackground background(final Object labelColor) {
-        final Object type = resolver.invoke("cubism.editor-model.label-color.label-type", labelColor);
-        if (type == resolver.readStaticField("cubism.editor-model.label-color-type.undefined")) {
-            return new NativeControlBackground.Default();
-        }
-        if (type == resolver.readStaticField("cubism.editor-model.label-color-type.custom")) {
-            return new NativeControlBackground.Custom(customizedColor(labelColor));
-        }
-        for (PresetColor preset : PresetColor.values()) {
-            if (type == resolver.readStaticField(presetAlias(preset))) {
-                return new NativeControlBackground.Preset(preset);
-            }
-        }
-        throw unavailable("Editor native control label color type is unsupported.");
-    }
-
-    private NativeBackgroundValue nativeValue(final NativeControlBackground background) {
-        if (background instanceof NativeControlBackground.Default) {
-            return new NativeBackgroundValue(
-                resolver.readStaticField("cubism.editor-model.label-color-type.undefined"),
-                new dev.turboism.sdk.cubism.model.Color(0.0F, 0.0F, 0.0F, 0.0F)
-            );
-        }
-        if (background instanceof NativeControlBackground.Preset preset) {
-            return new NativeBackgroundValue(
-                resolver.readStaticField(presetAlias(preset.color())),
-                new dev.turboism.sdk.cubism.model.Color(0.0F, 0.0F, 0.0F, 0.0F)
-            );
-        }
-        if (background instanceof NativeControlBackground.Custom custom) {
-            return new NativeBackgroundValue(
-                resolver.readStaticField("cubism.editor-model.label-color-type.custom"),
-                custom.color()
-            );
-        }
-        throw new IllegalArgumentException(
-            "unsupported native control background: " + background.getClass().getName()
-        );
-    }
-
-    private static String presetAlias(final PresetColor preset) {
-        return "cubism.editor-model.label-color-type." + preset.name().toLowerCase(java.util.Locale.ROOT);
-    }
-
-    private Color effectiveColor(final Object labelColor) {
-        return readColor(resolver.invoke("cubism.editor-model.label-color.color", labelColor));
-    }
-
-    private Color customizedColor(final Object labelColor) {
-        return readColor(
-            resolver.invoke("cubism.editor-model.label-color.customized-color", labelColor)
-        );
-    }
-
-    private Color readColor(final Object color) {
-        if (!resolver.isInstance("cubism.editor-model.color.class", color)) {
-            throw unavailable("Editor native control effective color is unavailable.");
-        }
-        return new Color(
-            unit(resolver.invoke("cubism.editor-model.color.red", color), "red"),
-            unit(resolver.invoke("cubism.editor-model.color.green", color), "green"),
-            unit(resolver.invoke("cubism.editor-model.color.blue", color), "blue"),
-            unit(resolver.invoke("cubism.editor-model.color.alpha", color), "alpha")
-        );
-    }
-
-    private static float unit(final Object value, final String name) {
-        if (!(value instanceof Number number)
-            || !Float.isFinite(number.floatValue())
-            || number.floatValue() < 0.0F
-            || number.floatValue() > 1.0F) {
-            throw unavailable("Editor native control color component is invalid: " + name);
-        }
-        return number.floatValue();
-    }
-
-    private void addUndo(final Object edit, final Object labelColor) {
-        final Object colorUndo = resolver.construct(
-            "cubism.editor-model.simple-undo.create",
-            ACTION_NAME,
-            labelColor,
-            null
-        );
-        final Object accepted = resolver.invoke(
-            "cubism.editor-model.undo.add",
-            edit,
-            colorUndo,
-            Boolean.TRUE
-        );
-        if (!(accepted instanceof Boolean value) || !value) {
-            throw new IllegalStateException("Cubism rejected the native-control background Undo entry.");
-        }
-    }
-
-    private void refresh(final Object app, final ControlAppearanceTarget target) {
-        final Object completePack = resolver.invoke(
-            "cubism.editor-model.app-controller.complete-pack", app
-        );
-        if (target instanceof ControlAppearanceTarget.ParameterFolder) {
-            resolver.invoke(
-                "cubism.editor-model.complete-pack.update-parameter",
-                completePack,
-                Boolean.TRUE
-            );
-            final Object mainFrame = resolver.invoke(
-                "cubism.editor-model.app-controller.main-frame", app
-            );
-            final Object palette = resolver.invoke(
-                "cubism.editor-model.main-frame.parameter-palette", mainFrame
-            );
-            final Object paletteView = resolver.invoke(
-                "cubism.editor-model.parameter-palette.view", palette
-            );
-            final Object operation = resolver.invoke(
-                "cubism.editor-model.parameter-palette-view.operation", paletteView
-            );
-            resolver.invoke(
-                "cubism.editor-model.parameter-operation.refresh",
-                operation,
-                Boolean.TRUE
-            );
-        } else if (target instanceof ControlAppearanceTarget.PartLabel
-            || target instanceof ControlAppearanceTarget.PartFolder) {
-            resolver.invoke(
-                "cubism.editor-model.complete-pack.update-part-palette",
-                completePack,
-                Boolean.TRUE
-            );
-        } else if (target instanceof ControlAppearanceTarget.DeformerLabel
-            || target instanceof ControlAppearanceTarget.DeformerControlRow) {
-            resolver.invoke(
-                "cubism.editor-model.complete-pack.update-deformer-palette",
-                completePack,
-                Boolean.TRUE
-            );
-        } else {
-            throw new IllegalArgumentException(
-                "unsupported control appearance target: " + target.getClass().getName()
-            );
-        }
-        resolver.invoke(
-            "cubism.editor-model.complete-pack.repaint-canvas",
-            completePack,
-            Boolean.TRUE
-        );
-    }
-
-    private void requireReadAuthorization() {
-        if (!resolver.authorizesFeature(
-            EditorNativeControlAppearanceReadSelectorContract.ADAPTER_SLICE_ID,
-            EditorNativeControlAppearanceReadSelectorContract.CAPABILITY_ID,
-            EditorNativeControlAppearanceReadSelectorContract.REQUIRED_ALIASES
-        )) {
-            throw new UnsupportedOperationException(
-                "Native control appearance reading is unavailable without exact verified host evidence."
-            );
-        }
-    }
-
-    private void requireWriteAuthorization() {
-        if (!resolver.authorizesFeature(
-            EditorNativeControlAppearanceWriteSelectorContract.ADAPTER_SLICE_ID,
-            EditorNativeControlAppearanceWriteSelectorContract.CAPABILITY_ID,
-            EditorNativeControlAppearanceWriteSelectorContract.REQUIRED_ALIASES
-        )) {
-            throw new UnsupportedOperationException(
-                "Native control appearance writing is unavailable without exact verified host evidence."
-            );
-        }
-    }
-
-    private static final String ACTION_NAME = "Turboism: Set Native Control Background";
-
-    private record NativeBackgroundValue(Object type, Color color) {
+        nativeControlAppearanceAccess.setNativeBackground(target, background);
     }
 
     private final class EditorModel implements CubismModel {

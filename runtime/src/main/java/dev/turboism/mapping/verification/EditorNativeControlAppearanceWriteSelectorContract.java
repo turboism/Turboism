@@ -39,6 +39,7 @@ public final class EditorNativeControlAppearanceWriteSelectorContract {
         "cubism.editor-model.label-color.customized-color",
         "cubism.editor-model.label-color.color",
         "cubism.editor-model.label-color.set-color",
+        "cubism.editor-model.label-color.set-label-type",
         "cubism.editor-model.label-color-type.class",
         "cubism.editor-model.label-color-type.undefined",
         "cubism.editor-model.label-color-type.custom",
