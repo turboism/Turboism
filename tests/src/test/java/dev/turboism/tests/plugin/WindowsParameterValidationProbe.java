@@ -281,37 +281,44 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
     public void enable() {
         partValidationThread = new Thread(() -> {
             final String mode = System.getProperty("turboism.editorObjectValidation.mode", "matrix");
-            final String autoMode = mode;
-            if ("binding-read".equals(mode)) {
-                runParameterBindingDiscoveryRead();
-            } else if ("binding-matrix".equals(mode)) {
-                runParameterBindingValidation();
-            } else if ("parameter-menu-smoke".equals(mode)) {
-                runParameterMenuSmoke();
-            } else if ("persist-write".equals(mode)) {
-                runEditorObjectPersistenceWrite();
-            } else if ("persist-read".equals(mode)) {
-                runEditorObjectPersistenceRead();
-            } else if ("plugin-scope-close".equals(mode)) {
-                runEditorObjectPluginScopeClose();
-            } else if ("document-close".equals(mode)) {
-                runEditorObjectDocumentClose();
-            } else if ("native-control-background".equals(mode)) {
-                runNativeControlBackgroundValidation();
-            } else if ("native-control-background-document-close".equals(mode)) {
-                runNativeControlBackgroundDocumentClose();
-            } else if ("native-control-background-persist-write".equals(mode)) {
-                runNativeControlBackgroundPersistWrite();
-            } else if ("native-control-background-persist-reopen".equals(mode)) {
-                runNativeControlBackgroundPersistReopen();
-            } else if ("native-control-background-persist-final".equals(mode)) {
-                runNativeControlBackgroundPersistFinal();
-            } else {
-                runEditorObjectValidation();
-                runPartOpacityValidation();
-            }
-            if (showsValidationWindow(autoMode)) {
-                SwingUtilities.invokeLater(this::showWindow);
+            final long startedNanos = System.nanoTime();
+            try {
+                if ("binding-read".equals(mode)) {
+                    runParameterBindingDiscoveryRead();
+                } else if ("binding-matrix".equals(mode)) {
+                    runParameterBindingValidation();
+                } else if ("parameter-menu-smoke".equals(mode)) {
+                    runParameterMenuSmoke();
+                } else if ("persist-write".equals(mode)) {
+                    runEditorObjectPersistenceWrite();
+                } else if ("persist-read".equals(mode)) {
+                    runEditorObjectPersistenceRead();
+                } else if ("plugin-scope-close".equals(mode)) {
+                    runEditorObjectPluginScopeClose();
+                } else if ("document-close".equals(mode)) {
+                    runEditorObjectDocumentClose();
+                } else if ("native-control-background".equals(mode)) {
+                    runNativeControlBackgroundValidation();
+                } else if ("native-control-background-document-close".equals(mode)) {
+                    runNativeControlBackgroundDocumentClose();
+                } else if ("native-control-background-persist-write".equals(mode)) {
+                    runNativeControlBackgroundPersistWrite();
+                } else if ("native-control-background-persist-reopen".equals(mode)) {
+                    runNativeControlBackgroundPersistReopen();
+                } else if ("native-control-background-persist-final".equals(mode)) {
+                    runNativeControlBackgroundPersistFinal();
+                } else {
+                    runEditorObjectValidation();
+                    runPartOpacityValidation();
+                }
+            } finally {
+                if (Boolean.getBoolean("turboism.validation.exitOnComplete")) {
+                    finishAutomatedValidation(mode, startedNanos);
+                    return;
+                }
+                if (showsValidationWindow(mode)) {
+                    SwingUtilities.invokeLater(this::showWindow);
+                }
             }
         }, "turboism-editor-object-validation");
         partValidationThread.setDaemon(true);
@@ -2075,6 +2082,82 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             );
         } catch (Exception ignored) {
             context.logger().error(logMessage, exception);
+        }
+    }
+
+    private void finishAutomatedValidation(final String mode, final long startedNanos) {
+        final Path home = Path.of(System.getProperty("turboism.home"));
+        final Path logs = home.resolve("logs");
+        final Path result = home.resolve("state/host-validation-result.properties");
+        boolean passed = false;
+        try {
+            Files.createDirectories(result.getParent());
+            final java.util.List<Path> artifacts;
+            try (var files = Files.list(logs)) {
+                artifacts = files
+                    .filter(Files::isRegularFile)
+                    .filter(path -> {
+                        final String name = path.getFileName().toString();
+                        return name.endsWith(".txt")
+                            && (name.contains("validation")
+                                || name.contains("smoke")
+                                || name.startsWith("native-control-background-"));
+                    })
+                    .sorted()
+                    .toList();
+            }
+
+            final StringBuilder report = new StringBuilder()
+                .append("schemaVersion=1\n")
+                .append("runId=")
+                .append(System.getProperty("turboism.validation.runId", "unknown"))
+                .append('\n')
+                .append("mode=").append(mode).append('\n')
+                .append("durationMillis=")
+                .append((System.nanoTime() - startedNanos) / 1_000_000L)
+                .append('\n')
+                .append("artifactCount=").append(artifacts.size()).append('\n');
+            passed = !artifacts.isEmpty();
+            for (int index = 0; index < artifacts.size(); index++) {
+                final Path artifact = artifacts.get(index);
+                final Properties properties = new Properties();
+                try (var input = Files.newInputStream(artifact)) {
+                    properties.load(input);
+                }
+                final String rawStatus = properties.getProperty("status", "MISSING");
+                final String status = rawStatus.split("\\s+", 2)[0];
+                report.append("artifact.").append(index).append(".path=")
+                    .append(artifact.getFileName()).append('\n')
+                    .append("artifact.").append(index).append(".status=")
+                    .append(status).append('\n');
+                passed &= "PASS".equals(status);
+            }
+            report.append("status=").append(passed ? "PASS" : "FAIL").append('\n');
+            Files.writeString(
+                result,
+                report.toString(),
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING
+            );
+            context.logger().info("HOST_VALIDATION_RESULT status=" + (passed ? "PASS" : "FAIL")
+                + " mode=" + mode + " result=" + result);
+        } catch (Exception exception) {
+            writeValidationFailure(result, exception, "Host validation summary could not be written");
+            context.logger().error("HOST_VALIDATION_RESULT status=FAIL mode=" + mode, exception);
+        } finally {
+            requestAutomatedHostClose();
+        }
+    }
+
+    private void requestAutomatedHostClose() {
+        try {
+            final java.awt.Robot robot = new java.awt.Robot();
+            robot.keyPress(java.awt.event.KeyEvent.VK_ALT);
+            robot.keyPress(java.awt.event.KeyEvent.VK_F4);
+            robot.keyRelease(java.awt.event.KeyEvent.VK_F4);
+            robot.keyRelease(java.awt.event.KeyEvent.VK_ALT);
+        } catch (Exception exception) {
+            context.logger().error("Automated host close shortcut failed", exception);
         }
     }
 

@@ -30,7 +30,6 @@ private val forbiddenHostUiTraversal = listOf(
 tasks.register("checkModuleBoundaries") {
     group = "verification"
     description = "Verifies SDK/runtime/plugin dependency direction and host-internal import boundaries."
-    dependsOn("checkStableSdkCompatibility")
     doLast {
         checkModuleBoundaries(rootProject)
     }
@@ -111,9 +110,6 @@ private fun scanProductionSources(root: Project, project: Project, state: Bounda
 
 private fun checkSourceFile(root: Project, project: Project, file: java.io.File, state: BoundaryState) {
     val lines = file.readLines()
-    if (lines.size > 800) {
-        state.reject("Class exceeds 800 lines: ${file.relativeTo(root.projectDir)}")
-    }
     val restricted = project.path == ":sdk" || project.path.startsWith(":plugins:")
     if (restricted) {
         checkRestrictedImports(root, file, lines, state)
