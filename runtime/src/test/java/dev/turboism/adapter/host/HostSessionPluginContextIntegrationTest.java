@@ -16,6 +16,14 @@ import dev.turboism.sdk.cubism.ClipMaskSnapshot;
 import dev.turboism.sdk.cubism.ProjectSnapshot;
 import dev.turboism.sdk.cubism.WorkspaceSnapshot;
 import dev.turboism.sdk.cubism.id.ModelId;
+import dev.turboism.sdk.cubism.id.ParameterGroupId;
+import dev.turboism.sdk.cubism.model.PartId;
+import dev.turboism.sdk.ui.appearance.ControlAppearanceContribution;
+import dev.turboism.sdk.ui.appearance.ControlAppearanceStyle;
+import dev.turboism.sdk.ui.appearance.ControlAppearanceTarget;
+import dev.turboism.sdk.ui.appearance.NativeControlAppearance;
+import dev.turboism.sdk.ui.appearance.NativeControlBackground;
+import dev.turboism.sdk.ui.appearance.PresetColor;
 import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
@@ -319,6 +327,121 @@ class HostSessionPluginContextIntegrationTest {
     }
 
     @Test
+    void controlAppearanceNativeAccessIsAuditedAndNeverReachesTheSeamWithoutPermissions() {
+        AtomicInteger seamCalls = new AtomicInteger();
+        List<CubismFacadeAuditEvent> auditEvents = new CopyOnWriteArrayList<>();
+        HostSession session = new HostSession(
+            () -> Optional.of(dualDescriptor("audit-session", "reviewed")),
+            descriptor -> HostAdapterConnection.of(
+                adapters(descriptor.sessionId(), new AtomicInteger()),
+                new CountingAuthoringModelAccess(seamCalls)
+            )
+        );
+        RuntimeScheduler scheduler = scheduler();
+        CorePluginContext context = new CorePluginContext(
+            dependencies(
+                tempDir,
+                scheduler,
+                descriptor(List.of("turboism.cubism.project.read")),
+                auditEvents::add
+            ),
+            session
+        );
+        try {
+            assertEquals(HostSession.State.ACTIVE, session.refresh());
+            final ControlAppearanceTarget.ParameterFolder folder =
+                new ControlAppearanceTarget.ParameterFolder(new ParameterGroupId("GroupFace"));
+
+            assertThrows(CubismPermissionException.class, () -> context.controlAppearance().snapshot(folder));
+            assertThrows(CubismPermissionException.class, () -> context.controlAppearance().setNativeBackground(
+                folder, new NativeControlBackground.Default()
+            ));
+            assertThrows(CubismPermissionException.class, () -> context.controlAppearance().register(
+                new ControlAppearanceContribution(
+                    "part.foreground",
+                    new ControlAppearanceTarget.PartLabel(new PartId("PartA")),
+                    new ControlAppearanceStyle(
+                        Optional.of(new dev.turboism.sdk.cubism.model.Color(1.0F, 0.0F, 0.0F, 1.0F)),
+                        Optional.empty(),
+                        Optional.empty()
+                    )
+                )
+            ));
+
+            assertEquals(0, seamCalls.get(), "denied operations must never reach the native seam");
+            assertTrue(auditEvents.stream().anyMatch(event ->
+                event.permissionId().equals("turboism.cubism.model.read")
+                    && event.operationId().equals("ui.control-appearance.snapshot")));
+            assertTrue(auditEvents.stream().anyMatch(event ->
+                event.permissionId().equals("turboism.cubism.model.write")
+                    && event.operationId().equals("ui.control-appearance.set-native-background")));
+            assertTrue(auditEvents.stream().anyMatch(event ->
+                event.permissionId().equals("turboism.ui.appearance.modify")
+                    && event.operationId().equals("ui.control-appearance.register")));
+        } finally {
+            session.close();
+            scheduler.shutdown();
+        }
+    }
+
+    @Test
+    void controlAppearanceNativeAccessReachesTheSeamWhenPermissionsAreGranted() {
+        AtomicInteger seamCalls = new AtomicInteger();
+        HostSession session = new HostSession(
+            () -> Optional.of(dualDescriptor("granted-session", "reviewed")),
+            descriptor -> HostAdapterConnection.of(
+                adapters(descriptor.sessionId(), new AtomicInteger()),
+                new CountingAuthoringModelAccess(seamCalls)
+            )
+        );
+        RuntimeScheduler scheduler = scheduler();
+        CorePluginContext context = new CorePluginContext(
+            dependencies(
+                tempDir,
+                scheduler,
+                descriptor(List.of(
+                    "turboism.cubism.project.read",
+                    "turboism.cubism.model.read",
+                    "turboism.cubism.model.write",
+                    "turboism.ui.appearance.modify"
+                )),
+                ignored -> { }
+            ),
+            session
+        );
+        try {
+            assertEquals(HostSession.State.ACTIVE, session.refresh());
+            final ControlAppearanceTarget.ParameterFolder folder =
+                new ControlAppearanceTarget.ParameterFolder(new ParameterGroupId("GroupFace"));
+
+            assertEquals(
+                new NativeControlBackground.Preset(PresetColor.GRAY),
+                context.controlAppearance().snapshot(folder).nativeAppearance().orElseThrow().background()
+            );
+            context.controlAppearance().setNativeBackground(
+                folder, new NativeControlBackground.Default()
+            );
+            assertEquals(2, seamCalls.get(), "granted operations must reach the native seam");
+
+            final Registration registration = context.controlAppearance().register(
+                new ControlAppearanceContribution(
+                    "part.foreground",
+                    new ControlAppearanceTarget.PartLabel(new PartId("PartA")),
+                    new ControlAppearanceStyle(
+                        Optional.of(new dev.turboism.sdk.cubism.model.Color(1.0F, 0.0F, 0.0F, 1.0F)),
+                        Optional.empty(),
+                        Optional.empty()
+                    )
+                )
+            );
+            registration.close();
+        } finally {
+            session.close();
+            scheduler.shutdown();
+        }
+    }
+
+    @Test
     void failedDualReplacementMakesSameContextSafeAndKeepsFailureSanitized() {
         AtomicReference<HostInstanceDescriptor> current = new AtomicReference<>(
             dualDescriptor("active-session", "reviewed-a")
@@ -549,6 +672,33 @@ class HostSessionPluginContextIntegrationTest {
             @Override public boolean isHostPresent() { return false; }
             @Override public long invalidationToken() { return 0; }
         };
+    }
+
+    private static final class CountingAuthoringModelAccess
+        implements CubismModelAccess, dev.turboism.adapter.cubism.NativeControlAppearanceAuthoring {
+        private final AtomicInteger calls;
+        private final CubismModelAccess delegate = fixedModelAccess("audit-model");
+
+        CountingAuthoringModelAccess(final AtomicInteger calls) {
+            this.calls = calls;
+        }
+
+        @Override public CubismModel active() { return delegate.active(); }
+
+        @Override public NativeControlAppearance snapshot(final ControlAppearanceTarget target) {
+            calls.incrementAndGet();
+            return new NativeControlAppearance(
+                new NativeControlBackground.Preset(PresetColor.GRAY),
+                new dev.turboism.sdk.cubism.model.Color(0.5F, 0.5F, 0.5F, 1.0F)
+            );
+        }
+
+        @Override public void setNativeBackground(
+            final ControlAppearanceTarget target,
+            final NativeControlBackground background
+        ) {
+            calls.incrementAndGet();
+        }
     }
 
     private static RuntimeHostAdapters adapters(
