@@ -38,7 +38,7 @@ class RuntimeControlAppearanceRegistryNativeTest {
                     readTargets.add(target);
                     return new NativeControlAppearance(
                         new NativeControlBackground.Preset(PresetColor.GRAY),
-                        new Color(0.5F, 0.5F, 0.5F, 1.0F)
+                        Optional.of(new Color(0.5F, 0.5F, 0.5F, 1.0F))
                     );
                 },
                 (target, background) -> { }
@@ -57,7 +57,7 @@ class RuntimeControlAppearanceRegistryNativeTest {
 
         assertEquals(Optional.of(new NativeControlAppearance(
             new NativeControlBackground.Preset(PresetColor.GRAY),
-            new Color(0.5F, 0.5F, 0.5F, 1.0F)
+            Optional.of(new Color(0.5F, 0.5F, 0.5F, 1.0F))
         )), snapshot.nativeAppearance());
         assertEquals(
             new Color(1.0F, 0.0F, 0.0F, 1.0F),
@@ -74,7 +74,7 @@ class RuntimeControlAppearanceRegistryNativeTest {
             TestNativeControlAppearanceAuthoring.of(
                 target -> new NativeControlAppearance(
                     new NativeControlBackground.Default(),
-                    new Color(0.0F, 0.0F, 0.0F, 1.0F)
+                    Optional.of(new Color(0.0F, 0.0F, 0.0F, 1.0F))
                 ),
                 (target, background) -> { }
             )
@@ -99,7 +99,7 @@ class RuntimeControlAppearanceRegistryNativeTest {
                     nativeCalls.add(target);
                     return new NativeControlAppearance(
                         new NativeControlBackground.Default(),
-                        new Color(0.0F, 0.0F, 0.0F, 1.0F)
+                        Optional.of(new Color(0.0F, 0.0F, 0.0F, 1.0F))
                     );
                 },
                 (target, background) -> nativeCalls.add(target)
@@ -194,7 +194,7 @@ class RuntimeControlAppearanceRegistryNativeTest {
             TestNativeControlAppearanceAuthoring.of(
                 target -> new NativeControlAppearance(
                     new NativeControlBackground.Default(),
-                    new Color(0.0F, 0.0F, 0.0F, 1.0F)
+                    Optional.of(new Color(0.0F, 0.0F, 0.0F, 1.0F))
                 ),
                 (target, background) -> { }
             )

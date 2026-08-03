@@ -108,6 +108,11 @@ class ControlAppearanceContractTest {
         assertThrows(NullPointerException.class, () -> new NativeControlAppearance(
             new NativeControlBackground.Default(), null
         ));
+        assertEquals(
+            Optional.empty(),
+            new NativeControlAppearance(new NativeControlBackground.Default(), Optional.empty())
+                .effectiveBackground()
+        );
         assertThrows(NullPointerException.class, () -> new ControlAppearanceSnapshot(
             null, Optional.empty()
         ));
