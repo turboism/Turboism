@@ -689,7 +689,7 @@ class HostSessionPluginContextIntegrationTest {
             calls.incrementAndGet();
             return new NativeControlAppearance(
                 new NativeControlBackground.Preset(PresetColor.GRAY),
-                new dev.turboism.sdk.cubism.model.Color(0.5F, 0.5F, 0.5F, 1.0F)
+                Optional.of(new dev.turboism.sdk.cubism.model.Color(0.5F, 0.5F, 0.5F, 1.0F))
             );
         }
 
