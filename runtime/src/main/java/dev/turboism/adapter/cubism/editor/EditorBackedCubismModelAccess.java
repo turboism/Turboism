@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.editor;
 
+import dev.turboism.adapter.cubism.NativeControlAppearanceAuthoring;
 import dev.turboism.mapping.verification.EditorParameterDefinitionWriteSelectorContract;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.id.ModelId;
@@ -22,6 +23,9 @@ import dev.turboism.sdk.cubism.model.RotationDeformers;
 import dev.turboism.sdk.cubism.model.WarpDeformers;
 import dev.turboism.sdk.cubism.model.FloatSequence;
 import dev.turboism.sdk.cubism.model.ParameterDefinitions;
+import dev.turboism.sdk.ui.appearance.ControlAppearanceTarget;
+import dev.turboism.sdk.ui.appearance.NativeControlAppearance;
+import dev.turboism.sdk.ui.appearance.NativeControlBackground;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -30,7 +34,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 /** Generation-bound natural model view over one verified Editor modeling document. */
-public final class EditorBackedCubismModelAccess implements CubismModelAccess {
+public final class EditorBackedCubismModelAccess implements CubismModelAccess, NativeControlAppearanceAuthoring {
 
     private final VerifiedMemberResolver resolver;
     private final String sessionIdentity;
@@ -44,6 +48,7 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess {
     private Object activeSource;
     private Object activeModel;
     private long generation;
+    private final EditorNativeControlAppearanceAccess nativeControlAppearanceAccess;
 
     public EditorBackedCubismModelAccess(
         final VerifiedMemberResolver resolver,
@@ -71,6 +76,10 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess {
         this.objectReadAccess = new EditorObjectReadAccess(
             resolver,
             this::requireCurrent
+        );
+        this.nativeControlAppearanceAccess = new EditorNativeControlAppearanceAccess(
+            resolver,
+            () -> binding()
         );
     }
 
@@ -105,7 +114,9 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess {
         }
         final Object guid = resolver.invoke("cubism.editor-model.model-source.guid", source);
         final String id = text(resolver.invoke("cubism.editor-model.guid.value", guid));
-        return new Binding(bindingIdentity(id, document, source, model), id, source, model);
+        return new Binding(
+            bindingIdentity(id, document, source, model), id, document, source, model
+        );
     }
 
     private String bindingIdentity(
@@ -576,6 +587,19 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess {
         return new IllegalStateException(message);
     }
 
+    @Override
+    public NativeControlAppearance snapshot(final ControlAppearanceTarget target) {
+        return nativeControlAppearanceAccess.snapshot(target);
+    }
+
+    @Override
+    public void setNativeBackground(
+        final ControlAppearanceTarget target,
+        final NativeControlBackground background
+    ) {
+        nativeControlAppearanceAccess.setNativeBackground(target, background);
+    }
+
     private final class EditorModel implements CubismModel {
         private final String identity;
         private final String modelId;
@@ -785,6 +809,12 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess {
         return value;
     }
 
-    private record Binding(String identity, String modelId, Object source, Object model) { }
+    record Binding(
+        String identity,
+        String modelId,
+        Object document,
+        Object source,
+        Object model
+    ) { }
     private record ParameterBinding(String id, Object parameter) { }
 }

@@ -4,7 +4,6 @@ import dev.turboism.mapping.verification.EditorParameterGroupsReadSelectorContra
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.id.ParameterGroupId;
 import dev.turboism.sdk.cubism.id.ParameterId;
-import dev.turboism.sdk.cubism.model.Color;
 import dev.turboism.sdk.cubism.model.ParameterGroup;
 import dev.turboism.sdk.cubism.model.ParameterGroups;
 
@@ -25,7 +24,6 @@ final class EditorParameterGroupsAccess {
 
     private final VerifiedMemberResolver resolver;
     private final BiConsumer<String, Object> modelGuard;
-    private final EditorParameterGroupLabelColorAccess labelColorAccess;
 
     EditorParameterGroupsAccess(
         final VerifiedMemberResolver resolver,
@@ -33,10 +31,6 @@ final class EditorParameterGroupsAccess {
     ) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.modelGuard = Objects.requireNonNull(modelGuard, "modelGuard");
-        this.labelColorAccess = new EditorParameterGroupLabelColorAccess(
-            resolver,
-            modelGuard::accept
-        );
     }
 
     ParameterGroups groups(
@@ -223,16 +217,6 @@ final class EditorParameterGroupsAccess {
                 throw unavailable("Editor parameter group name is invalid.");
             }
             return text.isBlank() ? Optional.empty() : Optional.of(text);
-        }
-
-        @Override
-        public Color labelColor() {
-            return labelColorAccess.color(identity, model, this::current, group);
-        }
-
-        @Override
-        public void setLabelColor(final Color color) {
-            labelColorAccess.setColor(identity, model, this::current, group, color);
         }
 
         @Override

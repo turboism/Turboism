@@ -37,7 +37,7 @@ public final class MainToolbarPlugin implements TurboismPlugin {
             context.uiHost(), context.mainToolbar(), context.menus(), localization(context),
             runtimeSettings, plugins
         );
-        this.windows = new CoreWindows(localization(context), runtimeSettings, plugins);
+        this.windows = new CoreWindows(localization(context), runtimeSettings, plugins, services.logs());
         logger.info("Turboism core initialized");
     }
 
@@ -49,13 +49,17 @@ public final class MainToolbarPlugin implements TurboismPlugin {
             localization(context).text("main-toolbar.settings-menu.label"), ignored -> windows.showSettings());
         registerAction(MainToolbarHomeEntryService.PLUGINS_ACTION_ID,
             localization(context).text("main-toolbar.plugins-menu.label"), ignored -> windows.showPlugins());
+        registerAction(MainToolbarHomeEntryService.LOGS_ACTION_ID,
+            localization(context).text("main-toolbar.logs-menu.label"), ignored -> windows.showLogs());
         registerSettingsActions();
         registerPluginActions();
+        registerPanelTabActions();
         context.disposableScope().register(plugins);
         context.disposableScope().register(windows);
         refreshPanel();
         context.disposableScope().register(homeEntryService.registerSettingsMenu());
         context.disposableScope().register(homeEntryService.registerPluginManagementMenu());
+        context.disposableScope().register(homeEntryService.registerLogsMenu());
         context.disposableScope().register(homeEntryService.registerHomeEntry());
         logger.info("Turboism core enabled");
     }
@@ -75,6 +79,49 @@ public final class MainToolbarPlugin implements TurboismPlugin {
         });
         registerAction("settings.clean-empty-docks", "Clean empty docks", ignored ->
             logger.info(services.settings().cleanEmptyDocks().message()));
+    }
+
+    private void registerPanelTabActions() {
+        registerAction(
+            "turboism.panel-tab.toggle-floating",
+            localization(context).text("context-menu.panel-tab.float"),
+            action -> action.panelTabSelection()
+                .ifPresentOrElse(
+                    services.floatingPanelActions()::togglePanelFloating,
+                    () -> logger.warn("Panel-tab floating action ignored without a native Tab selection")
+                )
+        );
+        // Floating is offered only for docked tabs; closing a floating tab docks it
+        // back (native close interception), matching the legacy semantics.
+        context.disposableScope().register(context.contextMenu().contribute(
+            panelTabContribution("turboism.panel-tab.float", "context-menu.panel-tab.float", "panel.docked")
+        ));
+    }
+
+    private dev.turboism.sdk.ui.context.ContextMenuRegistry.ContextMenuContribution panelTabContribution(
+        final String id,
+        final String labelKey,
+        final String context
+    ) {
+        final String label = localization(this.context).text(labelKey);
+        return new dev.turboism.sdk.ui.context.ContextMenuRegistry.ContextMenuContribution(
+            id,
+            "turboism.panel-tab.toggle-floating",
+            label,
+            null,
+            context,
+            dev.turboism.sdk.ui.context.ContextMenuRegistry.Location.WORKSPACE_OBJECT,
+            java.util.Set.of(),
+            100,
+            dev.turboism.sdk.ui.context.ContextMenuRegistry.Target.PANEL_TAB,
+            dev.turboism.sdk.ui.context.ContextMenuRegistry.Operation.TOGGLE_PANEL_FLOATING,
+            dev.turboism.sdk.ui.context.ContextMenuRegistry.ContextMenuEntry.item(
+                id,
+                label,
+                "turboism.panel-tab.toggle-floating"
+            ),
+            dev.turboism.sdk.ui.context.ContextMenuRegistry.Placement.last()
+        );
     }
 
     private void registerPluginActions() {
@@ -130,20 +177,24 @@ public final class MainToolbarPlugin implements TurboismPlugin {
             .orElseThrow(() -> new IllegalArgumentException("settings action requires a UI event")).value();
         settings = switch (field) {
             case "safe-mode" -> new dev.turboism.sdk.runtime.RuntimeSettings(
-                ((dev.turboism.sdk.action.UiActionEvent.ToggleValue) value).value(), settings.logLevel(),
+                ((dev.turboism.sdk.action.UiActionEvent.ToggleValue) value).value(),
+                settings.logLevel(), settings.maxLogStorageMiB(),
                 settings.skipStartupUpdateCheck(), settings.skipStartupSplash(), settings.skipStartupInformation());
             case "log-level" -> new dev.turboism.sdk.runtime.RuntimeSettings(
                 settings.safeMode(), ((dev.turboism.sdk.action.UiActionEvent.SelectionValue) value).value(),
-                settings.skipStartupUpdateCheck(), settings.skipStartupSplash(), settings.skipStartupInformation());
+                settings.maxLogStorageMiB(), settings.skipStartupUpdateCheck(),
+                settings.skipStartupSplash(), settings.skipStartupInformation());
             case "skip-update" -> new dev.turboism.sdk.runtime.RuntimeSettings(
-                settings.safeMode(), settings.logLevel(),
+                settings.safeMode(), settings.logLevel(), settings.maxLogStorageMiB(),
                 ((dev.turboism.sdk.action.UiActionEvent.ToggleValue) value).value(),
                 settings.skipStartupSplash(), settings.skipStartupInformation());
             case "skip-splash" -> new dev.turboism.sdk.runtime.RuntimeSettings(
-                settings.safeMode(), settings.logLevel(), settings.skipStartupUpdateCheck(),
+                settings.safeMode(), settings.logLevel(), settings.maxLogStorageMiB(),
+                settings.skipStartupUpdateCheck(),
                 ((dev.turboism.sdk.action.UiActionEvent.ToggleValue) value).value(), settings.skipStartupInformation());
             case "skip-information" -> new dev.turboism.sdk.runtime.RuntimeSettings(
-                settings.safeMode(), settings.logLevel(), settings.skipStartupUpdateCheck(), settings.skipStartupSplash(),
+                settings.safeMode(), settings.logLevel(), settings.maxLogStorageMiB(),
+                settings.skipStartupUpdateCheck(), settings.skipStartupSplash(),
                 ((dev.turboism.sdk.action.UiActionEvent.ToggleValue) value).value());
             default -> throw new IllegalArgumentException("unknown settings field: " + field);
         };
@@ -159,11 +210,18 @@ public final class MainToolbarPlugin implements TurboismPlugin {
                     return switch (key) {
                         case "main-toolbar.settings-menu.label" -> "Settings";
                         case "main-toolbar.plugins-menu.label" -> "Plugin Management";
+                        case "context-menu.panel-tab.float" -> "Float";
+                        case "main-toolbar.logs-menu.label" -> "Logs";
                         default -> key;
                     };
                 }
                 @Override public String format(final String key, final Object... arguments) { return text(key); }
-                @Override public boolean contains(final String key) { return true; }
+                @Override public boolean contains(final String key) {
+                    return key.equals("main-toolbar.settings-menu.label")
+                        || key.equals("main-toolbar.plugins-menu.label")
+                        || key.equals("context-menu.panel-tab.float")
+                        || key.equals("main-toolbar.logs-menu.label");
+                }
             };
         }
     }

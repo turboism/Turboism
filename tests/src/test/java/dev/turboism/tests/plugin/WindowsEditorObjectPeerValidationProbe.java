@@ -9,7 +9,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 
-/** Manual-test-only peer plugin proving a second plugin remains usable after the primary scope closes. */
+/**
+ * Manual-test-only peer plugin proving a second plugin remains usable after the primary scope closes.
+ */
+
 public final class WindowsEditorObjectPeerValidationProbe implements CubismPlugin {
 
     private PluginContext context;
@@ -41,6 +44,30 @@ public final class WindowsEditorObjectPeerValidationProbe implements CubismPlugi
         if (validationThread != null) validationThread.interrupt();
     }
 
+    /**
+     * Startup budget for the peer's pre-marker wait (240 s max). This wait begins at plugin
+     * enable, before Cubism has reached host=ACTIVE/model readiness, so it needs a realistic
+     * exact-host startup budget; it is deliberately distinct from the primary plugin's
+     * post-scope-close peer terminal-evidence response budget (bounded at 60 s).
+     */
+    static final int PEER_STARTUP_MAX_ATTEMPTS = 2400;
+    static final long PEER_STARTUP_POLL_MILLIS = 100L;
+
+    /** Bounded wait for the primary plugin's close-request marker; false on timeout. */
+    static boolean awaitMarker(
+        final Path request,
+        final int maxAttempts,
+        final long pollMillis
+    ) throws Exception {
+        for (int attempt = 0; attempt < maxAttempts; attempt++) {
+            if (Files.exists(request)) {
+                return true;
+            }
+            Thread.sleep(pollMillis);
+        }
+        return false;
+    }
+
     private void runPeerValidation() {
         Path artifact = null;
         try {
@@ -48,10 +75,11 @@ public final class WindowsEditorObjectPeerValidationProbe implements CubismPlugi
             final Path request = home.resolve("state").resolve("editor-object-peer-request.txt");
             artifact = home.resolve("logs").resolve("editor-object-peer-scope-close.txt");
             writeStage(artifact, "waiting-for-primary");
-            for (int attempt = 0; attempt < 3_000 && !Files.exists(request); attempt++) {
-                Thread.sleep(100L);
+            if (!awaitMarker(request, PEER_STARTUP_MAX_ATTEMPTS, PEER_STARTUP_POLL_MILLIS)) {
+                throw new IllegalStateException(
+                    "Primary plugin close request was not observed within the 240 s startup budget"
+                );
             }
-            if (!Files.exists(request)) throw new IllegalStateException("Primary plugin close request was not observed");
             writeStage(artifact, "primary-marker-seen");
             final CubismModel model = awaitModel();
             final boolean modelUsable = onHostThread(() -> model.id() != null);

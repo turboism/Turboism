@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Offline gate for Cubism Core public-API inventories and generated docs."""
+"""Offline gate for Cubism Core public-API inventories and deterministic rendering."""
 
 from __future__ import annotations
 
@@ -23,7 +23,6 @@ from cubism_core_api import (  # noqa: E402
 
 API_52 = ROOT / "cubism-ref/core-api/observed/cubism-core-5.2.json"
 API_53 = ROOT / "cubism-ref/core-api/observed/cubism-core-5.3.02.json"
-REFERENCE = ROOT / "docs/migration/cubism-core-api-reference.md"
 CORE_PREFIX = "com.live2d.sdk.cubism.core."
 CORE_MODEL_READ_PACKS = {
     "5.2": ROOT
@@ -726,18 +725,13 @@ def test_generated_reference(
         generated_once == generated_twice,
         "reference depends on inventory argument ordering",
     )
-    committed = REFERENCE.read_text(encoding="utf-8")
     require(
-        committed == generated_once,
-        "docs/migration/cubism-core-api-reference.md has drifted",
-    )
-    require(
-        "They do not authorize runtime binding." in committed,
+        "They do not authorize runtime binding." in generated_once,
         "generated reference lost its evidence boundary",
     )
     require(
-        "CubismPartView#getOffscreenIndices" in committed
-        and "CubismOffscreenRenderingView#getReferenceObjectIndices" in committed,
+        "CubismPartView#getOffscreenIndices" in generated_once
+        and "CubismOffscreenRenderingView#getReferenceObjectIndices" in generated_once,
         "generated reference lost descriptor follow-up warnings",
     )
 

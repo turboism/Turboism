@@ -15,20 +15,6 @@ public interface ParameterGroup {
 
     Optional<String> name();
 
-    /** Returns the effective Editor label color. */
-    default Color labelColor() {
-        throw new UnsupportedOperationException(
-            "Parameter-group label color access is unavailable for this backend."
-        );
-    }
-
-    /** Changes the Editor label color to a custom RGBA value. */
-    default void setLabelColor(final Color color) {
-        throw new UnsupportedOperationException(
-            "Parameter-group label color editing is unavailable for this backend."
-        );
-    }
-
     Optional<ParameterGroupId> parentId();
 
     List<ParameterGroupId> childGroupIds();

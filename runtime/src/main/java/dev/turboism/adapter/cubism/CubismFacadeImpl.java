@@ -1243,16 +1243,9 @@ public final class CubismFacadeImpl implements CubismFacade {
             requireModelRead("parameterGroup.id");
             return delegate.id();
         }
-        @Override public java.util.Optional<String> name() { requireModelRead("parameterGroup.name"); return delegate.name(); }
-        @Override public dev.turboism.sdk.cubism.model.Color labelColor() {
-            requireModelRead("parameterGroup.labelColor");
-            return delegate.labelColor();
-        }
-        @Override public void setLabelColor(
-            final dev.turboism.sdk.cubism.model.Color color
-        ) {
-            requireModelWrite("parameterGroup.setLabelColor");
-            delegate.setLabelColor(color);
+        @Override public java.util.Optional<String> name() {
+            requireModelRead("parameterGroup.name");
+            return delegate.name();
         }
         @Override public java.util.Optional<dev.turboism.sdk.cubism.id.ParameterGroupId> parentId() {
             requireModelRead("parameterGroup.parentId");

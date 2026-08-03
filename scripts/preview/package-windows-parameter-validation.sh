@@ -31,6 +31,14 @@ if grep -Ein '\$home([^[:alnum:]_]|$)' "$launcher_script"; then
   printf 'error: validation launcher must not reference PowerShell read-only $HOME; use $turboismHome\n' >&2
   exit 1
 fi
+if ! grep -Fq 'CubismEditor5.bat' "$launcher_script"; then
+  printf 'error: real-host validation must delegate to the official CubismEditor5.bat\n' >&2
+  exit 1
+fi
+if grep -Fq 'com.live2d.cubism.CECubismEditorApp' "$launcher_script"; then
+  printf 'error: real-host validation must not launch the Cubism Java main class directly\n' >&2
+  exit 1
+fi
 
 rm -rf "$bundle_root"
 mkdir -p "$bundle_root/plugins" "$bundle_root/logs" "$bundle_root/state" "$bundle_root/plugin-data"

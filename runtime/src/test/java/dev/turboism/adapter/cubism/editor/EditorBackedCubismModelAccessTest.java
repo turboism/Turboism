@@ -167,7 +167,6 @@ class EditorBackedCubismModelAccessTest {
         );
         assertEquals(List.of(), root.parameterIds());
         assertEquals(Optional.of("Face"), face.name());
-        assertEquals(new Color(0.25F, 0.5F, 0.75F, 1.0F), face.labelColor());
         assertEquals(Optional.of(root.id()), face.parentId());
         assertEquals(List.of(), face.childGroupIds());
         assertEquals(List.of(new ParameterId("ParamAngleX")), face.parameterIds());
@@ -211,25 +210,10 @@ class EditorBackedCubismModelAccessTest {
     }
 
     @Test
-    void parameterGroupLabelColorsRequireTheirSeparateVerifiedCapability() {
-        Host.install(new Fixture("model-a", 12.0F));
-        EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
-            resolver(false), "session-a"
-        );
-
-        var face = access.active().parameterGroups().find(
-            new dev.turboism.sdk.cubism.id.ParameterGroupId("GroupFace")
-        );
-
-        assertEquals(Optional.of("Face"), face.name());
-        assertThrows(UnsupportedOperationException.class, face::labelColor);
-    }
-
-    @Test
     void defaultKeyformLockReadsRequireTheirSeparateVerifiedCapability() {
         Host.install(new Fixture("model-a", 12.0F));
         EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
-            resolver(false), "session-a"
+            resolverWithoutDefaultKeyformLock(), "session-a"
         );
 
         assertEquals("model-a", access.active().id().value());
@@ -268,11 +252,26 @@ class EditorBackedCubismModelAccessTest {
             .getMessage().contains("active model"));
     }
 
-    private static VerifiedMemberResolver resolver() {
-        return resolver(true);
+    private static VerifiedMemberResolver resolverWithoutDefaultKeyformLock() {
+        return resolver(java.util.Set.of(
+            "cubism.editor-model.read",
+            dev.turboism.mapping.verification.EditorParameterGroupsReadSelectorContract.CAPABILITY_ID,
+            dev.turboism.mapping.verification.EditorObjectReadSelectorContract.CAPABILITY_ID,
+            dev.turboism.mapping.verification.EditorParameterBindingReadSelectorContract.CAPABILITY_ID
+        ));
     }
 
-    private static VerifiedMemberResolver resolver(final boolean includeLabelColorCapability) {
+    private static VerifiedMemberResolver resolver() {
+        return resolver(java.util.Set.of(
+            "cubism.editor-model.read",
+            dev.turboism.mapping.verification.EditorParameterGroupsReadSelectorContract.CAPABILITY_ID,
+            dev.turboism.mapping.verification.EditorDefaultKeyformLockReadSelectorContract.CAPABILITY_ID,
+            dev.turboism.mapping.verification.EditorObjectReadSelectorContract.CAPABILITY_ID,
+            dev.turboism.mapping.verification.EditorParameterBindingReadSelectorContract.CAPABILITY_ID
+        ));
+    }
+
+    private static VerifiedMemberResolver resolver(final java.util.Set<String> capabilities) {
         String host = internal(Host.class);
         String document = internal(Document.class);
         String source = internal(ModelSource.class);
@@ -287,19 +286,7 @@ class EditorBackedCubismModelAccessTest {
         return TestVerifiedResolvers.create(
             "5.3.02",
             "adapter.editor-model.readwrite",
-            includeLabelColorCapability
-                ? java.util.Set.of(
-                    "cubism.editor-model.read",
-                    dev.turboism.mapping.verification.EditorParameterGroupsReadSelectorContract.CAPABILITY_ID,
-                    dev.turboism.mapping.verification.EditorParameterGroupLabelColorReadSelectorContract.CAPABILITY_ID,
-                    dev.turboism.mapping.verification.EditorDefaultKeyformLockReadSelectorContract.CAPABILITY_ID,
-                    dev.turboism.mapping.verification.EditorObjectReadSelectorContract.CAPABILITY_ID,
-                    dev.turboism.mapping.verification.EditorParameterBindingReadSelectorContract.CAPABILITY_ID
-                )
-                : java.util.Set.of(
-                    "cubism.editor-model.read",
-                    dev.turboism.mapping.verification.EditorParameterGroupsReadSelectorContract.CAPABILITY_ID
-                ),
+            capabilities,
             List.of(
                 StaticSelector.classSelector("cubism.editor-model.app-controller.class", host),
                 StaticSelector.staticMethod("cubism.editor-model.app-controller.instance", host, "instance", desc(Host.class), StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC),
