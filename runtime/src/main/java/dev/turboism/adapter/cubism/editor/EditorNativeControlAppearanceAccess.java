@@ -28,21 +28,27 @@ final class EditorNativeControlAppearanceAccess implements NativeControlAppearan
     private static final String ACTION_NAME = "Turboism: Set Native Control Background";
 
     private final VerifiedMemberResolver resolver;
-    private final Supplier<Object> currentSource;
+    private final Supplier<EditorBackedCubismModelAccess.Binding> currentBinding;
 
     EditorNativeControlAppearanceAccess(
         final VerifiedMemberResolver resolver,
-        final Supplier<Object> currentSource
+        final Supplier<EditorBackedCubismModelAccess.Binding> currentBinding
     ) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
-        this.currentSource = Objects.requireNonNull(currentSource, "currentSource");
+        this.currentBinding = Objects.requireNonNull(currentBinding, "currentBinding");
     }
 
     @Override
     public NativeControlAppearance snapshot(final ControlAppearanceTarget target) {
         requireReadAuthorization();
-        final Object labelColor = labelColor(Objects.requireNonNull(target, "target"));
-        return new NativeControlAppearance(background(labelColor), effectiveColor(labelColor));
+        Objects.requireNonNull(target, "target");
+        final EditorBackedCubismModelAccess.Binding binding = currentBinding.get();
+        final Object labelColor = labelColor(binding, target);
+        final NativeControlAppearance result = new NativeControlAppearance(
+            background(labelColor), effectiveColor(labelColor)
+        );
+        requireCurrent(binding);
+        return result;
     }
 
     @Override
@@ -58,15 +64,17 @@ final class EditorNativeControlAppearanceAccess implements NativeControlAppearan
             );
         }
         requireWriteAuthorization();
-        final Object labelColor = labelColor(target);
+        final EditorBackedCubismModelAccess.Binding binding = currentBinding.get();
+        final Object labelColor = labelColor(binding, target);
         final NativeBackgroundValue requested = nativeValue(background);
         if (exactMatch(requested, readBackground(labelColor))) {
+            requireCurrent(binding);
             return;
         }
+        requireCurrent(binding);
+        requireSameLabelColor(binding, target, labelColor);
         final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
-        final Object document = resolver.invoke(
-            "cubism.editor-model.app-controller.current-document", app
-        );
+        final Object document = binding.document();
         final Object editMode = resolver.invoke(
             "cubism.editor-model.modeling-document.edit-mode", document
         );
@@ -86,6 +94,8 @@ final class EditorNativeControlAppearanceAccess implements NativeControlAppearan
             resolver.invoke("cubism.editor-model.undo.add-listener", undo, listener);
             apply(labelColor, requested);
             refresh(app, target);
+            requireCurrent(binding);
+            requireSameLabelColor(binding, target, labelColor);
             if (!exactMatch(requested, readBackground(labelColor))) {
                 throw new IllegalStateException(
                     "Cubism native control background write was not applied exactly."
@@ -101,7 +111,7 @@ final class EditorNativeControlAppearanceAccess implements NativeControlAppearan
                 null
             );
         }
-        labelColor(target);
+        requireCurrent(binding);
     }
 
     private void apply(final Object labelColor, final NativeBackgroundValue requested) {
@@ -128,13 +138,16 @@ final class EditorNativeControlAppearanceAccess implements NativeControlAppearan
         }
     }
 
-    private Object labelColor(final ControlAppearanceTarget target) {
+    private Object labelColor(
+        final EditorBackedCubismModelAccess.Binding binding,
+        final ControlAppearanceTarget target
+    ) {
         if (target instanceof ControlAppearanceTarget.ParameterLabel) {
             throw new UnsupportedOperationException(
                 "ParameterLabel is overlay-only; native label-background authoring is unsupported."
             );
         }
-        final Object source = currentSource.get();
+        final Object source = binding.source();
         final Object value;
         if (target instanceof ControlAppearanceTarget.ParameterFolder folder) {
             value = groupLabelColor(source, folder.id().value());
@@ -246,6 +259,37 @@ final class EditorNativeControlAppearanceAccess implements NativeControlAppearan
             throw new NoSuchElementException(label + " is absent: " + id);
         }
         return match;
+    }
+
+    /**
+     * Fail closed unless the active document/source/model references and identity still match
+     * the consistent binding this operation started from.
+     */
+    private void requireCurrent(final EditorBackedCubismModelAccess.Binding expected) {
+        final EditorBackedCubismModelAccess.Binding current = currentBinding.get();
+        if (!current.identity().equals(expected.identity())
+            || current.document() != expected.document()
+            || current.source() != expected.source()
+            || current.model() != expected.model()) {
+            throw new IllegalStateException(
+                "Cubism model reference is stale for the active Editor model generation."
+            );
+        }
+    }
+
+    /** Fail closed unless the target still resolves by ID to the exact same label-color object. */
+    private Object requireSameLabelColor(
+        final EditorBackedCubismModelAccess.Binding binding,
+        final ControlAppearanceTarget target,
+        final Object expected
+    ) {
+        final Object resolved = labelColor(binding, target);
+        if (resolved != expected) {
+            throw new IllegalStateException(
+                "Cubism control label color reference is stale for the active Editor model generation."
+            );
+        }
+        return resolved;
     }
 
     private Object sourceLabelColor(final Object source) {

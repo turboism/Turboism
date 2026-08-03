@@ -267,6 +267,70 @@ class EditorNativeControlAppearanceAccessTest {
             folder, new NativeControlBackground.Preset(PresetColor.RED)
         ));
         assertEquals(0, fixture.document.dirtyUpdates, "failed write must not mark the document dirty");
+        assertEquals(1, fixture.editMode.cancelledEnds, "the transaction must be cancelled");
+        assertEquals(0, fixture.editMode.committedEdits, "no Undo history may be committed");
+        assertEquals(
+            LabelColorType.BLUE,
+            fixture.face.labelColor.type,
+            "the cancelled transaction must restore the original label color"
+        );
+    }
+
+    @Test
+    void documentReplacementBetweenTargetResolutionAndMutationFailsClosedAndRestores() {
+        Fixture fixture = new Fixture("model-a");
+        Host.install(fixture);
+        Fixture replaced = new Fixture("model-b");
+        fixture.editMode.onBegin = () -> Host.install(replaced);
+        EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
+            resolver(true), "session-a"
+        );
+        ControlAppearanceTarget.ParameterFolder folder =
+            new ControlAppearanceTarget.ParameterFolder(new ParameterGroupId("GroupFace"));
+
+        assertThrows(IllegalStateException.class, () -> access.setNativeBackground(
+            folder, new NativeControlBackground.Preset(PresetColor.RED)
+        ));
+
+        assertEquals(
+            LabelColorType.BLUE,
+            fixture.face.labelColor.type,
+            "the cancelled transaction must restore the mutated old label color"
+        );
+        assertEquals(0, fixture.editMode.committedEdits, "no wrong history may be committed");
+        assertEquals(1, fixture.editMode.cancelledEnds);
+        assertEquals(0, fixture.document.dirtyUpdates);
+        assertEquals(
+            0,
+            replaced.document.dirtyUpdates,
+            "the replacement document must not be marked dirty"
+        );
+    }
+
+    @Test
+    void sameIdLabelColorReplacementAfterMutationFailsClosedAndRestores() {
+        Fixture fixture = new Fixture("model-a");
+        Host.install(fixture);
+        final LabelColor original = fixture.face.labelColor;
+        original.onMutated = () -> fixture.face.labelColor = new LabelColor();
+        EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
+            resolver(true), "session-a"
+        );
+        ControlAppearanceTarget.ParameterFolder folder =
+            new ControlAppearanceTarget.ParameterFolder(new ParameterGroupId("GroupFace"));
+
+        assertThrows(IllegalStateException.class, () -> access.setNativeBackground(
+            folder, new NativeControlBackground.Preset(PresetColor.RED)
+        ));
+
+        assertEquals(
+            LabelColorType.BLUE,
+            original.type,
+            "the cancelled transaction must restore the mutated old label color"
+        );
+        assertEquals(0, fixture.editMode.committedEdits, "no wrong history may be committed");
+        assertEquals(1, fixture.editMode.cancelledEnds);
+        assertEquals(0, fixture.document.dirtyUpdates);
     }
 
     @Test
@@ -613,12 +677,16 @@ class EditorNativeControlAppearanceAccessTest {
         public HostColor getColor() { return color; }
 
         boolean rejectWrites;
+        Runnable onMutated;
 
         public void setLabelType(final LabelColorType nextType) {
             if (rejectWrites) {
                 return;
             }
             type = nextType;
+            if (onMutated != null) {
+                onMutated.run();
+            }
         }
 
         public void setColor(final LabelColorType nextType, final HostColor nextColor) {
@@ -630,6 +698,9 @@ class EditorNativeControlAppearanceAccessTest {
                 custom = nextColor;
             }
             color = nextColor;
+            if (onMutated != null) {
+                onMutated.run();
+            }
         }
 
         @Override public Object snapshot() { return new State(type, custom, color); }
@@ -648,7 +719,7 @@ class EditorNativeControlAppearanceAccessTest {
     public static final class ParameterGroup {
         final Id id;
         final ParameterGroup parent;
-        final LabelColor labelColor = new LabelColor();
+        LabelColor labelColor = new LabelColor();
         final List<Object> children = new ArrayList<>();
         ParameterGroup(final String id, final ParameterGroup parent) {
             this.id = new Id(id);
@@ -758,6 +829,7 @@ class EditorNativeControlAppearanceAccessTest {
             after = target.snapshot();
             target.restore(before);
         }
+        void restoreBefore() { target.restore(before); }
         void redo() { target.restore(after); }
     }
 
@@ -776,6 +848,9 @@ class EditorNativeControlAppearanceAccessTest {
             for (int index = edits.size() - 1; index >= 0; index--) edits.get(index).undo();
             listeners.forEach(listener -> listener.executed(null));
         }
+        void restoreAll() {
+            for (int index = edits.size() - 1; index >= 0; index--) edits.get(index).restoreBefore();
+        }
         void redo() {
             edits.forEach(SimpleUndo::redo);
             listeners.forEach(listener -> listener.executed(null));
@@ -785,17 +860,27 @@ class EditorNativeControlAppearanceAccessTest {
     public static final class EditMode {
         int beginCalls;
         int committedEdits;
+        int cancelledEnds;
+        Runnable onBegin;
         Undo active;
         Undo committed;
         public Undo begin(final String action) {
             beginCalls++;
             active = new Undo();
+            if (onBegin != null) {
+                onBegin.run();
+            }
             return active;
         }
         public boolean end(final boolean cancelled, final Object callback) {
             if (!cancelled) {
                 committedEdits++;
                 committed = active;
+            } else {
+                cancelledEnds++;
+                if (active != null) {
+                    active.restoreAll();
+                }
             }
             active = null;
             return !cancelled;
