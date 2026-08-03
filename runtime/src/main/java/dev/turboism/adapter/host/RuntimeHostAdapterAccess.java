@@ -1,6 +1,7 @@
 package dev.turboism.adapter.host;
 
 import dev.turboism.adapter.RuntimeHostAdapters;
+import dev.turboism.adapter.cubism.NativeControlAppearanceAuthoring;
 import dev.turboism.adapter.cubism.lifecycle.ParameterLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.PartLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.EditorObjectLifecycleCoordinator;
@@ -52,6 +53,8 @@ public sealed interface RuntimeHostAdapterAccess permits HostSession, SessionRun
     dev.turboism.sdk.ui.table.SceneTableService sceneTable();
 
     ControlAppearanceCoordinator controlAppearanceCoordinator();
+
+    NativeControlAppearanceAuthoring nativeControlAppearance();
 }
 
 /** Non-closeable adapter view used when lifecycle ownership remains with bootstrap ingress. */
@@ -75,7 +78,7 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     private final AppearanceCoordinator appearanceCoordinator;
     private final dev.turboism.sdk.ui.table.SceneTableService sceneTable;
     private final ControlAppearanceCoordinator controlAppearanceCoordinator;
-
+    private final NativeControlAppearanceAuthoring nativeControlAppearance;
     SessionRuntimeHostAdapterAccess(
         final RuntimeHostAdapters adapters,
         final CubismModelAccess modelAccess,
@@ -94,7 +97,8 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
         final java.util.Optional<dev.turboism.mapping.verification.VerifiedMemberResolver> boundingBoxOverlayResolver,
         final AppearanceCoordinator appearanceCoordinator,
         final dev.turboism.sdk.ui.table.SceneTableService sceneTable,
-        final ControlAppearanceCoordinator controlAppearanceCoordinator
+        final ControlAppearanceCoordinator controlAppearanceCoordinator,
+        final NativeControlAppearanceAuthoring nativeControlAppearance
     ) {
         this.adapters = java.util.Objects.requireNonNull(adapters, "adapters");
         this.modelAccess = java.util.Objects.requireNonNull(modelAccess, "modelAccess");
@@ -146,6 +150,10 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
         this.controlAppearanceCoordinator = java.util.Objects.requireNonNull(
             controlAppearanceCoordinator,
             "controlAppearanceCoordinator"
+        );
+        this.nativeControlAppearance = java.util.Objects.requireNonNull(
+            nativeControlAppearance,
+            "nativeControlAppearance"
         );
     }
 
@@ -238,5 +246,10 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     @Override
     public ControlAppearanceCoordinator controlAppearanceCoordinator() {
         return controlAppearanceCoordinator;
+    }
+
+    @Override
+    public NativeControlAppearanceAuthoring nativeControlAppearance() {
+        return nativeControlAppearance;
     }
 }
