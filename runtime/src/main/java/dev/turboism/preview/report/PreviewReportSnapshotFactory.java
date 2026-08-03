@@ -133,6 +133,12 @@ public final class PreviewReportSnapshotFactory {
         }
     }
 
+    static Set<String> canonicalCapabilityIds() {
+        final Set<String> capabilities = new java.util.HashSet<>(CAPABILITY_BINDINGS.keySet());
+        capabilities.addAll(KNOWN_UNMAPPED_CAPABILITIES);
+        return Set.copyOf(capabilities);
+    }
+
     private PreviewReportSnapshotFactory() {
     }
 
