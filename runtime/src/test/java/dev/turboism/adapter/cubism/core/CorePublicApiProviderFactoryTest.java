@@ -59,6 +59,50 @@ class CorePublicApiProviderFactoryTest {
             provider53.runtimeVersion().value().orElseThrow());
     }
 
+
+    @Test
+    void mapsReviewedRecordVersionsToExactCoreRuntimeTuples() {
+        assertEquals(
+            new CoreRuntimeVersion(5, 0, 256),
+            CoreVersionExpectation.reviewedProfile("5.2.0").exactVersion()
+        );
+        assertEquals(
+            new CoreRuntimeVersion(6, 0, 257),
+            CoreVersionExpectation.reviewedProfile("5.3.2").exactVersion()
+        );
+    }
+
+
+    @Test
+    void admitsReviewedRecordVersionsThroughCanonicalArtifactProfiles() {
+        final CoreVersionExpectation expectation = CoreVersionExpectation.exact(11, 12, 13);
+        final CorePublicApiProvider provider52 = CorePublicApiProviderFactory.admit(
+            TestCoreApiFixture.resolverForReviewedVersion("5.2.0", "5.2"),
+            expectation
+        ).value().orElseThrow();
+        final CorePublicApiProvider provider53 = CorePublicApiProviderFactory.admit(
+            TestCoreApiFixture.resolverForReviewedVersion("5.3.2", "5.3.02"),
+            expectation
+        ).value().orElseThrow();
+
+        assertEquals("5.2", provider52.artifactProfile());
+        assertEquals("5.3.02", provider53.artifactProfile());
+    }
+
+    @Test
+    void admittedProvidersExposeVerifiedMocInspection() {
+        final CorePublicApiProvider provider = CorePublicApiProviderFactory.admit(
+            resolver("5.3.02"),
+            CoreVersionExpectation.exact(11, 12, 13)
+        ).value().orElseThrow();
+
+        assertTrue(provider.capabilities().mocInspection());
+        assertEquals(6, provider.latestMocVersion().value().orElseThrow());
+        assertEquals(5, provider.mocVersion(new byte[]{5, 1}).value().orElseThrow());
+        assertTrue(provider.hasMocConsistency(new byte[]{5, 1}).value().orElseThrow());
+        assertFalse(provider.hasMocConsistency(new byte[]{5, 0}).value().orElseThrow());
+    }
+
     @Test
     void rejectsIncompleteOrUnsupportedEvidenceBeforeInvokingCore() {
         final CoreProviderResult<CorePublicApiProvider> missingAlias =
@@ -236,6 +280,10 @@ class CorePublicApiProviderFactoryTest {
         public static SyntheticVersion getVersion() {
             return version;
         }
+
+        public static int getLatestMocVersion() { return 6; }
+        public static int getMocVersion(final byte[] bytes) { return bytes.length; }
+        public static boolean hasMocConsistency(final byte[] bytes) { return bytes.length > 0; }
     }
 
     public record SyntheticVersion(int major, int minor, int patch) {
@@ -256,18 +304,30 @@ class CorePublicApiProviderFactoryTest {
         public static SyntheticVersion getVersion() {
             return null;
         }
+
+        public static int getLatestMocVersion() { return 6; }
+        public static int getMocVersion(final byte[] bytes) { return bytes.length; }
+        public static boolean hasMocConsistency(final byte[] bytes) { return bytes.length > 0; }
     }
 
     public static final class ThrowingCore {
         public static SyntheticVersion getVersion() {
             throw new IllegalStateException("synthetic failure");
         }
+
+        public static int getLatestMocVersion() { return 6; }
+        public static int getMocVersion(final byte[] bytes) { return bytes.length; }
+        public static boolean hasMocConsistency(final byte[] bytes) { return bytes.length > 0; }
     }
 
     public static final class WrongScalarCore {
         public static WrongScalarVersion getVersion() {
             return new WrongScalarVersion();
         }
+
+        public static int getLatestMocVersion() { return 6; }
+        public static int getMocVersion(final byte[] bytes) { return bytes.length; }
+        public static boolean hasMocConsistency(final byte[] bytes) { return bytes.length > 0; }
     }
 
     public static final class WrongScalarVersion {
