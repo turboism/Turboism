@@ -20,9 +20,15 @@ record NativeControlStyle(Font font, Color foreground, Color background, boolean
         Objects.requireNonNull(style, "style");
         return new NativeControlStyle(
             style.font().map(value -> font(nativeFont, value)).orElse(nativeFont),
-            style.foreground().map(value -> new Color(value.argb(), true)).orElse(nativeForeground),
-            style.background().map(value -> new Color(value.argb(), true)).orElse(nativeBackground),
+            style.foreground().map(NativeControlStyle::swing).orElse(nativeForeground),
+            style.background().map(NativeControlStyle::swing).orElse(nativeBackground),
             style.background().isPresent() || nativeOpaque
+        );
+    }
+
+    private static Color swing(final dev.turboism.sdk.cubism.model.Color color) {
+        return new Color(
+            color.red(), color.green(), color.blue(), color.alpha()
         );
     }
 

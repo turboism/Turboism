@@ -1,12 +1,12 @@
 package dev.turboism.ui.appearance.control;
 
 import dev.turboism.sdk.cubism.id.DeformerId;
+import dev.turboism.adapter.cubism.NativeControlAppearanceAuthoring;
 import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.appearance.ControlAppearanceContribution;
 import dev.turboism.sdk.ui.appearance.ControlAppearanceStyle;
 import dev.turboism.sdk.ui.appearance.ControlAppearanceTarget;
-import dev.turboism.sdk.ui.appearance.UiColor;
 import org.junit.jupiter.api.Test;
 
 import javax.swing.JLabel;
@@ -29,7 +29,8 @@ class DeformerTreeForegroundTracerTest {
                 PermissionIds.TURBOISM_UI_APPEARANCE_MODIFY,
                 permissionId
             ),
-            coordinator
+            coordinator,
+            TestNativeControlAppearanceAuthoring.unavailable()
         );
         final DeformerTreeControlAppearanceProvider provider =
             new DeformerTreeControlAppearanceProvider(coordinator);
@@ -37,7 +38,7 @@ class DeformerTreeForegroundTracerTest {
             "deformer.foreground",
             new ControlAppearanceTarget.DeformerLabel(new DeformerId("WarpA")),
             new ControlAppearanceStyle(
-                Optional.of(new UiColor(0xFF336699)),
+                Optional.of(new dev.turboism.sdk.cubism.model.Color(0.200000F, 0.400000F, 0.600000F, 1.000000F)),
                 Optional.empty(),
                 Optional.empty()
             )
