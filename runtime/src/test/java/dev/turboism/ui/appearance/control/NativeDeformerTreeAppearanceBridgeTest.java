@@ -4,7 +4,6 @@ import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.ui.appearance.ControlAppearanceContribution;
 import dev.turboism.sdk.ui.appearance.ControlAppearanceStyle;
 import dev.turboism.sdk.ui.appearance.ControlAppearanceTarget;
-import dev.turboism.sdk.ui.appearance.UiColor;
 import dev.turboism.ui.appearance.control.fixture.HiddenRowFixture;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -36,7 +35,7 @@ class NativeDeformerTreeAppearanceBridgeTest {
             new ControlAppearanceContribution(
                 "warp.foreground",
                 new ControlAppearanceTarget.DeformerLabel(new DeformerId("WarpA")),
-                new ControlAppearanceStyle(Optional.of(new UiColor(0xFF336699)), Optional.empty(), Optional.empty())
+                new ControlAppearanceStyle(Optional.of(new dev.turboism.sdk.cubism.model.Color(0.200000F, 0.400000F, 0.600000F, 1.000000F)), Optional.empty(), Optional.empty())
             )
         );
         final DeformerTreeControlAppearanceProvider provider =
@@ -84,7 +83,7 @@ class NativeDeformerTreeAppearanceBridgeTest {
             new ControlAppearanceContribution(
                 "warp.foreground",
                 new ControlAppearanceTarget.DeformerLabel(new DeformerId("WarpA")),
-                new ControlAppearanceStyle(Optional.of(new UiColor(0xFF336699)), Optional.empty(), Optional.empty())
+                new ControlAppearanceStyle(Optional.of(new dev.turboism.sdk.cubism.model.Color(0.200000F, 0.400000F, 0.600000F, 1.000000F)), Optional.empty(), Optional.empty())
             )
         );
         NativeDeformerTreeAppearanceBridge.install(
@@ -118,8 +117,8 @@ class NativeDeformerTreeAppearanceBridgeTest {
                 "warp.style",
                 new ControlAppearanceTarget.DeformerLabel(new DeformerId("WarpA")),
                 new ControlAppearanceStyle(
-                    Optional.of(new UiColor(0xFF336699)),
-                    Optional.of(new UiColor(0xFF997755)),
+                    Optional.of(new dev.turboism.sdk.cubism.model.Color(0.200000F, 0.400000F, 0.600000F, 1.000000F)),
+                    Optional.of(new dev.turboism.sdk.cubism.model.Color(0.600000F, 0.466667F, 0.333333F, 1.000000F)),
                     Optional.of(new dev.turboism.sdk.ui.appearance.UiFont(
                         Optional.of("Monospaced"),
                         Optional.of(18.0F),
@@ -175,7 +174,7 @@ class NativeDeformerTreeAppearanceBridgeTest {
             new ControlAppearanceContribution(
                 "hidden-row.foreground",
                 new ControlAppearanceTarget.DeformerLabel(new DeformerId("WarpA")),
-                new ControlAppearanceStyle(Optional.of(new UiColor(0xFF336699)), Optional.empty(), Optional.empty())
+                new ControlAppearanceStyle(Optional.of(new dev.turboism.sdk.cubism.model.Color(0.200000F, 0.400000F, 0.600000F, 1.000000F)), Optional.empty(), Optional.empty())
             )
         );
         final Object row = HiddenRowFixture.row("WarpA");
