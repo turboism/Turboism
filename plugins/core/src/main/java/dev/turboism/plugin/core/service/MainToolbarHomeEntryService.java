@@ -23,6 +23,7 @@ public final class MainToolbarHomeEntryService {
     public static final String ACTION_LABEL = "Open Turboism";
     public static final String SETTINGS_ACTION_ID = "turboism.core.settings.open";
     public static final String PLUGINS_ACTION_ID = "turboism.core.plugins.open";
+    public static final String LOGS_ACTION_ID = "turboism.core.logs.open";
     public static final String INSTALL_ACTION_ID = "turboism.core.plugins.install";
     public static final EmbeddedPanelId TURBOISM_PANEL_ID = EmbeddedPanelId.of("turboism.panel.main");
 
@@ -31,6 +32,7 @@ public final class MainToolbarHomeEntryService {
     private static final String TOOLTIP_KEY = "main-toolbar.home.tooltip";
     private static final String SETTINGS_MENU_LABEL_KEY = "main-toolbar.settings-menu.label";
     private static final String PLUGINS_MENU_LABEL_KEY = "main-toolbar.plugins-menu.label";
+    private static final String LOGS_MENU_LABEL_KEY = "main-toolbar.logs-menu.label";
     private static final String TURBOISM_MENU_ROOT = "Turboism";
     private static final String ICON_RESOURCE_PATH = "icons/main-toolbar-home.png";
     private static final int ORDER = 10;
@@ -89,7 +91,8 @@ public final class MainToolbarHomeEntryService {
             TURBOISM_PANEL_ID.value(), "Turboism", "right", 0,
             panelView(
                 localization.text(SETTINGS_MENU_LABEL_KEY),
-                localization.text(PLUGINS_MENU_LABEL_KEY)
+                localization.text(PLUGINS_MENU_LABEL_KEY),
+                localization.text(LOGS_MENU_LABEL_KEY)
             )
         ));
     }
@@ -113,6 +116,10 @@ public final class MainToolbarHomeEntryService {
         return menu(localization.text(PLUGINS_MENU_LABEL_KEY), PLUGINS_ACTION_ID, ORDER + 1);
     }
 
+    public Registration registerLogsMenu() {
+        return menu(localization.text(LOGS_MENU_LABEL_KEY), LOGS_ACTION_ID, ORDER + 2);
+    }
+
     private Registration menu(final String label, final String actionId, final int order) {
         final String menuPath = TURBOISM_MENU_ROOT + "/" + label;
         return menus.contribute(new MenuRegistry.MenuContribution() {
@@ -128,12 +135,14 @@ public final class MainToolbarHomeEntryService {
 
     private static PanelView panelView(
         final String settingsLabel,
-        final String pluginsLabel
+        final String pluginsLabel,
+        final String logsLabel
     ) {
         return PanelView.column(
             PanelView.text("Turboism"),
             PanelView.button("open-settings", settingsLabel, SETTINGS_ACTION_ID),
-            PanelView.button("open-plugin-management", pluginsLabel, PLUGINS_ACTION_ID)
+            PanelView.button("open-plugin-management", pluginsLabel, PLUGINS_ACTION_ID),
+            PanelView.button("open-logs", logsLabel, LOGS_ACTION_ID)
         );
     }
 
