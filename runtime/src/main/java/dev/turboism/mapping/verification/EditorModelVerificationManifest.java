@@ -7,7 +7,7 @@ public final class EditorModelVerificationManifest {
 
     public static final String VERIFICATION_ID = "cubism-5.3.02.editor-model.static";
     public static final String RECORD_SHA256 =
-        "1e80ce189a337d7ff1fdad65a1b0e2eac24a6220e5c3ed79f20cafe6ca7aa96a";
+        "2b83e970082b2b36bc9c5aae165bbeacccd72e49afaa6c84c409804512b32a54";
     public static final String CUBISM_VERSION = "5.3.02";
     public static final String PROFILE_ID = "cubism-5.3.02";
     public static final long ARTIFACT_SIZE = 41_922_739L;
@@ -133,6 +133,7 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.label-color.class",
         "cubism.editor-model.label-color.color",
         "cubism.editor-model.label-color.set-color",
+        "cubism.editor-model.label-color.set-label-type",
         "cubism.editor-model.label-color-type.class",
         "cubism.editor-model.label-color-type.custom",
         "cubism.editor-model.label-color-type.undefined",
