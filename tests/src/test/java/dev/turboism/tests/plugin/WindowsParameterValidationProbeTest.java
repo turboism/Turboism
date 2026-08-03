@@ -480,6 +480,19 @@ class WindowsParameterValidationProbeTest {
     }
 
     @Test
+    void scopeCloseRunningPhaseIsWrittenFromThePassedValues() throws Exception {
+        final java.nio.file.Path artifact = saveTemp.resolve("native-control-background-validation.txt");
+        WindowsParameterValidationProbe.writeRunningScopeClosePhase(
+            artifact, "model-a", "AWT-EventQueue-0"
+        );
+        final String content = Files.readString(artifact);
+        assertTrue(content.contains("status=RUNNING"), content);
+        assertTrue(content.contains("phase=plugin-scope-close"), content);
+        assertTrue(content.contains("modelId=model-a"), content);
+        assertTrue(content.contains("hostThread=AWT-EventQueue-0"), content);
+    }
+
+    @Test
     void scopeCloseRunningPhaseReportsProgressContext() {
         final String phase = WindowsParameterValidationProbe.scopeCloseRunningPhase(
             "model-a", "AWT-EventQueue-0"
