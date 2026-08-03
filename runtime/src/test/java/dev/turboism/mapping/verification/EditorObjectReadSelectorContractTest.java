@@ -27,7 +27,7 @@ class EditorObjectReadSelectorContractTest {
     ) throws Exception {
         final Path artifact = LEGACY_EVIDENCE.resolve(evidenceDirectory + "/jars/Live2D_Cubism.jar");
         final var resolver = new VerifiedEditorModelResolverFactory().create(
-            PROJECT_ROOT.resolve("docs/migration/verification/static/" + recordName),
+            PROJECT_ROOT.resolve("cubism-ref/verification/" + recordName),
             artifact,
             loader(artifact)
         );
