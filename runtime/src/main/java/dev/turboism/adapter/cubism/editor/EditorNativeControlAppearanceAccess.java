@@ -45,8 +45,9 @@ final class EditorNativeControlAppearanceAccess implements NativeControlAppearan
         Objects.requireNonNull(target, "target");
         final EditorBackedCubismModelAccess.Binding binding = currentBinding.get();
         final Object labelColor = labelColor(binding, target);
+        final NativeControlBackground semantic = background(labelColor);
         final NativeControlAppearance result = new NativeControlAppearance(
-            background(labelColor), effectiveColor(labelColor)
+            semantic, effectiveColor(labelColor, semantic)
         );
         requireCurrent(binding);
         requireSameLabelColor(binding, target, labelColor);
@@ -384,10 +385,19 @@ final class EditorNativeControlAppearanceAccess implements NativeControlAppearan
         return "cubism.editor-model.label-color-type." + preset.name().toLowerCase(java.util.Locale.ROOT);
     }
 
-    private Optional<Color> effectiveColor(final Object labelColor) {
+    private Optional<Color> effectiveColor(
+        final Object labelColor,
+        final NativeControlBackground semantic
+    ) {
         final Object color = resolver.invoke("cubism.editor-model.label-color.color", labelColor);
         if (color == null) {
-            return Optional.empty();
+            if (semantic instanceof NativeControlBackground.Default) {
+                return Optional.empty();
+            }
+            throw unavailable(
+                "Editor native control effective color is unavailable for semantic "
+                    + semantic.getClass().getSimpleName()
+            );
         }
         return Optional.of(readColor(color));
     }
