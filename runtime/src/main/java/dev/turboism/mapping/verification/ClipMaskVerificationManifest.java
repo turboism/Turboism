@@ -7,7 +7,7 @@ public final class ClipMaskVerificationManifest {
 
     public static final String VERIFICATION_ID = "m15.cubism-5.3.02.clipmask.static";
     public static final String RECORD_SHA256 =
-        "7bd08bc1932ca868905920cd4c64e10643fa98914b8ffa0802aa8f95861b2b64";
+        "8e4f5a5d9ea7896700a2b40293ba720b7a7df549216bfb6efdedb3d73c951232";
     public static final String CUBISM_VERSION = "5.3.02";
     public static final String PROFILE_ID = "cubism-5.3.02";
     public static final long ARTIFACT_SIZE = 41922739L;

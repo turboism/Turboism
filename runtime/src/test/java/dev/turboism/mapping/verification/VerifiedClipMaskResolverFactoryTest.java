@@ -15,7 +15,7 @@ class VerifiedClipMaskResolverFactoryTest {
 
     @Test
     void rejectsSelfIssuedRecordBeforeUsingItsSelectors() throws Exception {
-        Path reviewed = repositoryPath("docs/migration/verification/static/cubism-5.3.02-clipmask.json");
+        Path reviewed = repositoryPath("cubism-ref/verification/cubism-5.3.02-clipmask.json");
         Path selfIssued = Files.createTempFile("clipmask-self-issued", ".json");
         var root = (com.fasterxml.jackson.databind.node.ObjectNode) mapper.readTree(reviewed.toFile());
         root.put("verifiedBy", "self-issued-test");
@@ -31,7 +31,7 @@ class VerifiedClipMaskResolverFactoryTest {
     @Test
     void rejectsReviewedRecordFromAnotherAdapterSlice() {
         Path projectRecord = repositoryPath(
-            "docs/migration/verification/static/cubism-5.3.02-project-workspace.json"
+            "cubism-ref/verification/cubism-5.3.02-project-workspace.json"
         );
 
         assertThrows(IllegalArgumentException.class, () -> factory.create(

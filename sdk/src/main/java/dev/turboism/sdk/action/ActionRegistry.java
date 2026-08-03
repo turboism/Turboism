@@ -29,5 +29,10 @@ public interface ActionRegistry {
         default Optional<ContextMenuSelection> contextMenuSelection() {
             return Optional.empty();
         }
+
+        /** Panel-tab context for panel floating/docking actions, if present. */
+        default Optional<dev.turboism.sdk.ui.context.PanelTabSelection> panelTabSelection() {
+            return Optional.empty();
+        }
     }
 }
