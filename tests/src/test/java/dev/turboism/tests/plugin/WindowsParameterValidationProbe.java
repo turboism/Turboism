@@ -69,6 +69,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicReference;
 import java.nio.file.Files;
+import java.nio.file.attribute.FileTime;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 
@@ -280,6 +281,7 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
     public void enable() {
         partValidationThread = new Thread(() -> {
             final String mode = System.getProperty("turboism.editorObjectValidation.mode", "matrix");
+            final String autoMode = mode;
             if ("binding-read".equals(mode)) {
                 runParameterBindingDiscoveryRead();
             } else if ("binding-matrix".equals(mode)) {
@@ -308,7 +310,9 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 runEditorObjectValidation();
                 runPartOpacityValidation();
             }
-            SwingUtilities.invokeLater(this::showWindow);
+            if (showsValidationWindow(autoMode)) {
+                SwingUtilities.invokeLater(this::showWindow);
+            }
         }, "turboism-editor-object-validation");
         partValidationThread.setDaemon(true);
         partValidationThread.start();
@@ -952,6 +956,107 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         Objects.requireNonNull(model, "model");
         model.setDefaultKeyformLocked(locked);
         return model.defaultKeyformLocked();
+    }
+
+    /**
+     * Auto evidence modes that run to completion (especially those that close the plugin scope
+     * or the document) must not rebuild the validation window afterwards.
+     */
+    static boolean showsValidationWindow(final String mode) {
+        return !Objects.requireNonNull(mode, "mode").startsWith("native-control-background");
+    }
+
+    /** Task-scoped copied model required by the persistence stages (Windows JVM-readable path). */
+    static Path fixturePath() {
+        final String raw = System.getProperty("turboism.validation.fixture");
+        if (raw == null || raw.isBlank()) {
+            throw new IllegalArgumentException(
+                "turboism.validation.fixture must point to the task-scoped copied model"
+            );
+        }
+        return Path.of(raw);
+    }
+
+    /**
+     * Bounded save confirmation: waits for the fixture file mtime/size to change after Ctrl+S
+     * and to remain stable across consecutive samples. Timeout reports {@code confirmed=false};
+     * a PASS is never written without confirmation. JDK Files/FileTime only.
+     */
+    static SaveConfirmation awaitSaveConfirmation(
+        final Path fixture,
+        final FileTime beforeMtime,
+        final long beforeSize
+    ) throws Exception {
+        return awaitSaveConfirmation(
+            fixture,
+            beforeMtime,
+            beforeSize,
+            DEFAULT_SAVE_DEADLINE_MILLIS,
+            DEFAULT_SAVE_POLL_MILLIS
+        );
+    }
+
+    static SaveConfirmation awaitSaveConfirmation(
+        final Path fixture,
+        final FileTime beforeMtime,
+        final long beforeSize,
+        final long deadlineMillis,
+        final long pollMillis
+    ) throws Exception {
+        Objects.requireNonNull(fixture, "fixture");
+        Objects.requireNonNull(beforeMtime, "beforeMtime");
+        if (!Files.isRegularFile(fixture)) {
+            throw new IllegalArgumentException(
+                "turboism.validation.fixture is missing or unreadable: " + fixture
+            );
+        }
+        final long deadlineNanos = System.nanoTime() + deadlineMillis * 1_000_000L;
+        FileTime changedMtime = null;
+        long changedSize = -1L;
+        int stableSamples = 0;
+        while (System.nanoTime() < deadlineNanos) {
+            final FileTime mtime = Files.getLastModifiedTime(fixture);
+            final long size = Files.size(fixture);
+            if (!mtime.equals(beforeMtime) || size != beforeSize) {
+                if (changedMtime == null || !changedMtime.equals(mtime) || changedSize != size) {
+                    changedMtime = mtime;
+                    changedSize = size;
+                    stableSamples = 0;
+                }
+                stableSamples++;
+                if (stableSamples >= SAVE_STABLE_SAMPLES) {
+                    return new SaveConfirmation(
+                        true, beforeMtime.toMillis(), beforeSize, mtime.toMillis(), size
+                    );
+                }
+            }
+            Thread.sleep(pollMillis);
+        }
+        final FileTime lastMtime = Files.getLastModifiedTime(fixture);
+        return new SaveConfirmation(
+            false, beforeMtime.toMillis(), beforeSize, lastMtime.toMillis(), Files.size(fixture)
+        );
+    }
+
+    static final long DEFAULT_SAVE_DEADLINE_MILLIS = 30_000L;
+    static final long DEFAULT_SAVE_POLL_MILLIS = 100L;
+    static final int SAVE_STABLE_SAMPLES = 3;
+
+    /** Machine-readable save evidence; {@code confirmed=false} is a FAIL, never a PASS. */
+    record SaveConfirmation(
+        boolean confirmed,
+        long beforeMtimeMillis,
+        long beforeSize,
+        long afterMtimeMillis,
+        long afterSize
+    ) {
+        String report(final String prefix) {
+            return prefix + "saveConfirmed=" + confirmed + System.lineSeparator()
+                + prefix + "save.beforeMtimeMillis=" + beforeMtimeMillis + System.lineSeparator()
+                + prefix + "save.beforeSize=" + beforeSize + System.lineSeparator()
+                + prefix + "save.afterMtimeMillis=" + afterMtimeMillis + System.lineSeparator()
+                + prefix + "save.afterSize=" + afterSize + System.lineSeparator();
+        }
     }
 
     static float parseFiniteValue(final String text) {
@@ -2439,6 +2544,8 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             final ControlAppearanceRegistry registry = context.controlAppearance();
             final ControlAppearanceTarget.ParameterFolder folderTarget =
                 new ControlAppearanceTarget.ParameterFolder(firstNonRootParameterGroup(model));
+            final String modelId = onHostThread(() -> model.id().value());
+            final String hostThread = onHostThread(() -> Thread.currentThread().getName());
             onHostThread(() -> nativeAppearance(registry, folderTarget));
             final java.awt.Robot robot = new java.awt.Robot();
             pressShortcut(robot, java.awt.event.KeyEvent.VK_W);
@@ -2464,6 +2571,8 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 artifact,
                 "status=" + (passed ? "PASS" : "FAIL") + System.lineSeparator()
                     + "phase=document-close" + System.lineSeparator()
+                    + "modelId=" + modelId + System.lineSeparator()
+                    + "hostThread=" + hostThread + System.lineSeparator()
                     + "modelStale=" + modelStale + System.lineSeparator()
                     + "snapshotStale=" + snapshotStale + System.lineSeparator()
                     + "writeStale=" + writeStale + System.lineSeparator(),
@@ -2558,14 +2667,25 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 stored.store(output, "Turboism native control background persistence expectations");
             }
 
+            final String modelId = onHostThread(() -> model.id().value());
+            final String hostThread = onHostThread(() -> Thread.currentThread().getName());
+            final Path fixture = fixturePath();
+            final FileTime beforeMtime = Files.getLastModifiedTime(fixture);
+            final long beforeSize = Files.size(fixture);
             final java.awt.Robot robot = new java.awt.Robot();
             pressShortcut(robot, java.awt.event.KeyEvent.VK_S);
-            Thread.sleep(2500L);
+            final SaveConfirmation save = awaitSaveConfirmation(fixture, beforeMtime, beforeSize);
+            final boolean saved = save.confirmed();
             Files.writeString(
                 artifact,
-                "status=PASS\nphase=saved\nfolderId=" + folderId.value()
-                    + "\npartId=" + partId.value()
-                    + "\ndeformerId=" + deformerId.value() + "\n",
+                "status=" + (saved ? "PASS" : "FAIL") + System.lineSeparator()
+                    + "phase=saved" + System.lineSeparator()
+                    + "modelId=" + modelId + System.lineSeparator()
+                    + "hostThread=" + hostThread + System.lineSeparator()
+                    + "folderId=" + folderId.value() + System.lineSeparator()
+                    + "partId=" + partId.value() + System.lineSeparator()
+                    + "deformerId=" + deformerId.value() + System.lineSeparator()
+                    + save.report("save."),
                 StandardOpenOption.CREATE,
                 StandardOpenOption.TRUNCATE_EXISTING
             );
@@ -2637,14 +2757,24 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             awaitBackground(registry, partFolderTarget, partOriginal);
             awaitBackground(registry, rowTarget, deformerOriginal);
 
+            final String modelId = onHostThread(() -> model.id().value());
+            final String hostThread = onHostThread(() -> Thread.currentThread().getName());
+            final Path fixture = fixturePath();
+            final FileTime beforeMtime = Files.getLastModifiedTime(fixture);
+            final long beforeSize = Files.size(fixture);
             final java.awt.Robot robot = new java.awt.Robot();
             pressShortcut(robot, java.awt.event.KeyEvent.VK_S);
-            Thread.sleep(2500L);
+            final SaveConfirmation save = awaitSaveConfirmation(fixture, beforeMtime, beforeSize);
+            final boolean saved = save.confirmed();
             Files.writeString(
                 artifact,
-                "status=PASS\nphase=reopen-restored-saved\n"
-                    + "verifiedRequested=parameterFolder,part,deformer\n"
-                    + "restored=parameterFolder,part,deformer\n",
+                "status=" + (saved ? "PASS" : "FAIL") + System.lineSeparator()
+                    + "phase=reopen-restored-saved" + System.lineSeparator()
+                    + "modelId=" + modelId + System.lineSeparator()
+                    + "hostThread=" + hostThread + System.lineSeparator()
+                    + "verifiedRequested=parameterFolder,part,deformer" + System.lineSeparator()
+                    + "restored=parameterFolder,part,deformer" + System.lineSeparator()
+                    + save.report("save."),
                 StandardOpenOption.CREATE,
                 StandardOpenOption.TRUNCATE_EXISTING
             );
@@ -2701,10 +2831,14 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             awaitBackground(registry, rowTarget, deformerOriginal);
             awaitBackground(registry, labelTarget, deformerOriginal);
 
+            final String modelId = onHostThread(() -> model.id().value());
+            final String hostThread = onHostThread(() -> Thread.currentThread().getName());
             Files.writeString(
                 artifact,
                 "status=PASS\nphase=final-verify-restored\n"
-                    + "verifiedRestored=parameterFolder,part,deformer\n",
+                    + "modelId=" + modelId + System.lineSeparator()
+                    + "hostThread=" + hostThread + System.lineSeparator()
+                    + "verifiedRestored=parameterFolder,part,deformer,partAlias,deformerAlias\n",
                 StandardOpenOption.CREATE,
                 StandardOpenOption.TRUNCATE_EXISTING
             );
