@@ -28,13 +28,17 @@ import dev.turboism.sdk.cubism.model.Parameters;
 import dev.turboism.sdk.cubism.model.Part;
 import dev.turboism.sdk.cubism.model.PartId;
 import dev.turboism.sdk.cubism.model.Parts;
+import dev.turboism.adapter.cubism.NativeControlAppearanceAuthoring;
+import dev.turboism.sdk.ui.appearance.ControlAppearanceTarget;
+import dev.turboism.sdk.ui.appearance.NativeControlAppearance;
+import dev.turboism.sdk.ui.appearance.NativeControlBackground;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Function;
 
 /** Stable plugin-facing model access whose delegate follows one HostSession connection. */
-final class DynamicCubismModelAccess implements CubismModelAccess {
+final class DynamicCubismModelAccess implements CubismModelAccess, NativeControlAppearanceAuthoring {
 
     private final Object callGate = new Object();
     private CubismModelAccess current = UnavailableCubismModelAccess.INSTANCE;
@@ -380,14 +384,6 @@ final class DynamicCubismModelAccess implements CubismModelAccess {
         }
         @Override public java.util.Optional<String> name() {
             return guarded(generation, delegate::name);
-        }
-        @Override public dev.turboism.sdk.cubism.model.Color labelColor() {
-            return guarded(generation, delegate::labelColor);
-        }
-        @Override public void setLabelColor(
-            final dev.turboism.sdk.cubism.model.Color color
-        ) {
-            guardedVoid(generation, () -> delegate.setLabelColor(color));
         }
         @Override public java.util.Optional<dev.turboism.sdk.cubism.id.ParameterGroupId> parentId() {
             return guarded(generation, delegate::parentId);
@@ -851,6 +847,38 @@ final class DynamicCubismModelAccess implements CubismModelAccess {
         } finally {
             release(lease);
         }
+    }
+
+    @Override
+    public NativeControlAppearance snapshot(final ControlAppearanceTarget target) {
+        final AccessLease lease = acquireActiveLease();
+        try {
+            return authoring(lease).snapshot(target);
+        } finally {
+            release(lease);
+        }
+    }
+
+    @Override
+    public void setNativeBackground(
+        final ControlAppearanceTarget target,
+        final NativeControlBackground background
+    ) {
+        final AccessLease lease = acquireActiveLease();
+        try {
+            authoring(lease).setNativeBackground(target, background);
+        } finally {
+            release(lease);
+        }
+    }
+
+    private static NativeControlAppearanceAuthoring authoring(final AccessLease lease) {
+        if (!(lease.modelAccess() instanceof NativeControlAppearanceAuthoring authoring)) {
+            throw new UnsupportedOperationException(
+                "Native control appearance authoring is unavailable for the active host session."
+            );
+        }
+        return authoring;
     }
 
     private record AccessLease(CubismModelAccess modelAccess, long generation) {
