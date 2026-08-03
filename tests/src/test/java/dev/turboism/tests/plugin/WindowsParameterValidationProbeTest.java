@@ -7,10 +7,16 @@ import dev.turboism.sdk.cubism.model.Color;
 import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.Parameter;
 import dev.turboism.sdk.cubism.model.ParameterDefinition;
-import dev.turboism.sdk.cubism.model.ParameterGroup;
-import dev.turboism.sdk.cubism.model.ParameterGroups;
 import dev.turboism.sdk.cubism.model.ParameterType;
 import dev.turboism.sdk.cubism.model.Parameters;
+import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.sdk.ui.appearance.ControlAppearanceContribution;
+import dev.turboism.sdk.ui.appearance.ControlAppearanceRegistry;
+import dev.turboism.sdk.ui.appearance.ControlAppearanceSnapshot;
+import dev.turboism.sdk.ui.appearance.ControlAppearanceStyle;
+import dev.turboism.sdk.ui.appearance.ControlAppearanceTarget;
+import dev.turboism.sdk.ui.appearance.NativeControlAppearance;
+import dev.turboism.sdk.ui.appearance.NativeControlBackground;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -333,48 +339,100 @@ class WindowsParameterValidationProbeTest {
     }
 
     @Test
-    void groupColorAndDefaultLockWritersReturnAuthoritativeState() {
+    void folderBackgroundWriterReturnsAuthoritativeNativeAppearanceThroughRegistry() {
         final ParameterGroupId groupId = new ParameterGroupId("GroupFace");
         final Color[] color = {new Color(0.25F, 0.5F, 0.75F, 1.0F)};
-        final ParameterGroup group = new ParameterGroup() {
-            @Override public ParameterGroupId id() { return groupId; }
-            @Override public Optional<String> name() { return Optional.of("Face"); }
-            @Override public Color labelColor() { return color[0]; }
-            @Override public void setLabelColor(final Color next) { color[0] = next; }
-            @Override public Optional<ParameterGroupId> parentId() { return Optional.empty(); }
-            @Override public List<ParameterGroupId> childGroupIds() { return List.of(); }
-            @Override public List<ParameterId> parameterIds() { return List.of(); }
+        final List<ControlAppearanceTarget> writtenTargets = new java.util.ArrayList<>();
+        final ControlAppearanceRegistry registry = new ControlAppearanceRegistry() {
+            @Override public Registration register(final ControlAppearanceContribution contribution) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override public ControlAppearanceSnapshot snapshot(final ControlAppearanceTarget target) {
+                return new ControlAppearanceSnapshot(
+                    Optional.of(new NativeControlAppearance(
+                        new NativeControlBackground.Custom(color[0]), color[0]
+                    )),
+                    Optional.empty()
+                );
+            }
+
+            @Override public void setNativeBackground(
+                final ControlAppearanceTarget target,
+                final NativeControlBackground background
+            ) {
+                writtenTargets.add(target);
+                color[0] = ((NativeControlBackground.Custom) background).color();
+            }
         };
-        final ParameterGroups groups = new ParameterGroups() {
-            @Override public List<ParameterGroup> all() { return List.of(group); }
-            @Override public ParameterGroup root() { return group; }
-            @Override public ParameterGroup find(final ParameterGroupId id) { return group; }
+        final Color requested = WindowsParameterValidationProbe.parseColor(
+            "0.1", "0.2", "0.3", "0.4"
+        );
+
+        final NativeControlAppearance authoritative =
+            WindowsParameterValidationProbe.setParameterFolderBackground(
+                registry, groupId, requested
+            );
+
+        assertEquals(
+            List.of(new ControlAppearanceTarget.ParameterFolder(groupId)),
+            writtenTargets
+        );
+        assertEquals(requested, color[0]);
+        assertEquals(new NativeControlBackground.Custom(requested), authoritative.background());
+        assertEquals(requested, authoritative.effectiveBackground());
+    }
+
+    @Test
+    void folderBackgroundWriterRejectsMissingRegistryTargetsAndValues() {
+        final ParameterGroupId groupId = new ParameterGroupId("GroupFace");
+        final ControlAppearanceRegistry registry = new ControlAppearanceRegistry() {
+            @Override public Registration register(final ControlAppearanceContribution contribution) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override public ControlAppearanceSnapshot snapshot(final ControlAppearanceTarget target) {
+                return new ControlAppearanceSnapshot(Optional.empty(), Optional.empty());
+            }
+
+            @Override public void setNativeBackground(
+                final ControlAppearanceTarget target,
+                final NativeControlBackground background
+            ) {
+            }
         };
+        assertThrows(NullPointerException.class, () ->
+            WindowsParameterValidationProbe.setParameterFolderBackground(
+                registry, null, new Color(1.0F, 0.0F, 0.0F, 1.0F)
+            ));
+        assertThrows(NullPointerException.class, () ->
+            WindowsParameterValidationProbe.setParameterFolderBackground(
+                null, groupId, new Color(1.0F, 0.0F, 0.0F, 1.0F)
+            ));
+        assertThrows(IllegalStateException.class, () ->
+            WindowsParameterValidationProbe.setParameterFolderBackground(
+                registry, groupId, new Color(1.0F, 0.0F, 0.0F, 1.0F)
+            ));
+    }
+
+    @Test
+    void defaultKeyformLockWriterReturnsAuthoritativeState() {
         final boolean[] locked = {false};
         final CubismModel model = new CubismModel() {
             @Override public ModelId id() { return new ModelId("model-a"); }
             @Override public boolean defaultKeyformLocked() { return locked[0]; }
             @Override public void setDefaultKeyformLocked(final boolean value) { locked[0] = value; }
             @Override public Parameters parameters() { throw unsupported(); }
-            @Override public ParameterGroups parameterGroups() { return groups; }
+            @Override public dev.turboism.sdk.cubism.model.ParameterGroups parameterGroups() {
+                throw unsupported();
+            }
             @Override public dev.turboism.sdk.cubism.model.Parts parts() { throw unsupported(); }
             @Override public dev.turboism.sdk.cubism.model.Drawables drawables() { throw unsupported(); }
             @Override public dev.turboism.sdk.cubism.model.Deformers deformers() { throw unsupported(); }
             @Override public dev.turboism.sdk.cubism.model.Glues glues() { throw unsupported(); }
             @Override public void update() { throw unsupported(); }
         };
-        final Color requested = WindowsParameterValidationProbe.parseColor(
-            "0.1", "0.2", "0.3", "0.4"
-        );
 
-        assertEquals(
-            requested,
-            WindowsParameterValidationProbe.setParameterGroupLabelColor(
-                groups,
-                groupId,
-                requested
-            )
-        );
         assertEquals(true, WindowsParameterValidationProbe.setDefaultKeyformLock(model, true));
         assertEquals(false, WindowsParameterValidationProbe.setDefaultKeyformLock(model, false));
     }

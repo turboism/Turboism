@@ -87,16 +87,36 @@ Use a disposable parameter. Change one field at a time first, then test a combin
 - [ ] After an ID change, the validation window follows the new ID and does not write through the stale old wrapper.
 - [ ] Save the disposable model, close it, reopen it, and confirm the edited definition persists.
 
-### Parameter folder label color
+### Parameter folder label background (ControlAppearanceRegistry)
 
-Use a disposable folder in the parameter palette. Select its ID in **Group**, enter finite RGBA values (normally `0.0`–`1.0`), and click **Set label color**.
+Use a disposable folder in the parameter palette. Select its ID in **Group**, enter finite RGBA values (normally `0.0`–`1.0`), and click **Set label background**.
 
-- [ ] Cubism immediately shows the new custom folder color.
-- [ ] The validation window reports the authoritative RGBA value.
+The write goes through `PluginContext.controlAppearance()` with `ControlAppearanceTarget.ParameterFolder` and `NativeControlBackground.Custom(Color)`; the window reads back `snapshot(...).nativeAppearance()` and shows both the semantic background and the effective background. `ParameterGroups` is used only to list/select the folder ID.
+
+- [ ] Cubism immediately shows the new custom folder background.
+- [ ] The validation window reports the authoritative semantic background and effective background.
 - [ ] The document becomes dirty.
-- [ ] One Undo restores the prior label color; one Redo restores the custom color.
+- [ ] One Undo restores the prior label background; one Redo restores the custom background.
 - [ ] Re-applying the identical RGBA value does not add another Undo step.
-- [ ] Save, close, and reopen; the custom color persists.
+- [ ] Save, close, and reopen; the custom background persists.
+
+### Automatic native-control-background mode
+
+Set the probe mode to run only the dedicated native label-background matrix (no editor-object/part matrix):
+
+```text
+-Dturboism.editorObjectValidation.mode=native-control-background
+```
+
+After a real active modeling model is available, the mode selects the first non-root parameter group, one non-`__RootPart__` Part, and one Deformer, then runs each matrix on the Cubism EDT through `ControlAppearanceRegistry`:
+
+- ParameterFolder: a fixed `Custom` RGBA different from the before-state;
+- PartFolder write with PartLabel alias read: a `Preset` different from the before-state;
+- DeformerControlRow write with DeformerLabel alias read: `Default` (if already Default, a different Preset is established first as `matrixBefore`, the Default matrix runs, then the original Default is restored; the report distinguishes `original`/`matrixBefore`/`finalRestored`).
+
+Every matrix records before, requested, afterWrite, aliasAfterWrite, the same-value second write, one Undo (must return directly to before, proving the no-op added no Undo), Redo, and the second Undo/restored value, plus target/family/id, modelId, hostThread, semantic background, effective background, per-item PASS/FAIL and the total status. The two aliases of Part and Deformer must read the same native state. Captured originals are restored in `finally` and re-read for confirmation; any restore failure fails the artifact.
+
+Artifact: `logs\native-control-background-validation.txt` under the Turboism home (first line `status=PASS|FAIL`, then per-matrix key/value lines and `restore.<family>=PASS|FAIL` lines). This mode intentionally does not claim persistence, dirty/Undo counts, visual palette/canvas refresh, stale close/reload behavior, or real-host readiness; those remain follow-up host observation items.
 
 ### Default keyform lock
 
