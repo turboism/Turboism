@@ -353,7 +353,7 @@ class WindowsParameterValidationProbeTest {
             @Override public ControlAppearanceSnapshot snapshot(final ControlAppearanceTarget target) {
                 return new ControlAppearanceSnapshot(
                     Optional.of(new NativeControlAppearance(
-                        new NativeControlBackground.Custom(color[0]), color[0]
+                        new NativeControlBackground.Custom(color[0]), Optional.of(color[0])
                     )),
                     Optional.empty()
                 );
@@ -382,7 +382,7 @@ class WindowsParameterValidationProbeTest {
         );
         assertEquals(requested, color[0]);
         assertEquals(new NativeControlBackground.Custom(requested), authoritative.background());
-        assertEquals(requested, authoritative.effectiveBackground());
+        assertEquals(Optional.of(requested), authoritative.effectiveBackground());
     }
 
     @Test
@@ -422,7 +422,7 @@ class WindowsParameterValidationProbeTest {
         // The failing case: semantic is Custom(red) while the effective color differs.
         final NativeControlAppearance before = new NativeControlAppearance(
             new NativeControlBackground.Custom(new Color(1.0F, 0.0F, 0.0F, 1.0F)),
-            new Color(0.9F, 0.1F, 0.1F, 1.0F)
+            Optional.of(new Color(0.9F, 0.1F, 0.1F, 1.0F))
         );
 
         final NativeControlBackground chosen =
