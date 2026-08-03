@@ -1,10 +1,12 @@
 package dev.turboism.adapter.cubism.editor;
 
+import dev.turboism.mapping.verification.EditorPartBasicSettingsSelectorContract;
 import dev.turboism.mapping.verification.EditorPartNameSelectorContract;
 import dev.turboism.mapping.verification.EditorPartOpacity52SelectorContract;
 import dev.turboism.mapping.verification.EditorPartOpacitySelectorContract;
 import dev.turboism.mapping.verification.EditorPartTreeSelectorContract;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
+import dev.turboism.sdk.cubism.model.Color;
 import dev.turboism.sdk.cubism.model.Part;
 import dev.turboism.sdk.cubism.model.PartId;
 import dev.turboism.sdk.cubism.model.Parts;
@@ -20,6 +22,12 @@ final class EditorPartOpacityAccess {
 
     private static final String ACTION_NAME = "Turboism: Set Part Opacity";
     private static final String NAME_ACTION_NAME = "Turboism: Set Part Name";
+    private static final String SHORT_NAME_ACTION_NAME = "Turboism: Set Part Short Name";
+    private static final String VISIBILITY_ACTION_NAME = "Turboism: Set Part Visibility";
+    private static final String LOCK_ACTION_NAME = "Turboism: Set Part Lock";
+    private static final String COLOR_ACTION_NAME = "Turboism: Set Part Edit Color";
+    private static final String SKETCH_ACTION_NAME = "Turboism: Set Part Sketch";
+    private static final String ORDER_ACTION_NAME = "Turboism: Set Part Default Order";
 
     private final VerifiedMemberResolver resolver;
     private final EditorParameterCombinedAccess.ModelGuard modelGuard;
@@ -87,6 +95,22 @@ final class EditorPartOpacityAccess {
             EditorPartTreeSelectorContract.ADAPTER_SLICE_ID,
             EditorPartTreeSelectorContract.CAPABILITY_ID,
             EditorPartTreeSelectorContract.REQUIRED_ALIASES
+        );
+    }
+
+    private boolean basicSettingsReadAuthorized() {
+        return resolver.authorizesFeature(
+            EditorPartBasicSettingsSelectorContract.ADAPTER_SLICE_ID,
+            EditorPartBasicSettingsSelectorContract.READ_CAPABILITY_ID,
+            EditorPartBasicSettingsSelectorContract.READ_REQUIRED_ALIASES
+        );
+    }
+
+    private boolean basicSettingsWriteAuthorized() {
+        return resolver.authorizesFeature(
+            EditorPartBasicSettingsSelectorContract.ADAPTER_SLICE_ID,
+            EditorPartBasicSettingsSelectorContract.WRITE_CAPABILITY_ID,
+            EditorPartBasicSettingsSelectorContract.WRITE_REQUIRED_ALIASES
         );
     }
 
@@ -160,6 +184,68 @@ final class EditorPartOpacityAccess {
             throw unavailable("Editor Part display name is invalid.");
         }
         return name.isBlank() ? binding.id().value() : name;
+    }
+
+    private Optional<String> shortName(final PartBinding binding) {
+        requireBasicSettingsReadAuthorization();
+        final Object value = resolver.invoke(
+            "cubism.editor-model.part-source.local-name",
+            binding.source()
+        );
+        if (value == null) return Optional.empty();
+        if (!(value instanceof String name)) {
+            throw unavailable("Editor Part short name is invalid.");
+        }
+        return name.isBlank() ? Optional.empty() : Optional.of(name);
+    }
+
+    private boolean booleanSetting(
+        final PartBinding binding,
+        final String alias,
+        final String message
+    ) {
+        requireBasicSettingsReadAuthorization();
+        final Object value = resolver.invoke(alias, binding.source());
+        if (!(value instanceof Boolean flag)) throw unavailable(message);
+        return flag;
+    }
+
+    private int defaultOrder(final PartBinding binding) {
+        requireBasicSettingsReadAuthorization();
+        final Object value = resolver.invoke(
+            "cubism.editor-model.part-source.default-order",
+            binding.source()
+        );
+        if (!(value instanceof Integer order)) {
+            throw unavailable("Editor Part default order is invalid.");
+        }
+        return order;
+    }
+
+    private Optional<Color> editColor(final PartBinding binding) {
+        requireBasicSettingsReadAuthorization();
+        final Object value = resolver.invoke(
+            "cubism.editor-model.part-source.edit-color",
+            binding.source()
+        );
+        if (value == null) return Optional.empty();
+        if (!resolver.isInstance("cubism.editor-model.color.class", value)) {
+            throw unavailable("Editor Part edit color is invalid.");
+        }
+        return Optional.of(new Color(
+            colorComponent("cubism.editor-model.color.red", value),
+            colorComponent("cubism.editor-model.color.green", value),
+            colorComponent("cubism.editor-model.color.blue", value),
+            colorComponent("cubism.editor-model.color.alpha", value)
+        ));
+    }
+
+    private float colorComponent(final String alias, final Object color) {
+        final Object value = resolver.invoke(alias, color);
+        if (!(value instanceof Number number) || !Float.isFinite(number.floatValue())) {
+            throw unavailable("Editor Part edit color component is invalid.");
+        }
+        return number.floatValue();
     }
 
     private void setName(
@@ -304,14 +390,10 @@ final class EditorPartOpacityAccess {
         final Object edit = resolver.invoke("cubism.editor-model.edit-mode.begin", editMode, actionName);
         boolean completed = false;
         try {
-            final Object handler = resolver.invoke(
-                "cubism.editor-model.part-source.handler", current.source()
-            );
-            if (!resolver.isInstance("cubism.editor-model.part-handler.class", handler)) {
-                throw unavailable("Editor Part Undo handler is unavailable.");
-            }
             final Object partUndo = resolver.invoke(
-                "cubism.editor-model.part-handler.create-undo-for-all-edit", handler, actionName
+                "cubism.editor-model.part-source.create-undo-for-basic-settings",
+                current.source(),
+                actionName
             );
             final Object accepted = resolver.invoke(
                 "cubism.editor-model.undo.add", edit, partUndo, Boolean.TRUE
@@ -322,6 +404,10 @@ final class EditorPartOpacityAccess {
             final Object listener = resolver.createFunctionalProxy(
                 "cubism.editor-model.undo-listener.class",
                 ignored -> {
+                    resolver.invoke(
+                        "cubism.editor-model.model-source.update-visible-lock-hierarchy",
+                        source
+                    );
                     resolver.invoke("cubism.editor-model.model-source.update-instances", source);
                     refresh(app);
                     return null;
@@ -329,6 +415,10 @@ final class EditorPartOpacityAccess {
             );
             resolver.invoke("cubism.editor-model.undo.add-listener", partUndo, listener);
             mutation.run();
+            resolver.invoke(
+                "cubism.editor-model.model-source.update-visible-lock-hierarchy",
+                source
+            );
             resolver.invoke("cubism.editor-model.model-source.update-instances", source);
             refresh(app);
             resolver.invoke("cubism.editor-model.modeling-document.mark-dirty", document);
@@ -373,7 +463,8 @@ final class EditorPartOpacityAccess {
     }
 
     private void requireProjectionAuthorization() {
-        if (!opacityAuthorized() && !nameAuthorized() && !treeAuthorized()) {
+        if (!opacityAuthorized() && !nameAuthorized() && !treeAuthorized()
+            && !basicSettingsReadAuthorized()) {
             throw new UnsupportedOperationException(
                 "Part access is unavailable without exact verified host evidence."
             );
@@ -408,6 +499,22 @@ final class EditorPartOpacityAccess {
         if (!nameWriteAuthorized()) {
             throw new UnsupportedOperationException(
                 "Part display-name writing is unavailable without exact verified host evidence."
+            );
+        }
+    }
+
+    private void requireBasicSettingsReadAuthorization() {
+        if (!basicSettingsReadAuthorized()) {
+            throw new UnsupportedOperationException(
+                "Part basic-setting reading is unavailable without exact verified host evidence."
+            );
+        }
+    }
+
+    private void requireBasicSettingsWriteAuthorization() {
+        if (!basicSettingsWriteAuthorized()) {
+            throw new UnsupportedOperationException(
+                "Part basic-setting writing is unavailable without exact verified host evidence."
             );
         }
     }
@@ -497,6 +604,160 @@ final class EditorPartOpacityAccess {
                 .toList();
         }
         @Override public String name() { return EditorPartOpacityAccess.this.name(current()); }
+        @Override public Optional<String> shortName() {
+            return EditorPartOpacityAccess.this.shortName(current());
+        }
+        @Override public void setShortName(final Optional<String> value) {
+            requireBasicSettingsWriteAuthorization();
+            final Optional<String> requested = Objects.requireNonNull(value, "value");
+            if (requested.filter(String::isBlank).isPresent()) {
+                throw new IllegalArgumentException("short name must not be blank");
+            }
+            final PartBinding current = current();
+            if (EditorPartOpacityAccess.this.shortName(current).equals(requested)) return;
+            writePartSource(
+                source,
+                current,
+                SHORT_NAME_ACTION_NAME,
+                () -> resolver.invoke(
+                    "cubism.editor-model.part-source.set-local-name",
+                    current.source(),
+                    requested.orElse(null)
+                )
+            );
+            current();
+        }
+        @Override public boolean visible() {
+            return booleanSetting(
+                current(),
+                "cubism.editor-model.parameter-controllable-source.visible",
+                "Editor Part visibility is invalid."
+            );
+        }
+        @Override public void setVisible(final boolean value) {
+            requireBasicSettingsWriteAuthorization();
+            final PartBinding current = current();
+            if (visible() == value) return;
+            writePartSource(
+                source,
+                current,
+                VISIBILITY_ACTION_NAME,
+                () -> resolver.invoke(
+                    "cubism.editor-model.parameter-controllable-source.set-visible",
+                    current.source(),
+                    Boolean.valueOf(value)
+                )
+            );
+            current();
+        }
+        @Override public boolean visibleInHierarchy() {
+            return booleanSetting(
+                current(),
+                "cubism.editor-model.parameter-controllable-source.visible-in-hierarchy",
+                "Editor Part effective visibility is invalid."
+            );
+        }
+        @Override public boolean locked() {
+            return booleanSetting(
+                current(),
+                "cubism.editor-model.parameter-controllable-source.locked",
+                "Editor Part lock state is invalid."
+            );
+        }
+        @Override public void setLocked(final boolean value) {
+            requireBasicSettingsWriteAuthorization();
+            final PartBinding current = current();
+            if (locked() == value) return;
+            writePartSource(
+                source,
+                current,
+                LOCK_ACTION_NAME,
+                () -> resolver.invoke(
+                    "cubism.editor-model.parameter-controllable-source.set-locked",
+                    current.source(),
+                    Boolean.valueOf(value)
+                )
+            );
+            current();
+        }
+        @Override public boolean lockedInHierarchy() {
+            return booleanSetting(
+                current(),
+                "cubism.editor-model.parameter-controllable-source.locked-in-hierarchy",
+                "Editor Part effective lock state is invalid."
+            );
+        }
+        @Override public Optional<Color> editColor() {
+            return EditorPartOpacityAccess.this.editColor(current());
+        }
+        @Override public void setEditColor(final Optional<Color> value) {
+            requireBasicSettingsWriteAuthorization();
+            final Optional<Color> requested = Objects.requireNonNull(value, "value");
+            final PartBinding current = current();
+            if (EditorPartOpacityAccess.this.editColor(current).equals(requested)) return;
+            final Object hostColor = requested
+                .map(color -> resolver.construct(
+                    "cubism.editor-model.color.create",
+                    Float.valueOf(color.red()),
+                    Float.valueOf(color.green()),
+                    Float.valueOf(color.blue()),
+                    Float.valueOf(color.alpha())
+                ))
+                .orElse(null);
+            writePartSource(
+                source,
+                current,
+                COLOR_ACTION_NAME,
+                () -> resolver.invoke(
+                    "cubism.editor-model.part-source.set-edit-color",
+                    current.source(),
+                    hostColor
+                )
+            );
+            current();
+        }
+        @Override public boolean sketch() {
+            return booleanSetting(
+                current(),
+                "cubism.editor-model.part-source.sketch",
+                "Editor Part sketch state is invalid."
+            );
+        }
+        @Override public void setSketch(final boolean value) {
+            requireBasicSettingsWriteAuthorization();
+            final PartBinding current = current();
+            if (sketch() == value) return;
+            writePartSource(
+                source,
+                current,
+                SKETCH_ACTION_NAME,
+                () -> resolver.invoke(
+                    "cubism.editor-model.part-source.set-sketch",
+                    current.source(),
+                    Boolean.valueOf(value)
+                )
+            );
+            current();
+        }
+        @Override public int defaultOrder() {
+            return EditorPartOpacityAccess.this.defaultOrder(current());
+        }
+        @Override public void setDefaultOrder(final int value) {
+            requireBasicSettingsWriteAuthorization();
+            final PartBinding current = current();
+            if (EditorPartOpacityAccess.this.defaultOrder(current) == value) return;
+            writePartSource(
+                source,
+                current,
+                ORDER_ACTION_NAME,
+                () -> resolver.invoke(
+                    "cubism.editor-model.part-source.set-default-order",
+                    current.source(),
+                    Integer.valueOf(value)
+                )
+            );
+            current();
+        }
         @Override public void setName(final String name) {
             EditorPartOpacityAccess.this.setName(
                 identity, source, model, id, expectedSource, expectedPart, name

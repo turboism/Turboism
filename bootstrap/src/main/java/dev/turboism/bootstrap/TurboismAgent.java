@@ -143,6 +143,15 @@ public final class TurboismAgent {
                 options.home(),
                 "cubism-" + profile + "-editor-model.json"
             );
+            final Path coreRuntimeVerificationRecord = extractVerificationRecord(
+                options.home(),
+                "cubism-" + profile + "-core-model-read.json"
+            );
+            final Path coreArtifact = host.artifact().resolveSibling("Live2DCubismCore.jar")
+                .toAbsolutePath().normalize();
+            if (!Files.isRegularFile(coreArtifact)) {
+                throw new IOException("Exact Cubism Core artifact is missing beside the Editor JAR");
+            }
             final Path mainToolbarVerificationRecord = extractVerificationRecord(
                 options.home(),
                 "cubism-" + profile + "-ui-main-toolbar.json"
@@ -167,11 +176,13 @@ public final class TurboismAgent {
                 options.home(),
                 verificationRecord,
                 editorModelVerificationRecord,
+                coreRuntimeVerificationRecord,
                 mainToolbarVerificationRecord,
                 embeddedPanelVerificationRecord,
                 topMenuVerificationRecord,
                 boundingBoxOverlayVerificationRecord,
                 host.artifact(),
+                coreArtifact,
                 host.classLoader()
             );
             if (!RUNTIME.compareAndSet(null, runtime)) {

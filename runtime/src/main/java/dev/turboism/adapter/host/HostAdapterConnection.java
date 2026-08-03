@@ -19,6 +19,10 @@ interface HostAdapterConnection extends AutoCloseable {
         return UnavailableCubismModelAccess.INSTANCE;
     }
 
+    default dev.turboism.sdk.cubism.core.CoreRuntimeInfo coreRuntimeInfo() {
+        return DynamicCoreRuntimeInfo.unavailableRuntime();
+    }
+
     default VerifiedMemberResolver editorModelResolver() {
         throw new IllegalStateException("Verified Editor model resolver is unavailable.");
     }
@@ -87,9 +91,29 @@ interface HostAdapterConnection extends AutoCloseable {
         final VerifiedMemberResolver editorModelResolver,
         final AppearanceHostProvider appearanceProvider
     ) {
+        return of(
+            adapters,
+            modelAccess,
+            editorModelResolver,
+            appearanceProvider,
+            DynamicCoreRuntimeInfo.unavailableRuntime(),
+            null
+        );
+    }
+
+    static HostAdapterConnection of(
+        final RuntimeHostAdapters adapters,
+        final CubismModelAccess modelAccess,
+        final VerifiedMemberResolver editorModelResolver,
+        final AppearanceHostProvider appearanceProvider,
+        final dev.turboism.sdk.cubism.core.CoreRuntimeInfo coreRuntimeInfo,
+        final AutoCloseable coreOwner
+    ) {
         final RuntimeHostAdapters ownedAdapters = Objects.requireNonNull(adapters, "adapters");
         final CubismModelAccess ownedModelAccess = Objects.requireNonNull(modelAccess, "modelAccess");
         final AppearanceHostProvider ownedAppearance = Objects.requireNonNull(appearanceProvider, "appearanceProvider");
+        final dev.turboism.sdk.cubism.core.CoreRuntimeInfo ownedCoreRuntime =
+            Objects.requireNonNull(coreRuntimeInfo, "coreRuntimeInfo");
         return new HostAdapterConnection() {
             @Override
             public RuntimeHostAdapters adapters() {
@@ -99,6 +123,11 @@ interface HostAdapterConnection extends AutoCloseable {
             @Override
             public CubismModelAccess modelAccess() {
                 return ownedModelAccess;
+            }
+
+            @Override
+            public dev.turboism.sdk.cubism.core.CoreRuntimeInfo coreRuntimeInfo() {
+                return ownedCoreRuntime;
             }
 
             @Override
@@ -115,7 +144,8 @@ interface HostAdapterConnection extends AutoCloseable {
             }
 
             @Override
-            public void close() {
+            public void close() throws Exception {
+                if (coreOwner != null) coreOwner.close();
             }
         };
     }

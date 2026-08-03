@@ -173,6 +173,30 @@ public final class CubismFacadeImpl implements CubismFacade {
     public CubismFacadeImpl(
         final HostSnapshotSource source,
         final CubismPermissionGate permissionGate,
+        final CubismModelAccess modelAccess,
+        final dev.turboism.sdk.cubism.core.CoreRuntimeInfo coreRuntime,
+        final ParameterLifecycleCoordinator parameterLifecycle,
+        final PartLifecycleCoordinator partLifecycle,
+        final EditorObjectLifecycleCoordinator editorObjectLifecycle,
+        final BooleanSupplier activeScope
+    ) {
+        this(
+            source,
+            permissionGate,
+            new ImmutableSnapshotFactory(),
+            unavailableTransactionManager(),
+            modelAccess,
+            coreRuntime,
+            parameterLifecycle,
+            partLifecycle,
+            editorObjectLifecycle,
+            activeScope
+        );
+    }
+
+    public CubismFacadeImpl(
+        final HostSnapshotSource source,
+        final CubismPermissionGate permissionGate,
         final HostWriteAdapter writeAdapter
     ) {
         this(source, permissionGate, writeAdapter, defaultScheduler());
