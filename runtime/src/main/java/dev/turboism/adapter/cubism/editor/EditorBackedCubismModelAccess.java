@@ -72,7 +72,7 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess, N
         );
         this.nativeControlAppearanceAccess = new EditorNativeControlAppearanceAccess(
             resolver,
-            () -> binding().source()
+            () -> binding()
         );
     }
 
@@ -105,7 +105,7 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess, N
         }
         final Object guid = resolver.invoke("cubism.editor-model.model-source.guid", source);
         final String id = text(resolver.invoke("cubism.editor-model.guid.value", guid));
-        return new Binding(sessionIdentity + ":" + id, source, model);
+        return new Binding(sessionIdentity + ":" + id, document, source, model);
     }
 
     private void setParameterValue(
@@ -722,6 +722,6 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess, N
         return value;
     }
 
-    private record Binding(String identity, Object source, Object model) { }
+    record Binding(String identity, Object document, Object source, Object model) { }
     private record ParameterBinding(String id, Object parameter) { }
 }
