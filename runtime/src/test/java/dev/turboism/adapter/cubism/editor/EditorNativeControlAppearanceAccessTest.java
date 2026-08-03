@@ -16,23 +16,33 @@ import dev.turboism.sdk.ui.appearance.NativeControlBackground;
 import dev.turboism.sdk.ui.appearance.PresetColor;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.stream.Collectors;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Exact-selector-gated Editor-native control label-background authoring. */
 class EditorNativeControlAppearanceAccessTest {
+
+    @TempDir
+    java.nio.file.Path temporary;
 
     @AfterEach
     void clearHost() {
         Host.currentDocument = null;
         Host.completePack = null;
         Host.mainFrame = null;
+        System.clearProperty("turboism.editorObjectValidation.trace");
+        System.clearProperty("turboism.home");
     }
 
     @Test
@@ -389,6 +399,74 @@ class EditorNativeControlAppearanceAccessTest {
             fixture.completePack.canvasRepaints,
             "the UI refresh must not run against the replaced target"
         );
+    }
+
+    @Test
+    void nonNoOpWriteRecordsMachineReadableTransactionTracePhases() throws Exception {
+        System.setProperty("turboism.home", temporary.toString());
+        System.setProperty("turboism.editorObjectValidation.trace", "true");
+        Fixture fixture = new Fixture("model-a");
+        Host.install(fixture);
+        EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
+            resolver(true), "session-a"
+        );
+        ControlAppearanceTarget.ParameterFolder folder =
+            new ControlAppearanceTarget.ParameterFolder(new ParameterGroupId("GroupFace"));
+
+        access.setNativeBackground(folder, new NativeControlBackground.Preset(PresetColor.RED));
+        fixture.editMode.undo();
+
+        final String trace = String.join("\n", Files.readAllLines(
+            temporary.resolve("logs").resolve("editor-object-runtime-trace.txt")
+        ));
+        assertTrue(trace.contains("phase=begin"), trace);
+        assertTrue(trace.contains("phase=edit-begin"), trace);
+        assertTrue(trace.contains("phase=undo-admitted"), trace);
+        assertTrue(trace.contains("phase=mutation"), trace);
+        assertTrue(trace.contains("phase=refresh"), trace);
+        assertTrue(trace.contains("phase=undo-redo-listener"), trace);
+        assertTrue(trace.contains("phase=dirty"), trace);
+        assertTrue(trace.contains("phase=edit-end"), trace);
+        assertTrue(trace.contains("kind=native-control-background"), trace);
+        assertTrue(trace.contains("action=set-native-background"), trace);
+        assertTrue(trace.contains("sourceId=ParameterFolder:GroupFace"), trace);
+        assertTrue(trace.contains("family=parameterFolder"), trace);
+        assertTrue(trace.contains("palette=parameterOperation"), trace);
+        assertTrue(trace.contains("canvas=repaintCanvas"), trace);
+        assertTrue(trace.contains("documentIdentity="), trace);
+        assertTrue(trace.contains("modelSourceIdentity="), trace);
+        assertTrue(trace.contains("edt="), trace);
+        assertTrue(trace.contains("requested=preset(RED)"), trace);
+    }
+
+    @Test
+    void exactNoOpWriteProducesNoTransactionTrace() throws Exception {
+        System.setProperty("turboism.home", temporary.toString());
+        System.setProperty("turboism.editorObjectValidation.trace", "true");
+        Fixture fixture = new Fixture("model-a");
+        Host.install(fixture);
+        EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
+            resolver(true), "session-a"
+        );
+        ControlAppearanceTarget.ParameterFolder folder =
+            new ControlAppearanceTarget.ParameterFolder(new ParameterGroupId("GroupFace"));
+        fixture.face.labelColor.type = LabelColorType.BLUE;
+
+        access.setNativeBackground(folder, new NativeControlBackground.Preset(PresetColor.BLUE));
+
+        assertEquals(
+            0,
+            fixture.editMode.beginCalls,
+            "the exact no-op must not open a transaction"
+        );
+        assertFalse(
+            Files.exists(temporary.resolve("logs").resolve("editor-object-runtime-trace.txt")),
+            "the exact no-op must not produce a transaction trace"
+        );
+    }
+
+    private static String joinLines(final java.util.List<String> lines) {
+        return lines.stream().collect(Collectors.joining("\n"));
     }
 
     @Test
