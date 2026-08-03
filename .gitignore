@@ -3,8 +3,11 @@
 .cortexkit/
 .omo/
 .docs/
+/AGENTS.md
+/docs/
+/docs_internal/
+/docs-internal/
 cubism-ref/Cubism-*/
-docs-internal/
 
 # 构建产物与运行期目录
 __pycache__/
@@ -31,9 +34,8 @@ turboism.*.config.json
 
 # AI / agent-local scratch files, not submitted
 .pi-subagents/
-docs/agents/
-docs/migration/subagents/
 .artifacts/
+.research-artifacts/
 
 # 当前本地-only 文件，不进入远端
 00_MASTER_PROMPT_v2.md

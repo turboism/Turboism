@@ -135,6 +135,7 @@ public final class EmbeddedPanelContributionProvider implements EditorUiContribu
         private final long hostGeneration;
         private Map<EditorUiContributionIdentity, InstalledPanel> panels = Map.of();
         private List<Registration> bindings = List.of();
+        private Thread startupDockCleanup;
         private boolean closed;
 
         private Session(final long hostGeneration) {
@@ -149,18 +150,66 @@ public final class EmbeddedPanelContributionProvider implements EditorUiContribu
                 return;
             }
             final List<Registration> installedBindings = new ArrayList<>();
+            RuntimeDockMaintenanceCoordinator.EmptyDockCleaner startupDockCleaner = null;
             try {
                 installedBindings.add(activationCoordinator.bind(hostGeneration, this::activate));
                 installedBindings.add(host.onRebuild(this::rebuild));
+                if (host instanceof VerifiedEmbeddedPanelHostOperations verified) {
+                    verified.bindHostGeneration(hostGeneration);
+                }
                 installedBindings.add(host.bindPanelTabMenus(panelTabMenus));
                 if (host instanceof VerifiedEmbeddedPanelHostOperations verified) {
-                    installedBindings.add(dockMaintenance.bind(hostGeneration, verified::cleanEmptyDocks));
+                    final RuntimeDockMaintenanceCoordinator.EmptyDockCleaner cleaner =
+                        () -> verified.cleanEmptyDocks(hostGeneration);
+                    installedBindings.add(dockMaintenance.bind(hostGeneration, cleaner));
+                    startupDockCleaner = cleaner;
                 }
                 bindings = List.copyOf(installedBindings);
+                // The dock tree may not be materialized during bind. Retry in a bounded
+                // daemon task; each host operation dispatches synchronously to the EDT.
+                if (startupDockCleaner != null) {
+                    scheduleStartupDockCleanup(startupDockCleaner);
+                }
             } catch (RuntimeException | Error failure) {
                 closeAllSuppressing(installedBindings, failure);
                 throw failure;
             }
+        }
+
+        private void scheduleStartupDockCleanup(
+            final RuntimeDockMaintenanceCoordinator.EmptyDockCleaner cleaner
+        ) {
+            final Thread cleanup = new Thread(() -> {
+                for (int attempt = 1; attempt <= 5; attempt++) {
+                    if (Thread.currentThread().isInterrupted()) {
+                        return;
+                    }
+                    try {
+                        cleaner.clean();
+                        System.err.println("Turboism startup empty-dock cleanup completed");
+                        return;
+                    } catch (RuntimeException | Error failure) {
+                        System.err.println(
+                            "Turboism startup empty-dock cleanup retry " + attempt
+                                + " failed safely: " + failure.getClass().getName()
+                                + ": " + failure.getMessage()
+                        );
+                        if (attempt == 5) {
+                            break;
+                        }
+                        try {
+                            Thread.sleep(2_000L);
+                        } catch (InterruptedException interrupted) {
+                            Thread.currentThread().interrupt();
+                            return;
+                        }
+                    }
+                }
+                System.err.println("Turboism startup empty-dock cleanup gave up after retries");
+            }, "turboism-startup-dock-cleanup");
+            cleanup.setDaemon(true);
+            startupDockCleanup = cleanup;
+            cleanup.start();
         }
 
         private synchronized void reconcile(
@@ -260,13 +309,21 @@ public final class EmbeddedPanelContributionProvider implements EditorUiContribu
                 return;
             }
             closed = true;
+            // Unbind first, then invalidate the generation-bound host before interrupting
+            // the retry task. Any already queued EDT cleanup now fails closed.
             final List<Registration> installedBindings = bindings;
             bindings = List.of();
+            RuntimeException first = closeAllReturning(installedBindings);
+            host.invalidateHost();
+            final Thread cleanup = startupDockCleanup;
+            startupDockCleanup = null;
+            if (cleanup != null) {
+                cleanup.interrupt();
+            }
             final List<EmbeddedPanelHostOperations.PanelHandle> installedPanels = panels.values().stream()
                 .map(InstalledPanel::handle)
                 .toList();
             panels = Map.of();
-            RuntimeException first = closeAllReturning(installedBindings);
             try {
                 closePanels(installedPanels);
             } catch (RuntimeException failure) {
