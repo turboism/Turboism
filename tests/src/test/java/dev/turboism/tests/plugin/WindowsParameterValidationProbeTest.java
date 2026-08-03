@@ -17,6 +17,7 @@ import dev.turboism.sdk.ui.appearance.ControlAppearanceStyle;
 import dev.turboism.sdk.ui.appearance.ControlAppearanceTarget;
 import dev.turboism.sdk.ui.appearance.NativeControlAppearance;
 import dev.turboism.sdk.ui.appearance.NativeControlBackground;
+import java.nio.file.Files;
 import dev.turboism.sdk.ui.appearance.PresetColor;
 import org.junit.jupiter.api.Test;
 
@@ -28,6 +29,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class WindowsParameterValidationProbeTest {
 
@@ -459,6 +461,93 @@ class WindowsParameterValidationProbeTest {
                 WindowsParameterValidationProbe.parseStoredBackground(properties, prefixes[index])
             );
         }
+    }
+
+    @Test
+    void autoNativeControlBackgroundModesNeverShowTheValidationWindow() {
+        assertFalse(WindowsParameterValidationProbe.showsValidationWindow("native-control-background"));
+        assertFalse(WindowsParameterValidationProbe.showsValidationWindow("native-control-background-document-close"));
+        assertFalse(WindowsParameterValidationProbe.showsValidationWindow("native-control-background-persist-write"));
+        assertFalse(WindowsParameterValidationProbe.showsValidationWindow("native-control-background-persist-reopen"));
+        assertFalse(WindowsParameterValidationProbe.showsValidationWindow("native-control-background-persist-final"));
+        assertTrue(WindowsParameterValidationProbe.showsValidationWindow("matrix"));
+        assertTrue(WindowsParameterValidationProbe.showsValidationWindow("binding-matrix"));
+        assertTrue(WindowsParameterValidationProbe.showsValidationWindow("document-close"));
+        assertTrue(WindowsParameterValidationProbe.showsValidationWindow("plugin-scope-close"));
+        assertThrows(NullPointerException.class, () ->
+            WindowsParameterValidationProbe.showsValidationWindow(null));
+    }
+
+    @org.junit.jupiter.api.io.TempDir
+    java.nio.file.Path saveTemp;
+
+    @org.junit.jupiter.api.AfterEach
+    void clearFixtureProperty() {
+        System.clearProperty("turboism.validation.fixture");
+    }
+
+    @Test
+    void saveConfirmationDetectsACommittedFixtureWrite() throws Exception {
+        final java.nio.file.Path fixture = saveTemp.resolve("fixture.cmo3");
+        Files.writeString(fixture, "before");
+        final java.nio.file.attribute.FileTime before =
+            Files.getLastModifiedTime(fixture);
+        final long beforeSize = Files.size(fixture);
+        // Cross a coarse mtime boundary deterministically with a background one-time write.
+        final Thread writer = new Thread(() -> {
+            try {
+                Thread.sleep(1_200L);
+                Files.writeString(fixture, "after-save-content");
+            } catch (Exception failure) {
+                throw new RuntimeException(failure);
+            }
+        });
+        writer.start();
+
+        final WindowsParameterValidationProbe.SaveConfirmation confirmed =
+            WindowsParameterValidationProbe.awaitSaveConfirmation(
+                fixture, before, beforeSize, 10_000L, 50L
+            );
+        writer.join(15_000L);
+
+        assertTrue(confirmed.confirmed(), "the committed write must be confirmed");
+        assertEquals(beforeSize, confirmed.beforeSize());
+        assertEquals(
+            "after-save-content".getBytes(java.nio.charset.StandardCharsets.UTF_8).length,
+            confirmed.afterSize()
+        );
+        assertTrue(confirmed.afterMtimeMillis() >= confirmed.beforeMtimeMillis());
+    }
+
+    @Test
+    void saveConfirmationFailsClosedWhenTheFixtureNeverChanges() throws Exception {
+        final java.nio.file.Path fixture = saveTemp.resolve("static.cmo3");
+        Files.writeString(fixture, "unchanged");
+        final java.nio.file.attribute.FileTime before = Files.getLastModifiedTime(fixture);
+
+        final WindowsParameterValidationProbe.SaveConfirmation confirmation =
+            WindowsParameterValidationProbe.awaitSaveConfirmation(
+                fixture, before, Files.size(fixture), 400L, 40L
+            );
+
+        assertFalse(confirmation.confirmed(), "a never-changing fixture must fail closed");
+    }
+
+    @Test
+    void saveConfirmationRejectsMissingFixturePaths() {
+        assertThrows(IllegalArgumentException.class, () ->
+            WindowsParameterValidationProbe.awaitSaveConfirmation(
+                saveTemp.resolve("missing.cmo3"),
+                java.nio.file.attribute.FileTime.fromMillis(0L),
+                0L,
+                100L,
+                10L
+            ));
+        System.clearProperty("turboism.validation.fixture");
+        assertThrows(IllegalArgumentException.class, () ->
+            WindowsParameterValidationProbe.fixturePath());
+        System.setProperty("turboism.validation.fixture", saveTemp.toString());
+        assertEquals(saveTemp, WindowsParameterValidationProbe.fixturePath());
     }
 
     @Test

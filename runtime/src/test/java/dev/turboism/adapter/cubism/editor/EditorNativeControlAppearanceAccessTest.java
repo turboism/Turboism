@@ -440,6 +440,36 @@ class EditorNativeControlAppearanceAccessTest {
     }
 
     @Test
+    void refreshSelectorFailureCancelsTheTransactionWithoutASuccessRefreshTrace() throws Exception {
+        System.setProperty("turboism.home", temporary.toString());
+        System.setProperty("turboism.editorObjectValidation.trace", "true");
+        Fixture fixture = new Fixture("model-a");
+        fixture.completePack.failRefresh = true;
+        Host.install(fixture);
+        EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
+            resolver(true), "session-a"
+        );
+        ControlAppearanceTarget.ParameterFolder folder =
+            new ControlAppearanceTarget.ParameterFolder(new ParameterGroupId("GroupFace"));
+
+        assertThrows(dev.turboism.mapping.verification.VerifiedAccessException.class,
+            () -> access.setNativeBackground(
+                folder, new NativeControlBackground.Preset(PresetColor.RED)
+            ));
+
+        final String trace = joinLines(Files.readAllLines(
+            temporary.resolve("logs").resolve("editor-object-runtime-trace.txt")
+        ));
+        assertFalse(
+            trace.contains("phase=refresh"),
+            "a failed refresh must not record a success phase=refresh"
+        );
+        assertTrue(trace.contains("phase=edit-end"), trace);
+        assertTrue(trace.contains("cancelled=true"), trace);
+        assertEquals(1, fixture.editMode.cancelledEnds, "the transaction must be cancelled");
+    }
+
+    @Test
     void exactNoOpWriteProducesNoTransactionTrace() throws Exception {
         System.setProperty("turboism.home", temporary.toString());
         System.setProperty("turboism.editorObjectValidation.trace", "true");
@@ -999,10 +1029,16 @@ class EditorNativeControlAppearanceAccessTest {
         int partRefreshes;
         int deformerRefreshes;
         int canvasRepaints;
+        boolean failRefresh;
         public void updateParameter(final boolean immediate) { parameterRefreshes++; }
         public void updatePartPalette(final boolean immediate) { partRefreshes++; }
         public void updateDeformerPalette(final boolean immediate) { deformerRefreshes++; }
-        public void repaintCanvas(final boolean immediate) { canvasRepaints++; }
+        public void repaintCanvas(final boolean immediate) {
+            if (failRefresh) {
+                throw new IllegalStateException("refresh failed");
+            }
+            canvasRepaints++;
+        }
     }
 
     public static final class ParameterOperation {
