@@ -3374,8 +3374,10 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
     }
 
     private static void pressShortcut(final java.awt.Robot robot, final int key) throws Exception {
-        if ((key == java.awt.event.KeyEvent.VK_Z || key == java.awt.event.KeyEvent.VK_Y)
-            && invokeMenuShortcut(key)) {
+        // Prefer the matching enabled Swing menu accelerator directly (avoids Wine/window
+        // focus); fall back to Robot only when no enabled accelerator exists. Callers use
+        // Ctrl+Z/Y (Undo/Redo), Ctrl+W (document close), and Ctrl+S (save).
+        if (invokeMenuShortcut(key)) {
             Thread.sleep(250L);
             return;
         }
