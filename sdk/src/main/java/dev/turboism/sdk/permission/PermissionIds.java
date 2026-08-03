@@ -18,6 +18,8 @@ public final class PermissionIds {
     public static final String TURBOISM_UI_TOOLBAR_CONTRIBUTE = "turboism.ui.toolbar.contribute";
     public static final String TURBOISM_CONFIG_PLUGIN_READ = "turboism.config.plugin.read";
     public static final String TURBOISM_CONFIG_PLUGIN_WRITE = "turboism.config.plugin.write";
+    public static final String TURBOISM_CUBISM_MODEL_READ = "turboism.cubism.model.read";
+    public static final String TURBOISM_CUBISM_MODEL_WRITE = "turboism.cubism.model.write";
     public static final String TURBOISM_CUBISM_MODEL_OBSERVE =
         "turboism.cubism.model.observe";
     public static final String TURBOISM_CUBISM_MODEL_INTERCEPT =

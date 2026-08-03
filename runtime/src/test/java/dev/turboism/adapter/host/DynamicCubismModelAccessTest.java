@@ -1,11 +1,15 @@
 package dev.turboism.adapter.host;
 
 import dev.turboism.sdk.cubism.id.ModelId;
+import dev.turboism.adapter.cubism.NativeControlAppearanceAuthoring;
 import dev.turboism.sdk.cubism.id.ParameterGroupId;
 import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.model.Color;
+import dev.turboism.sdk.ui.appearance.ControlAppearanceTarget;
+import dev.turboism.sdk.ui.appearance.NativeControlAppearance;
+import dev.turboism.sdk.ui.appearance.NativeControlBackground;
 import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.sdk.cubism.model.Parameter;
@@ -74,17 +78,63 @@ class DynamicCubismModelAccessTest {
         final ParameterGroups groups = access.active().parameterGroups();
         final ParameterGroup group = groups.find(new ParameterGroupId("GroupFace"));
         assertEquals(Optional.of("Face"), group.name());
-        assertEquals(new Color(0.25F, 0.5F, 0.75F, 1.0F), group.labelColor());
         assertEquals(List.of(new ParameterId("ParamA")), group.parameterIds());
-        final Color updated = new Color(0.1F, 0.2F, 0.3F, 1.0F);
-        group.setLabelColor(updated);
-        assertEquals(updated, group.labelColor());
 
         access.deactivate();
         assertThrows(IllegalStateException.class, groups::all);
         assertThrows(IllegalStateException.class, group::name);
-        assertThrows(IllegalStateException.class, group::labelColor);
-        assertThrows(IllegalStateException.class, () -> group.setLabelColor(updated));
+    }
+    @Test
+    void nativeControlAppearanceSeamFollowsTheSessionLeaseAndFailsClosed() {
+        final DynamicCubismModelAccess access = new DynamicCubismModelAccess();
+        final ControlAppearanceTarget.ParameterFolder folder =
+            new ControlAppearanceTarget.ParameterFolder(new ParameterGroupId("GroupFace"));
+        final NativeControlAppearance nativePart = new NativeControlAppearance(
+            new NativeControlBackground.Default(),
+            Optional.empty()
+        );
+        access.connect(authoringModelAccess(nativePart));
+
+        assertEquals(nativePart, access.snapshot(folder));
+
+        access.deactivate();
+        assertThrows(IllegalStateException.class, () -> access.snapshot(folder));
+        assertThrows(IllegalStateException.class, () -> access.setNativeBackground(
+            folder, new NativeControlBackground.Default()
+        ));
+
+        access.connect(() -> model("model-a", parameter(1.0F), parameterGroups()));
+        assertThrows(UnsupportedOperationException.class, () -> access.snapshot(folder));
+        assertThrows(UnsupportedOperationException.class, () -> access.setNativeBackground(
+            folder, new NativeControlBackground.Default()
+        ));
+    }
+
+    private static CubismModelAccess authoringModelAccess(final NativeControlAppearance nativePart) {
+        return new AuthoringModelAccess(nativePart);
+    }
+
+    private static final class AuthoringModelAccess
+        implements CubismModelAccess, NativeControlAppearanceAuthoring {
+        private final CubismModel delegate = model("model-a", parameter(1.0F));
+        private final NativeControlAppearance nativePart;
+
+        AuthoringModelAccess(final NativeControlAppearance nativePart) {
+            this.nativePart = nativePart;
+        }
+
+        @Override public CubismModel active() { return delegate; }
+
+        @Override public NativeControlAppearance snapshot(final ControlAppearanceTarget target) {
+            return nativePart;
+        }
+
+        @Override public void setNativeBackground(
+            final ControlAppearanceTarget target,
+            final NativeControlBackground background
+        ) {
+            throw new AssertionError("unexpected native write");
+        }
     }
 
     @Test
@@ -420,23 +470,19 @@ class DynamicCubismModelAccessTest {
     }
 
     private static ParameterGroups parameterGroups() {
-        final Color[] rootColor = {new Color(0.25F, 0.5F, 0.75F, 1.0F)};
-        final Color[] faceColor = {new Color(0.25F, 0.5F, 0.75F, 1.0F)};
         final ParameterGroup root = parameterGroup(
             "GroupRoot",
             "Root",
             Optional.empty(),
             List.of(new ParameterGroupId("GroupFace")),
-            List.of(),
-            rootColor
+            List.of()
         );
         final ParameterGroup face = parameterGroup(
             "GroupFace",
             "Face",
             Optional.of(new ParameterGroupId("GroupRoot")),
             List.of(),
-            List.of(new ParameterId("ParamA")),
-            faceColor
+            List.of(new ParameterId("ParamA"))
         );
         return new ParameterGroups() {
             @Override public List<ParameterGroup> all() { return List.of(root, face); }
@@ -447,20 +493,16 @@ class DynamicCubismModelAccessTest {
             }
         };
     }
-
     private static ParameterGroup parameterGroup(
         final String id,
         final String name,
         final Optional<ParameterGroupId> parentId,
         final List<ParameterGroupId> childGroupIds,
-        final List<ParameterId> parameterIds,
-        final Color[] color
+        final List<ParameterId> parameterIds
     ) {
         return new ParameterGroup() {
             @Override public ParameterGroupId id() { return new ParameterGroupId(id); }
             @Override public Optional<String> name() { return Optional.of(name); }
-            @Override public Color labelColor() { return color[0]; }
-            @Override public void setLabelColor(final Color next) { color[0] = next; }
             @Override public Optional<ParameterGroupId> parentId() { return parentId; }
             @Override public List<ParameterGroupId> childGroupIds() { return childGroupIds; }
             @Override public List<ParameterId> parameterIds() { return parameterIds; }

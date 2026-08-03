@@ -87,16 +87,38 @@ Use a disposable parameter. Change one field at a time first, then test a combin
 - [ ] After an ID change, the validation window follows the new ID and does not write through the stale old wrapper.
 - [ ] Save the disposable model, close it, reopen it, and confirm the edited definition persists.
 
-### Parameter folder label color
+### Parameter folder label background (ControlAppearanceRegistry)
 
-Use a disposable folder in the parameter palette. Select its ID in **Group**, enter finite RGBA values (normally `0.0`–`1.0`), and click **Set label color**.
+Use a disposable folder in the parameter palette. Select its ID in **Group**, enter finite RGBA values (normally `0.0`–`1.0`), and click **Set label background**.
 
-- [ ] Cubism immediately shows the new custom folder color.
-- [ ] The validation window reports the authoritative RGBA value.
+The write goes through `PluginContext.controlAppearance()` with `ControlAppearanceTarget.ParameterFolder` and `NativeControlBackground.Custom(Color)`; the window reads back `snapshot(...).nativeAppearance()` and shows both the semantic background and the effective background. `ParameterGroups` is used only to list/select the folder ID.
+
+- [ ] Cubism immediately shows the new custom folder background.
+- [ ] The validation window reports the authoritative semantic background and effective background.
 - [ ] The document becomes dirty.
-- [ ] One Undo restores the prior label color; one Redo restores the custom color.
+- [ ] One Undo restores the prior label background; one Redo restores the custom background.
 - [ ] Re-applying the identical RGBA value does not add another Undo step.
-- [ ] Save, close, and reopen; the custom color persists.
+- [ ] Save, close, and reopen; the custom background persists.
+
+### Automatic native-control-background modes
+
+Set the probe mode with `-Dturboism.editorObjectValidation.mode=<mode>`. Each mode runs only its own validation (no editor-object/part matrix in parallel).
+
+`native-control-background` — the label-background matrix. After a real active modeling model is available, the mode selects the first non-root parameter group, one non-`__RootPart__` Part, and one Deformer, then runs each matrix on the Cubism EDT through `ControlAppearanceRegistry`:
+
+- ParameterFolder: a fixed `Custom` RGBA different from the semantic before-state;
+- PartFolder write with PartLabel alias read: a `Preset` different from the before-state;
+- DeformerControlRow write with DeformerLabel alias read: `Default` (if already Default, a different Preset is established first as `matrixBefore`, the Default matrix runs, then the original Default is restored; the report distinguishes `original`/`matrixBefore`/`finalRestored`).
+
+Every matrix records before, requested, afterWrite, aliasAfterWrite, the same-value second write, one Undo (must return directly to before — the observable proof that the same-value second write added no Undo group; `check.singleUndoGroup` is the auditable field), Redo, and the second Undo/restored value, plus target/family/id, modelId, hostThread, semantic background, effective background (`unavailable` for UNDEFINED), per-item PASS/FAIL and the total status. The two aliases of Part and Deformer must read the same native state. Captured originals are restored in `finally` and re-read for confirmation; any restore failure fails the artifact. After restoration the mode closes the owning plugin scope and verifies the held model and the registry's snapshot/write fail closed, then uses the existing peer-probe handshake (`state/editor-object-peer-request.txt` → `logs/editor-object-peer-scope-close.txt`) to prove the shared host stays usable (`phase=plugin-scope-close`).
+
+`native-control-background-document-close` — holds model/registry/target, closes the active document (Ctrl+W), and verifies the held model and registry snapshot/write all fail closed with no active modeling document. Only close-stale is verified; reopening is a separate persistence stage. Artifact: `logs/native-control-background-document-close.txt`.
+
+`native-control-background-persist-write` / `...-persist-reopen` / `...-persist-final` — the three persistence stages: write requested backgrounds (parameter folder Custom, Part Preset with folder-write/label-alias read, Deformer Preset with row-write/label-alias read) and save; after the operator reopens the document, verify the requesteds persisted, restore every original, and save again; after a final reopen, verify all restored originals persisted (write targets and both aliases). Originals and requesteds live in `state/native-control-background-persist.properties`; each stage writes `logs/native-control-background-persist-{write,reopen,final}.txt` with machine-readable PASS/FAIL and the active `modelId`/`hostThread`.
+
+The persistence stages require the task-scoped copied model path (Windows-JVM-readable, no spaces): `-Dturboism.validation.fixture=<path>`. The write and reopen stages record the fixture file mtime/size before Ctrl+S, then poll with short intervals up to a bounded deadline for an mtime/size change that stays stable across consecutive samples; only then do they report `saveConfirmed=true` with the before/after mtime and size. A timeout or a missing fixture is a FAIL — a PASS is never written without save confirmation.
+
+Artifacts are `logs\native-control-background-*.txt` under the Turboism home. These modes intentionally do not claim dirty/Undo counts, visual palette/canvas refresh, save-dialog behavior, or real-host readiness; the exact-host trace (`logs/editor-object-runtime-trace.txt` with `-Dturboism.editorObjectValidation.trace=true`) and all host runs are verified by the parent.
 
 ### Default keyform lock
 
