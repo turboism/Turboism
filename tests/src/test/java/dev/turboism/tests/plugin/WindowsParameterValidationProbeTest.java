@@ -464,6 +464,74 @@ class WindowsParameterValidationProbeTest {
     }
 
     @Test
+    void peerWaitBoundsAreAtMostSixtySeconds() {
+        assertEquals(600, WindowsParameterValidationProbe.PEER_MAX_ATTEMPTS);
+        assertEquals(100L, WindowsParameterValidationProbe.PEER_POLL_MILLIS);
+        assertTrue(
+            WindowsParameterValidationProbe.PEER_MAX_ATTEMPTS
+                * WindowsParameterValidationProbe.PEER_POLL_MILLIS <= 60_000L
+        );
+        assertEquals(600, WindowsEditorObjectPeerValidationProbe.PEER_MAX_ATTEMPTS);
+        assertEquals(100L, WindowsEditorObjectPeerValidationProbe.PEER_POLL_MILLIS);
+        assertTrue(
+            WindowsEditorObjectPeerValidationProbe.PEER_MAX_ATTEMPTS
+                * WindowsEditorObjectPeerValidationProbe.PEER_POLL_MILLIS <= 60_000L
+        );
+    }
+
+    @Test
+    void scopeCloseRunningPhaseReportsProgressContext() {
+        final String phase = WindowsParameterValidationProbe.scopeCloseRunningPhase(
+            "model-a", "AWT-EventQueue-0"
+        );
+        assertTrue(phase.contains("status=RUNNING"), phase);
+        assertTrue(phase.contains("phase=plugin-scope-close"), phase);
+        assertTrue(phase.contains("modelId=model-a"), phase);
+        assertTrue(phase.contains("hostThread=AWT-EventQueue-0"), phase);
+    }
+
+    @Test
+    void awaitPeerEvidenceReturnsTerminalContentAndTimesOutBounded() throws Exception {
+        final java.nio.file.Path peerArtifact = saveTemp.resolve("peer-scope-close.txt");
+        assertEquals(
+            "",
+            WindowsParameterValidationProbe.awaitPeerEvidence(peerArtifact, 5, 10L),
+            "a missing peer artifact must time out within the bounded attempts"
+        );
+        final Thread writer = new Thread(() -> {
+            try {
+                Thread.sleep(150L);
+                Files.writeString(peerArtifact, "status=PASS\nsecondPluginUsable=true\n");
+            } catch (Exception failure) {
+                throw new RuntimeException(failure);
+            }
+        });
+        writer.start();
+        final String evidence =
+            WindowsParameterValidationProbe.awaitPeerEvidence(peerArtifact, 200, 10L);
+        writer.join(5_000L);
+        assertTrue(evidence.contains("status=PASS"), evidence);
+        assertTrue(evidence.contains("secondPluginUsable=true"), evidence);
+    }
+
+    @Test
+    void peerProbeMarkerWaitIsBoundedAndDetectsTheMarker() throws Exception {
+        final java.nio.file.Path request = saveTemp.resolve("editor-object-peer-request.txt");
+        assertFalse(WindowsEditorObjectPeerValidationProbe.awaitMarker(request, 5, 10L));
+        final Thread writer = new Thread(() -> {
+            try {
+                Thread.sleep(150L);
+                Files.writeString(request, "primaryScopeClosed=true\n");
+            } catch (Exception failure) {
+                throw new RuntimeException(failure);
+            }
+        });
+        writer.start();
+        assertTrue(WindowsEditorObjectPeerValidationProbe.awaitMarker(request, 200, 10L));
+        writer.join(5_000L);
+    }
+
+    @Test
     void autoNativeControlBackgroundModesNeverShowTheValidationWindow() {
         assertFalse(WindowsParameterValidationProbe.showsValidationWindow("native-control-background"));
         assertFalse(WindowsParameterValidationProbe.showsValidationWindow("native-control-background-document-close"));
