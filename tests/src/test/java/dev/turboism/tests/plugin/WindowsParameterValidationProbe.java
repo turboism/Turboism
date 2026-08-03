@@ -976,6 +976,21 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             + "hostThread=" + hostThread + "\n";
     }
 
+    /** Writes the scope-close progress phase from the pre-close captured values only. */
+    static void writeRunningScopeClosePhase(
+        final Path artifact,
+        final String modelId,
+        final String hostThread
+    ) throws Exception {
+        Files.createDirectories(artifact.getParent());
+        Files.writeString(
+            artifact,
+            scopeCloseRunningPhase(modelId, hostThread),
+            StandardOpenOption.CREATE,
+            StandardOpenOption.TRUNCATE_EXISTING
+        );
+    }
+
     /**
      * Bounded wait for terminal peer evidence (status=PASS|FAIL). Returns the last observed
      * content; an empty result after the bounded attempts means the peer is absent or failed.
@@ -2518,7 +2533,7 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 ));
             }
             final boolean scopeClosePassed = verifyNativeControlScopeClose(
-                model, registry, folderTarget, scopeReport, artifact
+                model, registry, folderTarget, scopeReport, artifact, modelId, hostThread
             );
             final boolean overall = folderPassed && partPassed && deformerPassed
                 && !restoreFailed.get() && scopeClosePassed;
@@ -2892,7 +2907,9 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         final ControlAppearanceRegistry registry,
         final ControlAppearanceTarget.ParameterFolder folderTarget,
         final StringBuilder scopeReport,
-        final Path artifact
+        final Path artifact,
+        final String modelId,
+        final String hostThread
     ) {
         try {
             context.disposableScope().close();
@@ -2919,15 +2936,7 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 StandardOpenOption.CREATE,
                 StandardOpenOption.TRUNCATE_EXISTING
             );
-            final String modelId = onHostThread(() -> model.id().value());
-            final String hostThread = onHostThread(() -> Thread.currentThread().getName());
-            Files.createDirectories(artifact.getParent());
-            Files.writeString(
-                artifact,
-                scopeCloseRunningPhase(modelId, hostThread),
-                StandardOpenOption.CREATE,
-                StandardOpenOption.TRUNCATE_EXISTING
-            );
+            writeRunningScopeClosePhase(artifact, modelId, hostThread);
             final String peerEvidence = awaitPeerEvidence(
                 peerArtifact, PEER_MAX_ATTEMPTS, PEER_POLL_MILLIS
             );
