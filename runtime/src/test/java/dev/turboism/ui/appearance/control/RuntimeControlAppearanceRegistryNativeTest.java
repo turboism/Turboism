@@ -129,6 +129,46 @@ class RuntimeControlAppearanceRegistryNativeTest {
     }
 
     @Test
+    void registryFailsClosedAfterTheOwningPluginScopeCloses() throws Exception {
+        final ControlAppearanceCoordinator coordinator = new ControlAppearanceCoordinator();
+        final List<ControlAppearanceTarget> seamCalls = new ArrayList<>();
+        final RuntimeControlAppearanceRegistry registry = new RuntimeControlAppearanceRegistry(
+            "plugin-a", 1, (permission, operation) -> { }, coordinator,
+            TestNativeControlAppearanceAuthoring.of(
+                target -> {
+                    seamCalls.add(target);
+                    return new NativeControlAppearance(
+                        new NativeControlBackground.Default(), Optional.empty()
+                    );
+                },
+                (target, background) -> seamCalls.add(target)
+            )
+        );
+        final dev.turboism.sdk.plugin.DisposableScope scope =
+            new dev.turboism.sdk.plugin.DisposableScope();
+        registry.bind(scope);
+        final ControlAppearanceTarget.ParameterFolder folder =
+            new ControlAppearanceTarget.ParameterFolder(new ParameterGroupId("GroupA"));
+
+        scope.close();
+
+        assertThrows(IllegalStateException.class, () -> registry.snapshot(folder));
+        assertThrows(IllegalStateException.class, () -> registry.setNativeBackground(
+            folder, new NativeControlBackground.Default()
+        ));
+        assertThrows(IllegalStateException.class, () -> registry.register(
+            new ControlAppearanceContribution(
+                "deformer.foreground",
+                new ControlAppearanceTarget.DeformerLabel(new DeformerId("WarpA")),
+                new ControlAppearanceStyle(
+                    Optional.of(new Color(1.0F, 1.0F, 1.0F, 1.0F)), Optional.empty(), Optional.empty()
+                )
+            )
+        ));
+        assertTrue(seamCalls.isEmpty(), "the stale registry must never reach the native seam");
+    }
+
+    @Test
     void snapshotRequiresModelReadAndWritesRequireModelWritePermissions() {
         final ControlAppearanceCoordinator coordinator = new ControlAppearanceCoordinator();
         final List<String> denied = new ArrayList<>();
