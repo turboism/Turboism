@@ -25,6 +25,7 @@ public final class RuntimeControlAppearanceRegistry implements ControlAppearance
     private final PermissionChecker permissionChecker;
     private final ControlAppearanceCoordinator coordinator;
     private final NativeControlAppearanceAuthoring nativeAuthoring;
+    private final AtomicBoolean active = new AtomicBoolean(true);
 
     public RuntimeControlAppearanceRegistry(
         final String pluginId,
@@ -45,13 +46,15 @@ public final class RuntimeControlAppearanceRegistry implements ControlAppearance
     }
 
     public void bind(final dev.turboism.sdk.plugin.DisposableScope scope) {
-        Objects.requireNonNull(scope, "scope").register(
-            () -> coordinator.removePlugin(pluginId, pluginGeneration)
-        );
+        Objects.requireNonNull(scope, "scope").register(() -> {
+            active.set(false);
+            coordinator.removePlugin(pluginId, pluginGeneration);
+        });
     }
 
     @Override
     public Registration register(final ControlAppearanceContribution contribution) {
+        requireActive();
         final ControlAppearanceContribution requested = Objects.requireNonNull(
             contribution,
             "contribution"
@@ -71,6 +74,7 @@ public final class RuntimeControlAppearanceRegistry implements ControlAppearance
 
     @Override
     public ControlAppearanceSnapshot snapshot(final ControlAppearanceTarget target) {
+        requireActive();
         final ControlAppearanceTarget requested = Objects.requireNonNull(target, "target");
         if (requested instanceof ControlAppearanceTarget.ParameterLabel label) {
             return new ControlAppearanceSnapshot(
@@ -93,6 +97,7 @@ public final class RuntimeControlAppearanceRegistry implements ControlAppearance
         final ControlAppearanceTarget target,
         final NativeControlBackground background
     ) {
+        requireActive();
         final ControlAppearanceTarget requested = Objects.requireNonNull(target, "target");
         Objects.requireNonNull(background, "background");
         if (requested instanceof ControlAppearanceTarget.ParameterLabel) {
@@ -126,6 +131,14 @@ public final class RuntimeControlAppearanceRegistry implements ControlAppearance
         throw new IllegalArgumentException(
             "unsupported control appearance target: " + target.getClass().getName()
         );
+    }
+
+    private void requireActive() {
+        if (!active.get()) {
+            throw new IllegalStateException(
+                "Control appearance registry is stale because the owning plugin is disabled."
+            );
+        }
     }
 
     private static String requireText(final String value, final String name) {

@@ -439,6 +439,49 @@ class WindowsParameterValidationProbeTest {
     }
 
     @Test
+    void storedBackgroundPropertiesRoundTripEverySemanticKind() {
+        final java.util.Properties properties = new java.util.Properties();
+        final NativeControlBackground[] samples = {
+            new NativeControlBackground.Default(),
+            new NativeControlBackground.Preset(PresetColor.GRAY),
+            new NativeControlBackground.Custom(new Color(0.1F, 0.2F, 0.3F, 0.4F))
+        };
+        final String[] prefixes = {"folder.original", "part.requested", "deformer.original"};
+        for (int index = 0; index < samples.length; index++) {
+            WindowsParameterValidationProbe.storeStoredBackground(
+                properties, prefixes[index], samples[index]
+            );
+        }
+
+        for (int index = 0; index < samples.length; index++) {
+            assertEquals(
+                samples[index],
+                WindowsParameterValidationProbe.parseStoredBackground(properties, prefixes[index])
+            );
+        }
+    }
+
+    @Test
+    void storedBackgroundParsingFailsClosedOnMalformedProperties() {
+        final java.util.Properties properties = new java.util.Properties();
+        assertThrows(IllegalArgumentException.class, () ->
+            WindowsParameterValidationProbe.parseStoredBackground(properties, "missing"));
+        properties.setProperty("bad.type", "rainbow");
+        assertThrows(IllegalArgumentException.class, () ->
+            WindowsParameterValidationProbe.parseStoredBackground(properties, "bad"));
+        properties.setProperty("bad2.type", "custom");
+        properties.setProperty("bad2.red", "not-a-number");
+        properties.setProperty("bad2.green", "0");
+        properties.setProperty("bad2.blue", "0");
+        properties.setProperty("bad2.alpha", "1");
+        assertThrows(IllegalArgumentException.class, () ->
+            WindowsParameterValidationProbe.parseStoredBackground(properties, "bad2"));
+        properties.setProperty("bad3.type", "preset");
+        assertThrows(IllegalArgumentException.class, () ->
+            WindowsParameterValidationProbe.parseStoredBackground(properties, "bad3"));
+    }
+
+    @Test
     void matrixRejectsSameSemanticRequestBeforeAnyWrite() {
         final NativeControlBackground request =
             new NativeControlBackground.Custom(new Color(0.1F, 0.2F, 0.3F, 0.4F));
