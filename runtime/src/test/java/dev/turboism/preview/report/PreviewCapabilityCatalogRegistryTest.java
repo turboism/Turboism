@@ -24,9 +24,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PreviewCapabilityCatalogRegistryTest {
 
-    private static final Path CAPABILITY_CATALOG = Path.of("..", "docs/migration/capabilities/capability-catalog.tsv")
-        .toAbsolutePath()
-        .normalize();
     private static final String UNMAPPED_OPERATION = "unmapped.capability";
 
     @TempDir
@@ -34,10 +31,8 @@ class PreviewCapabilityCatalogRegistryTest {
 
     @Test
     void everyCanonicalCatalogCapabilityHasAnExplicitMappedOrUnmappedPreviewPolicy() throws Exception {
-        final List<String> capabilityIds = Files.readAllLines(CAPABILITY_CATALOG).stream()
-            .skip(1)
-            .filter(line -> !line.isBlank())
-            .map(line -> line.split("\\t", -1)[0])
+        final List<String> capabilityIds = PreviewReportSnapshotFactory.canonicalCapabilityIds().stream()
+            .sorted()
             .toList();
         assertEquals(63, capabilityIds.size(), "canonical catalog size changed; update this closure test deliberately");
 
@@ -83,10 +78,8 @@ class PreviewCapabilityCatalogRegistryTest {
 
     @Test
     void nonCanonicalUnknownCapabilityUsesFallbackWithoutChangingCanonicalRegistry() throws Exception {
-        final List<String> canonicalCapabilities = Files.readAllLines(CAPABILITY_CATALOG).stream()
-            .skip(1)
-            .filter(line -> !line.isBlank())
-            .map(line -> line.split("\\t", -1)[0])
+        final List<String> canonicalCapabilities = PreviewReportSnapshotFactory.canonicalCapabilityIds().stream()
+            .sorted()
             .toList();
         final String unknownCapability = "cubism.future.unknown";
         final List<String> requestedCapabilities = new ArrayList<>(canonicalCapabilities);
