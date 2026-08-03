@@ -441,6 +441,37 @@ class EditorNativeControlAppearanceAccessTest {
     }
 
     @Test
+    void presetLabelWithNullHostColorFailsClosed() {
+        Fixture fixture = new Fixture("model-a");
+        fixture.face.labelColor.type = LabelColorType.RED;
+        fixture.face.labelColor.color = null;
+        Host.install(fixture);
+        EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
+            resolver(true), "session-a"
+        );
+
+        assertThrows(IllegalStateException.class, () -> access.snapshot(
+            new ControlAppearanceTarget.ParameterFolder(new ParameterGroupId("GroupFace"))
+        ));
+    }
+
+    @Test
+    void customLabelWithNullHostColorFailsClosed() {
+        Fixture fixture = new Fixture("model-a");
+        fixture.face.labelColor.type = LabelColorType.CUSTOM;
+        fixture.face.labelColor.custom = new HostColor(0.1F, 0.2F, 0.3F, 0.4F);
+        fixture.face.labelColor.color = null;
+        Host.install(fixture);
+        EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
+            resolver(true), "session-a"
+        );
+
+        assertThrows(IllegalStateException.class, () -> access.snapshot(
+            new ControlAppearanceTarget.ParameterFolder(new ParameterGroupId("GroupFace"))
+        ));
+    }
+
+    @Test
     void nonNullWrongTypeHostColorStillFailsClosed() {
         Fixture fixture = new Fixture("model-a");
         fixture.face.labelColor.type = LabelColorType.UNDEFINED;
