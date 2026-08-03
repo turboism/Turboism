@@ -1,37 +1,41 @@
-# Turboism Windows Parameter Validation
+# Turboism Automated Parameter Host Validation
 
-This directory is an isolated manual-test drop for **Live2D Cubism Editor 5.2 and 5.3.02**. It does not modify Cubism's installation or global launchers. The launcher copies the current Live2D roaming profile into `state\AppData` once, then redirects `APPDATA`/`LOCALAPPDATA` there so the test does not write back to the real profile.
+This bundle runs a test-only Turboism plugin inside an exact Live2D Cubism Editor 5.2 or 5.3.02 installation. The plugin calls only the public Turboism SDK, performs the selected matrix, writes machine-readable results, restores changed values, and requests a normal Editor close.
 
-## 1. Preflight
+The launcher always delegates to the installation's official `CubismEditor5.bat`. It does not replace Cubism's classpath, native path, startup flow, or licensing behavior.
 
-Open PowerShell in this directory:
+## Preflight
 
 ```powershell
 .\launch-cubism-parameter-validation.ps1 -ProbeOnly
 .\launch-cubism-parameter-validation.ps1 -ProbeAgent
 ```
 
-Both commands must exit successfully.
+`-ProbeAgent` is an isolated JVM probe and does not claim real-host readiness.
 
-## 2. Start
+## Automated run
 
-Close every existing Cubism process, then double-click:
-
-```text
-run-parameter-validation.bat
-```
-
-If Cubism is installed elsewhere:
+Use a disposable copy of a model. Never pass the original model.
 
 ```powershell
-.\launch-cubism-parameter-validation.ps1 -CubismRoot 'X:\path\Live2D Cubism 5.3.02'
+.\run-parameter-validation.bat `
+  -ProjectPath 'C:\TurboismValidation\fixture-copy.cmo3' `
+  -ValidationMode matrix
 ```
 
-Open a **disposable `.cmo3` model containing several parameter types**. A window named **Turboism Parameter Validation** should appear.
+Use an explicit installation when needed:
 
-## 3. Validate
+```powershell
+.\run-parameter-validation.bat `
+  -CubismRoot 'C:\Program Files\Live2D Cubism 5.3' `
+  -ProjectPath 'C:\TurboismValidation\fixture-copy.cmo3' `
+  -ValidationMode binding-matrix
+```
 
-Record pass/fail for each item.
+## Detailed validation coverage
+
+The automated modes below emit machine-readable evidence. The interactive window may still be used for targeted diagnosis or checks that are not yet represented by a semantic SDK assertion.
+
 
 ### Startup and binding
 
@@ -162,14 +166,43 @@ Use **Lock default** and **Unlock default** in the validation window.
 - [ ] `logs\runtime\<UTC-date>\turboism-*.log` reports plugin unload/cleanup without failure.
 - [ ] No stale validation window remains.
 
-## 4. Return evidence
+## Supported automated modes
 
-Send back:
 
 ```text
-logs\cubism-console.log
-logs\runtime\<UTC-date>\turboism-*.log
-state\*.json
+matrix
+binding-read
+binding-matrix
+parameter-menu-smoke
+persist-write
+persist-read
+plugin-scope-close
+document-close
+native-control-background
+native-control-background-document-close
+native-control-background-persist-write
+native-control-background-persist-reopen
+native-control-background-persist-final
 ```
 
-Run the checklist separately on 5.2 and 5.3.02 when both are installed. Also provide the checklist result and Cubism exact version shown at startup. Do not send the `.cmo3` model unless it is explicitly disposable and safe to share.
+The launcher waits for `state\host-validation-result.properties`, verifies its terminal status, waits for the official launcher process to exit, and fails if cleanup requires a forced process-tree stop.
+
+## Evidence
+
+Primary evidence:
+
+```text
+state\host-validation-result.properties
+logs\*-validation.txt
+logs\*-smoke.txt
+logs\cubism-console.log
+logs\runtime\<UTC-date>\turboism-*.log
+state\plugin-load-report.json
+state\preview-runtime-report.json
+```
+
+The terminal result records the run ID, mode, duration, artifact statuses, launcher exit code, cleanup status, Cubism JAR hash, official BAT hash, agent hash, and fixture-after hash.
+
+A run is GREEN only when every selected assertion reports `PASS`, the original values are restored, the official launcher exits normally, and cleanup is not forced.
+
+Screenshots are not routine evidence. Capture one only when validating a genuinely visual-only fact or diagnosing a failure that structured logs cannot explain.
