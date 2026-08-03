@@ -26,7 +26,7 @@ tasks.processResources {
         "cubism-5.2-ui-control-appearance.json",
         "cubism-5.3.02-ui-control-appearance.json"
     ).forEach { record ->
-        from(rootProject.file("docs/migration/verification/static/$record")) {
+        from(rootProject.file("cubism-ref/verification/$record")) {
             into("META-INF/turboism/verification")
         }
     }
