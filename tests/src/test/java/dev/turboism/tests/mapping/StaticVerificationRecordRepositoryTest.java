@@ -42,7 +42,7 @@ class StaticVerificationRecordRepositoryTest {
     private static final Path PROJECT_ROOT = Paths.get(
         System.getProperty("projectRoot", System.getProperty("user.dir"))
     );
-    private static final Path RECORDS = PROJECT_ROOT.resolve("docs/migration/verification/static");
+    private static final Path RECORDS = PROJECT_ROOT.resolve("cubism-ref/verification");
 
     private static final Map<String, SliceExpectation> EXPECTATIONS = withControlAppearance53(withBoundingBoxOverlays(withTopMenus(withEmbeddedPanels(Map.of(
         "docs/migration/verification/static/cubism-5.2-project-workspace.json",
