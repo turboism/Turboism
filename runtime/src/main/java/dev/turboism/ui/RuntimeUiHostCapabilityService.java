@@ -12,6 +12,7 @@ import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.DialogRequest;
+import dev.turboism.sdk.ui.ChoiceDialogRequest;
 import dev.turboism.sdk.ui.BoundingBoxOverlayButton;
 import dev.turboism.sdk.ui.EmbeddedPanelContribution;
 import dev.turboism.sdk.ui.EmbeddedPanelId;
@@ -316,6 +317,58 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         }
         adapterResult.diagnostic().ifPresent(this::recordDiagnostic);
         return stateSource.confirmDialog(request);
+    }
+
+    @Override
+    public Optional<String> choose(final ChoiceDialogRequest request) {
+        Objects.requireNonNull(request, "request");
+        permissionChecker.check(UI_DIALOG_CONTRIBUTE, "ui.dialog.choose");
+        return RuntimeChoiceDialogs.choose(request);
+    }
+
+    @Override
+    public void openChoiceDialog(
+        final ChoiceDialogRequest request,
+        final dev.turboism.sdk.ui.ChoiceDialogResultListener listener
+    ) {
+        Objects.requireNonNull(request, "request");
+        Objects.requireNonNull(listener, "listener");
+        permissionChecker.check(UI_DIALOG_CONTRIBUTE, "ui.dialog.choose");
+        RuntimeChoiceDialogs.openAsync(request, listener);
+    }
+
+    @Override
+    public void openFormDialog(
+        final dev.turboism.sdk.ui.FormDialogRequest request,
+        final dev.turboism.sdk.ui.FormDialogResultListener listener
+    ) {
+        Objects.requireNonNull(request, "request");
+        Objects.requireNonNull(listener, "listener");
+        permissionChecker.check(UI_DIALOG_CONTRIBUTE, "ui.dialog.contribute");
+        RuntimeFormDialogs.openAsync(request, listener);
+    }
+
+    @Override
+    public dev.turboism.sdk.ui.UiHostColorMode currentColorMode() {
+        return stateSource.currentColorMode();
+    }
+
+    @Override
+    public boolean refreshOffCanvasAppearance() {
+        final Object value = javax.swing.UIManager.get("CubismCommon.gl.viewArea.background");
+        if (!(value instanceof java.awt.Color color)) {
+            return false;
+        }
+        final String hex = String.format("#%02X%02X%02X",
+            color.getRed(), color.getGreen(), color.getBlue());
+        return new dev.turboism.ui.appearance.OffCanvasAppearanceRefresher().refresh(hex);
+    }
+
+    @Override
+    public void openDirectory(final dev.turboism.sdk.storage.StoragePath directory) {
+        Objects.requireNonNull(directory, "directory");
+        permissionChecker.check(UI_DIALOG_CONTRIBUTE, "ui.dialog.contribute");
+        stateSource.openDirectory(directory);
     }
 
     @Override

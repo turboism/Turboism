@@ -15,6 +15,7 @@ import dev.turboism.diagnostics.CubismFacadeAuditEvent;
 import dev.turboism.permissions.CubismPermissionGate;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.action.ActionRegistry;
+import dev.turboism.sdk.appearance.AppearanceService;
 import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.service.query.ModelHierarchyQueryService;
 import dev.turboism.sdk.cubism.service.query.ParameterQueryService;
@@ -43,6 +44,7 @@ import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
 import dev.turboism.sdk.ui.table.SceneTableService;
 import dev.turboism.sdk.ui.appearance.ControlAppearanceRegistry;
 import dev.turboism.ui.RuntimeUiHostCapabilityService;
+import dev.turboism.ui.appearance.RuntimeAppearanceService;
 import dev.turboism.ui.UiHostStateSource;
 import dev.turboism.ui.context.RuntimeContextMenuRegistry;
 import dev.turboism.ui.toolbar.RuntimeMainToolbarRegistry;
@@ -63,6 +65,7 @@ public final class CorePluginContext implements PluginContext {
     private final ContextMenuRegistry contextMenuRegistry;
     private final PluginConfigRegistry pluginConfigRegistry;
     private final UiHostCapabilityService uiHostCapabilityService;
+    private final AppearanceService appearanceService;
     private final PluginLocalization localization;
     private final PluginTaskScheduler taskScheduler;
     private final PluginStorage pluginStorage;
@@ -403,6 +406,27 @@ public final class CorePluginContext implements PluginContext {
             controlAppearance.bind(this.dependencies.disposableScope());
             this.controlAppearanceRegistry = controlAppearance;
         }
+        if (hostAccess == null) {
+            this.appearanceService = AppearanceService.unavailable();
+        } else {
+            final String pluginId = this.dependencies.descriptor().id();
+            final long pluginGeneration = 0L;
+            final RuntimeAppearanceService appearance = new RuntimeAppearanceService(
+                pluginId,
+                pluginGeneration,
+                PermissionChecker.from(new CubismPermissionGate(
+                    pluginId,
+                    this.dependencies.permissions(),
+                    this.dependencies.cubismAuditSink(),
+                    this.dependencies.clock()
+                )),
+                hostAccess.appearanceCoordinator()
+            );
+            this.appearanceService = appearance;
+            this.dependencies.disposableScope().register(
+                () -> hostAccess.appearanceCoordinator().restore(pluginId, pluginGeneration)
+            );
+        }
         final PermissionChecker uiPermissionChecker = PermissionChecker.from(new CubismPermissionGate(
             this.dependencies.descriptor().id(),
             this.dependencies.permissions(),
@@ -589,6 +613,11 @@ public final class CorePluginContext implements PluginContext {
     @Override
     public UiHostCapabilityService uiHost() {
         return uiHostCapabilityService;
+    }
+
+    @Override
+    public AppearanceService appearance() {
+        return appearanceService;
     }
 
     @Override
