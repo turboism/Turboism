@@ -44,8 +44,14 @@ public final class WindowsEditorObjectPeerValidationProbe implements CubismPlugi
         if (validationThread != null) validationThread.interrupt();
     }
 
-    static final int PEER_MAX_ATTEMPTS = 600;
-    static final long PEER_POLL_MILLIS = 100L;
+    /**
+     * Startup budget for the peer's pre-marker wait (240 s max). This wait begins at plugin
+     * enable, before Cubism has reached host=ACTIVE/model readiness, so it needs a realistic
+     * exact-host startup budget; it is deliberately distinct from the primary plugin's
+     * post-scope-close peer terminal-evidence response budget (bounded at 60 s).
+     */
+    static final int PEER_STARTUP_MAX_ATTEMPTS = 2400;
+    static final long PEER_STARTUP_POLL_MILLIS = 100L;
 
     /** Bounded wait for the primary plugin's close-request marker; false on timeout. */
     static boolean awaitMarker(
@@ -69,8 +75,10 @@ public final class WindowsEditorObjectPeerValidationProbe implements CubismPlugi
             final Path request = home.resolve("state").resolve("editor-object-peer-request.txt");
             artifact = home.resolve("logs").resolve("editor-object-peer-scope-close.txt");
             writeStage(artifact, "waiting-for-primary");
-            if (!awaitMarker(request, PEER_MAX_ATTEMPTS, PEER_POLL_MILLIS)) {
-                throw new IllegalStateException("Primary plugin close request was not observed within the bounded wait");
+            if (!awaitMarker(request, PEER_STARTUP_MAX_ATTEMPTS, PEER_STARTUP_POLL_MILLIS)) {
+                throw new IllegalStateException(
+                    "Primary plugin close request was not observed within the 240 s startup budget"
+                );
             }
             writeStage(artifact, "primary-marker-seen");
             final CubismModel model = awaitModel();
