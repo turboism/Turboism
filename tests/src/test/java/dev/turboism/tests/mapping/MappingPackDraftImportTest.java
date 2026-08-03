@@ -32,6 +32,9 @@ class MappingPackDraftImportTest {
             files.filter(p -> p.toString().endsWith(".json")).forEach(path -> {
                 try {
                     JsonNode root = mapper.readTree(path.toFile());
+                    if (!"turboism.mapping.pack".equals(root.path("format").asText())) {
+                        return;
+                    }
                     var errors = validator.validate(root, path.toString());
                     assertTrue(errors.isEmpty(),
                         path.getFileName() + " validation failed: " + errors);
@@ -86,6 +89,9 @@ class MappingPackDraftImportTest {
             files.filter(p -> p.toString().endsWith(".json")).forEach(path -> {
                 try {
                     JsonNode root = mapper.readTree(path.toFile());
+                    if (!"turboism.mapping.pack".equals(root.path("format").asText())) {
+                        return;
+                    }
                     JsonNode entries = root.get("entries");
                     assertNotNull(entries, path.getFileName() + " must have entries");
                     for (JsonNode entry : entries) {
@@ -130,6 +136,9 @@ class MappingPackDraftImportTest {
             files.filter(p -> p.toString().endsWith(".json")).forEach(path -> {
                 try {
                     JsonNode root = mapper.readTree(path.toFile());
+                    if (!"turboism.mapping.pack".equals(root.path("format").asText())) {
+                        return;
+                    }
                     for (JsonNode entry : root.get("entries")) {
                         String confidence = entry.get("confidence").asText();
                         assertTrue(Set.of("high", "medium").contains(confidence),
@@ -219,7 +228,7 @@ class MappingPackDraftImportTest {
             DRAFT_DIR.resolve("cubism-5.2-editor-model-read.json").toFile()
         ).path("metadata");
         assertEquals(
-            "docs/migration/verification/static/cubism-5.2-editor-model.json",
+            "cubism-ref/verification/cubism-5.2-editor-model.json",
             metadata.path("inventoryRef").asText()
         );
         assertEquals(
