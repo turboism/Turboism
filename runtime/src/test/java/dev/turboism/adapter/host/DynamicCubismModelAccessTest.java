@@ -91,7 +91,7 @@ class DynamicCubismModelAccessTest {
             new ControlAppearanceTarget.ParameterFolder(new ParameterGroupId("GroupFace"));
         final NativeControlAppearance nativePart = new NativeControlAppearance(
             new NativeControlBackground.Default(),
-            new Color(0.0F, 0.0F, 0.0F, 1.0F)
+            Optional.empty()
         );
         access.connect(authoringModelAccess(nativePart));
 

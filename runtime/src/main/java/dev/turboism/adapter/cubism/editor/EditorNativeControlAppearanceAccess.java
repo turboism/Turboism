@@ -12,6 +12,7 @@ import dev.turboism.sdk.ui.appearance.PresetColor;
 
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 import java.util.Objects;
 import java.util.function.Supplier;
 
@@ -383,8 +384,12 @@ final class EditorNativeControlAppearanceAccess implements NativeControlAppearan
         return "cubism.editor-model.label-color-type." + preset.name().toLowerCase(java.util.Locale.ROOT);
     }
 
-    private Color effectiveColor(final Object labelColor) {
-        return readColor(resolver.invoke("cubism.editor-model.label-color.color", labelColor));
+    private Optional<Color> effectiveColor(final Object labelColor) {
+        final Object color = resolver.invoke("cubism.editor-model.label-color.color", labelColor);
+        if (color == null) {
+            return Optional.empty();
+        }
+        return Optional.of(readColor(color));
     }
 
     private Color customizedColor(final Object labelColor) {

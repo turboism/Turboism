@@ -20,6 +20,7 @@ import org.junit.jupiter.api.Test;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -46,7 +47,7 @@ class EditorNativeControlAppearanceAccessTest {
 
         NativeControlAppearance before = access.snapshot(folder);
         assertEquals(new NativeControlBackground.Preset(PresetColor.BLUE), before.background());
-        assertEquals(new Color(0.25F, 0.5F, 0.75F, 1.0F), before.effectiveBackground());
+        assertEquals(Optional.of(new Color(0.25F, 0.5F, 0.75F, 1.0F)), before.effectiveBackground());
 
         access.setNativeBackground(
             folder,
@@ -164,7 +165,7 @@ class EditorNativeControlAppearanceAccessTest {
             new NativeControlBackground.Custom(new Color(0.9F, 0.8F, 0.7F, 0.6F)),
             appearance.background()
         );
-        assertEquals(new Color(0.1F, 0.2F, 0.3F, 0.4F), appearance.effectiveBackground());
+        assertEquals(Optional.of(new Color(0.1F, 0.2F, 0.3F, 0.4F)), appearance.effectiveBackground());
     }
 
     @Test
@@ -421,6 +422,40 @@ class EditorNativeControlAppearanceAccessTest {
     }
 
     @Test
+    void undefinedLabelWithNullHostColorSnapshotsDefaultWithUnavailableEffective() {
+        Fixture fixture = new Fixture("model-a");
+        fixture.face.labelColor.type = LabelColorType.UNDEFINED;
+        fixture.face.labelColor.color = null;
+        Host.install(fixture);
+        EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
+            resolver(true), "session-a"
+        );
+
+        NativeControlAppearance appearance = access.snapshot(
+            new ControlAppearanceTarget.ParameterFolder(new ParameterGroupId("GroupFace"))
+        );
+
+        assertEquals(new NativeControlBackground.Default(), appearance.background());
+        assertEquals(Optional.empty(), appearance.effectiveBackground(),
+            "UNDEFINED must report the effective background as unavailable, never a fabricated color");
+    }
+
+    @Test
+    void nonNullWrongTypeHostColorStillFailsClosed() {
+        Fixture fixture = new Fixture("model-a");
+        fixture.face.labelColor.type = LabelColorType.UNDEFINED;
+        fixture.face.labelColor.wrongTypeColor = new Id("not-a-color");
+        Host.install(fixture);
+        EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
+            resolver(true), "session-a"
+        );
+
+        assertThrows(IllegalStateException.class, () -> access.snapshot(
+            new ControlAppearanceTarget.ParameterFolder(new ParameterGroupId("GroupFace"))
+        ));
+    }
+
+    @Test
     void missingDuplicateAndStaleTargetsFailClosedBeforeMutation() {
         Fixture fixture = new Fixture("model-a");
         Host.install(fixture);
@@ -618,7 +653,7 @@ class EditorNativeControlAppearanceAccessTest {
             StaticSelector.classSelector("cubism.editor-model.label-color.class", labelColor),
             method("cubism.editor-model.label-color.label-type", LabelColor.class, "getLabelType", desc(LabelColorType.class)),
             method("cubism.editor-model.label-color.customized-color", LabelColor.class, "getCustomizedColor", desc(HostColor.class)),
-            method("cubism.editor-model.label-color.color", LabelColor.class, "getColor", desc(HostColor.class)),
+            method("cubism.editor-model.label-color.color", LabelColor.class, "getColor", "()Ljava/lang/Object;"),
             method("cubism.editor-model.label-color.set-color", LabelColor.class, "setColor", "(L" + labelColorType + ";L" + color + ";)V"),
             method("cubism.editor-model.label-color.set-label-type", LabelColor.class, "setLabelType", "(L" + labelColorType + ";)V"),
             StaticSelector.classSelector("cubism.editor-model.label-color-type.class", labelColorType),
@@ -736,7 +771,8 @@ class EditorNativeControlAppearanceAccessTest {
 
         public HostColor getCustomizedColor() { return custom; }
 
-        public HostColor getColor() { return color; }
+        Object wrongTypeColor;
+        public Object getColor() { return wrongTypeColor != null ? wrongTypeColor : color; }
 
         boolean rejectWrites;
         int setterCalls;

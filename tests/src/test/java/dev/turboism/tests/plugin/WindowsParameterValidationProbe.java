@@ -894,7 +894,7 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         );
         lastActionStatus = "Parameter folder " + groupId.value()
             + " background=" + backgroundText(authoritative.background())
-            + " effective=" + colorText(authoritative.effectiveBackground())
+            + " effective=" + effectiveText(authoritative.effectiveBackground())
             + "; use Cubism Undo/Redo and save/reopen to validate";
         refresh();
     }
@@ -2344,7 +2344,7 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 report.append("deformer.original.background=")
                     .append(backgroundText(deformerOriginal.background())).append('\n')
                     .append("deformer.original.effective=")
-                    .append(colorText(deformerOriginal.effectiveBackground())).append('\n');
+                    .append(effectiveText(deformerOriginal.effectiveBackground())).append('\n');
                 NativeControlBackground matrixBefore = deformerOriginal.background();
                 if (matrixBefore instanceof NativeControlBackground.Default) {
                     final NativeControlBackground establishing = presetDifferentFrom(matrixBefore);
@@ -2373,7 +2373,7 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 report.append("deformer.finalRestored.background=")
                     .append(backgroundText(finalRestored.background())).append('\n')
                     .append("deformer.finalRestored.effective=")
-                    .append(colorText(finalRestored.effectiveBackground())).append('\n')
+                    .append(effectiveText(finalRestored.effectiveBackground())).append('\n')
                     .append("deformer.finalRestore=")
                     .append(finalRestoreOk ? "PASS" : "FAIL").append('\n');
             } catch (Exception exception) {
@@ -2534,16 +2534,16 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             .append(prefix).append("before.background=")
             .append(backgroundText(matrix.before().background())).append('\n')
             .append(prefix).append("before.effective=")
-            .append(colorText(matrix.before().effectiveBackground())).append('\n')
+            .append(effectiveText(matrix.before().effectiveBackground())).append('\n')
             .append(prefix).append("requested=").append(backgroundText(matrix.requested())).append('\n')
             .append(prefix).append("afterWrite.background=")
             .append(backgroundText(matrix.afterWrite().background())).append('\n')
             .append(prefix).append("afterWrite.effective=")
-            .append(colorText(matrix.afterWrite().effectiveBackground())).append('\n')
+            .append(effectiveText(matrix.afterWrite().effectiveBackground())).append('\n')
             .append(prefix).append("aliasAfterWrite.background=")
             .append(backgroundText(matrix.aliasAfterWrite().background())).append('\n')
             .append(prefix).append("aliasAfterWrite.effective=")
-            .append(colorText(matrix.aliasAfterWrite().effectiveBackground())).append('\n')
+            .append(effectiveText(matrix.aliasAfterWrite().effectiveBackground())).append('\n')
             .append(prefix).append("sameValueSecondWrite.background=")
             .append(backgroundText(matrix.sameValueSecondWrite().background())).append('\n')
             .append(prefix).append("afterUndo.background=")
@@ -2589,7 +2589,7 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 + "restore." + label + ".confirmed.background="
                 + backgroundText(confirmed.background()) + System.lineSeparator()
                 + "restore." + label + ".confirmed.effective="
-                + colorText(confirmed.effectiveBackground()) + System.lineSeparator();
+                + effectiveText(confirmed.effectiveBackground()) + System.lineSeparator();
         } catch (Exception exception) {
             restoreFailed.set(true);
             return "restore." + label + "=FAIL" + System.lineSeparator()
@@ -2656,7 +2656,7 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             throw new IllegalStateException(
                 "Native background did not converge within the bounded await window; last="
                     + backgroundText(actual.background())
-                    + " effective=" + colorText(actual.effectiveBackground())
+                    + " effective=" + effectiveText(actual.effectiveBackground())
             );
         }
         return actual;
@@ -2909,13 +2909,14 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         }
         currentLabelColorLabel.setText(
             "Background: " + backgroundText(appearance.background())
-                + " effective=" + colorText(appearance.effectiveBackground())
+                + " effective=" + effectiveText(appearance.effectiveBackground())
         );
-        final Color effective = appearance.effectiveBackground();
-        if (!labelRedField.hasFocus()) labelRedField.setText(Float.toString(effective.red()));
-        if (!labelGreenField.hasFocus()) labelGreenField.setText(Float.toString(effective.green()));
-        if (!labelBlueField.hasFocus()) labelBlueField.setText(Float.toString(effective.blue()));
-        if (!labelAlphaField.hasFocus()) labelAlphaField.setText(Float.toString(effective.alpha()));
+        appearance.effectiveBackground().ifPresent(effective -> {
+            if (!labelRedField.hasFocus()) labelRedField.setText(Float.toString(effective.red()));
+            if (!labelGreenField.hasFocus()) labelGreenField.setText(Float.toString(effective.green()));
+            if (!labelBlueField.hasFocus()) labelBlueField.setText(Float.toString(effective.blue()));
+            if (!labelAlphaField.hasFocus()) labelAlphaField.setText(Float.toString(effective.alpha()));
+        });
     }
 
     private void applyRows(
@@ -3078,6 +3079,10 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
     private static String colorText(final Color color) {
         return "rgba(" + number(color.red()) + ", " + number(color.green()) + ", "
             + number(color.blue()) + ", " + number(color.alpha()) + ')';
+    }
+
+    private static String effectiveText(final Optional<Color> effective) {
+        return effective.map(WindowsParameterValidationProbe::colorText).orElse("unavailable");
     }
 
     private enum Bound {
