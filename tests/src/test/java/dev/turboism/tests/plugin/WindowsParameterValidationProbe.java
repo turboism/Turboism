@@ -966,6 +966,36 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         return !Objects.requireNonNull(mode, "mode").startsWith("native-control-background");
     }
 
+    static final int PEER_MAX_ATTEMPTS = 600;
+    static final long PEER_POLL_MILLIS = 100L;
+
+    /** RUNNING progress phase written before the bounded peer wait so a stuck run reports correctly. */
+    static String scopeCloseRunningPhase(final String modelId, final String hostThread) {
+        return "status=RUNNING\nphase=plugin-scope-close\n"
+            + "modelId=" + modelId + "\n"
+            + "hostThread=" + hostThread + "\n";
+    }
+
+    /**
+     * Bounded wait for terminal peer evidence (status=PASS|FAIL). Returns the last observed
+     * content; an empty result after the bounded attempts means the peer is absent or failed.
+     */
+    static String awaitPeerEvidence(
+        final Path peerArtifact,
+        final int maxAttempts,
+        final long pollMillis
+    ) throws Exception {
+        String evidence = "";
+        for (int attempt = 0; attempt < maxAttempts; attempt++) {
+            evidence = Files.exists(peerArtifact) ? Files.readString(peerArtifact) : "";
+            if (evidence.contains("status=PASS") || evidence.contains("status=FAIL")) {
+                return evidence;
+            }
+            Thread.sleep(pollMillis);
+        }
+        return "";
+    }
+
     /** Task-scoped copied model required by the persistence stages (Windows JVM-readable path). */
     static Path fixturePath() {
         final String raw = System.getProperty("turboism.validation.fixture");
@@ -2487,8 +2517,9 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                     "deformer", registry, rowTarget, deformerOriginal, restoreFailed
                 ));
             }
-            final boolean scopeClosePassed =
-                verifyNativeControlScopeClose(model, registry, folderTarget, scopeReport);
+            final boolean scopeClosePassed = verifyNativeControlScopeClose(
+                model, registry, folderTarget, scopeReport, artifact
+            );
             final boolean overall = folderPassed && partPassed && deformerPassed
                 && !restoreFailed.get() && scopeClosePassed;
             Files.writeString(
@@ -2860,7 +2891,8 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         final CubismModel model,
         final ControlAppearanceRegistry registry,
         final ControlAppearanceTarget.ParameterFolder folderTarget,
-        final StringBuilder scopeReport
+        final StringBuilder scopeReport,
+        final Path artifact
     ) {
         try {
             context.disposableScope().close();
@@ -2887,23 +2919,32 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 StandardOpenOption.CREATE,
                 StandardOpenOption.TRUNCATE_EXISTING
             );
-            String peerEvidence = "";
-            for (int attempt = 0; attempt < 3_000; attempt++) {
-                peerEvidence = Files.exists(peerArtifact) ? Files.readString(peerArtifact) : "";
-                if (peerEvidence.contains("status=PASS") || peerEvidence.contains("status=FAIL")) {
-                    break;
-                }
-                Thread.sleep(100L);
-            }
+            final String modelId = onHostThread(() -> model.id().value());
+            final String hostThread = onHostThread(() -> Thread.currentThread().getName());
+            Files.createDirectories(artifact.getParent());
+            Files.writeString(
+                artifact,
+                scopeCloseRunningPhase(modelId, hostThread),
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING
+            );
+            final String peerEvidence = awaitPeerEvidence(
+                peerArtifact, PEER_MAX_ATTEMPTS, PEER_POLL_MILLIS
+            );
+            final boolean peerTerminal = peerEvidence.contains("status=PASS")
+                || peerEvidence.contains("status=FAIL");
             final boolean secondPluginUsable = peerEvidence.contains("status=PASS")
                 && peerEvidence.contains("secondPluginUsable=true");
             final boolean passed = modelStale && registrySnapshotStale && registryWriteStale
-                && secondPluginUsable;
+                && peerTerminal && secondPluginUsable;
             scopeReport.append("phase=plugin-scope-close\n")
                 .append("modelStale=").append(modelStale).append('\n')
                 .append("registrySnapshotStale=").append(registrySnapshotStale).append('\n')
                 .append("registryWriteStale=").append(registryWriteStale).append('\n')
+                .append("peerTerminal=").append(peerTerminal).append('\n')
                 .append("secondPluginUsable=").append(secondPluginUsable).append('\n')
+                .append("peerTimeout=").append(!peerTerminal).append('\n')
+                .append("peerMissingEvidence=").append(!peerTerminal).append('\n')
                 .append("scopeClose=").append(passed ? "PASS" : "FAIL").append('\n');
             return passed;
         } catch (Exception exception) {

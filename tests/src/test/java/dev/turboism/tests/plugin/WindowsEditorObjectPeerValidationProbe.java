@@ -9,7 +9,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 
-/** Manual-test-only peer plugin proving a second plugin remains usable after the primary scope closes. */
+/**
+ * Manual-test-only peer plugin proving a second plugin remains usable after the primary scope closes.
+ */
+
 public final class WindowsEditorObjectPeerValidationProbe implements CubismPlugin {
 
     private PluginContext context;
@@ -41,6 +44,24 @@ public final class WindowsEditorObjectPeerValidationProbe implements CubismPlugi
         if (validationThread != null) validationThread.interrupt();
     }
 
+    static final int PEER_MAX_ATTEMPTS = 600;
+    static final long PEER_POLL_MILLIS = 100L;
+
+    /** Bounded wait for the primary plugin's close-request marker; false on timeout. */
+    static boolean awaitMarker(
+        final Path request,
+        final int maxAttempts,
+        final long pollMillis
+    ) throws Exception {
+        for (int attempt = 0; attempt < maxAttempts; attempt++) {
+            if (Files.exists(request)) {
+                return true;
+            }
+            Thread.sleep(pollMillis);
+        }
+        return false;
+    }
+
     private void runPeerValidation() {
         Path artifact = null;
         try {
@@ -48,10 +69,9 @@ public final class WindowsEditorObjectPeerValidationProbe implements CubismPlugi
             final Path request = home.resolve("state").resolve("editor-object-peer-request.txt");
             artifact = home.resolve("logs").resolve("editor-object-peer-scope-close.txt");
             writeStage(artifact, "waiting-for-primary");
-            for (int attempt = 0; attempt < 3_000 && !Files.exists(request); attempt++) {
-                Thread.sleep(100L);
+            if (!awaitMarker(request, PEER_MAX_ATTEMPTS, PEER_POLL_MILLIS)) {
+                throw new IllegalStateException("Primary plugin close request was not observed within the bounded wait");
             }
-            if (!Files.exists(request)) throw new IllegalStateException("Primary plugin close request was not observed");
             writeStage(artifact, "primary-marker-seen");
             final CubismModel model = awaitModel();
             final boolean modelUsable = onHostThread(() -> model.id() != null);
