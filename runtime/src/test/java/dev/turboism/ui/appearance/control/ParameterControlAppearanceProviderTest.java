@@ -4,7 +4,6 @@ import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.ui.appearance.ControlAppearanceContribution;
 import dev.turboism.sdk.ui.appearance.ControlAppearanceStyle;
 import dev.turboism.sdk.ui.appearance.ControlAppearanceTarget;
-import dev.turboism.sdk.ui.appearance.UiColor;
 import org.junit.jupiter.api.Test;
 
 import javax.swing.JLabel;
@@ -19,11 +18,11 @@ class ParameterControlAppearanceProviderTest {
         final ControlAppearanceCoordinator coordinator = new ControlAppearanceCoordinator();
         coordinator.replaceHostGeneration(5);
         final RuntimeControlAppearanceRegistry registry = new RuntimeControlAppearanceRegistry(
-            "plugin", 1, (permission, operation) -> { }, coordinator
+            "plugin", 1, (permission, operation) -> { }, coordinator, TestNativeControlAppearanceAuthoring.unavailable()
         );
         final var registration = registry.register(new ControlAppearanceContribution(
             "parameter", new ControlAppearanceTarget.ParameterLabel(new ParameterId("ParamA")),
-            new ControlAppearanceStyle(Optional.of(new UiColor(0xFF123456)), Optional.empty(), Optional.empty())
+            new ControlAppearanceStyle(Optional.of(new dev.turboism.sdk.cubism.model.Color(0.070588F, 0.203922F, 0.337255F, 1.000000F)), Optional.empty(), Optional.empty())
         ));
         final ParameterControlAppearanceProvider provider = new ParameterControlAppearanceProvider(5, coordinator);
         final JLabel label = new JLabel();

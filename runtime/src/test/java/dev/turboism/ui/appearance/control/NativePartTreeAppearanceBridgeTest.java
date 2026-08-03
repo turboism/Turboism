@@ -4,7 +4,6 @@ import dev.turboism.sdk.cubism.model.PartId;
 import dev.turboism.sdk.ui.appearance.ControlAppearanceContribution;
 import dev.turboism.sdk.ui.appearance.ControlAppearanceStyle;
 import dev.turboism.sdk.ui.appearance.ControlAppearanceTarget;
-import dev.turboism.sdk.ui.appearance.UiColor;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -39,7 +38,12 @@ class NativePartTreeAppearanceBridgeTest {
 
     private static ControlAppearanceContribution contribution(String id, ControlAppearanceTarget target, int color) {
         return new ControlAppearanceContribution(id, target,
-            new ControlAppearanceStyle(Optional.of(new UiColor(color)), Optional.empty(), Optional.empty()));
+            new ControlAppearanceStyle(Optional.of(new dev.turboism.sdk.cubism.model.Color(
+                    ((color >> 16) & 0xFF) / 255.0F,
+                    ((color >> 8) & 0xFF) / 255.0F,
+                    (color & 0xFF) / 255.0F,
+                    ((color >> 24) & 0xFF) / 255.0F
+                )), Optional.empty(), Optional.empty()));
     }
 
     private static NativePartTreeAppearanceBridge.Selectors selectors() {
