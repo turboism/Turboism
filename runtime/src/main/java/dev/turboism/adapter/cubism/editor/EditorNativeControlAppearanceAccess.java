@@ -486,14 +486,6 @@ final class EditorNativeControlAppearanceAccess implements NativeControlAppearan
         final Object completePack = resolver.invoke(
             "cubism.editor-model.app-controller.complete-pack", app
         );
-        trace(
-            transaction,
-            "refresh",
-            binding,
-            sourceId,
-            "family=" + refreshFamily(target) + " palette=" + refreshPalette(target)
-                + " canvas=repaintCanvas"
-        );
         if (target instanceof ControlAppearanceTarget.ParameterFolder) {
             resolver.invoke(
                 "cubism.editor-model.complete-pack.update-parameter",
@@ -540,6 +532,14 @@ final class EditorNativeControlAppearanceAccess implements NativeControlAppearan
             "cubism.editor-model.complete-pack.repaint-canvas",
             completePack,
             Boolean.TRUE
+        );
+        trace(
+            transaction,
+            "refresh",
+            binding,
+            sourceId,
+            "family=" + refreshFamily(target) + " palette=" + refreshPalette(target)
+                + " canvas=repaintCanvas"
         );
     }
 
