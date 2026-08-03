@@ -966,8 +966,13 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         return !Objects.requireNonNull(mode, "mode").startsWith("native-control-background");
     }
 
-    static final int PEER_MAX_ATTEMPTS = 600;
-    static final long PEER_POLL_MILLIS = 100L;
+    /**
+     * Response budget for the primary's post-scope-close peer terminal-evidence wait (60 s max).
+     * Deliberately distinct from the peer plugin's pre-marker startup budget (240 s, which begins
+     * before Cubism host/model readiness).
+     */
+    static final int PEER_RESPONSE_MAX_ATTEMPTS = 600;
+    static final long PEER_RESPONSE_POLL_MILLIS = 100L;
 
     /** RUNNING progress phase written before the bounded peer wait so a stuck run reports correctly. */
     static String scopeCloseRunningPhase(final String modelId, final String hostThread) {
@@ -2938,7 +2943,7 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             );
             writeRunningScopeClosePhase(artifact, modelId, hostThread);
             final String peerEvidence = awaitPeerEvidence(
-                peerArtifact, PEER_MAX_ATTEMPTS, PEER_POLL_MILLIS
+                peerArtifact, PEER_RESPONSE_MAX_ATTEMPTS, PEER_RESPONSE_POLL_MILLIS
             );
             final boolean peerTerminal = peerEvidence.contains("status=PASS")
                 || peerEvidence.contains("status=FAIL");
