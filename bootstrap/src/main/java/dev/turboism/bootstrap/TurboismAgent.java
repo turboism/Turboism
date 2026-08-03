@@ -28,6 +28,10 @@ public final class TurboismAgent {
         new AtomicReference<>();
     private static final AtomicReference<VerifiedDockTabPopupHookInstaller> DOCK_TAB_POPUP_HOOK =
         new AtomicReference<>();
+    private static final AtomicReference<VerifiedFloatingFrameDisposeHookInstaller> FLOATING_FRAME_DISPOSE_HOOK =
+        new AtomicReference<>();
+    private static final AtomicReference<VerifiedFloatingTabCloseHookInstaller> FLOATING_TAB_CLOSE_HOOK =
+        new AtomicReference<>();
     private static final AtomicReference<VerifiedObjectContextMenuHookInstaller> OBJECT_CONTEXT_MENU_HOOK =
         new AtomicReference<>();
     private static final AtomicReference<VerifiedParameterPointContextMenuHookInstaller> PARAMETER_POINT_MENU_HOOK =
@@ -195,6 +199,17 @@ public final class TurboismAgent {
                 instrumentation,
                 host
             );
+            installFloatingFrameDisposeHook(
+                embeddedPanelVerificationRecord,
+                instrumentation,
+                host,
+                runtime
+            );
+            installFloatingTabCloseHook(
+                embeddedPanelVerificationRecord,
+                instrumentation,
+                host
+            );
             installObjectContextMenuHook(runtime, instrumentation, host);
             installPhysicsEditorHook(runtime, instrumentation, host);
             installBoundingBoxOverlayHook(runtime, instrumentation);
@@ -205,19 +220,24 @@ public final class TurboismAgent {
                 controlAppearanceVerificationRecord
             );
             Runtime.getRuntime().addShutdownHook(new Thread(TurboismAgent::shutdown, "turboism-shutdown"));
-            System.err.println(
+            runtimeInfo(
                 "Turboism Developer Preview started: host=" + runtime.hostState()
                     + ", plugins=" + runtime.loadReport().loaded().size()
                     + ", failures=" + runtime.loadReport().failures().size()
             );
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
-            System.err.println("Turboism bootstrap interrupted");
+            runtimeWarn("Turboism bootstrap interrupted");
         } catch (Throwable failure) {
-            System.err.println(
-                "Turboism bootstrap failed safely: " + failure.getClass().getName()
-                    + ": " + failure.getMessage()
-            );
+            final PreviewRuntime runtime = RUNTIME.get();
+            if (runtime == null) {
+                System.err.println(
+                    "Turboism bootstrap failed safely: " + failure.getClass().getName()
+                        + ": " + failure.getMessage()
+                );
+            } else {
+                runtime.error("bootstrap", "Turboism bootstrap failed safely", failure);
+            }
         }
     }
 
@@ -261,10 +281,13 @@ public final class TurboismAgent {
             }
         } catch (Throwable failure) {
             if (installer != null) installer.close();
-            System.err.println(
-                "Turboism parameter hook disabled safely: " + failure.getClass().getName()
-            );
+            runtimeWarn("Turboism parameter hook disabled safely: " + failure.getClass().getName());
         }
+    }
+
+    private static boolean safeModeActive() {
+        final StartupSuppressionInstaller.Installation suppression = STARTUP_SUPPRESSION.get();
+        return suppression != null && suppression.policy().safeMode();
     }
 
     private static void installDockTabPopupHook(
@@ -272,6 +295,10 @@ public final class TurboismAgent {
         final Instrumentation instrumentation,
         final HostClassLocator.LocatedHost host
     ) {
+        if (safeModeActive()) {
+            System.err.println("Turboism dock-tab popup hook skipped in safe mode");
+            return;
+        }
         VerifiedDockTabPopupHookInstaller installer = null;
         try {
             final var resolver = new dev.turboism.mapping.verification.VerifiedEmbeddedPanelResolverFactory()
@@ -291,8 +318,68 @@ public final class TurboismAgent {
             if (!DOCK_TAB_POPUP_HOOK.compareAndSet(null, installer)) installer.close();
         } catch (Throwable failure) {
             if (installer != null) installer.close();
+            runtimeWarn("Turboism dock-tab popup hook disabled safely: " + failure.getClass().getName());
+        }
+    }
+
+    private static void installFloatingFrameDisposeHook(
+        final Path embeddedPanelVerificationRecord,
+        final Instrumentation instrumentation,
+        final HostClassLocator.LocatedHost host,
+        final PreviewRuntime runtime
+    ) {
+        if (safeModeActive()) {
+            System.err.println("Turboism floating-frame dispose hook skipped in safe mode");
+            return;
+        }
+        VerifiedFloatingFrameDisposeHookInstaller installer = null;
+        try {
+            final var resolver = new dev.turboism.mapping.verification.VerifiedEmbeddedPanelResolverFactory()
+                .create(embeddedPanelVerificationRecord, host.artifact(), host.classLoader());
+            installer = new VerifiedFloatingFrameDisposeHookInstaller(
+                instrumentation,
+                resolver.verifiedSelector("cubism.ui-panel.palette-frame.raw-disposed"),
+                host.classLoader()
+            );
+            installer.install();
+            if (!FLOATING_FRAME_DISPOSE_HOOK.compareAndSet(null, installer)) installer.close();
+            System.err.println("Turboism floating-frame dispose hook installed");
+        } catch (Throwable failure) {
+            if (installer != null) installer.close();
             System.err.println(
-                "Turboism dock-tab popup hook disabled safely: " + failure.getClass().getName()
+                "Turboism floating-frame dispose hook disabled safely: "
+                    + failure.getClass().getName()
+            );
+        }
+    }
+
+    private static void installFloatingTabCloseHook(
+        final Path embeddedPanelVerificationRecord,
+        final Instrumentation instrumentation,
+        final HostClassLocator.LocatedHost host
+    ) {
+        if (safeModeActive()) {
+            System.err.println("Turboism floating-tab close hook skipped in safe mode");
+            return;
+        }
+        VerifiedFloatingTabCloseHookInstaller installer = null;
+        try {
+            final var resolver = new dev.turboism.mapping.verification.VerifiedEmbeddedPanelResolverFactory()
+                .create(embeddedPanelVerificationRecord, host.artifact(), host.classLoader());
+            installer = new VerifiedFloatingTabCloseHookInstaller(
+                instrumentation,
+                resolver.verifiedSelector("cubism.ui-panel.floating-tab-close.operation"),
+                resolver.verifiedSelector("cubism.ui-panel.floating-tab-close.palette-field"),
+                host.classLoader()
+            );
+            installer.install();
+            if (!FLOATING_TAB_CLOSE_HOOK.compareAndSet(null, installer)) installer.close();
+            System.err.println("Turboism floating-tab close hook installed");
+        } catch (Throwable failure) {
+            if (installer != null) installer.close();
+            System.err.println(
+                "Turboism floating-tab close hook disabled safely: "
+                    + failure.getClass().getName()
             );
         }
     }
@@ -346,9 +433,7 @@ public final class TurboismAgent {
             if (parameterPointInstaller != null) parameterPointInstaller.close();
             if (bridge != null) bridge.close();
             if (parameterPointBridge != null) parameterPointBridge.close();
-            System.err.println(
-                "Turboism object context-menu hook disabled safely: " + failure.getClass().getName()
-            );
+            runtimeWarn("Turboism object context-menu hook disabled safely: " + failure.getClass().getName());
         }
     }
 
@@ -372,9 +457,7 @@ public final class TurboismAgent {
             if (!PHYSICS_EDITOR_HOOK.compareAndSet(null, installer)) installer.close();
         } catch (Throwable failure) {
             if (installer != null) installer.close();
-            System.err.println(
-                "Turboism physics editor hook disabled safely: " + failure.getClass().getName()
-            );
+            runtimeWarn("Turboism physics editor hook disabled safely: " + failure.getClass().getName());
         }
     }
 
@@ -390,9 +473,8 @@ public final class TurboismAgent {
                 hook.close();
             }
         } catch (Throwable failure) {
-            System.err.println(
-                "Turboism bounding-box overlay hook disabled safely: "
-                    + failure.getClass().getName()
+            runtimeWarn(
+                "Turboism bounding-box overlay hook disabled safely: " + failure.getClass().getName()
             );
         }
     }
@@ -420,10 +502,18 @@ public final class TurboismAgent {
             }
         } catch (Throwable failure) {
             if (installer != null) installer.close();
-            System.err.println(
-                "Turboism control-appearance hook disabled safely: " + failure.getClass().getName()
-            );
+            runtimeWarn("Turboism control-appearance hook disabled safely: " + failure.getClass().getName());
         }
+    }
+
+    private static void runtimeInfo(final String message) {
+        final PreviewRuntime runtime = RUNTIME.get();
+        if (runtime == null) System.err.println(message); else runtime.info("bootstrap", message);
+    }
+
+    private static void runtimeWarn(final String message) {
+        final PreviewRuntime runtime = RUNTIME.get();
+        if (runtime == null) System.err.println(message); else runtime.warn("bootstrap", message);
     }
 
     private static Path defaultHome() {
@@ -459,7 +549,7 @@ public final class TurboismAgent {
             try {
                 startupSuppression.close();
             } catch (Throwable failure) {
-                System.err.println("Turboism startup suppression cleanup failed safely");
+                runtimeWarn("Turboism startup suppression cleanup failed safely");
             }
         }
         final VerifiedObjectContextMenuHookInstaller objectContextMenuHook =
@@ -468,7 +558,7 @@ public final class TurboismAgent {
             try {
                 objectContextMenuHook.close();
             } catch (Throwable failure) {
-                System.err.println("Turboism object context-menu hook cleanup failed safely");
+                runtimeWarn("Turboism object context-menu hook cleanup failed safely");
             }
         }
         final VerifiedParameterPointContextMenuHookInstaller parameterPointMenuHook =
@@ -477,7 +567,7 @@ public final class TurboismAgent {
             try {
                 parameterPointMenuHook.close();
             } catch (Throwable failure) {
-                System.err.println("Turboism parameter-point context-menu hook cleanup failed safely");
+                runtimeWarn("Turboism parameter-point context-menu hook cleanup failed safely");
             }
         }
         final dev.turboism.sdk.plugin.Registration objectContextMenuBridge =
@@ -486,7 +576,7 @@ public final class TurboismAgent {
             try {
                 objectContextMenuBridge.close();
             } catch (Throwable failure) {
-                System.err.println("Turboism object context-menu bridge cleanup failed safely");
+                runtimeWarn("Turboism object context-menu bridge cleanup failed safely");
             }
         }
         final dev.turboism.sdk.plugin.Registration parameterPointMenuBridge =
@@ -495,7 +585,7 @@ public final class TurboismAgent {
             try {
                 parameterPointMenuBridge.close();
             } catch (Throwable failure) {
-                System.err.println("Turboism parameter-point context-menu bridge cleanup failed safely");
+                runtimeWarn("Turboism parameter-point context-menu bridge cleanup failed safely");
             }
         }
         final VerifiedDockTabPopupHookInstaller dockTabPopupHook = DOCK_TAB_POPUP_HOOK.getAndSet(null);
@@ -503,7 +593,25 @@ public final class TurboismAgent {
             try {
                 dockTabPopupHook.close();
             } catch (Throwable failure) {
-                System.err.println("Turboism dock-tab popup hook cleanup failed safely");
+                runtimeWarn("Turboism dock-tab popup hook cleanup failed safely");
+            }
+        }
+        final VerifiedFloatingFrameDisposeHookInstaller floatingFrameHook =
+            FLOATING_FRAME_DISPOSE_HOOK.getAndSet(null);
+        if (floatingFrameHook != null) {
+            try {
+                floatingFrameHook.close();
+            } catch (Throwable failure) {
+                System.err.println("Turboism floating-frame dispose hook cleanup failed safely");
+            }
+        }
+        final VerifiedFloatingTabCloseHookInstaller floatingTabCloseHook =
+            FLOATING_TAB_CLOSE_HOOK.getAndSet(null);
+        if (floatingTabCloseHook != null) {
+            try {
+                floatingTabCloseHook.close();
+            } catch (Throwable failure) {
+                System.err.println("Turboism floating-tab close hook cleanup failed safely");
             }
         }
         final VerifiedParameterHookInstaller parameterHook = PARAMETER_HOOK.getAndSet(null);
@@ -511,7 +619,7 @@ public final class TurboismAgent {
             try {
                 parameterHook.close();
             } catch (Throwable failure) {
-                System.err.println("Turboism parameter hook cleanup failed safely");
+                runtimeWarn("Turboism parameter hook cleanup failed safely");
             }
         }
         final VerifiedPhysicsEditorHookInstaller physicsHook = PHYSICS_EDITOR_HOOK.getAndSet(null);
@@ -519,7 +627,7 @@ public final class TurboismAgent {
             try {
                 physicsHook.close();
             } catch (Throwable failure) {
-                System.err.println("Turboism physics editor hook cleanup failed safely");
+                runtimeWarn("Turboism physics editor hook cleanup failed safely");
             }
         }
         final dev.turboism.sdk.plugin.Registration overlayHook = OVERLAY_HOOK.getAndSet(null);
@@ -527,7 +635,7 @@ public final class TurboismAgent {
             try {
                 overlayHook.close();
             } catch (Throwable failure) {
-                System.err.println("Turboism bounding-box overlay hook cleanup failed safely");
+                runtimeWarn("Turboism bounding-box overlay hook cleanup failed safely");
             }
         }
         final VerifiedControlAppearanceHookInstaller controlAppearanceHook =
@@ -536,7 +644,7 @@ public final class TurboismAgent {
             try {
                 controlAppearanceHook.close();
             } catch (Throwable failure) {
-                System.err.println("Turboism control-appearance hook cleanup failed safely");
+                runtimeWarn("Turboism control-appearance hook cleanup failed safely");
             }
         }
         final PreviewRuntime runtime = RUNTIME.getAndSet(null);

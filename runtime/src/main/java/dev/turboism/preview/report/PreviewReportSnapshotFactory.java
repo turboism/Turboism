@@ -189,6 +189,7 @@ public final class PreviewReportSnapshotFactory {
                 createdAt,
                 hostState,
                 hostArtifact,
+                verificationRecord,
                 neutralSummaries,
                 neutralFailures,
                 stopped
@@ -222,6 +223,7 @@ public final class PreviewReportSnapshotFactory {
         final Instant createdAt,
         final HostSession.State hostState,
         final Path hostArtifact,
+        final Path verificationRecord,
         final List<LocalPluginRuntime.LoadedPluginSummary> summaries,
         final RuntimeFailureSnapshot failures,
         final boolean stopped
@@ -233,7 +235,7 @@ public final class PreviewReportSnapshotFactory {
         );
         final ObjectNode payload = (ObjectNode) report.get("payload");
         final ObjectNode host = (ObjectNode) payload.get("host");
-        host.put("version", hostState == HostSession.State.ACTIVE ? "5.3.02" : "UNKNOWN");
+        host.put("version", verifiedHostVersion(hostState, verificationRecord));
         host.put("identityState", switch (hostState) {
             case ACTIVE -> "MATCHED";
             case FAILED -> "MISMATCHED";
@@ -696,6 +698,42 @@ public final class PreviewReportSnapshotFactory {
             case "TURBOISM_API_INCOMPATIBLE" -> "Plugin API range is incompatible.";
             default -> "Plugin loading failed safely.";
         };
+    }
+
+    /**
+     * Exact product version from the passed verification record, which production startup has
+     * already verified against the host artifact. Only an ACTIVE host with a readable record
+     * carrying a reviewed version is reported; anything else (missing, unreadable, absent field,
+     * unsupported value) fails closed to UNKNOWN without guessing.
+     */
+    private static String verifiedHostVersion(
+        final HostSession.State hostState,
+        final Path verificationRecord
+    ) {
+        if (hostState != HostSession.State.ACTIVE || verificationRecord == null) {
+            return "UNKNOWN";
+        }
+        final String value;
+        try {
+            final com.fasterxml.jackson.databind.JsonNode record =
+                PreviewReportDocuments.JSON.readTree(verificationRecord.toFile());
+            final com.fasterxml.jackson.databind.JsonNode version = record.path("cubismVersion");
+            if (!version.isTextual() || version.textValue().isBlank()) {
+                return "UNKNOWN";
+            }
+            value = version.textValue();
+        } catch (RuntimeException | IOException failure) {
+            return "UNKNOWN";
+        }
+        // The 5.2 project/workspace manifest identifies the host as "5.2.0";
+        // normalize it to the product version "5.2.03" used by reviewed evidence.
+        if (value.equals("5.2.0")) {
+            return "5.2.03";
+        }
+        if (!value.equals("5.3.02") && !value.equals("5.2.03")) {
+            return "UNKNOWN";
+        }
+        return value;
     }
 
     private static java.util.Optional<FileDigest> fileDigest(final Path path) {
