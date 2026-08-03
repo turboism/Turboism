@@ -149,12 +149,55 @@ public final class PreviewRuntime implements AutoCloseable {
             throw new IOException(pendingPlugins.code());
         }
 
-        final PreviewLog log = new PreviewLog(layout.runtimeLogsDir().resolve("turboism.log"));
+        final ClassLoader verifiedHostClassLoader = Objects.requireNonNull(
+            hostClassLoader,
+            "hostClassLoader"
+        );
+        PreviewLog.Sink hostLogSink;
+        String hostLogFailure;
+        try {
+            hostLogSink = CubismLoggerBridge.connect(verifiedHostClassLoader);
+            hostLogFailure = null;
+        } catch (ReflectiveOperationException | LinkageError | SecurityException failure) {
+            hostLogSink = PreviewLog.Sink.STDERR;
+            hostLogFailure = failure.getClass().getSimpleName() + ": " + failure.getMessage();
+        }
+        final PreviewLog log;
+        try {
+            log = PreviewLog.openSession(
+                layout.runtimeLogsDir(),
+                Clock.systemUTC(),
+                ProcessHandle.current().pid(),
+                hostLogSink
+            );
+        } catch (IOException failure) {
+            hostLogSink.close();
+            throw failure;
+        }
         RuntimeScheduler scheduler = null;
         HostRuntimeIngress ingress = null;
         LocalPluginRuntime plugins = null;
         try {
+            final var runtimeConfig = new dev.turboism.config.RuntimeConfigRepository(
+                home,
+                diagnostic -> log.warn("config", diagnostic)
+            ).read();
+            log.setMinimumLevel(runtimeConfig.path("logLevel").asText("INFO"));
+            log.setMaxStorageMiB(runtimeConfig.path("maxLogStorageMiB").asInt(
+                dev.turboism.sdk.runtime.RuntimeSettings.DEFAULT_MAX_LOG_STORAGE_MIB
+            ));
+            if (hostLogFailure != null) {
+                log.warn("runtime", "Cubism logger bridge unavailable; using stderr: " + hostLogFailure);
+            }
             log.info("runtime", "Starting Turboism 0.1 Developer Preview at " + home);
+            // Inject the persisted theme before the Cubism GL scene initializes so
+            // the off-canvas background color (cached in a singleton Lazy) takes
+            // effect on restart, matching the legacy hook agent's startup timing.
+            new dev.turboism.ui.appearance.EarlyThemeAppearanceBootstrap(
+                home,
+                verifiedHostClassLoader,
+                () -> log.info("runtime", "Early theme appearance injected from persisted selection")
+            ).start();
             scheduler = createScheduler(log);
             ingress = new HostRuntimeIngress();
 
@@ -166,10 +209,6 @@ public final class PreviewRuntime implements AutoCloseable {
                 hostArtifact,
                 "hostArtifact"
             ).toAbsolutePath().normalize();
-            final ClassLoader verifiedHostClassLoader = Objects.requireNonNull(
-                hostClassLoader,
-                "hostClassLoader"
-            );
             final HostVerificationEvidence.Slice projectWorkspace = new HostVerificationEvidence.Slice(
                 normalizedVerificationRecord,
                 normalizedHostArtifact,
@@ -267,6 +306,18 @@ public final class PreviewRuntime implements AutoCloseable {
 
     public HostSession.State hostState() {
         return hostIngress.state();
+    }
+
+    public void info(final String component, final String message) {
+        log.info(component, message);
+    }
+
+    public void warn(final String component, final String message) {
+        log.warn(component, message);
+    }
+
+    public void error(final String component, final String message, final Throwable failure) {
+        log.error(component, message, failure);
     }
 
     public LocalPluginRuntime.LoadReport loadReport() {

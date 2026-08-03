@@ -72,7 +72,7 @@ class MainToolbarPluginTest {
             .map(ActionRegistry.Action::id)
             .toList()
             .containsAll(List.of(
-                "turboism.core.open", "settings.save", "settings.clean-empty-docks"
+                "turboism.core.open", "turboism.core.logs.open", "settings.save", "settings.clean-empty-docks"
             )));
         assertEquals(
             List.of(new MainToolbarRegistry.MainToolbarButtonContribution(
@@ -98,11 +98,13 @@ class MainToolbarPluginTest {
         assertEquals("turboism.panel.main", panel.id());
         assertTrue(panel.content().toString().contains("Settings"));
         assertTrue(panel.content().toString().contains("Plugin Management"));
+        assertTrue(panel.content().toString().contains("Logs"));
         assertTrue(!panel.content().toString().contains("Safe Mode"));
         assertEquals(
             List.of(
                 "Turboism/Settings:turboism.core.settings.open:10",
-                "Turboism/Plugin Management:turboism.core.plugins.open:11"
+                "Turboism/Plugin Management:turboism.core.plugins.open:11",
+                "Turboism/Logs:turboism.core.logs.open:12"
             ),
             context.menus().contributions().stream()
                 .map(value -> value.menuPath() + ":" + value.actionId() + ":" + value.order())
@@ -430,6 +432,7 @@ class MainToolbarPluginTest {
                         case "main-toolbar.settings-menu.label" -> "Settings";
                         case "main-toolbar.plugins-menu.label" -> "Plugin Management";
                         case "context-menu.panel-tab.float" -> "Float";
+                        case "main-toolbar.logs-menu.label" -> "Logs";
                         default -> key;
                     };
                 }
@@ -443,7 +446,8 @@ class MainToolbarPluginTest {
                 public boolean contains(final String key) {
                     return key.equals("main-toolbar.settings-menu.label")
                         || key.equals("main-toolbar.plugins-menu.label")
-                        || key.equals("context-menu.panel-tab.float");
+                        || key.equals("context-menu.panel-tab.float")
+                        || key.equals("main-toolbar.logs-menu.label");
                 }
             };
         }

@@ -1,5 +1,6 @@
 package dev.turboism.plugin.core;
 
+import dev.turboism.sdk.runtime.RuntimeLogReader;
 import dev.turboism.sdk.runtime.RuntimeSettingsService;
 
 import java.util.Objects;
@@ -9,13 +10,14 @@ import java.util.function.Supplier;
 public record CorePluginServices(
     RuntimeSettingsService settings,
     CorePluginManagement plugins,
-    FloatingPanelActions floatingPanelActions
+    FloatingPanelActions floatingPanelActions,
+    RuntimeLogReader logs
 ) {
     public CorePluginServices(
         final RuntimeSettingsService settings,
         final CorePluginManagement plugins
     ) {
-        this(settings, plugins, FloatingPanelActions.unavailable());
+        this(settings, plugins, FloatingPanelActions.unavailable(), RuntimeLogReader.unavailable());
     }
 
     public interface FloatingPanelActions {
@@ -33,7 +35,9 @@ public record CorePluginServices(
         settings = Objects.requireNonNull(settings, "settings");
         plugins = Objects.requireNonNull(plugins, "plugins");
         floatingPanelActions = Objects.requireNonNull(floatingPanelActions, "floatingPanelActions");
+        logs = Objects.requireNonNull(logs, "logs");
     }
+
 
     public static <T> T instantiate(
         final CorePluginServices services,
