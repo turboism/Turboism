@@ -28,7 +28,6 @@ import dev.turboism.sdk.cubism.model.Parameters;
 import dev.turboism.sdk.cubism.model.Part;
 import dev.turboism.sdk.cubism.model.PartId;
 import dev.turboism.sdk.cubism.model.Parts;
-import dev.turboism.sdk.ui.appearance.ControlAppearanceTarget;
 import dev.turboism.adapter.cubism.NativeControlAppearanceAuthoring;
 import dev.turboism.sdk.ui.appearance.ControlAppearanceTarget;
 import dev.turboism.sdk.ui.appearance.NativeControlAppearance;
