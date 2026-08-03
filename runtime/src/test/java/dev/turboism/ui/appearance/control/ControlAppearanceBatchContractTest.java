@@ -7,7 +7,6 @@ import dev.turboism.sdk.cubism.model.PartId;
 import dev.turboism.sdk.ui.appearance.ControlAppearanceContribution;
 import dev.turboism.sdk.ui.appearance.ControlAppearanceStyle;
 import dev.turboism.sdk.ui.appearance.ControlAppearanceTarget;
-import dev.turboism.sdk.ui.appearance.UiColor;
 import dev.turboism.sdk.ui.appearance.UiFont;
 import org.junit.jupiter.api.Test;
 
@@ -42,8 +41,8 @@ class ControlAppearanceBatchContractTest {
     void appliesForegroundBackgroundAndDerivedFontWithoutDroppingNativeFields() {
         final Font nativeFont = new Font("Dialog", Font.ITALIC, 11);
         final ControlAppearanceStyle style = new ControlAppearanceStyle(
-            Optional.of(new UiColor(0xFF123456)),
-            Optional.of(new UiColor(0xFF654321)),
+            Optional.of(new dev.turboism.sdk.cubism.model.Color(0.070588F, 0.203922F, 0.337255F, 1.000000F)),
+            Optional.of(new dev.turboism.sdk.cubism.model.Color(0.396078F, 0.262745F, 0.129412F, 1.000000F)),
             Optional.of(new UiFont(
                 Optional.of("Monospaced"),
                 Optional.of(18.0F),
@@ -69,7 +68,7 @@ class ControlAppearanceBatchContractTest {
         return new ControlAppearanceContribution(
             id,
             target,
-            new ControlAppearanceStyle(Optional.of(new UiColor(0xFF112233)), Optional.empty(), Optional.empty())
+            new ControlAppearanceStyle(Optional.of(new dev.turboism.sdk.cubism.model.Color(0.066667F, 0.133333F, 0.200000F, 1.000000F)), Optional.empty(), Optional.empty())
         );
     }
 }

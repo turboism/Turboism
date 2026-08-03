@@ -1,6 +1,7 @@
 package dev.turboism.plugin.core;
 
 import dev.turboism.sdk.i18n.PluginLocalization;
+import dev.turboism.sdk.runtime.RuntimeLogReader;
 import dev.turboism.sdk.runtime.RuntimeSettings;
 import dev.turboism.sdk.runtime.RuntimeSettingsService;
 
@@ -15,6 +16,8 @@ import javax.swing.JScrollPane;
 import javax.swing.JTabbedPane;
 import javax.swing.JTable;
 import javax.swing.JTextField;
+import javax.swing.JSpinner;
+import javax.swing.SpinnerNumberModel;
 import javax.swing.ListSelectionModel;
 import javax.swing.RowFilter;
 import javax.swing.table.AbstractTableModel;
@@ -32,6 +35,7 @@ final class CoreWindows implements AutoCloseable {
     private final PluginLocalization i18n;
     private final RuntimeSettingsService settings;
     private final CorePluginManagement plugins;
+    private final CoreLogWindow logWindow;
     private JDialog settingsDialog;
     private JDialog pluginsDialog;
     private PluginTableModel pluginTableModel;
@@ -42,11 +46,13 @@ final class CoreWindows implements AutoCloseable {
     CoreWindows(
         final PluginLocalization i18n,
         final RuntimeSettingsService settings,
-        final CorePluginManagement plugins
+        final CorePluginManagement plugins,
+        final RuntimeLogReader logs
     ) {
         this.i18n = Objects.requireNonNull(i18n, "i18n");
         this.settings = Objects.requireNonNull(settings, "settings");
         this.plugins = Objects.requireNonNull(plugins, "plugins");
+        this.logWindow = new CoreLogWindow(i18n, logs);
     }
 
     void showSettings() {
@@ -64,9 +70,14 @@ final class CoreWindows implements AutoCloseable {
         });
     }
 
+    void showLogs() {
+        logWindow.show();
+    }
+
     @Override
     public void close() {
         CoreDialogs.onEdt(() -> {
+            logWindow.close();
             if (settingsDialog != null) settingsDialog.dispose();
             if (pluginsDialog != null) pluginsDialog.dispose();
             settingsDialog = null;
@@ -80,8 +91,14 @@ final class CoreWindows implements AutoCloseable {
         dialog.setLayout(new BorderLayout());
 
         final JCheckBox safeMode = new JCheckBox(text("settings.safe-mode"), value.safeMode());
-        final JComboBox<String> logLevel = new JComboBox<>(new String[]{"DEBUG", "INFO", "WARN", "ERROR"});
+        final JComboBox<String> logLevel = new JComboBox<>(new String[]{"TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL"});
         logLevel.setSelectedItem(value.logLevel());
+        final JSpinner maxLogStorage = new JSpinner(new SpinnerNumberModel(
+            value.maxLogStorageMiB(),
+            RuntimeSettings.MIN_MAX_LOG_STORAGE_MIB,
+            RuntimeSettings.MAX_MAX_LOG_STORAGE_MIB,
+            10
+        ));
         final JCheckBox skipUpdate = new JCheckBox(text("settings.skip-update"), value.skipStartupUpdateCheck());
         final JCheckBox skipSplash = new JCheckBox(text("settings.skip-splash"), value.skipStartupSplash());
         final JCheckBox skipInformation = new JCheckBox(text("settings.skip-information"), value.skipStartupInformation());
@@ -89,7 +106,8 @@ final class CoreWindows implements AutoCloseable {
         final JTabbedPane tabs = new JTabbedPane();
         final JPanel runtime = form();
         add(runtime, 0, new JLabel(text("settings.log-level")), logLevel);
-        add(runtime, 1, safeMode, new JLabel());
+        add(runtime, 1, new JLabel(text("settings.max-log-storage-mib")), maxLogStorage);
+        add(runtime, 2, safeMode, new JLabel());
         tabs.addTab(text("settings.tab.runtime"), runtime);
 
         final JPanel startup = form();
@@ -112,6 +130,7 @@ final class CoreWindows implements AutoCloseable {
         final Runnable save = () -> {
             settings.save(new RuntimeSettings(
                 safeMode.isSelected(), (String) logLevel.getSelectedItem(),
+                ((Number) maxLogStorage.getValue()).intValue(),
                 skipUpdate.isSelected(), skipSplash.isSelected(), skipInformation.isSelected()
             ));
             CoreDialogs.message(dialog, text("common.turboism"), text("settings.saved"));

@@ -28,7 +28,7 @@ private fun configurePreviewSource(task: Sync, previewDirectory: Provider<org.gr
     task.from("scripts/preview/launch-cubism-turboism.bat")
     task.from("scripts/preview/launch-cubism-turboism.ps1")
     task.from("scripts/preview/run-preview.bat")
-    task.from("docs/release/README-preview.md") { rename { "README.md" } }
+    task.from("packaging/README-preview.md") { rename { "README.md" } }
 }
 
 private fun configurePreviewAgentJar(task: Sync) {

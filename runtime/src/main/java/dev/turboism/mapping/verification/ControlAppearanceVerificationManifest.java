@@ -59,7 +59,7 @@ public final class ControlAppearanceVerificationManifest {
             && artifact.sha256().equals("bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd")) {
             return manifest(
                 "cubism-5.2.03.ui-control-appearance.static",
-                "2396ca604bc71017f31334a28ae0d5dfc210abb6274cffd6c86b0cb14cfbfecf",
+                "a1a9900374bc9a8637f2de0973206f1ac92bd59a93df6933ae5fd919b0134f6f",
                 "5.2.03",
                 "cubism-5.2",
                 40_805_584L,
@@ -70,7 +70,7 @@ public final class ControlAppearanceVerificationManifest {
             && artifact.sha256().equals("988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21")) {
             return manifest(
                 "cubism-5.3.02.ui-control-appearance.static",
-                "a694e70788aaac1a860b731706be50509949b0cd05974567a22254bcc0e4d47a",
+                "d5ae349fd18dbebbd52b2bf1e84291ecd325d7a2ec6d0be6bae0609285aebbac",
                 "5.3.02",
                 "cubism-5.3.02",
                 41_922_739L,

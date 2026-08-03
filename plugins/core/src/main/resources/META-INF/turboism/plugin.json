@@ -37,6 +37,11 @@
       "reason": "Publishes and activates the Turboism embedded panel."
     },
     {
+      "id": "turboism.ui.context-menu.contribute",
+      "scope": "application",
+      "reason": "Contributes the built-in panel-tab float and dock menu operations."
+    },
+    {
       "id": "turboism.ui.menu.contribute",
       "scope": "application",
       "reason": "Adds Settings and Plugin Management entries to the Turboism top-level menu."
