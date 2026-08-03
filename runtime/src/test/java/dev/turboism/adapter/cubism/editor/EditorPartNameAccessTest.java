@@ -1,9 +1,11 @@
 package dev.turboism.adapter.cubism.editor;
 
+import dev.turboism.mapping.verification.EditorPartBasicSettingsSelectorContract;
 import dev.turboism.mapping.verification.EditorPartNameSelectorContract;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
+import dev.turboism.sdk.cubism.model.Color;
 import dev.turboism.sdk.cubism.model.PartId;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -12,6 +14,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import java.util.ArrayList;
 import java.util.List;
 
+import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -50,6 +53,51 @@ class EditorPartNameAccessTest {
 
         part.setName("Renamed Part");
         assertEquals(1, fixture.editMode.edits.size());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    void readsAndWritesBasicSettingsAndModelMetadata(final String cubismVersion) {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        final var access = new EditorBackedCubismModelAccess(resolver(true, cubismVersion), "session-a");
+        final var model = access.active();
+        final var part = model.parts().find(new PartId("PartClip"));
+
+        assertEquals("Fixture Model", model.name());
+        assertEquals(Optional.of("Clipping Part"), part.shortName());
+        assertEquals(true, part.visible());
+        assertEquals(false, part.locked());
+        assertEquals(true, part.visibleInHierarchy());
+        assertEquals(false, part.lockedInHierarchy());
+        assertEquals(Optional.of(new Color(0.1F, 0.2F, 0.3F, 0.4F)), part.editColor());
+        assertEquals(false, part.sketch());
+        assertEquals(0, part.defaultOrder());
+
+        part.setShortName(Optional.empty());
+        part.setVisible(false);
+        part.setLocked(true);
+        part.setEditColor(Optional.of(new Color(0.5F, 0.6F, 0.7F, 0.8F)));
+        part.setSketch(true);
+        part.setDefaultOrder(23);
+
+        assertEquals(Optional.empty(), part.shortName());
+        assertEquals("PartClip", part.name());
+        assertEquals(false, part.visible());
+        assertEquals(true, part.locked());
+        assertEquals(false, part.visibleInHierarchy());
+        assertEquals(true, part.lockedInHierarchy());
+        assertEquals(Optional.of(new Color(0.5F, 0.6F, 0.7F, 0.8F)), part.editColor());
+        assertEquals(true, part.sketch());
+        assertEquals(23, part.defaultOrder());
+        assertEquals(6, fixture.editMode.edits.size());
+        assertEquals(6, fixture.source.hierarchyUpdateCount);
+        assertEquals(6, fixture.source.updateCount);
+
+        part.setEditColor(Optional.empty());
+        assertEquals(Optional.empty(), part.editColor());
+        model.update();
+        assertEquals(8, fixture.source.updateCount);
     }
 
     @Test
@@ -105,6 +153,7 @@ class EditorPartNameAccessTest {
         selectors.add(StaticSelector.classSelector("cubism.editor-model.modeling-document.class", internal(Document.class)));
         selectors.add(method("cubism.editor-model.modeling-document.model-source", Document.class, "modelSource", desc(ModelSource.class)));
         selectors.add(method("cubism.editor-model.model-source.guid", ModelSource.class, "guid", desc(Id.class)));
+        selectors.add(method("cubism.editor-model.model-source.name", ModelSource.class, "name", "()Ljava/lang/String;"));
         selectors.add(method("cubism.editor-model.model-source.current-instance", ModelSource.class, "currentInstance", desc(Model.class)));
         selectors.add(StaticSelector.classSelector("cubism.editor-model.model.class", internal(Model.class)));
         selectors.add(StaticSelector.classSelector("cubism.editor-model.guid.class", internal(Id.class)));
@@ -125,8 +174,28 @@ class EditorPartNameAccessTest {
             selectors.add(method("cubism.editor-model.undo.add-listener", Undo.class, "addListener", "(" + type(Listener.class) + ")Z"));
             selectors.add(StaticSelector.classSelector("cubism.editor-model.undo-listener.class", internal(Listener.class)));
             selectors.add(method("cubism.editor-model.model-source.update-instances", ModelSource.class, "updateInstances", "()V"));
+            selectors.add(method("cubism.editor-model.model-source.update-visible-lock-hierarchy", ModelSource.class, "updateVisibleAndLockHierarchy", "()V"));
             selectors.add(method("cubism.editor-model.part-source.local-name", PartSource.class, "localName", "()Ljava/lang/String;"));
             selectors.add(method("cubism.editor-model.part-source.set-local-name", PartSource.class, "setLocalName", "(Ljava/lang/String;)V"));
+            selectors.add(method("cubism.editor-model.part-source.default-order", PartSource.class, "defaultOrder", "()I"));
+            selectors.add(method("cubism.editor-model.part-source.set-default-order", PartSource.class, "setDefaultOrder", "(I)V"));
+            selectors.add(method("cubism.editor-model.part-source.sketch", PartSource.class, "sketch", "()Z"));
+            selectors.add(method("cubism.editor-model.part-source.set-sketch", PartSource.class, "setSketch", "(Z)V"));
+            selectors.add(method("cubism.editor-model.part-source.edit-color", PartSource.class, "editColor", desc(HostColor.class)));
+            selectors.add(method("cubism.editor-model.part-source.set-edit-color", PartSource.class, "setEditColor", "(" + type(HostColor.class) + ")V"));
+            selectors.add(method("cubism.editor-model.part-source.create-undo-for-basic-settings", PartSource.class, "basicUndo", "(Ljava/lang/String;)" + type(Undo.class)));
+            selectors.add(method("cubism.editor-model.parameter-controllable-source.visible", PartSource.class, "visible", "()Z"));
+            selectors.add(method("cubism.editor-model.parameter-controllable-source.set-visible", PartSource.class, "setVisible", "(Z)V"));
+            selectors.add(method("cubism.editor-model.parameter-controllable-source.locked", PartSource.class, "locked", "()Z"));
+            selectors.add(method("cubism.editor-model.parameter-controllable-source.set-locked", PartSource.class, "setLocked", "(Z)V"));
+            selectors.add(method("cubism.editor-model.parameter-controllable-source.visible-in-hierarchy", PartSource.class, "visibleInHierarchy", "()Z"));
+            selectors.add(method("cubism.editor-model.parameter-controllable-source.locked-in-hierarchy", PartSource.class, "lockedInHierarchy", "()Z"));
+            selectors.add(StaticSelector.classSelector("cubism.editor-model.color.class", internal(HostColor.class)));
+            selectors.add(StaticSelector.constructor("cubism.editor-model.color.create", internal(HostColor.class), "(FFFF)V", StaticSelector.ACCESS_PUBLIC));
+            selectors.add(method("cubism.editor-model.color.red", HostColor.class, "red", "()F"));
+            selectors.add(method("cubism.editor-model.color.green", HostColor.class, "green", "()F"));
+            selectors.add(method("cubism.editor-model.color.blue", HostColor.class, "blue", "()F"));
+            selectors.add(method("cubism.editor-model.color.alpha", HostColor.class, "alpha", "()F"));
             selectors.add(method("cubism.editor-model.part-source.handler", PartSource.class, "handler", desc(PartHandler.class)));
             selectors.add(StaticSelector.classSelector("cubism.editor-model.part-handler.class", internal(PartHandler.class)));
             selectors.add(method("cubism.editor-model.part-handler.create-undo-for-all-edit", PartHandler.class, "undo", "(Ljava/lang/String;)" + type(Undo.class)));
@@ -139,7 +208,9 @@ class EditorPartNameAccessTest {
             includeNameCapability
                 ? java.util.Set.of(
                     EditorPartNameSelectorContract.CAPABILITY_ID,
-                    EditorPartNameSelectorContract.WRITE_CAPABILITY_ID
+                    EditorPartNameSelectorContract.WRITE_CAPABILITY_ID,
+                    EditorPartBasicSettingsSelectorContract.READ_CAPABILITY_ID,
+                    EditorPartBasicSettingsSelectorContract.WRITE_CAPABILITY_ID
                 )
                 : java.util.Set.of("cubism.editor-model.read"),
             selectors,
@@ -181,9 +252,18 @@ class EditorPartNameAccessTest {
         final List<PartSource> sources = new ArrayList<>();
         Model model;
         int updateCount;
+        int hierarchyUpdateCount;
+        public String name() { return "Fixture Model"; }
         public Id guid() { return guid; }
         public Model currentInstance() { return model; }
         public List<PartSource> parts() { return sources; }
+        public void updateVisibleAndLockHierarchy() {
+            hierarchyUpdateCount++;
+            sources.forEach(source -> {
+                source.visibleInHierarchy = source.visible;
+                source.lockedInHierarchy = source.locked;
+            });
+        }
         public void updateInstances() { updateCount++; }
     }
 
@@ -202,6 +282,13 @@ class EditorPartNameAccessTest {
         final Id id;
         final PartHandler handler = new PartHandler();
         String localName;
+        boolean visible = true;
+        boolean locked;
+        boolean visibleInHierarchy = true;
+        boolean lockedInHierarchy;
+        boolean sketch;
+        int defaultOrder;
+        HostColor editColor = new HostColor(0.1F, 0.2F, 0.3F, 0.4F);
         PartSource(final String id, final String localName) {
             this.id = new Id(id);
             this.localName = localName;
@@ -209,8 +296,23 @@ class EditorPartNameAccessTest {
         public Id id() { return id; }
         public String localName() { return localName; }
         public void setLocalName(final String value) { localName = value; }
+        public boolean visible() { return visible; }
+        public void setVisible(final boolean value) { visible = value; }
+        public boolean locked() { return locked; }
+        public void setLocked(final boolean value) { locked = value; }
+        public boolean visibleInHierarchy() { return visibleInHierarchy; }
+        public boolean lockedInHierarchy() { return lockedInHierarchy; }
+        public boolean sketch() { return sketch; }
+        public void setSketch(final boolean value) { sketch = value; }
+        public int defaultOrder() { return defaultOrder; }
+        public void setDefaultOrder(final int value) { defaultOrder = value; }
+        public HostColor editColor() { return editColor; }
+        public void setEditColor(final HostColor value) { editColor = value; }
+        public Undo basicUndo(final String name) { return new Undo(); }
         public PartHandler handler() { return handler; }
     }
+
+    public record HostColor(float red, float green, float blue, float alpha) { }
 
     public static final class PartHandler {
         public Undo undo(final String name) { return new Undo(); }

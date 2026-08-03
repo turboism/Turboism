@@ -1186,7 +1186,7 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 )).append('\n')
                 .append("modelId=").append(onHostThread(() -> model.id().value())).append('\n');
 
-            appendFixedOutcome(report, "activeDocument", () -> onHostThread(() ->
+            appendRequiredFixedOutcome(report, "activeDocument", () -> onHostThread(() ->
                 context.cubism().activeDocument()
                     .map(document -> document.documentId() + "|" + document.name())
                     .orElse("none")
@@ -1257,68 +1257,107 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 .append("part.first.parentId=").append(fixedText(onHostThread(part::parentId))).append('\n')
                 .append("part.first.childIds=").append(fixedText(onHostThread(part::childIds))).append('\n')
                 .append("fixedReads.status=PASS\n");
-            phase.set("optional-fixed-api");
+            phase.set("required-fixed-api");
 
-            appendFixedOutcome(report, "coreRuntime.version", () ->
+            appendRequiredFixedOutcome(report, "coreRuntime.version", () ->
                 onHostThread(() -> context.cubism().coreRuntime().version()));
-            appendFixedOutcome(report, "coreRuntime.capabilities", () ->
+            appendRequiredFixedOutcome(report, "coreRuntime.capabilities", () ->
                 onHostThread(() -> context.cubism().coreRuntime().capabilities()));
-            appendFixedOutcome(report, "coreRuntime.latestMocVersion", () ->
+            appendRequiredFixedOutcome(report, "coreRuntime.latestMocVersion", () ->
                 onHostThread(() -> context.cubism().coreRuntime().mocInspector().latestVersion()));
-            appendFixedOutcome(report, "model.name", () -> onHostThread(model::name));
+            appendRequiredFixedOutcome(report, "model.name", () -> onHostThread(model::name));
             appendFixedOutcome(report, "model.mocInfo", () -> onHostThread(model::mocInfo));
 
-            appendFixedOutcome(report, "part.shortName", () -> onHostThread(part::shortName));
-            appendFixedOutcome(report, "part.visible", () -> onHostThread(part::visible));
-            appendFixedOutcome(report, "part.visibleInHierarchy", () -> onHostThread(part::visibleInHierarchy));
-            appendFixedOutcome(report, "part.locked", () -> onHostThread(part::locked));
-            appendFixedOutcome(report, "part.lockedInHierarchy", () -> onHostThread(part::lockedInHierarchy));
-            appendFixedOutcome(report, "part.editColor", () -> onHostThread(part::editColor));
-            appendFixedOutcome(report, "part.sketch", () -> onHostThread(part::sketch));
-            appendFixedOutcome(report, "part.defaultOrder", () -> onHostThread(part::defaultOrder));
+            appendRequiredFixedOutcome(report, "part.shortName", () -> onHostThread(part::shortName));
+            appendRequiredFixedOutcome(report, "part.visible", () -> onHostThread(part::visible));
+            appendRequiredFixedOutcome(report, "part.visibleInHierarchy", () -> onHostThread(part::visibleInHierarchy));
+            appendRequiredFixedOutcome(report, "part.locked", () -> onHostThread(part::locked));
+            appendRequiredFixedOutcome(report, "part.lockedInHierarchy", () -> onHostThread(part::lockedInHierarchy));
+            appendRequiredFixedOutcome(report, "part.editColor", () -> onHostThread(part::editColor));
+            appendRequiredFixedOutcome(report, "part.sketch", () -> onHostThread(part::sketch));
+            appendRequiredFixedOutcome(report, "part.defaultOrder", () -> onHostThread(part::defaultOrder));
+            appendRequiredFixedOutcome(report, "part.parentIndex", () -> onHostThread(part::parentIndex));
 
-            final Drawable drawable = onHostThread(() -> model.drawables().all().get(0));
-            appendFixedOutcome(report, "drawable.index", () -> onHostThread(drawable::index));
-            appendFixedOutcome(report, "drawable.doubleSided", () -> onHostThread(drawable::doubleSided));
-            appendFixedOutcome(report, "drawable.evaluationState", () -> onHostThread(drawable::evaluationState));
-            appendFixedOutcome(report, "drawable.parentPartId", () -> onHostThread(drawable::parentPartId));
-            appendFixedOutcome(report, "drawable.parentDeformerId", () -> onHostThread(drawable::parentDeformerId));
-            appendFixedOutcome(report, "drawable.parameterIds", () -> onHostThread(drawable::parameterIds));
-            appendFixedOutcome(report, "drawable.maskIds", () -> onHostThread(drawable::maskIds));
-
-            final AtomicReference<Deformer> deformer = new AtomicReference<>();
-            appendFixedOutcome(report, "deformers.count", () -> {
-                final List<Deformer> values = onHostThread(() -> model.deformers().all());
-                if (!values.isEmpty()) deformer.set(values.get(0));
-                return values.size();
-            });
-            if (deformer.get() != null) {
-                appendFixedOutcome(report, "deformer.index", () -> onHostThread(deformer.get()::index));
-                appendFixedOutcome(report, "deformer.parentPartId", () -> onHostThread(deformer.get()::parentPartId));
-                appendFixedOutcome(report, "deformer.parentDeformerId", () -> onHostThread(deformer.get()::parentDeformerId));
-                appendFixedOutcome(report, "deformer.parameterIds", () -> onHostThread(deformer.get()::parameterIds));
-                appendFixedOutcome(report, "deformer.name", () -> onHostThread(deformer.get()::name));
-                appendFixedOutcome(report, "deformer.visible", () -> onHostThread(deformer.get()::visible));
-                appendFixedOutcome(report, "deformer.visibleInHierarchy", () -> onHostThread(deformer.get()::visibleInHierarchy));
-                appendFixedOutcome(report, "deformer.locked", () -> onHostThread(deformer.get()::locked));
-                appendFixedOutcome(report, "deformer.lockedInHierarchy", () -> onHostThread(deformer.get()::lockedInHierarchy));
-                appendFixedOutcome(report, "deformer.opacity", () -> onHostThread(deformer.get()::getOpacity));
-                appendFixedOutcome(report, "deformer.multiplyColor", () -> onHostThread(deformer.get()::multiplyColor));
-                appendFixedOutcome(report, "deformer.screenColor", () -> onHostThread(deformer.get()::screenColor));
+            final var drawables = onHostThread(model::drawables);
+            final List<Drawable> drawableValues = onHostThread(drawables::all);
+            if (drawableValues.isEmpty()) {
+                throw new IllegalStateException("No Drawable is available.");
             }
+            for (int index = 0; index < drawableValues.size(); index++) {
+                if (onHostThread(drawableValues.get(index)::index) != index) {
+                    throw new IllegalStateException("Drawable index does not match stable model order at " + index + '.');
+                }
+            }
+            final Drawable drawable = drawableValues.get(0);
+            report.append("drawables.count=").append(drawableValues.size()).append('\n');
+            appendRequiredFixedOutcome(report, "drawable.index", () -> onHostThread(drawable::index));
+            appendRequiredFixedOutcome(report, "drawable.doubleSided", () -> onHostThread(drawable::doubleSided));
+            appendFixedOutcome(report, "drawable.evaluationState", () -> onHostThread(drawable::evaluationState));
+            appendRequiredFixedOutcome(report, "drawable.parentPartId", () -> onHostThread(drawable::parentPartId));
+            appendRequiredFixedOutcome(report, "drawable.parentPartIndex", () -> onHostThread(drawable::parentPartIndex));
+            appendRequiredFixedOutcome(report, "drawable.parentDeformerId", () -> onHostThread(drawable::parentDeformerId));
+            appendRequiredFixedOutcome(report, "drawable.parentDeformerIndex", () -> onHostThread(drawable::parentDeformerIndex));
+            appendRequiredFixedOutcome(report, "drawable.parameterIds", () -> onHostThread(drawable::parameterIds));
+            appendRequiredFixedOutcome(report, "drawable.parameters", () ->
+                onHostThread(() -> fixedInts(drawable.parameters())));
+            appendRequiredFixedOutcome(report, "drawable.maskIds", () -> onHostThread(drawable::maskIds));
+            appendRequiredFixedOutcome(report, "drawable.masks", () ->
+                onHostThread(() -> fixedInts(drawable.masks())));
 
-            final AtomicReference<dev.turboism.sdk.cubism.model.Glue> glue = new AtomicReference<>();
-            appendFixedOutcome(report, "glues.count", () -> {
-                final List<dev.turboism.sdk.cubism.model.Glue> values =
-                    onHostThread(() -> model.glues().all());
-                if (!values.isEmpty()) glue.set(values.get(0));
-                return values.size();
-            });
-            if (glue.get() != null) {
-                appendFixedOutcome(report, "glue.index", () -> onHostThread(glue.get()::index));
-                appendFixedOutcome(report, "glue.drawableAId", () -> onHostThread(glue.get()::drawableAId));
-                appendFixedOutcome(report, "glue.drawableBId", () -> onHostThread(glue.get()::drawableBId));
-                appendFixedOutcome(report, "glue.parameterIds", () -> onHostThread(glue.get()::parameterIds));
+            final var deformers = onHostThread(model::deformers);
+            final List<Deformer> deformerValues = onHostThread(deformers::all);
+            if (deformerValues.isEmpty()) {
+                throw new IllegalStateException("No Deformer is available.");
+            }
+            for (int index = 0; index < deformerValues.size(); index++) {
+                if (onHostThread(deformerValues.get(index)::index) != index) {
+                    throw new IllegalStateException("Deformer index does not match stable model order at " + index + '.');
+                }
+            }
+            final Deformer deformer = deformerValues.get(0);
+            report.append("deformers.count=").append(deformerValues.size()).append('\n');
+            appendRequiredFixedOutcome(report, "deformer.index", () -> onHostThread(deformer::index));
+            appendRequiredFixedOutcome(report, "deformer.parentPartId", () -> onHostThread(deformer::parentPartId));
+            appendRequiredFixedOutcome(report, "deformer.parentPartIndex", () -> onHostThread(deformer::parentPartIndex));
+            appendRequiredFixedOutcome(report, "deformer.parentDeformerId", () -> onHostThread(deformer::parentDeformerId));
+            appendRequiredFixedOutcome(report, "deformer.parentDeformerIndex", () -> onHostThread(deformer::parentDeformerIndex));
+            appendRequiredFixedOutcome(report, "deformer.parameterIds", () -> onHostThread(deformer::parameterIds));
+            appendRequiredFixedOutcome(report, "deformer.parameters", () ->
+                onHostThread(() -> fixedInts(deformer.parameters())));
+            appendRequiredFixedOutcome(report, "deformer.name", () -> onHostThread(deformer::name));
+            appendRequiredFixedOutcome(report, "deformer.visible", () -> onHostThread(deformer::visible));
+            appendRequiredFixedOutcome(report, "deformer.visibleInHierarchy", () -> onHostThread(deformer::visibleInHierarchy));
+            appendRequiredFixedOutcome(report, "deformer.locked", () -> onHostThread(deformer::locked));
+            appendRequiredFixedOutcome(report, "deformer.lockedInHierarchy", () -> onHostThread(deformer::lockedInHierarchy));
+            appendRequiredFixedOutcome(report, "deformer.opacity", () -> onHostThread(deformer::getOpacity));
+            appendFixedOutcome(report, "deformer.multiplyColor", () -> onHostThread(deformer::multiplyColor));
+            appendFixedOutcome(report, "deformer.screenColor", () -> onHostThread(deformer::screenColor));
+
+            final var glues = onHostThread(model::glues);
+            final List<dev.turboism.sdk.cubism.model.Glue> glueValues = onHostThread(glues::all);
+            final dev.turboism.sdk.cubism.model.Glue glue =
+                glueValues.isEmpty() ? null : glueValues.get(0);
+            report.append("glues.count=").append(glueValues.size()).append('\n');
+            if (glue == null) {
+                report.append("glue.instance.status=NOT_EXERCISED\n");
+            } else {
+                for (int index = 0; index < glueValues.size(); index++) {
+                    if (onHostThread(glueValues.get(index)::index) != index) {
+                        throw new IllegalStateException("Glue index does not match stable model order at " + index + '.');
+                    }
+                }
+                final dev.turboism.sdk.cubism.model.GlueId glueId = onHostThread(glue::id);
+                appendRequiredFixedOutcome(report, "glue.id", () -> glueId);
+                appendRequiredFixedOutcome(report, "glues.find", () ->
+                    onHostThread(() -> glues.find(glueId).id()));
+                appendRequiredFixedOutcome(report, "glue.index", () -> onHostThread(glue::index));
+                appendRequiredFixedOutcome(report, "glue.drawableAId", () -> onHostThread(glue::drawableAId));
+                appendRequiredFixedOutcome(report, "glue.drawableA", () -> onHostThread(glue::drawableA));
+                appendRequiredFixedOutcome(report, "glue.drawableBId", () -> onHostThread(glue::drawableBId));
+                appendRequiredFixedOutcome(report, "glue.drawableB", () -> onHostThread(glue::drawableB));
+                appendRequiredFixedOutcome(report, "glue.parameterIds", () -> onHostThread(glue::parameterIds));
+                appendRequiredFixedOutcome(report, "glue.parameters", () ->
+                    onHostThread(() -> fixedInts(glue.parameters())));
             }
             phase.set("lifecycle");
 
@@ -1327,19 +1366,37 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             boolean parameterStale;
             boolean partsStale;
             boolean partStale;
+            boolean drawablesStale;
+            boolean drawableStale;
+            boolean deformersStale;
+            boolean deformerStale;
+            boolean gluesStale;
+            boolean glueStale;
             if (closeDocument) {
                 final java.awt.Robot robot = new java.awt.Robot();
                 pressShortcut(robot, java.awt.event.KeyEvent.VK_W);
-                modelStale = definitionsStale = parameterStale = partsStale = partStale = false;
-                for (int attempt = 0; attempt < 60
-                    && !(modelStale && definitionsStale && parameterStale && partsStale && partStale);
-                    attempt++) {
+                modelStale = definitionsStale = parameterStale = partsStale = partStale =
+                    drawablesStale = drawableStale = deformersStale = deformerStale =
+                        gluesStale = false;
+                glueStale = glue == null;
+                for (int attempt = 0; attempt < 60; attempt++) {
                     Thread.sleep(100L);
                     modelStale = failsStale(model::id);
                     definitionsStale = failsStale(definitions::all);
                     parameterStale = failsStale(parameter::index);
                     partsStale = failsStale(parts::all);
                     partStale = failsStale(part::parentId);
+                    drawablesStale = failsStale(drawables::all);
+                    drawableStale = failsStale(drawable::parameterIds);
+                    deformersStale = failsStale(deformers::all);
+                    deformerStale = failsStale(deformer::parameterIds);
+                    gluesStale = failsStale(glues::all);
+                    glueStale = glue == null || failsStale(glue::parameterIds);
+                    if (modelStale && definitionsStale && parameterStale && partsStale && partStale
+                        && drawablesStale && drawableStale && deformersStale && deformerStale
+                        && gluesStale && glueStale) {
+                        break;
+                    }
                 }
             } else {
                 context.disposableScope().close();
@@ -1348,16 +1405,31 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 parameterStale = failsStale(parameter::index);
                 partsStale = failsStale(parts::all);
                 partStale = failsStale(part::parentId);
+                drawablesStale = failsStale(drawables::all);
+                drawableStale = failsStale(drawable::parameterIds);
+                deformersStale = failsStale(deformers::all);
+                deformerStale = failsStale(deformer::parameterIds);
+                gluesStale = failsStale(glues::all);
+                glueStale = glue == null || failsStale(glue::parameterIds);
             }
             final boolean passed = modelStale && definitionsStale && parameterStale
-                && partsStale && partStale;
+                && partsStale && partStale && drawablesStale && drawableStale
+                && deformersStale && deformerStale && gluesStale && glueStale;
             report.append("lifecycle.phase=")
                 .append(closeDocument ? "document-close" : "plugin-scope-close").append('\n')
                 .append("modelStale=").append(modelStale).append('\n')
                 .append("parameterDefinitionsStale=").append(definitionsStale).append('\n')
                 .append("parameterStale=").append(parameterStale).append('\n')
                 .append("partsStale=").append(partsStale).append('\n')
-                .append("partStale=").append(partStale).append('\n');
+                .append("partStale=").append(partStale).append('\n')
+                .append("drawablesStale=").append(drawablesStale).append('\n')
+                .append("drawableStale=").append(drawableStale).append('\n')
+                .append("deformersStale=").append(deformersStale).append('\n')
+                .append("deformerStale=").append(deformerStale).append('\n')
+                .append("gluesStale=").append(gluesStale).append('\n')
+                .append("glueInstancePresent=").append(glue != null).append('\n')
+                .append("glueStale=")
+                .append(glue == null ? "NOT_EXERCISED" : Boolean.toString(glueStale)).append('\n');
             report.replace(0, "status=RUNNING".length(), "status=" + (passed ? "PASS" : "FAIL"));
             Files.writeString(
                 artifact,
@@ -1398,6 +1470,23 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         }
     }
 
+    private static void appendRequiredFixedOutcome(
+        final StringBuilder report,
+        final String key,
+        final Callable<?> call
+    ) throws Exception {
+        try {
+            final Object value = call.call();
+            report.append(key).append(".status=AVAILABLE\n")
+                .append(key).append(".value=").append(fixedText(value)).append('\n');
+        } catch (Exception failure) {
+            throw new IllegalStateException(
+                key + " is unavailable: " + failureDescription(failure),
+                failure
+            );
+        }
+    }
+
     private static boolean failsStale(final Callable<?> call) {
         try {
             call.call();
@@ -1409,6 +1498,15 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
 
     private static String fixedText(final Object value) {
         return String.valueOf(value).replace('\r', ' ').replace('\n', ' ');
+    }
+
+    private static List<Integer> fixedInts(
+        final dev.turboism.sdk.cubism.model.IntSequence values
+    ) {
+        return java.util.stream.IntStream.range(0, values.size())
+            .map(values::get)
+            .boxed()
+            .toList();
     }
 
     private void runParameterBindingDiscoveryRead() {
@@ -2208,6 +2306,31 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         return passed;
     }
 
+    private <T> boolean validateValueEdit(
+        final String label,
+        final Callable<T> reader,
+        final java.util.function.Consumer<T> writer,
+        final T written,
+        final java.awt.Robot robot,
+        final StringBuilder report
+    ) throws Exception {
+        final T before = onHostThread(reader);
+        onHostThread(() -> { writer.accept(written); return null; });
+        final T afterWrite = onHostThread(reader);
+        pressShortcut(robot, java.awt.event.KeyEvent.VK_Z);
+        final T afterUndo = awaitValue(reader, before);
+        pressShortcut(robot, java.awt.event.KeyEvent.VK_Y);
+        final T afterRedo = awaitValue(reader, written);
+        pressShortcut(robot, java.awt.event.KeyEvent.VK_Z);
+        final T restored = awaitValue(reader, before);
+        final boolean passed = Objects.equals(written, afterWrite)
+            && Objects.equals(before, afterUndo)
+            && Objects.equals(written, afterRedo)
+            && Objects.equals(before, restored);
+        appendMatrix(report, label, before, written, afterWrite, afterUndo, afterRedo, restored, passed);
+        return passed;
+    }
+
     private boolean validateMeshGeometry(
         final Drawable mesh,
         final java.awt.Robot robot,
@@ -2424,18 +2547,53 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             final String afterNameWrite = onHostThread(selectedPart::name);
             final java.awt.Robot robot = new java.awt.Robot();
             pressShortcut(robot, java.awt.event.KeyEvent.VK_Z);
-            Thread.sleep(800L);
-            final String afterNameUndo = onHostThread(selectedPart::name);
+            final String afterNameUndo = awaitValue(selectedPart::name, partName);
             pressShortcut(robot, java.awt.event.KeyEvent.VK_Y);
-            Thread.sleep(800L);
-            final String afterNameRedo = onHostThread(selectedPart::name);
+            final String afterNameRedo = awaitValue(selectedPart::name, writtenName);
             pressShortcut(robot, java.awt.event.KeyEvent.VK_Z);
-            Thread.sleep(800L);
-            final String restoredName = onHostThread(selectedPart::name);
+            final String restoredName = awaitValue(selectedPart::name, partName);
+
+            final StringBuilder basicSettings = new StringBuilder();
+            final Optional<String> currentShortName = onHostThread(selectedPart::shortName);
+            final Optional<String> writtenShortName = Optional.of(
+                currentShortName.equals(Optional.of("Turboism")) ? "Turboism 2" : "Turboism"
+            );
+            final boolean shortNamePassed = validateValueEdit(
+                "shortName", selectedPart::shortName, selectedPart::setShortName,
+                writtenShortName, robot, basicSettings
+            );
+            final boolean visiblePassed = validateBooleanEdit(
+                "visible", selectedPart::visible, selectedPart::setVisible, robot, basicSettings
+            );
+            final boolean lockedPassed = validateBooleanEdit(
+                "locked", selectedPart::locked, selectedPart::setLocked, robot, basicSettings
+            );
+            final Optional<Color> currentEditColor = onHostThread(selectedPart::editColor);
+            final Color firstColor = new Color(32F / 255F, 64F / 255F, 128F / 255F, 1F);
+            final Optional<Color> writtenEditColor = Optional.of(
+                currentEditColor.equals(Optional.of(firstColor))
+                    ? new Color(128F / 255F, 64F / 255F, 32F / 255F, 1F)
+                    : firstColor
+            );
+            final boolean editColorPassed = validateValueEdit(
+                "editColor", selectedPart::editColor, selectedPart::setEditColor,
+                writtenEditColor, robot, basicSettings
+            );
+            final boolean sketchPassed = validateBooleanEdit(
+                "sketch", selectedPart::sketch, selectedPart::setSketch, robot, basicSettings
+            );
+            final int currentDefaultOrder = onHostThread(selectedPart::defaultOrder);
+            final int writtenDefaultOrder = currentDefaultOrder == 1 ? 2 : 1;
+            final boolean defaultOrderPassed = validateValueEdit(
+                "defaultOrder", selectedPart::defaultOrder, selectedPart::setDefaultOrder,
+                writtenDefaultOrder, robot, basicSettings
+            );
+
             final float written = Float.compare(before, 0.625F) == 0 ? 0.75F : 0.625F;
             Float afterWrite = null;
             Float afterUndo = null;
             Float afterRedo = null;
+            Float restoredOpacity = null;
             String opacityWriteDisposition = "supported";
             boolean opacityPassed;
             try {
@@ -2443,40 +2601,47 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 Files.writeString(artifact, "status=RUNNING phase=after-write\n", StandardOpenOption.TRUNCATE_EXISTING);
                 afterWrite = onHostThread(selectedPart::getOpacity);
                 pressShortcut(robot, java.awt.event.KeyEvent.VK_Z);
-                Thread.sleep(800L);
-                afterUndo = onHostThread(selectedPart::getOpacity);
+                afterUndo = awaitValue(selectedPart::getOpacity, before);
                 pressShortcut(robot, java.awt.event.KeyEvent.VK_Y);
-                Thread.sleep(800L);
-                afterRedo = onHostThread(selectedPart::getOpacity);
+                afterRedo = awaitValue(selectedPart::getOpacity, written);
+                pressShortcut(robot, java.awt.event.KeyEvent.VK_Z);
+                restoredOpacity = awaitValue(selectedPart::getOpacity, before);
                 opacityPassed = Float.compare(afterWrite, written) == 0
                     && Float.compare(afterUndo, before) == 0
-                    && Float.compare(afterRedo, written) == 0;
+                    && Float.compare(afterRedo, written) == 0
+                    && Float.compare(restoredOpacity, before) == 0;
             } catch (UnsupportedOperationException unsupported) {
                 opacityWriteDisposition = "unsupported-fail-closed";
                 afterWrite = onHostThread(selectedPart::getOpacity);
+                restoredOpacity = afterWrite;
                 opacityPassed = Float.compare(afterWrite, before) == 0;
             }
             final boolean passed = writtenName.equals(afterNameWrite)
                 && partName.equals(afterNameUndo)
                 && writtenName.equals(afterNameRedo)
                 && partName.equals(restoredName)
-                && opacityPassed;
+                && shortNamePassed && visiblePassed && lockedPassed && editColorPassed
+                && sketchPassed && defaultOrderPassed && opacityPassed;
             Files.writeString(
                 artifact,
                 "status=" + (passed ? "PASS" : "FAIL") + System.lineSeparator()
                     + "partId=" + part.id().value() + System.lineSeparator()
+                    + "partIndex=" + part.index() + System.lineSeparator()
+                    + "partParentIndex=" + part.parentIndex() + System.lineSeparator()
                     + "partName=" + partName + System.lineSeparator()
                     + "writtenName=" + writtenName + System.lineSeparator()
                     + "afterNameWrite=" + afterNameWrite + System.lineSeparator()
                     + "afterNameUndo=" + afterNameUndo + System.lineSeparator()
                     + "afterNameRedo=" + afterNameRedo + System.lineSeparator()
                     + "restoredName=" + restoredName + System.lineSeparator()
+                    + basicSettings
                     + "before=" + before + System.lineSeparator()
                     + "opacityWriteDisposition=" + opacityWriteDisposition + System.lineSeparator()
                     + "written=" + written + System.lineSeparator()
                     + "afterWrite=" + afterWrite + System.lineSeparator()
                     + "afterUndo=" + afterUndo + System.lineSeparator()
-                    + "afterRedo=" + afterRedo + System.lineSeparator(),
+                    + "afterRedo=" + afterRedo + System.lineSeparator()
+                    + "restoredOpacity=" + restoredOpacity + System.lineSeparator(),
                 StandardOpenOption.CREATE,
                 StandardOpenOption.TRUNCATE_EXISTING
             );

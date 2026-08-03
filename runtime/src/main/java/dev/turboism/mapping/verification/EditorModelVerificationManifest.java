@@ -7,7 +7,7 @@ public final class EditorModelVerificationManifest {
 
     public static final String VERIFICATION_ID = "cubism-5.3.02.editor-model.static";
     public static final String RECORD_SHA256 =
-        "558cc95f4e380ee7d0e5a1d74f5fdb1ce75d051eb93a0363771030dfe7a0b628";
+        "782c98e66cbb0ea147b92a2acc9bcb4013478a1f5db06c274732743f139def74";
     public static final String CUBISM_VERSION = "5.3.02";
     public static final String PROFILE_ID = "cubism-5.3.02";
     public static final long ARTIFACT_SIZE = 41_922_739L;
@@ -28,6 +28,8 @@ public final class EditorModelVerificationManifest {
         EditorPartNameSelectorContract.CAPABILITY_ID,
         EditorPartTreeSelectorContract.CAPABILITY_ID,
         EditorPartNameSelectorContract.WRITE_CAPABILITY_ID,
+        EditorPartBasicSettingsSelectorContract.READ_CAPABILITY_ID,
+        EditorPartBasicSettingsSelectorContract.WRITE_CAPABILITY_ID,
         EditorObjectReadSelectorContract.CAPABILITY_ID,
         EditorObjectWriteSelectorContract.ART_MESH_CAPABILITY_ID,
         EditorObjectWriteSelectorContract.WARP_CAPABILITY_ID,
@@ -50,6 +52,7 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.modeling-view.class",
         "cubism.editor-model.modeling-view.model",
         "cubism.editor-model.model-source.class",
+        "cubism.editor-model.model-source.name",
         "cubism.editor-model.model-source.guid",
         "cubism.editor-model.model-source.current-instance",
         "cubism.editor-model.model-source.default-keyform-locked",
@@ -151,6 +154,7 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.undo.add-listener",
         "cubism.editor-model.model-source.parts",
         "cubism.editor-model.model-source.update-instances",
+        "cubism.editor-model.model-source.update-visible-lock-hierarchy",
         "cubism.editor-model.model.parts",
         "cubism.editor-model.part.class",
         "cubism.editor-model.part.id",
@@ -160,6 +164,13 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.part-source.id",
         "cubism.editor-model.part-source.local-name",
         "cubism.editor-model.part-source.set-local-name",
+        "cubism.editor-model.part-source.default-order",
+        "cubism.editor-model.part-source.set-default-order",
+        "cubism.editor-model.part-source.sketch",
+        "cubism.editor-model.part-source.set-sketch",
+        "cubism.editor-model.part-source.edit-color",
+        "cubism.editor-model.part-source.set-edit-color",
+        "cubism.editor-model.part-source.create-undo-for-basic-settings",
         "cubism.editor-model.part-source.parent",
         "cubism.editor-model.part-source.handler",
         "cubism.editor-model.part-handler.class",
@@ -180,6 +191,7 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.parameter-controllable-source.locked",
         "cubism.editor-model.parameter-controllable-source.visible-in-hierarchy",
         "cubism.editor-model.parameter-controllable-source.locked-in-hierarchy",
+        "cubism.editor-model.parameter-controllable-source.target-deformer-source",
         "cubism.editor-model.art-mesh.source",
         "cubism.editor-model.art-mesh.current-keyform",
         "cubism.editor-model.drawable-form.opacity",
@@ -191,6 +203,12 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.art-mesh-source.culling",
         "cubism.editor-model.art-mesh-source.user-data",
         "cubism.editor-model.art-mesh-source.inverted-mask",
+        "cubism.editor-model.art-mesh-source.guid",
+        "cubism.editor-model.art-mesh-source.clip-guid-list",
+        "cubism.editor-model.model-source.all-glues",
+        "cubism.editor-model.glue-source.class",
+        "cubism.editor-model.glue-source.target-art-mesh-a",
+        "cubism.editor-model.glue-source.target-art-mesh-b",
         "cubism.editor-model.model-source.all-deformers",
         "cubism.editor-model.model.all-deformers",
         "cubism.editor-model.warp-source.class",

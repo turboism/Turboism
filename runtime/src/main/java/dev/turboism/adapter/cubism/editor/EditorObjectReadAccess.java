@@ -16,11 +16,15 @@ import dev.turboism.sdk.cubism.model.Deformers;
 import dev.turboism.sdk.cubism.model.Drawable;
 import dev.turboism.sdk.cubism.model.Drawables;
 import dev.turboism.sdk.cubism.model.FloatSequence;
+import dev.turboism.sdk.cubism.model.Glue;
+import dev.turboism.sdk.cubism.model.GlueId;
+import dev.turboism.sdk.cubism.model.Glues;
 import dev.turboism.sdk.cubism.model.IntSequence;
 import dev.turboism.sdk.cubism.model.ParameterBinding;
 import dev.turboism.sdk.cubism.model.ParameterBindingFamily;
 import dev.turboism.sdk.cubism.model.ParameterBindingPoint;
 import dev.turboism.sdk.cubism.model.ParameterBindingTarget;
+import dev.turboism.sdk.cubism.model.PartId;
 import dev.turboism.sdk.cubism.model.Point2;
 import dev.turboism.sdk.cubism.model.RotationDeformer;
 import dev.turboism.sdk.cubism.model.RotationDeformerForm;
@@ -33,8 +37,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
+import java.util.Optional;
 
-/** Exact-version Editor projection for ArtMesh, Warp, and Rotation authoring reads. */
+/** Exact-version Editor projection for ArtMesh, Deformer, and Glue authoring reads. */
 final class EditorObjectReadAccess {
 
     @FunctionalInterface
@@ -75,6 +80,11 @@ final class EditorObjectReadAccess {
     ) {
         requireAuthorized();
         return new EditorRotationDeformers(identity, source, model);
+    }
+
+    Glues glues(final String identity, final Object source, final Object model) {
+        requireAuthorized();
+        return new EditorGlues(identity, source, model);
     }
 
     List<ParameterBinding> parameterBindings(
@@ -178,21 +188,31 @@ final class EditorObjectReadAccess {
             resolver.invoke("cubism.editor-model.model.all-art-meshes", model),
             "Editor ArtMesh instance collection"
         );
-        final ArrayList<ObjectRef> values = new ArrayList<>();
-        final java.util.HashSet<String> ids = new java.util.HashSet<>();
+        final java.util.IdentityHashMap<Object, Object> instancesBySource = new java.util.IdentityHashMap<>();
         for (Object instance : instances) {
             if (!resolver.isInstance("cubism.editor-model.art-mesh.class", instance)) {
                 throw unavailable("Editor ArtMesh instance type is invalid.");
             }
             final Object objectSource = resolver.invoke("cubism.editor-model.art-mesh.source", instance);
             if (!containsIdentity(sources, objectSource)
-                || !resolver.isInstance("cubism.editor-model.art-mesh-source.class", objectSource)) {
+                || !resolver.isInstance("cubism.editor-model.art-mesh-source.class", objectSource)
+                || instancesBySource.put(objectSource, instance) != null) {
                 throw unavailable("Editor ArtMesh source/instance binding is invalid.");
             }
+        }
+        final ArrayList<ObjectRef> values = new ArrayList<>(sources.size());
+        final java.util.HashSet<String> ids = new java.util.HashSet<>();
+        for (Object objectSource : sources) {
+            if (!resolver.isInstance("cubism.editor-model.art-mesh-source.class", objectSource)) {
+                throw unavailable("Editor ArtMesh source type is invalid.");
+            }
+            final Object instance = instancesBySource.remove(objectSource);
+            if (instance == null) throw unavailable("Editor ArtMesh source has no active instance.");
             final String id = objectId(objectSource);
             if (!ids.add(id)) throw unavailable("Editor ArtMesh identifiers are not unique.");
             values.add(new ObjectRef(id, objectSource, instance));
         }
+        if (!instancesBySource.isEmpty()) throw unavailable("Editor ArtMesh instance has no source.");
         return List.copyOf(values);
     }
 
@@ -206,13 +226,19 @@ final class EditorObjectReadAccess {
             resolver.invoke("cubism.editor-model.model.all-deformers", model),
             "Editor Deformer instance collection"
         );
-        final ArrayList<DeformerRef> values = new ArrayList<>();
-        final java.util.HashSet<String> ids = new java.util.HashSet<>();
+        final java.util.IdentityHashMap<Object, Object> instancesBySource = new java.util.IdentityHashMap<>();
         for (Object instance : instances) {
             final Object objectSource = resolver.invoke("cubism.editor-model.deformer.source", instance);
-            if (!containsIdentity(sources, objectSource)) {
+            if (!containsIdentity(sources, objectSource)
+                || instancesBySource.put(objectSource, instance) != null) {
                 throw unavailable("Editor Deformer source/instance binding is invalid.");
             }
+        }
+        final ArrayList<DeformerRef> values = new ArrayList<>(sources.size());
+        final java.util.HashSet<String> ids = new java.util.HashSet<>();
+        for (Object objectSource : sources) {
+            final Object instance = instancesBySource.remove(objectSource);
+            if (instance == null) throw unavailable("Editor Deformer source has no active instance.");
             final Kind kind;
             if (resolver.isInstance("cubism.editor-model.warp.class", instance)
                 && resolver.isInstance("cubism.editor-model.warp-source.class", objectSource)) {
@@ -226,6 +252,26 @@ final class EditorObjectReadAccess {
             final String id = objectId(objectSource);
             if (!ids.add(id)) throw unavailable("Editor Deformer identifiers are not unique.");
             values.add(new DeformerRef(id, objectSource, instance, kind));
+        }
+        if (!instancesBySource.isEmpty()) throw unavailable("Editor Deformer instance has no source.");
+        return List.copyOf(values);
+    }
+
+    private List<GlueRef> glueRefs(final String identity, final Object source, final Object model) {
+        currentGuard.requireCurrent(identity, model);
+        final List<?> sources = list(
+            resolver.invoke("cubism.editor-model.model-source.all-glues", source),
+            "Editor Glue source collection"
+        );
+        final ArrayList<GlueRef> values = new ArrayList<>(sources.size());
+        final java.util.HashSet<String> ids = new java.util.HashSet<>();
+        for (Object glueSource : sources) {
+            if (!resolver.isInstance("cubism.editor-model.glue-source.class", glueSource)) {
+                throw unavailable("Editor Glue source type is invalid.");
+            }
+            final String id = objectId(glueSource);
+            if (!ids.add(id)) throw unavailable("Editor Glue identifiers are not unique.");
+            values.add(new GlueRef(id, glueSource));
         }
         return List.copyOf(values);
     }
@@ -255,6 +301,220 @@ final class EditorObjectReadAccess {
             .filter(value -> value.kind() == expected.kind())
             .findFirst()
             .orElseThrow(() -> stale("Deformer", expected.id()));
+    }
+
+    private GlueRef currentGlue(
+        final String identity,
+        final Object modelSource,
+        final Object model,
+        final GlueRef expected
+    ) {
+        return glueRefs(identity, modelSource, model).stream()
+            .filter(value -> value.id().equals(expected.id()) && value.source() == expected.source())
+            .findFirst()
+            .orElseThrow(() -> stale("Glue", expected.id()));
+    }
+
+    private Optional<PartId> parentPartId(final Object objectSource) {
+        final Object parent = parentPartSource(objectSource);
+        return parent == null ? Optional.empty() : Optional.of(partId(parent));
+    }
+
+    private int parentPartIndex(final Object modelSource, final Object objectSource) {
+        final Object parent = parentPartSource(objectSource);
+        if (parent == null) return -1;
+        final List<?> parts = list(
+            resolver.invoke("cubism.editor-model.model-source.parts", modelSource),
+            "Editor Part source collection"
+        );
+        for (int index = 0; index < parts.size(); index++) {
+            final Object candidate = parts.get(index);
+            if (!resolver.isInstance("cubism.editor-model.part-source.class", candidate)) {
+                throw unavailable("Editor Part source type is invalid.");
+            }
+            if (candidate == parent) return index;
+        }
+        throw unavailable("Editor object parent Part is outside the active model.");
+    }
+
+    private Object parentPartSource(final Object objectSource) {
+        final Object parent = resolver.invoke("cubism.editor-model.part-source.parent", objectSource);
+        if (parent != null && !resolver.isInstance("cubism.editor-model.part-source.class", parent)) {
+            throw unavailable("Editor object parent Part is invalid.");
+        }
+        return parent;
+    }
+
+    private PartId partId(final Object partSource) {
+        final Object id = resolver.invoke("cubism.editor-model.part-source.id", partSource);
+        return new PartId(text(
+            resolver.invoke("cubism.editor-model.part-id.value", id),
+            "Editor Part ID"
+        ));
+    }
+
+    private Optional<DeformerId> parentDeformerId(
+        final String identity,
+        final Object modelSource,
+        final Object model,
+        final Object objectSource
+    ) {
+        final Object target = targetDeformerSource(objectSource);
+        if (target == null) return Optional.empty();
+        return Optional.of(new DeformerId(deformerRef(identity, modelSource, model, target).id()));
+    }
+
+    private int parentDeformerIndex(
+        final String identity,
+        final Object modelSource,
+        final Object model,
+        final Object objectSource
+    ) {
+        final Object target = targetDeformerSource(objectSource);
+        if (target == null) return -1;
+        final List<DeformerRef> values = deformerRefs(identity, modelSource, model);
+        for (int index = 0; index < values.size(); index++) {
+            if (values.get(index).source() == target) return index;
+        }
+        throw unavailable("Editor object target Deformer is outside the active model.");
+    }
+
+    private Object targetDeformerSource(final Object objectSource) {
+        return resolver.invoke(
+            "cubism.editor-model.parameter-controllable-source.target-deformer-source",
+            objectSource
+        );
+    }
+
+    private DeformerRef deformerRef(
+        final String identity,
+        final Object modelSource,
+        final Object model,
+        final Object source
+    ) {
+        return deformerRefs(identity, modelSource, model).stream()
+            .filter(value -> value.source() == source)
+            .findFirst()
+            .orElseThrow(() -> unavailable("Editor object target Deformer is outside the active model."));
+    }
+
+    private List<ArtMeshId> maskIds(
+        final String identity,
+        final Object modelSource,
+        final Object model,
+        final Object artMeshSource
+    ) {
+        final List<ObjectRef> meshes = artMeshes(identity, modelSource, model);
+        final java.util.HashMap<String, ArtMeshId> idsByGuid = new java.util.HashMap<>();
+        for (ObjectRef mesh : meshes) {
+            final String guid = guidValue(resolver.invoke(
+                "cubism.editor-model.art-mesh-source.guid",
+                mesh.source()
+            ));
+            if (idsByGuid.put(guid, new ArtMeshId(mesh.id())) != null) {
+                throw unavailable("Editor ArtMesh GUIDs are not unique.");
+            }
+        }
+        final List<?> masks = iterable(
+            resolver.invoke("cubism.editor-model.art-mesh-source.clip-guid-list", artMeshSource),
+            "Editor ArtMesh clipping masks"
+        );
+        final ArrayList<ArtMeshId> result = new ArrayList<>(masks.size());
+        for (Object mask : masks) {
+            final String guid = guidValue(mask);
+            final ArtMeshId id = idsByGuid.get(guid);
+            if (id == null) throw unavailable("Editor ArtMesh clipping mask is outside the active model.");
+            result.add(id);
+        }
+        return List.copyOf(result);
+    }
+
+    private String guidValue(final Object guid) {
+        return text(resolver.invoke("cubism.editor-model.guid.value", guid), "Editor GUID");
+    }
+
+    private List<Integer> parameterIndices(final Object model, final List<ParameterId> ids) {
+        final Object parameterSet = resolver.invoke("cubism.editor-model.model.parameter-set", model);
+        final List<?> parameters = list(
+            resolver.invoke("cubism.editor-model.parameter-set.parameters", parameterSet),
+            "Editor parameter collection"
+        );
+        final java.util.HashMap<String, Integer> indices = new java.util.HashMap<>();
+        for (int index = 0; index < parameters.size(); index++) {
+            final Object parameter = parameters.get(index);
+            if (!resolver.isInstance("cubism.editor-model.parameter.class", parameter)) {
+                throw unavailable("Editor parameter collection contains an invalid value.");
+            }
+            final String id = text(resolver.invoke(
+                "cubism.editor-model.id.value",
+                resolver.invoke("cubism.editor-model.parameter.id", parameter)
+            ), "Editor parameter ID");
+            if (indices.put(id, index) != null) {
+                throw unavailable("Editor parameter identifiers are not unique.");
+            }
+        }
+        return ids.stream().map(id -> {
+            final Integer index = indices.get(id.value());
+            if (index == null) throw unavailable("Editor parameter binding targets an absent parameter.");
+            return index;
+        }).toList();
+    }
+
+    private int artMeshIndex(
+        final String identity,
+        final Object modelSource,
+        final Object model,
+        final Object source
+    ) {
+        final List<ObjectRef> values = artMeshes(identity, modelSource, model);
+        for (int index = 0; index < values.size(); index++) {
+            if (values.get(index).source() == source) return index;
+        }
+        throw unavailable("Editor ArtMesh is outside the active model.");
+    }
+
+    private int deformerIndex(
+        final String identity,
+        final Object modelSource,
+        final Object model,
+        final Object source
+    ) {
+        final List<DeformerRef> values = deformerRefs(identity, modelSource, model);
+        for (int index = 0; index < values.size(); index++) {
+            if (values.get(index).source() == source) return index;
+        }
+        throw unavailable("Editor Deformer is outside the active model.");
+    }
+
+    private List<Integer> artMeshIndices(
+        final String identity,
+        final Object modelSource,
+        final Object model,
+        final List<ArtMeshId> ids
+    ) {
+        final List<ObjectRef> meshes = artMeshes(identity, modelSource, model);
+        final java.util.HashMap<String, Integer> indices = new java.util.HashMap<>();
+        for (int index = 0; index < meshes.size(); index++) indices.put(meshes.get(index).id(), index);
+        return ids.stream().map(id -> {
+            final Integer index = indices.get(id.value());
+            if (index == null) throw unavailable("Editor ArtMesh relation targets an absent ArtMesh.");
+            return index;
+        }).toList();
+    }
+
+    private ObjectRef glueTarget(
+        final String identity,
+        final Object modelSource,
+        final Object model,
+        final GlueRef glue,
+        final String alias
+    ) {
+        final Object target = resolver.invoke(alias, glue.source());
+        if (target == null) throw unavailable("Editor Glue target ArtMesh is unavailable.");
+        return artMeshes(identity, modelSource, model).stream()
+            .filter(value -> value.source() == target)
+            .findFirst()
+            .orElseThrow(() -> unavailable("Editor Glue target ArtMesh is outside the active model."));
     }
 
     private String objectId(final Object source) {
@@ -684,31 +944,10 @@ final class EditorObjectReadAccess {
         final Object objectSource,
         final ParameterBindingTarget target
     ) {
-        requireBindingReadAuthorized();
-        final Object grid = resolver.invoke(
-            "cubism.editor-model.parameter-controllable.keyform-grid",
-            objectSource
-        );
-        if (!resolver.isInstance("cubism.editor-model.keyform-grid.class", grid)) {
-            throw unavailable("Editor keyform grid is unavailable.");
-        }
-        final List<?> hostBindings = list(
-            resolver.invoke("cubism.editor-model.keyform-grid.bindings", grid),
-            "Editor keyform bindings"
-        );
+        final List<?> hostBindings = hostBindings(objectSource);
         final ArrayList<ParameterBinding> result = new ArrayList<>(hostBindings.size());
         for (Object hostBinding : hostBindings) {
-            if (!resolver.isInstance("cubism.editor-model.keyform-binding.class", hostBinding)) {
-                throw unavailable("Editor keyform binding is invalid.");
-            }
-            final Object hostId = resolver.invoke(
-                "cubism.editor-model.keyform-binding.parameter-id",
-                hostBinding
-            );
-            final ParameterId parameterId = new ParameterId(text(
-                resolver.invoke("cubism.editor-model.id.value", hostId),
-                "Editor binding parameter ID"
-            ));
+            final ParameterId parameterId = bindingParameterId(hostBinding);
             final List<?> hostKeys = list(
                 resolver.invoke("cubism.editor-model.keyform-binding.keys", hostBinding),
                 "Editor binding keys"
@@ -731,6 +970,49 @@ final class EditorObjectReadAccess {
         return List.copyOf(result);
     }
 
+    private List<ParameterId> parameterIds(final Object objectSource) {
+        final java.util.HashSet<ParameterId> unique = new java.util.HashSet<>();
+        final ArrayList<ParameterId> result = new ArrayList<>();
+        for (Object hostBinding : hostBindings(objectSource)) {
+            final ParameterId id = bindingParameterId(hostBinding);
+            if (!unique.add(id)) throw unavailable("Editor keyform binding parameters are not unique.");
+            result.add(id);
+        }
+        return List.copyOf(result);
+    }
+
+    private List<?> hostBindings(final Object objectSource) {
+        requireBindingReadAuthorized();
+        final Object grid = resolver.invoke(
+            "cubism.editor-model.parameter-controllable.keyform-grid",
+            objectSource
+        );
+        if (!resolver.isInstance("cubism.editor-model.keyform-grid.class", grid)) {
+            throw unavailable("Editor keyform grid is unavailable.");
+        }
+        final List<?> bindings = list(
+            resolver.invoke("cubism.editor-model.keyform-grid.bindings", grid),
+            "Editor keyform bindings"
+        );
+        for (Object binding : bindings) {
+            if (!resolver.isInstance("cubism.editor-model.keyform-binding.class", binding)) {
+                throw unavailable("Editor keyform binding is invalid.");
+            }
+        }
+        return bindings;
+    }
+
+    private ParameterId bindingParameterId(final Object hostBinding) {
+        final Object hostId = resolver.invoke(
+            "cubism.editor-model.keyform-binding.parameter-id",
+            hostBinding
+        );
+        return new ParameterId(text(
+            resolver.invoke("cubism.editor-model.id.value", hostId),
+            "Editor binding parameter ID"
+        ));
+    }
+
     private abstract class ObjectView {
         final String identity;
         final Object modelSource;
@@ -750,6 +1032,12 @@ final class EditorObjectReadAccess {
             super(identity, modelSource, model, ref);
         }
         @Override public ArtMeshId id() { current(); return new ArtMeshId(ref.id()); }
+        @Override public int index() { return artMeshIndex(identity, modelSource, model, current().source()); }
+        @Override public boolean doubleSided() { return !culling(); }
+        @Override public Optional<PartId> parentPartId() { return EditorObjectReadAccess.this.parentPartId(current().source()); }
+        @Override public Optional<DeformerId> parentDeformerId() { return EditorObjectReadAccess.this.parentDeformerId(identity, modelSource, model, current().source()); }
+        @Override public List<ParameterId> parameterIds() { return EditorObjectReadAccess.this.parameterIds(current().source()); }
+        @Override public List<ArtMeshId> maskIds() { return EditorObjectReadAccess.this.maskIds(identity, modelSource, model, current().source()); }
         @Override public String name() { return objectName(current().source(), ref.id()); }
         @Override public boolean visible() { return sourceFlag("cubism.editor-model.parameter-controllable-source.visible", current().source(), "ArtMesh visibility"); }
         @Override public void setVisible(final boolean visible) { final ObjectRef value = current(); setSourceFlag(Kind.ART_MESH, modelSource, value.source(), "cubism.editor-model.parameter-controllable-source.visible", "cubism.editor-model.parameter-controllable-source.set-visible", visible, "Set ArtMesh visibility"); }
@@ -773,12 +1061,12 @@ final class EditorObjectReadAccess {
         @Override public BlendMode blendMode() { throw unsupported("ArtMesh blend mode"); }
         @Override public int textureIndex() { throw unsupported("ArtMesh texture index"); }
         @Override public int renderOrder() { throw unsupported("ArtMesh render order"); }
-        @Override public IntSequence masks() { throw unsupported("ArtMesh masks"); }
+        @Override public IntSequence masks() { final List<ArtMeshId> ids = maskIds(); return intSequence(artMeshIndices(identity, modelSource, model, ids)); }
         @Override public Color multiplyColor() { throw unsupported("ArtMesh multiply color"); }
         @Override public Color screenColor() { throw unsupported("ArtMesh screen color"); }
-        @Override public int parentPartIndex() { throw unsupported("ArtMesh parent Part"); }
-        @Override public int parentDeformerIndex() { throw unsupported("ArtMesh parent Deformer"); }
-        @Override public IntSequence parameters() { throw unsupported("ArtMesh parameter bindings"); }
+        @Override public int parentPartIndex() { return EditorObjectReadAccess.this.parentPartIndex(modelSource, current().source()); }
+        @Override public int parentDeformerIndex() { return EditorObjectReadAccess.this.parentDeformerIndex(identity, modelSource, model, current().source()); }
+        @Override public IntSequence parameters() { final List<ParameterId> ids = parameterIds(); return intSequence(parameterIndices(model, ids)); }
         @Override public List<ParameterBinding> getParameterBindings() {
             final ObjectRef value = current();
             return parameterBindings(value.source(), ParameterBindingTarget.artMesh(new ArtMeshId(value.id())));
@@ -798,6 +1086,10 @@ final class EditorObjectReadAccess {
         }
         DeformerRef current() { return currentDeformer(identity, modelSource, model, ref); }
         @Override public DeformerId id() { current(); return new DeformerId(ref.id()); }
+        @Override public int index() { return deformerIndex(identity, modelSource, model, current().source()); }
+        @Override public Optional<PartId> parentPartId() { return EditorObjectReadAccess.this.parentPartId(current().source()); }
+        @Override public Optional<DeformerId> parentDeformerId() { return EditorObjectReadAccess.this.parentDeformerId(identity, modelSource, model, current().source()); }
+        @Override public List<ParameterId> parameterIds() { return EditorObjectReadAccess.this.parameterIds(current().source()); }
         @Override public String name() { return objectName(current().source(), ref.id()); }
         @Override public boolean visible() { return sourceFlag("cubism.editor-model.parameter-controllable-source.visible", current().source(), "Deformer visibility"); }
         @Override public void setVisible(final boolean visible) { final DeformerRef value = current(); setSourceFlag(value.kind(), modelSource, value.source(), "cubism.editor-model.parameter-controllable-source.visible", "cubism.editor-model.parameter-controllable-source.set-visible", visible, "Set Deformer visibility"); }
@@ -809,9 +1101,9 @@ final class EditorObjectReadAccess {
         @Override public void setOpacity(final float opacity) { final DeformerRef value = current(); EditorObjectReadAccess.this.setOpacity(value.kind(), modelSource, value.source(), deformerForm(value.instance()), "cubism.editor-model.deformer-form.opacity", "cubism.editor-model.deformer-form.set-opacity", opacity, "Set Deformer opacity"); }
         @Override public Color multiplyColor() { throw unsupported("Deformer multiply color"); }
         @Override public Color screenColor() { throw unsupported("Deformer screen color"); }
-        @Override public int parentPartIndex() { throw unsupported("Deformer parent Part"); }
-        @Override public int parentDeformerIndex() { throw unsupported("Deformer parent Deformer"); }
-        @Override public IntSequence parameters() { throw unsupported("Deformer parameter bindings"); }
+        @Override public int parentPartIndex() { return EditorObjectReadAccess.this.parentPartIndex(modelSource, current().source()); }
+        @Override public int parentDeformerIndex() { return EditorObjectReadAccess.this.parentDeformerIndex(identity, modelSource, model, current().source()); }
+        @Override public IntSequence parameters() { final List<ParameterId> ids = parameterIds(); return intSequence(parameterIndices(model, ids)); }
         @Override public List<ParameterBinding> getParameterBindings() {
             final DeformerRef value = current();
             final ParameterBindingTarget target = value.kind() == Kind.WARP
@@ -843,6 +1135,36 @@ final class EditorObjectReadAccess {
         @Override public void replaceForm(final RotationDeformerForm form) { final DeformerRef value = current(); replaceRotationForm(modelSource, value, form); }
     }
 
+    private final class EditorGlue implements Glue {
+        final String identity;
+        final Object modelSource;
+        final Object model;
+        final GlueRef ref;
+        EditorGlue(final String identity, final Object modelSource, final Object model, final GlueRef ref) {
+            this.identity = identity;
+            this.modelSource = modelSource;
+            this.model = model;
+            this.ref = ref;
+        }
+        GlueRef current() { return currentGlue(identity, modelSource, model, ref); }
+        ObjectRef target(final String alias) { return glueTarget(identity, modelSource, model, current(), alias); }
+        @Override public GlueId id() { current(); return new GlueId(ref.id()); }
+        @Override public int index() {
+            final GlueRef value = current();
+            final List<GlueRef> values = glueRefs(identity, modelSource, model);
+            for (int index = 0; index < values.size(); index++) {
+                if (values.get(index).source() == value.source()) return index;
+            }
+            throw unavailable("Editor Glue is outside the active model.");
+        }
+        @Override public ArtMeshId drawableAId() { return new ArtMeshId(target("cubism.editor-model.glue-source.target-art-mesh-a").id()); }
+        @Override public ArtMeshId drawableBId() { return new ArtMeshId(target("cubism.editor-model.glue-source.target-art-mesh-b").id()); }
+        @Override public List<ParameterId> parameterIds() { return EditorObjectReadAccess.this.parameterIds(current().source()); }
+        @Override public int drawableA() { return artMeshIndex(identity, modelSource, model, target("cubism.editor-model.glue-source.target-art-mesh-a").source()); }
+        @Override public int drawableB() { return artMeshIndex(identity, modelSource, model, target("cubism.editor-model.glue-source.target-art-mesh-b").source()); }
+        @Override public IntSequence parameters() { return intSequence(parameterIndices(model, parameterIds())); }
+    }
+
     private final class EditorDrawables implements Drawables {
         final String identity; final Object source; final Object model;
         EditorDrawables(final String identity, final Object source, final Object model) { this.identity = identity; this.source = source; this.model = model; }
@@ -872,9 +1194,22 @@ final class EditorObjectReadAccess {
         @Override public RotationDeformer find(final DeformerId id) { Objects.requireNonNull(id, "id"); return deformerRefs(identity, source, model).stream().filter(ref -> ref.kind() == Kind.ROTATION && ref.id().equals(id.value())).findFirst().map(ref -> (RotationDeformer) new EditorRotation(identity, source, model, ref)).orElseThrow(() -> new NoSuchElementException("Cubism Rotation Deformer is absent: " + id.value())); }
     }
 
+    private final class EditorGlues implements Glues {
+        final String identity; final Object source; final Object model;
+        EditorGlues(final String identity, final Object source, final Object model) { this.identity = identity; this.source = source; this.model = model; }
+        @Override public List<Glue> all() { return glueRefs(identity, source, model).stream().map(ref -> (Glue) new EditorGlue(identity, source, model, ref)).toList(); }
+        @Override public Glue find(final GlueId id) { Objects.requireNonNull(id, "id"); return glueRefs(identity, source, model).stream().filter(ref -> ref.id().equals(id.value())).findFirst().map(ref -> (Glue) new EditorGlue(identity, source, model, ref)).orElseThrow(() -> new NoSuchElementException("Cubism Glue is absent: " + id.value())); }
+    }
+
     private static List<?> list(final Object value, final String label) {
         if (!(value instanceof List<?> list)) throw unavailable(label + " is unavailable.");
         return List.copyOf(list);
+    }
+    private static List<?> iterable(final Object value, final String label) {
+        if (!(value instanceof Iterable<?> iterable)) throw unavailable(label + " is unavailable.");
+        final ArrayList<Object> copy = new ArrayList<>();
+        iterable.forEach(copy::add);
+        return List.copyOf(copy);
     }
     private static boolean containsIdentity(final List<?> values, final Object expected) { for (Object value : values) if (value == expected) return true; return false; }
     private static String text(final Object value, final String label) { final String result = string(value, label); if (result.isBlank()) throw unavailable(label + " is blank."); return result; }
@@ -900,4 +1235,5 @@ final class EditorObjectReadAccess {
     }
     private record ObjectRef(String id, Object source, Object instance) { }
     private record DeformerRef(String id, Object source, Object instance, Kind kind) { }
+    private record GlueRef(String id, Object source) { }
 }

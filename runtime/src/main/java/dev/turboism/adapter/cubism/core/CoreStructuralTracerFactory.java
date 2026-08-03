@@ -29,6 +29,8 @@ final class CoreStructuralTracerFactory {
         }
 
         final String artifactProfile = provider.artifactProfile();
+        final String resolverProfile =
+            CorePublicApiProviderFactory.artifactProfile(resolver.cubismVersion());
         final Optional<String> expectedProviderId =
             CorePublicApiSelectorContract.providerIdFor(artifactProfile);
         final Optional<Set<String>> requiredAliases =
@@ -36,7 +38,7 @@ final class CoreStructuralTracerFactory {
         if (expectedProviderId.isEmpty()
             || requiredAliases.isEmpty()
             || !expectedProviderId.orElseThrow().equals(provider.providerId())
-            || !resolver.isExactCubismVersion(artifactProfile)
+            || !artifactProfile.equals(resolverProfile)
             || !resolver.authorizes(
                 CorePublicApiSelectorContract.ADAPTER_SLICE_ID,
                 CorePublicApiSelectorContract.CAPABILITY_IDS,

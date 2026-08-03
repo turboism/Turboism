@@ -98,8 +98,8 @@ class StaticVerificationRecordRepositoryTest {
         "docs/migration/verification/static/cubism-5.2-core-model-read.json",
         coreExpectation("5.2", "5.2.0", 36_237L,
             "85959a0572be02ee45d128cfdaf9046631241310b741d6b149d295a0dec7451e",
-            "a32d871209c7449e4adfa84a3a25e928c759f118e36e2bb5349ad5deeff28382",
-            69, "[5.2.0,5.3.0)"),
+            "9e9e397657a43c77cb8cd0d5d5a173de524d8b54108852ad65b7e93cf75ff78e",
+            72, "[5.2.0,5.3.0)"),
         "docs/migration/verification/static/cubism-5.3.02-clipmask.json",
         new SliceExpectation(
             ClipMaskVerificationManifest.VERIFICATION_ID,
@@ -186,8 +186,8 @@ class StaticVerificationRecordRepositoryTest {
             "Live2D_Cubism.jar",
             40_805_584L,
             "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
-            "62f7ed22d35a158cb0889f596d1ee63efd896d96c7b2d53787a9f4710c4bca94",
-            228,
+            "89e9c0e3fa38d89b79ad680c525111b29de44a8dd4d398c4ae2ecb3d565cc372",
+            244,
             editorModel52Aliases(),
             editorModel52Aliases(),
             editorModel52MethodAliases(),
@@ -209,7 +209,7 @@ class StaticVerificationRecordRepositoryTest {
             EditorModelVerificationManifest.ARTIFACT_SIZE,
             EditorModelVerificationManifest.ARTIFACT_SHA256,
             EditorModelVerificationManifest.RECORD_SHA256,
-            232,
+            248,
             EditorModelVerificationManifest.REQUIRED_ALIASES,
             EditorModelVerificationManifest.REQUIRED_ALIASES,
             editorModelMethodAliases(),
@@ -223,8 +223,8 @@ class StaticVerificationRecordRepositoryTest {
         "docs/migration/verification/static/cubism-5.3.02-core-model-read.json",
         coreExpectation("5.3.02", "5.3.2", 42_471L,
             "98f4dac9a9508a6e255f6f3862608409a83e29c9009a7f0fcf517e06658164e4",
-            "a527470036f5929e4283bd3f46ee35b09d1cf1d7dbc4834ef5a06abb4551b866",
-            71, "[5.3.02,5.3.03)")
+            "5cfd6601b86e8986596a07a474e76b14e8b2d2ddc5f9ab9548e259776f8eea8a",
+            74, "[5.3.02,5.3.03)")
     )))));
 
     private static Map<String, SliceExpectation> withEmbeddedPanels(
@@ -581,6 +581,7 @@ class StaticVerificationRecordRepositoryTest {
             "cubism.editor-model.modeling-document.last-active-view",
             "cubism.editor-model.modeling-view.model",
             "cubism.editor-model.model-source.guid",
+            "cubism.editor-model.model-source.name",
             "cubism.editor-model.model-source.current-instance",
             "cubism.editor-model.model-source.default-keyform-locked",
             "cubism.editor-model.model-source.set-default-keyform-locked",
@@ -654,6 +655,7 @@ class StaticVerificationRecordRepositoryTest {
             "cubism.editor-model.undo.add-listener",
             "cubism.editor-model.model-source.parts",
             "cubism.editor-model.model-source.update-instances",
+            "cubism.editor-model.model-source.update-visible-lock-hierarchy",
             "cubism.editor-model.model.parts",
             "cubism.editor-model.part.source",
             "cubism.editor-model.part.id",
@@ -664,6 +666,13 @@ class StaticVerificationRecordRepositoryTest {
             "cubism.editor-model.part-source.id",
             "cubism.editor-model.part-source.local-name",
             "cubism.editor-model.part-source.set-local-name",
+            "cubism.editor-model.part-source.default-order",
+            "cubism.editor-model.part-source.set-default-order",
+            "cubism.editor-model.part-source.sketch",
+            "cubism.editor-model.part-source.set-sketch",
+            "cubism.editor-model.part-source.edit-color",
+            "cubism.editor-model.part-source.set-edit-color",
+            "cubism.editor-model.part-source.create-undo-for-basic-settings",
             "cubism.editor-model.part-source.handler",
             "cubism.editor-model.part-handler.create-undo-for-all-edit",
             "cubism.editor-model.part-id.value",
@@ -676,6 +685,7 @@ class StaticVerificationRecordRepositoryTest {
             "cubism.editor-model.parameter-controllable-source.locked",
             "cubism.editor-model.parameter-controllable-source.visible-in-hierarchy",
             "cubism.editor-model.parameter-controllable-source.locked-in-hierarchy",
+            "cubism.editor-model.parameter-controllable-source.target-deformer-source",
             "cubism.editor-model.art-mesh.source",
             "cubism.editor-model.art-mesh.current-keyform",
             "cubism.editor-model.drawable-form.opacity",
@@ -687,6 +697,11 @@ class StaticVerificationRecordRepositoryTest {
             "cubism.editor-model.art-mesh-source.culling",
             "cubism.editor-model.art-mesh-source.user-data",
             "cubism.editor-model.art-mesh-source.inverted-mask",
+            "cubism.editor-model.art-mesh-source.guid",
+            "cubism.editor-model.art-mesh-source.clip-guid-list",
+            "cubism.editor-model.model-source.all-glues",
+            "cubism.editor-model.glue-source.target-art-mesh-a",
+            "cubism.editor-model.glue-source.target-art-mesh-b",
             "cubism.editor-model.model-source.all-deformers",
             "cubism.editor-model.model.all-deformers",
             "cubism.editor-model.deformer.source",
@@ -778,6 +793,11 @@ class StaticVerificationRecordRepositoryTest {
         aliases.addAll(EditorObjectWriteSelectorContract.ART_MESH_REQUIRED_ALIASES);
         aliases.addAll(EditorObjectWriteSelectorContract.WARP_REQUIRED_ALIASES);
         aliases.addAll(EditorObjectWriteSelectorContract.ROTATION_REQUIRED_ALIASES);
+        aliases.addAll(Set.of(
+            "cubism.editor-model.part-source.handler",
+            "cubism.editor-model.part-handler.class",
+            "cubism.editor-model.part-handler.create-undo-for-all-edit"
+        ));
         return Set.copyOf(aliases);
     }
 
@@ -808,12 +828,9 @@ class StaticVerificationRecordRepositoryTest {
         final Set<String> methods = CorePublicApiSelectorContract
             .structuralMethodAliasesFor(profile)
             .orElseThrow();
-        final Set<String> versionMethods = Set.of(
-            CorePublicApiSelectorContract.GET_VERSION,
-            CorePublicApiSelectorContract.GET_MAJOR,
-            CorePublicApiSelectorContract.GET_MINOR,
-            CorePublicApiSelectorContract.GET_PATCH
-        );
+        final Set<String> versionMethods = CorePublicApiSelectorContract.VERSION_PROBE_ALIASES.stream()
+            .filter(alias -> !alias.endsWith(".class"))
+            .collect(java.util.stream.Collectors.toUnmodifiableSet());
         final Set<String> allMethods = new HashSet<>(methods);
         allMethods.addAll(versionMethods);
         return new SliceExpectation(

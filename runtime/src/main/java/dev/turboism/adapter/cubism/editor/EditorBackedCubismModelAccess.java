@@ -594,6 +594,15 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess {
         }
         private void current() { requireCurrent(identity, model); }
         @Override public ModelId id() { current(); return new ModelId(modelId); }
+        @Override public String name() {
+            current();
+            final Object value = resolver.invoke("cubism.editor-model.model-source.name", source);
+            if (value == null) return modelId;
+            if (!(value instanceof String text)) {
+                throw unavailable("Editor model name is invalid.");
+            }
+            return text.isBlank() ? modelId : text;
+        }
         @Override public ParameterDefinitions parameterDefinitions() {
             return EditorBackedCubismModelAccess.this.parameterDefinitions(identity, model);
         }
@@ -656,8 +665,12 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess {
             current();
             return objectReadAccess.rotationDeformers(identity, source, model);
         }
-        @Override public Glues glues() { throw new UnsupportedOperationException("Editor Glue projection is not installed."); }
-        @Override public void update() { throw new UnsupportedOperationException("Editor model update is not installed."); }
+        @Override public Glues glues() { current(); return objectReadAccess.glues(identity, source, model); }
+        @Override public void update() {
+            current();
+            resolver.invoke("cubism.editor-model.model-source.update-instances", source);
+            current();
+        }
     }
 
     private final class EditorParameters implements Parameters {
