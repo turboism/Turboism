@@ -1852,6 +1852,18 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 new ParameterBindingPoint(new ParameterBindingPointId("probe:max"), maximum)
             );
             final java.awt.Robot robot = new java.awt.Robot();
+            final UndoCheckpoint initialUndo = UndoCheckpoint.capture();
+            if (!initialUndo.present()) {
+                Files.writeString(
+                    artifact,
+                    "status=BLOCKED\n"
+                        + "reason=Ctrl+Z menu item has no stable public checkpoint\n"
+                        + "cleanup.undoBaseline=" + initialUndo + '\n',
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.TRUNCATE_EXISTING
+                );
+                return;
+            }
             final StringBuilder report = new StringBuilder("status=RUNNING\n")
                 .append("parameterId=").append(parameter.id().value()).append('\n')
                 .append("meshId=").append(mesh.id().value()).append('\n')
@@ -2027,7 +2039,6 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 .append("batch.passed=").append(batchPassed).append('\n');
             final int undoCap = 512;
             int undoCount = 0;
-            boolean undoDrained = false;
             while (undoCount < undoCap && invokeMenuShortcut(java.awt.event.KeyEvent.VK_Z)) {
                 undoCount++;
                 Thread.sleep(250L);
@@ -2036,10 +2047,12 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                     bindingPoints(transferTarget, target);
                 }
                 onHostThread(parameter::getValue);
+                if (UndoCheckpoint.capture().equals(initialUndo)) break;
             }
-            if (undoCount < undoCap) {
-                undoDrained = true;
-            }
+            final UndoCheckpoint finalUndo = UndoCheckpoint.capture();
+            final boolean undoAtLeastOne = undoCount > 0;
+            final boolean undoRestored = undoAtLeastOne && finalUndo.equals(initialUndo);
+            final boolean undoExhausted = undoCount >= undoCap;
             final boolean cleanupRestored = targets.stream().allMatch(target -> {
                 try {
                     final List<Float> sourceValues = originalSource.get(target).stream()
@@ -2054,10 +2067,15 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                     throw new IllegalStateException(exception);
                 }
             }) && Float.compare(onHostThread(parameter::getValue), originalValue) == 0;
-            final boolean cleanupPassed = undoDrained && cleanupRestored;
+            final boolean cleanupPassed = undoAtLeastOne && undoRestored
+                && !undoExhausted && cleanupRestored;
             passed &= cleanupPassed;
-            report.append("cleanup.undoCount=").append(undoCount).append('\n')
-                .append("cleanup.undoDrained=").append(undoDrained).append('\n')
+            report.append("cleanup.undoBaseline=").append(initialUndo).append('\n')
+                .append("cleanup.undoFinal=").append(finalUndo).append('\n')
+                .append("cleanup.undoCount=").append(undoCount).append('\n')
+                .append("cleanup.undoAtLeastOne=").append(undoAtLeastOne).append('\n')
+                .append("cleanup.undoRestored=").append(undoRestored).append('\n')
+                .append("cleanup.undoExhausted=").append(undoExhausted).append('\n')
                 .append("cleanup.restored=").append(cleanupRestored).append('\n')
                 .append("cleanup.passed=").append(cleanupPassed).append('\n');
             report.replace(0, "status=RUNNING".length(), "status=" + (passed ? "PASS" : "FAIL"));
@@ -3937,6 +3955,38 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 && afterUndo.equals(before)
                 && afterRedo.equals(afterWrite)
                 && restored.equals(before);
+        }
+    }
+
+    private record UndoCheckpoint(
+        boolean present,
+        boolean enabled,
+        String text,
+        String actionName
+    ) {
+        static UndoCheckpoint capture() throws Exception {
+            final AtomicReference<javax.swing.JMenuItem> match = new AtomicReference<>();
+            SwingUtilities.invokeAndWait(() -> {
+                for (java.awt.Frame frame : java.awt.Frame.getFrames()) {
+                    if (!(frame instanceof javax.swing.JFrame swingFrame) || !frame.isVisible()) continue;
+                    final javax.swing.JMenuBar bar = swingFrame.getJMenuBar();
+                    if (bar == null) continue;
+                    for (int index = 0; index < bar.getMenuCount() && match.get() == null; index++) {
+                        findMenuShortcut(bar.getMenu(index), java.awt.event.KeyEvent.VK_Z, match);
+                    }
+                }
+            });
+            final javax.swing.JMenuItem item = match.get();
+            if (item == null) return new UndoCheckpoint(false, false, "", "");
+            final javax.swing.Action action = item.getAction();
+            return new UndoCheckpoint(
+                true,
+                item.isEnabled(),
+                Objects.toString(item.getText(), ""),
+                Objects.toString(
+                    action == null ? null : action.getValue(javax.swing.Action.NAME), ""
+                )
+            );
         }
     }
 
