@@ -96,10 +96,8 @@ public final class VerifiedCubism5302TextureAtlasSelectorContract {
     public static final Set<String> STATISTICS_ALIASES = Set.of(
         VerifiedTextureAtlasNativeInvocationAdapter.STATISTICS_VIEW_INIT,
         VerifiedTextureAtlasNativeInvocationAdapter.STATISTICS_VIEW_DATA_MODEL,
-        VerifiedTextureAtlasNativeInvocationAdapter.STATISTICS_VIEW_IMAGE_LIST,
-        VerifiedTextureAtlasNativeInvocationAdapter.STATISTICS_IMAGE_LIST_ITEMS,
-        VerifiedTextureAtlasNativeInvocationAdapter.STATISTICS_LIST_SELECTED,
-        VerifiedTextureAtlasNativeInvocationAdapter.STATISTICS_IMAGE_ENTRY_IMAGE
+        VerifiedTextureAtlasNativeInvocationAdapter.STATISTICS_DATA_MODEL_CURRENT_PAGE,
+        VerifiedTextureAtlasNativeInvocationAdapter.STATISTICS_PAGE_STATE_ATLAS
     );
 
     private VerifiedCubism5302TextureAtlasSelectorContract() {
