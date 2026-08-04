@@ -642,6 +642,10 @@ public final class CubismFacadeImpl implements CubismFacade {
                 }
             };
         }
+        @Override public dev.turboism.sdk.cubism.model.ModelStatistics statistics() {
+            requireModelRead("model.statistics");
+            return delegate.statistics();
+        }
         @Override public boolean defaultKeyformLocked() {
             requireModelRead("model.defaultKeyformLocked");
             return delegate.defaultKeyformLocked();
