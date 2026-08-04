@@ -179,6 +179,34 @@ public final class PreviewReportSnapshotFactory {
         final RuntimeFailureSnapshot failureSnapshot,
         final boolean stopped
     ) {
+        return create(
+            runtimeId,
+            createdAt,
+            home,
+            hostState,
+            hostArtifact,
+            verificationRecord,
+            loadReport,
+            summaries,
+            failureSnapshot,
+            stopped,
+            stopped
+        );
+    }
+
+    public static Map<PreviewReportType, ObjectNode> create(
+        final String runtimeId,
+        final Instant createdAt,
+        final Path home,
+        final HostSession.State hostState,
+        final Path hostArtifact,
+        final Path verificationRecord,
+        final LocalPluginRuntime.LoadReport loadReport,
+        final List<LocalPluginRuntime.LoadedPluginSummary> summaries,
+        final RuntimeFailureSnapshot failureSnapshot,
+        final boolean stopped,
+        final boolean shutdownAttempted
+    ) {
         Objects.requireNonNull(loadReport, "loadReport");
         final RuntimeFailureSnapshot neutralFailures = Objects.requireNonNull(
             failureSnapshot,
@@ -198,7 +226,8 @@ public final class PreviewReportSnapshotFactory {
                 verificationRecord,
                 neutralSummaries,
                 neutralFailures,
-                stopped
+                stopped,
+                shutdownAttempted
             )
         );
         reports.put(
@@ -232,7 +261,8 @@ public final class PreviewReportSnapshotFactory {
         final Path verificationRecord,
         final List<LocalPluginRuntime.LoadedPluginSummary> summaries,
         final RuntimeFailureSnapshot failures,
-        final boolean stopped
+        final boolean stopped,
+        final boolean shutdownAttempted
     ) {
         final ObjectNode report = PreviewReportDocuments.emptyReport(
             PreviewReportType.PREVIEW_RUNTIME,
@@ -266,11 +296,11 @@ public final class PreviewReportSnapshotFactory {
         writeFailures((ArrayNode) payload.get("storageFailures"), failures.storageFailures());
         writeFailures((ArrayNode) payload.get("configFailures"), failures.configFailures());
 
-        final long attempted = stopped ? summaries.size() : 0;
-        final long succeeded = stopped
+        final long attempted = shutdownAttempted ? summaries.size() : 0;
+        final long succeeded = shutdownAttempted
             ? summaries.stream().filter(summary -> summary.unloadState().equals("SUCCEEDED")).count()
             : 0;
-        final long failed = stopped ? attempted - succeeded : 0;
+        final long failed = shutdownAttempted ? attempted - succeeded : 0;
         payload.set(
             "shutdownCounts",
             PreviewReportDocuments.shutdownCounts(attempted, succeeded, failed, 0)
