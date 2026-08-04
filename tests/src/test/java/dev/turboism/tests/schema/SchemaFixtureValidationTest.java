@@ -45,6 +45,7 @@ class SchemaFixtureValidationTest {
     @CsvSource({
         "minimal.json, plugin-meta-v2, plugin-meta",
         "with-required-dependency.json, plugin-meta-v2, plugin-meta",
+        "host-unsafe-permission.json, plugin-meta-v2, plugin-meta",
         "required.json, dependency-v1, dependency",
         "half-open.json, version-range-v1, version-range",
         "context-menu-contribute.json, permission-v1, permission",
