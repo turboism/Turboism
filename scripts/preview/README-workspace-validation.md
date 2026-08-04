@@ -5,7 +5,7 @@ Disposable, exact-host validation harness for the Workspace control slice
 `PluginContext -> RuntimeWorkspaceService -> WorkspaceCoordinator` path while a
 **separate validation javaagent** supplies the candidate exact-version
 `WorkspaceHostProvider`. Production bootstrap composition is not modified:
-`PluginContext.workspace()` stays UNAVAILABLE until the operator explicitly
+`PluginContext.workspace()` stays UNAVAILABLE until the operator or the opt-in automatic matrix connects the provider.
 connects the provider.
 
 Nothing in this bundle modifies the Cubism installation, its launchers, its
@@ -48,6 +48,26 @@ SHA-256, official BAT SHA-256, production agent SHA-256, validation agent
 SHA-256, probe JAR SHA-256, record SHA-256 (packaged records are also hashed in
 the bundle), source-fixture SHA-256, isolated-copy SHA-256, installation path,
 prefix path, and evidence path. Fail closed on any mismatch.
+
+## Automated matrix
+
+The bounded automatic matrix reuses this probe, the validation javaagent, and the
+shared exact-host runner in one task-scoped session:
+
+```bash
+./gradlew validateWorkspaceHost5302 --no-daemon --console=plain
+./gradlew validateWorkspaceHost5203 --no-daemon --console=plain
+# or, after packaging:
+bash scripts/preview/run-workspace-host-validation.sh 5302 prep --dry-run
+```
+
+The probe writes `state/workspace-host-validation.properties` and emits
+`WORKSPACE_HOST_VALIDATION_RESULT status=PASS|FAIL`. A PASS requires the active
+host/document/model snapshot, typed disconnect baseline and fence, connect,
+workspace switch/restore and default commands, EDT call-count evidence, and
+reconnect availability; the generic runner separately enforces the unchanged
+fixture hash and task-owned cleanup. The matrix does not claim persistence across
+restart.
 
 ## Setup (per run, on the Windows host)
 

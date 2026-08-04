@@ -130,6 +130,15 @@ val packageParameterHostValidation by tasks.registering(Exec::class) {
     commandLine("bash", "scripts/preview/package-windows-parameter-validation.sh")
 }
 
+val packageWorkspaceHostValidation by tasks.registering(Exec::class) {
+    group = "host verification"
+    description = "Packages the test-only SDK probe and workspace host-validation bundle."
+    dependsOn("previewBundle", ":tests:testClasses")
+    workingDir(rootDir)
+    environment("TURBOISM_WORKTREE_ID", resolvedHostValidationWorktreeId)
+    commandLine("bash", "scripts/preview/package-windows-workspace-validation.sh")
+}
+
 val packageThemeHostValidation by tasks.registering(Exec::class) {
     group = "host verification"
     description = "Packages the UI theme plugin for exact-host validation."
@@ -176,10 +185,23 @@ fun registerParameterHostValidation(name: String, version: String, displayVersio
     }
 }
 
+fun registerWorkspaceHostValidation(name: String, version: String, displayVersion: String) {
+    tasks.register<Exec>(name) {
+        group = "host verification"
+        description = "Runs the automated exact-host Cubism $displayVersion workspace matrix."
+        dependsOn(packageWorkspaceHostValidation)
+        workingDir(rootDir)
+        environment("TURBOISM_WORKTREE_ID", resolvedHostValidationWorktreeId)
+        commandLine("bash", "scripts/preview/run-workspace-host-validation.sh", version)
+    }
+}
+
 registerThemeHostValidation("validateThemeHost5302", "5302", "5.3.02")
 registerThemeHostValidation("validateThemeHost5203", "5203", "5.2.03")
 registerParameterHostValidation("validateParameterHost5302", "5302", "5.3.02")
 registerParameterHostValidation("validateParameterHost5203", "5203", "5.2.03")
+registerWorkspaceHostValidation("validateWorkspaceHost5302", "5302", "5.3.02")
+registerWorkspaceHostValidation("validateWorkspaceHost5203", "5203", "5.2.03")
 
 tasks.register("checkIntegration") {
     group = "verification"
