@@ -560,6 +560,8 @@ class WindowsParameterValidationProbeTest {
         assertFalse(WindowsParameterValidationProbe.showsValidationWindow("native-control-background-persist-write"));
         assertFalse(WindowsParameterValidationProbe.showsValidationWindow("native-control-background-persist-reopen"));
         assertFalse(WindowsParameterValidationProbe.showsValidationWindow("native-control-background-persist-final"));
+        assertFalse(WindowsParameterValidationProbe.showsValidationWindow("fixed-api"));
+        assertFalse(WindowsParameterValidationProbe.showsValidationWindow("fixed-api-document-close"));
         assertTrue(WindowsParameterValidationProbe.showsValidationWindow("matrix"));
         assertTrue(WindowsParameterValidationProbe.showsValidationWindow("binding-matrix"));
         assertTrue(WindowsParameterValidationProbe.showsValidationWindow("document-close"));

@@ -74,6 +74,57 @@ class EditorBackedCubismModelAccessTest {
         );
     }
 
+
+    @Test
+    void documentReplacementWithTheSameSourceAndModelInvalidatesOldReferences() {
+        final Fixture host = new Fixture("model-a", 12.0F);
+        final EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
+            resolver(), "session-a"
+        );
+        Host.install(host);
+        final var parameter = access.active().parameters().find(new ParameterId("ParamAngleX"));
+
+        Host.currentDocument = new Document(host.source);
+
+        assertThrows(IllegalStateException.class, parameter::getValue);
+    }
+
+    @Test
+    void exposesParameterDefinitionsAndIndexWhileEditorKeyValuesFailClosed() {
+        Fixture host = new Fixture("model-a", 12.0F);
+        Host.install(host);
+        EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
+            resolver(), "session-a"
+        );
+
+        var model = access.active();
+        var parameter = model.parameters().find(new ParameterId("ParamAngleX"));
+
+        assertEquals(0, parameter.index());
+        assertThrows(UnsupportedOperationException.class, parameter::keyValues);
+        assertEquals(
+            List.of(new ParameterId("ParamAngleX")),
+            model.parameterDefinitions().all().stream()
+                .map(value -> value.id())
+                .toList()
+        );
+        assertEquals(
+            new dev.turboism.sdk.cubism.model.ParameterDefinition(
+                new ParameterId("ParamAngleX"),
+                "Angle X",
+                -30.0F,
+                0.0F,
+                30.0F,
+                ParameterType.BLEND_SHAPE,
+                true
+            ),
+            model.parameterDefinitions().find(new ParameterId("ParamAngleX"))
+        );
+
+        Host.install(new Fixture("model-b", -5.0F));
+        assertThrows(IllegalStateException.class, parameter::keyValues);
+    }
+
     @Test
     void parameterBindingProjectionCollectsAllThreeObjectFamiliesAndGoesStaleWithTheModel() {
         Fixture host = new Fixture("model-a", 12.0F);
@@ -373,6 +424,12 @@ class EditorBackedCubismModelAccessTest {
     private static String internal(Class<?> type) { return type.getName().replace('.', '/'); }
     private static String desc(Class<?> type) { return "()L" + internal(type) + ";"; }
 
+    private static List<Float> sequence(final dev.turboism.sdk.cubism.model.FloatSequence values) {
+        final java.util.ArrayList<Float> result = new java.util.ArrayList<>();
+        for (int index = 0; index < values.size(); index++) result.add(values.get(index));
+        return result;
+    }
+
     public static final class Host {
         static final Host INSTANCE = new Host();
         static Object currentDocument;
@@ -440,13 +497,13 @@ class EditorBackedCubismModelAccessTest {
         public float value() { return value; }
         public ParameterSource source() { return source; }
     }
-    public static final class ParameterSource {
-        final Id id = new Id("ParamAngleX");
+    public static final class ParameterSource extends ObjectSource {
         String name = "Angle X";
+        ParameterSource() { super("ParamAngleX"); }
+        @Override public Id id() { return super.id(); }
         public float minimum() { return -30.0F; }
         public float maximum() { return 30.0F; }
         public float defaultValue() { return 0.0F; }
-        public Id id() { return id; }
         public String name() { return name; }
         public boolean repeat() { return true; }
         public boolean morphTarget() { return true; }

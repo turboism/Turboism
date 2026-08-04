@@ -124,7 +124,7 @@ class VerifiedEditorStartupResolverFactoriesTest {
 
     private static Path record(final String profile, final String slice) {
         return PROJECT_ROOT.resolve(Path.of(
-            "docs", "migration", "verification", "static",
+            "cubism-ref", "verification",
             "cubism-" + profile + '-' + slice + ".json"
         ));
     }
