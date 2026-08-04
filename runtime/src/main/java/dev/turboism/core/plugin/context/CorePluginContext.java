@@ -75,6 +75,7 @@ public final class CorePluginContext implements PluginContext {
     private final UserFileAccessService userFileAccessService;
     private final AsyncHostReadService asyncHostReadService;
     private final ControlAppearanceRegistry controlAppearanceRegistry;
+    private final dev.turboism.sdk.ui.workspace.WorkspaceService workspaceService;
 
     private final SceneTableService sceneTableService;
     private final dev.turboism.sdk.runtime.CubismLogService cubismLogService;
@@ -453,6 +454,17 @@ public final class CorePluginContext implements PluginContext {
             this.dependencies.cubismAuditSink(),
             this.dependencies.clock()
         ));
+        this.workspaceService = hostAccess == null
+            ? dev.turboism.sdk.ui.workspace.WorkspaceService.unavailable()
+            : new dev.turboism.ui.workspace.RuntimeWorkspaceService(
+                uiPermissionChecker,
+                hostAccess.workspaceCoordinator()
+            );
+        if (hostAccess != null) {
+            this.dependencies.disposableScope().register(
+                (dev.turboism.ui.workspace.RuntimeWorkspaceService) this.workspaceService
+            );
+        }
         this.uiHostCapabilityService = hostAccess == null
             ? new RuntimeUiHostCapabilityService(
                 uiPermissionChecker,
@@ -660,6 +672,11 @@ public final class CorePluginContext implements PluginContext {
     @Override
     public ControlAppearanceRegistry controlAppearance() {
         return controlAppearanceRegistry;
+    }
+
+    @Override
+    public dev.turboism.sdk.ui.workspace.WorkspaceService workspace() {
+        return workspaceService;
     }
 
     @Override
