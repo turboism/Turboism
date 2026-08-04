@@ -44,7 +44,8 @@ public final class PluginMetaValidator extends AbstractJsonValidator {
         "turboism.ui.dialog.contribute", "turboism.ui.panel.contribute",
         "turboism.ui.file-chooser.request", "turboism.ui.status.notify",
         "turboism.ui.appearance.modify", "turboism.ui.toolbar.contribute", "turboism.config.plugin.read",
-        "turboism.config.plugin.write", "turboism.event.subscribe", "turboism.event.publish"
+        "turboism.config.plugin.write", "turboism.event.subscribe", "turboism.event.publish",
+        "turboism.host.unsafe"
     );
 
     public PluginMetaValidator() {

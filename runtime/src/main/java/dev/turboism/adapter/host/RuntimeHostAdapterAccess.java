@@ -62,8 +62,13 @@ public sealed interface RuntimeHostAdapterAccess permits HostSession, SessionRun
 
     dev.turboism.sdk.ui.table.SceneTableService sceneTable();
 
+    dev.turboism.sdk.runtime.CubismLogService cubismLog();
+
+    dev.turboism.ui.filter.PaletteFilterVisibilitySink paletteFilterSink();
+
     PaletteAppearanceCoordinator paletteAppearanceCoordinator();
 
+    dev.turboism.ui.workspace.WorkspaceCoordinator workspaceCoordinator();
 }
 
 /** Non-closeable adapter view used when lifecycle ownership remains with bootstrap ingress. */
@@ -90,7 +95,10 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     private final java.util.Optional<dev.turboism.mapping.verification.VerifiedMemberResolver> boundingBoxOverlayResolver;
     private final AppearanceCoordinator appearanceCoordinator;
     private final dev.turboism.sdk.ui.table.SceneTableService sceneTable;
+    private final dev.turboism.sdk.runtime.CubismLogService cubismLog;
+    private final dev.turboism.ui.filter.PaletteFilterVisibilitySink paletteFilterSink;
     private final PaletteAppearanceCoordinator paletteAppearanceCoordinator;
+    private final dev.turboism.ui.workspace.WorkspaceCoordinator workspaceCoordinator;
     SessionRuntimeHostAdapterAccess(
         final RuntimeHostAdapters adapters,
         final CubismModelAccess modelAccess,
@@ -113,7 +121,10 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
         final java.util.Optional<dev.turboism.mapping.verification.VerifiedMemberResolver> boundingBoxOverlayResolver,
         final AppearanceCoordinator appearanceCoordinator,
         final dev.turboism.sdk.ui.table.SceneTableService sceneTable,
-        final PaletteAppearanceCoordinator paletteAppearanceCoordinator
+        final dev.turboism.sdk.runtime.CubismLogService cubismLog,
+        final dev.turboism.ui.filter.PaletteFilterVisibilitySink paletteFilterSink,
+        final PaletteAppearanceCoordinator paletteAppearanceCoordinator,
+        final dev.turboism.ui.workspace.WorkspaceCoordinator workspaceCoordinator
     ) {
         this.adapters = java.util.Objects.requireNonNull(adapters, "adapters");
         this.modelAccess = java.util.Objects.requireNonNull(modelAccess, "modelAccess");
@@ -174,9 +185,15 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
             "appearanceCoordinator"
         );
         this.sceneTable = java.util.Objects.requireNonNull(sceneTable, "sceneTable");
+        this.cubismLog = java.util.Objects.requireNonNull(cubismLog, "cubismLog");
+        this.paletteFilterSink = java.util.Objects.requireNonNull(paletteFilterSink, "paletteFilterSink");
         this.paletteAppearanceCoordinator = java.util.Objects.requireNonNull(
             paletteAppearanceCoordinator,
             "paletteAppearanceCoordinator"
+        );
+        this.workspaceCoordinator = java.util.Objects.requireNonNull(
+            workspaceCoordinator,
+            "workspaceCoordinator"
         );
     }
 
@@ -286,10 +303,23 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
         return sceneTable;
     }
 
+    @Override
+    public dev.turboism.sdk.runtime.CubismLogService cubismLog() {
+        return cubismLog;
+    }
+
+    @Override
+    public dev.turboism.ui.filter.PaletteFilterVisibilitySink paletteFilterSink() {
+        return paletteFilterSink;
+    }
 
     @Override
     public PaletteAppearanceCoordinator paletteAppearanceCoordinator() {
         return paletteAppearanceCoordinator;
     }
 
+    @Override
+    public dev.turboism.ui.workspace.WorkspaceCoordinator workspaceCoordinator() {
+        return workspaceCoordinator;
+    }
 }

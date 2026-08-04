@@ -63,6 +63,28 @@ class ParameterControlAppearanceProviderTest {
         javax.swing.SwingUtilities.invokeAndWait(provider::close);
     }
 
+    @Test
+    void publishesExactParameterIdAndLabelToTheSharedRowCatalog() throws Exception {
+        final PaletteAppearanceCoordinator coordinator = new PaletteAppearanceCoordinator();
+        coordinator.replaceHostGeneration(5);
+        final ParameterControlAppearanceProvider provider =
+            new ParameterControlAppearanceProvider(5, coordinator);
+        final JLabel label = new JLabel("Angle X");
+
+        javax.swing.SwingUtilities.invokeAndWait(() ->
+            provider.bind(ParameterControlAppearanceProvider.Kind.PARAMETER, "ParamAngleX", label));
+
+        final PaletteAppearanceCoordinator.ParameterControlBinding binding =
+            coordinator.parameterControlBindings().get(0);
+        assertEquals(false, binding.folder());
+        assertEquals("ParamAngleX", binding.id());
+        assertEquals(label, binding.label());
+
+        provider.close();
+        javax.swing.SwingUtilities.invokeAndWait(() -> { });
+        assertEquals(0, coordinator.parameterControlBindings().size());
+    }
+
     private static PaletteAppearanceCoordinator.Scope scope(final long hostGeneration) {
         return new PaletteAppearanceCoordinator.Scope("content", 1, "model", 1, hostGeneration, 1);
     }

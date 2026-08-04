@@ -7,6 +7,14 @@ public final class EditorObjectReadSelectorContract {
 
     public static final String ADAPTER_SLICE_ID = "adapter.editor-model.readwrite";
     public static final String CAPABILITY_ID = "cubism.editor-model.objects.read";
+    public static final String STATISTICS_CAPABILITY_ID = "cubism.editor-model.statistics.read";
+    public static final Set<String> STATISTICS_ALIASES = Set.of(
+        "cubism.editor-model.art-mesh-source.texture",
+        "cubism.editor-model.texture.guid"
+    );
+    public static final Set<String> OFFSCREEN_STATISTICS_ALIASES = Set.of(
+        "cubism.editor-model.part-source.use-offscreen"
+    );
 
     public static final Set<String> REQUIRED_ALIASES = Set.of(
         "cubism.editor-model.app-controller.instance",

@@ -17,6 +17,11 @@ import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.ui.appearance.control.RuntimeModelAppearanceAccess;
 import dev.turboism.adapter.cubism.NativeLabelColorAuthoring;
 import dev.turboism.sdk.ui.StatusNotification;
+import dev.turboism.sdk.ui.workspace.WorkspaceId;
+import dev.turboism.sdk.ui.workspace.WorkspaceOperationResult;
+import dev.turboism.sdk.ui.workspace.WorkspaceStatus;
+import dev.turboism.ui.contribution.EditorUiContributionProvider;
+import dev.turboism.ui.workspace.WorkspaceHostProvider;
 import org.junit.jupiter.api.Test;
 import dev.turboism.sdk.ui.appearance.PaletteEntry;
 
@@ -300,6 +305,164 @@ class HostSessionTest {
 
         session.close();
         assertEquals(5, closes.get(), "the final active connection must close exactly once");
+    }
+
+    @Test
+    void sameSessionReconnectsForWorkspaceOverlayAndPanelSlicePresenceAndRecordChanges() {
+        ClassLoader hostClassLoader = HostSessionTest.class.getClassLoader();
+        Path artifact = Path.of("host/Live2D_Cubism.jar");
+        AtomicReference<HostInstanceDescriptor> current = new AtomicReference<>(descriptor(
+            "session-a", projectOnlyEvidence("project-record-a.json", artifact, hostClassLoader)
+        ));
+        AtomicInteger connections = new AtomicInteger();
+        AtomicInteger closes = new AtomicInteger();
+        HostSession session = new HostSession(
+            () -> Optional.of(current.get()),
+            ignored -> {
+                connections.incrementAndGet();
+                return connection(adapters("connection-" + connections.get()), closes);
+            }
+        );
+
+        assertEquals(HostSession.State.ACTIVE, session.refresh());
+        assertEquals(1, connections.get());
+
+        current.set(descriptor(
+            "session-a",
+            projectOnlyEvidence("project-record-a.json", artifact, hostClassLoader)
+                .addingWorkspaceControl(slice("workspace-a.json", artifact, hostClassLoader))
+        ));
+        assertEquals(HostSession.State.ACTIVE, session.refresh());
+        assertEquals(2, connections.get(), "adding workspace-control evidence must replace the connection");
+        assertEquals(1, closes.get());
+
+        current.set(descriptor(
+            "session-a",
+            projectOnlyEvidence("project-record-a.json", artifact, hostClassLoader)
+                .addingWorkspaceControl(slice("workspace-b.json", artifact, hostClassLoader))
+        ));
+        assertEquals(HostSession.State.ACTIVE, session.refresh());
+        assertEquals(3, connections.get(), "changing the workspace-control record must replace the connection");
+        assertEquals(2, closes.get());
+
+        current.set(descriptor(
+            "session-a",
+            projectOnlyEvidence("project-record-a.json", artifact, hostClassLoader)
+                .addingWorkspaceControl(slice("workspace-b.json", artifact, hostClassLoader))
+                .addingBoundingBoxOverlayButton(slice("overlay-a.json", artifact, hostClassLoader))
+        ));
+        assertEquals(HostSession.State.ACTIVE, session.refresh());
+        assertEquals(4, connections.get(), "adding bounding-box overlay evidence must replace the connection");
+        assertEquals(3, closes.get());
+
+        current.set(descriptor(
+            "session-a",
+            projectOnlyEvidence("project-record-a.json", artifact, hostClassLoader)
+                .addingWorkspaceControl(slice("workspace-b.json", artifact, hostClassLoader))
+                .addingBoundingBoxOverlayButton(slice("overlay-a.json", artifact, hostClassLoader))
+                .addingEmbeddedPanel(slice("panel-a.json", artifact, hostClassLoader))
+        ));
+        assertEquals(HostSession.State.ACTIVE, session.refresh());
+        assertEquals(5, connections.get(), "adding embedded-panel evidence must replace the connection");
+        assertEquals(4, closes.get());
+
+        current.set(descriptor(
+            "session-a",
+            projectOnlyEvidence("project-record-a.json", artifact, hostClassLoader)
+                .addingWorkspaceControl(slice("workspace-b.json", artifact, hostClassLoader))
+                .addingBoundingBoxOverlayButton(slice("overlay-a.json", artifact, hostClassLoader))
+                .addingEmbeddedPanel(slice("panel-a.json", artifact, hostClassLoader))
+                .addingTopMenu(slice("topmenu-a.json", artifact, hostClassLoader))
+        ));
+        assertEquals(HostSession.State.ACTIVE, session.refresh());
+        assertEquals(6, connections.get(), "adding top-menu evidence must replace the connection");
+        assertEquals(5, closes.get());
+
+        current.set(descriptor(
+            "session-a",
+            projectOnlyEvidence("project-record-a.json", artifact, hostClassLoader)
+                .addingBoundingBoxOverlayButton(slice("overlay-a.json", artifact, hostClassLoader))
+                .addingEmbeddedPanel(slice("panel-a.json", artifact, hostClassLoader))
+                .addingTopMenu(slice("topmenu-a.json", artifact, hostClassLoader))
+        ));
+        assertEquals(HostSession.State.ACTIVE, session.refresh());
+        assertEquals(7, connections.get(), "removing workspace-control evidence must replace the connection");
+        assertEquals(6, closes.get(), "removing a slice must close the old connection once");
+
+        session.close();
+        assertEquals(7, closes.get(), "the final active connection must close exactly once");
+    }
+
+    @Test
+    void workspaceProviderStaysUnavailableWhileRefreshIsInProgress() throws Exception {
+        ClassLoader hostClassLoader = HostSessionTest.class.getClassLoader();
+        Path artifact = Path.of("host/Live2D_Cubism.jar");
+        AtomicReference<HostInstanceDescriptor> current = new AtomicReference<>(descriptor(
+            "session-a",
+            projectOnlyEvidence("project-record-a.json", artifact, hostClassLoader)
+                .addingWorkspaceControl(slice("workspace-a.json", artifact, hostClassLoader))
+        ));
+        CountDownLatch installStarted = new CountDownLatch(1);
+        CountDownLatch installRelease = new CountDownLatch(1);
+        HostSession session = new HostSession(
+            () -> Optional.of(current.get()),
+            ignored -> workspaceConnection(installStarted, installRelease)
+        );
+
+        AtomicReference<HostSession.State> refreshResult = new AtomicReference<>();
+        Thread refresher = new Thread(() -> refreshResult.set(session.refresh()), "workspace-refresh");
+        refresher.start();
+        try {
+            assertTrue(installStarted.await(5, TimeUnit.SECONDS),
+                "candidate installation must block inside refresh");
+
+            assertEquals(
+                WorkspaceStatus.Availability.UNAVAILABLE,
+                session.workspaceCoordinator().current().availability(),
+                "workspace must remain UNAVAILABLE while refresh is in progress"
+            );
+
+            installRelease.countDown();
+            refresher.join(TimeUnit.SECONDS.toMillis(5));
+            assertEquals(HostSession.State.ACTIVE, refreshResult.get(),
+                "refresh must commit ACTIVE after the installation is released");
+            assertEquals(
+                WorkspaceStatus.Availability.AVAILABLE,
+                session.workspaceCoordinator().current().availability(),
+                "workspace becomes AVAILABLE only after refresh returned ACTIVE"
+            );
+        } finally {
+            installRelease.countDown();
+            refresher.join(TimeUnit.SECONDS.toMillis(5));
+            session.close();
+        }
+    }
+
+    @Test
+    void failedCandidateInstallationNeverPublishesWorkspaceProvider() throws Exception {
+        ClassLoader hostClassLoader = HostSessionTest.class.getClassLoader();
+        Path artifact = Path.of("host/Live2D_Cubism.jar");
+        AtomicReference<HostInstanceDescriptor> current = new AtomicReference<>(descriptor(
+            "session-a",
+            projectOnlyEvidence("project-record-a.json", artifact, hostClassLoader)
+                .addingWorkspaceControl(slice("workspace-a.json", artifact, hostClassLoader))
+        ));
+        HostSession session = new HostSession(
+            () -> Optional.of(current.get()),
+            ignored -> workspaceConnectionThrowingInstall()
+        );
+
+        assertEquals(HostSession.State.FAILED, session.refresh());
+        assertEquals(
+            HostSessionFailure.Code.CONNECTION_FAILED,
+            session.lastFailure().orElseThrow().code()
+        );
+        assertEquals(
+            WorkspaceStatus.Availability.UNAVAILABLE,
+            session.workspaceCoordinator().current().availability(),
+            "a failed candidate must never leave a workspace provider published"
+        );
+        session.close();
     }
 
     @Test
@@ -604,6 +767,16 @@ class HostSessionTest {
         ));
     }
 
+    static HostVerificationEvidence.Slice slice(
+        final String record,
+        final Path artifact,
+        final ClassLoader classLoader
+    ) {
+        return new HostVerificationEvidence.Slice(
+            Path.of("records").resolve(record), artifact, classLoader
+        );
+    }
+
     static HostVerificationEvidence clipEvidence(
         final String projectRecord,
         final String clipRecord,
@@ -638,6 +811,85 @@ class HostSessionTest {
                 classLoader
             ))
         );
+    }
+
+    static HostAdapterConnection workspaceConnection(
+        final CountDownLatch installStarted,
+        final CountDownLatch installRelease
+    ) {
+        return new HostAdapterConnection() {
+            private final WorkspaceHostProvider provider = availableWorkspaceProvider();
+
+            @Override
+            public RuntimeHostAdapters adapters() {
+                return RuntimeHostAdapters.safeMode();
+            }
+
+            @Override
+            public WorkspaceHostProvider workspaceProvider() {
+                return provider;
+            }
+
+            @Override
+            public List<EditorUiContributionProvider> editorUiProviders(final long hostGeneration) {
+                installStarted.countDown();
+                try {
+                    installRelease.await();
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                }
+                return List.of();
+            }
+
+            @Override
+            public void close() {
+            }
+        };
+    }
+
+    static HostAdapterConnection workspaceConnectionThrowingInstall() {
+        return new HostAdapterConnection() {
+            @Override
+            public RuntimeHostAdapters adapters() {
+                return RuntimeHostAdapters.safeMode();
+            }
+
+            @Override
+            public WorkspaceHostProvider workspaceProvider() {
+                return availableWorkspaceProvider();
+            }
+
+            @Override
+            public List<EditorUiContributionProvider> editorUiProviders(final long hostGeneration) {
+                throw new IllegalStateException("candidate installation failed");
+            }
+
+            @Override
+            public void close() {
+            }
+        };
+    }
+
+    static WorkspaceHostProvider availableWorkspaceProvider() {
+        return new WorkspaceHostProvider() {
+            @Override public WorkspaceStatus readStatus() {
+                return new WorkspaceStatus(
+                    WorkspaceStatus.Availability.AVAILABLE,
+                    Optional.empty(),
+                    List.of(),
+                    Optional.empty()
+                );
+            }
+            @Override public WorkspaceOperationResult.Outcome switchTo(final WorkspaceId workspaceId) {
+                return WorkspaceOperationResult.Outcome.CHANGED;
+            }
+            @Override public WorkspaceOperationResult.Outcome updateDefault() {
+                return WorkspaceOperationResult.Outcome.CHANGED;
+            }
+            @Override public WorkspaceOperationResult.Outcome resetToDefault() {
+                return WorkspaceOperationResult.Outcome.CHANGED;
+            }
+        };
     }
 
     static HostAdapterConnection connection(
