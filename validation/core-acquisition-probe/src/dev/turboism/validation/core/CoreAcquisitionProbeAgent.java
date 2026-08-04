@@ -1,7 +1,7 @@
 package dev.turboism.validation.core;
 
-import java.awt.Robot;
-import java.awt.event.KeyEvent;
+import java.awt.Window;
+import java.awt.event.WindowEvent;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.instrument.Instrumentation;
@@ -126,7 +126,7 @@ public final class CoreAcquisitionProbeAgent {
             System.out.println("CORE_ACQUISITION_RESULT status=" + status + " bridgeStatus=" + bridgeStatus);
             System.err.println("CORE_ACQUISITION_RESULT status=" + status + " bridgeStatus=" + bridgeStatus);
             if ("true".equalsIgnoreCase(System.getProperty("turboism.coreAcquisition.exitOnComplete"))) {
-                onEdt(() -> { altF4(); return null; });
+                onEdt(() -> { requestHostClose(); return null; });
             }
         } catch (Throwable failure) {
             System.err.println("CORE_ACQUISITION_RESULT status=FAIL bridgeStatus=ERROR");
@@ -330,14 +330,18 @@ public final class CoreAcquisitionProbeAgent {
         try { Thread.sleep(millis); } catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); }
     }
 
-    private static void altF4() {
-        try {
-            final Robot robot = new Robot();
-            robot.keyPress(KeyEvent.VK_ALT);
-            robot.keyPress(KeyEvent.VK_F4);
-            robot.keyRelease(KeyEvent.VK_F4);
-            robot.keyRelease(KeyEvent.VK_ALT);
-        } catch (Exception ignored) { }
+    private static void requestHostClose() {
+        Window target = null;
+        long largestArea = -1;
+        for (Window window : Window.getWindows()) {
+            if (!window.isDisplayable() || !window.isVisible()) continue;
+            final long area = (long) window.getWidth() * window.getHeight();
+            if (area > largestArea) {
+                target = window;
+                largestArea = area;
+            }
+        }
+        if (target != null) target.dispatchEvent(new WindowEvent(target, WindowEvent.WINDOW_CLOSING));
     }
 
     static void writeAtomic(final Path target, final byte[] bytes) throws IOException {
