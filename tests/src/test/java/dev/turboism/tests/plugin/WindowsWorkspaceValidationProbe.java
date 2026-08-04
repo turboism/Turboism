@@ -5,6 +5,7 @@ import dev.turboism.sdk.cubism.CubismPlugin;
 import dev.turboism.sdk.cubism.DocumentSnapshot;
 import dev.turboism.sdk.cubism.ModelSnapshot;
 import dev.turboism.sdk.cubism.ProjectSnapshot;
+import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
 import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.sdk.plugin.CancellationToken;
@@ -47,7 +48,8 @@ import java.util.function.Predicate;
  * Manual-test-only SDK plugin with an opt-in automatic exact-host Workspace matrix.
  *
  * <p>The probe calls only {@link PluginContext#workspace()}, {@link PluginContext#cubism()},
- * {@link PluginContext#tasks()}, {@link PluginContext#paths()}, and the SDK permission surface;
+ * {@link PluginContext#cubismRead()}, {@link PluginContext#tasks()},
+ * {@link PluginContext#paths()}, and the SDK permission surface;
  * it never touches runtime, reflection, or host objects. The protocol root is
  * {@code PluginContext.paths().stateDir()}. One scheduled low-frequency task scans bounded
  * command files under a scan lock; disable/shutdown set the enabled flag under the lock, cancel
@@ -285,6 +287,7 @@ public final class WindowsWorkspaceValidationProbe implements CubismPlugin {
         final Path stateDir = validationStateDir();
         final WorkspaceService workspace = context.workspace();
         final CubismFacade cubism = context.cubism();
+        final CubismReadCapabilityService cubismRead = context.cubismRead();
         String originalId = null;
         boolean connected = false;
         try {
@@ -297,7 +300,7 @@ public final class WindowsWorkspaceValidationProbe implements CubismPlugin {
                 stateDir, counts -> counts.allZero(), AUTOMATIC_TIMEOUT
             );
             reportCounts(report, "agent.baselineCounts", baselineCounts);
-            awaitFacadeReadiness(cubism, AUTOMATIC_TIMEOUT);
+            awaitProjectReadiness(cubismRead, AUTOMATIC_TIMEOUT);
 
             final CommandResult baselineStatus = executeCommand(
                 workspace, cubism, new Command(1, "status", Optional.empty()), declaredPermissions
@@ -350,7 +353,7 @@ public final class WindowsWorkspaceValidationProbe implements CubismPlugin {
             require(report, "workspace.availableList", initial.available().size() > 1,
                 "available workspace list has fewer than two entries");
 
-            recordActiveSnapshot(report, cubism, initial);
+            recordActiveSnapshot(report, cubismRead, initial);
 
             final WorkspaceOperationResult changed = switchTo(workspace, alternate.id());
             recordOperation(report, "switch.alternate", changed);
@@ -527,21 +530,19 @@ public final class WindowsWorkspaceValidationProbe implements CubismPlugin {
         );
     }
 
-    private static void awaitFacadeReadiness(
-        final CubismFacade cubism,
+    private static void awaitProjectReadiness(
+        final CubismReadCapabilityService cubismRead,
         final Duration timeout
     ) throws InterruptedException {
         final long deadline = System.nanoTime() + timeout.toNanos();
         while (System.nanoTime() < deadline) {
-            if (cubism.isHostPresent()
-                    && cubism.activeProject().isPresent()
-                    && cubism.activeDocument().isPresent()
-                    && cubism.activeModel().isPresent()) {
+            final Optional<ProjectSnapshot> project = cubismRead.activeProject();
+            if (project.isPresent() && !project.orElseThrow().documents().isEmpty()) {
                 return;
             }
             Thread.sleep(250L);
         }
-        throw new IllegalStateException("Cubism facade did not become ready before timeout");
+        throw new IllegalStateException("Cubism project did not become ready before timeout");
     }
 
     private static WorkspaceOperationResult switchTo(
@@ -569,35 +570,23 @@ public final class WindowsWorkspaceValidationProbe implements CubismPlugin {
 
     private static void recordActiveSnapshot(
         final List<String> report,
-        final CubismFacade cubism,
+        final CubismReadCapabilityService cubismRead,
         final WorkspaceStatus workspace
     ) {
-        final boolean hostPresent = cubism.isHostPresent();
-        final Optional<ProjectSnapshot> project = cubism.activeProject();
-        final Optional<DocumentSnapshot> document = cubism.activeDocument();
-        final Optional<ModelSnapshot> model = cubism.activeModel();
-        report.add("active.hostPresent=" + hostPresent);
+        final Optional<ProjectSnapshot> project = cubismRead.activeProject();
+        final boolean projectDocumentsPresent = project
+            .map(value -> !value.documents().isEmpty())
+            .orElse(false);
         report.add("active.projectPresent=" + project.isPresent());
-        report.add("active.documentPresent=" + document.isPresent());
-        report.add("active.modelPresent=" + model.isPresent());
+        report.add("active.projectDocumentsPresent=" + projectDocumentsPresent);
         project.ifPresent(value -> {
             report.add("active.projectId=" + encodeValue(value.projectId()));
             report.add("active.projectName=" + encodeValue(value.name()));
             report.add("active.projectDocumentCount=" + value.documents().size());
         });
-        document.ifPresent(value -> {
-            report.add("active.documentId=" + encodeValue(value.documentId()));
-            report.add("active.documentName=" + encodeValue(value.name()));
-            report.add("active.documentRelativePath=" + encodeValue(value.relativePath()));
-        });
-        model.ifPresent(value -> {
-            report.add("active.modelId=" + encodeValue(value.modelId()));
-            report.add("active.modelName=" + encodeValue(value.name()));
-        });
-        require(report, "active.host", hostPresent, "hostPresent=false");
         require(report, "active.project", project.isPresent(), "active project is absent");
-        require(report, "active.document", document.isPresent(), "active document is absent");
-        require(report, "active.model", model.isPresent(), "active model is absent");
+        require(report, "active.projectDocuments", projectDocumentsPresent,
+            "active project has no documents");
         require(report, "active.workspace", workspace.availability()
                 == WorkspaceStatus.Availability.AVAILABLE && workspace.current().isPresent(),
             workspace.availability().toString());
