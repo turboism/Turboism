@@ -28,6 +28,11 @@ public interface CubismModel {
         );
     }
 
+    /** Returns the model's structural and render-resource statistics. */
+    default ModelStatistics statistics() {
+        return ModelStatisticsCalculator.calculate(this);
+    }
+
     /** Returns whether the Editor's default keyform is locked. */
     default boolean defaultKeyformLocked() {
         throw new UnsupportedOperationException(

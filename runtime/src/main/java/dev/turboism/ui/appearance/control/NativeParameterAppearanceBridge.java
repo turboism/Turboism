@@ -17,7 +17,13 @@ public final class NativeParameterAppearanceBridge {
 
     private static void after(final Object row, final boolean folder) {
         final Installed installed = INSTALLED.get();
-        if (installed == null || row == null || !javax.swing.SwingUtilities.isEventDispatchThread()) return;
+        if (installed == null || row == null) return;
+        if (!javax.swing.SwingUtilities.isEventDispatchThread()) {
+            javax.swing.SwingUtilities.invokeLater(() -> {
+                if (INSTALLED.get() == installed) after(row, folder);
+            });
+            return;
+        }
         try {
             if (folder) installed.bindFolder(row);
             else installed.bindParameter(row);
@@ -45,6 +51,22 @@ public final class NativeParameterAppearanceBridge {
     }
 
     static void clearForTesting() { uninstall(); }
+
+    /** Replays exact host row widgets supplied by the verified palette-operation selector. */
+    public static void replayExistingRows(final Iterable<?> rows) {
+        Objects.requireNonNull(rows, "rows");
+        final Runnable replay = () -> {
+            final Installed installed = INSTALLED.get();
+            if (installed == null) return;
+            for (Object row : rows) {
+                if (INSTALLED.get() != installed) return;
+                if (installed.selectors().folderRow(row)) after(row, true);
+                else if (installed.selectors().parameterRow(row)) after(row, false);
+            }
+        };
+        if (javax.swing.SwingUtilities.isEventDispatchThread()) replay.run();
+        else javax.swing.SwingUtilities.invokeLater(replay);
+    }
 
     private record Installed(Selectors selectors, ParameterControlAppearanceProvider provider) {
         void bindParameter(final Object row) throws ReflectiveOperationException {

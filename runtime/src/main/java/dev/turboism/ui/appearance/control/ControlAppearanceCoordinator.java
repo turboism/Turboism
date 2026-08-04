@@ -4,32 +4,42 @@ import dev.turboism.sdk.ui.appearance.ControlAppearanceContribution;
 import dev.turboism.sdk.ui.appearance.ControlAppearanceStyle;
 import dev.turboism.sdk.ui.appearance.ControlAppearanceTarget;
 
+import java.awt.Component;
+import java.lang.ref.WeakReference;
+import java.util.ArrayList;
+import java.util.List;
+
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
-/** Runtime-owned snapshot of active transient native-control styles. */
+/** Runtime-owned snapshot of transient styles and live parameter-row labels. */
 public final class ControlAppearanceCoordinator implements AutoCloseable {
     private final Map<Key, StoredContribution> contributions = new ConcurrentHashMap<>();
     private volatile long hostGeneration;
     private final java.util.concurrent.CopyOnWriteArrayList<Runnable> listeners =
         new java.util.concurrent.CopyOnWriteArrayList<>();
+    private final List<StoredParameterControlBinding> parameterControls = new ArrayList<>();
 
     void put(final String pluginId, final long generation, final ControlAppearanceContribution contribution) {
         contributions.put(new Key(pluginId, generation, contribution.id()), new StoredContribution(contribution));
         changed();
     }
 
-    public void replaceHostGeneration(final long generation) {
+    public synchronized void replaceHostGeneration(final long generation) {
         if (generation < 0) {
             throw new IllegalArgumentException("generation must not be negative");
+        }
+        if (hostGeneration != generation) {
+            parameterControls.clear();
         }
         hostGeneration = generation;
         changed();
     }
 
-    public void clearHostGeneration() {
+    public synchronized void clearHostGeneration() {
         hostGeneration = 0;
+        parameterControls.clear();
         changed();
     }
 
@@ -53,6 +63,39 @@ public final class ControlAppearanceCoordinator implements AutoCloseable {
         contributions.keySet().removeIf(key -> key.pluginId().equals(pluginId)
             && key.generation() == generation);
         changed();
+    }
+
+    synchronized void bindParameterControl(
+        final boolean folder,
+        final String id,
+        final Component label
+    ) {
+        final String value = java.util.Objects.requireNonNull(id, "id");
+        final Component component = java.util.Objects.requireNonNull(label, "label");
+        parameterControls.removeIf(binding -> binding.label().get() == null
+            || binding.label().get() == component);
+        parameterControls.add(new StoredParameterControlBinding(folder, value, new WeakReference<>(component)));
+    }
+
+    synchronized void unbindParameterControl(final Component label) {
+        parameterControls.removeIf(binding -> binding.label().get() == null
+            || binding.label().get() == label);
+    }
+
+    /** Exact native parameter/folder IDs paired with their live Swing labels. */
+    public synchronized List<ParameterControlBinding> parameterControlBindings() {
+        final List<ParameterControlBinding> live = new ArrayList<>(parameterControls.size());
+        final java.util.Iterator<StoredParameterControlBinding> iterator = parameterControls.iterator();
+        while (iterator.hasNext()) {
+            final StoredParameterControlBinding binding = iterator.next();
+            final Component label = binding.label().get();
+            if (label == null) {
+                iterator.remove();
+            } else {
+                live.add(new ParameterControlBinding(binding.folder(), binding.id(), label));
+            }
+        }
+        return List.copyOf(live);
     }
 
     @Override
@@ -129,5 +172,19 @@ public final class ControlAppearanceCoordinator implements AutoCloseable {
     }
 
     private record StoredContribution(ControlAppearanceContribution contribution) {
+    }
+
+    public record ParameterControlBinding(boolean folder, String id, Component label) {
+        public ParameterControlBinding {
+            id = java.util.Objects.requireNonNull(id, "id");
+            label = java.util.Objects.requireNonNull(label, "label");
+        }
+    }
+
+    private record StoredParameterControlBinding(
+        boolean folder,
+        String id,
+        WeakReference<Component> label
+    ) {
     }
 }
