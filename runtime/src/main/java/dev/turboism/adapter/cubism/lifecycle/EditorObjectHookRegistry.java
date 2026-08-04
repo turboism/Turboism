@@ -2,6 +2,7 @@ package dev.turboism.adapter.cubism.lifecycle;
 
 import dev.turboism.sdk.cubism.hook.DeformerHooks;
 import dev.turboism.sdk.cubism.hook.DrawableHooks;
+import dev.turboism.sdk.cubism.hook.SemanticOperationHooks;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.PluginLogger;
@@ -13,7 +14,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-/** Discovers ArtMesh and Deformer hook overrides from ordered plugin entrypoints. */
+/** Discovers ArtMesh, Deformer, and shared semantic hooks from ordered plugin entrypoints. */
 public final class EditorObjectHookRegistry {
     public static final String OBSERVE_PERMISSION = ParameterHookRegistry.OBSERVE_PERMISSION;
     public static final String INTERCEPT_PERMISSION = ParameterHookRegistry.INTERCEPT_PERMISSION;
@@ -81,6 +82,10 @@ public final class EditorObjectHookRegistry {
             .filter(DrawableHooks.class::isInstance).map(DrawableHooks.class::cast).toList();
         final List<DeformerHooks> deformerHooks = ordered.stream()
             .filter(DeformerHooks.class::isInstance).map(DeformerHooks.class::cast).toList();
+        final List<SemanticOperationHooks> semanticHooks = ordered.stream()
+            .filter(SemanticOperationHooks.class::isInstance)
+            .map(SemanticOperationHooks.class::cast)
+            .toList();
         if (!drawableHooks.isEmpty()) {
             coordinator.drawable().register(token, new DrawableLifecycleCoordinator.PluginHooks(
                 plugin, drawableHooks, pluginLogger, intercept, observe
@@ -89,6 +94,11 @@ public final class EditorObjectHookRegistry {
         if (!deformerHooks.isEmpty()) {
             coordinator.deformer().register(token, new DeformerLifecycleCoordinator.PluginHooks(
                 plugin, deformerHooks, pluginLogger, intercept, observe
+            ));
+        }
+        if (!semanticHooks.isEmpty()) {
+            coordinator.semantic().register(token, new SemanticOperationLifecycleCoordinator.PluginHooks(
+                plugin, semanticHooks, pluginLogger, intercept, observe
             ));
         }
     }
@@ -108,11 +118,13 @@ public final class EditorObjectHookRegistry {
     private void unregisterHooks(final String pluginId) {
         coordinator.drawable().unregister(pluginId);
         coordinator.deformer().unregister(pluginId);
+        coordinator.semantic().unregister(pluginId);
     }
 
     private void unregisterHooks(final String pluginId, final Object token) {
         coordinator.drawable().unregister(pluginId, token);
         coordinator.deformer().unregister(pluginId, token);
+        coordinator.semantic().unregister(pluginId, token);
     }
 
     private static boolean hasPermission(final PluginDescriptor descriptor, final String permissionId) {
