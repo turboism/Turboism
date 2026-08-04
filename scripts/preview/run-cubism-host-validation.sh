@@ -371,9 +371,13 @@ remote_process_alive() {
 }
 
 remote_stop_process_tree() {
-  "${ssh_cmd[@]}" "$ssh_host" "bash -s -- '$evidence_dir/wrapper.pid'" <<'REMOTE' || true
+  "${ssh_cmd[@]}" "$ssh_host" "bash -s -- '$evidence_dir/wrapper.pid' '$prefix_dir/pfx' '$proton_runner'" <<'REMOTE' || true
 set -euo pipefail
 pid_file="$1"
+wine_prefix="$2"
+proton_runner="$3"
+wineserver="$(dirname "$proton_runner")/files/bin/wineserver"
+[ ! -x "$wineserver" ] || WINEPREFIX="$wine_prefix" "$wineserver" -k 2>/dev/null || true
 [ -s "$pid_file" ] || exit 0
 root="$(cat "$pid_file")"
 kill_tree() {
