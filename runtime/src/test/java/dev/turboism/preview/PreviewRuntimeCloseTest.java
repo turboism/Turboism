@@ -12,12 +12,35 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 class PreviewRuntimeCloseTest {
 
     @Test
+    void processExitSkipsHostBoundCleanupButStillPersistsAndClosesTheLog() {
+        final RecordingLifecycle lifecycle = new RecordingLifecycle();
+        final PreviewRuntime runtime = new PreviewRuntime(lifecycle);
+
+        runtime.closeForProcessExit();
+
+        assertEquals(
+            List.of("stop-log", "host-state", "final-report", "log"),
+            lifecycle.order
+        );
+        assertEquals(false, lifecycle.shutdownAttempted);
+        assertEquals(List.of(), codes(runtime));
+
+        runtime.close();
+        assertEquals(
+            List.of("stop-log", "host-state", "final-report", "log"),
+            lifecycle.order,
+            "process-exit close remains idempotent"
+        );
+    }
+
+    @Test
     void pluginRuntimeFailureStillClosesHostIngressSchedulerAndLogAndAttemptsReport() {
         final RecordingLifecycle lifecycle = new RecordingLifecycle();
         lifecycle.fail("plugin-runtime");
         final PreviewRuntime runtime = new PreviewRuntime(lifecycle);
 
         runtime.close();
+        assertEquals(true, lifecycle.shutdownAttempted);
 
         assertEquals(
             List.of(
@@ -187,6 +210,7 @@ class PreviewRuntimeCloseTest {
         private final List<String> order = new ArrayList<>();
         private final List<String> failingStages = new ArrayList<>();
         private boolean reportResult = true;
+        private Boolean shutdownAttempted;
 
         private void fail(final String... stages) {
             failingStages.addAll(List.of(stages));
@@ -226,7 +250,11 @@ class PreviewRuntimeCloseTest {
         }
 
         @Override
-        public boolean writeFinalReport(final HostSession.State observedHostState) {
+        public boolean writeFinalReport(
+            final HostSession.State observedHostState,
+            final boolean shutdownAttempted
+        ) {
+            this.shutdownAttempted = shutdownAttempted;
             record("final-report");
             assertEquals(
                 failingStages.contains("host-state")

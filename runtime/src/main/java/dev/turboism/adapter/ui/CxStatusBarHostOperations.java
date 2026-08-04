@@ -1,0 +1,284 @@
+package dev.turboism.adapter.ui;
+
+import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.sdk.ui.StatusNotification;
+
+import javax.swing.SwingUtilities;
+import java.lang.reflect.InvocationTargetException;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.IdentityHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Supplier;
+
+/**
+ * Exact-version host operations for the platform-owned CX bottom status region.
+ *
+ * <p>Implements the existing {@link StatusToolbarAdapter.HostOperations}
+ * contract over the narrow {@link CxStatusBarHostAccess} seam. Package-private
+ * keeps raw CX operations internal; production composes it only with the exact
+ * 5.3.02 resolver-backed access and otherwise remains in safe mode.</p>
+ */
+final class CxStatusBarHostOperations implements StatusToolbarAdapter.HostOperations {
+
+    /** Bounds the CX tree walk; identity-deduped nodes beyond this fail closed. */
+    private static final int MAX_TRAVERSAL_BUDGET = 4096;
+
+    private final String hostVersion;
+    private final CxStatusBarHostAccess access;
+    private final Map<String, Entry> entries = new HashMap<>();
+
+    CxStatusBarHostOperations(
+        final String hostVersion,
+        final CxStatusBarHostAccess access
+    ) {
+        this.hostVersion = requireText(hostVersion, "hostVersion");
+        this.access = Objects.requireNonNull(access, "access");
+    }
+
+    @Override
+    public String hostVersion() {
+        return hostVersion;
+    }
+
+    @Override
+    public boolean supports(final StatusToolbarAdapter.Capability capability) {
+        return capability == StatusToolbarAdapter.Capability.STATUS_NOTIFY;
+    }
+
+    @Override
+    public Registration notifyStatus(final StatusNotification notification) {
+        Objects.requireNonNull(notification, "notification");
+        return onEdt(() -> install(notification));
+    }
+
+    private Registration install(final StatusNotification notification) {
+        final String id = notification.id();
+        final Entry current = entries.get(id);
+        if (current == null) {
+            return installNew(notification);
+        }
+        // Every install/update creates a fresh Entry instance; registrations
+        // capture that instance so a stale close can never match a later one.
+        final Entry entry = new Entry(id, current.parent(), current.widget());
+        access.setText(current.widget(), notification.message());
+        access.setSeverityAppearance(current.widget(), notification.severity());
+        access.refresh(current.parent());
+        entries.put(id, entry);
+        return closeRegistration(entry);
+    }
+
+    private Registration installNew(final StatusNotification notification) {
+        final Object root = access.contentRoot();
+        if (root == null) {
+            throw new IllegalStateException("CX status-region content root is not ready");
+        }
+        final Anchor anchor = resolveAnchor(root);
+        final List<?> children = childrenOf(anchor.parent());
+        final Object widget = access.createLabel(notification.id(), notification.message());
+        if (widget == null) {
+            throw new IllegalStateException("CX status-region CLabel creation failed");
+        }
+        access.setName(widget, notification.id());
+        access.setText(widget, notification.message());
+        access.setSeverityAppearance(widget, notification.severity());
+        final int index = insertionIndex(children, anchor);
+        access.add(anchor.parent(), widget, index);
+        try {
+            access.refresh(anchor.parent());
+        } catch (RuntimeException | Error failure) {
+            // Minimal compensation for the first refresh after a successful add:
+            // a failed refresh must not leave an orphan widget with no entry
+            // and no registration. Compensation failures are suppressed onto
+            // the original failure, which is rethrown.
+            try {
+                access.remove(anchor.parent(), widget);
+                access.refresh(anchor.parent());
+            } catch (RuntimeException | Error compensation) {
+                failure.addSuppressed(compensation);
+            }
+            throw failure;
+        }
+        final Entry entry = new Entry(notification.id(), anchor.parent(), widget);
+        entries.put(notification.id(), entry);
+        return closeRegistration(entry);
+    }
+
+    /**
+     * Close is retryable: the closed flag is only committed inside the EDT
+     * operation after native remove, identity-conditioned map cleanup and
+     * refresh all succeed, matching the IdempotentRegistration /
+     * TrackedRegistration contract that a failed delegate close stays OPEN.
+     */
+    private Registration closeRegistration(final Entry entry) {
+        final AtomicBoolean closed = new AtomicBoolean();
+        final AtomicBoolean removed = new AtomicBoolean();
+        return () -> onEdt(() -> {
+            if (closed.get()) {
+                return null;
+            }
+            if (!removed.get()) {
+                if (entries.get(entry.id()) != entry) {
+                    closed.set(true);
+                    return null;
+                }
+                // Native remove first: a failure must leave the entry in the map
+                // so a later notify of the same ID reuses the existing widget
+                // instead of silently leaking it and adding a duplicate.
+                access.remove(entry.parent(), entry.widget());
+                entries.remove(entry.id(), entry);
+                removed.set(true);
+            }
+            // A failed refresh is retried without repeating native removal.
+            access.refresh(entry.parent());
+            closed.set(true);
+            return null;
+        });
+    }
+
+    /**
+     * Iterative depth-first search with identity deduplication and a traversal
+     * budget for the parent container that directly contains a
+     * CMemoryViewerPanel. Zero or more than one candidate fails closed.
+     */
+    private Anchor resolveAnchor(final Object root) {
+        final Set<Object> visited = Collections.newSetFromMap(new IdentityHashMap<>());
+        final List<Anchor> candidates = new ArrayList<>();
+        final ArrayDeque<Object> stack = new ArrayDeque<>();
+        stack.push(root);
+        while (!stack.isEmpty()) {
+            final Object node = stack.pop();
+            if (!visited.add(node)) {
+                continue;
+            }
+            if (visited.size() > MAX_TRAVERSAL_BUDGET) {
+                throw new IllegalStateException(
+                    "CX status-region tree traversal exceeded the budget of "
+                        + MAX_TRAVERSAL_BUDGET + " nodes"
+                );
+            }
+            final List<?> children = childrenOf(node);
+            if (!children.isEmpty()) {
+                Object memoryViewer = null;
+                for (Object child : children) {
+                    if (access.isCMemoryViewerPanel(child)) {
+                        if (memoryViewer != null) {
+                            throw new IllegalStateException(
+                                "CX status-region anchor parent contains multiple CMemoryViewerPanel children"
+                            );
+                        }
+                        memoryViewer = child;
+                    }
+                }
+                if (memoryViewer != null) {
+                    candidates.add(new Anchor(node, memoryViewer));
+                }
+            }
+            for (int index = children.size() - 1; index >= 0; index--) {
+                stack.push(children.get(index));
+            }
+        }
+        if (candidates.size() != 1) {
+            throw new IllegalStateException(
+                "CX status-region anchor is missing or ambiguous: " + candidates.size()
+                    + " candidate parents"
+            );
+        }
+        return candidates.get(0);
+    }
+
+    /**
+     * Legacy-verified insertion position: before the last CLabel, or before the
+     * memory viewer when the status bar has no CLabel; an inconsistent tree
+     * fails closed. Owned labels are excluded so new widgets always precede the
+     * native cursor-coordinate display.
+     */
+    private int insertionIndex(final List<?> children, final Anchor anchor) {
+        final Set<Object> owned = Collections.newSetFromMap(new IdentityHashMap<>());
+        for (Entry entry : entries.values()) {
+            owned.add(entry.widget());
+        }
+        int lastCLabel = -1;
+        for (int index = 0; index < children.size(); index++) {
+            final Object child = children.get(index);
+            if (access.isCLabel(child) && !owned.contains(child)) {
+                lastCLabel = index;
+            }
+        }
+        if (lastCLabel >= 0) {
+            return lastCLabel;
+        }
+        final int memoryViewerIndex = children.indexOf(anchor.memoryViewer());
+        if (memoryViewerIndex < 0) {
+            throw new IllegalStateException(
+                "CX status-region tree is inconsistent: memory viewer is not a child of its parent"
+            );
+        }
+        return memoryViewerIndex;
+    }
+
+    private List<?> childrenOf(final Object container) {
+        final List<?> children = access.children(container);
+        if (children == null) {
+            return List.of();
+        }
+        return List.copyOf(children);
+    }
+
+    private static <T> T onEdt(final Supplier<T> operation) {
+        if (SwingUtilities.isEventDispatchThread()) {
+            return operation.get();
+        }
+        final Object[] result = new Object[1];
+        final Throwable[] failure = new Throwable[1];
+        try {
+            SwingUtilities.invokeAndWait(() -> {
+                try {
+                    result[0] = operation.get();
+                } catch (Throwable throwable) {
+                    failure[0] = throwable;
+                }
+            });
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("CX status-region EDT operation was interrupted", exception);
+        } catch (InvocationTargetException exception) {
+            throw new IllegalStateException("CX status-region EDT operation failed", exception);
+        }
+        if (failure[0] instanceof RuntimeException exception) {
+            throw exception;
+        }
+        if (failure[0] instanceof Error error) {
+            throw error;
+        }
+        if (failure[0] != null) {
+            throw new IllegalStateException("CX status-region EDT operation failed", failure[0]);
+        }
+        @SuppressWarnings("unchecked") final T value = (T) result[0];
+        return value;
+    }
+
+    private static String requireText(final String value, final String name) {
+        final String normalized = Objects.requireNonNull(value, name).trim();
+        if (normalized.isEmpty()) {
+            throw new IllegalArgumentException(name + " must not be blank");
+        }
+        return normalized;
+    }
+
+    private record Anchor(Object parent, Object memoryViewer) {
+        private Anchor {
+            Objects.requireNonNull(parent, "parent");
+            Objects.requireNonNull(memoryViewer, "memoryViewer");
+        }
+    }
+
+    private record Entry(String id, Object parent, Object widget) {
+    }
+}

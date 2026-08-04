@@ -748,7 +748,8 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         java.util.Optional<SliceKey> embeddedPanel,
         java.util.Optional<SliceKey> topMenu,
         java.util.Optional<SliceKey> boundingBoxOverlayButton,
-        java.util.Optional<SliceKey> workspaceControl
+        java.util.Optional<SliceKey> workspaceControl,
+        java.util.Optional<SliceKey> statusBar
     ) {
         private static ConnectionKey from(final HostInstanceDescriptor descriptor) {
             final HostVerificationEvidence evidence = descriptor.verificationEvidence();
@@ -762,7 +763,8 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
                 evidence.embeddedPanel().map(SliceKey::from),
                 evidence.topMenu().map(SliceKey::from),
                 evidence.boundingBoxOverlayButton().map(SliceKey::from),
-                evidence.workspaceControl().map(SliceKey::from)
+                evidence.workspaceControl().map(SliceKey::from),
+                evidence.statusBar().map(SliceKey::from)
             );
         }
 
@@ -785,7 +787,8 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
                 && optionalSliceMatches(embeddedPanel, other.embeddedPanel)
                 && optionalSliceMatches(topMenu, other.topMenu)
                 && optionalSliceMatches(boundingBoxOverlayButton, other.boundingBoxOverlayButton)
-                && optionalSliceMatches(workspaceControl, other.workspaceControl);
+                && optionalSliceMatches(workspaceControl, other.workspaceControl)
+                && optionalSliceMatches(statusBar, other.statusBar);
         }
 
         private static boolean optionalSliceMatches(
