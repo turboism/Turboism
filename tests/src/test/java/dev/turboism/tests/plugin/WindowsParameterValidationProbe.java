@@ -29,11 +29,10 @@ import dev.turboism.sdk.cubism.model.RotationDeformerForm;
 import dev.turboism.sdk.cubism.model.WarpDeformer;
 import dev.turboism.sdk.cubism.model.WarpGrid;
 import dev.turboism.sdk.plugin.PluginContext;
-import dev.turboism.sdk.ui.appearance.ControlAppearanceRegistry;
-import dev.turboism.sdk.ui.appearance.ControlAppearanceTarget;
-import dev.turboism.sdk.ui.appearance.NativeControlAppearance;
-import dev.turboism.sdk.ui.appearance.NativeControlBackground;
+import dev.turboism.sdk.ui.appearance.NativeLabelColor;
+import dev.turboism.sdk.ui.appearance.NativeLabelColorState;
 import dev.turboism.sdk.ui.appearance.PresetColor;
+import dev.turboism.sdk.ui.appearance.UiColor;
 
 import javax.swing.BorderFactory;
 import javax.swing.DefaultListModel;
@@ -302,15 +301,15 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 } else if ("document-close".equals(mode)) {
                     runEditorObjectDocumentClose();
                 } else if ("native-control-background".equals(mode)) {
-                    runNativeControlBackgroundValidation();
+                    runNativeLabelColorValidation();
                 } else if ("native-control-background-document-close".equals(mode)) {
-                    runNativeControlBackgroundDocumentClose();
+                    runNativeLabelColorDocumentClose();
                 } else if ("native-control-background-persist-write".equals(mode)) {
-                    runNativeControlBackgroundPersistWrite();
+                    runNativeLabelColorPersistWrite();
                 } else if ("native-control-background-persist-reopen".equals(mode)) {
-                    runNativeControlBackgroundPersistReopen();
+                    runNativeLabelColorPersistReopen();
                 } else if ("native-control-background-persist-final".equals(mode)) {
-                    runNativeControlBackgroundPersistFinal();
+                    runNativeLabelColorPersistFinal();
                 } else {
                     runEditorObjectValidation();
                     runPartOpacityValidation();
@@ -904,20 +903,17 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             throw new IllegalStateException("Select one parameter group first.");
         }
         final ParameterGroupId groupId = new ParameterGroupId(selectedGroupId);
-        final Color requested = parseColor(
+        final UiColor requested = parseColor(
             labelRedField.getText(),
             labelGreenField.getText(),
             labelBlueField.getText(),
             labelAlphaField.getText()
         );
-        final NativeControlAppearance authoritative = setParameterFolderBackground(
-            context.controlAppearance(),
-            groupId,
-            requested
-        );
+        final ParameterGroup group = activeModel().parameterGroups().find(groupId);
+        final NativeLabelColorState authoritative = setParameterFolderLabelColor(group, requested);
         lastActionStatus = "Parameter folder " + groupId.value()
-            + " background=" + backgroundText(authoritative.background())
-            + " effective=" + effectiveText(authoritative.effectiveBackground())
+            + " labelColor=" + backgroundText(authoritative.labelColor())
+            + " actual=" + effectiveText(authoritative.actualColor())
             + "; use Cubism Undo/Redo and save/reopen to validate";
         refresh();
     }
@@ -929,13 +925,13 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         refresh();
     }
 
-    static Color parseColor(
+    static UiColor parseColor(
         final String red,
         final String green,
         final String blue,
         final String alpha
     ) {
-        return new Color(
+        return new UiColor(
             parseFiniteValue(red),
             parseFiniteValue(green),
             parseFiniteValue(blue),
@@ -943,20 +939,17 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         );
     }
 
-    static NativeControlAppearance setParameterFolderBackground(
-        final ControlAppearanceRegistry registry,
-        final ParameterGroupId id,
-        final Color color
+    static NativeLabelColorState setParameterFolderLabelColor(
+        final ParameterGroup group,
+        final UiColor color
     ) {
-        Objects.requireNonNull(registry, "registry");
-        Objects.requireNonNull(id, "id");
+        Objects.requireNonNull(group, "group");
         Objects.requireNonNull(color, "color");
-        final ControlAppearanceTarget.ParameterFolder target =
-            new ControlAppearanceTarget.ParameterFolder(id);
-        registry.setNativeBackground(target, new NativeControlBackground.Custom(color));
-        return registry.snapshot(target).nativeAppearance().orElseThrow(() ->
+        final var ui = group.ui();
+        ui.setNativeLabelColor(new NativeLabelColor.Custom(color));
+        return ui.nativeLabelColor().orElseThrow(() ->
             new IllegalStateException(
-                "No native control appearance is available for parameter folder " + id.value()
+                "No native label color is available for parameter folder " + group.id().value()
             ));
     }
 
@@ -2922,11 +2915,11 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
     }
 
     /**
-     * Dedicated exact-mode validation of Editor-native control label backgrounds through
-     * ControlAppearanceRegistry. Writes the machine-readable matrix to
+     * Dedicated exact-mode validation of Editor-native control label colors through the
+     * model object's {@code .ui()} facade. Writes the machine-readable matrix to
      * {@code <turboism.home>/logs/native-control-background-validation.txt}.
      */
-    private void runNativeControlBackgroundValidation() {
+    private void runNativeLabelColorValidation() {
         final Path artifact = Path.of(
             System.getProperty("turboism.home"), "logs", "native-control-background-validation.txt"
         );
@@ -2938,32 +2931,16 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 StandardOpenOption.CREATE,
                 StandardOpenOption.TRUNCATE_EXISTING
             );
-            final CubismModel model = awaitNativeControlBackgroundModel(artifact);
-            final ControlAppearanceRegistry registry = context.controlAppearance();
+            final CubismModel model = awaitNativeLabelColorModel(artifact);
+            final ParameterGroup folder = firstNonRootParameterGroup(model);
+            final Part part = firstNonRootPart(model);
+            final Deformer deformer = firstDeformer(model);
             final String modelId = onHostThread(() -> model.id().value());
             final String hostThread = onHostThread(() -> Thread.currentThread().getName());
-            final ParameterGroupId folderId = firstNonRootParameterGroup(model);
-            final PartId partId = firstNonRootPart(model);
-            final DeformerId deformerId = firstDeformer(model);
 
-            final ControlAppearanceTarget.ParameterFolder folderTarget =
-                new ControlAppearanceTarget.ParameterFolder(folderId);
-            final ControlAppearanceTarget.PartFolder partFolderTarget =
-                new ControlAppearanceTarget.PartFolder(partId);
-            final ControlAppearanceTarget.PartLabel partLabelTarget =
-                new ControlAppearanceTarget.PartLabel(partId);
-            final ControlAppearanceTarget.DeformerControlRow rowTarget =
-                new ControlAppearanceTarget.DeformerControlRow(deformerId);
-            final ControlAppearanceTarget.DeformerLabel labelTarget =
-                new ControlAppearanceTarget.DeformerLabel(deformerId);
-
-            final NativeControlAppearance folderOriginal =
-                onHostThread(() -> nativeAppearance(registry, folderTarget));
-            final NativeControlAppearance partOriginal =
-                onHostThread(() -> nativeAppearance(registry, partFolderTarget));
-            final NativeControlAppearance deformerOriginal =
-                onHostThread(() -> nativeAppearance(registry, rowTarget));
-
+            final NativeLabelColorState folderOriginal = onHostThread(() -> nativeLabelColor(folder));
+            final NativeLabelColorState partOriginal = onHostThread(() -> nativeLabelColor(part));
+            final NativeLabelColorState deformerOriginal = onHostThread(() -> nativeLabelColor(deformer));
             final StringBuilder report = new StringBuilder();
             final StringBuilder restoreReport = new StringBuilder();
             final StringBuilder scopeReport = new StringBuilder();
@@ -2972,57 +2949,59 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             boolean partPassed = false;
             boolean deformerPassed = false;
             try {
-                final NativeControlBackground customRequested = chooseCustomCandidate(folderOriginal);
+                final NativeLabelColor customRequested = chooseCustomCandidate(folderOriginal);
                 final MatrixValues folderMatrix = runBackgroundMatrix(
-                    registry, folderTarget, folderTarget, customRequested
+                    () -> nativeLabelColor(folder), color -> setNativeLabelColor(folder, color), customRequested
                 );
                 folderPassed = folderMatrix.passed();
                 appendBackgroundReport(
-                    report, "parameterFolder", folderId.value(), modelId, hostThread, folderMatrix, folderPassed
+                    report, "parameterFolder", folder.id().value(), modelId, hostThread, folderMatrix, folderPassed
                 );
 
-                final NativeControlBackground partRequested = presetDifferentFrom(partOriginal.background());
+                final NativeLabelColor partRequested = presetDifferentFrom(partOriginal.labelColor());
                 final MatrixValues partMatrix = runBackgroundMatrix(
-                    registry, partFolderTarget, partLabelTarget, partRequested
+                    () -> nativeLabelColor(part), color -> setNativeLabelColor(part, color), partRequested
                 );
                 partPassed = partMatrix.passed();
                 appendBackgroundReport(
-                    report, "part", partId.value(), modelId, hostThread, partMatrix, partPassed
+                    report, "part", part.id().value(), modelId, hostThread, partMatrix, partPassed
                 );
 
                 report.append("deformer.original.background=")
-                    .append(backgroundText(deformerOriginal.background())).append('\n')
+                    .append(backgroundText(deformerOriginal.labelColor())).append('\n')
                     .append("deformer.original.effective=")
-                    .append(effectiveText(deformerOriginal.effectiveBackground())).append('\n');
-                NativeControlBackground matrixBefore = deformerOriginal.background();
-                if (matrixBefore instanceof NativeControlBackground.Default) {
-                    final NativeControlBackground establishing = presetDifferentFrom(matrixBefore);
+                    .append(effectiveText(deformerOriginal.actualColor())).append('\n');
+                NativeLabelColor matrixBefore = deformerOriginal.labelColor();
+                if (matrixBefore instanceof NativeLabelColor.Default) {
+                    final NativeLabelColor establishing = presetDifferentFrom(matrixBefore);
                     onHostThread(() -> {
-                        registry.setNativeBackground(rowTarget, establishing);
+                        setNativeLabelColor(deformer, establishing);
                         return null;
                     });
-                    matrixBefore = onHostThread(() -> nativeAppearance(registry, rowTarget)).background();
+                    matrixBefore = onHostThread(() -> nativeLabelColor(deformer)).labelColor();
                 }
                 report.append("deformer.matrixBefore.background=")
                     .append(backgroundText(matrixBefore)).append('\n');
                 final MatrixValues deformerMatrix = runBackgroundMatrix(
-                    registry, rowTarget, labelTarget, new NativeControlBackground.Default()
+                    () -> nativeLabelColor(deformer), color -> setNativeLabelColor(deformer, color),
+                    new NativeLabelColor.Default()
                 );
                 onHostThread(() -> {
-                    registry.setNativeBackground(rowTarget, deformerOriginal.background());
+                    setNativeLabelColor(deformer, deformerOriginal.labelColor());
                     return null;
                 });
-                final NativeControlAppearance finalRestored =
-                    onHostThread(() -> nativeAppearance(registry, rowTarget));
+                final NativeLabelColorState finalRestored =
+                    onHostThread(() -> nativeLabelColor(deformer));
                 final boolean finalRestoreOk = finalRestored.equals(deformerOriginal);
                 deformerPassed = deformerMatrix.passed() && finalRestoreOk;
                 appendBackgroundReport(
-                    report, "deformer", deformerId.value(), modelId, hostThread, deformerMatrix, deformerPassed
+                    report, "deformer", deformer.id().value(), modelId, hostThread,
+                    deformerMatrix, deformerPassed
                 );
                 report.append("deformer.finalRestored.background=")
-                    .append(backgroundText(finalRestored.background())).append('\n')
+                    .append(backgroundText(finalRestored.labelColor())).append('\n')
                     .append("deformer.finalRestored.effective=")
-                    .append(effectiveText(finalRestored.effectiveBackground())).append('\n')
+                    .append(effectiveText(finalRestored.actualColor())).append('\n')
                     .append("deformer.finalRestore=")
                     .append(finalRestoreOk ? "PASS" : "FAIL").append('\n');
             } catch (Exception exception) {
@@ -3030,17 +3009,20 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                     .append(": ").append(exception.getMessage()).append('\n');
             } finally {
                 restoreReport.append(restoreStatus(
-                    "parameterFolder", registry, folderTarget, folderOriginal, restoreFailed
+                    "parameterFolder", () -> nativeLabelColor(folder),
+                    color -> setNativeLabelColor(folder, color), folderOriginal, restoreFailed
                 ));
                 restoreReport.append(restoreStatus(
-                    "part", registry, partFolderTarget, partOriginal, restoreFailed
+                    "part", () -> nativeLabelColor(part),
+                    color -> setNativeLabelColor(part, color), partOriginal, restoreFailed
                 ));
                 restoreReport.append(restoreStatus(
-                    "deformer", registry, rowTarget, deformerOriginal, restoreFailed
+                    "deformer", () -> nativeLabelColor(deformer),
+                    color -> setNativeLabelColor(deformer, color), deformerOriginal, restoreFailed
                 ));
             }
             final boolean scopeClosePassed = verifyNativeControlScopeClose(
-                model, registry, folderTarget, scopeReport, artifact, modelId, hostThread
+                model, folder, scopeReport, artifact, modelId, hostThread
             );
             final boolean overall = folderPassed && partPassed && deformerPassed
                 && !restoreFailed.get() && scopeClosePassed;
@@ -3069,7 +3051,7 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 );
             } catch (Exception ignored) {
                 context.logger().error(
-                    "Native control background validation artifact could not be written",
+                    "Native control label-color validation artifact could not be written",
                     exception
                 );
             }
@@ -3077,11 +3059,11 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
     }
 
     /**
-     * Document-close staleness: hold model/registry/target, close the active document (Ctrl+W),
-     * and prove the held model and registry snapshot/write all fail closed with no active
-     * modeling document. Only close-stale is verified; reopening is a separate persistence stage.
+     * Document-close staleness: hold a model object and its {@code .ui()} facade, close the
+     * active document (Ctrl+W), and prove reads and writes fail closed. Only close-stale is
+     * verified; reopening is a separate persistence stage.
      */
-    private void runNativeControlBackgroundDocumentClose() {
+    private void runNativeLabelColorDocumentClose() {
         final Path artifact = Path.of(
             System.getProperty("turboism.home"), "logs", "native-control-background-document-close.txt"
         );
@@ -3093,33 +3075,28 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 StandardOpenOption.CREATE,
                 StandardOpenOption.TRUNCATE_EXISTING
             );
-            final CubismModel model = awaitNativeControlBackgroundModel(artifact);
-            final ControlAppearanceRegistry registry = context.controlAppearance();
-            final ControlAppearanceTarget.ParameterFolder folderTarget =
-                new ControlAppearanceTarget.ParameterFolder(firstNonRootParameterGroup(model));
+            final CubismModel model = awaitNativeLabelColorModel(artifact);
+            final ParameterGroup folder = firstNonRootParameterGroup(model);
             final String modelId = onHostThread(() -> model.id().value());
             final String hostThread = onHostThread(() -> Thread.currentThread().getName());
-            onHostThread(() -> nativeAppearance(registry, folderTarget));
+            onHostThread(() -> nativeLabelColor(folder));
             final java.awt.Robot robot = new java.awt.Robot();
             pressShortcut(robot, java.awt.event.KeyEvent.VK_W);
             boolean modelStale = false;
-            boolean snapshotStale = false;
+            boolean readStale = false;
             boolean writeStale = false;
             for (int attempt = 0;
-                attempt < 60 && !(modelStale && snapshotStale && writeStale);
+                attempt < 60 && !(modelStale && readStale && writeStale);
                 attempt++) {
                 Thread.sleep(100L);
                 modelStale = failsClosed(() -> onHostThread(model::id));
-                snapshotStale = failsClosed(() -> onHostThread(() -> {
-                    registry.snapshot(folderTarget);
-                    return null;
-                }));
+                readStale = failsClosed(() -> onHostThread(() -> nativeLabelColor(folder)));
                 writeStale = failsClosed(() -> onHostThread(() -> {
-                    registry.setNativeBackground(folderTarget, new NativeControlBackground.Default());
+                    setNativeLabelColor(folder, new NativeLabelColor.Default());
                     return null;
                 }));
             }
-            final boolean passed = modelStale && snapshotStale && writeStale;
+            final boolean passed = modelStale && readStale && writeStale;
             Files.writeString(
                 artifact,
                 "status=" + (passed ? "PASS" : "FAIL") + System.lineSeparator()
@@ -3127,7 +3104,7 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                     + "modelId=" + modelId + System.lineSeparator()
                     + "hostThread=" + hostThread + System.lineSeparator()
                     + "modelStale=" + modelStale + System.lineSeparator()
-                    + "snapshotStale=" + snapshotStale + System.lineSeparator()
+                    + "readStale=" + readStale + System.lineSeparator()
                     + "writeStale=" + writeStale + System.lineSeparator(),
                 StandardOpenOption.CREATE,
                 StandardOpenOption.TRUNCATE_EXISTING
@@ -3142,11 +3119,11 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
     }
 
     /**
-     * Persistence stage 1: write requested native backgrounds for the parameter folder, the Part
-     * (folder write + label alias), and the Deformer (row write + label alias), then save the
-     * document. Originals and requesteds are stored in the task-home properties file.
+     * Persistence stage 1: write requested native label colors for a ParameterGroup, Part, and
+     * Deformer through each model object's {@code .ui()} facade, then save the document. Originals
+     * and requesteds are stored in the task-home properties file.
      */
-    private void runNativeControlBackgroundPersistWrite() {
+    private void runNativeLabelColorPersistWrite() {
         final Path home = Path.of(System.getProperty("turboism.home"));
         final Path artifact = home.resolve("logs/native-control-background-persist-write.txt");
         final Path propertiesFile = home.resolve("state/native-control-background-persist.properties");
@@ -3159,60 +3136,42 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 StandardOpenOption.CREATE,
                 StandardOpenOption.TRUNCATE_EXISTING
             );
-            final CubismModel model = awaitNativeControlBackgroundModel(artifact);
-            final ControlAppearanceRegistry registry = context.controlAppearance();
-            final ParameterGroupId folderId = firstNonRootParameterGroup(model);
-            final PartId partId = firstNonRootPart(model);
-            final DeformerId deformerId = firstDeformer(model);
-            final ControlAppearanceTarget.ParameterFolder folderTarget =
-                new ControlAppearanceTarget.ParameterFolder(folderId);
-            final ControlAppearanceTarget.PartFolder partFolderTarget =
-                new ControlAppearanceTarget.PartFolder(partId);
-            final ControlAppearanceTarget.PartLabel partLabelTarget =
-                new ControlAppearanceTarget.PartLabel(partId);
-            final ControlAppearanceTarget.DeformerControlRow rowTarget =
-                new ControlAppearanceTarget.DeformerControlRow(deformerId);
-            final ControlAppearanceTarget.DeformerLabel labelTarget =
-                new ControlAppearanceTarget.DeformerLabel(deformerId);
-
-            final NativeControlAppearance folderOriginal =
-                onHostThread(() -> nativeAppearance(registry, folderTarget));
-            final NativeControlAppearance partOriginal =
-                onHostThread(() -> nativeAppearance(registry, partFolderTarget));
-            final NativeControlAppearance deformerOriginal =
-                onHostThread(() -> nativeAppearance(registry, rowTarget));
-            final NativeControlBackground folderRequested = chooseCustomCandidate(folderOriginal);
-            final NativeControlBackground partRequested = presetDifferentFrom(partOriginal.background());
-            final NativeControlBackground deformerRequested =
-                presetDifferentFrom(deformerOriginal.background());
+            final CubismModel model = awaitNativeLabelColorModel(artifact);
+            final ParameterGroup folder = firstNonRootParameterGroup(model);
+            final Part part = firstNonRootPart(model);
+            final Deformer deformer = firstDeformer(model);
+            final NativeLabelColorState folderOriginal = onHostThread(() -> nativeLabelColor(folder));
+            final NativeLabelColorState partOriginal = onHostThread(() -> nativeLabelColor(part));
+            final NativeLabelColorState deformerOriginal = onHostThread(() -> nativeLabelColor(deformer));
+            final NativeLabelColor folderRequested = chooseCustomCandidate(folderOriginal);
+            final NativeLabelColor partRequested = presetDifferentFrom(partOriginal.labelColor());
+            final NativeLabelColor deformerRequested = presetDifferentFrom(deformerOriginal.labelColor());
 
             onHostThread(() -> {
-                registry.setNativeBackground(folderTarget, folderRequested);
+                setNativeLabelColor(folder, folderRequested);
                 return null;
             });
-            awaitBackground(registry, folderTarget, folderRequested);
+            awaitBackground(() -> nativeLabelColor(folder), folderRequested);
             onHostThread(() -> {
-                registry.setNativeBackground(partFolderTarget, partRequested);
+                setNativeLabelColor(part, partRequested);
                 return null;
             });
-            awaitBackground(registry, partFolderTarget, partRequested);
-            awaitBackground(registry, partLabelTarget, partRequested);
+            awaitBackground(() -> nativeLabelColor(part), partRequested);
             onHostThread(() -> {
-                registry.setNativeBackground(rowTarget, deformerRequested);
+                setNativeLabelColor(deformer, deformerRequested);
                 return null;
             });
-            awaitBackground(registry, rowTarget, deformerRequested);
-            awaitBackground(registry, labelTarget, deformerRequested);
+            awaitBackground(() -> nativeLabelColor(deformer), deformerRequested);
 
             final Properties stored = new Properties();
-            stored.setProperty("folder.id", folderId.value());
-            stored.setProperty("part.id", partId.value());
-            stored.setProperty("deformer.id", deformerId.value());
-            storeStoredBackground(stored, "folder.original", folderOriginal.background());
+            stored.setProperty("folder.id", folder.id().value());
+            stored.setProperty("part.id", part.id().value());
+            stored.setProperty("deformer.id", deformer.id().value());
+            storeStoredBackground(stored, "folder.original", folderOriginal.labelColor());
             storeStoredBackground(stored, "folder.requested", folderRequested);
-            storeStoredBackground(stored, "part.original", partOriginal.background());
+            storeStoredBackground(stored, "part.original", partOriginal.labelColor());
             storeStoredBackground(stored, "part.requested", partRequested);
-            storeStoredBackground(stored, "deformer.original", deformerOriginal.background());
+            storeStoredBackground(stored, "deformer.original", deformerOriginal.labelColor());
             storeStoredBackground(stored, "deformer.requested", deformerRequested);
             try (java.io.OutputStream output = Files.newOutputStream(
                 propertiesFile, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING
@@ -3235,9 +3194,9 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                     + "phase=saved" + System.lineSeparator()
                     + "modelId=" + modelId + System.lineSeparator()
                     + "hostThread=" + hostThread + System.lineSeparator()
-                    + "folderId=" + folderId.value() + System.lineSeparator()
-                    + "partId=" + partId.value() + System.lineSeparator()
-                    + "deformerId=" + deformerId.value() + System.lineSeparator()
+                    + "folderId=" + folder.id().value() + System.lineSeparator()
+                    + "partId=" + part.id().value() + System.lineSeparator()
+                    + "deformerId=" + deformer.id().value() + System.lineSeparator()
                     + save.report("save."),
                 StandardOpenOption.CREATE,
                 StandardOpenOption.TRUNCATE_EXISTING
@@ -3253,9 +3212,10 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
 
     /**
      * Persistence stage 2: after the operator reopened the saved document, verify each requested
-     * background persisted (write target and alias), restore every original, and save again.
+     * label color persisted through its model object's {@code .ui()} facade, restore every original,
+     * and save again.
      */
-    private void runNativeControlBackgroundPersistReopen() {
+    private void runNativeLabelColorPersistReopen() {
         final Path home = Path.of(System.getProperty("turboism.home"));
         final Path artifact = home.resolve("logs/native-control-background-persist-reopen.txt");
         final Path propertiesFile = home.resolve("state/native-control-background-persist.properties");
@@ -3267,48 +3227,41 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 StandardOpenOption.CREATE,
                 StandardOpenOption.TRUNCATE_EXISTING
             );
-            final CubismModel model = awaitNativeControlBackgroundModel(artifact);
-            final ControlAppearanceRegistry registry = context.controlAppearance();
+            final CubismModel model = awaitNativeLabelColorModel(artifact);
             final Properties stored = new Properties();
             try (java.io.InputStream input = Files.newInputStream(propertiesFile)) {
                 stored.load(input);
             }
-            final ControlAppearanceTarget.ParameterFolder folderTarget =
-                new ControlAppearanceTarget.ParameterFolder(
-                    new ParameterGroupId(stored.getProperty("folder.id")));
-            final ControlAppearanceTarget.PartFolder partFolderTarget =
-                new ControlAppearanceTarget.PartFolder(new PartId(stored.getProperty("part.id")));
-            final ControlAppearanceTarget.PartLabel partLabelTarget =
-                new ControlAppearanceTarget.PartLabel(new PartId(stored.getProperty("part.id")));
-            final ControlAppearanceTarget.DeformerControlRow rowTarget =
-                new ControlAppearanceTarget.DeformerControlRow(
-                    new DeformerId(stored.getProperty("deformer.id")));
-            final ControlAppearanceTarget.DeformerLabel labelTarget =
-                new ControlAppearanceTarget.DeformerLabel(new DeformerId(stored.getProperty("deformer.id")));
-            final NativeControlBackground folderRequested =
-                parseStoredBackground(stored, "folder.requested");
-            final NativeControlBackground partRequested = parseStoredBackground(stored, "part.requested");
-            final NativeControlBackground deformerRequested =
+            final ParameterGroup folder = onHostThread(() -> model.parameterGroups().find(
+                new ParameterGroupId(stored.getProperty("folder.id"))
+            ));
+            final Part part = onHostThread(() -> model.parts().find(
+                new PartId(stored.getProperty("part.id"))
+            ));
+            final Deformer deformer = onHostThread(() -> model.deformers().find(
+                new DeformerId(stored.getProperty("deformer.id"))
+            ));
+            final NativeLabelColor folderRequested = parseStoredBackground(stored, "folder.requested");
+            final NativeLabelColor partRequested = parseStoredBackground(stored, "part.requested");
+            final NativeLabelColor deformerRequested =
                 parseStoredBackground(stored, "deformer.requested");
-            final NativeControlBackground folderOriginal = parseStoredBackground(stored, "folder.original");
-            final NativeControlBackground partOriginal = parseStoredBackground(stored, "part.original");
-            final NativeControlBackground deformerOriginal = parseStoredBackground(stored, "deformer.original");
+            final NativeLabelColor folderOriginal = parseStoredBackground(stored, "folder.original");
+            final NativeLabelColor partOriginal = parseStoredBackground(stored, "part.original");
+            final NativeLabelColor deformerOriginal = parseStoredBackground(stored, "deformer.original");
 
-            awaitBackground(registry, folderTarget, folderRequested);
-            awaitBackground(registry, partFolderTarget, partRequested);
-            awaitBackground(registry, partLabelTarget, partRequested);
-            awaitBackground(registry, rowTarget, deformerRequested);
-            awaitBackground(registry, labelTarget, deformerRequested);
+            awaitBackground(() -> nativeLabelColor(folder), folderRequested);
+            awaitBackground(() -> nativeLabelColor(part), partRequested);
+            awaitBackground(() -> nativeLabelColor(deformer), deformerRequested);
 
             onHostThread(() -> {
-                registry.setNativeBackground(folderTarget, folderOriginal);
-                registry.setNativeBackground(partFolderTarget, partOriginal);
-                registry.setNativeBackground(rowTarget, deformerOriginal);
+                setNativeLabelColor(folder, folderOriginal);
+                setNativeLabelColor(part, partOriginal);
+                setNativeLabelColor(deformer, deformerOriginal);
                 return null;
             });
-            awaitBackground(registry, folderTarget, folderOriginal);
-            awaitBackground(registry, partFolderTarget, partOriginal);
-            awaitBackground(registry, rowTarget, deformerOriginal);
+            awaitBackground(() -> nativeLabelColor(folder), folderOriginal);
+            awaitBackground(() -> nativeLabelColor(part), partOriginal);
+            awaitBackground(() -> nativeLabelColor(deformer), deformerOriginal);
 
             final String modelId = onHostThread(() -> model.id().value());
             final String hostThread = onHostThread(() -> Thread.currentThread().getName());
@@ -3342,9 +3295,9 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
 
     /**
      * Persistence stage 3: after the operator reopened the document a final time, verify every
-     * restored original background persisted (write target and alias).
+     * restored original label color persisted through the model object's {@code .ui()} facade.
      */
-    private void runNativeControlBackgroundPersistFinal() {
+    private void runNativeLabelColorPersistFinal() {
         final Path home = Path.of(System.getProperty("turboism.home"));
         final Path artifact = home.resolve("logs/native-control-background-persist-final.txt");
         final Path propertiesFile = home.resolve("state/native-control-background-persist.properties");
@@ -3356,33 +3309,27 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 StandardOpenOption.CREATE,
                 StandardOpenOption.TRUNCATE_EXISTING
             );
-            final CubismModel model = awaitNativeControlBackgroundModel(artifact);
-            final ControlAppearanceRegistry registry = context.controlAppearance();
+            final CubismModel model = awaitNativeLabelColorModel(artifact);
             final Properties stored = new Properties();
             try (java.io.InputStream input = Files.newInputStream(propertiesFile)) {
                 stored.load(input);
             }
-            final ControlAppearanceTarget.ParameterFolder folderTarget =
-                new ControlAppearanceTarget.ParameterFolder(
-                    new ParameterGroupId(stored.getProperty("folder.id")));
-            final ControlAppearanceTarget.PartFolder partFolderTarget =
-                new ControlAppearanceTarget.PartFolder(new PartId(stored.getProperty("part.id")));
-            final ControlAppearanceTarget.PartLabel partLabelTarget =
-                new ControlAppearanceTarget.PartLabel(new PartId(stored.getProperty("part.id")));
-            final ControlAppearanceTarget.DeformerControlRow rowTarget =
-                new ControlAppearanceTarget.DeformerControlRow(
-                    new DeformerId(stored.getProperty("deformer.id")));
-            final ControlAppearanceTarget.DeformerLabel labelTarget =
-                new ControlAppearanceTarget.DeformerLabel(new DeformerId(stored.getProperty("deformer.id")));
-            final NativeControlBackground folderOriginal = parseStoredBackground(stored, "folder.original");
-            final NativeControlBackground partOriginal = parseStoredBackground(stored, "part.original");
-            final NativeControlBackground deformerOriginal = parseStoredBackground(stored, "deformer.original");
+            final ParameterGroup folder = onHostThread(() -> model.parameterGroups().find(
+                new ParameterGroupId(stored.getProperty("folder.id"))
+            ));
+            final Part part = onHostThread(() -> model.parts().find(
+                new PartId(stored.getProperty("part.id"))
+            ));
+            final Deformer deformer = onHostThread(() -> model.deformers().find(
+                new DeformerId(stored.getProperty("deformer.id"))
+            ));
+            final NativeLabelColor folderOriginal = parseStoredBackground(stored, "folder.original");
+            final NativeLabelColor partOriginal = parseStoredBackground(stored, "part.original");
+            final NativeLabelColor deformerOriginal = parseStoredBackground(stored, "deformer.original");
 
-            awaitBackground(registry, folderTarget, folderOriginal);
-            awaitBackground(registry, partFolderTarget, partOriginal);
-            awaitBackground(registry, partLabelTarget, partOriginal);
-            awaitBackground(registry, rowTarget, deformerOriginal);
-            awaitBackground(registry, labelTarget, deformerOriginal);
+            awaitBackground(() -> nativeLabelColor(folder), folderOriginal);
+            awaitBackground(() -> nativeLabelColor(part), partOriginal);
+            awaitBackground(() -> nativeLabelColor(deformer), deformerOriginal);
 
             final String modelId = onHostThread(() -> model.id().value());
             final String hostThread = onHostThread(() -> Thread.currentThread().getName());
@@ -3391,7 +3338,7 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 "status=PASS\nphase=final-verify-restored\n"
                     + "modelId=" + modelId + System.lineSeparator()
                     + "hostThread=" + hostThread + System.lineSeparator()
-                    + "verifiedRestored=parameterFolder,part,deformer,partAlias,deformerAlias\n",
+                    + "verifiedRestored=parameterFolder,part,deformer\n",
                 StandardOpenOption.CREATE,
                 StandardOpenOption.TRUNCATE_EXISTING
             );
@@ -3405,14 +3352,13 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
     }
 
     /**
-     * Closes the owning plugin scope and proves the held model and the control-appearance
-     * registry fail closed, while the existing peer probe handshake proves the shared host
-     * remains usable. No native color changes or overlays are left behind.
+     * Closes the owning plugin scope and proves the held model object and its {@code .ui()}
+     * facade fail closed, while the existing peer-probe handshake proves the shared host remains
+     * usable. No native color changes or overlays are left behind.
      */
     private boolean verifyNativeControlScopeClose(
         final CubismModel model,
-        final ControlAppearanceRegistry registry,
-        final ControlAppearanceTarget.ParameterFolder folderTarget,
+        final ParameterGroup folder,
         final StringBuilder scopeReport,
         final Path artifact,
         final String modelId,
@@ -3421,12 +3367,9 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         try {
             context.disposableScope().close();
             final boolean modelStale = failsClosed(() -> onHostThread(model::id));
-            final boolean registrySnapshotStale = failsClosed(() -> onHostThread(() -> {
-                registry.snapshot(folderTarget);
-                return null;
-            }));
-            final boolean registryWriteStale = failsClosed(() -> onHostThread(() -> {
-                registry.setNativeBackground(folderTarget, new NativeControlBackground.Default());
+            final boolean uiReadStale = failsClosed(() -> onHostThread(() -> nativeLabelColor(folder)));
+            final boolean uiWriteStale = failsClosed(() -> onHostThread(() -> {
+                setNativeLabelColor(folder, new NativeLabelColor.Default());
                 return null;
             }));
             final Path peerRequest = Path.of(
@@ -3451,12 +3394,12 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 || peerEvidence.contains("status=FAIL");
             final boolean secondPluginUsable = peerEvidence.contains("status=PASS")
                 && peerEvidence.contains("secondPluginUsable=true");
-            final boolean passed = modelStale && registrySnapshotStale && registryWriteStale
+            final boolean passed = modelStale && uiReadStale && uiWriteStale
                 && peerTerminal && secondPluginUsable;
             scopeReport.append("phase=plugin-scope-close\n")
                 .append("modelStale=").append(modelStale).append('\n')
-                .append("registrySnapshotStale=").append(registrySnapshotStale).append('\n')
-                .append("registryWriteStale=").append(registryWriteStale).append('\n')
+                .append("uiReadStale=").append(uiReadStale).append('\n')
+                .append("uiWriteStale=").append(uiWriteStale).append('\n')
                 .append("peerTerminal=").append(peerTerminal).append('\n')
                 .append("secondPluginUsable=").append(secondPluginUsable).append('\n')
                 .append("peerTimeout=").append(!peerTerminal).append('\n')
@@ -3472,13 +3415,12 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         }
     }
 
-    private ParameterGroupId firstNonRootParameterGroup(final CubismModel model) throws Exception {
+    private ParameterGroup firstNonRootParameterGroup(final CubismModel model) throws Exception {
         return onHostThread(() -> {
             final ParameterGroups groups = model.parameterGroups();
             final ParameterGroupId root = groups.root().id();
             return groups.all().stream()
-                .map(ParameterGroup::id)
-                .filter(id -> !id.equals(root))
+                .filter(group -> !group.id().equals(root))
                 .findFirst()
                 .orElseThrow(() -> new IllegalStateException(
                     "No non-root parameter group is available."
@@ -3486,36 +3428,34 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         });
     }
 
-    private PartId firstNonRootPart(final CubismModel model) throws Exception {
+    private Part firstNonRootPart(final CubismModel model) throws Exception {
         return onHostThread(() -> model.parts().all().stream()
             .filter(part -> !"__RootPart__".equals(part.id().value()))
             .findFirst()
-            .orElseThrow(() -> new IllegalStateException("No non-root Part is available."))
-            .id());
+            .orElseThrow(() -> new IllegalStateException("No non-root Part is available.")));
     }
 
-    private DeformerId firstDeformer(final CubismModel model) throws Exception {
+    private Deformer firstDeformer(final CubismModel model) throws Exception {
         return onHostThread(() -> model.deformers().all().stream()
             .findFirst()
-            .orElseThrow(() -> new IllegalStateException("No Deformer is available."))
-            .id());
+            .orElseThrow(() -> new IllegalStateException("No Deformer is available.")));
     }
 
     /** Properties serialization of a native background for cross-mode persistence stages. */
     static void storeStoredBackground(
         final Properties properties,
         final String prefix,
-        final NativeControlBackground background
+        final NativeLabelColor background
     ) {
         Objects.requireNonNull(properties, "properties");
         Objects.requireNonNull(prefix, "prefix");
         Objects.requireNonNull(background, "background");
-        if (background instanceof NativeControlBackground.Default) {
+        if (background instanceof NativeLabelColor.Default) {
             properties.setProperty(prefix + ".type", "default");
-        } else if (background instanceof NativeControlBackground.Preset preset) {
+        } else if (background instanceof NativeLabelColor.Preset preset) {
             properties.setProperty(prefix + ".type", "preset");
             properties.setProperty(prefix + ".preset", preset.color().name());
-        } else if (background instanceof NativeControlBackground.Custom custom) {
+        } else if (background instanceof NativeLabelColor.Custom custom) {
             properties.setProperty(prefix + ".type", "custom");
             properties.setProperty(prefix + ".red", Float.toString(custom.color().red()));
             properties.setProperty(prefix + ".green", Float.toString(custom.color().green()));
@@ -3529,7 +3469,7 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
     }
 
     /** Inverse of {@link #storeStoredBackground}; fails closed on malformed properties. */
-    static NativeControlBackground parseStoredBackground(
+    static NativeLabelColor parseStoredBackground(
         final Properties properties,
         final String prefix
     ) {
@@ -3537,17 +3477,17 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         Objects.requireNonNull(prefix, "prefix");
         final String type = properties.getProperty(prefix + ".type");
         if ("default".equals(type)) {
-            return new NativeControlBackground.Default();
+            return new NativeLabelColor.Default();
         }
         if ("preset".equals(type)) {
             final String preset = properties.getProperty(prefix + ".preset");
             if (preset == null) {
                 throw new IllegalArgumentException("Stored preset background is missing its preset name.");
             }
-            return new NativeControlBackground.Preset(PresetColor.valueOf(preset));
+            return new NativeLabelColor.Preset(PresetColor.valueOf(preset));
         }
         if ("custom".equals(type)) {
-            return new NativeControlBackground.Custom(new Color(
+            return new NativeLabelColor.Custom(new UiColor(
                 parseFiniteValue(properties.getProperty(prefix + ".red")),
                 parseFiniteValue(properties.getProperty(prefix + ".green")),
                 parseFiniteValue(properties.getProperty(prefix + ".blue")),
@@ -3557,7 +3497,7 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         throw new IllegalArgumentException("Unsupported stored background type: " + type);
     }
 
-    private CubismModel awaitNativeControlBackgroundModel(final Path artifact) throws Exception {
+    private CubismModel awaitNativeLabelColorModel(final Path artifact) throws Exception {
         CubismModel model = null;
         Exception unavailable = null;
         for (int attempt = 0; attempt < 120 && !Thread.currentThread().isInterrupted(); attempt++) {
@@ -3598,56 +3538,69 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             : unavailable;
     }
 
-    private static NativeControlAppearance nativeAppearance(
-        final ControlAppearanceRegistry registry,
-        final ControlAppearanceTarget target
+    private static NativeLabelColorState nativeLabelColor(final ParameterGroup group) {
+        return group.ui().nativeLabelColor().orElseThrow(() ->
+            new IllegalStateException("No native label color is available for ParameterGroup " + group.id())
+        );
+    }
+
+    private static NativeLabelColorState nativeLabelColor(final Part part) {
+        return part.ui().nativeLabelColor().orElseThrow(() ->
+            new IllegalStateException("No native label color is available for Part " + part.id())
+        );
+    }
+
+    private static NativeLabelColorState nativeLabelColor(final Deformer deformer) {
+        return deformer.ui().nativeLabelColor().orElseThrow(() ->
+            new IllegalStateException("No native label color is available for Deformer " + deformer.id())
+        );
+    }
+
+    private static void setNativeLabelColor(
+        final ParameterGroup group,
+        final NativeLabelColor color
     ) {
-        return registry.snapshot(target).nativeAppearance().orElseThrow(() ->
-            new IllegalStateException(
-                "No native control appearance is available for " + target.getClass().getSimpleName()
-            ));
+        group.ui().setNativeLabelColor(color);
+    }
+
+    private static void setNativeLabelColor(final Part part, final NativeLabelColor color) {
+        part.ui().setNativeLabelColor(color);
+    }
+
+    private static void setNativeLabelColor(final Deformer deformer, final NativeLabelColor color) {
+        deformer.ui().setNativeLabelColor(color);
     }
 
     private MatrixValues runBackgroundMatrix(
-        final ControlAppearanceRegistry registry,
-        final ControlAppearanceTarget writeTarget,
-        final ControlAppearanceTarget aliasTarget,
-        final NativeControlBackground requested
+        final java.util.function.Supplier<NativeLabelColorState> read,
+        final java.util.function.Consumer<NativeLabelColor> write,
+        final NativeLabelColor requested
     ) throws Exception {
-        final NativeControlAppearance before =
-            onHostThread(() -> nativeAppearance(registry, writeTarget));
-        requireDistinctBackgroundRequest(requested, before.background());
+        final NativeLabelColorState before = onHostThread(read::get);
+        requireDistinctBackgroundRequest(requested, before.labelColor());
         onHostThread(() -> {
-            registry.setNativeBackground(writeTarget, requested);
+            write.accept(requested);
             return null;
         });
-        awaitBackground(registry, writeTarget, requested);
-        final NativeControlAppearance afterWrite =
-            onHostThread(() -> nativeAppearance(registry, writeTarget));
-        final NativeControlAppearance aliasAfterWrite =
-            onHostThread(() -> nativeAppearance(registry, aliasTarget));
+        awaitBackground(read, requested);
+        final NativeLabelColorState afterWrite = onHostThread(read::get);
         onHostThread(() -> {
-            registry.setNativeBackground(writeTarget, requested);
+            write.accept(requested);
             return null;
         });
-        final NativeControlAppearance sameValueSecondWrite =
-            onHostThread(() -> nativeAppearance(registry, writeTarget));
+        final NativeLabelColorState sameValueSecondWrite = onHostThread(read::get);
         final java.awt.Robot robot = new java.awt.Robot();
         pressShortcut(robot, java.awt.event.KeyEvent.VK_Z);
-        awaitBackground(registry, writeTarget, before);
-        final NativeControlAppearance afterUndo =
-            onHostThread(() -> nativeAppearance(registry, writeTarget));
+        awaitBackground(read, before);
+        final NativeLabelColorState afterUndo = onHostThread(read::get);
         pressShortcut(robot, java.awt.event.KeyEvent.VK_Y);
-        awaitBackground(registry, writeTarget, afterWrite);
-        final NativeControlAppearance afterRedo =
-            onHostThread(() -> nativeAppearance(registry, writeTarget));
+        awaitBackground(read, afterWrite);
+        final NativeLabelColorState afterRedo = onHostThread(read::get);
         pressShortcut(robot, java.awt.event.KeyEvent.VK_Z);
-        awaitBackground(registry, writeTarget, before);
-        final NativeControlAppearance restored =
-            onHostThread(() -> nativeAppearance(registry, writeTarget));
+        awaitBackground(read, before);
+        final NativeLabelColorState restored = onHostThread(read::get);
         return new MatrixValues(
-            before, requested, afterWrite, aliasAfterWrite,
-            sameValueSecondWrite, afterUndo, afterRedo, restored
+            before, requested, afterWrite, sameValueSecondWrite, afterUndo, afterRedo, restored
         );
     }
 
@@ -3666,30 +3619,24 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             .append(prefix).append("modelId=").append(modelId).append('\n')
             .append(prefix).append("hostThread=").append(hostThread).append('\n')
             .append(prefix).append("before.background=")
-            .append(backgroundText(matrix.before().background())).append('\n')
+            .append(backgroundText(matrix.before().labelColor())).append('\n')
             .append(prefix).append("before.effective=")
-            .append(effectiveText(matrix.before().effectiveBackground())).append('\n')
+            .append(effectiveText(matrix.before().actualColor())).append('\n')
             .append(prefix).append("requested=").append(backgroundText(matrix.requested())).append('\n')
             .append(prefix).append("afterWrite.background=")
-            .append(backgroundText(matrix.afterWrite().background())).append('\n')
+            .append(backgroundText(matrix.afterWrite().labelColor())).append('\n')
             .append(prefix).append("afterWrite.effective=")
-            .append(effectiveText(matrix.afterWrite().effectiveBackground())).append('\n')
-            .append(prefix).append("aliasAfterWrite.background=")
-            .append(backgroundText(matrix.aliasAfterWrite().background())).append('\n')
-            .append(prefix).append("aliasAfterWrite.effective=")
-            .append(effectiveText(matrix.aliasAfterWrite().effectiveBackground())).append('\n')
+            .append(effectiveText(matrix.afterWrite().actualColor())).append('\n')
             .append(prefix).append("sameValueSecondWrite.background=")
-            .append(backgroundText(matrix.sameValueSecondWrite().background())).append('\n')
+            .append(backgroundText(matrix.sameValueSecondWrite().labelColor())).append('\n')
             .append(prefix).append("afterUndo.background=")
-            .append(backgroundText(matrix.afterUndo().background())).append('\n')
+            .append(backgroundText(matrix.afterUndo().labelColor())).append('\n')
             .append(prefix).append("afterRedo.background=")
-            .append(backgroundText(matrix.afterRedo().background())).append('\n')
+            .append(backgroundText(matrix.afterRedo().labelColor())).append('\n')
             .append(prefix).append("restored.background=")
-            .append(backgroundText(matrix.restored().background())).append('\n')
+            .append(backgroundText(matrix.restored().labelColor())).append('\n')
             .append(prefix).append("check.afterWrite=")
-            .append(matrix.afterWrite().background().equals(matrix.requested()) ? "PASS" : "FAIL").append('\n')
-            .append(prefix).append("check.aliasAfterWrite=")
-            .append(matrix.aliasAfterWrite().equals(matrix.afterWrite()) ? "PASS" : "FAIL").append('\n')
+            .append(matrix.afterWrite().labelColor().equals(matrix.requested()) ? "PASS" : "FAIL").append('\n')
             .append(prefix).append("check.sameValueSecondWrite=")
             .append(matrix.sameValueSecondWrite().equals(matrix.afterWrite()) ? "PASS" : "FAIL").append('\n')
             .append(prefix).append("check.afterUndo=")
@@ -3707,27 +3654,26 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
 
     private static String restoreStatus(
         final String label,
-        final ControlAppearanceRegistry registry,
-        final ControlAppearanceTarget target,
-        final NativeControlAppearance original,
+        final java.util.function.Supplier<NativeLabelColorState> read,
+        final java.util.function.Consumer<NativeLabelColor> write,
+        final NativeLabelColorState original,
         final AtomicBoolean restoreFailed
     ) {
         try {
             onHostThread(() -> {
-                registry.setNativeBackground(target, original.background());
+                write.accept(original.labelColor());
                 return null;
             });
-            final NativeControlAppearance confirmed =
-                onHostThread(() -> nativeAppearance(registry, target));
+            final NativeLabelColorState confirmed = onHostThread(read::get);
             final boolean ok = confirmed.equals(original);
             if (!ok) {
                 restoreFailed.set(true);
             }
             return "restore." + label + "=" + (ok ? "PASS" : "FAIL") + System.lineSeparator()
                 + "restore." + label + ".confirmed.background="
-                + backgroundText(confirmed.background()) + System.lineSeparator()
+                + backgroundText(confirmed.labelColor()) + System.lineSeparator()
                 + "restore." + label + ".confirmed.effective="
-                + effectiveText(confirmed.effectiveBackground()) + System.lineSeparator();
+                + effectiveText(confirmed.actualColor()) + System.lineSeparator();
         } catch (Exception exception) {
             restoreFailed.set(true);
             return "restore." + label + "=FAIL" + System.lineSeparator()
@@ -3737,11 +3683,11 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
     }
 
     /** Fixed Custom request that differs from the semantic before-state, never the effective only. */
-    static NativeControlBackground chooseCustomCandidate(final NativeControlAppearance before) {
+    static NativeLabelColor chooseCustomCandidate(final NativeLabelColorState before) {
         Objects.requireNonNull(before, "before");
-        for (Color candidate : CUSTOM_CANDIDATES) {
-            final NativeControlBackground custom = new NativeControlBackground.Custom(candidate);
-            if (!custom.equals(before.background())) {
+        for (UiColor candidate : CUSTOM_CANDIDATES) {
+            final NativeLabelColor custom = new NativeLabelColor.Custom(candidate);
+            if (!custom.equals(before.labelColor())) {
                 return custom;
             }
         }
@@ -3750,8 +3696,8 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
 
     /** Hard fail-closed guard: a same-value request would create no Undo and must not be written. */
     static void requireDistinctBackgroundRequest(
-        final NativeControlBackground requested,
-        final NativeControlBackground before
+        final NativeLabelColor requested,
+        final NativeLabelColor before
     ) {
         Objects.requireNonNull(requested, "requested");
         Objects.requireNonNull(before, "before");
@@ -3763,46 +3709,42 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         }
     }
 
-    private NativeControlAppearance awaitBackground(
-        final ControlAppearanceRegistry registry,
-        final ControlAppearanceTarget target,
-        final NativeControlBackground semantic
+    private NativeLabelColorState awaitBackground(
+        final java.util.function.Supplier<NativeLabelColorState> read,
+        final NativeLabelColor semantic
     ) throws Exception {
-        return awaitBackground(registry, target,
-            appearance -> semantic.equals(appearance.background()));
+        return awaitBackground(read, appearance -> semantic.equals(appearance.labelColor()));
     }
 
-    private NativeControlAppearance awaitBackground(
-        final ControlAppearanceRegistry registry,
-        final ControlAppearanceTarget target,
-        final NativeControlAppearance expected
+    private NativeLabelColorState awaitBackground(
+        final java.util.function.Supplier<NativeLabelColorState> read,
+        final NativeLabelColorState expected
     ) throws Exception {
-        return awaitBackground(registry, target, expected::equals);
+        return awaitBackground(read, expected::equals);
     }
 
-    private NativeControlAppearance awaitBackground(
-        final ControlAppearanceRegistry registry,
-        final ControlAppearanceTarget target,
-        final java.util.function.Predicate<NativeControlAppearance> predicate
+    private NativeLabelColorState awaitBackground(
+        final java.util.function.Supplier<NativeLabelColorState> read,
+        final java.util.function.Predicate<NativeLabelColorState> predicate
     ) throws Exception {
-        NativeControlAppearance actual = onHostThread(() -> nativeAppearance(registry, target));
+        NativeLabelColorState actual = onHostThread(read::get);
         for (int attempt = 0; attempt < 40 && !predicate.test(actual); attempt++) {
             Thread.sleep(100L);
-            actual = onHostThread(() -> nativeAppearance(registry, target));
+            actual = onHostThread(read::get);
         }
         if (!predicate.test(actual)) {
             throw new IllegalStateException(
-                "Native background did not converge within the bounded await window; last="
-                    + backgroundText(actual.background())
-                    + " effective=" + effectiveText(actual.effectiveBackground())
+                "Native label color did not converge within the bounded await window; last="
+                    + backgroundText(actual.labelColor())
+                    + " effective=" + effectiveText(actual.actualColor())
             );
         }
         return actual;
     }
 
-    private static NativeControlBackground presetDifferentFrom(final NativeControlBackground current) {
+    private static NativeLabelColor presetDifferentFrom(final NativeLabelColor current) {
         for (PresetColor preset : PresetColor.values()) {
-            final NativeControlBackground candidate = new NativeControlBackground.Preset(preset);
+            final NativeLabelColor candidate = new NativeLabelColor.Preset(preset);
             if (!candidate.equals(current)) {
                 return candidate;
             }
@@ -3810,14 +3752,14 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         throw new IllegalStateException("No preset differs from " + backgroundText(current));
     }
 
-    private static String backgroundText(final NativeControlBackground background) {
-        if (background instanceof NativeControlBackground.Default) {
+    private static String backgroundText(final NativeLabelColor background) {
+        if (background instanceof NativeLabelColor.Default) {
             return "default";
         }
-        if (background instanceof NativeControlBackground.Preset preset) {
+        if (background instanceof NativeLabelColor.Preset preset) {
             return "preset(" + preset.color().name() + ")";
         }
-        if (background instanceof NativeControlBackground.Custom custom) {
+        if (background instanceof NativeLabelColor.Custom custom) {
             return "custom(" + colorText(custom.color()) + ")";
         }
         throw new IllegalArgumentException(
@@ -3825,28 +3767,26 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         );
     }
 
-    private static final Color[] CUSTOM_CANDIDATES = {
-        new Color(1.0F, 0.0F, 0.0F, 1.0F),
-        new Color(0.0F, 1.0F, 0.0F, 1.0F),
-        new Color(0.0F, 0.0F, 1.0F, 1.0F),
-        new Color(0.25F, 0.5F, 0.75F, 1.0F),
-        new Color(0.1F, 0.2F, 0.3F, 0.4F),
-        new Color(0.8F, 0.6F, 0.4F, 0.2F)
+    private static final UiColor[] CUSTOM_CANDIDATES = {
+        new UiColor(1.0F, 0.0F, 0.0F, 1.0F),
+        new UiColor(0.0F, 1.0F, 0.0F, 1.0F),
+        new UiColor(0.0F, 0.0F, 1.0F, 1.0F),
+        new UiColor(0.25F, 0.5F, 0.75F, 1.0F),
+        new UiColor(0.1F, 0.2F, 0.3F, 0.4F),
+        new UiColor(0.8F, 0.6F, 0.4F, 0.2F)
     };
 
     private record MatrixValues(
-        NativeControlAppearance before,
-        NativeControlBackground requested,
-        NativeControlAppearance afterWrite,
-        NativeControlAppearance aliasAfterWrite,
-        NativeControlAppearance sameValueSecondWrite,
-        NativeControlAppearance afterUndo,
-        NativeControlAppearance afterRedo,
-        NativeControlAppearance restored
+        NativeLabelColorState before,
+        NativeLabelColor requested,
+        NativeLabelColorState afterWrite,
+        NativeLabelColorState sameValueSecondWrite,
+        NativeLabelColorState afterUndo,
+        NativeLabelColorState afterRedo,
+        NativeLabelColorState restored
     ) {
         boolean passed() {
-            return afterWrite.background().equals(requested)
-                && aliasAfterWrite.equals(afterWrite)
+            return afterWrite.labelColor().equals(requested)
                 && sameValueSecondWrite.equals(afterWrite)
                 && afterUndo.equals(before)
                 && afterRedo.equals(afterWrite)
@@ -4045,18 +3985,20 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             currentLabelColorLabel.setText("Current background: unavailable");
             return;
         }
-        final NativeControlAppearance appearance = context.controlAppearance()
-            .snapshot(new ControlAppearanceTarget.ParameterFolder(new ParameterGroupId(chosen)))
-            .nativeAppearance().orElse(null);
-        if (appearance == null) {
+        final NativeLabelColorState appearance;
+        try {
+            appearance = onHostThread(() -> nativeLabelColor(
+                activeModel().parameterGroups().find(new ParameterGroupId(chosen))
+            ));
+        } catch (Exception unavailable) {
             currentLabelColorLabel.setText("Current background: unavailable");
             return;
         }
         currentLabelColorLabel.setText(
-            "Background: " + backgroundText(appearance.background())
-                + " effective=" + effectiveText(appearance.effectiveBackground())
+            "Background: " + backgroundText(appearance.labelColor())
+                + " effective=" + effectiveText(appearance.actualColor())
         );
-        appearance.effectiveBackground().ifPresent(effective -> {
+        appearance.actualColor().ifPresent(effective -> {
             if (!labelRedField.hasFocus()) labelRedField.setText(Float.toString(effective.red()));
             if (!labelGreenField.hasFocus()) labelGreenField.setText(Float.toString(effective.green()));
             if (!labelBlueField.hasFocus()) labelBlueField.setText(Float.toString(effective.blue()));
@@ -4221,12 +4163,12 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         return String.format(Locale.ROOT, "%.3f", value);
     }
 
-    private static String colorText(final Color color) {
+    private static String colorText(final UiColor color) {
         return "rgba(" + number(color.red()) + ", " + number(color.green()) + ", "
             + number(color.blue()) + ", " + number(color.alpha()) + ')';
     }
 
-    private static String effectiveText(final Optional<Color> effective) {
+    private static String effectiveText(final Optional<UiColor> effective) {
         return effective.map(WindowsParameterValidationProbe::colorText).orElse("unavailable");
     }
 

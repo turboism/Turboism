@@ -255,8 +255,10 @@ public final class NativeProjectLifecycleBridge {
         final ProjectFileOperation fallback
     ) {
         Objects.requireNonNull(content, "content");
-        final String id = kind.name().toLowerCase(java.util.Locale.ROOT)
-            + ":" + Integer.toUnsignedString(System.identityHashCode(content), 16);
+        final String id = kind == ProjectContentKind.MODEL || kind == ProjectContentKind.ANIMATION
+            ? ProjectContentIdentity.forLifecycleContent(kind, content)
+            : kind.name().toLowerCase(java.util.Locale.ROOT)
+                + ":" + Integer.toUnsignedString(System.identityHashCode(content), 16);
         final Optional<File> file = fileProperty(content);
         if (kind == ProjectContentKind.MODEL) {
             final String name = stringProperty(content, "getModelName")
