@@ -29,10 +29,12 @@ agent_class_dir_rel="dev/turboism/tests/validation"
 launcher_template="$repo_root/scripts/preview/launch-workspace-validation.bat.template"
 command_helper_ps1="$repo_root/scripts/preview/submit-workspace-command.ps1"
 readme="$repo_root/scripts/preview/README-workspace-validation.md"
-record_52="$repo_root/docs/migration/verification/static/cubism-5.2-workspace-control.json"
-record_53="$repo_root/docs/migration/verification/static/cubism-5.3.02-workspace-control.json"
-record_overlay_52="$repo_root/docs/migration/verification/static/cubism-5.2-ui-bounding-box-overlay.json"
-record_overlay_53="$repo_root/docs/migration/verification/static/cubism-5.3.02-ui-bounding-box-overlay.json"
+record_52="$repo_root/cubism-ref/verification/cubism-5.2-workspace-control.json"
+record_53="$repo_root/cubism-ref/verification/cubism-5.3.02-workspace-control.json"
+record_overlay_52="$repo_root/cubism-ref/verification/cubism-5.2-ui-bounding-box-overlay.json"
+record_overlay_53="$repo_root/cubism-ref/verification/cubism-5.3.02-ui-bounding-box-overlay.json"
+record_project_52="$repo_root/cubism-ref/verification/cubism-5.2-project-workspace.json"
+record_project_53="$repo_root/cubism-ref/verification/cubism-5.3.02-project-workspace.json"
 
 for required in \
   "$agent_jar" \
@@ -43,7 +45,11 @@ for required in \
   "$command_helper_ps1" \
   "$readme" \
   "$record_52" \
-  "$record_53"; do
+  "$record_53" \
+  "$record_overlay_52" \
+  "$record_overlay_53" \
+  "$record_project_52" \
+  "$record_project_53"; do
   [ -f "$required" ] || { printf 'error: required input not found: %s\n' "$required" >&2; exit 1; }
 done
 if ! ls "$test_classes"/dev/turboism/tests/plugin/WindowsWorkspaceValidationProbe\$*.class >/dev/null 2>&1; then
@@ -59,12 +65,20 @@ trap 'rm -rf "${probe_tmp:-}" "${agent_tmp:-}" "${freshness_tmp:-}"' EXIT
 (
   cd "$freshness_tmp"
   jar xf "$agent_jar" \
+    META-INF/turboism/verification/cubism-5.2-workspace-control.json \
+    META-INF/turboism/verification/cubism-5.3.02-workspace-control.json \
     META-INF/turboism/verification/cubism-5.2-ui-bounding-box-overlay.json \
-    META-INF/turboism/verification/cubism-5.3.02-ui-bounding-box-overlay.json
+    META-INF/turboism/verification/cubism-5.3.02-ui-bounding-box-overlay.json \
+    META-INF/turboism/verification/cubism-5.2-project-workspace.json \
+    META-INF/turboism/verification/cubism-5.3.02-project-workspace.json
 )
 for pair in \
+  "$freshness_tmp/META-INF/turboism/verification/cubism-5.2-workspace-control.json:$record_52" \
+  "$freshness_tmp/META-INF/turboism/verification/cubism-5.3.02-workspace-control.json:$record_53" \
   "$freshness_tmp/META-INF/turboism/verification/cubism-5.2-ui-bounding-box-overlay.json:$record_overlay_52" \
-  "$freshness_tmp/META-INF/turboism/verification/cubism-5.3.02-ui-bounding-box-overlay.json:$record_overlay_53"; do
+  "$freshness_tmp/META-INF/turboism/verification/cubism-5.3.02-ui-bounding-box-overlay.json:$record_overlay_53" \
+  "$freshness_tmp/META-INF/turboism/verification/cubism-5.2-project-workspace.json:$record_project_52" \
+  "$freshness_tmp/META-INF/turboism/verification/cubism-5.3.02-project-workspace.json:$record_project_53"; do
   embedded="${pair%%:*}"
   current="${pair#*:}"
   if ! cmp -s "$embedded" "$current"; then
