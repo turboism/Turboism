@@ -247,6 +247,31 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         final RuntimeEmbeddedPanelActivationCoordinator embeddedPanelActivation,
         final TopMenuResolverFactory topMenuResolverFactory,
         final dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator dockMaintenance,
+        final AppearanceProviderFactory appearanceProviderFactory
+    ) {
+        this(
+            factory, editorResolverFactory, editorAccessFactory, mainToolbarResolverFactory,
+            embeddedPanelResolverFactory, boundingBoxOverlayResolverFactory, editorUiPluginResources,
+            editorUiActionRouter, embeddedPanelActivation, topMenuResolverFactory, dockMaintenance,
+            appearanceProviderFactory,
+            slice -> new VerifiedWorkspaceControlResolverFactory().create(
+                slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
+            )
+        );
+    }
+
+    VerifiedHostAdapterConnector(
+        final VerifiedAdapterFactory factory,
+        final EditorResolverFactory editorResolverFactory,
+        final EditorAccessFactory editorAccessFactory,
+        final MainToolbarResolverFactory mainToolbarResolverFactory,
+        final EmbeddedPanelResolverFactory embeddedPanelResolverFactory,
+        final BoundingBoxOverlayResolverFactory boundingBoxOverlayResolverFactory,
+        final EditorUiPluginResourceRegistry editorUiPluginResources,
+        final dev.turboism.ui.action.RuntimeEditorUiActionRouter editorUiActionRouter,
+        final RuntimeEmbeddedPanelActivationCoordinator embeddedPanelActivation,
+        final TopMenuResolverFactory topMenuResolverFactory,
+        final dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator dockMaintenance,
         final AppearanceProviderFactory appearanceProviderFactory,
         final WorkspaceResolverFactory workspaceResolverFactory
     ) {
@@ -280,7 +305,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                 : null;
         if (evidence.editorModel().isEmpty()) {
             final RuntimeCoreModelBackend core = coreMaterial(evidence);
-            return HostAdapterConnection.of(
+            final HostAdapterConnection base = HostAdapterConnection.of(
                 adapters,
                 UnavailableCubismModelAccess.INSTANCE,
                 null,
@@ -288,6 +313,37 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                 core == null ? DynamicCoreRuntimeInfo.unavailableRuntime() : core.coreRuntimeInfo(),
                 core
             );
+            if (workspace == null) {
+                return base;
+            }
+            // Workspace control is the one independent slice: it composes on its own even
+            // without a verified editor-model slice; UI slices still fail closed.
+            return new HostAdapterConnection() {
+                @Override
+                public RuntimeHostAdapters adapters() {
+                    return base.adapters();
+                }
+
+                @Override
+                public dev.turboism.ui.workspace.WorkspaceHostProvider workspaceProvider() {
+                    return workspace;
+                }
+
+                @Override
+                public AppearanceHostProvider appearanceProvider() {
+                    return base.appearanceProvider();
+                }
+
+                @Override
+                public dev.turboism.sdk.cubism.core.CoreRuntimeInfo coreRuntimeInfo() {
+                    return base.coreRuntimeInfo();
+                }
+
+                @Override
+                public void close() throws Exception {
+                    base.close();
+                }
+            };
         }
         final VerifiedMemberResolver resolver = editorResolverFactory.create(
             evidence.editorModel().orElseThrow()
