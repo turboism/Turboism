@@ -7,6 +7,7 @@ import dev.turboism.ui.contribution.EditorUiContribution;
 import dev.turboism.ui.contribution.EditorUiContributionIdentity;
 import dev.turboism.ui.contribution.EditorUiProviderAdmission;
 import dev.turboism.ui.host.EditorUiFamily;
+import dev.turboism.ui.panel.PanelTabMenuCoordinator;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -60,12 +61,14 @@ class ContextMenuContributionProviderTest {
     void installsContributionRoutesTypedSelectionAndCleansUp() {
         RecordingHost host = new RecordingHost();
         List<String> actions = new ArrayList<>();
+        PanelTabMenuCoordinator panelTabMenus = new PanelTabMenuCoordinator();
         ContextMenuContributionProvider provider = new ContextMenuContributionProvider(
             admission(7),
             host,
             (pluginId, actionId, context) -> actions.add(
                 pluginId + ":" + actionId + ":" + context.contextMenuSelection().orElseThrow().items().get(0).kind()
-            )
+            ),
+            panelTabMenus
         );
 
         Registration registration = provider.apply(7, List.of(new EditorUiContribution<>(
@@ -85,6 +88,7 @@ class ContextMenuContributionProviderTest {
 
         registration.close();
         assertEquals(List.of("warp"), host.closedIds);
+        panelTabMenus.close();
     }
 
     private static ContextMenuRegistry.ContextMenuContribution contribution(
