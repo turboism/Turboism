@@ -2599,10 +2599,12 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
 
     private void requestAutomatedHostClose() {
         try {
-            onHostThread(() -> {
-                requestHostClose();
-                return null;
-            });
+            final java.awt.Window target = onHostThread(
+                () -> selectHostWindow(java.awt.Window.getWindows())
+            );
+            SwingUtilities.invokeLater(() -> target.dispatchEvent(new java.awt.event.WindowEvent(
+                target, java.awt.event.WindowEvent.WINDOW_CLOSING
+            )));
             context.logger().info("Automated host close requested via WINDOW_CLOSING");
             final HostCloseDecision decision = awaitHostCloseConfirmation(new java.awt.Robot());
             if (decision == HostCloseDecision.CLEAN_CLOSE) {
@@ -2642,12 +2644,6 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         return target;
     }
 
-    private static void requestHostClose() {
-        final java.awt.Window target = selectHostWindow(java.awt.Window.getWindows());
-        target.dispatchEvent(new java.awt.event.WindowEvent(
-            target, java.awt.event.WindowEvent.WINDOW_CLOSING
-        ));
-    }
 
     private HostCloseDecision awaitHostCloseConfirmation(final java.awt.Robot robot) throws Exception {
         final long deadlineNanos = System.nanoTime() + 3_000_000_000L;
