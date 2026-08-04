@@ -553,6 +553,22 @@ class WindowsParameterValidationProbeTest {
     }
 
     @Test
+    void automatedHostCloseUsesExactHostVersionRoute() {
+        assertEquals(
+            WindowsParameterValidationProbe.HostCloseRoute.SYNTHETIC_WINDOW_CLOSING,
+            WindowsParameterValidationProbe.hostCloseRoute("5203")
+        );
+        assertEquals(
+            WindowsParameterValidationProbe.HostCloseRoute.ROBOT_ALT_F4,
+            WindowsParameterValidationProbe.hostCloseRoute("5302")
+        );
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> WindowsParameterValidationProbe.hostCloseRoute("unknown")
+        );
+    }
+
+    @Test
     void automatedHostCloseRequiresAVisibleDisplayableNonDialogWindow() {
         assertThrows(
             IllegalStateException.class,

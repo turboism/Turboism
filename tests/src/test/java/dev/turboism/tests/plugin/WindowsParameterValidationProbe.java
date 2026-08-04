@@ -982,6 +982,26 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         UNSUPPORTED_CONFIRMATION
     }
 
+    enum HostCloseRoute {
+        SYNTHETIC_WINDOW_CLOSING,
+        ROBOT_ALT_F4
+    }
+
+    static HostCloseRoute hostCloseRoute(final String hostVersion) {
+        if (hostVersion == null) {
+            throw new IllegalArgumentException(
+                "turboism.validation.hostVersion must be 5203 or 5302"
+            );
+        }
+        return switch (hostVersion) {
+            case "5203" -> HostCloseRoute.SYNTHETIC_WINDOW_CLOSING;
+            case "5302" -> HostCloseRoute.ROBOT_ALT_F4;
+            default -> throw new IllegalArgumentException(
+                "turboism.validation.hostVersion must be 5203 or 5302: " + hostVersion
+            );
+        };
+    }
+
     /** Chooses the non-saving branch without depending on localized button text. */
     static HostCloseDecision hostCloseDecision(
         final boolean confirmationVisible,
@@ -2603,10 +2623,18 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             final java.awt.Window target = onHostThread(
                 () -> selectHostWindow(java.awt.Window.getWindows())
             );
-            SwingUtilities.invokeLater(() -> target.dispatchEvent(new java.awt.event.WindowEvent(
-                target, java.awt.event.WindowEvent.WINDOW_CLOSING
-            )));
-            context.logger().info("Automated host close requested via WINDOW_CLOSING");
+            final HostCloseRoute route = hostCloseRoute(
+                System.getProperty("turboism.validation.hostVersion")
+            );
+            if (route == HostCloseRoute.ROBOT_ALT_F4) {
+                pressAltF4(new java.awt.Robot());
+                context.logger().info("Automated host close requested via Alt+F4");
+            } else {
+                SwingUtilities.invokeLater(() -> target.dispatchEvent(new java.awt.event.WindowEvent(
+                    target, java.awt.event.WindowEvent.WINDOW_CLOSING
+                )));
+                context.logger().info("Automated host close requested via WINDOW_CLOSING");
+            }
             final HostCloseDecision decision = awaitHostCloseConfirmation(target);
             if (decision == HostCloseDecision.CLEAN_CLOSE) {
                 context.logger().info(
@@ -2619,6 +2647,16 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             }
         } catch (Exception failure) {
             context.logger().error("Automated host close request or confirmation handling failed", failure);
+        }
+    }
+
+    private static void pressAltF4(final java.awt.Robot robot) {
+        robot.keyPress(java.awt.event.KeyEvent.VK_ALT);
+        try {
+            robot.keyPress(java.awt.event.KeyEvent.VK_F4);
+        } finally {
+            robot.keyRelease(java.awt.event.KeyEvent.VK_F4);
+            robot.keyRelease(java.awt.event.KeyEvent.VK_ALT);
         }
     }
 
