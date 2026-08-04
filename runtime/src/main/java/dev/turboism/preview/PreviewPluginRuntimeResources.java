@@ -1,12 +1,15 @@
 package dev.turboism.preview;
 
 import dev.turboism.adapter.host.RuntimeHostAdapterAccess;
+import dev.turboism.adapter.cubism.lifecycle.EditorLifecycleCoordinator;
+import dev.turboism.adapter.cubism.lifecycle.EditorObjectHookRegistry;
+import dev.turboism.adapter.cubism.lifecycle.EditorObjectLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.ParameterHookRegistry;
 import dev.turboism.adapter.cubism.lifecycle.ParameterLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.PartHookRegistry;
 import dev.turboism.adapter.cubism.lifecycle.PartLifecycleCoordinator;
-import dev.turboism.adapter.cubism.lifecycle.EditorObjectHookRegistry;
-import dev.turboism.adapter.cubism.lifecycle.EditorObjectLifecycleCoordinator;
+import dev.turboism.adapter.cubism.lifecycle.ProjectFileLifecycleCoordinator;
+import dev.turboism.adapter.cubism.lifecycle.ProjectLifecycleHookRegistry;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.failure.RuntimeFailureCollector;
 import dev.turboism.hostread.SharedAsyncHostReadLane;
@@ -35,7 +38,9 @@ record PreviewPluginRuntimeResources(
         final List<LocalPluginRuntime.LoadedPlugin> loaded,
         final ParameterLifecycleCoordinator parameterLifecycle,
         final PartLifecycleCoordinator partLifecycle,
-        final EditorObjectLifecycleCoordinator editorObjectLifecycle
+        final EditorObjectLifecycleCoordinator editorObjectLifecycle,
+        final ProjectFileLifecycleCoordinator projectFileLifecycle,
+        final EditorLifecycleCoordinator editorLifecycleEvents
     ) {
         final Path normalizedHome = Objects.requireNonNull(home, "home").toAbsolutePath().normalize();
         final SharedAsyncHostReadLane lane = new SharedAsyncHostReadLane(32);
@@ -52,9 +57,15 @@ record PreviewPluginRuntimeResources(
         final EditorObjectHookRegistry editorObjectHookRegistry = new EditorObjectHookRegistry(
             Objects.requireNonNull(editorObjectLifecycle, "editorObjectLifecycle")
         );
+        final ProjectLifecycleHookRegistry projectLifecycleHookRegistry =
+            new ProjectLifecycleHookRegistry(
+                Objects.requireNonNull(projectFileLifecycle, "projectFileLifecycle"),
+                Objects.requireNonNull(editorLifecycleEvents, "editorLifecycleEvents")
+            );
         return assemble(
             normalizedHome, runtimeScheduler, runtimeHostAccess, lane, runtimeLog, collector,
-            pluginCloseHook, loaded, parameterHookRegistry, partHookRegistry, editorObjectHookRegistry
+            pluginCloseHook, loaded, parameterHookRegistry, partHookRegistry,
+            editorObjectHookRegistry, projectLifecycleHookRegistry
         );
     }
 
@@ -69,7 +80,8 @@ record PreviewPluginRuntimeResources(
         final List<LocalPluginRuntime.LoadedPlugin> loaded,
         final ParameterHookRegistry parameterHookRegistry,
         final PartHookRegistry partHookRegistry,
-        final EditorObjectHookRegistry editorObjectHookRegistry
+        final EditorObjectHookRegistry editorObjectHookRegistry,
+        final ProjectLifecycleHookRegistry projectLifecycleHookRegistry
     ) {
         final dev.turboism.pluginmanagement.RuntimePluginManagementService pluginManagement =
             new dev.turboism.pluginmanagement.RuntimePluginManagementService(home, () -> loaded.stream()
@@ -102,12 +114,14 @@ record PreviewPluginRuntimeResources(
             lane, failureCollector,
             new PreviewPluginLoadCoordinator(
                 home, home.resolve("plugins"), contextFactory, log, loaded,
-                parameterHookRegistry, partHookRegistry, editorObjectHookRegistry
+                parameterHookRegistry, partHookRegistry, editorObjectHookRegistry,
+                projectLifecycleHookRegistry
             ),
             new PreviewPluginShutdown(
                 log,
                 Objects.requireNonNull(pluginCloseHook, "pluginCloseHook"),
-                parameterHookRegistry, partHookRegistry, editorObjectHookRegistry
+                parameterHookRegistry, partHookRegistry, editorObjectHookRegistry,
+                projectLifecycleHookRegistry
             ),
             pluginManagement,
             contextFactory,

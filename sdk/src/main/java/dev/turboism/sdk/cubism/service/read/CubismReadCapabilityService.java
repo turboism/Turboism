@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.service.read;
 
+import dev.turboism.sdk.cubism.AnimationSnapshot;
 import dev.turboism.sdk.cubism.ArtMeshSnapshot;
 import dev.turboism.sdk.cubism.ClipMaskSnapshot;
 import dev.turboism.sdk.cubism.DeformerSnapshot;
@@ -7,6 +8,7 @@ import dev.turboism.sdk.cubism.DocumentSnapshot;
 import dev.turboism.sdk.cubism.ModelObjectSnapshot;
 import dev.turboism.sdk.cubism.ModelSnapshot;
 import dev.turboism.sdk.cubism.ParameterSnapshot;
+import dev.turboism.sdk.cubism.ProjectContentSnapshot;
 import dev.turboism.sdk.cubism.ProjectSnapshot;
 import dev.turboism.sdk.cubism.PsdDocumentSnapshot;
 import dev.turboism.sdk.cubism.RenderStatusSnapshot;
@@ -30,7 +32,28 @@ public interface CubismReadCapabilityService {
 
     Optional<DocumentSnapshot> activeDocument();
 
+    /** Model owned by the active MODEL document only. */
     Optional<ModelSnapshot> activeModel();
+
+    /** Animation file owning the active ANIMATION_SCENE document. */
+    default Optional<AnimationSnapshot> activeAnimation() {
+        return activeDocument().flatMap(DocumentSnapshot::animation);
+    }
+
+    /** Active layered image/PSD document, when applicable. */
+    default Optional<DocumentSnapshot> activeImageDocument() {
+        return activeDocument().filter(DocumentSnapshot::isImageDocument);
+    }
+
+    /** Project entry owning the active document. */
+    default Optional<ProjectContentSnapshot> activeProjectContent() {
+        final Optional<DocumentSnapshot> document = activeDocument();
+        if (document.isEmpty() || document.orElseThrow().contentId().isEmpty()) {
+            return Optional.empty();
+        }
+        final String contentId = document.orElseThrow().contentId().orElseThrow();
+        return activeProject().flatMap(project -> project.content(contentId));
+    }
 
     SelectionSnapshot selection();
 

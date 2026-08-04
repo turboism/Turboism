@@ -3,6 +3,7 @@ package dev.turboism.adapter.cubism;
 import dev.turboism.adapter.ui.AdapterHostException;
 import dev.turboism.adapter.ui.HostUiVersionCheck;
 import dev.turboism.adapter.ui.SafeModeDiagnostic;
+import dev.turboism.sdk.cubism.DocumentSnapshot;
 import dev.turboism.sdk.cubism.ProjectSnapshot;
 import dev.turboism.sdk.cubism.WorkspaceSnapshot;
 import dev.turboism.sdk.hostread.ProjectWorkspaceSnapshot;
@@ -18,10 +19,13 @@ import java.util.function.Supplier;
 public interface ProjectWorkspaceAdapter {
 
     String PROJECT_CAPABILITY_ID = "cubism.project.read";
+    String DOCUMENT_CAPABILITY_ID = PROJECT_CAPABILITY_ID;
     String WORKSPACE_CAPABILITY_ID = "cubism.workspace.read";
     String ADAPTER_SLICE_ID = "adapter.project-workspace.readonly";
 
     AdapterResult<Optional<ProjectSnapshot>> activeProject();
+
+    AdapterResult<Optional<DocumentSnapshot>> activeDocument();
 
     AdapterResult<Optional<WorkspaceSnapshot>> workspace();
 
@@ -34,6 +38,10 @@ public interface ProjectWorkspaceAdapter {
         boolean supportsProjectWorkspaceRead();
 
         Optional<ProjectSnapshot> activeProject();
+
+        default Optional<DocumentSnapshot> activeDocument() {
+            return Optional.empty();
+        }
 
         Optional<WorkspaceSnapshot> workspace();
     }
@@ -79,6 +87,16 @@ public interface ProjectWorkspaceAdapter {
         public AdapterResult<Optional<ProjectSnapshot>> activeProject() {
             return host.map(ops -> callIfSupported(ops, PROJECT_CAPABILITY_ID, ops::activeProject))
                 .orElseGet(unavailable(PROJECT_CAPABILITY_ID));
+        }
+
+        @Override
+        public AdapterResult<Optional<DocumentSnapshot>> activeDocument() {
+            return host.map(ops -> callIfSupported(
+                    ops,
+                    DOCUMENT_CAPABILITY_ID,
+                    ops::activeDocument
+                ))
+                .orElseGet(unavailable(DOCUMENT_CAPABILITY_ID));
         }
 
         @Override

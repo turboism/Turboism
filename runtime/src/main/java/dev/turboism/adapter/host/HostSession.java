@@ -1,9 +1,11 @@
 package dev.turboism.adapter.host;
 
 import dev.turboism.adapter.RuntimeHostAdapters;
+import dev.turboism.adapter.cubism.lifecycle.EditorLifecycleCoordinator;
+import dev.turboism.adapter.cubism.lifecycle.EditorObjectLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.ParameterLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.PartLifecycleCoordinator;
-import dev.turboism.adapter.cubism.lifecycle.EditorObjectLifecycleCoordinator;
+import dev.turboism.adapter.cubism.lifecycle.ProjectFileLifecycleCoordinator;
 import dev.turboism.adapter.cubism.physics.PhysicsEditorCoordinator;
 import dev.turboism.sdk.event.EventBus;
 import dev.turboism.ui.action.RuntimeEditorUiActionRouter;
@@ -43,6 +45,10 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         new PartLifecycleCoordinator();
     private final EditorObjectLifecycleCoordinator editorObjectLifecycle =
         new EditorObjectLifecycleCoordinator();
+    private final ProjectFileLifecycleCoordinator projectFileLifecycle =
+        new ProjectFileLifecycleCoordinator();
+    private final EditorLifecycleCoordinator editorLifecycleEvents =
+        new EditorLifecycleCoordinator();
     private final PhysicsEditorCoordinator physicsEditorCoordinator =
         new PhysicsEditorCoordinator();
     private final RuntimeEditorUiHostLifecycle editorUiLifecycle =
@@ -306,6 +312,16 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     }
 
     @Override
+    public ProjectFileLifecycleCoordinator projectFileLifecycle() {
+        return projectFileLifecycle;
+    }
+
+    @Override
+    public EditorLifecycleCoordinator editorLifecycleEvents() {
+        return editorLifecycleEvents;
+    }
+
+    @Override
     public PhysicsEditorCoordinator physicsEditorCoordinator() {
         return physicsEditorCoordinator;
     }
@@ -399,6 +415,8 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             parameterLifecycle,
             partLifecycle,
             editorObjectLifecycle,
+            projectFileLifecycle,
+            editorLifecycleEvents,
             physicsEditorCoordinator,
             editorUiLifecycle,
             editorUiContributions,
@@ -435,6 +453,8 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             sceneTableHost.disconnect();
             controlAppearanceCoordinator.close();
             physicsEditorCoordinator.close();
+            editorLifecycleEvents.close();
+            projectFileLifecycle.close();
             editorObjectLifecycle.close();
             partLifecycle.close();
             parameterLifecycle.close();

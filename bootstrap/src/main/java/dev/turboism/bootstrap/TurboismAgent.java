@@ -26,6 +26,8 @@ public final class TurboismAgent {
     private static final AtomicReference<PreviewRuntime> RUNTIME = new AtomicReference<>();
     private static final AtomicReference<VerifiedParameterHookInstaller> PARAMETER_HOOK =
         new AtomicReference<>();
+    private static final AtomicReference<VerifiedProjectLifecycleHookInstaller>
+        PROJECT_LIFECYCLE_HOOK = new AtomicReference<>();
     private static final AtomicReference<VerifiedDockTabPopupHookInstaller> DOCK_TAB_POPUP_HOOK =
         new AtomicReference<>();
     private static final AtomicReference<VerifiedFloatingFrameDisposeHookInstaller> FLOATING_FRAME_DISPOSE_HOOK =
@@ -183,6 +185,7 @@ public final class TurboismAgent {
                 return;
             }
             installParameterHook(runtime, instrumentation, host);
+            installProjectLifecycleHook(runtime, instrumentation, host);
             installDockTabPopupHook(
                 embeddedPanelVerificationRecord,
                 instrumentation,
@@ -271,6 +274,37 @@ public final class TurboismAgent {
         } catch (Throwable failure) {
             if (installer != null) installer.close();
             runtimeWarn("Turboism parameter hook disabled safely: " + failure.getClass().getName());
+        }
+    }
+
+    private static void installProjectLifecycleHook(
+        final PreviewRuntime runtime,
+        final Instrumentation instrumentation,
+        final HostClassLocator.LocatedHost host
+    ) {
+        VerifiedProjectLifecycleHookInstaller installer = null;
+        try {
+            final var profile =
+                dev.turboism.adapter.cubism.lifecycle.ProjectLifecycleHostProfile.forArtifact(
+                    HostArtifactDigest.from(host.artifact())
+                ).orElseThrow(() -> new IllegalStateException(
+                    "Unsupported project lifecycle host artifact"
+                ));
+            installer = new VerifiedProjectLifecycleHookInstaller(
+                instrumentation,
+                host.classLoader(),
+                profile,
+                runtime.hostAccess().projectFileLifecycle(),
+                runtime.hostAccess().editorLifecycleEvents()
+            );
+            installer.install();
+            if (!PROJECT_LIFECYCLE_HOOK.compareAndSet(null, installer)) installer.close();
+        } catch (Throwable failure) {
+            if (installer != null) installer.close();
+            runtimeWarn(
+                "Turboism project lifecycle hook disabled safely: "
+                    + failure.getClass().getName()
+            );
         }
     }
 
@@ -601,6 +635,15 @@ public final class TurboismAgent {
                 floatingTabCloseHook.close();
             } catch (Throwable failure) {
                 System.err.println("Turboism floating-tab close hook cleanup failed safely");
+            }
+        }
+        final VerifiedProjectLifecycleHookInstaller projectLifecycleHook =
+            PROJECT_LIFECYCLE_HOOK.getAndSet(null);
+        if (projectLifecycleHook != null) {
+            try {
+                projectLifecycleHook.close();
+            } catch (Throwable failure) {
+                runtimeWarn("Turboism project lifecycle hook cleanup failed safely");
             }
         }
         final VerifiedParameterHookInstaller parameterHook = PARAMETER_HOOK.getAndSet(null);
