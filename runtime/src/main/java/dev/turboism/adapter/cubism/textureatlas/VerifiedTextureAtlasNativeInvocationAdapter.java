@@ -55,10 +55,8 @@ final class VerifiedTextureAtlasNativeInvocationAdapter {
     static final String DIALOG_INIT = "cubism.texture-atlas.dialog.init";
     static final String STATISTICS_VIEW_INIT = "cubism.texture-atlas.statistics.view-init";
     static final String STATISTICS_VIEW_DATA_MODEL = "cubism.texture-atlas.statistics.view-data-model";
-    static final String STATISTICS_VIEW_IMAGE_LIST = "cubism.texture-atlas.statistics.view-image-list";
-    static final String STATISTICS_IMAGE_LIST_ITEMS = "cubism.texture-atlas.statistics.image-list.items";
-    static final String STATISTICS_LIST_SELECTED = "cubism.texture-atlas.statistics.list-selected";
-    static final String STATISTICS_IMAGE_ENTRY_IMAGE = "cubism.texture-atlas.statistics.image-entry.image";
+    static final String STATISTICS_DATA_MODEL_CURRENT_PAGE = "cubism.texture-atlas.statistics.data-model.current-page";
+    static final String STATISTICS_PAGE_STATE_ATLAS = "cubism.texture-atlas.statistics.page-state.atlas";
 
     private final VerifiedMemberResolver resolver;
 
