@@ -342,6 +342,8 @@ if [ "$dry_run" = 1 ]; then
   for index in "${!resolved_plugins[@]}"; do
     printf 'plugin.%s=%s\n' "$index" "${resolved_plugins[$index]}"
   done
+  printf 'turboismAgent.javaToolOption=-javaagent:%s=home=%s;timeoutSeconds=%s\n' \
+    "$(z_path "$task_dir/turboism-agent.jar")" "$(z_path "$home_dir")" "$agent_timeout"
   for index in "${!resolved_aux_agents[@]}"; do
     local_path="${resolved_aux_agents[$index]%%:*}"
     remote_name="${resolved_aux_agents[$index]#*:}"
@@ -350,8 +352,6 @@ if [ "$dry_run" = 1 ]; then
     printf 'auxAgent.%s.sha256=%s\n' "$index" "$(sha256_file "$local_path")"
     printf 'auxAgent.%s.javaToolOption=-javaagent:%s\n' "$index" "$(z_path "$task_dir/agents/$remote_name")"
   done
-  printf 'turboismAgent.javaToolOption=-javaagent:%s=home=%s;timeoutSeconds=%s\n' \
-    "$(z_path "$task_dir/turboism-agent.jar")" "$(z_path "$home_dir")" "$agent_timeout"
   for index in "${!jvm_options[@]}"; do
     printf 'jvmOption.%s=%s\n' "$index" "${jvm_options[$index]}"
   done
@@ -634,12 +634,12 @@ all_jvm_options=(
   "-Dturboism.home=$win_home"
   "-Dturboism.validation.runId=$task_id"
 )
+all_jvm_options+=("-javaagent:$win_agent=home=$win_home;timeoutSeconds=$agent_timeout")
 for spec in "${resolved_aux_agents[@]}"; do
   remote_name="${spec#*:}"
   win_aux_agent="$(z_path "$task_dir/agents/$remote_name")"
   all_jvm_options+=("-javaagent:$win_aux_agent")
 done
-all_jvm_options+=("-javaagent:$win_agent=home=$win_home;timeoutSeconds=$agent_timeout")
 for option in "${jvm_options[@]}"; do
   option="${option//\{TASK_ID\}/$task_id}"
   option="${option//\{HOME\}/$win_home}"
