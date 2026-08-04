@@ -24,6 +24,7 @@ public final class EditorNativeControlAppearanceWriteSelectorContract {
         "cubism.editor-model.complete-pack.update-deformer-palette",
         "cubism.editor-model.complete-pack.repaint-canvas",
         "cubism.editor-model.modeling-document.edit-mode",
+        "cubism.editor-model.model-source.update-instances",
         "cubism.editor-model.modeling-document.mark-dirty",
         "cubism.editor-model.edit-mode.begin",
         "cubism.editor-model.edit-mode.end",
