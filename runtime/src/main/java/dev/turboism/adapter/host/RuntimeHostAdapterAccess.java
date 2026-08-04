@@ -57,6 +57,8 @@ public sealed interface RuntimeHostAdapterAccess permits HostSession, SessionRun
     ControlAppearanceCoordinator controlAppearanceCoordinator();
 
     NativeControlAppearanceAuthoring nativeControlAppearance();
+
+    dev.turboism.ui.workspace.WorkspaceCoordinator workspaceCoordinator();
 }
 
 /** Non-closeable adapter view used when lifecycle ownership remains with bootstrap ingress. */
@@ -82,6 +84,7 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     private final dev.turboism.sdk.ui.table.SceneTableService sceneTable;
     private final ControlAppearanceCoordinator controlAppearanceCoordinator;
     private final NativeControlAppearanceAuthoring nativeControlAppearance;
+    private final dev.turboism.ui.workspace.WorkspaceCoordinator workspaceCoordinator;
     SessionRuntimeHostAdapterAccess(
         final RuntimeHostAdapters adapters,
         final CubismModelAccess modelAccess,
@@ -102,7 +105,8 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
         final AppearanceCoordinator appearanceCoordinator,
         final dev.turboism.sdk.ui.table.SceneTableService sceneTable,
         final ControlAppearanceCoordinator controlAppearanceCoordinator,
-        final NativeControlAppearanceAuthoring nativeControlAppearance
+        final NativeControlAppearanceAuthoring nativeControlAppearance,
+        final dev.turboism.ui.workspace.WorkspaceCoordinator workspaceCoordinator
     ) {
         this.adapters = java.util.Objects.requireNonNull(adapters, "adapters");
         this.modelAccess = java.util.Objects.requireNonNull(modelAccess, "modelAccess");
@@ -159,6 +163,10 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
         this.nativeControlAppearance = java.util.Objects.requireNonNull(
             nativeControlAppearance,
             "nativeControlAppearance"
+        );
+        this.workspaceCoordinator = java.util.Objects.requireNonNull(
+            workspaceCoordinator,
+            "workspaceCoordinator"
         );
     }
 
@@ -261,5 +269,10 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     @Override
     public NativeControlAppearanceAuthoring nativeControlAppearance() {
         return nativeControlAppearance;
+    }
+
+    @Override
+    public dev.turboism.ui.workspace.WorkspaceCoordinator workspaceCoordinator() {
+        return workspaceCoordinator;
     }
 }
