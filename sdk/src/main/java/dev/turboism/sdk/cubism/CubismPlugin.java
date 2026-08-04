@@ -6,6 +6,7 @@ import dev.turboism.sdk.cubism.hook.DrawableHooks;
 import dev.turboism.sdk.cubism.hook.DeformerHooks;
 import dev.turboism.sdk.cubism.hook.ParameterHooks;
 import dev.turboism.sdk.cubism.hook.PartHooks;
+import dev.turboism.sdk.cubism.hook.SemanticOperationHooks;
 import dev.turboism.sdk.plugin.TurboismPlugin;
 
 /**
@@ -22,5 +23,6 @@ public interface CubismPlugin
             PartHooks,
             DrawableHooks,
             DeformerHooks,
-            ModelHooks {
+            ModelHooks,
+            SemanticOperationHooks {
 }
