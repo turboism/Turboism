@@ -1417,6 +1417,11 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             System.getProperty("turboism.home"), "logs", "model-edit-level-validation.txt"
         );
         try {
+            final String callerThread = Thread.currentThread().getName();
+            final boolean callerEdt = SwingUtilities.isEventDispatchThread();
+            if (callerEdt) {
+                throw new IllegalStateException("Model edit-level validation must run off the AWT EDT.");
+            }
             Files.createDirectories(artifact.getParent());
             Files.writeString(
                 artifact,
@@ -1426,21 +1431,21 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             );
             final CubismModel model = awaitEditorObjectModel(artifact);
             final String modelId = onHostThread(() -> model.id().value());
-            final String thread = onHostThread(() -> Thread.currentThread().getName());
-            final ModelEditLevel before = onHostThread(model::editLevel);
+            final ModelEditLevel before = model.editLevel();
             final ModelEditLevel written = before == ModelEditLevel.LEVEL_3
                 ? ModelEditLevel.LEVEL_2
                 : ModelEditLevel.LEVEL_3;
-            onHostThread(() -> { model.setEditLevel(written); return null; });
-            final ModelEditLevel afterWrite = onHostThread(model::editLevel);
-            onHostThread(() -> { model.setEditLevel(before); return null; });
-            final ModelEditLevel restored = onHostThread(model::editLevel);
+            model.setEditLevel(written);
+            final ModelEditLevel afterWrite = model.editLevel();
+            model.setEditLevel(before);
+            final ModelEditLevel restored = model.editLevel();
             final boolean passed = afterWrite == written && restored == before;
             Files.writeString(
                 artifact,
                 "status=" + (passed ? "PASS" : "FAIL") + System.lineSeparator()
                     + "modelId=" + modelId + System.lineSeparator()
-                    + "hostThread=" + thread + System.lineSeparator()
+                    + "callerThread=" + callerThread + System.lineSeparator()
+                    + "callerEdt=" + callerEdt + System.lineSeparator()
                     + "before=" + before + System.lineSeparator()
                     + "written=" + written + System.lineSeparator()
                     + "afterWrite=" + afterWrite + System.lineSeparator()
