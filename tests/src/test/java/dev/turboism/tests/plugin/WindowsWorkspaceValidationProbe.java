@@ -297,6 +297,7 @@ public final class WindowsWorkspaceValidationProbe implements CubismPlugin {
                 stateDir, counts -> counts.allZero(), AUTOMATIC_TIMEOUT
             );
             reportCounts(report, "agent.baselineCounts", baselineCounts);
+            awaitFacadeReadiness(cubism, AUTOMATIC_TIMEOUT);
 
             final CommandResult baselineStatus = executeCommand(
                 workspace, cubism, new Command(1, "status", Optional.empty()), declaredPermissions
@@ -524,6 +525,23 @@ public final class WindowsWorkspaceValidationProbe implements CubismPlugin {
         return workspace.current().toCompletableFuture().get(
             SDK_CALL_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS
         );
+    }
+
+    private static void awaitFacadeReadiness(
+        final CubismFacade cubism,
+        final Duration timeout
+    ) throws InterruptedException {
+        final long deadline = System.nanoTime() + timeout.toNanos();
+        while (System.nanoTime() < deadline) {
+            if (cubism.isHostPresent()
+                    && cubism.activeProject().isPresent()
+                    && cubism.activeDocument().isPresent()
+                    && cubism.activeModel().isPresent()) {
+                return;
+            }
+            Thread.sleep(250L);
+        }
+        throw new IllegalStateException("Cubism facade did not become ready before timeout");
     }
 
     private static WorkspaceOperationResult switchTo(
