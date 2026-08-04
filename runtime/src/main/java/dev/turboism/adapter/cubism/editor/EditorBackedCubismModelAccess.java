@@ -44,6 +44,7 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess, N
     private final EditorModelEditLevelAccess editLevelAccess;
     private final EditorPartOpacityAccess partOpacityAccess;
     private final EditorObjectReadAccess objectReadAccess;
+    private final EditorModelStatisticsAccess statisticsAccess;
     private final Object generationLock = new Object();
     private Object activeDocument;
     private Object activeSource;
@@ -79,6 +80,10 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess, N
             this::requireCurrent
         );
         this.objectReadAccess = new EditorObjectReadAccess(
+            resolver,
+            this::requireCurrent
+        );
+        this.statisticsAccess = new EditorModelStatisticsAccess(
             resolver,
             this::requireCurrent
         );
@@ -634,6 +639,10 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess, N
         }
         @Override public ParameterDefinitions parameterDefinitions() {
             return EditorBackedCubismModelAccess.this.parameterDefinitions(identity, model);
+        }
+        @Override public dev.turboism.sdk.cubism.model.ModelStatistics statistics() {
+            current();
+            return statisticsAccess.statistics(identity, source, model);
         }
         @Override public boolean defaultKeyformLocked() {
             return defaultKeyformLockAccess.locked(identity, source, model);
