@@ -12,23 +12,23 @@ import java.util.Set;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class WorkspaceControlVerificationRecordTest {
-    private static final Path ROOT = Path.of(System.getProperty("user.dir")).getParent();
+    private static final Path ROOT = locateRepositoryRoot();
 
     @Test
     void exactRecordsMatchPinnedWorkspaceControlManifests() throws Exception {
         verify("cubism-5.2-workspace-control.json", "m.workspace-5.2.03.control.static",
             "adapter.workspace.control.v5_2", "5.2.03", "cubism-5.2", 40_805_584L,
             "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
-            "b49e80ca37f3173379551ca33452b10c8869345cf746386174d43a6f11eae759");
+            "8b001802fa672ce2f053ab516af9c38b2a2a08296fc663e9adf352e88c7dbf36");
         verify("cubism-5.3.02-workspace-control.json", "m.workspace-5.3.02.control.static",
             "adapter.workspace.control.v5_3", "5.3.02", "cubism-5.3.02", 41_922_739L,
             "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
-            "7fab462234b9055d2634691424ae7e45e7ac96ea9247da6292c54bb8a32d5619");
+            "7c675de8b23e63e6de14ae6c67403717d3b64fc8eefab54ac4124fffb3633f16");
     }
 
     private static void verify(String file, String verificationId, String slice, String version,
                                String profile, long size, String artifactSha, String recordSha) throws Exception {
-        Path path = ROOT.resolve("docs/migration/verification/static").resolve(file);
+        Path path = ROOT.resolve("cubism-ref/verification").resolve(file);
         JsonNode root = new ObjectMapper().readTree(Files.readString(path));
         assertEquals(recordSha, sha256(path));
         assertEquals(verificationId, root.path("verificationId").asText());
@@ -45,6 +45,17 @@ class WorkspaceControlVerificationRecordTest {
         assertEquals(WorkspaceControlVerificationManifest.REQUIRED_ALIASES, aliases);
         assertEquals(1, root.path("capabilityIds").size());
         assertEquals("cubism.workspace.control", root.path("capabilityIds").get(0).asText());
+    }
+
+    private static Path locateRepositoryRoot() {
+        Path current = Path.of(System.getProperty("user.dir")).toAbsolutePath().normalize();
+        while (current != null && !Files.isRegularFile(current.resolve("settings.gradle.kts"))) {
+            current = current.getParent();
+        }
+        if (current == null) {
+            throw new IllegalStateException("Cannot locate repository root from user.dir");
+        }
+        return current;
     }
 
     private static String sha256(Path path) throws Exception {
