@@ -155,6 +155,23 @@ val buildThemeHostProbe by tasks.registering(Exec::class) {
     commandLine("bash", "validation/theme-host-probe/build.sh")
 }
 
+val buildStatusBarHostProbe by tasks.registering(Exec::class) {
+    group = "host verification"
+    description = "Builds the test-only SDK status-bar host exerciser."
+    dependsOn(":sdk:jar")
+    workingDir(rootDir)
+    commandLine("bash", "validation/status-bar-host-probe/build.sh")
+}
+
+tasks.register<Exec>("validateStatusBarHost5302") {
+    group = "host verification"
+    description = "Runs the automated exact-host Cubism 5.3.02 native status-bar matrix."
+    dependsOn("previewBundle", ":sdk:jar", buildStatusBarHostProbe)
+    workingDir(rootDir)
+    environment("TURBOISM_WORKTREE_ID", resolvedHostValidationWorktreeId)
+    commandLine("bash", "scripts/preview/run-status-bar-host-validation.sh", "5302")
+}
+
 fun registerThemeHostValidation(name: String, version: String, displayVersion: String) {
     tasks.register<Exec>(name) {
         group = "host verification"
