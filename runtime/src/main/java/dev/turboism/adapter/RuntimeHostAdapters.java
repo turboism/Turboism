@@ -11,8 +11,10 @@ import dev.turboism.adapter.ui.ThemeStatusAdapter;
 import dev.turboism.adapter.ui.ThemeStatusAdapterImpl;
 import dev.turboism.adapter.ui.UiSurfaceAdapter;
 import dev.turboism.adapter.ui.UiSurfaceAdapterImpl;
+import dev.turboism.adapter.ui.VerifiedCxStatusBarHostAccess;
 import dev.turboism.mapping.verification.ClipMaskVerificationManifest;
 import dev.turboism.mapping.verification.ProjectWorkspaceVerificationManifest;
+import dev.turboism.mapping.verification.StatusBarVerificationManifest;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 
 import java.util.Objects;
@@ -121,6 +123,39 @@ public record RuntimeHostAdapters(
             clip.clipMaskRead(),
             project.statusToolbar(),
             project.uiSurface()
+        );
+    }
+
+    /**
+     * Replaces only the status-toolbar slot of an existing bundle with the
+     * verified 5.3.02 native status slice; every other adapter is preserved.
+     */
+    static RuntimeHostAdapters withVerifiedStatusBar(
+        final RuntimeHostAdapters base,
+        final VerifiedMemberResolver statusBarResolver
+    ) {
+        Objects.requireNonNull(base, "base");
+        Objects.requireNonNull(statusBarResolver, "statusBarResolver");
+        if (!statusBarResolver.isExactCubismVersion(StatusBarVerificationManifest.CUBISM_VERSION)
+            || !statusBarResolver.authorizes(
+                StatusBarVerificationManifest.ADAPTER_SLICE_ID,
+                StatusBarVerificationManifest.CAPABILITY_IDS,
+                StatusBarVerificationManifest.REQUIRED_ALIASES
+            )) {
+            throw new IllegalArgumentException(
+                "resolver does not authorize the complete status-bar adapter slice"
+            );
+        }
+        return new RuntimeHostAdapters(
+            base.themeStatus(),
+            base.renderStatus(),
+            base.projectWorkspace(),
+            base.clipMaskRead(),
+            StatusToolbarAdapterImpl.connectedVerifiedCx(
+                statusBarResolver.cubismVersion(),
+                new VerifiedCxStatusBarHostAccess(statusBarResolver)
+            ),
+            base.uiSurface()
         );
     }
 }
