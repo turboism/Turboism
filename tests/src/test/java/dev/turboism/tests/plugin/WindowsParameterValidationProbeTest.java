@@ -567,7 +567,10 @@ class WindowsParameterValidationProbeTest {
         final javax.swing.JButton cancel = new javax.swing.JButton();
         cancel.setActionCommand("cancel");
         final javax.swing.JButton discard = new javax.swing.JButton();
-        discard.setActionCommand("doNotSave");
+        discard.setActionCommand("button");
+        discard.setText("不保存");
+        final javax.swing.JButton unknown = new javax.swing.JButton();
+        unknown.setActionCommand("unknown");
 
         assertEquals(
             discard,
@@ -575,7 +578,7 @@ class WindowsParameterValidationProbeTest {
         );
         assertEquals(
             null,
-            WindowsParameterValidationProbe.selectDiscardButton(List.of(save, cancel))
+            WindowsParameterValidationProbe.selectDiscardButton(List.of(save, cancel, unknown))
         );
     }
 
