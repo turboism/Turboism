@@ -28,6 +28,7 @@ import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
 import dev.turboism.sdk.ui.table.SceneTableService;
 import dev.turboism.sdk.ui.appearance.ControlAppearanceRegistry;
+import dev.turboism.sdk.ui.workspace.WorkspaceService;
 
 import java.util.List;
 
@@ -118,6 +119,10 @@ public interface PluginContext {
 
     default ControlAppearanceRegistry controlAppearance() {
         return ControlAppearanceRegistry.unavailable();
+    }
+
+    default WorkspaceService workspace() {
+        return WorkspaceService.unavailable();
     }
 
     default ContextMenuRegistry contextMenu() {
