@@ -19,6 +19,7 @@ Usage:
     --bundle-root <local-directory> \
     --agent <local-agent.jar> \
     --plugin <local.jar[:remote-name.jar]> [--plugin ...] \
+    --aux-agent <local.jar[:remote-name.jar]> [--aux-agent ...] \
     (--fixture-remote <host-path> | --fixture-local <local-path>) \
     [options]
 
@@ -108,6 +109,7 @@ version=''
 bundle_root=''
 agent=''
 plugins=()
+aux_agents=()
 fixture_remote=''
 fixture_local=''
 fixture_sha256=''
@@ -145,6 +147,7 @@ while [ "$#" -gt 0 ]; do
     --bundle-root) require_value "$@"; bundle_root="$2"; shift 2 ;;
     --agent) require_value "$@"; agent="$2"; shift 2 ;;
     --plugin) require_value "$@"; plugins+=("$2"); shift 2 ;;
+    --aux-agent) require_value "$@"; aux_agents+=("$2"); shift 2 ;;
     --fixture-remote) require_value "$@"; fixture_remote="$2"; shift 2 ;;
     --fixture-local) require_value "$@"; fixture_local="$2"; shift 2 ;;
     --fixture-sha256) require_value "$@"; fixture_sha256="$2"; shift 2 ;;
@@ -208,7 +211,8 @@ done
 bundle_root="$(cd "$bundle_root" 2>/dev/null && pwd)" || fail "bundle root does not exist: $bundle_root"
 agent="${agent:-$bundle_root/turboism-agent.jar}"
 [ -f "$agent" ] || fail "agent does not exist: $agent"
-[ "${#plugins[@]}" -gt 0 ] || fail "at least one --plugin is required"
+[ "${#plugins[@]}" -gt 0 ] || [ "${#aux_agents[@]}" -gt 0 ] \
+  || fail "at least one --plugin or --aux-agent is required"
 
 if [ -n "$fixture_remote" ] && [ -n "$fixture_local" ]; then
   fail "use only one of --fixture-remote or --fixture-local"
@@ -254,6 +258,8 @@ for spec in "${plugins[@]}"; do
     local_path="${spec%%:*}"
     remote_name="${spec#*:}"
   fi
+  [ -n "$local_path" ] || fail "plugin path must not be empty"
+  require_safe_text "$local_path" "plugin path"
   [ -f "$local_path" ] || fail "plugin does not exist: $local_path"
   local_path="$(cd "$(dirname "$local_path")" && pwd)/$(basename "$local_path")"
   remote_name="${remote_name:-$(basename "$local_path")}"
@@ -263,6 +269,40 @@ for spec in "${plugins[@]}"; do
   done
   remote_plugin_names+=("$remote_name")
   resolved_plugins+=("$local_path:$remote_name")
+done
+
+resolved_aux_agents=()
+aux_agent_remote_names=()
+for spec in "${aux_agents[@]}"; do
+  local_path="$spec"
+  remote_name=''
+  if [[ "$spec" == *:* ]]; then
+    local_path="${spec%%:*}"
+    remote_name="${spec#*:}"
+    [ -n "$remote_name" ] || fail "aux-agent remote name must not be empty"
+  fi
+  [ -n "$local_path" ] || fail "aux-agent path must not be empty"
+  case "$local_path" in
+    *:*) fail "aux-agent path must not contain ':'; use the optional remote name suffix" ;;
+  esac
+  require_safe_text "$local_path" "aux-agent path"
+  [ -f "$local_path" ] || fail "aux-agent does not exist: $local_path"
+  local_path="$(cd "$(dirname "$local_path")" && pwd)/$(basename "$local_path")"
+  remote_name="${remote_name:-$(basename "$local_path")}"
+  [[ "$remote_name" =~ ^[A-Za-z0-9._-]+$ ]] \
+    || fail "aux-agent remote name must be a simple filename: $remote_name"
+  [ "$remote_name" != "." ] && [ "$remote_name" != ".." ] \
+    || fail "aux-agent remote name must not be . or .."
+  for existing_name in "${aux_agent_remote_names[@]}"; do
+    [ "$existing_name" != "$remote_name" ] \
+      || fail "duplicate aux-agent remote name: $remote_name"
+  done
+  for existing_name in "${remote_plugin_names[@]}"; do
+    [ "$existing_name" != "$remote_name" ] \
+      || fail "aux-agent remote name conflicts with plugin name: $remote_name"
+  done
+  aux_agent_remote_names+=("$remote_name")
+  resolved_aux_agents+=("$local_path:$remote_name")
 done
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -284,10 +324,15 @@ if [ "$dry_run" = 1 ]; then
     "taskId=$task_id" \
     "bundleRoot=$bundle_root" \
     "agent=$agent" \
+    "agentStage=$task_dir/turboism-agent.jar" \
     "fixtureRemote=$fixture_remote" \
     "fixtureLocal=$fixture_local" \
     "taskDir=$task_dir" \
     "homeDir=$home_dir" \
+    "pluginStageDir=$home_dir/plugins" \
+    "auxAgentDir=$task_dir/agents" \
+    "ordinaryPluginCount=${#resolved_plugins[@]}" \
+    "auxAgentCount=${#resolved_aux_agents[@]}" \
     "goldenCubism=$golden_cubism" \
     "clonedCubism=$cloned_cubism" \
     "resultMarker=$result_marker" \
@@ -297,6 +342,16 @@ if [ "$dry_run" = 1 ]; then
   for index in "${!resolved_plugins[@]}"; do
     printf 'plugin.%s=%s\n' "$index" "${resolved_plugins[$index]}"
   done
+  for index in "${!resolved_aux_agents[@]}"; do
+    local_path="${resolved_aux_agents[$index]%%:*}"
+    remote_name="${resolved_aux_agents[$index]#*:}"
+    printf 'auxAgent.%s=%s\n' "$index" "${resolved_aux_agents[$index]}"
+    printf 'auxAgent.%s.remotePath=%s\n' "$index" "$task_dir/agents/$remote_name"
+    printf 'auxAgent.%s.sha256=%s\n' "$index" "$(sha256_file "$local_path")"
+    printf 'auxAgent.%s.javaToolOption=-javaagent:%s\n' "$index" "$(z_path "$task_dir/agents/$remote_name")"
+  done
+  printf 'turboismAgent.javaToolOption=-javaagent:%s=home=%s;timeoutSeconds=%s\n' \
+    "$(z_path "$task_dir/turboism-agent.jar")" "$(z_path "$home_dir")" "$agent_timeout"
   for index in "${!jvm_options[@]}"; do
     printf 'jvmOption.%s=%s\n' "$index" "${jvm_options[$index]}"
   done
@@ -304,6 +359,20 @@ if [ "$dry_run" = 1 ]; then
 fi
 
 [ -f "$ssh_key" ] || fail "SSH key does not exist: $ssh_key"
+
+if [ "${TURBOISM_HOST_VALIDATION_LOCK_FILE+x}" = x ]; then
+  [ -n "$TURBOISM_HOST_VALIDATION_LOCK_FILE" ] \
+    || fail "TURBOISM_HOST_VALIDATION_LOCK_FILE must not be empty"
+  lock_file="$TURBOISM_HOST_VALIDATION_LOCK_FILE"
+else
+  lock_file="${TMPDIR:-/tmp}/turboism-cubism-host-validation.lock"
+fi
+if ! exec {lock_fd}>>"$lock_file"; then
+  fail "cannot open host validation lock file: $lock_file"
+fi
+if ! flock -n "$lock_fd"; then
+  fail "host validation lock is busy: $lock_file"
+fi
 ssh_cmd=(ssh -i "$ssh_key" -o IdentitiesOnly=yes -o ConnectTimeout=10)
 scp_cmd=(scp -i "$ssh_key" -o IdentitiesOnly=yes)
 local_tmp="$(mktemp -d)"
@@ -316,9 +385,13 @@ remote_process_alive() {
 }
 
 remote_stop_process_tree() {
-  "${ssh_cmd[@]}" "$ssh_host" "bash -s -- '$evidence_dir/wrapper.pid'" <<'REMOTE' || true
+  "${ssh_cmd[@]}" "$ssh_host" "bash -s -- '$evidence_dir/wrapper.pid' '$prefix_dir/pfx' '$proton_runner'" <<'REMOTE' || true
 set -euo pipefail
 pid_file="$1"
+wine_prefix="$2"
+proton_runner="$3"
+wineserver="$(dirname "$proton_runner")/files/bin/wineserver"
+[ ! -x "$wineserver" ] || WINEPREFIX="$wine_prefix" "$wineserver" -k 2>/dev/null || true
 [ -s "$pid_file" ] || exit 0
 root="$(cat "$pid_file")"
 kill_tree() {
@@ -358,7 +431,7 @@ REMOTE
 }
 
 verify_staged_artifacts() {
-  local actual expected spec local_path remote_name
+  local phase="$1" actual expected spec local_path remote_name
   expected="$(sha256_file "$agent")"
   actual="$("${ssh_cmd[@]}" "$ssh_host" "sha256sum '$task_dir/turboism-agent.jar' | cut -d' ' -f1")"
   [ "$actual" = "$expected" ] || fail "staged agent hash mismatch"
@@ -369,6 +442,21 @@ verify_staged_artifacts() {
     actual="$("${ssh_cmd[@]}" "$ssh_host" "sha256sum '$home_dir/plugins/$remote_name' | cut -d' ' -f1")"
     [ "$actual" = "$expected" ] || fail "staged plugin hash mismatch: $remote_name"
   done
+  if [ "${#resolved_aux_agents[@]}" -gt 0 ]; then
+    local aux_hash_file
+    aux_hash_file="$local_tmp/aux-agent-hashes-$phase.properties"
+    : > "$aux_hash_file"
+    for index in "${!resolved_aux_agents[@]}"; do
+      local_path="${resolved_aux_agents[$index]%%:*}"
+      remote_name="${resolved_aux_agents[$index]#*:}"
+      expected="$(sha256_file "$local_path")"
+      actual="$("${ssh_cmd[@]}" "$ssh_host" "sha256sum '$task_dir/agents/$remote_name' | cut -d' ' -f1")"
+      printf 'auxAgent.%s.name=%s\n' "$index" "$remote_name" >> "$aux_hash_file"
+      printf 'auxAgent.%s.localSha256=%s\n' "$index" "$expected" >> "$aux_hash_file"
+      printf 'auxAgent.%s.stagedSha256=%s\n' "$index" "$actual" >> "$aux_hash_file"
+      [ "$actual" = "$expected" ] || fail "staged aux-agent hash mismatch: $remote_name"
+    done
+  fi
 }
 
 collect_evidence() {
@@ -489,7 +577,7 @@ log "creating task directory and CoW prefix clone"
 "${ssh_cmd[@]}" "$ssh_host" "bash -s -- '$task_dir' '$home_dir' '$evidence_dir' '$golden_prefix' '$prefix_dir' '$cloned_cubism' '$reviewed_jar_sha256'" <<'REMOTE'
 set -euo pipefail
 task="$1"; home="$2"; evidence="$3"; golden="$4"; prefix="$5"; cubism="$6"; reviewed="$7"
-mkdir -p "$task" "$home/plugins" "$home/state" "$home/logs" "$evidence"
+mkdir -p "$task" "$task/agents" "$home/plugins" "$home/state" "$home/logs" "$evidence"
 cp -a --reflink=always "$golden" "$prefix"
 rm -f "$prefix/pfx.lock"
 test -d "$prefix/pfx/drive_c/windows"
@@ -509,7 +597,18 @@ for spec in "${resolved_plugins[@]}"; do
   remote_name="${spec#*:}"
   "${scp_cmd[@]}" "$local_path" "$ssh_host:$home_dir/plugins/$remote_name"
 done
-verify_staged_artifacts
+for spec in "${resolved_aux_agents[@]}"; do
+  local_path="${spec%%:*}"
+  remote_name="${spec#*:}"
+  "${scp_cmd[@]}" "$local_path" "$ssh_host:$task_dir/agents/$remote_name"
+done
+verify_staged_artifacts before
+if [ "${#resolved_aux_agents[@]}" -gt 0 ]; then
+  cat "$local_tmp/aux-agent-hashes-before.properties" >> "$identity_before"
+  "${scp_cmd[@]}" "$identity_before" "$ssh_host:$evidence_dir/identity-before.properties"
+  "${scp_cmd[@]}" "$local_tmp/aux-agent-hashes-before.properties" \
+    "$ssh_host:$evidence_dir/aux-agent-hashes-before.properties"
+fi
 if [ -n "$fixture_remote" ]; then
   "${ssh_cmd[@]}" "$ssh_host" "cp --reflink=auto -- '$fixture_remote' '$fixture_path'"
 else
@@ -534,8 +633,13 @@ all_jvm_options=(
   '--add-exports=java.base/jdk.internal.org.objectweb.asm.commons=ALL-UNNAMED'
   "-Dturboism.home=$win_home"
   "-Dturboism.validation.runId=$task_id"
-  "-javaagent:$win_agent=home=$win_home;timeoutSeconds=$agent_timeout"
 )
+for spec in "${resolved_aux_agents[@]}"; do
+  remote_name="${spec#*:}"
+  win_aux_agent="$(z_path "$task_dir/agents/$remote_name")"
+  all_jvm_options+=("-javaagent:$win_aux_agent")
+done
+all_jvm_options+=("-javaagent:$win_agent=home=$win_home;timeoutSeconds=$agent_timeout")
 for option in "${jvm_options[@]}"; do
   option="${option//\{TASK_ID\}/$task_id}"
   option="${option//\{HOME\}/$win_home}"
@@ -567,7 +671,7 @@ SH
 "${ssh_cmd[@]}" "$ssh_host" "chmod 700 '$task_dir/launch.sh'"
 
 log "launching exact Cubism $version through official BAT"
-"${ssh_cmd[@]}" "$ssh_host" "cd '$task_dir' && nohup ./launch.sh </dev/null >/dev/null 2>&1 & echo \$! > '$evidence_dir/wrapper.pid'"
+"${ssh_cmd[@]}" "$ssh_host" "cd '$task_dir' || exit 1; nohup ./launch.sh </dev/null >/dev/null 2>&1 & pid=\$!; printf '%s\n' \"\$pid\" > '$evidence_dir/wrapper.pid'"
 launched=1
 
 log_file=''
@@ -633,7 +737,11 @@ remote_process_alive && fail "launcher did not exit within ${exit_timeout}s"
 
 wrapper_exit="$("${ssh_cmd[@]}" "$ssh_host" "cat '$evidence_dir/wrapper.exit' 2>/dev/null || true")"
 [ "$wrapper_exit" = 0 ] || fail "official launcher exited with code ${wrapper_exit:-missing}"
-verify_staged_artifacts
+verify_staged_artifacts after
+if [ "${#resolved_aux_agents[@]}" -gt 0 ]; then
+  "${scp_cmd[@]}" "$local_tmp/aux-agent-hashes-after.properties" \
+    "$ssh_host:$evidence_dir/aux-agent-hashes-after.properties"
+fi
 
 source_after_sha256=''
 if [ -n "$fixture_remote" ]; then
