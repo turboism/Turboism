@@ -7,7 +7,7 @@ public final class EditorModelVerificationManifest {
 
     public static final String VERIFICATION_ID = "cubism-5.3.02.editor-model.static";
     public static final String RECORD_SHA256 =
-        "87e4621ea26f8839345e3a50d6432eee18e7ba05b5a8ee967fadaad65660ecb0";
+        "8f021a8adf238eb39c65ef435e5ac39c12829a362fb0ba1a092e8b8a7042435a";
     public static final String CUBISM_VERSION = "5.3.02";
     public static final String PROFILE_ID = "cubism-5.3.02";
     public static final long ARTIFACT_SIZE = 41_922_739L;
@@ -31,6 +31,7 @@ public final class EditorModelVerificationManifest {
         EditorPartBasicSettingsSelectorContract.READ_CAPABILITY_ID,
         EditorPartBasicSettingsSelectorContract.WRITE_CAPABILITY_ID,
         EditorObjectReadSelectorContract.CAPABILITY_ID,
+        EditorObjectReadSelectorContract.STATISTICS_CAPABILITY_ID,
         EditorObjectWriteSelectorContract.ART_MESH_CAPABILITY_ID,
         EditorObjectWriteSelectorContract.WARP_CAPABILITY_ID,
         EditorObjectWriteSelectorContract.ROTATION_CAPABILITY_ID,
@@ -186,6 +187,7 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.part-source.set-edit-color",
         "cubism.editor-model.part-source.create-undo-for-basic-settings",
         "cubism.editor-model.part-source.parent",
+        "cubism.editor-model.part-source.use-offscreen",
         "cubism.editor-model.part-source.handler",
         "cubism.editor-model.part-handler.class",
         "cubism.editor-model.part-handler.create-undo-for-all-edit",
@@ -219,6 +221,8 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.art-mesh-source.inverted-mask",
         "cubism.editor-model.art-mesh-source.guid",
         "cubism.editor-model.art-mesh-source.clip-guid-list",
+        "cubism.editor-model.art-mesh-source.texture",
+        "cubism.editor-model.texture.guid",
         "cubism.editor-model.model-source.all-glues",
         "cubism.editor-model.glue-source.class",
         "cubism.editor-model.glue-source.target-art-mesh-a",
@@ -429,6 +433,7 @@ public final class EditorModelVerificationManifest {
     private static Set<String> cubism52Aliases() {
         final java.util.HashSet<String> values = new java.util.HashSet<>(REQUIRED_ALIASES);
         values.removeAll(PART_OPACITY_ADDITIVE_ALIASES);
+        values.removeAll(EditorObjectReadSelectorContract.OFFSCREEN_STATISTICS_ALIASES);
         values.addAll(EditorPartOpacity52SelectorContract.REQUIRED_ALIASES);
         values.addAll(PART_NAME_ADDITIVE_ALIASES);
         values.addAll(Set.of(
