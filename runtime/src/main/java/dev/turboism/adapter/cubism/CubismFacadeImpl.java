@@ -19,6 +19,8 @@ import dev.turboism.sdk.cubism.DocumentSnapshot;
 import dev.turboism.sdk.cubism.ModelSnapshot;
 import dev.turboism.sdk.cubism.ProjectSnapshot;
 import dev.turboism.sdk.cubism.SelectionSnapshot;
+import dev.turboism.sdk.cubism.event.CubismOperation;
+import dev.turboism.sdk.cubism.event.CubismOperationOrigin;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.Parameter;
@@ -34,6 +36,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.BooleanSupplier;
+import java.util.function.Supplier;
 
 public final class CubismFacadeImpl implements CubismFacade {
 
@@ -648,7 +651,12 @@ public final class CubismFacadeImpl implements CubismFacade {
         }
         @Override public void setDefaultKeyformLocked(final boolean locked) {
             requireModelWrite("model.setDefaultKeyformLocked");
-            delegate.setDefaultKeyformLocked(locked);
+            runSemantic(
+                CubismOperation.SET_MODEL_DEFAULT_KEYFORM_LOCKED,
+                id().value(),
+                delegate::defaultKeyformLocked,
+                () -> delegate.setDefaultKeyformLocked(locked)
+            );
         }
         @Override public dev.turboism.sdk.cubism.model.ModelEditLevel editLevel() {
             requireModelRead("model.editLevel");
@@ -735,39 +743,68 @@ public final class CubismFacadeImpl implements CubismFacade {
             final dev.turboism.sdk.cubism.model.ParameterBindingOperations operations =
                 delegate.parameterBindings(Objects.requireNonNull(parameterId, "parameterId"));
             return new dev.turboism.sdk.cubism.model.ParameterBindingOperations() {
-                private void write(final String operation, final Runnable mutation) {
+                private void write(
+                    final CubismOperation semanticOperation,
+                    final String operation,
+                    final Runnable mutation
+                ) {
                     requireModelWrite(operation);
-                    mutation.run();
+                    runSemantic(
+                        semanticOperation,
+                        parameterId.value(),
+                        () -> bindingSnapshot(parameterId),
+                        mutation
+                    );
                 }
                 @Override public void bind(
                     final dev.turboism.sdk.cubism.model.ParameterBindingTarget target,
                     final List<dev.turboism.sdk.cubism.model.ParameterBindingPoint> points
                 ) {
-                    write("model.parameterBindings.bind", () -> operations.bind(target, points));
+                    write(
+                        CubismOperation.BIND_PARAMETER,
+                        "model.parameterBindings.bind",
+                        () -> operations.bind(target, points)
+                    );
                 }
                 @Override public void createPoint(
                     final dev.turboism.sdk.cubism.model.ParameterBindingTarget target,
                     final dev.turboism.sdk.cubism.model.ParameterBindingPoint point
                 ) {
-                    write("model.parameterBindings.createPoint", () -> operations.createPoint(target, point));
+                    write(
+                        CubismOperation.CREATE_PARAMETER_BINDING_POINT,
+                        "model.parameterBindings.createPoint",
+                        () -> operations.createPoint(target, point)
+                    );
                 }
                 @Override public void movePoint(
                     final dev.turboism.sdk.cubism.model.ParameterBindingTarget target,
                     final dev.turboism.sdk.cubism.id.ParameterBindingPointId pointId,
                     final float value
                 ) {
-                    write("model.parameterBindings.movePoint", () -> operations.movePoint(target, pointId, value));
+                    write(
+                        CubismOperation.MOVE_PARAMETER_BINDING_POINT,
+                        "model.parameterBindings.movePoint",
+                        () -> operations.movePoint(target, pointId, value)
+                    );
                 }
                 @Override public void deletePoint(
                     final dev.turboism.sdk.cubism.model.ParameterBindingTarget target,
                     final dev.turboism.sdk.cubism.id.ParameterBindingPointId pointId
                 ) {
-                    write("model.parameterBindings.deletePoint", () -> operations.deletePoint(target, pointId));
+                    write(
+                        CubismOperation.DELETE_PARAMETER_BINDING_POINT,
+                        "model.parameterBindings.deletePoint",
+                        () -> operations.deletePoint(target, pointId)
+                    );
                 }
                 @Override public void unbind(
                     final dev.turboism.sdk.cubism.model.ParameterBindingTarget target
                 ) {
-                    write("model.parameterBindings.unbind", () -> operations.unbind(target));
+                    write(
+                        CubismOperation.UNBIND_PARAMETER,
+                        "model.parameterBindings.unbind",
+                        () -> operations.unbind(target)
+                    );
                 }
             };
         }
@@ -780,13 +817,23 @@ public final class CubismFacadeImpl implements CubismFacade {
                     final List<dev.turboism.sdk.cubism.model.ParameterBindingTarget> targets
                 ) {
                     requireModelWrite("model.parameterBindingBatch.invert");
-                    operations.invert(targets);
+                    runSemantic(
+                        CubismOperation.INVERT_PARAMETER_BINDINGS,
+                        id().value(),
+                        PermissionCheckedModel.this::allBindingSnapshot,
+                        () -> operations.invert(targets)
+                    );
                 }
                 @Override public void transfer(
                     final dev.turboism.sdk.cubism.model.ParameterBindingTransferPlan plan
                 ) {
                     requireModelWrite("model.parameterBindingBatch.transfer");
-                    operations.transfer(plan);
+                    runSemantic(
+                        CubismOperation.TRANSFER_PARAMETER_BINDINGS,
+                        id().value(),
+                        PermissionCheckedModel.this::allBindingSnapshot,
+                        () -> operations.transfer(plan)
+                    );
                 }
             };
         }
@@ -926,7 +973,19 @@ public final class CubismFacadeImpl implements CubismFacade {
         }
         @Override public void update() {
             requireModelWrite("model.update");
-            delegate.update();
+            runSemanticConfirmed(CubismOperation.UPDATE_MODEL, id().value(), delegate::update);
+        }
+
+        private List<dev.turboism.sdk.cubism.model.ParameterBinding> bindingSnapshot(
+            final dev.turboism.sdk.cubism.id.ParameterId parameterId
+        ) {
+            return List.copyOf(delegate.parameters().find(parameterId).getParameterBindings());
+        }
+
+        private List<dev.turboism.sdk.cubism.model.ParameterBinding> allBindingSnapshot() {
+            return delegate.parameters().all().stream()
+                .flatMap(parameter -> parameter.getParameterBindings().stream())
+                .toList();
         }
     }
 
@@ -978,7 +1037,12 @@ public final class CubismFacadeImpl implements CubismFacade {
         }
         @Override public void setVisible(final boolean visible) {
             requireModelWrite("artMesh.setVisible");
-            editorObjectLifecycle.drawable().setVisible(this, visible, delegate::setVisible);
+            runSemantic(
+                CubismOperation.SET_DRAWABLE_VISIBLE,
+                id().value(),
+                delegate::visible,
+                () -> editorObjectLifecycle.drawable().setVisible(this, visible, delegate::setVisible)
+            );
         }
         @Override public boolean locked() {
             requireModelRead("artMesh.locked");
@@ -986,7 +1050,12 @@ public final class CubismFacadeImpl implements CubismFacade {
         }
         @Override public void setLocked(final boolean locked) {
             requireModelWrite("artMesh.setLocked");
-            editorObjectLifecycle.drawable().setLocked(this, locked, delegate::setLocked);
+            runSemantic(
+                CubismOperation.SET_DRAWABLE_LOCKED,
+                id().value(),
+                delegate::locked,
+                () -> editorObjectLifecycle.drawable().setLocked(this, locked, delegate::setLocked)
+            );
         }
         @Override public boolean visibleInHierarchy() {
             requireModelRead("artMesh.visibleInHierarchy");
@@ -1026,7 +1095,12 @@ public final class CubismFacadeImpl implements CubismFacade {
         }
         @Override public void setOpacity(final float opacity) {
             requireModelWrite("artMesh.setOpacity");
-            editorObjectLifecycle.drawable().setOpacity(this, opacity, delegate::setOpacity);
+            runSemantic(
+                CubismOperation.SET_DRAWABLE_OPACITY,
+                id().value(),
+                delegate::getOpacity,
+                () -> editorObjectLifecycle.drawable().setOpacity(this, opacity, delegate::setOpacity)
+            );
         }
         @Override public dev.turboism.sdk.cubism.model.ArtMeshGeometry geometry() {
             requireModelRead("artMesh.geometry");
@@ -1036,7 +1110,16 @@ public final class CubismFacadeImpl implements CubismFacade {
             final dev.turboism.sdk.cubism.model.ArtMeshGeometry geometry
         ) {
             requireModelWrite("artMesh.replaceGeometry");
-            editorObjectLifecycle.drawable().replaceGeometry(this, geometry, delegate::replaceGeometry);
+            runSemantic(
+                CubismOperation.REPLACE_DRAWABLE_GEOMETRY,
+                id().value(),
+                delegate::geometry,
+                () -> editorObjectLifecycle.drawable().replaceGeometry(
+                    this,
+                    geometry,
+                    delegate::replaceGeometry
+                )
+            );
         }
         @Override public dev.turboism.sdk.cubism.model.IntSequence masks() {
             requireModelRead("artMesh.masks");
@@ -1118,19 +1201,34 @@ public final class CubismFacadeImpl implements CubismFacade {
         @Override public boolean visible() { requireModelRead("deformer.visible"); return delegate.visible(); }
         @Override public void setVisible(final boolean visible) {
             requireModelWrite("deformer.setVisible");
-            editorObjectLifecycle.deformer().setVisible(this, visible, delegate::setVisible);
+            runSemantic(
+                CubismOperation.SET_DEFORMER_VISIBLE,
+                id().value(),
+                delegate::visible,
+                () -> editorObjectLifecycle.deformer().setVisible(this, visible, delegate::setVisible)
+            );
         }
         @Override public boolean locked() { requireModelRead("deformer.locked"); return delegate.locked(); }
         @Override public void setLocked(final boolean locked) {
             requireModelWrite("deformer.setLocked");
-            editorObjectLifecycle.deformer().setLocked(this, locked, delegate::setLocked);
+            runSemantic(
+                CubismOperation.SET_DEFORMER_LOCKED,
+                id().value(),
+                delegate::locked,
+                () -> editorObjectLifecycle.deformer().setLocked(this, locked, delegate::setLocked)
+            );
         }
         @Override public boolean visibleInHierarchy() { requireModelRead("deformer.visibleInHierarchy"); return delegate.visibleInHierarchy(); }
         @Override public boolean lockedInHierarchy() { requireModelRead("deformer.lockedInHierarchy"); return delegate.lockedInHierarchy(); }
         @Override public float getOpacity() { requireModelRead("deformer.getOpacity"); return delegate.getOpacity(); }
         @Override public void setOpacity(final float opacity) {
             requireModelWrite("deformer.setOpacity");
-            editorObjectLifecycle.deformer().setOpacity(this, opacity, delegate::setOpacity);
+            runSemantic(
+                CubismOperation.SET_DEFORMER_OPACITY,
+                id().value(),
+                delegate::getOpacity,
+                () -> editorObjectLifecycle.deformer().setOpacity(this, opacity, delegate::setOpacity)
+            );
         }
         @Override public dev.turboism.sdk.cubism.model.Color multiplyColor() {
             requireModelRead("deformer.multiplyColor");
@@ -1164,7 +1262,12 @@ public final class CubismFacadeImpl implements CubismFacade {
         @Override public dev.turboism.sdk.cubism.model.WarpGrid grid() { requireModelRead("warpDeformer.grid"); return warp.grid(); }
         @Override public void replaceGrid(final dev.turboism.sdk.cubism.model.WarpGrid grid) {
             requireModelWrite("warpDeformer.replaceGrid");
-            editorObjectLifecycle.deformer().replaceGrid(this, grid, warp::replaceGrid);
+            runSemantic(
+                CubismOperation.REPLACE_WARP_DEFORMER_GRID,
+                id().value(),
+                warp::grid,
+                () -> editorObjectLifecycle.deformer().replaceGrid(this, grid, warp::replaceGrid)
+            );
         }
     }
 
@@ -1180,7 +1283,12 @@ public final class CubismFacadeImpl implements CubismFacade {
         @Override public float baseAngle() { requireModelRead("rotationDeformer.baseAngle"); return rotation.baseAngle(); }
         @Override public void setBaseAngle(final float angle) {
             requireModelWrite("rotationDeformer.setBaseAngle");
-            editorObjectLifecycle.deformer().setBaseAngle(this, angle, rotation::setBaseAngle);
+            runSemantic(
+                CubismOperation.SET_ROTATION_DEFORMER_BASE_ANGLE,
+                id().value(),
+                rotation::baseAngle,
+                () -> editorObjectLifecycle.deformer().setBaseAngle(this, angle, rotation::setBaseAngle)
+            );
         }
         @Override public dev.turboism.sdk.cubism.model.RotationDeformerForm form() {
             requireModelRead("rotationDeformer.form");
@@ -1190,8 +1298,58 @@ public final class CubismFacadeImpl implements CubismFacade {
             final dev.turboism.sdk.cubism.model.RotationDeformerForm form
         ) {
             requireModelWrite("rotationDeformer.replaceForm");
-            editorObjectLifecycle.deformer().replaceForm(this, form, rotation::replaceForm);
+            runSemantic(
+                CubismOperation.REPLACE_ROTATION_DEFORMER_FORM,
+                id().value(),
+                rotation::form,
+                () -> editorObjectLifecycle.deformer().replaceForm(this, form, rotation::replaceForm)
+            );
         }
+    }
+
+    private <T> void runSemantic(
+        final CubismOperation operation,
+        final String subjectId,
+        final Supplier<T> state,
+        final Runnable invocation
+    ) {
+        editorObjectLifecycle.semantic().runComparing(
+            operation,
+            CubismOperationOrigin.TURBOISM_API,
+            Optional.of(subjectId),
+            state,
+            invocation
+        );
+    }
+
+    private <T> void runSemanticComparingTo(
+        final CubismOperation operation,
+        final String subjectId,
+        final Supplier<T> state,
+        final T finalState,
+        final Runnable invocation
+    ) {
+        editorObjectLifecycle.semantic().runComparingTo(
+            operation,
+            CubismOperationOrigin.TURBOISM_API,
+            Optional.of(subjectId),
+            state,
+            finalState,
+            invocation
+        );
+    }
+
+    private void runSemanticConfirmed(
+        final CubismOperation operation,
+        final String subjectId,
+        final Runnable invocation
+    ) {
+        editorObjectLifecycle.semantic().runConfirmed(
+            operation,
+            CubismOperationOrigin.TURBOISM_API,
+            Optional.of(subjectId),
+            invocation
+        );
     }
 
     private final class PermissionCheckedGlue implements dev.turboism.sdk.cubism.model.Glue {
@@ -1303,11 +1461,21 @@ public final class CubismFacadeImpl implements CubismFacade {
             final dev.turboism.sdk.cubism.id.ParameterId partnerId
         ) {
             requireModelWrite("parameter.combineWith");
-            delegate.combineWith(partnerId);
+            runSemantic(
+                CubismOperation.COMBINE_PARAMETER,
+                id().value(),
+                delegate::combinedWith,
+                () -> delegate.combineWith(partnerId)
+            );
         }
         @Override public void uncombine() {
             requireModelWrite("parameter.uncombine");
-            delegate.uncombine();
+            runSemantic(
+                CubismOperation.UNCOMBINE_PARAMETER,
+                id().value(),
+                delegate::combinedWith,
+                delegate::uncombine
+            );
         }
         @Override public float getValue() { requireModelRead("parameter.getValue"); return delegate.getValue(); }
         @Override public float getMinimumValue() { requireModelRead("parameter.getMinimumValue"); return delegate.getMinimumValue(); }
@@ -1315,17 +1483,65 @@ public final class CubismFacadeImpl implements CubismFacade {
         @Override public float getDefaultValue() { requireModelRead("parameter.getDefaultValue"); return delegate.getDefaultValue(); }
         @Override public void resetToDefault() {
             requireModelWrite("parameter.resetToDefault");
-            parameterLifecycle.setValue(this, delegate.getDefaultValue(), delegate::setValue);
+            runSemantic(
+                CubismOperation.RESET_PARAMETER_TO_DEFAULT,
+                id().value(),
+                delegate::getValue,
+                () -> parameterLifecycle.setValue(
+                    this,
+                    delegate.getDefaultValue(),
+                    delegate::setValue
+                )
+            );
         }
         @Override public void setValue(final float value) {
             requireModelWrite("parameter.setValue");
-            parameterLifecycle.setValue(this, value, delegate::setValue);
+            runSemantic(
+                CubismOperation.SET_PARAMETER_VALUE,
+                id().value(),
+                delegate::getValue,
+                () -> parameterLifecycle.setValue(this, value, delegate::setValue)
+            );
         }
         @Override public void updateDefinition(
             final dev.turboism.sdk.cubism.model.ParameterDefinition definition
         ) {
             requireModelWrite("parameter.updateDefinition");
-            delegate.updateDefinition(definition);
+            final dev.turboism.sdk.cubism.model.ParameterDefinition requested =
+                Objects.requireNonNull(definition, "definition");
+            runSemanticComparingTo(
+                CubismOperation.UPDATE_PARAMETER_DEFINITION,
+                id().value(),
+                this::definitionState,
+                definitionState(requested),
+                () -> delegate.updateDefinition(requested)
+            );
+        }
+
+        private List<?> definitionState() {
+            return List.of(
+                delegate.id(),
+                delegate.name(),
+                delegate.type(),
+                delegate.repeat(),
+                delegate.getMinimumValue(),
+                delegate.getDefaultValue(),
+                delegate.getMaximumValue()
+            );
+        }
+
+        private List<?> definitionState(
+            final dev.turboism.sdk.cubism.model.ParameterDefinition definition
+        ) {
+            return List.of(
+                definition.id(),
+                Optional.of(definition.name()),
+                definition.type(),
+                Optional.of(definition.repeat()),
+                definition.minimumValue(),
+                definition.defaultValue(),
+                definition.maximumValue()
+            );
         }
     }
 
@@ -1414,13 +1630,23 @@ public final class CubismFacadeImpl implements CubismFacade {
         @Override public String name() { requireModelRead("part.name"); return delegate.name(); }
         @Override public void setName(final String name) {
             requireModelWrite("part.setName");
-            partLifecycle.setName(this, name, delegate::setName);
+            runSemantic(
+                CubismOperation.SET_PART_NAME,
+                id().value(),
+                delegate::name,
+                () -> partLifecycle.setName(this, name, delegate::setName)
+            );
         }
         @Override public float getOpacity() { requireModelRead("part.getOpacity"); return delegate.getOpacity(); }
         @Override public int parentIndex() { requireModelRead("part.parentIndex"); return delegate.parentIndex(); }
         @Override public void setOpacity(final float opacity) {
             requireModelWrite("part.setOpacity");
-            partLifecycle.setOpacity(this, opacity, delegate::setOpacity);
+            runSemantic(
+                CubismOperation.SET_PART_OPACITY,
+                id().value(),
+                delegate::getOpacity,
+                () -> partLifecycle.setOpacity(this, opacity, delegate::setOpacity)
+            );
         }
     }
 }
