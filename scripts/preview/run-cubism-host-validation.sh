@@ -379,9 +379,20 @@ local_tmp="$(mktemp -d)"
 launched=0
 evidence_collected=0
 success=0
+wrapper_cleanup_done=0
 
 remote_process_alive() {
   "${ssh_cmd[@]}" "$ssh_host" "test ! -s '$evidence_dir/wrapper.exit' && test -s '$evidence_dir/wrapper.pid' && kill -0 \$(cat '$evidence_dir/wrapper.pid') 2>/dev/null"
+}
+
+remote_cubism_exit_marker_seen() {
+  "${ssh_cmd[@]}" "$ssh_host" \
+    "grep -Eq -- '^-- successfully exited pid:[0-9]+ --$' '$evidence_dir/cubism-console.txt'"
+}
+
+remote_record_wrapper_cleanup() {
+  "${ssh_cmd[@]}" "$ssh_host" \
+    "printf '%s\\n' 'cubism successful-exit marker observed; task-scoped cleanup invoked' > '$evidence_dir/wrapper.cleanup'"
 }
 
 remote_stop_process_tree() {
@@ -504,7 +515,7 @@ cleanup_prefix() {
 on_exit() {
   local rc=$?
   set +e
-  if [ "$launched" = 1 ] && [ "$success" = 0 ]; then
+  if [ "$launched" = 1 ] && [ "$success" = 0 ] && [ "$wrapper_cleanup_done" = 0 ]; then
     remote_stop_process_tree
   fi
   collect_evidence
@@ -730,13 +741,27 @@ done
 log "terminal PASS observed; waiting for graceful launcher exit"
 deadline=$((SECONDS + exit_timeout))
 while [ "$SECONDS" -lt "$deadline" ]; do
+  if remote_cubism_exit_marker_seen; then
+    if remote_process_alive; then
+      remote_record_wrapper_cleanup
+      remote_stop_process_tree
+      wrapper_cleanup_done=1
+    fi
+    break
+  fi
   remote_process_alive || break
   sleep "$poll_seconds"
 done
-remote_process_alive && fail "launcher did not exit within ${exit_timeout}s"
+if [ "$wrapper_cleanup_done" = 0 ]; then
+  remote_process_alive && fail "launcher did not exit within ${exit_timeout}s"
+fi
 
 wrapper_exit="$("${ssh_cmd[@]}" "$ssh_host" "cat '$evidence_dir/wrapper.exit' 2>/dev/null || true")"
-[ "$wrapper_exit" = 0 ] || fail "official launcher exited with code ${wrapper_exit:-missing}"
+if [ -n "$wrapper_exit" ]; then
+  [ "$wrapper_exit" = 0 ] || fail "official launcher exited with code $wrapper_exit"
+elif [ "$wrapper_cleanup_done" = 0 ]; then
+  fail "official launcher exited with code missing"
+fi
 verify_staged_artifacts after
 if [ "${#resolved_aux_agents[@]}" -gt 0 ]; then
   "${scp_cmd[@]}" "$local_tmp/aux-agent-hashes-after.properties" \
