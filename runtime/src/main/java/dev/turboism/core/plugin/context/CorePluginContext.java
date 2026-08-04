@@ -441,6 +441,17 @@ public final class CorePluginContext implements PluginContext {
             this.dependencies.cubismAuditSink(),
             this.dependencies.clock()
         ));
+        this.workspaceService = hostAccess == null
+            ? dev.turboism.sdk.ui.workspace.WorkspaceService.unavailable()
+            : new dev.turboism.ui.workspace.RuntimeWorkspaceService(
+                uiPermissionChecker,
+                hostAccess.workspaceCoordinator()
+            );
+        if (hostAccess != null) {
+            this.dependencies.disposableScope().register(
+                (dev.turboism.ui.workspace.RuntimeWorkspaceService) this.workspaceService
+            );
+        }
         this.uiHostCapabilityService = hostAccess == null
             ? new RuntimeUiHostCapabilityService(
                 uiPermissionChecker,

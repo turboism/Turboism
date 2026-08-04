@@ -226,7 +226,7 @@ class StaticVerificationRecordRepositoryTest {
             "98f4dac9a9508a6e255f6f3862608409a83e29c9009a7f0fcf517e06658164e4",
             "b68770af94b43bafa92bbe06a3cb2017f89ed5d561c3bb08447d3eeca89d06d0",
             74, "[5.3.02,5.3.03)")
-    )))))));
+    ))))));
 
     private static Map<String, SliceExpectation> withWorkspaceControl(
         final Map<String, SliceExpectation> existing
@@ -237,7 +237,7 @@ class StaticVerificationRecordRepositoryTest {
             workspaceControlExpectation(
                 "5.2", "5.2.03", 40_805_584L,
                 "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
-                "b49e80ca37f3173379551ca33452b10c8869345cf746386174d43a6f11eae759",
+                "8b001802fa672ce2f053ab516af9c38b2a2a08296fc663e9adf352e88c7dbf36",
                 "m.workspace-5.2.03.control.static", "adapter.workspace.control.v5_2",
                 "[5.2.0,5.3.0)"
             )
@@ -247,7 +247,7 @@ class StaticVerificationRecordRepositoryTest {
             workspaceControlExpectation(
                 "5.3.02", "5.3.02", 41_922_739L,
                 "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
-                "7fab462234b9055d2634691424ae7e45e7ac96ea9247da6292c54bb8a32d5619",
+                "7c675de8b23e63e6de14ae6c67403717d3b64fc8eefab54ac4124fffb3633f16",
                 "m.workspace-5.3.02.control.static", "adapter.workspace.control.v5_3",
                 "[5.3.02,5.3.03)"
             )
