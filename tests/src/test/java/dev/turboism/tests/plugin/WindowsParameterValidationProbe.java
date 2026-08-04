@@ -2700,12 +2700,6 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         if (decision == HostCloseDecision.UNSUPPORTED_CONFIRMATION) {
             return CloseDialogHandling.UNSUPPORTED;
         }
-        if (optionPane != null
-            && (optionType == JOptionPane.YES_NO_OPTION
-                || optionType == JOptionPane.YES_NO_CANCEL_OPTION)) {
-            SwingUtilities.invokeAndWait(() -> optionPane.setValue(JOptionPane.NO_OPTION));
-            return CloseDialogHandling.DISCARDED;
-        }
         final JButton discard = selectDiscardButton(state.buttons());
         if (discard == null) {
             return CloseDialogHandling.UNSUPPORTED;
@@ -2768,7 +2762,11 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         return matchesDiscardValue(button.getActionCommand())
             || matchesDiscardValue(button.getName())
             || matchesDiscardValue(button.getText())
-            || matchesDiscardValue(accessibleName(button));
+            || matchesDiscardValue(accessibleName(button))
+            || matchesNoButtonValue(button.getActionCommand())
+            || matchesNoButtonValue(button.getName())
+            || matchesNoButtonValue(button.getText())
+            || matchesNoButtonValue(accessibleName(button));
     }
 
     private static String accessibleName(final JButton button) {
@@ -2800,6 +2798,11 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             || normalized.contains("捨棄")
             || normalized.contains("保存しない")
             || normalized.contains("セーブしない");
+    }
+
+    private static boolean matchesNoButtonValue(final String value) {
+        return value != null
+            && value.strip().matches("(?i)no\\s*\\(\\s*[_&]?n\\s*\\)");
     }
 
     private static String buttonMetadata(final JButton button) {
