@@ -72,6 +72,7 @@ public final class CorePluginContext implements PluginContext {
     private final UserFileAccessService userFileAccessService;
     private final AsyncHostReadService asyncHostReadService;
     private final ControlAppearanceRegistry controlAppearanceRegistry;
+    private final dev.turboism.sdk.ui.workspace.WorkspaceService workspaceService;
 
     private final SceneTableService sceneTableService;
     private dev.turboism.sdk.runtime.RuntimeSettingsService runtimeSettings;
@@ -630,6 +631,11 @@ public final class CorePluginContext implements PluginContext {
     @Override
     public ControlAppearanceRegistry controlAppearance() {
         return controlAppearanceRegistry;
+    }
+
+    @Override
+    public dev.turboism.sdk.ui.workspace.WorkspaceService workspace() {
+        return workspaceService;
     }
 
     @Override
