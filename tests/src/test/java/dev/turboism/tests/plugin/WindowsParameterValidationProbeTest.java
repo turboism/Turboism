@@ -560,6 +560,25 @@ class WindowsParameterValidationProbeTest {
         );
     }
 
+    @Test
+    void automatedHostCloseSelectsDiscardActionInsteadOfCancel() {
+        final javax.swing.JButton save = new javax.swing.JButton();
+        save.setActionCommand("save");
+        final javax.swing.JButton cancel = new javax.swing.JButton();
+        cancel.setActionCommand("cancel");
+        final javax.swing.JButton discard = new javax.swing.JButton();
+        discard.setActionCommand("doNotSave");
+
+        assertEquals(
+            discard,
+            WindowsParameterValidationProbe.selectDiscardButton(List.of(save, cancel, discard))
+        );
+        assertEquals(
+            null,
+            WindowsParameterValidationProbe.selectDiscardButton(List.of(save, cancel))
+        );
+    }
+
     @org.junit.jupiter.api.io.TempDir
     java.nio.file.Path saveTemp;
 
