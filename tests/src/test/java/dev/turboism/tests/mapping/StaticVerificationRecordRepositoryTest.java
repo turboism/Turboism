@@ -19,6 +19,7 @@ import dev.turboism.mapping.schema.MappingPackValidator;
 import dev.turboism.mapping.verification.EmbeddedPanelVerificationManifest;
 import dev.turboism.mapping.verification.MainToolbarVerificationManifest;
 import dev.turboism.mapping.verification.TopMenuVerificationManifest;
+import dev.turboism.mapping.verification.WorkspaceControlVerificationManifest;
 import dev.turboism.mapping.verification.BoundingBoxOverlayButtonVerificationManifest;
 import dev.turboism.mapping.verification.ProjectWorkspaceVerificationManifest;
 import dev.turboism.mapping.verification.StaticVerificationRecordValidator;
@@ -44,7 +45,7 @@ class StaticVerificationRecordRepositoryTest {
     );
     private static final Path RECORDS = PROJECT_ROOT.resolve("cubism-ref/verification");
 
-    private static final Map<String, SliceExpectation> EXPECTATIONS = withControlAppearance53(withBoundingBoxOverlays(withTopMenus(withEmbeddedPanels(Map.of(
+    private static final Map<String, SliceExpectation> EXPECTATIONS = withWorkspaceControl(withControlAppearance53(withBoundingBoxOverlays(withTopMenus(withEmbeddedPanels(Map.of(
         "cubism-ref/verification/cubism-5.2-project-workspace.json",
         new SliceExpectation(
             "m15.cubism-5.2.project-workspace.static",
@@ -225,7 +226,51 @@ class StaticVerificationRecordRepositoryTest {
             "98f4dac9a9508a6e255f6f3862608409a83e29c9009a7f0fcf517e06658164e4",
             "b68770af94b43bafa92bbe06a3cb2017f89ed5d561c3bb08447d3eeca89d06d0",
             74, "[5.3.02,5.3.03)")
-    )))));
+    ))))));
+
+    private static Map<String, SliceExpectation> withWorkspaceControl(
+        final Map<String, SliceExpectation> existing
+    ) {
+        final LinkedHashMap<String, SliceExpectation> expectations = new LinkedHashMap<>(existing);
+        expectations.put(
+            "cubism-ref/verification/cubism-5.2-workspace-control.json",
+            workspaceControlExpectation(
+                "5.2", "5.2.03", 40_805_584L,
+                "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
+                "8b001802fa672ce2f053ab516af9c38b2a2a08296fc663e9adf352e88c7dbf36",
+                "m.workspace-5.2.03.control.static", "adapter.workspace.control.v5_2",
+                "[5.2.0,5.3.0)"
+            )
+        );
+        expectations.put(
+            "cubism-ref/verification/cubism-5.3.02-workspace-control.json",
+            workspaceControlExpectation(
+                "5.3.02", "5.3.02", 41_922_739L,
+                "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+                "7c675de8b23e63e6de14ae6c67403717d3b64fc8eefab54ac4124fffb3633f16",
+                "m.workspace-5.3.02.control.static", "adapter.workspace.control.v5_3",
+                "[5.3.02,5.3.03)"
+            )
+        );
+        return Map.copyOf(expectations);
+    }
+
+    private static SliceExpectation workspaceControlExpectation(
+        String profile, String version, long size, String artifactSha, String recordSha,
+        String verificationId, String sliceId, String range
+    ) {
+        final Set<String> aliases = WorkspaceControlVerificationManifest.REQUIRED_ALIASES;
+        return new SliceExpectation(
+            verificationId, sliceId, version, "cubism-" + profile,
+            Set.of(WorkspaceControlVerificationManifest.CAPABILITY_ID), "Live2D_Cubism.jar",
+            size, artifactSha, recordSha, aliases.size(), aliases, aliases,
+            difference(aliases, Set.of("workspace.app.class")), Set.of("workspace.app.class"),
+            "cubism-" + profile + "-workspace-control",
+            Path.of("cubism-ref/mapping-packs/draft/cubism-" + profile + "-workspace-control.json"),
+            Path.of("cubism-ref/profiles/draft/cubism-" + profile + ".json"),
+            range, SliceKind.EDITOR_UI
+        );
+    }
 
     private static Map<String, SliceExpectation> withEmbeddedPanels(
         final Map<String, SliceExpectation> existing
