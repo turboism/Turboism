@@ -7,7 +7,7 @@ public final class EditorModelVerificationManifest {
 
     public static final String VERIFICATION_ID = "cubism-5.3.02.editor-model.static";
     public static final String RECORD_SHA256 =
-        "04ac9bc7d2c2a42b1837bf7d8515e44b8e7ed1a34f0c7bac051b1b739e1c6f10";
+        "5b3576efe874c5b115e98765c5be6aab386b32878790343b9df5c8eebcd4076f";
     public static final String CUBISM_VERSION = "5.3.02";
     public static final String PROFILE_ID = "cubism-5.3.02";
     public static final long ARTIFACT_SIZE = 41_922_739L;
@@ -31,6 +31,7 @@ public final class EditorModelVerificationManifest {
         EditorPartBasicSettingsSelectorContract.READ_CAPABILITY_ID,
         EditorPartBasicSettingsSelectorContract.WRITE_CAPABILITY_ID,
         EditorObjectReadSelectorContract.CAPABILITY_ID,
+        EditorObjectReadSelectorContract.STATISTICS_CAPABILITY_ID,
         EditorObjectWriteSelectorContract.ART_MESH_CAPABILITY_ID,
         EditorObjectWriteSelectorContract.WARP_CAPABILITY_ID,
         EditorObjectWriteSelectorContract.ROTATION_CAPABILITY_ID,
@@ -94,6 +95,7 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.parameter-palette-view.class",
         "cubism.editor-model.parameter-palette-view.operation",
         "cubism.editor-model.parameter-operation.class",
+        "cubism.editor-model.parameter-operation.rows",
         "cubism.editor-model.parameter-operation.set-value",
         "cubism.editor-model.complete-pack.update-parameter",
         "cubism.editor-model.complete-pack.repaint-canvas",
@@ -189,6 +191,7 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.part-source.set-edit-color",
         "cubism.editor-model.part-source.create-undo-for-basic-settings",
         "cubism.editor-model.part-source.parent",
+        "cubism.editor-model.part-source.use-offscreen",
         "cubism.editor-model.part-source.handler",
         "cubism.editor-model.part-handler.class",
         "cubism.editor-model.part-handler.create-undo-for-all-edit",
@@ -222,6 +225,8 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.art-mesh-source.inverted-mask",
         "cubism.editor-model.art-mesh-source.guid",
         "cubism.editor-model.art-mesh-source.clip-guid-list",
+        "cubism.editor-model.art-mesh-source.texture",
+        "cubism.editor-model.texture.guid",
         "cubism.editor-model.model-source.all-glues",
         "cubism.editor-model.glue-source.class",
         "cubism.editor-model.glue-source.target-art-mesh-a",
@@ -432,6 +437,7 @@ public final class EditorModelVerificationManifest {
     private static Set<String> cubism52Aliases() {
         final java.util.HashSet<String> values = new java.util.HashSet<>(REQUIRED_ALIASES);
         values.removeAll(PART_OPACITY_ADDITIVE_ALIASES);
+        values.removeAll(EditorObjectReadSelectorContract.OFFSCREEN_STATISTICS_ALIASES);
         values.addAll(EditorPartOpacity52SelectorContract.REQUIRED_ALIASES);
         values.addAll(PART_NAME_ADDITIVE_ALIASES);
         values.addAll(Set.of(

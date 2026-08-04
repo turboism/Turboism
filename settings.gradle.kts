@@ -7,6 +7,7 @@ include(
     "plugins:demo",
     "plugins:ui-theme",
     "plugins:log-filter",
+    "plugins:cubism-tab-filter",
     "plugins:core",
     "plugins:perf-opt",
     "plugins:render-opt",

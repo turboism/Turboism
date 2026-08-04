@@ -37,6 +37,7 @@ public final class ParameterControlAppearanceProvider implements AutoCloseable {
         if (!javax.swing.SwingUtilities.isEventDispatchThread()) return;
         bindings.removeIf(binding -> binding.component().get() == component);
         bindings.add(new Binding(kind, id, new WeakReference<>(component)));
+        coordinator.bindParameterControl(kind == Kind.FOLDER, id, component);
         apply(kind, id, component);
     }
 
@@ -68,6 +69,12 @@ public final class ParameterControlAppearanceProvider implements AutoCloseable {
         try { changeSubscription.close(); } catch (Exception ignored) { }
         final Runnable action = () -> {
             styles.restoreAll();
+            for (Binding binding : bindings) {
+                final Component component = binding.component().get();
+                if (component != null) {
+                    coordinator.unbindParameterControl(component);
+                }
+            }
             bindings.clear();
         };
         if (javax.swing.SwingUtilities.isEventDispatchThread()) action.run();
