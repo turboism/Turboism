@@ -88,6 +88,15 @@ public final class TurboismAgent {
             return;
         }
 
+        try {
+            Runtime.getRuntime().addShutdownHook(
+                new Thread(TurboismAgent::shutdown, "turboism-shutdown")
+            );
+        } catch (IllegalStateException | SecurityException failure) {
+            System.err.println("Turboism agent start rejected: shutdown hook is unavailable");
+            return;
+        }
+
         final StartupSuppressionInstaller.Installation startupSuppression =
             StartupSuppressionInstaller.install(
                 attachmentMode,
@@ -174,6 +183,12 @@ public final class TurboismAgent {
                 options.home(),
                 "cubism-" + profile + "-ui-bounding-box-overlay.json"
             );
+            final Optional<Path> statusBarVerificationRecord = "5.3.02".equals(profile)
+                ? Optional.of(extractVerificationRecord(
+                    options.home(),
+                    "cubism-5.3.02-ui-status-bar.json"
+                ))
+                : Optional.empty();
             final Path controlAppearanceVerificationRecord = extractVerificationRecord(
                 options.home(),
                 "cubism-" + profile + "-ui-control-appearance.json"
@@ -187,6 +202,7 @@ public final class TurboismAgent {
                 embeddedPanelVerificationRecord,
                 topMenuVerificationRecord,
                 boundingBoxOverlayVerificationRecord,
+                statusBarVerificationRecord,
                 host.artifact(),
                 coreArtifact,
                 host.classLoader()
@@ -222,7 +238,6 @@ public final class TurboismAgent {
                 host,
                 controlAppearanceVerificationRecord
             );
-            Runtime.getRuntime().addShutdownHook(new Thread(TurboismAgent::shutdown, "turboism-shutdown"));
             runtimeInfo(
 
                 "Turboism Developer Preview started: host=" + runtime.hostState()
@@ -581,7 +596,17 @@ public final class TurboismAgent {
     }
 
     private static void shutdown() {
-        shutdownRuntime();
+        final PreviewRuntime runtime = RUNTIME.getAndSet(null);
+        if (runtime == null) {
+            return;
+        }
+        try {
+            runtime.closeForProcessExit();
+        } catch (Throwable failure) {
+            System.err.println(
+                "Turboism process-exit report cleanup failed safely: RUNTIME_CLOSE_FAILED"
+            );
+        }
     }
 
     private static boolean shutdownRuntime() {
