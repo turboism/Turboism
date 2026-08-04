@@ -1,7 +1,7 @@
 package dev.turboism.adapter.host;
 
 import dev.turboism.adapter.RuntimeHostAdapters;
-import dev.turboism.adapter.cubism.NativeControlAppearanceAuthoring;
+import dev.turboism.adapter.cubism.HostSnapshotSource;
 import dev.turboism.adapter.cubism.lifecycle.EditorLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.EditorObjectLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.ParameterLifecycleCoordinator;
@@ -11,7 +11,7 @@ import dev.turboism.adapter.cubism.physics.PhysicsEditorCoordinator;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.ui.action.RuntimeEditorUiActionRouter;
 import dev.turboism.ui.appearance.AppearanceCoordinator;
-import dev.turboism.ui.appearance.control.ControlAppearanceCoordinator;
+import dev.turboism.ui.appearance.control.PaletteAppearanceCoordinator;
 import dev.turboism.ui.contribution.EditorUiContributionAuthority;
 import dev.turboism.ui.host.EditorUiHostLifecycle;
 import dev.turboism.ui.toolbar.EditorUiPluginResourceRegistry;
@@ -23,6 +23,8 @@ public sealed interface RuntimeHostAdapterAccess permits HostSession, SessionRun
     RuntimeHostAdapters adapters();
 
     CubismModelAccess modelAccess();
+
+    HostSnapshotSource modelAppearanceSource();
 
     dev.turboism.sdk.cubism.core.CoreRuntimeInfo coreRuntimeInfo();
 
@@ -60,9 +62,8 @@ public sealed interface RuntimeHostAdapterAccess permits HostSession, SessionRun
 
     dev.turboism.sdk.ui.table.SceneTableService sceneTable();
 
-    ControlAppearanceCoordinator controlAppearanceCoordinator();
+    PaletteAppearanceCoordinator paletteAppearanceCoordinator();
 
-    NativeControlAppearanceAuthoring nativeControlAppearance();
 }
 
 /** Non-closeable adapter view used when lifecycle ownership remains with bootstrap ingress. */
@@ -70,6 +71,7 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
 
     private final RuntimeHostAdapters adapters;
     private final CubismModelAccess modelAccess;
+    private final HostSnapshotSource modelAppearanceSource;
     private final dev.turboism.sdk.cubism.core.CoreRuntimeInfo coreRuntimeInfo;
     private final ParameterLifecycleCoordinator parameterLifecycle;
     private final PartLifecycleCoordinator partLifecycle;
@@ -88,11 +90,11 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     private final java.util.Optional<dev.turboism.mapping.verification.VerifiedMemberResolver> boundingBoxOverlayResolver;
     private final AppearanceCoordinator appearanceCoordinator;
     private final dev.turboism.sdk.ui.table.SceneTableService sceneTable;
-    private final ControlAppearanceCoordinator controlAppearanceCoordinator;
-    private final NativeControlAppearanceAuthoring nativeControlAppearance;
+    private final PaletteAppearanceCoordinator paletteAppearanceCoordinator;
     SessionRuntimeHostAdapterAccess(
         final RuntimeHostAdapters adapters,
         final CubismModelAccess modelAccess,
+        final HostSnapshotSource modelAppearanceSource,
         final dev.turboism.sdk.cubism.core.CoreRuntimeInfo coreRuntimeInfo,
         final ParameterLifecycleCoordinator parameterLifecycle,
         final PartLifecycleCoordinator partLifecycle,
@@ -111,11 +113,13 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
         final java.util.Optional<dev.turboism.mapping.verification.VerifiedMemberResolver> boundingBoxOverlayResolver,
         final AppearanceCoordinator appearanceCoordinator,
         final dev.turboism.sdk.ui.table.SceneTableService sceneTable,
-        final ControlAppearanceCoordinator controlAppearanceCoordinator,
-        final NativeControlAppearanceAuthoring nativeControlAppearance
+        final PaletteAppearanceCoordinator paletteAppearanceCoordinator
     ) {
         this.adapters = java.util.Objects.requireNonNull(adapters, "adapters");
         this.modelAccess = java.util.Objects.requireNonNull(modelAccess, "modelAccess");
+        this.modelAppearanceSource = java.util.Objects.requireNonNull(
+            modelAppearanceSource, "modelAppearanceSource"
+        );
         this.coreRuntimeInfo = java.util.Objects.requireNonNull(coreRuntimeInfo, "coreRuntimeInfo");
         this.parameterLifecycle = java.util.Objects.requireNonNull(
             parameterLifecycle,
@@ -170,13 +174,9 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
             "appearanceCoordinator"
         );
         this.sceneTable = java.util.Objects.requireNonNull(sceneTable, "sceneTable");
-        this.controlAppearanceCoordinator = java.util.Objects.requireNonNull(
-            controlAppearanceCoordinator,
-            "controlAppearanceCoordinator"
-        );
-        this.nativeControlAppearance = java.util.Objects.requireNonNull(
-            nativeControlAppearance,
-            "nativeControlAppearance"
+        this.paletteAppearanceCoordinator = java.util.Objects.requireNonNull(
+            paletteAppearanceCoordinator,
+            "paletteAppearanceCoordinator"
         );
     }
 
@@ -188,6 +188,11 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     @Override
     public CubismModelAccess modelAccess() {
         return modelAccess;
+    }
+
+    @Override
+    public HostSnapshotSource modelAppearanceSource() {
+        return modelAppearanceSource;
     }
 
     @Override
@@ -281,13 +286,10 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
         return sceneTable;
     }
 
-    @Override
-    public ControlAppearanceCoordinator controlAppearanceCoordinator() {
-        return controlAppearanceCoordinator;
-    }
 
     @Override
-    public NativeControlAppearanceAuthoring nativeControlAppearance() {
-        return nativeControlAppearance;
+    public PaletteAppearanceCoordinator paletteAppearanceCoordinator() {
+        return paletteAppearanceCoordinator;
     }
+
 }

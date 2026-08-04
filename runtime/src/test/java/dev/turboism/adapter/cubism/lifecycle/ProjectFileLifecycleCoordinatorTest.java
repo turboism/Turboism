@@ -54,6 +54,45 @@ class ProjectFileLifecycleCoordinatorTest {
     }
 
     @Test
+    void completionListenersRunSynchronouslyAndFailOpenBeforePluginEvents() {
+        final List<String> events = new CopyOnWriteArrayList<>();
+        final ProjectFileLifecycleCoordinator coordinator = new ProjectFileLifecycleCoordinator();
+        coordinator.register(plugin(List.of(new ModelFileHooks() {
+            @Override public void afterCloseModel(final ProjectFileOperationResult result) {
+                events.add("plugin");
+            }
+        }), List.of()));
+        coordinator.registerCompletionListener(result -> {
+            events.add("listener");
+            throw new IllegalStateException("cleanup failure");
+        });
+
+        final var invocation = coordinator.begin(operation(
+            ProjectContentKind.MODEL, ProjectFileOperationType.CLOSE, "Model A"
+        ));
+        coordinator.complete(invocation, content(ProjectContentKind.MODEL, "Model A"), true, null);
+        coordinator.awaitIdle();
+
+        assertEquals(List.of("listener", "plugin"), events);
+        coordinator.close();
+    }
+
+    @Test
+    void closeClearsCompletionListeners() {
+        final java.util.concurrent.atomic.AtomicInteger calls = new java.util.concurrent.atomic.AtomicInteger();
+        final ProjectFileLifecycleCoordinator coordinator = new ProjectFileLifecycleCoordinator();
+        coordinator.registerCompletionListener(result -> calls.incrementAndGet());
+        coordinator.close();
+
+        final var invocation = coordinator.begin(operation(
+            ProjectContentKind.MODEL, ProjectFileOperationType.CLOSE, "Model A"
+        ));
+        coordinator.complete(invocation, content(ProjectContentKind.MODEL, "Model A"), true, null);
+
+        assertEquals(0, calls.get());
+    }
+
+    @Test
     void rejectedSaveAndFailedClosePublishAfterWithoutSuccessfulOn() {
         final List<String> events = new CopyOnWriteArrayList<>();
         final ProjectFileLifecycleCoordinator coordinator = new ProjectFileLifecycleCoordinator();
