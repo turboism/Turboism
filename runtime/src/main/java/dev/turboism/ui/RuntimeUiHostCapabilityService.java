@@ -407,7 +407,8 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
     public Registration notifyStatus(final StatusNotification notification) {
         Objects.requireNonNull(notification, "notification");
         permissionChecker.check(UI_STATUS_NOTIFY, "ui.status.notify");
-        final StatusToolbarAdapter.AdapterResult<Registration> adapterResult = statusToolbarAdapter.notifyStatus(notification);
+        final StatusToolbarAdapter.AdapterResult<Registration> adapterResult =
+            statusToolbarAdapter.notifyStatus(scopedForAdapter(notification));
         if (adapterResult.isAvailable()) {
             return enrollAdapterRegistration(adapterResult.value().orElseThrow());
         }
@@ -525,6 +526,16 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
     @Deprecated
     public List<SafeModeDiagnostic> statusToolbarDiagnostics() {
         return uiDiagnostics();
+    }
+
+    /**
+     * Scopes the adapter-visible notification ID with the plugin ID using length-prefix
+     * encoding, so two plugins cannot collide on the host even when their local IDs
+     * share prefixes or contain separators. Message and severity are unchanged.
+     */
+    private StatusNotification scopedForAdapter(final StatusNotification notification) {
+        final String scopedId = pluginId.length() + ":" + pluginId + ":" + notification.id();
+        return new StatusNotification(scopedId, notification.severity(), notification.message());
     }
 
     private Registration trackNotification(final StatusNotification notification) {
