@@ -188,6 +188,16 @@ final class DynamicCubismModelAccess implements CubismModelAccess, NativeControl
         }
 
         @Override
+        public dev.turboism.sdk.cubism.model.ModelEditLevel editLevel() {
+            return current(generation, CubismModel::editLevel, delegate);
+        }
+
+        @Override
+        public void setEditLevel(final dev.turboism.sdk.cubism.model.ModelEditLevel level) {
+            guardedVoid(generation, () -> delegate.setEditLevel(level));
+        }
+
+        @Override
         public Parameters parameters() {
             return new SessionParameters(generation, current(
                 generation,

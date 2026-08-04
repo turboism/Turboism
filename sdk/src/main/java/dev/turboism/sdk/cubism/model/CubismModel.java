@@ -42,6 +42,20 @@ public interface CubismModel {
         );
     }
 
+    /** Returns the active Cubism Editor model editing level. */
+    default ModelEditLevel editLevel() {
+        throw new UnsupportedOperationException(
+            "Cubism model edit-level state is unavailable."
+        );
+    }
+
+    /** Switches the active Cubism Editor model editing level. */
+    default void setEditLevel(final ModelEditLevel level) {
+        throw new UnsupportedOperationException(
+            "Cubism model edit-level switching is unavailable."
+        );
+    }
+
     default Canvas canvas() {
         throw new UnsupportedOperationException("Cubism canvas access is unavailable.");
     }

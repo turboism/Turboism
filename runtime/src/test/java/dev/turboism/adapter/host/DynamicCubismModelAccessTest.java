@@ -12,6 +12,7 @@ import dev.turboism.sdk.ui.appearance.NativeControlAppearance;
 import dev.turboism.sdk.ui.appearance.NativeControlBackground;
 import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
+import dev.turboism.sdk.cubism.model.ModelEditLevel;
 import dev.turboism.sdk.cubism.model.Parameter;
 import dev.turboism.sdk.cubism.model.ParameterDefinition;
 import dev.turboism.sdk.cubism.model.ParameterGroup;
@@ -54,6 +55,9 @@ class DynamicCubismModelAccessTest {
         CubismModel staleModel = access.active();
         assertTrue(staleModel.defaultKeyformLocked());
         Parameters staleParameters = staleModel.parameters();
+        assertEquals(ModelEditLevel.LEVEL_1, staleModel.editLevel());
+        staleModel.setEditLevel(ModelEditLevel.LEVEL_2);
+        assertEquals(ModelEditLevel.LEVEL_2, staleModel.editLevel());
         Parameter staleParameter = staleParameters.find(new ParameterId("ParamA"));
         assertEquals(1.0F, staleParameter.getValue());
 
@@ -64,6 +68,11 @@ class DynamicCubismModelAccessTest {
         assertThrows(
             IllegalStateException.class,
             () -> staleModel.setDefaultKeyformLocked(false)
+        );
+        assertThrows(IllegalStateException.class, staleModel::editLevel);
+        assertThrows(
+            IllegalStateException.class,
+            () -> staleModel.setEditLevel(ModelEditLevel.LEVEL_3)
         );
         assertThrows(IllegalStateException.class, staleParameters::all);
         assertThrows(IllegalStateException.class, staleParameter::getValue);
@@ -462,6 +471,9 @@ class DynamicCubismModelAccessTest {
             @Override public ModelId id() { return new ModelId(id); }
             @Override public boolean defaultKeyformLocked() { return locked; }
             @Override public void setDefaultKeyformLocked(final boolean value) { locked = value; }
+            private ModelEditLevel editLevel = ModelEditLevel.LEVEL_1;
+            @Override public ModelEditLevel editLevel() { return editLevel; }
+            @Override public void setEditLevel(final ModelEditLevel value) { editLevel = value; }
             @Override public Parameters parameters() {
                 return new Parameters() {
                     @Override public List<Parameter> all() { return List.of(parameter); }
