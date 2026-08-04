@@ -1,16 +1,19 @@
 package dev.turboism.adapter.host;
 
 import dev.turboism.adapter.RuntimeHostAdapters;
+import dev.turboism.adapter.cubism.HostSnapshotSource;
 import dev.turboism.adapter.cubism.lifecycle.EditorLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.EditorObjectLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.ParameterLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.PartLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.ProjectFileLifecycleCoordinator;
+import dev.turboism.sdk.cubism.ProjectFileOperationType;
 import dev.turboism.adapter.cubism.physics.PhysicsEditorCoordinator;
 import dev.turboism.sdk.event.EventBus;
 import dev.turboism.ui.action.RuntimeEditorUiActionRouter;
 import dev.turboism.ui.appearance.AppearanceCoordinator;
 import dev.turboism.ui.appearance.DynamicAppearanceHostProvider;
+import dev.turboism.ui.appearance.control.PaletteAppearanceCoordinator;
 import dev.turboism.ui.contribution.EditorUiContributionAuthority;
 import dev.turboism.ui.host.EditorUiHostFailure;
 import dev.turboism.ui.host.EditorUiHostLifecycle;
@@ -39,6 +42,8 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     private final HostAdapterConnector connector;
     private final DynamicRuntimeHostAdapters dynamic = new DynamicRuntimeHostAdapters();
     private final DynamicCubismModelAccess dynamicModelAccess = new DynamicCubismModelAccess();
+    private final HostSnapshotSource modelAppearanceSource =
+        PluginScopedCubismModelAccess.appearanceSource(dynamic.view().projectWorkspace(), dynamicModelAccess);
     private final DynamicCoreRuntimeInfo dynamicCoreRuntime = new DynamicCoreRuntimeInfo();
     private final ParameterLifecycleCoordinator parameterLifecycle =
         new ParameterLifecycleCoordinator();
@@ -84,8 +89,8 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     private final dev.turboism.ui.table.SceneTableHostOperations sceneTableHost =
         new dev.turboism.ui.table.SceneTableHostOperations();
     private final dev.turboism.sdk.ui.table.SceneTableService sceneTable = sceneTableHost.service();
-    private final dev.turboism.ui.appearance.control.ControlAppearanceCoordinator controlAppearanceCoordinator =
-        new dev.turboism.ui.appearance.control.ControlAppearanceCoordinator();
+    private final PaletteAppearanceCoordinator paletteAppearanceCoordinator =
+        new PaletteAppearanceCoordinator();
     private final Object lifecycleMonitor = new Object();
 
     private State state = State.SAFE_MODE;
@@ -126,6 +131,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             VerifiedHostAdapterConnector.productionAppearanceProviderFactory()
         );
         dynamic.onOutermostAdapterCallComplete(this::completeDeferredClose);
+        registerProjectContentCleanup();
     }
 
     HostSession(
@@ -135,6 +141,14 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         this.source = Objects.requireNonNull(source, "source");
         this.connector = Objects.requireNonNull(connector, "connector");
         dynamic.onOutermostAdapterCallComplete(this::completeDeferredClose);
+        registerProjectContentCleanup();
+    }
+
+    private void registerProjectContentCleanup() {
+        projectFileLifecycle.registerCompletionListener(result -> {
+            if (!result.succeeded() || result.request().operation() != ProjectFileOperationType.CLOSE) return;
+            result.content().ifPresent(content -> paletteAppearanceCoordinator.removeContent(content.contentId()));
+        });
     }
 
     /**
@@ -232,8 +246,8 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             dynamicModelAccess.connect(candidate.modelAccess());
             dynamicCoreRuntime.connect(candidate.coreRuntimeInfo());
             dynamicAppearance.connect(candidate.appearanceProvider());
+            paletteAppearanceCoordinator.replaceHostGeneration(editorUiGeneration);
             editorUiLifecycle.connected(editorUiGeneration);
-            controlAppearanceCoordinator.replaceHostGeneration(editorUiGeneration);
             activeConnection = candidate;
             objectContextMenuHandler = candidate.objectContextMenuHandler(editorUiGeneration);
             parameterPointMenuHandler = candidate.parameterPointMenuHandler(editorUiGeneration);
@@ -296,6 +310,11 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     @Override
     public dev.turboism.sdk.cubism.model.CubismModelAccess modelAccess() {
         return dynamicModelAccess;
+    }
+
+    @Override
+    public HostSnapshotSource modelAppearanceSource() {
+        return modelAppearanceSource;
     }
 
     @Override
@@ -383,15 +402,12 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         return sceneTable;
     }
 
-    @Override
-    public dev.turboism.ui.appearance.control.ControlAppearanceCoordinator controlAppearanceCoordinator() {
-        return controlAppearanceCoordinator;
-    }
 
     @Override
-    public dev.turboism.adapter.cubism.NativeControlAppearanceAuthoring nativeControlAppearance() {
-        return dynamicModelAccess;
+    public PaletteAppearanceCoordinator paletteAppearanceCoordinator() {
+        return paletteAppearanceCoordinator;
     }
+
     public dev.turboism.mapping.verification.VerifiedMemberResolver editorModelResolver() {
         synchronized (lifecycleMonitor) {
             if (activeConnection == null) {
@@ -419,6 +435,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         return new SessionRuntimeHostAdapterAccess(
             dynamic.view(),
             dynamicModelAccess,
+            modelAppearanceSource,
             dynamicCoreRuntime,
             parameterLifecycle,
             partLifecycle,
@@ -437,8 +454,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             boundingBoxOverlayResolver(),
             appearanceCoordinator,
             sceneTable,
-            controlAppearanceCoordinator,
-            dynamicModelAccess
+            paletteAppearanceCoordinator
         );
     }
 
@@ -458,8 +474,8 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
                 return;
             }
             appearanceCoordinator.close();
+            paletteAppearanceCoordinator.close();
             sceneTableHost.disconnect();
-            controlAppearanceCoordinator.close();
             physicsEditorCoordinator.close();
             editorLifecycleEvents.close();
             projectFileLifecycle.close();
@@ -516,7 +532,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     private CleanupOutcome cleanupOwnedResources() {
         activeConnectionKey = null;
         dynamicAppearance.deactivate();
-        controlAppearanceCoordinator.clearHostGeneration();
+        paletteAppearanceCoordinator.invalidate();
         dynamicModelAccess.deactivate();
         dynamicCoreRuntime.deactivate();
         try {

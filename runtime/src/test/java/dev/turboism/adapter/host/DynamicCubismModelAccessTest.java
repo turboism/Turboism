@@ -1,15 +1,15 @@
 package dev.turboism.adapter.host;
 
 import dev.turboism.sdk.cubism.id.ModelId;
-import dev.turboism.adapter.cubism.NativeControlAppearanceAuthoring;
+import dev.turboism.adapter.cubism.NativeLabelColorAuthoring;
+import dev.turboism.adapter.cubism.NativeLabelColorTarget;
 import dev.turboism.sdk.cubism.id.ParameterGroupId;
 import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.model.Color;
-import dev.turboism.sdk.ui.appearance.ControlAppearanceTarget;
-import dev.turboism.sdk.ui.appearance.NativeControlAppearance;
-import dev.turboism.sdk.ui.appearance.NativeControlBackground;
+import dev.turboism.sdk.ui.appearance.NativeLabelColor;
+import dev.turboism.sdk.ui.appearance.NativeLabelColorState;
 import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.sdk.cubism.model.Parameter;
@@ -85,53 +85,57 @@ class DynamicCubismModelAccessTest {
         assertThrows(IllegalStateException.class, group::name);
     }
     @Test
-    void nativeControlAppearanceSeamFollowsTheSessionLeaseAndFailsClosed() {
+    void nativeLabelColorSeamFollowsTheSessionLeaseAndFailsClosed() {
         final DynamicCubismModelAccess access = new DynamicCubismModelAccess();
-        final ControlAppearanceTarget.ParameterFolder folder =
-            new ControlAppearanceTarget.ParameterFolder(new ParameterGroupId("GroupFace"));
-        final NativeControlAppearance nativePart = new NativeControlAppearance(
-            new NativeControlBackground.Default(),
+        final NativeLabelColorTarget folder = new NativeLabelColorTarget(
+            NativeLabelColorTarget.Palette.PARAMETER_GROUP,
+            "GroupFace"
+        );
+        final NativeLabelColorState nativeState = new NativeLabelColorState(
+            new NativeLabelColor.Default(),
             Optional.empty()
         );
-        access.connect(authoringModelAccess(nativePart));
+        access.connect(authoringModelAccess(nativeState));
 
-        assertEquals(nativePart, access.snapshot(folder));
+        assertEquals(nativeState, access.readNativeLabelColor(folder));
 
         access.deactivate();
-        assertThrows(IllegalStateException.class, () -> access.snapshot(folder));
-        assertThrows(IllegalStateException.class, () -> access.setNativeBackground(
-            folder, new NativeControlBackground.Default()
+        assertThrows(IllegalStateException.class, () -> access.readNativeLabelColor(folder));
+        assertThrows(IllegalStateException.class, () -> access.setNativeLabelColor(
+            folder, new NativeLabelColor.Default()
         ));
 
         access.connect(() -> model("model-a", parameter(1.0F), parameterGroups()));
-        assertThrows(UnsupportedOperationException.class, () -> access.snapshot(folder));
-        assertThrows(UnsupportedOperationException.class, () -> access.setNativeBackground(
-            folder, new NativeControlBackground.Default()
+        assertThrows(UnsupportedOperationException.class, () -> access.readNativeLabelColor(folder));
+        assertThrows(UnsupportedOperationException.class, () -> access.setNativeLabelColor(
+            folder, new NativeLabelColor.Default()
         ));
     }
 
-    private static CubismModelAccess authoringModelAccess(final NativeControlAppearance nativePart) {
-        return new AuthoringModelAccess(nativePart);
+    private static CubismModelAccess authoringModelAccess(final NativeLabelColorState nativeState) {
+        return new AuthoringModelAccess(nativeState);
     }
 
     private static final class AuthoringModelAccess
-        implements CubismModelAccess, NativeControlAppearanceAuthoring {
+        implements CubismModelAccess, NativeLabelColorAuthoring {
         private final CubismModel delegate = model("model-a", parameter(1.0F));
-        private final NativeControlAppearance nativePart;
+        private final NativeLabelColorState nativeState;
 
-        AuthoringModelAccess(final NativeControlAppearance nativePart) {
-            this.nativePart = nativePart;
+        AuthoringModelAccess(final NativeLabelColorState nativeState) {
+            this.nativeState = nativeState;
         }
 
         @Override public CubismModel active() { return delegate; }
 
-        @Override public NativeControlAppearance snapshot(final ControlAppearanceTarget target) {
-            return nativePart;
+        @Override public NativeLabelColorState readNativeLabelColor(
+            final NativeLabelColorTarget target
+        ) {
+            return nativeState;
         }
 
-        @Override public void setNativeBackground(
-            final ControlAppearanceTarget target,
-            final NativeControlBackground background
+        @Override public void setNativeLabelColor(
+            final NativeLabelColorTarget target,
+            final NativeLabelColor color
         ) {
             throw new AssertionError("unexpected native write");
         }

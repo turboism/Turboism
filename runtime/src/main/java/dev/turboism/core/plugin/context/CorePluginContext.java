@@ -42,14 +42,12 @@ import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
 import dev.turboism.sdk.ui.table.SceneTableService;
-import dev.turboism.sdk.ui.appearance.ControlAppearanceRegistry;
 import dev.turboism.ui.RuntimeUiHostCapabilityService;
 import dev.turboism.ui.appearance.RuntimeAppearanceService;
 import dev.turboism.ui.UiHostStateSource;
 import dev.turboism.ui.context.RuntimeContextMenuRegistry;
 import dev.turboism.ui.toolbar.RuntimeMainToolbarRegistry;
 import dev.turboism.ui.toolbar.RuntimePaletteToolbarRegistry;
-import dev.turboism.ui.appearance.control.RuntimeControlAppearanceRegistry;
 
 import java.time.Clock;
 import java.util.List;
@@ -71,7 +69,6 @@ public final class CorePluginContext implements PluginContext {
     private final PluginStorage pluginStorage;
     private final UserFileAccessService userFileAccessService;
     private final AsyncHostReadService asyncHostReadService;
-    private final ControlAppearanceRegistry controlAppearanceRegistry;
 
     private final SceneTableService sceneTableService;
     private dev.turboism.sdk.runtime.RuntimeSettingsService runtimeSettings;
@@ -204,7 +201,9 @@ public final class CorePluginContext implements PluginContext {
             hostAccess.parameterLifecycle(),
             hostAccess.partLifecycle(),
             hostAccess.editorObjectLifecycle(),
-            hostAccess.physicsEditorCoordinator()
+            hostAccess.physicsEditorCoordinator(),
+            hostAccess.modelAppearanceSource(),
+            hostAccess.paletteAppearanceCoordinator()
         );
     }
 
@@ -395,24 +394,6 @@ public final class CorePluginContext implements PluginContext {
         this.sceneTableService = hostAccess == null
             ? SceneTableService.unavailable()
             : hostAccess.sceneTable();
-        if (hostAccess == null) {
-            this.controlAppearanceRegistry = ControlAppearanceRegistry.unavailable();
-        } else {
-            final RuntimeControlAppearanceRegistry controlAppearance = new RuntimeControlAppearanceRegistry(
-                this.dependencies.descriptor().id(),
-                0,
-                PermissionChecker.from(new CubismPermissionGate(
-                    this.dependencies.descriptor().id(),
-                    this.dependencies.permissions(),
-                    this.dependencies.cubismAuditSink(),
-                    this.dependencies.clock()
-                )),
-                hostAccess.controlAppearanceCoordinator(),
-                hostAccess.nativeControlAppearance()
-            );
-            controlAppearance.bind(this.dependencies.disposableScope());
-            this.controlAppearanceRegistry = controlAppearance;
-        }
         if (hostAccess == null) {
             this.appearanceService = AppearanceService.unavailable();
         } else {
@@ -627,10 +608,6 @@ public final class CorePluginContext implements PluginContext {
         return appearanceService;
     }
 
-    @Override
-    public ControlAppearanceRegistry controlAppearance() {
-        return controlAppearanceRegistry;
-    }
 
     @Override
     public ContextMenuRegistry contextMenu() {

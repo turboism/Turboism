@@ -3,22 +3,18 @@ package dev.turboism.tests.plugin;
 import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.cubism.id.ParameterGroupId;
 import dev.turboism.sdk.cubism.id.ParameterId;
-import dev.turboism.sdk.cubism.model.Color;
 import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.Parameter;
 import dev.turboism.sdk.cubism.model.ParameterDefinition;
+import dev.turboism.sdk.cubism.model.ParameterGroup;
 import dev.turboism.sdk.cubism.model.ParameterType;
 import dev.turboism.sdk.cubism.model.Parameters;
-import dev.turboism.sdk.plugin.Registration;
-import dev.turboism.sdk.ui.appearance.ControlAppearanceContribution;
-import dev.turboism.sdk.ui.appearance.ControlAppearanceRegistry;
-import dev.turboism.sdk.ui.appearance.ControlAppearanceSnapshot;
-import dev.turboism.sdk.ui.appearance.ControlAppearanceStyle;
-import dev.turboism.sdk.ui.appearance.ControlAppearanceTarget;
-import dev.turboism.sdk.ui.appearance.NativeControlAppearance;
-import dev.turboism.sdk.ui.appearance.NativeControlBackground;
-import java.nio.file.Files;
+import dev.turboism.sdk.ui.appearance.NativeLabelColor;
+import dev.turboism.sdk.ui.appearance.NativeLabelColorState;
 import dev.turboism.sdk.ui.appearance.PresetColor;
+import dev.turboism.sdk.ui.appearance.UiColor;
+import dev.turboism.sdk.ui.appearance.model.ParameterGroupAppearance;
+import java.nio.file.Files;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -343,99 +339,53 @@ class WindowsParameterValidationProbeTest {
     }
 
     @Test
-    void folderBackgroundWriterReturnsAuthoritativeNativeAppearanceThroughRegistry() {
-        final ParameterGroupId groupId = new ParameterGroupId("GroupFace");
-        final Color[] color = {new Color(0.25F, 0.5F, 0.75F, 1.0F)};
-        final List<ControlAppearanceTarget> writtenTargets = new java.util.ArrayList<>();
-        final ControlAppearanceRegistry registry = new ControlAppearanceRegistry() {
-            @Override public Registration register(final ControlAppearanceContribution contribution) {
-                throw new UnsupportedOperationException();
-            }
-
-            @Override public ControlAppearanceSnapshot snapshot(final ControlAppearanceTarget target) {
-                return new ControlAppearanceSnapshot(
-                    Optional.of(new NativeControlAppearance(
-                        new NativeControlBackground.Custom(color[0]), Optional.of(color[0])
-                    )),
-                    Optional.empty()
-                );
-            }
-
-            @Override public void setNativeBackground(
-                final ControlAppearanceTarget target,
-                final NativeControlBackground background
-            ) {
-                writtenTargets.add(target);
-                color[0] = ((NativeControlBackground.Custom) background).color();
-            }
-        };
-        final Color requested = WindowsParameterValidationProbe.parseColor(
+    void folderLabelColorWriterReturnsAuthoritativeNativeStateThroughModelUi() {
+        final UiColor[] color = {new UiColor(0.25F, 0.5F, 0.75F, 1.0F)};
+        final ParameterGroup group = parameterGroup("GroupFace", color, true);
+        final UiColor requested = WindowsParameterValidationProbe.parseColor(
             "0.1", "0.2", "0.3", "0.4"
         );
 
-        final NativeControlAppearance authoritative =
-            WindowsParameterValidationProbe.setParameterFolderBackground(
-                registry, groupId, requested
-            );
+        final NativeLabelColorState authoritative =
+            WindowsParameterValidationProbe.setParameterFolderLabelColor(group, requested);
 
-        assertEquals(
-            List.of(new ControlAppearanceTarget.ParameterFolder(groupId)),
-            writtenTargets
-        );
         assertEquals(requested, color[0]);
-        assertEquals(new NativeControlBackground.Custom(requested), authoritative.background());
-        assertEquals(Optional.of(requested), authoritative.effectiveBackground());
+        assertEquals(new NativeLabelColor.Custom(requested), authoritative.labelColor());
+        assertEquals(Optional.of(requested), authoritative.actualColor());
     }
 
     @Test
-    void folderBackgroundWriterRejectsMissingRegistryTargetsAndValues() {
-        final ParameterGroupId groupId = new ParameterGroupId("GroupFace");
-        final ControlAppearanceRegistry registry = new ControlAppearanceRegistry() {
-            @Override public Registration register(final ControlAppearanceContribution contribution) {
-                throw new UnsupportedOperationException();
-            }
+    void folderLabelColorWriterRejectsMissingModelUiTargetsAndValues() {
+        final UiColor requested = new UiColor(1.0F, 0.0F, 0.0F, 1.0F);
+        final ParameterGroup unavailable = parameterGroup(
+            "GroupFace", new UiColor[] {requested}, false
+        );
 
-            @Override public ControlAppearanceSnapshot snapshot(final ControlAppearanceTarget target) {
-                return new ControlAppearanceSnapshot(Optional.empty(), Optional.empty());
-            }
-
-            @Override public void setNativeBackground(
-                final ControlAppearanceTarget target,
-                final NativeControlBackground background
-            ) {
-            }
-        };
         assertThrows(NullPointerException.class, () ->
-            WindowsParameterValidationProbe.setParameterFolderBackground(
-                registry, null, new Color(1.0F, 0.0F, 0.0F, 1.0F)
-            ));
+            WindowsParameterValidationProbe.setParameterFolderLabelColor(null, requested));
         assertThrows(NullPointerException.class, () ->
-            WindowsParameterValidationProbe.setParameterFolderBackground(
-                null, groupId, new Color(1.0F, 0.0F, 0.0F, 1.0F)
-            ));
-        assertThrows(IllegalStateException.class, () ->
-            WindowsParameterValidationProbe.setParameterFolderBackground(
-                registry, groupId, new Color(1.0F, 0.0F, 0.0F, 1.0F)
-            ));
+            WindowsParameterValidationProbe.setParameterFolderLabelColor(unavailable, null));
+        assertThrows(UnsupportedOperationException.class, () ->
+            WindowsParameterValidationProbe.setParameterFolderLabelColor(unavailable, requested));
     }
 
     @Test
     void customCandidateNeverEqualsTheSemanticBeforeState() {
         // The failing case: semantic is Custom(red) while the effective color differs.
-        final NativeControlAppearance before = new NativeControlAppearance(
-            new NativeControlBackground.Custom(new Color(1.0F, 0.0F, 0.0F, 1.0F)),
-            Optional.of(new Color(0.9F, 0.1F, 0.1F, 1.0F))
+        final NativeLabelColorState before = new NativeLabelColorState(
+            new NativeLabelColor.Custom(new UiColor(1.0F, 0.0F, 0.0F, 1.0F)),
+            Optional.of(new UiColor(0.9F, 0.1F, 0.1F, 1.0F))
         );
 
-        final NativeControlBackground chosen =
+        final NativeLabelColor chosen =
             WindowsParameterValidationProbe.chooseCustomCandidate(before);
 
         assertFalse(
-            chosen.equals(before.background()),
+            chosen.equals(before.labelColor()),
             "the chosen Custom request must differ from the semantic before-state"
         );
         assertEquals(
-            new NativeControlBackground.Custom(new Color(0.0F, 1.0F, 0.0F, 1.0F)),
+            new NativeLabelColor.Custom(new UiColor(0.0F, 1.0F, 0.0F, 1.0F)),
             chosen
         );
     }
@@ -443,10 +393,10 @@ class WindowsParameterValidationProbeTest {
     @Test
     void storedBackgroundPropertiesRoundTripEverySemanticKind() {
         final java.util.Properties properties = new java.util.Properties();
-        final NativeControlBackground[] samples = {
-            new NativeControlBackground.Default(),
-            new NativeControlBackground.Preset(PresetColor.GRAY),
-            new NativeControlBackground.Custom(new Color(0.1F, 0.2F, 0.3F, 0.4F))
+        final NativeLabelColor[] samples = {
+            new NativeLabelColor.Default(),
+            new NativeLabelColor.Preset(PresetColor.GRAY),
+            new NativeLabelColor.Custom(new UiColor(0.1F, 0.2F, 0.3F, 0.4F))
         };
         final String[] prefixes = {"folder.original", "part.requested", "deformer.original"};
         for (int index = 0; index < samples.length; index++) {
@@ -554,7 +504,7 @@ class WindowsParameterValidationProbeTest {
     }
 
     @Test
-    void autoNativeControlBackgroundModesNeverShowTheValidationWindow() {
+    void autoNativeLabelColorModesNeverShowTheValidationWindow() {
         assertFalse(WindowsParameterValidationProbe.showsValidationWindow("native-control-background"));
         assertFalse(WindowsParameterValidationProbe.showsValidationWindow("native-control-background-document-close"));
         assertFalse(WindowsParameterValidationProbe.showsValidationWindow("native-control-background-persist-write"));
@@ -664,23 +614,23 @@ class WindowsParameterValidationProbeTest {
 
     @Test
     void matrixRejectsSameSemanticRequestBeforeAnyWrite() {
-        final NativeControlBackground request =
-            new NativeControlBackground.Custom(new Color(0.1F, 0.2F, 0.3F, 0.4F));
+        final NativeLabelColor request =
+            new NativeLabelColor.Custom(new UiColor(0.1F, 0.2F, 0.3F, 0.4F));
 
         assertThrows(IllegalStateException.class, () ->
             WindowsParameterValidationProbe.requireDistinctBackgroundRequest(request, request));
         assertThrows(IllegalStateException.class, () ->
             WindowsParameterValidationProbe.requireDistinctBackgroundRequest(
-                new NativeControlBackground.Default(),
-                new NativeControlBackground.Default()
+                new NativeLabelColor.Default(),
+                new NativeLabelColor.Default()
             ));
         WindowsParameterValidationProbe.requireDistinctBackgroundRequest(
             request,
-            new NativeControlBackground.Default()
+            new NativeLabelColor.Default()
         );
         WindowsParameterValidationProbe.requireDistinctBackgroundRequest(
-            new NativeControlBackground.Preset(PresetColor.BLUE),
-            new NativeControlBackground.Preset(PresetColor.RED)
+            new NativeLabelColor.Preset(PresetColor.BLUE),
+            new NativeLabelColor.Preset(PresetColor.RED)
         );
     }
 
@@ -812,6 +762,43 @@ class WindowsParameterValidationProbeTest {
 
     private static UnsupportedOperationException unsupported() {
         return new UnsupportedOperationException();
+    }
+
+    private static ParameterGroup parameterGroup(
+        final String id,
+        final UiColor[] color,
+        final boolean available
+    ) {
+        final ParameterGroupId groupId = new ParameterGroupId(id);
+        return new ParameterGroup() {
+            @Override public ParameterGroupId id() { return groupId; }
+            @Override public Optional<String> name() { return Optional.of(id); }
+            @Override public Optional<ParameterGroupId> parentId() { return Optional.empty(); }
+            @Override public List<ParameterGroupId> childGroupIds() { return List.of(); }
+            @Override public List<ParameterId> parameterIds() { return List.of(); }
+            @Override public ParameterGroupAppearance ui() {
+                if (!available) return ParameterGroupAppearance.unavailable();
+                return new ParameterGroupAppearance() {
+                    @Override public Optional<dev.turboism.sdk.ui.appearance.PaletteEntry>
+                    parameterPaletteEntry() {
+                        return Optional.empty();
+                    }
+
+                    @Override public Optional<NativeLabelColorState> nativeLabelColor() {
+                        return Optional.of(new NativeLabelColorState(
+                            new NativeLabelColor.Custom(color[0]), Optional.of(color[0])
+                        ));
+                    }
+
+                    @Override public void setNativeLabelColor(final NativeLabelColor value) {
+                        if (!(value instanceof NativeLabelColor.Custom custom)) {
+                            throw new IllegalArgumentException("test fixture expects Custom");
+                        }
+                        color[0] = custom.color();
+                    }
+                };
+            }
+        };
     }
 
     private static List<String> ids(
