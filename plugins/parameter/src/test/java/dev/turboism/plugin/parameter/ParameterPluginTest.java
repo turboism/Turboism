@@ -46,6 +46,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ParameterPluginTest {
@@ -72,7 +73,7 @@ class ParameterPluginTest {
             List.of(new StatusNotification(
                 "parameter.csv.export.completed",
                 "INFO",
-                "Exported 1 parameter(s) to CSV."
+                "Exported 2 parameter(s) to CSV."
             )),
             context.uiHost().notifications()
         );
@@ -147,6 +148,39 @@ class ParameterPluginTest {
             List.of("transfer:p1->p2:ArtMeshFace:true"),
             context.cubism().batchWrites()
         );
+    }
+
+    @Test
+    void fallbackTransferIgnoresObjectIdBeforeRealParameter() {
+        RecordingPluginContext context = new RecordingPluginContext(new TestPluginLogger());
+        context.cubism().selectedObjectIds(List.of("object:ArtMeshFace", "parameter:p2"));
+        ParameterPlugin plugin = new ParameterPlugin();
+
+        plugin.init(context);
+        plugin.enable();
+        context.actions().execute(ParameterPlugin.TRANSFER_BINDINGS_ACTION_ID);
+
+        assertEquals(
+            List.of("transfer:p1->p2:ArtMeshFace:true"),
+            context.cubism().batchWrites()
+        );
+    }
+
+    @Test
+    void objectOnlyFallbackTransferFailsWithoutBatchWrite() {
+        RecordingPluginContext context = new RecordingPluginContext(new TestPluginLogger());
+        context.cubism().selectedObjectIds(List.of("object:ArtMeshFace"));
+        ParameterPlugin plugin = new ParameterPlugin();
+
+        plugin.init(context);
+        plugin.enable();
+        final IllegalStateException failure = assertThrows(
+            IllegalStateException.class,
+            () -> context.actions().execute(ParameterPlugin.TRANSFER_BINDINGS_ACTION_ID)
+        );
+
+        assertEquals("A destination parameter must be selected.", failure.getMessage());
+        assertTrue(context.cubism().batchWrites().isEmpty());
     }
 
     @Test
@@ -282,16 +316,21 @@ class ParameterPluginTest {
         private final List<String> writes = new ArrayList<>();
         private final List<String> batchWrites = new ArrayList<>();
         private float parameterValue = 0.5f;
+        private List<String> selectedObjectIds = List.of("parameter:p2");
 
         float parameterValue() { return parameterValue; }
         List<String> writes() { return List.copyOf(writes); }
         List<String> batchWrites() { return List.copyOf(batchWrites); }
 
+        void selectedObjectIds(final List<String> ids) {
+            selectedObjectIds = List.copyOf(ids);
+        }
+
         @Override public CubismRuntimeSnapshot runtime() {
             return new CubismRuntimeSnapshot(
                 Optional.empty(), Optional.empty(), Optional.empty(),
                 new dev.turboism.sdk.cubism.SelectionSnapshot(
-                    List.of("parameter:p2"), Optional.of("p1"), Optional.of("ArtMeshFace"), Optional.empty()
+                    selectedObjectIds, Optional.of("p1"), Optional.of("ArtMeshFace"), Optional.empty()
                 ),
                 List.of(), List.of(), List.of(), List.of()
             );
@@ -313,6 +352,14 @@ class ParameterPluginTest {
                         writes.add("p1=" + value);
                     }
                 };
+                private final Parameter destinationParameter = new Parameter() {
+                    @Override public ParameterId id() { return new ParameterId("p2"); }
+                    @Override public float getValue() { return 0.0f; }
+                    @Override public float getMinimumValue() { return -1.0f; }
+                    @Override public float getMaximumValue() { return 1.0f; }
+                    @Override public float getDefaultValue() { return 0.0f; }
+                    @Override public void setValue(float value) { }
+                };
 
                 @Override public ModelId id() { return new ModelId("model-1"); }
                 @Override public ParameterBindingBatchOperations parameterBindingBatch() {
@@ -331,8 +378,12 @@ class ParameterPluginTest {
                 }
                 @Override public dev.turboism.sdk.cubism.model.Parameters parameters() {
                     return new dev.turboism.sdk.cubism.model.Parameters() {
-                        @Override public List<Parameter> all() { return List.of(parameter); }
-                        @Override public Parameter find(ParameterId id) { return parameter; }
+                        @Override public List<Parameter> all() { return List.of(parameter, destinationParameter); }
+                        @Override public Parameter find(ParameterId id) {
+                            if (parameter.id().equals(id)) return parameter;
+                            if (destinationParameter.id().equals(id)) return destinationParameter;
+                            throw new java.util.NoSuchElementException(id.value());
+                        }
                     };
                 }
                 @Override public dev.turboism.sdk.cubism.model.Parts parts() { throw unsupported(); }
