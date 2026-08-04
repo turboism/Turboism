@@ -3,6 +3,7 @@ package dev.turboism.sdk.ui;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 import dev.turboism.sdk.ui.context.ContextSourceSnapshot;
+import dev.turboism.sdk.ui.filter.PaletteFilterRegistry;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
 
@@ -129,4 +130,14 @@ public interface UiHostCapabilityService {
     Registration contributeMainToolbar(MainToolbarRegistry.MainToolbarContribution contribution);
 
     Registration contributePaletteToolbar(PaletteToolbarRegistry.PaletteToolbarContribution contribution);
+
+    /**
+     * Contributes a keyword filter box to a palette tab toolbar.
+     *
+     * <p>Hosts that do not provide a verified palette filter surface fail
+     * closed with {@link UnsupportedOperationException}.</p>
+     */
+    default Registration contributePaletteFilter(PaletteFilterRegistry.PaletteFilterContribution contribution) {
+        throw new UnsupportedOperationException("palette filter contribution is unavailable");
+    }
 }
