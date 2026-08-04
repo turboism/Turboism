@@ -2025,6 +2025,41 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 .append("batch.transferRedo=").append(batchTransferRedone).append('\n')
                 .append("batch.restored=").append(batchRestored).append('\n')
                 .append("batch.passed=").append(batchPassed).append('\n');
+            final int undoCap = 128;
+            int undoCount = 0;
+            boolean undoDrained = false;
+            while (undoCount < undoCap && invokeMenuShortcut(java.awt.event.KeyEvent.VK_Z)) {
+                undoCount++;
+                Thread.sleep(250L);
+                for (final ParameterBindingTarget target : targets) {
+                    bindingPoints(parameter, target);
+                    bindingPoints(transferTarget, target);
+                }
+                onHostThread(parameter::getValue);
+            }
+            if (undoCount < undoCap) {
+                undoDrained = true;
+            }
+            final boolean cleanupRestored = targets.stream().allMatch(target -> {
+                try {
+                    final List<Float> sourceValues = originalSource.get(target).stream()
+                        .map(ParameterBindingPoint::value).toList();
+                    final List<Float> destinationValues = originalDestination.get(target).stream()
+                        .map(ParameterBindingPoint::value).toList();
+                    awaitBindingValues(parameter, target, sourceValues);
+                    awaitBindingValues(transferTarget, target, destinationValues);
+                    return bindingPoints(parameter, target).equals(originalSource.get(target))
+                        && bindingPoints(transferTarget, target).equals(originalDestination.get(target));
+                } catch (Exception exception) {
+                    throw new IllegalStateException(exception);
+                }
+            }) && Float.compare(onHostThread(parameter::getValue), originalValue) == 0;
+            final boolean cleanupPassed = undoDrained && cleanupRestored;
+            passed &= cleanupPassed;
+            report.append("cleanup.undoCount=").append(undoCount).append('\n')
+                .append("cleanup.undoDrained=").append(undoDrained).append('\n')
+                .append("cleanup.restored=").append(cleanupRestored).append('\n')
+                .append("cleanup.passed=").append(cleanupPassed).append('\n');
             report.replace(0, "status=RUNNING".length(), "status=" + (passed ? "PASS" : "FAIL"));
             Files.writeString(artifact, report.toString(), StandardOpenOption.CREATE,
                 StandardOpenOption.TRUNCATE_EXISTING);
@@ -3974,6 +4009,7 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
 
     private static boolean invokeMenuShortcut(final int key) throws Exception {
         final AtomicReference<javax.swing.JMenuItem> match = new AtomicReference<>();
+        final AtomicBoolean enabled = new AtomicBoolean();
         SwingUtilities.invokeAndWait(() -> {
             for (java.awt.Frame frame : java.awt.Frame.getFrames()) {
                 if (!(frame instanceof javax.swing.JFrame swingFrame) || !frame.isVisible()) continue;
@@ -3984,9 +4020,10 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 }
             }
             final javax.swing.JMenuItem item = match.get();
-            if (item != null && item.isEnabled()) item.doClick(0);
+            enabled.set(item != null && item.isEnabled());
+            if (enabled.get()) item.doClick(0);
         });
-        return match.get() != null && match.get().isEnabled();
+        return enabled.get();
     }
 
     private static void findMenuShortcut(
