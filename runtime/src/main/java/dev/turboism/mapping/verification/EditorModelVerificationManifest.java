@@ -7,7 +7,7 @@ public final class EditorModelVerificationManifest {
 
     public static final String VERIFICATION_ID = "cubism-5.3.02.editor-model.static";
     public static final String RECORD_SHA256 =
-        "8f021a8adf238eb39c65ef435e5ac39c12829a362fb0ba1a092e8b8a7042435a";
+        "5b3576efe874c5b115e98765c5be6aab386b32878790343b9df5c8eebcd4076f";
     public static final String CUBISM_VERSION = "5.3.02";
     public static final String PROFILE_ID = "cubism-5.3.02";
     public static final long ARTIFACT_SIZE = 41_922_739L;
@@ -41,7 +41,9 @@ public final class EditorModelVerificationManifest {
         EditorParameterBindingWriteSelectorContract.WARP_CAPABILITY_ID,
         EditorParameterBindingWriteSelectorContract.ROTATION_CAPABILITY_ID,
         EditorParameterBindingBatchWriteSelectorContract.INVERT_CAPABILITY_ID,
-        EditorParameterBindingBatchWriteSelectorContract.TRANSFER_CAPABILITY_ID
+        EditorParameterBindingBatchWriteSelectorContract.TRANSFER_CAPABILITY_ID,
+        EditorModelEditLevelReadSelectorContract.CAPABILITY_ID,
+        EditorModelEditLevelWriteSelectorContract.CAPABILITY_ID
     );
     public static final Set<String> REQUIRED_ALIASES = Set.of(
         "cubism.editor-model.app-controller.class",
@@ -58,6 +60,8 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.model-source.current-instance",
         "cubism.editor-model.model-source.default-keyform-locked",
         "cubism.editor-model.model-source.set-default-keyform-locked",
+        "cubism.editor-model.app-controller.edit-level",
+        "cubism.editor-model.app-controller.set-edit-level",
         "cubism.editor-model.model-source.all-parameters",
         "cubism.editor-model.model-source.root-parameter-group",
         "cubism.editor-model.model.class",

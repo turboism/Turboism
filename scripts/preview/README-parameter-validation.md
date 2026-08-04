@@ -171,6 +171,8 @@ Use **Lock default** and **Unlock default** in the validation window.
 
 ```text
 matrix
+model-edit-level
+wave1
 statistics-read
 binding-read
 binding-matrix
@@ -185,6 +187,10 @@ native-control-background-persist-write
 native-control-background-persist-reopen
 native-control-background-persist-final
 ```
+
+`model-edit-level` runs the model edit-level read/write/read/restore check.
+
+`wave1` batches `model-edit-level` and `parameter-menu-smoke` in that order in one host session, reusing each check's existing artifact and the shared terminal summary.
 
 The launcher waits for `state\host-validation-result.properties`, verifies its terminal status, waits for the official launcher process to exit, and fails if cleanup requires a forced process-tree stop.
 

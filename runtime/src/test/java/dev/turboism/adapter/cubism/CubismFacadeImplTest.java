@@ -490,6 +490,64 @@ class CubismFacadeImplTest {
     }
 
     @Test
+    void modelEditLevelWritesRequireModelWritePermission() {
+        final List<CubismFacadeAuditEvent> auditEvents = new ArrayList<>();
+        final List<dev.turboism.sdk.cubism.model.ModelEditLevel> writes = new ArrayList<>();
+        final CubismModelAccess backend = () -> new CubismModel() {
+            @Override public ModelId id() { return new ModelId("model-a"); }
+            @Override public dev.turboism.sdk.cubism.model.ModelEditLevel editLevel() {
+                return dev.turboism.sdk.cubism.model.ModelEditLevel.LEVEL_1;
+            }
+            @Override public void setEditLevel(
+                final dev.turboism.sdk.cubism.model.ModelEditLevel level
+            ) { writes.add(level); }
+            @Override public dev.turboism.sdk.cubism.model.Parameters parameters() { throw new UnsupportedOperationException(); }
+            @Override public dev.turboism.sdk.cubism.model.Parts parts() { throw new UnsupportedOperationException(); }
+            @Override public dev.turboism.sdk.cubism.model.Drawables drawables() { throw new UnsupportedOperationException(); }
+            @Override public dev.turboism.sdk.cubism.model.Deformers deformers() { throw new UnsupportedOperationException(); }
+            @Override public dev.turboism.sdk.cubism.model.Glues glues() { throw new UnsupportedOperationException(); }
+            @Override public void update() { throw new UnsupportedOperationException(); }
+        };
+        final CubismFacadeImpl denied = new CubismFacadeImpl(
+            sampleSource(),
+            new CubismPermissionGate(
+                "plugin.demo",
+                List.of(permission(CubismFacadeImpl.MODEL_READ_PERMISSION)),
+                auditEvents::add,
+                FIXED_CLOCK
+            ),
+            backend
+        );
+
+        assertThrows(
+            CubismPermissionException.class,
+            () -> denied.model().active().setEditLevel(
+                dev.turboism.sdk.cubism.model.ModelEditLevel.LEVEL_2
+            )
+        );
+        assertEquals(List.of(), writes);
+        assertEquals("model.setEditLevel", auditEvents.get(0).operationId());
+
+        final CubismFacadeImpl allowed = new CubismFacadeImpl(
+            sampleSource(),
+            new CubismPermissionGate(
+                "plugin.demo",
+                List.of(
+                    permission(CubismFacadeImpl.MODEL_READ_PERMISSION),
+                    permission(CubismFacadeImpl.MODEL_WRITE_PERMISSION)
+                ),
+                ignored -> { },
+                FIXED_CLOCK
+            ),
+            backend
+        );
+        allowed.model().active().setEditLevel(
+            dev.turboism.sdk.cubism.model.ModelEditLevel.LEVEL_2
+        );
+        assertEquals(List.of(dev.turboism.sdk.cubism.model.ModelEditLevel.LEVEL_2), writes);
+    }
+
+    @Test
     void combinedWritesRequireModelWritePermissionBeforeInvokingBackend() {
         final List<CubismFacadeAuditEvent> auditEvents = new ArrayList<>();
         final List<String> calls = new ArrayList<>();
@@ -633,7 +691,7 @@ class CubismFacadeImplTest {
     }
 
     @Test
-    void parameterDefinitionUpdateRequiresModelWritePermissionBeforeInvokingBackend() {
+    void parameterDefinitionUpdateRequiresPermissionAndAvoidsStalePostRead() {
         final List<CubismFacadeAuditEvent> auditEvents = new ArrayList<>();
         final float[] value = {1.0F};
         final ParameterDefinition[] updated = {null};
@@ -886,7 +944,25 @@ class CubismFacadeImplTest {
     void parameterSetterUsesTheRuntimeLifecycleAroundTheBackendWrite() {
         final float[] value = {1.0F};
         final List<String> events = new ArrayList<>();
+        final List<String> semanticEvents = new ArrayList<>();
         final ParameterLifecycleCoordinator lifecycle = new ParameterLifecycleCoordinator();
+        final dev.turboism.adapter.cubism.lifecycle.SemanticOperationLifecycleCoordinator semantic =
+            new dev.turboism.adapter.cubism.lifecycle.SemanticOperationLifecycleCoordinator();
+        semantic.register(new dev.turboism.adapter.cubism.lifecycle.SemanticOperationLifecycleCoordinator.PluginHooks(
+            descriptor("plugin.semantic"),
+            List.of(new dev.turboism.sdk.cubism.hook.SemanticOperationHooks() {
+                @Override public void beforeCubismOperation(
+                    final dev.turboism.sdk.cubism.event.CubismOperationEvent event
+                ) { semanticEvents.add("before:" + event.operation()); }
+                @Override public void onCubismOperationConfirmed(
+                    final dev.turboism.sdk.cubism.event.CubismOperationEvent event
+                ) { semanticEvents.add("on:" + event.operation()); }
+                @Override public void afterCubismOperation(
+                    final dev.turboism.sdk.cubism.event.CubismOperationEvent event
+                ) { semanticEvents.add("after:" + event.operation()); }
+            }),
+            logger()
+        ));
         lifecycle.register(new ParameterLifecycleCoordinator.PluginHooks(
             descriptor("plugin.hooks"),
             List.of(new CubismPlugin() {
@@ -924,14 +1000,27 @@ class CubismFacadeImplTest {
                 FIXED_CLOCK
             ),
             () -> modelWithParameter(value),
-            lifecycle
+            lifecycle,
+            new dev.turboism.adapter.cubism.lifecycle.PartLifecycleCoordinator(),
+            new dev.turboism.adapter.cubism.lifecycle.EditorObjectLifecycleCoordinator(
+                new dev.turboism.adapter.cubism.lifecycle.DrawableLifecycleCoordinator(),
+                new dev.turboism.adapter.cubism.lifecycle.DeformerLifecycleCoordinator(),
+                semantic
+            ),
+            () -> true
         );
 
         facade.model().active().parameters().find(new ParameterId("ParamA")).setValue(10.0F);
         lifecycle.awaitIdle();
+        semantic.awaitIdle();
 
         assertEquals(5.0F, value[0]);
         assertEquals(List.of("on:1.0->5.0", "after:5.0"), events);
+        assertEquals(List.of(
+            "before:SET_PARAMETER_VALUE",
+            "on:SET_PARAMETER_VALUE",
+            "after:SET_PARAMETER_VALUE"
+        ), semanticEvents);
     }
 
     @Test
@@ -1295,7 +1384,12 @@ class CubismFacadeImplTest {
         return new CubismModel() {
             private final dev.turboism.sdk.cubism.model.Parameter parameter =
                 new dev.turboism.sdk.cubism.model.Parameter() {
-                    @Override public ParameterId id() { return new ParameterId("ParamA"); }
+                    @Override public ParameterId id() {
+                        if (updated[0] != null) {
+                            throw new IllegalStateException("parameter identity changed");
+                        }
+                        return new ParameterId("ParamA");
+                    }
                     @Override public int index() { return 3; }
                     @Override public dev.turboism.sdk.cubism.model.FloatSequence keyValues() {
                         return emptyFloats();

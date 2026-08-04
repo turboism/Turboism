@@ -9,6 +9,7 @@ import dev.turboism.sdk.cubism.hook.ModelFileHooks;
 import dev.turboism.sdk.cubism.hook.ModelHooks;
 import dev.turboism.sdk.cubism.hook.ParameterHooks;
 import dev.turboism.sdk.cubism.hook.PartHooks;
+import dev.turboism.sdk.cubism.hook.SemanticOperationHooks;
 import dev.turboism.sdk.plugin.TurboismPlugin;
 
 /**
@@ -28,5 +29,6 @@ public interface CubismPlugin
             ModelHooks,
             ModelFileHooks,
             AnimationFileHooks,
-            EditorLifecycleHooks {
+            EditorLifecycleHooks,
+            SemanticOperationHooks {
 }
