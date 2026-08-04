@@ -1,6 +1,7 @@
 package dev.turboism.sdk.cubism;
 
 import dev.turboism.sdk.PreviewApi;
+import dev.turboism.sdk.cubism.core.CoreRuntimeInfo;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.sdk.cubism.transaction.TransactionManager;
 import java.util.Optional;
@@ -53,6 +54,14 @@ public interface CubismFacade {
     }
 
     boolean isHostPresent();
+
+    /** Returns permission-checked Cubism Core metadata and MOC inspection. */
+    @PreviewApi
+    default CoreRuntimeInfo coreRuntime() {
+        throw new UnsupportedOperationException(
+            "Cubism Core runtime metadata is unavailable."
+        );
+    }
 
     /**
      * Returns the unified model object API.

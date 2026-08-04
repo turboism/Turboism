@@ -142,6 +142,16 @@ class DynamicCubismModelAccessTest {
         final DynamicCubismModelAccess access = new DynamicCubismModelAccess();
         final Parameter delegate = new Parameter() {
             @Override public ParameterId id() { return new ParameterId("ParamCheek"); }
+            @Override public int index() { return 7; }
+            @Override public dev.turboism.sdk.cubism.model.FloatSequence keyValues() {
+                return new dev.turboism.sdk.cubism.model.FloatSequence() {
+                    @Override public int size() { return 1; }
+                    @Override public float get(final int index) {
+                        if (index != 0) throw new IndexOutOfBoundsException(index);
+                        return 0.25F;
+                    }
+                };
+            }
             @Override public Optional<String> name() { return Optional.of("Cheek"); }
             @Override public ParameterType type() { return ParameterType.BLEND_SHAPE; }
             @Override public Optional<Boolean> repeat() { return Optional.of(false); }
@@ -159,6 +169,10 @@ class DynamicCubismModelAccessTest {
         access.connect(() -> model("model-a", delegate));
 
         final Parameter parameter = access.active().parameters().find(new ParameterId("ParamCheek"));
+        final dev.turboism.sdk.cubism.model.FloatSequence keyValues = parameter.keyValues();
+        assertEquals(7, parameter.index());
+        assertEquals(1, keyValues.size());
+        assertEquals(0.25F, keyValues.get(0));
         assertEquals(Optional.of("Cheek"), parameter.name());
         assertEquals(ParameterType.BLEND_SHAPE, parameter.type());
         assertEquals(Optional.of(false), parameter.repeat());
@@ -167,6 +181,8 @@ class DynamicCubismModelAccessTest {
         assertEquals(List.of(), parameter.getParameterBindings());
 
         access.deactivate();
+        assertThrows(IllegalStateException.class, parameter::index);
+        assertThrows(IllegalStateException.class, keyValues::size);
         assertThrows(IllegalStateException.class, parameter::name);
         assertThrows(IllegalStateException.class, parameter::type);
         assertThrows(IllegalStateException.class, parameter::repeat);

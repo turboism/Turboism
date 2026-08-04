@@ -35,6 +35,21 @@ class EditorPartNameSelectorContractTest {
             EditorPartNameSelectorContract.WRITE_CAPABILITY_ID,
             EditorPartNameSelectorContract.WRITE_REQUIRED_ALIASES
         ));
+        assertTrue(resolver.authorizesFeature(
+            EditorPartBasicSettingsSelectorContract.ADAPTER_SLICE_ID,
+            EditorPartBasicSettingsSelectorContract.READ_CAPABILITY_ID,
+            EditorPartBasicSettingsSelectorContract.READ_REQUIRED_ALIASES
+        ));
+        assertTrue(resolver.authorizesFeature(
+            EditorPartBasicSettingsSelectorContract.ADAPTER_SLICE_ID,
+            EditorPartBasicSettingsSelectorContract.WRITE_CAPABILITY_ID,
+            EditorPartBasicSettingsSelectorContract.WRITE_REQUIRED_ALIASES
+        ));
+        assertTrue(resolver.authorizesFeature(
+            EditorPartTreeSelectorContract.ADAPTER_SLICE_ID,
+            EditorPartTreeSelectorContract.CAPABILITY_ID,
+            EditorPartTreeSelectorContract.REQUIRED_ALIASES
+        ));
     }
 
     @Test
@@ -55,6 +70,21 @@ class EditorPartNameSelectorContractTest {
             EditorPartNameSelectorContract.ADAPTER_SLICE_ID,
             EditorPartNameSelectorContract.WRITE_CAPABILITY_ID,
             EditorPartNameSelectorContract.WRITE_REQUIRED_ALIASES
+        ));
+        assertTrue(resolver.authorizesFeature(
+            EditorPartBasicSettingsSelectorContract.ADAPTER_SLICE_ID,
+            EditorPartBasicSettingsSelectorContract.READ_CAPABILITY_ID,
+            EditorPartBasicSettingsSelectorContract.READ_REQUIRED_ALIASES
+        ));
+        assertTrue(resolver.authorizesFeature(
+            EditorPartBasicSettingsSelectorContract.ADAPTER_SLICE_ID,
+            EditorPartBasicSettingsSelectorContract.WRITE_CAPABILITY_ID,
+            EditorPartBasicSettingsSelectorContract.WRITE_REQUIRED_ALIASES
+        ));
+        assertTrue(resolver.authorizesFeature(
+            EditorPartTreeSelectorContract.ADAPTER_SLICE_ID,
+            EditorPartTreeSelectorContract.CAPABILITY_ID,
+            EditorPartTreeSelectorContract.REQUIRED_ALIASES
         ));
     }
 
