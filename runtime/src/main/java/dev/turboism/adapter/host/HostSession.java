@@ -80,6 +80,8 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     private final dev.turboism.sdk.ui.table.SceneTableService sceneTable = sceneTableHost.service();
     private final dev.turboism.ui.appearance.control.ControlAppearanceCoordinator controlAppearanceCoordinator =
         new dev.turboism.ui.appearance.control.ControlAppearanceCoordinator();
+    private final dev.turboism.ui.workspace.WorkspaceCoordinator workspaceCoordinator =
+        new dev.turboism.ui.workspace.WorkspaceCoordinator();
     private final Object lifecycleMonitor = new Object();
 
     private State state = State.SAFE_MODE;
@@ -376,6 +378,11 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     public dev.turboism.adapter.cubism.NativeControlAppearanceAuthoring nativeControlAppearance() {
         return dynamicModelAccess;
     }
+
+    @Override
+    public dev.turboism.ui.workspace.WorkspaceCoordinator workspaceCoordinator() {
+        return workspaceCoordinator;
+    }
     public dev.turboism.mapping.verification.VerifiedMemberResolver editorModelResolver() {
         synchronized (lifecycleMonitor) {
             if (activeConnection == null) {
@@ -420,7 +427,8 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             appearanceCoordinator,
             sceneTable,
             controlAppearanceCoordinator,
-            dynamicModelAccess
+            dynamicModelAccess,
+            workspaceCoordinator
         );
     }
 
@@ -442,6 +450,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             appearanceCoordinator.close();
             sceneTableHost.disconnect();
             controlAppearanceCoordinator.close();
+            workspaceCoordinator.close();
             physicsEditorCoordinator.close();
             editorObjectLifecycle.close();
             partLifecycle.close();
