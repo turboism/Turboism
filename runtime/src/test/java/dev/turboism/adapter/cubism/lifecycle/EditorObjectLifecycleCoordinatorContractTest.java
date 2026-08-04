@@ -2,6 +2,9 @@ package dev.turboism.adapter.cubism.lifecycle;
 
 import dev.turboism.sdk.cubism.hook.DeformerHooks;
 import dev.turboism.sdk.cubism.hook.DrawableHooks;
+import dev.turboism.sdk.cubism.hook.SemanticOperationHooks;
+import dev.turboism.sdk.cubism.event.CubismOperation;
+import dev.turboism.sdk.cubism.event.CubismOperationOrigin;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.model.ArtMeshGeometry;
@@ -409,6 +412,201 @@ class EditorObjectLifecycleCoordinatorContractTest {
         ));
         release.countDown();
         drawable.close();
+    }
+
+
+    @Test
+    void semanticLifecycleCoversChangedUnchangedAndConfirmedOperations() {
+        final List<String> events = new CopyOnWriteArrayList<>();
+        final SemanticOperationLifecycleCoordinator semantic =
+            new SemanticOperationLifecycleCoordinator();
+        semantic.register(new SemanticOperationLifecycleCoordinator.PluginHooks(
+            descriptor("plugin-a"),
+            List.of(new SemanticOperationHooks() {
+                @Override public void beforeCubismOperation(
+                    final dev.turboism.sdk.cubism.event.CubismOperationEvent event
+                ) {
+                    events.add("before:" + event.sequence() + ":" + event.operation());
+                }
+
+                @Override public void onCubismOperationConfirmed(
+                    final dev.turboism.sdk.cubism.event.CubismOperationEvent event
+                ) {
+                    events.add("on:" + event.sequence() + ":" + event.operation());
+                }
+
+                @Override public void afterCubismOperation(
+                    final dev.turboism.sdk.cubism.event.CubismOperationEvent event
+                ) {
+                    events.add("after:" + event.sequence() + ":" + event.operation());
+                }
+            }),
+            logger(new ArrayList<>()),
+            true,
+            true
+        ));
+        final int[] documentGeneration = {0};
+
+        semantic.runComparing(
+            CubismOperation.OPEN_DOCUMENT,
+            CubismOperationOrigin.HOST_UI,
+            Optional.of("DocumentA"),
+            () -> documentGeneration[0],
+            () -> documentGeneration[0]++
+        );
+        semantic.awaitIdle();
+        semantic.runComparing(
+            CubismOperation.SAVE_DOCUMENT,
+            CubismOperationOrigin.TURBOISM_API,
+            Optional.of("DocumentA"),
+            () -> documentGeneration[0],
+            () -> { }
+        );
+        semantic.awaitIdle();
+        semantic.runConfirmed(
+            CubismOperation.EXPORT_PROJECT,
+            CubismOperationOrigin.TURBOISM_API,
+            Optional.of("ProjectA"),
+            () -> { }
+        );
+        semantic.awaitIdle();
+
+        assertEquals(List.of(
+            "before:1:OPEN_DOCUMENT",
+            "on:1:OPEN_DOCUMENT",
+            "after:1:OPEN_DOCUMENT",
+            "before:2:SAVE_DOCUMENT",
+            "after:2:SAVE_DOCUMENT",
+            "before:3:EXPORT_PROJECT",
+            "on:3:EXPORT_PROJECT",
+            "after:3:EXPORT_PROJECT"
+        ), events);
+    }
+
+    @Test
+    void semanticLifecycleCanConfirmRequestedStateWithoutReadingAStaleResult() {
+        final List<String> events = new CopyOnWriteArrayList<>();
+        final SemanticOperationLifecycleCoordinator semantic =
+            new SemanticOperationLifecycleCoordinator();
+        semantic.register(new SemanticOperationLifecycleCoordinator.PluginHooks(
+            descriptor("plugin-a"),
+            List.of(new SemanticOperationHooks() {
+                @Override public void onCubismOperationConfirmed(
+                    final dev.turboism.sdk.cubism.event.CubismOperationEvent event
+                ) { events.add("on"); }
+                @Override public void afterCubismOperation(
+                    final dev.turboism.sdk.cubism.event.CubismOperationEvent event
+                ) { events.add("after"); }
+            }),
+            logger(new ArrayList<>())
+        ));
+        final int[] reads = {0};
+
+        semantic.runComparingTo(
+            CubismOperation.UPDATE_PARAMETER_DEFINITION,
+            CubismOperationOrigin.TURBOISM_API,
+            Optional.of("ParamA"),
+            () -> {
+                if (++reads[0] > 1) throw new IllegalStateException("stale reference");
+                return "before";
+            },
+            "after",
+            () -> { }
+        );
+        semantic.awaitIdle();
+
+        assertEquals(1, reads[0]);
+        assertEquals(List.of("on", "after"), events);
+    }
+
+    @Test
+    void semanticLifecycleIsolatesHookFailuresAndContinuesInOrder() {
+        final List<String> events = new CopyOnWriteArrayList<>();
+        final List<String> errors = new CopyOnWriteArrayList<>();
+        final SemanticOperationLifecycleCoordinator semantic =
+            new SemanticOperationLifecycleCoordinator();
+        semantic.register(new SemanticOperationLifecycleCoordinator.PluginHooks(
+            descriptor("plugin-a"),
+            List.of(
+                new SemanticOperationHooks() {
+                    @Override public void beforeCubismOperation(
+                        final dev.turboism.sdk.cubism.event.CubismOperationEvent event
+                    ) { throw new IllegalStateException("before"); }
+                    @Override public void onCubismOperationConfirmed(
+                        final dev.turboism.sdk.cubism.event.CubismOperationEvent event
+                    ) { throw new IllegalStateException("on"); }
+                    @Override public void afterCubismOperation(
+                        final dev.turboism.sdk.cubism.event.CubismOperationEvent event
+                    ) { throw new IllegalStateException("after"); }
+                },
+                new SemanticOperationHooks() {
+                    @Override public void beforeCubismOperation(
+                        final dev.turboism.sdk.cubism.event.CubismOperationEvent event
+                    ) { events.add("before"); }
+                    @Override public void onCubismOperationConfirmed(
+                        final dev.turboism.sdk.cubism.event.CubismOperationEvent event
+                    ) { events.add("on"); }
+                    @Override public void afterCubismOperation(
+                        final dev.turboism.sdk.cubism.event.CubismOperationEvent event
+                    ) { events.add("after"); }
+                }
+            ),
+            logger(errors)
+        ));
+
+        semantic.runConfirmed(
+            CubismOperation.SAVE_DOCUMENT,
+            CubismOperationOrigin.HOST_UI,
+            Optional.of("DocumentA"),
+            () -> { }
+        );
+        semantic.awaitIdle();
+
+        assertEquals(List.of("before", "on", "after"), events);
+        assertEquals(3, errors.size());
+    }
+
+    @Test
+    void semanticLifecycleSuppressesCompletionOnFailureAndCleansUpOnUnregister() {
+        final List<String> events = new CopyOnWriteArrayList<>();
+        final SemanticOperationLifecycleCoordinator semantic =
+            new SemanticOperationLifecycleCoordinator();
+        semantic.register(new SemanticOperationLifecycleCoordinator.PluginHooks(
+            descriptor("plugin-a"),
+            List.of(new SemanticOperationHooks() {
+                @Override public void beforeCubismOperation(
+                    final dev.turboism.sdk.cubism.event.CubismOperationEvent event
+                ) { events.add("before"); }
+                @Override public void onCubismOperationConfirmed(
+                    final dev.turboism.sdk.cubism.event.CubismOperationEvent event
+                ) { events.add("on"); }
+                @Override public void afterCubismOperation(
+                    final dev.turboism.sdk.cubism.event.CubismOperationEvent event
+                ) { events.add("after"); }
+            }),
+            logger(new ArrayList<>()),
+            true,
+            true
+        ));
+
+        assertThrows(IllegalStateException.class, () -> semantic.runConfirmed(
+            CubismOperation.SAVE_DOCUMENT,
+            CubismOperationOrigin.UNKNOWN,
+            Optional.of("DocumentA"),
+            () -> { throw new IllegalStateException("save failed"); }
+        ));
+        semantic.awaitIdle();
+        assertEquals(List.of("before"), events);
+
+        semantic.unregister("plugin-a");
+        semantic.runConfirmed(
+            CubismOperation.CLOSE_DOCUMENT,
+            CubismOperationOrigin.HOST_UI,
+            Optional.of("DocumentA"),
+            () -> { }
+        );
+        semantic.awaitIdle();
+        assertEquals(List.of("before"), events);
     }
 
     private static DrawableLifecycleCoordinator.PluginHooks drawablePlugin(

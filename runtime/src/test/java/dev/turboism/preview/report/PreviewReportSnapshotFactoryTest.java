@@ -134,6 +134,34 @@ class PreviewReportSnapshotFactoryTest {
     }
 
     @Test
+    void processExitReportDoesNotInventPluginShutdownAttempts() {
+        final LocalPluginRuntime.LoadedPluginSummary active = plugin(
+            "dev.example.active",
+            List.of(),
+            List.of()
+        );
+
+        final JsonNode payload = PreviewReportSnapshotFactory.create(
+            "runtime-process-exit",
+            Instant.parse("2026-07-15T00:00:00Z"),
+            temporary,
+            HostSession.State.ACTIVE,
+            null,
+            null,
+            new LocalPluginRuntime.LoadReport(List.of(active), List.of(), List.of()),
+            List.of(active),
+            RuntimeFailureSnapshot.empty(),
+            true,
+            false
+        ).get(PreviewReportType.PREVIEW_RUNTIME).path("payload");
+
+        assertEquals("STOPPED", payload.path("runtimeState").textValue());
+        assertEquals(0, payload.path("shutdownCounts").path("attempted").longValue());
+        assertEquals(0, payload.path("shutdownCounts").path("succeeded").longValue());
+        assertEquals(0, payload.path("shutdownCounts").path("failed").longValue());
+    }
+
+    @Test
     void capabilityReportUsesClosedExplicitBindingsForOfficialDescriptors() throws Exception {
         final LocalPluginRuntime.LoadedPluginSummary clipMask = plugin(
             "dev.turboism.plugin.clipmask",

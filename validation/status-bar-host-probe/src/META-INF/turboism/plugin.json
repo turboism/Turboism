@@ -1,0 +1,40 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 2,
+  "id": "dev.turboism.validation.statusbar",
+  "name": "Status Bar Host Validation Exerciser",
+  "version": "0.0.0",
+  "description": "Task-local exerciser for native 5.3 status notifications and 5.2 fail-closed behavior.",
+  "entrypoints": [
+    "dev.turboism.validation.statusbar.StatusBarHostValidationPlugin"
+  ],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    { "name": "Turboism Validation" }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": []
+  },
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.ui.status.notify",
+      "scope": "application",
+      "reason": "Exercises visible 5.3 status notifications and verifies that 5.2 does not mutate the native bottom status bar."
+    },
+    {
+      "id": "turboism.cubism.model.read",
+      "scope": "application",
+      "reason": "Reads context.cubism().model().active().id() to gate the exerciser on a verified modeling document and model without mutation."
+    }
+  ],
+  "capabilities": [],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "swing"
+  }
+}
