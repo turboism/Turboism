@@ -92,6 +92,9 @@ final class EditorNativeControlAppearanceAccess implements NativeLabelColorAutho
             final Object listener = resolver.createFunctionalProxy(
                 "cubism.editor-model.undo-listener.class",
                 ignored -> {
+                    resolver.invoke(
+                        "cubism.editor-model.model-source.update-instances", binding.source()
+                    );
                     refresh(app, target, transaction, binding, sourceId);
                     trace(
                         transaction,
@@ -121,6 +124,10 @@ final class EditorNativeControlAppearanceAccess implements NativeLabelColorAutho
                     "Cubism native label-color write was not applied exactly."
                 );
             }
+            resolver.invoke(
+                "cubism.editor-model.model-source.update-instances", binding.source()
+            );
+            trace(transaction, "instances-updated", binding, sourceId, "completed=true");
             refresh(app, target, transaction, binding, sourceId);
             requireCurrent(binding);
             requireSameLabelColor(binding, target, labelColor);
