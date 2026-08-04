@@ -28,6 +28,7 @@ class VerifiedHostAdapterConnectorWorkspaceTest {
             (value, session) -> { throw new AssertionError("editor access must not run"); },
             null, null, null, null, null, null, null,
             new dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator(),
+            ignored -> new dev.turboism.ui.appearance.UnavailableAppearanceHostProvider(),
             slice -> resolver
         );
         Path artifact = Path.of("/tmp/shared-cubism.jar");
@@ -61,6 +62,7 @@ class VerifiedHostAdapterConnectorWorkspaceTest {
             new dev.turboism.ui.panel.RuntimeEmbeddedPanelActivationCoordinator(),
             slice -> { throw new AssertionError("top-menu resolver must not run"); },
             new dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator(),
+            ignored -> new dev.turboism.ui.appearance.UnavailableAppearanceHostProvider(),
             slice -> resolver
         );
         Path artifact = Path.of("/tmp/shared-cubism.jar");

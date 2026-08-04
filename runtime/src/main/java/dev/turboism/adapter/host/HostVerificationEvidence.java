@@ -159,6 +159,7 @@ public record HostVerificationEvidence(
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
+            Optional.empty(),
             Optional.empty()
         );
     }
