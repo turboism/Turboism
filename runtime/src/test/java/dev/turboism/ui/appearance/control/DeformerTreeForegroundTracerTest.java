@@ -1,72 +1,48 @@
 package dev.turboism.ui.appearance.control;
 
-import dev.turboism.sdk.cubism.id.DeformerId;
-import dev.turboism.adapter.cubism.NativeControlAppearanceAuthoring;
-import dev.turboism.sdk.permission.PermissionIds;
-import dev.turboism.sdk.plugin.Registration;
-import dev.turboism.sdk.ui.appearance.ControlAppearanceContribution;
-import dev.turboism.sdk.ui.appearance.ControlAppearanceStyle;
-import dev.turboism.sdk.ui.appearance.ControlAppearanceTarget;
+import dev.turboism.sdk.ui.appearance.UiColor;
 import org.junit.jupiter.api.Test;
 
 import javax.swing.JLabel;
 import java.awt.Color;
-import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
 class DeformerTreeForegroundTracerTest {
-
     @Test
     void stylesOnlyTheRegisteredDeformerAndStopsAfterRegistrationCloses() throws Exception {
-        final ControlAppearanceCoordinator coordinator = new ControlAppearanceCoordinator();
-        coordinator.replaceHostGeneration(11);
-        final RuntimeControlAppearanceRegistry registry = new RuntimeControlAppearanceRegistry(
-            "dev.turboism.test.control-appearance",
-            7,
-            (permissionId, operation) -> assertEquals(
-                PermissionIds.TURBOISM_UI_APPEARANCE_MODIFY,
-                permissionId
-            ),
-            coordinator,
-            TestNativeControlAppearanceAuthoring.unavailable()
+        final PaletteAppearanceCoordinator coordinator = new PaletteAppearanceCoordinator();
+        final PaletteAppearanceCoordinator.Scope scope = scope(11);
+        coordinator.reconcile(scope);
+        final var registration = coordinator.register(
+            "dev.turboism.test.control-appearance", 7, scope,
+            PaletteAppearanceCoordinator.Palette.DEFORMER_PART, "WarpA",
+            PaletteAppearanceCoordinator.Property.TEXT_COLOR,
+            new UiColor(0.2F, 0.4F, 0.6F, 1.0F)
         );
         final DeformerTreeControlAppearanceProvider provider =
             new DeformerTreeControlAppearanceProvider(coordinator);
-        final Registration registration = registry.register(new ControlAppearanceContribution(
-            "deformer.foreground",
-            new ControlAppearanceTarget.DeformerLabel(new DeformerId("WarpA")),
-            new ControlAppearanceStyle(
-                Optional.of(new dev.turboism.sdk.cubism.model.Color(0.200000F, 0.400000F, 0.600000F, 1.000000F)),
-                Optional.empty(),
-                Optional.empty()
-            )
-        ));
         final JLabel reusedRenderer = new JLabel();
         final Color nativeForeground = new Color(0x22, 0x22, 0x22);
 
         reusedRenderer.setForeground(nativeForeground);
-        assertSame(
-            reusedRenderer,
-            render(provider, "WarpA", reusedRenderer)
-        );
+        assertSame(reusedRenderer, render(provider, "WarpA", reusedRenderer));
         assertEquals(new Color(0x33, 0x66, 0x99), reusedRenderer.getForeground());
 
-        reusedRenderer.setForeground(nativeForeground); // native delegate renders another row
-        assertSame(
-            reusedRenderer,
-            render(provider, "WarpB", reusedRenderer)
-        );
+        reusedRenderer.setForeground(nativeForeground);
+        assertSame(reusedRenderer, render(provider, "WarpB", reusedRenderer));
         assertEquals(nativeForeground, reusedRenderer.getForeground());
 
         registration.close();
-        reusedRenderer.setForeground(nativeForeground); // native delegate renders the former target again
-        assertSame(
-            reusedRenderer,
-            render(provider, "WarpA", reusedRenderer)
-        );
+        reusedRenderer.setForeground(nativeForeground);
+        assertSame(reusedRenderer, render(provider, "WarpA", reusedRenderer));
         assertEquals(nativeForeground, reusedRenderer.getForeground());
+        provider.close();
+    }
+
+    private static PaletteAppearanceCoordinator.Scope scope(final long hostGeneration) {
+        return new PaletteAppearanceCoordinator.Scope("content", 1, "model", 1, hostGeneration, 1);
     }
 
     private static JLabel render(
@@ -74,11 +50,9 @@ class DeformerTreeForegroundTracerTest {
         final String deformerId,
         final JLabel renderer
     ) throws Exception {
-        final java.util.concurrent.atomic.AtomicReference<java.awt.Component> result =
-            new java.util.concurrent.atomic.AtomicReference<>();
         javax.swing.SwingUtilities.invokeAndWait(() ->
-            result.set(provider.apply(11, deformerId, renderer, false, false))
+            provider.apply(11, deformerId, renderer, false, false)
         );
-        return (JLabel) result.get();
+        return renderer;
     }
 }

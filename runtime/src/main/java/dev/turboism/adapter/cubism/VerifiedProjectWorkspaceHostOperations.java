@@ -4,6 +4,7 @@ import dev.turboism.adapter.ui.AdapterHostException;
 import dev.turboism.adapter.ui.SafeModeDiagnostic;
 import dev.turboism.mapping.verification.VerifiedAccessException;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
+import dev.turboism.adapter.cubism.lifecycle.ProjectContentIdentity;
 import dev.turboism.sdk.cubism.AnimationSnapshot;
 import dev.turboism.sdk.cubism.DocumentKind;
 import dev.turboism.sdk.cubism.DocumentSnapshot;
@@ -281,7 +282,13 @@ public final class VerifiedProjectWorkspaceHostOperations implements ProjectWork
             ? "untitled"
             : file.getName();
         final Optional<String> contentId = Optional.ofNullable(contentOwner)
-            .map(content -> identities.idFor(content, "content"));
+            .map(content -> switch (kind) {
+                case MODEL -> ProjectContentIdentity.forLifecycleContent(ProjectContentKind.MODEL, content);
+                case ANIMATION_SCENE -> ProjectContentIdentity.forLifecycleContent(
+                    ProjectContentKind.ANIMATION, content
+                );
+                default -> identities.idFor(content, "content");
+            });
         final Optional<ModelSnapshot> model = kind == DocumentKind.MODEL
             ? Optional.of(model(document, fallbackName))
             : Optional.empty();
@@ -444,8 +451,11 @@ public final class VerifiedProjectWorkspaceHostOperations implements ProjectWork
                 if (document != null) documentIds.add(identities.idFor(document, "document"));
             }
         }
+        final String contentId = kind == ProjectContentKind.MODEL || kind == ProjectContentKind.ANIMATION
+            ? ProjectContentIdentity.forLifecycleContent(kind, content)
+            : identities.idFor(content, "content");
         return new ProjectContentSnapshot(
-            identities.idFor(content, "content"),
+            contentId,
             name,
             kind,
             Optional.empty(),

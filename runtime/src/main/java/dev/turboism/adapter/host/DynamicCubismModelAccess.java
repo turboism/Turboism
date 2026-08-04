@@ -2,6 +2,7 @@ package dev.turboism.adapter.host;
 
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.DeformerId;
+import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.sdk.cubism.model.Canvas;
@@ -28,31 +29,76 @@ import dev.turboism.sdk.cubism.model.Parameters;
 import dev.turboism.sdk.cubism.model.Part;
 import dev.turboism.sdk.cubism.model.PartId;
 import dev.turboism.sdk.cubism.model.Parts;
-import dev.turboism.adapter.cubism.NativeControlAppearanceAuthoring;
-import dev.turboism.sdk.ui.appearance.ControlAppearanceTarget;
-import dev.turboism.sdk.ui.appearance.NativeControlAppearance;
-import dev.turboism.sdk.ui.appearance.NativeControlBackground;
+import dev.turboism.adapter.cubism.NativeLabelColorAuthoring;
+import dev.turboism.adapter.cubism.NativeLabelColorTarget;
+import dev.turboism.sdk.ui.appearance.model.DeformerAppearance;
+import dev.turboism.sdk.ui.appearance.model.DrawableAppearance;
+import dev.turboism.sdk.ui.appearance.model.ParameterAppearance;
+import dev.turboism.sdk.ui.appearance.model.ParameterGroupAppearance;
+import dev.turboism.sdk.ui.appearance.model.PartAppearance;
+import dev.turboism.sdk.ui.appearance.NativeLabelColor;
+import dev.turboism.sdk.ui.appearance.NativeLabelColorState;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Function;
 
 /** Stable plugin-facing model access whose delegate follows one HostSession connection. */
-final class DynamicCubismModelAccess implements CubismModelAccess, NativeControlAppearanceAuthoring {
+final class DynamicCubismModelAccess implements CubismModelAccess,
+    NativeLabelColorAuthoring {
 
     private final Object callGate = new Object();
     private CubismModelAccess current = UnavailableCubismModelAccess.INSTANCE;
     private boolean acceptingCalls;
     private long generation;
     private int inFlight;
+    private dev.turboism.ui.appearance.control.RuntimeModelAppearanceAccess appearanceAccess;
+
+    void attachAppearanceAccess(
+        final dev.turboism.ui.appearance.control.RuntimeModelAppearanceAccess appearanceAccess
+    ) {
+        synchronized (callGate) {
+            if (this.appearanceAccess != null || acceptingCalls || generation != 0) {
+                throw new IllegalStateException("Model appearance access is already bound.");
+            }
+            this.appearanceAccess = Objects.requireNonNull(appearanceAccess, "appearanceAccess");
+        }
+    }
+
+    long generation() {
+        synchronized (callGate) {
+            return generation;
+        }
+    }
+
+    long modelGeneration() {
+        synchronized (callGate) {
+            if (current instanceof DynamicCubismModelAccess nested && nested != this) {
+                return nested.generation();
+            }
+            return generation;
+        }
+    }
+
+    private static long modelGeneration(
+        final CubismModelAccess modelAccess,
+        final long fallback
+    ) {
+        return modelAccess instanceof DynamicCubismModelAccess nested
+            ? nested.generation()
+            : fallback;
+    }
 
     @Override
     public CubismModel active() {
         final AccessLease lease = acquireActiveLease();
         try {
+            final CubismModel model = Objects.requireNonNull(lease.modelAccess().active(), "active model");
             return new SessionModel(
                 lease.generation(),
-                Objects.requireNonNull(lease.modelAccess().active(), "active model")
+                modelGeneration(lease.modelAccess(), lease.generation()),
+                Objects.requireNonNull(model.id(), "active model id"),
+                model
             );
         } finally {
             release(lease);
@@ -149,10 +195,19 @@ final class DynamicCubismModelAccess implements CubismModelAccess, NativeControl
     private final class SessionModel implements CubismModel {
 
         private final long generation;
+        private final long modelGeneration;
+        private final ModelId modelId;
         private final CubismModel delegate;
 
-        private SessionModel(final long generation, final CubismModel delegate) {
+        private SessionModel(
+            final long generation,
+            final long modelGeneration,
+            final ModelId modelId,
+            final CubismModel delegate
+        ) {
             this.generation = generation;
+            this.modelGeneration = modelGeneration;
+            this.modelId = Objects.requireNonNull(modelId, "modelId");
             this.delegate = Objects.requireNonNull(delegate, "delegate");
         }
 
@@ -189,17 +244,20 @@ final class DynamicCubismModelAccess implements CubismModelAccess, NativeControl
 
         @Override
         public Parameters parameters() {
-            return new SessionParameters(generation, current(
+            return new SessionParameters(
                 generation,
-                CubismModel::parameters,
-                delegate
-            ));
+                modelGeneration,
+                modelId,
+                current(generation, CubismModel::parameters, delegate)
+            );
         }
 
         @Override
         public ParameterGroups parameterGroups() {
             return new SessionParameterGroups(
                 generation,
+                modelGeneration,
+                modelId,
                 current(generation, CubismModel::parameterGroups, delegate)
             );
         }
@@ -275,13 +333,20 @@ final class DynamicCubismModelAccess implements CubismModelAccess, NativeControl
 
         @Override
         public Parts parts() {
-            return new SessionParts(generation, current(generation, CubismModel::parts, delegate));
+            return new SessionParts(
+                generation,
+                modelGeneration,
+                modelId,
+                current(generation, CubismModel::parts, delegate)
+            );
         }
 
         @Override
         public Drawables drawables() {
             return new SessionDrawables(
                 generation,
+                modelGeneration,
+                modelId,
                 current(generation, CubismModel::drawables, delegate)
             );
         }
@@ -290,6 +355,8 @@ final class DynamicCubismModelAccess implements CubismModelAccess, NativeControl
         public Deformers deformers() {
             return new SessionDeformers(
                 generation,
+                modelGeneration,
+                modelId,
                 current(generation, CubismModel::deformers, delegate)
             );
         }
@@ -359,17 +426,28 @@ final class DynamicCubismModelAccess implements CubismModelAccess, NativeControl
 
     private final class SessionParameters implements Parameters {
         private final long generation;
+        private final long modelGeneration;
+        private final ModelId modelId;
         private final Parameters delegate;
 
-        private SessionParameters(final long generation, final Parameters delegate) {
+        private SessionParameters(
+            final long generation,
+            final long modelGeneration,
+            final ModelId modelId,
+            final Parameters delegate
+        ) {
             this.generation = generation;
+            this.modelGeneration = modelGeneration;
+            this.modelId = Objects.requireNonNull(modelId, "modelId");
             this.delegate = Objects.requireNonNull(delegate, "delegate");
         }
 
         @Override
         public List<Parameter> all() {
             return guarded(generation, () -> delegate.all().stream()
-                .map(value -> (Parameter) new SessionParameter(generation, value))
+                .map(value -> (Parameter) new SessionParameter(
+                    generation, modelGeneration, modelId, value
+                ))
                 .toList());
         }
 
@@ -377,48 +455,83 @@ final class DynamicCubismModelAccess implements CubismModelAccess, NativeControl
         public Parameter find(final dev.turboism.sdk.cubism.id.ParameterId id) {
             return guarded(
                 generation,
-                () -> new SessionParameter(generation, delegate.find(id))
+                () -> new SessionParameter(
+                    generation, modelGeneration, modelId, delegate.find(id)
+                )
             );
         }
     }
 
     private final class SessionParameterGroups implements ParameterGroups {
         private final long generation;
+        private final long modelGeneration;
+        private final ModelId modelId;
         private final ParameterGroups delegate;
-        private SessionParameterGroups(final long generation, final ParameterGroups delegate) {
+
+        private SessionParameterGroups(
+            final long generation,
+            final long modelGeneration,
+            final ModelId modelId,
+            final ParameterGroups delegate
+        ) {
             this.generation = generation;
+            this.modelGeneration = modelGeneration;
+            this.modelId = Objects.requireNonNull(modelId, "modelId");
             this.delegate = Objects.requireNonNull(delegate, "delegate");
         }
         @Override public List<ParameterGroup> all() {
             return guarded(generation, () -> delegate.all().stream()
-                .map(value -> (ParameterGroup) new SessionParameterGroup(generation, value))
+                .map(value -> (ParameterGroup) new SessionParameterGroup(
+                    generation, modelGeneration, modelId, value
+                ))
                 .toList());
         }
+
         @Override public ParameterGroup root() {
             return guarded(
                 generation,
-                () -> new SessionParameterGroup(generation, delegate.root())
+                () -> new SessionParameterGroup(
+                    generation, modelGeneration, modelId, delegate.root()
+                )
             );
         }
+
         @Override public ParameterGroup find(
             final dev.turboism.sdk.cubism.id.ParameterGroupId id
         ) {
             return guarded(
                 generation,
-                () -> new SessionParameterGroup(generation, delegate.find(id))
+                () -> new SessionParameterGroup(
+                    generation, modelGeneration, modelId, delegate.find(id)
+                )
             );
         }
     }
 
     private final class SessionParameterGroup implements ParameterGroup {
         private final long generation;
+        private final long modelGeneration;
+        private final ModelId modelId;
         private final ParameterGroup delegate;
-        private SessionParameterGroup(final long generation, final ParameterGroup delegate) {
+
+        private SessionParameterGroup(
+            final long generation,
+            final long modelGeneration,
+            final ModelId modelId,
+            final ParameterGroup delegate
+        ) {
             this.generation = generation;
+            this.modelGeneration = modelGeneration;
+            this.modelId = Objects.requireNonNull(modelId, "modelId");
             this.delegate = Objects.requireNonNull(delegate, "delegate");
         }
         @Override public dev.turboism.sdk.cubism.id.ParameterGroupId id() {
             return guarded(generation, delegate::id);
+        }
+
+        @Override public ParameterGroupAppearance ui() {
+            final dev.turboism.sdk.cubism.id.ParameterGroupId id = id();
+            return appearanceParameterGroup(modelId, id, modelGeneration);
         }
         @Override public java.util.Optional<String> name() {
             return guarded(generation, delegate::name);
@@ -436,15 +549,29 @@ final class DynamicCubismModelAccess implements CubismModelAccess, NativeControl
 
     private final class SessionParameter implements Parameter {
         private final long generation;
+        private final long modelGeneration;
+        private final ModelId modelId;
         private final Parameter delegate;
 
-        private SessionParameter(final long generation, final Parameter delegate) {
+        private SessionParameter(
+            final long generation,
+            final long modelGeneration,
+            final ModelId modelId,
+            final Parameter delegate
+        ) {
             this.generation = generation;
+            this.modelGeneration = modelGeneration;
+            this.modelId = Objects.requireNonNull(modelId, "modelId");
             this.delegate = Objects.requireNonNull(delegate, "delegate");
         }
 
         @Override public dev.turboism.sdk.cubism.id.ParameterId id() {
             return guarded(generation, delegate::id);
+        }
+
+        @Override public ParameterAppearance ui() {
+            final dev.turboism.sdk.cubism.id.ParameterId id = id();
+            return appearanceParameter(modelId, id, modelGeneration);
         }
 
         @Override public int index() { return guarded(generation, delegate::index); }
@@ -489,39 +616,73 @@ final class DynamicCubismModelAccess implements CubismModelAccess, NativeControl
         ) {
             guardedVoid(generation, () -> delegate.updateDefinition(definition));
         }
-    }
 
+    }
     private final class SessionParts implements Parts {
         private final long generation;
+        private final long modelGeneration;
+        private final ModelId modelId;
         private final Parts delegate;
-        private SessionParts(final long generation, final Parts delegate) {
+
+        private SessionParts(
+            final long generation,
+            final long modelGeneration,
+            final ModelId modelId,
+            final Parts delegate
+        ) {
             this.generation = generation;
+            this.modelGeneration = modelGeneration;
+            this.modelId = Objects.requireNonNull(modelId, "modelId");
             this.delegate = Objects.requireNonNull(delegate, "delegate");
         }
+
         @Override public List<Part> all() {
             return guarded(generation, () -> delegate.all().stream()
-                .map(value -> (Part) new SessionPart(generation, value)).toList());
+                .map(value -> (Part) new SessionPart(
+                    generation, modelGeneration, modelId, value
+                )).toList());
         }
+
         @Override public Part find(final PartId id) {
-            return guarded(generation, () -> new SessionPart(generation, delegate.find(id)));
+            return guarded(
+                generation,
+                () -> new SessionPart(
+                    generation, modelGeneration, modelId, delegate.find(id)
+                )
+            );
         }
     }
 
     private final class SessionPart implements Part {
         private final long generation;
+        private final long modelGeneration;
+        private final ModelId modelId;
         private final Part delegate;
-        private SessionPart(final long generation, final Part delegate) {
+
+        private SessionPart(
+            final long generation,
+            final long modelGeneration,
+            final ModelId modelId,
+            final Part delegate
+        ) {
             this.generation = generation;
+            this.modelGeneration = modelGeneration;
+            this.modelId = Objects.requireNonNull(modelId, "modelId");
             this.delegate = Objects.requireNonNull(delegate, "delegate");
         }
+
         @Override public PartId id() { return guarded(generation, delegate::id); }
+
+        @Override public PartAppearance ui() {
+            final PartId id = id();
+            return appearancePart(modelId, id, modelGeneration);
+        }
 
         @Override public int index() { return guarded(generation, delegate::index); }
         @Override public String name() { return guarded(generation, delegate::name); }
         @Override public void setName(final String name) {
             guardedVoid(generation, () -> delegate.setName(name));
         }
-
         @Override public java.util.Optional<String> shortName() {
             return guarded(generation, delegate::shortName);
         }
@@ -571,28 +732,63 @@ final class DynamicCubismModelAccess implements CubismModelAccess, NativeControl
 
     private final class SessionDrawables implements Drawables {
         private final long generation;
+        private final long modelGeneration;
+        private final ModelId modelId;
         private final Drawables delegate;
-        private SessionDrawables(final long generation, final Drawables delegate) {
+
+        private SessionDrawables(
+            final long generation,
+            final long modelGeneration,
+            final ModelId modelId,
+            final Drawables delegate
+        ) {
             this.generation = generation;
+            this.modelGeneration = modelGeneration;
+            this.modelId = Objects.requireNonNull(modelId, "modelId");
             this.delegate = Objects.requireNonNull(delegate, "delegate");
         }
+
         @Override public List<Drawable> all() {
             return guarded(generation, () -> delegate.all().stream()
-                .map(value -> (Drawable) new SessionDrawable(generation, value)).toList());
+                .map(value -> (Drawable) new SessionDrawable(
+                    generation, modelGeneration, modelId, value
+                )).toList());
         }
+
         @Override public Drawable find(final ArtMeshId id) {
-            return guarded(generation, () -> new SessionDrawable(generation, delegate.find(id)));
+            return guarded(
+                generation,
+                () -> new SessionDrawable(
+                    generation, modelGeneration, modelId, delegate.find(id)
+                )
+            );
         }
     }
 
     private final class SessionDrawable implements Drawable {
         private final long generation;
+        private final long modelGeneration;
+        private final ModelId modelId;
         private final Drawable delegate;
-        private SessionDrawable(final long generation, final Drawable delegate) {
+
+        private SessionDrawable(
+            final long generation,
+            final long modelGeneration,
+            final ModelId modelId,
+            final Drawable delegate
+        ) {
             this.generation = generation;
+            this.modelGeneration = modelGeneration;
+            this.modelId = Objects.requireNonNull(modelId, "modelId");
             this.delegate = Objects.requireNonNull(delegate, "delegate");
         }
+
         @Override public ArtMeshId id() { return guarded(generation, delegate::id); }
+
+        @Override public DrawableAppearance ui() {
+            id();
+            return DrawableAppearance.unavailable();
+        }
 
         @Override public int index() { return guarded(generation, delegate::index); }
         @Override public boolean doubleSided() {
@@ -715,28 +911,63 @@ final class DynamicCubismModelAccess implements CubismModelAccess, NativeControl
 
     private final class SessionDeformers implements Deformers {
         private final long generation;
+        private final long modelGeneration;
+        private final ModelId modelId;
         private final Deformers delegate;
-        private SessionDeformers(final long generation, final Deformers delegate) {
+
+        private SessionDeformers(
+            final long generation,
+            final long modelGeneration,
+            final ModelId modelId,
+            final Deformers delegate
+        ) {
             this.generation = generation;
+            this.modelGeneration = modelGeneration;
+            this.modelId = Objects.requireNonNull(modelId, "modelId");
             this.delegate = Objects.requireNonNull(delegate, "delegate");
         }
+
         @Override public List<Deformer> all() {
             return guarded(generation, () -> delegate.all().stream()
-                .map(value -> (Deformer) new SessionDeformer(generation, value)).toList());
+                .map(value -> (Deformer) new SessionDeformer(
+                    generation, modelGeneration, modelId, value
+                )).toList());
         }
+
         @Override public Deformer find(final DeformerId id) {
-            return guarded(generation, () -> new SessionDeformer(generation, delegate.find(id)));
+            return guarded(
+                generation,
+                () -> new SessionDeformer(
+                    generation, modelGeneration, modelId, delegate.find(id)
+                )
+            );
         }
     }
 
     private final class SessionDeformer implements Deformer {
         private final long generation;
+        private final long modelGeneration;
+        private final ModelId modelId;
         private final Deformer delegate;
-        private SessionDeformer(final long generation, final Deformer delegate) {
+
+        private SessionDeformer(
+            final long generation,
+            final long modelGeneration,
+            final ModelId modelId,
+            final Deformer delegate
+        ) {
             this.generation = generation;
+            this.modelGeneration = modelGeneration;
+            this.modelId = Objects.requireNonNull(modelId, "modelId");
             this.delegate = Objects.requireNonNull(delegate, "delegate");
         }
+
         @Override public DeformerId id() { return guarded(generation, delegate::id); }
+
+        @Override public DeformerAppearance ui() {
+            final DeformerId id = id();
+            return appearanceDeformer(modelId, id, modelGeneration);
+        }
 
         @Override public int index() { return guarded(generation, delegate::index); }
         @Override public java.util.Optional<PartId> parentPartId() {
@@ -981,6 +1212,56 @@ final class DynamicCubismModelAccess implements CubismModelAccess, NativeControl
         }
     }
 
+    private dev.turboism.ui.appearance.control.RuntimeModelAppearanceAccess appearanceAccess() {
+        synchronized (callGate) {
+            return appearanceAccess;
+        }
+    }
+
+    private PartAppearance appearancePart(
+        final ModelId modelId,
+        final PartId partId,
+        final long modelGeneration
+    ) {
+        final dev.turboism.ui.appearance.control.RuntimeModelAppearanceAccess access = appearanceAccess();
+        return access == null
+            ? PartAppearance.unavailable()
+            : access.part(modelId.value(), partId.value(), modelGeneration);
+    }
+
+    private DeformerAppearance appearanceDeformer(
+        final ModelId modelId,
+        final DeformerId deformerId,
+        final long modelGeneration
+    ) {
+        final dev.turboism.ui.appearance.control.RuntimeModelAppearanceAccess access = appearanceAccess();
+        return access == null
+            ? DeformerAppearance.unavailable()
+            : access.deformer(modelId.value(), deformerId.value(), modelGeneration);
+    }
+
+    private ParameterAppearance appearanceParameter(
+        final ModelId modelId,
+        final dev.turboism.sdk.cubism.id.ParameterId parameterId,
+        final long modelGeneration
+    ) {
+        final dev.turboism.ui.appearance.control.RuntimeModelAppearanceAccess access = appearanceAccess();
+        return access == null
+            ? ParameterAppearance.unavailable()
+            : access.parameter(modelId.value(), parameterId.value(), modelGeneration);
+    }
+
+    private ParameterGroupAppearance appearanceParameterGroup(
+        final ModelId modelId,
+        final dev.turboism.sdk.cubism.id.ParameterGroupId groupId,
+        final long modelGeneration
+    ) {
+        final dev.turboism.ui.appearance.control.RuntimeModelAppearanceAccess access = appearanceAccess();
+        return access == null
+            ? ParameterGroupAppearance.unavailable()
+            : access.parameterGroup(modelId.value(), groupId.value(), modelGeneration);
+    }
+
     private <T> T guarded(final long expectedGeneration, final java.util.function.Supplier<T> call) {
         final AccessLease lease = acquireLease(expectedGeneration);
         try {
@@ -1000,32 +1281,33 @@ final class DynamicCubismModelAccess implements CubismModelAccess, NativeControl
     }
 
     @Override
-    public NativeControlAppearance snapshot(final ControlAppearanceTarget target) {
+    public NativeLabelColorState readNativeLabelColor(final NativeLabelColorTarget target) {
         final AccessLease lease = acquireActiveLease();
         try {
-            return authoring(lease).snapshot(target);
+            return labelAuthoring(lease).readNativeLabelColor(target);
         } finally {
             release(lease);
         }
     }
 
     @Override
-    public void setNativeBackground(
-        final ControlAppearanceTarget target,
-        final NativeControlBackground background
+    public void setNativeLabelColor(
+        final NativeLabelColorTarget target,
+        final NativeLabelColor color
     ) {
         final AccessLease lease = acquireActiveLease();
         try {
-            authoring(lease).setNativeBackground(target, background);
+            labelAuthoring(lease).setNativeLabelColor(target, color);
         } finally {
             release(lease);
         }
     }
 
-    private static NativeControlAppearanceAuthoring authoring(final AccessLease lease) {
-        if (!(lease.modelAccess() instanceof NativeControlAppearanceAuthoring authoring)) {
+
+    private static NativeLabelColorAuthoring labelAuthoring(final AccessLease lease) {
+        if (!(lease.modelAccess() instanceof NativeLabelColorAuthoring authoring)) {
             throw new UnsupportedOperationException(
-                "Native control appearance authoring is unavailable for the active host session."
+                "Native label-color authoring is unavailable for the active host session."
             );
         }
         return authoring;

@@ -1,6 +1,7 @@
 package dev.turboism.sdk.cubism.model;
 
 import dev.turboism.sdk.PreviewApi;
+import dev.turboism.sdk.ui.appearance.model.PartAppearance;
 
 import java.util.List;
 import java.util.Optional;
@@ -10,6 +11,9 @@ import java.util.Optional;
 public interface Part {
 
     PartId id();
+
+    /** Returns this Part's Cubism palette UI projection. */
+    default PartAppearance ui() { return PartAppearance.unavailable(); }
 
     default int index() { throw unavailable("Part index"); }
 

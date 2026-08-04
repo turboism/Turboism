@@ -20,15 +20,20 @@ class CompleteCubismModelReadApiContractTest {
         assertMethods(Canvas.class,
             "heightPixels", "originXPixels", "originYPixels", "pixelsPerUnit", "widthPixels");
         assertMethods(Part.class,
-            "childIds", "defaultOrder", "editColor", "getOpacity", "id", "index", "locked", "lockedInHierarchy", "name", "parentId", "parentIndex", "setDefaultOrder", "setEditColor", "setLocked", "setName", "setOpacity", "setShortName", "setSketch", "setVisible", "shortName", "sketch", "visible", "visibleInHierarchy");
+            "childIds", "defaultOrder", "editColor", "getOpacity", "id", "index", "locked", "lockedInHierarchy", "name", "parentId", "parentIndex", "setDefaultOrder", "setEditColor", "setLocked", "setName", "setOpacity", "setShortName", "setSketch", "setVisible", "shortName", "sketch", "ui", "visible", "visibleInHierarchy");
         assertMethods(Drawable.class,
             "blendMode", "constantFlag", "culling", "doubleSided", "drawOrder", "dynamicFlag", "evaluationState", "geometry", "getOpacity", "getParameterBindings", "id", "index",
             "indices", "invertedMask", "locked", "lockedInHierarchy", "maskIds", "masks", "multiplyColor", "name", "parameterIds", "parameters",
             "parentDeformerId", "parentDeformerIndex", "parentPartId", "parentPartIndex", "renderOrder", "replaceGeometry", "screenColor", "setLocked",
-            "setOpacity", "setVisible", "textureIndex", "userData", "vertexPositions", "vertexUvs", "visible",
+            "setOpacity", "setVisible", "textureIndex", "ui", "userData", "vertexPositions", "vertexUvs", "visible",
             "visibleInHierarchy");
         assertMethods(Deformer.class,
-            "getOpacity", "getParameterBindings", "id", "index", "locked", "lockedInHierarchy", "multiplyColor", "name", "parameterIds", "parameters", "parentDeformerId", "parentDeformerIndex", "parentPartId", "parentPartIndex", "screenColor", "setLocked", "setOpacity", "setVisible", "visible", "visibleInHierarchy");
+            "getOpacity", "getParameterBindings", "id", "index", "locked", "lockedInHierarchy", "multiplyColor", "name", "parameterIds", "parameters", "parentDeformerId", "parentDeformerIndex", "parentPartId", "parentPartIndex", "screenColor", "setLocked", "setOpacity", "setVisible", "ui", "visible", "visibleInHierarchy");
+        assertMethods(Parameter.class,
+            "combined", "combinedWith", "combineWith", "getDefaultValue", "getMaximumValue", "getMinimumValue",
+            "getParameterBindings", "getValue", "id", "index", "isBlendShape", "keyValues", "name", "repeat",
+            "resetToDefault", "setValue", "type", "ui", "uncombine", "updateDefinition");
+        assertMethods(ParameterGroup.class, "childGroupIds", "id", "name", "parameterIds", "parentId", "ui");
         assertMethods(WarpDeformer.class, "grid", "replaceGrid");
         assertMethods(RotationDeformer.class, "baseAngle", "form", "replaceForm", "setBaseAngle");
         assertMethods(Glue.class,
