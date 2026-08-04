@@ -94,6 +94,11 @@ final class DynamicRuntimeHostAdapters {
                 }
 
                 @Override
+                public AdapterResult<java.util.Optional<dev.turboism.sdk.cubism.DocumentSnapshot>> activeDocument() {
+                    return call(adapters -> adapters.projectWorkspace().activeDocument());
+                }
+
+                @Override
                 public AdapterResult<java.util.Optional<dev.turboism.sdk.cubism.WorkspaceSnapshot>> workspace() {
                     return call(adapters -> adapters.projectWorkspace().workspace());
                 }
