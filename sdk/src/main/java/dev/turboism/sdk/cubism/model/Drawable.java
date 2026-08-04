@@ -2,14 +2,35 @@ package dev.turboism.sdk.cubism.model;
 
 import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
+import dev.turboism.sdk.cubism.id.DeformerId;
+import dev.turboism.sdk.cubism.id.ParameterId;
 
 import java.util.List;
+import java.util.Optional;
 
 /** One evaluated Cubism drawable/ArtMesh. */
 @PreviewApi
 public interface Drawable {
 
     ArtMeshId id();
+
+    default int index() { throw unavailable("ArtMesh index"); }
+
+    default boolean doubleSided() { throw unavailable("ArtMesh double-sided state"); }
+
+    default DrawableEvaluationState evaluationState() {
+        throw unavailable("ArtMesh evaluation state");
+    }
+
+    default Optional<PartId> parentPartId() { throw unavailable("ArtMesh parent Part"); }
+
+    default Optional<DeformerId> parentDeformerId() {
+        throw unavailable("ArtMesh parent Deformer");
+    }
+
+    default List<ParameterId> parameterIds() { throw unavailable("ArtMesh parameters"); }
+
+    default List<ArtMeshId> maskIds() { throw unavailable("ArtMesh masks"); }
 
     default String name() {
         throw unavailable("ArtMesh name");

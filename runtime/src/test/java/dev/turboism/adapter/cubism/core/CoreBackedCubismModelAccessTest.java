@@ -122,7 +122,7 @@ class CoreBackedCubismModelAccessTest {
             assertEquals(0.75F, part.getOpacity());
             assertEquals(-1, part.parentIndex());
             assertEquals(BlendMode.ADDITIVE, drawable.blendMode());
-            assertEquals(4, drawable.renderOrder());
+            assertEquals(7, drawable.renderOrder());
             assertEquals(new Color(1.0F, 0.5F, 0.25F, 1.0F), drawable.multiplyColor());
             assertEquals(6, drawable.vertexPositions().size());
             assertEquals(2, drawable.indices().get(2));
@@ -137,6 +137,155 @@ class CoreBackedCubismModelAccessTest {
             coreModel.getDrawables().vertexPositions()[0][0] = 12.0F;
             assertEquals(99.0F, copied.get(0));
             assertThrows(UnsupportedOperationException.class, () -> part.setOpacity(0.5F));
+        }
+    }
+
+    @Test
+    void exposesFixedCoreProjectionMetadataAndTypedRelations() {
+        final TestCoreApiFixture.Model coreModel = model(
+            new String[]{"ParamA", "ParamB"},
+            new float[]{0.25F, 0.75F},
+            new TestCoreApiFixture.Parts(
+                new String[]{"PartRoot", "PartChild"}, new float[]{1.0F, 0.5F}, new int[]{-1, 0}
+            ),
+            new TestCoreApiFixture.Drawables(
+                new String[]{"MeshA", "MeshB"}, new byte[]{4, 0}, new byte[]{127, 0}, new int[]{0, 2},
+                new int[]{0, 1}, new int[]{4, 5}, new int[]{6, 7}, new float[]{1.0F, 0.8F},
+                new int[]{1, 0}, new int[][]{{1}, {}}, new int[]{0, 0}, new float[][]{{}, {}},
+                new float[][]{{}, {}}, new int[]{0, 0}, new short[][]{{}, {}},
+                new float[][]{{1.0F, 1.0F, 1.0F, 1.0F}, {1.0F, 1.0F, 1.0F, 1.0F}},
+                new float[][]{{0.0F, 0.0F, 0.0F, 1.0F}, {0.0F, 0.0F, 0.0F, 1.0F}},
+                new int[]{0, 1}, new int[]{0, -1}, new int[]{2, 1}, new int[][]{{0, 1}, {1}}
+            ),
+            new TestCoreApiFixture.Deformers(
+                new String[]{"DeformerA"}, new int[]{-1}, new int[]{2}, new int[][]{{0, 1}}
+            ),
+            new TestCoreApiFixture.Glues(
+                new String[]{"GlueA"}, new int[]{0}, new int[]{1}, new int[]{2}, new int[][]{{0, 1}}
+            )
+        );
+        coreModel.getParameters().getKeyCounts()[0] = 2;
+        coreModel.getParameters().getKeyValues()[0] = new float[]{-1.0F, 1.0F};
+
+        try (Harness harness = harness("5.3.02", coreModel)) {
+            final CubismModel active = harness.access.active();
+            final var parameter = active.parameters().find(new ParameterId("ParamA"));
+            final var root = active.parts().find(new PartId("PartRoot"));
+            final var child = active.parts().find(new PartId("PartChild"));
+            final var drawable = active.drawables().find(new ArtMeshId("MeshA"));
+            final var deformer = active.deformers().find(new DeformerId("DeformerA"));
+            final var glue = active.glues().find(new GlueId("GlueA"));
+
+            assertEquals(0, parameter.index());
+            assertEquals(2, parameter.keyValues().size());
+            assertEquals(-1.0F, parameter.keyValues().get(0));
+            assertEquals(1.0F, parameter.keyValues().get(1));
+
+            assertEquals(0, root.index());
+            assertEquals(Optional.empty(), root.parentId());
+            assertEquals(List.of(new PartId("PartChild")), root.childIds());
+            assertEquals(1, child.index());
+            assertEquals(Optional.of(new PartId("PartRoot")), child.parentId());
+            assertEquals(List.of(), child.childIds());
+
+            assertEquals(0, drawable.index());
+            assertTrue(drawable.doubleSided());
+            assertEquals(
+                new dev.turboism.sdk.cubism.model.DrawableEvaluationState(true, true, true, true, true, true, true),
+                drawable.evaluationState()
+            );
+            assertEquals(Optional.of(new PartId("PartRoot")), drawable.parentPartId());
+            assertEquals(Optional.of(new DeformerId("DeformerA")), drawable.parentDeformerId());
+            assertEquals(List.of(new ArtMeshId("MeshB")), drawable.maskIds());
+            assertEquals(List.of(new ParameterId("ParamA"), new ParameterId("ParamB")), drawable.parameterIds());
+
+            assertEquals(0, deformer.index());
+            assertEquals(Optional.empty(), deformer.parentDeformerId());
+            assertEquals(List.of(new ParameterId("ParamA"), new ParameterId("ParamB")), deformer.parameterIds());
+            assertThrows(UnsupportedOperationException.class, deformer::parentPartId);
+
+            assertEquals(0, glue.index());
+            assertEquals(new ArtMeshId("MeshA"), glue.drawableAId());
+            assertEquals(new ArtMeshId("MeshB"), glue.drawableBId());
+            assertEquals(List.of(new ParameterId("ParamA"), new ParameterId("ParamB")), glue.parameterIds());
+        }
+    }
+
+    @Test
+    void failsClosedForUnknownDynamicFlagsAndFiveThreeBlendModes() {
+        final TestCoreApiFixture.Model dynamicFlags = model(
+            new String[0], new float[0], TestCoreApiFixture.Parts.empty(),
+            drawableWithFlags((byte) 0, (byte) 0x80, 0),
+            TestCoreApiFixture.Deformers.empty(), TestCoreApiFixture.Glues.empty()
+        );
+        try (Harness harness = harness("5.3.02", dynamicFlags)) {
+            assertThrows(IllegalStateException.class, harness.access::active);
+        }
+
+        final TestCoreApiFixture.Model blendMode = model(
+            new String[0], new float[0], TestCoreApiFixture.Parts.empty(),
+            drawableWithFlags((byte) 0, (byte) 0, 3),
+            TestCoreApiFixture.Deformers.empty(), TestCoreApiFixture.Glues.empty()
+        );
+        try (Harness harness = harness("5.3.02", blendMode)) {
+            assertThrows(IllegalStateException.class, harness.access::active);
+        }
+    }
+
+    @Test
+    void normalizesFiveTwoBlendModeFromPublicConstantFlags() {
+        final TestCoreApiFixture.Model coreModel = model(
+            new String[]{"Additive", "Multiplicative", "Normal"},
+            new float[]{0.0F, 0.0F, 0.0F},
+            TestCoreApiFixture.Parts.empty(),
+            new TestCoreApiFixture.Drawables(
+                new String[]{"Additive", "Multiplicative", "Normal"},
+                new byte[]{1, 2, 0}, new byte[]{0, 0, 0}, new int[]{0, 0, 0},
+                new int[]{0, 0, 0}, new int[]{0, 1, 2}, new int[]{10, 11, 12},
+                new float[]{1.0F, 1.0F, 1.0F},
+                new int[]{0, 0, 0}, new int[][]{{}, {}, {}},
+                new int[]{0, 0, 0}, new float[][]{{}, {}, {}}, new float[][]{{}, {}, {}},
+                new int[]{0, 0, 0}, new short[][]{{}, {}, {}},
+                new float[][]{
+                    {1.0F, 1.0F, 1.0F, 1.0F},
+                    {1.0F, 1.0F, 1.0F, 1.0F},
+                    {1.0F, 1.0F, 1.0F, 1.0F}
+                },
+                new float[][]{
+                    {0.0F, 0.0F, 0.0F, 1.0F},
+                    {0.0F, 0.0F, 0.0F, 1.0F},
+                    {0.0F, 0.0F, 0.0F, 1.0F}
+                },
+                new int[]{-1, -1, -1}, new int[]{-1, -1, -1},
+                new int[]{0, 0, 0}, new int[][]{{}, {}, {}}
+            ),
+            TestCoreApiFixture.Deformers.empty(),
+            TestCoreApiFixture.Glues.empty()
+        );
+
+        try (Harness harness = harness("5.2", coreModel)) {
+            assertEquals(
+                List.of(BlendMode.ADDITIVE, BlendMode.MULTIPLICATIVE, BlendMode.NORMAL),
+                harness.access.active().drawables().all().stream()
+                    .map(drawable -> drawable.blendMode())
+                    .toList()
+            );
+        }
+    }
+
+    @Test
+    void failsClosedForUnknownOrContradictoryFiveTwoBlendFlags() {
+        for (byte constantFlag : new byte[]{0x10, 0x03}) {
+            try (Harness harness = harness("5.2", model(
+                new String[0],
+                new float[0],
+                TestCoreApiFixture.Parts.empty(),
+                drawableWithConstantFlag(constantFlag),
+                TestCoreApiFixture.Deformers.empty(),
+                TestCoreApiFixture.Glues.empty()
+            ))) {
+                assertThrows(IllegalStateException.class, harness.access::active);
+            }
         }
     }
 
@@ -302,6 +451,33 @@ class CoreBackedCubismModelAccessTest {
             new CoreBackedCubismModelAccess(source, provider, tracer),
             source,
             tracer
+        );
+    }
+
+    private static TestCoreApiFixture.Drawables drawableWithConstantFlag(
+        final byte constantFlag
+    ) {
+        return new TestCoreApiFixture.Drawables(
+            new String[]{"Mesh"}, new byte[]{constantFlag}, new byte[]{0}, new int[]{0},
+            new int[]{0}, new int[]{0}, new int[]{0}, new float[]{1.0F},
+            new int[]{0}, new int[][]{{}}, new int[]{0}, new float[][]{{}},
+            new float[][]{{}}, new int[]{0}, new short[][]{{}},
+            new float[][]{{1.0F, 1.0F, 1.0F, 1.0F}},
+            new float[][]{{0.0F, 0.0F, 0.0F, 1.0F}},
+            new int[]{-1}, new int[]{-1}, new int[]{0}, new int[][]{{}}
+        );
+    }
+    private static TestCoreApiFixture.Drawables drawableWithFlags(
+        final byte constantFlag,
+        final byte dynamicFlag,
+        final int blendMode
+    ) {
+        return new TestCoreApiFixture.Drawables(
+            new String[]{"Mesh"}, new byte[]{constantFlag}, new byte[]{dynamicFlag}, new int[]{blendMode}, new int[]{0},
+            new int[]{0}, new int[]{0}, new float[]{1.0F}, new int[]{0}, new int[][]{{}}, new int[]{0},
+            new float[][]{{}}, new float[][]{{}}, new int[]{0}, new short[][]{{}},
+            new float[][]{{1.0F, 1.0F, 1.0F, 1.0F}}, new float[][]{{0.0F, 0.0F, 0.0F, 1.0F}},
+            new int[]{-1}, new int[]{-1}, new int[]{0}, new int[][]{{}}
         );
     }
 

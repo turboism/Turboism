@@ -546,6 +546,9 @@ def test_core_model_read_mapping_packs(
             expected_for_version["cubism.core.drawables.blend-modes"] = instance_selector(
                 "com/live2d/sdk/cubism/core/CubismDrawables", "getBlendModes", "()[I"
             )
+            expected_for_version["cubism.core.model.get-render-orders"] = instance_selector(
+                model_owner, "getRenderOrders", "()[I"
+            )
         else:
             expected_for_version["cubism.core.drawables.render-orders"] = instance_selector(
                 "com/live2d/sdk/cubism/core/CubismDrawables", "getRenderOrders", "()[I"
