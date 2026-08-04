@@ -10,6 +10,10 @@ import dev.turboism.sdk.cubism.SelectionSnapshot;
 import dev.turboism.sdk.cubism.hook.ModelHooks;
 import dev.turboism.sdk.cubism.hook.ParameterHooks;
 import dev.turboism.sdk.cubism.hook.PartHooks;
+import dev.turboism.sdk.cubism.hook.SemanticOperationHooks;
+import dev.turboism.sdk.cubism.event.CubismOperation;
+import dev.turboism.sdk.cubism.event.CubismOperationEvent;
+import dev.turboism.sdk.cubism.event.CubismOperationOrigin;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.id.ModelId;
@@ -24,6 +28,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -50,6 +56,7 @@ class UnifiedCubismModelApiContractTest {
         assertTrue(ParameterHooks.class.isAssignableFrom(CubismPlugin.class));
         assertTrue(PartHooks.class.isAssignableFrom(CubismPlugin.class));
         assertTrue(ModelHooks.class.isAssignableFrom(CubismPlugin.class));
+        assertTrue(SemanticOperationHooks.class.isAssignableFrom(CubismPlugin.class));
 
         final CubismPlugin plugin = new CubismPlugin() { };
         assertEquals(12.0f, plugin.beforeSetParameterValue(null, 12.0f));
@@ -61,6 +68,55 @@ class UnifiedCubismModelApiContractTest {
         assertDoesNotThrow(() -> plugin.beforeUpdateModel(null));
         assertDoesNotThrow(() -> plugin.onModelUpdated(null));
         assertDoesNotThrow(() -> plugin.afterUpdateModel(null));
+        final CubismOperationEvent operation = new CubismOperationEvent(
+            1L,
+            CubismOperation.OPEN_DOCUMENT,
+            CubismOperationOrigin.UNKNOWN,
+            Optional.of("DocumentA")
+        );
+        assertDoesNotThrow(() -> plugin.beforeCubismOperation(operation));
+        assertDoesNotThrow(() -> plugin.onCubismOperationConfirmed(operation));
+        assertDoesNotThrow(() -> plugin.afterCubismOperation(operation));
+    }
+
+
+    @Test
+    void semanticOperationCatalogHasStableUniqueIdsForModelAndEditorActions() {
+        final Set<String> ids = java.util.Arrays.stream(CubismOperation.values())
+            .map(CubismOperation::id)
+            .collect(Collectors.toSet());
+
+        assertEquals(CubismOperation.values().length, ids.size());
+        assertEquals("cubism.model.parameter.set-value", CubismOperation.SET_PARAMETER_VALUE.id());
+        assertEquals("cubism.editor.document.open", CubismOperation.OPEN_DOCUMENT.id());
+        assertEquals("cubism.editor.document.save", CubismOperation.SAVE_DOCUMENT.id());
+        assertEquals("cubism.editor.history.undo", CubismOperation.UNDO.id());
+        assertTrue(ids.contains("cubism.model.parameter-binding.transfer"));
+        assertTrue(ids.contains("cubism.editor.project.export"));
+    }
+
+    @Test
+    void semanticOperationEventsValidateCorrelationAndPreserveOpaqueSubjects() {
+        final CubismOperationEvent event = new CubismOperationEvent(
+            1L,
+            CubismOperation.OPEN_DOCUMENT,
+            CubismOperationOrigin.HOST_UI,
+            Optional.of(" Document A ")
+        );
+
+        assertEquals(Optional.of(" Document A "), event.subjectId());
+        assertThrows(IllegalArgumentException.class, () -> new CubismOperationEvent(
+            0L,
+            CubismOperation.OPEN_DOCUMENT,
+            CubismOperationOrigin.HOST_UI,
+            Optional.empty()
+        ));
+        assertThrows(IllegalArgumentException.class, () -> new CubismOperationEvent(
+            1L,
+            CubismOperation.OPEN_DOCUMENT,
+            CubismOperationOrigin.HOST_UI,
+            Optional.of(" ")
+        ));
     }
 
     @Test
