@@ -106,37 +106,46 @@ public final class PaletteAppearanceCoordinator implements AutoCloseable {
         }
     }
 
-    synchronized void bindParameterControl(
+    void bindParameterControl(
         final boolean folder,
         final String id,
         final Component label
     ) {
         final String value = Objects.requireNonNull(id, "id");
         final Component component = Objects.requireNonNull(label, "label");
-        parameterControls.removeIf(binding -> binding.label().get() == null
-            || binding.label().get() == component);
-        parameterControls.add(new StoredParameterControlBinding(folder, value, new WeakReference<>(component)));
+        synchronized (monitor) {
+            if (closed) return;
+            parameterControls.removeIf(binding -> binding.label().get() == null
+                || binding.label().get() == component);
+            parameterControls.add(new StoredParameterControlBinding(folder, value, new WeakReference<>(component)));
+        }
     }
 
-    synchronized void unbindParameterControl(final Component label) {
-        parameterControls.removeIf(binding -> binding.label().get() == null
-            || binding.label().get() == label);
+    void unbindParameterControl(final Component label) {
+        synchronized (monitor) {
+            if (closed) return;
+            parameterControls.removeIf(binding -> binding.label().get() == null
+                || binding.label().get() == label);
+        }
     }
 
     /** Exact native parameter/folder IDs paired with their live Swing labels. */
-    public synchronized List<ParameterControlBinding> parameterControlBindings() {
-        final List<ParameterControlBinding> live = new ArrayList<>(parameterControls.size());
-        final java.util.Iterator<StoredParameterControlBinding> iterator = parameterControls.iterator();
-        while (iterator.hasNext()) {
-            final StoredParameterControlBinding binding = iterator.next();
-            final Component label = binding.label().get();
-            if (label == null) {
-                iterator.remove();
-            } else {
-                live.add(new ParameterControlBinding(binding.folder(), binding.id(), label));
+    public List<ParameterControlBinding> parameterControlBindings() {
+        synchronized (monitor) {
+            if (closed) return List.of();
+            final List<ParameterControlBinding> live = new ArrayList<>(parameterControls.size());
+            final java.util.Iterator<StoredParameterControlBinding> iterator = parameterControls.iterator();
+            while (iterator.hasNext()) {
+                final StoredParameterControlBinding binding = iterator.next();
+                final Component label = binding.label().get();
+                if (label == null) {
+                    iterator.remove();
+                } else {
+                    live.add(new ParameterControlBinding(binding.folder(), binding.id(), label));
+                }
             }
+            return List.copyOf(live);
         }
-        return List.copyOf(live);
     }
 
     public void invalidate() {
@@ -281,7 +290,8 @@ public final class PaletteAppearanceCoordinator implements AutoCloseable {
         boolean changed;
         synchronized (monitor) {
             if (closed) return;
-            changed = hostGeneration != 0 || !parameterControls.isEmpty();
+            changed = hostGeneration != 0 || currentScope != null || !overrides.isEmpty()
+                || !parameterControls.isEmpty();
             closed = true;
             hostGeneration = 0;
             overrides.clear();

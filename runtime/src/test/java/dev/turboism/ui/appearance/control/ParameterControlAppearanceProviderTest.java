@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 
 import javax.swing.JLabel;
 import java.awt.Color;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -83,6 +84,43 @@ class ParameterControlAppearanceProviderTest {
         provider.close();
         javax.swing.SwingUtilities.invokeAndWait(() -> { });
         assertEquals(0, coordinator.parameterControlBindings().size());
+    }
+
+    @Test
+    void closeNotifiesOnceWhenScopeAndOverridesExistWithoutHostGeneration() throws Exception {
+        final PaletteAppearanceCoordinator coordinator = new PaletteAppearanceCoordinator();
+        final PaletteAppearanceCoordinator.Scope scope = scope(0);
+        coordinator.reconcile(scope);
+        coordinator.register(
+            "plugin", 1, scope, PaletteAppearanceCoordinator.Palette.PARAMETER, "ParamA",
+            PaletteAppearanceCoordinator.Property.BOLD, true
+        );
+        final AtomicInteger notifications = new AtomicInteger();
+        final AutoCloseable subscription = coordinator.onChange(() -> notifications.incrementAndGet());
+
+        coordinator.close();
+        coordinator.close();
+
+        assertEquals(1, notifications.get());
+        assertEquals(0, coordinator.hostGeneration());
+        assertEquals(0, coordinator.size());
+        assertEquals(0, coordinator.parameterControlBindings().size());
+        subscription.close();
+    }
+
+    @Test
+    void emptyCloseDoesNotNotifyOrAcceptNewParameterControls() throws Exception {
+        final PaletteAppearanceCoordinator coordinator = new PaletteAppearanceCoordinator();
+        final AtomicInteger notifications = new AtomicInteger();
+        final AutoCloseable subscription = coordinator.onChange(() -> notifications.incrementAndGet());
+
+        coordinator.close();
+        coordinator.close();
+        coordinator.bindParameterControl(false, "ParamA", new JLabel());
+
+        assertEquals(0, notifications.get());
+        assertEquals(0, coordinator.parameterControlBindings().size());
+        subscription.close();
     }
 
     private static PaletteAppearanceCoordinator.Scope scope(final long hostGeneration) {
