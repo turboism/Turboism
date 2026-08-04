@@ -164,6 +164,18 @@ public final class CoreBackedCubismModelAccess implements CubismModelAccess {
         }
 
         @Override
+        public dev.turboism.sdk.cubism.model.ModelEditLevel editLevel() {
+            readGeneration(generation);
+            return CubismModel.super.editLevel();
+        }
+
+        @Override
+        public void setEditLevel(final dev.turboism.sdk.cubism.model.ModelEditLevel level) {
+            readGeneration(generation);
+            CubismModel.super.setEditLevel(level);
+        }
+
+        @Override
         public dev.turboism.sdk.cubism.model.ParameterGroups parameterGroups() {
             readGeneration(generation);
             return CubismModel.super.parameterGroups();

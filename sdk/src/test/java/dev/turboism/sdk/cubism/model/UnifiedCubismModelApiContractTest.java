@@ -45,6 +45,19 @@ class UnifiedCubismModelApiContractTest {
     }
 
     @Test
+    void modelEditLevelIsAThreeValuePreviewModelContract() throws Exception {
+        assertEquals(List.of(
+            ModelEditLevel.LEVEL_1,
+            ModelEditLevel.LEVEL_2,
+            ModelEditLevel.LEVEL_3
+        ), List.of(ModelEditLevel.values()));
+        assertEquals(ModelEditLevel.class, CubismModel.class.getMethod("editLevel").getReturnType());
+        assertEquals(void.class, CubismModel.class
+            .getMethod("setEditLevel", ModelEditLevel.class)
+            .getReturnType());
+    }
+
+    @Test
     void cubismPluginAggregatesOverrideBasedHookDomains() {
         assertTrue(TurboismPlugin.class.isAssignableFrom(CubismPlugin.class));
         assertTrue(ParameterHooks.class.isAssignableFrom(CubismPlugin.class));
