@@ -9,6 +9,7 @@ import dev.turboism.sdk.cubism.model.ArtMeshGeometry;
 import dev.turboism.sdk.cubism.model.Color;
 import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.ModelEditLevel;
+import dev.turboism.sdk.cubism.model.ModelStatistics;
 import dev.turboism.sdk.cubism.model.Deformer;
 import dev.turboism.sdk.cubism.model.Drawable;
 import dev.turboism.sdk.cubism.model.Parameter;
@@ -288,6 +289,8 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                     runFixedApiValidation(false);
                 } else if ("fixed-api-document-close".equals(mode)) {
                     runFixedApiValidation(true);
+                } else if ("statistics-read".equals(mode)) {
+                    runModelStatisticsValidation();
                 } else if ("binding-read".equals(mode)) {
                     runParameterBindingDiscoveryRead();
                 } else if ("binding-matrix".equals(mode)) {
@@ -1351,6 +1354,62 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
 
     private CubismModel activeModel() {
         return context.cubism().model().active();
+    }
+    private void runModelStatisticsValidation() {
+        final Path artifact = Path.of(
+            System.getProperty("turboism.home"), "logs", "model-statistics-validation.txt"
+        );
+        try {
+            Files.createDirectories(artifact.getParent());
+            Files.writeString(
+                artifact,
+                "status=RUNNING phase=await-model\n",
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING
+            );
+            final CubismModel model = awaitEditorObjectModel(artifact);
+            final ModelStatistics statistics = onHostThread(model::statistics);
+            final int parameterCount = onHostThread(() -> model.parameters().all().size());
+            final int partCount = onHostThread(() -> model.parts().all().size());
+            final int drawableCount = onHostThread(() -> model.drawables().all().size());
+            final int deformerCount = onHostThread(() -> model.deformers().all().size());
+            if (statistics.parameterCount() != parameterCount
+                || statistics.partCount() != partCount
+                || statistics.drawableCount() != drawableCount
+                || statistics.artMeshCount() != drawableCount
+                || statistics.deformerCount() != deformerCount) {
+                throw new IllegalStateException("Model statistics counts disagree with SDK collections.");
+            }
+            final String report = new StringBuilder("status=PASS\n")
+                .append("modelId=").append(onHostThread(() -> model.id().value())).append('\n')
+                .append("parameterCount=").append(statistics.parameterCount()).append('\n')
+                .append("partCount=").append(statistics.partCount()).append('\n')
+                .append("drawableCount=").append(statistics.drawableCount()).append('\n')
+                .append("artMeshCount=").append(statistics.artMeshCount()).append('\n')
+                .append("deformerCount=").append(statistics.deformerCount()).append('\n')
+                .append("vertexCount=").append(statistics.vertexCount()).append('\n')
+                .append("triangleCount=").append(statistics.triangleCount()).append('\n')
+                .append("textureCount=").append(statistics.textureCount()).append('\n')
+                .append("maskedDrawableCount=").append(statistics.maskedDrawableCount()).append('\n')
+                .append("maskGroupCount=").append(statistics.maskGroupCount()).append('\n')
+                .append("offscreenRenderingCount=")
+                .append(statistics.offscreenRenderingCount().isPresent()
+                    ? statistics.offscreenRenderingCount().getAsInt() : "unavailable")
+                .append('\n')
+                .append("maxOffscreenDepth=")
+                .append(statistics.maxOffscreenDepth().isPresent()
+                    ? statistics.maxOffscreenDepth().getAsInt() : "unavailable")
+                .append('\n')
+                .toString();
+            Files.writeString(
+                artifact,
+                report,
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING
+            );
+        } catch (Exception exception) {
+            writeValidationFailure(artifact, exception, "Model statistics validation failed");
+        }
     }
 
     private void runModelEditLevelValidation() {

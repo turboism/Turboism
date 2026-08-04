@@ -38,6 +38,18 @@ class EditorObjectReadSelectorContractTest {
             EditorObjectReadSelectorContract.REQUIRED_ALIASES
         ));
         assertTrue(resolver.authorizesFeature(
+            EditorObjectReadSelectorContract.ADAPTER_SLICE_ID,
+            EditorObjectReadSelectorContract.STATISTICS_CAPABILITY_ID,
+            EditorObjectReadSelectorContract.STATISTICS_ALIASES
+        ));
+        if (evidenceDirectory.equals("Cubism-5.3.02")) {
+            assertTrue(resolver.authorizesFeature(
+                EditorObjectReadSelectorContract.ADAPTER_SLICE_ID,
+                EditorObjectReadSelectorContract.STATISTICS_CAPABILITY_ID,
+                EditorObjectReadSelectorContract.OFFSCREEN_STATISTICS_ALIASES
+            ));
+        }
+        assertTrue(resolver.authorizesFeature(
             EditorObjectWriteSelectorContract.ADAPTER_SLICE_ID,
             EditorObjectWriteSelectorContract.ART_MESH_CAPABILITY_ID,
             EditorObjectWriteSelectorContract.ART_MESH_REQUIRED_ALIASES
