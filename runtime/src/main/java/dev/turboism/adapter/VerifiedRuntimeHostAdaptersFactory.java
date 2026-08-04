@@ -4,6 +4,7 @@ import dev.turboism.adapter.host.HostVerificationEvidence;
 import dev.turboism.mapping.verification.VerifiedClipMaskResolverFactory;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.mapping.verification.VerifiedProjectWorkspaceResolverFactory;
+import dev.turboism.mapping.verification.VerifiedStatusBarResolverFactory;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -12,52 +13,82 @@ import java.util.Objects;
 /**
  * Production composition helper for pinned, reviewed host-adapter verification evidence.
  *
- * <p>The dual-slice production entrypoint is {@link #create(HostVerificationEvidence)}. It accepts
- * one evidence value whose constructor validates that project/workspace and clip-mask slices attest
- * the same artifact and defining classloader before either resolver factory is invoked.</p>
+ * <p>The production entrypoint is {@link #create(HostVerificationEvidence)}. Its typed evidence
+ * validates that every present slice attests the same artifact and defining classloader before
+ * the independently pinned resolver factories are invoked.</p>
  */
 public final class VerifiedRuntimeHostAdaptersFactory {
 
     private final VerifiedProjectWorkspaceResolverFactory projectResolverFactory;
     private final VerifiedClipMaskResolverFactory clipMaskResolverFactory;
+    private final VerifiedStatusBarResolverFactory statusBarResolverFactory;
 
     public VerifiedRuntimeHostAdaptersFactory() {
-        this(new VerifiedProjectWorkspaceResolverFactory(), new VerifiedClipMaskResolverFactory());
+        this(
+            new VerifiedProjectWorkspaceResolverFactory(),
+            new VerifiedClipMaskResolverFactory(),
+            new VerifiedStatusBarResolverFactory()
+        );
     }
 
     VerifiedRuntimeHostAdaptersFactory(
         final VerifiedProjectWorkspaceResolverFactory projectResolverFactory,
         final VerifiedClipMaskResolverFactory clipMaskResolverFactory
     ) {
+        this(
+            projectResolverFactory,
+            clipMaskResolverFactory,
+            new VerifiedStatusBarResolverFactory()
+        );
+    }
+
+    VerifiedRuntimeHostAdaptersFactory(
+        final VerifiedProjectWorkspaceResolverFactory projectResolverFactory,
+        final VerifiedClipMaskResolverFactory clipMaskResolverFactory,
+        final VerifiedStatusBarResolverFactory statusBarResolverFactory
+    ) {
         this.projectResolverFactory = Objects.requireNonNull(projectResolverFactory, "projectResolverFactory");
         this.clipMaskResolverFactory = Objects.requireNonNull(clipMaskResolverFactory, "clipMaskResolverFactory");
+        this.statusBarResolverFactory = Objects.requireNonNull(statusBarResolverFactory, "statusBarResolverFactory");
     }
 
     public RuntimeHostAdapters create(final HostVerificationEvidence evidence) throws IOException {
         Objects.requireNonNull(evidence, "evidence");
         final HostVerificationEvidence.Slice project = evidence.projectWorkspace();
+        final RuntimeHostAdapters base;
         if (evidence.clipMask().isEmpty()) {
-            return projectWorkspace(
+            base = projectWorkspace(
                 project.reviewedRecord(),
                 project.verifiedArtifact(),
                 project.hostClassLoader()
             );
+        } else {
+            final HostVerificationEvidence.Slice clipMask = evidence.clipMask().orElseThrow();
+            final VerifiedMemberResolver projectResolver = projectResolverFactory.create(
+                project.reviewedRecord(),
+                project.verifiedArtifact(),
+                project.hostClassLoader()
+            );
+            final VerifiedMemberResolver clipMaskResolver = clipMaskResolverFactory.create(
+                clipMask.reviewedRecord(),
+                clipMask.verifiedArtifact(),
+                clipMask.hostClassLoader()
+            );
+            base = RuntimeHostAdapters.withVerifiedProjectWorkspaceAndClipMask(
+                projectResolver,
+                clipMaskResolver
+            );
         }
-        final HostVerificationEvidence.Slice clipMask = evidence.clipMask().orElseThrow();
-        final VerifiedMemberResolver projectResolver = projectResolverFactory.create(
-            project.reviewedRecord(),
-            project.verifiedArtifact(),
-            project.hostClassLoader()
+        if (evidence.statusBar().isEmpty()) {
+            return base;
+        }
+        final HostVerificationEvidence.Slice statusBar = evidence.statusBar().orElseThrow();
+        final VerifiedMemberResolver statusBarResolver = statusBarResolverFactory.create(
+            statusBar.reviewedRecord(),
+            statusBar.verifiedArtifact(),
+            statusBar.hostClassLoader()
         );
-        final VerifiedMemberResolver clipMaskResolver = clipMaskResolverFactory.create(
-            clipMask.reviewedRecord(),
-            clipMask.verifiedArtifact(),
-            clipMask.hostClassLoader()
-        );
-        return RuntimeHostAdapters.withVerifiedProjectWorkspaceAndClipMask(
-            projectResolver,
-            clipMaskResolver
-        );
+        return RuntimeHostAdapters.withVerifiedStatusBar(base, statusBarResolver);
     }
 
     public RuntimeHostAdapters projectWorkspace(

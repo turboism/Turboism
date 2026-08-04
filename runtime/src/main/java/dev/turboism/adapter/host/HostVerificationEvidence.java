@@ -21,7 +21,8 @@ public record HostVerificationEvidence(
     Optional<Slice> embeddedPanel,
     Optional<Slice> topMenu,
     Optional<Slice> boundingBoxOverlayButton,
-    Optional<Slice> workspaceControl
+    Optional<Slice> workspaceControl,
+    Optional<Slice> statusBar
 ) {
     /** Compatibility constructor for evidence created before the distinct Core artifact slice. */
     public HostVerificationEvidence(
@@ -42,6 +43,7 @@ public record HostVerificationEvidence(
             embeddedPanel,
             topMenu,
             boundingBoxOverlayButton,
+            Optional.empty(),
             Optional.empty()
         );
     }
@@ -58,6 +60,7 @@ public record HostVerificationEvidence(
             editorModel,
             Optional.empty(),
             mainToolbar,
+            Optional.empty(),
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
@@ -81,6 +84,7 @@ public record HostVerificationEvidence(
             embeddedPanel,
             Optional.empty(),
             Optional.empty(),
+            Optional.empty(),
             Optional.empty()
         );
     }
@@ -98,6 +102,7 @@ public record HostVerificationEvidence(
             "boundingBoxOverlayButton"
         );
         workspaceControl = Objects.requireNonNull(workspaceControl, "workspaceControl");
+        statusBar = Objects.requireNonNull(statusBar, "statusBar");
         if (clipMask.isPresent()) {
             requireSameHostArtifact(projectWorkspace, clipMask.orElseThrow());
         }
@@ -121,6 +126,9 @@ public record HostVerificationEvidence(
         }
         if (workspaceControl.isPresent()) {
             requireSameHostArtifact(projectWorkspace, workspaceControl.orElseThrow());
+        }
+        if (statusBar.isPresent()) {
+            requireSameHostArtifact(projectWorkspace, statusBar.orElseThrow());
         }
     }
 
@@ -160,6 +168,7 @@ public record HostVerificationEvidence(
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
+            Optional.empty(),
             Optional.empty()
         );
     }
@@ -188,7 +197,8 @@ public record HostVerificationEvidence(
             embeddedPanel,
             topMenu,
             boundingBoxOverlayButton,
-            workspaceControl
+            workspaceControl,
+            statusBar
         );
     }
 
@@ -202,7 +212,8 @@ public record HostVerificationEvidence(
             embeddedPanel,
             topMenu,
             boundingBoxOverlayButton,
-            workspaceControl
+            workspaceControl,
+            statusBar
         );
     }
 
@@ -216,7 +227,8 @@ public record HostVerificationEvidence(
             embeddedPanel,
             topMenu,
             boundingBoxOverlayButton,
-            workspaceControl
+            workspaceControl,
+            statusBar
         );
     }
 
@@ -230,7 +242,8 @@ public record HostVerificationEvidence(
             embeddedPanel,
             topMenu,
             boundingBoxOverlayButton,
-            workspaceControl
+            workspaceControl,
+            statusBar
         );
     }
 
@@ -244,7 +257,8 @@ public record HostVerificationEvidence(
             Optional.of(Objects.requireNonNull(slice, "embeddedPanel")),
             topMenu,
             boundingBoxOverlayButton,
-            workspaceControl
+            workspaceControl,
+            statusBar
         );
     }
 
@@ -258,7 +272,8 @@ public record HostVerificationEvidence(
             embeddedPanel,
             Optional.of(Objects.requireNonNull(slice, "topMenu")),
             boundingBoxOverlayButton,
-            workspaceControl
+            workspaceControl,
+            statusBar
         );
     }
 
@@ -272,7 +287,8 @@ public record HostVerificationEvidence(
             embeddedPanel,
             topMenu,
             Optional.of(Objects.requireNonNull(slice, "boundingBoxOverlayButton")),
-            workspaceControl
+            workspaceControl,
+            statusBar
         );
     }
 
@@ -286,7 +302,23 @@ public record HostVerificationEvidence(
             embeddedPanel,
             topMenu,
             boundingBoxOverlayButton,
-            Optional.of(Objects.requireNonNull(slice, "workspaceControl"))
+            Optional.of(Objects.requireNonNull(slice, "workspaceControl")),
+            statusBar
+        );
+    }
+
+    public HostVerificationEvidence addingStatusBar(final Slice statusBar) {
+        return new HostVerificationEvidence(
+            projectWorkspace,
+            clipMask,
+            editorModel,
+            coreRuntime,
+            mainToolbar,
+            embeddedPanel,
+            topMenu,
+            boundingBoxOverlayButton,
+            workspaceControl,
+            Optional.of(Objects.requireNonNull(statusBar, "statusBar"))
         );
     }
 
