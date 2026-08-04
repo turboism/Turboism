@@ -231,6 +231,9 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
                 current(generation, CubismModel::parameterDefinitions, delegate)
             );
         }
+        @Override public dev.turboism.sdk.cubism.model.ModelStatistics statistics() {
+            return current(generation, CubismModel::statistics, delegate);
+        }
 
         @Override
         public boolean defaultKeyformLocked() {
