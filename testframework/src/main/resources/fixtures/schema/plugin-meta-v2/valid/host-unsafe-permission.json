@@ -1,0 +1,35 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 2,
+  "id": "dev.turboism.plugin.host-workspace",
+  "name": "Host Workspace Plugin",
+  "version": "1.0.0",
+  "description": "Sample plugin metadata fixture declaring the architecture-level host-unsafe permission.",
+  "entrypoints": [
+    "dev.turboism.plugin.host.WorkspacePlugin"
+  ],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    { "name": "Turboism Contributors" }
+  ],
+  "license": "MIT",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": []
+  },
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.host.unsafe",
+      "scope": "application",
+      "reason": "Switches the Editor workspace through the verified host control slice."
+    }
+  ],
+  "capabilities": [],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "none"
+  }
+}
