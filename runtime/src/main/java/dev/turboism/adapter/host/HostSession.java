@@ -78,6 +78,10 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     private final dev.turboism.ui.table.SceneTableHostOperations sceneTableHost =
         new dev.turboism.ui.table.SceneTableHostOperations();
     private final dev.turboism.sdk.ui.table.SceneTableService sceneTable = sceneTableHost.service();
+    private final dev.turboism.ui.filter.PaletteFilterHostOperations paletteFilterHost =
+        new dev.turboism.ui.filter.PaletteFilterHostOperations();
+    private final dev.turboism.sdk.runtime.CubismLogService cubismLog =
+        new dev.turboism.runtime.log.CubismLogServiceHost();
     private final dev.turboism.ui.appearance.control.ControlAppearanceCoordinator controlAppearanceCoordinator =
         new dev.turboism.ui.appearance.control.ControlAppearanceCoordinator();
     private final Object lifecycleMonitor = new Object();
@@ -163,6 +167,15 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             sceneTableHost.connect(
                 descriptor.verificationEvidence().projectWorkspace().hostClassLoader()
             );
+            if (cubismLog instanceof dev.turboism.runtime.log.CubismLogServiceHost host) {
+                host.connect(descriptor.verificationEvidence().projectWorkspace().hostClassLoader());
+            }
+            paletteFilterHost.bindSceneFilterSink(sceneTableHost);
+            paletteFilterHost.bindCubismLogService(cubismLog);
+            paletteFilterHost.bindParameterRows(controlAppearanceCoordinator);
+            paletteFilterHost.connect(
+                descriptor.verificationEvidence().projectWorkspace().hostClassLoader()
+            );
             final ConnectionKey connectionKey;
             try {
                 connectionKey = ConnectionKey.from(descriptor);
@@ -229,6 +242,11 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             editorUiLifecycle.connected(editorUiGeneration);
             controlAppearanceCoordinator.replaceHostGeneration(editorUiGeneration);
             activeConnection = candidate;
+            try {
+                paletteFilterHost.bindParameterRowsResolver(candidate.editorModelResolver());
+            } catch (IllegalStateException unavailable) {
+                paletteFilterHost.clearParameterRowsResolver();
+            }
             objectContextMenuHandler = candidate.objectContextMenuHandler(editorUiGeneration);
             parameterPointMenuHandler = candidate.parameterPointMenuHandler(editorUiGeneration);
             final EditorUiProviderInstaller.Installation candidateEditorUiProviders;
@@ -368,6 +386,16 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     }
 
     @Override
+    public dev.turboism.ui.filter.PaletteFilterVisibilitySink paletteFilterSink() {
+        return paletteFilterHost;
+    }
+
+    @Override
+    public dev.turboism.sdk.runtime.CubismLogService cubismLog() {
+        return cubismLog;
+    }
+
+    @Override
     public dev.turboism.ui.appearance.control.ControlAppearanceCoordinator controlAppearanceCoordinator() {
         return controlAppearanceCoordinator;
     }
@@ -419,6 +447,8 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             boundingBoxOverlayResolver(),
             appearanceCoordinator,
             sceneTable,
+            cubismLog,
+            paletteFilterHost,
             controlAppearanceCoordinator,
             dynamicModelAccess
         );
@@ -441,6 +471,10 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             }
             appearanceCoordinator.close();
             sceneTableHost.disconnect();
+            paletteFilterHost.close();
+            if (cubismLog instanceof dev.turboism.runtime.log.CubismLogServiceHost host) {
+                host.close();
+            }
             controlAppearanceCoordinator.close();
             physicsEditorCoordinator.close();
             editorObjectLifecycle.close();
@@ -495,6 +529,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     /** Registration cleanup must succeed before its owning connection can be closed. */
     private CleanupOutcome cleanupOwnedResources() {
         activeConnectionKey = null;
+        paletteFilterHost.clearParameterRowsResolver();
         dynamicAppearance.deactivate();
         controlAppearanceCoordinator.clearHostGeneration();
         dynamicModelAccess.deactivate();

@@ -17,11 +17,13 @@ import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.sdk.storage.PluginStorage;
 import dev.turboism.sdk.task.PluginTaskScheduler;
+import dev.turboism.sdk.runtime.CubismLogService;
 import dev.turboism.sdk.runtime.RuntimeSettingsService;
 import dev.turboism.sdk.ui.UiHostCapabilityService;
 import dev.turboism.sdk.ui.UserFileAccessService;
 import dev.turboism.sdk.ui.UiScheduler;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry;
+import dev.turboism.sdk.ui.filter.PaletteFilterRegistry;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
 import dev.turboism.sdk.ui.table.SceneTableService;
@@ -98,6 +100,10 @@ public interface PluginContext {
         throw new UnsupportedOperationException("paletteToolbar registry is not available");
     }
 
+    default PaletteFilterRegistry paletteFilter() {
+        throw new UnsupportedOperationException("paletteFilter registry is not available");
+    }
+
     default SceneTableService sceneTable() {
         return SceneTableService.unavailable();
     }
@@ -122,6 +128,10 @@ public interface PluginContext {
         throw new UnsupportedOperationException("config registry is not available");
     }
 
+
+    default CubismLogService cubismLog() {
+        return CubismLogService.unavailable();
+    }
 
     default RuntimeSettingsService runtimeSettings() {
         throw new UnsupportedOperationException("runtime settings service is not available");
