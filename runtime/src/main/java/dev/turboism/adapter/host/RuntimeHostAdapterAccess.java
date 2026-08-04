@@ -54,6 +54,10 @@ public sealed interface RuntimeHostAdapterAccess permits HostSession, SessionRun
 
     dev.turboism.sdk.ui.table.SceneTableService sceneTable();
 
+    dev.turboism.sdk.runtime.CubismLogService cubismLog();
+
+    dev.turboism.ui.filter.PaletteFilterVisibilitySink paletteFilterSink();
+
     ControlAppearanceCoordinator controlAppearanceCoordinator();
 
     NativeControlAppearanceAuthoring nativeControlAppearance();
@@ -80,6 +84,8 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     private final java.util.Optional<dev.turboism.mapping.verification.VerifiedMemberResolver> boundingBoxOverlayResolver;
     private final AppearanceCoordinator appearanceCoordinator;
     private final dev.turboism.sdk.ui.table.SceneTableService sceneTable;
+    private final dev.turboism.sdk.runtime.CubismLogService cubismLog;
+    private final dev.turboism.ui.filter.PaletteFilterVisibilitySink paletteFilterSink;
     private final ControlAppearanceCoordinator controlAppearanceCoordinator;
     private final NativeControlAppearanceAuthoring nativeControlAppearance;
     SessionRuntimeHostAdapterAccess(
@@ -101,6 +107,8 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
         final java.util.Optional<dev.turboism.mapping.verification.VerifiedMemberResolver> boundingBoxOverlayResolver,
         final AppearanceCoordinator appearanceCoordinator,
         final dev.turboism.sdk.ui.table.SceneTableService sceneTable,
+        final dev.turboism.sdk.runtime.CubismLogService cubismLog,
+        final dev.turboism.ui.filter.PaletteFilterVisibilitySink paletteFilterSink,
         final ControlAppearanceCoordinator controlAppearanceCoordinator,
         final NativeControlAppearanceAuthoring nativeControlAppearance
     ) {
@@ -152,6 +160,8 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
             "appearanceCoordinator"
         );
         this.sceneTable = java.util.Objects.requireNonNull(sceneTable, "sceneTable");
+        this.cubismLog = java.util.Objects.requireNonNull(cubismLog, "cubismLog");
+        this.paletteFilterSink = java.util.Objects.requireNonNull(paletteFilterSink, "paletteFilterSink");
         this.controlAppearanceCoordinator = java.util.Objects.requireNonNull(
             controlAppearanceCoordinator,
             "controlAppearanceCoordinator"
@@ -251,6 +261,16 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     @Override
     public dev.turboism.sdk.ui.table.SceneTableService sceneTable() {
         return sceneTable;
+    }
+
+    @Override
+    public dev.turboism.ui.filter.PaletteFilterVisibilitySink paletteFilterSink() {
+        return paletteFilterSink;
+    }
+
+    @Override
+    public dev.turboism.sdk.runtime.CubismLogService cubismLog() {
+        return cubismLog;
     }
 
     @Override

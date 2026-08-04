@@ -23,6 +23,7 @@ import dev.turboism.sdk.ui.UiHostCapabilityService;
 import dev.turboism.sdk.ui.ViewportSnapshot;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 import dev.turboism.sdk.ui.context.ContextSourceSnapshot;
+import dev.turboism.sdk.ui.filter.PaletteFilterRegistry;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
 import dev.turboism.ui.contribution.EditorUiContribution;
@@ -79,6 +80,7 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
     private final CopyOnWriteArrayList<ContextMenuRegistry.ContextMenuContribution> contextMenus = new CopyOnWriteArrayList<>();
     private final CopyOnWriteArrayList<MainToolbarRegistry.MainToolbarContribution> mainToolbars = new CopyOnWriteArrayList<>();
     private final CopyOnWriteArrayList<PaletteToolbarRegistry.PaletteToolbarContribution> paletteToolbars = new CopyOnWriteArrayList<>();
+    private final CopyOnWriteArrayList<PaletteFilterRegistry.PaletteFilterContribution> paletteFilters = new CopyOnWriteArrayList<>();
     private final BoundedKeyedStore<String, SafeModeDiagnostic> statusToolbarDiagnostics =
         new BoundedKeyedStore<>(MAX_TRANSIENT_ENTRIES);
 
@@ -454,6 +456,20 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         );
     }
 
+    @Override
+    public Registration contributePaletteFilter(final PaletteFilterRegistry.PaletteFilterContribution contribution) {
+        Objects.requireNonNull(contribution, "contribution");
+        permissionChecker.check(UI_TOOLBAR_PALETTE_CONTRIBUTE, "ui.palette-filter.contribute");
+        final PaletteFilterRegistry.PaletteFilterContribution resolved = resolvePaletteFilterPlaceholder(contribution);
+        return authoritativeRegistration(
+            EditorUiFamily.PALETTE_FILTER,
+            resolved.contributionId(),
+            resolved.order(),
+            resolved,
+            paletteFilters
+        );
+    }
+
     /**
      * Adapter-backed host registrations are auto-enrolled in the plugin scope.
      * Plugins may also enroll the returned handle (for SDK stub hosts that do not auto-scope).
@@ -495,6 +511,10 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
 
     public List<PaletteToolbarRegistry.PaletteToolbarContribution> paletteToolbars() {
         return List.copyOf(paletteToolbars);
+    }
+
+    public List<PaletteFilterRegistry.PaletteFilterContribution> paletteFilters() {
+        return List.copyOf(paletteFilters);
     }
 
     public List<SafeModeDiagnostic> uiDiagnostics() {
@@ -639,6 +659,20 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
             contribution.iconResourcePath(),
             contribution.paletteId(),
             contribution.anchor(),
+            contribution.order()
+        );
+    }
+
+    private PaletteFilterRegistry.PaletteFilterContribution resolvePaletteFilterPlaceholder(
+        final PaletteFilterRegistry.PaletteFilterContribution contribution
+    ) {
+        if (localization == null) {
+            return contribution;
+        }
+        return new PaletteFilterRegistry.PaletteFilterContribution(
+            contribution.contributionId(),
+            contribution.paletteId(),
+            localization.text(requireText(contribution.placeholderKey(), "placeholderKey")),
             contribution.order()
         );
     }
