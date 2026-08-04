@@ -798,13 +798,36 @@ public final class WindowsWorkspaceValidationProbe implements CubismPlugin {
 
     private void requestAutomatedHostClose() {
         try {
-            final java.awt.Robot robot = new java.awt.Robot();
-            robot.keyPress(java.awt.event.KeyEvent.VK_ALT);
-            robot.keyPress(java.awt.event.KeyEvent.VK_F4);
-            robot.keyRelease(java.awt.event.KeyEvent.VK_F4);
-            robot.keyRelease(java.awt.event.KeyEvent.VK_ALT);
+            final Runnable closeRequest = () -> {
+                javax.swing.JFrame modelFrame = null;
+                javax.swing.JFrame cubismFrame = null;
+                javax.swing.JFrame fallbackFrame = null;
+                for (final java.awt.Frame frame : java.awt.Frame.getFrames()) {
+                    if (!(frame instanceof javax.swing.JFrame swingFrame) || !swingFrame.isVisible()) continue;
+                    if (fallbackFrame == null) fallbackFrame = swingFrame;
+                    final String title = swingFrame.getTitle();
+                    if (title != null && title.contains(".cmo3")) {
+                        modelFrame = swingFrame;
+                        break;
+                    }
+                    if (cubismFrame == null && title != null && title.contains("Cubism")) {
+                        cubismFrame = swingFrame;
+                    }
+                }
+                final javax.swing.JFrame frame = modelFrame != null
+                    ? modelFrame : cubismFrame != null ? cubismFrame : fallbackFrame;
+                if (frame == null) {
+                    context.logger().info("Automated workspace host close skipped: no visible Cubism/model JFrame");
+                    return;
+                }
+                frame.dispatchEvent(new java.awt.event.WindowEvent(
+                    frame, java.awt.event.WindowEvent.WINDOW_CLOSING
+                ));
+            };
+            if (SwingUtilities.isEventDispatchThread()) closeRequest.run();
+            else SwingUtilities.invokeAndWait(closeRequest);
         } catch (Exception failure) {
-            context.logger().error("Automated workspace host close shortcut failed", failure);
+            context.logger().error("Automated workspace host close request failed", failure);
         }
     }
 
