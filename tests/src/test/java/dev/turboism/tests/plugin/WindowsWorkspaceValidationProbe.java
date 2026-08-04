@@ -114,7 +114,7 @@ public final class WindowsWorkspaceValidationProbe implements CubismPlugin {
     private volatile TaskHandle scanHandle;
     private volatile long lastProcessed;
     private List<String> declaredPermissions = List.of();
-    private boolean automaticMatrixStarted;
+    private Thread automaticMatrixThread;
 
     @Override
     public void init(final PluginContext context) {
@@ -135,7 +135,6 @@ public final class WindowsWorkspaceValidationProbe implements CubismPlugin {
             .toList();
         synchronized (scanLock) {
             scanEnabled = true;
-            automaticMatrixStarted = false;
         }
         final TaskSubmission submission = context.tasks().scheduleWithFixedDelay(
             new FixedDelayTaskRequest(
@@ -158,6 +157,13 @@ public final class WindowsWorkspaceValidationProbe implements CubismPlugin {
             return;
         }
         scanHandle = submission.handle();
+        if (automaticMatrixEnabled()) {
+            automaticMatrixThread = new Thread(
+                this::runAutomaticMatrix, "turboism-workspace-validation-matrix"
+            );
+            automaticMatrixThread.setDaemon(true);
+            automaticMatrixThread.start();
+        }
         context.logger().info(
             "Windows workspace validation probe listening under "
                 + context.paths().stateDir()
@@ -182,10 +188,16 @@ public final class WindowsWorkspaceValidationProbe implements CubismPlugin {
      */
     private void cancelScan() {
         final TaskHandle handle;
+        final Thread matrixThread;
         synchronized (scanLock) {
             scanEnabled = false;
             handle = scanHandle;
             scanHandle = null;
+            matrixThread = automaticMatrixThread;
+            automaticMatrixThread = null;
+        }
+        if (matrixThread != null) {
+            matrixThread.interrupt();
         }
         if (handle != null) {
             handle.cancel();
@@ -199,11 +211,6 @@ public final class WindowsWorkspaceValidationProbe implements CubismPlugin {
                 return;
             }
             try {
-                if (automaticMatrixEnabled() && !automaticMatrixStarted) {
-                    automaticMatrixStarted = true;
-                    runAutomaticMatrix();
-                    return;
-                }
                 final long next = processPending(
                     context.paths().stateDir(),
                     lastProcessed,
