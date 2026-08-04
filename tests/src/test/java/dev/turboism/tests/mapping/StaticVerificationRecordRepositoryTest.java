@@ -209,7 +209,7 @@ class StaticVerificationRecordRepositoryTest {
             EditorModelVerificationManifest.ARTIFACT_SIZE,
             EditorModelVerificationManifest.ARTIFACT_SHA256,
             EditorModelVerificationManifest.RECORD_SHA256,
-            302,
+            300,
             EditorModelVerificationManifest.REQUIRED_ALIASES,
             EditorModelVerificationManifest.REQUIRED_ALIASES,
             editorModelMethodAliases(),
@@ -574,10 +574,8 @@ class StaticVerificationRecordRepositoryTest {
     private static Set<String> editorModelMethodAliases() {
         return Set.of(            "cubism.texture-atlas.statistics.view-init",
             "cubism.texture-atlas.statistics.view-data-model",
-            "cubism.texture-atlas.statistics.view-image-list",
-            "cubism.texture-atlas.statistics.image-list.items",
-            "cubism.texture-atlas.statistics.list-selected",
-            "cubism.texture-atlas.statistics.image-entry.image",
+            "cubism.texture-atlas.statistics.data-model.current-page",
+            "cubism.texture-atlas.statistics.page-state.atlas",
 
             "cubism.editor-model.app-controller.instance",
             "cubism.editor-model.app-controller.current-document",
