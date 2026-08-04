@@ -80,73 +80,29 @@ public final class RuntimeTextureAtlasEditorSession implements TextureAtlasEdito
     }
 
     private Optional<TextureAtlasSummary> selectedTextureSummary() {
-        final Object selectedImage = selectedImage();
-        if (selectedImage == null) return Optional.empty();
-        return textureManager().map(manager -> {
-            final List<?> atlases = listOrEmpty(resolver.invoke(
-                "cubism.texture-atlas.texture-manager.atlases", manager
-            ));
-            for (Object atlas : atlases) {
-                final List<?> entries = listOrEmpty(resolver.invoke(
-                    "cubism.texture-atlas.atlas.entries", atlas
-                ));
-                if (atlasContains(entries, selectedImage)) {
-                    return new TextureAtlasSummary(
-                        entries.size(),
-                        1,
-                        entrySizeDistribution(entries)
-                    );
-                }
-            }
-            return null;
-        });
-    }
-
-    private Object selectedImage() {
-        if (resolver == null) return null;
-        try {
-            final Object viewValue = view.get();
-            final Object imageList = viewValue == null ? null : resolver.invoke(
-                VerifiedTextureAtlasNativeInvocationAdapter.STATISTICS_VIEW_IMAGE_LIST, viewValue
-            );
-            if (imageList == null) {
-                System.err.println("TURBOISM_STATS_PROBE view-image-list null (view=" + viewValue + ")");
-                return null;
-            }
-            final Object list = resolver.invoke(
-                VerifiedTextureAtlasNativeInvocationAdapter.STATISTICS_IMAGE_LIST_ITEMS, imageList
-            );
-            if (list == null) {
-                System.err.println("TURBOISM_STATS_PROBE image-list-items null");
-                return null;
-            }
-            final Object item = resolver.invoke(
-                VerifiedTextureAtlasNativeInvocationAdapter.STATISTICS_LIST_SELECTED, list
-            );
-            if (item == null) {
-                System.err.println("TURBOISM_STATS_PROBE list-selected null");
-                return null;
-            }
-            final Object image = resolver.invoke(
-                VerifiedTextureAtlasNativeInvocationAdapter.STATISTICS_IMAGE_ENTRY_IMAGE, item
-            );
-            if (image == null) {
-                System.err.println("TURBOISM_STATS_PROBE entry-image null");
-            }
-            return image;
-        } catch (RuntimeException failure) {
-            System.err.println("TURBOISM_STATS_PROBE failure: " + failure);
-            return null;
-        }
-    }
-
-    private boolean atlasContains(final List<?> entries, final Object image) {
-        for (Object entry : entries) {
-            if (resolver.invoke("cubism.texture-atlas.entry.image", entry) == image) {
-                return true;
-            }
-        }
-        return false;
+        if (resolver == null) return Optional.empty();
+        final Object viewValue = view.get();
+        if (viewValue == null) return Optional.empty();
+        final Object dataModel = resolver.invoke(
+            VerifiedTextureAtlasNativeInvocationAdapter.STATISTICS_VIEW_DATA_MODEL, viewValue
+        );
+        if (dataModel == null) return Optional.empty();
+        final Object pageState = resolver.invoke(
+            VerifiedTextureAtlasNativeInvocationAdapter.STATISTICS_DATA_MODEL_CURRENT_PAGE, dataModel
+        );
+        if (pageState == null) return Optional.empty();
+        final Object atlas = resolver.invoke(
+            VerifiedTextureAtlasNativeInvocationAdapter.STATISTICS_PAGE_STATE_ATLAS, pageState
+        );
+        if (atlas == null) return Optional.empty();
+        final List<?> entries = listOrEmpty(resolver.invoke(
+            "cubism.texture-atlas.atlas.entries", atlas
+        ));
+        return Optional.of(new TextureAtlasSummary(
+            entries.size(),
+            1,
+            entrySizeDistribution(entries)
+        ));
     }
 
     private List<TextureAtlasSizeBucket> entrySizeDistribution(final List<?> entries) {
