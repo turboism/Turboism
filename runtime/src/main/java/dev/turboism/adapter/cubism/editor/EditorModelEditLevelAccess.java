@@ -5,6 +5,8 @@ import dev.turboism.mapping.verification.EditorModelEditLevelWriteSelectorContra
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.model.ModelEditLevel;
 
+import javax.swing.SwingUtilities;
+import java.lang.reflect.InvocationTargetException;
 import java.util.Objects;
 
 /** Verified access to Cubism Editor's active model edit level. */
@@ -27,8 +29,10 @@ final class EditorModelEditLevelAccess {
             EditorModelEditLevelReadSelectorContract.REQUIRED_ALIASES,
             "Model edit-level access"
         );
-        modelGuard.requireCurrent(expectedIdentity, expectedModel);
-        return currentLevel(app());
+        return dispatchOnEdt(() -> {
+            modelGuard.requireCurrent(expectedIdentity, expectedModel);
+            return currentLevel(app());
+        });
     }
 
     void setLevel(
@@ -42,17 +46,44 @@ final class EditorModelEditLevelAccess {
             EditorModelEditLevelWriteSelectorContract.REQUIRED_ALIASES,
             "Model edit-level switching"
         );
-        modelGuard.requireCurrent(expectedIdentity, expectedModel);
-        final Object app = app();
-        if (currentLevel(app) == level) {
-            return;
+        dispatchOnEdt(() -> {
+            modelGuard.requireCurrent(expectedIdentity, expectedModel);
+            final Object app = app();
+            if (currentLevel(app) == level) {
+                return null;
+            }
+            resolver.invoke(
+                "cubism.editor-model.app-controller.set-edit-level",
+                app,
+                Integer.valueOf(level.ordinal() + 1)
+            );
+            modelGuard.requireCurrent(expectedIdentity, expectedModel);
+            return null;
+        });
+    }
+
+    private static <T> T dispatchOnEdt(final java.util.function.Supplier<T> task) {
+        if (SwingUtilities.isEventDispatchThread()) return task.get();
+        final Object[] result = new Object[1];
+        final Throwable[] failure = new Throwable[1];
+        try {
+            SwingUtilities.invokeAndWait(() -> {
+                try { result[0] = task.get(); }
+                catch (Throwable throwable) { failure[0] = throwable; }
+            });
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Cubism model edit-level EDT operation was interrupted", exception);
+        } catch (InvocationTargetException exception) {
+            throw new IllegalStateException("Cubism model edit-level EDT operation failed", exception);
         }
-        resolver.invoke(
-            "cubism.editor-model.app-controller.set-edit-level",
-            app,
-            Integer.valueOf(level.ordinal() + 1)
-        );
-        modelGuard.requireCurrent(expectedIdentity, expectedModel);
+        if (failure[0] instanceof RuntimeException exception) throw exception;
+        if (failure[0] instanceof Error error) throw error;
+        if (failure[0] != null) {
+            throw new IllegalStateException("Cubism model edit-level EDT operation failed", failure[0]);
+        }
+        @SuppressWarnings("unchecked") final T value = (T) result[0];
+        return value;
     }
 
     private Object app() {

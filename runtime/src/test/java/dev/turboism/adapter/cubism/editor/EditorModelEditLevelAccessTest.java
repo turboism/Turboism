@@ -9,11 +9,16 @@ import dev.turboism.sdk.cubism.model.ModelEditLevel;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
+import javax.swing.SwingUtilities;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class EditorModelEditLevelAccessTest {
 
@@ -22,6 +27,8 @@ class EditorModelEditLevelAccessTest {
         Host.currentDocument = null;
         Host.editLevel = 1;
         Host.commandCalls = 0;
+        Host.readOnEdt = false;
+        Host.writeOnEdt = false;
     }
 
     @Test
@@ -36,6 +43,31 @@ class EditorModelEditLevelAccessTest {
         assertEquals(1, Host.commandCalls);
         model.setEditLevel(ModelEditLevel.LEVEL_3);
         assertEquals(1, Host.commandCalls, "unchanged level must not invoke the host command");
+    }
+
+    @Test
+    void offEdtReadsAndWritesRunHostEditLevelMethodsOnEdt() throws Exception {
+        Host.install(new Fixture("model-a"));
+        final var model = new EditorBackedCubismModelAccess(resolver(true), "session-a").active();
+        final ExecutorService worker = Executors.newSingleThreadExecutor();
+        try {
+            assertEquals(
+                ModelEditLevel.LEVEL_1,
+                worker.submit(() -> {
+                    assertFalse(SwingUtilities.isEventDispatchThread());
+                    return model.editLevel();
+                }).get()
+            );
+            worker.submit(() -> {
+                assertFalse(SwingUtilities.isEventDispatchThread());
+                model.setEditLevel(ModelEditLevel.LEVEL_2);
+                return null;
+            }).get();
+        } finally {
+            worker.shutdownNow();
+        }
+        assertTrue(Host.readOnEdt);
+        assertTrue(Host.writeOnEdt);
     }
 
     @Test
@@ -163,6 +195,8 @@ class EditorModelEditLevelAccessTest {
         static Document currentDocument;
         static int editLevel = 1;
         static int commandCalls;
+        static volatile boolean readOnEdt;
+        static volatile boolean writeOnEdt;
 
         public static Host instance() {
             return INSTANCE;
@@ -173,10 +207,12 @@ class EditorModelEditLevelAccessTest {
         }
 
         public int editLevel() {
+            readOnEdt = SwingUtilities.isEventDispatchThread();
             return editLevel;
         }
 
         public void commandSetEditLevel(final int level) {
+            writeOnEdt = SwingUtilities.isEventDispatchThread();
             editLevel = level;
             commandCalls++;
         }
