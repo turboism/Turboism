@@ -184,6 +184,64 @@ class HostSessionTest {
         session.close();
         assertEquals(5, closes.get(), "the final active connection must close exactly once");
     }
+    @Test
+    void sameSessionReconnectsForStatusEvidencePresenceAndRecordChanges() {
+        ClassLoader hostClassLoader = HostSessionTest.class.getClassLoader();
+        Path artifact = Path.of("host/Live2D_Cubism.jar");
+        AtomicReference<HostInstanceDescriptor> current = new AtomicReference<>(descriptor(
+            "session-a", clipEvidence("project-record.json", "clip-record.json", artifact, hostClassLoader)
+        ));
+        AtomicInteger connections = new AtomicInteger();
+        AtomicInteger closes = new AtomicInteger();
+        HostSession session = new HostSession(
+            () -> Optional.of(current.get()),
+            ignored -> {
+                int marker = connections.incrementAndGet();
+                return connection(adapters("connection-" + marker), closes);
+            }
+        );
+
+        assertEquals(HostSession.State.ACTIVE, session.refresh());
+        assertEquals(1, connections.get());
+
+        current.set(descriptor(
+            "session-a",
+            clipEvidence("project-record.json", "clip-record.json", artifact, hostClassLoader)
+                .addingStatusBar(statusBarEvidence("status-record-a.json", artifact, hostClassLoader))
+        ));
+        assertEquals(HostSession.State.ACTIVE, session.refresh());
+        assertEquals(2, connections.get(), "adding status evidence must replace the connection");
+        assertEquals(1, closes.get());
+
+        current.set(descriptor(
+            "session-a",
+            clipEvidence("project-record.json", "clip-record.json", artifact, hostClassLoader)
+                .addingStatusBar(statusBarEvidence("status-record-b.json", artifact, hostClassLoader))
+        ));
+        assertEquals(HostSession.State.ACTIVE, session.refresh());
+        assertEquals(3, connections.get(), "changing the status record must reconnect");
+        assertEquals(2, closes.get());
+
+        current.set(descriptor(
+            "session-a", clipEvidence("project-record.json", "clip-record.json", artifact, hostClassLoader)
+        ));
+        assertEquals(HostSession.State.ACTIVE, session.refresh());
+        assertEquals(4, connections.get(), "removing status evidence must reconnect");
+        assertEquals(3, closes.get());
+
+        session.close();
+        assertEquals(4, closes.get(), "the final active connection must close exactly once");
+    }
+
+    private static HostVerificationEvidence.Slice statusBarEvidence(
+        final String statusRecord,
+        final Path artifact,
+        final ClassLoader classLoader
+    ) {
+        return new HostVerificationEvidence.Slice(
+            Path.of("records").resolve(statusRecord), artifact, classLoader
+        );
+    }
 
     @Test
     void sameSessionReconnectsForWorkspaceOverlayAndPanelSlicePresenceAndRecordChanges() {
