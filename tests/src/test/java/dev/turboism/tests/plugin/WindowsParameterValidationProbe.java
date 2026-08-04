@@ -2599,10 +2599,12 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
 
     private void requestAutomatedHostClose() {
         try {
-            final java.awt.Robot robot = new java.awt.Robot();
-            pressAltF4(robot);
-            context.logger().info("Automated host close requested via Alt+F4");
-            final HostCloseDecision decision = awaitHostCloseConfirmation(robot);
+            onHostThread(() -> {
+                requestHostClose();
+                return null;
+            });
+            context.logger().info("Automated host close requested via WINDOW_CLOSING");
+            final HostCloseDecision decision = awaitHostCloseConfirmation(new java.awt.Robot());
             if (decision == HostCloseDecision.CLEAN_CLOSE) {
                 context.logger().info(
                     "Automated host close requested; no unsaved confirmation dialog observed"
@@ -2615,6 +2617,36 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         } catch (Exception failure) {
             context.logger().error("Automated host close request or confirmation handling failed", failure);
         }
+    }
+
+    static java.awt.Window selectHostWindow(final java.awt.Window[] windows) {
+        java.awt.Window target = null;
+        long largestArea = -1L;
+        for (final java.awt.Window window : windows) {
+            if (window instanceof java.awt.Dialog
+                || !window.isDisplayable()
+                || !window.isVisible()) {
+                continue;
+            }
+            final long area = (long) window.getWidth() * window.getHeight();
+            if (area > largestArea) {
+                target = window;
+                largestArea = area;
+            }
+        }
+        if (target == null) {
+            throw new IllegalStateException(
+                "No visible, displayable non-dialog host window found."
+            );
+        }
+        return target;
+    }
+
+    private static void requestHostClose() {
+        final java.awt.Window target = selectHostWindow(java.awt.Window.getWindows());
+        target.dispatchEvent(new java.awt.event.WindowEvent(
+            target, java.awt.event.WindowEvent.WINDOW_CLOSING
+        ));
     }
 
     private HostCloseDecision awaitHostCloseConfirmation(final java.awt.Robot robot) throws Exception {
@@ -2742,15 +2774,6 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         }
     }
 
-    private static void pressAltF4(final java.awt.Robot robot) {
-        robot.keyPress(java.awt.event.KeyEvent.VK_ALT);
-        try {
-            robot.keyPress(java.awt.event.KeyEvent.VK_F4);
-        } finally {
-            robot.keyRelease(java.awt.event.KeyEvent.VK_F4);
-            robot.keyRelease(java.awt.event.KeyEvent.VK_ALT);
-        }
-    }
 
     private static void pressDiscardByKeyboard(final java.awt.Robot robot) {
         robot.keyPress(java.awt.event.KeyEvent.VK_RIGHT);
