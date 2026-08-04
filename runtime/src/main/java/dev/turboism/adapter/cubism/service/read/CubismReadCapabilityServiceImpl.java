@@ -254,6 +254,12 @@ public final class CubismReadCapabilityServiceImpl implements CubismReadCapabili
             "activeDocument",
             "cubism.model-tree.read"
         );
+        final ProjectWorkspaceAdapter.AdapterResult<Optional<DocumentSnapshot>> adapterResult =
+            projectWorkspaceAdapter.activeDocument();
+        if (adapterResult.isAvailable()) {
+            return adapterResult.value().orElseThrow();
+        }
+        adapterResult.diagnostic().ifPresent(diagnostic -> record(projectWorkspaceDiagnostics, diagnostic));
         return facade.activeDocument();
     }
 
@@ -264,6 +270,12 @@ public final class CubismReadCapabilityServiceImpl implements CubismReadCapabili
             "activeModel",
             "cubism.model-tree.read"
         );
+        final ProjectWorkspaceAdapter.AdapterResult<Optional<DocumentSnapshot>> adapterResult =
+            projectWorkspaceAdapter.activeDocument();
+        if (adapterResult.isAvailable()) {
+            return adapterResult.value().orElseThrow().flatMap(DocumentSnapshot::model);
+        }
+        adapterResult.diagnostic().ifPresent(diagnostic -> record(projectWorkspaceDiagnostics, diagnostic));
         return facade.activeModel();
     }
 
