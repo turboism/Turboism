@@ -381,7 +381,7 @@ evidence_collected=0
 success=0
 
 remote_process_alive() {
-  "${ssh_cmd[@]}" "$ssh_host" "test -s '$evidence_dir/wrapper.pid' && kill -0 \$(cat '$evidence_dir/wrapper.pid') 2>/dev/null"
+  "${ssh_cmd[@]}" "$ssh_host" "test ! -s '$evidence_dir/wrapper.exit' && test -s '$evidence_dir/wrapper.pid' && kill -0 \$(cat '$evidence_dir/wrapper.pid') 2>/dev/null"
 }
 
 remote_stop_process_tree() {
