@@ -21,6 +21,8 @@ import dev.turboism.sdk.cubism.model.Parameters;
 import dev.turboism.sdk.cubism.model.Parts;
 import dev.turboism.sdk.cubism.model.RotationDeformers;
 import dev.turboism.sdk.cubism.model.WarpDeformers;
+import dev.turboism.sdk.cubism.model.FloatSequence;
+import dev.turboism.sdk.cubism.model.ParameterDefinitions;
 import dev.turboism.sdk.ui.appearance.ControlAppearanceTarget;
 import dev.turboism.sdk.ui.appearance.NativeControlAppearance;
 import dev.turboism.sdk.ui.appearance.NativeControlBackground;
@@ -41,6 +43,11 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess, N
     private final EditorDefaultKeyformLockAccess defaultKeyformLockAccess;
     private final EditorPartOpacityAccess partOpacityAccess;
     private final EditorObjectReadAccess objectReadAccess;
+    private final Object generationLock = new Object();
+    private Object activeDocument;
+    private Object activeSource;
+    private Object activeModel;
+    private long generation;
     private final EditorNativeControlAppearanceAccess nativeControlAppearanceAccess;
 
     public EditorBackedCubismModelAccess(
@@ -79,7 +86,9 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess, N
     @Override
     public CubismModel active() {
         final Binding binding = binding();
-        return new EditorModel(binding.identity(), binding.source(), binding.model());
+        return new EditorModel(
+            binding.identity(), binding.modelId(), binding.source(), binding.model()
+        );
     }
 
     private Binding binding() {
@@ -105,7 +114,26 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess, N
         }
         final Object guid = resolver.invoke("cubism.editor-model.model-source.guid", source);
         final String id = text(resolver.invoke("cubism.editor-model.guid.value", guid));
-        return new Binding(sessionIdentity + ":" + id, document, source, model);
+        return new Binding(
+            bindingIdentity(id, document, source, model), id, document, source, model
+        );
+    }
+
+    private String bindingIdentity(
+        final String modelId,
+        final Object document,
+        final Object source,
+        final Object model
+    ) {
+        synchronized (generationLock) {
+            if (document != activeDocument || source != activeSource || model != activeModel) {
+                activeDocument = document;
+                activeSource = source;
+                activeModel = model;
+                generation = Math.incrementExact(generation);
+            }
+            return sessionIdentity + ":" + modelId + ":" + generation;
+        }
     }
 
     private void setParameterValue(
@@ -505,6 +533,40 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess, N
         return List.copyOf(values);
     }
 
+    private ParameterDefinitions parameterDefinitions(final String identity, final Object model) {
+        requireCurrent(identity, model);
+        return new ParameterDefinitions() {
+            @Override public List<ParameterDefinition> all() {
+                requireCurrent(identity, model);
+                return parameters(model).stream()
+                    .map(value -> definition(
+                        resolver.invoke("cubism.editor-model.parameter.source", value.parameter()),
+                        new ParameterId(value.id())
+                    ))
+                    .toList();
+            }
+
+            @Override public ParameterDefinition find(final ParameterId id) {
+                Objects.requireNonNull(id, "id");
+                requireCurrent(identity, model);
+                final ParameterBinding value = parameter(model, id);
+                return definition(
+                    resolver.invoke("cubism.editor-model.parameter.source", value.parameter()),
+                    id
+                );
+            }
+        };
+    }
+
+    private int parameterIndex(final Object model, final ParameterId id) {
+        final List<ParameterBinding> values = parameters(model);
+        for (int index = 0; index < values.size(); index++) {
+            if (values.get(index).id().equals(id.value())) return index;
+        }
+        throw new NoSuchElementException("Cubism parameter is absent: " + id.value());
+    }
+
+
     private ParameterBinding parameter(final Object model, final ParameterId id) {
         return parameters(model).stream()
             .filter(value -> value.id().equals(id.value()))
@@ -540,15 +602,34 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess, N
 
     private final class EditorModel implements CubismModel {
         private final String identity;
+        private final String modelId;
         private final Object source;
         private final Object model;
-        private EditorModel(final String identity, final Object source, final Object model) {
+        private EditorModel(
+            final String identity,
+            final String modelId,
+            final Object source,
+            final Object model
+        ) {
             this.identity = identity;
+            this.modelId = modelId;
             this.source = source;
             this.model = model;
         }
         private void current() { requireCurrent(identity, model); }
-        @Override public ModelId id() { current(); return new ModelId(identity.substring(identity.indexOf(':') + 1)); }
+        @Override public ModelId id() { current(); return new ModelId(modelId); }
+        @Override public String name() {
+            current();
+            final Object value = resolver.invoke("cubism.editor-model.model-source.name", source);
+            if (value == null) return modelId;
+            if (!(value instanceof String text)) {
+                throw unavailable("Editor model name is invalid.");
+            }
+            return text.isBlank() ? modelId : text;
+        }
+        @Override public ParameterDefinitions parameterDefinitions() {
+            return EditorBackedCubismModelAccess.this.parameterDefinitions(identity, model);
+        }
         @Override public boolean defaultKeyformLocked() {
             return defaultKeyformLockAccess.locked(identity, source, model);
         }
@@ -608,8 +689,12 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess, N
             current();
             return objectReadAccess.rotationDeformers(identity, source, model);
         }
-        @Override public Glues glues() { throw new UnsupportedOperationException("Editor Glue projection is not installed."); }
-        @Override public void update() { throw new UnsupportedOperationException("Editor model update is not installed."); }
+        @Override public Glues glues() { current(); return objectReadAccess.glues(identity, source, model); }
+        @Override public void update() {
+            current();
+            resolver.invoke("cubism.editor-model.model-source.update-instances", source);
+            current();
+        }
     }
 
     private final class EditorParameters implements Parameters {
@@ -650,6 +735,8 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess, N
             return resolver.invoke("cubism.editor-model.parameter.source", current().parameter());
         }
         @Override public ParameterId id() { current(); return id; }
+        @Override public int index() { current(); return parameterIndex(model, id); }
+        @Override public FloatSequence keyValues() { current(); return Parameter.super.keyValues(); }
         @Override public Optional<String> name() {
             final Object value = resolver.invoke("cubism.editor-model.parameter-source.name", source());
             if (value == null) {
@@ -722,6 +809,12 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess, N
         return value;
     }
 
-    record Binding(String identity, Object document, Object source, Object model) { }
+    record Binding(
+        String identity,
+        String modelId,
+        Object document,
+        Object source,
+        Object model
+    ) { }
     private record ParameterBinding(String id, Object parameter) { }
 }

@@ -200,6 +200,7 @@ public final class CorePluginContext implements PluginContext {
         return new DefaultCubismServicesFactory(
             hostAccess.adapters(),
             hostAccess.modelAccess(),
+            hostAccess.coreRuntimeInfo(),
             hostAccess.parameterLifecycle(),
             hostAccess.partLifecycle(),
             hostAccess.editorObjectLifecycle(),
