@@ -78,7 +78,7 @@ class VerifiedCorePublicApiResolverFactoryTest {
 
     private static Path record(final String profile) {
         return PROJECT_ROOT.resolve(Path.of(
-            "docs", "migration", "verification", "static",
+            "cubism-ref", "verification",
             "cubism-" + profile + "-core-model-read.json"
         ));
     }

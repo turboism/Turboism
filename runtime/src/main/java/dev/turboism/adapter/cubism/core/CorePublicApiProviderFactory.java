@@ -25,7 +25,7 @@ public final class CorePublicApiProviderFactory {
         Objects.requireNonNull(resolver, "resolver");
         Objects.requireNonNull(expectation, "expectation");
 
-        final String artifactProfile = resolver.cubismVersion();
+        final String artifactProfile = artifactProfile(resolver.cubismVersion());
         final Optional<String> providerId =
             CorePublicApiSelectorContract.providerIdFor(artifactProfile);
         final Optional<java.util.Set<String>> requiredAliases =
@@ -54,8 +54,18 @@ public final class CorePublicApiProviderFactory {
         return CoreProviderResult.success(new AdmittedCorePublicApiProvider(
             providerId.orElseThrow(),
             artifactProfile,
-            probe.value().orElseThrow()
+            probe.value().orElseThrow(),
+            resolver
         ));
+    }
+
+
+    static String artifactProfile(final String reviewedVersion) {
+        return switch (reviewedVersion) {
+            case "5.2.0" -> "5.2";
+            case "5.3.2" -> "5.3.02";
+            default -> reviewedVersion;
+        };
     }
 
     private static CoreProviderResult<CoreRuntimeVersion> probeVersion(
@@ -109,7 +119,8 @@ public final class CorePublicApiProviderFactory {
             if (!expectation.matches(actual)) {
                 return failed(
                     CoreProviderFailure.Code.VERSION_MISMATCH,
-                    "Core runtime version does not match the reviewed expectation."
+                    "Core runtime version " + actual + " does not match reviewed expectation "
+                        + expectation.exactVersion() + "."
                 );
             }
             return CoreProviderResult.success(actual);
@@ -145,15 +156,18 @@ public final class CorePublicApiProviderFactory {
         private final String providerId;
         private final String artifactProfile;
         private final CoreRuntimeVersion version;
+        private final VerifiedMemberResolver resolver;
 
         private AdmittedCorePublicApiProvider(
             final String providerId,
             final String artifactProfile,
-            final CoreRuntimeVersion version
+            final CoreRuntimeVersion version,
+            final VerifiedMemberResolver resolver
         ) {
             this.providerId = providerId;
             this.artifactProfile = artifactProfile;
             this.version = version;
+            this.resolver = Objects.requireNonNull(resolver, "resolver");
         }
 
         @Override
@@ -174,6 +188,67 @@ public final class CorePublicApiProviderFactory {
         @Override
         public CoreProviderResult<CoreRuntimeVersion> runtimeVersion() {
             return CoreProviderResult.success(version);
+        }
+
+        @Override
+        public dev.turboism.sdk.cubism.core.CoreCapabilities capabilities() {
+            return new dev.turboism.sdk.cubism.core.CoreCapabilities(
+                "5.3.02".equals(artifactProfile),
+                true,
+                true
+            );
+        }
+
+        @Override
+        public CoreProviderResult<Integer> latestMocVersion() {
+            return invokeScalar(CorePublicApiSelectorContract.GET_LATEST_MOC_VERSION, Integer.class);
+        }
+
+        @Override
+        public CoreProviderResult<Integer> mocVersion(final byte[] bytes) {
+            return invokeScalar(
+                CorePublicApiSelectorContract.GET_MOC_VERSION,
+                Integer.class,
+                Objects.requireNonNull(bytes, "bytes")
+            );
+        }
+
+        @Override
+        public CoreProviderResult<Boolean> hasMocConsistency(final byte[] bytes) {
+            return invokeScalar(
+                CorePublicApiSelectorContract.HAS_MOC_CONSISTENCY,
+                Boolean.class,
+                Objects.requireNonNull(bytes, "bytes")
+            );
+        }
+
+        private <T> CoreProviderResult<T> invokeScalar(
+            final String alias,
+            final Class<T> type,
+            final Object... arguments
+        ) {
+            try {
+                final Object value = resolver.invokeStatic(alias, arguments);
+                if (!type.isInstance(value)) {
+                    return failed(
+                        CoreProviderFailure.Code.INVALID_STRUCTURE,
+                        "Core metadata selector returned an invalid value."
+                    );
+                }
+                return CoreProviderResult.success(type.cast(value));
+            } catch (VerifiedAccessException exception) {
+                return failed(
+                    exception.failureKind() == VerifiedAccessException.FailureKind.RESOLUTION
+                        ? CoreProviderFailure.Code.RESOLUTION_FAILED
+                        : CoreProviderFailure.Code.INVOCATION_FAILED,
+                    "Core metadata selector failed safely."
+                );
+            } catch (RuntimeException exception) {
+                return failed(
+                    CoreProviderFailure.Code.INVOCATION_FAILED,
+                    "Core metadata selector failed safely."
+                );
+            }
         }
     }
 }
