@@ -41,6 +41,7 @@ import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
 import javax.swing.JFrame;
+import javax.swing.JOptionPane;
 import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.JPanel;
@@ -61,6 +62,7 @@ import java.awt.Insets;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.Comparator;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -973,6 +975,31 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         final String value = Objects.requireNonNull(mode, "mode");
         return !value.startsWith("native-control-background")
             && !value.startsWith("fixed-api");
+    }
+
+    enum HostCloseDecision {
+        CLEAN_CLOSE,
+        DISCARD,
+        UNSUPPORTED_CONFIRMATION
+    }
+
+    /** Chooses the non-saving branch without depending on localized button text. */
+    static HostCloseDecision hostCloseDecision(
+        final boolean confirmationVisible,
+        final int optionType,
+        final int enabledButtonCount
+    ) {
+        if (!confirmationVisible) {
+            return HostCloseDecision.CLEAN_CLOSE;
+        }
+        if (optionType == JOptionPane.YES_NO_OPTION
+            || optionType == JOptionPane.YES_NO_CANCEL_OPTION) {
+            return HostCloseDecision.DISCARD;
+        }
+        return optionType == JOptionPane.DEFAULT_OPTION
+                && (enabledButtonCount == 2 || enabledButtonCount == 3)
+            ? HostCloseDecision.DISCARD
+            : HostCloseDecision.UNSUPPORTED_CONFIRMATION;
     }
 
     /**
@@ -2553,16 +2580,183 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         }
     }
 
+    private enum CloseDialogHandling {
+        DISCARDED,
+        UNSUPPORTED
+    }
+
+    private record CloseDialogState(
+        java.awt.Dialog dialog,
+        JOptionPane optionPane,
+        List<JButton> buttons
+    ) {
+        String description() {
+            return "window=" + dialog.getClass().getName()
+                + " optionType=" + (optionPane == null ? "none" : optionPane.getOptionType())
+                + " buttons=" + buttons.size();
+        }
+    }
+
     private void requestAutomatedHostClose() {
         try {
             final java.awt.Robot robot = new java.awt.Robot();
-            robot.keyPress(java.awt.event.KeyEvent.VK_ALT);
+            pressAltF4(robot);
+            context.logger().info("Automated host close requested via Alt+F4");
+            final HostCloseDecision decision = awaitHostCloseConfirmation(robot);
+            if (decision == HostCloseDecision.CLEAN_CLOSE) {
+                context.logger().info(
+                    "Automated host close requested; no unsaved confirmation dialog observed"
+                );
+            } else if (decision == HostCloseDecision.DISCARD) {
+                context.logger().info(
+                    "Automated host close discarded unsaved document changes"
+                );
+            }
+        } catch (Exception failure) {
+            context.logger().error("Automated host close request or confirmation handling failed", failure);
+        }
+    }
+
+    private HostCloseDecision awaitHostCloseConfirmation(final java.awt.Robot robot) throws Exception {
+        final long deadlineNanos = System.nanoTime() + 3_000_000_000L;
+        CloseDialogState observed = null;
+        while (System.nanoTime() < deadlineNanos) {
+            final CloseDialogState current = visibleCloseDialog();
+            if (current == null) {
+                Thread.sleep(100L);
+                continue;
+            }
+            observed = current;
+            final CloseDialogHandling handling = handleCloseDialog(current, robot);
+            if (handling == CloseDialogHandling.UNSUPPORTED) {
+                throw new IllegalStateException(
+                    "Unsaved confirmation could not be handled: " + current.description()
+                );
+            }
+            while (System.nanoTime() < deadlineNanos) {
+                if (visibleCloseDialog() == null) {
+                    return HostCloseDecision.DISCARD;
+                }
+                Thread.sleep(100L);
+            }
+            throw new IllegalStateException(
+                "Unsaved confirmation did not close after discard: " + observed.description()
+            );
+        }
+        return HostCloseDecision.CLEAN_CLOSE;
+    }
+
+    private static CloseDialogHandling handleCloseDialog(
+        final CloseDialogState state,
+        final java.awt.Robot robot
+    ) throws Exception {
+        final JOptionPane optionPane = state.optionPane();
+        final int optionType = optionPane == null
+            ? JOptionPane.DEFAULT_OPTION : optionPane.getOptionType();
+        final HostCloseDecision decision = hostCloseDecision(
+            true, optionType, state.buttons().size()
+        );
+        if (decision == HostCloseDecision.UNSUPPORTED_CONFIRMATION) {
+            if (optionPane == null && state.buttons().isEmpty()) {
+                // Cubism 5.2.03/5.3.02 can expose a native modal without Swing controls.
+                // Its first action is Save and its second action is Discard; arrow navigation
+                // avoids all localized labels and is used only while this modal is visible.
+                pressDiscardByKeyboard(robot);
+                return CloseDialogHandling.DISCARDED;
+            }
+            return CloseDialogHandling.UNSUPPORTED;
+        }
+        if (optionPane != null
+            && (optionType == JOptionPane.YES_NO_OPTION
+                || optionType == JOptionPane.YES_NO_CANCEL_OPTION)) {
+            SwingUtilities.invokeAndWait(() -> optionPane.setValue(JOptionPane.NO_OPTION));
+            return CloseDialogHandling.DISCARDED;
+        }
+        final JButton discard = state.buttons().get(1);
+        SwingUtilities.invokeAndWait(discard::doClick);
+        return CloseDialogHandling.DISCARDED;
+    }
+
+    private static CloseDialogState visibleCloseDialog() throws Exception {
+        final AtomicReference<CloseDialogState> result = new AtomicReference<>();
+        SwingUtilities.invokeAndWait(() -> {
+            final java.awt.Window active =
+                java.awt.KeyboardFocusManager.getCurrentKeyboardFocusManager().getActiveWindow();
+            for (final java.awt.Window window : java.awt.Window.getWindows()) {
+                if (!(window instanceof java.awt.Dialog dialog)
+                    || !dialog.isVisible()
+                    || (!dialog.isModal() && window != active)) {
+                    continue;
+                }
+                final JOptionPane optionPane = findOptionPane(window);
+                result.set(new CloseDialogState(dialog, optionPane, visibleButtons(window)));
+                return;
+            }
+        });
+        return result.get();
+    }
+
+    private static JOptionPane findOptionPane(final java.awt.Component component) {
+        if (component instanceof JOptionPane optionPane) {
+            return optionPane;
+        }
+        if (component instanceof java.awt.Container container) {
+            for (final java.awt.Component child : container.getComponents()) {
+                final JOptionPane found = findOptionPane(child);
+                if (found != null) {
+                    return found;
+                }
+            }
+        }
+        return null;
+    }
+
+    private static List<JButton> visibleButtons(final java.awt.Component component) {
+        final List<JButton> buttons = new java.util.ArrayList<>();
+        collectButtons(component, buttons);
+        return buttons.stream()
+            .filter(button -> button.isVisible() && button.isEnabled())
+            .sorted(Comparator.comparingInt(WindowsParameterValidationProbe::buttonX))
+            .toList();
+    }
+
+    private static void collectButtons(
+        final java.awt.Component component,
+        final List<JButton> buttons
+    ) {
+        if (component instanceof JButton button) {
+            buttons.add(button);
+        }
+        if (component instanceof java.awt.Container container) {
+            for (final java.awt.Component child : container.getComponents()) {
+                collectButtons(child, buttons);
+            }
+        }
+    }
+
+    private static int buttonX(final JButton button) {
+        try {
+            return button.getLocationOnScreen().x;
+        } catch (java.awt.IllegalComponentStateException unavailable) {
+            return button.getX();
+        }
+    }
+
+    private static void pressAltF4(final java.awt.Robot robot) {
+        robot.keyPress(java.awt.event.KeyEvent.VK_ALT);
+        try {
             robot.keyPress(java.awt.event.KeyEvent.VK_F4);
+        } finally {
             robot.keyRelease(java.awt.event.KeyEvent.VK_F4);
             robot.keyRelease(java.awt.event.KeyEvent.VK_ALT);
-        } catch (Exception exception) {
-            context.logger().error("Automated host close shortcut failed", exception);
         }
+    }
+
+    private static void pressDiscardByKeyboard(final java.awt.Robot robot) {
+        robot.keyPress(java.awt.event.KeyEvent.VK_RIGHT);
+        robot.keyRelease(java.awt.event.KeyEvent.VK_RIGHT);
+        robot.keyPress(java.awt.event.KeyEvent.VK_ENTER);
+        robot.keyRelease(java.awt.event.KeyEvent.VK_ENTER);
     }
 
     @FunctionalInterface
