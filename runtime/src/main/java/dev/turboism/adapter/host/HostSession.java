@@ -80,6 +80,8 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     private final dev.turboism.sdk.ui.table.SceneTableService sceneTable = sceneTableHost.service();
     private final dev.turboism.ui.appearance.control.ControlAppearanceCoordinator controlAppearanceCoordinator =
         new dev.turboism.ui.appearance.control.ControlAppearanceCoordinator();
+    private final dev.turboism.ui.workspace.WorkspaceCoordinator workspaceCoordinator =
+        new dev.turboism.ui.workspace.WorkspaceCoordinator();
     private final Object lifecycleMonitor = new Object();
 
     private State state = State.SAFE_MODE;
@@ -117,7 +119,10 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
                 slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
             ),
             dockMaintenance,
-            VerifiedHostAdapterConnector.productionAppearanceProviderFactory()
+            VerifiedHostAdapterConnector.productionAppearanceProviderFactory(),
+            slice -> new dev.turboism.mapping.verification.VerifiedWorkspaceControlResolverFactory().create(
+                slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
+            )
         );
         dynamic.onOutermostAdapterCallComplete(this::completeDeferredClose);
     }
@@ -264,6 +269,9 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             if (closeRequested()) {
                 return finishRequestedClose(null);
             }
+            if (candidate.workspaceProvider() != null) {
+                workspaceCoordinator.connect(candidate.workspaceProvider());
+            }
             return commit(State.ACTIVE, Optional.empty());
         } finally {
             endTransition();
@@ -376,6 +384,11 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     public dev.turboism.adapter.cubism.NativeControlAppearanceAuthoring nativeControlAppearance() {
         return dynamicModelAccess;
     }
+
+    @Override
+    public dev.turboism.ui.workspace.WorkspaceCoordinator workspaceCoordinator() {
+        return workspaceCoordinator;
+    }
     public dev.turboism.mapping.verification.VerifiedMemberResolver editorModelResolver() {
         synchronized (lifecycleMonitor) {
             if (activeConnection == null) {
@@ -420,7 +433,8 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             appearanceCoordinator,
             sceneTable,
             controlAppearanceCoordinator,
-            dynamicModelAccess
+            dynamicModelAccess,
+            workspaceCoordinator
         );
     }
 
@@ -442,6 +456,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             appearanceCoordinator.close();
             sceneTableHost.disconnect();
             controlAppearanceCoordinator.close();
+            workspaceCoordinator.close();
             physicsEditorCoordinator.close();
             editorObjectLifecycle.close();
             partLifecycle.close();
@@ -495,6 +510,9 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     /** Registration cleanup must succeed before its owning connection can be closed. */
     private CleanupOutcome cleanupOwnedResources() {
         activeConnectionKey = null;
+        if (activeConnection != null && activeConnection.workspaceProvider() != null) {
+            workspaceCoordinator.disconnect(activeConnection.workspaceProvider());
+        }
         dynamicAppearance.deactivate();
         controlAppearanceCoordinator.clearHostGeneration();
         dynamicModelAccess.deactivate();
@@ -691,7 +709,11 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         java.util.Optional<SliceKey> clipMask,
         java.util.Optional<SliceKey> editorModel,
         java.util.Optional<SliceKey> coreRuntime,
-        java.util.Optional<SliceKey> mainToolbar
+        java.util.Optional<SliceKey> mainToolbar,
+        java.util.Optional<SliceKey> embeddedPanel,
+        java.util.Optional<SliceKey> topMenu,
+        java.util.Optional<SliceKey> boundingBoxOverlayButton,
+        java.util.Optional<SliceKey> workspaceControl
     ) {
         private static ConnectionKey from(final HostInstanceDescriptor descriptor) {
             final HostVerificationEvidence evidence = descriptor.verificationEvidence();
@@ -701,7 +723,11 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
                 evidence.clipMask().map(SliceKey::from),
                 evidence.editorModel().map(SliceKey::from),
                 evidence.coreRuntime().map(SliceKey::from),
-                evidence.mainToolbar().map(SliceKey::from)
+                evidence.mainToolbar().map(SliceKey::from),
+                evidence.embeddedPanel().map(SliceKey::from),
+                evidence.topMenu().map(SliceKey::from),
+                evidence.boundingBoxOverlayButton().map(SliceKey::from),
+                evidence.workspaceControl().map(SliceKey::from)
             );
         }
 
@@ -720,7 +746,11 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
                 && optionalSliceMatches(clipMask, other.clipMask)
                 && optionalSliceMatches(editorModel, other.editorModel)
                 && optionalSliceMatches(coreRuntime, other.coreRuntime)
-                && optionalSliceMatches(mainToolbar, other.mainToolbar);
+                && optionalSliceMatches(mainToolbar, other.mainToolbar)
+                && optionalSliceMatches(embeddedPanel, other.embeddedPanel)
+                && optionalSliceMatches(topMenu, other.topMenu)
+                && optionalSliceMatches(boundingBoxOverlayButton, other.boundingBoxOverlayButton)
+                && optionalSliceMatches(workspaceControl, other.workspaceControl);
         }
 
         private static boolean optionalSliceMatches(
