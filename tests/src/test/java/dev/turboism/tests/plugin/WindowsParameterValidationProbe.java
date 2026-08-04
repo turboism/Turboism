@@ -2700,7 +2700,10 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             SwingUtilities.invokeAndWait(() -> optionPane.setValue(JOptionPane.NO_OPTION));
             return CloseDialogHandling.DISCARDED;
         }
-        final JButton discard = state.buttons().get(1);
+        final JButton discard = selectDiscardButton(state.buttons());
+        if (discard == null) {
+            return CloseDialogHandling.UNSUPPORTED;
+        }
         SwingUtilities.invokeAndWait(discard::doClick);
         return CloseDialogHandling.DISCARDED;
     }
@@ -2746,6 +2749,43 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             .filter(button -> button.isVisible() && button.isEnabled())
             .sorted(Comparator.comparingInt(WindowsParameterValidationProbe::buttonX))
             .toList();
+    }
+
+    /** Selects exactly one semantic discard action; ambiguity fails closed. */
+    static JButton selectDiscardButton(final List<JButton> buttons) {
+        final List<JButton> explicit = buttons.stream()
+            .filter(WindowsParameterValidationProbe::isDiscardAction)
+            .toList();
+        if (explicit.size() == 1) {
+            return explicit.get(0);
+        }
+        final List<JButton> candidates = buttons.stream()
+            .filter(button -> !isAction(button, "cancel") && !isAction(button, "save"))
+            .toList();
+        return candidates.size() == 1 ? candidates.get(0) : null;
+    }
+
+    private static boolean isDiscardAction(final JButton button) {
+        return isAction(button, "discard", "dontsave", "donotsave", "nosave", "notsave");
+    }
+
+    private static boolean isAction(final JButton button, final String... names) {
+        return matchesAction(button.getActionCommand(), names)
+            || matchesAction(button.getName(), names);
+    }
+
+    private static boolean matchesAction(final String value, final String... names) {
+        if (value == null || value.isBlank()) {
+            return false;
+        }
+        final String normalized = value.replaceAll("[^A-Za-z0-9]", "")
+            .toLowerCase(Locale.ROOT);
+        for (final String name : names) {
+            if (normalized.contains(name)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static void collectButtons(
