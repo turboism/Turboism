@@ -187,8 +187,8 @@ class StaticVerificationRecordRepositoryTest {
             "Live2D_Cubism.jar",
             40_805_584L,
             "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
-            "8bc02b5fc00e8ac1637ad55d7329a22d69a8fced753c4ec711d1566bffbaca1d",
-            259,
+            "c6ae6d3839e17eb889e86c2a663d688a36b7f0dd021aaf9479cf401848e46bac",
+            262,
             editorModel52Aliases(),
             editorModel52Aliases(),
             editorModel52MethodAliases(),
@@ -210,7 +210,7 @@ class StaticVerificationRecordRepositoryTest {
             EditorModelVerificationManifest.ARTIFACT_SIZE,
             EditorModelVerificationManifest.ARTIFACT_SHA256,
             EditorModelVerificationManifest.RECORD_SHA256,
-            263,
+            267,
             EditorModelVerificationManifest.REQUIRED_ALIASES,
             EditorModelVerificationManifest.REQUIRED_ALIASES,
             editorModelMethodAliases(),
@@ -671,6 +671,7 @@ class StaticVerificationRecordRepositoryTest {
             "cubism.editor-model.simple-undo.create",
             "cubism.editor-model.parameter-operation.property-editor",
             "cubism.editor-model.parameter-operation.validator",
+            "cubism.editor-model.parameter-operation.rows",
             "cubism.editor-model.parameter-operation.refresh",
             "cubism.editor-model.parameter-property-editor.update-definition",
             "cubism.editor-model.parameter-property-editor.rebuild-keep-value",
@@ -731,6 +732,7 @@ class StaticVerificationRecordRepositoryTest {
             "cubism.editor-model.part-form.set-opacity",
             "cubism.editor-model.part-source.parent",
             "cubism.editor-model.part-source.id",
+            "cubism.editor-model.part-source.use-offscreen",
             "cubism.editor-model.part-source.local-name",
             "cubism.editor-model.part-source.set-local-name",
             "cubism.editor-model.part-source.default-order",
@@ -766,6 +768,8 @@ class StaticVerificationRecordRepositoryTest {
             "cubism.editor-model.art-mesh-source.inverted-mask",
             "cubism.editor-model.art-mesh-source.guid",
             "cubism.editor-model.art-mesh-source.clip-guid-list",
+            "cubism.editor-model.art-mesh-source.texture",
+            "cubism.editor-model.texture.guid",
             "cubism.editor-model.model-source.all-glues",
             "cubism.editor-model.glue-source.target-art-mesh-a",
             "cubism.editor-model.glue-source.target-art-mesh-b",
@@ -857,6 +861,7 @@ class StaticVerificationRecordRepositoryTest {
         aliases.addAll(EditorPartNameSelectorContract.REQUIRED_ALIASES);
         aliases.addAll(EditorPartNameSelectorContract.WRITE_REQUIRED_ALIASES);
         aliases.addAll(EditorObjectReadSelectorContract.REQUIRED_ALIASES);
+        aliases.removeAll(EditorObjectReadSelectorContract.OFFSCREEN_STATISTICS_ALIASES);
         aliases.addAll(EditorObjectWriteSelectorContract.ART_MESH_REQUIRED_ALIASES);
         aliases.addAll(EditorObjectWriteSelectorContract.WARP_REQUIRED_ALIASES);
         aliases.addAll(EditorObjectWriteSelectorContract.ROTATION_REQUIRED_ALIASES);
@@ -874,7 +879,8 @@ class StaticVerificationRecordRepositoryTest {
             "cubism.editor-model.part.id",
             "cubism.editor-model.part.current-keyform",
             "cubism.editor-model.part-form.opacity",
-            "cubism.editor-model.part-form.set-opacity"
+            "cubism.editor-model.part-form.set-opacity",
+            "cubism.editor-model.part-source.use-offscreen"
         ));
         aliases.add("cubism.editor-model.part.parts-opacity");
         return Set.copyOf(aliases);

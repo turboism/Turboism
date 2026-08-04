@@ -178,8 +178,9 @@ public final class PreviewLog implements AutoCloseable, RuntimeLogReader {
         try {
             sink.write(level, line, failure);
         } catch (RuntimeException exception) {
-            System.err.println("Turboism preview host log write failed: " + exception.getMessage());
+            System.out.println("Turboism preview host log write failed: " + exception.getMessage());
         }
+        System.out.println(line);
         try {
             writer.write(line);
             writer.newLine();
@@ -192,7 +193,7 @@ public final class PreviewLog implements AutoCloseable, RuntimeLogReader {
                 pruneOldSessions();
             }
         } catch (IOException exception) {
-            System.err.println("Turboism preview log write failed: " + exception.getMessage());
+            System.out.println("Turboism preview log write failed: " + exception.getMessage());
         }
     }
 

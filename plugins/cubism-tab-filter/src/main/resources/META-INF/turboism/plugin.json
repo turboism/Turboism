@@ -1,0 +1,35 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 2,
+  "id": "dev.turboism.plugin.cubism-tab-filter",
+  "name": "Cubism Tab Filter",
+  "version": "0.1.0",
+  "description": "Adds keyword filter boxes to the Parameter, Deformer, Scene and Log palette tabs.",
+  "entrypoints": [
+    "dev.turboism.plugin.tabfilter.TabFilterPlugin"
+  ],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    { "name": "Turboism Contributors" }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": ["base"]
+  },
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.ui.toolbar.palette.contribute",
+      "scope": "application",
+      "reason": "Adds keyword filter boxes to palette tab toolbars."
+    }
+  ],
+  "capabilities": [],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "none"
+  }
+}
