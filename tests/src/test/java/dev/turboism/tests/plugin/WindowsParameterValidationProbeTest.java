@@ -552,6 +552,14 @@ class WindowsParameterValidationProbeTest {
         );
     }
 
+    @Test
+    void automatedHostCloseRequiresAVisibleDisplayableNonDialogWindow() {
+        assertThrows(
+            IllegalStateException.class,
+            () -> WindowsParameterValidationProbe.selectHostWindow(new java.awt.Window[0])
+        );
+    }
+
     @org.junit.jupiter.api.io.TempDir
     java.nio.file.Path saveTemp;
 
