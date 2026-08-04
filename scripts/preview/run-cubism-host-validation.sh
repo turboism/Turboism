@@ -321,6 +321,7 @@ if [ "$dry_run" = 1 ]; then
   printf '%s\n' \
     "name=$name" \
     "version=$version" \
+    "validationHostVersionJvmOption=-Dturboism.validation.hostVersion=$version" \
     "taskId=$task_id" \
     "bundleRoot=$bundle_root" \
     "agent=$agent" \
@@ -633,6 +634,7 @@ all_jvm_options=(
   '--add-exports=java.base/jdk.internal.org.objectweb.asm.commons=ALL-UNNAMED'
   "-Dturboism.home=$win_home"
   "-Dturboism.validation.runId=$task_id"
+  "-Dturboism.validation.hostVersion=$version"
 )
 for spec in "${resolved_aux_agents[@]}"; do
   remote_name="${spec#*:}"
