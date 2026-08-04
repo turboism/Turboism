@@ -155,6 +155,39 @@ class EditorNativeControlAppearanceAccessTest {
     }
 
     @Test
+    void deformerDefaultWriteSynchronizesInstancesBeforePaletteRefreshAndUndoRedo() {
+        Fixture fixture = new Fixture("model-a");
+        fixture.warpA.labelColor.type = LabelColorType.PURPLE;
+        fixture.warpA.instanceLabelColorType = LabelColorType.PURPLE;
+        Host.install(fixture);
+        EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
+            resolver(true), "session-a"
+        );
+        NativeLabelColorTarget row =
+            new NativeLabelColorTarget(NativeLabelColorTarget.Palette.DEFORMER, "WarpA");
+
+        fixture.warpA.labelColor.type = LabelColorType.UNDEFINED;
+        access.setNativeLabelColor(row, new NativeLabelColor.Default());
+        assertEquals(0, fixture.source.instanceUpdates, "an exact no-op must not update instances");
+        assertEquals(0, fixture.editMode.beginCalls, "an exact no-op must not create history");
+
+        fixture.warpA.labelColor.type = LabelColorType.PURPLE;
+        fixture.warpA.instanceLabelColorType = LabelColorType.PURPLE;
+        access.setNativeLabelColor(row, new NativeLabelColor.Default());
+        assertEquals(new NativeLabelColor.Default(), access.readNativeLabelColor(row).labelColor());
+        assertEquals(1, fixture.source.instanceUpdates);
+
+        fixture.editMode.undo();
+        assertEquals(new NativeLabelColor.Preset(PresetColor.PURPLE),
+            access.readNativeLabelColor(row).labelColor());
+        assertEquals(2, fixture.source.instanceUpdates);
+
+        fixture.editMode.redo();
+        assertEquals(new NativeLabelColor.Default(), access.readNativeLabelColor(row).labelColor());
+        assertEquals(3, fixture.source.instanceUpdates);
+    }
+
+    @Test
     void customReadsTheCustomizedColorWhileEffectiveColorComesFromGetColor() {
         Fixture fixture = new Fixture("model-a");
         Host.install(fixture);
@@ -746,6 +779,7 @@ class EditorNativeControlAppearanceAccessTest {
             method("cubism.editor-model.modeling-document.model-source", Document.class, "modelSource", desc(ModelSource.class)),
             method("cubism.editor-model.model-source.guid", ModelSource.class, "guid", desc(Id.class)),
             method("cubism.editor-model.model-source.current-instance", ModelSource.class, "currentInstance", desc(Model.class)),
+            method("cubism.editor-model.model-source.update-instances", ModelSource.class, "updateInstances", "()V"),
             method("cubism.editor-model.guid.value", Id.class, "value", "()Ljava/lang/String;"),
             method("cubism.editor-model.id.value", Id.class, "value", "()Ljava/lang/String;"),
             method("cubism.editor-model.modeling-document.edit-mode", Document.class, "editMode", desc(EditMode.class)),
@@ -925,6 +959,9 @@ class EditorNativeControlAppearanceAccessTest {
         @Override public Object snapshot() { return new State(type, custom, color); }
 
         @Override public void restore(final Object snapshot) {
+            if (onMutated != null) {
+                onMutated.run();
+            }
             State state = (State) snapshot;
             type = state.type;
             custom = state.custom;
@@ -968,6 +1005,7 @@ class EditorNativeControlAppearanceAccessTest {
 
     public static final class DeformerSource extends ParameterControllableSource {
         final Id id;
+        LabelColorType instanceLabelColorType = LabelColorType.UNDEFINED;
         DeformerSource(final String id) { this.id = new Id(id); }
         public Id id() { return id; }
     }
@@ -987,6 +1025,30 @@ class EditorNativeControlAppearanceAccessTest {
         public ParameterGroup rootParameterGroup() { return root; }
         public List<PartSource> parts() { return parts; }
         public List<DeformerSource> allDeformers() { return deformers; }
+
+        int instanceUpdates;
+        boolean instancesSynchronized = true;
+
+        public void updateInstances() {
+            instanceUpdates++;
+            for (DeformerSource deformer : deformers) {
+                deformer.instanceLabelColorType = deformer.labelColor.type;
+            }
+            instancesSynchronized = true;
+        }
+
+        void markInstancesStale() {
+            instancesSynchronized = false;
+        }
+
+        void refreshDeformerPalette() {
+            if (!instancesSynchronized) {
+                for (DeformerSource deformer : deformers) {
+                    deformer.labelColor.type = deformer.instanceLabelColorType;
+                }
+            }
+            instancesSynchronized = true;
+        }
     }
 
     public static final class Document {
@@ -1010,7 +1072,12 @@ class EditorNativeControlAppearanceAccessTest {
         boolean failRefresh;
         public void updateParameter(final boolean immediate) { parameterRefreshes++; }
         public void updatePartPalette(final boolean immediate) { partRefreshes++; }
-        public void updateDeformerPalette(final boolean immediate) { deformerRefreshes++; }
+        public void updateDeformerPalette(final boolean immediate) {
+            deformerRefreshes++;
+            if (Host.currentDocument != null) {
+                Host.currentDocument.source.refreshDeformerPalette();
+            }
+        }
         public void repaintCanvas(final boolean immediate) {
             if (failRefresh) {
                 throw new IllegalStateException("refresh failed");
@@ -1155,6 +1222,7 @@ class EditorNativeControlAppearanceAccessTest {
             source.parts.add(partA);
             warpA = new DeformerSource("WarpA");
             source.deformers.add(warpA);
+            warpA.labelColor.onMutated = source::markInstancesStale;
             document = new Document(source, editMode);
         }
     }
