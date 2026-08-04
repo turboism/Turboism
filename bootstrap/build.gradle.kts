@@ -24,7 +24,9 @@ tasks.processResources {
         "cubism-5.2-ui-bounding-box-overlay.json",
         "cubism-5.3.02-ui-bounding-box-overlay.json",
         "cubism-5.2-ui-control-appearance.json",
-        "cubism-5.3.02-ui-control-appearance.json"
+        "cubism-5.3.02-ui-control-appearance.json",
+        "cubism-5.2-workspace-control.json",
+        "cubism-5.3.02-workspace-control.json"
     ).forEach { record ->
         from(rootProject.file("cubism-ref/verification/$record")) {
             into("META-INF/turboism/verification")

@@ -500,6 +500,7 @@ class CorePluginContextDescriptorPermissionsTest {
             defaults.menus(),
             mainToolbar,
             paletteToolbar,
+            defaults.paletteFilter(),
             defaults.contextMenu(),
             defaults.config(),
             defaults.uiScheduler(),
