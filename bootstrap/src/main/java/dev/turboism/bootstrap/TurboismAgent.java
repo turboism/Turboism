@@ -76,7 +76,7 @@ public final class TurboismAgent {
         final Instrumentation instrumentation
     ) {
         if (!START_REQUESTED.compareAndSet(false, true)) {
-            System.err.println("Turboism agent start ignored: runtime has already been requested");
+            System.out.println("Turboism agent start ignored: runtime has already been requested");
             return;
         }
 
@@ -84,7 +84,7 @@ public final class TurboismAgent {
         try {
             options = AgentOptions.parse(rawOptions, defaultHome());
         } catch (RuntimeException exception) {
-            System.err.println("Turboism agent options rejected: " + exception.getMessage());
+            System.out.println("Turboism agent options rejected: " + exception.getMessage());
             return;
         }
 
@@ -95,12 +95,12 @@ public final class TurboismAgent {
                 options.home(),
                 System.getProperty("java.class.path", ""),
                 Path.of(System.getProperty("user.dir", ".")),
-                code -> System.err.println("Turboism startup suppression: " + code)
+                code -> System.out.println("Turboism startup suppression: " + code)
             );
         if (!STARTUP_SUPPRESSION.compareAndSet(null, startupSuppression)) {
             startupSuppression.close();
         }
-        System.err.println(
+        System.out.println(
             "Turboism startup suppression status=" + startupSuppression.status()
                 + ", safeMode=" + startupSuppression.policy().safeMode()
                 + ", requestedUpdate="
@@ -123,7 +123,7 @@ public final class TurboismAgent {
 
     private static void start(final AgentOptions options, final Instrumentation instrumentation) {
         try {
-            System.err.println(
+            System.out.println(
                 "Turboism agent active; waiting for " + options.hostClassName()
                     + " for up to " + options.detectionTimeout().toSeconds() + " seconds"
             );
@@ -133,7 +133,7 @@ public final class TurboismAgent {
                 options.detectionTimeout()
             );
             if (located.isEmpty()) {
-                System.err.println("Turboism agent stopped: Cubism host class was not observed");
+                System.out.println("Turboism agent stopped: Cubism host class was not observed");
                 return;
             }
 
@@ -224,6 +224,7 @@ public final class TurboismAgent {
             );
             Runtime.getRuntime().addShutdownHook(new Thread(TurboismAgent::shutdown, "turboism-shutdown"));
             runtimeInfo(
+
                 "Turboism Developer Preview started: host=" + runtime.hostState()
                     + ", plugins=" + runtime.loadReport().loaded().size()
                     + ", failures=" + runtime.loadReport().failures().size()
@@ -241,6 +242,7 @@ public final class TurboismAgent {
             } else {
                 runtime.error("bootstrap", "Turboism bootstrap failed safely", failure);
             }
+
         }
     }
 
@@ -285,6 +287,7 @@ public final class TurboismAgent {
         } catch (Throwable failure) {
             if (installer != null) installer.close();
             runtimeWarn("Turboism parameter hook disabled safely: " + failure.getClass().getName());
+
         }
     }
 
@@ -353,6 +356,7 @@ public final class TurboismAgent {
         } catch (Throwable failure) {
             if (installer != null) installer.close();
             runtimeWarn("Turboism dock-tab popup hook disabled safely: " + failure.getClass().getName());
+
         }
     }
 
@@ -468,6 +472,7 @@ public final class TurboismAgent {
             if (bridge != null) bridge.close();
             if (parameterPointBridge != null) parameterPointBridge.close();
             runtimeWarn("Turboism object context-menu hook disabled safely: " + failure.getClass().getName());
+
         }
     }
 
@@ -492,6 +497,7 @@ public final class TurboismAgent {
         } catch (Throwable failure) {
             if (installer != null) installer.close();
             runtimeWarn("Turboism physics editor hook disabled safely: " + failure.getClass().getName());
+
         }
     }
 
@@ -509,6 +515,7 @@ public final class TurboismAgent {
         } catch (Throwable failure) {
             runtimeWarn(
                 "Turboism bounding-box overlay hook disabled safely: " + failure.getClass().getName()
+
             );
         }
     }
@@ -537,6 +544,7 @@ public final class TurboismAgent {
         } catch (Throwable failure) {
             if (installer != null) installer.close();
             runtimeWarn("Turboism control-appearance hook disabled safely: " + failure.getClass().getName());
+
         }
     }
 
@@ -584,6 +592,7 @@ public final class TurboismAgent {
                 startupSuppression.close();
             } catch (Throwable failure) {
                 runtimeWarn("Turboism startup suppression cleanup failed safely");
+
             }
         }
         final VerifiedObjectContextMenuHookInstaller objectContextMenuHook =
@@ -593,6 +602,7 @@ public final class TurboismAgent {
                 objectContextMenuHook.close();
             } catch (Throwable failure) {
                 runtimeWarn("Turboism object context-menu hook cleanup failed safely");
+
             }
         }
         final VerifiedParameterPointContextMenuHookInstaller parameterPointMenuHook =
@@ -602,6 +612,7 @@ public final class TurboismAgent {
                 parameterPointMenuHook.close();
             } catch (Throwable failure) {
                 runtimeWarn("Turboism parameter-point context-menu hook cleanup failed safely");
+
             }
         }
         final dev.turboism.sdk.plugin.Registration objectContextMenuBridge =
@@ -611,6 +622,7 @@ public final class TurboismAgent {
                 objectContextMenuBridge.close();
             } catch (Throwable failure) {
                 runtimeWarn("Turboism object context-menu bridge cleanup failed safely");
+
             }
         }
         final dev.turboism.sdk.plugin.Registration parameterPointMenuBridge =
@@ -620,6 +632,7 @@ public final class TurboismAgent {
                 parameterPointMenuBridge.close();
             } catch (Throwable failure) {
                 runtimeWarn("Turboism parameter-point context-menu bridge cleanup failed safely");
+
             }
         }
         final VerifiedDockTabPopupHookInstaller dockTabPopupHook = DOCK_TAB_POPUP_HOOK.getAndSet(null);
@@ -628,6 +641,7 @@ public final class TurboismAgent {
                 dockTabPopupHook.close();
             } catch (Throwable failure) {
                 runtimeWarn("Turboism dock-tab popup hook cleanup failed safely");
+
             }
         }
         final VerifiedFloatingFrameDisposeHookInstaller floatingFrameHook =
@@ -663,6 +677,7 @@ public final class TurboismAgent {
                 parameterHook.close();
             } catch (Throwable failure) {
                 runtimeWarn("Turboism parameter hook cleanup failed safely");
+
             }
         }
         final VerifiedPhysicsEditorHookInstaller physicsHook = PHYSICS_EDITOR_HOOK.getAndSet(null);
@@ -671,6 +686,7 @@ public final class TurboismAgent {
                 physicsHook.close();
             } catch (Throwable failure) {
                 runtimeWarn("Turboism physics editor hook cleanup failed safely");
+
             }
         }
         final dev.turboism.sdk.plugin.Registration overlayHook = OVERLAY_HOOK.getAndSet(null);
@@ -679,6 +695,7 @@ public final class TurboismAgent {
                 overlayHook.close();
             } catch (Throwable failure) {
                 runtimeWarn("Turboism bounding-box overlay hook cleanup failed safely");
+
             }
         }
         final VerifiedControlAppearanceHookInstaller controlAppearanceHook =
@@ -688,6 +705,7 @@ public final class TurboismAgent {
                 controlAppearanceHook.close();
             } catch (Throwable failure) {
                 runtimeWarn("Turboism control-appearance hook cleanup failed safely");
+
             }
         }
         final PreviewRuntime runtime = RUNTIME.getAndSet(null);
@@ -697,7 +715,7 @@ public final class TurboismAgent {
         try {
             runtime.close();
         } catch (Throwable failure) {
-            System.err.println(
+            System.out.println(
                 "Turboism shutdown hook failed safely: RUNTIME_CLOSE_FAILED"
             );
         }

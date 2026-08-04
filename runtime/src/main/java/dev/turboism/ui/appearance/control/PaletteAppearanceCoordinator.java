@@ -3,6 +3,10 @@ package dev.turboism.ui.appearance.control;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.appearance.PaletteEntryState;
 import dev.turboism.sdk.ui.appearance.UiColor;
+import java.awt.Component;
+import java.lang.ref.WeakReference;
+import java.util.ArrayList;
+import java.util.List;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -50,6 +54,7 @@ public final class PaletteAppearanceCoordinator implements AutoCloseable {
 
     private final Object monitor = new Object();
     private final Map<Key, Stored> overrides = new HashMap<>();
+    private final List<StoredParameterControlBinding> parameterControls = new ArrayList<>();
     private Scope currentScope;
     private long hostGeneration;
     private final CopyOnWriteArrayList<Runnable> listeners = new CopyOnWriteArrayList<>();
@@ -89,6 +94,7 @@ public final class PaletteAppearanceCoordinator implements AutoCloseable {
         synchronized (monitor) {
             requireOpen();
             changed = hostGeneration != generation;
+            if (changed) parameterControls.clear();
             hostGeneration = generation;
         }
         if (changed) notifyChange();
@@ -100,13 +106,48 @@ public final class PaletteAppearanceCoordinator implements AutoCloseable {
         }
     }
 
+    synchronized void bindParameterControl(
+        final boolean folder,
+        final String id,
+        final Component label
+    ) {
+        final String value = Objects.requireNonNull(id, "id");
+        final Component component = Objects.requireNonNull(label, "label");
+        parameterControls.removeIf(binding -> binding.label().get() == null
+            || binding.label().get() == component);
+        parameterControls.add(new StoredParameterControlBinding(folder, value, new WeakReference<>(component)));
+    }
+
+    synchronized void unbindParameterControl(final Component label) {
+        parameterControls.removeIf(binding -> binding.label().get() == null
+            || binding.label().get() == label);
+    }
+
+    /** Exact native parameter/folder IDs paired with their live Swing labels. */
+    public synchronized List<ParameterControlBinding> parameterControlBindings() {
+        final List<ParameterControlBinding> live = new ArrayList<>(parameterControls.size());
+        final java.util.Iterator<StoredParameterControlBinding> iterator = parameterControls.iterator();
+        while (iterator.hasNext()) {
+            final StoredParameterControlBinding binding = iterator.next();
+            final Component label = binding.label().get();
+            if (label == null) {
+                iterator.remove();
+            } else {
+                live.add(new ParameterControlBinding(binding.folder(), binding.id(), label));
+            }
+        }
+        return List.copyOf(live);
+    }
+
     public void invalidate() {
         boolean changed;
         synchronized (monitor) {
             if (closed) return;
-            changed = hostGeneration != 0 || currentScope != null || !overrides.isEmpty();
+            changed = hostGeneration != 0 || currentScope != null || !overrides.isEmpty()
+                || !parameterControls.isEmpty();
             hostGeneration = 0;
             overrides.clear();
+            parameterControls.clear();
             currentScope = null;
         }
         if (changed) notifyChange();
@@ -240,10 +281,11 @@ public final class PaletteAppearanceCoordinator implements AutoCloseable {
         boolean changed;
         synchronized (monitor) {
             if (closed) return;
-            changed = hostGeneration != 0;
+            changed = hostGeneration != 0 || !parameterControls.isEmpty();
             closed = true;
             hostGeneration = 0;
             overrides.clear();
+            parameterControls.clear();
             currentScope = null;
         }
         if (changed) notifyChange();
@@ -380,4 +422,18 @@ public final class PaletteAppearanceCoordinator implements AutoCloseable {
     }
 
     private record Stored(Object token, Object value, long sequence) { }
+
+    public record ParameterControlBinding(boolean folder, String id, Component label) {
+        public ParameterControlBinding {
+            id = Objects.requireNonNull(id, "id");
+            label = Objects.requireNonNull(label, "label");
+        }
+    }
+
+    private record StoredParameterControlBinding(
+        boolean folder,
+        String id,
+        WeakReference<Component> label
+    ) {
+    }
 }
