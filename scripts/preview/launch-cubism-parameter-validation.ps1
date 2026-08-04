@@ -2,7 +2,7 @@
 param(
     [string]$CubismRoot = "",
     [string]$ProjectPath = "",
-    [ValidateSet("matrix", "binding-read", "binding-matrix", "parameter-menu-smoke", "persist-write", "persist-read", "plugin-scope-close", "document-close")]
+    [ValidateSet("matrix", "statistics-read", "binding-read", "binding-matrix", "parameter-menu-smoke", "persist-write", "persist-read", "plugin-scope-close", "document-close")]
     [string]$ValidationMode = "matrix",
     [int]$TimeoutSeconds = 300,
     [switch]$ProbeOnly,
