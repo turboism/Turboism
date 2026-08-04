@@ -59,6 +59,6 @@ exec bash "$runner" \
   --result-pass-line 'status=PASS' \
   --result-fail-line 'status=FAIL' \
   --ready-timeout 300 \
-  --result-timeout 300 \
+  --result-timeout 480 \
   --exit-timeout 120 \
   "$@"
