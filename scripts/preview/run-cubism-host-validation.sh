@@ -359,6 +359,20 @@ if [ "$dry_run" = 1 ]; then
 fi
 
 [ -f "$ssh_key" ] || fail "SSH key does not exist: $ssh_key"
+
+if [ "${TURBOISM_HOST_VALIDATION_LOCK_FILE+x}" = x ]; then
+  [ -n "$TURBOISM_HOST_VALIDATION_LOCK_FILE" ] \
+    || fail "TURBOISM_HOST_VALIDATION_LOCK_FILE must not be empty"
+  lock_file="$TURBOISM_HOST_VALIDATION_LOCK_FILE"
+else
+  lock_file="${TMPDIR:-/tmp}/turboism-cubism-host-validation.lock"
+fi
+if ! exec {lock_fd}>>"$lock_file"; then
+  fail "cannot open host validation lock file: $lock_file"
+fi
+if ! flock -n "$lock_fd"; then
+  fail "host validation lock is busy: $lock_file"
+fi
 ssh_cmd=(ssh -i "$ssh_key" -o IdentitiesOnly=yes -o ConnectTimeout=10)
 scp_cmd=(scp -i "$ssh_key" -o IdentitiesOnly=yes)
 local_tmp="$(mktemp -d)"
