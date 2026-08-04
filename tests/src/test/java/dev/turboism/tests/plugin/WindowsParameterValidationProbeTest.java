@@ -582,6 +582,31 @@ class WindowsParameterValidationProbeTest {
         );
     }
 
+    @Test
+    void automatedHostCloseClicksObservedNoMnemonicButton() {
+        final javax.swing.JButton yes = new javax.swing.JButton("Yes(Y)");
+        yes.setActionCommand("Yes(Y)");
+        yes.getAccessibleContext().setAccessibleName("Yes(Y)");
+        final javax.swing.JButton no = new javax.swing.JButton("No(N)");
+        no.setActionCommand("No(N)");
+        no.getAccessibleContext().setAccessibleName("No(N)");
+        final javax.swing.JButton cancel = new javax.swing.JButton("Cancel(C)");
+        cancel.setActionCommand("Cancel(C)");
+        cancel.getAccessibleContext().setAccessibleName("Cancel(C)");
+        final javax.swing.JButton close = new javax.swing.JButton("Close");
+        close.setActionCommand("Close");
+        close.getAccessibleContext().setAccessibleName("Close");
+        final AtomicInteger clicks = new AtomicInteger();
+        no.addActionListener(event -> clicks.incrementAndGet());
+
+        assertEquals(
+            no,
+            WindowsParameterValidationProbe.selectDiscardButton(List.of(yes, no, cancel, close))
+        );
+        no.doClick();
+        assertEquals(1, clicks.get());
+    }
+
     @org.junit.jupiter.api.io.TempDir
     java.nio.file.Path saveTemp;
 
