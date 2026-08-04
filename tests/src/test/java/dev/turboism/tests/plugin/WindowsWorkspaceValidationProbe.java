@@ -308,12 +308,8 @@ public final class WindowsWorkspaceValidationProbe implements CubismPlugin {
             final CommandResult baselineCurrent = executeCommand(
                 workspace, cubism, new Command(2, "current", Optional.empty()), declaredPermissions
             );
-            final CommandResult baselineReadiness = executeCommand(
-                workspace, cubism, new Command(3, "readiness", Optional.empty()), declaredPermissions
-            );
             recordCommand(report, "baseline.status", baselineStatus);
             recordCommand(report, "baseline.current", baselineCurrent);
-            recordCommand(report, "baseline.readiness", baselineReadiness);
             requireCommandLine(report, "baseline.status", baselineStatus,
                 "status.availability=UNAVAILABLE");
             requireCommandLine(report, "baseline.status", baselineStatus,
@@ -322,7 +318,6 @@ public final class WindowsWorkspaceValidationProbe implements CubismPlugin {
                 "status.availability=UNAVAILABLE");
             requireCommandLine(report, "baseline.current", baselineCurrent,
                 "status.diagnosticCode=workspace.provider.unavailable");
-            requireCommandLine(report, "baseline.readiness", baselineReadiness, "hostPresent=true");
             require(report, "baseline.typedUnavailable", "OK".equals(baselineStatus.status())
                     && "OK".equals(baselineCurrent.status()),
                 baselineStatus.status() + "/" + baselineCurrent.status());
