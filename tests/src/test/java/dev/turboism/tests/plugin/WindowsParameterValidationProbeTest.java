@@ -520,6 +520,38 @@ class WindowsParameterValidationProbeTest {
             WindowsParameterValidationProbe.showsValidationWindow(null));
     }
 
+    @Test
+    void automatedHostCloseTreatsMissingConfirmationAsCleanClose() {
+        assertEquals(
+            WindowsParameterValidationProbe.HostCloseDecision.CLEAN_CLOSE,
+            WindowsParameterValidationProbe.hostCloseDecision(
+                false, javax.swing.JOptionPane.DEFAULT_OPTION, 0
+            )
+        );
+    }
+
+    @Test
+    void automatedHostCloseChoosesDiscardWithoutLocalizedButtonText() {
+        assertEquals(
+            WindowsParameterValidationProbe.HostCloseDecision.DISCARD,
+            WindowsParameterValidationProbe.hostCloseDecision(
+                true, javax.swing.JOptionPane.YES_NO_CANCEL_OPTION, 3
+            )
+        );
+        assertEquals(
+            WindowsParameterValidationProbe.HostCloseDecision.DISCARD,
+            WindowsParameterValidationProbe.hostCloseDecision(
+                true, javax.swing.JOptionPane.DEFAULT_OPTION, 3
+            )
+        );
+        assertEquals(
+            WindowsParameterValidationProbe.HostCloseDecision.UNSUPPORTED_CONFIRMATION,
+            WindowsParameterValidationProbe.hostCloseDecision(
+                true, javax.swing.JOptionPane.OK_CANCEL_OPTION, 2
+            )
+        );
+    }
+
     @org.junit.jupiter.api.io.TempDir
     java.nio.file.Path saveTemp;
 
