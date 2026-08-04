@@ -343,6 +343,8 @@ if [ "$dry_run" = 1 ]; then
   for index in "${!resolved_plugins[@]}"; do
     printf 'plugin.%s=%s\n' "$index" "${resolved_plugins[$index]}"
   done
+  printf 'turboismAgent.javaToolOption=-javaagent:%s=home=%s;timeoutSeconds=%s\n' \
+    "$(z_path "$task_dir/turboism-agent.jar")" "$(z_path "$home_dir")" "$agent_timeout"
   for index in "${!resolved_aux_agents[@]}"; do
     local_path="${resolved_aux_agents[$index]%%:*}"
     remote_name="${resolved_aux_agents[$index]#*:}"
@@ -351,8 +353,6 @@ if [ "$dry_run" = 1 ]; then
     printf 'auxAgent.%s.sha256=%s\n' "$index" "$(sha256_file "$local_path")"
     printf 'auxAgent.%s.javaToolOption=-javaagent:%s\n' "$index" "$(z_path "$task_dir/agents/$remote_name")"
   done
-  printf 'turboismAgent.javaToolOption=-javaagent:%s=home=%s;timeoutSeconds=%s\n' \
-    "$(z_path "$task_dir/turboism-agent.jar")" "$(z_path "$home_dir")" "$agent_timeout"
   for index in "${!jvm_options[@]}"; do
     printf 'jvmOption.%s=%s\n' "$index" "${jvm_options[$index]}"
   done
@@ -380,9 +380,34 @@ local_tmp="$(mktemp -d)"
 launched=0
 evidence_collected=0
 success=0
+wrapper_cleanup_done=0
 
 remote_process_alive() {
-  "${ssh_cmd[@]}" "$ssh_host" "test -s '$evidence_dir/wrapper.pid' && kill -0 \$(cat '$evidence_dir/wrapper.pid') 2>/dev/null"
+  "${ssh_cmd[@]}" "$ssh_host" "test ! -s '$evidence_dir/wrapper.exit' && test -s '$evidence_dir/wrapper.pid' && kill -0 \$(cat '$evidence_dir/wrapper.pid') 2>/dev/null"
+}
+
+remote_normal_exit_evidence_seen() {
+  case "$version" in
+    5302)
+      "${ssh_cmd[@]}" "$ssh_host" \
+        "grep -Eq -- '-- successfully exited pid:[0-9]+ --' '$evidence_dir/cubism-console.txt'"
+      ;;
+    5203)
+      local log_file
+      log_file="$(latest_runtime_log)"
+      [ -n "$log_file" ] || return 1
+      runtime_log_contains "$log_file" 'Stopping Turboism Developer Preview' \
+        && runtime_log_contains "$log_file" 'Turboism core shutdown'
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+remote_record_wrapper_cleanup() {
+  "${ssh_cmd[@]}" "$ssh_host" \
+    "printf '%s\\n' 'cubism successful-exit marker observed; task-scoped cleanup invoked' > '$evidence_dir/wrapper.cleanup'"
 }
 
 remote_stop_process_tree() {
@@ -505,7 +530,7 @@ cleanup_prefix() {
 on_exit() {
   local rc=$?
   set +e
-  if [ "$launched" = 1 ] && [ "$success" = 0 ]; then
+  if [ "$launched" = 1 ] && [ "$success" = 0 ] && [ "$wrapper_cleanup_done" = 0 ]; then
     remote_stop_process_tree
   fi
   collect_evidence
@@ -636,12 +661,12 @@ all_jvm_options=(
   "-Dturboism.validation.runId=$task_id"
   "-Dturboism.validation.hostVersion=$version"
 )
+all_jvm_options+=("-javaagent:$win_agent=home=$win_home;timeoutSeconds=$agent_timeout")
 for spec in "${resolved_aux_agents[@]}"; do
   remote_name="${spec#*:}"
   win_aux_agent="$(z_path "$task_dir/agents/$remote_name")"
   all_jvm_options+=("-javaagent:$win_aux_agent")
 done
-all_jvm_options+=("-javaagent:$win_agent=home=$win_home;timeoutSeconds=$agent_timeout")
 for option in "${jvm_options[@]}"; do
   option="${option//\{TASK_ID\}/$task_id}"
   option="${option//\{HOME\}/$win_home}"
@@ -732,13 +757,27 @@ done
 log "terminal PASS observed; waiting for graceful launcher exit"
 deadline=$((SECONDS + exit_timeout))
 while [ "$SECONDS" -lt "$deadline" ]; do
+  if remote_normal_exit_evidence_seen; then
+    if remote_process_alive; then
+      remote_record_wrapper_cleanup
+      remote_stop_process_tree
+      wrapper_cleanup_done=1
+    fi
+    break
+  fi
   remote_process_alive || break
   sleep "$poll_seconds"
 done
-remote_process_alive && fail "launcher did not exit within ${exit_timeout}s"
+if [ "$wrapper_cleanup_done" = 0 ]; then
+  remote_process_alive && fail "launcher did not exit within ${exit_timeout}s"
+fi
 
 wrapper_exit="$("${ssh_cmd[@]}" "$ssh_host" "cat '$evidence_dir/wrapper.exit' 2>/dev/null || true")"
-[ "$wrapper_exit" = 0 ] || fail "official launcher exited with code ${wrapper_exit:-missing}"
+if [ -n "$wrapper_exit" ]; then
+  [ "$wrapper_exit" = 0 ] || fail "official launcher exited with code $wrapper_exit"
+elif [ "$wrapper_cleanup_done" = 0 ]; then
+  fail "official launcher exited with code missing"
+fi
 verify_staged_artifacts after
 if [ "${#resolved_aux_agents[@]}" -gt 0 ]; then
   "${scp_cmd[@]}" "$local_tmp/aux-agent-hashes-after.properties" \

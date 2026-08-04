@@ -42,6 +42,7 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
     private final EditorParameterCombinedAccess combinedAccess;
     private final EditorParameterGroupsAccess parameterGroupsAccess;
     private final EditorDefaultKeyformLockAccess defaultKeyformLockAccess;
+    private final EditorModelEditLevelAccess editLevelAccess;
     private final EditorPartOpacityAccess partOpacityAccess;
     private final EditorObjectReadAccess objectReadAccess;
     private final EditorModelStatisticsAccess statisticsAccess;
@@ -68,6 +69,10 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
             this::requireCurrent
         );
         this.defaultKeyformLockAccess = new EditorDefaultKeyformLockAccess(
+            resolver,
+            this::requireCurrent
+        );
+        this.editLevelAccess = new EditorModelEditLevelAccess(
             resolver,
             this::requireCurrent
         );
@@ -646,6 +651,14 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
         }
         @Override public void setDefaultKeyformLocked(final boolean locked) {
             defaultKeyformLockAccess.setLocked(identity, source, model, locked);
+        }
+        @Override public dev.turboism.sdk.cubism.model.ModelEditLevel editLevel() {
+            return editLevelAccess.level(identity, model);
+        }
+        @Override public void setEditLevel(
+            final dev.turboism.sdk.cubism.model.ModelEditLevel level
+        ) {
+            editLevelAccess.setLevel(identity, model, level);
         }
         @Override public Parameters parameters() { current(); return new EditorParameters(identity, model); }
         @Override public ParameterGroups parameterGroups() {

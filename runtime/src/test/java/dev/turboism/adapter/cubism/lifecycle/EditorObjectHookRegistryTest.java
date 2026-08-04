@@ -1,7 +1,11 @@
 package dev.turboism.adapter.cubism.lifecycle;
 
 import dev.turboism.sdk.cubism.hook.DeformerHooks;
+import dev.turboism.sdk.cubism.event.CubismOperation;
+import dev.turboism.sdk.cubism.event.CubismOperationEvent;
+import dev.turboism.sdk.cubism.event.CubismOperationOrigin;
 import dev.turboism.sdk.cubism.hook.DrawableHooks;
+import dev.turboism.sdk.cubism.hook.SemanticOperationHooks;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.model.BlendMode;
 import dev.turboism.sdk.cubism.model.Color;
@@ -59,6 +63,67 @@ class EditorObjectHookRegistryTest {
         lifecycle.drawable().setOpacity(drawable, 0.7F, drawable::write);
         lifecycle.drawable().awaitIdle();
         assertEquals(0.7F, drawable.getOpacity());
+        assertEquals(List.of(), events);
+    }
+
+    @Test
+    void registersSemanticHooksWithTheSamePermissionsAndUnloadBoundary() {
+        final List<String> events = new ArrayList<>();
+        final EditorObjectLifecycleCoordinator lifecycle = new EditorObjectLifecycleCoordinator();
+        final EditorObjectHookRegistry registry = new EditorObjectHookRegistry(lifecycle);
+        final OrderedPlugin first = new OrderedPlugin("first", events);
+        final OrderedPlugin second = new OrderedPlugin("second", events);
+
+        registry.register(
+            descriptor("plugin", List.of(EditorObjectHookRegistry.OBSERVE_PERMISSION)),
+            List.of(first, second),
+            logger()
+        );
+        lifecycle.semantic().runConfirmed(
+            CubismOperation.OPEN_DOCUMENT,
+            CubismOperationOrigin.HOST_UI,
+            Optional.of("document"),
+            () -> { }
+        );
+        lifecycle.semantic().awaitIdle();
+        assertEquals(
+            List.of(
+                "first-semantic-after:OPEN_DOCUMENT",
+                "second-semantic-after:OPEN_DOCUMENT"
+            ),
+            events
+        );
+
+        events.clear();
+        registry.register(
+            descriptor("plugin", List.of(EditorObjectHookRegistry.INTERCEPT_PERMISSION)),
+            List.of(first, second),
+            logger()
+        );
+        lifecycle.semantic().runConfirmed(
+            CubismOperation.SAVE_DOCUMENT,
+            CubismOperationOrigin.HOST_UI,
+            Optional.of("document"),
+            () -> { }
+        );
+        lifecycle.semantic().awaitIdle();
+        assertEquals(
+            List.of(
+                "first-semantic-before:SAVE_DOCUMENT",
+                "second-semantic-before:SAVE_DOCUMENT"
+            ),
+            events
+        );
+
+        events.clear();
+        registry.unregister("plugin");
+        lifecycle.semantic().runConfirmed(
+            CubismOperation.CLOSE_DOCUMENT,
+            CubismOperationOrigin.HOST_UI,
+            Optional.of("document"),
+            () -> { }
+        );
+        lifecycle.semantic().awaitIdle();
         assertEquals(List.of(), events);
     }
 
@@ -171,7 +236,7 @@ class EditorObjectHookRegistryTest {
         }
     }
 
-    private static final class OrderedPlugin implements TurboismPlugin, DrawableHooks, DeformerHooks {
+    private static final class OrderedPlugin implements TurboismPlugin, DrawableHooks, DeformerHooks, SemanticOperationHooks {
         private final String name;
         private final List<String> events;
         private OrderedPlugin(String name, List<String> events) { this.name = name; this.events = events; }
@@ -180,6 +245,12 @@ class EditorObjectHookRegistryTest {
         }
         @Override public void afterSetDrawableOpacity(Drawable drawable, float opacity) {
             events.add(name + "-after:" + opacity);
+        }
+        @Override public void beforeCubismOperation(CubismOperationEvent event) {
+            events.add(name + "-semantic-before:" + event.operation());
+        }
+        @Override public void afterCubismOperation(CubismOperationEvent event) {
+            events.add(name + "-semantic-after:" + event.operation());
         }
     }
 

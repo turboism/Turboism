@@ -90,14 +90,14 @@ public final class ContextMenuContributionProvider implements EditorUiContributi
         if (panelTabMenus != null) {
             panelTabMenus.update(hostGeneration, contributions.stream()
                 .filter(value -> value.descriptor()
-                    instanceof dev.turboism.sdk.ui.context.ContextMenuRegistry.ContextMenuContribution)
+                    instanceof dev.turboism.sdk.ui.context.ContextMenuRegistry.ContextMenuContribution contribution
+                    && contribution.target()
+                        == dev.turboism.sdk.ui.context.ContextMenuRegistry.Target.PANEL_TAB)
                 .map(value -> new dev.turboism.ui.panel.PanelTabMenuContribution(
                     hostGeneration,
                     value.identity().pluginId(),
                     (dev.turboism.sdk.ui.context.ContextMenuRegistry.ContextMenuContribution) value.descriptor()
                 ))
-                .filter(value -> value.contribution().target()
-                    == dev.turboism.sdk.ui.context.ContextMenuRegistry.Target.PANEL_TAB)
                 .toList());
         }
         try {
