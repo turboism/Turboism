@@ -272,6 +272,14 @@ public final class PreviewRuntime implements AutoCloseable {
                 ingress.adapterAccess().parameterLifecycle()
             );
             final LocalPluginRuntime.LoadReport report = plugins.loadAll();
+            ingress.adapterAccess().editorLifecycleEvents().publishStartup(
+                dev.turboism.mapping.verification.EditorModelVerificationManifest
+                    .resourceProfileForArtifact(
+                        dev.turboism.mapping.verification.HostArtifactDigest.from(
+                            normalizedHostArtifact
+                        )
+                    )
+            );
             final PreviewReportWriter reportWriter = new PreviewReportWriter(
                 layout.runtimeStateDir(),
                 diagnostic -> log.warn(

@@ -14,7 +14,43 @@ public interface CubismFacade {
 
     Optional<DocumentSnapshot> activeDocument();
 
+    /**
+     * Returns the model owned by the active MODEL document only.
+     *
+     * <p>This is empty for animation scene, game-data, physics, and other documents, even when
+     * those documents reference or preview a Live2D model.</p>
+     */
     Optional<ModelSnapshot> activeModel();
+
+    /** Returns the animation file that owns the active ANIMATION_SCENE document. */
+    default Optional<AnimationSnapshot> activeAnimation() {
+        return activeDocument().flatMap(DocumentSnapshot::animation);
+    }
+
+    /** Returns the active document only when it is a modeling document. */
+    default Optional<DocumentSnapshot> activeModelDocument() {
+        return activeDocument().filter(DocumentSnapshot::isModelDocument);
+    }
+
+    /** Returns the active document only when it is an animation scene document. */
+    default Optional<DocumentSnapshot> activeAnimationDocument() {
+        return activeDocument().filter(DocumentSnapshot::isAnimationDocument);
+    }
+
+    /** Returns the active document only when it is a layered image/PSD document. */
+    default Optional<DocumentSnapshot> activeImageDocument() {
+        return activeDocument().filter(DocumentSnapshot::isImageDocument);
+    }
+
+    /** Returns the project entry that owns the active document. */
+    default Optional<ProjectContentSnapshot> activeProjectContent() {
+        final Optional<DocumentSnapshot> document = activeDocument();
+        if (document.isEmpty() || document.orElseThrow().contentId().isEmpty()) {
+            return Optional.empty();
+        }
+        final String contentId = document.orElseThrow().contentId().orElseThrow();
+        return activeProject().flatMap(project -> project.content(contentId));
+    }
 
     boolean isHostPresent();
 
@@ -45,5 +81,13 @@ public interface CubismFacade {
 
     default boolean hasActiveModel() {
         return activeModel().isPresent();
+    }
+
+    default boolean hasActiveAnimation() {
+        return activeAnimation().isPresent();
+    }
+
+    default boolean hasActiveImageDocument() {
+        return activeImageDocument().isPresent();
     }
 }

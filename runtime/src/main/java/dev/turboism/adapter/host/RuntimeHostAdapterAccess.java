@@ -2,9 +2,11 @@ package dev.turboism.adapter.host;
 
 import dev.turboism.adapter.RuntimeHostAdapters;
 import dev.turboism.adapter.cubism.NativeControlAppearanceAuthoring;
+import dev.turboism.adapter.cubism.lifecycle.EditorLifecycleCoordinator;
+import dev.turboism.adapter.cubism.lifecycle.EditorObjectLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.ParameterLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.PartLifecycleCoordinator;
-import dev.turboism.adapter.cubism.lifecycle.EditorObjectLifecycleCoordinator;
+import dev.turboism.adapter.cubism.lifecycle.ProjectFileLifecycleCoordinator;
 import dev.turboism.adapter.cubism.physics.PhysicsEditorCoordinator;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.ui.action.RuntimeEditorUiActionRouter;
@@ -27,6 +29,10 @@ public sealed interface RuntimeHostAdapterAccess permits HostSession, SessionRun
     PartLifecycleCoordinator partLifecycle();
 
     EditorObjectLifecycleCoordinator editorObjectLifecycle();
+
+    ProjectFileLifecycleCoordinator projectFileLifecycle();
+
+    EditorLifecycleCoordinator editorLifecycleEvents();
 
     PhysicsEditorCoordinator physicsEditorCoordinator();
 
@@ -65,6 +71,8 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     private final ParameterLifecycleCoordinator parameterLifecycle;
     private final PartLifecycleCoordinator partLifecycle;
     private final EditorObjectLifecycleCoordinator editorObjectLifecycle;
+    private final ProjectFileLifecycleCoordinator projectFileLifecycle;
+    private final EditorLifecycleCoordinator editorLifecycleEvents;
     private final PhysicsEditorCoordinator physicsEditorCoordinator;
     private final EditorUiHostLifecycle editorUiLifecycle;
     private final EditorUiContributionAuthority editorUiContributions;
@@ -85,6 +93,8 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
         final ParameterLifecycleCoordinator parameterLifecycle,
         final PartLifecycleCoordinator partLifecycle,
         final EditorObjectLifecycleCoordinator editorObjectLifecycle,
+        final ProjectFileLifecycleCoordinator projectFileLifecycle,
+        final EditorLifecycleCoordinator editorLifecycleEvents,
         final PhysicsEditorCoordinator physicsEditorCoordinator,
         final EditorUiHostLifecycle editorUiLifecycle,
         final EditorUiContributionAuthority editorUiContributions,
@@ -110,6 +120,14 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
         this.editorObjectLifecycle = java.util.Objects.requireNonNull(
             editorObjectLifecycle,
             "editorObjectLifecycle"
+        );
+        this.projectFileLifecycle = java.util.Objects.requireNonNull(
+            projectFileLifecycle,
+            "projectFileLifecycle"
+        );
+        this.editorLifecycleEvents = java.util.Objects.requireNonNull(
+            editorLifecycleEvents,
+            "editorLifecycleEvents"
         );
         this.physicsEditorCoordinator = java.util.Objects.requireNonNull(
             physicsEditorCoordinator,
@@ -180,6 +198,16 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     @Override
     public EditorObjectLifecycleCoordinator editorObjectLifecycle() {
         return editorObjectLifecycle;
+    }
+
+    @Override
+    public ProjectFileLifecycleCoordinator projectFileLifecycle() {
+        return projectFileLifecycle;
+    }
+
+    @Override
+    public EditorLifecycleCoordinator editorLifecycleEvents() {
+        return editorLifecycleEvents;
     }
 
     @Override
