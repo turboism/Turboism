@@ -62,7 +62,6 @@ import java.awt.Insets;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
-import java.util.Comparator;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -2593,7 +2592,9 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         String description() {
             return "window=" + dialog.getClass().getName()
                 + " optionType=" + (optionPane == null ? "none" : optionPane.getOptionType())
-                + " buttons=" + buttons.size();
+                + " buttonMetadata=" + buttons.stream()
+                    .map(WindowsParameterValidationProbe::buttonMetadata)
+                    .toList();
         }
     }
 
@@ -2606,7 +2607,7 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 target, java.awt.event.WindowEvent.WINDOW_CLOSING
             )));
             context.logger().info("Automated host close requested via WINDOW_CLOSING");
-            final HostCloseDecision decision = awaitHostCloseConfirmation(new java.awt.Robot());
+            final HostCloseDecision decision = awaitHostCloseConfirmation(target);
             if (decision == HostCloseDecision.CLEAN_CLOSE) {
                 context.logger().info(
                     "Automated host close requested; no unsaved confirmation dialog observed"
@@ -2644,8 +2645,13 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         return target;
     }
 
+    private static boolean hostWindowClosed(final java.awt.Window window) throws Exception {
+        return onHostThread(() -> !window.isDisplayable() || !window.isVisible());
+    }
 
-    private HostCloseDecision awaitHostCloseConfirmation(final java.awt.Robot robot) throws Exception {
+    private HostCloseDecision awaitHostCloseConfirmation(
+        final java.awt.Window hostWindow
+    ) throws Exception {
         final long deadlineNanos = System.nanoTime() + 3_000_000_000L;
         CloseDialogState observed = null;
         while (System.nanoTime() < deadlineNanos) {
@@ -2655,28 +2661,35 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 continue;
             }
             observed = current;
-            final CloseDialogHandling handling = handleCloseDialog(current, robot);
+            final CloseDialogHandling handling = handleCloseDialog(current);
             if (handling == CloseDialogHandling.UNSUPPORTED) {
                 throw new IllegalStateException(
                     "Unsaved confirmation could not be handled: " + current.description()
                 );
             }
+            boolean dialogClosed = false;
             while (System.nanoTime() < deadlineNanos) {
-                if (visibleCloseDialog() == null) {
+                dialogClosed = visibleCloseDialog() == null;
+                if (dialogClosed && hostWindowClosed(hostWindow)) {
                     return HostCloseDecision.DISCARD;
                 }
                 Thread.sleep(100L);
             }
             throw new IllegalStateException(
-                "Unsaved confirmation did not close after discard: " + observed.description()
+                "Unsaved confirmation did not close the host window after discard: "
+                    + observed.description() + " dialogClosed=" + dialogClosed
+            );
+        }
+        if (!hostWindowClosed(hostWindow)) {
+            throw new IllegalStateException(
+                "Host window remained open without an unsaved confirmation."
             );
         }
         return HostCloseDecision.CLEAN_CLOSE;
     }
 
     private static CloseDialogHandling handleCloseDialog(
-        final CloseDialogState state,
-        final java.awt.Robot robot
+        final CloseDialogState state
     ) throws Exception {
         final JOptionPane optionPane = state.optionPane();
         final int optionType = optionPane == null
@@ -2685,13 +2698,6 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             true, optionType, state.buttons().size()
         );
         if (decision == HostCloseDecision.UNSUPPORTED_CONFIRMATION) {
-            if (optionPane == null && state.buttons().isEmpty()) {
-                // Cubism 5.2.03/5.3.02 can expose a native modal without Swing controls.
-                // Its first action is Save and its second action is Discard; arrow navigation
-                // avoids all localized labels and is used only while this modal is visible.
-                pressDiscardByKeyboard(robot);
-                return CloseDialogHandling.DISCARDED;
-            }
             return CloseDialogHandling.UNSUPPORTED;
         }
         if (optionPane != null
@@ -2747,45 +2753,61 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         collectButtons(component, buttons);
         return buttons.stream()
             .filter(button -> button.isVisible() && button.isEnabled())
-            .sorted(Comparator.comparingInt(WindowsParameterValidationProbe::buttonX))
             .toList();
     }
 
     /** Selects exactly one semantic discard action; ambiguity fails closed. */
     static JButton selectDiscardButton(final List<JButton> buttons) {
-        final List<JButton> explicit = buttons.stream()
+        final List<JButton> matches = buttons.stream()
             .filter(WindowsParameterValidationProbe::isDiscardAction)
             .toList();
-        if (explicit.size() == 1) {
-            return explicit.get(0);
-        }
-        final List<JButton> candidates = buttons.stream()
-            .filter(button -> !isAction(button, "cancel") && !isAction(button, "save"))
-            .toList();
-        return candidates.size() == 1 ? candidates.get(0) : null;
+        return matches.size() == 1 ? matches.get(0) : null;
     }
 
     private static boolean isDiscardAction(final JButton button) {
-        return isAction(button, "discard", "dontsave", "donotsave", "nosave", "notsave");
+        return matchesDiscardValue(button.getActionCommand())
+            || matchesDiscardValue(button.getName())
+            || matchesDiscardValue(button.getText())
+            || matchesDiscardValue(accessibleName(button));
     }
 
-    private static boolean isAction(final JButton button, final String... names) {
-        return matchesAction(button.getActionCommand(), names)
-            || matchesAction(button.getName(), names);
+    private static String accessibleName(final JButton button) {
+        final var context = button.getAccessibleContext();
+        return context == null ? null : context.getAccessibleName();
     }
 
-    private static boolean matchesAction(final String value, final String... names) {
+    private static boolean matchesDiscardValue(final String value) {
         if (value == null || value.isBlank()) {
             return false;
         }
-        final String normalized = value.replaceAll("[^A-Za-z0-9]", "")
-            .toLowerCase(Locale.ROOT);
-        for (final String name : names) {
-            if (normalized.contains(name)) {
-                return true;
-            }
-        }
-        return false;
+        final String normalized = value.toLowerCase(Locale.ROOT)
+            .replaceAll("[^\\p{L}\\p{N}]", "");
+        return normalized.equals("no")
+            || normalized.contains("discard")
+            || normalized.contains("dontsave")
+            || normalized.contains("donotsave")
+            || normalized.contains("nosave")
+            || normalized.contains("notsave")
+            || normalized.contains("不保存")
+            || normalized.contains("不要保存")
+            || normalized.contains("不儲存")
+            || normalized.contains("不要儲存")
+            || normalized.contains("不存檔")
+            || normalized.contains("不要存檔")
+            || normalized.contains("放弃")
+            || normalized.contains("放棄")
+            || normalized.contains("舍弃")
+            || normalized.contains("捨棄")
+            || normalized.contains("保存しない")
+            || normalized.contains("セーブしない");
+    }
+
+    private static String buttonMetadata(final JButton button) {
+        return "{class=" + button.getClass().getName()
+            + ", text=" + button.getText()
+            + ", action=" + button.getActionCommand()
+            + ", name=" + button.getName()
+            + ", accessible=" + accessibleName(button) + '}';
     }
 
     private static void collectButtons(
@@ -2800,22 +2822,6 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 collectButtons(child, buttons);
             }
         }
-    }
-
-    private static int buttonX(final JButton button) {
-        try {
-            return button.getLocationOnScreen().x;
-        } catch (java.awt.IllegalComponentStateException unavailable) {
-            return button.getX();
-        }
-    }
-
-
-    private static void pressDiscardByKeyboard(final java.awt.Robot robot) {
-        robot.keyPress(java.awt.event.KeyEvent.VK_RIGHT);
-        robot.keyRelease(java.awt.event.KeyEvent.VK_RIGHT);
-        robot.keyPress(java.awt.event.KeyEvent.VK_ENTER);
-        robot.keyRelease(java.awt.event.KeyEvent.VK_ENTER);
     }
 
     @FunctionalInterface
