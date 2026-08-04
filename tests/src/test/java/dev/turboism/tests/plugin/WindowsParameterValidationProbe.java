@@ -2025,7 +2025,7 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 .append("batch.transferRedo=").append(batchTransferRedone).append('\n')
                 .append("batch.restored=").append(batchRestored).append('\n')
                 .append("batch.passed=").append(batchPassed).append('\n');
-            final int undoCap = 128;
+            final int undoCap = 512;
             int undoCount = 0;
             boolean undoDrained = false;
             while (undoCount < undoCap && invokeMenuShortcut(java.awt.event.KeyEvent.VK_Z)) {
