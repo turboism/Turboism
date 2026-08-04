@@ -1,6 +1,7 @@
 package dev.turboism.sdk.cubism.model;
 
 import dev.turboism.sdk.PreviewApi;
+import dev.turboism.sdk.ui.appearance.model.ParameterGroupAppearance;
 import dev.turboism.sdk.cubism.id.ParameterGroupId;
 import dev.turboism.sdk.cubism.id.ParameterId;
 
@@ -12,6 +13,9 @@ import java.util.Optional;
 public interface ParameterGroup {
 
     ParameterGroupId id();
+
+    /** Returns this ParameterGroup's Cubism parameter-palette UI projection. */
+    default ParameterGroupAppearance ui() { return ParameterGroupAppearance.unavailable(); }
 
     Optional<String> name();
 

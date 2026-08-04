@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.editor;
 
-import dev.turboism.adapter.cubism.NativeControlAppearanceAuthoring;
+import dev.turboism.adapter.cubism.NativeLabelColorAuthoring;
+import dev.turboism.adapter.cubism.NativeLabelColorTarget;
 import dev.turboism.mapping.verification.EditorParameterDefinitionWriteSelectorContract;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.id.ModelId;
@@ -23,9 +24,8 @@ import dev.turboism.sdk.cubism.model.RotationDeformers;
 import dev.turboism.sdk.cubism.model.WarpDeformers;
 import dev.turboism.sdk.cubism.model.FloatSequence;
 import dev.turboism.sdk.cubism.model.ParameterDefinitions;
-import dev.turboism.sdk.ui.appearance.ControlAppearanceTarget;
-import dev.turboism.sdk.ui.appearance.NativeControlAppearance;
-import dev.turboism.sdk.ui.appearance.NativeControlBackground;
+import dev.turboism.sdk.ui.appearance.NativeLabelColor;
+import dev.turboism.sdk.ui.appearance.NativeLabelColorState;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -34,7 +34,8 @@ import java.util.Objects;
 import java.util.Optional;
 
 /** Generation-bound natural model view over one verified Editor modeling document. */
-public final class EditorBackedCubismModelAccess implements CubismModelAccess, NativeControlAppearanceAuthoring {
+public final class EditorBackedCubismModelAccess implements CubismModelAccess,
+    NativeLabelColorAuthoring {
 
     private final VerifiedMemberResolver resolver;
     private final String sessionIdentity;
@@ -588,17 +589,18 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess, N
     }
 
     @Override
-    public NativeControlAppearance snapshot(final ControlAppearanceTarget target) {
-        return nativeControlAppearanceAccess.snapshot(target);
+    public NativeLabelColorState readNativeLabelColor(final NativeLabelColorTarget target) {
+        return nativeControlAppearanceAccess.readNativeLabelColor(target);
     }
 
     @Override
-    public void setNativeBackground(
-        final ControlAppearanceTarget target,
-        final NativeControlBackground background
+    public void setNativeLabelColor(
+        final NativeLabelColorTarget target,
+        final NativeLabelColor color
     ) {
-        nativeControlAppearanceAccess.setNativeBackground(target, background);
+        nativeControlAppearanceAccess.setNativeLabelColor(target, color);
     }
+
 
     private final class EditorModel implements CubismModel {
         private final String identity;

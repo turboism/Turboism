@@ -6,14 +6,11 @@ import dev.turboism.mapping.verification.EditorParameterGroupsReadSelectorContra
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
-import dev.turboism.sdk.cubism.id.DeformerId;
-import dev.turboism.sdk.cubism.id.ParameterGroupId;
-import dev.turboism.sdk.cubism.model.Color;
-import dev.turboism.sdk.cubism.model.PartId;
-import dev.turboism.sdk.ui.appearance.ControlAppearanceTarget;
-import dev.turboism.sdk.ui.appearance.NativeControlAppearance;
-import dev.turboism.sdk.ui.appearance.NativeControlBackground;
+import dev.turboism.adapter.cubism.NativeLabelColorTarget;
+import dev.turboism.sdk.ui.appearance.NativeLabelColor;
+import dev.turboism.sdk.ui.appearance.NativeLabelColorState;
 import dev.turboism.sdk.ui.appearance.PresetColor;
+import dev.turboism.sdk.ui.appearance.UiColor;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -30,7 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** Exact-selector-gated Editor-native control label-background authoring. */
+/** Exact-selector-gated Editor-native label-color authoring. */
 class EditorNativeControlAppearanceAccessTest {
 
     @TempDir
@@ -52,20 +49,20 @@ class EditorNativeControlAppearanceAccessTest {
         EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
             resolver(true), "session-a"
         );
-        ControlAppearanceTarget.ParameterFolder folder =
-            new ControlAppearanceTarget.ParameterFolder(new ParameterGroupId("GroupFace"));
+        NativeLabelColorTarget folder =
+            new NativeLabelColorTarget(NativeLabelColorTarget.Palette.PARAMETER_GROUP, "GroupFace");
 
-        NativeControlAppearance before = access.snapshot(folder);
-        assertEquals(new NativeControlBackground.Preset(PresetColor.BLUE), before.background());
-        assertEquals(Optional.of(new Color(0.25F, 0.5F, 0.75F, 1.0F)), before.effectiveBackground());
+        NativeLabelColorState before = access.readNativeLabelColor(folder);
+        assertEquals(new NativeLabelColor.Preset(PresetColor.BLUE), before.labelColor());
+        assertEquals(Optional.of(new UiColor(0.25F, 0.5F, 0.75F, 1.0F)), before.actualColor());
 
-        access.setNativeBackground(
+        access.setNativeLabelColor(
             folder,
-            new NativeControlBackground.Custom(new Color(0.1F, 0.2F, 0.3F, 0.4F))
+            new NativeLabelColor.Custom(new UiColor(0.1F, 0.2F, 0.3F, 0.4F))
         );
 
-        assertEquals(new NativeControlBackground.Custom(new Color(0.1F, 0.2F, 0.3F, 0.4F)),
-            access.snapshot(folder).background());
+        assertEquals(new NativeLabelColor.Custom(new UiColor(0.1F, 0.2F, 0.3F, 0.4F)),
+            access.readNativeLabelColor(folder).labelColor());
         assertEquals(LabelColorType.CUSTOM, fixture.face.labelColor.type);
         assertEquals(1, fixture.editMode.beginCalls);
         assertEquals(1, fixture.editMode.committedEdits);
@@ -77,71 +74,71 @@ class EditorNativeControlAppearanceAccessTest {
         assertEquals(0, fixture.completePack.deformerRefreshes);
 
         fixture.editMode.undo();
-        assertEquals(new NativeControlBackground.Preset(PresetColor.BLUE),
-            access.snapshot(folder).background());
+        assertEquals(new NativeLabelColor.Preset(PresetColor.BLUE),
+            access.readNativeLabelColor(folder).labelColor());
         fixture.editMode.redo();
-        assertEquals(new NativeControlBackground.Custom(new Color(0.1F, 0.2F, 0.3F, 0.4F)),
-            access.snapshot(folder).background());
+        assertEquals(new NativeLabelColor.Custom(new UiColor(0.1F, 0.2F, 0.3F, 0.4F)),
+            access.readNativeLabelColor(folder).labelColor());
 
-        access.setNativeBackground(folder,
-            new NativeControlBackground.Custom(new Color(0.1F, 0.2F, 0.3F, 0.4F)));
+        access.setNativeLabelColor(folder,
+            new NativeLabelColor.Custom(new UiColor(0.1F, 0.2F, 0.3F, 0.4F)));
         assertEquals(1, fixture.editMode.beginCalls, "unchanged custom color must not create history");
     }
 
     @Test
-    void partLabelAndPartFolderAliasTheSameCPartSourceLabelBackground() {
+    void partPaletteMapsToTheCPartSourceLabelColor() {
         Fixture fixture = new Fixture("model-a");
         Host.install(fixture);
         EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
             resolver(true), "session-a"
         );
-        ControlAppearanceTarget.PartLabel label =
-            new ControlAppearanceTarget.PartLabel(new PartId("PartA"));
-        ControlAppearanceTarget.PartFolder folder =
-            new ControlAppearanceTarget.PartFolder(new PartId("PartA"));
+        NativeLabelColorTarget label =
+            new NativeLabelColorTarget(NativeLabelColorTarget.Palette.PART, "PartA");
+        NativeLabelColorTarget folder =
+            new NativeLabelColorTarget(NativeLabelColorTarget.Palette.PART, "PartA");
 
-        assertEquals(new NativeControlBackground.Preset(PresetColor.RED),
-            access.snapshot(label).background());
-        access.setNativeBackground(
+        assertEquals(new NativeLabelColor.Preset(PresetColor.RED),
+            access.readNativeLabelColor(label).labelColor());
+        access.setNativeLabelColor(
             folder,
-            new NativeControlBackground.Preset(PresetColor.GREEN)
+            new NativeLabelColor.Preset(PresetColor.GREEN)
         );
-        assertEquals(new NativeControlBackground.Preset(PresetColor.GREEN),
-            access.snapshot(label).background());
-        assertEquals(new NativeControlBackground.Preset(PresetColor.GREEN),
-            access.snapshot(folder).background());
+        assertEquals(new NativeLabelColor.Preset(PresetColor.GREEN),
+            access.readNativeLabelColor(label).labelColor());
+        assertEquals(new NativeLabelColor.Preset(PresetColor.GREEN),
+            access.readNativeLabelColor(folder).labelColor());
         assertEquals(LabelColorType.GREEN, fixture.partA.labelColor.type);
         assertEquals(0, fixture.completePack.parameterRefreshes);
         assertEquals(1, fixture.completePack.partRefreshes);
         assertEquals(1, fixture.completePack.canvasRepaints);
 
         fixture.editMode.undo();
-        assertEquals(new NativeControlBackground.Preset(PresetColor.RED),
-            access.snapshot(label).background());
+        assertEquals(new NativeLabelColor.Preset(PresetColor.RED),
+            access.readNativeLabelColor(label).labelColor());
         fixture.editMode.redo();
-        assertEquals(new NativeControlBackground.Preset(PresetColor.GREEN),
-            access.snapshot(folder).background());
+        assertEquals(new NativeLabelColor.Preset(PresetColor.GREEN),
+            access.readNativeLabelColor(folder).labelColor());
     }
 
     @Test
-    void deformerLabelAndDeformerControlRowAliasTheSameACDeformerSourceLabelBackground() {
+    void deformerPaletteMapsToTheACDeformerSourceLabelColor() {
         Fixture fixture = new Fixture("model-a");
         Host.install(fixture);
         EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
             resolver(true), "session-a"
         );
-        ControlAppearanceTarget.DeformerLabel label =
-            new ControlAppearanceTarget.DeformerLabel(new DeformerId("WarpA"));
-        ControlAppearanceTarget.DeformerControlRow row =
-            new ControlAppearanceTarget.DeformerControlRow(new DeformerId("WarpA"));
+        NativeLabelColorTarget label =
+            new NativeLabelColorTarget(NativeLabelColorTarget.Palette.DEFORMER, "WarpA");
+        NativeLabelColorTarget row =
+            new NativeLabelColorTarget(NativeLabelColorTarget.Palette.DEFORMER, "WarpA");
 
-        assertEquals(new NativeControlBackground.Default(), access.snapshot(label).background());
-        access.setNativeBackground(
+        assertEquals(new NativeLabelColor.Default(), access.readNativeLabelColor(label).labelColor());
+        access.setNativeLabelColor(
             row,
-            new NativeControlBackground.Preset(PresetColor.ORANGE)
+            new NativeLabelColor.Preset(PresetColor.ORANGE)
         );
-        assertEquals(new NativeControlBackground.Preset(PresetColor.ORANGE),
-            access.snapshot(label).background());
+        assertEquals(new NativeLabelColor.Preset(PresetColor.ORANGE),
+            access.readNativeLabelColor(label).labelColor());
         assertEquals(LabelColorType.ORANGE, fixture.warpA.labelColor.type);
         assertEquals(0, fixture.completePack.parameterRefreshes);
         assertEquals(0, fixture.completePack.partRefreshes);
@@ -149,12 +146,12 @@ class EditorNativeControlAppearanceAccessTest {
         assertEquals(1, fixture.completePack.canvasRepaints);
         assertEquals(1, fixture.document.dirtyUpdates);
 
-        access.setNativeBackground(row, new NativeControlBackground.Default());
+        access.setNativeLabelColor(row, new NativeLabelColor.Default());
         assertEquals(LabelColorType.UNDEFINED, fixture.warpA.labelColor.type);
-        assertEquals(new NativeControlBackground.Default(), access.snapshot(row).background());
+        assertEquals(new NativeLabelColor.Default(), access.readNativeLabelColor(row).labelColor());
         fixture.editMode.undo();
-        assertEquals(new NativeControlBackground.Preset(PresetColor.ORANGE),
-            access.snapshot(row).background());
+        assertEquals(new NativeLabelColor.Preset(PresetColor.ORANGE),
+            access.readNativeLabelColor(row).labelColor());
     }
 
     @Test
@@ -168,14 +165,14 @@ class EditorNativeControlAppearanceAccessTest {
         fixture.face.labelColor.custom = new HostColor(0.9F, 0.8F, 0.7F, 0.6F);
         fixture.face.labelColor.color = new HostColor(0.1F, 0.2F, 0.3F, 0.4F);
 
-        NativeControlAppearance appearance = access.snapshot(
-            new ControlAppearanceTarget.ParameterFolder(new ParameterGroupId("GroupFace"))
+        NativeLabelColorState appearance = access.readNativeLabelColor(
+            new NativeLabelColorTarget(NativeLabelColorTarget.Palette.PARAMETER_GROUP, "GroupFace")
         );
         assertEquals(
-            new NativeControlBackground.Custom(new Color(0.9F, 0.8F, 0.7F, 0.6F)),
-            appearance.background()
+            new NativeLabelColor.Custom(new UiColor(0.9F, 0.8F, 0.7F, 0.6F)),
+            appearance.labelColor()
         );
-        assertEquals(Optional.of(new Color(0.1F, 0.2F, 0.3F, 0.4F)), appearance.effectiveBackground());
+        assertEquals(Optional.of(new UiColor(0.1F, 0.2F, 0.3F, 0.4F)), appearance.actualColor());
     }
 
     @Test
@@ -186,24 +183,24 @@ class EditorNativeControlAppearanceAccessTest {
         EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
             resolver(true), "session-a"
         );
-        ControlAppearanceTarget.ParameterFolder folder =
-            new ControlAppearanceTarget.ParameterFolder(new ParameterGroupId("GroupFace"));
+        NativeLabelColorTarget folder =
+            new NativeLabelColorTarget(NativeLabelColorTarget.Palette.PARAMETER_GROUP, "GroupFace");
 
-        access.setNativeBackground(folder, new NativeControlBackground.Default());
+        access.setNativeLabelColor(folder, new NativeLabelColor.Default());
         assertEquals(0, fixture.editMode.beginCalls, "Default on UNDEFINED must be an exact no-op");
         assertEquals(0, fixture.document.dirtyUpdates);
 
         fixture.face.labelColor.type = LabelColorType.BLUE;
-        access.setNativeBackground(folder, new NativeControlBackground.Preset(PresetColor.BLUE));
+        access.setNativeLabelColor(folder, new NativeLabelColor.Preset(PresetColor.BLUE));
         assertEquals(0, fixture.editMode.beginCalls, "Preset on the same preset must be an exact no-op");
         assertEquals(0, fixture.document.dirtyUpdates);
 
-        access.setNativeBackground(folder, new NativeControlBackground.Preset(PresetColor.GREEN));
+        access.setNativeLabelColor(folder, new NativeLabelColor.Preset(PresetColor.GREEN));
         assertEquals(1, fixture.editMode.beginCalls);
         assertEquals(1, fixture.document.dirtyUpdates);
         assertEquals(LabelColorType.GREEN, fixture.face.labelColor.type);
 
-        access.setNativeBackground(folder, new NativeControlBackground.Preset(PresetColor.GREEN));
+        access.setNativeLabelColor(folder, new NativeLabelColor.Preset(PresetColor.GREEN));
         assertEquals(1, fixture.editMode.beginCalls, "Preset on the same preset after a mode change must no-op");
     }
 
@@ -216,19 +213,19 @@ class EditorNativeControlAppearanceAccessTest {
         EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
             resolver(true), "session-a"
         );
-        ControlAppearanceTarget.ParameterFolder folder =
-            new ControlAppearanceTarget.ParameterFolder(new ParameterGroupId("GroupFace"));
+        NativeLabelColorTarget folder =
+            new NativeLabelColorTarget(NativeLabelColorTarget.Palette.PARAMETER_GROUP, "GroupFace");
 
-        access.setNativeBackground(
+        access.setNativeLabelColor(
             folder,
-            new NativeControlBackground.Custom(new Color(0.1F, 0.2F, 0.3F, 0.4F))
+            new NativeLabelColor.Custom(new UiColor(0.1F, 0.2F, 0.3F, 0.4F))
         );
         assertEquals(0, fixture.editMode.beginCalls, "identical custom RGBA must be an exact no-op");
         assertEquals(0, fixture.document.dirtyUpdates);
 
-        access.setNativeBackground(
+        access.setNativeLabelColor(
             folder,
-            new NativeControlBackground.Custom(new Color(0.1F, 0.2F, 0.3F, 0.5F))
+            new NativeLabelColor.Custom(new UiColor(0.1F, 0.2F, 0.3F, 0.5F))
         );
         assertEquals(1, fixture.editMode.beginCalls, "different alpha must write");
     }
@@ -241,10 +238,10 @@ class EditorNativeControlAppearanceAccessTest {
         EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
             resolver(true), "session-a"
         );
-        ControlAppearanceTarget.ParameterFolder folder =
-            new ControlAppearanceTarget.ParameterFolder(new ParameterGroupId("GroupFace"));
+        NativeLabelColorTarget folder =
+            new NativeLabelColorTarget(NativeLabelColorTarget.Palette.PARAMETER_GROUP, "GroupFace");
 
-        access.setNativeBackground(folder, new NativeControlBackground.Preset(PresetColor.RED));
+        access.setNativeLabelColor(folder, new NativeLabelColor.Preset(PresetColor.RED));
         assertEquals(LabelColorType.RED, fixture.face.labelColor.type);
         assertEquals(
             new HostColor(0.7F, 0.6F, 0.5F, 0.4F),
@@ -252,7 +249,7 @@ class EditorNativeControlAppearanceAccessTest {
             "setLabelType must preserve the latent custom color"
         );
 
-        access.setNativeBackground(folder, new NativeControlBackground.Default());
+        access.setNativeLabelColor(folder, new NativeLabelColor.Default());
         assertEquals(LabelColorType.UNDEFINED, fixture.face.labelColor.type);
         assertEquals(
             new HostColor(0.7F, 0.6F, 0.5F, 0.4F),
@@ -271,11 +268,11 @@ class EditorNativeControlAppearanceAccessTest {
         EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
             resolver(true), "session-a"
         );
-        ControlAppearanceTarget.ParameterFolder folder =
-            new ControlAppearanceTarget.ParameterFolder(new ParameterGroupId("GroupFace"));
+        NativeLabelColorTarget folder =
+            new NativeLabelColorTarget(NativeLabelColorTarget.Palette.PARAMETER_GROUP, "GroupFace");
 
-        assertThrows(IllegalStateException.class, () -> access.setNativeBackground(
-            folder, new NativeControlBackground.Preset(PresetColor.RED)
+        assertThrows(IllegalStateException.class, () -> access.setNativeLabelColor(
+            folder, new NativeLabelColor.Preset(PresetColor.RED)
         ));
         assertEquals(0, fixture.document.dirtyUpdates, "failed write must not mark the document dirty");
         assertEquals(1, fixture.editMode.cancelledEnds, "the transaction must be cancelled");
@@ -288,7 +285,7 @@ class EditorNativeControlAppearanceAccessTest {
     }
 
     @Test
-    void snapshotFailsClosedWhenLabelColorIsReplacedDuringRead() {
+    void readNativeLabelColorFailsClosedWhenLabelColorIsReplacedDuringRead() {
         Fixture fixture = new Fixture("model-a");
         Host.install(fixture);
         final LabelColor original = fixture.face.labelColor;
@@ -297,8 +294,8 @@ class EditorNativeControlAppearanceAccessTest {
             resolver(true), "session-a"
         );
 
-        assertThrows(IllegalStateException.class, () -> access.snapshot(
-            new ControlAppearanceTarget.ParameterFolder(new ParameterGroupId("GroupFace"))
+        assertThrows(IllegalStateException.class, () -> access.readNativeLabelColor(
+            new NativeLabelColorTarget(NativeLabelColorTarget.Palette.PARAMETER_GROUP, "GroupFace")
         ));
         assertEquals(LabelColorType.BLUE, original.type, "read must not mutate anything");
     }
@@ -313,11 +310,11 @@ class EditorNativeControlAppearanceAccessTest {
         EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
             resolver(true), "session-a"
         );
-        ControlAppearanceTarget.ParameterFolder folder =
-            new ControlAppearanceTarget.ParameterFolder(new ParameterGroupId("GroupFace"));
+        NativeLabelColorTarget folder =
+            new NativeLabelColorTarget(NativeLabelColorTarget.Palette.PARAMETER_GROUP, "GroupFace");
 
-        assertThrows(IllegalStateException.class, () -> access.setNativeBackground(
-            folder, new NativeControlBackground.Preset(PresetColor.BLUE)
+        assertThrows(IllegalStateException.class, () -> access.setNativeLabelColor(
+            folder, new NativeLabelColor.Preset(PresetColor.BLUE)
         ));
         assertEquals(0, fixture.editMode.beginCalls, "a no-op must not open a transaction");
         assertEquals(0, fixture.face.labelColor.setterCalls);
@@ -333,11 +330,11 @@ class EditorNativeControlAppearanceAccessTest {
         EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
             resolver(true), "session-a"
         );
-        ControlAppearanceTarget.ParameterFolder folder =
-            new ControlAppearanceTarget.ParameterFolder(new ParameterGroupId("GroupFace"));
+        NativeLabelColorTarget folder =
+            new NativeLabelColorTarget(NativeLabelColorTarget.Palette.PARAMETER_GROUP, "GroupFace");
 
-        assertThrows(IllegalStateException.class, () -> access.setNativeBackground(
-            folder, new NativeControlBackground.Preset(PresetColor.RED)
+        assertThrows(IllegalStateException.class, () -> access.setNativeLabelColor(
+            folder, new NativeLabelColor.Preset(PresetColor.RED)
         ));
 
         assertEquals(
@@ -379,11 +376,11 @@ class EditorNativeControlAppearanceAccessTest {
         EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
             resolver(true), "session-a"
         );
-        ControlAppearanceTarget.ParameterFolder folder =
-            new ControlAppearanceTarget.ParameterFolder(new ParameterGroupId("GroupFace"));
+        NativeLabelColorTarget folder =
+            new NativeLabelColorTarget(NativeLabelColorTarget.Palette.PARAMETER_GROUP, "GroupFace");
 
-        assertThrows(IllegalStateException.class, () -> access.setNativeBackground(
-            folder, new NativeControlBackground.Preset(PresetColor.RED)
+        assertThrows(IllegalStateException.class, () -> access.setNativeLabelColor(
+            folder, new NativeLabelColor.Preset(PresetColor.RED)
         ));
 
         assertEquals(
@@ -410,10 +407,10 @@ class EditorNativeControlAppearanceAccessTest {
         EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
             resolver(true), "session-a"
         );
-        ControlAppearanceTarget.ParameterFolder folder =
-            new ControlAppearanceTarget.ParameterFolder(new ParameterGroupId("GroupFace"));
+        NativeLabelColorTarget folder =
+            new NativeLabelColorTarget(NativeLabelColorTarget.Palette.PARAMETER_GROUP, "GroupFace");
 
-        access.setNativeBackground(folder, new NativeControlBackground.Preset(PresetColor.RED));
+        access.setNativeLabelColor(folder, new NativeLabelColor.Preset(PresetColor.RED));
         fixture.editMode.undo();
 
         final String trace = String.join("\n", Files.readAllLines(
@@ -427,9 +424,9 @@ class EditorNativeControlAppearanceAccessTest {
         assertTrue(trace.contains("phase=undo-redo-listener"), trace);
         assertTrue(trace.contains("phase=dirty"), trace);
         assertTrue(trace.contains("phase=edit-end"), trace);
-        assertTrue(trace.contains("kind=native-control-background"), trace);
-        assertTrue(trace.contains("action=set-native-background"), trace);
-        assertTrue(trace.contains("sourceId=ParameterFolder:GroupFace"), trace);
+        assertTrue(trace.contains("kind=native-label-color"), trace);
+        assertTrue(trace.contains("action=set-native-label-color"), trace);
+        assertTrue(trace.contains("sourceId=ParameterGroup:GroupFace"), trace);
         assertTrue(trace.contains("family=parameterFolder"), trace);
         assertTrue(trace.contains("palette=parameterOperation"), trace);
         assertTrue(trace.contains("canvas=repaintCanvas"), trace);
@@ -449,12 +446,12 @@ class EditorNativeControlAppearanceAccessTest {
         EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
             resolver(true), "session-a"
         );
-        ControlAppearanceTarget.ParameterFolder folder =
-            new ControlAppearanceTarget.ParameterFolder(new ParameterGroupId("GroupFace"));
+        NativeLabelColorTarget folder =
+            new NativeLabelColorTarget(NativeLabelColorTarget.Palette.PARAMETER_GROUP, "GroupFace");
 
         assertThrows(dev.turboism.mapping.verification.VerifiedAccessException.class,
-            () -> access.setNativeBackground(
-                folder, new NativeControlBackground.Preset(PresetColor.RED)
+            () -> access.setNativeLabelColor(
+                folder, new NativeLabelColor.Preset(PresetColor.RED)
             ));
 
         final String trace = joinLines(Files.readAllLines(
@@ -478,11 +475,11 @@ class EditorNativeControlAppearanceAccessTest {
         EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
             resolver(true), "session-a"
         );
-        ControlAppearanceTarget.ParameterFolder folder =
-            new ControlAppearanceTarget.ParameterFolder(new ParameterGroupId("GroupFace"));
+        NativeLabelColorTarget folder =
+            new NativeLabelColorTarget(NativeLabelColorTarget.Palette.PARAMETER_GROUP, "GroupFace");
         fixture.face.labelColor.type = LabelColorType.BLUE;
 
-        access.setNativeBackground(folder, new NativeControlBackground.Preset(PresetColor.BLUE));
+        access.setNativeLabelColor(folder, new NativeLabelColor.Preset(PresetColor.BLUE));
 
         assertEquals(
             0,
@@ -500,37 +497,37 @@ class EditorNativeControlAppearanceAccessTest {
     }
 
     @Test
-    void readOnlyCapabilityAllowsSnapshotButDeniesWrite() {
+    void readOnlyCapabilityAllowsReadButDeniesWrite() {
         Host.install(new Fixture("model-a"));
         EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
             resolverReadOnly(), "session-a"
         );
-        ControlAppearanceTarget.PartLabel target =
-            new ControlAppearanceTarget.PartLabel(new PartId("PartA"));
+        NativeLabelColorTarget target =
+            new NativeLabelColorTarget(NativeLabelColorTarget.Palette.PART, "PartA");
         assertEquals(
-            new NativeControlBackground.Preset(PresetColor.RED),
-            access.snapshot(target).background()
+            new NativeLabelColor.Preset(PresetColor.RED),
+            access.readNativeLabelColor(target).labelColor()
         );
-        assertThrows(UnsupportedOperationException.class, () -> access.setNativeBackground(
-            target, new NativeControlBackground.Default()
+        assertThrows(UnsupportedOperationException.class, () -> access.setNativeLabelColor(
+            target, new NativeLabelColor.Default()
         ));
     }
 
     @Test
-    void writeOnlyCapabilityAllowsWriteButDeniesSnapshot() {
+    void writeOnlyCapabilityAllowsWriteButDeniesRead() {
         Host.install(new Fixture("model-a"));
         EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
             resolverWriteOnly(), "session-a"
         );
-        ControlAppearanceTarget.PartLabel target =
-            new ControlAppearanceTarget.PartLabel(new PartId("PartA"));
-        assertThrows(UnsupportedOperationException.class, () -> access.snapshot(target));
-        access.setNativeBackground(target, new NativeControlBackground.Preset(PresetColor.GREEN));
+        NativeLabelColorTarget target =
+            new NativeLabelColorTarget(NativeLabelColorTarget.Palette.PART, "PartA");
+        assertThrows(UnsupportedOperationException.class, () -> access.readNativeLabelColor(target));
+        access.setNativeLabelColor(target, new NativeLabelColor.Preset(PresetColor.GREEN));
         assertEquals(LabelColorType.GREEN, Host.currentDocument.modelSource().parts().get(0).labelColor.type);
     }
 
     @Test
-    void undefinedLabelWithNullHostColorSnapshotsDefaultWithUnavailableEffective() {
+    void undefinedLabelWithNullHostColorReadsDefaultWithUnavailableActualColor() {
         Fixture fixture = new Fixture("model-a");
         fixture.face.labelColor.type = LabelColorType.UNDEFINED;
         fixture.face.labelColor.color = null;
@@ -539,13 +536,13 @@ class EditorNativeControlAppearanceAccessTest {
             resolver(true), "session-a"
         );
 
-        NativeControlAppearance appearance = access.snapshot(
-            new ControlAppearanceTarget.ParameterFolder(new ParameterGroupId("GroupFace"))
+        NativeLabelColorState appearance = access.readNativeLabelColor(
+            new NativeLabelColorTarget(NativeLabelColorTarget.Palette.PARAMETER_GROUP, "GroupFace")
         );
 
-        assertEquals(new NativeControlBackground.Default(), appearance.background());
-        assertEquals(Optional.empty(), appearance.effectiveBackground(),
-            "UNDEFINED must report the effective background as unavailable, never a fabricated color");
+        assertEquals(new NativeLabelColor.Default(), appearance.labelColor());
+        assertEquals(Optional.empty(), appearance.actualColor(),
+            "UNDEFINED must report the effective label color as unavailable, never a fabricated color");
     }
 
     @Test
@@ -558,8 +555,8 @@ class EditorNativeControlAppearanceAccessTest {
             resolver(true), "session-a"
         );
 
-        assertThrows(IllegalStateException.class, () -> access.snapshot(
-            new ControlAppearanceTarget.ParameterFolder(new ParameterGroupId("GroupFace"))
+        assertThrows(IllegalStateException.class, () -> access.readNativeLabelColor(
+            new NativeLabelColorTarget(NativeLabelColorTarget.Palette.PARAMETER_GROUP, "GroupFace")
         ));
     }
 
@@ -574,8 +571,8 @@ class EditorNativeControlAppearanceAccessTest {
             resolver(true), "session-a"
         );
 
-        assertThrows(IllegalStateException.class, () -> access.snapshot(
-            new ControlAppearanceTarget.ParameterFolder(new ParameterGroupId("GroupFace"))
+        assertThrows(IllegalStateException.class, () -> access.readNativeLabelColor(
+            new NativeLabelColorTarget(NativeLabelColorTarget.Palette.PARAMETER_GROUP, "GroupFace")
         ));
     }
 
@@ -589,8 +586,8 @@ class EditorNativeControlAppearanceAccessTest {
             resolver(true), "session-a"
         );
 
-        assertThrows(IllegalStateException.class, () -> access.snapshot(
-            new ControlAppearanceTarget.ParameterFolder(new ParameterGroupId("GroupFace"))
+        assertThrows(IllegalStateException.class, () -> access.readNativeLabelColor(
+            new NativeLabelColorTarget(NativeLabelColorTarget.Palette.PARAMETER_GROUP, "GroupFace")
         ));
     }
 
@@ -601,54 +598,35 @@ class EditorNativeControlAppearanceAccessTest {
         EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
             resolver(true), "session-a"
         );
-        assertThrows(NoSuchElementException.class, () -> access.snapshot(
-            new ControlAppearanceTarget.PartLabel(new PartId("PartMissing"))
+        assertThrows(NoSuchElementException.class, () -> access.readNativeLabelColor(
+            new NativeLabelColorTarget(NativeLabelColorTarget.Palette.PART, "PartMissing")
         ));
-        assertThrows(NoSuchElementException.class, () -> access.snapshot(
-            new ControlAppearanceTarget.ParameterFolder(new ParameterGroupId("GroupMissing"))
+        assertThrows(NoSuchElementException.class, () -> access.readNativeLabelColor(
+            new NativeLabelColorTarget(NativeLabelColorTarget.Palette.PARAMETER_GROUP, "GroupMissing")
         ));
-        assertThrows(NoSuchElementException.class, () -> access.snapshot(
-            new ControlAppearanceTarget.DeformerLabel(new DeformerId("WarpMissing"))
+        assertThrows(NoSuchElementException.class, () -> access.readNativeLabelColor(
+            new NativeLabelColorTarget(NativeLabelColorTarget.Palette.DEFORMER, "WarpMissing")
         ));
 
         fixture.partA.id = new Id("PartB");
-        assertThrows(NoSuchElementException.class, () -> access.snapshot(
-            new ControlAppearanceTarget.PartLabel(new PartId("PartA"))
+        assertThrows(NoSuchElementException.class, () -> access.readNativeLabelColor(
+            new NativeLabelColorTarget(NativeLabelColorTarget.Palette.PART, "PartA")
         ));
 
         Fixture replaced = new Fixture("model-a");
         replaced.rootGroup.children.add(0, new ParameterGroup("GroupDup", replaced.rootGroup));
         replaced.rootGroup.children.add(1, new ParameterGroup("GroupDup", replaced.rootGroup));
         Host.install(replaced);
-        assertThrows(IllegalStateException.class, () -> access.snapshot(
-            new ControlAppearanceTarget.ParameterFolder(new ParameterGroupId("GroupFace"))
+        assertThrows(IllegalStateException.class, () -> access.readNativeLabelColor(
+            new NativeLabelColorTarget(NativeLabelColorTarget.Palette.PARAMETER_GROUP, "GroupFace")
         ));
 
         Host.currentDocument = null;
-        assertThrows(IllegalStateException.class, () -> access.snapshot(
-            new ControlAppearanceTarget.ParameterFolder(new ParameterGroupId("GroupFace"))
+        assertThrows(IllegalStateException.class, () -> access.readNativeLabelColor(
+            new NativeLabelColorTarget(NativeLabelColorTarget.Palette.PARAMETER_GROUP, "GroupFace")
         ));
     }
 
-    @Test
-    void parameterLabelIsOverlayOnlyAndFailsClosed() {
-        Host.install(new Fixture("model-a"));
-        EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
-            resolver(true), "session-a"
-        );
-        assertThrows(UnsupportedOperationException.class, () -> access.snapshot(
-            new ControlAppearanceTarget.ParameterLabel(
-                new dev.turboism.sdk.cubism.id.ParameterId("ParamA")
-            )
-        ));
-        assertThrows(UnsupportedOperationException.class, () -> access.setNativeBackground(
-            new ControlAppearanceTarget.ParameterLabel(
-                new dev.turboism.sdk.cubism.id.ParameterId("ParamA")
-            ),
-            new NativeControlBackground.Default()
-        ));
-        assertEquals(0, Host.INSTANCE.beginCalls());
-    }
 
     @Test
     void readsAndWritesFailClosedWithoutTheirSeparateVerifiedCapability() {
@@ -656,11 +634,11 @@ class EditorNativeControlAppearanceAccessTest {
         EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
             resolver(false), "session-a"
         );
-        ControlAppearanceTarget.PartLabel target =
-            new ControlAppearanceTarget.PartLabel(new PartId("PartA"));
-        assertThrows(UnsupportedOperationException.class, () -> access.snapshot(target));
-        assertThrows(UnsupportedOperationException.class, () -> access.setNativeBackground(
-            target, new NativeControlBackground.Default()
+        NativeLabelColorTarget target =
+            new NativeLabelColorTarget(NativeLabelColorTarget.Palette.PART, "PartA");
+        assertThrows(UnsupportedOperationException.class, () -> access.readNativeLabelColor(target));
+        assertThrows(UnsupportedOperationException.class, () -> access.setNativeLabelColor(
+            target, new NativeLabelColor.Default()
         ));
         assertEquals(0, Host.INSTANCE.beginCalls());
         assertEquals(0, Host.INSTANCE.currentDocument().dirtyUpdates);

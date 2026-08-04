@@ -523,12 +523,12 @@ public final class TurboismAgent {
         try {
             final var resolver = new dev.turboism.mapping.verification.VerifiedControlAppearanceResolverFactory()
                 .create(verificationRecord, host.artifact(), host.classLoader());
-            final long generation = runtime.hostAccess().controlAppearanceCoordinator().hostGeneration();
+            final long generation = runtime.hostAccess().paletteAppearanceCoordinator().hostGeneration();
             installer = VerifiedControlAppearanceHookInstaller.fromVerifiedResolver(
                 instrumentation,
                 resolver,
                 generation,
-                runtime.hostAccess().controlAppearanceCoordinator()
+                runtime.hostAccess().paletteAppearanceCoordinator()
             );
             installer.install();
             if (!CONTROL_APPEARANCE_HOOK.compareAndSet(null, installer)) {

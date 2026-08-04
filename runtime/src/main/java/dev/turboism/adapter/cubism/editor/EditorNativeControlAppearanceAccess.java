@@ -1,14 +1,14 @@
 package dev.turboism.adapter.cubism.editor;
 
-import dev.turboism.adapter.cubism.NativeControlAppearanceAuthoring;
+import dev.turboism.adapter.cubism.NativeLabelColorAuthoring;
+import dev.turboism.adapter.cubism.NativeLabelColorTarget;
 import dev.turboism.mapping.verification.EditorNativeControlAppearanceReadSelectorContract;
 import dev.turboism.mapping.verification.EditorNativeControlAppearanceWriteSelectorContract;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
-import dev.turboism.sdk.cubism.model.Color;
-import dev.turboism.sdk.ui.appearance.ControlAppearanceTarget;
-import dev.turboism.sdk.ui.appearance.NativeControlAppearance;
-import dev.turboism.sdk.ui.appearance.NativeControlBackground;
+import dev.turboism.sdk.ui.appearance.NativeLabelColor;
+import dev.turboism.sdk.ui.appearance.NativeLabelColorState;
 import dev.turboism.sdk.ui.appearance.PresetColor;
+import dev.turboism.sdk.ui.appearance.UiColor;
 
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -17,16 +17,16 @@ import java.util.Objects;
 import java.util.function.Supplier;
 
 /**
- * Exact, generation-bound Editor-native control label-background authoring.
+ * Exact, generation-bound Editor-native label-color authoring.
  *
  * <p>Resolves the active model source and the target fresh per operation and rejects missing,
  * stale, or ambiguous identities before mutation. Default/preset writes go through the exact
  * native {@code setLabelType} so a latent custom color is preserved; custom writes use
  * {@code setColor(CUSTOM, CColor)}.</p>
  */
-final class EditorNativeControlAppearanceAccess implements NativeControlAppearanceAuthoring {
+final class EditorNativeControlAppearanceAccess implements NativeLabelColorAuthoring {
 
-    private static final String ACTION_NAME = "Turboism: Set Native Control Background";
+    private static final String ACTION_NAME = "Turboism: Set Native Label Color";
 
     private final VerifiedMemberResolver resolver;
     private final Supplier<EditorBackedCubismModelAccess.Binding> currentBinding;
@@ -40,13 +40,13 @@ final class EditorNativeControlAppearanceAccess implements NativeControlAppearan
     }
 
     @Override
-    public NativeControlAppearance snapshot(final ControlAppearanceTarget target) {
+    public NativeLabelColorState readNativeLabelColor(final NativeLabelColorTarget target) {
         requireReadAuthorization();
         Objects.requireNonNull(target, "target");
         final EditorBackedCubismModelAccess.Binding binding = currentBinding.get();
         final Object labelColor = labelColor(binding, target);
-        final NativeControlBackground semantic = background(labelColor);
-        final NativeControlAppearance result = new NativeControlAppearance(
+        final NativeLabelColor semantic = readLabelColor(labelColor);
+        final NativeLabelColorState result = new NativeLabelColorState(
             semantic, effectiveColor(labelColor, semantic)
         );
         requireCurrent(binding);
@@ -55,22 +55,17 @@ final class EditorNativeControlAppearanceAccess implements NativeControlAppearan
     }
 
     @Override
-    public void setNativeBackground(
-        final ControlAppearanceTarget target,
-        final NativeControlBackground background
+    public void setNativeLabelColor(
+        final NativeLabelColorTarget target,
+        final NativeLabelColor color
     ) {
         Objects.requireNonNull(target, "target");
-        Objects.requireNonNull(background, "background");
-        if (target instanceof ControlAppearanceTarget.ParameterLabel) {
-            throw new UnsupportedOperationException(
-                "ParameterLabel is overlay-only; native label-background authoring is unsupported."
-            );
-        }
+        Objects.requireNonNull(color, "color");
         requireWriteAuthorization();
         final EditorBackedCubismModelAccess.Binding binding = currentBinding.get();
         final Object labelColor = labelColor(binding, target);
-        final NativeBackgroundValue requested = nativeValue(background);
-        if (exactMatch(requested, readBackground(labelColor))) {
+        final NativeLabelColorValue requested = nativeValue(color);
+        if (exactMatch(requested, readNativeValue(labelColor))) {
             requireCurrent(binding);
             requireSameLabelColor(binding, target, labelColor);
             return;
@@ -117,13 +112,13 @@ final class EditorNativeControlAppearanceAccess implements NativeControlAppearan
                 "mutation",
                 binding,
                 sourceId,
-                "requested=" + backgroundText(background)
+                "requested=" + labelColorText(color)
             );
             requireCurrent(binding);
             requireSameLabelColor(binding, target, labelColor);
-            if (!exactMatch(requested, readBackground(labelColor))) {
+            if (!exactMatch(requested, readNativeValue(labelColor))) {
                 throw new IllegalStateException(
-                    "Cubism native control background write was not applied exactly."
+                    "Cubism native label-color write was not applied exactly."
                 );
             }
             refresh(app, target, transaction, binding, sourceId);
@@ -151,7 +146,7 @@ final class EditorNativeControlAppearanceAccess implements NativeControlAppearan
         requireSameLabelColor(binding, target, labelColor);
     }
 
-    private void apply(final Object labelColor, final NativeBackgroundValue requested) {
+    private void apply(final Object labelColor, final NativeLabelColorValue requested) {
         if (requested.type() == customType()) {
             final Object hostColor = resolver.construct(
                 "cubism.editor-model.color.create",
@@ -177,32 +172,23 @@ final class EditorNativeControlAppearanceAccess implements NativeControlAppearan
 
     private Object labelColor(
         final EditorBackedCubismModelAccess.Binding binding,
-        final ControlAppearanceTarget target
+        final NativeLabelColorTarget target
     ) {
-        if (target instanceof ControlAppearanceTarget.ParameterLabel) {
-            throw new UnsupportedOperationException(
-                "ParameterLabel is overlay-only; native label-background authoring is unsupported."
-            );
-        }
         final Object source = binding.source();
         final Object value;
-        if (target instanceof ControlAppearanceTarget.ParameterFolder folder) {
-            value = groupLabelColor(source, folder.id().value());
-        } else if (target instanceof ControlAppearanceTarget.PartLabel label) {
-            value = sourceLabelColor(partSource(source, label.id().value()));
-        } else if (target instanceof ControlAppearanceTarget.PartFolder folder) {
-            value = sourceLabelColor(partSource(source, folder.id().value()));
-        } else if (target instanceof ControlAppearanceTarget.DeformerLabel label) {
-            value = sourceLabelColor(deformerSource(source, label.id().value()));
-        } else if (target instanceof ControlAppearanceTarget.DeformerControlRow row) {
-            value = sourceLabelColor(deformerSource(source, row.id().value()));
+        if (target.palette() == NativeLabelColorTarget.Palette.PARAMETER_GROUP) {
+            value = groupLabelColor(source, target.objectId());
+        } else if (target.palette() == NativeLabelColorTarget.Palette.PART) {
+            value = sourceLabelColor(partSource(source, target.objectId()));
+        } else if (target.palette() == NativeLabelColorTarget.Palette.DEFORMER) {
+            value = sourceLabelColor(deformerSource(source, target.objectId()));
         } else {
             throw new IllegalArgumentException(
-                "unsupported control appearance target: " + target.getClass().getName()
+                "unsupported native label-color target: " + target.getClass().getName()
             );
         }
         if (!resolver.isInstance("cubism.editor-model.label-color.class", value)) {
-            throw unavailable("Editor native control label color is unavailable.");
+            throw unavailable("Editor native label color is unavailable.");
         }
         return value;
     }
@@ -317,7 +303,7 @@ final class EditorNativeControlAppearanceAccess implements NativeControlAppearan
     /** Fail closed unless the target still resolves by ID to the exact same label-color object. */
     private Object requireSameLabelColor(
         final EditorBackedCubismModelAccess.Binding binding,
-        final ControlAppearanceTarget target,
+        final NativeLabelColorTarget target,
         final Object expected
     ) {
         final Object resolved = labelColor(binding, target);
@@ -334,7 +320,7 @@ final class EditorNativeControlAppearanceAccess implements NativeControlAppearan
             "cubism.editor-model.parameter-controllable-source.label-color", source
         );
         if (!resolver.isInstance("cubism.editor-model.label-color.class", value)) {
-            throw unavailable("Editor native control label color is unavailable.");
+            throw unavailable("Editor native label color is unavailable.");
         }
         return value;
     }
@@ -344,64 +330,67 @@ final class EditorNativeControlAppearanceAccess implements NativeControlAppearan
      * canonical RGBA must also match. Default/preset writes never compare against a
      * placeholder color.
      */
-    private boolean exactMatch(final NativeBackgroundValue requested, final NativeBackgroundValue current) {
+    private boolean exactMatch(
+        final NativeLabelColorValue requested,
+        final NativeLabelColorValue current
+    ) {
         if (requested.type() != current.type()) {
             return false;
         }
         return requested.type() != customType()
-            || requested.customColor().equals(current.customColor());
+            || Objects.equals(requested.customColor(), current.customColor());
     }
 
-    private NativeBackgroundValue readBackground(final Object labelColor) {
+    private NativeLabelColorValue readNativeValue(final Object labelColor) {
         final Object type = resolver.invoke("cubism.editor-model.label-color.label-type", labelColor);
         if (type == resolver.readStaticField("cubism.editor-model.label-color-type.undefined")) {
-            return new NativeBackgroundValue(type, null);
+            return new NativeLabelColorValue(type, null);
         }
         if (type == customType()) {
-            return new NativeBackgroundValue(type, customizedColor(labelColor));
+            return new NativeLabelColorValue(type, customizedColor(labelColor));
         }
         for (PresetColor preset : PresetColor.values()) {
             if (type == resolver.readStaticField(presetAlias(preset))) {
-                return new NativeBackgroundValue(type, null);
+                return new NativeLabelColorValue(type, null);
             }
         }
-        throw unavailable("Editor native control label color type is unsupported.");
+        throw unavailable("Editor native label-color type is unsupported.");
     }
 
-    private NativeControlBackground background(final Object labelColor) {
-        final Object type = resolver.invoke("cubism.editor-model.label-color.label-type", labelColor);
-        if (type == resolver.readStaticField("cubism.editor-model.label-color-type.undefined")) {
-            return new NativeControlBackground.Default();
+    private NativeLabelColor readLabelColor(final Object labelColor) {
+        final NativeLabelColorValue value = readNativeValue(labelColor);
+        if (value.type() == resolver.readStaticField("cubism.editor-model.label-color-type.undefined")) {
+            return new NativeLabelColor.Default();
         }
-        if (type == customType()) {
-            return new NativeControlBackground.Custom(customizedColor(labelColor));
+        if (value.type() == customType()) {
+            return new NativeLabelColor.Custom(value.customColor());
         }
         for (PresetColor preset : PresetColor.values()) {
-            if (type == resolver.readStaticField(presetAlias(preset))) {
-                return new NativeControlBackground.Preset(preset);
+            if (value.type() == resolver.readStaticField(presetAlias(preset))) {
+                return new NativeLabelColor.Preset(preset);
             }
         }
-        throw unavailable("Editor native control label color type is unsupported.");
+        throw unavailable("Editor native label-color type is unsupported.");
     }
 
-    private NativeBackgroundValue nativeValue(final NativeControlBackground background) {
-        if (background instanceof NativeControlBackground.Default) {
-            return new NativeBackgroundValue(
+    private NativeLabelColorValue nativeValue(final NativeLabelColor color) {
+        if (color instanceof NativeLabelColor.Default) {
+            return new NativeLabelColorValue(
                 resolver.readStaticField("cubism.editor-model.label-color-type.undefined"),
                 null
             );
         }
-        if (background instanceof NativeControlBackground.Preset preset) {
-            return new NativeBackgroundValue(
+        if (color instanceof NativeLabelColor.Preset preset) {
+            return new NativeLabelColorValue(
                 resolver.readStaticField(presetAlias(preset.color())),
                 null
             );
         }
-        if (background instanceof NativeControlBackground.Custom custom) {
-            return new NativeBackgroundValue(customType(), custom.color());
+        if (color instanceof NativeLabelColor.Custom custom) {
+            return new NativeLabelColorValue(customType(), custom.color());
         }
         throw new IllegalArgumentException(
-            "unsupported native control background: " + background.getClass().getName()
+            "unsupported native label-color: " + color.getClass().getName()
         );
     }
 
@@ -413,34 +402,34 @@ final class EditorNativeControlAppearanceAccess implements NativeControlAppearan
         return "cubism.editor-model.label-color-type." + preset.name().toLowerCase(java.util.Locale.ROOT);
     }
 
-    private Optional<Color> effectiveColor(
+    private Optional<UiColor> effectiveColor(
         final Object labelColor,
-        final NativeControlBackground semantic
+        final NativeLabelColor semantic
     ) {
         final Object color = resolver.invoke("cubism.editor-model.label-color.color", labelColor);
         if (color == null) {
-            if (semantic instanceof NativeControlBackground.Default) {
+            if (semantic instanceof NativeLabelColor.Default) {
                 return Optional.empty();
             }
             throw unavailable(
-                "Editor native control effective color is unavailable for semantic "
+                "Editor native label-color effective color is unavailable for semantic "
                     + semantic.getClass().getSimpleName()
             );
         }
-        return Optional.of(readColor(color));
+        return Optional.of(readUiColor(color));
     }
 
-    private Color customizedColor(final Object labelColor) {
-        return readColor(
+    private UiColor customizedColor(final Object labelColor) {
+        return readUiColor(
             resolver.invoke("cubism.editor-model.label-color.customized-color", labelColor)
         );
     }
 
-    private Color readColor(final Object color) {
+    private UiColor readUiColor(final Object color) {
         if (!resolver.isInstance("cubism.editor-model.color.class", color)) {
-            throw unavailable("Editor native control effective color is unavailable.");
+            throw unavailable("Editor native label-color effective color is unavailable.");
         }
-        return new Color(
+        return new UiColor(
             unit(resolver.invoke("cubism.editor-model.color.red", color), "red"),
             unit(resolver.invoke("cubism.editor-model.color.green", color), "green"),
             unit(resolver.invoke("cubism.editor-model.color.blue", color), "blue"),
@@ -453,7 +442,7 @@ final class EditorNativeControlAppearanceAccess implements NativeControlAppearan
             || !Float.isFinite(number.floatValue())
             || number.floatValue() < 0.0F
             || number.floatValue() > 1.0F) {
-            throw unavailable("Editor native control color component is invalid: " + name);
+            throw unavailable("Editor native label-color component is invalid: " + name);
         }
         return number.floatValue();
     }
@@ -472,13 +461,13 @@ final class EditorNativeControlAppearanceAccess implements NativeControlAppearan
             Boolean.TRUE
         );
         if (!(accepted instanceof Boolean value) || !value) {
-            throw new IllegalStateException("Cubism rejected the native-control background Undo entry.");
+            throw new IllegalStateException("Cubism rejected the native label-color Undo entry.");
         }
     }
 
     private void refresh(
         final Object app,
-        final ControlAppearanceTarget target,
+        final NativeLabelColorTarget target,
         final long transaction,
         final EditorBackedCubismModelAccess.Binding binding,
         final String sourceId
@@ -486,7 +475,7 @@ final class EditorNativeControlAppearanceAccess implements NativeControlAppearan
         final Object completePack = resolver.invoke(
             "cubism.editor-model.app-controller.complete-pack", app
         );
-        if (target instanceof ControlAppearanceTarget.ParameterFolder) {
+        if (target.palette() == NativeLabelColorTarget.Palette.PARAMETER_GROUP) {
             resolver.invoke(
                 "cubism.editor-model.complete-pack.update-parameter",
                 completePack,
@@ -509,15 +498,13 @@ final class EditorNativeControlAppearanceAccess implements NativeControlAppearan
                 operation,
                 Boolean.TRUE
             );
-        } else if (target instanceof ControlAppearanceTarget.PartLabel
-            || target instanceof ControlAppearanceTarget.PartFolder) {
+        } else if (target.palette() == NativeLabelColorTarget.Palette.PART) {
             resolver.invoke(
                 "cubism.editor-model.complete-pack.update-part-palette",
                 completePack,
                 Boolean.TRUE
             );
-        } else if (target instanceof ControlAppearanceTarget.DeformerLabel
-            || target instanceof ControlAppearanceTarget.DeformerControlRow) {
+        } else if (target.palette() == NativeLabelColorTarget.Palette.DEFORMER) {
             resolver.invoke(
                 "cubism.editor-model.complete-pack.update-deformer-palette",
                 completePack,
@@ -525,7 +512,7 @@ final class EditorNativeControlAppearanceAccess implements NativeControlAppearan
             );
         } else {
             throw new IllegalArgumentException(
-                "unsupported control appearance target: " + target.getClass().getName()
+                "unsupported native label-color target: " + target.getClass().getName()
             );
         }
         resolver.invoke(
@@ -562,71 +549,61 @@ final class EditorNativeControlAppearanceAccess implements NativeControlAppearan
         );
     }
 
-    private static String sourceId(final ControlAppearanceTarget target) {
-        if (target instanceof ControlAppearanceTarget.ParameterFolder value) {
-            return "ParameterFolder:" + value.id().value();
+    private static String sourceId(final NativeLabelColorTarget target) {
+        if (target.palette() == NativeLabelColorTarget.Palette.PARAMETER_GROUP) {
+            return "ParameterGroup:" + target.objectId();
         }
-        if (target instanceof ControlAppearanceTarget.PartFolder value) {
-            return "PartFolder:" + value.id().value();
+        if (target.palette() == NativeLabelColorTarget.Palette.PART) {
+            return "Part:" + target.objectId();
         }
-        if (target instanceof ControlAppearanceTarget.PartLabel value) {
-            return "PartLabel:" + value.id().value();
-        }
-        if (target instanceof ControlAppearanceTarget.DeformerControlRow value) {
-            return "DeformerControlRow:" + value.id().value();
-        }
-        if (target instanceof ControlAppearanceTarget.DeformerLabel value) {
-            return "DeformerLabel:" + value.id().value();
+        if (target.palette() == NativeLabelColorTarget.Palette.DEFORMER) {
+            return "Deformer:" + target.objectId();
         }
         return target.getClass().getSimpleName();
     }
 
-    private static String refreshFamily(final ControlAppearanceTarget target) {
-        if (target instanceof ControlAppearanceTarget.ParameterFolder) {
+    private static String refreshFamily(final NativeLabelColorTarget target) {
+        if (target.palette() == NativeLabelColorTarget.Palette.PARAMETER_GROUP) {
             return "parameterFolder";
         }
-        if (target instanceof ControlAppearanceTarget.PartLabel
-            || target instanceof ControlAppearanceTarget.PartFolder) {
+        if (target.palette() == NativeLabelColorTarget.Palette.PART) {
             return "part";
         }
-        if (target instanceof ControlAppearanceTarget.DeformerLabel
-            || target instanceof ControlAppearanceTarget.DeformerControlRow) {
+        if (target.palette() == NativeLabelColorTarget.Palette.DEFORMER) {
             return "deformer";
         }
         return "unknown";
     }
 
-    private static String refreshPalette(final ControlAppearanceTarget target) {
-        if (target instanceof ControlAppearanceTarget.ParameterFolder) {
+    private static String refreshPalette(final NativeLabelColorTarget target) {
+        if (target.palette() == NativeLabelColorTarget.Palette.PARAMETER_GROUP) {
             return "parameterOperation";
         }
-        if (target instanceof ControlAppearanceTarget.PartLabel
-            || target instanceof ControlAppearanceTarget.PartFolder) {
+        if (target.palette() == NativeLabelColorTarget.Palette.PART) {
             return "partPalette";
         }
-        if (target instanceof ControlAppearanceTarget.DeformerLabel
-            || target instanceof ControlAppearanceTarget.DeformerControlRow) {
+        if (target.palette() == NativeLabelColorTarget.Palette.DEFORMER) {
             return "deformerPalette";
         }
         return "unknown";
     }
 
-    private static String backgroundText(final NativeControlBackground background) {
-        if (background instanceof NativeControlBackground.Default) {
+    private static String labelColorText(final NativeLabelColor color) {
+        if (color instanceof NativeLabelColor.Default) {
             return "default";
         }
-        if (background instanceof NativeControlBackground.Preset preset) {
+        if (color instanceof NativeLabelColor.Preset preset) {
             return "preset(" + preset.color().name() + ")";
         }
-        if (background instanceof NativeControlBackground.Custom custom) {
+        if (color instanceof NativeLabelColor.Custom custom) {
             return "custom(rgba(" + custom.color().red() + "," + custom.color().green() + ","
                 + custom.color().blue() + "," + custom.color().alpha() + "))";
         }
-        return background.getClass().getSimpleName();
+        return color.getClass().getSimpleName();
     }
 
-    private static final String TRACE_KIND = "native-control-background";
-    private static final String TRACE_ACTION = "set-native-background";
+    private static final String TRACE_KIND = "native-label-color";
+    private static final String TRACE_ACTION = "set-native-label-color";
 
     private void requireReadAuthorization() {
         if (!resolver.authorizesFeature(
@@ -635,7 +612,7 @@ final class EditorNativeControlAppearanceAccess implements NativeControlAppearan
             EditorNativeControlAppearanceReadSelectorContract.REQUIRED_ALIASES
         )) {
             throw new UnsupportedOperationException(
-                "Native control appearance reading is unavailable without exact verified host evidence."
+                "Native label-color reading is unavailable without exact verified host evidence."
             );
         }
     }
@@ -647,7 +624,7 @@ final class EditorNativeControlAppearanceAccess implements NativeControlAppearan
             EditorNativeControlAppearanceWriteSelectorContract.REQUIRED_ALIASES
         )) {
             throw new UnsupportedOperationException(
-                "Native control appearance writing is unavailable without exact verified host evidence."
+                "Native label-color writing is unavailable without exact verified host evidence."
             );
         }
     }
@@ -664,6 +641,6 @@ final class EditorNativeControlAppearanceAccess implements NativeControlAppearan
     }
 
     /** Native type identity plus the canonical RGBA that is only meaningful for CUSTOM. */
-    private record NativeBackgroundValue(Object type, Color customColor) {
+    private record NativeLabelColorValue(Object type, UiColor customColor) {
     }
 }

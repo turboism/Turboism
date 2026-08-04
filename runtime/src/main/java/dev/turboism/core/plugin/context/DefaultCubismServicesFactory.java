@@ -10,10 +10,14 @@ import dev.turboism.adapter.cubism.service.query.ParameterQueryServiceImpl;
 import dev.turboism.adapter.cubism.service.query.SelectionQueryServiceImpl;
 import dev.turboism.adapter.cubism.service.read.CubismReadCapabilityServiceImpl;
 import dev.turboism.permissions.CubismPermissionGate;
+import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.sdk.cubism.core.CoreRuntimeInfo;
 import dev.turboism.adapter.host.PluginScopedCubismModelAccess;
 import dev.turboism.adapter.cubism.physics.PhysicsEditorCoordinator;
+import dev.turboism.adapter.cubism.NativeLabelColorAuthoring;
+import dev.turboism.ui.appearance.control.PaletteAppearanceCoordinator;
+import dev.turboism.adapter.cubism.HostSnapshotSource;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -34,11 +38,13 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
 
     private final RuntimeHostAdapters hostAdapters;
     private final CubismModelAccess modelAccess;
+    private final HostSnapshotSource appearanceSource;
     private final CoreRuntimeInfo coreRuntimeInfo;
     private final ParameterLifecycleCoordinator parameterLifecycle;
     private final PartLifecycleCoordinator partLifecycle;
     private final EditorObjectLifecycleCoordinator editorObjectLifecycle;
     private final PhysicsEditorCoordinator physicsEditorCoordinator;
+    private final PaletteAppearanceCoordinator paletteAppearanceCoordinator;
 
     DefaultCubismServicesFactory() {
         this(RuntimeHostAdapters.safeMode());
@@ -135,14 +141,66 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
         final EditorObjectLifecycleCoordinator editorObjectLifecycle,
         final PhysicsEditorCoordinator physicsEditorCoordinator
     ) {
+        this(
+            hostAdapters,
+            modelAccess,
+            coreRuntimeInfo,
+            parameterLifecycle,
+            partLifecycle,
+            editorObjectLifecycle,
+            physicsEditorCoordinator,
+            new PaletteAppearanceCoordinator()
+        );
+    }
+
+    DefaultCubismServicesFactory(
+        final RuntimeHostAdapters hostAdapters,
+        final CubismModelAccess modelAccess,
+        final CoreRuntimeInfo coreRuntimeInfo,
+        final ParameterLifecycleCoordinator parameterLifecycle,
+        final PartLifecycleCoordinator partLifecycle,
+        final EditorObjectLifecycleCoordinator editorObjectLifecycle,
+        final PhysicsEditorCoordinator physicsEditorCoordinator,
+        final PaletteAppearanceCoordinator paletteAppearanceCoordinator
+    ) {
+        this(
+            hostAdapters,
+            modelAccess,
+            coreRuntimeInfo,
+            parameterLifecycle,
+            partLifecycle,
+            editorObjectLifecycle,
+            physicsEditorCoordinator,
+            PluginScopedCubismModelAccess.appearanceSource(
+                hostAdapters.projectWorkspace(), modelAccess
+            ),
+            paletteAppearanceCoordinator
+        );
+    }
+
+    DefaultCubismServicesFactory(
+        final RuntimeHostAdapters hostAdapters,
+        final CubismModelAccess modelAccess,
+        final CoreRuntimeInfo coreRuntimeInfo,
+        final ParameterLifecycleCoordinator parameterLifecycle,
+        final PartLifecycleCoordinator partLifecycle,
+        final EditorObjectLifecycleCoordinator editorObjectLifecycle,
+        final PhysicsEditorCoordinator physicsEditorCoordinator,
+        final HostSnapshotSource appearanceSource,
+        final PaletteAppearanceCoordinator paletteAppearanceCoordinator
+    ) {
         this.hostAdapters = java.util.Objects.requireNonNull(hostAdapters, "hostAdapters");
         this.modelAccess = java.util.Objects.requireNonNull(modelAccess, "modelAccess");
+        this.appearanceSource = java.util.Objects.requireNonNull(appearanceSource, "appearanceSource");
         this.coreRuntimeInfo = java.util.Objects.requireNonNull(coreRuntimeInfo, "coreRuntimeInfo");
         this.parameterLifecycle = java.util.Objects.requireNonNull(parameterLifecycle, "parameterLifecycle");
         this.partLifecycle = java.util.Objects.requireNonNull(partLifecycle, "partLifecycle");
         this.editorObjectLifecycle = java.util.Objects.requireNonNull(editorObjectLifecycle, "editorObjectLifecycle");
         this.physicsEditorCoordinator = java.util.Objects.requireNonNull(
             physicsEditorCoordinator, "physicsEditorCoordinator"
+        );
+        this.paletteAppearanceCoordinator = java.util.Objects.requireNonNull(
+            paletteAppearanceCoordinator, "paletteAppearanceCoordinator"
         );
     }
 
@@ -154,11 +212,19 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
             dependencies.cubismAuditSink(),
             dependencies.clock()
         );
+        final PermissionChecker permissionChecker = PermissionChecker.from(permissionGate);
         final AtomicBoolean activeScope = new AtomicBoolean(true);
         dependencies.disposableScope().register(() -> activeScope.set(false));
         final CubismModelAccess pluginModelAccess = PluginScopedCubismModelAccess.bind(
             modelAccess,
-            dependencies.disposableScope()
+            dependencies.disposableScope(),
+            dependencies.descriptor().id(),
+            permissionChecker,
+            appearanceSource,
+            paletteAppearanceCoordinator,
+            modelAccess instanceof NativeLabelColorAuthoring authoring
+                ? authoring
+                : NativeLabelColorAuthoring.unavailable()
         );
         final CubismFacadeImpl facade = new CubismFacadeImpl(
             dependencies.hostSnapshotSource(),

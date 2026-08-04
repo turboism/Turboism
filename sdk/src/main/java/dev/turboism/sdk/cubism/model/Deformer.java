@@ -1,6 +1,7 @@
 package dev.turboism.sdk.cubism.model;
 
 import dev.turboism.sdk.PreviewApi;
+import dev.turboism.sdk.ui.appearance.model.DeformerAppearance;
 import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.id.ParameterId;
 
@@ -12,6 +13,9 @@ import java.util.Optional;
 public interface Deformer {
 
     DeformerId id();
+
+    /** Returns this Deformer's Cubism palette UI projection. */
+    default DeformerAppearance ui() { return DeformerAppearance.unavailable(); }
 
     default int index() { throw unavailable("Deformer index"); }
 

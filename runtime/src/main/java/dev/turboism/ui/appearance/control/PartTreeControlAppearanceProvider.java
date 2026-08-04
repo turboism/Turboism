@@ -2,15 +2,14 @@ package dev.turboism.ui.appearance.control;
 
 import java.awt.Component;
 import java.util.Objects;
-import java.util.Optional;
 
-/** Applies and restores bounded styles on native Part-tree labels. */
+/** Applies and restores bounded palette entries on native Part-tree labels. */
 public final class PartTreeControlAppearanceProvider implements AutoCloseable {
-    private final ControlAppearanceCoordinator coordinator;
+    private final PaletteAppearanceCoordinator coordinator;
     private final NativeStyleTracker styles = new NativeStyleTracker();
     private final AutoCloseable changeSubscription;
 
-    public PartTreeControlAppearanceProvider(final ControlAppearanceCoordinator coordinator) {
+    public PartTreeControlAppearanceProvider(final PaletteAppearanceCoordinator coordinator) {
         this.coordinator = Objects.requireNonNull(coordinator, "coordinator");
         this.changeSubscription = coordinator.onChange(this::restore);
     }
@@ -24,9 +23,9 @@ public final class PartTreeControlAppearanceProvider implements AutoCloseable {
         Objects.requireNonNull(partId, "partId");
         final Component target = Objects.requireNonNull(component, "component");
         if (!javax.swing.SwingUtilities.isEventDispatchThread()) return target;
-        styles.apply(target, hostGeneration == coordinator.hostGeneration()
-            ? (folder ? coordinator.partFolder(partId) : coordinator.partLabel(partId))
-            : Optional.empty());
+        styles.apply(target, coordinator.resolveCurrent(
+            hostGeneration, PaletteAppearanceCoordinator.Palette.PART, partId
+        ));
         return target;
     }
 

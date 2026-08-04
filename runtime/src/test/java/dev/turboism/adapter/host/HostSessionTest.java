@@ -1,14 +1,24 @@
 package dev.turboism.adapter.host;
 
 import dev.turboism.adapter.RuntimeHostAdapters;
+import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.adapter.cubism.ProjectWorkspaceAdapter;
+import dev.turboism.adapter.cubism.HostSnapshotSource;
 import dev.turboism.adapter.ui.StatusToolbarAdapter;
 import dev.turboism.sdk.cubism.ClipMaskSnapshot;
 import dev.turboism.sdk.cubism.ProjectSnapshot;
 import dev.turboism.sdk.cubism.WorkspaceSnapshot;
+import dev.turboism.sdk.cubism.DocumentKind;
+import dev.turboism.sdk.cubism.ProjectContentKind;
+import dev.turboism.sdk.cubism.ProjectContentSnapshot;
+import dev.turboism.sdk.cubism.ProjectFileOperation;
+import dev.turboism.sdk.cubism.ProjectFileOperationType;
 import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.ui.appearance.control.RuntimeModelAppearanceAccess;
+import dev.turboism.adapter.cubism.NativeLabelColorAuthoring;
 import dev.turboism.sdk.ui.StatusNotification;
 import org.junit.jupiter.api.Test;
+import dev.turboism.sdk.ui.appearance.PaletteEntry;
 
 import java.io.File;
 import java.net.URI;
@@ -51,6 +61,114 @@ class HostSessionTest {
     }
 
     @Test
+    void adapterAccessViewsShareHostOwnedModelAppearanceSource() {
+        final HostSession session = new HostSession(() -> Optional.empty());
+
+        final RuntimeHostAdapterAccess firstView = session.adapterAccess();
+        final RuntimeHostAdapterAccess secondView = session.adapterAccess();
+
+        assertSame(session.modelAppearanceSource(), firstView.modelAppearanceSource());
+        assertSame(firstView.modelAppearanceSource(), secondView.modelAppearanceSource());
+        session.close();
+    }
+
+    @Test
+    void projectCloseListenerRemovesOnlySuccessfulContentAndInvalidateStillClearsAll() {
+        final HostSession session = new HostSession(() -> Optional.empty());
+        final String[] contentId = {"content-a"};
+        final String[] modelId = {"model-a"};
+        final long[] token = {1L};
+        final HostSnapshotSource source = new HostSnapshotSource() {
+            @Override public Optional<HostProject> activeProject() { return Optional.empty(); }
+            @Override public Optional<HostDocument> activeDocument() {
+                return Optional.of(new HostDocument(
+                    "document-" + contentId[0], "Model", DocumentKind.MODEL,
+                    "models/" + contentId[0] + ".cmo3", Optional.empty(), Optional.of(contentId[0]),
+                    Optional.of(new HostModel(modelId[0], "Model", List.of(), List.of(), List.of())),
+                    Optional.empty()
+                ));
+            }
+            @Override public Optional<HostModel> activeModel() {
+                return Optional.of(new HostModel(modelId[0], "Model", List.of(), List.of(), List.of()));
+            }
+            @Override public HostSelection selection() {
+                return new HostSelection(List.of(), Optional.empty(), Optional.empty(), Optional.empty());
+            }
+            @Override public boolean isHostPresent() { return true; }
+            @Override public long invalidationToken() { return token[0]; }
+        };
+        final RuntimeModelAppearanceAccess accessA = RuntimeModelAppearanceAccess.create(
+            "plugin-a", 1L, PermissionChecker.allowAll(), source,
+            session.paletteAppearanceCoordinator(), () -> 0L, () -> 0L, () -> 0L,
+            NativeLabelColorAuthoring.unavailable()
+        );
+        final PaletteEntry aEntry = accessA.part("model-a", "PartA", 0L)
+            .partPaletteEntry().orElseThrow();
+        aEntry.overrideBold(true);
+
+        contentId[0] = "content-b";
+        modelId[0] = "model-b";
+        token[0] = 2L;
+        final RuntimeModelAppearanceAccess accessB = RuntimeModelAppearanceAccess.create(
+            "plugin-b", 1L, PermissionChecker.allowAll(), source,
+            session.paletteAppearanceCoordinator(), () -> 0L, () -> 0L, () -> 0L,
+            NativeLabelColorAuthoring.unavailable()
+        );
+        final PaletteEntry bEntry = accessB.part("model-b", "PartA", 0L)
+            .partPaletteEntry().orElseThrow();
+        bEntry.overrideBold(false);
+
+        final ProjectFileOperation closeA = new ProjectFileOperation(
+            ProjectContentKind.MODEL, ProjectFileOperationType.CLOSE,
+            Optional.of("content-a"), "Model A", Optional.empty()
+        );
+        final ProjectContentSnapshot contentA = new ProjectContentSnapshot(
+            "content-a", "Model A", ProjectContentKind.MODEL, Optional.empty(), List.of(), List.of()
+        );
+        session.projectFileLifecycle().complete(
+            session.projectFileLifecycle().begin(closeA), contentA, true, null
+        );
+        session.projectFileLifecycle().awaitIdle();
+        assertEquals(Optional.of(false), bEntry.resolved().bold());
+
+        contentId[0] = "content-a";
+        modelId[0] = "model-a";
+        token[0] = 3L;
+        final RuntimeModelAppearanceAccess afterCloseAccess = RuntimeModelAppearanceAccess.create(
+            "plugin-closed", 1L, PermissionChecker.allowAll(), source,
+            session.paletteAppearanceCoordinator(), () -> 0L, () -> 0L, () -> 0L,
+            NativeLabelColorAuthoring.unavailable()
+        );
+        final PaletteEntry afterCloseEntry = afterCloseAccess.part("model-a", "PartA", 0L)
+            .partPaletteEntry().orElseThrow();
+        assertTrue(afterCloseEntry.resolved().bold().isEmpty());
+        final RuntimeModelAppearanceAccess rejectedAccess = RuntimeModelAppearanceAccess.create(
+            "plugin-c", 1L, PermissionChecker.allowAll(), source,
+            session.paletteAppearanceCoordinator(), () -> 0L, () -> 0L, () -> 0L,
+            NativeLabelColorAuthoring.unavailable()
+        );
+        final PaletteEntry rejectedEntry = rejectedAccess.part("model-a", "PartA", 0L)
+            .partPaletteEntry().orElseThrow();
+        rejectedEntry.overrideBold(true);
+        final ProjectFileOperation closeRejected = new ProjectFileOperation(
+            ProjectContentKind.MODEL, ProjectFileOperationType.CLOSE,
+            Optional.of("content-a"), "Model A", Optional.empty()
+        );
+        session.projectFileLifecycle().complete(
+            session.projectFileLifecycle().begin(closeRejected), contentA, false, null
+        );
+        session.projectFileLifecycle().complete(
+            session.projectFileLifecycle().begin(closeRejected), contentA, false,
+            new IllegalStateException("native close failed")
+        );
+        assertEquals(Optional.of(true), rejectedEntry.resolved().bold());
+
+        assertEquals(HostSession.State.SAFE_MODE, session.refresh());
+        assertTrue(rejectedEntry.resolved().bold().isEmpty());
+        session.close();
+    }
+
+    @Test
     void dynamicAdaptersFollowConnectDisconnectAndCloseWithoutLeakingOldDelegate() {
         AtomicReference<HostInstanceDescriptor> current = new AtomicReference<>();
         HostInstanceSource source = () -> Optional.ofNullable(current.get());
@@ -65,6 +183,9 @@ class HostSessionTest {
 
         current.set(descriptor("session-a"));
         assertEquals(HostSession.State.ACTIVE, session.refresh());
+        final long editorUiGeneration = session.editorUiLifecycle().snapshot().generation();
+        assertTrue(editorUiGeneration > 0);
+        assertEquals(editorUiGeneration, session.paletteAppearanceCoordinator().hostGeneration());
         assertEquals("session-a", dynamic.projectWorkspace().activeProject()
             .value().orElseThrow().orElseThrow().projectId());
 
@@ -75,6 +196,7 @@ class HostSessionTest {
 
         current.set(null);
         assertEquals(HostSession.State.SAFE_MODE, session.refresh());
+        assertEquals(0L, session.paletteAppearanceCoordinator().hostGeneration());
         assertFalse(dynamic.projectWorkspace().activeProject().isAvailable());
 
         session.close();
