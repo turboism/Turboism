@@ -171,6 +171,7 @@ Use **Lock default** and **Unlock default** in the validation window.
 
 ```text
 matrix
+statistics-read
 binding-read
 binding-matrix
 parameter-menu-smoke
