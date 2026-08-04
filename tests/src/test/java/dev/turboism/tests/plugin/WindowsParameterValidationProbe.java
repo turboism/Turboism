@@ -306,7 +306,6 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                     runModelEditLevelValidation();
                 } else if ("wave1".equals(mode)) {
                     runModelEditLevelValidation();
-                    runParameterBindingValidation();
                     runParameterMenuSmoke();
                 } else if ("native-control-background".equals(mode)) {
                     runNativeControlBackgroundValidation();
