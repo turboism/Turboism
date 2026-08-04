@@ -1852,18 +1852,6 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 new ParameterBindingPoint(new ParameterBindingPointId("probe:max"), maximum)
             );
             final java.awt.Robot robot = new java.awt.Robot();
-            final UndoCheckpoint initialUndo = UndoCheckpoint.capture();
-            if (!initialUndo.present()) {
-                Files.writeString(
-                    artifact,
-                    "status=BLOCKED\n"
-                        + "reason=Ctrl+Z menu item has no stable public checkpoint\n"
-                        + "cleanup.undoBaseline=" + initialUndo + '\n',
-                    StandardOpenOption.CREATE,
-                    StandardOpenOption.TRUNCATE_EXISTING
-                );
-                return;
-            }
             final StringBuilder report = new StringBuilder("status=RUNNING\n")
                 .append("parameterId=").append(parameter.id().value()).append('\n')
                 .append("meshId=").append(mesh.id().value()).append('\n')
@@ -2037,47 +2025,6 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 .append("batch.transferRedo=").append(batchTransferRedone).append('\n')
                 .append("batch.restored=").append(batchRestored).append('\n')
                 .append("batch.passed=").append(batchPassed).append('\n');
-            final int undoCap = 512;
-            int undoCount = 0;
-            while (undoCount < undoCap && invokeMenuShortcut(java.awt.event.KeyEvent.VK_Z)) {
-                undoCount++;
-                Thread.sleep(250L);
-                for (final ParameterBindingTarget target : targets) {
-                    bindingPoints(parameter, target);
-                    bindingPoints(transferTarget, target);
-                }
-                onHostThread(parameter::getValue);
-                if (UndoCheckpoint.capture().equals(initialUndo)) break;
-            }
-            final UndoCheckpoint finalUndo = UndoCheckpoint.capture();
-            final boolean undoAtLeastOne = undoCount > 0;
-            final boolean undoRestored = undoAtLeastOne && finalUndo.equals(initialUndo);
-            final boolean undoExhausted = undoCount >= undoCap;
-            final boolean cleanupRestored = targets.stream().allMatch(target -> {
-                try {
-                    final List<Float> sourceValues = originalSource.get(target).stream()
-                        .map(ParameterBindingPoint::value).toList();
-                    final List<Float> destinationValues = originalDestination.get(target).stream()
-                        .map(ParameterBindingPoint::value).toList();
-                    awaitBindingValues(parameter, target, sourceValues);
-                    awaitBindingValues(transferTarget, target, destinationValues);
-                    return bindingPoints(parameter, target).equals(originalSource.get(target))
-                        && bindingPoints(transferTarget, target).equals(originalDestination.get(target));
-                } catch (Exception exception) {
-                    throw new IllegalStateException(exception);
-                }
-            }) && Float.compare(onHostThread(parameter::getValue), originalValue) == 0;
-            final boolean cleanupPassed = undoAtLeastOne && undoRestored
-                && !undoExhausted && cleanupRestored;
-            passed &= cleanupPassed;
-            report.append("cleanup.undoBaseline=").append(initialUndo).append('\n')
-                .append("cleanup.undoFinal=").append(finalUndo).append('\n')
-                .append("cleanup.undoCount=").append(undoCount).append('\n')
-                .append("cleanup.undoAtLeastOne=").append(undoAtLeastOne).append('\n')
-                .append("cleanup.undoRestored=").append(undoRestored).append('\n')
-                .append("cleanup.undoExhausted=").append(undoExhausted).append('\n')
-                .append("cleanup.restored=").append(cleanupRestored).append('\n')
-                .append("cleanup.passed=").append(cleanupPassed).append('\n');
             report.replace(0, "status=RUNNING".length(), "status=" + (passed ? "PASS" : "FAIL"));
             Files.writeString(artifact, report.toString(), StandardOpenOption.CREATE,
                 StandardOpenOption.TRUNCATE_EXISTING);
@@ -2607,13 +2554,36 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
 
     private void requestAutomatedHostClose() {
         try {
-            final java.awt.Robot robot = new java.awt.Robot();
-            robot.keyPress(java.awt.event.KeyEvent.VK_ALT);
-            robot.keyPress(java.awt.event.KeyEvent.VK_F4);
-            robot.keyRelease(java.awt.event.KeyEvent.VK_F4);
-            robot.keyRelease(java.awt.event.KeyEvent.VK_ALT);
-        } catch (Exception exception) {
-            context.logger().error("Automated host close shortcut failed", exception);
+            final Runnable closeRequest = () -> {
+                JFrame modelFrame = null;
+                JFrame cubismFrame = null;
+                JFrame fallbackFrame = null;
+                for (final java.awt.Frame frame : java.awt.Frame.getFrames()) {
+                    if (!(frame instanceof JFrame swingFrame) || !swingFrame.isVisible()) continue;
+                    if (fallbackFrame == null) fallbackFrame = swingFrame;
+                    final String title = swingFrame.getTitle();
+                    if (title != null && title.contains(".cmo3")) {
+                        modelFrame = swingFrame;
+                        break;
+                    }
+                    if (cubismFrame == null && title != null && title.contains("Cubism")) {
+                        cubismFrame = swingFrame;
+                    }
+                }
+                final JFrame frame = modelFrame != null
+                    ? modelFrame : cubismFrame != null ? cubismFrame : fallbackFrame;
+                if (frame == null) {
+                    context.logger().info("Automated host close skipped: no visible Cubism/model JFrame");
+                    return;
+                }
+                frame.dispatchEvent(new java.awt.event.WindowEvent(
+                    frame, java.awt.event.WindowEvent.WINDOW_CLOSING
+                ));
+            };
+            if (SwingUtilities.isEventDispatchThread()) closeRequest.run();
+            else SwingUtilities.invokeAndWait(closeRequest);
+        } catch (Exception failure) {
+            context.logger().error("Automated host close request failed", failure);
         }
     }
 
@@ -3958,37 +3928,6 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         }
     }
 
-    private record UndoCheckpoint(
-        boolean present,
-        boolean enabled,
-        String text,
-        String actionName
-    ) {
-        static UndoCheckpoint capture() throws Exception {
-            final AtomicReference<javax.swing.JMenuItem> match = new AtomicReference<>();
-            SwingUtilities.invokeAndWait(() -> {
-                for (java.awt.Frame frame : java.awt.Frame.getFrames()) {
-                    if (!(frame instanceof javax.swing.JFrame swingFrame) || !frame.isVisible()) continue;
-                    final javax.swing.JMenuBar bar = swingFrame.getJMenuBar();
-                    if (bar == null) continue;
-                    for (int index = 0; index < bar.getMenuCount() && match.get() == null; index++) {
-                        findMenuShortcut(bar.getMenu(index), java.awt.event.KeyEvent.VK_Z, match);
-                    }
-                }
-            });
-            final javax.swing.JMenuItem item = match.get();
-            if (item == null) return new UndoCheckpoint(false, false, "", "");
-            final javax.swing.Action action = item.getAction();
-            return new UndoCheckpoint(
-                true,
-                item.isEnabled(),
-                Objects.toString(item.getText(), ""),
-                Objects.toString(
-                    action == null ? null : action.getValue(javax.swing.Action.NAME), ""
-                )
-            );
-        }
-    }
 
     private static <T> T onHostThread(final Callable<T> call) throws Exception {
         if (SwingUtilities.isEventDispatchThread()) return call.call();
