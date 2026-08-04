@@ -90,7 +90,7 @@ public final class CoreAcquisitionProbeAgent {
         }
 
         if (timedOut) {
-            finish(stateDir, last, "FAIL", "NO_PUBLIC_BRIDGE",
+            finish(stateDir, last, "FAIL", "ERROR",
                 "TIMEOUT_NO_USABLE_DOCUMENT_OR_CLASSES", config);
             return;
         }
@@ -138,10 +138,17 @@ public final class CoreAcquisitionProbeAgent {
         final Raw first = captureOnce(loaded, tokens);
         final Raw second = captureOnce(loaded, tokens);
         final Raw third = captureOnce(loaded, tokens);
-        final boolean stable = first.document != null && sameIdentity(first, second) && sameIdentity(second, third);
+        final boolean stable = usable(first, loaded) && sameIdentity(first, second) && sameIdentity(second, third);
         final Observation observation = toObservation(third, tokens, stable ? 3 : 0);
         tokens.clear();
         return new StableCapture(observation, stable);
+    }
+
+    private static boolean usable(final Raw raw, final Loaded loaded) {
+        return raw != null && loaded.document.isInstance(raw.document) && loaded.source.isInstance(raw.source)
+            && loaded.model.isInstance(raw.current) && raw.document == raw.packDocument
+            && raw.document == raw.sourceDocument && containsIdentity(raw.modelInstances, raw.current)
+            && (raw.view == null || loaded.model.isInstance(raw.viewModel));
     }
 
     private static Raw captureOnce(final Loaded loaded, final TokenBook tokens) {
@@ -150,6 +157,8 @@ public final class CoreAcquisitionProbeAgent {
         final Object pack = invokeGetter(app, "getCompletePack");
         final Object packDocument = invokeGetter(pack, "getCurrentDoc");
         final Object source = loaded.document.isInstance(document) ? invokeGetter(document, "getModelSource") : null;
+        final Object sourceDocument = loaded.source.isInstance(source) ? invokeGetter(source, "getDocument") : null;
+        final List<Object> modelInstances = objectList(invokeGetter(source, "getModelInstances"));
         final Object viewContext = loaded.document.isInstance(document) ? invokeGetter(document, "getLastActiveViewContext") : null;
         final Object view = loaded.view.isInstance(viewContext) ? viewContext : null;
         final Object current = loaded.source.isInstance(source) ? invokeGetter(source, "getCurrentInstance") : null;
@@ -161,30 +170,53 @@ public final class CoreAcquisitionProbeAgent {
         candidates.put("current", current);
         candidates.put("view", view);
         candidates.put("viewModel", viewModel);
+        for (int index = 0; index < modelInstances.size(); index++) {
+            candidates.put("modelInstance[" + index + "]", modelInstances.get(index));
+        }
         final List<Bridge> bridges = findBridges(candidates, loaded, tokens);
         final Bridge bridge = bridges.size() == 1 ? bridges.get(0) : null;
         final String bridgeStatus = bridges.isEmpty() ? "NO_PUBLIC_BRIDGE"
             : bridges.size() > 1 ? "AMBIGUOUS" : "FOUND";
         final Map<String, String> counts = bridge == null ? Map.of() : structuralCounts(bridge.model);
-        return new Raw(document, source, current, view, viewModel, packDocument, bridgeStatus, bridge, counts,
-            loaded, tokens);
+        return new Raw(document, source, sourceDocument, current, view, viewModel, packDocument, modelInstances,
+            bridgeStatus, bridge, counts, loaded);
+    }
+
+    private static List<Object> objectList(final Object value) {
+        if (!(value instanceof List<?> list)) return List.of();
+        return new ArrayList<>(list);
+    }
+
+    private static boolean containsIdentity(final List<Object> values, final Object expected) {
+        for (Object value : values) if (value == expected) return true;
+        return false;
     }
 
     private static Observation toObservation(final Raw raw, final TokenBook tokens, final int stableSnapshots) {
         final List<Candidate> candidates = new ArrayList<>();
         addCandidate(candidates, "document", raw.document, tokens);
         addCandidate(candidates, "source", raw.source, tokens);
+        addCandidate(candidates, "sourceDocument", raw.sourceDocument, tokens);
         addCandidate(candidates, "current", raw.current, tokens);
         addCandidate(candidates, "view", raw.view, tokens);
         addCandidate(candidates, "viewModel", raw.viewModel, tokens);
         addCandidate(candidates, "packDocument", raw.packDocument, tokens);
-        final IdentityFlags identity = new IdentityFlags(raw.document == raw.source, raw.document == raw.current,
-            raw.document == raw.view, raw.source == raw.current, raw.source == raw.view, raw.current == raw.view);
+        for (int index = 0; index < raw.modelInstances.size(); index++) {
+            addCandidate(candidates, "modelInstance[" + index + "]", raw.modelInstances.get(index), tokens);
+        }
+        final IdentityFlags identity = new IdentityFlags(
+            raw.document == raw.packDocument,
+            raw.document == raw.sourceDocument,
+            raw.current != null && raw.current == raw.viewModel,
+            containsIdentity(raw.modelInstances, raw.current)
+        );
         return new Observation(raw.bridgeStatus, raw.bridge == null ? null
             : new BridgeInfo(raw.bridge.candidate, raw.bridge.method, raw.bridge.token), raw.counts, candidates,
             identity, hash(raw.loaded.app), hash(raw.loaded.coreModel), codeSource(raw.loaded.app),
-            codeSource(raw.loaded.coreModel), loaderName(raw.loaded.app), loaderName(raw.loaded.coreModel), stableSnapshots,
-            SwingUtilities.isEventDispatchThread());
+            codeSource(raw.loaded.coreModel), loaderName(raw.loaded.app), loaderName(raw.loaded.coreModel),
+            tokens.loaderToken(raw.loaded.app.getClassLoader()), tokens.loaderToken(raw.loaded.coreModel.getClassLoader()),
+            raw.loaded.app.getClassLoader() == raw.loaded.coreModel.getClassLoader(), raw.modelInstances.size(),
+            Thread.currentThread().getName(), stableSnapshots, SwingUtilities.isEventDispatchThread());
     }
 
     private static void addCandidate(final List<Candidate> candidates, final String name, final Object value,
@@ -283,8 +315,15 @@ public final class CoreAcquisitionProbeAgent {
 
     private static boolean sameIdentity(final Raw left, final Raw right) {
         return right != null && left.document == right.document && left.source == right.source
-            && left.current == right.current && left.view == right.view && left.viewModel == right.viewModel
-            && left.packDocument == right.packDocument;
+            && left.sourceDocument == right.sourceDocument && left.current == right.current && left.view == right.view
+            && left.viewModel == right.viewModel && left.packDocument == right.packDocument
+            && sameIdentityList(left.modelInstances, right.modelInstances);
+    }
+
+    private static boolean sameIdentityList(final List<Object> left, final List<Object> right) {
+        if (left.size() != right.size()) return false;
+        for (int index = 0; index < left.size(); index++) if (left.get(index) != right.get(index)) return false;
+        return true;
     }
 
     private static void sleep(final long millis) {
@@ -343,9 +382,10 @@ public final class CoreAcquisitionProbeAgent {
         field(json, "profile", profile, true, true);
         field(json, "status", status, true, true);
         field(json, "bridgeStatus", bridgeStatus, true, true);
-        field(json, "thread", observation == null ? Thread.currentThread().getName() : "AWT-EventQueue", true, true);
+        field(json, "thread", observation == null ? Thread.currentThread().getName() : observation.thread, true, true);
         field(json, "edt", observation != null && observation.edt, false, true);
         field(json, "stableSnapshots", observation == null ? 0 : observation.stableSnapshots, false, true);
+        field(json, "modelInstancesCount", observation == null ? 0 : observation.modelInstancesCount, false, true);
         field(json, "expectedEditorSha256", expectedEditor, true, true);
         field(json, "expectedCoreSha256", expectedCore, true, true);
         field(json, "actualEditorSha256", actualEditor, true, true);
@@ -356,6 +396,9 @@ public final class CoreAcquisitionProbeAgent {
         field(json, "coreCodeSource", observation == null ? "" : observation.coreCodeSource, true, true);
         field(json, "editorClassLoader", observation == null ? "" : observation.editorLoader, true, true);
         field(json, "coreClassLoader", observation == null ? "" : observation.coreLoader, true, true);
+        field(json, "editorClassLoaderToken", observation == null ? 0 : observation.editorLoaderToken, false, true);
+        field(json, "coreClassLoaderToken", observation == null ? 0 : observation.coreLoaderToken, false, true);
+        field(json, "sameDefiningClassLoader", observation != null && observation.sameDefiningLoader, false, true);
         json.append("  \"candidates\": ");
         appendCandidates(json, observation);
         if (observation != null && observation.bridge != null) {
@@ -374,15 +417,15 @@ public final class CoreAcquisitionProbeAgent {
         }
         json.append(",\n  \"identityEquality\": {");
         final IdentityFlags identity = observation == null ? IdentityFlags.NONE : observation.identity;
-        json.append("\"documentSource\":").append(identity.documentSource)
-            .append(",\"documentCurrent\":").append(identity.documentCurrent)
-            .append(",\"documentView\":").append(identity.documentView)
-            .append(",\"sourceCurrent\":").append(identity.sourceCurrent)
-            .append(",\"sourceView\":").append(identity.sourceView)
-            .append(",\"currentView\":").append(identity.currentView).append('}');
+        json.append("\"documentPackDocument\":").append(identity.documentPackDocument)
+            .append(",\"documentSourceDocument\":").append(identity.documentSourceDocument)
+            .append(",\"currentViewModel\":").append(identity.currentViewModel)
+            .append(",\"currentInModelInstances\":").append(identity.currentInModelInstances).append('}');
         json.append(",\n  \"assertions\": {\"publicReflectionOnly\":true,\"edtHostCalls\":")
             .append(observation != null && observation.edt)
             .append(",\"identityStableThreeSnapshots\":").append(observation != null && observation.stableSnapshots == 3)
+            .append(",\"activeBindingCorroborated\":")
+            .append(identity.documentPackDocument && identity.documentSourceDocument && identity.currentInModelInstances)
             .append(",\"noMutationOperations\":true}");
         if (error != null) json.append(",\n  \"error\":\"").append(escape(error)).append('"');
         return json.append("\n}\n").toString();
@@ -434,9 +477,7 @@ public final class CoreAcquisitionProbeAgent {
                 final byte[] buffer = new byte[8192];
                 for (int read; (read = input.read(buffer)) >= 0;) if (read > 0) digest.update(buffer, 0, read);
             }
-            final StringBuilder result = new StringBuilder();
-            for (byte value : digest.digest()) result.append(String.format("%02x", value));
-            return result.toString();
+            return java.util.HexFormat.of().formatHex(digest.digest());
         } catch (Exception ignored) { return ""; }
     }
 
@@ -474,19 +515,31 @@ public final class CoreAcquisitionProbeAgent {
             this.expectedCoreSha256 = expectedCoreSha256;
         }
         static Config read() {
-            return new Config(required("turboism.validation.runId"), required("turboism.coreAcquisition.profile"),
-                required("turboism.coreAcquisition.expectedEditorSha256"), required("turboism.coreAcquisition.expectedCoreSha256"));
+            final String profile = required("turboism.coreAcquisition.profile");
+            if (!"cubism-5.2".equals(profile) && !"cubism-5.3.02".equals(profile)) {
+                throw new IllegalArgumentException("unsupported Core acquisition profile: " + profile);
+            }
+            final String editor = digest("turboism.coreAcquisition.expectedEditorSha256");
+            final String core = digest("turboism.coreAcquisition.expectedCoreSha256");
+            return new Config(required("turboism.validation.runId"), profile, editor, core);
         }
         boolean hashesMatch(final Observation observation) {
-            return observation != null && expectedEditorSha256.equalsIgnoreCase(observation.editorSha256)
-                && expectedCoreSha256.equalsIgnoreCase(observation.coreSha256);
+            return observation != null && expectedEditorSha256.equals(observation.editorSha256)
+                && expectedCoreSha256.equals(observation.coreSha256);
+        }
+        private static String digest(final String key) {
+            final String value = required(key).toLowerCase(Locale.ROOT);
+            if (!value.matches("[0-9a-f]{64}")) {
+                throw new IllegalArgumentException("invalid SHA-256 property: " + key);
+            }
+            return value;
         }
     }
 
     private static String required(final String key) {
         final String value = System.getProperty(key);
         if (blank(value)) throw new IllegalArgumentException("missing required property: " + key);
-        return value;
+        return value.trim();
     }
 
     private static final class Loaded {
@@ -522,13 +575,16 @@ public final class CoreAcquisitionProbeAgent {
     }
 
     private static final class Raw {
-        final Object document, source, current, view, viewModel, packDocument;
+        final Object document, source, sourceDocument, current, view, viewModel, packDocument;
+        final List<Object> modelInstances;
         final String bridgeStatus; final Bridge bridge; final Map<String, String> counts; final Loaded loaded;
-        Raw(Object document, Object source, Object current, Object view, Object viewModel, Object packDocument,
-            String bridgeStatus, Bridge bridge, Map<String, String> counts, Loaded loaded, TokenBook tokens) {
-            this.document = document; this.source = source; this.current = current; this.view = view;
-            this.viewModel = viewModel; this.packDocument = packDocument; this.bridgeStatus = bridgeStatus;
-            this.bridge = bridge; this.counts = counts; this.loaded = loaded;
+        Raw(Object document, Object source, Object sourceDocument, Object current, Object view, Object viewModel,
+            Object packDocument, List<Object> modelInstances, String bridgeStatus, Bridge bridge,
+            Map<String, String> counts, Loaded loaded) {
+            this.document = document; this.source = source; this.sourceDocument = sourceDocument; this.current = current;
+            this.view = view; this.viewModel = viewModel; this.packDocument = packDocument;
+            this.modelInstances = modelInstances; this.bridgeStatus = bridgeStatus; this.bridge = bridge;
+            this.counts = counts; this.loaded = loaded;
         }
     }
 
@@ -545,16 +601,23 @@ public final class CoreAcquisitionProbeAgent {
     }
 
     private static final class Observation {
-        final String bridgeStatus, editorSha256, coreSha256, editorCodeSource, coreCodeSource, editorLoader, coreLoader;
+        final String bridgeStatus, editorSha256, coreSha256, editorCodeSource, coreCodeSource;
+        final String editorLoader, coreLoader, thread;
         final BridgeInfo bridge; final Map<String, String> counts; final List<Candidate> candidates;
-        final IdentityFlags identity; final int stableSnapshots; final boolean edt;
+        final IdentityFlags identity; final int editorLoaderToken, coreLoaderToken, modelInstancesCount, stableSnapshots;
+        final boolean sameDefiningLoader, edt;
         Observation(String bridgeStatus, BridgeInfo bridge, Map<String, String> counts, List<Candidate> candidates,
                     IdentityFlags identity, String editorSha256, String coreSha256, String editorCodeSource,
-                    String coreCodeSource, String editorLoader, String coreLoader, int stableSnapshots, boolean edt) {
+                    String coreCodeSource, String editorLoader, String coreLoader, int editorLoaderToken,
+                    int coreLoaderToken, boolean sameDefiningLoader, int modelInstancesCount, String thread,
+                    int stableSnapshots, boolean edt) {
             this.bridgeStatus = bridgeStatus; this.bridge = bridge; this.counts = Map.copyOf(counts);
             this.candidates = List.copyOf(candidates); this.identity = identity; this.editorSha256 = editorSha256;
             this.coreSha256 = coreSha256; this.editorCodeSource = editorCodeSource; this.coreCodeSource = coreCodeSource;
-            this.editorLoader = editorLoader; this.coreLoader = coreLoader; this.stableSnapshots = stableSnapshots; this.edt = edt;
+            this.editorLoader = editorLoader; this.coreLoader = coreLoader; this.editorLoaderToken = editorLoaderToken;
+            this.coreLoaderToken = coreLoaderToken; this.sameDefiningLoader = sameDefiningLoader;
+            this.modelInstancesCount = modelInstancesCount; this.thread = thread;
+            this.stableSnapshots = stableSnapshots; this.edt = edt;
         }
     }
 
@@ -572,12 +635,14 @@ public final class CoreAcquisitionProbeAgent {
     }
 
     private static final class IdentityFlags {
-        static final IdentityFlags NONE = new IdentityFlags(false, false, false, false, false, false);
-        final boolean documentSource, documentCurrent, documentView, sourceCurrent, sourceView, currentView;
-        IdentityFlags(boolean documentSource, boolean documentCurrent, boolean documentView, boolean sourceCurrent,
-                      boolean sourceView, boolean currentView) {
-            this.documentSource = documentSource; this.documentCurrent = documentCurrent; this.documentView = documentView;
-            this.sourceCurrent = sourceCurrent; this.sourceView = sourceView; this.currentView = currentView;
+        static final IdentityFlags NONE = new IdentityFlags(false, false, false, false);
+        final boolean documentPackDocument, documentSourceDocument, currentViewModel, currentInModelInstances;
+        IdentityFlags(boolean documentPackDocument, boolean documentSourceDocument, boolean currentViewModel,
+                      boolean currentInModelInstances) {
+            this.documentPackDocument = documentPackDocument;
+            this.documentSourceDocument = documentSourceDocument;
+            this.currentViewModel = currentViewModel;
+            this.currentInModelInstances = currentInModelInstances;
         }
     }
 }
