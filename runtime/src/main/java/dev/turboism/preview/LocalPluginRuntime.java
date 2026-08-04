@@ -1,9 +1,11 @@
 package dev.turboism.preview;
 
 import dev.turboism.adapter.host.RuntimeHostAdapterAccess;
+import dev.turboism.adapter.cubism.lifecycle.EditorLifecycleCoordinator;
+import dev.turboism.adapter.cubism.lifecycle.EditorObjectLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.ParameterLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.PartLifecycleCoordinator;
-import dev.turboism.adapter.cubism.lifecycle.EditorObjectLifecycleCoordinator;
+import dev.turboism.adapter.cubism.lifecycle.ProjectFileLifecycleCoordinator;
 import dev.turboism.cleanup.CleanupEvidenceCollector;
 import dev.turboism.core.lifecycle.PluginLifecycleState;
 import dev.turboism.core.plugin.PluginRuntime;
@@ -31,6 +33,8 @@ public final class LocalPluginRuntime implements AutoCloseable {
     private final ParameterLifecycleCoordinator parameterLifecycle;
     private final PartLifecycleCoordinator partLifecycle;
     private final EditorObjectLifecycleCoordinator editorObjectLifecycle;
+    private final ProjectFileLifecycleCoordinator projectFileLifecycle;
+    private final EditorLifecycleCoordinator editorLifecycleEvents;
     private final List<LoadedPlugin> loaded = new ArrayList<>();
     private final dev.turboism.pluginmanagement.RuntimePluginManagementService pluginManagement;
     private final PreviewPluginContextFactory contextFactory;
@@ -55,7 +59,9 @@ public final class LocalPluginRuntime implements AutoCloseable {
             (pluginId, phase) -> { },
             hostAccess.parameterLifecycle(),
             hostAccess.partLifecycle(),
-            hostAccess.editorObjectLifecycle()
+            hostAccess.editorObjectLifecycle(),
+            hostAccess.projectFileLifecycle(),
+            hostAccess.editorLifecycleEvents()
         );
     }
 
@@ -76,7 +82,9 @@ public final class LocalPluginRuntime implements AutoCloseable {
             (pluginId, phase) -> { },
             parameterLifecycle,
             hostAccess.partLifecycle(),
-            hostAccess.editorObjectLifecycle()
+            hostAccess.editorObjectLifecycle(),
+            hostAccess.projectFileLifecycle(),
+            hostAccess.editorLifecycleEvents()
         );
     }
 
@@ -97,7 +105,9 @@ public final class LocalPluginRuntime implements AutoCloseable {
             pluginCloseHook,
             hostAccess.parameterLifecycle(),
             hostAccess.partLifecycle(),
-            hostAccess.editorObjectLifecycle()
+            hostAccess.editorObjectLifecycle(),
+            hostAccess.projectFileLifecycle(),
+            hostAccess.editorLifecycleEvents()
         );
     }
 
@@ -118,7 +128,9 @@ public final class LocalPluginRuntime implements AutoCloseable {
             (pluginId, phase) -> { },
             hostAccess.parameterLifecycle(),
             hostAccess.partLifecycle(),
-            hostAccess.editorObjectLifecycle()
+            hostAccess.editorObjectLifecycle(),
+            hostAccess.projectFileLifecycle(),
+            hostAccess.editorLifecycleEvents()
         );
     }
 
@@ -131,11 +143,14 @@ public final class LocalPluginRuntime implements AutoCloseable {
         final PluginCloseHook pluginCloseHook,
         final ParameterLifecycleCoordinator parameterLifecycle,
         final PartLifecycleCoordinator partLifecycle,
-        final EditorObjectLifecycleCoordinator editorObjectLifecycle
+        final EditorObjectLifecycleCoordinator editorObjectLifecycle,
+        final ProjectFileLifecycleCoordinator projectFileLifecycle,
+        final EditorLifecycleCoordinator editorLifecycleEvents
     ) {
         final PreviewPluginRuntimeResources resources = PreviewPluginRuntimeResources.create(
             home, scheduler, hostAccess, log, failureCollector, pluginCloseHook, loaded,
-            parameterLifecycle, partLifecycle, editorObjectLifecycle
+            parameterLifecycle, partLifecycle, editorObjectLifecycle,
+            projectFileLifecycle, editorLifecycleEvents
         );
         this.hostReadLane = resources.hostReadLane();
         this.failureCollector = resources.failureCollector();
@@ -153,6 +168,14 @@ public final class LocalPluginRuntime implements AutoCloseable {
         this.editorObjectLifecycle = java.util.Objects.requireNonNull(
             editorObjectLifecycle,
             "editorObjectLifecycle"
+        );
+        this.projectFileLifecycle = java.util.Objects.requireNonNull(
+            projectFileLifecycle,
+            "projectFileLifecycle"
+        );
+        this.editorLifecycleEvents = java.util.Objects.requireNonNull(
+            editorLifecycleEvents,
+            "editorLifecycleEvents"
         );
     }
 
@@ -204,6 +227,8 @@ public final class LocalPluginRuntime implements AutoCloseable {
         try {
             summaries.addAll(shutdown.closeAll(loaded));
         } finally {
+            editorLifecycleEvents.close();
+            projectFileLifecycle.close();
             editorObjectLifecycle.close();
             partLifecycle.close();
             parameterLifecycle.close();
