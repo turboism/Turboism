@@ -8,6 +8,7 @@ import dev.turboism.sdk.cubism.id.ParameterBindingPointId;
 import dev.turboism.sdk.cubism.model.ArtMeshGeometry;
 import dev.turboism.sdk.cubism.model.Color;
 import dev.turboism.sdk.cubism.model.CubismModel;
+import dev.turboism.sdk.cubism.model.ModelEditLevel;
 import dev.turboism.sdk.cubism.model.Deformer;
 import dev.turboism.sdk.cubism.model.Drawable;
 import dev.turboism.sdk.cubism.model.Parameter;
@@ -301,6 +302,8 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                     runEditorObjectPluginScopeClose();
                 } else if ("document-close".equals(mode)) {
                     runEditorObjectDocumentClose();
+                } else if ("model-edit-level".equals(mode)) {
+                    runModelEditLevelValidation();
                 } else if ("native-control-background".equals(mode)) {
                     runNativeControlBackgroundValidation();
                 } else if ("native-control-background-document-close".equals(mode)) {
@@ -1345,6 +1348,50 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
 
     private CubismModel activeModel() {
         return context.cubism().model().active();
+    }
+
+    private void runModelEditLevelValidation() {
+        final Path artifact = Path.of(
+            System.getProperty("turboism.home"), "logs", "model-edit-level-validation.txt"
+        );
+        try {
+            Files.createDirectories(artifact.getParent());
+            Files.writeString(
+                artifact,
+                "status=RUNNING phase=await-model\n",
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING
+            );
+            final CubismModel model = awaitEditorObjectModel(artifact);
+            final String modelId = onHostThread(() -> model.id().value());
+            final String thread = onHostThread(() -> Thread.currentThread().getName());
+            final ModelEditLevel before = onHostThread(model::editLevel);
+            final ModelEditLevel written = before == ModelEditLevel.LEVEL_3
+                ? ModelEditLevel.LEVEL_2
+                : ModelEditLevel.LEVEL_3;
+            onHostThread(() -> { model.setEditLevel(written); return null; });
+            final ModelEditLevel afterWrite = onHostThread(model::editLevel);
+            onHostThread(() -> { model.setEditLevel(before); return null; });
+            final ModelEditLevel restored = onHostThread(model::editLevel);
+            final boolean passed = afterWrite == written && restored == before;
+            Files.writeString(
+                artifact,
+                "status=" + (passed ? "PASS" : "FAIL") + System.lineSeparator()
+                    + "modelId=" + modelId + System.lineSeparator()
+                    + "hostThread=" + thread + System.lineSeparator()
+                    + "before=" + before + System.lineSeparator()
+                    + "written=" + written + System.lineSeparator()
+                    + "afterWrite=" + afterWrite + System.lineSeparator()
+                    + "restored=" + restored + System.lineSeparator()
+                    + "undoRedo=NOT_APPLICABLE_HOST_VIEW_STATE" + System.lineSeparator()
+                    + "dirtyState=NOT_EXPECTED" + System.lineSeparator()
+                    + "persistence=NOT_CLAIMED" + System.lineSeparator(),
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING
+            );
+        } catch (Exception exception) {
+            writeValidationFailure(artifact, exception, "Model edit-level validation failed");
+        }
     }
 
     private void runFixedApiValidation(final boolean closeDocument) {
