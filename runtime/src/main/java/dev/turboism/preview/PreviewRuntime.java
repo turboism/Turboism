@@ -141,6 +141,34 @@ public final class PreviewRuntime implements AutoCloseable {
         final Path hostArtifact,
         final ClassLoader hostClassLoader
     ) throws IOException {
+        return start(
+            requestedHome,
+            verificationRecord,
+            editorModelVerificationRecord,
+            null,
+            mainToolbarVerificationRecord,
+            embeddedPanelVerificationRecord,
+            topMenuVerificationRecord,
+            boundingBoxOverlayVerificationRecord,
+            hostArtifact,
+            null,
+            hostClassLoader
+        );
+    }
+
+    public static PreviewRuntime start(
+        final Path requestedHome,
+        final Path verificationRecord,
+        final Path editorModelVerificationRecord,
+        final Path coreRuntimeVerificationRecord,
+        final Path mainToolbarVerificationRecord,
+        final Path embeddedPanelVerificationRecord,
+        final Path topMenuVerificationRecord,
+        final Path boundingBoxOverlayVerificationRecord,
+        final Path hostArtifact,
+        final Path coreArtifact,
+        final ClassLoader hostClassLoader
+    ) throws IOException {
         final TurboismHomeLayout layout = TurboismHomeLayout.create(requestedHome);
         final Path home = layout.home();
         LegacyHomeMigration.migrate(home);
@@ -209,6 +237,9 @@ public final class PreviewRuntime implements AutoCloseable {
                 hostArtifact,
                 "hostArtifact"
             ).toAbsolutePath().normalize();
+            final Path normalizedCoreArtifact = coreArtifact == null
+                ? null
+                : coreArtifact.toAbsolutePath().normalize();
             final HostVerificationEvidence.Slice projectWorkspace = new HostVerificationEvidence.Slice(
                 normalizedVerificationRecord,
                 normalizedHostArtifact,
@@ -220,6 +251,14 @@ public final class PreviewRuntime implements AutoCloseable {
                 normalizedHostArtifact,
                 verifiedHostClassLoader
             );
+            final HostVerificationEvidence.Slice coreRuntime =
+                coreRuntimeVerificationRecord == null || normalizedCoreArtifact == null
+                    ? null
+                    : new HostVerificationEvidence.Slice(
+                        coreRuntimeVerificationRecord.toAbsolutePath().normalize(),
+                        normalizedCoreArtifact,
+                        verifiedHostClassLoader
+                    );
             final HostVerificationEvidence.Slice mainToolbar = new HostVerificationEvidence.Slice(
                 Objects.requireNonNull(mainToolbarVerificationRecord, "mainToolbarVerificationRecord")
                     .toAbsolutePath().normalize(),
@@ -247,13 +286,16 @@ public final class PreviewRuntime implements AutoCloseable {
                     normalizedHostArtifact,
                     verifiedHostClassLoader
                 );
+            HostVerificationEvidence evidence = HostVerificationEvidence
+                .withEditorModel(projectWorkspace, editorModel)
+                .addingMainToolbar(mainToolbar)
+                .addingEmbeddedPanel(embeddedPanel)
+                .addingTopMenu(topMenu)
+                .addingBoundingBoxOverlayButton(boundingBoxOverlayButton);
+            if (coreRuntime != null) evidence = evidence.addingCoreRuntime(coreRuntime);
             final HostSession.State hostState = ingress.publish(new HostInstanceDescriptor(
                 "cubism-" + ProcessHandle.current().pid(),
-                HostVerificationEvidence.withEditorModel(projectWorkspace, editorModel)
-                    .addingMainToolbar(mainToolbar)
-                    .addingEmbeddedPanel(embeddedPanel)
-                    .addingTopMenu(topMenu)
-                    .addingBoundingBoxOverlayButton(boundingBoxOverlayButton)
+                evidence
             ));
             if (hostState == HostSession.State.ACTIVE) {
                 log.info("host", "Verified Cubism project/workspace adapter connected");
