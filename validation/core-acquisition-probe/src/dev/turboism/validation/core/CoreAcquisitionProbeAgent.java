@@ -36,7 +36,7 @@ public final class CoreAcquisitionProbeAgent {
     private static final String MODEL = "com.live2d.cubism.doc.model.CModel";
     private static final String VIEW = "com.live2d.cubism.view.context.CEViewContext_ModelingView";
     private static final String CORE_MODEL = "com.live2d.sdk.cubism.core.CubismModel";
-    private static final long TIMEOUT_MILLIS = 120_000L;
+    private static final long TIMEOUT_MILLIS = 360_000L;
     private static final long POLL_MILLIS = 250L;
     private static final AtomicBoolean STARTED = new AtomicBoolean();
 
