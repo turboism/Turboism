@@ -206,7 +206,7 @@ public final class ParameterPlugin implements CubismPlugin {
         final var model = context.cubism().model().active();
         final var snapshot = context.cubism().runtime().selection();
         final ParameterId source = resolveSourceParameter(snapshot, contextMenuSelection);
-        final ParameterId destination = resolveDestinationParameter(source, snapshot, contextMenuSelection);
+        final ParameterId destination = resolveDestinationParameter(source, model, snapshot, contextMenuSelection);
         if (contextMenuSelection != null && !context.uiHost().confirmDialog(new DialogRequest(
             "parameter.bindings.transfer.confirm",
             "Transfer Parameter Bindings",
@@ -247,6 +247,7 @@ public final class ParameterPlugin implements CubismPlugin {
 
     private static ParameterId resolveDestinationParameter(
         final ParameterId source,
+        final dev.turboism.sdk.cubism.model.CubismModel model,
         final dev.turboism.sdk.cubism.SelectionSnapshot snapshot,
         final ContextMenuSelection contextMenuSelection
     ) {
@@ -259,9 +260,13 @@ public final class ParameterPlugin implements CubismPlugin {
                 .orElseThrow(() -> new IllegalStateException("A destination parameter must be selected."));
             return new ParameterId(destination);
         }
+        final var parameterIds = model.parameters().all().stream()
+            .map(parameter -> parameter.id().value())
+            .toList();
         final String destination = snapshot.selectedObjectIds().stream()
             .map(ParameterPlugin::parameterIdText)
             .filter(java.util.Objects::nonNull)
+            .filter(parameterIds::contains)
             .filter(id -> !id.equals(source.value()))
             .findFirst()
             .orElseThrow(() -> new IllegalStateException("A destination parameter must be selected."));
