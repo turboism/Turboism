@@ -490,6 +490,64 @@ class CubismFacadeImplTest {
     }
 
     @Test
+    void modelEditLevelWritesRequireModelWritePermission() {
+        final List<CubismFacadeAuditEvent> auditEvents = new ArrayList<>();
+        final List<dev.turboism.sdk.cubism.model.ModelEditLevel> writes = new ArrayList<>();
+        final CubismModelAccess backend = () -> new CubismModel() {
+            @Override public ModelId id() { return new ModelId("model-a"); }
+            @Override public dev.turboism.sdk.cubism.model.ModelEditLevel editLevel() {
+                return dev.turboism.sdk.cubism.model.ModelEditLevel.LEVEL_1;
+            }
+            @Override public void setEditLevel(
+                final dev.turboism.sdk.cubism.model.ModelEditLevel level
+            ) { writes.add(level); }
+            @Override public dev.turboism.sdk.cubism.model.Parameters parameters() { throw new UnsupportedOperationException(); }
+            @Override public dev.turboism.sdk.cubism.model.Parts parts() { throw new UnsupportedOperationException(); }
+            @Override public dev.turboism.sdk.cubism.model.Drawables drawables() { throw new UnsupportedOperationException(); }
+            @Override public dev.turboism.sdk.cubism.model.Deformers deformers() { throw new UnsupportedOperationException(); }
+            @Override public dev.turboism.sdk.cubism.model.Glues glues() { throw new UnsupportedOperationException(); }
+            @Override public void update() { throw new UnsupportedOperationException(); }
+        };
+        final CubismFacadeImpl denied = new CubismFacadeImpl(
+            sampleSource(),
+            new CubismPermissionGate(
+                "plugin.demo",
+                List.of(permission(CubismFacadeImpl.MODEL_READ_PERMISSION)),
+                auditEvents::add,
+                FIXED_CLOCK
+            ),
+            backend
+        );
+
+        assertThrows(
+            CubismPermissionException.class,
+            () -> denied.model().active().setEditLevel(
+                dev.turboism.sdk.cubism.model.ModelEditLevel.LEVEL_2
+            )
+        );
+        assertEquals(List.of(), writes);
+        assertEquals("model.setEditLevel", auditEvents.get(0).operationId());
+
+        final CubismFacadeImpl allowed = new CubismFacadeImpl(
+            sampleSource(),
+            new CubismPermissionGate(
+                "plugin.demo",
+                List.of(
+                    permission(CubismFacadeImpl.MODEL_READ_PERMISSION),
+                    permission(CubismFacadeImpl.MODEL_WRITE_PERMISSION)
+                ),
+                ignored -> { },
+                FIXED_CLOCK
+            ),
+            backend
+        );
+        allowed.model().active().setEditLevel(
+            dev.turboism.sdk.cubism.model.ModelEditLevel.LEVEL_2
+        );
+        assertEquals(List.of(dev.turboism.sdk.cubism.model.ModelEditLevel.LEVEL_2), writes);
+    }
+
+    @Test
     void combinedWritesRequireModelWritePermissionBeforeInvokingBackend() {
         final List<CubismFacadeAuditEvent> auditEvents = new ArrayList<>();
         final List<String> calls = new ArrayList<>();

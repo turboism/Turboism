@@ -650,6 +650,16 @@ public final class CubismFacadeImpl implements CubismFacade {
             requireModelWrite("model.setDefaultKeyformLocked");
             delegate.setDefaultKeyformLocked(locked);
         }
+        @Override public dev.turboism.sdk.cubism.model.ModelEditLevel editLevel() {
+            requireModelRead("model.editLevel");
+            return delegate.editLevel();
+        }
+        @Override public void setEditLevel(
+            final dev.turboism.sdk.cubism.model.ModelEditLevel level
+        ) {
+            requireModelWrite("model.setEditLevel");
+            delegate.setEditLevel(level);
+        }
         @Override public dev.turboism.sdk.cubism.model.Canvas canvas() {
             requireModelRead("model.canvas");
             final dev.turboism.sdk.cubism.model.Canvas canvas = delegate.canvas();
