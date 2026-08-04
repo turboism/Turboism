@@ -653,7 +653,7 @@ SH
 "${ssh_cmd[@]}" "$ssh_host" "chmod 700 '$task_dir/launch.sh'"
 
 log "launching exact Cubism $version through official BAT"
-"${ssh_cmd[@]}" "$ssh_host" "cd '$task_dir' && nohup ./launch.sh </dev/null >/dev/null 2>&1 & echo \$! > '$evidence_dir/wrapper.pid'"
+"${ssh_cmd[@]}" "$ssh_host" "cd '$task_dir' || exit 1; nohup ./launch.sh </dev/null >/dev/null 2>&1 & pid=\$!; printf '%s\n' \"\$pid\" > '$evidence_dir/wrapper.pid'"
 launched=1
 
 log_file=''
