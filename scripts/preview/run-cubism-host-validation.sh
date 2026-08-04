@@ -385,9 +385,23 @@ remote_process_alive() {
   "${ssh_cmd[@]}" "$ssh_host" "test ! -s '$evidence_dir/wrapper.exit' && test -s '$evidence_dir/wrapper.pid' && kill -0 \$(cat '$evidence_dir/wrapper.pid') 2>/dev/null"
 }
 
-remote_cubism_exit_marker_seen() {
-  "${ssh_cmd[@]}" "$ssh_host" \
-    "grep -Eq -- '^-- successfully exited pid:[0-9]+ --$' '$evidence_dir/cubism-console.txt'"
+remote_normal_exit_evidence_seen() {
+  case "$version" in
+    5302)
+      "${ssh_cmd[@]}" "$ssh_host" \
+        "grep -Eq -- '-- successfully exited pid:[0-9]+ --' '$evidence_dir/cubism-console.txt'"
+      ;;
+    5203)
+      local log_file
+      log_file="$(latest_runtime_log)"
+      [ -n "$log_file" ] || return 1
+      runtime_log_contains "$log_file" 'Stopping Turboism Developer Preview' \
+        && runtime_log_contains "$log_file" 'Turboism core shutdown'
+      ;;
+    *)
+      return 1
+      ;;
+  esac
 }
 
 remote_record_wrapper_cleanup() {
@@ -741,7 +755,7 @@ done
 log "terminal PASS observed; waiting for graceful launcher exit"
 deadline=$((SECONDS + exit_timeout))
 while [ "$SECONDS" -lt "$deadline" ]; do
-  if remote_cubism_exit_marker_seen; then
+  if remote_normal_exit_evidence_seen; then
     if remote_process_alive; then
       remote_record_wrapper_cleanup
       remote_stop_process_tree
