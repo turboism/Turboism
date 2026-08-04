@@ -926,6 +926,10 @@ public final class CubismFacadeImpl implements CubismFacade {
         private PermissionCheckedDrawable(final dev.turboism.sdk.cubism.model.Drawable delegate) {
             this.delegate = Objects.requireNonNull(delegate, "delegate");
         }
+        @Override public dev.turboism.sdk.ui.appearance.model.DrawableAppearance ui() {
+            requireModelRead("artMesh.ui");
+            return delegate.ui();
+        }
         @Override public dev.turboism.sdk.cubism.id.ArtMeshId id() {
             requireModelRead("artMesh.id");
             return delegate.id();
@@ -1087,6 +1091,10 @@ public final class CubismFacadeImpl implements CubismFacade {
         private PermissionCheckedDeformer(final dev.turboism.sdk.cubism.model.Deformer delegate) {
             this.delegate = Objects.requireNonNull(delegate, "delegate");
         }
+        @Override public dev.turboism.sdk.ui.appearance.model.DeformerAppearance ui() {
+            requireModelRead("deformer.ui");
+            return delegate.ui();
+        }
         @Override public dev.turboism.sdk.cubism.id.DeformerId id() { requireModelRead("deformer.id"); return delegate.id(); }
         @Override public int index() {
             requireModelRead("deformer.index");
@@ -1238,6 +1246,10 @@ public final class CubismFacadeImpl implements CubismFacade {
         private PermissionCheckedParameterGroup(final ParameterGroup delegate) {
             this.delegate = Objects.requireNonNull(delegate, "delegate");
         }
+        @Override public dev.turboism.sdk.ui.appearance.model.ParameterGroupAppearance ui() {
+            requireModelRead("parameterGroup.ui");
+            return delegate.ui();
+        }
 
         @Override public dev.turboism.sdk.cubism.id.ParameterGroupId id() {
             requireModelRead("parameterGroup.id");
@@ -1266,6 +1278,10 @@ public final class CubismFacadeImpl implements CubismFacade {
 
         private PermissionCheckedParameter(final Parameter delegate) {
             this.delegate = Objects.requireNonNull(delegate, "delegate");
+        }
+        @Override public dev.turboism.sdk.ui.appearance.model.ParameterAppearance ui() {
+            requireModelRead("parameter.ui");
+            return delegate.ui();
         }
 
         @Override public dev.turboism.sdk.cubism.id.ParameterId id() { requireModelRead("parameter.id"); return delegate.id(); }
@@ -1324,6 +1340,10 @@ public final class CubismFacadeImpl implements CubismFacade {
 
         private PermissionCheckedPart(final dev.turboism.sdk.cubism.model.Part delegate) {
             this.delegate = Objects.requireNonNull(delegate, "delegate");
+        }
+        @Override public dev.turboism.sdk.ui.appearance.model.PartAppearance ui() {
+            requireModelRead("part.ui");
+            return delegate.ui();
         }
 
         @Override public dev.turboism.sdk.cubism.model.PartId id() { requireModelRead("part.id"); return delegate.id(); }

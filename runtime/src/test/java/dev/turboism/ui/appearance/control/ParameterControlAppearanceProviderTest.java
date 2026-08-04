@@ -1,30 +1,26 @@
 package dev.turboism.ui.appearance.control;
 
-import dev.turboism.sdk.cubism.id.ParameterId;
-import dev.turboism.sdk.ui.appearance.ControlAppearanceContribution;
-import dev.turboism.sdk.ui.appearance.ControlAppearanceStyle;
-import dev.turboism.sdk.ui.appearance.ControlAppearanceTarget;
+import dev.turboism.sdk.ui.appearance.UiColor;
 import org.junit.jupiter.api.Test;
 
 import javax.swing.JLabel;
 import java.awt.Color;
-import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class ParameterControlAppearanceProviderTest {
     @Test
-    void contributionCloseImmediatelyRestoresBoundLongLivedLabel() throws Exception {
-        final ControlAppearanceCoordinator coordinator = new ControlAppearanceCoordinator();
-        coordinator.replaceHostGeneration(5);
-        final RuntimeControlAppearanceRegistry registry = new RuntimeControlAppearanceRegistry(
-            "plugin", 1, (permission, operation) -> { }, coordinator, TestNativeControlAppearanceAuthoring.unavailable()
+    void registrationCloseImmediatelyRestoresBoundLongLivedLabel() throws Exception {
+        final PaletteAppearanceCoordinator coordinator = new PaletteAppearanceCoordinator();
+        final PaletteAppearanceCoordinator.Scope scope = scope(5);
+        coordinator.reconcile(scope);
+        final var registration = coordinator.register(
+            "plugin", 1, scope, PaletteAppearanceCoordinator.Palette.PARAMETER, "ParamA",
+            PaletteAppearanceCoordinator.Property.TEXT_COLOR,
+            new UiColor(0x12 / 255.0F, 0x34 / 255.0F, 0x56 / 255.0F, 1.0F)
         );
-        final var registration = registry.register(new ControlAppearanceContribution(
-            "parameter", new ControlAppearanceTarget.ParameterLabel(new ParameterId("ParamA")),
-            new ControlAppearanceStyle(Optional.of(new dev.turboism.sdk.cubism.model.Color(0.070588F, 0.203922F, 0.337255F, 1.000000F)), Optional.empty(), Optional.empty())
-        ));
-        final ParameterControlAppearanceProvider provider = new ParameterControlAppearanceProvider(5, coordinator);
+        final ParameterControlAppearanceProvider provider =
+            new ParameterControlAppearanceProvider(5, coordinator);
         final JLabel label = new JLabel();
         label.setForeground(Color.BLACK);
         javax.swing.SwingUtilities.invokeAndWait(() ->
@@ -35,5 +31,39 @@ class ParameterControlAppearanceProviderTest {
         javax.swing.SwingUtilities.invokeAndWait(() -> { });
         assertEquals(Color.BLACK, label.getForeground());
         provider.close();
+    }
+
+    @Test
+    void parameterAndFolderKindsResolveSeparatePalettesForTheSameId() throws Exception {
+        final PaletteAppearanceCoordinator coordinator = new PaletteAppearanceCoordinator();
+        final PaletteAppearanceCoordinator.Scope scope = scope(5);
+        coordinator.reconcile(scope);
+        coordinator.register(
+            "plugin", 1, scope, PaletteAppearanceCoordinator.Palette.PARAMETER, "Shared",
+            PaletteAppearanceCoordinator.Property.TEXT_COLOR, new UiColor(1.0F, 0.0F, 0.0F, 1.0F)
+        );
+        coordinator.register(
+            "plugin", 1, scope, PaletteAppearanceCoordinator.Palette.PARAMETER_GROUP, "Shared",
+            PaletteAppearanceCoordinator.Property.TEXT_COLOR, new UiColor(0.0F, 0.0F, 1.0F, 1.0F)
+        );
+        final ParameterControlAppearanceProvider provider =
+            new ParameterControlAppearanceProvider(5, coordinator);
+        final JLabel parameter = new JLabel();
+        final JLabel folder = new JLabel();
+        parameter.setForeground(Color.BLACK);
+        folder.setForeground(Color.BLACK);
+
+        javax.swing.SwingUtilities.invokeAndWait(() -> {
+            provider.bind(ParameterControlAppearanceProvider.Kind.PARAMETER, "Shared", parameter);
+            provider.bind(ParameterControlAppearanceProvider.Kind.FOLDER, "Shared", folder);
+        });
+
+        assertEquals(Color.RED, parameter.getForeground());
+        assertEquals(Color.BLUE, folder.getForeground());
+        javax.swing.SwingUtilities.invokeAndWait(provider::close);
+    }
+
+    private static PaletteAppearanceCoordinator.Scope scope(final long hostGeneration) {
+        return new PaletteAppearanceCoordinator.Scope("content", 1, "model", 1, hostGeneration, 1);
     }
 }

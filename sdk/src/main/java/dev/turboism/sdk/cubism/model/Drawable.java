@@ -1,6 +1,7 @@
 package dev.turboism.sdk.cubism.model;
 
 import dev.turboism.sdk.PreviewApi;
+import dev.turboism.sdk.ui.appearance.model.DrawableAppearance;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.id.ParameterId;
@@ -13,6 +14,9 @@ import java.util.Optional;
 public interface Drawable {
 
     ArtMeshId id();
+
+    /** Returns this ArtMesh's Cubism palette UI projection. */
+    default DrawableAppearance ui() { return DrawableAppearance.unavailable(); }
 
     default int index() { throw unavailable("ArtMesh index"); }
 

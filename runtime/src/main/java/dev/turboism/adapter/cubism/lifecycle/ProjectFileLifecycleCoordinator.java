@@ -21,6 +21,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 /** Runtime-owned before/on/after coordinator for model and animation file content. */
 public final class ProjectFileLifecycleCoordinator implements AutoCloseable {
@@ -30,6 +31,8 @@ public final class ProjectFileLifecycleCoordinator implements AutoCloseable {
     private final CopyOnWriteArrayList<PluginHooks> plugins = new CopyOnWriteArrayList<>();
     private final PluginWorkExecutorRegistry executors;
     private final CopyOnWriteArrayList<CompletionStage<?>> pending = new CopyOnWriteArrayList<>();
+    private final CopyOnWriteArrayList<Consumer<ProjectFileOperationResult>> completionListeners =
+        new CopyOnWriteArrayList<>();
 
     public ProjectFileLifecycleCoordinator() {
         this(new PluginWorkExecutorRegistry(1, 64, ignored -> { }, Clock.systemUTC()));
@@ -41,6 +44,11 @@ public final class ProjectFileLifecycleCoordinator implements AutoCloseable {
 
     public void register(final PluginHooks plugin) {
         plugins.add(Objects.requireNonNull(plugin, "plugin"));
+    }
+
+    /** Registers a runtime-owned synchronous completion listener. */
+    public void registerCompletionListener(final Consumer<ProjectFileOperationResult> listener) {
+        completionListeners.add(Objects.requireNonNull(listener, "listener"));
     }
 
     public void unregister(final String pluginId) {
@@ -84,6 +92,13 @@ public final class ProjectFileLifecycleCoordinator implements AutoCloseable {
                     Objects.requireNonNull(immutableContent, "content")
                 )
                 : ProjectFileOperationResult.rejected(current.operation(), immutableContent);
+        for (Consumer<ProjectFileOperationResult> listener : completionListeners) {
+            try {
+                listener.accept(result);
+            } catch (Throwable ignored) {
+                // Runtime cleanup listeners fail open and must not block plugin callbacks.
+            }
+        }
         for (PluginHooks plugin : plugins) {
             if (!plugin.observeAllowed()) continue;
             submit(plugin, () -> {
@@ -120,6 +135,7 @@ public final class ProjectFileLifecycleCoordinator implements AutoCloseable {
     @Override
     public void close() {
         plugins.clear();
+        completionListeners.clear();
         executors.shutdownAll();
     }
 
