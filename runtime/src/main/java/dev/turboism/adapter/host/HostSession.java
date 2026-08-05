@@ -8,6 +8,8 @@ import dev.turboism.adapter.cubism.lifecycle.ParameterLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.PartLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.ProjectFileLifecycleCoordinator;
 import dev.turboism.sdk.cubism.ProjectFileOperationType;
+import dev.turboism.adapter.cubism.textureatlas.TextureAtlasLayoutCoordinator;
+import dev.turboism.adapter.cubism.lifecycle.EditorObjectLifecycleCoordinator;
 import dev.turboism.adapter.cubism.physics.PhysicsEditorCoordinator;
 import dev.turboism.sdk.event.EventBus;
 import dev.turboism.ui.action.RuntimeEditorUiActionRouter;
@@ -49,6 +51,14 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         new ParameterLifecycleCoordinator();
     private final PartLifecycleCoordinator partLifecycle =
         new PartLifecycleCoordinator();
+    private final TextureAtlasLayoutCoordinator textureAtlasLayouts =
+        new TextureAtlasLayoutCoordinator();
+    private final dev.turboism.adapter.cubism.textureatlas.TextureAtlasNativeInvocationCoordinator
+        textureAtlasNativeInvocations = new dev.turboism.adapter.cubism.textureatlas.TextureAtlasNativeInvocationCoordinator();
+    private dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi textureAtlasEditorUi;
+    private dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorSession textureAtlasEditorSession;
+    private dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorithmRegistry textureAtlasAlgorithms =
+        new dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorithmRegistry();
     private final EditorObjectLifecycleCoordinator editorObjectLifecycle =
         new EditorObjectLifecycleCoordinator();
     private final ProjectFileLifecycleCoordinator projectFileLifecycle =
@@ -265,6 +275,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             dynamicCoreRuntime.connect(candidate.coreRuntimeInfo());
             dynamicAppearance.connect(candidate.appearanceProvider());
             paletteAppearanceCoordinator.replaceHostGeneration(editorUiGeneration);
+            candidate.textureAtlasLayoutProvider().ifPresent(textureAtlasLayouts::connect);
             editorUiLifecycle.connected(editorUiGeneration);
             activeConnection = candidate;
             try {
@@ -359,6 +370,17 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     }
 
     @Override
+    public TextureAtlasLayoutCoordinator textureAtlasLayouts() {
+        return textureAtlasLayouts;
+    }
+
+    @Override
+    public dev.turboism.adapter.cubism.textureatlas.TextureAtlasNativeInvocationCoordinator
+        textureAtlasNativeInvocations() {
+        return textureAtlasNativeInvocations;
+    }
+
+    @Override
     public EditorObjectLifecycleCoordinator editorObjectLifecycle() {
         return editorObjectLifecycle;
     }
@@ -447,6 +469,43 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     public dev.turboism.ui.workspace.WorkspaceCoordinator workspaceCoordinator() {
         return workspaceCoordinator;
     }
+    public dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorithmRegistry textureAtlasAlgorithms() {
+        return textureAtlasAlgorithms;
+    }
+
+    public dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi textureAtlasEditorUi() {
+        synchronized (lifecycleMonitor) {
+            dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi ui = textureAtlasEditorUi;
+            if (ui == null) {
+                ui = new dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi();
+                textureAtlasEditorUi = ui;
+            }
+            return ui;
+        }
+    }
+
+    public dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorSession textureAtlasEditorSession() {
+        synchronized (lifecycleMonitor) {
+            dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorSession session = textureAtlasEditorSession;
+            if (session == null) {
+                dev.turboism.mapping.verification.VerifiedMemberResolver resolver = null;
+                try {
+                    resolver = editorModelResolver();
+                } catch (IllegalStateException unavailable) {
+                    // no active connection yet: the session stays unattached
+                }
+                session = resolver == null
+                    ? dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorSession.unavailable()
+                    : new dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorSession(
+                        resolver,
+                        () -> textureAtlasEditorUi().view()
+                    );
+                textureAtlasEditorSession = session;
+            }
+            return session;
+        }
+    }
+
     public dev.turboism.mapping.verification.VerifiedMemberResolver editorModelResolver() {
         synchronized (lifecycleMonitor) {
             if (activeConnection == null) {
@@ -455,6 +514,18 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
                 );
             }
             return activeConnection.editorModelResolver();
+        }
+    }
+
+    public dev.turboism.adapter.cubism.textureatlas.TextureAtlasDataModelCapture
+        textureAtlasDataModelCapture() {
+        synchronized (lifecycleMonitor) {
+            if (activeConnection == null) {
+                throw new IllegalStateException(
+                    "No verified active texture-atlas capture is available."
+                );
+            }
+            return activeConnection.textureAtlasDataModelCapture();
         }
     }
 
@@ -478,6 +549,8 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             dynamicCoreRuntime,
             parameterLifecycle,
             partLifecycle,
+            textureAtlasLayouts,
+            textureAtlasNativeInvocations,
             editorObjectLifecycle,
             projectFileLifecycle,
             editorLifecycleEvents,
@@ -496,7 +569,10 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             cubismLog,
             paletteFilterHost,
             paletteAppearanceCoordinator,
-            workspaceCoordinator
+            workspaceCoordinator,
+            textureAtlasEditorUi(),
+            textureAtlasEditorSession(),
+            textureAtlasAlgorithms()
         );
     }
 
@@ -528,6 +604,8 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             projectFileLifecycle.close();
             editorObjectLifecycle.close();
             partLifecycle.close();
+            textureAtlasLayouts.close();
+            textureAtlasNativeInvocations.close();
             parameterLifecycle.close();
             editorUiPluginResources.close();
             editorUiActionRouter.close();
@@ -586,6 +664,8 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         paletteAppearanceCoordinator.invalidate();
         dynamicModelAccess.deactivate();
         dynamicCoreRuntime.deactivate();
+        textureAtlasLayouts.deactivate();
+        textureAtlasNativeInvocations.deactivate();
         try {
             dynamic.deactivate();
         } catch (Throwable throwable) {

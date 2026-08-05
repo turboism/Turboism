@@ -96,6 +96,23 @@ class VerifiedMemberResolverTest {
     }
 
     @Test
+    void readsOnlyExactVerifiedPrivateInstanceFields() {
+        final VerifiedMemberResolver resolver = new VerifiedMemberResolver(
+            plan(StaticSelector.field(
+                "fixture.instance-field",
+                internalName(SyntheticHost.class),
+                "value",
+                "Ljava/lang/String;",
+                0
+            )),
+            SyntheticHost.class.getClassLoader()
+        );
+
+        assertEquals("instance", resolver.readField("fixture.instance-field", new SyntheticHost()));
+        assertThrows(VerifiedAccessException.class, () -> resolver.readField("fixture.instance-field", new Object()));
+    }
+
+    @Test
     void constructsOnlyExactVerifiedConstructors() {
         VerifiedMemberResolver resolver = new VerifiedMemberResolver(
             plan(StaticSelector.constructor(

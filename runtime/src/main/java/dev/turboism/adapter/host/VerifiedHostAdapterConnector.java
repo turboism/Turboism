@@ -5,6 +5,12 @@ import dev.turboism.adapter.VerifiedRuntimeHostAdaptersFactory;
 import dev.turboism.adapter.cubism.editor.EditorBackedCubismModelAccess;
 import dev.turboism.adapter.cubism.core.CoreVersionExpectation;
 import dev.turboism.adapter.cubism.core.RuntimeCoreModelBackend;
+import dev.turboism.adapter.cubism.textureatlas.TextureAtlasDataModelCapture;
+import dev.turboism.adapter.cubism.textureatlas.TextureAtlasLayoutProvider;
+import dev.turboism.adapter.cubism.textureatlas.VerifiedCubism520TextureAtlasLayoutProvider;
+import dev.turboism.adapter.cubism.textureatlas.VerifiedCubism520TextureAtlasSelectorContract;
+import dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasLayoutProvider;
+import dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract;
 import dev.turboism.mapping.verification.BoundingBoxOverlayButtonVerificationManifest;
 import dev.turboism.mapping.verification.EmbeddedPanelVerificationManifest;
 import dev.turboism.mapping.verification.HostArtifactDigest;
@@ -354,6 +360,13 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             resolver,
             descriptor.sessionId()
         );
+        final TextureAtlasDataModelCapture textureAtlasCapture =
+            new TextureAtlasDataModelCapture();
+        final TextureAtlasLayoutProvider textureAtlasProvider = textureAtlasProvider(
+            resolver,
+            descriptor.sessionId(),
+            textureAtlasCapture
+        );
         final ToolbarMaterial toolbar = toolbarMaterial(evidence);
         final PanelMaterial panel = panelMaterial(evidence);
         final TopMenuMaterial topMenu = topMenuMaterial(evidence);
@@ -380,8 +393,32 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             overlay,
             appearanceProvider,
             core,
-            workspace
+            workspace,
+            textureAtlasCapture,
+            textureAtlasProvider
         );
+    }
+
+    static TextureAtlasLayoutProvider textureAtlasProvider(
+        final VerifiedMemberResolver resolver,
+        final String sessionId,
+        final TextureAtlasDataModelCapture capture
+    ) {
+        if (resolver.isExactCubismVersion("5.3.02")) {
+            return resolver.authorizesFeature(
+                VerifiedCubism5302TextureAtlasSelectorContract.ADAPTER_SLICE_ID,
+                VerifiedCubism5302TextureAtlasSelectorContract.CAPABILITY_ID,
+                VerifiedCubism5302TextureAtlasSelectorContract.REQUIRED_ALIASES
+            ) ? new VerifiedCubism5302TextureAtlasLayoutProvider(resolver, sessionId, capture) : null;
+        }
+        if (resolver.isExactCubismVersion("5.2.0")) {
+            return resolver.authorizesFeature(
+                VerifiedCubism520TextureAtlasSelectorContract.ADAPTER_SLICE_ID,
+                VerifiedCubism520TextureAtlasSelectorContract.CAPABILITY_ID,
+                VerifiedCubism520TextureAtlasSelectorContract.REQUIRED_ALIASES
+            ) ? new VerifiedCubism520TextureAtlasLayoutProvider(resolver, sessionId, capture) : null;
+        }
+        return null;
     }
 
     private static dev.turboism.mapping.verification.EditorModelAdmissionEvidence editorAdmission(
@@ -501,7 +538,9 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         final OverlayMaterial overlay,
         final AppearanceHostProvider appearanceProvider,
         final RuntimeCoreModelBackend core,
-        final dev.turboism.ui.workspace.WorkspaceHostProvider workspace
+        final dev.turboism.ui.workspace.WorkspaceHostProvider workspace,
+        final TextureAtlasDataModelCapture textureAtlasCapture,
+        final TextureAtlasLayoutProvider textureAtlasProvider
     ) {
         final dev.turboism.ui.panel.VerifiedEmbeddedPanelHostOperations panelOperations = panel == null
             ? null
@@ -577,6 +616,16 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             @Override
             public AppearanceHostProvider appearanceProvider() {
                 return appearanceProvider;
+            }
+
+            @Override
+            public TextureAtlasDataModelCapture textureAtlasDataModelCapture() {
+                return textureAtlasCapture;
+            }
+
+            @Override
+            public java.util.Optional<TextureAtlasLayoutProvider> textureAtlasLayoutProvider() {
+                return java.util.Optional.ofNullable(textureAtlasProvider);
             }
 
             @Override

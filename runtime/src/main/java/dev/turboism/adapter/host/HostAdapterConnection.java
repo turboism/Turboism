@@ -1,6 +1,7 @@
 package dev.turboism.adapter.host;
 
 import dev.turboism.adapter.RuntimeHostAdapters;
+import dev.turboism.adapter.cubism.textureatlas.TextureAtlasLayoutProvider;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.ui.contribution.EditorUiContributionProvider;
@@ -27,6 +28,11 @@ interface HostAdapterConnection extends AutoCloseable {
         throw new IllegalStateException("Verified Editor model resolver is unavailable.");
     }
 
+    default dev.turboism.adapter.cubism.textureatlas.TextureAtlasDataModelCapture
+        textureAtlasDataModelCapture() {
+        throw new IllegalStateException("Verified texture-atlas capture is unavailable.");
+    }
+
     default VerifiedMemberResolver boundingBoxOverlayResolver() {
         throw new IllegalStateException("Verified bounding-box overlay resolver is unavailable.");
     }
@@ -44,6 +50,10 @@ interface HostAdapterConnection extends AutoCloseable {
 
     default AppearanceHostProvider appearanceProvider() {
         return new UnavailableAppearanceHostProvider();
+    }
+
+    default java.util.Optional<TextureAtlasLayoutProvider> textureAtlasLayoutProvider() {
+        return java.util.Optional.empty();
     }
 
     default dev.turboism.ui.context.NativeObjectContextMenuBridge.Handler objectContextMenuHandler(
