@@ -18,6 +18,7 @@ import dev.turboism.adapter.cubism.physics.PhysicsEditorCoordinator;
 import dev.turboism.adapter.cubism.NativeLabelColorAuthoring;
 import dev.turboism.ui.appearance.control.PaletteAppearanceCoordinator;
 import dev.turboism.adapter.cubism.HostSnapshotSource;
+import dev.turboism.adapter.cubism.textureatlas.TextureAtlasLayoutCoordinator;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -45,6 +46,11 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
     private final EditorObjectLifecycleCoordinator editorObjectLifecycle;
     private final PhysicsEditorCoordinator physicsEditorCoordinator;
     private final PaletteAppearanceCoordinator paletteAppearanceCoordinator;
+    private final TextureAtlasLayoutCoordinator textureAtlasLayouts;
+    private final dev.turboism.adapter.cubism.textureatlas.TextureAtlasNativeInvocationCoordinator textureAtlasNativeInvocations;
+    private final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi textureAtlasEditorUi;
+    private final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorSession textureAtlasEditorSession;
+    private final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorithmRegistry textureAtlasAlgorithms;
 
     DefaultCubismServicesFactory() {
         this(RuntimeHostAdapters.safeMode());
@@ -174,7 +180,12 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
             PluginScopedCubismModelAccess.appearanceSource(
                 hostAdapters.projectWorkspace(), modelAccess
             ),
-            paletteAppearanceCoordinator
+            paletteAppearanceCoordinator,
+            new TextureAtlasLayoutCoordinator(),
+            new dev.turboism.adapter.cubism.textureatlas.TextureAtlasNativeInvocationCoordinator(),
+            new dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi(),
+            dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorSession.unavailable(),
+            new dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorithmRegistry()
         );
     }
 
@@ -187,7 +198,12 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
         final EditorObjectLifecycleCoordinator editorObjectLifecycle,
         final PhysicsEditorCoordinator physicsEditorCoordinator,
         final HostSnapshotSource appearanceSource,
-        final PaletteAppearanceCoordinator paletteAppearanceCoordinator
+        final PaletteAppearanceCoordinator paletteAppearanceCoordinator,
+        final TextureAtlasLayoutCoordinator textureAtlasLayouts,
+        final dev.turboism.adapter.cubism.textureatlas.TextureAtlasNativeInvocationCoordinator textureAtlasNativeInvocations,
+        final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi textureAtlasEditorUi,
+        final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorSession textureAtlasEditorSession,
+        final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorithmRegistry textureAtlasAlgorithms
     ) {
         this.hostAdapters = java.util.Objects.requireNonNull(hostAdapters, "hostAdapters");
         this.modelAccess = java.util.Objects.requireNonNull(modelAccess, "modelAccess");
@@ -201,6 +217,21 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
         );
         this.paletteAppearanceCoordinator = java.util.Objects.requireNonNull(
             paletteAppearanceCoordinator, "paletteAppearanceCoordinator"
+        );
+        this.textureAtlasLayouts = java.util.Objects.requireNonNull(
+            textureAtlasLayouts, "textureAtlasLayouts"
+        );
+        this.textureAtlasNativeInvocations = java.util.Objects.requireNonNull(
+            textureAtlasNativeInvocations, "textureAtlasNativeInvocations"
+        );
+        this.textureAtlasEditorUi = java.util.Objects.requireNonNull(
+            textureAtlasEditorUi, "textureAtlasEditorUi"
+        );
+        this.textureAtlasEditorSession = java.util.Objects.requireNonNull(
+            textureAtlasEditorSession, "textureAtlasEditorSession"
+        );
+        this.textureAtlasAlgorithms = java.util.Objects.requireNonNull(
+            textureAtlasAlgorithms, "textureAtlasAlgorithms"
         );
     }
 
@@ -233,8 +264,13 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
             coreRuntimeInfo,
             parameterLifecycle,
             partLifecycle,
+            textureAtlasLayouts,
+            textureAtlasNativeInvocations,
             editorObjectLifecycle,
-            activeScope::get
+            activeScope::get,
+            textureAtlasEditorUi,
+            textureAtlasEditorSession,
+            textureAtlasAlgorithms
         );
         return new CubismContextServices(
             facade,

@@ -1,0 +1,3 @@
+plugin.name
+texture-atlas.algorithm.maxrects
+texture-atlas.algorithm.native
