@@ -403,6 +403,11 @@ public final class PreviewRuntime implements AutoCloseable {
         return hostIngress.editorModelResolver();
     }
 
+    public dev.turboism.adapter.cubism.textureatlas.TextureAtlasDataModelCapture
+        textureAtlasDataModelCapture() {
+        return hostIngress.textureAtlasDataModelCapture();
+    }
+
     private static RuntimeScheduler createScheduler(final PreviewLog log) {
         final Clock clock = Clock.systemUTC();
         final java.util.function.Consumer<PluginWorkBudgetEvent> diagnosticSink = event ->

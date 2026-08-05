@@ -22,6 +22,7 @@ import dev.turboism.mapping.verification.TopMenuVerificationManifest;
 import dev.turboism.mapping.verification.WorkspaceControlVerificationManifest;
 import dev.turboism.mapping.verification.BoundingBoxOverlayButtonVerificationManifest;
 import dev.turboism.mapping.verification.ProjectWorkspaceVerificationManifest;
+import dev.turboism.mapping.verification.StatusBarVerificationManifest;
 import dev.turboism.mapping.verification.StaticVerificationRecordValidator;
 import org.junit.jupiter.api.Test;
 
@@ -45,7 +46,7 @@ class StaticVerificationRecordRepositoryTest {
     );
     private static final Path RECORDS = PROJECT_ROOT.resolve("cubism-ref/verification");
 
-    private static final Map<String, SliceExpectation> EXPECTATIONS = withWorkspaceControl(withControlAppearance53(withBoundingBoxOverlays(withTopMenus(withEmbeddedPanels(Map.of(
+    private static final Map<String, SliceExpectation> EXPECTATIONS = withStatusBar(withWorkspaceControl(withControlAppearance53(withBoundingBoxOverlays(withTopMenus(withEmbeddedPanels(Map.of(
         "cubism-ref/verification/cubism-5.2-project-workspace.json",
         new SliceExpectation(
             "m15.cubism-5.2.project-workspace.static",
@@ -187,8 +188,8 @@ class StaticVerificationRecordRepositoryTest {
             "Live2D_Cubism.jar",
             40_805_584L,
             "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
-            "c6ae6d3839e17eb889e86c2a663d688a36b7f0dd021aaf9479cf401848e46bac",
-            262,
+            "f68c9ccdbafa0d30fb56526eeec0d8896f5d662fdbb81ac7432bf2b0bc071f00",
+            326,
             editorModel52Aliases(),
             editorModel52Aliases(),
             editorModel52MethodAliases(),
@@ -210,7 +211,7 @@ class StaticVerificationRecordRepositoryTest {
             EditorModelVerificationManifest.ARTIFACT_SIZE,
             EditorModelVerificationManifest.ARTIFACT_SHA256,
             EditorModelVerificationManifest.RECORD_SHA256,
-            267,
+            335,
             EditorModelVerificationManifest.REQUIRED_ALIASES,
             EditorModelVerificationManifest.REQUIRED_ALIASES,
             editorModelMethodAliases(),
@@ -226,7 +227,7 @@ class StaticVerificationRecordRepositoryTest {
             "98f4dac9a9508a6e255f6f3862608409a83e29c9009a7f0fcf517e06658164e4",
             "b68770af94b43bafa92bbe06a3cb2017f89ed5d561c3bb08447d3eeca89d06d0",
             74, "[5.3.02,5.3.03)")
-    ))))));
+    )))))));
 
     private static Map<String, SliceExpectation> withWorkspaceControl(
         final Map<String, SliceExpectation> existing
@@ -325,6 +326,56 @@ class StaticVerificationRecordRepositoryTest {
             )
         );
         return Map.copyOf(expectations);
+    }
+
+    private static Map<String, SliceExpectation> withStatusBar(
+        final Map<String, SliceExpectation> existing
+    ) {
+        final LinkedHashMap<String, SliceExpectation> expectations = new LinkedHashMap<>(existing);
+        expectations.put(
+            "cubism-ref/verification/cubism-5.3.02-ui-status-bar.json",
+            new SliceExpectation(
+                StatusBarVerificationManifest.VERIFICATION_ID,
+                StatusBarVerificationManifest.ADAPTER_SLICE_ID,
+                StatusBarVerificationManifest.CUBISM_VERSION,
+                StatusBarVerificationManifest.PROFILE_ID,
+                StatusBarVerificationManifest.CAPABILITY_IDS,
+                "Live2D_Cubism.jar",
+                StatusBarVerificationManifest.ARTIFACT_SIZE,
+                StatusBarVerificationManifest.ARTIFACT_SHA256,
+                StatusBarVerificationManifest.RECORD_SHA256,
+                21,
+                StatusBarVerificationManifest.REQUIRED_ALIASES,
+                StatusBarVerificationManifest.REQUIRED_ALIASES,
+                statusBarMethodAliases(),
+                difference(StatusBarVerificationManifest.REQUIRED_ALIASES, statusBarMethodAliases()),
+                "cubism-5.3.02-ui-status-bar",
+                Path.of("cubism-ref/mapping-packs/draft/cubism-5.3.02-ui-status-bar.json"),
+                Path.of("cubism-ref/profiles/draft/cubism-5.3.02.json"),
+                "[5.3.02,5.3.03)",
+                SliceKind.EDITOR_UI
+            )
+        );
+        return Map.copyOf(expectations);
+    }
+
+    private static Set<String> statusBarMethodAliases() {
+        return Set.of(
+            "cubism.ui-status-bar.app-controller.instance",
+            "cubism.ui-status-bar.app-controller.main-frame",
+            "cubism.ui-status-bar.main-frame-controller.frame",
+            "cubism.ui-status-bar.frame.content-pane",
+            "cubism.ui-status-bar.widget.set-name",
+            "cubism.ui-status-bar.widget.set-tooltip",
+            "cubism.ui-status-bar.widget.revalidate",
+            "cubism.ui-status-bar.widget.repaint",
+            "cubism.ui-status-bar.container.children",
+            "cubism.ui-status-bar.container.add",
+            "cubism.ui-status-bar.container.remove",
+            "cubism.ui-status-bar.label.text",
+            "cubism.ui-status-bar.label.set-text",
+            "cubism.ui-status-bar.label.create"
+        );
     }
 
     private static Map<String, SliceExpectation> withTopMenus(
@@ -626,6 +677,68 @@ class StaticVerificationRecordRepositoryTest {
 
     private static Set<String> editorModelMethodAliases() {
         return Set.of(
+            "cubism.texture-atlas.data-model.document",
+            "cubism.texture-atlas.data-model.model-source",
+            "cubism.texture-atlas.model-image-list.init",
+            "cubism.texture-atlas.model-image-list.data-model",
+            "cubism.texture-atlas.auto-layout.invoke",
+            "cubism.texture-atlas.model-source.texture-manager",
+            "cubism.texture-atlas.texture-manager.images",
+            "cubism.texture-atlas.texture-manager.atlases",
+            "cubism.texture-atlas.atlas.width",
+            "cubism.texture-atlas.atlas.height",
+            "cubism.texture-atlas.atlas.entries",
+            "cubism.texture-atlas.entry.transform",
+            "cubism.texture-atlas.atlas.create",
+            "cubism.texture-atlas.affine.create",
+            "cubism.texture-atlas.affine.translate",
+            "cubism.texture-atlas.entry.create",
+            "cubism.texture-atlas.undo.create",
+            "cubism.texture-atlas.undo.force-redo",
+            "cubism.texture-atlas.group-undo.add",
+            "cubism.texture-atlas.atlas.name",
+            "cubism.texture-atlas.entry.image",
+            "cubism.texture-atlas.image.guid",
+            "cubism.texture-atlas.image.width",
+            "cubism.texture-atlas.image.height",
+            "cubism.texture-atlas.native.receiver.settings",
+            "cubism.texture-atlas.native.receiver.data",
+            "cubism.texture-atlas.native.receiver.overflow",
+            "cubism.texture-atlas.native.settings.margin",
+            "cubism.texture-atlas.native.settings.rotate",
+            "cubism.texture-atlas.native.settings.model-image",
+            "cubism.texture-atlas.native.settings.scale",
+            "cubism.texture-atlas.native.data.items",
+            "cubism.texture-atlas.native.data.width",
+            "cubism.texture-atlas.native.data.height",
+            "cubism.texture-atlas.native.data.scale",
+            "cubism.texture-atlas.native.data.current-scale",
+            "cubism.texture-atlas.native.data.impl",
+            "cubism.texture-atlas.native.impl.container",
+            "cubism.texture-atlas.native.container.children",
+            "cubism.texture-atlas.native.item.rect",
+            "cubism.texture-atlas.native.item.model-rect",
+            "cubism.texture-atlas.native.item.width",
+            "cubism.texture-atlas.native.item.height",
+            "cubism.texture-atlas.native.item.transform",
+            "cubism.texture-atlas.native.item.edit-layer",
+            "cubism.texture-atlas.native.item.current-transform",
+            "cubism.texture-atlas.native.rect.x",
+            "cubism.texture-atlas.native.rect.y",
+            "cubism.texture-atlas.native.rect.width",
+            "cubism.texture-atlas.native.rect.height",
+            "cubism.texture-atlas.native.affine.create",
+            "cubism.texture-atlas.native.layer-ref.layer",
+            "cubism.texture-atlas.native.layer-ref.transform",
+            "cubism.texture-atlas.native.layer-ref.set-transform",
+            "cubism.texture-atlas.native.editor-affine.create",
+            "cubism.texture-atlas.dialog.init",
+            "cubism.texture-atlas.statistics.view-init",
+            "cubism.texture-atlas.statistics.view-data-model",
+            "cubism.texture-atlas.statistics.data-model.current-page",
+            "cubism.texture-atlas.statistics.page-state.atlas",
+            
+
             "cubism.editor-model.app-controller.instance",
             "cubism.editor-model.app-controller.current-document",
             "cubism.editor-model.app-controller.complete-pack",
@@ -856,6 +969,7 @@ class StaticVerificationRecordRepositoryTest {
         final java.util.HashSet<String> aliases = new java.util.HashSet<>(
             EditorModelVerificationManifest.REQUIRED_ALIASES
         );
+        aliases.removeAll(dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.STATISTICS_ALIASES);
         aliases.removeAll(EditorPartOpacitySelectorContract.REQUIRED_ALIASES);
         aliases.addAll(EditorPartOpacity52SelectorContract.REQUIRED_ALIASES);
         aliases.addAll(EditorPartNameSelectorContract.REQUIRED_ALIASES);
@@ -875,6 +989,7 @@ class StaticVerificationRecordRepositoryTest {
 
     private static Set<String> editorModel52MethodAliases() {
         final java.util.HashSet<String> aliases = new java.util.HashSet<>(editorModelMethodAliases());
+        aliases.removeAll(dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.STATISTICS_ALIASES);
         aliases.removeAll(Set.of(
             "cubism.editor-model.part.id",
             "cubism.editor-model.part.current-keyform",
@@ -883,6 +998,7 @@ class StaticVerificationRecordRepositoryTest {
             "cubism.editor-model.part-source.use-offscreen"
         ));
         aliases.add("cubism.editor-model.part.parts-opacity");
+        aliases.add("cubism.texture-atlas.dialog.init");
         return Set.copyOf(aliases);
     }
 
@@ -1034,6 +1150,23 @@ class StaticVerificationRecordRepositoryTest {
                 methodAliases,
                 attestationClassAliases
             );
+        }
+        if (!expectation.manifestAliases().equals(aliases)) {
+            System.err.println("DIAG slice=" + expectation.verificationId()
+                + " manifestAliases=" + expectation.manifestAliases().size()
+                + " aliases=" + aliases.size()
+                + " missing=" + (expectation.manifestAliases().size() - aliases.size()));
+            try {
+                java.nio.file.Files.writeString(
+                    java.nio.file.Path.of("/tmp/diag-aliases.txt"),
+                    "slice=" + expectation.verificationId() + " missing="
+                        + difference(expectation.manifestAliases(), aliases) + "\n",
+                    java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND
+                );
+            } catch (Throwable ignored) { }
+            for (String missing : difference(expectation.manifestAliases(), aliases)) {
+                System.err.println("DIAG missing=" + missing);
+            }
         }
         assertEquals(expectation.manifestAliases(), aliases, "manifest aliases drifted from verified record");
         assertEquals(expectation.implementationAliases(), aliases,
