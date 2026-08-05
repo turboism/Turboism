@@ -37,6 +37,11 @@
       "reason": "Registers and closes a task-local action twice to validate the action registry lifecycle."
     },
     {
+      "id": "turboism.ui.menu.contribute",
+      "scope": "application",
+      "reason": "Registers and closes a task-local Turboism menu item to validate the menu registry lifecycle."
+    },
+    {
       "id": "turboism.ui.status.notify",
       "scope": "application",
       "reason": "Reports probe completion through the status surface (best effort)."
