@@ -4,6 +4,8 @@ import dev.turboism.adapter.RuntimeHostAdapters;
 import dev.turboism.adapter.cubism.ClipMaskReadAdapter;
 import dev.turboism.adapter.cubism.HostSnapshotSource;
 import dev.turboism.adapter.cubism.ProjectWorkspaceAdapter;
+import dev.turboism.adapter.cubism.textureatlas.TextureAtlasAuthoringState;
+import dev.turboism.adapter.cubism.textureatlas.TextureAtlasLayoutProvider;
 import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
 import dev.turboism.core.plugin.context.CorePluginContext;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
@@ -19,6 +21,11 @@ import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutApplyStatus;
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutConstraints;
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutItem;
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutPlan;
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasPlacement;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginDescriptor;
@@ -363,6 +370,108 @@ class HostSessionPluginContextIntegrationTest {
         } finally {
             session.close();
             scheduler.shutdown();
+        }
+    }
+
+    @Test
+    void textureAtlasProviderFlowsThroughProductionContextAndInvalidatesOnReplacementAndClose() {
+        final AtomicReference<HostInstanceDescriptor> current = new AtomicReference<>();
+        final java.util.Map<String, RecordingAtlasProvider> providers = new java.util.HashMap<>();
+        final HostSession session = new HostSession(
+            () -> Optional.ofNullable(current.get()),
+            descriptor -> {
+                final RecordingAtlasProvider provider = new RecordingAtlasProvider(descriptor.sessionId());
+                providers.put(descriptor.sessionId(), provider);
+                return connectionWithAtlasProvider(provider);
+            }
+        );
+        final RuntimeScheduler scheduler = scheduler();
+        final CorePluginContext context = new CorePluginContext(
+            dependencies(tempDir, scheduler, descriptor(List.of(
+                "turboism.cubism.model.read", "turboism.cubism.model.write"
+            )), ignored -> { }),
+            session
+        );
+
+        try {
+            assertTrue(context.cubism().textureAtlasLayouts().current().isEmpty());
+            current.set(dualDescriptor("atlas-a", "atlas-a"));
+            assertEquals(HostSession.State.ACTIVE, session.refresh());
+            final var first = context.cubism().textureAtlasLayouts().current().orElseThrow();
+            assertEquals(
+                Optional.of(TextureAtlasLayoutApplyStatus.APPLIED),
+                context.cubism().textureAtlasLayouts().apply(first.target(), movedPlan()).status()
+            );
+            assertEquals(1, providers.get("atlas-a").applyCount.get());
+
+            current.set(dualDescriptor("atlas-b", "atlas-b"));
+            assertEquals(HostSession.State.ACTIVE, session.refresh());
+            assertEquals(
+                Optional.of(dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutFailureCode.TARGET_STALE),
+                context.cubism().textureAtlasLayouts().apply(first.target(), movedPlan()).failureCode()
+            );
+            assertEquals("atlas-b", context.cubism().textureAtlasLayouts().current().orElseThrow().atlasId());
+
+            current.set(null);
+            assertEquals(HostSession.State.SAFE_MODE, session.refresh());
+            assertTrue(context.cubism().textureAtlasLayouts().current().isEmpty());
+            session.close();
+            assertTrue(context.cubism().textureAtlasLayouts().current().isEmpty());
+        } finally {
+            session.close();
+            scheduler.shutdown();
+        }
+    }
+
+    private static HostAdapterConnection connectionWithAtlasProvider(
+        final TextureAtlasLayoutProvider provider
+    ) {
+        return new HostAdapterConnection() {
+            @Override public RuntimeHostAdapters adapters() { return RuntimeHostAdapters.safeMode(); }
+            @Override public Optional<TextureAtlasLayoutProvider> textureAtlasLayoutProvider() {
+                return Optional.of(provider);
+            }
+            @Override public void close() { }
+        };
+    }
+
+    private static TextureAtlasLayoutPlan movedPlan() {
+        return new TextureAtlasLayoutPlan(16, 8, 1, List.of(
+            new TextureAtlasPlacement("texture-a", 0, 1, 1, 4, 3, false),
+            new TextureAtlasPlacement("texture-b", 0, 7, 1, 2, 2, false)
+        ));
+    }
+
+    private static final class RecordingAtlasProvider implements TextureAtlasLayoutProvider {
+        private final String id;
+        private final AtomicInteger applyCount = new AtomicInteger();
+        private TextureAtlasAuthoringState state;
+        private RecordingAtlasProvider(final String id) {
+            this.id = id;
+            this.state = new TextureAtlasAuthoringState(
+                "document-" + id, "model-" + id, id, 1,
+                new TextureAtlasLayoutConstraints(16, 8, 1, 1, 1, false, false),
+                List.of(
+                    new TextureAtlasLayoutItem("texture-a", 4, 3),
+                    new TextureAtlasLayoutItem("texture-b", 2, 2)
+                ),
+                new TextureAtlasLayoutPlan(16, 8, 1, List.of(
+                    new TextureAtlasPlacement("texture-a", 0, 1, 1, 4, 3, false),
+                    new TextureAtlasPlacement("texture-b", 0, 6, 1, 2, 2, false)
+                ))
+            );
+        }
+        @Override public Optional<TextureAtlasAuthoringState> current() { return Optional.of(state); }
+        @Override public ApplyOutcome apply(
+            final TextureAtlasAuthoringState expected,
+            final TextureAtlasLayoutPlan plan
+        ) {
+            applyCount.incrementAndGet();
+            state = new TextureAtlasAuthoringState(
+                expected.documentId(), expected.modelId(), id, expected.revision() + 1,
+                expected.constraints(), expected.items(), plan
+            );
+            return ApplyOutcome.APPLIED;
         }
     }
 
