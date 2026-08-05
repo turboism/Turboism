@@ -9,6 +9,7 @@ import dev.turboism.sdk.cubism.service.query.ParameterQueryService;
 import dev.turboism.sdk.cubism.service.query.SelectionQueryService;
 import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
 import dev.turboism.sdk.cubism.physics.PhysicsEditorService;
+import dev.turboism.sdk.cubism.command.EditorCommandService;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
 import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.i18n.PluginLocalization;
@@ -82,6 +83,10 @@ public interface PluginContext {
 
     default PhysicsEditorService physicsEditor() {
         return PhysicsEditorService.unavailable();
+    }
+
+    default EditorCommandService editorCommands() {
+        return EditorCommandService.unavailable();
     }
 
     List<PluginPermission> permissions();

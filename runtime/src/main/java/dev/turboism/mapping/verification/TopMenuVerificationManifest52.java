@@ -5,7 +5,7 @@ final class TopMenuVerificationManifest52 {
 
     static final String VERIFICATION_ID = "cubism-5.2.03.ui-top-menu.static";
     static final String RECORD_SHA256 =
-        "65fea2ac6763aa612ae9b0effa7fddd78538a40c0e9a434db2965ac4ba84bf13";
+        "11ab76e5924faf92bf45b1922945a47b910886a66f364b1f85e3e49f5de3d382";
     static final String CUBISM_VERSION = "5.2.03";
     static final String PROFILE_ID = "cubism-5.2";
     static final long ARTIFACT_SIZE = 40_805_584L;
