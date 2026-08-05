@@ -31,13 +31,16 @@ final class EditorPartOpacityAccess {
 
     private final VerifiedMemberResolver resolver;
     private final EditorParameterCombinedAccess.ModelGuard modelGuard;
+    private final EditorObjectHierarchyEditAccess hierarchyEditAccess;
 
     EditorPartOpacityAccess(
         final VerifiedMemberResolver resolver,
-        final EditorParameterCombinedAccess.ModelGuard modelGuard
+        final EditorParameterCombinedAccess.ModelGuard modelGuard,
+        final EditorObjectHierarchyEditAccess hierarchyEditAccess
     ) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.modelGuard = Objects.requireNonNull(modelGuard, "modelGuard");
+        this.hierarchyEditAccess = Objects.requireNonNull(hierarchyEditAccess, "hierarchyEditAccess");
     }
 
     Parts parts(final String identity, final Object source, final Object model) {
@@ -462,6 +465,28 @@ final class EditorPartOpacityAccess {
         throw unavailable("Editor Part is outside the active Part collection.");
     }
 
+    private static Object nativeSourceOf(final Object view, final String label) {
+        if (view == null) return null;
+        if (!(view instanceof EditorNativeObjectRef ref)) {
+            throw new IllegalStateException(
+                "The " + label + " is not bound to the active Editor model generation."
+            );
+        }
+        return ref.nativeSource();
+    }
+
+    private void requirePartSourceCurrent(
+        final Object source, final Object model, final Object partSource
+    ) {
+        if (partSource == null) return;
+        bindings(source, model).stream()
+            .filter(value -> value.source() == partSource)
+            .findFirst()
+            .orElseThrow(() -> new IllegalStateException(
+                "Cubism Part reference is stale for the active Editor model generation."
+            ));
+    }
+
     private void requireProjectionAuthorization() {
         if (!opacityAuthorized() && !nameAuthorized() && !treeAuthorized()
             && !basicSettingsReadAuthorized()) {
@@ -548,13 +573,41 @@ final class EditorPartOpacityAccess {
             final PartBinding value = binding(source, model, Objects.requireNonNull(id, "id"));
             return new EditorPart(identity, source, model, value.id(), value.source(), value.part());
         }
+
+        @Override public Part create(final String name, final Part parent, final int index) {
+            modelGuard.requireCurrent(identity, model);
+            final Object parentSource = nativeSourceOf(parent, "Part parent");
+            requirePartSourceCurrent(source, model, parentSource);
+            final Object created = hierarchyEditAccess.createPartSource(
+                identity, source, model, name, parentSource, index
+            );
+            return bindings(source, model).stream()
+                .filter(value -> value.source() == created)
+                .findFirst()
+                .map(value -> (Part) new EditorPart(
+                    identity, source, model, value.id(), value.source(), value.part()
+                ))
+                .orElseThrow(() -> unavailable(
+                    "Created Part is absent after the Editor instance update."
+                ));
+        }
+
+        @Override public void remove(final Part part) {
+            Objects.requireNonNull(part, "part");
+            modelGuard.requireCurrent(identity, model);
+            final Object nodeSource = nativeSourceOf(part, "Part");
+            requirePartSourceCurrent(source, model, nodeSource);
+            hierarchyEditAccess.remove(identity, source, model, nodeSource, "Part");
+        }
     }
 
-    private final class EditorPart implements Part {
+    private final class EditorPart implements Part, EditorNativeObjectRef {
         private final String identity;
         private final Object source;
         private final Object model;
         private final PartId id;
+
+        @Override public Object nativeSource() { return expectedSource; }
         private final Object expectedSource;
         private final Object expectedPart;
 
@@ -762,6 +815,16 @@ final class EditorPartOpacityAccess {
             EditorPartOpacityAccess.this.setName(
                 identity, source, model, id, expectedSource, expectedPart, name
             );
+        }
+
+        @Override public void setParent(final Part parent, final int index) {
+            current();
+            final Object parentSource = nativeSourceOf(parent, "Part parent");
+            requirePartSourceCurrent(source, model, parentSource);
+            hierarchyEditAccess.setParent(
+                identity, source, model, expectedSource, parentSource, false, index, "Part"
+            );
+            current();
         }
         @Override public float getOpacity() { return opacity(current().part()); }
         @Override public int parentIndex() {
