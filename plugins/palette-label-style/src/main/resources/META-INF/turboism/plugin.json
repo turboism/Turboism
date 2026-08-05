@@ -47,6 +47,11 @@
       "reason": "Resolve selected palette objects and replay persisted colors on model open."
     },
     {
+      "id": "turboism.cubism.project.read",
+      "scope": "application",
+      "reason": "Resolve the active project id for per-project label color persistence."
+    },
+    {
       "id": "turboism.config.plugin.read",
       "scope": "application",
       "reason": "Read persisted per-project label colors for replay."
@@ -62,6 +67,7 @@
     "ui.appearance.modify",
     "ui.dialog.contribute",
     "cubism.model.read",
+    "cubism.project.read",
     "config.plugin.read",
     "config.plugin.write"
   ],
