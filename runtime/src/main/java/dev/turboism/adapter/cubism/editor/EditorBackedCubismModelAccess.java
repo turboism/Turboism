@@ -45,6 +45,7 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
     private final EditorModelEditLevelAccess editLevelAccess;
     private final EditorPartOpacityAccess partOpacityAccess;
     private final EditorObjectReadAccess objectReadAccess;
+    private final EditorObjectHierarchyEditAccess hierarchyEditAccess;
     private final EditorModelStatisticsAccess statisticsAccess;
     private final Object generationLock = new Object();
     private Object activeDocument;
@@ -76,13 +77,19 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
             resolver,
             this::requireCurrent
         );
-        this.partOpacityAccess = new EditorPartOpacityAccess(
+        this.hierarchyEditAccess = new EditorObjectHierarchyEditAccess(
             resolver,
             this::requireCurrent
         );
+        this.partOpacityAccess = new EditorPartOpacityAccess(
+            resolver,
+            this::requireCurrent,
+            hierarchyEditAccess
+        );
         this.objectReadAccess = new EditorObjectReadAccess(
             resolver,
-            this::requireCurrent
+            this::requireCurrent,
+            hierarchyEditAccess
         );
         this.statisticsAccess = new EditorModelStatisticsAccess(
             resolver,
