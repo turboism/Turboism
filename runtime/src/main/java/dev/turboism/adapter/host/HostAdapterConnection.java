@@ -24,6 +24,10 @@ interface HostAdapterConnection extends AutoCloseable {
         return DynamicCoreRuntimeInfo.unavailableRuntime();
     }
 
+    default dev.turboism.adapter.cubism.command.EditorCommandAdapter editorCommands() {
+        return dev.turboism.adapter.cubism.command.EditorCommandAdapter.unavailable();
+    }
+
     default VerifiedMemberResolver editorModelResolver() {
         throw new IllegalStateException("Verified Editor model resolver is unavailable.");
     }
