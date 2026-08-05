@@ -20,7 +20,8 @@ include(
     "plugins:project-panel",
     "plugins:scene-palette-enhancer",
     "plugins:psd-import",
-    "plugins:texture-atlas",
+    "plugins:atlas-maxrects-bssf",
+    "plugins:texture-atlas-stats",
     "plugins:physics-editor",
     "testframework",
     "tests"
