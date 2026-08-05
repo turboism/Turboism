@@ -1,12 +1,15 @@
 package dev.turboism.ui.panel;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 
 import javax.swing.JPanel;
 import java.awt.Cursor;
 import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.event.MouseEvent;
+import java.util.Locale;
 import java.awt.image.BufferedImage;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -14,6 +17,19 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CollapsibleSectionRuntimeTest {
+
+    private Locale savedLocale;
+
+    @BeforeEach
+    void fixDefaultLocaleToChinese() {
+        savedLocale = Locale.getDefault();
+        Locale.setDefault(Locale.CHINESE);
+    }
+
+    @AfterEach
+    void restoreDefaultLocale() {
+        Locale.setDefault(savedLocale);
+    }
 
     /** 真实绘制面板，使 border 计算出 actionBounds（paintBorder 内填充）。 */
     private static void paint(JPanel panel) {

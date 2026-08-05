@@ -19,6 +19,8 @@ import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.util.MissingResourceException;
+import java.util.ResourceBundle;
 
 /**
  * 可折叠分区控件，忠实移植自 legacy
@@ -39,10 +41,13 @@ public final class CollapsibleSection {
      * @param expandedByDefault 初始是否展开
      */
     public static JPanel create(String title, JPanel content, boolean expandedByDefault) {
+        ResourceBundle bundle = ResourceBundle.getBundle("dev.turboism.ui.panel.messages");
+        String expandLabel = tr(bundle, "collapsible.section.expand", "展开");
+        String collapseLabel = tr(bundle, "collapsible.section.collapse", "收起");
         JPanel panel = new JPanel();
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
         panel.setAlignmentX(Component.LEFT_ALIGNMENT);
-        CollapsibleTitledBorder border = new CollapsibleTitledBorder(title);
+        CollapsibleTitledBorder border = new CollapsibleTitledBorder(title, expandLabel, collapseLabel);
         panel.setBorder(border);
 
         content.setOpaque(false);
@@ -75,9 +80,20 @@ public final class CollapsibleSection {
         return panel;
     }
 
+
+    /**
+     * 从 bundle 取 key 对应文案；key 缺失时回退 legacy 原值。
+     */
+    private static String tr(ResourceBundle bundle, String key, String fallback) {
+        try {
+            return bundle.getString(key);
+        } catch (MissingResourceException e) {
+            return fallback;
+        }
+    }
     private static void updateCollapsibleSection(JPanel panel, JPanel content,
                                                  CollapsibleTitledBorder border, boolean expanded) {
-        border.setActionText(expanded ? "收起" : "展开");
+        border.setActionText(expanded ? border.collapseLabel : border.expandLabel);
         content.setVisible(expanded);
         panel.setMaximumSize(new Dimension(Integer.MAX_VALUE, panel.getPreferredSize().height));
         panel.revalidate();
@@ -98,11 +114,15 @@ public final class CollapsibleSection {
      */
     static final class CollapsibleTitledBorder extends AbstractBorder {
         private final TitledBorder delegate;
+        private final String expandLabel;
+        private final String collapseLabel;
         private String actionText = "展开";
         private Rectangle actionBounds = new Rectangle();
 
-        private CollapsibleTitledBorder(String title) {
+        private CollapsibleTitledBorder(String title, String expandLabel, String collapseLabel) {
             this.delegate = BorderFactory.createTitledBorder(title);
+            this.expandLabel = expandLabel;
+            this.collapseLabel = collapseLabel;
         }
 
         private void setActionText(String actionText) {
