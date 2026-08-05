@@ -89,11 +89,7 @@ public final class MainToolbarHomeEntryService {
     public Registration registerTurboismPanel() {
         return uiHost.contributeEmbeddedPanel(new EmbeddedPanelContribution(
             TURBOISM_PANEL_ID.value(), "Turboism", "right", 0,
-            panelView(
-                localization.text(SETTINGS_MENU_LABEL_KEY),
-                localization.text(PLUGINS_MENU_LABEL_KEY),
-                localization.text(LOGS_MENU_LABEL_KEY)
-            )
+            panelView()
         ));
     }
 
@@ -133,17 +129,8 @@ public final class MainToolbarHomeEntryService {
         uiHost.activateEmbeddedPanel(TURBOISM_PANEL_ID);
     }
 
-    private static PanelView panelView(
-        final String settingsLabel,
-        final String pluginsLabel,
-        final String logsLabel
-    ) {
-        return PanelView.column(
-            PanelView.text("Turboism"),
-            PanelView.button("open-settings", settingsLabel, SETTINGS_ACTION_ID),
-            PanelView.button("open-plugin-management", pluginsLabel, PLUGINS_ACTION_ID),
-            PanelView.button("open-logs", logsLabel, LOGS_ACTION_ID)
-        );
+    private static PanelView panelView() {
+        return PanelView.column(PanelView.text("Turboism"));
     }
 
 }
