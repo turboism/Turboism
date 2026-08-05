@@ -77,6 +77,20 @@ public interface UiHostCapabilityService {
         throw new UnsupportedOperationException("embedded-panel activation is unavailable");
     }
 
+    /**
+     * Injects a collapsible section into an existing embedded panel (including the
+     * Turboism tab {@code turboism.panel.main}).
+     *
+     * <p>Injected sections are appended after the panel's declared content during
+     * render synthesis and ordered by {@code order} then {@code sectionId}.
+     * Hosts that do not provide a verified panel surface fail closed.</p>
+     */
+    default Registration contributeCollapsibleSection(
+        final CollapsibleSectionContribution contribution
+    ) {
+        throw new UnsupportedOperationException("collapsible-section contribution is unavailable");
+    }
+
     Optional<String> requestFile(FileChooserRequest request);
 
     /**
