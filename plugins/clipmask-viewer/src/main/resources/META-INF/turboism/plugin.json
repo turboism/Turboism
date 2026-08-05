@@ -37,6 +37,11 @@
       "reason": "Register the clipmask-viewer.open.viewer action behind the Turboism tab button and menu item."
     },
     {
+      "id": "turboism.ui.menu.contribute",
+      "scope": "application",
+      "reason": "Expose the clip-mask duplicate checker through the Turboism menu."
+    },
+    {
       "id": "turboism.ui.status.notify",
       "scope": "application",
       "reason": "Notify GUID copy results."
@@ -45,6 +50,7 @@
   "capabilities": [
     "cubism.clipmask.read",
     "ui.embedded-panel.contribute",
+    "ui.menu.contribute",
     "ui.status.notify"
   ],
   "environment": {
