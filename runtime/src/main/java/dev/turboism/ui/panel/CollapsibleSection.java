@@ -80,6 +80,27 @@ public final class CollapsibleSection {
         return panel;
     }
 
+    /**
+     * 包可见：展开/收起本组件 {@link #create} 产出的分区面板（复用内部切换逻辑）。
+     *
+     * @param section  必须是本组件 create 的产物
+     * @param expanded 目标展开状态
+     */
+    static void setExpanded(JPanel section, boolean expanded) {
+        JPanel content = (JPanel) section.getComponent(0);
+        CollapsibleTitledBorder border = (CollapsibleTitledBorder) section.getBorder();
+        updateCollapsibleSection(section, content, border, expanded);
+    }
+
+    /**
+     * 包可见：分区面板当前是否展开（取 content 可见性）。
+     *
+     * @param section 必须是本组件 create 的产物
+     */
+    static boolean isExpanded(JPanel section) {
+        return ((JPanel) section.getComponent(0)).isVisible();
+    }
+
 
     /**
      * 从 bundle 取 key 对应文案；key 缺失时回退 legacy 原值。
