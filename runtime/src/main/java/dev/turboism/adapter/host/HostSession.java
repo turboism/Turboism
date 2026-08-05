@@ -37,6 +37,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     private final HostAdapterConnector connector;
     private final DynamicRuntimeHostAdapters dynamic = new DynamicRuntimeHostAdapters();
     private final DynamicCubismModelAccess dynamicModelAccess = new DynamicCubismModelAccess();
+    private final DynamicEditorCommandAdapter dynamicEditorCommands = new DynamicEditorCommandAdapter();
     private final ParameterLifecycleCoordinator parameterLifecycle =
         new ParameterLifecycleCoordinator();
     private final PartLifecycleCoordinator partLifecycle =
@@ -221,6 +222,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             }
             dynamic.connect(candidateAdapters);
             dynamicModelAccess.connect(candidate.modelAccess());
+            dynamicEditorCommands.connect(candidate.editorCommands());
             editorUiLifecycle.connected(editorUiGeneration);
             controlAppearanceCoordinator.replaceHostGeneration(editorUiGeneration);
             activeConnection = candidate;
@@ -285,6 +287,11 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     @Override
     public dev.turboism.sdk.cubism.model.CubismModelAccess modelAccess() {
         return dynamicModelAccess;
+    }
+
+    @Override
+    public dev.turboism.adapter.cubism.command.EditorCommandAdapter editorCommands() {
+        return dynamicEditorCommands;
     }
 
     @Override
@@ -388,6 +395,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         return new SessionRuntimeHostAdapterAccess(
             dynamic.view(),
             dynamicModelAccess,
+            dynamicEditorCommands,
             parameterLifecycle,
             partLifecycle,
             editorObjectLifecycle,
@@ -480,6 +488,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         activeConnectionKey = null;
         controlAppearanceCoordinator.clearHostGeneration();
         dynamicModelAccess.deactivate();
+        dynamicEditorCommands.deactivate();
         try {
             dynamic.deactivate();
         } catch (Throwable throwable) {
