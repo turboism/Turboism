@@ -180,7 +180,10 @@ public final class CorePluginContext implements PluginContext {
     ) {
         this(
             dependencies,
-            servicesFactory(Objects.requireNonNull(hostAccess, "hostAccess")),
+            servicesFactory(
+                Objects.requireNonNull(hostAccess, "hostAccess"),
+                Objects.requireNonNull(userFileAccessService, "userFileAccessService")
+            ),
             hostAccess,
             Objects.requireNonNull(localization, "localization"),
             Objects.requireNonNull(taskScheduler, "taskScheduler"),
@@ -194,13 +197,24 @@ public final class CorePluginContext implements PluginContext {
     private static DefaultCubismServicesFactory servicesFactory(
         final RuntimeHostAdapterAccess hostAccess
     ) {
+        return servicesFactory(hostAccess, null);
+    }
+
+    private static DefaultCubismServicesFactory servicesFactory(
+        final RuntimeHostAdapterAccess hostAccess,
+        final UserFileAccessService userFiles
+    ) {
         return new DefaultCubismServicesFactory(
             hostAccess.adapters(),
             hostAccess.modelAccess(),
             hostAccess.parameterLifecycle(),
             hostAccess.partLifecycle(),
             hostAccess.editorObjectLifecycle(),
-            hostAccess.physicsEditorCoordinator()
+            hostAccess.physicsEditorCoordinator(),
+            hostAccess.editorCommands(),
+            userFiles instanceof dev.turboism.adapter.cubism.command.EditorFileCommandResolver resolver
+                ? resolver
+                : dev.turboism.adapter.cubism.command.EditorFileCommandResolver.unavailable()
         );
     }
 
@@ -549,6 +563,11 @@ public final class CorePluginContext implements PluginContext {
     @Override
     public dev.turboism.sdk.cubism.physics.PhysicsEditorService physicsEditor() {
         return cubismServices.physicsEditorService();
+    }
+
+    @Override
+    public dev.turboism.sdk.cubism.command.EditorCommandService editorCommands() {
+        return cubismServices.editorCommandService();
     }
 
     @Override
