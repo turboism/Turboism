@@ -58,7 +58,7 @@ known_permission() {
     "turboism.cubism.parameter.read"|"turboism.cubism.mesh.read"|\
     "turboism.action.register"|"turboism.event.subscribe"|"turboism.event.publish"|\
     "turboism.config.plugin.read"|"turboism.config.plugin.write"|\
-    "turboism.file.read"|"turboism.file.write"|"turboism.network.fetch") return 0 ;;
+    "turboism.file.read"|"turboism.file.write"|"turboism.network.fetch"|"turboism.process.run") return 0 ;;
     *) return 1 ;;
   esac
 }

@@ -68,6 +68,7 @@ class HostSessionCompositionApiTest {
                 "embeddedPanelActivation():dev.turboism.ui.panel.RuntimeEmbeddedPanelActivationCoordinator",
                 "editorUiActionRouter():dev.turboism.ui.action.RuntimeEditorUiActionRouter",
                 "editorUiPluginResources():dev.turboism.ui.toolbar.EditorUiPluginResourceRegistry",
+                "editorCommands():dev.turboism.adapter.cubism.command.EditorCommandAdapter",
                 "dockMaintenance():dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator",
                 "appearanceCoordinator():dev.turboism.ui.appearance.AppearanceCoordinator",
                 "sceneTable():dev.turboism.sdk.ui.table.SceneTableService",
