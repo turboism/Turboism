@@ -3,6 +3,8 @@ package dev.turboism.ui.panel;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.action.UiActionEvent;
+import dev.turboism.sdk.ui.EmbeddedPanelId;
+import dev.turboism.sdk.ui.PanelView;
 import dev.turboism.sdk.ui.context.PanelTabSelection;
 
 import javax.swing.JComponent;
@@ -214,7 +216,10 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
 
         panels.put(palette, new NativePanel(dock, palette, paletteId));
 
-        final JComponent panel = SwingPanelViewRenderer.render(descriptor.content(), action);
+        final EmbeddedPanelId panelId = new EmbeddedPanelId(descriptor.contributionId());
+        final PanelView viewContent = PanelCollapsibleContentCoordinator.shared()
+            .merge(panelId, descriptor.content());
+        final JComponent panel = SwingPanelViewRenderer.render(viewContent, action);
         panel.setName(nativeId);
         final Object content = resolver.construct(SWING_CONTAINER_CREATE, panel);
         resolver.invoke(PALETTE_SET_PANEL, palette, content, 340, 300);
@@ -249,6 +254,9 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
             throw failure;
         }
 
+        // 目标 panel 注册状态由宿主安装生命周期驱动（provider 无事件 API）：
+        // install 成功 → 注册；PanelHandle.close → 注销。注入分区 pending→落位→pending。
+        PanelCollapsibleContentCoordinator.shared().onPanelRegistered(panelId);
         return new PanelHandle() {
             @Override
             public void activate() {
@@ -264,6 +272,7 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
                     return;
                 }
                 onEdt(() -> {
+                    PanelCollapsibleContentCoordinator.shared().onPanelRemoved(panelId);
                     panels.remove(palette);
                     final FloatingPanel floating = floatingPanels.remove(palette);
                     closePanel(
