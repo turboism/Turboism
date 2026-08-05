@@ -21,6 +21,8 @@ public sealed interface RuntimeHostAdapterAccess permits HostSession, SessionRun
 
     CubismModelAccess modelAccess();
 
+    dev.turboism.adapter.cubism.command.EditorCommandAdapter editorCommands();
+
     ParameterLifecycleCoordinator parameterLifecycle();
 
     PartLifecycleCoordinator partLifecycle();
@@ -59,6 +61,7 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
 
     private final RuntimeHostAdapters adapters;
     private final CubismModelAccess modelAccess;
+    private final dev.turboism.adapter.cubism.command.EditorCommandAdapter editorCommands;
     private final ParameterLifecycleCoordinator parameterLifecycle;
     private final PartLifecycleCoordinator partLifecycle;
     private final EditorObjectLifecycleCoordinator editorObjectLifecycle;
@@ -79,6 +82,7 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     SessionRuntimeHostAdapterAccess(
         final RuntimeHostAdapters adapters,
         final CubismModelAccess modelAccess,
+        final dev.turboism.adapter.cubism.command.EditorCommandAdapter editorCommands,
         final ParameterLifecycleCoordinator parameterLifecycle,
         final PartLifecycleCoordinator partLifecycle,
         final EditorObjectLifecycleCoordinator editorObjectLifecycle,
@@ -98,6 +102,7 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     ) {
         this.adapters = java.util.Objects.requireNonNull(adapters, "adapters");
         this.modelAccess = java.util.Objects.requireNonNull(modelAccess, "modelAccess");
+        this.editorCommands = java.util.Objects.requireNonNull(editorCommands, "editorCommands");
         this.parameterLifecycle = java.util.Objects.requireNonNull(
             parameterLifecycle,
             "parameterLifecycle"
@@ -157,6 +162,11 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     @Override
     public CubismModelAccess modelAccess() {
         return modelAccess;
+    }
+
+    @Override
+    public dev.turboism.adapter.cubism.command.EditorCommandAdapter editorCommands() {
+        return editorCommands;
     }
 
     @Override
