@@ -1,0 +1,35 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 2,
+  "id": "dev.turboism.plugin.texture-atlas-stats",
+  "name": "Texture Atlas Statistics",
+  "version": "0.1.0",
+  "description": "Shows the total and current-texture model-image counts in the native texture-atlas editor window.",
+  "entrypoints": [
+    "dev.turboism.plugin.textureatlasstats.TextureAtlasStatisticsPlugin"
+  ],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    { "name": "Turboism Contributors" }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": ["base", "en", "ja", "ko", "zh_Hans", "zh_Hant"]
+  },
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.cubism.model.read",
+      "scope": "application",
+      "reason": "Read model-image counts from the active texture-atlas editor session."
+    }
+  ],
+  "capabilities": ["cubism.texture-atlas.statistics"],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "swing"
+  }
+}

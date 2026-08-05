@@ -17,6 +17,10 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
+import dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi;
+import dev.turboism.adapter.cubism.textureatlas.VerifiedTextureAtlasDataModelHookInstaller;
+import dev.turboism.adapter.cubism.textureatlas.VerifiedTextureAtlasAutoLayoutHookInstaller;
+
 /** Java-agent entrypoint for the Turboism 0.1 Developer Preview. */
 public final class TurboismAgent {
 
@@ -28,6 +32,10 @@ public final class TurboismAgent {
         new AtomicReference<>();
     private static final AtomicReference<VerifiedProjectLifecycleHookInstaller>
         PROJECT_LIFECYCLE_HOOK = new AtomicReference<>();
+    private static final AtomicReference<VerifiedTextureAtlasDataModelHookInstaller> TEXTURE_ATLAS_HOOK =
+        new AtomicReference<>();
+    private static final AtomicReference<VerifiedTextureAtlasAutoLayoutHookInstaller> TEXTURE_ATLAS_AUTO_LAYOUT_HOOK =
+        new AtomicReference<>();
     private static final AtomicReference<VerifiedDockTabPopupHookInstaller> DOCK_TAB_POPUP_HOOK =
         new AtomicReference<>();
     private static final AtomicReference<VerifiedFloatingFrameDisposeHookInstaller> FLOATING_FRAME_DISPOSE_HOOK =
@@ -213,6 +221,8 @@ public final class TurboismAgent {
             }
             installParameterHook(runtime, instrumentation, host);
             installProjectLifecycleHook(runtime, instrumentation, host);
+            installTextureAtlasHook(runtime, instrumentation, host);
+            installTextureAtlasAutoLayoutHook(runtime, instrumentation, host);
             installDockTabPopupHook(
                 embeddedPanelVerificationRecord,
                 instrumentation,
@@ -705,6 +715,24 @@ public final class TurboismAgent {
 
             }
         }
+        final VerifiedTextureAtlasDataModelHookInstaller textureAtlasHook =
+            TEXTURE_ATLAS_HOOK.getAndSet(null);
+        if (textureAtlasHook != null) {
+            try {
+                textureAtlasHook.close();
+            } catch (Throwable failure) {
+                System.err.println("Turboism texture-atlas hook cleanup failed safely");
+            }
+        }
+        final VerifiedTextureAtlasAutoLayoutHookInstaller textureAtlasAutoLayoutHook =
+            TEXTURE_ATLAS_AUTO_LAYOUT_HOOK.getAndSet(null);
+        if (textureAtlasAutoLayoutHook != null) {
+            try {
+                textureAtlasAutoLayoutHook.close();
+            } catch (Throwable failure) {
+                System.err.println("Turboism texture-atlas automatic-layout hook cleanup failed safely");
+            }
+        }
         final VerifiedPhysicsEditorHookInstaller physicsHook = PHYSICS_EDITOR_HOOK.getAndSet(null);
         if (physicsHook != null) {
             try {
@@ -745,5 +773,81 @@ public final class TurboismAgent {
             );
         }
         return true;
+    }
+
+    private static void installTextureAtlasHook(
+        final PreviewRuntime runtime,
+        final Instrumentation instrumentation,
+        final HostClassLocator.LocatedHost host
+    ) {
+        VerifiedTextureAtlasDataModelHookInstaller installer = null;
+        try {
+            installer = VerifiedTextureAtlasDataModelHookInstaller.fromVerifiedResolver(
+                instrumentation,
+                runtime.editorModelResolver(),
+                host.classLoader(),
+                runtime.textureAtlasDataModelCapture()
+            );
+            installer.install();
+            if (!TEXTURE_ATLAS_HOOK.compareAndSet(null, installer)) {
+                installer.close();
+            }
+        } catch (Throwable failure) {
+            if (installer != null) installer.close();
+            System.err.println(
+                "Turboism texture-atlas hook disabled safely: " + failure.getClass().getName()
+            );
+        }
+    }
+
+    private static void installTextureAtlasAutoLayoutHook(
+        final PreviewRuntime runtime,
+        final Instrumentation instrumentation,
+        final HostClassLocator.LocatedHost host
+    ) {
+        VerifiedTextureAtlasAutoLayoutHookInstaller installer = null;
+        try {
+            final RuntimeTextureAtlasEditorUi editorUi =
+                runtime.hostAccess().textureAtlasEditorUi();
+            installer = VerifiedTextureAtlasAutoLayoutHookInstaller.fromVerifiedResolver(
+                instrumentation,
+                runtime.editorModelResolver(),
+                host.classLoader(),
+                runtime.hostAccess().textureAtlasNativeInvocations(),
+                () -> {
+                    final Object callback = System.getProperties().get(
+                        VerifiedTextureAtlasAutoLayoutHookInstaller.PLUGIN_CALLBACK_KEY
+                    );
+                    return callback instanceof java.util.function.BooleanSupplier supplier
+                        && supplier.getAsBoolean();
+                },
+                editorUi,
+                runtime.hostAccess().textureAtlasAlgorithms()
+            );
+            installer.install();
+            if (!TEXTURE_ATLAS_AUTO_LAYOUT_HOOK.compareAndSet(null, installer)) {
+                installer.close();
+            }
+        } catch (Throwable failure) {
+            if (installer != null) installer.close();
+            System.err.println(
+                "Turboism texture-atlas automatic-layout hook disabled safely: "
+                    + failure.getClass().getName()
+            );
+            try {
+                final Path home = Path.of(System.getProperty("turboism.home", "."));
+                final Path diag = home.resolve("logs").resolve("bootstrap-diagnostic.log");
+                java.nio.file.Files.createDirectories(diag.getParent());
+                java.nio.file.Files.writeString(
+                    diag,
+                    java.time.Instant.now() + " texture-atlas auto-layout hook install failed: "
+                        + failure + "\n",
+                    java.nio.file.StandardOpenOption.CREATE,
+                    java.nio.file.StandardOpenOption.APPEND
+                );
+            } catch (Throwable ignored) {
+                // diagnostics are best-effort
+            }
+        }
     }
 }

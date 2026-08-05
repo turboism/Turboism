@@ -80,6 +80,38 @@ public interface CubismFacade {
     @PreviewApi
     TransactionManager transactionManager();
 
+    /** Returns complete texture-atlas authoring layout access when installed. */
+    @PreviewApi
+    default dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutService textureAtlasLayouts() {
+        throw new UnsupportedOperationException(
+            "Texture atlas layout service is unavailable"
+        );
+    }
+
+    /** Returns read access to the active native texture-atlas editor session. */
+    @PreviewApi
+    default dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorSession textureAtlasEditorSession() {
+        throw new UnsupportedOperationException(
+            "Texture atlas editor session is unavailable"
+        );
+    }
+
+    /** Returns UI contribution access to the native texture-atlas editor window. */
+    @PreviewApi
+    default dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorUi textureAtlasEditorUi() {
+        throw new UnsupportedOperationException(
+            "Texture atlas editor UI contribution is unavailable"
+        );
+    }
+
+    /** Returns the registry of registered texture-atlas layout algorithms. */
+    @PreviewApi
+    default dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithmRegistry textureAtlasAlgorithms() {
+        throw new UnsupportedOperationException(
+            "Texture atlas algorithm registry is unavailable"
+        );
+    }
+
     default boolean hasActiveProject() {
         return activeProject().isPresent();
     }
