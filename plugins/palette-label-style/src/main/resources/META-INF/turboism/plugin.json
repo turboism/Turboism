@@ -1,0 +1,72 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 2,
+  "id": "dev.turboism.plugin.palette-label-style",
+  "name": "Palette Label Style Plugin",
+  "version": "0.1.0",
+  "description": "Label text and background colors for Deformer, Part, and Parameter palette entries via context menus.",
+  "entrypoints": [
+    "dev.turboism.plugin.palettelabelstyle.PaletteLabelStylePlugin"
+  ],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    { "name": "Turboism Contributors" }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": ["base", "en", "ja", "ko", "zh_Hans", "zh_Hant"]
+  },
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.action.register",
+      "scope": "application",
+      "reason": "Register label text/background color actions invoked from palette context menus."
+    },
+    {
+      "id": "turboism.ui.context-menu.contribute",
+      "scope": "application",
+      "reason": "Contribute text-color and background-color submenus to Deformer, Part, and Parameter palette context menus."
+    },
+    {
+      "id": "turboism.ui.appearance.modify",
+      "scope": "application",
+      "reason": "Override palette entry text and background colors and set native deformer label colors."
+    },
+    {
+      "id": "turboism.ui.dialog.contribute",
+      "scope": "application",
+      "reason": "Open the custom-color form dialog."
+    },
+    {
+      "id": "turboism.cubism.model.read",
+      "scope": "application",
+      "reason": "Resolve selected palette objects and replay persisted colors on model open."
+    },
+    {
+      "id": "turboism.config.plugin.read",
+      "scope": "application",
+      "reason": "Read persisted per-project label colors for replay."
+    },
+    {
+      "id": "turboism.config.plugin.write",
+      "scope": "application",
+      "reason": "Persist per-project label text/background colors after each apply or clear."
+    }
+  ],
+  "capabilities": [
+    "ui.context-menu.contribute",
+    "ui.appearance.modify",
+    "ui.dialog.contribute",
+    "cubism.model.read",
+    "config.plugin.read",
+    "config.plugin.write"
+  ],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "embedded"
+  }
+}
