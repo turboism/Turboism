@@ -51,7 +51,8 @@ class M12CapabilityCatalogSanityTest {
         "turboism.cubism.parameter.read", "turboism.cubism.mesh.read",
         "turboism.action.register", "turboism.event.subscribe", "turboism.event.publish",
         "turboism.config.plugin.read", "turboism.config.plugin.write",
-        "turboism.file.read", "turboism.file.write", "turboism.network.fetch"
+        "turboism.file.read", "turboism.file.write", "turboism.network.fetch",
+        "turboism.process.run"
     );
     private static final Set<String> REQUIRED_CAPABILITY_IDS = Set.of(
         "cubism.project.read", "cubism.selection.read", "cubism.parameter.read", "cubism.model-tree.read",
