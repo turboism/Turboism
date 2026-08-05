@@ -80,6 +80,27 @@ class PaletteLabelStylePluginTest {
     );
 
     @Test
+    void pluginJsonDeclaresEveryPermissionTheCodeTouches() throws Exception {
+        final String json;
+        try (var in = PaletteLabelStylePluginTest.class.getResourceAsStream("/META-INF/turboism/plugin.json")) {
+            json = new String(java.util.Objects.requireNonNull(in, "plugin.json resource").readAllBytes(),
+                java.nio.charset.StandardCharsets.UTF_8);
+        }
+        for (final String permission : List.of(
+            "turboism.action.register",
+            "turboism.ui.context-menu.contribute",
+            "turboism.ui.appearance.modify",
+            "turboism.ui.dialog.contribute",
+            "turboism.cubism.model.read",
+            "turboism.cubism.project.read",
+            "turboism.config.plugin.read",
+            "turboism.config.plugin.write"
+        )) {
+            assertTrue(json.contains("\"" + permission + "\""),
+                "plugin.json must declare permission " + permission);
+        }
+    }
+    @Test
     void enableRegistersAllTextAndBackgroundActions() {
         final RecordingPluginContext context = new RecordingPluginContext();
         final PaletteLabelStylePlugin plugin = new PaletteLabelStylePlugin();
