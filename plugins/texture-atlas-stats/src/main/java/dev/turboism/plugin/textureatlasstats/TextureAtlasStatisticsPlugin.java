@@ -8,6 +8,10 @@ import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.TurboismPlugin;
 
 import java.util.Objects;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import javax.swing.SwingUtilities;
 
 /**
  * Contributes a single-line model-image counter into the native texture-atlas editor
@@ -17,7 +21,7 @@ import java.util.Objects;
 public final class TextureAtlasStatisticsPlugin implements TurboismPlugin {
 
     private PluginContext context;
-    private javax.swing.Timer timer;
+    private ScheduledExecutorService scheduler;
     private boolean enabled;
 
     @Override
@@ -37,7 +41,12 @@ public final class TextureAtlasStatisticsPlugin implements TurboismPlugin {
             final javax.swing.JLabel line = new javax.swing.JLabel(
                 i18n.text("texture-atlas-stats.line")
             );
-            timer = new javax.swing.Timer(1000, event -> {
+            scheduler = Executors.newSingleThreadScheduledExecutor(runnable -> {
+                final Thread thread = new Thread(runnable, "turboism-texture-atlas-stats");
+                thread.setDaemon(true);
+                return thread;
+            });
+            scheduler.scheduleWithFixedDelay(() -> {
                 try {
                     final int whole = session.summary()
                         .map(TextureAtlasSummary::imageCount)
@@ -45,13 +54,13 @@ public final class TextureAtlasStatisticsPlugin implements TurboismPlugin {
                     final int selected = session.selectedTexture()
                         .map(TextureAtlasSummary::imageCount)
                         .orElse(0);
-                    line.setText(i18n.format("texture-atlas-stats.line", whole, selected));
+                    final String text = i18n.format("texture-atlas-stats.line", whole, selected);
+                    SwingUtilities.invokeLater(() -> line.setText(text));
                 } catch (Throwable failure) {
-                    line.setText(i18n.text("texture-atlas-stats.unavailable"));
+                    final String unavailable = i18n.text("texture-atlas-stats.unavailable");
+                    SwingUtilities.invokeLater(() -> line.setText(unavailable));
                 }
-            });
-            timer.setRepeats(true);
-            timer.start();
+            }, 1, 1, TimeUnit.SECONDS);
             editorUi.attach(line);
         } catch (Throwable failure) {
             context.logger().warn("Texture Atlas Statistics panel unavailable: " + failure);
@@ -60,9 +69,9 @@ public final class TextureAtlasStatisticsPlugin implements TurboismPlugin {
 
     @Override
     public void disable() {
-        if (timer != null) {
-            timer.stop();
-            timer = null;
+        if (scheduler != null) {
+            scheduler.shutdownNow();
+            scheduler = null;
         }
         enabled = false;
     }
