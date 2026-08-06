@@ -10,7 +10,9 @@ import javax.swing.JComponent;
 import java.awt.Dimension;
 import java.awt.Graphics2D;
 import java.awt.event.MouseEvent;
+import java.awt.Point;
 import java.awt.image.BufferedImage;
+import java.awt.event.MouseWheelEvent;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -18,6 +20,8 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 class GraphPanelTest {
 
@@ -94,11 +98,151 @@ class GraphPanelTest {
         }
     }
 
+
+    @Test
+    void compactSpacingShrinksCircleRadius() {
+        final GraphPanel panel = new GraphPanel(stateWith(20), localization(), clicked -> { });
+        final int width = panel.getPreferredSize().width;
+        final int expectedRadius = Math.max(
+            160, (int) Math.round(60 * (2 * 22 + 2) / (2 * Math.PI)));
+        assertEquals((expectedRadius + 40) * 2, width);
+        final int oldRadius = (int) Math.round(60 * (2 * 22 + 8) / (2 * Math.PI));
+        assertTrue(width < (oldRadius + 40) * 2, "spacing must be tighter than the old +8 gap");
+    }
+
+    @Test
+    void zoomKeepsCursorAnchorFixedAndClamps() {
+        final GraphPanel panel = new GraphPanel(stateWith(2), localization(), clicked -> { });
+        panel.zoomAt(new Point(100, 120), 1.2);
+        assertEquals(1.2, panel.scale(), 1e-9);
+        // 锚点不变性：光标 (100,120) 下的逻辑坐标缩放前后一致 → offset 按公式移动。
+        assertEquals(-20, panel.offsetX());
+        assertEquals(-24, panel.offsetY());
+
+        for (int i = 0; i < 10; i++) {
+            panel.zoomAt(new Point(200, 200), 1.2);
+        }
+        assertEquals(4.0, panel.scale(), 1e-9);
+        final int ox = panel.offsetX();
+        final int oy = panel.offsetY();
+        panel.zoomAt(new Point(200, 200), 1.2);
+        assertEquals(ox, panel.offsetX(), "clamped zoom-in must not shift the view");
+        assertEquals(oy, panel.offsetY());
+
+        for (int i = 0; i < 30; i++) {
+            panel.zoomAt(new Point(200, 200), 1 / 1.2);
+        }
+        assertEquals(0.2, panel.scale(), 1e-9);
+    }
+
+    @Test
+    void wheelEventZoomsInAroundCursor() {
+        final GraphPanel panel = new GraphPanel(stateWith(2), localization(), clicked -> { });
+        panel.dispatchEvent(new MouseWheelEvent(panel, MouseEvent.MOUSE_WHEEL,
+            System.currentTimeMillis(), 0, 100, 120, 0, false,
+            MouseWheelEvent.WHEEL_UNIT_SCROLL, 3, -1));
+        assertEquals(1.2, panel.scale(), 1e-9);
+        assertEquals(-20, panel.offsetX());
+        assertEquals(-24, panel.offsetY());
+    }
+
+    @Test
+    void panByShiftsViewportAndHitDetection() {
+        final GraphPanel panel = new GraphPanel(stateWithUserAndMask(), localization(), clicked -> { });
+        panel.panBy(30, -10);
+        assertEquals(30, panel.offsetX());
+        assertEquals(-10, panel.offsetY());
+        assertNotNull(panel.findNode(new Point(339 + 30, 280 - 10)));
+        assertNull(panel.findNode(new Point(339, 280)));
+    }
+
+    @Test
+    void dragPansViewportAndSuppressesNodeClick() {
+        final List<String> clicked = new ArrayList<>();
+        final GraphPanel panel = new GraphPanel(stateWithUserAndMask(), localization(), clicked::add);
+
+        dispatchPress(panel, 339, 280);
+        dispatchDrag(panel, 380, 330);
+        dispatchRelease(panel, 380, 330);
+        dispatchClick(panel, 380, 330);
+        assertTrue(clicked.isEmpty(), "drag must not trigger the node click");
+        assertEquals(41, panel.offsetX());
+        assertEquals(50, panel.offsetY());
+
+        // 位移 ≤ 4px 仍视为点击：在已平移的视口里按下节点新屏幕位置、2px 内拖动后释放。
+        clicked.clear();
+        dispatchPress(panel, 380, 330);
+        dispatchDrag(panel, 382, 332);
+        dispatchRelease(panel, 382, 332);
+        dispatchClick(panel, 382, 332);
+        assertTrue(clicked.contains("user-1"), "small drag must still count as a node click");
+    }
+
+    @Test
+    void doubleClickResetsViewTransform() {
+        final GraphPanel panel = new GraphPanel(stateWithUserAndMask(), localization(), clicked -> { });
+        panel.zoomAt(new Point(300, 300), 2.0);
+        panel.panBy(40, 50);
+        assertTrue(panel.scale() > 1);
+        dispatchClick(panel, 200, 200, 2);
+        assertEquals(1.0, panel.scale(), 1e-9);
+        assertEquals(0, panel.offsetX());
+        assertEquals(0, panel.offsetY());
+    }
+
+    @Test
+    void hitDetectionUsesTransformedCoordinates() {
+        final List<String> clicked = new ArrayList<>();
+        final GraphPanel panel = new GraphPanel(stateWithUserAndMask(), localization(), clicked::add);
+        panel.zoomAt(new Point(200, 200), 2.0);
+        assertEquals(-200, panel.offsetX());
+        assertEquals(-200, panel.offsetY());
+        // user-1 逻辑 (339,280) → 屏幕 (478,360)；圆心逻辑 (200,200) → 屏幕 (200,200)。
+        assertNotNull(panel.findNode(new Point(478, 360)));
+        assertNull(panel.findNode(new Point(200, 200)));
+        dispatchClick(panel, 478, 360);
+        assertTrue(clicked.contains("user-1"), "click on transformed node must reach the callback");
+
+        panel.panBy(-50, 20);
+        // mask-1 逻辑 (61,280) → 屏幕 (-128,380)。
+        assertNotNull(panel.findNode(new Point(-128, 380)));
+    }
     private static void dispatchClick(final JComponent panel, final int x, final int y) {
+        dispatchClick(panel, x, y, 1);
+    }
+
+    private static void dispatchClick(
+        final JComponent panel,
+        final int x,
+        final int y,
+        final int clickCount
+    ) {
         panel.dispatchEvent(new MouseEvent(panel, MouseEvent.MOUSE_CLICKED,
+            System.currentTimeMillis(), 0, x, y, clickCount, false, MouseEvent.BUTTON1));
+    }
+
+    private static void dispatchPress(final JComponent panel, final int x, final int y) {
+        panel.dispatchEvent(new MouseEvent(panel, MouseEvent.MOUSE_PRESSED,
             System.currentTimeMillis(), 0, x, y, 1, false, MouseEvent.BUTTON1));
     }
 
+    private static void dispatchDrag(final JComponent panel, final int x, final int y) {
+        panel.dispatchEvent(new MouseEvent(panel, MouseEvent.MOUSE_DRAGGED,
+            System.currentTimeMillis(), 0, x, y, 0, false, MouseEvent.BUTTON1));
+    }
+
+    private static void dispatchRelease(final JComponent panel, final int x, final int y) {
+        panel.dispatchEvent(new MouseEvent(panel, MouseEvent.MOUSE_RELEASED,
+            System.currentTimeMillis(), 0, x, y, 1, false, MouseEvent.BUTTON1));
+    }
+
+    private static ClipMaskViewerState stateWithUserAndMask() {
+        final ClipMaskViewerState state = new ClipMaskViewerState();
+        state.refreshData(service(
+            record("user-1", "A", false, "mask-1"),
+            record("mask-1", "M", false)));
+        return state;
+    }
     private static ClipMaskViewerState stateWith(final int perGroup) {
         final List<ClipMaskRecord> records = new ArrayList<>();
         for (int i = 0; i < perGroup; i++) {
