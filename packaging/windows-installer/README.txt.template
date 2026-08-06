@@ -1,0 +1,39 @@
+﻿Turboism __VERSION__ Windows 安装包使用说明
+=============================================
+
+Turboism 是一个为 Live2D Cubism 编辑器提供增强能力的 Java agent 运行时。
+本安装包为免管理员的手动安装形态（ZIP），解压即用，不修改 Cubism 安装目录。
+
+一、目录结构
+------------
+  turboism-agent.jar            运行时（Java agent）
+  config.json                   运行时配置（turboism.runtime.config v1）
+  launch-cubism-turboism.bat    启动器（双击运行，推荐）
+  launch-cubism-turboism.ps1    同一逻辑的 PowerShell 版本
+  plugins/                      插件 jar（full 包才有；lite 包无此目录）
+  README.txt / LICENSE.txt
+
+二、使用方法
+------------
+1. 将整个目录放到任意位置，例如 %LOCALAPPDATA%\Turboism。
+2. 双击 launch-cubism-turboism.bat 启动 Cubism 编辑器：
+   - 启动器使用 Cubism 自带 JDK 与官方 classpath，不改动 Cubism 任何文件；
+   - 自动探测 Live2D Cubism 5.3.02 / 5.2.03 的常见安装路径；
+   - 找不到时请设置环境变量 CUBISM_ROOT，或在命令行传入 Cubism 根目录：
+       launch-cubism-turboism.bat -CubismRoot "C:\Program Files\Live2D Cubism 5.3.02"
+3. （可选）设置环境变量 TURBOISM_HOME 指向本目录；设置后可从任意位置运行
+   启动器（否则启动器以自身所在目录为 Turboism home）。
+4. 插件开关：运行 configure_turboism.ps1 勾选/取消插件并保存到 config.json。
+
+三、config.json
+--------------
+  worktreeId:     "turboism-runtime"
+  pluginDirs:     ["plugins"]
+  disabledPlugins: 被禁用的插件 id 列表（未勾选的插件，升序；可选字段）
+
+四、常见问题
+------------
+- 双击 bat 后窗口闪退：在命令行中运行 launch-cubism-turboism.ps1 查看报错。
+- 插件不生效：确认插件 jar 在 plugins/ 下，且 config.json 的 disabledPlugins
+  中没有该插件 id。
+- 日志位置：<Turboism home>\logs\runtime\YYYY-MM-DD\turboism-*.log
