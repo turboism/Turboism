@@ -51,12 +51,14 @@ public final class NativeProjectLifecycleBridge {
     }
 
     public static void beginModelOpen(final String displayName, final File file) {
+        System.out.println("LIFECYCLE-BRIDGE:method=beginModelOpen kind=MODEL op=OPEN");
         final NativeProjectLifecycleBridge bridge = INSTALLED.get();
         if (bridge == null) return;
         bridge.safeBeginOpen(ProjectContentKind.MODEL, displayName, file, null);
     }
 
     public static void beginAnimationOpen(final Object animation, final File file) {
+        System.out.println("LIFECYCLE-BRIDGE:method=beginAnimationOpen kind=ANIMATION op=OPEN");
         final NativeProjectLifecycleBridge bridge = INSTALLED.get();
         if (bridge == null) return;
         bridge.safeBeginOpen(
@@ -72,6 +74,9 @@ public final class NativeProjectLifecycleBridge {
         final int kindOrdinal,
         final int operationOrdinal
     ) {
+        System.out.println("LIFECYCLE-BRIDGE:method=beginContent kind="
+            + enumNameOrDash(ProjectContentKind.values(), kindOrdinal)
+            + " op=" + enumNameOrDash(ProjectFileOperationType.values(), operationOrdinal));
         final NativeProjectLifecycleBridge bridge = INSTALLED.get();
         if (bridge == null) return;
         bridge.safeBeginExisting(
@@ -82,24 +87,28 @@ public final class NativeProjectLifecycleBridge {
     }
 
     public static void completeObject(final Object content) {
+        System.out.println("LIFECYCLE-BRIDGE:method=completeObject kind=- op=-");
         final NativeProjectLifecycleBridge bridge = INSTALLED.get();
         if (bridge == null) return;
         bridge.safeCompleteFile(content, content != null, null);
     }
 
     public static void completeBoolean(final boolean succeeded) {
+        System.out.println("LIFECYCLE-BRIDGE:method=completeBoolean kind=- op=-");
         final NativeProjectLifecycleBridge bridge = INSTALLED.get();
         if (bridge == null) return;
         bridge.safeCompleteFile(null, succeeded, null);
     }
 
     public static void failedFile(final Throwable failure) {
+        System.out.println("LIFECYCLE-BRIDGE:method=failedFile kind=- op=-");
         final NativeProjectLifecycleBridge bridge = INSTALLED.get();
         if (bridge == null) return;
         bridge.safeCompleteFile(null, false, Objects.requireNonNull(failure, "failure"));
     }
 
     public static void beforeEditorExit() {
+        System.out.println("LIFECYCLE-BRIDGE:method=beforeEditorExit kind=- op=-");
         final NativeProjectLifecycleBridge bridge = INSTALLED.get();
         if (bridge == null) return;
         EditorLifecycleCoordinator.ExitInvocation invocation = null;
@@ -112,12 +121,14 @@ public final class NativeProjectLifecycleBridge {
     }
 
     public static void completeEditorExit(final boolean accepted) {
+        System.out.println("LIFECYCLE-BRIDGE:method=completeEditorExit kind=- op=-");
         final NativeProjectLifecycleBridge bridge = INSTALLED.get();
         if (bridge == null) return;
         bridge.safeCompleteExit(accepted, null);
     }
 
     public static void failedEditorExit(final Throwable failure) {
+        System.out.println("LIFECYCLE-BRIDGE:method=failedEditorExit kind=- op=-");
         final NativeProjectLifecycleBridge bridge = INSTALLED.get();
         if (bridge == null) return;
         bridge.safeCompleteExit(false, Objects.requireNonNull(failure, "failure"));
@@ -360,6 +371,10 @@ public final class NativeProjectLifecycleBridge {
             throw new IllegalArgumentException(name + " is out of range");
         }
         return values[ordinal];
+    }
+
+    private static String enumNameOrDash(final Enum<?>[] values, final int ordinal) {
+        return ordinal >= 0 && ordinal < values.length ? values[ordinal].name() : "-";
     }
 
     private static String requireText(final String value, final String name) {
