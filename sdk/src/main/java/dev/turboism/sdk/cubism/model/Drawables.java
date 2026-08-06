@@ -15,6 +15,19 @@ public interface Drawables {
     Drawable find(ArtMeshId id);
 
 
+    /**
+     * Creates an ArtMesh with explicit geometry under {@code parent} at {@code index}
+     * (negative = append; {@code null} parent = model root).
+     */
+    default Drawable create(
+        String name,
+        Part parent,
+        int index,
+        ArtMeshGeometry geometry
+    ) {
+        throw unavailable("ArtMesh creation");
+    }
+
     /** Deletes {@code drawable} through the native selection + native DELETE command path. */
     default void remove(Drawable drawable) {
         throw unavailable("Drawable deletion");

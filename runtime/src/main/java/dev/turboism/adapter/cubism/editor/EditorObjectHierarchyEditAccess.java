@@ -2,10 +2,15 @@ package dev.turboism.adapter.cubism.editor;
 
 import dev.turboism.mapping.verification.EditorObjectHierarchyEditSelectorContract;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
+import dev.turboism.sdk.cubism.model.ArtMeshGeometry;
+import dev.turboism.sdk.cubism.model.Point2;
+import dev.turboism.sdk.cubism.model.WarpGrid;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * Exact, generation-bound Editor authoring projection for object-hierarchy editing:
@@ -22,7 +27,10 @@ import java.util.Objects;
  */
 final class EditorObjectHierarchyEditAccess {
 
+    private static final int MAX_OBJECT_ID_LENGTH = 128;
+
     private static final String CREATE_PART_ACTION = "Turboism: Create Part";
+    private static final String CREATE_ART_MESH_ACTION = "Turboism: Create ArtMesh";
     private static final String CREATE_WARP_ACTION = "Turboism: Create Warp Deformer";
     private static final String CREATE_ROTATION_ACTION = "Turboism: Create Rotation Deformer";
     private static final String DELETE_ACTION = "Turboism: Delete ";
@@ -56,29 +64,196 @@ final class EditorObjectHierarchyEditAccess {
         requireEditAuthorized();
         currentGuard.requireCurrent(identity, model);
         final Object created = resolver.construct(
-            "cubism.editor-model.part-source.create", name, modelSource
+            "cubism.editor-model.part-source.create", modelSource
         );
         if (!resolver.isInstance("cubism.editor-model.part-source.class", created)) {
             throw unavailable("Editor Part source construction is invalid.");
         }
-        write(
-            "cubism.editor-model.complete-pack.update-part-palette",
-            "Part",
+        setObjectId(created, "Part", nextObjectId(modelSource, "Part", name));
+        resolver.invoke(
+            "cubism.editor-model.parameter-controllable-source.set-local-name",
+            created,
+            name
+        );
+        initializePart(created, modelSource);
+        writeCreatedSource(
             modelSource,
             created,
+            parentSource,
+            index,
             CREATE_PART_ACTION,
-            () -> {
-                final Object partSet = resolver.invoke(
-                    "cubism.editor-model.model-source.part-source-set", modelSource
-                );
-                resolver.invoke(
-                    "cubism.editor-model.part-source-set.add",
-                    partSet, created, Integer.valueOf(index)
-                );
-                attachToParent(created, parentSource, index);
-            }
+            "cubism.editor-model.complete-pack.update-part-palette"
         );
         return created;
+    }
+
+    Object createArtMeshSource(
+        final String identity,
+        final Object modelSource,
+        final Object model,
+        final String requestedName,
+        final Object parentSource,
+        final int index,
+        final ArtMeshGeometry geometry
+    ) {
+        final String name = requireName(requestedName);
+        final ArtMeshGeometry checkedGeometry = Objects.requireNonNull(geometry, "geometry");
+        requireArtMeshCreateAuthorized();
+        currentGuard.requireCurrent(identity, model);
+        final Object created = resolver.construct(
+            "cubism.editor-model.art-mesh-source.create", modelSource
+        );
+        if (!resolver.isInstance("cubism.editor-model.art-mesh-source.class", created)) {
+            throw unavailable("Editor ArtMesh source construction is invalid.");
+        }
+        final String id = nextObjectId(modelSource, "ArtMesh", name);
+        setObjectId(created, "ArtMesh", id);
+        resolver.invoke(
+            "cubism.editor-model.parameter-controllable-source.set-local-name",
+            created, name
+        );
+        initializeArtMesh(created, checkedGeometry, modelSource);
+        writeCreatedSource(
+            modelSource,
+            created,
+            parentSource,
+            index,
+            CREATE_ART_MESH_ACTION,
+            "cubism.editor-model.complete-pack.update-part-palette"
+        );
+        return created;
+    }
+
+    private void initializePart(final Object source, final Object modelSource) {
+        final Object form = resolver.construct(
+            "cubism.editor-model.part-form.create",
+            source,
+            null
+        );
+        initializeKeyformSource(
+            source,
+            form,
+            modelSource,
+            "cubism.editor-model.part-source.keyforms"
+        );
+    }
+
+    private void initializeArtMesh(
+        final Object source,
+        final ArtMeshGeometry geometry,
+        final Object modelSource
+    ) {
+        final float[] positions = flatten(geometry.positions());
+        final float[] uvs = flatten(geometry.uvs());
+        final int[] indices = geometry.triangleIndices().stream()
+            .mapToInt(Integer::intValue)
+            .toArray();
+        resolver.invoke("cubism.editor-model.art-mesh-source.set-positions", source, positions);
+        resolver.invoke("cubism.editor-model.art-mesh-source.set-uvs", source, uvs);
+        resolver.invoke("cubism.editor-model.art-mesh-source.set-indices", source, indices);
+        final Object form = resolver.construct(
+            "cubism.editor-model.art-mesh-form.create",
+            source,
+            null,
+            resolver.invokeStatic("cubism.editor-model.coord-type.canvas")
+        );
+        resolver.invoke(
+            "cubism.editor-model.art-mesh-form.set-positions", form, positions.clone()
+        );
+        initializeKeyformSource(
+            source,
+            form,
+            modelSource,
+            "cubism.editor-model.art-mesh-source.keyforms"
+        );
+    }
+
+    private void initializeWarp(
+        final Object source,
+        final Object modelSource,
+        final WarpGrid grid
+    ) {
+        resolver.invoke(
+            "cubism.editor-model.warp-source.set-row",
+            source,
+            Integer.valueOf(grid.rows())
+        );
+        resolver.invoke(
+            "cubism.editor-model.warp-source.set-col",
+            source,
+            Integer.valueOf(grid.columns())
+        );
+        resolver.invoke(
+            "cubism.editor-model.warp-source.set-quad-transform",
+            source,
+            Boolean.valueOf(grid.quadTransform())
+        );
+        final Object form = resolver.construct(
+            "cubism.editor-model.warp-form.create",
+            source,
+            null,
+            resolver.invokeStatic("cubism.editor-model.coord-type.canvas")
+        );
+        resolver.invoke(
+            "cubism.editor-model.warp-form.set-positions",
+            form,
+            flatten(grid.controlPoints())
+        );
+        initializeKeyformSource(
+            source,
+            form,
+            modelSource,
+            "cubism.editor-model.warp-source.keyforms"
+        );
+    }
+
+    private void initializeRotation(final Object source, final Object modelSource) {
+        final Object form = resolver.construct(
+            "cubism.editor-model.rotation-form.create",
+            source,
+            null,
+            resolver.invokeStatic("cubism.editor-model.coord-type.canvas")
+        );
+        resolver.invoke("cubism.editor-model.rotation-form.set-angle", form, Float.valueOf(0.0F));
+        resolver.invoke("cubism.editor-model.rotation-form.set-origin-x", form, Float.valueOf(0.0F));
+        resolver.invoke("cubism.editor-model.rotation-form.set-origin-y", form, Float.valueOf(0.0F));
+        resolver.invoke("cubism.editor-model.rotation-form.set-scale", form, Float.valueOf(1.0F));
+        resolver.invoke("cubism.editor-model.rotation-form.set-reflect-x", form, Boolean.FALSE);
+        resolver.invoke("cubism.editor-model.rotation-form.set-reflect-y", form, Boolean.FALSE);
+        initializeKeyformSource(
+            source,
+            form,
+            modelSource,
+            "cubism.editor-model.rotation-source.keyforms"
+        );
+    }
+
+    private void initializeKeyformSource(
+        final Object source,
+        final Object form,
+        final Object modelSource,
+        final String keyformsAlias
+    ) {
+        final Object formGuid = resolver.construct("cubism.editor-model.form-guid.create");
+        resolver.invoke("cubism.editor-model.form.set-guid", form, formGuid);
+        final Object keyforms = resolver.invoke(keyformsAlias, source);
+        resolver.invoke("cubism.editor-model.c-array-list.add", keyforms, form);
+        final Object keyformGrid = resolver.construct(
+            "cubism.editor-model.keyform-grid-source.create", source
+        );
+        resolver.invoke(
+            "cubism.editor-model.keyform-grid-source.import-cubism21",
+            keyformGrid,
+            modelSource,
+            List.of(),
+            List.of(formGuid),
+            null
+        );
+        resolver.invoke(
+            "cubism.editor-model.parameter-controllable-source.set-keyform-grid-source",
+            source,
+            keyformGrid
+        );
     }
 
     Object createWarpSource(
@@ -96,39 +271,25 @@ final class EditorObjectHierarchyEditAccess {
         requireEditAuthorized();
         currentGuard.requireCurrent(identity, model);
         final Object created = resolver.construct(
-            "cubism.editor-model.warp-deformer-source.create", modelSource
+            "cubism.editor-model.warp-source.create", modelSource
         );
         if (!resolver.isInstance("cubism.editor-model.warp-source.class", created)) {
             throw unavailable("Editor Warp Deformer source construction is invalid.");
         }
-        write(
-            "cubism.editor-model.complete-pack.update-deformer-palette",
-            "Warp Deformer",
+        setObjectId(created, "Deformer", nextObjectId(modelSource, "WarpDeformer", name));
+        resolver.invoke(
+            "cubism.editor-model.parameter-controllable-source.set-local-name",
+            created,
+            name
+        );
+        initializeWarp(created, modelSource, defaultWarpGrid(rows, columns));
+        writeCreatedSource(
             modelSource,
             created,
+            parentSource,
+            index,
             CREATE_WARP_ACTION,
-            () -> {
-                resolver.invoke(
-                    "cubism.editor-model.warp-source.set-row",
-                    created, Integer.valueOf(rows)
-                );
-                resolver.invoke(
-                    "cubism.editor-model.warp-source.set-col",
-                    created, Integer.valueOf(columns)
-                );
-                resolver.invoke(
-                    "cubism.editor-model.parameter-controllable-source.set-local-name",
-                    created, name
-                );
-                final Object deformerSet = resolver.invoke(
-                    "cubism.editor-model.model-source.deformer-source-set", modelSource
-                );
-                resolver.invoke(
-                    "cubism.editor-model.deformer-source-set.add",
-                    deformerSet, created, Integer.valueOf(index)
-                );
-                attachToParent(created, parentSource, index);
-            }
+            "cubism.editor-model.complete-pack.update-deformer-palette"
         );
         return created;
     }
@@ -145,31 +306,29 @@ final class EditorObjectHierarchyEditAccess {
         requireEditAuthorized();
         currentGuard.requireCurrent(identity, model);
         final Object created = resolver.construct(
-            "cubism.editor-model.rotation-deformer-source.create", modelSource
+            "cubism.editor-model.rotation-source.create", modelSource
         );
         if (!resolver.isInstance("cubism.editor-model.rotation-source.class", created)) {
             throw unavailable("Editor Rotation Deformer source construction is invalid.");
         }
-        write(
-            "cubism.editor-model.complete-pack.update-deformer-palette",
-            "Rotation Deformer",
+        setObjectId(
+            created,
+            "Deformer",
+            nextObjectId(modelSource, "RotationDeformer", name)
+        );
+        resolver.invoke(
+            "cubism.editor-model.parameter-controllable-source.set-local-name",
+            created,
+            name
+        );
+        initializeRotation(created, modelSource);
+        writeCreatedSource(
             modelSource,
             created,
+            parentSource,
+            index,
             CREATE_ROTATION_ACTION,
-            () -> {
-                resolver.invoke(
-                    "cubism.editor-model.parameter-controllable-source.set-local-name",
-                    created, name
-                );
-                final Object deformerSet = resolver.invoke(
-                    "cubism.editor-model.model-source.deformer-source-set", modelSource
-                );
-                resolver.invoke(
-                    "cubism.editor-model.deformer-source-set.add",
-                    deformerSet, created, Integer.valueOf(index)
-                );
-                attachToParent(created, parentSource, index);
-            }
+            "cubism.editor-model.complete-pack.update-deformer-palette"
         );
         return created;
     }
@@ -421,6 +580,91 @@ final class EditorObjectHierarchyEditAccess {
         }
     }
 
+    private void writeCreatedSource(
+        final Object modelSource,
+        final Object objectSource,
+        final Object parentSource,
+        final int index,
+        final String action,
+        final String paletteAlias
+    ) {
+        final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
+        final Object document = resolver.invoke(
+            "cubism.editor-model.app-controller.current-document", app
+        );
+        final Object editMode = resolver.invoke(
+            "cubism.editor-model.modeling-document.edit-mode", document
+        );
+        final Object edit = resolver.invoke(
+            "cubism.editor-model.edit-mode.begin", editMode, action
+        );
+        boolean completed = false;
+        try {
+            final Object modelHandler = resolver.invoke(
+                "cubism.editor-model.model-source.handler", modelSource
+            );
+            final Object addUndo = resolver.invoke(
+                "cubism.editor-model.model-handler.add-source-undo",
+                modelHandler,
+                objectSource,
+                Integer.valueOf(index)
+            );
+            requireUndoAccepted(edit, addUndo, "ArtMesh creation");
+            if (parentSource != null) {
+                final Object parentHandler = resolver.invoke(
+                    "cubism.editor-model.parameter-controllable-source.handler", parentSource
+                );
+                if (!resolver.isInstance(
+                    "cubism.editor-model.parameter-controllable-handler.class", parentHandler
+                )) {
+                    throw unavailable("Editor parent Undo handler is unavailable.");
+                }
+                final Object parentUndo = resolver.invoke(
+                    "cubism.editor-model.parameter-controllable-handler.create-undo-for-all-edit",
+                    parentHandler,
+                    action
+                );
+                requireUndoAccepted(edit, parentUndo, "ArtMesh parent attachment");
+                attachToParent(objectSource, parentSource, index);
+            }
+            final Object listener = resolver.createFunctionalProxy(
+                "cubism.editor-model.undo-listener.class",
+                ignored -> {
+                    resolver.invoke(
+                        "cubism.editor-model.model-source.update-instances", modelSource
+                    );
+                    refresh(app, paletteAlias);
+                    return null;
+                }
+            );
+            resolver.invoke("cubism.editor-model.undo.add-listener", addUndo, listener);
+            resolver.invoke("cubism.editor-model.model-source.update-instances", modelSource);
+            refresh(app, paletteAlias);
+            resolver.invoke("cubism.editor-model.modeling-document.mark-dirty", document);
+            completed = true;
+        } finally {
+            resolver.invoke(
+                "cubism.editor-model.edit-mode.end",
+                editMode,
+                Boolean.valueOf(!completed),
+                null
+            );
+        }
+    }
+
+    private void requireUndoAccepted(
+        final Object edit,
+        final Object undo,
+        final String operation
+    ) {
+        final Object accepted = resolver.invoke(
+            "cubism.editor-model.undo.add", edit, undo, Boolean.TRUE
+        );
+        if (!(accepted instanceof Boolean value) || !value) {
+            throw new IllegalStateException("Cubism rejected the " + operation + " Undo entry.");
+        }
+    }
+
     private void refresh(final Object app, final String paletteAlias) {
         final Object completePack = resolver.invoke(
             "cubism.editor-model.app-controller.complete-pack", app
@@ -451,6 +695,14 @@ final class EditorObjectHierarchyEditAccess {
         );
     }
 
+    private boolean artMeshCreateAuthorized() {
+        return resolver.authorizesFeature(
+            EditorObjectHierarchyEditSelectorContract.ADAPTER_SLICE_ID,
+            EditorObjectHierarchyEditSelectorContract.ART_MESH_CREATE_CAPABILITY_ID,
+            EditorObjectHierarchyEditSelectorContract.ART_MESH_CREATE_REQUIRED_ALIASES
+        );
+    }
+
     private void requireEditAuthorized() {
         if (!editAuthorized()) {
             throw new UnsupportedOperationException(
@@ -465,6 +717,117 @@ final class EditorObjectHierarchyEditAccess {
                 "Editor object renaming is unavailable without exact verified host evidence."
             );
         }
+    }
+
+    private void requireArtMeshCreateAuthorized() {
+        if (!artMeshCreateAuthorized()) {
+            throw new UnsupportedOperationException(
+                "Editor ArtMesh creation is unavailable without exact verified host evidence."
+            );
+        }
+    }
+
+    private String nextObjectId(
+        final Object modelSource,
+        final String prefix,
+        final String name
+    ) {
+        final Set<String> existing = new HashSet<>();
+        for (Object source : iterable(
+            resolver.invoke("cubism.editor-model.model-source.all-objects", modelSource),
+            "Editor object collection"
+        )) {
+            existing.add(objectId(source));
+        }
+        final String base = truncate(prefix + slug(name), MAX_OBJECT_ID_LENGTH - 8);
+        if (!existing.contains(base)) return base;
+        for (int suffix = 2; suffix < 1_000_000; suffix++) {
+            final String candidate = truncate(base, MAX_OBJECT_ID_LENGTH - 8)
+                + "_" + suffix;
+            if (!existing.contains(candidate)) return candidate;
+        }
+        throw new IllegalStateException("Could not allocate a unique Cubism ArtMesh ID.");
+    }
+
+    private void setObjectId(
+        final Object source,
+        final String family,
+        final String id
+    ) {
+        final String idAlias;
+        final String setterAlias;
+        switch (family) {
+            case "Part" -> {
+                idAlias = "cubism.editor-model.part-id.create";
+                setterAlias = "cubism.editor-model.part-source.set-id";
+            }
+            case "ArtMesh" -> {
+                idAlias = "cubism.editor-model.drawable-id.create";
+                setterAlias = "cubism.editor-model.drawable-source.set-id";
+            }
+            case "Deformer" -> {
+                idAlias = "cubism.editor-model.deformer-id.create";
+                setterAlias = "cubism.editor-model.deformer-source.set-id";
+            }
+            default -> throw new IllegalArgumentException(
+                "Unsupported Editor object ID family: " + family
+            );
+        }
+        resolver.invoke(setterAlias, source, resolver.construct(idAlias, id));
+    }
+
+    private String objectId(final Object source) {
+        final Object id = resolver.invoke(
+            "cubism.editor-model.parameter-controllable-source.id", source
+        );
+        final Object value = resolver.invoke("cubism.editor-model.id.value", id);
+        if (!(value instanceof String text) || text.isBlank()) {
+            throw unavailable("Editor object ID is invalid.");
+        }
+        return text;
+    }
+
+    private static WarpGrid defaultWarpGrid(final int rows, final int columns) {
+        final ArrayList<Point2> points = new ArrayList<>((rows + 1) * (columns + 1));
+        for (int row = 0; row <= rows; row++) {
+            for (int column = 0; column <= columns; column++) {
+                points.add(new Point2(
+                    column / (float) columns - 0.5F,
+                    row / (float) rows - 0.5F
+                ));
+            }
+        }
+        return new WarpGrid(rows, columns, false, points);
+    }
+
+    private static float[] flatten(final List<Point2> points) {
+        final float[] values = new float[points.size() * 2];
+        for (int index = 0; index < points.size(); index++) {
+            values[index * 2] = points.get(index).x();
+            values[index * 2 + 1] = points.get(index).y();
+        }
+        return values;
+    }
+
+    private static String slug(final String name) {
+        final StringBuilder result = new StringBuilder();
+        boolean upper = true;
+        for (int offset = 0; offset < name.length();) {
+            final int codePoint = name.codePointAt(offset);
+            offset += Character.charCount(codePoint);
+            if (codePoint < 128 && Character.isLetterOrDigit(codePoint)) {
+                final char value = (char) codePoint;
+                result.append(upper ? Character.toUpperCase(value) : value);
+                upper = false;
+            } else {
+                upper = true;
+            }
+        }
+        return result.isEmpty() ? "Object" : result.toString();
+    }
+
+    private static String truncate(final String value, final int maximum) {
+        return value.length() <= maximum ? value : value.substring(0, maximum);
     }
 
     private static String requireName(final String name) {
