@@ -20,6 +20,7 @@ stats.order.conflicts
 stats.summary
 status.copied
 table.count
+table.id
 table.mask.column
 table.masks.column
 table.user.column
