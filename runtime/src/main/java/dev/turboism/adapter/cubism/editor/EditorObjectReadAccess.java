@@ -20,6 +20,7 @@ import dev.turboism.sdk.cubism.model.Glue;
 import dev.turboism.sdk.cubism.model.GlueId;
 import dev.turboism.sdk.cubism.model.Glues;
 import dev.turboism.sdk.cubism.model.IntSequence;
+import dev.turboism.sdk.cubism.model.MorphTargets;
 import dev.turboism.sdk.cubism.model.ParameterBinding;
 import dev.turboism.sdk.cubism.model.ParameterBindingFamily;
 import dev.turboism.sdk.cubism.model.ParameterBindingPoint;
@@ -49,13 +50,16 @@ final class EditorObjectReadAccess {
 
     private final VerifiedMemberResolver resolver;
     private final CurrentGuard currentGuard;
+    private final EditorMorphTargetAccess morphTargetAccess;
 
     EditorObjectReadAccess(
         final VerifiedMemberResolver resolver,
-        final CurrentGuard currentGuard
+        final CurrentGuard currentGuard,
+        final EditorMorphTargetAccess morphTargetAccess
     ) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.currentGuard = Objects.requireNonNull(currentGuard, "currentGuard");
+        this.morphTargetAccess = Objects.requireNonNull(morphTargetAccess, "morphTargetAccess");
     }
 
     Drawables drawables(final String identity, final Object source, final Object model) {
@@ -1071,6 +1075,11 @@ final class EditorObjectReadAccess {
         @Override public int parentPartIndex() { return EditorObjectReadAccess.this.parentPartIndex(modelSource, current().source()); }
         @Override public int parentDeformerIndex() { return EditorObjectReadAccess.this.parentDeformerIndex(identity, modelSource, model, current().source()); }
         @Override public IntSequence parameters() { final List<ParameterId> ids = parameterIds(); return intSequence(parameterIndices(model, ids)); }
+        @Override public MorphTargets morphTargets() {
+            final ObjectRef value = current();
+            return morphTargetAccess.morphTargets(identity, modelSource, model, value.source());
+        }
+
         @Override public List<ParameterBinding> getParameterBindings() {
             final ObjectRef value = current();
             return parameterBindings(value.source(), ParameterBindingTarget.artMesh(new ArtMeshId(value.id())));

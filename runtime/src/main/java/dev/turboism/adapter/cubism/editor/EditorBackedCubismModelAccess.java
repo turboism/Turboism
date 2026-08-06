@@ -44,6 +44,10 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
     private final EditorDefaultKeyformLockAccess defaultKeyformLockAccess;
     private final EditorModelEditLevelAccess editLevelAccess;
     private final EditorPartOpacityAccess partOpacityAccess;
+    private final EditorPartStructureAccess partStructureAccess;
+    private final EditorParameterStructureAccess parameterStructureAccess;
+    private final EditorMorphTargetAccess morphTargetAccess;
+    private final EditorModelProfileAccess modelProfileAccess;
     private final EditorObjectReadAccess objectReadAccess;
     private final EditorModelStatisticsAccess statisticsAccess;
     private final Object generationLock = new Object();
@@ -64,9 +68,14 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
             this::requireCurrent,
             this::source
         );
-        this.parameterGroupsAccess = new EditorParameterGroupsAccess(
+        this.parameterStructureAccess = new EditorParameterStructureAccess(
             resolver,
             this::requireCurrent
+        );
+        this.parameterGroupsAccess = new EditorParameterGroupsAccess(
+            resolver,
+            this::requireCurrent,
+            this.parameterStructureAccess
         );
         this.defaultKeyformLockAccess = new EditorDefaultKeyformLockAccess(
             resolver,
@@ -76,13 +85,28 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
             resolver,
             this::requireCurrent
         );
-        this.partOpacityAccess = new EditorPartOpacityAccess(
+        this.partStructureAccess = new EditorPartStructureAccess(
             resolver,
             this::requireCurrent
         );
-        this.objectReadAccess = new EditorObjectReadAccess(
+        this.morphTargetAccess = new EditorMorphTargetAccess(
             resolver,
             this::requireCurrent
+        );
+        this.modelProfileAccess = new EditorModelProfileAccess(
+            resolver,
+            this::requireCurrent
+        );
+        this.partOpacityAccess = new EditorPartOpacityAccess(
+            resolver,
+            this::requireCurrent,
+            this.partStructureAccess,
+            this.morphTargetAccess
+        );
+        this.objectReadAccess = new EditorObjectReadAccess(
+            resolver,
+            this::requireCurrent,
+            this.morphTargetAccess
         );
         this.statisticsAccess = new EditorModelStatisticsAccess(
             resolver,
@@ -639,6 +663,14 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
             }
             return text.isBlank() ? modelId : text;
         }
+
+        @Override public void setName(final String name) {
+            modelProfileAccess.setName(identity, source, model, name);
+        }
+
+        @Override public dev.turboism.sdk.cubism.model.ModelProfile profile() {
+            return modelProfileAccess.profile(identity, source, model);
+        }
         @Override public ParameterDefinitions parameterDefinitions() {
             return EditorBackedCubismModelAccess.this.parameterDefinitions(identity, model);
         }
@@ -692,7 +724,7 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
                 EditorBackedCubismModelAccess.this::source
             );
         }
-        @Override public Canvas canvas() { throw new UnsupportedOperationException("Editor canvas projection is not installed."); }
+        @Override public Canvas canvas() { return modelProfileAccess.canvas(identity, source, model); }
         @Override public Parts parts() {
             current();
             return partOpacityAccess.parts(identity, source, model);
@@ -739,6 +771,33 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
             current();
             parameter(model, Objects.requireNonNull(id, "id"));
             return new EditorParameter(identity, model, id);
+        }
+
+        @Override public Parameter create(final ParameterDefinition definition) {
+            current();
+            return create(definition, java.util.Optional.empty());
+        }
+
+        @Override public Parameter create(
+            final ParameterDefinition definition,
+            final java.util.Optional<dev.turboism.sdk.cubism.id.ParameterGroupId> folderId
+        ) {
+            current();
+            final ParameterId created = parameterStructureAccess.create(
+                identity, activeSource, model, definition, folderId);
+            return new EditorParameter(identity, model, created);
+        }
+
+        @Override public Parameter copy(final ParameterId id) {
+            current();
+            final ParameterId copied = parameterStructureAccess.copy(
+                identity, activeSource, model, id);
+            return new EditorParameter(identity, model, copied);
+        }
+
+        @Override public void remove(final ParameterId id) {
+            current();
+            parameterStructureAccess.remove(identity, activeSource, model, id);
         }
     }
 
