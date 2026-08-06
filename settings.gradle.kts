@@ -23,6 +23,7 @@ include(
     "plugins:atlas-maxrects-bssf",
     "plugins:texture-atlas-stats",
     "plugins:physics-editor",
+    "plugins:palette-label-style",
     "testframework",
     "tests"
 )

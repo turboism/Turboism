@@ -234,9 +234,11 @@ public final class RuntimeModelAppearanceAccess implements AutoCloseable {
         final String drawableId,
         final long modelGeneration
     ) {
-        // No verified ArtMesh renderer seam exists. Do not manufacture a palette projection.
-        bound(modelId, modelGeneration, drawableId, "drawable");
-        return DrawableAppearance.unavailable();
+        // ArtMesh rows render through the verified deformer-tree and part-tree seams
+        // on the DEFORMER_PART palette (partPaletteEntry).
+        final Bound bound = bound(modelId, modelGeneration, drawableId, "drawable");
+        return bound == null ? DrawableAppearance.unavailable()
+            : new DrawableFacade(bound.scope(), bound.id());
     }
 
     @Override
@@ -491,6 +493,51 @@ public final class RuntimeModelAppearanceAccess implements AutoCloseable {
             requireScope(scope);
             nativeAuthoring.setNativeLabelColor(
                 new NativeLabelColorTarget(NativeLabelColorTarget.Palette.PART, objectId),
+                Objects.requireNonNull(color, "color")
+            );
+        }
+    }
+
+    private final class DrawableFacade implements DrawableAppearance {
+        private final PaletteAppearanceCoordinator.Scope scope;
+        private final String objectId;
+
+        private DrawableFacade(final PaletteAppearanceCoordinator.Scope scope, final String objectId) {
+            this.scope = scope;
+            this.objectId = objectId;
+        }
+
+        @Override
+        public Optional<PaletteEntry> partPaletteEntry() {
+            requireScope(scope);
+            return Optional.of(entry(scope, PaletteAppearanceCoordinator.Palette.DEFORMER_PART, objectId));
+        }
+
+        @Override
+        public Optional<PaletteEntry> deformerPaletteEntry() {
+            requireScope(scope);
+            return Optional.of(entry(scope, PaletteAppearanceCoordinator.Palette.DEFORMER, objectId));
+        }
+
+        @Override
+        public Optional<NativeLabelColorState> nativeLabelColor() {
+            readPermission("model.drawable.native-label-color.read");
+            requireScope(scope);
+            try {
+                return Optional.of(Objects.requireNonNull(nativeAuthoring.readNativeLabelColor(
+                    new NativeLabelColorTarget(NativeLabelColorTarget.Palette.ART_MESH, objectId)
+                ), "native label-color state"));
+            } catch (UnsupportedOperationException unavailable) {
+                return Optional.empty();
+            }
+        }
+
+        @Override
+        public void setNativeLabelColor(final NativeLabelColor color) {
+            modelWritePermission("model.drawable.native-label-color.write");
+            requireScope(scope);
+            nativeAuthoring.setNativeLabelColor(
+                new NativeLabelColorTarget(NativeLabelColorTarget.Palette.ART_MESH, objectId),
                 Objects.requireNonNull(color, "color")
             );
         }
