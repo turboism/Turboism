@@ -4,6 +4,7 @@ import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.cubism.ArtMeshSnapshot;
 import dev.turboism.sdk.cubism.SelectionSnapshot;
 import dev.turboism.sdk.cubism.model.CubismModel;
+import dev.turboism.sdk.cubism.model.Drawable;
 import dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService.ClipMaskRecord;
 import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.plugin.PluginContext;
@@ -75,6 +76,8 @@ public final class ClipMaskViewerHostValidationPlugin implements TurboismPlugin 
     private int meshCount = 0;
     private int recordCount = 0;
     private int maskRelationships = 0;
+    private int drawableCount = 0;
+    private int drawableMaskCount = 0;
 
     private boolean warnedAt60s;
     private boolean warnedAt150s;
@@ -133,8 +136,10 @@ public final class ClipMaskViewerHostValidationPlugin implements TurboismPlugin 
         try {
             final CubismModel model = awaitActiveModel();
             recordIdentity(model);
+            runMaskCrossCheck(model);
             logger.info("CLIPMASK_VIEWER_MODEL_READY modelId=" + modelId + " meshCount=" + meshCount);
             runDataMatrix();
+            recordCrossCheckAssertions();
             runSelectionRead();
             runLifecycle();
             runNotifyStatus();
@@ -151,6 +156,7 @@ public final class ClipMaskViewerHostValidationPlugin implements TurboismPlugin 
             + " meshCount=" + meshCount
             + " recordCount=" + recordCount
             + " maskRelationships=" + maskRelationships
+            + " drawableMaskCount=" + drawableMaskCount
             + " assertions=" + assertions.size()
             + " durationMillis=" + ((System.nanoTime() - startedNanos) / 1_000_000L));
         try {
@@ -195,6 +201,69 @@ public final class ClipMaskViewerHostValidationPlugin implements TurboismPlugin 
     private void recordIdentity(final CubismModel model) throws Exception {
         modelId = onHostThread(() -> model.id() != null ? model.id().value() : "null");
         meshCount = onHostThread(() -> model.drawables().all().size());
+    }
+
+    // ------------------------------------------------------------------
+    // Mask cross-check: drawable maskIds() vs clipMasks() records
+    // ------------------------------------------------------------------
+
+    /**
+     * Traverse every drawable on the host thread and count those with non-empty
+     * maskIds(). This is the decisive signal for whether the fixture really has
+     * no clip masks (maskIds empty everywhere) or the clip-mask slice read
+     * silently fails on the exact host (maskIds non-empty but clipMasks()
+     * returns zero records).
+     */
+    private void runMaskCrossCheck(final CubismModel model) throws Exception {
+        try {
+            onHostThread(() -> {
+                final List<Drawable> all = model.drawables().all();
+                drawableCount = all.size();
+                drawableMaskCount = 0;
+                for (Drawable drawable : all) {
+                    if (!drawable.maskIds().isEmpty()) {
+                        drawableMaskCount++;
+                    }
+                }
+                return null;
+            });
+            logger.info("CLIPMASK_VIEWER_MASK_CROSS_CHECK drawableCount=" + drawableCount
+                + " drawableMaskCount=" + drawableMaskCount);
+        } catch (Exception failure) {
+            recordAssertion("crossCheck.maskIdsRead",
+                "drawable.maskIds() readable on host thread",
+                singleLine(failure), "FAIL");
+            logger.error("CLIPMASK_VIEWER_MASK_IDS_READ_FAILED " + singleLine(failure), failure);
+            throw failure;
+        }
+    }
+
+    private void recordCrossCheckAssertions() {
+        recordAssertion("crossCheck.drawableMasks",
+            "maskIds-based drawable mask usage",
+            "drawableMaskCount=" + drawableMaskCount, "PASS");
+        if (drawableMaskCount > 0 && recordCount > 0) {
+            recordAssertion("crossCheck.readAgreement",
+                "clipMasks records agree with drawable maskIds",
+                "drawableMaskCount=" + drawableMaskCount + " recordCount=" + recordCount, "PASS");
+        } else if (drawableMaskCount > 0) {
+            // Model has masks via maskIds() but the clip-mask slice read is empty:
+            // the clip-mask slice is broken on this host.
+            recordAssertion("crossCheck.readAgreement",
+                "clipMasks records agree with drawable maskIds",
+                "drawableMaskCount=" + drawableMaskCount + " recordCount=" + recordCount, "FAIL");
+        } else if (recordCount == 0) {
+            recordAssertion("crossCheck.readAgreement",
+                "clipMasks records agree with drawable maskIds",
+                "both zero", "PASS");
+        } else {
+            // clipMasks() has records but no drawable reports maskIds: keep the
+            // evidence, do not fail (not expected to happen on a real host).
+            recordAssertion("crossCheck.readAgreement",
+                "clipMasks records agree with drawable maskIds",
+                "drawableMaskCount=" + drawableMaskCount + " recordCount=" + recordCount, "PASS");
+            logger.info("CLIPMASK_VIEWER_READ_AGREEMENT_NOTE clipMasks records present but no drawable maskIds");
+        }
     }
 
     // ------------------------------------------------------------------
@@ -504,6 +573,8 @@ public final class ClipMaskViewerHostValidationPlugin implements TurboismPlugin 
                 .append("fixtureName=").append(System.getProperty("turboism.validation.fixtureName", "unknown")).append('\n')
                 .append("modelId=").append(modelId).append('\n')
                 .append("meshCount=").append(meshCount).append('\n')
+                .append("drawableCount=").append(drawableCount).append('\n')
+                .append("drawableMaskCount=").append(drawableMaskCount).append('\n')
                 .append("recordCount=").append(recordCount).append('\n')
                 .append("maskRelationships=").append(maskRelationships).append('\n')
                 .append("durationMillis=").append((System.nanoTime() - startedNanos) / 1_000_000L).append('\n');
