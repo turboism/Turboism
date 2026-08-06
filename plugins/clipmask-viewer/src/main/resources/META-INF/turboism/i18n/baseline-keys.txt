@@ -8,6 +8,7 @@ legend.both
 legend.pure.mask
 legend.unrelated
 legend.user
+legend.user.inverted
 menu.label
 mode.graph
 mode.table.mask
