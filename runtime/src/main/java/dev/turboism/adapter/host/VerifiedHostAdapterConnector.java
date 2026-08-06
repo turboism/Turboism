@@ -70,7 +70,9 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             slice -> new VerifiedEditorModelResolverFactory().create(
                 slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
             ),
-            EditorBackedCubismModelAccess::new,
+            (resolver, sessionId, coreBackend) -> new EditorBackedCubismModelAccess(
+                resolver, sessionId, coreBackend == null ? null : coreBackend.evaluatedJoin()
+            ),
             slice -> new VerifiedMainToolbarResolverFactory().create(
                 slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
             ),
@@ -96,7 +98,9 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             slice -> new VerifiedEditorModelResolverFactory().create(
                 slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
             ),
-            EditorBackedCubismModelAccess::new,
+            (resolver, sessionId, coreBackend) -> new EditorBackedCubismModelAccess(
+                resolver, sessionId, coreBackend == null ? null : coreBackend.evaluatedJoin()
+            ),
             slice -> new VerifiedMainToolbarResolverFactory().create(
                 slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
             ),
@@ -351,6 +355,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                 }
             };
         }
+        final RuntimeCoreModelBackend core = coreMaterial(evidence);
         final VerifiedMemberResolver resolver = editorResolverFactory.create(
             evidence.editorModel().orElseThrow()
         );
@@ -358,7 +363,8 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             editorAdmission(evidence.editorModel().orElseThrow(), resolver);
         final CubismModelAccess modelAccess = editorAccessFactory.create(
             resolver,
-            descriptor.sessionId()
+            descriptor.sessionId(),
+            core
         );
         final TextureAtlasDataModelCapture textureAtlasCapture =
             new TextureAtlasDataModelCapture();
@@ -371,7 +377,6 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         final PanelMaterial panel = panelMaterial(evidence);
         final TopMenuMaterial topMenu = topMenuMaterial(evidence);
         final OverlayMaterial overlay = optionalOverlayMaterial(evidence);
-        final RuntimeCoreModelBackend core = coreMaterial(evidence);
         if (toolbar == null && panel == null && topMenu == null && overlay == null && workspace == null) {
             return HostAdapterConnection.of(
                 adapters,
@@ -834,7 +839,25 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
 
     @FunctionalInterface
     interface EditorAccessFactory {
-        CubismModelAccess create(VerifiedMemberResolver resolver, String sessionId);
+        /**
+         * Creates the Editor model access with the optional Core evaluated join.
+         *
+         * <p>The Core backend may be null; the production wiring installs it so
+         * Editor-backed objects can join Core evaluated fields.</p>
+         */
+        CubismModelAccess create(
+            VerifiedMemberResolver resolver,
+            String sessionId,
+            RuntimeCoreModelBackend coreBackend
+        );
+
+        /** Creates the Editor model access without a Core evaluated join. */
+        default CubismModelAccess create(
+            final VerifiedMemberResolver resolver,
+            final String sessionId
+        ) {
+            return create(resolver, sessionId, null);
+        }
     }
 
     @FunctionalInterface

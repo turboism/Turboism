@@ -128,7 +128,11 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             slice -> new dev.turboism.mapping.verification.VerifiedEditorModelResolverFactory().create(
                 slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
             ),
-            dev.turboism.adapter.cubism.editor.EditorBackedCubismModelAccess::new,
+            (resolver, sessionId, coreBackend) -> new dev.turboism.adapter.cubism.editor.EditorBackedCubismModelAccess(
+                resolver,
+                sessionId,
+                coreBackend == null ? null : coreBackend.evaluatedJoin()
+            ),
             slice -> new dev.turboism.mapping.verification.VerifiedMainToolbarResolverFactory().create(
                 slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
             ),
