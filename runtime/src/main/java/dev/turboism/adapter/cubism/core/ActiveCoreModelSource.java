@@ -10,6 +10,9 @@ interface ActiveCoreModelSource extends AutoCloseable {
 
     CoreModelAcquisition acquire(CorePublicApiProvider provider);
 
+    /** Returns the current model generation without taking a lease. */
+    long currentGeneration();
+
     @Override
     void close();
 }

@@ -156,7 +156,7 @@ final class BorrowedCoreModelSource implements ActiveCoreModelSource {
         return interrupted;
     }
 
-    private long currentGeneration() {
+    public long currentGeneration() {
         synchronized (monitor) {
             return generation;
         }
