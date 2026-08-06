@@ -8,7 +8,7 @@
 ;   - plugin-sections.nsh 由 assemble-release.sh 从插件 jar 的
 ;     META-INF/turboism/plugin.json 生成（每个插件一个 Section）。
 ;   - ${STAGING_DIR} 为 staging 目录（turboism-agent.jar、launch 脚本、
-;     README.txt、plugins/*.jar）；LICENSE 由 ${LICENSE_FILE} 指定。
+;     README.txt / README.zh.txt / README.ja.txt、plugins/*.jar）；LICENSE 由 ${LICENSE_FILE} 指定。
 ;
 ; 插件 Section 通过 ${SEC_<id>} 编译期常量（Section 索引）访问，与声明顺序无关；
 ; 生成文件内含 SetPluginSectionsSelected / CollectUncheckedPluginIds 两个函数。
@@ -54,19 +54,20 @@ SetCompressor /SOLID lzma
   VIAddVersionKey "LegalCopyright" "Copyright (c) Turboism Contributors"
 !endif
 
-; ---------- MUI 设置（中文文案；Unicode true + UTF-8 BOM 源文件） ----------
+; ---------- MUI 设置（三语言文案经 LangString 定义，见语言区块；Unicode true + UTF-8 BOM 源文件） ----------
+; MUI_ABORTWARNING 的提示文本由 MUI 语言文件按语言提供（已本地化）
 !define MUI_ABORTWARNING
 !define MUI_COMPONENTSPAGE_SMALLDESC
 
-!define MUI_WELCOMEPAGE_TITLE "欢迎安装 Turboism"
-!define MUI_WELCOMEPAGE_TEXT "本向导将安装 Turboism —— Live2D Cubism 编辑器的增强运行时。$\r$\n$\r$\n安装为免管理员模式，不会修改 Cubism 安装目录。$\r$\n$\r$\n安装完成后，请通过安装目录中的 launch-cubism-turboism.bat 启动 Cubism 编辑器。$\r$\n$\r$\n点击“下一步”继续。"
+!define MUI_WELCOMEPAGE_TITLE "$(TurboismWelcomeTitle)"
+!define MUI_WELCOMEPAGE_TEXT "$(TurboismWelcomeText)"
 
-!define MUI_LICENSEPAGE_TEXT_TOP "请阅读以下许可协议。滚动查看全文："
+!define MUI_LICENSEPAGE_TEXT_TOP "$(LicenseTopText)"
 
-!define MUI_DIRECTORYPAGE_TEXT_TOP "Turboism 将安装到以下目录（Turboism home）："
+!define MUI_DIRECTORYPAGE_TEXT_TOP "$(DirectoryTopText)"
 
-!define MUI_FINISHPAGE_TITLE "安装完成"
-!define MUI_FINISHPAGE_TEXT "Turboism 已安装到：$\r$\n$INSTDIR$\r$\n$\r$\n启动方式：双击 launch-cubism-turboism.bat（自动探测 Cubism 安装目录）。$\r$\n调整插件开关：运行 configure_turboism.ps1。$\r$\n$\r$\n详细说明见安装目录中的 README.txt。"
+!define MUI_FINISHPAGE_TITLE "$(FinishTitleText)"
+!define MUI_FINISHPAGE_TEXT "$(FinishBodyText)"
 
 ; ---------- 页面流程：Welcome → License → 模式选择 → Components(仅 Full) → Directory → InstFiles → Finish ----------
 !insertmacro MUI_PAGE_WELCOME
@@ -78,7 +79,68 @@ Page custom ModeCreate ModeLeave
 !insertmacro MUI_PAGE_INSTFILES
 !insertmacro MUI_PAGE_FINISH
 
+; ---------- 卸载页：Confirm（含 config.json 复选框）→ InstFiles → Finish（必须在 MUI_LANGUAGE 之前插入） ----------
+!define MUI_UNCONFIRMPAGE_TEXT_TOP "$(UnConfirmTextTop)"
+!define MUI_UNCONFIRMPAGE_TEXT_LOCATION "$INSTDIR"
+!define MUI_PAGE_CUSTOMFUNCTION_SHOW un.ConfirmShow
+!define MUI_PAGE_CUSTOMFUNCTION_LEAVE un.ConfirmLeave
+!insertmacro MUI_UNPAGE_CONFIRM
+!insertmacro MUI_UNPAGE_INSTFILES
+!insertmacro MUI_UNPAGE_FINISH
+
+; ---------- 语言：三语言共存，运行时按系统语言自动选择（$LANGUAGE），首个为缺省 ----------
+!insertmacro MUI_LANGUAGE "English"
 !insertmacro MUI_LANGUAGE "SimpChinese"
+!insertmacro MUI_LANGUAGE "Japanese"
+
+; ---------- 自定义文案 LangString（en/zh/ja） ----------
+LangString TurboismWelcomeTitle ${LANG_ENGLISH} "Welcome to Turboism Setup"
+LangString TurboismWelcomeTitle ${LANG_SIMPCHINESE} "欢迎安装 Turboism"
+LangString TurboismWelcomeTitle ${LANG_JAPANESE} "Turboism セットアップへようこそ"
+
+LangString TurboismWelcomeText ${LANG_ENGLISH} "This wizard will install Turboism, an enhanced runtime for the Live2D Cubism editor.$\r$\n$\r$\nInstallation is per-user and does not modify the Cubism installation directory.$\r$\n$\r$\nAfter installation, start the Cubism editor with launch-cubism-turboism.bat in the installation directory.$\r$\n$\r$\nClick Next to continue."
+LangString TurboismWelcomeText ${LANG_SIMPCHINESE} "本向导将安装 Turboism —— Live2D Cubism 编辑器的增强运行时。$\r$\n$\r$\n安装为免管理员模式，不会修改 Cubism 安装目录。$\r$\n$\r$\n安装完成后，请通过安装目录中的 launch-cubism-turboism.bat 启动 Cubism 编辑器。$\r$\n$\r$\n点击“下一步”继续。"
+LangString TurboismWelcomeText ${LANG_JAPANESE} "このウィザードは Live2D Cubism エディター用の拡張ランタイム「Turboism」をインストールします。$\r$\n$\r$\nインストールは管理者権限不要で、Cubism のインストール先ディレクトリは変更しません。$\r$\n$\r$\nインストール後、インストール先ディレクトリの launch-cubism-turboism.bat から Cubism エディターを起動してください。$\r$\n$\r$\n「次へ」をクリックして続行します。"
+
+LangString LicenseTopText ${LANG_ENGLISH} "Please review the license terms before installing Turboism. Scroll down to see the full text:"
+LangString LicenseTopText ${LANG_SIMPCHINESE} "请阅读以下许可协议。滚动查看全文："
+LangString LicenseTopText ${LANG_JAPANESE} "インストール前に以下の使用許諾契約をお読みください。全文を表示するには下へスクロールしてください："
+
+LangString DirectoryTopText ${LANG_ENGLISH} "Turboism will be installed to the following directory (Turboism home):"
+LangString DirectoryTopText ${LANG_SIMPCHINESE} "Turboism 将安装到以下目录（Turboism home）："
+LangString DirectoryTopText ${LANG_JAPANESE} "Turboism は次のディレクトリ（Turboism home）にインストールされます："
+
+LangString FinishTitleText ${LANG_ENGLISH} "Installation Complete"
+LangString FinishTitleText ${LANG_SIMPCHINESE} "安装完成"
+LangString FinishTitleText ${LANG_JAPANESE} "インストール完了"
+
+LangString FinishBodyText ${LANG_ENGLISH} "Turboism has been installed to:$\r$\n$INSTDIR$\r$\n$\r$\nTo launch: double-click launch-cubism-turboism.bat (auto-detects the Cubism installation directory).$\r$\nTo adjust plugins: run configure_turboism.ps1.$\r$\n$\r$\nSee README.txt in the installation directory for details."
+LangString FinishBodyText ${LANG_SIMPCHINESE} "Turboism 已安装到：$\r$\n$INSTDIR$\r$\n$\r$\n启动方式：双击 launch-cubism-turboism.bat（自动探测 Cubism 安装目录）。$\r$\n调整插件开关：运行 configure_turboism.ps1。$\r$\n$\r$\n详细说明见安装目录中的 README.txt。"
+LangString FinishBodyText ${LANG_JAPANESE} "Turboism は次の場所にインストールされました：$\r$\n$INSTDIR$\r$\n$\r$\n起動方法：launch-cubism-turboism.bat をダブルクリックします（Cubism のインストール先を自動検出します）。$\r$\nプラグインの切り替え：configure_turboism.ps1 を実行します。$\r$\n$\r$\n詳細はインストール先の README.txt を参照してください。"
+
+LangString UnConfirmTextTop ${LANG_ENGLISH} "Turboism will be uninstalled from the following folder:$\r$\nClick Yes to remove it:"
+LangString UnConfirmTextTop ${LANG_SIMPCHINESE} "Turboism 将从以下文件夹卸载：$\r$\n点击“是”开始卸载。"
+LangString UnConfirmTextTop ${LANG_JAPANESE} "Turboism は次のフォルダーからアンインストールされます：$\r$\n「はい」をクリックすると削除します："
+
+LangString UnDeleteConfigLabel ${LANG_ENGLISH} "Also delete config.json (user configuration)"
+LangString UnDeleteConfigLabel ${LANG_SIMPCHINESE} "同时删除 config.json（用户配置）"
+LangString UnDeleteConfigLabel ${LANG_JAPANESE} "config.json（ユーザー設定）も削除する"
+
+LangString ModePageTitle ${LANG_ENGLISH} "Select the installation mode:"
+LangString ModePageTitle ${LANG_SIMPCHINESE} "请选择安装模式："
+LangString ModePageTitle ${LANG_JAPANESE} "インストールモードを選択してください："
+
+LangString ModeFullLabel ${LANG_ENGLISH} "Full installation (Full) — installs all plugins; you can disable some plugins on the next page (default)"
+LangString ModeFullLabel ${LANG_SIMPCHINESE} "完整安装（Full）—— 安装全部插件，可在下一步选择禁用部分插件（默认）"
+LangString ModeFullLabel ${LANG_JAPANESE} "フルインストール（Full）—— すべてのプラグインをインストールします。次のページで一部のプラグインを無効化できます（既定）"
+
+LangString ModeLiteLabel ${LANG_ENGLISH} "Lite installation (Lite) — installs only the core runtime, no plugins"
+LangString ModeLiteLabel ${LANG_SIMPCHINESE} "精简安装（Lite）—— 仅安装核心运行时，不安装任何插件"
+LangString ModeLiteLabel ${LANG_JAPANESE} "ライトインストール（Lite）—— コアランタイムのみインストールし、プラグインはインストールしません"
+
+LangString ConfigWriteError ${LANG_ENGLISH} "Cannot write config.json: $INSTDIR\config.json"
+LangString ConfigWriteError ${LANG_SIMPCHINESE} "无法写入 config.json：$INSTDIR\config.json"
+LangString ConfigWriteError ${LANG_JAPANESE} "config.json を書き込めません：$INSTDIR\config.json"
 
 ; ---------- 变量 ----------
 Var Mode                 ; 0 = Lite, 1 = Full（默认 Full）
@@ -106,6 +168,20 @@ Var ch
 Var len
 Var line
 Var next
+Var unDeleteConfig      ; 卸载时是否删除 config.json（1 = 删除，默认勾选）
+Var unCfgCheckbox       ; 卸载确认页复选框句柄
+Var unCfgStyle          ; 复选框控件样式
+
+; 控件样式常量（WinMessages.nsh 未覆盖；已定义时跳过）
+!ifndef WS_CHILD
+  !define WS_CHILD 0x40000000
+!endif
+!ifndef WS_VISIBLE
+  !define WS_VISIBLE 0x10000000
+!endif
+!ifndef WS_TABSTOP
+  !define WS_TABSTOP 0x00010000
+!endif
 
 ; ---------- 初始化 ----------
 Function .onInit
@@ -120,11 +196,11 @@ Function ModeCreate
   ${If} $ModeDialog == error
     Abort
   ${EndIf}
-  ${NSD_CreateLabel} 0 0 100% 24u "请选择安装模式："
+  ${NSD_CreateLabel} 0 0 100% 24u "$(ModePageTitle)"
   Pop $0
-  ${NSD_CreateRadioButton} 0 34u 100% 14u "完整安装（Full）—— 安装全部插件，可在下一步选择禁用部分插件（默认）"
+  ${NSD_CreateRadioButton} 0 34u 100% 14u "$(ModeFullLabel)"
   Pop $FullRadio
-  ${NSD_CreateRadioButton} 0 52u 100% 14u "精简安装（Lite）—— 仅安装核心运行时，不安装任何插件"
+  ${NSD_CreateRadioButton} 0 52u 100% 14u "$(ModeLiteLabel)"
   Pop $LiteRadio
   ${If} $Mode == 1
     ${NSD_Check} $FullRadio
@@ -161,6 +237,8 @@ Section "-核心文件" SecCore
   File "${STAGING_DIR}/launch-cubism-turboism.bat"
   File "${STAGING_DIR}/launch-cubism-turboism.ps1"
   File "${STAGING_DIR}/README.txt"
+  File "${STAGING_DIR}/README.zh.txt"
+  File "${STAGING_DIR}/README.ja.txt"
   File "${LICENSE_FILE}"
 SectionEnd
 
@@ -402,9 +480,61 @@ Function MergeAndWriteConfig
   ; 写入
   FileOpen $configHandle "$INSTDIR\config.json" w
   ${If} $configHandle == ""
-    MessageBox MB_ICONSTOP "无法写入 config.json：$INSTDIR\config.json"
+    MessageBox MB_ICONSTOP "$(ConfigWriteError)"
     Abort
   ${EndIf}
   FileWrite $configHandle $json
   FileClose $configHandle
+FunctionEnd
+
+; ---------- 卸载器 ----------
+; 独立隐藏 Section：安装时写入 uninstall.exe
+Section -"卸载器" SecUninstaller
+  WriteUninstaller "$INSTDIR\uninstall.exe"
+SectionEnd
+
+; 卸载 Section：名字必须恰好为 "Uninstall"（NSIS 特殊命名，代码编入卸载器，
+; 不出现在安装器组件页；须为最后一个 Section）
+Section "Uninstall"
+  ; 安装文件
+  Delete "$INSTDIR\turboism-agent.jar"
+  Delete "$INSTDIR\launch-cubism-turboism.bat"
+  Delete "$INSTDIR\launch-cubism-turboism.ps1"
+  Delete "$INSTDIR\README*.txt"
+  Delete "$INSTDIR\LICENSE.txt"
+  Delete "$INSTDIR\uninstall.exe"
+  ; 运行时数据目录
+  RMDir /r "$INSTDIR\plugins"
+  RMDir /r "$INSTDIR\logs"
+  RMDir /r "$INSTDIR\state"
+  RMDir /r "$INSTDIR\cache"
+  ; config.json：按卸载确认页复选框决定（默认勾选 = 删除）
+  ${If} $unDeleteConfig == 1
+    Delete "$INSTDIR\config.json"
+  ${EndIf}
+  ; 清理空目录（失败无害：文件被占用/非空时忽略）
+  RMDir "$INSTDIR"
+SectionEnd
+
+; 卸载确认页 SHOW：创建「同时删除 config.json」复选框（默认勾选）
+Function un.ConfirmShow
+  StrCpy $unDeleteConfig 1
+  StrCpy $unCfgCheckbox 0
+  IntOp $unCfgStyle ${WS_CHILD} | ${WS_VISIBLE}
+  IntOp $unCfgStyle $unCfgStyle | ${WS_TABSTOP}
+  IntOp $unCfgStyle $unCfgStyle | 0x0003        ; BS_AUTOCHECKBOX
+  System::Call 'user32::CreateWindowEx(i 0, t "BUTTON", t "$(UnDeleteConfigLabel)", i $unCfgStyle, i 24, i 96, i 330, i 28, i $HWNDPARENT, i 2000, i 0, i 0) i .r$unCfgCheckbox'
+  SendMessage $unCfgCheckbox ${BM_SETCHECK} 1 0
+FunctionEnd
+
+; 卸载确认页 LEAVE：读取复选框状态到 $unDeleteConfig
+Function un.ConfirmLeave
+  ${If} $unCfgCheckbox != 0
+    SendMessage $unCfgCheckbox ${BM_GETCHECK} 0 0 $0
+    ${If} $0 == 1
+      StrCpy $unDeleteConfig 1
+    ${Else}
+      StrCpy $unDeleteConfig 0
+    ${EndIf}
+  ${EndIf}
 FunctionEnd
