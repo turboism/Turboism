@@ -57,9 +57,6 @@ final class EditorObjectReadAccess {
     EditorObjectReadAccess(
         final VerifiedMemberResolver resolver,
         final CurrentGuard currentGuard,
-    EditorObjectReadAccess(
-        final VerifiedMemberResolver resolver,
-        final CurrentGuard currentGuard,
         final EditorMorphTargetAccess morphTargetAccess,
         final dev.turboism.adapter.cubism.core.CoreEvaluatedJoin evaluatedJoin
     ) {
