@@ -40,7 +40,7 @@ class CompleteCubismModelReadApiContractTest {
             "drawableA", "drawableAId", "drawableB", "drawableBId", "id", "index", "parameterIds", "parameters");
         assertMethods(Parts.class, "all", "create", "find", "remove");
         assertMethods(Deformers.class, "all", "createRotation", "createWarp", "find", "remove");
-        assertMethods(Drawables.class, "all", "find", "remove");
+        assertMethods(Drawables.class, "all", "create", "find", "remove");
 
         assertEquals(ArtMeshId.class, returnType(Drawable.class, "id"));
         assertEquals(DeformerId.class, returnType(Deformer.class, "id"));

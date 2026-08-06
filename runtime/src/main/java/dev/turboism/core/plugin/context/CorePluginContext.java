@@ -615,6 +615,11 @@ public final class CorePluginContext implements PluginContext {
     }
 
     @Override
+    public dev.turboism.sdk.cubism.model.ModelObjectService modelObjects() {
+        return cubismServices.modelObjectService();
+    }
+
+    @Override
     public dev.turboism.sdk.cubism.physics.PhysicsEditorService physicsEditor() {
         return cubismServices.physicsEditorService();
     }
