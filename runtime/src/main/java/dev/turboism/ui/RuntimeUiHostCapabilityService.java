@@ -13,6 +13,7 @@ import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.DialogRequest;
 import dev.turboism.sdk.ui.ChoiceDialogRequest;
+import dev.turboism.sdk.ui.CollapsibleSectionContribution;
 import dev.turboism.sdk.ui.BoundingBoxOverlayButton;
 import dev.turboism.sdk.ui.EmbeddedPanelContribution;
 import dev.turboism.sdk.ui.EmbeddedPanelId;
@@ -30,6 +31,7 @@ import dev.turboism.ui.contribution.EditorUiContribution;
 import dev.turboism.ui.contribution.EditorUiContributionAuthority;
 import dev.turboism.ui.contribution.EditorUiContributionIdentity;
 import dev.turboism.ui.host.EditorUiFamily;
+import dev.turboism.ui.panel.PanelCollapsibleContentCoordinator;
 import dev.turboism.ui.panel.RuntimeEmbeddedPanelActivationCoordinator;
 import dev.turboism.ui.host.RuntimeEditorUiHostLifecycle;
 
@@ -384,6 +386,18 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
             contribution,
             panels
         );
+    }
+
+    @Override
+    public Registration contributeCollapsibleSection(
+        final CollapsibleSectionContribution contribution
+    ) {
+        Objects.requireNonNull(contribution, "contribution");
+        permissionChecker.check(UI_PANEL_CONTRIBUTE, "ui.panel.contribute");
+        final Registration registration =
+            PanelCollapsibleContentCoordinator.shared().register(contribution);
+        disposableScope.register(registration);
+        return registration;
     }
 
     @Override

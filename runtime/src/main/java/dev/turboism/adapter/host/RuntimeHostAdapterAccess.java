@@ -29,6 +29,7 @@ public sealed interface RuntimeHostAdapterAccess permits HostSession, SessionRun
     HostSnapshotSource modelAppearanceSource();
 
     dev.turboism.sdk.cubism.core.CoreRuntimeInfo coreRuntimeInfo();
+    dev.turboism.adapter.cubism.command.EditorCommandAdapter editorCommands();
 
     ParameterLifecycleCoordinator parameterLifecycle();
 
@@ -88,6 +89,7 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     private final CubismModelAccess modelAccess;
     private final HostSnapshotSource modelAppearanceSource;
     private final dev.turboism.sdk.cubism.core.CoreRuntimeInfo coreRuntimeInfo;
+    private final dev.turboism.adapter.cubism.command.EditorCommandAdapter editorCommands;
     private final ParameterLifecycleCoordinator parameterLifecycle;
     private final PartLifecycleCoordinator partLifecycle;
     private final TextureAtlasLayoutCoordinator textureAtlasLayouts;
@@ -120,6 +122,7 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
         final CubismModelAccess modelAccess,
         final HostSnapshotSource modelAppearanceSource,
         final dev.turboism.sdk.cubism.core.CoreRuntimeInfo coreRuntimeInfo,
+        final dev.turboism.adapter.cubism.command.EditorCommandAdapter editorCommands,
         final ParameterLifecycleCoordinator parameterLifecycle,
         final PartLifecycleCoordinator partLifecycle,
         final TextureAtlasLayoutCoordinator textureAtlasLayouts,
@@ -153,6 +156,7 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
             modelAppearanceSource, "modelAppearanceSource"
         );
         this.coreRuntimeInfo = java.util.Objects.requireNonNull(coreRuntimeInfo, "coreRuntimeInfo");
+        this.editorCommands = java.util.Objects.requireNonNull(editorCommands, "editorCommands");
         this.parameterLifecycle = java.util.Objects.requireNonNull(
             parameterLifecycle,
             "parameterLifecycle"
@@ -250,6 +254,11 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     @Override
     public dev.turboism.sdk.cubism.core.CoreRuntimeInfo coreRuntimeInfo() {
         return coreRuntimeInfo;
+    }
+
+    @Override
+    public dev.turboism.adapter.cubism.command.EditorCommandAdapter editorCommands() {
+        return editorCommands;
     }
 
     @Override
