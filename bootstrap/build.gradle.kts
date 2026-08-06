@@ -24,6 +24,7 @@ tasks.processResources {
         "cubism-5.2-ui-bounding-box-overlay.json",
         "cubism-5.3.02-ui-bounding-box-overlay.json",
         "cubism-5.3.02-ui-status-bar.json",
+        "cubism-5.3.02-clipmask.json",
         "cubism-5.2-ui-control-appearance.json",
         "cubism-5.3.02-ui-control-appearance.json",
         "cubism-5.2-workspace-control.json",

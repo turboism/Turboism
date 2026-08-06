@@ -26,6 +26,7 @@ class CompleteCubismModelReadApiContractTest {
             "indices", "invertedMask", "locked", "lockedInHierarchy", "maskIds", "masks", "multiplyColor", "name", "parameterIds", "parameters",
             "parentDeformerId", "parentDeformerIndex", "parentPartId", "parentPartIndex", "renderOrder", "replaceGeometry", "screenColor", "setLocked",
             "setOpacity", "setVisible", "textureIndex", "ui", "userData", "vertexPositions", "vertexUvs", "visible",
+            "guid",
             "visibleInHierarchy");
         assertMethods(Deformer.class,
             "getOpacity", "getParameterBindings", "id", "index", "locked", "lockedInHierarchy", "multiplyColor", "name", "parameterIds", "parameters", "parentDeformerId", "parentDeformerIndex", "parentPartId", "parentPartIndex", "screenColor", "setLocked", "setOpacity", "setVisible", "ui", "visible", "visibleInHierarchy");

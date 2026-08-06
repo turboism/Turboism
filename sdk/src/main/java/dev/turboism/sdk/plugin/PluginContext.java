@@ -35,6 +35,7 @@ import dev.turboism.sdk.ui.table.SceneTableService;
 import dev.turboism.sdk.ui.workspace.WorkspaceService;
 
 import java.util.List;
+import dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService;
 
 /**
  * Runtime context provided to a plugin during {@link TurboismPlugin#init(PluginContext)}.
@@ -83,6 +84,10 @@ public interface PluginContext {
 
     default CubismReadCapabilityService cubismRead() {
         throw new UnsupportedOperationException("cubismRead service is not available");
+    }
+
+    default CubismClipMaskService cubismClipMasks() {
+        throw new UnsupportedOperationException("clipMask service is not available");
     }
 
     default RecentFileService recentFiles() {

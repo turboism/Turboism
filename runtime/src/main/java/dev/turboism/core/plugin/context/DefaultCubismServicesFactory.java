@@ -9,6 +9,7 @@ import dev.turboism.adapter.cubism.service.query.ModelHierarchyQueryServiceImpl;
 import dev.turboism.adapter.cubism.service.query.ParameterQueryServiceImpl;
 import dev.turboism.adapter.cubism.service.query.SelectionQueryServiceImpl;
 import dev.turboism.adapter.cubism.service.read.CubismReadCapabilityServiceImpl;
+import dev.turboism.adapter.cubism.service.clipmask.CubismClipMaskServiceImpl;
 import dev.turboism.permissions.CubismPermissionGate;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
@@ -326,24 +327,26 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
             textureAtlasEditorSession,
             textureAtlasAlgorithms
         );
+        final CubismReadCapabilityServiceImpl readCapabilityService = new CubismReadCapabilityServiceImpl(
+            facade,
+            dependencies.m12ReadSnapshotSource(),
+            hostAdapters.themeStatus(),
+            hostAdapters.renderStatus(),
+            hostAdapters.projectWorkspace(),
+            hostAdapters.clipMaskRead(),
+            dependencies.descriptor().id(),
+            permissionGate
+        );
         return new CubismContextServices(
             facade,
             new ParameterQueryServiceImpl(facade, permissionGate),
             new SelectionQueryServiceImpl(facade, permissionGate, dependencies.runtimeScheduler()),
             new ModelHierarchyQueryServiceImpl(facade, permissionGate),
-            new CubismReadCapabilityServiceImpl(
-                facade,
-                dependencies.m12ReadSnapshotSource(),
-                hostAdapters.themeStatus(),
-                hostAdapters.renderStatus(),
-                hostAdapters.projectWorkspace(),
-                hostAdapters.clipMaskRead(),
-                dependencies.descriptor().id(),
-                permissionGate
-            ),
+            readCapabilityService,
             dependencies.permissions().stream().anyMatch(permission ->
                 CubismFacadeImpl.MODEL_WRITE_PERMISSION.equals(permission.id())
             ) ? physicsEditorCoordinator : dev.turboism.sdk.cubism.physics.PhysicsEditorService.unavailable(),
+            new CubismClipMaskServiceImpl(readCapabilityService, modelAccess),
             new dev.turboism.adapter.cubism.command.RuntimeEditorCommandService(
                 editorCommands, permissionGate, editorFiles, activeScope::get
             )

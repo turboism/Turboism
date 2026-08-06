@@ -1038,6 +1038,10 @@ final class EditorObjectReadAccess {
         @Override public Optional<DeformerId> parentDeformerId() { return EditorObjectReadAccess.this.parentDeformerId(identity, modelSource, model, current().source()); }
         @Override public List<ParameterId> parameterIds() { return EditorObjectReadAccess.this.parameterIds(current().source()); }
         @Override public List<ArtMeshId> maskIds() { return EditorObjectReadAccess.this.maskIds(identity, modelSource, model, current().source()); }
+        @Override public String guid() {
+            current();
+            return guidValue(resolver.invoke("cubism.editor-model.art-mesh-source.guid", current().source()));
+        }
         @Override public String name() { return objectName(current().source(), ref.id()); }
         @Override public boolean visible() { return sourceFlag("cubism.editor-model.parameter-controllable-source.visible", current().source(), "ArtMesh visibility"); }
         @Override public void setVisible(final boolean visible) { final ObjectRef value = current(); setSourceFlag(Kind.ART_MESH, modelSource, value.source(), "cubism.editor-model.parameter-controllable-source.visible", "cubism.editor-model.parameter-controllable-source.set-visible", visible, "Set ArtMesh visibility"); }
