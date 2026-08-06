@@ -19,22 +19,6 @@ public final class ClipMaskRecordAdapter {
         return guid.length() <= 8 ? guid : guid.substring(0, 8);
     }
 
-    /**
-     * Table label for a record: the display name, plus the id in parentheses
-     * unless the id is empty or equals the display name.
-     */
-    public static String describe(final ClipMaskRecord record, final String fallbackGuid) {
-        if (record == null) {
-            return "(not found: " + shortGuid(fallbackGuid) + ")";
-        }
-        final String id = record.id();
-        final String name = record.displayName();
-        if (id == null || id.isEmpty() || id.equals(name)) {
-            return name;
-        }
-        return name + "  (" + id + ")";
-    }
-
     /** Minimal HTML escaping for tooltip content. */
     public static String escapeHtml(final String value) {
         if (value == null) {
