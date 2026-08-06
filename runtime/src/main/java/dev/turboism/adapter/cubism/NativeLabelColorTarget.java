@@ -8,6 +8,7 @@ public record NativeLabelColorTarget(Palette palette, String objectId) {
     public enum Palette {
         PART,
         DEFORMER,
+        ART_MESH,
         PARAMETER_GROUP
     }
 
