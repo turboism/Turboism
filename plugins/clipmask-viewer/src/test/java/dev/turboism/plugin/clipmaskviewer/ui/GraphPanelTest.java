@@ -191,6 +191,60 @@ class GraphPanelTest {
     }
 
     @Test
+    void setViewScaleClampsAndAnchorsAtViewportCenter() {
+        final GraphPanel panel = new GraphPanel(stateWith(2), localization(), clicked -> { });
+        panel.setSize(800, 600);
+
+        panel.setViewScale(0.05);
+        assertEquals(0.2, panel.scale(), 1e-9, "scale must clamp to MIN_SCALE");
+        panel.setViewScale(10.0);
+        assertEquals(4.0, panel.scale(), 1e-9, "scale must clamp to MAX_SCALE");
+
+        // 中心锚点：缩放前后视口中心 (400,300) 的逻辑坐标不变。
+        panel.setViewScale(1.0);
+        panel.zoomAt(new Point(400, 300), 2.0);
+        assertEquals(2.0, panel.scale(), 1e-9);
+        final double logicalX = (400 - panel.offsetX()) / panel.scale();
+        final double logicalY = (300 - panel.offsetY()) / panel.scale();
+        panel.setViewScale(0.75);
+        assertEquals(logicalX, (400 - panel.offsetX()) / panel.scale(), 1e-6);
+        assertEquals(logicalY, (300 - panel.offsetY()) / panel.scale(), 1e-6);
+    }
+
+    @Test
+    void viewScaleListenerFiresOnZoomResetAndSet() {
+        final GraphPanel panel = new GraphPanel(stateWith(2), localization(), clicked -> { });
+        final List<Double> seen = new ArrayList<>();
+        panel.setViewScaleListener(seen::add);
+
+        panel.zoomAt(new Point(100, 100), 1.2);
+        panel.setViewScale(2.5);
+        panel.resetView();
+        assertEquals(3, seen.size());
+        assertEquals(1.2, seen.get(0), 1e-9);
+        assertEquals(2.5, seen.get(1), 1e-9);
+        assertEquals(1.0, seen.get(2), 1e-9);
+
+        panel.zoomAt(new Point(100, 100), 1 / 1.2);
+        assertEquals(1 / 1.2, panel.scale(), 1e-9);
+        assertEquals(4, seen.size());
+        assertEquals(1 / 1.2, seen.get(3), 1e-9);
+
+        // 空态（无节点）时 scale 变化仍同步 listener。
+        final GraphPanel empty = new GraphPanel(new ClipMaskViewerState(), localization(), clicked -> { });
+        final List<Double> emptySeen = new ArrayList<>();
+        empty.setViewScaleListener(emptySeen::add);
+        empty.setViewScale(3.0);
+        assertEquals(List.of(3.0), emptySeen);
+
+        // listener 替换/置 null 不抛异常。
+        panel.setViewScaleListener(null);
+        panel.setViewScale(3.0);
+        panel.resetView();
+        assertEquals(1.0, panel.scale(), 1e-9);
+    }
+
+    @Test
     void hitDetectionUsesTransformedCoordinates() {
         final List<String> clicked = new ArrayList<>();
         final GraphPanel panel = new GraphPanel(stateWithUserAndMask(), localization(), clicked::add);
