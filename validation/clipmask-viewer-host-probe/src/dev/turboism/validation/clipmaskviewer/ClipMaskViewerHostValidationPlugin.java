@@ -78,6 +78,10 @@ public final class ClipMaskViewerHostValidationPlugin implements TurboismPlugin 
     private int maskRelationships = 0;
     private int drawableCount = 0;
     private int drawableMaskCount = 0;
+    private int referencedMaskCount = 0;
+    private int pureMaskCount = 0;
+    private List<ClipMaskRecord> lastRecords = List.of();
+    private final List<String> sampleLines = new ArrayList<>();
 
     private boolean warnedAt60s;
     private boolean warnedAt150s;
@@ -139,6 +143,7 @@ public final class ClipMaskViewerHostValidationPlugin implements TurboismPlugin 
             runMaskCrossCheck(model);
             logger.info("CLIPMASK_VIEWER_MODEL_READY modelId=" + modelId + " meshCount=" + meshCount);
             runDataMatrix();
+            runSamplingDiagnostics(model);
             recordCrossCheckAssertions();
             runSelectionRead();
             runLifecycle();
@@ -157,6 +162,8 @@ public final class ClipMaskViewerHostValidationPlugin implements TurboismPlugin 
             + " recordCount=" + recordCount
             + " maskRelationships=" + maskRelationships
             + " drawableMaskCount=" + drawableMaskCount
+            + " referencedMasks=" + referencedMaskCount
+            + " pureMasks=" + pureMaskCount
             + " assertions=" + assertions.size()
             + " durationMillis=" + ((System.nanoTime() - startedNanos) / 1_000_000L));
         try {
@@ -276,6 +283,7 @@ public final class ClipMaskViewerHostValidationPlugin implements TurboismPlugin 
         final List<ClipMaskRecord> second = onHostThread(
             () -> context.cubismClipMasks().collectClipMaskRecords());
         recordCount = first.size();
+        lastRecords = first;
 
         final boolean idempotent = first.equals(second);
         recordAssertion("matrix.read.idempotent", "two collects identical",
@@ -376,6 +384,73 @@ public final class ClipMaskViewerHostValidationPlugin implements TurboismPlugin 
             "clip-mask relationships present in fixture",
             "records=" + recordCount + " meshes=" + meshCount,
             fixtureStatus);
+    }
+
+    // ------------------------------------------------------------------
+    // Sampling diagnostics: raw host drawable identity + record sample
+    // (evidence only, never affects the terminal status)
+    // ------------------------------------------------------------------
+
+    private void runSamplingDiagnostics(final CubismModel model) throws Exception {
+        final int[] sampled = {0, 0};
+        onHostThread(() -> {
+            final List<Drawable> all = model.drawables().all();
+            final int drawableSample = Math.min(8, all.size());
+            sampled[0] = drawableSample;
+            for (int index = 0; index < drawableSample; index++) {
+                final Drawable drawable = all.get(index);
+                sampleValue("drawable." + index + ".guid", drawable::guid);
+                sampleValue("drawable." + index + ".name", drawable::name);
+                sampleValue("drawable." + index + ".id",
+                    () -> drawable.id() == null ? "null" : drawable.id().value());
+            }
+            final int recordSample = Math.min(8, lastRecords.size());
+            sampled[1] = recordSample;
+            for (int index = 0; index < recordSample; index++) {
+                final ClipMaskRecord record = lastRecords.get(index);
+                sampleValue("record." + index + ".guid", record::guid);
+                sampleValue("record." + index + ".id", record::id);
+                sampleValue("record." + index + ".displayName", record::displayName);
+                sampleValue("record." + index + ".maskCount",
+                    () -> String.valueOf(record.orderedMaskGuids().size()));
+            }
+            return null;
+        });
+
+        // Referenced mask guids over ALL records; pure masks are the referenced
+        // guids that are not themselves target records (equivalently: the
+        // hasMasks=false placeholder records appended by the runtime fix).
+        final Set<String> referencedMaskGuids = new HashSet<>();
+        for (ClipMaskRecord record : lastRecords) {
+            referencedMaskGuids.addAll(record.orderedMaskGuids());
+        }
+        referencedMaskCount = referencedMaskGuids.size();
+        pureMaskCount = 0;
+        for (ClipMaskRecord record : lastRecords) {
+            if (!record.hasMasks()) {
+                pureMaskCount++;
+            }
+        }
+
+        recordAssertion("diagnostic.drawableSamples",
+            "evidence: id()/name()/guid() of first drawables",
+            "drawableCount=" + drawableCount + " sampled=" + sampled[0], "PASS");
+        recordAssertion("diagnostic.recordSamples",
+            "evidence: guid/id/displayName/maskCount of first records",
+            "recordCount=" + recordCount + " sampled=" + sampled[1], "PASS");
+        recordAssertion("diagnostic.referencedMasks",
+            "evidence: referenced vs pure mask counts",
+            "referencedMasks=" + referencedMaskCount + " pureMasks=" + pureMaskCount, "PASS");
+        logger.info("CLIPMASK_VIEWER_ID_SAMPLES referencedMasks=" + referencedMaskCount
+            + " pureMasks=" + pureMaskCount);
+    }
+
+    private void sampleValue(final String name, final java.util.function.Supplier<String> getter) {
+        try {
+            sampleLines.add("sample." + name + "=" + singleLine(getter.get()));
+        } catch (RuntimeException unavailable) {
+            sampleLines.add("sample." + name + "=unavailable");
+        }
     }
 
     // ------------------------------------------------------------------
@@ -577,7 +652,12 @@ public final class ClipMaskViewerHostValidationPlugin implements TurboismPlugin 
                 .append("drawableMaskCount=").append(drawableMaskCount).append('\n')
                 .append("recordCount=").append(recordCount).append('\n')
                 .append("maskRelationships=").append(maskRelationships).append('\n')
-                .append("durationMillis=").append((System.nanoTime() - startedNanos) / 1_000_000L).append('\n');
+                .append("referencedMaskCount=").append(referencedMaskCount).append('\n')
+                .append("pureMaskCount=").append(pureMaskCount).append('\n');
+            for (String sampleLine : sampleLines) {
+                report.append(sampleLine).append('\n');
+            }
+            report.append("durationMillis=").append((System.nanoTime() - startedNanos) / 1_000_000L).append('\n');
             for (Assertion assertion : assertions) {
                 report.append("assertion.").append(assertion.name()).append(".expected=")
                     .append(assertion.expected()).append('\n')
