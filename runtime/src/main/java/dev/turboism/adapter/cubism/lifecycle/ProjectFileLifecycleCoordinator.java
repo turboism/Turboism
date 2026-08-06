@@ -60,6 +60,8 @@ public final class ProjectFileLifecycleCoordinator implements AutoCloseable {
     /** Executes the synchronous before phase and returns a correlation object for completion. */
     public Invocation begin(final ProjectFileOperation operation) {
         final ProjectFileOperation request = Objects.requireNonNull(operation, "operation");
+        System.out.println("LIFECYCLE-COORD:method=begin kind=" + request.kind()
+            + " op=" + request.operation() + " hooks=" + plugins.size());
         for (PluginHooks plugin : plugins) {
             if (!plugin.observeAllowed()) continue;
             if (request.kind() == ProjectContentKind.MODEL) {
@@ -83,6 +85,8 @@ public final class ProjectFileLifecycleCoordinator implements AutoCloseable {
         final Throwable failure
     ) {
         final Invocation current = Objects.requireNonNull(invocation, "invocation");
+        System.out.println("LIFECYCLE-COORD:method=complete kind=" + current.operation().kind()
+            + " op=" + current.operation().operation() + " hooks=" + plugins.size());
         final ProjectContentSnapshot immutableContent = content;
         final ProjectFileOperationResult result = failure != null
             ? ProjectFileOperationResult.failed(current.operation(), immutableContent, failure)

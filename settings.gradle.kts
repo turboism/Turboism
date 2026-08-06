@@ -18,6 +18,7 @@ include(
     "plugins:bounding-box",
     "plugins:context-menu",
     "plugins:project-panel",
+    "plugins:recent-preview",
     "plugins:scene-palette-enhancer",
     "plugins:psd-import",
     "plugins:atlas-maxrects-bssf",

@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import java.util.Optional;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -51,6 +52,22 @@ class PanelViewContractTest {
             UnsupportedOperationException.class,
             () -> column.children().add(PanelView.text("mutate"))
         );
+    }
+
+    @Test
+    void imageNodeCarriesDecodablePngAndDefensiveAltText() {
+        final byte[] png = java.util.Base64.getDecoder().decode(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+        );
+        final PanelView.Image image = PanelView.image(png, "thumbnail");
+        assertEquals("thumbnail", image.altText());
+        assertArrayEquals(png, image.pngBytes());
+        final byte[] mutated = image.pngBytes();
+        mutated[0] = 9;
+        assertArrayEquals(png, image.pngBytes());
+        assertThrows(IllegalArgumentException.class, () -> PanelView.image(new byte[]{1, 2, 3}, "bad"));
+        assertThrows(NullPointerException.class, () -> PanelView.image(png, null));
+        assertThrows(NullPointerException.class, () -> PanelView.image(null, "bad"));
     }
 
     @Test

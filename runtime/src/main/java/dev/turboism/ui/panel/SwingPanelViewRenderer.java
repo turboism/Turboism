@@ -3,9 +3,13 @@ package dev.turboism.ui.panel;
 import dev.turboism.sdk.action.UiActionEvent;
 import dev.turboism.sdk.ui.PanelView;
 
+import javax.imageio.ImageIO;
+
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
+import javax.swing.Icon;
+import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
@@ -16,16 +20,18 @@ import javax.swing.JSeparator;
 import javax.swing.JTextField;
 import java.awt.BorderLayout;
 import java.awt.Component;
+import java.awt.Dimension;
+import java.io.ByteArrayInputStream;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.BiConsumer;
 
 /** Renders immutable SDK panel values into runtime-owned Swing components. */
-final class SwingPanelViewRenderer {
+public final class SwingPanelViewRenderer {
 
     private SwingPanelViewRenderer() { }
 
-    static JComponent render(
+    public static JComponent render(
         final PanelView view,
         final BiConsumer<String, Optional<UiActionEvent>> action
     ) {
@@ -46,6 +52,14 @@ final class SwingPanelViewRenderer {
         }
         if (view instanceof PanelView.Text text) {
             return new JLabel(text.value());
+        }
+        if (view instanceof PanelView.Image image) {
+            final JLabel label = new JLabel();
+            label.setName("panel-image");
+            label.setIcon(icon(image.pngBytes()));
+            label.setToolTipText(image.altText());
+            label.setPreferredSize(new Dimension(label.getIcon().getIconWidth(), label.getIcon().getIconHeight()));
+            return label;
         }
         if (view instanceof PanelView.Button button) {
             final JButton component = new JButton(button.label());
@@ -95,6 +109,14 @@ final class SwingPanelViewRenderer {
             return new JSeparator();
         }
         throw new IllegalArgumentException("unsupported panel view: " + view.getClass().getName());
+    }
+
+    private static Icon icon(final byte[] pngBytes) {
+        try {
+            return new ImageIcon(ImageIO.read(new ByteArrayInputStream(pngBytes)));
+        } catch (Exception failure) {
+            throw new IllegalArgumentException("pngBytes must be a readable PNG", failure);
+        }
     }
 
     private static JPanel container(
