@@ -7,7 +7,7 @@ public final class EditorModelVerificationManifest {
 
     public static final String VERIFICATION_ID = "cubism-5.3.02.editor-model.static";
     public static final String RECORD_SHA256 =
-        "f63bdbd8b356f8caec4a2cb19f790dce52106769164ab26ac8918edb2037c139";
+        "5f99652c179afc62546ffc0d69e2054fab6526bd53818bf369869e58472cf83e";
     public static final String CUBISM_VERSION = "5.3.02";
     public static final String PROFILE_ID = "cubism-5.3.02";
     public static final long ARTIFACT_SIZE = 41_922_739L;
@@ -35,6 +35,9 @@ public final class EditorModelVerificationManifest {
         EditorObjectWriteSelectorContract.ART_MESH_CAPABILITY_ID,
         EditorObjectWriteSelectorContract.WARP_CAPABILITY_ID,
         EditorObjectWriteSelectorContract.ROTATION_CAPABILITY_ID,
+        EditorObjectHierarchyEditSelectorContract.CAPABILITY_ID,
+        EditorObjectHierarchyEditSelectorContract.RENAME_CAPABILITY_ID,
+        EditorObjectHierarchyEditSelectorContract.ART_MESH_CREATE_CAPABILITY_ID,
         ObjectContextMenuVerificationManifest.CAPABILITY_ID,
         EditorParameterBindingReadSelectorContract.CAPABILITY_ID,
         EditorParameterBindingWriteSelectorContract.ART_MESH_CAPABILITY_ID,
@@ -349,7 +352,16 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.keyform-grid.remove-key",
         "cubism.editor-model.keyform-grid.remove-all-key",
         "cubism.editor-model.keyform-grid.rearrange-keys"
-    ), TEXTURE_ATLAS_ALIASES);
+    ), union(
+        EditorObjectHierarchyEditSelectorContract.REQUIRED_ALIASES,
+        union(
+            EditorObjectHierarchyEditSelectorContract.RENAME_REQUIRED_ALIASES,
+            union(
+                EditorObjectHierarchyEditSelectorContract.ART_MESH_CREATE_REQUIRED_ALIASES,
+                TEXTURE_ATLAS_ALIASES
+            )
+        )
+    ));
     private static final Set<String> PART_OPACITY_ADDITIVE_ALIASES = Set.of(
         "cubism.editor-model.model-source.parts",
         "cubism.editor-model.model-source.update-instances",

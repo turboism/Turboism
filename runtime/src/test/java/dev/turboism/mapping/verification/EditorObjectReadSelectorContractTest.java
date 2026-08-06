@@ -64,6 +64,21 @@ class EditorObjectReadSelectorContractTest {
             EditorObjectWriteSelectorContract.ROTATION_CAPABILITY_ID,
             EditorObjectWriteSelectorContract.ROTATION_REQUIRED_ALIASES
         ));
+        assertTrue(resolver.authorizesFeature(
+            EditorObjectHierarchyEditSelectorContract.ADAPTER_SLICE_ID,
+            EditorObjectHierarchyEditSelectorContract.CAPABILITY_ID,
+            EditorObjectHierarchyEditSelectorContract.REQUIRED_ALIASES
+        ));
+        assertTrue(resolver.authorizesFeature(
+            EditorObjectHierarchyEditSelectorContract.ADAPTER_SLICE_ID,
+            EditorObjectHierarchyEditSelectorContract.RENAME_CAPABILITY_ID,
+            EditorObjectHierarchyEditSelectorContract.RENAME_REQUIRED_ALIASES
+        ));
+        assertTrue(resolver.authorizesFeature(
+            EditorObjectHierarchyEditSelectorContract.ADAPTER_SLICE_ID,
+            EditorObjectHierarchyEditSelectorContract.ART_MESH_CREATE_CAPABILITY_ID,
+            EditorObjectHierarchyEditSelectorContract.ART_MESH_CREATE_REQUIRED_ALIASES
+        ));
     }
 
     private static Path locateProjectRoot() {
@@ -76,6 +91,14 @@ class EditorObjectReadSelectorContractTest {
     }
 
     private static Path locateLegacyEvidence() {
+        final String configured = System.getenv("TURBOISM_LEGACY_CUBISM_REF");
+        if (configured != null && !configured.isBlank()) {
+            final Path candidate = Path.of(configured).toAbsolutePath().normalize();
+            if (Files.isDirectory(candidate)) return candidate;
+            throw new IllegalStateException(
+                "configured legacy Cubism evidence directory is unavailable: " + candidate
+            );
+        }
         Path current = PROJECT_ROOT;
         while (current != null) {
             final Path candidate = current.resolveSibling("turboism-legacy/cubism-ref");
