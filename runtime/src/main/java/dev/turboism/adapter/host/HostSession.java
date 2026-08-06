@@ -152,7 +152,8 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             VerifiedHostAdapterConnector.productionAppearanceProviderFactory(),
             slice -> new dev.turboism.mapping.verification.VerifiedWorkspaceControlResolverFactory().create(
                 slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
-            )
+            ),
+            VerifiedHostAdapterConnector.productionCoreBackendFactory()
         );
         dynamic.onOutermostAdapterCallComplete(this::completeDeferredClose);
         registerProjectContentCleanup();

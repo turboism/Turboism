@@ -2,23 +2,26 @@ package dev.turboism.adapter.host;
 
 import dev.turboism.adapter.RuntimeHostAdapters;
 import dev.turboism.adapter.cubism.core.CoreEvaluatedJoin;
+import dev.turboism.adapter.cubism.core.CoreProviderResult;
+import dev.turboism.adapter.cubism.core.CoreVersionExpectation;
+import dev.turboism.adapter.cubism.core.RuntimeCoreModelBackend;
+import dev.turboism.adapter.cubism.core.TestCoreApiFixture;
 import dev.turboism.adapter.cubism.editor.EditorBackedCubismModelAccess;
+import dev.turboism.mapping.verification.CoreMocInfoSelectorContract;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
+import dev.turboism.sdk.cubism.core.MocInfo;
+import dev.turboism.sdk.cubism.core.MocVersion;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
-import java.net.URL;
-import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -27,19 +30,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Editor→Core borrowed-model publish wiring at connect time.
  *
- * <p>The Core slice must use the real reviewed legacy jar and verification record; only the
- * Editor resolver is a fixture (the publish chain's eight existing aliases plus the two class
- * selectors). Connect must publish the resolved current document model exactly once, skip
+ * <p>The Core backend is fixture-backed and installed through the injectable
+ * {@code CoreBackendFactory} seam: admission runs against the synthetic Core surface (no native
+ * library), so the full publish → Core read chain is exercisable on a pure JVM. The Editor
+ * resolver is a fixture carrying the publish chain's eight existing aliases plus the two class
+ * selectors. Connect must publish the resolved current document model exactly once, skip
  * publish whenever the resolver chain yields nothing, and never reject connect because of it.
  */
 class VerifiedHostAdapterConnectorBorrowedModelPublishTest {
 
     private static final Path PROJECT_ROOT = locateProjectRoot();
-    private static final Path CORE_RECORD = PROJECT_ROOT.resolve(Path.of(
-        "cubism-ref", "verification", "cubism-5.3.02-core-model-read.json"
-    ));
-    private static final Path CORE_ARTIFACT = PROJECT_ROOT.resolveSibling("turboism-legacy")
-        .resolve(Path.of("cubism-ref", "Cubism-5.3.02", "jars", "Live2DCubismCore.jar"));
 
     private static final VerifiedHostAdapterConnector.EditorAccessFactory PRODUCTION_ACCESS =
         (resolver, sessionId, coreBackend) -> new EditorBackedCubismModelAccess(
@@ -52,39 +52,21 @@ class VerifiedHostAdapterConnectorBorrowedModelPublishTest {
         EditorFixture.ModelSource.guidValue = "model-1";
     }
 
-    /**
-     * Requires the real Cubism Core native library: admission probes the runtime version through
-     * {@code Live2DCubismCoreJNI} whose static initializer calls {@code System.loadLibrary}. The
-     * native library ships only with the Windows host; on a Linux test JVM admission fails closed
-     * with INVOCATION_FAILED before publish can be observed. The test is spec-faithful and runs
-     * unchanged where the native library is on java.library.path (host validation).
-     */
-    @Disabled("Cubism Core native library is unavailable on the Linux test JVM; run in host validation")
     @Test
     void connectPublishesTheCurrentEditorDocumentModelToTheAdmittedCoreBackend() throws Exception {
         EditorFixture.Host.currentDocument = new EditorFixture.Document();
-        try (URLClassLoader coreLoader = coreLoader()) {
-            final HostVerificationEvidence evidence = evidence(coreLoader);
-            try (HostAdapterConnection connection = connector(PRODUCTION_ACCESS)
-                .connect(new HostInstanceDescriptor("session-a", evidence))) {
+        final HostVerificationEvidence evidence = evidence();
+        try (HostAdapterConnection connection = connector(PRODUCTION_ACCESS, coreBackendFactory())
+            .connect(new HostInstanceDescriptor("session-a", evidence))) {
 
-                final var model = connection.modelAccess().active();
-                assertEquals("model-1", model.id().value());
+            final var model = connection.modelAccess().active();
+            assertEquals("model-1", model.id().value());
 
-                // Acquisition succeeded: the failure point moved past "no verified active
-                // Core model" into the Core selector call on the published Editor model.
-                final IllegalStateException failure = assertThrows(
-                    IllegalStateException.class, model::mocInfo
-                );
-                assertTrue(
-                    failure.getMessage().contains("Core evaluated data is unavailable"),
-                    failure.getMessage()
-                );
-                assertFalse(
-                    failure.getMessage().contains("No verified active Core model"),
-                    failure.getMessage()
-                );
-            }
+            // The fixture-backed Core backend admitted at connect and the publish chain
+            // installed the resolved Editor document model: the Core MOC read chain works
+            // end to end on a pure JVM (no native library involved).
+            final MocInfo mocInfo = model.mocInfo();
+            assertNotEquals(MocVersion.UNKNOWN, mocInfo.version());
         }
     }
 
@@ -103,34 +85,30 @@ class VerifiedHostAdapterConnectorBorrowedModelPublishTest {
         }
     }
 
-    /** Same native-library constraint as the publish test: admission fails before connect returns. */
-    @Disabled("Cubism Core native library is unavailable on the Linux test JVM; run in host validation")
     @Test
     void connectWithoutACurrentDocumentSkipsPublishAndKeepsTheJoinFailClosed() throws Exception {
         // No document installed: the resolver chain yields null before the model.
-        try (URLClassLoader coreLoader = coreLoader()) {
-            final HostVerificationEvidence evidence = evidence(coreLoader);
-            final AtomicReference<CoreEvaluatedJoin> joinRef = new AtomicReference<>();
-            final VerifiedHostAdapterConnector.EditorAccessFactory capturingAccess =
-                (resolver, sessionId, coreBackend) -> {
-                    final CoreEvaluatedJoin join = coreBackend == null
-                        ? null : coreBackend.evaluatedJoin();
-                    joinRef.set(join);
-                    return new EditorBackedCubismModelAccess(resolver, sessionId, join);
-                };
-            try (HostAdapterConnection connection = connector(capturingAccess)
-                .connect(new HostInstanceDescriptor("session-c", evidence))) {
+        final HostVerificationEvidence evidence = evidence();
+        final AtomicReference<CoreEvaluatedJoin> joinRef = new AtomicReference<>();
+        final VerifiedHostAdapterConnector.EditorAccessFactory capturingAccess =
+            (resolver, sessionId, coreBackend) -> {
+                final CoreEvaluatedJoin join = coreBackend == null
+                    ? null : coreBackend.evaluatedJoin();
+                joinRef.set(join);
+                return new EditorBackedCubismModelAccess(resolver, sessionId, join);
+            };
+        try (HostAdapterConnection connection = connector(capturingAccess, coreBackendFactory())
+            .connect(new HostInstanceDescriptor("session-c", evidence))) {
 
-                // connect() succeeded and nothing was published: the join read still
-                // reports the un-published "No verified active Core model" failure.
-                final IllegalStateException failure = assertThrows(
-                    IllegalStateException.class, () -> joinRef.get().mocInfo()
-                );
-                assertTrue(
-                    failure.getMessage().contains("No verified active Core model"),
-                    failure.getMessage()
-                );
-            }
+            // connect() succeeded and nothing was published: the join read still
+            // reports the un-published "No verified active Core model" failure.
+            final IllegalStateException failure = assertThrows(
+                IllegalStateException.class, () -> joinRef.get().mocInfo()
+            );
+            assertTrue(
+                failure.getMessage().contains("No verified active Core model"),
+                failure.getMessage()
+            );
         }
     }
 
@@ -193,25 +171,77 @@ class VerifiedHostAdapterConnectorBorrowedModelPublishTest {
         );
     }
 
-    private static HostVerificationEvidence evidence(final ClassLoader coreLoader) {
+    private static VerifiedHostAdapterConnector connector(
+        final VerifiedHostAdapterConnector.EditorAccessFactory accessFactory,
+        final VerifiedHostAdapterConnector.CoreBackendFactory coreBackendFactory
+    ) {
+        return new VerifiedHostAdapterConnector(
+            ignored -> RuntimeHostAdapters.safeMode(),
+            ignored -> editorResolver(),
+            accessFactory,
+            coreBackendFactory
+        );
+    }
+
+    private static HostVerificationEvidence evidence() {
+        final ClassLoader loader = EditorFixture.Host.class.getClassLoader();
         final HostVerificationEvidence.Slice project = new HostVerificationEvidence.Slice(
-            Path.of("project.json"), Path.of("host.jar"), coreLoader
+            Path.of("project.json"), Path.of("host.jar"), loader
         );
         final HostVerificationEvidence.Slice editor = new HostVerificationEvidence.Slice(
-            Path.of("editor.json"), Path.of("host.jar"), coreLoader
+            Path.of("editor.json"), Path.of("host.jar"), loader
         );
         final HostVerificationEvidence.Slice core = new HostVerificationEvidence.Slice(
-            CORE_RECORD, CORE_ARTIFACT, coreLoader
+            Path.of("core.json"), Path.of("core.jar"), loader
         );
         return HostVerificationEvidence.withEditorModel(project, editor).addingCoreRuntime(core);
     }
 
-    private static URLClassLoader coreLoader() throws Exception {
-        assertTrue(Files.isRegularFile(CORE_RECORD), "missing reviewed Core record " + CORE_RECORD);
-        assertTrue(Files.isRegularFile(CORE_ARTIFACT), "missing reviewed Core artifact " + CORE_ARTIFACT);
-        return new URLClassLoader(
-            new URL[]{CORE_ARTIFACT.toUri().toURL()},
-            ClassLoader.getPlatformClassLoader()
+    /**
+     * Fixture-backed Core backend: admission runs against the synthetic Core surface (no native
+     * library), so the connector's publish wiring is fully exercisable on the pure JVM. The MOC
+     * selectors point at the Editor fixture's model because that is the object the publish chain
+     * resolves and the Core read chain must read it back directly.
+     */
+    private static VerifiedHostAdapterConnector.CoreBackendFactory coreBackendFactory() {
+        return evidence -> {
+        final CoreProviderResult<RuntimeCoreModelBackend> admission = RuntimeCoreModelBackend.admitForTesting(
+            TestCoreApiFixture.resolverWithExtras(
+                "5.3.02",
+                mocSelectors(),
+                java.util.Set.of(CoreMocInfoSelectorContract.CAPABILITY_ID)
+            ),
+            CoreVersionExpectation.exact(11, 12, 13)
+        );
+        if (!admission.isSuccess()) {
+            throw new IllegalStateException(
+                "fixture-backed Core admission failed: " + admission.failure().orElseThrow()
+            );
+        }
+        return admission.value().orElseThrow();
+        };
+    }
+
+    private static List<StaticSelector> mocSelectors() {
+        return List.of(
+            StaticSelector.method(
+                CoreMocInfoSelectorContract.MODEL_GET_MOC,
+                internal(EditorFixture.Model.class),
+                "getMoc",
+                "()L" + internal(EditorFixture.Moc.class) + ";",
+                StaticSelector.ACCESS_PUBLIC
+            ),
+            StaticSelector.classSelector(
+                CoreMocInfoSelectorContract.MOC_CLASS,
+                internal(EditorFixture.Moc.class)
+            ),
+            StaticSelector.method(
+                CoreMocInfoSelectorContract.MOC_GET_MOC_VERSION,
+                internal(EditorFixture.Moc.class),
+                "getMocVersion",
+                "()I",
+                StaticSelector.ACCESS_PUBLIC
+            )
         );
     }
 
@@ -336,6 +366,16 @@ class VerifiedHostAdapterConnectorBorrowedModelPublishTest {
         }
 
         static final class Model {
+            public Moc getMoc() {
+                return new Moc();
+            }
+        }
+
+        /** Minimal MOC stand-in for the verified Core MOC-version read (constant 6 = V5_3). */
+        static final class Moc {
+            public int getMocVersion() {
+                return 6;
+            }
         }
 
         static final class Guid {
