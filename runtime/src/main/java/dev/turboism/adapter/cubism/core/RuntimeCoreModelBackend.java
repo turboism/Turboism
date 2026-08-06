@@ -64,6 +64,39 @@ public final class RuntimeCoreModelBackend implements AutoCloseable {
         ));
     }
 
+    /**
+     * Test-only admission seam mirroring {@link #admit} for resolvers whose verified plan is an
+     * exact superset of the reviewed Core contract (additive test selectors and capabilities are
+     * allowed, e.g. the MOC metadata capability). Never referenced by production wiring.
+     */
+    public static CoreProviderResult<RuntimeCoreModelBackend> admitForTesting(
+        final VerifiedMemberResolver resolver,
+        final CoreVersionExpectation expectation
+    ) {
+        Objects.requireNonNull(resolver, "resolver");
+        Objects.requireNonNull(expectation, "expectation");
+        final CoreProviderResult<CorePublicApiProvider> providerResult =
+            CorePublicApiProviderFactory.admitForTesting(resolver, expectation);
+        if (!providerResult.isSuccess()) {
+            return CoreProviderResult.failed(
+                providerResult.failure().orElseThrow()
+            );
+        }
+        final CorePublicApiProvider provider = providerResult.value().orElseThrow();
+        final CoreProviderResult<CoreStructuralTracer> tracerResult =
+            CoreStructuralTracerFactory.admit(provider, resolver);
+        if (!tracerResult.isSuccess()) {
+            return CoreProviderResult.failed(
+                tracerResult.failure().orElseThrow()
+            );
+        }
+        return CoreProviderResult.success(new RuntimeCoreModelBackend(
+            new BorrowedCoreModelSource(),
+            tracerResult.value().orElseThrow(),
+            provider
+        ));
+    }
+
     /** Returns the plugin-facing model access without exposing provider or host objects. */
     public CubismModelAccess modelAccess() {
         return modelAccess;

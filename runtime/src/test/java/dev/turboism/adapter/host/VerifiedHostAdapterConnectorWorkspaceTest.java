@@ -29,7 +29,8 @@ class VerifiedHostAdapterConnectorWorkspaceTest {
             null, null, null, null, null, null, null,
             new dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator(),
             ignored -> new dev.turboism.ui.appearance.UnavailableAppearanceHostProvider(),
-            slice -> resolver
+            slice -> resolver,
+            VerifiedHostAdapterConnector.productionCoreBackendFactory()
         );
         Path artifact = Path.of("/tmp/shared-cubism.jar");
         var project = new HostVerificationEvidence.Slice(Path.of("project.json"), artifact, getClass().getClassLoader());
@@ -63,7 +64,8 @@ class VerifiedHostAdapterConnectorWorkspaceTest {
             slice -> { throw new AssertionError("top-menu resolver must not run"); },
             new dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator(),
             ignored -> new dev.turboism.ui.appearance.UnavailableAppearanceHostProvider(),
-            slice -> resolver
+            slice -> resolver,
+            VerifiedHostAdapterConnector.productionCoreBackendFactory()
         );
         Path artifact = Path.of("/tmp/shared-cubism.jar");
         var project = new HostVerificationEvidence.Slice(Path.of("project.json"), artifact, getClass().getClassLoader());
