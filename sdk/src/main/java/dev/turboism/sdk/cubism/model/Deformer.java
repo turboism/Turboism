@@ -27,9 +27,36 @@ public interface Deformer {
 
     default List<ParameterId> parameterIds() { throw unavailable("Deformer parameters"); }
 
+    /** Editor display name, or the ID text when no authoring name is available. */
     default String name() {
         throw unavailable("Deformer name");
     }
+
+    /** Renames this Deformer through the verified Editor authoring seam. */
+    default void setName(String name) {
+        throw unavailable("Deformer renaming");
+    }
+
+    /**
+     * Moves this Deformer under a Part parent at {@code index} (negative = append).
+     *
+     * <p>The native Cubism Part tree owns the detach/attach semantics and Undo/Redo.</p>
+     *
+     * @throws IllegalArgumentException when {@code parent} is this Deformer or one of its descendants
+     */
+    default void setParent(Part parent, int index) {
+        throw unavailable("Deformer reparenting");
+    }
+
+    /**
+     * Moves this Deformer under another Deformer through the native target-deformer relation.
+     *
+     * @throws IllegalArgumentException when {@code parent} is this Deformer or one of its descendants
+     */
+    default void setParent(Deformer parent, int index) {
+        throw unavailable("Deformer reparenting");
+    }
+
 
     default boolean visible() {
         throw unavailable("Deformer visibility");

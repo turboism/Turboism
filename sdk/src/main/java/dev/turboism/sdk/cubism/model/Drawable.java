@@ -39,6 +39,31 @@ public interface Drawable {
     /** Stable ArtMesh GUID (distinct from {@link #id()}); unavailable until the host access implements it. */
     default String guid() { throw unavailable("ArtMesh guid"); }
 
+    /** Renames this Drawable through the verified Editor authoring seam. */
+    default void setName(String name) {
+        throw unavailable("Drawable renaming");
+    }
+
+    /**
+     * Moves this Drawable under a Part parent at {@code index} (negative = append).
+     *
+     * <p>The native Cubism Part tree owns the detach/attach semantics and Undo/Redo.</p>
+     *
+     * @throws IllegalArgumentException when {@code parent} is this Drawable or one of its descendants
+     */
+    default void setParent(Part parent, int index) {
+        throw unavailable("Drawable reparenting");
+    }
+
+    /**
+     * Moves this Drawable under a Deformer through the native target-deformer relation.
+     *
+     * @throws IllegalArgumentException when {@code parent} is this Drawable or one of its descendants
+     */
+    default void setParent(Deformer parent, int index) {
+        throw unavailable("Drawable reparenting");
+    }
+
     default String name() {
         throw unavailable("ArtMesh name");
     }
