@@ -57,7 +57,6 @@ final class EditorObjectReadAccess {
     EditorObjectReadAccess(
         final VerifiedMemberResolver resolver,
         final CurrentGuard currentGuard,
-<<<<<<< HEAD
     EditorObjectReadAccess(
         final VerifiedMemberResolver resolver,
         final CurrentGuard currentGuard,
