@@ -82,7 +82,6 @@ public final class NativeDeformerTreeAppearanceBridge {
         return null;
     }
 
-
     @FunctionalInterface
     interface Callback {
         Component apply(Component component, Object value, boolean selected, boolean focused);
@@ -93,6 +92,8 @@ public final class NativeDeformerTreeAppearanceBridge {
         String rowSourceMethod,
         String deformerSourceOwner,
         String deformerIdMethod,
+        String artMeshSourceOwner,
+        String artMeshIdMethod,
         String idStringMethod,
         ClassLoader hostClassLoader
     ) {
@@ -101,6 +102,8 @@ public final class NativeDeformerTreeAppearanceBridge {
             requireText(rowSourceMethod, "rowSourceMethod");
             requireText(deformerSourceOwner, "deformerSourceOwner");
             requireText(deformerIdMethod, "deformerIdMethod");
+            requireText(artMeshSourceOwner, "artMeshSourceOwner");
+            requireText(artMeshIdMethod, "artMeshIdMethod");
             requireText(idStringMethod, "idStringMethod");
             Objects.requireNonNull(hostClassLoader, "hostClassLoader");
         }
@@ -111,9 +114,22 @@ public final class NativeDeformerTreeAppearanceBridge {
             final java.lang.reflect.Method rowSource = row.getClass().getDeclaredMethod(rowSourceMethod);
             if (!rowSource.canAccess(row) && !rowSource.trySetAccessible()) return null;
             final Object source = rowSource.invoke(row);
-            if (source == null || source.getClass().getClassLoader() != hostClassLoader
-                || !isTypeOrSuper(source.getClass(), deformerSourceOwner.replace('/', '.'))) return null;
-            final Object id = source.getClass().getMethod(deformerIdMethod).invoke(source);
+            if (source == null || source.getClass().getClassLoader() != hostClassLoader) return null;
+            if (isTypeOrSuper(source.getClass(), deformerSourceOwner.replace('/', '.'))) {
+                return idString(source, deformerIdMethod, idStringMethod);
+            }
+            if (isTypeOrSuper(source.getClass(), artMeshSourceOwner.replace('/', '.'))) {
+                return idString(source, artMeshIdMethod, idStringMethod);
+            }
+            return null;
+        }
+
+        private static String idString(
+            final Object source,
+            final String idMethod,
+            final String idStringMethod
+        ) throws ReflectiveOperationException {
+            final Object id = source.getClass().getMethod(idMethod).invoke(source);
             final Object value = id == null ? null : id.getClass().getMethod(idStringMethod).invoke(id);
             return value instanceof String text && !text.isBlank() ? text : null;
         }

@@ -38,6 +38,27 @@ class NativePartTreeAppearanceBridgeTest {
         assertEquals(Color.BLACK, label.getForeground());
     }
 
+    @Test
+    void deformerAndArtMeshRowsResolveDeformerPartPalette() throws Exception {
+        final PaletteAppearanceCoordinator coordinator = new PaletteAppearanceCoordinator();
+        final PaletteAppearanceCoordinator.Scope scope = scope(7);
+        coordinator.reconcile(scope);
+        coordinator.register("plugin", 1, scope, PaletteAppearanceCoordinator.Palette.DEFORMER_PART,
+            "WarpA", PaletteAppearanceCoordinator.Property.TEXT_COLOR, color(0x336699));
+        coordinator.register("plugin", 1, scope, PaletteAppearanceCoordinator.Palette.DEFORMER_PART,
+            "ArtMeshA", PaletteAppearanceCoordinator.Property.BACKGROUND_COLOR, color(0x99CC22));
+        final PartTreeControlAppearanceProvider provider = new PartTreeControlAppearanceProvider(coordinator);
+        NativePartTreeAppearanceBridge.install(7, selectors(), provider);
+        final JLabel label = new JLabel();
+        label.setForeground(Color.BLACK);
+
+        render(() -> NativePartTreeAppearanceBridge.afterRender(label, new Node(new DeformerSource("WarpA"))));
+        assertEquals(new Color(0x33, 0x66, 0x99), label.getForeground());
+
+        render(() -> NativePartTreeAppearanceBridge.afterRender(label, new Node(new ArtMeshSource("ArtMeshA"))));
+        assertEquals(new Color(0x99, 0xCC, 0x22), label.getBackground());
+    }
+
     private static void register(
         final PaletteAppearanceCoordinator coordinator,
         final PaletteAppearanceCoordinator.Scope scope,
@@ -66,7 +87,10 @@ class NativePartTreeAppearanceBridgeTest {
     private static NativePartTreeAppearanceBridge.Selectors selectors() {
         return new NativePartTreeAppearanceBridge.Selectors(
             Node.class.getName().replace('.', '/'), "source",
-            PartSource.class.getName().replace('.', '/'), "getId", "getIdString", "getChildren",
+            PartSource.class.getName().replace('.', '/'),
+            DeformerSource.class.getName().replace('.', '/'),
+            ArtMeshSource.class.getName().replace('.', '/'),
+            "getId", "getIdString", "getChildren",
             Node.class.getClassLoader()
         );
     }
@@ -79,6 +103,20 @@ class NativePartTreeAppearanceBridgeTest {
         private final Object source;
         Node(final Object source) { this.source = source; }
         public Object source() { return source; }
+    }
+
+    public static final class DeformerSource {
+        private final Object id;
+        DeformerSource(final String id) { this.id = new Id(id); }
+        public Object getId() { return id; }
+        public List<?> getChildren() { return List.of(); }
+    }
+
+    public static final class ArtMeshSource {
+        private final Object id;
+        ArtMeshSource(final String id) { this.id = new Id(id); }
+        public Object getId() { return id; }
+        public List<?> getChildren() { return List.of(); }
     }
 
     static final class PartSource {
