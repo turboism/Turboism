@@ -17,7 +17,7 @@ class VerifiedHostAdapterConnectorAppearanceTest {
         VerifiedHostAdapterConnector connector = new VerifiedHostAdapterConnector(
             ignored -> RuntimeHostAdapters.safeMode(),
             slice -> { throw new AssertionError("editor resolver not expected"); },
-            (resolver, session) -> { throw new AssertionError("editor access not expected"); },
+            (resolver, session, core) -> { throw new AssertionError("editor access not expected"); },
             null,
             null,
             null,

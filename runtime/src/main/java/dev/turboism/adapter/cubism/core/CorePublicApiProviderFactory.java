@@ -59,6 +59,33 @@ public final class CorePublicApiProviderFactory {
         ));
     }
 
+    /**
+     * Test-only admission seam: admits a resolver whose verified plan is an exact
+     * superset of the reviewed Core contract (additive test selectors allowed).
+     *
+     * <p>Production admission keeps the exact-plan equality check; this seam is
+     * package-private and never referenced outside tests. The version probe still
+     * runs, so the admitted profile must be real.</p>
+     */
+    static CoreProviderResult<CorePublicApiProvider> admitForTesting(
+        final VerifiedMemberResolver resolver,
+        final CoreVersionExpectation expectation
+    ) {
+        Objects.requireNonNull(resolver, "resolver");
+        Objects.requireNonNull(expectation, "expectation");
+        final String artifactProfile = artifactProfile(resolver.cubismVersion());
+        final CoreProviderResult<CoreRuntimeVersion> probe = probeVersion(resolver, expectation);
+        if (!probe.isSuccess()) {
+            return CoreProviderResult.failed(probe.failure().orElseThrow());
+        }
+        return CoreProviderResult.success(new AdmittedCorePublicApiProvider(
+            "cubism-core-public-" + artifactProfile,
+            artifactProfile,
+            probe.value().orElseThrow(),
+            resolver
+        ));
+    }
+
 
     static String artifactProfile(final String reviewedVersion) {
         return switch (reviewedVersion) {
@@ -220,6 +247,59 @@ public final class CorePublicApiProviderFactory {
                 Boolean.class,
                 Objects.requireNonNull(bytes, "bytes")
             );
+        }
+
+        @Override
+        public CoreProviderResult<Integer> mocVersionOfModel(final Object model) {
+            Objects.requireNonNull(model, "model");
+            if (!resolver.authorizesFeature(
+                dev.turboism.mapping.verification.CoreMocInfoSelectorContract.ADAPTER_SLICE_ID,
+                dev.turboism.mapping.verification.CoreMocInfoSelectorContract.CAPABILITY_ID,
+                dev.turboism.mapping.verification.CoreMocInfoSelectorContract.REQUIRED_ALIASES
+            )) {
+                return failed(
+                    CoreProviderFailure.Code.ADAPTER_UNAVAILABLE,
+                    "Core MOC metadata selectors are not admitted for this artifact profile."
+                );
+            }
+            try {
+                final Object moc = resolver.invoke(
+                    dev.turboism.mapping.verification.CoreMocInfoSelectorContract.MODEL_GET_MOC,
+                    model
+                );
+                if (!resolver.isInstance(
+                    dev.turboism.mapping.verification.CoreMocInfoSelectorContract.MOC_CLASS,
+                    moc
+                )) {
+                    return failed(
+                        CoreProviderFailure.Code.INVALID_STRUCTURE,
+                        "Borrowed Core model returned an invalid MOC instance."
+                    );
+                }
+                final Object version = resolver.invoke(
+                    dev.turboism.mapping.verification.CoreMocInfoSelectorContract.MOC_GET_MOC_VERSION,
+                    moc
+                );
+                if (!(version instanceof Integer value)) {
+                    return failed(
+                        CoreProviderFailure.Code.INVALID_STRUCTURE,
+                        "Core MOC version selector returned an invalid value."
+                    );
+                }
+                return CoreProviderResult.success(value);
+            } catch (VerifiedAccessException exception) {
+                return failed(
+                    exception.failureKind() == VerifiedAccessException.FailureKind.RESOLUTION
+                        ? CoreProviderFailure.Code.RESOLUTION_FAILED
+                        : CoreProviderFailure.Code.INVOCATION_FAILED,
+                    "Verified Core MOC metadata selector failed safely."
+                );
+            } catch (RuntimeException exception) {
+                return failed(
+                    CoreProviderFailure.Code.INVOCATION_FAILED,
+                    "Core MOC metadata read failed safely."
+                );
+            }
         }
 
         private <T> CoreProviderResult<T> invokeScalar(
