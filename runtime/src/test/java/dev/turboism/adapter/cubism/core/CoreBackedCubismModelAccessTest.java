@@ -331,6 +331,11 @@ class CoreBackedCubismModelAccessTest {
             }
 
             @Override
+            public long currentGeneration() {
+                return 0L;
+            }
+
+            @Override
             public void close() {
             }
         };
