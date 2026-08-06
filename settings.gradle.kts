@@ -15,6 +15,7 @@ include(
     "plugins:parameter",
     "plugins:mesh",
     "plugins:project-inspector",
+    "plugins:clipmask-viewer",
     "plugins:bounding-box",
     "plugins:context-menu",
     "plugins:project-panel",

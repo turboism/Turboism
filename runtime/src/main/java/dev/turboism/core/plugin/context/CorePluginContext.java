@@ -636,6 +636,10 @@ public final class CorePluginContext implements PluginContext {
     public CubismReadCapabilityService cubismRead() {
         return cubismServices.cubismReadCapabilityService();
     }
+    @Override
+    public dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService cubismClipMasks() {
+        return cubismServices.cubismClipMaskService();
+    }
 
     @Override
     public dev.turboism.sdk.cubism.physics.PhysicsEditorService physicsEditor() {
