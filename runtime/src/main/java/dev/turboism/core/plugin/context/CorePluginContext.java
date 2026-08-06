@@ -14,9 +14,15 @@ import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.diagnostics.CubismFacadeAuditEvent;
 import dev.turboism.permissions.CubismPermissionGate;
 import dev.turboism.permissions.PermissionChecker;
+import dev.turboism.recentfile.RuntimeRecentFileService;
+import dev.turboism.recentpreview.RuntimeRecentPreviewContributionService;
+import dev.turboism.screenshot.RuntimeScreenshotCaptureService;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.appearance.AppearanceService;
 import dev.turboism.sdk.cubism.CubismFacade;
+import dev.turboism.sdk.cubism.recentfile.RecentFileService;
+import dev.turboism.sdk.cubism.recentpreview.RecentPreviewContributionService;
+import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureService;
 import dev.turboism.sdk.cubism.service.query.ModelHierarchyQueryService;
 import dev.turboism.sdk.cubism.service.query.ParameterQueryService;
 import dev.turboism.sdk.cubism.service.query.SelectionQueryService;
@@ -78,6 +84,9 @@ public final class CorePluginContext implements PluginContext {
 
     private final SceneTableService sceneTableService;
     private final dev.turboism.sdk.runtime.CubismLogService cubismLogService;
+    private final RecentFileService recentFileService;
+    private final ScreenshotCaptureService screenshotCaptureService;
+    private final RecentPreviewContributionService recentPreviewContributionService;
     private dev.turboism.sdk.runtime.RuntimeSettingsService runtimeSettings;
     public CorePluginContext(final Dependencies dependencies) {
         this(dependencies, RuntimeHostAdapters.safeMode(), null, null, null, null, null);
@@ -456,6 +465,15 @@ public final class CorePluginContext implements PluginContext {
             this.dependencies.cubismAuditSink(),
             this.dependencies.clock()
         ));
+        this.recentFileService = hostAccess == null
+            ? RecentFileService.unavailable()
+            : new RuntimeRecentFileService(adapters.recentFiles(), uiPermissionChecker);
+        this.screenshotCaptureService = hostAccess == null
+            ? ScreenshotCaptureService.unavailable()
+            : new RuntimeScreenshotCaptureService(adapters.screenshots(), uiPermissionChecker);
+        this.recentPreviewContributionService = hostAccess == null
+            ? RecentPreviewContributionService.unavailable()
+            : new RuntimeRecentPreviewContributionService(adapters.recentPreviews(), uiPermissionChecker);
         this.hostDialogAutomationService = new RuntimeHostDialogAutomationService(
             uiPermissionChecker
         );
@@ -662,6 +680,21 @@ public final class CorePluginContext implements PluginContext {
     @Override
     public PaletteFilterRegistry paletteFilter() {
         return paletteFilterRegistry;
+    }
+
+    @Override
+    public RecentFileService recentFiles() {
+        return recentFileService;
+    }
+
+    @Override
+    public ScreenshotCaptureService screenshots() {
+        return screenshotCaptureService;
+    }
+
+    @Override
+    public RecentPreviewContributionService recentPreviews() {
+        return recentPreviewContributionService;
     }
 
     @Override
