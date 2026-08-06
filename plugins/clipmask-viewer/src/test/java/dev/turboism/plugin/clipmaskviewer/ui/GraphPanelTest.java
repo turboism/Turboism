@@ -11,6 +11,7 @@ import java.awt.Dimension;
 import java.awt.Graphics2D;
 import java.awt.event.MouseEvent;
 import java.awt.Point;
+import java.awt.Rectangle;
 import java.awt.image.BufferedImage;
 import java.awt.event.MouseWheelEvent;
 import java.util.ArrayList;
@@ -19,6 +20,7 @@ import java.util.Locale;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -258,6 +260,82 @@ class GraphPanelTest {
     }
 
     @Test
+    void categoryToggleHidesCategoryNodesAndTheirDirectNeighbors() {
+        // Alpha 使用 Beta、Gamma；Delta 使用 Alpha；Epsilon 无关（showUnrelated 下入池）。
+        // 角色：Beta/Gamma 纯蒙版 → mask 类；Alpha 既是蒙版又是使用者 → both；Delta 使用者 → user；Epsilon → unrelated。
+        final ClipMaskViewerState state = new ClipMaskViewerState();
+        state.refreshData(service(
+            record("gA", "idA", "Alpha", false, "gB", "gC"),
+            record("gB", "idB", "Beta", false),
+            record("gC", "idC", "Gamma", false),
+            record("gD", "idD", "Delta", false, "gA"),
+            record("gE", "idE", "Epsilon", false)));
+        final GraphPanel panel = new GraphPanel(state, localization(), clicked -> { });
+        panel.setShowUnrelated(true);
+        panel.rebuild();
+        assertEquals(5, panel.nodeGuids().size());
+
+        panel.setCategoryVisible("mask", false);
+        // H = {B,C} ∪ 直接邻居（以 B/C 为 mask 的使用者 Alpha）→ 隐藏 A,B,C。
+        // D 是 A 的邻居而非 B/C 的直接邻居 → 保留（A 隐藏后 D 成孤立但仍显示）。
+        assertEquals(Set.of("gD", "gE"), new java.util.HashSet<>(panel.nodeGuids()),
+            "hidden category nodes and their direct neighbors disappear; non-direct neighbor D stays");
+        assertEquals(Set.of("mask"), panel.hiddenCategories());
+        assertFalse(panel.categoryVisible("mask"));
+
+        panel.setCategoryVisible("mask", true);
+        assertEquals(5, panel.nodeGuids().size(), "re-enabling the category restores all nodes");
+        assertTrue(panel.hiddenCategories().isEmpty());
+    }
+
+    @Test
+    void categoryToggleCombinesWithTextFilter() {
+        final GraphPanel panel = new GraphPanel(filterState(), localization(), clicked -> { });
+        panel.setFilter("Alpha");
+        assertEquals(Set.of("gA", "gB", "gC", "gD"), new java.util.HashSet<>(panel.nodeGuids()));
+
+        panel.setCategoryVisible("mask", false);
+        // V = {gD}（B、C 及其直接邻居 A 被隐藏）；有效集 = V ∩ (M∪N) = {gD}。
+        assertEquals(Set.of("gD"), new java.util.HashSet<>(panel.nodeGuids()),
+            "AND semantics: category visible set ∩ filter set");
+
+        panel.setCategoryVisible("mask", true);
+        assertEquals(Set.of("gA", "gB", "gC", "gD"), new java.util.HashSet<>(panel.nodeGuids()),
+            "clearing the category restores the filtered view");
+    }
+
+    @Test
+    void legendClickTogglesCategory() {
+        final GraphPanel panel = new GraphPanel(stateWithUserAndMask(), localization(), clicked -> { });
+        paintPanel(panel);
+        final List<Rectangle> bounds = panel.legendHitBounds();
+        assertEquals(5, bounds.size(), "legend paints five hit rectangles");
+        final Rectangle userItem = bounds.get(0); // 索引 0 → user 类别（与 user.inverted 共享开关）。
+        assertTrue(panel.categoryVisible("user"));
+        assertTrue(panel.hiddenCategories().isEmpty());
+
+        dispatchPress(panel, userItem.x + userItem.width / 2, userItem.y + userItem.height / 2);
+        assertFalse(panel.categoryVisible("user"), "legend click must hide the user category");
+        assertEquals(Set.of("user"), panel.hiddenCategories());
+
+        dispatchPress(panel, userItem.x + userItem.width / 2, userItem.y + userItem.height / 2);
+        assertTrue(panel.categoryVisible("user"), "second legend click restores the category");
+        assertTrue(panel.hiddenCategories().isEmpty());
+    }
+
+    @Test
+    void allCategoriesHiddenShowsEmptyState() {
+        final GraphPanel panel = new GraphPanel(stateWith(1), localization(), clicked -> { });
+        panel.setCategoryVisible("mask", false);
+        panel.setCategoryVisible("user", false);
+        panel.setCategoryVisible("both", false);
+        panel.setCategoryVisible("unrelated", false);
+        assertTrue(panel.nodeGuids().isEmpty());
+        assertEquals(new Dimension(400, 200), panel.getPreferredSize(), "all hidden uses the empty state");
+        assertTrue(panel.hiddenCategories().containsAll(Set.of("mask", "user", "both", "unrelated")));
+    }
+
+    @Test
     void selectHighlightsNodeNeighborsAndEdges() {
         final GraphPanel panel = new GraphPanel(filterState(), localization(), clicked -> { });
 
@@ -418,6 +496,19 @@ class GraphPanelTest {
             sizes.add(counts[i]);
         }
         return sizes;
+    }
+
+    /** 绘制一次面板，填充 legendHitBounds（图例命中矩形在绘制时记录）。 */
+    private static void paintPanel(final GraphPanel panel) {
+        final Dimension size = panel.getPreferredSize();
+        panel.setSize(size);
+        final BufferedImage image = new BufferedImage(size.width, size.height, BufferedImage.TYPE_INT_ARGB);
+        final Graphics2D graphics = image.createGraphics();
+        try {
+            panel.paint(graphics);
+        } finally {
+            graphics.dispose();
+        }
     }
     private static void dispatchClick(final JComponent panel, final int x, final int y) {
         dispatchClick(panel, x, y, 1);
