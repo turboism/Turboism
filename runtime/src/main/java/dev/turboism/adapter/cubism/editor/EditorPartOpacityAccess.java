@@ -9,6 +9,7 @@ import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.model.Color;
 import dev.turboism.sdk.cubism.model.Part;
 import dev.turboism.sdk.cubism.model.PartId;
+import dev.turboism.sdk.cubism.model.MorphTargets;
 import dev.turboism.sdk.cubism.model.Parts;
 
 import java.util.IdentityHashMap;
@@ -31,13 +32,19 @@ final class EditorPartOpacityAccess {
 
     private final VerifiedMemberResolver resolver;
     private final EditorParameterCombinedAccess.ModelGuard modelGuard;
+    private final EditorPartStructureAccess structureAccess;
+    private final EditorMorphTargetAccess morphTargetAccess;
 
     EditorPartOpacityAccess(
         final VerifiedMemberResolver resolver,
-        final EditorParameterCombinedAccess.ModelGuard modelGuard
+        final EditorParameterCombinedAccess.ModelGuard modelGuard,
+        final EditorPartStructureAccess structureAccess,
+        final EditorMorphTargetAccess morphTargetAccess
     ) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.modelGuard = Objects.requireNonNull(modelGuard, "modelGuard");
+        this.structureAccess = Objects.requireNonNull(structureAccess, "structureAccess");
+        this.morphTargetAccess = Objects.requireNonNull(morphTargetAccess, "morphTargetAccess");
     }
 
     Parts parts(final String identity, final Object source, final Object model) {
@@ -548,6 +555,29 @@ final class EditorPartOpacityAccess {
             final PartBinding value = binding(source, model, Objects.requireNonNull(id, "id"));
             return new EditorPart(identity, source, model, value.id(), value.source(), value.part());
         }
+
+        @Override public Part add(final PartId id, final PartId parentId) {
+            modelGuard.requireCurrent(identity, model);
+            final PartId created = structureAccess.add(identity, source, model, id, parentId);
+            final PartBinding value = binding(source, model, created);
+            return new EditorPart(identity, source, model, value.id(), value.source(), value.part());
+        }
+
+        @Override public Part add(final PartId id) {
+            return add(id, null);
+        }
+
+        @Override public Part copy(final PartId id) {
+            modelGuard.requireCurrent(identity, model);
+            final PartId copied = structureAccess.copy(identity, source, model, id);
+            final PartBinding value = binding(source, model, copied);
+            return new EditorPart(identity, source, model, value.id(), value.source(), value.part());
+        }
+
+        @Override public void remove(final PartId id) {
+            modelGuard.requireCurrent(identity, model);
+            structureAccess.remove(identity, source, model, id);
+        }
     }
 
     private final class EditorPart implements Part {
@@ -604,6 +634,11 @@ final class EditorPartOpacityAccess {
                 .toList();
         }
         @Override public String name() { return EditorPartOpacityAccess.this.name(current()); }
+
+        @Override public MorphTargets morphTargets() {
+            current();
+            return morphTargetAccess.morphTargets(identity, source, model, expectedSource);
+        }
         @Override public Optional<String> shortName() {
             return EditorPartOpacityAccess.this.shortName(current());
         }
