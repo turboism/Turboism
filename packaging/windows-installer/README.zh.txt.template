@@ -11,7 +11,7 @@ Turboism 是一个为 Live2D Cubism 编辑器提供增强能力的 Java agent �
   launch-cubism-turboism.bat    启动器（双击运行，推荐）
   launch-cubism-turboism.ps1    同一逻辑的 PowerShell 版本
   plugins/                      插件 jar（full 包才有；lite 包无此目录）
-  README.txt / LICENSE.txt
+  README.txt / README.zh.txt / README.ja.txt / LICENSE.txt
 
 二、使用方法
 ------------
@@ -27,11 +27,18 @@ Turboism 是一个为 Live2D Cubism 编辑器提供增强能力的 Java agent �
 
 三、config.json
 --------------
-  worktreeId:     "turboism-runtime"
-  pluginDirs:     ["plugins"]
-  disabledPlugins: 被禁用的插件 id 列表（未勾选的插件，升序；可选字段）
+  worktreeId:       "turboism-runtime"
+  pluginDirs:       ["plugins"]
+  disabledPlugins:  被禁用的插件 id 列表（未勾选的插件，升序；可选字段）
 
-四、常见问题
+四、卸载
+--------
+- 通过 NSIS 安装器（TurboismInstaller-<ver>.exe）安装时：运行 Turboism home
+  目录中的 uninstall.exe。卸载确认页含「同时删除 config.json（用户配置）」
+  复选框，默认勾选；取消勾选可保留 config.json。
+- ZIP 手动安装包无卸载器：直接删除整个目录即可。
+
+五、常见问题
 ------------
 - 双击 bat 后窗口闪退：在命令行中运行 launch-cubism-turboism.ps1 查看报错。
 - 插件不生效：确认插件 jar 在 plugins/ 下，且 config.json 的 disabledPlugins

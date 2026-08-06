@@ -4,9 +4,8 @@
 # 用法: assemble-release.sh <version> [--skip-nsis]
 #
 # 流程:
-#   1. ./gradlew :bootstrap:jar + 各 :plugins:<module>:jar
 #   2. 组装 staging（turboism-agent.jar、plugins/<module>.jar、config.json、
-#      启动器、README.txt、LICENSE.txt）
+#      启动器、README.txt / README.zh.txt / README.ja.txt、LICENSE.txt）
 #   3. 从每个插件 jar 的 META-INF/turboism/plugin.json 读取 id/name/version/
 #      description，生成 plugin-sections.nsh
 #   4. 产出 turboism-<ver>-lite.zip / turboism-<ver>-full.zip + .sha256
@@ -81,7 +80,9 @@ done
 cp "$pkg_dir/config.template.json" "$stage/config.json"
 cp "$pkg_dir/launch-cubism-turboism.bat" "$stage/"
 cp "$pkg_dir/launch-cubism-turboism.ps1" "$stage/"
-sed "s/__VERSION__/$VER/g" "$pkg_dir/README.txt.template" > "$stage/README.txt"
+sed "s/__VERSION__/$VER/g" "$pkg_dir/README.en.txt.template" > "$stage/README.txt"
+sed "s/__VERSION__/$VER/g" "$pkg_dir/README.zh.txt.template" > "$stage/README.zh.txt"
+sed "s/__VERSION__/$VER/g" "$pkg_dir/README.ja.txt.template" > "$stage/README.ja.txt"
 cp "$repo_root/LICENSE" "$stage/LICENSE.txt"
 
 # ---------- 3. 生成 plugin-sections.nsh ----------
