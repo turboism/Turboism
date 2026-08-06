@@ -20,6 +20,7 @@ import javax.swing.JDialog;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
+import javax.swing.JSlider;
 import javax.swing.JTable;
 import javax.swing.JToggleButton;
 import javax.swing.ListSelectionModel;
@@ -143,15 +144,56 @@ public final class ClipMaskViewerWindow extends JDialog implements WindowView {
         hint.setFont(hint.getFont().deriveFont(Font.PLAIN, 11f));
         final JButton closeButton = new JButton(localization.text("button.close"));
         closeButton.addActionListener(ignored -> dispose());
-        final JPanel footerRight = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
-        footerRight.add(closeButton);
+        // 缩放工具栏（仅图结构模式显示）：− / 滑动条 / + / 百分比，与 GraphPanel 双向同步。
+        final JPanel zoomBar = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 0));
+        final JButton zoomOutButton = new JButton("−");
+        zoomOutButton.setToolTipText(localization.text("zoom.out"));
+        final JSlider zoomSlider = new JSlider(20, 400, 100);
+        zoomSlider.setPaintTicks(true);
+        zoomSlider.setMajorTickSpacing(20);
+        zoomSlider.setPaintLabels(false);
+        zoomSlider.setPreferredSize(new Dimension(160, zoomSlider.getPreferredSize().height));
+        zoomSlider.setToolTipText(localization.text("zoom.slider"));
+        final JButton zoomInButton = new JButton("+");
+        zoomInButton.setToolTipText(localization.text("zoom.in"));
+        final JLabel zoomPercentLabel = new JLabel("100%");
+        zoomPercentLabel.setFont(zoomPercentLabel.getFont().deriveFont(Font.PLAIN, 11f));
+        zoomBar.add(zoomOutButton);
+        zoomBar.add(zoomSlider);
+        zoomBar.add(zoomInButton);
+        zoomBar.add(zoomPercentLabel);
         footer.add(hint, BorderLayout.WEST);
-        footer.add(footerRight, BorderLayout.EAST);
+        footer.add(zoomBar, BorderLayout.CENTER);
+        footer.add(closeButton, BorderLayout.EAST);
         root.add(footer, BorderLayout.SOUTH);
 
-        btnGraph.addActionListener(ignored -> cards.show(center, MODE_GRAPH));
-        btnTableMask.addActionListener(ignored -> cards.show(center, MODE_TABLE_MASK));
-        btnTableUser.addActionListener(ignored -> cards.show(center, MODE_TABLE_USER));
+        zoomOutButton.addActionListener(ignored -> graphPanel.setViewScale(graphPanel.scale() * 0.8));
+        zoomInButton.addActionListener(ignored -> graphPanel.setViewScale(graphPanel.scale() * 1.25));
+        // 拖动时实时生效（getValueIsAdjusting 阶段同样触发 ChangeListener）。
+        zoomSlider.addChangeListener(event -> {
+            final double target = zoomSlider.getValue() / 100.0;
+            if (Math.abs(target - graphPanel.scale()) < 1e-9) {
+                return; // 递归 guard：listener 回写 slider 时值相同，直接短路。
+            }
+            graphPanel.setViewScale(target);
+        });
+        graphPanel.setViewScaleListener(scale -> {
+            zoomSlider.setValue((int) Math.round(scale * 100));
+            zoomPercentLabel.setText(String.format("%.0f%%", scale * 100));
+        });
+
+        btnGraph.addActionListener(ignored -> {
+            cards.show(center, MODE_GRAPH);
+            zoomBar.setVisible(true);
+        });
+        btnTableMask.addActionListener(ignored -> {
+            cards.show(center, MODE_TABLE_MASK);
+            zoomBar.setVisible(false);
+        });
+        btnTableUser.addActionListener(ignored -> {
+            cards.show(center, MODE_TABLE_USER);
+            zoomBar.setVisible(false);
+        });
         refreshButton.addActionListener(ignored -> refresh());
         showUnrelated.addActionListener(ignored -> {
             graphPanel.setShowUnrelated(showUnrelated.isSelected());
