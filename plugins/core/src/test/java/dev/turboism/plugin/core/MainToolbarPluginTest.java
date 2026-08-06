@@ -96,7 +96,7 @@ class MainToolbarPluginTest {
         assertEquals(1, context.uiHost().panelContributions().size());
         final EmbeddedPanelContribution panel = context.uiHost().panelContributions().get(0);
         assertEquals("turboism.panel.main", panel.id());
-        assertTrue(panel.content().toString().contains("Turboism"));
+        assertTrue(!panel.content().toString().contains("Turboism"));
         assertTrue(!panel.content().toString().contains("open-settings"));
         assertTrue(!panel.content().toString().contains("open-plugin-management"));
         assertTrue(!panel.content().toString().contains("open-logs"));
