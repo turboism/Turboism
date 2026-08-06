@@ -29,16 +29,29 @@ class GraphPanelTest {
 
     @Test
     void circularLayoutKeepsSquareAspectAndAvoidsRowOverflow() {
-        final ClipMaskViewerState state = stateWith(20); // 60 节点（三组各 20）
+        final ClipMaskViewerState state = stateWith(20); // 60 节点（top 20 / middle 0 / bottom 40）
         final GraphPanel panel = new GraphPanel(state, localization(), clicked -> { });
 
         final Dimension size = panel.getPreferredSize();
-        // 圆形布局：长宽比 1:1；同 60 节点下行布局需 ~4880px 宽，圆形显著收窄。
+        // 多层同心扇区布局：长宽比 1:1；同 60 节点下行布局需 ~4880px 宽，圆形显著收窄。
         assertTrue(Math.abs((double) size.width / size.height - 1.0) < 0.01,
             "expected square aspect, got " + size);
         assertTrue(size.width < LEGACY_ROW_WIDTH_ESTIMATE / 2,
             "circular width " + size.width + " must be well below row-layout width "
                 + LEGACY_ROW_WIDTH_ESTIMATE);
+
+        // 中心非空：存在内圈节点（距圆心 < 总半径（面板半径 = size/2）的一半；旧单圈布局所有节点都在最外圈）。
+        final int center = size.width / 2;
+        final double minDistance = panel.nodeCenters().stream()
+            .mapToDouble(p -> Math.hypot(p.x - center, p.y - center))
+            .min().orElse(Double.MAX_VALUE);
+        assertTrue(minDistance < size.width / 4.0,
+            "inner ring must fill the center area, min node distance " + minDistance);
+
+        // 层数/容量正确：top 类 20 节点 → 3 层（容量 7+9+11，末层 4 个）；
+        // bottom 类 40 节点 → 4 层恰好填满（7+9+11+13）。
+        assertEquals(List.of(7, 9, 4), ringSizes(panel, 90, 210), "top sector layers");
+        assertEquals(List.of(7, 9, 11, 13), ringSizes(panel, 330, 90), "bottom sector layers");
     }
 
     @Test
@@ -99,15 +112,29 @@ class GraphPanelTest {
     }
 
 
-    @Test
-    void compactSpacingShrinksCircleRadius() {
+    void compactMultiRingLayoutShrinksTotalRadius() {
         final GraphPanel panel = new GraphPanel(stateWith(20), localization(), clicked -> { });
         final int width = panel.getPreferredSize().width;
-        final int expectedRadius = Math.max(
-            160, (int) Math.round(60 * (2 * 22 + 2) / (2 * Math.PI)));
+        // 60 节点 → top 3 层、bottom 4 层（7+9+11+13）→ 总半径 = 160 + (4-1)*46 = 298。
+        final int expectedRadius = 160 + 3 * (2 * 22 + 2);
         assertEquals((expectedRadius + 40) * 2, width);
-        final int oldRadius = (int) Math.round(60 * (2 * 22 + 8) / (2 * Math.PI));
-        assertTrue(width < (oldRadius + 40) * 2, "spacing must be tighter than the old +8 gap");
+        final int oldSingleRingRadius = (int) Math.round(60 * (2 * 22 + 8) / (2 * Math.PI));
+        assertTrue(width < (oldSingleRingRadius + 40) * 2,
+            "multi-ring layout must be tighter than the old single-ring +8 gap");
+    }
+
+    @Test
+    void smallGroupsDegenerateToSingleRing() {
+        final GraphPanel panel = new GraphPanel(stateWith(2), localization(), clicked -> { });
+        final Dimension size = panel.getPreferredSize();
+        // 每类 2 节点 ≤ 首层容量 7 → 单圈退化：半径 = MIN_RADIUS（160），尺寸与旧布局一致。
+        assertEquals((160 + 40) * 2, size.width);
+        final int center = size.width / 2;
+        final Set<Integer> rings = new java.util.TreeSet<>();
+        for (Point point : panel.nodeCenters()) {
+            rings.add((int) Math.round(Math.hypot(point.x - center, point.y - center)));
+        }
+        assertEquals(Set.of(160), rings, "all nodes must sit on the single inner ring");
     }
 
     @Test
@@ -260,6 +287,35 @@ class GraphPanelTest {
         panel.panBy(-50, 20);
         // mask-1 逻辑 (61,280) → 屏幕 (-128,380)。
         assertNotNull(panel.findNode(new Point(-128, 380)));
+    }
+
+    /** 统计 [startDeg, endDeg)（可跨 0°）扇区内各同心层（从内圈起）的节点数。 */
+    private static List<Integer> ringSizes(final GraphPanel panel, final int startDeg, final int endDeg) {
+        final int center = panel.getPreferredSize().width / 2;
+        final int[] counts = new int[16];
+        int maxRing = -1;
+        for (Point point : panel.nodeCenters()) {
+            double angle = Math.toDegrees(Math.atan2(point.y - center, point.x - center));
+            if (angle < 0) {
+                angle += 360;
+            }
+            final boolean inside = startDeg < endDeg
+                ? angle >= startDeg && angle < endDeg
+                : angle >= startDeg || angle < endDeg;
+            if (!inside) {
+                continue;
+            }
+            final double distance = Math.hypot(point.x - center, point.y - center);
+            // 层半径 = MIN_RADIUS(160) + layer * NODE_SPACING(46)，坐标取整误差 < 2px。
+            final int ring = (int) Math.round((distance - 160) / 46.0);
+            counts[ring]++;
+            maxRing = Math.max(maxRing, ring);
+        }
+        final List<Integer> sizes = new ArrayList<>();
+        for (int i = 0; i <= maxRing; i++) {
+            sizes.add(counts[i]);
+        }
+        return sizes;
     }
     private static void dispatchClick(final JComponent panel, final int x, final int y) {
         dispatchClick(panel, x, y, 1);

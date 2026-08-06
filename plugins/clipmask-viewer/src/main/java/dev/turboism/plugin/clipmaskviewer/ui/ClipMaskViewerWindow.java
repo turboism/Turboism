@@ -144,31 +144,23 @@ public final class ClipMaskViewerWindow extends JDialog implements WindowView {
         hint.setFont(hint.getFont().deriveFont(Font.PLAIN, 11f));
         final JButton closeButton = new JButton(localization.text("button.close"));
         closeButton.addActionListener(ignored -> dispose());
-        // 缩放工具栏（仅图结构模式显示）：− / 滑动条 / + / 百分比，与 GraphPanel 双向同步。
+        // 缩放工具栏（仅图结构模式显示）：滑动条 / 百分比，与 GraphPanel 双向同步。
         final JPanel zoomBar = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 0));
-        final JButton zoomOutButton = new JButton("−");
-        zoomOutButton.setToolTipText(localization.text("zoom.out"));
         final JSlider zoomSlider = new JSlider(20, 400, 100);
         zoomSlider.setPaintTicks(true);
         zoomSlider.setMajorTickSpacing(20);
         zoomSlider.setPaintLabels(false);
         zoomSlider.setPreferredSize(new Dimension(160, zoomSlider.getPreferredSize().height));
         zoomSlider.setToolTipText(localization.text("zoom.slider"));
-        final JButton zoomInButton = new JButton("+");
-        zoomInButton.setToolTipText(localization.text("zoom.in"));
         final JLabel zoomPercentLabel = new JLabel("100%");
         zoomPercentLabel.setFont(zoomPercentLabel.getFont().deriveFont(Font.PLAIN, 11f));
-        zoomBar.add(zoomOutButton);
         zoomBar.add(zoomSlider);
-        zoomBar.add(zoomInButton);
         zoomBar.add(zoomPercentLabel);
         footer.add(hint, BorderLayout.WEST);
         footer.add(zoomBar, BorderLayout.CENTER);
         footer.add(closeButton, BorderLayout.EAST);
         root.add(footer, BorderLayout.SOUTH);
 
-        zoomOutButton.addActionListener(ignored -> graphPanel.setViewScale(graphPanel.scale() * 0.8));
-        zoomInButton.addActionListener(ignored -> graphPanel.setViewScale(graphPanel.scale() * 1.25));
         // 拖动时实时生效（getValueIsAdjusting 阶段同样触发 ChangeListener）。
         zoomSlider.addChangeListener(event -> {
             final double target = zoomSlider.getValue() / 100.0;
