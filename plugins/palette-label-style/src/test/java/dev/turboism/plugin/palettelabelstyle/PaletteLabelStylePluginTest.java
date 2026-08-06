@@ -41,8 +41,12 @@ import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.PluginPaths;
 import dev.turboism.sdk.plugin.Registration;
-import dev.turboism.sdk.ui.FormDialogRequest;
-import dev.turboism.sdk.ui.FormDialogResultListener;
+import dev.turboism.sdk.storage.PluginStorage;
+import dev.turboism.sdk.storage.StorageListResult;
+import dev.turboism.sdk.storage.StorageMutationResult;
+import dev.turboism.sdk.storage.StoragePath;
+import dev.turboism.sdk.storage.StorageReadResult;
+import dev.turboism.sdk.storage.StorageWriteResult;
 import dev.turboism.sdk.ui.UiHostCapabilityService;
 import dev.turboism.sdk.ui.UiScheduler;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry;
@@ -61,6 +65,9 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -92,14 +99,16 @@ class PaletteLabelStylePluginTest {
             "turboism.ui.appearance.modify",
             "turboism.ui.dialog.contribute",
             "turboism.cubism.model.read",
+            "turboism.cubism.model.write",
             "turboism.cubism.project.read",
-            "turboism.config.plugin.read",
-            "turboism.config.plugin.write"
+            "turboism.file.read",
+            "turboism.file.write"
         )) {
             assertTrue(json.contains("\"" + permission + "\""),
                 "plugin.json must declare permission " + permission);
         }
     }
+
     @Test
     void enableRegistersAllTextAndBackgroundActions() {
         final RecordingPluginContext context = new RecordingPluginContext();
@@ -118,36 +127,22 @@ class PaletteLabelStylePluginTest {
         plugin.init(context);
         plugin.enable();
 
-        final Map<String, ContextMenuRegistry.ContextMenuContribution> byId = new HashMap<>();
-        for (final ContextMenuRegistry.ContextMenuContribution contribution : context.contextMenu().contributions()) {
-            byId.put(contribution.id(), contribution);
-        }
-        assertEquals(
-            Set.of(
-                "palette-label-style.deformer-tab.text",
-                "palette-label-style.deformer-tab.background",
-                "palette-label-style.part-tab.text",
-                "palette-label-style.parameter-tab.text",
-                "palette-label-style.parameter-tab.background"
-            ),
-            byId.keySet()
-        );
-
-        assertContribution(byId.get("palette-label-style.deformer-tab.text"),
-            Location.DEFORMER_TAB, Set.of(ObjectKind.WARP_DEFORMER, ObjectKind.ROTATION_DEFORMER, ObjectKind.ART_MESH),
+        final List<ContextMenuContribution> contributions = context.contextMenu().contributions();
+        assertEquals(5, contributions.size());
+        assertContribution(contributions.get(0), Location.DEFORMER_TAB,
+            Set.of(ObjectKind.WARP_DEFORMER, ObjectKind.ROTATION_DEFORMER, ObjectKind.ART_MESH),
             "palette-label-style.text.none", "palette-label-style.text.custom");
-        assertContribution(byId.get("palette-label-style.deformer-tab.background"),
-            Location.DEFORMER_TAB, Set.of(ObjectKind.WARP_DEFORMER, ObjectKind.ROTATION_DEFORMER, ObjectKind.ART_MESH),
+        assertContribution(contributions.get(1), Location.DEFORMER_TAB,
+            Set.of(ObjectKind.WARP_DEFORMER, ObjectKind.ROTATION_DEFORMER, ObjectKind.ART_MESH),
             "palette-label-style.background.none", "palette-label-style.background.custom");
-        assertContribution(byId.get("palette-label-style.part-tab.text"),
-            Location.PART_TAB, Set.of(ObjectKind.PART, ObjectKind.PART_FOLDER, ObjectKind.WARP_DEFORMER,
+        assertContribution(contributions.get(2), Location.PART_TAB,
+            Set.of(ObjectKind.PART, ObjectKind.PART_FOLDER, ObjectKind.WARP_DEFORMER,
                 ObjectKind.ROTATION_DEFORMER, ObjectKind.ART_MESH),
             "palette-label-style.text.none", "palette-label-style.text.custom");
-        assertContribution(byId.get("palette-label-style.parameter-tab.text"),
-            Location.PARAMETER_TAB, Set.of(ObjectKind.PARAMETER, ObjectKind.PARAMETER_FOLDER),
+        assertContribution(contributions.get(3), Location.PARAMETER_TAB,
+            Set.of(ObjectKind.PARAMETER, ObjectKind.PARAMETER_FOLDER),
             "palette-label-style.text.none", "palette-label-style.text.custom");
-        assertContribution(byId.get("palette-label-style.parameter-tab.background"),
-            Location.PARAMETER_TAB, Set.of(ObjectKind.PARAMETER),
+        assertContribution(contributions.get(4), Location.PARAMETER_TAB, Set.of(ObjectKind.PARAMETER),
             "palette-label-style.background.none", "palette-label-style.background.custom");
     }
 
@@ -175,23 +170,24 @@ class PaletteLabelStylePluginTest {
         final PaletteLabelStylePlugin plugin = new PaletteLabelStylePlugin();
         plugin.init(context);
         plugin.enable();
+        context.storage().awaitOperations(1); // enable-time replay read
 
         context.actions().execute("palette-label-style.text.red", parameterSelection("p1"));
+        context.storage().awaitOperations(2); // persistence write
 
         assertEquals(List.of("text:#E53935"), context.model().parameter("p1").entry.textEvents());
-        assertEquals(
-            "#E53935",
-            context.config().readString(LabelStylePersistence.scopePath("project-1"),
-                "PARAMETER_TAB:p1:text").orElseThrow()
-        );
+        assertEquals(Map.of("PARAMETER_TAB:p1:text", "#E53935"),
+            LabelStylePersistence.parse(context.storage().content(
+                LabelStylePersistence.filePath("project-1").relativePath())));
     }
 
     @Test
-    void backgroundPresetOnDeformerTabDeformerUsesNativeLabelColorWithoutConfigWrite() {
+    void backgroundPresetOnDeformerTabDeformerSyncsNativeOnlyWithoutPersistence() {
         final RecordingPluginContext context = new RecordingPluginContext();
         final PaletteLabelStylePlugin plugin = new PaletteLabelStylePlugin();
         plugin.init(context);
         plugin.enable();
+        context.storage().awaitOperations(1);
 
         context.actions().execute("palette-label-style.background.blue",
             new ContextMenuSelection(1L, "doc", Location.DEFORMER_TAB,
@@ -200,7 +196,30 @@ class PaletteLabelStylePluginTest {
         assertEquals(List.of(new dev.turboism.sdk.ui.appearance.NativeLabelColor.Preset(
             dev.turboism.sdk.ui.appearance.PresetColor.BLUE)),
             context.model().deformer("warp1").nativeLabelColors);
-        assertTrue(context.config().entries().isEmpty());
+        assertEquals(List.of(), context.model().deformer("warp1").partEntry.events());
+        assertEquals(List.of(), context.model().deformer("warp1").deformerEntry.events());
+        assertTrue(LabelStylePersistence.parse(context.storage().content(
+            LabelStylePersistence.filePath("project-1").relativePath())).isEmpty());
+    }
+
+    @Test
+    void deformerTabTextOnDeformerOverridesPartPaletteEntryAndPersists() {
+        final RecordingPluginContext context = new RecordingPluginContext();
+        final PaletteLabelStylePlugin plugin = new PaletteLabelStylePlugin();
+        plugin.init(context);
+        plugin.enable();
+        context.storage().awaitOperations(1);
+
+        context.actions().execute("palette-label-style.text.red",
+            new ContextMenuSelection(1L, "doc", Location.DEFORMER_TAB,
+                List.of(new ContextMenuSelection.Item(ObjectKind.WARP_DEFORMER, "warp1"))));
+        context.storage().awaitOperations(2);
+
+        assertEquals(List.of("text:#E53935"), context.model().deformer("warp1").partEntry.textEvents());
+        assertTrue(context.model().deformer("warp1").nativeLabelColors.isEmpty());
+        assertEquals(Map.of("DEFORMER_TAB:warp1:text", "#E53935"),
+            LabelStylePersistence.parse(context.storage().content(
+                LabelStylePersistence.filePath("project-1").relativePath())));
     }
 
     @Test
@@ -209,14 +228,16 @@ class PaletteLabelStylePluginTest {
         final PaletteLabelStylePlugin plugin = new PaletteLabelStylePlugin();
         plugin.init(context);
         plugin.enable();
+        context.storage().awaitOperations(1);
 
         context.actions().execute("palette-label-style.text.red", parameterSelection("p1"));
+        context.storage().awaitOperations(2);
         context.actions().execute("palette-label-style.text.none", parameterSelection("p1"));
+        context.storage().awaitOperations(3);
 
         assertEquals(List.of("text:#E53935", "text:closed"), context.model().parameter("p1").entry.events());
-        assertEquals(Optional.of(""), context.config().readString(
-            LabelStylePersistence.scopePath("project-1"), "PARAMETER_TAB:p1:text"));
-        assertTrue(LabelStylePersistence.readAll(context.config(), "project-1").isEmpty());
+        assertTrue(LabelStylePersistence.parse(context.storage().content(
+            LabelStylePersistence.filePath("project-1").relativePath())).isEmpty());
     }
 
     @Test
@@ -249,46 +270,62 @@ class PaletteLabelStylePluginTest {
         context.actions().execute("palette-label-style.text.purple", selection);
         context.actions().execute("palette-label-style.background.gray", selection);
 
-        assertEquals(List.of("text:#9C27B0"), context.model().drawable("mesh1").deformerEntry.textEvents());
-        assertEquals(List.of("background:#9E9E9E"), context.model().drawable("mesh1").deformerEntry.backgroundEvents());
+        assertEquals(List.of("text:#9C27B0"), context.model().drawable("mesh1").partEntry.textEvents());
+        assertEquals(List.of(), context.model().drawable("mesh1").partEntry.backgroundEvents());
+        assertEquals(List.of(new dev.turboism.sdk.ui.appearance.NativeLabelColor.Preset(
+            dev.turboism.sdk.ui.appearance.PresetColor.GRAY)),
+            context.model().drawable("mesh1").nativeLabelColors);
     }
 
     @Test
-    void customActionOpensColorDialogAndAppliesAcceptedValue() {
+    void customActionOpensColorPickerAndAppliesAcceptedValue() {
         final RecordingPluginContext context = new RecordingPluginContext();
         final PaletteLabelStylePlugin plugin = new PaletteLabelStylePlugin();
         plugin.init(context);
         plugin.enable();
+        context.storage().awaitOperations(1);
 
         context.actions().execute("palette-label-style.text.custom", parameterSelection("p1"));
 
-        assertEquals(1, context.uiHost().formDialogs().size());
-        assertEquals("palette-label-style.custom-color", context.uiHost().formDialogs().get(0).id());
-        assertEquals(dev.turboism.sdk.ui.FormFieldKind.COLOR,
-            context.uiHost().formDialogs().get(0).fields().get(0).kind());
+        assertEquals(1, context.uiHost().colorPickers().size());
+        assertEquals("palette-label-style.custom-color", context.uiHost().colorPickers().get(0).id());
+        assertEquals(null, context.uiHost().colorPickers().get(0).initial());
 
-        context.uiHost().acceptForm(0, Map.of("color", "#123456"));
+        context.uiHost().acceptColorPicker(0, "#123456");
+        context.storage().awaitOperations(2);
 
         assertEquals(List.of("text:#123456"), context.model().parameter("p1").entry.textEvents());
-        assertEquals(
-            "#123456",
-            context.config().readString(LabelStylePersistence.scopePath("project-1"),
-                "PARAMETER_TAB:p1:text").orElseThrow()
-        );
+        assertEquals(Map.of("PARAMETER_TAB:p1:text", "#123456"),
+            LabelStylePersistence.parse(context.storage().content(
+                LabelStylePersistence.filePath("project-1").relativePath())));
     }
 
     @Test
-    void customDialogCancelAppliesNothing() {
+    void customPickerPrefillsPersistedColorAsInitialValue() {
+        final RecordingPluginContext context = new RecordingPluginContext();
+        final PaletteLabelStylePlugin plugin = new PaletteLabelStylePlugin();
+        plugin.init(context);
+        plugin.enable();
+        context.storage().awaitOperations(1);
+
+        context.actions().execute("palette-label-style.text.red", parameterSelection("p1"));
+        context.storage().awaitOperations(2);
+        context.actions().execute("palette-label-style.text.custom", parameterSelection("p1"));
+
+        assertEquals("#E53935", context.uiHost().colorPickers().get(0).initial());
+    }
+
+    @Test
+    void customPickerCancelAppliesNothing() {
         final RecordingPluginContext context = new RecordingPluginContext();
         final PaletteLabelStylePlugin plugin = new PaletteLabelStylePlugin();
         plugin.init(context);
         plugin.enable();
 
         context.actions().execute("palette-label-style.text.custom", parameterSelection("p1"));
-        context.uiHost().cancelForm(0);
+        context.uiHost().cancelColorPicker(0);
 
         assertTrue(context.model().parameter("p1").entry.events().isEmpty());
-        assertTrue(context.config().entries().isEmpty());
     }
 
     @Test
@@ -299,10 +336,9 @@ class PaletteLabelStylePluginTest {
         plugin.enable();
 
         context.actions().execute("palette-label-style.background.custom", parameterSelection("p1"));
-        context.uiHost().acceptForm(0, Map.of("color", "not-a-color"));
+        context.uiHost().acceptColorPicker(0, "not-a-color");
 
         assertTrue(context.model().parameter("p1").entry.events().isEmpty());
-        assertTrue(context.config().entries().isEmpty());
     }
 
     @Test
@@ -318,17 +354,31 @@ class PaletteLabelStylePluginTest {
     }
 
     @Test
-    void onModelOpenedReplaysStoredColorsForCurrentProject() {
+    void enableReplaysStoredColorsForCurrentProject() {
         final RecordingPluginContext context = new RecordingPluginContext();
-        context.config().rawWrite(LabelStylePersistence.scopePath("project-1"),
-            "PARAMETER_TAB:p1:text", "#E53935");
-        context.config().rawWrite(LabelStylePersistence.scopePath("project-1"),
-            "index", "PARAMETER_TAB:p1:text");
+        context.storage().seed(LabelStylePersistence.filePath("project-1").relativePath(),
+            "PARAMETER_TAB:p1:text=#E53935\n");
         final PaletteLabelStylePlugin plugin = new PaletteLabelStylePlugin();
         plugin.init(context);
         plugin.enable();
 
+        context.storage().awaitOperations(1);
+
+        assertEquals(List.of("text:#E53935"), context.model().parameter("p1").entry.textEvents());
+    }
+
+    @Test
+    void onModelOpenedReplaysStoredColorsForCurrentProject() {
+        final RecordingPluginContext context = new RecordingPluginContext();
+        context.storage().seed(LabelStylePersistence.filePath("project-1").relativePath(),
+            "PARAMETER_TAB:p1:text=#E53935\n");
+        final PaletteLabelStylePlugin plugin = new PaletteLabelStylePlugin();
+        plugin.init(context);
+        plugin.enable();
+        context.storage().awaitOperations(1);
+
         plugin.onModelOpened(null);
+        context.storage().awaitOperations(2);
 
         assertEquals(List.of("text:#E53935", "text:closed", "text:#E53935"),
             context.model().parameter("p1").entry.events());
@@ -337,21 +387,22 @@ class PaletteLabelStylePluginTest {
     @Test
     void replayClosesPreviousOverridesBeforeApplyingStoredColors() {
         final RecordingPluginContext context = new RecordingPluginContext();
-        context.config().rawWrite(LabelStylePersistence.scopePath("project-1"),
-            "PARAMETER_TAB:p1:text", "#E53935");
-        context.config().rawWrite(LabelStylePersistence.scopePath("project-1"),
-            "index", "PARAMETER_TAB:p1:text");
+        context.storage().seed(LabelStylePersistence.filePath("project-1").relativePath(),
+            "PARAMETER_TAB:p1:text=#E53935\n");
         final PaletteLabelStylePlugin plugin = new PaletteLabelStylePlugin();
         plugin.init(context);
         plugin.enable();
+        context.storage().awaitOperations(1);
 
         context.actions().execute("palette-label-style.text.blue", parameterSelection("p1"));
+        context.storage().awaitOperations(2);
         assertEquals(List.of("text:#E53935", "text:closed", "text:#2196F3"),
             context.model().parameter("p1").entry.events());
 
         plugin.onModelOpened(null);
+        context.storage().awaitOperations(3);
 
-        // Replay reads the current config, which now stores the blue override.
+        // Replay reads the persisted file, which now stores the blue override.
         assertEquals(List.of("text:#E53935", "text:closed", "text:#2196F3", "text:closed", "text:#2196F3"),
             context.model().parameter("p1").entry.events());
     }
@@ -369,20 +420,37 @@ class PaletteLabelStylePluginTest {
     }
 
     @Test
-    void blankProjectIdUsesDefaultScope() {
+    void blankProjectIdUsesDefaultFile() {
         final RecordingPluginContext context = new RecordingPluginContext();
         context.cubism().noProject();
         final PaletteLabelStylePlugin plugin = new PaletteLabelStylePlugin();
         plugin.init(context);
         plugin.enable();
+        context.storage().awaitOperations(1);
 
         context.actions().execute("palette-label-style.text.red", parameterSelection("p1"));
+        context.storage().awaitOperations(2);
 
-        assertEquals(
-            "#E53935",
-            context.config().readString(LabelStylePersistence.scopePath("default"),
-                "PARAMETER_TAB:p1:text").orElseThrow()
-        );
+        assertEquals(Map.of("PARAMETER_TAB:p1:text", "#E53935"),
+            LabelStylePersistence.parse(context.storage().content(
+                LabelStylePersistence.filePath("default").relativePath())));
+    }
+
+    @Test
+    void projectsAreIsolatedInStorage() {
+        final RecordingPluginContext context = new RecordingPluginContext();
+        final PaletteLabelStylePlugin plugin = new PaletteLabelStylePlugin();
+        plugin.init(context);
+        plugin.enable();
+        context.storage().awaitOperations(1);
+
+        context.actions().execute("palette-label-style.text.red", parameterSelection("p1"));
+        context.storage().awaitOperations(2);
+
+        assertTrue(context.storage().content(
+            LabelStylePersistence.filePath("project-1").relativePath()).contains("PARAMETER_TAB:p1:text=#E53935"));
+        assertEquals(Optional.empty(), Optional.ofNullable(
+            context.storage().content(LabelStylePersistence.filePath("other-project").relativePath())));
     }
 
     @Test
@@ -410,7 +478,7 @@ class PaletteLabelStylePluginTest {
         private final RecordingActionRegistry actions = new RecordingActionRegistry();
         private final RecordingContextMenuRegistry contextMenu = new RecordingContextMenuRegistry();
         private final RecordingUiHost uiHost = new RecordingUiHost();
-        private final RecordingPluginConfigRegistry config = new RecordingPluginConfigRegistry();
+        private final RecordingPluginStorage storage = new RecordingPluginStorage();
         private final FixedCubismFacade cubism = new FixedCubismFacade();
         private final TestPluginLogger logger = new TestPluginLogger();
 
@@ -435,7 +503,7 @@ class PaletteLabelStylePluginTest {
         @Override public DiagnosticReport diagnostics() { throw new UnsupportedOperationException(); }
         @Override public DisposableScope disposableScope() { return disposableScope; }
         @Override public RecordingUiHost uiHost() { return uiHost; }
-        @Override public RecordingPluginConfigRegistry config() { return config; }
+        @Override public RecordingPluginStorage storage() { return storage; }
 
         FakeModel model() {
             return cubism.model;
@@ -515,61 +583,114 @@ class PaletteLabelStylePluginTest {
         }
     }
 
-    private static final class RecordingPluginConfigRegistry implements dev.turboism.sdk.config.PluginConfigRegistry {
-        private final Map<String, Map<String, String>> scopes = new HashMap<>();
+    /** In-memory PluginStorage recording every read/write operation for async-aware assertions. */
+    private static final class RecordingPluginStorage implements PluginStorage {
+        private final Map<String, String> files = new HashMap<>();
+        private final List<CompletableFuture<Void>> operations = new ArrayList<>();
 
-        @Override public Registration readScope(final String relativePath) {
-            scopes.computeIfAbsent(relativePath, ignored -> new HashMap<>());
-            return () -> scopes.remove(relativePath);
+        synchronized void seed(final String relativePath, final String content) {
+            files.put(relativePath, content);
         }
 
-        @Override public Registration writeScope(final String relativePath) {
-            scopes.computeIfAbsent(relativePath, ignored -> new HashMap<>());
-            return () -> scopes.remove(relativePath);
+        synchronized String content(final String relativePath) {
+            return files.get(relativePath);
         }
 
-        @Override public Optional<String> readString(final String relativePath, final String key) {
-            final Map<String, String> scope = scopes.get(relativePath);
-            return scope == null ? Optional.empty() : Optional.ofNullable(scope.get(key));
-        }
-
-        @Override public void writeString(final String relativePath, final String key, final String value) {
-            scopes.computeIfAbsent(relativePath, ignored -> new HashMap<>()).put(key, value);
-        }
-
-        Map<String, String> entries() {
-            final Map<String, String> all = new HashMap<>();
-            for (final Map<String, String> scope : scopes.values()) {
-                all.putAll(scope);
+        /** Waits until at least {@code count} storage operations have been recorded. */
+        void awaitOperations(final int count) {
+            final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+            while (System.nanoTime() < deadline) {
+                synchronized (this) {
+                    if (operations.size() >= count) {
+                        return;
+                    }
+                }
+                try {
+                    Thread.sleep(10);
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    throw new AssertionError("interrupted while awaiting storage operations");
+                }
             }
-            return all;
+            synchronized (this) {
+                throw new AssertionError("storage operations did not reach " + count
+                    + "; saw " + operations.size());
+            }
         }
 
-        void rawWrite(final String relativePath, final String key, final String value) {
-            scopes.computeIfAbsent(relativePath, ignored -> new HashMap<>()).put(key, value);
+        private void record() {
+            final CompletableFuture<Void> operation = new CompletableFuture<>();
+            operation.complete(null);
+            operations.add(operation);
+        }
+
+        @Override public synchronized CompletionStage<StorageReadResult<String>> readUtf8(
+            final StoragePath path, final int maxBytes
+        ) {
+            record();
+            return CompletableFuture.completedFuture(new StorageReadResult<>(
+                Optional.ofNullable(files.get(path.relativePath())), Optional.empty(), false
+            ));
+        }
+
+        @Override public synchronized CompletionStage<StorageWriteResult> writeUtf8Atomic(
+            final StoragePath path, final String content
+        ) {
+            record();
+            files.put(path.relativePath(), content);
+            return CompletableFuture.completedFuture(new StorageWriteResult(true, Optional.empty()));
+        }
+        @Override public CompletionStage<StorageReadResult<byte[]>> readBytes(StoragePath path, int maxBytes) {
+            throw new UnsupportedOperationException("not used");
+        }
+        @Override public CompletionStage<StorageWriteResult> writeBytesAtomic(StoragePath path, byte[] content) {
+            throw new UnsupportedOperationException("not used");
+        }
+        @Override public CompletionStage<StorageListResult> list(StoragePath directory, int maxEntries) {
+            throw new UnsupportedOperationException("not used");
+        }
+        @Override public CompletionStage<StorageMutationResult> copy(
+            StoragePath source, StoragePath target, boolean replaceExisting
+        ) {
+            throw new UnsupportedOperationException("not used");
+        }
+        @Override public CompletionStage<StorageMutationResult> moveAtomic(
+            StoragePath source, StoragePath target, boolean replaceExisting
+        ) {
+            throw new UnsupportedOperationException("not used");
+        }
+        @Override public CompletionStage<StorageMutationResult> delete(StoragePath path, boolean recursive) {
+            throw new UnsupportedOperationException("not used");
         }
     }
 
     private static final class RecordingUiHost implements UiHostCapabilityService {
-        private final List<FormDialogRequest> formDialogs = new ArrayList<>();
-        private final List<FormDialogResultListener> formListeners = new ArrayList<>();
+        private final List<ColorPickerCall> colorPickers = new ArrayList<>();
+        private final List<dev.turboism.sdk.ui.ColorPickerResultListener> colorPickerListeners = new ArrayList<>();
 
-        List<FormDialogRequest> formDialogs() {
-            return List.copyOf(formDialogs);
+        List<ColorPickerCall> colorPickers() {
+            return List.copyOf(colorPickers);
         }
 
-        void acceptForm(final int index, final Map<String, String> values) {
-            formListeners.get(index).onResult(true, null, values);
+        void acceptColorPicker(final int index, final String hex) {
+            colorPickerListeners.get(index).onResult(true, hex);
         }
 
-        void cancelForm(final int index) {
-            formListeners.get(index).onResult(false, null, Map.of());
+        void cancelColorPicker(final int index) {
+            colorPickerListeners.get(index).onResult(false, null);
         }
 
-        @Override public void openFormDialog(final FormDialogRequest request, final FormDialogResultListener listener) {
-            formDialogs.add(request);
-            formListeners.add(listener);
+        @Override public void openColorPicker(
+            final String id,
+            final String title,
+            final String initialColorHex,
+            final dev.turboism.sdk.ui.ColorPickerResultListener listener
+        ) {
+            colorPickers.add(new ColorPickerCall(id, title, initialColorHex));
+            colorPickerListeners.add(listener);
         }
+
+        record ColorPickerCall(String id, String title, String initial) { }
 
         @Override public Registration contributeOverlay(dev.turboism.sdk.ui.OverlayContribution contribution) { throw unsupported(); }
         @Override public Registration contributeBoundingBoxOverlayButton(dev.turboism.sdk.ui.BoundingBoxOverlayButton contribution) { throw unsupported(); }
@@ -741,6 +862,7 @@ class PaletteLabelStylePluginTest {
     private static final class FakeDrawable implements Drawable {
         final FakePaletteEntry partEntry = new FakePaletteEntry();
         final FakePaletteEntry deformerEntry = new FakePaletteEntry();
+        final List<dev.turboism.sdk.ui.appearance.NativeLabelColor> nativeLabelColors = new ArrayList<>();
         private final String id;
         FakeDrawable(final String id) { this.id = id; }
         @Override public ArtMeshId id() { return new ArtMeshId(id); }
@@ -748,6 +870,8 @@ class PaletteLabelStylePluginTest {
             return new dev.turboism.sdk.ui.appearance.model.DrawableAppearance() {
                 @Override public Optional<dev.turboism.sdk.ui.appearance.PaletteEntry> partPaletteEntry() { return Optional.of(partEntry); }
                 @Override public Optional<dev.turboism.sdk.ui.appearance.PaletteEntry> deformerPaletteEntry() { return Optional.of(deformerEntry); }
+                @Override public Optional<dev.turboism.sdk.ui.appearance.NativeLabelColorState> nativeLabelColor() { return Optional.empty(); }
+                @Override public void setNativeLabelColor(dev.turboism.sdk.ui.appearance.NativeLabelColor color) { nativeLabelColors.add(color); }
             };
         }
         @Override public byte constantFlag() { return 0; }

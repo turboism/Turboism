@@ -1,25 +1,25 @@
 package dev.turboism.plugin.palettelabelstyle;
 
 import dev.turboism.sdk.PreviewApi;
-import dev.turboism.sdk.config.PluginConfigException;
-import dev.turboism.sdk.config.PluginConfigRegistry;
+import dev.turboism.sdk.storage.StoragePath;
+import dev.turboism.sdk.storage.StorageRoot;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry.Location;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.TreeMap;
-import java.util.TreeSet;
 
 /**
  * Project-scoped persistence of label text/background colors.
  *
- * <p>Values live in one {@code palette-label-style/colors-<projectId>.properties}
- * config scope per project (blank projectId maps to {@value #DEFAULT_PROJECT_ID}).
- * Each entry key is {@code <PALETTE>:<objectId>:<text|background>} with a
- * {@code #RRGGBB} value. The SDK config surface offers no key enumeration, so a
- * companion {@value #INDEX_KEY} property tracks the entry keys of this scope and
- * is updated on every write/clear; cleared entries keep an empty tombstone value.</p>
+ * <p>One {@code palette-label-style/colors-<projectId>.properties} file per project
+ * (blank projectId maps to {@value #DEFAULT_PROJECT_ID}) holds one
+ * {@code <PALETTE>:<objectId>:<text|background>=#RRGGBB} entry per colored object.
+ * The plugin keeps the authoritative entry map in memory and atomically rewrites
+ * the whole file on every change; this class only owns the portable file format,
+ * path, and key helpers.</p>
  */
 @PreviewApi
 public final class LabelStylePersistence {
@@ -28,19 +28,15 @@ public final class LabelStylePersistence {
     public static final String PROPERTY_TEXT = "text";
     public static final String PROPERTY_BACKGROUND = "background";
 
-    private static final String INDEX_KEY = "index";
-    private static final String TOMBSTONE = "";
-
-    /** One stored entry: palette location, object id, and text/background property. */
-    public record StoredEntry(Location palette, String objectId, String property) {
-    }
-
     private LabelStylePersistence() {
     }
 
-    /** Config scope path for a project; blank ids fall back to {@value #DEFAULT_PROJECT_ID}. */
-    public static String scopePath(final String projectId) {
-        return "palette-label-style/colors-" + safeProjectId(projectId) + ".properties";
+    /** Storage path of the color file for a project; blank ids fall back to {@value #DEFAULT_PROJECT_ID}. */
+    public static StoragePath filePath(final String projectId) {
+        return new StoragePath(
+            StorageRoot.STATE,
+            "palette-label-style/colors-" + safeProjectId(projectId) + ".properties"
+        );
     }
 
     /** Normalizes a project id, mapping blank values to {@value #DEFAULT_PROJECT_ID}. */
@@ -71,7 +67,9 @@ public final class LabelStylePersistence {
             return Optional.empty();
         }
         try {
-            return Optional.of(new StoredEntry(Location.valueOf(key.substring(0, firstColon)), objectId, property));
+            return Optional.of(new StoredEntry(
+                Location.valueOf(key.substring(0, firstColon)), objectId, property
+            ));
         } catch (IllegalArgumentException malformedPalette) {
             return Optional.empty();
         }
@@ -81,70 +79,49 @@ public final class LabelStylePersistence {
         return PROPERTY_TEXT.equals(property) || PROPERTY_BACKGROUND.equals(property);
     }
 
-    /** Persists one entry and refreshes the scope index. */
-    public static void write(
-        final PluginConfigRegistry config,
-        final String projectId,
-        final Location palette,
-        final String objectId,
-        final String property,
-        final String hex
-    ) throws PluginConfigException {
-        final String scope = scopePath(projectId);
-        config.writeString(scope, key(palette, objectId, property), hex);
-        updateIndex(config, scope, key(palette, objectId, property), true);
-    }
-
-    /** Clears one entry (tombstone value plus index removal). */
-    public static void clear(
-        final PluginConfigRegistry config,
-        final String projectId,
-        final Location palette,
-        final String objectId,
-        final String property
-    ) throws PluginConfigException {
-        final String scope = scopePath(projectId);
-        config.writeString(scope, key(palette, objectId, property), TOMBSTONE);
-        updateIndex(config, scope, key(palette, objectId, property), false);
-    }
-
-    /** Reads every stored {@code #RRGGBB} entry of a project: entry key to hex. */
-    public static Map<String, String> readAll(final PluginConfigRegistry config, final String projectId) {
-        final String scope = scopePath(projectId);
+    /**
+     * Parses properties text into entry-key to hex values, skipping malformed lines.
+     * Keeps one entry per key; the file is written by {@link #serialize} so keys never
+     * contain '=' or newlines.
+     */
+    public static Map<String, String> parse(final String content) {
         final TreeMap<String, String> entries = new TreeMap<>();
-        for (final String entryKey : readIndex(config, scope)) {
-            final Optional<String> hex = config.readString(scope, entryKey);
-            if (hex.flatMap(LabelStylePresets::parseHex).isPresent()) {
-                entries.put(entryKey, hex.orElseThrow());
+        if (content == null || content.isBlank()) {
+            return entries;
+        }
+        for (final String line : content.split("\\R")) {
+            final String trimmed = line.trim();
+            if (trimmed.isEmpty() || trimmed.startsWith("#")) {
+                continue;
+            }
+            final int separator = trimmed.indexOf('=');
+            if (separator <= 0) {
+                continue;
+            }
+            final String entryKey = trimmed.substring(0, separator);
+            final String hex = trimmed.substring(separator + 1);
+            if (parseKey(entryKey).isPresent() && LabelStylePresets.parseHex(hex).isPresent()) {
+                entries.put(entryKey, hex);
             }
         }
         return entries;
     }
 
-    private static void updateIndex(
-        final PluginConfigRegistry config,
-        final String scope,
-        final String entryKey,
-        final boolean present
-    ) throws PluginConfigException {
-        final TreeSet<String> index = readIndex(config, scope);
-        if (present) {
-            index.add(entryKey);
-        } else {
-            index.remove(entryKey);
+    /** Serializes entry-key to hex entries into stable sorted properties text. */
+    public static String serialize(final Map<String, String> entries) {
+        Objects.requireNonNull(entries, "entries");
+        final TreeMap<String, String> sorted = new TreeMap<>(entries);
+        if (sorted.isEmpty()) {
+            return "# palette-label-style colors (empty)\n";
         }
-        config.writeString(scope, INDEX_KEY, String.join(",", index));
+        final StringBuilder builder = new StringBuilder("# palette-label-style colors\n");
+        for (final Map.Entry<String, String> entry : sorted.entrySet()) {
+            builder.append(entry.getKey()).append('=').append(entry.getValue()).append('\n');
+        }
+        return builder.toString();
     }
 
-    private static TreeSet<String> readIndex(final PluginConfigRegistry config, final String scope) {
-        final TreeSet<String> index = new TreeSet<>();
-        config.readString(scope, INDEX_KEY).ifPresent(value -> {
-            for (final String key : value.split(",")) {
-                if (!key.isBlank()) {
-                    index.add(key);
-                }
-            }
-        });
-        return index;
+    /** One stored entry: palette location, object id, and text/background property. */
+    public record StoredEntry(Location palette, String objectId, String property) {
     }
 }

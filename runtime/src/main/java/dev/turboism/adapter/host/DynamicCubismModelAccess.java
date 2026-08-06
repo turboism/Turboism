@@ -799,8 +799,8 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
         @Override public ArtMeshId id() { return guarded(generation, delegate::id); }
 
         @Override public DrawableAppearance ui() {
-            id();
-            return DrawableAppearance.unavailable();
+            final ArtMeshId id = id();
+            return appearanceDrawable(modelId, id, modelGeneration);
         }
 
         @Override public int index() { return guarded(generation, delegate::index); }
@@ -1251,6 +1251,17 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
         return access == null
             ? DeformerAppearance.unavailable()
             : access.deformer(modelId.value(), deformerId.value(), modelGeneration);
+    }
+
+    private DrawableAppearance appearanceDrawable(
+        final ModelId modelId,
+        final ArtMeshId drawableId,
+        final long modelGeneration
+    ) {
+        final dev.turboism.ui.appearance.control.RuntimeModelAppearanceAccess access = appearanceAccess();
+        return access == null
+            ? DrawableAppearance.unavailable()
+            : access.drawable(modelId.value(), drawableId.value(), modelGeneration);
     }
 
     private ParameterAppearance appearanceParameter(
