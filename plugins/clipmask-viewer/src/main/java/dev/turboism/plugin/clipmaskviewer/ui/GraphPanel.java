@@ -43,8 +43,8 @@ final class GraphPanel extends JComponent {
     private static final int NODE_RADIUS = 22;
     /** 圆半径下限：节点再少也保持可读的圆周大小。 */
     private static final int MIN_RADIUS = 160;
-    /** 相邻节点沿弧的间距（含直径与间隙），决定各层半径与容量。 */
-    private static final int NODE_SPACING = NODE_RADIUS * 2 + 2;
+    /** 相邻节点沿弧的间距（含直径与间隙，gap ≈ 一个半径），决定各层半径与容量。 */
+    private static final int NODE_SPACING = NODE_RADIUS * 3;
     /** 每类扇区弧长：120°（2π/3）。 */
     private static final double SECTOR_ARC = Math.PI * 2 / 3;
     private static final int MARGIN = 40;
@@ -578,17 +578,15 @@ final class GraphPanel extends JComponent {
 
     private void drawLegend(final Graphics2D g2) {
         final String[] labels = {
+            localization.text("legend.user"),
             localization.text("legend.pure.mask"),
             localization.text("legend.both"),
-            localization.text("legend.user"),
-            localization.text("legend.user.inverted"),
             localization.text("legend.unrelated")
         };
         final Color[] fills = {
+            new Color(210, 225, 255),
             new Color(210, 240, 210),
             new Color(255, 230, 180),
-            new Color(210, 225, 255),
-            new Color(255, 220, 220),
             new Color(235, 235, 235)
         };
         final Font previous = g2.getFont();
