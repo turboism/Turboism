@@ -823,6 +823,7 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
             return guarded(generation, delegate::maskIds);
         }
         @Override public String name() { return guarded(generation, delegate::name); }
+        @Override public String guid() { return guarded(generation, delegate::guid); }
         @Override public boolean visible() { return guarded(generation, delegate::visible); }
         @Override public void setVisible(final boolean visible) {
             guardedVoid(generation, () -> delegate.setVisible(visible));

@@ -36,6 +36,9 @@ public interface Drawable {
 
     default List<ArtMeshId> maskIds() { throw unavailable("ArtMesh masks"); }
 
+    /** Stable ArtMesh GUID (distinct from {@link #id()}); unavailable until the host access implements it. */
+    default String guid() { throw unavailable("ArtMesh guid"); }
+
     default String name() {
         throw unavailable("ArtMesh name");
     }
