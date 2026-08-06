@@ -411,7 +411,7 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         Objects.requireNonNull(contribution, "contribution");
         permissionChecker.check(UI_PANEL_CONTRIBUTE, "ui.panel.contribute");
         final Registration registration =
-            PanelCollapsibleContentCoordinator.shared().register(contribution);
+            PanelCollapsibleContentCoordinator.shared().register(this.pluginId, contribution);
         disposableScope.register(registration);
         return registration;
     }
