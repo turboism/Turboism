@@ -571,7 +571,8 @@ final class GraphPanel extends JComponent {
             return new Color(210, 240, 210);
         }
         if (hasMask) {
-            return inverted ? new Color(255, 220, 220) : new Color(210, 225, 255);
+            // inverted=cyan（浅青，与蓝使用者可区分）。
+            return inverted ? new Color(170, 230, 235) : new Color(210, 225, 255);
         }
         return new Color(235, 235, 235);
     }
@@ -579,12 +580,14 @@ final class GraphPanel extends JComponent {
     private void drawLegend(final Graphics2D g2) {
         final String[] labels = {
             localization.text("legend.user"),
+            localization.text("legend.user.inverted"),
             localization.text("legend.pure.mask"),
             localization.text("legend.both"),
             localization.text("legend.unrelated")
         };
         final Color[] fills = {
             new Color(210, 225, 255),
+            new Color(170, 230, 235),
             new Color(210, 240, 210),
             new Color(255, 230, 180),
             new Color(235, 235, 235)
