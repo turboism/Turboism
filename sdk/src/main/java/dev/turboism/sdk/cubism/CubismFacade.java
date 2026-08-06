@@ -25,7 +25,7 @@ public interface CubismFacade {
 
     /** Returns the animation file that owns the active ANIMATION_SCENE document. */
     default Optional<AnimationSnapshot> activeAnimation() {
-        return activeDocument().flatMap(DocumentSnapshot::animation);
+        return ActiveReadProjections.animationOf(activeDocument());
     }
 
     /** Returns the active document only when it is a modeling document. */
@@ -40,17 +40,12 @@ public interface CubismFacade {
 
     /** Returns the active document only when it is a layered image/PSD document. */
     default Optional<DocumentSnapshot> activeImageDocument() {
-        return activeDocument().filter(DocumentSnapshot::isImageDocument);
+        return ActiveReadProjections.imageDocumentOf(activeDocument());
     }
 
     /** Returns the project entry that owns the active document. */
     default Optional<ProjectContentSnapshot> activeProjectContent() {
-        final Optional<DocumentSnapshot> document = activeDocument();
-        if (document.isEmpty() || document.orElseThrow().contentId().isEmpty()) {
-            return Optional.empty();
-        }
-        final String contentId = document.orElseThrow().contentId().orElseThrow();
-        return activeProject().flatMap(project -> project.content(contentId));
+        return ActiveReadProjections.projectContentOf(activeProject(), activeDocument());
     }
 
     boolean isHostPresent();

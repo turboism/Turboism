@@ -45,7 +45,7 @@ class NativeDeformerTreeAppearanceBridgeTest {
         assertEquals(nativeForeground, reused.getForeground());
 
         render(() -> NativeDeformerTreeAppearanceBridge.afterRender(
-            container, new Row(new DrawableSource("WarpA")), false, false
+            container, new Row(new Object()), false, false
         ));
         assertEquals(nativeForeground, reused.getForeground());
     }
@@ -121,6 +121,8 @@ class NativeDeformerTreeAppearanceBridgeTest {
                 "source",
                 HiddenRowFixture.PublicSource.class.getName().replace('.', '/'),
                 "getId",
+                HiddenRowFixture.PublicSource.class.getName().replace('.', '/'),
+                "getId",
                 "getIdString",
                 row.getClass().getClassLoader()
             ),
@@ -131,6 +133,33 @@ class NativeDeformerTreeAppearanceBridgeTest {
         render(() -> NativeDeformerTreeAppearanceBridge.afterRender(label, row, false, false));
 
         assertEquals(new Color(0x33, 0x66, 0x99), label.getForeground());
+    }
+
+    @Test
+    void artMeshRowsResolveIdsThroughTheArtMeshBranch() throws Exception {
+        final PaletteAppearanceCoordinator coordinator = coordinator();
+        register(coordinator, "ArtMeshA", PaletteAppearanceCoordinator.Property.TEXT_COLOR, color(0x66AA33));
+        NativeDeformerTreeAppearanceBridge.install(
+            41,
+            new NativeDeformerTreeAppearanceBridge.Selectors(
+                Row.class.getName().replace('.', '/'),
+                "source",
+                DeformerSource.class.getName().replace('.', '/'),
+                "getId",
+                DrawableSource.class.getName().replace('.', '/'),
+                "getId",
+                "getIdString",
+                Row.class.getClassLoader()
+            ),
+            new DeformerTreeControlAppearanceProvider(coordinator)
+        );
+        final JLabel label = new JLabel("native");
+
+        render(() -> NativeDeformerTreeAppearanceBridge.afterRender(
+            label, new Row(new DrawableSource("ArtMeshA")), false, false
+        ));
+
+        assertEquals(new Color(0x66, 0xAA, 0x33), label.getForeground());
     }
 
     private static PaletteAppearanceCoordinator coordinator() {
@@ -169,6 +198,8 @@ class NativeDeformerTreeAppearanceBridgeTest {
             Row.class.getName().replace('.', '/'),
             "source",
             DeformerSource.class.getName().replace('.', '/'),
+            "getId",
+            DrawableSource.class.getName().replace('.', '/'),
             "getId",
             "getIdString",
             Row.class.getClassLoader()

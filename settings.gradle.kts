@@ -16,14 +16,17 @@ include(
     "plugins:mesh",
     "plugins:mcp",
     "plugins:project-inspector",
+    "plugins:clipmask-viewer",
     "plugins:bounding-box",
     "plugins:context-menu",
     "plugins:project-panel",
+    "plugins:recent-preview",
     "plugins:scene-palette-enhancer",
     "plugins:psd-import",
     "plugins:atlas-maxrects-bssf",
     "plugins:texture-atlas-stats",
     "plugins:physics-editor",
+    "plugins:palette-label-style",
     "testframework",
     "tests"
 )
