@@ -172,6 +172,36 @@ tasks.register<Exec>("validateStatusBarHost5302") {
     commandLine("bash", "scripts/preview/run-status-bar-host-validation.sh", "5302")
 }
 
+val packageClipMaskViewerHostValidation by tasks.registering(Exec::class) {
+    group = "host verification"
+    description = "Packages the clipmask-viewer plugin and probe exerciser for exact-host validation."
+    dependsOn("previewBundle", ":plugins:clipmask-viewer:jar")
+    workingDir(rootDir)
+    environment("TURBOISM_WORKTREE_ID", resolvedHostValidationWorktreeId)
+    commandLine("bash", "scripts/preview/package-windows-clipmask-viewer-validation.sh")
+}
+
+val buildClipMaskViewerHostProbe by tasks.registering(Exec::class) {
+    group = "host verification"
+    description = "Builds the test-only SDK clipmask-viewer host exerciser."
+    dependsOn(":sdk:jar")
+    workingDir(rootDir)
+    commandLine("bash", "validation/clipmask-viewer-host-probe/build.sh")
+}
+
+fun registerClipMaskViewerHostValidation(name: String, version: String, displayVersion: String) {
+    tasks.register<Exec>(name) {
+        group = "host verification"
+        description = "Runs the automated exact-host Cubism $displayVersion clip-mask viewer matrix."
+        dependsOn(packageClipMaskViewerHostValidation, buildClipMaskViewerHostProbe)
+        workingDir(rootDir)
+        environment("TURBOISM_WORKTREE_ID", resolvedHostValidationWorktreeId)
+        commandLine("bash", "scripts/preview/run-clipmask-viewer-host-validation.sh", version)
+    }
+}
+
+registerClipMaskViewerHostValidation("validateClipMaskViewerHost5302", "5302", "5.3.02")
+registerClipMaskViewerHostValidation("validateClipMaskViewerHost5203", "5203", "5.2.03")
 fun registerThemeHostValidation(name: String, version: String, displayVersion: String) {
     tasks.register<Exec>(name) {
         group = "host verification"

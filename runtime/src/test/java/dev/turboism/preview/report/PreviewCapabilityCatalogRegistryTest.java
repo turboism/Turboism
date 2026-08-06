@@ -34,7 +34,7 @@ class PreviewCapabilityCatalogRegistryTest {
         final List<String> capabilityIds = PreviewReportSnapshotFactory.canonicalCapabilityIds().stream()
             .sorted()
             .toList();
-        assertEquals(64, capabilityIds.size(), "canonical catalog size changed; update this closure test deliberately");
+        assertEquals(67, capabilityIds.size(), "canonical catalog size changed; update this closure test deliberately");
 
         final JsonNode capabilities = capabilityReport(capabilityIds)
             .path("payload")
@@ -50,7 +50,7 @@ class PreviewCapabilityCatalogRegistryTest {
             .map(Map.Entry::getKey)
             .collect(Collectors.toUnmodifiableSet());
 
-        assertEquals(64, canonicalCapabilities.size());
+        assertEquals(67, canonicalCapabilities.size());
         assertEquals(canonicalCapabilities, entriesByCapability.keySet());
         assertTrue(
             java.util.Collections.disjoint(mappedCapabilities, knownUnmappedCapabilities),
@@ -135,7 +135,8 @@ class PreviewCapabilityCatalogRegistryTest {
                 "turboism.ui.viewport.read", "turboism.ui.dialog.contribute", "turboism.ui.dialog.automate",
                 "turboism.ui.panel.contribute", "turboism.ui.file-chooser.request",
                 "turboism.ui.status.notify", "turboism.ui.toolbar.palette.contribute",
-                "turboism.ui.toolbar.main.contribute"
+                "turboism.ui.toolbar.main.contribute", "turboism.cubism.recent-file.read",
+                "turboism.ui.recent-preview.contribute"
             ),
             new RuntimePluginLocalization.ReportSnapshot(
                 "dev.turboism.plugin.catalog-policy",
