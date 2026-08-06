@@ -5,6 +5,7 @@ import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.action.UiActionEvent;
 import dev.turboism.sdk.ui.EmbeddedPanelId;
 import dev.turboism.sdk.ui.PanelView;
+import dev.turboism.ui.action.EditorUiActionRouter;
 import dev.turboism.sdk.ui.context.PanelTabSelection;
 
 import javax.swing.JComponent;
@@ -219,7 +220,10 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
         final EmbeddedPanelId panelId = new EmbeddedPanelId(descriptor.contributionId());
         final PanelView viewContent = PanelCollapsibleContentCoordinator.shared()
             .merge(panelId, descriptor.content());
-        final JComponent panel = SwingPanelViewRenderer.render(viewContent, action);
+        final Map<String, String> actionOwners =
+            PanelCollapsibleContentCoordinator.shared().actionOwners(panelId);
+        final JComponent panel = SwingPanelViewRenderer.render(
+            viewContent, routedAction(actionRouter, actionOwners, descriptor.pluginId()));
         panel.setName(nativeId);
         final Object content = resolver.construct(SWING_CONTAINER_CREATE, panel);
         resolver.invoke(PALETTE_SET_PANEL, palette, content, 340, 300);
@@ -939,6 +943,22 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
             return;
         }
         SwingUtilities.invokeLater(operation);
+    }
+
+    /**
+     * 渲染 action 回调：注入分区（B）按钮 actionId 命中 {@code actionOwners} 时路由到
+     * 贡献者 pluginId；未命中（面板自身 A 按钮）回落 {@code defaultPluginId}（面板 owner）。
+     */
+    static BiConsumer<String, Optional<UiActionEvent>> routedAction(
+        final EditorUiActionRouter router,
+        final Map<String, String> actionOwners,
+        final String defaultPluginId
+    ) {
+        Objects.requireNonNull(router, "router");
+        Objects.requireNonNull(actionOwners, "actionOwners");
+        Objects.requireNonNull(defaultPluginId, "defaultPluginId");
+        return (actionId, event) ->
+            router.invoke(actionOwners.getOrDefault(actionId, defaultPluginId), actionId, event);
     }
 
     static void closePanel(final Runnable... operations) {
