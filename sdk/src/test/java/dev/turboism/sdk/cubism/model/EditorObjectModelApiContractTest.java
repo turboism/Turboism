@@ -37,6 +37,7 @@ class EditorObjectModelApiContractTest {
     @Test
     void objectFamiliesExposeStableEditorPropertiesAndAtomicWrites() throws Exception {
         assertMethod(Drawable.class, "name");
+        assertMethod(Drawable.class, "guid");
         assertMethod(Drawable.class, "visible");
         assertMethod(Drawable.class, "setVisible", boolean.class);
         assertMethod(Drawable.class, "locked");
@@ -73,6 +74,33 @@ class EditorObjectModelApiContractTest {
             "replaceForm",
             RotationDeformerForm.class
         );
+    }
+
+    @Test
+    void drawableGuidDefaultsToUnavailableUntilHostImplementsIt() {
+        final Drawable drawable = new StubDrawable() { };
+        assertThrows(UnsupportedOperationException.class, drawable::guid);
+    }
+
+    /** 除默认方法外全部抛出：验证 default 语义（guid 未实现时不可用）。 */
+    private abstract static class StubDrawable implements Drawable {
+        @Override public ArtMeshId id() { throw new UnsupportedOperationException(); }
+        @Override public byte constantFlag() { throw new UnsupportedOperationException(); }
+        @Override public byte dynamicFlag() { throw new UnsupportedOperationException(); }
+        @Override public BlendMode blendMode() { throw new UnsupportedOperationException(); }
+        @Override public int textureIndex() { throw new UnsupportedOperationException(); }
+        @Override public int drawOrder() { throw new UnsupportedOperationException(); }
+        @Override public int renderOrder() { throw new UnsupportedOperationException(); }
+        @Override public float getOpacity() { throw new UnsupportedOperationException(); }
+        @Override public IntSequence masks() { throw new UnsupportedOperationException(); }
+        @Override public FloatSequence vertexPositions() { throw new UnsupportedOperationException(); }
+        @Override public FloatSequence vertexUvs() { throw new UnsupportedOperationException(); }
+        @Override public IntSequence indices() { throw new UnsupportedOperationException(); }
+        @Override public Color multiplyColor() { throw new UnsupportedOperationException(); }
+        @Override public Color screenColor() { throw new UnsupportedOperationException(); }
+        @Override public int parentPartIndex() { throw new UnsupportedOperationException(); }
+        @Override public int parentDeformerIndex() { throw new UnsupportedOperationException(); }
+        @Override public IntSequence parameters() { throw new UnsupportedOperationException(); }
     }
 
     @Test

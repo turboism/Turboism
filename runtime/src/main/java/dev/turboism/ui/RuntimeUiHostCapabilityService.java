@@ -353,6 +353,22 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
     }
 
     @Override
+    public void openColorPicker(
+        final String id,
+        final String title,
+        final String initialColorHex,
+        final dev.turboism.sdk.ui.ColorPickerResultListener listener
+    ) {
+        java.util.Objects.requireNonNull(id, "id");
+        if (id.isBlank()) throw new IllegalArgumentException("id must not be blank");
+        java.util.Objects.requireNonNull(title, "title");
+        if (title.isBlank()) throw new IllegalArgumentException("title must not be blank");
+        java.util.Objects.requireNonNull(listener, "listener");
+        permissionChecker.check(UI_DIALOG_CONTRIBUTE, "ui.dialog.color-picker");
+        RuntimeColorPickerDialogs.openAsync(id, title, initialColorHex, listener);
+    }
+
+    @Override
     public dev.turboism.sdk.ui.UiHostColorMode currentColorMode() {
         return stateSource.currentColorMode();
     }
@@ -395,7 +411,7 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         Objects.requireNonNull(contribution, "contribution");
         permissionChecker.check(UI_PANEL_CONTRIBUTE, "ui.panel.contribute");
         final Registration registration =
-            PanelCollapsibleContentCoordinator.shared().register(contribution);
+            PanelCollapsibleContentCoordinator.shared().register(this.pluginId, contribution);
         disposableScope.register(registration);
         return registration;
     }
