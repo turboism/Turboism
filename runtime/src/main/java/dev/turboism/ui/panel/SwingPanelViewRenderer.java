@@ -105,6 +105,14 @@ public final class SwingPanelViewRenderer {
             ));
             return component;
         }
+
+        if (view instanceof PanelView.CollapsibleSection section) {
+            return CollapsibleSection.create(
+                section.title(),
+                container(section.children(), BoxLayout.Y_AXIS, action),
+                section.expandedByDefault()
+            );
+        }
         if (view instanceof PanelView.Separator) {
             return new JSeparator();
         }
