@@ -53,9 +53,20 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
     private long generation;
     private final EditorNativeControlAppearanceAccess nativeControlAppearanceAccess;
 
+    private final EditorDocumentReadAccess documentReadAccess;
+    private final dev.turboism.adapter.cubism.core.CoreEvaluatedJoin evaluatedJoin;
+
     public EditorBackedCubismModelAccess(
         final VerifiedMemberResolver resolver,
         final String sessionIdentity
+    ) {
+        this(resolver, sessionIdentity, null);
+    }
+
+    public EditorBackedCubismModelAccess(
+        final VerifiedMemberResolver resolver,
+        final String sessionIdentity,
+        final dev.turboism.adapter.cubism.core.CoreEvaluatedJoin evaluatedJoin
     ) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.sessionIdentity = requireText(sessionIdentity, "sessionIdentity");
@@ -82,6 +93,12 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
         );
         this.objectReadAccess = new EditorObjectReadAccess(
             resolver,
+            this::requireCurrent,
+            evaluatedJoin
+        );
+
+        this.documentReadAccess = new EditorDocumentReadAccess(
+            resolver,
             this::requireCurrent
         );
         this.statisticsAccess = new EditorModelStatisticsAccess(
@@ -92,6 +109,8 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
             resolver,
             () -> binding()
         );
+
+        this.evaluatedJoin = evaluatedJoin;
     }
 
     @Override
@@ -145,6 +164,94 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
             }
             return sessionIdentity + ":" + modelId + ":" + generation;
         }
+    }
+
+    private void setModelName(
+        final String expectedIdentity,
+        final Object expectedSource,
+        final Object expectedModel,
+        final String name
+    ) {
+        Objects.requireNonNull(name, "name");
+        if (name.isBlank()) {
+            throw new IllegalArgumentException("name must not be blank");
+        }
+        if (!resolver.authorizesFeature(
+            dev.turboism.mapping.verification.EditorModelNameWriteSelectorContract.ADAPTER_SLICE_ID,
+            dev.turboism.mapping.verification.EditorModelNameWriteSelectorContract.CAPABILITY_ID,
+            dev.turboism.mapping.verification.EditorModelNameWriteSelectorContract.REQUIRED_ALIASES
+        )) {
+            throw new UnsupportedOperationException(
+                "Model-name editing is unavailable without exact verified host evidence."
+            );
+        }
+        requireCurrent(expectedIdentity, expectedModel);
+        final Object currentValue = resolver.invoke("cubism.editor-model.model-source.name", expectedSource);
+        if (name.equals(currentValue)) {
+            return;
+        }
+        final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
+        final Object document = resolver.invoke(
+            "cubism.editor-model.app-controller.current-document", app
+        );
+        final Object editMode = resolver.invoke(
+            "cubism.editor-model.modeling-document.edit-mode", document
+        );
+        final Object undo = resolver.invoke(
+            "cubism.editor-model.edit-mode.begin", editMode, "Turboism: Set Model Name"
+        );
+        boolean completed = false;
+        try {
+            final Object modelUndo = resolver.construct(
+                "cubism.editor-model.simple-undo.create",
+                "Turboism: Set Model Name",
+                expectedSource,
+                null
+            );
+            final Object accepted = resolver.invoke(
+                "cubism.editor-model.undo.add",
+                undo,
+                modelUndo,
+                Boolean.TRUE
+            );
+            if (!(accepted instanceof Boolean value) || !value) {
+                throw new IllegalStateException("Cubism rejected the model-name Undo entry.");
+            }
+            resolver.invoke("cubism.editor-model.model-source.set-name", expectedSource, name);
+            resolver.invoke("cubism.editor-model.model-source.update-instances", expectedSource);
+            final Object completePack = resolver.invoke(
+                "cubism.editor-model.app-controller.complete-pack", app
+            );
+            resolver.invoke(
+                "cubism.editor-model.complete-pack.update-parameter",
+                completePack,
+                Boolean.TRUE
+            );
+            resolver.invoke(
+                "cubism.editor-model.complete-pack.repaint-canvas",
+                completePack,
+                Boolean.TRUE
+            );
+            resolver.invoke("cubism.editor-model.modeling-document.mark-dirty", document);
+            completed = true;
+        } finally {
+            resolver.invoke(
+                "cubism.editor-model.edit-mode.end",
+                editMode,
+                Boolean.valueOf(!completed),
+                null
+            );
+        }
+        requireCurrent(expectedIdentity, expectedModel);
+    }
+
+    private dev.turboism.sdk.cubism.core.MocInfo mocInfo() {
+        if (evaluatedJoin == null) {
+            throw new IllegalStateException(
+                "Cubism MOC metadata is unavailable: no Core evaluated join is installed."
+            );
+        }
+        return evaluatedJoin.mocInfo();
     }
 
     private void setParameterValue(
@@ -659,6 +766,27 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
             final dev.turboism.sdk.cubism.model.ModelEditLevel level
         ) {
             editLevelAccess.setLevel(identity, model, level);
+        }
+
+        @Override public void setName(final String name) {
+            setModelName(identity, source, model, name);
+        }
+
+        @Override public dev.turboism.sdk.cubism.core.MocInfo mocInfo() {
+            current();
+            return EditorBackedCubismModelAccess.this.mocInfo();
+        }
+
+        @Override public dev.turboism.sdk.cubism.model.PhysicsSettings physicsSettings() {
+            return documentReadAccess.physicsSettings(identity, source, model);
+        }
+
+        @Override public dev.turboism.sdk.cubism.model.AutoYure autoYure() {
+            return documentReadAccess.autoYure(identity, source, model);
+        }
+
+        @Override public List<dev.turboism.sdk.cubism.model.AnimationDocument> animationDocuments() {
+            return documentReadAccess.animationDocuments(identity, source, model);
         }
         @Override public Parameters parameters() { current(); return new EditorParameters(identity, model); }
         @Override public ParameterGroups parameterGroups() {

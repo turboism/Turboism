@@ -50,12 +50,16 @@ final class EditorObjectReadAccess {
     private final VerifiedMemberResolver resolver;
     private final CurrentGuard currentGuard;
 
+    private final dev.turboism.adapter.cubism.core.CoreEvaluatedJoin evaluatedJoin;
+
     EditorObjectReadAccess(
         final VerifiedMemberResolver resolver,
-        final CurrentGuard currentGuard
+        final CurrentGuard currentGuard,
+        final dev.turboism.adapter.cubism.core.CoreEvaluatedJoin evaluatedJoin
     ) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.currentGuard = Objects.requireNonNull(currentGuard, "currentGuard");
+        this.evaluatedJoin = evaluatedJoin;
     }
 
     Drawables drawables(final String identity, final Object source, final Object model) {
@@ -1031,6 +1035,11 @@ final class EditorObjectReadAccess {
         EditorDrawable(final String identity, final Object modelSource, final Object model, final ObjectRef ref) {
             super(identity, modelSource, model, ref);
         }
+
+        private dev.turboism.adapter.cubism.core.CoreDrawableDefinition evaluated() {
+            final ObjectRef value = current();
+            return EditorObjectReadAccess.this.evaluated(identity, value.id());
+        }
         @Override public ArtMeshId id() { current(); return new ArtMeshId(ref.id()); }
         @Override public int index() { return artMeshIndex(identity, modelSource, model, current().source()); }
         @Override public boolean doubleSided() { return !culling(); }
@@ -1060,14 +1069,14 @@ final class EditorObjectReadAccess {
         @Override public FloatSequence vertexPositions() { return floatSequence(flatten(geometry().positions())); }
         @Override public FloatSequence vertexUvs() { return floatSequence(flatten(geometry().uvs())); }
         @Override public IntSequence indices() { return intSequence(geometry().triangleIndices()); }
-        @Override public byte constantFlag() { throw unsupported("ArtMesh constant flags"); }
-        @Override public byte dynamicFlag() { throw unsupported("ArtMesh dynamic flags"); }
-        @Override public BlendMode blendMode() { throw unsupported("ArtMesh blend mode"); }
-        @Override public int textureIndex() { throw unsupported("ArtMesh texture index"); }
-        @Override public int renderOrder() { throw unsupported("ArtMesh render order"); }
+        @Override public byte constantFlag() { return evaluated().constantFlag(); }
+        @Override public byte dynamicFlag() { return evaluated().dynamicFlag(); }
+        @Override public BlendMode blendMode() { return evaluated().blendMode(); }
+        @Override public int textureIndex() { return evaluated().textureIndex(); }
+        @Override public int renderOrder() { return evaluated().renderOrder(); }
         @Override public IntSequence masks() { final List<ArtMeshId> ids = maskIds(); return intSequence(artMeshIndices(identity, modelSource, model, ids)); }
-        @Override public Color multiplyColor() { throw unsupported("ArtMesh multiply color"); }
-        @Override public Color screenColor() { throw unsupported("ArtMesh screen color"); }
+        @Override public Color multiplyColor() { return evaluated().multiplyColor(); }
+        @Override public Color screenColor() { return evaluated().screenColor(); }
         @Override public int parentPartIndex() { return EditorObjectReadAccess.this.parentPartIndex(modelSource, current().source()); }
         @Override public int parentDeformerIndex() { return EditorObjectReadAccess.this.parentDeformerIndex(identity, modelSource, model, current().source()); }
         @Override public IntSequence parameters() { final List<ParameterId> ids = parameterIds(); return intSequence(parameterIndices(model, ids)); }
@@ -1103,8 +1112,8 @@ final class EditorObjectReadAccess {
         @Override public boolean lockedInHierarchy() { return sourceFlag("cubism.editor-model.parameter-controllable-source.locked-in-hierarchy", current().source(), "Deformer effective lock state"); }
         @Override public float getOpacity() { return number(resolver.invoke("cubism.editor-model.deformer-form.opacity", deformerForm(current().instance())), "Deformer opacity"); }
         @Override public void setOpacity(final float opacity) { final DeformerRef value = current(); EditorObjectReadAccess.this.setOpacity(value.kind(), modelSource, value.source(), deformerForm(value.instance()), "cubism.editor-model.deformer-form.opacity", "cubism.editor-model.deformer-form.set-opacity", opacity, "Set Deformer opacity"); }
-        @Override public Color multiplyColor() { throw unsupported("Deformer multiply color"); }
-        @Override public Color screenColor() { throw unsupported("Deformer screen color"); }
+        @Override public Color multiplyColor() { throw unsupported("Deformer multiply color (Cubism Core exposes drawable-level colors only)"); }
+        @Override public Color screenColor() { throw unsupported("Deformer screen color (Cubism Core exposes drawable-level colors only)"); }
         @Override public int parentPartIndex() { return EditorObjectReadAccess.this.parentPartIndex(modelSource, current().source()); }
         @Override public int parentDeformerIndex() { return EditorObjectReadAccess.this.parentDeformerIndex(identity, modelSource, model, current().source()); }
         @Override public IntSequence parameters() { final List<ParameterId> ids = parameterIds(); return intSequence(parameterIndices(model, ids)); }
@@ -1231,6 +1240,18 @@ final class EditorObjectReadAccess {
     private static UnsupportedOperationException unsupported(final String feature) { return new UnsupportedOperationException(feature + " is unavailable without verified Editor semantics."); }
     private static IllegalStateException unavailable(final String message) { return new IllegalStateException(message); }
     private static IllegalStateException stale(final String kind, final String id) { return new IllegalStateException(kind + " reference is stale: " + id); }
+
+    private dev.turboism.adapter.cubism.core.CoreDrawableDefinition evaluated(
+        final String identity,
+        final String id
+    ) {
+        if (evaluatedJoin == null) {
+            throw new IllegalStateException(
+                "Core evaluated data is unavailable: no Core evaluated join is installed."
+            );
+        }
+        return evaluatedJoin.evaluated(identity).drawable(id);
+    }
 
     private enum Kind {
         ART_MESH("ArtMesh"), WARP("Warp Deformer"), ROTATION("Rotation Deformer");
