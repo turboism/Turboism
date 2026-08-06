@@ -27,15 +27,18 @@ import java.util.Set;
 import java.util.function.Consumer;
 
 /**
- * 三层图视图：纯蒙版（顶层）| 既用又被用（中层）| 纯使用者或无关（底层）。
+ * 球体/圆形分扇区图视图：三类节点（纯蒙版 | 既是也用 | 纯使用者或无关）各占
+ * 120° 扇区，类内节点沿弧均匀分布，避免两排节点横向溢出。
  * 有向箭头 mask -> user（inverted 红色）；图例 5 色；选中 GUID 节点描边高亮；
  * 点击节点回调 {@code onNodeClick}（复制 GUID 由窗口负责）。
  */
 final class GraphPanel extends JComponent {
 
     private static final int NODE_RADIUS = 22;
-    private static final int ROW_GAP = 120;
-    private static final int COL_GAP = 80;
+    /** 圆半径下限：节点再少也保持可读的圆周大小。 */
+    private static final int MIN_RADIUS = 160;
+    /** 相邻节点沿弧的间距（含直径与间隙），决定圆半径。 */
+    private static final int NODE_SPACING = NODE_RADIUS * 2 + 8;
     private static final int MARGIN = 40;
 
     private final ClipMaskViewerState state;
@@ -125,38 +128,46 @@ final class GraphPanel extends JComponent {
                 bottom.add(record);
             }
         }
-        final int maxCols = Math.max(1, Math.max(top.size(), Math.max(middle.size(), bottom.size())));
-        final int width = MARGIN * 2 + maxCols * COL_GAP;
-        final int rows = (top.isEmpty() ? 0 : 1) + (middle.isEmpty() ? 0 : 1) + (bottom.isEmpty() ? 0 : 1);
-        final int height = MARGIN * 2 + Math.max(1, rows) * ROW_GAP;
-
-        int y = MARGIN + ROW_GAP / 2;
-        if (!top.isEmpty()) {
-            layoutRow(top, y, width);
-            y += ROW_GAP;
-        }
-        if (!middle.isEmpty()) {
-            layoutRow(middle, y, width);
-            y += ROW_GAP;
-        }
-        if (!bottom.isEmpty()) {
-            layoutRow(bottom, y, width);
-        }
-        setPreferredSize(new Dimension(width, height));
+        // 球体/圆形布局：三类各占 120° 扇区（top 90°→210°、middle 210°→330°、
+        // bottom 330°→90°），类内节点沿弧均匀分布；半径随节点总数增长，避免横向溢出。
+        final int nodeCount = top.size() + middle.size() + bottom.size();
+        final int radius = Math.max(
+            MIN_RADIUS,
+            (int) Math.round(nodeCount * NODE_SPACING / (2 * Math.PI)));
+        final int size = (radius + MARGIN) * 2;
+        final int center = size / 2;
+        layoutSector(top, 90, radius, center, center);
+        layoutSector(middle, 210, radius, center, center);
+        layoutSector(bottom, 330, radius, center, center);
+        setPreferredSize(new Dimension(size, size));
         revalidate();
     }
 
-    private void layoutRow(final List<ClipMaskRecord> row, final int y, final int width) {
-        final int count = row.size();
-        final int spacing = Math.max(COL_GAP, (width - MARGIN * 2) / Math.max(1, count));
-        final int startX = MARGIN + spacing / 2;
+    /** 把 group 均匀分布在 [startDeg, startDeg + 120)° 的弧上（屏幕坐标 y 向下）。 */
+    private void layoutSector(
+        final List<ClipMaskRecord> group,
+        final int startDeg,
+        final int radius,
+        final int cx,
+        final int cy
+    ) {
+        final int count = group.size();
+        if (count == 0) {
+            return;
+        }
+        final double start = Math.toRadians(startDeg);
+        final double step = (2 * Math.PI / 3) / count;
         for (int i = 0; i < count; i++) {
-            final ClipMaskRecord record = row.get(i);
-            final NodeBox box = new NodeBox(record, startX + i * spacing, y);
+            final double angle = start + step * (i + 0.5);
+            final ClipMaskRecord record = group.get(i);
+            final NodeBox box = new NodeBox(record,
+                cx + (int) Math.round(radius * Math.cos(angle)),
+                cy + (int) Math.round(radius * Math.sin(angle)));
             nodes.add(box);
             nodesByGuid.put(record.guid(), box);
         }
     }
+
 
     @Override
     protected void paintComponent(final Graphics graphics) {
