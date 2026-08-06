@@ -9,9 +9,7 @@ import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.Registration;
-import dev.turboism.sdk.ui.FormDialogField;
-import dev.turboism.sdk.ui.FormDialogRequest;
-import dev.turboism.sdk.ui.FormFieldKind;
+import dev.turboism.sdk.storage.StorageReadResult;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry.ContextMenuContribution;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry.ContextMenuEntry;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry.Location;
@@ -19,10 +17,14 @@ import dev.turboism.sdk.ui.context.ContextMenuRegistry.ObjectKind;
 import dev.turboism.sdk.ui.context.ContextMenuSelection;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
 /**
@@ -30,8 +32,9 @@ import java.util.function.Consumer;
  *
  * <p>Both submenus are contributed per palette location; the shared actions
  * dispatch on {@code contextMenuSelection()} by location and object kind.
- * Override colors persist per project in plugin config and replay on enable
- * and on every model open/create.</p>
+ * Override colors persist per project through {@code PluginStorage} (the config
+ * registry routes through the sidecar and is unavailable in preview sessions)
+ * and replay on enable and on every model open/create.</p>
  */
 public final class PaletteLabelStylePlugin implements CubismPlugin {
 
@@ -39,14 +42,22 @@ public final class PaletteLabelStylePlugin implements CubismPlugin {
     public static final String BACKGROUND_ACTION_PREFIX = "palette-label-style.background.";
 
     private static final int MENU_PRIORITY = 100;
+    private static final int MAX_COLOR_FILE_BYTES = 64 * 1024;
 
     private PluginContext context;
     private PluginLogger logger;
     private PluginLocalization i18n;
     private final LabelStyleApplier applier = new LabelStyleApplier();
-    private Registration readScopeRegistration;
-    private Registration writeScopeRegistration;
-    private String scopeProjectId;
+    private final ExecutorService persistenceIo = Executors.newSingleThreadExecutor(runnable -> {
+        final Thread thread = new Thread(runnable, "palette-label-style-persistence");
+        thread.setDaemon(true);
+        return thread;
+    });
+    private final AtomicBoolean closed = new AtomicBoolean();
+
+    /** Authoritative persisted entries of the current project: entry key to hex. */
+    private final Map<String, String> persisted = new HashMap<>();
+    private String persistedProjectId;
 
     @Override
     public void init(final PluginContext context) {
@@ -61,14 +72,18 @@ public final class PaletteLabelStylePlugin implements CubismPlugin {
         try {
             for (final String key : LabelStylePresets.MENU_KEYS) {
                 registerAction(TEXT_ACTION_PREFIX + key, i18n.text(colorLabelKey(key)),
-                    actionContext -> handleColorAction(actionContext, true, key));
+                    actionContext -> runSafely("text." + key,
+                        () -> handleColorAction(actionContext, true, key)));
                 registerAction(BACKGROUND_ACTION_PREFIX + key, i18n.text(colorLabelKey(key)),
-                    actionContext -> handleColorAction(actionContext, false, key));
+                    actionContext -> runSafely("background." + key,
+                        () -> handleColorAction(actionContext, false, key)));
             }
             registerAction(TEXT_ACTION_PREFIX + LabelStylePresets.CUSTOM_KEY, i18n.text("color.custom"),
-                actionContext -> handleColorAction(actionContext, true, LabelStylePresets.CUSTOM_KEY));
+                actionContext -> runSafely("text.custom",
+                    () -> handleColorAction(actionContext, true, LabelStylePresets.CUSTOM_KEY)));
             registerAction(BACKGROUND_ACTION_PREFIX + LabelStylePresets.CUSTOM_KEY, i18n.text("color.custom"),
-                actionContext -> handleColorAction(actionContext, false, LabelStylePresets.CUSTOM_KEY));
+                actionContext -> runSafely("background.custom",
+                    () -> handleColorAction(actionContext, false, LabelStylePresets.CUSTOM_KEY)));
 
             contributeColorSubmenu(
                 "palette-label-style.deformer-tab.text",
@@ -122,6 +137,9 @@ public final class PaletteLabelStylePlugin implements CubismPlugin {
 
     @Override
     public void shutdown() {
+        closed.set(true);
+        applier.clearAll();
+        persistenceIo.shutdownNow();
         logger.info("PaletteLabelStylePlugin shutdown");
     }
 
@@ -133,6 +151,14 @@ public final class PaletteLabelStylePlugin implements CubismPlugin {
     @Override
     public void onModelCreated(final ProjectContentSnapshot model) {
         replayForActiveProject();
+    }
+
+    private void runSafely(final String operation, final Runnable action) {
+        try {
+            action.run();
+        } catch (RuntimeException failure) {
+            logger.warn("PaletteLabelStylePlugin " + operation + " failed: " + failure.getMessage());
+        }
     }
 
     private void handleColorAction(final ActionRegistry.ActionContext actionContext, final boolean text, final String key) {
@@ -155,15 +181,17 @@ public final class PaletteLabelStylePlugin implements CubismPlugin {
     }
 
     private void openCustomColorDialog(final ContextMenuSelection selection, final String property) {
-        context.uiHost().openFormDialog(
-            new FormDialogRequest(
-                "palette-label-style.custom-color",
-                i18n.text("dialog.title"),
-                List.of(new FormDialogField("color", i18n.text("dialog.field.color"), "#000000", FormFieldKind.COLOR)),
-                i18n.text("dialog.accept"),
-                i18n.text("dialog.cancel")
-            ),
-            (accepted, actionId, values) -> {
+        final String initialHex = selection.items().stream()
+            .findFirst()
+            .map(item -> LabelStylePersistence.key(
+                selection.location(), item.id(), property))
+            .map(persisted::get)
+            .orElse(null);
+        context.uiHost().openColorPicker(
+            "palette-label-style.custom-color",
+            i18n.text("dialog.title"),
+            initialHex,
+            (accepted, colorHex) -> {
                 if (!accepted) {
                     return;
                 }
@@ -171,7 +199,7 @@ public final class PaletteLabelStylePlugin implements CubismPlugin {
                 if (model == null) {
                     return;
                 }
-                LabelStylePresets.parseHex(values.get("color")).ifPresent(color ->
+                LabelStylePresets.parseHex(colorHex).ifPresent(color ->
                     applier.apply(model, selection, property,
                         LabelStyleApplier.ColorChoice.custom(color), this::save));
             }
@@ -180,53 +208,94 @@ public final class PaletteLabelStylePlugin implements CubismPlugin {
 
     private void replayForActiveProject() {
         final String projectId = currentProjectId();
-        ensureConfigScopes(projectId);
-        applier.clearAll();
+        synchronized (persisted) {
+            persistedProjectId = projectId;
+        }
+        if (closed.get()) {
+            return;
+        }
+        persistenceIo.submit(() -> {
+            if (closed.get()) {
+                return;
+            }
+            final Map<String, String> loaded;
+            try {
+                final StorageReadResult<String> result = context.storage().readUtf8(
+                    LabelStylePersistence.filePath(projectId), MAX_COLOR_FILE_BYTES
+                ).toCompletableFuture().join();
+                loaded = result.value().map(LabelStylePersistence::parse).orElseGet(Map::of);
+            } catch (RuntimeException readFailure) {
+                logger.warn("PaletteLabelStylePlugin could not load persisted colors for project "
+                    + projectId + ": " + readFailure.getMessage());
+                return;
+            }
+            synchronized (persisted) {
+                if (closed.get()) {
+                    return;
+                }
+                persisted.clear();
+                persisted.putAll(loaded);
+            }
+            applyPersisted(loaded, projectId);
+        });
+    }
+
+    /** Applies persisted entries to the active model without re-persisting them. */
+    private void applyPersisted(final Map<String, String> entries, final String projectId) {
         final CubismModel model = activeModelOrNull();
         if (model == null) {
             return;
         }
-        final Map<String, String> stored = LabelStylePersistence.readAll(context.config(), projectId);
-        for (final Map.Entry<String, String> entry : stored.entrySet()) {
+        applier.clearAll();
+        for (final Map.Entry<String, String> entry : entries.entrySet()) {
             LabelStylePersistence.parseKey(entry.getKey()).ifPresent(parsed ->
                 LabelStylePresets.parseHex(entry.getValue()).ifPresent(color ->
                     applier.replay(model, parsed.palette(), parsed.objectId(), parsed.property(), color,
                         LabelStyleApplier.NOOP_SINK)));
         }
+        logger.info("PaletteLabelStylePlugin replayed " + entries.size()
+            + " persisted label color(s) for project " + projectId);
     }
 
+    /** Persistence callback: updates the in-memory entry map and schedules one atomic file write. */
     private void save(
         final Location palette,
         final String objectId,
         final String property,
         final Optional<String> hex
     ) {
+        final String entryKey = LabelStylePersistence.key(palette, objectId, property);
         final String projectId = currentProjectId();
-        ensureConfigScopes(projectId);
-        try {
-            if (hex.isPresent()) {
-                LabelStylePersistence.write(context.config(), projectId, palette, objectId, property, hex.orElseThrow());
-            } else {
-                LabelStylePersistence.clear(context.config(), projectId, palette, objectId, property);
+        final Map<String, String> snapshot;
+        synchronized (persisted) {
+            if (!projectId.equals(persistedProjectId)) {
+                persisted.clear();
+                persistedProjectId = projectId;
             }
-        } catch (dev.turboism.sdk.config.PluginConfigException persistenceFailure) {
-            logger.warn("PaletteLabelStylePlugin could not persist label color for "
-                + palette + ":" + objectId + ":" + property + ": " + persistenceFailure.getMessage());
+            if (hex.isPresent()) {
+                persisted.put(entryKey, hex.orElseThrow());
+            } else {
+                persisted.remove(entryKey);
+            }
+            snapshot = Map.copyOf(persisted);
         }
-    }
-
-    private void ensureConfigScopes(final String projectId) {
-        if (projectId.equals(scopeProjectId)) {
+        if (closed.get()) {
             return;
         }
-        closeQuietly(readScopeRegistration);
-        closeQuietly(writeScopeRegistration);
-        final String scope = LabelStylePersistence.scopePath(projectId);
-        readScopeRegistration = context.config().readScope(scope);
-        writeScopeRegistration = context.config().writeScope(scope);
-        context.disposableScope().register(readScopeRegistration);
-        context.disposableScope().register(writeScopeRegistration);
-        scopeProjectId = projectId;
+        persistenceIo.submit(() -> {
+            if (closed.get()) {
+                return;
+            }
+            try {
+                context.storage().writeUtf8Atomic(
+                    LabelStylePersistence.filePath(projectId),
+                    LabelStylePersistence.serialize(snapshot)
+                ).toCompletableFuture().join();
+            } catch (RuntimeException writeFailure) {
+                logger.warn("PaletteLabelStylePlugin could not persist label color for " + entryKey
+                    + ": " + writeFailure.getMessage());
+            }
+        });
     }
 
     private String currentProjectId() {
@@ -308,16 +377,6 @@ public final class PaletteLabelStylePlugin implements CubismPlugin {
             context.disposableScope().close();
         } catch (Exception closeFailure) {
             logger.warn("PaletteLabelStylePlugin enable rollback close failed: " + closeFailure.getMessage());
-        }
-    }
-
-    private static void closeQuietly(final Registration registration) {
-        if (registration == null) {
-            return;
-        }
-        try {
-            registration.close();
-        } catch (Exception ignored) {
         }
     }
 }

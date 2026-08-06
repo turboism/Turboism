@@ -10,14 +10,23 @@
   ],
   "turboismApi": "[0.1.0,0.2.0)",
   "authors": [
-    { "name": "Turboism Contributors" }
+    {
+      "name": "Turboism Contributors"
+    }
   ],
   "license": "Project License",
   "website": "https://turboism.dev",
   "resources": [],
   "i18n": {
     "baseName": "META-INF/turboism/i18n/messages",
-    "locales": ["base", "en", "ja", "ko", "zh_Hans", "zh_Hant"]
+    "locales": [
+      "base",
+      "en",
+      "ja",
+      "ko",
+      "zh_Hans",
+      "zh_Hant"
+    ]
   },
   "dependencies": [],
   "permissions": [
@@ -42,6 +51,11 @@
       "reason": "Open the custom-color form dialog."
     },
     {
+      "id": "turboism.cubism.model.write",
+      "scope": "application",
+      "reason": "Write native deformer label colors for the Deformer tab background menu."
+    },
+    {
       "id": "turboism.cubism.model.read",
       "scope": "application",
       "reason": "Resolve selected palette objects and replay persisted colors on model open."
@@ -52,12 +66,12 @@
       "reason": "Resolve the active project id for per-project label color persistence."
     },
     {
-      "id": "turboism.config.plugin.read",
+      "id": "turboism.file.read",
       "scope": "application",
       "reason": "Read persisted per-project label colors for replay."
     },
     {
-      "id": "turboism.config.plugin.write",
+      "id": "turboism.file.write",
       "scope": "application",
       "reason": "Persist per-project label text/background colors after each apply or clear."
     }
@@ -67,9 +81,10 @@
     "ui.appearance.modify",
     "ui.dialog.contribute",
     "cubism.model.read",
+    "cubism.model.write",
     "cubism.project.read",
-    "config.plugin.read",
-    "config.plugin.write"
+    "file.read",
+    "file.write"
   ],
   "environment": {
     "requiresCubism": true,

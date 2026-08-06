@@ -124,18 +124,33 @@ public final class LabelStyleApplier {
                 switch (kind) {
                     case WARP_DEFORMER, ROTATION_DEFORMER -> {
                         final Optional<Deformer> deformer = findById(model.deformers().all(), objectId);
-                        if (deformer.isPresent() && LabelStylePersistence.PROPERTY_TEXT.equals(property)) {
-                            override(deformer.orElseThrow().ui().deformerPaletteEntry(),
-                                location, objectId, property, choice, sink);
-                        } else if (deformer.isPresent()) {
-                            setNativeLabelColor(deformer.orElseThrow(), choice);
+                        if (deformer.isPresent()) {
+                            if (LabelStylePersistence.PROPERTY_TEXT.equals(property)) {
+                                // The Deformer tab's tree column renders Palette.DEFORMER_PART
+                                // (partPaletteEntry); Palette.DEFORMER only colors control cells.
+                                override(deformer.orElseThrow().ui().partPaletteEntry(),
+                                    location, objectId, property, choice, sink);
+                            } else {
+                                // Label color: native label color only (shows as the left color
+                                // indicator in the Parts palette, host-persisted). It must not
+                                // paint the row's text background in the Deformer tab.
+                                setNativeLabelColor(deformer.orElseThrow(), choice);
+                            }
                         }
                     }
                     case ART_MESH -> {
                         final Optional<Drawable> drawable = findById(model.drawables().all(), objectId);
                         if (drawable.isPresent()) {
-                            override(drawable.orElseThrow().ui().deformerPaletteEntry(),
-                                location, objectId, property, choice, sink);
+                            if (LabelStylePersistence.PROPERTY_TEXT.equals(property)) {
+                                // The Deformer tab's tree column renders Palette.DEFORMER_PART
+                                // (partPaletteEntry), shared with the Parts tab for the same object.
+                                override(drawable.orElseThrow().ui().partPaletteEntry(),
+                                    location, objectId, property, choice, sink);
+                            } else {
+                                // Label color: native label color only (leftmost control column,
+                                // same semantics as the Parts tab's native label-color menu).
+                                setNativeLabelColor(drawable.orElseThrow(), choice);
+                            }
                         }
                     }
                     default -> { }
@@ -195,15 +210,22 @@ public final class LabelStyleApplier {
     }
 
     private void setNativeLabelColor(final Deformer deformer, final ColorChoice choice) {
-        final NativeLabelColor color;
+        deformer.ui().setNativeLabelColor(nativeLabelColor(choice));
+    }
+
+    private void setNativeLabelColor(final Drawable drawable, final ColorChoice choice) {
+        drawable.ui().setNativeLabelColor(nativeLabelColor(choice));
+    }
+
+    private static NativeLabelColor nativeLabelColor(final ColorChoice choice) {
         if (LabelStylePresets.CUSTOM_KEY.equals(choice.key())) {
-            color = new NativeLabelColor.Custom(choice.color().orElseThrow());
-        } else if (choice.color().isPresent()) {
-            color = new NativeLabelColor.Preset(LabelStylePresets.nativePresetFor(choice.key()).orElseThrow());
-        } else {
-            color = new NativeLabelColor.Default();
+            return new NativeLabelColor.Custom(choice.color().orElseThrow());
         }
-        deformer.ui().setNativeLabelColor(color);
+        if (choice.color().isPresent()) {
+            return new NativeLabelColor.Preset(
+                LabelStylePresets.nativePresetFor(choice.key()).orElseThrow());
+        }
+        return new NativeLabelColor.Default();
     }
 
     private void closeActive(final String key) {

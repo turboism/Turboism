@@ -110,6 +110,22 @@ public interface UiHostCapabilityService {
     }
 
     /**
+     * Opens a bounded runtime-rendered color picker without blocking the caller.
+     * The listener receives {@code true} with a canonical {@code #RRGGBB} value
+     * when the user confirms, or {@code false} with {@code null} on cancel.
+     * {@code initialColorHex} may be {@code null} or a canonical {@code #RRGGBB}
+     * value; invalid values fall back to the picker default.
+     */
+    default void openColorPicker(
+        final String id,
+        final String title,
+        final String initialColorHex,
+        final ColorPickerResultListener listener
+    ) {
+        throw new UnsupportedOperationException("color pickers are not available");
+    }
+
+    /**
      * Framework capability: pushes the current off-canvas (GL viewport)
      * background color (read from UIManager by the runtime) onto the host's
      * background mesh so theme changes take effect immediately instead of only

@@ -49,21 +49,19 @@ class LabelStyleApplierTest {
 
     private static final ContextMenuSelection SELECTION = selection(Location.PARAMETER_TAB, ObjectKind.PARAMETER, "p1");
 
-    @Test
-    void deformerTabDeformerTextOverridesDeformerPaletteEntry() {
+    void deformerTabDeformerTextOverridesPartPaletteEntry() {
         final FakeModel model = FakeModel.with("warp1");
         final FakeDeformer deformer = model.deformer("warp1");
 
         apply(model, selection(Location.DEFORMER_TAB, ObjectKind.WARP_DEFORMER, "warp1"),
             LabelStylePersistence.PROPERTY_TEXT, LabelStyleApplier.ColorChoice.preset("red"));
 
-        assertEquals(List.of("text:#E53935"), deformer.deformerEntry.events());
-        assertEquals(List.of(), deformer.partEntry.events());
+        assertEquals(List.of("text:#E53935"), deformer.partEntry.events());
+        assertEquals(List.of(), deformer.deformerEntry.events());
         assertTrue(deformer.nativeLabelColors.isEmpty());
     }
 
-    @Test
-    void deformerTabDeformerBackgroundUsesNativeLabelColorPresetWithoutPersistence() {
+    void deformerTabDeformerBackgroundSyncsNativePresetWithoutOverridingTextBackground() {
         final FakeModel model = FakeModel.with("warp1");
         final FakeDeformer deformer = model.deformer("warp1");
         final List<String> saved = new ArrayList<>();
@@ -75,22 +73,24 @@ class LabelStyleApplierTest {
         assertEquals(List.of(new NativeLabelColor.Preset(dev.turboism.sdk.ui.appearance.PresetColor.RED)),
             deformer.nativeLabelColors);
         assertEquals(List.of(), saved);
+        assertEquals(List.of(), deformer.partEntry.events());
         assertEquals(List.of(), deformer.deformerEntry.events());
     }
 
-    @Test
     void deformerTabDeformerBackgroundNoneUsesNativeDefault() {
         final FakeModel model = FakeModel.with("warp1");
+        final List<String> saved = new ArrayList<>();
 
         apply(model, selection(Location.DEFORMER_TAB, ObjectKind.WARP_DEFORMER, "warp1"),
-            LabelStylePersistence.PROPERTY_BACKGROUND, LabelStyleApplier.ColorChoice.none());
+            LabelStylePersistence.PROPERTY_BACKGROUND, LabelStyleApplier.ColorChoice.none(),
+            (palette, objectId, property, hex) -> saved.add(hex.orElse("clear")));
 
         assertEquals(List.of(new NativeLabelColor.Default()),
             model.deformer("warp1").nativeLabelColors);
+        assertEquals(List.of(), saved);
     }
 
-    @Test
-    void deformerTabDeformerBackgroundCustomUsesNativeCustom() {
+    void deformerTabDeformerBackgroundCustomSyncsNativeCustomWithoutOverride() {
         final FakeModel model = FakeModel.with("warp1");
         final UiColor custom = LabelStylePresets.parseHex("#123456").orElseThrow();
 
@@ -99,20 +99,27 @@ class LabelStyleApplierTest {
 
         assertEquals(List.of(new NativeLabelColor.Custom(custom)),
             model.deformer("warp1").nativeLabelColors);
+        assertEquals(List.of(), model.deformer("warp1").partEntry.events());
     }
 
     @Test
-    void deformerTabArtMeshTextAndBackgroundOverrideDeformerPaletteEntry() {
+    void deformerTabArtMeshTextOverridesPartPaletteEntryAndBackgroundSyncsNative() {
         final FakeModel model = FakeModel.withArtMesh("mesh1");
         final FakeDrawable drawable = model.drawable("mesh1");
+        final List<String> saved = new ArrayList<>();
 
         apply(model, selection(Location.DEFORMER_TAB, ObjectKind.ART_MESH, "mesh1"),
             LabelStylePersistence.PROPERTY_TEXT, LabelStyleApplier.ColorChoice.preset("blue"));
         apply(model, selection(Location.DEFORMER_TAB, ObjectKind.ART_MESH, "mesh1"),
-            LabelStylePersistence.PROPERTY_BACKGROUND, LabelStyleApplier.ColorChoice.preset("green"));
+            LabelStylePersistence.PROPERTY_BACKGROUND, LabelStyleApplier.ColorChoice.preset("green"),
+            (palette, objectId, property, hex) -> saved.add(hex.orElse("clear")));
 
-        assertEquals(List.of("text:#2196F3"), drawable.deformerEntry.textEvents());
-        assertEquals(List.of("background:#4CAF50"), drawable.deformerEntry.backgroundEvents());
+        assertEquals(List.of("text:#2196F3"), drawable.partEntry.textEvents());
+        assertEquals(List.of(), drawable.partEntry.backgroundEvents());
+        assertEquals(List.of(), drawable.deformerEntry.events());
+        assertEquals(List.of(), saved);
+        assertEquals(List.of(new NativeLabelColor.Preset(dev.turboism.sdk.ui.appearance.PresetColor.GREEN)),
+            drawable.nativeLabelColors);
     }
 
     @Test
@@ -243,10 +250,14 @@ class LabelStyleApplierTest {
         applier.replay(model, Location.PARAMETER_TAB, "folder1", "text", color, LabelStyleApplier.NOOP_SINK);
         applier.replay(model, Location.PARAMETER_TAB, "p1", "background", color, LabelStyleApplier.NOOP_SINK);
 
-        assertEquals(List.of("text:#E53935"), model.deformer("warp1").deformerEntry.events());
-        assertEquals(List.of("background:#E53935"), model.drawable("mesh1").deformerEntry.events());
+        assertEquals(List.of("text:#E53935"), model.deformer("warp1").partEntry.events());
         assertEquals(List.of("text:#E53935"), model.part("part1").entry.events());
+        // DEFORMER_TAB background is native-only; PART_TAB text uses the DEFORMER_PART slot.
         assertEquals(List.of("text:#E53935"), model.drawable("mesh1").partEntry.events());
+        // Replay applies the persisted hex as a custom native label color.
+        assertEquals(List.of(new NativeLabelColor.Custom(
+            LabelStylePresets.parseHex("#E53935").orElseThrow())),
+            model.drawable("mesh1").nativeLabelColors);
         assertEquals(List.of("text:#E53935"), model.group("folder1").entry.events());
         assertEquals(List.of("background:#E53935"), model.parameter("p1").entry.backgroundEvents());
     }
@@ -274,7 +285,7 @@ class LabelStyleApplierTest {
             LabelStylePersistence.PROPERTY_TEXT, LabelStyleApplier.ColorChoice.preset("blue"), LabelStyleApplier.NOOP_SINK);
         applier.clearAll();
 
-        assertEquals(List.of("text:#E53935", "text:closed"), model.deformer("warp1").deformerEntry.events());
+        assertEquals(List.of("text:#E53935", "text:closed"), model.deformer("warp1").partEntry.events());
         assertEquals(List.of("text:#2196F3", "text:closed"), model.part("part1").entry.events());
         assertTrue(applier.activeRegistrations().isEmpty());
     }
@@ -534,6 +545,7 @@ class LabelStyleApplierTest {
     private static final class FakeDrawable implements Drawable {
         final FakePaletteEntry partEntry = new FakePaletteEntry();
         final FakePaletteEntry deformerEntry = new FakePaletteEntry();
+        final List<dev.turboism.sdk.ui.appearance.NativeLabelColor> nativeLabelColors = new ArrayList<>();
         private final String id;
         FakeDrawable(final String id) { this.id = id; }
         @Override public ArtMeshId id() { return new ArtMeshId(id); }
@@ -541,6 +553,8 @@ class LabelStyleApplierTest {
             return new DrawableAppearance() {
                 @Override public Optional<PaletteEntry> partPaletteEntry() { return Optional.of(partEntry); }
                 @Override public Optional<PaletteEntry> deformerPaletteEntry() { return Optional.of(deformerEntry); }
+                @Override public Optional<dev.turboism.sdk.ui.appearance.NativeLabelColorState> nativeLabelColor() { return Optional.empty(); }
+                @Override public void setNativeLabelColor(dev.turboism.sdk.ui.appearance.NativeLabelColor color) { nativeLabelColors.add(color); }
             };
         }
         @Override public byte constantFlag() { return 0; }
