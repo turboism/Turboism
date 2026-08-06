@@ -197,6 +197,12 @@ public final class TurboismAgent {
                     "cubism-5.3.02-ui-status-bar.json"
                 ))
                 : Optional.empty();
+            final Optional<Path> clipMaskVerificationRecord = "5.3.02".equals(profile)
+                ? Optional.of(extractVerificationRecord(
+                    options.home(),
+                    "cubism-5.3.02-clipmask.json"
+                ))
+                : Optional.empty();
             final Path controlAppearanceVerificationRecord = extractVerificationRecord(
                 options.home(),
                 "cubism-" + profile + "-ui-control-appearance.json"
@@ -211,6 +217,7 @@ public final class TurboismAgent {
                 topMenuVerificationRecord,
                 boundingBoxOverlayVerificationRecord,
                 statusBarVerificationRecord,
+                clipMaskVerificationRecord,
                 host.artifact(),
                 coreArtifact,
                 host.classLoader()
