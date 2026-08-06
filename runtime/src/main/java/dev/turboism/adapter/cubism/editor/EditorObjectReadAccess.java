@@ -24,6 +24,7 @@ import dev.turboism.sdk.cubism.model.ParameterBinding;
 import dev.turboism.sdk.cubism.model.ParameterBindingFamily;
 import dev.turboism.sdk.cubism.model.ParameterBindingPoint;
 import dev.turboism.sdk.cubism.model.ParameterBindingTarget;
+import dev.turboism.sdk.cubism.model.Part;
 import dev.turboism.sdk.cubism.model.PartId;
 import dev.turboism.sdk.cubism.model.Point2;
 import dev.turboism.sdk.cubism.model.RotationDeformer;
@@ -49,13 +50,16 @@ final class EditorObjectReadAccess {
 
     private final VerifiedMemberResolver resolver;
     private final CurrentGuard currentGuard;
+    private final EditorObjectHierarchyEditAccess hierarchyEditAccess;
 
     EditorObjectReadAccess(
         final VerifiedMemberResolver resolver,
-        final CurrentGuard currentGuard
+        final CurrentGuard currentGuard,
+        final EditorObjectHierarchyEditAccess hierarchyEditAccess
     ) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.currentGuard = Objects.requireNonNull(currentGuard, "currentGuard");
+        this.hierarchyEditAccess = Objects.requireNonNull(hierarchyEditAccess, "hierarchyEditAccess");
     }
 
     Drawables drawables(final String identity, final Object source, final Object model) {
@@ -1027,10 +1031,12 @@ final class EditorObjectReadAccess {
         ObjectRef current() { return currentArtMesh(identity, modelSource, model, ref); }
     }
 
-    private final class EditorDrawable extends ObjectView implements Drawable {
+    private final class EditorDrawable extends ObjectView implements Drawable, EditorNativeObjectRef {
         EditorDrawable(final String identity, final Object modelSource, final Object model, final ObjectRef ref) {
             super(identity, modelSource, model, ref);
         }
+
+        @Override public Object nativeSource() { return ref.source(); }
         @Override public ArtMeshId id() { current(); return new ArtMeshId(ref.id()); }
         @Override public int index() { return artMeshIndex(identity, modelSource, model, current().source()); }
         @Override public boolean doubleSided() { return !culling(); }
@@ -1071,13 +1077,38 @@ final class EditorObjectReadAccess {
         @Override public int parentPartIndex() { return EditorObjectReadAccess.this.parentPartIndex(modelSource, current().source()); }
         @Override public int parentDeformerIndex() { return EditorObjectReadAccess.this.parentDeformerIndex(identity, modelSource, model, current().source()); }
         @Override public IntSequence parameters() { final List<ParameterId> ids = parameterIds(); return intSequence(parameterIndices(model, ids)); }
+        @Override public void setName(final String name) {
+            final ObjectRef value = current();
+            hierarchyEditAccess.setName(identity, modelSource, model, value.source(), name, "Drawable");
+        }
+
+        @Override public void setParent(final Part parent, final int index) {
+            final ObjectRef value = current();
+            final Object parentSource = nativeSourceOf(parent, "Part parent");
+            requireCurrentPartSource(modelSource, parentSource);
+            hierarchyEditAccess.setParent(
+                identity, modelSource, model, value.source(), parentSource, false, index, "Drawable"
+            );
+            current();
+        }
+
+        @Override public void setParent(final Deformer parent, final int index) {
+            final ObjectRef value = current();
+            final Object parentSource = nativeSourceOf(parent, "Deformer parent");
+            requireCurrentDeformerSource(identity, modelSource, model, parentSource);
+            hierarchyEditAccess.setParent(
+                identity, modelSource, model, value.source(), parentSource, true, index, "Drawable"
+            );
+            current();
+        }
+
         @Override public List<ParameterBinding> getParameterBindings() {
             final ObjectRef value = current();
             return parameterBindings(value.source(), ParameterBindingTarget.artMesh(new ArtMeshId(value.id())));
         }
     }
 
-    private abstract class DeformerView implements Deformer {
+    private abstract class DeformerView implements Deformer, EditorNativeObjectRef {
         final String identity;
         final Object modelSource;
         final Object model;
@@ -1089,6 +1120,8 @@ final class EditorObjectReadAccess {
             this.ref = ref;
         }
         DeformerRef current() { return currentDeformer(identity, modelSource, model, ref); }
+
+        @Override public Object nativeSource() { return ref.source(); }
         @Override public DeformerId id() { current(); return new DeformerId(ref.id()); }
         @Override public int index() { return deformerIndex(identity, modelSource, model, current().source()); }
         @Override public Optional<PartId> parentPartId() { return EditorObjectReadAccess.this.parentPartId(current().source()); }
@@ -1108,6 +1141,31 @@ final class EditorObjectReadAccess {
         @Override public int parentPartIndex() { return EditorObjectReadAccess.this.parentPartIndex(modelSource, current().source()); }
         @Override public int parentDeformerIndex() { return EditorObjectReadAccess.this.parentDeformerIndex(identity, modelSource, model, current().source()); }
         @Override public IntSequence parameters() { final List<ParameterId> ids = parameterIds(); return intSequence(parameterIndices(model, ids)); }
+        @Override public void setName(final String name) {
+            final DeformerRef value = current();
+            hierarchyEditAccess.setName(identity, modelSource, model, value.source(), name, "Deformer");
+        }
+
+        @Override public void setParent(final Part parent, final int index) {
+            final DeformerRef value = current();
+            final Object parentSource = nativeSourceOf(parent, "Part parent");
+            requireCurrentPartSource(modelSource, parentSource);
+            hierarchyEditAccess.setParent(
+                identity, modelSource, model, value.source(), parentSource, false, index, "Deformer"
+            );
+            current();
+        }
+
+        @Override public void setParent(final Deformer parent, final int index) {
+            final DeformerRef value = current();
+            final Object parentSource = nativeSourceOf(parent, "Deformer parent");
+            requireCurrentDeformerSource(identity, modelSource, model, parentSource);
+            hierarchyEditAccess.setParent(
+                identity, modelSource, model, value.source(), parentSource, true, index, "Deformer"
+            );
+            current();
+        }
+
         @Override public List<ParameterBinding> getParameterBindings() {
             final DeformerRef value = current();
             final ParameterBindingTarget target = value.kind() == Kind.WARP
@@ -1174,6 +1232,39 @@ final class EditorObjectReadAccess {
         EditorDrawables(final String identity, final Object source, final Object model) { this.identity = identity; this.source = source; this.model = model; }
         @Override public List<Drawable> all() { return artMeshes(identity, source, model).stream().map(ref -> (Drawable) new EditorDrawable(identity, source, model, ref)).toList(); }
         @Override public Drawable find(final ArtMeshId id) { Objects.requireNonNull(id, "id"); return artMeshes(identity, source, model).stream().filter(ref -> ref.id().equals(id.value())).findFirst().map(ref -> (Drawable) new EditorDrawable(identity, source, model, ref)).orElseThrow(() -> new NoSuchElementException("Cubism ArtMesh is absent: " + id.value())); }
+
+        @Override public Drawable create(
+            final String name,
+            final Part parent,
+            final int index,
+            final ArtMeshGeometry geometry
+        ) {
+            final Object parentSource = nativeSourceOf(parent, "Part parent");
+            requireCurrentPartSource(source, parentSource);
+            final Object created = hierarchyEditAccess.createArtMeshSource(
+                identity,
+                source,
+                model,
+                name,
+                parentSource,
+                index,
+                geometry
+            );
+            return artMeshes(identity, source, model).stream()
+                .filter(ref -> ref.source() == created)
+                .findFirst()
+                .map(ref -> (Drawable) new EditorDrawable(identity, source, model, ref))
+                .orElseThrow(() -> unavailable(
+                    "Created ArtMesh is absent after the Editor instance update."
+                ));
+        }
+
+        @Override public void remove(final Drawable drawable) {
+            Objects.requireNonNull(drawable, "drawable");
+            final Object nodeSource = nativeSourceOf(drawable, "Drawable");
+            requireCurrentArtMeshSource(identity, source, model, nodeSource);
+            hierarchyEditAccess.remove(identity, source, model, nodeSource, "Drawable");
+        }
     }
 
     private final class EditorDeformers implements Deformers {
@@ -1182,6 +1273,47 @@ final class EditorObjectReadAccess {
         @Override public List<Deformer> all() { return deformerRefs(identity, source, model).stream().map(this::view).toList(); }
         @Override public Deformer find(final DeformerId id) { Objects.requireNonNull(id, "id"); return deformerRefs(identity, source, model).stream().filter(ref -> ref.id().equals(id.value())).findFirst().map(this::view).orElseThrow(() -> new NoSuchElementException("Cubism Deformer is absent: " + id.value())); }
         private Deformer view(final DeformerRef ref) { return ref.kind() == Kind.WARP ? new EditorWarp(identity, source, model, ref) : new EditorRotation(identity, source, model, ref); }
+
+        @Override public WarpDeformer createWarp(
+            final String name, final Part parent, final int index, final int rows, final int columns
+        ) {
+            final Object parentSource = nativeSourceOf(parent, "Part parent");
+            requireCurrentPartSource(source, parentSource);
+            final Object created = hierarchyEditAccess.createWarpSource(
+                identity, source, model, name, parentSource, index, rows, columns
+            );
+            return deformerRefs(identity, source, model).stream()
+                .filter(ref -> ref.source() == created)
+                .findFirst()
+                .map(ref -> (WarpDeformer) new EditorWarp(identity, source, model, ref))
+                .orElseThrow(() -> unavailable(
+                    "Created Warp Deformer is absent after the Editor instance update."
+                ));
+        }
+
+        @Override public RotationDeformer createRotation(
+            final String name, final Part parent, final int index
+        ) {
+            final Object parentSource = nativeSourceOf(parent, "Part parent");
+            requireCurrentPartSource(source, parentSource);
+            final Object created = hierarchyEditAccess.createRotationSource(
+                identity, source, model, name, parentSource, index
+            );
+            return deformerRefs(identity, source, model).stream()
+                .filter(ref -> ref.source() == created)
+                .findFirst()
+                .map(ref -> (RotationDeformer) new EditorRotation(identity, source, model, ref))
+                .orElseThrow(() -> unavailable(
+                    "Created Rotation Deformer is absent after the Editor instance update."
+                ));
+        }
+
+        @Override public void remove(final Deformer deformer) {
+            Objects.requireNonNull(deformer, "deformer");
+            final Object nodeSource = nativeSourceOf(deformer, "Deformer");
+            requireCurrentDeformerSource(identity, source, model, nodeSource);
+            hierarchyEditAccess.remove(identity, source, model, nodeSource, "Deformer");
+        }
     }
 
     private final class EditorWarpDeformers implements WarpDeformers {
@@ -1203,6 +1335,47 @@ final class EditorObjectReadAccess {
         EditorGlues(final String identity, final Object source, final Object model) { this.identity = identity; this.source = source; this.model = model; }
         @Override public List<Glue> all() { return glueRefs(identity, source, model).stream().map(ref -> (Glue) new EditorGlue(identity, source, model, ref)).toList(); }
         @Override public Glue find(final GlueId id) { Objects.requireNonNull(id, "id"); return glueRefs(identity, source, model).stream().filter(ref -> ref.id().equals(id.value())).findFirst().map(ref -> (Glue) new EditorGlue(identity, source, model, ref)).orElseThrow(() -> new NoSuchElementException("Cubism Glue is absent: " + id.value())); }
+    }
+
+    private static Object nativeSourceOf(final Object view, final String label) {
+        if (view == null) return null;
+        if (!(view instanceof EditorNativeObjectRef ref)) {
+            throw new IllegalStateException(
+                "The " + label + " is not bound to the active Editor model generation."
+            );
+        }
+        return ref.nativeSource();
+    }
+
+    private void requireCurrentPartSource(final Object modelSource, final Object partSource) {
+        if (partSource == null) return;
+        final List<?> parts = list(
+            resolver.invoke("cubism.editor-model.model-source.parts", modelSource),
+            "Editor Part source collection"
+        );
+        for (Object candidate : parts) {
+            if (candidate == partSource) return;
+        }
+        throw stale("Part", objectId(partSource));
+    }
+
+    private void requireCurrentDeformerSource(
+        final String identity, final Object modelSource, final Object model, final Object deformerSource
+    ) {
+        if (deformerSource == null) return;
+        deformerRefs(identity, modelSource, model).stream()
+            .filter(value -> value.source() == deformerSource)
+            .findFirst()
+            .orElseThrow(() -> stale("Deformer", objectId(deformerSource)));
+    }
+
+    private void requireCurrentArtMeshSource(
+        final String identity, final Object modelSource, final Object model, final Object artMeshSource
+    ) {
+        artMeshes(identity, modelSource, model).stream()
+            .filter(value -> value.source() == artMeshSource)
+            .findFirst()
+            .orElseThrow(() -> stale("ArtMesh", objectId(artMeshSource)));
     }
 
     private static List<?> list(final Object value, final String label) {
