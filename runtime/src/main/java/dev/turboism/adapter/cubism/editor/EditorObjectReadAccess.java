@@ -1229,6 +1229,32 @@ final class EditorObjectReadAccess {
         @Override public List<Drawable> all() { return artMeshes(identity, source, model).stream().map(ref -> (Drawable) new EditorDrawable(identity, source, model, ref)).toList(); }
         @Override public Drawable find(final ArtMeshId id) { Objects.requireNonNull(id, "id"); return artMeshes(identity, source, model).stream().filter(ref -> ref.id().equals(id.value())).findFirst().map(ref -> (Drawable) new EditorDrawable(identity, source, model, ref)).orElseThrow(() -> new NoSuchElementException("Cubism ArtMesh is absent: " + id.value())); }
 
+        @Override public Drawable create(
+            final String name,
+            final Part parent,
+            final int index,
+            final ArtMeshGeometry geometry
+        ) {
+            final Object parentSource = nativeSourceOf(parent, "Part parent");
+            requireCurrentPartSource(source, parentSource);
+            final Object created = hierarchyEditAccess.createArtMeshSource(
+                identity,
+                source,
+                model,
+                name,
+                parentSource,
+                index,
+                geometry
+            );
+            return artMeshes(identity, source, model).stream()
+                .filter(ref -> ref.source() == created)
+                .findFirst()
+                .map(ref -> (Drawable) new EditorDrawable(identity, source, model, ref))
+                .orElseThrow(() -> unavailable(
+                    "Created ArtMesh is absent after the Editor instance update."
+                ));
+        }
+
         @Override public void remove(final Drawable drawable) {
             Objects.requireNonNull(drawable, "drawable");
             final Object nodeSource = nativeSourceOf(drawable, "Drawable");

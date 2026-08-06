@@ -631,6 +631,45 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
         }
 
     }
+    private Part unwrapPart(final long expectedGeneration, final Part value) {
+        if (value == null) return null;
+        if (!(value instanceof SessionPart wrapped)
+            || wrapped.generation != expectedGeneration) {
+            throw staleFailure();
+        }
+        return wrapped.delegate;
+    }
+
+    private Drawable unwrapDrawable(
+        final long expectedGeneration,
+        final Drawable value
+    ) {
+        if (!(value instanceof SessionDrawable wrapped)
+            || wrapped.generation != expectedGeneration) {
+            throw staleFailure();
+        }
+        return wrapped.delegate;
+    }
+
+    private Deformer unwrapDeformer(
+        final long expectedGeneration,
+        final Deformer value
+    ) {
+        if (value instanceof SessionDeformer wrapped
+            && wrapped.generation == expectedGeneration) {
+            return wrapped.delegate;
+        }
+        if (value instanceof SessionWarpDeformer wrapped
+            && wrapped.generation == expectedGeneration) {
+            return wrapped.delegate;
+        }
+        if (value instanceof SessionRotationDeformer wrapped
+            && wrapped.generation == expectedGeneration) {
+            return wrapped.delegate;
+        }
+        throw staleFailure();
+    }
+
     private final class SessionParts implements Parts {
         private final long generation;
         private final long modelGeneration;
@@ -664,6 +703,25 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
                 )
             );
         }
+
+        @Override public Part create(
+            final String name,
+            final Part parent,
+            final int index
+        ) {
+            return guarded(generation, () -> new SessionPart(
+                generation,
+                modelGeneration,
+                modelId,
+                delegate.create(name, unwrapPart(generation, parent), index)
+            ));
+        }
+
+        @Override public void remove(final Part part) {
+            guardedVoid(generation, () ->
+                delegate.remove(unwrapPart(generation, part))
+            );
+        }
     }
 
     private final class SessionPart implements Part {
@@ -695,6 +753,11 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
         @Override public String name() { return guarded(generation, delegate::name); }
         @Override public void setName(final String name) {
             guardedVoid(generation, () -> delegate.setName(name));
+        }
+        @Override public void setParent(final Part parent, final int index) {
+            guardedVoid(generation, () ->
+                delegate.setParent(unwrapPart(generation, parent), index)
+            );
         }
         @Override public java.util.Optional<String> shortName() {
             return guarded(generation, delegate::shortName);
@@ -776,6 +839,31 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
                 )
             );
         }
+
+        @Override public Drawable create(
+            final String name,
+            final Part parent,
+            final int index,
+            final ArtMeshGeometry geometry
+        ) {
+            return guarded(generation, () -> new SessionDrawable(
+                generation,
+                modelGeneration,
+                modelId,
+                delegate.create(
+                    name,
+                    unwrapPart(generation, parent),
+                    index,
+                    geometry
+                )
+            ));
+        }
+
+        @Override public void remove(final Drawable drawable) {
+            guardedVoid(generation, () ->
+                delegate.remove(unwrapDrawable(generation, drawable))
+            );
+        }
     }
 
     private final class SessionDrawable implements Drawable {
@@ -823,6 +911,19 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
             return guarded(generation, delegate::maskIds);
         }
         @Override public String name() { return guarded(generation, delegate::name); }
+        @Override public void setName(final String name) {
+            guardedVoid(generation, () -> delegate.setName(name));
+        }
+        @Override public void setParent(final Part parent, final int index) {
+            guardedVoid(generation, () ->
+                delegate.setParent(unwrapPart(generation, parent), index)
+            );
+        }
+        @Override public void setParent(final Deformer parent, final int index) {
+            guardedVoid(generation, () ->
+                delegate.setParent(unwrapDeformer(generation, parent), index)
+            );
+        }
         @Override public boolean visible() { return guarded(generation, delegate::visible); }
         @Override public void setVisible(final boolean visible) {
             guardedVoid(generation, () -> delegate.setVisible(visible));
@@ -955,6 +1056,46 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
                 )
             );
         }
+
+        @Override public WarpDeformer createWarp(
+            final String name,
+            final Part parent,
+            final int index,
+            final int rows,
+            final int columns
+        ) {
+            return guarded(generation, () -> new SessionWarpDeformer(
+                generation,
+                delegate.createWarp(
+                    name,
+                    unwrapPart(generation, parent),
+                    index,
+                    rows,
+                    columns
+                )
+            ));
+        }
+
+        @Override public RotationDeformer createRotation(
+            final String name,
+            final Part parent,
+            final int index
+        ) {
+            return guarded(generation, () -> new SessionRotationDeformer(
+                generation,
+                delegate.createRotation(
+                    name,
+                    unwrapPart(generation, parent),
+                    index
+                )
+            ));
+        }
+
+        @Override public void remove(final Deformer deformer) {
+            guardedVoid(generation, () ->
+                delegate.remove(unwrapDeformer(generation, deformer))
+            );
+        }
     }
 
     private final class SessionDeformer implements Deformer {
@@ -993,6 +1134,19 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
             return guarded(generation, delegate::parameterIds);
         }
         @Override public String name() { return guarded(generation, delegate::name); }
+        @Override public void setName(final String name) {
+            guardedVoid(generation, () -> delegate.setName(name));
+        }
+        @Override public void setParent(final Part parent, final int index) {
+            guardedVoid(generation, () ->
+                delegate.setParent(unwrapPart(generation, parent), index)
+            );
+        }
+        @Override public void setParent(final Deformer parent, final int index) {
+            guardedVoid(generation, () ->
+                delegate.setParent(unwrapDeformer(generation, parent), index)
+            );
+        }
         @Override public boolean visible() { return guarded(generation, delegate::visible); }
         @Override public void setVisible(final boolean visible) {
             guardedVoid(generation, () -> delegate.setVisible(visible));
@@ -1063,6 +1217,19 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
             return guarded(generation, delegate::parameterIds);
         }
         @Override public String name() { return guarded(generation, delegate::name); }
+        @Override public void setName(final String name) {
+            guardedVoid(generation, () -> delegate.setName(name));
+        }
+        @Override public void setParent(final Part parent, final int index) {
+            guardedVoid(generation, () ->
+                delegate.setParent(unwrapPart(generation, parent), index)
+            );
+        }
+        @Override public void setParent(final Deformer parent, final int index) {
+            guardedVoid(generation, () ->
+                delegate.setParent(unwrapDeformer(generation, parent), index)
+            );
+        }
         @Override public boolean visible() { return guarded(generation, delegate::visible); }
         @Override public void setVisible(final boolean visible) {
             guardedVoid(generation, () -> delegate.setVisible(visible));
@@ -1143,6 +1310,19 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
             return guarded(generation, delegate::parameterIds);
         }
         @Override public String name() { return guarded(generation, delegate::name); }
+        @Override public void setName(final String name) {
+            guardedVoid(generation, () -> delegate.setName(name));
+        }
+        @Override public void setParent(final Part parent, final int index) {
+            guardedVoid(generation, () ->
+                delegate.setParent(unwrapPart(generation, parent), index)
+            );
+        }
+        @Override public void setParent(final Deformer parent, final int index) {
+            guardedVoid(generation, () ->
+                delegate.setParent(unwrapDeformer(generation, parent), index)
+            );
+        }
         @Override public boolean visible() { return guarded(generation, delegate::visible); }
         @Override public void setVisible(final boolean visible) {
             guardedVoid(generation, () -> delegate.setVisible(visible));
