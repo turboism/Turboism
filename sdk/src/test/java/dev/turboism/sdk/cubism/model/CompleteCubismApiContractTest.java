@@ -44,6 +44,18 @@ class CompleteCubismApiContractTest {
         for (String method : List.of("index", "drawableAId", "drawableBId", "parameterIds")) {
             assertDefault(Glue.class, method);
         }
+
+        for (String method : List.of("setParent")) assertDefault(Part.class, method);
+        for (String method : List.of("setName", "setParent")) assertDefault(Deformer.class, method);
+        for (String method : List.of("setName", "setParent")) assertDefault(Drawable.class, method);
+        for (String method : List.of("create", "remove")) assertDefault(Parts.class, method);
+        for (String method : List.of("createWarp", "createRotation", "remove")) {
+            assertDefault(Deformers.class, method);
+        }
+        assertDefault(Drawables.class, "remove");
+
+        assertTrue(Parts.class.getMethod("create", String.class).isDefault(),
+            "Parts#create(String) must stay a source-compatible default");
     }
 
     @Test

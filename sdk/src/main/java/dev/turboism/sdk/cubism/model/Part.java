@@ -22,6 +22,18 @@ public interface Part {
 
     void setName(String name);
 
+    /**
+     * Moves this Part under {@code parent} in the Part tree at {@code index} (negative = append).
+     *
+     * <p>The native Cubism Part tree owns the detach/attach semantics (old-parent {@code removeChild},
+     * {@code internal_setParent}) and Undo/Redo.</p>
+     *
+     * @throws IllegalArgumentException when {@code parent} is this Part or one of its descendants
+     */
+    default void setParent(Part parent, int index) {
+        throw unavailable("Part reparenting");
+    }
+
     default Optional<String> shortName() { throw unavailable("Part short name"); }
 
     default void setShortName(final Optional<String> value) {
