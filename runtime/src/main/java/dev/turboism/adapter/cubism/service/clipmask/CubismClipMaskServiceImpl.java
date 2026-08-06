@@ -4,6 +4,8 @@ import dev.turboism.sdk.cubism.ArtMeshSnapshot;
 import dev.turboism.sdk.cubism.ClipMaskSnapshot;
 import dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService;
 import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
+import dev.turboism.sdk.cubism.model.CubismModelAccess;
+import dev.turboism.sdk.cubism.model.Drawable;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -19,8 +21,14 @@ public final class CubismClipMaskServiceImpl implements CubismClipMaskService {
 
     private final CubismReadCapabilityService readService;
 
-    public CubismClipMaskServiceImpl(final CubismReadCapabilityService readService) {
+    private final CubismModelAccess modelAccess;
+
+    public CubismClipMaskServiceImpl(
+        final CubismReadCapabilityService readService,
+        final CubismModelAccess modelAccess
+    ) {
         this.readService = Objects.requireNonNull(readService, "readService");
+        this.modelAccess = Objects.requireNonNull(modelAccess, "modelAccess");
     }
 
     @Override
@@ -29,7 +37,7 @@ public final class CubismClipMaskServiceImpl implements CubismClipMaskService {
         if (snapshots == null || snapshots.isEmpty()) {
             return List.of();
         }
-        final MeshIndex meshIndex = meshIndex();
+        final MeshIndex meshIndex = nameIndex();
         final Map<String, InternalClipMaskRecord> byGuid = new LinkedHashMap<>();
         for (ClipMaskSnapshot snapshot : snapshots) {
             if (snapshot == null || byGuid.containsKey(snapshot.targetMeshId())) {
@@ -55,13 +63,52 @@ public final class CubismClipMaskServiceImpl implements CubismClipMaskService {
     }
 
     /**
-     * Best-effort mesh index: an ArtMesh whose {@code id} equals the target GUID
-     * supplies its {@code name} as the display name; otherwise the short GUID
-     * (first 8 characters) is used. A failing mesh read degrades to the
-     * short-GUID fallback instead of failing the whole clip-mask snapshot.
+     * Best-effort display-name index, three levels: drawable (guid→name) index from the
+     * active editor model first, then the mesh (id→name) join; each read fails closed to
+     * the next level, and a missing name falls back to the short GUID (first 8 characters).
      */
-    private MeshIndex meshIndex() {
+    private MeshIndex nameIndex() {
         final Map<String, String> namesByGuid = new LinkedHashMap<>();
+        indexDrawables(namesByGuid);
+        indexMeshes(namesByGuid);
+        return new MeshIndex(namesByGuid);
+    }
+
+    private void indexDrawables(final Map<String, String> namesByGuid) {
+        try {
+            final List<Drawable> drawables = modelAccess.active().drawables().all();
+            if (drawables == null) {
+                return;
+            }
+            for (Drawable drawable : drawables) {
+                if (drawable == null) {
+                    continue;
+                }
+                final String guid;
+                try {
+                    guid = drawable.guid();
+                } catch (RuntimeException unavailable) {
+                    continue; // per-drawable: guid unavailable -> skip this drawable
+                }
+                if (guid == null || guid.isBlank()) {
+                    continue;
+                }
+                String name;
+                try {
+                    name = drawable.name();
+                } catch (RuntimeException unavailable) {
+                    name = ""; // name unavailable -> do not block the mesh join fallback
+                }
+                if (!name.isBlank()) {
+                    namesByGuid.putIfAbsent(guid, name);
+                }
+            }
+        } catch (RuntimeException unavailable) {
+            // ponytail: drawables read unavailable -> mesh join fallback, matching legacy behavior
+        }
+    }
+
+    private void indexMeshes(final Map<String, String> namesByGuid) {
         try {
             final List<ArtMeshSnapshot> meshes = readService.meshes();
             if (meshes != null) {
@@ -73,9 +120,7 @@ public final class CubismClipMaskServiceImpl implements CubismClipMaskService {
             }
         } catch (RuntimeException unavailable) {
             // ponytail: mesh read unavailable -> short-GUID fallback, matching legacy behavior
-            return new MeshIndex(namesByGuid);
         }
-        return new MeshIndex(namesByGuid);
     }
 
     /** Package-private dedup carrier: first-seen {@link ClipMaskRecord} per stable GUID. */
