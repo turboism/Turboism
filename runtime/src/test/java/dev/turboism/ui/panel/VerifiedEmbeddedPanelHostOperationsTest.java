@@ -5,15 +5,19 @@ import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.action.ActionRegistry;
+import dev.turboism.sdk.action.UiActionEvent;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 import dev.turboism.sdk.ui.context.PanelTabSelection;
 import dev.turboism.ui.action.EditorUiActionRouter;
 
+import java.util.function.BiConsumer;
 import javax.swing.SwingUtilities;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -245,6 +249,22 @@ class VerifiedEmbeddedPanelHostOperationsTest {
 
         assertNull(routed.get());
         assertEquals(0, RouteApp.instanceCalls);
+    }
+
+    @Test
+    void injectedButtonActionRoutesToContributorPluginId() {
+        final List<String> routed = new ArrayList<>();
+        final BiConsumer<String, Optional<UiActionEvent>> action = VerifiedEmbeddedPanelHostOperations.routedAction(
+            (pluginId, actionId) -> routed.add(pluginId + ":" + actionId),
+            Map.of("clipmask-viewer.open.viewer", "clipmask-viewer"),
+            "turboism.panel.main");
+
+        action.accept("clipmask-viewer.open.viewer", Optional.empty());
+        action.accept("panel.own.action", Optional.empty());
+
+        assertEquals(
+            List.of("clipmask-viewer:clipmask-viewer.open.viewer", "turboism.panel.main:panel.own.action"),
+            routed);
     }
 
     private static void await(final CountDownLatch latch) {

@@ -18,6 +18,7 @@ import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Locale;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -61,27 +62,27 @@ class PanelCollapsibleContentCoordinatorTest {
 
     @Test
     void registerRejectsNull() {
-        assertThrows(NullPointerException.class, () -> coordinator.register(null));
+        assertThrows(NullPointerException.class, () -> coordinator.register("plugin-a", null));
     }
 
     @Test
     void duplicateSectionIdInSamePanelIsRejected() {
-        coordinator.register(section(PANEL, "s1", 0, "one"));
+        coordinator.register("plugin-a", section(PANEL, "s1", 0, "one"));
         assertThrows(IllegalStateException.class,
-            () -> coordinator.register(section(PANEL, "s1", 0, "two")));
+            () -> coordinator.register("plugin-a", section(PANEL, "s1", 0, "two")));
     }
 
     @Test
     void sameSectionIdAcrossPanelsIsAllowed() {
-        coordinator.register(section(PANEL, "s1", 0, "one"));
-        coordinator.register(section(OTHER_PANEL, "s1", 0, "two"));
+        coordinator.register("plugin-a", section(PANEL, "s1", 0, "one"));
+        coordinator.register("plugin-a", section(OTHER_PANEL, "s1", 0, "two"));
         assertEquals(1, coordinator.injectedSections(PANEL).size());
         assertEquals(1, coordinator.injectedSections(OTHER_PANEL).size());
     }
 
     @Test
     void pendingRegistrationLandsWhenPanelRegisters() {
-        Registration registration = coordinator.register(section(PANEL, "s1", 0, "one"));
+        Registration registration = coordinator.register("plugin-a", section(PANEL, "s1", 0, "one"));
         assertFalse(coordinator.isRegistered(PANEL));
         assertEquals(1, coordinator.injectedSections(PANEL).size());
 
@@ -94,7 +95,7 @@ class PanelCollapsibleContentCoordinatorTest {
 
     @Test
     void panelRemovalReturnsSectionsToPendingWithoutLossOrDuplication() {
-        coordinator.register(section(PANEL, "s1", 0, "one"));
+        coordinator.register("plugin-a", section(PANEL, "s1", 0, "one"));
         coordinator.onPanelRegistered(PANEL);
         coordinator.onPanelRemoved(PANEL);
         assertFalse(coordinator.isRegistered(PANEL));
@@ -107,12 +108,12 @@ class PanelCollapsibleContentCoordinatorTest {
 
     @Test
     void closeIsIdempotentAndOnlyRemovesOwnEntry() {
-        Registration first = coordinator.register(section(PANEL, "s1", 0, "one"));
+        Registration first = coordinator.register("plugin-a", section(PANEL, "s1", 0, "one"));
         first.close();
         first.close();
         assertTrue(coordinator.injectedSections(PANEL).isEmpty());
 
-        Registration second = coordinator.register(section(PANEL, "s1", 0, "two"));
+        Registration second = coordinator.register("plugin-a", section(PANEL, "s1", 0, "two"));
         assertEquals(1, coordinator.injectedSections(PANEL).size());
         // 旧句柄再次 close 不得移除新注册的条目。
         first.close();
@@ -123,9 +124,9 @@ class PanelCollapsibleContentCoordinatorTest {
 
     @Test
     void injectedSectionsOrderByOrderThenSectionId() {
-        coordinator.register(section(PANEL, "zebra", 5, "z"));
-        coordinator.register(section(PANEL, "alpha", 5, "a"));
-        coordinator.register(section(PANEL, "mid", 1, "m"));
+        coordinator.register("plugin-a", section(PANEL, "zebra", 5, "z"));
+        coordinator.register("plugin-a", section(PANEL, "alpha", 5, "a"));
+        coordinator.register("plugin-a", section(PANEL, "mid", 1, "m"));
 
         List<String> titles = coordinator.injectedSections(PANEL).stream()
             .map(view -> assertInstanceOf(PanelView.CollapsibleSection.class, view).title())
@@ -135,8 +136,8 @@ class PanelCollapsibleContentCoordinatorTest {
 
     @Test
     void mergeAppendsInjectedSectionsToColumnContent() {
-        coordinator.register(section(PANEL, "s1", 0, "one"));
-        coordinator.register(section(PANEL, "s2", 1, "two"));
+        coordinator.register("plugin-a", section(PANEL, "s1", 0, "one"));
+        coordinator.register("plugin-a", section(PANEL, "s2", 1, "two"));
         PanelView.Column content = PanelView.column(PanelView.text("t1"), PanelView.text("t2"));
 
         PanelView merged = coordinator.merge(PANEL, content);
@@ -151,7 +152,7 @@ class PanelCollapsibleContentCoordinatorTest {
 
     @Test
     void mergeWrapsNonColumnContent() {
-        coordinator.register(section(PANEL, "s1", 0, "one"));
+        coordinator.register("plugin-a", section(PANEL, "s1", 0, "one"));
         PanelView content = PanelView.text("t");
 
         PanelView merged = coordinator.merge(PANEL, content);
@@ -170,12 +171,42 @@ class PanelCollapsibleContentCoordinatorTest {
     }
 
     @Test
+    void actionOwnersMapsInjectedButtonsToContributorPluginId() {
+        coordinator.register("plugin-b", new CollapsibleSectionContribution(
+            PANEL, "b1", "Section b1", 0, true,
+            PanelView.column(
+                PanelView.text("plain"),
+                PanelView.row(
+                    PanelView.button("b1-a", "A", "clipmask-viewer.open.viewer"),
+                    PanelView.button("b1-b", "B", "other.action")),
+                PanelView.collapsibleSection(
+                    "nested", true, PanelView.button("b1-c", "C", "nested.action")))));
+        coordinator.register("plugin-c", new CollapsibleSectionContribution(
+            PANEL, "b2", "Section b2", 1, true,
+            PanelView.column(PanelView.button("b2-a", "D", "third.action"))));
+
+        final Map<String, String> owners = coordinator.actionOwners(PANEL);
+        assertEquals("plugin-b", owners.get("clipmask-viewer.open.viewer"));
+        assertEquals("plugin-b", owners.get("other.action"));
+        assertEquals("plugin-b", owners.get("nested.action"));
+        assertEquals("plugin-c", owners.get("third.action"));
+        assertEquals(4, owners.size());
+    }
+
+    @Test
+    void actionOwnersEmptyWhenPanelHasNoInjectedButtons() {
+        coordinator.register("plugin-a", section(PANEL, "s1", 0, "one"));
+        assertTrue(coordinator.actionOwners(PANEL).isEmpty());
+        assertTrue(coordinator.actionOwners(OTHER_PANEL).isEmpty());
+    }
+
+    @Test
     void mergedRenderKeepsDeclaredSectionsFirstAndInjectedSectionsCollapsible() {
         PanelView content = PanelView.column(
             PanelView.collapsibleSection("A 分区", true, PanelView.text("A-only")),
             PanelView.text("A 尾部"));
-        coordinator.register(section(PANEL, "b-two", 10, "B-two"));
-        coordinator.register(section(PANEL, "b-one", 5, "B-one"));
+        coordinator.register("plugin-a", section(PANEL, "b-two", 10, "B-two"));
+        coordinator.register("plugin-a", section(PANEL, "b-one", 5, "B-one"));
 
         JComponent rendered = SwingPanelViewRenderer.render(
             coordinator.merge(PANEL, content), (id, event) -> { });

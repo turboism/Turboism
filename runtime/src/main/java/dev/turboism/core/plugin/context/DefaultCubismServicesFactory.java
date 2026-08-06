@@ -292,7 +292,7 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
             dependencies.permissions().stream().anyMatch(permission ->
                 CubismFacadeImpl.MODEL_WRITE_PERMISSION.equals(permission.id())
             ) ? physicsEditorCoordinator : dev.turboism.sdk.cubism.physics.PhysicsEditorService.unavailable(),
-            new CubismClipMaskServiceImpl(readCapabilityService)
+            new CubismClipMaskServiceImpl(readCapabilityService, modelAccess)
         );
     }
 }

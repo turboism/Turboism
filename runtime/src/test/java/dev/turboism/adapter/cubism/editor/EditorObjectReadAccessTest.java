@@ -47,6 +47,7 @@ class EditorObjectReadAccessTest {
         assertEquals("WarpFace", mesh.parentDeformerId().orElseThrow().value());
         assertEquals(List.of("ParamAngleX"), mesh.parameterIds().stream().map(value -> value.value()).toList());
         assertEquals(List.of("ArtMeshMask"), mesh.maskIds().stream().map(value -> value.value()).toList());
+        assertEquals("guid:ArtMeshFace", mesh.guid());
         assertEquals(0, mesh.parentPartIndex());
         assertEquals(0, mesh.parentDeformerIndex());
         assertEquals(0, mesh.parameters().get(0));
