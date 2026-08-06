@@ -80,6 +80,7 @@ done
 cp "$pkg_dir/config.template.json" "$stage/config.json"
 cp "$pkg_dir/launch-cubism-turboism.bat" "$stage/"
 cp "$pkg_dir/launch-cubism-turboism.ps1" "$stage/"
+cp "$pkg_dir/configure_turboism.ps1" "$stage/"
 sed "s/__VERSION__/$VER/g" "$pkg_dir/README.en.txt.template" > "$stage/README.txt"
 sed "s/__VERSION__/$VER/g" "$pkg_dir/README.zh.txt.template" > "$stage/README.zh.txt"
 sed "s/__VERSION__/$VER/g" "$pkg_dir/README.ja.txt.template" > "$stage/README.ja.txt"
