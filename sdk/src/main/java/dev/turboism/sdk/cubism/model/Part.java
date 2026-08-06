@@ -44,6 +44,15 @@ public interface Part {
 
     default boolean lockedInHierarchy() { throw unavailable("Part effective lock state"); }
 
+    /**
+     * Returns this Part's keyform Morph Targets in stable host order.
+     *
+     * @throws UnsupportedOperationException when the backend does not expose them
+     */
+    default MorphTargets morphTargets() {
+        throw unavailable("Part Morph Targets");
+    }
+
     default Optional<Color> editColor() { throw unavailable("Part edit color"); }
 
     default void setEditColor(final Optional<Color> value) {

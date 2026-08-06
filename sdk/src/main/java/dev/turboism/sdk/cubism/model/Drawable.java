@@ -128,6 +128,15 @@ public interface Drawable {
         throw unavailable("ArtMesh parameter binding projection");
     }
 
+    /**
+     * Returns this ArtMesh's keyform Morph Targets in stable host order.
+     *
+     * @throws UnsupportedOperationException when the backend does not expose them
+     */
+    default MorphTargets morphTargets() {
+        throw unavailable("ArtMesh Morph Targets");
+    }
+
 
     private static UnsupportedOperationException unavailable(final String feature) {
         return new UnsupportedOperationException(feature + " is unavailable.");
