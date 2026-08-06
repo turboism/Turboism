@@ -25,7 +25,7 @@ class VerifiedHostAdapterConnectorWorkspaceTest {
         VerifiedHostAdapterConnector connector = new VerifiedHostAdapterConnector(
             evidence -> RuntimeHostAdapters.safeMode(),
             slice -> { throw new AssertionError("editor resolver must not run"); },
-            (value, session) -> { throw new AssertionError("editor access must not run"); },
+            (value, session, core) -> { throw new AssertionError("editor access must not run"); },
             null, null, null, null, null, null, null,
             new dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator(),
             ignored -> new dev.turboism.ui.appearance.UnavailableAppearanceHostProvider(),
@@ -53,7 +53,7 @@ class VerifiedHostAdapterConnectorWorkspaceTest {
         VerifiedHostAdapterConnector connector = new VerifiedHostAdapterConnector(
             evidence -> RuntimeHostAdapters.safeMode(),
             slice -> { throw new AssertionError("editor resolver must not run"); },
-            (value, session) -> { throw new AssertionError("editor access must not run"); },
+            (value, session, core) -> { throw new AssertionError("editor access must not run"); },
             slice -> { throw new AssertionError("toolbar resolver must not run"); },
             slice -> { throw new AssertionError("panel resolver must not run"); },
             slice -> { throw new AssertionError("overlay resolver must not run"); },
