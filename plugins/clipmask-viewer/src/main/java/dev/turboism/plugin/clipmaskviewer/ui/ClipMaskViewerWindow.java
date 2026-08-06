@@ -21,6 +21,7 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JSlider;
+import javax.swing.JTextField;
 import javax.swing.JTable;
 import javax.swing.JToggleButton;
 import javax.swing.ListSelectionModel;
@@ -29,6 +30,8 @@ import javax.swing.WindowConstants;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.TableCellRenderer;
 import java.awt.BorderLayout;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import java.awt.CardLayout;
 import java.awt.Color;
 import java.awt.Component;
@@ -146,6 +149,17 @@ public final class ClipMaskViewerWindow extends JDialog implements WindowView {
         closeButton.addActionListener(ignored -> dispose());
         // 缩放工具栏（仅图结构模式显示）：滑动条 / 百分比，与 GraphPanel 双向同步。
         final JPanel zoomBar = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 0));
+        // 过滤框（滑条左边）：按显示名称/ID 过滤，保留相邻节点；随 zoomBar 一起显隐。
+        final JTextField filterField = new JTextField(14);
+        filterField.setPreferredSize(new Dimension(140, filterField.getPreferredSize().height));
+        filterField.setToolTipText(localization.text("filter.label"));
+        final Runnable applyFilter = () -> graphPanel.setFilter(filterField.getText());
+        filterField.getDocument().addDocumentListener(new DocumentListener() {
+            @Override public void insertUpdate(final DocumentEvent event) { applyFilter.run(); }
+            @Override public void removeUpdate(final DocumentEvent event) { applyFilter.run(); }
+            @Override public void changedUpdate(final DocumentEvent event) { applyFilter.run(); }
+        });
+        zoomBar.add(filterField);
         final JSlider zoomSlider = new JSlider(20, 400, 100);
         zoomSlider.setPaintTicks(true);
         zoomSlider.setMajorTickSpacing(20);

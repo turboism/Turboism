@@ -188,10 +188,11 @@ class GraphPanelTest {
         final List<String> clicked = new ArrayList<>();
         final GraphPanel panel = new GraphPanel(stateWithUserAndMask(), localization(), clicked::add);
 
-        dispatchPress(panel, 339, 280);
-        dispatchDrag(panel, 380, 330);
-        dispatchRelease(panel, 380, 330);
-        dispatchClick(panel, 380, 330);
+        // 未命中节点的按下+拖动 = 画布平移；命中节点则是节点拖动（见选中/拖动测试）。
+        dispatchPress(panel, 200, 200);
+        dispatchDrag(panel, 241, 250);
+        dispatchRelease(panel, 241, 250);
+        dispatchClick(panel, 241, 250);
         assertTrue(clicked.isEmpty(), "drag must not trigger the node click");
         assertEquals(41, panel.offsetX());
         assertEquals(50, panel.offsetY());
@@ -203,6 +204,107 @@ class GraphPanelTest {
         dispatchRelease(panel, 382, 332);
         dispatchClick(panel, 382, 332);
         assertTrue(clicked.contains("user-1"), "small drag must still count as a node click");
+    }
+
+    @Test
+    void filterKeepsMatchingNodesAndDirectNeighbors() {
+        // Alpha 使用 Beta、Gamma；Delta 使用 Alpha（mask→user 边：Beta→Alpha、Gamma→Alpha、Alpha→Delta）。
+        final GraphPanel panel = new GraphPanel(filterState(), localization(), clicked -> { });
+
+        panel.setFilter("Alpha");
+        assertEquals(Set.of("gA", "gB", "gC", "gD"), new java.util.HashSet<>(panel.nodeGuids()),
+            "match + direct neighbors (masks of match + users of match)");
+
+        // 按语义：匹配 Beta → 邻居仅以 Beta 为 mask 的使用者 Alpha；Delta 不是 Beta 的直接邻居。
+        panel.setFilter("Beta");
+        assertEquals(Set.of("gA", "gB"), new java.util.HashSet<>(panel.nodeGuids()),
+            "users of match only, non-direct neighbor Delta excluded");
+    }
+
+    @Test
+    void filterMatchesDisplayNameAndIdButNotGuid() {
+        final ClipMaskViewerState state = new ClipMaskViewerState();
+        state.refreshData(service(record("guid-secret-xyz", "HairMesh-01", "Hair Mesh A", false)));
+        final GraphPanel panel = new GraphPanel(state, localization(), clicked -> { });
+        panel.setShowUnrelated(true);
+        panel.rebuild();
+
+        panel.setFilter("HAIR"); // 忽略大小写命中 displayName（也命中 id）。
+        assertEquals(List.of("guid-secret-xyz"), panel.nodeGuids());
+
+        panel.setFilter("mesh-01"); // 命中 id。
+        assertEquals(List.of("guid-secret-xyz"), panel.nodeGuids());
+
+        // guid 含同文本但 displayName/id 都不含 → 不命中 → 空态。
+        panel.setFilter("secret");
+        assertTrue(panel.nodeGuids().isEmpty());
+        assertEquals(new Dimension(400, 200), panel.getPreferredSize(), "empty filter result uses empty state");
+
+        panel.setFilter("");
+        assertEquals(List.of("guid-secret-xyz"), panel.nodeGuids());
+    }
+
+    @Test
+    void clearFilterRestoresAllNodes() {
+        final GraphPanel panel = new GraphPanel(stateWith(2), localization(), clicked -> { });
+        assertEquals(6, panel.nodeGuids().size());
+
+        panel.setFilter("Both 0");
+        assertEquals(Set.of("both-0", "mask-0"), new java.util.HashSet<>(panel.nodeGuids()),
+            "matched node + its mask");
+
+        panel.setFilter("");
+        assertEquals(6, panel.nodeGuids().size(), "clearing the filter restores all nodes");
+    }
+
+    @Test
+    void selectHighlightsNodeNeighborsAndEdges() {
+        final GraphPanel panel = new GraphPanel(filterState(), localization(), clicked -> { });
+
+        panel.setSelected("gA");
+        assertEquals(Set.of("gA", "gB", "gC", "gD"), panel.selectionHighlightGuids(),
+            "selected node + direct neighbors");
+        assertEquals(Set.of("gA", "gB", "gC", "gD"), panel.selectionEdgeEndpoints(),
+            "endpoints of edges touching the selected node");
+
+        // 选中状态下绘制不抛异常（红色高亮路径）。
+        final Dimension size = panel.getPreferredSize();
+        panel.setSize(size);
+        final BufferedImage image = new BufferedImage(size.width, size.height, BufferedImage.TYPE_INT_ARGB);
+        final Graphics2D graphics = image.createGraphics();
+        try {
+            panel.paint(graphics);
+        } finally {
+            graphics.dispose();
+        }
+
+        panel.setSelected(null);
+        assertTrue(panel.selectionHighlightGuids().isEmpty());
+        assertTrue(panel.selectionEdgeEndpoints().isEmpty());
+    }
+
+    @Test
+    void selectedNodeCanBeDraggedAndUnhitDragPansViewport() {
+        final GraphPanel panel = new GraphPanel(stateWithUserAndMask(), localization(), clicked -> { });
+
+        // 命中节点：按下选中 + 拖动移动节点；画布 offset 不变。
+        dispatchPress(panel, 339, 280);
+        assertEquals(Set.of("user-1", "mask-1"), panel.selectionHighlightGuids(),
+            "press on node selects it and its direct neighbor (its mask)");
+        dispatchDrag(panel, 400, 320);
+        dispatchRelease(panel, 400, 320);
+        assertTrue(panel.nodeCenters().contains(new Point(400, 320)), "node follows the drag");
+        assertEquals(0, panel.offsetX());
+        assertEquals(0, panel.offsetY());
+
+        // 未命中节点：按下+拖动 = 画布平移；节点坐标不变。
+        final List<Point> before = panel.nodeCenters();
+        dispatchPress(panel, 200, 200);
+        dispatchDrag(panel, 250, 240);
+        dispatchRelease(panel, 250, 240);
+        assertEquals(50, panel.offsetX());
+        assertEquals(40, panel.offsetY());
+        assertEquals(before, panel.nodeCenters(), "pan must not move nodes");
     }
 
     @Test
@@ -367,6 +469,16 @@ class GraphPanelTest {
         state.refreshData(service(records.toArray(new ClipMaskRecord[0])));
         return state;
     }
+    /** Alpha 使用 Beta、Gamma；Delta 使用 Alpha（全部相关，showUnrelated=false 下全量显示）。 */
+    private static ClipMaskViewerState filterState() {
+        final ClipMaskViewerState state = new ClipMaskViewerState();
+        state.refreshData(service(
+            record("gA", "idA", "Alpha", false, "gB", "gC"),
+            record("gB", "idB", "Beta", false),
+            record("gC", "idC", "Gamma", false),
+            record("gD", "idD", "Delta", false, "gA")));
+        return state;
+    }
 
     private static CubismClipMaskService service(final ClipMaskRecord... records) {
         return () -> List.of(records);
@@ -379,6 +491,15 @@ class GraphPanelTest {
         final String... masks
     ) {
         return new ClipMaskRecord(guid, id, guid, inverted, List.of(masks));
+    }
+    private static ClipMaskRecord record(
+        final String guid,
+        final String id,
+        final String displayName,
+        final boolean inverted,
+        final String... masks
+    ) {
+        return new ClipMaskRecord(guid, id, displayName, inverted, List.of(masks));
     }
 
     private static PluginLocalization localization() {

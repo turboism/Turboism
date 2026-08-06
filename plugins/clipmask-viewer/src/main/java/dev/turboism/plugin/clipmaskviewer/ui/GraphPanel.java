@@ -21,7 +21,9 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -54,6 +56,13 @@ final class GraphPanel extends JComponent {
     private Set<String> highlightedGuids = Set.of();
     private final List<NodeBox> nodes = new ArrayList<>();
     private final Map<String, NodeBox> nodesByGuid = new HashMap<>();
+    /** 过滤文本：非空/非空白时图只显示匹配节点及其直接邻居。 */
+    private String filter = "";
+    /** 单击选中的节点 GUID；与编辑器选中高亮（highlightedGuids）并存，用户选中优先。 */
+    private String selectedGuid;
+    private NodeBox dragNode;
+    private int dragNodeStartX;
+    private int dragNodeStartY;
     private double scale = 1.0;
     private Consumer<Double> viewScaleListener;
     private int offsetX;
@@ -81,11 +90,23 @@ final class GraphPanel extends JComponent {
                 pressOffsetX = offsetX;
                 pressOffsetY = offsetY;
                 dragMoved = false;
+                final NodeBox hit = findNode(event.getPoint());
+                if (hit != null && hit.record != null) {
+                    // 命中节点：选中 + 记录节点拖动上下文（节点起始逻辑坐标 + press 屏幕点）。
+                    selectedGuid = hit.record.guid();
+                    repaint();
+                    dragNode = hit;
+                    dragNodeStartX = hit.x;
+                    dragNodeStartY = hit.y;
+                } else {
+                    dragNode = null;
+                }
             }
 
             @Override
             public void mouseReleased(final MouseEvent event) {
                 pressPoint = null;
+                dragNode = null;
             }
 
             @Override
@@ -120,9 +141,17 @@ final class GraphPanel extends JComponent {
                     final double dx = current.x - pressPoint.x;
                     final double dy = current.y - pressPoint.y;
                     dragMoved |= dx * dx + dy * dy > 4 * 4;
-                    offsetX = pressOffsetX + (int) Math.round(dx);
-                    offsetY = pressOffsetY + (int) Math.round(dy);
-                    repaint();
+                    if (dragNode != null) {
+                        // 节点拖动：屏幕位移经逆变换（/scale）转逻辑位移，移动节点本身。
+                        dragNode.setPosition(
+                            dragNodeStartX + (int) Math.round(dx / scale),
+                            dragNodeStartY + (int) Math.round(dy / scale));
+                        repaint();
+                    } else {
+                        offsetX = pressOffsetX + (int) Math.round(dx);
+                        offsetY = pressOffsetY + (int) Math.round(dy);
+                        repaint();
+                    }
                 }
             }
         });
@@ -202,6 +231,49 @@ final class GraphPanel extends JComponent {
         repaint();
     }
 
+    /** 过滤：null→""；仅显示名称或 id 匹配的节点及其直接邻居（不重置视口）。 */
+    void setFilter(final String value) {
+        final String next = value == null ? "" : value;
+        if (next.equals(filter)) {
+            return;
+        }
+        this.filter = next;
+        rebuild();
+    }
+
+    /** 选中节点（null 清除）；与编辑器高亮并存，绘制时用户选中优先。 */
+    void setSelected(final String guid) {
+        this.selectedGuid = guid;
+        repaint();
+    }
+
+    /** 测试观察口：当前选中节点 + 直接邻居（含选中节点自身）。 */
+    Set<String> selectionHighlightGuids() {
+        return selectionSet();
+    }
+
+    /** 测试观察口：与选中节点相连的边的端点集（面板内）。 */
+    Set<String> selectionEdgeEndpoints() {
+        if (selectedGuid == null) {
+            return Set.of();
+        }
+        final Set<String> endpoints = new LinkedHashSet<>();
+        for (NodeBox user : nodes) {
+            final ClipMaskRecord record = user.record;
+            if (record == null) {
+                continue;
+            }
+            for (String maskGuid : record.orderedMaskGuids()) {
+                if (nodesByGuid.containsKey(maskGuid)
+                    && (maskGuid.equals(selectedGuid) || record.guid().equals(selectedGuid))) {
+                    endpoints.add(maskGuid);
+                    endpoints.add(record.guid());
+                }
+            }
+        }
+        return endpoints;
+    }
+
     NodeBox findNode(final Point point) {
         final double lx = (point.x - offsetX) / scale;
         final double ly = (point.y - offsetY) / scale;
@@ -219,7 +291,13 @@ final class GraphPanel extends JComponent {
         nodes.clear();
         nodesByGuid.clear();
         final List<ClipMaskRecord> pool = showUnrelated ? state.records() : state.filterRelated();
-        if (pool == null || pool.isEmpty()) {
+        // 过滤节点集：匹配（displayName/id，绝不读 guid）+ 直接邻居（指向的 mask + 以它为 mask 的使用者）。
+        final List<ClipMaskRecord> effective = filter.isBlank() ? pool : filterWithNeighbors();
+        if (selectedGuid != null && !containsGuid(effective, selectedGuid)) {
+            // 过滤/重建后选中节点不在有效集 → 清空选中。
+            selectedGuid = null;
+        }
+        if (effective == null || effective.isEmpty()) {
             resetView();
             setPreferredSize(new Dimension(400, 200));
             revalidate();
@@ -229,7 +307,7 @@ final class GraphPanel extends JComponent {
         final List<ClipMaskRecord> top = new ArrayList<>();
         final List<ClipMaskRecord> middle = new ArrayList<>();
         final List<ClipMaskRecord> bottom = new ArrayList<>();
-        for (ClipMaskRecord record : pool) {
+        for (ClipMaskRecord record : effective) {
             if (record == null) {
                 continue;
             }
@@ -322,6 +400,93 @@ final class GraphPanel extends JComponent {
         return centers;
     }
 
+    /** 测试观察口：当前面板节点 GUID 列表（布局顺序）。 */
+    List<String> nodeGuids() {
+        final List<String> guids = new ArrayList<>(nodes.size());
+        for (NodeBox node : nodes) {
+            if (node.record != null) {
+                guids.add(node.record.guid());
+            }
+        }
+        return guids;
+    }
+
+    /** 过滤匹配（只读 displayName 与 id，绝不读 guid）+ 直接邻居。 */
+    private List<ClipMaskRecord> filterWithNeighbors() {
+        final String needle = filter.toLowerCase(Locale.ROOT);
+        final List<ClipMaskRecord> matches = new ArrayList<>();
+        final Set<String> matchGuids = new LinkedHashSet<>();
+        for (ClipMaskRecord record : state.records()) {
+            if (record == null) {
+                continue;
+            }
+            // 匹配判定只读 displayName 与 id，绝不读 guid。
+            if (containsIgnoreCase(record.displayName(), needle)
+                || containsIgnoreCase(record.id(), needle)) {
+                matches.add(record);
+                matchGuids.add(record.guid());
+            }
+        }
+        final LinkedHashSet<ClipMaskRecord> result = new LinkedHashSet<>(matches);
+        for (ClipMaskRecord record : matches) {
+            // 匹配节点指向的 mask。
+            for (String maskGuid : record.orderedMaskGuids()) {
+                final ClipMaskRecord mask = state.byGuid().get(maskGuid);
+                if (mask != null) {
+                    result.add(mask);
+                }
+            }
+        }
+        for (ClipMaskRecord record : state.records()) {
+            // 以匹配节点为 mask 的使用者（被指向）。
+            if (record == null) {
+                continue;
+            }
+            for (String maskGuid : record.orderedMaskGuids()) {
+                if (matchGuids.contains(maskGuid)) {
+                    result.add(record);
+                    break;
+                }
+            }
+        }
+        return new ArrayList<>(result);
+    }
+
+    /** 选中节点 + 直接邻居（按 nodesByGuid 解析，缺失忽略）。 */
+    private Set<String> selectionSet() {
+        final Set<String> result = new LinkedHashSet<>();
+        if (selectedGuid == null || !nodesByGuid.containsKey(selectedGuid)) {
+            return result;
+        }
+        result.add(selectedGuid);
+        final ClipMaskRecord selected = nodesByGuid.get(selectedGuid).record;
+        // 它指向的 mask。
+        for (String maskGuid : selected.orderedMaskGuids()) {
+            if (nodesByGuid.containsKey(maskGuid)) {
+                result.add(maskGuid);
+            }
+        }
+        // 以它为 mask 的使用者。
+        for (ClipMaskRecord user : state.maskUsers().getOrDefault(selectedGuid, List.of())) {
+            if (user != null && nodesByGuid.containsKey(user.guid())) {
+                result.add(user.guid());
+            }
+        }
+        return result;
+    }
+
+    private static boolean containsIgnoreCase(final String text, final String needleLower) {
+        return text != null && text.toLowerCase(Locale.ROOT).contains(needleLower);
+    }
+
+    private static boolean containsGuid(final List<ClipMaskRecord> records, final String guid) {
+        for (ClipMaskRecord record : records) {
+            if (record != null && guid.equals(record.guid())) {
+                return true;
+            }
+        }
+        return false;
+    }
 
     @Override
     protected void paintComponent(final Graphics graphics) {
@@ -352,13 +517,20 @@ final class GraphPanel extends JComponent {
                     if (mask == null) {
                         continue;
                     }
-                    g2.setColor(record.inverted()
-                        ? new Color(200, 80, 80, 160)
-                        : new Color(80, 120, 200, 180));
+                    final boolean touchesSelection = selectedGuid != null
+                        && (maskGuid.equals(selectedGuid) || record.guid().equals(selectedGuid));
+                    g2.setColor(touchesSelection
+                        ? new Color(220, 40, 40)
+                        : (record.inverted()
+                            ? new Color(200, 80, 80, 160)
+                            : new Color(80, 120, 200, 180)));
+                    g2.setStroke(touchesSelection ? new BasicStroke(2.5f) : new BasicStroke(1.2f));
                     drawArrow(g2, mask.x, mask.y, user.x, user.y, NODE_RADIUS);
                 }
             }
 
+            // 用户选中高亮集（选中节点 + 直接邻居），节点描边红色覆盖编辑器橙色。
+            final Set<String> selectionSet = selectionSet();
             final FontMetrics fm = g2.getFontMetrics();
             for (NodeBox node : nodes) {
                 final ClipMaskRecord record = node.record;
@@ -367,9 +539,12 @@ final class GraphPanel extends JComponent {
                 final Color fill = resolveFill(isMask, hasMask, record.inverted());
                 g2.setColor(fill);
                 g2.fillOval(node.x - NODE_RADIUS, node.y - NODE_RADIUS, NODE_RADIUS * 2, NODE_RADIUS * 2);
+                final boolean inSelection = selectionSet.contains(record.guid());
                 final boolean highlighted = highlightedGuids.contains(record.guid());
-                g2.setColor(highlighted ? new Color(230, 120, 20) : new Color(60, 60, 60));
-                g2.setStroke(new BasicStroke(highlighted ? 3.2f : 1.4f));
+                g2.setColor(inSelection
+                    ? new Color(220, 40, 40)
+                    : (highlighted ? new Color(230, 120, 20) : new Color(60, 60, 60)));
+                g2.setStroke(new BasicStroke(inSelection || highlighted ? 3.2f : 1.4f));
                 g2.drawOval(node.x - NODE_RADIUS, node.y - NODE_RADIUS, NODE_RADIUS * 2, NODE_RADIUS * 2);
 
                 final String name = safeShort(record.displayName(), 10);
@@ -480,11 +655,16 @@ final class GraphPanel extends JComponent {
 
     private final class NodeBox {
         final ClipMaskRecord record;
-        final int x;
-        final int y;
+        int x;
+        int y;
 
         NodeBox(final ClipMaskRecord record, final int x, final int y) {
             this.record = record;
+            this.x = x;
+            this.y = y;
+        }
+
+        void setPosition(final int x, final int y) {
             this.x = x;
             this.y = y;
         }
