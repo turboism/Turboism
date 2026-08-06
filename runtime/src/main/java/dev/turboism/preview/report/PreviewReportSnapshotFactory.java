@@ -77,7 +77,8 @@ public final class PreviewReportSnapshotFactory {
         binding("ui.file-chooser.request", "ui.file-chooser.request", "turboism.ui.file-chooser.request"),
         binding("ui.status.notify", "ui.status.notify", "turboism.ui.status.notify"),
         binding("ui.palette-toolbar.contribute", "ui.palette-toolbar.contribute", "turboism.ui.toolbar.palette.contribute"),
-        binding("ui.main-toolbar.contribute", "ui.main-toolbar.contribute", "turboism.ui.toolbar.main.contribute")
+        binding("ui.main-toolbar.contribute", "ui.main-toolbar.contribute", "turboism.ui.toolbar.main.contribute"),
+        binding("ui.dialog.automate", "ui.dialog.automate.act", "turboism.ui.dialog.automate")
     );
     private static final Set<String> KNOWN_UNMAPPED_CAPABILITIES = Set.of(
         "cubism.model-tree.write",

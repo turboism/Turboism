@@ -24,6 +24,7 @@ import dev.turboism.sdk.runtime.RuntimeSettingsService;
 import dev.turboism.sdk.ui.UiHostCapabilityService;
 import dev.turboism.sdk.ui.UserFileAccessService;
 import dev.turboism.sdk.ui.UiScheduler;
+import dev.turboism.sdk.ui.dialog.HostDialogAutomationService;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 import dev.turboism.sdk.ui.filter.PaletteFilterRegistry;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
@@ -120,6 +121,10 @@ public interface PluginContext {
 
     default UiHostCapabilityService uiHost() {
         throw new UnsupportedOperationException("uiHost service is not available");
+    }
+
+    default HostDialogAutomationService hostDialogs() {
+        throw new UnsupportedOperationException("host dialog automation service is not available");
     }
 
     default AppearanceService appearance() {
