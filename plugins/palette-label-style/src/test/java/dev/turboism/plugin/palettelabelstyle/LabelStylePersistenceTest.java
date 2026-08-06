@@ -1,31 +1,41 @@
 package dev.turboism.plugin.palettelabelstyle;
 
-import dev.turboism.sdk.config.PluginConfigRegistry;
-import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.sdk.storage.StorageRoot;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry.Location;
 import org.junit.jupiter.api.Test;
 
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class LabelStylePersistenceTest {
 
     @Test
-    void scopePathMapsBlankProjectIdsToDefault() throws Exception {
-        assertEquals("palette-label-style/colors-default.properties", LabelStylePersistence.scopePath(null));
-        assertEquals("palette-label-style/colors-default.properties", LabelStylePersistence.scopePath(""));
-        assertEquals("palette-label-style/colors-default.properties", LabelStylePersistence.scopePath("  "));
-        assertEquals("palette-label-style/colors-project-1.properties", LabelStylePersistence.scopePath("project-1"));
+    void filePathMapsBlankProjectIdsToDefault() {
+        assertEquals(
+            "palette-label-style/colors-default.properties",
+            LabelStylePersistence.filePath(null).relativePath()
+        );
+        assertEquals(
+            "palette-label-style/colors-default.properties",
+            LabelStylePersistence.filePath("").relativePath()
+        );
+        assertEquals(
+            "palette-label-style/colors-default.properties",
+            LabelStylePersistence.filePath("  ").relativePath()
+        );
+        assertEquals(
+            "palette-label-style/colors-project-1.properties",
+            LabelStylePersistence.filePath("project-1").relativePath()
+        );
+        assertEquals(StorageRoot.STATE, LabelStylePersistence.filePath("project-1").root());
         assertEquals("default", LabelStylePersistence.safeProjectId(null));
     }
 
     @Test
-    void keyUsesPaletteObjectAndProperty() throws Exception {
+    void keyUsesPaletteObjectAndProperty() {
         assertEquals(
             "PARAMETER_TAB:ParamAngleX:text",
             LabelStylePersistence.key(Location.PARAMETER_TAB, "ParamAngleX", LabelStylePersistence.PROPERTY_TEXT)
@@ -37,7 +47,7 @@ class LabelStylePersistenceTest {
     }
 
     @Test
-    void parseKeySplitsStoredKeys() throws Exception {
+    void parseKeySplitsStoredKeys() {
         final LabelStylePersistence.StoredEntry entry = LabelStylePersistence
             .parseKey("PART_TAB:Part_1:text").orElseThrow();
         assertEquals(Location.PART_TAB, entry.palette());
@@ -46,7 +56,7 @@ class LabelStylePersistenceTest {
     }
 
     @Test
-    void parseKeyKeepsColonsInsideObjectIds() throws Exception {
+    void parseKeyKeepsColonsInsideObjectIds() {
         final LabelStylePersistence.StoredEntry entry = LabelStylePersistence
             .parseKey("PARAMETER_TAB:group:with:colon:text").orElseThrow();
         assertEquals("group:with:colon", entry.objectId());
@@ -54,7 +64,7 @@ class LabelStylePersistenceTest {
     }
 
     @Test
-    void parseKeyRejectsMalformedKeys() throws Exception {
+    void parseKeyRejectsMalformedKeys() {
         assertTrue(LabelStylePersistence.parseKey(null).isEmpty());
         assertTrue(LabelStylePersistence.parseKey("").isEmpty());
         assertTrue(LabelStylePersistence.parseKey("PARAMETER_TAB").isEmpty());
@@ -66,121 +76,74 @@ class LabelStylePersistenceTest {
     }
 
     @Test
-    void writePersistsEntryAndReadAllReturnsIt() throws Exception {
-        final RecordingPluginConfigRegistry config = new RecordingPluginConfigRegistry();
-        LabelStylePersistence.write(config, "project-1", Location.PARAMETER_TAB, "ParamAngleX", "text", "#E53935");
-        LabelStylePersistence.write(config, "project-1", Location.PARAMETER_TAB, "ParamAngleX", "background", "#2196F3");
-
-        assertEquals(
-            Map.of(
-                "PARAMETER_TAB:ParamAngleX:text", "#E53935",
-                "PARAMETER_TAB:ParamAngleX:background", "#2196F3"
-            ),
-            LabelStylePersistence.readAll(config, "project-1")
+    void serializeParseRoundTripPreservesEntries() {
+        final Map<String, String> entries = Map.of(
+            "PARAMETER_TAB:ParamAngleX:text", "#E53935",
+            "PARAMETER_TAB:ParamAngleX:background", "#2196F3",
+            "PART_TAB:Part_1:text", "#4CAF50"
         );
-        assertTrue(LabelStylePersistence.readAll(config, "other-project").isEmpty());
+        assertEquals(entries, LabelStylePersistence.parse(LabelStylePersistence.serialize(entries)));
     }
 
     @Test
-    void clearRemovesEntryFromReplay() throws Exception {
-        final RecordingPluginConfigRegistry config = new RecordingPluginConfigRegistry();
-        LabelStylePersistence.write(config, "project-1", Location.PART_TAB, "Part_1", "text", "#4CAF50");
-        LabelStylePersistence.clear(config, "project-1", Location.PART_TAB, "Part_1", "text");
-
-        assertTrue(LabelStylePersistence.readAll(config, "project-1").isEmpty());
-        // The tombstone value is still observable by direct read but never replayed.
-        assertEquals(Optional.of(""), config.readString(
-            LabelStylePersistence.scopePath("project-1"), "PART_TAB:Part_1:text"));
+    void serializeEmptyProducesCommentOnlyContent() {
+        final String content = LabelStylePersistence.serialize(Map.of());
+        assertTrue(content.startsWith("#"));
+        assertTrue(LabelStylePersistence.parse(content).isEmpty());
     }
 
     @Test
-    void rewriteAfterClearReappears() throws Exception {
-        final RecordingPluginConfigRegistry config = new RecordingPluginConfigRegistry();
-        LabelStylePersistence.write(config, "p", Location.PARAMETER_TAB, "Angle", "text", "#FF9800");
-        LabelStylePersistence.clear(config, "p", Location.PARAMETER_TAB, "Angle", "text");
-        LabelStylePersistence.write(config, "p", Location.PARAMETER_TAB, "Angle", "text", "#9C27B0");
-
-        assertEquals(
-            Map.of("PARAMETER_TAB:Angle:text", "#9C27B0"),
-            LabelStylePersistence.readAll(config, "p")
-        );
-    }
-
-    @Test
-    void projectsAreIsolatedByScopePath() throws Exception {
-        final RecordingPluginConfigRegistry config = new RecordingPluginConfigRegistry();
-        LabelStylePersistence.write(config, "project-a", Location.DEFORMER_TAB, "Deformer_1", "text", "#E53935");
-        LabelStylePersistence.write(config, "project-b", Location.DEFORMER_TAB, "Deformer_1", "text", "#2196F3");
-
-        assertEquals(
-            Map.of("DEFORMER_TAB:Deformer_1:text", "#E53935"),
-            LabelStylePersistence.readAll(config, "project-a")
-        );
-        assertEquals(
-            Map.of("DEFORMER_TAB:Deformer_1:text", "#2196F3"),
-            LabelStylePersistence.readAll(config, "project-b")
-        );
-    }
-
-    @Test
-    void readAllSkipsInvalidHexValues() throws Exception {
-        final RecordingPluginConfigRegistry config = new RecordingPluginConfigRegistry();
-        config.rawWrite("palette-label-style/colors-p.properties",
-            "PARAMETER_TAB:Angle:text", "#E53935");
-        config.rawWrite("palette-label-style/colors-p.properties",
-            "PARAMETER_TAB:Broken:text", "not-a-color");
-        config.rawWrite("palette-label-style/colors-p.properties",
-            "index", "PARAMETER_TAB:Angle:text,PARAMETER_TAB:Broken:text");
-
+    void parseSkipsCommentsBlankLinesAndMalformedEntries() {
+        final String content = "# palette-label-style colors\n"
+            + "\n"
+            + "PARAMETER_TAB:Angle:text=#E53935\n"
+            + "no-equals-here\n"
+            + "=value\n"
+            + "PARAMETER_TAB:Broken:text=not-a-color\n"
+            + "index=PARAMETER_TAB:Angle:text\n"
+            + "PARAMETER_TAB:Other:font=#112233\n";
         assertEquals(
             Map.of("PARAMETER_TAB:Angle:text", "#E53935"),
-            LabelStylePersistence.readAll(config, "p")
+            LabelStylePersistence.parse(content)
         );
     }
 
     @Test
-    void readAllReturnsEmptyWhenIndexIsAbsent() throws Exception {
-        assertTrue(LabelStylePersistence.readAll(new RecordingPluginConfigRegistry(), "p").isEmpty());
+    void parseAcceptsLowercaseHexAndNormalizesNothing() {
+        assertEquals(
+            Map.of("PART_TAB:Part_1:text", "#4caf50"),
+            LabelStylePersistence.parse("PART_TAB:Part_1:text=#4caf50\n")
+        );
     }
 
-    /** In-memory PluginConfigRegistry mirroring the runtime's scope enforcement. */
-    private static final class RecordingPluginConfigRegistry implements PluginConfigRegistry {
-        private final Map<String, Map<String, String>> scopes = new HashMap<>();
-
-        @Override
-        public Registration readScope(final String relativePath) {
-            scopes.computeIfAbsent(relativePath, ignored -> new HashMap<>());
-            return () -> scopes.remove(relativePath);
-        }
-
-        @Override
-        public Registration writeScope(final String relativePath) {
-            scopes.computeIfAbsent(relativePath, ignored -> new HashMap<>());
-            return () -> scopes.remove(relativePath);
-        }
-
-        @Override
-        public Optional<String> readString(final String relativePath, final String key) {
-            return Optional.ofNullable(scope(relativePath).get(key));
-        }
-
-        @Override
-        public void writeString(final String relativePath, final String key, final String value) {
-            scope(relativePath).put(key, value);
-        }
-
-        /** Direct write bypassing scope registration, for replay fixtures. */
-        void rawWrite(final String relativePath, final String key, final String value) {
-            scopes.computeIfAbsent(relativePath, ignored -> new HashMap<>()).put(key, value);
-        }
-
-        private Map<String, String> scope(final String relativePath) {
-            return scopes.computeIfAbsent(relativePath, ignored -> new HashMap<>());
-        }
-
-        List<String> scopes() {
-            return List.copyOf(scopes.keySet());
-        }
+    @Test
+    void parseHandlesBlankAndNullContent() {
+        assertTrue(LabelStylePersistence.parse(null).isEmpty());
+        assertTrue(LabelStylePersistence.parse("").isEmpty());
+        assertTrue(LabelStylePersistence.parse("   \n  \n").isEmpty());
     }
 
+    @Test
+    void projectsAreIsolatedByFilePath() {
+        assertFalse(LabelStylePersistence.filePath("project-a")
+            .equals(LabelStylePersistence.filePath("project-b")));
+        assertEquals(
+            "palette-label-style/colors-project-a.properties",
+            LabelStylePersistence.filePath("project-a").relativePath()
+        );
+        assertEquals(
+            "palette-label-style/colors-project-b.properties",
+            LabelStylePersistence.filePath("project-b").relativePath()
+        );
+    }
+
+    @Test
+    void serializeSortsKeysForStableOutput() {
+        final String content = LabelStylePersistence.serialize(Map.of(
+            "PART_TAB:Part_1:text", "#4CAF50",
+            "PARAMETER_TAB:Angle:text", "#E53935"
+        ));
+        assertTrue(content.indexOf("PARAMETER_TAB:Angle:text") < content.indexOf("PART_TAB:Part_1:text"),
+            "PARAMETER sorts before PART in ASCII");
+    }
 }
