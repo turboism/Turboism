@@ -81,6 +81,8 @@ final class VerifiedControlAppearanceHookInstaller implements AutoCloseable {
         final StaticSelector deformerRowSource = instanceMethod(resolver, "deformer-row.source");
         final StaticSelector deformerSource = classSelector(resolver, "deformer-source.class");
         final StaticSelector deformerId = instanceMethod(resolver, "deformer-source.id");
+        final StaticSelector artMeshSource = classSelector(resolver, "art-mesh.source-class");
+        final StaticSelector artMeshId = instanceMethod(resolver, "art-mesh.source-id");
         final StaticSelector deformerControlRenderer = instanceMethod(resolver, "deformer-control.renderer");
         final StaticSelector deformerControlOuter = instanceField(resolver, "deformer-control.outer");
         final StaticSelector deformerControlOuterClass = classSelector(resolver, "deformer-control.outer-class");
@@ -161,7 +163,8 @@ final class VerifiedControlAppearanceHookInstaller implements AutoCloseable {
             targetClassNames,
             new NativeDeformerTreeAppearanceBridge.Selectors(
                 deformerRowSource.ownerInternalName(), deformerRowSource.memberName(),
-                deformerSource.ownerInternalName(), deformerId.memberName(), idValue.memberName(), loader
+                deformerSource.ownerInternalName(), deformerId.memberName(),
+                artMeshSource.ownerInternalName(), artMeshId.memberName(), idValue.memberName(), loader
             ),
             new NativeDeformerControlRowAppearanceBridge.Selectors(
                 deformerControlRenderer.ownerInternalName(), deformerControlOuter.memberName(),
@@ -180,6 +183,7 @@ final class VerifiedControlAppearanceHookInstaller implements AutoCloseable {
             ),
             new NativePartTreeAppearanceBridge.Selectors(
                 partNode.ownerInternalName(), partNodeSource.memberName(), partSource.ownerInternalName(),
+                deformerSource.ownerInternalName(), artMeshSource.ownerInternalName(),
                 partSourceId.memberName(), idValue.memberName(), partChildren.memberName(), loader
             ),
             coordinator
