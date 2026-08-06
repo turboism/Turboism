@@ -130,7 +130,7 @@ public final class MainToolbarHomeEntryService {
     }
 
     private static PanelView panelView() {
-        return PanelView.column(PanelView.text("Turboism"));
+        return PanelView.column(PanelView.text(""));
     }
 
 }
