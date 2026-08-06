@@ -827,6 +827,26 @@ public final class CubismFacadeImpl implements CubismFacade {
             requireModelRead("model.mocInfo");
             return delegate.mocInfo();
         }
+
+        @Override public dev.turboism.sdk.cubism.model.ModelProfile profile() {
+            requireModelRead("model.profile");
+            return delegate.profile();
+        }
+
+        @Override public dev.turboism.sdk.cubism.model.PhysicsSettings physicsSettings() {
+            requireModelRead("model.physicsSettings");
+            return delegate.physicsSettings();
+        }
+
+        @Override public dev.turboism.sdk.cubism.model.AutoYure autoYure() {
+            requireModelRead("model.autoYure");
+            return delegate.autoYure();
+        }
+
+        @Override public List<dev.turboism.sdk.cubism.model.AnimationDocument> animationDocuments() {
+            requireModelRead("model.animationDocuments");
+            return delegate.animationDocuments();
+        }
         @Override public dev.turboism.sdk.cubism.model.ParameterDefinitions parameterDefinitions() {
             requireModelRead("model.parameterDefinitions");
             final dev.turboism.sdk.cubism.model.ParameterDefinitions definitions =
@@ -913,6 +933,31 @@ public final class CubismFacadeImpl implements CubismFacade {
                         parameters.find(Objects.requireNonNull(id, "id"))
                     );
                 }
+
+                @Override public Parameter create(
+                    final dev.turboism.sdk.cubism.model.ParameterDefinition definition
+                ) {
+                    requireModelWrite("model.parameters.create");
+                    return new PermissionCheckedParameter(parameters.create(definition));
+                }
+
+                @Override public Parameter create(
+                    final dev.turboism.sdk.cubism.model.ParameterDefinition definition,
+                    final Optional<dev.turboism.sdk.cubism.id.ParameterGroupId> folderId
+                ) {
+                    requireModelWrite("model.parameters.create");
+                    return new PermissionCheckedParameter(parameters.create(definition, folderId));
+                }
+
+                @Override public Parameter copy(final dev.turboism.sdk.cubism.id.ParameterId id) {
+                    requireModelWrite("model.parameters.copy");
+                    return new PermissionCheckedParameter(parameters.copy(id));
+                }
+
+                @Override public void remove(final dev.turboism.sdk.cubism.id.ParameterId id) {
+                    requireModelWrite("model.parameters.remove");
+                    parameters.remove(id);
+                }
             };
         }
         @Override public ParameterGroups parameterGroups() {
@@ -936,6 +981,26 @@ public final class CubismFacadeImpl implements CubismFacade {
                     return new PermissionCheckedParameterGroup(
                         groups.find(Objects.requireNonNull(id, "id"))
                     );
+                }
+
+                @Override public ParameterGroup addGroup(final String name) {
+                    requireModelWrite("model.parameterGroups.addGroup");
+                    return new PermissionCheckedParameterGroup(groups.addGroup(name));
+                }
+
+                @Override public void removeGroup(
+                    final dev.turboism.sdk.cubism.id.ParameterGroupId id
+                ) {
+                    requireModelWrite("model.parameterGroups.removeGroup");
+                    groups.removeGroup(id);
+                }
+
+                @Override public void moveParameter(
+                    final dev.turboism.sdk.cubism.id.ParameterId parameterId,
+                    final dev.turboism.sdk.cubism.id.ParameterGroupId targetGroupId
+                ) {
+                    requireModelWrite("model.parameterGroups.moveParameter");
+                    groups.moveParameter(parameterId, targetGroupId);
                 }
             };
         }
@@ -1057,6 +1122,33 @@ public final class CubismFacadeImpl implements CubismFacade {
                     return new PermissionCheckedPart(
                         parts.find(Objects.requireNonNull(id, "id"))
                     );
+                }
+
+                @Override public dev.turboism.sdk.cubism.model.Part add(
+                    final dev.turboism.sdk.cubism.model.PartId id
+                ) {
+                    requireModelWrite("model.parts.add");
+                    return new PermissionCheckedPart(parts.add(id));
+                }
+
+                @Override public dev.turboism.sdk.cubism.model.Part add(
+                    final dev.turboism.sdk.cubism.model.PartId id,
+                    final dev.turboism.sdk.cubism.model.PartId parentId
+                ) {
+                    requireModelWrite("model.parts.add");
+                    return new PermissionCheckedPart(parts.add(id, parentId));
+                }
+
+                @Override public dev.turboism.sdk.cubism.model.Part copy(
+                    final dev.turboism.sdk.cubism.model.PartId id
+                ) {
+                    requireModelWrite("model.parts.copy");
+                    return new PermissionCheckedPart(parts.copy(id));
+                }
+
+                @Override public void remove(final dev.turboism.sdk.cubism.model.PartId id) {
+                    requireModelWrite("model.parts.remove");
+                    parts.remove(id);
                 }
             };
         }
@@ -1356,6 +1448,11 @@ public final class CubismFacadeImpl implements CubismFacade {
             requireModelRead("artMesh.indices");
             return delegate.indices();
         }
+
+        @Override public dev.turboism.sdk.cubism.model.MorphTargets morphTargets() {
+            requireModelRead("artMesh.morphTargets");
+            return delegate.morphTargets();
+        }
         @Override public dev.turboism.sdk.cubism.model.Color multiplyColor() {
             requireModelRead("artMesh.multiplyColor");
             return delegate.multiplyColor();
@@ -1642,6 +1739,12 @@ public final class CubismFacadeImpl implements CubismFacade {
             requireModelRead("parameterGroup.parameterIds");
             return delegate.parameterIds();
         }
+
+
+        @Override public void rename(final String name) {
+            requireModelWrite("parameterGroup.rename");
+            delegate.rename(name);
+        }
     }
 
     private final class PermissionCheckedParameter implements Parameter {
@@ -1799,6 +1902,12 @@ public final class CubismFacadeImpl implements CubismFacade {
         @Override public List<dev.turboism.sdk.cubism.model.PartId> childIds() {
             requireModelRead("part.childIds");
             return delegate.childIds();
+        }
+
+
+        @Override public dev.turboism.sdk.cubism.model.MorphTargets morphTargets() {
+            requireModelRead("part.morphTargets");
+            return delegate.morphTargets();
         }
         @Override public boolean visible() {
             requireModelRead("part.visible");
