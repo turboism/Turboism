@@ -27,8 +27,9 @@ import java.util.Set;
 import java.util.function.Consumer;
 
 /**
- * 球体/圆形分扇区图视图：三类节点（纯蒙版 | 既是也用 | 纯使用者或无关）各占
- * 120° 扇区，类内节点沿弧均匀分布，避免两排节点横向溢出。
+ * 多层同心扇区图视图：三类节点（纯蒙版 | 既是也用 | 纯使用者或无关）各占
+ * 120° 扇区，类内节点从内圈到外圈逐层填充（中心不空、整体仍为圆形），
+ * 避免两排节点横向溢出。
  * 有向箭头 mask -> user（inverted 红色）；图例 5 色；选中 GUID 节点描边高亮；
  * 点击节点回调 {@code onNodeClick}（复制 GUID 由窗口负责）。
  */
@@ -40,8 +41,10 @@ final class GraphPanel extends JComponent {
     private static final int NODE_RADIUS = 22;
     /** 圆半径下限：节点再少也保持可读的圆周大小。 */
     private static final int MIN_RADIUS = 160;
-    /** 相邻节点沿弧的间距（含直径与间隙），决定圆半径。 */
+    /** 相邻节点沿弧的间距（含直径与间隙），决定各层半径与容量。 */
     private static final int NODE_SPACING = NODE_RADIUS * 2 + 2;
+    /** 每类扇区弧长：120°（2π/3）。 */
+    private static final double SECTOR_ARC = Math.PI * 2 / 3;
     private static final int MARGIN = 40;
 
     private final ClipMaskViewerState state;
@@ -240,26 +243,48 @@ final class GraphPanel extends JComponent {
                 bottom.add(record);
             }
         }
-        // 球体/圆形布局：三类各占 120° 扇区（top 90°→210°、middle 210°→330°、
-        // bottom 330°→90°），类内节点沿弧均匀分布；半径随节点总数增长，避免横向溢出。
-        final int nodeCount = top.size() + middle.size() + bottom.size();
-        final int radius = Math.max(
-            MIN_RADIUS,
-            (int) Math.round(nodeCount * NODE_SPACING / (2 * Math.PI)));
+        // 多层同心扇区布局：三类各占 120° 扇区（top 90°→210°、middle 210°→330°、
+        // bottom 330°→90°），类内节点从内圈到外圈逐层填充——中心不再空旷、整体仍为圆形；
+        // 每层容量 = max(1, floor(r * SECTOR_ARC / NODE_SPACING))，填满一层才进入下一层，
+        // 总半径只随最深的类增长。每类 ≤ 一层容量时退化为单圈。
+        int maxLayers = 0;
+        maxLayers = Math.max(maxLayers, layerCount(top.size()));
+        maxLayers = Math.max(maxLayers, layerCount(middle.size()));
+        maxLayers = Math.max(maxLayers, layerCount(bottom.size()));
+        final int radius = MIN_RADIUS + (maxLayers - 1) * NODE_SPACING;
         final int size = (radius + MARGIN) * 2;
         final int center = size / 2;
-        layoutSector(top, 90, radius, center, center);
-        layoutSector(middle, 210, radius, center, center);
-        layoutSector(bottom, 330, radius, center, center);
+        layoutSector(top, 90, center, center);
+        layoutSector(middle, 210, center, center);
+        layoutSector(bottom, 330, center, center);
         setPreferredSize(new Dimension(size, size));
         revalidate();
     }
 
-    /** 把 group 均匀分布在 [startDeg, startDeg + 120)° 的弧上（屏幕坐标 y 向下）。 */
+    /** 某类节点在扇区内逐层填满所需的层数（0 节点 → 0 层）。 */
+    private static int layerCount(final int nodeCount) {
+        if (nodeCount <= 0) {
+            return 0;
+        }
+        int remaining = nodeCount;
+        int layer = 0;
+        while (remaining > 0) {
+            remaining -= layerCapacity(layer);
+            layer++;
+        }
+        return layer;
+    }
+
+    /** 第 layer 层（0 起）弧上可容纳的节点数：max(1, floor(r * SECTOR_ARC / NODE_SPACING))。 */
+    private static int layerCapacity(final int layer) {
+        final double radius = MIN_RADIUS + layer * NODE_SPACING;
+        return Math.max(1, (int) Math.floor(radius * SECTOR_ARC / NODE_SPACING));
+    }
+
+    /** 把 group 从内圈到外圈逐层填充在 [startDeg, startDeg + 120)° 的扇区内（屏幕坐标 y 向下）。 */
     private void layoutSector(
         final List<ClipMaskRecord> group,
         final int startDeg,
-        final int radius,
         final int cx,
         final int cy
     ) {
@@ -268,16 +293,33 @@ final class GraphPanel extends JComponent {
             return;
         }
         final double start = Math.toRadians(startDeg);
-        final double step = (2 * Math.PI / 3) / count;
-        for (int i = 0; i < count; i++) {
-            final double angle = start + step * (i + 0.5);
-            final ClipMaskRecord record = group.get(i);
-            final NodeBox box = new NodeBox(record,
-                cx + (int) Math.round(radius * Math.cos(angle)),
-                cy + (int) Math.round(radius * Math.sin(angle)));
-            nodes.add(box);
-            nodesByGuid.put(record.guid(), box);
+        int placed = 0;
+        int layer = 0;
+        while (placed < count) {
+            final int capacity = layerCapacity(layer);
+            final double radius = MIN_RADIUS + layer * NODE_SPACING;
+            final int take = Math.min(capacity, count - placed);
+            final double step = SECTOR_ARC / take;
+            for (int i = 0; i < take; i++) {
+                final double angle = start + step * (i + 0.5);
+                final ClipMaskRecord record = group.get(placed++);
+                final NodeBox box = new NodeBox(record,
+                    cx + (int) Math.round(radius * Math.cos(angle)),
+                    cy + (int) Math.round(radius * Math.sin(angle)));
+                nodes.add(box);
+                nodesByGuid.put(record.guid(), box);
+            }
+            layer++;
         }
+    }
+
+    /** 测试观察口：各节点布局圆心（逻辑坐标，未含缩放/平移）。 */
+    List<Point> nodeCenters() {
+        final List<Point> centers = new ArrayList<>(nodes.size());
+        for (NodeBox node : nodes) {
+            centers.add(new Point(node.x, node.y));
+        }
+        return centers;
     }
 
 
