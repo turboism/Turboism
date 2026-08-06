@@ -84,6 +84,25 @@ final class TestCoreApiFixture {
         final String omittedAlias,
         final ClassLoader classLoader
     ) {
+        return resolver(
+            reviewedVersion, artifactProfile, coreType, versionType,
+            versionDescriptor, majorDescriptor, omittedAlias, classLoader,
+            java.util.List.of(), java.util.Set.of()
+        );
+    }
+
+    private static VerifiedMemberResolver resolver(
+        final String reviewedVersion,
+        final String artifactProfile,
+        final Class<?> coreType,
+        final Class<?> versionType,
+        final String versionDescriptor,
+        final String majorDescriptor,
+        final String omittedAlias,
+        final ClassLoader classLoader,
+        final java.util.List<StaticSelector> extraSelectors,
+        final java.util.Set<String> extraCapabilities
+    ) {
         final List<StaticSelector> selectors = new ArrayList<>();
         selectors.add(StaticSelector.classSelector(
             CorePublicApiSelectorContract.LIVE2D_CORE_CLASS,
@@ -270,14 +289,40 @@ final class TestCoreApiFixture {
         }
         addFamilySelectors(selectors, artifactProfile);
 
+        final java.util.HashSet<String> capabilities =
+            new java.util.HashSet<>(CorePublicApiSelectorContract.CAPABILITY_IDS);
+        capabilities.addAll(extraCapabilities);
+        final java.util.ArrayList<StaticSelector> all = new java.util.ArrayList<>(selectors);
+        all.addAll(extraSelectors);
         return TestVerifiedResolvers.create(
             reviewedVersion,
             CorePublicApiSelectorContract.ADAPTER_SLICE_ID,
-            CorePublicApiSelectorContract.CAPABILITY_IDS,
-            selectors.stream()
+            capabilities,
+            all.stream()
                 .filter(selector -> !selector.alias().equals(omittedAlias))
                 .toList(),
             classLoader
+        );
+    }
+
+    /** Package-visible fixture resolver with extra selectors and capabilities. */
+    static VerifiedMemberResolver resolverWithExtras(
+        final String artifactProfile,
+        final java.util.List<StaticSelector> extraSelectors,
+        final java.util.Set<String> extraCapabilities
+    ) {
+        final String reviewedVersion = "5.2".equals(artifactProfile) ? "5.2.0" : "5.3.2";
+        return resolver(
+            reviewedVersion,
+            artifactProfile,
+            Core.class,
+            Version.class,
+            objectDescriptor(Version.class),
+            "()I",
+            null,
+            Core.class.getClassLoader(),
+            extraSelectors,
+            extraCapabilities
         );
     }
 
@@ -404,14 +449,15 @@ final class TestCoreApiFixture {
         private final Drawables drawables;
         private final Deformers deformers;
         private final Glues glues;
+        private final Moc moc;
         private final Runnable beforeCanvasRead;
 
         public Model(final CanvasInfo canvasInfo, final Parameters parameters) {
-            this(canvasInfo, parameters, Parts.empty(), Drawables.empty(), Deformers.empty(), Glues.empty(), () -> { });
+            this(canvasInfo, parameters, Parts.empty(), Drawables.empty(), Deformers.empty(), Glues.empty(), null, () -> { });
         }
 
         public Model(final CanvasInfo canvasInfo, final Parameters parameters, final Runnable beforeCanvasRead) {
-            this(canvasInfo, parameters, Parts.empty(), Drawables.empty(), Deformers.empty(), Glues.empty(), beforeCanvasRead);
+            this(canvasInfo, parameters, Parts.empty(), Drawables.empty(), Deformers.empty(), Glues.empty(), null, beforeCanvasRead);
         }
 
         public Model(
@@ -423,12 +469,26 @@ final class TestCoreApiFixture {
             final Glues glues,
             final Runnable beforeCanvasRead
         ) {
+            this(canvasInfo, parameters, parts, drawables, deformers, glues, null, beforeCanvasRead);
+        }
+
+        public Model(
+            final CanvasInfo canvasInfo,
+            final Parameters parameters,
+            final Parts parts,
+            final Drawables drawables,
+            final Deformers deformers,
+            final Glues glues,
+            final Moc moc,
+            final Runnable beforeCanvasRead
+        ) {
             this.canvasInfo = canvasInfo;
             this.parameters = parameters;
             this.parts = parts;
             this.drawables = drawables;
             this.deformers = deformers;
             this.glues = glues;
+            this.moc = moc;
             this.beforeCanvasRead = beforeCanvasRead;
         }
 
@@ -439,6 +499,20 @@ final class TestCoreApiFixture {
         public Drawables getDrawables() { return drawables; }
         public Deformers getDeformers() { return deformers; }
         public Glues getGlues() { return glues; }
+        public Moc getMoc() { return moc; }
+    }
+
+    /** Minimal MOC stand-in exposing only the verified MOC-version read. */
+    public static final class Moc {
+        private final int mocVersion;
+
+        public Moc(final int mocVersion) {
+            this.mocVersion = mocVersion;
+        }
+
+        public int getMocVersion() {
+            return mocVersion;
+        }
     }
 
     public static final class CanvasInfo {

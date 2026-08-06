@@ -38,7 +38,7 @@ class VerifiedHostAdapterConnectorTextureAtlasTest {
         final VerifiedHostAdapterConnector connector = new VerifiedHostAdapterConnector(
             ignored -> adapters,
             ignored -> resolver,
-            (verified, sessionId) -> () -> { throw new IllegalStateException(sessionId); }
+            (verified, sessionId, core) -> () -> { throw new IllegalStateException(sessionId); }
         );
         final HostVerificationEvidence.Slice slice = new HostVerificationEvidence.Slice(
             Path.of("editor.json"), Path.of("host.jar"), getClass().getClassLoader()
