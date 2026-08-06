@@ -12,6 +12,7 @@ import dev.turboism.sdk.cubism.service.query.ParameterQueryService;
 import dev.turboism.sdk.cubism.service.query.SelectionQueryService;
 import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
 import dev.turboism.sdk.cubism.physics.PhysicsEditorService;
+import dev.turboism.sdk.cubism.command.EditorCommandService;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
 import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.i18n.PluginLocalization;
@@ -25,6 +26,7 @@ import dev.turboism.sdk.runtime.RuntimeSettingsService;
 import dev.turboism.sdk.ui.UiHostCapabilityService;
 import dev.turboism.sdk.ui.UserFileAccessService;
 import dev.turboism.sdk.ui.UiScheduler;
+import dev.turboism.sdk.ui.dialog.HostDialogAutomationService;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 import dev.turboism.sdk.ui.filter.PaletteFilterRegistry;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
@@ -99,6 +101,10 @@ public interface PluginContext {
         return PhysicsEditorService.unavailable();
     }
 
+    default EditorCommandService editorCommands() {
+        return EditorCommandService.unavailable();
+    }
+
     List<PluginPermission> permissions();
 
     EventBus eventBus();
@@ -125,6 +131,10 @@ public interface PluginContext {
 
     default UiHostCapabilityService uiHost() {
         throw new UnsupportedOperationException("uiHost service is not available");
+    }
+
+    default HostDialogAutomationService hostDialogs() {
+        throw new UnsupportedOperationException("host dialog automation service is not available");
     }
 
     default AppearanceService appearance() {

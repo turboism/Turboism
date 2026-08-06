@@ -18,6 +18,7 @@ public sealed interface PanelView permits
     PanelView.TextInput,
     PanelView.Select,
     PanelView.Toggle,
+    PanelView.CollapsibleSection,
     PanelView.Separator {
 
     static Column column(final PanelView... children) {
@@ -74,6 +75,14 @@ public sealed interface PanelView permits
 
     static Separator separator() {
         return new Separator();
+    }
+
+    static CollapsibleSection collapsibleSection(
+        final String title,
+        final boolean expandedByDefault,
+        final PanelView... children
+    ) {
+        return new CollapsibleSection(title, expandedByDefault, List.of(children));
     }
 
     record Column(List<PanelView> children) implements PanelView {
@@ -198,6 +207,17 @@ public sealed interface PanelView permits
             id = requireText(id, "id");
             label = requireText(label, "label");
             actionId = requireText(actionId, "actionId");
+        }
+    }
+
+    record CollapsibleSection(
+        String title,
+        boolean expandedByDefault,
+        List<PanelView> children
+    ) implements PanelView {
+        public CollapsibleSection {
+            title = requireText(title, "title");
+            children = immutableChildren(children);
         }
     }
 

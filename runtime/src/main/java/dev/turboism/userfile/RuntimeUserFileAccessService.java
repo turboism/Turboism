@@ -20,6 +20,10 @@ import dev.turboism.sdk.ui.UserFileWriteResult;
 import dev.turboism.task.PluginCompletionFuture;
 import dev.turboism.task.RuntimePluginTaskScheduler;
 import dev.turboism.cleanup.CleanupEvidenceCollector;
+import dev.turboism.adapter.cubism.command.EditorFileCommandResolver;
+import dev.turboism.adapter.cubism.command.ResolvedEditorFileCommand;
+import dev.turboism.sdk.cubism.command.EditorFileCommandRequest;
+import dev.turboism.sdk.cubism.command.EditorOverwritePolicy;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -48,7 +52,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 /** Opaque, plugin/session-bound user-file grant service. */
 public final class RuntimeUserFileAccessService
-    implements UserFileAccessService, AutoCloseable {
+    implements UserFileAccessService, EditorFileCommandResolver, AutoCloseable {
 
     private static final int MAX_OPERATION_BYTES = 8 * 1024 * 1024;
 
@@ -291,6 +295,56 @@ public final class RuntimeUserFileAccessService
                 null
             )
         );
+    }
+
+    @Override
+    public ResolvedEditorFileCommand resolve(final EditorFileCommandRequest request) {
+        final EditorFileCommandRequest validated = Objects.requireNonNull(request, "request");
+        final Authorization authorization = authorize(
+            validated.file(),
+            validated.command().mode(),
+            validated.command().mode() == UserFileMode.READ
+                ? PermissionIds.TURBOISM_FILE_READ
+                : PermissionIds.TURBOISM_FILE_WRITE
+        );
+        if (authorization.error != null) return null;
+        if (!currentPathStillValid(authorization.target, validated.command().mode())) return null;
+        if (validated.command().mode() == UserFileMode.WRITE
+            && validated.overwritePolicy() == EditorOverwritePolicy.REJECT_EXISTING
+            && Files.exists(authorization.target, LinkOption.NOFOLLOW_LINKS)) {
+            return null;
+        }
+        return new ResolvedEditorFileCommand(
+            validated.command(),
+            authorization.target,
+            validated.overwritePolicy()
+        );
+    }
+
+    /**
+     * Revalidates the grant target right before admission so a path replaced by a symlink or a
+     * non-regular file after selection cannot be handed to a host adapter. This is resolver-side
+     * admission only; a future file adapter must repeat proportionate checks at the actual use
+     * point to close the remaining TOCTOU window.
+     */
+    private static boolean currentPathStillValid(final Path target, final UserFileMode mode) {
+        try {
+            if (mode == UserFileMode.READ) {
+                return Files.isRegularFile(target, LinkOption.NOFOLLOW_LINKS)
+                    && target.toRealPath().equals(target);
+            }
+            final Path parent = target.getParent();
+            if (parent == null
+                || !Files.isDirectory(parent, LinkOption.NOFOLLOW_LINKS)
+                || !parent.toRealPath().equals(parent)) {
+                return false;
+            }
+            return !Files.exists(target, LinkOption.NOFOLLOW_LINKS)
+                || Files.isRegularFile(target, LinkOption.NOFOLLOW_LINKS)
+                    && target.toRealPath().equals(target);
+        } catch (java.io.IOException exception) {
+            return false;
+        }
     }
 
     @Override
