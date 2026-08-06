@@ -48,10 +48,10 @@ class GraphPanelTest {
         assertTrue(minDistance < size.width / 4.0,
             "inner ring must fill the center area, min node distance " + minDistance);
 
-        // 层数/容量正确：top 类 20 节点 → 3 层（容量 7+9+11，末层 4 个）；
-        // bottom 类 40 节点 → 4 层恰好填满（7+9+11+13）。
-        assertEquals(List.of(7, 9, 4), ringSizes(panel, 90, 210), "top sector layers");
-        assertEquals(List.of(7, 9, 11, 13), ringSizes(panel, 330, 90), "bottom sector layers");
+        // 层数/容量正确：top 类 20 节点 → 3 层（容量 5+7+8，末层 8 个）；
+        // bottom 类 40 节点 → 5 层（5+7+9+11+8）。
+        assertEquals(List.of(5, 7, 8), ringSizes(panel, 90, 210), "top sector layers");
+        assertEquals(List.of(5, 7, 9, 11, 8), ringSizes(panel, 330, 90), "bottom sector layers");
     }
 
     @Test
@@ -115,8 +115,8 @@ class GraphPanelTest {
     void compactMultiRingLayoutShrinksTotalRadius() {
         final GraphPanel panel = new GraphPanel(stateWith(20), localization(), clicked -> { });
         final int width = panel.getPreferredSize().width;
-        // 60 节点 → top 3 层、bottom 4 层（7+9+11+13）→ 总半径 = 160 + (4-1)*46 = 298。
-        final int expectedRadius = 160 + 3 * (2 * 22 + 2);
+        // 60 节点 → top 3 层、bottom 5 层（5+7+9+11+8）→ 总半径 = 160 + (5-1)*66 = 424。
+        final int expectedRadius = 160 + 4 * (3 * 22);
         assertEquals((expectedRadius + 40) * 2, width);
         final int oldSingleRingRadius = (int) Math.round(60 * (2 * 22 + 8) / (2 * Math.PI));
         assertTrue(width < (oldSingleRingRadius + 40) * 2,
@@ -127,7 +127,7 @@ class GraphPanelTest {
     void smallGroupsDegenerateToSingleRing() {
         final GraphPanel panel = new GraphPanel(stateWith(2), localization(), clicked -> { });
         final Dimension size = panel.getPreferredSize();
-        // 每类 2 节点 ≤ 首层容量 7 → 单圈退化：半径 = MIN_RADIUS（160），尺寸与旧布局一致。
+        // 每类 2 节点 ≤ 首层容量 5 → 单圈退化：半径 = MIN_RADIUS（160），尺寸与旧布局一致。
         assertEquals((160 + 40) * 2, size.width);
         final int center = size.width / 2;
         final Set<Integer> rings = new java.util.TreeSet<>();
@@ -408,8 +408,8 @@ class GraphPanelTest {
                 continue;
             }
             final double distance = Math.hypot(point.x - center, point.y - center);
-            // 层半径 = MIN_RADIUS(160) + layer * NODE_SPACING(46)，坐标取整误差 < 2px。
-            final int ring = (int) Math.round((distance - 160) / 46.0);
+            // 层半径 = MIN_RADIUS(160) + layer * NODE_SPACING(66)，坐标取整误差 < 2px。
+            final int ring = (int) Math.round((distance - 160) / 66.0);
             counts[ring]++;
             maxRing = Math.max(maxRing, ring);
         }
