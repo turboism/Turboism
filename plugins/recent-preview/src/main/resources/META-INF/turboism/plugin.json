@@ -1,0 +1,55 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 2,
+  "id": "dev.turboism.plugin.recent-preview",
+  "name": "Recent Preview Plugin",
+  "version": "0.1.0",
+  "description": "Captures bounded preview thumbnails for recent project files and contributes them to the Recent Files hover popup.",
+  "entrypoints": [
+    "dev.turboism.plugin.recentpreview.RecentPreviewPlugin"
+  ],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    { "name": "Turboism Contributors" }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": []
+  },
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.cubism.recent-file.read",
+      "scope": "application",
+      "reason": "Lists the host Recent Files projection to key the preview cache by opaque file id."
+    },
+    {
+      "id": "turboism.ui.viewport.read",
+      "scope": "application",
+      "reason": "Captures bounded modeling-surface preview thumbnails for recent files."
+    },
+    {
+      "id": "turboism.ui.recent-preview.contribute",
+      "scope": "application",
+      "reason": "Contributes thumbnail popup content to the host Recent Files hover bridge."
+    },
+    {
+      "id": "turboism.file.read",
+      "scope": "application",
+      "reason": "Reads cached preview PNGs from plugin-confined cache storage."
+    },
+    {
+      "id": "turboism.file.write",
+      "scope": "application",
+      "reason": "Atomically writes preview PNGs and the no-path index into plugin-confined cache storage."
+    }
+  ],
+  "capabilities": [],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "swing"
+  }
+}
