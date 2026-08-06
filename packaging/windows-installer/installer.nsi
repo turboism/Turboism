@@ -138,6 +138,18 @@ LangString ModeLiteLabel ${LANG_ENGLISH} "Lite installation (Lite) — installs 
 LangString ModeLiteLabel ${LANG_SIMPCHINESE} "精简安装（Lite）—— 仅安装核心运行时，不安装任何插件"
 LangString ModeLiteLabel ${LANG_JAPANESE} "ライトインストール（Lite）—— コアランタイムのみインストールし、プラグインはインストールしません"
 
+LangString StartMenuLaunchName ${LANG_ENGLISH} "Start Cubism Editor"
+LangString StartMenuLaunchName ${LANG_SIMPCHINESE} "启动 Cubism 编辑器"
+LangString StartMenuLaunchName ${LANG_JAPANESE} "Cubism エディターを起動"
+
+LangString StartMenuConfigName ${LANG_ENGLISH} "Turboism Configurator"
+LangString StartMenuConfigName ${LANG_SIMPCHINESE} "Turboism 配置器"
+LangString StartMenuConfigName ${LANG_JAPANESE} "Turboism 設定"
+
+LangString StartMenuUninstallName ${LANG_ENGLISH} "Uninstall Turboism"
+LangString StartMenuUninstallName ${LANG_SIMPCHINESE} "卸载 Turboism"
+LangString StartMenuUninstallName ${LANG_JAPANESE} "Turboism をアンインストール"
+
 LangString ConfigWriteError ${LANG_ENGLISH} "Cannot write config.json: $INSTDIR\config.json"
 LangString ConfigWriteError ${LANG_SIMPCHINESE} "无法写入 config.json：$INSTDIR\config.json"
 LangString ConfigWriteError ${LANG_JAPANESE} "config.json を書き込めません：$INSTDIR\config.json"
@@ -236,6 +248,7 @@ Section "-核心文件" SecCore
   File "${STAGING_DIR}/turboism-agent.jar"
   File "${STAGING_DIR}/launch-cubism-turboism.bat"
   File "${STAGING_DIR}/launch-cubism-turboism.ps1"
+  File "${STAGING_DIR}/configure_turboism.ps1"
   File "${STAGING_DIR}/README.txt"
   File "${STAGING_DIR}/README.zh.txt"
   File "${STAGING_DIR}/README.ja.txt"
@@ -493,9 +506,30 @@ Section -"卸载器" SecUninstaller
   WriteUninstaller "$INSTDIR\uninstall.exe"
 SectionEnd
 
+; ---------- 开始菜单快捷方式 + HKCU 卸载注册项 ----------
+; 隐藏 Section：必须位于 WriteUninstaller 之后（CreateShortCut 在目标文件不存在时报错），
+; 且快捷方式「起始位置」(Start In) 取创建时的 $OUTDIR，故先 SetOutPath "$INSTDIR"。
+; 快捷方式名按当前语言（$LANGUAGE）经 LangString 解析；注册项为 per-user（HKCU，免管理员），不写 HKLM。
+Section -"开始菜单与注册" SecStartMenuReg
+  SetOutPath "$INSTDIR"
+  CreateDirectory "$SMPROGRAMS\Turboism"
+  CreateShortCut "$SMPROGRAMS\Turboism\$(StartMenuLaunchName).lnk" "$INSTDIR\launch-cubism-turboism.bat"
+  CreateShortCut "$SMPROGRAMS\Turboism\$(StartMenuConfigName).lnk" "$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" "-NoProfile -ExecutionPolicy Bypass -File $\"$INSTDIR\configure_turboism.ps1$\""
+  CreateShortCut "$SMPROGRAMS\Turboism\$(StartMenuUninstallName).lnk" "$INSTDIR\uninstall.exe"
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Turboism" "DisplayName" "Turboism"
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Turboism" "DisplayVersion" "${VER}"
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Turboism" "Publisher" "Turboism"
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Turboism" "InstallLocation" "$INSTDIR"
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Turboism" "UninstallString" "$\"$INSTDIR\uninstall.exe$\""
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Turboism" "DisplayIcon" "$\"$INSTDIR\uninstall.exe$\""
+SectionEnd
+
 ; 卸载 Section：名字必须恰好为 "Uninstall"（NSIS 特殊命名，代码编入卸载器，
 ; 不出现在安装器组件页；须为最后一个 Section）
 Section "Uninstall"
+  ; 开始菜单目录 + HKCU 卸载注册项（per-user；与安装时注册表视图一致）
+  DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Turboism"
+  RMDir /r "$SMPROGRAMS\Turboism"
   ; 安装文件
   Delete "$INSTDIR\turboism-agent.jar"
   Delete "$INSTDIR\launch-cubism-turboism.bat"
