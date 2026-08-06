@@ -28,6 +28,4 @@ tooltip.inverted
 tooltip.mask.count
 value.none
 window.title
-zoom.in
-zoom.out
 zoom.slider
