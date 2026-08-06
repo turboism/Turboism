@@ -64,6 +64,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
     private final dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator dockMaintenance;
     private final AppearanceProviderFactory appearanceProviderFactory;
     private final WorkspaceResolverFactory workspaceResolverFactory;
+    private final CoreBackendFactory coreBackendFactory;
 
     VerifiedHostAdapterConnector() {
         this(
@@ -89,7 +90,8 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             VerifiedHostAdapterConnector::productionAppearanceProvider,
             slice -> new VerifiedWorkspaceControlResolverFactory().create(
                 slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
-            )
+            ),
+            VerifiedHostAdapterConnector::coreMaterial
         );
     }
 
@@ -117,7 +119,8 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             ignored -> unavailableAppearanceProvider(),
             slice -> new VerifiedWorkspaceControlResolverFactory().create(
                 slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
-            )
+            ),
+            VerifiedHostAdapterConnector::coreMaterial
         );
     }
 
@@ -133,7 +136,26 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             ignored -> unavailableAppearanceProvider(),
             slice -> new VerifiedWorkspaceControlResolverFactory().create(
                 slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
-            )
+            ),
+            VerifiedHostAdapterConnector::coreMaterial
+        );
+    }
+
+    VerifiedHostAdapterConnector(
+        final VerifiedAdapterFactory factory,
+        final EditorResolverFactory editorResolverFactory,
+        final EditorAccessFactory editorAccessFactory,
+        final CoreBackendFactory coreBackendFactory
+    ) {
+        this(
+            factory, editorResolverFactory, editorAccessFactory,
+            null, null, null, null, null, null, null,
+            new dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator(),
+            ignored -> unavailableAppearanceProvider(),
+            slice -> new VerifiedWorkspaceControlResolverFactory().create(
+                slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
+            ),
+            coreBackendFactory
         );
     }
 
@@ -152,7 +174,8 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             new dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator(), appearanceProviderFactory,
             slice -> new VerifiedWorkspaceControlResolverFactory().create(
                 slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
-            )
+            ),
+            VerifiedHostAdapterConnector::coreMaterial
         );
     }
 
@@ -171,7 +194,8 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             ignored -> unavailableAppearanceProvider(),
             slice -> new VerifiedWorkspaceControlResolverFactory().create(
                 slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
-            )
+            ),
+            VerifiedHostAdapterConnector::coreMaterial
         );
     }
 
@@ -196,7 +220,8 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             ignored -> unavailableAppearanceProvider(),
             slice -> new VerifiedWorkspaceControlResolverFactory().create(
                 slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
-            )
+            ),
+            VerifiedHostAdapterConnector::coreMaterial
         );
     }
 
@@ -219,7 +244,8 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             ignored -> unavailableAppearanceProvider(),
             slice -> new VerifiedWorkspaceControlResolverFactory().create(
                 slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
-            )
+            ),
+            VerifiedHostAdapterConnector::coreMaterial
         );
     }
 
@@ -242,7 +268,8 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             ignored -> unavailableAppearanceProvider(),
             slice -> new VerifiedWorkspaceControlResolverFactory().create(
                 slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
-            )
+            ),
+            VerifiedHostAdapterConnector::coreMaterial
         );
     }
 
@@ -267,7 +294,8 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             appearanceProviderFactory,
             slice -> new VerifiedWorkspaceControlResolverFactory().create(
                 slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
-            )
+            ),
+            VerifiedHostAdapterConnector::coreMaterial
         );
     }
 
@@ -284,7 +312,8 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         final TopMenuResolverFactory topMenuResolverFactory,
         final dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator dockMaintenance,
         final AppearanceProviderFactory appearanceProviderFactory,
-        final WorkspaceResolverFactory workspaceResolverFactory
+        final WorkspaceResolverFactory workspaceResolverFactory,
+        final CoreBackendFactory coreBackendFactory
     ) {
         this.factory = Objects.requireNonNull(factory, "factory");
         this.editorResolverFactory = Objects.requireNonNull(editorResolverFactory, "editorResolverFactory");
@@ -300,6 +329,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         this.dockMaintenance = Objects.requireNonNull(dockMaintenance, "dockMaintenance");
         this.appearanceProviderFactory = Objects.requireNonNull(appearanceProviderFactory, "appearanceProviderFactory");
         this.workspaceResolverFactory = Objects.requireNonNull(workspaceResolverFactory, "workspaceResolverFactory");
+        this.coreBackendFactory = Objects.requireNonNull(coreBackendFactory, "coreBackendFactory");
     }
 
     @Override
@@ -315,7 +345,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                 )
                 : null;
         if (evidence.editorModel().isEmpty()) {
-            final RuntimeCoreModelBackend core = coreMaterial(evidence);
+            final RuntimeCoreModelBackend core = coreBackendFactory.create(evidence);
             final HostAdapterConnection base = HostAdapterConnection.of(
                 adapters,
                 UnavailableCubismModelAccess.INSTANCE,
@@ -356,7 +386,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                 }
             };
         }
-        final RuntimeCoreModelBackend core = coreMaterial(evidence);
+        final RuntimeCoreModelBackend core = coreBackendFactory.create(evidence);
         final VerifiedMemberResolver resolver = editorResolverFactory.create(
             evidence.editorModel().orElseThrow()
         );
@@ -910,6 +940,16 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         }
     }
 
+    /**
+     * Creates the Core model backend for the host evidence.
+     *
+     * <p>The production default is the real reviewed admission path
+     * ({@link #coreMaterial}); tests inject a fixture-backed backend through this seam.</p>
+     */
+    @FunctionalInterface
+    interface CoreBackendFactory {
+        RuntimeCoreModelBackend create(HostVerificationEvidence evidence) throws Exception;
+    }
     @FunctionalInterface
     interface MainToolbarResolverFactory {
         VerifiedMemberResolver create(HostVerificationEvidence.Slice slice) throws Exception;
@@ -926,6 +966,10 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
 
     static AppearanceProviderFactory productionAppearanceProviderFactory() {
         return VerifiedHostAdapterConnector::productionAppearanceProvider;
+    }
+
+    static CoreBackendFactory productionCoreBackendFactory() {
+        return VerifiedHostAdapterConnector::coreMaterial;
     }
 
     private static AppearanceHostProvider unavailableAppearanceProvider() {

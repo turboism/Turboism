@@ -9,7 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /** Synthetic public Core surface used only to exercise verified adapter contracts. */
-final class TestCoreApiFixture {
+public final class TestCoreApiFixture {
 
     private TestCoreApiFixture() {
     }
@@ -306,7 +306,7 @@ final class TestCoreApiFixture {
     }
 
     /** Package-visible fixture resolver with extra selectors and capabilities. */
-    static VerifiedMemberResolver resolverWithExtras(
+    public static VerifiedMemberResolver resolverWithExtras(
         final String artifactProfile,
         final java.util.List<StaticSelector> extraSelectors,
         final java.util.Set<String> extraCapabilities
