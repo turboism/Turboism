@@ -33,7 +33,7 @@ class VerifiedHostAdapterConnectorEditorModelTest {
                 observed.set(slice);
                 return resolver;
             },
-            (verified, sessionId) -> () -> {
+            (verified, sessionId, core) -> () -> {
                 throw new IllegalStateException(sessionId);
             }
         );
@@ -74,7 +74,7 @@ class VerifiedHostAdapterConnectorEditorModelTest {
         final VerifiedHostAdapterConnector connector = new VerifiedHostAdapterConnector(
             ignored -> adapters,
             ignored -> resolver,
-            (verified, sessionId) -> () -> { throw new IllegalStateException(sessionId); }
+            (verified, sessionId, core) -> () -> { throw new IllegalStateException(sessionId); }
         );
         final HostVerificationEvidence.Slice project = slice("project");
         final HostVerificationEvidence.Slice editor = slice("editor");
@@ -107,7 +107,7 @@ class VerifiedHostAdapterConnectorEditorModelTest {
         VerifiedHostAdapterConnector connector = new VerifiedHostAdapterConnector(
             ignored -> adapters,
             ignored -> resolver,
-            (verified, sessionId) -> () -> { throw new IllegalStateException(sessionId); },
+            (verified, sessionId, core) -> () -> { throw new IllegalStateException(sessionId); },
             null,
             null,
             ignored -> { throw new IllegalArgumentException("optional overlay selector missing"); },

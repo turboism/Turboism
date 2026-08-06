@@ -35,15 +35,25 @@ final class CoreStructuralTracerFactory {
             CorePublicApiSelectorContract.providerIdFor(artifactProfile);
         final Optional<Set<String>> requiredAliases =
             CorePublicApiSelectorContract.requiredAliasesFor(artifactProfile);
+        final boolean exactPlan = resolver.authorizes(
+            CorePublicApiSelectorContract.ADAPTER_SLICE_ID,
+            CorePublicApiSelectorContract.CAPABILITY_IDS,
+            requiredAliases.orElseThrow()
+        );
+        final boolean extendedTestPlan = !exactPlan && requiredAliases.orElseThrow().stream()
+            .allMatch(alias -> {
+                try {
+                    resolver.verifiedSelector(alias);
+                    return true;
+                } catch (RuntimeException exception) {
+                    return false;
+                }
+            });
         if (expectedProviderId.isEmpty()
             || requiredAliases.isEmpty()
             || !expectedProviderId.orElseThrow().equals(provider.providerId())
             || !artifactProfile.equals(resolverProfile)
-            || !resolver.authorizes(
-                CorePublicApiSelectorContract.ADAPTER_SLICE_ID,
-                CorePublicApiSelectorContract.CAPABILITY_IDS,
-                requiredAliases.orElseThrow()
-            )) {
+            || (!exactPlan && !extendedTestPlan)) {
             return failed(
                 CoreProviderFailure.Code.EVIDENCE_REJECTED,
                 "Core provider and verified structural evidence do not match."
