@@ -15,12 +15,14 @@ import java.awt.FontMetrics;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Point;
+import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.awt.Stroke;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -49,6 +51,9 @@ final class GraphPanel extends JComponent {
     private static final double SECTOR_ARC = Math.PI * 2 / 3;
     private static final int MARGIN = 40;
 
+    /** 可开关的类别（图例 5 项中 user 与 user.inverted 共享 user）。 */
+    private static final List<String> CATEGORIES = List.of("user", "mask", "both", "unrelated");
+
     private final ClipMaskViewerState state;
     private final PluginLocalization localization;
     private final Consumer<String> onNodeClick;
@@ -58,6 +63,10 @@ final class GraphPanel extends JComponent {
     private final Map<String, NodeBox> nodesByGuid = new HashMap<>();
     /** 过滤文本：非空/非空白时图只显示匹配节点及其直接邻居。 */
     private String filter = "";
+    /** 关闭显示的类别（值：mask|user|both|unrelated）；关闭时该类节点及直接邻居隐藏，图例画删除线。 */
+    private final Set<String> hiddenCategories = new HashSet<>();
+    /** 最近一次绘制时图例各项的屏幕命中矩形（与 labels/fills 数组 5 项顺序一致）。 */
+    private final List<Rectangle> legendHitBounds = new ArrayList<>();
     /** 单击选中的节点 GUID；与编辑器选中高亮（highlightedGuids）并存，用户选中优先。 */
     private String selectedGuid;
     private NodeBox dragNode;
@@ -86,6 +95,14 @@ final class GraphPanel extends JComponent {
         addMouseListener(new MouseAdapter() {
             @Override
             public void mousePressed(final MouseEvent event) {
+                // 图例在屏幕坐标，命中优先：切换类别开关，不进入节点选中/画布平移。
+                for (int i = 0; i < legendHitBounds.size(); i++) {
+                    if (legendHitBounds.get(i).contains(event.getPoint())) {
+                        final String category = legendCategory(i);
+                        setCategoryVisible(category, !categoryVisible(category));
+                        return;
+                    }
+                }
                 pressPoint = event.getPoint();
                 pressOffsetX = offsetX;
                 pressOffsetY = offsetY;
@@ -241,6 +258,27 @@ final class GraphPanel extends JComponent {
         rebuild();
     }
 
+    /** 类别开关：null/未知忽略；变化时重建布局并重绘（选中节点被隐藏按现有重建逻辑清空）。 */
+    void setCategoryVisible(final String category, final boolean visible) {
+        if (category == null || !CATEGORIES.contains(category)) {
+            return;
+        }
+        final boolean changed = visible ? hiddenCategories.remove(category) : hiddenCategories.add(category);
+        if (changed) {
+            rebuild();
+            repaint();
+        }
+    }
+
+    boolean categoryVisible(final String category) {
+        return !hiddenCategories.contains(category);
+    }
+
+    /** 测试观察口：当前关闭的类别集合。 */
+    Set<String> hiddenCategories() {
+        return new HashSet<>(hiddenCategories);
+    }
+
     /** 选中节点（null 清除）；与编辑器高亮并存，绘制时用户选中优先。 */
     void setSelected(final String guid) {
         this.selectedGuid = guid;
@@ -291,8 +329,17 @@ final class GraphPanel extends JComponent {
         nodes.clear();
         nodesByGuid.clear();
         final List<ClipMaskRecord> pool = showUnrelated ? state.records() : state.filterRelated();
+        // 类别可见集 V：全量 − 关闭类别节点 − 其直接邻居（块级隐藏）。
+        final Set<String> visibleCategoryGuids = visibleCategoryGuids(pool);
         // 过滤节点集：匹配（displayName/id，绝不读 guid）+ 直接邻居（指向的 mask + 以它为 mask 的使用者）。
-        final List<ClipMaskRecord> effective = filter.isBlank() ? pool : filterWithNeighbors();
+        // 与类别开关 AND：有效集 = V ∩ (M ∪ N)。
+        final List<ClipMaskRecord> filterSet = filter.isBlank() ? pool : filterWithNeighbors();
+        final List<ClipMaskRecord> effective = new ArrayList<>(filterSet.size());
+        for (ClipMaskRecord record : filterSet) {
+            if (record != null && visibleCategoryGuids.contains(record.guid())) {
+                effective.add(record);
+            }
+        }
         if (selectedGuid != null && !containsGuid(effective, selectedGuid)) {
             // 过滤/重建后选中节点不在有效集 → 清空选中。
             selectedGuid = null;
@@ -488,6 +535,66 @@ final class GraphPanel extends JComponent {
         return false;
     }
 
+    /** 类别可见集 V：pool 中不属于隐藏类别、且不是隐藏类别节点直接邻居的节点（邻居缺失忽略）。 */
+    private Set<String> visibleCategoryGuids(final List<ClipMaskRecord> pool) {
+        final Set<String> hidden = new LinkedHashSet<>();
+        for (ClipMaskRecord record : pool) {
+            if (record == null || !hiddenCategories.contains(categoryOf(record))) {
+                continue;
+            }
+            hidden.add(record.guid());
+            // 直接邻居：它指向的 mask + 以它为 mask 的使用者。
+            for (String maskGuid : record.orderedMaskGuids()) {
+                hidden.add(maskGuid);
+            }
+            for (ClipMaskRecord user : state.maskUsers().getOrDefault(record.guid(), List.of())) {
+                if (user != null) {
+                    hidden.add(user.guid());
+                }
+            }
+        }
+        final Set<String> visible = new LinkedHashSet<>();
+        for (ClipMaskRecord record : pool) {
+            if (record != null && !hidden.contains(record.guid())) {
+                visible.add(record.guid());
+            }
+        }
+        return visible;
+    }
+
+    /** 记录 → 类别：纯蒙版 → mask；既是蒙版又是使用者 → both；有蒙版 → user；其余 → unrelated。 */
+    private String categoryOf(final ClipMaskRecord record) {
+        final boolean isMask = state.maskUsers().containsKey(record.guid());
+        final boolean hasMask = record.hasMasks();
+        if (isMask && !hasMask) {
+            return "mask";
+        }
+        if (isMask) {
+            return "both";
+        }
+        return hasMask ? "user" : "unrelated";
+    }
+
+    /** 图例 5 项 → 类别：索引 0,1 → user（含反转使用者）；2 → mask；3 → both；4 → unrelated。 */
+    private static String legendCategory(final int index) {
+        switch (index) {
+            case 0:
+            case 1:
+                return "user";
+            case 2:
+                return "mask";
+            case 3:
+                return "both";
+            default:
+                return "unrelated";
+        }
+    }
+
+    /** 测试观察口：最近一次绘制时图例各项的命中矩形（屏幕坐标）；空时返回不可变副本。 */
+    List<Rectangle> legendHitBounds() {
+        return legendHitBounds.isEmpty() ? List.of() : new ArrayList<>(legendHitBounds);
+    }
+
     @Override
     protected void paintComponent(final Graphics graphics) {
         super.paintComponent(graphics);
@@ -578,6 +685,7 @@ final class GraphPanel extends JComponent {
     }
 
     private void drawLegend(final Graphics2D g2) {
+        legendHitBounds.clear();
         final String[] labels = {
             localization.text("legend.user"),
             localization.text("legend.user.inverted"),
@@ -601,12 +709,22 @@ final class GraphPanel extends JComponent {
             final int radius = 8;
             final int cx = x + radius;
             final int cy = y + radius;
-            g2.setColor(fills[i]);
+            final boolean hidden = hiddenCategories.contains(legendCategory(i));
+            // 关闭类别：色块淡化为浅灰，文字画删除线。
+            g2.setColor(hidden ? new Color(200, 200, 200) : fills[i]);
             g2.fillOval(cx - radius, cy - radius, radius * 2, radius * 2);
             g2.setColor(new Color(60, 60, 60));
             g2.drawOval(cx - radius, cy - radius, radius * 2, radius * 2);
             g2.setColor(Color.BLACK);
-            g2.drawString(labels[i], cx + radius + 4, cy + fm.getAscent() / 2 - 2);
+            final int textX = cx + radius + 4;
+            final int baseline = cy + fm.getAscent() / 2 - 2;
+            g2.drawString(labels[i], textX, baseline);
+            if (hidden) {
+                // 删除线穿过文字中部，横跨 stringWidth。
+                final int midY = baseline - fm.getAscent() / 2 + 1;
+                g2.drawLine(textX, midY, textX + fm.stringWidth(labels[i]), midY);
+            }
+            legendHitBounds.add(new Rectangle(x, y, radius * 2 + fm.stringWidth(labels[i]) + 14, radius * 2));
             x += radius * 2 + fm.stringWidth(labels[i]) + 14;
         }
         g2.setFont(previous);
