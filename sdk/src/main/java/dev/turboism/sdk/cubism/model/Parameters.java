@@ -65,4 +65,54 @@ public interface Parameters {
         Objects.requireNonNull(predicate, "predicate");
         return all().stream().filter(predicate).toList();
     }
+
+    /**
+     * Creates a new parameter in the root parameter folder and returns it.
+     *
+     * <p>The write is undoable and generation-bound. The definition ID must be
+     * unique in the active model.</p>
+     *
+     * @throws IllegalArgumentException when the ID is already present or the definition is invalid
+     */
+    default Parameter create(final ParameterDefinition definition) {
+        return create(definition, java.util.Optional.empty());
+    }
+
+    /**
+     * Creates a new parameter in the requested parameter folder and returns it.
+     *
+     * @throws IllegalArgumentException when the ID is already present or the definition is invalid
+     * @throws NoSuchElementException when the folder is absent
+     */
+    default Parameter create(
+        final ParameterDefinition definition,
+        final java.util.Optional<dev.turboism.sdk.cubism.id.ParameterGroupId> folderId
+    ) {
+        Objects.requireNonNull(definition, "definition");
+        Objects.requireNonNull(folderId, "folderId");
+        throw new UnsupportedOperationException("Parameter creation is unavailable.");
+    }
+
+    /**
+     * Duplicates one parameter next to the source parameter and returns the copy.
+     *
+     * <p>The copy receives a fresh unique ID and copies the definition fields of
+     * the source.</p>
+     *
+     * @throws NoSuchElementException when the source parameter is absent
+     */
+    default Parameter copy(final ParameterId id) {
+        Objects.requireNonNull(id, "id");
+        throw new UnsupportedOperationException("Parameter duplication is unavailable.");
+    }
+
+    /**
+     * Deletes one parameter, including its keyform bindings, Morph Targets, and physics references.
+     *
+     * @throws NoSuchElementException when the parameter is absent
+     */
+    default void remove(final ParameterId id) {
+        Objects.requireNonNull(id, "id");
+        throw new UnsupportedOperationException("Parameter deletion is unavailable.");
+    }
 }

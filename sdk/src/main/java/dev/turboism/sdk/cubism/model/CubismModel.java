@@ -65,6 +65,15 @@ public interface CubismModel {
         throw new UnsupportedOperationException("Cubism canvas access is unavailable.");
     }
 
+    /**
+     * Returns the Editor model profile metrics (pixels-per-unit and origin).
+     *
+     * @throws UnsupportedOperationException when the backend does not expose them
+     */
+    default ModelProfile profile() {
+        throw new UnsupportedOperationException("Cubism model profile is unavailable.");
+    }
+
     Parameters parameters();
 
     default ParameterGroups parameterGroups() {
