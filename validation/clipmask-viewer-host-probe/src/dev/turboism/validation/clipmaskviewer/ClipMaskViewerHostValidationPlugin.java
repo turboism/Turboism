@@ -1,7 +1,6 @@
 package dev.turboism.validation.clipmaskviewer;
 
 import dev.turboism.sdk.action.ActionRegistry;
-import dev.turboism.sdk.cubism.ArtMeshSnapshot;
 import dev.turboism.sdk.cubism.SelectionSnapshot;
 import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.Drawable;
@@ -21,10 +20,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
@@ -291,14 +288,6 @@ public final class ClipMaskViewerHostValidationPlugin implements TurboismPlugin 
                 : "differ first=" + first.size() + " second=" + second.size(),
             idempotent ? "PASS" : "FAIL");
 
-        // meshes() may legitimately be empty on the exact host (the host model's
-        // art-mesh list is design-empty), so this id->name index is best-effort
-        // and meshCount stays drawables-based from recordIdentity().
-        final List<ArtMeshSnapshot> meshes = onHostThread(() -> context.cubismRead().meshes());
-        final Map<String, String> namesByGuid = new HashMap<>();
-        for (ArtMeshSnapshot mesh : meshes) {
-            namesByGuid.put(mesh.id(), mesh.name() == null ? "" : mesh.name());
-        }
 
         // Dedup: record count must equal the distinct-guid count.
         final Set<String> recordGuids = new HashSet<>();
@@ -323,7 +312,7 @@ public final class ClipMaskViewerHostValidationPlugin implements TurboismPlugin 
         recordAssertion("record.maskGuidsObserved", "evidence: summed orderedMaskGuids",
             "maskGuidsObserved=" + maskRelationships, "PASS");
 
-        // Per-record checks on a bounded sample: non-blank fields + join consistency.
+        // Per-record checks on a bounded sample: non-blank fields + name resolution.
         final int sample = Math.min(RECORD_SAMPLE_MAX, first.size());
         boolean guidsOk = true;
         boolean displayNamesOk = true;
@@ -346,16 +335,18 @@ public final class ClipMaskViewerHostValidationPlugin implements TurboismPlugin 
                     recordDetail = where + ": blank mask guid";
                 }
             }
-            // displayName resolution contract: joined to the mesh name when the
-            // meshes() index has an entry for this guid, else the short-guid
-            // fallback (same rule as the runtime MeshIndex). Both paths are hard
-            // assertions: a mismatch is a FAIL.
-            final boolean joined = namesByGuid.containsKey(record.guid());
-            final String expectedName = joined ? namesByGuid.get(record.guid()) : shortGuid(record.guid());
+            // displayName resolution contract: resolved to the real mesh name
+            // when the drawables name index is available on the host, else the
+            // short-guid fallback. A resolved name must be non-blank and must
+            // not equal the fallback shape (short guid); either is a FAIL.
+            final boolean resolved = record.displayName() != null
+                && !record.displayName().isBlank()
+                && (record.guid() == null || record.guid().isBlank()
+                    || !record.displayName().equals(shortGuid(record.guid())));
             recordAssertion("record." + index + ".displayNameResolved",
-                joined ? "joined:" + expectedName : "fallback:" + expectedName,
+                "resolved display name (not short-GUID fallback)",
                 record.displayName(),
-                expectedName.equals(record.displayName()) ? "PASS" : "FAIL");
+                resolved ? "PASS" : "FAIL");
         }
         recordAssertion("record.guidNonBlank",
             "sampled record guids non-blank",
