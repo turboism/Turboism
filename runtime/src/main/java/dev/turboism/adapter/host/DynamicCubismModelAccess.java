@@ -235,6 +235,22 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
             return current(generation, CubismModel::statistics, delegate);
         }
 
+        @Override public dev.turboism.sdk.cubism.model.ModelProfile profile() {
+            return current(generation, CubismModel::profile, delegate);
+        }
+
+        @Override public dev.turboism.sdk.cubism.model.PhysicsSettings physicsSettings() {
+            return current(generation, CubismModel::physicsSettings, delegate);
+        }
+
+        @Override public dev.turboism.sdk.cubism.model.AutoYure autoYure() {
+            return current(generation, CubismModel::autoYure, delegate);
+        }
+
+        @Override public List<dev.turboism.sdk.cubism.model.AnimationDocument> animationDocuments() {
+            return current(generation, CubismModel::animationDocuments, delegate);
+        }
+
         @Override
         public boolean defaultKeyformLocked() {
             return current(generation, CubismModel::defaultKeyformLocked, delegate);
@@ -473,6 +489,42 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
                 )
             );
         }
+
+        @Override public Parameter create(
+            final dev.turboism.sdk.cubism.model.ParameterDefinition definition
+        ) {
+            return guarded(
+                generation,
+                () -> new SessionParameter(
+                    generation, modelGeneration, modelId, delegate.create(definition)
+                )
+            );
+        }
+
+        @Override public Parameter create(
+            final dev.turboism.sdk.cubism.model.ParameterDefinition definition,
+            final java.util.Optional<dev.turboism.sdk.cubism.id.ParameterGroupId> folderId
+        ) {
+            return guarded(
+                generation,
+                () -> new SessionParameter(
+                    generation, modelGeneration, modelId, delegate.create(definition, folderId)
+                )
+            );
+        }
+
+        @Override public Parameter copy(final dev.turboism.sdk.cubism.id.ParameterId id) {
+            return guarded(
+                generation,
+                () -> new SessionParameter(
+                    generation, modelGeneration, modelId, delegate.copy(id)
+                )
+            );
+        }
+
+        @Override public void remove(final dev.turboism.sdk.cubism.id.ParameterId id) {
+            guardedVoid(generation, () -> delegate.remove(id));
+        }
     }
 
     private final class SessionParameterGroups implements ParameterGroups {
@@ -519,6 +571,28 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
                 )
             );
         }
+
+        @Override public ParameterGroup addGroup(final String name) {
+            return guarded(
+                generation,
+                () -> new SessionParameterGroup(
+                    generation, modelGeneration, modelId, delegate.addGroup(name)
+                )
+            );
+        }
+
+        @Override public void removeGroup(
+            final dev.turboism.sdk.cubism.id.ParameterGroupId id
+        ) {
+            guardedVoid(generation, () -> delegate.removeGroup(id));
+        }
+
+        @Override public void moveParameter(
+            final dev.turboism.sdk.cubism.id.ParameterId parameterId,
+            final dev.turboism.sdk.cubism.id.ParameterGroupId targetGroupId
+        ) {
+            guardedVoid(generation, () -> delegate.moveParameter(parameterId, targetGroupId));
+        }
     }
 
     private final class SessionParameterGroup implements ParameterGroup {
@@ -557,6 +631,10 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
         }
         @Override public List<dev.turboism.sdk.cubism.id.ParameterId> parameterIds() {
             return guarded(generation, delegate::parameterIds);
+        }
+
+        @Override public void rename(final String name) {
+            guardedVoid(generation, () -> delegate.rename(name));
         }
     }
 
@@ -664,6 +742,37 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
                 )
             );
         }
+
+        @Override public Part add(final PartId id) {
+            return guarded(
+                generation,
+                () -> new SessionPart(
+                    generation, modelGeneration, modelId, delegate.add(id)
+                )
+            );
+        }
+
+        @Override public Part add(final PartId id, final PartId parentId) {
+            return guarded(
+                generation,
+                () -> new SessionPart(
+                    generation, modelGeneration, modelId, delegate.add(id, parentId)
+                )
+            );
+        }
+
+        @Override public Part copy(final PartId id) {
+            return guarded(
+                generation,
+                () -> new SessionPart(
+                    generation, modelGeneration, modelId, delegate.copy(id)
+                )
+            );
+        }
+
+        @Override public void remove(final PartId id) {
+            guardedVoid(generation, () -> delegate.remove(id));
+        }
     }
 
     private final class SessionPart implements Part {
@@ -685,6 +794,10 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
         }
 
         @Override public PartId id() { return guarded(generation, delegate::id); }
+
+        @Override public dev.turboism.sdk.cubism.model.MorphTargets morphTargets() {
+            return guarded(generation, delegate::morphTargets);
+        }
 
         @Override public PartAppearance ui() {
             final PartId id = id();
@@ -797,6 +910,10 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
         }
 
         @Override public ArtMeshId id() { return guarded(generation, delegate::id); }
+
+        @Override public dev.turboism.sdk.cubism.model.MorphTargets morphTargets() {
+            return guarded(generation, delegate::morphTargets);
+        }
 
         @Override public DrawableAppearance ui() {
             final ArtMeshId id = id();
