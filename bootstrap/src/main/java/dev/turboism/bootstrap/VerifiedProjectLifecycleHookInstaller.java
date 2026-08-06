@@ -55,13 +55,19 @@ final class VerifiedProjectLifecycleHookInstaller implements AutoCloseable {
         NativeProjectLifecycleBridge.install(bridge);
         instrumentation.addTransformer(transformer, true);
         try {
+            int retransformed = 0;
             for (Class<?> loaded : instrumentation.getAllLoadedClasses()) {
-                if (targetClassNames.contains(loaded.getName())
-                    && loaded.getClassLoader() == hostClassLoader
-                    && instrumentation.isModifiableClass(loaded)) {
-                    instrumentation.retransformClasses(loaded);
+                if (targetClassNames.contains(loaded.getName())) {
+                    System.out.println("LIFECYCLE-INSTALL:found-class=" + loaded.getName());
+                    if (loaded.getClassLoader() == hostClassLoader
+                        && instrumentation.isModifiableClass(loaded)) {
+                        instrumentation.retransformClasses(loaded);
+                        retransformed++;
+                    }
                 }
             }
+            System.out.println("LIFECYCLE-INSTALL:targets=" + targetClassNames.size()
+                + " retransformed=" + retransformed);
         } catch (Throwable failure) {
             close();
             throw failure;

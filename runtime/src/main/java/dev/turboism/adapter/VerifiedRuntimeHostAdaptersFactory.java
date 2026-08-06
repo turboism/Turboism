@@ -1,7 +1,9 @@
 package dev.turboism.adapter;
 
 import dev.turboism.adapter.host.HostVerificationEvidence;
+import dev.turboism.mapping.verification.RecentPreviewVerificationManifest;
 import dev.turboism.mapping.verification.VerifiedClipMaskResolverFactory;
+import dev.turboism.mapping.verification.VerifiedEmbeddedPanelResolverFactory;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.mapping.verification.VerifiedProjectWorkspaceResolverFactory;
 import dev.turboism.mapping.verification.VerifiedStatusBarResolverFactory;
@@ -79,16 +81,36 @@ public final class VerifiedRuntimeHostAdaptersFactory {
                 clipMaskResolver
             );
         }
-        if (evidence.statusBar().isEmpty()) {
-            return base;
+        RuntimeHostAdapters composed = base;
+        if (evidence.statusBar().isPresent()) {
+            final HostVerificationEvidence.Slice statusBar = evidence.statusBar().orElseThrow();
+            final VerifiedMemberResolver statusBarResolver = statusBarResolverFactory.create(
+                statusBar.reviewedRecord(),
+                statusBar.verifiedArtifact(),
+                statusBar.hostClassLoader()
+            );
+            composed = RuntimeHostAdapters.withVerifiedStatusBar(composed, statusBarResolver);
         }
-        final HostVerificationEvidence.Slice statusBar = evidence.statusBar().orElseThrow();
-        final VerifiedMemberResolver statusBarResolver = statusBarResolverFactory.create(
-            statusBar.reviewedRecord(),
-            statusBar.verifiedArtifact(),
-            statusBar.hostClassLoader()
-        );
-        return RuntimeHostAdapters.withVerifiedStatusBar(base, statusBarResolver);
+        if (evidence.embeddedPanel().isPresent()) {
+            final HostVerificationEvidence.Slice panel = evidence.embeddedPanel().orElseThrow();
+            final VerifiedMemberResolver projectResolver = projectResolverFactory.create(
+                project.reviewedRecord(),
+                project.verifiedArtifact(),
+                project.hostClassLoader()
+            );
+            final VerifiedMemberResolver panelResolver = new VerifiedEmbeddedPanelResolverFactory().create(
+                panel.reviewedRecord(),
+                panel.verifiedArtifact(),
+                panel.hostClassLoader()
+            );
+            if (RecentPreviewVerificationManifest.authorizes(projectResolver, panelResolver)) {
+                composed = RuntimeHostAdapters.withVerifiedRecentPreview(
+                    composed, projectResolver, panelResolver
+                );
+            }
+            // unauthorized recent-preview slices fail closed: the base bundle is kept.
+        }
+        return composed;
     }
 
     public RuntimeHostAdapters projectWorkspace(
