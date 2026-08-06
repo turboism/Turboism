@@ -189,6 +189,8 @@ final class EditorNativeControlAppearanceAccess implements NativeLabelColorAutho
             value = sourceLabelColor(partSource(source, target.objectId()));
         } else if (target.palette() == NativeLabelColorTarget.Palette.DEFORMER) {
             value = sourceLabelColor(deformerSource(source, target.objectId()));
+        } else if (target.palette() == NativeLabelColorTarget.Palette.ART_MESH) {
+            value = sourceLabelColor(artMeshSource(source, target.objectId()));
         } else {
             throw new IllegalArgumentException(
                 "unsupported native label-color target: " + target.getClass().getName()
@@ -260,6 +262,18 @@ final class EditorNativeControlAppearanceAccess implements NativeLabelColorAutho
         return findSource("cubism.editor-model.deformer-source.class",
             "cubism.editor-model.parameter-controllable-source.id",
             "cubism.editor-model.id.value", "Cubism Deformer", id, sources);
+    }
+
+    private Object artMeshSource(final Object source, final String id) {
+        final Object raw = resolver.invoke(
+            "cubism.editor-model.model-source.all-art-meshes", source
+        );
+        if (!(raw instanceof List<?> sources)) {
+            throw unavailable("Editor ArtMesh source collection is unavailable.");
+        }
+        return findSource("cubism.editor-model.art-mesh-source.class",
+            "cubism.editor-model.parameter-controllable-source.id",
+            "cubism.editor-model.id.value", "Cubism ArtMesh", id, sources);
     }
 
     private Object findSource(

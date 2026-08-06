@@ -187,7 +187,7 @@ public record HostVerificationEvidence(
         return projectOnly(projectWorkspace).addingEditorModel(editorModel);
     }
 
-    private HostVerificationEvidence addingClipMask(final Slice slice) {
+    public HostVerificationEvidence addingClipMask(final Slice slice) {
         return new HostVerificationEvidence(
             projectWorkspace,
             Optional.of(Objects.requireNonNull(slice, "clipMask")),
