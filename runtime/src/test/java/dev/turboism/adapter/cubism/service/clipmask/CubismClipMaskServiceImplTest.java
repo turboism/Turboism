@@ -60,7 +60,8 @@ class CubismClipMaskServiceImplTest {
 
         final List<CubismClipMaskService.ClipMaskRecord> records = service.collectClipMaskRecords();
 
-        assertEquals(2, records.size());
+        // Target records first, then the referenced pure masks (guid-bbbb-1, guid-bbbb-2).
+        assertEquals(4, records.size());
         final CubismClipMaskService.ClipMaskRecord first = records.get(0);
         assertEquals("guid-aaaa-1", first.guid());
         assertEquals("guid-aaaa-1", first.id());
@@ -75,6 +76,20 @@ class CubismClipMaskServiceImplTest {
         assertEquals("guid-ccc", second.displayName());
         assertEquals("", second.id());
         assertEquals("guid-bbbb-1", second.orderedMaskGuids().get(0));
+
+        // Referenced pure masks appear after the targets with resolved names and no masks.
+        final CubismClipMaskService.ClipMaskRecord pureL = records.get(2);
+        assertEquals("guid-bbbb-1", pureL.guid());
+        assertEquals("EyeL", pureL.displayName());
+        assertEquals("guid-bbbb-1", pureL.id());
+        assertEquals(false, pureL.hasMasks());
+        assertEquals(List.of(), pureL.orderedMaskGuids());
+        assertEquals(false, pureL.inverted());
+
+        final CubismClipMaskService.ClipMaskRecord pureR = records.get(3);
+        assertEquals("guid-bbbb-2", pureR.guid());
+        assertEquals("EyeR", pureR.displayName());
+        assertEquals(false, pureR.hasMasks());
     }
 
     @Test
@@ -122,10 +137,40 @@ class CubismClipMaskServiceImplTest {
 
         final List<CubismClipMaskService.ClipMaskRecord> records = service.collectClipMaskRecords();
 
-        assertEquals(1, records.size());
+        // Target plus the referenced pure mask guid-bbbb-1.
+        assertEquals(2, records.size());
         assertEquals("First Name", records.get(0).displayName());
         assertEquals(List.of("guid-bbbb-1"), records.get(0).orderedMaskGuids());
         assertEquals(false, records.get(0).inverted());
+        assertEquals(false, records.get(1).hasMasks());
+    }
+
+    @Test
+    void referencedPureMasksResolveNameAndIdAfterTargets() {
+        final FakeCubismRead read = new FakeCubismRead(
+            List.of(new ClipMaskSnapshot("guid-t-1", List.of("guid-m-1"), false)),
+            List.of(
+                new ArtMeshSnapshot("guid-t-1", "Target", Optional.empty(), true, true),
+                new ArtMeshSnapshot("guid-m-1", "MaskMesh", Optional.empty(), true, true)
+            )
+        );
+        final CubismClipMaskServiceImpl service = new CubismClipMaskServiceImpl(
+            read, modelAccess(new FakeDrawable("guid-m-1", "网格蒙版", "ArtMesh_9")));
+
+        final List<CubismClipMaskService.ClipMaskRecord> records = service.collectClipMaskRecords();
+
+        assertEquals(2, records.size());
+        final CubismClipMaskService.ClipMaskRecord target = records.get(0);
+        assertEquals("guid-t-1", target.guid());
+        assertEquals(true, target.hasMasks());
+
+        final CubismClipMaskService.ClipMaskRecord pureMask = records.get(1);
+        assertEquals("guid-m-1", pureMask.guid());
+        assertEquals("ArtMesh_9", pureMask.id());
+        assertEquals("网格蒙版", pureMask.displayName());
+        assertEquals(false, pureMask.hasMasks());
+        assertEquals(false, pureMask.inverted());
+        assertEquals(List.of(), pureMask.orderedMaskGuids());
     }
 
     @Test

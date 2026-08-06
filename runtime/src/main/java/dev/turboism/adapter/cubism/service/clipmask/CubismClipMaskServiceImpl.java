@@ -10,6 +10,7 @@ import dev.turboism.sdk.cubism.model.Drawable;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -60,6 +61,25 @@ public final class CubismClipMaskServiceImpl implements CubismClipMaskService {
         final List<ClipMaskRecord> records = new ArrayList<>(byGuid.size());
         for (InternalClipMaskRecord internal : byGuid.values()) {
             records.add(internal.record());
+        }
+        // Referenced pure masks: every mask guid referenced by a target record but
+        // not itself a target gets a placeholder record (hasMasks=false) so
+        // table-mask rows resolve name/ID through the same index. Target records
+        // stay first; appended records keep first-seen union order.
+        final Set<String> referencedMaskGuids = new LinkedHashSet<>();
+        for (ClipMaskRecord record : records) {
+            referencedMaskGuids.addAll(record.orderedMaskGuids());
+        }
+        for (String maskGuid : referencedMaskGuids) {
+            if (!byGuid.containsKey(maskGuid)) {
+                records.add(new ClipMaskRecord(
+                    maskGuid,
+                    meshIndex.resolveId(maskGuid),
+                    meshIndex.resolveDisplayName(maskGuid),
+                    false,
+                    List.of()
+                ));
+            }
         }
         return records;
     }
