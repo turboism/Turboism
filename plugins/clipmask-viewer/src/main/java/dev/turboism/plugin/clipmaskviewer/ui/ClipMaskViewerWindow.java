@@ -52,7 +52,7 @@ import java.util.Set;
  * 剪贴蒙版检查器窗口（JDialog，MODELESS，只读）。
  *
  * <p>三种模式：Graph / 表-蒙版 / 表-使用者；顶部统计；刷新重读 SDK 服务；
- * 只读选中桥接（编辑器选中 -> 高亮），点击节点/行复制 GUID 并 notifyStatus。</p>
+ * 只读选中桥接（编辑器选中 -> 高亮），点击图节点复制 GUID 并 notifyStatus。</p>
  */
 public final class ClipMaskViewerWindow extends JDialog implements WindowView {
 
@@ -362,34 +362,11 @@ public final class ClipMaskViewerWindow extends JDialog implements WindowView {
         renderer.setVerticalAlignment(JLabel.TOP);
         table.getColumnModel().getColumn(0).setCellRenderer(renderer);
         table.getColumnModel().getColumn(1).setCellRenderer(renderer);
-        table.addMouseListener(new java.awt.event.MouseAdapter() {
-            @Override
-            public void mouseClicked(final java.awt.event.MouseEvent event) {
-                final int row = table.rowAtPoint(event.getPoint());
-                final String guid = guidAt(model, row);
-                if (guid != null) {
-                    copyGuid(guid);
-                }
-            }
-        });
+        table.getColumnModel().getColumn(2).setCellRenderer(renderer);
         table.getColumnModel().getColumn(0).setPreferredWidth(220);
-        table.getColumnModel().getColumn(1).setPreferredWidth(600);
+        table.getColumnModel().getColumn(1).setPreferredWidth(120);
+        table.getColumnModel().getColumn(2).setPreferredWidth(560);
         return table;
-    }
-
-    private static String guidAt(final javax.swing.table.AbstractTableModel model, final int row) {
-        if (row < 0) {
-            return null;
-        }
-        if (model instanceof ClipMaskTableModels.MaskPrimaryTableModel mask) {
-            return mask.getMaskGuidAt(row);
-        }
-        if (model instanceof ClipMaskTableModels.UserPrimaryTableModel user) {
-            final dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService.ClipMaskRecord record =
-                user.getUserAt(row);
-            return record == null ? null : record.guid();
-        }
-        return null;
     }
 
     @Override

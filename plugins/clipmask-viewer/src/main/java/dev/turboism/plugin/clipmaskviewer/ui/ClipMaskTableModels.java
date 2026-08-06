@@ -14,8 +14,8 @@ import java.util.Set;
 /**
  * 查看器两种表视角的模型（纯模型，无组件）。
  *
- * <p>表-蒙版为主：左列=蒙版 ArtMesh，右列=使用该蒙版的 ArtMesh 列表；
- * 表-使用者为主：左列=使用者 ArtMesh，右列=它的蒙版列表（保留原顺序，dupe 桶置顶）。</p>
+ * <p>表-蒙版为主：左列=蒙版 ArtMesh 名称，中列=蒙版 ID，右列=使用该蒙版的 ArtMesh 列表；
+ * 表-使用者为主：左列=使用者 ArtMesh 名称，中列=使用者 ID，右列=它的蒙版列表（保留原顺序，dupe 桶置顶）。</p>
  */
 public final class ClipMaskTableModels {
 
@@ -75,21 +75,28 @@ public final class ClipMaskTableModels {
 
         @Override
         public int getColumnCount() {
-            return 2;
+            return 3;
         }
 
         @Override
         public String getColumnName(final int column) {
-            return column == 0
-                ? localization.text("table.mask.column")
-                : localization.text("table.masks.column");
+            return switch (column) {
+                case 0 -> localization.text("table.mask.column");
+                case 1 -> localization.text("table.id");
+                default -> localization.text("table.masks.column");
+            };
         }
 
         @Override
         public Object getValueAt(final int rowIndex, final int columnIndex) {
             final String maskGuid = maskGuids.get(rowIndex);
+            final ClipMaskRecord mask = state.byGuid().get(maskGuid);
             if (columnIndex == 0) {
-                return ClipMaskRecordAdapter.describe(state.byGuid().get(maskGuid), maskGuid);
+                return mask == null ? localization.text("value.none") : mask.displayName();
+            }
+            if (columnIndex == 1) {
+                final String id = mask == null ? null : mask.id();
+                return id == null || id.isBlank() ? localization.text("value.none") : id;
             }
             final List<ClipMaskRecord> users = state.maskUsers().get(maskGuid);
             if (users == null || users.isEmpty()) {
@@ -174,22 +181,28 @@ public final class ClipMaskTableModels {
 
         @Override
         public int getColumnCount() {
-            return 2;
+            return 3;
         }
 
         @Override
         public String getColumnName(final int column) {
-            return column == 0
-                ? localization.text("table.user.column")
-                : localization.text("table.users.column");
+            return switch (column) {
+                case 0 -> localization.text("table.user.column");
+                case 1 -> localization.text("table.id");
+                default -> localization.text("table.users.column");
+            };
         }
 
         @Override
         public Object getValueAt(final int rowIndex, final int columnIndex) {
             final ClipMaskRecord user = users.get(rowIndex);
             if (columnIndex == 0) {
-                final String described = ClipMaskRecordAdapter.describe(user, user.guid());
-                return user.inverted() ? described + "  " + localization.text("node.inverted") : described;
+                final String name = user.displayName();
+                return user.inverted() ? name + "  " + localization.text("node.inverted") : name;
+            }
+            if (columnIndex == 1) {
+                final String id = user.id();
+                return id == null || id.isBlank() ? localization.text("value.none") : id;
             }
             if (user.orderedMaskGuids().isEmpty()) {
                 return localization.text("value.none");

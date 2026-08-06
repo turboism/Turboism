@@ -150,6 +150,32 @@ class CubismClipMaskServiceImplTest {
     }
 
     @Test
+    void drawableIdFeedsRecordId() {
+        final FakeCubismRead read = new FakeCubismRead(
+            List.of(new ClipMaskSnapshot("guid-aaaa-1", List.of(), false)),
+            List.of(new ArtMeshSnapshot("guid-aaaa-1", "Face", Optional.empty(), true, true)));
+        final CubismClipMaskServiceImpl service = new CubismClipMaskServiceImpl(
+            read, modelAccess(new FakeDrawable("guid-aaaa-1", "网格名", "ArtMesh_3")));
+        final CubismClipMaskService.ClipMaskRecord record = service.collectClipMaskRecords().get(0);
+        assertEquals("网格名", record.displayName());
+        assertEquals("ArtMesh_3", record.id());
+    }
+
+    @Test
+    void drawableIdUnavailableFallsBackToLegacyIdPath() {
+        final FakeCubismRead read = new FakeCubismRead(
+            List.of(new ClipMaskSnapshot("guid-aaaa-1", List.of(), false)),
+            List.of(new ArtMeshSnapshot("guid-aaaa-1", "Face", Optional.empty(), true, true)));
+        final FakeDrawable drawable = new FakeDrawable("guid-aaaa-1", "网格名", "ArtMesh_3");
+        drawable.failId = true;
+        final CubismClipMaskServiceImpl service = new CubismClipMaskServiceImpl(
+            read, modelAccess(drawable));
+        final CubismClipMaskService.ClipMaskRecord record = service.collectClipMaskRecords().get(0);
+        assertEquals("网格名", record.displayName());
+        assertEquals("guid-aaaa-1", record.id());
+    }
+
+    @Test
     void drawableGuidFailureFallsBackToMeshJoin() {
         final FakeCubismRead read = new FakeCubismRead(
             List.of(new ClipMaskSnapshot("guid-aaaa-1", List.of(), false)),
@@ -308,19 +334,31 @@ class CubismClipMaskServiceImplTest {
         }
     }
 
-    /** Fake drawable with knobs to fail guid()/name() per test. */
+    /** Fake drawable with knobs to fail guid()/name()/id() per test. */
     static final class FakeDrawable implements Drawable {
         private final String guid;
         private final String name;
+        private final String idValue;
         boolean failGuid;
         boolean failName;
+        boolean failId;
 
         FakeDrawable(final String guid, final String name) {
-            this.guid = guid;
-            this.name = name;
+            this(guid, name, guid);
         }
 
-        @Override public ArtMeshId id() { return new ArtMeshId(guid); }
+        FakeDrawable(final String guid, final String name, final String idValue) {
+            this.guid = guid;
+            this.name = name;
+            this.idValue = idValue;
+        }
+
+        @Override public ArtMeshId id() {
+            if (failId) {
+                throw new UnsupportedOperationException("id unavailable");
+            }
+            return idValue == null ? null : new ArtMeshId(idValue);
+        }
         @Override public String guid() {
             if (failGuid) {
                 throw new UnsupportedOperationException("guid unavailable");
