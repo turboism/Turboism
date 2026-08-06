@@ -1,0 +1,57 @@
+﻿Turboism __VERSION__ Windows パッケージ利用ガイド
+=================================================
+
+Turboism は Live2D Cubism エディターに拡張機能を追加する Java agent
+ランタイムです。本パッケージは管理者権限不要の手動インストール形態（ZIP）
+です。解凍してそのまま使えます。Cubism のインストール先ディレクトリは
+変更しません。
+
+1. ディレクトリ構成
+-------------------
+  turboism-agent.jar            ランタイム（Java agent）
+  config.json                   ランタイム設定（turboism.runtime.config v1）
+  launch-cubism-turboism.bat    ランチャー（ダブルクリックで起動、推奨）
+  launch-cubism-turboism.ps1    同じロジックの PowerShell 版
+  plugins/                      プラグイン jar（full パッケージのみ。lite には無し）
+  README.txt / README.zh.txt / README.ja.txt / LICENSE.txt
+
+2. 使い方
+---------
+1. フォルダーごと任意の場所に配置します（例: %LOCALAPPDATA%\Turboism）。
+2. launch-cubism-turboism.bat をダブルクリックして Cubism エディターを起動:
+   - ランチャーは Cubism 同梱の JDK と公式 classpath を使用し、
+     Cubism のファイルを一切変更しません。
+   - Live2D Cubism 5.3.02 / 5.2.03 の一般的なインストール先を自動検出します。
+   - 見つからない場合は環境変数 CUBISM_ROOT を設定するか、コマンドラインで
+     Cubism ルートを指定します:
+       launch-cubism-turboism.bat -CubismRoot "C:\Program Files\Live2D Cubism 5.3.02"
+3. （任意）環境変数 TURBOISM_HOME にこのフォルダーを設定すると、任意の場所
+   からランチャーを実行できます（未設定時はランチャー自身のフォルダーを
+   Turboism home とします）。
+4. プラグインの切り替え: configure_turboism.ps1 を実行してプラグインを
+   チェック/解除し、config.json に保存します。
+
+3. config.json
+--------------
+  worktreeId:       "turboism-runtime"
+  pluginDirs:       ["plugins"]
+  disabledPlugins:  無効化するプラグイン id のリスト（チェックを外したもの。
+                    昇順。任意フィールド）
+
+4. アンインストール
+-------------------
+- NSIS インストーラー（TurboismInstaller-<ver>.exe）でインストールした場合:
+  Turboism home ディレクトリの uninstall.exe を実行します。アンインストール
+  確認ページに「config.json（ユーザー設定）も削除する」チェックボックスが
+  あり、既定でチェック済みです。チェックを外すと config.json は保持されます。
+- ZIP 手動インストールにはアンインストーラーはありません: フォルダーを
+  削除するだけです。
+
+5. よくある質問
+---------------
+- bat のウィンドウがすぐ閉じる: コマンドラインで launch-cubism-turboism.ps1
+  を実行し、エラーを確認してください。
+- プラグインが有効にならない: プラグイン jar が plugins/ 配下にあること、
+  config.json の disabledPlugins にプラグイン id が含まれていないことを
+  確認してください。
+- ログの場所: <Turboism home>\logs\runtime\YYYY-MM-DD\turboism-*.log
