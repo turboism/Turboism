@@ -34,6 +34,9 @@ import java.util.function.Consumer;
  */
 final class GraphPanel extends JComponent {
 
+    static final double MIN_SCALE = 0.2;
+    static final double MAX_SCALE = 4.0;
+
     private static final int NODE_RADIUS = 22;
     /** 圆半径下限：节点再少也保持可读的圆周大小。 */
     private static final int MIN_RADIUS = 160;
@@ -49,6 +52,7 @@ final class GraphPanel extends JComponent {
     private final List<NodeBox> nodes = new ArrayList<>();
     private final Map<String, NodeBox> nodesByGuid = new HashMap<>();
     private double scale = 1.0;
+    private Consumer<Double> viewScaleListener;
     private int offsetX;
     private int offsetY;
     private Point pressPoint;
@@ -126,7 +130,7 @@ final class GraphPanel extends JComponent {
     }
 
     void zoomAt(final Point anchor, final double factor) {
-        final double next = Math.max(0.2, Math.min(4.0, scale * factor));
+        final double next = Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale * factor));
         if (next == scale) {
             return;
         }
@@ -134,6 +138,33 @@ final class GraphPanel extends JComponent {
         offsetY = (int) Math.round(anchor.y - (anchor.y - offsetY) * next / scale);
         scale = next;
         repaint();
+        notifyViewScaleListener();
+    }
+
+    /** 以当前面板视口中心为锚点设置缩放（clamp 到 [MIN_SCALE, MAX_SCALE]）。 */
+    void setViewScale(final double newScale) {
+        final double next = Math.max(MIN_SCALE, Math.min(MAX_SCALE, newScale));
+        if (next == scale) {
+            return;
+        }
+        final double centerX = getWidth() / 2.0;
+        final double centerY = getHeight() / 2.0;
+        offsetX = (int) Math.round(centerX - (centerX - offsetX) * next / scale);
+        offsetY = (int) Math.round(centerY - (centerY - offsetY) * next / scale);
+        scale = next;
+        repaint();
+        notifyViewScaleListener();
+    }
+
+    /** 单个可替换的 scale 变化通知；传 null 取消。 */
+    void setViewScaleListener(final Consumer<Double> listener) {
+        this.viewScaleListener = listener;
+    }
+
+    private void notifyViewScaleListener() {
+        if (viewScaleListener != null) {
+            viewScaleListener.accept(scale);
+        }
     }
 
     void panBy(final int dx, final int dy) {
@@ -143,10 +174,14 @@ final class GraphPanel extends JComponent {
     }
 
     void resetView() {
+        final boolean scaleChanged = scale != 1.0;
         scale = 1.0;
         offsetX = 0;
         offsetY = 0;
         repaint();
+        if (scaleChanged) {
+            notifyViewScaleListener();
+        }
     }
 
     double scale() { return scale; }
