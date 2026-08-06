@@ -4,6 +4,8 @@ import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.cubism.core.MocInfo;
 
+import java.util.List;
+
 /** One Cubism model exposed as natural objects and methods. */
 @PreviewApi
 public interface CubismModel {
@@ -25,6 +27,32 @@ public interface CubismModel {
     default ParameterDefinitions parameterDefinitions() {
         throw new UnsupportedOperationException(
             "Cubism parameter-definition access is unavailable."
+        );
+    }
+
+    /** Returns the model's read-only physics settings document projection. */
+    default PhysicsSettings physicsSettings() {
+        throw new UnsupportedOperationException(
+            "Cubism physics-settings document access is unavailable."
+        );
+    }
+
+    /** Returns the model's evaluated auto-Yure state. */
+    default AutoYure autoYure() {
+        throw new UnsupportedOperationException(
+            "Cubism auto-Yure evaluation access is unavailable."
+        );
+    }
+
+    /**
+     * Returns the model's animation file-content documents.
+     *
+     * <p>No stable Editor document entry exists for auto-face evaluation state,
+     * so no auto-face projection is declared; see the adapter evidence records.</p>
+     */
+    default List<AnimationDocument> animationDocuments() {
+        throw new UnsupportedOperationException(
+            "Cubism animation-document access is unavailable."
         );
     }
 

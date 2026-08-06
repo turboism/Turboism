@@ -16,6 +16,7 @@ import java.util.Objects;
 public final class RuntimeCoreModelBackend implements AutoCloseable {
 
     private final BorrowedCoreModelSource source;
+    private final CorePublicApiProvider provider;
     private final CoreStructuralTracer tracer;
     private final CubismModelAccess modelAccess;
     private final dev.turboism.sdk.cubism.core.CoreRuntimeInfo runtimeInfo;
@@ -28,6 +29,7 @@ public final class RuntimeCoreModelBackend implements AutoCloseable {
         final CorePublicApiProvider provider
     ) {
         this.source = Objects.requireNonNull(source, "source");
+        this.provider = Objects.requireNonNull(provider, "provider");
         this.tracer = Objects.requireNonNull(tracer, "tracer");
         this.runtimeInfo = new CoreRuntimeMetadata(provider, this::requireOpen);
         this.modelAccess = new CoreBackedCubismModelAccess(source, provider, tracer);
@@ -81,6 +83,18 @@ public final class RuntimeCoreModelBackend implements AutoCloseable {
             requireOpen();
             source.publishBorrowedModel(borrowedModel, modelIdentity);
         }
+    }
+
+    /**
+     * Returns the generation-bound Core evaluated join for Editor-backed views.
+     *
+     * <p>The join reuses the backend's borrowed-model source, provider, and
+     * structural tracer; it never writes to Core. Closing the backend invalidates
+     * every later join access.</p>
+     */
+    public CoreEvaluatedJoin evaluatedJoin() {
+        requireOpen();
+        return new CoreEvaluatedJoin(source, provider, tracer);
     }
 
     /** Clears the current model and invalidates every previously issued SDK object. */

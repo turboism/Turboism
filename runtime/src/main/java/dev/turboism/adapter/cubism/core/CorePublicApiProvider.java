@@ -36,6 +36,15 @@ public interface CorePublicApiProvider {
         return unavailableMocOperation();
     }
 
+
+    /**
+     * Returns the borrowed model's MOC format version (one of the Core
+     * {@code Live2DCubismCore.MocVersion} constants), when the exact profile
+     * authorizes the MOC metadata selectors.
+     */
+    default CoreProviderResult<Integer> mocVersionOfModel(final Object model) {
+        return unavailableMocOperation();
+    }
     private static <T> CoreProviderResult<T> unavailableMocOperation() {
         return CoreProviderResult.failed(new CoreProviderFailure(
             CoreProviderFailure.Code.ADAPTER_UNAVAILABLE,
