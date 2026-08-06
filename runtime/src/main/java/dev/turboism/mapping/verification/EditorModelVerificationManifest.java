@@ -7,7 +7,7 @@ public final class EditorModelVerificationManifest {
 
     public static final String VERIFICATION_ID = "cubism-5.3.02.editor-model.static";
     public static final String RECORD_SHA256 =
-        "f63bdbd8b356f8caec4a2cb19f790dce52106769164ab26ac8918edb2037c139";
+        "8ca065930269ec722ca23e04344ca3f8d436501dd5641cafc97a13014316ef00";
     public static final String CUBISM_VERSION = "5.3.02";
     public static final String PROFILE_ID = "cubism-5.3.02";
     public static final long ARTIFACT_SIZE = 41_922_739L;
@@ -48,25 +48,96 @@ public final class EditorModelVerificationManifest {
         "cubism.texture-atlas.data-model-hook",
         "cubism.texture-atlas.auto-layout-hook",
         "cubism.texture-atlas.native-layout-invocation",
-        "cubism.texture-atlas.dialog-injection"
+        "cubism.texture-atlas.dialog-injection",
+        "cubism.editor-model.model-name.write",
+        "cubism.editor-model.model-profile.read",
+        "cubism.editor-model.morph-target.read",
+        "cubism.editor-model.morph-target.write",
+        "cubism.editor-model.parameter-structure.write",
+        "cubism.editor-model.part-structure.write"
     );
+    private static final Set<String> STRUCTURE_ALIASES = Set.of(
+        "cubism.editor-model.copy-helper.copy",
+        "cubism.editor-model.form-guid.value",
+        "cubism.editor-model.image-canvas.class",
+        "cubism.editor-model.image-canvas.height",
+        "cubism.editor-model.image-canvas.width",
+        "cubism.editor-model.model-handler.class",
+        "cubism.editor-model.model-handler.create-free-id-default",
+        "cubism.editor-model.model-handler.move-parameter",
+        "cubism.editor-model.model-handler.remove-objects",
+        "cubism.editor-model.model-handler.remove-parameter",
+        "cubism.editor-model.model-info.class",
+        "cubism.editor-model.model-info.origin",
+        "cubism.editor-model.model-info.pixels-per-unit",
+        "cubism.editor-model.model-source.canvas",
+        "cubism.editor-model.model-source.handler",
+        "cubism.editor-model.model-source.model-info",
+        "cubism.editor-model.model-source.parameter-source-set",
+        "cubism.editor-model.model-source.root-part",
+        "cubism.editor-model.model-source.set-name",
+        "cubism.editor-model.morph-target-set.create-undo",
+        "cubism.editor-model.morph-target-set.morph-targets",
+        "cubism.editor-model.morph-target-set.remove",
+        "cubism.editor-model.morph-target.class",
+        "cubism.editor-model.morph-target.key-value",
+        "cubism.editor-model.morph-target.keyform-guid",
+        "cubism.editor-model.morph-target.parameter-guid",
+        "cubism.editor-model.morph-target.set-parameter",
+        "cubism.editor-model.morph-target.set-parameter-and-key-value",
+        "cubism.editor-model.parameter-group-handler.add-group-child",
+        "cubism.editor-model.parameter-group-handler.add-parameter-child",
+        "cubism.editor-model.parameter-group-handler.class",
+        "cubism.editor-model.parameter-group-handler.remove-descendant",
+        "cubism.editor-model.parameter-group-id.create",
+        "cubism.editor-model.parameter-group.create",
+        "cubism.editor-model.parameter-group.guid",
+        "cubism.editor-model.parameter-group.handler",
+        "cubism.editor-model.parameter-group.set-folder-opened",
+        "cubism.editor-model.parameter-group.set-name",
+        "cubism.editor-model.parameter-id.class",
+        "cubism.editor-model.parameter-id.create",
+        "cubism.editor-model.parameter-source-set.class",
+        "cubism.editor-model.parameter-source-set.get",
+        "cubism.editor-model.parameter-source-set.get-by-id",
+        "cubism.editor-model.parameter-source.create",
+        "cubism.editor-model.parameter-source.param-type",
+        "cubism.editor-model.parameter-source.set-repeat",
+        "cubism.editor-model.parameter-source.type-morph-target",
+        "cubism.editor-model.parameter-source.type-normal",
+        "cubism.editor-model.part-guid.create",
+        "cubism.editor-model.part-handler.add-part-child",
+        "cubism.editor-model.part-id.create",
+        "cubism.editor-model.part-source.children",
+        "cubism.editor-model.part-source.create",
+        "cubism.editor-model.part-source.set-guid",
+        "cubism.editor-model.part-source.set-id",
+        "cubism.editor-model.point.class",
+        "cubism.editor-model.point.x",
+        "cubism.editor-model.point.y"
+    );
+
     private static final Set<String> TEXTURE_ATLAS_ALIASES =
         union(
-            dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.REQUIRED_ALIASES,
             union(
+                dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.REQUIRED_ALIASES,
                 union(
                     union(
-                        dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.HOOK_ALIASES,
                         union(
-                            dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.AUTO_LAYOUT_HOOK_ALIASES,
-                            dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.NATIVE_INVOCATION_ALIASES
-                        )
+                            dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.HOOK_ALIASES,
+                            union(
+                                dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.AUTO_LAYOUT_HOOK_ALIASES,
+                                dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.NATIVE_INVOCATION_ALIASES
+                            )
+                        ),
+                        dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.DIALOG_INJECTION_ALIASES
                     ),
-                    dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.DIALOG_INJECTION_ALIASES
-                ),
-                dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.STATISTICS_ALIASES
-            )
+                    dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.STATISTICS_ALIASES
+                )
+            ),
+            STRUCTURE_ALIASES
         );
+
     private static final Set<String> TEXTURE_ATLAS_ALIASES_52 =
         union(
             dev.turboism.adapter.cubism.textureatlas.VerifiedCubism520TextureAtlasSelectorContract.REQUIRED_ALIASES,
@@ -80,7 +151,8 @@ public final class EditorModelVerificationManifest {
                 ),
                 dev.turboism.adapter.cubism.textureatlas.VerifiedCubism520TextureAtlasSelectorContract.DIALOG_INJECTION_ALIASES
             )
-        );
+        )
+    ;
     public static final Set<String> REQUIRED_ALIASES = union(Set.of(
         "cubism.editor-model.app-controller.class",
         "cubism.editor-model.app-controller.instance",
