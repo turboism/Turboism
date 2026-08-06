@@ -50,6 +50,7 @@ import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
 import dev.turboism.sdk.ui.table.SceneTableService;
 import dev.turboism.ui.RuntimeUiHostCapabilityService;
+import dev.turboism.ui.dialog.RuntimeHostDialogAutomationService;
 import dev.turboism.ui.appearance.RuntimeAppearanceService;
 import dev.turboism.ui.UiHostStateSource;
 import dev.turboism.ui.context.RuntimeContextMenuRegistry;
@@ -72,6 +73,7 @@ public final class CorePluginContext implements PluginContext {
     private final ContextMenuRegistry contextMenuRegistry;
     private final PluginConfigRegistry pluginConfigRegistry;
     private final UiHostCapabilityService uiHostCapabilityService;
+    private final dev.turboism.sdk.ui.dialog.HostDialogAutomationService hostDialogAutomationService;
     private final AppearanceService appearanceService;
     private final PluginLocalization localization;
     private final PluginTaskScheduler taskScheduler;
@@ -194,7 +196,10 @@ public final class CorePluginContext implements PluginContext {
     ) {
         this(
             dependencies,
-            servicesFactory(Objects.requireNonNull(hostAccess, "hostAccess")),
+            servicesFactory(
+                Objects.requireNonNull(hostAccess, "hostAccess"),
+                Objects.requireNonNull(userFileAccessService, "userFileAccessService")
+            ),
             hostAccess,
             Objects.requireNonNull(localization, "localization"),
             Objects.requireNonNull(taskScheduler, "taskScheduler"),
@@ -207,6 +212,13 @@ public final class CorePluginContext implements PluginContext {
 
     private static DefaultCubismServicesFactory servicesFactory(
         final RuntimeHostAdapterAccess hostAccess
+    ) {
+        return servicesFactory(hostAccess, null);
+    }
+
+    private static DefaultCubismServicesFactory servicesFactory(
+        final RuntimeHostAdapterAccess hostAccess,
+        final UserFileAccessService userFiles
     ) {
         return new DefaultCubismServicesFactory(
             hostAccess.adapters(),
@@ -222,7 +234,11 @@ public final class CorePluginContext implements PluginContext {
             hostAccess.textureAtlasNativeInvocations(),
             hostAccess.textureAtlasEditorUi(),
             hostAccess.textureAtlasEditorSession(),
-            hostAccess.textureAtlasAlgorithms()
+            hostAccess.textureAtlasAlgorithms(),
+            hostAccess.editorCommands(),
+            userFiles instanceof dev.turboism.adapter.cubism.command.EditorFileCommandResolver resolver
+                ? resolver
+                : dev.turboism.adapter.cubism.command.EditorFileCommandResolver.unavailable()
         );
     }
 
@@ -458,6 +474,9 @@ public final class CorePluginContext implements PluginContext {
         this.recentPreviewContributionService = hostAccess == null
             ? RecentPreviewContributionService.unavailable()
             : new RuntimeRecentPreviewContributionService(adapters.recentPreviews(), uiPermissionChecker);
+        this.hostDialogAutomationService = new RuntimeHostDialogAutomationService(
+            uiPermissionChecker
+        );
         this.workspaceService = hostAccess == null
             ? dev.turboism.sdk.ui.workspace.WorkspaceService.unavailable()
             : new dev.turboism.ui.workspace.RuntimeWorkspaceService(
@@ -624,6 +643,11 @@ public final class CorePluginContext implements PluginContext {
     }
 
     @Override
+    public dev.turboism.sdk.cubism.command.EditorCommandService editorCommands() {
+        return cubismServices.editorCommandService();
+    }
+
+    @Override
     public List<PluginPermission> permissions() {
         return dependencies.permissions();
     }
@@ -681,6 +705,11 @@ public final class CorePluginContext implements PluginContext {
     @Override
     public UiHostCapabilityService uiHost() {
         return uiHostCapabilityService;
+    }
+
+    @Override
+    public dev.turboism.sdk.ui.dialog.HostDialogAutomationService hostDialogs() {
+        return hostDialogAutomationService;
     }
 
     @Override

@@ -47,6 +47,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     private final HostSnapshotSource modelAppearanceSource =
         PluginScopedCubismModelAccess.appearanceSource(dynamic.view().projectWorkspace(), dynamicModelAccess);
     private final DynamicCoreRuntimeInfo dynamicCoreRuntime = new DynamicCoreRuntimeInfo();
+    private final DynamicEditorCommandAdapter dynamicEditorCommands = new DynamicEditorCommandAdapter();
     private final ParameterLifecycleCoordinator parameterLifecycle =
         new ParameterLifecycleCoordinator();
     private final PartLifecycleCoordinator partLifecycle =
@@ -276,6 +277,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             dynamicAppearance.connect(candidate.appearanceProvider());
             paletteAppearanceCoordinator.replaceHostGeneration(editorUiGeneration);
             candidate.textureAtlasLayoutProvider().ifPresent(textureAtlasLayouts::connect);
+            dynamicEditorCommands.connect(candidate.editorCommands());
             editorUiLifecycle.connected(editorUiGeneration);
             activeConnection = candidate;
             try {
@@ -357,6 +359,11 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     @Override
     public dev.turboism.sdk.cubism.core.CoreRuntimeInfo coreRuntimeInfo() {
         return dynamicCoreRuntime;
+    }
+
+    @Override
+    public dev.turboism.adapter.cubism.command.EditorCommandAdapter editorCommands() {
+        return dynamicEditorCommands;
     }
 
     @Override
@@ -547,6 +554,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             dynamicModelAccess,
             modelAppearanceSource,
             dynamicCoreRuntime,
+            dynamicEditorCommands,
             parameterLifecycle,
             partLifecycle,
             textureAtlasLayouts,
@@ -666,6 +674,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         dynamicCoreRuntime.deactivate();
         textureAtlasLayouts.deactivate();
         textureAtlasNativeInvocations.deactivate();
+        dynamicEditorCommands.deactivate();
         try {
             dynamic.deactivate();
         } catch (Throwable throwable) {
