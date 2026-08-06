@@ -1,0 +1,53 @@
+﻿Turboism __VERSION__ Windows Package - User Guide
+=================================================
+
+Turboism is a Java agent runtime that adds enhanced capabilities to the
+Live2D Cubism editor. This package is a manual, admin-free installation
+(ZIP): extract and run. It does not modify the Cubism installation directory.
+
+1. Directory layout
+-------------------
+  turboism-agent.jar             Runtime (Java agent)
+  config.json                    Runtime configuration (turboism.runtime.config v1)
+  launch-cubism-turboism.bat     Launcher (double-click to run, recommended)
+  launch-cubism-turboism.ps1     PowerShell version with the same logic
+  plugins/                       Plugin jars (full package only; absent in lite)
+  README.txt / README.zh.txt / README.ja.txt / LICENSE.txt
+
+2. Usage
+--------
+1. Place the whole folder anywhere, e.g. %LOCALAPPDATA%\Turboism.
+2. Double-click launch-cubism-turboism.bat to start the Cubism editor:
+   - The launcher uses Cubism's bundled JDK and official classpath and
+     does not modify any Cubism file;
+   - It auto-detects common install paths of Live2D Cubism 5.3.02 / 5.2.03;
+   - If not found, set the environment variable CUBISM_ROOT or pass the
+     Cubism root on the command line:
+       launch-cubism-turboism.bat -CubismRoot "C:\Program Files\Live2D Cubism 5.3.02"
+3. (Optional) Set the environment variable TURBOISM_HOME to this folder; the
+   launcher then works from any location (otherwise it uses its own folder
+   as the Turboism home).
+4. Plugin on/off: run configure_turboism.ps1 to check/uncheck plugins and
+   save the result to config.json.
+
+3. config.json
+--------------
+  worktreeId:       "turboism-runtime"
+  pluginDirs:       ["plugins"]
+  disabledPlugins:  ids of disabled plugins (unchecked ones, ascending; optional)
+
+4. Uninstall
+------------
+- If you installed with the NSIS installer (TurboismInstaller-<ver>.exe),
+  run uninstall.exe in the Turboism home directory. The uninstall
+  confirmation page has a check box "Also delete config.json (user
+  configuration)" - checked by default; uncheck it to keep config.json.
+- ZIP manual installs have no uninstaller: just delete the folder.
+
+5. FAQ
+------
+- The bat window closes immediately: run launch-cubism-turboism.ps1 from a
+  command line to see the error.
+- Plugins not working: make sure the plugin jars are under plugins/ and the
+  plugin id is not listed in disabledPlugins in config.json.
+- Logs: <Turboism home>\logs\runtime\YYYY-MM-DD\turboism-*.log
