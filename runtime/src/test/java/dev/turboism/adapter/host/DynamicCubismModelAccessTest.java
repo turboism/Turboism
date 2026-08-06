@@ -93,6 +93,73 @@ class DynamicCubismModelAccessTest {
         assertThrows(IllegalStateException.class, groups::all);
         assertThrows(IllegalStateException.class, group::name);
     }
+
+    @Test
+    void sessionDrawableForwardsGuidToDelegateAndPropagatesUnsupported() {
+        final DynamicCubismModelAccess access = new DynamicCubismModelAccess();
+        access.connect(() -> modelWithDrawable(drawable("guid-x", false)));
+
+        final Drawable wrapped = access.active().drawables().find(new ArtMeshId("ArtMeshA"));
+        assertEquals("guid-x", wrapped.guid());
+
+        access.deactivate();
+        assertThrows(IllegalStateException.class, wrapped::guid);
+
+        access.connect(() -> modelWithDrawable(drawable(null, true)));
+        final Drawable unsupported = access.active().drawables().find(new ArtMeshId("ArtMeshA"));
+        assertThrows(UnsupportedOperationException.class, unsupported::guid);
+    }
+
+    private static CubismModel modelWithDrawable(final Drawable drawable) {
+        return new CubismModel() {
+            @Override public ModelId id() { return new ModelId("model-a"); }
+            @Override public Parameters parameters() { throw unsupported(); }
+            @Override public dev.turboism.sdk.cubism.model.Parts parts() { throw unsupported(); }
+            @Override public dev.turboism.sdk.cubism.model.Drawables drawables() {
+                return new dev.turboism.sdk.cubism.model.Drawables() {
+                    @Override public List<Drawable> all() { return List.of(drawable); }
+                    @Override public Drawable find(final ArtMeshId id) { return drawable; }
+                };
+            }
+            @Override public dev.turboism.sdk.cubism.model.Deformers deformers() { throw unsupported(); }
+            @Override public dev.turboism.sdk.cubism.model.Glues glues() { throw unsupported(); }
+            @Override public void update() { throw unsupported(); }
+        };
+    }
+
+    private static Drawable drawable(final String guid, final boolean throwGuid) {
+        return new Drawable() {
+            @Override public ArtMeshId id() { return new ArtMeshId("ArtMeshA"); }
+            @Override public String guid() {
+                if (throwGuid) {
+                    throw unsupported();
+                }
+                return guid;
+            }
+            @Override public IntSequence parameters() { return emptyInts(); }
+            @Override public byte constantFlag() { return 0; }
+            @Override public byte dynamicFlag() { return 0; }
+            @Override public dev.turboism.sdk.cubism.model.BlendMode blendMode() {
+                return dev.turboism.sdk.cubism.model.BlendMode.NORMAL;
+            }
+            @Override public int textureIndex() { return 0; }
+            @Override public int drawOrder() { return 0; }
+            @Override public int renderOrder() { return 0; }
+            @Override public float getOpacity() { return 1.0F; }
+            @Override public IntSequence masks() { return emptyInts(); }
+            @Override public dev.turboism.sdk.cubism.model.FloatSequence vertexPositions() {
+                return emptyFloats();
+            }
+            @Override public dev.turboism.sdk.cubism.model.FloatSequence vertexUvs() {
+                return emptyFloats();
+            }
+            @Override public IntSequence indices() { return emptyInts(); }
+            @Override public Color multiplyColor() { return new Color(1.0F, 1.0F, 1.0F, 1.0F); }
+            @Override public Color screenColor() { return new Color(0.0F, 0.0F, 0.0F, 1.0F); }
+            @Override public int parentPartIndex() { return -1; }
+            @Override public int parentDeformerIndex() { return -1; }
+        };
+    }
     @Test
     void nativeLabelColorSeamFollowsTheSessionLeaseAndFailsClosed() {
         final DynamicCubismModelAccess access = new DynamicCubismModelAccess();

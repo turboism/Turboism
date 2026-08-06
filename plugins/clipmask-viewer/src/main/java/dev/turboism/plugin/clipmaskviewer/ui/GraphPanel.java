@@ -38,7 +38,7 @@ final class GraphPanel extends JComponent {
     /** 圆半径下限：节点再少也保持可读的圆周大小。 */
     private static final int MIN_RADIUS = 160;
     /** 相邻节点沿弧的间距（含直径与间隙），决定圆半径。 */
-    private static final int NODE_SPACING = NODE_RADIUS * 2 + 8;
+    private static final int NODE_SPACING = NODE_RADIUS * 2 + 2;
     private static final int MARGIN = 40;
 
     private final ClipMaskViewerState state;
@@ -48,6 +48,13 @@ final class GraphPanel extends JComponent {
     private Set<String> highlightedGuids = Set.of();
     private final List<NodeBox> nodes = new ArrayList<>();
     private final Map<String, NodeBox> nodesByGuid = new HashMap<>();
+    private double scale = 1.0;
+    private int offsetX;
+    private int offsetY;
+    private Point pressPoint;
+    private int pressOffsetX;
+    private int pressOffsetY;
+    private boolean dragMoved;
 
     GraphPanel(
         final ClipMaskViewerState state,
@@ -62,7 +69,27 @@ final class GraphPanel extends JComponent {
         rebuild();
         addMouseListener(new MouseAdapter() {
             @Override
+            public void mousePressed(final MouseEvent event) {
+                pressPoint = event.getPoint();
+                pressOffsetX = offsetX;
+                pressOffsetY = offsetY;
+                dragMoved = false;
+            }
+
+            @Override
+            public void mouseReleased(final MouseEvent event) {
+                pressPoint = null;
+            }
+
+            @Override
             public void mouseClicked(final MouseEvent event) {
+                if (event.getClickCount() == 2) {
+                    resetView();
+                    return;
+                }
+                if (dragMoved) {
+                    return;
+                }
                 final NodeBox hit = findNode(event.getPoint());
                 if (hit != null && hit.record != null) {
                     onNodeClick.accept(hit.record.guid());
@@ -78,8 +105,55 @@ final class GraphPanel extends JComponent {
                     : Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
                 setToolTipText(hit == null ? null : hit.tooltip());
             }
+
+            @Override
+            public void mouseDragged(final MouseEvent event) {
+                final Point current = event.getPoint();
+                if (pressPoint != null) {
+                    final double dx = current.x - pressPoint.x;
+                    final double dy = current.y - pressPoint.y;
+                    dragMoved |= dx * dx + dy * dy > 4 * 4;
+                    offsetX = pressOffsetX + (int) Math.round(dx);
+                    offsetY = pressOffsetY + (int) Math.round(dy);
+                    repaint();
+                }
+            }
+        });
+        addMouseWheelListener(event -> {
+            final double factor = event.getWheelRotation() < 0 ? 1.2 : 1 / 1.2;
+            zoomAt(event.getPoint(), factor);
         });
     }
+
+    void zoomAt(final Point anchor, final double factor) {
+        final double next = Math.max(0.2, Math.min(4.0, scale * factor));
+        if (next == scale) {
+            return;
+        }
+        offsetX = (int) Math.round(anchor.x - (anchor.x - offsetX) * next / scale);
+        offsetY = (int) Math.round(anchor.y - (anchor.y - offsetY) * next / scale);
+        scale = next;
+        repaint();
+    }
+
+    void panBy(final int dx, final int dy) {
+        offsetX += dx;
+        offsetY += dy;
+        repaint();
+    }
+
+    void resetView() {
+        scale = 1.0;
+        offsetX = 0;
+        offsetY = 0;
+        repaint();
+    }
+
+    double scale() { return scale; }
+
+    int offsetX() { return offsetX; }
+
+    int offsetY() { return offsetY; }
 
     void setShowUnrelated(final boolean show) {
         this.showUnrelated = show;
@@ -90,10 +164,12 @@ final class GraphPanel extends JComponent {
         repaint();
     }
 
-    private NodeBox findNode(final Point point) {
+    NodeBox findNode(final Point point) {
+        final double lx = (point.x - offsetX) / scale;
+        final double ly = (point.y - offsetY) / scale;
         for (NodeBox node : nodes) {
-            final double dx = point.x - node.x;
-            final double dy = point.y - node.y;
+            final double dx = lx - node.x;
+            final double dy = ly - node.y;
             if (dx * dx + dy * dy <= NODE_RADIUS * NODE_RADIUS) {
                 return node;
             }
@@ -106,6 +182,7 @@ final class GraphPanel extends JComponent {
         nodesByGuid.clear();
         final List<ClipMaskRecord> pool = showUnrelated ? state.records() : state.filterRelated();
         if (pool == null || pool.isEmpty()) {
+            resetView();
             setPreferredSize(new Dimension(400, 200));
             revalidate();
             return;
@@ -178,6 +255,15 @@ final class GraphPanel extends JComponent {
             g2.setColor(Color.WHITE);
             g2.fillRect(0, 0, getWidth(), getHeight());
 
+            // 图例与缩放指示在变换前绘制（屏幕坐标，固定左上角）。
+            drawLegend(g2);
+            g2.setColor(new Color(130, 130, 130));
+            g2.setFont(g2.getFont().deriveFont(Font.PLAIN, 11f));
+            g2.drawString(String.format("%.0f%%", scale * 100), 10, 36);
+
+            g2.translate(offsetX, offsetY);
+            g2.scale(scale, scale);
+
             g2.setStroke(new BasicStroke(1.2f));
             for (NodeBox user : nodes) {
                 final ClipMaskRecord record = user.record;
@@ -220,7 +306,6 @@ final class GraphPanel extends JComponent {
                 g2.setColor(new Color(80, 80, 80));
                 g2.drawString(countLabel, node.x - countWidth / 2, node.y + NODE_RADIUS + fm.getAscent() + 2);
             }
-            drawLegend(g2);
         } finally {
             g2.dispose();
         }
