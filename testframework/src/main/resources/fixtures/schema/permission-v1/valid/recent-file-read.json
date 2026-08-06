@@ -1,0 +1,7 @@
+{
+  "format": "turboism.permission",
+  "schemaVersion": 1,
+  "id": "turboism.cubism.recent-file.read",
+  "scope": "application",
+  "reason": "Lists the host Recent Files menu projection."
+}
