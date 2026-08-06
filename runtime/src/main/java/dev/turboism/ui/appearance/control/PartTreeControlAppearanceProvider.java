@@ -18,14 +18,17 @@ public final class PartTreeControlAppearanceProvider implements AutoCloseable {
         final long hostGeneration,
         final String partId,
         final boolean folder,
+        final NativePartTreeAppearanceBridge.Selectors.SourceKind kind,
         final Component component
     ) {
         Objects.requireNonNull(partId, "partId");
         final Component target = Objects.requireNonNull(component, "component");
         if (!javax.swing.SwingUtilities.isEventDispatchThread()) return target;
-        styles.apply(target, coordinator.resolveCurrent(
-            hostGeneration, PaletteAppearanceCoordinator.Palette.PART, partId
-        ));
+        final PaletteAppearanceCoordinator.Palette palette =
+            kind == NativePartTreeAppearanceBridge.Selectors.SourceKind.PART
+                ? PaletteAppearanceCoordinator.Palette.PART
+                : PaletteAppearanceCoordinator.Palette.DEFORMER_PART;
+        styles.apply(target, coordinator.resolveCurrent(hostGeneration, palette, partId));
         return target;
     }
 

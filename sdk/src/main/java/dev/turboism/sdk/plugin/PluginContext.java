@@ -4,6 +4,9 @@ import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.appearance.AppearanceService;
 import dev.turboism.sdk.config.PluginConfigRegistry;
 import dev.turboism.sdk.cubism.CubismFacade;
+import dev.turboism.sdk.cubism.recentfile.RecentFileService;
+import dev.turboism.sdk.cubism.recentpreview.RecentPreviewContributionService;
+import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureService;
 import dev.turboism.sdk.cubism.service.query.ModelHierarchyQueryService;
 import dev.turboism.sdk.cubism.service.query.ParameterQueryService;
 import dev.turboism.sdk.cubism.service.query.SelectionQueryService;
@@ -33,6 +36,7 @@ import dev.turboism.sdk.ui.table.SceneTableService;
 import dev.turboism.sdk.ui.workspace.WorkspaceService;
 
 import java.util.List;
+import dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService;
 
 /**
  * Runtime context provided to a plugin during {@link TurboismPlugin#init(PluginContext)}.
@@ -85,6 +89,22 @@ public interface PluginContext {
 
     default ModelObjectService modelObjects() {
         return ModelObjectService.unavailable();
+    }
+
+    default CubismClipMaskService cubismClipMasks() {
+        throw new UnsupportedOperationException("clipMask service is not available");
+    }
+
+    default RecentFileService recentFiles() {
+        throw new UnsupportedOperationException("recent file service is not available");
+    }
+
+    default ScreenshotCaptureService screenshots() {
+        throw new UnsupportedOperationException("screenshot capture service is not available");
+    }
+
+    default RecentPreviewContributionService recentPreviews() {
+        throw new UnsupportedOperationException("recent preview contribution service is not available");
     }
 
     default PhysicsEditorService physicsEditor() {
