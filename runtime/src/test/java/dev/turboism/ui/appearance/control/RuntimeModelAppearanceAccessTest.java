@@ -64,6 +64,23 @@ class RuntimeModelAppearanceAccessTest {
     }
 
     @Test
+    void drawableFacadeExposesDeformerPartPaletteForArtMeshRows() {
+        final Fixture fixture = new Fixture("content-a", "model-a", 7L);
+        final PaletteAppearanceCoordinator coordinator = new PaletteAppearanceCoordinator();
+        final RuntimeModelAppearanceAccess access = fixture.access("plugin-a", 1L, coordinator);
+        final PaletteEntry partEntry = access.drawable("model-a", "ArtMeshA", 3L).partPaletteEntry().orElseThrow();
+        final PaletteEntry deformerEntry = access.drawable("model-a", "ArtMeshA", 3L).deformerPaletteEntry().orElseThrow();
+
+        partEntry.overrideTextColor(new UiColor(0.1F, 0.2F, 0.3F, 1.0F));
+        deformerEntry.overrideBackgroundColor(new UiColor(0.4F, 0.5F, 0.6F, 1.0F));
+
+        assertEquals(Optional.of(new UiColor(0.1F, 0.2F, 0.3F, 1.0F)),
+            partEntry.resolved().textColor());
+        assertEquals(Optional.of(new UiColor(0.4F, 0.5F, 0.6F, 1.0F)),
+            deformerEntry.resolved().backgroundColor());
+    }
+
+    @Test
     void fontSizeBoundariesAreAcceptedAndInvalidValuesLeaveStateUntouched() {
         final Fixture fixture = new Fixture("content-a", "model-a", 1L);
         final PaletteAppearanceCoordinator coordinator = new PaletteAppearanceCoordinator();
