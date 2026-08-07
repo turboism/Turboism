@@ -95,7 +95,8 @@ final class DynamicRuntimeHostAdaptersRecentPreviewTest {
                 @Override
                 public void refresh() {
                 }
-            })
+            }),
+            safe.autoBackup()
         );
         dynamic.connect(connected);
 
@@ -140,7 +141,8 @@ final class DynamicRuntimeHostAdaptersRecentPreviewTest {
                 }
             }),
             ScreenshotCaptureAdapter.connected(capture::apply),
-            safe.recentPreviews()
+            safe.recentPreviews(),
+            safe.autoBackup()
         );
     }
 }

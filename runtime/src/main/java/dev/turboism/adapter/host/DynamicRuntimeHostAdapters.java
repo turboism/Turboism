@@ -2,6 +2,7 @@ package dev.turboism.adapter.host;
 
 import dev.turboism.adapter.RuntimeHostAdapters;
 import dev.turboism.adapter.cubism.ProjectWorkspaceAdapter;
+import dev.turboism.adapter.cubism.backup.AutoBackupAdapter;
 import dev.turboism.adapter.ui.StatusToolbarAdapter;
 import dev.turboism.adapter.ui.UiSurfaceAdapter;
 import dev.turboism.sdk.plugin.Registration;
@@ -172,7 +173,8 @@ final class DynamicRuntimeHostAdapters {
                         });
                     }
                 }
-            )
+            ),
+            AutoBackupAdapter.safeMode()
         );
     }
 
