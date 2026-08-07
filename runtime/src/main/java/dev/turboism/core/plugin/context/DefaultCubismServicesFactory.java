@@ -343,6 +343,11 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
             new SelectionQueryServiceImpl(facade, permissionGate, dependencies.runtimeScheduler()),
             new ModelHierarchyQueryServiceImpl(facade, permissionGate),
             readCapabilityService,
+            new dev.turboism.adapter.cubism.model.RuntimeModelObjectService(
+                pluginModelAccess,
+                permissionChecker,
+                activeScope::get
+            ),
             dependencies.permissions().stream().anyMatch(permission ->
                 CubismFacadeImpl.MODEL_WRITE_PERMISSION.equals(permission.id())
             ) ? physicsEditorCoordinator : dev.turboism.sdk.cubism.physics.PhysicsEditorService.unavailable(),
