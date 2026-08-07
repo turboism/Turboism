@@ -242,6 +242,7 @@ final class CoreWindows implements AutoCloseable {
     }
 
     private JDialog createAboutDialog() {
+        ensureSwingUis();
         final JDialog dialog = CoreDialogs.create(text("window.about.title"), 380, 278);
         dialog.setLayout(new BorderLayout(0, 8));
 
@@ -258,6 +259,20 @@ final class CoreWindows implements AutoCloseable {
         dialog.add(content, BorderLayout.CENTER);
         dialog.add(buttons, BorderLayout.SOUTH);
         return dialog;
+    }
+
+    /**
+     * Host sessions occasionally boot with a broken Swing look-and-feel (every
+     * component reports "no ComponentUI class" and paints nothing). Register the
+     * JDK Basic UIs for the components this dialog uses as a fallback so the
+     * About dialog still renders when the host L&F is unhealthy.
+     */
+    private static void ensureSwingUis() {
+        final javax.swing.UIDefaults defaults = javax.swing.UIManager.getDefaults();
+        defaults.putIfAbsent("EditorPaneUI", "javax.swing.plaf.basic.BasicEditorPaneUI");
+        defaults.putIfAbsent("PanelUI", "javax.swing.plaf.basic.BasicPanelUI");
+        defaults.putIfAbsent("ButtonUI", "javax.swing.plaf.basic.BasicButtonUI");
+        defaults.putIfAbsent("LabelUI", "javax.swing.plaf.basic.BasicLabelUI");
     }
 
     /**
