@@ -1,0 +1,60 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 2,
+  "id": "turboism.core",
+  "name": "Turboism Core",
+  "version": "0.1.0",
+  "description": "Built-in, non-removable Turboism menu, toolbar, settings, tab, and plugin manager.",
+  "entrypoints": [
+    "dev.turboism.plugin.core.MainToolbarPlugin"
+  ],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    { "name": "Turboism Contributors" }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": ["icons/"],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": ["base", "en", "ja", "ko", "zh_Hans", "zh_Hant"]
+  },
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.action.register",
+      "scope": "application",
+      "reason": "Registers the main toolbar home entry action."
+    },
+    {
+      "id": "turboism.ui.toolbar.main.contribute",
+      "scope": "application",
+      "reason": "Adds the home entry button to the main toolbar."
+    },
+    {
+      "id": "turboism.ui.panel.contribute",
+      "scope": "application",
+      "reason": "Publishes and activates the Turboism embedded panel."
+    },
+    {
+      "id": "turboism.ui.context-menu.contribute",
+      "scope": "application",
+      "reason": "Contributes the built-in panel-tab float and dock menu operations."
+    },
+    {
+      "id": "turboism.ui.menu.contribute",
+      "scope": "application",
+      "reason": "Adds Settings and Plugin Management entries to the Turboism top-level menu."
+    },
+    {
+      "id": "turboism.ui.dialog.contribute",
+      "scope": "application",
+      "reason": "Confirms plugin uninstall requests."
+    }
+  ],
+  "capabilities": [],
+  "environment": {
+    "requiresCubism": false,
+    "ui": "none"
+  }
+}

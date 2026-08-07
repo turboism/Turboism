@@ -31,7 +31,7 @@ public final class NativeDockTabPopupBridge {
         } catch (Throwable failure) {
             System.err.println(
                 "Turboism dock-tab popup augmentation failed safely: "
-                    + failure.getClass().getName()
+                    + failure.getClass().getName() + ": " + failure.getMessage()
             );
         }
     }

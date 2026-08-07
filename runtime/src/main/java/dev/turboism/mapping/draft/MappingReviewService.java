@@ -260,7 +260,7 @@ public final class MappingReviewService {
     }
 
     private void rejectStaticVerificationReference(final String semanticName) {
-        final Path directory = root.resolve("docs/migration/verification/static");
+        final Path directory = root.resolve("cubism-ref/verification");
         if (!Files.exists(directory, LinkOption.NOFOLLOW_LINKS)) return;
         try {
             FileSafety.requireDirectoryNoLinks(directory, "STATIC_VERIFICATION_RECORD_INVALID");

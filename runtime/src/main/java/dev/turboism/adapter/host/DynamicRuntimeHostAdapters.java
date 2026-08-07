@@ -10,6 +10,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
@@ -94,6 +95,11 @@ final class DynamicRuntimeHostAdapters {
                 }
 
                 @Override
+                public AdapterResult<java.util.Optional<dev.turboism.sdk.cubism.DocumentSnapshot>> activeDocument() {
+                    return call(adapters -> adapters.projectWorkspace().activeDocument());
+                }
+
+                @Override
                 public AdapterResult<java.util.Optional<dev.turboism.sdk.cubism.WorkspaceSnapshot>> workspace() {
                     return call(adapters -> adapters.projectWorkspace().workspace());
                 }
@@ -134,7 +140,39 @@ final class DynamicRuntimeHostAdapters {
                 ) {
                     return call(adapters -> adapters.uiSurface().requestFile(request));
                 }
-            }
+            },
+            dev.turboism.adapter.cubism.RecentFileAdapter.connected(
+                new dev.turboism.adapter.cubism.RecentFileAdapter.HostOperations() {
+                    @Override
+                    public java.util.List<dev.turboism.sdk.cubism.recentfile.RecentFileSummary> list() {
+                        return call(adapters -> adapters.recentFiles().list());
+                    }
+
+                    @Override
+                    public java.util.Optional<dev.turboism.sdk.cubism.recentfile.RecentFileId> current() {
+                        return call(adapters -> adapters.recentFiles().current());
+                    }
+                }
+            ),
+            request -> callAsync(adapters -> adapters.screenshots().capture(request)),
+            dev.turboism.adapter.cubism.RecentPreviewContributionAdapter.connected(
+                new dev.turboism.adapter.cubism.RecentPreviewContributionAdapter.HostOperations() {
+                    @Override
+                    public dev.turboism.sdk.plugin.Registration contribute(
+                        final dev.turboism.sdk.cubism.recentpreview.RecentPreviewRenderer renderer
+                    ) {
+                        return call(adapters -> track(adapters.recentPreviews().contribute(renderer)));
+                    }
+
+                    @Override
+                    public void refresh() {
+                        call(adapters -> {
+                            adapters.recentPreviews().refresh();
+                            return null;
+                        });
+                    }
+                }
+            )
         );
     }
 
@@ -158,18 +196,7 @@ final class DynamicRuntimeHostAdapters {
             adapterCallDepth.set(remainingDepth);
         }
 
-        Throwable deferredCleanupFailure = null;
-        if (outermost && lease.counted()) {
-            final Runnable callback;
-            synchronized (callGate) {
-                callback = onOutermostAdapterCallComplete;
-            }
-            try {
-                callback.run();
-            } catch (Throwable throwable) {
-                deferredCleanupFailure = throwable;
-            }
-        }
+        final Throwable deferredCleanupFailure = runOutermostCallback(outermost, lease);
 
         if (primary != null) {
             if (deferredCleanupFailure != null && deferredCleanupFailure != primary) {
@@ -181,6 +208,68 @@ final class DynamicRuntimeHostAdapters {
             return rethrowCallFailure(deferredCleanupFailure);
         }
         return result;
+    }
+
+    /**
+     * Async sibling of {@link #call}: the issued lease stays counted until the returned
+     * stage reaches a terminal state, so a session deactivate/close cannot complete
+     * while the host operation (for example an EDT screenshot capture) is still in
+     * flight. The outermost-call completion callback runs once per counted lease, when
+     * the stage settles.
+     */
+    private <T> CompletionStage<T> callAsync(
+        final Function<RuntimeHostAdapters, CompletionStage<T>> operation
+    ) {
+        final CallLease lease = acquireLease();
+        adapterCallDepth.set(adapterCallDepth.get() + 1);
+        CompletionStage<T> stage;
+        Throwable primary = null;
+        try {
+            stage = operation.apply(lease.adapters());
+        } catch (Throwable throwable) {
+            primary = throwable;
+            stage = null;
+        }
+
+        final int remainingDepth = adapterCallDepth.get() - 1;
+        final boolean outermost = remainingDepth == 0;
+        if (outermost) {
+            adapterCallDepth.remove();
+        } else {
+            adapterCallDepth.set(remainingDepth);
+        }
+
+        if (primary != null) {
+            releaseLease(lease);
+            final Throwable deferredCleanupFailure = runOutermostCallback(outermost, lease);
+            if (deferredCleanupFailure != null && deferredCleanupFailure != primary) {
+                primary.addSuppressed(deferredCleanupFailure);
+            }
+            return rethrowCallFailure(primary);
+        }
+        return stage.whenComplete((ignored, failure) -> {
+            releaseLease(lease);
+            final Throwable deferredCleanupFailure = runOutermostCallback(outermost, lease);
+            if (deferredCleanupFailure != null) {
+                throw new CompletionException(deferredCleanupFailure);
+            }
+        });
+    }
+
+    private Throwable runOutermostCallback(final boolean outermost, final CallLease lease) {
+        if (!outermost || !lease.counted()) {
+            return null;
+        }
+        final Runnable callback;
+        synchronized (callGate) {
+            callback = onOutermostAdapterCallComplete;
+        }
+        try {
+            callback.run();
+            return null;
+        } catch (Throwable throwable) {
+            return throwable;
+        }
     }
 
     private static <T> T rethrowCallFailure(final Throwable throwable) {

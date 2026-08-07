@@ -4,7 +4,7 @@
   "id": "dev.turboism.validation.parameter",
   "name": "Windows Parameter Validation Probe",
   "version": "0.1.0",
-  "description": "Manual-test-only SDK probe for parameter queries, values, definitions, Combined pairing, group colors, default-keyform lock, and lifecycle behavior.",
+  "description": "Manual-test-only SDK probe for parameter queries, values, definitions, Combined pairing, native control label backgrounds, default-keyform lock, and lifecycle behavior.",
   "entrypoints": [
     "dev.turboism.tests.plugin.WindowsParameterValidationProbe"
   ],
@@ -24,12 +24,12 @@
     {
       "id": "turboism.cubism.model.read",
       "scope": "application",
-      "reason": "Query active parameters, parameter groups, label colors, default-keyform lock, and verified metadata during manual validation."
+      "reason": "Query active parameters, parameter groups, native control label backgrounds, default-keyform lock, and verified metadata during manual validation."
     },
     {
       "id": "turboism.cubism.model.write",
       "scope": "application",
-      "reason": "Invoke verified parameter, Combined, folder label-color, and default-keyform lock writes during manual validation."
+      "reason": "Invoke verified parameter, Combined, folder label-background, and default-keyform lock writes during manual validation."
     },
     {
       "id": "turboism.cubism.model.observe",

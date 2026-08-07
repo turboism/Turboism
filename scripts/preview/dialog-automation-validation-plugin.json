@@ -1,0 +1,45 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 2,
+  "id": "dev.turboism.validation.dialog-automation",
+  "name": "Host Dialog Automation Validation Probe",
+  "version": "0.1.0",
+  "description": "Manual-test-only SDK probe that drives the real Cubism unsaved-changes confirmation dialog through the public hostDialogs() service and records expected/actual/status.",
+  "entrypoints": [
+    "dev.turboism.tests.plugin.HostDialogAutomationValidationProbe"
+  ],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    { "name": "Turboism Contributors" }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": []
+  },
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.cubism.model.read",
+      "scope": "application",
+      "reason": "Confirm the fixture model is loaded and readable before triggering the host close flow."
+    },
+    {
+      "id": "turboism.cubism.model.write",
+      "scope": "application",
+      "reason": "Write one parameter value through the public SDK to mark the document unsaved so the close confirmation dialog appears."
+    },
+    {
+      "id": "turboism.ui.dialog.automate",
+      "scope": "application",
+      "reason": "Automate the host unsaved-changes confirmation dialog through the public SDK service."
+    }
+  ],
+  "capabilities": [],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "swing"
+  }
+}

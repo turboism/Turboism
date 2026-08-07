@@ -20,16 +20,31 @@ tasks.processResources {
         "cubism-5.2-ui-embedded-panel.json",
         "cubism-5.3.02-ui-embedded-panel.json",
         "cubism-5.2-ui-top-menu.json",
-        "cubism-5.3.02-ui-top-menu.json"
+        "cubism-5.3.02-ui-top-menu.json",
+        "cubism-5.2-ui-bounding-box-overlay.json",
+        "cubism-5.3.02-ui-bounding-box-overlay.json",
+        "cubism-5.3.02-ui-status-bar.json",
+        "cubism-5.3.02-clipmask.json",
+        "cubism-5.2-ui-control-appearance.json",
+        "cubism-5.3.02-ui-control-appearance.json",
+        "cubism-5.2-workspace-control.json",
+        "cubism-5.3.02-workspace-control.json"
     ).forEach { record ->
-        from(rootProject.file("docs/migration/verification/static/$record")) {
+        from(rootProject.file("cubism-ref/verification/$record")) {
             into("META-INF/turboism/verification")
         }
+    }
+    // Bundle the project-owned built-in themes so the bootstrap can inject the
+    // persisted theme appearance before the Cubism GL scene initializes (the
+    // off-canvas background color is cached in a singleton Lazy and cannot be
+    // refreshed at runtime).
+    from(rootProject.file("plugins/ui-theme/src/main/resources/themes")) {
+        into("themes")
     }
 }
 
 tasks.jar {
-    dependsOn(":runtime:jar", ":sdk:jar")
+    dependsOn(configurations.runtimeClasspath)
     archiveBaseName.set("turboism-agent")
     archiveFileName.set("turboism-agent.jar")
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE

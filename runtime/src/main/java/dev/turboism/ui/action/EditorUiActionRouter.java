@@ -20,6 +20,15 @@ public interface EditorUiActionRouter {
         invoke(pluginId, actionId);
     }
 
+    default void invoke(
+        final String pluginId,
+        final String actionId,
+        final ActionRegistry.ActionContext context
+    ) {
+        Objects.requireNonNull(context, "context");
+        invoke(pluginId, actionId);
+    }
+
     static EditorUiActionRouter unavailable() {
         return (pluginId, actionId) -> { };
     }
