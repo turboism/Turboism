@@ -41,16 +41,16 @@ public final class WebDavSettingsBinding {
     private static final ConfigKey<String> PASSWORD =
         new ConfigKey<>(CONFIG_ID, "password", "", ConfigCodecs.stringValue(512));
     private static final ConfigKey<String> REMOTE_PATH =
-        new ConfigKey<>(CONFIG_ID, "remotePath", DEFAULT_REMOTE_PATH, ConfigCodecs.stringValue(512));
+        new ConfigKey<>(CONFIG_ID, "remote.path", DEFAULT_REMOTE_PATH, ConfigCodecs.stringValue(512));
     private static final ConfigKey<Boolean> VERIFY_TLS =
-        new ConfigKey<>(CONFIG_ID, "verifyTls", true, ConfigCodecs.booleanValue());
+        new ConfigKey<>(CONFIG_ID, "verify.tls", true, ConfigCodecs.booleanValue());
     private static final ConfigKey<Integer> RETRY_MAX =
-        new ConfigKey<>(CONFIG_ID, "retryMax", DEFAULT_RETRY_MAX, ConfigCodecs.boundedInt(0, 10));
+        new ConfigKey<>(CONFIG_ID, "retry.max", DEFAULT_RETRY_MAX, ConfigCodecs.boundedInt(0, 10));
     private static final ConfigKey<Integer> RETRY_BASE_DELAY_MS =
-        new ConfigKey<>(CONFIG_ID, "retryBaseDelayMs", (int) DEFAULT_RETRY_BASE_DELAY_MS,
+        new ConfigKey<>(CONFIG_ID, "retry.base-delay-ms", (int) DEFAULT_RETRY_BASE_DELAY_MS,
             ConfigCodecs.boundedInt(0, 60_000));
     private static final ConfigKey<Integer> TIMEOUT_SECONDS =
-        new ConfigKey<>(CONFIG_ID, "timeoutSeconds", DEFAULT_TIMEOUT_SECONDS, ConfigCodecs.boundedInt(1, 300));
+        new ConfigKey<>(CONFIG_ID, "timeout.seconds", DEFAULT_TIMEOUT_SECONDS, ConfigCodecs.boundedInt(1, 300));
 
     private static final ConfigSchema SCHEMA = new ConfigSchema(CONFIG_ID, CONFIG_PATH, 1, List.of(
         ENABLED, URL, USERNAME, PASSWORD, REMOTE_PATH, VERIFY_TLS, RETRY_MAX,
