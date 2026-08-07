@@ -1,5 +1,7 @@
 package dev.turboism.sdk.cubism.backup;
 
+import dev.turboism.sdk.cubism.ProjectContentKind;
+import dev.turboism.sdk.cubism.ProjectContentSnapshot;
 import dev.turboism.sdk.plugin.PluginContext;
 import org.junit.jupiter.api.Test;
 
@@ -44,7 +46,7 @@ final class EditorAutoBackupServiceContractTest {
     @Test
     void serviceSurfaceIsStableAndFailsClosed() {
         assertEquals(
-            List.of("backupNow", "registerSyncTarget", "settings", "statuses", "unavailable", "updateSettings"),
+            List.of("backupAfterSave", "backupNow", "registerSyncTarget", "settings", "statuses", "unavailable", "updateSettings"),
             Arrays.stream(EditorAutoBackupService.class.getDeclaredMethods())
                 .filter(method -> Modifier.isPublic(method.getModifiers()))
                 .map(Method::getName)
@@ -61,6 +63,13 @@ final class EditorAutoBackupServiceContractTest {
         assertTrue(stage.toCompletableFuture().isDone());
         assertTrue(stage.toCompletableFuture().isCompletedExceptionally());
         service.registerSyncTarget(BackupSyncTarget.noop()).close();
+
+        final CompletionStage<BackupCompletedEvent> afterSave = service.backupAfterSave(
+            new ProjectContentSnapshot("model:1", "model.cmo3", ProjectContentKind.MODEL,
+                java.util.Optional.empty(), List.of())
+        );
+        assertTrue(afterSave.toCompletableFuture().isDone());
+        assertTrue(afterSave.toCompletableFuture().isCompletedExceptionally());
     }
 
     @Test

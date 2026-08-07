@@ -4,6 +4,8 @@ import dev.turboism.mapping.verification.AutoBackupVerificationManifest;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
+import dev.turboism.sdk.cubism.ProjectContentKind;
+import dev.turboism.sdk.cubism.ProjectContentSnapshot;
 import dev.turboism.sdk.cubism.backup.BackupCompletedEvent;
 import dev.turboism.sdk.cubism.backup.EditorAutoBackupSettings;
 import dev.turboism.sdk.cubism.backup.EditorAutoBackupStatus;
@@ -18,6 +20,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletionStage;
@@ -27,6 +31,8 @@ import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -109,6 +115,13 @@ class AutoBackupCoordinatorTest {
             java.util.concurrent.ExecutionException.class,
             () -> stage.toCompletableFuture().get(10, TimeUnit.SECONDS),
             "backupNow must fail closed without verified selectors"
+        );
+
+        CompletionStage<BackupCompletedEvent> afterSave = service.backupAfterSave(snapshot("model.cmo3"));
+        assertThrows(
+            java.util.concurrent.ExecutionException.class,
+            () -> afterSave.toCompletableFuture().get(10, TimeUnit.SECONDS),
+            "backupAfterSave must fail closed without verified selectors"
         );
         assertEquals(5, host.manager.interval, "no host mutation without verified selectors");
     }
@@ -210,6 +223,110 @@ class AutoBackupCoordinatorTest {
         assertThrows(IllegalStateException.class, service::backupNow);
     }
 
+    @Test
+    void backupAfterSaveProducesTheArtifactPublishesTheEventAndSyncs() throws Exception {
+        FakeHost host = new FakeHost();
+        RecordingEventBus bus = new RecordingEventBus();
+        AutoBackupCoordinator service = new AutoBackupCoordinator(
+            AutoBackupAdapter.connected(host.operations()), bus, Clock.systemUTC(), 60_000L
+        );
+        List<File> received = new CopyOnWriteArrayList<>();
+        service.registerSyncTarget(files -> {
+            received.addAll(files);
+            throw new IllegalStateException("sync target exploded");
+        });
+        BackupCompletedEvent event = service.backupAfterSave(snapshot("model.cmo3"))
+            .toCompletableFuture().get(30, TimeUnit.SECONDS);
+        assertEquals(1, event.newBackupFiles().size());
+        File artifact = event.newBackupFiles().get(0);
+        assertTrue(artifact.getName().startsWith("model_backup"),
+            "artifact must match the <name>_backup<ts>.cmo3 pattern");
+        assertTrue(artifact.getName().endsWith(".cmo3"));
+        assertTrue(artifact.length() > 0);
+        assertEquals(host.backupDir, artifact.getParentFile().toPath());
+        assertEquals(1, host.saveDocumentCalls);
+        assertEquals(1, bus.events.size(), "the completed event must be published");
+        assertEquals(List.of(artifact), received, "sync targets must receive the new artifact");
+        assertTrue(host.onEdt.get(), "the host saveDocument call must run on the EDT");
+    }
+
+    @Test
+    void backupAfterSaveCoalescesSavesWithinTheDebounceWindowAndRunsAfterItExpires() throws Exception {
+        FakeHost host = new FakeHost();
+        MutableClock clock = new MutableClock(1_000_000L);
+        AutoBackupCoordinator service = coordinator(host, clock, 60_000L);
+        ProjectContentSnapshot saved = snapshot("model.cmo3");
+        CompletionStage<BackupCompletedEvent> first = service.backupAfterSave(saved);
+        clock.advance(1_000L); // still inside the 2s debounce window
+        CompletionStage<BackupCompletedEvent> second = service.backupAfterSave(saved);
+        assertSame(first, second, "a save inside the debounce window must coalesce");
+        first.toCompletableFuture().get(30, TimeUnit.SECONDS);
+        assertEquals(1, host.saveDocumentCalls, "one backup for saves inside the window");
+        clock.advance(2_000L); // window expired
+        CompletionStage<BackupCompletedEvent> third = service.backupAfterSave(saved);
+        assertNotSame(first, third, "a save after the window must start a new backup");
+        third.toCompletableFuture().get(30, TimeUnit.SECONDS);
+        assertEquals(2, host.saveDocumentCalls);
+    }
+
+    @Test
+    void backupAfterSaveSerializesHostSaveDocumentCallsGlobally() throws Exception {
+        FakeHost host = new FakeHost();
+        AutoBackupCoordinator service = coordinator(host, 60_000L);
+        ProjectContentSnapshot model = snapshot("model.cmo3");
+        ProjectContentSnapshot animation = new ProjectContentSnapshot(
+            "anim:test", "anim.motion3.json", ProjectContentKind.ANIMATION,
+            java.util.Optional.empty(), List.of()
+        );
+        service.backupAfterSave(model).toCompletableFuture().get(30, TimeUnit.SECONDS);
+        service.backupAfterSave(animation).toCompletableFuture().get(30, TimeUnit.SECONDS);
+        assertEquals(2, host.saveDocumentCalls);
+        assertEquals(1, host.maxConcurrentSaveDocument.get(),
+            "host saveDocument calls must never run concurrently");
+        try (var files = Files.list(host.backupDir)) {
+            assertEquals(2, files.filter(path -> path.getFileName().toString().contains("_backup"))
+                .count(), "both documents must produce artifacts");
+        }
+    }
+
+    @Test
+    void backupAfterSaveSupportsGameDataDocumentsThroughTheVoidPrimitive() throws Exception {
+        FakeHost host = new FakeHost();
+        host.pack.fileContents = List.of(new FakeHost.FakeGameDataDocument(host, "game.cmo3", 0L, 0L, false));
+        AutoBackupCoordinator service = coordinator(host, 60_000L);
+        BackupCompletedEvent event = service.backupAfterSave(snapshot("game.cmo3"))
+            .toCompletableFuture().get(30, TimeUnit.SECONDS);
+        assertEquals(1, event.newBackupFiles().size());
+        assertTrue(event.newBackupFiles().get(0).getName().startsWith("game_backup"));
+        assertEquals(1, host.saveDocumentCalls);
+    }
+
+    @Test
+    void backupAfterSaveFailsClosedWhenNoPackContentMatches() throws Exception {
+        FakeHost host = new FakeHost();
+        AutoBackupCoordinator service = coordinator(host, 60_000L);
+        CompletionStage<BackupCompletedEvent> stage = service.backupAfterSave(snapshot("missing.cmo3"));
+        assertThrows(
+            java.util.concurrent.ExecutionException.class,
+            () -> stage.toCompletableFuture().get(30, TimeUnit.SECONDS)
+        );
+        assertEquals(0, host.saveDocumentCalls, "no host mutation without a match");
+        assertEquals(0, host.updateCalls);
+    }
+
+    @Test
+    void backupAfterSaveFailsClosedWhenTheHostRejectsTheSaveDocument() throws Exception {
+        FakeHost host = new FakeHost();
+        host.rejectSaveDocument = true;
+        AutoBackupCoordinator service = coordinator(host, 60_000L);
+        CompletionStage<BackupCompletedEvent> stage = service.backupAfterSave(snapshot("model.cmo3"));
+        assertThrows(
+            java.util.concurrent.ExecutionException.class,
+            () -> stage.toCompletableFuture().get(30, TimeUnit.SECONDS)
+        );
+        assertEquals(1, host.saveDocumentCalls);
+    }
+
     // ---- helpers ----
 
     private AutoBackupCoordinator coordinator(final FakeHost host, final long timeout) {
@@ -223,6 +340,48 @@ class AutoBackupCoordinatorTest {
             Clock.systemUTC(),
             timeout
         );
+    }
+
+    private AutoBackupCoordinator coordinator(final FakeHost host, final Clock clock, final long timeout) {
+        return new AutoBackupCoordinator(
+            AutoBackupAdapter.connected(new VerifiedAutoBackupHostOperations(host.resolver(true))),
+            new RecordingEventBus(),
+            clock,
+            timeout
+        );
+    }
+
+    private static ProjectContentSnapshot snapshot(final String name) {
+        return new ProjectContentSnapshot(
+            "model:test", name, ProjectContentKind.MODEL, java.util.Optional.empty(), List.of()
+        );
+    }
+
+    private static final class MutableClock extends Clock {
+        private final java.util.concurrent.atomic.AtomicLong millis;
+
+        MutableClock(final long initialMillis) {
+            millis = new java.util.concurrent.atomic.AtomicLong(initialMillis);
+        }
+
+        void advance(final long delta) {
+            millis.addAndGet(delta);
+        }
+
+        @Override
+        public ZoneId getZone() {
+            return ZoneId.systemDefault();
+        }
+
+        @Override
+        public Clock withZone(final ZoneId zone) {
+            return this;
+        }
+
+        @Override
+        public Instant instant() {
+            return Instant.ofEpochMilli(millis.get());
+        }
     }
 
     private static final class RecordingEventBus implements EventBus {
@@ -258,6 +417,12 @@ class AutoBackupCoordinatorTest {
         int attachCalls;
         int updateCalls;
         Path backupDir;
+        boolean rejectSaveDocument;
+        int saveDocumentCalls;
+        final java.util.concurrent.atomic.AtomicInteger concurrentSaveDocument =
+            new java.util.concurrent.atomic.AtomicInteger();
+        final java.util.concurrent.atomic.AtomicInteger maxConcurrentSaveDocument =
+            new java.util.concurrent.atomic.AtomicInteger();
 
         FakeHost() {
             try {
@@ -287,6 +452,31 @@ class AutoBackupCoordinatorTest {
 
         AutoBackupAdapter.HostOperations operations() {
             return new VerifiedAutoBackupHostOperations(resolver(true));
+        }
+
+        /** Fake saveDocument primitive: records the call and writes the artifact synchronously. */
+        boolean saveDocument(final File target, final FakeFileContent content) {
+            onEdt();
+            saveDocumentCalls++;
+            final int active = concurrentSaveDocument.incrementAndGet();
+            try {
+                maxConcurrentSaveDocument.accumulateAndGet(active, Math::max);
+                if (rejectSaveDocument) {
+                    return false;
+                }
+                try {
+                    Files.writeString(target.toPath(), "backup-content-" + target.getName());
+                } catch (IOException failure) {
+                    throw new IllegalStateException(failure);
+                }
+                return true;
+            } finally {
+                concurrentSaveDocument.decrementAndGet();
+            }
+        }
+
+        void onEdt() {
+            onEdt.set(SwingUtilities.isEventDispatchThread());
         }
 
         VerifiedMemberResolver resolver(final boolean typed) {
@@ -335,6 +525,18 @@ class AutoBackupCoordinatorTest {
                 "cubism.auto-backup.app-controller.instance", app, "access$get_instance$cp",
                 "()L" + app + ";",
                 StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC));
+            String modeling = internal(FakeModelingDocument.class);
+            String animationContent = internal(FakeAnimationFileContent.class);
+            String gameData = internal(FakeGameDataDocument.class);
+            selectors.add(StaticSelector.method(
+                "cubism.auto-backup.save-document.modeling", modeling, "saveDocument",
+                "(Ljava/io/File;Z)Z"));
+            selectors.add(StaticSelector.method(
+                "cubism.auto-backup.save-document.animation", animationContent, "saveDocument",
+                "(Ljava/io/File;Z)Z"));
+            selectors.add(StaticSelector.method(
+                "cubism.auto-backup.save-document.game-data", gameData, "saveDocument",
+                "(Ljava/io/File;)V"));
             if (!typed) {
                 selectors.removeIf(selector -> selector.alias().equals("cubism.auto-backup.manager.instance"));
             }
@@ -478,7 +680,40 @@ class AutoBackupCoordinatorTest {
             }
         }
 
-        public static final class FakeFileContent {
+        public static final class FakeModelingDocument extends FakeFileContent {
+            FakeModelingDocument(FakeHost host, String name, long lastAutoBackupTime,
+                                 long lastSavedTime, boolean modified) {
+                super(host, name, lastAutoBackupTime, lastSavedTime, modified);
+            }
+
+            public boolean saveDocument(File target, boolean unused) {
+                return host.saveDocument(target, this);
+            }
+        }
+
+        public static final class FakeAnimationFileContent extends FakeFileContent {
+            FakeAnimationFileContent(FakeHost host, String name, long lastAutoBackupTime,
+                                     long lastSavedTime, boolean modified) {
+                super(host, name, lastAutoBackupTime, lastSavedTime, modified);
+            }
+
+            public boolean saveDocument(File target, boolean unused) {
+                return host.saveDocument(target, this);
+            }
+        }
+
+        public static final class FakeGameDataDocument extends FakeFileContent {
+            FakeGameDataDocument(FakeHost host, String name, long lastAutoBackupTime,
+                                 long lastSavedTime, boolean modified) {
+                super(host, name, lastAutoBackupTime, lastSavedTime, modified);
+            }
+
+            public void saveDocument(File target) {
+                host.saveDocument(target, this);
+            }
+        }
+
+        public static class FakeFileContent {
             final FakeHost host;
             final String name;
             long lastAutoBackupTime;
@@ -495,11 +730,11 @@ class AutoBackupCoordinatorTest {
             }
 
             static FakeFileContent model(FakeHost host) {
-                return new FakeFileContent(host, "model.cmo3", 1_000L, 900L, true);
+                return new FakeModelingDocument(host, "model.cmo3", 1_000L, 900L, true);
             }
 
             static FakeFileContent animation(FakeHost host) {
-                return new FakeFileContent(host, "anim.motion3.json", 500L, 400L, false);
+                return new FakeAnimationFileContent(host, "anim.motion3.json", 500L, 400L, false);
             }
 
             public long getLastAutoBackupTime() {

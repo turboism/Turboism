@@ -7,6 +7,7 @@ import dev.turboism.adapter.ui.StatusToolbarAdapter;
 import dev.turboism.adapter.ui.UiSurfaceAdapter;
 import dev.turboism.sdk.plugin.Registration;
 
+import java.io.File;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -196,6 +197,11 @@ final class DynamicRuntimeHostAdapters {
                         adapters.autoBackup().triggerBackupNow();
                         return null;
                     });
+                }
+
+                @Override
+                public File saveDocumentFor(final File matchFile, final long timestampMillis) {
+                    return call(adapters -> adapters.autoBackup().saveDocumentFor(matchFile, timestampMillis));
                 }
             }
         );
