@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import java.net.URI;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -46,6 +47,37 @@ final class WebDavSettingsDialogTest {
             null, true, "https://dav.example", "", null,
             "/backup", true, 2, 500, 30);
         assertEquals("", withoutCurrent.password());
+    }
+
+    @Test
+    void placeholderOnlyPasswordKeepsTheStoredPassword() {
+        final WebDavConfig assembled = WebDavSettingsDialog.assemble(
+            CURRENT, true, "https://dav.example", "alice",
+            WebDavSettingsDialog.PASSWORD_PLACEHOLDER.toCharArray(),
+            "/backup", true, 2, 500, 30);
+        assertEquals("stored-password", assembled.password(),
+            "a placeholder-only password box must keep the stored password");
+    }
+
+    @Test
+    void passwordPlaceholderAppearsOnlyWhenAPasswordIsStored() {
+        assertEquals("********", WebDavSettingsDialog.PASSWORD_PLACEHOLDER);
+        assertEquals("********", WebDavSettingsDialog.initialPasswordText(CURRENT),
+            "a stored password must show the placeholder");
+        assertEquals("", WebDavSettingsDialog.initialPasswordText(new WebDavConfig(
+            true, URI.create("https://dav.example"), "alice", "",
+            "/backup", true, 2, 500, 30)), "no stored password means no placeholder");
+        assertTrue(WebDavSettingsDialog.isUnchangedPassword(
+            WebDavSettingsDialog.PASSWORD_PLACEHOLDER.toCharArray()));
+        assertTrue(WebDavSettingsDialog.isUnchangedPassword(new char[0]));
+        assertFalse(WebDavSettingsDialog.isUnchangedPassword("typed".toCharArray()));
+    }
+
+    @Test
+    void eyeToggleFlipsBetweenMaskedAndPlainEcho() {
+        assertEquals(0, WebDavSettingsDialog.toggleEchoChar(WebDavSettingsDialog.PASSWORD_ECHO));
+        assertEquals(WebDavSettingsDialog.PASSWORD_ECHO,
+            WebDavSettingsDialog.toggleEchoChar((char) 0));
     }
 
     @Test
