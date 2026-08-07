@@ -339,12 +339,15 @@ public final class PreviewRuntime implements AutoCloseable {
                 log.warn("host", "Host adapter entered " + hostState + ": " + failure);
             }
 
+            final dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistory =
+                createFileChooserHistoryService(home, log);
             plugins = new LocalPluginRuntime(
                 home,
                 scheduler,
                 ingress.adapterAccess(),
                 log,
-                ingress.adapterAccess().parameterLifecycle()
+                ingress.adapterAccess().parameterLifecycle(),
+                fileChooserHistory
             );
             final LocalPluginRuntime.LoadReport report = plugins.loadAll();
             ingress.adapterAccess().editorLifecycleEvents().publishStartup(
@@ -375,6 +378,7 @@ public final class PreviewRuntime implements AutoCloseable {
                 normalizedVerificationRecord,
                 normalizedHostArtifact
             );
+            runtime.bindFileChooserHistoryService(fileChooserHistory);
             runtime.writeInitialReports(hostState);
             return runtime;
         } catch (RuntimeException | Error failure) {
@@ -418,20 +422,36 @@ public final class PreviewRuntime implements AutoCloseable {
             synchronized (this) {
                 service = fileChooserHistoryService;
                 if (service == null) {
-                    final dev.turboism.config.RuntimeConfigRepository config =
-                        new dev.turboism.config.RuntimeConfigRepository(
-                            home,
-                            diagnostic -> log.warn("config", diagnostic)
-                        );
-                    service = new dev.turboism.filechooser.RuntimeFileChooserHistoryService(
-                        () -> config.read().path("hooks").path("startup")
-                            .path("separateExportSaveDirectory").asBoolean(false)
-                    );
+                    service = createFileChooserHistoryService(home, log);
                     fileChooserHistoryService = service;
                 }
             }
         }
         return service;
+    }
+
+    /** Binds the shared singleton created during {@link #start}; a no-op when already bound. */
+    void bindFileChooserHistoryService(
+        final dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService service
+    ) {
+        synchronized (this) {
+            if (fileChooserHistoryService == null) {
+                fileChooserHistoryService = java.util.Objects.requireNonNull(service, "service");
+            }
+        }
+    }
+
+    private static dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService
+        createFileChooserHistoryService(final Path home, final PreviewLog log) {
+        final dev.turboism.config.RuntimeConfigRepository config =
+            new dev.turboism.config.RuntimeConfigRepository(
+                home,
+                diagnostic -> log.warn("config", diagnostic)
+            );
+        return new dev.turboism.filechooser.RuntimeFileChooserHistoryService(
+            () -> config.read().path("hooks").path("startup")
+                .path("separateExportSaveDirectory").asBoolean(false)
+        );
     }
 
     public dev.turboism.mapping.verification.VerifiedMemberResolver editorModelResolver() {
