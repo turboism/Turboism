@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -56,6 +57,67 @@ class EditorParameterStructureAccessTest {
         model.parameters().remove(new ParameterId("NewParam"));
         assertEquals(2, fixture.root.children.size());
         assertEquals(7, fixture.editMode.edits.size());
+    }
+
+    @Test
+    void copySurvivesHostUndoRedoSequenceWithStableId() {
+        // Reproduces the matrix sequence for parameters.copy: the host registers an
+        // Undo_AddOrRemove_Parameter_ undo whose constructor applies the add (construct-and-redo),
+        // undo() removes the parameter, redo() re-applies it. The copy id returned to the caller
+        // must stay queryable across the whole sequence (findById empty, never throwing).
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        final EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
+            resolver(true), "session-a");
+        final var model = access.active();
+
+        // before: source present, copy absent
+        assertTrue(model.parameters().findById(new ParameterId("P1")).isPresent());
+        assertTrue(model.parameters().findById(new ParameterId("P1_1")).isEmpty());
+
+        // write: copy returns the id registered in host state (children tail read-back)
+        final var copy = model.parameters().copy(new ParameterId("P1"));
+        final ParameterId copyId = copy.id();
+        assertEquals("P1_1", copyId.value());
+
+        // after: copy present
+        assertTrue(model.parameters().findById(copyId).isPresent());
+        assertEquals(2, fixture.root.children.size());
+
+        // undo: host removes the parameter; the live copy.id() must not throw and findById is empty
+        fixture.editMode.undo();
+        assertTrue(model.parameters().findById(copy.id()).isEmpty());
+        assertTrue(model.parameters().findById(copyId).isEmpty());
+
+        // redo: host re-applies the parameter; id stays stable
+        fixture.editMode.redo();
+        assertTrue(model.parameters().findById(copy.id()).isPresent());
+        assertEquals(copyId, copy.id());
+
+        // undo again: absent again, still no throw
+        fixture.editMode.undo();
+        assertTrue(model.parameters().findById(copy.id()).isEmpty());
+
+        // restored: source untouched, model back to the before state
+        assertTrue(model.parameters().findById(new ParameterId("P1")).isPresent());
+        assertEquals(1, fixture.root.children.size());
+    }
+
+    @Test
+    void addGroupConstructsWithANonNullParameterGroupGuid() {
+        // CParameterGroup(String, CParameterGroupGuid, CParameterGroupId) rejects a null guid
+        // (Intrinsics.checkNotNullParameter); the adapter must construct a fresh guid first.
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        final EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
+            resolver(true), "session-a");
+
+        final var folder = access.active().parameterGroups().addGroup("Folder A");
+
+        assertEquals("Folder A_1", folder.id().value());
+        assertNotNull(ParameterGroup.lastGuid);
+        assertTrue(ParameterGroup.lastGuid instanceof CParameterGroupGuid);
+        assertEquals(2, fixture.root.children.size());
     }
 
     @Test
@@ -154,6 +216,7 @@ class EditorParameterStructureAccessTest {
         selectors.add(StaticSelector.constructor("cubism.editor-model.parameter-group.create", internal(ParameterGroup.class),
             "(Ljava/lang/String;Ljava/lang/Object;L" + internal(Id.class) + ";)V", StaticSelector.ACCESS_PUBLIC));
         selectors.add(StaticSelector.constructor("cubism.editor-model.parameter-group-id.create", internal(Id.class), "(Ljava/lang/String;)V", StaticSelector.ACCESS_PUBLIC));
+        selectors.add(StaticSelector.constructor("cubism.editor-model.parameter-group-guid.create", internal(CParameterGroupGuid.class), "()V", StaticSelector.ACCESS_PUBLIC));
         selectors.add(method("cubism.editor-model.parameter-group.handler", ParameterGroup.class, "handler", desc(ParameterGroupHandler.class)));
         selectors.add(method("cubism.editor-model.parameter-group.guid", ParameterGroup.class, "guid", desc(Id.class)));
         selectors.add(method("cubism.editor-model.parameter-group.set-name", ParameterGroup.class, "setName", "(Ljava/lang/String;)V"));
@@ -276,7 +339,12 @@ class EditorParameterStructureAccessTest {
         public ParameterGroup parentGroup() { return parentGroup; }
     }
 
+    public static final class CParameterGroupGuid {
+        public CParameterGroupGuid() { }
+    }
+
     public static final class ParameterGroup {
+        static Object lastGuid;
         final Id id;
         final String initialName;
         final ParameterGroupHandler groupHandler = new ParameterGroupHandler();
@@ -285,7 +353,7 @@ class EditorParameterStructureAccessTest {
         ParameterGroup parent;
         ParameterGroup(final String id) { this.id = new Id(id); this.name = id; this.initialName = id; }
         public ParameterGroup(final String name, final Object guid, final Id id) {
-            this.id = id; this.name = name; this.initialName = name;
+            this.id = id; this.name = name; this.initialName = name; lastGuid = guid;
         }
         public Id id() { return id; }
         public Id guid() { return new Id("g-" + id.value); }
@@ -336,7 +404,29 @@ class EditorParameterStructureAccessTest {
             ms.model.parameterSet.parameters.add(new RuntimeParameter(source));
             ms.sourceSet.all.add(source);
             lastAdded = source;
-            return new Undo();
+            // Mirrors the host Undo_AddOrRemove_Parameter_: the add is applied immediately
+            // (construct-and-redo); undo() removes the parameter, redo() re-applies it.
+            return new ParameterAddUndo(source);
+        }
+
+        public static final class ParameterAddUndo extends Undo {
+            final ParameterSource source;
+            ParameterAddUndo(final ParameterSource source) { this.source = source; }
+            @Override public void undo() {
+                final ModelSource ms = Host.document.source;
+                ms.sources.remove(source);
+                ms.root.children.remove(source);
+                ms.model.parameterSet.parameters.removeIf(p -> p.source == source);
+                ms.sourceSet.all.remove(source);
+            }
+            @Override public void redo() {
+                final ModelSource ms = Host.document.source;
+                source.parentGroup = ms.root;
+                ms.root.children.add(source);
+                ms.sources.add(source);
+                ms.model.parameterSet.parameters.add(new RuntimeParameter(source));
+                ms.sourceSet.all.add(source);
+            }
         }
         public Undo addGroup(final ParameterGroup group, final int index) {
             final ModelSource ms = Host.document.source;
@@ -367,9 +457,26 @@ class EditorParameterStructureAccessTest {
 
     public static final class EditMode {
         final List<Undo> edits = new ArrayList<>();
+        private final List<Undo> redoStack = new ArrayList<>();
         boolean aborted;
         public GroupUndo begin(final String name) { return new GroupUndo(edits); }
         public void end(final boolean abort, final Object ignored) { aborted = abort; }
+        /** Simulates the host native Undo command (menu click): unwinds the last entry. */
+        public void undo() {
+            if (!edits.isEmpty()) {
+                final Undo entry = edits.remove(edits.size() - 1);
+                redoStack.add(entry);
+                entry.undo();
+            }
+        }
+        /** Simulates the host native Redo command: re-applies the last undone entry. */
+        public void redo() {
+            if (!redoStack.isEmpty()) {
+                final Undo entry = redoStack.remove(redoStack.size() - 1);
+                edits.add(entry);
+                entry.redo();
+            }
+        }
     }
 
     public static final class GroupUndo extends Undo {
@@ -382,6 +489,8 @@ class EditorParameterStructureAccessTest {
         public Undo() { }
         public Undo(final String name, final Object target, final Object copyParam) { }
         public boolean addListener(final Listener listener) { return true; }
+        public void undo() { }
+        public void redo() { }
     }
 
     @FunctionalInterface public interface Listener { void changed(Object ignored); }
@@ -406,6 +515,7 @@ class EditorParameterStructureAccessTest {
             ModelHandler.nextId = 1;
             ModelHandler.lastAdded = null;
             ModelHandler.lastGroup = null;
+            ParameterGroup.lastGuid = null;
             source = new ModelSource();
             root = source.root;
             handler = source.handler;
