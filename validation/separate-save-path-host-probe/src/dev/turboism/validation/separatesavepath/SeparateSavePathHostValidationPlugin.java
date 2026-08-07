@@ -175,11 +175,12 @@ public final class SeparateSavePathHostValidationPlugin implements TurboismPlugi
         }
 
         // 3. Persistence: the core-plugin provider writes both slots to
-        //    <home>/config/dev.turboism.plugin.core/save-directory-history.properties.
-        //    Home is derived from the state dir: <home>/state/<plugin-id>.
+        //    <home>/config/turboism.core/save-directory-history.properties (core
+        //    plugin id is turboism.core). Home is derived from the state dir:
+        //    <home>/state/<plugin-id>.
         final Path home = stateDir.getParent().getParent();
         final Path pluginConfig = home.resolve("config")
-            .resolve("dev.turboism.plugin.core")
+            .resolve("turboism.core")
             .resolve("save-directory-history.properties");
         if (!Files.isRegularFile(pluginConfig)) {
             failures.add("save-directory-history.properties missing at " + pluginConfig);
@@ -193,15 +194,18 @@ public final class SeparateSavePathHostValidationPlugin implements TurboismPlugi
             }
         }
 
-        // 4. Rollback evidence: config.json must no longer carry the
-        //    fileChooserHistory section.
+        // 4. Rollback evidence: config.json (if present) must no longer carry
+        //    the fileChooserHistory section. A fresh isolated home may have no
+        //    config.json at all (v2 writes nothing global), which is expected.
         final Path config = home.resolve("config.json");
         if (!Files.isRegularFile(config)) {
-            failures.add("config.json missing at " + config);
+            logger.info("SEPARATE_SAVE_PATH_CONFIG_JSON absent (expected for fresh home)");
         } else {
             final String json = readConfig(config, failures);
             if (json != null && json.contains("fileChooserHistory")) {
                 failures.add("config.json still contains the rolled-back fileChooserHistory section");
+            } else {
+                logger.info("SEPARATE_SAVE_PATH_CONFIG_JSON noRollbackSection=true");
             }
         }
 
