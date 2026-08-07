@@ -85,6 +85,75 @@ public interface Drawable {
         throw unavailable("ArtMesh opacity editing");
     }
 
+
+    /**
+     * Renames this ArtMesh's Editor ID (Inspector {@code setId} envelope).
+     *
+     * @throws IllegalArgumentException when the ID is blank, malformed, or already used in the model
+     */
+    default void setId(final String id) {
+        throw unavailable("ArtMesh ID editing");
+    }
+
+    /**
+     * Moves this ArtMesh to another Deformer in the Editor hierarchy (Inspector
+     * {@code targetDeformer} selection). Empty moves it to the model root.
+     *
+     * @throws java.util.NoSuchElementException when the Deformer ID is absent
+     */
+    default void setTargetDeformer(final Optional<DeformerId> targetDeformer) {
+        throw unavailable("ArtMesh target Deformer editing");
+    }
+
+    /**
+     * Replaces this ArtMesh's clipping-mask list (Inspector {@code clippingMaskId} list).
+     *
+     * @throws IllegalArgumentException when any mask ID does not resolve to a Drawable in the model
+     */
+    default void setClippingMaskIds(final List<ArtMeshId> maskIds) {
+        throw unavailable("ArtMesh clipping mask editing");
+    }
+
+    /** Toggles this ArtMesh's inverted clipping mask (Inspector {@code invertClippingMask}). */
+    default void setInvertedMask(final boolean inverted) {
+        throw unavailable("ArtMesh inverted-mask editing");
+    }
+
+    /** Sets this ArtMesh's keyform draw order, clamped to {@code [0, 1000]} (Inspector {@code drawOrder}). */
+    default void setDrawOrder(final int drawOrder) {
+        throw unavailable("ArtMesh draw order editing");
+    }
+
+    /** Sets this ArtMesh's multiply (base) color (Inspector {@code multiplyColor}). */
+    default void setMultiplyColor(final Color color) {
+        throw unavailable("ArtMesh multiply color editing");
+    }
+
+    /** Sets this ArtMesh's screen (effect) color (Inspector {@code screenColor}). */
+    default void setScreenColor(final Color color) {
+        throw unavailable("ArtMesh screen color editing");
+    }
+
+    /** Sets this ArtMesh's color composition (Inspector {@code colorComposition}). */
+    default void setColorComposition(final ColorComposition composition) {
+        throw unavailable("ArtMesh color composition editing");
+    }
+
+    /** Sets this ArtMesh's alpha composition (Inspector {@code alphaComposition}); unavailable on Cubism 5.2 hosts. */
+    default void setAlphaComposition(final AlphaComposition composition) {
+        throw unavailable("ArtMesh alpha composition editing");
+    }
+
+    /** Sets this ArtMesh's culling state (Inspector {@code culling}). */
+    default void setCulling(final boolean culling) {
+        throw unavailable("ArtMesh culling editing");
+    }
+
+    /** Sets this ArtMesh's user data (Inspector {@code userData}). */
+    default void setUserData(final String userData) {
+        throw unavailable("ArtMesh user data editing");
+    }
+
     default ArtMeshGeometry geometry() {
         throw unavailable("ArtMesh authoring geometry");
     }
