@@ -332,7 +332,8 @@ class AutoBackupCoordinatorTest {
             selectors.add(StaticSelector.method(
                 "cubism.auto-backup.file-content.file", content, "getFile", "()Ljava/io/File;"));
             selectors.add(StaticSelector.staticMethod(
-                "cubism.ui-top-menu.app-controller.instance", app, "instance", "()L" + app + ";",
+                "cubism.auto-backup.app-controller.instance", app, "access$get_instance$cp",
+                "()L" + app + ";",
                 StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC));
             if (!typed) {
                 selectors.removeIf(selector -> selector.alias().equals("cubism.auto-backup.manager.instance"));
@@ -449,7 +450,7 @@ class AutoBackupCoordinatorTest {
             FakeHost host;
             FakePack pack;
 
-            public static FakeApp instance() {
+            public static FakeApp access$get_instance$cp() {
                 return INSTANCE;
             }
 
