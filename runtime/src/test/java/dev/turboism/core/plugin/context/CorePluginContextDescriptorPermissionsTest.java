@@ -400,6 +400,24 @@ class CorePluginContextDescriptorPermissionsTest {
         assertEquals(1, host.dialogCount);
     }
 
+    @Test
+    void exposesTheRuntimeOwnedMeshMirrorAxisService(@TempDir Path dataDir) {
+        CorePluginContext context = context(
+            dataDir,
+            descriptorWithPermissions(List.of(
+                "turboism.cubism.model.read",
+                "turboism.cubism.model.write",
+                "turboism.ui.panel.contribute"
+            )),
+            ignored -> { },
+            RuntimeHostAdapters.safeMode()
+        );
+
+        context.meshMirrorAxis().setCurrentAngleDegrees(225.0f);
+
+        assertEquals(-135.0f, context.meshMirrorAxis().currentAngleDegrees());
+    }
+
     private static CubismModelAccess fixedModelAccess() {
         return () -> {
             final Parameter parameter = new Parameter() {
