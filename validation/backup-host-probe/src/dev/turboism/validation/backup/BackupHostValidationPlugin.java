@@ -52,7 +52,10 @@ public final class BackupHostValidationPlugin implements TurboismPlugin {
     private static final String RESULT = "backup-validation-result.properties";
     private static final String FIXTURE_PROPERTY = "turboism.validation.fixture";
     private static final String UU_KEY = "autoBackupIntervalMinute";
-    private static final long DOCUMENT_READY_TIMEOUT_MILLIS = 180_000L;
+    // On the exact host the fixture document takes ~2.5 min to become a modeling
+    // document, so 360 s gives the full modeling-document window headroom (peer
+    // precedent: the clipmask-viewer probe uses 240 s for the same boundary).
+    private static final long DOCUMENT_READY_TIMEOUT_MILLIS = 360_000L;
     private static final long SETTLE_STEP_MILLIS = 2_000L;
     private static final long PASS_SETTLE_MILLIS = 3_000L;
 
@@ -108,7 +111,11 @@ public final class BackupHostValidationPlugin implements TurboismPlugin {
                 if (document.isPresent() && activeRuntimeReportPresent()) {
                     return runtimeReportVersion();
                 }
-                lastFailure = "verified-modeling-document-not-present";
+                // Distinguish "no document at all" from "document present but not
+                // yet a modeling document" for a future failure diagnosis.
+                final boolean activeDocumentPresent = context.cubism().activeDocument().isPresent();
+                lastFailure = "verified-modeling-document-not-present"
+                    + " (activeDocumentPresent=" + activeDocumentPresent + ")";
             } catch (RuntimeException unavailable) {
                 lastFailure = unavailable.getClass().getSimpleName();
             }
