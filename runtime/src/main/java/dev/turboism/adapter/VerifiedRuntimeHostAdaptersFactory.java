@@ -7,6 +7,7 @@ import dev.turboism.mapping.verification.VerifiedEmbeddedPanelResolverFactory;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.mapping.verification.VerifiedProjectWorkspaceResolverFactory;
 import dev.turboism.mapping.verification.VerifiedStatusBarResolverFactory;
+import dev.turboism.mapping.verification.VerifiedAutoBackupResolverFactory;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -82,6 +83,15 @@ public final class VerifiedRuntimeHostAdaptersFactory {
             );
         }
         RuntimeHostAdapters composed = base;
+        if (evidence.autoBackup().isPresent()) {
+            final HostVerificationEvidence.Slice autoBackup = evidence.autoBackup().orElseThrow();
+            final VerifiedMemberResolver autoBackupResolver = new VerifiedAutoBackupResolverFactory().create(
+                autoBackup.reviewedRecord(),
+                autoBackup.verifiedArtifact(),
+                autoBackup.hostClassLoader()
+            );
+            composed = RuntimeHostAdapters.withVerifiedAutoBackup(composed, autoBackupResolver);
+        }
         if (evidence.statusBar().isPresent()) {
             final HostVerificationEvidence.Slice statusBar = evidence.statusBar().orElseThrow();
             final VerifiedMemberResolver statusBarResolver = statusBarResolverFactory.create(
