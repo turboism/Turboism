@@ -1,7 +1,12 @@
 package dev.turboism.sdk.cubism.model;
 
 import dev.turboism.sdk.PreviewApi;
+import dev.turboism.sdk.ui.appearance.model.DeformerAppearance;
 import dev.turboism.sdk.cubism.id.DeformerId;
+import dev.turboism.sdk.cubism.id.ParameterId;
+
+import java.util.List;
+import java.util.Optional;
 
 /** One Cubism deformer. */
 @PreviewApi
@@ -9,9 +14,49 @@ public interface Deformer {
 
     DeformerId id();
 
+    /** Returns this Deformer's Cubism palette UI projection. */
+    default DeformerAppearance ui() { return DeformerAppearance.unavailable(); }
+
+    default int index() { throw unavailable("Deformer index"); }
+
+    default Optional<PartId> parentPartId() { throw unavailable("Deformer parent Part"); }
+
+    default Optional<DeformerId> parentDeformerId() {
+        throw unavailable("Deformer parent Deformer");
+    }
+
+    default List<ParameterId> parameterIds() { throw unavailable("Deformer parameters"); }
+
+    /** Editor display name, or the ID text when no authoring name is available. */
     default String name() {
         throw unavailable("Deformer name");
     }
+
+    /** Renames this Deformer through the verified Editor authoring seam. */
+    default void setName(String name) {
+        throw unavailable("Deformer renaming");
+    }
+
+    /**
+     * Moves this Deformer under a Part parent at {@code index} (negative = append).
+     *
+     * <p>The native Cubism Part tree owns the detach/attach semantics and Undo/Redo.</p>
+     *
+     * @throws IllegalArgumentException when {@code parent} is this Deformer or one of its descendants
+     */
+    default void setParent(Part parent, int index) {
+        throw unavailable("Deformer reparenting");
+    }
+
+    /**
+     * Moves this Deformer under another Deformer through the native target-deformer relation.
+     *
+     * @throws IllegalArgumentException when {@code parent} is this Deformer or one of its descendants
+     */
+    default void setParent(Deformer parent, int index) {
+        throw unavailable("Deformer reparenting");
+    }
+
 
     default boolean visible() {
         throw unavailable("Deformer visibility");
@@ -60,6 +105,11 @@ public interface Deformer {
     int parentDeformerIndex();
 
     IntSequence parameters();
+
+    /** Returns this Deformer's generation-bound Editor authoring bindings. */
+    default List<ParameterBinding> getParameterBindings() {
+        throw unavailable("Deformer parameter binding projection");
+    }
 
 
     private static UnsupportedOperationException unavailable(final String feature) {

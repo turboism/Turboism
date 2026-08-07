@@ -72,13 +72,16 @@ public final class PreviewReportSnapshotFactory {
         binding("ui.context-source.read", "ui.context-source.read", "turboism.ui.context-source.read"),
         binding("ui.overlay.contribute", "ui.overlay.contribute", "turboism.ui.overlay.contribute"),
         binding("ui.viewport.read", "ui.viewport.read", "turboism.ui.viewport.read"),
+        binding("cubism.recent-file.read", "recentFile.list", "turboism.cubism.recent-file.read"),
+        binding("cubism.screenshot.capture", "screenshot.capture", "turboism.ui.viewport.read"),
+        binding("ui.recent-preview.contribute", "recentPreview.contribute", "turboism.ui.recent-preview.contribute"),
         binding("ui.dialog.contribute", "ui.dialog.contribute", "turboism.ui.dialog.contribute"),
         binding("ui.embedded-panel.contribute", "ui.panel.contribute", "turboism.ui.panel.contribute"),
         binding("ui.file-chooser.request", "ui.file-chooser.request", "turboism.ui.file-chooser.request"),
         binding("ui.status.notify", "ui.status.notify", "turboism.ui.status.notify"),
         binding("ui.palette-toolbar.contribute", "ui.palette-toolbar.contribute", "turboism.ui.toolbar.palette.contribute"),
-        binding("ui.main-toolbar.contribute", "ui.main-toolbar.contribute", "turboism.ui.toolbar.main.contribute")
-        ,binding(
+        binding("ui.main-toolbar.contribute", "ui.main-toolbar.contribute", "turboism.ui.toolbar.main.contribute"),
+        binding(
             "cubism.mesh.mirror-axis-angle",
             "cubism.mesh.mirror-axis-angle",
             "turboism.cubism.model.write"
@@ -87,7 +90,8 @@ public final class PreviewReportSnapshotFactory {
             "ui.mesh-edit.mirror-axis-angle",
             "ui.mesh-edit.mirror-axis-angle.contribute",
             "turboism.ui.panel.contribute"
-        )
+        ),
+        binding("ui.dialog.automate", "ui.dialog.automate.act", "turboism.ui.dialog.automate")
     );
     private static final Set<String> KNOWN_UNMAPPED_CAPABILITIES = Set.of(
         "cubism.model-tree.write",
@@ -143,6 +147,12 @@ public final class PreviewReportSnapshotFactory {
         }
     }
 
+    static Set<String> canonicalCapabilityIds() {
+        final Set<String> capabilities = new java.util.HashSet<>(CAPABILITY_BINDINGS.keySet());
+        capabilities.addAll(KNOWN_UNMAPPED_CAPABILITIES);
+        return Set.copyOf(capabilities);
+    }
+
     private PreviewReportSnapshotFactory() {
     }
 
@@ -183,6 +193,34 @@ public final class PreviewReportSnapshotFactory {
         final RuntimeFailureSnapshot failureSnapshot,
         final boolean stopped
     ) {
+        return create(
+            runtimeId,
+            createdAt,
+            home,
+            hostState,
+            hostArtifact,
+            verificationRecord,
+            loadReport,
+            summaries,
+            failureSnapshot,
+            stopped,
+            stopped
+        );
+    }
+
+    public static Map<PreviewReportType, ObjectNode> create(
+        final String runtimeId,
+        final Instant createdAt,
+        final Path home,
+        final HostSession.State hostState,
+        final Path hostArtifact,
+        final Path verificationRecord,
+        final LocalPluginRuntime.LoadReport loadReport,
+        final List<LocalPluginRuntime.LoadedPluginSummary> summaries,
+        final RuntimeFailureSnapshot failureSnapshot,
+        final boolean stopped,
+        final boolean shutdownAttempted
+    ) {
         Objects.requireNonNull(loadReport, "loadReport");
         final RuntimeFailureSnapshot neutralFailures = Objects.requireNonNull(
             failureSnapshot,
@@ -199,9 +237,11 @@ public final class PreviewReportSnapshotFactory {
                 createdAt,
                 hostState,
                 hostArtifact,
+                verificationRecord,
                 neutralSummaries,
                 neutralFailures,
-                stopped
+                stopped,
+                shutdownAttempted
             )
         );
         reports.put(
@@ -232,9 +272,11 @@ public final class PreviewReportSnapshotFactory {
         final Instant createdAt,
         final HostSession.State hostState,
         final Path hostArtifact,
+        final Path verificationRecord,
         final List<LocalPluginRuntime.LoadedPluginSummary> summaries,
         final RuntimeFailureSnapshot failures,
-        final boolean stopped
+        final boolean stopped,
+        final boolean shutdownAttempted
     ) {
         final ObjectNode report = PreviewReportDocuments.emptyReport(
             PreviewReportType.PREVIEW_RUNTIME,
@@ -243,7 +285,7 @@ public final class PreviewReportSnapshotFactory {
         );
         final ObjectNode payload = (ObjectNode) report.get("payload");
         final ObjectNode host = (ObjectNode) payload.get("host");
-        host.put("version", hostState == HostSession.State.ACTIVE ? "5.3.02" : "UNKNOWN");
+        host.put("version", verifiedHostVersion(hostState, verificationRecord));
         host.put("identityState", switch (hostState) {
             case ACTIVE -> "MATCHED";
             case FAILED -> "MISMATCHED";
@@ -268,11 +310,11 @@ public final class PreviewReportSnapshotFactory {
         writeFailures((ArrayNode) payload.get("storageFailures"), failures.storageFailures());
         writeFailures((ArrayNode) payload.get("configFailures"), failures.configFailures());
 
-        final long attempted = stopped ? summaries.size() : 0;
-        final long succeeded = stopped
+        final long attempted = shutdownAttempted ? summaries.size() : 0;
+        final long succeeded = shutdownAttempted
             ? summaries.stream().filter(summary -> summary.unloadState().equals("SUCCEEDED")).count()
             : 0;
-        final long failed = stopped ? attempted - succeeded : 0;
+        final long failed = shutdownAttempted ? attempted - succeeded : 0;
         payload.set(
             "shutdownCounts",
             PreviewReportDocuments.shutdownCounts(attempted, succeeded, failed, 0)
@@ -377,6 +419,7 @@ public final class PreviewReportSnapshotFactory {
     ) {
         final boolean dependency = failure.code().contains("DEPENDENCY");
         final boolean badNeighbor = failure.code().equals("DUPLICATE_PLUGIN_ID");
+        final boolean rejectedAtDiscovery = failure.code().equals("PLUGIN_RESERVED_ID");
         final boolean invalidDescriptor = failure.code().contains("DESCRIPTOR")
             || failure.code().contains("JAR_READ")
             || failure.code().equals("TURBOISM_API_INCOMPATIBLE");
@@ -392,10 +435,14 @@ public final class PreviewReportSnapshotFactory {
             relative == null
                 ? null
                 : fileDigest(failure.jar()).map(FileDigest::sha256).orElse(null),
-            badNeighbor
-                ? "BAD_NEIGHBOR"
-                : invalidDescriptor ? "INVALID_DESCRIPTOR" : "DISCOVERED",
-            dependency ? "FAILED" : invalidDescriptor ? "NOT_EVALUATED" : "RESOLVED",
+            rejectedAtDiscovery
+                ? "NOT_DISCOVERED"
+                : badNeighbor
+                    ? "BAD_NEIGHBOR"
+                    : invalidDescriptor ? "INVALID_DESCRIPTOR" : "DISCOVERED",
+            rejectedAtDiscovery || invalidDescriptor
+                ? "NOT_EVALUATED"
+                : dependency ? "FAILED" : "RESOLVED",
             lifecycle,
             badNeighbor
         );
@@ -407,7 +454,7 @@ public final class PreviewReportSnapshotFactory {
         ((ArrayNode) entry.get("failures")).add(PreviewReportDocuments.failure(
             stableCode(failure.code()),
             "ERROR",
-            dependency ? "dependency" : "load",
+            rejectedAtDiscovery ? "discovery" : dependency ? "dependency" : "load",
             sanitizePluginId(failure.pluginId()),
             null,
             null,
@@ -695,11 +742,48 @@ public final class PreviewReportSnapshotFactory {
         return switch (stableCode(code)) {
             case "PLUGIN_DESCRIPTOR_MISSING" -> "Plugin descriptor is missing.";
             case "DUPLICATE_PLUGIN_ID" -> "Plugin ID is duplicated by another artifact.";
+            case "PLUGIN_RESERVED_ID" -> "External plugin declared a Runtime-reserved identity.";
             case "DEPENDENCY_FAILED", "DEPENDENCY_LOAD_FAILED" ->
                 "Required plugin dependency could not be resolved or loaded.";
             case "TURBOISM_API_INCOMPATIBLE" -> "Plugin API range is incompatible.";
             default -> "Plugin loading failed safely.";
         };
+    }
+
+    /**
+     * Exact product version from the passed verification record, which production startup has
+     * already verified against the host artifact. Only an ACTIVE host with a readable record
+     * carrying a reviewed version is reported; anything else (missing, unreadable, absent field,
+     * unsupported value) fails closed to UNKNOWN without guessing.
+     */
+    private static String verifiedHostVersion(
+        final HostSession.State hostState,
+        final Path verificationRecord
+    ) {
+        if (hostState != HostSession.State.ACTIVE || verificationRecord == null) {
+            return "UNKNOWN";
+        }
+        final String value;
+        try {
+            final com.fasterxml.jackson.databind.JsonNode record =
+                PreviewReportDocuments.JSON.readTree(verificationRecord.toFile());
+            final com.fasterxml.jackson.databind.JsonNode version = record.path("cubismVersion");
+            if (!version.isTextual() || version.textValue().isBlank()) {
+                return "UNKNOWN";
+            }
+            value = version.textValue();
+        } catch (RuntimeException | IOException failure) {
+            return "UNKNOWN";
+        }
+        // The 5.2 project/workspace manifest identifies the host as "5.2.0";
+        // normalize it to the product version "5.2.03" used by reviewed evidence.
+        if (value.equals("5.2.0")) {
+            return "5.2.03";
+        }
+        if (!value.equals("5.3.02") && !value.equals("5.2.03")) {
+            return "UNKNOWN";
+        }
+        return value;
     }
 
     private static java.util.Optional<FileDigest> fileDigest(final Path path) {

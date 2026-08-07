@@ -1,9 +1,11 @@
 package dev.turboism.preview;
 
 import dev.turboism.adapter.host.RuntimeHostAdapterAccess;
+import dev.turboism.adapter.cubism.lifecycle.EditorLifecycleCoordinator;
+import dev.turboism.adapter.cubism.lifecycle.EditorObjectLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.ParameterLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.PartLifecycleCoordinator;
-import dev.turboism.adapter.cubism.lifecycle.EditorObjectLifecycleCoordinator;
+import dev.turboism.adapter.cubism.lifecycle.ProjectFileLifecycleCoordinator;
 import dev.turboism.cleanup.CleanupEvidenceCollector;
 import dev.turboism.core.lifecycle.PluginLifecycleState;
 import dev.turboism.core.plugin.PluginRuntime;
@@ -31,7 +33,13 @@ public final class LocalPluginRuntime implements AutoCloseable {
     private final ParameterLifecycleCoordinator parameterLifecycle;
     private final PartLifecycleCoordinator partLifecycle;
     private final EditorObjectLifecycleCoordinator editorObjectLifecycle;
+    private final ProjectFileLifecycleCoordinator projectFileLifecycle;
+    private final EditorLifecycleCoordinator editorLifecycleEvents;
     private final List<LoadedPlugin> loaded = new ArrayList<>();
+    private final dev.turboism.pluginmanagement.RuntimePluginManagementService pluginManagement;
+    private final PreviewPluginContextFactory contextFactory;
+    private final dev.turboism.sdk.runtime.RuntimeSettingsService runtimeSettings;
+    private final PreviewLog log;
     private List<LoadedPluginSummary> closedSummaries = List.of();
     private final AtomicBoolean started = new AtomicBoolean(false);
     private final AtomicBoolean closed = new AtomicBoolean(false);
@@ -51,7 +59,9 @@ public final class LocalPluginRuntime implements AutoCloseable {
             (pluginId, phase) -> { },
             hostAccess.parameterLifecycle(),
             hostAccess.partLifecycle(),
-            hostAccess.editorObjectLifecycle()
+            hostAccess.editorObjectLifecycle(),
+            hostAccess.projectFileLifecycle(),
+            hostAccess.editorLifecycleEvents()
         );
     }
 
@@ -72,7 +82,9 @@ public final class LocalPluginRuntime implements AutoCloseable {
             (pluginId, phase) -> { },
             parameterLifecycle,
             hostAccess.partLifecycle(),
-            hostAccess.editorObjectLifecycle()
+            hostAccess.editorObjectLifecycle(),
+            hostAccess.projectFileLifecycle(),
+            hostAccess.editorLifecycleEvents()
         );
     }
 
@@ -93,7 +105,9 @@ public final class LocalPluginRuntime implements AutoCloseable {
             pluginCloseHook,
             hostAccess.parameterLifecycle(),
             hostAccess.partLifecycle(),
-            hostAccess.editorObjectLifecycle()
+            hostAccess.editorObjectLifecycle(),
+            hostAccess.projectFileLifecycle(),
+            hostAccess.editorLifecycleEvents()
         );
     }
 
@@ -114,7 +128,9 @@ public final class LocalPluginRuntime implements AutoCloseable {
             (pluginId, phase) -> { },
             hostAccess.parameterLifecycle(),
             hostAccess.partLifecycle(),
-            hostAccess.editorObjectLifecycle()
+            hostAccess.editorObjectLifecycle(),
+            hostAccess.projectFileLifecycle(),
+            hostAccess.editorLifecycleEvents()
         );
     }
 
@@ -127,16 +143,23 @@ public final class LocalPluginRuntime implements AutoCloseable {
         final PluginCloseHook pluginCloseHook,
         final ParameterLifecycleCoordinator parameterLifecycle,
         final PartLifecycleCoordinator partLifecycle,
-        final EditorObjectLifecycleCoordinator editorObjectLifecycle
+        final EditorObjectLifecycleCoordinator editorObjectLifecycle,
+        final ProjectFileLifecycleCoordinator projectFileLifecycle,
+        final EditorLifecycleCoordinator editorLifecycleEvents
     ) {
         final PreviewPluginRuntimeResources resources = PreviewPluginRuntimeResources.create(
             home, scheduler, hostAccess, log, failureCollector, pluginCloseHook, loaded,
-            parameterLifecycle, partLifecycle, editorObjectLifecycle
+            parameterLifecycle, partLifecycle, editorObjectLifecycle,
+            projectFileLifecycle, editorLifecycleEvents
         );
         this.hostReadLane = resources.hostReadLane();
         this.failureCollector = resources.failureCollector();
         this.loadCoordinator = resources.loadCoordinator();
         this.shutdown = resources.shutdown();
+        this.pluginManagement = resources.pluginManagement();
+        this.contextFactory = resources.contextFactory();
+        this.runtimeSettings = resources.runtimeSettings();
+        this.log = log;
         this.parameterLifecycle = java.util.Objects.requireNonNull(
             parameterLifecycle,
             "parameterLifecycle"
@@ -146,16 +169,43 @@ public final class LocalPluginRuntime implements AutoCloseable {
             editorObjectLifecycle,
             "editorObjectLifecycle"
         );
+        this.projectFileLifecycle = java.util.Objects.requireNonNull(
+            projectFileLifecycle,
+            "projectFileLifecycle"
+        );
+        this.editorLifecycleEvents = java.util.Objects.requireNonNull(
+            editorLifecycleEvents,
+            "editorLifecycleEvents"
+        );
     }
 
     public synchronized LoadReport loadAll() {
         ensureCanStart();
-        return loadCoordinator.loadAll();
+        final LoadReport external = loadCoordinator.loadAll();
+        try {
+            loaded.add(BuiltinCorePlugin.load(
+                contextFactory,
+                new dev.turboism.plugin.core.CorePluginServices(
+                    runtimeSettings,
+                    pluginManagement,
+                    dev.turboism.ui.panel.NativePanelTabFloatingBridge::toggle,
+                    log
+                ),
+                log
+            ));
+        } catch (Exception failure) {
+            close();
+            throw new IllegalStateException("Runtime-owned core failed to load", failure);
+        }
+        final List<LoadedPluginSummary> summaries = new ArrayList<>(external.loaded());
+        summaries.add(PreviewPluginSummaryFactory.active(loaded.get(loaded.size() - 1)));
+        return new LoadReport(summaries, external.failures(), external.dependencyCycles());
     }
 
     public synchronized List<LoadedPluginSummary> loadedPlugins() {
         return loaded.stream().map(PreviewPluginSummaryFactory::active).toList();
     }
+
 
     /** Immutable point-in-time report evidence for one preview report write. */
     synchronized LocalPluginRuntimeReportSnapshot reportSnapshot() {
@@ -177,6 +227,8 @@ public final class LocalPluginRuntime implements AutoCloseable {
         try {
             summaries.addAll(shutdown.closeAll(loaded));
         } finally {
+            editorLifecycleEvents.close();
+            projectFileLifecycle.close();
             editorObjectLifecycle.close();
             partLifecycle.close();
             parameterLifecycle.close();

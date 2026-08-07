@@ -250,31 +250,41 @@ A write permission grants access to the write boundary; it does not bypass opera
 
 ## 11. Verification model
 
-Verification is layered:
+Verification is layered by cost and risk:
 
 ```text
-check
-  Compile, unit tests, module boundaries, plugin metadata, Stable SDK compatibility.
+devCheck
+  Production compilation, module boundaries, plugin metadata, and package layout.
+  This is the daily default.
+
+focused verification
+  The smallest test selection named by the current SDD acceptance conditions.
 
 checkIntegration
-  Runtime/plugin integration, preview agent, bundle and report validation.
+  Runtime/plugin integration, preview agent, bundle, and cross-module behavior.
 
 checkRelease
-  Integration plus supply-chain, API tooling, packaging and release checks.
+  Integration plus supply-chain, packaging, and release checks. Promotion of an
+  API to Stable separately establishes a compatibility baseline from that release.
 
-checkLegacyGovernance
-  Historical migration ledgers and retired evidence consistency only.
+host validation
+  Exact-version Cubism execution using an isolated fixture and test-only SDK plugin.
 ```
 
-Real product readiness additionally requires supported Cubism-version observation. Fake providers and document self-consistency do not promote a provider to real-host readiness.
+A bare multi-project `check` is not the daily workflow because Gradle expands every subproject's same-named task. Broad suites are run only when their affected surface justifies them.
 
+Real-host verification is automation-first. Test-only plugins call the public SDK and emit structured assertions. Host scripts launch the official Editor, poll readiness and terminal result markers, batch compatible assertions in one session, and collect hashes, values, Undo/Redo, persistence, cleanup, and timing evidence. UI automation is reserved for entry points that cannot yet be reached through a semantic SDK operation. Screenshots are last-resort evidence for visual-only facts or failure diagnosis.
 
-## 12. Risk-proportional development governance
+Fake providers, static selector records, classfile inspection, and document consistency never promote a provider to real-host readiness.
 
-TDD is required, but governance is selected by the risk of the changed boundary rather than applied uniformly to every feature.
+## 12. Specification-Driven Development
 
-- Lane A covers plugin-private or internal pure logic using existing contracts: focused TDD, focused verification, and diff review.
-- Lane B covers additive shared Preview SDK/runtime seams without host-sensitive behavior: one design checkpoint, focused TDD, affected integration verification, and final review.
-- Lane C covers host mappings/reflection, Editor writes and Undo, hooks, host UI attachment, security/supply-chain boundaries, Stable contracts, and real-host readiness claims: full human/Oracle and exact-version host gates remain required.
+Turboism uses short-form SDD rather than mandatory project-wide TDD. Before implementation, freeze the goal, non-goals, affected boundary, risk lane, observable acceptance conditions, forbidden shortcuts, and final verification batch.
 
-The authoritative classification and evidence rules are in [`docs/architecture/development-governance.md`](docs/architecture/development-governance.md). Historical milestone governance applies only to its named scope and must not be copied onto unrelated ordinary work.
+- Lane A covers plugin-private or internal pure logic using existing boundaries: short spec, focused verification, diff review.
+- Lane B covers additive shared Preview SDK/runtime seams without host-sensitive behavior: one design checkpoint, focused plus affected integration verification, final review.
+- Lane C covers host mappings/reflection, Editor writes and Undo, hooks, host UI attachment, security/supply-chain boundaries, Stable contracts, and real-host readiness claims: exact identity, isolation, fail-closed behavior, and automated real-host evidence remain required.
+
+TDD may be used locally for pure algorithms, parsers, and reproducible bug fixes. It is not a requirement to produce one test or contract per method, and broad suites are not rerun after every edit.
+
+M1–M16, M13/M14-style stages, migration boards, capability/readiness ledgers, and closure reports do not define current work or completion. Tracked authority is this architecture, `ROADMAP.md`, the current task specification, executable tests, and exact-host results. A local ignored `AGENTS.md` may describe operator workflow but is not a repository contract.

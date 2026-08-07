@@ -2,9 +2,10 @@ package dev.turboism.preview;
 
 import dev.turboism.core.dependency.DependencyResolver;
 import dev.turboism.sdk.plugin.PluginDescriptor;
+import dev.turboism.adapter.cubism.lifecycle.EditorObjectHookRegistry;
 import dev.turboism.adapter.cubism.lifecycle.ParameterHookRegistry;
 import dev.turboism.adapter.cubism.lifecycle.PartHookRegistry;
-import dev.turboism.adapter.cubism.lifecycle.EditorObjectHookRegistry;
+import dev.turboism.adapter.cubism.lifecycle.ProjectLifecycleHookRegistry;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -17,24 +18,28 @@ import java.util.Set;
 final class PreviewPluginLoadCoordinator {
 
     private final Path pluginDirectory;
+    private final Path home;
     private final PreviewPluginDiscovery discovery;
     private final PreviewPluginLoader loader;
     private final PreviewLog log;
 
     PreviewPluginLoadCoordinator(
+        final Path home,
         final Path pluginDirectory,
         final PreviewPluginContextFactory contextFactory,
         final PreviewLog log,
         final List<LocalPluginRuntime.LoadedPlugin> loaded,
         final ParameterHookRegistry parameterHookRegistry,
         final PartHookRegistry partHookRegistry,
-        final EditorObjectHookRegistry editorObjectHookRegistry
+        final EditorObjectHookRegistry editorObjectHookRegistry,
+        final ProjectLifecycleHookRegistry projectLifecycleHookRegistry
     ) {
         this.pluginDirectory = pluginDirectory;
+        this.home = home.toAbsolutePath().normalize();
         this.discovery = new PreviewPluginDiscovery(pluginDirectory, log);
         this.loader = new PreviewPluginLoader(
             contextFactory, log, loaded, parameterHookRegistry, partHookRegistry,
-            editorObjectHookRegistry
+            editorObjectHookRegistry, projectLifecycleHookRegistry
         );
         this.log = log;
     }
@@ -42,6 +47,20 @@ final class PreviewPluginLoadCoordinator {
     LocalPluginRuntime.LoadReport loadAll() {
         final List<LocalPluginRuntime.PluginFailure> failures = new ArrayList<>();
         final Map<String, PreviewPluginCandidate> candidates = discovery.discover(failures);
+        final Set<String> configuredDisabled;
+        try {
+            configuredDisabled = new dev.turboism.config.RuntimeConfigRepository(
+                home, code -> log.warn("plugin-loader", code)
+            ).disabledPlugins();
+        } catch (RuntimeException invalidConfig) {
+            candidates.clear();
+            failures.add(new LocalPluginRuntime.PluginFailure(
+                "<config>", home.resolve("config.json"), "RUNTIME_CONFIG_INVALID",
+                "Plugin discovery failed closed because canonical runtime config is invalid."
+            ));
+            return new LocalPluginRuntime.LoadReport(List.of(), List.copyOf(failures), List.of());
+        }
+        configuredDisabled.forEach(candidates::remove);
         if (candidates.isEmpty()) {
             log.warn("plugin-loader", "No valid plugin JARs found in " + pluginDirectory);
             return new LocalPluginRuntime.LoadReport(List.of(), List.copyOf(failures), List.of());
