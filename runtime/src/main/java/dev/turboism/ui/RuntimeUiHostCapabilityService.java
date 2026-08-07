@@ -374,6 +374,11 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
     }
 
     @Override
+    public java.util.Locale hostLocale() {
+        return stateSource.hostLocale();
+    }
+
+    @Override
     public boolean refreshOffCanvasAppearance() {
         final Object value = javax.swing.UIManager.get("CubismCommon.gl.viewArea.background");
         if (!(value instanceof java.awt.Color color)) {

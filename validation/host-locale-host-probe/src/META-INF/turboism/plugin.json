@@ -1,0 +1,29 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 2,
+  "id": "dev.turboism.validation.hostlocale",
+  "name": "Host Locale Host Validation Exerciser",
+  "version": "0.0.0",
+  "description": "Task-local exerciser for the hostLocale() SDK API on exact Cubism hosts: asserts the returned Locale equals the host JVM user.language/user.country and records PASS/FAIL evidence.",
+  "entrypoints": [
+    "dev.turboism.validation.hostlocale.HostLocaleHostValidationPlugin"
+  ],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    { "name": "Turboism Validation" }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": []
+  },
+  "dependencies": [],
+  "permissions": [],
+  "capabilities": [],
+  "environment": {
+    "requiresCubism": false,
+    "ui": "none"
+  }
+}

@@ -102,6 +102,23 @@ public interface UiHostCapabilityService {
     }
 
     /**
+     * Returns the Cubism Editor UI language (host JVM locale), used by plugins
+     * to select localized presentation.
+     *
+     * <p>Returns the <b>effective UI language</b>: zh builds are normalized to
+     * {@code zh-Hans}/{@code zh-Hant} (zh-CN/zh-SG → zh-Hans, zh-TW/zh-HK/zh-MO →
+     * zh-Hant, other script-less zh such as Wine-rewritten zh-US → zh-Hans);
+     * non-zh languages are returned unchanged. The raw host JVM locale may be
+     * rewritten by Proton/Wine (e.g. {@code zh-US}) and does not represent the
+     * actual UI language.</p>
+     *
+     * @return the current effective Cubism UI language, never {@code null}
+     */
+    default java.util.Locale hostLocale() {
+        return java.util.Locale.getDefault(java.util.Locale.Category.DISPLAY);
+    }
+
+    /**
      * Opens the host file manager at the given plugin storage directory.
      * Implementations must confine the resolved directory to the plugin's
      * storage roots and fail closed when the host cannot open directories.
