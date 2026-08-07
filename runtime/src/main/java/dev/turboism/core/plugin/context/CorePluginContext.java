@@ -2,6 +2,10 @@ package dev.turboism.core.plugin.context;
 
 import dev.turboism.adapter.RuntimeHostAdapters;
 import dev.turboism.adapter.cubism.HostSnapshotSource;
+import dev.turboism.adapter.cubism.mesh.AuthorizedMeshEditUiService;
+import dev.turboism.adapter.cubism.mesh.AuthorizedMeshMirrorAxisService;
+import dev.turboism.adapter.cubism.mesh.RuntimeMeshMirrorAxisService;
+import dev.turboism.adapter.cubism.mesh.RuntimeMeshEditUiService;
 import dev.turboism.adapter.host.RuntimeHostAdapterAccess;
 import dev.turboism.adapter.cubism.service.read.M12ReadSnapshotSource;
 import dev.turboism.config.RuntimePluginConfigRegistry;
@@ -27,6 +31,8 @@ import dev.turboism.sdk.cubism.service.query.ModelHierarchyQueryService;
 import dev.turboism.sdk.cubism.service.query.ParameterQueryService;
 import dev.turboism.sdk.cubism.service.query.SelectionQueryService;
 import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
+import dev.turboism.sdk.cubism.mesh.MeshMirrorAxisService;
+import dev.turboism.sdk.cubism.mesh.MeshEditUiService;
 import dev.turboism.sdk.config.PluginConfigRegistry;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
 import dev.turboism.sdk.event.EventBus;
@@ -80,6 +86,8 @@ public final class CorePluginContext implements PluginContext {
     private final PluginStorage pluginStorage;
     private final UserFileAccessService userFileAccessService;
     private final AsyncHostReadService asyncHostReadService;
+    private final MeshMirrorAxisService meshMirrorAxisService;
+    private final MeshEditUiService meshEditUiService;
     private final dev.turboism.sdk.ui.workspace.WorkspaceService workspaceService;
 
     private final SceneTableService sceneTableService;
@@ -432,6 +440,27 @@ public final class CorePluginContext implements PluginContext {
         this.pluginStorage = pluginStorage;
         this.userFileAccessService = userFileAccessService;
         this.asyncHostReadService = asyncHostReadService;
+        final RuntimeMeshMirrorAxisService sharedMeshMirrorAxis = hostAccess == null
+            ? new RuntimeMeshMirrorAxisService()
+            : hostAccess.meshMirrorAxisService();
+        final RuntimeMeshEditUiService sharedMeshEditUi = hostAccess == null
+            ? new RuntimeMeshEditUiService()
+            : hostAccess.meshEditUiService();
+        final PermissionChecker meshPermissionChecker = PermissionChecker.from(new CubismPermissionGate(
+            this.dependencies.descriptor().id(),
+            this.dependencies.permissions(),
+            this.dependencies.cubismAuditSink(),
+            this.dependencies.clock()
+        ));
+        this.meshMirrorAxisService = new AuthorizedMeshMirrorAxisService(
+            sharedMeshMirrorAxis,
+            meshPermissionChecker
+        );
+        this.meshEditUiService = new AuthorizedMeshEditUiService(
+            sharedMeshEditUi,
+            meshPermissionChecker,
+            this.dependencies.disposableScope()
+        );
         this.sceneTableService = hostAccess == null
             ? SceneTableService.unavailable()
             : hostAccess.sceneTable();
@@ -649,6 +678,16 @@ public final class CorePluginContext implements PluginContext {
     @Override
     public dev.turboism.sdk.cubism.physics.PhysicsEditorService physicsEditor() {
         return cubismServices.physicsEditorService();
+    }
+
+    @Override
+    public MeshMirrorAxisService meshMirrorAxis() {
+        return meshMirrorAxisService;
+    }
+
+    @Override
+    public MeshEditUiService meshEditUi() {
+        return meshEditUiService;
     }
 
     @Override

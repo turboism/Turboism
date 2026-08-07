@@ -337,6 +337,9 @@ public final class PreviewRuntime implements AutoCloseable {
                     .orElse("No detailed failure");
                 log.warn("host", "Host adapter entered " + hostState + ": " + failure);
             }
+            if (hostState != HostSession.State.ACTIVE) {
+                throw new IllegalStateException("Cubism host admission failed before plugin loading");
+            }
 
             plugins = new LocalPluginRuntime(
                 home,
