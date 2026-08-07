@@ -4,6 +4,7 @@ import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.appearance.AppearanceService;
 import dev.turboism.sdk.config.PluginConfigRegistry;
 import dev.turboism.sdk.cubism.CubismFacade;
+import dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService;
 import dev.turboism.sdk.cubism.recentfile.RecentFileService;
 import dev.turboism.sdk.cubism.recentpreview.RecentPreviewContributionService;
 import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureService;
@@ -11,6 +12,8 @@ import dev.turboism.sdk.cubism.service.query.ModelHierarchyQueryService;
 import dev.turboism.sdk.cubism.service.query.ParameterQueryService;
 import dev.turboism.sdk.cubism.service.query.SelectionQueryService;
 import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
+import dev.turboism.sdk.cubism.mesh.MeshMirrorAxisService;
+import dev.turboism.sdk.cubism.mesh.MeshEditUiService;
 import dev.turboism.sdk.cubism.model.ModelObjectService;
 import dev.turboism.sdk.cubism.physics.PhysicsEditorService;
 import dev.turboism.sdk.cubism.command.EditorCommandService;
@@ -109,6 +112,18 @@ public interface PluginContext {
 
     default PhysicsEditorService physicsEditor() {
         return PhysicsEditorService.unavailable();
+    }
+
+    default FileChooserHistoryService fileChooserHistory() {
+        return FileChooserHistoryService.unavailable();
+    }
+
+    default MeshMirrorAxisService meshMirrorAxis() {
+        throw new UnsupportedOperationException("meshMirrorAxis service is not available");
+    }
+
+    default MeshEditUiService meshEditUi() {
+        throw new UnsupportedOperationException("meshEditUi service is not available");
     }
 
     default EditorCommandService editorCommands() {

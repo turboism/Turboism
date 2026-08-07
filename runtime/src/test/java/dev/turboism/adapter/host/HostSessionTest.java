@@ -193,16 +193,20 @@ class HostSessionTest {
         assertEquals(editorUiGeneration, session.paletteAppearanceCoordinator().hostGeneration());
         assertEquals("session-a", dynamic.projectWorkspace().activeProject()
             .value().orElseThrow().orElseThrow().projectId());
+        session.meshMirrorAxisService().setCurrentAngleDegrees(45.0f);
 
         current.set(descriptor("session-b"));
         assertEquals(HostSession.State.ACTIVE, session.refresh());
         assertEquals("session-b", dynamic.projectWorkspace().activeProject()
             .value().orElseThrow().orElseThrow().projectId());
+        assertEquals(0.0f, session.meshMirrorAxisService().currentAngleDegrees());
+        session.meshMirrorAxisService().setCurrentAngleDegrees(30.0f);
 
         current.set(null);
         assertEquals(HostSession.State.SAFE_MODE, session.refresh());
         assertEquals(0L, session.paletteAppearanceCoordinator().hostGeneration());
         assertFalse(dynamic.projectWorkspace().activeProject().isAvailable());
+        assertEquals(0.0f, session.meshMirrorAxisService().currentAngleDegrees());
 
         session.close();
         session.close();
