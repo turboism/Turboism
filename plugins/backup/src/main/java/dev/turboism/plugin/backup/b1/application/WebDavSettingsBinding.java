@@ -2,11 +2,13 @@ package dev.turboism.plugin.backup.b1.application;
 
 import dev.turboism.plugin.backup.webdav.WebDavConfig;
 import dev.turboism.sdk.config.ConfigCodecs;
+import dev.turboism.sdk.config.ConfigErrorCode;
 import dev.turboism.sdk.config.ConfigKey;
 import dev.turboism.sdk.config.ConfigReadResult;
 import dev.turboism.sdk.config.ConfigRegistrationError;
 import dev.turboism.sdk.config.ConfigRegistrationException;
 import dev.turboism.sdk.config.ConfigSchema;
+import dev.turboism.sdk.config.ConfigWriteResult;
 import dev.turboism.sdk.config.PluginConfigRegistry;
 
 import java.net.URI;
@@ -58,6 +60,7 @@ public final class WebDavSettingsBinding {
     private PluginConfigRegistry registry;
     private boolean initialized;
     private boolean enabled;
+    private volatile WebDavConfig confirmed;
 
     public CompletionStage<ConfigBindingResult> init(final PluginConfigRegistry value) {
         registry = Objects.requireNonNull(value, "value");
@@ -102,7 +105,104 @@ public final class WebDavSettingsBinding {
                 remotePathRead.join(), verifyTlsRead.join(), retryMaxRead.join(),
                 retryBaseRead.join(), timeoutRead.join()
             ))
+            .thenApply(config -> {
+                if (config != null) {
+                    confirmed = config;
+                }
+                return config;
+            })
             .exceptionally(failure -> null);
+    }
+
+    /**
+     * Persists the target configuration through the registry write path
+     * (revision-chained, in frozen key order) and confirms it by reading the
+     * values back. On success the readback must equal the target; any
+     * unconfirmed write reports {@link ConfigBindingResult#PARTIAL_PERSISTENCE}.
+     * The password is only ever written through the config store and never
+     * logged.
+     */
+    public CompletionStage<ConfigBindingResult> update(final WebDavConfig value) {
+        Objects.requireNonNull(value, "value");
+        if (!initialized || registry == null || !enabled) {
+            return completedResult(ConfigBindingResult.DISABLED);
+        }
+        if (value.equals(confirmed)) {
+            return completedResult(ConfigBindingResult.UNCHANGED);
+        }
+        return registry.read(ENABLED)
+            .thenCompose(seed -> {
+                if (seed.error().isPresent()) {
+                    return completedResult(map(seed.error().orElseThrow().code()));
+                }
+                return writeChain(new Step(null, seed.value().revision(), false), value);
+            })
+            .exceptionally(failure -> ConfigBindingResult.RUNTIME_UNAVAILABLE);
+    }
+
+    private CompletionStage<ConfigBindingResult> writeChain(final Step seed, final WebDavConfig value) {
+        return write(ENABLED, value.enabled(), seed.revision())
+            .thenCompose(step -> next(step, URL, value.url().toString()))
+            .thenCompose(step -> next(step, USERNAME, value.username()))
+            .thenCompose(step -> next(step, PASSWORD, value.password()))
+            .thenCompose(step -> next(step, REMOTE_PATH, value.remotePath()))
+            .thenCompose(step -> next(step, VERIFY_TLS, value.verifyTls()))
+            .thenCompose(step -> next(step, RETRY_MAX, value.retryMax()))
+            .thenCompose(step -> next(step, RETRY_BASE_DELAY_MS, (int) value.retryBaseDelayMs()))
+            .thenCompose(step -> next(step, TIMEOUT_SECONDS, value.timeoutSeconds()))
+            .thenCompose(step -> finish(step, value));
+    }
+
+    private <T> CompletionStage<Step> write(
+        final ConfigKey<T> key, final T value, final long expected
+    ) {
+        return registry.write(key, value, expected).handle((result, failure) -> failure == null
+            ? Step.from(result, false)
+            : new Step(ConfigBindingResult.RUNTIME_UNAVAILABLE, expected, false));
+    }
+
+    private <T> CompletionStage<Step> next(
+        final Step prior, final ConfigKey<T> key, final T value
+    ) {
+        if (prior.result() != null) {
+            return completedStep(prior);
+        }
+        return write(key, value, prior.revision()).thenApply(current ->
+            new Step(current.result(), current.revision(), prior.wroteAny() || current.wroteAny())
+        );
+    }
+
+    private CompletionStage<ConfigBindingResult> finish(final Step step, final WebDavConfig value) {
+        if (step.result() != null) {
+            return completedResult(step.wroteAny()
+                ? ConfigBindingResult.PARTIAL_PERSISTENCE
+                : step.result());
+        }
+        // Readback confirmation: the persisted values must equal the target.
+        return read().thenApply(readback -> {
+            if (value.equals(readback)) {
+                confirmed = value;
+                return ConfigBindingResult.APPLIED;
+            }
+            return ConfigBindingResult.PARTIAL_PERSISTENCE;
+        });
+    }
+
+    private static ConfigBindingResult map(final ConfigErrorCode code) {
+        return switch (code) {
+            case REVISION_CONFLICT -> ConfigBindingResult.REVISION_CONFLICT;
+            case PERMISSION_DENIED -> ConfigBindingResult.PERMISSION_DENIED;
+            case INVALID_VALUE -> ConfigBindingResult.INVALID_VALUE;
+            default -> ConfigBindingResult.RUNTIME_UNAVAILABLE;
+        };
+    }
+
+    private record Step(ConfigBindingResult result, long revision, boolean wroteAny) {
+        static Step from(final ConfigWriteResult value, final boolean previous) {
+            return value.written()
+                ? new Step(null, value.revision(), true)
+                : new Step(map(value.error().orElseThrow().code()), value.revision(), previous);
+        }
     }
 
     public void enable() {
@@ -117,6 +217,11 @@ public final class WebDavSettingsBinding {
         disable();
         initialized = false;
         registry = null;
+    }
+
+    /** Last value confirmed by a read or a successful update (may be null before the first read). */
+    public WebDavConfig confirmed() {
+        return confirmed;
     }
 
     private static WebDavConfig toConfig(
@@ -177,6 +282,10 @@ public final class WebDavSettingsBinding {
     }
 
     private static CompletionStage<ConfigBindingResult> completedResult(final ConfigBindingResult value) {
+        return CompletableFuture.completedStage(value);
+    }
+
+    private static CompletionStage<Step> completedStep(final Step value) {
         return CompletableFuture.completedStage(value);
     }
 }
