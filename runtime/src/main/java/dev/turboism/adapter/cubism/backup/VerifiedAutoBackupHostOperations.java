@@ -6,6 +6,8 @@ import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -63,12 +65,6 @@ public final class VerifiedAutoBackupHostOperations implements AutoBackupAdapter
         static final String DOCUMENT_UID_MODELING = "cubism.auto-backup.document-uid.modeling";
         static final String SCENE_DOCS = "cubism.auto-backup.scene-docs";
         static final String DOCUMENT_UID_SCENE = "cubism.auto-backup.document-uid.scene";
-        static final String SET_FILE_MODELING = "cubism.auto-backup.set-file.modeling";
-        static final String SET_FILE_ANIMATION = "cubism.auto-backup.set-file.animation";
-        static final String SET_FILE_GAME_DATA = "cubism.auto-backup.set-file.game-data";
-        static final String SAVE_DOCUMENT_MODELING = "cubism.auto-backup.save-document.modeling";
-        static final String SAVE_DOCUMENT_ANIMATION = "cubism.auto-backup.save-document.animation";
-        static final String SAVE_DOCUMENT_GAME_DATA = "cubism.auto-backup.save-document.game-data";
 
         private Aliases() {
         }
@@ -78,6 +74,10 @@ public final class VerifiedAutoBackupHostOperations implements AutoBackupAdapter
 
     /** Backup artifact timestamp pattern: {@code yyyy_MMdd_HHmmss} (host h() naming). */
     static final DateTimeFormatter BACKUP_TIMESTAMP = DateTimeFormatter.ofPattern("yyyy_MMdd_HHmmss");
+
+    /** Bounded retries for the backup file copy (the host may still hold the file). */
+    static final int COPY_ATTEMPTS = 3;
+    static final long COPY_RETRY_DELAY_MILLIS = 200L;
 
     private final VerifiedMemberResolver resolver;
 
@@ -195,11 +195,8 @@ public final class VerifiedAutoBackupHostOperations implements AutoBackupAdapter
         Objects.requireNonNull(matchFile, "matchFile");
         Objects.requireNonNull(documentUids, "documentUids");
         requireResolvable(
-            Aliases.SAVE_DOCUMENT_MODELING, Aliases.SAVE_DOCUMENT_ANIMATION,
-            Aliases.SAVE_DOCUMENT_GAME_DATA, Aliases.DOCUMENT_UID_MODELING,
-            Aliases.SCENE_DOCS, Aliases.DOCUMENT_UID_SCENE,
-            Aliases.SET_FILE_MODELING, Aliases.SET_FILE_ANIMATION, Aliases.SET_FILE_GAME_DATA,
-            Aliases.MANAGER_CLASS, Aliases.MANAGER_INSTANCE, Aliases.BACKUP_DIR,
+            Aliases.DOCUMENT_UID_MODELING, Aliases.SCENE_DOCS, Aliases.DOCUMENT_UID_SCENE,
+            Aliases.MANAGER_CLASS, Aliases.MANAGER_INSTANCE,
             Aliases.APP_CONTROLLER_CLASS, Aliases.APP_CONTROLLER_GET_COMPLETE_PACK,
             Aliases.COMPLETE_PACK_CLASS, Aliases.COMPLETE_PACK_FILE_CONTENTS,
             Aliases.FILE_CONTENT_CLASS, Aliases.FILE_CONTENT_FILE,
@@ -218,7 +215,6 @@ public final class VerifiedAutoBackupHostOperations implements AutoBackupAdapter
         if (contents == null) {
             return null;
         }
-        final File backupDir = (File) resolver.invoke(Aliases.BACKUP_DIR, manager());
         if (!documentUids.isEmpty()) {
             // UID matching first: the saved snapshot carries stable document UIDs
             // (host getDocumentUID), while the pack file base name can differ
@@ -228,14 +224,7 @@ public final class VerifiedAutoBackupHostOperations implements AutoBackupAdapter
                     continue;
                 }
                 if (uidMatches(content, documentUids)) {
-                    final File file = (File) resolver.invoke(Aliases.FILE_CONTENT_FILE, content);
-                    final String alias = saveDocumentAliasFor(content);
-                    if (alias == null) {
-                        throw new IllegalStateException(
-                            "auto-backup saveDocument: unsupported file content: " + file.getName()
-                        );
-                    }
-                    return saveAsBackup(alias, content, file, backupDir, timestampMillis);
+                    return copyBackupFile(content, timestampMillis);
                 }
             }
         }
@@ -248,13 +237,7 @@ public final class VerifiedAutoBackupHostOperations implements AutoBackupAdapter
             if (!matches(file, matchFile)) {
                 continue;
             }
-            final String alias = saveDocumentAliasFor(content);
-            if (alias == null) {
-                throw new IllegalStateException(
-                    "auto-backup saveDocument: unsupported file content: " + file.getName()
-                );
-            }
-            return saveAsBackup(alias, content, file, backupDir, timestampMillis);
+            return copyBackupFile(content, timestampMillis);
         }
         return null; // no match: the coordinator fails closed
     }
@@ -265,12 +248,11 @@ public final class VerifiedAutoBackupHostOperations implements AutoBackupAdapter
      * {@code getSceneDocs}; game-data has no UID mapping and never matches here.
      */
     private boolean uidMatches(final Object content, final List<String> documentUids) {
-        final String alias = saveDocumentAliasFor(content);
-        if (Aliases.SAVE_DOCUMENT_MODELING.equals(alias)) {
+        if (isOwnerInstance(Aliases.DOCUMENT_UID_MODELING, content)) {
             final String uid = (String) resolver.invoke(Aliases.DOCUMENT_UID_MODELING, content);
             return uid != null && documentUids.contains(uid);
         }
-        if (Aliases.SAVE_DOCUMENT_ANIMATION.equals(alias)) {
+        if (isOwnerInstance(Aliases.SCENE_DOCS, content)) {
             final Object sceneDocs = resolver.invoke(Aliases.SCENE_DOCS, content);
             if (sceneDocs instanceof Iterable<?> iterable) {
                 for (Object scene : iterable) {
@@ -287,101 +269,62 @@ public final class VerifiedAutoBackupHostOperations implements AutoBackupAdapter
         return false;
     }
 
-    private String saveDocumentAliasFor(final Object content) {
-        if (isOwnerInstance(Aliases.SAVE_DOCUMENT_MODELING, content)) {
-            return Aliases.SAVE_DOCUMENT_MODELING;
+    /**
+     * Silent-by-construction backup: by the time the save hook fires the host
+     * has already written the document to its original file, so the backup is
+     * a pure file copy — no saveDocument, no host UI, no reference switch. The
+     * artifact is a TEMPORARY file (created under a {@code turboism-backup-}
+     * temp directory with the regular {@code <name>_backup<ts>.<ext>} name):
+     * the plugin uploads it and deletes it, so no backup file ever remains in
+     * the host backup directory. The copy retries briefly because the host may
+     * still hold the file; any failure fails closed.
+     */
+    private File copyBackupFile(final Object content, final long timestampMillis) {
+        final File source = (File) resolver.invoke(Aliases.FILE_CONTENT_FILE, content);
+        if (source == null || !source.isFile()) {
+            throw new IllegalStateException(
+                "auto-backup source file is unavailable: " + (source == null ? "<null>" : source)
+            );
         }
-        if (isOwnerInstance(Aliases.SAVE_DOCUMENT_ANIMATION, content)) {
-            return Aliases.SAVE_DOCUMENT_ANIMATION;
-        }
-        if (isOwnerInstance(Aliases.SAVE_DOCUMENT_GAME_DATA, content)) {
-            return Aliases.SAVE_DOCUMENT_GAME_DATA;
-        }
-        return null;
-    }
-
-    private File saveAsBackup(
-        final String alias,
-        final Object content,
-        final File file,
-        final File backupDir,
-        final long timestampMillis
-    ) {
-        final String name = file.getName();
+        final String name = source.getName();
         final String base = baseName(name);
         final String ext = extension(name);
         final String stamp = BACKUP_TIMESTAMP.format(
             Instant.ofEpochMilli(timestampMillis).atZone(ZoneId.systemDefault())
         );
-        final File target = new File(
-            backupDir,
-            base + "_backup" + stamp + (ext.isEmpty() ? "" : "." + ext)
-        );
-        final File parent = target.getParentFile();
-        if (parent != null) {
-            try {
-                Files.createDirectories(parent.toPath());
-            } catch (IOException failure) {
-                throw new IllegalStateException(
-                    "auto-backup backup directory unavailable: " + parent, failure
-                );
+        try {
+            final Path tempDir = Files.createTempDirectory("turboism-backup-");
+            final Path target = tempDir.resolve(
+                base + "_backup" + stamp + (ext.isEmpty() ? "" : "." + ext)
+            );
+            IOException last = null;
+            for (int attempt = 1; attempt <= COPY_ATTEMPTS; attempt++) {
+                try {
+                    Files.copy(
+                        source.toPath(), target,
+                        StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES
+                    );
+                    return target.toFile();
+                } catch (IOException failure) {
+                    last = failure;
+                    if (attempt < COPY_ATTEMPTS) {
+                        try {
+                            Thread.sleep(COPY_RETRY_DELAY_MILLIS);
+                        } catch (InterruptedException interrupted) {
+                            Thread.currentThread().interrupt();
+                            throw new IllegalStateException("auto-backup copy interrupted", interrupted);
+                        }
+                    }
+                }
             }
-        }
-        final boolean saved = invokeSaveDocument(alias, content, target);
-        if (!saved) {
             throw new IllegalStateException(
-                "auto-backup saveDocument rejected the backup target: " + target.getName()
+                "auto-backup copy failed: " + source + " -> " + target, last
+            );
+        } catch (IOException failure) {
+            throw new IllegalStateException(
+                "auto-backup temp backup directory unavailable", failure
             );
         }
-        restoreFileReference(alias, content, file);
-        return target;
-    }
-
-    /**
-     * Belt-and-braces: saveDocument may switch the content's file reference to
-     * the backup path; if it did, restore the original through the verified
-     * setFile selector. The restore only runs when the reference changed, and
-     * an unverified restore fails closed so a partial state is never accepted.
-     */
-    private void restoreFileReference(final String alias, final Object content, final File original) {
-        final File current = (File) resolver.invoke(Aliases.FILE_CONTENT_FILE, content);
-        if (Objects.equals(current, original)) {
-            return; // the reference stayed on the current document: nothing to do
-        }
-        final String setAlias;
-        if (Aliases.SAVE_DOCUMENT_MODELING.equals(alias)) {
-            setAlias = Aliases.SET_FILE_MODELING;
-        } else if (Aliases.SAVE_DOCUMENT_ANIMATION.equals(alias)) {
-            setAlias = Aliases.SET_FILE_ANIMATION;
-        } else if (Aliases.SAVE_DOCUMENT_GAME_DATA.equals(alias)) {
-            setAlias = Aliases.SET_FILE_GAME_DATA;
-        } else {
-            throw new IllegalStateException(
-                "auto-backup file reference restore: unsupported content: " + original
-            );
-        }
-        resolver.invoke(setAlias, content, original);
-        final File restored = (File) resolver.invoke(Aliases.FILE_CONTENT_FILE, content);
-        if (!Objects.equals(restored, original)) {
-            throw new IllegalStateException(
-                "auto-backup file reference restore unverified: " + original
-            );
-        }
-    }
-
-    /**
-     * Invokes the verified saveDocument primitive; the game-data variant takes
-     * one argument and returns void, the modeling/animation variants take
-     * {@code (File, boolean)} with the second argument fixed to true (save a
-     * backup copy without switching the current document) and return success
-     * as a boolean.
-     */
-    private boolean invokeSaveDocument(final String alias, final Object content, final File target) {
-        final StaticSelector selector = resolver.verifiedSelector(alias);
-        final Object result = "(Ljava/io/File;Z)Z".equals(selector.descriptor())
-            ? resolver.invoke(alias, content, target, true)
-            : resolver.invoke(alias, content, target);
-        return result == null || (Boolean) result;
     }
 
     private boolean isOwnerInstance(final String alias, final Object content) {
