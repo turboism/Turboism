@@ -2,6 +2,8 @@ package dev.turboism.core.plugin.context;
 
 import dev.turboism.adapter.RuntimeHostAdapters;
 import dev.turboism.adapter.cubism.CubismFacadeImpl;
+import dev.turboism.adapter.cubism.backup.AutoBackupAdapter;
+import dev.turboism.adapter.cubism.backup.AutoBackupCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.ParameterLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.PartLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.EditorObjectLifecycleCoordinator;
@@ -54,6 +56,7 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
     private final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorithmRegistry textureAtlasAlgorithms;
     private final dev.turboism.adapter.cubism.command.EditorCommandAdapter editorCommands;
     private final dev.turboism.adapter.cubism.command.EditorFileCommandResolver editorFiles;
+    private final AutoBackupAdapter autoBackup;
 
     DefaultCubismServicesFactory() {
         this(RuntimeHostAdapters.safeMode());
@@ -190,7 +193,8 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
             dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorSession.unavailable(),
             new dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorithmRegistry(),
             dev.turboism.adapter.cubism.command.EditorCommandAdapter.unavailable(),
-            dev.turboism.adapter.cubism.command.EditorFileCommandResolver.unavailable()
+            dev.turboism.adapter.cubism.command.EditorFileCommandResolver.unavailable(),
+            hostAdapters.autoBackup()
         );
     }
 
@@ -210,7 +214,8 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
         final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorSession textureAtlasEditorSession,
         final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorithmRegistry textureAtlasAlgorithms,
         final dev.turboism.adapter.cubism.command.EditorCommandAdapter editorCommands,
-        final dev.turboism.adapter.cubism.command.EditorFileCommandResolver editorFiles
+        final dev.turboism.adapter.cubism.command.EditorFileCommandResolver editorFiles,
+        final AutoBackupAdapter autoBackup
     ) {
         this.hostAdapters = java.util.Objects.requireNonNull(hostAdapters, "hostAdapters");
         this.modelAccess = java.util.Objects.requireNonNull(modelAccess, "modelAccess");
@@ -242,6 +247,7 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
         );
         this.editorCommands = java.util.Objects.requireNonNull(editorCommands, "editorCommands");
         this.editorFiles = java.util.Objects.requireNonNull(editorFiles, "editorFiles");
+        this.autoBackup = java.util.Objects.requireNonNull(autoBackup, "autoBackup");
     }
 
     DefaultCubismServicesFactory(
@@ -286,8 +292,14 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
             dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorSession.unavailable(),
             new dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorithmRegistry(),
             editorCommands,
-            editorFiles
+            editorFiles,
+            hostAdapters.autoBackup()
         );
+    }
+
+    /** Wiring seam for tests: the adapter this factory forwards to the backup coordinator. */
+    AutoBackupAdapter autoBackupAdapter() {
+        return autoBackup;
     }
 
     @Override
@@ -337,6 +349,14 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
             dependencies.descriptor().id(),
             permissionGate
         );
+        final AutoBackupCoordinator backupCoordinator = new AutoBackupCoordinator(
+            autoBackup,
+            dependencies.eventBus(),
+            dependencies.clock(),
+            AutoBackupCoordinator.DEFAULT_POLL_TIMEOUT_MILLIS,
+            reason -> dependencies.logger().warn("auto-backup " + reason)
+        );
+        dependencies.disposableScope().register(backupCoordinator::close);
         return new CubismContextServices(
             facade,
             new ParameterQueryServiceImpl(facade, permissionGate),
@@ -354,7 +374,8 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
             new CubismClipMaskServiceImpl(readCapabilityService, modelAccess),
             new dev.turboism.adapter.cubism.command.RuntimeEditorCommandService(
                 editorCommands, permissionGate, editorFiles, activeScope::get
-            )
+            ),
+            backupCoordinator
         );
     }
 }
