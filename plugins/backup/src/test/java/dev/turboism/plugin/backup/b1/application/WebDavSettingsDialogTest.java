@@ -120,6 +120,84 @@ final class WebDavSettingsDialogTest {
     }
 
     @Test
+    void remoteTriggerModesAreLocalizedWithEnumNameFallback() {
+        final dev.turboism.sdk.i18n.PluginLocalization english = new MapLocalization(java.util.Map.of(
+            "backup.remote-trigger.save-triggered", "On local save",
+            "backup.remote-trigger.auto-backup-sync", "Follow auto-backup",
+            "backup.dialog.remote-trigger-label", "Remote trigger"));
+        assertEquals("On local save", WebDavSettingsDialog.remoteTriggerText(
+            english, dev.turboism.plugin.backup.webdav.WebDavConfig.RemoteTrigger.SAVE_TRIGGERED));
+        assertEquals("Follow auto-backup", WebDavSettingsDialog.remoteTriggerText(
+            english, dev.turboism.plugin.backup.webdav.WebDavConfig.RemoteTrigger.AUTO_BACKUP_SYNC));
+        assertEquals("Remote trigger", WebDavSettingsDialog.remoteTriggerLabel(english));
+
+        final dev.turboism.sdk.i18n.PluginLocalization chinese = new MapLocalization(java.util.Map.of(
+            "backup.remote-trigger.save-triggered", "本地保存触发",
+            "backup.remote-trigger.auto-backup-sync", "随自动保存触发",
+            "backup.dialog.remote-trigger-label", "远程保存方式"));
+        assertEquals("本地保存触发", WebDavSettingsDialog.remoteTriggerText(
+            chinese, dev.turboism.plugin.backup.webdav.WebDavConfig.RemoteTrigger.SAVE_TRIGGERED));
+        assertEquals("随自动保存触发", WebDavSettingsDialog.remoteTriggerText(
+            chinese, dev.turboism.plugin.backup.webdav.WebDavConfig.RemoteTrigger.AUTO_BACKUP_SYNC));
+        assertEquals("远程保存方式", WebDavSettingsDialog.remoteTriggerLabel(chinese));
+
+        final dev.turboism.sdk.i18n.PluginLocalization empty = new MapLocalization(java.util.Map.of());
+        assertEquals("SAVE_TRIGGERED", WebDavSettingsDialog.remoteTriggerText(
+            empty, dev.turboism.plugin.backup.webdav.WebDavConfig.RemoteTrigger.SAVE_TRIGGERED),
+            "a missing key must fall back to the enum name");
+        assertEquals("Remote trigger", WebDavSettingsDialog.remoteTriggerLabel(empty));
+    }
+
+    @Test
+    void bothCatalogsDeclareTheRemoteTriggerKeys() throws Exception {
+        for (String catalog : new String[] {"messages.properties", "messages_zh_Hans.properties"}) {
+            final java.util.Properties properties = new java.util.Properties();
+            try (var in = WebDavSettingsDialog.class.getClassLoader().getResourceAsStream(
+                    "META-INF/turboism/i18n/" + catalog)) {
+                assertTrue(in != null, catalog + " must be on the classpath");
+                properties.load(in);
+            }
+            for (String key : new String[] {
+                "backup.remote-trigger.save-triggered",
+                "backup.remote-trigger.auto-backup-sync",
+                "backup.dialog.remote-trigger-label"
+            }) {
+                assertTrue(properties.containsKey(key), catalog + " must declare " + key);
+                assertTrue(!properties.getProperty(key).isBlank(), catalog + ": " + key + " must not be blank");
+            }
+        }
+    }
+
+    /** Headless test localization: returns the mapped text, contains() on the map. */
+    private static final class MapLocalization implements dev.turboism.sdk.i18n.PluginLocalization {
+        private final java.util.Map<String, String> texts;
+
+        MapLocalization(final java.util.Map<String, String> texts) {
+            this.texts = texts;
+        }
+
+        @Override
+        public String text(final String key) {
+            return texts.get(key);
+        }
+
+        @Override
+        public String format(final String key, final Object... arguments) {
+            return texts.get(key);
+        }
+
+        @Override
+        public boolean contains(final String key) {
+            return texts.containsKey(key);
+        }
+
+        @Override
+        public java.util.Locale locale() {
+            return java.util.Locale.ROOT;
+        }
+    }
+
+    @Test
     void assembledConfigNeverRendersThePassword() {
         final WebDavConfig assembled = WebDavSettingsDialog.assemble(
             CURRENT, true, "https://dav.example", "alice", "hunter2".toCharArray(),
