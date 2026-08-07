@@ -7,7 +7,7 @@ public final class EditorModelVerificationManifest {
 
     public static final String VERIFICATION_ID = "cubism-5.3.02.editor-model.static";
     public static final String RECORD_SHA256 =
-        "202cf9dfd8e6fb4ca5e66b07730bc1447d7ecb0b7b0673f7634644fca3c9fbff";
+        "5f99652c179afc62546ffc0d69e2054fab6526bd53818bf369869e58472cf83e";
     public static final String CUBISM_VERSION = "5.3.02";
     public static final String PROFILE_ID = "cubism-5.3.02";
     public static final long ARTIFACT_SIZE = 41_922_739L;
@@ -20,19 +20,71 @@ public final class EditorModelVerificationManifest {
         EditorParameterDefinitionWriteSelectorContract.CAPABILITY_ID,
         EditorParameterCombinedWriteSelectorContract.CAPABILITY_ID,
         EditorParameterGroupsReadSelectorContract.CAPABILITY_ID,
-        EditorParameterGroupLabelColorReadSelectorContract.CAPABILITY_ID,
-        EditorParameterGroupLabelColorWriteSelectorContract.CAPABILITY_ID,
+        EditorNativeControlAppearanceReadSelectorContract.CAPABILITY_ID,
+        EditorNativeControlAppearanceWriteSelectorContract.CAPABILITY_ID,
         EditorDefaultKeyformLockReadSelectorContract.CAPABILITY_ID,
         EditorDefaultKeyformLockWriteSelectorContract.CAPABILITY_ID,
         EditorPartOpacitySelectorContract.CAPABILITY_ID,
         EditorPartNameSelectorContract.CAPABILITY_ID,
+        EditorPartTreeSelectorContract.CAPABILITY_ID,
         EditorPartNameSelectorContract.WRITE_CAPABILITY_ID,
+        EditorPartBasicSettingsSelectorContract.READ_CAPABILITY_ID,
+        EditorPartBasicSettingsSelectorContract.WRITE_CAPABILITY_ID,
         EditorObjectReadSelectorContract.CAPABILITY_ID,
+        EditorObjectReadSelectorContract.STATISTICS_CAPABILITY_ID,
         EditorObjectWriteSelectorContract.ART_MESH_CAPABILITY_ID,
         EditorObjectWriteSelectorContract.WARP_CAPABILITY_ID,
-        EditorObjectWriteSelectorContract.ROTATION_CAPABILITY_ID
+        EditorObjectWriteSelectorContract.ROTATION_CAPABILITY_ID,
+        EditorObjectHierarchyEditSelectorContract.CAPABILITY_ID,
+        EditorObjectHierarchyEditSelectorContract.RENAME_CAPABILITY_ID,
+        EditorObjectHierarchyEditSelectorContract.ART_MESH_CREATE_CAPABILITY_ID,
+        ObjectContextMenuVerificationManifest.CAPABILITY_ID,
+        EditorParameterBindingReadSelectorContract.CAPABILITY_ID,
+        EditorParameterBindingWriteSelectorContract.ART_MESH_CAPABILITY_ID,
+        EditorParameterBindingWriteSelectorContract.WARP_CAPABILITY_ID,
+        EditorParameterBindingWriteSelectorContract.ROTATION_CAPABILITY_ID,
+        EditorParameterBindingBatchWriteSelectorContract.INVERT_CAPABILITY_ID,
+        EditorParameterBindingBatchWriteSelectorContract.TRANSFER_CAPABILITY_ID,
+        EditorModelEditLevelReadSelectorContract.CAPABILITY_ID,
+        EditorModelEditLevelWriteSelectorContract.CAPABILITY_ID,
+        "cubism.texture-atlas.layout.write",
+        "cubism.texture-atlas.data-model-hook",
+        "cubism.texture-atlas.auto-layout-hook",
+        "cubism.texture-atlas.native-layout-invocation",
+        "cubism.texture-atlas.dialog-injection"
     );
-    public static final Set<String> REQUIRED_ALIASES = Set.of(
+    private static final Set<String> TEXTURE_ATLAS_ALIASES =
+        union(
+            dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.REQUIRED_ALIASES,
+            union(
+                union(
+                    union(
+                        dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.HOOK_ALIASES,
+                        union(
+                            dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.AUTO_LAYOUT_HOOK_ALIASES,
+                            dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.NATIVE_INVOCATION_ALIASES
+                        )
+                    ),
+                    dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.DIALOG_INJECTION_ALIASES
+                ),
+                dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.STATISTICS_ALIASES
+            )
+        );
+    private static final Set<String> TEXTURE_ATLAS_ALIASES_52 =
+        union(
+            dev.turboism.adapter.cubism.textureatlas.VerifiedCubism520TextureAtlasSelectorContract.REQUIRED_ALIASES,
+            union(
+                union(
+                    dev.turboism.adapter.cubism.textureatlas.VerifiedCubism520TextureAtlasSelectorContract.HOOK_ALIASES,
+                    union(
+                        dev.turboism.adapter.cubism.textureatlas.VerifiedCubism520TextureAtlasSelectorContract.AUTO_LAYOUT_HOOK_ALIASES,
+                        dev.turboism.adapter.cubism.textureatlas.VerifiedCubism520TextureAtlasSelectorContract.NATIVE_INVOCATION_ALIASES
+                    )
+                ),
+                dev.turboism.adapter.cubism.textureatlas.VerifiedCubism520TextureAtlasSelectorContract.DIALOG_INJECTION_ALIASES
+            )
+        );
+    public static final Set<String> REQUIRED_ALIASES = union(Set.of(
         "cubism.editor-model.app-controller.class",
         "cubism.editor-model.app-controller.instance",
         "cubism.editor-model.app-controller.current-document",
@@ -42,10 +94,13 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.modeling-view.class",
         "cubism.editor-model.modeling-view.model",
         "cubism.editor-model.model-source.class",
+        "cubism.editor-model.model-source.name",
         "cubism.editor-model.model-source.guid",
         "cubism.editor-model.model-source.current-instance",
         "cubism.editor-model.model-source.default-keyform-locked",
         "cubism.editor-model.model-source.set-default-keyform-locked",
+        "cubism.editor-model.app-controller.edit-level",
+        "cubism.editor-model.app-controller.set-edit-level",
         "cubism.editor-model.model-source.all-parameters",
         "cubism.editor-model.model-source.root-parameter-group",
         "cubism.editor-model.model.class",
@@ -79,6 +134,7 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.parameter-palette-view.class",
         "cubism.editor-model.parameter-palette-view.operation",
         "cubism.editor-model.parameter-operation.class",
+        "cubism.editor-model.parameter-operation.rows",
         "cubism.editor-model.parameter-operation.set-value",
         "cubism.editor-model.complete-pack.update-parameter",
         "cubism.editor-model.complete-pack.repaint-canvas",
@@ -126,8 +182,21 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.label-color.class",
         "cubism.editor-model.label-color.color",
         "cubism.editor-model.label-color.set-color",
+        "cubism.editor-model.label-color.set-label-type",
         "cubism.editor-model.label-color-type.class",
         "cubism.editor-model.label-color-type.custom",
+        "cubism.editor-model.label-color-type.undefined",
+        "cubism.editor-model.label-color-type.red",
+        "cubism.editor-model.label-color-type.orange",
+        "cubism.editor-model.label-color-type.yellow",
+        "cubism.editor-model.label-color-type.green",
+        "cubism.editor-model.label-color-type.blue",
+        "cubism.editor-model.label-color-type.purple",
+        "cubism.editor-model.label-color-type.gray",
+        "cubism.editor-model.label-color.label-type",
+        "cubism.editor-model.label-color.customized-color",
+        "cubism.editor-model.parameter-controllable-source.label-color",
+        "cubism.editor-model.deformer-source.class",
         "cubism.editor-model.color.class",
         "cubism.editor-model.color.create",
         "cubism.editor-model.color.red",
@@ -143,6 +212,7 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.undo.add-listener",
         "cubism.editor-model.model-source.parts",
         "cubism.editor-model.model-source.update-instances",
+        "cubism.editor-model.model-source.update-visible-lock-hierarchy",
         "cubism.editor-model.model.parts",
         "cubism.editor-model.part.class",
         "cubism.editor-model.part.id",
@@ -152,7 +222,15 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.part-source.id",
         "cubism.editor-model.part-source.local-name",
         "cubism.editor-model.part-source.set-local-name",
+        "cubism.editor-model.part-source.default-order",
+        "cubism.editor-model.part-source.set-default-order",
+        "cubism.editor-model.part-source.sketch",
+        "cubism.editor-model.part-source.set-sketch",
+        "cubism.editor-model.part-source.edit-color",
+        "cubism.editor-model.part-source.set-edit-color",
+        "cubism.editor-model.part-source.create-undo-for-basic-settings",
         "cubism.editor-model.part-source.parent",
+        "cubism.editor-model.part-source.use-offscreen",
         "cubism.editor-model.part-source.handler",
         "cubism.editor-model.part-handler.class",
         "cubism.editor-model.part-handler.create-undo-for-all-edit",
@@ -172,6 +250,7 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.parameter-controllable-source.locked",
         "cubism.editor-model.parameter-controllable-source.visible-in-hierarchy",
         "cubism.editor-model.parameter-controllable-source.locked-in-hierarchy",
+        "cubism.editor-model.parameter-controllable-source.target-deformer-source",
         "cubism.editor-model.art-mesh.source",
         "cubism.editor-model.art-mesh.current-keyform",
         "cubism.editor-model.drawable-form.opacity",
@@ -183,6 +262,14 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.art-mesh-source.culling",
         "cubism.editor-model.art-mesh-source.user-data",
         "cubism.editor-model.art-mesh-source.inverted-mask",
+        "cubism.editor-model.art-mesh-source.guid",
+        "cubism.editor-model.art-mesh-source.clip-guid-list",
+        "cubism.editor-model.art-mesh-source.texture",
+        "cubism.editor-model.texture.guid",
+        "cubism.editor-model.model-source.all-glues",
+        "cubism.editor-model.glue-source.class",
+        "cubism.editor-model.glue-source.target-art-mesh-a",
+        "cubism.editor-model.glue-source.target-art-mesh-b",
         "cubism.editor-model.model-source.all-deformers",
         "cubism.editor-model.model.all-deformers",
         "cubism.editor-model.warp-source.class",
@@ -225,8 +312,56 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.rotation-form.set-scale",
         "cubism.editor-model.rotation-form.set-reflect-x",
         "cubism.editor-model.rotation-form.set-reflect-y",
-        "cubism.editor-model.complete-pack.update-deformer-palette"
-    );
+        "cubism.editor-model.complete-pack.update-deformer-palette",
+        "object-context-menu.parameter.group-row.class",
+        "object-context-menu.parameter.group-row.source",
+        "object-context-menu.parameter.row-parameters",
+        "object-context-menu.workspace.selector",
+        "object-context-menu.workspace.selected",
+        "object-context-menu.workspace.selection.class",
+        "object-context-menu.workspace.selection-source",
+        "object-context-menu.warp.class",
+        "object-context-menu.rotation.class",
+        "object-context-menu.art-mesh.class",
+        "object-context-menu.part.class",
+        "object-context-menu.glue.class",
+        "object-context-menu.parameter.class",
+        "object-context-menu.parameter-group.class",
+        "object-context-menu.object-id",
+        "object-context-menu.parameter-id",
+        "object-context-menu.parameter-group-id",
+        "object-context-menu.id-value",
+        "object-context-menu.menu-item.create",
+        "object-context-menu.menu.append",
+        "object-context-menu.submenu.append",
+        "object-context-menu.menu-separator.create",
+        "object-context-menu.submenu.create",
+        "object-context-menu.menu.items",
+        "object-context-menu.menu-item.label",
+        "object-context-menu.parameter-point.guid-value",
+        "object-context-menu.menu.component",
+        "cubism.editor-model.keyform-grid.bindings",
+        "cubism.editor-model.keyform-binding.class",
+        "cubism.editor-model.keyform-binding.parameter-id",
+        "cubism.editor-model.keyform-binding.parameter-guid",
+        "cubism.editor-model.keyform-binding.keys",
+        "cubism.editor-model.keyform-grid.find-binding",
+        "cubism.editor-model.keyform-grid.reverse-parameter",
+        "cubism.editor-model.keyform-grid.change-parameter",
+        "cubism.editor-model.keyform-grid.add-key",
+        "cubism.editor-model.keyform-grid.remove-key",
+        "cubism.editor-model.keyform-grid.remove-all-key",
+        "cubism.editor-model.keyform-grid.rearrange-keys"
+    ), union(
+        EditorObjectHierarchyEditSelectorContract.REQUIRED_ALIASES,
+        union(
+            EditorObjectHierarchyEditSelectorContract.RENAME_REQUIRED_ALIASES,
+            union(
+                EditorObjectHierarchyEditSelectorContract.ART_MESH_CREATE_REQUIRED_ALIASES,
+                TEXTURE_ATLAS_ALIASES
+            )
+        )
+    ));
     private static final Set<String> PART_OPACITY_ADDITIVE_ALIASES = Set.of(
         "cubism.editor-model.model-source.parts",
         "cubism.editor-model.model-source.update-instances",
@@ -276,8 +411,8 @@ public final class EditorModelVerificationManifest {
                 EditorModelVerificationManifest52.PROFILE_ID,
                 EditorModelVerificationManifest52.ARTIFACT_SIZE,
                 EditorModelVerificationManifest52.ARTIFACT_SHA256,
-                cubism52Capabilities(),
-                cubism52Aliases()
+                ObjectContextMenuVerificationManifest.capabilities(cubism52Capabilities()),
+                ObjectContextMenuVerificationManifest.aliases(cubism52Aliases())
             );
         }
         if (artifact.size() == ARTIFACT_SIZE && artifact.sha256().equals(ARTIFACT_SHA256)) {
@@ -288,8 +423,8 @@ public final class EditorModelVerificationManifest {
                 PROFILE_ID,
                 ARTIFACT_SIZE,
                 ARTIFACT_SHA256,
-                CAPABILITY_IDS,
-                REQUIRED_ALIASES
+                ObjectContextMenuVerificationManifest.capabilities(CAPABILITY_IDS),
+                ObjectContextMenuVerificationManifest.aliases(REQUIRED_ALIASES)
             );
         }
         throw new IllegalArgumentException(
@@ -318,6 +453,12 @@ public final class EditorModelVerificationManifest {
             capabilityIds,
             requiredAliases
         );
+    }
+
+    private static Set<String> union(final Set<String> left, final Set<String> right) {
+        final java.util.HashSet<String> values = new java.util.HashSet<>(left);
+        values.addAll(right);
+        return Set.copyOf(values);
     }
 
     private static Set<String> partNameOnlyCapabilities() {
@@ -349,7 +490,9 @@ public final class EditorModelVerificationManifest {
 
     private static Set<String> cubism52Aliases() {
         final java.util.HashSet<String> values = new java.util.HashSet<>(REQUIRED_ALIASES);
+        values.removeAll(dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.STATISTICS_ALIASES);
         values.removeAll(PART_OPACITY_ADDITIVE_ALIASES);
+        values.removeAll(EditorObjectReadSelectorContract.OFFSCREEN_STATISTICS_ALIASES);
         values.addAll(EditorPartOpacity52SelectorContract.REQUIRED_ALIASES);
         values.addAll(PART_NAME_ADDITIVE_ALIASES);
         values.addAll(Set.of(
@@ -359,6 +502,7 @@ public final class EditorModelVerificationManifest {
             "cubism.editor-model.part-handler.create-undo-for-all-edit",
             "cubism.editor-model.complete-pack.update-part-palette"
         ));
+        values.addAll(TEXTURE_ATLAS_ALIASES_52);
         return Set.copyOf(values);
     }
 

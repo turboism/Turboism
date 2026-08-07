@@ -1,13 +1,18 @@
 package dev.turboism.adapter.host;
 
 import dev.turboism.sdk.cubism.id.ModelId;
+import dev.turboism.adapter.cubism.NativeLabelColorAuthoring;
+import dev.turboism.adapter.cubism.NativeLabelColorTarget;
 import dev.turboism.sdk.cubism.id.ParameterGroupId;
 import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.model.Color;
+import dev.turboism.sdk.ui.appearance.NativeLabelColor;
+import dev.turboism.sdk.ui.appearance.NativeLabelColorState;
 import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
+import dev.turboism.sdk.cubism.model.ModelEditLevel;
 import dev.turboism.sdk.cubism.model.Parameter;
 import dev.turboism.sdk.cubism.model.ParameterDefinition;
 import dev.turboism.sdk.cubism.model.ParameterGroup;
@@ -50,6 +55,9 @@ class DynamicCubismModelAccessTest {
         CubismModel staleModel = access.active();
         assertTrue(staleModel.defaultKeyformLocked());
         Parameters staleParameters = staleModel.parameters();
+        assertEquals(ModelEditLevel.LEVEL_1, staleModel.editLevel());
+        staleModel.setEditLevel(ModelEditLevel.LEVEL_2);
+        assertEquals(ModelEditLevel.LEVEL_2, staleModel.editLevel());
         Parameter staleParameter = staleParameters.find(new ParameterId("ParamA"));
         assertEquals(1.0F, staleParameter.getValue());
 
@@ -60,6 +68,11 @@ class DynamicCubismModelAccessTest {
         assertThrows(
             IllegalStateException.class,
             () -> staleModel.setDefaultKeyformLocked(false)
+        );
+        assertThrows(IllegalStateException.class, staleModel::editLevel);
+        assertThrows(
+            IllegalStateException.class,
+            () -> staleModel.setEditLevel(ModelEditLevel.LEVEL_3)
         );
         assertThrows(IllegalStateException.class, staleParameters::all);
         assertThrows(IllegalStateException.class, staleParameter::getValue);
@@ -74,17 +87,134 @@ class DynamicCubismModelAccessTest {
         final ParameterGroups groups = access.active().parameterGroups();
         final ParameterGroup group = groups.find(new ParameterGroupId("GroupFace"));
         assertEquals(Optional.of("Face"), group.name());
-        assertEquals(new Color(0.25F, 0.5F, 0.75F, 1.0F), group.labelColor());
         assertEquals(List.of(new ParameterId("ParamA")), group.parameterIds());
-        final Color updated = new Color(0.1F, 0.2F, 0.3F, 1.0F);
-        group.setLabelColor(updated);
-        assertEquals(updated, group.labelColor());
 
         access.deactivate();
         assertThrows(IllegalStateException.class, groups::all);
         assertThrows(IllegalStateException.class, group::name);
-        assertThrows(IllegalStateException.class, group::labelColor);
-        assertThrows(IllegalStateException.class, () -> group.setLabelColor(updated));
+    }
+
+    @Test
+    void sessionDrawableForwardsGuidToDelegateAndPropagatesUnsupported() {
+        final DynamicCubismModelAccess access = new DynamicCubismModelAccess();
+        access.connect(() -> modelWithDrawable(drawable("guid-x", false)));
+
+        final Drawable wrapped = access.active().drawables().find(new ArtMeshId("ArtMeshA"));
+        assertEquals("guid-x", wrapped.guid());
+
+        access.deactivate();
+        assertThrows(IllegalStateException.class, wrapped::guid);
+
+        access.connect(() -> modelWithDrawable(drawable(null, true)));
+        final Drawable unsupported = access.active().drawables().find(new ArtMeshId("ArtMeshA"));
+        assertThrows(UnsupportedOperationException.class, unsupported::guid);
+    }
+
+    private static CubismModel modelWithDrawable(final Drawable drawable) {
+        return new CubismModel() {
+            @Override public ModelId id() { return new ModelId("model-a"); }
+            @Override public Parameters parameters() { throw unsupported(); }
+            @Override public dev.turboism.sdk.cubism.model.Parts parts() { throw unsupported(); }
+            @Override public dev.turboism.sdk.cubism.model.Drawables drawables() {
+                return new dev.turboism.sdk.cubism.model.Drawables() {
+                    @Override public List<Drawable> all() { return List.of(drawable); }
+                    @Override public Drawable find(final ArtMeshId id) { return drawable; }
+                };
+            }
+            @Override public dev.turboism.sdk.cubism.model.Deformers deformers() { throw unsupported(); }
+            @Override public dev.turboism.sdk.cubism.model.Glues glues() { throw unsupported(); }
+            @Override public void update() { throw unsupported(); }
+        };
+    }
+
+    private static Drawable drawable(final String guid, final boolean throwGuid) {
+        return new Drawable() {
+            @Override public ArtMeshId id() { return new ArtMeshId("ArtMeshA"); }
+            @Override public String guid() {
+                if (throwGuid) {
+                    throw unsupported();
+                }
+                return guid;
+            }
+            @Override public IntSequence parameters() { return emptyInts(); }
+            @Override public byte constantFlag() { return 0; }
+            @Override public byte dynamicFlag() { return 0; }
+            @Override public dev.turboism.sdk.cubism.model.BlendMode blendMode() {
+                return dev.turboism.sdk.cubism.model.BlendMode.NORMAL;
+            }
+            @Override public int textureIndex() { return 0; }
+            @Override public int drawOrder() { return 0; }
+            @Override public int renderOrder() { return 0; }
+            @Override public float getOpacity() { return 1.0F; }
+            @Override public IntSequence masks() { return emptyInts(); }
+            @Override public dev.turboism.sdk.cubism.model.FloatSequence vertexPositions() {
+                return emptyFloats();
+            }
+            @Override public dev.turboism.sdk.cubism.model.FloatSequence vertexUvs() {
+                return emptyFloats();
+            }
+            @Override public IntSequence indices() { return emptyInts(); }
+            @Override public Color multiplyColor() { return new Color(1.0F, 1.0F, 1.0F, 1.0F); }
+            @Override public Color screenColor() { return new Color(0.0F, 0.0F, 0.0F, 1.0F); }
+            @Override public int parentPartIndex() { return -1; }
+            @Override public int parentDeformerIndex() { return -1; }
+        };
+    }
+    @Test
+    void nativeLabelColorSeamFollowsTheSessionLeaseAndFailsClosed() {
+        final DynamicCubismModelAccess access = new DynamicCubismModelAccess();
+        final NativeLabelColorTarget folder = new NativeLabelColorTarget(
+            NativeLabelColorTarget.Palette.PARAMETER_GROUP,
+            "GroupFace"
+        );
+        final NativeLabelColorState nativeState = new NativeLabelColorState(
+            new NativeLabelColor.Default(),
+            Optional.empty()
+        );
+        access.connect(authoringModelAccess(nativeState));
+
+        assertEquals(nativeState, access.readNativeLabelColor(folder));
+
+        access.deactivate();
+        assertThrows(IllegalStateException.class, () -> access.readNativeLabelColor(folder));
+        assertThrows(IllegalStateException.class, () -> access.setNativeLabelColor(
+            folder, new NativeLabelColor.Default()
+        ));
+
+        access.connect(() -> model("model-a", parameter(1.0F), parameterGroups()));
+        assertThrows(UnsupportedOperationException.class, () -> access.readNativeLabelColor(folder));
+        assertThrows(UnsupportedOperationException.class, () -> access.setNativeLabelColor(
+            folder, new NativeLabelColor.Default()
+        ));
+    }
+
+    private static CubismModelAccess authoringModelAccess(final NativeLabelColorState nativeState) {
+        return new AuthoringModelAccess(nativeState);
+    }
+
+    private static final class AuthoringModelAccess
+        implements CubismModelAccess, NativeLabelColorAuthoring {
+        private final CubismModel delegate = model("model-a", parameter(1.0F));
+        private final NativeLabelColorState nativeState;
+
+        AuthoringModelAccess(final NativeLabelColorState nativeState) {
+            this.nativeState = nativeState;
+        }
+
+        @Override public CubismModel active() { return delegate; }
+
+        @Override public NativeLabelColorState readNativeLabelColor(
+            final NativeLabelColorTarget target
+        ) {
+            return nativeState;
+        }
+
+        @Override public void setNativeLabelColor(
+            final NativeLabelColorTarget target,
+            final NativeLabelColor color
+        ) {
+            throw new AssertionError("unexpected native write");
+        }
     }
 
     @Test
@@ -92,6 +222,16 @@ class DynamicCubismModelAccessTest {
         final DynamicCubismModelAccess access = new DynamicCubismModelAccess();
         final Parameter delegate = new Parameter() {
             @Override public ParameterId id() { return new ParameterId("ParamCheek"); }
+            @Override public int index() { return 7; }
+            @Override public dev.turboism.sdk.cubism.model.FloatSequence keyValues() {
+                return new dev.turboism.sdk.cubism.model.FloatSequence() {
+                    @Override public int size() { return 1; }
+                    @Override public float get(final int index) {
+                        if (index != 0) throw new IndexOutOfBoundsException(index);
+                        return 0.25F;
+                    }
+                };
+            }
             @Override public Optional<String> name() { return Optional.of("Cheek"); }
             @Override public ParameterType type() { return ParameterType.BLEND_SHAPE; }
             @Override public Optional<Boolean> repeat() { return Optional.of(false); }
@@ -104,22 +244,31 @@ class DynamicCubismModelAccessTest {
             @Override public float getMaximumValue() { return 1.0F; }
             @Override public float getDefaultValue() { return 0.0F; }
             @Override public void setValue(final float value) { throw unsupported(); }
+            @Override public List<dev.turboism.sdk.cubism.model.ParameterBinding> getParameterBindings() { return List.of(); }
         };
         access.connect(() -> model("model-a", delegate));
 
         final Parameter parameter = access.active().parameters().find(new ParameterId("ParamCheek"));
+        final dev.turboism.sdk.cubism.model.FloatSequence keyValues = parameter.keyValues();
+        assertEquals(7, parameter.index());
+        assertEquals(1, keyValues.size());
+        assertEquals(0.25F, keyValues.get(0));
         assertEquals(Optional.of("Cheek"), parameter.name());
         assertEquals(ParameterType.BLEND_SHAPE, parameter.type());
         assertEquals(Optional.of(false), parameter.repeat());
         assertEquals(Optional.of(true), parameter.combined());
         assertEquals(Optional.of(new ParameterId("ParamSmile")), parameter.combinedWith());
+        assertEquals(List.of(), parameter.getParameterBindings());
 
         access.deactivate();
+        assertThrows(IllegalStateException.class, parameter::index);
+        assertThrows(IllegalStateException.class, keyValues::size);
         assertThrows(IllegalStateException.class, parameter::name);
         assertThrows(IllegalStateException.class, parameter::type);
         assertThrows(IllegalStateException.class, parameter::repeat);
         assertThrows(IllegalStateException.class, parameter::combined);
         assertThrows(IllegalStateException.class, parameter::combinedWith);
+        assertThrows(IllegalStateException.class, parameter::getParameterBindings);
         assertThrows(
             IllegalStateException.class,
             () -> parameter.combineWith(new ParameterId("ParamSmile"))
@@ -393,6 +542,9 @@ class DynamicCubismModelAccessTest {
             @Override public ModelId id() { return new ModelId(id); }
             @Override public boolean defaultKeyformLocked() { return locked; }
             @Override public void setDefaultKeyformLocked(final boolean value) { locked = value; }
+            private ModelEditLevel editLevel = ModelEditLevel.LEVEL_1;
+            @Override public ModelEditLevel editLevel() { return editLevel; }
+            @Override public void setEditLevel(final ModelEditLevel value) { editLevel = value; }
             @Override public Parameters parameters() {
                 return new Parameters() {
                     @Override public List<Parameter> all() { return List.of(parameter); }
@@ -417,23 +569,19 @@ class DynamicCubismModelAccessTest {
     }
 
     private static ParameterGroups parameterGroups() {
-        final Color[] rootColor = {new Color(0.25F, 0.5F, 0.75F, 1.0F)};
-        final Color[] faceColor = {new Color(0.25F, 0.5F, 0.75F, 1.0F)};
         final ParameterGroup root = parameterGroup(
             "GroupRoot",
             "Root",
             Optional.empty(),
             List.of(new ParameterGroupId("GroupFace")),
-            List.of(),
-            rootColor
+            List.of()
         );
         final ParameterGroup face = parameterGroup(
             "GroupFace",
             "Face",
             Optional.of(new ParameterGroupId("GroupRoot")),
             List.of(),
-            List.of(new ParameterId("ParamA")),
-            faceColor
+            List.of(new ParameterId("ParamA"))
         );
         return new ParameterGroups() {
             @Override public List<ParameterGroup> all() { return List.of(root, face); }
@@ -444,20 +592,16 @@ class DynamicCubismModelAccessTest {
             }
         };
     }
-
     private static ParameterGroup parameterGroup(
         final String id,
         final String name,
         final Optional<ParameterGroupId> parentId,
         final List<ParameterGroupId> childGroupIds,
-        final List<ParameterId> parameterIds,
-        final Color[] color
+        final List<ParameterId> parameterIds
     ) {
         return new ParameterGroup() {
             @Override public ParameterGroupId id() { return new ParameterGroupId(id); }
             @Override public Optional<String> name() { return Optional.of(name); }
-            @Override public Color labelColor() { return color[0]; }
-            @Override public void setLabelColor(final Color next) { color[0] = next; }
             @Override public Optional<ParameterGroupId> parentId() { return parentId; }
             @Override public List<ParameterGroupId> childGroupIds() { return childGroupIds; }
             @Override public List<ParameterId> parameterIds() { return parameterIds; }

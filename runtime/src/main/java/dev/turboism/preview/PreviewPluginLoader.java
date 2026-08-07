@@ -1,9 +1,10 @@
 package dev.turboism.preview;
 
 import dev.turboism.core.lifecycle.PluginLifecycleState;
+import dev.turboism.adapter.cubism.lifecycle.EditorObjectHookRegistry;
 import dev.turboism.adapter.cubism.lifecycle.ParameterHookRegistry;
 import dev.turboism.adapter.cubism.lifecycle.PartHookRegistry;
-import dev.turboism.adapter.cubism.lifecycle.EditorObjectHookRegistry;
+import dev.turboism.adapter.cubism.lifecycle.ProjectLifecycleHookRegistry;
 import dev.turboism.core.plugin.PluginRuntime;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginDescriptor;
@@ -25,6 +26,7 @@ final class PreviewPluginLoader {
     private final ParameterHookRegistry parameterHookRegistry;
     private final PartHookRegistry partHookRegistry;
     private final EditorObjectHookRegistry editorObjectHookRegistry;
+    private final ProjectLifecycleHookRegistry projectLifecycleHookRegistry;
 
     PreviewPluginLoader(
         final PreviewPluginContextFactory contextFactory,
@@ -32,7 +34,8 @@ final class PreviewPluginLoader {
         final List<LocalPluginRuntime.LoadedPlugin> loaded,
         final ParameterHookRegistry parameterHookRegistry,
         final PartHookRegistry partHookRegistry,
-        final EditorObjectHookRegistry editorObjectHookRegistry
+        final EditorObjectHookRegistry editorObjectHookRegistry,
+        final ProjectLifecycleHookRegistry projectLifecycleHookRegistry
     ) {
         this.contextFactory = contextFactory;
         this.log = log;
@@ -45,6 +48,10 @@ final class PreviewPluginLoader {
         this.editorObjectHookRegistry = java.util.Objects.requireNonNull(
             editorObjectHookRegistry,
             "editorObjectHookRegistry"
+        );
+        this.projectLifecycleHookRegistry = java.util.Objects.requireNonNull(
+            projectLifecycleHookRegistry,
+            "projectLifecycleHookRegistry"
         );
     }
 
@@ -129,6 +136,12 @@ final class PreviewPluginLoader {
             resources.scope
         );
         resources.editorObjectHooksRegistered = true;
+        projectLifecycleHookRegistry.register(
+            candidate.descriptor(),
+            resources.entrypoints,
+            contextBundle.context().logger()
+        );
+        resources.projectLifecycleHooksRegistered = true;
         return new LocalPluginRuntime.LoadedPlugin(
             candidate.jar(),
             runtime,
@@ -229,6 +242,10 @@ final class PreviewPluginLoader {
         final LoadResources resources,
         final String pluginId
     ) {
+        if (resources.projectLifecycleHooksRegistered) {
+            projectLifecycleHookRegistry.unregister(pluginId);
+            resources.projectLifecycleHooksRegistered = false;
+        }
         if (resources.editorObjectHooksRegistered) {
             editorObjectHookRegistry.unregister(pluginId);
             resources.editorObjectHooksRegistered = false;
@@ -328,5 +345,6 @@ final class PreviewPluginLoader {
         private boolean parameterHooksRegistered;
         private boolean partHooksRegistered;
         private boolean editorObjectHooksRegistered;
+        private boolean projectLifecycleHooksRegistered;
     }
 }
