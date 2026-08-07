@@ -5,19 +5,27 @@ public final class MeshMirrorGeometry {
 
     private MeshMirrorGeometry() { }
 
+    /**
+     * Rotates the mirror axis around the pivot, matching the legacy semantics:
+     * the axis anchor (axisValue, pivotY) for a vertical axis, or (pivotX,
+     * axisValue) for a horizontal axis, is rotated about the pivot by
+     * angleDegrees; the direction is rotated by the same angle. Equivalent to
+     * lineFromEndpoints(rotateAround(start, pivot, angle), rotateAround(end, pivot, angle)).
+     */
     public static Line rotatedAxis(
         final float axisValue,
-        final float pivotCoordinate,
+        final float pivotX,
+        final float pivotY,
         final boolean vertical,
         final float angleDegrees
     ) {
-        final Point anchor = vertical
-            ? new Point(axisValue, pivotCoordinate)
-            : new Point(pivotCoordinate, axisValue);
         final double radians = Math.toRadians(angleDegrees);
-        final float x = (float) Math.cos(radians);
-        final float y = (float) Math.sin(radians);
-        return new Line(anchor, vertical ? new Point(-y, x) : new Point(x, y));
+        final float cos = (float) Math.cos(radians);
+        final float sin = (float) Math.sin(radians);
+        final Point anchor = vertical
+            ? new Point(pivotX + (axisValue - pivotX) * cos, pivotY + (axisValue - pivotX) * sin)
+            : new Point(pivotX - (axisValue - pivotY) * sin, pivotY + (axisValue - pivotY) * cos);
+        return new Line(anchor, vertical ? new Point(-sin, cos) : new Point(cos, sin));
     }
 
     public static Point reflect(final Line line, final float x, final float y) {
