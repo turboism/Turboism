@@ -7,7 +7,7 @@ public final class EditorModelVerificationManifest {
 
     public static final String VERIFICATION_ID = "cubism-5.3.02.editor-model.static";
     public static final String RECORD_SHA256 =
-        "e584c8df07d27a07ded2885d130eeb006366f3e852b174038b9f3fd5678f6ee0";
+        "51660bba58291d70a1be1c2bd59a177f72cac7b045b7798c33ad272f90829b3e";
     public static final String CUBISM_VERSION = "5.3.02";
     public static final String PROFILE_ID = "cubism-5.3.02";
     public static final long ARTIFACT_SIZE = 41_922_739L;
@@ -42,6 +42,7 @@ public final class EditorModelVerificationManifest {
         EditorParameterBindingWriteSelectorContract.ROTATION_CAPABILITY_ID,
         EditorParameterBindingBatchWriteSelectorContract.INVERT_CAPABILITY_ID,
         EditorParameterBindingBatchWriteSelectorContract.TRANSFER_CAPABILITY_ID,
+        EditorInspectorDrawableWriteSelectorContract.CAPABILITY_ID,
         EditorModelEditLevelReadSelectorContract.CAPABILITY_ID,
         EditorModelEditLevelWriteSelectorContract.CAPABILITY_ID,
         EditorPhysicsReadSelectorContract.CAPABILITY_ID,
@@ -440,8 +441,11 @@ public final class EditorModelVerificationManifest {
             ),
             EditorModelInstanceReadSelectorContract.REQUIRED_ALIASES
         )), union(TEXTURE_ATLAS_ALIASES, union(
-        EditorTextureSelectorContract.WRITE_REQUIRED_ALIASES,
-        EditorTextureSelectorContract.REMOVE_RAW_IMAGE_ALIASES
+        union(
+            EditorTextureSelectorContract.WRITE_REQUIRED_ALIASES,
+            EditorTextureSelectorContract.REMOVE_RAW_IMAGE_ALIASES
+        ),
+        EditorInspectorDrawableWriteSelectorContract.REQUIRED_ALIASES
     )));
     private static final Set<String> PART_OPACITY_ADDITIVE_ALIASES = Set.of(
         "cubism.editor-model.model-source.parts",
@@ -552,6 +556,8 @@ public final class EditorModelVerificationManifest {
         final java.util.HashSet<String> values = new java.util.HashSet<>(CAPABILITY_IDS);
         values.remove(EditorPartOpacitySelectorContract.CAPABILITY_ID);
         values.add(EditorPartOpacity52SelectorContract.CAPABILITY_ID);
+        values.remove(EditorInspectorDrawableWriteSelectorContract.CAPABILITY_ID);
+        values.add(EditorInspectorDrawableWrite52SelectorContract.CAPABILITY_ID);
         return Set.copyOf(values);
     }
 
@@ -587,6 +593,8 @@ public final class EditorModelVerificationManifest {
         values.addAll(TEXTURE_ATLAS_ALIASES_52);
         values.addAll(EditorTextureSelectorContract.WRITE_REQUIRED_ALIASES);
         values.removeAll(EditorTextureSelectorContract.REMOVE_RAW_IMAGE_ALIASES);
+        values.removeAll(EditorInspectorDrawableWriteSelectorContract.ALPHA_COMPOSITION_ALIASES);
+        values.addAll(EditorInspectorDrawableWrite52SelectorContract.REQUIRED_ALIASES);
         return Set.copyOf(values);
     }
 
