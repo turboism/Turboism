@@ -49,6 +49,7 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
     private final EditorMorphTargetAccess morphTargetAccess;
     private final EditorModelProfileAccess modelProfileAccess;
     private final EditorObjectReadAccess objectReadAccess;
+    private final EditorObjectHierarchyEditAccess hierarchyEditAccess;
     private final EditorModelStatisticsAccess statisticsAccess;
     private final Object generationLock = new Object();
     private String lazyPublishAttemptedIdentity;
@@ -107,6 +108,10 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
             resolver,
             this::requireCurrent
         );
+        this.hierarchyEditAccess = new EditorObjectHierarchyEditAccess(
+            resolver,
+            this::requireCurrent
+        );
 
         this.documentReadAccess = new EditorDocumentReadAccess(
             resolver,
@@ -128,7 +133,8 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
             resolver,
             this::requireCurrent,
             this.partStructureAccess,
-            this.morphTargetAccess
+            this.morphTargetAccess,
+            this.hierarchyEditAccess
         );
         this.evaluatedJoin = evaluatedJoin;
         this.objectReadAccess = new EditorObjectReadAccess(
@@ -136,7 +142,8 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
             this::requireCurrent,
             this.morphTargetAccess,
             this.evaluatedJoin,
-            this::lazyPublishOnce
+            this::lazyPublishOnce,
+            this.hierarchyEditAccess
         );
         this.statisticsAccess = new EditorModelStatisticsAccess(
             resolver,

@@ -1196,6 +1196,25 @@ public final class CubismFacadeImpl implements CubismFacade {
                     requireModelWrite("model.parts.remove");
                     parts.remove(id);
                 }
+
+                @Override public dev.turboism.sdk.cubism.model.Part create(
+                    final String name,
+                    final dev.turboism.sdk.cubism.model.Part parent,
+                    final int index
+                ) {
+                    requireModelWrite("model.parts.create");
+                    return new PermissionCheckedPart(parts.create(
+                        name,
+                        unwrapPart(parent),
+                        index
+                    ));
+                }
+                @Override public void remove(
+                    final dev.turboism.sdk.cubism.model.Part part
+                ) {
+                    requireModelWrite("model.parts.remove");
+                    parts.remove(unwrapPart(part));
+                }
             };
         }
         @Override public dev.turboism.sdk.cubism.model.Drawables drawables() {
@@ -1217,6 +1236,26 @@ public final class CubismFacadeImpl implements CubismFacade {
                         values.find(Objects.requireNonNull(id, "id"))
                     );
                 }
+                @Override public dev.turboism.sdk.cubism.model.Drawable create(
+                    final String name,
+                    final dev.turboism.sdk.cubism.model.Part parent,
+                    final int index,
+                    final dev.turboism.sdk.cubism.model.ArtMeshGeometry geometry
+                ) {
+                    requireModelWrite("model.drawables.create");
+                    return new PermissionCheckedDrawable(values.create(
+                        name,
+                        unwrapPart(parent),
+                        index,
+                        geometry
+                    ));
+                }
+                @Override public void remove(
+                    final dev.turboism.sdk.cubism.model.Drawable drawable
+                ) {
+                    requireModelWrite("model.drawables.remove");
+                    values.remove(unwrapDrawable(drawable));
+                }
             };
         }
         @Override public dev.turboism.sdk.cubism.model.Deformers deformers() {
@@ -1234,6 +1273,40 @@ public final class CubismFacadeImpl implements CubismFacade {
                 ) {
                     requireModelRead("model.deformers.find");
                     return wrapDeformer(values.find(Objects.requireNonNull(id, "id")));
+                }
+                @Override public dev.turboism.sdk.cubism.model.WarpDeformer createWarp(
+                    final String name,
+                    final dev.turboism.sdk.cubism.model.Part parent,
+                    final int index,
+                    final int rows,
+                    final int columns
+                ) {
+                    requireModelWrite("model.deformers.createWarp");
+                    return new PermissionCheckedWarpDeformer(values.createWarp(
+                        name,
+                        unwrapPart(parent),
+                        index,
+                        rows,
+                        columns
+                    ));
+                }
+                @Override public dev.turboism.sdk.cubism.model.RotationDeformer createRotation(
+                    final String name,
+                    final dev.turboism.sdk.cubism.model.Part parent,
+                    final int index
+                ) {
+                    requireModelWrite("model.deformers.createRotation");
+                    return new PermissionCheckedRotationDeformer(values.createRotation(
+                        name,
+                        unwrapPart(parent),
+                        index
+                    ));
+                }
+                @Override public void remove(
+                    final dev.turboism.sdk.cubism.model.Deformer deformer
+                ) {
+                    requireModelWrite("model.deformers.remove");
+                    values.remove(unwrapDeformer(deformer));
                 }
             };
         }
@@ -1330,6 +1403,46 @@ public final class CubismFacadeImpl implements CubismFacade {
         }
     }
 
+    private dev.turboism.sdk.cubism.model.Part unwrapPart(
+        final dev.turboism.sdk.cubism.model.Part value
+    ) {
+        if (value == null) return null;
+        if (!(value instanceof PermissionCheckedPart checked)) {
+            throw new IllegalArgumentException(
+                "Part belongs to another Cubism facade or model generation"
+            );
+        }
+        return checked.delegate;
+    }
+
+    private dev.turboism.sdk.cubism.model.Drawable unwrapDrawable(
+        final dev.turboism.sdk.cubism.model.Drawable value
+    ) {
+        if (!(value instanceof PermissionCheckedDrawable checked)) {
+            throw new IllegalArgumentException(
+                "Drawable belongs to another Cubism facade or model generation"
+            );
+        }
+        return checked.delegate;
+    }
+
+    private dev.turboism.sdk.cubism.model.Deformer unwrapDeformer(
+        final dev.turboism.sdk.cubism.model.Deformer value
+    ) {
+        if (value instanceof PermissionCheckedWarpDeformer checked) {
+            return checked.warp;
+        }
+        if (value instanceof PermissionCheckedRotationDeformer checked) {
+            return checked.rotation;
+        }
+        if (value instanceof PermissionCheckedDeformer checked) {
+            return checked.delegate;
+        }
+        throw new IllegalArgumentException(
+            "Deformer belongs to another Cubism facade or model generation"
+        );
+    }
+
     private final class PermissionCheckedDrawable
         implements dev.turboism.sdk.cubism.model.Drawable {
         private final dev.turboism.sdk.cubism.model.Drawable delegate;
@@ -1375,6 +1488,24 @@ public final class CubismFacadeImpl implements CubismFacade {
         @Override public String name() {
             requireModelRead("artMesh.name");
             return delegate.name();
+        }
+        @Override public void setName(final String name) {
+            requireModelWrite("artMesh.setName");
+            delegate.setName(name);
+        }
+        @Override public void setParent(
+            final dev.turboism.sdk.cubism.model.Part parent,
+            final int index
+        ) {
+            requireModelWrite("artMesh.setParentPart");
+            delegate.setParent(unwrapPart(parent), index);
+        }
+        @Override public void setParent(
+            final dev.turboism.sdk.cubism.model.Deformer parent,
+            final int index
+        ) {
+            requireModelWrite("artMesh.setParentDeformer");
+            delegate.setParent(unwrapDeformer(parent), index);
         }
         @Override public boolean visible() {
             requireModelRead("artMesh.visible");
@@ -1552,6 +1683,24 @@ public final class CubismFacadeImpl implements CubismFacade {
             return delegate.parameterIds();
         }
         @Override public String name() { requireModelRead("deformer.name"); return delegate.name(); }
+        @Override public void setName(final String name) {
+            requireModelWrite("deformer.setName");
+            delegate.setName(name);
+        }
+        @Override public void setParent(
+            final dev.turboism.sdk.cubism.model.Part parent,
+            final int index
+        ) {
+            requireModelWrite("deformer.setParentPart");
+            delegate.setParent(unwrapPart(parent), index);
+        }
+        @Override public void setParent(
+            final dev.turboism.sdk.cubism.model.Deformer parent,
+            final int index
+        ) {
+            requireModelWrite("deformer.setParentDeformer");
+            delegate.setParent(unwrapDeformer(parent), index);
+        }
         @Override public boolean visible() { requireModelRead("deformer.visible"); return delegate.visible(); }
         @Override public void setVisible(final boolean visible) {
             requireModelWrite("deformer.setVisible");
@@ -2014,6 +2163,13 @@ public final class CubismFacadeImpl implements CubismFacade {
                 delegate::name,
                 () -> partLifecycle.setName(this, name, delegate::setName)
             );
+        }
+        @Override public void setParent(
+            final dev.turboism.sdk.cubism.model.Part parent,
+            final int index
+        ) {
+            requireModelWrite("part.setParent");
+            delegate.setParent(unwrapPart(parent), index);
         }
         @Override public float getOpacity() { requireModelRead("part.getOpacity"); return delegate.getOpacity(); }
         @Override public int parentIndex() { requireModelRead("part.parentIndex"); return delegate.parentIndex(); }

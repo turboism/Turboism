@@ -27,6 +27,7 @@ public interface Deformer {
 
     default List<ParameterId> parameterIds() { throw unavailable("Deformer parameters"); }
 
+    /** Editor display name, or the ID text when no authoring name is available. */
     default String name() {
         throw unavailable("Deformer name");
     }
@@ -49,15 +50,39 @@ public interface Deformer {
     }
 
     /**
+     * Moves this Deformer under a Part parent at {@code index} (negative = append).
+     *
+     * <p>The native Cubism Part tree owns the detach/attach semantics and Undo/Redo.</p>
+     *
+     * @throws IllegalArgumentException when {@code parent} is this Deformer or one of its descendants
+     */
+    default void setParent(Part parent, int index) {
+        throw unavailable("Deformer reparenting");
+    }
+
+    /**
+     * Moves this Deformer under another Deformer through the native target-deformer relation.
+     *
+     * <p>This is the canonical reparent entry; {@link #setTargetDeformer} is the
+     * Inspector-shaped alias of {@code setParent(deformer, -1)}.</p>
+     *
+     * @throws IllegalArgumentException when {@code parent} is this Deformer or one of its descendants
+     */
+    default void setParent(Deformer parent, int index) {
+        throw unavailable("Deformer reparenting");
+    }
+
+    /**
      * Reparents this Deformer to another Deformer (Inspector {@code targetDeformer}
      * entry, "所属变形器"). An empty value detaches it to the model root. The host's
      * undo-aware {@code changeTargetDeformer} is used, so nested Undo entries are
      * preserved; self-assignment, no-ops and descendant targets fail closed.
+     *
+     * <p>Alias of {@link #setParent(Deformer, int)} (empty = model root detach).</p>
      */
     default void setTargetDeformer(final Optional<DeformerId> target) {
         throw unavailable("Deformer target-deformer editing");
     }
-
     default boolean visible() {
         throw unavailable("Deformer visibility");
     }

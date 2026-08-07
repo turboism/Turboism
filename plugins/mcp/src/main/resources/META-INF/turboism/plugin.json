@@ -1,0 +1,46 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 2,
+  "id": "dev.turboism.plugin.mcp",
+  "name": "Turboism MCP Server",
+  "version": "0.1.0",
+  "description": "Loopback Model Context Protocol server exposing typed Turboism model-object operations.",
+  "entrypoints": [
+    "dev.turboism.plugin.mcp.McpPlugin"
+  ],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    {
+      "name": "Turboism Contributors"
+    }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": ["base", "en", "zh_Hans"]
+  },
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.cubism.model.read",
+      "scope": "application",
+      "reason": "Lists and resolves active Cubism model objects requested through MCP."
+    },
+    {
+      "id": "turboism.cubism.model.write",
+      "scope": "application",
+      "reason": "Renames, creates, and deletes active Cubism model objects requested through MCP."
+    }
+  ],
+  "capabilities": [
+    "mcp.streamable-http",
+    "cubism.model.objects.read",
+    "cubism.model.objects.write"
+  ],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "none"
+  }
+}
