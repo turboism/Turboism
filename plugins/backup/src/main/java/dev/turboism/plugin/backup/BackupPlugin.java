@@ -47,6 +47,7 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
     private volatile Registration actionRegistration;
     private volatile Registration menuRegistration;
     private volatile boolean enabled;
+    private volatile WebDavConfig lastSavedConfig;
 
     @Override
     public void init(final PluginContext context) {
@@ -80,6 +81,7 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
         enabled = false;
         binding.disable();
         target = null;
+        lastSavedConfig = null;
         cancelTargetRetry();
         closeRegistrations();
     }
@@ -129,17 +131,36 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
                 return;
             }
             targetRetryAttempts = 0;
-            final WebDavSyncTarget rebuilt = new WebDavSyncTarget(config, reason -> {
-                if (reason.startsWith("webdav:put-ok")) {
-                    logger.info("webdav-sync " + reason);
-                } else {
-                    logger.warn("webdav-sync " + reason);
-                }
-            });
-            target = rebuilt;
+            target = buildTarget(config);
             logger.info("WEBDAV_TARGET_READY url=" + sanitizedUrl(config)
                 + " remotePath=" + config.remotePath()
                 + " enabled=" + config.enabled());
+        });
+    }
+
+    /**
+     * Deterministic target construction from the exact config the dialog just
+     * persisted — no async binding read involved. Remembered in
+     * {@link #lastSavedConfig} so a later event can rebuild the target lazily.
+     */
+    void applySavedConfig(final WebDavConfig config) {
+        Objects.requireNonNull(config, "config");
+        lastSavedConfig = config;
+        target = buildTarget(config);
+        requireContext().logger().info("WEBDAV_TARGET_READY url=" + sanitizedUrl(config)
+            + " remotePath=" + config.remotePath()
+            + " enabled=" + config.enabled());
+    }
+
+    /** Shared target construction with the put-ok/error diagnostics routing. */
+    private WebDavSyncTarget buildTarget(final WebDavConfig config) {
+        final PluginLogger logger = requireContext().logger();
+        return new WebDavSyncTarget(config, reason -> {
+            if (reason.startsWith("webdav:put-ok")) {
+                logger.info("webdav-sync " + reason);
+            } else {
+                logger.warn("webdav-sync " + reason);
+            }
         });
     }
 
@@ -256,7 +277,7 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
                 @Override
                 public Consumer<ActionRegistry.ActionContext> handler() {
                     return ignored -> WebDavSettingsDialog.open(
-                        requireContext(), binding, BackupPlugin.this::refreshTarget
+                        requireContext(), binding, BackupPlugin.this::applySavedConfig
                     );
                 }
             }
@@ -293,7 +314,22 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
     }
 
     private void onBackupCompleted(final BackupCompletedEvent event) {
-        final WebDavSyncTarget active = target;
+        WebDavSyncTarget active = target;
+        if (active == null && lastSavedConfig != null) {
+            // The read-driven construction may never produce a config on the
+            // real host; the dialog-persisted config is deterministic. Build
+            // once, lazily, and use it for this event.
+            synchronized (this) {
+                if (target == null) {
+                    target = buildTarget(lastSavedConfig);
+                    requireContext().logger().info("WEBDAV_TARGET_LAZY_REBUILT url="
+                        + sanitizedUrl(lastSavedConfig)
+                        + " remotePath=" + lastSavedConfig.remotePath()
+                        + " enabled=" + lastSavedConfig.enabled());
+                }
+                active = target;
+            }
+        }
         if (active == null) {
             requireContext().logger().info("WEBDAV_SYNC_SKIPPED reason=target-unavailable");
             return;
