@@ -326,6 +326,72 @@ public final class TestCoreApiFixture {
         );
     }
 
+    /** Extra selectors for the owned-Moc lifecycle surface (both reviewed profiles). */
+    public static List<StaticSelector> ownedMocSelectors() {
+        return List.of(
+            StaticSelector.classSelector(
+                dev.turboism.mapping.verification.OwnedMocSelectorContract.MOC_CLASS,
+                internalName(Moc.class)
+            ),
+            StaticSelector.staticMethod(
+                dev.turboism.mapping.verification.OwnedMocSelectorContract.MOC_INSTANTIATE,
+                internalName(Moc.class),
+                "instantiate",
+                "([B)L" + internalName(Moc.class) + ";",
+                StaticSelector.ACCESS_PUBLIC
+            ),
+            StaticSelector.method(
+                dev.turboism.mapping.verification.OwnedMocSelectorContract.MOC_INSTANTIATE_MODEL,
+                internalName(Moc.class),
+                "instantiateModel",
+                "()L" + internalName(Model.class) + ";",
+                StaticSelector.ACCESS_PUBLIC
+            ),
+            StaticSelector.method(
+                dev.turboism.mapping.verification.OwnedMocSelectorContract.MOC_GET_NATIVE_HANDLE,
+                internalName(Moc.class),
+                "getNativeHandle",
+                "()J",
+                StaticSelector.ACCESS_PUBLIC
+            ),
+            StaticSelector.method(
+                dev.turboism.mapping.verification.OwnedMocSelectorContract.MOC_CLOSE,
+                internalName(Moc.class),
+                "close",
+                "()V",
+                StaticSelector.ACCESS_PUBLIC
+            ),
+            StaticSelector.method(
+                dev.turboism.mapping.verification.OwnedMocSelectorContract.MODEL_GET_NATIVE_HANDLE,
+                internalName(Model.class),
+                "getNativeHandle",
+                "()J",
+                StaticSelector.ACCESS_PUBLIC
+            ),
+            StaticSelector.method(
+                dev.turboism.mapping.verification.OwnedMocSelectorContract.MODEL_UPDATE,
+                internalName(Model.class),
+                "update",
+                "()V",
+                StaticSelector.ACCESS_PUBLIC
+            ),
+            StaticSelector.method(
+                dev.turboism.mapping.verification.OwnedMocSelectorContract.MODEL_CLOSE,
+                internalName(Model.class),
+                "close",
+                "()V",
+                StaticSelector.ACCESS_PUBLIC
+            )
+        );
+    }
+
+    /** Owned-Moc capability id for fixture resolvers. */
+    public static java.util.Set<String> ownedMocCapability() {
+        return java.util.Set.of(
+            dev.turboism.mapping.verification.OwnedMocSelectorContract.CAPABILITY_ID
+        );
+    }
+
     private static StaticSelector instanceMethod(
         final String alias,
         final Class<?> owner,
@@ -451,6 +517,9 @@ public final class TestCoreApiFixture {
         private final Glues glues;
         private final Moc moc;
         private final Runnable beforeCanvasRead;
+        private final long nativeHandle;
+        private int updateCount;
+        private int closeCount;
 
         public Model(final CanvasInfo canvasInfo, final Parameters parameters) {
             this(canvasInfo, parameters, Parts.empty(), Drawables.empty(), Deformers.empty(), Glues.empty(), null, () -> { });
@@ -482,6 +551,20 @@ public final class TestCoreApiFixture {
             final Moc moc,
             final Runnable beforeCanvasRead
         ) {
+            this(canvasInfo, parameters, parts, drawables, deformers, glues, moc, beforeCanvasRead, 0L);
+        }
+
+        public Model(
+            final CanvasInfo canvasInfo,
+            final Parameters parameters,
+            final Parts parts,
+            final Drawables drawables,
+            final Deformers deformers,
+            final Glues glues,
+            final Moc moc,
+            final Runnable beforeCanvasRead,
+            final long nativeHandle
+        ) {
             this.canvasInfo = canvasInfo;
             this.parameters = parameters;
             this.parts = parts;
@@ -490,6 +573,27 @@ public final class TestCoreApiFixture {
             this.glues = glues;
             this.moc = moc;
             this.beforeCanvasRead = beforeCanvasRead;
+            this.nativeHandle = nativeHandle;
+        }
+
+        public long getNativeHandle() {
+            return nativeHandle;
+        }
+
+        public void update() {
+            updateCount++;
+        }
+
+        public void close() {
+            closeCount++;
+        }
+
+        public int updateCount() {
+            return updateCount;
+        }
+
+        public int closeCount() {
+            return closeCount;
         }
 
         public CanvasInfo getCanvasInfo() { beforeCanvasRead.run(); return canvasInfo; }
@@ -502,16 +606,65 @@ public final class TestCoreApiFixture {
         public Moc getMoc() { return moc; }
     }
 
-    /** Minimal MOC stand-in exposing only the verified MOC-version read. */
+    /** Minimal MOC stand-in exposing the verified owned-Moc lifecycle surface. */
     public static final class Moc {
+        private static Model nextModel;
+        private static long nextNativeHandle;
+
         private final int mocVersion;
+        private final Model model;
+        private final long nativeHandle;
+        private int closeCount;
 
         public Moc(final int mocVersion) {
+            this(mocVersion, null, 0L);
+        }
+
+        public Moc(final int mocVersion, final Model model, final long nativeHandle) {
             this.mocVersion = mocVersion;
+            this.model = model;
+            this.nativeHandle = nativeHandle;
+        }
+
+        /** Binds the model and native handle returned by the next {@link #instantiate}. */
+        public static void prepare(final Model model, final long nativeHandle) {
+            nextModel = model;
+            nextNativeHandle = nativeHandle;
+        }
+
+        private static Moc lastInstantiated;
+
+        public static Moc instantiate(final byte[] bytes) {
+            final Moc moc = new Moc(Byte.toUnsignedInt(bytes[0]), nextModel, nextNativeHandle);
+            nextModel = null;
+            nextNativeHandle = 0L;
+            lastInstantiated = moc;
+            return moc;
+        }
+
+        /** Returns the most recent fixture Moc created by {@link #instantiate}. */
+        public static Moc lastInstantiated() {
+            return lastInstantiated;
+        }
+
+        public Model instantiateModel() {
+            return model;
+        }
+
+        public long getNativeHandle() {
+            return nativeHandle;
         }
 
         public int getMocVersion() {
             return mocVersion;
+        }
+
+        public void close() {
+            closeCount++;
+        }
+
+        public int closeCount() {
+            return closeCount;
         }
     }
 
