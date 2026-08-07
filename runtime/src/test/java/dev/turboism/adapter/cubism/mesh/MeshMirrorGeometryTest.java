@@ -9,7 +9,7 @@ final class MeshMirrorGeometryTest {
     @Test
     void reflectsProjectsAndHitsAgainstTheRotatedAxis() {
         final MeshMirrorGeometry.Line axis = MeshMirrorGeometry.rotatedAxis(
-            0.0f, 0.0f, true, 45.0f
+            0.0f, 0.0f, 0.0f, true, 45.0f
         );
 
         assertPoint(-1.0f, -1.0f, MeshMirrorGeometry.reflect(axis, 1.0f, 1.0f));
@@ -22,12 +22,22 @@ final class MeshMirrorGeometryTest {
     @Test
     void keepsTheNativeAxisAtZeroRotation() {
         final MeshMirrorGeometry.Line axis = MeshMirrorGeometry.rotatedAxis(
-            3.0f, 7.0f, true, 0.0f
+            3.0f, 4.0f, 7.0f, true, 0.0f
         );
 
         assertPoint(3.0f, 7.0f, axis.anchor());
         assertPoint(0.0f, 1.0f, axis.direction());
         assertPoint(5.0f, 4.0f, MeshMirrorGeometry.reflect(axis, 1.0f, 4.0f));
+    }
+
+    @Test
+    void rotatesTheAnchorAroundThePivotAtNonZeroAngle() {
+        final MeshMirrorGeometry.Line axis = MeshMirrorGeometry.rotatedAxis(
+            2.0f, 4.0f, 6.0f, true, 45.0f
+        );
+
+        assertPoint(2.5858f, 4.5858f, axis.anchor());
+        assertPoint(-0.7071f, 0.7071f, axis.direction());
     }
 
     private static void assertPoint(
