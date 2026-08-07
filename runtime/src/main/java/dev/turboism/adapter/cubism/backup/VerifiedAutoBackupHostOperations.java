@@ -63,6 +63,9 @@ public final class VerifiedAutoBackupHostOperations implements AutoBackupAdapter
         static final String DOCUMENT_UID_MODELING = "cubism.auto-backup.document-uid.modeling";
         static final String SCENE_DOCS = "cubism.auto-backup.scene-docs";
         static final String DOCUMENT_UID_SCENE = "cubism.auto-backup.document-uid.scene";
+        static final String SET_FILE_MODELING = "cubism.auto-backup.set-file.modeling";
+        static final String SET_FILE_ANIMATION = "cubism.auto-backup.set-file.animation";
+        static final String SET_FILE_GAME_DATA = "cubism.auto-backup.set-file.game-data";
         static final String SAVE_DOCUMENT_MODELING = "cubism.auto-backup.save-document.modeling";
         static final String SAVE_DOCUMENT_ANIMATION = "cubism.auto-backup.save-document.animation";
         static final String SAVE_DOCUMENT_GAME_DATA = "cubism.auto-backup.save-document.game-data";
@@ -195,6 +198,7 @@ public final class VerifiedAutoBackupHostOperations implements AutoBackupAdapter
             Aliases.SAVE_DOCUMENT_MODELING, Aliases.SAVE_DOCUMENT_ANIMATION,
             Aliases.SAVE_DOCUMENT_GAME_DATA, Aliases.DOCUMENT_UID_MODELING,
             Aliases.SCENE_DOCS, Aliases.DOCUMENT_UID_SCENE,
+            Aliases.SET_FILE_MODELING, Aliases.SET_FILE_ANIMATION, Aliases.SET_FILE_GAME_DATA,
             Aliases.MANAGER_CLASS, Aliases.MANAGER_INSTANCE, Aliases.BACKUP_DIR,
             Aliases.APP_CONTROLLER_CLASS, Aliases.APP_CONTROLLER_GET_COMPLETE_PACK,
             Aliases.COMPLETE_PACK_CLASS, Aliases.COMPLETE_PACK_FILE_CONTENTS,
@@ -329,19 +333,53 @@ public final class VerifiedAutoBackupHostOperations implements AutoBackupAdapter
                 "auto-backup saveDocument rejected the backup target: " + target.getName()
             );
         }
+        restoreFileReference(alias, content, file);
         return target;
+    }
+
+    /**
+     * Belt-and-braces: saveDocument may switch the content's file reference to
+     * the backup path; if it did, restore the original through the verified
+     * setFile selector. The restore only runs when the reference changed, and
+     * an unverified restore fails closed so a partial state is never accepted.
+     */
+    private void restoreFileReference(final String alias, final Object content, final File original) {
+        final File current = (File) resolver.invoke(Aliases.FILE_CONTENT_FILE, content);
+        if (Objects.equals(current, original)) {
+            return; // the reference stayed on the current document: nothing to do
+        }
+        final String setAlias;
+        if (Aliases.SAVE_DOCUMENT_MODELING.equals(alias)) {
+            setAlias = Aliases.SET_FILE_MODELING;
+        } else if (Aliases.SAVE_DOCUMENT_ANIMATION.equals(alias)) {
+            setAlias = Aliases.SET_FILE_ANIMATION;
+        } else if (Aliases.SAVE_DOCUMENT_GAME_DATA.equals(alias)) {
+            setAlias = Aliases.SET_FILE_GAME_DATA;
+        } else {
+            throw new IllegalStateException(
+                "auto-backup file reference restore: unsupported content: " + original
+            );
+        }
+        resolver.invoke(setAlias, content, original);
+        final File restored = (File) resolver.invoke(Aliases.FILE_CONTENT_FILE, content);
+        if (!Objects.equals(restored, original)) {
+            throw new IllegalStateException(
+                "auto-backup file reference restore unverified: " + original
+            );
+        }
     }
 
     /**
      * Invokes the verified saveDocument primitive; the game-data variant takes
      * one argument and returns void, the modeling/animation variants take
-     * {@code (File, boolean)} with the second argument fixed to false (no
-     * dialog side effects) and return success as a boolean.
+     * {@code (File, boolean)} with the second argument fixed to true (save a
+     * backup copy without switching the current document) and return success
+     * as a boolean.
      */
     private boolean invokeSaveDocument(final String alias, final Object content, final File target) {
         final StaticSelector selector = resolver.verifiedSelector(alias);
         final Object result = "(Ljava/io/File;Z)Z".equals(selector.descriptor())
-            ? resolver.invoke(alias, content, target, false)
+            ? resolver.invoke(alias, content, target, true)
             : resolver.invoke(alias, content, target);
         return result == null || (Boolean) result;
     }
