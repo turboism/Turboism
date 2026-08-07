@@ -32,7 +32,7 @@ final class RuntimeMeshEditUiServiceNativeTest {
     Path tempDir;
 
     @Test
-    void attachesHostNativeControlsAtTheFoldingPaneTopAndRoutesChangesThenRemovesOnClose() throws Exception {
+    void attachesHostNativeControlsAfterThePositionRowAndRoutesChangesThenRemovesOnClose() throws Exception {
         final Path classes = fakeHostClasses();
         try (URLClassLoader loader = new URLClassLoader(
             new URL[] { classes.toUri().toURL() }, getClass().getClassLoader())) {
@@ -48,22 +48,26 @@ final class RuntimeMeshEditUiServiceNativeTest {
             final AtomicReference<Float> changed = new AtomicReference<>();
             final var registration = service.contributeMirrorAxisAngleControl(
                 new MeshEditUiService.MirrorAxisAngleControl(
-                    "mesh.mirror-axis.angle", "Mirror Axis Rotation",
+                    "mesh.mirror-axis.angle", "Mirror Axis Rotation", "Reset to 0°",
                     -180.0f, 180.0f, 0.1f, changed::set
                 )
             );
             // The host widget (createWidgetMirrorEditForMeshEdit's CVBox return value) is
             // the mount target; the panel's mirrorEditFoldingPane field is assigned only
             // after that method returns, so it is not available at hook time.
+            // The host CVBox already holds the angle row (index 0) and the position
+            // row (index 1); the reviewed hook inserts our root after them (index 2).
             final Object widget = invoke(invoke(panel, "getMirrorEditFoldingPane"), "getChild");
+            invoke(widget, "add", "angle-row", 0);
+            invoke(widget, "add", "position-row", 1);
             service.attachNative(panel, widget, axis);
             SwingUtilities.invokeAndWait(() -> { });
 
             assertNotNull(service.nativeAttachment());
             final Object mount = widget;
             final List<?> mountChildren = children(mount);
-            assertEquals(1, mountChildren.size());
-            final Object root = mountChildren.get(0);
+            assertEquals(3, mountChildren.size());
+            final Object root = mountChildren.get(2);
             final List<?> wrapperChildren = children(root);
             assertEquals(2, wrapperChildren.size());
             final Object box = wrapperChildren.get(1);
@@ -74,6 +78,7 @@ final class RuntimeMeshEditUiServiceNativeTest {
             assertSame(sliderType, slider.getClass());
             final Object button = rowChildren.get(2);
             assertSame(buttonType, button.getClass());
+            assertEquals("Reset to 0°", invoke(button, "getToolTipText"));
 
             // The CSlidableFloat value change routes through the Function1 proxy.
             invoke(slider, "setValue", 12.3f);
@@ -86,7 +91,40 @@ final class RuntimeMeshEditUiServiceNativeTest {
 
             registration.close();
             SwingUtilities.invokeAndWait(() -> { });
-            assertEquals(0, mountChildren.size());
+            assertEquals(2, mountChildren.size());
+        }
+    }
+
+    @Test
+    void emptyResetToolTipLeavesTheHostDefaultTooltipUntouched() throws Exception {
+        final Path classes = fakeHostClasses();
+        try (URLClassLoader loader = new URLClassLoader(
+            new URL[] { classes.toUri().toURL() }, getClass().getClassLoader())) {
+            final Class<?> panelType = Class.forName(
+                "com.live2d.cubism.view.palette.tool.toolMode.meshEditor.ToolPanel_MeshEdit", false, loader);
+            final Class<?> buttonType = Class.forName("com.live2d.ui.control.CButton", false, loader);
+            final Object panel = panelType.getConstructor().newInstance();
+
+            final RuntimeMeshEditUiService service = new RuntimeMeshEditUiService();
+            final RuntimeMeshMirrorAxisService axis = new RuntimeMeshMirrorAxisService();
+            final var registration = service.contributeMirrorAxisAngleControl(
+                new MeshEditUiService.MirrorAxisAngleControl(
+                    "mesh.mirror-axis.angle", "Mirror Axis Rotation", "",
+                    -180.0f, 180.0f, 0.1f, ignored -> { }
+                )
+            );
+            final Object widget = invoke(invoke(panel, "getMirrorEditFoldingPane"), "getChild");
+            service.attachNative(panel, widget, axis);
+            SwingUtilities.invokeAndWait(() -> { });
+
+            final List<?> wrapperChildren = children(children(widget).get(0));
+            final List<?> rowChildren = children(wrapperChildren.get(1));
+            final Object button = rowChildren.get(2);
+            assertSame(buttonType, button.getClass());
+            assertNull(invoke(button, "getToolTipText"));
+
+            registration.close();
+            SwingUtilities.invokeAndWait(() -> { });
         }
     }
 
@@ -95,10 +133,10 @@ final class RuntimeMeshEditUiServiceNativeTest {
         final RuntimeMeshEditUiService service = new RuntimeMeshEditUiService();
         final RuntimeMeshMirrorAxisService axis = new RuntimeMeshMirrorAxisService();
         final var registration = service.contributeMirrorAxisAngleControl(
-            new MeshEditUiService.MirrorAxisAngleControl(
-                "mesh.mirror-axis.angle", "Mirror Axis Rotation",
-                -180.0f, 180.0f, 0.1f, ignored -> { }
-            )
+                new MeshEditUiService.MirrorAxisAngleControl(
+                    "mesh.mirror-axis.angle", "Mirror Axis Rotation", null,
+                    -180.0f, 180.0f, 0.1f, ignored -> { }
+                )
         );
         // A plain panel: no folding pane, and its loader cannot provide com.live2d classes.
         service.attachNative(new Object(), new Object(), axis);
@@ -117,10 +155,10 @@ final class RuntimeMeshEditUiServiceNativeTest {
         final java.util.List<Boolean> changes = new ArrayList<>();
         final var observer = service.observeContribution(changes::add);
         final var registration = service.contributeMirrorAxisAngleControl(
-            new MeshEditUiService.MirrorAxisAngleControl(
-                "mesh.mirror-axis.angle", "Mirror Axis Rotation",
-                -180.0f, 180.0f, 0.1f, ignored -> { }
-            )
+                new MeshEditUiService.MirrorAxisAngleControl(
+                    "mesh.mirror-axis.angle", "Mirror Axis Rotation", "",
+                    -180.0f, 180.0f, 0.1f, ignored -> { }
+                )
         );
         registration.close();
         observer.close();
@@ -174,10 +212,12 @@ final class RuntimeMeshEditUiServiceNativeTest {
                 import kotlin.jvm.functions.Function1;
                 public final class CButton {
                     private Function1 onAction;
+                    private String toolTipText;
                     public void setText(String text) { }
                     public void setPrefWidth(int width) { }
                     public void setPrefHeight(int height) { }
-                    public void setToolTipText(String tip) { }
+                    public void setToolTipText(String tip) { this.toolTipText = tip; }
+                    public String getToolTipText() { return toolTipText; }
                     public void addOnAction(Function1 onAction) { this.onAction = onAction; }
                     public Object getOnAction() { return onAction; }
                 }
