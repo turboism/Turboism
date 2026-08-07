@@ -87,7 +87,7 @@ final class PreviewPluginServicesFactory {
         return new CorePluginContext.Dependencies(
             descriptor, new PreviewPluginLogger(log, descriptor.id()), paths, uiScheduler, scheduler,
             new PreviewDiagnosticReport(), scope, EmptyHostSnapshotSource.INSTANCE,
-            M12ReadSnapshotSource.EMPTY, UiHostStateSource.DEFAULT,
+            M12ReadSnapshotSource.EMPTY, new PreviewUiHostStateSource(paths),
             event -> log.debug(descriptor.id(), event.toString()), Clock.systemUTC(), failureCollector
         );
     }
@@ -198,4 +198,39 @@ record PreviewPluginServices(
     RuntimeAsyncHostReadService hostReads,
     CleanupEvidenceCollector cleanupEvidence
 ) {
+}
+
+/**
+ * Preview UiHostStateSource that can open the plugin storage directory in the
+ * host file manager and detects the active color mode from the UIManager.
+ */
+final class PreviewUiHostStateSource implements UiHostStateSource {
+
+    private final PluginHomePaths paths;
+
+    PreviewUiHostStateSource(final PluginHomePaths paths) {
+        this.paths = paths;
+    }
+
+    @Override
+    public void openDirectory(final dev.turboism.sdk.storage.StoragePath directory) {
+        final java.nio.file.Path base = paths.dataDir();
+        final java.nio.file.Path resolved = base.resolve(directory.relativePath())
+            .normalize();
+        if (!resolved.startsWith(base)) {
+            return;
+        }
+        try {
+            java.nio.file.Files.createDirectories(resolved);
+        } catch (java.io.IOException ignored) {
+            return;
+        }
+        if (java.awt.Desktop.isDesktopSupported()) {
+            try {
+                java.awt.Desktop.getDesktop().open(resolved.toFile());
+            } catch (java.io.IOException ignored) {
+                // Opening a directory is best-effort on the validation host.
+            }
+        }
+    }
 }

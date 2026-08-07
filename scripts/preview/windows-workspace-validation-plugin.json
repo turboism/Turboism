@@ -1,0 +1,45 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 2,
+  "id": "dev.turboism.validation.workspace",
+  "name": "Windows Workspace Validation Probe",
+  "version": "0.1.0",
+  "description": "SDK probe for manual and opt-in automatic exact-host Workspace validation: current/status, bounded workspace matrix operations, and fail-closed behavior through the real PluginContext.workspace() path.",
+  "entrypoints": [
+    "dev.turboism.tests.plugin.WindowsWorkspaceValidationProbe"
+  ],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    { "name": "Turboism Contributors" }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": []
+  },
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.cubism.project.read",
+      "scope": "application",
+      "reason": "Read the current workspace identity and the live available workspace list during manual exact-host validation."
+    },
+    {
+      "id": "turboism.cubism.model.read",
+      "scope": "application",
+      "reason": "Read the bounded readiness snapshot (active document and model identity) during manual exact-host validation."
+    },
+    {
+      "id": "turboism.host.unsafe",
+      "scope": "application",
+      "reason": "Invoke the verified workspace switch, update-default, and reset-default host commands during manual exact-host validation."
+    }
+  ],
+  "capabilities": [],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "swing"
+  }
+}

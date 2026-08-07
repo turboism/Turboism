@@ -2,8 +2,13 @@ package dev.turboism.ui;
 
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.plugin.DisposableScope;
+import dev.turboism.sdk.ui.ChoiceDialogOption;
+import dev.turboism.sdk.ui.ChoiceDialogRequest;
 import dev.turboism.sdk.ui.DialogRequest;
 import dev.turboism.sdk.ui.StatusNotification;
+
+import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -41,6 +46,24 @@ class RuntimeUiHostTransientStateTest {
 
         service.confirmDialog(new DialogRequest("confirm", "Confirm", "Proceed?"));
 
+        assertTrue(service.dialogs().isEmpty());
+    }
+
+    @Test
+    void headlessChoiceRequestsFailClosedWithoutPersistentDialogState() {
+        RuntimeUiHostCapabilityService service = service();
+
+        Optional<String> selected = service.choose(new ChoiceDialogRequest(
+            "theme-manager",
+            "Choose Theme",
+            "Select one",
+            List.of(new ChoiceDialogOption("dark", "Dark", "Built-in", true)),
+            Optional.of("dark"),
+            "Apply",
+            "Cancel"
+        ));
+
+        assertTrue(selected.isEmpty());
         assertTrue(service.dialogs().isEmpty());
     }
 

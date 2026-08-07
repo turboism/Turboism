@@ -46,12 +46,19 @@ class RuntimeCoreModelBackendTest {
                 ignored -> { },
                 Clock.systemUTC()
             ),
-            backend.modelAccess()
+            backend
+        );
+        final var runtimeInfo = facade.coreRuntime();
+        assertEquals(
+            new dev.turboism.sdk.cubism.core.CoreVersion(11, 12, 13),
+            runtimeInfo.version()
         );
         final Parameter parameter = facade.model().active()
             .parameters()
             .find(new ParameterId("ParamAngleX"));
         assertEquals(10.0F, parameter.getValue());
+        assertEquals(0, parameter.index());
+        assertEquals(0, parameter.keyValues().size());
 
         backend.clearBorrowedModel();
         final IllegalStateException stale = assertThrows(
@@ -65,10 +72,27 @@ class RuntimeCoreModelBackendTest {
         backend.close();
         assertEquals(0, hostCloseCalls.get());
         assertThrows(IllegalStateException.class, () -> backend.modelAccess().active());
+        assertThrows(IllegalStateException.class, runtimeInfo::version);
         assertThrows(
             IllegalStateException.class,
             () -> backend.publishBorrowedModel(model.coreModel, "model-b")
         );
+    }
+
+
+    @Test
+    void admitsReviewedRecordVersionsThroughCanonicalStructuralProfiles() {
+        final RuntimeCoreModelBackend backend52 = RuntimeCoreModelBackend.admit(
+            TestCoreApiFixture.resolverForReviewedVersion("5.2.0", "5.2"),
+            CoreVersionExpectation.exact(11, 12, 13)
+        ).value().orElseThrow();
+        final RuntimeCoreModelBackend backend53 = RuntimeCoreModelBackend.admit(
+            TestCoreApiFixture.resolverForReviewedVersion("5.3.2", "5.3.02"),
+            CoreVersionExpectation.exact(11, 12, 13)
+        ).value().orElseThrow();
+
+        backend52.close();
+        backend53.close();
     }
 
     @Test

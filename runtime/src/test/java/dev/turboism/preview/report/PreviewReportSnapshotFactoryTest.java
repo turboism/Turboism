@@ -27,6 +27,83 @@ class PreviewReportSnapshotFactoryTest {
     Path temporary;
 
     @Test
+    void previewRuntimeReportUsesTheExactVerificationRecordVersionForActiveHosts() throws Exception {
+        assertEquals(
+            "5.2.03",
+            hostVersion(temporary.resolve("record-52.json"), "5.2.0", HostSession.State.ACTIVE),
+            "the 5.2 verification record must report the reviewed product version 5.2.03"
+        );
+        assertEquals(
+            "5.3.02",
+            hostVersion(temporary.resolve("record-5302.json"), "5.3.02", HostSession.State.ACTIVE)
+        );
+        assertEquals(
+            "5.2.03",
+            hostVersion(temporary.resolve("record-5203.json"), "5.2.03", HostSession.State.ACTIVE)
+        );
+    }
+
+    @Test
+    void previewRuntimeReportFailsClosedToUnknownWithoutAnExactActiveRecord() throws Exception {
+        final Path valid = record(temporary.resolve("record.json"), "5.3.02");
+        assertEquals("UNKNOWN", hostVersion(valid, null, HostSession.State.SAFE_MODE));
+        assertEquals("UNKNOWN", hostVersion(valid, null, HostSession.State.FAILED));
+        assertEquals("UNKNOWN", hostVersion(valid, null, HostSession.State.CLOSED));
+        assertEquals("UNKNOWN", hostVersion(null, null, HostSession.State.ACTIVE));
+
+        final Path unreadable = temporary.resolve("not-json.txt");
+        Files.writeString(unreadable, "static verification record");
+        assertEquals("UNKNOWN", hostVersion(unreadable, null, HostSession.State.ACTIVE));
+
+        final Path missingField = record(temporary.resolve("missing-field.json"), null);
+        assertEquals("UNKNOWN", hostVersion(missingField, null, HostSession.State.ACTIVE));
+
+        final Path unsupported = record(temporary.resolve("unsupported.json"), "9.9.9");
+        assertEquals("UNKNOWN", hostVersion(unsupported, null, HostSession.State.ACTIVE));
+    }
+
+    private String hostVersion(
+        final Path record,
+        final String recordVersion,
+        final HostSession.State hostState
+    ) throws Exception {
+        final Path effective = recordVersion == null ? record : record(record, recordVersion);
+        return previewRuntimeReport(effective, hostState)
+            .path("payload")
+            .path("host")
+            .path("version")
+            .textValue();
+    }
+
+    private JsonNode previewRuntimeReport(
+        final Path verificationRecord,
+        final HostSession.State hostState
+    ) throws Exception {
+        return PreviewReportSnapshotFactory.create(
+            "runtime-version-test",
+            Instant.parse("2026-07-15T00:00:00Z"),
+            temporary,
+            hostState,
+            temporary.resolve("Cubism.exe"),
+            verificationRecord,
+            new LocalPluginRuntime.LoadReport(List.of(), List.of(), List.of()),
+            List.of(),
+            false
+        ).get(PreviewReportType.PREVIEW_RUNTIME);
+    }
+
+    private static Path record(final Path path, final String cubismVersion) throws Exception {
+        Files.createDirectories(path.getParent());
+        Files.writeString(
+            path,
+            "{\"format\":\"turboism.static.verification.record\",\"schemaVersion\":1,"
+                + (cubismVersion == null ? "" : "\"cubismVersion\":\"" + cubismVersion + "\",")
+                + "\"selectors\":[]}"
+        );
+        return path;
+    }
+
+    @Test
     void writesFailureSnapshotIntoClosedRuntimeFailureArrays() {
         final RuntimeFailure task = failure("TASK_FAILED", "task", "task.run");
         final RuntimeFailure storage = failure("STORAGE_FAILED", "storage", "storage.readUtf8");
@@ -54,6 +131,34 @@ class PreviewReportSnapshotFactoryTest {
         assertThrows(UnsupportedOperationException.class, () -> new RuntimeFailureSnapshot(
             List.of(task), List.of(storage), List.of(config)
         ).taskFailures().add(task));
+    }
+
+    @Test
+    void processExitReportDoesNotInventPluginShutdownAttempts() {
+        final LocalPluginRuntime.LoadedPluginSummary active = plugin(
+            "dev.example.active",
+            List.of(),
+            List.of()
+        );
+
+        final JsonNode payload = PreviewReportSnapshotFactory.create(
+            "runtime-process-exit",
+            Instant.parse("2026-07-15T00:00:00Z"),
+            temporary,
+            HostSession.State.ACTIVE,
+            null,
+            null,
+            new LocalPluginRuntime.LoadReport(List.of(active), List.of(), List.of()),
+            List.of(active),
+            RuntimeFailureSnapshot.empty(),
+            true,
+            false
+        ).get(PreviewReportType.PREVIEW_RUNTIME).path("payload");
+
+        assertEquals("STOPPED", payload.path("runtimeState").textValue());
+        assertEquals(0, payload.path("shutdownCounts").path("attempted").longValue());
+        assertEquals(0, payload.path("shutdownCounts").path("succeeded").longValue());
+        assertEquals(0, payload.path("shutdownCounts").path("failed").longValue());
     }
 
     @Test

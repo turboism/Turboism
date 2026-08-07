@@ -1,127 +1,22 @@
 import org.gradle.api.tasks.Exec
 
 /*
- * Current verification is intentionally layered:
+ * Verification is deliberately layered by cost:
  *
- *   check                 daily code and public-boundary verification
- *   checkIntegration      packaged/runtime integration
- *   checkRelease          release and supply-chain verification
- *   checkLegacyGovernance retired migration-document consistency
+ *   devCheck          daily production compilation and permanent boundaries
+ *   focused tests     selected by the current SDD acceptance conditions
+ *   checkIntegration  packaged/runtime and affected cross-module behavior
+ *   checkRelease      supply-chain, API tooling, packaging, and release checks
+ *   host validation   explicit exact-version Cubism runs; never a default gate
  *
- * Historical tasks keep their names so old evidence can still be inspected,
- * but they no longer participate in the default development lifecycle.
+ * Historical M1-M16/M13/M14 governance tasks are intentionally absent.
  */
-
-tasks.register<Exec>("checkMappingPipelineClosure") {
-    group = "legacy verification"
-    description = "Validates retired BT5 mapping-pipeline closure evidence."
-    workingDir(rootDir)
-    commandLine("bash", "scripts/test/test_bt5_mapping_pipeline_closure.sh")
-}
 
 tasks.register<Exec>("checkMappingReviewWrapperArgs") {
     group = "verification"
     description = "Verifies mapping-review wrapper argv transport and args-file hardening offline."
     workingDir(rootDir)
     commandLine("bash", "scripts/test/test_mapping_review_wrapper_args.sh")
-}
-
-tasks.register<Exec>("checkPluginInspectionContract") {
-    group = "integration verification"
-    description = "Verifies strict plugin inspection fixtures, streaming, and evidence boundaries."
-    workingDir(rootDir)
-    commandLine("bash", "scripts/test/test_plugin_inspection_contract.sh")
-}
-
-val checkLegacyFrameworkCapabilityExtraction by tasks.registering(Exec::class) {
-    group = "legacy verification"
-    description = "Validates the retired legacy-to-framework capability extraction archive."
-    workingDir(rootDir)
-    inputs.files(
-        "docs/migration/capabilities/legacy-framework-capability-extraction.tsv",
-        "docs/migration/capabilities/capability-catalog.tsv",
-        "docs/migration/capabilities/plugin-readiness-matrix.tsv",
-        "docs/migration/plans/legacy-framework-capability-extraction-prd.md",
-        fileTree("docs/migration/salvage-notes") { include("legacy-turboism-*.md") },
-        "scripts/test/test_legacy_framework_capability_extraction.py"
-    )
-    commandLine("python3", "scripts/test/test_legacy_framework_capability_extraction.py")
-}
-
-val checkLegacyFrameworkCapabilityExtractionMutations by tasks.registering(Exec::class) {
-    group = "legacy verification"
-    description = "Runs archived negative mutations for the legacy capability extraction gate."
-    workingDir(rootDir)
-    inputs.files(
-        "scripts/test/test_legacy_framework_capability_extraction.py",
-        "scripts/test/test_legacy_framework_capability_extraction_mutations.py",
-        "docs/migration/capabilities/legacy-framework-capability-extraction.tsv",
-        "docs/migration/capabilities/capability-catalog.tsv",
-        "docs/migration/capabilities/plugin-readiness-matrix.tsv"
-    )
-    commandLine("python3", "scripts/test/test_legacy_framework_capability_extraction_mutations.py")
-}
-
-val checkLegacyUserEffectCensus by tasks.registering(Exec::class) {
-    group = "legacy verification"
-    description = "Validates the retired legacy user-effect census archive."
-    workingDir(rootDir)
-    inputs.files(
-        "scripts/test/test_legacy_user_effect_census.py",
-        "docs/migration/legacy-user-effects.tsv",
-        "docs/migration/legacy-user-effect-census.tsv",
-        "docs/migration/legacy-user-entry-coverage.tsv",
-        "docs/migration/legacy-user-effect-reconciliation.tsv",
-        "docs/migration/effect-clusters.tsv",
-        "docs/migration/history/legacy-user-effects-pre-census.tsv",
-        "docs/migration/capabilities/legacy-framework-capability-extraction.tsv",
-        "docs/migration/legacy-framework-extraction-user-effect-map.tsv",
-        "docs/migration/legacy-user-effect-census-workbook.md",
-        "docs/migration/capabilities/capability-catalog.tsv",
-        "docs/adr/0027-user-effect-led-legacy-migration.md"
-    )
-    commandLine("python3", "scripts/test/test_legacy_user_effect_census.py")
-}
-
-val checkLegacyEffectContracts by tasks.registering(Exec::class) {
-    group = "legacy verification"
-    description = "Validates the retired Effect Contract archive."
-    workingDir(rootDir)
-    dependsOn(checkLegacyUserEffectCensus)
-    inputs.files(
-        "scripts/test/test_legacy_effect_contracts.py",
-        "docs/migration/legacy-user-effects.tsv",
-        "docs/migration/effect-clusters.tsv",
-        "docs/migration/effect-contracts/index.tsv",
-        "docs/migration/effect-contracts/scenarios.tsv",
-        fileTree("docs/migration/effect-contracts") { include("*.md") },
-        "docs/migration/capabilities/capability-catalog.tsv"
-    )
-    commandLine("python3", "scripts/test/test_legacy_effect_contracts.py")
-}
-
-val checkLegacyPluginB1Admission by tasks.registering(Exec::class) {
-    group = "legacy verification"
-    description = "Verifies the retired B1 migration-admission evidence."
-    workingDir(rootDir)
-    dependsOn("checkSdkV2ExactApiCompatibility", "checkModuleBoundaries")
-    inputs.files(
-        "scripts/test/check_legacy_plugin_b1_admission.py",
-        "scripts/test/check_legacy_plugin_b1_source_boundaries.py",
-        "scripts/test/test_legacy_plugin_b1_source_boundaries.py",
-        fileTree("plugins") {
-            include("*/src/main/java/**/*.java")
-            include("*/src/main/resources/META-INF/turboism/plugin.json")
-        },
-        "docs/migration/capabilities/legacy-framework-capability-extraction.tsv",
-        "docs/migration/legacy-plugin-migration-foundation-closure-report.md",
-        "docs/migration/plans/legacy-plugin-b1-execution-plan.md",
-        "docs/migration/prompts/legacy-plugin-b1-orchestrator-prompt.md",
-        "docs/migration/behavior-specs/legacy-plugin-b1-pure-behaviors.md",
-        "docs/migration/salvage-notes/legacy-plugin-b1-source-boundary.md",
-        "scripts/test/scan_migration_docs_safety.py"
-    )
-    commandLine("python3", "scripts/test/check_legacy_plugin_b1_admission.py")
 }
 
 tasks.register("checkOfficialPluginI18nCompleteness") {
@@ -142,7 +37,7 @@ val checkAsyncHostReadStructuralBoundaries by tasks.registering(Exec::class) {
 }
 
 val checkAsyncHostReadFoundation by tasks.registering {
-    group = "verification"
+    group = "integration verification"
     description = "Verifies async host-read contracts, runtime behavior, consumer behavior, and structural boundaries."
     dependsOn(
         ":sdk:asyncHostReadContractTest",
@@ -154,14 +49,12 @@ val checkAsyncHostReadFoundation by tasks.registering {
 }
 
 val checkCubismCoreApiInventory by tasks.registering(Exec::class) {
-    group = "verification"
-    description = "Validates exact-artifact Cubism Core public API inventories and generated reference drift."
+    group = "integration verification"
+    description = "Validates exact-artifact Cubism Core public API inventories without generated documentation gates."
     workingDir(rootDir)
     inputs.files(
         "scripts/cubism_core_api.py",
         "scripts/test/test_cubism_core_api_inventory.py",
-        "docs/schema/cubism-core-public-api-v1.md",
-        "docs/migration/cubism-core-api-reference.md",
         "cubism-ref/index.md",
         fileTree("cubism-ref/core-api/observed") { include("*.json") },
         "cubism-ref/mapping-packs/draft/cubism-5.2-core-model-read.json",
@@ -173,14 +66,12 @@ val checkCubismCoreApiInventory by tasks.registering(Exec::class) {
 }
 
 val checkCubismCoreMemberPolicy by tasks.registering(Exec::class) {
-    group = "verification"
-    description = "Classifies every observed Cubism Core public member and checks generated policy drift."
+    group = "integration verification"
+    description = "Classifies every observed Cubism Core public member and checks machine policy drift."
     workingDir(rootDir)
     inputs.files(
         "scripts/cubism_core_policy.py",
         "scripts/test/test_cubism_core_member_policy.py",
-        "docs/schema/cubism-core-member-policy-v1.md",
-        "docs/migration/cubism-core-member-policy.md",
         "cubism-ref/core-api/policy/cubism-core-member-policy.json",
         fileTree("cubism-ref/core-api/observed") { include("*.json") }
     )
@@ -188,31 +79,17 @@ val checkCubismCoreMemberPolicy by tasks.registering(Exec::class) {
 }
 
 val checkCubismCoreSelectorPolicy by tasks.registering(Exec::class) {
-    group = "verification"
+    group = "integration verification"
     description = "Validates generated Cubism Core selector constants and profile coverage."
     workingDir(rootDir)
     inputs.files(
         "scripts/cubism_core_selector_policy.py",
         "scripts/test/test_cubism_core_selector_policy.py",
-        "docs/schema/cubism-core-selector-policy-v1.md",
         "cubism-ref/core-api/policy/cubism-core-selector-policy.json",
         "cubism-ref/mapping-packs/draft/cubism-5.2-core-model-read.json",
         "cubism-ref/mapping-packs/draft/cubism-5.3.02-core-model-read.json"
     )
     commandLine("python3", "scripts/test/test_cubism_core_selector_policy.py")
-}
-
-val checkMigrationSuiteBundleReproducibility by tasks.registering(Exec::class) {
-    group = "legacy verification"
-    description = "Rebuilds the retired migration-suite bundle twice and compares its exact roster."
-    workingDir(rootDir)
-    inputs.files(
-        "build.gradle.kts",
-        "tests/build.gradle.kts",
-        "scripts/test/test_migration_suite_bundle_reproducibility.sh"
-    )
-    onlyIf { providers.environmentVariable("TURBOISM_MIGRATION_SUITE_REPRO_INNER").orNull != "1" }
-    commandLine("bash", "scripts/test/test_migration_suite_bundle_reproducibility.sh")
 }
 
 val checkPackageLayout by tasks.registering(Exec::class) {
@@ -227,16 +104,157 @@ val checkPackageLayout by tasks.registering(Exec::class) {
     commandLine("python3", "scripts/test/check_package_layout.py", rootDir.absolutePath)
 }
 
-tasks.register("checkStableSdkCompatibility") {
+val productionClasses = subprojects
+    .filterNot { it.path == ":tests" }
+    .map { "${it.path}:classes" }
+
+val devCheck by tasks.registering {
     group = "verification"
-    description = "Verifies the current reviewed plugin API v2 contract."
-    dependsOn("checkSdkV2ExactApiCompatibility")
+    description = "Fast daily production compilation and permanent-boundary verification; no broad test suites."
+    dependsOn(
+        productionClasses,
+        checkPackageLayout,
+        "checkModuleBoundaries",
+        "validatePluginMeta"
+    )
 }
+
+val resolvedHostValidationWorktreeId = rootProject.extra["turboismResolvedWorktreeId"] as String
+
+val packageParameterHostValidation by tasks.registering(Exec::class) {
+    group = "host verification"
+    description = "Packages the test-only SDK probe and parameter host-validation bundle."
+    dependsOn("previewBundle", ":plugins:parameter:jar", ":tests:testClasses")
+    workingDir(rootDir)
+    environment("TURBOISM_WORKTREE_ID", resolvedHostValidationWorktreeId)
+    commandLine("bash", "scripts/preview/package-windows-parameter-validation.sh")
+}
+
+val packageWorkspaceHostValidation by tasks.registering(Exec::class) {
+    group = "host verification"
+    description = "Packages the test-only SDK probe and workspace host-validation bundle."
+    dependsOn("previewBundle", ":tests:testClasses")
+    workingDir(rootDir)
+    environment("TURBOISM_WORKTREE_ID", resolvedHostValidationWorktreeId)
+    commandLine("bash", "scripts/preview/package-windows-workspace-validation.sh")
+}
+
+val packageThemeHostValidation by tasks.registering(Exec::class) {
+    group = "host verification"
+    description = "Packages the UI theme plugin for exact-host validation."
+    dependsOn("previewBundle", ":plugins:ui-theme:jar")
+    workingDir(rootDir)
+    environment("TURBOISM_WORKTREE_ID", resolvedHostValidationWorktreeId)
+    commandLine("bash", "scripts/preview/package-windows-theme-validation.sh")
+}
+
+val buildThemeHostProbe by tasks.registering(Exec::class) {
+    group = "host verification"
+    description = "Builds the test-only SDK theme host exerciser."
+    workingDir(rootDir)
+    commandLine("bash", "validation/theme-host-probe/build.sh")
+}
+
+val buildStatusBarHostProbe by tasks.registering(Exec::class) {
+    group = "host verification"
+    description = "Builds the test-only SDK status-bar host exerciser."
+    dependsOn(":sdk:jar")
+    workingDir(rootDir)
+    commandLine("bash", "validation/status-bar-host-probe/build.sh")
+}
+
+tasks.register<Exec>("validateStatusBarHost5302") {
+    group = "host verification"
+    description = "Runs the automated exact-host Cubism 5.3.02 native status-bar matrix."
+    dependsOn("previewBundle", ":sdk:jar", buildStatusBarHostProbe)
+    workingDir(rootDir)
+    environment("TURBOISM_WORKTREE_ID", resolvedHostValidationWorktreeId)
+    commandLine("bash", "scripts/preview/run-status-bar-host-validation.sh", "5302")
+}
+
+val packageClipMaskViewerHostValidation by tasks.registering(Exec::class) {
+    group = "host verification"
+    description = "Packages the clipmask-viewer plugin and probe exerciser for exact-host validation."
+    dependsOn("previewBundle", ":plugins:clipmask-viewer:jar")
+    workingDir(rootDir)
+    environment("TURBOISM_WORKTREE_ID", resolvedHostValidationWorktreeId)
+    commandLine("bash", "scripts/preview/package-windows-clipmask-viewer-validation.sh")
+}
+
+val buildClipMaskViewerHostProbe by tasks.registering(Exec::class) {
+    group = "host verification"
+    description = "Builds the test-only SDK clipmask-viewer host exerciser."
+    dependsOn(":sdk:jar")
+    workingDir(rootDir)
+    commandLine("bash", "validation/clipmask-viewer-host-probe/build.sh")
+}
+
+fun registerClipMaskViewerHostValidation(name: String, version: String, displayVersion: String) {
+    tasks.register<Exec>(name) {
+        group = "host verification"
+        description = "Runs the automated exact-host Cubism $displayVersion clip-mask viewer matrix."
+        dependsOn(packageClipMaskViewerHostValidation, buildClipMaskViewerHostProbe)
+        workingDir(rootDir)
+        environment("TURBOISM_WORKTREE_ID", resolvedHostValidationWorktreeId)
+        commandLine("bash", "scripts/preview/run-clipmask-viewer-host-validation.sh", version)
+    }
+}
+
+registerClipMaskViewerHostValidation("validateClipMaskViewerHost5302", "5302", "5.3.02")
+registerClipMaskViewerHostValidation("validateClipMaskViewerHost5203", "5203", "5.2.03")
+fun registerThemeHostValidation(name: String, version: String, displayVersion: String) {
+    tasks.register<Exec>(name) {
+        group = "host verification"
+        description = "Runs the automated exact-host Cubism $displayVersion theme matrix."
+        dependsOn(packageThemeHostValidation, buildThemeHostProbe)
+        workingDir(rootDir)
+        environment("TURBOISM_WORKTREE_ID", resolvedHostValidationWorktreeId)
+        commandLine("bash", "scripts/preview/run-theme-host-validation.sh", version)
+    }
+}
+
+fun registerParameterHostValidation(name: String, version: String, displayVersion: String) {
+    tasks.register<Exec>(name) {
+        group = "host verification"
+        description = "Runs the automated exact-host Cubism $displayVersion parameter/editor matrix."
+        dependsOn(packageParameterHostValidation)
+        workingDir(rootDir)
+        environment("TURBOISM_WORKTREE_ID", resolvedHostValidationWorktreeId)
+        val mode = providers.gradleProperty("turboismHostValidationMode").orElse("matrix")
+        doFirst {
+            commandLine(
+                "bash",
+                "scripts/preview/run-parameter-host-validation.sh",
+                version,
+                mode.get()
+            )
+        }
+    }
+}
+
+fun registerWorkspaceHostValidation(name: String, version: String, displayVersion: String) {
+    tasks.register<Exec>(name) {
+        group = "host verification"
+        description = "Runs the automated exact-host Cubism $displayVersion workspace matrix."
+        dependsOn(packageWorkspaceHostValidation)
+        workingDir(rootDir)
+        environment("TURBOISM_WORKTREE_ID", resolvedHostValidationWorktreeId)
+        commandLine("bash", "scripts/preview/run-workspace-host-validation.sh", version)
+    }
+}
+
+registerThemeHostValidation("validateThemeHost5302", "5302", "5.3.02")
+registerThemeHostValidation("validateThemeHost5203", "5203", "5.2.03")
+registerParameterHostValidation("validateParameterHost5302", "5302", "5.3.02")
+registerParameterHostValidation("validateParameterHost5203", "5203", "5.2.03")
+registerWorkspaceHostValidation("validateWorkspaceHost5302", "5302", "5.3.02")
+registerWorkspaceHostValidation("validateWorkspaceHost5203", "5203", "5.2.03")
 
 tasks.register("checkIntegration") {
     group = "verification"
-    description = "Runs packaged runtime, plugin, preview-agent, and cross-module integration verification."
+    description = "Runs packaged runtime, plugin, preview-agent, and affected cross-module integration verification."
     dependsOn(
+        devCheck,
         checkAsyncHostReadFoundation,
         checkCubismCoreApiInventory,
         checkCubismCoreMemberPolicy,
@@ -257,38 +275,10 @@ tasks.register("checkRelease") {
     dependsOn(
         "checkIntegration",
         "checkAsmSupplyChainAdmission",
-        "checkMappingReviewWrapperArgs",
-        "checkSdkApiBaselineTool",
-        "checkSdkApiReferenceBuilder",
-        "checkStableSdkCompatibility"
-    )
-}
-
-tasks.register("checkLegacyGovernance") {
-    group = "legacy verification"
-    description = "Opt-in validation for retained historical ledgers, contracts, mapping closure, and migration bundles."
-    dependsOn(
-        checkLegacyFrameworkCapabilityExtraction,
-        checkLegacyFrameworkCapabilityExtractionMutations,
-        checkLegacyUserEffectCensus,
-        checkLegacyEffectContracts,
-        checkLegacyPluginB1Admission,
-        checkMigrationSuiteBundleReproducibility,
-        "checkMappingPipelineClosure"
+        "checkMappingReviewWrapperArgs"
     )
 }
 
 tasks.named("check") {
-    dependsOn(
-        checkAsyncHostReadFoundation,
-        checkCubismCoreApiInventory,
-        checkCubismCoreMemberPolicy,
-        checkCubismCoreSelectorPolicy,
-        checkPackageLayout,
-        ":runtime:corePublicApiProviderTest",
-        "checkModuleBoundaries",
-        "checkOfficialPluginI18nCompleteness",
-        "checkStableSdkCompatibility",
-        "validatePluginMeta"
-    )
+    dependsOn(devCheck)
 }

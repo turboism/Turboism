@@ -46,6 +46,28 @@ class PluginPackageInspectionIntegrationTest {
         assertEquals(1, Files.list(tempDir).count());
     }
 
+    @Test void acceptsAsciiEntryNamesWithoutUtf8Flag() throws Exception {
+        final byte[] archive = PluginPackageFixtures.clearUtf8Flags(PluginPackageFixtures.valid());
+        final Path input = tempDir.resolve("ascii-no-utf8-flag.tplugin");
+        Files.write(input, archive);
+
+        assertInstanceOf(PluginPackageInspector.Accepted.class,
+            new LocalPluginPackageInspector().inspect(input));
+    }
+
+    @Test void rejectsNonAsciiEntryNameWithoutUtf8Flag() throws Exception {
+        final byte[] archive = PluginPackageFixtures.clearUtf8Flags(
+            PluginPackageFixtures.zipEntries(Map.of("非ASCII.txt", new byte[]{1}))
+        );
+        assertRejected(archive, "ARCHIVE_ENTRY_UNSUPPORTED");
+    }
+
+    @Test void rejectsUnknownAndEncryptionFlags() throws Exception {
+        final byte[] archive = PluginPackageFixtures.valid();
+        assertRejected(PluginPackageFixtures.addFlag(archive, 0x0001), "ARCHIVE_ENTRY_UNSUPPORTED");
+        assertRejected(PluginPackageFixtures.addFlag(archive, 0x0010), "ARCHIVE_ENTRY_UNSUPPORTED");
+    }
+
     @Test void acceptsMainAndSortedLibraryInventory() throws Exception {
         byte[] main = PluginPackageFixtures.jar(
             PluginPackageFixtures.descriptor(PluginPackageFixtures.ID,
