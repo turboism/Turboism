@@ -208,6 +208,10 @@ public final class TurboismAgent {
                     "cubism-5.3.02-clipmask.json"
                 ))
                 : Optional.empty();
+            final Path autoBackupVerificationRecord = extractVerificationRecord(
+                options.home(),
+                "cubism-" + ("5.3.02".equals(profile) ? "5.3.02" : "5.2.03") + "-autobackup.json"
+            );
             final Path controlAppearanceVerificationRecord = extractVerificationRecord(
                 options.home(),
                 "cubism-" + profile + "-ui-control-appearance.json"
@@ -223,6 +227,7 @@ public final class TurboismAgent {
                 boundingBoxOverlayVerificationRecord,
                 statusBarVerificationRecord,
                 clipMaskVerificationRecord,
+                autoBackupVerificationRecord,
                 host.artifact(),
                 coreArtifact,
                 host.classLoader()

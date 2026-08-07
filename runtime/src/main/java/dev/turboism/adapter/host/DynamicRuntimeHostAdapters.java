@@ -2,10 +2,13 @@ package dev.turboism.adapter.host;
 
 import dev.turboism.adapter.RuntimeHostAdapters;
 import dev.turboism.adapter.cubism.ProjectWorkspaceAdapter;
+import dev.turboism.adapter.cubism.backup.AutoBackupAdapter;
 import dev.turboism.adapter.ui.StatusToolbarAdapter;
 import dev.turboism.adapter.ui.UiSurfaceAdapter;
 import dev.turboism.sdk.plugin.Registration;
 
+import java.io.File;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -175,7 +178,39 @@ final class DynamicRuntimeHostAdapters {
                         });
                     }
                 }
-            )
+            ),
+            new AutoBackupAdapter() {
+                @Override
+                public AutoBackupAdapter.Snapshot settings() {
+                    return call(adapters -> adapters.autoBackup().settings());
+                }
+
+                @Override
+                public AutoBackupAdapter.Snapshot applySettings(final AutoBackupAdapter.Snapshot target) {
+                    return call(adapters -> adapters.autoBackup().applySettings(target));
+                }
+
+                @Override
+                public java.util.List<AutoBackupAdapter.Document> documents() {
+                    return call(adapters -> adapters.autoBackup().documents());
+                }
+
+                @Override
+                public void triggerBackupNow() {
+                    call(adapters -> {
+                        adapters.autoBackup().triggerBackupNow();
+                        return null;
+                    });
+                }
+
+                @Override
+                public File saveDocumentFor(
+                    final File matchFile, final List<String> documentUids, final long timestampMillis
+                ) {
+                    return call(adapters -> adapters.autoBackup()
+                        .saveDocumentFor(matchFile, documentUids, timestampMillis));
+                }
+            }
         );
     }
 
