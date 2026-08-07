@@ -1,6 +1,7 @@
 package dev.turboism.sdk.cubism.backup;
 
 import dev.turboism.sdk.PreviewApi;
+import dev.turboism.sdk.cubism.ProjectContentSnapshot;
 import dev.turboism.sdk.plugin.Registration;
 
 import java.io.File;
@@ -62,6 +63,35 @@ public interface EditorAutoBackupService {
     CompletionStage<BackupCompletedEvent> backupNow();
 
     /**
+     * Backs up a just-saved document through the verified host {@code saveDocument}
+     * primitives, bypassing the host dirty condition
+     * ({@code isModifiedAfterSaving && LastModified >= lastAutoBackupTime}):
+     * right after a save the document is clean, so the host's
+     * {@code updateAutoBackup} path would not back it up.
+     *
+     * <p>The saved snapshot is matched against the current pack file contents
+     * ({@code getAllFileContents} + {@code IFileContent.getFile}); the matched
+     * content is saved as {@code <name>_backup<yyyy_MMdd_HHmm>.<ext>} into the
+     * host backup directory (only there, never touching the original document),
+     * the artifact is polled for, and the returned stage completes with the
+     * {@link BackupCompletedEvent}. Sync targets registered via
+     * {@link #registerSyncTarget} are invoked with the new file after
+     * completion; target failures never fail the backup result.</p>
+     *
+     * <p>Idempotent debounce: per-document saves within the 2-second debounce
+     * window are coalesced into the in-flight backup (the same stage is
+     * returned). Backup runs are serialized globally, so host
+     * {@code saveDocument} calls never run concurrently. Host calls run on the
+     * host UI thread and never block the save callback or the EDT.</p>
+     *
+     * @param saved the snapshot of the saved document
+     * @return the completed backup event, or a stage failed exceptionally when
+     *         no pack content matches the snapshot, the host call failed, the
+     *         artifact polling timed out, or the service is unavailable
+     */
+    CompletionStage<BackupCompletedEvent> backupAfterSave(ProjectContentSnapshot saved);
+
+    /**
      * Registers a sync target invoked with the new backup files after each
      * successful {@link #backupNow()} completion.
      */
@@ -93,6 +123,14 @@ public interface EditorAutoBackupService {
 
         @Override
         public CompletionStage<BackupCompletedEvent> backupNow() {
+            return CompletableFuture.failedStage(
+                new UnsupportedOperationException("auto-backup service is not available")
+            );
+        }
+
+        @Override
+        public CompletionStage<BackupCompletedEvent> backupAfterSave(final ProjectContentSnapshot saved) {
+            Objects.requireNonNull(saved, "saved");
             return CompletableFuture.failedStage(
                 new UnsupportedOperationException("auto-backup service is not available")
             );

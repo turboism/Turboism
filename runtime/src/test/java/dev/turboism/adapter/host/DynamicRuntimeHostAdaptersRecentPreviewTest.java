@@ -181,6 +181,11 @@ final class DynamicRuntimeHostAdaptersRecentPreviewTest {
                 public void triggerBackupNow() {
                     triggerCalls.incrementAndGet();
                 }
+
+                @Override
+                public File saveDocumentFor(final File matchFile, final long timestampMillis) {
+                    return null;
+                }
             })
         );
     }
