@@ -14,6 +14,7 @@ import dev.turboism.sdk.cubism.hook.ModelFileHooks;
 import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.plugin.PluginContext;
+import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.plugin.TurboismPlugin;
 
@@ -103,21 +104,46 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
         if (context == null) {
             return;
         }
+        final PluginLogger logger = context.logger();
         final CompletionStage<WebDavConfig> read = binding.read();
         read.whenComplete((config, failure) -> {
             if (config == null) {
                 target = null;
+                logger.warn("WEBDAV_TARGET_UNAVAILABLE reason="
+                    + (failure == null ? "unavailable" : failure.getClass().getSimpleName()));
                 return;
             }
             final WebDavSyncTarget rebuilt = new WebDavSyncTarget(config, reason -> {
                 if (reason.startsWith("webdav:put-ok")) {
-                    context.logger().info("webdav-sync " + reason);
+                    logger.info("webdav-sync " + reason);
                 } else {
-                    context.logger().warn("webdav-sync " + reason);
+                    logger.warn("webdav-sync " + reason);
                 }
             });
             target = rebuilt;
+            logger.info("WEBDAV_TARGET_READY url=" + sanitizedUrl(config)
+                + " remotePath=" + config.remotePath()
+                + " enabled=" + config.enabled());
         });
+    }
+
+    /** URL without credentials: scheme + host + port + path only (never userinfo). */
+    private static String sanitizedUrl(final WebDavConfig config) {
+        final java.net.URI uri = config.url();
+        final StringBuilder url = new StringBuilder();
+        if (uri.getScheme() != null) {
+            url.append(uri.getScheme()).append("://");
+        }
+        if (uri.getHost() != null) {
+            url.append(uri.getHost());
+        }
+        if (uri.getPort() > 0) {
+            url.append(':').append(uri.getPort());
+        }
+        if (uri.getPath() != null) {
+            url.append(uri.getPath());
+        }
+        return url.toString();
     }
 
     /**
@@ -140,6 +166,10 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
                             + " doc=" + saved.name()
                             + " path=" + saved.filePath().map(Path::toString).orElse("")
                             + " message=" + (cause.getMessage() == null ? "" : cause.getMessage())
+                    );
+                } else if (event != null) {
+                    requireContext().logger().info(
+                        "BACKUP_AFTER_SAVE_OK files=" + event.newBackupFiles().size()
                     );
                 }
             });
@@ -206,6 +236,7 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
     private void onBackupCompleted(final BackupCompletedEvent event) {
         final WebDavSyncTarget active = target;
         if (active == null) {
+            requireContext().logger().info("WEBDAV_SYNC_SKIPPED reason=target-unavailable");
             return;
         }
         try {
