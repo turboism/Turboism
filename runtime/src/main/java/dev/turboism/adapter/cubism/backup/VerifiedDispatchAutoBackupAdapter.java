@@ -44,9 +44,12 @@ final class VerifiedDispatchAutoBackupAdapter implements AutoBackupAdapter {
     }
 
     @Override
-    public File saveDocumentFor(final File matchFile, final long timestampMillis) {
+    public File saveDocumentFor(
+        final File matchFile, final List<String> documentUids, final long timestampMillis
+    ) {
         Objects.requireNonNull(matchFile, "matchFile");
-        return onEdt(() -> host.saveDocumentFor(matchFile, timestampMillis));
+        Objects.requireNonNull(documentUids, "documentUids");
+        return onEdt(() -> host.saveDocumentFor(matchFile, documentUids, timestampMillis));
     }
 
     private static <T> T onEdt(final Operation<T> operation) {

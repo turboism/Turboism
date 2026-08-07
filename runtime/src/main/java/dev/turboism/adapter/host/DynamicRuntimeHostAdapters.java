@@ -8,6 +8,7 @@ import dev.turboism.adapter.ui.UiSurfaceAdapter;
 import dev.turboism.sdk.plugin.Registration;
 
 import java.io.File;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -200,8 +201,11 @@ final class DynamicRuntimeHostAdapters {
                 }
 
                 @Override
-                public File saveDocumentFor(final File matchFile, final long timestampMillis) {
-                    return call(adapters -> adapters.autoBackup().saveDocumentFor(matchFile, timestampMillis));
+                public File saveDocumentFor(
+                    final File matchFile, final List<String> documentUids, final long timestampMillis
+                ) {
+                    return call(adapters -> adapters.autoBackup()
+                        .saveDocumentFor(matchFile, documentUids, timestampMillis));
                 }
             }
         );
