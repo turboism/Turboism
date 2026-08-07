@@ -16,7 +16,7 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
 
     private static final Set<String> ALLOWED_FIELDS = Set.of(
         "worktreeId", "pluginDirs", "disabledPlugins", "logLevel", "maxLogStorageMiB",
-        "safeMode", "diagnostics", "hooks"
+        "safeMode", "diagnostics", "hooks", "fileChooserHistory"
     );
     private static final Set<String> ALLOWED_LOG_LEVELS = Set.of("TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL");
 
@@ -24,7 +24,7 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
         "disabledIds", "denylistedClasses", "startup"
     );
     private static final Set<String> ALLOWED_STARTUP_FIELDS = Set.of(
-        "skipUpdateCheck", "skipSplash", "skipInformation"
+        "skipUpdateCheck", "skipSplash", "skipInformation", "separateExportSaveDirectory"
     );
 
     public RuntimeConfigValidator() {
@@ -93,6 +93,7 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
 
         validateOptionalBoolean(node, "safeMode", errors, source);
         validateHooks(node, errors, source);
+        validateFileChooserHistory(node, errors, source);
 
         return errors;
     }
@@ -147,6 +148,55 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
         });
         for (String field : ALLOWED_STARTUP_FIELDS) {
             validateOptionalBoolean(startup, field, "hooks.startup." + field, errors, source);
+        }
+    }
+
+    /**
+     * Validates the optional {@code fileChooserHistory} section: an object whose
+     * known fields are optional non-empty strings (paths are not validated for
+     * existence or absoluteness; callers own that responsibility).
+     */
+    private void validateFileChooserHistory(
+        final JsonNode root,
+        final List<SchemaValidationError> errors,
+        final String source
+    ) {
+        if (!root.has("fileChooserHistory")) {
+            return;
+        }
+        final JsonNode section = root.get("fileChooserHistory");
+        if (section == null || !section.isObject()) {
+            errors.add(error(
+                "RUNTIME_CONFIG_BAD_TYPE",
+                "fileChooserHistory must be an object",
+                "fileChooserHistory",
+                source
+            ));
+            return;
+        }
+        section.fieldNames().forEachRemaining(field -> {
+            if (!"projectRecentDirectory".equals(field) && !"exportRecentDirectory".equals(field)) {
+                errors.add(error(
+                    "RUNTIME_CONFIG_UNKNOWN_FIELD",
+                    "Unknown fileChooserHistory field: " + field,
+                    "fileChooserHistory." + field,
+                    source
+                ));
+            }
+        });
+        for (String field : new String[] {"projectRecentDirectory", "exportRecentDirectory"}) {
+            if (!section.has(field)) {
+                continue;
+            }
+            final JsonNode value = section.get(field);
+            if (value == null || !value.isTextual() || value.asText().isBlank()) {
+                errors.add(error(
+                    "RUNTIME_CONFIG_BAD_TYPE",
+                    "fileChooserHistory." + field + " must be a non-empty string",
+                    "fileChooserHistory." + field,
+                    source
+                ));
+            }
         }
     }
 
