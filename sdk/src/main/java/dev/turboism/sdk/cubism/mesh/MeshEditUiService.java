@@ -15,6 +15,7 @@ public interface MeshEditUiService {
     record MirrorAxisAngleControl(
         String contributionId,
         String label,
+        String resetToolTip,
         float minimumDegrees,
         float maximumDegrees,
         float stepDegrees,
@@ -27,6 +28,7 @@ public interface MeshEditUiService {
             if (label == null || label.isBlank()) {
                 throw new IllegalArgumentException("label must not be blank");
             }
+            resetToolTip = resetToolTip == null ? "" : resetToolTip;
             if (!Float.isFinite(minimumDegrees) || !Float.isFinite(maximumDegrees)
                 || !Float.isFinite(stepDegrees) || minimumDegrees >= maximumDegrees
                 || stepDegrees <= 0.0f) {
