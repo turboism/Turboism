@@ -17,9 +17,14 @@ import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.PluginPaths;
 import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.sdk.plugin.Registration;
+import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -44,6 +49,40 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 final class BackupPluginTest {
 
     private final List<BackupPlugin> plugins = new ArrayList<>();
+
+    private HttpServer server;
+    private int serverPort;
+
+    @BeforeEach
+    void startMockWebDavServer() throws IOException {
+        // Random free port (0 = ephemeral); the target must be built only after
+        // the server is bound and listening, so the first request never races.
+        server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/", this::handleMockWebDav);
+        server.setExecutor(java.util.concurrent.Executors.newCachedThreadPool());
+        server.start();
+        serverPort = server.getAddress().getPort();
+    }
+
+    @AfterEach
+    void stopMockWebDavServer() {
+        if (server != null) {
+            server.stop(0);
+        }
+    }
+
+    private void handleMockWebDav(final HttpExchange exchange) throws IOException {
+        switch (exchange.getRequestMethod()) {
+            case "MKCOL" -> exchange.sendResponseHeaders(405, -1); // collection exists
+            case "PROPFIND" -> exchange.sendResponseHeaders(207, -1);
+            case "PUT" -> {
+                exchange.getRequestBody().readAllBytes();
+                exchange.sendResponseHeaders(201, -1);
+            }
+            default -> exchange.sendResponseHeaders(501, -1);
+        }
+        exchange.close();
+    }
 
     @AfterEach
     void shutDownPlugins() {
@@ -201,16 +240,16 @@ final class BackupPluginTest {
             "the save-triggered temp file must be deleted");
     }
 
-    private static dev.turboism.plugin.backup.webdav.WebDavConfig autoConfig() {
+    private dev.turboism.plugin.backup.webdav.WebDavConfig autoConfig() {
         return new dev.turboism.plugin.backup.webdav.WebDavConfig(
-            true, java.net.URI.create("https://dav.example"), "alice", "pw",
+            true, java.net.URI.create("http://127.0.0.1:" + serverPort), "alice", "pw",
             "/backup", true, 2, 500L, 30,
             dev.turboism.plugin.backup.webdav.WebDavConfig.RemoteTrigger.AUTO_BACKUP_SYNC);
     }
 
-    private static dev.turboism.plugin.backup.webdav.WebDavConfig savedConfig() {
+    private dev.turboism.plugin.backup.webdav.WebDavConfig savedConfig() {
         return new dev.turboism.plugin.backup.webdav.WebDavConfig(
-            true, java.net.URI.create("https://dav.example"), "alice", "pw",
+            true, java.net.URI.create("http://127.0.0.1:" + serverPort), "alice", "pw",
             "/backup", true, 2, 500L, 30);
     }
 
