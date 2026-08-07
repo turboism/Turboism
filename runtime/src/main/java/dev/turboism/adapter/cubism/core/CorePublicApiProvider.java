@@ -45,6 +45,55 @@ public interface CorePublicApiProvider {
     default CoreProviderResult<Integer> mocVersionOfModel(final Object model) {
         return unavailableMocOperation();
     }
+
+    /**
+     * Builds a plugin-owned Core {@code CubismMoc} from MOC bytes.
+     *
+     * <p>Fail-closed: requires the additive owned-Moc selector evidence for the exact
+     * artifact profile; otherwise returns {@code ADAPTER_UNAVAILABLE}.</p>
+     */
+    default CoreProviderResult<Object> instantiateMoc(final byte[] bytes) {
+        return unavailableOwnedMocOperation();
+    }
+
+    /**
+     * Instantiates one Core {@code CubismModel} from an owned MOC instance.
+     */
+    default CoreProviderResult<Object> instantiateOwnedModel(final Object moc) {
+        return unavailableOwnedMocOperation();
+    }
+
+    /** Returns the native handle of an owned MOC instance. */
+    default CoreProviderResult<Long> mocNativeHandle(final Object moc) {
+        return unavailableOwnedMocOperation();
+    }
+
+    /** Returns the native handle of an owned model instance. */
+    default CoreProviderResult<Long> modelNativeHandle(final Object model) {
+        return unavailableOwnedMocOperation();
+    }
+
+    /** Runs the Core evaluation step on an owned model instance. */
+    default CoreProviderResult<Boolean> updateOwnedModel(final Object model) {
+        return unavailableOwnedMocOperation();
+    }
+
+    /** Closes an owned MOC instance (Core close semantics). */
+    default CoreProviderResult<Boolean> closeOwnedMoc(final Object moc) {
+        return unavailableOwnedMocOperation();
+    }
+
+    /** Closes an owned model instance (Core close semantics). */
+    default CoreProviderResult<Boolean> closeOwnedModel(final Object model) {
+        return unavailableOwnedMocOperation();
+    }
+
+    private static <T> CoreProviderResult<T> unavailableOwnedMocOperation() {
+        return CoreProviderResult.failed(new CoreProviderFailure(
+            CoreProviderFailure.Code.ADAPTER_UNAVAILABLE,
+            "Core owned-Moc selector evidence is not admitted for this artifact profile."
+        ));
+    }
     private static <T> CoreProviderResult<T> unavailableMocOperation() {
         return CoreProviderResult.failed(new CoreProviderFailure(
             CoreProviderFailure.Code.ADAPTER_UNAVAILABLE,
