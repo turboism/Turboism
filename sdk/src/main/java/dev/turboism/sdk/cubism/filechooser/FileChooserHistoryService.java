@@ -10,10 +10,16 @@ import java.util.Optional;
  * context (project save vs. export output save).
  *
  * <p>The export context gets its own recent directory (applied to the save
- * dialog when the dialog is opened from an export flow) so that project saves
- * and export saves no longer share one history. The project context keeps
- * Cubism's native {@code jp.noids.io.UtFileChooser.dir_history} behavior.
- * Directories are persisted in the global {@code <turboism.home>/config.json}.
+ * dialog when the dialog is opened from an export flow) and the project
+ * context keeps its own, so project saves and export saves no longer share
+ * one history. Both are applied/captured by the framework host hook when
+ * {@link #exportSeparationEnabled()} is on.
+ *
+ * <p>Persistence is owned by the plugin side: a single {@link Provider}
+ * registered by the core plugin stores both directories under the plugin
+ * config directory ({@code <home>/config/dev.turboism.plugin.core/}). The
+ * runtime service delegates reads/writes to the registered provider and is
+ * fail-closed without one (reads empty, writes no-op).
  */
 @PreviewApi
 public interface FileChooserHistoryService {
@@ -37,9 +43,47 @@ public interface FileChooserHistoryService {
      */
     boolean exportSeparationEnabled();
 
+    /**
+     * Registers the single persistence provider. At most one provider may be
+     * active; registering while one is still registered throws
+     * {@link IllegalStateException}.
+     */
+    Registration registerProvider(Provider provider);
+
     /** Safe-mode instance: reads are empty and writes fail closed. */
     static FileChooserHistoryService unavailable() {
         return Unavailable.INSTANCE;
+    }
+
+    /**
+     * Persistence backend for the two recent-directory slots. Implementations
+     * must tolerate a missing or partially corrupt store (missing data loads
+     * as {@link Optional#empty()}).
+     */
+    interface Provider {
+
+        /** Loads the recent directory remembered for project saves, if any. */
+        Optional<Path> loadProjectDirectory();
+
+        /** Loads the recent directory remembered for export-output saves, if any. */
+        Optional<Path> loadExportDirectory();
+
+        /** Persists the recent directory for project saves. */
+        void saveProjectDirectory(Path dir);
+
+        /** Persists the recent directory for export-output saves. */
+        void saveExportDirectory(Path dir);
+    }
+
+    /** Handle for a provider registration; {@link #unregister()} is idempotent. */
+    interface Registration extends AutoCloseable {
+
+        void unregister();
+
+        @Override
+        default void close() {
+            unregister();
+        }
     }
 
     enum Unavailable implements FileChooserHistoryService {
@@ -68,6 +112,11 @@ public interface FileChooserHistoryService {
         @Override
         public boolean exportSeparationEnabled() {
             return false;
+        }
+
+        @Override
+        public Registration registerProvider(final Provider provider) {
+            throw new UnsupportedOperationException("file chooser history is unavailable in safe mode");
         }
     }
 }
