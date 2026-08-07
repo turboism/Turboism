@@ -442,7 +442,7 @@ public final class TestCoreApiFixture {
         }
     }
 
-    public static final class Model {
+    public static class Model {
         private final CanvasInfo canvasInfo;
         private final Parameters parameters;
         private final Parts parts;
