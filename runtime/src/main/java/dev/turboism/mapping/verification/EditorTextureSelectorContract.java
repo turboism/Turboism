@@ -52,6 +52,9 @@ public final class EditorTextureSelectorContract {
         "cubism.editor-model.texture-atlas.height",
         "cubism.editor-model.texture-atlas.atlas-version",
         "cubism.editor-model.texture-atlas.model-images",
+        "cubism.editor-model.layered-image.guid",
+        "cubism.editor-model.model-image.guid",
+        "cubism.editor-model.texture-atlas.guid",
         "cubism.editor-model.guid.value"
     );
 
