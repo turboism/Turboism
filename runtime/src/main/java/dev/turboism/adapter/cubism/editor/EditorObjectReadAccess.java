@@ -3,6 +3,8 @@ package dev.turboism.adapter.cubism.editor;
 import dev.turboism.mapping.verification.EditorObjectReadSelectorContract;
 import dev.turboism.mapping.verification.EditorObjectWriteSelectorContract;
 import dev.turboism.mapping.verification.EditorParameterBindingReadSelectorContract;
+import dev.turboism.mapping.verification.EditorInspectorDrawableWrite52SelectorContract;
+import dev.turboism.mapping.verification.EditorInspectorDrawableWriteSelectorContract;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.DeformerId;
@@ -11,6 +13,8 @@ import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.cubism.model.ArtMeshGeometry;
 import dev.turboism.sdk.cubism.model.BlendMode;
 import dev.turboism.sdk.cubism.model.Color;
+import dev.turboism.sdk.cubism.model.AlphaComposition;
+import dev.turboism.sdk.cubism.model.ColorComposition;
 import dev.turboism.sdk.cubism.model.Deformer;
 import dev.turboism.sdk.cubism.model.Deformers;
 import dev.turboism.sdk.cubism.model.Drawable;
@@ -201,6 +205,36 @@ final class EditorObjectReadAccess {
         if (!resolver.authorizesFeature(EditorObjectWriteSelectorContract.ADAPTER_SLICE_ID, capability, aliases)) {
             throw new UnsupportedOperationException(
                 "Editor " + kind.label + " writes require exact verified host evidence."
+            );
+        }
+    }
+
+    /** Undo envelope family mirrored from the Inspector prepareUndo routing. */
+    private enum UndoKind {
+        ALL_EDIT,
+        BASIC_SETTING,
+        KEYFORM_EDIT
+    }
+
+    private boolean isCubism52() {
+        return resolver.isExactCubismVersion(EditorInspectorDrawableWrite52SelectorContract.CUBISM_VERSION);
+    }
+
+    private void requireInspectorWriteAuthorized() {
+        final boolean authorized = isCubism52()
+            ? resolver.authorizesFeature(
+                EditorInspectorDrawableWrite52SelectorContract.ADAPTER_SLICE_ID,
+                EditorInspectorDrawableWrite52SelectorContract.CAPABILITY_ID,
+                EditorInspectorDrawableWrite52SelectorContract.REQUIRED_ALIASES
+            )
+            : resolver.authorizesFeature(
+                EditorInspectorDrawableWriteSelectorContract.ADAPTER_SLICE_ID,
+                EditorInspectorDrawableWriteSelectorContract.CAPABILITY_ID,
+                EditorInspectorDrawableWriteSelectorContract.REQUIRED_ALIASES
+            );
+        if (!authorized) {
+            throw new UnsupportedOperationException(
+                "Editor ArtMesh Inspector writes require exact verified host evidence."
             );
         }
     }
@@ -829,6 +863,30 @@ final class EditorObjectReadAccess {
         final Runnable mutation
     ) {
         requireWriteAuthorized(kind);
+        writeEnvelope(UndoKind.ALL_EDIT, kind, modelSource, objectSource, action, mutation, false);
+    }
+
+    /** Inspector-write envelope: requires the dedicated inspector capability and mirrors the Inspector undo kinds. */
+    private void writeInspector(
+        final UndoKind undoKind,
+        final Object modelSource,
+        final Object objectSource,
+        final String action,
+        final Runnable mutation
+    ) {
+        requireInspectorWriteAuthorized();
+        writeEnvelope(undoKind, Kind.ART_MESH, modelSource, objectSource, action, mutation, true);
+    }
+
+    private void writeEnvelope(
+        final UndoKind undoKind,
+        final Kind kind,
+        final Object modelSource,
+        final Object objectSource,
+        final String action,
+        final Runnable mutation,
+        final boolean inspectorRefresh
+    ) {
         final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
         final Object document = resolver.invoke(
             "cubism.editor-model.app-controller.current-document", app
@@ -857,7 +915,7 @@ final class EditorObjectReadAccess {
                 throw unavailable("Editor object Undo handler is unavailable.");
             }
             final Object objectUndo = resolver.invoke(
-                "cubism.editor-model.parameter-controllable-handler.create-undo-for-all-edit",
+                undoAlias(undoKind),
                 handler,
                 action
             );
@@ -867,13 +925,13 @@ final class EditorObjectReadAccess {
             if (!(accepted instanceof Boolean value) || !value) {
                 throw new IllegalStateException("Cubism rejected the Editor object Undo entry.");
             }
-            EditorObjectValidationTrace.event(trace, "undo-admitted", kind.label, action, sourceId, document, modelSource, "accepted=true");
+            EditorObjectValidationTrace.event(trace, "undo-admitted", kind.label, action, sourceId, document, modelSource, "accepted=true kind=" + undoKind.name());
             final java.util.concurrent.atomic.AtomicInteger listenerCount = new java.util.concurrent.atomic.AtomicInteger();
             final Object listener = resolver.createFunctionalProxy(
                 "cubism.editor-model.undo-listener.class",
                 ignored -> {
                     resolver.invoke("cubism.editor-model.model-source.update-instances", modelSource);
-                    refresh(app, kind);
+                    refresh(app, kind, inspectorRefresh);
                     EditorObjectValidationTrace.event(
                         trace,
                         "undo-listener",
@@ -892,7 +950,7 @@ final class EditorObjectReadAccess {
             EditorObjectValidationTrace.event(trace, "mutation", kind.label, action, sourceId, document, modelSource, "completed=true");
             resolver.invoke("cubism.editor-model.model-source.update-instances", modelSource);
             EditorObjectValidationTrace.event(trace, "instances-updated", kind.label, action, sourceId, document, modelSource, "completed=true");
-            refresh(app, kind);
+            refresh(app, kind, inspectorRefresh);
             EditorObjectValidationTrace.event(trace, "refresh", kind.label, action, sourceId, document, modelSource, "palette=true canvas=true");
             resolver.invoke("cubism.editor-model.modeling-document.mark-dirty", document);
             EditorObjectValidationTrace.event(trace, "dirty", kind.label, action, sourceId, document, modelSource, "marked=true");
@@ -917,7 +975,19 @@ final class EditorObjectReadAccess {
         }
     }
 
+    private static String undoAlias(final UndoKind kind) {
+        return switch (kind) {
+            case ALL_EDIT -> "cubism.editor-model.parameter-controllable-handler.create-undo-for-all-edit";
+            case BASIC_SETTING -> "cubism.editor-model.parameter-controllable-handler.create-undo-for-basic-setting";
+            case KEYFORM_EDIT -> "cubism.editor-model.parameter-controllable-handler.create-undo-for-keyform-edit";
+        };
+    }
+
     private void refresh(final Object app, final Kind kind) {
+        refresh(app, kind, false);
+    }
+
+    private void refresh(final Object app, final Kind kind, final boolean inspector) {
         final Object completePack = resolver.invoke(
             "cubism.editor-model.app-controller.complete-pack", app
         );
@@ -928,6 +998,13 @@ final class EditorObjectReadAccess {
             completePack,
             Boolean.TRUE
         );
+        if (inspector) {
+            resolver.invoke(
+                "cubism.editor-model.complete-pack.update-deformer-palette",
+                completePack,
+                Boolean.TRUE
+            );
+        }
         resolver.invoke(
             "cubism.editor-model.complete-pack.repaint-canvas", completePack, Boolean.TRUE
         );
@@ -964,6 +1041,401 @@ final class EditorObjectReadAccess {
         if (Float.compare(number(resolver.invoke(readAlias, form), action), value) == 0) return;
         write(kind, modelSource, objectSource, action, () ->
             resolver.invoke(writeAlias, form, Float.valueOf(value))
+        );
+    }
+
+    private static final java.util.regex.Pattern ID_FORBIDDEN_START =
+        java.util.regex.Pattern.compile("^[0-9]");
+    private static final java.util.regex.Pattern ID_ALLOWED =
+        java.util.regex.Pattern.compile("^[0-9a-zA-Z_@]+$");
+    private static final int ID_MAX_LENGTH = 64;
+    private static final int TARGET_VERSION_SDK40 = 400_000;
+    private static final int TARGET_VERSION_SDK42 = 4_020_000;
+
+    private int targetVersionNumber(final Object modelSource) {
+        final Object version = resolver.invoke(
+            "cubism.editor-model.model-source.target-version", modelSource
+        );
+        return integer(
+            resolver.invoke("cubism.editor-model.target-version.number", version),
+            "Editor model target version"
+        );
+    }
+
+    private void setId(
+        final Object modelSource,
+        final Object objectSource,
+        final String id
+    ) {
+        if (id == null) throw new IllegalArgumentException("id must not be null");
+        final String current = objectId(objectSource);
+        if (id.equals(current)) return;
+        if (id.trim().isEmpty()) {
+            throw new IllegalArgumentException("id must not be blank");
+        }
+        if (ID_FORBIDDEN_START.matcher(id).find()
+            || !ID_ALLOWED.matcher(id).matches()
+            || id.length() >= ID_MAX_LENGTH) {
+            throw new IllegalArgumentException(
+                "id must not start with a digit, must match [0-9a-zA-Z_@]+, and must be shorter than 64 characters"
+            );
+        }
+        final Object modelHandler = resolver.invoke(
+            "cubism.editor-model.model-source.handler", modelSource
+        );
+        final Object idMap = resolver.invoke(
+            "cubism.editor-model.model-handler.id-map", modelHandler
+        );
+        final Object duplicate = resolver.invoke(
+            "cubism.editor-model.id-map.contains", idMap, id
+        );
+        if (duplicate instanceof Boolean used && used) {
+            throw new IllegalArgumentException("id is already used by another model object: " + id);
+        }
+        writeInspector(UndoKind.BASIC_SETTING, modelSource, objectSource, "Set ArtMesh ID", () -> {
+            final Object drawableId = resolver.construct(
+                "cubism.editor-model.drawable-id.create", id
+            );
+            resolver.invoke(
+                "cubism.editor-model.drawable-source.set-id", objectSource, drawableId
+            );
+            resolver.invoke(
+                "cubism.editor-model.model-source.verify", modelSource, Boolean.TRUE, null
+            );
+            final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
+            final Object completePack = resolver.invoke(
+                "cubism.editor-model.app-controller.complete-pack", app
+            );
+            final Object updateManager = resolver.invoke(
+                "cubism.editor-model.complete-pack.update-manager", completePack
+            );
+            resolver.invoke(
+                "cubism.editor-model.update-manager.update-part", updateManager, Boolean.TRUE
+            );
+            resolver.invoke(
+                "cubism.editor-model.update-manager.update-deformer", updateManager, Boolean.TRUE
+            );
+        });
+    }
+
+    private void setTargetDeformer(
+        final String identity,
+        final Object modelSource,
+        final Object model,
+        final ObjectRef current,
+        final Optional<DeformerId> targetDeformer
+    ) {
+        requireInspectorWriteAuthorized();
+        final Object target;
+        if (targetDeformer.isPresent()) {
+            final DeformerId targetId = targetDeformer.get();
+            final Object source = deformerSourceById(identity, modelSource, model, targetId);
+            if (source == null) {
+                throw new NoSuchElementException(
+                    "No Editor Deformer has id " + targetId.value()
+                );
+            }
+            target = resolver.construct("cubism.editor-model.deformer-id.create", targetId.value());
+        } else {
+            target = null;
+        }
+        final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
+        final Object document = resolver.invoke(
+            "cubism.editor-model.app-controller.current-document", app
+        );
+        final Object editMode = resolver.invoke(
+            "cubism.editor-model.modeling-document.edit-mode", document
+        );
+        final Object edit = resolver.invoke(
+            "cubism.editor-model.edit-mode.begin", editMode, "Set ArtMesh target Deformer"
+        );
+        boolean completed = false;
+        try {
+            final Object handler = resolver.invoke(
+                "cubism.editor-model.parameter-controllable-source.handler", current.source()
+            );
+            if (!resolver.isInstance("cubism.editor-model.parameter-controllable-handler.class", handler)) {
+                throw unavailable("Editor object Undo handler is unavailable.");
+            }
+            final Object changeUndo;
+            if (target == null) {
+                final Object companion = resolver.readStaticField(
+                    "cubism.editor-model.deformer-guid.companion"
+                );
+                final Object rootGuid = resolver.invoke(
+                    "cubism.editor-model.deformer-guid.root", companion
+                );
+                changeUndo = resolver.invoke(
+                    "cubism.editor-model.parameter-controllable-handler.change-target-deformer-guid",
+                    handler,
+                    model,
+                    rootGuid,
+                    Boolean.FALSE
+                );
+            } else {
+                changeUndo = resolver.invoke(
+                    "cubism.editor-model.parameter-controllable-handler.change-target-deformer",
+                    handler,
+                    model,
+                    target
+                );
+            }
+            final Object accepted = resolver.invoke(
+                "cubism.editor-model.undo.add", edit, changeUndo, Boolean.TRUE
+            );
+            if (!(accepted instanceof Boolean value) || !value) {
+                throw new IllegalStateException("Cubism rejected the target Deformer Undo entry.");
+            }
+            final Object listener = resolver.createFunctionalProxy(
+                "cubism.editor-model.undo-listener.class",
+                ignored -> {
+                    resolver.invoke("cubism.editor-model.model-source.update-instances", modelSource);
+                    refresh(app, Kind.ART_MESH, true);
+                    return null;
+                }
+            );
+            resolver.invoke("cubism.editor-model.undo.add-listener", changeUndo, listener);
+            resolver.invoke("cubism.editor-model.model-source.update-instances", modelSource);
+            refresh(app, Kind.ART_MESH, true);
+            resolver.invoke("cubism.editor-model.modeling-document.mark-dirty", document);
+            completed = true;
+        } finally {
+            resolver.invoke(
+                "cubism.editor-model.edit-mode.end", editMode, Boolean.valueOf(!completed), null
+            );
+        }
+    }
+
+    private Object deformerSourceById(
+        final String identity,
+        final Object modelSource,
+        final Object model,
+        final DeformerId id
+    ) {
+        currentGuard.requireCurrent(identity, model);
+        final List<?> sources = list(
+            resolver.invoke("cubism.editor-model.model-source.all-deformers", modelSource),
+            "Editor Deformer source collection"
+        );
+        for (Object source : sources) {
+            if (id.value().equals(objectId(source))) {
+                return source;
+            }
+        }
+        return null;
+    }
+
+    private void setClippingMaskIds(
+        final String identity,
+        final Object modelSource,
+        final Object model,
+        final ObjectRef current,
+        final List<ArtMeshId> maskIds
+    ) {
+        requireInspectorWriteAuthorized();
+        final ArrayList<Object> resolved = new ArrayList<>(maskIds.size());
+        for (ArtMeshId maskId : maskIds) {
+            if (maskId == null) throw new IllegalArgumentException("mask IDs must not contain null");
+            final Object object = resolver.invoke(
+                "cubism.editor-model.model-source.get-object", modelSource, maskId.value()
+            );
+            if (object == null || !resolver.isInstance("cubism.editor-model.drawable-guid.class",
+                resolver.invoke("cubism.editor-model.parameter-controllable-source.guid", object))) {
+                throw new IllegalArgumentException(
+                    "clipping mask ID does not resolve to a Drawable: " + maskId.value()
+                );
+            }
+            resolved.add(resolver.invoke(
+                "cubism.editor-model.parameter-controllable-source.guid", object
+            ));
+        }
+        writeInspector(UndoKind.BASIC_SETTING, modelSource, current.source(), "Set ArtMesh clipping masks", () -> {
+            final Object clipList = resolver.invoke(
+                "cubism.editor-model.art-mesh-source.clip-guid-list", current.source()
+            );
+            resolver.invoke("cubism.editor-model.id-list.clear", clipList);
+            if (!resolved.isEmpty()) {
+                resolver.invoke("cubism.editor-model.id-list.add-all", clipList, resolved);
+            }
+        });
+    }
+
+    private void setInvertedMask(
+        final Object modelSource,
+        final Object objectSource,
+        final boolean value
+    ) {
+        requireInspectorWriteAuthorized();
+        if (sourceFlag("cubism.editor-model.art-mesh-source.inverted-mask", objectSource, "ArtMesh inverted-mask state") == value) {
+            return;
+        }
+        if (value && targetVersionNumber(modelSource) < TARGET_VERSION_SDK40) {
+            throw new UnsupportedOperationException(
+                "Inverted clipping masks require a Cubism 4.0+ model target (CUB3-2528)."
+            );
+        }
+        writeInspector(UndoKind.BASIC_SETTING, modelSource, objectSource, "Set ArtMesh inverted mask", () ->
+            resolver.invoke(
+                "cubism.editor-model.art-mesh-source.set-invert-clipping-mask",
+                objectSource,
+                Boolean.valueOf(value)
+            )
+        );
+    }
+
+    private void setDrawOrder(
+        final Object modelSource,
+        final Object objectSource,
+        final Object form,
+        final int value
+    ) {
+        requireInspectorWriteAuthorized();
+        final int clamped = Math.max(0, Math.min(1000, value));
+        if (integer(resolver.invoke("cubism.editor-model.drawable-form.draw-order", form), "ArtMesh draw order") == clamped) {
+            return;
+        }
+        writeInspector(UndoKind.KEYFORM_EDIT, modelSource, objectSource, "Set ArtMesh draw order", () ->
+            resolver.invoke(
+                "cubism.editor-model.drawable-form.set-draw-order", form, Integer.valueOf(clamped)
+            )
+        );
+    }
+
+    private void setColor(
+        final Object modelSource,
+        final Object objectSource,
+        final Object form,
+        final String colorAlias,
+        final Color color,
+        final String action
+    ) {
+        requireInspectorWriteAuthorized();
+        if (targetVersionNumber(modelSource) < TARGET_VERSION_SDK42) {
+            throw new UnsupportedOperationException(
+                action + " requires a Cubism 4.2+ model target (CUB3-3264/CUB3-3265)."
+            );
+        }
+        final Object hostColor = resolver.invoke(colorAlias, form);
+        if (hostColor == null) {
+            throw unavailable("Editor drawable color is unavailable.");
+        }
+        if (equalsColor(hostColor, color)) return;
+        writeInspector(UndoKind.KEYFORM_EDIT, modelSource, objectSource, action, () -> {
+            resolver.invoke(
+                "cubism.editor-model.float-color.set-red", hostColor, Float.valueOf(color.red())
+            );
+            resolver.invoke(
+                "cubism.editor-model.float-color.set-green", hostColor, Float.valueOf(color.green())
+            );
+            resolver.invoke(
+                "cubism.editor-model.float-color.set-blue", hostColor, Float.valueOf(color.blue())
+            );
+            resolver.invoke(
+                "cubism.editor-model.float-color.set-alpha", hostColor, Float.valueOf(color.alpha())
+            );
+        });
+    }
+
+    private boolean equalsColor(final Object hostColor, final Color color) {
+        final float red = number(resolver.invoke("cubism.editor-model.float-color.red", hostColor), "ArtMesh color red");
+        final float green = number(resolver.invoke("cubism.editor-model.float-color.green", hostColor), "ArtMesh color green");
+        final float blue = number(resolver.invoke("cubism.editor-model.float-color.blue", hostColor), "ArtMesh color blue");
+        final float alpha = number(resolver.invoke("cubism.editor-model.float-color.alpha", hostColor), "ArtMesh color alpha");
+        return Float.compare(red, color.red()) == 0
+            && Float.compare(green, color.green()) == 0
+            && Float.compare(blue, color.blue()) == 0
+            && Float.compare(alpha, color.alpha()) == 0;
+    }
+
+    private void setColorComposition(
+        final Object modelSource,
+        final Object objectSource,
+        final ColorComposition composition
+    ) {
+        requireInspectorWriteAuthorized();
+        final Object hostValue = hostEnumValue(
+            "cubism.editor-model.color-composition.values",
+            "Color composition",
+            composition.name()
+        );
+        writeInspector(UndoKind.BASIC_SETTING, modelSource, objectSource, "Set ArtMesh color composition", () ->
+            resolver.invoke(
+                "cubism.editor-model.art-mesh-source.set-color-composition",
+                objectSource,
+                hostValue
+            )
+        );
+    }
+
+    private void setAlphaComposition(
+        final Object modelSource,
+        final Object objectSource,
+        final AlphaComposition composition
+    ) {
+        if (isCubism52()) {
+            throw new UnsupportedOperationException(
+                "ArtMesh alpha composition is unavailable on Cubism 5.2 hosts (AlphaComposition introduced in 5.3)."
+            );
+        }
+        requireInspectorWriteAuthorized();
+        final Object hostValue = hostEnumValue(
+            "cubism.editor-model.alpha-composition.values",
+            "Alpha composition",
+            composition.name()
+        );
+        writeInspector(UndoKind.BASIC_SETTING, modelSource, objectSource, "Set ArtMesh alpha composition", () ->
+            resolver.invoke(
+                "cubism.editor-model.art-mesh-source.set-alpha-composition",
+                objectSource,
+                hostValue
+            )
+        );
+    }
+
+    private Object hostEnumValue(final String valuesAlias, final String label, final String name) {
+        final Object values = resolver.invokeStatic(valuesAlias);
+        if (!(values instanceof Object[] hostValues)) {
+            throw unavailable("Editor " + label + " host values are unavailable.");
+        }
+        for (Object hostValue : hostValues) {
+            if (hostValue != null && name.equals(hostValue.toString())) {
+                return hostValue;
+            }
+        }
+        throw new UnsupportedOperationException(
+            label + " " + name + " is not supported by this Cubism host."
+        );
+    }
+
+    private void setCulling(
+        final Object modelSource,
+        final Object objectSource,
+        final Object artMesh,
+        final boolean value
+    ) {
+        requireInspectorWriteAuthorized();
+        if (sourceFlag("cubism.editor-model.art-mesh-source.culling", objectSource, "ArtMesh culling state") == value) {
+            return;
+        }
+        writeInspector(UndoKind.BASIC_SETTING, modelSource, objectSource, "Set ArtMesh culling", () -> {
+            resolver.invoke(
+                "cubism.editor-model.art-mesh-source.set-culling", objectSource, Boolean.valueOf(value)
+            );
+            resolver.invoke("cubism.editor-model.art-mesh.setup-shader", artMesh, new Object[]{null});
+        });
+    }
+
+    private void setUserData(
+        final Object modelSource,
+        final Object objectSource,
+        final String userData
+    ) {
+        requireInspectorWriteAuthorized();
+        if (userData == null) throw new IllegalArgumentException("userData must not be null");
+        writeInspector(UndoKind.BASIC_SETTING, modelSource, objectSource, "Set ArtMesh user data", () ->
+            resolver.invoke(
+                "cubism.editor-model.art-mesh-source.set-user-data", objectSource, userData
+            )
         );
     }
 
@@ -1083,6 +1555,17 @@ final class EditorObjectReadAccess {
         @Override public boolean lockedInHierarchy() { return sourceFlag("cubism.editor-model.parameter-controllable-source.locked-in-hierarchy", current().source(), "ArtMesh effective lock state"); }
         @Override public float getOpacity() { return number(resolver.invoke("cubism.editor-model.drawable-form.opacity", artMeshForm(current().instance())), "ArtMesh opacity"); }
         @Override public void setOpacity(final float opacity) { final ObjectRef value = current(); EditorObjectReadAccess.this.setOpacity(Kind.ART_MESH, modelSource, value.source(), artMeshForm(value.instance()), "cubism.editor-model.drawable-form.opacity", "cubism.editor-model.drawable-form.set-opacity", opacity, "Set ArtMesh opacity"); }
+        @Override public void setId(final String id) { final ObjectRef value = current(); EditorObjectReadAccess.this.setId(modelSource, value.source(), id); }
+        @Override public void setTargetDeformer(final Optional<DeformerId> targetDeformer) { final ObjectRef value = current(); EditorObjectReadAccess.this.setTargetDeformer(identity, modelSource, model, value, targetDeformer); }
+        @Override public void setClippingMaskIds(final List<ArtMeshId> maskIds) { final ObjectRef value = current(); EditorObjectReadAccess.this.setClippingMaskIds(identity, modelSource, model, value, maskIds); }
+        @Override public void setInvertedMask(final boolean inverted) { final ObjectRef value = current(); EditorObjectReadAccess.this.setInvertedMask(modelSource, value.source(), inverted); }
+        @Override public void setDrawOrder(final int drawOrder) { final ObjectRef value = current(); EditorObjectReadAccess.this.setDrawOrder(modelSource, value.source(), artMeshForm(value.instance()), drawOrder); }
+        @Override public void setMultiplyColor(final Color color) { final ObjectRef value = current(); EditorObjectReadAccess.this.setColor(modelSource, value.source(), artMeshForm(value.instance()), "cubism.editor-model.drawable-form.multiply-color", color, "Set ArtMesh multiply color"); }
+        @Override public void setScreenColor(final Color color) { final ObjectRef value = current(); EditorObjectReadAccess.this.setColor(modelSource, value.source(), artMeshForm(value.instance()), "cubism.editor-model.drawable-form.screen-color", color, "Set ArtMesh screen color"); }
+        @Override public void setColorComposition(final ColorComposition composition) { final ObjectRef value = current(); EditorObjectReadAccess.this.setColorComposition(modelSource, value.source(), composition); }
+        @Override public void setAlphaComposition(final AlphaComposition composition) { final ObjectRef value = current(); EditorObjectReadAccess.this.setAlphaComposition(modelSource, value.source(), composition); }
+        @Override public void setCulling(final boolean culling) { final ObjectRef value = current(); EditorObjectReadAccess.this.setCulling(modelSource, value.source(), value.instance(), culling); }
+        @Override public void setUserData(final String userData) { final ObjectRef value = current(); EditorObjectReadAccess.this.setUserData(modelSource, value.source(), userData); }
         @Override public int drawOrder() { return integer(resolver.invoke("cubism.editor-model.drawable-form.draw-order", artMeshForm(current().instance())), "ArtMesh draw order"); }
         @Override public ArtMeshGeometry geometry() { final ObjectRef value = current(); return EditorObjectReadAccess.this.geometry(value.source(), value.instance()); }
         @Override public void replaceGeometry(final ArtMeshGeometry geometry) { final ObjectRef value = current(); replaceArtMeshGeometry(modelSource, value, geometry); }
