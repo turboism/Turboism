@@ -46,7 +46,7 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
     private volatile Registration eventRegistration;
     private volatile Registration actionRegistration;
     private volatile Registration menuRegistration;
-    private boolean enabled;
+    private volatile boolean enabled;
 
     @Override
     public void init(final PluginContext context) {
@@ -54,6 +54,11 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
         binding.init(context.config()).whenComplete((result, failure) -> {
             if (result == ConfigBindingResult.APPLIED) {
                 context.logger().info("WebDAV backup sync binding initialized");
+                // The binding may have been enabled (and refreshTarget() raced)
+                // before the async registerSchema completed; rebuild the target now.
+                if (enabled) {
+                    refreshTarget();
+                }
             } else {
                 context.logger().warn("WebDAV backup sync binding unavailable: "
                     + (failure == null ? result : failure.getClass().getSimpleName()));
@@ -72,10 +77,11 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
 
     @Override
     public void disable() {
+        enabled = false;
         binding.disable();
         target = null;
+        cancelTargetRetry();
         closeRegistrations();
-        enabled = false;
     }
 
     @Override
@@ -99,7 +105,12 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
         backupAfterSave(animation);
     }
 
-    /** Rebuilds the sync target from the bound config (fail closed when unavailable). */
+    /**
+     * Rebuilds the sync target from the bound config (fail closed when
+     * unavailable). A null config means the binding is not initialized yet
+     * (async registerSchema) or broken: schedule a bounded retry with backoff
+     * so the init/enable race cannot leave the plugin without a target.
+     */
     void refreshTarget() {
         if (context == null) {
             return;
@@ -109,10 +120,15 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
         read.whenComplete((config, failure) -> {
             if (config == null) {
                 target = null;
-                logger.warn("WEBDAV_TARGET_UNAVAILABLE reason="
-                    + (failure == null ? "unavailable" : failure.getClass().getSimpleName()));
+                if (failure != null) {
+                    logger.warn("WEBDAV_TARGET_UNAVAILABLE reason="
+                        + failure.getClass().getSimpleName());
+                    return;
+                }
+                scheduleTargetRetry(logger);
                 return;
             }
+            targetRetryAttempts = 0;
             final WebDavSyncTarget rebuilt = new WebDavSyncTarget(config, reason -> {
                 if (reason.startsWith("webdav:put-ok")) {
                     logger.info("webdav-sync " + reason);
@@ -125,6 +141,49 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
                 + " remotePath=" + config.remotePath()
                 + " enabled=" + config.enabled());
         });
+    }
+
+    /** Bounded target-rebuild retry backoff (ms); five attempts, ~15.5s total. */
+    static final long[] TARGET_RETRY_BACKOFF_MILLIS = {500L, 1_000L, 2_000L, 4_000L, 8_000L};
+
+    private volatile int targetRetryAttempts;
+    private final java.util.concurrent.atomic.AtomicBoolean targetRetryPending =
+        new java.util.concurrent.atomic.AtomicBoolean();
+
+    private void scheduleTargetRetry(final PluginLogger logger) {
+        if (!targetRetryPending.compareAndSet(false, true)) {
+            return; // a retry chain is already scheduled
+        }
+        final int attempt = targetRetryAttempts;
+        if (attempt >= TARGET_RETRY_BACKOFF_MILLIS.length) {
+            targetRetryPending.set(false);
+            logger.warn("WEBDAV_TARGET_UNAVAILABLE reason=unavailable");
+            return;
+        }
+        targetRetryAttempts = attempt + 1;
+        logger.info("WEBDAV_TARGET_RETRY attempt=" + (attempt + 1)
+            + " backoffMs=" + TARGET_RETRY_BACKOFF_MILLIS[attempt]);
+        final Thread retry = new Thread(() -> {
+            try {
+                Thread.sleep(TARGET_RETRY_BACKOFF_MILLIS[attempt]);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                targetRetryPending.set(false);
+                return;
+            }
+            targetRetryPending.set(false);
+            if (!enabled || context == null) {
+                return; // cancelled by disable()/shutdown()
+            }
+            refreshTarget();
+        }, "turboism-webdav-target-retry");
+        retry.setDaemon(true);
+        retry.start();
+    }
+
+    private void cancelTargetRetry() {
+        targetRetryAttempts = 0;
+        targetRetryPending.set(false);
     }
 
     /** URL without credentials: scheme + host + port + path only (never userinfo). */
