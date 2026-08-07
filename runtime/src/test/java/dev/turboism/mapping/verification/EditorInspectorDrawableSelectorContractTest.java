@@ -82,15 +82,21 @@ class EditorInspectorDrawableSelectorContractTest {
             "cubism.editor-model.drawable-source.set-id",
             "cubism.editor-model.deformer-source.set-id",
             "cubism.editor-model.glue-source.set-id",
-            "cubism.editor-model.model-source.verify",
             "cubism.editor-model.parameter-controllable-handler.create-undo-for-basic-setting"
         );
         for (final String alias : instanceAliases) {
             assertTrue(resolver.bind(alias) != null, alias + " must bind as an instance method");
         }
-        // A genuinely static call site must keep binding statically.
-        assertTrue(resolver.bindStatic("cubism.editor-model.app-controller.instance") != null,
-            "app-controller.instance must still bind statically");
+        // Kotlin default-arg bridges and other genuinely static call sites bind statically.
+        // model-source.verify is the verify$default bridge (5-parameter static entry point
+        // the host itself uses: CModelSource.verify$default(source, true, null, 2, null)).
+        final java.util.Set<String> staticAliases = java.util.Set.of(
+            "cubism.editor-model.model-source.verify",
+            "cubism.editor-model.app-controller.instance"
+        );
+        for (final String alias : staticAliases) {
+            assertTrue(resolver.bindStatic(alias) != null, alias + " must bind as a static method");
+        }
     }
 
     private static Path locateProjectRoot() {
