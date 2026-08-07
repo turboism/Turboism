@@ -8,6 +8,7 @@ import dev.turboism.sdk.cubism.service.query.SelectionQueryService;
 import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
 import dev.turboism.sdk.cubism.model.ModelObjectService;
 import dev.turboism.sdk.cubism.physics.PhysicsEditorService;
+import dev.turboism.sdk.cubism.backup.EditorAutoBackupService;
 import dev.turboism.sdk.cubism.command.EditorCommandService;
 
 import java.util.Objects;
@@ -21,7 +22,8 @@ record CubismContextServices(
     ModelObjectService modelObjectService,
     PhysicsEditorService physicsEditorService,
     CubismClipMaskService cubismClipMaskService,
-    EditorCommandService editorCommandService
+    EditorCommandService editorCommandService,
+    EditorAutoBackupService backupService
 ) {
     CubismContextServices {
         cubismFacade = Objects.requireNonNull(cubismFacade, "cubismFacade");
@@ -33,5 +35,6 @@ record CubismContextServices(
         physicsEditorService = Objects.requireNonNull(physicsEditorService, "physicsEditorService");
         cubismClipMaskService = Objects.requireNonNull(cubismClipMaskService, "cubismClipMaskService");
         editorCommandService = Objects.requireNonNull(editorCommandService, "editorCommandService");
+        backupService = Objects.requireNonNull(backupService, "backupService");
     }
 }
