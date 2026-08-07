@@ -251,6 +251,13 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
             return current(generation, CubismModel::animationDocuments, delegate);
         }
 
+        @Override public dev.turboism.sdk.cubism.model.ModelTextures textures() {
+            return new SessionModelTextures(
+                generation,
+                current(generation, CubismModel::textures, delegate)
+            );
+        }
+
         @Override
         public boolean defaultKeyformLocked() {
             return current(generation, CubismModel::defaultKeyformLocked, delegate);
@@ -414,6 +421,47 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
         @Override
         public void update() {
             guardedVoid(generation, delegate::update);
+        }
+    }
+
+    private final class SessionModelTextures
+        implements dev.turboism.sdk.cubism.model.ModelTextures {
+        private final long generation;
+        private final dev.turboism.sdk.cubism.model.ModelTextures delegate;
+        private SessionModelTextures(
+            final long generation,
+            final dev.turboism.sdk.cubism.model.ModelTextures delegate
+        ) {
+            this.generation = generation;
+            this.delegate = Objects.requireNonNull(delegate, "delegate");
+        }
+        @Override public List<dev.turboism.sdk.cubism.model.RawTexture> rawImages() {
+            return guarded(generation, delegate::rawImages);
+        }
+        @Override public List<dev.turboism.sdk.cubism.model.ModelImageGroup> modelImageGroups() {
+            return guarded(generation, delegate::modelImageGroups);
+        }
+        @Override public List<dev.turboism.sdk.cubism.model.AtlasTexture> textureAtlases() {
+            return guarded(generation, delegate::textureAtlases);
+        }
+        @Override public void addModelImageGroup(final String name) {
+            guardedVoid(generation, () -> delegate.addModelImageGroup(name));
+        }
+        @Override public void removeModelImage(final dev.turboism.sdk.cubism.id.ModelImageId id) {
+            guardedVoid(generation, () -> delegate.removeModelImage(id));
+        }
+        @Override public dev.turboism.sdk.cubism.id.TextureAtlasId addTextureAtlas(
+            final String name,
+            final int widthPixels,
+            final int heightPixels
+        ) {
+            return guarded(generation, () -> delegate.addTextureAtlas(name, widthPixels, heightPixels));
+        }
+        @Override public void removeTextureAtlas(final dev.turboism.sdk.cubism.id.TextureAtlasId id) {
+            guardedVoid(generation, () -> delegate.removeTextureAtlas(id));
+        }
+        @Override public void removeRawImage(final dev.turboism.sdk.cubism.id.RawImageId id) {
+            guardedVoid(generation, () -> delegate.removeRawImage(id));
         }
     }
 
