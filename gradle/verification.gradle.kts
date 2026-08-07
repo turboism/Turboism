@@ -172,6 +172,28 @@ tasks.register<Exec>("validateStatusBarHost5302") {
     commandLine("bash", "scripts/preview/run-status-bar-host-validation.sh", "5302")
 }
 
+val buildSeparateSavePathHostProbe by tasks.registering(Exec::class) {
+    group = "host verification"
+    description = "Builds the test-only SDK separate-save-path host exerciser."
+    dependsOn(":sdk:jar")
+    workingDir(rootDir)
+    commandLine("bash", "validation/separate-save-path-host-probe/build.sh")
+}
+
+fun registerSeparateSavePathHostValidation(name: String, version: String, displayVersion: String) {
+    tasks.register<Exec>(name) {
+        group = "host verification"
+        description = "Runs the automated exact-host Cubism $displayVersion separate-save-path matrix."
+        dependsOn("previewBundle", ":sdk:jar", buildSeparateSavePathHostProbe)
+        workingDir(rootDir)
+        environment("TURBOISM_WORKTREE_ID", resolvedHostValidationWorktreeId)
+        commandLine("bash", "scripts/preview/run-separate-save-path-host-validation.sh", version)
+    }
+}
+
+registerSeparateSavePathHostValidation("validateSeparateSavePathHost5302", "5302", "5.3.02")
+registerSeparateSavePathHostValidation("validateSeparateSavePathHost5203", "5203", "5.2.03")
+
 val packageClipMaskViewerHostValidation by tasks.registering(Exec::class) {
     group = "host verification"
     description = "Packages the clipmask-viewer plugin and probe exerciser for exact-host validation."
