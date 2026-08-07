@@ -4,6 +4,7 @@ import dev.turboism.sdk.cubism.mesh.MeshMirrorAxisService;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -21,20 +22,20 @@ class RuntimeMeshMirrorAxisServiceTest {
     }
 
     @Test
-    void requiresAnObservedAxisCenterAndRecomputesFromMirrorState() {
+    void requiresAnObservedAxisAndRotatesItAroundTheObservedPivot() {
         final RuntimeMeshMirrorAxisService service = new RuntimeMeshMirrorAxisService();
         service.setCurrentAngleDegrees(45.0f);
 
-        assertNull(service.resolveLine(new State("VERTICAL", 0.0f)));
+        assertNull(service.resolveLine());
 
         service.observeAxis(0.0f, true, 4.0f, 6.0f);
-        final MeshMirrorGeometry.Line vertical = service.resolveLine(new State("VERTICAL", 2.0f));
-        final MeshMirrorGeometry.Line horizontal = service.resolveLine(new State("HORIZONTAL", 3.0f));
+        final MeshMirrorGeometry.Line line = service.resolveLine();
 
-        assertEquals(2.0f, vertical.anchor().x(), 0.0001f);
-        assertEquals(6.0f, vertical.anchor().y(), 0.0001f);
-        assertEquals(4.0f, horizontal.anchor().x(), 0.0001f);
-        assertEquals(3.0f, horizontal.anchor().y(), 0.0001f);
+        // anchor (0, 6) rotated 45° about pivot (4, 6): (1.1716, 3.1716), dir (-sin45, cos45).
+        assertEquals(1.1716f, line.anchor().x(), 0.0001f);
+        assertEquals(3.1716f, line.anchor().y(), 0.0001f);
+        assertEquals(-0.7071f, line.direction().x(), 0.0001f);
+        assertEquals(0.7071f, line.direction().y(), 0.0001f);
     }
 
     @Test
@@ -43,34 +44,37 @@ class RuntimeMeshMirrorAxisServiceTest {
         service.setCurrentAngleDegrees(90.0f);
         service.observePivot(8.0f, 10.0f);
 
-        final MeshMirrorGeometry.Line line = service.resolveLine(new State("HORIZONTAL", 3.0f));
+        final MeshMirrorGeometry.Line line = service.resolveLine();
+
+        // anchor (0, 10) rotated 90° about pivot (8, 10): (8, 2), dir (-1, 0).
         assertEquals(8.0f, line.anchor().x(), 0.0001f);
-        assertEquals(3.0f, line.anchor().y(), 0.0001f);
+        assertEquals(2.0f, line.anchor().y(), 0.0001f);
+        assertEquals(-1.0f, line.direction().x(), 0.0001f);
+        assertEquals(0.0f, line.direction().y(), 0.0001f);
 
         service.clearPivot();
-        assertNull(service.resolveLine(new State("HORIZONTAL", 3.0f)));
+        assertNull(service.resolveLine());
     }
 
     @Test
-    void unreadableMirrorStateFailsClosedInsteadOfReusingStaleState() {
+    void missingAxisStateOrClearedPivotFailsClosed() {
         final RuntimeMeshMirrorAxisService service = new RuntimeMeshMirrorAxisService();
         service.setCurrentAngleDegrees(45.0f);
-        service.observePivot(8.0f, 10.0f);
 
-        assertNull(service.resolveLine(new Object()));
+        assertNull(service.resolveLine());
+
+        service.observePivot(8.0f, 10.0f);
+        assertNotNull(service.resolveLine());
+
+        service.clearPivot();
+        assertNull(service.resolveLine());
     }
 
     @Test
-    void unknownMirrorOrientationFailsClosed() {
+    void zeroAngleFailsClosedEvenWithAnObservedAxis() {
         final RuntimeMeshMirrorAxisService service = new RuntimeMeshMirrorAxisService();
-        service.setCurrentAngleDegrees(45.0f);
-        service.observePivot(8.0f, 10.0f);
+        service.observeAxis(0.0f, true, 4.0f, 6.0f);
 
-        assertNull(service.resolveLine(new State("DIAGONAL", 3.0f)));
-    }
-
-    private record State(String orientation, float axisValue) {
-        public Object b() { return orientation; }
-        public float c() { return axisValue; }
+        assertNull(service.resolveLine());
     }
 }
