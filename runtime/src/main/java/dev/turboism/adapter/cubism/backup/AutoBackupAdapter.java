@@ -34,10 +34,13 @@ public interface AutoBackupAdapter {
      * Saves one matched pack file content to {@code <name>_backup<yyyy_MMdd_HHmm>.<ext>}
      * inside the host backup directory through the verified saveDocument primitive
      * (modeling / animation / game-data; the second argument is fixed to
-     * {@code false}). Returns the produced artifact, or {@code null} when no
-     * pack file content matches the given saved file (the caller fails closed).
+     * {@code false}). Matching prefers the saved document's UID list (modeling
+     * {@code getDocumentUID}, animation {@code getSceneDocs} scene UIDs; game-data
+     * has no UID mapping) and falls back to name/path matching. Returns the
+     * produced artifact, or {@code null} when no pack file content matches the
+     * given saved file (the caller fails closed).
      */
-    File saveDocumentFor(File matchFile, long timestampMillis);
+    File saveDocumentFor(File matchFile, List<String> documentUids, long timestampMillis);
 
     static AutoBackupAdapter safeMode() {
         return SafeMode.INSTANCE;
@@ -85,7 +88,7 @@ public interface AutoBackupAdapter {
 
 
         /** Saves one matched file content to the host backup directory; see {@link AutoBackupAdapter#saveDocumentFor}. */
-        File saveDocumentFor(File matchFile, long timestampMillis);
+        File saveDocumentFor(File matchFile, List<String> documentUids, long timestampMillis);
     }
 
     enum SafeMode implements AutoBackupAdapter {
@@ -113,8 +116,11 @@ public interface AutoBackupAdapter {
         }
 
         @Override
-        public File saveDocumentFor(final File matchFile, final long timestampMillis) {
+        public File saveDocumentFor(
+            final File matchFile, final List<String> documentUids, final long timestampMillis
+        ) {
             Objects.requireNonNull(matchFile, "matchFile");
+            Objects.requireNonNull(documentUids, "documentUids");
             throw new UnsupportedOperationException("auto-backup is not available");
         }
     }

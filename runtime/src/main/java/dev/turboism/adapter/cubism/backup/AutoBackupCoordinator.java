@@ -244,7 +244,7 @@ public final class AutoBackupCoordinator implements EditorAutoBackupService, Aut
         final File matchFile = saved.filePath()
             .map(Path::toFile)
             .orElseGet(() -> new File(saved.name()));
-        final File artifact = adapter.saveDocumentFor(matchFile, startedAt);
+        final File artifact = adapter.saveDocumentFor(matchFile, saved.documentIds(), startedAt);
         if (artifact == null) {
             // No pack file content matches the saved snapshot: fail closed with a
             // self-diagnosing message (attempted identity + available pack contents).
