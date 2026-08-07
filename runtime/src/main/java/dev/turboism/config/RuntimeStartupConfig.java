@@ -9,6 +9,7 @@ import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.Consumer;
 
 /** Early immutable subset of the global runtime configuration needed during premain. */
@@ -19,8 +20,13 @@ public record RuntimeStartupConfig(
     boolean requestedSkipStartupInformation,
     boolean skipStartupUpdateCheck,
     boolean skipStartupSplash,
-    boolean skipStartupInformation
+    boolean skipStartupInformation,
+    Set<String> disabledHookIds
 ) {
+
+    public RuntimeStartupConfig {
+        disabledHookIds = Set.copyOf(Objects.requireNonNull(disabledHookIds, "disabledHookIds"));
+    }
 
     public RuntimeStartupConfig(
         final boolean safeMode,
@@ -35,8 +41,13 @@ public record RuntimeStartupConfig(
             skipStartupInformation,
             !safeMode && skipStartupUpdateCheck,
             !safeMode && skipStartupSplash,
-            !safeMode && skipStartupInformation
+            !safeMode && skipStartupInformation,
+            Set.of()
         );
+    }
+
+    public boolean hookEnabled(final String hookId) {
+        return !safeMode && !disabledHookIds.contains(Objects.requireNonNull(hookId, "hookId"));
     }
 
     private static final ObjectMapper JSON = new ObjectMapper();
@@ -79,11 +90,17 @@ public record RuntimeStartupConfig(
             final boolean requestedUpdate = startup.path("skipUpdateCheck").asBoolean(false);
             final boolean requestedSplash = startup.path("skipSplash").asBoolean(false);
             final boolean requestedInformation = startup.path("skipInformation").asBoolean(false);
+            final java.util.Set<String> disabledHookIds = new java.util.LinkedHashSet<>();
+            root.path("hooks").path("disabledIds").forEach(value -> disabledHookIds.add(value.asText()));
             return new RuntimeStartupConfig(
                 safeMode,
                 requestedUpdate,
                 requestedSplash,
-                requestedInformation
+                requestedInformation,
+                !safeMode && requestedUpdate,
+                !safeMode && requestedSplash,
+                !safeMode && requestedInformation,
+                disabledHookIds
             );
         } catch (IOException | RuntimeException failure) {
             report(diagnostic, "RUNTIME_STARTUP_CONFIG_UNREADABLE");
