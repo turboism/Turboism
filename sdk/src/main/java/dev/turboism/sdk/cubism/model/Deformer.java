@@ -31,6 +31,33 @@ public interface Deformer {
         throw unavailable("Deformer name");
     }
 
+    /**
+     * Renames this Deformer (Inspector {@code name} entry) inside the native Undo
+     * envelope, then refreshes the Part and Deformer palettes.
+     */
+    default void setName(final String name) {
+        throw unavailable("Deformer name editing");
+    }
+
+    /**
+     * Renames this Deformer's Cubism ID (Inspector {@code id} entry) mirroring the
+     * Inspector sequence (id rules, undo envelope, model instance refresh, verify,
+     * palette refresh).
+     */
+    default void setId(final DeformerId id) {
+        throw unavailable("Deformer ID editing");
+    }
+
+    /**
+     * Reparents this Deformer to another Deformer (Inspector {@code targetDeformer}
+     * entry, "所属变形器"). An empty value detaches it to the model root. The host's
+     * undo-aware {@code changeTargetDeformer} is used, so nested Undo entries are
+     * preserved; self-assignment, no-ops and descendant targets fail closed.
+     */
+    default void setTargetDeformer(final Optional<DeformerId> target) {
+        throw unavailable("Deformer target-deformer editing");
+    }
+
     default boolean visible() {
         throw unavailable("Deformer visibility");
     }
@@ -69,6 +96,24 @@ public interface Deformer {
 
     default Color screenColor() {
         throw unavailable("Deformer screen color");
+    }
+
+    /**
+     * Writes the Deformer multiply color (Inspector {@code multiplyColor} entry)
+     * inside the native Undo envelope. Requires a Cubism 4.2+ target version
+     * (CUB3-3264 gate); channels must be within {@code [0,1]}.
+     */
+    default void setMultiplyColor(final Color color) {
+        throw unavailable("Deformer multiply-color editing");
+    }
+
+    /**
+     * Writes the Deformer screen color (Inspector {@code screenColor} entry) inside
+     * the native Undo envelope. Requires a Cubism 4.2+ target version (CUB3-3265
+     * gate); channels must be within {@code [0,1]}.
+     */
+    default void setScreenColor(final Color color) {
+        throw unavailable("Deformer screen-color editing");
     }
 
     default int parentPartIndex() {

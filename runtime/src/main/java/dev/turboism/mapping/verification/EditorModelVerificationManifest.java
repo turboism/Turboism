@@ -7,7 +7,7 @@ public final class EditorModelVerificationManifest {
 
     public static final String VERIFICATION_ID = "cubism-5.3.02.editor-model.static";
     public static final String RECORD_SHA256 =
-        "faa5ec096c7d358eb168767508c88e3b9ad99a19533500871a6dadc5d33735a1";
+        "f5561e98e2ef624d0f06fdde49b275fd31ae6ecce6bba1ff667b0bb667914ec9";
     public static final String CUBISM_VERSION = "5.3.02";
     public static final String PROFILE_ID = "cubism-5.3.02";
     public static final long ARTIFACT_SIZE = 41_922_739L;
@@ -58,7 +58,10 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.morph-target.read",
         "cubism.editor-model.morph-target.write",
         "cubism.editor-model.parameter-structure.write",
-        "cubism.editor-model.part-structure.write"
+        "cubism.editor-model.part-structure.write",
+        "cubism.editor-model.part-inspector.write",
+        "cubism.editor-model.deformer-inspector.write",
+        "cubism.editor-model.glue-inspector.write"
     );
     private static final Set<String> STRUCTURE_ALIASES = Set.of(
         "cubism.editor-model.copy-helper.copy",
@@ -160,6 +163,15 @@ public final class EditorModelVerificationManifest {
             )
         )
     ;
+
+    private static final Set<String> INSPECTOR_WRITE_ALIASES = union(
+        union(
+            EditorDeformerInspectorSelectorContract.REQUIRED_ALIASES,
+            EditorPartInspectorSelectorContract.REQUIRED_ALIASES
+        ),
+        EditorGlueInspectorSelectorContract.REQUIRED_ALIASES
+    );
+
     public static final Set<String> REQUIRED_ALIASES = union(union(Set.of(
         "cubism.editor-model.app-controller.class",
         "cubism.editor-model.app-controller.instance",
@@ -438,7 +450,33 @@ public final class EditorModelVerificationManifest {
             ),
             EditorModelInstanceReadSelectorContract.REQUIRED_ALIASES
         )),
-        TEXTURE_ATLAS_ALIASES);
+        union(
+            INSPECTOR_WRITE_ALIASES,
+            TEXTURE_ATLAS_ALIASES
+        )
+    );
+
+    /**
+     * Aliases exclusive to the Cubism 5.3.02 Part Inspector entries (clip
+     * mask / alpha composition / instance-level part access); absent from the
+     * 5.2 record, so they are removed from the 5.2 manifest alias set while
+     * shared aliases (including the Glue drawable ArtMesh resolution aliases)
+     * are preserved.
+     */
+    private static final Set<String> PART_INSPECTOR_5302_ONLY_ALIASES = Set.of(
+        "cubism.editor-model.part.id",
+        "cubism.editor-model.part.current-keyform",
+        "cubism.editor-model.part-source.clip-guid-list",
+        "cubism.editor-model.part-source.alpha-composition",
+        "cubism.editor-model.part-source.set-alpha-composition",
+        "cubism.editor-model.alpha-composition.class",
+        "cubism.editor-model.alpha-composition.over",
+        "cubism.editor-model.alpha-composition.atop",
+        "cubism.editor-model.alpha-composition.out",
+        "cubism.editor-model.alpha-composition.conjoint",
+        "cubism.editor-model.alpha-composition.disjoint"
+    );
+
     private static final Set<String> PART_OPACITY_ADDITIVE_ALIASES = Set.of(
         "cubism.editor-model.model-source.parts",
         "cubism.editor-model.model-source.update-instances",
@@ -548,6 +586,8 @@ public final class EditorModelVerificationManifest {
         final java.util.HashSet<String> values = new java.util.HashSet<>(CAPABILITY_IDS);
         values.remove(EditorPartOpacitySelectorContract.CAPABILITY_ID);
         values.add(EditorPartOpacity52SelectorContract.CAPABILITY_ID);
+        values.remove(EditorPartInspectorSelectorContract.CAPABILITY_ID);
+        values.add(EditorPartInspector52SelectorContract.CAPABILITY_ID);
         return Set.copyOf(values);
     }
 
@@ -572,6 +612,8 @@ public final class EditorModelVerificationManifest {
         values.removeAll(PART_OPACITY_ADDITIVE_ALIASES);
         values.removeAll(EditorObjectReadSelectorContract.OFFSCREEN_STATISTICS_ALIASES);
         values.addAll(EditorPartOpacity52SelectorContract.REQUIRED_ALIASES);
+        values.removeAll(PART_INSPECTOR_5302_ONLY_ALIASES);
+        values.addAll(EditorPartInspector52SelectorContract.REQUIRED_ALIASES);
         values.addAll(PART_NAME_ADDITIVE_ALIASES);
         values.addAll(Set.of(
             "cubism.editor-model.model-source.update-instances",
