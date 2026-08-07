@@ -12,9 +12,11 @@ import java.util.concurrent.atomic.AtomicReference;
 /**
  * Static bridge called only by verified file-chooser bytecode transformers.
  *
- * <p>Ingress is fail-closed: when the separation feature is disabled, when the
- * dialog was not opened from an export flow, or when reflection fails, the
- * bridge does nothing and never destabilizes the save dialog.
+ * <p>Both contexts are handled when separation is enabled: export-flow save
+ * dialogs apply/capture {@code exportRecentDirectory}, all other save dialogs
+ * (project saves) apply/capture {@code projectRecentDirectory}. Ingress is
+ * fail-closed: when the separation feature is disabled or reflection fails,
+ * the bridge does nothing and never destabilizes the save dialog.
  */
 public final class NativeFileChooserHistoryBridge {
 
@@ -60,16 +62,18 @@ public final class NativeFileChooserHistoryBridge {
 
     private void prepare(final Object chooser) {
         try {
-            if (!service.exportSeparationEnabled() || !isExportContext()) {
+            if (!service.exportSeparationEnabled()) {
                 return;
             }
-            final Optional<Path> exportDirectory = service.exportRecentDirectory();
-            if (exportDirectory.isEmpty()) {
+            final Optional<Path> directory = isExportContext()
+                ? service.exportRecentDirectory()
+                : service.projectRecentDirectory();
+            if (directory.isEmpty()) {
                 return;
             }
             FileChooserHistoryHostAdapter.applyHistory(
                 chooser,
-                List.of(exportDirectory.orElseThrow().toFile())
+                List.of(directory.orElseThrow().toFile())
             );
         } catch (Throwable failure) {
             System.err.println(
@@ -81,14 +85,18 @@ public final class NativeFileChooserHistoryBridge {
 
     private void finish(final Object chooser) {
         try {
-            if (!service.exportSeparationEnabled() || !isExportContext()) {
+            if (!service.exportSeparationEnabled()) {
                 return;
             }
             final List<File> history = FileChooserHistoryHostAdapter.captureHistory(chooser);
             if (history.isEmpty()) {
                 return;
             }
-            service.setExportRecentDirectory(history.get(0).toPath());
+            if (isExportContext()) {
+                service.setExportRecentDirectory(history.get(0).toPath());
+            } else {
+                service.setProjectRecentDirectory(history.get(0).toPath());
+            }
         } catch (Throwable failure) {
             System.err.println(
                 "Turboism file-chooser history capture failed safely: "
