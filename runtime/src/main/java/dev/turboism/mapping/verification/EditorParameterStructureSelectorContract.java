@@ -55,6 +55,7 @@ public final class EditorParameterStructureSelectorContract {
             "cubism.editor-model.id.value",
             "cubism.editor-model.parameter-group.class",
             "cubism.editor-model.parameter-group.create",
+            "cubism.editor-model.parameter-group-guid.create",
             "cubism.editor-model.parameter-group-id.create",
             "cubism.editor-model.parameter-group.handler",
             "cubism.editor-model.parameter-group.guid",

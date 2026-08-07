@@ -260,9 +260,14 @@ final class EditorMorphTargetAccess {
                 "cubism.editor-model.edit-mode.begin", editMode, "Turboism: Set Morph Target");
             boolean completed = false;
             try {
-                final Object set = currentSet(objectSource);
+                // Host mechanism: MorphTargetParameterUtils.changeMorphTargetParameter_exe wraps the
+                // binding change in ChangeMorphTargetParameterUndoRedo whose constructor captures the
+                // old parameter/key value and applies the new binding immediately (construct-and-redo);
+                // undo() restores oldParameterGuid/oldKeyValue, redo() re-applies the new binding.
+                final Object utils = resolver.readStaticField("cubism.editor-model.morph-target-utils.instance");
                 final Object undo = resolver.invoke(
-                    "cubism.editor-model.morph-target-set.create-undo", set, "Turboism: Set Morph Target");
+                    "cubism.editor-model.morph-target.change-parameter",
+                    utils, expected, parameterGuid(source, id), Float.valueOf(value));
                 final Object accepted = resolver.invoke("cubism.editor-model.undo.add", edit, undo, Boolean.TRUE);
                 if (!(accepted instanceof Boolean acceptedValue) || !acceptedValue) {
                     throw new IllegalStateException("Cubism rejected the Morph Target Undo entry.");
@@ -276,12 +281,6 @@ final class EditorMorphTargetAccess {
                     }
                 );
                 resolver.invoke("cubism.editor-model.undo.add-listener", undo, listener);
-                resolver.invoke(
-                    "cubism.editor-model.morph-target.set-parameter-and-key-value",
-                    expected,
-                    parameterGuid(source, id),
-                    Float.valueOf(value)
-                );
                 resolver.invoke("cubism.editor-model.model-source.update-instances", source);
                 refresh(app);
                 resolver.invoke("cubism.editor-model.modeling-document.mark-dirty", document);

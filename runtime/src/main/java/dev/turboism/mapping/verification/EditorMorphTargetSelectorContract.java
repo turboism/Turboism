@@ -48,10 +48,9 @@ public final class EditorMorphTargetSelectorContract {
             "cubism.editor-model.model-source.update-instances",
             "cubism.editor-model.complete-pack.update-part-palette",
             "cubism.editor-model.complete-pack.repaint-canvas",
-            "cubism.editor-model.morph-target-set.create-undo",
             "cubism.editor-model.morph-target-set.remove",
-            "cubism.editor-model.morph-target.set-parameter",
-            "cubism.editor-model.morph-target.set-parameter-and-key-value"
+            "cubism.editor-model.morph-target-utils.instance",
+            "cubism.editor-model.morph-target.change-parameter"
         ));
         return Set.copyOf(aliases);
     }

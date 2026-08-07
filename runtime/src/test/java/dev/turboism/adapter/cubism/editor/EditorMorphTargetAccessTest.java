@@ -48,6 +48,40 @@ class EditorMorphTargetAccessTest {
     }
 
     @Test
+    void morphTargetWriteUndoRedoRestoresTheOriginalBinding() {
+        // Reproduces the matrix morphTarget sequence: the host ChangeMorphTargetParameterUndoRedo
+        // registered by MorphTargetParameterUtils.changeMorphTargetParameter_exe must restore the
+        // original parameter/key binding on undo, re-apply on redo, and restore again on undo.
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        final EditorMorphTargetAccess access = new EditorMorphTargetAccess(
+            resolver(true), (identity, model) -> { });
+        final var targets = access.morphTargets("session-a", fixture.source, fixture.model, fixture.objectSource);
+        final MorphTarget target = targets.find(new ParameterId("EyeParam"));
+
+        // write: construct-and-redo applies the new binding immediately
+        target.setParameterAndKeyValue(new ParameterId("MouthParam"), 0.75F);
+        assertEquals("MouthParam", fixture.target1.parameter.value);
+        assertEquals(0.75F, fixture.target1.keyValue);
+        assertEquals(1, fixture.editMode.edits.size());
+
+        // undo: host undo restores the original parameter and key value
+        fixture.editMode.undo();
+        assertEquals("EyeParam", fixture.target1.parameter.value);
+        assertEquals(1.0F, fixture.target1.keyValue);
+
+        // redo: re-applies the new binding
+        fixture.editMode.redo();
+        assertEquals("MouthParam", fixture.target1.parameter.value);
+        assertEquals(0.75F, fixture.target1.keyValue);
+
+        // undo again: restores the original binding once more
+        fixture.editMode.undo();
+        assertEquals("EyeParam", fixture.target1.parameter.value);
+        assertEquals(1.0F, fixture.target1.keyValue);
+    }
+
+    @Test
     void missingCapabilityFailsClosed() {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -88,16 +122,16 @@ class EditorMorphTargetAccessTest {
         selectors.add(method("cubism.editor-model.parameter-controllable.morph-target-set", ObjectSource.class, "morphTargetSet", desc(MorphTargetSet.class)));
         selectors.add(StaticSelector.classSelector("cubism.editor-model.morph-target-set.class", internal(MorphTargetSet.class)));
         selectors.add(method("cubism.editor-model.morph-target-set.morph-targets", MorphTargetSet.class, "morphTargets", "()Ljava/util/List;"));
-        selectors.add(method("cubism.editor-model.morph-target-set.create-undo", MorphTargetSet.class, "createUndo", "(Ljava/lang/String;)" + type(Undo.class)));
         selectors.add(method("cubism.editor-model.morph-target-set.remove", MorphTargetSet.class, "remove", "(L" + internal(HostMorphTarget.class) + ";)V"));
+        selectors.add(StaticSelector.field("cubism.editor-model.morph-target-utils.instance", internal(MorphTargetParameterUtils.class), "a",
+            "L" + internal(MorphTargetParameterUtils.class) + ";",
+            StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC));
+        selectors.add(method("cubism.editor-model.morph-target.change-parameter", MorphTargetParameterUtils.class, "a",
+            "(L" + internal(HostMorphTarget.class) + ";L" + internal(HostParameterGuid.class) + ";Ljava/lang/Float;)" + type(Undo.class)));
         selectors.add(StaticSelector.classSelector("cubism.editor-model.morph-target.class", internal(HostMorphTarget.class)));
         selectors.add(method("cubism.editor-model.morph-target.parameter-guid", HostMorphTarget.class, "parameterGuid", desc(HostParameterGuid.class)));
         selectors.add(method("cubism.editor-model.morph-target.key-value", HostMorphTarget.class, "keyValue", "()Ljava/lang/Float;"));
         selectors.add(method("cubism.editor-model.morph-target.keyform-guid", HostMorphTarget.class, "keyformGuid", desc(HostParameterGuid.class)));
-        selectors.add(method("cubism.editor-model.morph-target.set-parameter-and-key-value", HostMorphTarget.class, "setParameterAndKeyValue",
-            "(L" + internal(HostParameterGuid.class) + ";Ljava/lang/Float;)V"));
-        selectors.add(method("cubism.editor-model.morph-target.set-parameter", HostMorphTarget.class, "setParameter",
-            "(L" + internal(HostParameterGuid.class) + ";)V"));
         selectors.add(method("cubism.editor-model.model-source.parameter-source-set", ModelSource.class, "parameterSourceSet", desc(ParameterSourceSet.class)));
         selectors.add(StaticSelector.classSelector("cubism.editor-model.parameter-source-set.class", internal(ParameterSourceSet.class)));
         selectors.add(method("cubism.editor-model.parameter-source-set.get", ParameterSourceSet.class, "get", "(L" + internal(HostParameterGuid.class) + ";)L" + internal(ParameterSource.class) + ";"));
@@ -162,8 +196,39 @@ class EditorMorphTargetAccessTest {
     public static final class MorphTargetSet {
         final List<HostMorphTarget> targets = new ArrayList<>();
         public List<HostMorphTarget> morphTargets() { return targets; }
-        public Undo createUndo(final String name) { return new Undo(true); }
         public void remove(final HostMorphTarget target) { targets.remove(target); }
+    }
+    public static final class MorphTargetParameterUtils {
+        public static final MorphTargetParameterUtils a = new MorphTargetParameterUtils();
+        public Undo a(
+            final HostMorphTarget target, final HostParameterGuid guid, final Float value
+        ) {
+            return new ChangeMorphTargetParameterUndoRedo(target, guid, value);
+        }
+    }
+
+    /** Mirrors host ChangeMorphTargetParameterUndoRedo: constructor applies the new binding
+     *  (construct-and-redo), undo() restores oldParameterGuid/oldKeyValue, redo() re-applies. */
+    public static final class ChangeMorphTargetParameterUndoRedo extends Undo {
+        final HostMorphTarget target;
+        final HostParameterGuid newGuid;
+        final Float newValue;
+        HostParameterGuid oldGuid;
+        Float oldValue;
+        ChangeMorphTargetParameterUndoRedo(
+            final HostMorphTarget target, final HostParameterGuid newGuid, final Float newValue) {
+            super(true);
+            this.target = target;
+            this.newGuid = newGuid;
+            this.newValue = newValue;
+            redo();
+        }
+        @Override public void undo() { target.setParameterAndKeyValue(oldGuid, oldValue); }
+        @Override public void redo() {
+            oldGuid = target.parameter;
+            oldValue = target.keyValue;
+            target.setParameterAndKeyValue(newGuid, newValue);
+        }
     }
 
     public static final class HostMorphTarget {
@@ -217,9 +282,26 @@ class EditorMorphTargetAccessTest {
 
     public static final class EditMode {
         final List<Undo> edits = new ArrayList<>();
+        private final List<Undo> redoStack = new ArrayList<>();
         boolean aborted;
         public GroupUndo begin(final String name) { return new GroupUndo(edits); }
         public void end(final boolean abort, final Object ignored) { aborted = abort; }
+        /** Simulates the host native Undo command: unwinds the last undoable entry. */
+        public void undo() {
+            if (!edits.isEmpty()) {
+                final Undo entry = edits.remove(edits.size() - 1);
+                redoStack.add(entry);
+                entry.undo();
+            }
+        }
+        /** Simulates the host native Redo command: re-applies the last undone entry. */
+        public void redo() {
+            if (!redoStack.isEmpty()) {
+                final Undo entry = redoStack.remove(redoStack.size() - 1);
+                edits.add(entry);
+                entry.redo();
+            }
+        }
     }
 
     public static final class GroupUndo extends Undo {
@@ -233,6 +315,8 @@ class EditorMorphTargetAccessTest {
         Undo() { this.captured = false; }
         Undo(final boolean captured) { this.captured = captured; }
         public boolean addListener(final Listener listener) { return true; }
+        public void undo() { }
+        public void redo() { }
     }
 
     @FunctionalInterface public interface Listener { void changed(Object ignored); }

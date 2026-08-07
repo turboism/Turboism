@@ -7,7 +7,7 @@ public final class EditorModelVerificationManifest {
 
     public static final String VERIFICATION_ID = "cubism-5.3.02.editor-model.static";
     public static final String RECORD_SHA256 =
-        "8ca065930269ec722ca23e04344ca3f8d436501dd5641cafc97a13014316ef00";
+        "dab2f24122d5af0a98a89faa460b1a87990d82bd8dd5406aef00fc700c937911";
     public static final String CUBISM_VERSION = "5.3.02";
     public static final String PROFILE_ID = "cubism-5.3.02";
     public static final long ARTIFACT_SIZE = 41_922_739L;
@@ -79,6 +79,8 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.morph-target-set.create-undo",
         "cubism.editor-model.morph-target-set.morph-targets",
         "cubism.editor-model.morph-target-set.remove",
+        "cubism.editor-model.morph-target-utils.instance",
+        "cubism.editor-model.morph-target.change-parameter",
         "cubism.editor-model.morph-target.class",
         "cubism.editor-model.morph-target.key-value",
         "cubism.editor-model.morph-target.keyform-guid",
@@ -89,6 +91,7 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.parameter-group-handler.add-parameter-child",
         "cubism.editor-model.parameter-group-handler.class",
         "cubism.editor-model.parameter-group-handler.remove-descendant",
+        "cubism.editor-model.parameter-group-guid.create",
         "cubism.editor-model.parameter-group-id.create",
         "cubism.editor-model.parameter-group.create",
         "cubism.editor-model.parameter-group.guid",
