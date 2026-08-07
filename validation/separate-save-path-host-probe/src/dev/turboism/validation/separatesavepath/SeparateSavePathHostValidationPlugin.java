@@ -234,7 +234,10 @@ public final class SeparateSavePathHostValidationPlugin implements TurboismPlugi
         final Path expected,
         final List<String> failures
     ) {
-        final String expectedText = expected.toAbsolutePath().normalize().toString();
+        // Jackson escapes backslashes when persisting Windows paths into
+        // config.json, so compare against the JSON-escaped form.
+        final String expectedText = expected.toAbsolutePath().normalize()
+            .toString().replace("\\", "\\\\");
         final String quotedField = "\"" + field + "\"";
         final int fieldIndex = json.indexOf(quotedField);
         if (fieldIndex < 0) {
