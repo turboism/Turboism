@@ -420,6 +420,11 @@ final class EditorPartOpacityAccess {
         final List<ArtMeshId> masks
     ) {
         final List<ArtMeshId> requested = List.copyOf(Objects.requireNonNull(masks, "masks"));
+        if (isCubism52()) {
+            throw new UnsupportedOperationException(
+                "Part clipping masks are unavailable on Cubism 5.2 hosts (CPartSource clip-guid list introduced in 5.3)."
+            );
+        }
         requirePartInspector5302Authorization();
         final PartBinding current = requireCurrentPart(
             identity, source, model, id, expectedSource, expectedPart
@@ -452,6 +457,11 @@ final class EditorPartOpacityAccess {
         Objects.requireNonNull(composition, "composition");
         if (composition == AlphaComposition.UNKNOWN) {
             throw new IllegalArgumentException("alpha composition must be a concrete mode");
+        }
+        if (isCubism52()) {
+            throw new UnsupportedOperationException(
+                "Part alpha composition is unavailable on Cubism 5.2 hosts (AlphaComposition introduced in 5.3)."
+            );
         }
         requirePartInspector5302Authorization();
         final PartBinding current = requireCurrentPart(
@@ -644,6 +654,11 @@ final class EditorPartOpacityAccess {
         final PartBinding binding
     ) {
         modelGuard.requireCurrent(identity, model);
+        if (isCubism52()) {
+            throw new UnsupportedOperationException(
+                "Part clipping masks are unavailable on Cubism 5.2 hosts (CPartSource clip-guid list introduced in 5.3)."
+            );
+        }
         final Object clipList = resolver.invoke(
             "cubism.editor-model.part-source.clip-guid-list", binding.source()
         );
@@ -679,6 +694,11 @@ final class EditorPartOpacityAccess {
     }
 
     AlphaComposition alphaComposition(final PartBinding binding) {
+        if (isCubism52()) {
+            throw new UnsupportedOperationException(
+                "Part alpha composition is unavailable on Cubism 5.2 hosts (AlphaComposition introduced in 5.3)."
+            );
+        }
         final Object host = resolver.invoke(
             "cubism.editor-model.part-source.alpha-composition", binding.source()
         );

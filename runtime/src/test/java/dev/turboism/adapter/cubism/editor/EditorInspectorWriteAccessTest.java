@@ -170,6 +170,10 @@ class EditorInspectorWriteAccessTest {
         assertEquals(1, fixture.editMode.edits.size());
 
         final var renamed = access.active().parts().find(new PartId("Part52Renamed"));
+        // Reads and writes both fail closed on 5.2 with UnsupportedOperationException
+        // (never VerifiedAccessException from a missing 5.3-only alias).
+        assertThrows(UnsupportedOperationException.class, () -> renamed.maskIds());
+        assertThrows(UnsupportedOperationException.class, () -> renamed.alphaComposition());
         assertThrows(UnsupportedOperationException.class, () -> renamed.setMaskIds(List.of(new ArtMeshId("ArtA"))));
         assertThrows(UnsupportedOperationException.class, () -> renamed.setAlphaComposition(AlphaComposition.OUT));
         assertEquals(1, fixture.editMode.edits.size());
