@@ -43,6 +43,7 @@ public final class VerifiedAutoBackupHostOperations implements AutoBackupAdapter
         static final String GET_MAX_MB = "cubism.auto-backup.get-max-mb";
         static final String UPDATE = "cubism.auto-backup.update";
         static final String BACKUP_DIR = "cubism.auto-backup.backup-dir";
+        static final String APP_CONTROLLER_INSTANCE = "cubism.auto-backup.app-controller.instance";
         static final String APP_CONTROLLER_CLASS = "cubism.auto-backup.app-controller.class";
         static final String APP_CONTROLLER_GET_COMPLETE_PACK = "cubism.auto-backup.app-controller.get-complete-pack";
         static final String COMPLETE_PACK_CLASS = "cubism.auto-backup.complete-pack.class";
@@ -58,7 +59,7 @@ public final class VerifiedAutoBackupHostOperations implements AutoBackupAdapter
         }
     }
 
-    static final String APP_INSTANCE = "cubism.ui-top-menu.app-controller.instance";
+    static final String APP_INSTANCE = "cubism.auto-backup.app-controller.instance";
 
     private final VerifiedMemberResolver resolver;
 
