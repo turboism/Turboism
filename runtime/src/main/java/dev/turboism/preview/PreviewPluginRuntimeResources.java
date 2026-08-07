@@ -40,7 +40,8 @@ record PreviewPluginRuntimeResources(
         final PartLifecycleCoordinator partLifecycle,
         final EditorObjectLifecycleCoordinator editorObjectLifecycle,
         final ProjectFileLifecycleCoordinator projectFileLifecycle,
-        final EditorLifecycleCoordinator editorLifecycleEvents
+        final EditorLifecycleCoordinator editorLifecycleEvents,
+        final dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistory
     ) {
         final Path normalizedHome = Objects.requireNonNull(home, "home").toAbsolutePath().normalize();
         final SharedAsyncHostReadLane lane = new SharedAsyncHostReadLane(32);
@@ -65,7 +66,7 @@ record PreviewPluginRuntimeResources(
         return assemble(
             normalizedHome, runtimeScheduler, runtimeHostAccess, lane, runtimeLog, collector,
             pluginCloseHook, loaded, parameterHookRegistry, partHookRegistry,
-            editorObjectHookRegistry, projectLifecycleHookRegistry
+            editorObjectHookRegistry, projectLifecycleHookRegistry, fileChooserHistory
         );
     }
 
@@ -81,7 +82,8 @@ record PreviewPluginRuntimeResources(
         final ParameterHookRegistry parameterHookRegistry,
         final PartHookRegistry partHookRegistry,
         final EditorObjectHookRegistry editorObjectHookRegistry,
-        final ProjectLifecycleHookRegistry projectLifecycleHookRegistry
+        final ProjectLifecycleHookRegistry projectLifecycleHookRegistry,
+        final dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistory
     ) {
         final dev.turboism.pluginmanagement.RuntimePluginManagementService pluginManagement =
             new dev.turboism.pluginmanagement.RuntimePluginManagementService(home, () -> loaded.stream()
@@ -98,7 +100,7 @@ record PreviewPluginRuntimeResources(
                 })
                 .toList());
         final PreviewPluginContextFactory contextFactory = new PreviewPluginContextFactory(
-            home, scheduler, hostAccess, lane, log, failureCollector
+            home, scheduler, hostAccess, lane, log, failureCollector, fileChooserHistory
         );
         final dev.turboism.config.RuntimeSettingsFileService runtimeSettings =
             new dev.turboism.config.RuntimeSettingsFileService(

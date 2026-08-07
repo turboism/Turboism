@@ -80,6 +80,21 @@ public final class RuntimeModelObjectService implements ModelObjectService {
     }
 
     @Override
+    public ModelObjectDescriptor reparent(
+        final ModelObjectReference target,
+        final ModelObjectReference parent,
+        final int index
+    ) {
+        requireWrite("modelObjects.reparent");
+        final ModelObjectReference checkedTarget = Objects.requireNonNull(target, "target");
+        final ModelObjectReference checkedParent = Objects.requireNonNull(parent, "parent");
+        return translate(
+            "Reparent model object",
+            () -> reparent(activeModel(), checkedTarget, checkedParent, index)
+        );
+    }
+
+    @Override
     public ModelObjectDescriptor create(final ModelObjectCreateRequest request) {
         requireWrite("modelObjects.create");
         final ModelObjectCreateRequest checked = Objects.requireNonNull(request, "request");
@@ -122,6 +137,59 @@ public final class RuntimeModelObjectService implements ModelObjectService {
             }
             return null;
         });
+    }
+
+    private ModelObjectDescriptor reparent(
+        final CubismModel model,
+        final ModelObjectReference target,
+        final ModelObjectReference parent,
+        final int index
+    ) {
+        if (target.equals(parent)) {
+            throw new ModelObjectOperationException(
+                ModelObjectOperationException.Code.CONFLICT,
+                "A model object cannot be its own parent"
+            );
+        }
+        if (parent.kind() == ModelObjectKind.ART_MESH) {
+            throw new IllegalArgumentException("an ArtMesh cannot be used as a parent");
+        }
+        if (target.kind() == ModelObjectKind.PART && parent.kind() != ModelObjectKind.PART) {
+            throw new IllegalArgumentException("a Part parent must also be a Part");
+        }
+
+        final ParentResolution resolvedParent = resolveParent(model, Optional.of(parent));
+        switch (target.kind()) {
+            case PART -> model.parts().find(new PartId(target.id()))
+                .setParent(resolvedParent.part(), index);
+            case ART_MESH -> {
+                final Drawable drawable = model.drawables().find(new ArtMeshId(target.id()));
+                if (resolvedParent.deformer() != null) {
+                    drawable.setParent(resolvedParent.deformer(), index);
+                } else {
+                    drawable.setParent(resolvedParent.part(), index);
+                }
+            }
+            case WARP_DEFORMER -> {
+                final WarpDeformer deformer = model.warpDeformers()
+                    .find(new DeformerId(target.id()));
+                if (resolvedParent.deformer() != null) {
+                    deformer.setParent(resolvedParent.deformer(), index);
+                } else {
+                    deformer.setParent(resolvedParent.part(), index);
+                }
+            }
+            case ROTATION_DEFORMER -> {
+                final RotationDeformer deformer = model.rotationDeformers()
+                    .find(new DeformerId(target.id()));
+                if (resolvedParent.deformer() != null) {
+                    deformer.setParent(resolvedParent.deformer(), index);
+                } else {
+                    deformer.setParent(resolvedParent.part(), index);
+                }
+            }
+        }
+        return describe(model, target);
     }
 
     private ModelObjectDescriptor create(
