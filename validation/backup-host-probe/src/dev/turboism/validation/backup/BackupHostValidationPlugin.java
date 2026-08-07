@@ -318,14 +318,15 @@ public final class BackupHostValidationPlugin implements TurboismPlugin {
             logger.info("BACKUP_SETTINGS_WRITE_READBACK interval=3 readback=" + updated.intervalMinutes());
             // On-host persistence evidence: this editor build never flushes a
             // separate UUConfig file mid-session; the host logs the applied key
-            // into its own editor log, so the log line is the acceptance.
-            final Optional<Path> logEvidence = locateEditorLogEvidence(UU_KEY, "=3");
+            // into its own editor log, so the log line is the acceptance. The
+            // host may flush the log line asynchronously, so poll for up to 10s.
+            final Optional<Path> logEvidence = pollEditorLogEvidence(UU_KEY, "=3", 10_000L, 1_000L);
             if (logEvidence.isPresent()) {
-                logger.info("BACKUP_UUCONFIG_LOG_EVIDENCE found=true file=" + logEvidence.orElseThrow());
+                logger.info("BACKUP_UUCONFIG_LOG_EVIDENCE found=true path=" + logEvidence.orElseThrow());
             } else {
-                failures.add("editor log evidence with " + UU_KEY + "=3 not found; searched user.home for "
-                    + "**/Live2D/**/*_Editor/**/logs/log.txt (maxDepth=7, maxFiles=2000, maxBytes=2MB, "
-                    + "jars skipped)");
+                failures.add("editor log evidence with " + UU_KEY + "=3 not found after 10s; searched "
+                    + "user.home for log.txt files whose path contains Live2D and _Editor "
+                    + "(maxDepth=10, maxFiles=2000, maxBytes=8MB, jars skipped)");
             }
             // Best-effort diagnostic only: the whole-tree UUConfig file glob must
             // never fail the matrix (the host build does not persist such a file).
@@ -364,15 +365,45 @@ public final class BackupHostValidationPlugin implements TurboismPlugin {
      * file mid-session, so this log line is the on-host persistence evidence.
      * Bounded by depth, file count, and file size; never touches non-text files.
      */
+    /**
+     * Polls {@link #locateEditorLogEvidence} until the key/value fragment
+     * appears (the host may flush the editor log line asynchronously after the
+     * interval write) or the poll budget expires.
+     */
+    static Optional<Path> pollEditorLogEvidence(
+        final String key,
+        final String valueFragment,
+        final long pollMillis,
+        final long intervalMillis
+    ) {
+        final long deadline = System.currentTimeMillis() + pollMillis;
+        while (true) {
+            final Optional<Path> found = locateEditorLogEvidence(key, valueFragment);
+            if (found.isPresent()) {
+                return found;
+            }
+            if (System.currentTimeMillis() >= deadline) {
+                return Optional.empty();
+            }
+            try {
+                Thread.sleep(intervalMillis);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                return Optional.empty();
+            }
+        }
+    }
+
     static Optional<Path> locateEditorLogEvidence(final String key, final String valueFragment) {
         final Path root = Path.of(System.getProperty("user.home", "."));
-        final int maxDepth = 7;
+        final int maxDepth = 10;
         final int maxFiles = 2_000;
-        final long maxBytes = 2_000_000L;
+        final long maxBytes = 8_000_000L;
         try (Stream<Path> stream = Files.walk(root, maxDepth)) {
             return stream
                 .filter(Files::isRegularFile)
-                .filter(path -> "log.txt".equals(path.getFileName().toString()))
+                .filter(path -> !path.getFileName().toString().endsWith(".jar"))
+                .filter(path -> "log.txt".equalsIgnoreCase(path.getFileName().toString()))
                 .filter(path -> path.toString().contains("Live2D") && path.toString().contains("_Editor"))
                 .filter(path -> {
                     try {
