@@ -81,6 +81,16 @@ public final class PreviewReportSnapshotFactory {
         binding("ui.status.notify", "ui.status.notify", "turboism.ui.status.notify"),
         binding("ui.palette-toolbar.contribute", "ui.palette-toolbar.contribute", "turboism.ui.toolbar.palette.contribute"),
         binding("ui.main-toolbar.contribute", "ui.main-toolbar.contribute", "turboism.ui.toolbar.main.contribute"),
+        binding(
+            "cubism.mesh.mirror-axis-angle",
+            "cubism.mesh.mirror-axis-angle",
+            "turboism.cubism.model.write"
+        ),
+        binding(
+            "ui.mesh-edit.mirror-axis-angle",
+            "ui.mesh-edit.mirror-axis-angle.contribute",
+            "turboism.ui.panel.contribute"
+        ),
         binding("ui.dialog.automate", "ui.dialog.automate.act", "turboism.ui.dialog.automate")
     );
     private static final Set<String> KNOWN_UNMAPPED_CAPABILITIES = Set.of(
