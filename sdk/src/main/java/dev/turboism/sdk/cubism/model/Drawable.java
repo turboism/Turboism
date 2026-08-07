@@ -184,14 +184,46 @@ public interface Drawable {
         throw unavailable("ArtMesh user data editing");
     }
 
+    /**
+     * Returns this ArtMesh's authoring geometry (Inspector {@code PointInfo} projection).
+     *
+     * <p>{@code positions()} is read from the ArtMesh's <em>current keyform</em>
+     * ({@code CArtMeshForm.positions}), exactly the array the Inspector PointInfo widget
+     * moves vertices on; {@code uvs()} and {@code triangleIndices()} are read from the
+     * ArtMesh source ({@code CArtMeshSource.uvs/indices}), which is static per mesh.
+     * Vertex count is {@code geometry().positions().size()}.</p>
+     *
+     * @throws UnsupportedOperationException when the backend does not expose authoring geometry
+     */
     default ArtMeshGeometry geometry() {
         throw unavailable("ArtMesh authoring geometry");
     }
 
+    /**
+     * Commits a complete ArtMesh geometry snapshot as one Editor edit (Inspector {@code PointInfo}
+     * projection).
+     *
+     * <p>The Inspector's PointInfo widget edits <em>selected vertices</em> of the current keyform:
+     * a single-vertex move is {@code replaceGeometry(geometry().withVertexPosition(i, x, y))}
+     * (absolute) or {@code withVertexPosition(i, x + dx, y + dy)} (relative); multi-selection is
+     * one {@code replaceGeometry} with several vertices moved. This method is the SDK projection of
+     * that primitive: it writes positions to both the ArtMesh source and the current keyform form
+     * (keeping the base geometry consistent) and uvs/indices to the source, inside the verified
+     * Editor undo envelope.</p>
+     *
+     * <p>Undo semantics: the write is committed through {@code createUndoForAllEdit} — the generic
+     * Editor edit undo — because the snapshot covers source-level arrays (uvs/indices/positions)
+     * in addition to the keyform positions. The Inspector widget itself routes {@code pointInfo}
+     * through {@code createUndoForKeyformEdit}; both are host {@code ACUndoable} entries added to
+     * the same edit group, and both replay {@code updateModelInstances()} on undo/redo. The host's
+     * default-keyform edit lock (a UI guard checked by the widget) is not mirrored: the SDK write
+     * is unconditional. No-op when the geometry is unchanged.</p>
+     *
+     * @throws UnsupportedOperationException when the backend does not expose authoring geometry
+     */
     default void replaceGeometry(final ArtMeshGeometry geometry) {
         throw unavailable("ArtMesh geometry editing");
     }
-
     IntSequence masks();
 
     default boolean invertedMask() {
