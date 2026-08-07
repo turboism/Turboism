@@ -45,6 +45,7 @@ public final class PreviewRuntime implements AutoCloseable {
     private final Path hostArtifact;
     private final ShutdownLifecycle shutdownLifecycle;
     private final AtomicBoolean closed = new AtomicBoolean(false);
+    private volatile dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistoryService;
     private volatile List<ShutdownFailure> shutdownFailures = List.of();
 
     /** Package-private test composition seam; production startup uses {@link #start}. */
@@ -341,12 +342,15 @@ public final class PreviewRuntime implements AutoCloseable {
                 throw new IllegalStateException("Cubism host admission failed before plugin loading");
             }
 
+            final dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistory =
+                createFileChooserHistoryService(home, log);
             plugins = new LocalPluginRuntime(
                 home,
                 scheduler,
                 ingress.adapterAccess(),
                 log,
-                ingress.adapterAccess().parameterLifecycle()
+                ingress.adapterAccess().parameterLifecycle(),
+                fileChooserHistory
             );
             final LocalPluginRuntime.LoadReport report = plugins.loadAll();
             ingress.adapterAccess().editorLifecycleEvents().publishStartup(
@@ -377,6 +381,7 @@ public final class PreviewRuntime implements AutoCloseable {
                 normalizedVerificationRecord,
                 normalizedHostArtifact
             );
+            runtime.bindFileChooserHistoryService(fileChooserHistory);
             runtime.writeInitialReports(hostState);
             return runtime;
         } catch (RuntimeException | Error failure) {
@@ -411,6 +416,45 @@ public final class PreviewRuntime implements AutoCloseable {
 
     public dev.turboism.adapter.host.RuntimeHostAdapterAccess hostAccess() {
         return hostIngress.adapterAccess();
+    }
+
+    /** Runtime file-chooser history service (lazily bound; persistence via plugin provider). */
+    public dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistoryService() {
+        dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService service = fileChooserHistoryService;
+        if (service == null) {
+            synchronized (this) {
+                service = fileChooserHistoryService;
+                if (service == null) {
+                    service = createFileChooserHistoryService(home, log);
+                    fileChooserHistoryService = service;
+                }
+            }
+        }
+        return service;
+    }
+
+    /** Binds the shared singleton created during {@link #start}; a no-op when already bound. */
+    void bindFileChooserHistoryService(
+        final dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService service
+    ) {
+        synchronized (this) {
+            if (fileChooserHistoryService == null) {
+                fileChooserHistoryService = java.util.Objects.requireNonNull(service, "service");
+            }
+        }
+    }
+
+    private static dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService
+        createFileChooserHistoryService(final Path home, final PreviewLog log) {
+        final dev.turboism.config.RuntimeConfigRepository config =
+            new dev.turboism.config.RuntimeConfigRepository(
+                home,
+                diagnostic -> log.warn("config", diagnostic)
+            );
+        return new dev.turboism.filechooser.RuntimeFileChooserHistoryService(
+            () -> config.read().path("hooks").path("startup")
+                .path("separateExportSaveDirectory").asBoolean(false)
+        );
     }
 
     public dev.turboism.mapping.verification.VerifiedMemberResolver editorModelResolver() {

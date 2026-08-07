@@ -102,6 +102,8 @@ final class CoreWindows implements AutoCloseable {
         final JCheckBox skipUpdate = new JCheckBox(text("settings.skip-update"), value.skipStartupUpdateCheck());
         final JCheckBox skipSplash = new JCheckBox(text("settings.skip-splash"), value.skipStartupSplash());
         final JCheckBox skipInformation = new JCheckBox(text("settings.skip-information"), value.skipStartupInformation());
+        final JCheckBox separateExportSaveDirectory =
+            new JCheckBox(text("settings.separate-export-save-directory"), value.separateExportSaveDirectory());
 
         final JTabbedPane tabs = new JTabbedPane();
         final JPanel runtime = form();
@@ -114,6 +116,7 @@ final class CoreWindows implements AutoCloseable {
         add(startup, 0, skipUpdate, new JLabel());
         add(startup, 1, skipSplash, new JLabel());
         add(startup, 2, skipInformation, new JLabel());
+        add(startup, 3, separateExportSaveDirectory, new JLabel());
         tabs.addTab(text("settings.tab.startup"), startup);
 
         final JPanel maintenance = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 12));
@@ -131,7 +134,8 @@ final class CoreWindows implements AutoCloseable {
             settings.save(new RuntimeSettings(
                 safeMode.isSelected(), (String) logLevel.getSelectedItem(),
                 ((Number) maxLogStorage.getValue()).intValue(),
-                skipUpdate.isSelected(), skipSplash.isSelected(), skipInformation.isSelected()
+                skipUpdate.isSelected(), skipSplash.isSelected(), skipInformation.isSelected(),
+                separateExportSaveDirectory.isSelected()
             ));
             CoreDialogs.message(dialog, text("common.turboism"), text("settings.saved"));
         };
