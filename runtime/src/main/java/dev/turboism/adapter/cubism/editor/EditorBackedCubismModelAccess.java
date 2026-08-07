@@ -51,6 +51,7 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
     private final EditorObjectReadAccess objectReadAccess;
     private final EditorModelStatisticsAccess statisticsAccess;
     private final Object generationLock = new Object();
+    private String lazyPublishAttemptedIdentity;
     private Object activeDocument;
     private Object activeSource;
     private Object activeModel;
@@ -124,7 +125,8 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
             resolver,
             this::requireCurrent,
             this.morphTargetAccess,
-            this.evaluatedJoin
+            this.evaluatedJoin,
+            this::lazyPublishOnce
         );
         this.statisticsAccess = new EditorModelStatisticsAccess(
             resolver,
@@ -187,6 +189,58 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
                 generation = Math.incrementExact(generation);
             }
             return sessionIdentity + ":" + modelId + ":" + generation;
+        }
+    }
+
+    /**
+     * Lazy best-effort publication of the current Editor document model, attempted at most
+     * once per binding identity. Called when the first evaluated read fails with
+     * MODEL_UNAVAILABLE; the mark is written under the generation lock (short critical
+     * section, no resolver invocation inside), the resolution and publish run outside it.
+     *
+     * <p>Resolution follows the same verified alias chain as the host connector's
+     * resolveBorrowedModel. Any missing value or resolution failure yields false: the
+     * original MODEL_UNAVAILABLE failure propagates and this identity is never retried.
+     * A new binding identity (document/model switch) may attempt again.</p>
+     */
+    private boolean lazyPublishOnce(final String identity) {
+        synchronized (generationLock) {
+            if (identity.equals(lazyPublishAttemptedIdentity)) {
+                return false;
+            }
+            lazyPublishAttemptedIdentity = identity;
+        }
+        try {
+            final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
+            if (app == null) {
+                return false;
+            }
+            final Object document = resolver.invoke(
+                "cubism.editor-model.app-controller.current-document", app
+            );
+            if (!resolver.isInstance("cubism.editor-model.modeling-document.class", document)) {
+                return false;
+            }
+            final Object source = resolver.invoke(
+                "cubism.editor-model.modeling-document.model-source", document
+            );
+            if (source == null) {
+                return false;
+            }
+            final Object model = resolver.invoke(
+                "cubism.editor-model.model-source.current-instance", source
+            );
+            if (!resolver.isInstance("cubism.editor-model.model.class", model)) {
+                return false;
+            }
+            final Object guid = resolver.invoke("cubism.editor-model.model-source.guid", source);
+            final Object rawModelId = resolver.invoke("cubism.editor-model.guid.value", guid);
+            if (!(rawModelId instanceof String modelId) || modelId.isBlank()) {
+                return false;
+            }
+            return evaluatedJoin.tryPublish(model, sessionIdentity + ":" + modelId);
+        } catch (RuntimeException unavailable) {
+            return false;
         }
     }
 
