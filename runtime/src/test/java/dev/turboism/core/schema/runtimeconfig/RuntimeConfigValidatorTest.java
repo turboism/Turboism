@@ -39,12 +39,9 @@ class RuntimeConfigValidatorTest {
     }
 
     @Test
-    void acceptsFileChooserHistorySectionAndSeparateExportFlag() {
+    void acceptsSeparateExportSaveDirectoryFlag() {
         final ObjectNode root = base();
         root.withObject("hooks").withObject("startup").put("separateExportSaveDirectory", true);
-        final ObjectNode section = root.putObject("fileChooserHistory");
-        section.put("projectRecentDirectory", "C:/saves/project");
-        section.put("exportRecentDirectory", "C:/exports");
 
         assertTrue(validator.validate(root, "test.json").isEmpty());
     }
@@ -59,38 +56,11 @@ class RuntimeConfigValidatorTest {
     }
 
     @Test
-    void rejectsFileChooserHistoryThatIsNotAnObject() {
+    void rejectsFileChooserHistorySectionAsUnknownField() {
         final ObjectNode root = base();
-        root.putArray("fileChooserHistory").add("x");
+        root.putObject("fileChooserHistory").put("exportRecentDirectory", "C:/exports");
 
-        final List<String> codes = codes(root);
-        assertTrue(codes.contains("RUNTIME_CONFIG_BAD_TYPE"));
-    }
-
-    @Test
-    void rejectsNonStringDirectoryValues() {
-        final ObjectNode root = base();
-        root.withObject("fileChooserHistory").put("exportRecentDirectory", 42);
-
-        final List<String> codes = codes(root);
-        assertTrue(codes.contains("RUNTIME_CONFIG_BAD_TYPE"));
-    }
-
-    @Test
-    void rejectsEmptyDirectoryStrings() {
-        final ObjectNode root = base();
-        root.withObject("fileChooserHistory").put("projectRecentDirectory", "  ");
-
-        assertTrue(codes(root).contains("RUNTIME_CONFIG_BAD_TYPE"));
-    }
-
-    @Test
-    void rejectsUnknownFileChooserHistoryField() {
-        final ObjectNode root = base();
-        root.withObject("fileChooserHistory").put("recentDirectories", "C:/x");
-
-        final List<String> codes = codes(root);
-        assertTrue(codes.contains("RUNTIME_CONFIG_UNKNOWN_FIELD"));
+        assertTrue(codes(root).contains("RUNTIME_CONFIG_UNKNOWN_FIELD"));
     }
 
     @Test
@@ -110,18 +80,6 @@ class RuntimeConfigValidatorTest {
     void rejectsSeparateExportFlagOfWrongType() {
         final ObjectNode root = base();
         root.withObject("hooks").withObject("startup").put("separateExportSaveDirectory", "yes");
-
         assertTrue(codes(root).contains("RUNTIME_CONFIG_BAD_TYPE"));
-    }
-
-    @Test
-    void errorCarriesTheSectionPath() {
-        final ObjectNode root = base();
-        root.putObject("fileChooserHistory").put("exportRecentDirectory", 1);
-
-        final SchemaValidationError error = validator.validate(root, "test.json").stream()
-            .filter(e -> e.code().equals("RUNTIME_CONFIG_BAD_TYPE"))
-            .findFirst().orElseThrow();
-        assertEquals("fileChooserHistory.exportRecentDirectory", error.path());
     }
 }
