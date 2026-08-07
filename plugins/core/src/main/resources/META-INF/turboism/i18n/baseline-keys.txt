@@ -36,6 +36,7 @@ settings.log-level
 settings.max-log-storage-mib
 settings.safe-mode
 settings.saved
+settings.separate-export-save-directory
 settings.skip-information
 settings.skip-splash
 settings.skip-update
