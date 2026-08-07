@@ -20,11 +20,37 @@ public record WebDavConfig(
     boolean verifyTls,
     int retryMax,
     long retryBaseDelayMs,
-    int timeoutSeconds
+    int timeoutSeconds,
+    RemoteTrigger remoteTrigger
 ) {
+
+    /** How the remote backup is triggered. */
+    public enum RemoteTrigger {
+        /** Local save triggers the temp-file upload flow (default). */
+        SAVE_TRIGGERED,
+        /** The host's own auto-backup artifacts are scanned and uploaded. */
+        AUTO_BACKUP_SYNC
+    }
+
+    /** Convenience constructor: {@link RemoteTrigger#SAVE_TRIGGERED} default. */
+    public WebDavConfig(
+        final boolean enabled,
+        final URI url,
+        final String username,
+        final String password,
+        final String remotePath,
+        final boolean verifyTls,
+        final int retryMax,
+        final long retryBaseDelayMs,
+        final int timeoutSeconds
+    ) {
+        this(enabled, url, username, password, remotePath, verifyTls, retryMax,
+            retryBaseDelayMs, timeoutSeconds, RemoteTrigger.SAVE_TRIGGERED);
+    }
 
     public WebDavConfig {
         Objects.requireNonNull(url, "url");
+        remoteTrigger = Objects.requireNonNull(remoteTrigger, "remoteTrigger");
         String scheme = url.getScheme() == null ? "" : url.getScheme().toLowerCase();
         if (!"http".equals(scheme) && !"https".equals(scheme)) {
             throw new IllegalArgumentException("url must use http or https");

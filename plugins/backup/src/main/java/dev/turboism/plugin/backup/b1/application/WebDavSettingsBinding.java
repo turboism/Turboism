@@ -51,10 +51,13 @@ public final class WebDavSettingsBinding {
             ConfigCodecs.boundedInt(0, 60_000));
     private static final ConfigKey<Integer> TIMEOUT_SECONDS =
         new ConfigKey<>(CONFIG_ID, "timeout.seconds", DEFAULT_TIMEOUT_SECONDS, ConfigCodecs.boundedInt(1, 300));
+    private static final ConfigKey<String> REMOTE_TRIGGER =
+        new ConfigKey<>(CONFIG_ID, "remote.trigger",
+            WebDavConfig.RemoteTrigger.SAVE_TRIGGERED.name(), ConfigCodecs.stringValue(32));
 
     private static final ConfigSchema SCHEMA = new ConfigSchema(CONFIG_ID, CONFIG_PATH, 1, List.of(
         ENABLED, URL, USERNAME, PASSWORD, REMOTE_PATH, VERIFY_TLS, RETRY_MAX,
-        RETRY_BASE_DELAY_MS, TIMEOUT_SECONDS
+        RETRY_BASE_DELAY_MS, TIMEOUT_SECONDS, REMOTE_TRIGGER
     ));
 
     private PluginConfigRegistry registry;
@@ -96,14 +99,16 @@ public final class WebDavSettingsBinding {
             registry.read(RETRY_BASE_DELAY_MS).toCompletableFuture();
         final CompletableFuture<ConfigReadResult<Integer>> timeoutRead =
             registry.read(TIMEOUT_SECONDS).toCompletableFuture();
+        final CompletableFuture<ConfigReadResult<String>> remoteTriggerRead =
+            registry.read(REMOTE_TRIGGER).toCompletableFuture();
 
         return CompletableFuture
             .allOf(enabledRead, urlRead, usernameRead, passwordRead, remotePathRead,
-                verifyTlsRead, retryMaxRead, retryBaseRead, timeoutRead)
+                verifyTlsRead, retryMaxRead, retryBaseRead, timeoutRead, remoteTriggerRead)
             .thenApply(ignored -> toConfig(
                 enabledRead.join(), urlRead.join(), usernameRead.join(), passwordRead.join(),
                 remotePathRead.join(), verifyTlsRead.join(), retryMaxRead.join(),
-                retryBaseRead.join(), timeoutRead.join()
+                retryBaseRead.join(), timeoutRead.join(), remoteTriggerRead.join()
             ))
             .thenApply(config -> {
                 if (config != null) {
@@ -150,6 +155,7 @@ public final class WebDavSettingsBinding {
             .thenCompose(step -> next(step, RETRY_MAX, value.retryMax()))
             .thenCompose(step -> next(step, RETRY_BASE_DELAY_MS, (int) value.retryBaseDelayMs()))
             .thenCompose(step -> next(step, TIMEOUT_SECONDS, value.timeoutSeconds()))
+            .thenCompose(step -> next(step, REMOTE_TRIGGER, value.remoteTrigger().name()))
             .thenCompose(step -> finish(step, value));
     }
 
@@ -233,11 +239,12 @@ public final class WebDavSettingsBinding {
         final ConfigReadResult<Boolean> verifyTlsRead,
         final ConfigReadResult<Integer> retryMaxRead,
         final ConfigReadResult<Integer> retryBaseRead,
-        final ConfigReadResult<Integer> timeoutRead
+        final ConfigReadResult<Integer> timeoutRead,
+        final ConfigReadResult<String> remoteTriggerRead
     ) {
         for (ConfigReadResult<?> read : List.of(
             enabledRead, urlRead, usernameRead, passwordRead, remotePathRead,
-            verifyTlsRead, retryMaxRead, retryBaseRead, timeoutRead
+            verifyTlsRead, retryMaxRead, retryBaseRead, timeoutRead, remoteTriggerRead
         )) {
             if (read.error().isPresent()) {
                 return null; // fail closed: an unreadable key disables the target
@@ -259,10 +266,22 @@ public final class WebDavSettingsBinding {
                 verifyTlsRead.value().value(),
                 retryMaxRead.value().value(),
                 retryBaseRead.value().value(),
-                timeoutRead.value().value()
+                timeoutRead.value().value(),
+                parseRemoteTrigger(remoteTriggerRead.value().value())
             );
         } catch (IllegalArgumentException invalid) {
             return null;
+        }
+    }
+
+    private static WebDavConfig.RemoteTrigger parseRemoteTrigger(final String value) {
+        if (value == null || value.isBlank()) {
+            return WebDavConfig.RemoteTrigger.SAVE_TRIGGERED;
+        }
+        try {
+            return WebDavConfig.RemoteTrigger.valueOf(value);
+        } catch (IllegalArgumentException unknown) {
+            return WebDavConfig.RemoteTrigger.SAVE_TRIGGERED;
         }
     }
 
