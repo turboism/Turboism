@@ -315,33 +315,15 @@ public final class BackupHostValidationPlugin implements TurboismPlugin {
                 failures.add("settings write-readback mismatch: " + updated);
                 return;
             }
-            logger.info("BACKUP_SETTINGS_WRITE_READBACK interval=3 readback=" + updated.intervalMinutes());
-            // On-host persistence evidence: this editor build never flushes a
-            // separate UUConfig file mid-session; the host logs the applied key
-            // into its own editor log, so the log line is the acceptance. The
-            // log sits beside the backup dir returned by the host manager i()
-            // (backupDir's parent is the editor dir, logs/log.txt next to it);
-            // deriving the path from the settings snapshot is deterministic and
-            // avoids the unreliable user.home walk under the Wine/Proton JVM.
-            final String backupDir = updated.backupDir();
-            final Optional<Path> logEvidence = backupDir == null
-                ? Optional.empty()
-                : pollDerivedLogEvidence(backupDir, UU_KEY, "=3", 10_000L, 1_000L);
-            if (logEvidence.isPresent()) {
-                logger.info("BACKUP_UUCONFIG_LOG_EVIDENCE found=true path=" + logEvidence.orElseThrow());
-            } else {
-                failures.add("editor log evidence with " + UU_KEY + "=3 not found after 10s at derived path "
-                    + (backupDir == null ? "null" : Path.of(backupDir).getParent().resolve("logs").resolve("log.txt"))
-                    + " (backupDir from the host manager)");
-            }
-            // Secondary diagnostic only: the user.home whole-tree glob (plus the
-            // JVM user.home value and the examined file count) must never fail
-            // the matrix; the user-tree walk is unreliable under Wine/Proton.
-            final GlobDiagnostic glob = locateUuConfigFileDiagnostic(UU_KEY, "=3");
-            logger.info("BACKUP_UUCONFIG_FILE_DIAGNOSTIC userHome=" + glob.userHome
-                + " examined=" + glob.examined
-                + " found=" + glob.found
-                + (glob.path != null ? " path=" + glob.path : ""));
+            logger.info("BACKUP_SETTINGS_WRITE_READBACK interval=3 readback=" + updated.intervalMinutes()
+                + " (manager roundtrip is the persistence evidence)");
+            // On-disk evidence is BEST-EFFORT diagnostic only: this host build
+            // never writes the FileSetting key to disk mid-session (no UUConfig
+            // file, no host log line — prior 'log evidence' hits were the
+            // probe's own failure messages mirrored by CubismLoggerBridge).
+            // The key mapping itself rests on the reviewed decompile evidence
+            // (a(int) writes UUConfig FileSetting.autoBackupIntervalMinute).
+            logDiagnostics(updated.backupDir());
         } catch (RuntimeException failure) {
             failures.add("settings write-readback failed: " + failure.getClass().getSimpleName());
         }
@@ -366,40 +348,34 @@ public final class BackupHostValidationPlugin implements TurboismPlugin {
     }
 
     /**
-     * Polls the derived editor-log path ({@code <backupDir-parent>/logs/log.txt})
-     * until the key/value fragment appears (the host may flush the log line
-     * asynchronously after the interval write) or the poll budget expires.
+     * Best-effort on-disk diagnostics (INFO only, never failures): the derived
+     * editor log path and the user-home whole-tree glob. The content search is
+     * for the KEY only — a {@code =3} fragment is meaningless because the
+     * probe's own mirrored messages and the restored value can contain it.
      */
-    static Optional<Path> pollDerivedLogEvidence(
-        final String backupDir,
-        final String key,
-        final String valueFragment,
-        final long pollMillis,
-        final long intervalMillis
-    ) {
-        final Path log = Path.of(backupDir).getParent().resolve("logs").resolve("log.txt");
-        final long deadline = System.currentTimeMillis() + pollMillis;
-        while (true) {
-            if (Files.isRegularFile(log)) {
+    private void logDiagnostics(final String backupDir) {
+        if (backupDir != null) {
+            final Path log = Path.of(backupDir).getParent().resolve("logs").resolve("log.txt");
+            boolean exists = Files.isRegularFile(log);
+            boolean containsKey = false;
+            if (exists) {
                 try {
-                    final String content = Files.readString(log, StandardCharsets.ISO_8859_1);
-                    if (content.contains(key) && content.contains(valueFragment)) {
-                        return Optional.of(log);
-                    }
+                    containsKey = Files.readString(log, StandardCharsets.ISO_8859_1)
+                        .contains(UU_KEY);
                 } catch (IOException | OutOfMemoryError unavailable) {
-                    // keep polling; the file may still be mid-flush
+                    containsKey = false;
                 }
             }
-            if (System.currentTimeMillis() >= deadline) {
-                return Optional.empty();
-            }
-            try {
-                Thread.sleep(intervalMillis);
-            } catch (InterruptedException interrupted) {
-                Thread.currentThread().interrupt();
-                return Optional.empty();
-            }
+            logger.info("BACKUP_UUCONFIG_LOG_DIAGNOSTIC path=" + log
+                + " exists=" + exists + " containsKey=" + containsKey);
+        } else {
+            logger.info("BACKUP_UUCONFIG_LOG_DIAGNOSTIC path=null exists=false containsKey=false");
         }
+        final GlobDiagnostic glob = locateUuConfigFileDiagnostic(UU_KEY);
+        logger.info("BACKUP_UUCONFIG_FILE_DIAGNOSTIC userHome=" + glob.userHome
+            + " examined=" + glob.examined
+            + " found=" + glob.found
+            + (glob.path != null ? " path=" + glob.path : ""));
     }
 
     /** Result of the secondary user-home glob diagnostic. */
@@ -408,12 +384,13 @@ public final class BackupHostValidationPlugin implements TurboismPlugin {
 
     /**
      * Bounded glob under the user profile for a text file containing the given
-     * key/value fragment (e.g. {@code autoBackupIntervalMinute=3}). Bounded by
-     * depth, file count, and file size; never touches non-text files. This is a
-     * DIAGNOSTIC ONLY: the user-tree walk is unreliable under the Wine/Proton
-     * JVM and its result never fails the matrix.
+     * key. Bounded by depth, file count, and file size; never touches
+     * non-text files. This is a DIAGNOSTIC ONLY: the user-tree walk is
+     * unreliable under the Wine/Proton JVM and its result never fails the
+     * matrix (and a {@code =value} fragment is meaningless — the probe's own
+     * mirrored messages can contain it).
      */
-    static GlobDiagnostic locateUuConfigFileDiagnostic(final String key, final String valueFragment) {
+    static GlobDiagnostic locateUuConfigFileDiagnostic(final String key) {
         final Path root = Path.of(System.getProperty("user.home", "."));
         final int maxDepth = 10;
         final int maxFiles = 2_000;
@@ -436,7 +413,7 @@ public final class BackupHostValidationPlugin implements TurboismPlugin {
                 .filter(path -> {
                     try {
                         final String content = Files.readString(path, StandardCharsets.ISO_8859_1);
-                        return content.contains(key) && content.contains(valueFragment);
+                        return content.contains(key);
                     } catch (IOException | OutOfMemoryError unavailable) {
                         return false;
                     }
