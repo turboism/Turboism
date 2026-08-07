@@ -6,6 +6,7 @@ import dev.turboism.sdk.config.PluginConfigRegistry;
 import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.recentfile.RecentFileService;
 import dev.turboism.sdk.cubism.recentpreview.RecentPreviewContributionService;
+import dev.turboism.sdk.cubism.backup.EditorAutoBackupService;
 import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureService;
 import dev.turboism.sdk.cubism.service.query.ModelHierarchyQueryService;
 import dev.turboism.sdk.cubism.service.query.ParameterQueryService;
@@ -113,6 +114,10 @@ public interface PluginContext {
 
     default EditorCommandService editorCommands() {
         return EditorCommandService.unavailable();
+    }
+
+    default EditorAutoBackupService backup() {
+        throw new UnsupportedOperationException("auto-backup service is not available");
     }
 
     List<PluginPermission> permissions();
