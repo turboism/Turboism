@@ -48,13 +48,31 @@ public interface CubismModel {
      * Returns the model's animation file-content documents.
      *
      * <p>No stable Editor document entry exists for auto-face evaluation state,
-     * so no auto-face projection is declared; see the adapter evidence records.</p>
+     * so no auto-face projection is declared; see the adapter evidence records.
+     * Animation scene add/delete ({@code CAnimationFileContent.addScene /
+     * deleteScene / setCurrentSceneDoc}) has no Undo registration in Cubism
+     * 5.2.03 or 5.3.02, so scene writes stay unavailable (fail closed).</p>
      */
     default List<AnimationDocument> animationDocuments() {
         throw new UnsupportedOperationException(
             "Cubism animation-document access is unavailable."
         );
     }
+
+    /**
+     * Returns the model's texture library projection.
+     *
+     * <p>Reads expose the Editor's {@code CTextureManager} document state (raw
+     * images, model image groups, texture atlases); writes are Editor-authoring
+     * operations inside the native Undo envelope.</p>
+     */
+    default ModelTextures textures() {
+        throw new UnsupportedOperationException(
+            "Cubism texture-library access is unavailable."
+        );
+    }
+
+    /** Returns the model's structural and render-resource statistics. */
 
     /** Returns the model's structural and render-resource statistics. */
     default ModelStatistics statistics() {
