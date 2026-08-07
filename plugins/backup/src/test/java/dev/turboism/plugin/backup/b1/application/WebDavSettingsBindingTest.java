@@ -44,7 +44,7 @@ final class WebDavSettingsBindingTest {
         final WebDavConfig readback = binding.read().toCompletableFuture().join();
         assertEquals(target, readback, "the write path must be confirmed by readback");
         assertEquals(target, binding.confirmed());
-        assertEquals(9, registry.writes.size(), "every key must be written exactly once");
+        assertEquals(10, registry.writes.size(), "every key must be written exactly once");
         assertEquals(3, registry.writes.get(0).expected, "the chain must start from the observed revision");
     }
 
