@@ -9,16 +9,14 @@ import dev.turboism.sdk.cubism.backup.BackupCompletedEvent;
 import dev.turboism.sdk.cubism.backup.EditorAutoBackupService;
 import dev.turboism.sdk.cubism.backup.EditorAutoBackupSettings;
 import dev.turboism.sdk.cubism.backup.EditorAutoBackupStatus;
-import dev.turboism.sdk.cubism.id.DocumentId;
-import dev.turboism.sdk.cubism.id.ModelId;
-import dev.turboism.sdk.cubism.id.ParameterId;
-import dev.turboism.sdk.cubism.transaction.ModelTransaction;
-import dev.turboism.sdk.cubism.write.WriteParameterCommand;
+import dev.turboism.sdk.cubism.model.CubismModel;
+import dev.turboism.sdk.cubism.model.Parameter;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.plugin.TurboismPlugin;
 
+import javax.swing.SwingUtilities;
 import java.io.File;
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -30,10 +28,13 @@ import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 
 /**
@@ -46,22 +47,33 @@ import java.util.stream.Stream;
  * <p>The WebDAV client under test is the production {@link WebDavSyncTarget}
  * from {@code plugins/backup} (compiled into this exerciser by build.sh), so
  * the real-host run exercises the exact plugin upload code path.</p>
+ *
+ * <p>Readiness and the dirty write use the model-scoped path
+ * ({@code context.cubism().model().active()}), the proven pattern from the
+ * mirror/clipmask probes: on the exact host the fixture becomes a model with
+ * drawables ~90-150 s in, while the project-workspace snapshot-source document
+ * path stays empty.</p>
  */
 public final class BackupHostValidationPlugin implements TurboismPlugin {
 
     private static final String RESULT = "backup-validation-result.properties";
     private static final String FIXTURE_PROPERTY = "turboism.validation.fixture";
     private static final String UU_KEY = "autoBackupIntervalMinute";
-    // On the exact host the fixture document takes ~2.5 min to become a modeling
-    // document, so 360 s gives the full modeling-document window headroom (peer
-    // precedent: the clipmask-viewer probe uses 240 s for the same boundary).
+    // On the exact host the fixture takes ~2.5 min to become a modeling
+    // document (peer precedent: mirror/clipmask probes use 240 s); 360 s gives
+    // the full window headroom.
     private static final long DOCUMENT_READY_TIMEOUT_MILLIS = 360_000L;
-    private static final long SETTLE_STEP_MILLIS = 2_000L;
+    private static final long MODEL_WAIT_WARN_MILLIS = 60_000L;
+    private static final long MODEL_WAIT_WARN_2_MILLIS = 150_000L;
+    private static final long SETTLE_STEP_MILLIS = 1_000L;
     private static final long PASS_SETTLE_MILLIS = 3_000L;
+    private static final long EDT_TIMEOUT_MILLIS = 5_000L;
 
     private PluginLogger logger;
     private PluginContext context;
     private Path stateDir;
+    private boolean warnedAt60s;
+    private boolean warnedAt150s;
 
     @Override
     public void init(final PluginContext context) {
@@ -90,34 +102,63 @@ public final class BackupHostValidationPlugin implements TurboismPlugin {
 
     private void runWhenHostReady() {
         final List<String> failures = new ArrayList<>();
-        final String hostVersion = awaitVerifiedHost(failures);
-        if (hostVersion == null) {
-            logger.warn("BACKUP_EXERCISER_READY_TIMEOUT reason=active-host-or-verified-document-not-present");
+        final CubismModel model = awaitVerifiedModel(failures);
+        if (model == null) {
+            logger.warn("BACKUP_EXERCISER_READY_TIMEOUT reason=active-model-with-drawables-not-present");
             logger.warn("BACKUP_VALIDATION_RESULT status=FAIL phase=readiness");
             writeResult(false, "readiness", failures);
             Runtime.getRuntime().halt(2);
             return;
         }
-        logger.info("BACKUP_EXERCISER_READY hostVersion=" + hostVersion);
-        runMatrix(hostVersion, failures);
+        final String hostVersion = runtimeReportVersion();
+        logger.info("BACKUP_EXERCISER_READY hostVersion=" + hostVersion
+            + " modelId=" + safeModelId(model)
+            + " drawables=" + onHostThread(() -> model.drawables().all().size()));
+        runMatrix(model, hostVersion, failures);
     }
 
-    private String awaitVerifiedHost(final List<String> failures) {
+    /**
+     * Model-scoped readiness gate (mirror/clipmask pattern): polls
+     * {@code context.cubism().model().active()} until a model with non-empty
+     * drawables appears. The runtime report presence is an additional gate and
+     * is logged. The (usually empty on this host) snapshot-source
+     * {@code activeDocument()} path is still probed for diagnostics so a future
+     * failure distinguishes "no document at all" from "document present but not
+     * yet a modeling document".
+     */
+    private CubismModel awaitVerifiedModel(final List<String> failures) {
         final long deadline = System.currentTimeMillis() + DOCUMENT_READY_TIMEOUT_MILLIS;
+        final long started = System.currentTimeMillis();
         String lastFailure = "none";
         while (System.currentTimeMillis() < deadline) {
             try {
-                final Optional<DocumentSnapshot> document = context.cubism().activeModelDocument();
-                if (document.isPresent() && activeRuntimeReportPresent()) {
-                    return runtimeReportVersion();
+                final CubismModel model = onHostThread(() -> context.cubism().model().active());
+                final boolean hasDrawables = onHostThread(() -> !model.drawables().all().isEmpty());
+                final boolean reportReady = activeRuntimeReportPresent();
+                if (hasDrawables && reportReady) {
+                    logger.info("BACKUP_EXERCISER_MODEL_READY elapsedMs="
+                        + (System.currentTimeMillis() - started)
+                        + " reportReady=" + reportReady
+                        + " modelId=" + safeModelId(model));
+                    return model;
                 }
-                // Distinguish "no document at all" from "document present but not
-                // yet a modeling document" for a future failure diagnosis.
-                final boolean activeDocumentPresent = context.cubism().activeDocument().isPresent();
-                lastFailure = "verified-modeling-document-not-present"
-                    + " (activeDocumentPresent=" + activeDocumentPresent + ")";
+                if (!hasDrawables) {
+                    lastFailure = "model-with-drawables-not-present";
+                }
             } catch (RuntimeException unavailable) {
                 lastFailure = unavailable.getClass().getSimpleName();
+            }
+            final long elapsed = System.currentTimeMillis() - started;
+            if (elapsed >= MODEL_WAIT_WARN_MILLIS && !warnedAt60s) {
+                warnedAt60s = true;
+                logger.warn("BACKUP_EXERCISER_MODEL_WAIT elapsedMs=" + elapsed
+                    + " lastFailure=" + lastFailure
+                    + " activeDocumentDiagnostic=" + activeDocumentDiagnostic());
+            } else if (elapsed >= MODEL_WAIT_WARN_2_MILLIS && !warnedAt150s) {
+                warnedAt150s = true;
+                logger.warn("BACKUP_EXERCISER_MODEL_WAIT elapsedMs=" + elapsed
+                    + " lastFailure=" + lastFailure
+                    + " activeDocumentDiagnostic=" + activeDocumentDiagnostic());
             }
             try {
                 Thread.sleep(SETTLE_STEP_MILLIS);
@@ -127,8 +168,25 @@ public final class BackupHostValidationPlugin implements TurboismPlugin {
                 return null;
             }
         }
-        logger.warn("BACKUP_EXERCISER_MODEL_TIMEOUT lastFailure=" + lastFailure);
+        logger.warn("BACKUP_EXERCISER_MODEL_TIMEOUT lastFailure=" + lastFailure
+            + " activeDocumentDiagnostic=" + activeDocumentDiagnostic());
         return null;
+    }
+
+    /**
+     * Probes the snapshot-source document path purely for diagnostics: returns
+     * {@code present=<bool> class=<name>} or {@code error=<exception class>}.
+     * Never fails the readiness loop.
+     */
+    private String activeDocumentDiagnostic() {
+        try {
+            final Optional<DocumentSnapshot> document = context.cubism().activeDocument();
+            return document
+                .map(value -> "present=true class=" + value.getClass().getName())
+                .orElse("present=false class=null");
+        } catch (RuntimeException failure) {
+            return "error=" + failure.getClass().getName();
+        }
     }
 
     private boolean activeRuntimeReportPresent() {
@@ -159,25 +217,33 @@ public final class BackupHostValidationPlugin implements TurboismPlugin {
         }
     }
 
-    private void runMatrix(final String hostVersion, final List<String> failures) {
+    private static String safeModelId(final CubismModel model) {
+        try {
+            return model.id() == null ? "null" : model.id().value();
+        } catch (RuntimeException unavailable) {
+            return "unavailable";
+        }
+    }
+
+    private void runMatrix(final CubismModel model, final String hostVersion, final List<String> failures) {
         logger.info("BACKUP_VALIDATION_BEGIN hostVersion=" + hostVersion);
         try {
             final EditorAutoBackupService backup = context.backup();
-            identityBanner(hostVersion, failures);
+            identityBanner(hostVersion, model, failures);
             settingsRead(backup, failures);
-            final EditorAutoBackupSettings original = backup.settings();
+            final EditorAutoBackupSettings originalSettings = backup.settings();
             settingsWriteReadback(backup, failures);
             final Path fixture = resolveFixture(failures);
             final String fixtureHashBefore = fixture == null ? "missing" : sha256(fixture);
             final WebDavProbe webDav = webDavSyncFlow(backup, failures);
-            backupNowFlow(backup, fixture, webDav, failures);
+            backupNowFlow(backup, model, fixture, webDav, failures);
             if (fixture != null) {
                 final String fixtureHashAfter = sha256(fixture);
                 if (!fixtureHashBefore.equals(fixtureHashAfter)) {
                     failures.add("fixture hash changed: " + fixtureHashBefore + " -> " + fixtureHashAfter);
                 }
             }
-            restoreSettings(backup, original, failures);
+            restoreSettings(backup, originalSettings, failures);
             if (webDav != null) {
                 webDav.server.stop(0);
             }
@@ -199,11 +265,18 @@ public final class BackupHostValidationPlugin implements TurboismPlugin {
         Runtime.getRuntime().exit(pass ? 0 : 2);
     }
 
-    private void identityBanner(final String hostVersion, final List<String> failures) {
-        final EditorAutoBackupSettings settings = context.backup().settings();
-        logger.info("BACKUP_IDENTITY hostVersion=" + hostVersion
-            + " serviceAvailable=true backupDir=" + settings.backupDir()
-            + " interval=" + settings.intervalMinutes() + " maxMB=" + settings.maxMB());
+    private void identityBanner(final String hostVersion, final CubismModel model,
+                                final List<String> failures) {
+        try {
+            final EditorAutoBackupSettings settings = context.backup().settings();
+            logger.info("BACKUP_IDENTITY hostVersion=" + hostVersion
+                + " modelId=" + safeModelId(model)
+                + " drawables=" + onHostThread(() -> model.drawables().all().size())
+                + " serviceAvailable=true backupDir=" + settings.backupDir()
+                + " interval=" + settings.intervalMinutes() + " maxMB=" + settings.maxMB());
+        } catch (RuntimeException failure) {
+            failures.add("identity banner failed: " + failure.getClass().getSimpleName());
+        }
     }
 
     private void settingsRead(final EditorAutoBackupService backup, final List<String> failures) {
@@ -232,8 +305,6 @@ public final class BackupHostValidationPlugin implements TurboismPlugin {
      * UUConfig persisted file under the user profile (bounded glob) containing
      * {@code autoBackupIntervalMinute}=3, then restores the original interval
      * and reads it back.
-     *
-     * @return the original interval observed before the mutation
      */
     private void settingsWriteReadback(final EditorAutoBackupService backup, final List<String> failures) {
         try {
@@ -331,6 +402,7 @@ public final class BackupHostValidationPlugin implements TurboismPlugin {
 
     private void backupNowFlow(
         final EditorAutoBackupService backup,
+        final CubismModel model,
         final Path fixture,
         final WebDavProbe webDav,
         final List<String> failures
@@ -341,7 +413,7 @@ public final class BackupHostValidationPlugin implements TurboismPlugin {
                 .mapToLong(EditorAutoBackupStatus::lastAutoBackupTimeMillis)
                 .max()
                 .orElse(0L);
-            dirtyActiveDocument(failures);
+            dirtyModel(model, failures);
             final Registration registration = webDav == null
                 ? null
                 : backup.registerSyncTarget(webDav.target);
@@ -414,48 +486,45 @@ public final class BackupHostValidationPlugin implements TurboismPlugin {
         }
     }
 
-    /** Dirtys the active modeling document through the public write path. */
-    private void dirtyActiveDocument(final List<String> failures) {
+    /**
+     * Dirtys the active model through the model-scoped write path: picks the
+     * FIRST non-blend-shape parameter and writes a value that differs from the
+     * current one (max when below the range midpoint, else min), so the
+     * document ends up modified and the native {@code h()} (updateAutoBackup)
+     * backs it up.
+     */
+    private void dirtyModel(final CubismModel model, final List<String> failures) {
         try {
-            final DocumentSnapshot document = context.cubism().activeModelDocument().orElseThrow();
-            final DocumentId documentId = new DocumentId(document.documentId());
-            final ModelTransaction transaction;
-            try {
-                transaction = context.cubism().transactionManager()
-                    .openTransaction(context, documentId);
-            } catch (Exception openFailure) {
-                failures.add("transaction open failed: " + openFailure.getClass().getSimpleName());
+            final Parameter parameter = onHostThread(() -> model.parameters().all().stream()
+                .filter(candidate -> !candidate.isBlendShape())
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException(
+                    "the fixture model exposes no non-blend-shape parameters")));
+            final String parameterId = onHostThread(() -> parameter.id().value());
+            final float before = onHostThread(parameter::getValue);
+            final float minimum = onHostThread(parameter::getMinimumValue);
+            final float maximum = onHostThread(parameter::getMaximumValue);
+            if (minimum >= maximum) {
+                failures.add("parameter has no writable range: id=" + parameterId
+                    + " min=" + minimum + " max=" + maximum);
                 return;
             }
-            final String modelId = context.cubism().activeModel().map(
-                model -> model.modelId()
-            ).orElseThrow(() -> new IllegalStateException("no active model for the fixture"));
-            final ParameterId parameterId = firstParameterId();
-            try {
-                transaction.enqueue(new WriteParameterCommand(
-                    "backup-probe-dirty", new ModelId(modelId), parameterId, 0.75F
-                ));
-            } catch (Exception enqueueFailure) {
-                failures.add("transaction enqueue failed: " + enqueueFailure.getClass().getSimpleName());
-                return;
+            final float midpoint = (minimum + maximum) / 2.0f;
+            final float target = before < midpoint ? maximum : minimum;
+            onHostThread(() -> {
+                parameter.setValue(target);
+                return null;
+            });
+            final float after = onHostThread(parameter::getValue);
+            logger.info("BACKUP_DIRTIED parameter=" + parameterId
+                + " before=" + before + " target=" + target + " after=" + after);
+            if (Math.abs(after - target) > 0.0001f) {
+                failures.add("parameter write did not stick: id=" + parameterId
+                    + " target=" + target + " after=" + after);
             }
-            try {
-                transaction.commit();
-            } catch (Exception commitFailure) {
-                failures.add("transaction commit failed: " + commitFailure.getClass().getSimpleName());
-                return;
-            }
-            logger.info("BACKUP_DIRTIED document=" + document.name() + " parameter=" + parameterId.value());
         } catch (RuntimeException failure) {
-            failures.add("dirty via ModelTransaction failed: " + failure.getClass().getSimpleName());
+            failures.add("dirty via Parameter.setValue failed: " + failure.getClass().getName());
         }
-    }
-
-    private ParameterId firstParameterId() {
-        return context.cubism().activeModel()
-            .flatMap(model -> model.parameters().stream().findFirst())
-            .map(parameter -> new ParameterId(parameter.id()))
-            .orElseThrow(() -> new IllegalStateException("the fixture model exposes no parameters"));
     }
 
     /**
@@ -557,6 +626,48 @@ public final class BackupHostValidationPlugin implements TurboismPlugin {
         } catch (IOException failure) {
             return false;
         }
+    }
+
+    /** Runs one host operation on the Swing EDT (mirror probe pattern). */
+    private <T> T onHostThread(final Callable<T> operation) {
+        if (SwingUtilities.isEventDispatchThread()) {
+            try {
+                return operation.call();
+            } catch (Exception exception) {
+                throw new IllegalStateException("auto-backup probe host operation failed", exception);
+            }
+        }
+        final AtomicReference<T> result = new AtomicReference<>();
+        final AtomicReference<Exception> failure = new AtomicReference<>();
+        final CountDownLatch completed = new CountDownLatch(1);
+        try {
+            SwingUtilities.invokeAndWait(() -> {
+                try {
+                    result.set(operation.call());
+                } catch (Exception exception) {
+                    failure.set(exception);
+                } finally {
+                    completed.countDown();
+                }
+            });
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("auto-backup probe EDT dispatch interrupted", interrupted);
+        } catch (java.lang.reflect.InvocationTargetException exception) {
+            throw new IllegalStateException("auto-backup probe EDT dispatch failed", exception);
+        }
+        try {
+            if (!completed.await(EDT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)) {
+                throw new IllegalStateException("Cubism EDT did not accept the probe within 5 seconds.");
+            }
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("auto-backup probe EDT wait interrupted", interrupted);
+        }
+        if (failure.get() != null) {
+            throw new IllegalStateException("auto-backup probe host operation failed", failure.get());
+        }
+        return result.get();
     }
 
     private static String sha256(final Path path) {
