@@ -92,7 +92,7 @@ final class McpHttpServerIntegrationTest {
                 "params", Map.of()
             ));
             assertEquals(200, tools.statusCode());
-            assertEquals(4, array(result(tools).get("tools")).size());
+            assertEquals(5, array(result(tools).get("tools")).size());
 
             final HttpResponse<byte[]> renamed = toolCall(
                 server.endpoint(),
@@ -136,9 +136,36 @@ final class McpHttpServerIntegrationTest {
             final String createdId = (String) createdObject.get("id");
             assertNotNull(createdId);
 
-            final HttpResponse<byte[]> deleted = toolCall(
+            final HttpResponse<byte[]> reparented = toolCall(
                 server.endpoint(),
                 5,
+                McpTools.REPARENT,
+                Map.of(
+                    "kind", "warp_deformer",
+                    "id", createdId,
+                    "parent", Map.of("kind", "part", "id", "PartHead"),
+                    "index", 2
+                )
+            );
+            final Map<String, Object> reparentedOutput = structuredResult(reparented);
+            assertEquals(Boolean.TRUE, reparentedOutput.get("ok"));
+            assertEquals(
+                Map.of("kind", "part", "id", "PartHead"),
+                object(object(reparentedOutput.get("object")).get("parent"))
+            );
+            assertEquals(
+                new ModelObjectReference(ModelObjectKind.WARP_DEFORMER, createdId),
+                objects.lastReparentTarget
+            );
+            assertEquals(
+                new ModelObjectReference(ModelObjectKind.PART, "PartHead"),
+                objects.lastReparentParent
+            );
+            assertEquals(2, objects.lastReparentIndex);
+
+            final HttpResponse<byte[]> deleted = toolCall(
+                server.endpoint(),
+                6,
                 McpTools.DELETE,
                 Map.of(
                     "kind", "warp_deformer",
@@ -327,6 +354,9 @@ final class McpHttpServerIntegrationTest {
             new LinkedHashMap<>();
         private final AtomicInteger generated = new AtomicInteger();
         ModelObjectCreateRequest lastCreate;
+        ModelObjectReference lastReparentTarget;
+        ModelObjectReference lastReparentParent;
+        int lastReparentIndex = Integer.MIN_VALUE;
         ModelObjectReference lastDelete;
         ModelObjectDeletePolicy lastDeletePolicy;
 
@@ -359,6 +389,24 @@ final class McpHttpServerIntegrationTest {
             );
             values.put(target, renamed);
             return renamed;
+        }
+
+        @Override public ModelObjectDescriptor reparent(
+            final ModelObjectReference target,
+            final ModelObjectReference parent,
+            final int index
+        ) {
+            final ModelObjectDescriptor current = values.get(target);
+            if (current == null) throw new NoSuchElementException(target.id());
+            if (!values.containsKey(parent)) throw new NoSuchElementException(parent.id());
+            lastReparentTarget = target;
+            lastReparentParent = parent;
+            lastReparentIndex = index;
+            final ModelObjectDescriptor reparented = new ModelObjectDescriptor(
+                current.reference(), current.name(), Optional.of(parent)
+            );
+            values.put(target, reparented);
+            return reparented;
         }
 
         @Override public ModelObjectDescriptor create(final ModelObjectCreateRequest request) {
