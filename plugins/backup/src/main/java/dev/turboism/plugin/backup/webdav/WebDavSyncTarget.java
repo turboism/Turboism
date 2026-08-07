@@ -144,6 +144,8 @@ public final class WebDavSyncTarget implements BackupSyncTarget {
                     HttpResponse.BodyHandlers.discarding()
                 );
                 if (response.statusCode() == 200 || response.statusCode() == 201) {
+                    diagnostics.accept("webdav:put-ok file=" + file.getName() + " remote=" + target
+                        + " bytes=" + file.length() + " attempts=" + attempt);
                     return;
                 }
                 if (response.statusCode() / 100 != 5 && response.statusCode() != 429) {

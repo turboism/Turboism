@@ -17,6 +17,7 @@ import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.plugin.TurboismPlugin;
 
+import java.io.File;
 import java.util.Objects;
 import java.util.concurrent.CompletionStage;
 import java.util.function.Consumer;
@@ -107,9 +108,13 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
                 target = null;
                 return;
             }
-            final WebDavSyncTarget rebuilt = new WebDavSyncTarget(config, reason ->
-                context.logger().warn("webdav-sync " + reason)
-            );
+            final WebDavSyncTarget rebuilt = new WebDavSyncTarget(config, reason -> {
+                if (reason.startsWith("webdav:put-ok")) {
+                    context.logger().info("webdav-sync " + reason);
+                } else {
+                    context.logger().warn("webdav-sync " + reason);
+                }
+            });
             target = rebuilt;
         });
     }
@@ -198,6 +203,9 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
             return;
         }
         try {
+            for (File file : event.newBackupFiles()) {
+                requireContext().logger().info("WEBDAV_SYNC_UPLOAD file=" + file.getName());
+            }
             active.sync(event.newBackupFiles());
             requireContext().logger().info(
                 "WEBDAV_SYNC_COMPLETED files=" + event.newBackupFiles().size()
