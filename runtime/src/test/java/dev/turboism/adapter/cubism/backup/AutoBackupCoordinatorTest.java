@@ -375,6 +375,40 @@ class AutoBackupCoordinatorTest {
         );
         assertEquals(0, host.saveDocumentCalls, "missing UID selectors must fail before any mutation");
     }
+
+    @Test
+    void backupAfterSaveUsesCopySemanticsAndRestoresAChangedFileReference() throws Exception {
+        FakeHost host = new FakeHost();
+        FakeHost.FakeModelingDocument model =
+            new FakeHost.FakeModelingDocument(host, "model.cmo3", 0L, 0L, false);
+        model.switchFileOnSave = true; // the host switches the reference to the backup path
+        host.pack.fileContents = List.of(model);
+        AutoBackupCoordinator service = coordinator(host, 60_000L);
+        BackupCompletedEvent event = service.backupAfterSave(snapshot("model.cmo3"))
+            .toCompletableFuture().get(30, TimeUnit.SECONDS);
+        assertEquals(Boolean.TRUE, model.lastSaveCopyArgument,
+            "saveDocument must be invoked with copy semantics (true)");
+        assertEquals(1, model.setFileCalls,
+            "a switched file reference must be restored via setFile");
+        assertEquals(new File(host.backupDir.getParent().toFile(), "model.cmo3"), model.getFile(),
+            "the content must point back at the current document");
+        assertEquals(1, event.newBackupFiles().size());
+    }
+
+    @Test
+    void backupAfterSaveDoesNotRestoreAnUnchangedFileReference() throws Exception {
+        FakeHost host = new FakeHost();
+        FakeHost.FakeModelingDocument model =
+            new FakeHost.FakeModelingDocument(host, "model.cmo3", 0L, 0L, false);
+        host.pack.fileContents = List.of(model);
+        AutoBackupCoordinator service = coordinator(host, 60_000L);
+        service.backupAfterSave(snapshot("model.cmo3"))
+            .toCompletableFuture().get(30, TimeUnit.SECONDS);
+        assertEquals(Boolean.TRUE, model.lastSaveCopyArgument,
+            "saveDocument must be invoked with copy semantics (true)");
+        assertEquals(0, model.setFileCalls,
+            "no setFile when the reference stayed on the current document");
+    }
     @Test
     void backupAfterSaveFailsClosedWhenNoPackContentMatches() throws Exception {
         FakeHost host = new FakeHost();
@@ -618,6 +652,12 @@ class AutoBackupCoordinatorTest {
                 "cubism.auto-backup.save-document.game-data", gameData, "saveDocument",
                 "(Ljava/io/File;)V"));
             selectors.add(StaticSelector.method(
+                "cubism.auto-backup.set-file.modeling", content, "setFile", "(Ljava/io/File;)V"));
+            selectors.add(StaticSelector.method(
+                "cubism.auto-backup.set-file.animation", content, "setFile", "(Ljava/io/File;)V"));
+            selectors.add(StaticSelector.method(
+                "cubism.auto-backup.set-file.game-data", content, "setFile", "(Ljava/io/File;)V"));
+            selectors.add(StaticSelector.method(
                 "cubism.auto-backup.document-uid.modeling", modeling, "getDocumentUID",
                 "()Ljava/lang/String;"));
             selectors.add(StaticSelector.method(
@@ -693,6 +733,12 @@ class AutoBackupCoordinatorTest {
             selectors.add(StaticSelector.method(
                 "cubism.auto-backup.save-document.game-data", gameData, "saveDocument",
                 "(Ljava/io/File;)V"));
+            selectors.add(StaticSelector.method(
+                "cubism.auto-backup.set-file.modeling", content, "setFile", "(Ljava/io/File;)V"));
+            selectors.add(StaticSelector.method(
+                "cubism.auto-backup.set-file.animation", content, "setFile", "(Ljava/io/File;)V"));
+            selectors.add(StaticSelector.method(
+                "cubism.auto-backup.set-file.game-data", content, "setFile", "(Ljava/io/File;)V"));
             return TestVerifiedResolvers.create(
                 AutoBackupVerificationManifest.ADAPTER_SLICE_ID,
                 AutoBackupVerificationManifest.CAPABILITY_IDS,
@@ -844,7 +890,11 @@ class AutoBackupCoordinatorTest {
                 return uid;
             }
 
-            public boolean saveDocument(File target, boolean unused) {
+            public boolean saveDocument(File target, boolean copy) {
+                lastSaveCopyArgument = copy;
+                if (switchFileOnSave) {
+                    fileOverride = target; // simulate the host switching the reference
+                }
                 return host.saveDocument(target, this);
             }
         }
@@ -860,7 +910,11 @@ class AutoBackupCoordinatorTest {
                 return new com.live2d.type.CArrayList(scenes);
             }
 
-            public boolean saveDocument(File target, boolean unused) {
+            public boolean saveDocument(File target, boolean copy) {
+                lastSaveCopyArgument = copy;
+                if (switchFileOnSave) {
+                    fileOverride = target;
+                }
                 return host.saveDocument(target, this);
             }
         }
@@ -899,6 +953,10 @@ class AutoBackupCoordinatorTest {
             final boolean modified;
             String uid;
             List<FakeSceneDocument> scenes = List.of();
+            Boolean lastSaveCopyArgument;
+            boolean switchFileOnSave;
+            File fileOverride;
+            int setFileCalls;
 
             FakeFileContent(FakeHost host, String name, long lastAutoBackupTime, long lastSavedTime,
                             boolean modified) {
@@ -939,7 +997,15 @@ class AutoBackupCoordinatorTest {
 
             public File getFile() {
                 onEdt();
-                return new File(host.backupDir.getParent().toFile(), name);
+                return fileOverride != null
+                    ? fileOverride
+                    : new File(host.backupDir.getParent().toFile(), name);
+            }
+
+            public void setFile(File file) {
+                onEdt();
+                setFileCalls++;
+                fileOverride = file;
             }
 
             private void onEdt() {
