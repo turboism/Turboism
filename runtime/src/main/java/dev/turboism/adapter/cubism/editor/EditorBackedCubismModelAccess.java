@@ -59,6 +59,7 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
     private final EditorNativeControlAppearanceAccess nativeControlAppearanceAccess;
 
     private final EditorDocumentReadAccess documentReadAccess;
+    private final EditorModelInstanceAccess modelInstanceAccess;
     private final dev.turboism.adapter.cubism.core.CoreEvaluatedJoin evaluatedJoin;
 
     public EditorBackedCubismModelAccess(
@@ -107,6 +108,10 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
         );
 
         this.documentReadAccess = new EditorDocumentReadAccess(
+            resolver,
+            this::requireCurrent
+        );
+        this.modelInstanceAccess = new EditorModelInstanceAccess(
             resolver,
             this::requireCurrent
         );
@@ -791,6 +796,18 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
         @Override public List<dev.turboism.sdk.cubism.model.AnimationDocument> animationDocuments() {
             return documentReadAccess.animationDocuments(identity, source, model);
         }
+
+        @Override public List<dev.turboism.sdk.cubism.model.ModelInstance> modelInstances() {
+            return modelInstanceAccess.modelInstances(identity, source, model);
+        }
+
+        @Override public java.util.Optional<dev.turboism.sdk.cubism.model.ModelInstance> currentModelInstance() {
+            return modelInstanceAccess.currentModelInstance(identity, source, model);
+        }
+
+        @Override public boolean modelEditing() {
+            return modelInstanceAccess.modelEditing(identity, source, model);
+        }
         @Override public Parameters parameters() { current(); return new EditorParameters(identity, model); }
         @Override public ParameterGroups parameterGroups() {
             current();
@@ -897,6 +914,28 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
         @Override public void remove(final ParameterId id) {
             current();
             parameterStructureAccess.remove(identity, activeSource, model, id);
+        }
+
+        @Override public List<Parameter> createMany(final List<ParameterDefinition> definitions) {
+            current();
+            return createMany(definitions, java.util.Optional.empty());
+        }
+
+        @Override public List<Parameter> createMany(
+            final List<ParameterDefinition> definitions,
+            final java.util.Optional<dev.turboism.sdk.cubism.id.ParameterGroupId> folderId
+        ) {
+            current();
+            final List<ParameterId> created = parameterStructureAccess.createMany(
+                identity, activeSource, model, definitions, folderId);
+            return created.stream()
+                .map(id -> (Parameter) new EditorParameter(identity, model, id))
+                .toList();
+        }
+
+        @Override public void removeMany(final List<ParameterId> ids) {
+            current();
+            parameterStructureAccess.removeMany(identity, activeSource, model, ids);
         }
     }
 
