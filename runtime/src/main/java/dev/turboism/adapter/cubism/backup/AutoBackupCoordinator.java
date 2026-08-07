@@ -246,10 +246,16 @@ public final class AutoBackupCoordinator implements EditorAutoBackupService, Aut
             .orElseGet(() -> new File(saved.name()));
         final File artifact = adapter.saveDocumentFor(matchFile, startedAt);
         if (artifact == null) {
-            // No pack file content matches the saved snapshot: fail closed.
+            // No pack file content matches the saved snapshot: fail closed with a
+            // self-diagnosing message (attempted identity + available pack contents).
+            final String packNames = adapter.documents().stream()
+                .map(AutoBackupAdapter.Document::name)
+                .collect(java.util.stream.Collectors.joining(", "));
             throw new IllegalStateException(
                 "auto-backup save-triggered backup: no pack content matches the saved document: "
                     + saved.name()
+                    + "; attempted match file: " + matchFile.getPath()
+                    + "; pack contents: " + packNames
             );
         }
         final File confirmed = pollForArtifact(artifact, startedAt);
