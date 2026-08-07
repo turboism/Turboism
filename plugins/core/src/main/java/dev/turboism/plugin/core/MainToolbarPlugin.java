@@ -20,6 +20,8 @@ public final class MainToolbarPlugin implements TurboismPlugin {
     private CorePluginManagement plugins;
     private dev.turboism.sdk.runtime.RuntimeSettings settings;
     private Registration panelRegistration;
+    private dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistory;
+    private dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService.Registration historyProviderRegistration;
     private CoreWindows windows;
 
     public MainToolbarPlugin() {
@@ -32,6 +34,7 @@ public final class MainToolbarPlugin implements TurboismPlugin {
         this.logger = context.logger();
         final dev.turboism.sdk.runtime.RuntimeSettingsService runtimeSettings = services.settings();
         this.settings = runtimeSettings.read();
+        this.fileChooserHistory = context.fileChooserHistory();
         this.plugins = services.plugins();
         this.homeEntryService = new MainToolbarHomeEntryService(
             context.uiHost(), context.mainToolbar(), context.menus(), localization(context),
@@ -55,6 +58,7 @@ public final class MainToolbarPlugin implements TurboismPlugin {
         registerPluginActions();
         registerPanelTabActions();
         context.disposableScope().register(plugins);
+        registerHistoryProvider();
         context.disposableScope().register(windows);
         refreshPanel();
         context.disposableScope().register(homeEntryService.registerSettingsMenu());
@@ -65,7 +69,31 @@ public final class MainToolbarPlugin implements TurboismPlugin {
     }
 
     @Override public void disable() { logger.warn("Turboism core disable was ignored by runtime policy"); }
-    @Override public void shutdown() { logger.info("Turboism core shutdown"); }
+
+    @Override
+    public void shutdown() {
+        if (historyProviderRegistration != null) {
+            historyProviderRegistration.unregister();
+            historyProviderRegistration = null;
+        }
+        logger.info("Turboism core shutdown");
+    }
+
+    /**
+     * Registers the file-chooser history persistence provider backed by the
+     * plugin config dir. Failures (safe mode, missing paths) are warn-only and
+     * never block core startup.
+     */
+    private void registerHistoryProvider() {
+        try {
+            historyProviderRegistration = fileChooserHistory.registerProvider(
+                new SaveDirectoryHistoryProvider(context.paths().configDir())
+            );
+        } catch (RuntimeException failure) {
+            logger.warn("File-chooser history provider registration failed safely: "
+                + failure.getClass().getSimpleName() + ": " + failure.getMessage());
+        }
+    }
 
     private void registerSettingsActions() {
         registerAction("settings.safe-mode", "Safe Mode", action -> update(action, "safe-mode"));
