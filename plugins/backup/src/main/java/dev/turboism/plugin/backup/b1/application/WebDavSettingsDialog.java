@@ -23,6 +23,8 @@ import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.awt.Window;
+import java.awt.event.FocusAdapter;
+import java.awt.event.FocusEvent;
 import java.net.URI;
 import java.util.Objects;
 
@@ -40,6 +42,12 @@ import java.util.Objects;
  * testable without a display.</p>
  */
 public final class WebDavSettingsDialog {
+
+    /** Placeholder shown in the password box when a password is already stored. */
+    static final String PASSWORD_PLACEHOLDER = "********";
+
+    /** Echo char used by the password box while masked. */
+    static final char PASSWORD_ECHO = '*';
 
     private WebDavSettingsDialog() {
     }
@@ -64,7 +72,8 @@ public final class WebDavSettingsDialog {
 
     /**
      * Assembles a validated {@link WebDavConfig} from raw form values. An
-     * empty password keeps the current password (the password box never
+     * empty or placeholder-only password keeps the current password (the password box
+     * shows {@link #PASSWORD_PLACEHOLDER} when a password is stored). Throws {@link IllegalArgumentException} with a user-facing
      * pre-fills). Throws {@link IllegalArgumentException} with a user-facing
      * message when any value is invalid (url scheme/userinfo, remotePath
      * normalization, retry/timeout ranges).
@@ -81,7 +90,7 @@ public final class WebDavSettingsDialog {
         final long retryBaseDelayMs,
         final int timeoutSeconds
     ) {
-        final String resolvedPassword = password == null || password.length == 0
+        final String resolvedPassword = isUnchangedPassword(password)
             ? current == null ? "" : current.password()
             : new String(password);
         return new WebDavConfig(
@@ -97,6 +106,23 @@ public final class WebDavSettingsDialog {
         );
     }
 
+    /** True when the password box carries no new value (empty or placeholder). */
+    static boolean isUnchangedPassword(final char[] password) {
+        return password == null || password.length == 0
+            || PASSWORD_PLACEHOLDER.equals(new String(password));
+    }
+
+    /** Initial password-box text: the placeholder when a password is stored, else empty. */
+    static String initialPasswordText(final WebDavConfig config) {
+        return config != null && config.password() != null && !config.password().isEmpty()
+            ? PASSWORD_PLACEHOLDER
+            : "";
+    }
+
+    /** Eye-toggle echo char: plain (0) when masked, masked when plain. */
+    static char toggleEchoChar(final char current) {
+        return current == PASSWORD_ECHO ? 0 : PASSWORD_ECHO;
+    }
     private static void show(
         final PluginContext context,
         final WebDavSettingsBinding binding,
@@ -150,7 +176,26 @@ public final class WebDavSettingsDialog {
             retryMax.setValue(config.retryMax());
             retryBaseDelayMs.setValue((int) config.retryBaseDelayMs());
             timeoutSeconds.setValue(config.timeoutSeconds());
-            password.setToolTipText("留空则保持已保存的密码");
+            password.setToolTipText("留空或保持占位符则沿用已保存的密码");
+            final boolean cached = config.password() != null && !config.password().isEmpty();
+            if (cached) {
+                password.setText(initialPasswordText(config));
+                password.addFocusListener(new FocusAdapter() {
+                    @Override
+                    public void focusGained(final FocusEvent ignored) {
+                        if (isUnchangedPassword(password.getPassword())) {
+                            password.setText("");
+                        }
+                    }
+
+                    @Override
+                    public void focusLost(final FocusEvent ignored) {
+                        if (password.getPassword().length == 0) {
+                            password.setText(PASSWORD_PLACEHOLDER);
+                        }
+                    }
+                });
+            }
         });
 
         final JPanel form = new JPanel(new GridBagLayout());
@@ -162,7 +207,11 @@ public final class WebDavSettingsDialog {
         addRow(form, c, row++, new JLabel("启用"), enabled);
         addRow(form, c, row++, new JLabel("URL"), url);
         addRow(form, c, row++, new JLabel("用户名"), username);
-        addRow(form, c, row++, new JLabel("密码"), password);
+        final JButton eye = new JButton("👁");
+        eye.setToolTipText("显示/隐藏密码");
+        eye.setMargin(new Insets(0, 4, 0, 4));
+        eye.addActionListener(ignored -> password.setEchoChar(toggleEchoChar(password.getEchoChar())));
+        addRowWithTrailing(form, c, row++, new JLabel("密码"), password, eye);
         addRow(form, c, row++, new JLabel("远程路径"), remotePath);
         addRow(form, c, row++, new JLabel("TLS"), verifyTls);
         addRow(form, c, row++, new JLabel("重试次数"), retryMax);
@@ -246,6 +295,21 @@ public final class WebDavSettingsDialog {
 
         dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
         dialog.setVisible(true);
+    }
+
+    private static void addRowWithTrailing(
+        final JPanel form,
+        final GridBagConstraints c,
+        final int row,
+        final JLabel label,
+        final java.awt.Component field,
+        final java.awt.Component trailing
+    ) {
+        addRow(form, c, row, label, field);
+        c.gridx = 2;
+        c.weightx = 0;
+        c.fill = GridBagConstraints.NONE;
+        form.add(trailing, c);
     }
 
     private static void addRow(
