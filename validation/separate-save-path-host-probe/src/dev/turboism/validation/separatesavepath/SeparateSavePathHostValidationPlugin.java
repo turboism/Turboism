@@ -6,11 +6,13 @@ import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.TurboismPlugin;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Properties;
 
 /**
  * Task-local host probe for the separate export-save-directory capability on
@@ -25,8 +27,12 @@ import java.util.Optional;
  *       behavior proves it is not the safe-mode unavailable instance);</li>
  *   <li>setting the project and export recent directories (real directories
  *       created under the task state tree) round-trips through the service;</li>
- *   <li>both directories persist into the global {@code <home>/config.json}
- *       {@code fileChooserHistory} section (plain JDK read);</li>
+ *   <li>both directories persist into the core-plugin properties file
+ *       {@code <home>/config/dev.turboism.plugin.core/save-directory-history.properties}
+ *       (plain JDK {@link java.util.Properties} read) — proving the
+ *       service → runtime → core-plugin provider chain;</li>
+ *   <li>the global {@code <home>/config.json} no longer carries the
+ *       rolled-back {@code fileChooserHistory} section (v1 → v2 evidence);</li>
  *   <li>{@code exportSeparationEnabled()} matches
  *       {@code -Dturboism.validation.separateSavePath.expectEnabled}
  *       (default false for a fresh isolated home);</li>
@@ -168,23 +174,38 @@ public final class SeparateSavePathHostValidationPlugin implements TurboismPlugi
                 + exportDir + " actual " + exportReadBack.get());
         }
 
-        // 3. Persistence: plain JDK read of the global config.json. Home is
-        //    derived from the state dir: <home>/state/<plugin-id>.
+        // 3. Persistence: the core-plugin provider writes both slots to
+        //    <home>/config/dev.turboism.plugin.core/save-directory-history.properties.
+        //    Home is derived from the state dir: <home>/state/<plugin-id>.
         final Path home = stateDir.getParent().getParent();
+        final Path pluginConfig = home.resolve("config")
+            .resolve("dev.turboism.plugin.core")
+            .resolve("save-directory-history.properties");
+        if (!Files.isRegularFile(pluginConfig)) {
+            failures.add("save-directory-history.properties missing at " + pluginConfig);
+        } else {
+            final Properties persisted = readProperties(pluginConfig, failures);
+            if (persisted != null) {
+                checkPersistedSlot(
+                    persisted, "projectRecentDirectory", projectDir, failures);
+                checkPersistedSlot(
+                    persisted, "exportRecentDirectory", exportDir, failures);
+            }
+        }
+
+        // 4. Rollback evidence: config.json must no longer carry the
+        //    fileChooserHistory section.
         final Path config = home.resolve("config.json");
         if (!Files.isRegularFile(config)) {
             failures.add("config.json missing at " + config);
         } else {
             final String json = readConfig(config, failures);
-            if (json != null) {
-                checkPersistedField(
-                    json, "projectRecentDirectory", projectDir, failures);
-                checkPersistedField(
-                    json, "exportRecentDirectory", exportDir, failures);
+            if (json != null && json.contains("fileChooserHistory")) {
+                failures.add("config.json still contains the rolled-back fileChooserHistory section");
             }
         }
 
-        // 4. exportSeparationEnabled matches the expectEnabled property
+        // 5. exportSeparationEnabled matches the expectEnabled property
         //    (fresh isolated home: false unless overridden).
         final boolean expectEnabled = Boolean.parseBoolean(
             System.getProperty(EXPECT_ENABLED_PROPERTY, "false"));
@@ -228,54 +249,34 @@ public final class SeparateSavePathHostValidationPlugin implements TurboismPlugi
         }
     }
 
-    private void checkPersistedField(
-        final String json,
-        final String field,
+    private static Properties readProperties(final Path file, final List<String> failures) {
+        final Properties properties = new Properties();
+        try (InputStream in = Files.newInputStream(file)) {
+            properties.load(in);
+        } catch (IOException failure) {
+            failures.add("save-directory-history.properties read failed: "
+                + failure.getClass().getSimpleName());
+            return null;
+        }
+        return properties;
+    }
+
+    private void checkPersistedSlot(
+        final Properties properties,
+        final String key,
         final Path expected,
         final List<String> failures
     ) {
-        // Jackson escapes backslashes when persisting Windows paths into
-        // config.json, so compare against the JSON-escaped form.
-        final String expectedText = expected.toAbsolutePath().normalize()
-            .toString().replace("\\", "\\\\");
-        final String quotedField = "\"" + field + "\"";
-        final int fieldIndex = json.indexOf(quotedField);
-        if (fieldIndex < 0) {
-            failures.add("config.json missing " + quotedField);
-            return;
-        }
-        final String value = extractStringValue(json, fieldIndex + quotedField.length());
-        if (value == null) {
-            failures.add("config.json " + quotedField + " has no string value");
+        final String expectedText = expected.toAbsolutePath().normalize().toString();
+        final String value = properties.getProperty(key);
+        if (value == null || value.isBlank()) {
+            failures.add("save-directory-history.properties missing " + key);
         } else if (!expectedText.equals(value)) {
-            failures.add("config.json " + quotedField + " mismatch: expected "
+            failures.add("save-directory-history.properties " + key + " mismatch: expected \""
                 + expectedText + " actual " + value);
         } else {
-            logger.info("SEPARATE_SAVE_PATH_PERSISTED " + field + "=" + value);
+            logger.info("SEPARATE_SAVE_PATH_PERSISTED " + key + "=" + value);
         }
-    }
-
-    /** Extracts the JSON string value following a key occurrence (pretty-printed or compact). */
-    private static String extractStringValue(final String json, final int from) {
-        int index = from;
-        while (index < json.length() && json.charAt(index) != '"') {
-            if (json.charAt(index) == ':') {
-                index++;
-                break;
-            }
-            index++;
-        }
-        while (index < json.length() && Character.isWhitespace(json.charAt(index))) {
-            index++;
-        }
-        if (index >= json.length() || json.charAt(index) != '"') {
-            return null;
-        }
-        final int end = json.indexOf('"', index + 1);
-        if (end < 0) {
-            return null;
-        }
-        return json.substring(index + 1, end);
     }
 
     private void writeResult(final boolean pass, final List<String> failures) {
