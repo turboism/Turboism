@@ -9,12 +9,14 @@ import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.model.BlendMode;
 import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.Drawable;
+import dev.turboism.sdk.cubism.model.DrawableEvaluationState;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -86,6 +88,39 @@ class EditorEvaluatedJoinAccessTest {
             );
             assertTrue(stale.getMessage().contains("stale"), stale.getMessage());
         }
+    }
+
+    @Test
+    void editorDrawableEvaluationStateDerivesBooleansFromDynamicFlags() {
+        final AtomicInteger canvasReads = new AtomicInteger();
+        final TestCoreApiFixture.Model coreModel = coreModel(canvasReads, 0x04, 0x21, 1, 3, 11);
+        final Fixture editor = new Fixture();
+
+        try (Harness harness = harness("5.3.02", coreModel)) {
+            final var access = new EditorBackedCubismModelAccess(
+                editor.resolver, "session-a", harness.join
+            );
+            final Drawable mesh = access.active().drawables().find(new ArtMeshId("ArtMeshFace"));
+
+            final DrawableEvaluationState state = mesh.evaluationState();
+            assertTrue(state.evaluatedVisible(), "0x01");
+            assertFalse(state.visibilityChanged(), "0x02");
+            assertFalse(state.opacityChanged(), "0x04");
+            assertFalse(state.drawOrderChanged(), "0x08");
+            assertFalse(state.renderOrderChanged(), "0x10");
+            assertTrue(state.vertexPositionsChanged(), "0x20");
+            assertFalse(state.blendColorChanged(), "0x40");
+        }
+    }
+
+    @Test
+    void editorDrawableEvaluationStateFailsClosedWithoutTheJoin() {
+        final Fixture editor = new Fixture();
+        final var access = new EditorBackedCubismModelAccess(editor.resolver, "session-a");
+        final Drawable mesh = access.active().drawables().find(new ArtMeshId("ArtMeshFace"));
+
+        final IllegalStateException failure = assertThrows(IllegalStateException.class, mesh::evaluationState);
+        assertTrue(failure.getMessage().contains("Core evaluated"), failure.getMessage());
     }
 
     @Test
