@@ -174,7 +174,30 @@ final class DynamicRuntimeHostAdapters {
                     }
                 }
             ),
-            AutoBackupAdapter.safeMode()
+            new AutoBackupAdapter() {
+                @Override
+                public AutoBackupAdapter.Snapshot settings() {
+                    return call(adapters -> adapters.autoBackup().settings());
+                }
+
+                @Override
+                public AutoBackupAdapter.Snapshot applySettings(final AutoBackupAdapter.Snapshot target) {
+                    return call(adapters -> adapters.autoBackup().applySettings(target));
+                }
+
+                @Override
+                public java.util.List<AutoBackupAdapter.Document> documents() {
+                    return call(adapters -> adapters.autoBackup().documents());
+                }
+
+                @Override
+                public void triggerBackupNow() {
+                    call(adapters -> {
+                        adapters.autoBackup().triggerBackupNow();
+                        return null;
+                    });
+                }
+            }
         );
     }
 
