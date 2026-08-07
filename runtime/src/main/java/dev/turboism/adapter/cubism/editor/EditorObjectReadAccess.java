@@ -15,6 +15,7 @@ import dev.turboism.sdk.cubism.model.Deformer;
 import dev.turboism.sdk.cubism.model.Deformers;
 import dev.turboism.sdk.cubism.model.Drawable;
 import dev.turboism.sdk.cubism.model.Drawables;
+import dev.turboism.sdk.cubism.model.DrawableEvaluationState;
 import dev.turboism.sdk.cubism.model.FloatSequence;
 import dev.turboism.sdk.cubism.model.Glue;
 import dev.turboism.sdk.cubism.model.GlueId;
@@ -1075,6 +1076,18 @@ final class EditorObjectReadAccess {
         @Override public IntSequence indices() { return intSequence(geometry().triangleIndices()); }
         @Override public byte constantFlag() { return evaluated().constantFlag(); }
         @Override public byte dynamicFlag() { return evaluated().dynamicFlag(); }
+        @Override public DrawableEvaluationState evaluationState() {
+            final int flags = Byte.toUnsignedInt(evaluated().dynamicFlag());
+            return new DrawableEvaluationState(
+                (flags & 0x01) != 0,
+                (flags & 0x02) != 0,
+                (flags & 0x04) != 0,
+                (flags & 0x08) != 0,
+                (flags & 0x10) != 0,
+                (flags & 0x20) != 0,
+                (flags & 0x40) != 0
+            );
+        }
         @Override public BlendMode blendMode() { return evaluated().blendMode(); }
         @Override public int textureIndex() { return evaluated().textureIndex(); }
         @Override public int renderOrder() { return evaluated().renderOrder(); }
