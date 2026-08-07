@@ -206,6 +206,37 @@ class WebDavSyncTargetTest {
     }
 
     @Test
+    void verifyProbesTheCollectionThroughMkcolAndPropfind() {
+        WebDavSyncTarget target = new WebDavSyncTarget(config(true, 0, 0, "/turboism-backup", "", ""), diagnostics::add);
+        target.verify();
+        assertTrue(requests.contains("MKCOL /turboism-backup"), "verify must probe with MKCOL");
+        assertTrue(requests.contains("PROPFIND /turboism-backup"),
+            "an existing collection (405) must be confirmed with PROPFIND");
+        assertTrue(putCalls.get() == 0, "verify must never upload");
+    }
+
+    @Test
+    void verifyProbesEvenWhenTheTargetIsDisabled() {
+        WebDavSyncTarget target = new WebDavSyncTarget(config(false, 0, 0, "/turboism-backup", "", ""), diagnostics::add);
+        target.verify();
+        assertFalse(requests.isEmpty(), "verify must be independent of the enabled flag");
+    }
+
+    @Test
+    void verifyFailsClosedWithTheHttpStatusAndNeverLeaksCredentials() {
+        statusOverride = path -> (path.startsWith("MKCOL ") || path.startsWith("PROPFIND ")) ? 401 : null;
+        WebDavSyncTarget target = new WebDavSyncTarget(
+            config(true, 0, 0, "/turboism-backup", "alice", "s3cret!"), diagnostics::add);
+        final IllegalStateException failure = assertThrows(
+            IllegalStateException.class, target::verify);
+        assertTrue(failure.getMessage().contains("401"), "the status must be reported");
+        assertTrue(!failure.getMessage().contains("s3cret!"), "credentials must never leak");
+        for (String line : diagnostics) {
+            assertTrue(!line.contains("s3cret!"), "credentials must never reach diagnostics");
+        }
+    }
+
+    @Test
     void uploadRejectsMissingOrEmptyArtifacts() throws Exception {
         WebDavSyncTarget target = new WebDavSyncTarget(config(true, 0, 0, "/backup", "", ""), diagnostics::add);
         assertThrows(IllegalStateException.class, () -> target.upload(temporary.resolve("missing.cmo3").toFile()));
