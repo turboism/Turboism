@@ -59,12 +59,17 @@ final class PreviewPluginContextFactory {
             requestedClassLoader,
             requestedScope
         );
+        final RuntimeConfigRepository config =
+            new RuntimeConfigRepository(
+                home, diagnostic -> log.warn("config", diagnostic)
+            );
         final CorePluginContext context = new CorePluginContext(
             services.dependencies().withConfig(services.typedConfig()), hostAccess,
             services.localization(), services.taskScheduler(), services.pluginStorage(),
             services.userFiles(), services.hostReads(), null,
             new RuntimeFileChooserHistoryService(
-                new RuntimeConfigRepository(home, diagnostic -> log.warn("config", diagnostic))
+                () -> config.read().path("hooks").path("startup")
+                    .path("separateExportSaveDirectory").asBoolean(false)
             )
         );
         return new PluginContextBundle(context, services.localization(), services.cleanupEvidence());
