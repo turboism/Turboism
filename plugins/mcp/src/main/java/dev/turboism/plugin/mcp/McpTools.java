@@ -34,6 +34,7 @@ final class McpTools {
 
     static final String LIST = "turboism_model_objects_list";
     static final String RENAME = "turboism_model_object_rename";
+    static final String REPARENT = "turboism_model_object_reparent";
     static final String CREATE = "turboism_model_object_create";
     static final String DELETE = "turboism_model_object_delete";
 
@@ -78,6 +79,31 @@ final class McpTools {
                 Map.of("readOnlyHint", false, "destructiveHint", false, "idempotentHint", true)
             ),
             tool(
+                REPARENT,
+                "Reparent a Cubism model object",
+                "Moves an existing object under a new parent. Part targets accept only Part parents; ArtMesh and Deformer targets accept Part or Deformer parents. Index -1 appends to the parent.",
+                objectSchema(
+                    properties(
+                        entry("kind", kindSchema("Object family to move.")),
+                        entry("id", stringSchema("Stable Cubism object ID.", 1, 256)),
+                        entry("parent", objectSchema(
+                            properties(
+                                entry("kind", kindSchema("New parent object family.")),
+                                entry("id", stringSchema("New parent object ID.", 1, 256))
+                            ),
+                            List.of("kind", "id")
+                        )),
+                        entry("index", integerSchema(
+                            "Sibling index under the new parent; -1 appends.",
+                            -1,
+                            Integer.MAX_VALUE
+                        ))
+                    ),
+                    List.of("kind", "id", "parent")
+                ),
+                Map.of("readOnlyHint", false, "destructiveHint", false, "idempotentHint", true)
+            ),
+            tool(
                 CREATE,
                 "Create a Cubism model object",
                 "Creates a Part, ArtMesh, Warp Deformer, or Rotation Deformer. ArtMesh defaults to a unit triangle; Warp defaults to a 2x2 unit grid; Rotation defaults to origin (0,0), angle 0, scale 1.",
@@ -113,6 +139,7 @@ final class McpTools {
             final Map<String, Object> output = switch (toolName) {
                 case LIST -> list(checkedArguments);
                 case RENAME -> rename(checkedArguments);
+                case REPARENT -> reparent(checkedArguments);
                 case CREATE -> create(checkedArguments);
                 case DELETE -> delete(checkedArguments);
                 default -> throw new ToolInputException("Unknown MCP tool: " + toolName);
@@ -151,6 +178,24 @@ final class McpTools {
         return linked(
             entry("ok", true),
             entry("object", descriptor(onUi(() -> service.rename(target, name))))
+        );
+    }
+
+    private Map<String, Object> reparent(final Map<String, Object> arguments) {
+        only(arguments, "kind", "id", "parent", "index");
+        final ModelObjectReference target = reference(arguments);
+        final Object parentValue = arguments.get("parent");
+        if (parentValue == null) {
+            throw new ToolInputException("parent is required");
+        }
+        final ModelObjectReference parent = reference(object(parentValue, "parent"));
+        final int index = optionalInteger(arguments, "index").orElse(-1);
+        if (index < -1) {
+            throw new ToolInputException("index must be -1 or greater");
+        }
+        return linked(
+            entry("ok", true),
+            entry("object", descriptor(onUi(() -> service.reparent(target, parent, index))))
         );
     }
 
