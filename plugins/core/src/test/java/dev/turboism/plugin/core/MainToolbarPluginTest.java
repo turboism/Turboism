@@ -72,7 +72,7 @@ class MainToolbarPluginTest {
             .map(ActionRegistry.Action::id)
             .toList()
             .containsAll(List.of(
-                "turboism.core.open", "turboism.core.logs.open", "settings.save", "settings.clean-empty-docks"
+                "turboism.core.open", "turboism.core.logs.open", "turboism.core.about.open"
             )));
         assertEquals(
             List.of(new MainToolbarRegistry.MainToolbarButtonContribution(
@@ -100,6 +100,7 @@ class MainToolbarPluginTest {
         assertTrue(!panel.content().toString().contains("open-settings"));
         assertTrue(!panel.content().toString().contains("open-plugin-management"));
         assertTrue(!panel.content().toString().contains("open-logs"));
+        assertTrue(!panel.content().toString().contains("open-about"));
         assertTrue(!panel.content().toString().contains("Settings"));
         assertTrue(!panel.content().toString().contains("Plugin Management"));
         assertTrue(!panel.content().toString().contains("Logs"));
@@ -108,7 +109,8 @@ class MainToolbarPluginTest {
             List.of(
                 "Turboism/Settings:turboism.core.settings.open:10",
                 "Turboism/Plugin Management:turboism.core.plugins.open:11",
-                "Turboism/Logs:turboism.core.logs.open:12"
+                "Turboism/Logs:turboism.core.logs.open:12",
+                "Turboism/About:turboism.core.about.open:13"
             ),
             context.menus().contributions().stream()
                 .map(value -> value.menuPath() + ":" + value.actionId() + ":" + value.order())
@@ -437,6 +439,7 @@ class MainToolbarPluginTest {
                         case "main-toolbar.plugins-menu.label" -> "Plugin Management";
                         case "context-menu.panel-tab.float" -> "Float";
                         case "main-toolbar.logs-menu.label" -> "Logs";
+                        case "main-toolbar.about-menu.label" -> "About";
                         default -> key;
                     };
                 }
@@ -451,7 +454,8 @@ class MainToolbarPluginTest {
                     return key.equals("main-toolbar.settings-menu.label")
                         || key.equals("main-toolbar.plugins-menu.label")
                         || key.equals("context-menu.panel-tab.float")
-                        || key.equals("main-toolbar.logs-menu.label");
+                        || key.equals("main-toolbar.logs-menu.label")
+                        || key.equals("main-toolbar.about-menu.label");
                 }
             };
         }
