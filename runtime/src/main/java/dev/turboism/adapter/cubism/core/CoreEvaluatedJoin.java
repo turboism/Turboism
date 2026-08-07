@@ -98,6 +98,14 @@ public final class CoreEvaluatedJoin {
         }
     }
 
+    /**
+     * Best-effort lazy publication of a resolved Editor document model through the active
+     * source. Returns false when the source cannot accept it (for example when closed).
+     */
+    public boolean tryPublish(final Object model, final String identity) {
+        return source.tryPublishBorrowedModel(model, identity);
+    }
+
     private CoreStructuralSnapshot traceSnapshot() {
         final CoreModelAcquisition acquisition = source.acquire(provider);
         if (!acquisition.isAcquired()) {

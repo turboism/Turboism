@@ -30,6 +30,21 @@ final class BorrowedCoreModelSource implements ActiveCoreModelSource {
         );
     }
 
+    /**
+     * Best-effort variant of {@link #publishBorrowedModel} for lazy first-access publication.
+     * Returns false when the source is closed (publish fails); deduplication is left to the
+     * Editor-side caller, which attempts at most once per binding identity.
+     */
+    @Override
+    public boolean tryPublishBorrowedModel(final Object model, final String identity) {
+        try {
+            publishBorrowedModel(model, identity);
+            return true;
+        } catch (IllegalStateException closed) {
+            return false;
+        }
+    }
+
     /** Clears the active model without taking ownership of the previous reference. */
     void clearBorrowedModel() {
         transitionTo(null, null);
