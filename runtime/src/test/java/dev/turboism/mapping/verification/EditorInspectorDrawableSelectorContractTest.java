@@ -58,6 +58,41 @@ class EditorInspectorDrawableSelectorContractTest {
         ));
     }
 
+    @Test
+    void setIdAliasesBindAsInstanceMethodsOnBothReviewedRecords() throws Exception {
+        // Regression guard for the r2 real-host failure
+        // ("Verified alias is not an instance method."): every setId alias in the
+        // inspector write family must declare static access as forbidden so the
+        // instance-method call site resolves instead of failing closed.
+        assertInstanceBindings("Cubism-5.3.02", "cubism-5.3.02-editor-model.json");
+        assertInstanceBindings("Cubism-5.2", "cubism-5.2-editor-model.json");
+    }
+
+    private static void assertInstanceBindings(
+        final String evidenceDirectory,
+        final String recordName
+    ) throws Exception {
+        final Path artifact = LEGACY_EVIDENCE.resolve(evidenceDirectory + "/jars/Live2D_Cubism.jar");
+        final var resolver = new VerifiedEditorModelResolverFactory().create(
+            PROJECT_ROOT.resolve("cubism-ref/verification/" + recordName),
+            artifact,
+            loader(artifact)
+        );
+        final java.util.Set<String> instanceAliases = java.util.Set.of(
+            "cubism.editor-model.drawable-source.set-id",
+            "cubism.editor-model.deformer-source.set-id",
+            "cubism.editor-model.glue-source.set-id",
+            "cubism.editor-model.model-source.verify",
+            "cubism.editor-model.parameter-controllable-handler.create-undo-for-basic-setting"
+        );
+        for (final String alias : instanceAliases) {
+            assertTrue(resolver.bind(alias) != null, alias + " must bind as an instance method");
+        }
+        // A genuinely static call site must keep binding statically.
+        assertTrue(resolver.bindStatic("cubism.editor-model.app-controller.instance") != null,
+            "app-controller.instance must still bind statically");
+    }
+
     private static Path locateProjectRoot() {
         Path current = Path.of("").toAbsolutePath().normalize();
         while (current != null && !java.nio.file.Files.isRegularFile(current.resolve("settings.gradle.kts"))) {

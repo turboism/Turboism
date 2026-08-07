@@ -5,6 +5,8 @@ import org.junit.jupiter.api.Test;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import java.util.HashSet;
+
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -50,6 +52,43 @@ class EditorModelTextureAuthorizationGuardTest {
             "5.3.02 manifest must require every texture write alias");
         assertTrue(aliases.containsAll(EditorTextureSelectorContract.REMOVE_RAW_IMAGE_ALIASES),
             "5.3.02 manifest must require the raw-image removal alias");
+    }
+
+    @Test
+    void cubism5302RecordContainsEveryTextureContractAlias() throws Exception {
+        assertRecordCoversContract(
+            projectRoot().resolve("cubism-ref/verification/cubism-5.3.02-editor-model.json"),
+            EditorTextureSelectorContract.READ_REQUIRED_ALIASES,
+            EditorTextureSelectorContract.WRITE_REQUIRED_ALIASES
+        );
+    }
+
+    @Test
+    void cubism52RecordContainsEveryTextureContractAlias() throws Exception {
+        assertRecordCoversContract(
+            projectRoot().resolve("cubism-ref/verification/cubism-5.2-editor-model.json"),
+            EditorTextureSelectorContract.READ_REQUIRED_ALIASES,
+            EditorTextureSelectorContract.WRITE_REQUIRED_ALIASES
+        );
+    }
+
+    private static void assertRecordCoversContract(
+        final Path recordPath,
+        final Set<String> readAliases,
+        final Set<String> writeAliases
+    ) throws Exception {
+        final StaticVerificationRecord record =
+            new StaticVerificationRecordLoader().load(recordPath).record();
+        final HashSet<String> recordAliases = new HashSet<>();
+        for (final StaticSelector selector : record.selectors()) {
+            recordAliases.add(selector.alias());
+        }
+        assertTrue(
+            recordAliases.containsAll(readAliases),
+            recordPath + " record must contain every texture READ alias");
+        assertTrue(
+            recordAliases.containsAll(writeAliases),
+            recordPath + " record must contain every texture WRITE alias");
     }
 
     @Test
