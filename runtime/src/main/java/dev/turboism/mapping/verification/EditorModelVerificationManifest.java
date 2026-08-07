@@ -7,7 +7,7 @@ public final class EditorModelVerificationManifest {
 
     public static final String VERIFICATION_ID = "cubism-5.3.02.editor-model.static";
     public static final String RECORD_SHA256 =
-        "faa5ec096c7d358eb168767508c88e3b9ad99a19533500871a6dadc5d33735a1";
+        "e584c8df07d27a07ded2885d130eeb006366f3e852b174038b9f3fd5678f6ee0";
     public static final String CUBISM_VERSION = "5.3.02";
     public static final String PROFILE_ID = "cubism-5.3.02";
     public static final long ARTIFACT_SIZE = 41_922_739L;
@@ -58,7 +58,9 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.morph-target.read",
         "cubism.editor-model.morph-target.write",
         "cubism.editor-model.parameter-structure.write",
-        "cubism.editor-model.part-structure.write"
+        "cubism.editor-model.part-structure.write",
+        EditorTextureSelectorContract.READ_CAPABILITY_ID,
+        EditorTextureSelectorContract.WRITE_CAPABILITY_ID
     );
     private static final Set<String> STRUCTURE_ALIASES = Set.of(
         "cubism.editor-model.copy-helper.copy",
@@ -437,8 +439,10 @@ public final class EditorModelVerificationManifest {
                 EditorAnimationReadSelectorContract.REQUIRED_ALIASES
             ),
             EditorModelInstanceReadSelectorContract.REQUIRED_ALIASES
-        )),
-        TEXTURE_ATLAS_ALIASES);
+        )), union(TEXTURE_ATLAS_ALIASES, union(
+        EditorTextureSelectorContract.WRITE_REQUIRED_ALIASES,
+        EditorTextureSelectorContract.REMOVE_RAW_IMAGE_ALIASES
+    )));
     private static final Set<String> PART_OPACITY_ADDITIVE_ALIASES = Set.of(
         "cubism.editor-model.model-source.parts",
         "cubism.editor-model.model-source.update-instances",
@@ -581,6 +585,8 @@ public final class EditorModelVerificationManifest {
             "cubism.editor-model.complete-pack.update-part-palette"
         ));
         values.addAll(TEXTURE_ATLAS_ALIASES_52);
+        values.addAll(EditorTextureSelectorContract.WRITE_REQUIRED_ALIASES);
+        values.removeAll(EditorTextureSelectorContract.REMOVE_RAW_IMAGE_ALIASES);
         return Set.copyOf(values);
     }
 

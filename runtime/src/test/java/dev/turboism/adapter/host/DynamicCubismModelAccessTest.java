@@ -218,6 +218,8 @@ class DynamicCubismModelAccessTest {
         assertSame(recording.physics, model.physicsSettings());
         assertSame(recording.autoYure, model.autoYure());
         assertEquals(List.of(recording.animation), model.animationDocuments());
+        final var sessionTextures = model.textures();
+        assertEquals(recording.textures.rawImages(), sessionTextures.rawImages());
         assertSame(
             recording.partTargets,
             model.parts().find(new PartId("PartReturned")).morphTargets()
@@ -232,6 +234,7 @@ class DynamicCubismModelAccessTest {
         assertThrows(IllegalStateException.class, model::physicsSettings);
         assertThrows(IllegalStateException.class, model::autoYure);
         assertThrows(IllegalStateException.class, model::animationDocuments);
+        assertThrows(IllegalStateException.class, model::textures);
         assertThrows(IllegalStateException.class, () -> model.parts().find(
             new PartId("PartReturned")
         ).morphTargets());
@@ -453,6 +456,28 @@ class DynamicCubismModelAccessTest {
             calls.add("model.animationDocuments");
             return List.of(animation);
         }
+
+        final dev.turboism.sdk.cubism.model.ModelTextures textures = emptyTextures();
+        @Override public dev.turboism.sdk.cubism.model.ModelTextures textures() {
+            calls.add("model.textures");
+            return textures;
+        }
+    }
+
+    private static dev.turboism.sdk.cubism.model.ModelTextures emptyTextures() {
+        return new dev.turboism.sdk.cubism.model.ModelTextures() {
+            @Override public List<dev.turboism.sdk.cubism.model.RawTexture> rawImages() { return List.of(); }
+            @Override public List<dev.turboism.sdk.cubism.model.ModelImageGroup> modelImageGroups() { return List.of(); }
+            @Override public List<dev.turboism.sdk.cubism.model.AtlasTexture> textureAtlases() { return List.of(); }
+            @Override public void addModelImageGroup(final String name) { }
+            @Override public void removeModelImage(final dev.turboism.sdk.cubism.id.ModelImageId id) { }
+            @Override public dev.turboism.sdk.cubism.id.TextureAtlasId addTextureAtlas(
+                final String name, final int widthPixels, final int heightPixels) {
+                return new dev.turboism.sdk.cubism.id.TextureAtlasId("atlas");
+            }
+            @Override public void removeTextureAtlas(final dev.turboism.sdk.cubism.id.TextureAtlasId id) { }
+            @Override public void removeRawImage(final dev.turboism.sdk.cubism.id.RawImageId id) { }
+        };
     }
 
     private static ParameterDefinition definition() {
