@@ -1,7 +1,11 @@
 package dev.turboism.adapter.cubism.editor;
 
 import dev.turboism.mapping.verification.EditorPartBasicSettingsSelectorContract;
+import dev.turboism.mapping.verification.EditorPartInspector52SelectorContract;
+import dev.turboism.mapping.verification.EditorPartInspectorSelectorContract;
 import dev.turboism.mapping.verification.EditorPartNameSelectorContract;
+import dev.turboism.mapping.verification.EditorPartInspector52SelectorContract;
+import dev.turboism.mapping.verification.EditorPartInspectorSelectorContract;
 import dev.turboism.mapping.verification.EditorPartOpacity52SelectorContract;
 import dev.turboism.mapping.verification.EditorPartOpacitySelectorContract;
 import dev.turboism.mapping.verification.EditorPartTreeSelectorContract;
@@ -10,8 +14,13 @@ import dev.turboism.sdk.cubism.model.Color;
 import dev.turboism.sdk.cubism.model.Part;
 import dev.turboism.sdk.cubism.model.PartId;
 import dev.turboism.sdk.cubism.model.MorphTargets;
+import dev.turboism.sdk.cubism.id.ArtMeshId;
+import dev.turboism.sdk.cubism.model.AlphaComposition;
 import dev.turboism.sdk.cubism.model.Parts;
+import dev.turboism.sdk.cubism.id.ArtMeshId;
+import dev.turboism.sdk.cubism.model.AlphaComposition;
 
+import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -29,6 +38,10 @@ final class EditorPartOpacityAccess {
     private static final String COLOR_ACTION_NAME = "Turboism: Set Part Edit Color";
     private static final String SKETCH_ACTION_NAME = "Turboism: Set Part Sketch";
     private static final String ORDER_ACTION_NAME = "Turboism: Set Part Default Order";
+    private static final String ID_ACTION_NAME = "Turboism: Set Part ID";
+    private static final String MASK_ACTION_NAME = "Turboism: Set Part Clipping Masks";
+    private static final String ALPHA_ACTION_NAME = "Turboism: Set Part Alpha Composition";
+    private static final int CUBISM_42_TARGET_VERSION = 4_020_000;
 
     private final VerifiedMemberResolver resolver;
     private final EditorParameterCombinedAccess.ModelGuard modelGuard;
@@ -365,6 +378,390 @@ final class EditorPartOpacityAccess {
         requireCurrentPart(identity, source, model, id, expectedSource, expectedPart);
     }
 
+    void setPartId(
+        final String identity,
+        final Object source,
+        final Object model,
+        final PartId id,
+        final Object expectedSource,
+        final Object expectedPart,
+        final String requestedId
+    ) {
+        final String newId = Objects.requireNonNull(requestedId, "id");
+        requirePartInspectorAuthorization();
+        final PartBinding current = requireCurrentPart(
+            identity, source, model, id, expectedSource, expectedPart
+        );
+        if (newId.equals(id.value())) return;
+        if (newId.isEmpty()) throw new IllegalArgumentException("id must not be blank");
+        if (!isValidCubismId(newId)) {
+            throw new IllegalArgumentException("id violates Cubism ID rules: " + newId);
+        }
+        if (duplicateObjectId(identity, source, model, newId)) {
+            throw new IllegalArgumentException("Cubism object ID is already present: " + newId);
+        }
+        writePartInspector(source, current, ID_ACTION_NAME, () -> {
+            final Object hostId = resolver.construct("cubism.editor-model.part-id.create", newId);
+            resolver.invoke("cubism.editor-model.part-source.set-id", current.source(), hostId);
+            verifyModel(source);
+        });
+    }
+
+    void setPartMaskIds(
+        final String identity,
+        final Object source,
+        final Object model,
+        final PartId id,
+        final Object expectedSource,
+        final Object expectedPart,
+        final List<ArtMeshId> masks
+    ) {
+        final List<ArtMeshId> requested = List.copyOf(Objects.requireNonNull(masks, "masks"));
+        requirePartInspector5302Authorization();
+        final PartBinding current = requireCurrentPart(
+            identity, source, model, id, expectedSource, expectedPart
+        );
+        final List<Object> hostGuids = resolveArtMeshGuids(identity, source, model, requested);
+        writePartInspector(source, current, MASK_ACTION_NAME, () -> {
+            final Object clipList = resolver.invoke(
+                "cubism.editor-model.part-source.clip-guid-list", current.source()
+            );
+            if (!(clipList instanceof List<?>)) {
+                throw unavailable("Editor Part clip-guid list is unavailable.");
+            }
+            @SuppressWarnings("unchecked")
+            final List<Object> list = (List<Object>) clipList;
+            list.clear();
+            list.addAll(hostGuids);
+        });
+        requireCurrentPart(identity, source, model, id, expectedSource, expectedPart);
+    }
+
+    void setPartAlphaComposition(
+        final String identity,
+        final Object source,
+        final Object model,
+        final PartId id,
+        final Object expectedSource,
+        final Object expectedPart,
+        final AlphaComposition composition
+    ) {
+        Objects.requireNonNull(composition, "composition");
+        if (composition == AlphaComposition.UNKNOWN) {
+            throw new IllegalArgumentException("alpha composition must be a concrete mode");
+        }
+        requirePartInspector5302Authorization();
+        final PartBinding current = requireCurrentPart(
+            identity, source, model, id, expectedSource, expectedPart
+        );
+        final Object host = resolver.readStaticField(
+            "cubism.editor-model.alpha-composition." + alphaCompositionKey(composition)
+        );
+        final Object currentHost = resolver.invoke(
+            "cubism.editor-model.part-source.alpha-composition", current.source()
+        );
+        if (currentHost == host) return;
+        writePartInspector(source, current, ALPHA_ACTION_NAME, () ->
+            resolver.invoke(
+                "cubism.editor-model.part-source.set-alpha-composition",
+                current.source(),
+                host
+            )
+        );
+        requireCurrentPart(identity, source, model, id, expectedSource, expectedPart);
+    }
+
+    private void writePartInspector(
+        final Object source,
+        final PartBinding current,
+        final String actionName,
+        final Runnable mutation
+    ) {
+        final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
+        final Object document = resolver.invoke(
+            "cubism.editor-model.app-controller.current-document", app
+        );
+        final Object editMode = resolver.invoke(
+            "cubism.editor-model.modeling-document.edit-mode", document
+        );
+        final Object edit = resolver.invoke("cubism.editor-model.edit-mode.begin", editMode, actionName);
+        boolean completed = false;
+        try {
+            final Object handler = resolver.invoke(
+                "cubism.editor-model.part-source.handler", current.source()
+            );
+            if (!resolver.isInstance("cubism.editor-model.part-handler.class", handler)) {
+                throw unavailable("Editor Part Undo handler is unavailable.");
+            }
+            final Object partUndo = resolver.invoke(
+                "cubism.editor-model.part-handler.create-undo-for-all-edit",
+                handler,
+                actionName
+            );
+            final Object accepted = resolver.invoke(
+                "cubism.editor-model.undo.add", edit, partUndo, Boolean.TRUE
+            );
+            if (!(accepted instanceof Boolean value) || !value) {
+                throw new IllegalStateException("Cubism rejected the Part Inspector Undo entry.");
+            }
+            final Object listener = resolver.createFunctionalProxy(
+                "cubism.editor-model.undo-listener.class",
+                ignored -> {
+                    resolver.invoke("cubism.editor-model.model-source.update-instances", source);
+                    refreshBoth(app);
+                    return null;
+                }
+            );
+            resolver.invoke("cubism.editor-model.undo.add-listener", partUndo, listener);
+            mutation.run();
+            resolver.invoke("cubism.editor-model.model-source.update-instances", source);
+            refreshBoth(app);
+            resolver.invoke("cubism.editor-model.modeling-document.mark-dirty", document);
+            completed = true;
+        } finally {
+            resolver.invoke(
+                "cubism.editor-model.edit-mode.end",
+                editMode,
+                Boolean.valueOf(!completed),
+                null
+            );
+        }
+    }
+
+    private void verifyModel(final Object modelSource) {
+        resolver.invokeStatic(
+            "cubism.editor-model.model-source.verify",
+            modelSource,
+            Boolean.TRUE,
+            null,
+            Integer.valueOf(2),
+            null
+        );
+    }
+
+    private void refreshBoth(final Object app) {
+        final Object completePack = resolver.invoke(
+            "cubism.editor-model.app-controller.complete-pack", app
+        );
+        resolver.invoke(
+            "cubism.editor-model.complete-pack.update-part-palette",
+            completePack,
+            Boolean.TRUE
+        );
+        resolver.invoke(
+            "cubism.editor-model.complete-pack.update-deformer-palette",
+            completePack,
+            Boolean.TRUE
+        );
+        resolver.invoke(
+            "cubism.editor-model.complete-pack.repaint-canvas",
+            completePack,
+            Boolean.TRUE
+        );
+    }
+
+    private List<Object> resolveArtMeshGuids(
+        final String identity,
+        final Object source,
+        final Object model,
+        final List<ArtMeshId> requested
+    ) {
+        modelGuard.requireCurrent(identity, model);
+        final List<?> artMeshSources = list(
+            resolver.invoke("cubism.editor-model.model-source.all-art-meshes", source),
+            "Editor ArtMesh source collection"
+        );
+        final ArrayList<Object> guids = new ArrayList<>(requested.size());
+        for (ArtMeshId maskId : requested) {
+            Object found = null;
+            for (Object artMeshSource : artMeshSources) {
+                if (!resolver.isInstance("cubism.editor-model.art-mesh-source.class", artMeshSource)) {
+                    throw unavailable("Editor ArtMesh source type is invalid.");
+                }
+                final Object idObject = resolver.invoke(
+                    "cubism.editor-model.parameter-controllable-source.id", artMeshSource
+                );
+                final String artMeshId = text(
+                    resolver.invoke("cubism.editor-model.id.value", idObject),
+                    "Editor ArtMesh ID"
+                );
+                if (artMeshId.equals(maskId.value())) {
+                    found = resolver.invoke(
+                        "cubism.editor-model.art-mesh-source.guid", artMeshSource
+                    );
+                    break;
+                }
+            }
+            if (found == null) {
+                throw new IllegalArgumentException(
+                    "Cubism ArtMesh is absent from the active model: " + maskId.value()
+                );
+            }
+            guids.add(found);
+        }
+        return List.copyOf(guids);
+    }
+
+    private boolean duplicateObjectId(
+        final String identity,
+        final Object source,
+        final Object model,
+        final String candidate
+    ) {
+        modelGuard.requireCurrent(identity, model);
+        for (String collectionAlias : new String[]{
+            "cubism.editor-model.model-source.parts",
+            "cubism.editor-model.model-source.all-deformers",
+            "cubism.editor-model.model-source.all-glues",
+            "cubism.editor-model.model-source.all-art-meshes"
+        }) {
+            final List<?> values = list(
+                resolver.invoke(collectionAlias, source),
+                "Editor object source collection"
+            );
+            for (Object value : values) {
+                final Object idObject = resolver.invoke(
+                    "cubism.editor-model.parameter-controllable-source.id", value
+                );
+                final String idText = text(
+                    resolver.invoke("cubism.editor-model.id.value", idObject),
+                    "Editor object ID"
+                );
+                if (idText.equals(candidate)) return true;
+            }
+        }
+        return false;
+    }
+
+
+    List<ArtMeshId> maskIds(
+        final String identity,
+        final Object source,
+        final Object model,
+        final PartBinding binding
+    ) {
+        modelGuard.requireCurrent(identity, model);
+        final Object clipList = resolver.invoke(
+            "cubism.editor-model.part-source.clip-guid-list", binding.source()
+        );
+        if (!(clipList instanceof List<?> list)) {
+            throw unavailable("Editor Part clip-guid list is unavailable.");
+        }
+        final List<?> artMeshSources = list(
+            resolver.invoke("cubism.editor-model.model-source.all-art-meshes", source),
+            "Editor ArtMesh source collection"
+        );
+        final java.util.Map<Object, String> idsByGuid = new IdentityHashMap<>();
+        for (Object artMeshSource : artMeshSources) {
+            if (!resolver.isInstance("cubism.editor-model.art-mesh-source.class", artMeshSource)) {
+                throw unavailable("Editor ArtMesh source type is invalid.");
+            }
+            final Object guid = resolver.invoke(
+                "cubism.editor-model.art-mesh-source.guid", artMeshSource
+            );
+            final Object idObject = resolver.invoke(
+                "cubism.editor-model.parameter-controllable-source.id", artMeshSource
+            );
+            idsByGuid.put(guid, text(
+                resolver.invoke("cubism.editor-model.id.value", idObject),
+                "Editor ArtMesh ID"
+            ));
+        }
+        final ArrayList<ArtMeshId> ids = new ArrayList<>(list.size());
+        for (Object guid : list) {
+            final String idText = idsByGuid.get(guid);
+            ids.add(new ArtMeshId(idText == null ? String.valueOf(guid) : idText));
+        }
+        return List.copyOf(ids);
+    }
+
+    AlphaComposition alphaComposition(final PartBinding binding) {
+        final Object host = resolver.invoke(
+            "cubism.editor-model.part-source.alpha-composition", binding.source()
+        );
+        if (host == resolver.readStaticField("cubism.editor-model.alpha-composition.over")) {
+            return AlphaComposition.OVER;
+        }
+        if (host == resolver.readStaticField("cubism.editor-model.alpha-composition.atop")) {
+            return AlphaComposition.ATOP;
+        }
+        if (host == resolver.readStaticField("cubism.editor-model.alpha-composition.out")) {
+            return AlphaComposition.OUT;
+        }
+        if (host == resolver.readStaticField("cubism.editor-model.alpha-composition.conjoint")) {
+            return AlphaComposition.CONJOINT;
+        }
+        if (host == resolver.readStaticField("cubism.editor-model.alpha-composition.disjoint")) {
+            return AlphaComposition.DISJOINT;
+        }
+        return AlphaComposition.UNKNOWN;
+    }
+
+    private void requirePartInspector5302Authorization() {
+        if (!resolver.authorizesFeature(
+            EditorPartInspectorSelectorContract.ADAPTER_SLICE_ID,
+            EditorPartInspectorSelectorContract.CAPABILITY_ID,
+            EditorPartInspectorSelectorContract.REQUIRED_ALIASES
+        )) {
+            throw new UnsupportedOperationException(
+                "Editor Part Inspector writes require exact verified host evidence."
+            );
+        }
+    }
+
+    private void requirePartInspectorAuthorization() {
+        final boolean authorized = resolver.isExactCubismVersion(EditorPartInspector52SelectorContract.CUBISM_VERSION)
+            ? resolver.authorizesFeature(
+                EditorPartInspector52SelectorContract.ADAPTER_SLICE_ID,
+                EditorPartInspector52SelectorContract.CAPABILITY_ID,
+                EditorPartInspector52SelectorContract.REQUIRED_ALIASES
+            )
+            : resolver.authorizesFeature(
+                EditorPartInspectorSelectorContract.ADAPTER_SLICE_ID,
+                EditorPartInspectorSelectorContract.CAPABILITY_ID,
+                EditorPartInspectorSelectorContract.REQUIRED_ALIASES
+            );
+        if (!authorized) {
+            throw new UnsupportedOperationException(
+                "Editor Part Inspector writes require exact verified host evidence."
+            );
+        }
+    }
+
+    private static boolean isValidCubismId(final String id) {
+        return InspectorIdRules.isValidCubismId(id);
+    }
+
+    private static String alphaCompositionKey(final AlphaComposition composition) {
+        return switch (composition) {
+            case OVER -> "over";
+            case ATOP -> "atop";
+            case OUT -> "out";
+            case CONJOINT -> "conjoint";
+            case DISJOINT -> "disjoint";
+            case UNKNOWN -> throw new IllegalArgumentException("alpha composition must be a concrete mode");
+        };
+    }
+
+    private static List<?> list(final Object value, final String label) {
+        if (!(value instanceof List<?> values)) {
+            throw new IllegalStateException(label + " is unavailable.");
+        }
+        return List.copyOf(values);
+    }
+
+    private static String text(final Object value, final String label) {
+        if (!(value instanceof String text)) {
+            throw new IllegalStateException(label + " is invalid.");
+        }
+        return text;
+    }
+
+    private static IllegalStateException unavailable(final String message) {
+        return new IllegalStateException(message);
+    }
+
+
     private void refresh(final Object app) {
         final Object completePack = resolver.invoke(
             "cubism.editor-model.app-controller.complete-pack", app
@@ -526,9 +923,6 @@ final class EditorPartOpacityAccess {
         }
     }
 
-    private static IllegalStateException unavailable(final String message) {
-        return new IllegalStateException(message);
-    }
 
     private final class EditorParts implements Parts {
         private final String identity;
@@ -796,6 +1190,28 @@ final class EditorPartOpacityAccess {
         @Override public void setName(final String name) {
             EditorPartOpacityAccess.this.setName(
                 identity, source, model, id, expectedSource, expectedPart, name
+            );
+        }
+        @Override public List<ArtMeshId> maskIds() {
+            return EditorPartOpacityAccess.this.maskIds(identity, source, model, current());
+        }
+        @Override public void setId(final PartId newId) {
+            EditorPartOpacityAccess.this.setPartId(
+                identity, source, model, id, expectedSource, expectedPart,
+                Objects.requireNonNull(newId, "id").value()
+            );
+        }
+        @Override public void setMaskIds(final List<ArtMeshId> masks) {
+            EditorPartOpacityAccess.this.setPartMaskIds(
+                identity, source, model, id, expectedSource, expectedPart, masks
+            );
+        }
+        @Override public AlphaComposition alphaComposition() {
+            return EditorPartOpacityAccess.this.alphaComposition(current());
+        }
+        @Override public void setAlphaComposition(final AlphaComposition composition) {
+            EditorPartOpacityAccess.this.setPartAlphaComposition(
+                identity, source, model, id, expectedSource, expectedPart, composition
             );
         }
         @Override public float getOpacity() { return opacity(current().part()); }
