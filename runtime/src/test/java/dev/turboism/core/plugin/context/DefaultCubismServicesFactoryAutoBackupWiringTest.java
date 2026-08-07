@@ -47,7 +47,10 @@ class DefaultCubismServicesFactoryAutoBackupWiringTest {
             }
 
             @Override
-            public File saveDocumentFor(final File matchFile, final long timestampMillis) {
+            public File saveDocumentFor(
+                final File matchFile, final java.util.List<String> documentUids,
+                final long timestampMillis
+            ) {
                 return null;
             }
         });

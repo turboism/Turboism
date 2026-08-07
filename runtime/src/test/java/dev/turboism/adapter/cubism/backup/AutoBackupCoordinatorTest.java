@@ -302,6 +302,80 @@ class AutoBackupCoordinatorTest {
     }
 
     @Test
+    void backupAfterSaveMatchesByModelingDocumentUidWhenTheNameDiffers() throws Exception {
+        FakeHost host = new FakeHost();
+        FakeHost.FakeModelingDocument model =
+            new FakeHost.FakeModelingDocument(host, "fixture.cmo3", 0L, 0L, false);
+        model.uid = "uid-model-1";
+        host.pack.fileContents = List.of(model);
+        AutoBackupCoordinator service = coordinator(host, 60_000L);
+        // The saved snapshot name differs from the pack file name (runner rename),
+        // but the stable document UID matches.
+        BackupCompletedEvent event = service.backupAfterSave(
+                snapshotWithUids("测试 混合模式.cmo3", List.of("uid-model-1")))
+            .toCompletableFuture().get(30, TimeUnit.SECONDS);
+        assertEquals(1, event.newBackupFiles().size());
+        assertTrue(event.newBackupFiles().get(0).getName().startsWith("fixture_backup"));
+        assertEquals(1, host.saveDocumentCalls, "the UID match must select the pack content");
+    }
+
+    @Test
+    void backupAfterSaveMatchesByAnimationSceneUid() throws Exception {
+        FakeHost host = new FakeHost();
+        FakeHost.FakeAnimationFileContent animation =
+            new FakeHost.FakeAnimationFileContent(host, "anim.motion3.json", 0L, 0L, false);
+        animation.scenes = List.of(
+            new FakeHost.FakeSceneDocument(host, "uid-scene-1"),
+            new FakeHost.FakeSceneDocument(host, "uid-scene-2"));
+        host.pack.fileContents = List.of(animation);
+        AutoBackupCoordinator service = coordinator(host, 60_000L);
+        BackupCompletedEvent event = service.backupAfterSave(
+                snapshotWithUids("renamed-anim.motion3.json", List.of("uid-scene-2")))
+            .toCompletableFuture().get(30, TimeUnit.SECONDS);
+        assertEquals(1, event.newBackupFiles().size());
+        assertTrue(event.newBackupFiles().get(0).getName().startsWith("anim.motion3_backup"));
+        assertEquals(1, host.saveDocumentCalls, "a scene UID hit must select the animation");
+    }
+
+    @Test
+    void backupAfterSaveFallsBackToNameMatchingWhenNoUidMatches() throws Exception {
+        FakeHost host = new FakeHost();
+        FakeHost.FakeModelingDocument model =
+            new FakeHost.FakeModelingDocument(host, "model.cmo3", 0L, 0L, false);
+        model.uid = "uid-model-1";
+        host.pack.fileContents = List.of(model);
+        AutoBackupCoordinator service = coordinator(host, 60_000L);
+        BackupCompletedEvent event = service.backupAfterSave(
+                snapshotWithUids("model.cmo3", List.of("uid-other")))
+            .toCompletableFuture().get(30, TimeUnit.SECONDS);
+        assertEquals(1, event.newBackupFiles().size());
+        assertEquals(1, host.saveDocumentCalls, "no UID hit must fall back to the name match");
+    }
+
+    @Test
+    void backupAfterSaveFallsBackToNameMatchingForAnEmptyUidList() throws Exception {
+        FakeHost host = new FakeHost();
+        host.pack.fileContents = List.of(new FakeHost.FakeModelingDocument(
+            host, "model.cmo3", 0L, 0L, false));
+        AutoBackupCoordinator service = coordinator(host, 60_000L);
+        BackupCompletedEvent event = service.backupAfterSave(snapshot("model.cmo3"))
+            .toCompletableFuture().get(30, TimeUnit.SECONDS);
+        assertEquals(1, event.newBackupFiles().size());
+        assertEquals(1, host.saveDocumentCalls, "an empty UID list must use name matching");
+    }
+
+    @Test
+    void backupAfterSaveFailsClosedWhenUidSelectorsAreMissing() throws Exception {
+        FakeHost host = new FakeHost();
+        AutoBackupCoordinator service = coordinator(host.resolverWithoutUidSelectors(), 60_000L);
+        CompletionStage<BackupCompletedEvent> stage = service.backupAfterSave(snapshot("model.cmo3"));
+        assertThrows(
+            java.util.concurrent.ExecutionException.class,
+            () -> stage.toCompletableFuture().get(30, TimeUnit.SECONDS)
+        );
+        assertEquals(0, host.saveDocumentCalls, "missing UID selectors must fail before any mutation");
+    }
+    @Test
     void backupAfterSaveFailsClosedWhenNoPackContentMatches() throws Exception {
         FakeHost host = new FakeHost();
         AutoBackupCoordinator service = coordinator(host, 60_000L);
@@ -354,6 +428,12 @@ class AutoBackupCoordinatorTest {
     private static ProjectContentSnapshot snapshot(final String name) {
         return new ProjectContentSnapshot(
             "model:test", name, ProjectContentKind.MODEL, java.util.Optional.empty(), List.of()
+        );
+    }
+
+    private static ProjectContentSnapshot snapshotWithUids(final String name, final List<String> uids) {
+        return new ProjectContentSnapshot(
+            "model:test", name, ProjectContentKind.MODEL, java.util.Optional.empty(), uids
         );
     }
 
@@ -537,9 +617,82 @@ class AutoBackupCoordinatorTest {
             selectors.add(StaticSelector.method(
                 "cubism.auto-backup.save-document.game-data", gameData, "saveDocument",
                 "(Ljava/io/File;)V"));
+            selectors.add(StaticSelector.method(
+                "cubism.auto-backup.document-uid.modeling", modeling, "getDocumentUID",
+                "()Ljava/lang/String;"));
+            selectors.add(StaticSelector.method(
+                "cubism.auto-backup.scene-docs", animationContent, "getSceneDocs",
+                "()Lcom/live2d/type/CArrayList;"));
+            String scene = internal(FakeSceneDocument.class);
+            selectors.add(StaticSelector.method(
+                "cubism.auto-backup.document-uid.scene", scene, "getDocumentUID",
+                "()Ljava/lang/String;"));
             if (!typed) {
                 selectors.removeIf(selector -> selector.alias().equals("cubism.auto-backup.manager.instance"));
             }
+            return TestVerifiedResolvers.create(
+                AutoBackupVerificationManifest.ADAPTER_SLICE_ID,
+                AutoBackupVerificationManifest.CAPABILITY_IDS,
+                selectors,
+                FakeHost.class.getClassLoader()
+            );
+        }
+
+        /** Resolver whose UID selectors are absent (older record): saveDocumentFor fails closed. */
+        VerifiedMemberResolver resolverWithoutUidSelectors() {
+            List<StaticSelector> selectors = new ArrayList<>();
+            String manager = internal(FakeManager.class);
+            String app = internal(FakeApp.class);
+            String pack = internal(FakePack.class);
+            String content = internal(FakeFileContent.class);
+            selectors.add(StaticSelector.classSelector("cubism.auto-backup.manager.class", manager));
+            selectors.add(StaticSelector.field(
+                "cubism.auto-backup.manager.instance", manager, "a", "L" + manager + ";",
+                StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC));
+            selectors.add(StaticSelector.method("cubism.auto-backup.is-enabled", manager, "a", "()Z"));
+            selectors.add(StaticSelector.method("cubism.auto-backup.set-enabled", manager, "a", "(Z)V"));
+            selectors.add(StaticSelector.method("cubism.auto-backup.set-interval-minute", manager, "a", "(I)V"));
+            selectors.add(StaticSelector.method("cubism.auto-backup.attach-pack", manager, "a", "(L" + pack + ";)V"));
+            selectors.add(StaticSelector.method("cubism.auto-backup.get-interval-minute", manager, "b", "()I"));
+            selectors.add(StaticSelector.method("cubism.auto-backup.set-max-mb", manager, "b", "(I)V"));
+            selectors.add(StaticSelector.method("cubism.auto-backup.get-max-mb", manager, "c", "()I"));
+            selectors.add(StaticSelector.method("cubism.auto-backup.update", manager, "h", "()V"));
+            selectors.add(StaticSelector.method("cubism.auto-backup.backup-dir", manager, "i", "()Ljava/io/File;"));
+            selectors.add(StaticSelector.classSelector("cubism.auto-backup.app-controller.class", app));
+            selectors.add(StaticSelector.method(
+                "cubism.auto-backup.app-controller.get-complete-pack", app, "getCompletePack",
+                "()L" + pack + ";"));
+            selectors.add(StaticSelector.classSelector("cubism.auto-backup.complete-pack.class", pack));
+            selectors.add(StaticSelector.method(
+                "cubism.auto-backup.complete-pack.file-contents", pack, "getAllFileContents",
+                "()Ljava/util/List;"));
+            selectors.add(StaticSelector.classSelector("cubism.auto-backup.file-content.class", content));
+            selectors.add(StaticSelector.method(
+                "cubism.auto-backup.file-content.last-auto-backup-time", content,
+                "getLastAutoBackupTime", "()J"));
+            selectors.add(StaticSelector.method(
+                "cubism.auto-backup.file-content.set-last-auto-backup-time", content,
+                "setLastAutoBackupTime", "(J)V"));
+            selectors.add(StaticSelector.method(
+                "cubism.auto-backup.file-content.last-saved-time", content,
+                "getLastSavedTime", "()J"));
+            selectors.add(StaticSelector.method(
+                "cubism.auto-backup.file-content.modified-after-saving", content,
+                "isModifiedAfterSaving", "()Z"));
+            selectors.add(StaticSelector.method(
+                "cubism.auto-backup.file-content.file", content, "getFile", "()Ljava/io/File;"));
+            String modeling = internal(FakeModelingDocument.class);
+            String animationContent = internal(FakeAnimationFileContent.class);
+            String gameData = internal(FakeGameDataDocument.class);
+            selectors.add(StaticSelector.method(
+                "cubism.auto-backup.save-document.modeling", modeling, "saveDocument",
+                "(Ljava/io/File;Z)Z"));
+            selectors.add(StaticSelector.method(
+                "cubism.auto-backup.save-document.animation", animationContent, "saveDocument",
+                "(Ljava/io/File;Z)Z"));
+            selectors.add(StaticSelector.method(
+                "cubism.auto-backup.save-document.game-data", gameData, "saveDocument",
+                "(Ljava/io/File;)V"));
             return TestVerifiedResolvers.create(
                 AutoBackupVerificationManifest.ADAPTER_SLICE_ID,
                 AutoBackupVerificationManifest.CAPABILITY_IDS,
@@ -686,6 +839,11 @@ class AutoBackupCoordinatorTest {
                 super(host, name, lastAutoBackupTime, lastSavedTime, modified);
             }
 
+            public String getDocumentUID() {
+                host.onEdt.set(SwingUtilities.isEventDispatchThread());
+                return uid;
+            }
+
             public boolean saveDocument(File target, boolean unused) {
                 return host.saveDocument(target, this);
             }
@@ -695,6 +853,11 @@ class AutoBackupCoordinatorTest {
             FakeAnimationFileContent(FakeHost host, String name, long lastAutoBackupTime,
                                      long lastSavedTime, boolean modified) {
                 super(host, name, lastAutoBackupTime, lastSavedTime, modified);
+            }
+
+            public com.live2d.type.CArrayList getSceneDocs() {
+                host.onEdt.set(SwingUtilities.isEventDispatchThread());
+                return new com.live2d.type.CArrayList(scenes);
             }
 
             public boolean saveDocument(File target, boolean unused) {
@@ -713,12 +876,29 @@ class AutoBackupCoordinatorTest {
             }
         }
 
+        public static final class FakeSceneDocument {
+            final FakeHost host;
+            private final String uid;
+
+            FakeSceneDocument(FakeHost host, String uid) {
+                this.host = host;
+                this.uid = uid;
+            }
+
+            public String getDocumentUID() {
+                host.onEdt.set(SwingUtilities.isEventDispatchThread());
+                return uid;
+            }
+        }
+
         public static class FakeFileContent {
             final FakeHost host;
             final String name;
             long lastAutoBackupTime;
             final long lastSavedTime;
             final boolean modified;
+            String uid;
+            List<FakeSceneDocument> scenes = List.of();
 
             FakeFileContent(FakeHost host, String name, long lastAutoBackupTime, long lastSavedTime,
                             boolean modified) {
