@@ -153,6 +153,101 @@ class EditorParameterStructureAccessTest {
         assertEquals(0, fixture.editMode.edits.size());
     }
 
+    @Test
+    void createManyCreatesAllParametersInsideOneUndoEnvelope() {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        final EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
+            resolver(true), "session-a");
+        final var model = access.active();
+
+        final var created = model.parameters().createMany(List.of(
+            new ParameterDefinition(new ParameterId("A"), "A", 0.0F, 0.5F, 1.0F, ParameterType.NORMAL, true),
+            new ParameterDefinition(new ParameterId("B"), "B", -1.0F, 0.0F, 1.0F, ParameterType.NORMAL, false),
+            new ParameterDefinition(new ParameterId("C"), "C", 0.0F, 0.0F, 1.0F, ParameterType.BLEND_SHAPE, false)
+        ));
+
+        assertEquals(List.of(new ParameterId("A"), new ParameterId("B"), new ParameterId("C")),
+            created.stream().map(p -> p.id()).toList());
+        assertEquals(4, fixture.root.children.size());
+        assertTrue(((ParameterSource) fixture.root.children.get(1)).repeat);
+        assertTrue(!((ParameterSource) fixture.root.children.get(2)).repeat);
+        // one edit-mode envelope for the whole batch, never one per parameter
+        assertEquals(1, fixture.editMode.beginCount);
+        assertEquals(1, fixture.editMode.endCount);
+        assertTrue(!fixture.editMode.aborted);
+        // every child operation registered inside that single envelope
+        assertEquals(3, fixture.editMode.edits.size());
+        assertTrue(fixture.document.dirty);
+        assertEquals(1, fixture.source.updateCount);
+    }
+
+    @Test
+    void removeManyDeletesAllParametersInsideOneUndoEnvelope() {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        final EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
+            resolver(true), "session-a");
+        final var model = access.active();
+
+        model.parameters().createMany(List.of(
+            new ParameterDefinition(new ParameterId("A"), "A", 0, 0, 1, ParameterType.NORMAL, false),
+            new ParameterDefinition(new ParameterId("B"), "B", 0, 0, 1, ParameterType.NORMAL, false)
+        ));
+        assertEquals(3, fixture.root.children.size());
+
+        model.parameters().removeMany(List.of(new ParameterId("A"), new ParameterId("B")));
+        assertEquals(1, fixture.root.children.size());
+        assertEquals(2, fixture.editMode.beginCount);
+        assertEquals(2, fixture.editMode.endCount);
+        assertTrue(!fixture.editMode.aborted);
+    }
+
+    @Test
+    void batchValidationFailsClosedBeforeAnyWrite() {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        final EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
+            resolver(true), "session-a");
+        final var model = access.active();
+
+        // duplicate id inside the batch
+        assertThrows(IllegalArgumentException.class, () -> model.parameters().createMany(List.of(
+            new ParameterDefinition(new ParameterId("A"), "A", 0, 0, 1, ParameterType.NORMAL, false),
+            new ParameterDefinition(new ParameterId("A"), "A2", 0, 0, 1, ParameterType.NORMAL, false)
+        )));
+        // id already present in the model
+        assertThrows(IllegalArgumentException.class, () -> model.parameters().createMany(List.of(
+            new ParameterDefinition(new ParameterId("P1"), "P1", 0, 0, 1, ParameterType.NORMAL, false)
+        )));
+        // empty batch
+        assertThrows(IllegalArgumentException.class, () -> model.parameters().createMany(List.of()));
+        assertThrows(IllegalArgumentException.class, () -> model.parameters().removeMany(List.of()));
+        // absent target
+        assertThrows(java.util.NoSuchElementException.class,
+            () -> model.parameters().removeMany(List.of(new ParameterId("Missing"))));
+        assertEquals(0, fixture.editMode.beginCount);
+        assertEquals(0, fixture.editMode.endCount);
+        assertEquals(1, fixture.root.children.size());
+    }
+
+    @Test
+    void batchWritesFailClosedWithoutExactCapabilityEvidence() {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        final EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
+            resolver(false), "session-a");
+        final var model = access.active();
+
+        assertThrows(UnsupportedOperationException.class, () -> model.parameters().createMany(List.of(
+            new ParameterDefinition(new ParameterId("A"), "A", 0, 0, 1, ParameterType.NORMAL, false)
+        )));
+        assertThrows(UnsupportedOperationException.class,
+            () -> model.parameters().removeMany(List.of(new ParameterId("P1"))));
+        assertEquals(0, fixture.editMode.beginCount);
+        assertEquals(0, fixture.editMode.endCount);
+    }
+
     private static VerifiedMemberResolver resolver(final boolean includeCapability) {
         final List<StaticSelector> selectors = new ArrayList<>();
         selectors.add(StaticSelector.classSelector("cubism.editor-model.app-controller.class", internal(Host.class)));
@@ -459,8 +554,10 @@ class EditorParameterStructureAccessTest {
         final List<Undo> edits = new ArrayList<>();
         private final List<Undo> redoStack = new ArrayList<>();
         boolean aborted;
-        public GroupUndo begin(final String name) { return new GroupUndo(edits); }
-        public void end(final boolean abort, final Object ignored) { aborted = abort; }
+        int beginCount;
+        int endCount;
+        public GroupUndo begin(final String name) { beginCount++; return new GroupUndo(edits); }
+        public void end(final boolean abort, final Object ignored) { endCount++; aborted = abort; }
         /** Simulates the host native Undo command (menu click): unwinds the last entry. */
         public void undo() {
             if (!edits.isEmpty()) {
