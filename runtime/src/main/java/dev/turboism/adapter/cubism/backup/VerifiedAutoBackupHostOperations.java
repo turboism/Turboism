@@ -60,6 +60,9 @@ public final class VerifiedAutoBackupHostOperations implements AutoBackupAdapter
         static final String FILE_CONTENT_LAST_SAVED_TIME = "cubism.auto-backup.file-content.last-saved-time";
         static final String FILE_CONTENT_MODIFIED_AFTER_SAVING = "cubism.auto-backup.file-content.modified-after-saving";
         static final String FILE_CONTENT_FILE = "cubism.auto-backup.file-content.file";
+        static final String DOCUMENT_UID_MODELING = "cubism.auto-backup.document-uid.modeling";
+        static final String SCENE_DOCS = "cubism.auto-backup.scene-docs";
+        static final String DOCUMENT_UID_SCENE = "cubism.auto-backup.document-uid.scene";
         static final String SAVE_DOCUMENT_MODELING = "cubism.auto-backup.save-document.modeling";
         static final String SAVE_DOCUMENT_ANIMATION = "cubism.auto-backup.save-document.animation";
         static final String SAVE_DOCUMENT_GAME_DATA = "cubism.auto-backup.save-document.game-data";
@@ -183,11 +186,15 @@ public final class VerifiedAutoBackupHostOperations implements AutoBackupAdapter
     }
 
     @Override
-    public File saveDocumentFor(final File matchFile, final long timestampMillis) {
+    public File saveDocumentFor(
+        final File matchFile, final List<String> documentUids, final long timestampMillis
+    ) {
         Objects.requireNonNull(matchFile, "matchFile");
+        Objects.requireNonNull(documentUids, "documentUids");
         requireResolvable(
             Aliases.SAVE_DOCUMENT_MODELING, Aliases.SAVE_DOCUMENT_ANIMATION,
-            Aliases.SAVE_DOCUMENT_GAME_DATA,
+            Aliases.SAVE_DOCUMENT_GAME_DATA, Aliases.DOCUMENT_UID_MODELING,
+            Aliases.SCENE_DOCS, Aliases.DOCUMENT_UID_SCENE,
             Aliases.MANAGER_CLASS, Aliases.MANAGER_INSTANCE, Aliases.BACKUP_DIR,
             Aliases.APP_CONTROLLER_CLASS, Aliases.APP_CONTROLLER_GET_COMPLETE_PACK,
             Aliases.COMPLETE_PACK_CLASS, Aliases.COMPLETE_PACK_FILE_CONTENTS,
@@ -208,6 +215,27 @@ public final class VerifiedAutoBackupHostOperations implements AutoBackupAdapter
             return null;
         }
         final File backupDir = (File) resolver.invoke(Aliases.BACKUP_DIR, manager());
+        if (!documentUids.isEmpty()) {
+            // UID matching first: the saved snapshot carries stable document UIDs
+            // (host getDocumentUID), while the pack file base name can differ
+            // (e.g. the runner renames the fixture). First UID hit wins.
+            for (Object content : contents) {
+                if (content == null) {
+                    continue;
+                }
+                if (uidMatches(content, documentUids)) {
+                    final File file = (File) resolver.invoke(Aliases.FILE_CONTENT_FILE, content);
+                    final String alias = saveDocumentAliasFor(content);
+                    if (alias == null) {
+                        throw new IllegalStateException(
+                            "auto-backup saveDocument: unsupported file content: " + file.getName()
+                        );
+                    }
+                    return saveAsBackup(alias, content, file, backupDir, timestampMillis);
+                }
+            }
+        }
+        // Fallback: name/path matching (also used when the saved UID list is empty).
         for (Object content : contents) {
             if (content == null) {
                 continue;
@@ -225,6 +253,34 @@ public final class VerifiedAutoBackupHostOperations implements AutoBackupAdapter
             return saveAsBackup(alias, content, file, backupDir, timestampMillis);
         }
         return null; // no match: the coordinator fails closed
+    }
+
+    /**
+     * UID matching for one pack file content: modeling compares its own
+     * {@code getDocumentUID}, animation compares each scene's UID from
+     * {@code getSceneDocs}; game-data has no UID mapping and never matches here.
+     */
+    private boolean uidMatches(final Object content, final List<String> documentUids) {
+        final String alias = saveDocumentAliasFor(content);
+        if (Aliases.SAVE_DOCUMENT_MODELING.equals(alias)) {
+            final String uid = (String) resolver.invoke(Aliases.DOCUMENT_UID_MODELING, content);
+            return uid != null && documentUids.contains(uid);
+        }
+        if (Aliases.SAVE_DOCUMENT_ANIMATION.equals(alias)) {
+            final Object sceneDocs = resolver.invoke(Aliases.SCENE_DOCS, content);
+            if (sceneDocs instanceof Iterable<?> iterable) {
+                for (Object scene : iterable) {
+                    if (scene == null) {
+                        continue;
+                    }
+                    final String uid = (String) resolver.invoke(Aliases.DOCUMENT_UID_SCENE, scene);
+                    if (uid != null && documentUids.contains(uid)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
     }
 
     private String saveDocumentAliasFor(final Object content) {
