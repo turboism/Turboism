@@ -73,6 +73,8 @@ public final class MainToolbarPlugin implements TurboismPlugin {
         registerAction("settings.skip-update", "Skip update", action -> update(action, "skip-update"));
         registerAction("settings.skip-splash", "Skip splash", action -> update(action, "skip-splash"));
         registerAction("settings.skip-information", "Skip information", action -> update(action, "skip-information"));
+        registerAction("settings.separate-export-save-directory", "Separate export save directory",
+            action -> update(action, "separate-export-save-directory"));
         registerAction("settings.save", "Save settings", ignored -> {
             settings = services.settings().save(settings);
             logger.info("Turboism settings saved; startup changes require restart");
@@ -179,22 +181,32 @@ public final class MainToolbarPlugin implements TurboismPlugin {
             case "safe-mode" -> new dev.turboism.sdk.runtime.RuntimeSettings(
                 ((dev.turboism.sdk.action.UiActionEvent.ToggleValue) value).value(),
                 settings.logLevel(), settings.maxLogStorageMiB(),
-                settings.skipStartupUpdateCheck(), settings.skipStartupSplash(), settings.skipStartupInformation());
+                settings.skipStartupUpdateCheck(), settings.skipStartupSplash(),
+                settings.skipStartupInformation(), settings.separateExportSaveDirectory());
             case "log-level" -> new dev.turboism.sdk.runtime.RuntimeSettings(
                 settings.safeMode(), ((dev.turboism.sdk.action.UiActionEvent.SelectionValue) value).value(),
                 settings.maxLogStorageMiB(), settings.skipStartupUpdateCheck(),
-                settings.skipStartupSplash(), settings.skipStartupInformation());
+                settings.skipStartupSplash(), settings.skipStartupInformation(),
+                settings.separateExportSaveDirectory());
             case "skip-update" -> new dev.turboism.sdk.runtime.RuntimeSettings(
                 settings.safeMode(), settings.logLevel(), settings.maxLogStorageMiB(),
                 ((dev.turboism.sdk.action.UiActionEvent.ToggleValue) value).value(),
-                settings.skipStartupSplash(), settings.skipStartupInformation());
+                settings.skipStartupSplash(), settings.skipStartupInformation(),
+                settings.separateExportSaveDirectory());
             case "skip-splash" -> new dev.turboism.sdk.runtime.RuntimeSettings(
                 settings.safeMode(), settings.logLevel(), settings.maxLogStorageMiB(),
                 settings.skipStartupUpdateCheck(),
-                ((dev.turboism.sdk.action.UiActionEvent.ToggleValue) value).value(), settings.skipStartupInformation());
+                ((dev.turboism.sdk.action.UiActionEvent.ToggleValue) value).value(),
+                settings.skipStartupInformation(), settings.separateExportSaveDirectory());
             case "skip-information" -> new dev.turboism.sdk.runtime.RuntimeSettings(
                 settings.safeMode(), settings.logLevel(), settings.maxLogStorageMiB(),
                 settings.skipStartupUpdateCheck(), settings.skipStartupSplash(),
+                ((dev.turboism.sdk.action.UiActionEvent.ToggleValue) value).value(),
+                settings.separateExportSaveDirectory());
+            case "separate-export-save-directory" -> new dev.turboism.sdk.runtime.RuntimeSettings(
+                settings.safeMode(), settings.logLevel(), settings.maxLogStorageMiB(),
+                settings.skipStartupUpdateCheck(), settings.skipStartupSplash(),
+                settings.skipStartupInformation(),
                 ((dev.turboism.sdk.action.UiActionEvent.ToggleValue) value).value());
             default -> throw new IllegalArgumentException("unknown settings field: " + field);
         };
