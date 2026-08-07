@@ -35,11 +35,31 @@
       "id": "turboism.event.publish",
       "scope": "application",
       "reason": "The per-plugin auto-backup coordinator publishes BackupCompletedEvent on this plugin's event bus."
+    },
+    {
+      "id": "turboism.config.plugin.write",
+      "scope": "application",
+      "reason": "Persists the WebDAV endpoint settings through the backup/webdav.cfg write path with readback confirmation."
+    },
+    {
+      "id": "turboism.action.register",
+      "scope": "application",
+      "reason": "Registers the backup.webdav.settings.open action behind the Turboism menu item."
+    },
+    {
+      "id": "turboism.ui.menu.contribute",
+      "scope": "application",
+      "reason": "Exposes the WebDAV 备份设置 settings dialog through the Turboism menu."
+    },
+    {
+      "id": "turboism.cubism.model.observe",
+      "scope": "application",
+      "reason": "Observes model and animation save lifecycle to trigger save-triggered backups."
     }
   ],
   "capabilities": [],
   "environment": {
     "requiresCubism": true,
-    "ui": "none"
+    "ui": "swing"
   }
 }
