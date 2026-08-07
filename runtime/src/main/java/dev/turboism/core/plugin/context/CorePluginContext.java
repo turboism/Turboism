@@ -21,6 +21,7 @@ import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.appearance.AppearanceService;
 import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.recentfile.RecentFileService;
+import dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService;
 import dev.turboism.sdk.cubism.recentpreview.RecentPreviewContributionService;
 import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureService;
 import dev.turboism.sdk.cubism.service.query.ModelHierarchyQueryService;
@@ -88,6 +89,7 @@ public final class CorePluginContext implements PluginContext {
     private final ScreenshotCaptureService screenshotCaptureService;
     private final RecentPreviewContributionService recentPreviewContributionService;
     private dev.turboism.sdk.runtime.RuntimeSettingsService runtimeSettings;
+    private dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistory;
     public CorePluginContext(final Dependencies dependencies) {
         this(dependencies, RuntimeHostAdapters.safeMode(), null, null, null, null, null);
     }
@@ -210,6 +212,34 @@ public final class CorePluginContext implements PluginContext {
         );
     }
 
+    public CorePluginContext(
+        final Dependencies dependencies,
+        final RuntimeHostAdapterAccess hostAccess,
+        final PluginLocalization localization,
+        final PluginTaskScheduler taskScheduler,
+        final PluginStorage pluginStorage,
+        final UserFileAccessService userFileAccessService,
+        final AsyncHostReadService asyncHostReadService,
+        final dev.turboism.sdk.runtime.RuntimeSettingsService runtimeSettings,
+        final dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistory
+    ) {
+        this(
+            dependencies,
+            servicesFactory(
+                Objects.requireNonNull(hostAccess, "hostAccess"),
+                Objects.requireNonNull(userFileAccessService, "userFileAccessService")
+            ),
+            hostAccess,
+            Objects.requireNonNull(localization, "localization"),
+            Objects.requireNonNull(taskScheduler, "taskScheduler"),
+            Objects.requireNonNull(pluginStorage, "pluginStorage"),
+            Objects.requireNonNull(userFileAccessService, "userFileAccessService"),
+            Objects.requireNonNull(asyncHostReadService, "asyncHostReadService"),
+            runtimeSettings,
+            fileChooserHistory
+        );
+    }
+
     private static DefaultCubismServicesFactory servicesFactory(
         final RuntimeHostAdapterAccess hostAccess
     ) {
@@ -324,6 +354,30 @@ public final class CorePluginContext implements PluginContext {
         );
     }
 
+    /** Test composition seam: package-private {@link RuntimeHostAdapters} view with an injected file-chooser history service. */
+    CorePluginContext(
+        final Dependencies dependencies,
+        final RuntimeHostAdapters hostAdapters,
+        final PluginLocalization localization,
+        final PluginTaskScheduler taskScheduler,
+        final PluginStorage pluginStorage,
+        final UserFileAccessService userFileAccessService,
+        final AsyncHostReadService asyncHostReadService,
+        final dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistory
+    ) {
+        this(
+            dependencies,
+            new DefaultCubismServicesFactory(hostAdapters),
+            hostAdapters,
+            localization,
+            taskScheduler,
+            pluginStorage,
+            userFileAccessService,
+            asyncHostReadService
+        );
+        this.fileChooserHistory = fileChooserHistory;
+    }
+
     CorePluginContext(final Dependencies dependencies, final CubismServicesFactory cubismServicesFactory) {
         this(
             dependencies,
@@ -391,6 +445,32 @@ public final class CorePluginContext implements PluginContext {
             dependencies,
             cubismServicesFactory,
             hostAccess,
+            localization,
+            taskScheduler,
+            pluginStorage,
+            userFileAccessService,
+            asyncHostReadService,
+            runtimeSettings,
+            null
+        );
+    }
+
+    private CorePluginContext(
+        final Dependencies dependencies,
+        final CubismServicesFactory cubismServicesFactory,
+        final RuntimeHostAdapterAccess hostAccess,
+        final PluginLocalization localization,
+        final PluginTaskScheduler taskScheduler,
+        final PluginStorage pluginStorage,
+        final UserFileAccessService userFileAccessService,
+        final AsyncHostReadService asyncHostReadService,
+        final dev.turboism.sdk.runtime.RuntimeSettingsService runtimeSettings,
+        final dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistory
+    ) {
+        this(
+            dependencies,
+            cubismServicesFactory,
+            hostAccess,
             Objects.requireNonNull(hostAccess, "hostAccess").adapters(),
             localization,
             taskScheduler,
@@ -399,6 +479,7 @@ public final class CorePluginContext implements PluginContext {
             asyncHostReadService
         );
         this.runtimeSettings = runtimeSettings;
+        this.fileChooserHistory = fileChooserHistory;
     }
 
     private CorePluginContext(
@@ -751,6 +832,11 @@ public final class CorePluginContext implements PluginContext {
     @Override
     public dev.turboism.sdk.runtime.RuntimeSettingsService runtimeSettings() {
         return runtimeSettings == null ? PluginContext.super.runtimeSettings() : runtimeSettings;
+    }
+
+    @Override
+    public dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistory() {
+        return fileChooserHistory == null ? PluginContext.super.fileChooserHistory() : fileChooserHistory;
     }
 
     @Override

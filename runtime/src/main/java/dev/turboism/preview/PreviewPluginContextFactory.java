@@ -1,8 +1,10 @@
 package dev.turboism.preview;
 
 import dev.turboism.adapter.host.RuntimeHostAdapterAccess;
+import dev.turboism.config.RuntimeConfigRepository;
 import dev.turboism.cleanup.CleanupEvidenceCollector;
 import dev.turboism.core.plugin.context.CorePluginContext;
+import dev.turboism.filechooser.RuntimeFileChooserHistoryService;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.failure.RuntimeFailureCollector;
 import dev.turboism.hostread.SharedAsyncHostReadLane;
@@ -18,7 +20,9 @@ import java.util.Objects;
 final class PreviewPluginContextFactory {
 
     private final RuntimeHostAdapterAccess hostAccess;
+    private final Path home;
     private final PreviewPluginServicesFactory servicesFactory;
+    private final PreviewLog log;
 
     PreviewPluginContextFactory(
         final Path home,
@@ -29,6 +33,8 @@ final class PreviewPluginContextFactory {
         final RuntimeFailureCollector failureCollector
     ) {
         this.hostAccess = Objects.requireNonNull(hostAccess, "hostAccess");
+        this.home = Objects.requireNonNull(home, "home");
+        this.log = Objects.requireNonNull(log, "log");
         this.servicesFactory = new PreviewPluginServicesFactory(
             home, scheduler, hostAccess, hostReadLane, log, failureCollector
         );
@@ -56,7 +62,10 @@ final class PreviewPluginContextFactory {
         final CorePluginContext context = new CorePluginContext(
             services.dependencies().withConfig(services.typedConfig()), hostAccess,
             services.localization(), services.taskScheduler(), services.pluginStorage(),
-            services.userFiles(), services.hostReads()
+            services.userFiles(), services.hostReads(), null,
+            new RuntimeFileChooserHistoryService(
+                new RuntimeConfigRepository(home, diagnostic -> log.warn("config", diagnostic))
+            )
         );
         return new PluginContextBundle(context, services.localization(), services.cleanupEvidence());
     }
