@@ -5,6 +5,7 @@ import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.cubism.core.MocInfo;
 
 import java.util.List;
+import java.util.Optional;
 
 /** One Cubism model exposed as natural objects and methods. */
 @PreviewApi
@@ -28,6 +29,30 @@ public interface CubismModel {
         throw new UnsupportedOperationException(
             "Cubism parameter-definition access is unavailable."
         );
+    }
+
+    /**
+     * Returns the Editor model-instance list (host {@code CModelSource.getModelInstances()}).
+     *
+     * <p>Read-only: instance creation and switching are Editor-internal operations with
+     * no verified authoring/undo evidence, so no write projection is declared.</p>
+     */
+    default List<ModelInstance> modelInstances() {
+        throw new UnsupportedOperationException("Cubism model-instance access is unavailable.");
+    }
+
+    /**
+     * Returns the Editor's current model instance, when one is selected.
+     */
+    default Optional<ModelInstance> currentModelInstance() {
+        throw new UnsupportedOperationException("Cubism current-model-instance access is unavailable.");
+    }
+
+    /**
+     * Returns whether the Editor is currently editing the model source.
+     */
+    default boolean modelEditing() {
+        throw new UnsupportedOperationException("Cubism model-editing state is unavailable.");
     }
 
     /** Returns the model's read-only physics settings document projection. */
