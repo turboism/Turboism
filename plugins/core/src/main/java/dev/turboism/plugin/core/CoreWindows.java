@@ -23,11 +23,22 @@ import javax.swing.ListSelectionModel;
 import javax.swing.RowFilter;
 import javax.swing.table.AbstractTableModel;
 import javax.swing.table.TableRowSorter;
+import javax.imageio.ImageIO;
 import java.awt.BorderLayout;
+import java.awt.Color;
 import java.awt.FlowLayout;
+import java.awt.Font;
+import java.awt.FontMetrics;
+import java.awt.Graphics2D;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
+import java.awt.LinearGradientPaint;
+import java.awt.RenderingHints;
+import java.awt.image.BufferedImage;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
 
@@ -40,6 +51,9 @@ final class CoreWindows implements AutoCloseable {
     private JDialog settingsDialog;
     private JDialog pluginsDialog;
     private JDialog aboutDialog;
+    static final String ABOUT_LOGO_TEXT = "Turboism";
+    private static final Object ABOUT_LOGO_LOCK = new Object();
+    private static volatile Path aboutLogoPng;
     private PluginTableModel pluginTableModel;
     private JTable pluginTable;
     private TableRowSorter<PluginTableModel> pluginSorter;
@@ -94,6 +108,15 @@ final class CoreWindows implements AutoCloseable {
             pluginsDialog = null;
             aboutDialog = null;
         });
+        final Path logo = aboutLogoPng;
+        if (logo != null) {
+            aboutLogoPng = null;
+            try {
+                Files.deleteIfExists(logo);
+            } catch (IOException ignored) {
+                // best-effort temp file cleanup
+            }
+        }
     }
 
     private JDialog createSettingsDialog() {
@@ -219,13 +242,13 @@ final class CoreWindows implements AutoCloseable {
     }
 
     private JDialog createAboutDialog() {
-        final JDialog dialog = CoreDialogs.create(text("window.about.title"), 420, 280);
+        final JDialog dialog = CoreDialogs.create(text("window.about.title"), 380, 278);
         dialog.setLayout(new BorderLayout(0, 8));
 
         final JEditorPane content = new JEditorPane("text/html", aboutHtml(i18n, frameworkVersion()));
         content.setEditable(false);
-        content.setOpaque(false);
-        content.setBorder(BorderFactory.createEmptyBorder(16, 16, 8, 16));
+        content.setOpaque(true);
+        content.setBackground(Color.WHITE);
 
         final JButton close = new JButton(text("common.close"));
         close.addActionListener(ignored -> dialog.setVisible(false));
@@ -237,12 +260,72 @@ final class CoreWindows implements AutoCloseable {
         return dialog;
     }
 
+    /**
+     * Rendering follows the Turboism website style: a 42px bold gradient logo,
+     * the framework version, the product tagline, and the thanks line. Swing's
+     * HTML engine cannot paint {@code linear-gradient} text, so the logo is a
+     * runtime-rendered gradient PNG embedded through {@code <img>}.
+     */
     static String aboutHtml(final PluginLocalization i18n, final String version) {
-        return "<html><body style='font-family:sans-serif;text-align:center;padding:8px'>"
-            + "<h2>Turboism</h2>"
-            + "<p>" + i18n.format("about.version", version) + "</p>"
-            + "<p>" + i18n.text("about.thanks") + "</p>"
+        final String logo = logoImageTag();
+        return "<html><head><meta charset=\"UTF-8\"><style>"
+            + "body{margin:0;width:360px;height:220px;"
+            + "font-family:Inter,\"Segoe UI\",\"Microsoft YaHei\",sans-serif;"
+            + "background:#ffffff;color:#1f2937;}"
+            + ".subtitle{margin-top:8px;font-size:13px;color:#6b7280;}"
+            + ".thanks{margin-top:18px;font-size:12px;color:#9ca3af;text-align:center;line-height:1.7;}"
+            + "</style></head><body>"
+            + "<table width=\"100%\" height=\"100%\" cellpadding=\"0\" cellspacing=\"0\">"
+            + "<tr><td align=\"center\" valign=\"middle\">"
+            + "<div>" + logo + " <span class=\"subtitle\">" + version + "</span></div>"
+            + "<div class=\"subtitle\">Live2D Cubism Extension Framework</div>"
+            + "<div class=\"thanks\">" + i18n.text("about.thanks") + "</div>"
+            + "</td></tr></table>"
             + "</body></html>";
+    }
+
+    private static String logoImageTag() {
+        try {
+            return "<img src=\"" + gradientLogoPng().toUri().toURL().toExternalForm()
+                + "\" alt=\"Turboism\">";
+        } catch (IOException unavailable) {
+            return "<span style=\"font-size:42px;font-weight:bold;color:#155dfc;\">Turboism</span>";
+        }
+    }
+
+    static Path gradientLogoPng() throws IOException {
+        final Path cached = aboutLogoPng;
+        if (cached != null) return cached;
+        synchronized (ABOUT_LOGO_LOCK) {
+            if (aboutLogoPng != null) return aboutLogoPng;
+            final Path file = Files.createTempFile("turboism-about-logo-", ".png");
+            try {
+                ImageIO.write(renderGradientLogo(), "png", file.toFile());
+            } catch (IOException failure) {
+                Files.deleteIfExists(file);
+                throw failure;
+            }
+            aboutLogoPng = file;
+            return file;
+        }
+    }
+
+    private static BufferedImage renderGradientLogo() {
+        final Font font = new Font(Font.SANS_SERIF, Font.BOLD, 42);
+        final BufferedImage measure = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB);
+        final FontMetrics metrics = measure.createGraphics().getFontMetrics(font);
+        final int width = metrics.stringWidth(ABOUT_LOGO_TEXT) + 6;
+        final int height = metrics.getHeight() + 4;
+        final BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+        final Graphics2D graphics = image.createGraphics();
+        graphics.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+        graphics.setFont(font);
+        graphics.setPaint(new LinearGradientPaint(
+            0f, 0f, width, 0f, new float[]{0f, 1f}, new Color[]{new Color(0x155DFC), new Color(0xFCBB00)}
+        ));
+        graphics.drawString(ABOUT_LOGO_TEXT, 3, metrics.getAscent() + 2);
+        graphics.dispose();
+        return image;
     }
 
     static String frameworkVersion() {

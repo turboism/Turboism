@@ -6,7 +6,7 @@ import org.gradle.jvm.tasks.Jar
 val resolvedWorktreeId = rootProject.extra["turboismResolvedWorktreeId"] as String
 
 // Single source of truth for the externally published Turboism framework version.
-rootProject.extra["turboismFrameworkVersion"] = "0.1.0"
+rootProject.extra["turboismFrameworkVersion"] = "0.42.0"
 val turboismFrameworkVersion = rootProject.extra["turboismFrameworkVersion"] as String
 
 allprojects {
