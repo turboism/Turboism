@@ -60,9 +60,8 @@ public final class NativeMeshMirrorBridge {
     ) {
         final Binding binding = INSTALLED.get();
         if (binding == null || !binding.enabled || binding.axis.currentAngleDegrees() == 0.0f || source == null) return original;
-        if (!refreshCurrentContext(binding)) return original;
         try {
-            final MeshMirrorGeometry.Line line = line(binding, mirrorState);
+            final MeshMirrorGeometry.Line line = binding.axis.resolveLine();
             return line == null ? original : MeshMirrorGeometry.hit(
                 line, coordinate(source, "getX"), coordinate(source, "getY"), threshold
             );
@@ -110,12 +109,16 @@ public final class NativeMeshMirrorBridge {
         try {
             final NativeSegment nativeSegment = nativeSegment(drawImpl, axisValue, vertical);
             if (nativeSegment == null) return false;
-            final MeshMirrorGeometry.Point pivot = new MeshMirrorGeometry.Point(
-                (nativeSegment.start.x() + nativeSegment.end.x()) * 0.5f,
-                (nativeSegment.start.y() + nativeSegment.end.y()) * 0.5f
-            );
+            MeshMirrorGeometry.Point pivot = canvasCenter(CURRENT_PANEL.get());
+            if (pivot == null) {
+                // Fallback: segment midpoint when the canvas center is unavailable.
+                pivot = new MeshMirrorGeometry.Point(
+                    (nativeSegment.start.x() + nativeSegment.end.x()) * 0.5f,
+                    (nativeSegment.start.y() + nativeSegment.end.y()) * 0.5f
+                );
+            }
             binding.axis.observeAxis(axisValue, vertical, pivot.x(), pivot.y());
-            final MeshMirrorGeometry.Line line = binding.axis.resolveLine(null);
+            final MeshMirrorGeometry.Line line = binding.axis.resolveLine();
             if (line == null) return false;
             final float radius = (float) Math.hypot(
                 nativeSegment.end.x() - nativeSegment.start.x(),
@@ -147,9 +150,8 @@ public final class NativeMeshMirrorBridge {
         final Binding binding = INSTALLED.get();
         if (binding == null || !binding.enabled
             || binding.axis.currentAngleDegrees() == 0.0f || source == null) return original;
-        if (!refreshCurrentContext(binding)) return original;
         try {
-            final MeshMirrorGeometry.Line line = line(binding, mirrorState);
+            final MeshMirrorGeometry.Line line = binding.axis.resolveLine();
             if (line == null) return original;
             final MeshMirrorGeometry.Point point = projection
                 ? MeshMirrorGeometry.project(line, coordinate(source, "getX"), coordinate(source, "getY"))
@@ -161,12 +163,6 @@ public final class NativeMeshMirrorBridge {
         }
     }
 
-    private static MeshMirrorGeometry.Line line(
-        final Binding binding,
-        final Object mirrorState
-    ) {
-        return binding.axis.resolveLine(mirrorState);
-    }
 
     public static void clearHostContext() {
         CURRENT_PANEL.set(null);
@@ -175,14 +171,6 @@ public final class NativeMeshMirrorBridge {
         if (binding != null) binding.axis.clearPivot();
     }
 
-    private static boolean refreshCurrentContext(final Binding binding) {
-        final Object panel = CURRENT_PANEL.get();
-        if (panel == null) {
-            binding.axis.clearPivot();
-            return false;
-        }
-        return observePanelPivot(binding, panel);
-    }
 
     private static NativeSegment nativeSegment(
         final Object drawImpl,
@@ -267,25 +255,52 @@ public final class NativeMeshMirrorBridge {
 
     private static boolean observePanelPivot(final Binding binding, final Object panel) {
         try {
-            final Object toolMode = field(panel, "toolMode");
-            final Object controller = invoke(toolMode, "getCtrl$cubism");
-            final Object completePack = field(controller, "completePack");
-            final Object viewContext = field(completePack, "currentViewContext");
-            final Object editMode = field(viewContext, "currentEditMode");
-            final Object model = field(editMode, "currentModel");
-            final Object source = field(model, "source");
-            final Object canvas = field(source, "canvas");
-            final Object context = new ContextIdentity(viewContext, editMode, model, source, canvas);
+            final CanvasPivot canvasPivot = canvasPivot(panel);
+            final Object context = new ContextIdentity(
+                canvasPivot.viewContext(),
+                canvasPivot.editMode(),
+                canvasPivot.model(),
+                canvasPivot.source(),
+                canvasPivot.canvas()
+            );
             final Object previous = CURRENT_CONTEXT.getAndSet(context);
             if (previous != null && !previous.equals(context)) binding.axis.clearPivot();
-            final float width = number(invokeEither(canvas, "getPixelWidth", "getWidth")).floatValue();
-            final float height = number(invokeEither(canvas, "getPixelHeight", "getHeight")).floatValue();
-            binding.axis.observePivot(width * 0.5f, height * 0.5f);
+            binding.axis.observePivot(canvasPivot.centerX(), canvasPivot.centerY());
             return true;
         } catch (ReflectiveOperationException | RuntimeException failure) {
             CURRENT_CONTEXT.set(null);
             binding.axis.clearPivot();
             return false;
+        }
+    }
+
+    private static CanvasPivot canvasPivot(final Object panel) throws ReflectiveOperationException {
+        final Object toolMode = property(panel, "toolMode");
+        final Object controller = invoke(toolMode, "getCtrl$cubism");
+        final Object completePack = property(controller, "completePack");
+        final Object viewContext = property(completePack, "currentViewContext");
+        final Object editMode = property(viewContext, "currentEditMode");
+        final Object model = property(editMode, "currentModel");
+        final Object source = property(model, "source");
+        final Object canvas = property(source, "canvas");
+        return new CanvasPivot(
+            viewContext,
+            editMode,
+            model,
+            source,
+            canvas,
+            number(invokeEither(canvas, "getPixelWidth", "getWidth")).floatValue() * 0.5f,
+            number(invokeEither(canvas, "getPixelHeight", "getHeight")).floatValue() * 0.5f
+        );
+    }
+
+    /** Canvas-center pivot, or null when the panel chain is unavailable. */
+    private static MeshMirrorGeometry.Point canvasCenter(final Object panel) {
+        try {
+            final CanvasPivot canvasPivot = canvasPivot(panel);
+            return new MeshMirrorGeometry.Point(canvasPivot.centerX(), canvasPivot.centerY());
+        } catch (ReflectiveOperationException | RuntimeException ignored) {
+            return null;
         }
     }
 
@@ -302,6 +317,24 @@ public final class NativeMeshMirrorBridge {
             }
         }
         throw new NoSuchFieldException(name);
+    }
+
+    /** getXxx() → getXxx$cubism() → field; a null target throws (fail-closed). */
+    private static Object property(final Object target, final String name) throws ReflectiveOperationException {
+        if (target == null) throw new NoSuchFieldException(name);
+        final String getter = "get" + Character.toUpperCase(name.charAt(0)) + name.substring(1);
+        Object value = tryInvoke(target, getter);
+        if (value == null) value = tryInvoke(target, getter + "$cubism");
+        if (value == null) value = field(target, name);
+        return value;
+    }
+
+    private static Object tryInvoke(final Object target, final String name) {
+        try {
+            return invoke(target, name);
+        } catch (ReflectiveOperationException ignored) {
+            return null;
+        }
     }
 
     private static Object invokeEither(final Object target, final String first, final String second)
@@ -350,6 +383,16 @@ public final class NativeMeshMirrorBridge {
         MeshMirrorGeometry.Point end
     ) { }
 
+
+    private record CanvasPivot(
+        Object viewContext,
+        Object editMode,
+        Object model,
+        Object source,
+        Object canvas,
+        float centerX,
+        float centerY
+    ) { }
 
     private record ContextIdentity(
         Object viewContext,

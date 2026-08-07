@@ -2,13 +2,14 @@ package dev.turboism.adapter.cubism.mesh;
 
 import dev.turboism.sdk.cubism.mesh.MeshMirrorAxisService;
 
-import java.util.Locale;
 
 /** Runtime-owned generation state used by the verified mesh-mirror hook path. */
 public final class RuntimeMeshMirrorAxisService implements MeshMirrorAxisService {
     private volatile float angleDegrees;
     private volatile AxisState axisState;
     private volatile long generation;
+    private MeshMirrorGeometry.Line cachedLine;
+    private long cachedGeneration = -1;
 
     @Override
     public float currentAngleDegrees() {
@@ -63,15 +64,19 @@ public final class RuntimeMeshMirrorAxisService implements MeshMirrorAxisService
         }
     }
 
-    synchronized MeshMirrorGeometry.Line resolveLine(final Object mirrorState) {
-        final AxisState state = stateFrom(mirrorState, axisState);
-        if (state == null || angleDegrees == 0.0f) return null;
-        return MeshMirrorGeometry.rotatedAxis(
-            state.axisValue(),
-            state.vertical() ? state.pivotY() : state.pivotX(),
-            state.vertical(),
-            angleDegrees
-        );
+    synchronized MeshMirrorGeometry.Line resolveLine() {
+        if (axisState == null || angleDegrees == 0.0f) return null;
+        if (generation != cachedGeneration) {
+            cachedLine = MeshMirrorGeometry.rotatedAxis(
+                axisState.axisValue(),
+                axisState.pivotX(),
+                axisState.pivotY(),
+                axisState.vertical(),
+                angleDegrees
+            );
+            cachedGeneration = generation;
+        }
+        return cachedLine;
     }
 
     synchronized long generation() {
@@ -84,31 +89,6 @@ public final class RuntimeMeshMirrorAxisService implements MeshMirrorAxisService
         generation++;
     }
 
-    private static AxisState stateFrom(final Object mirrorState, final AxisState fallback) {
-        if (fallback == null) return null;
-        if (mirrorState == null) return fallback;
-        try {
-            final Object mode = mirrorState.getClass().getMethod("b").invoke(mirrorState);
-            final Object rawAxis = mirrorState.getClass().getMethod("c").invoke(mirrorState);
-            if (!(rawAxis instanceof Number number)) return null;
-            return new AxisState(
-                number.floatValue(),
-                orientation(mode, fallback.vertical()),
-                fallback.pivotX(),
-                fallback.pivotY()
-            );
-        } catch (ReflectiveOperationException | RuntimeException ignored) {
-            return null;
-        }
-    }
-
-    private static boolean orientation(final Object mode, final boolean fallback) {
-        if (mode == null) throw new IllegalArgumentException("mirror orientation is unavailable");
-        final String value = String.valueOf(mode).toUpperCase(Locale.ROOT);
-        if ("HORIZONTAL".equals(value) || "B".equals(value)) return false;
-        if ("VERTICAL".equals(value) || "A".equals(value)) return true;
-        throw new IllegalArgumentException("mirror orientation is unsupported");
-    }
 
     private record AxisState(float axisValue, boolean vertical, float pivotX, float pivotY) { }
 }
