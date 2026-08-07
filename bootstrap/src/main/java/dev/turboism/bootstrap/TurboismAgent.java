@@ -1,6 +1,7 @@
 package dev.turboism.bootstrap;
 
 import dev.turboism.adapter.cubism.startup.StartupSuppressionInstaller;
+import dev.turboism.adapter.cubism.filechooser.FileChooserHistoryHostProfile;
 import dev.turboism.adapter.cubism.physics.PhysicsEditorHostProfile;
 import dev.turboism.mapping.verification.EditorModelVerificationManifest;
 import dev.turboism.mapping.verification.HostArtifactDigest;
@@ -32,6 +33,8 @@ public final class TurboismAgent {
         new AtomicReference<>();
     private static final AtomicReference<VerifiedProjectLifecycleHookInstaller>
         PROJECT_LIFECYCLE_HOOK = new AtomicReference<>();
+    private static final AtomicReference<VerifiedFileChooserHistoryHookInstaller>
+        FILE_CHOOSER_HISTORY_HOOK = new AtomicReference<>();
     private static final AtomicReference<VerifiedTextureAtlasDataModelHookInstaller> TEXTURE_ATLAS_HOOK =
         new AtomicReference<>();
     private static final AtomicReference<VerifiedTextureAtlasAutoLayoutHookInstaller> TEXTURE_ATLAS_AUTO_LAYOUT_HOOK =
@@ -230,6 +233,7 @@ public final class TurboismAgent {
             }
             installParameterHook(runtime, instrumentation, host);
             installProjectLifecycleHook(runtime, instrumentation, host);
+            installFileChooserHistoryHook(runtime, instrumentation, host);
             installTextureAtlasHook(runtime, instrumentation, host);
             installTextureAtlasAutoLayoutHook(runtime, instrumentation, host);
             installDockTabPopupHook(
@@ -365,6 +369,36 @@ public final class TurboismAgent {
         }
     }
 
+    private static void installFileChooserHistoryHook(
+        final PreviewRuntime runtime,
+        final Instrumentation instrumentation,
+        final HostClassLocator.LocatedHost host
+    ) {
+        VerifiedFileChooserHistoryHookInstaller installer = null;
+        try {
+            final var profile = FileChooserHistoryHostProfile.forArtifact(
+                HostArtifactDigest.from(host.artifact())
+            ).orElseThrow(() -> new IllegalStateException(
+                "Unsupported file-chooser history host artifact"
+            ));
+            installer = new VerifiedFileChooserHistoryHookInstaller(
+                instrumentation,
+                host.classLoader(),
+                profile,
+                runtime.fileChooserHistoryService()
+            );
+            installer.install();
+            if (!FILE_CHOOSER_HISTORY_HOOK.compareAndSet(null, installer)) {
+                installer.close();
+            }
+        } catch (Throwable failure) {
+            if (installer != null) installer.close();
+            runtimeWarn(
+                "Turboism file-chooser history hook disabled safely: "
+                    + failure.getClass().getName()
+            );
+        }
+    }
     private static boolean safeModeActive() {
         final StartupSuppressionInstaller.Installation suppression = STARTUP_SUPPRESSION.get();
         return suppression != null && suppression.policy().safeMode();
@@ -763,6 +797,16 @@ public final class TurboismAgent {
                 projectLifecycleHook.close();
             } catch (Throwable failure) {
                 runtimeWarn("Turboism project lifecycle hook cleanup failed safely");
+            }
+        }
+
+        final VerifiedFileChooserHistoryHookInstaller fileChooserHistoryHook =
+            FILE_CHOOSER_HISTORY_HOOK.getAndSet(null);
+        if (fileChooserHistoryHook != null) {
+            try {
+                fileChooserHistoryHook.close();
+            } catch (Throwable failure) {
+                runtimeWarn("Turboism file-chooser history hook cleanup failed safely");
             }
         }
         final VerifiedParameterHookInstaller parameterHook = PARAMETER_HOOK.getAndSet(null);

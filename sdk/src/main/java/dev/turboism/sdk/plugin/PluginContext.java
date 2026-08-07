@@ -4,6 +4,7 @@ import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.appearance.AppearanceService;
 import dev.turboism.sdk.config.PluginConfigRegistry;
 import dev.turboism.sdk.cubism.CubismFacade;
+import dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService;
 import dev.turboism.sdk.cubism.recentfile.RecentFileService;
 import dev.turboism.sdk.cubism.recentpreview.RecentPreviewContributionService;
 import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureService;
@@ -111,6 +112,10 @@ public interface PluginContext {
 
     default PhysicsEditorService physicsEditor() {
         return PhysicsEditorService.unavailable();
+    }
+
+    default FileChooserHistoryService fileChooserHistory() {
+        return FileChooserHistoryService.unavailable();
     }
 
     default MeshMirrorAxisService meshMirrorAxis() {

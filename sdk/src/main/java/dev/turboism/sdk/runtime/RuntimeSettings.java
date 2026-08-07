@@ -9,7 +9,8 @@ public record RuntimeSettings(
     int maxLogStorageMiB,
     boolean skipStartupUpdateCheck,
     boolean skipStartupSplash,
-    boolean skipStartupInformation
+    boolean skipStartupInformation,
+    boolean separateExportSaveDirectory
 ) {
     public static final int DEFAULT_MAX_LOG_STORAGE_MIB = 100;
     public static final int MIN_MAX_LOG_STORAGE_MIB = 1;
@@ -28,7 +29,8 @@ public record RuntimeSettings(
             DEFAULT_MAX_LOG_STORAGE_MIB,
             skipStartupUpdateCheck,
             skipStartupSplash,
-            skipStartupInformation
+            skipStartupInformation,
+            false
         );
     }
 

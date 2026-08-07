@@ -18,7 +18,8 @@
     "startup": {
       "skipUpdateCheck": false,
       "skipSplash": false,
-      "skipInformation": false
+      "skipInformation": false,
+      "separateExportSaveDirectory": false
     }
   }
 }
