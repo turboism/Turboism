@@ -1,0 +1,45 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 2,
+  "id": "dev.turboism.validation.backup",
+  "name": "Auto-Backup Host Validation Exerciser",
+  "version": "0.0.0",
+  "description": "Task-local exerciser for the native auto-backup manager takeover (settings, backupNow, WebDAV sync).",
+  "entrypoints": [
+    "dev.turboism.validation.backup.BackupHostValidationPlugin"
+  ],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    { "name": "Turboism Validation" }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": []
+  },
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.cubism.model.read",
+      "scope": "application",
+      "reason": "Reads the active modeling document and parameter state to gate the exerciser."
+    },
+    {
+      "id": "turboism.cubism.model.write",
+      "scope": "application",
+      "reason": "Dirtys the copied fixture through ModelTransaction + WriteParameterCommand to drive a native backup."
+    },
+    {
+      "id": "turboism.event.publish",
+      "scope": "application",
+      "reason": "The per-plugin auto-backup coordinator publishes BackupCompletedEvent on this plugin's event bus."
+    }
+  ],
+  "capabilities": [],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "none"
+  }
+}
