@@ -1433,10 +1433,12 @@ final class EditorObjectReadAccess {
     }
 
     private void verifyModel(final Object modelSource) {
-        resolver.invoke(
+        resolver.invokeStatic(
             "cubism.editor-model.model-source.verify",
             modelSource,
             Boolean.TRUE,
+            null,
+            Integer.valueOf(2),
             null
         );
     }
@@ -1681,8 +1683,13 @@ final class EditorObjectReadAccess {
             resolver.invoke(
                 "cubism.editor-model.drawable-source.set-id", objectSource, drawableId
             );
-            resolver.invoke(
-                "cubism.editor-model.model-source.verify", modelSource, Boolean.TRUE, null
+            resolver.invokeStatic(
+                "cubism.editor-model.model-source.verify",
+                modelSource,
+                Boolean.TRUE,
+                null,
+                Integer.valueOf(2),
+                null
             );
             final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
             final Object completePack = resolver.invoke(
