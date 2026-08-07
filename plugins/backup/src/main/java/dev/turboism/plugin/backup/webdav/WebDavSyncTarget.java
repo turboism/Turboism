@@ -70,6 +70,17 @@ public final class WebDavSyncTarget implements BackupSyncTarget {
         }
     }
 
+    /**
+     * Probes the configured endpoint (MKCOL + PROPFIND on the remote
+     * collection), independent of the {@code enabled} flag, and fails closed
+     * with the failing HTTP status (or a sanitized network reason) when the
+     * endpoint is unreachable or unauthenticated. Credentials never appear in
+     * the failure message.
+     */
+    public void verify() {
+        ensureCollection(config.remotePath());
+    }
+
     /** Uploads one artifact (MKCOL + PROPFIND + PUT with retry); fails closed on error. */
     public void upload(final File file) {
         Objects.requireNonNull(file, "file");
