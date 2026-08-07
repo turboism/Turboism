@@ -4,8 +4,14 @@ import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 
 /**
@@ -54,12 +60,18 @@ public final class VerifiedAutoBackupHostOperations implements AutoBackupAdapter
         static final String FILE_CONTENT_LAST_SAVED_TIME = "cubism.auto-backup.file-content.last-saved-time";
         static final String FILE_CONTENT_MODIFIED_AFTER_SAVING = "cubism.auto-backup.file-content.modified-after-saving";
         static final String FILE_CONTENT_FILE = "cubism.auto-backup.file-content.file";
+        static final String SAVE_DOCUMENT_MODELING = "cubism.auto-backup.save-document.modeling";
+        static final String SAVE_DOCUMENT_ANIMATION = "cubism.auto-backup.save-document.animation";
+        static final String SAVE_DOCUMENT_GAME_DATA = "cubism.auto-backup.save-document.game-data";
 
         private Aliases() {
         }
     }
 
     static final String APP_INSTANCE = "cubism.auto-backup.app-controller.instance";
+
+    /** Backup artifact timestamp pattern: {@code yyyy_MMdd_HHmm} (host h() naming). */
+    static final DateTimeFormatter BACKUP_TIMESTAMP = DateTimeFormatter.ofPattern("yyyy_MMdd_HHmm");
 
     private final VerifiedMemberResolver resolver;
 
@@ -168,6 +180,161 @@ public final class VerifiedAutoBackupHostOperations implements AutoBackupAdapter
         final Object manager = manager();
         resolver.invoke(Aliases.ATTACH_PACK, manager, pack);
         resolver.invoke(Aliases.UPDATE, manager);
+    }
+
+    @Override
+    public File saveDocumentFor(final File matchFile, final long timestampMillis) {
+        Objects.requireNonNull(matchFile, "matchFile");
+        requireResolvable(
+            Aliases.SAVE_DOCUMENT_MODELING, Aliases.SAVE_DOCUMENT_ANIMATION,
+            Aliases.SAVE_DOCUMENT_GAME_DATA,
+            Aliases.MANAGER_CLASS, Aliases.MANAGER_INSTANCE, Aliases.BACKUP_DIR,
+            Aliases.APP_CONTROLLER_CLASS, Aliases.APP_CONTROLLER_GET_COMPLETE_PACK,
+            Aliases.COMPLETE_PACK_CLASS, Aliases.COMPLETE_PACK_FILE_CONTENTS,
+            Aliases.FILE_CONTENT_CLASS, Aliases.FILE_CONTENT_FILE,
+            APP_INSTANCE
+        );
+        final Object app = resolver.invokeStatic(APP_INSTANCE);
+        final Object pack = app == null
+            ? null
+            : resolver.invoke(Aliases.APP_CONTROLLER_GET_COMPLETE_PACK, app);
+        if (pack == null) {
+            throw new IllegalStateException(
+                "auto-backup save-triggered backup requires an attached complete pack"
+            );
+        }
+        final List<?> contents = (List<?>) resolver.invoke(Aliases.COMPLETE_PACK_FILE_CONTENTS, pack);
+        if (contents == null) {
+            return null;
+        }
+        final File backupDir = (File) resolver.invoke(Aliases.BACKUP_DIR, manager());
+        for (Object content : contents) {
+            if (content == null) {
+                continue;
+            }
+            final File file = (File) resolver.invoke(Aliases.FILE_CONTENT_FILE, content);
+            if (!matches(file, matchFile)) {
+                continue;
+            }
+            final String alias = saveDocumentAliasFor(content);
+            if (alias == null) {
+                throw new IllegalStateException(
+                    "auto-backup saveDocument: unsupported file content: " + file.getName()
+                );
+            }
+            return saveAsBackup(alias, content, file, backupDir, timestampMillis);
+        }
+        return null; // no match: the coordinator fails closed
+    }
+
+    private String saveDocumentAliasFor(final Object content) {
+        if (isOwnerInstance(Aliases.SAVE_DOCUMENT_MODELING, content)) {
+            return Aliases.SAVE_DOCUMENT_MODELING;
+        }
+        if (isOwnerInstance(Aliases.SAVE_DOCUMENT_ANIMATION, content)) {
+            return Aliases.SAVE_DOCUMENT_ANIMATION;
+        }
+        if (isOwnerInstance(Aliases.SAVE_DOCUMENT_GAME_DATA, content)) {
+            return Aliases.SAVE_DOCUMENT_GAME_DATA;
+        }
+        return null;
+    }
+
+    private File saveAsBackup(
+        final String alias,
+        final Object content,
+        final File file,
+        final File backupDir,
+        final long timestampMillis
+    ) {
+        final String name = file.getName();
+        final String base = baseName(name);
+        final String ext = extension(name);
+        final String stamp = BACKUP_TIMESTAMP.format(
+            Instant.ofEpochMilli(timestampMillis).atZone(ZoneId.systemDefault())
+        );
+        final File target = new File(
+            backupDir,
+            base + "_backup" + stamp + (ext.isEmpty() ? "" : "." + ext)
+        );
+        final File parent = target.getParentFile();
+        if (parent != null) {
+            try {
+                Files.createDirectories(parent.toPath());
+            } catch (IOException failure) {
+                throw new IllegalStateException(
+                    "auto-backup backup directory unavailable: " + parent, failure
+                );
+            }
+        }
+        final boolean saved = invokeSaveDocument(alias, content, target);
+        if (!saved) {
+            throw new IllegalStateException(
+                "auto-backup saveDocument rejected the backup target: " + target.getName()
+            );
+        }
+        return target;
+    }
+
+    /**
+     * Invokes the verified saveDocument primitive; the game-data variant takes
+     * one argument and returns void, the modeling/animation variants take
+     * {@code (File, boolean)} with the second argument fixed to false (no
+     * dialog side effects) and return success as a boolean.
+     */
+    private boolean invokeSaveDocument(final String alias, final Object content, final File target) {
+        final StaticSelector selector = resolver.verifiedSelector(alias);
+        final Object result = "(Ljava/io/File;Z)Z".equals(selector.descriptor())
+            ? resolver.invoke(alias, content, target, false)
+            : resolver.invoke(alias, content, target);
+        return result == null || (Boolean) result;
+    }
+
+    private boolean isOwnerInstance(final String alias, final Object content) {
+        final StaticSelector selector = resolver.verifiedSelector(alias);
+        try {
+            final Class<?> owner = Class.forName(
+                selector.ownerInternalName().replace('/', '.'),
+                false,
+                resolver.hostClassLoader()
+            );
+            return owner.isInstance(content);
+        } catch (ClassNotFoundException | LinkageError failure) {
+            throw new IllegalStateException(
+                "verified saveDocument owner cannot be loaded for alias " + alias, failure
+            );
+        }
+    }
+
+    private static boolean matches(final File contentFile, final File matchFile) {
+        if (contentFile == null) {
+            return false;
+        }
+        final String contentName = contentFile.getName();
+        final String matchName = matchFile.getName();
+        if (contentName.equalsIgnoreCase(matchName)) {
+            return true;
+        }
+        if (baseName(contentName).equalsIgnoreCase(baseName(matchName))) {
+            return true;
+        }
+        final String contentPath = normalize(contentFile.getPath());
+        final String matchPath = normalize(matchFile.getPath());
+        return contentPath.endsWith(matchPath) || matchPath.endsWith(contentPath);
+    }
+
+    private static String baseName(final String name) {
+        final int dot = name.lastIndexOf('.');
+        return dot > 0 ? name.substring(0, dot) : name;
+    }
+
+    private static String extension(final String name) {
+        final int dot = name.lastIndexOf('.');
+        return dot > 0 ? name.substring(dot + 1) : "";
+    }
+
+    private static String normalize(final String value) {
+        return value.replace('\\', '/').toLowerCase(Locale.ROOT);
     }
 
     private Object manager() {
