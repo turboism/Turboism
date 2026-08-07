@@ -275,7 +275,7 @@ final class CoreWindows implements AutoCloseable {
             + ".subtitle{margin-top:8px;font-size:13px;color:#6b7280;}"
             + ".thanks{margin-top:18px;font-size:12px;color:#9ca3af;text-align:center;line-height:1.7;}"
             + "</style></head><body>"
-            + "<table width=\"100%\" height=\"100%\" cellpadding=\"0\" cellspacing=\"0\">"
+            + "<table width=\"360\" height=\"220\" cellpadding=\"0\" cellspacing=\"0\">"
             + "<tr><td align=\"center\" valign=\"middle\">"
             + "<div>" + logo + " <span class=\"subtitle\">" + version + "</span></div>"
             + "<div class=\"subtitle\">Live2D Cubism Extension Framework</div>"
