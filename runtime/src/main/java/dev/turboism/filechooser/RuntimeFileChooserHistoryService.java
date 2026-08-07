@@ -1,72 +1,72 @@
 package dev.turboism.filechooser;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import dev.turboism.config.RuntimeConfigRepository;
 import dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService;
 
 import java.nio.file.Path;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BooleanSupplier;
 
 /**
- * Runtime {@link FileChooserHistoryService} persisted in the global
- * {@code <turboism.home>/config.json} ({@code fileChooserHistory} section and
- * {@code hooks.startup.separateExportSaveDirectory}).
+ * Runtime {@link FileChooserHistoryService} that delegates persistence to a
+ * single {@link FileChooserHistoryService.Provider} registered by the core
+ * plugin. Without a provider it is fail-closed: reads return empty and writes
+ * are no-ops. The separation flag still comes from config.json
+ * ({@code hooks.startup.separateExportSaveDirectory}).
  */
 public final class RuntimeFileChooserHistoryService implements FileChooserHistoryService {
 
-    private static final String SECTION = "fileChooserHistory";
-    private static final String PROJECT_DIRECTORY = "projectRecentDirectory";
-    private static final String EXPORT_DIRECTORY = "exportRecentDirectory";
-    private static final String SEPARATE_EXPORT = "separateExportSaveDirectory";
+    private final AtomicReference<FileChooserHistoryService.Provider> provider = new AtomicReference<>();
+    private final BooleanSupplier exportSeparationEnabled;
 
-    private final RuntimeConfigRepository config;
-
-    public RuntimeFileChooserHistoryService(final RuntimeConfigRepository config) {
-        this.config = Objects.requireNonNull(config, "config");
+    public RuntimeFileChooserHistoryService(final BooleanSupplier exportSeparationEnabled) {
+        this.exportSeparationEnabled = Objects.requireNonNull(exportSeparationEnabled, "exportSeparationEnabled");
     }
 
     @Override
     public Optional<Path> projectRecentDirectory() {
-        return directory(PROJECT_DIRECTORY);
+        final FileChooserHistoryService.Provider active = provider.get();
+        return active == null ? Optional.empty() : active.loadProjectDirectory();
     }
 
     @Override
     public Optional<Path> exportRecentDirectory() {
-        return directory(EXPORT_DIRECTORY);
+        final FileChooserHistoryService.Provider active = provider.get();
+        return active == null ? Optional.empty() : active.loadExportDirectory();
     }
 
     @Override
     public void setProjectRecentDirectory(final Path dir) {
-        setDirectory(PROJECT_DIRECTORY, dir);
+        Objects.requireNonNull(dir, "dir");
+        final FileChooserHistoryService.Provider active = provider.get();
+        if (active != null) {
+            active.saveProjectDirectory(dir);
+        }
     }
 
     @Override
     public void setExportRecentDirectory(final Path dir) {
-        setDirectory(EXPORT_DIRECTORY, dir);
+        Objects.requireNonNull(dir, "dir");
+        final FileChooserHistoryService.Provider active = provider.get();
+        if (active != null) {
+            active.saveExportDirectory(dir);
+        }
     }
 
     @Override
     public boolean exportSeparationEnabled() {
-        return config.read().path("hooks").path("startup").path(SEPARATE_EXPORT).asBoolean(false);
+        return exportSeparationEnabled.getAsBoolean();
     }
 
-    private Optional<Path> directory(final String field) {
-        final JsonNode root = config.read();
-        if (!root.has(SECTION) || !root.get(SECTION).isObject()) {
-            return Optional.empty();
+    @Override
+    public Registration registerProvider(final FileChooserHistoryService.Provider candidate) {
+        if (candidate == null) {
+            throw new IllegalArgumentException("provider");
         }
-        final String value = root.get(SECTION).path(field).asText("");
-        return value.isBlank() ? Optional.empty() : Optional.of(Path.of(value));
-    }
-
-    private void setDirectory(final String field, final Path dir) {
-        Objects.requireNonNull(dir, "dir");
-        config.update(root -> {
-            final ObjectNode section = root.withObject(SECTION);
-            section.put(field, dir.toString());
-            return root;
-        });
+        if (!provider.compareAndSet(null, candidate)) {
+            throw new IllegalStateException("A file-chooser history provider is already registered.");
+        }
+        return () -> provider.compareAndSet(candidate, null);
     }
 }

@@ -411,18 +411,21 @@ public final class PreviewRuntime implements AutoCloseable {
         return hostIngress.adapterAccess();
     }
 
-    /** Runtime file-chooser history service (lazily bound to the global config). */
+    /** Runtime file-chooser history service (lazily bound; persistence via plugin provider). */
     public dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistoryService() {
         dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService service = fileChooserHistoryService;
         if (service == null) {
             synchronized (this) {
                 service = fileChooserHistoryService;
                 if (service == null) {
-                    service = new dev.turboism.filechooser.RuntimeFileChooserHistoryService(
+                    final dev.turboism.config.RuntimeConfigRepository config =
                         new dev.turboism.config.RuntimeConfigRepository(
                             home,
                             diagnostic -> log.warn("config", diagnostic)
-                        )
+                        );
+                    service = new dev.turboism.filechooser.RuntimeFileChooserHistoryService(
+                        () -> config.read().path("hooks").path("startup")
+                            .path("separateExportSaveDirectory").asBoolean(false)
                     );
                     fileChooserHistoryService = service;
                 }
