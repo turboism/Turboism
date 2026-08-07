@@ -46,6 +46,7 @@ tasks.processResources {
 tasks.jar {
     dependsOn(configurations.runtimeClasspath)
     archiveBaseName.set("turboism-agent")
+    archiveFileName.set("turboism-agent.jar")
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     manifest {
         attributes(
@@ -53,6 +54,7 @@ tasks.jar {
             "Agent-Class" to "dev.turboism.bootstrap.TurboismAgent",
             "Can-Redefine-Classes" to "false",
             "Can-Retransform-Classes" to "true",
+            "Boot-Class-Path" to "turboism-agent.jar",
             "Implementation-Title" to "Turboism Developer Preview Agent",
             "Implementation-Version" to project.version
         )

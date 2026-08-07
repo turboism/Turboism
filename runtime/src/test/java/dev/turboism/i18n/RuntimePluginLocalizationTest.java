@@ -56,7 +56,7 @@ class RuntimePluginLocalizationTest {
     }
 
     @Test
-    void usesTheFrozenFallbackOrderWithoutImplicitEnglish() throws Exception {
+    void usesTheFrozenFallbackOrderWithChineseDefaultingToSimplified() throws Exception {
         try (URLClassLoader loader = pluginLoader("fallback", Map.of(
             path(null), utf8("baseOnly=base\nshared=base\n"),
             path("en"), utf8("shared=english\nenglishOnly=english\n"),
@@ -66,8 +66,15 @@ class RuntimePluginLocalizationTest {
             assertEquals("简体", script.text("shared"));
             assertEquals("base", script.text("baseOnly"));
 
+            // zh 无 country：默认简体（跟随 Cubism -Duser.language=zh 的语言版本）。
             final RuntimePluginLocalization bareChinese = localization(loader, "zh");
+            assertEquals("zh-Hans", bareChinese.locale().toLanguageTag());
             assertEquals("简体", bareChinese.text("shared"));
+
+            // Wine 产物 zh-US 同样归一为简体。
+            final RuntimePluginLocalization wineChinese = localization(loader, "zh-US");
+            assertEquals("zh-Hans", wineChinese.locale().toLanguageTag());
+            assertEquals("简体", wineChinese.text("shared"));
 
             final RuntimePluginLocalization french = localization(loader, "fr-FR");
             assertEquals("base", french.text("shared"));
