@@ -16,7 +16,7 @@ public final class AutoBackupVerificationManifest {
 
     public static final String VERIFICATION_ID_53 = "cubism-5.3.02.autobackup.static";
     public static final String RECORD_SHA256_53 =
-        "e90f0c1d8d04b3afe0de1e0db3a81812e191a07f10f8d19394208f3cd42453bc";
+        "741394d689d06197a2ea319e88bf2063aafe4302ee23799756e87fabc8697285";
     public static final String CUBISM_VERSION_53 = "5.3.02";
     public static final String PROFILE_ID_53 = "cubism-5.3.02";
     public static final long ARTIFACT_SIZE_53 = 41_922_739L;
@@ -25,7 +25,7 @@ public final class AutoBackupVerificationManifest {
 
     public static final String VERIFICATION_ID_52 = "cubism-5.2.03.autobackup.static";
     public static final String RECORD_SHA256_52 =
-        "fa4987808fa6f465acd10be3fac82d8d8f714ec973c354ec1309da0b66047363";
+        "e0db4dcb215df23009e49b7f053f53a4328a3cb3d2d2e466722e8fa2f72169e6";
     public static final String CUBISM_VERSION_52 = "5.2.03";
     public static final String PROFILE_ID_52 = "cubism-5.2";
     public static final long ARTIFACT_SIZE_52 = 40_805_584L;
@@ -57,7 +57,10 @@ public final class AutoBackupVerificationManifest {
         "cubism.auto-backup.file-content.file",
         "cubism.auto-backup.save-document.modeling",
         "cubism.auto-backup.save-document.animation",
-        "cubism.auto-backup.save-document.game-data"
+        "cubism.auto-backup.save-document.game-data",
+        "cubism.auto-backup.document-uid.modeling",
+        "cubism.auto-backup.scene-docs",
+        "cubism.auto-backup.document-uid.scene"
     );
 
     static PinnedVerifiedResolverWorkflow.Manifest forArtifact(final HostArtifactDigest artifact) {
