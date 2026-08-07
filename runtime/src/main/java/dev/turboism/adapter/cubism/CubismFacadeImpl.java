@@ -847,6 +847,52 @@ public final class CubismFacadeImpl implements CubismFacade {
             requireModelRead("model.animationDocuments");
             return delegate.animationDocuments();
         }
+        @Override public dev.turboism.sdk.cubism.model.ModelTextures textures() {
+            requireModelRead("model.textures");
+            final dev.turboism.sdk.cubism.model.ModelTextures textures = delegate.textures();
+            return new dev.turboism.sdk.cubism.model.ModelTextures() {
+                @Override public List<dev.turboism.sdk.cubism.model.RawTexture> rawImages() {
+                    requireModelRead("model.textures.rawImages");
+                    return textures.rawImages();
+                }
+                @Override public List<dev.turboism.sdk.cubism.model.ModelImageGroup> modelImageGroups() {
+                    requireModelRead("model.textures.modelImageGroups");
+                    return textures.modelImageGroups();
+                }
+                @Override public List<dev.turboism.sdk.cubism.model.AtlasTexture> textureAtlases() {
+                    requireModelRead("model.textures.textureAtlases");
+                    return textures.textureAtlases();
+                }
+                @Override public void addModelImageGroup(final String name) {
+                    requireModelWrite("model.textures.addModelImageGroup");
+                    textures.addModelImageGroup(name);
+                }
+                @Override public void removeModelImage(
+                    final dev.turboism.sdk.cubism.id.ModelImageId id
+                ) {
+                    requireModelWrite("model.textures.removeModelImage");
+                    textures.removeModelImage(id);
+                }
+                @Override public dev.turboism.sdk.cubism.id.TextureAtlasId addTextureAtlas(
+                    final String name,
+                    final int widthPixels,
+                    final int heightPixels
+                ) {
+                    requireModelWrite("model.textures.addTextureAtlas");
+                    return textures.addTextureAtlas(name, widthPixels, heightPixels);
+                }
+                @Override public void removeTextureAtlas(
+                    final dev.turboism.sdk.cubism.id.TextureAtlasId id
+                ) {
+                    requireModelWrite("model.textures.removeTextureAtlas");
+                    textures.removeTextureAtlas(id);
+                }
+                @Override public void removeRawImage(final dev.turboism.sdk.cubism.id.RawImageId id) {
+                    requireModelWrite("model.textures.removeRawImage");
+                    textures.removeRawImage(id);
+                }
+            };
+        }
         @Override public dev.turboism.sdk.cubism.model.ParameterDefinitions parameterDefinitions() {
             requireModelRead("model.parameterDefinitions");
             final dev.turboism.sdk.cubism.model.ParameterDefinitions definitions =
