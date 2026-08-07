@@ -1,0 +1,45 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 2,
+  "id": "dev.turboism.plugin.backup",
+  "name": "WebDAV Auto-Backup Sync Plugin",
+  "version": "0.1.0",
+  "description": "Uploads Cubism auto-backup artifacts to a WebDAV endpoint (JDK HttpClient only).",
+  "entrypoints": [
+    "dev.turboism.plugin.backup.BackupPlugin"
+  ],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    { "name": "Turboism Contributors" }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": []
+  },
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.config.plugin.read",
+      "scope": "application",
+      "reason": "Reads the backup/webdav.cfg endpoint configuration."
+    },
+    {
+      "id": "turboism.event.subscribe",
+      "scope": "application",
+      "reason": "Subscribes to BackupCompletedEvent to upload new backup artifacts."
+    },
+    {
+      "id": "turboism.event.publish",
+      "scope": "application",
+      "reason": "The per-plugin auto-backup coordinator publishes BackupCompletedEvent on this plugin's event bus."
+    }
+  ],
+  "capabilities": [],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "none"
+  }
+}

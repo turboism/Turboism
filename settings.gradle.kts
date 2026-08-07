@@ -18,6 +18,7 @@ include(
     "plugins:project-inspector",
     "plugins:clipmask-viewer",
     "plugins:bounding-box",
+    "plugins:backup",
     "plugins:context-menu",
     "plugins:project-panel",
     "plugins:recent-preview",
