@@ -30,6 +30,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CopyOnWriteArrayList;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -134,6 +135,79 @@ final class BackupPluginTest {
             "the lazy rebuild must prevent the skip path");
     }
 
+    @Test
+    void applySavedConfigLogsTheTriggerModeAndAutoModeIgnoresEvents() throws Exception {
+        FakeContext context = new FakeContext();
+        BackupPlugin plugin = new BackupPlugin();
+        plugins.add(plugin);
+        plugin.init(context);
+        plugin.enable();
+        plugin.applySavedConfig(autoConfig());
+        assertTrue(context.awaitLog("WEBDAV_TRIGGER_MODE mode=AUTO_BACKUP_SYNC", Duration.ofSeconds(2)),
+            "the trigger mode must be logged");
+        context.bus.fire(completedEvent());
+        Thread.sleep(300L);
+        assertFalse(context.hasLog("WEBDAV_SYNC_UPLOAD"),
+            "AUTO_BACKUP_SYNC must not react to BackupCompletedEvent (the scanner owns it)");
+    }
+
+    @Test
+    void autoBackupScanUploadsNewHostArtifactsWithoutDeletingThem() throws Exception {
+        FakeContext context = new FakeContext();
+        BackupPlugin plugin = new BackupPlugin();
+        plugins.add(plugin);
+        plugin.init(context);
+        plugin.enable();
+        java.nio.file.Path backupDir = java.nio.file.Files.createTempDirectory("host-backup-");
+        context.hostBackupDir = backupDir;
+        java.nio.file.Files.writeString(
+            backupDir.resolve("model_backup2026_08_08_120000.cmo3"), "host-artifact");
+        plugin.applySavedConfig(autoConfig());
+        plugin.scanOnce();
+        assertTrue(context.awaitLog("WEBDAV_SYNC_UPLOAD file=model_backup2026_08_08_120000.cmo3",
+                Duration.ofSeconds(2)),
+            "the scanner must upload a new host artifact");
+        assertTrue(java.nio.file.Files.exists(backupDir.resolve("model_backup2026_08_08_120000.cmo3")),
+            "AUTO_BACKUP_SYNC must never delete host artifacts");
+        int uploads = (int) context.logger.lines.stream()
+            .filter(line -> line.startsWith("WEBDAV_SYNC_UPLOAD")).count();
+        plugin.scanOnce();
+        assertEquals(uploads, (int) context.logger.lines.stream()
+                .filter(line -> line.startsWith("WEBDAV_SYNC_UPLOAD")).count(),
+            "the dedup set must skip an already scanned artifact");
+    }
+
+    @Test
+    void saveTriggeredTempArtifactsAreDeletedAfterTheEvent() throws Exception {
+        FakeContext context = new FakeContext();
+        BackupPlugin plugin = new BackupPlugin();
+        plugins.add(plugin);
+        plugin.init(context);
+        plugin.enable();
+        plugin.applySavedConfig(savedConfig());
+        java.nio.file.Path tempDir = java.nio.file.Files.createTempDirectory("turboism-backup-");
+        java.nio.file.Path artifact = tempDir.resolve("model_backup2026_08_08_120000.cmo3");
+        java.nio.file.Files.writeString(artifact, "temp-content");
+        context.bus.fire(new dev.turboism.sdk.cubism.backup.BackupCompletedEvent(
+            1_000L,
+            List.of(artifact.toFile()),
+            List.of(new dev.turboism.sdk.cubism.backup.EditorAutoBackupStatus(
+                "model.cmo3", "model.cmo3", 1_000L, 900L, false))
+        ));
+        assertTrue(context.awaitLog("WEBDAV_TEMP_CLEANUP file=model_backup2026_08_08_120000.cmo3",
+                Duration.ofSeconds(2)),
+            "the temp artifact must be cleaned up after the upload attempt");
+        assertFalse(java.nio.file.Files.exists(artifact),
+            "the save-triggered temp file must be deleted");
+    }
+
+    private static dev.turboism.plugin.backup.webdav.WebDavConfig autoConfig() {
+        return new dev.turboism.plugin.backup.webdav.WebDavConfig(
+            true, java.net.URI.create("https://dav.example"), "alice", "pw",
+            "/backup", true, 2, 500L, 30,
+            dev.turboism.plugin.backup.webdav.WebDavConfig.RemoteTrigger.AUTO_BACKUP_SYNC);
+    }
+
     private static dev.turboism.plugin.backup.webdav.WebDavConfig savedConfig() {
         return new dev.turboism.plugin.backup.webdav.WebDavConfig(
             true, java.net.URI.create("https://dav.example"), "alice", "pw",
@@ -154,6 +228,7 @@ final class BackupPluginTest {
         final RecordingLogger logger = new RecordingLogger();
         final GatedRegistry registry = new GatedRegistry();
         final RecordingEventBus bus = new RecordingEventBus();
+        java.nio.file.Path hostBackupDir;
 
         @Override
         public PluginDescriptor descriptor() {
@@ -208,6 +283,46 @@ final class BackupPluginTest {
         @Override
         public PluginConfigRegistry config() {
             return registry;
+        }
+
+        @Override
+        public dev.turboism.sdk.cubism.backup.EditorAutoBackupService backup() {
+            return new dev.turboism.sdk.cubism.backup.EditorAutoBackupService() {
+                @Override
+                public dev.turboism.sdk.cubism.backup.EditorAutoBackupSettings settings() {
+                    return new dev.turboism.sdk.cubism.backup.EditorAutoBackupSettings(
+                        true, 5, 50, hostBackupDir == null ? null : hostBackupDir.toString());
+                }
+
+                @Override
+                public dev.turboism.sdk.cubism.backup.EditorAutoBackupSettings updateSettings(
+                    final dev.turboism.sdk.cubism.backup.EditorAutoBackupSettings settings
+                ) {
+                    return settings;
+                }
+
+                @Override
+                public List<dev.turboism.sdk.cubism.backup.EditorAutoBackupStatus> statuses() {
+                    return List.of();
+                }
+
+                @Override
+                public CompletionStage<dev.turboism.sdk.cubism.backup.BackupCompletedEvent> backupNow() {
+                    return CompletableFuture.completedFuture(null);
+                }
+
+                @Override
+                public CompletionStage<dev.turboism.sdk.cubism.backup.BackupCompletedEvent> backupAfterSave(
+                    final dev.turboism.sdk.cubism.ProjectContentSnapshot saved
+                ) {
+                    return CompletableFuture.completedFuture(null);
+                }
+
+                @Override
+                public Registration registerSyncTarget(final dev.turboism.sdk.cubism.backup.BackupSyncTarget target) {
+                    return () -> { };
+                }
+            };
         }
 
         @Override
