@@ -41,7 +41,7 @@ public final class MeshMirrorNativeMethodTransformer implements ClassFileTransfo
 
         final boolean[] transformed = {false};
         final ClassReader reader = new ClassReader(classfileBuffer);
-        final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_MAXS) {
+        final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_MAXS | ClassWriter.COMPUTE_FRAMES) {
             @Override
             protected String getCommonSuperClass(final String left, final String right) {
                 try {
