@@ -532,12 +532,10 @@ final class EditorPartOpacityAccess {
     }
 
     private void verifyModel(final Object modelSource) {
-        resolver.invokeStatic(
+        resolver.invoke(
             "cubism.editor-model.model-source.verify",
             modelSource,
             Boolean.TRUE,
-            null,
-            Integer.valueOf(2),
             null
         );
     }
