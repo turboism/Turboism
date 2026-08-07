@@ -96,6 +96,7 @@ class SchemaFixtureValidationTest {
         "missing-worktreeId.json, runtime-config-v1, runtime-config, RUNTIME_CONFIG_MISSING",
         "bad-schema-version.json, runtime-config-v1, runtime-config, RUNTIME_CONFIG_BAD_SCHEMA_VERSION",
         "bad-max-log-storage-mib.json, runtime-config-v1, runtime-config, RUNTIME_CONFIG_BAD_LOG_STORAGE_LIMIT",
+        "bad-file-chooser-history.json, runtime-config-v1, runtime-config, RUNTIME_CONFIG_BAD_TYPE",
         "unknown-field.json, diagnostic-report-v1, diagnostic-report, DIAGNOSTIC_REPORT_UNKNOWN_FIELD",
         "missing-problems.json, diagnostic-report-v1, diagnostic-report, DIAGNOSTIC_REPORT_MISSING",
         "bad-schema-version.json, diagnostic-report-v1, diagnostic-report, DIAGNOSTIC_REPORT_BAD_SCHEMA_VERSION",
