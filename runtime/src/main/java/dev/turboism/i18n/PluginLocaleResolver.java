@@ -95,7 +95,7 @@ final class PluginLocaleResolver {
         }
     }
 
-    private static Locale normalize(final Locale locale) {
+    static Locale normalize(final Locale locale) {
         if (!"zh".equals(locale.getLanguage()) || !locale.getScript().isBlank()) {
             return locale;
         }

@@ -1,5 +1,6 @@
 package dev.turboism.ui;
 
+import dev.turboism.i18n.CubismHostLocale;
 import dev.turboism.sdk.ui.DialogRequest;
 import dev.turboism.sdk.ui.FileChooserRequest;
 import dev.turboism.sdk.ui.ViewportSnapshot;
@@ -56,6 +57,11 @@ public interface UiHostStateSource {
                 : dev.turboism.sdk.ui.UiHostColorMode.LIGHT;
         }
         return dev.turboism.sdk.ui.UiHostColorMode.LIGHT;
+    }
+
+    /** Resolves the current Cubism UI language (host JVM locale). */
+    default java.util.Locale hostLocale() {
+        return CubismHostLocale.resolve();
     }
 
     /** Opens the host file manager at a plugin storage directory; fail-closed by default. */
