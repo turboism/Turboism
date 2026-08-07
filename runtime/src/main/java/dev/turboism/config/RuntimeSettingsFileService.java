@@ -87,7 +87,8 @@ public final class RuntimeSettingsFileService implements RuntimeSettingsService 
             root.path("maxLogStorageMiB").asInt(RuntimeSettings.DEFAULT_MAX_LOG_STORAGE_MIB),
             startup.path("skipUpdateCheck").asBoolean(false),
             startup.path("skipSplash").asBoolean(false),
-            startup.path("skipInformation").asBoolean(false)
+            startup.path("skipInformation").asBoolean(false),
+            startup.path("separateExportSaveDirectory").asBoolean(false)
         );
     }
 
@@ -102,6 +103,7 @@ public final class RuntimeSettingsFileService implements RuntimeSettingsService 
             startup.put("skipUpdateCheck", requested.skipStartupUpdateCheck());
             startup.put("skipSplash", requested.skipStartupSplash());
             startup.put("skipInformation", requested.skipStartupInformation());
+            startup.put("separateExportSaveDirectory", requested.separateExportSaveDirectory());
             return root;
         });
         logLevelChanged.accept(requested.logLevel());

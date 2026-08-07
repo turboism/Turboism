@@ -33,7 +33,7 @@ class RuntimeSettingsServiceTest {
             """);
         RuntimeSettingsFileService service = new RuntimeSettingsFileService(home, coordinator());
 
-        RuntimeSettings saved = service.save(new RuntimeSettings(true, "DEBUG", 64, true, true, true));
+        RuntimeSettings saved = service.save(new RuntimeSettings(true, "DEBUG", 64, true, true, true, true));
         RuntimeSettings reloaded = service.read();
 
         assertEquals(saved, reloaded);
@@ -43,6 +43,7 @@ class RuntimeSettingsServiceTest {
         assertTrue(reloaded.skipStartupInformation());
         assertEquals("DEBUG", reloaded.logLevel());
         assertEquals(64, reloaded.maxLogStorageMiB());
+        assertTrue(reloaded.separateExportSaveDirectory());
         assertFalse(Files.exists(home.resolve("config/runtime.json")));
         assertFalse(Files.exists(home.resolve("config.json.tmp")));
     }
@@ -71,7 +72,7 @@ class RuntimeSettingsServiceTest {
             applied::set
         );
 
-        service.save(new RuntimeSettings(false, "INFO", 32, false, false, false));
+        service.save(new RuntimeSettings(false, "INFO", 32, false, false, false, false));
 
         assertEquals(32, applied.get());
     }
@@ -86,6 +87,24 @@ class RuntimeSettingsServiceTest {
         assertTrue(Files.isRegularFile(home.resolve("config.json")));
         assertEquals("INFO", settings.logLevel());
         assertEquals(100, settings.maxLogStorageMiB());
+    }
+
+    @Test
+    void legacyConfigWithoutNewFieldDefaultsToFalse() throws Exception {
+        Files.writeString(home.resolve("config.json"), """
+            {
+              "format": "turboism.runtime.config",
+              "schemaVersion": 1,
+              "worktreeId": "settings-legacy",
+              "pluginDirs": ["plugins"],
+              "logLevel": "INFO",
+              "safeMode": false,
+              "hooks": {"disabledIds": [], "denylistedClasses": [], "startup": {}}
+            }
+            """);
+        RuntimeSettingsFileService service = new RuntimeSettingsFileService(home, coordinator());
+
+        assertFalse(service.read().separateExportSaveDirectory());
     }
 
     @Test

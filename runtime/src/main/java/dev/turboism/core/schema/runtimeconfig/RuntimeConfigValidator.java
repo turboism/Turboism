@@ -24,7 +24,7 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
         "disabledIds", "denylistedClasses", "startup"
     );
     private static final Set<String> ALLOWED_STARTUP_FIELDS = Set.of(
-        "skipUpdateCheck", "skipSplash", "skipInformation"
+        "skipUpdateCheck", "skipSplash", "skipInformation", "separateExportSaveDirectory"
     );
 
     public RuntimeConfigValidator() {

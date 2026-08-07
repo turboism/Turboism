@@ -20,6 +20,8 @@ public final class MainToolbarPlugin implements TurboismPlugin {
     private CorePluginManagement plugins;
     private dev.turboism.sdk.runtime.RuntimeSettings settings;
     private Registration panelRegistration;
+    private dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistory;
+    private dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService.Registration historyProviderRegistration;
     private CoreWindows windows;
 
     public MainToolbarPlugin() {
@@ -32,6 +34,7 @@ public final class MainToolbarPlugin implements TurboismPlugin {
         this.logger = context.logger();
         final dev.turboism.sdk.runtime.RuntimeSettingsService runtimeSettings = services.settings();
         this.settings = runtimeSettings.read();
+        this.fileChooserHistory = context.fileChooserHistory();
         this.plugins = services.plugins();
         this.homeEntryService = new MainToolbarHomeEntryService(
             context.uiHost(), context.mainToolbar(), context.menus(), localization(context),
@@ -55,6 +58,7 @@ public final class MainToolbarPlugin implements TurboismPlugin {
         registerPluginActions();
         registerPanelTabActions();
         context.disposableScope().register(plugins);
+        registerHistoryProvider();
         context.disposableScope().register(windows);
         refreshPanel();
         context.disposableScope().register(homeEntryService.registerSettingsMenu());
@@ -65,7 +69,31 @@ public final class MainToolbarPlugin implements TurboismPlugin {
     }
 
     @Override public void disable() { logger.warn("Turboism core disable was ignored by runtime policy"); }
-    @Override public void shutdown() { logger.info("Turboism core shutdown"); }
+
+    @Override
+    public void shutdown() {
+        if (historyProviderRegistration != null) {
+            historyProviderRegistration.unregister();
+            historyProviderRegistration = null;
+        }
+        logger.info("Turboism core shutdown");
+    }
+
+    /**
+     * Registers the file-chooser history persistence provider backed by the
+     * plugin config dir. Failures (safe mode, missing paths) are warn-only and
+     * never block core startup.
+     */
+    private void registerHistoryProvider() {
+        try {
+            historyProviderRegistration = fileChooserHistory.registerProvider(
+                new SaveDirectoryHistoryProvider(context.paths().configDir())
+            );
+        } catch (RuntimeException failure) {
+            logger.warn("File-chooser history provider registration failed safely: "
+                + failure.getClass().getSimpleName() + ": " + failure.getMessage());
+        }
+    }
 
     private void registerSettingsActions() {
         registerAction("settings.safe-mode", "Safe Mode", action -> update(action, "safe-mode"));
@@ -73,6 +101,8 @@ public final class MainToolbarPlugin implements TurboismPlugin {
         registerAction("settings.skip-update", "Skip update", action -> update(action, "skip-update"));
         registerAction("settings.skip-splash", "Skip splash", action -> update(action, "skip-splash"));
         registerAction("settings.skip-information", "Skip information", action -> update(action, "skip-information"));
+        registerAction("settings.separate-export-save-directory", "Separate export save directory",
+            action -> update(action, "separate-export-save-directory"));
         registerAction("settings.save", "Save settings", ignored -> {
             settings = services.settings().save(settings);
             logger.info("Turboism settings saved; startup changes require restart");
@@ -179,22 +209,32 @@ public final class MainToolbarPlugin implements TurboismPlugin {
             case "safe-mode" -> new dev.turboism.sdk.runtime.RuntimeSettings(
                 ((dev.turboism.sdk.action.UiActionEvent.ToggleValue) value).value(),
                 settings.logLevel(), settings.maxLogStorageMiB(),
-                settings.skipStartupUpdateCheck(), settings.skipStartupSplash(), settings.skipStartupInformation());
+                settings.skipStartupUpdateCheck(), settings.skipStartupSplash(),
+                settings.skipStartupInformation(), settings.separateExportSaveDirectory());
             case "log-level" -> new dev.turboism.sdk.runtime.RuntimeSettings(
                 settings.safeMode(), ((dev.turboism.sdk.action.UiActionEvent.SelectionValue) value).value(),
                 settings.maxLogStorageMiB(), settings.skipStartupUpdateCheck(),
-                settings.skipStartupSplash(), settings.skipStartupInformation());
+                settings.skipStartupSplash(), settings.skipStartupInformation(),
+                settings.separateExportSaveDirectory());
             case "skip-update" -> new dev.turboism.sdk.runtime.RuntimeSettings(
                 settings.safeMode(), settings.logLevel(), settings.maxLogStorageMiB(),
                 ((dev.turboism.sdk.action.UiActionEvent.ToggleValue) value).value(),
-                settings.skipStartupSplash(), settings.skipStartupInformation());
+                settings.skipStartupSplash(), settings.skipStartupInformation(),
+                settings.separateExportSaveDirectory());
             case "skip-splash" -> new dev.turboism.sdk.runtime.RuntimeSettings(
                 settings.safeMode(), settings.logLevel(), settings.maxLogStorageMiB(),
                 settings.skipStartupUpdateCheck(),
-                ((dev.turboism.sdk.action.UiActionEvent.ToggleValue) value).value(), settings.skipStartupInformation());
+                ((dev.turboism.sdk.action.UiActionEvent.ToggleValue) value).value(),
+                settings.skipStartupInformation(), settings.separateExportSaveDirectory());
             case "skip-information" -> new dev.turboism.sdk.runtime.RuntimeSettings(
                 settings.safeMode(), settings.logLevel(), settings.maxLogStorageMiB(),
                 settings.skipStartupUpdateCheck(), settings.skipStartupSplash(),
+                ((dev.turboism.sdk.action.UiActionEvent.ToggleValue) value).value(),
+                settings.separateExportSaveDirectory());
+            case "separate-export-save-directory" -> new dev.turboism.sdk.runtime.RuntimeSettings(
+                settings.safeMode(), settings.logLevel(), settings.maxLogStorageMiB(),
+                settings.skipStartupUpdateCheck(), settings.skipStartupSplash(),
+                settings.skipStartupInformation(),
                 ((dev.turboism.sdk.action.UiActionEvent.ToggleValue) value).value());
             default -> throw new IllegalArgumentException("unknown settings field: " + field);
         };
