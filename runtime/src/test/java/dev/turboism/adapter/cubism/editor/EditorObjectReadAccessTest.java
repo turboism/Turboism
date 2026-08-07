@@ -16,6 +16,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -374,6 +375,48 @@ class EditorObjectReadAccessTest {
         ));
         assertEquals(originalRotation, rotation.form());
         assertAbortedWithoutPublishedEffects(fixture);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    void pointInfoVertexMoveProjectsOntoGeometryReplacement(final String version) {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        final var model = new EditorBackedCubismModelAccess(resolver(version, true), "session-a").active();
+        final var mesh = model.drawables().find(new ArtMeshId("ArtMeshFace"));
+        final ArtMeshSource source = fixture.meshSource();
+        final ArtMeshForm form = fixture.mesh().form;
+
+        // Absolute single-vertex move (PointInfo slider sets X/Y of the selected vertex).
+        mesh.replaceGeometry(mesh.geometry().withVertexPosition(1, 2.0F, 3.0F));
+        assertEquals(new Point2(2.0F, 3.0F), mesh.geometry().positions().get(1));
+        assertArrayEquals(new float[] {0, 0, 2, 3, 0, 1}, form.positions());
+        assertArrayEquals(new float[] {0, 0, 2, 3, 0, 1}, source.sourcePositions);
+        assertArrayEquals(new float[] {0, 0, 1, 0, 0, 1}, source.sourceUvs);
+        assertArrayEquals(new int[] {0, 1, 2}, source.sourceIndices);
+        assertEquals(1, fixture.document.editMode.edits.size());
+        assertTrue(fixture.document.dirty);
+
+        // Relative move (PointInfo +/-delta buttons) — delta applied against the current position.
+        final Point2 current = mesh.geometry().positions().get(1);
+        mesh.replaceGeometry(mesh.geometry().withVertexPosition(1, current.x() + 0.5F, current.y() - 1.0F));
+        assertEquals(new Point2(2.5F, 2.0F), mesh.geometry().positions().get(1));
+        assertEquals(2, fixture.document.editMode.edits.size());
+
+        // Multi-selection move (several selected vertices committed as one edit).
+        mesh.replaceGeometry(
+            mesh.geometry()
+                .withVertexPosition(0, 4.0F, 4.0F)
+                .withVertexPosition(2, 5.0F, 5.0F));
+        assertEquals(new Point2(4.0F, 4.0F), mesh.geometry().positions().get(0));
+        assertEquals(new Point2(5.0F, 5.0F), mesh.geometry().positions().get(2));
+        assertEquals(3, fixture.document.editMode.edits.size());
+        assertEquals(3, fixture.source.updateCount);
+
+        // No-op when the geometry is unchanged (no edit, no instance update).
+        mesh.replaceGeometry(mesh.geometry());
+        assertEquals(3, fixture.document.editMode.edits.size());
+        assertEquals(3, fixture.source.updateCount);
     }
 
     private static void assertAbortedWithoutPublishedEffects(final Fixture fixture) {
