@@ -98,10 +98,62 @@ final class BackupPluginTest {
         assertFalse(context.hasLog("WEBDAV_TARGET_RETRY"));
     }
 
+    @Test
+    void applySavedConfigBuildsTheTargetDeterministically() throws Exception {
+        FakeContext context = new FakeContext();
+        BackupPlugin plugin = new BackupPlugin();
+        plugins.add(plugin);
+        plugin.init(context);
+        plugin.enable(); // registerSchema stays pending: read-driven construction never succeeds
+        plugin.applySavedConfig(savedConfig());
+        assertTrue(context.awaitLog("WEBDAV_TARGET_READY", Duration.ofSeconds(2)),
+            "the dialog-persisted config must build the target without any binding read");
+        context.bus.fire(completedEvent());
+        assertTrue(context.awaitLog("WEBDAV_SYNC_UPLOAD file=model.cmo3", Duration.ofSeconds(2)),
+            "the event must reach the sync target built from the saved config");
+        assertFalse(context.hasLog("WEBDAV_SYNC_SKIPPED"),
+            "a deterministic target must never be skipped");
+    }
+
+    @Test
+    void onBackupCompletedLazilyRebuildsTheTargetFromTheLastSavedConfig() throws Exception {
+        FakeContext context = new FakeContext();
+        BackupPlugin plugin = new BackupPlugin();
+        plugins.add(plugin);
+        plugin.init(context);
+        plugin.enable();
+        plugin.applySavedConfig(savedConfig());
+        // The pending retry (500ms) wakes with the binding still uninitialized
+        // and clears the target; the last-saved config must still serve events.
+        Thread.sleep(900L);
+        context.bus.fire(completedEvent());
+        assertTrue(context.awaitLog("WEBDAV_TARGET_LAZY_REBUILT", Duration.ofSeconds(2)),
+            "a nulled target must be rebuilt lazily from the last saved config");
+        assertTrue(context.awaitLog("WEBDAV_SYNC_UPLOAD file=model.cmo3", Duration.ofSeconds(2)));
+        assertFalse(context.hasLog("WEBDAV_SYNC_SKIPPED"),
+            "the lazy rebuild must prevent the skip path");
+    }
+
+    private static dev.turboism.plugin.backup.webdav.WebDavConfig savedConfig() {
+        return new dev.turboism.plugin.backup.webdav.WebDavConfig(
+            true, java.net.URI.create("https://dav.example"), "alice", "pw",
+            "/backup", true, 2, 500L, 30);
+    }
+
+    private static dev.turboism.sdk.cubism.backup.BackupCompletedEvent completedEvent() {
+        return new dev.turboism.sdk.cubism.backup.BackupCompletedEvent(
+            1_000L,
+            List.of(new java.io.File("model.cmo3")),
+            List.of(new dev.turboism.sdk.cubism.backup.EditorAutoBackupStatus(
+                "model.cmo3", "model.cmo3", 1_000L, 900L, false))
+        );
+    }
+
     /** Recording plugin context with a gated config registry. */
     private static final class FakeContext implements PluginContext {
         final RecordingLogger logger = new RecordingLogger();
         final GatedRegistry registry = new GatedRegistry();
+        final RecordingEventBus bus = new RecordingEventBus();
 
         @Override
         public PluginDescriptor descriptor() {
@@ -130,18 +182,7 @@ final class BackupPluginTest {
 
         @Override
         public EventBus eventBus() {
-            return new EventBus() {
-                @Override
-                public <T extends EventBus.TurboismEvent> Registration subscribe(
-                    final Class<T> type, final java.util.function.Consumer<T> listener
-                ) {
-                    return () -> { };
-                }
-
-                @Override
-                public <T extends EventBus.TurboismEvent> void publish(final T event) {
-                }
-            };
+            return bus;
         }
 
         @Override
@@ -272,6 +313,32 @@ final class BackupPluginTest {
         public void writeString(final String relativePath, final String key, final String value)
             throws PluginConfigException {
             throw new PluginConfigException("not supported");
+        }
+    }
+
+    /** Event bus that captures the subscribed listener so tests can fire events. */
+    private static final class RecordingEventBus implements EventBus {
+        final List<java.util.function.Consumer<?>> listeners = new CopyOnWriteArrayList<>();
+
+        @Override
+        public <T extends EventBus.TurboismEvent> Registration subscribe(
+            final Class<T> type, final java.util.function.Consumer<T> listener
+        ) {
+            listeners.add(listener);
+            return () -> listeners.remove(listener);
+        }
+
+        @Override
+        public <T extends EventBus.TurboismEvent> void publish(final T event) {
+            fire((dev.turboism.sdk.cubism.backup.BackupCompletedEvent) event);
+        }
+
+        @SuppressWarnings("unchecked")
+        void fire(final dev.turboism.sdk.cubism.backup.BackupCompletedEvent event) {
+            for (java.util.function.Consumer<?> listener : listeners) {
+                ((java.util.function.Consumer<dev.turboism.sdk.cubism.backup.BackupCompletedEvent>) listener)
+                    .accept(event);
+            }
         }
     }
 

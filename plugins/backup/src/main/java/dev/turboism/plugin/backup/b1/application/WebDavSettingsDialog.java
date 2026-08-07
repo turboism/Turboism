@@ -53,13 +53,14 @@ public final class WebDavSettingsDialog {
     }
 
     /**
-     * Opens the dialog on the EDT (headless-safe no-op). {@code onSaved} runs
-     * after a successful save so the plugin can rebuild its sync target.
+     * Opens the dialog on the EDT (headless-safe no-op). {@code onSaved}
+     * receives the exact assembled config after a successful save so the plugin
+     * can build its sync target deterministically.
      */
     public static void open(
         final PluginContext context,
         final WebDavSettingsBinding binding,
-        final Runnable onSaved
+        final java.util.function.Consumer<WebDavConfig> onSaved
     ) {
         Objects.requireNonNull(context, "context");
         Objects.requireNonNull(binding, "binding");
@@ -126,7 +127,7 @@ public final class WebDavSettingsDialog {
     private static void show(
         final PluginContext context,
         final WebDavSettingsBinding binding,
-        final Runnable onSaved
+        final java.util.function.Consumer<WebDavConfig> onSaved
     ) {
         final PluginLogger logger = context.logger();
         final Window owner = null; // modeless top-level dialog; the host owns the frame hierarchy
@@ -285,7 +286,7 @@ public final class WebDavSettingsDialog {
                     return;
                 }
                 try {
-                    onSaved.run();
+                    onSaved.accept(target);
                 } catch (RuntimeException | Error saveFailure) {
                     logger.warn("webdav settings saved but target rebuild failed: "
                         + saveFailure.getClass().getSimpleName());
