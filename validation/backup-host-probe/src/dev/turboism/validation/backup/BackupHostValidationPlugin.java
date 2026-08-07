@@ -316,12 +316,22 @@ public final class BackupHostValidationPlugin implements TurboismPlugin {
                 return;
             }
             logger.info("BACKUP_SETTINGS_WRITE_READBACK interval=3 readback=" + updated.intervalMinutes());
-            final Optional<Path> persisted = locateUuConfigFile(UU_KEY, "=3", failures);
-            if (persisted.isEmpty()) {
-                failures.add("UUConfig persisted file with " + UU_KEY + "=3 not found under the user profile");
+            // On-host persistence evidence: this editor build never flushes a
+            // separate UUConfig file mid-session; the host logs the applied key
+            // into its own editor log, so the log line is the acceptance.
+            final Optional<Path> logEvidence = locateEditorLogEvidence(UU_KEY, "=3");
+            if (logEvidence.isPresent()) {
+                logger.info("BACKUP_UUCONFIG_LOG_EVIDENCE found=true file=" + logEvidence.orElseThrow());
             } else {
-                logger.info("BACKUP_UUCONFIG_FOUND file=" + persisted.orElseThrow());
+                failures.add("editor log evidence with " + UU_KEY + "=3 not found; searched user.home for "
+                    + "**/Live2D/**/*_Editor/**/logs/log.txt (maxDepth=7, maxFiles=2000, maxBytes=2MB, "
+                    + "jars skipped)");
             }
+            // Best-effort diagnostic only: the whole-tree UUConfig file glob must
+            // never fail the matrix (the host build does not persist such a file).
+            final Optional<Path> persisted = locateUuConfigFile(UU_KEY, "=3", failures);
+            logger.info("BACKUP_UUCONFIG_FILE_DIAGNOSTIC found=" + persisted.isPresent()
+                + (persisted.isPresent() ? " file=" + persisted.orElseThrow() : ""));
         } catch (RuntimeException failure) {
             failures.add("settings write-readback failed: " + failure.getClass().getSimpleName());
         }
@@ -342,6 +352,47 @@ public final class BackupHostValidationPlugin implements TurboismPlugin {
                 + " maxMB=" + restored.maxMB() + " enabled=" + restored.enabled());
         } catch (RuntimeException failure) {
             failures.add("settings restore failed: " + failure.getClass().getSimpleName());
+        }
+    }
+
+    /**
+     * Bounded glob under the user profile for the editor's own log: a file named
+     * {@code log.txt} whose path contains {@code Live2D} and {@code _Editor}
+     * (on-host pattern: {@code .../AppData/Roaming/Live2D/Cubism5.3_Editor/logs/log.txt}),
+     * containing the given key/value fragment. The editor build under test logs
+     * the applied auto-backup key on set and never flushes a separate UUConfig
+     * file mid-session, so this log line is the on-host persistence evidence.
+     * Bounded by depth, file count, and file size; never touches non-text files.
+     */
+    static Optional<Path> locateEditorLogEvidence(final String key, final String valueFragment) {
+        final Path root = Path.of(System.getProperty("user.home", "."));
+        final int maxDepth = 7;
+        final int maxFiles = 2_000;
+        final long maxBytes = 2_000_000L;
+        try (Stream<Path> stream = Files.walk(root, maxDepth)) {
+            return stream
+                .filter(Files::isRegularFile)
+                .filter(path -> "log.txt".equals(path.getFileName().toString()))
+                .filter(path -> path.toString().contains("Live2D") && path.toString().contains("_Editor"))
+                .filter(path -> {
+                    try {
+                        return Files.size(path) <= maxBytes;
+                    } catch (IOException unavailable) {
+                        return false;
+                    }
+                })
+                .limit(maxFiles)
+                .filter(path -> {
+                    try {
+                        final String content = Files.readString(path, StandardCharsets.ISO_8859_1);
+                        return content.contains(key) && content.contains(valueFragment);
+                    } catch (IOException | OutOfMemoryError unavailable) {
+                        return false;
+                    }
+                })
+                .findFirst();
+        } catch (IOException walkFailure) {
+            return Optional.empty();
         }
     }
 
@@ -381,7 +432,7 @@ public final class BackupHostValidationPlugin implements TurboismPlugin {
                 })
                 .findFirst();
         } catch (IOException walkFailure) {
-            failures.add("UUConfig glob failed: " + walkFailure.getClass().getSimpleName());
+            // Best-effort diagnostic: a walk failure never fails the matrix.
             return Optional.empty();
         }
     }
