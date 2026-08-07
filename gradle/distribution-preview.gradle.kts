@@ -32,9 +32,7 @@ private fun configurePreviewSource(task: Sync, previewDirectory: Provider<org.gr
 }
 
 private fun configurePreviewAgentJar(task: Sync) {
-    task.from(project(":bootstrap").tasks.named<Jar>("jar").flatMap { it.archiveFile }) {
-        rename { "turboism-agent.jar" }
-    }
+    task.from(project(":bootstrap").tasks.named<Jar>("jar").flatMap { it.archiveFile })
 }
 
 private fun configurePreviewInspectorJar(task: Sync) {
@@ -104,6 +102,19 @@ val previewAgentSmokeTest by tasks.registering(JavaExec::class) {
         copyPreviewBundle(source, root)
         systemProperty("turboism.home", root.absolutePath)
         setJvmArgs(listOf("-javaagent:${root.resolve("turboism-agent.jar").absolutePath}=hostClass=com.live2d.cubism.CEAppCtrl;timeoutSeconds=10"))
+    }
+}
+
+val previewBootstrapBridgeTest by tasks.registering(JavaExec::class) {
+    group = "verification"
+    description = "Proves the distributed agent exposes the mesh-mirror ingress to bootstrap lookup."
+    dependsOn(previewBundle, ":bootstrap:testClasses")
+    val bootstrapTests = project(":bootstrap").extensions.getByType<SourceSetContainer>().named("test")
+    classpath(bootstrapTests.map { it.output })
+    mainClass.set("dev.turboism.bootstrap.BootstrapBridgeVisibilityMain")
+    doFirst {
+        val agent = previewBundleDir.get().asFile.resolve("turboism-agent.jar")
+        setJvmArgs(listOf("-javaagent:${agent.absolutePath}=hostClass=missing.Host;timeoutSeconds=1"))
     }
 }
 
