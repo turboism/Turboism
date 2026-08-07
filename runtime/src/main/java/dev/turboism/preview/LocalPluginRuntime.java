@@ -61,7 +61,8 @@ public final class LocalPluginRuntime implements AutoCloseable {
             hostAccess.partLifecycle(),
             hostAccess.editorObjectLifecycle(),
             hostAccess.projectFileLifecycle(),
-            hostAccess.editorLifecycleEvents()
+            hostAccess.editorLifecycleEvents(),
+            null
         );
     }
 
@@ -84,7 +85,33 @@ public final class LocalPluginRuntime implements AutoCloseable {
             hostAccess.partLifecycle(),
             hostAccess.editorObjectLifecycle(),
             hostAccess.projectFileLifecycle(),
-            hostAccess.editorLifecycleEvents()
+            hostAccess.editorLifecycleEvents(),
+            null
+        );
+    }
+
+    /** Production seam: preview runtime passes the shared file-chooser history singleton. */
+    LocalPluginRuntime(
+        final Path home,
+        final RuntimeScheduler scheduler,
+        final RuntimeHostAdapterAccess hostAccess,
+        final PreviewLog log,
+        final ParameterLifecycleCoordinator parameterLifecycle,
+        final dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistory
+    ) {
+        this(
+            home,
+            scheduler,
+            hostAccess,
+            log,
+            new RuntimeFailureCollector(),
+            (pluginId, phase) -> { },
+            parameterLifecycle,
+            hostAccess.partLifecycle(),
+            hostAccess.editorObjectLifecycle(),
+            hostAccess.projectFileLifecycle(),
+            hostAccess.editorLifecycleEvents(),
+            fileChooserHistory
         );
     }
 
@@ -107,7 +134,8 @@ public final class LocalPluginRuntime implements AutoCloseable {
             hostAccess.partLifecycle(),
             hostAccess.editorObjectLifecycle(),
             hostAccess.projectFileLifecycle(),
-            hostAccess.editorLifecycleEvents()
+            hostAccess.editorLifecycleEvents(),
+            null
         );
     }
 
@@ -130,7 +158,8 @@ public final class LocalPluginRuntime implements AutoCloseable {
             hostAccess.partLifecycle(),
             hostAccess.editorObjectLifecycle(),
             hostAccess.projectFileLifecycle(),
-            hostAccess.editorLifecycleEvents()
+            hostAccess.editorLifecycleEvents(),
+            null
         );
     }
 
@@ -145,12 +174,26 @@ public final class LocalPluginRuntime implements AutoCloseable {
         final PartLifecycleCoordinator partLifecycle,
         final EditorObjectLifecycleCoordinator editorObjectLifecycle,
         final ProjectFileLifecycleCoordinator projectFileLifecycle,
-        final EditorLifecycleCoordinator editorLifecycleEvents
+        final EditorLifecycleCoordinator editorLifecycleEvents,
+        final dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistory
     ) {
+        final dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService resolvedFileChooserHistory =
+            fileChooserHistory != null
+                ? fileChooserHistory
+                : new dev.turboism.filechooser.RuntimeFileChooserHistoryService(
+                    () -> {
+                        final dev.turboism.config.RuntimeConfigRepository config =
+                            new dev.turboism.config.RuntimeConfigRepository(
+                                home, diagnostic -> log.warn("config", diagnostic)
+                            );
+                        return config.read().path("hooks").path("startup")
+                            .path("separateExportSaveDirectory").asBoolean(false);
+                    }
+                );
         final PreviewPluginRuntimeResources resources = PreviewPluginRuntimeResources.create(
             home, scheduler, hostAccess, log, failureCollector, pluginCloseHook, loaded,
             parameterLifecycle, partLifecycle, editorObjectLifecycle,
-            projectFileLifecycle, editorLifecycleEvents
+            projectFileLifecycle, editorLifecycleEvents, resolvedFileChooserHistory
         );
         this.hostReadLane = resources.hostReadLane();
         this.failureCollector = resources.failureCollector();
