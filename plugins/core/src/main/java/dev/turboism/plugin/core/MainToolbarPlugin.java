@@ -51,6 +51,8 @@ public final class MainToolbarPlugin implements TurboismPlugin {
             localization(context).text("main-toolbar.plugins-menu.label"), ignored -> windows.showPlugins());
         registerAction(MainToolbarHomeEntryService.LOGS_ACTION_ID,
             localization(context).text("main-toolbar.logs-menu.label"), ignored -> windows.showLogs());
+        registerAction(MainToolbarHomeEntryService.ABOUT_ACTION_ID,
+            localization(context).text("main-toolbar.about-menu.label"), ignored -> windows.showAbout());
         registerSettingsActions();
         registerPluginActions();
         registerPanelTabActions();
@@ -60,6 +62,7 @@ public final class MainToolbarPlugin implements TurboismPlugin {
         context.disposableScope().register(homeEntryService.registerSettingsMenu());
         context.disposableScope().register(homeEntryService.registerPluginManagementMenu());
         context.disposableScope().register(homeEntryService.registerLogsMenu());
+        context.disposableScope().register(homeEntryService.registerAboutMenu());
         context.disposableScope().register(homeEntryService.registerHomeEntry());
         logger.info("Turboism core enabled");
     }
@@ -212,6 +215,7 @@ public final class MainToolbarPlugin implements TurboismPlugin {
                         case "main-toolbar.plugins-menu.label" -> "Plugin Management";
                         case "context-menu.panel-tab.float" -> "Float";
                         case "main-toolbar.logs-menu.label" -> "Logs";
+                        case "main-toolbar.about-menu.label" -> "About";
                         default -> key;
                     };
                 }
@@ -220,7 +224,8 @@ public final class MainToolbarPlugin implements TurboismPlugin {
                     return key.equals("main-toolbar.settings-menu.label")
                         || key.equals("main-toolbar.plugins-menu.label")
                         || key.equals("context-menu.panel-tab.float")
-                        || key.equals("main-toolbar.logs-menu.label");
+                        || key.equals("main-toolbar.logs-menu.label")
+                        || key.equals("main-toolbar.about-menu.label");
                 }
             };
         }
