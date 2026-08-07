@@ -31,17 +31,18 @@ public interface AutoBackupAdapter {
     void triggerBackupNow();
 
     /**
-     * Saves one matched pack file content to {@code <name>_backup<yyyy_MMdd_HHmm>.<ext>}
-     * inside the host backup directory through the verified saveDocument primitive
-     * (modeling / animation / game-data; the second argument is fixed to
-     * {@code true} — save a backup copy without switching the current document;
-     * if the host still switches the file reference, it is restored through the
-     * verified setFile selector and an unverified restore fails closed).
+     * Produces the save-triggered backup artifact as a silent pure file copy of
+     * the matched pack file content: {@code <name>_backup<yyyy_MMdd_HHmmss>.<ext>}
+     * under a temporary {@code turboism-backup-} directory (the host already
+     * wrote the document to its original file by the time the save hook fires;
+     * no host saveDocument/UI is involved, and no file remains in the host
+     * backup directory — the plugin uploads and deletes the temp artifact).
      * Matching prefers the saved document's UID list (modeling
      * {@code getDocumentUID}, animation {@code getSceneDocs} scene UIDs; game-data
      * has no UID mapping) and falls back to name/path matching. Returns the
      * produced artifact, or {@code null} when no pack file content matches the
-     * given saved file (the caller fails closed).
+     * given saved file (the caller fails closed); a missing source or failed
+     * copy throws.
      */
     File saveDocumentFor(File matchFile, List<String> documentUids, long timestampMillis);
 
