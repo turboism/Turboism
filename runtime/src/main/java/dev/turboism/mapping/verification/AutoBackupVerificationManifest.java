@@ -16,7 +16,7 @@ public final class AutoBackupVerificationManifest {
 
     public static final String VERIFICATION_ID_53 = "cubism-5.3.02.autobackup.static";
     public static final String RECORD_SHA256_53 =
-        "c1e60ea883658b697ea9ebe47e2c084419176ddbac64f5e0baf735d0b4c1153b";
+        "813c53764f269bbbfb7f20a9a73f63d65d94aa74dffbb461dcc294caf62e8e52";
     public static final String CUBISM_VERSION_53 = "5.3.02";
     public static final String PROFILE_ID_53 = "cubism-5.3.02";
     public static final long ARTIFACT_SIZE_53 = 41_922_739L;
@@ -25,7 +25,7 @@ public final class AutoBackupVerificationManifest {
 
     public static final String VERIFICATION_ID_52 = "cubism-5.2.03.autobackup.static";
     public static final String RECORD_SHA256_52 =
-        "8b0ca4794806c6c4e12f9957c90fc0e547532b1df4e4121286bcaf698e4809f9";
+        "2bdaa07f60f3290318e692e4473ea0343d95d30588d01ee1ec99bfbc4a8413c6";
     public static final String CUBISM_VERSION_52 = "5.2.03";
     public static final String PROFILE_ID_52 = "cubism-5.2";
     public static final long ARTIFACT_SIZE_52 = 40_805_584L;
@@ -35,6 +35,7 @@ public final class AutoBackupVerificationManifest {
     public static final Set<String> REQUIRED_ALIASES = Set.of(
         "cubism.auto-backup.manager.class",
         "cubism.auto-backup.manager.instance",
+        "cubism.auto-backup.app-controller.instance",
         "cubism.auto-backup.is-enabled",
         "cubism.auto-backup.set-enabled",
         "cubism.auto-backup.set-interval-minute",
