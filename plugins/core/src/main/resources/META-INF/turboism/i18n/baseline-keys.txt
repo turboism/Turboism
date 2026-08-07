@@ -48,5 +48,4 @@ window.settings.title
 
 main-toolbar.about-menu.label
 window.about.title
-about.version
 about.thanks
