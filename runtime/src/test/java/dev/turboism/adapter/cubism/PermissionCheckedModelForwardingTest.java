@@ -92,6 +92,20 @@ class PermissionCheckedModelForwardingTest {
     );
 
     private static final ParameterId PARAMETER_ID = new ParameterId("ParamA");
+    private static final dev.turboism.sdk.cubism.model.ModelTextures TEXTURES =
+        new dev.turboism.sdk.cubism.model.ModelTextures() {
+            @Override public List<dev.turboism.sdk.cubism.model.RawTexture> rawImages() { return List.of(); }
+            @Override public List<dev.turboism.sdk.cubism.model.ModelImageGroup> modelImageGroups() { return List.of(); }
+            @Override public List<dev.turboism.sdk.cubism.model.AtlasTexture> textureAtlases() { return List.of(); }
+            @Override public void addModelImageGroup(final String name) { }
+            @Override public void removeModelImage(final dev.turboism.sdk.cubism.id.ModelImageId id) { }
+            @Override public dev.turboism.sdk.cubism.id.TextureAtlasId addTextureAtlas(
+                final String name, final int widthPixels, final int heightPixels) {
+                return new dev.turboism.sdk.cubism.id.TextureAtlasId("atlas");
+            }
+            @Override public void removeTextureAtlas(final dev.turboism.sdk.cubism.id.TextureAtlasId id) { }
+            @Override public void removeRawImage(final dev.turboism.sdk.cubism.id.RawImageId id) { }
+        };
     private static final ParameterGroupId GROUP_ID = new ParameterGroupId("GroupA");
     private static final PartId PART_ID = new PartId("PartA");
 
@@ -106,7 +120,8 @@ class PermissionCheckedModelForwardingTest {
         assertSame(PHYSICS, model.physicsSettings());
         assertSame(AUTO_YURE, model.autoYure());
         assertEquals(List.of(ANIMATION), model.animationDocuments());
-        assertEquals(List.of("profile", "physicsSettings", "autoYure", "animationDocuments"), calls);
+        assertEquals(List.of(), model.textures().rawImages());
+        assertEquals(List.of("profile", "physicsSettings", "autoYure", "animationDocuments", "textures"), calls);
     }
 
     @Test
@@ -121,6 +136,7 @@ class PermissionCheckedModelForwardingTest {
         assertThrows(CubismPermissionException.class, model::physicsSettings);
         assertThrows(CubismPermissionException.class, model::autoYure);
         assertThrows(CubismPermissionException.class, model::animationDocuments);
+        assertThrows(CubismPermissionException.class, model::textures);
         assertTrue(calls.isEmpty(), "delegate must not be invoked when read permission is denied");
     }
 
@@ -455,6 +471,11 @@ class PermissionCheckedModelForwardingTest {
         @Override public List<AnimationDocument> animationDocuments() {
             calls.add("animationDocuments");
             return List.of(ANIMATION);
+        }
+
+        @Override public dev.turboism.sdk.cubism.model.ModelTextures textures() {
+            calls.add("textures");
+            return TEXTURES;
         }
 
         @Override public Parameters parameters() {

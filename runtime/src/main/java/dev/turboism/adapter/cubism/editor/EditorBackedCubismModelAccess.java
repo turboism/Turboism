@@ -60,6 +60,7 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
 
     private final EditorDocumentReadAccess documentReadAccess;
     private final EditorModelInstanceAccess modelInstanceAccess;
+    private final EditorTextureAccess textureAccess;
     private final dev.turboism.adapter.cubism.core.CoreEvaluatedJoin evaluatedJoin;
 
     public EditorBackedCubismModelAccess(
@@ -112,6 +113,10 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
             this::requireCurrent
         );
         this.modelInstanceAccess = new EditorModelInstanceAccess(
+            resolver,
+            this::requireCurrent
+        );
+        this.textureAccess = new EditorTextureAccess(
             resolver,
             this::requireCurrent
         );
@@ -807,6 +812,10 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
 
         @Override public boolean modelEditing() {
             return modelInstanceAccess.modelEditing(identity, source, model);
+        }
+
+        @Override public dev.turboism.sdk.cubism.model.ModelTextures textures() {
+            return textureAccess.textures(identity, source, model);
         }
         @Override public Parameters parameters() { current(); return new EditorParameters(identity, model); }
         @Override public ParameterGroups parameterGroups() {
