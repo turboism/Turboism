@@ -276,9 +276,10 @@ class EditorInspectorWriteAccessTest {
         selectors.add(method("cubism.editor-model.id.value", Id.class, "value", "()Ljava/lang/String;"));
         selectors.add(method("cubism.editor-model.model-source.parts", ModelSource.class, "parts", "()Ljava/util/List;"));
         selectors.add(method("cubism.editor-model.model-source.update-instances", ModelSource.class, "updateInstances", "()V"));
-        selectors.add(method(
-            "cubism.editor-model.model-source.verify", ModelSource.class, "verify",
-            "(ZLjava/lang/Object;)V"));
+        selectors.add(StaticSelector.staticMethod(
+            "cubism.editor-model.model-source.verify", internal(ModelSource.class), "verify$default",
+            "(L" + internal(ModelSource.class) + ";ZLjava/lang/Object;ILjava/lang/Object;)V",
+            StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC));
         selectors.add(method("cubism.editor-model.model-source.target-version", ModelSource.class, "getTargetVersion", desc(TargetVersion.class)));
         selectors.add(method("cubism.editor-model.target-version.number", TargetVersion.class, "a", "()I"));
         selectors.add(method("cubism.editor-model.model.parts", Model.class, "parts", "()Ljava/util/List;"));
@@ -496,7 +497,7 @@ class EditorInspectorWriteAccessTest {
         public List<DeformerSource> allDeformers() { return all.stream().filter(s -> s instanceof DeformerSource).map(s -> (DeformerSource) s).toList(); }
         public List<GlueSource> allGlues() { return all.stream().filter(s -> s instanceof GlueSource).map(s -> (GlueSource) s).toList(); }
         public void updateInstances() { updateCount++; }
-        public void verify(final boolean fix, final Object ignored) {
+        public static void verify$default(final ModelSource source, final boolean fix, final Object unused, final int mask, final Object unused2) {
             Fixture.current.verifyCount++;
         }
         public TargetVersion getTargetVersion() { return new TargetVersion(targetVersionNo); }

@@ -404,7 +404,10 @@ public class EditorInspectorDrawableWriteTest {
             method("cubism.editor-model.model-source.handler", ModelSource.class, "modelHandler", desc(ModelHandler.class)),
             method("cubism.editor-model.model-handler.id-map", ModelHandler.class, "idMap", desc(IdMap.class)),
             method("cubism.editor-model.id-map.contains", IdMap.class, "contains", "(Ljava/lang/String;)Z"),
-            method("cubism.editor-model.model-source.verify", ModelSource.class, "verify", "(ZLjava/lang/Object;)V"),
+            StaticSelector.staticMethod(
+                "cubism.editor-model.model-source.verify", internal(ModelSource.class), "verify$default",
+                "(L" + internal(ModelSource.class) + ";ZLjava/lang/Object;ILjava/lang/Object;)V",
+                StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC),
             method("cubism.editor-model.complete-pack.update-manager", CompletePack.class, "updateManager", desc(UpdateManager.class)),
             method("cubism.editor-model.update-manager.update-part", UpdateManager.class, "updatePart", "(Z)V"),
             method("cubism.editor-model.update-manager.update-deformer", UpdateManager.class, "updateDeformer", "(Z)V"),
@@ -679,7 +682,10 @@ public class EditorInspectorDrawableWriteTest {
         public Id guid() { return guid; }
         public Model currentInstance() { return model; }
         public void updateInstances() { updateCount++; }
-        public void verify(final boolean flag, final Object ignored) { artMeshSources.get(0).failures.setter(); artMeshSources.get(0).verifyCalls++; }
+        public static void verify$default(final ModelSource source, final boolean flag, final Object ignored, final int mask, final Object unused) {
+            Fixture.current.source.artMeshSources.get(0).failures.setter();
+            Fixture.current.source.artMeshSources.get(0).verifyCalls++;
+        }
         public TargetVersion targetVersion() { final TargetVersion version = new TargetVersion(); version.number = targetVersionNumber; return version; }
         public ObjectSource getObject(final String id) {
             getObjectCalls++;
@@ -735,6 +741,7 @@ public class EditorInspectorDrawableWriteTest {
     }
 
     private static final class Fixture {
+        static Fixture current;
         final Failures failures = new Failures();
         final ModelSource source = new ModelSource();
         final Document document = new Document(source);
@@ -742,6 +749,7 @@ public class EditorInspectorDrawableWriteTest {
         final ArtMesh mesh;
         final Handler handler;
         Fixture() {
+            current = this;
             final ArtMeshSource maskSource = new ArtMeshSource("ArtMeshMask", failures);
             meshSource = new ArtMeshSource("ArtMeshFace", failures);
             maskSource.clipGuids.add((DrawableGuid) maskSource.guid);
