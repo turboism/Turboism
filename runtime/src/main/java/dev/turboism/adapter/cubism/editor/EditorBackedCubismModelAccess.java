@@ -584,13 +584,13 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
             throw unavailable("Editor parameter collection is unavailable.");
         }
         final List<ParameterBinding> values = new ArrayList<>();
-        final java.util.HashSet<String> ids = new java.util.HashSet<>();
+        // No uniqueness hard-check: verified host evidence shows CParameterSet stores CParameter
+        // entries in a plain CArrayList without any id-uniqueness constraint, and real Editor
+        // models can contain duplicate parameter ids. Duplicates are preserved in stable order;
+        // find/findById semantics return the first match and all() returns every entry.
         for (Object parameter : iterable) {
             final Object rawId = resolver.invoke("cubism.editor-model.parameter.id", parameter);
             final String id = text(resolver.invoke("cubism.editor-model.id.value", rawId));
-            if (!ids.add(id)) {
-                throw unavailable("Editor parameter identifiers are not unique.");
-            }
             values.add(new ParameterBinding(id, parameter));
         }
         return List.copyOf(values);
@@ -862,7 +862,7 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
         private Object source() {
             return resolver.invoke("cubism.editor-model.parameter.source", current().parameter());
         }
-        @Override public ParameterId id() { current(); return id; }
+        @Override public ParameterId id() { requireCurrent(identity, model); return id; }
         @Override public int index() { current(); return parameterIndex(model, id); }
         @Override public FloatSequence keyValues() { current(); return Parameter.super.keyValues(); }
         @Override public Optional<String> name() {
