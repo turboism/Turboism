@@ -18,6 +18,7 @@ import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.plugin.TurboismPlugin;
 
 import java.io.File;
+import java.nio.file.Path;
 import java.util.Objects;
 import java.util.concurrent.CompletionStage;
 import java.util.function.Consumer;
@@ -132,8 +133,13 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
         try {
             context.backup().backupAfterSave(saved).whenComplete((event, failure) -> {
                 if (failure != null) {
+                    final Throwable cause = failure instanceof java.util.concurrent.CompletionException ce
+                        && ce.getCause() != null ? ce.getCause() : failure;
                     requireContext().logger().warn(
-                        "SAVE_BACKUP_FAILED " + failure.getClass().getSimpleName()
+                        "SAVE_BACKUP_FAILED " + cause.getClass().getSimpleName()
+                            + " doc=" + saved.name()
+                            + " path=" + saved.filePath().map(Path::toString).orElse("")
+                            + " message=" + (cause.getMessage() == null ? "" : cause.getMessage())
                     );
                 }
             });
