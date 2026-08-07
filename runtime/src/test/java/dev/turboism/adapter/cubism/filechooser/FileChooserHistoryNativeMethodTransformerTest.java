@@ -74,6 +74,7 @@ class FileChooserHistoryNativeMethodTransformerTest {
             @Override public void setProjectRecentDirectory(final Path dir) { }
             @Override public void setExportRecentDirectory(final Path dir) { captured.set(dir); }
             @Override public boolean exportSeparationEnabled() { return true; }
+            @Override public Registration registerProvider(final Provider provider) { return () -> { }; }
         };
     }
 
@@ -171,6 +172,7 @@ class FileChooserHistoryNativeMethodTransformerTest {
             @Override public void setProjectRecentDirectory(final Path dir) { }
             @Override public void setExportRecentDirectory(final Path dir) { }
             @Override public boolean exportSeparationEnabled() { return false; }
+            @Override public Registration registerProvider(final Provider provider) { return () -> { }; }
         });
 
         assertSame(chosen, hostType.getMethod("c", Object.class).invoke(host, new Object()));
