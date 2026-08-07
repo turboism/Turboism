@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.mesh;
 
+import dev.turboism.core.reflect.MethodHandleCache;
 import dev.turboism.sdk.cubism.mesh.MeshEditUiService;
 import dev.turboism.sdk.plugin.Registration;
 
@@ -343,13 +344,11 @@ public final class RuntimeMeshEditUiService implements MeshEditUiService {
     private static Object invoke(final Object target, final String name, final Object... arguments)
         throws ReflectiveOperationException {
         if (target == null) throw new NoSuchMethodException(name);
-        for (Method method : target.getClass().getMethods()) {
-            if (method.getName().equals(name) && method.getParameterCount() == arguments.length) {
-                try {
-                    return method.invoke(target, arguments);
-                } catch (IllegalArgumentException ignored) {
-                    // Try the next overload.
-                }
+        for (Method method : MethodHandleCache.overloads(target.getClass(), name, arguments.length)) {
+            try {
+                return method.invoke(target, arguments);
+            } catch (IllegalArgumentException ignored) {
+                // Try the next overload.
             }
         }
         throw new NoSuchMethodException(target.getClass().getName() + "#" + name);
