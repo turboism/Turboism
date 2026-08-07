@@ -12,6 +12,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 
 /** Stable adapter bundle whose calls are leased to one current host-session bundle. */
@@ -404,13 +407,22 @@ final class DynamicRuntimeHostAdapters {
         }
     }
 
-    private static void await(final CompletableFuture<Void> completion) {
-        try {
-            completion.join();
-        } catch (CompletionException exception) {
-            rethrowUnchecked(exception.getCause());
+        /** Bounded wait for a concurrent close owner; the EDT must never block indefinitely. */
+        private static final long CLOSE_JOIN_TIMEOUT_MILLIS = 5_000L;
+
+        private static void await(final CompletableFuture<Void> completion) {
+            try {
+                completion.get(CLOSE_JOIN_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+            } catch (TimeoutException timeout) {
+                throw new IllegalStateException(
+                    "registration close did not finish within " + CLOSE_JOIN_TIMEOUT_MILLIS + "ms", timeout);
+            } catch (ExecutionException exception) {
+                rethrowUnchecked(exception.getCause());
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException("interrupted while awaiting registration close", interrupted);
+            }
         }
-    }
 
     private static void rethrow(final Throwable throwable) throws Exception {
         if (throwable == null) {

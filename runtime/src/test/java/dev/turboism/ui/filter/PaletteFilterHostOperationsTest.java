@@ -8,7 +8,10 @@ import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
+import javax.swing.JTable;
 import javax.swing.JTextField;
+
+import javax.swing.JTree;
 import javax.swing.JTextPane;
 import javax.swing.SwingUtilities;
 import java.awt.BorderLayout;
@@ -17,6 +20,7 @@ import java.awt.Container;
 import java.awt.Dimension;
 import java.lang.reflect.InvocationTargetException;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -25,6 +29,8 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import static org.junit.jupiter.api.Assertions.fail;
 
 /** Focused tests for the palette filter host operations: pure logic and Swing attachment. */
 class PaletteFilterHostOperationsTest {
@@ -279,6 +285,99 @@ class PaletteFilterHostOperationsTest {
 
         filtered.setKeyword("wrongnode1");
         assertEquals(0, filtered.getChildCount(root));
+    }
+
+    // ------------------------------------------------ debounced tree filtering
+
+    /**
+     * Regression (edt-perf-fix R2): a keystroke arriving through the debounce seam must apply the
+     * LATEST text, never the initial keyword. Fails on the R1 implementation, where
+     * {@code scheduleTreeFilter} ignored its text argument and the timer re-applied the stale
+     * {@code state.filterText} (this seam was only masked end-to-end by an ensureFilterBox side
+     * effect, which the deformer path must not depend on).
+     */
+    @Test
+    void debouncedTreeFilterAppliesLatestKeystrokeNotInitialText() throws Exception {
+        final PaletteFilterHostOperations host = new PaletteFilterHostOperations();
+        final PaletteFilterHostOperations.PaletteFilterState state =
+            new PaletteFilterHostOperations.PaletteFilterState(PaletteFilterHostOperations.PaletteKind.DEFORMER);
+        final javax.swing.tree.DefaultMutableTreeNode root = new javax.swing.tree.DefaultMutableTreeNode("root");
+        root.add(new javax.swing.tree.DefaultMutableTreeNode("ParamAngleX"));
+        final javax.swing.tree.DefaultTreeModel model = new javax.swing.tree.DefaultTreeModel(root);
+        final JTree tree = onEdt(() -> new JTree(model));
+
+        onEdt(() -> {
+            state.tree = tree;
+            state.treeModel = model;
+            state.filterText = "initial"; // attach-time keyword
+            host.scheduleTreeFilter(state, "angle"); // a keystroke lands with the new text
+        });
+
+        // Debounce timer → background prewarm → EDT model swap must apply "angle", not "initial".
+        final java.util.concurrent.atomic.AtomicReference<PaletteFilterHostOperations.FilteredTreeModel> applied =
+            new java.util.concurrent.atomic.AtomicReference<>();
+        awaitUntil(() -> {
+            final PaletteFilterHostOperations.FilteredTreeModel filtered = state.filteredTreeModel;
+            if (filtered != null) {
+                applied.set(filtered);
+            }
+            return filtered != null;
+        });
+        assertEquals("angle", applied.get().keyword(),
+            "debounced filter must apply the latest keystroke, not the initial text");
+    }
+
+    /** End-to-end: real DocumentListener text change → debounce timer → filtered tree model keyword. */
+    @Test
+    void deformerPaletteTypingAppliesLatestKeywordEndToEnd() throws Exception {
+        final javax.swing.tree.DefaultMutableTreeNode root = new javax.swing.tree.DefaultMutableTreeNode("root");
+        final javax.swing.tree.DefaultMutableTreeNode folder = new javax.swing.tree.DefaultMutableTreeNode("Folder");
+        final DeformerNode node = new DeformerNode(
+            new DeformerSource(new EditableId("Warp4"), "矩形变形器", "ignored", 4.0f));
+        root.add(folder);
+        folder.add(node);
+        final javax.swing.tree.DefaultTreeModel treeModel = new javax.swing.tree.DefaultTreeModel(root);
+        final JTable table = new JTable();
+        final JTree[] embedded = new JTree[1];
+        onEdt(() -> {
+            final JTree tree = new JTree(treeModel); // embedded tree-table seam for extractTree
+            embedded[0] = tree;
+            table.add(tree);
+        });
+        final JPanel parent = new JPanel(new BorderLayout());
+        final JPanel toolbar = new JPanel();
+        toolbar.add(new JButton("native"));
+        parent.add(new JScrollPane(table), BorderLayout.CENTER);
+        parent.add(toolbar, BorderLayout.NORTH);
+        final JPanel paletteRoot = new JPanel(new BorderLayout());
+        paletteRoot.add(parent, BorderLayout.CENTER);
+
+        final PaletteFilterHostOperations host = new PaletteFilterHostOperations(
+            kind -> kind == PaletteFilterHostOperations.PaletteKind.DEFORMER ? paletteRoot : null);
+        host.onPaletteFilterVisibilityChanged("probe", List.of(contribution("def", "DEFORMER")));
+        SwingUtilities.invokeAndWait(() -> { });
+
+        final JTextField field = findFilterField(paletteRoot);
+        assertNotNull(field, "filter field must be installed");
+        onEdt(() -> field.setText("warp4")); // keystroke
+        awaitUntil(() -> {
+            final javax.swing.tree.TreeModel current = onEdt(embedded[0]::getModel);
+            return current instanceof PaletteFilterHostOperations.FilteredTreeModel filtered
+                && "warp4".equals(filtered.keyword());
+        });
+    }
+
+    /** Polls while pumping the EDT (Swing timers and the prewarm apply run on it). */
+    private static void awaitUntil(final java.util.function.BooleanSupplier condition) throws Exception {
+        final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+        while (System.nanoTime() < deadline) {
+            SwingUtilities.invokeAndWait(() -> { });
+            if (condition.getAsBoolean()) {
+                return;
+            }
+            Thread.sleep(50);
+        }
+        fail("condition not met within 5s");
     }
 
     @Test
