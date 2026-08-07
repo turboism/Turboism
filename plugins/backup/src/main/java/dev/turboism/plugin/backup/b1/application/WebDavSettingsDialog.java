@@ -3,12 +3,15 @@ package dev.turboism.plugin.backup.b1.application;
 import dev.turboism.plugin.backup.webdav.WebDavConfig;
 import dev.turboism.plugin.backup.webdav.WebDavSyncTarget;
 import dev.turboism.sdk.plugin.PluginContext;
+import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.plugin.PluginLogger;
 
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
+import javax.swing.DefaultListCellRenderer;
 import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
+import javax.swing.JList;
 import javax.swing.JDialog;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -18,6 +21,7 @@ import javax.swing.JTextField;
 import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingUtilities;
 import java.awt.BorderLayout;
+import java.awt.Component;
 import java.awt.FlowLayout;
 import java.awt.GraphicsEnvironment;
 import java.awt.GridBagConstraints;
@@ -128,12 +132,32 @@ public final class WebDavSettingsDialog {
     static char toggleEchoChar(final char current) {
         return current == PASSWORD_ECHO ? 0 : PASSWORD_ECHO;
     }
+    /** Localized combo label for a trigger mode; falls back to the enum name. */
+    static String remoteTriggerText(final PluginLocalization localization, final WebDavConfig.RemoteTrigger trigger) {
+        final String key = switch (trigger) {
+            case SAVE_TRIGGERED -> "backup.remote-trigger.save-triggered";
+            case AUTO_BACKUP_SYNC -> "backup.remote-trigger.auto-backup-sync";
+        };
+        return localization != null && localization.contains(key)
+            ? localization.text(key)
+            : trigger.name();
+    }
+
+    /** Localized dialog row label for the trigger selector. */
+    static String remoteTriggerLabel(final PluginLocalization localization) {
+        final String key = "backup.dialog.remote-trigger-label";
+        return localization != null && localization.contains(key)
+            ? localization.text(key)
+            : "Remote trigger";
+    }
+
     private static void show(
         final PluginContext context,
         final WebDavSettingsBinding binding,
         final java.util.function.Consumer<WebDavConfig> onSaved
     ) {
         final PluginLogger logger = context.logger();
+        final PluginLocalization localization = context.localization();
         final Window owner = null; // modeless top-level dialog; the host owns the frame hierarchy
         final JDialog dialog = new JDialog();
         dialog.setTitle("WebDAV 备份设置");
@@ -152,6 +176,22 @@ public final class WebDavSettingsDialog {
             WebDavSettingsBinding.DEFAULT_TIMEOUT_SECONDS, 1, 300, 1));
         final JComboBox<WebDavConfig.RemoteTrigger> remoteTrigger = new JComboBox<>(
             WebDavConfig.RemoteTrigger.values());
+        remoteTrigger.setRenderer(new DefaultListCellRenderer() {
+            @Override
+            public Component getListCellRendererComponent(
+                final JList<?> list,
+                final Object value,
+                final int index,
+                final boolean isSelected,
+                final boolean cellHasFocus
+            ) {
+                super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+                if (value instanceof WebDavConfig.RemoteTrigger trigger) {
+                    setText(remoteTriggerText(localization, trigger));
+                }
+                return this;
+            }
+        });
         final JLabel status = new JLabel(" ");
         final JButton save = new JButton("保存");
         final JButton cancel = new JButton("取消");
@@ -229,7 +269,7 @@ public final class WebDavSettingsDialog {
         addRow(form, c, row++, new JLabel("重试次数"), retryMax);
         addRow(form, c, row++, new JLabel("重试基延迟(ms)"), retryBaseDelayMs);
         addRow(form, c, row++, new JLabel("超时(秒)"), timeoutSeconds);
-        addRow(form, c, row++, new JLabel("远程保存方式"), remoteTrigger);
+        addRow(form, c, row++, new JLabel(remoteTriggerLabel(localization)), remoteTrigger);
         c.gridx = 0;
         c.gridwidth = 2;
         c.gridy = row;
