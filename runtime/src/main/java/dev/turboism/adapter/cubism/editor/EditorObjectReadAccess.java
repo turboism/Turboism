@@ -55,16 +55,34 @@ final class EditorObjectReadAccess {
 
     private final dev.turboism.adapter.cubism.core.CoreEvaluatedJoin evaluatedJoin;
 
+    /**
+     * Optional lazy-publish hook, invoked at most once per binding identity when the first
+     * evaluated read fails with MODEL_UNAVAILABLE. Returns true when the model was
+     * published and the read may be retried once; null disables lazy publication.
+     */
+    private final java.util.function.Function<String, Boolean> lazyPublish;
+
     EditorObjectReadAccess(
         final VerifiedMemberResolver resolver,
         final CurrentGuard currentGuard,
         final EditorMorphTargetAccess morphTargetAccess,
         final dev.turboism.adapter.cubism.core.CoreEvaluatedJoin evaluatedJoin
     ) {
+        this(resolver, currentGuard, morphTargetAccess, evaluatedJoin, null);
+    }
+
+    EditorObjectReadAccess(
+        final VerifiedMemberResolver resolver,
+        final CurrentGuard currentGuard,
+        final EditorMorphTargetAccess morphTargetAccess,
+        final dev.turboism.adapter.cubism.core.CoreEvaluatedJoin evaluatedJoin,
+        final java.util.function.Function<String, Boolean> lazyPublish
+    ) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.currentGuard = Objects.requireNonNull(currentGuard, "currentGuard");
         this.morphTargetAccess = Objects.requireNonNull(morphTargetAccess, "morphTargetAccess");
         this.evaluatedJoin = evaluatedJoin;
+        this.lazyPublish = lazyPublish;
     }
 
     Drawables drawables(final String identity, final Object source, final Object model) {
@@ -1272,7 +1290,19 @@ final class EditorObjectReadAccess {
                 "Core evaluated data is unavailable: no Core evaluated join is installed."
             );
         }
-        return evaluatedJoin.evaluated(identity).drawable(id);
+        try {
+            return evaluatedJoin.evaluated(identity).drawable(id);
+        } catch (IllegalStateException unavailable) {
+            if (lazyPublish == null
+                || !unavailable.getMessage().contains("No verified active Core model")) {
+                throw unavailable;
+            }
+            if (!lazyPublish.apply(identity)) {
+                throw unavailable;
+            }
+            // Retried once after a successful lazy publish; any further failure propagates.
+            return evaluatedJoin.evaluated(identity).drawable(id);
+        }
     }
 
     private enum Kind {
