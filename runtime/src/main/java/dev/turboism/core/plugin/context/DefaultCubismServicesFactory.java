@@ -194,7 +194,7 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
             new dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorithmRegistry(),
             dev.turboism.adapter.cubism.command.EditorCommandAdapter.unavailable(),
             dev.turboism.adapter.cubism.command.EditorFileCommandResolver.unavailable(),
-            AutoBackupAdapter.safeMode()
+            hostAdapters.autoBackup()
         );
     }
 
@@ -293,8 +293,13 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
             new dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorithmRegistry(),
             editorCommands,
             editorFiles,
-            AutoBackupAdapter.safeMode()
+            hostAdapters.autoBackup()
         );
+    }
+
+    /** Wiring seam for tests: the adapter this factory forwards to the backup coordinator. */
+    AutoBackupAdapter autoBackupAdapter() {
+        return autoBackup;
     }
 
     @Override
