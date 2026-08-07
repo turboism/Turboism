@@ -68,6 +68,10 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         new EditorLifecycleCoordinator();
     private final PhysicsEditorCoordinator physicsEditorCoordinator =
         new PhysicsEditorCoordinator();
+    private final dev.turboism.adapter.cubism.mesh.RuntimeMeshMirrorAxisService meshMirrorAxisService =
+        new dev.turboism.adapter.cubism.mesh.RuntimeMeshMirrorAxisService();
+    private final dev.turboism.adapter.cubism.mesh.RuntimeMeshEditUiService meshEditUiService =
+        new dev.turboism.adapter.cubism.mesh.RuntimeMeshEditUiService();
     private final RuntimeEditorUiHostLifecycle editorUiLifecycle =
         new RuntimeEditorUiHostLifecycle();
     private final EditorUiContributionAuthority editorUiContributions =
@@ -408,6 +412,16 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     }
 
     @Override
+    public dev.turboism.adapter.cubism.mesh.RuntimeMeshMirrorAxisService meshMirrorAxisService() {
+        return meshMirrorAxisService;
+    }
+
+    @Override
+    public dev.turboism.adapter.cubism.mesh.RuntimeMeshEditUiService meshEditUiService() {
+        return meshEditUiService;
+    }
+
+    @Override
     public EditorUiHostLifecycle editorUiLifecycle() {
         return editorUiLifecycle;
     }
@@ -563,6 +577,8 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             projectFileLifecycle,
             editorLifecycleEvents,
             physicsEditorCoordinator,
+            meshMirrorAxisService,
+            meshEditUiService,
             editorUiLifecycle,
             editorUiContributions,
             embeddedPanelActivation,
@@ -615,6 +631,8 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             textureAtlasLayouts.close();
             textureAtlasNativeInvocations.close();
             parameterLifecycle.close();
+            meshEditUiService.resetSession();
+            meshMirrorAxisService.resetSession();
             editorUiPluginResources.close();
             editorUiActionRouter.close();
             embeddedPanelActivation.close();
@@ -663,6 +681,9 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
 
     /** Registration cleanup must succeed before its owning connection can be closed. */
     private CleanupOutcome cleanupOwnedResources() {
+        dev.turboism.adapter.cubism.mesh.NativeMeshMirrorBridge.clearHostContext();
+        meshEditUiService.resetSession();
+        meshMirrorAxisService.resetSession();
         activeConnectionKey = null;
         paletteFilterHost.clearParameterRowsResolver();
         if (activeConnection != null && activeConnection.workspaceProvider() != null) {

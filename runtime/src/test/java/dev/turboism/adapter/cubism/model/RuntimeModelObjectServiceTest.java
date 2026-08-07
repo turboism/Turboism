@@ -76,6 +76,28 @@ final class RuntimeModelObjectServiceTest {
         );
         assertEquals("Face Renamed", face.name());
 
+        final var reparentedFace = service.reparent(
+            new ModelObjectReference(ModelObjectKind.ART_MESH, face.id().value()),
+            new ModelObjectReference(ModelObjectKind.WARP_DEFORMER, warp.id().value()),
+            -1
+        );
+        assertEquals(
+            Optional.of(new ModelObjectReference(ModelObjectKind.WARP_DEFORMER, warp.id().value())),
+            reparentedFace.parent()
+        );
+        final var reparentedWarp = service.reparent(
+            new ModelObjectReference(ModelObjectKind.WARP_DEFORMER, warp.id().value()),
+            new ModelObjectReference(ModelObjectKind.ROTATION_DEFORMER, rotation.id().value()),
+            0
+        );
+        assertEquals(
+            Optional.of(new ModelObjectReference(
+                ModelObjectKind.ROTATION_DEFORMER,
+                rotation.id().value()
+            )),
+            reparentedWarp.parent()
+        );
+
         final var createdPart = service.create(new ModelObjectCreateRequest.Part(
             "Accessory",
             Optional.of(new ModelObjectReference(ModelObjectKind.PART, root.id().value()))
@@ -84,6 +106,26 @@ final class RuntimeModelObjectServiceTest {
         assertEquals(Optional.of(root.id()), model.parts.find(
             new PartId(createdPart.reference().id())
         ).parentId());
+
+        final MutablePart accessoryGroup = model.addPart("PartAccessoryGroup", "Accessory Group", root);
+        final var reparentedPart = service.reparent(
+            createdPart.reference(),
+            new ModelObjectReference(ModelObjectKind.PART, accessoryGroup.id().value()),
+            1
+        );
+        assertEquals(
+            Optional.of(new ModelObjectReference(ModelObjectKind.PART, accessoryGroup.id().value())),
+            reparentedPart.parent()
+        );
+        final ModelObjectOperationException invalidPartParent = assertThrows(
+            ModelObjectOperationException.class,
+            () -> service.reparent(
+                createdPart.reference(),
+                new ModelObjectReference(ModelObjectKind.WARP_DEFORMER, warp.id().value()),
+                -1
+            )
+        );
+        assertEquals(ModelObjectOperationException.Code.INVALID_REQUEST, invalidPartParent.code());
 
         final ArtMeshGeometry geometry = triangle();
         final var createdMesh = service.create(new ModelObjectCreateRequest.ArtMesh(

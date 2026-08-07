@@ -12,6 +12,8 @@ import dev.turboism.sdk.cubism.service.query.ModelHierarchyQueryService;
 import dev.turboism.sdk.cubism.service.query.ParameterQueryService;
 import dev.turboism.sdk.cubism.service.query.SelectionQueryService;
 import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
+import dev.turboism.sdk.cubism.mesh.MeshMirrorAxisService;
+import dev.turboism.sdk.cubism.mesh.MeshEditUiService;
 import dev.turboism.sdk.cubism.model.ModelObjectService;
 import dev.turboism.sdk.cubism.physics.PhysicsEditorService;
 import dev.turboism.sdk.cubism.command.EditorCommandService;
@@ -114,6 +116,14 @@ public interface PluginContext {
 
     default FileChooserHistoryService fileChooserHistory() {
         return FileChooserHistoryService.unavailable();
+    }
+
+    default MeshMirrorAxisService meshMirrorAxis() {
+        throw new UnsupportedOperationException("meshMirrorAxis service is not available");
+    }
+
+    default MeshEditUiService meshEditUi() {
+        throw new UnsupportedOperationException("meshEditUi service is not available");
     }
 
     default EditorCommandService editorCommands() {

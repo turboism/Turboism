@@ -1,0 +1,40 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 2,
+  "id": "dev.turboism.validation.mesh-mirror-axis",
+  "name": "Windows Mesh Mirror-Axis Validation Probe",
+  "version": "0.1.0",
+  "description": "Manual-test-only SDK probe recording mirror-axis angle roundtrip and mesh/deformer state for exact-host validation.",
+  "entrypoints": [
+    "dev.turboism.tests.plugin.WindowsMeshMirrorAxisValidationProbe"
+  ],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    { "name": "Turboism Contributors" }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": []
+  },
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.cubism.model.read",
+      "scope": "application",
+      "reason": "Read the current mirror-axis angle and mesh/deformer counts during manual validation."
+    },
+    {
+      "id": "turboism.cubism.model.write",
+      "scope": "application",
+      "reason": "Set the mirror-axis angle to a known value and restore it during the SDK roundtrip."
+    }
+  ],
+  "capabilities": [],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "none"
+  }
+}
