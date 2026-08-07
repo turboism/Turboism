@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.backup;
 
+import dev.turboism.sdk.cubism.ProjectContentSnapshot;
 import dev.turboism.sdk.cubism.backup.BackupCompletedEvent;
 import dev.turboism.sdk.cubism.backup.BackupSyncTarget;
 import dev.turboism.sdk.cubism.backup.EditorAutoBackupService;
@@ -19,6 +20,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -41,6 +43,12 @@ import java.util.function.Consumer;
  *       polls (never fixed sleeps) the backup directory and the document
  *       timestamps until artifacts appear or the timeout expires; a timeout
  *       completes the stage exceptionally (fail closed).</li>
+ *   <li>{@code backupAfterSave()} matches the saved snapshot against the pack
+ *       file contents, invokes the verified saveDocument primitive (dirty
+ *       condition bypassed), polls the exact artifact, and then publishes and
+ *       syncs like {@code backupNow()}; per-document saves within the 2-second
+ *       debounce window coalesce, and the single host thread serializes every
+ *       run so host saveDocument calls never execute concurrently.</li>
  *   <li>Sync-target failures are isolated: a throwing target never corrupts
  *       the backup result or the published event.</li>
  * </ul>
@@ -54,6 +62,10 @@ public final class AutoBackupCoordinator implements EditorAutoBackupService, Aut
     /** Backup artifact name pattern: {@code <name>_backup<yyyy_MMdd_HHmm>.cmo3}. */
     static final String BACKUP_FILE_MARKER = "_backup";
 
+
+    /** Per-document save-triggered backup debounce window: saves within this window coalesce. */
+    static final long SAVE_DEBOUNCE_WINDOW_MILLIS = 2_000L;
+
     private final AutoBackupAdapter adapter;
     private final EventBus eventBus;
     private final Clock clock;
@@ -63,6 +75,8 @@ public final class AutoBackupCoordinator implements EditorAutoBackupService, Aut
     private final CopyOnWriteArrayList<BackupSyncTarget> syncTargets = new CopyOnWriteArrayList<>();
     private final ExecutorService hostThread;
     private final AtomicBoolean closed = new AtomicBoolean(false);
+
+    private final ConcurrentHashMap<String, Pending> pendingSaves = new ConcurrentHashMap<>();
 
     public AutoBackupCoordinator(
         final AutoBackupAdapter adapter,
@@ -144,6 +158,42 @@ public final class AutoBackupCoordinator implements EditorAutoBackupService, Aut
     }
 
     @Override
+    public CompletionStage<BackupCompletedEvent> backupAfterSave(final ProjectContentSnapshot saved) {
+        Objects.requireNonNull(saved, "saved");
+        requireOpen();
+        final String key = saveKey(saved);
+        final long now = clock.millis();
+        // Lazy expiry keeps the debounce map bounded to one entry per live document.
+        pendingSaves.entrySet().removeIf(
+            entry -> now - entry.getValue().scheduledAtMillis >= SAVE_DEBOUNCE_WINDOW_MILLIS
+        );
+        final CompletableFuture<BackupCompletedEvent> result = new CompletableFuture<>();
+        final Pending[] chosen = new Pending[1];
+        pendingSaves.compute(key, (ignored, existing) -> {
+            if (existing != null
+                && now - existing.scheduledAtMillis < SAVE_DEBOUNCE_WINDOW_MILLIS) {
+                // Idempotent debounce: a save within the per-document window is
+                // coalesced into the in-flight backup and observes its outcome.
+                chosen[0] = existing;
+                return existing;
+            }
+            chosen[0] = new Pending(now, result);
+            return chosen[0];
+        });
+        if (chosen[0].stage != result) {
+            return chosen[0].stage;
+        }
+        hostThread.execute(() -> {
+            try {
+                result.complete(runBackupAfterSave(saved));
+            } catch (Throwable failure) {
+                diagnostics.accept("backupAfterSave:failed " + failure.getClass().getName());
+                result.completeExceptionally(sanitize(failure));
+            }
+        });
+        return result;
+    }
+    @Override
     public Registration registerSyncTarget(final BackupSyncTarget target) {
         Objects.requireNonNull(target, "target");
         requireOpen();
@@ -183,6 +233,69 @@ public final class AutoBackupCoordinator implements EditorAutoBackupService, Aut
             }
         }
         return event;
+    }
+
+    private BackupCompletedEvent runBackupAfterSave(final ProjectContentSnapshot saved) {
+        final long startedAt = clock.millis();
+        final AutoBackupAdapter.Snapshot before = adapter.settings();
+        if (before.backupDir() == null) {
+            throw new IllegalStateException("auto-backup backup directory is unavailable");
+        }
+        final File matchFile = saved.filePath()
+            .map(Path::toFile)
+            .orElseGet(() -> new File(saved.name()));
+        final File artifact = adapter.saveDocumentFor(matchFile, startedAt);
+        if (artifact == null) {
+            // No pack file content matches the saved snapshot: fail closed.
+            throw new IllegalStateException(
+                "auto-backup save-triggered backup: no pack content matches the saved document: "
+                    + saved.name()
+            );
+        }
+        final File confirmed = pollForArtifact(artifact, startedAt);
+        final List<EditorAutoBackupStatus> statuses = adapter.documents().stream()
+            .map(AutoBackupCoordinator::toStatus)
+            .toList();
+        final BackupCompletedEvent event = new BackupCompletedEvent(
+            clock.millis(), List.of(confirmed), statuses
+        );
+        eventBus.publish(event);
+        for (BackupSyncTarget target : syncTargets) {
+            try {
+                target.sync(List.of(confirmed));
+            } catch (RuntimeException | Error targetFailure) {
+                diagnostics.accept(
+                    "backupAfterSave:sync-target-failed " + targetFailure.getClass().getName()
+                );
+            }
+        }
+        return event;
+    }
+
+    /** Polls the exact save-triggered artifact (size &gt; 0) until it appears or the timeout expires. */
+    private File pollForArtifact(final File artifact, final long startedAt) {
+        final long deadline = startedAt + pollTimeoutMillis;
+        while (true) {
+            if (artifact.isFile() && artifact.length() > 0) {
+                return artifact;
+            }
+            if (clock.millis() >= deadline) {
+                throw new IllegalStateException(
+                    "auto-backup save-triggered artifact timeout after " + pollTimeoutMillis
+                        + " ms: " + artifact.getName()
+                );
+            }
+            try {
+                Thread.sleep(pollIntervalMillis);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException("auto-backup polling interrupted", interrupted);
+            }
+        }
+    }
+
+    private static String saveKey(final ProjectContentSnapshot saved) {
+        return saved.kind().name().toLowerCase(java.util.Locale.ROOT) + ":" + saved.name();
     }
 
     /**
@@ -239,6 +352,9 @@ public final class AutoBackupCoordinator implements EditorAutoBackupService, Aut
         }
         return List.copyOf(fresh);
     }
+
+    /** In-flight save-triggered backup pending per document (debounce + coalescing). */
+    private record Pending(long scheduledAtMillis, CompletableFuture<BackupCompletedEvent> stage) { }
 
     private boolean lastAutoBackupAdvanced(final List<AutoBackupAdapter.Document> before) {
         final List<AutoBackupAdapter.Document> now = adapter.documents();

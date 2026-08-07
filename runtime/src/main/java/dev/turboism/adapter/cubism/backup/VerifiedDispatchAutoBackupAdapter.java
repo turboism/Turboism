@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.backup;
 
 import javax.swing.SwingUtilities;
+import java.io.File;
 import java.lang.reflect.InvocationTargetException;
 import java.util.List;
 import java.util.Objects;
@@ -40,6 +41,12 @@ final class VerifiedDispatchAutoBackupAdapter implements AutoBackupAdapter {
             host.triggerBackupNow();
             return null;
         });
+    }
+
+    @Override
+    public File saveDocumentFor(final File matchFile, final long timestampMillis) {
+        Objects.requireNonNull(matchFile, "matchFile");
+        return onEdt(() -> host.saveDocumentFor(matchFile, timestampMillis));
     }
 
     private static <T> T onEdt(final Operation<T> operation) {

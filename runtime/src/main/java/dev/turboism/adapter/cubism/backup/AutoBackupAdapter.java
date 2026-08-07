@@ -30,6 +30,15 @@ public interface AutoBackupAdapter {
     /** Idempotent pack attach followed by the host's updateAutoBackup trigger. */
     void triggerBackupNow();
 
+    /**
+     * Saves one matched pack file content to {@code <name>_backup<yyyy_MMdd_HHmm>.<ext>}
+     * inside the host backup directory through the verified saveDocument primitive
+     * (modeling / animation / game-data; the second argument is fixed to
+     * {@code false}). Returns the produced artifact, or {@code null} when no
+     * pack file content matches the given saved file (the caller fails closed).
+     */
+    File saveDocumentFor(File matchFile, long timestampMillis);
+
     static AutoBackupAdapter safeMode() {
         return SafeMode.INSTANCE;
     }
@@ -73,6 +82,10 @@ public interface AutoBackupAdapter {
         List<Document> documents();
 
         void triggerBackupNow();
+
+
+        /** Saves one matched file content to the host backup directory; see {@link AutoBackupAdapter#saveDocumentFor}. */
+        File saveDocumentFor(File matchFile, long timestampMillis);
     }
 
     enum SafeMode implements AutoBackupAdapter {
@@ -96,6 +109,12 @@ public interface AutoBackupAdapter {
 
         @Override
         public void triggerBackupNow() {
+            throw new UnsupportedOperationException("auto-backup is not available");
+        }
+
+        @Override
+        public File saveDocumentFor(final File matchFile, final long timestampMillis) {
+            Objects.requireNonNull(matchFile, "matchFile");
             throw new UnsupportedOperationException("auto-backup is not available");
         }
     }
