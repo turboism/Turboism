@@ -79,7 +79,7 @@ final class VerifiedMeshMirrorHookInstallerTest {
         final RuntimeMeshEditUiService ui = new RuntimeMeshEditUiService();
         final var contribution = ui.contributeMirrorAxisAngleControl(
             new dev.turboism.sdk.cubism.mesh.MeshEditUiService.MirrorAxisAngleControl(
-                "mesh.mirror-axis.angle", "Angle", -180.0f, 180.0f, 0.1f, ignored -> { }
+                "mesh.mirror-axis.angle", "Angle", "", -180.0f, 180.0f, 0.1f, ignored -> { }
             )
         );
         final MeshMirrorHostProfile profile = new MeshMirrorHostProfile(
@@ -162,7 +162,7 @@ final class VerifiedMeshMirrorHookInstallerTest {
         axis.setCurrentAngleDegrees(45.0f);
         final RuntimeMeshEditUiService ui = new RuntimeMeshEditUiService();
         ui.contributeMirrorAxisAngleControl(new dev.turboism.sdk.cubism.mesh.MeshEditUiService.MirrorAxisAngleControl(
-            "mesh.mirror-axis.angle", "Angle", -180.0f, 180.0f, 0.1f, ignored -> { }
+            "mesh.mirror-axis.angle", "Angle", "", -180.0f, 180.0f, 0.1f, ignored -> { }
         ));
         final MeshMirrorHostProfile profile = new MeshMirrorHostProfile(
             TargetMesh.class.getName().replace('.', '/'), "a", "b", "(Ljava/lang/Object;)Ljava/lang/Object;",
