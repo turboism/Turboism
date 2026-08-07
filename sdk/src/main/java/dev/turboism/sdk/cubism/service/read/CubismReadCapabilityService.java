@@ -1,6 +1,7 @@
 package dev.turboism.sdk.cubism.service.read;
 
 import dev.turboism.sdk.cubism.AnimationSnapshot;
+import dev.turboism.sdk.cubism.ActiveReadProjections;
 import dev.turboism.sdk.cubism.ArtMeshSnapshot;
 import dev.turboism.sdk.cubism.ClipMaskSnapshot;
 import dev.turboism.sdk.cubism.DeformerSnapshot;
@@ -37,22 +38,17 @@ public interface CubismReadCapabilityService {
 
     /** Animation file owning the active ANIMATION_SCENE document. */
     default Optional<AnimationSnapshot> activeAnimation() {
-        return activeDocument().flatMap(DocumentSnapshot::animation);
+        return ActiveReadProjections.animationOf(activeDocument());
     }
 
     /** Active layered image/PSD document, when applicable. */
     default Optional<DocumentSnapshot> activeImageDocument() {
-        return activeDocument().filter(DocumentSnapshot::isImageDocument);
+        return ActiveReadProjections.imageDocumentOf(activeDocument());
     }
 
     /** Project entry owning the active document. */
     default Optional<ProjectContentSnapshot> activeProjectContent() {
-        final Optional<DocumentSnapshot> document = activeDocument();
-        if (document.isEmpty() || document.orElseThrow().contentId().isEmpty()) {
-            return Optional.empty();
-        }
-        final String contentId = document.orElseThrow().contentId().orElseThrow();
-        return activeProject().flatMap(project -> project.content(contentId));
+        return ActiveReadProjections.projectContentOf(activeProject(), activeDocument());
     }
 
     SelectionSnapshot selection();

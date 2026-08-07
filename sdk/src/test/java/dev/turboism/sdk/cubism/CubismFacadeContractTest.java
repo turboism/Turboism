@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.sdk.plugin.PluginContext;
 import java.lang.reflect.Method;
+import dev.turboism.sdk.cubism.transaction.TransactionManager;
 import java.lang.reflect.Modifier;
 import java.util.List;
 import java.util.Optional;
@@ -82,6 +83,11 @@ class CubismFacadeContractTest {
         @Override
         public boolean isHostPresent() {
             return false;
+        }
+
+        @Override
+        public TransactionManager transactionManager() {
+            return null;
         }
     }
 }

@@ -7,7 +7,7 @@ public final class EditorModelVerificationManifest {
 
     public static final String VERIFICATION_ID = "cubism-5.3.02.editor-model.static";
     public static final String RECORD_SHA256 =
-        "1c667d3b90055e8bba0520758d75e9aa90e12557940a3a3164812d5311fdf7bc";
+        "f1a2379eef1bed42651b7653510f6375420019551c6e3941425f32cc8ebc57a1";
     public static final String CUBISM_VERSION = "5.3.02";
     public static final String PROFILE_ID = "cubism-5.3.02";
     public static final long ARTIFACT_SIZE = 41_922_739L;
@@ -35,6 +35,9 @@ public final class EditorModelVerificationManifest {
         EditorObjectWriteSelectorContract.ART_MESH_CAPABILITY_ID,
         EditorObjectWriteSelectorContract.WARP_CAPABILITY_ID,
         EditorObjectWriteSelectorContract.ROTATION_CAPABILITY_ID,
+        EditorObjectHierarchyEditSelectorContract.CAPABILITY_ID,
+        EditorObjectHierarchyEditSelectorContract.RENAME_CAPABILITY_ID,
+        EditorObjectHierarchyEditSelectorContract.ART_MESH_CREATE_CAPABILITY_ID,
         ObjectContextMenuVerificationManifest.CAPABILITY_ID,
         EditorParameterBindingReadSelectorContract.CAPABILITY_ID,
         EditorParameterBindingWriteSelectorContract.ART_MESH_CAPABILITY_ID,
@@ -444,6 +447,7 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.keyform-grid.remove-all-key",
         "cubism.editor-model.keyform-grid.rearrange-keys"
     ), union(
+
             union(
                 union(
                     EditorPhysicsReadSelectorContract.REQUIRED_ALIASES,
@@ -453,19 +457,32 @@ public final class EditorModelVerificationManifest {
             ),
             EditorModelInstanceReadSelectorContract.REQUIRED_ALIASES
         )), union(
-            INSPECTOR_WRITE_ALIASES,
             union(
-                TEXTURE_ATLAS_ALIASES,
+                INSPECTOR_WRITE_ALIASES,
                 union(
+                    TEXTURE_ATLAS_ALIASES,
                     union(
-                        EditorTextureSelectorContract.WRITE_REQUIRED_ALIASES,
-                        EditorTextureSelectorContract.REMOVE_RAW_IMAGE_ALIASES
-                    ),
-                    EditorInspectorDrawableWriteSelectorContract.REQUIRED_ALIASES
+                        union(
+                            EditorTextureSelectorContract.WRITE_REQUIRED_ALIASES,
+                            EditorTextureSelectorContract.REMOVE_RAW_IMAGE_ALIASES
+                        ),
+                        EditorInspectorDrawableWriteSelectorContract.REQUIRED_ALIASES
+                    )
+                )
+            ),
+            union(
+                EditorObjectHierarchyEditSelectorContract.REQUIRED_ALIASES,
+                union(
+                    EditorObjectHierarchyEditSelectorContract.RENAME_REQUIRED_ALIASES,
+                    union(
+                        EditorObjectHierarchyEditSelectorContract.ART_MESH_CREATE_REQUIRED_ALIASES,
+                        TEXTURE_ATLAS_ALIASES
+                    )
                 )
             )
         )
     );
+
 
     /**
      * Aliases exclusive to the Cubism 5.3.02 Part Inspector entries (clip

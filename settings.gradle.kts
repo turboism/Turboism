@@ -14,6 +14,7 @@ include(
     "plugins:clip-mask",
     "plugins:parameter",
     "plugins:mesh",
+    "plugins:mcp",
     "plugins:project-inspector",
     "plugins:clipmask-viewer",
     "plugins:bounding-box",
