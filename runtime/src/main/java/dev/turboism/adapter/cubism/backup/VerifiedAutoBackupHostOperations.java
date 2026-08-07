@@ -70,8 +70,8 @@ public final class VerifiedAutoBackupHostOperations implements AutoBackupAdapter
 
     static final String APP_INSTANCE = "cubism.auto-backup.app-controller.instance";
 
-    /** Backup artifact timestamp pattern: {@code yyyy_MMdd_HHmm} (host h() naming). */
-    static final DateTimeFormatter BACKUP_TIMESTAMP = DateTimeFormatter.ofPattern("yyyy_MMdd_HHmm");
+    /** Backup artifact timestamp pattern: {@code yyyy_MMdd_HHmmss} (host h() naming). */
+    static final DateTimeFormatter BACKUP_TIMESTAMP = DateTimeFormatter.ofPattern("yyyy_MMdd_HHmmss");
 
     private final VerifiedMemberResolver resolver;
 

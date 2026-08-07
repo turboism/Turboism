@@ -122,6 +122,13 @@ class WebDavSyncTargetTest {
         assertTrue(requests.contains("PUT /turboism-backup/model_backup2026_08_08_1200.cmo3"));
         assertEquals("backup-content-model_backup2026_08_08_1200.cmo3", putBodies.get(0));
         assertEquals(1, putCalls.get());
+        assertTrue(diagnostics.stream().anyMatch(line ->
+                line.startsWith("webdav:put-ok file=model_backup2026_08_08_1200.cmo3 remote=")
+                    && line.contains(" bytes=")
+                    && line.endsWith(" attempts=1")),
+            "a successful upload must emit the sanitized put-ok diagnostic");
+        assertTrue(diagnostics.stream().noneMatch(line -> line.contains("s3cret")),
+            "diagnostics must never carry credentials");
     }
 
     @Test
@@ -141,6 +148,10 @@ class WebDavSyncTargetTest {
         target.sync(List.of(artifact));
         assertEquals(2, putCalls.get(), "first PUT must fail with 500 and be retried");
         assertTrue(requests.contains("PUT /backup/model_backup2026_08_08_1202.cmo3"));
+        assertTrue(diagnostics.stream().anyMatch(line ->
+                line.startsWith("webdav:put-ok file=model_backup2026_08_08_1202.cmo3")
+                    && line.endsWith(" attempts=2")),
+            "a retried upload must report the final attempt count");
     }
 
     @Test
