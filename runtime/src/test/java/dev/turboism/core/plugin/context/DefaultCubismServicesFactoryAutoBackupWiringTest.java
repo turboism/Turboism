@@ -45,6 +45,11 @@ class DefaultCubismServicesFactoryAutoBackupWiringTest {
             @Override
             public void triggerBackupNow() {
             }
+
+            @Override
+            public File saveDocumentFor(final File matchFile, final long timestampMillis) {
+                return null;
+            }
         });
         final RuntimeHostAdapters hostAdapters = connectedHostAdapters(connected);
 
