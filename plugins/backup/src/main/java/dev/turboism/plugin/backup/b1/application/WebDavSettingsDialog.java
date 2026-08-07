@@ -207,10 +207,13 @@ public final class WebDavSettingsDialog {
         addRow(form, c, row++, new JLabel("启用"), enabled);
         addRow(form, c, row++, new JLabel("URL"), url);
         addRow(form, c, row++, new JLabel("用户名"), username);
-        final JButton eye = new JButton("👁");
+        final JButton eye = new JButton("显示");
         eye.setToolTipText("显示/隐藏密码");
-        eye.setMargin(new Insets(0, 4, 0, 4));
-        eye.addActionListener(ignored -> password.setEchoChar(toggleEchoChar(password.getEchoChar())));
+        eye.setMargin(new Insets(0, 6, 0, 6));
+        eye.addActionListener(ignored -> {
+            password.setEchoChar(toggleEchoChar(password.getEchoChar()));
+            eye.setText(password.getEchoChar() == 0 ? "隐藏" : "显示");
+        });
         addRowWithTrailing(form, c, row++, new JLabel("密码"), password, eye);
         addRow(form, c, row++, new JLabel("远程路径"), remotePath);
         addRow(form, c, row++, new JLabel("TLS"), verifyTls);
