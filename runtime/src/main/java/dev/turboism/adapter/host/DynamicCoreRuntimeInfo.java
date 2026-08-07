@@ -6,6 +6,8 @@ import dev.turboism.sdk.cubism.core.CoreVersion;
 import dev.turboism.sdk.cubism.core.MocData;
 import dev.turboism.sdk.cubism.core.MocInfo;
 import dev.turboism.sdk.cubism.core.MocInspector;
+import dev.turboism.sdk.cubism.core.MocLoader;
+import dev.turboism.sdk.cubism.core.OwnedMoc;
 import dev.turboism.sdk.cubism.core.MocVersion;
 
 import java.util.Objects;
@@ -60,6 +62,18 @@ final class DynamicCoreRuntimeInfo implements CoreRuntimeInfo {
             @Override public MocInfo inspect(final MocData data) {
                 requireCurrent(current.generation());
                 return inspector.inspect(data);
+            }
+        };
+    }
+
+    @Override
+    public MocLoader mocLoader() {
+        final Current current = current();
+        final MocLoader loader = current.delegate().mocLoader();
+        return new MocLoader() {
+            @Override public OwnedMoc load(final MocData data) {
+                requireCurrent(current.generation());
+                return loader.load(data);
             }
         };
     }
