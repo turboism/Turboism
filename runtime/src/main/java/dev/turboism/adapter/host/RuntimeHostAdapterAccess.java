@@ -10,6 +10,8 @@ import dev.turboism.adapter.cubism.lifecycle.ProjectFileLifecycleCoordinator;
 import dev.turboism.adapter.cubism.textureatlas.TextureAtlasLayoutCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.EditorObjectLifecycleCoordinator;
 import dev.turboism.adapter.cubism.physics.PhysicsEditorCoordinator;
+import dev.turboism.adapter.cubism.mesh.RuntimeMeshMirrorAxisService;
+import dev.turboism.adapter.cubism.mesh.RuntimeMeshEditUiService;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.ui.action.RuntimeEditorUiActionRouter;
 import dev.turboism.ui.appearance.AppearanceCoordinator;
@@ -50,6 +52,8 @@ public sealed interface RuntimeHostAdapterAccess permits HostSession, SessionRun
     EditorLifecycleCoordinator editorLifecycleEvents();
 
     PhysicsEditorCoordinator physicsEditorCoordinator();
+    RuntimeMeshMirrorAxisService meshMirrorAxisService();
+    RuntimeMeshEditUiService meshEditUiService();
 
     EditorUiHostLifecycle editorUiLifecycle();
 
@@ -98,6 +102,8 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     private final ProjectFileLifecycleCoordinator projectFileLifecycle;
     private final EditorLifecycleCoordinator editorLifecycleEvents;
     private final PhysicsEditorCoordinator physicsEditorCoordinator;
+    private final RuntimeMeshMirrorAxisService meshMirrorAxisService;
+    private final RuntimeMeshEditUiService meshEditUiService;
     private final EditorUiHostLifecycle editorUiLifecycle;
     private final EditorUiContributionAuthority editorUiContributions;
     private final RuntimeEmbeddedPanelActivationCoordinator embeddedPanelActivation;
@@ -131,6 +137,8 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
         final ProjectFileLifecycleCoordinator projectFileLifecycle,
         final EditorLifecycleCoordinator editorLifecycleEvents,
         final PhysicsEditorCoordinator physicsEditorCoordinator,
+        final RuntimeMeshMirrorAxisService meshMirrorAxisService,
+        final RuntimeMeshEditUiService meshEditUiService,
         final EditorUiHostLifecycle editorUiLifecycle,
         final EditorUiContributionAuthority editorUiContributions,
         final RuntimeEmbeddedPanelActivationCoordinator embeddedPanelActivation,
@@ -186,6 +194,11 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
             physicsEditorCoordinator,
             "physicsEditorCoordinator"
         );
+        this.meshMirrorAxisService = java.util.Objects.requireNonNull(
+            meshMirrorAxisService,
+            "meshMirrorAxisService"
+        );
+        this.meshEditUiService = java.util.Objects.requireNonNull(meshEditUiService, "meshEditUiService");
         this.editorUiLifecycle = java.util.Objects.requireNonNull(
             editorUiLifecycle,
             "editorUiLifecycle"
@@ -300,6 +313,16 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     @Override
     public PhysicsEditorCoordinator physicsEditorCoordinator() {
         return physicsEditorCoordinator;
+    }
+
+    @Override
+    public RuntimeMeshMirrorAxisService meshMirrorAxisService() {
+        return meshMirrorAxisService;
+    }
+
+    @Override
+    public RuntimeMeshEditUiService meshEditUiService() {
+        return meshEditUiService;
     }
 
     @Override

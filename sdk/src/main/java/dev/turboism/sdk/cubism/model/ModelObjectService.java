@@ -18,6 +18,12 @@ public interface ModelObjectService {
 
     ModelObjectDescriptor rename(ModelObjectReference target, String name);
 
+    ModelObjectDescriptor reparent(
+        ModelObjectReference target,
+        ModelObjectReference parent,
+        int index
+    );
+
     ModelObjectDescriptor create(ModelObjectCreateRequest request);
 
     void delete(ModelObjectReference target, ModelObjectDeletePolicy policy);
@@ -39,6 +45,16 @@ public interface ModelObjectService {
         ) {
             Objects.requireNonNull(target, "target");
             Objects.requireNonNull(name, "name");
+            throw unavailable();
+        }
+
+        @Override public ModelObjectDescriptor reparent(
+            final ModelObjectReference target,
+            final ModelObjectReference parent,
+            final int index
+        ) {
+            Objects.requireNonNull(target, "target");
+            Objects.requireNonNull(parent, "parent");
             throw unavailable();
         }
 
