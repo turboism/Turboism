@@ -34,7 +34,10 @@ public interface AutoBackupAdapter {
      * Saves one matched pack file content to {@code <name>_backup<yyyy_MMdd_HHmm>.<ext>}
      * inside the host backup directory through the verified saveDocument primitive
      * (modeling / animation / game-data; the second argument is fixed to
-     * {@code false}). Matching prefers the saved document's UID list (modeling
+     * {@code true} — save a backup copy without switching the current document;
+     * if the host still switches the file reference, it is restored through the
+     * verified setFile selector and an unverified restore fails closed).
+     * Matching prefers the saved document's UID list (modeling
      * {@code getDocumentUID}, animation {@code getSceneDocs} scene UIDs; game-data
      * has no UID mapping) and falls back to name/path matching. Returns the
      * produced artifact, or {@code null} when no pack file content matches the
