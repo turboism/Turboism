@@ -1,6 +1,8 @@
 package dev.turboism.adapter.cubism.core;
 
 import dev.turboism.mapping.verification.CorePublicApiSelectorContract;
+import dev.turboism.mapping.verification.OwnedMocSelectorContract;
+import dev.turboism.mapping.verification.VerifiedAccessException;
 import dev.turboism.mapping.verification.VerifiedAccessException;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 
@@ -300,6 +302,184 @@ public final class CorePublicApiProviderFactory {
                     "Core MOC metadata read failed safely."
                 );
             }
+        }
+
+        @Override
+        public CoreProviderResult<Object> instantiateMoc(final byte[] bytes) {
+            Objects.requireNonNull(bytes, "bytes");
+            if (!authorizesOwnedMoc()) {
+                return ownedMocUnavailable();
+            }
+            try {
+                final Object moc = resolver.invokeStatic(
+                    OwnedMocSelectorContract.MOC_INSTANTIATE,
+                    bytes.clone()
+                );
+                if (!resolver.isInstance(OwnedMocSelectorContract.MOC_CLASS, moc)) {
+                    return failed(
+                        CoreProviderFailure.Code.INVALID_STRUCTURE,
+                        "Core MOC instantiation returned an invalid instance."
+                    );
+                }
+                return CoreProviderResult.success(moc);
+            } catch (VerifiedAccessException exception) {
+                return verifiedFailure(exception, "Core MOC instantiation failed safely.");
+            } catch (RuntimeException exception) {
+                return failed(
+                    CoreProviderFailure.Code.INVOCATION_FAILED,
+                    "Core MOC instantiation failed safely: " + exception
+                );
+            }
+        }
+
+        @Override
+        public CoreProviderResult<Object> instantiateOwnedModel(final Object moc) {
+            Objects.requireNonNull(moc, "moc");
+            if (!authorizesOwnedMoc()) {
+                return ownedMocUnavailable();
+            }
+            try {
+                final Object model = resolver.invoke(
+                    OwnedMocSelectorContract.MOC_INSTANTIATE_MODEL,
+                    moc
+                );
+                if (!resolver.isInstance(CorePublicApiSelectorContract.MODEL_CLASS, model)) {
+                    return failed(
+                        CoreProviderFailure.Code.INVALID_STRUCTURE,
+                        "Core owned model instantiation returned an invalid instance."
+                    );
+                }
+                return CoreProviderResult.success(model);
+            } catch (VerifiedAccessException exception) {
+                return verifiedFailure(exception, "Core owned model instantiation failed safely.");
+            } catch (RuntimeException exception) {
+                return failed(
+                    CoreProviderFailure.Code.INVOCATION_FAILED,
+                    "Core owned model instantiation failed safely: " + exception
+                );
+            }
+        }
+
+        @Override
+        public CoreProviderResult<Long> mocNativeHandle(final Object moc) {
+            Objects.requireNonNull(moc, "moc");
+            return nativeHandle(OwnedMocSelectorContract.MOC_GET_NATIVE_HANDLE, moc);
+        }
+
+        @Override
+        public CoreProviderResult<Long> modelNativeHandle(final Object model) {
+            Objects.requireNonNull(model, "model");
+            return nativeHandle(OwnedMocSelectorContract.MODEL_GET_NATIVE_HANDLE, model);
+        }
+
+        @Override
+        public CoreProviderResult<Boolean> updateOwnedModel(final Object model) {
+            Objects.requireNonNull(model, "model");
+            if (!authorizesOwnedMoc()) {
+                return ownedMocUnavailable();
+            }
+            try {
+                resolver.invoke(OwnedMocSelectorContract.MODEL_UPDATE, model);
+                return CoreProviderResult.success(true);
+            } catch (VerifiedAccessException exception) {
+                return verifiedFailure(exception, "Core owned model update failed safely.");
+            } catch (RuntimeException exception) {
+                return failed(
+                    CoreProviderFailure.Code.INVOCATION_FAILED,
+                    "Core owned model update failed safely: " + exception
+                );
+            }
+        }
+
+        @Override
+        public CoreProviderResult<Boolean> closeOwnedMoc(final Object moc) {
+            Objects.requireNonNull(moc, "moc");
+            if (!authorizesOwnedMoc()) {
+                return ownedMocUnavailable();
+            }
+            try {
+                resolver.invoke(OwnedMocSelectorContract.MOC_CLOSE, moc);
+                return CoreProviderResult.success(true);
+            } catch (VerifiedAccessException exception) {
+                return verifiedFailure(exception, "Core owned MOC close failed safely.");
+            } catch (RuntimeException exception) {
+                return failed(
+                    CoreProviderFailure.Code.INVOCATION_FAILED,
+                    "Core owned MOC close failed safely: " + exception
+                );
+            }
+        }
+
+        @Override
+        public CoreProviderResult<Boolean> closeOwnedModel(final Object model) {
+            Objects.requireNonNull(model, "model");
+            if (!authorizesOwnedMoc()) {
+                return ownedMocUnavailable();
+            }
+            try {
+                resolver.invoke(OwnedMocSelectorContract.MODEL_CLOSE, model);
+                return CoreProviderResult.success(true);
+            } catch (VerifiedAccessException exception) {
+                return verifiedFailure(exception, "Core owned model close failed safely.");
+            } catch (RuntimeException exception) {
+                return failed(
+                    CoreProviderFailure.Code.INVOCATION_FAILED,
+                    "Core owned model close failed safely: " + exception
+                );
+            }
+        }
+
+        private boolean authorizesOwnedMoc() {
+            return resolver.authorizesFeature(
+                OwnedMocSelectorContract.ADAPTER_SLICE_ID,
+                OwnedMocSelectorContract.CAPABILITY_ID,
+                OwnedMocSelectorContract.REQUIRED_ALIASES
+            );
+        }
+
+        private CoreProviderResult<Long> nativeHandle(
+            final String alias,
+            final Object instance
+        ) {
+            if (!authorizesOwnedMoc()) {
+                return ownedMocUnavailable();
+            }
+            try {
+                final Object handle = resolver.invoke(alias, instance);
+                if (!(handle instanceof Long value)) {
+                    return failed(
+                        CoreProviderFailure.Code.INVALID_STRUCTURE,
+                        "Core native-handle selector returned an invalid value."
+                    );
+                }
+                return CoreProviderResult.success(value);
+            } catch (VerifiedAccessException exception) {
+                return verifiedFailure(exception, "Core native-handle read failed safely.");
+            } catch (RuntimeException exception) {
+                return failed(
+                    CoreProviderFailure.Code.INVOCATION_FAILED,
+                    "Core native-handle read failed safely: " + exception
+                );
+            }
+        }
+
+        private <T> CoreProviderResult<T> ownedMocUnavailable() {
+            return failed(
+                CoreProviderFailure.Code.ADAPTER_UNAVAILABLE,
+                "Core owned-Moc selectors are not admitted for this artifact profile."
+            );
+        }
+
+        private <T> CoreProviderResult<T> verifiedFailure(
+            final VerifiedAccessException exception,
+            final String message
+        ) {
+            return failed(
+                exception.failureKind() == VerifiedAccessException.FailureKind.RESOLUTION
+                    ? CoreProviderFailure.Code.RESOLUTION_FAILED
+                    : CoreProviderFailure.Code.INVOCATION_FAILED,
+                message
+            );
         }
 
         private <T> CoreProviderResult<T> invokeScalar(
