@@ -10,6 +10,7 @@ import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
 import javax.swing.JDialog;
+import javax.swing.JEditorPane;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
@@ -38,6 +39,7 @@ final class CoreWindows implements AutoCloseable {
     private final CoreLogWindow logWindow;
     private JDialog settingsDialog;
     private JDialog pluginsDialog;
+    private JDialog aboutDialog;
     private PluginTableModel pluginTableModel;
     private JTable pluginTable;
     private TableRowSorter<PluginTableModel> pluginSorter;
@@ -74,14 +76,23 @@ final class CoreWindows implements AutoCloseable {
         logWindow.show();
     }
 
+    void showAbout() {
+        CoreDialogs.onEdt(() -> {
+            if (aboutDialog == null) aboutDialog = createAboutDialog();
+            CoreDialogs.show(aboutDialog);
+        });
+    }
+
     @Override
     public void close() {
         CoreDialogs.onEdt(() -> {
             logWindow.close();
             if (settingsDialog != null) settingsDialog.dispose();
             if (pluginsDialog != null) pluginsDialog.dispose();
+            if (aboutDialog != null) aboutDialog.dispose();
             settingsDialog = null;
             pluginsDialog = null;
+            aboutDialog = null;
         });
     }
 
@@ -205,6 +216,46 @@ final class CoreWindows implements AutoCloseable {
         dialog.add(new JScrollPane(pluginTable), BorderLayout.CENTER);
         dialog.add(bottom, BorderLayout.SOUTH);
         return dialog;
+    }
+
+    private JDialog createAboutDialog() {
+        final JDialog dialog = CoreDialogs.create(text("window.about.title"), 420, 280);
+        dialog.setLayout(new BorderLayout(0, 8));
+
+        final JEditorPane content = new JEditorPane("text/html", aboutHtml(i18n, frameworkVersion()));
+        content.setEditable(false);
+        content.setOpaque(false);
+        content.setBorder(BorderFactory.createEmptyBorder(16, 16, 8, 16));
+
+        final JButton close = new JButton(text("common.close"));
+        close.addActionListener(ignored -> dialog.setVisible(false));
+        final JPanel buttons = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        buttons.add(close);
+
+        dialog.add(content, BorderLayout.CENTER);
+        dialog.add(buttons, BorderLayout.SOUTH);
+        return dialog;
+    }
+
+    static String aboutHtml(final PluginLocalization i18n, final String version) {
+        return "<html><body style='font-family:sans-serif;text-align:center;padding:8px'>"
+            + "<h2>Turboism</h2>"
+            + "<p>" + i18n.format("about.version", version) + "</p>"
+            + "<p>" + i18n.text("about.thanks") + "</p>"
+            + "</body></html>";
+    }
+
+    static String frameworkVersion() {
+        try (java.io.InputStream stream = CoreWindows.class.getResourceAsStream(
+            "/META-INF/turboism/framework-version.properties"
+        )) {
+            if (stream == null) return "unknown";
+            final java.util.Properties properties = new java.util.Properties();
+            properties.load(stream);
+            return properties.getProperty("version", "unknown");
+        } catch (java.io.IOException unavailable) {
+            return "unknown";
+        }
     }
 
     private void setSelectedEnabled(final boolean enabled) {

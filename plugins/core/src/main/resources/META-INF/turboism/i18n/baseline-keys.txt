@@ -46,3 +46,7 @@ window.logs.title
 window.plugins.title
 window.settings.title
 
+main-toolbar.about-menu.label
+window.about.title
+about.version
+about.thanks
