@@ -88,7 +88,7 @@ public final class RuntimeMeshEditUiService implements MeshEditUiService {
                     return;
                 }
                 final Object root = build(active, axis, panel);
-                addAtTop(mount, root);
+                addAfterPositionRow(mount, root);
                 synchronized (attachments) {
                     if (contribution.get() == active) attachments.add(new Attachment(panel, mount, root));
                     else {
@@ -142,7 +142,7 @@ public final class RuntimeMeshEditUiService implements MeshEditUiService {
         invoke(reset, "setText", "0");
         invoke(reset, "setPrefWidth", 24);
         invoke(reset, "setPrefHeight", 25);
-        invoke(reset, "setToolTipText", "恢复0度");
+        if (!active.resetToolTip().isEmpty()) invoke(reset, "setToolTipText", active.resetToolTip());
         final Object onReset = proxy(function1, unitInstance, (proxy, method, arguments) -> {
             if ("invoke".equals(method.getName())) {
                 invoke(slider, "setValue", 0.0f);
@@ -198,10 +198,15 @@ public final class RuntimeMeshEditUiService implements MeshEditUiService {
         return content;
     }
 
-    /** Inserts the root at index 0: host {@code add(child, 0)}, then the children list. */
-    private static void addAtTop(final Object container, final Object child) throws ReflectiveOperationException {
+    /**
+     * Inserts the root after the host's position row (index 1): index = min(2, size);
+     * a container with fewer than two children appends at the end.
+     */
+    private static void addAfterPositionRow(final Object container, final Object child)
+        throws ReflectiveOperationException {
+        final int index = Math.max(0, Math.min(2, childrenSize(container)));
         try {
-            invoke(container, "add", child, 0);
+            invoke(container, "add", child, index);
             return;
         } catch (ReflectiveOperationException ignored) {
             // The exact host container may only expose the children list.
@@ -211,10 +216,20 @@ public final class RuntimeMeshEditUiService implements MeshEditUiService {
             @SuppressWarnings("rawtypes")
             final List raw = (List) children;
             raw.remove(child);
-            raw.add(0, child);
+            raw.add(index, child);
         } else {
             invoke(container, "unaryPlus", child);
         }
+    }
+
+    private static int childrenSize(final Object container) {
+        try {
+            final Object children = property(container, "children");
+            if (children instanceof List) return ((List<?>) children).size();
+        } catch (ReflectiveOperationException ignored) {
+            // Fall back to add(child, 0) / unaryPlus when the children list is unavailable.
+        }
+        return 0;
     }
 
     private void clear(final MirrorAxisAngleControl expected) {

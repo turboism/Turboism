@@ -102,11 +102,10 @@ final class PluginLocaleResolver {
         final String script = switch (locale.getCountry()) {
             case "CN", "SG" -> "Hans";
             case "TW", "HK", "MO" -> "Hant";
-            default -> "";
+            // 简体为默认：跟随 Cubism 宿主语言版本（-Duser.language=zh）；
+            // Wine 下的 zh-US 等无 script 中文也归 Hans。
+            default -> "Hans";
         };
-        if (script.isBlank()) {
-            return locale;
-        }
         return new Locale.Builder()
             .setLanguage("zh")
             .setScript(script)

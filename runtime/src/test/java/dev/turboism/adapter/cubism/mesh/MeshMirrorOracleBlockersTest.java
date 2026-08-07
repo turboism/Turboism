@@ -44,7 +44,7 @@ final class MeshMirrorOracleBlockersTest {
         axis.setCurrentAngleDegrees(45.0f);
         final AtomicInteger changes = new AtomicInteger();
         final Registration registration = ui.contributeMirrorAxisAngleControl(new MirrorAxisAngleControl(
-            "mesh.mirror-axis.angle", "Angle", -180.0f, 180.0f, 0.1f, ignored -> changes.incrementAndGet()
+            "mesh.mirror-axis.angle", "Angle", "", -180.0f, 180.0f, 0.1f, ignored -> changes.incrementAndGet()
         ));
         ui.attachNative(new JPanel(), new JPanel(), axis);
 

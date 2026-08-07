@@ -39,7 +39,8 @@ public final class MeshPlugin implements TurboismPlugin {
                 context.meshEditUi().contributeMirrorAxisAngleControl(
                     new MeshEditUiService.MirrorAxisAngleControl(
                         "mesh.mirror-axis.angle",
-                        "Mirror Axis Rotation",
+                        context.localization().text("mesh.mirror-axis.angle.label"),
+                        context.localization().text("mesh.mirror-axis.angle.reset"),
                         -180.0f,
                         180.0f,
                         0.1f,
