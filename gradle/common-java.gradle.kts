@@ -5,9 +5,13 @@ import org.gradle.jvm.tasks.Jar
 
 val resolvedWorktreeId = rootProject.extra["turboismResolvedWorktreeId"] as String
 
+// Single source of truth for the externally published Turboism framework version.
+rootProject.extra["turboismFrameworkVersion"] = "0.1.0"
+val turboismFrameworkVersion = rootProject.extra["turboismFrameworkVersion"] as String
+
 allprojects {
     group = "dev.turboism"
-    version = "0.1.0-SNAPSHOT"
+    version = "$turboismFrameworkVersion-SNAPSHOT"
     tasks.withType<Jar>().configureEach {
         isPreserveFileTimestamps = false
         isReproducibleFileOrder = true
