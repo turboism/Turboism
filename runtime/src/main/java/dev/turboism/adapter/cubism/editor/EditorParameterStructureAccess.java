@@ -7,6 +7,8 @@ import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.cubism.model.ParameterDefinition;
 import dev.turboism.sdk.cubism.model.ParameterType;
 
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
@@ -68,6 +70,102 @@ final class EditorParameterStructureAccess {
             groupHandler(parentGroup), hostSource, Integer.valueOf(index)));
         modelGuard.requireCurrent(identity, model);
         return definition.id();
+    }
+
+    List<ParameterId> createMany(
+        final String identity,
+        final Object source,
+        final Object model,
+        final List<ParameterDefinition> definitions,
+        final Optional<ParameterGroupId> folderId
+    ) {
+        requireAuthorization();
+        Objects.requireNonNull(definitions, "definitions");
+        Objects.requireNonNull(folderId, "folderId");
+        if (definitions.isEmpty()) {
+            throw new IllegalArgumentException("definitions must not be empty");
+        }
+        modelGuard.requireCurrent(identity, model);
+        final HashSet<ParameterId> batchIds = new HashSet<>();
+        final List<Object> hostSources = new ArrayList<>(definitions.size());
+        for (ParameterDefinition definition : definitions) {
+            Objects.requireNonNull(definition, "definition");
+            if (!batchIds.add(definition.id())) {
+                throw new IllegalArgumentException(
+                    "Cubism parameter ID is duplicated within the batch: " + definition.id().value());
+            }
+            if (findSource(source, model, definition.id()) != null) {
+                throw new IllegalArgumentException(
+                    "Cubism parameter ID is already present: " + definition.id().value());
+            }
+        }
+        final Object parentGroup = folderId
+            .map(id -> requireGroup(source, model, id))
+            .orElseGet(() -> rootGroup(source));
+        final List<Supplier<Object>> undoSuppliers = new ArrayList<>(definitions.size());
+        for (ParameterDefinition definition : definitions) {
+            final Object hostId = resolver.construct(
+                "cubism.editor-model.parameter-id.create", definition.id().value());
+            final Object type = definition.type() == ParameterType.BLEND_SHAPE
+                ? resolver.readStaticField("cubism.editor-model.parameter-source.type-morph-target")
+                : resolver.readStaticField("cubism.editor-model.parameter-source.type-normal");
+            final Object hostSource = resolver.construct(
+                "cubism.editor-model.parameter-source.create",
+                hostId,
+                definition.name(),
+                Float.valueOf(definition.minimumValue()),
+                Float.valueOf(definition.maximumValue()),
+                Float.valueOf(definition.defaultValue()),
+                "",
+                null,
+                type
+            );
+            resolver.invoke(
+                "cubism.editor-model.parameter-source.set-repeat", hostSource, Boolean.valueOf(definition.repeat()));
+            final int index = groupChildCount(parentGroup);
+            hostSources.add(hostSource);
+            undoSuppliers.add(() -> resolver.invoke(
+                "cubism.editor-model.parameter-group-handler.add-parameter-child",
+                groupHandler(parentGroup), hostSource, Integer.valueOf(index)));
+        }
+        writeBatch(identity, source, model, "Turboism: Create Parameters", undoSuppliers);
+        modelGuard.requireCurrent(identity, model);
+        final List<ParameterId> created = new ArrayList<>(definitions.size());
+        for (ParameterDefinition definition : definitions) {
+            created.add(definition.id());
+        }
+        return List.copyOf(created);
+    }
+
+    void removeMany(
+        final String identity,
+        final Object source,
+        final Object model,
+        final List<ParameterId> ids
+    ) {
+        requireAuthorization();
+        Objects.requireNonNull(ids, "ids");
+        if (ids.isEmpty()) {
+            throw new IllegalArgumentException("ids must not be empty");
+        }
+        modelGuard.requireCurrent(identity, model);
+        final HashSet<ParameterId> batchIds = new HashSet<>();
+        final List<Supplier<Object>> undoSuppliers = new ArrayList<>(ids.size());
+        for (ParameterId id : ids) {
+            Objects.requireNonNull(id, "id");
+            if (!batchIds.add(id)) {
+                throw new IllegalArgumentException(
+                    "Cubism parameter ID is duplicated within the batch: " + id.value());
+            }
+            final Object current = requireSource(source, model, id);
+            final Object guid = resolver.invoke("cubism.editor-model.parameter-source.guid", current);
+            final Object parameterSet = requireParameterSet(model);
+            undoSuppliers.add(() -> resolver.invoke(
+                "cubism.editor-model.model-handler.remove-parameter",
+                modelHandler(source), guid, parameterSet, Boolean.TRUE));
+        }
+        writeBatch(identity, source, model, "Turboism: Delete Parameters", undoSuppliers);
+        modelGuard.requireCurrent(identity, model);
     }
 
     ParameterId copy(final String identity, final Object source, final Object model, final ParameterId id) {
@@ -373,6 +471,46 @@ final class EditorParameterStructureAccess {
                 }
             );
             resolver.invoke("cubism.editor-model.undo.add-listener", undo, listener);
+            resolver.invoke("cubism.editor-model.model-source.update-instances", source);
+            refresh(app);
+            resolver.invoke("cubism.editor-model.modeling-document.mark-dirty", document);
+            completed = true;
+        } finally {
+            resolver.invoke("cubism.editor-model.edit-mode.end", editMode, Boolean.valueOf(!completed), null);
+        }
+    }
+
+    private void writeBatch(
+        final String identity,
+        final Object source,
+        final Object model,
+        final String actionName,
+        final List<Supplier<Object>> undoSuppliers
+    ) {
+        final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
+        final Object document = resolver.invoke("cubism.editor-model.app-controller.current-document", app);
+        final Object editMode = resolver.invoke("cubism.editor-model.modeling-document.edit-mode", document);
+        // One edit-mode envelope around the whole batch: every child operation lands
+        // in a single Undo entry, never one entry per parameter.
+        final Object edit = resolver.invoke("cubism.editor-model.edit-mode.begin", editMode, actionName);
+        boolean completed = false;
+        try {
+            for (Supplier<Object> undoSupplier : undoSuppliers) {
+                final Object undo = undoSupplier.get();
+                final Object accepted = resolver.invoke("cubism.editor-model.undo.add", edit, undo, Boolean.TRUE);
+                if (!(accepted instanceof Boolean value) || !value) {
+                    throw new IllegalStateException("Cubism rejected the " + actionName + " Undo entry.");
+                }
+                final Object listener = resolver.createFunctionalProxy(
+                    "cubism.editor-model.undo-listener.class",
+                    ignored -> {
+                        resolver.invoke("cubism.editor-model.model-source.update-instances", source);
+                        refresh(app);
+                        return null;
+                    }
+                );
+                resolver.invoke("cubism.editor-model.undo.add-listener", undo, listener);
+            }
             resolver.invoke("cubism.editor-model.model-source.update-instances", source);
             refresh(app);
             resolver.invoke("cubism.editor-model.modeling-document.mark-dirty", document);
