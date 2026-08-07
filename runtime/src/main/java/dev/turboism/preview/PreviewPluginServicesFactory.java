@@ -10,6 +10,7 @@ import dev.turboism.failure.RuntimeFailureCollector;
 import dev.turboism.hostread.ProjectWorkspaceHostReadSource;
 import dev.turboism.hostread.RuntimeAsyncHostReadService;
 import dev.turboism.hostread.SharedAsyncHostReadLane;
+import dev.turboism.i18n.CubismHostLocale;
 import dev.turboism.i18n.RuntimePluginLocalization;
 import dev.turboism.home.PluginHomePaths;
 import dev.turboism.home.TurboismHomeLayout;
@@ -96,13 +97,8 @@ final class PreviewPluginServicesFactory {
         final PluginDescriptor descriptor,
         final ClassLoader classLoader
     ) {
-        // Cubism 语言版本：CubismEditor5.bat 设置 -Duser.language=zh（5.2/5.3 一致）。
-        // DISPLAY locale 在 Proton/Wine 下会被环境改写（zh-US），不可依赖。
-        final String language = System.getProperty("user.language", "");
-        final String country = System.getProperty("user.country", "");
-        final Locale cubismLocale = language.isBlank()
-            ? Locale.getDefault(Locale.Category.DISPLAY)
-            : new Locale(language, country);
+        // Cubism 语言版本说明见 CubismHostLocale（CubismEditor5.bat 设置 -Duser.language=zh）。
+        final Locale cubismLocale = CubismHostLocale.resolve();
         return RuntimePluginLocalization.create(
             descriptor.id(), classLoader, descriptor.i18n(), System.getProperty("turboism.locale"),
             cubismLocale, Locale.getDefault(Locale.Category.DISPLAY),
