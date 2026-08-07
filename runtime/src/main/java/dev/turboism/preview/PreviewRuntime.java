@@ -156,6 +156,7 @@ public final class PreviewRuntime implements AutoCloseable {
             boundingBoxOverlayVerificationRecord,
             Optional.empty(),
             Optional.empty(),
+            null,
             hostArtifact,
             null,
             hostClassLoader
@@ -177,12 +178,14 @@ public final class PreviewRuntime implements AutoCloseable {
         final Path boundingBoxOverlayVerificationRecord,
         final Optional<Path> statusBarVerificationRecord,
         final Optional<Path> clipMaskVerificationRecord,
+        final Path autoBackupVerificationRecord,
         final Path hostArtifact,
         final Path coreArtifact,
         final ClassLoader hostClassLoader
     ) throws IOException {
         Objects.requireNonNull(statusBarVerificationRecord, "statusBarVerificationRecord");
         Objects.requireNonNull(clipMaskVerificationRecord, "clipMaskVerificationRecord");
+        Objects.requireNonNull(autoBackupVerificationRecord, "autoBackupVerificationRecord");
         final TurboismHomeLayout layout = TurboismHomeLayout.create(requestedHome);
         final Path home = layout.home();
         LegacyHomeMigration.migrate(home);
@@ -325,9 +328,16 @@ public final class PreviewRuntime implements AutoCloseable {
                     verifiedHostClassLoader
                 )))
                 .orElse(evidenceWithStatus);
+            final HostVerificationEvidence evidenceWithAutoBackup = evidenceWithClipMask.addingAutoBackup(
+                new HostVerificationEvidence.Slice(
+                    autoBackupVerificationRecord.toAbsolutePath().normalize(),
+                    normalizedHostArtifact,
+                    verifiedHostClassLoader
+                )
+            );
             final HostSession.State hostState = ingress.publish(new HostInstanceDescriptor(
                 "cubism-" + ProcessHandle.current().pid(),
-                evidenceWithClipMask
+                evidenceWithAutoBackup
             ));
             if (hostState == HostSession.State.ACTIVE) {
                 log.info("host", "Verified Cubism project/workspace adapter connected");

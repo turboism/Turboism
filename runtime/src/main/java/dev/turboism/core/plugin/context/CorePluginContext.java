@@ -20,6 +20,7 @@ import dev.turboism.screenshot.RuntimeScreenshotCaptureService;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.appearance.AppearanceService;
 import dev.turboism.sdk.cubism.CubismFacade;
+import dev.turboism.sdk.cubism.backup.EditorAutoBackupService;
 import dev.turboism.sdk.cubism.recentfile.RecentFileService;
 import dev.turboism.sdk.cubism.recentpreview.RecentPreviewContributionService;
 import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureService;
@@ -238,7 +239,8 @@ public final class CorePluginContext implements PluginContext {
             hostAccess.editorCommands(),
             userFiles instanceof dev.turboism.adapter.cubism.command.EditorFileCommandResolver resolver
                 ? resolver
-                : dev.turboism.adapter.cubism.command.EditorFileCommandResolver.unavailable()
+                : dev.turboism.adapter.cubism.command.EditorFileCommandResolver.unavailable(),
+            hostAccess.adapters().autoBackup()
         );
     }
 
@@ -654,6 +656,11 @@ public final class CorePluginContext implements PluginContext {
     @Override
     public dev.turboism.sdk.cubism.command.EditorCommandService editorCommands() {
         return cubismServices.editorCommandService();
+    }
+
+    @Override
+    public dev.turboism.sdk.cubism.backup.EditorAutoBackupService backup() {
+        return cubismServices.backupService();
     }
 
     @Override
