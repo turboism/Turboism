@@ -24,4 +24,9 @@ public record CubismRuntimeSnapshot(
         artMeshes = List.copyOf(Objects.requireNonNull(artMeshes, "artMeshes"));
         deformers = List.copyOf(Objects.requireNonNull(deformers, "deformers"));
     }
+
+    /** Animation file owning the active scene document, when applicable. */
+    public Optional<AnimationSnapshot> animation() {
+        return document.flatMap(DocumentSnapshot::animation);
+    }
 }

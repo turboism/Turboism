@@ -1,0 +1,52 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 2,
+  "id": "dev.turboism.validation.recent-preview",
+  "name": "Windows Recent Preview Validation Probe",
+  "version": "0.1.0",
+  "description": "Manual-test-only SDK probe for recent-file listing, bounded screenshot capture, typed save lifecycle hooks, the production preview cache, and the File->Recent hover popup.",
+  "entrypoints": [
+    "dev.turboism.tests.plugin.WindowsRecentPreviewValidationProbe"
+  ],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    {
+      "name": "Turboism Contributors"
+    }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": []
+  },
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.cubism.recent-file.read",
+      "scope": "application",
+      "reason": "Lists the host recent-file projection during manual validation."
+    },
+    {
+      "id": "turboism.ui.viewport.read",
+      "scope": "application",
+      "reason": "Captures a bounded preview PNG during manual validation."
+    },
+    {
+      "id": "turboism.ui.recent-preview.contribute",
+      "scope": "application",
+      "reason": "Observes the recent-preview popup contribution surface during manual validation."
+    },
+    {
+      "id": "turboism.file.write",
+      "scope": "application",
+      "reason": "Atomically writes probe PNG evidence and result properties into plugin-confined state."
+    }
+  ],
+  "capabilities": [],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "swing"
+  }
+}

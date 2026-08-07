@@ -2,12 +2,36 @@ package dev.turboism.sdk.cubism.model;
 
 import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.id.ModelId;
+import dev.turboism.sdk.cubism.core.MocInfo;
 
 /** One Cubism model exposed as natural objects and methods. */
 @PreviewApi
 public interface CubismModel {
 
     ModelId id();
+
+    default String name() {
+        throw new UnsupportedOperationException("Cubism model name is unavailable.");
+    }
+
+    default void setName(final String name) {
+        throw new UnsupportedOperationException("Cubism model-name editing is unavailable.");
+    }
+
+    default MocInfo mocInfo() {
+        throw new UnsupportedOperationException("Cubism MOC metadata is unavailable.");
+    }
+
+    default ParameterDefinitions parameterDefinitions() {
+        throw new UnsupportedOperationException(
+            "Cubism parameter-definition access is unavailable."
+        );
+    }
+
+    /** Returns the model's structural and render-resource statistics. */
+    default ModelStatistics statistics() {
+        return ModelStatisticsCalculator.calculate(this);
+    }
 
     /** Returns whether the Editor's default keyform is locked. */
     default boolean defaultKeyformLocked() {
@@ -23,6 +47,20 @@ public interface CubismModel {
         );
     }
 
+    /** Returns the active Cubism Editor model editing level. */
+    default ModelEditLevel editLevel() {
+        throw new UnsupportedOperationException(
+            "Cubism model edit-level state is unavailable."
+        );
+    }
+
+    /** Switches the active Cubism Editor model editing level. */
+    default void setEditLevel(final ModelEditLevel level) {
+        throw new UnsupportedOperationException(
+            "Cubism model edit-level switching is unavailable."
+        );
+    }
+
     default Canvas canvas() {
         throw new UnsupportedOperationException("Cubism canvas access is unavailable.");
     }
@@ -31,6 +69,14 @@ public interface CubismModel {
 
     default ParameterGroups parameterGroups() {
         throw new UnsupportedOperationException("Cubism parameter-group access is unavailable.");
+    }
+
+    default ParameterBindingOperations parameterBindings(final dev.turboism.sdk.cubism.id.ParameterId parameterId) {
+        throw new UnsupportedOperationException("Cubism parameter-binding editing is unavailable.");
+    }
+
+    default ParameterBindingBatchOperations parameterBindingBatch() {
+        throw new UnsupportedOperationException("Cubism parameter-binding batch editing is unavailable.");
     }
 
     Parts parts();

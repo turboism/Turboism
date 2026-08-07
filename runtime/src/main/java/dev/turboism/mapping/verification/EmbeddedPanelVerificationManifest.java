@@ -8,7 +8,7 @@ public final class EmbeddedPanelVerificationManifest {
     public static final String VERIFICATION_ID =
         "cubism-5.3.02.ui-embedded-panel.static";
     public static final String RECORD_SHA256 =
-        "08f4581ddd564c24702a365db2a8d198817e5945a7e9da2c067ab4b032bf93b2";
+        "c153981a7b236e7d027dabebd649d8c8bbb6b82f27cf50c5ebb4561afa690b72";
     public static final String CUBISM_VERSION = "5.3.02";
     public static final String PROFILE_ID = "cubism-5.3.02";
     public static final long ARTIFACT_SIZE = 41_922_739L;
@@ -58,6 +58,14 @@ public final class EmbeddedPanelVerificationManifest {
         "cubism.ui-panel.palette-frame.root",
         "cubism.ui-panel.palette-frame.window",
         "cubism.ui-panel.palette-frame.dispose",
+        "cubism.ui-panel.palette-frame.raw-disposed",
+        "cubism.ui-panel.floating-tab-close.operation",
+        "cubism.ui-panel.floating-tab-close.palette-field",
+        "cubism.ui-panel.workspace.root-container",
+        "cubism.ui-panel.root.component",
+        "cubism.ui-panel.split.contents",
+        "cubism.ui-panel.split.remove",
+        "cubism.ui-panel.component.palette-count",
         "cubism.ui-panel.root.set-component",
         "cubism.ui-panel.window.set-visible",
         "cubism.ui-panel.palette-id.class",

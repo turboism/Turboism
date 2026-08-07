@@ -12,6 +12,9 @@ import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.DialogRequest;
+import dev.turboism.sdk.ui.ChoiceDialogRequest;
+import dev.turboism.sdk.ui.CollapsibleSectionContribution;
+import dev.turboism.sdk.ui.BoundingBoxOverlayButton;
 import dev.turboism.sdk.ui.EmbeddedPanelContribution;
 import dev.turboism.sdk.ui.EmbeddedPanelId;
 import dev.turboism.sdk.ui.FileChooserRequest;
@@ -21,12 +24,14 @@ import dev.turboism.sdk.ui.UiHostCapabilityService;
 import dev.turboism.sdk.ui.ViewportSnapshot;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 import dev.turboism.sdk.ui.context.ContextSourceSnapshot;
+import dev.turboism.sdk.ui.filter.PaletteFilterRegistry;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
 import dev.turboism.ui.contribution.EditorUiContribution;
 import dev.turboism.ui.contribution.EditorUiContributionAuthority;
 import dev.turboism.ui.contribution.EditorUiContributionIdentity;
 import dev.turboism.ui.host.EditorUiFamily;
+import dev.turboism.ui.panel.PanelCollapsibleContentCoordinator;
 import dev.turboism.ui.panel.RuntimeEmbeddedPanelActivationCoordinator;
 import dev.turboism.ui.host.RuntimeEditorUiHostLifecycle;
 
@@ -66,14 +71,18 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
     private final PluginLocalization localization;
     private final EditorUiContributionAuthority contributionAuthority;
     private final RuntimeEmbeddedPanelActivationCoordinator panelActivationCoordinator;
+    private final CallbackDispatcher callbackDispatcher;
     private final CopyOnWriteArrayList<OverlayContribution> overlays = new CopyOnWriteArrayList<>();
     private final CopyOnWriteArrayList<DialogRequest> dialogs = new CopyOnWriteArrayList<>();
     private final CopyOnWriteArrayList<EmbeddedPanelContribution> panels = new CopyOnWriteArrayList<>();
+    private final CopyOnWriteArrayList<BoundingBoxOverlayButton> boundingBoxOverlayButtons =
+        new CopyOnWriteArrayList<>();
     private final BoundedKeyedStore<String, TrackedNotification> notifications =
         new BoundedKeyedStore<>(MAX_TRANSIENT_ENTRIES);
     private final CopyOnWriteArrayList<ContextMenuRegistry.ContextMenuContribution> contextMenus = new CopyOnWriteArrayList<>();
     private final CopyOnWriteArrayList<MainToolbarRegistry.MainToolbarContribution> mainToolbars = new CopyOnWriteArrayList<>();
     private final CopyOnWriteArrayList<PaletteToolbarRegistry.PaletteToolbarContribution> paletteToolbars = new CopyOnWriteArrayList<>();
+    private final CopyOnWriteArrayList<PaletteFilterRegistry.PaletteFilterContribution> paletteFilters = new CopyOnWriteArrayList<>();
     private final BoundedKeyedStore<String, SafeModeDiagnostic> statusToolbarDiagnostics =
         new BoundedKeyedStore<>(MAX_TRANSIENT_ENTRIES);
 
@@ -199,6 +208,32 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         final EditorUiContributionAuthority contributionAuthority,
         final RuntimeEmbeddedPanelActivationCoordinator panelActivationCoordinator
     ) {
+        this(
+            permissionChecker,
+            pluginId,
+            stateSource,
+            disposableScope,
+            statusToolbarAdapter,
+            uiSurfaceAdapter,
+            localization,
+            contributionAuthority,
+            panelActivationCoordinator,
+            CallbackDispatcher.direct()
+        );
+    }
+
+    public RuntimeUiHostCapabilityService(
+        final PermissionChecker permissionChecker,
+        final String pluginId,
+        final UiHostStateSource stateSource,
+        final DisposableScope disposableScope,
+        final StatusToolbarAdapter statusToolbarAdapter,
+        final UiSurfaceAdapter uiSurfaceAdapter,
+        final PluginLocalization localization,
+        final EditorUiContributionAuthority contributionAuthority,
+        final RuntimeEmbeddedPanelActivationCoordinator panelActivationCoordinator,
+        final CallbackDispatcher callbackDispatcher
+    ) {
         this.permissionChecker = Objects.requireNonNull(permissionChecker, "permissionChecker");
         this.pluginId = requireText(pluginId, "pluginId");
         this.stateSource = Objects.requireNonNull(stateSource, "stateSource");
@@ -214,6 +249,7 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
             panelActivationCoordinator,
             "panelActivationCoordinator"
         );
+        this.callbackDispatcher = Objects.requireNonNull(callbackDispatcher, "callbackDispatcher");
     }
 
     @Override
@@ -232,6 +268,27 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
             contribution.priority(),
             contribution,
             overlays
+        );
+    }
+
+    @Override
+    public Registration contributeBoundingBoxOverlayButton(
+        final BoundingBoxOverlayButton contribution
+    ) {
+        Objects.requireNonNull(contribution, "contribution");
+        permissionChecker.check(
+            UI_OVERLAY_CONTRIBUTE,
+            "ui.bounding-box-overlay-button.contribute"
+        );
+        return authoritativeRegistration(
+            EditorUiFamily.BOUNDING_BOX_OVERLAY_BUTTON,
+            contribution.id(),
+            contribution.order(),
+            contribution.withOnClick(() -> callbackDispatcher.dispatch(
+                contribution.id(),
+                contribution.onClick()
+            )),
+            boundingBoxOverlayButtons
         );
     }
 
@@ -267,6 +324,74 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
     }
 
     @Override
+    public Optional<String> choose(final ChoiceDialogRequest request) {
+        Objects.requireNonNull(request, "request");
+        permissionChecker.check(UI_DIALOG_CONTRIBUTE, "ui.dialog.choose");
+        return RuntimeChoiceDialogs.choose(request);
+    }
+
+    @Override
+    public void openChoiceDialog(
+        final ChoiceDialogRequest request,
+        final dev.turboism.sdk.ui.ChoiceDialogResultListener listener
+    ) {
+        Objects.requireNonNull(request, "request");
+        Objects.requireNonNull(listener, "listener");
+        permissionChecker.check(UI_DIALOG_CONTRIBUTE, "ui.dialog.choose");
+        RuntimeChoiceDialogs.openAsync(request, listener);
+    }
+
+    @Override
+    public void openFormDialog(
+        final dev.turboism.sdk.ui.FormDialogRequest request,
+        final dev.turboism.sdk.ui.FormDialogResultListener listener
+    ) {
+        Objects.requireNonNull(request, "request");
+        Objects.requireNonNull(listener, "listener");
+        permissionChecker.check(UI_DIALOG_CONTRIBUTE, "ui.dialog.contribute");
+        RuntimeFormDialogs.openAsync(request, listener);
+    }
+
+    @Override
+    public void openColorPicker(
+        final String id,
+        final String title,
+        final String initialColorHex,
+        final dev.turboism.sdk.ui.ColorPickerResultListener listener
+    ) {
+        java.util.Objects.requireNonNull(id, "id");
+        if (id.isBlank()) throw new IllegalArgumentException("id must not be blank");
+        java.util.Objects.requireNonNull(title, "title");
+        if (title.isBlank()) throw new IllegalArgumentException("title must not be blank");
+        java.util.Objects.requireNonNull(listener, "listener");
+        permissionChecker.check(UI_DIALOG_CONTRIBUTE, "ui.dialog.color-picker");
+        RuntimeColorPickerDialogs.openAsync(id, title, initialColorHex, listener);
+    }
+
+    @Override
+    public dev.turboism.sdk.ui.UiHostColorMode currentColorMode() {
+        return stateSource.currentColorMode();
+    }
+
+    @Override
+    public boolean refreshOffCanvasAppearance() {
+        final Object value = javax.swing.UIManager.get("CubismCommon.gl.viewArea.background");
+        if (!(value instanceof java.awt.Color color)) {
+            return false;
+        }
+        final String hex = String.format("#%02X%02X%02X",
+            color.getRed(), color.getGreen(), color.getBlue());
+        return new dev.turboism.ui.appearance.OffCanvasAppearanceRefresher().refresh(hex);
+    }
+
+    @Override
+    public void openDirectory(final dev.turboism.sdk.storage.StoragePath directory) {
+        Objects.requireNonNull(directory, "directory");
+        permissionChecker.check(UI_DIALOG_CONTRIBUTE, "ui.dialog.contribute");
+        stateSource.openDirectory(directory);
+    }
+
+    @Override
     public Registration contributeEmbeddedPanel(final EmbeddedPanelContribution contribution) {
         Objects.requireNonNull(contribution, "contribution");
         permissionChecker.check(UI_PANEL_CONTRIBUTE, "ui.panel.contribute");
@@ -277,6 +402,18 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
             contribution,
             panels
         );
+    }
+
+    @Override
+    public Registration contributeCollapsibleSection(
+        final CollapsibleSectionContribution contribution
+    ) {
+        Objects.requireNonNull(contribution, "contribution");
+        permissionChecker.check(UI_PANEL_CONTRIBUTE, "ui.panel.contribute");
+        final Registration registration =
+            PanelCollapsibleContentCoordinator.shared().register(this.pluginId, contribution);
+        disposableScope.register(registration);
+        return registration;
     }
 
     @Override
@@ -300,7 +437,8 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
     public Registration notifyStatus(final StatusNotification notification) {
         Objects.requireNonNull(notification, "notification");
         permissionChecker.check(UI_STATUS_NOTIFY, "ui.status.notify");
-        final StatusToolbarAdapter.AdapterResult<Registration> adapterResult = statusToolbarAdapter.notifyStatus(notification);
+        final StatusToolbarAdapter.AdapterResult<Registration> adapterResult =
+            statusToolbarAdapter.notifyStatus(scopedForAdapter(notification));
         if (adapterResult.isAvailable()) {
             return enrollAdapterRegistration(adapterResult.value().orElseThrow());
         }
@@ -349,6 +487,20 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         );
     }
 
+    @Override
+    public Registration contributePaletteFilter(final PaletteFilterRegistry.PaletteFilterContribution contribution) {
+        Objects.requireNonNull(contribution, "contribution");
+        permissionChecker.check(UI_TOOLBAR_PALETTE_CONTRIBUTE, "ui.palette-filter.contribute");
+        final PaletteFilterRegistry.PaletteFilterContribution resolved = resolvePaletteFilterPlaceholder(contribution);
+        return authoritativeRegistration(
+            EditorUiFamily.PALETTE_FILTER,
+            resolved.contributionId(),
+            resolved.order(),
+            resolved,
+            paletteFilters
+        );
+    }
+
     /**
      * Adapter-backed host registrations are auto-enrolled in the plugin scope.
      * Plugins may also enroll the returned handle (for SDK stub hosts that do not auto-scope).
@@ -392,6 +544,10 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         return List.copyOf(paletteToolbars);
     }
 
+    public List<PaletteFilterRegistry.PaletteFilterContribution> paletteFilters() {
+        return List.copyOf(paletteFilters);
+    }
+
     public List<SafeModeDiagnostic> uiDiagnostics() {
         return statusToolbarDiagnostics.snapshot();
     }
@@ -400,6 +556,16 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
     @Deprecated
     public List<SafeModeDiagnostic> statusToolbarDiagnostics() {
         return uiDiagnostics();
+    }
+
+    /**
+     * Scopes the adapter-visible notification ID with the plugin ID using length-prefix
+     * encoding, so two plugins cannot collide on the host even when their local IDs
+     * share prefixes or contain separators. Message and severity are unchanged.
+     */
+    private StatusNotification scopedForAdapter(final StatusNotification notification) {
+        final String scopedId = pluginId.length() + ":" + pluginId + ":" + notification.id();
+        return new StatusNotification(scopedId, notification.severity(), notification.message());
     }
 
     private Registration trackNotification(final StatusNotification notification) {
@@ -465,6 +631,18 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         return registration;
     }
 
+    @FunctionalInterface
+    public interface CallbackDispatcher {
+        boolean dispatch(String contributionId, Runnable callback);
+
+        static CallbackDispatcher direct() {
+            return (ignored, callback) -> {
+                callback.run();
+                return true;
+            };
+        }
+    }
+
     private static final class TrackedNotification {
         private final StatusNotification notification;
 
@@ -522,6 +700,20 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
             contribution.iconResourcePath(),
             contribution.paletteId(),
             contribution.anchor(),
+            contribution.order()
+        );
+    }
+
+    private PaletteFilterRegistry.PaletteFilterContribution resolvePaletteFilterPlaceholder(
+        final PaletteFilterRegistry.PaletteFilterContribution contribution
+    ) {
+        if (localization == null) {
+            return contribution;
+        }
+        return new PaletteFilterRegistry.PaletteFilterContribution(
+            contribution.contributionId(),
+            contribution.paletteId(),
+            localization.text(requireText(contribution.placeholderKey(), "placeholderKey")),
             contribution.order()
         );
     }

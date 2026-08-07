@@ -148,7 +148,7 @@ def static_check(root: Path) -> None:
 
 
 def evidence_check(root: Path, gradle_home: Path) -> None:
-    record = root / "docs/migration/asm-9.7.1-supply-chain-admission.tsv"
+    record = root / "validation/supply-chain/asm-9.7.1-supply-chain-admission.tsv"
     if not record.is_file(): fail(f"admission record is missing: {record.relative_to(root)}")
     lines = record.read_text(encoding="utf-8").splitlines()
     if len(lines) != 2 or lines[0] != HEADER: fail("admission TSV must contain the exact header and one evidence row")

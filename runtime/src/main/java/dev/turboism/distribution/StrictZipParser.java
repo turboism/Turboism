@@ -105,6 +105,7 @@ final class StrictZipParser {
         validateCentralValues(flags, method, compressed, expanded, localOffset, disk, commentLength);
         byte[] variable = read(channel, cursor + 46, nameLength + extraLength + commentLength);
         rejectZip64Extra(variable, nameLength, extraLength);
+        validateNameFlags(flags, variable, nameLength);
         return new Central(decode(variable, 0, nameLength), madeBy >>> 8, external, flags, method,
             crc, compressed, expanded, localOffset, 46L + nameLength + extraLength + commentLength);
     }
@@ -115,7 +116,7 @@ final class StrictZipParser {
             "ARCHIVE_ZIP64_UNSUPPORTED", "archive");
         valid(disk == 0 && commentLength == 0,
             commentLength == 0 ? "ARCHIVE_MULTI_DISK" : "ARCHIVE_COMMENT_UNSUPPORTED", "archive");
-        valid(supportedFlags(flags) && (method == 0 || method == 8),
+        valid((flags & ~(UTF8 | DATA_DESCRIPTOR)) == 0 && (method == 0 || method == 8),
             "ARCHIVE_ENTRY_UNSUPPORTED", "archive");
     }
 
@@ -213,9 +214,11 @@ final class StrictZipParser {
         }
     }
 
-    private static boolean supportedFlags(int flags) {
-        int allowed = UTF8 | DATA_DESCRIPTOR;
-        return (flags & UTF8) != 0 && (flags & ~allowed) == 0;
+    private static void validateNameFlags(int flags, byte[] variable, int nameLength) throws Exception {
+        if ((flags & UTF8) != 0) return;
+        for (int index = 0; index < nameLength; index++) {
+            valid((variable[index] & 0x80) == 0, "ARCHIVE_ENTRY_UNSUPPORTED", "archive");
+        }
     }
 
     private static void ratio(long expanded, long compressed, double maximum,

@@ -1,2 +1,0 @@
-id	legacyPath	reuseLevel	salvageType	owner	behaviorSpec	complianceNote	migratedTo	notes
-m2-salvage-001	legacy/Parameter.csv	L2	data	plugins/parameter		do-not-migrate-placeholder	plugins/parameter	Missing behaviorSpec.

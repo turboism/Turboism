@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism;
 
+import dev.turboism.sdk.cubism.AnimationSnapshot;
 import dev.turboism.sdk.cubism.ArtMeshSnapshot;
 import dev.turboism.sdk.cubism.CubismRuntimeSnapshot;
 import dev.turboism.sdk.cubism.DeformerSnapshot;
@@ -7,6 +8,8 @@ import dev.turboism.sdk.cubism.DocumentSnapshot;
 import dev.turboism.sdk.cubism.ModelObjectSnapshot;
 import dev.turboism.sdk.cubism.ModelSnapshot;
 import dev.turboism.sdk.cubism.ParameterSnapshot;
+import dev.turboism.sdk.cubism.ProjectContentSnapshot;
+import dev.turboism.sdk.cubism.ProjectResourceSnapshot;
 import dev.turboism.sdk.cubism.ProjectSnapshot;
 import dev.turboism.sdk.cubism.SelectionSnapshot;
 
@@ -43,6 +46,7 @@ final class ImmutableSnapshotFactory {
             project.projectId(),
             project.name(),
             relativePath(project.projectDirectory(), "projectDirectory"),
+            project.contents().stream().map(this::content).toList(),
             project.documents().stream().map(this::document).toList()
         );
     }
@@ -53,9 +57,45 @@ final class ImmutableSnapshotFactory {
         return new DocumentSnapshot(
             document.documentId(),
             document.name(),
+            document.kind(),
             relativePath,
             relativePath(document.filePath(), "filePath"),
-            document.model().map(this::model)
+            document.contentId(),
+            document.model().map(this::model),
+            document.animation().map(this::animation)
+        );
+    }
+
+    ProjectContentSnapshot content(final HostSnapshotSource.HostProjectContent content) {
+        Objects.requireNonNull(content, "content");
+        return new ProjectContentSnapshot(
+            content.contentId(),
+            content.name(),
+            content.kind(),
+            relativePath(content.filePath(), "filePath"),
+            content.documentIds(),
+            content.resources().stream().map(this::resource).toList()
+        );
+    }
+
+    private ProjectResourceSnapshot resource(final HostSnapshotSource.HostProjectResource resource) {
+        Objects.requireNonNull(resource, "resource");
+        return new ProjectResourceSnapshot(
+            resource.resourceId(),
+            resource.name(),
+            resource.kind(),
+            resource.relativePath().map(path -> normalizedRelativePath(path, "resourcePath"))
+        );
+    }
+
+    AnimationSnapshot animation(final HostSnapshotSource.HostAnimation animation) {
+        Objects.requireNonNull(animation, "animation");
+        return new AnimationSnapshot(
+            animation.animationId(),
+            animation.name(),
+            relativePath(animation.filePath(), "filePath"),
+            animation.sceneDocumentIds(),
+            animation.activeSceneDocumentId()
         );
     }
 

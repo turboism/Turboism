@@ -50,7 +50,7 @@ public final class BuiltinThemeAppearanceService {
         ));
     }
 
-    private ThemePackageData load(final String themeId) {
+    public ThemePackageData load(final String themeId) {
         final BuiltinThemeCatalog.Entry entry = BuiltinThemeCatalog.entries().stream()
             .filter(candidate -> candidate.id().equals(themeId))
             .findFirst()

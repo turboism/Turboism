@@ -1,0 +1,40 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 2,
+  "id": "dev.turboism.plugin.scene-palette-enhancer",
+  "name": "Scene Palette Enhancer",
+  "version": "0.1.0",
+  "description": "Sorts and manually reorders items in the Cubism Scene palette.",
+  "entrypoints": [
+    "dev.turboism.plugin.scenepalette.ScenePaletteEnhancerPlugin"
+  ],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    { "name": "Turboism Contributors" }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": ["base", "en"]
+  },
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.file.read",
+      "scope": "application",
+      "reason": "Restores per-project Scene palette manual order."
+    },
+    {
+      "id": "turboism.file.write",
+      "scope": "application",
+      "reason": "Persists per-project Scene palette manual order."
+    }
+  ],
+  "capabilities": [],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "none"
+  }
+}

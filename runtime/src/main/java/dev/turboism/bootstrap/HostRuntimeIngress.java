@@ -83,6 +83,11 @@ public final class HostRuntimeIngress implements AutoCloseable {
         return session.editorModelResolver();
     }
 
+    public dev.turboism.adapter.cubism.textureatlas.TextureAtlasDataModelCapture
+        textureAtlasDataModelCapture() {
+        return session.textureAtlasDataModelCapture();
+    }
+
     /** Trusted non-closeable view for plugin-context composition. */
     public RuntimeHostAdapterAccess adapterAccess() {
         return session.adapterAccess();

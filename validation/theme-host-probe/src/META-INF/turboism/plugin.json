@@ -1,0 +1,35 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 2,
+  "id": "dev.turboism.validation.theme",
+  "name": "Theme Host Validation Exerciser",
+  "version": "0.0.0",
+  "description": "Task-local exerciser for the theme appearance apply/restore matrix on exact Cubism hosts.",
+  "entrypoints": [
+    "dev.turboism.validation.theme.ThemeHostValidationPlugin"
+  ],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    { "name": "Turboism Validation" }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": []
+  },
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.ui.appearance.modify",
+      "scope": "application",
+      "reason": "Applies and restores a task-local theme palette on the exact host for validation evidence."
+    }
+  ],
+  "capabilities": [],
+  "environment": {
+    "requiresCubism": false,
+    "ui": "none"
+  }
+}

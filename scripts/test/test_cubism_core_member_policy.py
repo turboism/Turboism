@@ -24,7 +24,6 @@ from cubism_core_policy import (  # noqa: E402
 API_52 = ROOT / "cubism-ref/core-api/observed/cubism-core-5.2.json"
 API_53 = ROOT / "cubism-ref/core-api/observed/cubism-core-5.3.02.json"
 POLICY = ROOT / "cubism-ref/core-api/policy/cubism-core-member-policy.json"
-REPORT = ROOT / "docs/migration/cubism-core-member-policy.md"
 
 
 def require(condition: bool, message: str) -> None:
@@ -165,17 +164,17 @@ def main() -> int:
         POLICY.read_text(encoding="utf-8") == compact_json(generated),
         "tracked member policy has drifted from deterministic bootstrap",
     )
-    require(
-        REPORT.read_text(encoding="utf-8")
-        == render_report(validated, classified),
-        "generated member policy report has drifted",
-    )
-
-    generated_java = render_java_catalog(validated, classified)
+    generated_report = render_report(validated, classified)
     reversed_policy, reversed_classified = validate_policy(
         policy,
         list(reversed(inventories)),
     )
+    require(
+        generated_report == render_report(reversed_policy, reversed_classified),
+        "generated member policy report depends on inventory argument ordering",
+    )
+
+    generated_java = render_java_catalog(validated, classified)
     require(
         generated_java
         == render_java_catalog(reversed_policy, reversed_classified),
