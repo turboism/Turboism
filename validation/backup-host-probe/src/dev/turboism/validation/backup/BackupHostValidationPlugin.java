@@ -319,20 +319,29 @@ public final class BackupHostValidationPlugin implements TurboismPlugin {
             // On-host persistence evidence: this editor build never flushes a
             // separate UUConfig file mid-session; the host logs the applied key
             // into its own editor log, so the log line is the acceptance. The
-            // host may flush the log line asynchronously, so poll for up to 10s.
-            final Optional<Path> logEvidence = pollEditorLogEvidence(UU_KEY, "=3", 10_000L, 1_000L);
+            // log sits beside the backup dir returned by the host manager i()
+            // (backupDir's parent is the editor dir, logs/log.txt next to it);
+            // deriving the path from the settings snapshot is deterministic and
+            // avoids the unreliable user.home walk under the Wine/Proton JVM.
+            final String backupDir = updated.backupDir();
+            final Optional<Path> logEvidence = backupDir == null
+                ? Optional.empty()
+                : pollDerivedLogEvidence(backupDir, UU_KEY, "=3", 10_000L, 1_000L);
             if (logEvidence.isPresent()) {
                 logger.info("BACKUP_UUCONFIG_LOG_EVIDENCE found=true path=" + logEvidence.orElseThrow());
             } else {
-                failures.add("editor log evidence with " + UU_KEY + "=3 not found after 10s; searched "
-                    + "user.home for log.txt files whose path contains Live2D and _Editor "
-                    + "(maxDepth=10, maxFiles=2000, maxBytes=8MB, jars skipped)");
+                failures.add("editor log evidence with " + UU_KEY + "=3 not found after 10s at derived path "
+                    + (backupDir == null ? "null" : Path.of(backupDir).getParent().resolve("logs").resolve("log.txt"))
+                    + " (backupDir from the host manager)");
             }
-            // Best-effort diagnostic only: the whole-tree UUConfig file glob must
-            // never fail the matrix (the host build does not persist such a file).
-            final Optional<Path> persisted = locateUuConfigFile(UU_KEY, "=3", failures);
-            logger.info("BACKUP_UUCONFIG_FILE_DIAGNOSTIC found=" + persisted.isPresent()
-                + (persisted.isPresent() ? " file=" + persisted.orElseThrow() : ""));
+            // Secondary diagnostic only: the user.home whole-tree glob (plus the
+            // JVM user.home value and the examined file count) must never fail
+            // the matrix; the user-tree walk is unreliable under Wine/Proton.
+            final GlobDiagnostic glob = locateUuConfigFileDiagnostic(UU_KEY, "=3");
+            logger.info("BACKUP_UUCONFIG_FILE_DIAGNOSTIC userHome=" + glob.userHome
+                + " examined=" + glob.examined
+                + " found=" + glob.found
+                + (glob.path != null ? " path=" + glob.path : ""));
         } catch (RuntimeException failure) {
             failures.add("settings write-readback failed: " + failure.getClass().getSimpleName());
         }
@@ -357,30 +366,29 @@ public final class BackupHostValidationPlugin implements TurboismPlugin {
     }
 
     /**
-     * Bounded glob under the user profile for the editor's own log: a file named
-     * {@code log.txt} whose path contains {@code Live2D} and {@code _Editor}
-     * (on-host pattern: {@code .../AppData/Roaming/Live2D/Cubism5.3_Editor/logs/log.txt}),
-     * containing the given key/value fragment. The editor build under test logs
-     * the applied auto-backup key on set and never flushes a separate UUConfig
-     * file mid-session, so this log line is the on-host persistence evidence.
-     * Bounded by depth, file count, and file size; never touches non-text files.
+     * Polls the derived editor-log path ({@code <backupDir-parent>/logs/log.txt})
+     * until the key/value fragment appears (the host may flush the log line
+     * asynchronously after the interval write) or the poll budget expires.
      */
-    /**
-     * Polls {@link #locateEditorLogEvidence} until the key/value fragment
-     * appears (the host may flush the editor log line asynchronously after the
-     * interval write) or the poll budget expires.
-     */
-    static Optional<Path> pollEditorLogEvidence(
+    static Optional<Path> pollDerivedLogEvidence(
+        final String backupDir,
         final String key,
         final String valueFragment,
         final long pollMillis,
         final long intervalMillis
     ) {
+        final Path log = Path.of(backupDir).getParent().resolve("logs").resolve("log.txt");
         final long deadline = System.currentTimeMillis() + pollMillis;
         while (true) {
-            final Optional<Path> found = locateEditorLogEvidence(key, valueFragment);
-            if (found.isPresent()) {
-                return found;
+            if (Files.isRegularFile(log)) {
+                try {
+                    final String content = Files.readString(log, StandardCharsets.ISO_8859_1);
+                    if (content.contains(key) && content.contains(valueFragment)) {
+                        return Optional.of(log);
+                    }
+                } catch (IOException | OutOfMemoryError unavailable) {
+                    // keep polling; the file may still be mid-flush
+                }
             }
             if (System.currentTimeMillis() >= deadline) {
                 return Optional.empty();
@@ -394,55 +402,26 @@ public final class BackupHostValidationPlugin implements TurboismPlugin {
         }
     }
 
-    static Optional<Path> locateEditorLogEvidence(final String key, final String valueFragment) {
-        final Path root = Path.of(System.getProperty("user.home", "."));
-        final int maxDepth = 10;
-        final int maxFiles = 2_000;
-        final long maxBytes = 8_000_000L;
-        try (Stream<Path> stream = Files.walk(root, maxDepth)) {
-            return stream
-                .filter(Files::isRegularFile)
-                .filter(path -> !path.getFileName().toString().endsWith(".jar"))
-                .filter(path -> "log.txt".equalsIgnoreCase(path.getFileName().toString()))
-                .filter(path -> path.toString().contains("Live2D") && path.toString().contains("_Editor"))
-                .filter(path -> {
-                    try {
-                        return Files.size(path) <= maxBytes;
-                    } catch (IOException unavailable) {
-                        return false;
-                    }
-                })
-                .limit(maxFiles)
-                .filter(path -> {
-                    try {
-                        final String content = Files.readString(path, StandardCharsets.ISO_8859_1);
-                        return content.contains(key) && content.contains(valueFragment);
-                    } catch (IOException | OutOfMemoryError unavailable) {
-                        return false;
-                    }
-                })
-                .findFirst();
-        } catch (IOException walkFailure) {
-            return Optional.empty();
-        }
+    /** Result of the secondary user-home glob diagnostic. */
+    record GlobDiagnostic(String userHome, int examined, boolean found, String path) {
     }
 
     /**
      * Bounded glob under the user profile for a text file containing the given
      * key/value fragment (e.g. {@code autoBackupIntervalMinute=3}). Bounded by
-     * depth, file count, and file size; never touches non-text files.
+     * depth, file count, and file size; never touches non-text files. This is a
+     * DIAGNOSTIC ONLY: the user-tree walk is unreliable under the Wine/Proton
+     * JVM and its result never fails the matrix.
      */
-    static Optional<Path> locateUuConfigFile(
-        final String key,
-        final String valueFragment,
-        final List<String> failures
-    ) {
+    static GlobDiagnostic locateUuConfigFileDiagnostic(final String key, final String valueFragment) {
         final Path root = Path.of(System.getProperty("user.home", "."));
-        final int maxDepth = 7;
+        final int maxDepth = 10;
         final int maxFiles = 2_000;
-        final long maxBytes = 2_000_000L;
+        final long maxBytes = 8_000_000L;
+        final java.util.concurrent.atomic.AtomicInteger examined =
+            new java.util.concurrent.atomic.AtomicInteger();
         try (Stream<Path> stream = Files.walk(root, maxDepth)) {
-            return stream
+            final Optional<Path> found = stream
                 .filter(Files::isRegularFile)
                 .filter(path -> !path.getFileName().toString().endsWith(".jar"))
                 .filter(path -> {
@@ -453,6 +432,7 @@ public final class BackupHostValidationPlugin implements TurboismPlugin {
                     }
                 })
                 .limit(maxFiles)
+                .filter(path -> examined.incrementAndGet() <= maxFiles)
                 .filter(path -> {
                     try {
                         final String content = Files.readString(path, StandardCharsets.ISO_8859_1);
@@ -462,9 +442,14 @@ public final class BackupHostValidationPlugin implements TurboismPlugin {
                     }
                 })
                 .findFirst();
+            return new GlobDiagnostic(
+                root.toString(),
+                examined.get(),
+                found.isPresent(),
+                found.map(Path::toString).orElse(null)
+            );
         } catch (IOException walkFailure) {
-            // Best-effort diagnostic: a walk failure never fails the matrix.
-            return Optional.empty();
+            return new GlobDiagnostic(root.toString(), examined.get(), false, null);
         }
     }
 
