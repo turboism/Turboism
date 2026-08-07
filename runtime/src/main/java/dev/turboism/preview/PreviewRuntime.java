@@ -45,6 +45,7 @@ public final class PreviewRuntime implements AutoCloseable {
     private final Path hostArtifact;
     private final ShutdownLifecycle shutdownLifecycle;
     private final AtomicBoolean closed = new AtomicBoolean(false);
+    private volatile dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistoryService;
     private volatile List<ShutdownFailure> shutdownFailures = List.of();
 
     /** Package-private test composition seam; production startup uses {@link #start}. */
@@ -408,6 +409,26 @@ public final class PreviewRuntime implements AutoCloseable {
 
     public dev.turboism.adapter.host.RuntimeHostAdapterAccess hostAccess() {
         return hostIngress.adapterAccess();
+    }
+
+    /** Runtime file-chooser history service (lazily bound to the global config). */
+    public dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistoryService() {
+        dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService service = fileChooserHistoryService;
+        if (service == null) {
+            synchronized (this) {
+                service = fileChooserHistoryService;
+                if (service == null) {
+                    service = new dev.turboism.filechooser.RuntimeFileChooserHistoryService(
+                        new dev.turboism.config.RuntimeConfigRepository(
+                            home,
+                            diagnostic -> log.warn("config", diagnostic)
+                        )
+                    );
+                    fileChooserHistoryService = service;
+                }
+            }
+        }
+        return service;
     }
 
     public dev.turboism.mapping.verification.VerifiedMemberResolver editorModelResolver() {
