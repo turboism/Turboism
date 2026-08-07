@@ -7,7 +7,7 @@ public final class EditorModelVerificationManifest {
 
     public static final String VERIFICATION_ID = "cubism-5.3.02.editor-model.static";
     public static final String RECORD_SHA256 =
-        "dab2f24122d5af0a98a89faa460b1a87990d82bd8dd5406aef00fc700c937911";
+        "faa5ec096c7d358eb168767508c88e3b9ad99a19533500871a6dadc5d33735a1";
     public static final String CUBISM_VERSION = "5.3.02";
     public static final String PROFILE_ID = "cubism-5.3.02";
     public static final long ARTIFACT_SIZE = 41_922_739L;
@@ -44,6 +44,10 @@ public final class EditorModelVerificationManifest {
         EditorParameterBindingBatchWriteSelectorContract.TRANSFER_CAPABILITY_ID,
         EditorModelEditLevelReadSelectorContract.CAPABILITY_ID,
         EditorModelEditLevelWriteSelectorContract.CAPABILITY_ID,
+        EditorPhysicsReadSelectorContract.CAPABILITY_ID,
+        EditorAutoYureReadSelectorContract.CAPABILITY_ID,
+        EditorAnimationReadSelectorContract.CAPABILITY_ID,
+        EditorModelInstanceReadSelectorContract.CAPABILITY_ID,
         "cubism.texture-atlas.layout.write",
         "cubism.texture-atlas.data-model-hook",
         "cubism.texture-atlas.auto-layout-hook",
@@ -156,7 +160,7 @@ public final class EditorModelVerificationManifest {
             )
         )
     ;
-    public static final Set<String> REQUIRED_ALIASES = union(Set.of(
+    public static final Set<String> REQUIRED_ALIASES = union(union(Set.of(
         "cubism.editor-model.app-controller.class",
         "cubism.editor-model.app-controller.instance",
         "cubism.editor-model.app-controller.current-document",
@@ -424,7 +428,17 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.keyform-grid.remove-key",
         "cubism.editor-model.keyform-grid.remove-all-key",
         "cubism.editor-model.keyform-grid.rearrange-keys"
-    ), TEXTURE_ATLAS_ALIASES);
+    ), union(
+            union(
+                union(
+                    EditorPhysicsReadSelectorContract.REQUIRED_ALIASES,
+                    EditorAutoYureReadSelectorContract.REQUIRED_ALIASES
+                ),
+                EditorAnimationReadSelectorContract.REQUIRED_ALIASES
+            ),
+            EditorModelInstanceReadSelectorContract.REQUIRED_ALIASES
+        )),
+        TEXTURE_ATLAS_ALIASES);
     private static final Set<String> PART_OPACITY_ADDITIVE_ALIASES = Set.of(
         "cubism.editor-model.model-source.parts",
         "cubism.editor-model.model-source.update-instances",
@@ -553,6 +567,7 @@ public final class EditorModelVerificationManifest {
 
     private static Set<String> cubism52Aliases() {
         final java.util.HashSet<String> values = new java.util.HashSet<>(REQUIRED_ALIASES);
+        values.removeAll(EditorModelInstanceReadSelectorContract.ONION_SKIN_ALIASES);
         values.removeAll(dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.STATISTICS_ALIASES);
         values.removeAll(PART_OPACITY_ADDITIVE_ALIASES);
         values.removeAll(EditorObjectReadSelectorContract.OFFSCREEN_STATISTICS_ALIASES);
