@@ -105,7 +105,12 @@ final class EditorParameterStructureAccess {
             "cubism.editor-model.parameter-group-handler.add-parameter-child",
             groupHandler(parentGroup), hostSource, Integer.valueOf(index)));
         modelGuard.requireCurrent(identity, model);
-        return new ParameterId(text(resolver.invoke("cubism.editor-model.id.value", hostId)));
+        // Read the copy identity back from the host state the undo envelope actually registered
+        // (the child the host appended to the parent group), not from the createFreeId guess: the
+        // returned id must agree with the host state both after this write and after undo/redo.
+        final Object registeredId = lastChildId(parentGroup);
+        return new ParameterId(text(resolver.invoke(
+            "cubism.editor-model.id.value", registeredId != null ? registeredId : hostId)));
     }
 
     void remove(final String identity, final Object source, final Object model, final ParameterId id) {
@@ -135,8 +140,12 @@ final class EditorParameterStructureAccess {
             Integer.valueOf(2),
             null
         );
+        // CParameterGroup's constructor Intrinsics.checkNotNullParameter rejects a null guid
+        // (verified host evidence: CParameterGroup(String, CParameterGroupGuid, CParameterGroupId)
+        // with CParameterGroupGuid.<init>()V no-arg constructor).
+        final Object guid = resolver.construct("cubism.editor-model.parameter-group-guid.create");
         final Object hostGroup = resolver.construct(
-            "cubism.editor-model.parameter-group.create", name, null, hostGroupId);
+            "cubism.editor-model.parameter-group.create", name, guid, hostGroupId);
         resolver.invoke("cubism.editor-model.parameter-group.set-folder-opened", hostGroup, Boolean.FALSE);
         final int index = groupChildCount(root);
         write(identity, source, model, "Turboism: Create Parameter Folder", () -> resolver.invoke(
@@ -244,6 +253,21 @@ final class EditorParameterStructureAccess {
             throw new IllegalStateException("Editor parameter folder children are unavailable.");
         }
         return children.size();
+    }
+
+    /**
+     * Returns the host id of the child the host appended last to {@code group} (the parameter the
+     * add-parameter-child undo envelope registered), or {@code null} when the tail is not a
+     * parameter source or the children are unavailable.
+     */
+    private Object lastChildId(final Object group) {
+        final Object raw = resolver.invoke("cubism.editor-model.parameter-group.children", group);
+        if (!(raw instanceof List<?> children) || children.isEmpty()) return null;
+        final Object last = children.get(children.size() - 1);
+        if (last == null || !resolver.isInstance("cubism.editor-model.parameter-source.class", last)) {
+            return null;
+        }
+        return resolver.invoke("cubism.editor-model.parameter-source.id", last);
     }
 
     private ParameterGroupId groupId(final Object group) {
