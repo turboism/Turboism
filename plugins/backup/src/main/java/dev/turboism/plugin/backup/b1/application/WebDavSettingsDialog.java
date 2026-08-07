@@ -8,6 +8,7 @@ import dev.turboism.sdk.plugin.PluginLogger;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
+import javax.swing.JComboBox;
 import javax.swing.JDialog;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -31,7 +32,8 @@ import java.util.Objects;
 /**
  * Swing settings dialog for the WebDAV backup endpoint (opened on the EDT).
  * Fields: enabled / url / username / password (password box) / remotePath /
- * verifyTls / retryMax / retryBaseDelayMs / timeoutSeconds.
+ * verifyTls / retryMax / retryBaseDelayMs / timeoutSeconds / remoteTrigger
+ * (SAVE_TRIGGERED default, AUTO_BACKUP_SYNC alternative).
  *
  * <p>Save persists through {@link WebDavSettingsBinding#update(WebDavConfig)}
  * (write path with readback confirmation); Cancel changes nothing; Test
@@ -89,7 +91,8 @@ public final class WebDavSettingsDialog {
         final boolean verifyTls,
         final int retryMax,
         final long retryBaseDelayMs,
-        final int timeoutSeconds
+        final int timeoutSeconds,
+        final WebDavConfig.RemoteTrigger remoteTrigger
     ) {
         final String resolvedPassword = isUnchangedPassword(password)
             ? current == null ? "" : current.password()
@@ -103,7 +106,8 @@ public final class WebDavSettingsDialog {
             verifyTls,
             retryMax,
             retryBaseDelayMs,
-            timeoutSeconds
+            timeoutSeconds,
+            remoteTrigger
         );
     }
 
@@ -146,6 +150,8 @@ public final class WebDavSettingsDialog {
             (int) WebDavSettingsBinding.DEFAULT_RETRY_BASE_DELAY_MS, 0, 60_000, 100));
         final JSpinner timeoutSeconds = new JSpinner(new SpinnerNumberModel(
             WebDavSettingsBinding.DEFAULT_TIMEOUT_SECONDS, 1, 300, 1));
+        final JComboBox<WebDavConfig.RemoteTrigger> remoteTrigger = new JComboBox<>(
+            WebDavConfig.RemoteTrigger.values());
         final JLabel status = new JLabel(" ");
         final JButton save = new JButton("保存");
         final JButton cancel = new JButton("取消");
@@ -161,7 +167,8 @@ public final class WebDavSettingsDialog {
             verifyTls.isSelected(),
             (Integer) retryMax.getValue(),
             (Integer) retryBaseDelayMs.getValue(),
-            (Integer) timeoutSeconds.getValue()
+            (Integer) timeoutSeconds.getValue(),
+            (WebDavConfig.RemoteTrigger) remoteTrigger.getSelectedItem()
         );
 
         binding.read().whenComplete((config, failure) -> {
@@ -177,6 +184,7 @@ public final class WebDavSettingsDialog {
             retryMax.setValue(config.retryMax());
             retryBaseDelayMs.setValue((int) config.retryBaseDelayMs());
             timeoutSeconds.setValue(config.timeoutSeconds());
+            remoteTrigger.setSelectedItem(config.remoteTrigger());
             password.setToolTipText("留空或保持占位符则沿用已保存的密码");
             final boolean cached = config.password() != null && !config.password().isEmpty();
             if (cached) {
@@ -221,6 +229,7 @@ public final class WebDavSettingsDialog {
         addRow(form, c, row++, new JLabel("重试次数"), retryMax);
         addRow(form, c, row++, new JLabel("重试基延迟(ms)"), retryBaseDelayMs);
         addRow(form, c, row++, new JLabel("超时(秒)"), timeoutSeconds);
+        addRow(form, c, row++, new JLabel("远程保存方式"), remoteTrigger);
         c.gridx = 0;
         c.gridwidth = 2;
         c.gridy = row;
