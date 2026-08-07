@@ -46,6 +46,49 @@ final class MeshMirrorNativeMethodTransformerTest {
         assertEquals(List.of("drawAxis"), bridgeCalls(drawTransformed));
     }
 
+    @Test
+    void transformedBytecodeRemainsJvmVerifiableWithFrames() throws Exception {
+        final MeshMirrorHostProfile profile = MeshMirrorHostProfile.reviewed52And53();
+        final MeshMirrorNativeMethodTransformer transformer =
+            new MeshMirrorNativeMethodTransformer(profile, null);
+
+        // A branching method forces stack-map frames; a frame-stale transform fails verification.
+        final byte[] meshTransformed = transformer.transform(
+            null, null, profile.meshEditorOwner(), null, null,
+            branchingFixture(profile.meshEditorOwner(), profile)
+        );
+
+        assertNotNull(meshTransformed);
+        final Class<?> loaded = new ClassLoader() {
+            Class<?> define() {
+                return defineClass(profile.meshEditorOwner().replace('/', '.'), meshTransformed, 0, meshTransformed.length);
+            }
+        }.define();
+        assertEquals(profile.meshEditorOwner().replace('/', '.'), loaded.getName());
+    }
+
+    private static byte[] branchingFixture(final String owner, final MeshMirrorHostProfile profile) {
+        final ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
+        writer.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, owner, null, "java/lang/Object", null);
+        // mirrorPointMethod: (GVector2)GVector2 with a branch -> frames in the method body.
+        final MethodVisitor point = writer.visitMethod(
+            Opcodes.ACC_PUBLIC, profile.mirrorPointMethod(), profile.mirrorPointDescriptor(), null, null);
+        point.visitCode();
+        final org.objectweb.asm.Label branch = new org.objectweb.asm.Label();
+        point.visitVarInsn(Opcodes.ALOAD, 1);
+        point.visitJumpInsn(Opcodes.IFNULL, branch);
+        point.visitInsn(Opcodes.ACONST_NULL);
+        point.visitInsn(Opcodes.ARETURN);
+        point.visitLabel(branch);
+        point.visitFrame(Opcodes.F_SAME, 0, null, 0, null);
+        point.visitInsn(Opcodes.ACONST_NULL);
+        point.visitInsn(Opcodes.ARETURN);
+        point.visitMaxs(1, 2);
+        point.visitEnd();
+        writer.visitEnd();
+        return writer.toByteArray();
+    }
+
     private static byte[] fixture(final String owner, final MeshMirrorHostProfile profile) {
         final ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
         writer.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, owner, null, "java/lang/Object", null);
