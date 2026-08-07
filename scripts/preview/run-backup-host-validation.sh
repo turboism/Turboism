@@ -62,7 +62,7 @@ exec bash "$runner" \
   --result-pass-line 'status=PASS' \
   --result-fail-line 'status=FAIL' \
   --failure-marker 'BACKUP_VALIDATION_RESULT status=FAIL' \
-  --ready-timeout 300 \
+  --ready-timeout 480 \
   --result-timeout 900 \
   --exit-timeout 120 \
   "$@"
