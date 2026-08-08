@@ -122,9 +122,9 @@ val devCheck by tasks.registering {
     dependsOn(
         productionClasses,
         checkPackageLayout,
-        checkModuleBoundariesSelfTest,
         "checkModuleBoundaries",
-        "checkSdkV2ExactApiCompatibility",
+        "checkSdkV3ExactApiCompatibility",
+        "checkSdkV3TierCompatibility",
         "validatePluginMeta"
     )
 }
@@ -308,6 +308,7 @@ tasks.register("checkRelease") {
         "checkIntegration",
         "checkSdkApiBaselineTool",
         "checkSdkApiReferenceBuilder",
+        "checkModuleBoundariesSelfTest",
         "checkSdkV2ExactApiCompatibility",
         "checkAsmSupplyChainAdmission",
         "checkMappingReviewWrapperArgs"
@@ -315,5 +316,5 @@ tasks.register("checkRelease") {
 }
 
 tasks.named("check") {
-    dependsOn(devCheck, "checkSdkV2ExactApiCompatibility")
+    dependsOn(devCheck)
 }
