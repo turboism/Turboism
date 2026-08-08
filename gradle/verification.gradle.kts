@@ -104,6 +104,14 @@ val checkPackageLayout by tasks.registering(Exec::class) {
     commandLine("python3", "scripts/test/check_package_layout.py", rootDir.absolutePath)
 }
 
+val checkModuleBoundariesSelfTest by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Runs negative fixtures for fail-closed module-boundary enforcement."
+    workingDir(rootDir)
+    inputs.files("gradle/module-boundaries.gradle.kts", "scripts/test/test_module_boundaries.py")
+    commandLine("python3", "scripts/test/test_module_boundaries.py")
+}
+
 val productionClasses = subprojects
     .filterNot { it.path == ":tests" }
     .map { "${it.path}:classes" }
@@ -114,7 +122,9 @@ val devCheck by tasks.registering {
     dependsOn(
         productionClasses,
         checkPackageLayout,
+        checkModuleBoundariesSelfTest,
         "checkModuleBoundaries",
+        "checkSdkV2ExactApiCompatibility",
         "validatePluginMeta"
     )
 }
@@ -296,11 +306,14 @@ tasks.register("checkRelease") {
     description = "Runs integration, supply-chain, API-tooling, and release-oriented verification."
     dependsOn(
         "checkIntegration",
+        "checkSdkApiBaselineTool",
+        "checkSdkApiReferenceBuilder",
+        "checkSdkV2ExactApiCompatibility",
         "checkAsmSupplyChainAdmission",
         "checkMappingReviewWrapperArgs"
     )
 }
 
 tasks.named("check") {
-    dependsOn(devCheck)
+    dependsOn(devCheck, "checkSdkV2ExactApiCompatibility")
 }
