@@ -31,6 +31,7 @@ public interface RecentPreviewContributionService {
         return Unavailable.INSTANCE;
     }
 
+        @PreviewApi
     enum Unavailable implements RecentPreviewContributionService {
         INSTANCE;
 

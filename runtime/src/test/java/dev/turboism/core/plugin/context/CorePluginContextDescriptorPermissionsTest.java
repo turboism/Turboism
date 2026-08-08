@@ -95,8 +95,8 @@ class CorePluginContextDescriptorPermissionsTest {
             "model-a", "Model A", List.of(), List.of(), List.of(), List.of()
         );
         final DocumentSnapshot document = new DocumentSnapshot(
-            "document-a", "Model A", DocumentKind.MODEL, "models/model-a.cmo3",
-            Optional.empty(), Optional.of("content-a"), Optional.of(modelSnapshot), Optional.empty()
+            "document-a", "Model A", "models/model-a.cmo3", Optional.empty(),
+            Optional.of(modelSnapshot), DocumentKind.MODEL, Optional.of("content-a"), Optional.empty()
         );
         final ProjectWorkspaceAdapter projectWorkspace = ProjectWorkspaceAdapter.Impl.connected(
             new ProjectWorkspaceAdapter.HostOperations() {
@@ -104,7 +104,7 @@ class CorePluginContextDescriptorPermissionsTest {
                 @Override public boolean supportsProjectWorkspaceRead() { return true; }
                 @Override public Optional<ProjectSnapshot> activeProject() {
                     return Optional.of(new ProjectSnapshot(
-                        "project-a", "Project A", Optional.empty(), List.of(), List.of(document)
+                        "project-a", "Project A", Optional.empty(), List.of(document), List.of()
                     ));
                 }
                 @Override public Optional<DocumentSnapshot> activeDocument() {

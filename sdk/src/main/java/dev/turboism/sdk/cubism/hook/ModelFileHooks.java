@@ -1,10 +1,12 @@
 package dev.turboism.sdk.cubism.hook;
 
+import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.ProjectContentSnapshot;
 import dev.turboism.sdk.cubism.ProjectFileOperation;
 import dev.turboism.sdk.cubism.ProjectFileOperationResult;
 
 /** Override-based lifecycle hooks for Cubism model file content. */
+@PreviewApi
 public interface ModelFileHooks {
 
     default void beforeCreateModel(final ProjectFileOperation operation) {
