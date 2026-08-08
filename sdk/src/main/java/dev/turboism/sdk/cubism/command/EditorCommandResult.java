@@ -16,6 +16,7 @@ public record EditorCommandResult(Status status, String commandId) {
         return status == Status.EXECUTED;
     }
 
+    @PreviewApi
     public enum Status {
         EXECUTED,
         UNAVAILABLE,
