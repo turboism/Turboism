@@ -7,6 +7,7 @@ import dev.turboism.adapter.cubism.mesh.AuthorizedMeshMirrorAxisService;
 import dev.turboism.adapter.cubism.mesh.RuntimeMeshMirrorAxisService;
 import dev.turboism.adapter.cubism.mesh.RuntimeMeshEditUiService;
 import dev.turboism.adapter.host.RuntimeHostAdapterAccess;
+import dev.turboism.adapter.host.HostSessionSnapshotSource;
 import dev.turboism.adapter.cubism.service.read.M12ReadSnapshotSource;
 import dev.turboism.config.RuntimePluginConfigRegistry;
 import dev.turboism.failure.RuntimeFailureSink;
@@ -278,7 +279,8 @@ public final class CorePluginContext implements PluginContext {
             userFiles instanceof dev.turboism.adapter.cubism.command.EditorFileCommandResolver resolver
                 ? resolver
                 : dev.turboism.adapter.cubism.command.EditorFileCommandResolver.unavailable(),
-            hostAccess.adapters().autoBackup()
+            hostAccess.adapters().autoBackup(),
+            HostSessionSnapshotSource.forSession(hostAccess.adapters().projectWorkspace(), hostAccess.modelAccess())
         );
     }
 
