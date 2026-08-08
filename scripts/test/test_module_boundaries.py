@@ -34,7 +34,7 @@ def run_fixture(name: str, sdk_dependency: str = "", plugin_dependency: str = ""
             encoding="utf-8",
         )
         (root / "build.gradle.kts").write_text(
-            'tasks.register("checkSdkV2ExactApiCompatibility")\n'
+            'tasks.register("checkSdkV3ExactApiCompatibility")\n'
             f'apply(from = "{BOUNDARY_SCRIPT}")\n',
             encoding="utf-8",
         )
