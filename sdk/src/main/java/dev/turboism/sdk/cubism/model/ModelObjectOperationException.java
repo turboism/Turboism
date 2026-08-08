@@ -8,6 +8,7 @@ import java.util.Objects;
 @PreviewApi
 public final class ModelObjectOperationException extends RuntimeException {
 
+    @PreviewApi
     public enum Code {
         UNAVAILABLE,
         NOT_FOUND,
