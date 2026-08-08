@@ -112,6 +112,62 @@ val checkModuleBoundariesSelfTest by tasks.registering(Exec::class) {
     commandLine("python3", "scripts/test/test_module_boundaries.py")
 }
 
+val checkDuplicateJavaImports by tasks.registering {
+    group = "verification"
+    description = "Rejects duplicate Java import declarations within one source file."
+    doLast {
+        val importPattern = Regex("""^\s*import\s+(static\s+)?([\w.${'$'}*]+)\s*;\s*${'$'}""")
+        val duplicates = mutableListOf<String>()
+        fileTree(rootDir) {
+            include("**/src/**/*.java")
+        }.files
+            .sortedBy { it.relativeTo(rootDir).invariantSeparatorsPath }
+            .forEach { source ->
+                val relativePath = source.relativeTo(rootDir).invariantSeparatorsPath
+                val firstImportLines = mutableMapOf<String, Int>()
+                var importsOpen = true
+                var blockComment = false
+                source.useLines { lines ->
+                    lines.forEachIndexed { index, line ->
+                        if (!importsOpen) {
+                            return@forEachIndexed
+                        }
+                        val trimmed = line.trim()
+                        if (blockComment) {
+                            if (trimmed.contains("*/")) {
+                                blockComment = false
+                            }
+                            return@forEachIndexed
+                        }
+                        if (trimmed.isEmpty() || trimmed.startsWith("//")) {
+                            return@forEachIndexed
+                        }
+                        if (trimmed.startsWith("/*")) {
+                            blockComment = !trimmed.contains("*/")
+                            return@forEachIndexed
+                        }
+                        val match = importPattern.matchEntire(line)
+                        if (match == null) {
+                            if (!trimmed.startsWith("package ") && !trimmed.startsWith("@")) {
+                                importsOpen = false
+                            }
+                            return@forEachIndexed
+                        }
+                        val declaration = (match.groupValues[1] + match.groupValues[2]).trim()
+                        val lineNumber = index + 1
+                        val firstLine = firstImportLines.putIfAbsent(declaration, lineNumber)
+                        if (firstLine != null) {
+                            duplicates += "$relativePath:$lineNumber repeats import $declaration; (first at line $firstLine)"
+                        }
+                    }
+                }
+            }
+        if (duplicates.isNotEmpty()) {
+            throw GradleException(duplicates.sorted().joinToString("\n", prefix = "Duplicate Java import declarations:\n"))
+        }
+    }
+}
+
 val productionClasses = subprojects
     .filterNot { it.path == ":tests" }
     .map { "${it.path}:classes" }
@@ -121,6 +177,7 @@ val devCheck by tasks.registering {
     description = "Fast daily production compilation and permanent-boundary verification; no broad test suites."
     dependsOn(
         productionClasses,
+        checkDuplicateJavaImports,
         checkPackageLayout,
         "checkModuleBoundaries",
         "checkSdkV4ExactApiCompatibility",
