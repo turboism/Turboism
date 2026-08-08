@@ -2,7 +2,6 @@ package dev.turboism.preview;
 
 import dev.turboism.adapter.cubism.service.read.M12ReadSnapshotSource;
 import dev.turboism.adapter.host.RuntimeHostAdapterAccess;
-import dev.turboism.adapter.host.HostSessionSnapshotSource;
 import dev.turboism.cleanup.CleanupEvidenceCollector;
 import dev.turboism.config.RuntimeTypedPluginConfigRegistry;
 import dev.turboism.core.plugin.context.CorePluginContext;
@@ -89,7 +88,7 @@ final class PreviewPluginServicesFactory {
         return new CorePluginContext.Dependencies(
             descriptor, new PreviewPluginLogger(log, descriptor.id()), paths, uiScheduler, scheduler,
             new PreviewDiagnosticReport(), scope,
-            HostSessionSnapshotSource.forSession(hostAccess.adapters().projectWorkspace(), hostAccess.modelAccess()),
+            EmptyHostSnapshotSource.INSTANCE,
             M12ReadSnapshotSource.EMPTY, new PreviewUiHostStateSource(paths),
             event -> log.debug(descriptor.id(), event.toString()), Clock.systemUTC(), failureCollector
         );
