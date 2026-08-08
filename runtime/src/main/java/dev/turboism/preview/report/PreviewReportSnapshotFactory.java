@@ -31,7 +31,12 @@ public final class PreviewReportSnapshotFactory {
     );
     private static final String UNMAPPED_CAPABILITY_OPERATION = "unmapped.capability";
     private static final Map<String, List<CapabilityBinding>> CAPABILITY_BINDINGS = Map.ofEntries(
-        binding("cubism.project.read", "cubismRead.activeProject", "turboism.cubism.project.read"),
+        bindings(
+            "cubism.project.read",
+            binding("cubismRead.activeProject", "turboism.cubism.project.read"),
+            binding("activeProject", "turboism.cubism.project.read"),
+            binding("activeProjectContent", "turboism.cubism.project.read")
+        ),
         binding("cubism.workspace.read", "cubismRead.workspace", "turboism.cubism.project.read"),
         binding("cubism.mesh.read", "cubismRead.meshes", "turboism.cubism.model.read"),
         binding("cubism.deformer.read", "cubismRead.deformers", "turboism.cubism.model.read"),
@@ -64,6 +69,10 @@ public final class PreviewReportSnapshotFactory {
             "cubism.model-tree.read",
             binding("cubismRead.activeDocument", "turboism.cubism.model.read"),
             binding("cubismRead.activeModel", "turboism.cubism.model.read"),
+            binding("activeDocument", "turboism.cubism.model.read"),
+            binding("activeModel", "turboism.cubism.model.read"),
+            binding("activeAnimation", "turboism.cubism.model.read"),
+            binding("activeImageDocument", "turboism.cubism.model.read"),
             binding("cubismRead.modelObjects", "turboism.cubism.model.read"),
             binding("modelHierarchyQuery.currentHierarchy", "turboism.cubism.model.read"),
             binding("modelHierarchyQuery.childrenOf", "turboism.cubism.model.read"),

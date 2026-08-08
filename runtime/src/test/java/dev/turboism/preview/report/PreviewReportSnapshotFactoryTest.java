@@ -307,6 +307,51 @@ class PreviewReportSnapshotFactoryTest {
             Map.of(
                 "cubismRead.activeDocument", "turboism.cubism.model.read",
                 "cubismRead.activeModel", "turboism.cubism.model.read",
+                "activeDocument", "turboism.cubism.model.read",
+                "activeModel", "turboism.cubism.model.read",
+                "activeAnimation", "turboism.cubism.model.read",
+                "activeImageDocument", "turboism.cubism.model.read",
+                "cubismRead.modelObjects", "turboism.cubism.model.read",
+                "modelHierarchyQuery.currentHierarchy", "turboism.cubism.model.read",
+                "modelHierarchyQuery.childrenOf", "turboism.cubism.model.read",
+                "modelHierarchyQuery.findNode", "turboism.cubism.model.read"
+            )
+        );
+    }
+
+    @Test
+    void canonicalFacadeRoutesAreCataloguedAlongsideDeprecatedOverlapRoutes() throws Exception {
+        final LocalPluginRuntime.LoadedPluginSummary plugin = plugin(
+            "dev.turboism.plugin.catalog",
+            List.of("cubism.project.read", "cubism.model-tree.read"),
+            List.of("turboism.cubism.project.read", "turboism.cubism.model.read")
+        );
+
+        final JsonNode capabilities = capabilityReport(List.of(plugin), HostSession.State.SAFE_MODE, false)
+            .path("payload")
+            .path("capabilities");
+
+        assertCapabilityBindings(
+            capabilities,
+            "dev.turboism.plugin.catalog",
+            "cubism.project.read",
+            Map.of(
+                "cubismRead.activeProject", "turboism.cubism.project.read",
+                "activeProject", "turboism.cubism.project.read",
+                "activeProjectContent", "turboism.cubism.project.read"
+            )
+        );
+        assertCapabilityBindings(
+            capabilities,
+            "dev.turboism.plugin.catalog",
+            "cubism.model-tree.read",
+            Map.of(
+                "cubismRead.activeDocument", "turboism.cubism.model.read",
+                "cubismRead.activeModel", "turboism.cubism.model.read",
+                "activeDocument", "turboism.cubism.model.read",
+                "activeModel", "turboism.cubism.model.read",
+                "activeAnimation", "turboism.cubism.model.read",
+                "activeImageDocument", "turboism.cubism.model.read",
                 "cubismRead.modelObjects", "turboism.cubism.model.read",
                 "modelHierarchyQuery.currentHierarchy", "turboism.cubism.model.read",
                 "modelHierarchyQuery.childrenOf", "turboism.cubism.model.read",
