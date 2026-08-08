@@ -30,8 +30,39 @@ tasks.processResources {
     }
 }
 
+val performanceProbeCarrierJar by tasks.registering(Jar::class) {
+    archiveFileName.set("performance-probe-carrier.jar")
+    destinationDirectory.set(layout.buildDirectory.dir("performance-probe-carrier"))
+    from(sourceSets.main.get().output) {
+        include("dev/turboism/bootstrap/carrier/**")
+    }
+}
+
+val performanceProbeAgentJar by tasks.registering(Jar::class) {
+    dependsOn(":runtime:jar", ":sdk:jar", performanceProbeCarrierJar)
+    archiveBaseName.set("turboism-performance-probe-agent")
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    manifest {
+        attributes(
+            "Premain-Class" to "dev.turboism.bootstrap.TurboismAgent",
+            "Agent-Class" to "dev.turboism.bootstrap.TurboismAgent",
+            "Can-Redefine-Classes" to "false",
+            "Can-Retransform-Classes" to "true",
+            "Implementation-Title" to "Turboism Validation Performance Probe Agent",
+            "Implementation-Version" to project.version
+        )
+    }
+    from(sourceSets.main.get().output)
+    from({
+        configurations.runtimeClasspath.get().map { dependency ->
+            if (dependency.isDirectory) dependency else zipTree(dependency)
+        }
+    })
+    exclude("META-INF/*.SF", "META-INF/*.RSA", "META-INF/*.DSA", "module-info.class")
+}
+
 tasks.jar {
-    dependsOn(":runtime:jar", ":sdk:jar")
+    dependsOn(":runtime:jar", ":sdk:jar", performanceProbeCarrierJar)
     archiveBaseName.set("turboism-agent")
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     manifest {

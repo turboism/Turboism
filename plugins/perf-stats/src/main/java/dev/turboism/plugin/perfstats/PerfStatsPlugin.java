@@ -1,0 +1,278 @@
+package dev.turboism.plugin.perfstats;
+
+import dev.turboism.sdk.i18n.PluginLocalization;
+import dev.turboism.sdk.action.ActionRegistry;
+import dev.turboism.sdk.performance.PerformanceProbeService;
+import dev.turboism.sdk.performance.PerformanceSnapshot;
+import dev.turboism.sdk.plugin.PluginContext;
+import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.sdk.plugin.TurboismPlugin;
+import dev.turboism.sdk.ui.EmbeddedPanelContribution;
+import dev.turboism.sdk.ui.PanelView;
+import dev.turboism.sdk.menu.MenuRegistry;
+
+import javax.swing.SwingUtilities;
+import java.awt.GraphicsEnvironment;
+import java.time.Duration;
+import java.util.Map;
+import java.util.function.Consumer;
+import java.util.Objects;
+import java.util.concurrent.atomic.AtomicReference;
+
+/**
+ * Performance Statistics plugin: live CPU / FPS / JVM memory charts in an
+ * embedded panel (via {@code PanelView.Chart}, values injected by the runtime)
+ * and a standalone Swing window opened on demand from the Turboism top-level
+ * menu (Performance Monitor). Enable starts the sampling registration, which
+ * mounts the FPS counting hook and the bytecode instrumentation, and registers
+ * the window action and menu item; it never opens the window itself. Disable
+ * closes the sampling registration (stopping sampling, restoring the
+ * instrumented host bytecode, and verifying the restoration) and disposes the
+ * window. The runtime closes the plugin DisposableScope after disable or
+ * shutdown, which unregisters the action and the menu contribution.
+ */
+public final class PerfStatsPlugin implements TurboismPlugin {
+
+    static final Duration SAMPLE_INTERVAL = Duration.ofSeconds(1);
+    static final int WINDOW_POINTS = 120;
+
+    private static final String PANEL_ID = "perf-stats.chart";
+    private static final String PANEL_TITLE = "Performance";
+    private static final String WINDOW_TITLE = "Performance Statistics";
+    private static final String CHART_TITLE_FPS = "Viewport Render FPS";
+    private static final String SERIES_FPS = "Viewport Render FPS";
+    private static final String SERIES_CPU = "CPU %";
+    private static final String SERIES_HEAP = "JVM Heap";
+    private static final String SERIES_NONHEAP = "JVM Non-Heap";
+    private static final String SERIES_GC = "GC Pause";
+    private static final String PANEL_PLACEMENT = "side";
+    private static final int PANEL_PRIORITY = 50;
+
+    private static final String WINDOW_ACTION_ID = "perf-stats.window.show";
+    private static final String WINDOW_ACTION_LABEL = "Performance Monitor";
+    private static final String MENU_ITEM_KEY = "menu.performance-monitor";
+    private static final String MENU_ROOT = "Turboism";
+    private static final int MENU_ORDER = 20;
+
+    private final Object lifecycleLock = new Object();
+    private final AtomicReference<PerfStatsWindow> window = new AtomicReference<>();
+    private final ChartStore store = new ChartStore(WINDOW_POINTS * 2);
+    private PluginContext context;
+    private Registration sampling;
+    private boolean initialized;
+    private boolean enabled;
+
+    public PerfStatsPlugin() {
+    }
+
+    @Override
+    public void init(final PluginContext context) {
+        this.context = Objects.requireNonNull(context, "context");
+        synchronized (lifecycleLock) {
+            initialized = true;
+        }
+        final Registration panel = context.uiHost().contributeEmbeddedPanel(embeddedPanel());
+        context.disposableScope().register(panel);
+        context.disposableScope().register(this::stopSampling);
+        context.disposableScope().register(this::disposeWindow);
+        context.logger().info("Performance Statistics initialized");
+    }
+
+    private EmbeddedPanelContribution embeddedPanel() {
+        return new EmbeddedPanelContribution(
+            PANEL_ID,
+            text("panel.title", PANEL_TITLE),
+            PANEL_PLACEMENT,
+            PANEL_PRIORITY,
+            PanelView.column(
+                PanelView.chart(
+                    "cpu",
+                    text("chart.cpu.title", "CPU"),
+                    PanelView.series(text("series.cpu", SERIES_CPU), WINDOW_POINTS, "%", "0.0")
+                ),
+                PanelView.chart(
+                    "fps",
+                    text("chart.fps.title", CHART_TITLE_FPS),
+                    PanelView.series(text("series.fps", SERIES_FPS), WINDOW_POINTS, "fps", "0.0")
+                ),
+                PanelView.chart(
+                    "heap",
+                    text("chart.heap.title", SERIES_HEAP),
+                    PanelView.series(text("series.heap", SERIES_HEAP), WINDOW_POINTS, "MiB", "0.0")
+                ),
+                PanelView.chart(
+                    "nonheap",
+                    text("chart.nonheap.title", SERIES_NONHEAP),
+                    PanelView.series(text("series.nonheap", SERIES_NONHEAP), WINDOW_POINTS, "MiB", "0.0")
+                ),
+                PanelView.chart(
+                    "gc",
+                    text("chart.gc.title", SERIES_GC),
+                    PanelView.series(text("series.gc", SERIES_GC), WINDOW_POINTS, "ms", "0.0")
+                )
+            )
+        );
+    }
+
+    /**
+     * Localized text for one catalog key with an explicit English fallback when
+     * the localization service is missing or unusable; never throws.
+     */
+    private String text(final String key, final String fallback) {
+        try {
+            final PluginLocalization localization = context.localization();
+            if (localization == null) {
+                return fallback;
+            }
+            final String value = localization.text(key);
+            return value == null || value.isBlank() ? fallback : value;
+        } catch (RuntimeException unavailable) {
+            return fallback;
+        }
+    }
+
+    /** Row labels for the standalone window; the same series texts as the embedded panel. */
+    Map<String, String> rowLabels() {
+        return Map.of(
+            ChartStore.KEY_CPU, text("series.cpu", SERIES_CPU),
+            ChartStore.KEY_FPS, text("series.fps", SERIES_FPS),
+            ChartStore.KEY_HEAP, text("series.heap", SERIES_HEAP),
+            ChartStore.KEY_NONHEAP, text("series.nonheap", SERIES_NONHEAP),
+            ChartStore.KEY_GC, text("series.gc", SERIES_GC)
+        );
+    }
+
+    @Override
+    public void enable() {
+        synchronized (lifecycleLock) {
+            if (!initialized) {
+                throw new IllegalStateException("Performance Statistics must be initialized before enable.");
+            }
+            if (enabled) {
+                return;
+            }
+        }
+        final PerformanceProbeService stats = context.performanceStats();
+        sampling = stats.sample(SAMPLE_INTERVAL, this::onSnapshot);
+        synchronized (lifecycleLock) {
+            enabled = true;
+        }
+        final Registration action = context.actions().register(WINDOW_ACTION_ID, windowAction());
+        context.disposableScope().register(action);
+        final Registration menu = context.menus().contribute(windowMenuContribution());
+        context.disposableScope().register(menu);
+        context.logger().info("Performance Statistics enabled");
+    }
+
+    @Override
+    public void disable() {
+        deactivate();
+    }
+
+    @Override
+    public void shutdown() {
+        deactivate();
+    }
+
+    private void deactivate() {
+        synchronized (lifecycleLock) {
+            if (!initialized) {
+                return;
+            }
+            enabled = false;
+        }
+        stopSampling();
+        disposeWindow();
+    }
+
+    private void stopSampling() {
+        final Registration active = sampling;
+        sampling = null;
+        if (active != null) {
+            active.close();
+        }
+    }
+
+    private void disposeWindow() {
+        final PerfStatsWindow active = window.getAndSet(null);
+        if (active != null) {
+            SwingUtilities.invokeLater(active::dispose);
+        }
+    }
+
+    private void onSnapshot(final PerformanceSnapshot snapshot) {
+        store.append(snapshot);
+    }
+
+    private void openWindow() {
+        if (!enabled) {
+            return;
+        }
+        final PerfStatsWindow existing = window.get();
+        if (existing != null) {
+            existing.showAndFront();
+            return;
+        }
+        final PerfStatsWindow created = new PerfStatsWindow(
+            text("window.title", WINDOW_TITLE),
+            rowLabels(),
+            store
+        );
+        if (window.compareAndSet(null, created)) {
+            created.start();
+            created.showAndFront();
+        } else {
+            created.dispose();
+        }
+    }
+
+    private ActionRegistry.Action windowAction() {
+        return new ActionRegistry.Action() {
+            @Override
+            public String id() {
+                return WINDOW_ACTION_ID;
+            }
+
+            @Override
+            public String label() {
+                return text(MENU_ITEM_KEY, WINDOW_ACTION_LABEL);
+            }
+
+            @Override
+            public Consumer<ActionRegistry.ActionContext> handler() {
+                return ignored -> showWindow();
+            }
+        };
+    }
+
+    private MenuRegistry.MenuContribution windowMenuContribution() {
+        return new MenuRegistry.MenuContribution() {
+            @Override
+            public String menuPath() {
+                return MENU_ROOT + "/" + text(MENU_ITEM_KEY, WINDOW_ACTION_LABEL);
+            }
+
+            @Override
+            public String actionId() {
+                return WINDOW_ACTION_ID;
+            }
+
+            @Override
+            public int order() {
+                return MENU_ORDER;
+            }
+        };
+    }
+
+    private void showWindow() {
+        if (isHeadless()) {
+            context.logger().warn("Performance Statistics window cannot open because the JVM is headless");
+            return;
+        }
+        SwingUtilities.invokeLater(this::openWindow);
+    }
+
+    private static boolean isHeadless() {
+        return GraphicsEnvironment.isHeadless();
+    }
+}
