@@ -1,6 +1,5 @@
 package dev.turboism.adapter.cubism.lifecycle;
 
-import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.sdk.cubism.hook.PartHooks;
 import dev.turboism.sdk.cubism.model.Part;
@@ -10,10 +9,7 @@ import dev.turboism.sdk.plugin.PluginLogger;
 import java.time.Clock;
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 /** Runtime-owned lifecycle coordinator for the semantic Part opacity operation. */
@@ -22,9 +18,9 @@ public final class PartLifecycleCoordinator implements AutoCloseable {
     public static final String OPERATION_ID = "cubism.model.part.set-opacity";
     public static final String NAME_OPERATION_ID = "cubism.model.part.set-name";
 
-    private final CopyOnWriteArrayList<PluginHooks> plugins = new CopyOnWriteArrayList<>();
-    private final PluginWorkExecutorRegistry executors;
-    private final CopyOnWriteArrayList<CompletionStage<?>> pending = new CopyOnWriteArrayList<>();
+    private final CopyOnWriteArrayList<Registration> plugins = new CopyOnWriteArrayList<>();
+    private final LifecycleCallbackExecutor callbacks;
+    private final Object registrationLock = new Object();
     private final ThreadLocal<Boolean> partWriteActive = ThreadLocal.withInitial(() -> false);
     private final ThreadLocal<Boolean> partNameWriteActive = ThreadLocal.withInitial(() -> false);
 
@@ -33,19 +29,50 @@ public final class PartLifecycleCoordinator implements AutoCloseable {
     }
 
     public PartLifecycleCoordinator(final PluginWorkExecutorRegistry executors) {
-        this.executors = Objects.requireNonNull(executors, "executors");
+        this.callbacks = new LifecycleCallbackExecutor("Part", executors);
     }
 
     public void register(final PluginHooks plugin) {
         final PluginHooks value = Objects.requireNonNull(plugin, "plugin");
-        unregister(value.descriptor().id());
-        plugins.add(value);
+        final Object token = new Object();
+        synchronized (registrationLock) {
+            plugins.removeIf(registration -> registration.plugin().descriptor().id().equals(value.descriptor().id()));
+            callbacks.shutdown(value.descriptor().id());
+            plugins.add(new Registration(token, value));
+        }
+    }
+
+    void register(final Object token, final PluginHooks plugin) {
+        synchronized (registrationLock) {
+            plugins.add(new Registration(
+                Objects.requireNonNull(token, "token"),
+                Objects.requireNonNull(plugin, "plugin")
+            ));
+        }
     }
 
     public void unregister(final String pluginId) {
         final String id = requireText(pluginId, "pluginId");
-        plugins.removeIf(plugin -> plugin.descriptor().id().equals(id));
-        executors.shutdown(id);
+        synchronized (registrationLock) {
+            plugins.removeIf(registration -> registration.plugin().descriptor().id().equals(id));
+            callbacks.shutdown(id);
+        }
+    }
+
+    void unregister(final String pluginId, final Object token) {
+        final String id = requireText(pluginId, "pluginId");
+        final Object generation = Objects.requireNonNull(token, "token");
+        synchronized (registrationLock) {
+            final boolean removed = plugins.removeIf(registration ->
+                registration.token() == generation
+                    && registration.plugin().descriptor().id().equals(id)
+            );
+            if (removed && plugins.stream().noneMatch(registration ->
+                registration.plugin().descriptor().id().equals(id)
+            )) {
+                callbacks.shutdown(id);
+            }
+        }
     }
 
     public void setOpacity(
@@ -90,7 +117,8 @@ public final class PartLifecycleCoordinator implements AutoCloseable {
         final Consumer<Float> nativeOperation
     ) {
         float effectiveOpacity = requestedOpacity;
-        for (PluginHooks plugin : plugins) {
+        for (Registration registration : plugins) {
+            final PluginHooks plugin = registration.plugin();
             if (!plugin.interceptAllowed()) continue;
             for (PartHooks hook : plugin.entrypoints()) {
                 try {
@@ -120,7 +148,8 @@ public final class PartLifecycleCoordinator implements AutoCloseable {
         final Consumer<String> nativeOperation
     ) {
         String effectiveName = requireName(requestedName);
-        for (PluginHooks plugin : plugins) {
+        for (Registration registration : plugins) {
+            final PluginHooks plugin = registration.plugin();
             if (!plugin.interceptAllowed()) continue;
             for (PartHooks hook : plugin.entrypoints()) {
                 try {
@@ -142,10 +171,11 @@ public final class PartLifecycleCoordinator implements AutoCloseable {
         final float finalOpacity
     ) {
         final boolean changed = Float.compare(oldOpacity, finalOpacity) != 0;
-        for (PluginHooks plugin : plugins) {
+        for (Registration registration : plugins) {
+            final PluginHooks plugin = registration.plugin();
             if (!plugin.observeAllowed()) continue;
             final List<? extends PartHooks> entrypoints = plugin.entrypoints();
-            submit(plugin, () -> {
+            submit(registration, () -> {
                 for (PartHooks hook : entrypoints) {
                     if (changed) {
                         try {
@@ -170,10 +200,11 @@ public final class PartLifecycleCoordinator implements AutoCloseable {
         final String finalName
     ) {
         final boolean changed = !oldName.equals(finalName);
-        for (PluginHooks plugin : plugins) {
+        for (Registration registration : plugins) {
+            final PluginHooks plugin = registration.plugin();
             if (!plugin.observeAllowed()) continue;
             final List<? extends PartHooks> entrypoints = plugin.entrypoints();
-            submit(plugin, NAME_OPERATION_ID, () -> {
+            submit(registration, NAME_OPERATION_ID, () -> {
                 for (PartHooks hook : entrypoints) {
                     if (changed) {
                         try {
@@ -194,41 +225,38 @@ public final class PartLifecycleCoordinator implements AutoCloseable {
 
     /** Waits for callbacks already accepted by the bounded plugin executors. */
     public void awaitIdle() {
-        final CompletionStage<?>[] snapshot = pending.toArray(CompletionStage[]::new);
-        try {
-            CompletableFuture.allOf(java.util.Arrays.stream(snapshot)
-                .map(CompletionStage::toCompletableFuture)
-                .toArray(CompletableFuture[]::new))
-                .get(2, TimeUnit.SECONDS);
-            pending.removeAll(java.util.List.of(snapshot));
-        } catch (Exception failure) {
-            throw new IllegalStateException("Part lifecycle callbacks did not quiesce.", failure);
-        }
+        callbacks.awaitIdle();
     }
 
     @Override
     public void close() {
-        plugins.clear();
-        executors.shutdownAll();
+        synchronized (registrationLock) {
+            plugins.clear();
+            callbacks.close();
+        }
     }
 
-    private void submit(final PluginHooks plugin, final Runnable callback) {
-        submit(plugin, OPERATION_ID, callback);
+    private void submit(final Registration registration, final Runnable callback) {
+        submit(registration, OPERATION_ID, callback);
     }
 
-    private void submit(final PluginHooks plugin, final String operationId, final Runnable callback) {
-        final var submission = executors.get(plugin.descriptor().id())
-            .submit(task(plugin.descriptor().id(), operationId), callback);
-        if (submission.accepted()) pending.add(submission.completion());
+    private void submit(
+        final Registration registration,
+        final String operationId,
+        final Runnable callback
+    ) {
+        synchronized (registrationLock) {
+            if (!plugins.contains(registration)) {
+                return;
+            }
+            callbacks.submit(
+                registration.plugin().descriptor().id(),
+                operationId,
+                callback
+            );
+        }
     }
 
-    private static PluginTask task(final String pluginId) {
-        return task(pluginId, OPERATION_ID);
-    }
-
-    private static PluginTask task(final String pluginId, final String operationId) {
-        return new PluginTask("event.subscribe", pluginId, operationId, "none");
-    }
 
     private static void logHookFailure(
         final PluginHooks plugin,
@@ -241,6 +269,8 @@ public final class PartLifecycleCoordinator implements AutoCloseable {
             // Hook and diagnostic failures must not escape into the Cubism operation.
         }
     }
+
+    private record Registration(Object token, PluginHooks plugin) { }
 
     private static String requireText(final String value, final String name) {
         Objects.requireNonNull(value, name);
