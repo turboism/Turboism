@@ -1,0 +1,29 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 2,
+  "id": "dev.turboism.validation.separatesavepath",
+  "name": "Separate Save Path Host Validation Probe",
+  "version": "0.0.0",
+  "description": "Task-local probe for the separate export-save-directory capability: verifies the FileChooserHistoryService wiring, set/get round-trip, config.json persistence and the exportSeparationEnabled switch on an exact Cubism host.",
+  "entrypoints": [
+    "dev.turboism.validation.separatesavepath.SeparateSavePathHostValidationPlugin"
+  ],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    { "name": "Turboism Validation" }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": []
+  },
+  "dependencies": [],
+  "permissions": [],
+  "capabilities": [],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "none"
+  }
+}

@@ -51,6 +51,11 @@ class VerifiedEditorStartupResolverFactoriesTest {
                     record("5.2", "ui-top-menu"), artifact, loader
                 )
             );
+            assertThrows(IllegalArgumentException.class, () ->
+                new VerifiedBoundingBoxOverlayButtonResolverFactory().create(
+                    record("5.2", "ui-bounding-box-overlay"), artifact, loader
+                )
+            );
         }
     }
 
@@ -99,12 +104,27 @@ class VerifiedEditorStartupResolverFactoriesTest {
                     record(profile, "ui-top-menu"), artifact, loader
                 ).cubismVersion()
             );
+            final StaticVerificationReport overlayReport = new StaticVerificationCli().verify(
+                record(profile, "ui-bounding-box-overlay"),
+                artifact
+            );
+            assertEquals(
+                true,
+                overlayReport.allSelectorsVerified(),
+                () -> overlayReport.results().toString()
+            );
+            assertEquals(
+                profile.equals("5.2") ? "5.2.0" : exactVersion,
+                new VerifiedBoundingBoxOverlayButtonResolverFactory().create(
+                    record(profile, "ui-bounding-box-overlay"), artifact, loader
+                ).cubismVersion()
+            );
         }
     }
 
     private static Path record(final String profile, final String slice) {
         return PROJECT_ROOT.resolve(Path.of(
-            "docs", "migration", "verification", "static",
+            "cubism-ref", "verification",
             "cubism-" + profile + '-' + slice + ".json"
         ));
     }

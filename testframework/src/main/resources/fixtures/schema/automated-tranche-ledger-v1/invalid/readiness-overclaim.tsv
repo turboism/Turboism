@@ -1,2 +1,0 @@
-workId	entityType	executionClass	workStatus	evidenceLevel	readinessCeiling	boardRowIds	capabilityIds	adapterSliceIds	pluginIds	evidenceRefs	blockers	nextSlice	notes
-fixture.phase4	BOUNDED_SLICE	AUTO_NOW	COMPLETE	NONE	BUILD_GATED					docs/schema/automated-tranche-ledger-v1.md		fixture.phase5	Invalid readiness claim.
