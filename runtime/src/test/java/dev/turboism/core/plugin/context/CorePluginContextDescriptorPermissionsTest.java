@@ -457,7 +457,7 @@ class CorePluginContextDescriptorPermissionsTest {
         Consumer<CubismFacadeAuditEvent> auditSink,
         RuntimeHostAdapters adapters
     ) {
-        return new CorePluginContext(dependencies(dataDir, descriptor, auditSink), adapters);
+        return new CorePluginContext(dependencies(dataDir, descriptor, auditSink, facadeSource(adapters)), adapters);
     }
 
     private static CorePluginContext context(
@@ -471,7 +471,7 @@ class CorePluginContextDescriptorPermissionsTest {
         UserFileAccessService userFiles
     ) {
         return new CorePluginContext(
-            dependencies(dataDir, descriptor, auditSink),
+            dependencies(dataDir, descriptor, auditSink, facadeSource(adapters)),
             adapters,
             localization,
             tasks,
@@ -485,6 +485,15 @@ class CorePluginContextDescriptorPermissionsTest {
         PluginDescriptor descriptor,
         Consumer<CubismFacadeAuditEvent> auditSink
     ) {
+        return dependencies(dataDir, descriptor, auditSink, noopHostSnapshotSource());
+    }
+
+    private static CorePluginContext.Dependencies dependencies(
+        Path dataDir,
+        PluginDescriptor descriptor,
+        Consumer<CubismFacadeAuditEvent> auditSink,
+        HostSnapshotSource hostSnapshotSource
+    ) {
         return new CorePluginContext.Dependencies(
             descriptor,
             logger(),
@@ -493,7 +502,7 @@ class CorePluginContextDescriptorPermissionsTest {
             scheduler(),
             diagnostics(),
             new DisposableScope(),
-            noopHostSnapshotSource(),
+            hostSnapshotSource,
             auditSink,
             CLOCK
         );
@@ -693,6 +702,31 @@ class CorePluginContextDescriptorPermissionsTest {
             @Override public HostSelection selection() { return new HostSelection(List.of(), Optional.empty(), Optional.empty(), Optional.empty()); }
             @Override public boolean isHostPresent() { return false; }
             @Override public long invalidationToken() { return 0; }
+        };
+    }
+
+    private static HostSnapshotSource facadeSource(final RuntimeHostAdapters adapters) {
+        return new HostSnapshotSource() {
+            @Override public Optional<HostSnapshotSource.HostProject> activeProject() {
+                final ProjectWorkspaceAdapter.AdapterResult<Optional<ProjectSnapshot>> result =
+                    adapters.projectWorkspace().activeProject();
+                if (!result.isAvailable()) return Optional.empty();
+                return result.value().orElse(Optional.empty()).map(project -> new HostSnapshotSource.HostProject(
+                    project.projectId(),
+                    project.name(),
+                    project.projectDirectory(),
+                    List.of(),
+                    List.of()
+                ));
+            }
+
+            @Override public Optional<HostSnapshotSource.HostDocument> activeDocument() { return Optional.empty(); }
+            @Override public Optional<HostSnapshotSource.HostModel> activeModel() { return Optional.empty(); }
+            @Override public HostSnapshotSource.HostSelection selection() {
+                return new HostSnapshotSource.HostSelection(List.of(), Optional.empty(), Optional.empty(), Optional.empty());
+            }
+            @Override public boolean isHostPresent() { return activeProject().isPresent(); }
+            @Override public long invalidationToken() { return 0L; }
         };
     }
 
