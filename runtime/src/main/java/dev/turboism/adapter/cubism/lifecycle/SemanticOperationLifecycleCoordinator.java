@@ -1,6 +1,5 @@
 package dev.turboism.adapter.cubism.lifecycle;
 
-import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.sdk.cubism.event.CubismOperation;
 import dev.turboism.sdk.cubism.event.CubismOperationEvent;
@@ -14,10 +13,7 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
@@ -25,8 +21,8 @@ import java.util.function.Supplier;
 public final class SemanticOperationLifecycleCoordinator implements AutoCloseable {
 
     private final CopyOnWriteArrayList<Registration> plugins = new CopyOnWriteArrayList<>();
-    private final PluginWorkExecutorRegistry executors;
-    private final CopyOnWriteArrayList<CompletionStage<?>> pending = new CopyOnWriteArrayList<>();
+    private final LifecycleCallbackExecutor callbacks;
+    private final Object registrationLock = new Object();
     private final AtomicLong sequence = new AtomicLong();
     private final ThreadLocal<EnumSet<CubismOperation>> active =
         ThreadLocal.withInitial(() -> EnumSet.noneOf(CubismOperation.class));
@@ -38,42 +34,51 @@ public final class SemanticOperationLifecycleCoordinator implements AutoCloseabl
 
     /** Creates a coordinator with an explicit bounded callback executor. */
     public SemanticOperationLifecycleCoordinator(final PluginWorkExecutorRegistry executors) {
-        this.executors = Objects.requireNonNull(executors, "executors");
+        this.callbacks = new LifecycleCallbackExecutor("Semantic operation", executors);
     }
 
     /** Replaces one plugin's hook entrypoints. */
     public void register(final PluginHooks plugin) {
         final PluginHooks value = Objects.requireNonNull(plugin, "plugin");
         final Object token = new Object();
-        unregister(value.descriptor().id());
-        register(token, value);
+        synchronized (registrationLock) {
+            plugins.removeIf(registration -> registration.plugin().descriptor().id().equals(value.descriptor().id()));
+            callbacks.shutdown(value.descriptor().id());
+            plugins.add(new Registration(token, value));
+        }
     }
 
     void register(final Object token, final PluginHooks plugin) {
-        plugins.add(new Registration(
-            Objects.requireNonNull(token, "token"),
-            Objects.requireNonNull(plugin, "plugin")
-        ));
+        synchronized (registrationLock) {
+            plugins.add(new Registration(
+                Objects.requireNonNull(token, "token"),
+                Objects.requireNonNull(plugin, "plugin")
+            ));
+        }
     }
 
     /** Removes one plugin and quiesces its accepted callbacks. */
     public void unregister(final String pluginId) {
         final String id = requireText(pluginId, "pluginId");
-        plugins.removeIf(registration -> registration.plugin().descriptor().id().equals(id));
-        executors.shutdown(id);
+        synchronized (registrationLock) {
+            plugins.removeIf(registration -> registration.plugin().descriptor().id().equals(id));
+            callbacks.shutdown(id);
+        }
     }
 
     void unregister(final String pluginId, final Object token) {
         final String id = requireText(pluginId, "pluginId");
         final Object generation = Objects.requireNonNull(token, "token");
-        final boolean removed = plugins.removeIf(registration ->
-            registration.token() == generation
-                && registration.plugin().descriptor().id().equals(id)
-        );
-        if (removed && plugins.stream().noneMatch(registration ->
-            registration.plugin().descriptor().id().equals(id)
-        )) {
-            executors.shutdown(id);
+        synchronized (registrationLock) {
+            final boolean removed = plugins.removeIf(registration ->
+                registration.token() == generation
+                    && registration.plugin().descriptor().id().equals(id)
+            );
+            if (removed && plugins.stream().noneMatch(registration ->
+                registration.plugin().descriptor().id().equals(id)
+            )) {
+                callbacks.shutdown(id);
+            }
         }
     }
 
@@ -177,7 +182,7 @@ public final class SemanticOperationLifecycleCoordinator implements AutoCloseabl
             final PluginHooks plugin = registration.plugin();
             if (!plugin.observeAllowed()) continue;
             final List<? extends SemanticOperationHooks> hooks = plugin.entrypoints();
-            submit(plugin, event.operation().id(), () -> {
+            submit(registration, event.operation().id(), () -> {
                 for (SemanticOperationHooks hook : hooks) {
                     if (confirmed) {
                         try {
@@ -198,31 +203,33 @@ public final class SemanticOperationLifecycleCoordinator implements AutoCloseabl
 
     /** Waits for callbacks already accepted by bounded plugin executors. */
     public void awaitIdle() {
-        final CompletionStage<?>[] snapshot = pending.toArray(CompletionStage[]::new);
-        try {
-            CompletableFuture.allOf(java.util.Arrays.stream(snapshot)
-                .map(CompletionStage::toCompletableFuture)
-                .toArray(CompletableFuture[]::new))
-                .get(2, TimeUnit.SECONDS);
-            pending.removeAll(List.of(snapshot));
-        } catch (Exception failure) {
-            throw new IllegalStateException("Semantic operation callbacks did not quiesce.", failure);
-        }
+        callbacks.awaitIdle();
     }
 
     /** Removes all hooks and shuts down callback executors. */
     @Override
     public void close() {
-        plugins.clear();
-        executors.shutdownAll();
+        synchronized (registrationLock) {
+            plugins.clear();
+            callbacks.close();
+        }
     }
 
-    private void submit(final PluginHooks plugin, final String operationId, final Runnable callback) {
-        final var submission = executors.get(plugin.descriptor().id()).submit(
-            new PluginTask("event.subscribe", plugin.descriptor().id(), operationId, "none"),
-            callback
-        );
-        if (submission.accepted()) pending.add(submission.completion());
+    private void submit(
+        final Registration registration,
+        final String operationId,
+        final Runnable callback
+    ) {
+        synchronized (registrationLock) {
+            if (!plugins.contains(registration)) {
+                return;
+            }
+            callbacks.submit(
+                registration.plugin().descriptor().id(),
+                operationId,
+                callback
+            );
+        }
     }
 
     private static void logHookFailure(
