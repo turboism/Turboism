@@ -102,6 +102,7 @@ public interface EditorAutoBackupService {
         return Unavailable.INSTANCE;
     }
 
+        @PreviewApi
     enum Unavailable implements EditorAutoBackupService {
         INSTANCE;
 

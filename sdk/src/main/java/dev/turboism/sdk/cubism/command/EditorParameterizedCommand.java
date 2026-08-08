@@ -77,6 +77,7 @@ public enum EditorParameterizedCommand {
 
     private final Set<String> supportedVersions;
 
+    @PreviewApi
     public enum Availability {
         EVIDENCE_REQUIRED,
         TYPED_CONTRACT_VERIFIED

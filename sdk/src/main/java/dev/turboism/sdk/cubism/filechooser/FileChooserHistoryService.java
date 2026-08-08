@@ -60,6 +60,7 @@ public interface FileChooserHistoryService {
      * must tolerate a missing or partially corrupt store (missing data loads
      * as {@link Optional#empty()}).
      */
+    @PreviewApi
     interface Provider {
 
         /** Loads the recent directory remembered for project saves, if any. */
@@ -76,6 +77,7 @@ public interface FileChooserHistoryService {
     }
 
     /** Handle for a provider registration; {@link #unregister()} is idempotent. */
+    @PreviewApi
     interface Registration extends AutoCloseable {
 
         void unregister();
@@ -86,6 +88,7 @@ public interface FileChooserHistoryService {
         }
     }
 
+    @PreviewApi
     enum Unavailable implements FileChooserHistoryService {
         INSTANCE;
 
