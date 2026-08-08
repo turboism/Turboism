@@ -81,7 +81,7 @@ class ClipMaskReadCapabilityServiceTest {
             ProjectWorkspaceAdapter.Impl.safeMode(),
             ClipMaskReadAdapter.Impl.safeMode(),
             "plugin.read.test",
-            gate
+            CubismReadPermissionGate.from(gate)
         );
 
         assertDenied(service::selection, auditEvents, "cubismRead.selection", "cubism.selection.read");
@@ -251,7 +251,7 @@ class ClipMaskReadCapabilityServiceTest {
                 }
             }),
             "plugin.clipmask.test",
-            gate
+            CubismReadPermissionGate.from(gate)
         );
 
         assertThrows(CubismPermissionException.class, service::clipMasks);
@@ -293,7 +293,7 @@ class ClipMaskReadCapabilityServiceTest {
             ProjectWorkspaceAdapter.Impl.safeMode(),
             adapter,
             "plugin.clipmask.test",
-            gate
+            CubismReadPermissionGate.from(gate)
         );
     }
 
@@ -308,11 +308,11 @@ class ClipMaskReadCapabilityServiceTest {
     private record ProjectionFacade(
         Optional<ProjectSnapshot> project,
         Optional<DocumentSnapshot> document,
-        Optional<ModelSnapshot> model
+        Optional<ModelSnapshot> modelSnapshot
     ) implements CubismFacade {
         @Override public Optional<ProjectSnapshot> activeProject() { return project; }
         @Override public Optional<DocumentSnapshot> activeDocument() { return document; }
-        @Override public Optional<ModelSnapshot> activeModel() { return model; }
+        @Override public Optional<ModelSnapshot> activeModel() { return modelSnapshot; }
         @Override public CubismRuntimeSnapshot runtime() { throw new AssertionError("runtime must not be read"); }
         @Override public boolean isHostPresent() { return true; }
         @Override public dev.turboism.sdk.cubism.transaction.TransactionManager transactionManager() {
