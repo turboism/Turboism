@@ -30,6 +30,10 @@ public final class HostSessionSnapshotSource implements HostSnapshotSource {
     );
 
     private final ProjectWorkspaceAdapter projectWorkspace;
+    private final Object invalidationLock = new Object();
+    private Optional<ProjectSnapshot> lastProjectObservation = Optional.empty();
+    private Optional<DocumentSnapshot> lastDocumentObservation = Optional.empty();
+    private long invalidationToken;
 
     private HostSessionSnapshotSource(final ProjectWorkspaceAdapter projectWorkspace) {
         this.projectWorkspace = Objects.requireNonNull(projectWorkspace, "projectWorkspace");
@@ -68,7 +72,16 @@ public final class HostSessionSnapshotSource implements HostSnapshotSource {
 
     @Override
     public long invalidationToken() {
-        return 0L;
+        synchronized (invalidationLock) {
+            final Optional<ProjectSnapshot> project = available(projectWorkspace.activeProject());
+            final Optional<DocumentSnapshot> document = available(projectWorkspace.activeDocument());
+            if (!project.equals(lastProjectObservation) || !document.equals(lastDocumentObservation)) {
+                lastProjectObservation = project;
+                lastDocumentObservation = document;
+                invalidationToken++;
+            }
+            return invalidationToken;
+        }
     }
 
     private HostProject project(final ProjectSnapshot source) {
