@@ -163,7 +163,7 @@ class HostSessionPluginContextIntegrationTest {
             dependencies(tempDir, scheduler, descriptor(List.of(
                 "turboism.cubism.project.read",
                 "turboism.cubism.model.read"
-            )), ignored -> { }),
+            )), ignored -> { }, hostSnapshotSource(session)),
             session
         );
 
@@ -345,7 +345,7 @@ class HostSessionPluginContextIntegrationTest {
             dependencies(tempDir, scheduler, descriptor(List.of(
                 "turboism.cubism.project.read",
                 "turboism.cubism.model.read"
-            )), ignored -> { }),
+            )), ignored -> { }, hostSnapshotSource(session)),
             session
         );
 
@@ -540,6 +540,16 @@ class HostSessionPluginContextIntegrationTest {
         final PluginDescriptor descriptor,
         final java.util.function.Consumer<CubismFacadeAuditEvent> auditSink
     ) {
+        return dependencies(dataDir, scheduler, descriptor, auditSink, emptyHostSnapshotSource());
+    }
+
+    private static CorePluginContext.Dependencies dependencies(
+        final Path dataDir,
+        final RuntimeScheduler scheduler,
+        final PluginDescriptor descriptor,
+        final java.util.function.Consumer<CubismFacadeAuditEvent> auditSink,
+        final HostSnapshotSource hostSnapshotSource
+    ) {
         return new CorePluginContext.Dependencies(
             descriptor,
             logger(),
@@ -548,7 +558,7 @@ class HostSessionPluginContextIntegrationTest {
             scheduler,
             diagnostics(),
             new DisposableScope(),
-            emptyHostSnapshotSource(),
+            hostSnapshotSource,
             auditSink,
             CLOCK
         );
@@ -657,6 +667,26 @@ class HostSessionPluginContextIntegrationTest {
             }
             @Override public boolean isHostPresent() { return false; }
             @Override public long invalidationToken() { return 0; }
+        };
+    }
+
+    private static HostSnapshotSource hostSnapshotSource(final HostSession session) {
+        return new HostSnapshotSource() {
+            @Override public Optional<HostProject> activeProject() {
+                final ProjectWorkspaceAdapter.AdapterResult<Optional<ProjectSnapshot>> result =
+                    session.adapters().projectWorkspace().activeProject();
+                if (!result.isAvailable()) return Optional.empty();
+                return result.value().orElse(Optional.empty()).map(project -> new HostProject(
+                    project.projectId(), project.name(), project.projectDirectory(), List.of(), List.of()
+                ));
+            }
+            @Override public Optional<HostDocument> activeDocument() { return Optional.empty(); }
+            @Override public Optional<HostModel> activeModel() { return Optional.empty(); }
+            @Override public HostSelection selection() {
+                return new HostSelection(List.of(), Optional.empty(), Optional.empty(), Optional.empty());
+            }
+            @Override public boolean isHostPresent() { return activeProject().isPresent(); }
+            @Override public long invalidationToken() { return 0L; }
         };
     }
 
