@@ -16,18 +16,30 @@ import java.util.Objects;
 public final class RuntimeCoreModelBackend implements AutoCloseable {
 
     private final BorrowedCoreModelSource source;
+    private final CorePublicApiProvider provider;
     private final CoreStructuralTracer tracer;
     private final CubismModelAccess modelAccess;
+    private final dev.turboism.sdk.cubism.core.CoreRuntimeInfo runtimeInfo;
     private final Object lifecycle = new Object();
-    private boolean closed;
+    private volatile boolean closed;
+    private final VerifiedMemberResolver resolver;
 
     private RuntimeCoreModelBackend(
         final BorrowedCoreModelSource source,
         final CoreStructuralTracer tracer,
-        final CorePublicApiProvider provider
+        final CorePublicApiProvider provider,
+        final VerifiedMemberResolver resolver
     ) {
         this.source = Objects.requireNonNull(source, "source");
+        this.provider = Objects.requireNonNull(provider, "provider");
         this.tracer = Objects.requireNonNull(tracer, "tracer");
+        this.resolver = Objects.requireNonNull(resolver, "resolver");
+        this.runtimeInfo = new CoreRuntimeMetadata(
+            provider,
+            resolver,
+            this::requireOpen,
+            CoreRuntimeMetadata.DEFAULT_MOC_BYTE_QUOTA
+        );
         this.modelAccess = new CoreBackedCubismModelAccess(source, provider, tracer);
     }
 
@@ -56,13 +68,53 @@ public final class RuntimeCoreModelBackend implements AutoCloseable {
         return CoreProviderResult.success(new RuntimeCoreModelBackend(
             new BorrowedCoreModelSource(),
             tracerResult.value().orElseThrow(),
-            provider
+            provider,
+            resolver
+        ));
+    }
+
+    /**
+     * Test-only admission seam mirroring {@link #admit} for resolvers whose verified plan is an
+     * exact superset of the reviewed Core contract (additive test selectors and capabilities are
+     * allowed, e.g. the MOC metadata capability). Never referenced by production wiring.
+     */
+    public static CoreProviderResult<RuntimeCoreModelBackend> admitForTesting(
+        final VerifiedMemberResolver resolver,
+        final CoreVersionExpectation expectation
+    ) {
+        Objects.requireNonNull(resolver, "resolver");
+        Objects.requireNonNull(expectation, "expectation");
+        final CoreProviderResult<CorePublicApiProvider> providerResult =
+            CorePublicApiProviderFactory.admitForTesting(resolver, expectation);
+        if (!providerResult.isSuccess()) {
+            return CoreProviderResult.failed(
+                providerResult.failure().orElseThrow()
+            );
+        }
+        final CorePublicApiProvider provider = providerResult.value().orElseThrow();
+        final CoreProviderResult<CoreStructuralTracer> tracerResult =
+            CoreStructuralTracerFactory.admit(provider, resolver);
+        if (!tracerResult.isSuccess()) {
+            return CoreProviderResult.failed(
+                tracerResult.failure().orElseThrow()
+            );
+        }
+        return CoreProviderResult.success(new RuntimeCoreModelBackend(
+            new BorrowedCoreModelSource(),
+            tracerResult.value().orElseThrow(),
+            provider,
+            resolver
         ));
     }
 
     /** Returns the plugin-facing model access without exposing provider or host objects. */
     public CubismModelAccess modelAccess() {
         return modelAccess;
+    }
+
+    /** Returns normalized metadata for the admitted Core provider. */
+    public dev.turboism.sdk.cubism.core.CoreRuntimeInfo coreRuntimeInfo() {
+        return runtimeInfo;
     }
 
     /** Publishes the current Editor-owned Core model after verified Runtime acquisition. */
@@ -74,6 +126,18 @@ public final class RuntimeCoreModelBackend implements AutoCloseable {
             requireOpen();
             source.publishBorrowedModel(borrowedModel, modelIdentity);
         }
+    }
+
+    /**
+     * Returns the generation-bound Core evaluated join for Editor-backed views.
+     *
+     * <p>The join reuses the backend's borrowed-model source, provider, and
+     * structural tracer; it never writes to Core. Closing the backend invalidates
+     * every later join access.</p>
+     */
+    public CoreEvaluatedJoin evaluatedJoin() {
+        requireOpen();
+        return new CoreEvaluatedJoin(source, provider, tracer);
     }
 
     /** Clears the current model and invalidates every previously issued SDK object. */

@@ -4,7 +4,6 @@ import dev.turboism.mapping.verification.EditorParameterGroupsReadSelectorContra
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.id.ParameterGroupId;
 import dev.turboism.sdk.cubism.id.ParameterId;
-import dev.turboism.sdk.cubism.model.Color;
 import dev.turboism.sdk.cubism.model.ParameterGroup;
 import dev.turboism.sdk.cubism.model.ParameterGroups;
 
@@ -25,18 +24,16 @@ final class EditorParameterGroupsAccess {
 
     private final VerifiedMemberResolver resolver;
     private final BiConsumer<String, Object> modelGuard;
-    private final EditorParameterGroupLabelColorAccess labelColorAccess;
+    private final EditorParameterStructureAccess structureAccess;
 
     EditorParameterGroupsAccess(
         final VerifiedMemberResolver resolver,
-        final BiConsumer<String, Object> modelGuard
+        final BiConsumer<String, Object> modelGuard,
+        final EditorParameterStructureAccess structureAccess
     ) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.modelGuard = Objects.requireNonNull(modelGuard, "modelGuard");
-        this.labelColorAccess = new EditorParameterGroupLabelColorAccess(
-            resolver,
-            modelGuard::accept
-        );
+        this.structureAccess = Objects.requireNonNull(structureAccess, "structureAccess");
     }
 
     ParameterGroups groups(
@@ -178,6 +175,38 @@ final class EditorParameterGroupsAccess {
                     "Cubism parameter group is absent: " + id.value()
                 ));
         }
+        public ParameterGroup addGroup(final String name) {
+            current();
+            final ParameterGroupId created = structureAccess.addGroup(identity, source, model, name);
+            return new EditorParameterGroup(identity, source, model, requireGroupById(created));
+        }
+
+        @Override
+        public void removeGroup(final ParameterGroupId id) {
+            current();
+            structureAccess.removeGroup(identity, source, model, id);
+        }
+
+        @Override
+        public void moveParameter(final ParameterId parameterId, final ParameterGroupId targetGroupId) {
+            current();
+            structureAccess.moveParameter(identity, source, model, parameterId, targetGroupId);
+        }
+
+        private Object requireGroupById(final ParameterGroupId id) {
+            final java.util.ArrayDeque<Object> pending = new java.util.ArrayDeque<>();
+            pending.add(rootGroup(source));
+            while (!pending.isEmpty()) {
+                final Object candidate = pending.removeFirst();
+                if (groupId(candidate).equals(id)) return candidate;
+                for (Object child : children(candidate)) {
+                    if (resolver.isInstance("cubism.editor-model.parameter-group.class", child)) {
+                        pending.addLast(child);
+                    }
+                }
+            }
+            throw new NoSuchElementException("Cubism parameter group is absent: " + id.value());
+        }
     }
 
     private final class EditorParameterGroup implements ParameterGroup {
@@ -226,16 +255,6 @@ final class EditorParameterGroupsAccess {
         }
 
         @Override
-        public Color labelColor() {
-            return labelColorAccess.color(identity, model, this::current, group);
-        }
-
-        @Override
-        public void setLabelColor(final Color color) {
-            labelColorAccess.setColor(identity, model, this::current, group, color);
-        }
-
-        @Override
         public Optional<ParameterGroupId> parentId() {
             current();
             final Object parent = resolver.invoke(
@@ -273,6 +292,12 @@ final class EditorParameterGroupsAccess {
                     resolver.invoke("cubism.editor-model.parameter-source.id", child)
                 ))))
                 .toList();
+        }
+
+        @Override
+        public void rename(final String name) {
+            current();
+            structureAccess.renameGroup(identity, source, model, id(), name);
         }
     }
 

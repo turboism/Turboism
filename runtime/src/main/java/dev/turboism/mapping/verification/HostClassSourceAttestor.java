@@ -65,7 +65,8 @@ final class HostClassSourceAttestor {
             throw new IllegalArgumentException("runtime selector owner code source is invalid");
         }
         if (!runtimeSource.equals(verifiedArtifact.toRealPath())) {
-            throw new IllegalArgumentException("runtime selector owner code source is not the verified artifact");
+            throw new IllegalArgumentException("runtime selector owner code source is not the verified artifact: "
+                + ownerInternalName + " loaded from " + runtimeSource);
         }
         try (InputStream expected = jar.getInputStream(entry);
              InputStream actual = runtimeOwner.getResourceAsStream("/" + entryName)) {

@@ -61,7 +61,7 @@ public final class TopMenuContributionProvider implements EditorUiContributionPr
             .flatMap(java.util.Optional::stream)
             .sorted(ITEM_ORDER)
             .toList();
-        final LinkedHashMap<MenuKey, List<TopMenuItemDescriptor>> grouped = new LinkedHashMap<>();
+        final LinkedHashMap<String, List<TopMenuItemDescriptor>> grouped = new LinkedHashMap<>();
         for (TopMenuItemDescriptor item : items) {
             final boolean shared = RESERVED_SHARED_ROOT.equals(item.rootLabel());
             final String owner = shared ? SHARED_ROOT_OWNER : item.pluginId();
@@ -74,7 +74,6 @@ public final class TopMenuContributionProvider implements EditorUiContributionPr
             .map(entry -> entry.getKey().shared()
                 ? TopMenuDescriptor.shared(entry.getKey().rootLabel(), entry.getValue())
                 : TopMenuDescriptor.owned(
-                    entry.getKey().owner(),
                     entry.getKey().rootLabel(),
                     entry.getValue()
                 ))
@@ -150,6 +149,7 @@ public final class TopMenuContributionProvider implements EditorUiContributionPr
             }
         }
     }
+
 
     /** Reserved root label shared by multiple plugin-owned top menus; merged into one visible root. */
     private static final String RESERVED_SHARED_ROOT = "Turboism";

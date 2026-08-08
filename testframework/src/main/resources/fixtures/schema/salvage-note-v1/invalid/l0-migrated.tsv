@@ -1,2 +1,0 @@
-id	legacyPath	reuseLevel	salvageType	owner	behaviorSpec	complianceNote	migratedTo	notes
-m2-salvage-001	legacy/CubismActionExecutor.java	L0	behavior	none		do-not-migrate-placeholder	runtime/core/schema	L0 has a migratedTo value.
