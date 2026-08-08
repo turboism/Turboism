@@ -54,7 +54,7 @@ class PreviewPluginContextFactoryCompositionTest {
         final AtomicReference<HostInstanceDescriptor> current = new AtomicReference<>();
         final HostSession session = HostSessionTestSupport.connectedSession(
             () -> Optional.ofNullable(current.get()),
-            adapters("preview-project")
+            ignored -> adapters("preview-project")
         );
         final RuntimeScheduler scheduler = PreviewRuntimeTestSupport.rejectedScheduler();
         final Path home = tempDir.resolve("home");
@@ -116,17 +116,88 @@ class PreviewPluginContextFactoryCompositionTest {
         }
     }
 
+    @Test
+    void cachedParameterQueryObservesReplacedSessionModelSnapshot() throws Exception {
+        final AtomicReference<HostInstanceDescriptor> current = new AtomicReference<>();
+        final HostSession session = HostSessionTestSupport.connectedSession(
+            () -> Optional.ofNullable(current.get()),
+            descriptor -> {
+                final boolean first = descriptor.sessionId().equals("cache-a");
+                return adapters(descriptor.sessionId(), first ? "ParamA" : "ParamB", first ? 1.0 : 2.0);
+            }
+        );
+        final RuntimeScheduler scheduler = PreviewRuntimeTestSupport.rejectedScheduler();
+        final Path home = tempDir.resolve("home");
+        try (PreviewLog log = new PreviewLog(home.resolve("logs/turboism.log"))) {
+            final SharedAsyncHostReadLane lane = new SharedAsyncHostReadLane(8);
+            try {
+                final PreviewPluginContextFactory factory = new PreviewPluginContextFactory(
+                    home,
+                    scheduler,
+                    session.adapterAccess(),
+                    lane,
+                    log,
+                    new RuntimeFailureCollector(),
+                    FileChooserHistoryService.unavailable()
+                );
+                final DisposableScope scope = new DisposableScope();
+                try {
+                    final CorePluginContext context = factory.create(
+                        descriptor(),
+                        PreviewPluginContextFactoryCompositionTest.class.getClassLoader(),
+                        scope
+                    ).context();
+
+                    current.set(HostSessionTestSupport.descriptor("cache-a"));
+                    assertEquals(HostSession.State.ACTIVE, session.refresh());
+                    assertEquals("cache-a-model", context.cubism().activeModel().orElseThrow().modelId());
+
+                    final List<dev.turboism.sdk.cubism.service.query.ParameterSummary> first =
+                        context.parameterQuery().listAll();
+                    assertEquals(1, first.size());
+                    assertEquals("ParamA", first.get(0).id().value());
+                    assertEquals(1.0, first.get(0).currentValue(), 0.0);
+
+                    current.set(HostSessionTestSupport.descriptor("cache-b"));
+                    assertEquals(HostSession.State.ACTIVE, session.refresh());
+                    assertEquals("cache-b-model", context.cubism().activeModel().orElseThrow().modelId());
+
+                    final List<dev.turboism.sdk.cubism.service.query.ParameterSummary> second =
+                        context.parameterQuery().listAll();
+                    assertEquals(1, second.size());
+                    assertEquals("ParamB", second.get(0).id().value());
+                    assertEquals(2.0, second.get(0).currentValue(), 0.0);
+                } finally {
+                    scope.close();
+                }
+            } finally {
+                lane.close();
+            }
+        } finally {
+            session.close();
+            scheduler.shutdown();
+        }
+    }
+
     private static RuntimeHostAdapters adapters(final String projectId) {
+        return adapters(projectId, "ParamA", 1.0);
+    }
+
+    private static RuntimeHostAdapters adapters(
+        final String projectId,
+        final String parameterId,
+        final double parameterValue
+    ) {
         final RuntimeHostAdapters safe = RuntimeHostAdapters.safeMode();
         final ProjectWorkspaceAdapter projectWorkspace = ProjectWorkspaceAdapter.Impl.connected(
             new ProjectWorkspaceAdapter.HostOperations() {
                 @Override public String hostVersion() { return "5.3.02"; }
                 @Override public boolean supportsProjectWorkspaceRead() { return true; }
                 @Override public Optional<ProjectSnapshot> activeProject() {
-                    return Optional.of(projectSnapshot(projectId));
+                    return Optional.of(projectSnapshot(projectId, parameterId, parameterValue));
                 }
                 @Override public Optional<DocumentSnapshot> activeDocument() {
-                    return Optional.of(modelDocument(projectId));
+                    return Optional.of(modelDocument(projectId, parameterId, parameterValue));
                 }
                 @Override public Optional<WorkspaceSnapshot> workspace() {
                     return Optional.of(new WorkspaceSnapshot(
@@ -142,7 +213,15 @@ class PreviewPluginContextFactoryCompositionTest {
     }
 
     private static ProjectSnapshot projectSnapshot(final String projectId) {
-        final DocumentSnapshot document = modelDocument(projectId);
+        return projectSnapshot(projectId, "ParamA", 1.0);
+    }
+
+    private static ProjectSnapshot projectSnapshot(
+        final String projectId,
+        final String parameterId,
+        final double parameterValue
+    ) {
+        final DocumentSnapshot document = modelDocument(projectId, parameterId, parameterValue);
         return new ProjectSnapshot(
             projectId,
             "Demo",
@@ -165,8 +244,16 @@ class PreviewPluginContextFactoryCompositionTest {
     }
 
     private static DocumentSnapshot modelDocument(final String projectId) {
+        return modelDocument(projectId, "ParamA", 1.0);
+    }
+
+    private static DocumentSnapshot modelDocument(
+        final String projectId,
+        final String parameterId,
+        final double parameterValue
+    ) {
         final ParameterSnapshot parameter = new ParameterSnapshot(
-            "ParamA", "Parameter A", 1.0, 1.0, 0.0, 2.0, true, true
+            parameterId, "Parameter A", parameterValue, parameterValue, 0.0, 2.0, true, true
         );
         final ArtMeshSnapshot artMesh = new ArtMeshSnapshot(
             projectId + "-mesh", "ArtMesh", Optional.of(projectId + "-texture"), true, true
@@ -211,7 +298,8 @@ class PreviewPluginContextFactoryCompositionTest {
             @Override public List<PermissionRef> permissions() {
                 return List.of(
                     permission("turboism.cubism.project.read"),
-                    permission("turboism.cubism.model.read")
+                    permission("turboism.cubism.model.read"),
+                    permission("turboism.cubism.parameter.read")
                 );
             }
             @Override public List<String> capabilities() { return List.of(); }
