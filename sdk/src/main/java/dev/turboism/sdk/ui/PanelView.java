@@ -98,7 +98,6 @@ public sealed interface PanelView permits
     ) {
         return new CollapsibleSection(title, expandedByDefault, List.of(children));
     }
-    }
 
     record Column(List<PanelView> children) implements PanelView {
         public Column {

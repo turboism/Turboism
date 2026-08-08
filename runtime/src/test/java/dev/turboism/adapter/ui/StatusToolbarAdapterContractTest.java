@@ -126,6 +126,27 @@ class StatusToolbarAdapterContractTest {
         assertEquals("failed", service.notifications().get(0).message());
     }
 
+    @Test
+    void runtimeUiServiceScopingPreservesCompactMetricPresentation() throws Exception {
+        RecordingHost host = new RecordingHost("5.3.2");
+        RuntimeUiHostCapabilityService service = service("plugin.cpu", host);
+
+        service.notifyStatus(new StatusNotification(
+            "perf.cpu",
+            "INFO",
+            "CPU 12.3%",
+            StatusNotification.Presentation.COMPACT_METRIC
+        ));
+
+        assertEquals("10:plugin.cpu:perf.cpu", host.notification.id(), "scoped id must be unchanged");
+        assertEquals("CPU 12.3%", host.notification.message(), "message must pass through unchanged");
+        assertEquals(
+            StatusNotification.Presentation.COMPACT_METRIC,
+            host.notification.presentation(),
+            "presentation must survive plugin-ID scoping and reconstruction"
+        );
+    }
+
     private static RuntimeUiHostCapabilityService service(
         final String pluginId,
         final RecordingHost host
