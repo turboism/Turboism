@@ -131,12 +131,12 @@ class CoreStructuralTracerTest {
     @Test
     void rejectsIncompleteProfileSpecificEvidenceBeforeBinding() {
         assertEquals(
-            69,
+            72,
             CorePublicApiSelectorContract.requiredAliasesFor("5.2")
                 .orElseThrow().size()
         );
         assertEquals(
-            70,
+            74,
             CorePublicApiSelectorContract.requiredAliasesFor("5.3.02")
                 .orElseThrow().size()
         );

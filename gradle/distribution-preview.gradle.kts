@@ -26,16 +26,16 @@ private fun configurePreviewSource(task: Sync, previewDirectory: Provider<org.gr
     configurePreviewAgentJar(task)
     configurePreviewInspectorJar(task)
     configurePreviewPerfStatsJar(task)
+    configurePreviewThemeJar(task)
+    configureScenePaletteEnhancerJar(task)
     task.from("scripts/preview/launch-cubism-turboism.bat")
     task.from("scripts/preview/launch-cubism-turboism.ps1")
     task.from("scripts/preview/run-preview.bat")
-    task.from("docs/release/README-preview.md") { rename { "README.md" } }
+    task.from("packaging/README-preview.md") { rename { "README.md" } }
 }
 
 private fun configurePreviewAgentJar(task: Sync) {
-    task.from(project(":bootstrap").tasks.named<Jar>("jar").flatMap { it.archiveFile }) {
-        rename { "turboism-agent.jar" }
-    }
+    task.from(project(":bootstrap").tasks.named<Jar>("jar").flatMap { it.archiveFile })
 }
 
 private fun configurePreviewInspectorJar(task: Sync) {
@@ -52,6 +52,19 @@ private fun configurePreviewPerfStatsJar(task: Sync) {
     }
 }
 
+private fun configurePreviewThemeJar(task: Sync) {
+    task.from(project(":plugins:ui-theme").tasks.named<Jar>("jar").flatMap { it.archiveFile }) {
+        into("plugins")
+        rename { "ui-theme.jar" }
+    }
+}
+
+private fun configureScenePaletteEnhancerJar(task: Sync) {
+    task.from(project(":plugins:scene-palette-enhancer").tasks.named<Jar>("jar").flatMap { it.archiveFile }) {
+        into("plugins")
+        rename { "scene-palette-enhancer.jar" }
+    }
+}
 
 tasks.register<Exec>("checkDistributionProtocolContract") {
     group = "verification"
@@ -72,7 +85,13 @@ private fun pluginClassesDirectories(projects: List<Project>): String = projects
 val previewBundle by tasks.registering(Sync::class) {
     group = "distribution"
     description = "Build the relocatable Turboism 0.1 Developer Preview directory."
-    dependsOn(":bootstrap:jar", ":plugins:project-inspector:jar", ":plugins:perf-stats:jar")
+    dependsOn(
+        ":bootstrap:jar",
+        ":plugins:project-inspector:jar",
+        ":plugins:perf-stats:jar",
+        ":plugins:ui-theme:jar",
+        ":plugins:scene-palette-enhancer:jar"
+    )
     configurePreviewSource(this, previewBundleDir)
     doLast {
         listOf("plugin-data", "state", "logs").forEach { previewBundleDir.get().asFile.resolve(it).mkdirs() }
@@ -115,6 +134,19 @@ val previewAgentSmokeTest by tasks.registering(JavaExec::class) {
     }
 }
 
+val previewBootstrapBridgeTest by tasks.registering(JavaExec::class) {
+    group = "verification"
+    description = "Proves the distributed agent exposes the mesh-mirror ingress to bootstrap lookup."
+    dependsOn(previewBundle, ":bootstrap:testClasses")
+    val bootstrapTests = project(":bootstrap").extensions.getByType<SourceSetContainer>().named("test")
+    classpath(bootstrapTests.map { it.output })
+    mainClass.set("dev.turboism.bootstrap.BootstrapBridgeVisibilityMain")
+    doFirst {
+        val agent = previewBundleDir.get().asFile.resolve("turboism-agent.jar")
+        setJvmArgs(listOf("-javaagent:${agent.absolutePath}=hostClass=missing.Host;timeoutSeconds=1"))
+    }
+}
+
 val checkPreviewRuntimeReports by tasks.registering(JavaExec::class) {
     group = "verification"
     description = "Strictly validates the four correlated machine-readable preview reports."
@@ -145,7 +177,8 @@ private fun copyPreviewBundleInto(source: File, target: File) {
 private fun verifyPreviewBundle(root: File) {
     val required = listOf(
         "turboism-agent.jar", "launch-cubism-turboism.bat", "launch-cubism-turboism.ps1",
-        "run-preview.bat", "README.md", "plugins/project-inspector.jar", "plugins/perf-stats.jar"
+        "run-preview.bat", "README.md", "plugins/project-inspector.jar", "plugins/perf-stats.jar",
+        "plugins/ui-theme.jar", "plugins/scene-palette-enhancer.jar"
     )
     val missing = required.filterNot { root.resolve(it).isFile }
     if (missing.isNotEmpty()) throw GradleException("Preview bundle is missing: $missing")

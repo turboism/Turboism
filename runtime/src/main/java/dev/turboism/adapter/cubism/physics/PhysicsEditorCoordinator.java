@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.physics;
 
+import dev.turboism.core.reflect.MethodHandleCache;
 import dev.turboism.sdk.cubism.physics.PhysicsEditorContribution;
 import dev.turboism.sdk.cubism.physics.PhysicsEditorService;
 import dev.turboism.sdk.plugin.Registration;
@@ -382,12 +383,8 @@ public final class PhysicsEditorCoordinator implements PhysicsEditorService, Aut
     }
 
     private static Method method(final Class<?> type, final String name, final int parameterCount) throws NoSuchMethodException {
-        for (Class<?> current = type; current != null; current = current.getSuperclass()) {
-            for (Method candidate : current.getDeclaredMethods()) {
-                if (candidate.getName().equals(name) && candidate.getParameterCount() == parameterCount) return candidate;
-            }
-        }
-        throw new NoSuchMethodException(type.getName() + "#" + name);
+        // Cached hierarchy walk; the cache applies the non-public access policy once at resolution.
+        return MethodHandleCache.declaredByArity(type, name, parameterCount);
     }
 
     private static Object field(final Object target, final String name) throws Exception {

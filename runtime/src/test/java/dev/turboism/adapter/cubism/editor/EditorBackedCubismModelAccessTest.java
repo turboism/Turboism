@@ -5,6 +5,7 @@ import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.cubism.model.Color;
+import dev.turboism.sdk.cubism.model.ParameterBindingTargetType;
 import dev.turboism.sdk.cubism.model.ParameterType;
 import org.junit.jupiter.api.Test;
 
@@ -73,6 +74,110 @@ class EditorBackedCubismModelAccessTest {
         );
     }
 
+
+    @Test
+    void documentReplacementWithTheSameSourceAndModelInvalidatesOldReferences() {
+        final Fixture host = new Fixture("model-a", 12.0F);
+        final EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
+            resolver(), "session-a"
+        );
+        Host.install(host);
+        final var parameter = access.active().parameters().find(new ParameterId("ParamAngleX"));
+
+        Host.currentDocument = new Document(host.source);
+
+        assertThrows(IllegalStateException.class, parameter::getValue);
+    }
+
+    @Test
+    void exposesParameterDefinitionsAndIndexWhileEditorKeyValuesFailClosed() {
+        Fixture host = new Fixture("model-a", 12.0F);
+        Host.install(host);
+        EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
+            resolver(), "session-a"
+        );
+
+        var model = access.active();
+        var parameter = model.parameters().find(new ParameterId("ParamAngleX"));
+
+        assertEquals(0, parameter.index());
+        assertThrows(UnsupportedOperationException.class, parameter::keyValues);
+        assertEquals(
+            List.of(new ParameterId("ParamAngleX")),
+            model.parameterDefinitions().all().stream()
+                .map(value -> value.id())
+                .toList()
+        );
+        assertEquals(
+            new dev.turboism.sdk.cubism.model.ParameterDefinition(
+                new ParameterId("ParamAngleX"),
+                "Angle X",
+                -30.0F,
+                0.0F,
+                30.0F,
+                ParameterType.BLEND_SHAPE,
+                true
+            ),
+            model.parameterDefinitions().find(new ParameterId("ParamAngleX"))
+        );
+
+        Host.install(new Fixture("model-b", -5.0F));
+        assertThrows(IllegalStateException.class, parameter::keyValues);
+    }
+
+    @Test
+    void duplicateParameterIdsArePreservedInStableOrder() {
+        // Verified host evidence: CParameterSet stores CParameter entries in a plain CArrayList
+        // without any id-uniqueness constraint and real Editor models can contain duplicate ids.
+        // all() must include every entry, find() returns the first match, and nothing throws.
+        final ParameterSet set = new ParameterSet(new java.util.ArrayList<>(List.of(
+            new Parameter("ParamAngleX", 12.0F), new Parameter("ParamAngleX", 5.0F))));
+        final Model model = new Model(set);
+        final ModelSource source = new ModelSource("model-a", model);
+        model.source = source;
+        Host.currentDocument = new Document(source);
+        final EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
+            resolver(), "session-a");
+        final var active = access.active();
+
+        assertEquals(
+            List.of("ParamAngleX", "ParamAngleX"),
+            active.parameters().all().stream().map(value -> value.id().value()).toList()
+        );
+        assertEquals(
+            new ParameterId("ParamAngleX"),
+            active.parameters().find(new ParameterId("ParamAngleX")).id()
+        );
+        assertTrue(active.parameters().findById(new ParameterId("ParamAngleX")).isPresent());
+        assertEquals(2, active.parameterDefinitions().all().size());
+        assertEquals(
+            new ParameterId("ParamAngleX"),
+            active.parameterDefinitions().find(new ParameterId("ParamAngleX")).id()
+        );
+    }
+
+    @Test
+    void parameterBindingProjectionCollectsAllThreeObjectFamiliesAndGoesStaleWithTheModel() {
+        Fixture host = new Fixture("model-a", 12.0F);
+        Host.install(host);
+        EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
+            resolver(), "session-a"
+        );
+
+        final var parameter = access.active().parameters().find(new ParameterId("ParamAngleX"));
+        assertEquals(
+            List.of(
+                ParameterBindingTargetType.ART_MESH,
+                ParameterBindingTargetType.WARP_DEFORMER,
+                ParameterBindingTargetType.ROTATION_DEFORMER
+            ),
+            parameter.getParameterBindings().stream().map(binding -> binding.target().type()).toList()
+        );
+
+        Host.install(new Fixture("model-b", -5.0F));
+        assertThrows(IllegalStateException.class, parameter::getParameterBindings);
+    }
+
     @Test
     void exposesTheParameterGroupHierarchyInStableEditorOrder() {
         Fixture host = new Fixture("model-a", 12.0F);
@@ -93,7 +198,6 @@ class EditorBackedCubismModelAccessTest {
         );
         assertEquals(List.of(), root.parameterIds());
         assertEquals(Optional.of("Face"), face.name());
-        assertEquals(new Color(0.25F, 0.5F, 0.75F, 1.0F), face.labelColor());
         assertEquals(Optional.of(root.id()), face.parentId());
         assertEquals(List.of(), face.childGroupIds());
         assertEquals(List.of(new ParameterId("ParamAngleX")), face.parameterIds());
@@ -137,25 +241,10 @@ class EditorBackedCubismModelAccessTest {
     }
 
     @Test
-    void parameterGroupLabelColorsRequireTheirSeparateVerifiedCapability() {
-        Host.install(new Fixture("model-a", 12.0F));
-        EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
-            resolver(false), "session-a"
-        );
-
-        var face = access.active().parameterGroups().find(
-            new dev.turboism.sdk.cubism.id.ParameterGroupId("GroupFace")
-        );
-
-        assertEquals(Optional.of("Face"), face.name());
-        assertThrows(UnsupportedOperationException.class, face::labelColor);
-    }
-
-    @Test
     void defaultKeyformLockReadsRequireTheirSeparateVerifiedCapability() {
         Host.install(new Fixture("model-a", 12.0F));
         EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
-            resolver(false), "session-a"
+            resolverWithoutDefaultKeyformLock(), "session-a"
         );
 
         assertEquals("model-a", access.active().id().value());
@@ -194,11 +283,26 @@ class EditorBackedCubismModelAccessTest {
             .getMessage().contains("active model"));
     }
 
-    private static VerifiedMemberResolver resolver() {
-        return resolver(true);
+    private static VerifiedMemberResolver resolverWithoutDefaultKeyformLock() {
+        return resolver(java.util.Set.of(
+            "cubism.editor-model.read",
+            dev.turboism.mapping.verification.EditorParameterGroupsReadSelectorContract.CAPABILITY_ID,
+            dev.turboism.mapping.verification.EditorObjectReadSelectorContract.CAPABILITY_ID,
+            dev.turboism.mapping.verification.EditorParameterBindingReadSelectorContract.CAPABILITY_ID
+        ));
     }
 
-    private static VerifiedMemberResolver resolver(final boolean includeLabelColorCapability) {
+    private static VerifiedMemberResolver resolver() {
+        return resolver(java.util.Set.of(
+            "cubism.editor-model.read",
+            dev.turboism.mapping.verification.EditorParameterGroupsReadSelectorContract.CAPABILITY_ID,
+            dev.turboism.mapping.verification.EditorDefaultKeyformLockReadSelectorContract.CAPABILITY_ID,
+            dev.turboism.mapping.verification.EditorObjectReadSelectorContract.CAPABILITY_ID,
+            dev.turboism.mapping.verification.EditorParameterBindingReadSelectorContract.CAPABILITY_ID
+        ));
+    }
+
+    private static VerifiedMemberResolver resolver(final java.util.Set<String> capabilities) {
         String host = internal(Host.class);
         String document = internal(Document.class);
         String source = internal(ModelSource.class);
@@ -213,17 +317,7 @@ class EditorBackedCubismModelAccessTest {
         return TestVerifiedResolvers.create(
             "5.3.02",
             "adapter.editor-model.readwrite",
-            includeLabelColorCapability
-                ? java.util.Set.of(
-                    "cubism.editor-model.read",
-                    dev.turboism.mapping.verification.EditorParameterGroupsReadSelectorContract.CAPABILITY_ID,
-                    dev.turboism.mapping.verification.EditorParameterGroupLabelColorReadSelectorContract.CAPABILITY_ID,
-                    dev.turboism.mapping.verification.EditorDefaultKeyformLockReadSelectorContract.CAPABILITY_ID
-                )
-                : java.util.Set.of(
-                    "cubism.editor-model.read",
-                    dev.turboism.mapping.verification.EditorParameterGroupsReadSelectorContract.CAPABILITY_ID
-                ),
+            capabilities,
             List.of(
                 StaticSelector.classSelector("cubism.editor-model.app-controller.class", host),
                 StaticSelector.staticMethod("cubism.editor-model.app-controller.instance", host, "instance", desc(Host.class), StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC),
@@ -239,8 +333,12 @@ class EditorBackedCubismModelAccessTest {
                 method("cubism.editor-model.model-source.default-keyform-locked", ModelSource.class, "defaultKeyformLocked", "()Z"),
                 method("cubism.editor-model.model-source.all-parameters", ModelSource.class, "allParameters", "()Ljava/util/List;"),
                 method("cubism.editor-model.model-source.root-parameter-group", ModelSource.class, "rootParameterGroup", desc(ParameterGroup.class)),
+                method("cubism.editor-model.model-source.all-art-meshes", ModelSource.class, "allArtMeshes", "()Ljava/util/List;"),
+                method("cubism.editor-model.model-source.all-deformers", ModelSource.class, "allDeformers", "()Ljava/util/List;"),
                 StaticSelector.classSelector("cubism.editor-model.model.class", model),
                 method("cubism.editor-model.model.parameter-set", Model.class, "parameterSet", desc(ParameterSet.class)),
+                method("cubism.editor-model.model.all-art-meshes", Model.class, "allArtMeshes", "()Ljava/util/List;"),
+                method("cubism.editor-model.model.all-deformers", Model.class, "allDeformers", "()Ljava/util/List;"),
                 StaticSelector.classSelector("cubism.editor-model.parameter-set.class", set),
                 method("cubism.editor-model.parameter-set.parameters", ParameterSet.class, "parameters", "()Ljava/util/List;"),
                 StaticSelector.classSelector("cubism.editor-model.parameter.class", parameter),
@@ -272,7 +370,29 @@ class EditorBackedCubismModelAccessTest {
                 StaticSelector.classSelector("cubism.editor-model.id.class", id),
                 method("cubism.editor-model.id.value", Id.class, "value", "()Ljava/lang/String;"),
                 StaticSelector.classSelector("cubism.editor-model.guid.class", id),
-                method("cubism.editor-model.guid.value", Id.class, "value", "()Ljava/lang/String;")
+                method("cubism.editor-model.guid.value", Id.class, "value", "()Ljava/lang/String;"),
+                StaticSelector.classSelector("cubism.editor-model.art-mesh-source.class", internal(ArtMeshSource.class)),
+                StaticSelector.classSelector("cubism.editor-model.art-mesh.class", internal(ArtMesh.class)),
+                StaticSelector.classSelector("cubism.editor-model.warp-source.class", internal(WarpSource.class)),
+                StaticSelector.classSelector("cubism.editor-model.warp.class", internal(Warp.class)),
+                StaticSelector.classSelector("cubism.editor-model.rotation-source.class", internal(RotationSource.class)),
+                StaticSelector.classSelector("cubism.editor-model.rotation.class", internal(Rotation.class)),
+                method("cubism.editor-model.parameter-controllable-source.id", ObjectSource.class, "id", desc(Id.class)),
+                method("cubism.editor-model.parameter-controllable-source.local-name", ObjectSource.class, "localName", "()Ljava/lang/String;"),
+                method("cubism.editor-model.parameter-controllable-source.visible", ObjectSource.class, "visible", "()Z"),
+                method("cubism.editor-model.parameter-controllable-source.locked", ObjectSource.class, "locked", "()Z"),
+                method("cubism.editor-model.parameter-controllable-source.visible-in-hierarchy", ObjectSource.class, "visibleInHierarchy", "()Z"),
+                method("cubism.editor-model.parameter-controllable-source.locked-in-hierarchy", ObjectSource.class, "lockedInHierarchy", "()Z"),
+                method("cubism.editor-model.parameter-controllable.keyform-grid", ObjectSource.class, "keyformGrid", desc(KeyformGrid.class)),
+                method("cubism.editor-model.art-mesh.source", ArtMesh.class, "source", desc(ArtMeshSource.class)),
+                method("cubism.editor-model.art-mesh.current-keyform", ArtMesh.class, "currentForm", desc(Form.class)),
+                method("cubism.editor-model.deformer.source", Deformer.class, "source", desc(ObjectSource.class)),
+                method("cubism.editor-model.deformer.current-keyform", Deformer.class, "currentForm", desc(Form.class)),
+                StaticSelector.classSelector("cubism.editor-model.keyform-grid.class", internal(KeyformGrid.class)),
+                method("cubism.editor-model.keyform-grid.bindings", KeyformGrid.class, "bindings", "()Ljava/util/List;"),
+                StaticSelector.classSelector("cubism.editor-model.keyform-binding.class", internal(KeyformBinding.class)),
+                method("cubism.editor-model.keyform-binding.parameter-id", KeyformBinding.class, "parameterId", desc(Id.class)),
+                method("cubism.editor-model.keyform-binding.keys", KeyformBinding.class, "keys", "()Ljava/util/List;")
             ),
             Host.class.getClassLoader()
         );
@@ -335,6 +455,12 @@ class EditorBackedCubismModelAccessTest {
     private static String internal(Class<?> type) { return type.getName().replace('.', '/'); }
     private static String desc(Class<?> type) { return "()L" + internal(type) + ";"; }
 
+    private static List<Float> sequence(final dev.turboism.sdk.cubism.model.FloatSequence values) {
+        final java.util.ArrayList<Float> result = new java.util.ArrayList<>();
+        for (int index = 0; index < values.size(); index++) result.add(values.get(index));
+        return result;
+    }
+
     public static final class Host {
         static final Host INSTANCE = new Host();
         static Object currentDocument;
@@ -351,6 +477,8 @@ class EditorBackedCubismModelAccessTest {
     public static final class ModelSource {
         final Id guid;
         final ParameterGroup rootGroup;
+        final java.util.List<ArtMeshSource> artMeshes = new java.util.ArrayList<>();
+        final java.util.List<ObjectSource> deformers = new java.util.ArrayList<>();
         Model currentInstance;
         ModelSource(String id, Model model) {
             guid = new Id(id);
@@ -359,19 +487,34 @@ class EditorBackedCubismModelAccessTest {
             ParameterGroup face = new ParameterGroup("GroupFace", "Face", rootGroup);
             rootGroup.children.add(face);
             face.children.add(model.parameterSet.parameters.get(0).source());
+            ArtMeshSource artMesh = new ArtMeshSource("ArtMeshFace");
+            WarpSource warp = new WarpSource("WarpFace");
+            RotationSource rotation = new RotationSource("RotationHead");
+            artMeshes.add(artMesh);
+            deformers.add(warp);
+            deformers.add(rotation);
+            model.artMeshes.add(new ArtMesh(artMesh));
+            model.deformers.add(new Warp(warp));
+            model.deformers.add(new Rotation(rotation));
         }
         public Id guid() { return guid; }
         public Model currentInstance() { return currentInstance; }
         public boolean defaultKeyformLocked() { return true; }
         public List<ParameterSource> allParameters() { return currentInstance.parameterSet.parameters.stream().map(Parameter::source).toList(); }
         public ParameterGroup rootParameterGroup() { return rootGroup; }
+        public List<ArtMeshSource> allArtMeshes() { return artMeshes; }
+        public List<ObjectSource> allDeformers() { return deformers; }
     }
     public static final class Model {
         final ParameterSet parameterSet;
+        final java.util.List<ArtMesh> artMeshes = new java.util.ArrayList<>();
+        final java.util.List<Deformer> deformers = new java.util.ArrayList<>();
         ModelSource source;
         Model(ParameterSet parameterSet) { this.parameterSet = parameterSet; }
         public ModelSource source() { return source; }
         public ParameterSet parameterSet() { return parameterSet; }
+        public List<ArtMesh> allArtMeshes() { return artMeshes; }
+        public List<Deformer> allDeformers() { return deformers; }
     }
     public static final class ParameterSet {
         final List<Parameter> parameters;
@@ -385,13 +528,13 @@ class EditorBackedCubismModelAccessTest {
         public float value() { return value; }
         public ParameterSource source() { return source; }
     }
-    public static final class ParameterSource {
-        final Id id = new Id("ParamAngleX");
+    public static final class ParameterSource extends ObjectSource {
         String name = "Angle X";
+        ParameterSource() { super("ParamAngleX"); }
+        @Override public Id id() { return super.id(); }
         public float minimum() { return -30.0F; }
         public float maximum() { return 30.0F; }
         public float defaultValue() { return 0.0F; }
-        public Id id() { return id; }
         public String name() { return name; }
         public boolean repeat() { return true; }
         public boolean morphTarget() { return true; }
@@ -432,4 +575,42 @@ class EditorBackedCubismModelAccessTest {
             document = new Document(source);
         }
     }
+    public static final class KeyformBinding {
+        final Id parameterId = new Id("ParamAngleX");
+        public Id parameterId() { return parameterId; }
+        public List<Float> keys() { return List.of(-30.0F, 0.0F, 30.0F); }
+    }
+    public static final class KeyformGrid {
+        public List<KeyformBinding> bindings() { return List.of(new KeyformBinding()); }
+    }
+    public static class ObjectSource {
+        final Id id;
+        final KeyformGrid keyformGrid = new KeyformGrid();
+        ObjectSource(final String id) { this.id = new Id(id); }
+        public Id id() { return id; }
+        public String localName() { return id.value(); }
+        public boolean visible() { return true; }
+        public boolean locked() { return false; }
+        public boolean visibleInHierarchy() { return true; }
+        public boolean lockedInHierarchy() { return false; }
+        public KeyformGrid keyformGrid() { return keyformGrid; }
+    }
+    public static final class ArtMeshSource extends ObjectSource { ArtMeshSource(String id) { super(id); } }
+    public static final class WarpSource extends ObjectSource { WarpSource(String id) { super(id); } }
+    public static final class RotationSource extends ObjectSource { RotationSource(String id) { super(id); } }
+    public static class Form { public float opacity() { return 1.0F; } }
+    public static final class ArtMesh {
+        final ArtMeshSource source;
+        ArtMesh(ArtMeshSource source) { this.source = source; }
+        public ArtMeshSource source() { return source; }
+        public Form currentForm() { return new Form(); }
+    }
+    public static class Deformer {
+        final ObjectSource source;
+        Deformer(ObjectSource source) { this.source = source; }
+        public ObjectSource source() { return source; }
+        public Form currentForm() { return new Form(); }
+    }
+    public static final class Warp extends Deformer { Warp(WarpSource source) { super(source); } }
+    public static final class Rotation extends Deformer { Rotation(RotationSource source) { super(source); } }
 }

@@ -1,9 +1,10 @@
 package dev.turboism.preview;
 
 import dev.turboism.core.lifecycle.PluginLifecycleState;
+import dev.turboism.adapter.cubism.lifecycle.EditorObjectHookRegistry;
 import dev.turboism.adapter.cubism.lifecycle.ParameterHookRegistry;
 import dev.turboism.adapter.cubism.lifecycle.PartHookRegistry;
-import dev.turboism.adapter.cubism.lifecycle.EditorObjectHookRegistry;
+import dev.turboism.adapter.cubism.lifecycle.ProjectLifecycleHookRegistry;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -17,13 +18,15 @@ final class PreviewPluginShutdown {
     private final ParameterHookRegistry parameterHookRegistry;
     private final PartHookRegistry partHookRegistry;
     private final EditorObjectHookRegistry editorObjectHookRegistry;
+    private final ProjectLifecycleHookRegistry projectLifecycleHookRegistry;
 
     PreviewPluginShutdown(
         final PreviewLog log,
         final LocalPluginRuntime.PluginCloseHook closeHook,
         final ParameterHookRegistry parameterHookRegistry,
         final PartHookRegistry partHookRegistry,
-        final EditorObjectHookRegistry editorObjectHookRegistry
+        final EditorObjectHookRegistry editorObjectHookRegistry,
+        final ProjectLifecycleHookRegistry projectLifecycleHookRegistry
     ) {
         this.log = log;
         this.closeHook = closeHook;
@@ -36,6 +39,10 @@ final class PreviewPluginShutdown {
         this.editorObjectHookRegistry = java.util.Objects.requireNonNull(
             editorObjectHookRegistry,
             "editorObjectHookRegistry"
+        );
+        this.projectLifecycleHookRegistry = java.util.Objects.requireNonNull(
+            projectLifecycleHookRegistry,
+            "projectLifecycleHookRegistry"
         );
     }
 
@@ -65,6 +72,7 @@ final class PreviewPluginShutdown {
         final LocalPluginRuntime.LoadedPlugin loadedPlugin
     ) throws Throwable {
         final String id = loadedPlugin.runtime().id();
+        projectLifecycleHookRegistry.unregister(id);
         editorObjectHookRegistry.unregister(id);
         partHookRegistry.unregister(id);
         parameterHookRegistry.unregister(id);
@@ -81,6 +89,7 @@ final class PreviewPluginShutdown {
         final LocalPluginRuntime.LoadedPlugin loadedPlugin
     ) {
         try {
+            projectLifecycleHookRegistry.unregister(safePluginId(loadedPlugin));
             editorObjectHookRegistry.unregister(safePluginId(loadedPlugin));
             partHookRegistry.unregister(safePluginId(loadedPlugin));
             parameterHookRegistry.unregister(safePluginId(loadedPlugin));

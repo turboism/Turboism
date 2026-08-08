@@ -1,18 +1,30 @@
 package dev.turboism.adapter;
 
 import dev.turboism.adapter.cubism.ClipMaskReadAdapter;
+import dev.turboism.adapter.cubism.PreviewCaptureHostOperations;
 import dev.turboism.adapter.cubism.ProjectWorkspaceAdapter;
+import dev.turboism.adapter.cubism.RecentFileAdapter;
+import dev.turboism.adapter.cubism.RecentPreviewContributionAdapter;
+import dev.turboism.adapter.cubism.ScreenshotCaptureAdapter;
+import dev.turboism.adapter.cubism.VerifiedRecentFileListHostOperations;
+import dev.turboism.adapter.cubism.VerifiedRecentPreviewPopupHostOperations;
 import dev.turboism.adapter.cubism.RenderStatusAdapter;
 import dev.turboism.adapter.cubism.VerifiedClipMaskHostOperations;
 import dev.turboism.adapter.cubism.VerifiedProjectWorkspaceHostOperations;
+import dev.turboism.adapter.cubism.backup.AutoBackupAdapter;
+import dev.turboism.adapter.cubism.backup.VerifiedAutoBackupHostOperations;
 import dev.turboism.adapter.ui.StatusToolbarAdapter;
 import dev.turboism.adapter.ui.StatusToolbarAdapterImpl;
 import dev.turboism.adapter.ui.ThemeStatusAdapter;
 import dev.turboism.adapter.ui.ThemeStatusAdapterImpl;
 import dev.turboism.adapter.ui.UiSurfaceAdapter;
 import dev.turboism.adapter.ui.UiSurfaceAdapterImpl;
+import dev.turboism.adapter.ui.VerifiedCxStatusBarHostAccess;
 import dev.turboism.mapping.verification.ClipMaskVerificationManifest;
+import dev.turboism.mapping.verification.AutoBackupVerificationManifest;
 import dev.turboism.mapping.verification.ProjectWorkspaceVerificationManifest;
+import dev.turboism.mapping.verification.RecentPreviewVerificationManifest;
+import dev.turboism.mapping.verification.StatusBarVerificationManifest;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 
 import java.util.Objects;
@@ -29,7 +41,11 @@ public record RuntimeHostAdapters(
     ProjectWorkspaceAdapter projectWorkspace,
     ClipMaskReadAdapter clipMaskRead,
     StatusToolbarAdapter statusToolbar,
-    UiSurfaceAdapter uiSurface
+    UiSurfaceAdapter uiSurface,
+    RecentFileAdapter recentFiles,
+    ScreenshotCaptureAdapter screenshots,
+    RecentPreviewContributionAdapter recentPreviews,
+    AutoBackupAdapter autoBackup
 ) {
 
     public RuntimeHostAdapters {
@@ -39,6 +55,26 @@ public record RuntimeHostAdapters(
         clipMaskRead = Objects.requireNonNull(clipMaskRead, "clipMaskRead");
         statusToolbar = Objects.requireNonNull(statusToolbar, "statusToolbar");
         uiSurface = Objects.requireNonNull(uiSurface, "uiSurface");
+        recentFiles = Objects.requireNonNull(recentFiles, "recentFiles");
+        screenshots = Objects.requireNonNull(screenshots, "screenshots");
+        recentPreviews = Objects.requireNonNull(recentPreviews, "recentPreviews");
+        autoBackup = Objects.requireNonNull(autoBackup, "autoBackup");
+    }
+
+    /** Compatibility constructor: recent-preview slots stay in safe mode. */
+    public RuntimeHostAdapters(
+        final ThemeStatusAdapter themeStatus,
+        final RenderStatusAdapter renderStatus,
+        final ProjectWorkspaceAdapter projectWorkspace,
+        final ClipMaskReadAdapter clipMaskRead,
+        final StatusToolbarAdapter statusToolbar,
+        final UiSurfaceAdapter uiSurface
+    ) {
+        this(
+            themeStatus, renderStatus, projectWorkspace, clipMaskRead, statusToolbar, uiSurface,
+            RecentFileAdapter.safeMode(), ScreenshotCaptureAdapter.safeMode(),
+            RecentPreviewContributionAdapter.safeMode(), AutoBackupAdapter.safeMode()
+        );
     }
 
     public static RuntimeHostAdapters safeMode() {
@@ -48,7 +84,11 @@ public record RuntimeHostAdapters(
             ProjectWorkspaceAdapter.Impl.safeMode(),
             ClipMaskReadAdapter.Impl.safeMode(),
             StatusToolbarAdapterImpl.safeMode(),
-            UiSurfaceAdapterImpl.safeMode()
+            UiSurfaceAdapterImpl.safeMode(),
+            RecentFileAdapter.safeMode(),
+            ScreenshotCaptureAdapter.safeMode(),
+            RecentPreviewContributionAdapter.safeMode(),
+            AutoBackupAdapter.safeMode()
         );
     }
 
@@ -74,7 +114,11 @@ public record RuntimeHostAdapters(
             )),
             ClipMaskReadAdapter.Impl.safeMode(),
             StatusToolbarAdapterImpl.safeMode(),
-            UiSurfaceAdapterImpl.safeMode()
+            UiSurfaceAdapterImpl.safeMode(),
+            RecentFileAdapter.safeMode(),
+            ScreenshotCaptureAdapter.safeMode(),
+            RecentPreviewContributionAdapter.safeMode(),
+            AutoBackupAdapter.safeMode()
         );
     }
 
@@ -103,7 +147,11 @@ public record RuntimeHostAdapters(
                 resolver.cubismVersion()
             )),
             StatusToolbarAdapterImpl.safeMode(),
-            UiSurfaceAdapterImpl.safeMode()
+            UiSurfaceAdapterImpl.safeMode(),
+            RecentFileAdapter.safeMode(),
+            ScreenshotCaptureAdapter.safeMode(),
+            RecentPreviewContributionAdapter.safeMode(),
+            AutoBackupAdapter.safeMode()
         );
     }
 
@@ -120,7 +168,116 @@ public record RuntimeHostAdapters(
             project.projectWorkspace(),
             clip.clipMaskRead(),
             project.statusToolbar(),
-            project.uiSurface()
+            project.uiSurface(),
+            project.recentFiles(),
+            project.screenshots(),
+            project.recentPreviews(),
+            project.autoBackup()
+        );
+    }
+
+    /**
+     * Replaces only the status-toolbar slot of an existing bundle with the
+     * verified 5.3.02 native status slice; every other adapter is preserved.
+     */
+    static RuntimeHostAdapters withVerifiedStatusBar(
+        final RuntimeHostAdapters base,
+        final VerifiedMemberResolver statusBarResolver
+    ) {
+        Objects.requireNonNull(base, "base");
+        Objects.requireNonNull(statusBarResolver, "statusBarResolver");
+        if (!statusBarResolver.isExactCubismVersion(StatusBarVerificationManifest.CUBISM_VERSION)
+            || !statusBarResolver.authorizes(
+                StatusBarVerificationManifest.ADAPTER_SLICE_ID,
+                StatusBarVerificationManifest.CAPABILITY_IDS,
+                StatusBarVerificationManifest.REQUIRED_ALIASES
+            )) {
+            throw new IllegalArgumentException(
+                "resolver does not authorize the complete status-bar adapter slice"
+            );
+        }
+        return new RuntimeHostAdapters(
+            base.themeStatus(),
+            base.renderStatus(),
+            base.projectWorkspace(),
+            base.clipMaskRead(),
+            StatusToolbarAdapterImpl.connectedVerifiedCx(
+                statusBarResolver.cubismVersion(),
+                new VerifiedCxStatusBarHostAccess(statusBarResolver)
+            ),
+            base.uiSurface(),
+            base.recentFiles(),
+            base.screenshots(),
+            base.recentPreviews(),
+            base.autoBackup()
+        );
+    }
+
+    /**
+     * Connects only the verified recent-files preview slice: menu list, bounded
+     * capture, and the hover popup bridge. The popup bridge self-suppresses around
+     * captures. Every other adapter is preserved.
+     */
+    public static RuntimeHostAdapters withVerifiedRecentPreview(
+        final RuntimeHostAdapters base,
+        final VerifiedMemberResolver projectResolver,
+        final VerifiedMemberResolver panelResolver
+    ) {
+        Objects.requireNonNull(base, "base");
+        RecentPreviewVerificationManifest.requireAuthorized(projectResolver, panelResolver);
+        final VerifiedRecentFileListHostOperations files =
+            new VerifiedRecentFileListHostOperations(projectResolver, panelResolver);
+        final VerifiedRecentPreviewPopupHostOperations popup =
+            new VerifiedRecentPreviewPopupHostOperations(panelResolver);
+        return new RuntimeHostAdapters(
+            base.themeStatus(),
+            base.renderStatus(),
+            base.projectWorkspace(),
+            base.clipMaskRead(),
+            base.statusToolbar(),
+            base.uiSurface(),
+            RecentFileAdapter.connected(files),
+            ScreenshotCaptureAdapter.connected(new PreviewCaptureHostOperations(
+                panelResolver, files, popup,
+                // temporary diagnostic wiring for host verification; remove after Phase 5
+                System.err::println
+            )),
+            RecentPreviewContributionAdapter.connected(popup),
+            base.autoBackup()
+        );
+    }
+
+    /**
+     * Connects only the verified auto-backup slice: the native auto-backup manager
+     * settings/trigger surface for the exact resolved Cubism version. Every other
+     * adapter is preserved.
+     */
+    public static RuntimeHostAdapters withVerifiedAutoBackup(
+        final RuntimeHostAdapters base,
+        final VerifiedMemberResolver autoBackupResolver
+    ) {
+        Objects.requireNonNull(base, "base");
+        Objects.requireNonNull(autoBackupResolver, "autoBackupResolver");
+        if (!autoBackupResolver.authorizes(
+            AutoBackupVerificationManifest.ADAPTER_SLICE_ID,
+            AutoBackupVerificationManifest.CAPABILITY_IDS,
+            AutoBackupVerificationManifest.REQUIRED_ALIASES
+        )) {
+            throw new IllegalArgumentException(
+                "resolver does not authorize the complete auto-backup adapter slice"
+            );
+        }
+        return new RuntimeHostAdapters(
+            base.themeStatus(),
+            base.renderStatus(),
+            base.projectWorkspace(),
+            base.clipMaskRead(),
+            base.statusToolbar(),
+            base.uiSurface(),
+            base.recentFiles(),
+            base.screenshots(),
+            base.recentPreviews(),
+            AutoBackupAdapter.connected(new VerifiedAutoBackupHostOperations(autoBackupResolver))
         );
     }
 }
