@@ -6,7 +6,7 @@ import dev.turboism.sdk.cubism.model.Color;
 import java.util.List;
 import java.util.Objects;
 
-record CoreDrawableDefinition(
+public record CoreDrawableDefinition(
     String id,
     byte constantFlag,
     byte dynamicFlag,
@@ -25,7 +25,7 @@ record CoreDrawableDefinition(
     int parentDeformerIndex,
     List<Integer> parameters
 ) {
-    CoreDrawableDefinition {
+    public CoreDrawableDefinition {
         Objects.requireNonNull(id, "id");
         Objects.requireNonNull(blendMode, "blendMode");
         Objects.requireNonNull(multiplyColor, "multiplyColor");

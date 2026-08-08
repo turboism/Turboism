@@ -10,6 +10,7 @@ import dev.turboism.failure.RuntimeFailureCollector;
 import dev.turboism.hostread.ProjectWorkspaceHostReadSource;
 import dev.turboism.hostread.RuntimeAsyncHostReadService;
 import dev.turboism.hostread.SharedAsyncHostReadLane;
+import dev.turboism.i18n.CubismHostLocale;
 import dev.turboism.i18n.RuntimePluginLocalization;
 import dev.turboism.home.PluginHomePaths;
 import dev.turboism.home.TurboismHomeLayout;
@@ -87,7 +88,7 @@ final class PreviewPluginServicesFactory {
         return new CorePluginContext.Dependencies(
             descriptor, new PreviewPluginLogger(log, descriptor.id()), paths, uiScheduler, scheduler,
             new PreviewDiagnosticReport(), scope, EmptyHostSnapshotSource.INSTANCE,
-            M12ReadSnapshotSource.EMPTY, UiHostStateSource.DEFAULT,
+            M12ReadSnapshotSource.EMPTY, new PreviewUiHostStateSource(paths),
             event -> log.debug(descriptor.id(), event.toString()), Clock.systemUTC(), failureCollector
         );
     }
@@ -96,9 +97,11 @@ final class PreviewPluginServicesFactory {
         final PluginDescriptor descriptor,
         final ClassLoader classLoader
     ) {
+        // Cubism 语言版本说明见 CubismHostLocale（CubismEditor5.bat 设置 -Duser.language=zh）。
+        final Locale cubismLocale = CubismHostLocale.resolve();
         return RuntimePluginLocalization.create(
             descriptor.id(), classLoader, descriptor.i18n(), System.getProperty("turboism.locale"),
-            Locale.getDefault(Locale.Category.DISPLAY), Locale.getDefault(Locale.Category.DISPLAY),
+            cubismLocale, Locale.getDefault(Locale.Category.DISPLAY),
             diagnostic -> log.warn(descriptor.id(), diagnostic.code() + ": " + diagnostic.message())
         );
     }
@@ -191,4 +194,39 @@ record PreviewPluginServices(
     RuntimeAsyncHostReadService hostReads,
     CleanupEvidenceCollector cleanupEvidence
 ) {
+}
+
+/**
+ * Preview UiHostStateSource that can open the plugin storage directory in the
+ * host file manager and detects the active color mode from the UIManager.
+ */
+final class PreviewUiHostStateSource implements UiHostStateSource {
+
+    private final PluginHomePaths paths;
+
+    PreviewUiHostStateSource(final PluginHomePaths paths) {
+        this.paths = paths;
+    }
+
+    @Override
+    public void openDirectory(final dev.turboism.sdk.storage.StoragePath directory) {
+        final java.nio.file.Path base = paths.dataDir();
+        final java.nio.file.Path resolved = base.resolve(directory.relativePath())
+            .normalize();
+        if (!resolved.startsWith(base)) {
+            return;
+        }
+        try {
+            java.nio.file.Files.createDirectories(resolved);
+        } catch (java.io.IOException ignored) {
+            return;
+        }
+        if (java.awt.Desktop.isDesktopSupported()) {
+            try {
+                java.awt.Desktop.getDesktop().open(resolved.toFile());
+            } catch (java.io.IOException ignored) {
+                // Opening a directory is best-effort on the validation host.
+            }
+        }
+    }
 }

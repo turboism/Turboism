@@ -1,12 +1,12 @@
 # Turboism Product Roadmap
 
-This roadmap replaces the retired M1–M16 migration sequence. Work is ordered by product and framework capability, not by historical document closure.
+Work is ordered by product and framework capability. Track labels are parallel product concerns, not milestones or release gates, and must not evolve back into M13/M14-style phase governance.
 
 ## Current objective
 
 Build a usable, version-routed Cubism and Editor API that third-party plugins can consume naturally, then reconnect official modeling workflows through that API.
 
-Legacy 代码的抽取、框架/业务分界与逐阶段移植顺序见 `docs/architecture/legacy-extraction-and-porting-plan.md`。Legacy 仍是只读证据源，不是新框架骨架。
+Legacy repositories remain read-only behavior evidence rather than a new-framework skeleton. Extraction is performed per usable feature slice, without repository-wide phase closure.
 
 The target interaction model is:
 
@@ -210,9 +210,10 @@ Every hook requires necessity evidence, exact version routing, bounded execution
 - relocatable preview/release bundle;
 - isolated launcher;
 - supported Cubism version matrix;
-- real-host smoke and regression checklist;
+- automated exact-host validation through test-only SDK plugins and host scripts;
 - packaging and supply-chain checks;
 - no shared mutable launcher or global installation side effects;
+- machine-readable host evidence, with screenshots reserved for visual-only facts or failure diagnosis;
 - compliance review before public release.
 
 ## Near-term order
@@ -225,8 +226,9 @@ Every hook requires necessity evidence, exact version routing, bounded execution
 5. complete Editor project/selection/model-tree API
 6. restore parameter CSV and batch workflows
 7. expand write families to drawable/deformer/glue operations
-8. add only the hooks proven necessary by real consumers
-9. harden third-party SDK and release packaging
+8. automate exact-host SDK/write/Undo/persistence matrices for each supported version
+9. add only the hooks proven necessary by real consumers
+10. harden third-party SDK and release packaging
 ```
 
 Current implementation checkpoint:
@@ -239,23 +241,24 @@ Current implementation checkpoint:
 - the Java agent has an exact-selector, host-ClassLoader-scoped ASM transformer for the verified palette operation so plugin, UI and supported internal origins converge on one lifecycle; facade/native correlation prevents duplicate publication;
 - the official parameter CSV workflow now implements `CubismPlugin`; export and import use only the unified `CubismModel`/`Parameter` object graph, and import reaches `Parameter.setValue` without `cubismRead`, `ModelTransaction`, or `WriteParameterCommand`;
 - synthetic transformer normal/failure recovery, queue saturation, in-flight unload quiescence, rapid 200-generation model switching, isolated-ClassLoader lifecycle cleanup, and official action/permission integration tests pass;
-- local gates `./gradlew check`, `./gradlew checkIntegration`, and `./gradlew checkRelease` passed for the unified model milestone before later unrelated working-tree changes;
-- Cubism 5.3.02 Windows validation confirmed direct parameter reads/writes, metadata updates and Undo/Redo; the latest object-binding guard bundle is deployed for a final manual bound-parameter type-switch check, while Cubism 5.2 real-host behavior remains unverified. See `docs/research/cubism-5.2-5.3.02-real-host-validation-blocker.md`.
+- the daily verification entry point is being reduced to `./gradlew devCheck`; integration and release gates remain explicit, batched commands;
+- Cubism 5.3.02 Windows validation confirmed direct parameter reads/writes, metadata updates and Undo/Redo, but remaining parameter-binding and 5.2 checks must be converted from manual inspection into terminal machine-readable host matrices before they can be treated as maintained readiness evidence.
 
 ```text
-1. provide or authorize an isolated real-host 5.3.02 session and validate parameter read/write/lifecycle, Undo/Redo, save/reopen and slider performance
-2. add equivalent 5.2 Editor binding evidence and real-host validation without weakening exact-version admission
-3. extend Editor binding and lifecycle to Part opacity and model update from verified consumers
-4. complete Editor project/selection/model-tree API
-5. expand write families only from verified official-plugin consumers
-6. harden third-party SDK, packaging and release evidence
+1. make the parameter validation bundle launch through the official Editor launcher and emit a terminal structured result
+2. automate 5.3.02 parameter read/write/lifecycle, Undo/Redo, save/reopen and performance assertions in one isolated session
+3. add equivalent 5.2 Editor binding evidence without weakening exact-version admission
+4. extend Editor binding and lifecycle to Part opacity and model update from verified consumers
+5. complete Editor project/selection/model-tree API
+6. expand write families only from verified official-plugin consumers
+7. harden third-party SDK, packaging and release evidence
 ```
 
 ## Not used as progress measures
 
 The following no longer determine work order or completion:
 
-- M1–M16 phase numbers;
+- numbered migration or implementation phases;
 - migration-board row counts;
 - capability catalog size;
 - one permission per method;

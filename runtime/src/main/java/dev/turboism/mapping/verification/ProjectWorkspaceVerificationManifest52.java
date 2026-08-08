@@ -5,7 +5,7 @@ final class ProjectWorkspaceVerificationManifest52 {
 
     static final String VERIFICATION_ID = "m15.cubism-5.2.project-workspace.static";
     static final String RECORD_SHA256 =
-        "a160ecd12044652293991be68a2f3c08f8020688c9d39b8a8f2019defe5c2dcb";
+        "661be268ad68726eecfdad7ca385f0c52c0105f1180c72813547504b23f81003";
     static final String CUBISM_VERSION = "5.2.0";
     static final String PROFILE_ID = "cubism-5.2";
     static final long ARTIFACT_SIZE = 40_805_584L;
