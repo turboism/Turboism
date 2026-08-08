@@ -14,6 +14,11 @@ val sdkV3ExactBaseline = layout.projectDirectory.file("docs/sdk/baselines/sdk-ap
 val sdkV3TierPolicy = layout.projectDirectory.file("docs/sdk/baselines/sdk-api-tier-policy-v3.json")
 val sdkV3DirectPreviewLedger = layout.projectDirectory.file("docs/sdk/baselines/sdk-api-direct-preview-v3.json")
 val sdkV3ExactCommit = "50046007f80f6d2abf302dc5823fe1b1a945a976"
+val sdkV3ExactReferenceArtifact = layout.buildDirectory.file("sdk-api-baseline/v3-exact-reference.jar")
+val sdkV4ExactBaseline = layout.projectDirectory.file("docs/sdk/baselines/sdk-api-v4-exact.json")
+val sdkV4TierPolicy = layout.projectDirectory.file("docs/sdk/baselines/sdk-api-tier-policy-v4.json")
+val sdkV4DirectPreviewLedger = layout.projectDirectory.file("docs/sdk/baselines/sdk-api-direct-preview-v4.json")
+val sdkV4ExactCommit = "c759e4e5a0febc079c0737e473f8856e386354ae"
 val sdkJarArtifact = project(":sdk").tasks.named<Jar>("jar").flatMap { it.archiveFile }
 val sdkApiHelperFiles = fileTree("scripts/test") {
     include("sdk_api_baseline*.py")
@@ -57,6 +62,23 @@ val prepareSdkV2ExactReference by tasks.registering(Exec::class) {
     )
 }
 
+val prepareSdkV3ExactReference by tasks.registering(Exec::class) {
+    group = "historical verification"
+    description = "Reconstructs the reviewed v3 SDK Gradle JAR from its pinned Git commit in an isolated archive."
+    workingDir(rootDir)
+    inputs.file(sdkV2ExactReferenceBuilder)
+    inputs.property("historicalCommit", sdkV3ExactCommit)
+    outputs.file(sdkV3ExactReferenceArtifact)
+    outputs.upToDateWhen { false }
+    commandLine(
+        "python3", sdkV2ExactReferenceBuilder.asFile.absolutePath,
+        "--root", rootDir.absolutePath,
+        "--commit", sdkV3ExactCommit,
+        "--gradle", gradle.gradleHomeDir!!.resolve("bin/gradle").absolutePath,
+        "--output", sdkV3ExactReferenceArtifact.get().asFile.absolutePath
+    )
+}
+
 val checkSdkV2ExactApiCompatibility by tasks.registering(Exec::class) {
     group = "historical verification"
     description = "Audits the reviewed v2 baseline's historical artifact and canonical binding."
@@ -75,39 +97,77 @@ val checkSdkV2ExactApiCompatibility by tasks.registering(Exec::class) {
 }
 
 val checkSdkV3ExactApiCompatibility by tasks.registering(Exec::class) {
-    group = "verification"
-    description = "Verifies the current SDK JAR exactly matches the reviewed v3 API baseline."
-    dependsOn(":sdk:jar")
-    inputs.files(sdkApiHelperFiles, sdkV3ExactBaseline, sdkJarArtifact)
+    group = "historical verification"
+    description = "Audits the reviewed v3 baseline's historical artifact and canonical binding."
+    dependsOn(prepareSdkV3ExactReference)
+    inputs.files(sdkApiHelperFiles, sdkV3ExactBaseline, sdkV2ExactReferenceBuilder, sdkV3ExactReferenceArtifact)
     inputs.property("expectedCommit", sdkV3ExactCommit)
+    outputs.upToDateWhen { false }
+    commandLine(
+        "python3", sdkApiBaselineTool.asFile.absolutePath, "verify-exact",
+        "--input", sdkV3ExactReferenceArtifact.get().asFile.absolutePath,
+        "--reference-input", sdkV3ExactReferenceArtifact.get().asFile.absolutePath,
+        "--package-prefix", "dev.turboism.sdk",
+        "--baseline", sdkV3ExactBaseline.asFile.absolutePath,
+        "--expected-commit", sdkV3ExactCommit
+    )
+}
+
+val checkSdkV3TierCompatibility by tasks.registering(Exec::class) {
+    group = "historical verification"
+    description = "Audits the reviewed v3 tier policy and direct PreviewApi roots against its historical artifact."
+    dependsOn(prepareSdkV3ExactReference)
+    inputs.files(sdkApiHelperFiles, sdkV3ExactBaseline, sdkV3TierPolicy, sdkV3DirectPreviewLedger, sdkV3ExactReferenceArtifact)
+    inputs.property("expectedCommit", sdkV3ExactCommit)
+    outputs.upToDateWhen { false }
+    commandLine(
+        "python3", sdkApiBaselineTool.asFile.absolutePath, "verify-compatible",
+        "--input", sdkV3ExactReferenceArtifact.get().asFile.absolutePath,
+        "--reference-input", sdkV3ExactReferenceArtifact.get().asFile.absolutePath,
+        "--package-prefix", "dev.turboism.sdk",
+        "--baseline", sdkV3ExactBaseline.asFile.absolutePath,
+        "--expected-commit", sdkV3ExactCommit,
+        "--tier-policy", sdkV3TierPolicy.asFile.absolutePath,
+        "--initial-preview-ledger", sdkV3DirectPreviewLedger.asFile.absolutePath,
+        "--tier-trust-version", "v3"
+    )
+}
+
+val checkSdkV4ExactApiCompatibility by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Verifies the current SDK JAR exactly matches the reviewed v4 API baseline."
+    dependsOn(":sdk:jar")
+    inputs.files(sdkApiHelperFiles, sdkV4ExactBaseline, sdkJarArtifact)
+    inputs.property("expectedCommit", sdkV4ExactCommit)
     doFirst {
         commandLine(
             "python3", sdkApiBaselineTool.asFile.absolutePath, "verify-exact",
             "--input", sdkJarArtifact.get().asFile.absolutePath,
             "--reference-input", sdkJarArtifact.get().asFile.absolutePath,
             "--package-prefix", "dev.turboism.sdk",
-            "--baseline", sdkV3ExactBaseline.asFile.absolutePath,
-            "--expected-commit", sdkV3ExactCommit
+            "--baseline", sdkV4ExactBaseline.asFile.absolutePath,
+            "--expected-commit", sdkV4ExactCommit
         )
     }
 }
 
-val checkSdkV3TierCompatibility by tasks.registering(Exec::class) {
+val checkSdkV4TierCompatibility by tasks.registering(Exec::class) {
     group = "verification"
-    description = "Verifies the current SDK JAR's reviewed v3 API tiers and direct PreviewApi roots."
+    description = "Verifies the current SDK JAR's reviewed v4 API tiers and direct PreviewApi roots."
     dependsOn(":sdk:jar")
-    inputs.files(sdkApiHelperFiles, sdkV3ExactBaseline, sdkV3TierPolicy, sdkV3DirectPreviewLedger, sdkJarArtifact)
-    inputs.property("expectedCommit", sdkV3ExactCommit)
+    inputs.files(sdkApiHelperFiles, sdkV4ExactBaseline, sdkV4TierPolicy, sdkV4DirectPreviewLedger, sdkJarArtifact)
+    inputs.property("expectedCommit", sdkV4ExactCommit)
     doFirst {
         commandLine(
             "python3", sdkApiBaselineTool.asFile.absolutePath, "verify-compatible",
             "--input", sdkJarArtifact.get().asFile.absolutePath,
             "--reference-input", sdkJarArtifact.get().asFile.absolutePath,
             "--package-prefix", "dev.turboism.sdk",
-            "--baseline", sdkV3ExactBaseline.asFile.absolutePath,
-            "--expected-commit", sdkV3ExactCommit,
-            "--tier-policy", sdkV3TierPolicy.asFile.absolutePath,
-            "--initial-preview-ledger", sdkV3DirectPreviewLedger.asFile.absolutePath
+            "--baseline", sdkV4ExactBaseline.asFile.absolutePath,
+            "--expected-commit", sdkV4ExactCommit,
+            "--tier-policy", sdkV4TierPolicy.asFile.absolutePath,
+            "--initial-preview-ledger", sdkV4DirectPreviewLedger.asFile.absolutePath,
+            "--tier-trust-version", "v4"
         )
     }
 }

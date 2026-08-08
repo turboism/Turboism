@@ -79,6 +79,7 @@ def _verify_tiers(args, baseline):
         current_records=current_records,
         current_markers=facts.direct_markers,
         invalid_marker_usages=facts.invalid_usages,
+        trust_version=args.tier_trust_version,
     )
     if args.tier_report:
         write_tier_report(args.tier_report, current_records, tiers)
