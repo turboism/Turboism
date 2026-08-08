@@ -12,7 +12,7 @@ public interface MeshEditUiService {
 
     Registration contributeMirrorAxisAngleControl(MirrorAxisAngleControl contribution);
 
-        @PreviewApi
+    @PreviewApi
     record MirrorAxisAngleControl(
         String contributionId,
         String label,
