@@ -68,7 +68,7 @@ final class CxStatusBarHostOperations implements StatusToolbarAdapter.HostOperat
         // capture that instance so a stale close can never match a later one.
         final Entry entry = new Entry(id, current.parent(), current.widget());
         access.setText(current.widget(), notification.message());
-        access.setSeverityAppearance(current.widget(), notification.severity());
+        applySeverityAppearance(notification, current.widget());
         access.refresh(current.parent());
         entries.put(id, entry);
         return closeRegistration(entry);
@@ -87,8 +87,8 @@ final class CxStatusBarHostOperations implements StatusToolbarAdapter.HostOperat
         }
         access.setName(widget, notification.id());
         access.setText(widget, notification.message());
-        access.setSeverityAppearance(widget, notification.severity());
-        final int index = insertionIndex(children, anchor);
+        applySeverityAppearance(notification, widget);
+        final int index = insertionIndex(children, anchor, notification.presentation());
         access.add(anchor.parent(), widget, index);
         try {
             access.refresh(anchor.parent());
@@ -194,12 +194,28 @@ final class CxStatusBarHostOperations implements StatusToolbarAdapter.HostOperat
     }
 
     /**
-     * Legacy-verified insertion position: before the last CLabel, or before the
-     * memory viewer when the status bar has no CLabel; an inconsistent tree
-     * fails closed. Owned labels are excluded so new widgets always precede the
-     * native cursor-coordinate display.
+     * Insertion position depends on the presentation: ordinary notifications
+     * keep the legacy-verified position (before the last native CLabel, or
+     * before the memory viewer when the status bar has no CLabel; owned labels
+     * are excluded so new widgets always precede the native cursor-coordinate
+     * display). Compact metrics always mount immediately left of the
+     * runtime-found {@code CMemoryViewerPanel} instance (its child index),
+     * never a fixed index. An inconsistent tree fails closed.
      */
-    private int insertionIndex(final List<?> children, final Anchor anchor) {
+    private int insertionIndex(
+        final List<?> children,
+        final Anchor anchor,
+        final StatusNotification.Presentation presentation
+    ) {
+        final int memoryViewerIndex = children.indexOf(anchor.memoryViewer());
+        if (memoryViewerIndex < 0) {
+            throw new IllegalStateException(
+                "CX status-region tree is inconsistent: memory viewer is not a child of its parent"
+            );
+        }
+        if (presentation == StatusNotification.Presentation.COMPACT_METRIC) {
+            return memoryViewerIndex;
+        }
         final Set<Object> owned = Collections.newSetFromMap(new IdentityHashMap<>());
         for (Entry entry : entries.values()) {
             owned.add(entry.widget());
@@ -214,12 +230,6 @@ final class CxStatusBarHostOperations implements StatusToolbarAdapter.HostOperat
         if (lastCLabel >= 0) {
             return lastCLabel;
         }
-        final int memoryViewerIndex = children.indexOf(anchor.memoryViewer());
-        if (memoryViewerIndex < 0) {
-            throw new IllegalStateException(
-                "CX status-region tree is inconsistent: memory viewer is not a child of its parent"
-            );
-        }
         return memoryViewerIndex;
     }
 
@@ -229,6 +239,19 @@ final class CxStatusBarHostOperations implements StatusToolbarAdapter.HostOperat
             return List.of();
         }
         return List.copyOf(children);
+    }
+
+    /**
+     * Severity prefix and tooltip apply to ordinary notifications only.
+     * Compact metrics show the raw message without severity appearance.
+     */
+    private void applySeverityAppearance(
+        final StatusNotification notification,
+        final Object widget
+    ) {
+        if (notification.presentation() != StatusNotification.Presentation.COMPACT_METRIC) {
+            access.setSeverityAppearance(widget, notification.severity());
+        }
     }
 
     private static <T> T onEdt(final Supplier<T> operation) {

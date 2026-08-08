@@ -5,6 +5,7 @@ import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.performance.PerformanceProbeService;
 import dev.turboism.sdk.performance.PerformanceSnapshot;
 import dev.turboism.sdk.plugin.PluginContext;
+import dev.turboism.sdk.ui.StatusNotification;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.plugin.TurboismPlugin;
 import dev.turboism.sdk.ui.EmbeddedPanelContribution;
@@ -16,6 +17,7 @@ import java.awt.GraphicsEnvironment;
 import java.time.Duration;
 import java.util.Map;
 import java.util.function.Consumer;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -54,11 +56,18 @@ public final class PerfStatsPlugin implements TurboismPlugin {
     private static final String MENU_ROOT = "Turboism";
     private static final int MENU_ORDER = 20;
 
+    private static final String CPU_STATUS_ID = "perf-stats.cpu-status";
+    private static final String CPU_STATUS_KEY = "status.cpu.label";
+    private static final String CPU_STATUS_FALLBACK = "CPU";
+    private static final String CPU_STATUS_SEVERITY = "INFO";
+    private static final String CPU_STATUS_PLACEHOLDER = "--%";
+
     private final Object lifecycleLock = new Object();
     private final AtomicReference<PerfStatsWindow> window = new AtomicReference<>();
     private final ChartStore store = new ChartStore(WINDOW_POINTS * 2);
     private PluginContext context;
     private Registration sampling;
+    private Registration cpuStatus;
     private boolean initialized;
     private boolean enabled;
 
@@ -157,6 +166,10 @@ public final class PerfStatsPlugin implements TurboismPlugin {
         synchronized (lifecycleLock) {
             enabled = true;
         }
+        // Publish the initial placeholder before the first real sample arrives;
+        // the runtime routes COMPACT_METRIC through the verified 5.3.02 status
+        // adapter when available and degrades to transient state otherwise.
+        publishCpuStatus(cpuStatusMessage(CPU_STATUS_PLACEHOLDER));
         final Registration action = context.actions().register(WINDOW_ACTION_ID, windowAction());
         context.disposableScope().register(action);
         final Registration menu = context.menus().contribute(windowMenuContribution());
@@ -185,11 +198,28 @@ public final class PerfStatsPlugin implements TurboismPlugin {
         disposeWindow();
     }
 
+    /**
+     * Idempotent teardown. The sampling/cpuStatus handles are captured and
+     * cleared atomically under the lifecycle lock; the external close calls run
+     * outside the lock because a real host registration close blocks the
+     * calling thread on the Swing EDT (invokeAndWait) and must never be issued
+     * while the EDT could be waiting for the lifecycle lock (disable/shutdown
+     * called from the EDT).
+     */
     private void stopSampling() {
-        final Registration active = sampling;
-        sampling = null;
+        final Registration active;
+        final Registration status;
+        synchronized (lifecycleLock) {
+            active = sampling;
+            sampling = null;
+            status = cpuStatus;
+            cpuStatus = null;
+        }
         if (active != null) {
             active.close();
+        }
+        if (status != null) {
+            status.close();
         }
     }
 
@@ -202,6 +232,59 @@ public final class PerfStatsPlugin implements TurboismPlugin {
 
     private void onSnapshot(final PerformanceSnapshot snapshot) {
         store.append(snapshot);
+        publishCpuStatus(cpuStatusMessage(String.format(Locale.ROOT, "%.1f%%", snapshot.cpuPercent())));
+    }
+
+    /**
+     * Two-phase compact CPU status publish: the lifecycle lock is held only for
+     * the enabled check and the handle swap. The host notification and any
+     * registration close run outside the lock because
+     * {@code CxStatusBarHostOperations} blocks the calling thread on the Swing
+     * EDT (invokeAndWait) and the EDT must be free to call disable()/cleanup.
+     * If the plugin is disabled while the notification is in flight, the fresh
+     * registration is closed again so no label survives disable. The host keeps
+     * one widget per ID and identity-checks stale closes, so closing a replaced
+     * registration never removes a newer widget and the plugin DisposableScope
+     * stays bounded instead of growing with every one-second sample.
+     */
+    private void publishCpuStatus(final String message) {
+        synchronized (lifecycleLock) {
+            if (!enabled) {
+                return;
+            }
+        }
+        final Registration next = context.uiHost().notifyStatus(new StatusNotification(
+            CPU_STATUS_ID,
+            CPU_STATUS_SEVERITY,
+            message,
+            StatusNotification.Presentation.COMPACT_METRIC
+        ));
+        final Registration previous;
+        final boolean canceled;
+        synchronized (lifecycleLock) {
+            if (enabled) {
+                previous = cpuStatus;
+                cpuStatus = next;
+                canceled = false;
+            } else {
+                // Disabled while the notification was in flight: drop the fresh
+                // registration instead of installing a label that outlives disable.
+                previous = null;
+                cpuStatus = null;
+                canceled = true;
+            }
+        }
+        if (canceled) {
+            next.close();
+            return;
+        }
+        if (previous != null) {
+            previous.close();
+        }
+    }
+
+    private String cpuStatusMessage(final String value) {
+        return text(CPU_STATUS_KEY, CPU_STATUS_FALLBACK) + " " + value;
     }
 
     private void openWindow() {

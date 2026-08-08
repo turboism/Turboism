@@ -29,6 +29,11 @@
       "reason": "Reads Cubism process CPU, FPS, and JVM memory statistics for live charts."
     },
     {
+      "id": "turboism.ui.status.notify",
+      "scope": "application",
+      "reason": "Shows the resident compact CPU percentage label in the Cubism status bar."
+    },
+    {
       "id": "turboism.ui.panel.contribute",
       "scope": "application",
       "reason": "Adds the embedded performance chart panel to the Cubism palette area."
