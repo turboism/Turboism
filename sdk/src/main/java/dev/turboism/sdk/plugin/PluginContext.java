@@ -45,6 +45,9 @@ import dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService;
 
 /**
  * Runtime context provided to a plugin during {@link TurboismPlugin#init(PluginContext)}.
+ *
+ * <p>Optional surfaces keep throwing defaults unless their SDK contract defines an existing
+ * unavailable singleton; those surfaces return that singleton here for safe-mode compatibility.</p>
  */
 public interface PluginContext {
 
@@ -104,17 +107,17 @@ public interface PluginContext {
 
     @PreviewApi
     default RecentFileService recentFiles() {
-        throw new UnsupportedOperationException("recent file service is not available");
+        return RecentFileService.unavailable();
     }
 
     @PreviewApi
     default ScreenshotCaptureService screenshots() {
-        throw new UnsupportedOperationException("screenshot capture service is not available");
+        return ScreenshotCaptureService.unavailable();
     }
 
     @PreviewApi
     default RecentPreviewContributionService recentPreviews() {
-        throw new UnsupportedOperationException("recent preview contribution service is not available");
+        return RecentPreviewContributionService.unavailable();
     }
 
     default PhysicsEditorService physicsEditor() {
@@ -143,7 +146,7 @@ public interface PluginContext {
 
     @PreviewApi
     default EditorAutoBackupService backup() {
-        throw new UnsupportedOperationException("auto-backup service is not available");
+        return EditorAutoBackupService.unavailable();
     }
 
     List<PluginPermission> permissions();

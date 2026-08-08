@@ -13,13 +13,14 @@ import java.util.List;
 import java.util.concurrent.CompletionStage;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class EditorAutoBackupServiceContractTest {
 
     @Test
-    void pluginContextExposesTypedBackupServiceFailingClosed() throws Exception {
+    void pluginContextDefaultsToTheTypedUnavailableBackupSingleton() throws Exception {
         final Method accessor = Arrays.stream(PluginContext.class.getMethods())
             .filter(method -> method.getName().equals("backup"))
             .findFirst()
@@ -36,11 +37,7 @@ final class EditorAutoBackupServiceContractTest {
                 ? invokeDefault(proxy, method, args)
                 : null
         );
-        final UnsupportedOperationException unavailable = assertThrows(
-            UnsupportedOperationException.class,
-            context::backup
-        );
-        assertEquals("auto-backup service is not available", unavailable.getMessage());
+        assertSame(EditorAutoBackupService.unavailable(), context.backup());
     }
 
     @Test
