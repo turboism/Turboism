@@ -3,6 +3,7 @@ package dev.turboism.adapter.cubism.lifecycle;
 import dev.turboism.sdk.cubism.CubismPlugin;
 import dev.turboism.sdk.cubism.model.Parameter;
 import dev.turboism.sdk.plugin.PluginDescriptor;
+import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginLogger;
 import org.junit.jupiter.api.Test;
 
@@ -38,6 +39,46 @@ class ParameterHookRegistryTest {
         coordinator.setValue(parameter, 2.0F, value -> parameter.value = value);
         coordinator.awaitIdle();
         assertEquals(List.of(), events);
+    }
+
+    @Test
+    void scopedRegistryCleanupCannotRemoveReplacementGeneration() throws Exception {
+        final List<String> events = new ArrayList<>();
+        final ParameterLifecycleCoordinator coordinator = new ParameterLifecycleCoordinator();
+        final ParameterHookRegistry registry = new ParameterHookRegistry(coordinator);
+        final PluginDescriptor descriptor = descriptor("plugin-a");
+        final DisposableScope firstScope = new DisposableScope();
+        final DisposableScope replacementScope = new DisposableScope();
+        try {
+            registry.register(
+                descriptor,
+                List.of(new NamedPlugin("old", events)),
+                logger(),
+                firstScope
+            );
+            registry.register(
+                descriptor,
+                List.of(new NamedPlugin("new", events)),
+                logger(),
+                replacementScope
+            );
+            firstScope.close();
+
+            final MutableParameter parameter = new MutableParameter();
+            coordinator.setValue(parameter, 1.0F, value -> parameter.value = value);
+            coordinator.awaitIdle();
+            assertEquals(List.of("new:on", "new:after"), events);
+
+            events.clear();
+            replacementScope.close();
+            coordinator.setValue(parameter, 2.0F, value -> parameter.value = value);
+            coordinator.awaitIdle();
+            assertEquals(List.of(), events);
+        } finally {
+            firstScope.close();
+            replacementScope.close();
+            coordinator.close();
+        }
     }
 
     @Test
