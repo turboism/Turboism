@@ -26,6 +26,8 @@ public final class PermissionIds {
     public static final String TURBOISM_EVENT_SUBSCRIBE = "turboism.event.subscribe";
     public static final String TURBOISM_FILE_READ = "turboism.file.read";
     public static final String TURBOISM_FILE_WRITE = "turboism.file.write";
+    public static final String TURBOISM_PERFORMANCE_STATS_READ =
+        "turboism.performance.stats.read";
 
     private PermissionIds() {}
 }

@@ -1,0 +1,15 @@
+chart.cpu.title
+chart.fps.title
+chart.gc.title
+chart.heap.title
+chart.nonheap.title
+menu.performance-monitor
+panel.title
+series.cpu
+series.fps
+series.frames
+series.gc
+series.heap
+series.nonheap
+status.unavailable
+window.title

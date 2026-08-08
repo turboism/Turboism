@@ -67,6 +67,8 @@ public final class CorePluginContext implements PluginContext {
     private final AsyncHostReadService asyncHostReadService;
 
     private dev.turboism.sdk.runtime.RuntimeSettingsService runtimeSettings;
+
+    private volatile dev.turboism.performance.RuntimePerformanceProbeService performanceStatsService;
     public CorePluginContext(final Dependencies dependencies) {
         this(dependencies, RuntimeHostAdapters.safeMode(), null, null, null, null, null);
     }
@@ -585,6 +587,20 @@ public final class CorePluginContext implements PluginContext {
     @Override
     public UiScheduler uiScheduler() {
         return dependencies.uiScheduler();
+    }
+
+    @Override
+    public dev.turboism.sdk.performance.PerformanceProbeService performanceStats() {
+        synchronized (this) {
+            if (performanceStatsService == null) {
+                performanceStatsService = new dev.turboism.performance.RuntimePerformanceProbeService(
+                    dependencies.descriptor().id(),
+                    dev.turboism.permissions.PermissionChecker.from(dependencies.permissions()),
+                    dependencies.clock()
+                );
+            }
+            return performanceStatsService;
+        }
     }
 
     @Override
