@@ -1,5 +1,6 @@
 package dev.turboism.sdk.plugin;
 
+import dev.turboism.sdk.performance.PerformanceProbeService;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.appearance.AppearanceService;
 import dev.turboism.sdk.config.PluginConfigRegistry;
@@ -118,6 +119,10 @@ public interface PluginContext {
     }
 
     UiScheduler uiScheduler();
+
+    default PerformanceProbeService performanceStats() {
+        return PerformanceProbeService.unavailable();
+    }
 
     DiagnosticReport diagnostics();
 

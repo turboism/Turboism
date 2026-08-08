@@ -1,0 +1,56 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 2,
+  "id": "dev.turboism.plugin.perf-stats",
+  "name": "Performance Statistics",
+  "version": "0.1.0",
+  "description": "Real-time Cubism process performance charts: CPU, FPS, and JVM memory as an embedded panel and a standalone window.",
+  "entrypoints": [
+    "dev.turboism.plugin.perfstats.PerfStatsPlugin"
+  ],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    {
+      "name": "Turboism Contributors"
+    }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": ["base", "en", "ja", "ko", "zh_Hans", "zh_Hant"]
+  },
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.performance.stats.read",
+      "scope": "application",
+      "reason": "Reads Cubism process CPU, FPS, and JVM memory statistics for live charts."
+    },
+    {
+      "id": "turboism.ui.panel.contribute",
+      "scope": "application",
+      "reason": "Adds the embedded performance chart panel to the Cubism palette area."
+
+    },
+    {
+      "id": "turboism.action.register",
+      "scope": "application",
+      "reason": "Registers the Performance Monitor window action."
+    },
+    {
+      "id": "turboism.ui.menu.contribute",
+      "scope": "application",
+      "reason": "Adds the Performance Monitor entry to the Turboism top-level menu."
+    }
+  ],
+  "capabilities": [
+    "performance.stats.read",
+    "ui.embedded-panel.contribute"
+  ],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "swing"
+  }
+}
