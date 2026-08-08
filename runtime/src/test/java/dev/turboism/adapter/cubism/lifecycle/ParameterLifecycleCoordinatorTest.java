@@ -191,6 +191,24 @@ class ParameterLifecycleCoordinatorTest {
     }
 
     @Test
+    void staleGenerationCleanupCannotRemoveReplacementHooks() {
+        final List<String> events = new ArrayList<>();
+        final ParameterLifecycleCoordinator coordinator = new ParameterLifecycleCoordinator();
+        final Object firstGeneration = new Object();
+        final Object replacementGeneration = new Object();
+        coordinator.register(firstGeneration, plugin("plugin-a", List.of(new RecordingHook("old", events))));
+        coordinator.register(replacementGeneration, plugin("plugin-a", List.of(new RecordingHook("new", events))));
+
+        coordinator.unregister("plugin-a", firstGeneration);
+        final MutableParameter parameter = new MutableParameter(0.0F);
+        coordinator.setValue(parameter, 1.0F, parameter::write);
+        coordinator.awaitIdle();
+
+        assertEquals(List.of("new:on:0.0->1.0", "new:after:1.0"), events);
+        coordinator.close();
+    }
+
+    @Test
     void hookPermissionsSeparateInterceptionFromObservation() {
         final List<String> events = new ArrayList<>();
         final ParameterLifecycleCoordinator coordinator = new ParameterLifecycleCoordinator();
