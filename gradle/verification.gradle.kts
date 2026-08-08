@@ -123,8 +123,8 @@ val devCheck by tasks.registering {
         productionClasses,
         checkPackageLayout,
         "checkModuleBoundaries",
-        "checkSdkV3ExactApiCompatibility",
-        "checkSdkV3TierCompatibility",
+        "checkSdkV4ExactApiCompatibility",
+        "checkSdkV4TierCompatibility",
         "validatePluginMeta"
     )
 }
@@ -310,6 +310,8 @@ tasks.register("checkRelease") {
         "checkSdkApiReferenceBuilder",
         "checkModuleBoundariesSelfTest",
         "checkSdkV2ExactApiCompatibility",
+        "checkSdkV3ExactApiCompatibility",
+        "checkSdkV3TierCompatibility",
         "checkAsmSupplyChainAdmission",
         "checkMappingReviewWrapperArgs"
     )
