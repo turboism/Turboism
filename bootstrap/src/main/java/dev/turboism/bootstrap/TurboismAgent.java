@@ -64,6 +64,14 @@ public final class TurboismAgent {
     private static final AtomicReference<dev.turboism.sdk.plugin.Registration> OVERLAY_HOOK =
         new AtomicReference<>();
 
+    @FunctionalInterface
+    interface ShutdownHookRegistrar {
+        void register(Thread hook);
+    }
+
+    private static final ShutdownHookRegistrar JVM_SHUTDOWN_HOOK_REGISTRAR =
+        hook -> Runtime.getRuntime().addShutdownHook(hook);
+
     private TurboismAgent() {
     }
 
@@ -88,6 +96,29 @@ public final class TurboismAgent {
         final String rawOptions,
         final Instrumentation instrumentation
     ) {
+        requestStart(
+            attachmentMode,
+            rawOptions,
+            instrumentation,
+            JVM_SHUTDOWN_HOOK_REGISTRAR
+        );
+    }
+
+    static void requestStartForTesting(
+        final StartupSuppressionInstaller.AttachmentMode attachmentMode,
+        final String rawOptions,
+        final Instrumentation instrumentation,
+        final ShutdownHookRegistrar shutdownHookRegistrar
+    ) {
+        requestStart(attachmentMode, rawOptions, instrumentation, shutdownHookRegistrar);
+    }
+
+    private static void requestStart(
+        final StartupSuppressionInstaller.AttachmentMode attachmentMode,
+        final String rawOptions,
+        final Instrumentation instrumentation,
+        final ShutdownHookRegistrar shutdownHookRegistrar
+    ) {
         if (!START_REQUESTED.compareAndSet(false, true)) {
             System.out.println("Turboism agent start ignored: runtime has already been requested");
             return;
@@ -97,15 +128,15 @@ public final class TurboismAgent {
         try {
             options = AgentOptions.parse(rawOptions, defaultHome());
         } catch (RuntimeException exception) {
+            START_REQUESTED.set(false);
             System.out.println("Turboism agent options rejected: " + exception.getMessage());
             return;
         }
 
         try {
-            Runtime.getRuntime().addShutdownHook(
-                new Thread(TurboismAgent::shutdown, "turboism-shutdown")
-            );
-        } catch (IllegalStateException | SecurityException failure) {
+            shutdownHookRegistrar.register(new Thread(TurboismAgent::shutdown, "turboism-shutdown"));
+        } catch (RuntimeException failure) {
+            START_REQUESTED.set(false);
             System.err.println("Turboism agent start rejected: shutdown hook is unavailable");
             return;
         }
@@ -275,7 +306,6 @@ public final class TurboismAgent {
                 host,
                 controlAppearanceVerificationRecord
             );
-            Runtime.getRuntime().addShutdownHook(new Thread(TurboismAgent::shutdown, "turboism-shutdown"));
             runtimeInfo(
                 "Turboism Developer Preview started: host=" + runtime.hostState()
                     + ", plugins=" + runtime.loadReport().loaded().size()
