@@ -44,15 +44,13 @@ val prepareSdkV2ExactReference by tasks.registering(Exec::class) {
     inputs.property("historicalCommit", sdkV2ExactCommit)
     outputs.file(sdkV2ExactReferenceArtifact)
     outputs.upToDateWhen { false }
-    doFirst {
-        val output = sdkV2ExactReferenceArtifact.get().asFile
-        commandLine(
-            "python3", sdkV2ExactReferenceBuilder.asFile.absolutePath,
-            "--root", rootDir.absolutePath,
-            "--commit", sdkV2ExactCommit,
-            "--output", output.absolutePath
-        )
-    }
+    commandLine(
+        "python3", sdkV2ExactReferenceBuilder.asFile.absolutePath,
+        "--root", rootDir.absolutePath,
+        "--commit", sdkV2ExactCommit,
+        "--gradle", gradle.gradleHomeDir!!.resolve("bin/gradle").absolutePath,
+        "--output", sdkV2ExactReferenceArtifact.get().asFile.absolutePath
+    )
 }
 
 val checkSdkV2ExactApiCompatibility by tasks.registering(Exec::class) {
@@ -62,17 +60,14 @@ val checkSdkV2ExactApiCompatibility by tasks.registering(Exec::class) {
     inputs.files(sdkApiHelperFiles, sdkV2ExactBaseline, sdkV2ExactReferenceBuilder, sdkV2ExactReferenceArtifact)
     inputs.property("expectedCommit", sdkV2ExactCommit)
     outputs.upToDateWhen { false }
-    doFirst {
-        val reference = sdkV2ExactReferenceArtifact.get().asFile.absolutePath
-        commandLine(
-            "python3", sdkApiBaselineTool.asFile.absolutePath, "verify-exact",
-            "--input", reference,
-            "--reference-input", reference,
-            "--package-prefix", "dev.turboism.sdk",
-            "--baseline", sdkV2ExactBaseline.asFile.absolutePath,
-            "--expected-commit", sdkV2ExactCommit
-        )
-    }
+    commandLine(
+        "python3", sdkApiBaselineTool.asFile.absolutePath, "verify-exact",
+        "--input", sdkV2ExactReferenceArtifact.get().asFile.absolutePath,
+        "--reference-input", sdkV2ExactReferenceArtifact.get().asFile.absolutePath,
+        "--package-prefix", "dev.turboism.sdk",
+        "--baseline", sdkV2ExactBaseline.asFile.absolutePath,
+        "--expected-commit", sdkV2ExactCommit
+    )
 }
 
 tasks.register<Exec>("generateSdkApiBaseline") {
