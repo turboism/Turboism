@@ -37,13 +37,13 @@ class PanelTabMenuCoordinatorTest {
     private static ContextMenuRegistry.ContextMenuContribution contribution(final String id) {
         return new ContextMenuRegistry.ContextMenuContribution(
             id,
-            "action." + id,
             id,
             null,
             "panel.docked",
+            100,
+            "action." + id,
             ContextMenuRegistry.Location.WORKSPACE_OBJECT,
             java.util.Set.of(),
-            100,
             ContextMenuRegistry.Target.PANEL_TAB,
             ContextMenuRegistry.Operation.TOGGLE_PANEL_FLOATING,
             ContextMenuRegistry.ContextMenuEntry.item(id, id, "action." + id),
