@@ -4,8 +4,6 @@ import dev.turboism.mapping.verification.EditorPartBasicSettingsSelectorContract
 import dev.turboism.mapping.verification.EditorPartInspector52SelectorContract;
 import dev.turboism.mapping.verification.EditorPartInspectorSelectorContract;
 import dev.turboism.mapping.verification.EditorPartNameSelectorContract;
-import dev.turboism.mapping.verification.EditorPartInspector52SelectorContract;
-import dev.turboism.mapping.verification.EditorPartInspectorSelectorContract;
 import dev.turboism.mapping.verification.EditorPartOpacity52SelectorContract;
 import dev.turboism.mapping.verification.EditorPartOpacitySelectorContract;
 import dev.turboism.mapping.verification.EditorPartTreeSelectorContract;
@@ -17,8 +15,6 @@ import dev.turboism.sdk.cubism.model.MorphTargets;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.model.AlphaComposition;
 import dev.turboism.sdk.cubism.model.Parts;
-import dev.turboism.sdk.cubism.id.ArtMeshId;
-import dev.turboism.sdk.cubism.model.AlphaComposition;
 
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
