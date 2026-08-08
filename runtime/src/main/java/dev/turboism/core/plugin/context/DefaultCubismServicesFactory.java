@@ -11,6 +11,7 @@ import dev.turboism.adapter.cubism.service.query.ModelHierarchyQueryServiceImpl;
 import dev.turboism.adapter.cubism.service.query.ParameterQueryServiceImpl;
 import dev.turboism.adapter.cubism.service.query.SelectionQueryServiceImpl;
 import dev.turboism.adapter.cubism.service.read.CubismReadCapabilityServiceImpl;
+import dev.turboism.adapter.cubism.service.read.CubismReadPermissionGate;
 import dev.turboism.adapter.cubism.service.clipmask.CubismClipMaskServiceImpl;
 import dev.turboism.permissions.CubismPermissionGate;
 import dev.turboism.permissions.PermissionChecker;
@@ -182,7 +183,7 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
             hostAdapters.projectWorkspace(),
             hostAdapters.clipMaskRead(),
             dependencies.descriptor().id(),
-            permissionGate
+            CubismReadPermissionGate.from(permissionGate)
         );
         final AutoBackupCoordinator backupCoordinator = new AutoBackupCoordinator(
             autoBackup,
