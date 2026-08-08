@@ -20,7 +20,7 @@ public interface ScreenshotCaptureService {
         return Unavailable.INSTANCE;
     }
 
-        @PreviewApi
+    @PreviewApi
     enum Unavailable implements ScreenshotCaptureService {
         INSTANCE;
 
