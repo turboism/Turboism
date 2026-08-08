@@ -570,7 +570,12 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
      */
     private StatusNotification scopedForAdapter(final StatusNotification notification) {
         final String scopedId = pluginId.length() + ":" + pluginId + ":" + notification.id();
-        return new StatusNotification(scopedId, notification.severity(), notification.message());
+        return new StatusNotification(
+            scopedId,
+            notification.severity(),
+            notification.message(),
+            notification.presentation()
+        );
     }
 
     private Registration trackNotification(final StatusNotification notification) {

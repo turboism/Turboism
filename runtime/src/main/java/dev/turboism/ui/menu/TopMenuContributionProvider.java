@@ -61,7 +61,7 @@ public final class TopMenuContributionProvider implements EditorUiContributionPr
             .flatMap(java.util.Optional::stream)
             .sorted(ITEM_ORDER)
             .toList();
-        final LinkedHashMap<String, List<TopMenuItemDescriptor>> grouped = new LinkedHashMap<>();
+        final LinkedHashMap<MenuKey, List<TopMenuItemDescriptor>> grouped = new LinkedHashMap<>();
         for (TopMenuItemDescriptor item : items) {
             final boolean shared = RESERVED_SHARED_ROOT.equals(item.rootLabel());
             final String owner = shared ? SHARED_ROOT_OWNER : item.pluginId();

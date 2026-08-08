@@ -11,5 +11,6 @@ series.frames
 series.gc
 series.heap
 series.nonheap
+status.cpu.label
 status.unavailable
 window.title

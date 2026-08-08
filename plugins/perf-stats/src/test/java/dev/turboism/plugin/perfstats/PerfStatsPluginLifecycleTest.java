@@ -10,6 +10,7 @@ import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.EmbeddedPanelContribution;
 import dev.turboism.sdk.ui.PanelView;
 import dev.turboism.sdk.ui.UiHostCapabilityService;
+import dev.turboism.sdk.ui.StatusNotification;
 import dev.turboism.sdk.menu.MenuRegistry;
 
 import org.junit.jupiter.api.Assumptions;
@@ -24,12 +25,14 @@ import java.util.Locale;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -204,6 +207,100 @@ class PerfStatsPluginLifecycleTest {
         assertEquals(0, fixture.samples.get());
     }
 
+    @Test
+    void enablePublishesInitialCpuPlaceholderAndSnapshotsUpdateItWithOneDecimal() throws Exception {
+        final Fixture fixture = new Fixture();
+        fixture.plugin.init(fixture.context());
+        fixture.plugin.enable();
+
+        assertEquals(1, fixture.statusNotifications.get(),
+            "enable must publish the initial CPU placeholder");
+        assertEquals("CPU --%", fixture.lastStatus.get().message());
+        assertEquals(
+            StatusNotification.Presentation.COMPACT_METRIC,
+            fixture.lastStatus.get().presentation(),
+            "CPU status must use the compact-metric presentation"
+        );
+
+        fixture.sample(new PerformanceSnapshot(1L, 12.34, 1024L, 512L, 60.0, 120L, 0L, 0L, 3L, 250L));
+        assertEquals(2, fixture.statusNotifications.get(), "each snapshot must refresh the CPU status");
+        assertEquals("CPU 12.3%", fixture.lastStatus.get().message(),
+            "CPU must be formatted with one decimal using Locale.ROOT");
+        assertEquals("perf-stats.cpu-status", fixture.lastStatus.get().id(),
+            "CPU status must use one stable local ID");
+        assertEquals(1, fixture.statusCloses.get(),
+            "the first snapshot must replace (close) the initial placeholder registration");
+
+        fixture.sample(new PerformanceSnapshot(2L, 5.0, 1024L, 512L, 60.0, 120L, 0L, 0L, 3L, 250L));
+        assertEquals(2, fixture.statusCloses.get(),
+            "each replacement must close the previous registration (scope stays bounded)");
+        assertEquals("CPU 5.0%", fixture.lastStatus.get().message());
+        assertEquals(1, fixture.statusOpen.get(), "exactly one CPU status registration may be live");
+
+        fixture.plugin.disable();
+        assertEquals(3, fixture.statusCloses.get(), "disable must close the live CPU status registration");
+        assertEquals(0, fixture.statusOpen.get());
+    }
+
+    @Test
+    void disableClosesCpuStatusAndLateSnapshotCannotReviveIt() throws Exception {
+        final Fixture fixture = new Fixture();
+        fixture.plugin.init(fixture.context());
+        fixture.plugin.enable();
+        final Consumer<PerformanceSnapshot> lateSampler = fixture.consumer.get();
+        assertNotNull(lateSampler);
+
+        fixture.plugin.disable();
+        assertEquals(1, fixture.statusCloses.get(), "disable must close the CPU status registration");
+
+        lateSampler.accept(new PerformanceSnapshot(9L, 55.5, 1L, 1L, 30.0, 60L, 0L, 0L, 1L, 10L));
+        assertEquals(1, fixture.statusNotifications.get(),
+            "a late callback after disable must not leave a label behind");
+        assertEquals(1, fixture.statusCloses.get());
+    }
+
+    @Test
+    void repeatedEnableDoesNotDuplicateCpuLabel() throws Exception {
+        final Fixture fixture = new Fixture();
+        fixture.plugin.init(fixture.context());
+        fixture.plugin.enable();
+        fixture.plugin.enable();
+
+        assertEquals(1, fixture.statusNotifications.get(), "repeated enable must not re-register the label");
+        assertEquals("perf-stats.cpu-status", fixture.lastStatus.get().id());
+    }
+
+    @Test
+    void cpuStatusPublishCannotDeadlockWhenEdtDisablesDuringNotify() throws Exception {
+        final Fixture fixture = new Fixture();
+        fixture.edtBlockingNotify = true;
+        fixture.plugin.init(fixture.context());
+        fixture.plugin.enable();
+        assertEquals(1, fixture.statusOpen.get(), "enable must leave the placeholder registration live");
+        final Consumer<PerformanceSnapshot> sampler = fixture.consumer.get();
+        assertNotNull(sampler);
+        // Mimic the production CxStatusBarHostOperations: the notify call blocks
+        // the sampling thread on the Swing EDT, and the EDT work calls disable().
+        fixture.onNotifyStatusOnEdt = () -> fixture.plugin.disable();
+
+        final ExecutorService executor = Executors.newSingleThreadExecutor();
+        try {
+            executor.submit(() -> sampler.accept(new PerformanceSnapshot(
+                1L, 12.3, 1024L, 512L, 60.0, 120L, 0L, 0L, 3L, 250L)))
+                .get(10, TimeUnit.SECONDS);
+        } finally {
+            executor.shutdownNow();
+        }
+
+        assertEquals(0, fixture.statusOpen.get(),
+            "no CPU status registration may survive a disable issued from the EDT");
+        assertTrue(fixture.statusCloses.get() >= 2,
+            "placeholder and in-flight replacement must both be closed");
+        sampler.accept(new PerformanceSnapshot(2L, 1.0, 1024L, 512L, 60.0, 120L, 0L, 0L, 3L, 250L));
+        assertEquals(0, fixture.statusOpen.get(), "a late callback after disable must not revive the label");
+        assertEquals(2, fixture.statusNotifications.get(), "no publish may happen after disable");
+    }
+
     private static PluginLocalization prefixingLocalization() {
         return new PluginLocalization() {
             @Override
@@ -288,6 +385,14 @@ class PerfStatsPluginLifecycleTest {
         final AtomicInteger menus = new AtomicInteger();
         final AtomicInteger menuCloses = new AtomicInteger();
         final AtomicReference<MenuRegistry.MenuContribution> menuContribution = new AtomicReference<>();
+        final AtomicInteger statusNotifications = new AtomicInteger();
+        final AtomicInteger statusCloses = new AtomicInteger();
+        final AtomicInteger statusOpen = new AtomicInteger();
+        final AtomicReference<StatusNotification> lastStatus = new AtomicReference<>();
+        /** When true, fake notifyStatus blocks the caller on the EDT, like the real CX host operations. */
+        boolean edtBlockingNotify;
+        /** EDT work run inside a blocking notifyStatus (default no-op). */
+        Runnable onNotifyStatusOnEdt = () -> { };
         final DisposableScope scope = new DisposableScope();
 
         Fixture() {
@@ -349,6 +454,19 @@ class PerfStatsPluginLifecycleTest {
                         panels.incrementAndGet();
                         panelContribution.set((EmbeddedPanelContribution) args[0]);
                         return (Registration) () -> panels.decrementAndGet();
+                    }
+                    if (method.getName().equals("notifyStatus")) {
+                        if (edtBlockingNotify) {
+                            SwingUtilities.invokeAndWait(() -> onNotifyStatusOnEdt.run());
+                        }
+                        StatusNotification notification = (StatusNotification) args[0];
+                        statusNotifications.incrementAndGet();
+                        statusOpen.incrementAndGet();
+                        lastStatus.set(notification);
+                        return (Registration) () -> {
+                            statusCloses.incrementAndGet();
+                            statusOpen.decrementAndGet();
+                        };
                     }
                     throw new UnsupportedOperationException(method.getName());
                 }
