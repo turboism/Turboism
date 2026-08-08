@@ -1,6 +1,7 @@
 package dev.turboism.adapter.ui;
 
 import dev.turboism.adapter.cubism.CubismFacadeImpl;
+import dev.turboism.adapter.cubism.service.read.CubismReadCapabilityServiceTestSupport;
 import dev.turboism.adapter.cubism.HostSnapshotSource;
 import dev.turboism.adapter.cubism.service.read.CubismReadCapabilityServiceImpl;
 import dev.turboism.adapter.cubism.service.read.M12ReadSnapshotSource;
@@ -76,10 +77,11 @@ class ThemeStatusAdapterContractTest {
     @Test
     void cubismReadServiceUsesThemeStatusAdapterAndDoesNotDependOnStatusToolbarAdapter() {
         RecordingHost host = new RecordingHost("5.3.2", true);
-        CubismReadCapabilityServiceImpl service = new CubismReadCapabilityServiceImpl(
+        CubismReadCapabilityServiceImpl service = CubismReadCapabilityServiceTestSupport.withThemeAdapter(
             new CubismFacadeImpl(projectOnlySource(), projectReadGate()),
             M12ReadSnapshotSource.EMPTY,
-            ThemeStatusAdapterImpl.connected(host)
+            ThemeStatusAdapterImpl.connected(host),
+            projectReadGate()
         );
 
         Optional<ThemeStatusSnapshot> themeStatus = service.themeStatus();
@@ -91,10 +93,11 @@ class ThemeStatusAdapterContractTest {
 
     @Test
     void cubismReadServiceFallsBackToM12SourceWhenThemeAdapterIsUnavailable() {
-        CubismReadCapabilityServiceImpl service = new CubismReadCapabilityServiceImpl(
+        CubismReadCapabilityServiceImpl service = CubismReadCapabilityServiceTestSupport.withThemeAdapter(
             new CubismFacadeImpl(projectOnlySource(), projectReadGate()),
             new FixedThemeSource(),
-            ThemeStatusAdapterImpl.safeMode()
+            ThemeStatusAdapterImpl.safeMode(),
+            projectReadGate()
         );
 
         Optional<ThemeStatusSnapshot> themeStatus = service.themeStatus();

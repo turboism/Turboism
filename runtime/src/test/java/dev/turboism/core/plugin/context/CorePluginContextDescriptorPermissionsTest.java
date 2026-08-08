@@ -120,7 +120,7 @@ class CorePluginContextDescriptorPermissionsTest {
             safe.themeStatus(), safe.renderStatus(), projectWorkspace, safe.clipMaskRead(),
             safe.statusToolbar(), safe.uiSurface()
         );
-        final DefaultCubismServicesFactory factory = new DefaultCubismServicesFactory(
+        final DefaultCubismServicesFactory factory = DefaultCubismServicesFactoryTestSupport.withModelAccess(
             adapters, fixedModelAccess()
         );
         final List<String> permissions = List.of(
