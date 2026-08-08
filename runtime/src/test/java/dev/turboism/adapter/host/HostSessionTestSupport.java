@@ -15,9 +15,9 @@ public final class HostSessionTestSupport {
 
     public static HostSession connectedSession(
         final HostInstanceSource source,
-        final RuntimeHostAdapters adapters
+        final java.util.function.Function<HostInstanceDescriptor, RuntimeHostAdapters> adapters
     ) {
-        return new HostSession(source, ignored -> HostAdapterConnection.of(adapters));
+        return new HostSession(source, descriptor -> HostAdapterConnection.of(adapters.apply(descriptor)));
     }
 
     public static HostInstanceDescriptor descriptor(final String sessionId) {
