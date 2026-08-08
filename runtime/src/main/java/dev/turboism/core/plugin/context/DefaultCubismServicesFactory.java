@@ -44,7 +44,6 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
     private final RuntimeHostAdapters hostAdapters;
     private final CubismModelAccess modelAccess;
     private final HostSnapshotSource appearanceSource;
-    private final HostSnapshotSource canonicalSnapshotSource;
     private final CoreRuntimeInfo coreRuntimeInfo;
     private final ParameterLifecycleCoordinator parameterLifecycle;
     private final PartLifecycleCoordinator partLifecycle;
@@ -101,52 +100,9 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
         final dev.turboism.adapter.cubism.command.EditorFileCommandResolver editorFiles,
         final AutoBackupAdapter autoBackup
     ) {
-        this(
-            hostAdapters,
-            modelAccess,
-            coreRuntimeInfo,
-            parameterLifecycle,
-            partLifecycle,
-            editorObjectLifecycle,
-            physicsEditorCoordinator,
-            appearanceSource,
-            paletteAppearanceCoordinator,
-            textureAtlasLayouts,
-            textureAtlasNativeInvocations,
-            textureAtlasEditorUi,
-            textureAtlasEditorSession,
-            textureAtlasAlgorithms,
-            editorCommands,
-            editorFiles,
-            autoBackup,
-            null
-        );
-    }
-
-    DefaultCubismServicesFactory(
-        final RuntimeHostAdapters hostAdapters,
-        final CubismModelAccess modelAccess,
-        final CoreRuntimeInfo coreRuntimeInfo,
-        final ParameterLifecycleCoordinator parameterLifecycle,
-        final PartLifecycleCoordinator partLifecycle,
-        final EditorObjectLifecycleCoordinator editorObjectLifecycle,
-        final PhysicsEditorCoordinator physicsEditorCoordinator,
-        final HostSnapshotSource appearanceSource,
-        final PaletteAppearanceCoordinator paletteAppearanceCoordinator,
-        final TextureAtlasLayoutCoordinator textureAtlasLayouts,
-        final dev.turboism.adapter.cubism.textureatlas.TextureAtlasNativeInvocationCoordinator textureAtlasNativeInvocations,
-        final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi textureAtlasEditorUi,
-        final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorSession textureAtlasEditorSession,
-        final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorithmRegistry textureAtlasAlgorithms,
-        final dev.turboism.adapter.cubism.command.EditorCommandAdapter editorCommands,
-        final dev.turboism.adapter.cubism.command.EditorFileCommandResolver editorFiles,
-        final AutoBackupAdapter autoBackup,
-        final HostSnapshotSource canonicalSnapshotSource
-    ) {
         this.hostAdapters = java.util.Objects.requireNonNull(hostAdapters, "hostAdapters");
         this.modelAccess = java.util.Objects.requireNonNull(modelAccess, "modelAccess");
         this.appearanceSource = java.util.Objects.requireNonNull(appearanceSource, "appearanceSource");
-        this.canonicalSnapshotSource = canonicalSnapshotSource;
         this.coreRuntimeInfo = java.util.Objects.requireNonNull(coreRuntimeInfo, "coreRuntimeInfo");
         this.parameterLifecycle = java.util.Objects.requireNonNull(parameterLifecycle, "parameterLifecycle");
         this.partLifecycle = java.util.Objects.requireNonNull(partLifecycle, "partLifecycle");
@@ -205,7 +161,7 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
                 : NativeLabelColorAuthoring.unavailable()
         );
         final CubismFacadeImpl facade = new CubismFacadeImpl(
-            canonicalSnapshotSource != null ? canonicalSnapshotSource : dependencies.hostSnapshotSource(),
+            dependencies.hostSnapshotSource(),
             permissionGate,
             pluginModelAccess,
             coreRuntimeInfo,
