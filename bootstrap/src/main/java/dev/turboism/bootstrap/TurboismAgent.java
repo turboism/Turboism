@@ -1,5 +1,7 @@
 package dev.turboism.bootstrap;
 
+import dev.turboism.adapter.cubism.performance.PerformanceFpsHook;
+import dev.turboism.adapter.cubism.performance.PerformanceFpsHookRegistry;
 import dev.turboism.adapter.cubism.startup.StartupSuppressionInstaller;
 import dev.turboism.adapter.cubism.physics.PhysicsEditorHostProfile;
 import dev.turboism.mapping.verification.EditorModelVerificationManifest;
@@ -33,6 +35,10 @@ public final class TurboismAgent {
     private static final AtomicReference<StartupSuppressionInstaller.Installation> STARTUP_SUPPRESSION =
         new AtomicReference<>();
     private static final AtomicReference<dev.turboism.sdk.plugin.Registration> OVERLAY_HOOK =
+        new AtomicReference<>();
+    private static final AtomicReference<VerifiedPerformanceProbeInstaller> PERFORMANCE_PROBE =
+        new AtomicReference<>();
+    private static final AtomicReference<PerformanceFpsHook> FPS_HOOK =
         new AtomicReference<>();
 
     private TurboismAgent() {
@@ -149,6 +155,10 @@ public final class TurboismAgent {
                 options.home(),
                 "cubism-" + profile + "-ui-bounding-box-overlay.json"
             );
+            // Publish the FPS hook before the runtime starts plugins: plugin
+            // init/enable begins sampling immediately, and startSampling looks
+            // the registry up exactly once.
+            publishFpsHook(instrumentation, host);
             final PreviewRuntime runtime = PreviewRuntime.start(
                 options.home(),
                 verificationRecord,
@@ -164,6 +174,7 @@ public final class TurboismAgent {
                 runtime.close();
                 return;
             }
+            installPerformanceProbe(options, instrumentation, host);
             installParameterHook(runtime, instrumentation, host);
             installDockTabPopupHook(
                 embeddedPanelVerificationRecord,
@@ -310,6 +321,73 @@ public final class TurboismAgent {
         }
     }
 
+    private static void installPerformanceProbe(
+        final AgentOptions options,
+        final Instrumentation instrumentation,
+        final HostClassLocator.LocatedHost host
+    ) {
+        if (!options.performanceProbeInstall()) return;
+        VerifiedPerformanceProbeInstaller installer = null;
+        try {
+            installer = new VerifiedPerformanceProbeInstaller(
+                instrumentation,
+                host.artifact(),
+                host.classLoader(),
+                options.home().resolve("lib/performance-probe-carrier.jar")
+            );
+            installer.install(
+                options.performanceProbeCapture(),
+                options.performanceProbeScenario(),
+                options.performanceProbeAgentSha256(),
+                options.performanceProbeFixtureSha256(),
+                java.time.Duration.ofSeconds(options.performanceProbeDelaySeconds()),
+                java.time.Duration.ofSeconds(options.performanceProbeDurationSeconds()),
+                options.performanceProbeOutput(),
+                options.performanceProbeRunId(),
+                options.performanceProbeRollbackOutput()
+            );
+            if (!PERFORMANCE_PROBE.compareAndSet(null, installer)) installer.close();
+            System.err.println(
+                "Turboism validation performance probe installed; capture="
+                    + options.performanceProbeCapture()
+            );
+        } catch (Throwable failure) {
+            if (installer != null) installer.close();
+            System.err.println(
+                "Turboism validation performance probe disabled safely: "
+                    + failure.getClass().getName() + ": " + failure.getMessage()
+            );
+        }
+    }
+
+    private static void publishFpsHook(
+        final Instrumentation instrumentation,
+        final HostClassLocator.LocatedHost host
+    ) {
+        PerformanceFpsHookInstaller installer = null;
+        try {
+            installer = new PerformanceFpsHookInstaller(
+                instrumentation,
+                host.artifact(),
+                host.classLoader()
+            );
+            if (!FPS_HOOK.compareAndSet(null, installer)) installer.close();
+            PerformanceFpsHookRegistry.publish(installer);
+            System.err.println("Turboism FPS counting hook published");
+        } catch (Throwable failure) {
+            if (installer != null) {
+                try {
+                    installer.close();
+                } catch (Throwable closeFailure) {
+                    failure.addSuppressed(closeFailure);
+                }
+            }
+            System.err.println(
+                "Turboism FPS counting hook disabled safely: "
+                    + failure.getClass().getName() + ": " + failure.getMessage()
+            );
+        }
+    }
     private static Path defaultHome() {
         final String configured = System.getProperty("turboism.home");
         if (configured != null && !configured.isBlank()) {
@@ -345,6 +423,25 @@ public final class TurboismAgent {
             } catch (Throwable failure) {
                 System.err.println("Turboism startup suppression cleanup failed safely");
             }
+        }
+        final VerifiedPerformanceProbeInstaller performanceProbe = PERFORMANCE_PROBE.getAndSet(null);
+        if (performanceProbe != null) {
+            try {
+                performanceProbe.close();
+            } catch (Throwable failure) {
+                System.err.println("Turboism performance probe cleanup failed safely: "
+                    + failure.getClass().getName() + ": " + failure.getMessage());
+            }
+        }
+
+        final PerformanceFpsHook fpsHook = FPS_HOOK.getAndSet(null);
+        if (fpsHook != null) {
+            try {
+                fpsHook.close();
+            } catch (Throwable failure) {
+                System.err.println("Turboism FPS hook cleanup failed safely");
+            }
+            PerformanceFpsHookRegistry.clear(fpsHook);
         }
         final VerifiedDockTabPopupHookInstaller dockTabPopupHook = DOCK_TAB_POPUP_HOOK.getAndSet(null);
         if (dockTabPopupHook != null) {
