@@ -1,2 +1,0 @@
-id	legacyPath	reuseLevel	salvageType	owner	behaviorSpec	complianceNote	migratedTo	notes
-m2-salvage-001	legacy/Parameter.csv	L5	data	plugins/parameter	behavior-spec	compliance-note	plugins/parameter	Bad reuse level.

@@ -1,5 +1,9 @@
 package dev.turboism.sdk.ui;
 
+import javax.imageio.ImageIO;
+
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
@@ -9,11 +13,13 @@ public sealed interface PanelView permits
     PanelView.Column,
     PanelView.Row,
     PanelView.Text,
+    PanelView.Image,
     PanelView.Button,
     PanelView.TextInput,
     PanelView.Select,
     PanelView.Toggle,
     PanelView.Chart,
+    PanelView.CollapsibleSection,
     PanelView.Separator {
 
     static Column column(final PanelView... children) {
@@ -26,6 +32,10 @@ public sealed interface PanelView permits
 
     static Text text(final String value) {
         return new Text(value);
+    }
+
+    static Image image(final byte[] pngBytes, final String altText) {
+        return new Image(pngBytes, altText);
     }
 
     static Button button(final String id, final String label, final String actionId) {
@@ -81,6 +91,15 @@ public sealed interface PanelView permits
         return new SeriesSpec(name, maxPoints, unit, format);
     }
 
+    static CollapsibleSection collapsibleSection(
+        final String title,
+        final boolean expandedByDefault,
+        final PanelView... children
+    ) {
+        return new CollapsibleSection(title, expandedByDefault, List.of(children));
+    }
+    }
+
     record Column(List<PanelView> children) implements PanelView {
         public Column {
             children = immutableChildren(children);
@@ -96,6 +115,47 @@ public sealed interface PanelView permits
     record Text(String value) implements PanelView {
         public Text {
             value = Objects.requireNonNull(value, "value");
+        }
+    }
+
+    /**
+     * PNG image node (for example a recent-file preview thumbnail) with accessibility
+     * alt text. The runtime renders it as an image label sized to the decoded pixels.
+     */
+    record Image(byte[] pngBytes, String altText) implements PanelView {
+        private static final int MAX_PNG_BYTES = 1024 * 1024;
+        private static final byte[] PNG_SIGNATURE = {(byte) 137, 80, 78, 71, 13, 10, 26, 10};
+
+        public Image {
+            pngBytes = Objects.requireNonNull(pngBytes, "pngBytes").clone();
+            if (pngBytes.length == 0 || pngBytes.length > MAX_PNG_BYTES) {
+                throw new IllegalArgumentException("pngBytes must contain between 1 and 1048576 bytes");
+            }
+            if (!startsWithPngSignature(pngBytes)) {
+                throw new IllegalArgumentException("pngBytes must start with the PNG signature");
+            }
+            try {
+                final var decoded = ImageIO.read(new ByteArrayInputStream(pngBytes));
+                if (decoded == null || decoded.getWidth() < 1 || decoded.getHeight() < 1) {
+                    throw new IllegalArgumentException("pngBytes must be a readable PNG");
+                }
+            } catch (IOException failure) {
+                throw new IllegalArgumentException("pngBytes must be a readable PNG", failure);
+            }
+            altText = Objects.requireNonNull(altText, "altText");
+        }
+
+        @Override
+        public byte[] pngBytes() {
+            return pngBytes.clone();
+        }
+
+        private static boolean startsWithPngSignature(final byte[] value) {
+            if (value.length < PNG_SIGNATURE.length) return false;
+            for (int index = 0; index < PNG_SIGNATURE.length; index++) {
+                if (value[index] != PNG_SIGNATURE[index]) return false;
+            }
+            return true;
         }
     }
 
@@ -162,6 +222,17 @@ public sealed interface PanelView permits
             id = requireText(id, "id");
             label = requireText(label, "label");
             actionId = requireText(actionId, "actionId");
+        }
+    }
+
+    record CollapsibleSection(
+        String title,
+        boolean expandedByDefault,
+        List<PanelView> children
+    ) implements PanelView {
+        public CollapsibleSection {
+            title = requireText(title, "title");
+            children = immutableChildren(children);
         }
     }
 

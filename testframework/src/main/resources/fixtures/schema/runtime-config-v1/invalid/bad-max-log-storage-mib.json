@@ -1,0 +1,15 @@
+{
+  "format": "turboism.runtime.config",
+  "schemaVersion": 1,
+  "worktreeId": "invalid-log-storage-limit",
+  "pluginDirs": ["plugins"],
+  "disabledPlugins": [],
+  "logLevel": "INFO",
+  "maxLogStorageMiB": 0,
+  "safeMode": false,
+  "hooks": {
+    "disabledIds": [],
+    "denylistedClasses": [],
+    "startup": {}
+  }
+}

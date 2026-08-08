@@ -1,11 +1,15 @@
 package dev.turboism.sdk.cubism;
 
 import dev.turboism.sdk.PreviewApi;
-import dev.turboism.sdk.cubism.hook.ModelHooks;
-import dev.turboism.sdk.cubism.hook.DrawableHooks;
+import dev.turboism.sdk.cubism.hook.AnimationFileHooks;
 import dev.turboism.sdk.cubism.hook.DeformerHooks;
+import dev.turboism.sdk.cubism.hook.DrawableHooks;
+import dev.turboism.sdk.cubism.hook.EditorLifecycleHooks;
+import dev.turboism.sdk.cubism.hook.ModelFileHooks;
+import dev.turboism.sdk.cubism.hook.ModelHooks;
 import dev.turboism.sdk.cubism.hook.ParameterHooks;
 import dev.turboism.sdk.cubism.hook.PartHooks;
+import dev.turboism.sdk.cubism.hook.SemanticOperationHooks;
 import dev.turboism.sdk.plugin.TurboismPlugin;
 
 /**
@@ -22,5 +26,9 @@ public interface CubismPlugin
             PartHooks,
             DrawableHooks,
             DeformerHooks,
-            ModelHooks {
+            ModelHooks,
+            ModelFileHooks,
+            AnimationFileHooks,
+            EditorLifecycleHooks,
+            SemanticOperationHooks {
 }

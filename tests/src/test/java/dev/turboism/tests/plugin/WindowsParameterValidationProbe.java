@@ -1,26 +1,40 @@
 package dev.turboism.tests.plugin;
 
 import dev.turboism.sdk.cubism.CubismPlugin;
+import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.id.ParameterGroupId;
 import dev.turboism.sdk.cubism.id.ParameterId;
+import dev.turboism.sdk.cubism.id.ParameterBindingPointId;
 import dev.turboism.sdk.cubism.model.ArtMeshGeometry;
 import dev.turboism.sdk.cubism.model.Color;
 import dev.turboism.sdk.cubism.model.CubismModel;
+import dev.turboism.sdk.cubism.model.ModelEditLevel;
+import dev.turboism.sdk.cubism.model.ModelStatistics;
 import dev.turboism.sdk.cubism.model.Deformer;
 import dev.turboism.sdk.cubism.model.Drawable;
 import dev.turboism.sdk.cubism.model.Parameter;
 import dev.turboism.sdk.cubism.model.ParameterDefinition;
 import dev.turboism.sdk.cubism.model.ParameterGroup;
 import dev.turboism.sdk.cubism.model.ParameterGroups;
+import dev.turboism.sdk.cubism.model.ParameterBinding;
+import dev.turboism.sdk.cubism.model.ParameterBindingOperations;
+import dev.turboism.sdk.cubism.model.ParameterBindingPoint;
+import dev.turboism.sdk.cubism.model.ParameterBindingTarget;
+import dev.turboism.sdk.cubism.model.ParameterBindingTransferPlan;
 import dev.turboism.sdk.cubism.model.ParameterType;
 import dev.turboism.sdk.cubism.model.Parameters;
 import dev.turboism.sdk.cubism.model.Part;
+import dev.turboism.sdk.cubism.model.PartId;
 import dev.turboism.sdk.cubism.model.Point2;
 import dev.turboism.sdk.cubism.model.RotationDeformer;
 import dev.turboism.sdk.cubism.model.RotationDeformerForm;
 import dev.turboism.sdk.cubism.model.WarpDeformer;
 import dev.turboism.sdk.cubism.model.WarpGrid;
 import dev.turboism.sdk.plugin.PluginContext;
+import dev.turboism.sdk.ui.appearance.NativeLabelColor;
+import dev.turboism.sdk.ui.appearance.NativeLabelColorState;
+import dev.turboism.sdk.ui.appearance.PresetColor;
+import dev.turboism.sdk.ui.appearance.UiColor;
 
 import javax.swing.BorderFactory;
 import javax.swing.DefaultListModel;
@@ -28,6 +42,7 @@ import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
 import javax.swing.JFrame;
+import javax.swing.JOptionPane;
 import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.JPanel;
@@ -50,11 +65,13 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicReference;
 import java.nio.file.Files;
+import java.nio.file.attribute.FileTime;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 
@@ -266,19 +283,56 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
     public void enable() {
         partValidationThread = new Thread(() -> {
             final String mode = System.getProperty("turboism.editorObjectValidation.mode", "matrix");
-            if ("persist-write".equals(mode)) {
-                runEditorObjectPersistenceWrite();
-            } else if ("persist-read".equals(mode)) {
-                runEditorObjectPersistenceRead();
-            } else if ("plugin-scope-close".equals(mode)) {
-                runEditorObjectPluginScopeClose();
-            } else if ("document-close".equals(mode)) {
-                runEditorObjectDocumentClose();
-            } else {
-                runEditorObjectValidation();
-                runPartOpacityValidation();
+            final long startedNanos = System.nanoTime();
+            try {
+                if ("fixed-api".equals(mode)) {
+                    runFixedApiValidation(false);
+                } else if ("fixed-api-document-close".equals(mode)) {
+                    runFixedApiValidation(true);
+                } else if ("statistics-read".equals(mode)) {
+                    runModelStatisticsValidation();
+                } else if ("binding-read".equals(mode)) {
+                    runParameterBindingDiscoveryRead();
+                } else if ("binding-matrix".equals(mode)) {
+                    runParameterBindingValidation();
+                } else if ("parameter-menu-smoke".equals(mode)) {
+                    runParameterMenuSmoke();
+                } else if ("persist-write".equals(mode)) {
+                    runEditorObjectPersistenceWrite();
+                } else if ("persist-read".equals(mode)) {
+                    runEditorObjectPersistenceRead();
+                } else if ("plugin-scope-close".equals(mode)) {
+                    runEditorObjectPluginScopeClose();
+                } else if ("document-close".equals(mode)) {
+                    runEditorObjectDocumentClose();
+                } else if ("model-edit-level".equals(mode)) {
+                    runModelEditLevelValidation();
+                } else if ("wave1".equals(mode)) {
+                    runModelEditLevelValidation();
+                    runParameterMenuSmoke();
+                } else if ("native-control-background".equals(mode)) {
+                    runNativeLabelColorValidation();
+                } else if ("native-control-background-document-close".equals(mode)) {
+                    runNativeLabelColorDocumentClose();
+                } else if ("native-control-background-persist-write".equals(mode)) {
+                    runNativeLabelColorPersistWrite();
+                } else if ("native-control-background-persist-reopen".equals(mode)) {
+                    runNativeLabelColorPersistReopen();
+                } else if ("native-control-background-persist-final".equals(mode)) {
+                    runNativeLabelColorPersistFinal();
+                } else {
+                    runEditorObjectValidation();
+                    runPartOpacityValidation();
+                }
+            } finally {
+                if (Boolean.getBoolean("turboism.validation.exitOnComplete")) {
+                    finishAutomatedValidation(mode, startedNanos);
+                    return;
+                }
+                if (showsValidationWindow(mode)) {
+                    SwingUtilities.invokeLater(this::showWindow);
+                }
             }
-            SwingUtilities.invokeLater(this::showWindow);
         }, "turboism-editor-object-validation");
         partValidationThread.setDaemon(true);
         partValidationThread.start();
@@ -697,7 +751,7 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         addAuthoringField(panel, constraints, "B", labelBlueField, 6);
         addAuthoringField(panel, constraints, "A", labelAlphaField, 8);
         constraints.gridx = 10;
-        panel.add(button("Set label color", this::writeLabelColor), constraints);
+        panel.add(button("Set label background", this::writeLabelColor), constraints);
 
         constraints.gridy = 1;
         constraints.gridx = 0;
@@ -859,19 +913,17 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             throw new IllegalStateException("Select one parameter group first.");
         }
         final ParameterGroupId groupId = new ParameterGroupId(selectedGroupId);
-        final Color requested = parseColor(
+        final UiColor requested = parseColor(
             labelRedField.getText(),
             labelGreenField.getText(),
             labelBlueField.getText(),
             labelAlphaField.getText()
         );
-        final Color authoritative = setParameterGroupLabelColor(
-            activeModel().parameterGroups(),
-            groupId,
-            requested
-        );
-        lastActionStatus = "Parameter group " + groupId.value()
-            + " label color=" + colorText(authoritative)
+        final ParameterGroup group = activeModel().parameterGroups().find(groupId);
+        final NativeLabelColorState authoritative = setParameterFolderLabelColor(group, requested);
+        lastActionStatus = "Parameter folder " + groupId.value()
+            + " labelColor=" + backgroundText(authoritative.labelColor())
+            + " actual=" + effectiveText(authoritative.actualColor())
             + "; use Cubism Undo/Redo and save/reopen to validate";
         refresh();
     }
@@ -883,13 +935,13 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         refresh();
     }
 
-    static Color parseColor(
+    static UiColor parseColor(
         final String red,
         final String green,
         final String blue,
         final String alpha
     ) {
-        return new Color(
+        return new UiColor(
             parseFiniteValue(red),
             parseFiniteValue(green),
             parseFiniteValue(blue),
@@ -897,16 +949,18 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         );
     }
 
-    static Color setParameterGroupLabelColor(
-        final ParameterGroups groups,
-        final ParameterGroupId id,
-        final Color color
+    static NativeLabelColorState setParameterFolderLabelColor(
+        final ParameterGroup group,
+        final UiColor color
     ) {
-        Objects.requireNonNull(groups, "groups");
-        Objects.requireNonNull(id, "id");
+        Objects.requireNonNull(group, "group");
         Objects.requireNonNull(color, "color");
-        groups.find(id).setLabelColor(color);
-        return groups.find(id).labelColor();
+        final var ui = group.ui();
+        ui.setNativeLabelColor(new NativeLabelColor.Custom(color));
+        return ui.nativeLabelColor().orElseThrow(() ->
+            new IllegalStateException(
+                "No native label color is available for parameter folder " + group.id().value()
+            ));
     }
 
     static boolean setDefaultKeyformLock(
@@ -916,6 +970,204 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         Objects.requireNonNull(model, "model");
         model.setDefaultKeyformLocked(locked);
         return model.defaultKeyformLocked();
+    }
+
+    /**
+     * Auto evidence modes that run to completion (especially those that close the plugin scope
+     * or the document) must not rebuild the validation window afterwards.
+     */
+    static boolean showsValidationWindow(final String mode) {
+        final String value = Objects.requireNonNull(mode, "mode");
+        return !value.startsWith("native-control-background")
+            && !value.startsWith("fixed-api");
+    }
+
+    enum HostCloseDecision {
+        CLEAN_CLOSE,
+        DISCARD,
+        UNSUPPORTED_CONFIRMATION
+    }
+
+    enum HostCloseRoute {
+        SYNTHETIC_WINDOW_CLOSING,
+        ROBOT_ALT_F4
+    }
+
+    static HostCloseRoute hostCloseRoute(final String hostVersion) {
+        if (hostVersion == null) {
+            throw new IllegalArgumentException(
+                "turboism.validation.hostVersion must be 5203 or 5302"
+            );
+        }
+        return switch (hostVersion) {
+            case "5203" -> HostCloseRoute.SYNTHETIC_WINDOW_CLOSING;
+            case "5302" -> HostCloseRoute.ROBOT_ALT_F4;
+            default -> throw new IllegalArgumentException(
+                "turboism.validation.hostVersion must be 5203 or 5302: " + hostVersion
+            );
+        };
+    }
+
+    /** Chooses the non-saving branch without depending on localized button text. */
+    static HostCloseDecision hostCloseDecision(
+        final boolean confirmationVisible,
+        final int optionType,
+        final int enabledButtonCount
+    ) {
+        if (!confirmationVisible) {
+            return HostCloseDecision.CLEAN_CLOSE;
+        }
+        if (optionType == JOptionPane.YES_NO_OPTION
+            || optionType == JOptionPane.YES_NO_CANCEL_OPTION) {
+            return HostCloseDecision.DISCARD;
+        }
+        return optionType == JOptionPane.DEFAULT_OPTION
+                && (enabledButtonCount == 2 || enabledButtonCount == 3)
+            ? HostCloseDecision.DISCARD
+            : HostCloseDecision.UNSUPPORTED_CONFIRMATION;
+    }
+
+    /**
+     * Response budget for the primary's post-scope-close peer terminal-evidence wait (60 s max).
+     * Deliberately distinct from the peer plugin's pre-marker startup budget (240 s, which begins
+     * before Cubism host/model readiness).
+     */
+    static final int PEER_RESPONSE_MAX_ATTEMPTS = 600;
+    static final long PEER_RESPONSE_POLL_MILLIS = 100L;
+
+    /** RUNNING progress phase written before the bounded peer wait so a stuck run reports correctly. */
+    static String scopeCloseRunningPhase(final String modelId, final String hostThread) {
+        return "status=RUNNING\nphase=plugin-scope-close\n"
+            + "modelId=" + modelId + "\n"
+            + "hostThread=" + hostThread + "\n";
+    }
+
+    /** Writes the scope-close progress phase from the pre-close captured values only. */
+    static void writeRunningScopeClosePhase(
+        final Path artifact,
+        final String modelId,
+        final String hostThread
+    ) throws Exception {
+        Files.createDirectories(artifact.getParent());
+        Files.writeString(
+            artifact,
+            scopeCloseRunningPhase(modelId, hostThread),
+            StandardOpenOption.CREATE,
+            StandardOpenOption.TRUNCATE_EXISTING
+        );
+    }
+
+    /**
+     * Bounded wait for terminal peer evidence (status=PASS|FAIL). Returns the last observed
+     * content; an empty result after the bounded attempts means the peer is absent or failed.
+     */
+    static String awaitPeerEvidence(
+        final Path peerArtifact,
+        final int maxAttempts,
+        final long pollMillis
+    ) throws Exception {
+        String evidence = "";
+        for (int attempt = 0; attempt < maxAttempts; attempt++) {
+            evidence = Files.exists(peerArtifact) ? Files.readString(peerArtifact) : "";
+            if (evidence.contains("status=PASS") || evidence.contains("status=FAIL")) {
+                return evidence;
+            }
+            Thread.sleep(pollMillis);
+        }
+        return "";
+    }
+
+    /** Task-scoped copied model required by the persistence stages (Windows JVM-readable path). */
+    static Path fixturePath() {
+        final String raw = System.getProperty("turboism.validation.fixture");
+        if (raw == null || raw.isBlank()) {
+            throw new IllegalArgumentException(
+                "turboism.validation.fixture must point to the task-scoped copied model"
+            );
+        }
+        return Path.of(raw);
+    }
+
+    /**
+     * Bounded save confirmation: waits for the fixture file mtime/size to change after Ctrl+S
+     * and to remain stable across consecutive samples. Timeout reports {@code confirmed=false};
+     * a PASS is never written without confirmation. JDK Files/FileTime only.
+     */
+    static SaveConfirmation awaitSaveConfirmation(
+        final Path fixture,
+        final FileTime beforeMtime,
+        final long beforeSize
+    ) throws Exception {
+        return awaitSaveConfirmation(
+            fixture,
+            beforeMtime,
+            beforeSize,
+            DEFAULT_SAVE_DEADLINE_MILLIS,
+            DEFAULT_SAVE_POLL_MILLIS
+        );
+    }
+
+    static SaveConfirmation awaitSaveConfirmation(
+        final Path fixture,
+        final FileTime beforeMtime,
+        final long beforeSize,
+        final long deadlineMillis,
+        final long pollMillis
+    ) throws Exception {
+        Objects.requireNonNull(fixture, "fixture");
+        Objects.requireNonNull(beforeMtime, "beforeMtime");
+        if (!Files.isRegularFile(fixture)) {
+            throw new IllegalArgumentException(
+                "turboism.validation.fixture is missing or unreadable: " + fixture
+            );
+        }
+        final long deadlineNanos = System.nanoTime() + deadlineMillis * 1_000_000L;
+        FileTime changedMtime = null;
+        long changedSize = -1L;
+        int stableSamples = 0;
+        while (System.nanoTime() < deadlineNanos) {
+            final FileTime mtime = Files.getLastModifiedTime(fixture);
+            final long size = Files.size(fixture);
+            if (!mtime.equals(beforeMtime) || size != beforeSize) {
+                if (changedMtime == null || !changedMtime.equals(mtime) || changedSize != size) {
+                    changedMtime = mtime;
+                    changedSize = size;
+                    stableSamples = 0;
+                }
+                stableSamples++;
+                if (stableSamples >= SAVE_STABLE_SAMPLES) {
+                    return new SaveConfirmation(
+                        true, beforeMtime.toMillis(), beforeSize, mtime.toMillis(), size
+                    );
+                }
+            }
+            Thread.sleep(pollMillis);
+        }
+        final FileTime lastMtime = Files.getLastModifiedTime(fixture);
+        return new SaveConfirmation(
+            false, beforeMtime.toMillis(), beforeSize, lastMtime.toMillis(), Files.size(fixture)
+        );
+    }
+
+    static final long DEFAULT_SAVE_DEADLINE_MILLIS = 30_000L;
+    static final long DEFAULT_SAVE_POLL_MILLIS = 100L;
+    static final int SAVE_STABLE_SAMPLES = 3;
+
+    /** Machine-readable save evidence; {@code confirmed=false} is a FAIL, never a PASS. */
+    record SaveConfirmation(
+        boolean confirmed,
+        long beforeMtimeMillis,
+        long beforeSize,
+        long afterMtimeMillis,
+        long afterSize
+    ) {
+        String report(final String prefix) {
+            return prefix + "saveConfirmed=" + confirmed + System.lineSeparator()
+                + prefix + "save.beforeMtimeMillis=" + beforeMtimeMillis + System.lineSeparator()
+                + prefix + "save.beforeSize=" + beforeSize + System.lineSeparator()
+                + prefix + "save.afterMtimeMillis=" + afterMtimeMillis + System.lineSeparator()
+                + prefix + "save.afterSize=" + afterSize + System.lineSeparator();
+        }
     }
 
     static float parseFiniteValue(final String text) {
@@ -1141,6 +1393,798 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
 
     private CubismModel activeModel() {
         return context.cubism().model().active();
+    }
+    private void runModelStatisticsValidation() {
+        final Path artifact = Path.of(
+            System.getProperty("turboism.home"), "logs", "model-statistics-validation.txt"
+        );
+        try {
+            Files.createDirectories(artifact.getParent());
+            Files.writeString(
+                artifact,
+                "status=RUNNING phase=await-model\n",
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING
+            );
+            final CubismModel model = awaitEditorObjectModel(artifact);
+            final ModelStatistics statistics = onHostThread(model::statistics);
+            final int parameterCount = onHostThread(() -> model.parameters().all().size());
+            final int partCount = onHostThread(() -> model.parts().all().size());
+            final int drawableCount = onHostThread(() -> model.drawables().all().size());
+            final int deformerCount = onHostThread(() -> model.deformers().all().size());
+            if (statistics.parameterCount() != parameterCount
+                || statistics.partCount() != partCount
+                || statistics.drawableCount() != drawableCount
+                || statistics.artMeshCount() != drawableCount
+                || statistics.deformerCount() != deformerCount) {
+                throw new IllegalStateException("Model statistics counts disagree with SDK collections.");
+            }
+            final String report = new StringBuilder("status=PASS\n")
+                .append("modelId=").append(onHostThread(() -> model.id().value())).append('\n')
+                .append("parameterCount=").append(statistics.parameterCount()).append('\n')
+                .append("partCount=").append(statistics.partCount()).append('\n')
+                .append("drawableCount=").append(statistics.drawableCount()).append('\n')
+                .append("artMeshCount=").append(statistics.artMeshCount()).append('\n')
+                .append("deformerCount=").append(statistics.deformerCount()).append('\n')
+                .append("vertexCount=").append(statistics.vertexCount()).append('\n')
+                .append("triangleCount=").append(statistics.triangleCount()).append('\n')
+                .append("textureCount=").append(statistics.textureCount()).append('\n')
+                .append("maskedDrawableCount=").append(statistics.maskedDrawableCount()).append('\n')
+                .append("maskGroupCount=").append(statistics.maskGroupCount()).append('\n')
+                .append("offscreenRenderingCount=")
+                .append(statistics.offscreenRenderingCount().isPresent()
+                    ? statistics.offscreenRenderingCount().getAsInt() : "unavailable")
+                .append('\n')
+                .append("maxOffscreenDepth=")
+                .append(statistics.maxOffscreenDepth().isPresent()
+                    ? statistics.maxOffscreenDepth().getAsInt() : "unavailable")
+                .append('\n')
+                .toString();
+            Files.writeString(
+                artifact,
+                report,
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING
+            );
+        } catch (Exception exception) {
+            writeValidationFailure(artifact, exception, "Model statistics validation failed");
+        }
+    }
+
+    private void runModelEditLevelValidation() {
+        final Path artifact = Path.of(
+            System.getProperty("turboism.home"), "logs", "model-edit-level-validation.txt"
+        );
+        try {
+            final String callerThread = Thread.currentThread().getName();
+            final boolean callerEdt = SwingUtilities.isEventDispatchThread();
+            if (callerEdt) {
+                throw new IllegalStateException("Model edit-level validation must run off the AWT EDT.");
+            }
+            Files.createDirectories(artifact.getParent());
+            Files.writeString(
+                artifact,
+                "status=RUNNING phase=await-model\n",
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING
+            );
+            final CubismModel model = awaitEditorObjectModel(artifact);
+            final String modelId = onHostThread(() -> model.id().value());
+            final ModelEditLevel before = model.editLevel();
+            final ModelEditLevel written = before == ModelEditLevel.LEVEL_3
+                ? ModelEditLevel.LEVEL_2
+                : ModelEditLevel.LEVEL_3;
+            model.setEditLevel(written);
+            final ModelEditLevel afterWrite = model.editLevel();
+            model.setEditLevel(before);
+            final ModelEditLevel restored = model.editLevel();
+            final boolean passed = afterWrite == written && restored == before;
+            Files.writeString(
+                artifact,
+                "status=" + (passed ? "PASS" : "FAIL") + System.lineSeparator()
+                    + "modelId=" + modelId + System.lineSeparator()
+                    + "callerThread=" + callerThread + System.lineSeparator()
+                    + "callerEdt=" + callerEdt + System.lineSeparator()
+                    + "before=" + before + System.lineSeparator()
+                    + "written=" + written + System.lineSeparator()
+                    + "afterWrite=" + afterWrite + System.lineSeparator()
+                    + "restored=" + restored + System.lineSeparator()
+                    + "undoRedo=NOT_APPLICABLE_HOST_VIEW_STATE" + System.lineSeparator()
+                    + "dirtyState=NOT_EXPECTED" + System.lineSeparator()
+                    + "persistence=NOT_CLAIMED" + System.lineSeparator(),
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING
+            );
+        } catch (Exception exception) {
+            writeValidationFailure(artifact, exception, "Model edit-level validation failed");
+        }
+    }
+
+    private void runFixedApiValidation(final boolean closeDocument) {
+        final Path artifact = Path.of(
+            System.getProperty("turboism.home"), "logs",
+            closeDocument ? "fixed-api-document-close.txt" : "fixed-api-validation.txt"
+        );
+        final AtomicReference<String> phase = new AtomicReference<>("await-model");
+        try {
+            Files.createDirectories(artifact.getParent());
+            Files.writeString(
+                artifact,
+                "status=RUNNING phase=await-model\n",
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING
+            );
+            final CubismModel model = awaitEditorObjectModel(artifact);
+            phase.set("identity");
+            final StringBuilder report = new StringBuilder("status=RUNNING\n")
+                .append("phase=fixed-api-read\n")
+                .append("hostThread=").append(onHostThread(() ->
+                    Thread.currentThread().getName() + "|edt=" + SwingUtilities.isEventDispatchThread()
+                )).append('\n')
+                .append("modelId=").append(onHostThread(() -> model.id().value())).append('\n');
+
+            appendRequiredFixedOutcome(report, "activeDocument", () -> onHostThread(() ->
+                context.cubism().activeDocument()
+                    .map(document -> document.documentId() + "|" + document.name())
+                    .orElse("none")
+            ));
+            phase.set("parameters");
+
+            final Parameters parameters = onHostThread(model::parameters);
+            final List<Parameter> parameterValues = onHostThread(parameters::all);
+            if (parameterValues.isEmpty()) {
+                throw new IllegalStateException("No Parameter is available.");
+            }
+            final Parameter parameter = parameterValues.get(0);
+            final int parameterIndex = onHostThread(parameter::index);
+            if (parameterIndex < 0) {
+                throw new IllegalStateException("Parameter index must be non-negative.");
+            }
+            report.append("parameters.count=").append(parameterValues.size()).append('\n')
+                .append("parameter.id=").append(onHostThread(() -> parameter.id().value())).append('\n')
+                .append("parameter.index=").append(parameterIndex).append('\n');
+            appendFixedOutcome(report, "parameter.keyValues", () ->
+                onHostThread(() -> parameter.keyValues().size()));
+            phase.set("parameter-definitions");
+
+            final dev.turboism.sdk.cubism.model.ParameterDefinitions definitions =
+                onHostThread(model::parameterDefinitions);
+            final List<ParameterDefinition> definitionValues = onHostThread(definitions::all);
+            if (definitionValues.isEmpty()) {
+                throw new IllegalStateException("No Parameter definition is available.");
+            }
+            final ParameterDefinition definition = definitionValues.get(0);
+            final ParameterDefinition foundDefinition = onHostThread(() -> definitions.find(definition.id()));
+            if (!definition.equals(foundDefinition)) {
+                throw new IllegalStateException("Parameter definition lookup does not match stable order.");
+            }
+            report.append("parameterDefinitions.count=").append(definitionValues.size()).append('\n')
+                .append("parameterDefinition.first=").append(fixedText(definition)).append('\n');
+            phase.set("parts");
+
+            final dev.turboism.sdk.cubism.model.Parts parts = onHostThread(model::parts);
+            final List<Part> partValues = onHostThread(parts::all);
+            if (partValues.isEmpty()) {
+                throw new IllegalStateException("No Part is available.");
+            }
+            for (int index = 0; index < partValues.size(); index++) {
+                final Part current = partValues.get(index);
+                if (onHostThread(current::index) != index) {
+                    throw new IllegalStateException("Part index does not match stable model order at " + index + '.');
+                }
+                final Optional<dev.turboism.sdk.cubism.model.PartId> parentId =
+                    onHostThread(current::parentId);
+                if (parentId.isPresent()) {
+                    final Part parent = onHostThread(() -> parts.find(parentId.orElseThrow()));
+                    if (!onHostThread(parent::childIds).contains(onHostThread(current::id))) {
+                        throw new IllegalStateException("Part parent does not contain child " + current.id().value());
+                    }
+                }
+                for (dev.turboism.sdk.cubism.model.PartId childId : onHostThread(current::childIds)) {
+                    final Part child = onHostThread(() -> parts.find(childId));
+                    if (!onHostThread(child::parentId).equals(Optional.of(onHostThread(current::id)))) {
+                        throw new IllegalStateException("Part child does not point back to parent " + current.id().value());
+                    }
+                }
+            }
+            final Part part = partValues.get(0);
+            report.append("parts.count=").append(partValues.size()).append('\n')
+                .append("part.first.id=").append(onHostThread(() -> part.id().value())).append('\n')
+                .append("part.first.index=").append(onHostThread(part::index)).append('\n')
+                .append("part.first.parentId=").append(fixedText(onHostThread(part::parentId))).append('\n')
+                .append("part.first.childIds=").append(fixedText(onHostThread(part::childIds))).append('\n')
+                .append("fixedReads.status=PASS\n");
+            phase.set("required-fixed-api");
+
+            appendRequiredFixedOutcome(report, "coreRuntime.version", () ->
+                onHostThread(() -> context.cubism().coreRuntime().version()));
+            appendRequiredFixedOutcome(report, "coreRuntime.capabilities", () ->
+                onHostThread(() -> context.cubism().coreRuntime().capabilities()));
+            appendRequiredFixedOutcome(report, "coreRuntime.latestMocVersion", () ->
+                onHostThread(() -> context.cubism().coreRuntime().mocInspector().latestVersion()));
+            appendRequiredFixedOutcome(report, "model.name", () -> onHostThread(model::name));
+            appendFixedOutcome(report, "model.mocInfo", () -> onHostThread(model::mocInfo));
+
+            appendRequiredFixedOutcome(report, "part.shortName", () -> onHostThread(part::shortName));
+            appendRequiredFixedOutcome(report, "part.visible", () -> onHostThread(part::visible));
+            appendRequiredFixedOutcome(report, "part.visibleInHierarchy", () -> onHostThread(part::visibleInHierarchy));
+            appendRequiredFixedOutcome(report, "part.locked", () -> onHostThread(part::locked));
+            appendRequiredFixedOutcome(report, "part.lockedInHierarchy", () -> onHostThread(part::lockedInHierarchy));
+            appendRequiredFixedOutcome(report, "part.editColor", () -> onHostThread(part::editColor));
+            appendRequiredFixedOutcome(report, "part.sketch", () -> onHostThread(part::sketch));
+            appendRequiredFixedOutcome(report, "part.defaultOrder", () -> onHostThread(part::defaultOrder));
+            appendRequiredFixedOutcome(report, "part.parentIndex", () -> onHostThread(part::parentIndex));
+
+            final var drawables = onHostThread(model::drawables);
+            final List<Drawable> drawableValues = onHostThread(drawables::all);
+            if (drawableValues.isEmpty()) {
+                throw new IllegalStateException("No Drawable is available.");
+            }
+            for (int index = 0; index < drawableValues.size(); index++) {
+                if (onHostThread(drawableValues.get(index)::index) != index) {
+                    throw new IllegalStateException("Drawable index does not match stable model order at " + index + '.');
+                }
+            }
+            final Drawable drawable = drawableValues.get(0);
+            report.append("drawables.count=").append(drawableValues.size()).append('\n');
+            appendRequiredFixedOutcome(report, "drawable.index", () -> onHostThread(drawable::index));
+            appendRequiredFixedOutcome(report, "drawable.doubleSided", () -> onHostThread(drawable::doubleSided));
+            appendFixedOutcome(report, "drawable.evaluationState", () -> onHostThread(drawable::evaluationState));
+            appendRequiredFixedOutcome(report, "drawable.parentPartId", () -> onHostThread(drawable::parentPartId));
+            appendRequiredFixedOutcome(report, "drawable.parentPartIndex", () -> onHostThread(drawable::parentPartIndex));
+            appendRequiredFixedOutcome(report, "drawable.parentDeformerId", () -> onHostThread(drawable::parentDeformerId));
+            appendRequiredFixedOutcome(report, "drawable.parentDeformerIndex", () -> onHostThread(drawable::parentDeformerIndex));
+            appendRequiredFixedOutcome(report, "drawable.parameterIds", () -> onHostThread(drawable::parameterIds));
+            appendRequiredFixedOutcome(report, "drawable.parameters", () ->
+                onHostThread(() -> fixedInts(drawable.parameters())));
+            appendRequiredFixedOutcome(report, "drawable.maskIds", () -> onHostThread(drawable::maskIds));
+            appendRequiredFixedOutcome(report, "drawable.masks", () ->
+                onHostThread(() -> fixedInts(drawable.masks())));
+
+            final var deformers = onHostThread(model::deformers);
+            final List<Deformer> deformerValues = onHostThread(deformers::all);
+            if (deformerValues.isEmpty()) {
+                throw new IllegalStateException("No Deformer is available.");
+            }
+            for (int index = 0; index < deformerValues.size(); index++) {
+                if (onHostThread(deformerValues.get(index)::index) != index) {
+                    throw new IllegalStateException("Deformer index does not match stable model order at " + index + '.');
+                }
+            }
+            final Deformer deformer = deformerValues.get(0);
+            report.append("deformers.count=").append(deformerValues.size()).append('\n');
+            appendRequiredFixedOutcome(report, "deformer.index", () -> onHostThread(deformer::index));
+            appendRequiredFixedOutcome(report, "deformer.parentPartId", () -> onHostThread(deformer::parentPartId));
+            appendRequiredFixedOutcome(report, "deformer.parentPartIndex", () -> onHostThread(deformer::parentPartIndex));
+            appendRequiredFixedOutcome(report, "deformer.parentDeformerId", () -> onHostThread(deformer::parentDeformerId));
+            appendRequiredFixedOutcome(report, "deformer.parentDeformerIndex", () -> onHostThread(deformer::parentDeformerIndex));
+            appendRequiredFixedOutcome(report, "deformer.parameterIds", () -> onHostThread(deformer::parameterIds));
+            appendRequiredFixedOutcome(report, "deformer.parameters", () ->
+                onHostThread(() -> fixedInts(deformer.parameters())));
+            appendRequiredFixedOutcome(report, "deformer.name", () -> onHostThread(deformer::name));
+            appendRequiredFixedOutcome(report, "deformer.visible", () -> onHostThread(deformer::visible));
+            appendRequiredFixedOutcome(report, "deformer.visibleInHierarchy", () -> onHostThread(deformer::visibleInHierarchy));
+            appendRequiredFixedOutcome(report, "deformer.locked", () -> onHostThread(deformer::locked));
+            appendRequiredFixedOutcome(report, "deformer.lockedInHierarchy", () -> onHostThread(deformer::lockedInHierarchy));
+            appendRequiredFixedOutcome(report, "deformer.opacity", () -> onHostThread(deformer::getOpacity));
+            appendFixedOutcome(report, "deformer.multiplyColor", () -> onHostThread(deformer::multiplyColor));
+            appendFixedOutcome(report, "deformer.screenColor", () -> onHostThread(deformer::screenColor));
+
+            final var glues = onHostThread(model::glues);
+            final List<dev.turboism.sdk.cubism.model.Glue> glueValues = onHostThread(glues::all);
+            final dev.turboism.sdk.cubism.model.Glue glue =
+                glueValues.isEmpty() ? null : glueValues.get(0);
+            report.append("glues.count=").append(glueValues.size()).append('\n');
+            if (glue == null) {
+                report.append("glue.instance.status=NOT_EXERCISED\n");
+            } else {
+                for (int index = 0; index < glueValues.size(); index++) {
+                    if (onHostThread(glueValues.get(index)::index) != index) {
+                        throw new IllegalStateException("Glue index does not match stable model order at " + index + '.');
+                    }
+                }
+                final dev.turboism.sdk.cubism.model.GlueId glueId = onHostThread(glue::id);
+                appendRequiredFixedOutcome(report, "glue.id", () -> glueId);
+                appendRequiredFixedOutcome(report, "glues.find", () ->
+                    onHostThread(() -> glues.find(glueId).id()));
+                appendRequiredFixedOutcome(report, "glue.index", () -> onHostThread(glue::index));
+                appendRequiredFixedOutcome(report, "glue.drawableAId", () -> onHostThread(glue::drawableAId));
+                appendRequiredFixedOutcome(report, "glue.drawableA", () -> onHostThread(glue::drawableA));
+                appendRequiredFixedOutcome(report, "glue.drawableBId", () -> onHostThread(glue::drawableBId));
+                appendRequiredFixedOutcome(report, "glue.drawableB", () -> onHostThread(glue::drawableB));
+                appendRequiredFixedOutcome(report, "glue.parameterIds", () -> onHostThread(glue::parameterIds));
+                appendRequiredFixedOutcome(report, "glue.parameters", () ->
+                    onHostThread(() -> fixedInts(glue.parameters())));
+            }
+            phase.set("lifecycle");
+
+            boolean modelStale;
+            boolean definitionsStale;
+            boolean parameterStale;
+            boolean partsStale;
+            boolean partStale;
+            boolean drawablesStale;
+            boolean drawableStale;
+            boolean deformersStale;
+            boolean deformerStale;
+            boolean gluesStale;
+            boolean glueStale;
+            if (closeDocument) {
+                final java.awt.Robot robot = new java.awt.Robot();
+                pressShortcut(robot, java.awt.event.KeyEvent.VK_W);
+                modelStale = definitionsStale = parameterStale = partsStale = partStale =
+                    drawablesStale = drawableStale = deformersStale = deformerStale =
+                        gluesStale = false;
+                glueStale = glue == null;
+                for (int attempt = 0; attempt < 60; attempt++) {
+                    Thread.sleep(100L);
+                    modelStale = failsStale(model::id);
+                    definitionsStale = failsStale(definitions::all);
+                    parameterStale = failsStale(parameter::index);
+                    partsStale = failsStale(parts::all);
+                    partStale = failsStale(part::parentId);
+                    drawablesStale = failsStale(drawables::all);
+                    drawableStale = failsStale(drawable::parameterIds);
+                    deformersStale = failsStale(deformers::all);
+                    deformerStale = failsStale(deformer::parameterIds);
+                    gluesStale = failsStale(glues::all);
+                    glueStale = glue == null || failsStale(glue::parameterIds);
+                    if (modelStale && definitionsStale && parameterStale && partsStale && partStale
+                        && drawablesStale && drawableStale && deformersStale && deformerStale
+                        && gluesStale && glueStale) {
+                        break;
+                    }
+                }
+            } else {
+                context.disposableScope().close();
+                modelStale = failsStale(model::id);
+                definitionsStale = failsStale(definitions::all);
+                parameterStale = failsStale(parameter::index);
+                partsStale = failsStale(parts::all);
+                partStale = failsStale(part::parentId);
+                drawablesStale = failsStale(drawables::all);
+                drawableStale = failsStale(drawable::parameterIds);
+                deformersStale = failsStale(deformers::all);
+                deformerStale = failsStale(deformer::parameterIds);
+                gluesStale = failsStale(glues::all);
+                glueStale = glue == null || failsStale(glue::parameterIds);
+            }
+            final boolean passed = modelStale && definitionsStale && parameterStale
+                && partsStale && partStale && drawablesStale && drawableStale
+                && deformersStale && deformerStale && gluesStale && glueStale;
+            report.append("lifecycle.phase=")
+                .append(closeDocument ? "document-close" : "plugin-scope-close").append('\n')
+                .append("modelStale=").append(modelStale).append('\n')
+                .append("parameterDefinitionsStale=").append(definitionsStale).append('\n')
+                .append("parameterStale=").append(parameterStale).append('\n')
+                .append("partsStale=").append(partsStale).append('\n')
+                .append("partStale=").append(partStale).append('\n')
+                .append("drawablesStale=").append(drawablesStale).append('\n')
+                .append("drawableStale=").append(drawableStale).append('\n')
+                .append("deformersStale=").append(deformersStale).append('\n')
+                .append("deformerStale=").append(deformerStale).append('\n')
+                .append("gluesStale=").append(gluesStale).append('\n')
+                .append("glueInstancePresent=").append(glue != null).append('\n')
+                .append("glueStale=")
+                .append(glue == null ? "NOT_EXERCISED" : Boolean.toString(glueStale)).append('\n');
+            report.replace(0, "status=RUNNING".length(), "status=" + (passed ? "PASS" : "FAIL"));
+            Files.writeString(
+                artifact,
+                report.toString(),
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING
+            );
+        } catch (Exception exception) {
+            try {
+                Files.writeString(
+                    artifact,
+                    "status=FAIL\nphase=" + phase.get() + "\nerror="
+                        + failureDescription(exception) + "\n",
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.TRUNCATE_EXISTING
+                );
+            } catch (Exception ignored) {
+                context.logger().error("Fixed API validation artifact could not be written", exception);
+            }
+    }
+    }
+
+    private static void appendFixedOutcome(
+        final StringBuilder report,
+        final String key,
+        final Callable<?> call
+    ) {
+        try {
+            final Object value = call.call();
+            report.append(key).append(".status=AVAILABLE\n")
+                .append(key).append(".value=").append(fixedText(value)).append('\n');
+        } catch (UnsupportedOperationException | IllegalStateException unavailable) {
+            report.append(key).append(".status=UNAVAILABLE\n")
+                .append(key).append(".reason=").append(fixedText(unavailable.getMessage())).append('\n');
+        } catch (Exception failure) {
+            report.append(key).append(".status=ERROR\n")
+                .append(key).append(".reason=").append(fixedText(failureDescription(failure))).append('\n');
+        }
+    }
+
+    private static void appendRequiredFixedOutcome(
+        final StringBuilder report,
+        final String key,
+        final Callable<?> call
+    ) throws Exception {
+        try {
+            final Object value = call.call();
+            report.append(key).append(".status=AVAILABLE\n")
+                .append(key).append(".value=").append(fixedText(value)).append('\n');
+        } catch (Exception failure) {
+            throw new IllegalStateException(
+                key + " is unavailable: " + failureDescription(failure),
+                failure
+            );
+        }
+    }
+
+    private static boolean failsStale(final Callable<?> call) {
+        try {
+            call.call();
+            return false;
+        } catch (Exception expected) {
+            return expected instanceof IllegalStateException;
+        }
+    }
+
+    private static String fixedText(final Object value) {
+        return String.valueOf(value).replace('\r', ' ').replace('\n', ' ');
+    }
+
+    private static List<Integer> fixedInts(
+        final dev.turboism.sdk.cubism.model.IntSequence values
+    ) {
+        return java.util.stream.IntStream.range(0, values.size())
+            .map(values::get)
+            .boxed()
+            .toList();
+    }
+
+    private void runParameterBindingDiscoveryRead() {
+        final Path artifact = Path.of(
+            System.getProperty("turboism.home"), "logs", "binding-read-driver.txt"
+        );
+        try {
+            final CubismModel model = awaitEditorObjectModel(artifact);
+            final Parameter parameter = onHostThread(() -> model.parameters().all().stream()
+                .filter(candidate -> !candidate.getParameterBindings().isEmpty())
+                .findFirst().orElseThrow(() -> new IllegalStateException(
+                    "No parameter with Editor object bindings is available."
+                )));
+            final List<ParameterBinding> bindings = onHostThread(parameter::getParameterBindings);
+            final StringBuilder report = new StringBuilder("status=PASS\n")
+                .append("modelId=").append(onHostThread(() -> model.id().value())).append('\n')
+                .append("parameterId=").append(onHostThread(() -> parameter.id().value())).append('\n')
+                .append("bindingCount=").append(bindings.size()).append('\n');
+            for (int index = 0; index < bindings.size(); index++) {
+                final ParameterBinding binding = bindings.get(index);
+                report.append("binding.").append(index).append(".targetType=")
+                    .append(binding.target().type()).append('\n')
+                    .append("binding.").append(index).append(".targetId=")
+                    .append(binding.target().id()).append('\n')
+                    .append("binding.").append(index).append(".family=")
+                    .append(binding.family()).append('\n')
+                    .append("binding.").append(index).append(".points=")
+                    .append(binding.points().stream().map(point -> point.id().value() + ":" + point.value()).toList())
+                    .append('\n');
+            }
+            Files.writeString(artifact, report.toString(), StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING);
+        } catch (Exception exception) {
+            writeValidationFailure(artifact, exception, "Parameter binding discovery read failed");
+        }
+    }
+
+    private void runParameterMenuSmoke() {
+        final Path artifact = Path.of(
+            System.getProperty("turboism.home"), "logs", "parameter-menu-smoke.txt"
+        );
+        try {
+            Files.createDirectories(artifact.getParent());
+            java.util.Set<String> items = java.util.Set.of();
+            Exception lastFailure = null;
+            for (int attempt = 0; attempt < 30; attempt++) {
+                try {
+                    items = onHostThread(() -> {
+                        final java.util.LinkedHashSet<String> found = new java.util.LinkedHashSet<>();
+                        for (java.awt.Frame frame : java.awt.Frame.getFrames()) {
+                            if (!(frame instanceof javax.swing.JFrame swingFrame) || !frame.isVisible()) continue;
+                            final javax.swing.JMenuBar bar = swingFrame.getJMenuBar();
+                            if (bar == null) continue;
+                            for (int index = 0; index < bar.getMenuCount(); index++) {
+                                final javax.swing.JMenu menu = bar.getMenu(index);
+                                if (menu == null || !"Parameter Tools".equals(menu.getText())) continue;
+                                for (java.awt.Component component : menu.getMenuComponents()) {
+                                    if (component instanceof javax.swing.JMenuItem item) found.add(item.getText());
+                                }
+                            }
+                        }
+                        return java.util.Set.copyOf(found);
+                    });
+                    if (items.contains("Invert Bindings") && items.contains("Transfer Bindings")) break;
+                } catch (Exception failure) {
+                    lastFailure = failure;
+                }
+                Thread.sleep(1000L);
+            }
+            final boolean passed = items.contains("Invert Bindings") && items.contains("Transfer Bindings");
+            if (!passed && lastFailure != null && items.isEmpty()) throw lastFailure;
+            Files.writeString(
+                artifact,
+                "status=" + (passed ? "PASS" : "FAIL") + "\nitems=" + items + "\n",
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING
+            );
+        } catch (Exception failure) {
+            writeValidationFailure(artifact, failure, "Parameter menu smoke failed");
+    }
+    }
+    private void runParameterBindingValidation() {
+        final Path artifact = Path.of(
+            System.getProperty("turboism.home"), "logs", "parameter-binding-validation.txt"
+        );
+        try {
+            Files.createDirectories(artifact.getParent());
+            Files.writeString(artifact, "status=RUNNING phase=await-model\n",
+                StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+            final CubismModel model = awaitEditorObjectModel(artifact);
+            final Parameter parameter = onHostThread(() -> model.parameters().all().stream()
+                .filter(candidate -> candidate.getMaximumValue() > candidate.getMinimumValue())
+                .findFirst().orElseThrow(() -> new IllegalStateException("No writable parameter is available.")));
+            final float minimum = onHostThread(parameter::getMinimumValue);
+            final float maximum = onHostThread(parameter::getMaximumValue);
+            final float middle = minimum + (maximum - minimum) / 2.0F;
+            final Drawable mesh = onHostThread(() -> model.drawables().all().get(0));
+            final WarpDeformer warp = onHostThread(() -> model.warpDeformers().all().get(0));
+            final RotationDeformer rotation = onHostThread(() -> model.rotationDeformers().all().get(0));
+            final List<ParameterBindingTarget> targets = List.of(
+                ParameterBindingTarget.artMesh(mesh.id()),
+                ParameterBindingTarget.warpDeformer(warp.id()),
+                ParameterBindingTarget.rotationDeformer(rotation.id())
+            );
+            final List<ParameterBindingPoint> points = List.of(
+                new ParameterBindingPoint(new ParameterBindingPointId("probe:min"), minimum),
+                new ParameterBindingPoint(new ParameterBindingPointId("probe:mid"), middle),
+                new ParameterBindingPoint(new ParameterBindingPointId("probe:max"), maximum)
+            );
+            final java.awt.Robot robot = new java.awt.Robot();
+            final StringBuilder report = new StringBuilder("status=RUNNING\n")
+                .append("parameterId=").append(parameter.id().value()).append('\n')
+                .append("meshId=").append(mesh.id().value()).append('\n')
+                .append("warpId=").append(warp.id().value()).append('\n')
+                .append("rotationId=").append(rotation.id().value()).append('\n')
+                .append("hostThread=").append(onHostThread(() -> Thread.currentThread().getName())).append('\n');
+            boolean passed = true;
+            for (ParameterBindingTarget target : targets) {
+                final ParameterBindingOperations operations = onHostThread(() -> model.parameterBindings(parameter.id()));
+                final List<ParameterBindingPoint> originalPoints = onHostThread(() -> parameter.getParameterBindings().stream()
+                    .filter(binding -> binding.target().equals(target)).findFirst()
+                    .map(ParameterBinding::points).orElseGet(List::of));
+                onHostThread(() -> { operations.unbind(target); return null; });
+                onHostThread(() -> { operations.bind(target, points); return null; });
+                final List<Float> written = bindingValues(parameter, target);
+                pressShortcut(robot, java.awt.event.KeyEvent.VK_Z);
+                final List<Float> undone = awaitBindingValues(parameter, target, List.of());
+                pressShortcut(robot, java.awt.event.KeyEvent.VK_Y);
+                final List<Float> redone = awaitBindingValues(parameter, target, List.of(minimum, middle, maximum));
+                final ParameterBindingPointId middleId = onHostThread(() -> parameter.getParameterBindings().stream()
+                    .filter(binding -> binding.target().equals(target)).findFirst().orElseThrow()
+                    .points().get(1).id());
+                final float movedValue = minimum + (maximum - minimum) * 0.6F;
+                onHostThread(() -> { operations.movePoint(target, middleId, movedValue); return null; });
+                final List<Float> moved = bindingValues(parameter, target);
+                pressShortcut(robot, java.awt.event.KeyEvent.VK_Z);
+                final List<Float> moveUndone = awaitBindingValues(parameter, target, List.of(minimum, middle, maximum));
+                pressShortcut(robot, java.awt.event.KeyEvent.VK_Y);
+                final List<Float> moveRedone = awaitBindingValues(parameter, target, List.of(minimum, movedValue, maximum));
+                pressShortcut(robot, java.awt.event.KeyEvent.VK_Z);
+                awaitBindingValues(parameter, target, List.of(minimum, middle, maximum));
+                final float createdValue = minimum + (maximum - minimum) * 0.8F;
+                onHostThread(() -> {
+                    operations.createPoint(target, new ParameterBindingPoint(
+                        new ParameterBindingPointId("probe:create"), createdValue
+                    ));
+                    return null;
+                });
+                final List<Float> created = bindingValues(parameter, target);
+                final ParameterBindingPointId createdId = onHostThread(() -> parameter.getParameterBindings().stream()
+                    .filter(binding -> binding.target().equals(target)).findFirst().orElseThrow()
+                    .points().stream().filter(point -> point.value() == createdValue).findFirst().orElseThrow().id());
+                onHostThread(() -> { operations.deletePoint(target, createdId); return null; });
+                final List<Float> deleted = bindingValues(parameter, target);
+                onHostThread(() -> { operations.unbind(target); return null; });
+                if (!originalPoints.isEmpty()) {
+                    onHostThread(() -> { operations.bind(target, originalPoints); return null; });
+                }
+                final List<Float> restored = bindingValues(parameter, target);
+                final boolean targetPassed = written.equals(List.of(minimum, middle, maximum))
+                    && undone.isEmpty() && redone.equals(List.of(minimum, middle, maximum))
+                    && moved.equals(List.of(minimum, movedValue, maximum))
+                    && moveUndone.equals(List.of(minimum, middle, maximum))
+                    && moveRedone.equals(List.of(minimum, movedValue, maximum))
+                    && created.equals(List.of(minimum, middle, createdValue, maximum))
+                    && deleted.equals(List.of(minimum, middle, maximum))
+                    && restored.equals(originalPoints.stream().map(ParameterBindingPoint::value).toList());
+                report.append("target.").append(target.type()).append(".written=").append(written).append('\n')
+                    .append("target.").append(target.type()).append(".undo=").append(undone).append('\n')
+                    .append("target.").append(target.type()).append(".redo=").append(redone).append('\n')
+                    .append("target.").append(target.type()).append(".moved=").append(moved).append('\n')
+                    .append("target.").append(target.type()).append(".moveUndo=").append(moveUndone).append('\n')
+                    .append("target.").append(target.type()).append(".moveRedo=").append(moveRedone).append('\n')
+                    .append("target.").append(target.type()).append(".created=").append(created).append('\n')
+                    .append("target.").append(target.type()).append(".deleted=").append(deleted).append('\n')
+                    .append("target.").append(target.type()).append(".restored=").append(restored).append('\n')
+                    .append("target.").append(target.type()).append(".passed=").append(targetPassed).append('\n');
+                passed &= targetPassed;
+            }
+            final Parameter transferTarget = onHostThread(() -> model.parameters().all().stream()
+                .filter(candidate -> !candidate.id().equals(parameter.id()))
+                .findFirst().orElseThrow(() -> new IllegalStateException(
+                    "No destination parameter is available for binding transfer."
+                )));
+            final java.util.Map<ParameterBindingTarget, List<ParameterBindingPoint>> originalSource = new java.util.LinkedHashMap<>();
+            final java.util.Map<ParameterBindingTarget, List<ParameterBindingPoint>> originalDestination = new java.util.LinkedHashMap<>();
+            final ParameterBindingOperations sourceOperations = onHostThread(() -> model.parameterBindings(parameter.id()));
+            final ParameterBindingOperations destinationOperations = onHostThread(() -> model.parameterBindings(transferTarget.id()));
+            for (ParameterBindingTarget target : targets) {
+                originalSource.put(target, bindingPoints(parameter, target));
+                originalDestination.put(target, bindingPoints(transferTarget, target));
+                onHostThread(() -> { sourceOperations.unbind(target); destinationOperations.unbind(target); return null; });
+                onHostThread(() -> { sourceOperations.bind(target, points); return null; });
+            }
+            final var batch = onHostThread(model::parameterBindingBatch);
+            final float originalValue = onHostThread(parameter::getValue);
+            final java.util.Map<ParameterBindingTarget, Object> beforeMinimum = targetStates(
+                model, parameter, minimum, targets, mesh, warp, rotation
+            );
+            final java.util.Map<ParameterBindingTarget, Object> beforeMaximum = targetStates(
+                model, parameter, maximum, targets, mesh, warp, rotation
+            );
+            onHostThread(() -> { parameter.setValue(originalValue); return null; });
+            onHostThread(() -> { batch.invert(targets); return null; });
+            final java.util.Map<ParameterBindingTarget, Object> afterMinimum = targetStates(
+                model, parameter, minimum, targets, mesh, warp, rotation
+            );
+            final java.util.Map<ParameterBindingTarget, Object> afterMaximum = targetStates(
+                model, parameter, maximum, targets, mesh, warp, rotation
+            );
+            onHostThread(() -> { parameter.setValue(originalValue); return null; });
+            final boolean batchInverted = targets.stream().allMatch(target ->
+                beforeMinimum.get(target).equals(afterMaximum.get(target))
+                    && beforeMaximum.get(target).equals(afterMinimum.get(target))
+            );
+            onHostThread(() -> { batch.invert(targets); return null; });
+            final java.util.Map<ParameterBindingTarget, Object> restoredMinimum = targetStates(
+                model, parameter, minimum, targets, mesh, warp, rotation
+            );
+            final java.util.Map<ParameterBindingTarget, Object> restoredMaximum = targetStates(
+                model, parameter, maximum, targets, mesh, warp, rotation
+            );
+            onHostThread(() -> { parameter.setValue(originalValue); return null; });
+            final boolean batchInvertUndone = targets.stream().allMatch(target ->
+                beforeMinimum.get(target).equals(restoredMinimum.get(target))
+                    && beforeMaximum.get(target).equals(restoredMaximum.get(target))
+            );
+            final boolean batchInvertRedone = batchInverted && batchInvertUndone;
+            onHostThread(() -> {
+                batch.transfer(new ParameterBindingTransferPlan(
+                    parameter.id(), transferTarget.id(), targets, false
+                ));
+                return null;
+            });
+            final boolean batchTransferred = targets.stream().allMatch(target -> {
+                try {
+                    return bindingValues(parameter, target).isEmpty()
+                        && bindingValues(transferTarget, target).equals(List.of(minimum, middle, maximum));
+                } catch (Exception exception) { throw new IllegalStateException(exception); }
+            });
+            pressShortcut(robot, java.awt.event.KeyEvent.VK_Z);
+            final boolean batchTransferUndone = targets.stream().allMatch(target -> {
+                try {
+                    return awaitBindingValues(parameter, target, List.of(minimum, middle, maximum)).equals(List.of(minimum, middle, maximum))
+                        && awaitBindingValues(transferTarget, target, List.of()).isEmpty();
+                } catch (Exception exception) { throw new IllegalStateException(exception); }
+            });
+            pressShortcut(robot, java.awt.event.KeyEvent.VK_Y);
+            final boolean batchTransferRedone = targets.stream().allMatch(target -> {
+                try {
+                    return awaitBindingValues(parameter, target, List.of()).isEmpty()
+                        && awaitBindingValues(transferTarget, target, List.of(minimum, middle, maximum)).equals(List.of(minimum, middle, maximum));
+                } catch (Exception exception) { throw new IllegalStateException(exception); }
+            });
+            pressShortcut(robot, java.awt.event.KeyEvent.VK_Z);
+            for (ParameterBindingTarget target : targets) {
+                awaitBindingValues(parameter, target, List.of(minimum, middle, maximum));
+                onHostThread(() -> { sourceOperations.unbind(target); destinationOperations.unbind(target); return null; });
+                if (!originalSource.get(target).isEmpty()) {
+                    onHostThread(() -> { sourceOperations.bind(target, originalSource.get(target)); return null; });
+                }
+                if (!originalDestination.get(target).isEmpty()) {
+                    onHostThread(() -> { destinationOperations.bind(target, originalDestination.get(target)); return null; });
+                }
+            }
+            final boolean batchRestored = targets.stream().allMatch(target -> {
+                try {
+                    return bindingValues(parameter, target).equals(originalSource.get(target).stream().map(ParameterBindingPoint::value).toList())
+                        && bindingValues(transferTarget, target).equals(originalDestination.get(target).stream().map(ParameterBindingPoint::value).toList());
+                } catch (Exception exception) { throw new IllegalStateException(exception); }
+            });
+            final boolean batchPassed = batchInverted && batchInvertUndone && batchInvertRedone
+                && batchTransferred && batchTransferUndone && batchTransferRedone && batchRestored;
+            passed &= batchPassed;
+            report.append("batch.destinationParameterId=").append(transferTarget.id().value()).append('\n')
+                .append("batch.inverted=").append(batchInverted).append('\n')
+                .append("batch.invertUndo=").append(batchInvertUndone).append('\n')
+                .append("batch.invertRedo=").append(batchInvertRedone).append('\n')
+                .append("batch.transferred=").append(batchTransferred).append('\n')
+                .append("batch.transferUndo=").append(batchTransferUndone).append('\n')
+                .append("batch.transferRedo=").append(batchTransferRedone).append('\n')
+                .append("batch.restored=").append(batchRestored).append('\n')
+                .append("batch.passed=").append(batchPassed).append('\n');
+            report.replace(0, "status=RUNNING".length(), "status=" + (passed ? "PASS" : "FAIL"));
+            Files.writeString(artifact, report.toString(), StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING);
+        } catch (Exception exception) {
+            writeValidationFailure(artifact, exception, "Parameter binding validation failed");
+        }
+    }
+
+    private List<Float> bindingValues(final Parameter parameter, final ParameterBindingTarget target) throws Exception {
+        return onHostThread(() -> parameter.getParameterBindings().stream()
+            .filter(binding -> binding.target().equals(target))
+            .findFirst().map(binding -> binding.points().stream().map(ParameterBindingPoint::value).toList())
+            .orElseGet(List::of));
+    }
+
+    private List<ParameterBindingPoint> bindingPoints(
+        final Parameter parameter,
+        final ParameterBindingTarget target
+    ) throws Exception {
+        return onHostThread(() -> parameter.getParameterBindings().stream()
+            .filter(binding -> binding.target().equals(target))
+            .findFirst().map(ParameterBinding::points).orElseGet(List::of));
+    }
+
+    private java.util.Map<ParameterBindingTarget, Object> targetStates(
+        final CubismModel model,
+        final Parameter parameter,
+        final float value,
+        final List<ParameterBindingTarget> targets,
+        final Drawable mesh,
+        final WarpDeformer warp,
+        final RotationDeformer rotation
+    ) throws Exception {
+        return onHostThread(() -> {
+            parameter.setValue(value);
+            final java.util.Map<ParameterBindingTarget, Object> states = new java.util.LinkedHashMap<>();
+            for (ParameterBindingTarget target : targets) {
+                states.put(target, switch (target.type()) {
+                    case ART_MESH -> mesh.geometry();
+                    case WARP_DEFORMER -> warp.grid();
+                    case ROTATION_DEFORMER -> rotation.form();
+                });
+            }
+            return java.util.Map.copyOf(states);
+        });
+    }
+
+    private List<Float> awaitBindingValues(
+        final Parameter parameter,
+        final ParameterBindingTarget target,
+        final List<Float> expected
+    ) throws Exception {
+        List<Float> actual = bindingValues(parameter, target);
+        for (int attempt = 0; attempt < 40 && !actual.equals(expected); attempt++) {
+            Thread.sleep(100L);
+            actual = bindingValues(parameter, target);
+        }
+        return actual;
     }
 
     private void runEditorObjectValidation() {
@@ -1546,6 +2590,336 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         }
     }
 
+    private void finishAutomatedValidation(final String mode, final long startedNanos) {
+        final Path home = Path.of(System.getProperty("turboism.home"));
+        final Path logs = home.resolve("logs");
+        final Path result = home.resolve("state/host-validation-result.properties");
+        boolean passed = false;
+        try {
+            Files.createDirectories(result.getParent());
+            final java.util.List<Path> artifacts;
+            try (var files = Files.list(logs)) {
+                artifacts = files
+                    .filter(Files::isRegularFile)
+                    .filter(path -> {
+                        final String name = path.getFileName().toString();
+                        return name.endsWith(".txt")
+                            && (name.contains("validation")
+                                || name.contains("smoke")
+                                || name.startsWith("native-control-background-"));
+                    })
+                    .sorted()
+                    .toList();
+            }
+
+            final StringBuilder report = new StringBuilder()
+                .append("schemaVersion=1\n")
+                .append("runId=")
+                .append(System.getProperty("turboism.validation.runId", "unknown"))
+                .append('\n')
+                .append("mode=").append(mode).append('\n')
+                .append("durationMillis=")
+                .append((System.nanoTime() - startedNanos) / 1_000_000L)
+                .append('\n')
+                .append("artifactCount=").append(artifacts.size()).append('\n');
+            passed = !artifacts.isEmpty();
+            for (int index = 0; index < artifacts.size(); index++) {
+                final Path artifact = artifacts.get(index);
+                final Properties properties = new Properties();
+                try (var input = Files.newInputStream(artifact)) {
+                    properties.load(input);
+                }
+                final String rawStatus = properties.getProperty("status", "MISSING");
+                final String status = rawStatus.split("\\s+", 2)[0];
+                report.append("artifact.").append(index).append(".path=")
+                    .append(artifact.getFileName()).append('\n')
+                    .append("artifact.").append(index).append(".status=")
+                    .append(status).append('\n');
+                passed &= "PASS".equals(status);
+            }
+            report.append("status=").append(passed ? "PASS" : "FAIL").append('\n');
+            Files.writeString(
+                result,
+                report.toString(),
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING
+            );
+            context.logger().info("HOST_VALIDATION_RESULT status=" + (passed ? "PASS" : "FAIL")
+                + " mode=" + mode + " result=" + result);
+        } catch (Exception exception) {
+            writeValidationFailure(result, exception, "Host validation summary could not be written");
+            context.logger().error("HOST_VALIDATION_RESULT status=FAIL mode=" + mode, exception);
+        } finally {
+            requestAutomatedHostClose();
+        }
+    }
+
+    private enum CloseDialogHandling {
+        DISCARDED,
+        UNSUPPORTED
+    }
+
+    private record CloseDialogState(
+        java.awt.Dialog dialog,
+        JOptionPane optionPane,
+        List<JButton> buttons
+    ) {
+        String description() {
+            return "window=" + dialog.getClass().getName()
+                + " optionType=" + (optionPane == null ? "none" : optionPane.getOptionType())
+                + " buttonMetadata=" + buttons.stream()
+                    .map(WindowsParameterValidationProbe::buttonMetadata)
+                    .toList();
+        }
+    }
+
+    private void requestAutomatedHostClose() {
+        try {
+            final java.awt.Window target = onHostThread(
+                () -> selectHostWindow(java.awt.Window.getWindows())
+            );
+            final HostCloseRoute route = hostCloseRoute(
+                System.getProperty("turboism.validation.hostVersion")
+            );
+            if (route == HostCloseRoute.ROBOT_ALT_F4) {
+                pressAltF4(new java.awt.Robot());
+                context.logger().info("Automated host close requested via Alt+F4");
+            } else {
+                SwingUtilities.invokeLater(() -> target.dispatchEvent(new java.awt.event.WindowEvent(
+                    target, java.awt.event.WindowEvent.WINDOW_CLOSING
+                )));
+                context.logger().info("Automated host close requested via WINDOW_CLOSING");
+            }
+            final HostCloseDecision decision = awaitHostCloseConfirmation(target);
+            if (decision == HostCloseDecision.CLEAN_CLOSE) {
+                context.logger().info(
+                    "Automated host close requested; no unsaved confirmation dialog observed"
+                );
+            } else if (decision == HostCloseDecision.DISCARD) {
+                context.logger().info(
+                    "Automated host close discarded unsaved document changes"
+                );
+            }
+        } catch (Exception failure) {
+            context.logger().error("Automated host close request or confirmation handling failed", failure);
+        }
+    }
+
+    private static void pressAltF4(final java.awt.Robot robot) {
+        robot.keyPress(java.awt.event.KeyEvent.VK_ALT);
+        try {
+            robot.keyPress(java.awt.event.KeyEvent.VK_F4);
+        } finally {
+            robot.keyRelease(java.awt.event.KeyEvent.VK_F4);
+            robot.keyRelease(java.awt.event.KeyEvent.VK_ALT);
+        }
+    }
+
+    static java.awt.Window selectHostWindow(final java.awt.Window[] windows) {
+        java.awt.Window target = null;
+        long largestArea = -1L;
+        for (final java.awt.Window window : windows) {
+            if (window instanceof java.awt.Dialog
+                || !window.isDisplayable()
+                || !window.isVisible()) {
+                continue;
+            }
+            final long area = (long) window.getWidth() * window.getHeight();
+            if (area > largestArea) {
+                target = window;
+                largestArea = area;
+            }
+        }
+        if (target == null) {
+            throw new IllegalStateException(
+                "No visible, displayable non-dialog host window found."
+            );
+        }
+        return target;
+    }
+
+    private static boolean hostWindowClosed(final java.awt.Window window) throws Exception {
+        return onHostThread(() -> !window.isDisplayable() || !window.isVisible());
+    }
+
+    private HostCloseDecision awaitHostCloseConfirmation(
+        final java.awt.Window hostWindow
+    ) throws Exception {
+        final long deadlineNanos = System.nanoTime() + 3_000_000_000L;
+        CloseDialogState observed = null;
+        while (System.nanoTime() < deadlineNanos) {
+            final CloseDialogState current = visibleCloseDialog();
+            if (current == null) {
+                Thread.sleep(100L);
+                continue;
+            }
+            observed = current;
+            final CloseDialogHandling handling = handleCloseDialog(current);
+            if (handling == CloseDialogHandling.UNSUPPORTED) {
+                throw new IllegalStateException(
+                    "Unsaved confirmation could not be handled: " + current.description()
+                );
+            }
+            boolean dialogClosed = false;
+            while (System.nanoTime() < deadlineNanos) {
+                dialogClosed = visibleCloseDialog() == null;
+                if (dialogClosed && hostWindowClosed(hostWindow)) {
+                    return HostCloseDecision.DISCARD;
+                }
+                Thread.sleep(100L);
+            }
+            throw new IllegalStateException(
+                "Unsaved confirmation did not close the host window after discard: "
+                    + observed.description() + " dialogClosed=" + dialogClosed
+            );
+        }
+        if (!hostWindowClosed(hostWindow)) {
+            throw new IllegalStateException(
+                "Host window remained open without an unsaved confirmation."
+            );
+        }
+        return HostCloseDecision.CLEAN_CLOSE;
+    }
+
+    private static CloseDialogHandling handleCloseDialog(
+        final CloseDialogState state
+    ) throws Exception {
+        final JOptionPane optionPane = state.optionPane();
+        final int optionType = optionPane == null
+            ? JOptionPane.DEFAULT_OPTION : optionPane.getOptionType();
+        final HostCloseDecision decision = hostCloseDecision(
+            true, optionType, state.buttons().size()
+        );
+        if (decision == HostCloseDecision.UNSUPPORTED_CONFIRMATION) {
+            return CloseDialogHandling.UNSUPPORTED;
+        }
+        final JButton discard = selectDiscardButton(state.buttons());
+        if (discard == null) {
+            return CloseDialogHandling.UNSUPPORTED;
+        }
+        SwingUtilities.invokeAndWait(discard::doClick);
+        return CloseDialogHandling.DISCARDED;
+    }
+
+    private static CloseDialogState visibleCloseDialog() throws Exception {
+        final AtomicReference<CloseDialogState> result = new AtomicReference<>();
+        SwingUtilities.invokeAndWait(() -> {
+            final java.awt.Window active =
+                java.awt.KeyboardFocusManager.getCurrentKeyboardFocusManager().getActiveWindow();
+            for (final java.awt.Window window : java.awt.Window.getWindows()) {
+                if (!(window instanceof java.awt.Dialog dialog)
+                    || !dialog.isVisible()
+                    || (!dialog.isModal() && window != active)) {
+                    continue;
+                }
+                final JOptionPane optionPane = findOptionPane(window);
+                result.set(new CloseDialogState(dialog, optionPane, visibleButtons(window)));
+                return;
+            }
+        });
+        return result.get();
+    }
+
+    private static JOptionPane findOptionPane(final java.awt.Component component) {
+        if (component instanceof JOptionPane optionPane) {
+            return optionPane;
+        }
+        if (component instanceof java.awt.Container container) {
+            for (final java.awt.Component child : container.getComponents()) {
+                final JOptionPane found = findOptionPane(child);
+                if (found != null) {
+                    return found;
+                }
+            }
+        }
+        return null;
+    }
+
+    private static List<JButton> visibleButtons(final java.awt.Component component) {
+        final List<JButton> buttons = new java.util.ArrayList<>();
+        collectButtons(component, buttons);
+        return buttons.stream()
+            .filter(button -> button.isVisible() && button.isEnabled())
+            .toList();
+    }
+
+    /** Selects exactly one semantic discard action; ambiguity fails closed. */
+    static JButton selectDiscardButton(final List<JButton> buttons) {
+        final List<JButton> matches = buttons.stream()
+            .filter(WindowsParameterValidationProbe::isDiscardAction)
+            .toList();
+        return matches.size() == 1 ? matches.get(0) : null;
+    }
+
+    private static boolean isDiscardAction(final JButton button) {
+        return matchesDiscardValue(button.getActionCommand())
+            || matchesDiscardValue(button.getName())
+            || matchesDiscardValue(button.getText())
+            || matchesDiscardValue(accessibleName(button))
+            || matchesNoButtonValue(button.getActionCommand())
+            || matchesNoButtonValue(button.getName())
+            || matchesNoButtonValue(button.getText())
+            || matchesNoButtonValue(accessibleName(button));
+    }
+
+    private static String accessibleName(final JButton button) {
+        final var context = button.getAccessibleContext();
+        return context == null ? null : context.getAccessibleName();
+    }
+
+    private static boolean matchesDiscardValue(final String value) {
+        if (value == null || value.isBlank()) {
+            return false;
+        }
+        final String normalized = value.toLowerCase(Locale.ROOT)
+            .replaceAll("[^\\p{L}\\p{N}]", "");
+        return normalized.equals("no")
+            || normalized.contains("discard")
+            || normalized.contains("dontsave")
+            || normalized.contains("donotsave")
+            || normalized.contains("nosave")
+            || normalized.contains("notsave")
+            || normalized.contains("不保存")
+            || normalized.contains("不要保存")
+            || normalized.contains("不儲存")
+            || normalized.contains("不要儲存")
+            || normalized.contains("不存檔")
+            || normalized.contains("不要存檔")
+            || normalized.contains("放弃")
+            || normalized.contains("放棄")
+            || normalized.contains("舍弃")
+            || normalized.contains("捨棄")
+            || normalized.contains("保存しない")
+            || normalized.contains("セーブしない");
+    }
+
+    private static boolean matchesNoButtonValue(final String value) {
+        return value != null
+            && value.strip().matches("(?i)no\\s*\\(\\s*[_&]?n\\s*\\)");
+    }
+
+    private static String buttonMetadata(final JButton button) {
+        return "{class=" + button.getClass().getName()
+            + ", text=" + button.getText()
+            + ", action=" + button.getActionCommand()
+            + ", name=" + button.getName()
+            + ", accessible=" + accessibleName(button) + '}';
+    }
+
+    private static void collectButtons(
+        final java.awt.Component component,
+        final List<JButton> buttons
+    ) {
+        if (component instanceof JButton button) {
+            buttons.add(button);
+        }
+        if (component instanceof java.awt.Container container) {
+            for (final java.awt.Component child : container.getComponents()) {
+                collectButtons(child, buttons);
+            }
+        }
+    }
+
     @FunctionalInterface
     private interface FloatWriter { void set(float value); }
 
@@ -1595,6 +2969,31 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         pressShortcut(robot, java.awt.event.KeyEvent.VK_Z);
         final boolean restored = awaitValue(reader, before);
         final boolean passed = afterWrite == written && afterUndo == before && afterRedo == written && restored == before;
+        appendMatrix(report, label, before, written, afterWrite, afterUndo, afterRedo, restored, passed);
+        return passed;
+    }
+
+    private <T> boolean validateValueEdit(
+        final String label,
+        final Callable<T> reader,
+        final java.util.function.Consumer<T> writer,
+        final T written,
+        final java.awt.Robot robot,
+        final StringBuilder report
+    ) throws Exception {
+        final T before = onHostThread(reader);
+        onHostThread(() -> { writer.accept(written); return null; });
+        final T afterWrite = onHostThread(reader);
+        pressShortcut(robot, java.awt.event.KeyEvent.VK_Z);
+        final T afterUndo = awaitValue(reader, before);
+        pressShortcut(robot, java.awt.event.KeyEvent.VK_Y);
+        final T afterRedo = awaitValue(reader, written);
+        pressShortcut(robot, java.awt.event.KeyEvent.VK_Z);
+        final T restored = awaitValue(reader, before);
+        final boolean passed = Objects.equals(written, afterWrite)
+            && Objects.equals(before, afterUndo)
+            && Objects.equals(written, afterRedo)
+            && Objects.equals(before, restored);
         appendMatrix(report, label, before, written, afterWrite, afterUndo, afterRedo, restored, passed);
         return passed;
     }
@@ -1815,18 +3214,53 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             final String afterNameWrite = onHostThread(selectedPart::name);
             final java.awt.Robot robot = new java.awt.Robot();
             pressShortcut(robot, java.awt.event.KeyEvent.VK_Z);
-            Thread.sleep(800L);
-            final String afterNameUndo = onHostThread(selectedPart::name);
+            final String afterNameUndo = awaitValue(selectedPart::name, partName);
             pressShortcut(robot, java.awt.event.KeyEvent.VK_Y);
-            Thread.sleep(800L);
-            final String afterNameRedo = onHostThread(selectedPart::name);
+            final String afterNameRedo = awaitValue(selectedPart::name, writtenName);
             pressShortcut(robot, java.awt.event.KeyEvent.VK_Z);
-            Thread.sleep(800L);
-            final String restoredName = onHostThread(selectedPart::name);
+            final String restoredName = awaitValue(selectedPart::name, partName);
+
+            final StringBuilder basicSettings = new StringBuilder();
+            final Optional<String> currentShortName = onHostThread(selectedPart::shortName);
+            final Optional<String> writtenShortName = Optional.of(
+                currentShortName.equals(Optional.of("Turboism")) ? "Turboism 2" : "Turboism"
+            );
+            final boolean shortNamePassed = validateValueEdit(
+                "shortName", selectedPart::shortName, selectedPart::setShortName,
+                writtenShortName, robot, basicSettings
+            );
+            final boolean visiblePassed = validateBooleanEdit(
+                "visible", selectedPart::visible, selectedPart::setVisible, robot, basicSettings
+            );
+            final boolean lockedPassed = validateBooleanEdit(
+                "locked", selectedPart::locked, selectedPart::setLocked, robot, basicSettings
+            );
+            final Optional<Color> currentEditColor = onHostThread(selectedPart::editColor);
+            final Color firstColor = new Color(32F / 255F, 64F / 255F, 128F / 255F, 1F);
+            final Optional<Color> writtenEditColor = Optional.of(
+                currentEditColor.equals(Optional.of(firstColor))
+                    ? new Color(128F / 255F, 64F / 255F, 32F / 255F, 1F)
+                    : firstColor
+            );
+            final boolean editColorPassed = validateValueEdit(
+                "editColor", selectedPart::editColor, selectedPart::setEditColor,
+                writtenEditColor, robot, basicSettings
+            );
+            final boolean sketchPassed = validateBooleanEdit(
+                "sketch", selectedPart::sketch, selectedPart::setSketch, robot, basicSettings
+            );
+            final int currentDefaultOrder = onHostThread(selectedPart::defaultOrder);
+            final int writtenDefaultOrder = currentDefaultOrder == 1 ? 2 : 1;
+            final boolean defaultOrderPassed = validateValueEdit(
+                "defaultOrder", selectedPart::defaultOrder, selectedPart::setDefaultOrder,
+                writtenDefaultOrder, robot, basicSettings
+            );
+
             final float written = Float.compare(before, 0.625F) == 0 ? 0.75F : 0.625F;
             Float afterWrite = null;
             Float afterUndo = null;
             Float afterRedo = null;
+            Float restoredOpacity = null;
             String opacityWriteDisposition = "supported";
             boolean opacityPassed;
             try {
@@ -1834,40 +3268,47 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 Files.writeString(artifact, "status=RUNNING phase=after-write\n", StandardOpenOption.TRUNCATE_EXISTING);
                 afterWrite = onHostThread(selectedPart::getOpacity);
                 pressShortcut(robot, java.awt.event.KeyEvent.VK_Z);
-                Thread.sleep(800L);
-                afterUndo = onHostThread(selectedPart::getOpacity);
+                afterUndo = awaitValue(selectedPart::getOpacity, before);
                 pressShortcut(robot, java.awt.event.KeyEvent.VK_Y);
-                Thread.sleep(800L);
-                afterRedo = onHostThread(selectedPart::getOpacity);
+                afterRedo = awaitValue(selectedPart::getOpacity, written);
+                pressShortcut(robot, java.awt.event.KeyEvent.VK_Z);
+                restoredOpacity = awaitValue(selectedPart::getOpacity, before);
                 opacityPassed = Float.compare(afterWrite, written) == 0
                     && Float.compare(afterUndo, before) == 0
-                    && Float.compare(afterRedo, written) == 0;
+                    && Float.compare(afterRedo, written) == 0
+                    && Float.compare(restoredOpacity, before) == 0;
             } catch (UnsupportedOperationException unsupported) {
                 opacityWriteDisposition = "unsupported-fail-closed";
                 afterWrite = onHostThread(selectedPart::getOpacity);
+                restoredOpacity = afterWrite;
                 opacityPassed = Float.compare(afterWrite, before) == 0;
             }
             final boolean passed = writtenName.equals(afterNameWrite)
                 && partName.equals(afterNameUndo)
                 && writtenName.equals(afterNameRedo)
                 && partName.equals(restoredName)
-                && opacityPassed;
+                && shortNamePassed && visiblePassed && lockedPassed && editColorPassed
+                && sketchPassed && defaultOrderPassed && opacityPassed;
             Files.writeString(
                 artifact,
                 "status=" + (passed ? "PASS" : "FAIL") + System.lineSeparator()
                     + "partId=" + part.id().value() + System.lineSeparator()
+                    + "partIndex=" + part.index() + System.lineSeparator()
+                    + "partParentIndex=" + part.parentIndex() + System.lineSeparator()
                     + "partName=" + partName + System.lineSeparator()
                     + "writtenName=" + writtenName + System.lineSeparator()
                     + "afterNameWrite=" + afterNameWrite + System.lineSeparator()
                     + "afterNameUndo=" + afterNameUndo + System.lineSeparator()
                     + "afterNameRedo=" + afterNameRedo + System.lineSeparator()
                     + "restoredName=" + restoredName + System.lineSeparator()
+                    + basicSettings
                     + "before=" + before + System.lineSeparator()
                     + "opacityWriteDisposition=" + opacityWriteDisposition + System.lineSeparator()
                     + "written=" + written + System.lineSeparator()
                     + "afterWrite=" + afterWrite + System.lineSeparator()
                     + "afterUndo=" + afterUndo + System.lineSeparator()
-                    + "afterRedo=" + afterRedo + System.lineSeparator(),
+                    + "afterRedo=" + afterRedo + System.lineSeparator()
+                    + "restoredOpacity=" + restoredOpacity + System.lineSeparator(),
                 StandardOpenOption.CREATE,
                 StandardOpenOption.TRUNCATE_EXISTING
             );
@@ -1887,33 +3328,932 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         }
     }
 
+    /**
+     * Dedicated exact-mode validation of Editor-native control label colors through the
+     * model object's {@code .ui()} facade. Writes the machine-readable matrix to
+     * {@code <turboism.home>/logs/native-control-background-validation.txt}.
+     */
+    private void runNativeLabelColorValidation() {
+        final Path artifact = Path.of(
+            System.getProperty("turboism.home"), "logs", "native-control-background-validation.txt"
+        );
+        try {
+            Files.createDirectories(artifact.getParent());
+            Files.writeString(
+                artifact,
+                "status=RUNNING phase=await-model\n",
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING
+            );
+            final CubismModel model = awaitNativeLabelColorModel(artifact);
+            final ParameterGroup folder = firstNonRootParameterGroup(model);
+            final Part part = firstNonRootPart(model);
+            final Deformer deformer = firstDeformer(model);
+            final String modelId = onHostThread(() -> model.id().value());
+            final String hostThread = onHostThread(() -> Thread.currentThread().getName());
+
+            final NativeLabelColorState folderOriginal = onHostThread(() -> nativeLabelColor(folder));
+            final NativeLabelColorState partOriginal = onHostThread(() -> nativeLabelColor(part));
+            final NativeLabelColorState deformerOriginal = onHostThread(() -> nativeLabelColor(deformer));
+            final StringBuilder report = new StringBuilder();
+            final StringBuilder restoreReport = new StringBuilder();
+            final StringBuilder scopeReport = new StringBuilder();
+            final AtomicBoolean restoreFailed = new AtomicBoolean();
+            boolean folderPassed = false;
+            boolean partPassed = false;
+            boolean deformerPassed = false;
+            try {
+                final NativeLabelColor customRequested = chooseCustomCandidate(folderOriginal);
+                final MatrixValues folderMatrix = runBackgroundMatrix(
+                    () -> nativeLabelColor(folder), color -> setNativeLabelColor(folder, color), customRequested
+                );
+                folderPassed = folderMatrix.passed();
+                appendBackgroundReport(
+                    report, "parameterFolder", folder.id().value(), modelId, hostThread, folderMatrix, folderPassed
+                );
+
+                final NativeLabelColor partRequested = presetDifferentFrom(partOriginal.labelColor());
+                final MatrixValues partMatrix = runBackgroundMatrix(
+                    () -> nativeLabelColor(part), color -> setNativeLabelColor(part, color), partRequested
+                );
+                partPassed = partMatrix.passed();
+                appendBackgroundReport(
+                    report, "part", part.id().value(), modelId, hostThread, partMatrix, partPassed
+                );
+
+                report.append("deformer.original.background=")
+                    .append(backgroundText(deformerOriginal.labelColor())).append('\n')
+                    .append("deformer.original.effective=")
+                    .append(effectiveText(deformerOriginal.actualColor())).append('\n');
+                NativeLabelColor matrixBefore = deformerOriginal.labelColor();
+                if (matrixBefore instanceof NativeLabelColor.Default) {
+                    final NativeLabelColor establishing = presetDifferentFrom(matrixBefore);
+                    onHostThread(() -> {
+                        setNativeLabelColor(deformer, establishing);
+                        return null;
+                    });
+                    matrixBefore = onHostThread(() -> nativeLabelColor(deformer)).labelColor();
+                }
+                report.append("deformer.matrixBefore.background=")
+                    .append(backgroundText(matrixBefore)).append('\n');
+                final MatrixValues deformerMatrix = runBackgroundMatrix(
+                    () -> nativeLabelColor(deformer), color -> setNativeLabelColor(deformer, color),
+                    new NativeLabelColor.Default()
+                );
+                onHostThread(() -> {
+                    setNativeLabelColor(deformer, deformerOriginal.labelColor());
+                    return null;
+                });
+                final NativeLabelColorState finalRestored =
+                    onHostThread(() -> nativeLabelColor(deformer));
+                final boolean finalRestoreOk = finalRestored.equals(deformerOriginal);
+                deformerPassed = deformerMatrix.passed() && finalRestoreOk;
+                appendBackgroundReport(
+                    report, "deformer", deformer.id().value(), modelId, hostThread,
+                    deformerMatrix, deformerPassed
+                );
+                report.append("deformer.finalRestored.background=")
+                    .append(backgroundText(finalRestored.labelColor())).append('\n')
+                    .append("deformer.finalRestored.effective=")
+                    .append(effectiveText(finalRestored.actualColor())).append('\n')
+                    .append("deformer.finalRestore=")
+                    .append(finalRestoreOk ? "PASS" : "FAIL").append('\n');
+            } catch (Exception exception) {
+                report.append("matrix.error=").append(exception.getClass().getName())
+                    .append(": ").append(exception.getMessage()).append('\n');
+            } finally {
+                restoreReport.append(restoreStatus(
+                    "parameterFolder", () -> nativeLabelColor(folder),
+                    color -> setNativeLabelColor(folder, color), folderOriginal, restoreFailed
+                ));
+                restoreReport.append(restoreStatus(
+                    "part", () -> nativeLabelColor(part),
+                    color -> setNativeLabelColor(part, color), partOriginal, restoreFailed
+                ));
+                restoreReport.append(restoreStatus(
+                    "deformer", () -> nativeLabelColor(deformer),
+                    color -> setNativeLabelColor(deformer, color), deformerOriginal, restoreFailed
+                ));
+            }
+            final boolean scopeClosePassed = verifyNativeControlScopeClose(
+                model, folder, scopeReport, artifact, modelId, hostThread
+            );
+            final boolean overall = folderPassed && partPassed && deformerPassed
+                && !restoreFailed.get() && scopeClosePassed;
+            Files.writeString(
+                artifact,
+                "status=" + (overall ? "PASS" : "FAIL") + System.lineSeparator()
+                    + "mode=native-control-background" + System.lineSeparator()
+                    + "modelId=" + modelId + System.lineSeparator()
+                    + "hostThread=" + hostThread + System.lineSeparator()
+                    + "overall=" + (overall ? "PASS" : "FAIL") + System.lineSeparator()
+                    + report
+                    + restoreReport
+                    + scopeReport,
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING
+            );
+        } catch (Exception exception) {
+            try {
+                Files.writeString(
+                    artifact,
+                    "status=FAIL" + System.lineSeparator()
+                        + "error=" + exception.getClass().getName() + ": "
+                        + exception.getMessage() + System.lineSeparator(),
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.TRUNCATE_EXISTING
+                );
+            } catch (Exception ignored) {
+                context.logger().error(
+                    "Native control label-color validation artifact could not be written",
+                    exception
+                );
+            }
+        }
+    }
+
+    /**
+     * Document-close staleness: hold a model object and its {@code .ui()} facade, close the
+     * active document (Ctrl+W), and prove reads and writes fail closed. Only close-stale is
+     * verified; reopening is a separate persistence stage.
+     */
+    private void runNativeLabelColorDocumentClose() {
+        final Path artifact = Path.of(
+            System.getProperty("turboism.home"), "logs", "native-control-background-document-close.txt"
+        );
+        try {
+            Files.createDirectories(artifact.getParent());
+            Files.writeString(
+                artifact,
+                "status=RUNNING phase=await-model\n",
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING
+            );
+            final CubismModel model = awaitNativeLabelColorModel(artifact);
+            final ParameterGroup folder = firstNonRootParameterGroup(model);
+            final String modelId = onHostThread(() -> model.id().value());
+            final String hostThread = onHostThread(() -> Thread.currentThread().getName());
+            onHostThread(() -> nativeLabelColor(folder));
+            final java.awt.Robot robot = new java.awt.Robot();
+            pressShortcut(robot, java.awt.event.KeyEvent.VK_W);
+            boolean modelStale = false;
+            boolean readStale = false;
+            boolean writeStale = false;
+            for (int attempt = 0;
+                attempt < 60 && !(modelStale && readStale && writeStale);
+                attempt++) {
+                Thread.sleep(100L);
+                modelStale = failsClosed(() -> onHostThread(model::id));
+                readStale = failsClosed(() -> onHostThread(() -> nativeLabelColor(folder)));
+                writeStale = failsClosed(() -> onHostThread(() -> {
+                    setNativeLabelColor(folder, new NativeLabelColor.Default());
+                    return null;
+                }));
+            }
+            final boolean passed = modelStale && readStale && writeStale;
+            Files.writeString(
+                artifact,
+                "status=" + (passed ? "PASS" : "FAIL") + System.lineSeparator()
+                    + "phase=document-close" + System.lineSeparator()
+                    + "modelId=" + modelId + System.lineSeparator()
+                    + "hostThread=" + hostThread + System.lineSeparator()
+                    + "modelStale=" + modelStale + System.lineSeparator()
+                    + "readStale=" + readStale + System.lineSeparator()
+                    + "writeStale=" + writeStale + System.lineSeparator(),
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING
+            );
+        } catch (Exception exception) {
+            writeValidationFailure(
+                artifact,
+                exception,
+                "Native control background document-close artifact could not be written"
+            );
+        }
+    }
+
+    /**
+     * Persistence stage 1: write requested native label colors for a ParameterGroup, Part, and
+     * Deformer through each model object's {@code .ui()} facade, then save the document. Originals
+     * and requesteds are stored in the task-home properties file.
+     */
+    private void runNativeLabelColorPersistWrite() {
+        final Path home = Path.of(System.getProperty("turboism.home"));
+        final Path artifact = home.resolve("logs/native-control-background-persist-write.txt");
+        final Path propertiesFile = home.resolve("state/native-control-background-persist.properties");
+        try {
+            Files.createDirectories(artifact.getParent());
+            Files.createDirectories(propertiesFile.getParent());
+            Files.writeString(
+                artifact,
+                "status=RUNNING phase=await-model\n",
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING
+            );
+            final CubismModel model = awaitNativeLabelColorModel(artifact);
+            final ParameterGroup folder = firstNonRootParameterGroup(model);
+            final Part part = firstNonRootPart(model);
+            final Deformer deformer = firstDeformer(model);
+            final NativeLabelColorState folderOriginal = onHostThread(() -> nativeLabelColor(folder));
+            final NativeLabelColorState partOriginal = onHostThread(() -> nativeLabelColor(part));
+            final NativeLabelColorState deformerOriginal = onHostThread(() -> nativeLabelColor(deformer));
+            final NativeLabelColor folderRequested = chooseCustomCandidate(folderOriginal);
+            final NativeLabelColor partRequested = presetDifferentFrom(partOriginal.labelColor());
+            final NativeLabelColor deformerRequested = presetDifferentFrom(deformerOriginal.labelColor());
+
+            onHostThread(() -> {
+                setNativeLabelColor(folder, folderRequested);
+                return null;
+            });
+            awaitBackground(() -> nativeLabelColor(folder), folderRequested);
+            onHostThread(() -> {
+                setNativeLabelColor(part, partRequested);
+                return null;
+            });
+            awaitBackground(() -> nativeLabelColor(part), partRequested);
+            onHostThread(() -> {
+                setNativeLabelColor(deformer, deformerRequested);
+                return null;
+            });
+            awaitBackground(() -> nativeLabelColor(deformer), deformerRequested);
+
+            final Properties stored = new Properties();
+            stored.setProperty("folder.id", folder.id().value());
+            stored.setProperty("part.id", part.id().value());
+            stored.setProperty("deformer.id", deformer.id().value());
+            storeStoredBackground(stored, "folder.original", folderOriginal.labelColor());
+            storeStoredBackground(stored, "folder.requested", folderRequested);
+            storeStoredBackground(stored, "part.original", partOriginal.labelColor());
+            storeStoredBackground(stored, "part.requested", partRequested);
+            storeStoredBackground(stored, "deformer.original", deformerOriginal.labelColor());
+            storeStoredBackground(stored, "deformer.requested", deformerRequested);
+            try (java.io.OutputStream output = Files.newOutputStream(
+                propertiesFile, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING
+            )) {
+                stored.store(output, "Turboism native control background persistence expectations");
+            }
+
+            final String modelId = onHostThread(() -> model.id().value());
+            final String hostThread = onHostThread(() -> Thread.currentThread().getName());
+            final Path fixture = fixturePath();
+            final FileTime beforeMtime = Files.getLastModifiedTime(fixture);
+            final long beforeSize = Files.size(fixture);
+            final java.awt.Robot robot = new java.awt.Robot();
+            pressShortcut(robot, java.awt.event.KeyEvent.VK_S);
+            final SaveConfirmation save = awaitSaveConfirmation(fixture, beforeMtime, beforeSize);
+            final boolean saved = save.confirmed();
+            Files.writeString(
+                artifact,
+                "status=" + (saved ? "PASS" : "FAIL") + System.lineSeparator()
+                    + "phase=saved" + System.lineSeparator()
+                    + "modelId=" + modelId + System.lineSeparator()
+                    + "hostThread=" + hostThread + System.lineSeparator()
+                    + "folderId=" + folder.id().value() + System.lineSeparator()
+                    + "partId=" + part.id().value() + System.lineSeparator()
+                    + "deformerId=" + deformer.id().value() + System.lineSeparator()
+                    + save.report("save."),
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING
+            );
+        } catch (Exception exception) {
+            writeValidationFailure(
+                artifact,
+                exception,
+                "Native control background persistence write artifact could not be written"
+            );
+        }
+    }
+
+    /**
+     * Persistence stage 2: after the operator reopened the saved document, verify each requested
+     * label color persisted through its model object's {@code .ui()} facade, restore every original,
+     * and save again.
+     */
+    private void runNativeLabelColorPersistReopen() {
+        final Path home = Path.of(System.getProperty("turboism.home"));
+        final Path artifact = home.resolve("logs/native-control-background-persist-reopen.txt");
+        final Path propertiesFile = home.resolve("state/native-control-background-persist.properties");
+        try {
+            Files.createDirectories(artifact.getParent());
+            Files.writeString(
+                artifact,
+                "status=RUNNING phase=await-model\n",
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING
+            );
+            final CubismModel model = awaitNativeLabelColorModel(artifact);
+            final Properties stored = new Properties();
+            try (java.io.InputStream input = Files.newInputStream(propertiesFile)) {
+                stored.load(input);
+            }
+            final ParameterGroup folder = onHostThread(() -> model.parameterGroups().find(
+                new ParameterGroupId(stored.getProperty("folder.id"))
+            ));
+            final Part part = onHostThread(() -> model.parts().find(
+                new PartId(stored.getProperty("part.id"))
+            ));
+            final Deformer deformer = onHostThread(() -> model.deformers().find(
+                new DeformerId(stored.getProperty("deformer.id"))
+            ));
+            final NativeLabelColor folderRequested = parseStoredBackground(stored, "folder.requested");
+            final NativeLabelColor partRequested = parseStoredBackground(stored, "part.requested");
+            final NativeLabelColor deformerRequested =
+                parseStoredBackground(stored, "deformer.requested");
+            final NativeLabelColor folderOriginal = parseStoredBackground(stored, "folder.original");
+            final NativeLabelColor partOriginal = parseStoredBackground(stored, "part.original");
+            final NativeLabelColor deformerOriginal = parseStoredBackground(stored, "deformer.original");
+
+            awaitBackground(() -> nativeLabelColor(folder), folderRequested);
+            awaitBackground(() -> nativeLabelColor(part), partRequested);
+            awaitBackground(() -> nativeLabelColor(deformer), deformerRequested);
+
+            onHostThread(() -> {
+                setNativeLabelColor(folder, folderOriginal);
+                setNativeLabelColor(part, partOriginal);
+                setNativeLabelColor(deformer, deformerOriginal);
+                return null;
+            });
+            awaitBackground(() -> nativeLabelColor(folder), folderOriginal);
+            awaitBackground(() -> nativeLabelColor(part), partOriginal);
+            awaitBackground(() -> nativeLabelColor(deformer), deformerOriginal);
+
+            final String modelId = onHostThread(() -> model.id().value());
+            final String hostThread = onHostThread(() -> Thread.currentThread().getName());
+            final Path fixture = fixturePath();
+            final FileTime beforeMtime = Files.getLastModifiedTime(fixture);
+            final long beforeSize = Files.size(fixture);
+            final java.awt.Robot robot = new java.awt.Robot();
+            pressShortcut(robot, java.awt.event.KeyEvent.VK_S);
+            final SaveConfirmation save = awaitSaveConfirmation(fixture, beforeMtime, beforeSize);
+            final boolean saved = save.confirmed();
+            Files.writeString(
+                artifact,
+                "status=" + (saved ? "PASS" : "FAIL") + System.lineSeparator()
+                    + "phase=reopen-restored-saved" + System.lineSeparator()
+                    + "modelId=" + modelId + System.lineSeparator()
+                    + "hostThread=" + hostThread + System.lineSeparator()
+                    + "verifiedRequested=parameterFolder,part,deformer" + System.lineSeparator()
+                    + "restored=parameterFolder,part,deformer" + System.lineSeparator()
+                    + save.report("save."),
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING
+            );
+        } catch (Exception exception) {
+            writeValidationFailure(
+                artifact,
+                exception,
+                "Native control background persistence reopen artifact could not be written"
+            );
+        }
+    }
+
+    /**
+     * Persistence stage 3: after the operator reopened the document a final time, verify every
+     * restored original label color persisted through the model object's {@code .ui()} facade.
+     */
+    private void runNativeLabelColorPersistFinal() {
+        final Path home = Path.of(System.getProperty("turboism.home"));
+        final Path artifact = home.resolve("logs/native-control-background-persist-final.txt");
+        final Path propertiesFile = home.resolve("state/native-control-background-persist.properties");
+        try {
+            Files.createDirectories(artifact.getParent());
+            Files.writeString(
+                artifact,
+                "status=RUNNING phase=await-model\n",
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING
+            );
+            final CubismModel model = awaitNativeLabelColorModel(artifact);
+            final Properties stored = new Properties();
+            try (java.io.InputStream input = Files.newInputStream(propertiesFile)) {
+                stored.load(input);
+            }
+            final ParameterGroup folder = onHostThread(() -> model.parameterGroups().find(
+                new ParameterGroupId(stored.getProperty("folder.id"))
+            ));
+            final Part part = onHostThread(() -> model.parts().find(
+                new PartId(stored.getProperty("part.id"))
+            ));
+            final Deformer deformer = onHostThread(() -> model.deformers().find(
+                new DeformerId(stored.getProperty("deformer.id"))
+            ));
+            final NativeLabelColor folderOriginal = parseStoredBackground(stored, "folder.original");
+            final NativeLabelColor partOriginal = parseStoredBackground(stored, "part.original");
+            final NativeLabelColor deformerOriginal = parseStoredBackground(stored, "deformer.original");
+
+            awaitBackground(() -> nativeLabelColor(folder), folderOriginal);
+            awaitBackground(() -> nativeLabelColor(part), partOriginal);
+            awaitBackground(() -> nativeLabelColor(deformer), deformerOriginal);
+
+            final String modelId = onHostThread(() -> model.id().value());
+            final String hostThread = onHostThread(() -> Thread.currentThread().getName());
+            Files.writeString(
+                artifact,
+                "status=PASS\nphase=final-verify-restored\n"
+                    + "modelId=" + modelId + System.lineSeparator()
+                    + "hostThread=" + hostThread + System.lineSeparator()
+                    + "verifiedRestored=parameterFolder,part,deformer\n",
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING
+            );
+        } catch (Exception exception) {
+            writeValidationFailure(
+                artifact,
+                exception,
+                "Native control background persistence final artifact could not be written"
+            );
+        }
+    }
+
+    /**
+     * Closes the owning plugin scope and proves the held model object and its {@code .ui()}
+     * facade fail closed, while the existing peer-probe handshake proves the shared host remains
+     * usable. No native color changes or overlays are left behind.
+     */
+    private boolean verifyNativeControlScopeClose(
+        final CubismModel model,
+        final ParameterGroup folder,
+        final StringBuilder scopeReport,
+        final Path artifact,
+        final String modelId,
+        final String hostThread
+    ) {
+        try {
+            context.disposableScope().close();
+            final boolean modelStale = failsClosed(() -> onHostThread(model::id));
+            final boolean uiReadStale = failsClosed(() -> onHostThread(() -> nativeLabelColor(folder)));
+            final boolean uiWriteStale = failsClosed(() -> onHostThread(() -> {
+                setNativeLabelColor(folder, new NativeLabelColor.Default());
+                return null;
+            }));
+            final Path peerRequest = Path.of(
+                System.getProperty("turboism.home"), "state", "editor-object-peer-request.txt"
+            );
+            final Path peerArtifact = Path.of(
+                System.getProperty("turboism.home"), "logs", "editor-object-peer-scope-close.txt"
+            );
+            Files.createDirectories(peerRequest.getParent());
+            Files.deleteIfExists(peerArtifact);
+            Files.writeString(
+                peerRequest,
+                "primaryScopeClosed=true\n",
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING
+            );
+            writeRunningScopeClosePhase(artifact, modelId, hostThread);
+            final String peerEvidence = awaitPeerEvidence(
+                peerArtifact, PEER_RESPONSE_MAX_ATTEMPTS, PEER_RESPONSE_POLL_MILLIS
+            );
+            final boolean peerTerminal = peerEvidence.contains("status=PASS")
+                || peerEvidence.contains("status=FAIL");
+            final boolean secondPluginUsable = peerEvidence.contains("status=PASS")
+                && peerEvidence.contains("secondPluginUsable=true");
+            final boolean passed = modelStale && uiReadStale && uiWriteStale
+                && peerTerminal && secondPluginUsable;
+            scopeReport.append("phase=plugin-scope-close\n")
+                .append("modelStale=").append(modelStale).append('\n')
+                .append("uiReadStale=").append(uiReadStale).append('\n')
+                .append("uiWriteStale=").append(uiWriteStale).append('\n')
+                .append("peerTerminal=").append(peerTerminal).append('\n')
+                .append("secondPluginUsable=").append(secondPluginUsable).append('\n')
+                .append("peerTimeout=").append(!peerTerminal).append('\n')
+                .append("peerMissingEvidence=").append(!peerTerminal).append('\n')
+                .append("scopeClose=").append(passed ? "PASS" : "FAIL").append('\n');
+            return passed;
+        } catch (Exception exception) {
+            scopeReport.append("phase=plugin-scope-close\n")
+                .append("scopeClose=FAIL\n")
+                .append("scopeClose.error=").append(exception.getClass().getName())
+                .append(": ").append(exception.getMessage()).append('\n');
+            return false;
+        }
+    }
+
+    private ParameterGroup firstNonRootParameterGroup(final CubismModel model) throws Exception {
+        return onHostThread(() -> {
+            final ParameterGroups groups = model.parameterGroups();
+            final ParameterGroupId root = groups.root().id();
+            return groups.all().stream()
+                .filter(group -> !group.id().equals(root))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException(
+                    "No non-root parameter group is available."
+                ));
+        });
+    }
+
+    private Part firstNonRootPart(final CubismModel model) throws Exception {
+        return onHostThread(() -> model.parts().all().stream()
+            .filter(part -> !"__RootPart__".equals(part.id().value()))
+            .findFirst()
+            .orElseThrow(() -> new IllegalStateException("No non-root Part is available.")));
+    }
+
+    private Deformer firstDeformer(final CubismModel model) throws Exception {
+        return onHostThread(() -> model.deformers().all().stream()
+            .findFirst()
+            .orElseThrow(() -> new IllegalStateException("No Deformer is available.")));
+    }
+
+    /** Properties serialization of a native background for cross-mode persistence stages. */
+    static void storeStoredBackground(
+        final Properties properties,
+        final String prefix,
+        final NativeLabelColor background
+    ) {
+        Objects.requireNonNull(properties, "properties");
+        Objects.requireNonNull(prefix, "prefix");
+        Objects.requireNonNull(background, "background");
+        if (background instanceof NativeLabelColor.Default) {
+            properties.setProperty(prefix + ".type", "default");
+        } else if (background instanceof NativeLabelColor.Preset preset) {
+            properties.setProperty(prefix + ".type", "preset");
+            properties.setProperty(prefix + ".preset", preset.color().name());
+        } else if (background instanceof NativeLabelColor.Custom custom) {
+            properties.setProperty(prefix + ".type", "custom");
+            properties.setProperty(prefix + ".red", Float.toString(custom.color().red()));
+            properties.setProperty(prefix + ".green", Float.toString(custom.color().green()));
+            properties.setProperty(prefix + ".blue", Float.toString(custom.color().blue()));
+            properties.setProperty(prefix + ".alpha", Float.toString(custom.color().alpha()));
+        } else {
+            throw new IllegalArgumentException(
+                "unsupported native control background: " + background.getClass().getName()
+            );
+        }
+    }
+
+    /** Inverse of {@link #storeStoredBackground}; fails closed on malformed properties. */
+    static NativeLabelColor parseStoredBackground(
+        final Properties properties,
+        final String prefix
+    ) {
+        Objects.requireNonNull(properties, "properties");
+        Objects.requireNonNull(prefix, "prefix");
+        final String type = properties.getProperty(prefix + ".type");
+        if ("default".equals(type)) {
+            return new NativeLabelColor.Default();
+        }
+        if ("preset".equals(type)) {
+            final String preset = properties.getProperty(prefix + ".preset");
+            if (preset == null) {
+                throw new IllegalArgumentException("Stored preset background is missing its preset name.");
+            }
+            return new NativeLabelColor.Preset(PresetColor.valueOf(preset));
+        }
+        if ("custom".equals(type)) {
+            return new NativeLabelColor.Custom(new UiColor(
+                parseFiniteValue(properties.getProperty(prefix + ".red")),
+                parseFiniteValue(properties.getProperty(prefix + ".green")),
+                parseFiniteValue(properties.getProperty(prefix + ".blue")),
+                parseFiniteValue(properties.getProperty(prefix + ".alpha"))
+            ));
+        }
+        throw new IllegalArgumentException("Unsupported stored background type: " + type);
+    }
+
+    private CubismModel awaitNativeLabelColorModel(final Path artifact) throws Exception {
+        CubismModel model = null;
+        Exception unavailable = null;
+        for (int attempt = 0; attempt < 120 && !Thread.currentThread().isInterrupted(); attempt++) {
+            try {
+                model = onHostThread(this::activeModel);
+                final CubismModel candidate = model;
+                onHostThread(() -> {
+                    final ParameterGroups groups = candidate.parameterGroups();
+                    if (groups.all().stream().noneMatch(group ->
+                        !group.id().equals(groups.root().id()))) {
+                        throw new IllegalStateException("No non-root parameter group is available.");
+                    }
+                    if (candidate.parts().all().stream().noneMatch(part ->
+                        !"__RootPart__".equals(part.id().value()))) {
+                        throw new IllegalStateException("No non-root Part is available.");
+                    }
+                    if (candidate.deformers().all().isEmpty()) {
+                        throw new IllegalStateException("No Deformer is available.");
+                    }
+                    return null;
+                });
+                return model;
+            } catch (Exception exception) {
+                model = null;
+                unavailable = exception;
+                Files.writeString(
+                    artifact,
+                    "status=RUNNING phase=await-model attempt=" + attempt + " error="
+                        + exception.getClass().getName() + ": " + exception.getMessage() + "\n",
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.TRUNCATE_EXISTING
+                );
+                Thread.sleep(1000L);
+            }
+        }
+        throw unavailable == null
+            ? new IllegalStateException("Native control background validation was interrupted.")
+            : unavailable;
+    }
+
+    private static NativeLabelColorState nativeLabelColor(final ParameterGroup group) {
+        return group.ui().nativeLabelColor().orElseThrow(() ->
+            new IllegalStateException("No native label color is available for ParameterGroup " + group.id())
+        );
+    }
+
+    private static NativeLabelColorState nativeLabelColor(final Part part) {
+        return part.ui().nativeLabelColor().orElseThrow(() ->
+            new IllegalStateException("No native label color is available for Part " + part.id())
+        );
+    }
+
+    private static NativeLabelColorState nativeLabelColor(final Deformer deformer) {
+        return deformer.ui().nativeLabelColor().orElseThrow(() ->
+            new IllegalStateException("No native label color is available for Deformer " + deformer.id())
+        );
+    }
+
+    private static void setNativeLabelColor(
+        final ParameterGroup group,
+        final NativeLabelColor color
+    ) {
+        group.ui().setNativeLabelColor(color);
+    }
+
+    private static void setNativeLabelColor(final Part part, final NativeLabelColor color) {
+        part.ui().setNativeLabelColor(color);
+    }
+
+    private static void setNativeLabelColor(final Deformer deformer, final NativeLabelColor color) {
+        deformer.ui().setNativeLabelColor(color);
+    }
+
+    private MatrixValues runBackgroundMatrix(
+        final java.util.function.Supplier<NativeLabelColorState> read,
+        final java.util.function.Consumer<NativeLabelColor> write,
+        final NativeLabelColor requested
+    ) throws Exception {
+        final NativeLabelColorState before = onHostThread(read::get);
+        requireDistinctBackgroundRequest(requested, before.labelColor());
+        onHostThread(() -> {
+            write.accept(requested);
+            return null;
+        });
+        awaitBackground(read, requested);
+        final NativeLabelColorState afterWrite = onHostThread(read::get);
+        onHostThread(() -> {
+            write.accept(requested);
+            return null;
+        });
+        final NativeLabelColorState sameValueSecondWrite = onHostThread(read::get);
+        final java.awt.Robot robot = new java.awt.Robot();
+        pressShortcut(robot, java.awt.event.KeyEvent.VK_Z);
+        awaitBackground(read, before);
+        final NativeLabelColorState afterUndo = onHostThread(read::get);
+        pressShortcut(robot, java.awt.event.KeyEvent.VK_Y);
+        awaitBackground(read, afterWrite);
+        final NativeLabelColorState afterRedo = onHostThread(read::get);
+        pressShortcut(robot, java.awt.event.KeyEvent.VK_Z);
+        awaitBackground(read, before);
+        final NativeLabelColorState restored = onHostThread(read::get);
+        return new MatrixValues(
+            before, requested, afterWrite, sameValueSecondWrite, afterUndo, afterRedo, restored
+        );
+    }
+
+    private static void appendBackgroundReport(
+        final StringBuilder report,
+        final String family,
+        final String targetId,
+        final String modelId,
+        final String hostThread,
+        final MatrixValues matrix,
+        final boolean passed
+    ) {
+        final String prefix = family + ".";
+        report.append(prefix).append("family=").append(family).append('\n')
+            .append(prefix).append("target=").append(targetId).append('\n')
+            .append(prefix).append("modelId=").append(modelId).append('\n')
+            .append(prefix).append("hostThread=").append(hostThread).append('\n')
+            .append(prefix).append("before.background=")
+            .append(backgroundText(matrix.before().labelColor())).append('\n')
+            .append(prefix).append("before.effective=")
+            .append(effectiveText(matrix.before().actualColor())).append('\n')
+            .append(prefix).append("requested=").append(backgroundText(matrix.requested())).append('\n')
+            .append(prefix).append("afterWrite.background=")
+            .append(backgroundText(matrix.afterWrite().labelColor())).append('\n')
+            .append(prefix).append("afterWrite.effective=")
+            .append(effectiveText(matrix.afterWrite().actualColor())).append('\n')
+            .append(prefix).append("sameValueSecondWrite.background=")
+            .append(backgroundText(matrix.sameValueSecondWrite().labelColor())).append('\n')
+            .append(prefix).append("afterUndo.background=")
+            .append(backgroundText(matrix.afterUndo().labelColor())).append('\n')
+            .append(prefix).append("afterRedo.background=")
+            .append(backgroundText(matrix.afterRedo().labelColor())).append('\n')
+            .append(prefix).append("restored.background=")
+            .append(backgroundText(matrix.restored().labelColor())).append('\n')
+            .append(prefix).append("check.afterWrite=")
+            .append(matrix.afterWrite().labelColor().equals(matrix.requested()) ? "PASS" : "FAIL").append('\n')
+            .append(prefix).append("check.sameValueSecondWrite=")
+            .append(matrix.sameValueSecondWrite().equals(matrix.afterWrite()) ? "PASS" : "FAIL").append('\n')
+            .append(prefix).append("check.afterUndo=")
+            .append(matrix.afterUndo().equals(matrix.before()) ? "PASS" : "FAIL").append('\n')
+            .append(prefix).append("check.afterRedo=")
+            .append(matrix.afterRedo().equals(matrix.afterWrite()) ? "PASS" : "FAIL").append('\n')
+            .append(prefix).append("check.restored=")
+            .append(matrix.restored().equals(matrix.before()) ? "PASS" : "FAIL").append('\n')
+            .append(prefix).append("check.singleUndoGroup=")
+            .append(matrix.afterUndo().equals(matrix.before()) ? "PASS" : "FAIL")
+            .append(" // one Undo returned directly to before; the same-value second write added no Undo group")
+            .append('\n')
+            .append(prefix).append("status=").append(passed ? "PASS" : "FAIL").append('\n');
+    }
+
+    private static String restoreStatus(
+        final String label,
+        final java.util.function.Supplier<NativeLabelColorState> read,
+        final java.util.function.Consumer<NativeLabelColor> write,
+        final NativeLabelColorState original,
+        final AtomicBoolean restoreFailed
+    ) {
+        try {
+            onHostThread(() -> {
+                write.accept(original.labelColor());
+                return null;
+            });
+            final NativeLabelColorState confirmed = onHostThread(read::get);
+            final boolean ok = confirmed.equals(original);
+            if (!ok) {
+                restoreFailed.set(true);
+            }
+            return "restore." + label + "=" + (ok ? "PASS" : "FAIL") + System.lineSeparator()
+                + "restore." + label + ".confirmed.background="
+                + backgroundText(confirmed.labelColor()) + System.lineSeparator()
+                + "restore." + label + ".confirmed.effective="
+                + effectiveText(confirmed.actualColor()) + System.lineSeparator();
+        } catch (Exception exception) {
+            restoreFailed.set(true);
+            return "restore." + label + "=FAIL" + System.lineSeparator()
+                + "restore." + label + ".error=" + exception.getClass().getName() + ": "
+                + exception.getMessage() + System.lineSeparator();
+        }
+    }
+
+    /** Fixed Custom request that differs from the semantic before-state, never the effective only. */
+    static NativeLabelColor chooseCustomCandidate(final NativeLabelColorState before) {
+        Objects.requireNonNull(before, "before");
+        for (UiColor candidate : CUSTOM_CANDIDATES) {
+            final NativeLabelColor custom = new NativeLabelColor.Custom(candidate);
+            if (!custom.equals(before.labelColor())) {
+                return custom;
+            }
+        }
+        throw new IllegalStateException("No fixed custom color differs from the folder before-state.");
+    }
+
+    /** Hard fail-closed guard: a same-value request would create no Undo and must not be written. */
+    static void requireDistinctBackgroundRequest(
+        final NativeLabelColor requested,
+        final NativeLabelColor before
+    ) {
+        Objects.requireNonNull(requested, "requested");
+        Objects.requireNonNull(before, "before");
+        if (requested.equals(before)) {
+            throw new IllegalStateException(
+                "Requested background " + backgroundText(requested)
+                    + " equals the before-state; a same-value write would create no Undo."
+            );
+        }
+    }
+
+    private NativeLabelColorState awaitBackground(
+        final java.util.function.Supplier<NativeLabelColorState> read,
+        final NativeLabelColor semantic
+    ) throws Exception {
+        return awaitBackground(read, appearance -> semantic.equals(appearance.labelColor()));
+    }
+
+    private NativeLabelColorState awaitBackground(
+        final java.util.function.Supplier<NativeLabelColorState> read,
+        final NativeLabelColorState expected
+    ) throws Exception {
+        return awaitBackground(read, expected::equals);
+    }
+
+    private NativeLabelColorState awaitBackground(
+        final java.util.function.Supplier<NativeLabelColorState> read,
+        final java.util.function.Predicate<NativeLabelColorState> predicate
+    ) throws Exception {
+        NativeLabelColorState actual = onHostThread(read::get);
+        for (int attempt = 0; attempt < 40 && !predicate.test(actual); attempt++) {
+            Thread.sleep(100L);
+            actual = onHostThread(read::get);
+        }
+        if (!predicate.test(actual)) {
+            throw new IllegalStateException(
+                "Native label color did not converge within the bounded await window; last="
+                    + backgroundText(actual.labelColor())
+                    + " effective=" + effectiveText(actual.actualColor())
+            );
+        }
+        return actual;
+    }
+
+    private static NativeLabelColor presetDifferentFrom(final NativeLabelColor current) {
+        for (PresetColor preset : PresetColor.values()) {
+            final NativeLabelColor candidate = new NativeLabelColor.Preset(preset);
+            if (!candidate.equals(current)) {
+                return candidate;
+            }
+        }
+        throw new IllegalStateException("No preset differs from " + backgroundText(current));
+    }
+
+    private static String backgroundText(final NativeLabelColor background) {
+        if (background instanceof NativeLabelColor.Default) {
+            return "default";
+        }
+        if (background instanceof NativeLabelColor.Preset preset) {
+            return "preset(" + preset.color().name() + ")";
+        }
+        if (background instanceof NativeLabelColor.Custom custom) {
+            return "custom(" + colorText(custom.color()) + ")";
+        }
+        throw new IllegalArgumentException(
+            "unsupported native control background: " + background.getClass().getName()
+        );
+    }
+
+    private static final UiColor[] CUSTOM_CANDIDATES = {
+        new UiColor(1.0F, 0.0F, 0.0F, 1.0F),
+        new UiColor(0.0F, 1.0F, 0.0F, 1.0F),
+        new UiColor(0.0F, 0.0F, 1.0F, 1.0F),
+        new UiColor(0.25F, 0.5F, 0.75F, 1.0F),
+        new UiColor(0.1F, 0.2F, 0.3F, 0.4F),
+        new UiColor(0.8F, 0.6F, 0.4F, 0.2F)
+    };
+
+    private record MatrixValues(
+        NativeLabelColorState before,
+        NativeLabelColor requested,
+        NativeLabelColorState afterWrite,
+        NativeLabelColorState sameValueSecondWrite,
+        NativeLabelColorState afterUndo,
+        NativeLabelColorState afterRedo,
+        NativeLabelColorState restored
+    ) {
+        boolean passed() {
+            return afterWrite.labelColor().equals(requested)
+                && sameValueSecondWrite.equals(afterWrite)
+                && afterUndo.equals(before)
+                && afterRedo.equals(afterWrite)
+                && restored.equals(before);
+        }
+    }
+
+
     private static <T> T onHostThread(final Callable<T> call) throws Exception {
         if (SwingUtilities.isEventDispatchThread()) return call.call();
         final AtomicReference<T> result = new AtomicReference<>();
         final AtomicReference<Exception> failure = new AtomicReference<>();
-        SwingUtilities.invokeAndWait(() -> {
+        final java.util.concurrent.CountDownLatch completed = new java.util.concurrent.CountDownLatch(1);
+        SwingUtilities.invokeLater(() -> {
             try {
                 result.set(call.call());
             } catch (Exception exception) {
                 failure.set(exception);
+            } finally {
+                completed.countDown();
             }
         });
+        if (!completed.await(5L, java.util.concurrent.TimeUnit.SECONDS)) {
+            throw new IllegalStateException("Cubism EDT did not accept the probe within 5 seconds.");
+        }
         if (failure.get() != null) throw failure.get();
         return result.get();
     }
 
     private static void pressShortcut(final java.awt.Robot robot, final int key) throws Exception {
+        // Prefer the matching enabled Swing menu accelerator directly (avoids Wine/window
+        // focus); fall back to Robot only when no enabled accelerator exists. Callers use
+        // Ctrl+Z/Y (Undo/Redo), Ctrl+W (document close), and Ctrl+S (save).
+        if (invokeMenuShortcut(key)) {
+            Thread.sleep(250L);
+            return;
+        }
         final AtomicReference<java.awt.Frame> hostFrame = new AtomicReference<>();
         SwingUtilities.invokeAndWait(() -> {
+            java.awt.Frame fallback = null;
             for (java.awt.Frame frame : java.awt.Frame.getFrames()) {
                 if (!frame.isVisible()) continue;
+                if (fallback == null) fallback = frame;
                 final String title = frame.getTitle();
-                if (title != null && (title.contains(".cmo3") || title.contains("Cubism"))) {
+                if (title != null && title.contains(".cmo3")) {
                     hostFrame.set(frame);
                     break;
                 }
-                if (hostFrame.get() == null) hostFrame.set(frame);
+                if (hostFrame.get() == null && title != null && title.contains("Cubism")) {
+                    hostFrame.set(frame);
+                }
             }
+            if (hostFrame.get() == null) hostFrame.set(fallback);
             final java.awt.Frame frame = hostFrame.get();
             if (frame != null) {
                 frame.setState(java.awt.Frame.NORMAL);
@@ -1921,11 +4261,57 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 frame.requestFocus();
             }
         });
-        Thread.sleep(250L);
+        final java.awt.Frame frame = hostFrame.get();
+        if (frame != null) {
+            final java.awt.Rectangle bounds = frame.getBounds();
+            robot.mouseMove(bounds.x + Math.max(20, bounds.width / 2), bounds.y + 12);
+            robot.mousePress(java.awt.event.InputEvent.BUTTON1_DOWN_MASK);
+            robot.mouseRelease(java.awt.event.InputEvent.BUTTON1_DOWN_MASK);
+        }
+        Thread.sleep(400L);
         robot.keyPress(java.awt.event.KeyEvent.VK_CONTROL);
         robot.keyPress(key);
         robot.keyRelease(key);
         robot.keyRelease(java.awt.event.KeyEvent.VK_CONTROL);
+        Thread.sleep(250L);
+    }
+
+    private static boolean invokeMenuShortcut(final int key) throws Exception {
+        final AtomicReference<javax.swing.JMenuItem> match = new AtomicReference<>();
+        final AtomicBoolean enabled = new AtomicBoolean();
+        SwingUtilities.invokeAndWait(() -> {
+            for (java.awt.Frame frame : java.awt.Frame.getFrames()) {
+                if (!(frame instanceof javax.swing.JFrame swingFrame) || !frame.isVisible()) continue;
+                final javax.swing.JMenuBar bar = swingFrame.getJMenuBar();
+                if (bar == null) continue;
+                for (int index = 0; index < bar.getMenuCount() && match.get() == null; index++) {
+                    findMenuShortcut(bar.getMenu(index), key, match);
+                }
+            }
+            final javax.swing.JMenuItem item = match.get();
+            enabled.set(item != null && item.isEnabled());
+            if (enabled.get()) item.doClick(0);
+        });
+        return enabled.get();
+    }
+
+    private static void findMenuShortcut(
+        final javax.swing.JMenuItem item,
+        final int key,
+        final AtomicReference<javax.swing.JMenuItem> match
+    ) {
+        if (item == null || match.get() != null) return;
+        final javax.swing.KeyStroke accelerator = item.getAccelerator();
+        if (accelerator != null && accelerator.getKeyCode() == key
+            && (accelerator.getModifiers() & java.awt.event.InputEvent.CTRL_DOWN_MASK) != 0) {
+            match.set(item);
+            return;
+        }
+        if (item instanceof javax.swing.JMenu menu) {
+            for (java.awt.Component component : menu.getMenuComponents()) {
+                if (component instanceof javax.swing.JMenuItem child) findMenuShortcut(child, key, match);
+            }
+        }
     }
 
     private Parameters activeParameters() {
@@ -2004,26 +4390,37 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         if (chosen != null) {
             parameterGroupBox.setSelectedItem(chosen);
         }
-        refreshSelectedGroupColor(model);
+        refreshSelectedGroupColor();
         defaultKeyformLockLabel.setText(
             "Default keyform locked: " + model.defaultKeyformLocked()
         );
     }
 
-    private void refreshSelectedGroupColor(final CubismModel model) {
+    private void refreshSelectedGroupColor() {
         final String chosen = selected(parameterGroupBox, null);
         if (chosen == null) {
-            currentLabelColorLabel.setText("Current color: unavailable");
+            currentLabelColorLabel.setText("Current background: unavailable");
             return;
         }
-        final Color color = model.parameterGroups()
-            .find(new ParameterGroupId(chosen))
-            .labelColor();
-        currentLabelColorLabel.setText("Current color: " + colorText(color));
-        if (!labelRedField.hasFocus()) labelRedField.setText(Float.toString(color.red()));
-        if (!labelGreenField.hasFocus()) labelGreenField.setText(Float.toString(color.green()));
-        if (!labelBlueField.hasFocus()) labelBlueField.setText(Float.toString(color.blue()));
-        if (!labelAlphaField.hasFocus()) labelAlphaField.setText(Float.toString(color.alpha()));
+        final NativeLabelColorState appearance;
+        try {
+            appearance = onHostThread(() -> nativeLabelColor(
+                activeModel().parameterGroups().find(new ParameterGroupId(chosen))
+            ));
+        } catch (Exception unavailable) {
+            currentLabelColorLabel.setText("Current background: unavailable");
+            return;
+        }
+        currentLabelColorLabel.setText(
+            "Background: " + backgroundText(appearance.labelColor())
+                + " effective=" + effectiveText(appearance.actualColor())
+        );
+        appearance.actualColor().ifPresent(effective -> {
+            if (!labelRedField.hasFocus()) labelRedField.setText(Float.toString(effective.red()));
+            if (!labelGreenField.hasFocus()) labelGreenField.setText(Float.toString(effective.green()));
+            if (!labelBlueField.hasFocus()) labelBlueField.setText(Float.toString(effective.blue()));
+            if (!labelAlphaField.hasFocus()) labelAlphaField.setText(Float.toString(effective.alpha()));
+        });
     }
 
     private void applyRows(
@@ -2183,9 +4580,13 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         return String.format(Locale.ROOT, "%.3f", value);
     }
 
-    private static String colorText(final Color color) {
+    private static String colorText(final UiColor color) {
         return "rgba(" + number(color.red()) + ", " + number(color.green()) + ", "
             + number(color.blue()) + ", " + number(color.alpha()) + ')';
+    }
+
+    private static String effectiveText(final Optional<UiColor> effective) {
+        return effective.map(WindowsParameterValidationProbe::colorText).orElse("unavailable");
     }
 
     private enum Bound {

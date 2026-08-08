@@ -109,6 +109,10 @@ class MeshInspectorServiceTest {
         List<StatusNotification> notifications() { return notifications; }
 
         @Override public Registration contributeOverlay(OverlayContribution contribution) { throw unsupported(); }
+
+        @Override public Registration contributeBoundingBoxOverlayButton(
+            final dev.turboism.sdk.ui.BoundingBoxOverlayButton contribution
+        ) { throw unsupported(); }
         @Override public ContextSourceSnapshot contextSource() {
             return new ContextSourceSnapshot(
                 "ctx-1", "workspace", Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()

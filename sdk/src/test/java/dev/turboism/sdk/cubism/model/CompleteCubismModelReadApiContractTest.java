@@ -16,23 +16,31 @@ class CompleteCubismModelReadApiContractTest {
     @Test
     void modelAndChildrenExposeTheCompleteSupportedReadShapeWithoutRawHostTypes() throws Exception {
         assertMethods(CubismModel.class,
-            "canvas", "defaultKeyformLocked", "deformers", "drawables", "glues", "id", "parameterGroups", "parameters", "parts", "rotationDeformers", "setDefaultKeyformLocked", "update", "warpDeformers");
+            "canvas", "defaultKeyformLocked", "deformers", "drawables", "editLevel", "glues", "id", "mocInfo", "name", "parameterBindingBatch", "parameterBindings", "parameterDefinitions", "parameterGroups", "parameters", "parts", "rotationDeformers", "setDefaultKeyformLocked", "setEditLevel", "setName", "statistics", "update", "warpDeformers");
         assertMethods(Canvas.class,
             "heightPixels", "originXPixels", "originYPixels", "pixelsPerUnit", "widthPixels");
         assertMethods(Part.class,
-            "getOpacity", "id", "name", "parentIndex", "setName", "setOpacity");
+            "childIds", "defaultOrder", "editColor", "getOpacity", "id", "index", "locked", "lockedInHierarchy", "name", "parentId", "parentIndex", "setDefaultOrder", "setEditColor", "setLocked", "setName", "setOpacity", "setParent", "setShortName", "setSketch", "setVisible", "shortName", "sketch", "ui", "visible", "visibleInHierarchy");
         assertMethods(Drawable.class,
-            "blendMode", "constantFlag", "culling", "drawOrder", "dynamicFlag", "geometry", "getOpacity", "id",
-            "indices", "invertedMask", "locked", "lockedInHierarchy", "masks", "multiplyColor", "name", "parameters",
-            "parentDeformerIndex", "parentPartIndex", "renderOrder", "replaceGeometry", "screenColor", "setLocked",
-            "setOpacity", "setVisible", "textureIndex", "userData", "vertexPositions", "vertexUvs", "visible",
+            "blendMode", "constantFlag", "culling", "doubleSided", "drawOrder", "dynamicFlag", "evaluationState", "geometry", "getOpacity", "getParameterBindings", "id", "index",
+            "indices", "invertedMask", "locked", "lockedInHierarchy", "maskIds", "masks", "multiplyColor", "name", "parameterIds", "parameters",
+            "parentDeformerId", "parentDeformerIndex", "parentPartId", "parentPartIndex", "renderOrder", "replaceGeometry", "screenColor", "setLocked",
+            "guid", "setName", "setOpacity", "setParent", "setVisible", "textureIndex", "ui", "userData", "vertexPositions", "vertexUvs", "visible",
             "visibleInHierarchy");
         assertMethods(Deformer.class,
-            "getOpacity", "id", "locked", "lockedInHierarchy", "multiplyColor", "name", "parameters", "parentDeformerIndex", "parentPartIndex", "screenColor", "setLocked", "setOpacity", "setVisible", "visible", "visibleInHierarchy");
+            "getOpacity", "getParameterBindings", "id", "index", "locked", "lockedInHierarchy", "multiplyColor", "name", "parameterIds", "parameters", "parentDeformerId", "parentDeformerIndex", "parentPartId", "parentPartIndex", "screenColor", "setLocked", "setName", "setOpacity", "setParent", "setVisible", "ui", "visible", "visibleInHierarchy");
+        assertMethods(Parameter.class,
+            "combined", "combinedWith", "combineWith", "getDefaultValue", "getMaximumValue", "getMinimumValue",
+            "getParameterBindings", "getValue", "id", "index", "isBlendShape", "keyValues", "name", "repeat",
+            "resetToDefault", "setValue", "type", "ui", "uncombine", "updateDefinition");
+        assertMethods(ParameterGroup.class, "childGroupIds", "id", "name", "parameterIds", "parentId", "ui");
         assertMethods(WarpDeformer.class, "grid", "replaceGrid");
         assertMethods(RotationDeformer.class, "baseAngle", "form", "replaceForm", "setBaseAngle");
         assertMethods(Glue.class,
-            "drawableA", "drawableB", "id", "parameters");
+            "drawableA", "drawableAId", "drawableB", "drawableBId", "id", "index", "parameterIds", "parameters");
+        assertMethods(Parts.class, "all", "create", "find", "remove");
+        assertMethods(Deformers.class, "all", "createRotation", "createWarp", "find", "remove");
+        assertMethods(Drawables.class, "all", "create", "find", "remove");
 
         assertEquals(ArtMeshId.class, returnType(Drawable.class, "id"));
         assertEquals(DeformerId.class, returnType(Deformer.class, "id"));

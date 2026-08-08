@@ -31,12 +31,23 @@ if grep -Ein '\$home([^[:alnum:]_]|$)' "$launcher_script"; then
   printf 'error: validation launcher must not reference PowerShell read-only $HOME; use $turboismHome\n' >&2
   exit 1
 fi
+if ! grep -Fq 'CubismEditor5.bat' "$launcher_script"; then
+  printf 'error: real-host validation must delegate to the official CubismEditor5.bat\n' >&2
+  exit 1
+fi
+if grep -Fq 'com.live2d.cubism.CECubismEditorApp' "$launcher_script"; then
+  printf 'error: real-host validation must not launch the Cubism Java main class directly\n' >&2
+  exit 1
+fi
 
 rm -rf "$bundle_root"
 mkdir -p "$bundle_root/plugins" "$bundle_root/logs" "$bundle_root/state" "$bundle_root/plugin-data"
 cp "$agent_jar" "$bundle_root/turboism-agent.jar"
 cp "$parameter_jar" "$bundle_root/plugins/parameter.jar"
 cp "$launcher_script" "$bundle_root/"
+SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-1785456000}" \
+  python3 "$repo_root/scripts/release/package-plugin.py" \
+  "$parameter_jar" "$bundle_root/parameter.tplugin"
 cp "$repo_root/scripts/preview/run-parameter-validation.bat" "$bundle_root/"
 cp "$repo_root/scripts/preview/README-parameter-validation.md" "$bundle_root/README.md"
 
@@ -86,6 +97,7 @@ cp "$peer_probe_descriptor" "$peer_tmp/META-INF/turboism/plugin.json"
   sha256sum \
     turboism-agent.jar \
     plugins/parameter.jar \
+    parameter.tplugin \
     plugins/parameter-validation-probe.jar \
     plugins/editor-object-peer-validation-probe.jar \
     launch-cubism-parameter-validation.ps1 \
