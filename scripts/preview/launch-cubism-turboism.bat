@@ -7,7 +7,7 @@ set "EXIT_CODE=%ERRORLEVEL%"
 if not "%EXIT_CODE%"=="0" (
   echo.
   echo [Turboism] Launch failed with exit code %EXIT_CODE%.
-  echo [Turboism] Check the message above and logs\turboism.log if it exists.
+  echo [Turboism] Check the message above and logs\runtime\YYYY-MM-DD\turboism-*.log if it exists.
   pause
 )
 

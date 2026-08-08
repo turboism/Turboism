@@ -4,6 +4,7 @@ import dev.turboism.adapter.host.RuntimeHostAdapterAccess;
 import dev.turboism.cleanup.CleanupEvidenceCollector;
 import dev.turboism.core.plugin.context.CorePluginContext;
 import dev.turboism.core.runtime.RuntimeScheduler;
+import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.failure.RuntimeFailureCollector;
 import dev.turboism.hostread.SharedAsyncHostReadLane;
 import dev.turboism.i18n.RuntimePluginLocalization;
@@ -18,8 +19,10 @@ import java.util.Objects;
 final class PreviewPluginContextFactory {
 
     private final RuntimeHostAdapterAccess hostAccess;
+    private final Path home;
     private final PreviewPluginServicesFactory servicesFactory;
-    private final dev.turboism.sdk.runtime.RuntimeSettingsService runtimeSettings;
+    private final PreviewLog log;
+    private final dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistory;
 
     PreviewPluginContextFactory(
         final Path home,
@@ -27,14 +30,15 @@ final class PreviewPluginContextFactory {
         final RuntimeHostAdapterAccess hostAccess,
         final SharedAsyncHostReadLane hostReadLane,
         final PreviewLog log,
-        final RuntimeFailureCollector failureCollector
+        final RuntimeFailureCollector failureCollector,
+        final dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistory
     ) {
         this.hostAccess = Objects.requireNonNull(hostAccess, "hostAccess");
+        this.home = Objects.requireNonNull(home, "home");
+        this.log = Objects.requireNonNull(log, "log");
+        this.fileChooserHistory = Objects.requireNonNull(fileChooserHistory, "fileChooserHistory");
         this.servicesFactory = new PreviewPluginServicesFactory(
             home, scheduler, hostAccess, hostReadLane, log, failureCollector
-        );
-        this.runtimeSettings = new dev.turboism.config.RuntimeSettingsFileService(
-            home, hostAccess.dockMaintenance()
         );
     }
 
@@ -50,8 +54,7 @@ final class PreviewPluginContextFactory {
         );
         final DisposableScope requestedScope = Objects.requireNonNull(scope, "scope");
         requestedScope.register(hostAccess.editorUiPluginResources().register(
-            requestedDescriptor.id(),
-            requestedClassLoader
+            requestedDescriptor.id(), requestedClassLoader
         ));
         final PreviewPluginServices services = servicesFactory.create(
             requestedDescriptor,
@@ -61,8 +64,8 @@ final class PreviewPluginContextFactory {
         final CorePluginContext context = new CorePluginContext(
             services.dependencies().withConfig(services.typedConfig()), hostAccess,
             services.localization(), services.taskScheduler(), services.pluginStorage(),
-            services.userFiles(), services.hostReads(),
-            "dev.turboism.plugin.maintoolbar".equals(requestedDescriptor.id()) ? runtimeSettings : null
+            services.userFiles(), services.hostReads(), null,
+            fileChooserHistory
         );
         return new PluginContextBundle(context, services.localization(), services.cleanupEvidence());
     }

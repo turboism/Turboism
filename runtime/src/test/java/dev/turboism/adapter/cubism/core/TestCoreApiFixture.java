@@ -9,7 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /** Synthetic public Core surface used only to exercise verified adapter contracts. */
-final class TestCoreApiFixture {
+public final class TestCoreApiFixture {
 
     private TestCoreApiFixture() {
     }
@@ -37,6 +37,22 @@ final class TestCoreApiFixture {
         );
     }
 
+    static VerifiedMemberResolver resolverForReviewedVersion(
+        final String reviewedVersion,
+        final String artifactProfile
+    ) {
+        return resolver(
+            reviewedVersion,
+            artifactProfile,
+            Core.class,
+            Version.class,
+            objectDescriptor(Version.class),
+            "()I",
+            null,
+            Core.class.getClassLoader()
+        );
+    }
+
     static VerifiedMemberResolver resolver(
         final String artifactProfile,
         final Class<?> coreType,
@@ -45,6 +61,47 @@ final class TestCoreApiFixture {
         final String majorDescriptor,
         final String omittedAlias,
         final ClassLoader classLoader
+    ) {
+        return resolver(
+            artifactProfile,
+            artifactProfile,
+            coreType,
+            versionType,
+            versionDescriptor,
+            majorDescriptor,
+            omittedAlias,
+            classLoader
+        );
+    }
+
+    private static VerifiedMemberResolver resolver(
+        final String reviewedVersion,
+        final String artifactProfile,
+        final Class<?> coreType,
+        final Class<?> versionType,
+        final String versionDescriptor,
+        final String majorDescriptor,
+        final String omittedAlias,
+        final ClassLoader classLoader
+    ) {
+        return resolver(
+            reviewedVersion, artifactProfile, coreType, versionType,
+            versionDescriptor, majorDescriptor, omittedAlias, classLoader,
+            java.util.List.of(), java.util.Set.of()
+        );
+    }
+
+    private static VerifiedMemberResolver resolver(
+        final String reviewedVersion,
+        final String artifactProfile,
+        final Class<?> coreType,
+        final Class<?> versionType,
+        final String versionDescriptor,
+        final String majorDescriptor,
+        final String omittedAlias,
+        final ClassLoader classLoader,
+        final java.util.List<StaticSelector> extraSelectors,
+        final java.util.Set<String> extraCapabilities
     ) {
         final List<StaticSelector> selectors = new ArrayList<>();
         selectors.add(StaticSelector.classSelector(
@@ -60,6 +117,27 @@ final class TestCoreApiFixture {
             internalName(coreType),
             "getVersion",
             versionDescriptor,
+            StaticSelector.ACCESS_PUBLIC
+        ));
+        selectors.add(StaticSelector.staticMethod(
+            CorePublicApiSelectorContract.GET_LATEST_MOC_VERSION,
+            internalName(coreType),
+            "getLatestMocVersion",
+            "()I",
+            StaticSelector.ACCESS_PUBLIC
+        ));
+        selectors.add(StaticSelector.staticMethod(
+            CorePublicApiSelectorContract.GET_MOC_VERSION,
+            internalName(coreType),
+            "getMocVersion",
+            "([B)I",
+            StaticSelector.ACCESS_PUBLIC
+        ));
+        selectors.add(StaticSelector.staticMethod(
+            CorePublicApiSelectorContract.HAS_MOC_CONSISTENCY,
+            internalName(coreType),
+            "hasMocConsistency",
+            "([B)Z",
             StaticSelector.ACCESS_PUBLIC
         ));
         selectors.add(instanceMethod(
@@ -115,6 +193,9 @@ final class TestCoreApiFixture {
             objectDescriptor(Parameters.class)
         ));
         selectors.add(instanceMethod(CorePublicApiSelectorContract.MODEL_GET_PARTS, Model.class, "getParts", objectDescriptor(Parts.class)));
+        if (CorePublicApiSelectorContract.ARTIFACT_PROFILE_5_3_02.equals(artifactProfile)) {
+            selectors.add(instanceMethod(CorePublicApiSelectorContract.MODEL_GET_RENDER_ORDERS, Model.class, "getRenderOrders", "()[I"));
+        }
         selectors.add(instanceMethod(CorePublicApiSelectorContract.MODEL_GET_DRAWABLES, Model.class, "getDrawables", objectDescriptor(Drawables.class)));
         selectors.add(instanceMethod(CorePublicApiSelectorContract.MODEL_GET_DEFORMERS, Model.class, "getDeformers", objectDescriptor(Deformers.class)));
         selectors.add(instanceMethod(CorePublicApiSelectorContract.MODEL_GET_GLUES, Model.class, "getGlues", objectDescriptor(Glues.class)));
@@ -208,14 +289,106 @@ final class TestCoreApiFixture {
         }
         addFamilySelectors(selectors, artifactProfile);
 
+        final java.util.HashSet<String> capabilities =
+            new java.util.HashSet<>(CorePublicApiSelectorContract.CAPABILITY_IDS);
+        capabilities.addAll(extraCapabilities);
+        final java.util.ArrayList<StaticSelector> all = new java.util.ArrayList<>(selectors);
+        all.addAll(extraSelectors);
         return TestVerifiedResolvers.create(
-            artifactProfile,
+            reviewedVersion,
             CorePublicApiSelectorContract.ADAPTER_SLICE_ID,
-            CorePublicApiSelectorContract.CAPABILITY_IDS,
-            selectors.stream()
+            capabilities,
+            all.stream()
                 .filter(selector -> !selector.alias().equals(omittedAlias))
                 .toList(),
             classLoader
+        );
+    }
+
+    /** Package-visible fixture resolver with extra selectors and capabilities. */
+    public static VerifiedMemberResolver resolverWithExtras(
+        final String artifactProfile,
+        final java.util.List<StaticSelector> extraSelectors,
+        final java.util.Set<String> extraCapabilities
+    ) {
+        final String reviewedVersion = "5.2".equals(artifactProfile) ? "5.2.0" : "5.3.2";
+        return resolver(
+            reviewedVersion,
+            artifactProfile,
+            Core.class,
+            Version.class,
+            objectDescriptor(Version.class),
+            "()I",
+            null,
+            Core.class.getClassLoader(),
+            extraSelectors,
+            extraCapabilities
+        );
+    }
+
+    /** Extra selectors for the owned-Moc lifecycle surface (both reviewed profiles). */
+    public static List<StaticSelector> ownedMocSelectors() {
+        return List.of(
+            StaticSelector.classSelector(
+                dev.turboism.mapping.verification.OwnedMocSelectorContract.MOC_CLASS,
+                internalName(Moc.class)
+            ),
+            StaticSelector.staticMethod(
+                dev.turboism.mapping.verification.OwnedMocSelectorContract.MOC_INSTANTIATE,
+                internalName(Moc.class),
+                "instantiate",
+                "([B)L" + internalName(Moc.class) + ";",
+                StaticSelector.ACCESS_PUBLIC
+            ),
+            StaticSelector.method(
+                dev.turboism.mapping.verification.OwnedMocSelectorContract.MOC_INSTANTIATE_MODEL,
+                internalName(Moc.class),
+                "instantiateModel",
+                "()L" + internalName(Model.class) + ";",
+                StaticSelector.ACCESS_PUBLIC
+            ),
+            StaticSelector.method(
+                dev.turboism.mapping.verification.OwnedMocSelectorContract.MOC_GET_NATIVE_HANDLE,
+                internalName(Moc.class),
+                "getNativeHandle",
+                "()J",
+                StaticSelector.ACCESS_PUBLIC
+            ),
+            StaticSelector.method(
+                dev.turboism.mapping.verification.OwnedMocSelectorContract.MOC_CLOSE,
+                internalName(Moc.class),
+                "close",
+                "()V",
+                StaticSelector.ACCESS_PUBLIC
+            ),
+            StaticSelector.method(
+                dev.turboism.mapping.verification.OwnedMocSelectorContract.MODEL_GET_NATIVE_HANDLE,
+                internalName(Model.class),
+                "getNativeHandle",
+                "()J",
+                StaticSelector.ACCESS_PUBLIC
+            ),
+            StaticSelector.method(
+                dev.turboism.mapping.verification.OwnedMocSelectorContract.MODEL_UPDATE,
+                internalName(Model.class),
+                "update",
+                "()V",
+                StaticSelector.ACCESS_PUBLIC
+            ),
+            StaticSelector.method(
+                dev.turboism.mapping.verification.OwnedMocSelectorContract.MODEL_CLOSE,
+                internalName(Model.class),
+                "close",
+                "()V",
+                StaticSelector.ACCESS_PUBLIC
+            )
+        );
+    }
+
+    /** Owned-Moc capability id for fixture resolvers. */
+    public static java.util.Set<String> ownedMocCapability() {
+        return java.util.Set.of(
+            dev.turboism.mapping.verification.OwnedMocSelectorContract.CAPABILITY_ID
         );
     }
 
@@ -307,6 +480,18 @@ final class TestCoreApiFixture {
         public static Version getVersion() {
             return version;
         }
+
+        public static int getLatestMocVersion() {
+            return 6;
+        }
+
+        public static int getMocVersion(final byte[] bytes) {
+            return bytes.length == 0 ? 0 : Byte.toUnsignedInt(bytes[0]);
+        }
+
+        public static boolean hasMocConsistency(final byte[] bytes) {
+            return bytes.length > 1 && bytes[1] == 1;
+        }
     }
 
     public record Version(int major, int minor, int patch) {
@@ -323,21 +508,25 @@ final class TestCoreApiFixture {
         }
     }
 
-    public static final class Model {
+    public static class Model {
         private final CanvasInfo canvasInfo;
         private final Parameters parameters;
         private final Parts parts;
         private final Drawables drawables;
         private final Deformers deformers;
         private final Glues glues;
+        private final Moc moc;
         private final Runnable beforeCanvasRead;
+        private final long nativeHandle;
+        private int updateCount;
+        private int closeCount;
 
         public Model(final CanvasInfo canvasInfo, final Parameters parameters) {
-            this(canvasInfo, parameters, Parts.empty(), Drawables.empty(), Deformers.empty(), Glues.empty(), () -> { });
+            this(canvasInfo, parameters, Parts.empty(), Drawables.empty(), Deformers.empty(), Glues.empty(), null, () -> { });
         }
 
         public Model(final CanvasInfo canvasInfo, final Parameters parameters, final Runnable beforeCanvasRead) {
-            this(canvasInfo, parameters, Parts.empty(), Drawables.empty(), Deformers.empty(), Glues.empty(), beforeCanvasRead);
+            this(canvasInfo, parameters, Parts.empty(), Drawables.empty(), Deformers.empty(), Glues.empty(), null, beforeCanvasRead);
         }
 
         public Model(
@@ -349,21 +538,134 @@ final class TestCoreApiFixture {
             final Glues glues,
             final Runnable beforeCanvasRead
         ) {
+            this(canvasInfo, parameters, parts, drawables, deformers, glues, null, beforeCanvasRead);
+        }
+
+        public Model(
+            final CanvasInfo canvasInfo,
+            final Parameters parameters,
+            final Parts parts,
+            final Drawables drawables,
+            final Deformers deformers,
+            final Glues glues,
+            final Moc moc,
+            final Runnable beforeCanvasRead
+        ) {
+            this(canvasInfo, parameters, parts, drawables, deformers, glues, moc, beforeCanvasRead, 0L);
+        }
+
+        public Model(
+            final CanvasInfo canvasInfo,
+            final Parameters parameters,
+            final Parts parts,
+            final Drawables drawables,
+            final Deformers deformers,
+            final Glues glues,
+            final Moc moc,
+            final Runnable beforeCanvasRead,
+            final long nativeHandle
+        ) {
             this.canvasInfo = canvasInfo;
             this.parameters = parameters;
             this.parts = parts;
             this.drawables = drawables;
             this.deformers = deformers;
             this.glues = glues;
+            this.moc = moc;
             this.beforeCanvasRead = beforeCanvasRead;
+            this.nativeHandle = nativeHandle;
+        }
+
+        public long getNativeHandle() {
+            return nativeHandle;
+        }
+
+        public void update() {
+            updateCount++;
+        }
+
+        public void close() {
+            closeCount++;
+        }
+
+        public int updateCount() {
+            return updateCount;
+        }
+
+        public int closeCount() {
+            return closeCount;
         }
 
         public CanvasInfo getCanvasInfo() { beforeCanvasRead.run(); return canvasInfo; }
         public Parameters getParameters() { return parameters; }
         public Parts getParts() { return parts; }
+        public int[] getRenderOrders() { return drawables.getRenderOrders(); }
         public Drawables getDrawables() { return drawables; }
         public Deformers getDeformers() { return deformers; }
         public Glues getGlues() { return glues; }
+        public Moc getMoc() { return moc; }
+    }
+
+    /** Minimal MOC stand-in exposing the verified owned-Moc lifecycle surface. */
+    public static final class Moc {
+        private static Model nextModel;
+        private static long nextNativeHandle;
+
+        private final int mocVersion;
+        private final Model model;
+        private final long nativeHandle;
+        private int closeCount;
+
+        public Moc(final int mocVersion) {
+            this(mocVersion, null, 0L);
+        }
+
+        public Moc(final int mocVersion, final Model model, final long nativeHandle) {
+            this.mocVersion = mocVersion;
+            this.model = model;
+            this.nativeHandle = nativeHandle;
+        }
+
+        /** Binds the model and native handle returned by the next {@link #instantiate}. */
+        public static void prepare(final Model model, final long nativeHandle) {
+            nextModel = model;
+            nextNativeHandle = nativeHandle;
+        }
+
+        private static Moc lastInstantiated;
+
+        public static Moc instantiate(final byte[] bytes) {
+            final Moc moc = new Moc(Byte.toUnsignedInt(bytes[0]), nextModel, nextNativeHandle);
+            nextModel = null;
+            nextNativeHandle = 0L;
+            lastInstantiated = moc;
+            return moc;
+        }
+
+        /** Returns the most recent fixture Moc created by {@link #instantiate}. */
+        public static Moc lastInstantiated() {
+            return lastInstantiated;
+        }
+
+        public Model instantiateModel() {
+            return model;
+        }
+
+        public long getNativeHandle() {
+            return nativeHandle;
+        }
+
+        public int getMocVersion() {
+            return mocVersion;
+        }
+
+        public void close() {
+            closeCount++;
+        }
+
+        public int closeCount() {
+            return closeCount;
+        }
     }
 
     public static final class CanvasInfo {

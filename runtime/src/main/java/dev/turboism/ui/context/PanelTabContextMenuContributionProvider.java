@@ -46,12 +46,15 @@ public final class PanelTabContextMenuContributionProvider implements EditorUiCo
         if (!admission.isAdmittedTo(hostGeneration)) {
             throw new IllegalStateException("panel-tab menu provider admission is stale");
         }
-        coordinator.update(contributions.stream()
-            .map(EditorUiContribution::descriptor)
-            .filter(ContextMenuRegistry.ContextMenuContribution.class::isInstance)
-            .map(ContextMenuRegistry.ContextMenuContribution.class::cast)
-            .filter(value -> value.target() == ContextMenuRegistry.Target.PANEL_TAB)
+        coordinator.update(hostGeneration, contributions.stream()
+            .filter(value -> value.descriptor() instanceof ContextMenuRegistry.ContextMenuContribution)
+            .map(value -> new dev.turboism.ui.panel.PanelTabMenuContribution(
+                hostGeneration,
+                value.identity().pluginId(),
+                (ContextMenuRegistry.ContextMenuContribution) value.descriptor()
+            ))
+            .filter(value -> value.contribution().target() == ContextMenuRegistry.Target.PANEL_TAB)
             .toList());
-        return () -> coordinator.update(List.of());
+        return () -> coordinator.update(hostGeneration, List.of());
     }
 }

@@ -14,6 +14,14 @@ public final class ConfigCodecs {
         return BOOLEAN;
     }
 
+    /** Plain-text value codec (bounded length), e.g. algorithm ids. */
+    public static ConfigCodec<String> stringValue(final int maximumLength) {
+        if (maximumLength < 1) {
+            throw new IllegalArgumentException("maximumLength must be positive");
+        }
+        return new TypeIdCodec<>("string:" + maximumLength);
+    }
+
     public static ConfigCodec<Integer> boundedInt(
         final int minimum,
         final int maximum

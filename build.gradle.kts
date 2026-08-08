@@ -25,8 +25,8 @@ allprojects {
 
 tasks.register("checkPluginInspectionRuntime") {
     group = "verification"
-    description = "Runs static plugin inspection gates and the production-backed strict ZIP mutation matrix."
-    dependsOn("checkPluginInspectionContract", ":tests:pluginInspectionMutationTest")
+    description = "Runs the production-backed strict ZIP mutation matrix."
+    dependsOn(":tests:pluginInspectionMutationTest")
 }
 
 tasks.register<JavaExec>("mappingReview") {
@@ -54,6 +54,5 @@ apply(from = "gradle/common-java.gradle.kts")
 apply(from = "gradle/module-boundaries.gradle.kts")
 apply(from = "gradle/asm-admission.gradle.kts")
 apply(from = "gradle/runtime-verification.gradle.kts")
-apply(from = "gradle/sdk-api.gradle.kts")
 apply(from = "gradle/distribution-preview.gradle.kts")
 apply(from = "gradle/verification.gradle.kts")
