@@ -44,6 +44,12 @@ final class SwingPanelViewRenderer {
         if (view instanceof PanelView.Row row) {
             return container(row.children(), BoxLayout.X_AXIS, action);
         }
+
+        if (view instanceof PanelView.Chart chart) {
+            final ChartComponent component = new ChartComponent(chart);
+            component.setName(chart.id());
+            return component;
+        }
         if (view instanceof PanelView.Text text) {
             return new JLabel(text.value());
         }
