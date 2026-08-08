@@ -4,7 +4,6 @@ import dev.turboism.sdk.ui.ChoiceDialogAction;
 import dev.turboism.sdk.ui.ChoiceDialogOption;
 import dev.turboism.sdk.ui.ChoiceDialogRequest;
 import dev.turboism.sdk.ui.ChoiceDialogResultListener;
-import dev.turboism.sdk.ui.ChoiceDialogRequest;
 
 import javax.swing.BorderFactory;
 import javax.swing.DefaultComboBoxModel;
