@@ -179,4 +179,3 @@ def _prefix_identity(item: Any, label: str) -> str:
     if not valid:
         raise BaselineError(f"{label} must be a non-empty internal package prefix ending in '/'")
     return item
-

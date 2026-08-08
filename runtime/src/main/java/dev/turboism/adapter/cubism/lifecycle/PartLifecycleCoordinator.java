@@ -257,7 +257,6 @@ public final class PartLifecycleCoordinator implements AutoCloseable {
         }
     }
 
-
     private static void logHookFailure(
         final PluginHooks plugin,
         final String phase,
