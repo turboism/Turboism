@@ -195,6 +195,7 @@ public interface PluginContext {
         return WorkspaceService.unavailable();
     }
 
+    @PreviewApi
     default WorkspaceLayoutService workspaceLayout() {
         return WorkspaceLayoutService.unavailable();
     }
