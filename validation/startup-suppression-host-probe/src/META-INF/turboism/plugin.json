@@ -1,0 +1,29 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 2,
+  "id": "dev.turboism.validation.startup",
+  "name": "Startup Suppression Host Validation Exerciser",
+  "version": "0.0.0",
+  "description": "Task-local exerciser for premain startup suppression (splash/update-check/information) on exact Cubism 5.2.03 and 5.3.02 hosts.",
+  "entrypoints": [
+    "dev.turboism.validation.startup.StartupSuppressionHostValidationPlugin"
+  ],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    { "name": "Turboism Validation" }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": []
+  },
+  "dependencies": [],
+  "permissions": [],
+  "capabilities": [],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "swing"
+  }
+}
