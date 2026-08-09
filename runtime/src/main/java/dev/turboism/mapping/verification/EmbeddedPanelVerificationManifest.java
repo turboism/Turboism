@@ -8,7 +8,7 @@ public final class EmbeddedPanelVerificationManifest {
     public static final String VERIFICATION_ID =
         "cubism-5.3.02.ui-embedded-panel.static";
     public static final String RECORD_SHA256 =
-        "c153981a7b236e7d027dabebd649d8c8bbb6b82f27cf50c5ebb4561afa690b72";
+        "e64ac15542f92b2f313fcb3564b39742265288b6fe9582b2a6e811bc4fc48e5a";
     public static final String CUBISM_VERSION = "5.3.02";
     public static final String PROFILE_ID = "cubism-5.3.02";
     public static final long ARTIFACT_SIZE = 41_922_739L;
@@ -90,7 +90,11 @@ public final class EmbeddedPanelVerificationManifest {
         "cubism.ui-panel.menu.add",
         "cubism.ui-panel.menu.swing",
         "cubism.ui-panel.menu-item.create",
-        "cubism.ui-panel.menu-item.swing"
+        "cubism.ui-panel.menu-item.check.create",
+        "cubism.ui-panel.menu-item.is-selected",
+        "cubism.ui-panel.menu-item.swing",
+        "cubism.ui-panel.dock.main-frame-ctrl",
+        "cubism.ui-panel.main-frame.palette-menu-map"
     );
 
     static PinnedVerifiedResolverWorkflow.Manifest forArtifact(

@@ -95,7 +95,12 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
     private static final String TAB_POPUP_ADD = "cubism.ui-panel.dock-tab-popup.menu-append";
     private static final String MENU_SWING = "cubism.ui-panel.menu.swing";
     private static final String MENU_ITEM_CREATE = "cubism.ui-panel.menu-item.create";
+    private static final String MENU_ITEM_CHECK_CREATE = "cubism.ui-panel.menu-item.check.create";
     private static final String MENU_ITEM_SWING = "cubism.ui-panel.menu-item.swing";
+    private static final String MENU_ITEM_IS_SELECTED = "cubism.ui-panel.menu-item.is-selected";
+    private static final String DOCK_MAIN_FRAME_CTRL = "cubism.ui-panel.dock.main-frame-ctrl";
+    private static final String MAIN_FRAME_PALETTE_MENU_MAP =
+        "cubism.ui-panel.main-frame.palette-menu-map";
     private static final Set<String> WINDOW_MENU_LABELS = Set.of(
         "Window", "ウィンドウ", "视窗", "視窗", "窗口", "창"
     );
@@ -227,27 +232,37 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
         panel.setName(nativeId);
         final Object content = resolver.construct(SWING_CONTAINER_CREATE, panel);
         resolver.invoke(PALETTE_SET_PANEL, palette, content, 340, 300);
-        if (existingPalette == null) {
-            resolver.invoke(PALETTE_MANAGER_ADD, dock.paletteManager(), palette);
-        }
-        resolver.invoke(DOCK_SET_PALETTE_VISIBLE, dock.dockManager(), palette, true);
-
         final AtomicBoolean closed = new AtomicBoolean();
-        final WindowMenuItem windowMenuItem;
+        WindowMenuItem windowMenuItem = null;
         try {
-            refresh(dock);
+            // The Window-menu check item and its paletteMenuMap entry must exist before
+            // addPalette/setPaletteVisible: native updateWindowMenuItem runs at the end of
+            // setPaletteVisible (and on workspace switch/serialization) and iterates the
+            // palette list against the map. An unregistered palette crashes DEVELOPER_MODE
+            // builds (RuntimeException "Illegal state :_") and is silently skipped otherwise.
             windowMenuItem = installWindowMenuItem(
                 dock,
                 descriptor.title(),
                 nativeId + ":window-menu",
+                paletteId,
+                palette,
                 () -> requestActivation(dock, palette, closed)
             );
+            if (existingPalette == null) {
+                resolver.invoke(PALETTE_MANAGER_ADD, dock.paletteManager(), palette);
+            }
+            resolver.invoke(DOCK_SET_PALETTE_VISIBLE, dock.dockManager(), palette, true);
+            // Runs native updateWindowMenuItem after the palette is visible so the host
+            // derives the initial check state (visible palette => checked menu item).
+            refresh(dock);
         } catch (RuntimeException | Error failure) {
+            final WindowMenuItem installedItem = windowMenuItem;
             closed.set(true);
             panels.remove(palette);
             floatingPanels.remove(palette);
             try {
                 closePanel(
+                    () -> removeWindowMenuItem(installedItem),
                     () -> removePaletteFromWorkspace(dock, palette),
                     () -> resolver.invoke(PALETTE_MANAGER_CLOSE, dock.paletteManager(), paletteId),
                     () -> refresh(dock)
@@ -261,6 +276,7 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
         // 目标 panel 注册状态由宿主安装生命周期驱动（provider 无事件 API）：
         // install 成功 → 注册；PanelHandle.close → 注销。注入分区 pending→落位→pending。
         PanelCollapsibleContentCoordinator.shared().onPanelRegistered(panelId);
+        final WindowMenuItem installedWindowMenuItem = windowMenuItem;
         return new PanelHandle() {
             @Override
             public void activate() {
@@ -287,7 +303,7 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
                             dock.paletteManager(),
                             paletteId
                         ),
-                        () -> removeWindowMenuItem(windowMenuItem),
+                        () -> removeWindowMenuItem(installedWindowMenuItem),
                         () -> refresh(dock)
                     );
                     return null;
@@ -836,6 +852,8 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
         final NativeDock dock,
         final String label,
         final String nativeItemId,
+        final Object paletteId,
+        final Object palette,
         final Runnable activate
     ) {
         final Object window = resolver.invoke(MAIN_FRAME_WINDOW, dock.mainFrame());
@@ -862,23 +880,82 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
             throw new IllegalStateException("embedded-panel Window-menu item is already materialized");
         }
 
+        // CCheckMenuItem (Swing peer JCheckBoxMenuItem) carries the selected state that the
+        // native updateWindowMenuItem derives from palette visibility; a plain CMenuItem has no
+        // check mark. The functional callback is a constructor argument, so it must exist before
+        // the item; the item is only observable at click time, hence the holder.
+        final Object[] nativeItemRef = new Object[1];
         final Object callback = resolver.createFunctionalConstructorArgumentProxy(
-            MENU_ITEM_CREATE,
-            2,
+            MENU_ITEM_CHECK_CREATE,
+            1,
             ignored -> {
-                activate.run();
+                // Native toggle semantics (com.live2d.cubism.view.aa): the Swing peer already
+                // flipped its selected state on click, so isSelected is the target visibility —
+                // checked shows the palette, unchecked hides it. The hide path runs the native
+                // full route (removeTab/removePaletteUpdate and the trailing updateWindowMenuItem)
+                // through setPaletteVisible(false); the show path keeps the verified activation.
+                final boolean visible = (Boolean) resolver.invoke(
+                    MENU_ITEM_IS_SELECTED,
+                    nativeItemRef[0]
+                );
+                if (visible) {
+                    activate.run();
+                } else {
+                    resolver.invoke(DOCK_SET_PALETTE_VISIBLE, dock.dockManager(), palette, false);
+                }
                 return kotlinUnit();
             }
         );
-        final Object nativeItem = resolver.construct(MENU_ITEM_CREATE, label, null, callback);
+        final Object nativeItem = resolver.construct(MENU_ITEM_CHECK_CREATE, label, callback);
+        nativeItemRef[0] = nativeItem;
         resolver.invoke(WIDGET_SET_NAME, nativeItem, nativeItemId);
         resolver.invoke(MENU_ADD, windowMenu, nativeItem);
+        // Register the palette in CEMainFrameCtrl.paletteMenuMap so the native
+        // updateWindowMenuItem can maintain the check state (and does not raise
+        // "Illegal state :_" in DEVELOPER_MODE builds).
+        final Object mainFrameCtrl = resolver.invoke(DOCK_MAIN_FRAME_CTRL, dock.dockManager());
+        final Object paletteMenuMap = resolver.invoke(MAIN_FRAME_PALETTE_MENU_MAP, mainFrameCtrl);
+        putPaletteMenuEntry(paletteMenuMap, paletteId, nativeItem);
         refreshMenu(menuBar);
-        return new WindowMenuItem(menuBar, windowMenu, nativeItem);
+        return new WindowMenuItem(menuBar, windowMenu, nativeItem, paletteMenuMap, paletteId);
+    }
+
+    /** Registers one palette check item in the host paletteMenuMap (JDK HashMap). */
+    private static void putPaletteMenuEntry(
+        final Object paletteMenuMap,
+        final Object paletteId,
+        final Object item
+    ) {
+        try {
+            final java.lang.reflect.Method put =
+                java.util.HashMap.class.getMethod("put", Object.class, Object.class);
+            put.invoke(paletteMenuMap, paletteId, item);
+        } catch (ReflectiveOperationException failure) {
+            throw new IllegalStateException(
+                "Cubism palette Window-menu map is not writable", failure);
+        }
+    }
+
+    /** Removes the palette check item from the host paletteMenuMap (JDK HashMap). */
+    private static void removePaletteMenuEntry(final Object paletteMenuMap, final Object paletteId) {
+        try {
+            final java.lang.reflect.Method remove =
+                java.util.HashMap.class.getMethod("remove", Object.class);
+            remove.invoke(paletteMenuMap, paletteId);
+        } catch (ReflectiveOperationException failure) {
+            throw new IllegalStateException(
+                "Cubism palette Window-menu map is not writable during cleanup", failure);
+        }
     }
 
     @SuppressWarnings("unchecked")
     private void removeWindowMenuItem(final WindowMenuItem installed) {
+        if (installed == null) {
+            return;
+        }
+        // Drop the paletteMenuMap entry before detaching the menu item so the host can
+        // never observe a map entry without a menu item.
+        removePaletteMenuEntry(installed.paletteMenuMap(), installed.paletteId());
         final Object rawItems = resolver.invoke(MENU_ITEMS, installed.menu());
         if (!(rawItems instanceof List<?>)) {
             throw new IllegalStateException("Cubism Window-menu items are unavailable during cleanup");
@@ -1035,11 +1112,19 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
         }
     }
 
-    private record WindowMenuItem(Object menuBar, Object menu, Object item) {
+    private record WindowMenuItem(
+        Object menuBar,
+        Object menu,
+        Object item,
+        Object paletteMenuMap,
+        Object paletteId
+    ) {
         private WindowMenuItem {
             Objects.requireNonNull(menuBar, "menuBar");
             Objects.requireNonNull(menu, "menu");
             Objects.requireNonNull(item, "item");
+            Objects.requireNonNull(paletteMenuMap, "paletteMenuMap");
+            Objects.requireNonNull(paletteId, "paletteId");
         }
     }
 
