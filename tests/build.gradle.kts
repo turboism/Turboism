@@ -89,3 +89,34 @@ tasks.register<Test>("officialPluginI18nCompletenessTest") {
         isFailOnNoMatchingTests = true
     }
 }
+
+tasks.register<Test>("pluginPackageContractTest") {
+    group = "verification"
+    description = "Verifies installed-plugin package inspection and security contracts."
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    useJUnitPlatform()
+    filter {
+        includeTestsMatching("dev.turboism.tests.distribution.PluginPackage*IntegrationTest")
+        isFailOnNoMatchingTests = true
+    }
+}
+
+tasks.register("previewBundleContractTest") {
+    group = "verification"
+    description = "Builds and verifies the preview bundle contract."
+    dependsOn(":checkPreviewBundleLayout")
+}
+
+tasks.register<org.gradle.api.tasks.Exec>("hostValidationScriptContractTest") {
+    group = "verification"
+    description = "Checks the locale host-validation wrapper without launching Cubism."
+    workingDir(rootProject.projectDir)
+    inputs.files(
+        rootProject.file("scripts/preview/run-host-locale-host-validation.sh"),
+        rootProject.file("scripts/preview/launch-cubism-host-locale-validation.sh"),
+        rootProject.file("scripts/preview/launch-cubism-host-locale-validation-52.sh"),
+        rootProject.file("scripts/preview/launch-cubism-host-locale-validation-53.sh")
+    )
+    commandLine("bash", "scripts/preview/run-host-locale-host-validation.sh", "--help")
+}

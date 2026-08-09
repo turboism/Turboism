@@ -3,6 +3,7 @@ package dev.turboism.plugin.renderopt.service;
 import dev.turboism.sdk.cubism.RenderStatusSnapshot;
 import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
 import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.ui.OverlayContribution;
 import dev.turboism.sdk.ui.StatusNotification;
 import dev.turboism.sdk.ui.UiHostCapabilityService;
@@ -21,13 +22,23 @@ public final class RenderStatusOverlayService {
 
     private final CubismReadCapabilityService cubismRead;
     private final UiHostCapabilityService uiHost;
+    private final PluginLocalization localization;
 
     public RenderStatusOverlayService(
         final CubismReadCapabilityService cubismRead,
         final UiHostCapabilityService uiHost
     ) {
+        this(cubismRead, uiHost, new LegacyLocalization());
+    }
+
+    public RenderStatusOverlayService(
+        final CubismReadCapabilityService cubismRead,
+        final UiHostCapabilityService uiHost,
+        final PluginLocalization localization
+    ) {
         this.cubismRead = Objects.requireNonNull(cubismRead, "cubismRead");
         this.uiHost = Objects.requireNonNull(uiHost, "uiHost");
+        this.localization = Objects.requireNonNull(localization, "localization");
     }
 
     public Registration registerOverlay() {
@@ -40,7 +51,7 @@ public final class RenderStatusOverlayService {
             uiHost.notifyStatus(new StatusNotification(
                 UNAVAILABLE_NOTIFICATION_ID,
                 "WARNING",
-                "Render status is unavailable in this host."
+                localization.text("render-opt.status.unavailable")
             ));
             return;
         }
@@ -49,7 +60,20 @@ public final class RenderStatusOverlayService {
         uiHost.notifyStatus(new StatusNotification(
             REFRESHED_NOTIFICATION_ID,
             "INFO",
-            "Render status: " + status.framesPerSecond() + " FPS via " + status.rendererName()
+            localization.format("render-opt.status.refreshed", status.framesPerSecond(), status.rendererName())
         ));
+    }
+
+    private static final class LegacyLocalization implements PluginLocalization {
+        @Override public java.util.Locale locale() { return java.util.Locale.ENGLISH; }
+        @Override public String text(final String key) {
+            return "render-opt.status.unavailable".equals(key)
+                ? "Render status is unavailable in this host." : key;
+        }
+        @Override public String format(final String key, final Object... args) {
+            return "render-opt.status.refreshed".equals(key)
+                ? "Render status: " + args[0] + " FPS via " + args[1] : text(key);
+        }
+        @Override public boolean contains(final String key) { return true; }
     }
 }

@@ -43,6 +43,7 @@ public final class PreviewRuntime implements AutoCloseable {
     private final String runtimeId;
     private final Path verificationRecord;
     private final Path hostArtifact;
+    private final java.util.Locale effectiveLocale;
     private final ShutdownLifecycle shutdownLifecycle;
     private final AtomicBoolean closed = new AtomicBoolean(false);
     private volatile dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistoryService;
@@ -61,6 +62,25 @@ public final class PreviewRuntime implements AutoCloseable {
         final Path verificationRecord,
         final Path hostArtifact
     ) {
+        this(
+            home, log, scheduler, hostIngress, pluginRuntime, loadReport, reportWriter,
+            runtimeId, verificationRecord, hostArtifact, java.util.Locale.getDefault()
+        );
+    }
+
+    PreviewRuntime(
+        final Path home,
+        final PreviewLog log,
+        final RuntimeScheduler scheduler,
+        final HostRuntimeIngress hostIngress,
+        final LocalPluginRuntime pluginRuntime,
+        final LocalPluginRuntime.LoadReport loadReport,
+        final PreviewReportWriter reportWriter,
+        final String runtimeId,
+        final Path verificationRecord,
+        final Path hostArtifact,
+        final java.util.Locale effectiveLocale
+    ) {
         this.home = home;
         this.log = log;
         this.scheduler = scheduler;
@@ -71,6 +91,7 @@ public final class PreviewRuntime implements AutoCloseable {
         this.runtimeId = runtimeId;
         this.verificationRecord = verificationRecord;
         this.hostArtifact = hostArtifact;
+        this.effectiveLocale = Objects.requireNonNull(effectiveLocale, "effectiveLocale");
         this.shutdownLifecycle = new ShutdownLifecycle() {
             @Override
             public void logStopping() {
@@ -132,6 +153,7 @@ public final class PreviewRuntime implements AutoCloseable {
         this.runtimeId = null;
         this.verificationRecord = null;
         this.hostArtifact = null;
+        this.effectiveLocale = java.util.Locale.getDefault();
         this.shutdownLifecycle = Objects.requireNonNull(shutdownLifecycle, "shutdownLifecycle");
     }
 
@@ -228,6 +250,14 @@ public final class PreviewRuntime implements AutoCloseable {
                 home,
                 diagnostic -> log.warn("config", diagnostic)
             ).read();
+            final java.util.Locale effectiveLocale =
+                dev.turboism.i18n.PluginLocaleResolver.resolveStartup(
+                    runtimeConfig.path("locale").asText(""),
+                    dev.turboism.i18n.CubismHostLocale.resolve(),
+                    java.util.Locale.getDefault(java.util.Locale.Category.DISPLAY),
+                    message -> log.warn("i18n", message)
+                );
+            log.info("i18n", "Using startup locale " + effectiveLocale.toLanguageTag());
             log.setMinimumLevel(runtimeConfig.path("logLevel").asText("INFO"));
             log.setMaxStorageMiB(runtimeConfig.path("maxLogStorageMiB").asInt(
                 dev.turboism.sdk.runtime.RuntimeSettings.DEFAULT_MAX_LOG_STORAGE_MIB
@@ -245,7 +275,7 @@ public final class PreviewRuntime implements AutoCloseable {
                 () -> log.info("runtime", "Early theme appearance injected from persisted selection")
             ).start();
             scheduler = createScheduler(log);
-            ingress = new HostRuntimeIngress();
+            ingress = new HostRuntimeIngress(effectiveLocale);
 
             final Path normalizedVerificationRecord = Objects.requireNonNull(
                 verificationRecord,
@@ -360,7 +390,8 @@ public final class PreviewRuntime implements AutoCloseable {
                 ingress.adapterAccess(),
                 log,
                 ingress.adapterAccess().parameterLifecycle(),
-                fileChooserHistory
+                fileChooserHistory,
+                effectiveLocale
             );
             final LocalPluginRuntime.LoadReport report = plugins.loadAll();
             ingress.adapterAccess().editorLifecycleEvents().publishStartup(
@@ -389,7 +420,8 @@ public final class PreviewRuntime implements AutoCloseable {
                 reportWriter,
                 "runtime-" + UUID.randomUUID(),
                 normalizedVerificationRecord,
-                normalizedHostArtifact
+                normalizedHostArtifact,
+                effectiveLocale
             );
             runtime.bindFileChooserHistoryService(fileChooserHistory);
             runtime.writeInitialReports(hostState);
@@ -402,6 +434,10 @@ public final class PreviewRuntime implements AutoCloseable {
 
     public Path home() {
         return home;
+    }
+
+    public java.util.Locale effectiveLocale() {
+        return effectiveLocale;
     }
 
     public HostSession.State hostState() {
