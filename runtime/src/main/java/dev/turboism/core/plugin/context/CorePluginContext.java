@@ -91,6 +91,7 @@ public final class CorePluginContext implements PluginContext {
     private final MeshMirrorAxisService meshMirrorAxisService;
     private final MeshEditUiService meshEditUiService;
     private final dev.turboism.sdk.ui.workspace.WorkspaceService workspaceService;
+    private final dev.turboism.sdk.ui.workspace.layout.WorkspaceLayoutService workspaceLayoutService;
 
     private final SceneTableService sceneTableService;
     private final dev.turboism.sdk.runtime.CubismLogService cubismLogService;
@@ -600,6 +601,19 @@ public final class CorePluginContext implements PluginContext {
                 (dev.turboism.ui.workspace.RuntimeWorkspaceService) this.workspaceService
             );
         }
+        final dev.turboism.ui.workspace.layout.WorkspaceLayoutCoordinator layoutCoordinator =
+            hostAccess == null ? null : hostAccess.workspaceLayoutCoordinator();
+        this.workspaceLayoutService = hostAccess == null || layoutCoordinator == null
+            ? dev.turboism.sdk.ui.workspace.layout.WorkspaceLayoutService.unavailable()
+            : new dev.turboism.ui.workspace.layout.RuntimeWorkspaceLayoutService(
+                uiPermissionChecker,
+                layoutCoordinator
+            );
+        if (layoutCoordinator != null) {
+            this.dependencies.disposableScope().register(
+                (dev.turboism.ui.workspace.layout.RuntimeWorkspaceLayoutService) this.workspaceLayoutService
+            );
+        }
         this.uiHostCapabilityService = hostAccess == null
             ? new RuntimeUiHostCapabilityService(
                 uiPermissionChecker,
@@ -857,6 +871,11 @@ public final class CorePluginContext implements PluginContext {
     @Override
     public dev.turboism.sdk.ui.workspace.WorkspaceService workspace() {
         return workspaceService;
+    }
+
+    @Override
+    public dev.turboism.sdk.ui.workspace.layout.WorkspaceLayoutService workspaceLayout() {
+        return workspaceLayoutService;
     }
 
     @Override
