@@ -4,6 +4,11 @@ import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import dev.turboism.sdk.cubism.model.ModelObjectService;
+import dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService;
+import dev.turboism.sdk.cubism.service.query.ModelHierarchyQueryService;
+import dev.turboism.sdk.cubism.service.query.ParameterQueryService;
+import dev.turboism.sdk.cubism.service.query.SelectionQueryService;
+import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.ui.UiScheduler;
@@ -80,6 +85,11 @@ final class McpHttpServer implements AutoCloseable {
         return start(new Dependencies(
             context.logger(),
             context.modelObjects(),
+            context.parameterQuery(),
+            context.modelHierarchyQuery(),
+            context.selectionQuery(),
+            context.cubismRead(),
+            context.cubismClipMasks(),
             context.uiScheduler(),
             context.paths().stateDir(),
             integerProperty("turboism.mcp.port", 0, 0, 65535),
@@ -110,6 +120,11 @@ final class McpHttpServer implements AutoCloseable {
             logger,
             new McpProtocol(new McpTools(
                 checked.modelObjects(),
+                checked.parameterQuery(),
+                checked.hierarchyQuery(),
+                checked.selectionQuery(),
+                checked.read(),
+                checked.clipMasks(),
                 logger,
                 checked.uiScheduler()
             )),
@@ -402,6 +417,11 @@ final class McpHttpServer implements AutoCloseable {
     record Dependencies(
         PluginLogger logger,
         ModelObjectService modelObjects,
+        ParameterQueryService parameterQuery,
+        ModelHierarchyQueryService hierarchyQuery,
+        SelectionQueryService selectionQuery,
+        CubismReadCapabilityService read,
+        CubismClipMaskService clipMasks,
         UiScheduler uiScheduler,
         Path stateDir,
         int port,
@@ -411,6 +431,11 @@ final class McpHttpServer implements AutoCloseable {
         Dependencies {
             logger = Objects.requireNonNull(logger, "logger");
             modelObjects = Objects.requireNonNull(modelObjects, "modelObjects");
+            parameterQuery = Objects.requireNonNull(parameterQuery, "parameterQuery");
+            hierarchyQuery = Objects.requireNonNull(hierarchyQuery, "hierarchyQuery");
+            selectionQuery = Objects.requireNonNull(selectionQuery, "selectionQuery");
+            read = Objects.requireNonNull(read, "read");
+            clipMasks = Objects.requireNonNull(clipMasks, "clipMasks");
             uiScheduler = Objects.requireNonNull(uiScheduler, "uiScheduler");
             stateDir = Objects.requireNonNull(stateDir, "stateDir").toAbsolutePath().normalize();
             if (port < 0 || port > 65535) {
