@@ -218,7 +218,6 @@ public final class ParameterPlugin implements CubismPlugin {
             "parameter.bindings.transfer.confirm",
             text("parameter.bindings.transfer"),
             localization.format("parameter.bindings.transfer.confirm", source.value(), destination.value())
-                + "?"
         ))) {
             return;
         }

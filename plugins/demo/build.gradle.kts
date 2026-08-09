@@ -4,4 +4,5 @@ plugins {
 
 dependencies {
     compileOnly(project(":sdk"))
+    testImplementation(project(":sdk"))
 }

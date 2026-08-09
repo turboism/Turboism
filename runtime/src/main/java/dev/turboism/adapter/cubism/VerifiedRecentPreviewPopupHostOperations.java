@@ -57,13 +57,22 @@ public final class VerifiedRecentPreviewPopupHostOperations
     private static final String MENU_LISTENER_KEY = "turboism.recentPreviewMenuListener";
 
     private final VerifiedMemberResolver panelResolver;
+    private final Locale locale;
     private final CopyOnWriteArrayList<RecentPreviewRenderer> renderers = new CopyOnWriteArrayList<>();
 
     private volatile JPopupMenu activePopupMenu;
     private volatile Popup activePopup;
 
     public VerifiedRecentPreviewPopupHostOperations(final VerifiedMemberResolver panelResolver) {
+        this(panelResolver, dev.turboism.i18n.CubismHostLocale.resolve());
+    }
+
+    public VerifiedRecentPreviewPopupHostOperations(
+        final VerifiedMemberResolver panelResolver,
+        final Locale locale
+    ) {
         this.panelResolver = Objects.requireNonNull(panelResolver, "panelResolver");
+        this.locale = Objects.requireNonNull(locale, "locale");
         RecentMenuChain.PANEL_ALIASES.forEach(panelResolver::verifiedSelector);
     }
 
@@ -219,7 +228,7 @@ public final class VerifiedRecentPreviewPopupHostOperations
             hideActivePopup();
         }
         hidePopup(popupMenu);
-        final JPanel panel = themedPanel(content.view());
+        final JPanel panel = themedPanel(content.view(), locale);
         final Point location = new Point(item.getWidth() + 8, 0);
         SwingUtilities.convertPointToScreen(location, item);
         final Popup popup = PopupFactory.getSharedInstance().getPopup(
@@ -336,11 +345,16 @@ public final class VerifiedRecentPreviewPopupHostOperations
 
     /** Themed popup panel wrapping the renderer's PanelView (legacy applyRecentPreviewTheme). */
     static JPanel themedPanel(final PanelView view) {
+        return themedPanel(view, dev.turboism.i18n.CubismHostLocale.resolve());
+    }
+
+    /** Uses the caller's already-resolved effective locale; no second locale resolution. */
+    static JPanel themedPanel(final PanelView view, final Locale locale) {
         final boolean dark = isDarkMode();
         final Color background = dark ? new Color(28, 30, 34) : new Color(246, 247, 249);
         final Color border = dark ? new Color(74, 78, 88) : new Color(196, 201, 208);
         final Color foreground = dark ? new Color(232, 235, 240) : new Color(31, 35, 40);
-        final JComponent rendered = SwingPanelViewRenderer.render(view, (id, event) -> { });
+        final JComponent rendered = SwingPanelViewRenderer.render(view, (id, event) -> { }, locale);
         final JPanel panel = new JPanel(new BorderLayout(0, 8));
         panel.setBackground(background);
         panel.setBorder(BorderFactory.createCompoundBorder(

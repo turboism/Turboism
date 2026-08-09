@@ -20,7 +20,10 @@ import java.util.Optional;
 public final class MainToolbarHomeEntryService {
 
     public static final String ACTION_ID = "turboism.core.open";
-    public static final String ACTION_LABEL = "main-toolbar.home.action";
+    /** English compatibility value; external consumers must never see a raw resource key. */
+    public static final String ACTION_LABEL = "Open Turboism";
+    /** Internal catalog key for the home action label; used only by production localization. */
+    public static final String ACTION_LABEL_KEY = "main-toolbar.home.action";
     public static final String SETTINGS_ACTION_ID = "turboism.core.settings.open";
     public static final String PLUGINS_ACTION_ID = "turboism.core.plugins.open";
     public static final String LOGS_ACTION_ID = "turboism.core.logs.open";

@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
 # Host-locale-specific adapter for the generic exact-host runner.
+# A custom --fixture override must carry an explicit --fixture-sha256, so the
+# dispatcher's fixture-identity invariant cannot be bypassed by direct invocation.
 set -euo pipefail
 
 if [ "$#" -lt 1 ]; then
-  echo "usage: run-host-locale-host-validation.sh <5302|5203> [run-label] [--locale system|en|ja|ko|zh-Hans|zh-Hant] [--fixture <remote-path>] [runner-options...]" >&2
+  echo "usage: run-host-locale-host-validation.sh <5302|5203> [run-label] [--locale system|en|ja|ko|zh-Hans|zh-Hant] [--fixture <remote-path>] [--fixture-sha256 <64-hex>] [runner-options...]" >&2
   exit 2
 fi
 if [ "$#" -eq 1 ] && { [ "$1" = "--help" ] || [ "$1" = "-h" ]; }; then
-  echo "usage: run-host-locale-host-validation.sh <5302|5203> [run-label] [--locale system|en|ja|ko|zh-Hans|zh-Hant] [--fixture <remote-path>] [runner-options...]"
+  echo "usage: run-host-locale-host-validation.sh <5302|5203> [run-label] [--locale system|en|ja|ko|zh-Hans|zh-Hant] [--fixture <remote-path>] [--fixture-sha256 <64-hex>] [runner-options...]"
   exit 0
 fi
 version="$1"
@@ -19,6 +21,7 @@ if [ "$#" -gt 0 ] && [[ "$1" != --* ]]; then
 fi
 locale=''
 fixture_override=''
+fixture_sha256_override=''
 runner_options=()
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -34,6 +37,11 @@ while [ "$#" -gt 0 ]; do
     --fixture)
       [ "$#" -ge 2 ] || { echo "error: missing value for --fixture" >&2; exit 2; }
       fixture_override="$2"
+      shift 2
+      ;;
+    --fixture-sha256)
+      [ "$#" -ge 2 ] || { echo "error: missing value for --fixture-sha256" >&2; exit 2; }
+      fixture_sha256_override="$2"
       shift 2
       ;;
     *) runner_options+=("$1"); shift ;;
@@ -55,8 +63,17 @@ case "$version" in
     ;;
 esac
 if [ -n "$fixture_override" ]; then
+  # A custom fixture identity always requires an explicit expected hash.
+  [ -n "$fixture_sha256_override" ] || {
+    echo "error: a custom --fixture requires --fixture-sha256" >&2
+    exit 2
+  }
+  [[ "$fixture_sha256_override" =~ ^[0-9a-fA-F]{64}$ ]] || {
+    echo "error: fixture SHA-256 must contain exactly 64 hexadecimal characters" >&2
+    exit 2
+  }
   fixture_src="$fixture_override"
-  fixture_sha256=''
+  fixture_sha256="$fixture_sha256_override"
 fi
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"

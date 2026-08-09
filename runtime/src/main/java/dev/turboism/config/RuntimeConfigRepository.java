@@ -85,7 +85,16 @@ public final class RuntimeConfigRepository {
             if (bytes.length > MAX_BYTES) throw failure("RUNTIME_CONFIG_FILE_REJECTED");
             final JsonNode parsed = JSON.readTree(bytes);
             if (!(parsed instanceof ObjectNode object)) throw failure("RUNTIME_CONFIG_INVALID");
-            validate(object, "RUNTIME_CONFIG_INVALID");
+            validateForRead(object);
+            // Read-mode locale tolerance: an unsupported persisted locale is treated as
+            // absent for the in-memory read (structured diagnostic only); the on-disk
+            // file stays untouched until an explicit save, and writes stay strict.
+            if (object.has("locale")
+                && !dev.turboism.core.schema.runtimeconfig.RuntimeConfigValidator
+                    .isAllowedLocale(object.path("locale").asText(""))) {
+                report("RUNTIME_CONFIG_BAD_LOCALE");
+                object.remove("locale");
+            }
             return object.deepCopy();
         } catch (IOException failure) {
             throw failure("RUNTIME_CONFIG_UNREADABLE", failure);
@@ -110,6 +119,13 @@ public final class RuntimeConfigRepository {
 
     private void validate(final JsonNode root, final String code) {
         if (!new RuntimeConfigValidator().validate(root, configPath.toString()).isEmpty()) throw failure(code);
+    }
+
+    /** Read-mode validation tolerates only the persisted-locale field; everything else fails closed. */
+    private void validateForRead(final JsonNode root) {
+        if (!new RuntimeConfigValidator().validateForRead(root, configPath.toString()).isEmpty()) {
+            throw failure("RUNTIME_CONFIG_INVALID");
+        }
     }
 
     private void rejectSymlinkChain(final Path path) throws IOException {

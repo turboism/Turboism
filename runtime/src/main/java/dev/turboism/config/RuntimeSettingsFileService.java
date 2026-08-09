@@ -17,6 +17,10 @@ public final class RuntimeSettingsFileService implements RuntimeSettingsService 
     private final RuntimeDockMaintenanceCoordinator dockMaintenance;
     private final Consumer<String> logLevelChanged;
     private final IntConsumer logStorageLimitChanged;
+    /** Immutable fallback baseline; initialized once by the first successful read/save. */
+    private RuntimeSettings baseline;
+    /** Last successful read/save; preserved across rejected/invalid reloads. */
+    private RuntimeSettings active;
 
     public RuntimeSettingsFileService(
         final Path turboismHome,
@@ -79,6 +83,21 @@ public final class RuntimeSettingsFileService implements RuntimeSettingsService 
 
     @Override
     public RuntimeSettings read() {
+        final RuntimeSettings loaded;
+        try {
+            loaded = readFromConfig();
+        } catch (RuntimeException failure) {
+            // A rejected/invalid reload after an active value exists preserves that active
+            // value and changes neither active nor baseline.
+            if (active != null) return active;
+            throw failure;
+        }
+        initializeBaseline(loaded);
+        active = loaded;
+        return active;
+    }
+
+    private RuntimeSettings readFromConfig() {
         final JsonNode root = config.read();
         final JsonNode startup = root.path("hooks").path("startup");
         return new RuntimeSettings(
@@ -96,6 +115,7 @@ public final class RuntimeSettingsFileService implements RuntimeSettingsService 
     @Override
     public RuntimeSettings save(final RuntimeSettings settings) {
         final RuntimeSettings requested = Objects.requireNonNull(settings, "settings");
+        // A rejected save throws and changes neither active nor baseline.
         config.update(root -> {
             root.put("safeMode", requested.safeMode());
             root.put("logLevel", requested.logLevel());
@@ -108,9 +128,26 @@ public final class RuntimeSettingsFileService implements RuntimeSettingsService 
             startup.put("separateExportSaveDirectory", requested.separateExportSaveDirectory());
             return root;
         });
+        initializeBaseline(requested);
+        active = requested;
         logLevelChanged.accept(requested.logLevel());
         logStorageLimitChanged.accept(requested.maxLogStorageMiB());
         return requested;
+    }
+
+    /** The first successful read/save initializes the immutable fallback baseline once. */
+    private void initializeBaseline(final RuntimeSettings value) {
+        if (baseline == null) baseline = value;
+    }
+
+    /** Minimal package-private test seam: the immutable fallback baseline. */
+    RuntimeSettings baselineForTest() {
+        return baseline;
+    }
+
+    /** Minimal package-private test seam: the last successful active settings. */
+    RuntimeSettings activeForTest() {
+        return active;
     }
 
 
