@@ -40,7 +40,7 @@ public final class LogFilterPlugin implements TurboismPlugin {
     @Override
     public void enable() {
         b1Application.enable();
-        registerAction(TOGGLE_LEVEL_ACTION_ID, localization == null ? TOGGLE_LEVEL_ACTION_LABEL_KEY : localization.text(TOGGLE_LEVEL_ACTION_LABEL_KEY), ignored -> paletteService.toggleFilterLevel());
+        registerAction(TOGGLE_LEVEL_ACTION_ID, localization == null ? "Toggle Log Filter Level" : localization.text(TOGGLE_LEVEL_ACTION_LABEL_KEY), ignored -> paletteService.toggleFilterLevel());
         context.disposableScope().register(paletteService.registerPaletteToolbar());
         logger.info("LogFilterPlugin enabled: log palette toolbar contribution enrolled in disposable scope");
     }

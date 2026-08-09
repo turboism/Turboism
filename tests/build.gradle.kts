@@ -116,7 +116,8 @@ tasks.register<org.gradle.api.tasks.Exec>("hostValidationScriptContractTest") {
         rootProject.file("scripts/preview/run-host-locale-host-validation.sh"),
         rootProject.file("scripts/preview/launch-cubism-host-locale-validation.sh"),
         rootProject.file("scripts/preview/launch-cubism-host-locale-validation-52.sh"),
-        rootProject.file("scripts/preview/launch-cubism-host-locale-validation-53.sh")
+        rootProject.file("scripts/preview/launch-cubism-host-locale-validation-53.sh"),
+        rootProject.file("scripts/preview/host-locale-validation-contract.sh")
     )
-    commandLine("bash", "scripts/preview/run-host-locale-host-validation.sh", "--help")
+    commandLine("bash", "scripts/preview/host-locale-validation-contract.sh")
 }

@@ -128,7 +128,8 @@ record PreviewPluginRuntimeResources(
                 })
                 .toList(),
                 (dev.turboism.pluginmanagement.RuntimePluginManagementService.MetadataLocaleProvider)
-                    () -> effectiveLocale
+                    () -> effectiveLocale,
+                message -> log.warn("plugin-management", message)
             );
         final PreviewPluginContextFactory contextFactory = new PreviewPluginContextFactory(
             home, scheduler, hostAccess, lane, log, failureCollector, fileChooserHistory,

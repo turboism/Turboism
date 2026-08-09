@@ -224,6 +224,32 @@ class OfficialPluginCatalogCompletenessTest {
         assertDoesNotThrow(() -> OfficialPluginCatalogCompleteness.verifyAll(projectRoot.resolve("plugins")));
     }
 
+    @Test void reportsAPluginWhoseDescriptorLacksAnI18nBlock() throws Exception {
+        Path plugins = Files.createDirectories(tempDir.resolve("plugins-sandbox-" + sandboxSequence++));
+        Path pluginRoot = plugins.resolve("no-i18n-plugin");
+        Path descriptorDir = Files.createDirectories(
+            pluginRoot.resolve("src/main/resources/META-INF/turboism"));
+        // Official descriptor without an i18n block and without a baseline: previously
+        // skipped silently, now a completeness problem.
+        Files.writeString(descriptorDir.resolve("plugin.json"), """
+            {
+              "format": "turboism.plugin.meta",
+              "schemaVersion": 2,
+              "id": "dev.turboism.plugin.no-i18n",
+              "name": "No I18n",
+              "version": "1.0.0",
+              "entrypoints": ["dev.turboism.plugin.noi18n.Plugin"],
+              "turboismApi": "[0.1.0,0.2.0)"
+            }
+            """, StandardCharsets.UTF_8);
+
+        IllegalStateException failure = assertThrows(
+            IllegalStateException.class,
+            () -> OfficialPluginCatalogCompleteness.verifyAll(plugins)
+        );
+        assertTrue(failure.getMessage().contains("no-i18n-plugin: plugin descriptor has no i18n block"));
+    }
+
     private Path createPlugin(Path plugins, String pluginId, String baseline, String catalog)
         throws IOException {
         Path pluginRoot = plugins.resolve(pluginId);
