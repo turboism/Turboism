@@ -112,6 +112,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         new dev.turboism.runtime.log.CubismLogServiceHost();
     private final dev.turboism.ui.workspace.WorkspaceCoordinator workspaceCoordinator =
         new dev.turboism.ui.workspace.WorkspaceCoordinator();
+    private volatile dev.turboism.ui.workspace.layout.WorkspaceLayoutCoordinator workspaceLayoutCoordinator;
     private final Object lifecycleMonitor = new Object();
 
     private State state = State.SAFE_MODE;
@@ -289,6 +290,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             dynamicEditorCommands.connect(candidate.editorCommands());
             editorUiLifecycle.connected(editorUiGeneration);
             activeConnection = candidate;
+            workspaceLayoutCoordinator = candidate.workspaceLayoutCoordinator();
             try {
                 paletteFilterHost.bindParameterRowsResolver(candidate.editorModelResolver());
             } catch (IllegalStateException unavailable) {
@@ -495,6 +497,11 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     public dev.turboism.ui.workspace.WorkspaceCoordinator workspaceCoordinator() {
         return workspaceCoordinator;
     }
+
+    @Override
+    public dev.turboism.ui.workspace.layout.WorkspaceLayoutCoordinator workspaceLayoutCoordinator() {
+        return workspaceLayoutCoordinator;
+    }
     public dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorithmRegistry textureAtlasAlgorithms() {
         return textureAtlasAlgorithms;
     }
@@ -599,6 +606,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             paletteFilterHost,
             paletteAppearanceCoordinator,
             workspaceCoordinator,
+            workspaceLayoutCoordinator,
             textureAtlasEditorUi(),
             textureAtlasEditorSession(),
             textureAtlasAlgorithms()
@@ -694,6 +702,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         if (activeConnection != null && activeConnection.workspaceProvider() != null) {
             workspaceCoordinator.disconnect(activeConnection.workspaceProvider());
         }
+        workspaceLayoutCoordinator = null;
         dynamicAppearance.deactivate();
         paletteAppearanceCoordinator.invalidate();
         dynamicModelAccess.deactivate();
