@@ -16,15 +16,15 @@ public record ProjectSnapshot(
     String projectId,
     String name,
     Optional<Path> projectDirectory,
-    List<ProjectContentSnapshot> contents,
-    List<DocumentSnapshot> documents
+    List<DocumentSnapshot> documents,
+    List<ProjectContentSnapshot> contents
 ) {
     public ProjectSnapshot {
         projectId = requireText(projectId, "projectId");
         name = requireText(name, "name");
         projectDirectory = Objects.requireNonNull(projectDirectory, "projectDirectory");
-        contents = List.copyOf(Objects.requireNonNull(contents, "contents"));
         documents = List.copyOf(Objects.requireNonNull(documents, "documents"));
+        contents = List.copyOf(Objects.requireNonNull(contents, "contents"));
         if (projectDirectory.isPresent() && projectDirectory.get().isAbsolute()) {
             throw new IllegalArgumentException("projectDirectory must be relative or absent");
         }
@@ -37,7 +37,7 @@ public record ProjectSnapshot(
         final Optional<Path> projectDirectory,
         final List<DocumentSnapshot> documents
     ) {
-        this(projectId, name, projectDirectory, List.of(), documents);
+        this(projectId, name, projectDirectory, documents, List.of());
     }
 
     public Optional<ProjectContentSnapshot> content(final String contentId) {
