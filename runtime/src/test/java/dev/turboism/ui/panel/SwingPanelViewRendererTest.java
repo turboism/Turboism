@@ -132,6 +132,49 @@ class SwingPanelViewRendererTest {
         });
     }
 
+    @Test
+    void singleChartSectionSuppressesTheDuplicatedInnerTitle() throws Exception {
+        SwingUtilities.invokeAndWait(() -> {
+            JComponent rendered = SwingPanelViewRenderer.render(
+                PanelView.collapsibleSection(
+                    "CPU",
+                    true,
+                    PanelView.chart("cpu", "CPU",
+                        PanelView.series("CPU %", 120, "%", "0.0"))
+                ),
+                (action, event) -> { }
+            );
+            JPanel section = assertInstanceOf(JPanel.class, rendered);
+            assertTrue(CollapsibleSection.isExpanded(section));
+            JPanel content = (JPanel) section.getComponent(0);
+            ChartComponent chart = assertInstanceOf(ChartComponent.class, content.getComponent(0));
+            assertEquals("cpu", chart.getName());
+            assertTrue(!chart.showsTitle(),
+                "the section border title replaces the chart's own title");
+        });
+    }
+
+    @Test
+    void bareChartKeepsItsOwnTitleEvenInsideAMultiChildSection() throws Exception {
+        SwingUtilities.invokeAndWait(() -> {
+            JComponent rendered = SwingPanelViewRenderer.render(
+                PanelView.collapsibleSection(
+                    "Stats",
+                    true,
+                    PanelView.chart("fps", "Viewport Render FPS",
+                        PanelView.series("FPS", 120, "fps", "0.0")),
+                    PanelView.text("note")
+                ),
+                (action, event) -> { }
+            );
+            JPanel section = assertInstanceOf(JPanel.class, rendered);
+            JPanel content = (JPanel) section.getComponent(0);
+            ChartComponent chart = assertInstanceOf(ChartComponent.class, content.getComponent(0));
+            assertTrue(chart.showsTitle(),
+                "only a single-chart section defers the chart title to the border");
+        });
+    }
+
     private static void paint(JPanel panel) {
         BufferedImage image = new BufferedImage(400, 200, BufferedImage.TYPE_INT_ARGB);
         Graphics2D graphics = image.createGraphics();

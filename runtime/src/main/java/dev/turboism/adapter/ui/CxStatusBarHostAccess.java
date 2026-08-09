@@ -10,8 +10,9 @@ import java.util.List;
  * content root, child enumeration, CLabel/CMemoryViewerPanel classification and
  * construction, name/text/severity appearance updates, the native
  * {@code add(CWidget, int)} / remove calls, and revalidate/repaint refresh.
- * Production binds it only through the exact 5.3.02 verified resolver; absent,
- * unreviewed, and other-version evidence remains in safe mode.</p>
+ * Production binds it only through the reviewed exact-version resolver
+ * (5.2.03 or 5.3.02); absent, unreviewed, and other-version evidence remains
+ * in safe mode.</p>
  */
 interface CxStatusBarHostAccess {
 

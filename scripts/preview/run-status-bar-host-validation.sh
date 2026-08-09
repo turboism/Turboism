@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Status-bar adapter for exact-host validation: 5.3.02 visible path and 5.2.03 fail-closed path.
+# Status-bar adapter for exact-host validation: 5.2.03 and 5.3.02 both run the visible manager/compact matrix.
 set -euo pipefail
 
 if [ "$#" -lt 1 ]; then
@@ -9,7 +9,7 @@ fi
 version="$1"
 shift
 case "$version" in
-  5203) mode='fail-closed-5203' ;;
+  5203) mode='manager' ;;
   5302) mode='manager' ;;
   *)
     echo "error: status-bar host validation supports only 5203 or 5302" >&2
