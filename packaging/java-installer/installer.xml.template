@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<!--
+  Turboism cross-platform Java installer (IzPack 5.2.6).
+
+  This file is GENERATED at build time from this template by the root
+  installer Gradle script: __PLUGIN_PACKS__ and __BUNDLED_PLUGINS__ are
+  derived from each plugin JAR's META-INF/turboism/plugin.json, and
+  __STAGE_REL__ points at the shared staged payload
+  (build/windows-installer/staging). Do not edit the generated file.
+
+  Every plugin pack carries the XML id attribute equal to its plugin id;
+  IzPack exposes it at runtime as Pack.getLangPackId(), which is the stable
+  selection identity used by the install-side listener (no display-name
+  mapping).
+-->
+<izpack:installation version="5.0" xmlns:izpack="http://izpack.org/schema/installation"
+                     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                     xsi:schemaLocation="http://izpack.org/schema/installation https://izpack.org/schema/5.0/izpack-installation-5.0.xsd">
+
+    <info>
+        <appname>Turboism</appname>
+        <appversion>__INSTALLER_VERSION__</appversion>
+        <url>https://turboism.dev</url>
+        <uninstaller write="true" path="${INSTALL_PATH}/Uninstaller" name="uninstaller.jar"/>
+        <writeinstallationinformation>no</writeinstallationinformation>
+        <readinstallationinformation>no</readinstallationinformation>
+    </info>
+
+    <guiprefs width="680" height="520" resizable="no"/>
+
+    <locale>
+        <langpack iso3="eng"/>
+        <langpack iso3="chn"/>
+        <langpack iso3="jpn"/>
+    </locale>
+
+    <variables>
+        <variable name="INSTALL_GROUP" value="full"/>
+        <!-- Build-generated comma-separated plugin ids (from plugin.json). -->
+        <variable name="turboism.bundledPlugins" value="__BUNDLED_PLUGINS__"/>
+    </variables>
+
+    <resources>
+        <res id="LicencePanel.licence" src="__STAGE_REL__/LICENSE.txt"/>
+        <!-- IzPack locale-suffixed CustomLangPack convention: the runtime
+             resolves CustomLangPack.xml_<iso3> per selected locale and falls
+             back to the base CustomLangPack.xml. -->
+        <res id="CustomLangPack.xml" src="CustomLangPack.xml"/>
+        <res id="CustomLangPack.xml_eng" src="CustomLangPack.xml_eng"/>
+        <res id="CustomLangPack.xml_chn" src="CustomLangPack.xml_chn"/>
+        <res id="CustomLangPack.xml_jpn" src="CustomLangPack.xml_jpn"/>
+    </resources>
+
+    <jar src="__LISTENER_JAR_REL__" stage="both"/>
+
+    <listeners>
+        <listener classname="dev.turboism.installer.TurboismInstallerListener" stage="install"/>
+        <listener classname="dev.turboism.installer.TurboismUninstallerListener" stage="uninstall"/>
+    </listeners>
+
+    <panels>
+        <panel classname="HelloPanel"/>
+        <panel classname="LicencePanel"/>
+        <panel classname="InstallationGroupPanel"/>
+        <panel classname="PacksPanel"/>
+        <panel classname="TargetPanel"/>
+        <panel classname="SummaryPanel"/>
+        <panel classname="InstallPanel"/>
+        <panel classname="FinishPanel"/>
+    </panels>
+
+    <packs>
+        <pack id="turboism-common" name="Turboism Core" required="true" installGroups="full,lite">
+            <description>Turboism agent and common runtime files.</description>
+            <file src="__STAGE_REL__/turboism-agent.jar" targetdir="$INSTALL_PATH" override="true"/>
+            <file src="__STAGE_REL__/LICENSE.txt" targetdir="$INSTALL_PATH" override="true"/>
+            <file src="__STAGE_REL__/README.txt" targetdir="$INSTALL_PATH" override="true"/>
+            <file src="__STAGE_REL__/README.zh.txt" targetdir="$INSTALL_PATH" override="true"/>
+            <file src="__STAGE_REL__/README.ja.txt" targetdir="$INSTALL_PATH" override="true"/>
+            <file src="__STAGE_REL__/README.java-installer.txt" targetdir="$INSTALL_PATH" override="true" os="unix"/>
+            <file src="__STAGE_REL__/uninstall.command" targetdir="$INSTALL_PATH" override="true" os="mac"/>
+            <file src="__STAGE_REL__/launch-cubism-turboism.bat" targetdir="$INSTALL_PATH" override="true" os="windows"/>
+            <file src="__STAGE_REL__/launch-cubism-turboism.ps1" targetdir="$INSTALL_PATH" override="true" os="windows"/>
+            <file src="__STAGE_REL__/configure_turboism.ps1" targetdir="$INSTALL_PATH" override="true" os="windows"/>
+        </pack>
+__PLUGIN_PACKS__
+    </packs>
+</izpack:installation>

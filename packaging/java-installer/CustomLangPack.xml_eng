@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Turboism installer custom messages for the "eng" locale (English).
+  Loaded by IzPack's locale-suffixed CustomLangPack convention
+  (CustomLangPack.xml_<iso3>); the base CustomLangPack.xml is the fallback.
+-->
+<izpack:langpack version="5.0"
+                 xmlns:izpack="http://izpack.org/schema/langpack"
+                 xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                 xsi:schemaLocation="http://izpack.org/schema/langpack https://izpack.org/schema/5.0/izpack-langpack-5.0.xsd">
+
+    <str id="InstallationGroupPanel.group.full" txt="Full installation (all plugins)"/>
+    <str id="InstallationGroupPanel.description.full" txt="Installs the Turboism agent and every first-party plugin. You can deselect individual plugins on the next page."/>
+    <str id="InstallationGroupPanel.group.lite" txt="Lite installation (no plugins)"/>
+    <str id="InstallationGroupPanel.description.lite" txt="Installs only the Turboism agent and common files. No first-party plugin JAR is copied."/>
+    <str id="InstallationGroupPanel.sortKey.full" txt="1"/>
+    <str id="InstallationGroupPanel.sortKey.lite" txt="2"/>
+
+    <!-- Required common pack display name (console- and GUI-visible). -->
+    <str id="turboism-common" txt="Turboism Core"/>
+
+</izpack:langpack>
