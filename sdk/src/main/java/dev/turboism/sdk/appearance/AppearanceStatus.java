@@ -25,6 +25,7 @@ public record AppearanceStatus(
         diagnosticId = text(diagnosticId, "diagnosticId");
     }
 
+    @PreviewApi
     public enum Availability {
         AVAILABLE,
         UNAVAILABLE,
@@ -32,6 +33,7 @@ public record AppearanceStatus(
         SAFE_MODE
     }
 
+    @PreviewApi
     public enum Source {
         NATIVE,
         PLUGIN_OVERLAY

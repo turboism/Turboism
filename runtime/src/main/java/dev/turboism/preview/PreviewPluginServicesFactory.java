@@ -87,7 +87,8 @@ final class PreviewPluginServicesFactory {
     ) {
         return new CorePluginContext.Dependencies(
             descriptor, new PreviewPluginLogger(log, descriptor.id()), paths, uiScheduler, scheduler,
-            new PreviewDiagnosticReport(), scope, EmptyHostSnapshotSource.INSTANCE,
+            new PreviewDiagnosticReport(), scope,
+            EmptyHostSnapshotSource.INSTANCE,
             M12ReadSnapshotSource.EMPTY, new PreviewUiHostStateSource(paths),
             event -> log.debug(descriptor.id(), event.toString()), Clock.systemUTC(), failureCollector
         );
