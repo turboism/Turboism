@@ -3,10 +3,25 @@ package dev.turboism.i18n;
 import java.util.IllformedLocaleException;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.function.Consumer;
 
-final class PluginLocaleResolver {
+public final class PluginLocaleResolver {
 
     private PluginLocaleResolver() {
+    }
+
+    /** Resolves the one startup locale used by runtime and plugin UI construction. */
+    public static Locale resolveStartup(
+        final String configuredLocale,
+        final Locale hostDisplayLocale,
+        final Locale jvmDisplayLocale,
+        final Consumer<String> diagnostics
+    ) {
+        Objects.requireNonNull(diagnostics, "diagnostics");
+        return resolveWithSource(
+            "runtime", configuredLocale, hostDisplayLocale, jvmDisplayLocale,
+            diagnostic -> diagnostics.accept(diagnostic.code() + ": " + diagnostic.message())
+        ).locale();
     }
 
     static Locale resolve(
@@ -33,43 +48,49 @@ final class PluginLocaleResolver {
         final LocalizationDiagnosticSink diagnostics
     ) {
         Objects.requireNonNull(diagnostics, "diagnostics");
-        if (explicitLocale != null && !explicitLocale.isBlank()) {
+        final String operatorLocale = operatorLocale();
+        if (operatorLocale != null && !operatorLocale.isBlank() && !"system".equalsIgnoreCase(operatorLocale)) {
+            final Locale parsed = parse(operatorLocale);
+            if (parsed != null) {
+                return new Resolution(normalize(parsed), "JVM_PROPERTY", operatorLocale);
+            }
+            diagnostics.record(new LocalizationDiagnostic(
+                "I18N_INVALID_OPERATOR_LOCALE",
+                pluginId,
+                "",
+                operatorLocale,
+                "Explicit JVM locale is invalid; the next locale source was selected."
+            ));
+        }
+        if (explicitLocale != null && !explicitLocale.isBlank() && !"system".equalsIgnoreCase(explicitLocale)) {
             final Locale parsed = parse(explicitLocale);
             if (parsed != null) {
-                return new Resolution(
-                    normalize(parsed),
-                    "PREVIEW_OPTION",
-                    explicitLocale
-                );
+                return new Resolution(normalize(parsed), "CONFIGURED", explicitLocale);
             }
             diagnostics.record(new LocalizationDiagnostic(
                 "I18N_INVALID_EXPLICIT_LOCALE",
                 pluginId,
                 "",
                 explicitLocale,
-                "Explicit plugin locale is invalid; the next locale source was selected."
+                "Configured plugin locale is invalid; the next locale source was selected."
             ));
         }
         if (displayLocale != null) {
-            return new Resolution(
-                normalize(displayLocale),
-                "DISPLAY_LOCALE",
-                displayLocale.toLanguageTag()
-            );
+            return new Resolution(normalize(displayLocale), "DISPLAY_LOCALE", displayLocale.toLanguageTag());
         }
         if (jvmDisplayLocale != null) {
-            return new Resolution(
-                normalize(jvmDisplayLocale),
-                "JVM_DISPLAY_DEFAULT",
-                jvmDisplayLocale.toLanguageTag()
-            );
+            return new Resolution(normalize(jvmDisplayLocale), "JVM_DISPLAY_DEFAULT", jvmDisplayLocale.toLanguageTag());
         }
         final Locale fallback = Locale.getDefault(Locale.Category.DISPLAY);
-        return new Resolution(
-            normalize(fallback),
-            "JVM_DISPLAY_DEFAULT",
-            fallback.toLanguageTag()
-        );
+        return new Resolution(normalize(fallback), "JVM_DISPLAY_DEFAULT", fallback.toLanguageTag());
+    }
+
+    private static String operatorLocale() {
+        try {
+            return System.getProperty("turboism.locale");
+        } catch (SecurityException denied) {
+            return null;
+        }
     }
 
     private static Locale parse(final String languageTag) {

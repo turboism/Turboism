@@ -4,6 +4,8 @@ field.documents
 field.host_read
 field.last_refresh
 field.layout_workspace
+plugin.description
+plugin.name
 status.available
 status.no_project_open
 status.reading

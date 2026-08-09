@@ -15,10 +15,11 @@ import java.util.Set;
 public final class RuntimeConfigValidator extends AbstractJsonValidator {
 
     private static final Set<String> ALLOWED_FIELDS = Set.of(
-        "worktreeId", "pluginDirs", "disabledPlugins", "logLevel", "maxLogStorageMiB",
+        "worktreeId", "pluginDirs", "disabledPlugins", "logLevel", "maxLogStorageMiB", "locale",
         "safeMode", "diagnostics", "hooks"
     );
     private static final Set<String> ALLOWED_LOG_LEVELS = Set.of("TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL");
+    private static final Set<String> ALLOWED_LOCALES = Set.of("system", "en", "ja", "ko", "zh-Hans", "zh-Hant");
 
     private static final Set<String> ALLOWED_HOOK_FIELDS = Set.of(
         "disabledIds", "denylistedClasses", "startup"
@@ -76,6 +77,16 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
                     source
                 ));
             }
+        }
+
+        if (node.has("locale") && (!node.get("locale").isTextual()
+            || !ALLOWED_LOCALES.contains(node.get("locale").asText()))) {
+            errors.add(error(
+                "RUNTIME_CONFIG_BAD_LOCALE",
+                "locale must be one of " + ALLOWED_LOCALES,
+                "locale",
+                source
+            ));
         }
 
         if (node.has("pluginDirs") && node.get("pluginDirs").isArray()) {

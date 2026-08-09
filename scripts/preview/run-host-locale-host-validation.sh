@@ -3,8 +3,12 @@
 set -euo pipefail
 
 if [ "$#" -lt 1 ]; then
-  echo "usage: run-host-locale-host-validation.sh <5302|5203> [run-label] [runner-options...]" >&2
+  echo "usage: run-host-locale-host-validation.sh <5302|5203> [run-label] [--locale system|en|ja|ko|zh-Hans|zh-Hant] [--fixture <remote-path>] [runner-options...]" >&2
   exit 2
+fi
+if [ "$#" -eq 1 ] && { [ "$1" = "--help" ] || [ "$1" = "-h" ]; }; then
+  echo "usage: run-host-locale-host-validation.sh <5302|5203> [run-label] [--locale system|en|ja|ko|zh-Hans|zh-Hant] [--fixture <remote-path>] [runner-options...]"
+  exit 0
 fi
 version="$1"
 shift
@@ -13,6 +17,28 @@ if [ "$#" -gt 0 ] && [[ "$1" != --* ]]; then
   run_label="$1"
   shift
 fi
+locale=''
+fixture_override=''
+runner_options=()
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --locale)
+      [ "$#" -ge 2 ] || { echo "error: missing value for --locale" >&2; exit 2; }
+      locale="$2"
+      case "$locale" in
+        system|en|ja|ko|zh-Hans|zh-Hant) ;;
+        *) echo "error: locale must be system, en, ja, ko, zh-Hans, or zh-Hant" >&2; exit 2 ;;
+      esac
+      shift 2
+      ;;
+    --fixture)
+      [ "$#" -ge 2 ] || { echo "error: missing value for --fixture" >&2; exit 2; }
+      fixture_override="$2"
+      shift 2
+      ;;
+    *) runner_options+=("$1"); shift ;;
+  esac
+done
 
 case "$version" in
   5302)
@@ -28,6 +54,10 @@ case "$version" in
     exit 2
     ;;
 esac
+if [ -n "$fixture_override" ]; then
+  fixture_src="$fixture_override"
+  fixture_sha256=''
+fi
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 worktree_id="$(TURBOISM_WORKTREE_ID="${TURBOISM_WORKTREE_ID:-}" "$repo_root/scripts/dev/worktree-id.sh")"
@@ -44,6 +74,10 @@ runner="$repo_root/scripts/preview/run-cubism-host-validation.sh"
   exit 1
 }
 
+locale_option=()
+if [ -n "$locale" ]; then
+  locale_option=(--jvm-option "-Dturboism.locale=$locale")
+fi
 exec bash "$runner" \
   --name host-locale \
   --version "$version" \
@@ -64,4 +98,5 @@ exec bash "$runner" \
   --ready-timeout 300 \
   --result-timeout 600 \
   --exit-timeout 120 \
-  "$@"
+  "${locale_option[@]}" \
+  "${runner_options[@]}"

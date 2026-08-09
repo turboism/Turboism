@@ -88,7 +88,8 @@ public final class RuntimeSettingsFileService implements RuntimeSettingsService 
             startup.path("skipUpdateCheck").asBoolean(false),
             startup.path("skipSplash").asBoolean(false),
             startup.path("skipInformation").asBoolean(false),
-            startup.path("separateExportSaveDirectory").asBoolean(false)
+            startup.path("separateExportSaveDirectory").asBoolean(false),
+            root.path("locale").asText(RuntimeSettings.DEFAULT_LOCALE)
         );
     }
 
@@ -99,6 +100,7 @@ public final class RuntimeSettingsFileService implements RuntimeSettingsService 
             root.put("safeMode", requested.safeMode());
             root.put("logLevel", requested.logLevel());
             root.put("maxLogStorageMiB", requested.maxLogStorageMiB());
+            root.put("locale", requested.locale());
             final ObjectNode startup = root.withObject("hooks").withObject("startup");
             startup.put("skipUpdateCheck", requested.skipStartupUpdateCheck());
             startup.put("skipSplash", requested.skipStartupSplash());
@@ -110,6 +112,7 @@ public final class RuntimeSettingsFileService implements RuntimeSettingsService 
         logStorageLimitChanged.accept(requested.maxLogStorageMiB());
         return requested;
     }
+
 
     @Override
     public DockCleanupResult cleanEmptyDocks() {
