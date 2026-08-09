@@ -29,6 +29,7 @@ include(
     "plugins:physics-editor",
     "plugins:perf-stats",
     "plugins:palette-label-style",
+    "plugins:parameter-batch-transfer",
     "testframework",
     "tests"
 )
