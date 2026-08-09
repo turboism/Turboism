@@ -174,8 +174,8 @@ public final class VerifiedProjectWorkspaceHostOperations implements ProjectWork
                 projectId,
                 projectDisplayName(currentDocument, documents),
                 Optional.empty(),
-                contents,
-                documents
+                documents,
+                contents
             ));
         } catch (VerifiedAccessException exception) {
             if (exception.failureKind() == VerifiedAccessException.FailureKind.RESOLUTION) {
@@ -304,11 +304,11 @@ public final class VerifiedProjectWorkspaceHostOperations implements ProjectWork
         return new DocumentSnapshot(
             documentId,
             displayName,
-            kind,
             "documents/" + documentId + "/" + safeSegment(fallbackName),
             Optional.<Path>empty(),
-            contentId,
             model,
+            kind,
+            contentId,
             animation
         );
     }

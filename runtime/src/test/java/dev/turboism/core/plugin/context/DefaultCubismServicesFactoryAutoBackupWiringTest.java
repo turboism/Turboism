@@ -56,10 +56,8 @@ class DefaultCubismServicesFactoryAutoBackupWiringTest {
         });
         final RuntimeHostAdapters hostAdapters = connectedHostAdapters(connected);
 
-        // The 8-arg convenience constructor (hostAdapters + editor command slots)
-        // is the exact chain the real host uses; it must forward the connected
-        // adapter instead of the safe-mode singleton.
-        final DefaultCubismServicesFactory factory = new DefaultCubismServicesFactory(
+        // Test-only dependency injection lives in DefaultCubismServicesFactoryTestSupport.
+        final DefaultCubismServicesFactory factory = DefaultCubismServicesFactoryTestSupport.withEditorCommands(
             hostAdapters,
             unavailableModelAccess(),
             new ParameterLifecycleCoordinator(),
@@ -76,7 +74,7 @@ class DefaultCubismServicesFactoryAutoBackupWiringTest {
 
     @Test
     void convenienceConstructorKeepsSafeModeForTheSafeModeBundle() {
-        final DefaultCubismServicesFactory factory = new DefaultCubismServicesFactory(
+        final DefaultCubismServicesFactory factory = DefaultCubismServicesFactoryTestSupport.withEditorCommands(
             RuntimeHostAdapters.safeMode(),
             unavailableModelAccess(),
             new ParameterLifecycleCoordinator(),
