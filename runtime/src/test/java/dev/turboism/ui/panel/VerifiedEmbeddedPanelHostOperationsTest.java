@@ -309,6 +309,9 @@ class VerifiedEmbeddedPanelHostOperationsTest {
                 "component",
                 descriptor(Component.class)
             ),
+            StaticSelector.classSelector(
+                "cubism.ui-panel.split.class", internal(SplitContainer.class)
+            ),
             method(
                 "cubism.ui-panel.split.contents",
                 SplitContainer.class,
@@ -465,6 +468,14 @@ class VerifiedEmbeddedPanelHostOperationsTest {
         }
     }
 
+    /** Non-box, non-split workspace component (mirrors CPMContentsBox). */
+    public static final class ContentsBox implements Component {
+        @Override
+        public int paletteCount() {
+            return 0;
+        }
+    }
+
     public record RootContainer(Component component) {
     }
 
@@ -535,6 +546,7 @@ class VerifiedEmbeddedPanelHostOperationsTest {
         assertFalse(host.log.toString().contains("missing"));
         assertEquals(List.of(
             "add:" + paletteId,
+            "activate:" + paletteId,
             "set-visible:" + paletteId + ":true",
             "update-window-menu",
             "check:" + paletteId + ":true",
@@ -617,6 +629,287 @@ class VerifiedEmbeddedPanelHostOperationsTest {
     }
 
     @Test
+    void showReusesExistingPaletteBoxInsteadOfOpeningNewColumn() throws Exception {
+        final InstallHost host = installHost();
+        host.firstPaletteBox = new FakePaletteBox(host, "box-a");
+        final AtomicReference<EmbeddedPanelHostOperations.PanelHandle> handleRef = new AtomicReference<>();
+        runOnEdt(() -> handleRef.set(host.operations.addPanel(
+            new EmbeddedPanelContributionDescriptor(
+                "turboism.core",
+                "test-pane",
+                "Test Pane",
+                "window",
+                100,
+                new dev.turboism.sdk.ui.PanelView.Text("content")
+            ),
+            (actionId, event) -> { }
+        )));
+        final FakePaletteId paletteId = host.paletteId("test-pane");
+
+        // Reuse path: the palette is added as a tab of the first existing workspace box
+        // and selected there; the new-column path (setPaletteVisible true) never runs,
+        // and the derived check state is still selected.
+        assertEquals(List.of(
+            "add:" + paletteId,
+            "add-tab:box-a:" + paletteId,
+            "set-selected:box-a:" + paletteId,
+            "update-window-menu",
+            "check:" + paletteId + ":true",
+            "repaint"
+        ), host.log);
+        assertFalse(host.log.contains("set-visible:" + paletteId + ":true"));
+
+        // The PanelHandle activation path reuses the same box as well.
+        host.log.clear();
+        runOnEdt(handleRef.get()::activate);
+        assertEquals(List.of(
+            "add-tab:box-a:" + paletteId,
+            "set-selected:box-a:" + paletteId,
+            "update-window-menu",
+            "check:" + paletteId + ":true",
+            "repaint"
+        ), host.log);
+        assertFalse(host.log.contains("set-visible:" + paletteId + ":true"));
+    }
+
+    @Test
+    void showDocksIntoLeastLoadedPaletteBoxAndBreaksTiesByTraversalOrder() throws Exception {
+        final InstallHost host = installHost();
+        // box-a holds 2 docked tabs, box-b holds 1: the new tab must land in box-b.
+        host.workspaceTree = new SplitContainer(List.of(
+            new FakePaletteBox(
+                host,
+                "box-a",
+                List.of(
+                    new FakePalette(new FakePaletteId("turboism:turboism.core:other-a1"), "A1"),
+                    new FakePalette(new FakePaletteId("turboism:turboism.core:other-a2"), "A2")
+                )
+            ),
+            new FakePaletteBox(
+                host,
+                "box-b",
+                List.of(new FakePalette(new FakePaletteId("turboism:turboism.core:other-b"), "B"))
+            )
+        ));
+        final AtomicReference<EmbeddedPanelHostOperations.PanelHandle> handleRef = new AtomicReference<>();
+        runOnEdt(() -> handleRef.set(host.operations.addPanel(
+            new EmbeddedPanelContributionDescriptor(
+                "turboism.core",
+                "test-pane",
+                "Test Pane",
+                "window",
+                100,
+                new dev.turboism.sdk.ui.PanelView.Text("content")
+            ),
+            (actionId, event) -> { }
+        )));
+        final FakePaletteId paletteId = host.paletteId("test-pane");
+
+        assertEquals(List.of(
+            "add:" + paletteId,
+            "add-tab:box-b:" + paletteId,
+            "set-selected:box-b:" + paletteId,
+            "update-window-menu",
+            "check:" + paletteId + ":true",
+            "repaint"
+        ), host.log);
+        assertFalse(host.log.contains("set-visible:" + paletteId + ":true"));
+
+        // Both boxes now hold 2 tabs: re-docking breaks the tie toward box-a, the
+        // first box in traversal order.
+        host.log.clear();
+        runOnEdt(handleRef.get()::activate);
+        assertEquals(List.of(
+            "add-tab:box-a:" + paletteId,
+            "set-selected:box-a:" + paletteId,
+            "update-window-menu",
+            "check:" + paletteId + ":true",
+            "repaint"
+        ), host.log);
+        assertFalse(host.log.contains("set-visible:" + paletteId + ":true"));
+    }
+
+    @Test
+    void showPrefersEmptyPaletteBoxOverLoadedOnesInNestedTrees() throws Exception {
+        final InstallHost host = installHost();
+        // The empty box sits inside a nested split: the traversal must descend into
+        // split branches to find it and prefer it over the loaded boxes.
+        host.workspaceTree = new SplitContainer(List.of(
+            new FakePaletteBox(
+                host,
+                "box-a",
+                List.of(new FakePalette(new FakePaletteId("turboism:turboism.core:other-a"), "A"))
+            ),
+            new SplitContainer(List.of(
+                new FakePaletteBox(host, "box-b"),
+                new FakePaletteBox(
+                    host,
+                    "box-c",
+                    List.of(new FakePalette(new FakePaletteId("turboism:turboism.core:other-c"), "C"))
+                )
+            ))
+        ));
+        runOnEdt(() -> host.operations.addPanel(
+            new EmbeddedPanelContributionDescriptor(
+                "turboism.core",
+                "test-pane",
+                "Test Pane",
+                "window",
+                100,
+                new dev.turboism.sdk.ui.PanelView.Text("content")
+            ),
+            (actionId, event) -> { }
+        ));
+        final FakePaletteId paletteId = host.paletteId("test-pane");
+
+        assertEquals(List.of(
+            "add:" + paletteId,
+            "add-tab:box-b:" + paletteId,
+            "set-selected:box-b:" + paletteId,
+            "update-window-menu",
+            "check:" + paletteId + ":true",
+            "repaint"
+        ), host.log);
+        assertFalse(host.log.contains("set-visible:" + paletteId + ":true"));
+    }
+
+    @Test
+    void showWithoutAnyPaletteBoxRunsNativeNewColumnPath() throws Exception {
+        final InstallHost host = installHost();
+        // The workspace root exists but the split tree holds no palette box at all,
+        // so the native new-column path (workspace activate + setPaletteVisible)
+        // runs unchanged.
+        host.workspaceTree = new SplitContainer(List.of(new SplitContainer(List.of())));
+        runOnEdt(() -> host.operations.addPanel(
+            new EmbeddedPanelContributionDescriptor(
+                "turboism.core",
+                "test-pane",
+                "Test Pane",
+                "window",
+                100,
+                new dev.turboism.sdk.ui.PanelView.Text("content")
+            ),
+            (actionId, event) -> { }
+        ));
+        final FakePaletteId paletteId = host.paletteId("test-pane");
+
+        assertEquals(List.of(
+            "add:" + paletteId,
+            "activate:" + paletteId,
+            "set-visible:" + paletteId + ":true",
+            "update-window-menu",
+            "check:" + paletteId + ":true",
+            "update-window-menu",
+            "check:" + paletteId + ":true",
+            "repaint"
+        ), host.log);
+        assertFalse(host.log.contains("add-tab:"));
+    }
+
+    @Test
+    void showSkipsNonSplitContentComponentsWhileFindingSparsestBox() throws Exception {
+        final InstallHost host = installHost();
+        // A CPMContentsBox-style component (neither palette box nor split container)
+        // must be skipped, not expanded; the box with 2 tabs is still selected.
+        host.workspaceTree = new SplitContainer(List.of(
+            new ContentsBox(),
+            new FakePaletteBox(
+                host,
+                "box-a",
+                List.of(
+                    new FakePalette(new FakePaletteId("turboism:turboism.core:other-a1"), "A1"),
+                    new FakePalette(new FakePaletteId("turboism:turboism.core:other-a2"), "A2")
+                )
+            )
+        ));
+        final AtomicReference<EmbeddedPanelHostOperations.PanelHandle> handleRef = new AtomicReference<>();
+        runOnEdt(() -> handleRef.set(host.operations.addPanel(
+            new EmbeddedPanelContributionDescriptor(
+                "turboism.core",
+                "test-pane",
+                "Test Pane",
+                "window",
+                100,
+                new dev.turboism.sdk.ui.PanelView.Text("content")
+            ),
+            (actionId, event) -> { }
+        )));
+        final FakePaletteId paletteId = host.paletteId("test-pane");
+
+        assertEquals(List.of(
+            "add:" + paletteId,
+            "add-tab:box-a:" + paletteId,
+            "set-selected:box-a:" + paletteId,
+            "update-window-menu",
+            "check:" + paletteId + ":true",
+            "repaint"
+        ), host.log);
+        assertFalse(host.log.contains("set-visible:" + paletteId + ":true"));
+
+        // The activation path traverses the same tree with the ContentsBox present.
+        host.log.clear();
+        runOnEdt(handleRef.get()::activate);
+        assertEquals(List.of(
+            "add-tab:box-a:" + paletteId,
+            "set-selected:box-a:" + paletteId,
+            "update-window-menu",
+            "check:" + paletteId + ":true",
+            "repaint"
+        ), host.log);
+    }
+
+    @Test
+    void showWithOnlyContentComponentsRunsNativeNewColumnPath() throws Exception {
+        final InstallHost host = installHost();
+        // A workspace whose tree holds only a non-split content component has no
+        // palette box: the native new-column path runs unchanged.
+        host.workspaceTree = new SplitContainer(List.of(new ContentsBox()));
+        runOnEdt(() -> host.operations.addPanel(
+            new EmbeddedPanelContributionDescriptor(
+                "turboism.core",
+                "test-pane",
+                "Test Pane",
+                "window",
+                100,
+                new dev.turboism.sdk.ui.PanelView.Text("content")
+            ),
+            (actionId, event) -> { }
+        ));
+        final FakePaletteId paletteId = host.paletteId("test-pane");
+
+        assertEquals(List.of(
+            "add:" + paletteId,
+            "activate:" + paletteId,
+            "set-visible:" + paletteId + ":true",
+            "update-window-menu",
+            "check:" + paletteId + ":true",
+            "update-window-menu",
+            "check:" + paletteId + ":true",
+            "repaint"
+        ), host.log);
+        assertFalse(host.log.contains("add-tab:"));
+    }
+
+    @Test
+    void treeTraversalSkipsNonSplitComponentsDuringCleanupAndTreeChecks() {
+        final PaletteBox live = new PaletteBox(1);
+        final PaletteBox empty = new PaletteBox(0);
+        final ContentsBox contents = new ContentsBox();
+        final SplitContainer root = new SplitContainer(List.of(contents, live, empty));
+
+        final VerifiedEmbeddedPanelHostOperations operations = treeOperations();
+        operations.pruneEmptyBoxes(root);
+
+        // The ContentsBox is neither removed nor expanded; the empty box is pruned.
+        assertEquals(List.of(contents, live), root.contents());
+
+        final Workspace workspace = new Workspace(new RootContainer(root));
+        assertTrue(operations.isDockBoxInWorkspaceTree(workspace, live));
+        assertFalse(operations.isDockBoxInWorkspaceTree(workspace, new PaletteBox(1)));
+        assertTrue(operations.isDockBoxInWorkspaceTree(workspace, contents));
+    }
+
+    @Test
     void installFailureAfterMenuRegistrationCleansMapEntryAndMenuItem() throws Exception {
         final InstallHost host = installHost();
         host.failOnAddPalette = true;
@@ -688,6 +981,8 @@ class VerifiedEmbeddedPanelHostOperationsTest {
         private final FakeWorkspace workspace = new FakeWorkspace(this);
         private final FakeApp app = new FakeApp(this);
         private final VerifiedEmbeddedPanelHostOperations operations;
+        private FakePaletteBox firstPaletteBox;
+        private Component workspaceTree;
         private boolean failOnAddPalette;
 
         InstallHost() {
@@ -783,6 +1078,55 @@ class VerifiedEmbeddedPanelHostOperationsTest {
                     FakeWorkspace.class,
                     "getPaletteBoxFor",
                     "(L" + internal(FakePalette.class) + ";)L" + internal(FakePaletteBox.class) + ";"
+                ),
+                method(
+                    "cubism.ui-panel.workspace.first-palette-box",
+                    FakeWorkspace.class,
+                    "getFirstPaletteBox",
+                    descriptor(FakePaletteBox.class)
+                ),
+                StaticSelector.classSelector(
+                    "cubism.ui-panel.palette-box.class",
+                    internal(FakePaletteBox.class)
+                ),
+                method(
+                    "cubism.ui-panel.workspace.root-container",
+                    FakeWorkspace.class,
+                    "getRootContainer",
+                    descriptor(RootContainer.class)
+                ),
+                method(
+                    "cubism.ui-panel.root.component",
+                    RootContainer.class,
+                    "component",
+                    descriptor(Component.class)
+                ),
+                StaticSelector.classSelector(
+                    "cubism.ui-panel.split.class", internal(SplitContainer.class)
+                ),
+                method(
+                    "cubism.ui-panel.split.contents",
+                    SplitContainer.class,
+                    "contents",
+                    "()Ljava/util/List;"
+                ),
+                method(
+                    "cubism.ui-panel.palette-box.palettes",
+                    FakePaletteBox.class,
+                    "getPalettes",
+                    "()Ljava/util/List;"
+                ),
+                method(
+                    "cubism.ui-panel.palette-box.add-tab",
+                    FakePaletteBox.class,
+                    "addTab",
+                    "(L" + internal(FakePalette.class) + ";)V"
+                ),
+                method(
+                    "cubism.ui-panel.palette-box.set-selected",
+                    FakePaletteBox.class,
+                    "setSelected",
+                    "(L" + internal(FakePaletteId.class) + ";)V"
                 ),
                 StaticSelector.constructor(
                     "cubism.ui-panel.palette-id.create",
@@ -1150,9 +1494,60 @@ class VerifiedEmbeddedPanelHostOperationsTest {
         public FakePaletteBox getPaletteBoxFor(final FakePalette palette) {
             return null;
         }
+
+        public FakePaletteBox getFirstPaletteBox() {
+            return host.firstPaletteBox;
+        }
+
+        public RootContainer getRootContainer() {
+            // A single-box tree mirrors the r3 first-palette-box fixture; workspaceTree
+            // overrides it with an arbitrary split tree for multi-box tests.
+            return new RootContainer(
+                host.workspaceTree != null ? host.workspaceTree : host.firstPaletteBox
+            );
+        }
     }
 
-    public static final class FakePaletteBox {
+    public static final class FakePaletteBox implements Component {
+        private final InstallHost host;
+        private final String label;
+        private final List<FakePalette> palettes = new ArrayList<>();
+
+        public FakePaletteBox(final InstallHost host, final String label) {
+            this(host, label, List.of());
+        }
+
+        public FakePaletteBox(
+            final InstallHost host,
+            final String label,
+            final List<FakePalette> palettes
+        ) {
+            this.host = host;
+            this.label = label;
+            this.palettes.addAll(palettes);
+        }
+
+        public void addTab(final FakePalette palette) {
+            palettes.add(palette);
+            host.log.add("add-tab:" + label + ":" + palette.getPaletteId());
+            // Attaching the tab to a workspace box shows the palette in the dock, so the
+            // derived updateWindowMenuItem check state is selected (matching the native
+            // visibility derivation the reuse path relies on).
+            host.dockWrapper.visible.add(palette);
+        }
+
+        public void setSelected(final FakePaletteId paletteId) {
+            host.log.add("set-selected:" + label + ":" + paletteId);
+        }
+
+        public List<FakePalette> getPalettes() {
+            return palettes;
+        }
+
+        @Override
+        public int paletteCount() {
+            return palettes.size();
+        }
     }
 
     public static final class FakePaletteId {
