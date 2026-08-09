@@ -254,9 +254,42 @@ public interface Drawable {
 
     IntSequence parameters();
 
-    /** Returns this ArtMesh's generation-bound Editor authoring bindings. */
+    /**
+     * Returns this ArtMesh's generation-bound Editor authoring bindings: keyform
+     * grid bindings ({@link ParameterBindingFamily#KEYFORM_GRID}) followed by
+     * morph-target bindings ({@link ParameterBindingFamily#BLEND_SHAPE}), in
+     * stable host order. Use {@link #getNormalParameterBindings()}, {@link
+     * #getMorphParameterBindings()} and {@link #getCombinedParameterBindings()}
+     * to select one family.
+     */
     default List<ParameterBinding> getParameterBindings() {
         throw unavailable("ArtMesh parameter binding projection");
+    }
+
+    /** Returns this ArtMesh's morph-target (BLEND_SHAPE) bindings only. */
+    default List<ParameterBinding> getMorphParameterBindings() {
+        return getParameterBindings().stream()
+            .filter(binding -> binding.family() == ParameterBindingFamily.BLEND_SHAPE)
+            .toList();
+    }
+
+    /**
+     * Returns this ArtMesh's normal bindings: keyform-grid bindings whose
+     * parameter is neither a morph target nor Combined in the Editor. Requires
+     * parameter-combined knowledge, so implementations that only project
+     * bindings throw {@link UnsupportedOperationException}.
+     */
+    default List<ParameterBinding> getNormalParameterBindings() {
+        throw unavailable("Normal ArtMesh parameter binding projection");
+    }
+
+    /**
+     * Returns this ArtMesh's keyform bindings whose parameter is Combined in the
+     * Editor. Requires parameter-combined knowledge, so implementations that
+     * only project bindings throw {@link UnsupportedOperationException}.
+     */
+    default List<ParameterBinding> getCombinedParameterBindings() {
+        throw unavailable("Combined ArtMesh parameter binding projection");
     }
 
     /**

@@ -1,0 +1,23 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 2,
+  "id": "dev.turboism.validation.binding-cross-check",
+  "name": "Binding Cross-Check Diagnostic",
+  "version": "0.0.0",
+  "description": "One-shot host diagnostic comparing drawable-side and parameter-side parameter binding reads.",
+  "entrypoints": [
+    "dev.turboism.validation.parameterbatchtransfer.BindingCrossCheckDiagnosticPlugin"
+  ],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [{ "name": "Turboism Validation" }],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": { "baseName": "META-INF/turboism/i18n/messages", "locales": [] },
+  "dependencies": [],
+  "permissions": [
+    { "id": "turboism.cubism.model.read", "scope": "application", "reason": "Cross-check parameter binding reads on the exact host." }
+  ],
+  "capabilities": ["cubism.parameter.read"],
+  "environment": { "requiresCubism": true, "ui": "embedded" }
+}
