@@ -178,7 +178,8 @@ public record RuntimeHostAdapters(
 
     /**
      * Replaces only the status-toolbar slot of an existing bundle with the
-     * verified 5.3.02 native status slice; every other adapter is preserved.
+     * verified native status slice (reviewed exact 5.2.03 or 5.3.02); every
+     * other adapter is preserved.
      */
     static RuntimeHostAdapters withVerifiedStatusBar(
         final RuntimeHostAdapters base,
@@ -186,7 +187,8 @@ public record RuntimeHostAdapters(
     ) {
         Objects.requireNonNull(base, "base");
         Objects.requireNonNull(statusBarResolver, "statusBarResolver");
-        if (!statusBarResolver.isExactCubismVersion(StatusBarVerificationManifest.CUBISM_VERSION)
+        final String resolverVersion = statusBarResolver.cubismVersion();
+        if (!StatusBarVerificationManifest.reviewedCubismVersions().contains(resolverVersion)
             || !statusBarResolver.authorizes(
                 StatusBarVerificationManifest.ADAPTER_SLICE_ID,
                 StatusBarVerificationManifest.CAPABILITY_IDS,

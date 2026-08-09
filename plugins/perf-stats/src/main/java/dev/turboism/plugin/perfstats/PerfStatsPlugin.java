@@ -56,6 +56,11 @@ public final class PerfStatsPlugin implements TurboismPlugin {
     private static final String MENU_ROOT = "Turboism";
     private static final int MENU_ORDER = 20;
 
+    private static final String WINDOW_EXPAND_KEY = "window.expand";
+    private static final String WINDOW_EXPAND_FALLBACK = "Expand";
+    private static final String WINDOW_COLLAPSE_KEY = "window.collapse";
+    private static final String WINDOW_COLLAPSE_FALLBACK = "Collapse";
+
     private static final String CPU_STATUS_ID = "perf-stats.cpu-status";
     private static final String CPU_STATUS_KEY = "status.cpu.label";
     private static final String CPU_STATUS_FALLBACK = "CPU";
@@ -94,30 +99,50 @@ public final class PerfStatsPlugin implements TurboismPlugin {
             PANEL_PLACEMENT,
             PANEL_PRIORITY,
             PanelView.column(
-                PanelView.chart(
-                    "cpu",
+                PanelView.collapsibleSection(
                     text("chart.cpu.title", "CPU"),
-                    PanelView.series(text("series.cpu", SERIES_CPU), WINDOW_POINTS, "%", "0.0")
+                    true,
+                    PanelView.chart(
+                        "cpu",
+                        text("chart.cpu.title", "CPU"),
+                        PanelView.series(text("series.cpu", SERIES_CPU), WINDOW_POINTS, "%", "0.0")
+                    )
                 ),
-                PanelView.chart(
-                    "fps",
+                PanelView.collapsibleSection(
                     text("chart.fps.title", CHART_TITLE_FPS),
-                    PanelView.series(text("series.fps", SERIES_FPS), WINDOW_POINTS, "fps", "0.0")
+                    true,
+                    PanelView.chart(
+                        "fps",
+                        text("chart.fps.title", CHART_TITLE_FPS),
+                        PanelView.series(text("series.fps", SERIES_FPS), WINDOW_POINTS, "fps", "0.0")
+                    )
                 ),
-                PanelView.chart(
-                    "heap",
+                PanelView.collapsibleSection(
                     text("chart.heap.title", SERIES_HEAP),
-                    PanelView.series(text("series.heap", SERIES_HEAP), WINDOW_POINTS, "MiB", "0.0")
+                    true,
+                    PanelView.chart(
+                        "heap",
+                        text("chart.heap.title", SERIES_HEAP),
+                        PanelView.series(text("series.heap", SERIES_HEAP), WINDOW_POINTS, "MiB", "0.0")
+                    )
                 ),
-                PanelView.chart(
-                    "nonheap",
+                PanelView.collapsibleSection(
                     text("chart.nonheap.title", SERIES_NONHEAP),
-                    PanelView.series(text("series.nonheap", SERIES_NONHEAP), WINDOW_POINTS, "MiB", "0.0")
+                    true,
+                    PanelView.chart(
+                        "nonheap",
+                        text("chart.nonheap.title", SERIES_NONHEAP),
+                        PanelView.series(text("series.nonheap", SERIES_NONHEAP), WINDOW_POINTS, "MiB", "0.0")
+                    )
                 ),
-                PanelView.chart(
-                    "gc",
+                PanelView.collapsibleSection(
                     text("chart.gc.title", SERIES_GC),
-                    PanelView.series(text("series.gc", SERIES_GC), WINDOW_POINTS, "ms", "0.0")
+                    true,
+                    PanelView.chart(
+                        "gc",
+                        text("chart.gc.title", SERIES_GC),
+                        PanelView.series(text("series.gc", SERIES_GC), WINDOW_POINTS, "ms", "0.0")
+                    )
                 )
             )
         );
@@ -140,14 +165,15 @@ public final class PerfStatsPlugin implements TurboismPlugin {
         }
     }
 
-    /** Row labels for the standalone window; the same series texts as the embedded panel. */
-    Map<String, String> rowLabels() {
+
+    /** Row titles for the standalone window: the same chart.*.title copy as the embedded sections. */
+    Map<String, String> chartTitles() {
         return Map.of(
-            ChartStore.KEY_CPU, text("series.cpu", SERIES_CPU),
-            ChartStore.KEY_FPS, text("series.fps", SERIES_FPS),
-            ChartStore.KEY_HEAP, text("series.heap", SERIES_HEAP),
-            ChartStore.KEY_NONHEAP, text("series.nonheap", SERIES_NONHEAP),
-            ChartStore.KEY_GC, text("series.gc", SERIES_GC)
+            ChartStore.KEY_CPU, text("chart.cpu.title", "CPU"),
+            ChartStore.KEY_FPS, text("chart.fps.title", CHART_TITLE_FPS),
+            ChartStore.KEY_HEAP, text("chart.heap.title", SERIES_HEAP),
+            ChartStore.KEY_NONHEAP, text("chart.nonheap.title", SERIES_NONHEAP),
+            ChartStore.KEY_GC, text("chart.gc.title", SERIES_GC)
         );
     }
 
@@ -167,8 +193,9 @@ public final class PerfStatsPlugin implements TurboismPlugin {
             enabled = true;
         }
         // Publish the initial placeholder before the first real sample arrives;
-        // the runtime routes COMPACT_METRIC through the verified 5.3.02 status
-        // adapter when available and degrades to transient state otherwise.
+        // the runtime routes COMPACT_METRIC through the verified status adapter
+        // (reviewed exact 5.2.03 or 5.3.02) when available and degrades to
+        // transient state otherwise.
         publishCpuStatus(cpuStatusMessage(CPU_STATUS_PLACEHOLDER));
         final Registration action = context.actions().register(WINDOW_ACTION_ID, windowAction());
         context.disposableScope().register(action);
@@ -298,7 +325,9 @@ public final class PerfStatsPlugin implements TurboismPlugin {
         }
         final PerfStatsWindow created = new PerfStatsWindow(
             text("window.title", WINDOW_TITLE),
-            rowLabels(),
+            chartTitles(),
+            text(WINDOW_EXPAND_KEY, WINDOW_EXPAND_FALLBACK),
+            text(WINDOW_COLLAPSE_KEY, WINDOW_COLLAPSE_FALLBACK),
             store
         );
         if (window.compareAndSet(null, created)) {

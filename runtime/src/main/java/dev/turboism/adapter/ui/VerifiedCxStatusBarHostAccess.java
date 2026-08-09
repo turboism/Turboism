@@ -6,8 +6,8 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * Verified-resolver implementation of {@link CxStatusBarHostAccess} for the exact
- * Cubism 5.3.02 status slice.
+ * Verified-resolver implementation of {@link CxStatusBarHostAccess} for the
+ * reviewed exact Cubism 5.2.03 and 5.3.02 status slice.
  *
  * <p>Every host interaction goes through {@link VerifiedMemberResolver} aliases
  * authorized by {@code StatusBarVerificationManifest}; no hard-coded host-private
