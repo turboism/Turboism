@@ -4,12 +4,16 @@
 # 用法: assemble-release.sh <version> [--skip-nsis]
 #
 # 流程:
-#   2. 组装 staging（turboism-agent.jar、plugins/<module>.jar、config.json、
+#   1. Gradle 组装共享 payload（stageInstallerPayload，与 Java 安装器同源：
+#      turboism-agent.jar、plugins/<module>.jar、config.template.json、
 #      启动器、README.txt / README.zh.txt / README.ja.txt、LICENSE.txt）
-#   3. 从每个插件 jar 的 META-INF/turboism/plugin.json 读取 id/name/version/
+#   2. 从每个插件 jar 的 META-INF/turboism/plugin.json 读取 id/name/version/
 #      description，生成 plugin-sections.nsh
-#   4. 产出 turboism-<ver>-lite.zip / turboism-<ver>-full.zip + .sha256
-#   5. makensis 构建 TurboismInstaller-<ver>.exe + .sha256（--skip-nsis 跳过）
+#   3. 产出 turboism-<ver>-lite.zip / turboism-<ver>-full.zip + .sha256
+#      （zip 内容与历史版本一致：config.json 由 config.template.json 生成，
+#       Java 安装器专属文件 config.template.json/README.java-installer.txt/
+#       uninstall.command 不进入 zip）
+#   4. makensis 构建 TurboismInstaller-<ver>.exe + .sha256（--skip-nsis 跳过）
 #
 # 产物目录: build/windows-installer/<ver>/  (staging/ 与 dist/)
 
@@ -29,62 +33,18 @@ pkg_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$pkg_dir/../.." && pwd)"
 cd "$repo_root"
 
-worktree_id="${TURBOISM_WORKTREE_ID:-$(bash "$repo_root/scripts/dev/worktree-id.sh")}"
 # 固定路径：installer.nsi 的缺省 STAGING_DIR/OUT_DIR 与此一致，支持独立 makensis 编译
 stage="$repo_root/build/windows-installer/staging"
-stage_lite="$repo_root/build/windows-installer/staging-lite"
 dist="$repo_root/build/windows-installer/dist"
 
-# ---------- 1. Gradle 构建 ----------
-tasks=(":bootstrap:jar")
-plugin_modules=()
-for m in "$repo_root"/plugins/*/; do
-  m="$(basename "$m")"
-  [[ "$m" == "core" ]] && continue          # core 为运行时内置，不出现在 payload
-  plugin_modules+=("$m")
-  tasks+=(":plugins:$m:jar")
-done
-if [[ ${#plugin_modules[@]} -eq 0 ]]; then
-  echo "error: no plugin modules found under plugins/" >&2
+# ---------- 1. Gradle 组装共享 payload（Java 安装器 / NSIS / ZIP 同源） ----------
+echo "[assemble] gradle: stageInstallerPayload"
+./gradlew stageInstallerPayload -PinstallerVersion="$VER" --console=plain
+if [[ ! -f "$stage/turboism-agent.jar" || ! -d "$stage/plugins" ]]; then
+  echo "error: staged payload incomplete at $stage" >&2
   exit 1
 fi
-echo "[assemble] gradle: ${tasks[*]}"
-./gradlew "${tasks[@]}" --console=plain
-
-# ---------- 2. 组装 staging ----------
-rm -rf "$stage" "$stage_lite"
-mkdir -p "$stage/plugins" "$stage_lite" "$dist"
-
-pick_jar() {
-  # $1 = glob；输出最新匹配的 jar（排除 sources/javadoc）
-  local glob="$1" f=""
-  # shellcheck disable=SC2086
-  f="$(ls -t $glob 2>/dev/null | grep -v -- '-sources\.jar$' | grep -v -- '-javadoc\.jar$' | head -1)"
-  if [[ -z "$f" || ! -f "$f" ]]; then
-    echo "error: no jar matching: $glob" >&2
-    exit 1
-  fi
-  printf '%s\n' "$f"
-}
-
-agent_jar="$(pick_jar "$repo_root/build/worktree/$worktree_id/bootstrap/libs/turboism-agent-*.jar")"
-cp "$agent_jar" "$stage/turboism-agent.jar"
-echo "[assemble] agent: $agent_jar"
-
-for m in "${plugin_modules[@]}"; do
-  jar="$(pick_jar "$repo_root/build/worktree/$worktree_id/$m/libs/$m-*.jar")"
-  cp "$jar" "$stage/plugins/$m.jar"
-  echo "[assemble] plugin: $jar"
-done
-
-cp "$pkg_dir/config.template.json" "$stage/config.json"
-cp "$pkg_dir/launch-cubism-turboism.bat" "$stage/"
-cp "$pkg_dir/launch-cubism-turboism.ps1" "$stage/"
-cp "$pkg_dir/configure_turboism.ps1" "$stage/"
-sed "s/__VERSION__/$VER/g" "$pkg_dir/README.en.txt.template" > "$stage/README.txt"
-sed "s/__VERSION__/$VER/g" "$pkg_dir/README.zh.txt.template" > "$stage/README.zh.txt"
-sed "s/__VERSION__/$VER/g" "$pkg_dir/README.ja.txt.template" > "$stage/README.ja.txt"
-cp "$repo_root/LICENSE" "$stage/LICENSE.txt"
+mkdir -p "$dist"
 
 # ---------- 3. 生成 plugin-sections.nsh ----------
 python3 - "$stage" "$pkg_dir/plugin-sections.nsh" <<'PYEOF'
@@ -183,33 +143,40 @@ for p in plugins:
 PYEOF
 
 # ---------- 4. ZIP + sha256 ----------
-# 使用 python3 zipfile（避免依赖 zip CLI）
+# 使用 python3 zipfile（避免依赖 zip CLI）。
+# zip 内容与历史发布一致：config.json 由共享 payload 的 config.template.json
+# 生成；Java 安装器专属文件（config.template.json、README.java-installer.txt、
+# uninstall.command）不进入 Windows zip。
 zip_dir() {
-  local src="$1" out="$2"
-  python3 - "$src" "$out" <<'PYEOF'
+  local src="$1" out="$2" lite="$3"
+  python3 - "$src" "$out" "$lite" <<'PYEOF'
 import os, sys, zipfile
-src, out = sys.argv[1], sys.argv[2]
+src, out, lite = sys.argv[1], sys.argv[2], sys.argv[3] == "1"
+EXCLUDED = {"config.template.json", "README.java-installer.txt", "uninstall.command"}
 with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
     for root, dirs, files in os.walk(src):
         dirs.sort()
         for f in sorted(files):
+            if f in EXCLUDED:
+                continue
+            if lite and os.path.dirname(os.path.relpath(os.path.join(root, f), src)):
+                continue  # lite：仅顶层文件（不含 plugins/）
             full = os.path.join(root, f)
             arc = os.path.relpath(full, src).replace(os.sep, "/")
             z.write(full, arc)
+    # 历史契约：zip 内含 config.json（模板内容）
+    z.writestr("config.json", open(os.path.join(src, "config.template.json"), "rb").read())
 PYEOF
 }
 
-zip_dir "$stage" "$dist/turboism-$VER-full.zip"
-# lite：staging 顶层文件（不含 plugins/）
+zip_dir "$stage" "$dist/turboism-$VER-full.zip" 0
+zip_dir "$stage" "$dist/turboism-$VER-lite.zip" 1
+# sidecar 内容为仓库根相对路径：`sha256sum -c build/windows-installer/dist/*.sha256`
+# 需在仓库根目录执行（最终验证批次约定）
 (
-  cd "$stage"
-  find . -maxdepth 1 -type f -exec cp -t "$stage_lite/" {} +
-)
-zip_dir "$stage_lite" "$dist/turboism-$VER-lite.zip"
-(
-  cd "$dist"
-  sha256sum "turboism-$VER-lite.zip" > "turboism-$VER-lite.zip.sha256"
-  sha256sum "turboism-$VER-full.zip" > "turboism-$VER-full.zip.sha256"
+  cd "$repo_root"
+  sha256sum "build/windows-installer/dist/turboism-$VER-lite.zip" > "build/windows-installer/dist/turboism-$VER-lite.zip.sha256"
+  sha256sum "build/windows-installer/dist/turboism-$VER-full.zip" > "build/windows-installer/dist/turboism-$VER-full.zip.sha256"
 )
 
 # ---------- 5. NSIS 安装器 ----------
@@ -246,8 +213,8 @@ else
   fi
   makensis "${nsis_args[@]}" "$pkg_dir/installer.nsi"
   (
-    cd "$dist"
-    sha256sum "TurboismInstaller-$VER.exe" > "TurboismInstaller-$VER.exe.sha256"
+    cd "$repo_root"
+    sha256sum "build/windows-installer/dist/TurboismInstaller-$VER.exe" > "build/windows-installer/dist/TurboismInstaller-$VER.exe.sha256"
   )
 fi
 
