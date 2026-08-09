@@ -139,13 +139,13 @@ public final class MainToolbarPlugin implements TurboismPlugin {
         final String label = localization(this.context).text(labelKey);
         return new dev.turboism.sdk.ui.context.ContextMenuRegistry.ContextMenuContribution(
             id,
+            "turboism.panel-tab.toggle-floating",
             label,
             null,
             context,
-            100,
-            "turboism.panel-tab.toggle-floating",
             dev.turboism.sdk.ui.context.ContextMenuRegistry.Location.WORKSPACE_OBJECT,
             java.util.Set.of(),
+            100,
             dev.turboism.sdk.ui.context.ContextMenuRegistry.Target.PANEL_TAB,
             dev.turboism.sdk.ui.context.ContextMenuRegistry.Operation.TOGGLE_PANEL_FLOATING,
             dev.turboism.sdk.ui.context.ContextMenuRegistry.ContextMenuEntry.item(
