@@ -74,7 +74,15 @@ public final class RuntimeConfigRepository {
     }
 
     private ObjectNode readLocked() {
-        if (!Files.exists(configPath, LinkOption.NOFOLLOW_LINKS)) return defaults();
+        if (!Files.exists(configPath, LinkOption.NOFOLLOW_LINKS)) {
+            // First canonical read materializes the defaults through the same
+            // bounded, pretty-JSON, symlink-rejecting atomic write path used by
+            // update(); a creation failure stays observable as
+            // RUNTIME_CONFIG_WRITE_FAILED with no in-memory fallback.
+            final ObjectNode created = defaults();
+            writeLocked(created);
+            return created;
+        }
         try {
             rejectSymlinkChain(configPath);
             if (!Files.isRegularFile(configPath, LinkOption.NOFOLLOW_LINKS)
