@@ -183,7 +183,8 @@ val devCheck by tasks.registering {
         "checkModuleBoundaries",
         "checkSdkV4ExactApiCompatibility",
         "checkSdkV4TierCompatibility",
-        "validatePluginMeta"
+        "validatePluginMeta",
+        "checkOfficialPluginI18nCompleteness"
     )
 }
 

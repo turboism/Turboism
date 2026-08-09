@@ -258,6 +258,13 @@ class LogFilterPluginTest {
         }
 
         @Override
+        public Registration contributeBoundingBoxOverlayButton(
+            dev.turboism.sdk.ui.BoundingBoxOverlayButton contribution
+        ) {
+            throw new UnsupportedOperationException("bounding-box overlay is not used by this plugin test");
+        }
+
+        @Override
         public ContextSourceSnapshot contextSource() {
             throw new UnsupportedOperationException("context source is not used by this plugin test");
         }

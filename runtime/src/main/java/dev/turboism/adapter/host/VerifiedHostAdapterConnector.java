@@ -45,6 +45,7 @@ import dev.turboism.ui.appearance.SwingFlatLafHostOperations;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Locale;
 import java.util.Optional;
 
 /** Production connector pinned to the reviewed project/workspace verification trust root. */
@@ -65,6 +66,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
     private final AppearanceProviderFactory appearanceProviderFactory;
     private final WorkspaceResolverFactory workspaceResolverFactory;
     private final CoreBackendFactory coreBackendFactory;
+    private final Locale effectiveLocale;
 
     VerifiedHostAdapterConnector() {
         this(
@@ -315,6 +317,32 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         final WorkspaceResolverFactory workspaceResolverFactory,
         final CoreBackendFactory coreBackendFactory
     ) {
+        this(
+            factory, editorResolverFactory, editorAccessFactory, mainToolbarResolverFactory,
+            embeddedPanelResolverFactory, boundingBoxOverlayResolverFactory, editorUiPluginResources,
+            editorUiActionRouter, embeddedPanelActivation, topMenuResolverFactory, dockMaintenance,
+            appearanceProviderFactory, workspaceResolverFactory, coreBackendFactory,
+            dev.turboism.i18n.CubismHostLocale.resolve()
+        );
+    }
+
+    VerifiedHostAdapterConnector(
+        final VerifiedAdapterFactory factory,
+        final EditorResolverFactory editorResolverFactory,
+        final EditorAccessFactory editorAccessFactory,
+        final MainToolbarResolverFactory mainToolbarResolverFactory,
+        final EmbeddedPanelResolverFactory embeddedPanelResolverFactory,
+        final BoundingBoxOverlayResolverFactory boundingBoxOverlayResolverFactory,
+        final EditorUiPluginResourceRegistry editorUiPluginResources,
+        final dev.turboism.ui.action.RuntimeEditorUiActionRouter editorUiActionRouter,
+        final RuntimeEmbeddedPanelActivationCoordinator embeddedPanelActivation,
+        final TopMenuResolverFactory topMenuResolverFactory,
+        final dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator dockMaintenance,
+        final AppearanceProviderFactory appearanceProviderFactory,
+        final WorkspaceResolverFactory workspaceResolverFactory,
+        final CoreBackendFactory coreBackendFactory,
+        final Locale effectiveLocale
+    ) {
         this.factory = Objects.requireNonNull(factory, "factory");
         this.editorResolverFactory = Objects.requireNonNull(editorResolverFactory, "editorResolverFactory");
         this.editorAccessFactory = Objects.requireNonNull(editorAccessFactory, "editorAccessFactory");
@@ -330,6 +358,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         this.appearanceProviderFactory = Objects.requireNonNull(appearanceProviderFactory, "appearanceProviderFactory");
         this.workspaceResolverFactory = Objects.requireNonNull(workspaceResolverFactory, "workspaceResolverFactory");
         this.coreBackendFactory = Objects.requireNonNull(coreBackendFactory, "coreBackendFactory");
+        this.effectiveLocale = Objects.requireNonNull(effectiveLocale, "effectiveLocale");
     }
 
     @Override
@@ -639,7 +668,8 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             ? null
             : new dev.turboism.ui.panel.VerifiedEmbeddedPanelHostOperations(
                 panel.resolver(),
-                editorUiActionRouter
+                editorUiActionRouter,
+                effectiveLocale
             );
         final dev.turboism.ui.panel.NativePanelTabFloatingBridge.Handler floatingToggle =
             panelOperations == null ? null : panelOperations::togglePanelFloating;
