@@ -1222,6 +1222,28 @@ public final class CubismFacadeImpl implements CubismFacade {
                         () -> operations.transfer(plan)
                     );
                 }
+                @Override public void transferClamped(
+                    final dev.turboism.sdk.cubism.model.ParameterBindingTransferPlan plan
+                ) {
+                    requireModelWrite("model.parameterBindingBatch.transferClamped");
+                    runSemantic(
+                        CubismOperation.TRANSFER_PARAMETER_BINDINGS,
+                        id().value(),
+                        PermissionCheckedModel.this::allBindingSnapshot,
+                        () -> operations.transferClamped(plan)
+                    );
+                }
+                @Override public void transferMorphClamped(
+                    final dev.turboism.sdk.cubism.model.ParameterBindingTransferPlan plan
+                ) {
+                    requireModelWrite("model.parameterBindingBatch.transferMorphClamped");
+                    runSemantic(
+                        CubismOperation.TRANSFER_PARAMETER_BINDINGS,
+                        id().value(),
+                        PermissionCheckedModel.this::allBindingSnapshot,
+                        () -> operations.transferMorphClamped(plan)
+                    );
+                }
             };
         }
         @Override public dev.turboism.sdk.cubism.model.Parts parts() {
@@ -1798,6 +1820,14 @@ public final class CubismFacadeImpl implements CubismFacade {
             requireModelRead("artMesh.getParameterBindings");
             return delegate.getParameterBindings();
         }
+        @Override public List<dev.turboism.sdk.cubism.model.ParameterBinding> getNormalParameterBindings() {
+            requireModelRead("artMesh.getNormalParameterBindings");
+            return delegate.getNormalParameterBindings();
+        }
+        @Override public List<dev.turboism.sdk.cubism.model.ParameterBinding> getCombinedParameterBindings() {
+            requireModelRead("artMesh.getCombinedParameterBindings");
+            return delegate.getCombinedParameterBindings();
+        }
     }
 
     private class PermissionCheckedDeformer implements dev.turboism.sdk.cubism.model.Deformer {
@@ -1894,6 +1924,14 @@ public final class CubismFacadeImpl implements CubismFacade {
         @Override public List<dev.turboism.sdk.cubism.model.ParameterBinding> getParameterBindings() {
             requireModelRead("deformer.getParameterBindings");
             return delegate.getParameterBindings();
+        }
+        @Override public List<dev.turboism.sdk.cubism.model.ParameterBinding> getNormalParameterBindings() {
+            requireModelRead("deformer.getNormalParameterBindings");
+            return delegate.getNormalParameterBindings();
+        }
+        @Override public List<dev.turboism.sdk.cubism.model.ParameterBinding> getCombinedParameterBindings() {
+            requireModelRead("deformer.getCombinedParameterBindings");
+            return delegate.getCombinedParameterBindings();
         }
         @Override public void setId(final dev.turboism.sdk.cubism.id.DeformerId id) {
             requireModelWrite("deformer.setId");
