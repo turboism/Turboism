@@ -110,6 +110,194 @@ class EditorObjectReadAccessTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"5.2.0", "5.3.02"})
+    void mergesMorphTargetBindingsAfterKeyformForDrawableAndDeformer(final String version) {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        fixture.addParameter("EyeParam");
+        fixture.meshSource().morphTargetSet.targets.add(new HostMorphTarget("EyeParam", 1.0F));
+        fixture.source.deformerSources.get(0).morphTargetSet.targets.add(new HostMorphTarget("EyeParam", 0.25F));
+        final var model = new EditorBackedCubismModelAccess(resolver(version, false, true), "session-a").active();
+
+        final var meshBindings = model.drawables().find(new ArtMeshId("ArtMeshFace")).getParameterBindings();
+        assertEquals(2, meshBindings.size());
+        final var keyform = meshBindings.get(0);
+        assertEquals(dev.turboism.sdk.cubism.model.ParameterBindingFamily.KEYFORM_GRID, keyform.family());
+        assertEquals("ParamAngleX", keyform.parameterId().value());
+        final var morph = meshBindings.get(1);
+        assertEquals(dev.turboism.sdk.cubism.model.ParameterBindingTargetType.ART_MESH, morph.target().type());
+        assertEquals(dev.turboism.sdk.cubism.model.ParameterBindingFamily.BLEND_SHAPE, morph.family());
+        assertEquals("EyeParam", morph.parameterId().value());
+        assertEquals(1, morph.points().size());
+        assertEquals("EyeParam:morph:0", morph.points().get(0).id().value());
+        assertEquals(1.0F, morph.points().get(0).value());
+
+        final var warpBindings = model.warpDeformers().find(new DeformerId("WarpFace")).getParameterBindings();
+        assertEquals(2, warpBindings.size());
+        assertEquals(dev.turboism.sdk.cubism.model.ParameterBindingFamily.BLEND_SHAPE, warpBindings.get(1).family());
+        assertEquals(dev.turboism.sdk.cubism.model.ParameterBindingTargetType.WARP_DEFORMER, warpBindings.get(1).target().type());
+
+        // SDK derived projections filter the merged list by family
+        final var mesh = model.drawables().find(new ArtMeshId("ArtMeshFace"));
+        assertEquals(
+            List.of("EyeParam"),
+            mesh.getMorphParameterBindings().stream().map(value -> value.parameterId().value()).toList()
+        );
+        assertEquals(
+            List.of("ParamAngleX"),
+            mesh.getNormalParameterBindings().stream().map(value -> value.parameterId().value()).toList()
+        );
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    void deduplicatesKeyformAndMorphBindingsByParameterPreferringMorph(final String version) {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        // ParamAngleX appears TWICE in the same keyform grid: only the first row survives
+        final KeyformBinding duplicateAngle = new KeyformBinding(List.of(10.0F, 20.0F));
+        duplicateAngle.parameterId = new Id("ParamAngleX");
+        fixture.meshSource().keyformGrid.bindings.add(duplicateAngle);
+        fixture.addParameter("EyeParam");
+        // EyeParam sits in BOTH containers: the keyform grid and the morph-target set
+        final KeyformBinding eyeKeyform = new KeyformBinding();
+        eyeKeyform.parameterId = new Id("EyeParam");
+        fixture.meshSource().keyformGrid.bindings.add(eyeKeyform);
+        fixture.meshSource().morphTargetSet.targets.add(new HostMorphTarget("EyeParam", 1.0F));
+        fixture.meshSource().morphTargetSet.targets.add(new HostMorphTarget("EyeParam", 2.0F));
+        final var model = new EditorBackedCubismModelAccess(resolver(version, false, true), "session-a").active();
+        final var mesh = model.drawables().find(new ArtMeshId("ArtMeshFace"));
+
+        final var bindings = mesh.getParameterBindings();
+        // one row per parameter: first keyform ParamAngleX kept (duplicate dropped),
+        // duplicated EyeParam keyform row replaced by the morph row
+        assertEquals(2, bindings.size());
+        assertEquals(
+            List.of(-30.0F, 0.0F, 30.0F),
+            bindings.get(0).points().stream()
+                .map(dev.turboism.sdk.cubism.model.ParameterBindingPoint::value).toList()
+        );
+        assertEquals(
+            dev.turboism.sdk.cubism.model.ParameterBindingFamily.KEYFORM_GRID,
+            bindings.get(0).family()
+        );
+        assertEquals("ParamAngleX", bindings.get(0).parameterId().value());
+        assertEquals(
+            dev.turboism.sdk.cubism.model.ParameterBindingFamily.BLEND_SHAPE,
+            bindings.get(1).family()
+        );
+        assertEquals("EyeParam", bindings.get(1).parameterId().value());
+        assertEquals(List.of(1.0F, 2.0F), bindings.get(1).points().stream()
+            .map(dev.turboism.sdk.cubism.model.ParameterBindingPoint::value).toList());
+
+        // the parameter-side reverse scan is deduplicated the same way
+        final var reverse = model.parameters().find(new dev.turboism.sdk.cubism.id.ParameterId("EyeParam"))
+            .getParameterBindings();
+        assertEquals(1, reverse.size());
+        assertEquals(dev.turboism.sdk.cubism.model.ParameterBindingFamily.BLEND_SHAPE, reverse.get(0).family());
+
+        // other parameters are unaffected
+        final var warp = model.warpDeformers().find(new DeformerId("WarpFace"));
+        assertEquals(1, warp.getParameterBindings().size());
+        assertEquals(
+            List.of("ParamAngleX"),
+            warp.getNormalParameterBindings().stream()
+                .map(value -> value.parameterId().value()).toList()
+        );
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    void morphMergeFailsSoftWhenTheMorphCapabilityIsAbsent(final String version) {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        fixture.meshSource().morphTargetSet.targets.add(new HostMorphTarget("EyeParam", 1.0F));
+        final var model = new EditorBackedCubismModelAccess(resolver(version), "session-a").active();
+        final var mesh = model.drawables().find(new ArtMeshId("ArtMeshFace"));
+
+        // keyform bindings keep their behavior; the morph portion is dropped
+        assertEquals(1, mesh.getParameterBindings().size());
+        assertEquals(
+            dev.turboism.sdk.cubism.model.ParameterBindingFamily.KEYFORM_GRID,
+            mesh.getParameterBindings().get(0).family()
+        );
+        assertTrue(mesh.getMorphParameterBindings().isEmpty());
+        // combined derivation fails soft (no combined evidence -> non-combined)
+        assertTrue(mesh.getCombinedParameterBindings().isEmpty());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    void parameterSideReverseScanIncludesMorphBindings(final String version) {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        fixture.addParameter("EyeParam");
+        fixture.meshSource().morphTargetSet.targets.add(new HostMorphTarget("EyeParam", 1.0F));
+        final var model = new EditorBackedCubismModelAccess(resolver(version, false, true), "session-a").active();
+
+        final var reverse = model.parameters().find(new dev.turboism.sdk.cubism.id.ParameterId("EyeParam"))
+            .getParameterBindings();
+        assertEquals(1, reverse.size());
+        assertEquals(dev.turboism.sdk.cubism.model.ParameterBindingTargetType.ART_MESH, reverse.get(0).target().type());
+        assertEquals("ArtMeshFace", reverse.get(0).target().id());
+        assertEquals(dev.turboism.sdk.cubism.model.ParameterBindingFamily.BLEND_SHAPE, reverse.get(0).family());
+        assertEquals(
+            List.of(1.0F),
+            reverse.get(0).points().stream().map(dev.turboism.sdk.cubism.model.ParameterBindingPoint::value).toList()
+        );
+
+        // keyform bindings still flow through the reverse scan for ArtMesh and Deformers
+        final var keyformReverse = model.parameters()
+            .find(new dev.turboism.sdk.cubism.id.ParameterId("ParamAngleX")).getParameterBindings();
+        assertTrue(keyformReverse.stream().allMatch(
+            value -> value.family() == dev.turboism.sdk.cubism.model.ParameterBindingFamily.KEYFORM_GRID));
+        assertTrue(keyformReverse.stream().anyMatch(
+            value -> value.target().type() == dev.turboism.sdk.cubism.model.ParameterBindingTargetType.ART_MESH));
+        assertTrue(keyformReverse.stream().anyMatch(
+            value -> value.target().type() == dev.turboism.sdk.cubism.model.ParameterBindingTargetType.WARP_DEFORMER));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    void combinedParameterBindingsDeriveFromTheParameterCombinedFlag(final String version) {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        fixture.source.model.parameterSet.parameters.get(0).source.combined = true; // ParamAngleX
+        final var model = new EditorBackedCubismModelAccess(resolver(version, false, true), "session-a").active();
+        final var mesh = model.drawables().find(new ArtMeshId("ArtMeshFace"));
+
+        assertEquals(
+            List.of("ParamAngleX"),
+            mesh.getCombinedParameterBindings().stream().map(value -> value.parameterId().value()).toList()
+        );
+        assertEquals(
+            dev.turboism.sdk.cubism.model.ParameterBindingFamily.KEYFORM_GRID,
+            mesh.getCombinedParameterBindings().get(0).family()
+        );
+        assertEquals(
+            List.of("ParamAngleX"),
+            model.warpDeformers().find(new DeformerId("WarpFace")).getCombinedParameterBindings().stream()
+                .map(value -> value.parameterId().value()).toList()
+        );
+
+        // normal = keyform-grid bindings whose parameter is neither morph nor combined
+        assertTrue(mesh.getNormalParameterBindings().isEmpty(), "combined parameters are not normal");
+        assertTrue(
+            model.warpDeformers().find(new DeformerId("WarpFace")).getNormalParameterBindings().isEmpty(),
+            "combined parameters are not normal on deformers"
+        );
+
+        // morph bindings are never combined and never normal
+        fixture.addParameter("EyeParam");
+        fixture.meshSource().morphTargetSet.targets.add(new HostMorphTarget("EyeParam", 1.0F));
+        assertEquals(
+            List.of("ParamAngleX"),
+            mesh.getCombinedParameterBindings().stream().map(value -> value.parameterId().value()).toList()
+        );
+        assertTrue(mesh.getNormalParameterBindings().isEmpty(), "morph bindings are not normal");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"5.2.0", "5.3.02"})
     void editsParameterBindingsWithStrictConflictsAndExplicitUnbind(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -433,6 +621,14 @@ class EditorObjectReadAccessTest {
     }
 
     private static VerifiedMemberResolver resolver(final String version, final boolean includeWrite) {
+        return resolver(version, includeWrite, false);
+    }
+
+    private static VerifiedMemberResolver resolver(
+        final String version,
+        final boolean includeWrite,
+        final boolean includeMorph
+    ) {
         final java.util.HashSet<String> capabilities = new java.util.HashSet<>();
         capabilities.add(EditorObjectReadSelectorContract.CAPABILITY_ID);
         capabilities.add(dev.turboism.mapping.verification.EditorParameterBindingReadSelectorContract.CAPABILITY_ID);
@@ -445,6 +641,9 @@ class EditorObjectReadAccessTest {
             capabilities.add(dev.turboism.mapping.verification.EditorParameterBindingWriteSelectorContract.ROTATION_CAPABILITY_ID);
             capabilities.add(dev.turboism.mapping.verification.EditorParameterBindingBatchWriteSelectorContract.INVERT_CAPABILITY_ID);
             capabilities.add(dev.turboism.mapping.verification.EditorParameterBindingBatchWriteSelectorContract.TRANSFER_CAPABILITY_ID);
+        }
+        if (includeMorph) {
+            capabilities.add(dev.turboism.mapping.verification.EditorMorphTargetSelectorContract.READ_CAPABILITY_ID);
         }
         return TestVerifiedResolvers.create(
             version,
@@ -577,7 +776,24 @@ class EditorObjectReadAccessTest {
             method("cubism.editor-model.complete-pack.update-deformer-palette", CompletePack.class, "updateDeformers", "(Z)V"),
             method("cubism.editor-model.complete-pack.update-parameter", CompletePack.class, "updateParameter", "(Z)V"),
             method("cubism.editor-model.complete-pack.repaint-canvas", CompletePack.class, "repaint", "(Z)V"),
-            method("cubism.editor-model.model-source.update-instances", ModelSource.class, "updateInstances", "()V")
+            method("cubism.editor-model.model-source.update-instances", ModelSource.class, "updateInstances", "()V"),
+            method("cubism.editor-model.parameter-source.combined", ParameterSource.class, "combined", "()Z"),
+            method("cubism.editor-model.parameter-source.minimum", ParameterSource.class, "minimum", "()F"),
+            method("cubism.editor-model.parameter-source.maximum", ParameterSource.class, "maximum", "()F"),
+            method("cubism.editor-model.parameter-controllable.morph-target-set", ObjectSource.class, "morphTargetSet", desc(MorphTargetSet.class)),
+            StaticSelector.classSelector("cubism.editor-model.morph-target-set.class", internal(MorphTargetSet.class)),
+            method("cubism.editor-model.morph-target-set.morph-targets", MorphTargetSet.class, "morphTargets", "()Ljava/util/List;"),
+            StaticSelector.classSelector("cubism.editor-model.morph-target.class", internal(HostMorphTarget.class)),
+            method("cubism.editor-model.morph-target.parameter-guid", HostMorphTarget.class, "parameterGuid", desc(Id.class)),
+            method("cubism.editor-model.morph-target.key-value", HostMorphTarget.class, "keyValue", "()Ljava/lang/Float;"),
+            method("cubism.editor-model.morph-target.keyform-guid", HostMorphTarget.class, "keyformGuid", desc(Id.class)),
+            method("cubism.editor-model.model-source.parameter-source-set", ModelSource.class, "parameterSourceSet", desc(ParameterSourceSet.class)),
+            StaticSelector.classSelector("cubism.editor-model.parameter-source-set.class", internal(ParameterSourceSet.class)),
+            method("cubism.editor-model.parameter-source-set.get", ParameterSourceSet.class, "get", "(" + type(Id.class) + ")" + type(ParameterSource.class)),
+            method("cubism.editor-model.parameter-source-set.get-by-id", ParameterSourceSet.class, "getById", "(" + type(Id.class) + ")" + type(ParameterSource.class)),
+            method("cubism.editor-model.parameter-source.id", ParameterSource.class, "id", desc(Id.class)),
+            StaticSelector.constructor("cubism.editor-model.parameter-id.create", internal(Id.class), "(Ljava/lang/String;)V", StaticSelector.ACCESS_PUBLIC),
+            method("cubism.editor-model.form-guid.value", Id.class, "value", "()Ljava/lang/String;")
         );
     }
 
@@ -700,12 +916,45 @@ class EditorObjectReadAccessTest {
             return bindings.stream().filter(value -> value.parameterId.value.equals(parameterGuid.value)).findFirst().orElse(null);
         }
     }
+    public static final class MorphTargetSet {
+        final List<HostMorphTarget> targets = new java.util.ArrayList<>();
+        public List<HostMorphTarget> morphTargets() { return targets; }
+    }
+
+    public static final class HostMorphTarget {
+        final Id parameterGuid;
+        final Float keyValue;
+        HostMorphTarget(final String parameterId, final float keyValue) {
+            this.parameterGuid = new Id(parameterId);
+            this.keyValue = keyValue;
+        }
+        public Id parameterGuid() { return parameterGuid; }
+        public Float keyValue() { return keyValue; }
+        public Id keyformGuid() { return new Id("keyform-" + parameterGuid.value); }
+    }
+
+    public static final class ParameterSourceSet {
+        final java.util.Map<String, ParameterSource> byGuid = new java.util.HashMap<>();
+        final java.util.Map<String, ParameterSource> byId = new java.util.HashMap<>();
+        public ParameterSource get(final Id guid) { return byGuid.get(guid.value); }
+        public ParameterSource getById(final Id id) { return byId.get(id.value); }
+        void register(final ParameterSource source) {
+            byGuid.put(source.guid.value, source);
+            byId.put(source.guid.value, source);
+        }
+        void clear() {
+            byGuid.clear();
+            byId.clear();
+        }
+    }
+
     public static class ObjectSource {
         final Id id;
         final String localName;
         final Handler handler = new Handler();
         final Failures failures;
         final KeyformGrid keyformGrid = new KeyformGrid();
+        final MorphTargetSet morphTargetSet = new MorphTargetSet();
         PartSource parent;
         ObjectSource targetDeformer;
         boolean visible = true;
@@ -727,6 +976,7 @@ class EditorObjectReadAccessTest {
         public boolean lockedInHierarchy() { return locked; }
         public Handler handler() { return handler; }
         public KeyformGrid keyformGrid() { return keyformGrid; }
+        public MorphTargetSet morphTargetSet() { return morphTargetSet; }
     }
     public static class Form {
         float opacity;
@@ -858,6 +1108,7 @@ class EditorObjectReadAccessTest {
     }
     public static final class ModelSource {
         final Id guid = new Id("model-a");
+        final ParameterSourceSet sourceSet = new ParameterSourceSet();
         final List<PartSource> partSources = new java.util.ArrayList<>();
         final List<ArtMeshSource> artMeshSources = new java.util.ArrayList<>();
         final List<ObjectSource> deformerSources = new java.util.ArrayList<>();
@@ -870,6 +1121,7 @@ class EditorObjectReadAccessTest {
         public List<ArtMeshSource> allArtMeshes() { return artMeshSources; }
         public List<ObjectSource> allDeformers() { return deformerSources; }
         public List<GlueSource> allGlues() { return glueSources; }
+        public ParameterSourceSet parameterSourceSet() { return sourceSet; }
         public void updateInstances() { updateCount++; }
     }
     public static final class Model {
@@ -881,13 +1133,20 @@ class EditorObjectReadAccessTest {
         public ParameterSet parameterSet() { return parameterSet; }
     }
     public static final class ParameterSet {
-        final List<Parameter> parameters = List.of(new Parameter("ParamAngleX"), new Parameter("ParamAngleY"));
+        final List<Parameter> parameters = new java.util.ArrayList<>(
+            List.of(new Parameter("ParamAngleX"), new Parameter("ParamAngleY"))
+        );
         public List<Parameter> parameters() { return parameters; }
     }
     public static final class ParameterSource {
         final Id guid;
+        boolean combined;
         ParameterSource(String id) { guid = new Id(id); }
         public Id guid() { return guid; }
+        public Id id() { return guid; }
+        public boolean combined() { return combined; }
+        public float minimum() { return -30.0F; }
+        public float maximum() { return 30.0F; }
     }
     public static final class Parameter {
         final Id id;
@@ -925,6 +1184,10 @@ class EditorObjectReadAccessTest {
             source.deformerSources.add(rotationSource);
             source.glueSources.add(new GlueSource(meshSource, maskSource, failures));
             source.model = new Model();
+            source.sourceSet.clear();
+            for (final Parameter parameter : source.model.parameterSet.parameters) {
+                source.sourceSet.register(parameter.source);
+            }
             source.model.artMeshes.add(new ArtMesh(meshSource));
             source.model.artMeshes.add(new ArtMesh(maskSource));
             source.model.deformers.add(new Warp(warpSource));
@@ -941,6 +1204,12 @@ class EditorObjectReadAccessTest {
             document.pack.repaintCount = 0;
         }
         ArtMeshSource meshSource() { return source.artMeshSources.get(0); }
+
+        void addParameter(final String id) {
+            final Parameter parameter = new Parameter(id);
+            source.model.parameterSet.parameters.add(parameter);
+            source.sourceSet.register(parameter.source);
+        }
         ArtMesh mesh() { return source.model.artMeshes.get(0); }
         Warp warp() { return (Warp) source.model.deformers.get(0); }
         RotationSource rotationSource() { return (RotationSource) source.deformerSources.get(1); }
