@@ -82,18 +82,6 @@ class RuntimeSettingsServiceTest {
     }
 
     @Test
-    void createsCanonicalConfigWhenMissing() {
-        RuntimeSettingsFileService service = new RuntimeSettingsFileService(home, coordinator());
-
-        RuntimeSettings settings = service.read();
-        service.save(settings);
-
-        assertTrue(Files.isRegularFile(home.resolve("config.json")));
-        assertEquals("INFO", settings.logLevel());
-        assertEquals(100, settings.maxLogStorageMiB());
-    }
-
-    @Test
     void firstReadCreatesCanonicalConfigWithDefaults() throws Exception {
         RuntimeSettingsFileService service = new RuntimeSettingsFileService(home, coordinator());
 
