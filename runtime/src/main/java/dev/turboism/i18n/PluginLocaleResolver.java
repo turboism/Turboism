@@ -7,10 +7,24 @@ import java.util.function.Consumer;
 
 public final class PluginLocaleResolver {
 
+    /** The only explicit operator/config locale choices (plus the {@code system} sentinel). */
+    private static final java.util.Set<String> SUPPORTED_EXPLICIT_LOCALES = java.util.Set.of(
+        "en", "ja", "ko", "zh-Hans", "zh-Hant"
+    );
+
     private PluginLocaleResolver() {
     }
 
-    /** Resolves the one startup locale used by runtime and plugin UI construction. */
+    /**
+     * Resolves the one startup locale used by runtime and plugin UI construction.
+     *
+     * <p>The frozen precedence is: valid {@code turboism.locale} JVM property, then a valid
+     * persisted runtime locale, then the Cubism host display locale, then the JVM display
+     * locale, then the base catalog fallback. {@code system} means "use the next source".
+     * Explicit operator/config choices are limited to {@code en}, {@code ja}, {@code ko},
+     * {@code zh-Hans} and {@code zh-Hant}; an arbitrary well-formed tag (for example
+     * {@code fr}) is unsupported and emits a diagnostic before falling through.</p>
+     */
     public static Locale resolveStartup(
         final String configuredLocale,
         final Locale hostDisplayLocale,
@@ -18,10 +32,38 @@ public final class PluginLocaleResolver {
         final Consumer<String> diagnostics
     ) {
         Objects.requireNonNull(diagnostics, "diagnostics");
-        return resolveWithSource(
-            "runtime", configuredLocale, hostDisplayLocale, jvmDisplayLocale,
-            diagnostic -> diagnostics.accept(diagnostic.code() + ": " + diagnostic.message())
-        ).locale();
+        final String operatorLocale = operatorLocale();
+        if (operatorLocale != null && !operatorLocale.isBlank() && !"system".equalsIgnoreCase(operatorLocale)) {
+            final Locale parsed = parse(operatorLocale);
+            if (parsed == null) {
+                diagnostics.accept("I18N_INVALID_OPERATOR_LOCALE: Explicit JVM locale is invalid; "
+                    + "the next locale source was selected.");
+            } else if (!SUPPORTED_EXPLICIT_LOCALES.contains(operatorLocale)) {
+                diagnostics.accept("I18N_UNSUPPORTED_OPERATOR_LOCALE: Explicit JVM locale is unsupported; "
+                    + "the next locale source was selected.");
+            } else {
+                return normalize(parsed);
+            }
+        }
+        if (configuredLocale != null && !configuredLocale.isBlank() && !"system".equalsIgnoreCase(configuredLocale)) {
+            final Locale parsed = parse(configuredLocale);
+            if (parsed == null) {
+                diagnostics.accept("I18N_INVALID_CONFIGURED_LOCALE: Configured locale is invalid; "
+                    + "the next locale source was selected.");
+            } else if (!SUPPORTED_EXPLICIT_LOCALES.contains(configuredLocale)) {
+                diagnostics.accept("I18N_UNSUPPORTED_CONFIGURED_LOCALE: Configured locale is unsupported; "
+                    + "the next locale source was selected.");
+            } else {
+                return normalize(parsed);
+            }
+        }
+        if (hostDisplayLocale != null) {
+            return normalize(hostDisplayLocale);
+        }
+        if (jvmDisplayLocale != null) {
+            return normalize(jvmDisplayLocale);
+        }
+        return normalize(Locale.getDefault(Locale.Category.DISPLAY));
     }
 
     static Locale resolve(

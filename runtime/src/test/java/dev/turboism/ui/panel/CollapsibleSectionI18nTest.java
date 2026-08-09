@@ -91,7 +91,17 @@ class CollapsibleSectionI18nTest {
     }
 
     @Test
+    void japaneseLocaleUsesJaBundleLabels() {
+        assertToggleLabels(Locale.JAPANESE, "折りたたみ", "展開");
+    }
+
+    @Test
+    void koreanLocaleUsesKoBundleLabels() {
+        assertToggleLabels(Locale.KOREAN, "접기", "펼치기");
+    }
+
+    @Test
     void unsupportedLocaleFallsBackToDefaultBundleLabels() {
-        assertToggleLabels(Locale.JAPANESE, "Collapse", "Expand");
+        assertToggleLabels(Locale.FRENCH, "Collapse", "Expand");
     }
 }

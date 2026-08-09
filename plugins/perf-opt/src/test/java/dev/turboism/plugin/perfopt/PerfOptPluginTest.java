@@ -6,6 +6,7 @@ import dev.turboism.sdk.config.PluginConfigRegistry;
 import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
 import dev.turboism.sdk.event.EventBus;
+import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.sdk.plugin.DisposableScope;
@@ -76,6 +77,30 @@ class PerfOptPluginTest {
         assertFalse(plugin.isFpsOverlayEnabled());
     }
 
+    @Test
+    void initAndEnableWorkWithLocalizationAvailable(@TempDir Path dataDir) throws Exception {
+        RecordingActionRegistry actions = new RecordingActionRegistry();
+        PluginLocalization localization = new PluginLocalization() {
+            @Override public java.util.Locale locale() { return java.util.Locale.JAPANESE; }
+            @Override public String text(final String key) {
+                return "perf-opt.fps-overlay.label".equals(key) ? "FPS オーバーレイ切り替え" : key;
+            }
+            @Override public String format(final String key, final Object... args) { return text(key); }
+            @Override public boolean contains(final String key) { return true; }
+        };
+        PerfOptPlugin plugin = new PerfOptPlugin();
+        plugin.init(new TestPluginContext(
+            dataDir, actions, new RecordingMenuRegistry(), new DisposableScope(), localization
+        ));
+        plugin.enable();
+
+        assertEquals("perfopt.fps-overlay.toggle", actions.actionId(), "the stable semantic action ID is unchanged");
+        assertEquals(
+            "FPS オーバーレイ切り替え",
+            actions.action().label(),
+            "the resolved localization must reach the action label"
+        );
+    }
     private static final class RecordingActionRegistry implements ActionRegistry {
         private String actionId;
         private Action action;
@@ -126,8 +151,25 @@ class PerfOptPluginTest {
         Path dataDir,
         ActionRegistry actions,
         MenuRegistry menus,
-        DisposableScope disposableScope
+        DisposableScope disposableScope,
+        PluginLocalization localization
     ) implements PluginContext {
+        TestPluginContext(
+            final Path dataDir,
+            final ActionRegistry actions,
+            final MenuRegistry menus,
+            final DisposableScope disposableScope
+        ) {
+            this(dataDir, actions, menus, disposableScope, null);
+        }
+
+        @Override
+        public PluginLocalization localization() {
+            if (localization == null) {
+                throw new UnsupportedOperationException("localization service is not available");
+            }
+            return localization;
+        }
 
         @Override
         public PluginDescriptor descriptor() {
