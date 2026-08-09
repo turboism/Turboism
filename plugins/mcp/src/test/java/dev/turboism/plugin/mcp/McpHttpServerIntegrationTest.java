@@ -351,8 +351,8 @@ final class McpHttpServerIntegrationTest {
             List.of(deformer)
         );
         final DocumentSnapshot document = new DocumentSnapshot(
-            "DocA", "Demo Model", DocumentKind.MODEL, "Models/Demo.model3.json",
-            Optional.empty(), Optional.empty(), Optional.of(model), Optional.empty()
+            "DocA", "Demo Model", "Models/Demo.model3.json",
+            Optional.empty(), Optional.of(model), DocumentKind.MODEL, Optional.empty(), Optional.empty()
         );
         final ProjectContentSnapshot content = new ProjectContentSnapshot(
             "ContentA", "Demo Model", ProjectContentKind.MODEL,
@@ -360,7 +360,7 @@ final class McpHttpServerIntegrationTest {
         );
         final ProjectSnapshot project = new ProjectSnapshot(
             "ProjectA", "Demo Project", Optional.empty(),
-            List.of(content), List.of(document)
+            List.of(document), List.of(content)
         );
         reads.read.project(project);
         reads.read.document(document);
