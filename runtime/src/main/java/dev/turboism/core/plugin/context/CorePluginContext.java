@@ -7,6 +7,7 @@ import dev.turboism.adapter.cubism.mesh.AuthorizedMeshMirrorAxisService;
 import dev.turboism.adapter.cubism.mesh.RuntimeMeshMirrorAxisService;
 import dev.turboism.adapter.cubism.mesh.RuntimeMeshEditUiService;
 import dev.turboism.adapter.host.RuntimeHostAdapterAccess;
+import dev.turboism.adapter.host.HostSessionSnapshotSource;
 import dev.turboism.adapter.cubism.service.read.M12ReadSnapshotSource;
 import dev.turboism.config.RuntimePluginConfigRegistry;
 import dev.turboism.failure.RuntimeFailureSink;
@@ -505,7 +506,11 @@ public final class CorePluginContext implements PluginContext {
         final UserFileAccessService userFileAccessService,
         final AsyncHostReadService asyncHostReadService
     ) {
-        this.dependencies = Objects.requireNonNull(dependencies, "dependencies");
+        this.dependencies = hostAccess == null
+            ? Objects.requireNonNull(dependencies, "dependencies")
+            : dependencies.withHostSnapshotSource(HostSessionSnapshotSource.forSession(
+                hostAccess.adapters().projectWorkspace()
+            ));
         final RuntimeHostAdapters adapters = Objects.requireNonNull(hostAdapters, "hostAdapters");
         this.cubismServices = Objects.requireNonNull(cubismServicesFactory, "cubismServicesFactory")
             .create(this.dependencies);
@@ -1169,6 +1174,32 @@ public final class CorePluginContext implements PluginContext {
                 diagnostics,
                 disposableScope,
                 hostSnapshotSource,
+                m12ReadSnapshotSource,
+                uiHostStateSource,
+                cubismAuditSink,
+                clock
+            );
+        }
+
+        public Dependencies withHostSnapshotSource(final HostSnapshotSource replacement) {
+            return new Dependencies(
+                descriptor,
+                logger,
+                paths,
+                permissions,
+                eventBus,
+                actions,
+                menus,
+                mainToolbar,
+                paletteToolbar,
+                paletteFilter,
+                contextMenu,
+                config,
+                uiScheduler,
+                runtimeScheduler,
+                diagnostics,
+                disposableScope,
+                Objects.requireNonNull(replacement, "replacement"),
                 m12ReadSnapshotSource,
                 uiHostStateSource,
                 cubismAuditSink,

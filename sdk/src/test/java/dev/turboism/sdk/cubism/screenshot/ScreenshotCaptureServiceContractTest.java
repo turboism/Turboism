@@ -12,6 +12,7 @@ import java.util.concurrent.CompletionStage;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -36,11 +37,7 @@ final class ScreenshotCaptureServiceContractTest {
             new Class<?>[]{PluginContext.class},
             (proxy, method, args) -> method.isDefault() ? invokeDefault(proxy, method, args) : null
         );
-        final UnsupportedOperationException unavailable = assertThrows(
-            UnsupportedOperationException.class,
-            context::screenshots
-        );
-        assertEquals("screenshot capture service is not available", unavailable.getMessage());
+        assertSame(ScreenshotCaptureService.unavailable(), context.screenshots());
 
         final ScreenshotCaptureRequest request = new ScreenshotCaptureRequest(
             new RecentFileId("recent-1"),
