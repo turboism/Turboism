@@ -17,6 +17,7 @@ public final class RuntimeSettingsFileService implements RuntimeSettingsService 
     private final RuntimeDockMaintenanceCoordinator dockMaintenance;
     private final Consumer<String> logLevelChanged;
     private final IntConsumer logStorageLimitChanged;
+    private final Object stateLock = new Object();
     /** Immutable fallback baseline; initialized once by the first successful read/save. */
     private RuntimeSettings baseline;
     /** Last successful read/save; preserved across rejected/invalid reloads. */
@@ -26,7 +27,7 @@ public final class RuntimeSettingsFileService implements RuntimeSettingsService 
         final Path turboismHome,
         final RuntimeDockMaintenanceCoordinator dockMaintenance
     ) {
-        this(turboismHome, dockMaintenance, ignored -> {});
+        this(turboismHome, dockMaintenance, ignored -> {}, ignored -> {}, ignored -> {});
     }
 
     public RuntimeSettingsFileService(
@@ -34,7 +35,7 @@ public final class RuntimeSettingsFileService implements RuntimeSettingsService 
         final RuntimeDockMaintenanceCoordinator dockMaintenance,
         final Consumer<String> logLevelChanged
     ) {
-        this(new RuntimeConfigRepository(turboismHome, ignored -> { }), dockMaintenance, logLevelChanged);
+        this(turboismHome, dockMaintenance, logLevelChanged, ignored -> {}, ignored -> {});
     }
 
     public RuntimeSettingsFileService(
@@ -43,8 +44,18 @@ public final class RuntimeSettingsFileService implements RuntimeSettingsService 
         final Consumer<String> logLevelChanged,
         final IntConsumer logStorageLimitChanged
     ) {
+        this(turboismHome, dockMaintenance, logLevelChanged, logStorageLimitChanged, ignored -> {});
+    }
+
+    public RuntimeSettingsFileService(
+        final Path turboismHome,
+        final RuntimeDockMaintenanceCoordinator dockMaintenance,
+        final Consumer<String> logLevelChanged,
+        final IntConsumer logStorageLimitChanged,
+        final Consumer<String> configDiagnostic
+    ) {
         this(
-            new RuntimeConfigRepository(turboismHome, ignored -> { }),
+            new RuntimeConfigRepository(turboismHome, configDiagnostic),
             dockMaintenance,
             logLevelChanged,
             logStorageLimitChanged
@@ -83,18 +94,20 @@ public final class RuntimeSettingsFileService implements RuntimeSettingsService 
 
     @Override
     public RuntimeSettings read() {
-        final RuntimeSettings loaded;
-        try {
-            loaded = readFromConfig();
-        } catch (RuntimeException failure) {
-            // A rejected/invalid reload after an active value exists preserves that active
-            // value and changes neither active nor baseline.
-            if (active != null) return active;
-            throw failure;
+        synchronized (stateLock) {
+            final RuntimeSettings loaded;
+            try {
+                loaded = readFromConfig();
+            } catch (RuntimeException failure) {
+                // A rejected/invalid reload after an active value exists preserves that active
+                // value and changes neither active nor baseline.
+                if (active != null) return active;
+                throw failure;
+            }
+            initializeBaseline(loaded);
+            active = loaded;
+            return active;
         }
-        initializeBaseline(loaded);
-        active = loaded;
-        return active;
     }
 
     private RuntimeSettings readFromConfig() {
@@ -115,24 +128,47 @@ public final class RuntimeSettingsFileService implements RuntimeSettingsService 
     @Override
     public RuntimeSettings save(final RuntimeSettings settings) {
         final RuntimeSettings requested = Objects.requireNonNull(settings, "settings");
-        // A rejected save throws and changes neither active nor baseline.
-        config.update(root -> {
-            root.put("safeMode", requested.safeMode());
-            root.put("logLevel", requested.logLevel());
-            root.put("maxLogStorageMiB", requested.maxLogStorageMiB());
-            root.put("locale", requested.locale());
-            final ObjectNode startup = root.withObject("hooks").withObject("startup");
-            startup.put("skipUpdateCheck", requested.skipStartupUpdateCheck());
-            startup.put("skipSplash", requested.skipStartupSplash());
-            startup.put("skipInformation", requested.skipStartupInformation());
-            startup.put("separateExportSaveDirectory", requested.separateExportSaveDirectory());
-            return root;
-        });
-        initializeBaseline(requested);
-        active = requested;
-        logLevelChanged.accept(requested.logLevel());
-        logStorageLimitChanged.accept(requested.maxLogStorageMiB());
-        return requested;
+        synchronized (stateLock) {
+            // A rejected save throws and changes neither active nor baseline.
+            config.update(root -> {
+                root.put("safeMode", requested.safeMode());
+                root.put("logLevel", requested.logLevel());
+                root.put("maxLogStorageMiB", requested.maxLogStorageMiB());
+                root.put("locale", requested.locale());
+                final ObjectNode startup = root.withObject("hooks").withObject("startup");
+                startup.put("skipUpdateCheck", requested.skipStartupUpdateCheck());
+                startup.put("skipSplash", requested.skipStartupSplash());
+                startup.put("skipInformation", requested.skipStartupInformation());
+                startup.put("separateExportSaveDirectory", requested.separateExportSaveDirectory());
+                return root;
+            });
+            initializeBaseline(requested);
+            active = requested;
+            notifyAfterCommit(requested);
+            return requested;
+        }
+    }
+
+    /** Callbacks observe committed state; failures are reported without rollback fiction. */
+    private void notifyAfterCommit(final RuntimeSettings settings) {
+        Throwable firstFailure = null;
+        try {
+            logLevelChanged.accept(settings.logLevel());
+        } catch (Throwable failure) {
+            firstFailure = failure;
+        }
+        try {
+            logStorageLimitChanged.accept(settings.maxLogStorageMiB());
+        } catch (Throwable failure) {
+            if (firstFailure != null) {
+                final PostCommitCallbackFailure postCommitFailure =
+                    new PostCommitCallbackFailure(firstFailure);
+                postCommitFailure.addSuppressed(failure);
+                throw postCommitFailure;
+            }
+            firstFailure = failure;
+        }
+        if (firstFailure != null) throw new PostCommitCallbackFailure(firstFailure);
     }
 
     /** The first successful read/save initializes the immutable fallback baseline once. */
@@ -142,12 +178,22 @@ public final class RuntimeSettingsFileService implements RuntimeSettingsService 
 
     /** Minimal package-private test seam: the immutable fallback baseline. */
     RuntimeSettings baselineForTest() {
-        return baseline;
+        synchronized (stateLock) {
+            return baseline;
+        }
     }
 
     /** Minimal package-private test seam: the last successful active settings. */
     RuntimeSettings activeForTest() {
-        return active;
+        synchronized (stateLock) {
+            return active;
+        }
+    }
+
+    static final class PostCommitCallbackFailure extends IllegalStateException {
+        PostCommitCallbackFailure(final Throwable cause) {
+            super("Runtime settings committed but post-commit callbacks failed", cause);
+        }
     }
 
 

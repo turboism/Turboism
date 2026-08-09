@@ -140,7 +140,8 @@ record PreviewPluginRuntimeResources(
                 home,
                 hostAccess.dockMaintenance(),
                 log::setMinimumLevel,
-                log::setMaxStorageMiB
+                log::setMaxStorageMiB,
+                message -> log.warn("config", message)
             );
         final dev.turboism.sdk.runtime.RuntimeSettings settings = runtimeSettings.read();
         log.setMinimumLevel(settings.logLevel());

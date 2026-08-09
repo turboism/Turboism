@@ -304,6 +304,127 @@ class RuntimeSettingsServiceTest {
         assertEquals(settings, service.baselineForTest());
     }
 
+
+    @Test
+    void serializesReadsAndStateReadsBehindPostCommitCallbacks() throws Exception {
+        writeValid("settings-serialized");
+        final java.util.concurrent.CountDownLatch callbackEntered =
+            new java.util.concurrent.CountDownLatch(1);
+        final java.util.concurrent.CountDownLatch releaseCallback =
+            new java.util.concurrent.CountDownLatch(1);
+        final RuntimeSettings requested =
+            new RuntimeSettings(false, "DEBUG", 64, false, false, false, false, "en");
+        final RuntimeSettingsFileService service = new RuntimeSettingsFileService(
+            home,
+            coordinator(),
+            ignored -> {
+                callbackEntered.countDown();
+                try {
+                    releaseCallback.await(10, java.util.concurrent.TimeUnit.SECONDS);
+                } catch (InterruptedException failure) {
+                    Thread.currentThread().interrupt();
+                    throw new AssertionError(failure);
+                }
+            },
+            ignored -> {}
+        );
+        final java.util.concurrent.ExecutorService executor =
+            java.util.concurrent.Executors.newFixedThreadPool(3);
+        try {
+            final java.util.concurrent.Future<RuntimeSettings> save =
+                executor.submit(() -> service.save(requested));
+            assertTrue(callbackEntered.await(5, java.util.concurrent.TimeUnit.SECONDS));
+            final java.util.concurrent.Future<RuntimeSettings> read =
+                executor.submit(() -> service.read());
+            final java.util.concurrent.Future<RuntimeSettings> active =
+                executor.submit(() -> service.activeForTest());
+
+            assertThrows(
+                java.util.concurrent.TimeoutException.class,
+                () -> read.get(1, java.util.concurrent.TimeUnit.SECONDS)
+            );
+            assertThrows(
+                java.util.concurrent.TimeoutException.class,
+                () -> active.get(1, java.util.concurrent.TimeUnit.SECONDS)
+            );
+
+            releaseCallback.countDown();
+            assertEquals(requested, save.get(5, java.util.concurrent.TimeUnit.SECONDS));
+            assertEquals(requested, read.get(5, java.util.concurrent.TimeUnit.SECONDS));
+            assertEquals(requested, active.get(5, java.util.concurrent.TimeUnit.SECONDS));
+        } finally {
+            releaseCallback.countDown();
+            executor.shutdownNow();
+            assertTrue(executor.awaitTermination(5, java.util.concurrent.TimeUnit.SECONDS));
+        }
+    }
+
+    @Test
+    void reportsPostCommitCallbackFailuresAfterTryingBothCallbacks() throws Exception {
+        writeValid("settings-callback-failure");
+        final RuntimeException levelFailure = new RuntimeException("level callback failed");
+        final RuntimeException storageFailure = new RuntimeException("storage callback failed");
+        final java.util.List<String> callbacks = new java.util.ArrayList<>();
+        final RuntimeSettingsFileService service = new RuntimeSettingsFileService(
+            home,
+            coordinator(),
+            ignored -> {
+                callbacks.add("log-level");
+                throw levelFailure;
+            },
+            ignored -> {
+                callbacks.add("storage-limit");
+                throw storageFailure;
+            }
+        );
+        final RuntimeSettings requested =
+            new RuntimeSettings(false, "DEBUG", 64, false, false, false, false, "en");
+
+        final RuntimeSettingsFileService.PostCommitCallbackFailure failure = assertThrows(
+            RuntimeSettingsFileService.PostCommitCallbackFailure.class,
+            () -> service.save(requested)
+        );
+
+        assertEquals(java.util.List.of("log-level", "storage-limit"), callbacks);
+        assertTrue(failure.getCause() == levelFailure);
+        assertEquals(1, failure.getSuppressed().length);
+        assertTrue(failure.getSuppressed()[0] == storageFailure);
+        assertEquals(requested, service.baselineForTest());
+        assertEquals(requested, service.activeForTest());
+        assertTrue(Files.readString(home.resolve("config.json")).contains("\"logLevel\" : \"DEBUG\""));
+        assertEquals(requested, service.read());
+    }
+
+    @Test
+    void homeConstructorForwardsConfigDiagnostics() throws Exception {
+        Files.writeString(home.resolve("config.json"), """
+            {
+              "format": "turboism.runtime.config",
+              "schemaVersion": 1,
+              "worktreeId": "settings-home-diagnostic",
+              "pluginDirs": ["plugins"],
+              "logLevel": "INFO",
+              "locale": "fr",
+              "safeMode": false,
+              "hooks": {"disabledIds": [], "denylistedClasses": [], "startup": {}}
+            }
+            """);
+        final java.util.List<String> diagnostics = new java.util.ArrayList<>();
+        final RuntimeSettingsFileService service = new RuntimeSettingsFileService(
+            home,
+            coordinator(),
+            ignored -> {},
+            ignored -> {},
+            diagnostics::add
+        );
+
+        final RuntimeSettings settings = service.read();
+
+        assertEquals(RuntimeSettings.DEFAULT_LOCALE, settings.locale());
+        assertEquals(1, diagnostics.size());
+        assertTrue(diagnostics.get(0).contains("RUNTIME_CONFIG_BAD_LOCALE"));
+        assertTrue(Files.readString(home.resolve("config.json")).contains("\"locale\": \"fr\""));
+    }
     private void writeValid(final String worktreeId) throws Exception {
         Files.writeString(home.resolve("config.json"), valid(worktreeId));
     }
