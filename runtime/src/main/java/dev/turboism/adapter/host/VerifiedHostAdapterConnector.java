@@ -627,6 +627,14 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         final TextureAtlasDataModelCapture textureAtlasCapture,
         final TextureAtlasLayoutProvider textureAtlasProvider
     ) {
+        final dev.turboism.ui.workspace.layout.WorkspaceLayoutCoordinator layoutCoordinator =
+            new dev.turboism.ui.workspace.layout.WorkspaceLayoutCoordinator();
+        final dev.turboism.ui.workspace.layout.WorkspaceLayoutHostProvider layoutProvider = panel == null
+            ? null
+            : new dev.turboism.ui.workspace.layout.VerifiedWorkspaceLayoutHostProvider(panel.resolver());
+        if (layoutProvider != null) {
+            layoutCoordinator.connect(layoutProvider);
+        }
         final dev.turboism.ui.panel.VerifiedEmbeddedPanelHostOperations panelOperations = panel == null
             ? null
             : new dev.turboism.ui.panel.VerifiedEmbeddedPanelHostOperations(
@@ -829,6 +837,11 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
 
 
             @Override
+            public dev.turboism.ui.workspace.layout.WorkspaceLayoutCoordinator workspaceLayoutCoordinator() {
+                return layoutCoordinator;
+            }
+
+            @Override
             public void close() {
                 try {
                     if (panelOperations != null) {
@@ -836,6 +849,9 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                         dev.turboism.ui.panel.NativePanelTabFloatingBridge.uninstall(floatingToggle);
                         dev.turboism.ui.panel.NativeFloatingFrameDisposeBridge.uninstall(floatingDispose);
                         dev.turboism.ui.panel.NativeFloatingTabCloseBridge.uninstall(floatingTabClose);
+                    }
+                    if (layoutProvider != null) {
+                        layoutCoordinator.disconnect(layoutProvider);
                     }
                 } finally {
                     if (core != null) core.close();
