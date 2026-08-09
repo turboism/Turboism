@@ -11,9 +11,15 @@ import dev.turboism.sdk.ui.context.PanelTabSelection;
 import dev.turboism.ui.action.EditorUiActionRouter;
 
 import java.util.function.BiConsumer;
+import javax.swing.JCheckBoxMenuItem;
+import javax.swing.JComponent;
+import javax.swing.JMenu;
+import javax.swing.JMenuItem;
 import javax.swing.SwingUtilities;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.Map;
@@ -26,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -502,4 +509,693 @@ class VerifiedEmbeddedPanelHostOperationsTest {
             return value;
         }
     }
+    @Test
+    void installRegistersCheckMenuItemInPaletteMenuMapAndCleansBothOnClose() throws Exception {
+        final InstallHost host = installHost();
+        final AtomicReference<EmbeddedPanelHostOperations.PanelHandle> handleRef = new AtomicReference<>();
+        runOnEdt(() -> handleRef.set(host.operations.addPanel(
+            new EmbeddedPanelContributionDescriptor(
+                "turboism.core",
+                "test-pane",
+                "Test Pane",
+                "window",
+                100,
+                new dev.turboism.sdk.ui.PanelView.Text("content")
+            ),
+            (actionId, event) -> { }
+        )));
+        final EmbeddedPanelHostOperations.PanelHandle handle = handleRef.get();
+        final FakePaletteId paletteId = host.paletteId("test-pane");
+
+        // The check menu item and its paletteMenuMap entry exist before addPalette /
+        // setPaletteVisible; every native updateWindowMenuItem run (including the one the
+        // host triggers at the end of setPaletteVisible) derived the check state instead of
+        // reporting a missing map entry.
+        assertTrue(host.log.toString().contains("check:" + paletteId + ":true"));
+        assertFalse(host.log.toString().contains("missing"));
+        assertEquals(List.of(
+            "add:" + paletteId,
+            "set-visible:" + paletteId + ":true",
+            "update-window-menu",
+            "check:" + paletteId + ":true",
+            "update-window-menu",
+            "check:" + paletteId + ":true",
+            "repaint"
+        ), host.log);
+
+        final FakeCheckMenuItem item = host.menuItem(paletteId);
+        assertNotNull(item);
+        assertEquals("turboism:turboism.core:test-pane:window-menu", item.getName());
+        assertEquals(item, host.paletteMenuMap.get(paletteId));
+        // CCheckMenuItem's Swing peer is a JCheckBoxMenuItem (com.live2d.ui.swingImpl.k),
+        // which is what renders the check mark next to the label.
+        assertTrue(item.peer instanceof JCheckBoxMenuItem);
+        assertEquals(1, host.windowMenu.getItems().size());
+
+        // The PanelHandle activation path routes to the workspace activate (show) path;
+        // menu-item clicks themselves toggle (covered by windowMenuClickTogglesPaletteVisibility).
+        host.log.clear();
+        runOnEdt(handle::activate);
+        assertTrue(host.log.contains("activate:" + paletteId));
+
+        // close removes the map entry and detaches the menu item (Swing peer included).
+        host.log.clear();
+        runOnEdt(handle::close);
+        assertTrue(host.paletteMenuMap.isEmpty());
+        assertTrue(host.windowMenu.getItems().isEmpty());
+        assertTrue(host.log.contains("close:" + paletteId));
+        assertEquals("update-window-menu", host.log.get(host.log.size() - 2));
+        assertEquals("repaint", host.log.get(host.log.size() - 1));
+    }
+
+    @Test
+    void windowMenuClickTogglesPaletteVisibility() throws Exception {
+        final InstallHost host = installHost();
+        runOnEdt(() -> host.operations.addPanel(
+            new EmbeddedPanelContributionDescriptor(
+                "turboism.core",
+                "test-pane",
+                "Test Pane",
+                "window",
+                100,
+                new dev.turboism.sdk.ui.PanelView.Text("content")
+            ),
+            (actionId, event) -> { }
+        ));
+        final FakePaletteId paletteId = host.paletteId("test-pane");
+        final FakeCheckMenuItem item = host.menuItem(paletteId);
+        assertNotNull(item);
+
+        // Visible palette: the native updateWindowMenuItem left the check item selected.
+        // The user click flips the Swing peer and fires the native aa handler, which reads
+        // isSelected() (now false) and hides the palette through the native hide route
+        // (removeTab/removePaletteUpdate plus the trailing updateWindowMenuItem).
+        item.peer.setSelected(true);
+        host.log.clear();
+        runOnEdt(() -> item.peer.doClick());
+        assertEquals(List.of(
+            "set-visible:" + paletteId + ":false",
+            "update-window-menu",
+            "check:" + paletteId + ":false"
+        ), host.log);
+        assertFalse(host.log.contains("activate:"));
+
+        // Hidden palette: the item is unchecked. Clicking again flips it back to selected,
+        // so the handler takes the verified show path (workspace activate + setPaletteVisible).
+        item.peer.setSelected(false);
+        host.log.clear();
+        runOnEdt(() -> item.peer.doClick());
+        assertEquals(List.of(
+            "activate:" + paletteId,
+            "set-visible:" + paletteId + ":true",
+            "update-window-menu",
+            "check:" + paletteId + ":true",
+            "update-window-menu",
+            "check:" + paletteId + ":true",
+            "repaint"
+        ), host.log);
+    }
+
+    @Test
+    void installFailureAfterMenuRegistrationCleansMapEntryAndMenuItem() throws Exception {
+        final InstallHost host = installHost();
+        host.failOnAddPalette = true;
+
+        // The resolver fails closed by wrapping host invocation failures; the cleanup
+        // must still drop the paletteMenuMap entry and the menu item.
+        assertThrows(dev.turboism.mapping.verification.VerifiedAccessException.class, () ->
+            runOnEdt(() -> host.operations.addPanel(
+                new EmbeddedPanelContributionDescriptor(
+                    "turboism.core",
+                    "test-pane",
+                    "Test Pane",
+                    "window",
+                    100,
+                    new dev.turboism.sdk.ui.PanelView.Text("content")
+                ),
+                (actionId, event) -> { }
+            ))
+        );
+
+        // The failure cleanup removed both the paletteMenuMap entry and the menu item.
+        assertTrue(host.paletteMenuMap.isEmpty());
+        assertTrue(host.windowMenu.getItems().isEmpty());
+        assertTrue(host.windowMenu.getJMenu().getPopupMenu().getComponentCount() == 0);
+        assertTrue(host.log.contains("close:" + host.paletteId("test-pane")));
+        assertEquals("update-window-menu", host.log.get(host.log.size() - 2));
+        assertEquals("repaint", host.log.get(host.log.size() - 1));
+    }
+
+    /** Runs a body on the EDT, rethrowing failures on the caller thread. */
+    private static void runOnEdt(final Runnable body) throws Exception {
+        final Throwable[] failure = new Throwable[1];
+        SwingUtilities.invokeAndWait(() -> {
+            try {
+                body.run();
+            } catch (Throwable thrown) {
+                failure[0] = thrown;
+            }
+        });
+        if (failure[0] instanceof RuntimeException exception) {
+            throw exception;
+        }
+        if (failure[0] instanceof Error error) {
+            throw error;
+        }
+        if (failure[0] != null) {
+            throw new IllegalStateException("EDT body failed", failure[0]);
+        }
+    }
+
+    /**
+     * A fake Cubism embedded-panel host graph mirroring the native relationships:
+     * CEDockWrapper.getMainFrameCtrl -> CEMainFrameCtrl.getPaletteMenuMap (HashMap),
+     * and updateWindowMenuItem iterating palettes against the map with visibility.
+     */
+    private static InstallHost installHost() {
+        return new InstallHost();
+    }
+
+    static final class InstallHost {
+        private final List<String> log = new ArrayList<>();
+        private final HashMap<FakePaletteId, FakeCheckMenuItem> paletteMenuMap = new HashMap<>();
+        private final FakePaletteManager paletteManager = new FakePaletteManager(this);
+        private final FakeDockWrapper dockWrapper = new FakeDockWrapper(this);
+        private final FakeMainFrameCtrl mainFrameCtrl = new FakeMainFrameCtrl(this);
+        private final FakeFrame frame = new FakeFrame(this);
+        private final FakeMenuBar menuBar = new FakeMenuBar(this);
+        private final FakeMenu windowMenu = new FakeMenu(this, "Window");
+        private final FakeWorkspace workspace = new FakeWorkspace(this);
+        private final FakeApp app = new FakeApp(this);
+        private final VerifiedEmbeddedPanelHostOperations operations;
+        private boolean failOnAddPalette;
+
+        InstallHost() {
+            FakeApp.HOST = this;
+            final List<StaticSelector> selectors = List.of(
+                StaticSelector.staticMethod(
+                    "cubism.ui-panel.app-controller.instance",
+                    internal(FakeApp.class),
+                    "instance",
+                    descriptor(FakeApp.class),
+                    StaticSelector.ACCESS_PUBLIC
+                ),
+                method(
+                    "cubism.ui-panel.app-controller.main-frame",
+                    FakeApp.class,
+                    "getMainFrameCtrl",
+                    descriptor(FakeMainFrameCtrl.class)
+                ),
+                method(
+                    "cubism.ui-panel.app-controller.repaint",
+                    FakeApp.class,
+                    "forceRepaintCanvas$cubism",
+                    "()V"
+                ),
+                method(
+                    "cubism.ui-panel.main-frame.dock-manager",
+                    FakeMainFrameCtrl.class,
+                    "getDockManager",
+                    descriptor(FakeDockWrapper.class)
+                ),
+                method(
+                    "cubism.ui-panel.main-frame.palette-menu-map",
+                    FakeMainFrameCtrl.class,
+                    "getPaletteMenuMap",
+                    "()Ljava/util/HashMap;"
+                ),
+                method(
+                    "cubism.ui-panel.dock.palette-manager",
+                    FakeDockWrapper.class,
+                    "getPaletteManager",
+                    descriptor(FakePaletteManager.class)
+                ),
+                method(
+                    "cubism.ui-panel.dock.main-frame-ctrl",
+                    FakeDockWrapper.class,
+                    "getMainFrameCtrl",
+                    descriptor(FakeMainFrameCtrl.class)
+                ),
+                method(
+                    "cubism.ui-panel.dock.set-palette-visible",
+                    FakeDockWrapper.class,
+                    "setPaletteVisible",
+                    "(L" + internal(FakePalette.class) + ";Z)V"
+                ),
+                method(
+                    "cubism.ui-panel.dock.update-window-menu",
+                    FakeDockWrapper.class,
+                    "updateWindowMenuItem",
+                    "()V"
+                ),
+                method(
+                    "cubism.ui-panel.palette-manager.get",
+                    FakePaletteManager.class,
+                    "getPalette",
+                    "(L" + internal(FakePaletteId.class) + ";)L" + internal(FakePalette.class) + ";"
+                ),
+                method(
+                    "cubism.ui-panel.palette-manager.add",
+                    FakePaletteManager.class,
+                    "addPalette",
+                    "(L" + internal(FakePalette.class) + ";)V"
+                ),
+                method(
+                    "cubism.ui-panel.palette-manager.close",
+                    FakePaletteManager.class,
+                    "closePalette",
+                    "(L" + internal(FakePaletteId.class) + ";)V"
+                ),
+                method(
+                    "cubism.ui-panel.palette-manager.current-workspace",
+                    FakePaletteManager.class,
+                    "getCurrentWorkspace",
+                    descriptor(FakeWorkspace.class)
+                ),
+                method(
+                    "cubism.ui-panel.workspace.activate",
+                    FakeWorkspace.class,
+                    "activate",
+                    "(L" + internal(FakePalette.class) + ";)Z"
+                ),
+                method(
+                    "cubism.ui-panel.workspace.palette-box-for",
+                    FakeWorkspace.class,
+                    "getPaletteBoxFor",
+                    "(L" + internal(FakePalette.class) + ";)L" + internal(FakePaletteBox.class) + ";"
+                ),
+                StaticSelector.constructor(
+                    "cubism.ui-panel.palette-id.create",
+                    internal(FakePaletteId.class),
+                    "(Ljava/lang/String;)V",
+                    StaticSelector.ACCESS_PUBLIC
+                ),
+                StaticSelector.constructor(
+                    "cubism.ui-panel.palette.create",
+                    internal(FakePalette.class),
+                    "(L" + internal(FakePaletteId.class) + ";Ljava/lang/String;)V",
+                    StaticSelector.ACCESS_PUBLIC
+                ),
+                method(
+                    "cubism.ui-panel.palette.set-panel",
+                    FakePalette.class,
+                    "setPanel",
+                    "(L" + internal(FakeWidget.class) + ";II)V"
+                ),
+                StaticSelector.constructor(
+                    "cubism.ui-panel.swing-container.create",
+                    internal(FakeSwingContainer.class),
+                    "(Ljavax/swing/JComponent;)V",
+                    StaticSelector.ACCESS_PUBLIC
+                ),
+                method(
+                    "cubism.ui-panel.main-frame.window",
+                    FakeMainFrameCtrl.class,
+                    "getMainFrame",
+                    descriptor(FakeFrame.class)
+                ),
+                method(
+                    "cubism.ui-panel.window.menu-bar",
+                    FakeFrame.class,
+                    "getMenuBar",
+                    descriptor(FakeMenuBar.class)
+                ),
+                method(
+                    "cubism.ui-panel.menu-bar.menus",
+                    FakeMenuBar.class,
+                    "getMenus",
+                    "()Ljava/util/List;"
+                ),
+                method(
+                    "cubism.ui-panel.widget.name",
+                    FakeWidget.class,
+                    "getName",
+                    "()Ljava/lang/String;"
+                ),
+                method(
+                    "cubism.ui-panel.widget.set-name",
+                    FakeWidget.class,
+                    "setName",
+                    "(Ljava/lang/String;)V"
+                ),
+                method(
+                    "cubism.ui-panel.widget.revalidate",
+                    FakeWidget.class,
+                    "revalidate",
+                    "()V"
+                ),
+                method(
+                    "cubism.ui-panel.widget.repaint",
+                    FakeWidget.class,
+                    "repaint",
+                    "()V"
+                ),
+                method(
+                    "cubism.ui-panel.menu.items",
+                    FakeMenu.class,
+                    "getItems",
+                    "()Ljava/util/List;"
+                ),
+                method(
+                    "cubism.ui-panel.menu.add",
+                    FakeMenu.class,
+                    "add",
+                    "(L" + internal(FakeMenuItem.class) + ";)V"
+                ),
+                method(
+                    "cubism.ui-panel.menu.swing",
+                    FakeMenu.class,
+                    "getJMenu",
+                    "()Ljavax/swing/JMenu;"
+                ),
+                StaticSelector.constructor(
+                    "cubism.ui-panel.menu-item.check.create",
+                    internal(FakeCheckMenuItem.class),
+                    "(Ljava/lang/String;L" + internal(FakeCallback.class) + ";)V",
+                    StaticSelector.ACCESS_PUBLIC
+                ),
+                method(
+                    "cubism.ui-panel.menu-item.swing",
+                    FakeMenuItem.class,
+                    "getJMenuItem",
+                    "()Ljavax/swing/JMenuItem;"
+                ),
+                method(
+                    "cubism.ui-panel.menu-item.is-selected",
+                    FakeCheckMenuItem.class,
+                    "isSelected",
+                    "()Z"
+                )
+            );
+            operations = new VerifiedEmbeddedPanelHostOperations(
+                TestVerifiedResolvers.create(
+                    "adapter.editor-ui.embedded-panel",
+                    Set.of("cubism.editor-ui.embedded-panel"),
+                    selectors,
+                    VerifiedEmbeddedPanelHostOperationsTest.class.getClassLoader()
+                ),
+                (pluginId, actionId) -> { }
+            );
+        }
+
+        private FakePaletteId paletteId(final String contributionId) {
+            return new FakePaletteId("turboism:turboism.core:" + contributionId);
+        }
+
+        private FakeCheckMenuItem menuItem(final FakePaletteId paletteId) {
+            return paletteMenuMap.get(paletteId);
+        }
+    }
+
+    /** Single-abstract-method stand-in for kotlin.jvm.functions.Function1. */
+    public interface FakeCallback {
+        Object invoke(Object argument);
+    }
+
+    public static class FakeWidget {
+        private String name = "";
+
+        public String getName() {
+            return name;
+        }
+
+        public void setName(final String name) {
+            this.name = name;
+        }
+
+        public void revalidate() {
+        }
+
+        public void repaint() {
+        }
+    }
+
+    public static class FakeMenuItem extends FakeWidget {
+        private final String label;
+        protected JMenuItem peer;
+
+        public FakeMenuItem(final String label) {
+            this.label = label;
+            this.peer = new JMenuItem(label);
+        }
+
+        public String label() {
+            return label;
+        }
+
+        public JMenuItem getJMenuItem() {
+            return peer;
+        }
+    }
+
+    public static final class FakeCheckMenuItem extends FakeMenuItem {
+        private final FakeCallback callback;
+
+        public FakeCheckMenuItem(final String label, final FakeCallback callback) {
+            super(label);
+            this.callback = callback;
+            this.peer = new JCheckBoxMenuItem(label);
+            // Mirrors the native CCheckMenuItem wiring: the Swing peer flips the check
+            // state on click and then fires the kotlin callback, which reads isSelected().
+            this.peer.addActionListener(event -> callback.invoke(event));
+        }
+
+        public FakeCallback callback() {
+            return callback;
+        }
+
+        public boolean isSelected() {
+            return peer.isSelected();
+        }
+    }
+
+    public static final class FakeMenu extends FakeWidget {
+        private final InstallHost host;
+        private final List<FakeMenuItem> items = new ArrayList<>();
+        private final JMenu jMenu;
+
+        public FakeMenu(final InstallHost host, final String label) {
+            this.host = host;
+            this.jMenu = new JMenu(label);
+        }
+
+        public List<FakeMenuItem> getItems() {
+            return items;
+        }
+
+        public void add(final FakeMenuItem item) {
+            items.add(item);
+            jMenu.add(item.getJMenuItem());
+        }
+
+        public JMenu getJMenu() {
+            return jMenu;
+        }
+    }
+
+    public static final class FakeMenuBar extends FakeWidget {
+        private final InstallHost host;
+
+        public FakeMenuBar(final InstallHost host) {
+            this.host = host;
+        }
+
+        public List<FakeMenu> getMenus() {
+            return List.of(host.windowMenu);
+        }
+    }
+
+    public static final class FakeFrame {
+        private final InstallHost host;
+
+        public FakeFrame(final InstallHost host) {
+            this.host = host;
+        }
+
+        public FakeMenuBar getMenuBar() {
+            return host.menuBar;
+        }
+    }
+
+    public static final class FakeApp {
+        private static InstallHost HOST;
+        private final InstallHost host;
+
+        public FakeApp(final InstallHost host) {
+            this.host = host;
+        }
+
+        public static FakeApp instance() {
+            return HOST.app;
+        }
+
+        public FakeMainFrameCtrl getMainFrameCtrl() {
+            return host.mainFrameCtrl;
+        }
+
+        public void forceRepaintCanvas$cubism() {
+            host.log.add("repaint");
+        }
+    }
+
+    public static final class FakeMainFrameCtrl {
+        private final InstallHost host;
+
+        public FakeMainFrameCtrl(final InstallHost host) {
+            this.host = host;
+        }
+
+        public FakeDockWrapper getDockManager() {
+            return host.dockWrapper;
+        }
+
+        public FakeFrame getMainFrame() {
+            return host.frame;
+        }
+
+        public HashMap<FakePaletteId, FakeCheckMenuItem> getPaletteMenuMap() {
+            return host.paletteMenuMap;
+        }
+    }
+
+    public static final class FakeDockWrapper {
+        private final InstallHost host;
+        private final Set<FakePalette> visible = new HashSet<>();
+
+        public FakeDockWrapper(final InstallHost host) {
+            this.host = host;
+        }
+
+        public FakePaletteManager getPaletteManager() {
+            return host.paletteManager;
+        }
+
+        public FakeMainFrameCtrl getMainFrameCtrl() {
+            return host.mainFrameCtrl;
+        }
+
+        public void setPaletteVisible(final FakePalette palette, final boolean value) {
+            host.log.add("set-visible:" + palette.getPaletteId() + ":" + value);
+            if (value) {
+                visible.add(palette);
+            } else {
+                visible.remove(palette);
+            }
+            // Native behavior: setPaletteVisible ends with updateWindowMenuItem.
+            updateWindowMenuItem();
+        }
+
+        public void updateWindowMenuItem() {
+            host.log.add("update-window-menu");
+            for (FakePalette palette : host.paletteManager.palettes()) {
+                final FakePaletteId paletteId = palette.getPaletteId();
+                final FakeCheckMenuItem item = host.paletteMenuMap.get(paletteId);
+                if (item == null) {
+                    // Mirrors the native DEVELOPER_MODE failure (RuntimeException "Illegal state :_")
+                    // and production silent skip for unregistered palettes.
+                    host.log.add("missing:" + paletteId);
+                } else {
+                    host.log.add("check:" + paletteId + ":" + visible.contains(palette));
+                }
+            }
+        }
+    }
+
+    public static final class FakePaletteManager {
+        private final InstallHost host;
+        private final Map<FakePaletteId, FakePalette> palettes = new HashMap<>();
+
+        public FakePaletteManager(final InstallHost host) {
+            this.host = host;
+        }
+
+        public FakePalette getPalette(final FakePaletteId paletteId) {
+            return palettes.get(paletteId);
+        }
+
+        public void addPalette(final FakePalette palette) {
+            if (host.failOnAddPalette) {
+                throw new IllegalStateException("palette add rejected");
+            }
+            host.log.add("add:" + palette.getPaletteId());
+            palettes.put(palette.getPaletteId(), palette);
+        }
+
+        public void closePalette(final FakePaletteId paletteId) {
+            host.log.add("close:" + paletteId);
+            palettes.remove(paletteId);
+        }
+
+        public FakeWorkspace getCurrentWorkspace() {
+            return host.workspace;
+        }
+
+        public List<FakePalette> palettes() {
+            return List.copyOf(palettes.values());
+        }
+    }
+
+    public static final class FakeWorkspace {
+        private final InstallHost host;
+
+        public FakeWorkspace(final InstallHost host) {
+            this.host = host;
+        }
+
+        public boolean activate(final FakePalette palette) {
+            host.log.add("activate:" + palette.getPaletteId());
+            return true;
+        }
+
+        public FakePaletteBox getPaletteBoxFor(final FakePalette palette) {
+            return null;
+        }
+    }
+
+    public static final class FakePaletteBox {
+    }
+
+    public static final class FakePaletteId {
+        private final String value;
+
+        public FakePaletteId(final String value) {
+            this.value = value;
+        }
+
+        @Override
+        public boolean equals(final Object other) {
+            return other instanceof FakePaletteId that && value.equals(that.value);
+        }
+
+        @Override
+        public int hashCode() {
+            return value.hashCode();
+        }
+
+        @Override
+        public String toString() {
+            return value;
+        }
+    }
+
+    public static final class FakePalette {
+        private final FakePaletteId paletteId;
+
+        public FakePalette(final FakePaletteId paletteId, final String title) {
+            this.paletteId = paletteId;
+        }
+
+        public FakePaletteId getPaletteId() {
+            return paletteId;
+        }
+
+        public void setPanel(final FakeWidget widget, final int width, final int height) {
+        }
+    }
+
+    public static final class FakeSwingContainer extends FakeWidget {
+        public FakeSwingContainer(final JComponent component) {
+        }
+    }
+
 }
