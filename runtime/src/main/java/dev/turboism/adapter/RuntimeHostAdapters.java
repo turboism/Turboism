@@ -225,12 +225,25 @@ public record RuntimeHostAdapters(
         final VerifiedMemberResolver projectResolver,
         final VerifiedMemberResolver panelResolver
     ) {
+        return withVerifiedRecentPreview(
+            base, projectResolver, panelResolver, dev.turboism.i18n.CubismHostLocale.resolve()
+        );
+    }
+
+    /** Connects the verified recent-preview slice with the caller's resolved effective locale. */
+    public static RuntimeHostAdapters withVerifiedRecentPreview(
+        final RuntimeHostAdapters base,
+        final VerifiedMemberResolver projectResolver,
+        final VerifiedMemberResolver panelResolver,
+        final java.util.Locale locale
+    ) {
         Objects.requireNonNull(base, "base");
+        Objects.requireNonNull(locale, "locale");
         RecentPreviewVerificationManifest.requireAuthorized(projectResolver, panelResolver);
         final VerifiedRecentFileListHostOperations files =
             new VerifiedRecentFileListHostOperations(projectResolver, panelResolver);
         final VerifiedRecentPreviewPopupHostOperations popup =
-            new VerifiedRecentPreviewPopupHostOperations(panelResolver);
+            new VerifiedRecentPreviewPopupHostOperations(panelResolver, locale);
         return new RuntimeHostAdapters(
             base.themeStatus(),
             base.renderStatus(),

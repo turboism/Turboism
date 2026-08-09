@@ -21,6 +21,11 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
     private static final Set<String> ALLOWED_LOG_LEVELS = Set.of("TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL");
     private static final Set<String> ALLOWED_LOCALES = Set.of("system", "en", "ja", "ko", "zh-Hans", "zh-Hant");
 
+    /** True when the value is one of the accepted persisted/configured locale choices. */
+    public static boolean isAllowedLocale(final String value) {
+        return ALLOWED_LOCALES.contains(value);
+    }
+
     private static final Set<String> ALLOWED_HOOK_FIELDS = Set.of(
         "disabledIds", "denylistedClasses", "startup"
     );
@@ -37,8 +42,25 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
         return validate(node, "");
     }
 
+    /**
+     * Read-mode validation: an unsupported persisted {@code locale} is tolerated (the caller
+     * treats that one field as absent and emits a structured diagnostic) while every other
+     * malformed/unsafe config failure stays fail-closed. Writes keep {@link #validate} strict.
+     */
+    public List<SchemaValidationError> validateForRead(JsonNode node, String source) {
+        return validate(node, source, true);
+    }
+
     @Override
     public List<SchemaValidationError> validate(JsonNode node, String source) {
+        return validate(node, source, false);
+    }
+
+    private List<SchemaValidationError> validate(
+        final JsonNode node,
+        final String source,
+        final boolean tolerateLocale
+    ) {
         List<SchemaValidationError> errors = new ArrayList<>(validateRoot(node, source));
         requireStringField(node, "worktreeId", "RUNTIME_CONFIG_MISSING", errors, source);
 
@@ -81,12 +103,14 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
 
         if (node.has("locale") && (!node.get("locale").isTextual()
             || !ALLOWED_LOCALES.contains(node.get("locale").asText()))) {
-            errors.add(error(
-                "RUNTIME_CONFIG_BAD_LOCALE",
-                "locale must be one of " + ALLOWED_LOCALES,
-                "locale",
-                source
-            ));
+            if (!tolerateLocale) {
+                errors.add(error(
+                    "RUNTIME_CONFIG_BAD_LOCALE",
+                    "locale must be one of " + ALLOWED_LOCALES,
+                    "locale",
+                    source
+                ));
+            }
         }
 
         if (node.has("pluginDirs") && node.get("pluginDirs").isArray()) {

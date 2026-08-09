@@ -46,6 +46,8 @@ import java.util.Optional;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -230,6 +232,40 @@ class ParameterPluginTest {
             )
         );
 
+        assertTrue(context.cubism().batchWrites().isEmpty());
+    }
+
+    @Test
+    void transferConfirmationHasExactlyOneLocaleOwnedTerminalQuestionMark() {
+        RecordingPluginContext context = new RecordingPluginContext(new TestPluginLogger());
+        context.uiHost().confirmResult = false;
+        ParameterPlugin plugin = new ParameterPlugin();
+
+        plugin.init(context);
+        plugin.enable();
+        context.actions().execute(
+            ParameterPlugin.TRANSFER_BINDINGS_ACTION_ID,
+            new ContextMenuSelection(
+                1L,
+                "document-1",
+                ContextMenuRegistry.Location.PART_TAB,
+                List.of(new ContextMenuSelection.Item(
+                    ContextMenuRegistry.ObjectKind.ART_MESH,
+                    "ArtMeshFace"
+                ))
+            )
+        );
+
+        DialogRequest confirm = context.uiHost().lastConfirmRequest();
+        assertNotNull(confirm, "the transfer confirmation must be shown before the write");
+        String message = confirm.body();
+        assertFalse(message.contains("??"), "the code must not append a second question mark: " + message);
+        int terminal = 0;
+        for (int index = message.length() - 1; index >= 0; index--) {
+            char c = message.charAt(index);
+            if (c == '?' || c == '\uFF1F') terminal++; else break;
+        }
+        assertEquals(1, terminal, "exactly one locale-owned terminal question mark: " + message);
         assertTrue(context.cubism().batchWrites().isEmpty());
     }
 
@@ -461,7 +497,12 @@ class ParameterPluginTest {
         @Override public ContextSourceSnapshot contextSource() { throw unsupported(); }
         @Override public ViewportSnapshot viewport() { throw unsupported(); }
         @Override public Registration openDialog(DialogRequest request) { throw unsupported(); }
-        @Override public boolean confirmDialog(DialogRequest request) { return confirmResult; }
+        private DialogRequest lastConfirmRequest;
+        @Override public boolean confirmDialog(DialogRequest request) {
+            lastConfirmRequest = request;
+            return confirmResult;
+        }
+        DialogRequest lastConfirmRequest() { return lastConfirmRequest; }
         @Override public Registration contributeEmbeddedPanel(EmbeddedPanelContribution contribution) { throw unsupported(); }
         @Override public Optional<String> requestFile(FileChooserRequest request) { return chosenFile; }
         @Override public Registration notifyStatus(StatusNotification notification) {
