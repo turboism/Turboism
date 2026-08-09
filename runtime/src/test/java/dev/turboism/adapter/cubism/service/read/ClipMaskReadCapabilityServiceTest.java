@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.service.read;
 
 import dev.turboism.adapter.cubism.ClipMaskReadAdapter;
+import dev.turboism.sdk.cubism.AnimationSnapshot;
 import dev.turboism.adapter.cubism.CubismFacadeImpl;
 import dev.turboism.adapter.cubism.HostSnapshotSource;
 import dev.turboism.adapter.cubism.ProjectWorkspaceAdapter;
@@ -12,9 +13,13 @@ import dev.turboism.permissions.CubismPermissionGate;
 import dev.turboism.sdk.cubism.ClipMaskSnapshot;
 import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.CubismRuntimeSnapshot;
+import dev.turboism.sdk.cubism.DocumentKind;
 import dev.turboism.sdk.cubism.DocumentSnapshot;
 import dev.turboism.sdk.cubism.ModelSnapshot;
 import dev.turboism.sdk.cubism.ProjectSnapshot;
+import dev.turboism.sdk.cubism.ProjectContentKind;
+import dev.turboism.sdk.cubism.ProjectContentSnapshot;
+import dev.turboism.sdk.cubism.WorkspaceSnapshot;
 import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.permission.PluginPermission;
 import org.junit.jupiter.api.Test;
@@ -29,6 +34,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -75,17 +81,27 @@ class ClipMaskReadCapabilityServiceTest {
             ProjectWorkspaceAdapter.Impl.safeMode(),
             ClipMaskReadAdapter.Impl.safeMode(),
             "plugin.read.test",
-            gate
+            CubismReadPermissionGate.from(gate)
         );
 
         assertDenied(service::selection, auditEvents, "cubismRead.selection", "cubism.selection.read");
         assertDenied(service::modelObjects, auditEvents, "cubismRead.modelObjects", "cubism.model-tree.read");
-        assertDenied(service::activeDocument, auditEvents, "cubismRead.activeDocument", "cubism.model-tree.read");
-        assertDenied(service::activeModel, auditEvents, "cubismRead.activeModel", "cubism.model-tree.read");
+        assertDenied(service::activeDocument, auditEvents, "activeDocument", null);
+        assertDenied(service::activeModel, auditEvents, "activeModel", null);
+
+        final CubismPermissionException projectError = assertThrows(
+            CubismPermissionException.class, service::activeProject
+        );
+        assertTrue(projectError.getMessage().contains(CubismFacadeImpl.PROJECT_READ_PERMISSION));
+        assertEquals(1, auditEvents.size());
+        final CubismFacadeAuditEvent projectEvent = auditEvents.remove(0);
+        assertEquals(CubismFacadeImpl.PROJECT_READ_PERMISSION, projectEvent.permissionId());
+        assertEquals("activeProject", projectEvent.operationId());
+        assertNull(projectEvent.capabilityId());
     }
 
     @Test
-    void everyReadOperationUsesTheInjectedCapabilityAwareGateBeforeReading() {
+    void everySupplementalReadOperationUsesTheInjectedCapabilityAwareGateBeforeReading() {
         final List<String> calls = new ArrayList<>();
         final CubismReadCapabilityServiceImpl service = new CubismReadCapabilityServiceImpl(
             new UncheckedFacade(),
@@ -102,9 +118,6 @@ class ClipMaskReadCapabilityServiceTest {
         );
 
         final List<ReadOperation> operations = List.of(
-            new ReadOperation(service::activeProject, CubismFacadeImpl.PROJECT_READ_PERMISSION, "cubismRead.activeProject", "cubism.project.read"),
-            new ReadOperation(service::activeDocument, CubismFacadeImpl.MODEL_READ_PERMISSION, "cubismRead.activeDocument", "cubism.model-tree.read"),
-            new ReadOperation(service::activeModel, CubismFacadeImpl.MODEL_READ_PERMISSION, "cubismRead.activeModel", "cubism.model-tree.read"),
             new ReadOperation(service::selection, CubismFacadeImpl.MODEL_READ_PERMISSION, "cubismRead.selection", "cubism.selection.read"),
             new ReadOperation(service::parameters, CubismFacadeImpl.MODEL_READ_PERMISSION, "cubismRead.parameters", "cubism.parameter.read"),
             new ReadOperation(service::modelObjects, CubismFacadeImpl.MODEL_READ_PERMISSION, "cubismRead.modelObjects", "cubism.model-tree.read"),
@@ -129,32 +142,93 @@ class ClipMaskReadCapabilityServiceTest {
     }
 
     @Test
-    void legacyPublicConstructorRetainsCubismFacadeAuditGate() {
-        final List<CubismFacadeAuditEvent> auditEvents = new ArrayList<>();
-        final CubismPermissionGate gate = gate(List.of(), auditEvents);
+    void overlappingActiveReadsFollowFacadeAndIgnoreWorkspaceAdapterAnswers() {
+        assertActiveReadsMatch(modelProjection());
+        assertActiveReadsMatch(animationProjection());
+        assertActiveReadsMatch(imageProjection());
+    }
+
+    private static void assertActiveReadsMatch(final ProjectionFacade facade) {
         final CubismReadCapabilityServiceImpl service = new CubismReadCapabilityServiceImpl(
-            new CubismFacadeImpl(emptySource(), gate),
-            M12ReadSnapshotSource.EMPTY
+            facade,
+            M12ReadSnapshotSource.EMPTY,
+            ThemeStatusAdapterImpl.safeMode(),
+            RenderStatusAdapter.Impl.safeMode(),
+            divergentWorkspace(),
+            ClipMaskReadAdapter.Impl.safeMode(),
+            "plugin.overlap.test",
+            (permissionId, operationId, capabilityId) -> {
+                throw new AssertionError("facade-owned active read used the supplemental gate");
+            }
         );
 
-        assertThrows(CubismPermissionException.class, service::clipMasks);
-
-        assertEquals(1, auditEvents.size());
-        final CubismFacadeAuditEvent event = auditEvents.get(0);
-        assertEquals(CubismFacadeImpl.MODEL_READ_PERMISSION, event.permissionId());
-        assertEquals("cubismRead.clipMasks", event.operationId());
-        assertEquals("cubism.clipmask.read", event.capabilityId());
+        assertEquals(facade.activeProject(), service.activeProject());
+        assertEquals(facade.activeDocument(), service.activeDocument());
+        assertEquals(facade.activeModel(), service.activeModel());
+        assertEquals(facade.activeAnimation(), service.activeAnimation());
+        assertEquals(facade.activeImageDocument(), service.activeImageDocument());
+        assertEquals(facade.activeProjectContent(), service.activeProjectContent());
     }
 
-    @Test
-    void legacyPublicConstructorRejectsNonAuditableFacadeInsteadOfFabricatingAudit() {
-        final IllegalArgumentException error = assertThrows(
-            IllegalArgumentException.class,
-            () -> new CubismReadCapabilityServiceImpl(new UncheckedFacade(), M12ReadSnapshotSource.EMPTY)
+    private static ProjectionFacade modelProjection() {
+        final ModelSnapshot model = new ModelSnapshot("facade-model", "Facade Model", List.of(), List.of(), List.of(), List.of());
+        final DocumentSnapshot document = new DocumentSnapshot(
+            "facade-model-document", "Facade Model", "models/facade.cmo3", Optional.empty(),
+            Optional.of(model), DocumentKind.MODEL, Optional.of("facade-model-content"), Optional.empty()
         );
-
-        assertTrue(error.getMessage().contains("CubismReadPermissionGate"));
+        final ProjectContentSnapshot content = new ProjectContentSnapshot(
+            "facade-model-content", "Facade Model", ProjectContentKind.MODEL, Optional.empty(),
+            List.of(document.documentId())
+        );
+        final ProjectSnapshot project = new ProjectSnapshot(
+            "facade-project", "Facade Project", Optional.empty(), List.of(document), List.of(content)
+        );
+        return new ProjectionFacade(Optional.of(project), Optional.of(document), Optional.of(model));
     }
+
+    private static ProjectionFacade animationProjection() {
+        final AnimationSnapshot animation = new AnimationSnapshot(
+            "facade-animation", "Facade Animation", Optional.empty(),
+            List.of("facade-animation-document"), Optional.of("facade-animation-document")
+        );
+        final DocumentSnapshot document = new DocumentSnapshot(
+            "facade-animation-document", "Facade Animation", "animations/facade.can3", Optional.empty(),
+            Optional.empty(), DocumentKind.ANIMATION_SCENE, Optional.empty(), Optional.of(animation)
+        );
+        return new ProjectionFacade(Optional.empty(), Optional.of(document), Optional.empty());
+    }
+
+    private static ProjectionFacade imageProjection() {
+        final DocumentSnapshot document = new DocumentSnapshot(
+            "facade-image-document", "Facade Image", "images/facade.psd", Optional.empty(),
+            Optional.empty(), DocumentKind.IMAGE, Optional.of("facade-image-content"), Optional.empty()
+        );
+        final ProjectContentSnapshot content = new ProjectContentSnapshot(
+            "facade-image-content", "Facade Image", ProjectContentKind.IMAGE, Optional.empty(),
+            List.of(document.documentId())
+        );
+        final ProjectSnapshot project = new ProjectSnapshot(
+            "facade-image-project", "Facade Image Project", Optional.empty(), List.of(document), List.of(content)
+        );
+        return new ProjectionFacade(Optional.of(project), Optional.of(document), Optional.empty());
+    }
+
+    private static ProjectWorkspaceAdapter divergentWorkspace() {
+        return ProjectWorkspaceAdapter.Impl.connected(new ProjectWorkspaceAdapter.HostOperations() {
+            @Override public String hostVersion() { return "5.3.02"; }
+            @Override public boolean supportsProjectWorkspaceRead() { return true; }
+            @Override public Optional<ProjectSnapshot> activeProject() {
+                return Optional.of(new ProjectSnapshot("adapter-project", "Adapter Project", Optional.empty(), List.of()));
+            }
+            @Override public Optional<DocumentSnapshot> activeDocument() {
+                return Optional.of(new DocumentSnapshot("adapter-document", "Adapter Document", "adapter.cmo3", Optional.empty(), Optional.empty()));
+            }
+            @Override public Optional<WorkspaceSnapshot> workspace() {
+                return Optional.of(new WorkspaceSnapshot("adapter-workspace", "Adapter Workspace", List.of()));
+            }
+        });
+    }
+
 
     @Test
     void deniedClipMaskReadAuditsRealIdsBeforeTouchingAdapterOrFallback() {
@@ -177,7 +251,7 @@ class ClipMaskReadCapabilityServiceTest {
                 }
             }),
             "plugin.clipmask.test",
-            gate
+            CubismReadPermissionGate.from(gate)
         );
 
         assertThrows(CubismPermissionException.class, service::clipMasks);
@@ -219,7 +293,7 @@ class ClipMaskReadCapabilityServiceTest {
             ProjectWorkspaceAdapter.Impl.safeMode(),
             adapter,
             "plugin.clipmask.test",
-            gate
+            CubismReadPermissionGate.from(gate)
         );
     }
 
@@ -229,6 +303,21 @@ class ClipMaskReadCapabilityServiceTest {
         String operationId,
         String capabilityId
     ) {
+    }
+
+    private record ProjectionFacade(
+        Optional<ProjectSnapshot> project,
+        Optional<DocumentSnapshot> document,
+        Optional<ModelSnapshot> modelSnapshot
+    ) implements CubismFacade {
+        @Override public Optional<ProjectSnapshot> activeProject() { return project; }
+        @Override public Optional<DocumentSnapshot> activeDocument() { return document; }
+        @Override public Optional<ModelSnapshot> activeModel() { return modelSnapshot; }
+        @Override public CubismRuntimeSnapshot runtime() { throw new AssertionError("runtime must not be read"); }
+        @Override public boolean isHostPresent() { return true; }
+        @Override public dev.turboism.sdk.cubism.transaction.TransactionManager transactionManager() {
+            throw new UnsupportedOperationException();
+        }
     }
 
     private static final class UncheckedFacade implements CubismFacade {

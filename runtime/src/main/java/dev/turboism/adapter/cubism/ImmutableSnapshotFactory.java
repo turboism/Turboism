@@ -46,8 +46,8 @@ final class ImmutableSnapshotFactory {
             project.projectId(),
             project.name(),
             relativePath(project.projectDirectory(), "projectDirectory"),
-            project.contents().stream().map(this::content).toList(),
-            project.documents().stream().map(this::document).toList()
+            project.documents().stream().map(this::document).toList(),
+            project.contents().stream().map(this::content).toList()
         );
     }
 
@@ -57,11 +57,11 @@ final class ImmutableSnapshotFactory {
         return new DocumentSnapshot(
             document.documentId(),
             document.name(),
-            document.kind(),
             relativePath,
             relativePath(document.filePath(), "filePath"),
-            document.contentId(),
             document.model().map(this::model),
+            document.kind(),
+            document.contentId(),
             document.animation().map(this::animation)
         );
     }

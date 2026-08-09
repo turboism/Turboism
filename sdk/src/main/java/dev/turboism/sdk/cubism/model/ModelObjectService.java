@@ -32,6 +32,7 @@ public interface ModelObjectService {
         return Unavailable.INSTANCE;
     }
 
+    @PreviewApi
     enum Unavailable implements ModelObjectService {
         INSTANCE;
 

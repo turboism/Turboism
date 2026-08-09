@@ -120,13 +120,15 @@ final class PreviewPluginLoader {
         parameterHookRegistry.register(
             candidate.descriptor(),
             resources.entrypoints,
-            contextBundle.context().logger()
+            contextBundle.context().logger(),
+            resources.scope
         );
         resources.parameterHooksRegistered = true;
         partHookRegistry.register(
             candidate.descriptor(),
             resources.entrypoints,
-            contextBundle.context().logger()
+            contextBundle.context().logger(),
+            resources.scope
         );
         resources.partHooksRegistered = true;
         editorObjectHookRegistry.register(
@@ -139,7 +141,8 @@ final class PreviewPluginLoader {
         projectLifecycleHookRegistry.register(
             candidate.descriptor(),
             resources.entrypoints,
-            contextBundle.context().logger()
+            contextBundle.context().logger(),
+            resources.scope
         );
         resources.projectLifecycleHooksRegistered = true;
         return new LocalPluginRuntime.LoadedPlugin(

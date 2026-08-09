@@ -17,6 +17,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -24,7 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 final class RecentPreviewContributionServiceContractTest {
 
     @Test
-    void pluginContextExposesTypedContributionBridgeWithoutHostPathEscape() throws Exception {
+    void pluginContextDefaultsToTheTypedUnavailableRecentPreviewSingleton() throws Exception {
         final Method accessor = Arrays.stream(PluginContext.class.getMethods())
             .filter(method -> method.getName().equals("recentPreviews"))
             .findFirst()
@@ -39,11 +40,7 @@ final class RecentPreviewContributionServiceContractTest {
             new Class<?>[]{PluginContext.class},
             (proxy, method, args) -> method.isDefault() ? invokeDefault(proxy, method, args) : null
         );
-        final UnsupportedOperationException unavailable = assertThrows(
-            UnsupportedOperationException.class,
-            context::recentPreviews
-        );
-        assertEquals("recent preview contribution service is not available", unavailable.getMessage());
+        assertSame(RecentPreviewContributionService.unavailable(), context.recentPreviews());
 
         assertEquals(
             List.of("contribute", "refresh", "unavailable"),
