@@ -90,7 +90,7 @@ def _verify_with_trust(
     invalid_marker_usages,
     policy_trust,
     initial_ledger_trust=None,
-    initial_ledger_root_count=274,
+    initial_ledger_root_count=273,
 ):
     reject_invalid_markers(invalid_marker_usages)
     policy, initial_roots, admissions, promotions = load_tier_policy(
