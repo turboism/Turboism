@@ -49,6 +49,18 @@ class RuntimeSettingsServiceTest {
     }
 
     @Test
+    void savesAndReloadsConfiguredLocale() {
+        RuntimeSettingsFileService service = new RuntimeSettingsFileService(home, coordinator());
+        RuntimeSettings requested = new RuntimeSettings(
+            false, "INFO", 100, false, false, false, false, "zh-Hant"
+        );
+
+        service.save(requested);
+
+        assertEquals("zh-Hant", service.read().locale());
+    }
+
+    @Test
     void appliesSavedLogLevelToTheRunningLogger() {
         final AtomicReference<String> applied = new AtomicReference<>();
         final RuntimeSettingsFileService service = new RuntimeSettingsFileService(
@@ -105,6 +117,7 @@ class RuntimeSettingsServiceTest {
         RuntimeSettingsFileService service = new RuntimeSettingsFileService(home, coordinator());
 
         assertFalse(service.read().separateExportSaveDirectory());
+        assertEquals(RuntimeSettings.DEFAULT_LOCALE, service.read().locale());
     }
 
     @Test

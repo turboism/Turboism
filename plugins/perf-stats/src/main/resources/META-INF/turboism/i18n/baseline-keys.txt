@@ -5,6 +5,8 @@ chart.heap.title
 chart.nonheap.title
 menu.performance-monitor
 panel.title
+plugin.description
+plugin.name
 series.cpu
 series.fps
 series.frames

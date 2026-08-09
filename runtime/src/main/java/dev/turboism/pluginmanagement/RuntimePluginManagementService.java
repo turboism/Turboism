@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -28,10 +29,15 @@ import java.util.function.Supplier;
 
 /** Runtime-owned desired-state manager; package mutation is applied only before next discovery. */
 public final class RuntimePluginManagementService implements CorePluginManagement {
+    @FunctionalInterface
+    public interface MetadataLocaleProvider {
+        Locale get();
+    }
     private final Path pluginsDirectory;
     private final Supplier<Optional<Path>> synchronousPackageChooser;
     private final PackageChooser packageChooser;
     private final Supplier<List<PluginInfo>> runtimePlugins;
+    private final MetadataLocaleProvider metadataLocale;
     private final RuntimeConfigRepository config;
     private final PendingPluginOperations pending;
     private final ExecutorService installExecutor;
@@ -39,7 +45,8 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
     private final AtomicBoolean active = new AtomicBoolean(true);
 
     public RuntimePluginManagementService(final Path home, final Supplier<List<PluginInfo>> runtimePlugins) {
-        this(home, RuntimePluginManagementService::choosePluginPackage, new SwingPackageChooser(), runtimePlugins);
+        this(home, RuntimePluginManagementService::choosePluginPackage, new SwingPackageChooser(), runtimePlugins,
+            () -> Locale.getDefault(Locale.Category.DISPLAY));
     }
 
     public RuntimePluginManagementService(
@@ -47,7 +54,19 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
         final Supplier<Optional<Path>> packageChooser,
         final Supplier<List<PluginInfo>> runtimePlugins
     ) {
-        this(home, packageChooser, completion -> completion.accept(packageChooser.get()), runtimePlugins);
+        this(home, packageChooser, completion -> completion.accept(packageChooser.get()), runtimePlugins,
+            () -> Locale.getDefault(Locale.Category.DISPLAY));
+    }
+
+    public static RuntimePluginManagementService withMetadataLocale(
+        final Path home,
+        final Supplier<List<PluginInfo>> runtimePlugins,
+        final MetadataLocaleProvider metadataLocale
+    ) {
+        return new RuntimePluginManagementService(
+            home, RuntimePluginManagementService::choosePluginPackage,
+            new SwingPackageChooser(), runtimePlugins, metadataLocale
+        );
     }
 
     RuntimePluginManagementService(
@@ -55,14 +74,15 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
         final PackageChooser packageChooser,
         final Supplier<List<PluginInfo>> runtimePlugins
     ) {
-        this(home, Optional::empty, packageChooser, runtimePlugins);
+        this(home, Optional::empty, packageChooser, runtimePlugins, () -> Locale.getDefault(Locale.Category.DISPLAY));
     }
 
     private RuntimePluginManagementService(
         final Path home,
         final Supplier<Optional<Path>> synchronousPackageChooser,
         final PackageChooser packageChooser,
-        final Supplier<List<PluginInfo>> runtimePlugins
+        final Supplier<List<PluginInfo>> runtimePlugins,
+        final MetadataLocaleProvider metadataLocale
     ) {
         final Path normalized = home.toAbsolutePath().normalize();
         pluginsDirectory = normalized.resolve("plugins");
@@ -71,6 +91,7 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
         );
         this.packageChooser = java.util.Objects.requireNonNull(packageChooser, "packageChooser");
         this.runtimePlugins = java.util.Objects.requireNonNull(runtimePlugins, "runtimePlugins");
+        this.metadataLocale = java.util.Objects.requireNonNull(metadataLocale, "metadataLocale");
         config = new RuntimeConfigRepository(normalized, ignored -> { });
         pending = new PendingPluginOperations(normalized);
         installExecutor = Executors.newSingleThreadExecutor(new InstallThreadFactory());
@@ -81,7 +102,8 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
         final Map<String, PluginInfo> catalog = new HashMap<>();
         runtimePlugins.get().forEach(plugin -> catalog.put(plugin.id(), plugin));
         installed().forEach(plugin -> catalog.putIfAbsent(plugin.id(), plugin));
-        catalog.put(CORE_PLUGIN_ID, corePlugin());
+        final PluginInfo loadedCore = catalog.get(CORE_PLUGIN_ID);
+        catalog.put(CORE_PLUGIN_ID, loadedCore == null ? corePlugin() : withCoreFlag(loadedCore));
         final Set<String> disabled = config.disabledPlugins();
         for (PendingPluginOperations.Operation operation : pending.operations()) {
             final PluginInfo existing = catalog.get(operation.pluginId());
@@ -237,7 +259,9 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
         try (var files = Files.list(pluginsDirectory)) {
             for (Path path : files.filter(candidate -> Files.isRegularFile(candidate, LinkOption.NOFOLLOW_LINKS))
                 .filter(candidate -> candidate.getFileName().toString().endsWith(".jar")).sorted().toList()) {
-                final Optional<PluginArchiveMetadata> metadata = PluginArchiveMetadata.read(path);
+                final Optional<PluginArchiveMetadata> metadata = PluginArchiveMetadata.read(
+                    path, metadataLocale.get(), ignored -> { }
+                );
                 if (metadata.isPresent()) {
                     final var value = metadata.orElseThrow();
                     if (CORE_PLUGIN_ID.equals(value.id())) continue;
@@ -272,6 +296,13 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
         final String desired = plugin.core() || !disabled.contains(plugin.id()) ? "ENABLED" : "DISABLED";
         return new PluginInfo(plugin.id(), plugin.name(), plugin.version(), plugin.description(),
             plugin.effectiveState(), desired, plugin.core(), Optional.ofNullable(pendingOperation));
+    }
+
+    private static PluginInfo withCoreFlag(final PluginInfo plugin) {
+        return new PluginInfo(
+            plugin.id(), plugin.name(), plugin.version(), plugin.description(),
+            plugin.effectiveState(), plugin.desiredState(), true, plugin.pendingOperation()
+        );
     }
 
     private static PluginInfo corePlugin() {

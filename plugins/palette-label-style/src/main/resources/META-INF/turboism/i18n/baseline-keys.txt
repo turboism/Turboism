@@ -1,0 +1,17 @@
+color.blue
+color.custom
+color.gray
+color.green
+color.none
+color.orange
+color.purple
+color.red
+color.yellow
+dialog.accept
+dialog.cancel
+dialog.field.color
+dialog.title
+menu.label.backgroundColor
+menu.label.textColor
+plugin.description
+plugin.name

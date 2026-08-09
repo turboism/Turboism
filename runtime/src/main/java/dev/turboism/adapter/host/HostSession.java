@@ -126,6 +126,13 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     private boolean closeRequested;
 
     public HostSession(final HostInstanceSource source) {
+        this(source, dev.turboism.i18n.CubismHostLocale.resolve());
+    }
+
+    public HostSession(
+        final HostInstanceSource source,
+        final java.util.Locale effectiveLocale
+    ) {
         this.source = Objects.requireNonNull(source, "source");
         this.connector = new VerifiedHostAdapterConnector(
             new dev.turboism.adapter.VerifiedRuntimeHostAdaptersFactory()::create,
@@ -157,7 +164,8 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             slice -> new dev.turboism.mapping.verification.VerifiedWorkspaceControlResolverFactory().create(
                 slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
             ),
-            VerifiedHostAdapterConnector.productionCoreBackendFactory()
+            VerifiedHostAdapterConnector.productionCoreBackendFactory(),
+            Objects.requireNonNull(effectiveLocale, "effectiveLocale")
         );
         dynamic.onOutermostAdapterCallComplete(this::completeDeferredClose);
         registerProjectContentCleanup();
