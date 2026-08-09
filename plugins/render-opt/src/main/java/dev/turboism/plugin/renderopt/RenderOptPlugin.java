@@ -32,7 +32,9 @@ public class RenderOptPlugin implements TurboismPlugin {
         } catch (UnsupportedOperationException unavailable) {
             this.localization = null;
         }
-        this.renderStatusOverlayService = new RenderStatusOverlayService(context.cubismRead(), context.uiHost());
+        this.renderStatusOverlayService = localization == null
+            ? new RenderStatusOverlayService(context.cubismRead(), context.uiHost())
+            : new RenderStatusOverlayService(context.cubismRead(), context.uiHost(), localization);
         logger.info("RenderOptPlugin initialized");
     }
 
