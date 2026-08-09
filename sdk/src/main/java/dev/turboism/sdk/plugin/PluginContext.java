@@ -38,6 +38,7 @@ import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
 import dev.turboism.sdk.ui.table.SceneTableService;
 import dev.turboism.sdk.ui.workspace.WorkspaceService;
+import dev.turboism.sdk.ui.workspace.layout.WorkspaceLayoutService;
 
 import java.util.List;
 import dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService;
@@ -174,6 +175,10 @@ public interface PluginContext {
 
     default WorkspaceService workspace() {
         return WorkspaceService.unavailable();
+    }
+
+    default WorkspaceLayoutService workspaceLayout() {
+        return WorkspaceLayoutService.unavailable();
     }
 
     default ContextMenuRegistry contextMenu() {

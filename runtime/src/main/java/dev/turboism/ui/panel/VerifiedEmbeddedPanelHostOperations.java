@@ -13,7 +13,6 @@ import javax.swing.JMenu;
 import javax.swing.JMenuItem;
 import javax.swing.SwingUtilities;
 import java.lang.reflect.InvocationTargetException;
-import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.Objects;
@@ -42,7 +41,6 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
     private static final String WORKSPACE_ACTIVATE = "cubism.ui-panel.workspace.activate";
     private static final String WORKSPACE_PALETTE_BOX_FOR =
         "cubism.ui-panel.workspace.palette-box-for";
-    private static final String PALETTE_BOX_CLASS = "cubism.ui-panel.palette-box.class";
     private static final String PALETTE_BOX_REMOVE_TAB = "cubism.ui-panel.palette-box.remove-tab";
     private static final String PALETTE_MANAGER_REMOVE_UPDATE =
         "cubism.ui-panel.palette-manager.remove-update";
@@ -61,7 +59,6 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
     private static final String PALETTE_BOX_CREATE = "cubism.ui-panel.palette-box.create";
     private static final String PALETTE_BOX_ADD_TAB = "cubism.ui-panel.palette-box.add-tab";
     private static final String PALETTE_BOX_SET_SELECTED = "cubism.ui-panel.palette-box.set-selected";
-    private static final String PALETTE_BOX_PALETTES = "cubism.ui-panel.palette-box.palettes";
     private static final String PALETTE_BOX_TAB_PANEL = "cubism.ui-panel.palette-box.tab-panel";
     private static final String TAB_PANEL_ENTRIES = "cubism.ui-panel.tab-panel.entries";
     private static final String TAB_ENTRY_PALETTE = "cubism.ui-panel.tab-entry.palette";
@@ -73,10 +70,6 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
     private static final String PALETTE_FRAME_DISPOSE = "cubism.ui-panel.palette-frame.dispose";
     private static final String WORKSPACE_ROOT_CONTAINER = "cubism.ui-panel.workspace.root-container";
     private static final String ROOT_COMPONENT = "cubism.ui-panel.root.component";
-    private static final String SPLIT_CONTENTS = "cubism.ui-panel.split.contents";
-    private static final String SPLIT_CLASS = "cubism.ui-panel.split.class";
-    private static final String SPLIT_REMOVE = "cubism.ui-panel.split.remove";
-    private static final String COMPONENT_PALETTE_COUNT = "cubism.ui-panel.component.palette-count";
     private static final String ROOT_SET_COMPONENT = "cubism.ui-panel.root.set-component";
     private static final String WINDOW_SET_VISIBLE = "cubism.ui-panel.window.set-visible";
     private static final String PALETTE_ID_CREATE = "cubism.ui-panel.palette-id.create";
@@ -107,6 +100,7 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
     );
 
     private final VerifiedMemberResolver resolver;
+    private final DockTreeTraversal traversal;
     private final dev.turboism.ui.action.EditorUiActionRouter actionRouter;
     private final Map<Object, NativePanel> panels = new IdentityHashMap<>();
     private final Map<Object, FloatingPanel> floatingPanels = new IdentityHashMap<>();
@@ -119,6 +113,7 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
         final dev.turboism.ui.action.EditorUiActionRouter actionRouter
     ) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
+        this.traversal = new DockTreeTraversal(resolver);
         this.actionRouter = Objects.requireNonNull(actionRouter, "actionRouter");
     }
 
@@ -185,29 +180,7 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
      * no verified reparent operation exists.
      */
     void pruneEmptyBoxes(final Object component) {
-        if (component == null || isPaletteBox(component) || !isSplitContainer(component)) {
-            return;
-        }
-        for (Object child : new ArrayList<>(splitContents(component))) {
-            Objects.requireNonNull(child, "Cubism split child");
-            if (isEmptyDockComponent(child)) {
-                System.err.println(
-                    "Turboism removing empty dock component: " + child.getClass().getName()
-                );
-                resolver.invoke(SPLIT_REMOVE, component, child);
-            }
-        }
-    }
-
-    private boolean isEmptyDockComponent(final Object component) {
-        if (isPaletteBox(component)) {
-            return (Integer) resolver.invoke(COMPONENT_PALETTE_COUNT, component) == 0;
-        }
-        if (!isSplitContainer(component)) {
-            return false;
-        }
-        pruneEmptyBoxes(component);
-        return splitContents(component).isEmpty();
+        traversal.pruneEmptyBoxes(component);
     }
 
     private PanelHandle install(
@@ -452,7 +425,7 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
         if (sourceBox == null) {
             throw new IllegalStateException("Cubism panel is not docked");
         }
-        final Object rawSourcePalettes = resolver.invoke(PALETTE_BOX_PALETTES, sourceBox);
+        final Object rawSourcePalettes = resolver.invoke(DockTreeTraversal.PALETTE_BOX_PALETTES, sourceBox);
         if (!(rawSourcePalettes instanceof List<?> sourcePalettes)) {
             throw new IllegalStateException("Cubism source palette list is unavailable");
         }
@@ -559,7 +532,7 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
             if (rootContainer == null) {
                 return false;
             }
-            return containsComponent(resolver.invoke(ROOT_COMPONENT, rootContainer), box);
+            return traversal.containsComponent(resolver.invoke(ROOT_COMPONENT, rootContainer), box);
         } catch (RuntimeException failure) {
             System.err.println(
                 "Turboism original dock box tree validation failed safely: "
@@ -567,38 +540,6 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
             );
             return false;
     }
-    }
-
-    private boolean containsComponent(final Object component, final Object target) {
-        if (component == target) {
-            return true;
-        }
-        if (component == null || isPaletteBox(component) || !isSplitContainer(component)) {
-            return false;
-        }
-        for (Object child : splitContents(component)) {
-            if (containsComponent(child, target)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private boolean isPaletteBox(final Object component) {
-        return resolver.isInstance(PALETTE_BOX_CLASS, component);
-    }
-
-    /** Exact CPMSplitContainer attestation; other components are never expanded. */
-    private boolean isSplitContainer(final Object component) {
-        return resolver.isInstance(SPLIT_CLASS, component);
-    }
-
-    private List<?> splitContents(final Object splitContainer) {
-        final Object rawContents = resolver.invoke(SPLIT_CONTENTS, splitContainer);
-        if (rawContents instanceof List<?> contents) {
-            return contents;
-        }
-        throw new IllegalStateException("Cubism split contents are not a list");
     }
 
     private void dockEntry(
@@ -661,7 +602,7 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
         if (box == null || palette == null) {
             return false;
         }
-        final Object rawPalettes = resolver.invoke(PALETTE_BOX_PALETTES, box);
+        final Object rawPalettes = resolver.invoke(DockTreeTraversal.PALETTE_BOX_PALETTES, box);
         if (!(rawPalettes instanceof List<?> palettes)) {
             return false;
         }
@@ -832,40 +773,28 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
 
     /** Depth-first traversal over the workspace split tree; palette boxes are leaves. */
     private Object sparsestBoxInTree(final Object component) {
-        if (component == null || isPaletteBox(component)) {
+        if (component == null || traversal.isPaletteBox(component)) {
             return component;
         }
-        if (!isSplitContainer(component)) {
+        if (!traversal.isSplitContainer(component)) {
             // Non-split components (e.g. CPMContentsBox) are never palette-box
             // containers and cannot be expanded.
             return null;
         }
         Object sparsest = null;
         int sparsestTabs = Integer.MAX_VALUE;
-        for (Object child : splitContents(component)) {
+        for (Object child : traversal.splitContents(component)) {
             final Object candidate = sparsestBoxInTree(child);
             if (candidate == null) {
                 continue;
             }
-            final int tabs = paletteTabCount(candidate);
+            final int tabs = traversal.paletteTabCount(candidate);
             if (tabs < sparsestTabs) {
                 sparsest = candidate;
                 sparsestTabs = tabs;
             }
         }
         return sparsest;
-    }
-
-    /**
-     * Framework-side API: the number of tabs currently docked in a palette box
-     * (CPMPaletteBox.getPalettes().size()).
-     */
-    private int paletteTabCount(final Object paletteBox) {
-        final Object rawPalettes = resolver.invoke(PALETTE_BOX_PALETTES, paletteBox);
-        if (rawPalettes instanceof List<?> palettes) {
-            return palettes.size();
-        }
-        throw new IllegalStateException("Cubism palette box palettes are not a list");
     }
 
     /**
