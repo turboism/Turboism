@@ -393,13 +393,13 @@ class VerifiedEmbeddedPanelHostOperationsTest {
     private static ContextMenuRegistry.ContextMenuContribution panelTabContribution() {
         return new ContextMenuRegistry.ContextMenuContribution(
             "panel.float",
+            "panel.toggle",
             "Float",
             null,
             "panel.docked",
-            100,
-            "panel.toggle",
             ContextMenuRegistry.Location.WORKSPACE_OBJECT,
             Set.of(),
+            100,
             ContextMenuRegistry.Target.PANEL_TAB,
             ContextMenuRegistry.Operation.TOGGLE_PANEL_FLOATING,
             ContextMenuRegistry.ContextMenuEntry.item("panel.float", "Float", "panel.toggle"),
