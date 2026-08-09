@@ -83,6 +83,7 @@ class HostSessionCompositionApiTest {
                 "paletteFilterSink():dev.turboism.ui.filter.PaletteFilterVisibilitySink",
                 "cubismLog():dev.turboism.sdk.runtime.CubismLogService",
                 "workspaceCoordinator():dev.turboism.ui.workspace.WorkspaceCoordinator",
+                "workspaceLayoutCoordinator():dev.turboism.ui.workspace.layout.WorkspaceLayoutCoordinator",
                 "editorModelResolver():dev.turboism.mapping.verification.VerifiedMemberResolver",
                 "textureAtlasDataModelCapture():dev.turboism.adapter.cubism.textureatlas.TextureAtlasDataModelCapture",
                 "textureAtlasEditorUi():dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi",
