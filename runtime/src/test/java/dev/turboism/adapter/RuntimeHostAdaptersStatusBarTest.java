@@ -60,7 +60,9 @@ class RuntimeHostAdaptersStatusBarTest {
             "a non-status resolver must not be accepted as the status trust root");
 
         VerifiedMemberResolver wrongVersion = TestVerifiedResolvers.create(
-            "5.2",
+            // Same status-version range as the reviewed hosts but not a reviewed
+            // exact version: exact-version admission must still reject it.
+            "5.2.04",
             StatusBarVerificationManifest.ADAPTER_SLICE_ID,
             StatusBarVerificationManifest.CAPABILITY_IDS,
             statusSelectors(),
@@ -68,7 +70,29 @@ class RuntimeHostAdaptersStatusBarTest {
         );
         assertThrows(IllegalArgumentException.class,
             () -> RuntimeHostAdapters.withVerifiedStatusBar(base, wrongVersion),
-            "5.2 must keep failing closed");
+            "an unreviewed host version must keep failing closed");
+    }
+
+    @Test
+    void withVerifiedStatusBarAcceptsBothReviewedExactVersions() {
+        RuntimeHostAdapters base = RuntimeHostAdapters.safeMode();
+        for (String reviewedVersion : StatusBarVerificationManifest.reviewedCubismVersions()) {
+            VerifiedMemberResolver reviewed = TestVerifiedResolvers.create(
+                reviewedVersion,
+                StatusBarVerificationManifest.ADAPTER_SLICE_ID,
+                StatusBarVerificationManifest.CAPABILITY_IDS,
+                statusSelectors(),
+                getClass().getClassLoader()
+            );
+            RuntimeHostAdapters adapters = RuntimeHostAdapters.withVerifiedStatusBar(base, reviewed);
+            StatusToolbarAdapter.AdapterResult<Registration> result =
+                adapters.statusToolbar().notifyStatus(new StatusNotification("status", "INFO", "Ready"));
+            assertFalse(result.isAvailable(),
+                "a synthetic resolver without a live host must still report validation failure");
+            assertEquals(
+                SafeModeDiagnostic.Code.VALIDATION_FAILURE,
+                result.diagnostic().orElseThrow().code());
+        }
     }
 
     @Test
