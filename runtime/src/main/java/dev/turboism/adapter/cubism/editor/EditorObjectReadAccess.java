@@ -146,6 +146,9 @@ final class EditorObjectReadAccess {
         final ArrayList<ParameterBinding> result = new ArrayList<>();
         for (ObjectRef value : artMeshes(identity, source, model)) {
             parameterBindings(
+                identity,
+                source,
+                model,
                 value.source(),
                 ParameterBindingTarget.artMesh(new ArtMeshId(value.id()))
             ).stream().filter(binding -> binding.parameterId().equals(parameterId)).forEach(result::add);
@@ -154,7 +157,7 @@ final class EditorObjectReadAccess {
             final ParameterBindingTarget target = value.kind() == Kind.WARP
                 ? ParameterBindingTarget.warpDeformer(new DeformerId(value.id()))
                 : ParameterBindingTarget.rotationDeformer(new DeformerId(value.id()));
-            parameterBindings(value.source(), target).stream()
+            parameterBindings(identity, source, model, value.source(), target).stream()
                 .filter(binding -> binding.parameterId().equals(parameterId))
                 .forEach(result::add);
         }
@@ -2028,13 +2031,23 @@ final class EditorObjectReadAccess {
         );
     }
 
-    private List<ParameterBinding> parameterBindings(
+    List<ParameterBinding> parameterBindings(
+        final String identity,
+        final Object source,
+        final Object model,
         final Object objectSource,
         final ParameterBindingTarget target
     ) {
-        final List<?> hostBindings = hostBindings(objectSource);
-        final ArrayList<ParameterBinding> result = new ArrayList<>(hostBindings.size());
-        for (Object hostBinding : hostBindings) {
+        // One row per parameter, whatever container it appears in: the Editor can
+        // hold the same parameter in the keyform grid (even several entries) and
+        // in the morph-target-set. Keyform rows are inserted first (putIfAbsent
+        // keeps the first keyform entry); morph rows are then put, replacing the
+        // value for an existing key without moving it (the row keeps its keyform
+        // position but becomes the BLEND_SHAPE binding) and appending new
+        // parameters after. Morph (BLEND_SHAPE) always wins.
+        final java.util.LinkedHashMap<ParameterId, ParameterBinding> byParameter
+            = new java.util.LinkedHashMap<>();
+        for (Object hostBinding : hostBindings(objectSource)) {
             final ParameterId parameterId = bindingParameterId(hostBinding);
             final List<?> hostKeys = list(
                 resolver.invoke("cubism.editor-model.keyform-binding.keys", hostBinding),
@@ -2048,14 +2061,94 @@ final class EditorObjectReadAccess {
                     value
                 ));
             }
-            result.add(new ParameterBinding(
+            byParameter.putIfAbsent(parameterId, new ParameterBinding(
                 target,
                 parameterId,
                 ParameterBindingFamily.KEYFORM_GRID,
                 points
             ));
         }
-        return List.copyOf(result);
+        for (ParameterBinding morph : morphParameterBindings(
+            identity, source, model, objectSource, target
+        )) {
+            byParameter.put(morph.parameterId(), morph);
+        }
+        return List.copyOf(byParameter.values());
+    }
+
+    /**
+     * Morph-target bindings of one object source, keyform grid first, morph after.
+     *
+     * <p>Morph containers are an Editor concept the Core backend does not expose:
+     * when the verified plan lacks the morph-target capability the morph portion
+     * is dropped (fail soft) while the keyform portion keeps its fail behavior.</p>
+     */
+    private List<ParameterBinding> morphParameterBindings(
+        final String identity,
+        final Object source,
+        final Object model,
+        final Object objectSource,
+        final ParameterBindingTarget target
+    ) {
+        final java.util.LinkedHashMap<ParameterId, List<ParameterBindingPoint>> pointsByParameter
+            = new java.util.LinkedHashMap<>();
+        try {
+            final List<dev.turboism.sdk.cubism.model.MorphTarget> morphTargets =
+                morphTargetAccess.morphTargets(identity, source, model, objectSource).all();
+            for (int index = 0; index < morphTargets.size(); index++) {
+                final dev.turboism.sdk.cubism.model.MorphTarget morphTarget = morphTargets.get(index);
+                final ParameterId parameterId = morphTarget.parameterId();
+                pointsByParameter.computeIfAbsent(parameterId, ignored -> new ArrayList<>()).add(
+                    new ParameterBindingPoint(
+                        new ParameterBindingPointId(parameterId.value() + ":morph:" + index),
+                        morphTarget.keyValue()
+                    )
+                );
+            }
+        } catch (UnsupportedOperationException unsupported) {
+            return List.of();
+        }
+        return pointsByParameter.entrySet().stream()
+            .map(entry -> new ParameterBinding(
+                target,
+                entry.getKey(),
+                ParameterBindingFamily.BLEND_SHAPE,
+                List.copyOf(entry.getValue())
+            ))
+            .toList();
+    }
+
+    /**
+     * Whether the parameter is marked Combined in the Editor. Resolution failures
+     * (absent mapping, invalid host value) fail soft and report non-combined.
+     */
+    boolean parameterCombined(final Object model, final ParameterId parameterId) {
+        try {
+            final Object parameterSet = resolver.invoke("cubism.editor-model.model.parameter-set", model);
+            final List<?> parameters = list(
+                resolver.invoke("cubism.editor-model.parameter-set.parameters", parameterSet),
+                "Editor parameter collection"
+            );
+            for (Object parameter : parameters) {
+                if (!resolver.isInstance("cubism.editor-model.parameter.class", parameter)) {
+                    continue;
+                }
+                final String id = text(
+                    resolver.invoke("cubism.editor-model.id.value",
+                        resolver.invoke("cubism.editor-model.parameter.id", parameter)),
+                    "Editor parameter ID"
+                );
+                if (!parameterId.value().equals(id)) {
+                    continue;
+                }
+                final Object source = resolver.invoke("cubism.editor-model.parameter.source", parameter);
+                final Object raw = resolver.invoke("cubism.editor-model.parameter-source.combined", source);
+                return raw instanceof Boolean combined && combined;
+            }
+        } catch (RuntimeException unavailable) {
+            return false;
+        }
+        return false;
     }
 
     private List<ParameterId> parameterIds(final Object objectSource) {
@@ -2224,7 +2317,29 @@ final class EditorObjectReadAccess {
 
         @Override public List<ParameterBinding> getParameterBindings() {
             final ObjectRef value = current();
-            return parameterBindings(value.source(), ParameterBindingTarget.artMesh(new ArtMeshId(value.id())));
+            return parameterBindings(
+                identity,
+                modelSource,
+                model,
+                value.source(),
+                ParameterBindingTarget.artMesh(new ArtMeshId(value.id()))
+            );
+        }
+
+        @Override public List<ParameterBinding> getNormalParameterBindings() {
+            final ObjectRef value = current();
+            return getParameterBindings().stream()
+                .filter(binding -> binding.family() == ParameterBindingFamily.KEYFORM_GRID)
+                .filter(binding -> !EditorObjectReadAccess.this.parameterCombined(model, binding.parameterId()))
+                .toList();
+        }
+
+        @Override public List<ParameterBinding> getCombinedParameterBindings() {
+            final ObjectRef value = current();
+            return getParameterBindings().stream()
+                .filter(binding -> binding.family() == ParameterBindingFamily.KEYFORM_GRID)
+                .filter(binding -> EditorObjectReadAccess.this.parameterCombined(model, binding.parameterId()))
+                .toList();
         }
     }
 
@@ -2322,7 +2437,21 @@ final class EditorObjectReadAccess {
             final ParameterBindingTarget target = value.kind() == Kind.WARP
                 ? ParameterBindingTarget.warpDeformer(new DeformerId(value.id()))
                 : ParameterBindingTarget.rotationDeformer(new DeformerId(value.id()));
-            return parameterBindings(value.source(), target);
+            return parameterBindings(identity, modelSource, model, value.source(), target);
+        }
+
+        @Override public List<ParameterBinding> getNormalParameterBindings() {
+            return getParameterBindings().stream()
+                .filter(binding -> binding.family() == ParameterBindingFamily.KEYFORM_GRID)
+                .filter(binding -> !EditorObjectReadAccess.this.parameterCombined(model, binding.parameterId()))
+                .toList();
+        }
+
+        @Override public List<ParameterBinding> getCombinedParameterBindings() {
+            return getParameterBindings().stream()
+                .filter(binding -> binding.family() == ParameterBindingFamily.KEYFORM_GRID)
+                .filter(binding -> EditorObjectReadAccess.this.parameterCombined(model, binding.parameterId()))
+                .toList();
         }
     }
 
