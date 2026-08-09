@@ -29,6 +29,16 @@
       "reason": "Lists and resolves active Cubism model objects requested through MCP."
     },
     {
+      "id": "turboism.cubism.parameter.read",
+      "scope": "application",
+      "reason": "Lists and resolves active Cubism model parameters requested through MCP."
+    },
+    {
+      "id": "turboism.cubism.project.read",
+      "scope": "application",
+      "reason": "Reads the active project, workspace, and theme snapshots requested through MCP."
+    },
+    {
       "id": "turboism.cubism.model.write",
       "scope": "application",
       "reason": "Renames, creates, and deletes active Cubism model objects requested through MCP."
