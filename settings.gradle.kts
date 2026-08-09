@@ -27,6 +27,7 @@ include(
     "plugins:texture-atlas-stats",
     "plugins:physics-editor",
     "plugins:palette-label-style",
+    "plugins:parameter-batch-transfer",
     "testframework",
     "tests"
 )
