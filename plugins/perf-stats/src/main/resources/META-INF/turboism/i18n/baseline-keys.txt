@@ -13,4 +13,6 @@ series.heap
 series.nonheap
 status.cpu.label
 status.unavailable
+window.collapse
+window.expand
 window.title

@@ -22,8 +22,9 @@ import java.util.function.Supplier;
  *
  * <p>Implements the existing {@link StatusToolbarAdapter.HostOperations}
  * contract over the narrow {@link CxStatusBarHostAccess} seam. Package-private
- * keeps raw CX operations internal; production composes it only with the exact
- * 5.3.02 resolver-backed access and otherwise remains in safe mode.</p>
+ * keeps raw CX operations internal; production composes it only with the
+ * reviewed exact-version (5.2.03 or 5.3.02) resolver-backed access and
+ * otherwise remains in safe mode.</p>
  */
 final class CxStatusBarHostOperations implements StatusToolbarAdapter.HostOperations {
 

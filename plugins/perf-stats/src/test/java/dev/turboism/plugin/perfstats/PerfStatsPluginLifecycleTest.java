@@ -31,6 +31,8 @@ import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -107,6 +109,29 @@ class PerfStatsPluginLifecycleTest {
     }
 
     @Test
+    void embeddedPanelDeclaresFiveIndependentCollapsibleSections() throws Exception {
+        final Fixture fixture = new Fixture();
+        fixture.plugin.init(fixture.context());
+        final EmbeddedPanelContribution contribution = fixture.panelContribution.get();
+        assertNotNull(contribution);
+        final PanelView.Column column = assertInstanceOf(PanelView.Column.class, contribution.content(),
+            "the embedded panel must stay a column");
+        assertEquals(5, column.children().size(), "one collapsible section per metric");
+        final List<String> ids = List.of("cpu", "fps", "heap", "nonheap", "gc");
+        for (int index = 0; index < column.children().size(); index++) {
+            final PanelView.CollapsibleSection section =
+                assertInstanceOf(PanelView.CollapsibleSection.class, column.children().get(index),
+                    "each metric must be independently collapsible");
+            assertTrue(section.expandedByDefault(), "every metric must start expanded");
+            assertEquals(1, section.children().size(), "each section holds exactly one chart");
+            final PanelView.Chart chart = assertInstanceOf(PanelView.Chart.class, section.children().get(0));
+            assertEquals(ids.get(index), chart.id());
+            assertEquals(section.title(), chart.title(),
+                "the section border title and the chart title share the same source");
+        }
+    }
+
+    @Test
     void embeddedPanelConsumesCustomLocalizationTexts() throws Exception {
         final Fixture fixture = new Fixture(prefixingLocalization());
         fixture.plugin.init(fixture.context());
@@ -119,10 +144,26 @@ class PerfStatsPluginLifecycleTest {
             "chart.fps.title must be resolved through the plugin localization");
         assertEquals("TXT[series.fps]", fps.series().get(0).name(),
             "series.fps must be resolved through the plugin localization");
-        assertEquals("TXT[series.cpu]", fixture.plugin.rowLabels().get(ChartStore.KEY_CPU),
-            "standalone window row labels must resolve the same series keys");
-        assertEquals("TXT[series.fps]", fixture.plugin.rowLabels().get(ChartStore.KEY_FPS),
-            "standalone window FPS row label must resolve series.fps");
+        assertEquals("TXT[chart.cpu.title]", fixture.plugin.chartTitles().get(ChartStore.KEY_CPU),
+            "standalone window CPU row title must match the embedded chart.cpu.title");
+        assertEquals("TXT[chart.fps.title]", fixture.plugin.chartTitles().get(ChartStore.KEY_FPS),
+            "standalone window FPS row title must match the embedded chart.fps.title");
+        assertEquals("TXT[chart.gc.title]", fixture.plugin.chartTitles().get(ChartStore.KEY_GC),
+            "standalone window GC row title must match the embedded chart.gc.title");
+    }
+
+    @Test
+    void windowRowTitlesMatchTheEmbeddedSectionTitles() throws Exception {
+        final Fixture fixture = new Fixture(prefixingLocalization());
+        fixture.plugin.init(fixture.context());
+        final EmbeddedPanelContribution contribution = fixture.panelContribution.get();
+        final PanelView.Column column = assertInstanceOf(PanelView.Column.class, contribution.content());
+        for (PanelView child : column.children()) {
+            final PanelView.CollapsibleSection section = assertInstanceOf(PanelView.CollapsibleSection.class, child);
+            final PanelView.Chart chart = assertInstanceOf(PanelView.Chart.class, section.children().get(0));
+            assertEquals(chart.title(), fixture.plugin.chartTitles().get(chart.id()),
+                "the standalone window row title must use the same chart.*.title copy as the embedded section");
+        }
     }
 
     @Test
@@ -301,6 +342,69 @@ class PerfStatsPluginLifecycleTest {
         assertEquals(2, fixture.statusNotifications.get(), "no publish may happen after disable");
     }
 
+    @Test
+    void windowMetricRowsAreIndependentlyCollapsibleAndReclaimVerticalSpace() {
+        // JPanel-only structural check: the JFrame itself cannot be created
+        // in a headless test JVM, but the row component can.
+        final javax.swing.JComponent chart = new javax.swing.JLabel("chart");
+        chart.setPreferredSize(new java.awt.Dimension(460, 74));
+        final PerfStatsWindow.MetricRow row = new PerfStatsWindow.MetricRow(
+            "CPU %", "Expand", "Collapse", chart);
+        assertTrue(row.isExpanded(), "every metric row must start expanded");
+        assertTrue(row.headerText().contains("Collapse"),
+            "an expanded row must advertise the collapse action");
+        final int expandedHeight = row.getPreferredSize().height;
+
+        row.setExpanded(false);
+        assertFalse(row.isExpanded(), "collapse must hide the chart content");
+        assertTrue(row.headerText().contains("Expand"),
+            "a collapsed row must advertise the expand action");
+        assertTrue(row.getPreferredSize().height < expandedHeight,
+            "collapsing must reclaim the vertical space instead of leaving an empty block");
+
+        row.setExpanded(true);
+        assertTrue(row.isExpanded(), "the row must expand back");
+        assertTrue(row.getPreferredSize().height >= expandedHeight,
+            "re-expanding must restore the row height");
+    }
+
+    @Test
+    void windowMetricRowHeaderIsKeyboardActivatableAndCarriesAccessibleActionText() {
+        final javax.swing.JComponent chart = new javax.swing.JLabel("chart");
+        final PerfStatsWindow.MetricRow row = new PerfStatsWindow.MetricRow(
+            "CPU", "Expand", "Collapse", chart);
+        final javax.swing.AbstractButton header = row.header();
+        assertTrue(header.isFocusable(), "the row header must be reachable by keyboard");
+        assertTrue(header.isSelected(), "an expanded row must be selected");
+        assertEquals("CPU Collapse", header.getAccessibleContext().getAccessibleName(),
+            "the accessible name must carry the localized collapse action");
+
+        header.doClick();
+        assertFalse(row.isExpanded(), "activating the header must collapse the row");
+        assertEquals("CPU Expand", header.getAccessibleContext().getAccessibleName(),
+            "the accessible name must switch to the localized expand action");
+
+        header.doClick();
+        assertTrue(row.isExpanded(), "activating the header again must expand the row");
+    }
+
+    @Test
+    void windowRowChartPlotHasNoLeftGutter() {
+        // Regression: the standalone row chart must stay flush with the row
+        // content edge (no 70px axis gutter), aligned with the embedded
+        // runtime ChartComponent.LEFT_MARGIN, and keep the same top value
+        // band layout (no own title, like runtime showTitle=false) so a
+        // max-reaching plot cannot cross the text. TOP_INSET/TEXT_BAND_GAP
+        // mirror the runtime band inset and gap.
+        assertTrue(PerfStatsWindow.PLOT_LEFT_INSET <= 8,
+            "the standalone chart plot must start at the content edge (inset="
+                + PerfStatsWindow.PLOT_LEFT_INSET + ")");
+        assertEquals(2, PerfStatsWindow.TOP_INSET,
+            "the value band must sit at the component top like runtime showTitle=false");
+        assertEquals(2, PerfStatsWindow.TEXT_BAND_GAP,
+            "the plot gap must mirror runtime ChartComponent.TEXT_BAND_GAP");
+    }
+
     private static PluginLocalization prefixingLocalization() {
         return new PluginLocalization() {
             @Override
@@ -345,6 +449,14 @@ class PerfStatsPluginLifecycleTest {
                 }
             }
         }
+        if (view instanceof PanelView.CollapsibleSection section) {
+            for (PanelView child : section.children()) {
+                final PanelView.Chart found = findChart(child, id);
+                if (found != null) {
+                    return found;
+                }
+            }
+        }
         return null;
     }
 
@@ -361,6 +473,13 @@ class PerfStatsPluginLifecycleTest {
         }
         if (view instanceof PanelView.Row row) {
             for (PanelView child : row.children()) {
+                if (containsChartId(child, id)) {
+                    return true;
+                }
+            }
+        }
+        if (view instanceof PanelView.CollapsibleSection section) {
+            for (PanelView child : section.children()) {
                 if (containsChartId(child, id)) {
                     return true;
                 }
