@@ -408,6 +408,30 @@ class StaticVerificationRecordRepositoryTest {
     ) {
         final LinkedHashMap<String, SliceExpectation> expectations = new LinkedHashMap<>(existing);
         expectations.put(
+            "cubism-ref/verification/cubism-5.2-ui-status-bar.json",
+            new SliceExpectation(
+                "cubism-5.2.03.ui-status-bar.static",
+                StatusBarVerificationManifest.ADAPTER_SLICE_ID,
+                "5.2.03",
+                "cubism-5.2",
+                StatusBarVerificationManifest.CAPABILITY_IDS,
+                "Live2D_Cubism.jar",
+                40_805_584L,
+                "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
+                "94ef52c898cffe9b5837dd3e34e53ba150fc2d616f1269362e5151ec602fe4c0",
+                21,
+                StatusBarVerificationManifest.REQUIRED_ALIASES,
+                StatusBarVerificationManifest.REQUIRED_ALIASES,
+                statusBarMethodAliases(),
+                difference(StatusBarVerificationManifest.REQUIRED_ALIASES, statusBarMethodAliases()),
+                "cubism-5.2-ui-status-bar",
+                Path.of("cubism-ref/mapping-packs/draft/cubism-5.2-ui-status-bar.json"),
+                Path.of("cubism-ref/profiles/draft/cubism-5.2.json"),
+                "[5.2.0,5.3.0)",
+                SliceKind.EDITOR_UI
+            )
+        );
+        expectations.put(
             "cubism-ref/verification/cubism-5.3.02-ui-status-bar.json",
             new SliceExpectation(
                 StatusBarVerificationManifest.VERIFICATION_ID,

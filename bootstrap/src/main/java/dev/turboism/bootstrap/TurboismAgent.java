@@ -207,12 +207,12 @@ public final class TurboismAgent {
             // the registry up exactly once.
             publishFpsHook(instrumentation, host);
 
-            final Optional<Path> statusBarVerificationRecord = "5.3.02".equals(profile)
-                ? Optional.of(extractVerificationRecord(
-                    options.home(),
-                    "cubism-5.3.02-ui-status-bar.json"
-                ))
-                : Optional.empty();
+            // Both reviewed exact versions (5.2.03 and 5.3.02) have a status-bar
+            // record; extract per profile like the other UI slices.
+            final Optional<Path> statusBarVerificationRecord = Optional.of(extractVerificationRecord(
+                options.home(),
+                "cubism-" + profile + "-ui-status-bar.json"
+            ));
             final Optional<Path> clipMaskVerificationRecord = "5.3.02".equals(profile)
                 ? Optional.of(extractVerificationRecord(
                     options.home(),

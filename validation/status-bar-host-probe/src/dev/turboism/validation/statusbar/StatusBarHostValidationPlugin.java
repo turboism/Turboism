@@ -33,7 +33,10 @@ public final class StatusBarHostValidationPlugin implements TurboismPlugin {
     private static final long DOCUMENT_READY_TIMEOUT_MILLIS = 180_000L;
     private static final long SETTLE_STEP_MILLIS = 2_000L;
     private static final long PASS_SETTLE_MILLIS = 3_000L;
-    private static final long BOOTSTRAP_SETTLE_MILLIS = 5_000L;
+
+    /** Reviewed exact host versions the runtime report may advertise as READY. */
+    private static final List<String> REVIEWED_HOST_VERSIONS = List.of("5.2.03", "5.3.02");
+
 
     /** Same local id for the whole matrix; the runtime scopes it by plugin. */
     private static final String STATUS_ID = "status";
@@ -74,8 +77,7 @@ public final class StatusBarHostValidationPlugin implements TurboismPlugin {
 
     private void runWhenHostReady() {
         final String mode = System.getProperty(MODE_PROPERTY, "manager");
-        final String expectedVersion = "fail-closed-5203".equals(mode) ? "5.2.03" : "5.3.02";
-        final Optional<String> modelId = awaitVerifiedModel(expectedVersion);
+        final Optional<String> modelId = awaitVerifiedModel();
         if (modelId.isEmpty()) {
             writeResult(false, mode, "missing", "missing", List.of("readiness timeout"));
             logger.warn("STATUS_BAR_EXERCISER_READY_TIMEOUT"
@@ -88,19 +90,22 @@ public final class StatusBarHostValidationPlugin implements TurboismPlugin {
         }
         logger.info("STATUS_BAR_EXERCISER_READY"
             + " hostState=ACTIVE documentSignal=verified-modeling-document"
+            + " hostVersion=" + activeReviewedRuntimeVersion().orElse("unknown")
             + " modelId=" + modelId.orElseThrow());
         runMatrix(modelId.orElseThrow());
     }
 
-    private Optional<String> awaitVerifiedModel(final String expectedVersion) {
+    private Optional<String> awaitVerifiedModel() {
         final long deadline = System.currentTimeMillis() + DOCUMENT_READY_TIMEOUT_MILLIS;
         String lastFailure = "none";
         while (System.currentTimeMillis() < deadline) {
             try {
                 final String modelId = activeModelId();
-                if (activeRuntimeReportPresent(expectedVersion)) {
+                final Optional<String> version = activeReviewedRuntimeVersion();
+                if (version.isPresent()) {
                     logger.info("STATUS_BAR_EXERCISER_HOST_READY"
                         + " hostState=ACTIVE documentSignal=verified-modeling-document"
+                        + " hostVersion=" + version.orElseThrow()
                         + " modelId=" + modelId);
                     return Optional.of(modelId);
                 }
@@ -119,19 +124,33 @@ public final class StatusBarHostValidationPlugin implements TurboismPlugin {
         return Optional.empty();
     }
 
-    /** READY/MATCHED is emitted only from a non-stopped HostSession.State.ACTIVE snapshot. */
-    private boolean activeRuntimeReportPresent(final String expectedVersion) {
+    /**
+     * The preview runtime report version when the exact artifact is MATCHED
+     * and the adapter is READY/RUNNING; empty for any other (or missing)
+     * report. Accepts either reviewed exact version (5.2.03 or 5.3.02); an
+     * unreviewed artifact never reports MATCHED and stays fail-closed.
+     */
+    private Optional<String> activeReviewedRuntimeVersion() {
         final Path report = stateDir.getParent().resolve("runtime/preview-runtime-report.json");
         try {
             final String json = Files.readString(report);
-            return json.contains("\"version\":\"" + expectedVersion + "\"")
-                && json.contains("\"identityState\":\"MATCHED\"")
+            final boolean ready = json.contains("\"identityState\":\"MATCHED\"")
                 && json.contains("\"adapterState\":\"READY\"")
                 && json.contains("\"runtimeState\":\"RUNNING\"");
+            if (!ready) {
+                return Optional.empty();
+            }
+            for (String reviewed : REVIEWED_HOST_VERSIONS) {
+                if (json.contains("\"version\":\"" + reviewed + "\"")) {
+                    return Optional.of(reviewed);
+                }
+            }
+            return Optional.empty();
         } catch (java.io.IOException unavailable) {
-            return false;
+            return Optional.empty();
         }
     }
+
 
     private String activeModelId() {
         return context.cubism().model().active().id().value();
@@ -147,11 +166,7 @@ public final class StatusBarHostValidationPlugin implements TurboismPlugin {
 
         final List<String> failures = new ArrayList<>();
         try {
-            if ("fail-closed-5203".equals(mode)) {
-                runFailClosedSteps(failures);
-            } else {
-                runMatrixSteps(failures);
-            }
+            runMatrixSteps(failures);
         } catch (RuntimeException | Error failure) {
             failures.add("matrix failed safely: " + failure.getClass().getName());
         }
@@ -165,8 +180,6 @@ public final class StatusBarHostValidationPlugin implements TurboismPlugin {
             runManagerUnload(failures);
         } else if ("process-exit".equals(mode)) {
             leaveLiveStatusForProcessExit(failures);
-        } else if ("fail-closed-5203".equals(mode)) {
-            runFailClosedManagerUnload(failures);
         } else {
             failures.add("unsupported mode: " + mode);
         }
@@ -176,7 +189,7 @@ public final class StatusBarHostValidationPlugin implements TurboismPlugin {
             failures.add("terminal result file could not be written");
             pass = false;
         }
-        if (!"manager".equals(mode) && !"fail-closed-5203".equals(mode)) {
+        if (!"manager".equals(mode)) {
             logger.info("STATUS_BAR_MATRIX_RESULT status=" + (pass ? "PASS" : "FAIL")
                 + " mode=" + mode
                 + " authoringMutation=false undo=NA dirty=NA persistence=NA documentLifecycle=NA_APP_SCOPED"
@@ -265,33 +278,19 @@ public final class StatusBarHostValidationPlugin implements TurboismPlugin {
         requireLabel("[X] ", "error-insert", failures);
         close(error, "error-close", failures);
         assertNoTokenLabel("error-close-removes", failures);
+
+        // 7. COMPACT_METRIC: the visible AWT peer of the status label shows
+        //    exactly the raw token (no severity prefix) while the registration
+        //    is live, and disappears after close. The exact logical insertion
+        //    left of the native memory-viewer widget is a resolver-seam
+        //    contract covered by the runtime focused gate
+        //    (CxStatusBarHostOperationsTest), not by an AWT-tree heuristic.
+        final Registration compact = notifyCompact(failures);
+        requireCompactLabel("compact-insert", failures);
+        close(compact, "compact-close", failures);
+        assertNoCompactLabel("compact-close-removes", failures);
     }
 
-    private void runFailClosedSteps(final List<String> failures) {
-        assertNoTokenLabel("5203-initial", failures);
-        final Registration registration = notify("INFO", failures);
-        assertNoTokenLabel("5203-notify-must-not-inject", failures);
-        close(registration, "5203-registration-close", failures);
-        assertNoTokenLabel("5203-close-remains-absent", failures);
-        logger.info("STATUS_BAR_FAIL_CLOSED_5203 visibleHostWidget=false");
-    }
-
-    private void runFailClosedManagerUnload(final List<String> failures) {
-        try {
-            Thread.sleep(BOOTSTRAP_SETTLE_MILLIS);
-        } catch (InterruptedException interrupted) {
-            Thread.currentThread().interrupt();
-            failures.add("5203 bootstrap settle interrupted");
-            return;
-        }
-        context.disposableScope().register(this::recordManagerScopeCleanup);
-        assertNoTokenLabel("5203-before-manager-unload", failures);
-        logger.info("STATUS_BAR_FAIL_CLOSED_5203_MANAGER_UNLOAD_BEGIN hostState=ACTIVE");
-        if (!invokeManagerShutdown(failures)) {
-            return;
-        }
-        verifyManagerUnload(failures);
-    }
 
     private void runManagerUnload(final List<String> failures) {
         context.disposableScope().register(this::recordManagerScopeCleanup);
@@ -405,6 +404,23 @@ public final class StatusBarHostValidationPlugin implements TurboismPlugin {
         }
     }
 
+    /** COMPACT_METRIC status: the runtime must render the raw message without severity appearance. */
+    private Registration notifyCompact(final List<String> failures) {
+        try {
+            final Registration registration = context.uiHost().notifyStatus(
+                new StatusNotification(
+                    STATUS_ID, "INFO", TOKEN, StatusNotification.Presentation.COMPACT_METRIC)
+            );
+            if (registration == null) {
+                failures.add("compact-notify returned a null registration");
+            }
+            return registration;
+        } catch (RuntimeException failure) {
+            failures.add("compact-notify failed: " + failure.getClass().getSimpleName());
+            return () -> { };
+        }
+    }
+
     private void close(final Registration registration, final String phase, final List<String> failures) {
         try {
             registration.close();
@@ -418,6 +434,34 @@ public final class StatusBarHostValidationPlugin implements TurboismPlugin {
         if (unexpected != null) {
             failures.add(phase + " found unexpected label text=" + unexpected.text);
         }
+    }
+
+    private void assertNoCompactLabel(final String phase, final List<String> failures) {
+        final List<LabelView> found = scanExact(TOKEN);
+        if (!found.isEmpty()) {
+            failures.add(phase + " expected no compact label but found " + found.size());
+        }
+    }
+
+    /**
+     * Requires exactly one label whose text is the raw token (no severity
+     * prefix). The CX memory-viewer/CLabel wrappers are not AWT components, so
+     * their exact logical adjacency cannot be observed from the AWT window
+     * tree; the real-host probe therefore gates the visible peer raw text and
+     * lifecycle, while the exact insertion index stays a resolver-seam
+     * contract covered by the runtime focused gate.
+     */
+    private LabelView requireCompactLabel(final String phase, final List<String> failures) {
+        final List<LabelView> found = scanExact(TOKEN);
+        if (found.size() != 1) {
+            failures.add(phase + " expected exactly 1 compact label, found " + found.size());
+            return null;
+        }
+        final LabelView label = found.get(0);
+        if (!TOKEN.equals(label.text)) {
+            failures.add(phase + " compact label must show the raw token without a severity prefix, actual=" + label.text);
+        }
+        return label;
     }
 
     /** Returns the first label with any severity prefix + token, or null when absent. */
@@ -458,6 +502,31 @@ public final class StatusBarHostValidationPlugin implements TurboismPlugin {
             return null;
         });
         return result;
+    }
+
+    /** EDT scan for labels whose text equals the given string exactly (compact raw token). */
+    private List<LabelView> scanExact(final String text) {
+        final List<LabelView> result = new ArrayList<>();
+        onEdt(() -> {
+            for (Window window : Window.getWindows()) {
+                walkExact(window, text, result);
+            }
+            return null;
+        });
+        return result;
+    }
+
+    private void walkExact(final Component component, final String text, final List<LabelView> result) {
+        if (component instanceof JLabel label) {
+            if (text.equals(label.getText())) {
+                result.add(new LabelView(label, text));
+            }
+        }
+        if (component instanceof Container container) {
+            for (Component child : container.getComponents()) {
+                walkExact(child, text, result);
+            }
+        }
     }
 
     private void walk(final Component component, final String prefix, final List<LabelView> result) {
