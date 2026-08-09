@@ -74,6 +74,7 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
     private static final String WORKSPACE_ROOT_CONTAINER = "cubism.ui-panel.workspace.root-container";
     private static final String ROOT_COMPONENT = "cubism.ui-panel.root.component";
     private static final String SPLIT_CONTENTS = "cubism.ui-panel.split.contents";
+    private static final String SPLIT_CLASS = "cubism.ui-panel.split.class";
     private static final String SPLIT_REMOVE = "cubism.ui-panel.split.remove";
     private static final String COMPONENT_PALETTE_COUNT = "cubism.ui-panel.component.palette-count";
     private static final String ROOT_SET_COMPONENT = "cubism.ui-panel.root.set-component";
@@ -184,7 +185,7 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
      * no verified reparent operation exists.
      */
     void pruneEmptyBoxes(final Object component) {
-        if (component == null || isPaletteBox(component)) {
+        if (component == null || isPaletteBox(component) || !isSplitContainer(component)) {
             return;
         }
         for (Object child : new ArrayList<>(splitContents(component))) {
@@ -201,6 +202,9 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
     private boolean isEmptyDockComponent(final Object component) {
         if (isPaletteBox(component)) {
             return (Integer) resolver.invoke(COMPONENT_PALETTE_COUNT, component) == 0;
+        }
+        if (!isSplitContainer(component)) {
+            return false;
         }
         pruneEmptyBoxes(component);
         return splitContents(component).isEmpty();
@@ -246,13 +250,16 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
                 nativeId + ":window-menu",
                 paletteId,
                 palette,
-                () -> requestActivation(dock, palette, closed)
+                () -> requestActivation(dock, palette, paletteId, closed)
             );
             if (existingPalette == null) {
                 resolver.invoke(PALETTE_MANAGER_ADD, dock.paletteManager(), palette);
             }
-            resolver.invoke(DOCK_SET_PALETTE_VISIBLE, dock.dockManager(), palette, true);
-            // Runs native updateWindowMenuItem after the palette is visible so the host
+            // Dock into the first existing workspace palette box (native getFirstPaletteBox
+            // semantics) so a custom tab reuses the current dock column instead of opening a
+            // new one; only a workspace without any box runs the native new-column path.
+            showPaletteInWorkspace(dock, palette, paletteId);
+            // Runs native updateWindowMenuItem after the palette is shown so the host
             // derives the initial check state (visible palette => checked menu item).
             refresh(dock);
         } catch (RuntimeException | Error failure) {
@@ -283,7 +290,7 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
                 if (closed.get()) {
                     throw new IllegalStateException("embedded panel is closed");
                 }
-                requestActivation(dock, palette, closed);
+                requestActivation(dock, palette, paletteId, closed);
             }
 
             @Override
@@ -566,7 +573,7 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
         if (component == target) {
             return true;
         }
-        if (component == null || isPaletteBox(component)) {
+        if (component == null || isPaletteBox(component) || !isSplitContainer(component)) {
             return false;
         }
         for (Object child : splitContents(component)) {
@@ -579,6 +586,11 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
 
     private boolean isPaletteBox(final Object component) {
         return resolver.isInstance(PALETTE_BOX_CLASS, component);
+    }
+
+    /** Exact CPMSplitContainer attestation; other components are never expanded. */
+    private boolean isSplitContainer(final Object component) {
+        return resolver.isInstance(SPLIT_CLASS, component);
     }
 
     private List<?> splitContents(final Object splitContainer) {
@@ -800,24 +812,104 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
         }
     }
 
+    /**
+     * Returns the workspace palette box holding the fewest docked tabs, or null when
+     * the workspace has no palette box at all. Empty boxes are preferred first and
+     * ties resolve toward the first box in traversal order, so a custom tab reuses
+     * the least-loaded dock column and leftover empty docks get filled.
+     */
+    private Object findSparsestPaletteBox(final Object workspace) {
+        final Object rootContainer = resolver.invoke(WORKSPACE_ROOT_CONTAINER, workspace);
+        if (rootContainer == null) {
+            return null;
+        }
+        final Object rootComponent = resolver.invoke(ROOT_COMPONENT, rootContainer);
+        if (rootComponent == null) {
+            return null;
+        }
+        return sparsestBoxInTree(rootComponent);
+    }
+
+    /** Depth-first traversal over the workspace split tree; palette boxes are leaves. */
+    private Object sparsestBoxInTree(final Object component) {
+        if (component == null || isPaletteBox(component)) {
+            return component;
+        }
+        if (!isSplitContainer(component)) {
+            // Non-split components (e.g. CPMContentsBox) are never palette-box
+            // containers and cannot be expanded.
+            return null;
+        }
+        Object sparsest = null;
+        int sparsestTabs = Integer.MAX_VALUE;
+        for (Object child : splitContents(component)) {
+            final Object candidate = sparsestBoxInTree(child);
+            if (candidate == null) {
+                continue;
+            }
+            final int tabs = paletteTabCount(candidate);
+            if (tabs < sparsestTabs) {
+                sparsest = candidate;
+                sparsestTabs = tabs;
+            }
+        }
+        return sparsest;
+    }
+
+    /**
+     * Framework-side API: the number of tabs currently docked in a palette box
+     * (CPMPaletteBox.getPalettes().size()).
+     */
+    private int paletteTabCount(final Object paletteBox) {
+        final Object rawPalettes = resolver.invoke(PALETTE_BOX_PALETTES, paletteBox);
+        if (rawPalettes instanceof List<?> palettes) {
+            return palettes.size();
+        }
+        throw new IllegalStateException("Cubism palette box palettes are not a list");
+    }
+
+    /**
+     * Shows the palette by docking it into the workspace palette box with the fewest
+     * docked tabs (see {@link #findSparsestPaletteBox}), so a custom tab reuses the
+     * least-loaded dock column instead of opening a new one. Only a workspace without
+     * any palette box at all runs the native new-column path (workspace activate
+     * query + setPaletteVisible(true)).
+     */
+    private void showPaletteInWorkspace(
+        final NativeDock dock,
+        final Object palette,
+        final Object paletteId
+    ) {
+        final Object workspace = resolver.invoke(
+            PALETTE_MANAGER_CURRENT_WORKSPACE,
+            dock.paletteManager()
+        );
+        if (workspace == null) {
+            throw new IllegalStateException("Cubism current workspace is unavailable");
+        }
+        final Object targetBox = findSparsestPaletteBox(workspace);
+        if (targetBox != null) {
+            // The palette is now attached to the workspace tree; the following native
+            // updateWindowMenuItem visibility derivation checks the menu item.
+            resolver.invoke(PALETTE_BOX_ADD_TAB, targetBox, palette);
+            resolver.invoke(PALETTE_BOX_SET_SELECTED, targetBox, paletteId);
+            return;
+        }
+        resolver.invoke(WORKSPACE_ACTIVATE, workspace, palette);
+        resolver.invoke(DOCK_SET_PALETTE_VISIBLE, dock.dockManager(), palette, true);
+    }
+
     private void requestActivation(
         final NativeDock dock,
         final Object palette,
+        final Object paletteId,
         final AtomicBoolean closed
     ) {
         runOnEdtLater(() -> {
             if (closed.get()) {
                 return;
             }
-            final Object workspace = resolver.invoke(
-                PALETTE_MANAGER_CURRENT_WORKSPACE,
-                dock.paletteManager()
-            );
-            if (workspace == null) {
-                throw new IllegalStateException("Cubism current workspace is unavailable");
-            }
-            resolver.invoke(WORKSPACE_ACTIVATE, workspace, palette);
-            resolver.invoke(DOCK_SET_PALETTE_VISIBLE, dock.dockManager(), palette, true);
+            showPaletteInWorkspace(dock, palette, paletteId);
             refresh(dock);
         });
     }
