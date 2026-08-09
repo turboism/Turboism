@@ -368,6 +368,16 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
                 ) {
                     guardedVoid(generation, () -> operations.transfer(plan));
                 }
+                @Override public void transferClamped(
+                    final dev.turboism.sdk.cubism.model.ParameterBindingTransferPlan plan
+                ) {
+                    guardedVoid(generation, () -> operations.transferClamped(plan));
+                }
+                @Override public void transferMorphClamped(
+                    final dev.turboism.sdk.cubism.model.ParameterBindingTransferPlan plan
+                ) {
+                    guardedVoid(generation, () -> operations.transferMorphClamped(plan));
+                }
             };
         }
 
@@ -1301,6 +1311,12 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
         @Override public List<dev.turboism.sdk.cubism.model.ParameterBinding> getParameterBindings() {
             return guarded(generation, delegate::getParameterBindings);
         }
+        @Override public List<dev.turboism.sdk.cubism.model.ParameterBinding> getNormalParameterBindings() {
+            return guarded(generation, delegate::getNormalParameterBindings);
+        }
+        @Override public List<dev.turboism.sdk.cubism.model.ParameterBinding> getCombinedParameterBindings() {
+            return guarded(generation, delegate::getCombinedParameterBindings);
+        }
     }
 
     private final class SessionFloatSequence
@@ -1503,6 +1519,12 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
         @Override public List<dev.turboism.sdk.cubism.model.ParameterBinding> getParameterBindings() {
             return guarded(generation, delegate::getParameterBindings);
         }
+        @Override public List<dev.turboism.sdk.cubism.model.ParameterBinding> getNormalParameterBindings() {
+            return guarded(generation, delegate::getNormalParameterBindings);
+        }
+        @Override public List<dev.turboism.sdk.cubism.model.ParameterBinding> getCombinedParameterBindings() {
+            return guarded(generation, delegate::getCombinedParameterBindings);
+        }
     }
 
     private final class SessionWarpDeformers implements WarpDeformers {
@@ -1599,6 +1621,12 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
         }
         @Override public List<dev.turboism.sdk.cubism.model.ParameterBinding> getParameterBindings() {
             return guarded(generation, delegate::getParameterBindings);
+        }
+        @Override public List<dev.turboism.sdk.cubism.model.ParameterBinding> getNormalParameterBindings() {
+            return guarded(generation, delegate::getNormalParameterBindings);
+        }
+        @Override public List<dev.turboism.sdk.cubism.model.ParameterBinding> getCombinedParameterBindings() {
+            return guarded(generation, delegate::getCombinedParameterBindings);
         }
         @Override public WarpGrid grid() { return guarded(generation, delegate::grid); }
         @Override public void replaceGrid(final WarpGrid grid) {
@@ -1706,6 +1734,12 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
         }
         @Override public List<dev.turboism.sdk.cubism.model.ParameterBinding> getParameterBindings() {
             return guarded(generation, delegate::getParameterBindings);
+        }
+        @Override public List<dev.turboism.sdk.cubism.model.ParameterBinding> getNormalParameterBindings() {
+            return guarded(generation, delegate::getNormalParameterBindings);
+        }
+        @Override public List<dev.turboism.sdk.cubism.model.ParameterBinding> getCombinedParameterBindings() {
+            return guarded(generation, delegate::getCombinedParameterBindings);
         }
         @Override public float baseAngle() { return guarded(generation, delegate::baseAngle); }
         @Override public void setBaseAngle(final float angle) {
