@@ -20,6 +20,7 @@ public interface EditorCommandService {
         return Unavailable.INSTANCE;
     }
 
+    @PreviewApi
     enum Unavailable implements EditorCommandService {
         INSTANCE;
 

@@ -278,11 +278,11 @@ class PreviewReportSnapshotFactoryTest {
     }
 
     @Test
-    void modelAndSelectionCatalogBindingsIncludeEveryRealReadOperation() throws Exception {
+    void overlapReadCatalogBindingsIncludeEveryCallableRoute() throws Exception {
         final LocalPluginRuntime.LoadedPluginSummary plugin = plugin(
             "dev.turboism.plugin.catalog",
-            List.of("cubism.selection.read", "cubism.model-tree.read"),
-            List.of("turboism.cubism.model.read")
+            List.of("cubism.selection.read", "cubism.model-tree.read", "cubism.project.read"),
+            List.of("turboism.cubism.model.read", "turboism.cubism.project.read")
         );
 
         final JsonNode capabilities = capabilityReport(List.of(plugin), HostSession.State.SAFE_MODE, false)
@@ -303,14 +303,33 @@ class PreviewReportSnapshotFactoryTest {
         assertCapabilityBindings(
             capabilities,
             "dev.turboism.plugin.catalog",
-            "cubism.model-tree.read",
+            "cubism.project.read",
             Map.of(
-                "cubismRead.activeDocument", "turboism.cubism.model.read",
-                "cubismRead.activeModel", "turboism.cubism.model.read",
-                "cubismRead.modelObjects", "turboism.cubism.model.read",
-                "modelHierarchyQuery.currentHierarchy", "turboism.cubism.model.read",
-                "modelHierarchyQuery.childrenOf", "turboism.cubism.model.read",
-                "modelHierarchyQuery.findNode", "turboism.cubism.model.read"
+                "cubismRead.activeProject", "turboism.cubism.project.read",
+                "cubism.activeProject", "turboism.cubism.project.read",
+                "cubismRead.activeProjectContent", "turboism.cubism.project.read",
+                "cubism.activeProjectContent", "turboism.cubism.project.read"
+            )
+        );
+        assertCapabilityBindings(
+            capabilities,
+            "dev.turboism.plugin.catalog",
+            "cubism.model-tree.read",
+            Map.ofEntries(
+                Map.entry("cubismRead.activeDocument", "turboism.cubism.model.read"),
+                Map.entry("cubismRead.activeModel", "turboism.cubism.model.read"),
+                Map.entry("cubismRead.activeAnimation", "turboism.cubism.model.read"),
+                Map.entry("cubismRead.activeImageDocument", "turboism.cubism.model.read"),
+                Map.entry("cubismRead.activeProjectContent", "turboism.cubism.model.read"),
+                Map.entry("cubism.activeDocument", "turboism.cubism.model.read"),
+                Map.entry("cubism.activeModel", "turboism.cubism.model.read"),
+                Map.entry("cubism.activeAnimation", "turboism.cubism.model.read"),
+                Map.entry("cubism.activeImageDocument", "turboism.cubism.model.read"),
+                Map.entry("cubism.activeProjectContent", "turboism.cubism.model.read"),
+                Map.entry("cubismRead.modelObjects", "turboism.cubism.model.read"),
+                Map.entry("modelHierarchyQuery.currentHierarchy", "turboism.cubism.model.read"),
+                Map.entry("modelHierarchyQuery.childrenOf", "turboism.cubism.model.read"),
+                Map.entry("modelHierarchyQuery.findNode", "turboism.cubism.model.read")
             )
         );
     }

@@ -11,6 +11,7 @@ import dev.turboism.adapter.cubism.service.query.ModelHierarchyQueryServiceImpl;
 import dev.turboism.adapter.cubism.service.query.ParameterQueryServiceImpl;
 import dev.turboism.adapter.cubism.service.query.SelectionQueryServiceImpl;
 import dev.turboism.adapter.cubism.service.read.CubismReadCapabilityServiceImpl;
+import dev.turboism.adapter.cubism.service.read.CubismReadPermissionGate;
 import dev.turboism.adapter.cubism.service.clipmask.CubismClipMaskServiceImpl;
 import dev.turboism.permissions.CubismPermissionGate;
 import dev.turboism.permissions.PermissionChecker;
@@ -58,135 +59,17 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
     private final dev.turboism.adapter.cubism.command.EditorFileCommandResolver editorFiles;
     private final AutoBackupAdapter autoBackup;
 
-    DefaultCubismServicesFactory() {
-        this(RuntimeHostAdapters.safeMode());
-    }
-
     DefaultCubismServicesFactory(final RuntimeHostAdapters hostAdapters) {
         this(
             hostAdapters,
             UNAVAILABLE_MODEL_ACCESS,
-            new ParameterLifecycleCoordinator(),
-            new PartLifecycleCoordinator(),
-            new EditorObjectLifecycleCoordinator()
-        );
-    }
-
-    DefaultCubismServicesFactory(
-        final RuntimeHostAdapters hostAdapters,
-        final CubismModelAccess modelAccess
-    ) {
-        this(
-            hostAdapters,
-            modelAccess,
-            new ParameterLifecycleCoordinator(),
-            new PartLifecycleCoordinator(),
-            new EditorObjectLifecycleCoordinator()
-        );
-    }
-
-    DefaultCubismServicesFactory(
-        final RuntimeHostAdapters hostAdapters,
-        final CubismModelAccess modelAccess,
-        final ParameterLifecycleCoordinator parameterLifecycle
-    ) {
-        this(
-            hostAdapters,
-            modelAccess,
-            parameterLifecycle,
-            new PartLifecycleCoordinator(),
-            new EditorObjectLifecycleCoordinator()
-        );
-    }
-
-    DefaultCubismServicesFactory(
-        final RuntimeHostAdapters hostAdapters,
-        final CubismModelAccess modelAccess,
-        final ParameterLifecycleCoordinator parameterLifecycle,
-        final PartLifecycleCoordinator partLifecycle
-    ) {
-        this(
-            hostAdapters,
-            modelAccess,
-            parameterLifecycle,
-            partLifecycle,
-            new EditorObjectLifecycleCoordinator()
-        );
-    }
-
-    DefaultCubismServicesFactory(
-        final RuntimeHostAdapters hostAdapters,
-        final CubismModelAccess modelAccess,
-        final ParameterLifecycleCoordinator parameterLifecycle,
-        final PartLifecycleCoordinator partLifecycle,
-        final EditorObjectLifecycleCoordinator editorObjectLifecycle
-    ) {
-        this(hostAdapters, modelAccess, parameterLifecycle, partLifecycle, editorObjectLifecycle,
-            new PhysicsEditorCoordinator());
-    }
-
-    DefaultCubismServicesFactory(
-        final RuntimeHostAdapters hostAdapters,
-        final CubismModelAccess modelAccess,
-        final ParameterLifecycleCoordinator parameterLifecycle,
-        final PartLifecycleCoordinator partLifecycle,
-        final EditorObjectLifecycleCoordinator editorObjectLifecycle,
-        final PhysicsEditorCoordinator physicsEditorCoordinator
-    ) {
-        this(
-            hostAdapters,
-            modelAccess,
             UNAVAILABLE_CORE_RUNTIME,
-            parameterLifecycle,
-            partLifecycle,
-            editorObjectLifecycle,
-            physicsEditorCoordinator
-        );
-    }
-
-    DefaultCubismServicesFactory(
-        final RuntimeHostAdapters hostAdapters,
-        final CubismModelAccess modelAccess,
-        final CoreRuntimeInfo coreRuntimeInfo,
-        final ParameterLifecycleCoordinator parameterLifecycle,
-        final PartLifecycleCoordinator partLifecycle,
-        final EditorObjectLifecycleCoordinator editorObjectLifecycle,
-        final PhysicsEditorCoordinator physicsEditorCoordinator
-    ) {
-        this(
-            hostAdapters,
-            modelAccess,
-            coreRuntimeInfo,
-            parameterLifecycle,
-            partLifecycle,
-            editorObjectLifecycle,
-            physicsEditorCoordinator,
-            new PaletteAppearanceCoordinator()
-        );
-    }
-
-    DefaultCubismServicesFactory(
-        final RuntimeHostAdapters hostAdapters,
-        final CubismModelAccess modelAccess,
-        final CoreRuntimeInfo coreRuntimeInfo,
-        final ParameterLifecycleCoordinator parameterLifecycle,
-        final PartLifecycleCoordinator partLifecycle,
-        final EditorObjectLifecycleCoordinator editorObjectLifecycle,
-        final PhysicsEditorCoordinator physicsEditorCoordinator,
-        final PaletteAppearanceCoordinator paletteAppearanceCoordinator
-    ) {
-        this(
-            hostAdapters,
-            modelAccess,
-            coreRuntimeInfo,
-            parameterLifecycle,
-            partLifecycle,
-            editorObjectLifecycle,
-            physicsEditorCoordinator,
-            PluginScopedCubismModelAccess.appearanceSource(
-                hostAdapters.projectWorkspace(), modelAccess
-            ),
-            paletteAppearanceCoordinator,
+            new ParameterLifecycleCoordinator(),
+            new PartLifecycleCoordinator(),
+            new EditorObjectLifecycleCoordinator(),
+            new PhysicsEditorCoordinator(),
+            PluginScopedCubismModelAccess.appearanceSource(hostAdapters.projectWorkspace(), UNAVAILABLE_MODEL_ACCESS),
+            new PaletteAppearanceCoordinator(),
             new TextureAtlasLayoutCoordinator(),
             new dev.turboism.adapter.cubism.textureatlas.TextureAtlasNativeInvocationCoordinator(),
             new dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi(),
@@ -250,53 +133,6 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
         this.autoBackup = java.util.Objects.requireNonNull(autoBackup, "autoBackup");
     }
 
-    DefaultCubismServicesFactory(
-        final RuntimeHostAdapters hostAdapters,
-        final CubismModelAccess modelAccess,
-        final ParameterLifecycleCoordinator parameterLifecycle,
-        final PartLifecycleCoordinator partLifecycle,
-        final EditorObjectLifecycleCoordinator editorObjectLifecycle,
-        final PhysicsEditorCoordinator physicsEditorCoordinator,
-        final dev.turboism.adapter.cubism.command.EditorCommandAdapter editorCommands
-    ) {
-        this(
-            hostAdapters, modelAccess, parameterLifecycle, partLifecycle, editorObjectLifecycle,
-            physicsEditorCoordinator, editorCommands,
-            dev.turboism.adapter.cubism.command.EditorFileCommandResolver.unavailable()
-        );
-    }
-
-    DefaultCubismServicesFactory(
-        final RuntimeHostAdapters hostAdapters,
-        final CubismModelAccess modelAccess,
-        final ParameterLifecycleCoordinator parameterLifecycle,
-        final PartLifecycleCoordinator partLifecycle,
-        final EditorObjectLifecycleCoordinator editorObjectLifecycle,
-        final PhysicsEditorCoordinator physicsEditorCoordinator,
-        final dev.turboism.adapter.cubism.command.EditorCommandAdapter editorCommands,
-        final dev.turboism.adapter.cubism.command.EditorFileCommandResolver editorFiles
-    ) {
-        this(
-            hostAdapters,
-            modelAccess,
-            UNAVAILABLE_CORE_RUNTIME,
-            parameterLifecycle,
-            partLifecycle,
-            editorObjectLifecycle,
-            physicsEditorCoordinator,
-            PluginScopedCubismModelAccess.appearanceSource(hostAdapters.projectWorkspace(), modelAccess),
-            new PaletteAppearanceCoordinator(),
-            new TextureAtlasLayoutCoordinator(),
-            new dev.turboism.adapter.cubism.textureatlas.TextureAtlasNativeInvocationCoordinator(),
-            new dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi(),
-            dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorSession.unavailable(),
-            new dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorithmRegistry(),
-            editorCommands,
-            editorFiles,
-            hostAdapters.autoBackup()
-        );
-    }
-
     /** Wiring seam for tests: the adapter this factory forwards to the backup coordinator. */
     AutoBackupAdapter autoBackupAdapter() {
         return autoBackup;
@@ -347,7 +183,7 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
             hostAdapters.projectWorkspace(),
             hostAdapters.clipMaskRead(),
             dependencies.descriptor().id(),
-            permissionGate
+            CubismReadPermissionGate.from(permissionGate)
         );
         final AutoBackupCoordinator backupCoordinator = new AutoBackupCoordinator(
             autoBackup,

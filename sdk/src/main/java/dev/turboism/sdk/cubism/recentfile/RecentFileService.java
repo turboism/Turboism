@@ -20,6 +20,7 @@ public interface RecentFileService {
         return Unavailable.INSTANCE;
     }
 
+    @PreviewApi
     enum Unavailable implements RecentFileService {
         INSTANCE;
 

@@ -30,6 +30,7 @@ public interface BackupSyncTarget {
         return Noop.INSTANCE;
     }
 
+    @PreviewApi
     enum Noop implements BackupSyncTarget {
         INSTANCE;
 
