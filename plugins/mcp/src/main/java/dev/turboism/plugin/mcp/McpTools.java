@@ -1,5 +1,28 @@
 package dev.turboism.plugin.mcp;
 
+import dev.turboism.sdk.cubism.AnimationSnapshot;
+import dev.turboism.sdk.cubism.ArtMeshSnapshot;
+import dev.turboism.sdk.cubism.ClipMaskSnapshot;
+import dev.turboism.sdk.cubism.CubismServiceException;
+import dev.turboism.sdk.cubism.DeformerSnapshot;
+import dev.turboism.sdk.cubism.DocumentSnapshot;
+import dev.turboism.sdk.cubism.ModelObjectSnapshot;
+import dev.turboism.sdk.cubism.ModelSnapshot;
+import dev.turboism.sdk.cubism.ParameterSnapshot;
+import dev.turboism.sdk.cubism.ProjectContentSnapshot;
+import dev.turboism.sdk.cubism.ProjectResourceSnapshot;
+import dev.turboism.sdk.cubism.ProjectSnapshot;
+import dev.turboism.sdk.cubism.PsdDocumentSnapshot;
+import dev.turboism.sdk.cubism.RenderStatusSnapshot;
+import dev.turboism.sdk.cubism.SelectionSnapshot;
+import dev.turboism.sdk.cubism.TextureAtlasSnapshot;
+import dev.turboism.sdk.cubism.WorkspaceSnapshot;
+import dev.turboism.sdk.cubism.id.ArtMeshId;
+import dev.turboism.sdk.cubism.id.DeformerId;
+import dev.turboism.sdk.cubism.id.DocumentId;
+import dev.turboism.sdk.cubism.id.ModelObjectId;
+import dev.turboism.sdk.cubism.id.ParameterId;
+import dev.turboism.sdk.cubism.id.ProjectId;
 import dev.turboism.sdk.cubism.model.ArtMeshGeometry;
 import dev.turboism.sdk.cubism.model.ModelObjectCreateRequest;
 import dev.turboism.sdk.cubism.model.ModelObjectDeletePolicy;
@@ -8,6 +31,18 @@ import dev.turboism.sdk.cubism.model.ModelObjectKind;
 import dev.turboism.sdk.cubism.model.ModelObjectOperationException;
 import dev.turboism.sdk.cubism.model.ModelObjectReference;
 import dev.turboism.sdk.cubism.model.ModelObjectService;
+import dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService;
+import dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService.ClipMaskRecord;
+import dev.turboism.sdk.cubism.service.query.HierarchyNode;
+import dev.turboism.sdk.cubism.service.query.ModelHierarchy;
+import dev.turboism.sdk.cubism.service.query.ModelHierarchyQueryService;
+import dev.turboism.sdk.cubism.service.query.ParameterQueryService;
+import dev.turboism.sdk.cubism.service.query.ParameterSummary;
+import dev.turboism.sdk.cubism.service.query.SelectionQueryService;
+import dev.turboism.sdk.cubism.service.query.SelectionSummary;
+import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
+import dev.turboism.sdk.permission.CubismPermissionException;
+import dev.turboism.sdk.theme.ThemeStatusSnapshot;
 import dev.turboism.sdk.cubism.model.Point2;
 import dev.turboism.sdk.cubism.model.RotationDeformerForm;
 import dev.turboism.sdk.cubism.model.WarpGrid;
@@ -16,6 +51,7 @@ import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.UiScheduler;
 
 import java.math.BigDecimal;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -27,6 +63,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 /** MCP tool catalog and strict argument-to-SDK translation. */
@@ -37,17 +74,43 @@ final class McpTools {
     static final String REPARENT = "turboism_model_object_reparent";
     static final String CREATE = "turboism_model_object_create";
     static final String DELETE = "turboism_model_object_delete";
+    static final String PARAMETERS_LIST = "turboism_parameters_list";
+    static final String MODEL_HIERARCHY_GET = "turboism_model_hierarchy_get";
+    static final String SELECTION_GET = "turboism_selection_get";
+    static final String MODEL_SNAPSHOT_GET = "turboism_model_snapshot_get";
+    static final String CLIP_MASKS_LIST = "turboism_clip_masks_list";
+
+    private static final Map<String, Object> READ_ONLY_HINTS = Map.of(
+        "readOnlyHint", true,
+        "destructiveHint", false,
+        "idempotentHint", true
+    );
 
     private final ModelObjectService service;
+    private final ParameterQueryService parameterQuery;
+    private final ModelHierarchyQueryService hierarchyQuery;
+    private final SelectionQueryService selectionQuery;
+    private final CubismReadCapabilityService read;
+    private final CubismClipMaskService clipMasks;
     private final PluginLogger logger;
     private final UiScheduler uiScheduler;
 
     McpTools(
         final ModelObjectService service,
+        final ParameterQueryService parameterQuery,
+        final ModelHierarchyQueryService hierarchyQuery,
+        final SelectionQueryService selectionQuery,
+        final CubismReadCapabilityService read,
+        final CubismClipMaskService clipMasks,
         final PluginLogger logger,
         final UiScheduler uiScheduler
     ) {
         this.service = Objects.requireNonNull(service, "service");
+        this.parameterQuery = Objects.requireNonNull(parameterQuery, "parameterQuery");
+        this.hierarchyQuery = Objects.requireNonNull(hierarchyQuery, "hierarchyQuery");
+        this.selectionQuery = Objects.requireNonNull(selectionQuery, "selectionQuery");
+        this.read = Objects.requireNonNull(read, "read");
+        this.clipMasks = Objects.requireNonNull(clipMasks, "clipMasks");
         this.logger = Objects.requireNonNull(logger, "logger");
         this.uiScheduler = Objects.requireNonNull(uiScheduler, "uiScheduler");
     }
@@ -63,6 +126,67 @@ final class McpTools {
                     List.of()
                 ),
                 Map.of("readOnlyHint", true, "destructiveHint", false, "idempotentHint", true)
+            ),
+            tool(
+                PARAMETERS_LIST,
+                "List model parameters",
+                "Lists parameters of the active Cubism model. id filters by stable parameter ID (exact); "
+                    + "name filters by parameter name (case-insensitive substring). Both may be combined (AND).",
+                objectSchema(
+                    properties(
+                        entry("id", stringSchema("Stable parameter ID to return (exact match); omitting lists all.", 1, 256)),
+                        entry("name", stringSchema("Parameter name to match (case-insensitive substring).", 1, 256))
+                    ),
+                    List.of()
+                ),
+                READ_ONLY_HINTS
+            ),
+            tool(
+                MODEL_HIERARCHY_GET,
+                "Get the model object hierarchy",
+                "Returns the active model's object hierarchy as a nested tree. id returns one node and its "
+                    + "subtree; name (case-insensitive substring, combinable with id as AND) returns every "
+                    + "matching node and its subtree as a matches list.",
+                objectSchema(
+                    properties(
+                        entry("id", stringSchema("Root node ID of the subtree to return; omitting returns the full tree.", 1, 256)),
+                        entry("name", stringSchema("Node name to match (case-insensitive substring).", 1, 256))
+                    ),
+                    List.of()
+                ),
+                READ_ONLY_HINTS
+            ),
+            tool(
+                SELECTION_GET,
+                "Get the current selection",
+                "Returns the active project, document, model, and selected parameters, ArtMeshes, deformers, and model objects.",
+                objectSchema(properties(), List.of()),
+                READ_ONLY_HINTS
+            ),
+            tool(
+                MODEL_SNAPSHOT_GET,
+                "Get a model snapshot",
+                "Returns a lightweight snapshot of the active project, document, model, selection, and all model/editor data families.",
+                objectSchema(properties(), List.of()),
+                READ_ONLY_HINTS
+            ),
+            tool(
+                CLIP_MASKS_LIST,
+                "List ArtMesh clip masks",
+                "Lists ArtMesh clip-mask records of the active model. id filters by the "
+                    + "Inspector-editable, user-visible ID (e.g. Warp1); guid filters by the "
+                    + "generated, non-editable internal stable identifier; name filters by the "
+                    + "user-visible mesh display name (case-insensitive substring). All filters may "
+                    + "be combined (AND); omitting all lists every record.",
+                objectSchema(
+                    properties(
+                        entry("id", stringSchema("User-visible, Inspector-editable ArtMesh ID to return (exact match).", 1, 256)),
+                        entry("guid", stringSchema("Generated, non-editable internal ArtMesh GUID to return (exact match).", 1, 256)),
+                        entry("name", stringSchema("Mesh display name to match (case-insensitive substring).", 1, 256))
+                    ),
+                    List.of()
+                ),
+                READ_ONLY_HINTS
             ),
             tool(
                 RENAME,
@@ -142,6 +266,11 @@ final class McpTools {
                 case REPARENT -> reparent(checkedArguments);
                 case CREATE -> create(checkedArguments);
                 case DELETE -> delete(checkedArguments);
+                case PARAMETERS_LIST -> parametersList(checkedArguments);
+                case MODEL_HIERARCHY_GET -> modelHierarchyGet(checkedArguments);
+                case SELECTION_GET -> selectionGet(checkedArguments);
+                case MODEL_SNAPSHOT_GET -> modelSnapshotGet(checkedArguments);
+                case CLIP_MASKS_LIST -> clipMasksList(checkedArguments);
                 default -> throw new ToolInputException("Unknown MCP tool: " + toolName);
             };
             return toolResult(output, false);
@@ -149,6 +278,10 @@ final class McpTools {
             return toolFailure("INVALID_ARGUMENT", failure.getMessage(), failure, false);
         } catch (ModelObjectOperationException failure) {
             return toolFailure(failure.code().name(), safeMessage(failure), failure, false);
+        } catch (ReadServiceException failure) {
+            return toolFailure("FAILED", failure.getMessage(), failure, false);
+        } catch (CubismPermissionException failure) {
+            return toolFailure("PERMISSION_DENIED", safeMessage(failure), failure, false);
         } catch (SecurityException failure) {
             return toolFailure("PERMISSION_DENIED", safeMessage(failure), failure, false);
         } catch (RuntimeException failure) {
@@ -169,6 +302,141 @@ final class McpTools {
             entry("count", objects.size()),
             entry("objects", objects)
         );
+    }
+
+    private Map<String, Object> parametersList(final Map<String, Object> arguments) {
+        only(arguments, "id", "name");
+        final Optional<String> idFilter = optionalString(arguments, "id");
+        final Optional<String> nameFilter = optionalString(arguments, "name");
+        final List<ParameterSummary> parameters = idFilter
+            .map(value -> readService(() -> parameterQuery.findById(new ParameterId(value)))
+                .map(List::of)
+                .orElseGet(List::of))
+            .orElseGet(() -> readService(parameterQuery::listAll))
+            .stream()
+            .filter(parameter -> nameFilter.isEmpty()
+                || containsIgnoreCase(parameter.name(), nameFilter.orElseThrow()))
+            .toList();
+        return linked(
+            entry("ok", true),
+            entry("count", parameters.size()),
+            entry("parameters", parameters.stream().map(McpTools::parameter).toList())
+        );
+    }
+
+    private Map<String, Object> modelHierarchyGet(final Map<String, Object> arguments) {
+        only(arguments, "id", "name");
+        final Optional<String> idFilter = optionalString(arguments, "id");
+        final Optional<String> nameFilter = optionalString(arguments, "name");
+        final Optional<HierarchyNode> root = idFilter
+            .map(value -> readService(() -> hierarchyQuery.findNode(new ModelObjectId(value))))
+            .orElseGet(() -> readService(hierarchyQuery::currentHierarchy)
+                .map(ModelHierarchy::rootNode));
+        if (nameFilter.isEmpty()) {
+            return linked(
+                entry("ok", true),
+                entry("root", root.map(this::hierarchyNode).orElse(null))
+            );
+        }
+        final List<Map<String, Object>> matches = root
+            .map(this::collectSubtrees)
+            .orElseGet(List::of)
+            .stream()
+            .filter(node -> containsIgnoreCase(node.name(), nameFilter.orElseThrow()))
+            .map(this::hierarchyNode)
+            .toList();
+        return linked(
+            entry("ok", true),
+            entry("count", matches.size()),
+            entry("matches", matches)
+        );
+    }
+
+    private Map<String, Object> selectionGet(final Map<String, Object> arguments) {
+        only(arguments);
+        final SelectionSummary selection = readService(selectionQuery::currentSelection);
+        return linked(
+            entry("ok", true),
+            entry("projectId", selection.activeProjectId().map(ProjectId::value).orElse(null)),
+            entry("documentId", selection.activeDocumentId().map(DocumentId::value).orElse(null)),
+            entry("modelId", selection.activeModelId().map(ModelObjectId::value).orElse(null)),
+            entry("parameters", selection.selectedParameterIds().stream().map(ParameterId::value).toList()),
+            entry("artMeshes", selection.selectedArtMeshIds().stream().map(ArtMeshId::value).toList()),
+            entry("deformers", selection.selectedDeformerIds().stream().map(DeformerId::value).toList()),
+            entry("modelObjects", selection.selectedModelObjectIds().stream().map(ModelObjectId::value).toList())
+        );
+    }
+
+    private Map<String, Object> modelSnapshotGet(final Map<String, Object> arguments) {
+        only(arguments);
+        return linked(
+            entry("ok", true),
+            entry("project", onUi(read::activeProject).map(McpTools::project).orElse(null)),
+            entry("document", onUi(read::activeDocument).map(McpTools::document).orElse(null)),
+            entry("model", onUi(read::activeModel).map(McpTools::model).orElse(null)),
+            entry("selection", selection(onUi(read::selection))),
+            entry("parameters", list(onUi(read::parameters), McpTools::parameterSnapshot)),
+            entry("modelObjects", list(onUi(read::modelObjects), McpTools::modelObject)),
+            entry("meshes", list(onUi(read::meshes), McpTools::artMesh)),
+            entry("deformers", list(onUi(read::deformers), McpTools::deformer)),
+            entry("psdDocuments", list(onUi(read::psdDocuments), McpTools::psdDocument)),
+            entry("clipMasks", list(onUi(read::clipMasks), McpTools::clipMask)),
+            entry("textureAtlases", list(onUi(read::textureAtlases), McpTools::textureAtlas)),
+            entry("renderStatus", onUi(read::renderStatus).map(McpTools::renderStatus).orElse(null)),
+            entry("workspace", onUi(read::workspace).map(McpTools::workspace).orElse(null)),
+            entry("themeStatus", onUi(read::themeStatus).map(McpTools::themeStatus).orElse(null))
+        );
+    }
+
+    private Map<String, Object> clipMasksList(final Map<String, Object> arguments) {
+        only(arguments, "id", "guid", "name");
+        final Optional<String> idFilter = optionalString(arguments, "id");
+        final Optional<String> guidFilter = optionalString(arguments, "guid");
+        final Optional<String> nameFilter = optionalString(arguments, "name");
+        final List<ClipMaskRecord> records = readService(clipMasks::collectClipMaskRecords).stream()
+            .filter(record -> idFilter.isEmpty() || record.id().equals(idFilter.orElseThrow()))
+            .filter(record -> guidFilter.isEmpty() || record.guid().equals(guidFilter.orElseThrow()))
+            .filter(record -> nameFilter.isEmpty()
+                || containsIgnoreCase(record.displayName(), nameFilter.orElseThrow()))
+            .toList();
+        return linked(
+            entry("ok", true),
+            entry("count", records.size()),
+            entry("clipMasks", records.stream().map(McpTools::clipMaskRecord).toList())
+        );
+    }
+
+    private List<HierarchyNode> collectSubtrees(final HierarchyNode node) {
+        final ArrayList<HierarchyNode> result = new ArrayList<>();
+        collect(node, result);
+        return result;
+    }
+
+    private void collect(final HierarchyNode node, final ArrayList<HierarchyNode> result) {
+        result.add(node);
+        for (HierarchyNode child : readService(() -> hierarchyQuery.childrenOf(node.id()))) {
+            collect(child, result);
+        }
+    }
+    private Map<String, Object> hierarchyNode(final HierarchyNode node) {
+        final List<HierarchyNode> children = readService(() -> hierarchyQuery.childrenOf(node.id()));
+        return linked(
+            entry("id", node.id().value()),
+            entry("name", node.name()),
+            entry("kind", node.kind().name()),
+            entry("parentId", node.parentId().map(ModelObjectId::value).orElse(null)),
+            entry("children", children.stream().map(this::hierarchyNode).toList())
+        );
+    }
+
+    private <T> T readService(final ServiceCall<T> call) {
+        return onUi(() -> {
+            try {
+                return call.run();
+            } catch (CubismServiceException failure) {
+                throw new ReadServiceException(failure);
+            }
+        });
     }
 
     private Map<String, Object> rename(final Map<String, Object> arguments) {
@@ -439,6 +707,213 @@ final class McpTools {
             case WARP_DEFORMER -> "warp_deformer";
             case ROTATION_DEFORMER -> "rotation_deformer";
         };
+    }
+
+    private static Map<String, Object> parameter(final ParameterSummary value) {
+        return linked(
+            entry("id", value.id().value()),
+            entry("name", value.name()),
+            entry("currentValue", value.currentValue()),
+            entry("minValue", value.minValue()),
+            entry("maxValue", value.maxValue()),
+            entry("defaultValue", value.defaultValue()),
+            entry("visible", value.visible()),
+            entry("editable", value.editable())
+        );
+    }
+
+    private static Map<String, Object> clipMaskRecord(final ClipMaskRecord value) {
+        return linked(
+            entry("guid", value.guid()),
+            entry("id", value.id()),
+            entry("displayName", value.displayName()),
+            entry("inverted", value.inverted()),
+            entry("orderedMaskGuids", value.orderedMaskGuids())
+        );
+    }
+
+    private static Map<String, Object> project(final ProjectSnapshot value) {
+        return linked(
+            entry("projectId", value.projectId()),
+            entry("name", value.name()),
+            entry("projectDirectory", value.projectDirectory().map(Path::toString).orElse(null)),
+            entry("contents", value.contents().stream().map(McpTools::projectContent).toList()),
+            entry("documents", value.documents().stream().map(McpTools::document).toList())
+        );
+    }
+
+    private static Map<String, Object> projectContent(final ProjectContentSnapshot value) {
+        return linked(
+            entry("contentId", value.contentId()),
+            entry("name", value.name()),
+            entry("kind", value.kind().name()),
+            entry("filePath", value.filePath().map(Path::toString).orElse(null)),
+            entry("documentIds", value.documentIds()),
+            entry("resources", value.resources().stream().map(McpTools::projectResource).toList())
+        );
+    }
+
+    private static Map<String, Object> projectResource(final ProjectResourceSnapshot value) {
+        return linked(
+            entry("resourceId", value.resourceId()),
+            entry("name", value.name()),
+            entry("kind", value.kind().name()),
+            entry("relativePath", value.relativePath().orElse(null))
+        );
+    }
+
+    private static Map<String, Object> document(final DocumentSnapshot value) {
+        return linked(
+            entry("documentId", value.documentId()),
+            entry("name", value.name()),
+            entry("kind", value.kind().name()),
+            entry("relativePath", value.relativePath()),
+            entry("filePath", value.filePath().map(Path::toString).orElse(null)),
+            entry("contentId", value.contentId().orElse(null)),
+            entry("model", value.model().map(McpTools::model).orElse(null)),
+            entry("animation", value.animation().map(McpTools::animation).orElse(null))
+        );
+    }
+
+    private static Map<String, Object> animation(final AnimationSnapshot value) {
+        return linked(
+            entry("animationId", value.animationId()),
+            entry("name", value.name()),
+            entry("filePath", value.filePath().map(Path::toString).orElse(null)),
+            entry("sceneDocumentIds", value.sceneDocumentIds()),
+            entry("activeSceneDocumentId", value.activeSceneDocumentId().orElse(null))
+        );
+    }
+
+    private static Map<String, Object> model(final ModelSnapshot value) {
+        return linked(
+            entry("modelId", value.modelId()),
+            entry("name", value.name()),
+            entry("objects", value.objects().stream().map(McpTools::modelObject).toList()),
+            entry("parameters", value.parameters().stream().map(McpTools::parameterSnapshot).toList()),
+            entry("artMeshes", value.artMeshes().stream().map(McpTools::artMesh).toList()),
+            entry("deformers", value.deformers().stream().map(McpTools::deformer).toList())
+        );
+    }
+
+    private static Map<String, Object> modelObject(final ModelObjectSnapshot value) {
+        if (value instanceof ParameterSnapshot parameter) return parameterSnapshot(parameter);
+        if (value instanceof ArtMeshSnapshot mesh) return artMesh(mesh);
+        if (value instanceof DeformerSnapshot deformer) return deformer(deformer);
+        throw new IllegalArgumentException(
+            "Unsupported model object snapshot: " + value.getClass().getName()
+        );
+    }
+
+    private static Map<String, Object> parameterSnapshot(final ParameterSnapshot value) {
+        return linked(
+            entry("id", value.id()),
+            entry("name", value.name()),
+            entry("value", value.value()),
+            entry("defaultValue", value.defaultValue()),
+            entry("minValue", value.minValue()),
+            entry("maxValue", value.maxValue()),
+            entry("visible", value.visible()),
+            entry("editable", value.editable())
+        );
+    }
+
+    private static Map<String, Object> artMesh(final ArtMeshSnapshot value) {
+        return linked(
+            entry("id", value.id()),
+            entry("name", value.name()),
+            entry("textureId", value.textureId().orElse(null)),
+            entry("visible", value.visible()),
+            entry("renderable", value.renderable())
+        );
+    }
+
+    private static Map<String, Object> deformer(final DeformerSnapshot value) {
+        return linked(
+            entry("id", value.id()),
+            entry("name", value.name()),
+            entry("type", value.type().name()),
+            entry("parentId", value.parentId().orElse(null)),
+            entry("childIds", value.childIds())
+        );
+    }
+
+    private static Map<String, Object> selection(final SelectionSnapshot value) {
+        return linked(
+            entry("selectedObjectIds", value.selectedObjectIds()),
+            entry("activeParameterId", value.activeParameterId().orElse(null)),
+            entry("activeArtMeshId", value.activeArtMeshId().orElse(null)),
+            entry("activeDeformerId", value.activeDeformerId().orElse(null))
+        );
+    }
+
+    private static Map<String, Object> psdDocument(final PsdDocumentSnapshot value) {
+        return linked(
+            entry("documentId", value.documentId()),
+            entry("relativePath", value.relativePath()),
+            entry("layers", value.layers().stream().map(McpTools::psdLayer).toList())
+        );
+    }
+
+    private static Map<String, Object> psdLayer(final PsdDocumentSnapshot.PsdLayerSnapshot value) {
+        return linked(
+            entry("layerId", value.layerId()),
+            entry("name", value.name()),
+            entry("visible", value.visible())
+        );
+    }
+
+    private static Map<String, Object> clipMask(final ClipMaskSnapshot value) {
+        return linked(
+            entry("targetMeshId", value.targetMeshId()),
+            entry("orderedMaskSourceIds", value.orderedMaskSourceIds()),
+            entry("inverted", value.inverted())
+        );
+    }
+
+    private static Map<String, Object> textureAtlas(final TextureAtlasSnapshot value) {
+        return linked(
+            entry("atlasId", value.atlasId()),
+            entry("width", value.width()),
+            entry("height", value.height()),
+            entry("textureIds", value.textureIds())
+        );
+    }
+
+    private static Map<String, Object> renderStatus(final RenderStatusSnapshot value) {
+        return linked(
+            entry("rendering", value.rendering()),
+            entry("framesPerSecond", value.framesPerSecond()),
+            entry("rendererName", value.rendererName())
+        );
+    }
+
+    private static Map<String, Object> workspace(final WorkspaceSnapshot value) {
+        return linked(
+            entry("workspaceId", value.workspaceId()),
+            entry("displayName", value.displayName()),
+            entry("rootRelativePath", value.rootRelativePath()),
+            entry("recentProjectIds", value.recentProjectIds())
+        );
+    }
+
+    private static Map<String, Object> themeStatus(final ThemeStatusSnapshot value) {
+        return linked(
+            entry("themeId", value.themeId()),
+            entry("displayName", value.displayName()),
+            entry("dark", value.dark())
+        );
+    }
+
+    private static <T> Object list(
+        final List<T> values,
+        final Function<T, Map<String, Object>> serializer
+    ) {
+        return values.isEmpty() ? null : values.stream().map(serializer).toList();
+    }
+
+    private static boolean containsIgnoreCase(final String text, final String fragment) {
+        return text.toLowerCase(Locale.ROOT).contains(fragment.toLowerCase(Locale.ROOT));
     }
 
     private static List<Point2> points(final Object value, final String label) {
@@ -724,6 +1199,19 @@ final class McpTools {
     private static final class ToolInputException extends RuntimeException {
         private ToolInputException(final String message) {
             super(message);
+        }
+    }
+
+    @FunctionalInterface
+    private interface ServiceCall<T> {
+        T run() throws CubismServiceException;
+    }
+
+    private static final class ReadServiceException extends RuntimeException {
+        private ReadServiceException(final CubismServiceException failure) {
+            super(failure.getMessage() == null || failure.getMessage().isBlank()
+                ? "Cubism read service failed"
+                : failure.getMessage());
         }
     }
 }
