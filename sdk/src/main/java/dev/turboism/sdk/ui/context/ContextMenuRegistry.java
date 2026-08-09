@@ -16,7 +16,6 @@ public interface ContextMenuRegistry {
 
     Registration contribute(ContextMenuContribution contribution);
 
-    @PreviewApi
     enum Location {
         DEFORMER_TAB(EnumSet.of(ObjectKind.WARP_DEFORMER, ObjectKind.ROTATION_DEFORMER, ObjectKind.ART_MESH)),
         PARAMETER_TAB(EnumSet.of(ObjectKind.PARAMETER, ObjectKind.PARAMETER_FOLDER)),
@@ -60,7 +59,6 @@ public interface ContextMenuRegistry {
         }
     }
 
-    @PreviewApi
     enum ObjectKind {
         WARP_DEFORMER,
         ROTATION_DEFORMER,
@@ -72,14 +70,12 @@ public interface ContextMenuRegistry {
         PARAMETER_FOLDER
     }
 
-    @PreviewApi
     enum EntryKind {
         ITEM,
         SEPARATOR,
         SUBMENU
     }
 
-    @PreviewApi
     enum PlacementKind {
         FIRST,
         LAST,
@@ -87,7 +83,6 @@ public interface ContextMenuRegistry {
         AFTER
     }
 
-    @PreviewApi
     record Placement(PlacementKind kind, String anchorId) {
         public Placement {
             kind = Objects.requireNonNull(kind, "kind");
@@ -106,7 +101,6 @@ public interface ContextMenuRegistry {
         public static Placement after(final String anchorId) { return new Placement(PlacementKind.AFTER, anchorId); }
     }
 
-    @PreviewApi
     record ContextMenuEntry(
         EntryKind kind,
         String id,
@@ -183,13 +177,13 @@ public interface ContextMenuRegistry {
 
     record ContextMenuContribution(
         String id,
+        String actionId,
         String label,
         String icon,
         String context,
-        int priority,
-        String actionId,
         Location location,
         Set<ObjectKind> objectKinds,
+        int priority,
         Target target,
         Operation operation,
         ContextMenuEntry entry,
@@ -230,7 +224,7 @@ public interface ContextMenuRegistry {
             final int priority
         ) {
             this(
-                id, label, icon, location.context(), priority, actionId, location, objectKinds,
+                id, actionId, label, icon, location.context(), location, objectKinds, priority,
                 Target.SELECTION, Operation.ACTION,
                 ContextMenuEntry.item(id, label, actionId), Placement.last(), null
             );
@@ -262,13 +256,13 @@ public interface ContextMenuRegistry {
         ) {
             this(
                 id,
+                firstActionId(entry),
                 entry.label().isBlank() ? id : entry.label(),
                 null,
                 location.context(),
-                priority,
-                firstActionId(entry),
                 location,
                 objectKinds,
+                priority,
                 Target.SELECTION,
                 Operation.ACTION,
                 entry,
@@ -320,15 +314,15 @@ public interface ContextMenuRegistry {
         ) {
             this(
                 id,
+                id,
                 label,
                 icon,
                 context,
-                priority,
-                id,
                 target == Target.SELECTION ? Location.legacy(context) : Location.WORKSPACE_OBJECT,
                 target == Target.SELECTION
                     ? Location.legacy(context).supportedKinds()
                     : Set.of(),
+                priority,
                 target,
                 operation,
                 ContextMenuEntry.item(id, label, id),
@@ -356,13 +350,11 @@ public interface ContextMenuRegistry {
         }
     }
 
-    @PreviewApi
     enum Target {
         SELECTION,
         PANEL_TAB
     }
 
-    @PreviewApi
     enum Operation {
         ACTION,
         TOGGLE_PANEL_FLOATING
