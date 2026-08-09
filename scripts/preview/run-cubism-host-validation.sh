@@ -18,6 +18,7 @@ Usage:
     --version <5203|5302> \
     --bundle-root <local-directory> \
     --agent <local-agent.jar> \
+    --home-config <local-config.json> \
     --plugin <local.jar[:remote-name.jar]> [--plugin ...] \
     --aux-agent <local.jar[:remote-name.jar]> [--aux-agent ...] \
     (--fixture-remote <host-path> | --fixture-local <local-path>) \
@@ -108,6 +109,7 @@ name=''
 version=''
 bundle_root=''
 agent=''
+home_config=''
 plugins=()
 aux_agents=()
 fixture_remote=''
@@ -146,6 +148,7 @@ while [ "$#" -gt 0 ]; do
     --version) require_value "$@"; version="$2"; shift 2 ;;
     --bundle-root) require_value "$@"; bundle_root="$2"; shift 2 ;;
     --agent) require_value "$@"; agent="$2"; shift 2 ;;
+    --home-config) require_value "$@"; home_config="$2"; shift 2 ;;
     --plugin) require_value "$@"; plugins+=("$2"); shift 2 ;;
     --aux-agent) require_value "$@"; aux_agents+=("$2"); shift 2 ;;
     --fixture-remote) require_value "$@"; fixture_remote="$2"; shift 2 ;;
@@ -326,6 +329,7 @@ if [ "$dry_run" = 1 ]; then
     "bundleRoot=$bundle_root" \
     "agent=$agent" \
     "agentStage=$task_dir/turboism-agent.jar" \
+    "homeConfigStage=$home_dir/config.json" \
     "fixtureRemote=$fixture_remote" \
     "fixtureLocal=$fixture_local" \
     "taskDir=$task_dir" \
@@ -597,6 +601,9 @@ agent_sha256="$(sha256_file "$agent")"
     printf 'plugin.%s.name=%s\n' "$index" "$remote_name"
     printf 'plugin.%s.sha256=%s\n' "$index" "$(sha256_file "$local_path")"
   done
+  if [ -n "$home_config" ]; then
+    printf 'homeConfigSha256=%s\n' "$(sha256_file "$home_config")" >> "$identity_before"
+  fi
 } >> "$identity_before"
 
 log "creating task directory and CoW prefix clone"
@@ -618,6 +625,11 @@ REMOTE
 
 "${scp_cmd[@]}" "$identity_before" "$ssh_host:$evidence_dir/identity-before.properties"
 "${scp_cmd[@]}" "$agent" "$ssh_host:$task_dir/turboism-agent.jar"
+if [ -n "$home_config" ]; then
+  "${scp_cmd[@]}" "$home_config" "$ssh_host:$home_dir/config.json"
+  staged_config_sha="$(sha256_file "$home_config")"
+  "${ssh_cmd[@]}" "$ssh_host" "test -s '$home_dir/config.json' && test \"\$(sha256sum '$home_dir/config.json' | cut -d' ' -f1)\" = '$staged_config_sha'"
+fi
 for spec in "${resolved_plugins[@]}"; do
   local_path="${spec%%:*}"
   remote_name="${spec#*:}"
