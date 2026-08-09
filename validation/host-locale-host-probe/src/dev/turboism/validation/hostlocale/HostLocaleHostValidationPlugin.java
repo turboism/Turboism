@@ -1,6 +1,7 @@
 package dev.turboism.validation.hostlocale;
 
 import dev.turboism.sdk.plugin.PluginContext;
+import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.plugin.TurboismPlugin;
 
 import java.nio.file.Files;
@@ -138,6 +139,28 @@ public final class HostLocaleHostValidationPlugin implements TurboismPlugin {
         } else if (!expected.equals(actual)) {
             failures.add("locale mismatch expected=" + expected.toLanguageTag() + " actual=" + actualTag);
         }
+        final PluginLocalization localization;
+        final String localizedProbe;
+        try {
+            localization = context.localization();
+            localizedProbe = localization.text("probe.label");
+        } catch (RuntimeException failure) {
+            failures.add("localization lookup failed: " + failure.getClass().getSimpleName());
+            writeResult("hostLocale-equality", "FAIL", expected.toLanguageTag(), actualTag, failures);
+            context.logger().warn("HOST_LOCALE_MATRIX_RESULT status=FAIL phase=localization");
+            Runtime.getRuntime().halt(2);
+            return;
+        }
+        final String requested = requestedLocale();
+        final Locale expectedLocalization = "system".equalsIgnoreCase(requested)
+            ? expected : normalize(Locale.forLanguageTag(requested));
+        if (!expectedLocalization.equals(localization.locale())) {
+            failures.add("localization mismatch expected=" + expectedLocalization.toLanguageTag()
+                + " actual=" + localization.locale().toLanguageTag());
+        }
+        if (localizedProbe == null || localizedProbe.isBlank() || localizedProbe.startsWith("⟦")) {
+            failures.add("probe catalog lookup was not deterministic: " + localizedProbe);
+        }
         final String status = failures.isEmpty() ? "PASS" : "FAIL";
         if (!writeResult(
             "hostLocale-equality",
@@ -151,6 +174,9 @@ public final class HostLocaleHostValidationPlugin implements TurboismPlugin {
         context.logger().info("HOST_LOCALE_MATRIX_RESULT status=" + status
             + " expected=" + expected.toLanguageTag()
             + " actual=" + actualTag
+            + " localization=" + localization.locale().toLanguageTag()
+            + " probe=" + localizedProbe
+            + " requested=" + requested
             + " userLanguage=" + System.getProperty("user.language", "<unset>")
             + " display=" + Locale.getDefault(Locale.Category.DISPLAY).toLanguageTag());
         try {
@@ -161,6 +187,49 @@ public final class HostLocaleHostValidationPlugin implements TurboismPlugin {
         Runtime.getRuntime().exit(failures.isEmpty() ? 0 : 2);
     }
 
+    private static String requestedLocale() {
+        try {
+            final String value = System.getProperty("turboism.locale");
+            return value == null || value.isBlank() ? "system" : value;
+        } catch (SecurityException denied) {
+            return "system";
+        }
+    }
+
+    private static Locale normalize(final Locale locale) {
+        if (!"zh".equals(locale.getLanguage()) || !locale.getScript().isBlank()) return locale;
+        final String script = switch (locale.getCountry()) {
+            case "CN", "SG" -> "Hans";
+            case "TW", "HK", "MO" -> "Hant";
+            default -> "Hans";
+        };
+        return new Locale.Builder().setLanguage("zh").setScript(script).build();
+    }
+
+    private String hostLocaleTag() {
+        try {
+            final Locale locale = context.uiHost().hostLocale();
+            return locale == null ? "null" : locale.toLanguageTag();
+        } catch (RuntimeException failure) {
+            return "error:" + failure.getClass().getSimpleName();
+        }
+    }
+
+    private String localizationLocaleTag() {
+        try {
+            return context.localization().locale().toLanguageTag();
+        } catch (RuntimeException failure) {
+            return "error:" + failure.getClass().getSimpleName();
+        }
+    }
+
+    private String localizedProbe() {
+        try {
+            return context.localization().text("probe.label");
+        } catch (RuntimeException failure) {
+            return "error:" + failure.getClass().getSimpleName();
+        }
+    }
     private boolean writeResult(
         final String assertion,
         final String status,
@@ -171,6 +240,11 @@ public final class HostLocaleHostValidationPlugin implements TurboismPlugin {
         final StringBuilder result = new StringBuilder()
             .append("schemaVersion=1\n")
             .append("runId=").append(System.getProperty("turboism.validation.runId", "unspecified")).append('\n')
+            .append("requestedLocaleSource=").append("system".equalsIgnoreCase(requestedLocale()) ? "SYSTEM" : "JVM_PROPERTY").append('\n')
+            .append("requestedLocaleTag=").append(requestedLocale()).append('\n')
+            .append("hostLocale=").append(hostLocaleTag()).append('\n')
+            .append("localizationLocale=").append(localizationLocaleTag()).append('\n')
+            .append("localizedLookup=").append(localizedProbe()).append('\n')
             .append("assertion=").append(assertion).append('\n')
             .append("expected=").append(expected).append('\n')
             .append("actual=").append(actual).append('\n')

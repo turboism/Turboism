@@ -40,10 +40,29 @@ final class OfficialPluginCatalogCompleteness {
         "messages_ko.properties", Locale.KOREAN
     );
     private static final String BASELINE_FILE = "baseline-keys.txt";
-    private static final Pattern VALID_KEY = Pattern.compile("[a-z0-9]+(?:[._-][a-z0-9]+)*");
+    private static final Pattern VALID_KEY = Pattern.compile("[a-z][A-Za-z0-9]*(?:[._-][a-z][A-Za-z0-9]*)*");
     private static final Pattern KEY_REFERENCE = Pattern.compile(
         "[\\\"](?:labelKey|titleKey|messageKey)[\\\"]\\s*[:=]\\s*[\\\"]([^\\\"]+)[\\\"]"
             + "|\\b(?:labelKey|titleKey|messageKey)\\s*\\(\\s*[\\\"]([^\\\"]+)[\\\"]"
+    );
+    private static final Set<String> REQUIRED_DECLARED_LOCALES = Set.of("en", "ja", "ko", "zh-Hans", "zh-Hant");
+    private static final Pattern I18N_BLOCK = Pattern.compile("\\\"i18n\\\"\\s*:\\s*\\{(.*?)\\}", Pattern.DOTALL);
+    private static final Pattern JSON_STRING = Pattern.compile("\\\"([^\\\"]+)\\\"");
+    private static final Set<String> REVIEWED_TECHNICAL_EQUAL_KEYS = Set.of(
+        "common.turboism",
+        "plugins.column.id",
+        "table.id",
+        "tooltip.guid",
+        "theme.detail.id",
+        "theme.detail.guid",
+        "theme.detail.sha256",
+        "theme.detail.url",
+        "texture-atlas.algorithm.maxrects",
+        "chart.cpu.title",
+        "chart.cpu.series",
+        "series.cpu",
+        "status.cpu.label",
+        "value.none"
     );
 
     private OfficialPluginCatalogCompleteness() {
@@ -61,8 +80,12 @@ final class OfficialPluginCatalogCompleteness {
         try (Stream<Path> plugins = Files.list(pluginsRoot)) {
             for (Path pluginRoot : plugins.filter(Files::isDirectory).sorted().toList()) {
                 Path productionRoot = pluginRoot.resolve("src/main");
+                Path descriptor = productionRoot.resolve("resources/META-INF/turboism/plugin.json");
                 Path i18nDirectory = productionRoot.resolve("resources/META-INF/turboism/i18n");
-                if (!Files.isRegularFile(i18nDirectory.resolve(BASELINE_FILE))) {
+                boolean descriptorParticipates = Files.isRegularFile(descriptor)
+                    && descriptorDeclaresI18n(pluginRoot.getFileName().toString(), descriptor, problems);
+                boolean baselineParticipates = Files.isRegularFile(i18nDirectory.resolve(BASELINE_FILE));
+                if (!descriptorParticipates && !baselineParticipates) {
                     continue;
                 }
                 String pluginId = pluginRoot.getFileName().toString();
@@ -105,6 +128,7 @@ final class OfficialPluginCatalogCompleteness {
             });
         }
         verifyMessagePatterns(pluginId, catalogs, problems);
+        verifyTranslationQuality(pluginId, catalogs, problems);
         if (productionRoot != null) {
             verifyProductionKeyReferences(pluginId, productionRoot, baselineKeys, problems);
         }
@@ -112,6 +136,36 @@ final class OfficialPluginCatalogCompleteness {
         if (!problems.isEmpty()) {
             throw new IllegalStateException(String.join(System.lineSeparator(), problems));
         }
+    }
+
+    private static boolean descriptorDeclaresI18n(
+        String pluginId,
+        Path descriptor,
+        List<String> problems
+    ) throws IOException {
+        String json = Files.readString(descriptor, StandardCharsets.UTF_8);
+        Matcher block = I18N_BLOCK.matcher(json);
+        if (!block.find()) {
+            return false;
+        }
+        Matcher strings = JSON_STRING.matcher(block.group(1));
+        List<String> values = new ArrayList<>();
+        while (strings.find()) {
+            values.add(strings.group(1));
+        }
+        if (values.isEmpty() || !values.get(0).equals("baseName")) {
+            problems.add(pluginId + ": i18n descriptor is missing baseName");
+            return true;
+        }
+        if (!values.get(1).equals("META-INF/turboism/i18n/messages")) {
+            problems.add(pluginId + ": unexpected i18n baseName " + values.get(1));
+        }
+        int localesIndex = values.indexOf("locales");
+        List<String> locales = localesIndex < 0 ? List.of() : values.subList(localesIndex + 1, values.size());
+        if (!new LinkedHashSet<>(locales).equals(REQUIRED_DECLARED_LOCALES)) {
+            problems.add(pluginId + ": descriptor locales must be " + REQUIRED_DECLARED_LOCALES + ", got " + locales);
+        }
+        return true;
     }
 
     private static List<String> readBaseline(String pluginId, Path path, List<String> problems)
@@ -292,6 +346,28 @@ final class OfficialPluginCatalogCompleteness {
                 Set<Integer> expected = expectedIndexes.get(key);
                 if (expected != null && !indexes.equals(expected)) {
                     problems.add(pluginId + ": argument index mismatch for " + key + " in " + catalogFile);
+                }
+            });
+        });
+    }
+
+    private static void verifyTranslationQuality(
+        String pluginId,
+        Map<String, Map<String, String>> catalogs,
+        List<String> problems
+    ) {
+        Map<String, String> english = catalogs.get("messages_en.properties");
+        if (english == null) {
+            return;
+        }
+        catalogs.forEach((catalogFile, catalog) -> {
+            if (catalogFile.equals("messages.properties")
+                || catalogFile.equals("messages_en.properties")) {
+                return;
+            }
+            catalog.forEach((key, value) -> {
+                if (value.equals(english.get(key)) && !REVIEWED_TECHNICAL_EQUAL_KEYS.contains(key)) {
+                    problems.add(pluginId + ": copied English value for " + key + " in " + catalogFile);
                 }
             });
         });

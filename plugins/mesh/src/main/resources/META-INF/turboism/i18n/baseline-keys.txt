@@ -1,0 +1,4 @@
+mesh.mirror-axis.angle.label
+mesh.mirror-axis.angle.reset
+plugin.description
+plugin.name

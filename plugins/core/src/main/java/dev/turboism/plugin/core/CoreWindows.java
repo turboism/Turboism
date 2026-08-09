@@ -126,6 +126,8 @@ final class CoreWindows implements AutoCloseable {
 
         final JCheckBox safeMode = new JCheckBox(text("settings.safe-mode"), value.safeMode());
         final JComboBox<String> logLevel = new JComboBox<>(new String[]{"TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL"});
+        final JComboBox<String> locale = new JComboBox<>(RuntimeSettings.LOCALE_OPTIONS.toArray(String[]::new));
+        locale.setSelectedItem(value.locale());
         logLevel.setSelectedItem(value.logLevel());
         final JSpinner maxLogStorage = new JSpinner(new SpinnerNumberModel(
             value.maxLogStorageMiB(),
@@ -143,7 +145,8 @@ final class CoreWindows implements AutoCloseable {
         final JPanel runtime = form();
         add(runtime, 0, new JLabel(text("settings.log-level")), logLevel);
         add(runtime, 1, new JLabel(text("settings.max-log-storage-mib")), maxLogStorage);
-        add(runtime, 2, safeMode, new JLabel());
+        add(runtime, 2, new JLabel(text("settings.locale") + " (" + text("settings.locale.restart-required") + ")"), locale);
+        add(runtime, 3, safeMode, new JLabel());
         tabs.addTab(text("settings.tab.runtime"), runtime);
 
         final JPanel startup = form();
@@ -169,7 +172,7 @@ final class CoreWindows implements AutoCloseable {
                 safeMode.isSelected(), (String) logLevel.getSelectedItem(),
                 ((Number) maxLogStorage.getValue()).intValue(),
                 skipUpdate.isSelected(), skipSplash.isSelected(), skipInformation.isSelected(),
-                separateExportSaveDirectory.isSelected()
+                separateExportSaveDirectory.isSelected(), (String) locale.getSelectedItem()
             ));
             CoreDialogs.message(dialog, text("common.turboism"), text("settings.saved"));
         };
@@ -408,6 +411,7 @@ final class CoreWindows implements AutoCloseable {
         constraints.fill = GridBagConstraints.HORIZONTAL;
         panel.add(right, constraints);
     }
+
 
     private String text(final String key) { return i18n.text(key); }
 

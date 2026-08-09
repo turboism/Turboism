@@ -55,7 +55,7 @@ class CollapsibleSectionI18nTest {
     private static void assertToggleLabels(Locale locale, String collapse, String expand) {
         withLocale(locale, () -> {
             JPanel content = newContent();
-            JPanel panel = CollapsibleSection.create("Section", content, true);
+            JPanel panel = CollapsibleSection.create("Section", content, true, locale);
             panel.setSize(400, 200);
             paint(panel);
 
