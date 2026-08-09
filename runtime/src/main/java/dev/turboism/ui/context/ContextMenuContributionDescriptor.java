@@ -7,6 +7,7 @@ import dev.turboism.ui.host.EditorUiFamily;
 
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Predicate;
 
 /** Runtime-normalized object context-menu contribution. */
 public record ContextMenuContributionDescriptor(
@@ -19,7 +20,8 @@ public record ContextMenuContributionDescriptor(
     Set<ContextMenuRegistry.ObjectKind> objectKinds,
     int priority,
     ContextMenuRegistry.ContextMenuEntry entry,
-    ContextMenuRegistry.Placement placement
+    ContextMenuRegistry.Placement placement,
+    Predicate<ContextMenuSelection> visibleWhen
 ) {
     public ContextMenuContributionDescriptor {
         pluginId = requireText(pluginId, "pluginId");
@@ -45,7 +47,45 @@ public record ContextMenuContributionDescriptor(
         this(
             pluginId, contributionId, actionId, label, icon, location, objectKinds, priority,
             ContextMenuRegistry.ContextMenuEntry.item(contributionId, label, actionId),
-            ContextMenuRegistry.Placement.last()
+            ContextMenuRegistry.Placement.last(),
+            null
+        );
+    }
+
+    public ContextMenuContributionDescriptor(
+        final String pluginId,
+        final String contributionId,
+        final String actionId,
+        final String label,
+        final String icon,
+        final ContextMenuRegistry.Location location,
+        final Set<ContextMenuRegistry.ObjectKind> objectKinds,
+        final int priority,
+        final ContextMenuRegistry.ContextMenuEntry entry,
+        final ContextMenuRegistry.Placement placement
+    ) {
+        this(
+            pluginId, contributionId, actionId, label, icon, location, objectKinds, priority,
+            entry, placement, null
+        );
+    }
+
+    public ContextMenuContributionDescriptor(
+        final String pluginId,
+        final String contributionId,
+        final String actionId,
+        final String label,
+        final String icon,
+        final ContextMenuRegistry.Location location,
+        final Set<ContextMenuRegistry.ObjectKind> objectKinds,
+        final int priority,
+        final Predicate<ContextMenuSelection> visibleWhen
+    ) {
+        this(
+            pluginId, contributionId, actionId, label, icon, location, objectKinds, priority,
+            ContextMenuRegistry.ContextMenuEntry.item(contributionId, label, actionId),
+            ContextMenuRegistry.Placement.last(),
+            visibleWhen
         );
     }
 
@@ -69,7 +109,8 @@ public record ContextMenuContributionDescriptor(
             value.objectKinds(),
             value.priority(),
             value.entry(),
-            value.placement()
+            value.placement(),
+            value.visibleWhen()
         );
     }
 
@@ -78,7 +119,8 @@ public record ContextMenuContributionDescriptor(
         Objects.requireNonNull(selection, "selection");
         return selection.location() == location
             && !selection.items().isEmpty()
-            && selection.items().stream().allMatch(item -> objectKinds.contains(item.kind()));
+            && selection.items().stream().allMatch(item -> objectKinds.contains(item.kind()))
+            && (visibleWhen == null || visibleWhen.test(selection));
     }
 
     private static String requireText(final String value, final String name) {

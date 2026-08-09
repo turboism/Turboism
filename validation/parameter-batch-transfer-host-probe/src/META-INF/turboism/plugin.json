@@ -1,0 +1,43 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 2,
+  "id": "dev.turboism.validation.parameter-batch-transfer",
+  "name": "Parameter Batch Transfer Host Validation Exerciser",
+  "version": "0.0.0",
+  "description": "Task-local exact-host exerciser: discovers a Drawable BLEND_SHAPE binding with at least three points, applies public transferMorphClamped with wide-preserve and narrow-clamp rows, and keeps the existing keyform transferClamped row with native undo/redo evidence.",
+  "entrypoints": [
+    "dev.turboism.validation.parameterbatchtransfer.ParameterBatchTransferHostValidationPlugin"
+  ],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    { "name": "Turboism Validation" }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": []
+  },
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.cubism.model.read",
+      "scope": "application",
+      "reason": "Reads the selected object's parameter bindings, parameter types, and candidate lists on the exact host for validation evidence."
+    },
+    {
+      "id": "turboism.cubism.model.write",
+      "scope": "application",
+      "reason": "Applies whole-binding morph transfers (all source points) through the public SDK and keeps the existing keyform transfer path; restores each row via native undo."
+    }
+  ],
+  "capabilities": [
+    "cubism.parameter.read",
+    "cubism.parameter.write"
+  ],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "embedded"
+  }
+}
