@@ -22,10 +22,16 @@ class HostSessionCompositionApiTest {
     @Test
     void publicCompositionCannotInjectArbitraryConnectorOrAdapterBundle() throws ReflectiveOperationException {
         assertEquals(
-            Set.of(signature(HostInstanceSource.class)),
+            Set.of(
+                signature(HostInstanceSource.class),
+                signature(HostInstanceSource.class, java.util.Locale.class)
+            ),
             publicConstructorSignatures(HostSession.class)
         );
-        assertEquals(Set.of(signature()), publicConstructorSignatures(HostRuntimeIngress.class));
+        assertEquals(
+            Set.of(signature(), signature(java.util.Locale.class)),
+            publicConstructorSignatures(HostRuntimeIngress.class)
+        );
         assertConstructorIsNonPublic(
             HostSession.class.getDeclaredConstructor(HostInstanceSource.class, HostAdapterConnector.class)
         );

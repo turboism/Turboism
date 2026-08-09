@@ -1,6 +1,7 @@
 package dev.turboism.plugin.parameter;
 
 import dev.turboism.plugin.parameter.service.ParameterCsvService;
+import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.cubism.CubismPlugin;
@@ -34,6 +35,7 @@ public final class ParameterPlugin implements CubismPlugin {
     private PluginContext context;
     private PluginLogger logger;
     private ParameterCsvService csvService;
+    private PluginLocalization localization;
 
     public ParameterPlugin() {
         this(ParameterCsvService.CsvContentProvider.unavailable());
@@ -47,6 +49,7 @@ public final class ParameterPlugin implements CubismPlugin {
     public void init(final PluginContext context) {
         this.context = context;
         this.logger = context.logger();
+        this.localization = localization(context);
         this.csvService = new ParameterCsvService(
             context.cubism(),
             context,
@@ -61,36 +64,36 @@ public final class ParameterPlugin implements CubismPlugin {
         try {
             registerAction(
                 ParameterCsvService.EXPORT_ACTION_ID,
-                "Export Parameters CSV",
+                text("parameter.csv.export"),
                 ignored -> csvService.exportCsv()
             );
             registerAction(
                 ParameterCsvService.IMPORT_ACTION_ID,
-                "Import Parameters CSV",
+                text("parameter.csv.import"),
                 ignored -> csvService.importCsv()
             );
             registerAction(
                 INVERT_BINDINGS_ACTION_ID,
-                "Invert Parameter Bindings",
+                text("parameter.bindings.invert"),
                 ignored -> invertSelectedBindings()
             );
             registerAction(
                 TRANSFER_BINDINGS_ACTION_ID,
-                "Transfer Parameter Bindings",
+                text("parameter.bindings.transfer"),
                 actionContext -> transferSelectedBindings(actionContext.contextMenuSelection().orElse(null))
             );
-            registerMenu("Parameter Tools/Invert Bindings", INVERT_BINDINGS_ACTION_ID, 100);
-            registerMenu("Parameter Tools/Transfer Bindings", TRANSFER_BINDINGS_ACTION_ID, 110);
+            registerMenu(text("parameter.menu") + "/" + text("parameter.bindings.invert"), INVERT_BINDINGS_ACTION_ID, 100);
+            registerMenu(text("parameter.menu") + "/" + text("parameter.bindings.transfer"), TRANSFER_BINDINGS_ACTION_ID, 110);
             registerContextMenu(
                 TRANSFER_PARAMETER_CONTEXT_MENU_ID,
-                "Transfer Parameter Bindings",
+                text("parameter.bindings.transfer"),
                 ContextMenuRegistry.Location.PARAMETER_TAB,
                 java.util.Set.of(ContextMenuRegistry.ObjectKind.PARAMETER),
                 110
             );
             registerContextMenu(
                 TRANSFER_DEFORMER_CONTEXT_MENU_ID,
-                "Transfer Parameter Bindings",
+                text("parameter.bindings.transfer"),
                 ContextMenuRegistry.Location.DEFORMER_TAB,
                 java.util.Set.of(
                     ContextMenuRegistry.ObjectKind.ART_MESH,
@@ -101,7 +104,7 @@ public final class ParameterPlugin implements CubismPlugin {
             );
             registerContextMenu(
                 TRANSFER_PART_CONTEXT_MENU_ID,
-                "Transfer Parameter Bindings",
+                text("parameter.bindings.transfer"),
                 ContextMenuRegistry.Location.PART_TAB,
                 java.util.Set.of(
                     ContextMenuRegistry.ObjectKind.ART_MESH,
@@ -112,7 +115,7 @@ public final class ParameterPlugin implements CubismPlugin {
             );
             registerContextMenu(
                 TRANSFER_WORKSPACE_CONTEXT_MENU_ID,
-                "Transfer Parameter Bindings",
+                text("parameter.bindings.transfer"),
                 ContextMenuRegistry.Location.WORKSPACE_OBJECT,
                 java.util.Set.of(
                     ContextMenuRegistry.ObjectKind.ART_MESH,
@@ -190,6 +193,10 @@ public final class ParameterPlugin implements CubismPlugin {
         }));
     }
 
+    private String text(final String key) {
+        return localization.text(key);
+    }
+
     private void invertSelectedBindings() {
         final var model = context.cubism().model().active();
         final var snapshot = context.cubism().runtime().selection();
@@ -209,16 +216,16 @@ public final class ParameterPlugin implements CubismPlugin {
         final ParameterId destination = resolveDestinationParameter(source, model, snapshot, contextMenuSelection);
         if (contextMenuSelection != null && !context.uiHost().confirmDialog(new DialogRequest(
             "parameter.bindings.transfer.confirm",
-            "Transfer Parameter Bindings",
-            "Transfer selected object bindings from " + source.value() + " to " + destination.value()
+            text("parameter.bindings.transfer"),
+            localization.format("parameter.bindings.transfer.confirm", source.value(), destination.value())
                 + "?"
         ))) {
             return;
         }
         final boolean invert = contextMenuSelection == null || context.uiHost().confirmDialog(new DialogRequest(
             "parameter.bindings.transfer.invert.confirm",
-            "Transfer Parameter Bindings",
-            "Invert the transferred bindings?"
+            text("parameter.bindings.transfer"),
+            text("parameter.bindings.transfer.invert.confirm")
         ));
         model.parameterBindingBatch().transfer(new ParameterBindingTransferPlan(
             source,
@@ -321,7 +328,33 @@ public final class ParameterPlugin implements CubismPlugin {
         try {
             context.disposableScope().close();
         } catch (Exception closeFailure) {
-            logger.warn("ParameterPlugin enable rollback close failed: " + closeFailure.getMessage());
+            logger.warn(localization.format("parameter.enable.rollback-failed", closeFailure.getMessage()));
+        }
+    }
+
+    private static PluginLocalization localization(final PluginContext context) {
+        try {
+            return context.localization();
+        } catch (UnsupportedOperationException unavailable) {
+            return new PluginLocalization() {
+                @Override public java.util.Locale locale() { return java.util.Locale.ENGLISH; }
+                @Override public String text(final String key) {
+                    return switch (key) {
+                        case "parameter.csv.export" -> "Export Parameters CSV";
+                        case "parameter.csv.import" -> "Import Parameters CSV";
+                        case "parameter.bindings.invert" -> "Invert Bindings";
+                        case "parameter.bindings.transfer" -> "Transfer Bindings";
+                        case "parameter.menu" -> "Parameter Tools";
+                        case "parameter.bindings.transfer.confirm" -> "Transfer selected object bindings from {0} to {1}?";
+                        case "parameter.bindings.transfer.invert.confirm" -> "Invert the transferred bindings?";
+                        default -> key;
+                    };
+                }
+                @Override public String format(final String key, final Object... arguments) {
+                    return java.text.MessageFormat.format(text(key), arguments);
+                }
+                @Override public boolean contains(final String key) { return true; }
+            };
         }
     }
 }

@@ -20,7 +20,7 @@ import java.util.Optional;
 public final class MainToolbarHomeEntryService {
 
     public static final String ACTION_ID = "turboism.core.open";
-    public static final String ACTION_LABEL = "Open Turboism";
+    public static final String ACTION_LABEL = "main-toolbar.home.action";
     public static final String SETTINGS_ACTION_ID = "turboism.core.settings.open";
     public static final String PLUGINS_ACTION_ID = "turboism.core.plugins.open";
     public static final String LOGS_ACTION_ID = "turboism.core.logs.open";
@@ -35,7 +35,7 @@ public final class MainToolbarHomeEntryService {
     private static final String PLUGINS_MENU_LABEL_KEY = "main-toolbar.plugins-menu.label";
     private static final String LOGS_MENU_LABEL_KEY = "main-toolbar.logs-menu.label";
     private static final String ABOUT_MENU_LABEL_KEY = "main-toolbar.about-menu.label";
-    private static final String TURBOISM_MENU_ROOT = "Turboism";
+    private static final String TURBOISM_MENU_ROOT_KEY = "common.turboism";
     private static final String ICON_RESOURCE_PATH = "icons/main-toolbar-home.png";
     private static final int ORDER = 10;
 
@@ -90,7 +90,7 @@ public final class MainToolbarHomeEntryService {
 
     public Registration registerTurboismPanel() {
         return uiHost.contributeEmbeddedPanel(new EmbeddedPanelContribution(
-            TURBOISM_PANEL_ID.value(), "Turboism", "right", 0,
+            TURBOISM_PANEL_ID.value(), localized(TURBOISM_MENU_ROOT_KEY, "Turboism"), "right", 0,
             panelView()
         ));
     }
@@ -123,12 +123,17 @@ public final class MainToolbarHomeEntryService {
     }
 
     private Registration menu(final String label, final String actionId, final int order) {
-        final String menuPath = TURBOISM_MENU_ROOT + "/" + label;
+        final String menuPath = localized(TURBOISM_MENU_ROOT_KEY, "Turboism") + "/" + label;
         return menus.contribute(new MenuRegistry.MenuContribution() {
             @Override public String menuPath() { return menuPath; }
             @Override public String actionId() { return actionId; }
             @Override public int order() { return order; }
         });
+    }
+
+    private String localized(final String key, final String fallback) {
+        final String value = localization.text(key);
+        return key.equals(value) ? fallback : value;
     }
 
     public void openTurboismPanel() {

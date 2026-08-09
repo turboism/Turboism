@@ -106,15 +106,25 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
     private final Map<Object, FloatingPanel> floatingPanels = new IdentityHashMap<>();
     private final FloatingFrameLifecycle floatingFrameLifecycle = new FloatingFrameLifecycle();
     private volatile long hostGeneration = Long.MIN_VALUE;
+    private final java.util.Locale locale;
     private volatile boolean hostActive;
 
     public VerifiedEmbeddedPanelHostOperations(
         final VerifiedMemberResolver resolver,
         final dev.turboism.ui.action.EditorUiActionRouter actionRouter
     ) {
+        this(resolver, actionRouter, dev.turboism.i18n.CubismHostLocale.resolve());
+    }
+
+    public VerifiedEmbeddedPanelHostOperations(
+        final VerifiedMemberResolver resolver,
+        final dev.turboism.ui.action.EditorUiActionRouter actionRouter,
+        final java.util.Locale locale
+    ) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.traversal = new DockTreeTraversal(resolver);
         this.actionRouter = Objects.requireNonNull(actionRouter, "actionRouter");
+        this.locale = Objects.requireNonNull(locale, "locale");
     }
 
     @Override
@@ -205,7 +215,7 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
         final Map<String, String> actionOwners =
             PanelCollapsibleContentCoordinator.shared().actionOwners(panelId);
         final JComponent panel = SwingPanelViewRenderer.render(
-            viewContent, routedAction(actionRouter, actionOwners, descriptor.pluginId()));
+            viewContent, routedAction(actionRouter, actionOwners, descriptor.pluginId()), locale);
         panel.setName(nativeId);
         final Object content = resolver.construct(SWING_CONTAINER_CREATE, panel);
         resolver.invoke(PALETTE_SET_PANEL, palette, content, 340, 300);

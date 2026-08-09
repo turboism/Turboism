@@ -13,9 +13,11 @@ import dev.turboism.adapter.cubism.lifecycle.ProjectLifecycleHookRegistry;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.failure.RuntimeFailureCollector;
 import dev.turboism.hostread.SharedAsyncHostReadLane;
+import dev.turboism.i18n.CubismHostLocale;
 
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 
 /** Owns the preview runtime resources shared by loading and shutdown. */
@@ -43,6 +45,29 @@ record PreviewPluginRuntimeResources(
         final EditorLifecycleCoordinator editorLifecycleEvents,
         final dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistory
     ) {
+        return create(
+            home, scheduler, hostAccess, log, failureCollector, pluginCloseHook, loaded,
+            parameterLifecycle, partLifecycle, editorObjectLifecycle, projectFileLifecycle,
+            editorLifecycleEvents, fileChooserHistory, CubismHostLocale.resolve()
+        );
+    }
+
+    static PreviewPluginRuntimeResources create(
+        final Path home,
+        final RuntimeScheduler scheduler,
+        final RuntimeHostAdapterAccess hostAccess,
+        final PreviewLog log,
+        final RuntimeFailureCollector failureCollector,
+        final LocalPluginRuntime.PluginCloseHook pluginCloseHook,
+        final List<LocalPluginRuntime.LoadedPlugin> loaded,
+        final ParameterLifecycleCoordinator parameterLifecycle,
+        final PartLifecycleCoordinator partLifecycle,
+        final EditorObjectLifecycleCoordinator editorObjectLifecycle,
+        final ProjectFileLifecycleCoordinator projectFileLifecycle,
+        final EditorLifecycleCoordinator editorLifecycleEvents,
+        final dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistory,
+        final Locale effectiveLocale
+    ) {
         final Path normalizedHome = Objects.requireNonNull(home, "home").toAbsolutePath().normalize();
         final SharedAsyncHostReadLane lane = new SharedAsyncHostReadLane(32);
         final RuntimeScheduler runtimeScheduler = Objects.requireNonNull(scheduler, "scheduler");
@@ -66,7 +91,8 @@ record PreviewPluginRuntimeResources(
         return assemble(
             normalizedHome, runtimeScheduler, runtimeHostAccess, lane, runtimeLog, collector,
             pluginCloseHook, loaded, parameterHookRegistry, partHookRegistry,
-            editorObjectHookRegistry, projectLifecycleHookRegistry, fileChooserHistory
+            editorObjectHookRegistry, projectLifecycleHookRegistry, fileChooserHistory,
+            Objects.requireNonNull(effectiveLocale, "effectiveLocale")
         );
     }
 
@@ -83,14 +109,16 @@ record PreviewPluginRuntimeResources(
         final PartHookRegistry partHookRegistry,
         final EditorObjectHookRegistry editorObjectHookRegistry,
         final ProjectLifecycleHookRegistry projectLifecycleHookRegistry,
-        final dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistory
+        final dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistory,
+        final Locale effectiveLocale
     ) {
         final dev.turboism.pluginmanagement.RuntimePluginManagementService pluginManagement =
-            new dev.turboism.pluginmanagement.RuntimePluginManagementService(home, () -> loaded.stream()
+            dev.turboism.pluginmanagement.RuntimePluginManagementService.withMetadataLocale(home, () -> loaded.stream()
                 .map(plugin -> {
                     final var descriptor = plugin.runtime().descriptor();
+                    final var metadata = localizedMetadata(plugin.localization(), descriptor.name(), descriptor.description());
                     return new dev.turboism.plugin.core.CorePluginManagement.PluginInfo(
-                        descriptor.id(), descriptor.name(), descriptor.version(), descriptor.description(),
+                        descriptor.id(), metadata.name(), descriptor.version(), metadata.description(),
                         plugin.runtime().state().name(),
                         plugin.runtime().state() == dev.turboism.core.lifecycle.PluginLifecycleState.ENABLED
                             ? "ENABLED" : "DISABLED",
@@ -98,9 +126,13 @@ record PreviewPluginRuntimeResources(
                         java.util.Optional.empty()
                     );
                 })
-                .toList());
+                .toList(),
+                (dev.turboism.pluginmanagement.RuntimePluginManagementService.MetadataLocaleProvider)
+                    () -> effectiveLocale
+            );
         final PreviewPluginContextFactory contextFactory = new PreviewPluginContextFactory(
-            home, scheduler, hostAccess, lane, log, failureCollector, fileChooserHistory
+            home, scheduler, hostAccess, lane, log, failureCollector, fileChooserHistory,
+            effectiveLocale
         );
         final dev.turboism.config.RuntimeSettingsFileService runtimeSettings =
             new dev.turboism.config.RuntimeSettingsFileService(
@@ -129,5 +161,35 @@ record PreviewPluginRuntimeResources(
             contextFactory,
             runtimeSettings
         );
+    }
+
+    private static Metadata localizedMetadata(
+        final dev.turboism.sdk.i18n.PluginLocalization localization,
+        final String fallbackName,
+        final String fallbackDescription
+    ) {
+        return new Metadata(
+            localized(localization, "plugin.name", fallbackName),
+            localized(localization, "plugin.description", fallbackDescription)
+        );
+    }
+
+    private static String localized(
+        final dev.turboism.sdk.i18n.PluginLocalization localization,
+        final String key,
+        final String fallback
+    ) {
+        try {
+            if (localization.contains(key)) {
+                final String value = localization.text(key);
+                if (value != null && !value.isBlank()) return value;
+            }
+        } catch (RuntimeException ignored) {
+            // Optional metadata localization must never hide a plugin from management.
+        }
+        return fallback;
+    }
+
+    private record Metadata(String name, String description) {
     }
 }

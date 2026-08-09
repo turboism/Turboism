@@ -2,6 +2,7 @@ package dev.turboism.plugin.renderopt;
 
 import dev.turboism.plugin.renderopt.b1.application.RenderPreferenceBinding;
 import dev.turboism.plugin.renderopt.service.RenderStatusOverlayService;
+import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
@@ -13,18 +14,24 @@ import java.util.function.Consumer;
 public class RenderOptPlugin implements TurboismPlugin {
 
     private static final String REFRESH_ACTION_ID = "render-status.overlay.refresh";
-    private static final String REFRESH_ACTION_LABEL = "Refresh Render Status Overlay";
+    private static final String REFRESH_ACTION_LABEL_KEY = "render-opt.refresh.label";
 
     private RenderPreferenceBinding b1Application = new RenderPreferenceBinding();
     private PluginContext context;
     private PluginLogger logger;
     private RenderStatusOverlayService renderStatusOverlayService;
+    private PluginLocalization localization;
 
     @Override
     public void init(PluginContext context) {
         this.context = context;
         b1Application.init(context.config());
         this.logger = context.logger();
+        try {
+            this.localization = context.localization();
+        } catch (UnsupportedOperationException unavailable) {
+            this.localization = null;
+        }
         this.renderStatusOverlayService = new RenderStatusOverlayService(context.cubismRead(), context.uiHost());
         logger.info("RenderOptPlugin initialized");
     }
@@ -32,7 +39,7 @@ public class RenderOptPlugin implements TurboismPlugin {
     @Override
     public void enable() {
         b1Application.enable();
-        registerAction(REFRESH_ACTION_ID, REFRESH_ACTION_LABEL, ignored -> renderStatusOverlayService.refreshStatus());
+        registerAction(REFRESH_ACTION_ID, localization == null ? "Refresh Render Status" : localization.text(REFRESH_ACTION_LABEL_KEY), ignored -> renderStatusOverlayService.refreshStatus());
         context.disposableScope().register(renderStatusOverlayService.registerOverlay());
         context.disposableScope().register(new RenderOptimizationLifecycleProvider(logger));
         logger.info("RenderOptPlugin enabled: render status overlay contribution enrolled in disposable scope");

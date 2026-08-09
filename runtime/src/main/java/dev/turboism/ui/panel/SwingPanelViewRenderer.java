@@ -37,19 +37,29 @@ public final class SwingPanelViewRenderer {
     ) {
         Objects.requireNonNull(view, "view");
         Objects.requireNonNull(action, "action");
-        return renderNode(view, action, false);
+        return renderNode(view, action, false, dev.turboism.i18n.CubismHostLocale.resolve());
+    }
+    public static JComponent render(
+        final PanelView view,
+        final BiConsumer<String, Optional<UiActionEvent>> action,
+        final java.util.Locale locale
+    ) {
+        Objects.requireNonNull(view, "view");
+        Objects.requireNonNull(action, "action");
+        return renderNode(view, action, false, locale);
     }
 
     private static JComponent renderNode(
         final PanelView view,
         final BiConsumer<String, Optional<UiActionEvent>> action,
-        final boolean chartTitleSuppressed
+        final boolean chartTitleSuppressed,
+        final java.util.Locale locale
     ) {
         if (view instanceof PanelView.Column column) {
-            return container(column.children(), BoxLayout.Y_AXIS, action, chartTitleSuppressed);
+            return container(column.children(), BoxLayout.Y_AXIS, action, chartTitleSuppressed, locale);
         }
         if (view instanceof PanelView.Row row) {
-            return container(row.children(), BoxLayout.X_AXIS, action, chartTitleSuppressed);
+            return container(row.children(), BoxLayout.X_AXIS, action, chartTitleSuppressed, locale);
         }
 
         if (view instanceof PanelView.Chart chart) {
@@ -121,8 +131,9 @@ public final class SwingPanelViewRenderer {
                 && section.children().get(0) instanceof PanelView.Chart;
             return CollapsibleSection.create(
                 section.title(),
-                container(section.children(), BoxLayout.Y_AXIS, action, singleChart),
-                section.expandedByDefault()
+                container(section.children(), BoxLayout.Y_AXIS, action, singleChart, locale),
+                section.expandedByDefault(),
+                locale
             );
         }
         if (view instanceof PanelView.Separator) {
@@ -143,12 +154,13 @@ public final class SwingPanelViewRenderer {
         final java.util.List<PanelView> children,
         final int axis,
         final BiConsumer<String, Optional<UiActionEvent>> action,
-        final boolean chartTitleSuppressed
+        final boolean chartTitleSuppressed,
+        final java.util.Locale locale
     ) {
         final JPanel panel = new JPanel();
         panel.setLayout(new BoxLayout(panel, axis));
         for (int index = 0; index < children.size(); index++) {
-            final JComponent child = renderNode(children.get(index), action, chartTitleSuppressed);
+            final JComponent child = renderNode(children.get(index), action, chartTitleSuppressed, locale);
             if (axis == BoxLayout.X_AXIS) {
                 child.setAlignmentY(Component.CENTER_ALIGNMENT);
             } else {

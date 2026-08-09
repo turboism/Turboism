@@ -28,6 +28,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -41,6 +42,7 @@ final class PreviewPluginServicesFactory {
     private final SharedAsyncHostReadLane hostReadLane;
     private final PreviewLog log;
     private final RuntimeFailureCollector failureCollector;
+    private final Locale effectiveLocale;
 
     PreviewPluginServicesFactory(
         final Path home,
@@ -50,12 +52,25 @@ final class PreviewPluginServicesFactory {
         final PreviewLog log,
         final RuntimeFailureCollector failureCollector
     ) {
+        this(home, scheduler, hostAccess, hostReadLane, log, failureCollector, CubismHostLocale.resolve());
+    }
+
+    PreviewPluginServicesFactory(
+        final Path home,
+        final RuntimeScheduler scheduler,
+        final RuntimeHostAdapterAccess hostAccess,
+        final SharedAsyncHostReadLane hostReadLane,
+        final PreviewLog log,
+        final RuntimeFailureCollector failureCollector,
+        final Locale effectiveLocale
+    ) {
         this.home = home;
         this.scheduler = scheduler;
         this.hostAccess = hostAccess;
         this.hostReadLane = hostReadLane;
         this.log = log;
         this.failureCollector = failureCollector;
+        this.effectiveLocale = Objects.requireNonNull(effectiveLocale, "effectiveLocale");
     }
 
     PreviewPluginServices create(
@@ -98,11 +113,8 @@ final class PreviewPluginServicesFactory {
         final PluginDescriptor descriptor,
         final ClassLoader classLoader
     ) {
-        // Cubism 语言版本说明见 CubismHostLocale（CubismEditor5.bat 设置 -Duser.language=zh）。
-        final Locale cubismLocale = CubismHostLocale.resolve();
-        return RuntimePluginLocalization.create(
-            descriptor.id(), classLoader, descriptor.i18n(), System.getProperty("turboism.locale"),
-            cubismLocale, Locale.getDefault(Locale.Category.DISPLAY),
+        return RuntimePluginLocalization.createResolved(
+            descriptor.id(), classLoader, descriptor.i18n(), effectiveLocale,
             diagnostic -> log.warn(descriptor.id(), diagnostic.code() + ": " + diagnostic.message())
         );
     }

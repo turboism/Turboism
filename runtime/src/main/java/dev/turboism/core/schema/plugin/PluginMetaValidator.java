@@ -538,7 +538,7 @@ public final class PluginMetaValidator extends AbstractJsonValidator {
     }
 
     private boolean isLocaleId(final String value) {
-        return "base".equals(value) || (value != null && value.matches("^[a-z]{2,3}(?:_[A-Za-z0-9]{2,8})*$"));
+        return "base".equals(value) || (value != null && value.matches("^[A-Za-z]{2,8}(?:[-_][A-Za-z0-9]{1,8})*$"));
     }
 
     private boolean isValidPluginId(final String id) {

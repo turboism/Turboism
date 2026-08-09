@@ -1057,7 +1057,8 @@ public final class TurboismAgent {
                         && supplier.getAsBoolean();
                 },
                 editorUi,
-                runtime.hostAccess().textureAtlasAlgorithms()
+                runtime.hostAccess().textureAtlasAlgorithms(),
+                runtime.effectiveLocale()
             );
             installer.install();
             if (!TEXTURE_ATLAS_AUTO_LAYOUT_HOOK.compareAndSet(null, installer)) {

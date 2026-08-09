@@ -1,0 +1,7 @@
+demo.context.hello
+demo.hello.label
+demo.menu
+demo.palette.label
+demo.toolbar.label
+plugin.description
+plugin.name
