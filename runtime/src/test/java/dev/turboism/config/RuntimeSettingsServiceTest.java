@@ -12,6 +12,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class RuntimeSettingsServiceTest {
 
@@ -118,6 +119,207 @@ class RuntimeSettingsServiceTest {
 
         assertFalse(service.read().separateExportSaveDirectory());
         assertEquals(RuntimeSettings.DEFAULT_LOCALE, service.read().locale());
+    }
+
+    @Test
+    void firstSuccessfulReadInitializesTheBaselineOnce() throws Exception {
+        writeValid("settings-baseline");
+        RuntimeSettingsFileService service = new RuntimeSettingsFileService(home, coordinator());
+
+        RuntimeSettings first = service.read();
+        RuntimeSettings baseline = service.baselineForTest();
+        assertEquals(first, baseline);
+
+        service.save(new RuntimeSettings(false, "TRACE", 32, true, false, false, true, "ja"));
+        assertEquals(baseline, service.baselineForTest(), "a later save must never replace the baseline");
+        assertEquals("ja", service.read().locale());
+        assertEquals(baseline, service.baselineForTest());
+    }
+
+    @Test
+    void firstSuccessfulSaveInitializesTheBaselineWhenNoReadHappenedFirst() {
+        RuntimeSettingsFileService service = new RuntimeSettingsFileService(home, coordinator());
+
+        RuntimeSettings saved = service.save(new RuntimeSettings(false, "DEBUG", 64, true, true, true, true, "ko"));
+        assertEquals(saved, service.baselineForTest());
+
+        service.save(new RuntimeSettings(false, "INFO", 100, false, false, false, false, "en"));
+        assertEquals(saved, service.baselineForTest(), "the baseline stays at the first success");
+        assertEquals("en", service.activeForTest().locale());
+    }
+
+    @Test
+    void laterSuccessfulReadsReplaceActiveButNeverTheBaseline() throws Exception {
+        writeValid("settings-active");
+        RuntimeSettingsFileService service = new RuntimeSettingsFileService(home, coordinator());
+        RuntimeSettings baseline = service.read();
+
+        Files.writeString(home.resolve("config.json"), """
+            {
+              "format": "turboism.runtime.config",
+              "schemaVersion": 1,
+              "worktreeId": "settings-active",
+              "pluginDirs": ["plugins"],
+              "logLevel": "TRACE",
+              "safeMode": false,
+              "hooks": {"disabledIds": [], "denylistedClasses": [], "startup": {}}
+            }
+            """);
+        RuntimeSettings reloaded = service.read();
+        assertEquals("TRACE", reloaded.logLevel());
+        assertEquals(baseline, service.baselineForTest());
+        assertEquals(reloaded, service.activeForTest());
+    }
+
+    @Test
+    void rejectedInvalidReloadPreservesActiveAndBaseline() throws Exception {
+        writeValid("settings-reload");
+        RuntimeSettingsFileService service = new RuntimeSettingsFileService(home, coordinator());
+        RuntimeSettings baseline = service.read();
+
+        Files.writeString(home.resolve("config.json"), """
+            {
+              "format": "turboism.runtime.config",
+              "schemaVersion": 1,
+              "worktreeId": "settings-reload",
+              "pluginDirs": ["plugins"],
+              "logLevel": "BOGUS",
+              "safeMode": false,
+              "hooks": {"disabledIds": [], "denylistedClasses": [], "startup": {}}
+            }
+            """);
+        RuntimeSettings preserved = service.read();
+        assertEquals(baseline, preserved);
+        assertEquals(baseline, service.baselineForTest());
+        assertEquals(preserved, service.activeForTest());
+    }
+
+    @Test
+    void rejectedInvalidReloadAfterMultipleSuccessfulValuesPreservesTheLastActive() throws Exception {
+        writeValid("settings-multi");
+        RuntimeSettingsFileService service = new RuntimeSettingsFileService(home, coordinator());
+        RuntimeSettings baseline = service.read();
+        service.save(new RuntimeSettings(false, "TRACE", 32, true, false, false, true, "ja"));
+        RuntimeSettings second = service.read();
+        assertEquals("ja", second.locale());
+
+        Files.writeString(home.resolve("config.json"), "not json at all");
+        assertEquals(second, service.read(), "an invalid reload preserves the last active value");
+        assertEquals(baseline, service.baselineForTest());
+        assertEquals(second, service.activeForTest());
+    }
+
+    @Test
+    void rejectedSaveThrowsAndChangesNeitherActiveNorBaseline() throws Exception {
+        writeValid("settings-save");
+        RuntimeSettingsFileService service = new RuntimeSettingsFileService(home, coordinator());
+        RuntimeSettings baseline = service.read();
+        String before = Files.readString(home.resolve("config.json"));
+
+        assertThrows(
+            RuntimeException.class,
+            () -> service.save(new RuntimeSettings(false, "BOGUS", 100, false, false, false, false, "en"))
+        );
+        assertEquals(baseline, service.baselineForTest());
+        assertEquals(baseline, service.activeForTest());
+        assertEquals(before, Files.readString(home.resolve("config.json")), "the file must stay untouched");
+    }
+
+    @Test
+    void persistedLocaleChangeUpdatesStoredAndActiveOnlyWithoutMutatingTheResolvedLocale() throws Exception {
+        System.setProperty("turboism.locale", "ja");
+        try {
+            final java.util.Locale resolvedBefore = dev.turboism.i18n.PluginLocaleResolver.resolveStartup(
+                "", java.util.Locale.KOREAN, java.util.Locale.ENGLISH, ignored -> { }
+            );
+            writeValid("settings-locale");
+            RuntimeSettingsFileService service = new RuntimeSettingsFileService(home, coordinator());
+            service.read();
+            java.util.Locale defaultBefore = java.util.Locale.getDefault();
+
+            service.save(new RuntimeSettings(false, "INFO", 100, false, false, false, false, "zh-Hant"));
+
+            assertEquals("zh-Hant", service.read().locale(), "the persisted choice updates stored settings");
+            assertEquals("zh-Hant", service.activeForTest().locale());
+            assertEquals(resolvedBefore, dev.turboism.i18n.PluginLocaleResolver.resolveStartup(
+                "", java.util.Locale.KOREAN, java.util.Locale.ENGLISH, ignored -> { }
+            ), "the already-resolved effective locale is unchanged (restart required)");
+            assertEquals(defaultBefore, java.util.Locale.getDefault(), "no JVM-global locale mutation");
+        } finally {
+            System.clearProperty("turboism.locale");
+        }
+    }
+
+    @Test
+    void unsupportedPersistedLocaleIsTreatedAsAbsentWithoutTouchingTheFile() throws Exception {
+        Files.writeString(home.resolve("config.json"), """
+            {
+              "format": "turboism.runtime.config",
+              "schemaVersion": 1,
+              "worktreeId": "settings-badlocale",
+              "pluginDirs": ["plugins"],
+              "logLevel": "INFO",
+              "locale": "fr",
+              "safeMode": false,
+              "hooks": {"disabledIds": [], "denylistedClasses": [], "startup": {}}
+            }
+            """);
+        final java.util.List<String> diagnostics = new java.util.ArrayList<>();
+        RuntimeSettingsFileService service = new RuntimeSettingsFileService(
+            new RuntimeConfigRepository(home, diagnostics::add),
+            coordinator()
+        );
+
+        RuntimeSettings settings = service.read();
+        assertEquals(RuntimeSettings.DEFAULT_LOCALE, settings.locale(), "an unsupported persisted locale is read as absent");
+        assertEquals(1, diagnostics.size());
+        assertTrue(diagnostics.get(0).contains("RUNTIME_CONFIG_BAD_LOCALE"));
+        assertTrue(Files.readString(home.resolve("config.json")).contains("\"locale\": \"fr\""), "the file stays untouched");
+
+        // Writes retain strict validation: saving an unsupported locale is rejected.
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> service.save(new RuntimeSettings(false, "INFO", 100, false, false, false, false, "fr"))
+        );
+        assertTrue(Files.readString(home.resolve("config.json")).contains("\"locale\": \"fr\""));
+    }
+
+    @Test
+    void legacyConfigWithoutLocaleInitializesTheBaselineWithTheDefault() throws Exception {
+        Files.writeString(home.resolve("config.json"), """
+            {
+              "format": "turboism.runtime.config",
+              "schemaVersion": 1,
+              "worktreeId": "settings-legacy",
+              "pluginDirs": ["plugins"],
+              "logLevel": "INFO",
+              "safeMode": false,
+              "hooks": {"disabledIds": [], "denylistedClasses": [], "startup": {}}
+            }
+            """);
+        RuntimeSettingsFileService service = new RuntimeSettingsFileService(home, coordinator());
+
+        RuntimeSettings settings = service.read();
+        assertEquals(RuntimeSettings.DEFAULT_LOCALE, settings.locale());
+        assertEquals(settings, service.baselineForTest());
+    }
+
+    private void writeValid(final String worktreeId) throws Exception {
+        Files.writeString(home.resolve("config.json"), valid(worktreeId));
+    }
+
+    private static String valid(final String worktreeId) {
+        return """
+            {
+              "format": "turboism.runtime.config",
+              "schemaVersion": 1,
+              "worktreeId": "%s",
+              "pluginDirs": ["plugins"],
+              "logLevel": "INFO",
+              "safeMode": false,
+              "hooks": {"disabledIds": [], "denylistedClasses": [], "startup": {}}
+            }
+            """.formatted(worktreeId);
     }
 
     @Test

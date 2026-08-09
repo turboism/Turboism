@@ -55,7 +55,7 @@ val performanceProbeCarrierJar by tasks.registering(Jar::class) {
 }
 
 val performanceProbeAgentJar by tasks.registering(Jar::class) {
-    dependsOn(":runtime:jar", ":sdk:jar", ":plugins:core:jar", performanceProbeCarrierJar)
+    dependsOn(":runtime:jar", ":sdk:jar", performanceProbeCarrierJar)
     archiveBaseName.set("turboism-performance-probe-agent")
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     manifest {

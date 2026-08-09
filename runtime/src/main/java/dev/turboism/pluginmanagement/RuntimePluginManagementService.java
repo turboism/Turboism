@@ -3,6 +3,7 @@ package dev.turboism.pluginmanagement;
 import dev.turboism.config.RuntimeConfigRepository;
 import dev.turboism.core.lifecycle.PluginLifecycleState;
 import dev.turboism.plugin.core.CorePluginManagement;
+import dev.turboism.i18n.LocalizationDiagnosticSink;
 
 import javax.swing.JFileChooser;
 import javax.swing.SwingUtilities;
@@ -43,6 +44,7 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
     private final ExecutorService installExecutor;
     private final AtomicBoolean installPending = new AtomicBoolean();
     private final AtomicBoolean active = new AtomicBoolean(true);
+    private final LocalizationDiagnosticSink metadataDiagnostics;
 
     public RuntimePluginManagementService(final Path home, final Supplier<List<PluginInfo>> runtimePlugins) {
         this(home, RuntimePluginManagementService::choosePluginPackage, new SwingPackageChooser(), runtimePlugins,
@@ -63,9 +65,20 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
         final Supplier<List<PluginInfo>> runtimePlugins,
         final MetadataLocaleProvider metadataLocale
     ) {
+        return withMetadataLocale(home, runtimePlugins, metadataLocale, ignored -> { });
+    }
+
+    /** Production factory: metadata i18n diagnostics reach the supplied runtime log sink. */
+    public static RuntimePluginManagementService withMetadataLocale(
+        final Path home,
+        final Supplier<List<PluginInfo>> runtimePlugins,
+        final MetadataLocaleProvider metadataLocale,
+        final Consumer<String> diagnostics
+    ) {
         return new RuntimePluginManagementService(
             home, RuntimePluginManagementService::choosePluginPackage,
-            new SwingPackageChooser(), runtimePlugins, metadataLocale
+            new SwingPackageChooser(), runtimePlugins, metadataLocale,
+            java.util.Objects.requireNonNull(diagnostics, "diagnostics")
         );
     }
 
@@ -84,6 +97,17 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
         final Supplier<List<PluginInfo>> runtimePlugins,
         final MetadataLocaleProvider metadataLocale
     ) {
+        this(home, synchronousPackageChooser, packageChooser, runtimePlugins, metadataLocale, ignored -> { });
+    }
+
+    private RuntimePluginManagementService(
+        final Path home,
+        final Supplier<Optional<Path>> synchronousPackageChooser,
+        final PackageChooser packageChooser,
+        final Supplier<List<PluginInfo>> runtimePlugins,
+        final MetadataLocaleProvider metadataLocale,
+        final Consumer<String> diagnostics
+    ) {
         final Path normalized = home.toAbsolutePath().normalize();
         pluginsDirectory = normalized.resolve("plugins");
         this.synchronousPackageChooser = java.util.Objects.requireNonNull(
@@ -92,6 +116,8 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
         this.packageChooser = java.util.Objects.requireNonNull(packageChooser, "packageChooser");
         this.runtimePlugins = java.util.Objects.requireNonNull(runtimePlugins, "runtimePlugins");
         this.metadataLocale = java.util.Objects.requireNonNull(metadataLocale, "metadataLocale");
+        final Consumer<String> diagnostic = java.util.Objects.requireNonNull(diagnostics, "diagnostics");
+        this.metadataDiagnostics = value -> diagnostic.accept(value.code() + ": " + value.message());
         config = new RuntimeConfigRepository(normalized, ignored -> { });
         pending = new PendingPluginOperations(normalized);
         installExecutor = Executors.newSingleThreadExecutor(new InstallThreadFactory());
@@ -260,7 +286,7 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
             for (Path path : files.filter(candidate -> Files.isRegularFile(candidate, LinkOption.NOFOLLOW_LINKS))
                 .filter(candidate -> candidate.getFileName().toString().endsWith(".jar")).sorted().toList()) {
                 final Optional<PluginArchiveMetadata> metadata = PluginArchiveMetadata.read(
-                    path, metadataLocale.get(), ignored -> { }
+                    path, metadataLocale.get(), metadataDiagnostics
                 );
                 if (metadata.isPresent()) {
                     final var value = metadata.orElseThrow();

@@ -54,8 +54,6 @@ final class OfficialPluginCatalogCompleteness {
         "table.id",
         "tooltip.guid",
         "theme.detail.id",
-        "theme.detail.guid",
-        "theme.detail.sha256",
         "theme.detail.url",
         "texture-atlas.algorithm.maxrects",
         "chart.cpu.title",
@@ -82,8 +80,13 @@ final class OfficialPluginCatalogCompleteness {
                 Path productionRoot = pluginRoot.resolve("src/main");
                 Path descriptor = productionRoot.resolve("resources/META-INF/turboism/plugin.json");
                 Path i18nDirectory = productionRoot.resolve("resources/META-INF/turboism/i18n");
-                boolean descriptorParticipates = Files.isRegularFile(descriptor)
+                boolean hasDescriptor = Files.isRegularFile(descriptor);
+                boolean descriptorParticipates = hasDescriptor
                     && descriptorDeclaresI18n(pluginRoot.getFileName().toString(), descriptor, problems);
+                // An official plugin descriptor without an i18n block is a completeness problem.
+                if (hasDescriptor && !descriptorParticipates) {
+                    problems.add(pluginRoot.getFileName() + ": plugin descriptor has no i18n block");
+                }
                 boolean baselineParticipates = Files.isRegularFile(i18nDirectory.resolve(BASELINE_FILE));
                 if (!descriptorParticipates && !baselineParticipates) {
                     continue;

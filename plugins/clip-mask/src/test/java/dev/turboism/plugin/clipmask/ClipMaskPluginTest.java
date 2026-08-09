@@ -95,6 +95,43 @@ class ClipMaskPluginTest {
     }
 
     @Test
+    void initAndEnableWorkWithLocalizationAvailable() {
+        RecordingPluginContext context = new RecordingPluginContext(
+            new FixedCubismRead(List.of(new ClipMaskSnapshot("mesh-1", List.of("src"), true))),
+            new TestPluginLogger(),
+            testLocalization()
+        );
+        ClipMaskPlugin plugin = new ClipMaskPlugin();
+
+        plugin.init(context);
+        plugin.enable();
+
+        assertEquals(
+            List.of("clip-mask.inspector.inspect"),
+            context.actions().actions().stream().map(ActionRegistry.Action::id).toList(),
+            "the stable semantic action ID is unchanged"
+        );
+        context.actions().execute("clip-mask.inspector.inspect");
+        assertEquals(
+            "クリップマスク検査の準備ができました。",
+            context.uiHost().dialogs().get(0).body(),
+            "the resolved localization must reach the inspector dialog in production wiring"
+        );
+    }
+
+    private static dev.turboism.sdk.i18n.PluginLocalization testLocalization() {
+        return new dev.turboism.sdk.i18n.PluginLocalization() {
+            @Override public java.util.Locale locale() { return java.util.Locale.JAPANESE; }
+            @Override public String text(final String key) {
+                return "clip-mask.inspector.ready".equals(key)
+                    ? "クリップマスク検査の準備ができました。" : key;
+            }
+            @Override public String format(final String key, final Object... args) { return text(key); }
+            @Override public boolean contains(final String key) { return true; }
+        };
+    }
+
+    @Test
     void enableDoesNotReadClipMasks() {
         RecordingPluginContext context = new RecordingPluginContext(
             new FixedCubismRead(List.of(), true),
@@ -199,8 +236,27 @@ class ClipMaskPluginTest {
             final CubismReadCapabilityService cubismRead,
             final PluginLogger logger
         ) {
+            this(cubismRead, logger, null);
+        }
+
+        RecordingPluginContext(
+            final CubismReadCapabilityService cubismRead,
+            final PluginLogger logger,
+            final dev.turboism.sdk.i18n.PluginLocalization localization
+        ) {
             this.cubismRead = cubismRead;
             this.logger = logger;
+            this.localization = localization;
+        }
+
+        private final dev.turboism.sdk.i18n.PluginLocalization localization;
+
+        @Override
+        public dev.turboism.sdk.i18n.PluginLocalization localization() {
+            if (localization == null) {
+                throw new UnsupportedOperationException("localization service is not available");
+            }
+            return localization;
         }
 
         @Override public PluginDescriptor descriptor() { throw new UnsupportedOperationException("descriptor"); }

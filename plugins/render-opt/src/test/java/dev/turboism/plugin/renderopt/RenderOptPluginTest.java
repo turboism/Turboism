@@ -123,6 +123,39 @@ class RenderOptPluginTest {
         );
     }
 
+    @Test
+    void overlayStatusUsesTheResolvedLocalizationInProductionWiring() {
+        RecordingPluginContext context = new RecordingPluginContext(Optional.empty(), testLocalization());
+        RenderOptPlugin plugin = new RenderOptPlugin();
+
+        plugin.init(context);
+        plugin.enable();
+        context.actions().execute("render-status.overlay.refresh");
+
+        assertEquals(
+            List.of(new StatusNotification(
+                "render-status.overlay.unavailable",
+                "WARNING",
+                "レンダーステータスはこのホストでは利用できません。"
+            )),
+            context.uiHost().notifications(),
+            "the resolved localization must reach the overlay status in production wiring"
+        );
+        assertEquals("render-status.overlay.refresh", context.actions().actions().get(0).id());
+    }
+
+    private static dev.turboism.sdk.i18n.PluginLocalization testLocalization() {
+        return new dev.turboism.sdk.i18n.PluginLocalization() {
+            @Override public java.util.Locale locale() { return java.util.Locale.JAPANESE; }
+            @Override public String text(final String key) {
+                return "render-opt.status.unavailable".equals(key)
+                    ? "レンダーステータスはこのホストでは利用できません。" : key;
+            }
+            @Override public String format(final String key, final Object... args) { return text(key); }
+            @Override public boolean contains(final String key) { return true; }
+        };
+    }
+
     private static final class RecordingPluginContext implements PluginContext {
         private final DisposableScope disposableScope = new DisposableScope();
         private final RecordingActionRegistry actions = new RecordingActionRegistry();
@@ -146,8 +179,34 @@ class RenderOptPluginTest {
             final Optional<RenderStatusSnapshot> renderStatus,
             final PluginLogger logger
         ) {
+            this(renderStatus, logger, null);
+        }
+
+        RecordingPluginContext(
+            final Optional<RenderStatusSnapshot> renderStatus,
+            final dev.turboism.sdk.i18n.PluginLocalization localization
+        ) {
+            this(renderStatus, new TestPluginLogger(), localization);
+        }
+
+        private RecordingPluginContext(
+            final Optional<RenderStatusSnapshot> renderStatus,
+            final PluginLogger logger,
+            final dev.turboism.sdk.i18n.PluginLocalization localization
+        ) {
             this.cubismRead = new FixedCubismRead(renderStatus);
             this.logger = logger;
+            this.localization = localization;
+        }
+
+        private final dev.turboism.sdk.i18n.PluginLocalization localization;
+
+        @Override
+        public dev.turboism.sdk.i18n.PluginLocalization localization() {
+            if (localization == null) {
+                throw new UnsupportedOperationException("localization service is not available");
+            }
+            return localization;
         }
 
         @Override
