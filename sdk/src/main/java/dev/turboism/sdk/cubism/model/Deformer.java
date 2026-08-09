@@ -149,9 +149,43 @@ public interface Deformer {
 
     IntSequence parameters();
 
-    /** Returns this Deformer's generation-bound Editor authoring bindings. */
+    /**
+     * Returns this Deformer's generation-bound Editor authoring bindings: keyform
+     * grid bindings ({@link ParameterBindingFamily#KEYFORM_GRID}) followed by
+     * morph-target bindings ({@link ParameterBindingFamily#BLEND_SHAPE}), in
+     * stable host order (Deformers carry no morph container in the Editor, so the
+     * morph portion is normally empty). Use {@link #getNormalParameterBindings()},
+     * {@link #getMorphParameterBindings()} and {@link #getCombinedParameterBindings()}
+     * to select one family.
+     */
     default List<ParameterBinding> getParameterBindings() {
         throw unavailable("Deformer parameter binding projection");
+    }
+
+    /** Returns this Deformer's morph-target (BLEND_SHAPE) bindings only. */
+    default List<ParameterBinding> getMorphParameterBindings() {
+        return getParameterBindings().stream()
+            .filter(binding -> binding.family() == ParameterBindingFamily.BLEND_SHAPE)
+            .toList();
+    }
+
+    /**
+     * Returns this Deformer's normal bindings: keyform-grid bindings whose
+     * parameter is neither a morph target nor Combined in the Editor. Requires
+     * parameter-combined knowledge, so implementations that only project
+     * bindings throw {@link UnsupportedOperationException}.
+     */
+    default List<ParameterBinding> getNormalParameterBindings() {
+        throw unavailable("Normal Deformer parameter binding projection");
+    }
+
+    /**
+     * Returns this Deformer's keyform bindings whose parameter is Combined in the
+     * Editor. Requires parameter-combined knowledge, so implementations that
+     * only project bindings throw {@link UnsupportedOperationException}.
+     */
+    default List<ParameterBinding> getCombinedParameterBindings() {
+        throw unavailable("Combined Deformer parameter binding projection");
     }
 
 
