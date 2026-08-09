@@ -1,5 +1,6 @@
 package dev.turboism.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.turboism.sdk.runtime.RuntimeSettings;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -9,11 +10,14 @@ import java.nio.file.Path;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RuntimeSettingsServiceTest {
+
+    private static final ObjectMapper JSON = new ObjectMapper();
 
     @TempDir
     Path home;
@@ -87,6 +91,47 @@ class RuntimeSettingsServiceTest {
         assertTrue(Files.isRegularFile(home.resolve("config.json")));
         assertEquals("INFO", settings.logLevel());
         assertEquals(100, settings.maxLogStorageMiB());
+    }
+
+    @Test
+    void firstReadCreatesCanonicalConfigWithDefaults() throws Exception {
+        RuntimeSettingsFileService service = new RuntimeSettingsFileService(home, coordinator());
+
+        RuntimeSettings settings = service.read();
+
+        Path config = home.resolve("config.json");
+        assertTrue(Files.isRegularFile(config));
+        assertEquals(RuntimeConfigRepository.defaults(), JSON.readTree(config.toFile()));
+        assertEquals(settings, service.read());
+        assertFalse(settings.safeMode());
+        assertEquals("INFO", settings.logLevel());
+        assertEquals(RuntimeSettings.DEFAULT_MAX_LOG_STORAGE_MIB, settings.maxLogStorageMiB());
+    }
+
+    @Test
+    void readingExistingValidConfigDoesNotRewriteIt() throws Exception {
+        Path config = home.resolve("config.json");
+        Files.writeString(config, """
+            {
+              "format": "turboism.runtime.config",
+              "schemaVersion": 1,
+              "worktreeId": "existing-config",
+              "pluginDirs": ["plugins"],
+              "logLevel": "WARN",
+              "maxLogStorageMiB": 64,
+              "safeMode": true,
+              "hooks": {"disabledIds": [], "denylistedClasses": [], "startup": {}}
+            }
+            """);
+        byte[] before = Files.readAllBytes(config);
+
+        RuntimeSettingsFileService service = new RuntimeSettingsFileService(home, coordinator());
+        RuntimeSettings settings = service.read();
+
+        assertTrue(settings.safeMode());
+        assertEquals("WARN", settings.logLevel());
+        assertEquals(64, settings.maxLogStorageMiB());
+        assertArrayEquals(before, Files.readAllBytes(config));
     }
 
     @Test
