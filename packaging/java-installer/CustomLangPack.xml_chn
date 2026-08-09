@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Turboism installer custom messages for the "chn" locale (Simplified Chinese).
+  Loaded by IzPack's locale-suffixed CustomLangPack convention
+  (CustomLangPack.xml_<iso3>); the base CustomLangPack.xml is the fallback.
+-->
+<izpack:langpack version="5.0"
+                 xmlns:izpack="http://izpack.org/schema/langpack"
+                 xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                 xsi:schemaLocation="http://izpack.org/schema/langpack https://izpack.org/schema/5.0/izpack-langpack-5.0.xsd">
+
+    <str id="InstallationGroupPanel.group.full" txt="完整安装（全部插件）"/>
+    <str id="InstallationGroupPanel.description.full" txt="安装 Turboism 代理与全部第一方插件。可在下一页取消勾选个别插件。"/>
+    <str id="InstallationGroupPanel.group.lite" txt="精简安装（不含插件）"/>
+    <str id="InstallationGroupPanel.description.lite" txt="仅安装 Turboism 代理与公共文件，不复制任何第一方插件 JAR。"/>
+    <str id="InstallationGroupPanel.sortKey.full" txt="1"/>
+    <str id="InstallationGroupPanel.sortKey.lite" txt="2"/>
+
+    <!-- Required common pack display name (console- and GUI-visible). -->
+    <str id="turboism-common" txt="Turboism 核心"/>
+
+</izpack:langpack>

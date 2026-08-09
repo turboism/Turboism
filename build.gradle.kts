@@ -1,10 +1,14 @@
 import dev.turboism.gradle.internal.MappingReviewArgsFile
 import org.gradle.api.tasks.JavaExec
 import org.gradle.api.tasks.SourceSetContainer
+import com.bmuschko.gradle.izpack.CreateInstallerTask
+import com.bmuschko.gradle.izpack.IzPackPluginExtension
 
 plugins {
     id("java")
     id("java-library")
+    // Pinned by the frozen java-installer spec; see packaging/java-installer/installer.gradle.kts
+    id("org.izpack.gradle") version "3.2.3"
 }
 
 val defaultWorktreeId = providers.exec {
@@ -56,3 +60,22 @@ apply(from = "gradle/asm-admission.gradle.kts")
 apply(from = "gradle/runtime-verification.gradle.kts")
 apply(from = "gradle/distribution-preview.gradle.kts")
 apply(from = "gradle/verification.gradle.kts")
+apply(from = "packaging/java-installer/installer.gradle.kts")
+
+// ---------------------------------------------------------------------------
+// IzPack installer task configuration (pinned org.izpack.gradle:3.2.3 + izpack-ant:5.2.6)
+// ---------------------------------------------------------------------------
+val installerVersionProvider = providers.gradleProperty("installerVersion")
+extensions.configure<IzPackPluginExtension> {
+    baseDir.set(layout.buildDirectory.dir("java-installer/izpack"))
+    installFile.set(layout.buildDirectory.dir("java-installer/izpack").map { it.file("installer.xml") })
+    outputFile.set(installerVersionProvider.map { version ->
+        layout.buildDirectory.dir("windows-installer/dist").get().file("TurboismInstaller-$version.jar")
+    })
+    installerType.set("standard")
+    compression.set("default")
+}
+tasks.named<CreateInstallerTask>("izPackCreateInstaller") {
+    group = "packaging"
+    description = "Builds the cross-platform Turboism IzPack installer JAR and its SHA-256 sidecar."
+}
