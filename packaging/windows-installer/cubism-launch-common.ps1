@@ -167,7 +167,7 @@ function Get-CubismDirectories {
     )
     if ($MaxEntries -lt 1 -or $MaxResults -lt 1) { return @() }
     try {
-        $items = New-Object System.Collections.Generic.List[object]
+        $items = [System.Collections.Generic.List[object]]::new()
         $inspected = 0
         foreach ($item in Get-ChildItem -LiteralPath $Parent -Directory -Force -ErrorAction SilentlyContinue) {
             $inspected++
@@ -353,7 +353,7 @@ function Remove-CubismCandidateEntries {
     $automaticSet = New-Object System.Collections.Generic.HashSet[string]([System.StringComparer]::OrdinalIgnoreCase)
     foreach ($key in @($AutomaticRootKeys)) { if (-not [string]::IsNullOrWhiteSpace($key)) { [void]$automaticSet.Add($key) } }
 
-    $remaining = New-Object System.Collections.Generic.List[object]
+    $remaining = [System.Collections.Generic.List[object]]::new()
     foreach ($candidate in @($Candidates)) {
         if ($removeSet.Contains($candidate.Key)) {
             if ($automaticSet.Contains($candidate.Key) -and $candidate.Selectable) {
@@ -964,7 +964,7 @@ function Get-CubismTakeoverMatches {
         if (Test-CubismNormalFile $candidate.OfficialBat) { $targets[[System.IO.Path]::GetFullPath($candidate.OfficialBat).ToUpperInvariant()] = [pscustomobject]@{ Candidate = $candidate; Variant = "normal" } }
         if (-not [string]::IsNullOrWhiteSpace($candidate.D3DBat) -and (Test-CubismNormalFile $candidate.D3DBat)) { $targets[[System.IO.Path]::GetFullPath($candidate.D3DBat).ToUpperInvariant()] = [pscustomobject]@{ Candidate = $candidate; Variant = "d3d" } }
     }
-    $matches = New-Object System.Collections.Generic.List[object]
+    $matches = [System.Collections.Generic.List[object]]::new()
     foreach ($shortcut in @(Get-CubismShortcutFiles -Roots $ShortcutRoots)) {
         try {
             $target = Get-CubismShortcutTarget $shortcut
@@ -983,13 +983,13 @@ function Get-CubismTakeoverMatches {
 function Get-CubismTakeoverPreview {
     param([object[]]$Candidates = @(), [object]$State = $null, [string[]]$ShortcutRoots = @())
     $matches = @(Get-CubismTakeoverMatches -Candidates $Candidates -ShortcutRoots $ShortcutRoots)
-    $variants = New-Object System.Collections.Generic.List[object]
+    $variants = [System.Collections.Generic.List[object]]::new()
     foreach ($candidate in @($Candidates | Where-Object { $_.Selected -and $_.Selectable })) {
         [void]$variants.Add([pscustomobject]@{ Candidate = $candidate; Variant = "normal" })
         if (-not [string]::IsNullOrWhiteSpace($candidate.D3DBat)) { [void]$variants.Add([pscustomobject]@{ Candidate = $candidate; Variant = "d3d" }) }
     }
     $unmatched = @($variants | Where-Object { $v = $_; @($matches | Where-Object { $_.Candidate.Key -eq $v.Candidate.Key -and $_.Variant -eq $v.Variant }).Count -eq 0 })
-    $conflicts = New-Object System.Collections.Generic.List[object]
+    $conflicts = [System.Collections.Generic.List[object]]::new()
     if ($null -ne $State -and $State.Valid) {
         foreach ($record in @($State.ShortcutTakeovers)) {
             try {
@@ -1005,7 +1005,7 @@ function Get-CubismTakeoverPreview {
 
 function Restore-CubismTakeoverRecords {
     param([string]$TurboismHome, [object[]]$Records = @())
-    $plans = New-Object System.Collections.Generic.List[object]
+    $plans = [System.Collections.Generic.List[object]]::new()
     foreach ($record in @($Records)) {
         $backup = Get-CubismResolvedBackupPath -TurboismHome $TurboismHome -RelativePath $record.BackupPath
         $currentExists = Test-Path -LiteralPath $record.ShortcutPath
@@ -1067,7 +1067,7 @@ function Invoke-CubismLaunchConfiguration {
     $oldHashes = if ($ExistingState.Valid) { @($ExistingState.ManagedShortcutHashes) } else { @() }
     $selected = @($Candidates | Where-Object { $_.Selected -and $_.Selectable })
     $newShortcuts = New-Object System.Collections.Generic.List[string]
-    $newHashes = New-Object System.Collections.Generic.List[object]
+    $newHashes = [System.Collections.Generic.List[object]]::new()
     $created = New-Object System.Collections.Generic.List[string]
     try {
         if ($oldRecords.Count -gt 0) {
@@ -1093,7 +1093,7 @@ function Invoke-CubismLaunchConfiguration {
 
         $matches = @(Get-CubismTakeoverMatches -Candidates $Candidates)
         if ($matches.Count -gt 128) { throw "shortcut takeover record cap exceeded" }
-        $records = New-Object System.Collections.Generic.List[object]
+        $records = [System.Collections.Generic.List[object]]::new()
         foreach ($match in $matches) {
             $original = $match.ShortcutPath
             if (-not (Test-CubismTakeoverShortcutPath $original)) { throw "shortcut takeover path is outside current-user roots" }
@@ -1147,7 +1147,7 @@ function Invoke-CubismLaunchConfiguration {
                 throw
             }
         }
-        $variants = New-Object System.Collections.Generic.List[object]
+        $variants = [System.Collections.Generic.List[object]]::new()
         foreach ($candidate in $selected) {
             [void]$variants.Add([pscustomobject]@{ Candidate = $candidate; Variant = "normal" })
             if (-not [string]::IsNullOrWhiteSpace($candidate.D3DBat)) { [void]$variants.Add([pscustomobject]@{ Candidate = $candidate; Variant = "d3d" }) }
