@@ -247,6 +247,8 @@ try {
     $env:TURBOISM_TEST_OUTPUT = $marker
     $oldJdk = $env:JDK_JAVA_OPTIONS
     $oldTool = $env:JAVA_TOOL_OPTIONS
+    $tokenizerOutput = @(Get-JdkOptionTokens 'alpha beta')
+    Assert-ManagedLaunch ($tokenizerOutput.Count -eq 2 -and @($tokenizerOutput | Where-Object { $_ -isnot [string] }).Count -eq 0 -and $tokenizerOutput[0] -eq 'alpha' -and $tokenizerOutput[1] -eq 'beta') "tokenizer emits exactly two string tokens and no non-string pipeline object"
     $env:JDK_JAVA_OPTIONS = '-Xmx192m -javaagent:old-turboism-agent.jar -Dturboism.home=old-home --add-exports=java.base.jdk.internal.org.objectweb.asm=ALL-UNNAMED --add-exports=java.base.jdk.internal.org.objectweb.asm.commons=ALL-UNNAMED'
     $env:JAVA_TOOL_OPTIONS = '-Dfile.encoding=UTF-8 -javaagent:old-turboism-agent.jar -Dturboism.home=old-home --add-exports=java.base.jdk.internal.org.objectweb.asm=ALL-UNNAMED'
     try {
