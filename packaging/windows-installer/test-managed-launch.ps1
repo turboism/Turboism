@@ -6,6 +6,7 @@ param()
 $ErrorActionPreference = "Stop"
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 . (Join-Path $scriptDir "cubism-launch-common.ps1")
+Set-StrictMode -Version 3.0
 
 function Assert-ManagedLaunch {
     param([bool]$Condition, [string]$Message)
@@ -127,6 +128,19 @@ try {
 
     $badCandidate = New-CubismInstallationCandidate -Root $unsupported
     Assert-ManagedLaunch (-not $badCandidate.Selectable -and $badCandidate.Status -eq "Unsupported") "unsupported family candidate fails closed"
+    $currentPowerShell = (Get-Process -Id $PID).Path
+    if ([string]::IsNullOrWhiteSpace($currentPowerShell)) { throw "cannot resolve the current PowerShell executable" }
+    $oneSelected = @($initial | ForEach-Object {
+        [pscustomobject]@{
+            CanonicalRoot = $_.CanonicalRoot
+            Version = $_.Version
+            Selected = $_.CanonicalRoot -eq (ConvertTo-CubismCanonicalRoot $root53)
+        }
+    })
+    Write-CubismInstallationState -StatePath $statePath -Candidates $oneSelected
+    $oneGenericArgs = '-NoProfile -ExecutionPolicy Bypass -File "{0}" -Home "{1}" -ProbeOnly' -f (Join-Path $scriptDir "launch-cubism-turboism.ps1"), $home
+    $oneGenericProcess = Start-Process -FilePath $currentPowerShell -ArgumentList $oneGenericArgs -Wait -PassThru -NoNewWindow
+    Assert-ManagedLaunch ($oneGenericProcess.ExitCode -eq 0) "valid one-selected generic probe succeeds"
 
     $invalidState = [ordered]@{
         format = "turboism.cubism.installation-state"
@@ -141,9 +155,25 @@ try {
     Remove-Item -LiteralPath $marker -Force -ErrorAction SilentlyContinue
     $stateLauncher = Join-Path $scriptDir "launch-cubism-turboism.ps1"
     $invalidStateArgs = '-NoProfile -ExecutionPolicy Bypass -File "{0}" -Home "{1}"' -f $stateLauncher, $home
-    $invalidStateProcess = Start-Process -FilePath (Join-Path $PSHOME "powershell.exe") -ArgumentList $invalidStateArgs -Wait -PassThru -NoNewWindow
+    $invalidStateProcess = Start-Process -FilePath $currentPowerShell -ArgumentList $invalidStateArgs -Wait -PassThru -NoNewWindow
     Assert-ManagedLaunch ($invalidStateProcess.ExitCode -ne 0) "valid plus stale selected state fails closed"
     Assert-ManagedLaunch (-not (Test-Path -LiteralPath $marker)) "invalid selected state fails before official BAT invocation"
+    [System.IO.File]::WriteAllText($statePath, '{"format":"turboism.cubism.installation-state","schemaVersion":1,"installations":[]', (New-Object System.Text.UTF8Encoding($false)))
+    Remove-Item -LiteralPath $marker -Force -ErrorAction SilentlyContinue
+    $malformedStateArgs = '-NoProfile -ExecutionPolicy Bypass -File "{0}" -Home "{1}" -ProbeOnly' -f $stateLauncher, $home
+    $malformedInfo = New-Object System.Diagnostics.ProcessStartInfo
+    $malformedInfo.FileName = $currentPowerShell
+    $malformedInfo.Arguments = $malformedStateArgs
+    $malformedInfo.UseShellExecute = $false
+    $malformedInfo.RedirectStandardOutput = $true
+    $malformedInfo.RedirectStandardError = $true
+    $malformedProcess = New-Object System.Diagnostics.Process
+    $malformedProcess.StartInfo = $malformedInfo
+    [void]$malformedProcess.Start()
+    $malformedOutput = $malformedProcess.StandardOutput.ReadToEnd() + $malformedProcess.StandardError.ReadToEnd()
+    $malformedProcess.WaitForExit()
+    Assert-ManagedLaunch ($malformedProcess.ExitCode -ne 0 -and $malformedOutput -match 'Managed Cubism state is invalid|托管 Cubism 状态无效|管理対象 Cubism の状態が不正') "malformed state fails as localized StateInvalid"
+    Assert-ManagedLaunch (-not (Test-Path -LiteralPath $marker)) "malformed state fails before official BAT invocation"
     Write-CubismInstallationState -StatePath $statePath -Candidates $initial
 
     $manualPolicyRoot = Join-Path $temp "saved-only Live2D Cubism 5.2"
@@ -239,12 +269,15 @@ try {
     Assert-ManagedLaunch ((Get-FileHash -LiteralPath $agent -Algorithm SHA256).Hash -eq $beforeAgent) "Turboism agent is unchanged"
     Assert-ManagedLaunch ((Get-FileHash -LiteralPath $applicationJar -Algorithm SHA256).Hash -eq $beforeApplicationJar) "synthetic Cubism application JAR is unchanged"
 
-    $ps = Join-Path $PSHOME "powershell.exe"
+    $ps = $currentPowerShell
+    Remove-Item -LiteralPath $statePath -Force -ErrorAction SilentlyContinue
+    Assert-ManagedLaunch (-not (Test-Path -LiteralPath $statePath)) "explicit root remains independent of missing state"
     $launcher = Join-Path $scriptDir "launch-cubism-turboism.ps1"
     $launchArgs = '-NoProfile -ExecutionPolicy Bypass -File "{0}" -Home "{1}" -CubismRoot "{2}" -Variant d3d' -f $launcher, $home, $root53
     $process = Start-Process -FilePath $ps -ArgumentList $launchArgs -Wait -PassThru -NoNewWindow
     Assert-ManagedLaunch ($process.ExitCode -eq 23) "launcher selects and invokes the explicit D3D BAT"
     Assert-ManagedLaunch ((Get-Content -LiteralPath $marker -Raw) -match 'D3D=1') "D3D launcher entry is distinct"
+    Write-CubismInstallationState -StatePath $statePath -Candidates $initial
 
     $genericArgs = '-NoProfile -ExecutionPolicy Bypass -File "{0}" -Home "{1}" -ProbeOnly' -f $launcher, $home
     $genericInfo = New-Object System.Diagnostics.ProcessStartInfo
