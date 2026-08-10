@@ -151,15 +151,15 @@ public final class RuntimeSettingsFileService implements RuntimeSettingsService 
 
     /** Callbacks observe committed state; failures are reported without rollback fiction. */
     private void notifyAfterCommit(final RuntimeSettings settings) {
-        Throwable firstFailure = null;
+        RuntimeException firstFailure = null;
         try {
             logLevelChanged.accept(settings.logLevel());
-        } catch (Throwable failure) {
+        } catch (RuntimeException failure) {
             firstFailure = failure;
         }
         try {
             logStorageLimitChanged.accept(settings.maxLogStorageMiB());
-        } catch (Throwable failure) {
+        } catch (RuntimeException failure) {
             if (firstFailure != null) {
                 final PostCommitCallbackFailure postCommitFailure =
                     new PostCommitCallbackFailure(firstFailure);
