@@ -1074,9 +1074,14 @@ function Invoke-CubismLaunchConfiguration {
     if (@("independent", "takeover") -notcontains $LaunchMode) { throw "invalid launch mode" }
     if ($null -eq $ExistingState) { $ExistingState = Read-CubismInstallationState $StatePath }
     if ($ExistingState.Exists -and -not $ExistingState.Valid) { throw "managed Cubism state is invalid: $($ExistingState.Error)" }
-    $oldRecords = if ($ExistingState.Valid) { @($ExistingState.ShortcutTakeovers) } else { @() }
-    $oldShortcuts = if ($ExistingState.Valid) { @($ExistingState.ManagedShortcuts) } else { @() }
-    $oldHashes = if ($ExistingState.Valid) { @($ExistingState.ManagedShortcutHashes) } else { @() }
+    $oldRecords = @()
+    $oldShortcuts = @()
+    $oldHashes = @()
+    if ($ExistingState.Valid) {
+        $oldRecords = @($ExistingState.ShortcutTakeovers)
+        $oldShortcuts = @($ExistingState.ManagedShortcuts)
+        $oldHashes = @($ExistingState.ManagedShortcutHashes)
+    }
     $selected = @($Candidates | Where-Object { $_.Selected -and $_.Selectable })
     $newShortcuts = New-Object System.Collections.Generic.List[string]
     $newHashes = [System.Collections.Generic.List[object]]::new()
