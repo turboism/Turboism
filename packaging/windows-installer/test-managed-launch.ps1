@@ -301,6 +301,69 @@ try {
     $badProcess = Start-Process -FilePath $ps -ArgumentList $badArgs -Wait -PassThru -NoNewWindow
     Assert-ManagedLaunch ($badProcess.ExitCode -ne 0) "explicit unsupported root is rejected before launch"
 
+    # R12: backup confinement is exact-name (relative installer/shortcut-backups/<64-hex>.lnk).
+    $relocatedHome = Join-Path $temp "confined backup home"
+    New-Item -ItemType Directory -Path $relocatedHome -Force | Out-Null
+    $hex64 = ('a' * 64)
+    Assert-ManagedLaunch (Test-CubismConfinedBackupPath -Home $relocatedHome -RelativePath "installer\shortcut-backups\$hex64.lnk") "canonical backslash backup spelling is confined"
+    Assert-ManagedLaunch (Test-CubismConfinedBackupPath -Home $relocatedHome -RelativePath "installer/shortcut-backups/$hex64.lnk") "canonical forward-slash backup spelling is confined"
+    Assert-ManagedLaunch (-not (Test-CubismConfinedBackupPath -Home $relocatedHome -RelativePath "installer\other\$hex64.lnk")) "home-confined relocated backup path is rejected"
+    Assert-ManagedLaunch (-not (Test-CubismConfinedBackupPath -Home $relocatedHome -RelativePath "installer\shortcut-backups\$hex64.lnk\extra")) "nested backup path is rejected"
+    Assert-ManagedLaunch (-not (Test-CubismConfinedBackupPath -Home $relocatedHome -RelativePath "installer\shortcut-backups\$hex64")) "alternate backup file name is rejected"
+    Assert-ManagedLaunch (-not (Test-CubismConfinedBackupPath -Home $relocatedHome -RelativePath "installer\shortcut-backups\..\$hex64.lnk")) "backup traversal is rejected"
+    Assert-ManagedLaunch (-not (Test-CubismConfinedBackupPath -Home $relocatedHome -RelativePath "$relocatedHome\installer\shortcut-backups\$hex64.lnk")) "absolute backup path is rejected"
+    $relocatedRecord = [pscustomobject]@{
+        ShortcutPath = (Join-Path $temp "fake.lnk"); BackupPath = "installer\other\$hex64.lnk"
+        OriginalSha256 = ('B' * 64); ManagedSha256 = ('C' * 64); Root = $root53; Variant = "normal"; Status = "active"
+    }
+    $relocatedWriteThrew = $false
+    try { Write-CubismInstallationState -StatePath (Join-Path $relocatedHome "cubism-installations.json") -Candidates @() -ShortcutTakeovers @($relocatedRecord) } catch { $relocatedWriteThrew = $true }
+    Assert-ManagedLaunch $relocatedWriteThrew "state writer rejects a relocated backup record below home"
+
+    # R12: a linked backup directory fails closed at use time (restore and delete).
+    $linkedHome = Join-Path $temp "linked backup home"
+    $linkedTarget = Join-Path $temp "linked backup escape"
+    $linkedShortcut = Join-Path $temp "linked-target.lnk"
+    New-Item -ItemType Directory -Path (Join-Path $linkedHome "installer\shortcut-backups"), $linkedTarget -Force | Out-Null
+    $linkedBackupName = $hex64 + ".lnk"
+    $linkedBackup = Join-Path (Join-Path $linkedHome "installer") (Join-Path "shortcut-backups" $linkedBackupName)
+    $linkedOriginal = "original-shortcut-bytes"
+    $linkedManaged = "managed-shortcut-bytes"
+    $linkedRecord = [pscustomobject]@{
+        ShortcutPath = $linkedShortcut; BackupPath = "installer/shortcut-backups/$linkedBackupName"
+        OriginalSha256 = (Get-CubismTextSha256 $linkedOriginal); ManagedSha256 = (Get-CubismTextSha256 $linkedManaged)
+        Root = $root53; Variant = "normal"; Status = "active"
+    }
+    try {
+        [System.IO.File]::WriteAllText($linkedShortcut, $linkedManaged)
+        [System.IO.File]::WriteAllText($linkedBackup, $linkedOriginal)
+        [void](Restore-CubismTakeoverRecords -Home $linkedHome -Records @($linkedRecord))
+        Assert-ManagedLaunch ((Get-Content -LiteralPath $linkedShortcut -Raw) -eq $linkedOriginal) "normal backup chain restores exact bytes"
+        [System.IO.File]::WriteAllText($linkedShortcut, $linkedManaged)
+        Remove-Item -LiteralPath $linkedBackup -Force
+        Remove-Item -LiteralPath (Join-Path $linkedHome "installer\shortcut-backups") -Force
+        $linkedFixtureAvailable = $false
+        try {
+            New-Item -ItemType SymbolicLink -Path (Join-Path $linkedHome "installer\shortcut-backups") -Target $linkedTarget -ErrorAction Stop | Out-Null
+            $linkedFixtureAvailable = $true
+        }
+        catch { Write-Host "ok: linked backup directory fixture unavailable on this host" }
+        if ($linkedFixtureAvailable) {
+            $restoreLinkedThrew = $false
+            try { [void](Restore-CubismTakeoverRecords -Home $linkedHome -Records @($linkedRecord)) } catch { $restoreLinkedThrew = $true }
+            Assert-ManagedLaunch $restoreLinkedThrew "restore fails closed when the backup directory is a reparse link"
+            Assert-ManagedLaunch ((Get-Content -LiteralPath $linkedShortcut -Raw) -eq $linkedManaged) "linked backup directory never mutates the current shortcut"
+            $deleteLinkedThrew = $false
+            try { [void](Remove-CubismTakeoverBackups -Home $linkedHome -Records @($linkedRecord)) } catch { $deleteLinkedThrew = $true }
+            Assert-ManagedLaunch $deleteLinkedThrew "backup deletion fails closed when the backup directory is a reparse link"
+            Assert-ManagedLaunch (Test-Path -LiteralPath $linkedTarget) "linked backup directory target is never deleted"
+        }
+    }
+    finally {
+        Remove-Item -LiteralPath (Join-Path $linkedHome "installer\shortcut-backups") -Force -ErrorAction SilentlyContinue
+        Remove-Item -LiteralPath $linkedHome, $linkedTarget, $linkedShortcut -Recurse -Force -ErrorAction SilentlyContinue
+    }
+
     # R5 dual-mode fixture: only current-user Desktop/Start Menu roots are used.
     # The fixture creates real .lnk bytes through WScript.Shell; no Cubism host is
     # launched and all files remain inside the temporary home/fixture directory.
@@ -396,6 +459,71 @@ try {
         $capThrew = $false
         try { Write-CubismInstallationState -StatePath $statePath -Candidates $takeoverCandidates -ShortcutTakeovers $tooMany } catch { $capThrew = $true }
         Assert-ManagedLaunch $capThrew "takeover record cap rejects the 129th record"
+
+        # R12: a home-confined relocated backup record is rejected by the state
+        # writer and reader (a valid current-user shortcut path is required).
+        $r12Hex = ('a' * 64)
+        $r12RelocatedRecord = [pscustomobject]@{
+            ShortcutPath = $normalShortcut; BackupPath = "installer\other\$r12Hex.lnk"
+            OriginalSha256 = ('B' * 64); ManagedSha256 = ('C' * 64); Root = $root53; Variant = "normal"; Status = "active"
+        }
+        $r12RelocatedWriteThrew = $false
+        try { Write-CubismInstallationState -StatePath $statePath -Candidates $takeoverCandidates -ShortcutTakeovers @($r12RelocatedRecord) } catch { $r12RelocatedWriteThrew = $true }
+        Assert-ManagedLaunch $r12RelocatedWriteThrew "state writer rejects a home-confined relocated backup record"
+        [System.IO.File]::WriteAllText($statePath, ([ordered]@{
+            format = "turboism.cubism.installation-state"; schemaVersion = 1; installations = @(); managedShortcuts = @()
+            launchMode = "takeover"
+            shortcutTakeovers = @([ordered]@{
+                shortcutPath = $normalShortcut; backupPath = "installer\other\$r12Hex.lnk"
+                originalSha256 = ('B' * 64); managedSha256 = ('C' * 64); root = $root53; variant = "normal"; status = "active"
+            })
+        } | ConvertTo-Json -Depth 8 -Compress), (New-Object System.Text.UTF8Encoding($false)))
+        $r12RelocatedRead = Read-CubismInstallationState -StatePath $statePath
+        Assert-ManagedLaunch (-not $r12RelocatedRead.Valid -and $r12RelocatedRead.Error -match 'outside an allowed boundary') "state reader rejects a home-confined relocated backup record"
+
+        # R12: a forced publication failure after the pending takeover record is
+        # durable must preserve state, backup, and the current shortcut. The
+        # Publish-CubismStagedShortcut override is captured, installed via
+        # Set-Item Function:, and restored in the finally path below.
+        $r12Home = Join-Path $temp "r12 failure home"
+        $r12State = Join-Path $r12Home "cubism-installations.json"
+        New-Item -ItemType Directory -Path $r12Home -Force | Out-Null
+        $r12ShortcutRoot = Join-Path $userRoots[0] ("Turboism r12 fixture " + [guid]::NewGuid().ToString("N"))
+        New-Item -ItemType Directory -Path $r12ShortcutRoot -Force | Out-Null
+        $r12Shortcut = Join-Path $r12ShortcutRoot "Cubism Normal.lnk"
+        New-TestShortcut -Path $r12Shortcut -Target $bat
+        $r12OriginalHash = (Get-FileHash -LiteralPath $r12Shortcut -Algorithm SHA256).Hash
+        $r12Candidates = @($candidates | ForEach-Object {
+            [pscustomobject]@{
+                CanonicalRoot = $_.CanonicalRoot; Version = $_.Version
+                Selected = $_.CanonicalRoot -eq (ConvertTo-CubismCanonicalRoot $root53); Selectable = $_.Selectable
+                OfficialBat = $_.OfficialBat; D3DBat = $_.D3DBat
+            }
+        })
+        Write-CubismInstallationState -StatePath $r12State -Candidates $r12Candidates
+        $r12SavedPublish = (Get-Item Function:Publish-CubismStagedShortcut).ScriptBlock
+        $r12PublishThrew = $false
+        try {
+            Set-Item Function:Publish-CubismStagedShortcut -Value { throw "forced publication failure after pending state" }
+            try { [void](Invoke-CubismLaunchConfiguration -Home $r12Home -StatePath $r12State -Candidates $r12Candidates -LaunchMode "takeover" -ShortcutDirectory $r12ShortcutRoot) } catch { $r12PublishThrew = $true }
+            Assert-ManagedLaunch $r12PublishThrew "publication failure after durable pending state fails closed"
+            $r12StateAfter = Read-CubismInstallationState -StatePath $r12State
+            Assert-ManagedLaunch ($r12StateAfter.Valid -and @($r12StateAfter.ShortcutTakeovers).Count -eq 1 -and $r12StateAfter.ShortcutTakeovers[0].Status -eq "pending") "pending takeover record survives the publication failure"
+            Assert-ManagedLaunch ($r12StateAfter.ShortcutTakeovers[0].BackupPath -match '^installer[\\/]shortcut-backups[\\/][0-9A-Fa-f]{64}\.lnk$') "pending record keeps a confined backup path"
+            $r12BackupDir = Join-Path $r12Home "installer\shortcut-backups"
+            $r12Backups = @(Get-ChildItem -LiteralPath $r12BackupDir -Filter *.lnk -File -ErrorAction SilentlyContinue)
+            Assert-ManagedLaunch ($r12Backups.Count -eq 1) "newly-created backup survives the publication failure"
+            Assert-ManagedLaunch ((Get-FileHash -LiteralPath $r12Shortcut -Algorithm SHA256).Hash -eq $r12OriginalHash) "original shortcut survives the publication failure"
+            Assert-ManagedLaunch ($r12Backups.Count -eq 1 -and (Get-CubismSha256 $r12Backups[0].FullName) -eq $r12OriginalHash) "surviving backup holds the exact original bytes"
+            Assert-ManagedLaunch (@(Get-ChildItem -LiteralPath $r12ShortcutRoot -Force -Filter ".turboism-*").Count -eq 0) "staged temporary shortcut is removed after the forced failure"
+        }
+        finally {
+            Set-Item Function:Publish-CubismStagedShortcut -Value $r12SavedPublish
+            Remove-Item -LiteralPath $r12ShortcutRoot -Recurse -Force -ErrorAction SilentlyContinue
+            Remove-Item -LiteralPath $r12Home -Recurse -Force -ErrorAction SilentlyContinue
+        }
+        Assert-ManagedLaunch ((Get-Item Function:Publish-CubismStagedShortcut).ScriptBlock.ToString() -eq $r12SavedPublish.ToString()) "production publication helper is restored"
+        Assert-ManagedLaunch ((-not (Test-Path -LiteralPath $r12ShortcutRoot)) -and (-not (Test-Path -LiteralPath $r12Home))) "R12 fixture and override cleanup is deterministic"
         Remove-Item -LiteralPath $fixtureShortcutRoot -Recurse -Force -ErrorAction SilentlyContinue
     }
 
