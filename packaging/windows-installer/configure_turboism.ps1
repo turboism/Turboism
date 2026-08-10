@@ -109,9 +109,12 @@ if ($null -ne $existingConfig -and $existingConfig.disabledPlugins) { $existingD
 $state = Read-CubismInstallationState -StatePath $statePath
 $stateInstallations = @($state.Installations)
 $manualRoots = @()
+$script:automaticRootKeys = @()
 function Refresh-CubismCandidates {
     $savedRoots = @($stateInstallations | ForEach-Object { $_.Root })
-    $roots = Get-CubismDiscoveryRoots -SavedRoots $savedRoots -ManualRoots $manualRoots
+    $discovery = Get-CubismDiscoveryRoots -SavedRoots $savedRoots -ManualRoots $manualRoots -IncludeMetadata
+    $script:automaticRootKeys = @($discovery.AutomaticRootKeys)
+    $roots = @($discovery.Roots)
     $found = Get-CubismInstallations -Roots $roots
     return @(Merge-CubismSelection -Candidates $found -SavedInstallations $stateInstallations)
 }
@@ -239,27 +242,11 @@ $addButton.Add_Click({
 $removeButton.Add_Click({
     if ($cubismList.SelectedIndices.Count -eq 0) { $statusLabel.Text = $S.RemovePrompt; return }
     $removeKeys = @($cubismList.SelectedIndices | ForEach-Object { $candidates[$_].Key })
-    $remaining = New-Object System.Collections.Generic.List[object]
-    foreach ($candidate in @($candidates)) {
-        if ($removeKeys -contains $candidate.Key) {
-            $isManual = @($manualRoots | Where-Object { (Get-CubismRootKey $_) -eq $candidate.Key }).Count -gt 0
-            if (-not $isManual -and $candidate.Selectable) {
-                # Auto-discovered usable candidates stay visible but become a saved
-                # deselection, so the next scan cannot silently re-enable them.
-                $candidate.Selected = $false
-            }
-            else { continue }
-        }
-        [void]$remaining.Add($candidate)
-    }
-    $candidates = @($remaining)
-    $stateInstallations = @($stateInstallations | Where-Object { $removeKeys -notcontains (Get-CubismRootKey $_.Root) })
-    foreach ($candidate in @($candidates)) {
-        $existing = @($stateInstallations | Where-Object { (Get-CubismRootKey $_.Root) -eq $candidate.Key })
-        if ($existing.Count -gt 0) { $existing[0].Selected = [bool]$candidate.Selected }
-        elseif ($candidate.Selectable) { $stateInstallations += [pscustomobject]@{ Root = $candidate.CanonicalRoot; Version = $candidate.Version; Selected = [bool]$candidate.Selected } }
-    }
-    $manualRoots = @($manualRoots | Where-Object { $removeKeys -notcontains (Get-CubismRootKey $_) })
+    $removed = Remove-CubismCandidateEntries -Candidates $candidates -RemoveKeys $removeKeys `
+        -StateInstallations $stateInstallations -ManualRoots $manualRoots -AutomaticRootKeys $script:automaticRootKeys
+    $candidates = @($removed.Candidates)
+    $stateInstallations = @($removed.StateInstallations)
+    $manualRoots = @($removed.ManualRoots)
     Render-CubismCandidates
 })
 
