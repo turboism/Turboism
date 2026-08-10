@@ -62,6 +62,7 @@ val installerTemplateFiles = listOf(
     "packaging/windows-installer/launch-cubism-turboism.bat",
     "packaging/windows-installer/launch-cubism-turboism.ps1",
     "packaging/windows-installer/configure_turboism.ps1",
+    "packaging/windows-installer/cubism-launch-common.ps1",
     "packaging/java-installer/uninstall.command",
     "packaging/java-installer/README.java-installer.txt"
 )
@@ -139,6 +140,7 @@ val stageInstallerPayload by tasks.registering {
             from("packaging/windows-installer/launch-cubism-turboism.bat")
             from("packaging/windows-installer/launch-cubism-turboism.ps1")
             from("packaging/windows-installer/configure_turboism.ps1")
+            from("packaging/windows-installer/cubism-launch-common.ps1")
             from("packaging/java-installer/uninstall.command")
             from("packaging/java-installer/README.java-installer.txt")
             into(stage)
