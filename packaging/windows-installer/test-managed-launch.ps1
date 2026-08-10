@@ -46,34 +46,54 @@ function New-SyntheticCubism {
 
 try {
     [System.IO.File]::WriteAllBytes((Join-Path $home "turboism-agent.jar"), [byte[]](9, 8, 7, 6))
-    $root52 = New-SyntheticCubism -Name "fixture alpha" -Version "5.2.03"
-    $root53 = New-SyntheticCubism -Name "fixture beta 空" -Version "5.3.02" -D3D $true
-    $root53DuplicateVersion = New-SyntheticCubism -Name "fixture gamma" -Version "5.3.02"
+    $root52 = New-SyntheticCubism -Name "Live2D" -Version "5.2"
+    $root53 = New-SyntheticCubism -Name "Live2D" -Version "5.3" -D3D $true
+    $root53DuplicateVersion = New-SyntheticCubism -Name "Live2D" -Version "5.3.02"
+    $newSupported = New-SyntheticCubism -Name "Live2D" -Version "5.3.01"
     $unsupported = New-SyntheticCubism -Name "fixture unsupported" -Version "5.4.00"
 
     # Keep the fixture hermetic: candidate inventory receives only synthetic roots.
     $roots = @($root53, $root52, $root53.ToUpperInvariant(), $root53DuplicateVersion)
     $candidates = Get-CubismInstallations -Roots $roots
-    Assert-ManagedLaunch (@($candidates).Count -eq 3) "case-insensitive root dedupe keeps two 5.3.02 installs"
-    Assert-ManagedLaunch (@($candidates | Where-Object { $_.Selectable }).Count -eq 3) "synthetic 5.2.03 and 5.3.02 roots pass file-shape checks"
-    Assert-ManagedLaunch ($candidates[0].Version -eq "5.2.03" -and $candidates[1].Version -eq "5.3.02") "inventory order is version then canonical path"
+    Assert-ManagedLaunch (@($candidates).Count -eq 3) "case-insensitive root dedupe keeps two 5.3 family installs"
+    Assert-ManagedLaunch (@($candidates | Where-Object { $_.Selectable }).Count -eq 3) "synthetic unsuffixed 5.2 and 5.3 family roots pass file-shape checks"
+    Assert-ManagedLaunch ($candidates[0].Version -eq "5.2" -and $candidates[1].Version -eq "5.3") "inventory order is family version then canonical path"
     Assert-ManagedLaunch (($candidates | Where-Object { $_.D3DBat }).Count -eq 1) "D3D BAT is an optional separately named entry"
 
     $initial = Merge-CubismSelection -Candidates $candidates -SavedInstallations @()
     Assert-ManagedLaunch (@($initial | Where-Object { -not $_.Selected }).Count -eq 0) "initial supported inventory is all-selected"
     $initial[1].Selected = $false
     Write-CubismInstallationState -StatePath (Join-Path $home "cubism-installations.json") -Candidates $initial
-    $saved = Read-CubismInstallationState -StatePath (Join-Path $home "cubism-installations.json")
-    Assert-ManagedLaunch (@($saved.Installations | Where-Object { $_.Root -eq (ConvertTo-CubismCanonicalRoot $root53) }).Count -eq 1) "Unicode installation root round-trips through state"
+    $statePath = Join-Path $home "cubism-installations.json"
+    $saved = Read-CubismInstallationState -StatePath $statePath
+    Assert-ManagedLaunch ($saved.Valid -and @($saved.Installations).Count -eq 3) "bounded state round-trips three installation entries"
+    Assert-ManagedLaunch (@($saved.Installations | Where-Object { $_.Root -eq (ConvertTo-CubismCanonicalRoot $root53) }).Count -eq 1) "family installation root round-trips through state"
+    Set-Content -LiteralPath $statePath -Value '{"format":"turboism.cubism.installation-state","schemaVersion":1,"installations":[]' -Encoding ASCII
+    $malformedState = Read-CubismInstallationState -StatePath $statePath
+    Assert-ManagedLaunch (-not $malformedState.Valid -and @($malformedState.ManagedShortcuts).Count -eq 0) "malformed state fails closed without shortcut authority"
+    [System.IO.File]::WriteAllBytes($statePath, [byte[]](New-Object byte[] 65537))
+    $oversizedState = Read-CubismInstallationState -StatePath $statePath
+    Assert-ManagedLaunch (-not $oversizedState.Valid) "oversized state is rejected before parsing"
+    Write-CubismInstallationState -StatePath $statePath -Candidates $initial
+    $beforeWriteCap = (Get-FileHash -LiteralPath $statePath -Algorithm SHA256).Hash
+    $writeCapCandidates = @(0..255 | ForEach-Object {
+        [pscustomobject]@{ CanonicalRoot = "C:\Turboism-write-cap-$($_)-$('x' * 220)"; Version = "5.3"; Selected = $true }
+    })
+    $writeCapThrew = $false
+    try { Write-CubismInstallationState -StatePath $statePath -Candidates $writeCapCandidates } catch { $writeCapThrew = $true }
+    Assert-ManagedLaunch ($writeCapThrew) "state writer rejects the UTF-8 byte cap"
+    Assert-ManagedLaunch ((Get-FileHash -LiteralPath $statePath -Algorithm SHA256).Hash -eq $beforeWriteCap) "failed state write preserves prior ownership state"
+    $saved = Read-CubismInstallationState -StatePath $statePath
     $savedRoots = @($saved.Installations | ForEach-Object { $_.Root })
-    $withNewRoots = @($savedRoots + $root52 + $root53 + $root53DuplicateVersion + $unsupported)
+    $withNewRoots = @($savedRoots + $root52 + $root53 + $root53DuplicateVersion + $newSupported + $unsupported)
     $withNew = Get-CubismInstallations -Roots $withNewRoots
     $merged = Merge-CubismSelection -Candidates $withNew -SavedInstallations $saved.Installations
     Assert-ManagedLaunch (@($merged | Where-Object { $_.CanonicalRoot -eq (ConvertTo-CubismCanonicalRoot $root53) -and $_.Selected }).Count -eq 0) "saved deselection is preserved"
+    Assert-ManagedLaunch (@($merged | Where-Object { $_.CanonicalRoot -eq (ConvertTo-CubismCanonicalRoot $newSupported) -and $_.Selected }).Count -eq 1) "truly new supported candidate defaults selected"
     Assert-ManagedLaunch (@($merged | Where-Object { $_.CanonicalRoot -eq (ConvertTo-CubismCanonicalRoot $unsupported) -and $_.Selected }).Count -eq 0) "unsupported candidate is never selected"
 
     $badCandidate = New-CubismInstallationCandidate -Root $unsupported
-    Assert-ManagedLaunch (-not $badCandidate.Selectable -and $badCandidate.Status -eq "Unsupported") "unsupported exact-version candidate fails closed"
+    Assert-ManagedLaunch (-not $badCandidate.Selectable -and $badCandidate.Status -eq "Unsupported") "unsupported family candidate fails closed"
 
     $shortcutDir = Join-Path $temp "Start Menu\Turboism"
     $managedShortcut = Join-Path $shortcutDir (Get-CubismShortcutName $candidates[0])
@@ -84,9 +104,21 @@ try {
     Set-Content -LiteralPath $managedShortcut -Value "managed" -Encoding ASCII
     Set-Content -LiteralPath $unrelatedShortcut -Value "configure" -Encoding ASCII
     Set-Content -LiteralPath $outsideShortcut -Value "outside" -Encoding ASCII
-    Remove-CubismManagedShortcuts -Paths @($managedShortcut, $unrelatedShortcut, $outsideShortcut) -Directory $shortcutDir
+    $failedShortcutCleanup = @(Remove-CubismManagedShortcuts -Paths @($managedShortcut, $unrelatedShortcut, $outsideShortcut) -Directory $shortcutDir)
+    Assert-ManagedLaunch ($failedShortcutCleanup.Count -eq 0) "owned shortcut cleanup reports no failure"
     Assert-ManagedLaunch (-not (Test-Path -LiteralPath $managedShortcut)) "stale managed shortcut is removed"
     Assert-ManagedLaunch ((Test-Path -LiteralPath $unrelatedShortcut) -and (Test-Path -LiteralPath $outsideShortcut)) "shortcut cleanup is confined to owned entries"
+
+    $comShortcut = $null
+    try {
+        $comShortcut = New-CubismManagedShortcut -Home $home -Candidate $candidates[0] -Variant "normal" -ShortcutDirectory $shortcutDir
+        Assert-ManagedLaunch (Test-Path -LiteralPath $comShortcut -PathType Leaf) "COM creates a real managed .lnk in the bounded directory"
+        Assert-ManagedLaunch (@(Remove-CubismManagedShortcuts -Paths @($comShortcut) -Directory $shortcutDir).Count -eq 0) "COM-created shortcut is removed through the same ownership guard"
+    }
+    catch {
+        if ($env:OS -eq "Windows_NT") { throw }
+        Write-Host "ok: COM shortcut workflow not available on this host"
+    }
 
     $bat = Join-Path $root53 "CubismEditor5.bat"
     $d3dBat = Join-Path $root53 "CubismEditor5_D3D.bat"
@@ -99,8 +131,8 @@ try {
     $env:TURBOISM_TEST_OUTPUT = $marker
     $oldJdk = $env:JDK_JAVA_OPTIONS
     $oldTool = $env:JAVA_TOOL_OPTIONS
-    $env:JDK_JAVA_OPTIONS = '-Xmx192m -javaagent:old-turboism-agent.jar'
-    $env:JAVA_TOOL_OPTIONS = '-Dfile.encoding=UTF-8'
+    $env:JDK_JAVA_OPTIONS = '-Xmx192m -javaagent:old-turboism-agent.jar -Dturboism.home=old-home --add-exports=java.base.jdk.internal.org.objectweb.asm=ALL-UNNAMED --add-exports=java.base.jdk.internal.org.objectweb.asm.commons=ALL-UNNAMED'
+    $env:JAVA_TOOL_OPTIONS = '-Dfile.encoding=UTF-8 -javaagent:old-turboism-agent.jar -Dturboism.home=old-home --add-exports=java.base.jdk.internal.org.objectweb.asm=ALL-UNNAMED'
     try {
         $exitCode = Invoke-CubismOfficialBat -OfficialBat $bat -CubismRoot $root53 -Home $home -Agent $agent -Arguments @("fixture argument")
         Assert-ManagedLaunch ($exitCode -eq 23) "official normal BAT exit code is propagated"
@@ -109,10 +141,17 @@ try {
         Assert-ManagedLaunch (([regex]::Matches($markerText, '-javaagent:')).Count -eq 1) "Turboism agent is attached exactly once"
         Assert-ManagedLaunch ($markerText -match '-javaagent:.*turboism-agent\.jar') "current Turboism agent is inherited"
         Assert-ManagedLaunch ($markerText -notmatch 'old-turboism-agent\.jar') "stale Turboism agent is removed"
-        Assert-ManagedLaunch ((Get-Content -LiteralPath $marker -Raw) -match '--add-exports=java.base.jdk.internal.org.objectweb.asm.commons=ALL-UNNAMED') "required ASM exports are inherited"
+        Assert-ManagedLaunch (([regex]::Matches($markerText, '--add-exports=java.base.jdk.internal.org.objectweb.asm=ALL-UNNAMED')).Count -eq 1) "base ASM export is attached exactly once"
+        Assert-ManagedLaunch (([regex]::Matches($markerText, '--add-exports=java.base.jdk.internal.org.objectweb.asm.commons=ALL-UNNAMED')).Count -eq 1) "commons ASM export is attached exactly once"
+        Assert-ManagedLaunch ($markerText -notmatch 'old-home') "stale Turboism home option is removed"
         Assert-ManagedLaunch ((Get-Content -LiteralPath $marker -Raw) -match '-Xmx192m') "unrelated pre-existing JVM option is preserved"
-        Assert-ManagedLaunch ($markerText -match 'TOOL=-Dfile.encoding=UTF-8') "unrelated tool JVM option is preserved"
+        Assert-ManagedLaunch ($markerText -match 'TOOL=-Dfile.encoding=UTF-8' -and $markerText -notmatch 'TOOL=.*old-turboism-agent') "unrelated tool JVM option is preserved and stale attachment is removed"
         Assert-ManagedLaunch ((Get-Content -LiteralPath $marker -Raw) -match 'ARG1=fixture argument') "arguments with spaces reach the official BAT"
+        $env:JDK_JAVA_OPTIONS = '-Xmx1 "unmatched'
+        $malformedThrew = $false
+        try { [void](Invoke-CubismOfficialBat -OfficialBat $bat -CubismRoot $root53 -Home $home -Agent $agent) } catch { $malformedThrew = $true }
+        Assert-ManagedLaunch $malformedThrew "unsupported JVM quoting fails closed"
+        Assert-ManagedLaunch ($env:JDK_JAVA_OPTIONS -eq '-Xmx1 "unmatched') "failed launch restores malformed parent options"
     }
     finally {
         if ($null -eq $oldJdk) { Remove-Item Env:JDK_JAVA_OPTIONS -ErrorAction SilentlyContinue } else { $env:JDK_JAVA_OPTIONS = $oldJdk }
@@ -131,6 +170,24 @@ try {
     $process = Start-Process -FilePath $ps -ArgumentList $launchArgs -Wait -PassThru -NoNewWindow
     Assert-ManagedLaunch ($process.ExitCode -eq 23) "launcher selects and invokes the explicit D3D BAT"
     Assert-ManagedLaunch ((Get-Content -LiteralPath $marker -Raw) -match 'D3D=1') "D3D launcher entry is distinct"
+
+    $genericArgs = '-NoProfile -ExecutionPolicy Bypass -File "{0}" -Home "{1}" -ProbeOnly' -f $launcher, $home
+    $genericInfo = New-Object System.Diagnostics.ProcessStartInfo
+    $genericInfo.FileName = $ps
+    $genericInfo.Arguments = $genericArgs
+    $genericInfo.UseShellExecute = $false
+    $genericInfo.RedirectStandardInput = $true
+    $genericInfo.RedirectStandardOutput = $true
+    $genericInfo.RedirectStandardError = $true
+    $generic = New-Object System.Diagnostics.Process
+    $generic.StartInfo = $genericInfo
+    [void]$generic.Start()
+    $generic.StandardInput.WriteLine("2")
+    $generic.StandardInput.Close()
+    $genericOutput = $generic.StandardOutput.ReadToEnd()
+    [void]$generic.StandardError.ReadToEnd()
+    $generic.WaitForExit()
+    Assert-ManagedLaunch ($generic.ExitCode -eq 0 -and $genericOutput -match [regex]::Escape((ConvertTo-CubismCanonicalRoot $root53DuplicateVersion))) "multiple-selected generic launch requires an explicit choice"
 
     $badArgs = '-NoProfile -ExecutionPolicy Bypass -File "{0}" -Home "{1}" -CubismRoot "{2}" -ProbeOnly' -f $launcher, $home, $unsupported
     $badProcess = Start-Process -FilePath $ps -ArgumentList $badArgs -Wait -PassThru -NoNewWindow
