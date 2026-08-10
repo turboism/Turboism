@@ -542,7 +542,7 @@ Section "Uninstall"
   Delete "$INSTDIR\launch-cubism-turboism.ps1"
   Delete "$INSTDIR\cubism-launch-common.ps1"
   Delete "$INSTDIR\configure_turboism.ps1"
-  Delete "$INSTDIR\cubism-installations.json"
+  ; The configurator removes managed state only after validated shortcut cleanup.
   Delete "$INSTDIR\README*.txt"
   Delete "$INSTDIR\LICENSE.txt"
   Delete "$INSTDIR\uninstall.exe"

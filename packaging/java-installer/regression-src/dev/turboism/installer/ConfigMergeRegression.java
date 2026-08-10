@@ -41,6 +41,7 @@ public final class ConfigMergeRegression {
         sizeBoundary();
         concurrentGrowth();
         atomicReplacement();
+        managedStateCleanup();
         System.out.println("ConfigMergeRegression: all checks passed");
     }
 
@@ -283,6 +284,51 @@ public final class ConfigMergeRegression {
                     text.contains("\"format\":\"turboism.runtime.config\""));
             Map<String, Object> reloaded = ConfigMerge.loadExisting(dir);
             check("replaced config reloads as canonical v1", reloaded != null);
+        } finally {
+            deleteTree(dir);
+        }
+    }
+
+    /** R5.4: bounded managed shortcut cleanup and fail-closed path ownership. */
+    private static void managedStateCleanup() throws Exception {
+        Path dir = Files.createTempDirectory("cubism-managed-state-");
+        Path shortcutDir = dir.resolve("Start Menu/Programs/Turboism");
+        Path outsideDir = dir.resolve("outside");
+        Path home = dir.resolve("home");
+        Path cubismRoot = dir.resolve("cubism-root");
+        Files.createDirectories(shortcutDir);
+        Files.createDirectories(outsideDir);
+        Files.createDirectories(home);
+        Files.createDirectories(cubismRoot);
+        Path managed = shortcutDir.resolve("Turboism Cubism 5.2 [fixture-A1B2C3D4E5F6].lnk");
+        Path unrelated = shortcutDir.resolve("Turboism Configurator.lnk");
+        Path outside = outsideDir.resolve("Turboism Cubism 5.2 [outside-A1B2C3D4E5F6].lnk");
+        Files.writeString(managed, "managed", StandardCharsets.UTF_8);
+        Files.writeString(unrelated, "unrelated", StandardCharsets.UTF_8);
+        Files.writeString(outside, "outside", StandardCharsets.UTF_8);
+        Files.writeString(cubismRoot.resolve("sentinel.txt"), "unchanged", StandardCharsets.UTF_8);
+        try {
+            String valid = "{\"format\":\"turboism.cubism.installation-state\",\"schemaVersion\":1,"
+                    + "\"installations\":[{\"root\":\"" + cubismRoot + "\",\"version\":\"5.2\",\"selected\":true}],"
+                    + "\"managedShortcuts\":[\"" + managed + "\"]}";
+            Files.writeString(home.resolve(ConfigMerge.INSTALLATION_STATE_FILE), valid, StandardCharsets.UTF_8);
+            check("managed state cleanup removes owned shortcut", ConfigMerge.cleanupManagedState(home, shortcutDir));
+            check("managed shortcut removed", !Files.exists(managed));
+            check("unrelated shortcut preserved", Files.exists(unrelated));
+            check("outside shortcut preserved", Files.exists(outside));
+            check("valid managed state removed", !Files.exists(home.resolve(ConfigMerge.INSTALLATION_STATE_FILE)));
+            check("cleanup never writes Cubism root", Files.readString(cubismRoot.resolve("sentinel.txt")).equals("unchanged"));
+
+            Files.writeString(managed, "managed", StandardCharsets.UTF_8);
+            String relocated = shortcutDir.resolve("../outside/Turboism Cubism 5.2 [outside-A1B2C3D4E5F6].lnk").toString();
+            String escapedPath = relocated.replace("/", "\\/");
+            String escaped = "{\"format\":\"turboism.cubism.installation-state\",\"schemaVersion\":1,"
+                    + "\"installations\":[],\"managedShortcuts\":[\"" + escapedPath + "\"]}";
+            Files.writeString(home.resolve(ConfigMerge.INSTALLATION_STATE_FILE), escaped, StandardCharsets.UTF_8);
+            check("relocated shortcut state fails closed", !ConfigMerge.cleanupManagedState(home, shortcutDir));
+            check("malformed ownership preserves managed shortcut", Files.exists(managed));
+            check("malformed state is not deleted", Files.exists(home.resolve(ConfigMerge.INSTALLATION_STATE_FILE)));
+            check("malformed cleanup preserves unrelated shortcut", Files.exists(unrelated));
         } finally {
             deleteTree(dir);
         }
