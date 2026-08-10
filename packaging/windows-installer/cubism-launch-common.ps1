@@ -755,16 +755,51 @@ function Get-CubismShortcutTarget {
 
 function Test-CubismConfinedBackupPath {
     param([string]$Home, [string]$RelativePath)
-    if ([string]::IsNullOrWhiteSpace($Home) -or [string]::IsNullOrWhiteSpace($RelativePath) -or [System.IO.Path]::IsPathRooted($RelativePath)) { return $false }
+    # R12: only the exact relative name installer/shortcut-backups/<64-hex>.lnk
+    # (either normal slash spelling) is admitted. Absolute paths, traversal,
+    # nesting, alternate names, and alternate locations below home are rejected.
+    if ([string]::IsNullOrWhiteSpace($Home) -or [string]::IsNullOrWhiteSpace($RelativePath)) { return $false }
     try {
+        if ([System.IO.Path]::IsPathRooted($RelativePath)) { return $false }
+        $parts = $RelativePath.Replace('/', '\').Split([char]'\')
+        if ($parts.Count -ne 3) { return $false }
+        if ($parts[0] -ine "installer" -or $parts[1] -ine "shortcut-backups") { return $false }
+        if ($parts[2] -notmatch '^[0-9A-Fa-f]{64}\.lnk$') { return $false }
         $homeFull = [System.IO.Path]::GetFullPath($Home).TrimEnd('\', '/')
-        $full = [System.IO.Path]::GetFullPath((Join-Path $homeFull $RelativePath))
+        $full = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($homeFull, $parts[0], $parts[1], $parts[2]))
         $prefix = $homeFull + [System.IO.Path]::DirectorySeparatorChar
-        return $full.StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase) -and
-            [System.IO.Path]::GetExtension($full) -ieq ".lnk" -and
-            ($RelativePath -notmatch '(^|[\\/])\.\.([\\/]|$)')
+        return $full.StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase)
     }
     catch { return $false }
+}
+
+function Test-CubismBackupChain {
+    param([string]$Home)
+    # R12: the real Home -> installer -> shortcut-backups directory chain must be
+    # normal non-reparse directories immediately before any backup use.
+    try {
+        $homeFull = [System.IO.Path]::GetFullPath($Home)
+        foreach ($path in @(
+            $homeFull,
+            [System.IO.Path]::Combine($homeFull, "installer"),
+            [System.IO.Path]::Combine($homeFull, "installer", "shortcut-backups")
+        )) {
+            if (-not (Test-CubismNormalDirectory $path)) { return $false }
+        }
+        return $true
+    }
+    catch { return $false }
+}
+
+function Get-CubismResolvedBackupPath {
+    param([string]$Home, [string]$RelativePath)
+    # R12: exact-name confinement plus the normal non-reparse directory chain
+    # are revalidated immediately before a backup read/restore/delete.
+    if (-not (Test-CubismConfinedBackupPath -Home $Home -RelativePath $RelativePath)) { throw "shortcut backup path is outside the confined backup directory: $RelativePath" }
+    if (-not (Test-CubismBackupChain $Home)) { throw "shortcut backup directory chain is not a normal directory chain: $Home" }
+    $homeFull = [System.IO.Path]::GetFullPath($Home)
+    $parts = $RelativePath.Replace('/', '\').Split([char]'\')
+    return [System.IO.Path]::Combine($homeFull, $parts[0], $parts[1], $parts[2])
 }
 
 function Get-CubismBackupDirectory {
@@ -789,8 +824,8 @@ function Get-CubismBackupPathForShortcut {
 
 function Get-CubismBackupBytes {
     param([string]$Home)
+    if (-not (Test-CubismBackupChain $Home)) { throw "shortcut backup directory chain is not a normal directory chain: $Home" }
     $directory = Join-Path (Join-Path $Home "installer") "shortcut-backups"
-    if (-not (Test-CubismNormalDirectory $directory)) { return 0L }
     $bytes = 0L
     foreach ($item in @(Get-ChildItem -LiteralPath $directory -Filter *.lnk -File -Force -ErrorAction SilentlyContinue)) {
         if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) { throw "shortcut backup is a reparse point" }
@@ -951,27 +986,33 @@ function Restore-CubismTakeoverRecords {
     param([string]$Home, [object[]]$Records = @())
     $plans = New-Object System.Collections.Generic.List[object]
     foreach ($record in @($Records)) {
-        $backup = Join-Path $Home $record.BackupPath
+        $backup = Get-CubismResolvedBackupPath -Home $Home -RelativePath $record.BackupPath
         $currentExists = Test-Path -LiteralPath $record.ShortcutPath
         if ($currentExists -and -not (Test-CubismNormalFile $record.ShortcutPath)) { throw "shortcut takeover target is not a normal file: $($record.ShortcutPath)" }
         $currentHash = if ($currentExists) { Get-CubismSha256 $record.ShortcutPath } else { $null }
         if ($null -eq $currentHash -or $currentHash -eq $record.ManagedSha256) {
             if (-not (Test-CubismNormalFile $backup)) { throw "shortcut takeover backup is missing: $backup" }
             if ((Get-CubismSha256 $backup) -ine $record.OriginalSha256) { throw "shortcut takeover backup hash conflict: $backup" }
-            [void]$plans.Add([pscustomobject]@{ Record = $record; Backup = $backup; Restore = $true })
+            [void]$plans.Add([pscustomobject]@{ Record = $record; Restore = $true })
         }
         elseif ($currentHash -eq $record.OriginalSha256) {
             if (Test-Path -LiteralPath $backup -PathType Leaf -and (Get-CubismSha256 $backup) -ine $record.OriginalSha256) { throw "shortcut takeover backup hash conflict: $backup" }
-            [void]$plans.Add([pscustomobject]@{ Record = $record; Backup = $backup; Restore = $false })
+            [void]$plans.Add([pscustomobject]@{ Record = $record; Restore = $false })
         }
         else { throw "shortcut takeover conflict: $($record.ShortcutPath)" }
     }
     foreach ($plan in @($plans | Where-Object { $_.Restore })) {
+        # R12: recompute the backup from the record identity and require a normal
+        # file with the original hash immediately before copy/publish; the cached
+        # preflight path is never copied.
+        $backup = Get-CubismResolvedBackupPath -Home $Home -RelativePath $plan.Record.BackupPath
+        if (-not (Test-CubismNormalFile $backup)) { throw "shortcut takeover backup is not a normal file: $backup" }
+        if ((Get-CubismSha256 $backup) -ine $plan.Record.OriginalSha256) { throw "shortcut takeover backup hash conflict: $backup" }
         $directory = Split-Path -Parent $plan.Record.ShortcutPath
         if (-not (Test-CubismNormalDirectory $directory)) { throw "shortcut takeover parent is not a normal directory" }
         $temporary = Join-Path $directory (".turboism-restore-" + [guid]::NewGuid().ToString("N") + ".lnk")
         try {
-            [System.IO.File]::Copy($plan.Backup, $temporary, $false)
+            [System.IO.File]::Copy($backup, $temporary, $false)
             [void](Publish-CubismStagedShortcut -Temporary $temporary -Path $plan.Record.ShortcutPath)
             if ((Get-CubismSha256 $plan.Record.ShortcutPath) -ine $plan.Record.OriginalSha256) { throw "shortcut restoration hash mismatch" }
         }
@@ -983,9 +1024,10 @@ function Restore-CubismTakeoverRecords {
 function Remove-CubismTakeoverBackups {
     param([string]$Home, [object[]]$Records = @())
     foreach ($record in @($Records)) {
-        $backup = Join-Path $Home $record.BackupPath
+        $backup = Get-CubismResolvedBackupPath -Home $Home -RelativePath $record.BackupPath
         if (Test-Path -LiteralPath $backup) {
             if (-not (Test-CubismNormalFile $backup)) { throw "shortcut backup is not a normal file" }
+            if ((Get-CubismSha256 $backup) -ine $record.OriginalSha256) { throw "shortcut backup hash conflict: $backup" }
             Remove-Item -LiteralPath $backup -Force -ErrorAction Stop
         }
     }
@@ -1045,6 +1087,7 @@ function Invoke-CubismLaunchConfiguration {
             $backupInfo = Get-CubismBackupPathForShortcut -Home $Home -ShortcutPath $original
             $backup = $backupInfo.Full
             $newBackup = $false
+            $pendingPublished = $false
             try {
                 $backupBytes = Get-CubismBackupBytes -Home $Home
                 if ($backupBytes -gt 8MB) { throw "shortcut backup byte cap exceeded" }
@@ -1069,6 +1112,7 @@ function Invoke-CubismLaunchConfiguration {
                 $pending = [pscustomobject]@{ ShortcutPath = $original; BackupPath = $backupInfo.Relative; OriginalSha256 = $originalHash; ManagedSha256 = $staged.Hash; Root = $match.Candidate.CanonicalRoot; Variant = $match.Variant; Status = "pending" }
                 [void]$records.Add($pending)
                 Write-CubismInstallationState -StatePath $StatePath -Candidates $Candidates -ManagedShortcuts @($newShortcuts) -ManagedShortcutHashes @($newHashes) -ShortcutTakeovers @($records) -LaunchMode "takeover"
+                $pendingPublished = $true
                 try { [void](Publish-CubismStagedShortcut -Temporary $staged.Temporary -Path $original) }
                 finally { if (Test-Path -LiteralPath $staged.Temporary -PathType Leaf) { Remove-Item -LiteralPath $staged.Temporary -Force -ErrorAction SilentlyContinue } }
                 $pending.Status = "active"
@@ -1076,7 +1120,9 @@ function Invoke-CubismLaunchConfiguration {
                 Write-CubismInstallationState -StatePath $StatePath -Candidates $Candidates -ManagedShortcuts @($newShortcuts) -ManagedShortcutHashes @($newHashes) -ShortcutTakeovers @($records) -LaunchMode "takeover"
             }
             catch {
-                if ($newBackup -and (Test-Path -LiteralPath $backup -PathType Leaf)) { Remove-Item -LiteralPath $backup -Force -ErrorAction SilentlyContinue }
+                # A newly-created backup is removable only before the pending
+                # record has been published; afterwards the evidence must survive.
+                if ($newBackup -and -not $pendingPublished -and (Test-Path -LiteralPath $backup -PathType Leaf)) { Remove-Item -LiteralPath $backup -Force -ErrorAction SilentlyContinue }
                 throw
             }
         }

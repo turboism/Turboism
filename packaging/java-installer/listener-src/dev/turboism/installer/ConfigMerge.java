@@ -58,6 +58,8 @@ final class ConfigMerge {
     private static final Pattern MANAGED_SHORTCUT = Pattern.compile(
             "^Turboism Cubism 5\\.[23](?:\\.\\d+)? \\[[\\p{L}\\p{Nd}._ \\-]{1,48}-[0-9A-F]{12}\\](?: - D3D)?\\.lnk$",
             Pattern.CASE_INSENSITIVE);
+    private static final Pattern CONFINED_BACKUP = Pattern.compile(
+            "(?i)^installer[\\\\/]shortcut-backups[\\\\/][0-9a-f]{64}\\.lnk$");
 
     static final class ConfigException extends Exception {
         ConfigException(String message) {
@@ -188,6 +190,10 @@ final class ConfigMerge {
             ManagedState managed = readManagedState(state, home, directory);
             List<RestorePlan> plans = new ArrayList<>();
             long backupBytes = 0L;
+            // R12: revalidate the normal non-reparse backup chain before any read.
+            if (!managed.takeovers.isEmpty() && !isNormalBackupChain(home)) {
+                return false;
+            }
             for (Takeover takeover : managed.takeovers) {
                 Path target = Paths.get(takeover.shortcutPath).toAbsolutePath().normalize();
                 if (!isTakeoverShortcut(target, directory)) {
@@ -219,7 +225,7 @@ final class ConfigMerge {
                             || !sha256(backup).equalsIgnoreCase(takeover.originalSha256)) {
                         return false;
                     }
-                    plans.add(new RestorePlan(target, backup, true, takeover.originalSha256));
+                    plans.add(new RestorePlan(target, takeover.backupPath, true, takeover.originalSha256));
                 } else if (current.equalsIgnoreCase(takeover.originalSha256)) {
                     if (Files.exists(backup, LinkOption.NOFOLLOW_LINKS)
                             && (!Files.isRegularFile(backup, LinkOption.NOFOLLOW_LINKS)
@@ -227,7 +233,7 @@ final class ConfigMerge {
                             || !sha256(backup).equalsIgnoreCase(takeover.originalSha256))) {
                         return false;
                     }
-                    plans.add(new RestorePlan(target, backup, false, takeover.originalSha256));
+                    plans.add(new RestorePlan(target, takeover.backupPath, false, takeover.originalSha256));
                 } else {
                     // User-edited or foreign shortcut: do not touch state, backup,
                     // the shortcut, or the install home.
@@ -258,11 +264,26 @@ final class ConfigMerge {
                 }
             }
 
+            // R12: revalidate the normal backup chain immediately before restore.
+            if (!plans.isEmpty() && !isNormalBackupChain(home)) {
+                return false;
+            }
             for (RestorePlan plan : plans) {
                 if (!plan.restore) {
                     continue;
                 }
-                publishExactBytes(plan.backup, plan.target);
+                // R12: re-run exact-path resolution, chain validation, final
+                // normal non-link file validation and original hash validation
+                // immediately before every restore; never trust a cached path.
+                if (!isNormalBackupChain(home)) {
+                    return false;
+                }
+                Path backup = confinedBackup(home, plan.backupRelative);
+                if (Files.isSymbolicLink(backup) || !Files.isRegularFile(backup, LinkOption.NOFOLLOW_LINKS)
+                        || !sha256(backup).equalsIgnoreCase(plan.expected)) {
+                    return false;
+                }
+                publishExactBytes(backup, plan.target);
                 if (!sha256(plan.target).equalsIgnoreCase(plan.expected)) {
                     return false;
                 }
@@ -275,9 +296,25 @@ final class ConfigMerge {
                 Path shortcut = Paths.get(raw).toAbsolutePath().normalize();
                 Files.deleteIfExists(shortcut);
             }
+            // R12: revalidate the normal backup chain immediately before delete.
+            if (!managed.takeovers.isEmpty() && !isNormalBackupChain(home)) {
+                return false;
+            }
             for (Takeover takeover : managed.takeovers) {
+                // R12: re-run exact-path resolution and chain validation at
+                // deletion use time; when the backup is present it must be a
+                // normal non-link file holding the recorded original hash.
+                if (!isNormalBackupChain(home)) {
+                    return false;
+                }
                 Path backup = confinedBackup(home, takeover.backupPath);
-                Files.deleteIfExists(backup);
+                if (Files.exists(backup, LinkOption.NOFOLLOW_LINKS)) {
+                    if (Files.isSymbolicLink(backup) || !Files.isRegularFile(backup, LinkOption.NOFOLLOW_LINKS)
+                            || !sha256(backup).equalsIgnoreCase(takeover.originalSha256)) {
+                        return false;
+                    }
+                    Files.deleteIfExists(backup);
+                }
             }
             Files.deleteIfExists(state);
             return true;
@@ -338,13 +375,15 @@ final class ConfigMerge {
 
     private static final class RestorePlan {
         final Path target;
-        final Path backup;
+        // R12: only the relative backup identity is retained; a cached validated
+        // Path must not confer trust at restore time.
+        final String backupRelative;
         final boolean restore;
         final String expected;
 
-        RestorePlan(Path target, Path backup, boolean restore, String expected) {
+        RestorePlan(Path target, String backupRelative, boolean restore, String expected) {
             this.target = target;
-            this.backup = backup;
+            this.backupRelative = backupRelative;
             this.restore = restore;
             this.expected = expected;
         }
@@ -548,17 +587,44 @@ final class ConfigMerge {
         return false;
     }
 
+    /**
+     * R12: only the exact relative name installer/shortcut-backups/<64-hex>.lnk
+     * (either normal slash spelling) is admitted. Absolute paths, traversal,
+     * nesting, alternate names, and alternate locations below home are rejected.
+     * The path is rebuilt from the fixed parts with the platform separator, so
+     * cross-platform regression runs resolve the same layout deterministically.
+     */
     private static Path confinedBackup(Path home, String relative) throws ConfigException {
-        if (relative == null || relative.isBlank() || Paths.get(relative).isAbsolute() || relative.matches(".*(^|[\\\\/])\\.\\.([\\\\/]|$).*")) {
+        if (relative == null || !CONFINED_BACKUP.matcher(relative).matches()) {
             throw new ConfigException("invalid shortcut backup path");
         }
+        String[] parts = relative.replace('\\', '/').split("/");
         Path normalizedHome = home.toAbsolutePath().normalize();
-        Path path = normalizedHome.resolve(relative).normalize();
-        if (!path.startsWith(normalizedHome) || !path.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".lnk")) {
+        Path path = normalizedHome.resolve(parts[0]).resolve(parts[1]).resolve(parts[2]).normalize();
+        if (!path.startsWith(normalizedHome)) {
             throw new ConfigException("shortcut backup escapes Turboism home");
         }
         return path;
     }
+
+    /**
+     * R12: the real Home -> installer -> shortcut-backups directory chain must
+     * be normal non-reparse directories immediately before any backup use; a
+     * link anywhere in the chain (or a missing chain) fails closed.
+     */
+    private static boolean isNormalBackupChain(Path home) {
+        Path normalizedHome = home.toAbsolutePath().normalize();
+        Path installer = normalizedHome.resolve("installer").normalize();
+        Path backups = installer.resolve("shortcut-backups").normalize();
+        for (Path path : new Path[]{normalizedHome, installer, backups}) {
+            if (Files.isSymbolicLink(path) || !Files.exists(path, LinkOption.NOFOLLOW_LINKS)
+                    || !Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
 
     private static String sha256(Path path) throws IOException {
         try (java.io.InputStream input = Files.newInputStream(path, StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS)) {
