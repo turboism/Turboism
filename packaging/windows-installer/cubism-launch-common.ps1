@@ -879,7 +879,7 @@ function New-CubismManagedShortcutStaged {
     if (-not (Test-CubismNormalFile $scriptPath)) { throw "managed launcher is missing" }
     $quote = { param([string]$value) '"' + $value.Replace('"', '\"') + '"' }
     $arguments = "-NoProfile -ExecutionPolicy Bypass -File $(& $quote $scriptPath) -Home $(& $quote $TurboismHome) -CubismRoot $(& $quote $Candidate.CanonicalRoot)"
-    if ($Variant -eq "d3d") { $arguments += " -Variant d3d" }
+    if ($Variant -eq "d3d") { $arguments += " -Variant d3d" } else { $arguments += " -Variant normal" }
     $temporary = Join-Path $directory (".turboism-" + [guid]::NewGuid().ToString("N") + ".lnk")
     $shell = $null; $shortcut = $null
     try {
