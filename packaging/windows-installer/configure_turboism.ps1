@@ -21,8 +21,10 @@ $pluginDir = Join-Path $turboismHome "plugins"
 
 if ($Cleanup) {
     $state = Read-CubismInstallationState -StatePath $statePath
-    Remove-CubismManagedShortcuts -Paths $state.ManagedShortcuts
-    if (Test-Path -LiteralPath $statePath -PathType Leaf) { Remove-Item -LiteralPath $statePath -Force -ErrorAction SilentlyContinue }
+    if (-not $state.Valid) { throw "Refusing shortcut cleanup because managed state is invalid: $($state.Error)" }
+    $failed = @(Remove-CubismManagedShortcuts -Paths $state.ManagedShortcuts)
+    if ($failed.Count -gt 0) { throw "Managed shortcut cleanup is incomplete; state was preserved for retry." }
+    if (Test-Path -LiteralPath $statePath -PathType Leaf) { Remove-Item -LiteralPath $statePath -Force -ErrorAction Stop }
     exit 0
 }
 
@@ -204,9 +206,9 @@ function Render-CubismCandidates {
         $text = "{0}  |  {1}  |  {2}  |  {3}" -f $(if ($candidate.Version) { $candidate.Version } else { "?" }), $stateText, $candidate.CanonicalRoot, $candidate.Reason
         [void]$cubismList.Items.Add($text, ([bool]$candidate.Selected -and [bool]$candidate.Selectable))
     }
-    $ready = @($candidates | Where-Object { $_.Selectable }).Count
-    $cubismStatus.Text = "$ready $($S.Selected)"
-    if ($ready -eq 0) { $statusLabel.Text = $S.StatusNoCubism }
+    $selected = @($candidates | Where-Object { $_.Selectable -and $_.Selected }).Count
+    $cubismStatus.Text = "$selected $($S.Selected)"
+    if ($selected -eq 0 -and @($candidates | Where-Object { $_.Selectable }).Count -eq 0) { $statusLabel.Text = $S.StatusNoCubism }
 }
 Render-CubismCandidates
 if (-not $state.Valid) { $statusLabel.Text = $S.StateWarning -f $state.Error }
@@ -237,8 +239,26 @@ $addButton.Add_Click({
 $removeButton.Add_Click({
     if ($cubismList.SelectedIndices.Count -eq 0) { $statusLabel.Text = $S.RemovePrompt; return }
     $removeKeys = @($cubismList.SelectedIndices | ForEach-Object { $candidates[$_].Key })
-    $candidates = @($candidates | Where-Object { $removeKeys -notcontains $_.Key })
+    $remaining = New-Object System.Collections.Generic.List[object]
+    foreach ($candidate in @($candidates)) {
+        if ($removeKeys -contains $candidate.Key) {
+            $isManual = @($manualRoots | Where-Object { (Get-CubismRootKey $_) -eq $candidate.Key }).Count -gt 0
+            if (-not $isManual -and $candidate.Selectable) {
+                # Auto-discovered usable candidates stay visible but become a saved
+                # deselection, so the next scan cannot silently re-enable them.
+                $candidate.Selected = $false
+            }
+            else { continue }
+        }
+        [void]$remaining.Add($candidate)
+    }
+    $candidates = @($remaining)
     $stateInstallations = @($stateInstallations | Where-Object { $removeKeys -notcontains (Get-CubismRootKey $_.Root) })
+    foreach ($candidate in @($candidates)) {
+        $existing = @($stateInstallations | Where-Object { (Get-CubismRootKey $_.Root) -eq $candidate.Key })
+        if ($existing.Count -gt 0) { $existing[0].Selected = [bool]$candidate.Selected }
+        elseif ($candidate.Selectable) { $stateInstallations += [pscustomobject]@{ Root = $candidate.CanonicalRoot; Version = $candidate.Version; Selected = [bool]$candidate.Selected } }
+    }
     $manualRoots = @($manualRoots | Where-Object { $removeKeys -notcontains (Get-CubismRootKey $_) })
     Render-CubismCandidates
 })
@@ -270,23 +290,41 @@ $saveButton.Add_Click({
         Set-Content -LiteralPath $configPath -Value $json -Encoding UTF8
 
         $oldState = Read-CubismInstallationState -StatePath $statePath
+        $oldOwned = if ($oldState.Valid) { @($oldState.ManagedShortcuts) } else { @() }
         $newShortcuts = @()
+        $newlyCreated = @()
+        $stateCommitted = $false
         try {
             foreach ($candidate in @($candidates | Where-Object { $_.Selected -and $_.Selectable })) {
-                $newShortcuts += New-CubismManagedShortcut -Home $turboismHome -Candidate $candidate -Variant "normal"
-                if (-not [string]::IsNullOrWhiteSpace($candidate.D3DBat)) {
-                    $newShortcuts += New-CubismManagedShortcut -Home $turboismHome -Candidate $candidate -Variant "d3d"
+                foreach ($variant in @("normal", "d3d")) {
+                    if ($variant -eq "d3d" -and [string]::IsNullOrWhiteSpace($candidate.D3DBat)) { continue }
+                    $shortcutPath = Join-Path (Get-CubismShortcutDirectory) (Get-CubismShortcutName $candidate $variant)
+                    $wasPresent = Test-Path -LiteralPath $shortcutPath -PathType Leaf
+                    if ($wasPresent -and $oldOwned -notcontains $shortcutPath) { throw "refusing to overwrite an unowned managed shortcut: $shortcutPath" }
+                    $created = New-CubismManagedShortcut -Home $turboismHome -Candidate $candidate -Variant $variant
+                    $newShortcuts += $created
+                    if (-not $wasPresent) { $newlyCreated += $created }
                 }
             }
-            Write-CubismInstallationState -StatePath $statePath -Candidates $candidates -ManagedShortcuts $newShortcuts
+            # Keep all previous ownership in the provisional state until stale
+            # removal has succeeded. A failed state write rolls back only new files.
+            $provisional = @($oldOwned + $newShortcuts | Sort-Object -Unique)
+            Write-CubismInstallationState -StatePath $statePath -Candidates $candidates -ManagedShortcuts $provisional
+            $stateCommitted = $true
+            $stale = @($oldOwned | Where-Object { $newShortcuts -notcontains $_ })
+            $failedStale = @(Remove-CubismManagedShortcuts -Paths $stale)
+            $finalOwned = @($newShortcuts + $failedStale | Sort-Object -Unique)
+            Write-CubismInstallationState -StatePath $statePath -Candidates $candidates -ManagedShortcuts $finalOwned
+            $selectedCount = @($candidates | Where-Object { $_.Selected -and $_.Selectable }).Count
+            if ($failedStale.Count -gt 0) {
+                $statusLabel.Text = "$($S.StatusSaved -f $selectedCount) (stale shortcut cleanup pending)"
+            }
+            else { $statusLabel.Text = $S.StatusSaved -f $selectedCount }
         }
         catch {
-            Remove-CubismManagedShortcuts -Paths $newShortcuts
+            if (-not $stateCommitted) { [void](Remove-CubismManagedShortcuts -Paths $newlyCreated) }
             throw
         }
-        $stale = @($oldState.ManagedShortcuts | Where-Object { $newShortcuts -notcontains $_ })
-        Remove-CubismManagedShortcuts -Paths $stale
-        $statusLabel.Text = $S.StatusSaved -f @($candidates | Where-Object { $_.Selected -and $_.Selectable }).Count
         [System.Windows.Forms.MessageBox]::Show($S.Saved, $form.Text, [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information) | Out-Null
         $form.Close()
     }

@@ -45,6 +45,7 @@ import java.util.zip.ZipEntry;
 public final class TurboismUninstallerListener extends AbstractUninstallerListener {
 
     static final String DELETE_CONFIG_PROPERTY = "turboism.uninstall.deleteConfig";
+    static final String INSTALLATION_STATE_FILE = "cubism-installations.json";
     private static final String[] RUNTIME_DIRS = {"logs", "state", "cache"};
 
     /** Proven install home, or {@code null} when the identity is missing/malformed. */
@@ -68,6 +69,9 @@ public final class TurboismUninstallerListener extends AbstractUninstallerListen
         }
         for (String name : RUNTIME_DIRS) {
             deleteRecursivelyQuietly(home.resolve(name));
+        }
+        if (isWindows()) {
+            cleanupManagedState(home, currentUserShortcutDirectory());
         }
         removeIfEmpty(home.resolve(ConfigMerge.PLUGIN_DIR));
         removeIfEmpty(home);
@@ -185,6 +189,32 @@ public final class TurboismUninstallerListener extends AbstractUninstallerListen
         } catch (IOException e) {
             return null;
         }
+    }
+
+    /**
+     * Deletes the bounded Windows managed-launch state and only the shortcut
+     * paths that the valid state proves to be owned. This overload is package
+     * private so the regression harness can use a temporary current-user
+     * Start Menu directory without touching the real user profile.
+     */
+    static boolean cleanupManagedState(Path home, Path shortcutDirectory) {
+        return ConfigMerge.cleanupManagedState(home, shortcutDirectory);
+    }
+
+    private static boolean isWindows() {
+        return System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("win");
+    }
+
+    private static Path currentUserShortcutDirectory() {
+        String appData = System.getenv("APPDATA");
+        if (appData == null || appData.isBlank()) {
+            String userHome = System.getProperty("user.home", "");
+            if (userHome.isBlank()) {
+                return null;
+            }
+            appData = Paths.get(userHome, "AppData", "Roaming").toString();
+        }
+        return Paths.get(appData, "Microsoft", "Windows", "Start Menu", "Programs", "Turboism");
     }
 
     /**
