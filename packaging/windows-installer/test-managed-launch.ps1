@@ -300,6 +300,105 @@ try {
     $badArgs = '-NoProfile -ExecutionPolicy Bypass -File "{0}" -Home "{1}" -CubismRoot "{2}" -ProbeOnly' -f $launcher, $home, $unsupported
     $badProcess = Start-Process -FilePath $ps -ArgumentList $badArgs -Wait -PassThru -NoNewWindow
     Assert-ManagedLaunch ($badProcess.ExitCode -ne 0) "explicit unsupported root is rejected before launch"
+
+    # R5 dual-mode fixture: only current-user Desktop/Start Menu roots are used.
+    # The fixture creates real .lnk bytes through WScript.Shell; no Cubism host is
+    # launched and all files remain inside the temporary home/fixture directory.
+    if ($env:OS -eq "Windows_NT") {
+        function New-TestShortcut {
+            param([string]$Path, [string]$Target, [string]$Arguments = "")
+            $shell = $null; $shortcut = $null
+            try {
+                $shell = New-Object -ComObject WScript.Shell
+                $shortcut = $shell.CreateShortcut($Path)
+                $shortcut.TargetPath = $Target
+                $shortcut.Arguments = $Arguments
+                $shortcut.WorkingDirectory = Split-Path -Parent $Target
+                $shortcut.Save()
+            }
+            finally {
+                if ($null -ne $shortcut) { [void][Runtime.InteropServices.Marshal]::FinalReleaseComObject($shortcut) }
+                if ($null -ne $shell) { [void][Runtime.InteropServices.Marshal]::FinalReleaseComObject($shell) }
+            }
+        }
+        $userRoots = @(Get-CubismCurrentUserShortcutRoots)
+        Assert-ManagedLaunch ($userRoots.Count -gt 0) "current-user Desktop or Start Menu root is available"
+        $fixtureShortcutRoot = Join-Path $userRoots[0] ("Turboism dual-mode fixture " + [guid]::NewGuid().ToString("N"))
+        New-Item -ItemType Directory -Path $fixtureShortcutRoot -Force | Out-Null
+        $normalShortcut = Join-Path $fixtureShortcutRoot "Cubism Normal.lnk"
+        $d3dShortcut = Join-Path $fixtureShortcutRoot "Cubism D3D.lnk"
+        $wrongShortcut = Join-Path $fixtureShortcutRoot "Cubism Wrong Target.lnk"
+        New-TestShortcut -Path $normalShortcut -Target $bat
+        New-TestShortcut -Path $d3dShortcut -Target $d3dBat
+        New-TestShortcut -Path $wrongShortcut -Target (Join-Path $root52 "CubismEditor5.bat")
+        $beforeNormal = (Get-FileHash -LiteralPath $normalShortcut -Algorithm SHA256).Hash
+        $beforeD3D = (Get-FileHash -LiteralPath $d3dShortcut -Algorithm SHA256).Hash
+        $takeoverCandidates = @($candidates | ForEach-Object {
+            $_.Selected = $_.CanonicalRoot -eq (ConvertTo-CubismCanonicalRoot $root53)
+            $_
+        })
+        $matches = @(Get-CubismTakeoverMatches -Candidates $takeoverCandidates -ShortcutRoots @($fixtureShortcutRoot))
+        Assert-ManagedLaunch ($matches.Count -eq 2) "takeover discovery matches exact normal and D3D targets"
+        Assert-ManagedLaunch (@($matches | Where-Object { $_.Variant -eq "normal" }).Count -eq 1) "normal target is classified separately"
+        Assert-ManagedLaunch (@($matches | Where-Object { $_.Variant -eq "d3d" }).Count -eq 1) "D3D target is classified separately"
+        Assert-ManagedLaunch (@($matches | Where-Object { $_.ShortcutPath -eq $wrongShortcut }).Count -eq 0) "wrong-target shortcut is ignored"
+        Assert-ManagedLaunch (-not (Test-CubismTakeoverShortcutPath -Path (Join-Path $temp "not-user.lnk"))) "takeover path cannot escape current-user roots"
+
+        $takeoverResult = Invoke-CubismLaunchConfiguration -Home $home -StatePath $statePath -Candidates $takeoverCandidates -LaunchMode "takeover" -ExistingState (Read-CubismInstallationState -StatePath $statePath) -ShortcutDirectory $fixtureShortcutRoot
+        $takeoverState = Read-CubismInstallationState -StatePath $statePath
+        Assert-ManagedLaunch ($takeoverState.Valid -and @($takeoverState.ShortcutTakeovers).Count -eq 2) "takeover mode persists one bounded record per eligible shortcut"
+        Assert-ManagedLaunch ((Get-FileHash -LiteralPath $normalShortcut -Algorithm SHA256).Hash -ne $beforeNormal) "normal shortcut is replaced"
+        Assert-ManagedLaunch ((Get-FileHash -LiteralPath $d3dShortcut -Algorithm SHA256).Hash -ne $beforeD3D) "D3D shortcut is replaced"
+        $shell = New-Object -ComObject WScript.Shell
+        $normalProperties = $null; $d3dProperties = $null
+        try {
+            $normalProperties = $shell.CreateShortcut($normalShortcut)
+            $d3dProperties = $shell.CreateShortcut($d3dShortcut)
+            Assert-ManagedLaunch ($normalProperties.Arguments -match '(?i)-Home .* -CubismRoot .* -Variant normal') "normal takeover has explicit launcher arguments"
+            Assert-ManagedLaunch ($d3dProperties.Arguments -match '(?i)-Home .* -CubismRoot .* -Variant d3d') "D3D takeover has explicit launcher arguments"
+        }
+        finally {
+            if ($null -ne $normalProperties) { [void][Runtime.InteropServices.Marshal]::FinalReleaseComObject($normalProperties) }
+            if ($null -ne $d3dProperties) { [void][Runtime.InteropServices.Marshal]::FinalReleaseComObject($d3dProperties) }
+            [void][Runtime.InteropServices.Marshal]::FinalReleaseComObject($shell)
+        }
+        $takeoverAgain = Invoke-CubismLaunchConfiguration -Home $home -StatePath $statePath -Candidates $takeoverCandidates -LaunchMode "takeover" -ExistingState $takeoverState -ShortcutDirectory $fixtureShortcutRoot
+        $takeoverAgainState = Read-CubismInstallationState -StatePath $statePath
+        Assert-ManagedLaunch (@($takeoverAgainState.ShortcutTakeovers).Count -eq 2) "reapplying takeover is idempotent and does not duplicate records"
+        Assert-ManagedLaunch ($takeoverAgainState.ShortcutTakeovers[0].BackupPath -ne "") "takeover backup path remains bounded and recorded"
+
+        $preFallbackResult = Invoke-CubismLaunchConfiguration -Home $home -StatePath $statePath -Candidates $takeoverCandidates -LaunchMode "independent" -ExistingState $takeoverAgainState -ShortcutDirectory $fixtureShortcutRoot
+        $preFallbackState = Read-CubismInstallationState -StatePath $statePath
+        Remove-Item -LiteralPath $d3dShortcut -Force
+        $fallbackResult = Invoke-CubismLaunchConfiguration -Home $home -StatePath $statePath -Candidates $takeoverCandidates -LaunchMode "takeover" -ExistingState $preFallbackState -ShortcutDirectory $fixtureShortcutRoot
+        $fallbackState = Read-CubismInstallationState -StatePath $statePath
+        Assert-ManagedLaunch (@($fallbackState.ShortcutTakeovers).Count -eq 1) "unmatched D3D variant remains out of takeover records"
+        Assert-ManagedLaunch (@($fallbackState.ManagedShortcuts).Count -eq 1) "unmatched variant receives an independent fallback shortcut"
+        Assert-ManagedLaunch (@($fallbackState.ManagedShortcutHashes).Count -eq 1) "fallback shortcut records its managed hash"
+
+        $independentResult = Invoke-CubismLaunchConfiguration -Home $home -StatePath $statePath -Candidates $takeoverCandidates -LaunchMode "independent" -ExistingState $fallbackState -ShortcutDirectory $fixtureShortcutRoot
+        $independentState = Read-CubismInstallationState -StatePath $statePath
+        Assert-ManagedLaunch (@($independentState.ShortcutTakeovers).Count -eq 0) "switching to independent mode restores all takeovers"
+        Assert-ManagedLaunch ((Get-FileHash -LiteralPath $normalShortcut -Algorithm SHA256).Hash -eq $beforeNormal) "mode switch restores exact normal bytes"
+        Assert-ManagedLaunch (-not (Test-Path -LiteralPath $d3dShortcut)) "mode switch does not recreate unmatched D3D original"
+
+        $conflictResult = Invoke-CubismLaunchConfiguration -Home $home -StatePath $statePath -Candidates $takeoverCandidates -LaunchMode "takeover" -ExistingState $independentState -ShortcutDirectory $fixtureShortcutRoot
+        $conflictState = Read-CubismInstallationState -StatePath $statePath
+        New-TestShortcut -Path $normalShortcut -Target (Join-Path $root52 "CubismEditor5.bat") -Arguments "user-edit"
+        $conflictThrew = $false
+        try { [void](Invoke-CubismLaunchConfiguration -Home $home -StatePath $statePath -Candidates $takeoverCandidates -LaunchMode "takeover" -ExistingState $conflictState -ShortcutDirectory $fixtureShortcutRoot) } catch { $conflictThrew = $true }
+        Assert-ManagedLaunch $conflictThrew "user-edited takeover shortcut fails closed"
+        Assert-ManagedLaunch ((Get-FileHash -LiteralPath $normalShortcut -Algorithm SHA256).Hash -ne $conflictState.ShortcutTakeovers[0].ManagedSha256) "conflicting shortcut bytes are preserved"
+        Assert-ManagedLaunch (Test-Path -LiteralPath $statePath) "conflict preserves managed state for retry"
+        Assert-ManagedLaunch (@(Get-ChildItem -LiteralPath (Join-Path $home "installer\shortcut-backups") -Filter *.lnk -File).Count -gt 0) "conflict preserves original shortcut backup"
+
+        $tooMany = @(0..128 | ForEach-Object { [pscustomobject]@{ ShortcutPath = $normalShortcut; BackupPath = "installer/shortcut-backups/$_.lnk"; OriginalSha256 = ('A' * 64); ManagedSha256 = ('B' * 64); Root = $root53; Variant = "normal"; Status = "active" } })
+        $capThrew = $false
+        try { Write-CubismInstallationState -StatePath $statePath -Candidates $takeoverCandidates -ShortcutTakeovers $tooMany } catch { $capThrew = $true }
+        Assert-ManagedLaunch $capThrew "takeover record cap rejects the 129th record"
+        Remove-Item -LiteralPath $fixtureShortcutRoot -Recurse -Force -ErrorAction SilentlyContinue
+    }
+
     Write-Host "MANAGED_LAUNCH_TEST=PASS"
 }
 finally {
