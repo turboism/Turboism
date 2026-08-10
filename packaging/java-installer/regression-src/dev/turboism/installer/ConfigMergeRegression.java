@@ -34,6 +34,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public final class ConfigMergeRegression {
 
+    private static final String HEX64 =
+            "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+
     public static void main(String[] args) throws Exception {
         strictNumbers();
         canonicalIdentity();
@@ -42,6 +45,7 @@ public final class ConfigMergeRegression {
         concurrentGrowth();
         atomicReplacement();
         managedStateCleanup();
+        managedStateBackupConfinement();
         System.out.println("ConfigMergeRegression: all checks passed");
     }
 
@@ -304,7 +308,7 @@ public final class ConfigMergeRegression {
         Path unrelated = shortcutDir.resolve("Turboism Configurator.lnk");
         Path outside = outsideDir.resolve("Turboism Cubism 5.2 [outside-A1B2C3D4E5F6].lnk");
         Path takeover = shortcutDir.resolve("Cubism Official.lnk");
-        Path backup = home.resolve("installer/shortcut-backups/official.lnk");
+        Path backup = home.resolve("installer/shortcut-backups/" + HEX64 + ".lnk");
         Files.createDirectories(backup.getParent());
         byte[] originalBytes = "original-shortcut-bytes".getBytes(StandardCharsets.UTF_8);
         byte[] managedBytes = "turboism-managed-shortcut-bytes".getBytes(StandardCharsets.UTF_8);
@@ -329,7 +333,7 @@ public final class ConfigMergeRegression {
             Files.write(takeover, managedBytes);
             String takeoverState = "{\"format\":\"turboism.cubism.installation-state\",\"schemaVersion\":1,"
                     + "\"launchMode\":\"takeover\",\"installations\":[],\"managedShortcuts\":[],\"shortcutTakeovers\":[{"
-                    + "\"shortcutPath\":\"" + takeover + "\",\"backupPath\":\"installer/shortcut-backups/official.lnk\","
+                    + "\"shortcutPath\":\"" + takeover + "\",\"backupPath\":\"installer/shortcut-backups/" + HEX64 + ".lnk\","
                     + "\"originalSha256\":\"" + sha256Bytes(originalBytes) + "\",\"managedSha256\":\"" + sha256Bytes(managedBytes) + "\","
                     + "\"root\":\"C:/Cubism 5.2\",\"variant\":\"normal\",\"status\":\"active\"}]}";
             Files.writeString(home.resolve(ConfigMerge.INSTALLATION_STATE_FILE), takeoverState, StandardCharsets.UTF_8);
@@ -351,6 +355,72 @@ public final class ConfigMergeRegression {
         }
     }
 
+
+    /**
+     * R12: backup confinement is exact-name and chain-validated at use time.
+     * A relocated 64-hex backup path below home and a linked backup directory
+     * both fail closed with every recovery artifact preserved.
+     */
+    private static void managedStateBackupConfinement() throws Exception {
+        Path dir = Files.createTempDirectory("cubism-backup-confinement-");
+        Path shortcutDir = dir.resolve("Start Menu/Programs/Turboism");
+        Path home = dir.resolve("home");
+        Files.createDirectories(shortcutDir);
+        Files.createDirectories(home.resolve("installer/shortcut-backups"));
+        Path takeover = shortcutDir.resolve("Cubism Official.lnk");
+        Path backup = home.resolve("installer/shortcut-backups/" + HEX64 + ".lnk");
+        byte[] original = "original-shortcut-bytes".getBytes(StandardCharsets.UTF_8);
+        byte[] managed = "turboism-managed-shortcut-bytes".getBytes(StandardCharsets.UTF_8);
+        Files.write(takeover, managed);
+        Files.write(backup, original);
+        Path state = home.resolve(ConfigMerge.INSTALLATION_STATE_FILE);
+        try {
+            String takeoverState = "{\"format\":\"turboism.cubism.installation-state\",\"schemaVersion\":1,"
+                    + "\"launchMode\":\"takeover\",\"installations\":[],\"managedShortcuts\":[],\"shortcutTakeovers\":[{"
+                    + "\"shortcutPath\":\"" + takeover + "\",\"backupPath\":\"installer/shortcut-backups/" + HEX64 + ".lnk\","
+                    + "\"originalSha256\":\"" + sha256Bytes(original) + "\",\"managedSha256\":\"" + sha256Bytes(managed) + "\","
+                    + "\"root\":\"C:/Cubism 5.2\",\"variant\":\"normal\",\"status\":\"active\"}]}";
+            Files.writeString(state, takeoverState, StandardCharsets.UTF_8);
+            check("normal confined backup restores exact bytes",
+                    ConfigMerge.cleanupManagedState(home, shortcutDir)
+                            && java.util.Arrays.equals(Files.readAllBytes(takeover), original));
+
+            // relocated: a 64-hex name in a wrong directory below home fails closed
+            Files.write(takeover, managed);
+            Path relocated = home.resolve("installer/other/" + HEX64 + ".lnk");
+            Files.createDirectories(relocated.getParent());
+            Files.write(relocated, original);
+            Files.writeString(state,
+                    takeoverState.replace("installer/shortcut-backups/" + HEX64, "installer/other/" + HEX64),
+                    StandardCharsets.UTF_8);
+            check("relocated backup path fails closed", !ConfigMerge.cleanupManagedState(home, shortcutDir));
+            check("relocated failure preserves managed shortcut",
+                    java.util.Arrays.equals(Files.readAllBytes(takeover), managed));
+            check("relocated failure preserves state", Files.exists(state));
+            check("relocated failure preserves backup", Files.exists(relocated));
+
+            // linked backup directory: cleanup must fail closed before any read/delete
+            Path escape = dir.resolve("escape");
+            Files.createDirectories(escape);
+            Path backupsLink = home.resolve("installer/shortcut-backups");
+            try {
+                Files.delete(backupsLink);
+                Files.createSymbolicLink(backupsLink, escape);
+            } catch (IOException | UnsupportedOperationException | SecurityException unavailable) {
+                System.out.println("  skip: symbolic-link backup fixture unavailable");
+                return;
+            }
+            Files.writeString(state, takeoverState, StandardCharsets.UTF_8);
+            check("linked backup directory fails closed", !ConfigMerge.cleanupManagedState(home, shortcutDir));
+            check("linked failure preserves managed shortcut",
+                    java.util.Arrays.equals(Files.readAllBytes(takeover), managed));
+            check("linked failure preserves state", Files.exists(state));
+            check("linked failure preserves link target", Files.isDirectory(escape));
+            check("linked failure preserves the link itself", Files.isSymbolicLink(backupsLink));
+        } finally {
+            deleteTree(dir);
+        }
+    }
     private static String sha256(Path path) throws Exception {
         return sha256Bytes(Files.readAllBytes(path));
     }
