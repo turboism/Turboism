@@ -82,12 +82,16 @@ function Resolve-SelectedCandidate {
         return $candidate
     }
 
-    $state = Read-CubismInstallationState -StatePath $statePath
-    if (-not $state.Valid) { throw ($M.StateInvalid -f $state.Error) }
-    $selected = @($state.Installations | Where-Object { $_.Selected } | ForEach-Object {
-        New-CubismInstallationCandidate -Root $_.Root -Source "managed"
-    } | Where-Object { $_.Selectable })
-    if ($selected.Count -eq 0) { throw $M.StateMissing }
+    $selectedEntries = @($state.Installations | Where-Object { $_.Selected })
+    if ($selectedEntries.Count -eq 0) { throw $M.StateMissing }
+    $selected = @()
+    foreach ($entry in $selectedEntries) {
+        $candidate = New-CubismInstallationCandidate -Root $entry.Root -Source "managed"
+        if (-not $candidate.Selectable) {
+            throw ($M.RootInvalid -f "$($entry.Root): $($candidate.Reason)")
+        }
+        $selected += $candidate
+    }
     if ($selected.Count -eq 1) { return $selected[0] }
 
     Write-Host $M.Multiple
