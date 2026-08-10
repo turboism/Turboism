@@ -1212,7 +1212,7 @@ function Get-JdkOptionTokens {
             if ($builder.Length -gt 0) {
                 if ($builder.Length -gt $script:CubismMaxJdkOptionLength) { throw "JVM option exceeds bound" }
                 [void]$tokens.Add($builder.ToString())
-                $builder.Clear()
+                [void]$builder.Clear()
             }
         }
         else { [void]$builder.Append($c) }
