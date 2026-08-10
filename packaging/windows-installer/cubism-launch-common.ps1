@@ -405,6 +405,18 @@ function Get-CubismInstallationHome {
     return $parent
 }
 
+function Get-CubismShortcutDirectory {
+    param([string]$Override = "")
+    if (-not [string]::IsNullOrWhiteSpace($Override)) {
+        return [System.IO.Path]::GetFullPath($Override).TrimEnd('\', '/')
+    }
+    $programs = [Environment]::GetFolderPath("Programs")
+    if ([string]::IsNullOrWhiteSpace($programs)) {
+        throw "Cannot resolve the current-user Start Menu Programs directory"
+    }
+    return [System.IO.Path]::GetFullPath((Join-Path $programs "Turboism")).TrimEnd('\', '/')
+}
+
 function Test-CubismManagedShortcutPath {
     param([string]$Path, [string]$Directory = "")
     if ([string]::IsNullOrWhiteSpace($Path)) { return $false }
