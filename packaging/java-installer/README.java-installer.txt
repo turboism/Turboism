@@ -18,6 +18,12 @@ preserves unrelated settings and only merges the plugin selection
 (disabledPlugins). Rerun the installer at any time to change the selected
 plugin set.
 
+On Windows, run the packaged configure_turboism.ps1 later whenever you need to
+change Cubism installations or managed launch entries. It keeps installation
+state separate from config.json and calls selected roots only through their
+official Cubism BAT. Canceling setup leaves a valid framework-only install;
+Cubism files are never changed.
+
 Default install location (change it in the installer):
   macOS:  ~/Library/Application Support/Turboism
   Linux:  ${XDG_DATA_HOME:-~/.local/share}/Turboism
