@@ -138,9 +138,6 @@ LangString ModeLiteLabel ${LANG_ENGLISH} "Lite installation (Lite) — installs 
 LangString ModeLiteLabel ${LANG_SIMPCHINESE} "精简安装（Lite）—— 仅安装核心运行时，不安装任何插件"
 LangString ModeLiteLabel ${LANG_JAPANESE} "ライトインストール（Lite）—— コアランタイムのみインストールし、プラグインはインストールしません"
 
-LangString StartMenuLaunchName ${LANG_ENGLISH} "Start Cubism Editor"
-LangString StartMenuLaunchName ${LANG_SIMPCHINESE} "启动 Cubism 编辑器"
-LangString StartMenuLaunchName ${LANG_JAPANESE} "Cubism エディターを起動"
 
 LangString StartMenuConfigName ${LANG_ENGLISH} "Turboism Configurator"
 LangString StartMenuConfigName ${LANG_SIMPCHINESE} "Turboism 配置器"
@@ -201,6 +198,11 @@ Function .onInit
   StrCpy $INSTDIR "$LOCALAPPDATA\Turboism"
 FunctionEnd
 
+; 安装完成后自动进入托管 Cubism 选择配置；取消不会阻止框架安装。
+Function .onInstSuccess
+  ExecWait '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR"'
+FunctionEnd
+
 ; ---------- 模式选择页（nsDialogs） ----------
 Function ModeCreate
   nsDialogs::Create 1018
@@ -249,6 +251,7 @@ Section "-核心文件" SecCore
   File "${STAGING_DIR}/launch-cubism-turboism.bat"
   File "${STAGING_DIR}/launch-cubism-turboism.ps1"
   File "${STAGING_DIR}/configure_turboism.ps1"
+  File "${STAGING_DIR}/cubism-launch-common.ps1"
   File "${STAGING_DIR}/README.txt"
   File "${STAGING_DIR}/README.zh.txt"
   File "${STAGING_DIR}/README.ja.txt"
@@ -513,7 +516,6 @@ SectionEnd
 Section -"开始菜单与注册" SecStartMenuReg
   SetOutPath "$INSTDIR"
   CreateDirectory "$SMPROGRAMS\Turboism"
-  CreateShortCut "$SMPROGRAMS\Turboism\$(StartMenuLaunchName).lnk" "$INSTDIR\launch-cubism-turboism.bat"
   CreateShortCut "$SMPROGRAMS\Turboism\$(StartMenuConfigName).lnk" "$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" "-NoProfile -ExecutionPolicy Bypass -File $\"$INSTDIR\configure_turboism.ps1$\""
   CreateShortCut "$SMPROGRAMS\Turboism\$(StartMenuUninstallName).lnk" "$INSTDIR\uninstall.exe"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Turboism" "DisplayName" "Turboism"
@@ -527,13 +529,20 @@ SectionEnd
 ; 卸载 Section：名字必须恰好为 "Uninstall"（NSIS 特殊命名，代码编入卸载器，
 ; 不出现在安装器组件页；须为最后一个 Section）
 Section "Uninstall"
+  ; 先由托管配置器按 manifest 清理 Turboism 自己创建的快捷方式和安装状态。
+  ExecWait '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -Cleanup'
   ; 开始菜单目录 + HKCU 卸载注册项（per-user；与安装时注册表视图一致）
   DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Turboism"
-  RMDir /r "$SMPROGRAMS\Turboism"
+  Delete "$SMPROGRAMS\Turboism\$(StartMenuConfigName).lnk"
+  Delete "$SMPROGRAMS\Turboism\$(StartMenuUninstallName).lnk"
+  RMDir "$SMPROGRAMS\Turboism"
   ; 安装文件
   Delete "$INSTDIR\turboism-agent.jar"
   Delete "$INSTDIR\launch-cubism-turboism.bat"
   Delete "$INSTDIR\launch-cubism-turboism.ps1"
+  Delete "$INSTDIR\cubism-launch-common.ps1"
+  Delete "$INSTDIR\configure_turboism.ps1"
+  Delete "$INSTDIR\cubism-installations.json"
   Delete "$INSTDIR\README*.txt"
   Delete "$INSTDIR\LICENSE.txt"
   Delete "$INSTDIR\uninstall.exe"
