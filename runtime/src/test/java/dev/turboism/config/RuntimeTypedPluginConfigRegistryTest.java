@@ -39,6 +39,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -63,7 +64,7 @@ class RuntimeTypedPluginConfigRegistryTest {
     }
 
     @Test
-    void registersReadsDefaultsPersistsCasWritesAndSurvivesRestart() throws Exception {
+    void registersMaterializesDefaultsPersistsCasWritesAndSurvivesRestart() throws Exception {
         final ConfigKey<Boolean> enabled = new ConfigKey<>(
             "main",
             "enabled",
@@ -80,11 +81,14 @@ class RuntimeTypedPluginConfigRegistryTest {
         registry.registerSchema(schema, List.of()).toCompletableFuture()
             .get(2, TimeUnit.SECONDS);
 
-        ConfigReadResult<Boolean> missing = registry.read(enabled).toCompletableFuture()
-            .get(2, TimeUnit.SECONDS);
-        assertTrue(missing.value().value());
-        assertEquals(ConfigValueSource.DEFAULT_MISSING, missing.value().source());
-        assertEquals(0, missing.value().revision());
+        ConfigReadResult<Boolean> materialized = registry.read(enabled)
+            .toCompletableFuture().get(2, TimeUnit.SECONDS);
+        assertTrue(materialized.value().value());
+        assertEquals(ConfigValueSource.STORED, materialized.value().source());
+        assertEquals(0, materialized.value().revision());
+        assertTrue(Files.isRegularFile(
+            temporary.resolve("typed-config/settings/main.cfg")
+        ));
 
         var written = registry.write(enabled, false, 0).toCompletableFuture()
             .get(2, TimeUnit.SECONDS);
@@ -365,6 +369,127 @@ class RuntimeTypedPluginConfigRegistryTest {
         });
         assertTrue(ran.await(1, TimeUnit.SECONDS));
         assertTrue(thread.get().contains("plugin.typed-config-test"));
+    }
+
+    @Test
+    void registrationMaterializesEveryDeclaredDefaultBeforeCompletion() throws Exception {
+        final ConfigKey<Boolean> enabled = new ConfigKey<>(
+            "widget", "enabled", true, ConfigCodecs.booleanValue()
+        );
+        final ConfigKey<Integer> count = new ConfigKey<>(
+            "widget", "count", 2, ConfigCodecs.boundedInt(0, 4)
+        );
+        final ConfigKey<List<String>> tags = new ConfigKey<>(
+            "widget", "tags", List.of("a"), ConfigCodecs.boundedStringList(8, 16)
+        );
+        final RuntimeTypedPluginConfigRegistry registry = registry(allPermissions());
+
+        registry.registerSchema(
+            new ConfigSchema("widget", "widget/settings.cfg", 1, List.of(enabled, count, tags)),
+            List.of()
+        ).toCompletableFuture().get(2, TimeUnit.SECONDS);
+
+        final Path document = temporary.resolve("typed-config/widget/settings.cfg");
+        assertTrue(Files.isRegularFile(document));
+        final TypedConfigDocumentStore.StoredDocument stored = new TypedConfigDocumentStore(
+            temporary.resolve("typed-config")
+        ).read("widget/settings.cfg").orElseThrow();
+        assertEquals(1, stored.schemaVersion());
+        assertEquals(0, stored.revision());
+        assertEquals(
+            Map.of("enabled", "true", "count", "2", "tags", "[\"a\"]"),
+            stored.encodedValues()
+        );
+
+        final ConfigReadResult<Boolean> read = registry.read(enabled)
+            .toCompletableFuture().get(2, TimeUnit.SECONDS);
+        assertTrue(read.value().value());
+        assertEquals(ConfigValueSource.STORED, read.value().source());
+        assertEquals(0, read.value().revision());
+        assertTrue(read.error().isEmpty());
+
+        final var written = registry.write(enabled, false, 0).toCompletableFuture()
+            .get(2, TimeUnit.SECONDS);
+        assertTrue(written.written());
+        assertEquals(1, written.revision());
+
+        final var conflict = registry.write(enabled, false, 0).toCompletableFuture()
+            .get(2, TimeUnit.SECONDS);
+        assertFalse(conflict.written());
+        assertEquals(ConfigErrorCode.REVISION_CONFLICT, conflict.error().orElseThrow().code());
+        assertEquals(1, conflict.revision());
+    }
+
+    @Test
+    void registrationLeavesExistingValidDocumentByteStable() throws Exception {
+        final Path root = temporary.resolve("typed-config");
+        final TypedConfigDocumentStore store = new TypedConfigDocumentStore(root);
+        store.writeAtomic(
+            "existing.cfg",
+            new TypedConfigDocumentStore.StoredDocument(1, 7, Map.of("enabled", "false"))
+        );
+        final byte[] before = Files.readAllBytes(root.resolve("existing.cfg"));
+        final ConfigKey<Boolean> enabled = new ConfigKey<>(
+            "existing", "enabled", true, ConfigCodecs.booleanValue()
+        );
+        final RuntimeTypedPluginConfigRegistry registry = registry(allPermissions());
+
+        registry.registerSchema(
+            new ConfigSchema("existing", "existing.cfg", 1, List.of(enabled)),
+            List.of()
+        ).toCompletableFuture().get(2, TimeUnit.SECONDS);
+
+        assertArrayEquals(before, Files.readAllBytes(root.resolve("existing.cfg")));
+        final ConfigReadResult<Boolean> read = registry.read(enabled)
+            .toCompletableFuture().get(2, TimeUnit.SECONDS);
+        assertFalse(read.value().value());
+        assertEquals(ConfigValueSource.STORED, read.value().source());
+        assertEquals(7, read.value().revision());
+    }
+
+    @Test
+    void materializationFailureFailsClosedAndPublishesNothing() throws Exception {
+        final RuntimeFailureCollector failures = new RuntimeFailureCollector();
+        final RuntimeTypedPluginConfigRegistry registry = registry(allPermissions(), failures);
+        Files.createDirectories(temporary.resolve("typed-config/blocked.cfg"));
+        final ConfigKey<Boolean> enabled = new ConfigKey<>(
+            "blocked", "enabled", true, ConfigCodecs.booleanValue()
+        );
+
+        final ExecutionException failure = assertThrows(
+            ExecutionException.class,
+            () -> registry.registerSchema(
+                new ConfigSchema("blocked", "blocked.cfg", 1, List.of(enabled)),
+                List.of()
+            ).toCompletableFuture().get(2, TimeUnit.SECONDS)
+        );
+        assertEquals(
+            ConfigRegistrationError.REGISTRATION_FAILED,
+            ((ConfigRegistrationException) failure.getCause()).error()
+        );
+        final var collected = failures.snapshot().configFailures();
+        assertEquals(1, collected.size());
+        assertEquals("REGISTRATION_FAILED", collected.get(0).code());
+        assertEquals("config.registerSchema", collected.get(0).operationId());
+        assertEquals(null, collected.get(0).permissionId());
+        assertFalse(collected.get(0).message().contains("blocked.cfg"));
+
+        final ConfigReadResult<Boolean> unregistered = registry.read(enabled)
+            .toCompletableFuture().get(2, TimeUnit.SECONDS);
+        assertEquals(
+            ConfigErrorCode.SCHEMA_NOT_REGISTERED,
+            unregistered.error().orElseThrow().code()
+        );
+
+        Files.delete(temporary.resolve("typed-config/blocked.cfg"));
+        registry.registerSchema(
+            new ConfigSchema("blocked", "blocked.cfg", 1, List.of(enabled)),
+            List.of()
+        ).toCompletableFuture().get(2, TimeUnit.SECONDS);
+        final ConfigReadResult<Boolean> stored = registry.read(enabled)
+            .toCompletableFuture().get(2, TimeUnit.SECONDS);
+        assertEquals(ConfigValueSource.STORED, stored.value().source());
+        assertEquals(0, stored.value().revision());
     }
 
     private RuntimeTypedPluginConfigRegistry registry(final Set<String> permissions) {
