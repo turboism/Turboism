@@ -2,83 +2,75 @@
 [CmdletBinding()]
 param(
     [string]$Home = "",
-    [switch]$WriteBat
+    [switch]$Cleanup
 )
 
-# Turboism 插件开关配置工具（WinForms）。
-# 列出 <home>/plugins/*.jar 的插件（读取 jar 内 META-INF/turboism/plugin.json），
-# 勾选 = 启用；保存时把未勾选插件 id 写入 <home>/config.json 的 disabledPlugins
-# （升序；既有 disabledPlugins 中已不存在的插件 id 一并保留）。
-# 注意：本文件为 UTF-8 with BOM，可在 Windows PowerShell 5.1 直接运行。
-# 界面文案按系统 UI 语言（CurrentUICulture）选择 en/zh/ja，缺省 en。
+# Turboism WinForms configurator: plugin selection plus bounded managed Cubism
+# installation selection. It never edits or copies a Cubism-owned file.
+$ErrorActionPreference = "Stop"
+$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+. (Join-Path $scriptDir "cubism-launch-common.ps1")
+
+if (-not [string]::IsNullOrWhiteSpace($Home)) { $turboismHome = $Home.TrimEnd('\', '/') }
+elseif (-not [string]::IsNullOrWhiteSpace($env:TURBOISM_HOME)) { $turboismHome = $env:TURBOISM_HOME.TrimEnd('\', '/') }
+else { $turboismHome = $scriptDir }
+if (-not (Test-Path -LiteralPath $turboismHome -PathType Container)) { throw "Turboism home does not exist: $turboismHome" }
+$statePath = Join-Path $turboismHome "cubism-installations.json"
+$configPath = Join-Path $turboismHome "config.json"
+$pluginDir = Join-Path $turboismHome "plugins"
+
+if ($Cleanup) {
+    $state = Read-CubismInstallationState -StatePath $statePath
+    Remove-CubismManagedShortcuts -Paths $state.ManagedShortcuts
+    if (Test-Path -LiteralPath $statePath -PathType Leaf) { Remove-Item -LiteralPath $statePath -Force -ErrorAction SilentlyContinue }
+    exit 0
+}
 
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 Add-Type -AssemblyName System.IO.Compression
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 
-$ErrorActionPreference = "Stop"
-
-# ---------- 界面文案（en/zh/ja，按系统 UI 语言选择，缺省 en） ----------
 $uiLang = [System.Threading.Thread]::CurrentThread.CurrentUICulture.TwoLetterISOLanguageName
 $uiStrings = @{
     en = @{
-        ErrorHomeMissing = "Turboism home does not exist: {0}"
-        FormTitle        = "Turboism Plugin Configuration - {0}"
-        LabelPrompt      = "Check the plugins to enable (ids of unchecked plugins are written to disabledPlugins in config.json):"
-        Save             = "Save"
-        Cancel           = "Cancel"
-        StatusNoPlugins  = "No valid plugin jars found under plugins/."
-        StatusSaved      = "Saved config.json (disabled {0} plugin(s))."
-        BatCheckbox      = "Also write the Cubism launcher script (bat)"
-        BatTooltip       = "Cubism bat injection is not implemented yet (TODO)"
-        BatNotImpl       = "Write-CubismBat is not implemented yet (TODO): Cubism bat injection logic is unfinished."
+        FormTitle = "Turboism Configuration - {0}"; PluginsTab = "Plugins"; CubismTab = "Cubism installations"
+        PluginPrompt = "Check the plugins to enable (unchecked ids are written to config.json):"
+        CubismPrompt = "Select supported Cubism installations to manage and launch:"; Version = "Version"
+        Ready = "Ready"; Invalid = "Invalid"; Unsupported = "Unsupported"; Selected = "selected"
+        Rescan = "Rescan"; Add = "Add folder"; Remove = "Remove"; Save = "Save"; Cancel = "Cancel"
+        StatusNoPlugins = "No valid plugin jars found under plugins/."; StatusSaved = "Saved configuration ({0} Cubism installation(s))."
+        StatusNoCubism = "No supported Cubism installation was found. Turboism remains usable; add one later."
+        StateWarning = "Managed installation state was invalid and will be replaced when saved: {0}"
+        AddTitle = "Select a Cubism installation folder"; RemovePrompt = "Select an installation to remove first."
+        Saved = "Configuration saved."; SaveError = "Could not save configuration: {0}"
     }
     zh = @{
-        ErrorHomeMissing = "Turboism home 不存在：{0}"
-        FormTitle        = "Turboism 插件配置 - {0}"
-        LabelPrompt      = "勾选需要启用的插件（未勾选的插件 id 将写入 config.json 的 disabledPlugins）："
-        Save             = "保存"
-        Cancel           = "取消"
-        StatusNoPlugins  = "未在 plugins/ 下找到有效插件 jar。"
-        StatusSaved      = "已保存 config.json（禁用 {0} 个插件）。"
-        BatCheckbox      = "同时写入 Cubism 启动脚本（bat）"
-        BatTooltip       = "Cubism bat 注入尚未实现（TODO）"
-        BatNotImpl       = "Write-CubismBat 尚未实现（TODO）：Cubism bat 注入逻辑未完成。"
+        FormTitle = "Turboism 配置 - {0}"; PluginsTab = "插件"; CubismTab = "Cubism 安装"
+        PluginPrompt = "勾选要启用的插件（未勾选 id 将写入 config.json）："
+        CubismPrompt = "选择要管理和启动的受支持 Cubism 安装："; Version = "版本"
+        Ready = "就绪"; Invalid = "无效"; Unsupported = "不支持"; Selected = "已选择"
+        Rescan = "重新扫描"; Add = "添加文件夹"; Remove = "移除"; Save = "保存"; Cancel = "取消"
+        StatusNoPlugins = "plugins/ 下没有有效插件 jar。"; StatusSaved = "配置已保存（{0} 个 Cubism 安装）。"
+        StatusNoCubism = "未找到受支持的 Cubism 安装。Turboism 仍可使用；稍后可添加。"
+        StateWarning = "托管安装状态无效，保存时将替换：{0}"; AddTitle = "选择 Cubism 安装文件夹"
+        RemovePrompt = "请先选择要移除的安装。"; Saved = "配置已保存。"; SaveError = "无法保存配置：{0}"
     }
     ja = @{
-        ErrorHomeMissing = "Turboism home が存在しません：{0}"
-        FormTitle        = "Turboism プラグイン設定 - {0}"
-        LabelPrompt      = "有効にするプラグインにチェックを付けてください（チェックを外したプラグインの id は config.json の disabledPlugins に書き込まれます）："
-        Save             = "保存"
-        Cancel           = "キャンセル"
-        StatusNoPlugins  = "plugins/ 配下に有効なプラグイン jar が見つかりません。"
-        StatusSaved      = "config.json を保存しました（{0} 個のプラグインを無効化）。"
-        BatCheckbox      = "Cubism 起動スクリプト（bat）も書き込む"
-        BatTooltip       = "Cubism bat の注入は未実装です（TODO）"
-        BatNotImpl       = "Write-CubismBat は未実装です（TODO）：Cubism bat の注入ロジックは未完成です。"
+        FormTitle = "Turboism 設定 - {0}"; PluginsTab = "プラグイン"; CubismTab = "Cubism インストール"
+        PluginPrompt = "有効にするプラグインを選択してください（未選択 id は config.json に書き込みます）："
+        CubismPrompt = "管理して起動する対応 Cubism インストールを選択してください："; Version = "バージョン"
+        Ready = "準備完了"; Invalid = "不正"; Unsupported = "未対応"; Selected = "選択済み"
+        Rescan = "再スキャン"; Add = "フォルダーを追加"; Remove = "削除"; Save = "保存"; Cancel = "キャンセル"
+        StatusNoPlugins = "plugins/ に有効な plugin jar がありません。"; StatusSaved = "設定を保存しました（Cubism {0} 件）。"
+        StatusNoCubism = "対応する Cubism インストールが見つかりません。Turboism は利用でき、後で追加できます。"
+        StateWarning = "管理対象インストール状態が不正です。保存時に置き換えます：{0}"; AddTitle = "Cubism インストールフォルダーを選択"
+        RemovePrompt = "先に削除するインストールを選択してください。"; Saved = "設定を保存しました。"; SaveError = "設定を保存できません：{0}"
     }
 }
 if (-not $uiStrings.ContainsKey($uiLang)) { $uiLang = "en" }
 $S = $uiStrings[$uiLang]
 
-# ---------- home 解析：-Home > TURBOISM_HOME > 脚本所在目录 ----------
-if (-not [string]::IsNullOrWhiteSpace($Home)) {
-    $turboismHome = $Home.TrimEnd('\', '/')
-}
-elseif (-not [string]::IsNullOrWhiteSpace($env:TURBOISM_HOME)) {
-    $turboismHome = $env:TURBOISM_HOME.TrimEnd('\', '/')
-}
-else {
-    $turboismHome = Split-Path -Parent $MyInvocation.MyCommand.Path
-}
-if (-not (Test-Path -LiteralPath $turboismHome -PathType Container)) {
-    throw ($S.ErrorHomeMissing -f $turboismHome)
-}
-$configPath = Join-Path $turboismHome "config.json"
-$pluginDir = Join-Path $turboismHome "plugins"
-
-# ---------- 插件清单 ----------
 function Read-PluginMeta {
     param([string]$JarPath)
     try {
@@ -87,8 +79,8 @@ function Read-PluginMeta {
             $entry = $zip.GetEntry("META-INF/turboism/plugin.json")
             if ($null -eq $entry) { return $null }
             $reader = New-Object System.IO.StreamReader($entry.Open(), [System.Text.Encoding]::UTF8)
-            try { $text = $reader.ReadToEnd() } finally { $reader.Dispose() }
-            return ($text | ConvertFrom-Json)
+            try { return (($reader.ReadToEnd()) | ConvertFrom-Json) }
+            finally { $reader.Dispose() }
         }
         finally { $zip.Dispose() }
     }
@@ -98,130 +90,209 @@ function Read-PluginMeta {
 $plugins = @()
 if (Test-Path -LiteralPath $pluginDir -PathType Container) {
     Get-ChildItem -LiteralPath $pluginDir -Filter *.jar -File | Sort-Object Name | ForEach-Object {
-        $meta = Read-PluginMeta -JarPath $_.FullName
+        $meta = Read-PluginMeta $_.FullName
         if ($null -ne $meta -and $meta.id) {
-            $plugins += [pscustomobject]@{
-                Id      = $meta.id
-                Name    = $meta.name
-                Version = $meta.version
-                Jar     = $_.Name
-            }
+            $plugins += [pscustomobject]@{ Id = [string]$meta.id; Name = [string]$meta.name; Version = [string]$meta.version; Jar = $_.Name }
         }
     }
 }
 
-# ---------- 既有配置 ----------
-$existingDisabled = @()
 $existingConfig = $null
 if (Test-Path -LiteralPath $configPath -PathType Leaf) {
-    try { $existingConfig = Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json } catch { $existingConfig = $null }
+    try { $existingConfig = Get-Content -LiteralPath $configPath -Raw -Encoding UTF8 | ConvertFrom-Json } catch { $existingConfig = $null }
 }
-if ($null -ne $existingConfig -and $existingConfig.disabledPlugins) {
-    $existingDisabled = @($existingConfig.disabledPlugins)
-}
+$existingDisabled = @()
+if ($null -ne $existingConfig -and $existingConfig.disabledPlugins) { $existingDisabled = @($existingConfig.disabledPlugins) }
 
-# ---------- WinForms 界面 ----------
+$state = Read-CubismInstallationState -StatePath $statePath
+$stateInstallations = @($state.Installations)
+$manualRoots = @()
+function Refresh-CubismCandidates {
+    $savedRoots = @($stateInstallations | ForEach-Object { $_.Root })
+    $roots = Get-CubismDiscoveryRoots -SavedRoots $savedRoots -ManualRoots $manualRoots
+    $found = Get-CubismInstallations -Roots $roots
+    return @(Merge-CubismSelection -Candidates $found -SavedInstallations $stateInstallations)
+}
+$candidates = Refresh-CubismCandidates
+
 [System.Windows.Forms.Application]::EnableVisualStyles()
 $form = New-Object System.Windows.Forms.Form
 $form.Text = $S.FormTitle -f $turboismHome
-$form.Size = New-Object System.Drawing.Size(600, 500)
+$form.Size = New-Object System.Drawing.Size(720, 590)
 $form.StartPosition = "CenterScreen"
 $form.MinimizeBox = $false
 $form.MaximizeBox = $false
 
-$label = New-Object System.Windows.Forms.Label
-$label.Text = $S.LabelPrompt
-$label.Location = New-Object System.Drawing.Point(12, 10)
-$label.AutoSize = $true
-$form.Controls.Add($label)
+$tabs = New-Object System.Windows.Forms.TabControl
+$tabs.Location = New-Object System.Drawing.Point(8, 8)
+$tabs.Size = New-Object System.Drawing.Size(688, 480)
+$pluginPage = New-Object System.Windows.Forms.TabPage
+$pluginPage.Text = $S.PluginsTab
+$cubismPage = New-Object System.Windows.Forms.TabPage
+$cubismPage.Text = $S.CubismTab
+[void]$tabs.TabPages.Add($pluginPage)
+[void]$tabs.TabPages.Add($cubismPage)
+$form.Controls.Add($tabs)
 
-$list = New-Object System.Windows.Forms.CheckedListBox
-$list.Location = New-Object System.Drawing.Point(12, 34)
-$list.Size = New-Object System.Drawing.Size(560, 350)
-$list.CheckOnClick = $true
-$list.HorizontalScrollbar = $true
-foreach ($p in $plugins) {
-    $checked = ($existingDisabled -notcontains $p.Id)
-    $itemText = "{0}  [{1}]  v{2}" -f $p.Name, $p.Id, $p.Version
-    [void]$list.Items.Add($itemText, $checked)
+$pluginLabel = New-Object System.Windows.Forms.Label
+$pluginLabel.Text = $S.PluginPrompt
+$pluginLabel.Location = New-Object System.Drawing.Point(12, 12)
+$pluginLabel.AutoSize = $true
+$pluginPage.Controls.Add($pluginLabel)
+$pluginList = New-Object System.Windows.Forms.CheckedListBox
+$pluginList.Location = New-Object System.Drawing.Point(12, 38)
+$pluginList.Size = New-Object System.Drawing.Size(650, 360)
+$pluginList.CheckOnClick = $true
+foreach ($plugin in $plugins) {
+    $text = "{0}  [{1}]  v{2}" -f $plugin.Name, $plugin.Id, $plugin.Version
+    [void]$pluginList.Items.Add($text, ($existingDisabled -notcontains $plugin.Id))
 }
-$form.Controls.Add($list)
+$pluginPage.Controls.Add($pluginList)
 
-$writeBatBox = New-Object System.Windows.Forms.CheckBox
-$writeBatBox.Text = $S.BatCheckbox
-$writeBatBox.Location = New-Object System.Drawing.Point(12, 396)
-$writeBatBox.AutoSize = $true
-$writeBatBox.Enabled = $false
-$writeBatBox.ToolTipText = $S.BatTooltip
-$form.Controls.Add($writeBatBox)
+$cubismLabel = New-Object System.Windows.Forms.Label
+$cubismLabel.Text = $S.CubismPrompt
+$cubismLabel.Location = New-Object System.Drawing.Point(12, 12)
+$cubismLabel.AutoSize = $true
+$cubismPage.Controls.Add($cubismLabel)
+$cubismList = New-Object System.Windows.Forms.CheckedListBox
+$cubismList.Location = New-Object System.Drawing.Point(12, 38)
+$cubismList.Size = New-Object System.Drawing.Size(650, 330)
+$cubismList.CheckOnClick = $true
+$cubismList.HorizontalScrollbar = $true
+$cubismPage.Controls.Add($cubismList)
+$cubismStatus = New-Object System.Windows.Forms.Label
+$cubismStatus.Location = New-Object System.Drawing.Point(12, 375)
+$cubismStatus.AutoSize = $true
+$cubismPage.Controls.Add($cubismStatus)
+
+$rescanButton = New-Object System.Windows.Forms.Button
+$rescanButton.Text = $S.Rescan
+$rescanButton.Location = New-Object System.Drawing.Point(12, 410)
+$rescanButton.Size = New-Object System.Drawing.Size(90, 30)
+$cubismPage.Controls.Add($rescanButton)
+$addButton = New-Object System.Windows.Forms.Button
+$addButton.Text = $S.Add
+$addButton.Location = New-Object System.Drawing.Point(110, 410)
+$addButton.Size = New-Object System.Drawing.Size(110, 30)
+$cubismPage.Controls.Add($addButton)
+$removeButton = New-Object System.Windows.Forms.Button
+$removeButton.Text = $S.Remove
+$removeButton.Location = New-Object System.Drawing.Point(228, 410)
+$removeButton.Size = New-Object System.Drawing.Size(90, 30)
+$cubismPage.Controls.Add($removeButton)
 
 $statusLabel = New-Object System.Windows.Forms.Label
-$statusLabel.Location = New-Object System.Drawing.Point(12, 425)
+$statusLabel.Location = New-Object System.Drawing.Point(12, 505)
 $statusLabel.AutoSize = $true
 $form.Controls.Add($statusLabel)
-
 $saveButton = New-Object System.Windows.Forms.Button
 $saveButton.Text = $S.Save
-$saveButton.Location = New-Object System.Drawing.Point(12, 390)
+$saveButton.Location = New-Object System.Drawing.Point(500, 515)
 $saveButton.Size = New-Object System.Drawing.Size(90, 30)
 $form.Controls.Add($saveButton)
-
 $cancelButton = New-Object System.Windows.Forms.Button
 $cancelButton.Text = $S.Cancel
-$cancelButton.Location = New-Object System.Drawing.Point(110, 390)
+$cancelButton.Location = New-Object System.Drawing.Point(600, 515)
 $cancelButton.Size = New-Object System.Drawing.Size(90, 30)
 $cancelButton.Add_Click({ $form.Close() })
 $form.Controls.Add($cancelButton)
 
-if ($plugins.Count -eq 0) {
-    $statusLabel.Text = $S.StatusNoPlugins
+function Render-CubismCandidates {
+    $cubismList.Items.Clear()
+    foreach ($candidate in @($candidates)) {
+        $stateText = if ($candidate.Selectable) { $S.Ready } elseif ($candidate.Status -eq "Unsupported") { $S.Unsupported } else { $S.Invalid }
+        $text = "{0}  |  {1}  |  {2}  |  {3}" -f $(if ($candidate.Version) { $candidate.Version } else { "?" }), $stateText, $candidate.CanonicalRoot, $candidate.Reason
+        [void]$cubismList.Items.Add($text, ([bool]$candidate.Selected -and [bool]$candidate.Selectable))
+    }
+    $ready = @($candidates | Where-Object { $_.Selectable }).Count
+    $cubismStatus.Text = "$ready $($S.Selected)"
+    if ($ready -eq 0) { $statusLabel.Text = $S.StatusNoCubism }
 }
+Render-CubismCandidates
+if (-not $state.Valid) { $statusLabel.Text = $S.StateWarning -f $state.Error }
+if ($plugins.Count -eq 0) { $statusLabel.Text = $S.StatusNoPlugins }
 
-$saveButton.Add_Click({
-    $unchecked = @()
-    for ($i = 0; $i -lt $plugins.Count; $i++) {
-        if (-not $list.GetItemChecked($i)) { $unchecked += $plugins[$i].Id }
-    }
-    # 保留既有 disabledPlugins 中已不在插件列表中的 id
-    $known = @($plugins | ForEach-Object { $_.Id })
-    foreach ($id in $existingDisabled) {
-        if (($known -notcontains $id) -and ($unchecked -notcontains $id)) { $unchecked += $id }
-    }
-    $unchecked = @($unchecked | Sort-Object -Unique)
-
-    if ($null -eq $existingConfig) {
-        $config = [pscustomobject]@{
-            format       = "turboism.runtime.config"
-            schemaVersion = 1
-            worktreeId   = "turboism-runtime"
-            pluginDirs   = @("plugins")
+$rescanButton.Add_Click({
+    for ($i = 0; $i -lt $candidates.Count; $i++) { $candidates[$i].Selected = $cubismList.GetItemChecked($i) }
+    $stateInstallations = @($candidates | ForEach-Object { [pscustomobject]@{ Root = $_.CanonicalRoot; Version = $_.Version; Selected = $_.Selected } })
+    $candidates = Refresh-CubismCandidates
+    Render-CubismCandidates
+})
+$addButton.Add_Click({
+    $dialog = New-Object System.Windows.Forms.FolderBrowserDialog
+    $dialog.Description = $S.AddTitle
+    if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+        $candidate = New-CubismInstallationCandidate -Root $dialog.SelectedPath -Source "manual"
+        $manualRoot = $candidate.CanonicalRoot
+        if ($null -ne $candidate.Key -and @($candidates | Where-Object { $_.Key -eq $candidate.Key }).Count -eq 0) {
+            $manualRoots += $manualRoot
+            $candidate.Selected = [bool]$candidate.Selectable
+            $candidates += $candidate
+            $candidates = @($candidates | Sort-Object @{Expression={ if ($_.Version) { [version]$_.Version } else { [version]"0.0.0" } }}, @{Expression={ $_.CanonicalRoot.ToUpperInvariant() }})
+            Render-CubismCandidates
         }
     }
-    else {
-        $config = $existingConfig
-    }
-    if ($unchecked.Count -gt 0) {
-        $config.disabledPlugins = $unchecked
-    }
-    else {
-        $config.PSObject.Properties.Remove("disabledPlugins")
-    }
-
-    $json = $config | ConvertTo-Json -Depth 8
-    # Windows PowerShell 5.1 的 ConvertTo-Json 会把单元素数组展开成标量，这里修复
-    $json = $json -replace '"disabledPlugins":\s*"([^"]+)"', '"disabledPlugins": ["$1"]'
-    Set-Content -LiteralPath $configPath -Value $json -Encoding UTF8
-    $statusLabel.Text = $S.StatusSaved -f $unchecked.Count
+    $dialog.Dispose()
+})
+$removeButton.Add_Click({
+    if ($cubismList.SelectedIndices.Count -eq 0) { $statusLabel.Text = $S.RemovePrompt; return }
+    $removeKeys = @($cubismList.SelectedIndices | ForEach-Object { $candidates[$_].Key })
+    $candidates = @($candidates | Where-Object { $removeKeys -notcontains $_.Key })
+    $stateInstallations = @($stateInstallations | Where-Object { $removeKeys -notcontains (Get-CubismRootKey $_.Root) })
+    $manualRoots = @($manualRoots | Where-Object { $removeKeys -notcontains (Get-CubismRootKey $_) })
+    Render-CubismCandidates
 })
 
-# ---------- Cubism bat 写入（接口占位） ----------
-function Write-CubismBat {
-    # TODO: 未实现 —— 向 Cubism 的 CubismEditor5.bat 注入 Turboism 启动参数
-    # （侵入式修改 Cubism 安装目录，需用户明确确认；后续版本实现）。
-    throw $S.BatNotImpl
-}
-if ($WriteBat) {
-    Write-CubismBat
-}
+$saveButton.Add_Click({
+    try {
+        for ($i = 0; $i -lt $candidates.Count; $i++) {
+            $candidates[$i].Selected = [bool]$cubismList.GetItemChecked($i) -and [bool]$candidates[$i].Selectable
+        }
+        $unchecked = @()
+        for ($i = 0; $i -lt $plugins.Count; $i++) { if (-not $pluginList.GetItemChecked($i)) { $unchecked += $plugins[$i].Id } }
+        $known = @($plugins | ForEach-Object { $_.Id })
+        foreach ($id in $existingDisabled) {
+            if (($known -notcontains $id) -and ($unchecked -notcontains $id)) { $unchecked += $id }
+        }
+        $unchecked = @($unchecked | Sort-Object -Unique)
+        $config = [ordered]@{ format = "turboism.runtime.config"; schemaVersion = 1; worktreeId = "turboism-runtime"; pluginDirs = @("plugins") }
+        if ($null -ne $existingConfig) {
+            foreach ($property in $existingConfig.PSObject.Properties) {
+                if (@("format", "schemaVersion", "worktreeId", "pluginDirs", "disabledPlugins") -notcontains $property.Name) {
+                    $config[$property.Name] = $property.Value
+                }
+            }
+        }
+        if ($unchecked.Count -gt 0) { $config.disabledPlugins = $unchecked }
+        else { $config.Remove("disabledPlugins") }
+        $json = $config | ConvertTo-Json -Depth 8
+        $json = $json -replace '"disabledPlugins":\s*"([^"]+)"', '"disabledPlugins": ["$1"]'
+        Set-Content -LiteralPath $configPath -Value $json -Encoding UTF8
+
+        $oldState = Read-CubismInstallationState -StatePath $statePath
+        $newShortcuts = @()
+        try {
+            foreach ($candidate in @($candidates | Where-Object { $_.Selected -and $_.Selectable })) {
+                $newShortcuts += New-CubismManagedShortcut -Home $turboismHome -Candidate $candidate -Variant "normal"
+                if (-not [string]::IsNullOrWhiteSpace($candidate.D3DBat)) {
+                    $newShortcuts += New-CubismManagedShortcut -Home $turboismHome -Candidate $candidate -Variant "d3d"
+                }
+            }
+            Write-CubismInstallationState -StatePath $statePath -Candidates $candidates -ManagedShortcuts $newShortcuts
+        }
+        catch {
+            Remove-CubismManagedShortcuts -Paths $newShortcuts
+            throw
+        }
+        $stale = @($oldState.ManagedShortcuts | Where-Object { $newShortcuts -notcontains $_ })
+        Remove-CubismManagedShortcuts -Paths $stale
+        $statusLabel.Text = $S.StatusSaved -f @($candidates | Where-Object { $_.Selected -and $_.Selectable }).Count
+        [System.Windows.Forms.MessageBox]::Show($S.Saved, $form.Text, [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information) | Out-Null
+        $form.Close()
+    }
+    catch {
+        [System.Windows.Forms.MessageBox]::Show(($S.SaveError -f $_.Exception.Message), $form.Text, [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error) | Out-Null
+    }
+})
 
 [void]$form.ShowDialog()

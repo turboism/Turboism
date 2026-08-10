@@ -1,0 +1,22 @@
+# Synthetic Windows managed-launch verification.
+# This lane never downloads, discovers, or launches an installed Cubism host.
+# It uses temporary Cubism-shaped fixtures and the production PowerShell seam.
+# workflow_dispatch keeps Windows minutes explicit and reviewable.
+
+name: Windows managed launch verification
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-managed-launch:
+    runs-on: windows-2022
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
+      - name: Run synthetic managed-launch gate
+        shell: powershell
+        run: .\packaging\windows-installer\test-managed-launch.ps1
