@@ -395,6 +395,33 @@ class RuntimeSettingsServiceTest {
         assertEquals(requested, service.read());
     }
 
+
+    @Test
+    void propagatesCallbackErrorsWithoutInvokingLaterCallbacks() throws Exception {
+        writeValid("settings-callback-error");
+        final Error callbackFailure = new Error("fatal callback failed");
+        final java.util.List<String> callbacks = new java.util.ArrayList<>();
+        final RuntimeSettingsFileService service = new RuntimeSettingsFileService(
+            home,
+            coordinator(),
+            ignored -> {
+                callbacks.add("log-level");
+                throw callbackFailure;
+            },
+            ignored -> callbacks.add("storage-limit")
+        );
+        final RuntimeSettings requested =
+            new RuntimeSettings(false, "DEBUG", 64, false, false, false, false, "en");
+
+        final Error failure = assertThrows(Error.class, () -> service.save(requested));
+
+        assertTrue(failure == callbackFailure);
+        assertEquals(java.util.List.of("log-level"), callbacks);
+        assertEquals(requested, service.baselineForTest());
+        assertEquals(requested, service.activeForTest());
+        assertTrue(Files.readString(home.resolve("config.json")).contains("\"logLevel\" : \"DEBUG\""));
+    }
+
     @Test
     void homeConstructorForwardsConfigDiagnostics() throws Exception {
         Files.writeString(home.resolve("config.json"), """
