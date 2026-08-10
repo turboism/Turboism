@@ -204,6 +204,12 @@ try {
     Assert-ManagedLaunch (@($policyResult.StateInstallations | Where-Object { $_.Root -eq $manualPolicyRoot }).Count -eq 0) "forgotten manual root is removed from saved state"
 
     $shortcutDir = Join-Path $temp "Start Menu\Turboism"
+    $resolvedOverride = Get-CubismShortcutDirectory -Override ($shortcutDir + [System.IO.Path]::DirectorySeparatorChar)
+    Assert-ManagedLaunch ($resolvedOverride -eq [System.IO.Path]::GetFullPath($shortcutDir).TrimEnd('\', '/')) "explicit shortcut directory override is normalized to an absolute path"
+    $programsDirectory = [Environment]::GetFolderPath("Programs")
+    if (-not [string]::IsNullOrWhiteSpace($programsDirectory)) {
+        Assert-ManagedLaunch ((Get-CubismShortcutDirectory) -eq [System.IO.Path]::GetFullPath((Join-Path $programsDirectory "Turboism")).TrimEnd('\', '/')) "default shortcut directory is current-user Programs/Turboism"
+    }
     $managedShortcut = Join-Path $shortcutDir (Get-CubismShortcutName $candidates[0])
     Assert-ManagedLaunch ((Get-CubismShortcutName $candidates[1]) -ne (Get-CubismShortcutName $candidates[2])) "duplicate installations get distinct shortcut identities"
     $unrelatedShortcut = Join-Path $shortcutDir "Turboism Configurator.lnk"
