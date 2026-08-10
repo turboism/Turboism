@@ -10,14 +10,18 @@ import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.TreeSet;
 
 /**
@@ -46,7 +50,14 @@ final class ConfigMerge {
     static final String WORKTREE_ID = "turboism-runtime";
     static final String PLUGIN_DIR = "plugins";
     static final String CONFIG_FILE = "config.json";
+    static final String INSTALLATION_STATE_FILE = "cubism-installations.json";
     static final String TEMPLATE_RESOURCE = "/turboism/config.template.json";
+    private static final int MAX_INSTALLATIONS = 256;
+    private static final int MAX_SHORTCUTS = 512;
+    private static final int MAX_STATE_FIELD_LENGTH = 4096;
+    private static final Pattern MANAGED_SHORTCUT = Pattern.compile(
+            "^Turboism Cubism 5\\.[23](?:\\.\\d+)? \\[[\\p{L}\\p{Nd}._ \\-]{1,48}-[0-9A-F]{12}\\](?: - D3D)?\\.lnk$",
+            Pattern.CASE_INSENSITIVE);
 
     static final class ConfigException extends Exception {
         ConfigException(String message) {
@@ -150,6 +161,140 @@ final class ConfigMerge {
             buffer.flip();
             buffer.get(bytes);
             return bytes;
+        }
+    }
+
+    /**
+     * Bounded Windows managed-launch cleanup shared with the regression jar.
+     * The valid state is the only source of shortcut paths; malformed state
+     * authorizes nothing and remains for a later retry.
+     */
+    static boolean cleanupManagedState(Path home, Path shortcutDirectory) {
+        Path state = home.resolve(INSTALLATION_STATE_FILE).normalize();
+        try {
+            if (!Files.exists(state, LinkOption.NOFOLLOW_LINKS)) {
+                return true;
+            }
+            if (Files.isSymbolicLink(state) || !Files.isRegularFile(state, LinkOption.NOFOLLOW_LINKS)) {
+                return false;
+            }
+            if (shortcutDirectory == null) {
+                return false;
+            }
+            Path directory = shortcutDirectory.toAbsolutePath().normalize();
+            if (Files.exists(directory, LinkOption.NOFOLLOW_LINKS)
+                    && (Files.isSymbolicLink(directory) || !Files.isDirectory(directory, LinkOption.NOFOLLOW_LINKS))) {
+                return false;
+            }
+            List<String> shortcuts = readOwnedShortcuts(state, directory);
+            for (String raw : shortcuts) {
+                Path shortcut = Paths.get(raw).toAbsolutePath().normalize();
+                if (Files.isSymbolicLink(shortcut)
+                        || (Files.exists(shortcut, LinkOption.NOFOLLOW_LINKS)
+                        && !Files.isRegularFile(shortcut, LinkOption.NOFOLLOW_LINKS))) {
+                    return false;
+                }
+            }
+            for (String raw : shortcuts) {
+                try {
+                    Files.deleteIfExists(Paths.get(raw).toAbsolutePath().normalize());
+                } catch (IOException failure) {
+                    return false;
+                }
+            }
+            Files.deleteIfExists(state);
+            return true;
+        } catch (IOException | ConfigException | RuntimeException failure) {
+            return false;
+        }
+    }
+
+    private static List<String> readOwnedShortcuts(Path state, Path directory)
+            throws IOException, ConfigException {
+        Object parsed;
+        try {
+            parsed = BoundedJson.parse(decodeUtf8Strict(readBounded(state)));
+        } catch (BoundedJson.JsonException e) {
+            throw new ConfigException("managed state is not valid JSON: " + e.getMessage(), e);
+        }
+        if (!(parsed instanceof Map)) {
+            throw new ConfigException("managed state root is not an object");
+        }
+        Map<?, ?> root = (Map<?, ?>) parsed;
+        requireStateKeys(root, Set.of("format", "schemaVersion", "installations", "managedShortcuts"));
+        if (!"turboism.cubism.installation-state".equals(root.get("format"))
+                || !(root.get("schemaVersion") instanceof Long)
+                || ((Long) root.get("schemaVersion")) != 1L) {
+            throw new ConfigException("unsupported managed state schema");
+        }
+        Object installationsValue = root.get("installations");
+        if (!(installationsValue instanceof List) || ((List<?>) installationsValue).size() > MAX_INSTALLATIONS) {
+            throw new ConfigException("invalid installation entries");
+        }
+        Set<String> roots = new HashSet<>();
+        for (Object value : (List<?>) installationsValue) {
+            if (!(value instanceof Map)) {
+                throw new ConfigException("invalid installation entry");
+            }
+            Map<?, ?> entry = (Map<?, ?>) value;
+            requireStateKeys(entry, Set.of("root", "version", "selected"));
+            if (!(entry.get("root") instanceof String)
+                    || !(entry.get("version") instanceof String)
+                    || !(entry.get("selected") instanceof Boolean)) {
+                throw new ConfigException("invalid installation entry shape");
+            }
+            String rawRoot = (String) entry.get("root");
+            String version = (String) entry.get("version");
+            if (rawRoot.isEmpty() || rawRoot.length() > MAX_STATE_FIELD_LENGTH || version.length() > 16) {
+                throw new ConfigException("invalid installation entry bounds");
+            }
+            Path rootPath = Paths.get(rawRoot).toAbsolutePath().normalize();
+            if (!roots.add(rootPath.toString().toUpperCase(Locale.ROOT))) {
+                throw new ConfigException("duplicate installation root");
+            }
+        }
+        Object shortcutsValue = root.get("managedShortcuts");
+        if (!(shortcutsValue instanceof List) || ((List<?>) shortcutsValue).size() > MAX_SHORTCUTS) {
+            throw new ConfigException("invalid managed shortcuts");
+        }
+        Set<String> seen = new HashSet<>();
+        List<String> shortcuts = new ArrayList<>();
+        for (Object value : (List<?>) shortcutsValue) {
+            if (!(value instanceof String)) {
+                throw new ConfigException("invalid managed shortcut entry");
+            }
+            String raw = (String) value;
+            if (raw.isEmpty() || raw.length() > MAX_STATE_FIELD_LENGTH || !isOwnedShortcut(raw, directory)) {
+                throw new ConfigException("managed shortcut is outside the current-user Turboism directory");
+            }
+            Path normalized = Paths.get(raw).toAbsolutePath().normalize();
+            if (!seen.add(normalized.toString().toUpperCase(Locale.ROOT))) {
+                throw new ConfigException("duplicate managed shortcut");
+            }
+            shortcuts.add(raw);
+        }
+        return shortcuts;
+    }
+
+    private static void requireStateKeys(Map<?, ?> map, Set<String> expected) throws ConfigException {
+        if (map.size() != expected.size() || !map.keySet().equals(expected)) {
+            throw new ConfigException("unknown or missing managed state fields");
+        }
+    }
+
+    private static boolean isOwnedShortcut(String raw, Path directory) {
+        try {
+            Path path = Paths.get(raw);
+            if (!path.isAbsolute()) {
+                return false;
+            }
+            Path normalized = path.toAbsolutePath().normalize();
+            String expected = directory.toAbsolutePath().normalize().toString();
+            String actualParent = normalized.getParent() == null ? "" : normalized.getParent().toString();
+            return actualParent.equalsIgnoreCase(expected)
+                    && MANAGED_SHORTCUT.matcher(normalized.getFileName().toString()).matches();
+        } catch (RuntimeException failure) {
+            return false;
         }
     }
 
