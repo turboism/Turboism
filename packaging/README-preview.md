@@ -1,54 +1,49 @@
-# Turboism 0.1 Developer Preview
+# Turboism Windows managed-launch preview
 
-This preview is an isolated, local Java-agent launch path for Live2D Cubism Editor 5.3.02. It does not modify the Cubism installation, launcher, license, or user files.
+The Windows payload is a Java-agent runtime for Live2D Cubism Editor. It never
+modifies a Cubism installation, its official launcher, licensing files, or
+user files.
 
-## Bundle layout
+## Bundle
 
 ```text
-turboism-preview/
+turboism/
 ├── turboism-agent.jar
-├── run-preview.bat
+├── configure_turboism.ps1
+├── cubism-launch-common.ps1
 ├── launch-cubism-turboism.bat
 ├── launch-cubism-turboism.ps1
 ├── plugins/
-│   └── project-inspector.jar
-├── plugin-data/
 ├── state/
 └── logs/
 ```
 
 ## Run
 
-Double-click:
+Run `configure_turboism.ps1` first. It discovers only supported Cubism 5.2.03
+and 5.3.02 roots, checks the official `CubismEditor5.bat`, bundled Java
+launcher, and application JAR shape, and stores its bounded selection in the
+Turboism-owned `cubism-installations.json` state file. Manual folder selection
+is available for installations not found by bounded discovery.
+
+The configurator creates one explicit Start Menu entry per selected root and a
+separate D3D entry only when that root supplies an official D3D BAT. The generic
+launcher displays a picker when more than one selected root exists; it never
+silently chooses a first result. Every launch calls the selected installation's
+official Cubism BAT, passes process-scoped Turboism JVM options, and restores
+the caller's environment after the BAT exits.
+
+For an explicit command-line launch:
 
 ```bat
-run-preview.bat
+launch-cubism-turboism.bat -CubismRoot "%ProgramFiles%\Live2D\Cubism 5.3.02"
 ```
 
-The launcher searches the supported Cubism 5.3.02 locations and `CUBISM_ROOT`. It invokes Cubism's bundled `java.exe` directly with the official classpath and runtime flags, then adds only `turboism-agent.jar`. It intentionally does not call a possibly modified `CubismEditor5.bat`, does not reuse a legacy Turboism agent, and does not use `JAVA_TOOL_OPTIONS`.
-
-To select another 5.3.02 directory explicitly:
-
-```bat
-launch-cubism-turboism.bat -CubismRoot "C:\Program Files\Live2D Cubism 5.3.02"
-```
-
-## Logs
-
-Runtime and plugin diagnostics are written to one file per Cubism session under:
-
-```text
-logs\runtime\<UTC-date>\turboism-<session>-p<PID>-<suffix>.log
-```
+No production entry invokes the Cubism Java main class directly or edits the
+Cubism root. No host-readiness claim is made by this packaging preview.
 
 ## Removal
 
-Close Cubism and delete the preview directory. No Cubism installation file is changed.
-
-## Current limitations
-
-- Cubism Editor 5.3.02 only.
-- Windows preview wrapper only.
-- Read-only Project Inspector is the sole supported real feature.
-- No automatic install, update, rollback, recovery, marketplace, signing, or global launcher integration.
-- A mismatched Cubism JAR leaves host adapters unavailable rather than attempting an unsafe fallback.
+Close Cubism and remove the Turboism payload directory. The managed launcher
+state and shortcuts are Turboism-owned; no Cubism installation file is
+changed.

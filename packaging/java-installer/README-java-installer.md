@@ -59,6 +59,8 @@ or third-party plugin files are never deleted.
 
 Rerun the installer to change the selected plugin set.
 
+On Windows, the staged payload also includes `configure_turboism.ps1`. Run it later from the installed Turboism home whenever Cubism installations or managed launch entries change; it discovers only supported 5.2.03/5.3.02 roots, preserves the separate installation state, and calls each selected root through its official Cubism BAT. The setup may be canceled with a valid framework-only install and never edits a Cubism installation.
+
 ## Uninstall
 
 The installer generates `Uninstaller/uninstaller.jar` under the home

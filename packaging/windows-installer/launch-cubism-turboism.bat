@@ -1,7 +1,7 @@
 @echo off
 setlocal EnableExtensions
 
-rem Turboism 非侵入启动器（双击运行；等价 scripts/preview/launch-cubism-turboism.bat）
+rem Turboism managed launcher (the PowerShell entry invokes the selected official Cubism BAT).
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0launch-cubism-turboism.ps1" %*
 set "EXIT_CODE=%ERRORLEVEL%"
 
