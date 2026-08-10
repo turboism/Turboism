@@ -16,6 +16,7 @@ param(
 $ErrorActionPreference = "Stop"
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 . (Join-Path $scriptDir "cubism-launch-common.ps1")
+Set-StrictMode -Version 3.0
 
 $uiLang = [System.Threading.Thread]::CurrentThread.CurrentUICulture.TwoLetterISOLanguageName
 $messages = @{
@@ -81,6 +82,8 @@ function Resolve-SelectedCandidate {
         if (-not $candidate.Selectable) { throw ($M.RootInvalid -f $requested) }
         return $candidate
     }
+    $state = Read-CubismInstallationState -StatePath $statePath
+    if (-not $state.Valid) { throw ($M.StateInvalid -f $state.Error) }
 
     $selectedEntries = @($state.Installations | Where-Object { $_.Selected })
     if ($selectedEntries.Count -eq 0) { throw $M.StateMissing }
