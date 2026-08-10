@@ -20,10 +20,11 @@ Turboism は Live2D Cubism エディター用の Java agent ランタイムで�
 ---------
 1. フォルダーごと任意の場所に配置します（例: %LOCALAPPDATA%\Turboism）。
 2. configure_turboism.ps1 を実行します。CUBISM_ROOT、Windows のインストール
-   情報、既知のプログラム先、上限付き固定ドライブ走査から Cubism 5.2.03 と
-   5.3.02 を検出します。フォルダー選択で追加することもできます。公式
-   CubismEditor5.bat、同梱 Java ランチャー、想定アプリ JAR 構造が揃う場合だけ
-   選択できます。
+   情報、既知のプログラム先、上限付き固定ドライブ走査から標準の Cubism 5.2/5.3
+   系列候補（パッチ付きディレクトリ名を含む）を検出します。フォルダー選択で追加
+   することもできます。公式 CubismEditor5.bat、同梱 Java ランチャー、想定アプリ
+   JAR 構造が揃う場合だけ選択できます。系列候補は正確なパッチ版の証明ではなく、
+   実行時の identity/入場判定は fail-closed のままです。
 3. 管理対象とプラグインを選んで保存します。新しく見つかった対応インストール
    は選択済みになり、次回以降は選択状態を保持します。不正/未対応項目は表示
    され、削除できます。0 件で保存しても framework-only の有効なインストール
@@ -58,8 +59,9 @@ Turboism は Live2D Cubism エディター用の Java agent ランタイムで�
 
 5. よくある質問
 ---------------
-- 選択できない場合: 正確な 5.2.03/5.3.02 ルートに CubismEditor5.bat、
+- 選択できない場合: 5.2/5.3 系列ルートに CubismEditor5.bat、
   app\jre\bin\java.exe、app\lib\Live2D_Cubism.jar があることを確認してください。
+  正確なパッチ版の入場は実行時の identity チェックで決定されます。
 - 複数バージョンがある場合: 対応する Start Menu 入口または -CubismRoot を使い、
   最初の結果を暗黙に選ばないようにします。
 - bat の画面がすぐ閉じる場合: コマンドラインから launch-cubism-turboism.ps1 を

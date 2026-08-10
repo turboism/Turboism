@@ -19,12 +19,13 @@ never modifies, copies, or replaces files inside a Cubism installation.
 2. Usage
 --------
 1. Place the whole folder anywhere, for example %LOCALAPPDATA%\Turboism.
-2. Run configure_turboism.ps1. It discovers supported Cubism 5.2.03 and
-   5.3.02 installations from CUBISM_ROOT, Windows install records, known
-   program locations, and bounded fixed-drive checks. You can also add a
-   folder with the file picker. It checks the official CubismEditor5.bat,
-   bundled Java launcher, and expected application JAR shape before a root is
-   selectable.
+2. Run configure_turboism.ps1. It discovers standard Cubism 5.2 and 5.3
+   family candidates (including patch-suffixed names) from CUBISM_ROOT, Windows
+   install records, known program locations, and bounded fixed-drive checks.
+   You can also add a folder with the file picker. It checks the official
+   CubismEditor5.bat, bundled Java launcher, and expected application JAR shape
+   before a root is selectable. A family candidate is not exact patch-version
+   proof; runtime identity/admission remains fail closed.
 3. Select zero or more installations and plugins, then Save. New supported
    installations start selected; later runs preserve your choices. Invalid or
    unsupported entries are visible and removable. Saving zero installations
@@ -63,8 +64,9 @@ never modifies, copies, or replaces files inside a Cubism installation.
 
 5. FAQ
 ------
-- No installation is selectable: confirm the exact 5.2.03/5.3.02 root contains
-  CubismEditor5.bat, app\jre\bin\java.exe, and app\lib\Live2D_Cubism.jar.
+- No installation is selectable: confirm a 5.2/5.3 family root contains
+  CubismEditor5.bat, app\jre\bin\java.exe, and app\lib\Live2D_Cubism.jar;
+  exact patch admission is still decided by runtime identity checks.
 - Multiple versions are listed: use the per-root Start Menu entry or pass
   -CubismRoot explicitly; Turboism never silently chooses the first result.
 - The bat window closes immediately: run launch-cubism-turboism.ps1 from a
