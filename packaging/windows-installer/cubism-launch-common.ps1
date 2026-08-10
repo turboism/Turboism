@@ -13,8 +13,9 @@ $script:CubismMaxJdkOptionText = 16384
 $script:CubismMaxJdkOptionTokens = 256
 $script:CubismMaxJdkOptionLength = 4096
 $script:CubismMaxLaunchArguments = 64
-$script:CubismMaxScanEntries = 4096
+$script:CubismScriptRoot = $PSScriptRoot
 $script:CubismMaxScanResults = 256
+$script:CubismMaxScanEntries = 4096
 $script:CubismMaxScanDrives = 26
 
 function ConvertTo-CubismCanonicalRoot {
@@ -397,6 +398,12 @@ function Read-CubismStateBytes {
     }
     finally { $stream.Dispose() }
 }
+function Get-CubismInstallationHome {
+    param([string]$StatePath)
+    $parent = Split-Path -Parent $StatePath
+    if ((Split-Path -Leaf $parent) -ieq "config") { return (Split-Path -Parent $parent) }
+    return $parent
+}
 
 function Test-CubismManagedShortcutPath {
     param([string]$Path, [string]$Directory = "")
@@ -415,14 +422,14 @@ function Test-CubismManagedShortcutPath {
 
 function Read-CubismInstallationState {
     param([string]$StatePath)
-    $empty = [pscustomobject]@{ Exists = $false; Valid = $true; Installations = @(); ManagedShortcuts = @(); Error = "" }
+    $empty = [pscustomobject]@{
+        Exists = $false; Valid = $true; Installations = @(); ManagedShortcuts = @()
+        ManagedShortcutHashes = @(); ShortcutTakeovers = @(); LaunchMode = "independent"; Error = ""
+    }
     try { $item = Get-Item -LiteralPath $StatePath -Force -ErrorAction Stop }
     catch [System.Management.Automation.ItemNotFoundException] { return $empty }
     catch {
-        $empty.Exists = $true
-        $empty.Valid = $false
-        $empty.Error = $_.Exception.Message
-        return $empty
+        $empty.Exists = $true; $empty.Valid = $false; $empty.Error = $_.Exception.Message; return $empty
     }
     $empty.Exists = $true
     try {
@@ -432,12 +439,19 @@ function Read-CubismInstallationState {
         if ($null -eq $doc) { throw "state JSON is empty" }
         $stateKeys = @($doc.PSObject.Properties.Name)
         $requiredKeys = @("format", "schemaVersion", "installations", "managedShortcuts")
-        if ($stateKeys.Count -ne $requiredKeys.Count -or @($requiredKeys | Where-Object { $stateKeys -notcontains $_ }).Count -gt 0) {
+        $allowedKeys = @($requiredKeys + "launchMode" + "shortcutTakeovers" + "managedShortcutHashes")
+        if (@($requiredKeys | Where-Object { $stateKeys -notcontains $_ }).Count -gt 0 -or
+            @($stateKeys | Where-Object { $allowedKeys -notcontains $_ }).Count -gt 0) {
             throw "unknown or missing state fields"
         }
         if ($doc.format -ne $script:CubismStateFormat) { throw "unsupported state format" }
         if (($doc.schemaVersion -isnot [int]) -and ($doc.schemaVersion -isnot [long])) { throw "unsupported state schema" }
         if ([int64]$doc.schemaVersion -ne $script:CubismStateSchemaVersion) { throw "unsupported state schema" }
+        $mode = "independent"
+        if ($stateKeys -contains "launchMode") {
+            if ($doc.launchMode -isnot [string] -or @("independent", "takeover") -notcontains $doc.launchMode) { throw "invalid launch mode" }
+            $mode = [string]$doc.launchMode
+        }
         if ($doc.installations -isnot [array] -or $doc.installations.Count -gt $script:CubismMaxStateEntries) { throw "invalid installation entries" }
         if ($doc.managedShortcuts -isnot [array] -or $doc.managedShortcuts.Count -gt $script:CubismMaxShortcutEntries) { throw "invalid shortcut entries" }
 
@@ -451,9 +465,9 @@ function Read-CubismInstallationState {
                 $entry.root -isnot [string] -or $entry.version -isnot [string] -or $entry.selected -isnot [bool]) {
                 throw "invalid installation entry shape"
             }
-            if ($entry.root.Length -eq 0 -or $entry.root.Length -gt $script:CubismMaxStateFieldLength -or
-                [string]::IsNullOrWhiteSpace($entry.version) -and $entry.version.Length -gt 0 -or
-                $entry.version.Length -gt 16) { throw "invalid installation entry bounds" }
+            if ($entry.root.Length -eq 0 -or $entry.root.Length -gt $script:CubismMaxStateFieldLength -or $entry.version.Length -gt 16) {
+                throw "invalid installation entry bounds"
+            }
             $canonical = ConvertTo-CubismCanonicalRoot $entry.root
             $key = Get-CubismRootKey $canonical
             if ($null -eq $key -or -not $rootKeys.Add($key)) { throw "duplicate installation root" }
@@ -469,15 +483,65 @@ function Read-CubismInstallationState {
             if (-not $shortcutKeys.Add($key)) { throw "duplicate managed shortcut path" }
             $shortcuts += $shortcut
         }
-        $empty.Installations = @($installations)
-        $empty.ManagedShortcuts = @($shortcuts)
+
+        $hashes = @()
+        if ($stateKeys -contains "managedShortcutHashes") {
+            if ($null -eq $doc.managedShortcutHashes -or @($doc.managedShortcutHashes).Count -gt $script:CubismMaxShortcutEntries) { throw "invalid managed shortcut hashes" }
+            foreach ($record in @($doc.managedShortcutHashes)) {
+                $recordKeys = if ($null -eq $record) { @() } else { @($record.PSObject.Properties.Name) }
+                if ($null -eq $record -or $recordKeys.Count -ne 2 -or $recordKeys -notcontains "path" -or $recordKeys -notcontains "sha256" -or
+                    $record.path -isnot [string] -or $record.sha256 -isnot [string] -or $record.path.Length -eq 0 -or
+                    $record.path.Length -gt $script:CubismMaxStateFieldLength -or $record.sha256 -notmatch '^[0-9A-Fa-f]{64}$' -or
+                    -not (Test-CubismManagedShortcutPath $record.path)) { throw "invalid managed shortcut hash" }
+                $key = [System.IO.Path]::GetFullPath($record.path).ToUpperInvariant()
+                if (-not $shortcutKeys.Contains($key)) { throw "managed shortcut hash has no owned path" }
+                $hashes += [pscustomobject]@{ Path = $record.path; Sha256 = $record.sha256.ToUpperInvariant() }
+            }
+        }
+
+        $takeovers = @()
+        if ($stateKeys -contains "shortcutTakeovers") {
+            if ($null -eq $doc.shortcutTakeovers -or @($doc.shortcutTakeovers).Count -gt 128) { throw "invalid shortcut takeovers" }
+            foreach ($record in @($doc.shortcutTakeovers)) {
+                $recordKeys = if ($null -eq $record) { @() } else { @($record.PSObject.Properties.Name) }
+                $expected = @("shortcutPath", "backupPath", "originalSha256", "managedSha256", "root", "variant", "status")
+                if ($null -eq $record -or $recordKeys.Count -ne $expected.Count -or
+                    @($expected | Where-Object { $recordKeys -notcontains $_ }).Count -gt 0 -or
+                    $record.shortcutPath -isnot [string] -or $record.backupPath -isnot [string] -or
+                    $record.originalSha256 -isnot [string] -or $record.managedSha256 -isnot [string] -or
+                    $record.root -isnot [string] -or $record.variant -isnot [string] -or $record.status -isnot [string]) {
+                    throw "invalid shortcut takeover record"
+                }
+                if ($record.shortcutPath.Length -eq 0 -or $record.shortcutPath.Length -gt $script:CubismMaxStateFieldLength -or
+                    $record.backupPath.Length -eq 0 -or $record.backupPath.Length -gt $script:CubismMaxStateFieldLength -or
+                    $record.root.Length -eq 0 -or $record.root.Length -gt $script:CubismMaxStateFieldLength -or
+                    @("normal", "d3d") -notcontains $record.variant -or @("pending", "active", "conflict") -notcontains $record.status -or
+                    $record.originalSha256 -notmatch '^[0-9A-Fa-f]{64}$' -or
+                    ($record.status -eq "active" -and $record.managedSha256 -notmatch '^[0-9A-Fa-f]{64}$') -or
+                    ($record.status -ne "active" -and $record.managedSha256.Length -gt 0 -and $record.managedSha256 -notmatch '^[0-9A-Fa-f]{64}$')) {
+                    throw "invalid shortcut takeover record bounds"
+                }
+                $stateHome = Get-CubismInstallationHome $StatePath
+                if (-not (Test-CubismTakeoverShortcutPath $record.shortcutPath) -or
+                    -not (Test-CubismConfinedBackupPath -Home $stateHome -RelativePath $record.backupPath)) {
+                    throw "shortcut takeover path is outside an allowed boundary"
+                }
+                $takeovers += [pscustomobject]@{
+                    ShortcutPath = [System.IO.Path]::GetFullPath($record.shortcutPath)
+                    BackupPath = $record.backupPath
+                    OriginalSha256 = $record.originalSha256.ToUpperInvariant()
+                    ManagedSha256 = $record.managedSha256.ToUpperInvariant()
+                    Root = $record.root; Variant = $record.variant; Status = $record.status
+                }
+            }
+        }
+        $empty.Installations = @($installations); $empty.ManagedShortcuts = @($shortcuts)
+        $empty.ManagedShortcutHashes = @($hashes); $empty.ShortcutTakeovers = @($takeovers); $empty.LaunchMode = $mode
         return $empty
     }
     catch {
-        $empty.Valid = $false
-        $empty.Installations = @()
-        $empty.ManagedShortcuts = @()
-        $empty.Error = $_.Exception.Message
+        $empty.Valid = $false; $empty.Installations = @(); $empty.ManagedShortcuts = @()
+        $empty.ManagedShortcutHashes = @(); $empty.ShortcutTakeovers = @(); $empty.Error = $_.Exception.Message
         return $empty
     }
 }
@@ -486,18 +550,22 @@ function Write-CubismInstallationState {
     param(
         [string]$StatePath,
         [object[]]$Candidates,
-        [string[]]$ManagedShortcuts = @()
+        [string[]]$ManagedShortcuts = @(),
+        [object[]]$ManagedShortcutHashes = @(),
+        [object[]]$ShortcutTakeovers = @(),
+        [string]$LaunchMode = "independent"
     )
+    if (@("independent", "takeover") -notcontains $LaunchMode) { throw "invalid launch mode" }
     $parent = Split-Path -Parent $StatePath
-    if (-not (Test-Path -LiteralPath $parent -PathType Container)) { throw "Turboism home does not exist: $parent" }
-    $selectedCandidates = @($Candidates | Select-Object -First $script:CubismMaxStateEntries)
+    $installationHome = Get-CubismInstallationHome $StatePath
+    if (-not (Test-CubismNormalDirectory $parent)) { throw "Turboism home does not exist: $parent" }
     if (@($Candidates).Count -gt $script:CubismMaxStateEntries) { throw "too many installation entries" }
-    $stateRootKeys = New-Object System.Collections.Generic.HashSet[string]([System.StringComparer]::OrdinalIgnoreCase)
-    $entries = @($selectedCandidates | ForEach-Object {
+    $rootKeys = New-Object System.Collections.Generic.HashSet[string]([System.StringComparer]::OrdinalIgnoreCase)
+    $entries = @($Candidates | ForEach-Object {
         if ([string]::IsNullOrWhiteSpace($_.CanonicalRoot) -or $_.CanonicalRoot.Length -gt $script:CubismMaxStateFieldLength) { throw "invalid installation root" }
         $rootKey = Get-CubismRootKey $_.CanonicalRoot
-        if ($null -eq $rootKey -or -not $stateRootKeys.Add($rootKey)) { throw "duplicate installation root" }
-        if ($_.Version.Length -gt 16) { throw "invalid installation version" }
+        if ($null -eq $rootKey -or -not $rootKeys.Add($rootKey)) { throw "duplicate installation root" }
+        if ([string]$_.Version -and $_.Version.Length -gt 16) { throw "invalid installation version" }
         [ordered]@{ root = $_.CanonicalRoot; version = [string]$_.Version; selected = [bool]$_.Selected }
     })
     $owned = @($ManagedShortcuts)
@@ -506,19 +574,45 @@ function Write-CubismInstallationState {
     foreach ($shortcut in $owned) {
         if ([string]::IsNullOrWhiteSpace($shortcut) -or $shortcut.Length -gt $script:CubismMaxStateFieldLength -or
             -not (Test-CubismManagedShortcutPath $shortcut)) { throw "invalid managed shortcut path" }
-        $shortcutKey = [System.IO.Path]::GetFullPath($shortcut).ToUpperInvariant()
-        if (-not $shortcutKeys.Add($shortcutKey)) { throw "duplicate managed shortcut path" }
+        if (-not $shortcutKeys.Add([System.IO.Path]::GetFullPath($shortcut).ToUpperInvariant())) { throw "duplicate managed shortcut" }
+    }
+    $hashEntries = @()
+    foreach ($record in @($ManagedShortcutHashes)) {
+        if ($null -eq $record -or $record.Path -isnot [string] -or $record.Sha256 -isnot [string] -or
+            -not $shortcutKeys.Contains([System.IO.Path]::GetFullPath($record.Path).ToUpperInvariant()) -or
+            $record.Sha256 -notmatch '^[0-9A-Fa-f]{64}$') { throw "invalid managed shortcut hash" }
+        $hashEntries += [ordered]@{ path = $record.Path; sha256 = $record.Sha256.ToUpperInvariant() }
+    }
+    if ($hashEntries.Count -gt $script:CubismMaxShortcutEntries) { throw "too many managed shortcut hashes" }
+    if (@($ShortcutTakeovers).Count -gt 128) { throw "too many shortcut takeovers" }
+    $takeoverEntries = @()
+    foreach ($record in @($ShortcutTakeovers)) {
+        if ($null -eq $record -or $record.ShortcutPath -isnot [string] -or $record.BackupPath -isnot [string] -or
+            $record.OriginalSha256 -isnot [string] -or $record.ManagedSha256 -isnot [string] -or $record.Root -isnot [string] -or
+            $record.Variant -isnot [string] -or $record.Status -isnot [string] -or
+            -not (Test-CubismTakeoverShortcutPath $record.ShortcutPath) -or
+            -not (Test-CubismConfinedBackupPath -Home $installationHome -RelativePath $record.BackupPath) -or
+            $record.OriginalSha256 -notmatch '^[0-9A-Fa-f]{64}$' -or
+            ($record.Status -eq "active" -and $record.ManagedSha256 -notmatch '^[0-9A-Fa-f]{64}$') -or
+            ($record.Status -ne "active" -and $record.ManagedSha256.Length -gt 0 -and $record.ManagedSha256 -notmatch '^[0-9A-Fa-f]{64}$') -or
+            @("normal", "d3d") -notcontains $record.Variant -or @("pending", "active", "conflict") -notcontains $record.Status) {
+            throw "invalid shortcut takeover record"
+        }
+        $takeoverEntries += [ordered]@{
+            shortcutPath = $record.ShortcutPath; backupPath = $record.BackupPath; originalSha256 = $record.OriginalSha256.ToUpperInvariant()
+            managedSha256 = $record.ManagedSha256.ToUpperInvariant(); root = $record.Root; variant = $record.Variant; status = $record.Status
+        }
     }
     $doc = [ordered]@{
-        format = $script:CubismStateFormat
-        schemaVersion = $script:CubismStateSchemaVersion
-        installations = $entries
-        managedShortcuts = @($owned)
+        format = $script:CubismStateFormat; schemaVersion = $script:CubismStateSchemaVersion
+        installations = $entries; managedShortcuts = @($owned); launchMode = $LaunchMode
     }
-    $text = $doc | ConvertTo-Json -Depth 5 -Compress
+    if ($takeoverEntries.Count -gt 0) { $doc.shortcutTakeovers = $takeoverEntries }
+    if ($hashEntries.Count -gt 0) { $doc.managedShortcutHashes = $hashEntries }
+    $text = $doc | ConvertTo-Json -Depth 8 -Compress
     $encoding = New-Object System.Text.UTF8Encoding($false)
     if ($encoding.GetByteCount($text) -gt $script:CubismMaxStateBytes) { throw "state JSON exceeds $($script:CubismMaxStateBytes) bytes" }
-    $temporary = "$StatePath.$PID.tmp"
+    $temporary = "$StatePath.$PID.$([guid]::NewGuid().ToString('N')).tmp"
     try {
         [System.IO.File]::WriteAllText($temporary, $text, $encoding)
         if (Test-Path -LiteralPath $StatePath -PathType Leaf) {
@@ -533,85 +627,494 @@ function Write-CubismInstallationState {
     }
 }
 
-function Get-CubismShortcutDirectory {
-    param([string]$Override = "")
-    if (-not [string]::IsNullOrWhiteSpace($Override)) { return [System.IO.Path]::GetFullPath($Override) }
-    $programs = [Environment]::GetFolderPath("Programs")
-    if ([string]::IsNullOrWhiteSpace($programs)) { $programs = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs" }
-    return (Join-Path $programs "Turboism")
+function Get-CubismSha256 {
+    param([string]$Path)
+    if (-not (Test-CubismNormalFile $Path)) { throw "file is not a normal file: $Path" }
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    $stream = [System.IO.File]::Open($Path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::Read)
+    try { return ([System.BitConverter]::ToString($sha.ComputeHash($stream))).Replace("-", "").ToUpperInvariant() }
+    finally { $stream.Dispose(); $sha.Dispose() }
+}
+
+function Get-CubismTextSha256 {
+    param([string]$Text)
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try { return ([System.BitConverter]::ToString($sha.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($Text)))).Replace("-", "").ToUpperInvariant() }
+    finally { $sha.Dispose() }
+}
+
+function Test-CubismNormalFile {
+    param([string]$Path)
+    try {
+        $item = Get-Item -LiteralPath $Path -Force -ErrorAction Stop
+        return (-not $item.PSIsContainer -and ($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -eq 0 -and [System.IO.File]::Exists($item.FullName))
+    }
+    catch { return $false }
+}
+
+function Test-CubismNormalDirectory {
+    param([string]$Path)
+    try {
+        $item = Get-Item -LiteralPath $Path -Force -ErrorAction Stop
+        return ($item.PSIsContainer -and ($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -eq 0)
+    }
+    catch { return $false }
+}
+
+function Get-CubismCurrentUserShortcutRoots {
+    $roots = New-Object System.Collections.Generic.List[string]
+    $keys = New-Object System.Collections.Generic.HashSet[string]([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($value in @([Environment]::GetFolderPath("Desktop"), [Environment]::GetFolderPath("Programs"))) {
+        if ([string]::IsNullOrWhiteSpace($value)) { continue }
+        $canonical = ConvertTo-CubismCanonicalRoot $value
+        if ($null -ne $canonical -and (Test-CubismNormalDirectory $canonical) -and $keys.Add($canonical)) { [void]$roots.Add($canonical) }
+    }
+    if ($roots.Count -eq 0 -and -not [string]::IsNullOrWhiteSpace($env:APPDATA)) {
+        $fallback = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs"
+        $canonical = ConvertTo-CubismCanonicalRoot $fallback
+        if ($null -ne $canonical -and (Test-CubismNormalDirectory $canonical) -and $keys.Add($canonical)) { [void]$roots.Add($canonical) }
+    }
+    return @($roots)
+}
+
+function Test-CubismPathUnderRoots {
+    param([string]$Path, [string[]]$Roots)
+    try {
+        $full = [System.IO.Path]::GetFullPath($Path)
+        foreach ($root in @($Roots)) {
+            $canonical = ConvertTo-CubismCanonicalRoot $root
+            if ($null -eq $canonical) { continue }
+            $prefix = $canonical.TrimEnd('\', '/') + [System.IO.Path]::DirectorySeparatorChar
+            if (-not $full.StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase)) { continue }
+            $cursor = [System.IO.Path]::GetDirectoryName($full)
+            $valid = $true
+            while ($null -ne $cursor -and $cursor.Length -ge $canonical.Length) {
+                if (-not (Test-CubismNormalDirectory $cursor)) { $valid = $false; break }
+                if ($cursor.TrimEnd('\', '/') -ieq $canonical.TrimEnd('\', '/')) { break }
+                $cursor = [System.IO.Path]::GetDirectoryName($cursor)
+            }
+            if ($valid) { return $true }
+        }
+    }
+    catch { }
+    return $false
+}
+
+function Test-CubismTakeoverShortcutPath {
+    param([string]$Path, [string[]]$Roots = @())
+    if ([string]::IsNullOrWhiteSpace($Path) -or [System.IO.Path]::GetExtension($Path) -ine ".lnk") { return $false }
+    if ($Roots.Count -eq 0) { $Roots = @(Get-CubismCurrentUserShortcutRoots) }
+    return Test-CubismPathUnderRoots -Path $Path -Roots $Roots
+}
+
+function Get-CubismShortcutFiles {
+    param(
+        [string[]]$Roots = @(),
+        [int]$MaxEntries = $script:CubismMaxScanEntries,
+        [int]$MaxResults = $script:CubismMaxScanResults
+    )
+    $queue = New-Object System.Collections.Generic.Queue[object]
+    $seen = New-Object System.Collections.Generic.HashSet[string]([System.StringComparer]::OrdinalIgnoreCase)
+    $result = New-Object System.Collections.Generic.List[string]
+    foreach ($root in @($Roots)) {
+        $canonical = ConvertTo-CubismCanonicalRoot $root
+        if ($null -ne $canonical -and (Test-CubismNormalDirectory $canonical) -and $seen.Add($canonical)) { $queue.Enqueue([pscustomobject]@{ Path = $canonical; Depth = 0 }) }
+    }
+    $inspected = 0
+    while ($queue.Count -gt 0 -and $inspected -lt $MaxEntries -and $result.Count -lt $MaxResults) {
+        $node = $queue.Dequeue()
+        foreach ($item in @(Get-ChildItem -LiteralPath $node.Path -Force -ErrorAction SilentlyContinue)) {
+            $inspected++
+            if ($inspected -gt $MaxEntries) { break }
+            if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) { continue }
+            if ($item.PSIsContainer) {
+                if ($node.Depth -lt 8 -and $seen.Add($item.FullName)) { $queue.Enqueue([pscustomobject]@{ Path = $item.FullName; Depth = $node.Depth + 1 }) }
+            }
+            elseif ($item.Extension -ieq ".lnk" -and (Test-CubismNormalFile $item.FullName)) { [void]$result.Add($item.FullName) }
+            if ($result.Count -ge $MaxResults) { break }
+        }
+    }
+    return @($result)
+}
+
+function Get-CubismShortcutTarget {
+    param([string]$Path)
+    if (-not (Test-CubismNormalFile $Path)) { throw "shortcut is not a normal file" }
+    $shell = $null; $shortcut = $null
+    try {
+        $shell = New-Object -ComObject WScript.Shell
+        $shortcut = $shell.CreateShortcut($Path)
+        if ([string]::IsNullOrWhiteSpace($shortcut.TargetPath)) { return $null }
+        return [System.IO.Path]::GetFullPath($shortcut.TargetPath)
+    }
+    finally {
+        if ($null -ne $shortcut) { [void][Runtime.InteropServices.Marshal]::ReleaseComObject($shortcut) }
+        if ($null -ne $shell) { [void][Runtime.InteropServices.Marshal]::ReleaseComObject($shell) }
+    }
+}
+
+function Test-CubismConfinedBackupPath {
+    param([string]$Home, [string]$RelativePath)
+    if ([string]::IsNullOrWhiteSpace($Home) -or [string]::IsNullOrWhiteSpace($RelativePath) -or [System.IO.Path]::IsPathRooted($RelativePath)) { return $false }
+    try {
+        $homeFull = [System.IO.Path]::GetFullPath($Home).TrimEnd('\', '/')
+        $full = [System.IO.Path]::GetFullPath((Join-Path $homeFull $RelativePath))
+        $prefix = $homeFull + [System.IO.Path]::DirectorySeparatorChar
+        return $full.StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase) -and
+            [System.IO.Path]::GetExtension($full) -ieq ".lnk" -and
+            ($RelativePath -notmatch '(^|[\\/])\.\.([\\/]|$)')
+    }
+    catch { return $false }
+}
+
+function Get-CubismBackupDirectory {
+    param([string]$Home)
+    if (-not (Test-CubismNormalDirectory $Home)) { throw "Turboism home is not a normal directory" }
+    $installer = Join-Path $Home "installer"
+    $directory = Join-Path $installer "shortcut-backups"
+    foreach ($path in @($installer, $directory)) {
+        if (Test-Path -LiteralPath $path) {
+            if (-not (Test-CubismNormalDirectory $path)) { throw "shortcut backup directory is not a normal directory" }
+        }
+        else { New-Item -ItemType Directory -Path $path -Force | Out-Null }
+    }
+    return $directory
+}
+
+function Get-CubismBackupPathForShortcut {
+    param([string]$Home, [string]$ShortcutPath)
+    $name = (Get-CubismTextSha256 ([System.IO.Path]::GetFullPath($ShortcutPath))) + ".lnk"
+    return [pscustomobject]@{ Relative = "installer\shortcut-backups\$name"; Full = (Join-Path (Get-CubismBackupDirectory $Home) $name) }
+}
+
+function Get-CubismBackupBytes {
+    param([string]$Home)
+    $directory = Join-Path (Join-Path $Home "installer") "shortcut-backups"
+    if (-not (Test-CubismNormalDirectory $directory)) { return 0L }
+    $bytes = 0L
+    foreach ($item in @(Get-ChildItem -LiteralPath $directory -Filter *.lnk -File -Force -ErrorAction SilentlyContinue)) {
+        if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) { throw "shortcut backup is a reparse point" }
+        $bytes += [int64]$item.Length
+    }
+    return $bytes
+}
+
+function New-CubismManagedShortcutStaged {
+    param([string]$Home, [object]$Candidate, [string]$Variant, [string]$Path)
+    $directory = Split-Path -Parent $Path
+    if (-not (Test-CubismNormalDirectory $directory)) { throw "shortcut directory is not a normal directory" }
+    $existing = $null
+    try { $existing = Get-Item -LiteralPath $Path -Force -ErrorAction Stop } catch [System.Management.Automation.ItemNotFoundException] { }
+    if ($null -ne $existing -and (($existing.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0 -or $existing.PSIsContainer)) { throw "shortcut path is not a regular file" }
+    $powershell = Join-Path $env:WINDIR "System32\WindowsPowerShell\v1.0\powershell.exe"
+    $scriptPath = Join-Path $script:CubismScriptRoot "launch-cubism-turboism.ps1"
+    if (-not (Test-CubismNormalFile $scriptPath)) { throw "managed launcher is missing" }
+    $quote = { param([string]$value) '"' + $value.Replace('"', '\"') + '"' }
+    $arguments = "-NoProfile -ExecutionPolicy Bypass -File $(& $quote $scriptPath) -Home $(& $quote $Home) -CubismRoot $(& $quote $Candidate.CanonicalRoot)"
+    if ($Variant -eq "d3d") { $arguments += " -Variant d3d" }
+    $temporary = Join-Path $directory (".turboism-" + [guid]::NewGuid().ToString("N") + ".lnk")
+    $shell = $null; $shortcut = $null
+    try {
+        $shell = New-Object -ComObject WScript.Shell
+        $shortcut = $shell.CreateShortcut($temporary)
+        $shortcut.TargetPath = $powershell; $shortcut.Arguments = $arguments; $shortcut.WorkingDirectory = $Home
+        $shortcut.Description = "Turboism managed Cubism $($Candidate.Version) launch"
+        $shortcut.Save()
+        if (-not (Test-CubismNormalFile $temporary)) { throw "managed shortcut publication did not create a regular file" }
+        return [pscustomobject]@{ Temporary = $temporary; Hash = (Get-CubismSha256 $temporary) }
+    }
+    finally {
+        if ($null -ne $shortcut) { [void][Runtime.InteropServices.Marshal]::ReleaseComObject($shortcut) }
+        if ($null -ne $shell) { [void][Runtime.InteropServices.Marshal]::ReleaseComObject($shell) }
+    }
+}
+
+function Publish-CubismStagedShortcut {
+    param([string]$Temporary, [string]$Path)
+    if (-not (Test-CubismNormalFile $Temporary)) { throw "staged shortcut is not a normal file" }
+    if (Test-Path -LiteralPath $Path) {
+        if (-not (Test-CubismNormalFile $Path)) { throw "shortcut destination is not a normal file" }
+        [System.IO.File]::Replace($Temporary, $Path, $null, $true)
+    }
+    else { [System.IO.File]::Move($Temporary, $Path) }
+    if (-not (Test-CubismNormalFile $Path)) { throw "shortcut publication failed" }
+    return (Get-CubismSha256 $Path)
 }
 
 function Get-CubismShortcutName {
     param([object]$Candidate, [string]$Variant = "normal")
-    $sha = [System.Security.Cryptography.SHA256]::Create()
-    try {
-        $bytes = [System.Text.Encoding]::UTF8.GetBytes($Candidate.CanonicalRoot.ToUpperInvariant())
-        $hash = ([System.BitConverter]::ToString($sha.ComputeHash($bytes))).Replace("-", "").Substring(0, 12)
-    }
-    finally { $sha.Dispose() }
+    $hash = (Get-CubismTextSha256 $Candidate.CanonicalRoot.ToUpperInvariant()).Substring(0, 12)
     $identity = $Candidate.CanonicalRoot -replace '[:\\/]+', '_' -replace '[^\p{L}\p{Nd}._ -]', '_' -replace '\s+', '_'
     if ($identity.Length -gt 48) { $identity = $identity.Substring($identity.Length - 48) }
     $suffix = if ($Variant -eq "d3d") { " - D3D" } else { "" }
     return "Turboism Cubism $($Candidate.Version) [$identity-$hash]$suffix.lnk"
 }
 
+function Get-CubismShortcutPath {
+    param([object]$Candidate, [string]$Variant = "normal", [string]$Directory = "")
+    return Join-Path (Get-CubismShortcutDirectory -Override $Directory) (Get-CubismShortcutName $Candidate $Variant)
+}
+
 function New-CubismManagedShortcut {
     param(
-        [string]$Home,
-        [object]$Candidate,
-        [string]$Variant = "normal",
-        [string]$ShortcutDirectory = ""
+        [string]$Home, [object]$Candidate, [string]$Variant = "normal", [string]$ShortcutDirectory = ""
     )
-    $shortcutDirectory = Get-CubismShortcutDirectory -Override $ShortcutDirectory
-    if (Test-Path -LiteralPath $shortcutDirectory) {
-        $directoryItem = Get-Item -LiteralPath $shortcutDirectory -Force -ErrorAction Stop
-        if (($directoryItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0 -or
-            -not $directoryItem.PSIsContainer) { throw "shortcut directory is not a normal directory" }
+    $directory = Get-CubismShortcutDirectory -Override $ShortcutDirectory
+    if (Test-Path -LiteralPath $directory) {
+        if (-not (Test-CubismNormalDirectory $directory)) { throw "shortcut directory is not a normal directory" }
     }
-    else { New-Item -ItemType Directory -Path $shortcutDirectory -Force | Out-Null }
-    $path = Join-Path $shortcutDirectory (Get-CubismShortcutName $Candidate $Variant)
-    try { $existing = Get-Item -LiteralPath $path -Force -ErrorAction Stop }
-    catch [System.Management.Automation.ItemNotFoundException] { $existing = $null }
-    catch { throw }
-    if ($null -ne $existing -and (($existing.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0
-            -or $existing.PSIsContainer -or -not [System.IO.File]::Exists($path))) { throw "shortcut path is not a regular file" }
-    $powershell = Join-Path $env:WINDIR "System32\WindowsPowerShell\v1.0\powershell.exe"
-    $scriptPath = Join-Path $PSScriptRoot "launch-cubism-turboism.ps1"
-    $quote = { param([string]$value) '"' + $value.Replace('"', '\"') + '"' }
-    $arguments = "-NoProfile -ExecutionPolicy Bypass -File $(& $quote $scriptPath) -Home $(& $quote $Home) -CubismRoot $(& $quote $Candidate.CanonicalRoot)"
-    if ($Variant -eq "d3d") { $arguments += " -Variant d3d" }
-    $shell = New-Object -ComObject WScript.Shell
-    $shortcut = $shell.CreateShortcut($path)
-    $shortcut.TargetPath = $powershell
-    $shortcut.Arguments = $arguments
-    $shortcut.WorkingDirectory = $Home
-    $shortcut.Description = "Turboism managed Cubism $($Candidate.Version) launch"
-    $shortcut.Save()
-    return $path
+    else { New-Item -ItemType Directory -Path $directory -Force | Out-Null }
+    $path = Get-CubismShortcutPath -Candidate $Candidate -Variant $Variant -Directory $directory
+    $staged = $null
+    try {
+        $staged = New-CubismManagedShortcutStaged -Home $Home -Candidate $Candidate -Variant $Variant -Path $path
+        [void](Publish-CubismStagedShortcut -Temporary $staged.Temporary -Path $path)
+        return $path
+    }
+    finally {
+        if ($null -ne $staged -and (Test-Path -LiteralPath $staged.Temporary -PathType Leaf)) { Remove-Item -LiteralPath $staged.Temporary -Force -ErrorAction SilentlyContinue }
+    }
 }
 
 function Remove-CubismManagedShortcuts {
     param(
-        [string[]]$Paths = @(),
-        [string]$Directory = ""
+        [string[]]$Paths = @(), [string]$Directory = "", [object[]]$HashRecords = @()
     )
     $failed = New-Object System.Collections.Generic.List[string]
+    $hashes = @{}
+    foreach ($record in @($HashRecords)) { if ($null -ne $record -and $record.Path) { $hashes[[System.IO.Path]::GetFullPath($record.Path).ToUpperInvariant()] = [string]$record.Sha256 } }
     foreach ($path in @($Paths)) {
         try {
-            if (-not (Test-CubismManagedShortcutPath $path -Directory $Directory)) {
-                [void]$failed.Add($path)
-                continue
-            }
+            if (-not (Test-CubismManagedShortcutPath $path -Directory $Directory)) { [void]$failed.Add($path); continue }
             $full = [System.IO.Path]::GetFullPath($path)
-            if (Test-Path -LiteralPath $full -PathType Leaf) {
+            if (Test-Path -LiteralPath $full) {
+                if (-not (Test-CubismNormalFile $full)) { [void]$failed.Add($path); continue }
+                $key = $full.ToUpperInvariant()
+                if ($hashes.ContainsKey($key) -and (Get-CubismSha256 $full) -ine $hashes[$key]) { [void]$failed.Add($path); continue }
                 Remove-Item -LiteralPath $full -Force -ErrorAction Stop
-                if (Test-Path -LiteralPath $full -PathType Leaf) { [void]$failed.Add($path) }
+                if (Test-Path -LiteralPath $full) { [void]$failed.Add($path) }
             }
         }
         catch { [void]$failed.Add($path) }
     }
     return @($failed)
 }
+
+function Get-CubismTakeoverMatches {
+    param([object[]]$Candidates = @(), [string[]]$ShortcutRoots = @())
+    if ($ShortcutRoots.Count -eq 0) { $ShortcutRoots = @(Get-CubismCurrentUserShortcutRoots) }
+    $targets = @{}
+    foreach ($candidate in @($Candidates | Where-Object { $_.Selected -and $_.Selectable })) {
+        if (Test-CubismNormalFile $candidate.OfficialBat) { $targets[[System.IO.Path]::GetFullPath($candidate.OfficialBat).ToUpperInvariant()] = [pscustomobject]@{ Candidate = $candidate; Variant = "normal" } }
+        if (-not [string]::IsNullOrWhiteSpace($candidate.D3DBat) -and (Test-CubismNormalFile $candidate.D3DBat)) { $targets[[System.IO.Path]::GetFullPath($candidate.D3DBat).ToUpperInvariant()] = [pscustomobject]@{ Candidate = $candidate; Variant = "d3d" } }
+    }
+    $matches = New-Object System.Collections.Generic.List[object]
+    foreach ($shortcut in @(Get-CubismShortcutFiles -Roots $ShortcutRoots)) {
+        try {
+            $target = Get-CubismShortcutTarget $shortcut
+            if ([string]::IsNullOrWhiteSpace($target)) { continue }
+            $key = [System.IO.Path]::GetFullPath($target).ToUpperInvariant()
+            if ($targets.ContainsKey($key)) {
+                $match = $targets[$key]
+                [void]$matches.Add([pscustomobject]@{ ShortcutPath = $shortcut; Candidate = $match.Candidate; Variant = $match.Variant; Target = $target })
+            }
+        }
+        catch { }
+    }
+    return @($matches)
+}
+
+function Get-CubismTakeoverPreview {
+    param([object[]]$Candidates = @(), [object]$State = $null, [string[]]$ShortcutRoots = @())
+    $matches = @(Get-CubismTakeoverMatches -Candidates $Candidates -ShortcutRoots $ShortcutRoots)
+    $variants = New-Object System.Collections.Generic.List[object]
+    foreach ($candidate in @($Candidates | Where-Object { $_.Selected -and $_.Selectable })) {
+        [void]$variants.Add([pscustomobject]@{ Candidate = $candidate; Variant = "normal" })
+        if (-not [string]::IsNullOrWhiteSpace($candidate.D3DBat)) { [void]$variants.Add([pscustomobject]@{ Candidate = $candidate; Variant = "d3d" }) }
+    }
+    $unmatched = @($variants | Where-Object { $v = $_; @($matches | Where-Object { $_.Candidate.Key -eq $v.Candidate.Key -and $_.Variant -eq $v.Variant }).Count -eq 0 })
+    $conflicts = New-Object System.Collections.Generic.List[object]
+    if ($null -ne $State -and $State.Valid) {
+        foreach ($record in @($State.ShortcutTakeovers)) {
+            try {
+                if (-not (Test-CubismNormalFile $record.ShortcutPath)) { continue }
+                $hash = Get-CubismSha256 $record.ShortcutPath
+                if ($hash -ine $record.ManagedSha256 -and $hash -ine $record.OriginalSha256) { [void]$conflicts.Add($record) }
+            }
+            catch { [void]$conflicts.Add($record) }
+        }
+    }
+    return [pscustomobject]@{ Eligible = @($matches); Unmatched = @($unmatched); Conflicted = @($conflicts) }
+}
+
+function Restore-CubismTakeoverRecords {
+    param([string]$Home, [object[]]$Records = @())
+    $plans = New-Object System.Collections.Generic.List[object]
+    foreach ($record in @($Records)) {
+        $backup = Join-Path $Home $record.BackupPath
+        $currentExists = Test-Path -LiteralPath $record.ShortcutPath
+        if ($currentExists -and -not (Test-CubismNormalFile $record.ShortcutPath)) { throw "shortcut takeover target is not a normal file: $($record.ShortcutPath)" }
+        $currentHash = if ($currentExists) { Get-CubismSha256 $record.ShortcutPath } else { $null }
+        if ($null -eq $currentHash -or $currentHash -eq $record.ManagedSha256) {
+            if (-not (Test-CubismNormalFile $backup)) { throw "shortcut takeover backup is missing: $backup" }
+            if ((Get-CubismSha256 $backup) -ine $record.OriginalSha256) { throw "shortcut takeover backup hash conflict: $backup" }
+            [void]$plans.Add([pscustomobject]@{ Record = $record; Backup = $backup; Restore = $true })
+        }
+        elseif ($currentHash -eq $record.OriginalSha256) {
+            if (Test-Path -LiteralPath $backup -PathType Leaf -and (Get-CubismSha256 $backup) -ine $record.OriginalSha256) { throw "shortcut takeover backup hash conflict: $backup" }
+            [void]$plans.Add([pscustomobject]@{ Record = $record; Backup = $backup; Restore = $false })
+        }
+        else { throw "shortcut takeover conflict: $($record.ShortcutPath)" }
+    }
+    foreach ($plan in @($plans | Where-Object { $_.Restore })) {
+        $directory = Split-Path -Parent $plan.Record.ShortcutPath
+        if (-not (Test-CubismNormalDirectory $directory)) { throw "shortcut takeover parent is not a normal directory" }
+        $temporary = Join-Path $directory (".turboism-restore-" + [guid]::NewGuid().ToString("N") + ".lnk")
+        try {
+            [System.IO.File]::Copy($plan.Backup, $temporary, $false)
+            [void](Publish-CubismStagedShortcut -Temporary $temporary -Path $plan.Record.ShortcutPath)
+            if ((Get-CubismSha256 $plan.Record.ShortcutPath) -ine $plan.Record.OriginalSha256) { throw "shortcut restoration hash mismatch" }
+        }
+        finally { if (Test-Path -LiteralPath $temporary -PathType Leaf) { Remove-Item -LiteralPath $temporary -Force -ErrorAction SilentlyContinue } }
+    }
+    return @($Records)
+}
+
+function Remove-CubismTakeoverBackups {
+    param([string]$Home, [object[]]$Records = @())
+    foreach ($record in @($Records)) {
+        $backup = Join-Path $Home $record.BackupPath
+        if (Test-Path -LiteralPath $backup) {
+            if (-not (Test-CubismNormalFile $backup)) { throw "shortcut backup is not a normal file" }
+            Remove-Item -LiteralPath $backup -Force -ErrorAction Stop
+        }
+    }
+}
+
+function Invoke-CubismLaunchConfiguration {
+    param(
+        [string]$Home, [string]$StatePath, [object[]]$Candidates, [string]$LaunchMode = "independent",
+        [object]$ExistingState = $null, [string]$ShortcutDirectory = ""
+    )
+    if (@("independent", "takeover") -notcontains $LaunchMode) { throw "invalid launch mode" }
+    if ($null -eq $ExistingState) { $ExistingState = Read-CubismInstallationState $StatePath }
+    if ($ExistingState.Exists -and -not $ExistingState.Valid) { throw "managed Cubism state is invalid: $($ExistingState.Error)" }
+    $oldRecords = if ($ExistingState.Valid) { @($ExistingState.ShortcutTakeovers) } else { @() }
+    $oldShortcuts = if ($ExistingState.Valid) { @($ExistingState.ManagedShortcuts) } else { @() }
+    $oldHashes = if ($ExistingState.Valid) { @($ExistingState.ManagedShortcutHashes) } else { @() }
+    $selected = @($Candidates | Where-Object { $_.Selected -and $_.Selectable })
+    $newShortcuts = New-Object System.Collections.Generic.List[string]
+    $newHashes = New-Object System.Collections.Generic.List[object]
+    $created = New-Object System.Collections.Generic.List[string]
+    try {
+        if ($oldRecords.Count -gt 0) {
+            [void](Restore-CubismTakeoverRecords -Home $Home -Records $oldRecords)
+            Remove-CubismTakeoverBackups -Home $Home -Records $oldRecords
+        }
+        $failed = @(Remove-CubismManagedShortcuts -Paths $oldShortcuts -Directory $ShortcutDirectory -HashRecords $oldHashes)
+        if ($failed.Count -gt 0) { throw "managed shortcut cleanup is incomplete: $($failed -join ', ')" }
+        if ($LaunchMode -eq "independent") {
+            foreach ($candidate in $selected) {
+                foreach ($variant in @("normal", "d3d")) {
+                    if ($variant -eq "d3d" -and [string]::IsNullOrWhiteSpace($candidate.D3DBat)) { continue }
+                    $path = Get-CubismShortcutPath $candidate $variant $ShortcutDirectory
+                    if (Test-Path -LiteralPath $path -and $oldShortcuts -notcontains $path) { throw "refusing to overwrite an unowned managed shortcut: $path" }
+                    $createdPath = New-CubismManagedShortcut -Home $Home -Candidate $candidate -Variant $variant -ShortcutDirectory $ShortcutDirectory
+                    [void]$newShortcuts.Add($createdPath); [void]$created.Add($createdPath)
+                    [void]$newHashes.Add([pscustomobject]@{ Path = $createdPath; Sha256 = Get-CubismSha256 $createdPath })
+                }
+            }
+            Write-CubismInstallationState -StatePath $StatePath -Candidates $Candidates -ManagedShortcuts @($newShortcuts) -ManagedShortcutHashes @($newHashes) -LaunchMode "independent"
+            return [pscustomobject]@{ ManagedShortcuts = @($newShortcuts); ManagedShortcutHashes = @($newHashes); ShortcutTakeovers = @(); Eligible = @(); Unmatched = @(); Conflicted = @() }
+        }
+
+        $matches = @(Get-CubismTakeoverMatches -Candidates $Candidates)
+        if ($matches.Count -gt 128) { throw "shortcut takeover record cap exceeded" }
+        $records = New-Object System.Collections.Generic.List[object]
+        foreach ($match in $matches) {
+            $original = $match.ShortcutPath
+            if (-not (Test-CubismTakeoverShortcutPath $original)) { throw "shortcut takeover path is outside current-user roots" }
+            $originalFile = Get-Item -LiteralPath $original -Force -ErrorAction Stop
+            if ($originalFile.PSIsContainer -or
+                ($originalFile.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0 -or
+                [System.IO.Path]::GetExtension($originalFile.FullName) -ine ".lnk") {
+                throw "shortcut takeover source is not a normal .lnk file"
+            }
+            $originalLength = [int64]$originalFile.Length
+            $originalHash = Get-CubismSha256 $original
+            $backupInfo = Get-CubismBackupPathForShortcut -Home $Home -ShortcutPath $original
+            $backup = $backupInfo.Full
+            $newBackup = $false
+            try {
+                $backupBytes = Get-CubismBackupBytes -Home $Home
+                if ($backupBytes -gt 8MB) { throw "shortcut backup byte cap exceeded" }
+                if (Test-Path -LiteralPath $backup) {
+                    $backupFile = Get-Item -LiteralPath $backup -Force -ErrorAction Stop
+                    if (-not (Test-CubismNormalFile $backup) -or
+                        [int64]$backupFile.Length -ne $originalLength -or
+                        (Get-CubismSha256 $backup) -ine $originalHash) { throw "shortcut backup conflict: $backup" }
+                }
+                else {
+                    if ($backupBytes + $originalLength -gt 8MB) { throw "shortcut backup byte cap exceeded" }
+                    $newBackup = $true
+                    [System.IO.File]::Copy($original, $backup, $false)
+                    $backupFile = Get-Item -LiteralPath $backup -Force -ErrorAction Stop
+                    if (-not (Test-CubismNormalFile $backup) -or
+                        [int64]$backupFile.Length -ne $originalLength -or
+                        (Get-CubismSha256 $backup) -ine $originalHash) { throw "shortcut backup verification failed: $backup" }
+                }
+                if ((Get-CubismBackupBytes -Home $Home) -gt 8MB) { throw "shortcut backup byte cap exceeded" }
+                $path = Get-CubismShortcutPath $match.Candidate $match.Variant
+                $staged = New-CubismManagedShortcutStaged -Home $Home -Candidate $match.Candidate -Variant $match.Variant -Path $original
+                $pending = [pscustomobject]@{ ShortcutPath = $original; BackupPath = $backupInfo.Relative; OriginalSha256 = $originalHash; ManagedSha256 = $staged.Hash; Root = $match.Candidate.CanonicalRoot; Variant = $match.Variant; Status = "pending" }
+                [void]$records.Add($pending)
+                Write-CubismInstallationState -StatePath $StatePath -Candidates $Candidates -ManagedShortcuts @($newShortcuts) -ManagedShortcutHashes @($newHashes) -ShortcutTakeovers @($records) -LaunchMode "takeover"
+                try { [void](Publish-CubismStagedShortcut -Temporary $staged.Temporary -Path $original) }
+                finally { if (Test-Path -LiteralPath $staged.Temporary -PathType Leaf) { Remove-Item -LiteralPath $staged.Temporary -Force -ErrorAction SilentlyContinue } }
+                $pending.Status = "active"
+                $pending.ManagedSha256 = Get-CubismSha256 $original
+                Write-CubismInstallationState -StatePath $StatePath -Candidates $Candidates -ManagedShortcuts @($newShortcuts) -ManagedShortcutHashes @($newHashes) -ShortcutTakeovers @($records) -LaunchMode "takeover"
+            }
+            catch {
+                if ($newBackup -and (Test-Path -LiteralPath $backup -PathType Leaf)) { Remove-Item -LiteralPath $backup -Force -ErrorAction SilentlyContinue }
+                throw
+            }
+        }
+        $variants = New-Object System.Collections.Generic.List[object]
+        foreach ($candidate in $selected) {
+            [void]$variants.Add([pscustomobject]@{ Candidate = $candidate; Variant = "normal" })
+            if (-not [string]::IsNullOrWhiteSpace($candidate.D3DBat)) { [void]$variants.Add([pscustomobject]@{ Candidate = $candidate; Variant = "d3d" }) }
+        }
+        foreach ($variant in @($variants | Where-Object { $v = $_; @($matches | Where-Object { $_.Candidate.Key -eq $v.Candidate.Key -and $_.Variant -eq $v.Variant }).Count -eq 0 })) {
+            $ownedPath = Get-CubismShortcutPath $variant.Candidate $variant.Variant $ShortcutDirectory
+            if (Test-Path -LiteralPath $ownedPath -and $oldShortcuts -notcontains $ownedPath) { throw "refusing to overwrite an unowned managed shortcut: $ownedPath"
+            }
+            $path = New-CubismManagedShortcut -Home $Home -Candidate $variant.Candidate -Variant $variant.Variant -ShortcutDirectory $ShortcutDirectory
+            [void]$newShortcuts.Add($path); [void]$created.Add($path)
+            [void]$newHashes.Add([pscustomobject]@{ Path = $path; Sha256 = Get-CubismSha256 $path })
+        }
+        Write-CubismInstallationState -StatePath $StatePath -Candidates $Candidates -ManagedShortcuts @($newShortcuts) -ManagedShortcutHashes @($newHashes) -ShortcutTakeovers @($records) -LaunchMode "takeover"
+        $preview = Get-CubismTakeoverPreview -Candidates $Candidates
+        return [pscustomobject]@{ ManagedShortcuts = @($newShortcuts); ManagedShortcutHashes = @($newHashes); ShortcutTakeovers = @($records); Eligible = @($matches); Unmatched = @($preview.Unmatched); Conflicted = @() }
+    }
+    catch {
+        if ($created.Count -gt 0) { [void](Remove-CubismManagedShortcuts -Paths @($created) -Directory $ShortcutDirectory -HashRecords @($newHashes)) }
+        throw
+    }
+}
+
+function Invoke-CubismManagedCleanup {
+    param([string]$Home, [string]$StatePath, [string]$ShortcutDirectory = "")
+    $state = Read-CubismInstallationState -StatePath $StatePath
+    if (-not $state.Valid) { throw "Refusing shortcut cleanup because managed state is invalid: $($state.Error)" }
+    $records = @($state.ShortcutTakeovers); $hashes = @($state.ManagedShortcutHashes)
+    if ($records.Count -gt 0) { [void](Restore-CubismTakeoverRecords -Home $Home -Records $records) }
+    $failed = @(Remove-CubismManagedShortcuts -Paths $state.ManagedShortcuts -Directory $ShortcutDirectory -HashRecords $hashes)
+    if ($failed.Count -gt 0) { throw "Managed shortcut cleanup is incomplete; state was preserved for retry." }
+    if ($records.Count -gt 0) { Remove-CubismTakeoverBackups -Home $Home -Records $records }
+    if (Test-Path -LiteralPath $StatePath) { Remove-Item -LiteralPath $StatePath -Force -ErrorAction Stop }
+}
+
 
 function Get-JdkOptionTokens {
     param([string]$Text)
