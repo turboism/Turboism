@@ -1029,7 +1029,7 @@ function Restore-CubismTakeoverRecords {
             [void]$plans.Add([pscustomobject]@{ Record = $record; Restore = $true })
         }
         elseif ($currentHash -eq $record.OriginalSha256) {
-            if (Test-Path -LiteralPath $backup -PathType Leaf -and (Get-CubismSha256 $backup) -ine $record.OriginalSha256) { throw "shortcut takeover backup hash conflict: $backup" }
+            if ((Test-Path -LiteralPath $backup -PathType Leaf) -and ((Get-CubismSha256 $backup) -ine $record.OriginalSha256)) { throw "shortcut takeover backup hash conflict: $backup" }
             [void]$plans.Add([pscustomobject]@{ Record = $record; Restore = $false })
         }
         else { throw "shortcut takeover conflict: $($record.ShortcutPath)" }
@@ -1098,7 +1098,7 @@ function Invoke-CubismLaunchConfiguration {
                 foreach ($variant in @("normal", "d3d")) {
                     if ($variant -eq "d3d" -and [string]::IsNullOrWhiteSpace($candidate.D3DBat)) { continue }
                     $path = Get-CubismShortcutPath $candidate $variant $ShortcutDirectory
-                    if (Test-Path -LiteralPath $path -and $oldShortcuts -notcontains $path) { throw "refusing to overwrite an unowned managed shortcut: $path" }
+                    if ((Test-Path -LiteralPath $path) -and ($oldShortcuts -notcontains $path)) { throw "refusing to overwrite an unowned managed shortcut: $path" }
                     $createdPath = New-CubismManagedShortcut -TurboismHome $TurboismHome -Candidate $candidate -Variant $variant -ShortcutDirectory $ShortcutDirectory
                     [void]$newShortcuts.Add($createdPath); [void]$created.Add($createdPath)
                     [void]$newHashes.Add([pscustomobject]@{ Path = $createdPath; Sha256 = Get-CubismSha256 $createdPath })
@@ -1171,7 +1171,7 @@ function Invoke-CubismLaunchConfiguration {
         }
         foreach ($variant in @($variants | Where-Object { $v = $_; @($matches | Where-Object { $_.Candidate.Key -eq $v.Candidate.Key -and $_.Variant -eq $v.Variant }).Count -eq 0 })) {
             $ownedPath = Get-CubismShortcutPath $variant.Candidate $variant.Variant $ShortcutDirectory
-            if (Test-Path -LiteralPath $ownedPath -and $oldShortcuts -notcontains $ownedPath) { throw "refusing to overwrite an unowned managed shortcut: $ownedPath"
+            if ((Test-Path -LiteralPath $ownedPath) -and ($oldShortcuts -notcontains $ownedPath)) { throw "refusing to overwrite an unowned managed shortcut: $ownedPath"
             }
             $path = New-CubismManagedShortcut -TurboismHome $TurboismHome -Candidate $variant.Candidate -Variant $variant.Variant -ShortcutDirectory $ShortcutDirectory
             [void]$newShortcuts.Add($path); [void]$created.Add($path)
