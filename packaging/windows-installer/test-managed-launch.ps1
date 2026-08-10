@@ -37,7 +37,7 @@ function New-SyntheticCubism {
         '>>"%TURBOISM_TEST_OUTPUT%" echo NORMAL=1',
         '>>"%TURBOISM_TEST_OUTPUT%" echo JDK=%JDK_JAVA_OPTIONS%',
         '>>"%TURBOISM_TEST_OUTPUT%" echo TOOL=%JAVA_TOOL_OPTIONS%',
-        '>>"%TURBOISM_TEST_OUTPUT%" echo ARG1=%1',
+        '>>"%TURBOISM_TEST_OUTPUT%" echo ARG1=%~1',
         'exit /b 23'
     )
     [System.IO.File]::WriteAllBytes((Join-Path $root "app\jre\bin\java.exe"), [byte[]](1, 2, 3, 4))
