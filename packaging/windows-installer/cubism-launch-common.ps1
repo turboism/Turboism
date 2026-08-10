@@ -13,6 +13,9 @@ $script:CubismMaxJdkOptionText = 16384
 $script:CubismMaxJdkOptionTokens = 256
 $script:CubismMaxJdkOptionLength = 4096
 $script:CubismMaxLaunchArguments = 64
+$script:CubismMaxScanEntries = 4096
+$script:CubismMaxScanResults = 256
+$script:CubismMaxScanDrives = 26
 
 function ConvertTo-CubismCanonicalRoot {
     param([string]$Root)
@@ -55,21 +58,27 @@ function Get-CubismVersionFromPath {
 
 function Test-CubismPlausiblePath {
     param([string]$Root)
-    return $null -ne (Get-CubismVersionFromPath $Root) -or (Test-CubismRequiredFileShape $Root)
+    return $null -ne (Get-CubismVersionFromPath $Root) -or (Test-CubismRequiredFileLayout $Root)
 }
 
-function Test-CubismRequiredFileShape {
+function Test-CubismRequiredFileLayout {
     param([string]$Root)
-    if ($null -eq $Root -or -not (Test-CubismFixedDrive $Root)) { return $false }
+    if ([string]::IsNullOrWhiteSpace($Root)) { return $false }
     return (Test-Path -LiteralPath (Join-Path $Root "CubismEditor5.bat") -PathType Leaf) -and
         (Test-Path -LiteralPath (Join-Path $Root "app\jre\bin\java.exe") -PathType Leaf) -and
         (Test-Path -LiteralPath (Join-Path $Root "app\lib\Live2D_Cubism.jar") -PathType Leaf)
 }
 
+function Test-CubismRequiredFileShape {
+    param([string]$Root)
+    if ($null -eq $Root -or -not (Test-CubismFixedDrive $Root)) { return $false }
+    return Test-CubismRequiredFileLayout $Root
+}
+
 function Test-CubismAutoCandidatePath {
     param([string]$Root)
     if ([string]::IsNullOrWhiteSpace($Root) -or -not (Test-CubismFixedDrive $Root)) { return $false }
-    return (Get-CubismVersionFromPath $Root) -or (Test-CubismRequiredFileShape $Root)
+    return Test-CubismPlausiblePath $Root
 }
 
 function Get-CubismD3DBat {
@@ -146,31 +155,94 @@ function New-CubismInstallationCandidate {
 
 function Test-CubismScanContainer {
     param([string]$Name)
-    return [regex]::IsMatch($Name, '(?i)^(?:Program Files(?: \(x86\))?|ProgramData|Users|Applications?|Apps?|Software|Games|Programs|Live2D|Cubism.*)$')
+    return [regex]::IsMatch($Name, '(?i)^(?:Program Files(?: \(x86\))?|ProgramData|Users|Applications?|Apps?|Software|Games|Programs|Live2D(?:\s+Cubism.*)?|Cubism.*)$')
 }
 
 function Get-CubismDirectories {
-    param([string]$Parent)
+    param(
+        [string]$Parent,
+        [int]$MaxEntries = $script:CubismMaxScanEntries,
+        [int]$MaxResults = $script:CubismMaxScanResults
+    )
+    if ($MaxEntries -lt 1 -or $MaxResults -lt 1) { return @() }
     try {
-        return @(Get-ChildItem -LiteralPath $Parent -Directory -Force -ErrorAction SilentlyContinue |
-            Where-Object { ($_.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -eq 0 } |
-            Sort-Object FullName | Select-Object -First 64)
+        $items = New-Object System.Collections.Generic.List[object]
+        $inspected = 0
+        foreach ($item in Get-ChildItem -LiteralPath $Parent -Directory -Force -ErrorAction SilentlyContinue) {
+            $inspected++
+            if ($inspected -gt $MaxEntries) { break }
+            if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0 -or
+                -not (Test-CubismScanContainer $item.Name)) { continue }
+            [void]$items.Add($item)
+            if ($items.Count -ge $MaxResults) { break }
+        }
+        return @($items | Sort-Object FullName)
     }
     catch { return @() }
+}
+
+function Get-CubismShallowDiscoveryRoots {
+    param(
+        [string[]]$DriveRoots = @(),
+        [int]$MaxRoots = $script:CubismMaxRoots
+    )
+    $rootLimit = [Math]::Min([Math]::Max(1, $MaxRoots), $script:CubismMaxRoots)
+    $roots = New-Object System.Collections.Generic.List[string]
+    $keys = New-Object System.Collections.Generic.HashSet[string]([System.StringComparer]::OrdinalIgnoreCase)
+    $add = {
+        param([string]$Root)
+        if ($roots.Count -ge $rootLimit -or [string]::IsNullOrWhiteSpace($Root)) { return }
+        $canonical = ConvertTo-CubismCanonicalRoot $Root
+        if ($null -eq $canonical -or -not (Test-CubismPlausiblePath $canonical)) { return }
+        if ($keys.Add($canonical)) { [void]$roots.Add($canonical) }
+    }
+    foreach ($driveRoot in @($DriveRoots | Select-Object -First $script:CubismMaxScanDrives)) {
+        if (-not (Test-CubismFixedDrive $driveRoot)) { continue }
+        try {
+            $driveItem = Get-Item -LiteralPath $driveRoot -Force -ErrorAction Stop
+            if (-not $driveItem.PSIsContainer -or
+                ($driveItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) { continue }
+        }
+        catch { continue }
+        foreach ($top in Get-CubismDirectories $driveRoot) {
+            & $add $top.FullName
+            if ($roots.Count -ge $rootLimit) { break }
+            foreach ($one in Get-CubismDirectories $top.FullName) {
+                & $add $one.FullName
+                if ($roots.Count -ge $rootLimit) { break }
+                foreach ($two in Get-CubismDirectories $one.FullName) {
+                    & $add $two.FullName
+                    if ($roots.Count -ge $rootLimit) { break }
+                }
+                if ($roots.Count -ge $rootLimit) { break }
+            }
+            if ($roots.Count -ge $rootLimit) { break }
+        }
+        if ($roots.Count -ge $rootLimit) { break }
+    }
+    return @($roots)
 }
 
 function Get-CubismDiscoveryRoots {
     param(
         [string[]]$SavedRoots = @(),
-        [string[]]$ManualRoots = @()
+        [string[]]$ManualRoots = @(),
+        [switch]$IncludeMetadata
     )
     $roots = New-Object System.Collections.Generic.List[string]
     $keys = New-Object System.Collections.Generic.HashSet[string]([System.StringComparer]::OrdinalIgnoreCase)
+    $automaticKeys = New-Object System.Collections.Generic.HashSet[string]([System.StringComparer]::OrdinalIgnoreCase)
     $add = {
         param([string]$Root, [bool]$Explicit)
         if ($roots.Count -ge $script:CubismMaxRoots -or [string]::IsNullOrWhiteSpace($Root)) { return }
         $canonical = ConvertTo-CubismCanonicalRoot $Root
-        if ($null -eq $canonical -or -not $Explicit -and -not (Test-CubismAutoCandidatePath $canonical)) { return }
+        if ($null -eq $canonical) { return }
+        if (-not $Explicit) {
+            if (-not (Test-CubismAutoCandidatePath $canonical)) { return }
+            $automaticKey = Get-CubismRootKey $canonical
+            if ($null -eq $automaticKey) { return }
+            [void]$automaticKeys.Add($automaticKey)
+        }
         if ($keys.Add($canonical)) { [void]$roots.Add($canonical) }
     }
 
@@ -210,39 +282,32 @@ function Get-CubismDiscoveryRoots {
             "Live2D\Cubism 5.3", "Cubism 5.2", "Cubism 5.3"
         )) { & $add (Join-Path $base $relative) $false }
         foreach ($child in Get-CubismDirectories $base) {
-            if (Test-CubismScanContainer $child.Name) {
-                & $add $child.FullName $false
-                foreach ($grandchild in Get-CubismDirectories $child.FullName) {
-                    if (Test-CubismScanContainer $grandchild.Name) { & $add $grandchild.FullName $false }
-                }
+            & $add $child.FullName $false
+            foreach ($grandchild in Get-CubismDirectories $child.FullName) {
+                & $add $grandchild.FullName $false
             }
         }
     }
 
-    # Fixed-drive scan is deliberately shallow and only traverses named containers.
-    # It never adds arbitrary directories and stops as soon as the root bound is met.
     try {
-        $drives = @([System.IO.DriveInfo]::GetDrives() |
+        $driveRoots = @([System.IO.DriveInfo]::GetDrives() |
             Where-Object { $_.DriveType -eq [System.IO.DriveType]::Fixed } |
-            Sort-Object Name | Select-Object -First 26)
-        foreach ($drive in $drives) {
-            foreach ($top in Get-CubismDirectories $drive.RootDirectory.FullName) {
-                if (-not (Test-CubismScanContainer $top.Name)) { continue }
-                & $add $top.FullName $false
-                foreach ($one in Get-CubismDirectories $top.FullName) {
-                    if (-not (Test-CubismScanContainer $one.Name)) { continue }
-                    & $add $one.FullName $false
-                    foreach ($two in Get-CubismDirectories $one.FullName) {
-                        if (Test-CubismScanContainer $two.Name) { & $add $two.FullName $false }
-                    }
-                }
-                if ($roots.Count -ge $script:CubismMaxRoots) { break }
-            }
+            Sort-Object Name |
+            Select-Object -First $script:CubismMaxScanDrives |
+            ForEach-Object { $_.RootDirectory.FullName })
+        foreach ($candidateRoot in Get-CubismShallowDiscoveryRoots -DriveRoots $driveRoots) {
+            & $add $candidateRoot $false
             if ($roots.Count -ge $script:CubismMaxRoots) { break }
         }
     }
     catch { }
 
+    if ($IncludeMetadata) {
+        return [pscustomobject]@{
+            Roots = @($roots)
+            AutomaticRootKeys = @($automaticKeys | ForEach-Object { [string]$_ })
+        }
+    }
     return @($roots)
 }
 
@@ -272,6 +337,47 @@ function Merge-CubismSelection {
         else { $candidate.Selected = [bool]$candidate.Selectable }
     }
     return @($Candidates)
+}
+
+function Remove-CubismCandidateEntries {
+    param(
+        [object[]]$Candidates = @(),
+        [string[]]$RemoveKeys = @(),
+        [object[]]$StateInstallations = @(),
+        [string[]]$ManualRoots = @(),
+        [string[]]$AutomaticRootKeys = @()
+    )
+    $removeSet = New-Object System.Collections.Generic.HashSet[string]([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($key in @($RemoveKeys)) { if (-not [string]::IsNullOrWhiteSpace($key)) { [void]$removeSet.Add($key) } }
+    $automaticSet = New-Object System.Collections.Generic.HashSet[string]([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($key in @($AutomaticRootKeys)) { if (-not [string]::IsNullOrWhiteSpace($key)) { [void]$automaticSet.Add($key) } }
+
+    $remaining = New-Object System.Collections.Generic.List[object]
+    foreach ($candidate in @($Candidates)) {
+        if ($removeSet.Contains($candidate.Key)) {
+            if ($automaticSet.Contains($candidate.Key) -and $candidate.Selectable) {
+                $candidate.Selected = $false
+            }
+            else { continue }
+        }
+        [void]$remaining.Add($candidate)
+    }
+
+    $state = @($StateInstallations | Where-Object { -not $removeSet.Contains((Get-CubismRootKey $_.Root)) })
+    foreach ($candidate in @($remaining)) {
+        $existing = @($state | Where-Object { (Get-CubismRootKey $_.Root) -eq $candidate.Key })
+        if ($existing.Count -gt 0) { $existing[0].Selected = [bool]$candidate.Selected }
+        elseif ($candidate.Selectable) {
+            $state += [pscustomobject]@{
+                Root = $candidate.CanonicalRoot; Version = $candidate.Version; Selected = [bool]$candidate.Selected
+            }
+        }
+    }
+    return [pscustomobject]@{
+        Candidates = @($remaining)
+        StateInstallations = @($state)
+        ManualRoots = @($ManualRoots | Where-Object { -not $removeSet.Contains((Get-CubismRootKey $_)) })
+    }
 }
 
 function Read-CubismStateBytes {
@@ -492,7 +598,10 @@ function Remove-CubismManagedShortcuts {
     $failed = New-Object System.Collections.Generic.List[string]
     foreach ($path in @($Paths)) {
         try {
-            if (-not (Test-CubismManagedShortcutPath $path -Directory $Directory)) { continue }
+            if (-not (Test-CubismManagedShortcutPath $path -Directory $Directory)) {
+                [void]$failed.Add($path)
+                continue
+            }
             $full = [System.IO.Path]::GetFullPath($path)
             if (Test-Path -LiteralPath $full -PathType Leaf) {
                 Remove-Item -LiteralPath $full -Force -ErrorAction Stop

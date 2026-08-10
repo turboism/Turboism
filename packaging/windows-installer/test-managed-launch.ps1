@@ -20,8 +20,16 @@ $marker = Join-Path $temp "official bat marker.txt"
 New-Item -ItemType Directory -Path $home, $fixtureBase -Force | Out-Null
 
 function New-SyntheticCubism {
-    param([string]$Name, [string]$Version, [bool]$D3D = $false)
-    $root = Join-Path $fixtureBase "$Name Cubism $Version"
+    param(
+        [string]$Name,
+        [string]$Version,
+        [bool]$D3D = $false,
+        [string]$Parent = "",
+        [string]$LeafName = ""
+    )
+    $base = if ([string]::IsNullOrWhiteSpace($Parent)) { $fixtureBase } else { $Parent }
+    $leaf = if ([string]::IsNullOrWhiteSpace($LeafName)) { "$Name Cubism $Version" } else { $LeafName }
+    $root = Join-Path $base $leaf
     New-Item -ItemType Directory -Path (Join-Path $root "app\jre\bin"), (Join-Path $root "app\lib") -Force | Out-Null
     Set-Content -LiteralPath (Join-Path $root "CubismEditor5.bat") -Encoding ASCII -Value @(
         "@echo off",
@@ -51,6 +59,31 @@ try {
     $root53DuplicateVersion = New-SyntheticCubism -Name "Live2D" -Version "5.3.02"
     $newSupported = New-SyntheticCubism -Name "Live2D" -Version "5.3.01"
     $unsupported = New-SyntheticCubism -Name "fixture unsupported" -Version "5.4.00"
+
+    $scanDrive = Join-Path $temp "D-shaped-drive"
+    $scanProgramFiles = Join-Path $scanDrive "Program Files"
+    New-Item -ItemType Directory -Path $scanProgramFiles, (Join-Path $scanProgramFiles "Live2D") -Force | Out-Null
+    foreach ($index in 1..96) {
+        New-Item -ItemType Directory -Path (Join-Path $scanProgramFiles ("unrelated-{0:D3}" -f $index)) -Force | Out-Null
+    }
+    $directScanRoot = New-SyntheticCubism -Name "Live2D" -Version "5.3" -Parent $scanProgramFiles
+    $nestedScanRoot = New-SyntheticCubism -Name "placeholder" -Version "5.2" -Parent (Join-Path $scanProgramFiles "Live2D") -LeafName "Cubism 5.2"
+    $shallowRoots = @(Get-CubismShallowDiscoveryRoots -DriveRoots @($scanDrive))
+    Assert-ManagedLaunch (@($shallowRoots | Where-Object { $_ -ieq (ConvertTo-CubismCanonicalRoot $directScanRoot) }).Count -eq 1) "fixed-drive traversal finds direct Live2D Cubism 5.3 in a synthetic drive-shaped tree"
+    Assert-ManagedLaunch (@($shallowRoots | Where-Object { $_ -ieq (ConvertTo-CubismCanonicalRoot $nestedScanRoot) }).Count -eq 1) "fixed-drive traversal finds nested Live2D/Cubism 5.2"
+    Assert-ManagedLaunch (@($shallowRoots | Where-Object { $_ -match '(?i)unrelated-' }).Count -eq 0) "unrelated directory names do not consume candidate results"
+    $reparseScanRoot = Join-Path $scanProgramFiles "Live2D Cubism 5.2"
+    $reparseCreated = $false
+    try {
+        New-Item -ItemType SymbolicLink -Path $reparseScanRoot -Target $nestedScanRoot -ErrorAction Stop | Out-Null
+        $reparseCreated = $true
+        $reparseRoots = @(Get-CubismShallowDiscoveryRoots -DriveRoots @($scanDrive))
+        Assert-ManagedLaunch (@($reparseRoots | Where-Object { $_ -ieq (ConvertTo-CubismCanonicalRoot $reparseScanRoot) }).Count -eq 0) "reparse-point discovery entries are ignored"
+    }
+    catch { Write-Host "ok: reparse-point fixture unavailable on this Windows host" }
+    finally {
+        if ($reparseCreated) { Remove-Item -LiteralPath $reparseScanRoot -Force -ErrorAction SilentlyContinue }
+    }
 
     # Keep the fixture hermetic: candidate inventory receives only synthetic roots.
     $roots = @($root53, $root52, $root53.ToUpperInvariant(), $root53DuplicateVersion)
@@ -95,6 +128,46 @@ try {
     $badCandidate = New-CubismInstallationCandidate -Root $unsupported
     Assert-ManagedLaunch (-not $badCandidate.Selectable -and $badCandidate.Status -eq "Unsupported") "unsupported family candidate fails closed"
 
+    $invalidState = [ordered]@{
+        format = "turboism.cubism.installation-state"
+        schemaVersion = 1
+        installations = @(
+            [ordered]@{ root = $root53; version = "5.3"; selected = $true }
+            [ordered]@{ root = $unsupported; version = "5.4"; selected = $true }
+        )
+        managedShortcuts = @()
+    }
+    [System.IO.File]::WriteAllText($statePath, ($invalidState | ConvertTo-Json -Depth 5 -Compress), (New-Object System.Text.UTF8Encoding($false)))
+    Remove-Item -LiteralPath $marker -Force -ErrorAction SilentlyContinue
+    $stateLauncher = Join-Path $scriptDir "launch-cubism-turboism.ps1"
+    $invalidStateArgs = '-NoProfile -ExecutionPolicy Bypass -File "{0}" -Home "{1}"' -f $stateLauncher, $home
+    $invalidStateProcess = Start-Process -FilePath (Join-Path $PSHOME "powershell.exe") -ArgumentList $invalidStateArgs -Wait -PassThru -NoNewWindow
+    Assert-ManagedLaunch ($invalidStateProcess.ExitCode -ne 0) "valid plus stale selected state fails closed"
+    Assert-ManagedLaunch (-not (Test-Path -LiteralPath $marker)) "invalid selected state fails before official BAT invocation"
+    Write-CubismInstallationState -StatePath $statePath -Candidates $initial
+
+    $manualPolicyRoot = Join-Path $temp "saved-only Live2D Cubism 5.2"
+    $autoPolicyRoot = Join-Path $temp "automatic Live2D Cubism 5.3"
+    $manualPolicy = [pscustomobject]@{
+        Root = $manualPolicyRoot; CanonicalRoot = (ConvertTo-CubismCanonicalRoot $manualPolicyRoot); Key = (Get-CubismRootKey $manualPolicyRoot)
+        Version = "5.2"; Selectable = $true; Selected = $true
+    }
+    $autoPolicy = [pscustomobject]@{
+        Root = $autoPolicyRoot; CanonicalRoot = (ConvertTo-CubismCanonicalRoot $autoPolicyRoot); Key = (Get-CubismRootKey $autoPolicyRoot)
+        Version = "5.3"; Selectable = $true; Selected = $true
+    }
+    $policyState = @(
+        [pscustomobject]@{ Root = $manualPolicyRoot; Version = "5.2"; Selected = $true }
+        [pscustomobject]@{ Root = $autoPolicyRoot; Version = "5.3"; Selected = $true }
+    )
+    $policyResult = Remove-CubismCandidateEntries -Candidates @($manualPolicy, $autoPolicy) `
+        -RemoveKeys @($manualPolicy.Key, $autoPolicy.Key) -StateInstallations $policyState `
+        -AutomaticRootKeys @($autoPolicy.Key)
+    Assert-ManagedLaunch (@($policyResult.Candidates | Where-Object { $_.Key -eq $manualPolicy.Key }).Count -eq 0) "saved-only valid manual root is forgotten"
+    Assert-ManagedLaunch (@($policyResult.Candidates | Where-Object { $_.Key -eq $autoPolicy.Key -and -not $_.Selected }).Count -eq 1) "automatic valid root remains visible deselected"
+    Assert-ManagedLaunch (@($policyResult.StateInstallations | Where-Object { $_.Root -eq $autoPolicyRoot -and -not $_.Selected }).Count -eq 1) "automatic deselection is persisted for rescan prevention"
+    Assert-ManagedLaunch (@($policyResult.StateInstallations | Where-Object { $_.Root -eq $manualPolicyRoot }).Count -eq 0) "forgotten manual root is removed from saved state"
+
     $shortcutDir = Join-Path $temp "Start Menu\Turboism"
     $managedShortcut = Join-Path $shortcutDir (Get-CubismShortcutName $candidates[0])
     Assert-ManagedLaunch ((Get-CubismShortcutName $candidates[1]) -ne (Get-CubismShortcutName $candidates[2])) "duplicate installations get distinct shortcut identities"
@@ -104,9 +177,11 @@ try {
     Set-Content -LiteralPath $managedShortcut -Value "managed" -Encoding ASCII
     Set-Content -LiteralPath $unrelatedShortcut -Value "configure" -Encoding ASCII
     Set-Content -LiteralPath $outsideShortcut -Value "outside" -Encoding ASCII
-    $failedShortcutCleanup = @(Remove-CubismManagedShortcuts -Paths @($managedShortcut, $unrelatedShortcut, $outsideShortcut) -Directory $shortcutDir)
-    Assert-ManagedLaunch ($failedShortcutCleanup.Count -eq 0) "owned shortcut cleanup reports no failure"
+    $ownedShortcutCleanup = @(Remove-CubismManagedShortcuts -Paths @($managedShortcut) -Directory $shortcutDir)
+    Assert-ManagedLaunch ($ownedShortcutCleanup.Count -eq 0) "owned shortcut cleanup reports no failure"
     Assert-ManagedLaunch (-not (Test-Path -LiteralPath $managedShortcut)) "stale managed shortcut is removed"
+    $unownedShortcutCleanup = @(Remove-CubismManagedShortcuts -Paths @($unrelatedShortcut, $outsideShortcut) -Directory $shortcutDir)
+    Assert-ManagedLaunch ($unownedShortcutCleanup.Count -eq 2) "unowned shortcut cleanup reports every rejected path"
     Assert-ManagedLaunch ((Test-Path -LiteralPath $unrelatedShortcut) -and (Test-Path -LiteralPath $outsideShortcut)) "shortcut cleanup is confined to owned entries"
 
     $comShortcut = $null
