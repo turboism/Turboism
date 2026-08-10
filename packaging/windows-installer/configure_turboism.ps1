@@ -1,7 +1,8 @@
 ﻿# -*- coding: utf-8 -*-
 [CmdletBinding()]
 param(
-    [string]$Home = "",
+    [Alias("Home")]
+    [string]$HomePath = "",
     [switch]$Cleanup
 )
 
@@ -11,7 +12,7 @@ $ErrorActionPreference = "Stop"
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 . (Join-Path $scriptDir "cubism-launch-common.ps1")
 
-if (-not [string]::IsNullOrWhiteSpace($Home)) { $turboismHome = $Home.TrimEnd('\', '/') }
+if (-not [string]::IsNullOrWhiteSpace($HomePath)) { $turboismHome = $HomePath.TrimEnd('\', '/') }
 elseif (-not [string]::IsNullOrWhiteSpace($env:TURBOISM_HOME)) { $turboismHome = $env:TURBOISM_HOME.TrimEnd('\', '/') }
 else { $turboismHome = $scriptDir }
 if (-not (Test-CubismNormalDirectory $turboismHome)) { throw "Turboism home does not exist: $turboismHome" }
@@ -21,7 +22,7 @@ $pluginDir = Join-Path $turboismHome "plugins"
 
 if ($Cleanup) {
     try {
-        Invoke-CubismManagedCleanup -Home $turboismHome -StatePath $statePath
+        Invoke-CubismManagedCleanup -TurboismHome $turboismHome -StatePath $statePath
         exit 0
     }
     catch {
@@ -229,7 +230,7 @@ $saveButton.Add_Click({
         foreach ($id in $existingDisabled) { if (($known -notcontains $id) -and ($unchecked -notcontains $id)) { $unchecked += $id } }
         $unchecked = @($unchecked | Sort-Object -Unique)
         $mode = if ($modeBox.SelectedIndex -eq 1) { "takeover" } else { "independent" }
-        $launch = Invoke-CubismLaunchConfiguration -Home $turboismHome -StatePath $statePath -Candidates $candidates -LaunchMode $mode -ExistingState $state
+        $launch = Invoke-CubismLaunchConfiguration -TurboismHome $turboismHome -StatePath $statePath -Candidates $candidates -LaunchMode $mode -ExistingState $state
 
         $config = [ordered]@{ format = "turboism.runtime.config"; schemaVersion = 1; worktreeId = "turboism-runtime"; pluginDirs = @("plugins") }
         if ($null -ne $existingConfig) {
