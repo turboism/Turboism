@@ -198,7 +198,10 @@ public final class RuntimeTypedPluginConfigRegistry
             try {
                 schemas.put(candidate.schema.configId(), candidate);
                 paths.put(candidate.schema.relativePath(), candidate.schema.configId());
-                return io.immediate(null);
+                return io.submit(
+                    () -> materializeDefaults(candidate),
+                    () -> Materialization.UNAVAILABLE
+                ).thenCompose(this::completeRegistration);
             } catch (RuntimeException exception) {
                 schemas.remove(candidate.schema.configId());
                 paths.remove(candidate.schema.relativePath());
@@ -646,6 +649,69 @@ public final class RuntimeTypedPluginConfigRegistry
             final ConfigKey<T> typed = (ConfigKey<T>) candidate;
             return new RegisteredKey<>(schema, typed);
         }
+    }
+
+    /**
+     * Runs on the typed-config I/O lane: persists every declared encoded default
+     * as the missing document at revision 0, or leaves an existing document
+     * untouched so migration stays a read-time behavior.
+     */
+    private Materialization materializeDefaults(final RegisteredSchema schema) {
+        try {
+            if (store.read(schema.schema.relativePath()).isEmpty()) {
+                final Map<String, String> defaults = new LinkedHashMap<>();
+                for (ConfigKey<?> key : schema.keys.values()) {
+                    defaults.put(
+                        key.name(),
+                        TypedConfigCodecSupport.encode(
+                            key,
+                            TypedConfigCodecSupport.immutableDefault(key)
+                        ).orElseThrow()
+                    );
+                }
+                store.writeAtomic(
+                    schema.schema.relativePath(),
+                    new TypedConfigDocumentStore.StoredDocument(
+                        schema.schema.version(),
+                        0,
+                        defaults
+                    )
+                );
+            }
+            return Materialization.DONE;
+        } catch (IOException | RuntimeException failure) {
+            rollbackPublication(schema);
+            return Materialization.FAILED;
+        }
+    }
+
+    private void rollbackPublication(final RegisteredSchema schema) {
+        synchronized (lifecycleLock) {
+            schemas.remove(schema.schema.configId());
+            paths.remove(schema.schema.relativePath());
+        }
+    }
+
+    private CompletionStage<Void> completeRegistration(
+        final Materialization materialization
+    ) {
+        return switch (materialization) {
+            case DONE -> io.immediate(null);
+            case FAILED -> registrationFailure(
+                ConfigRegistrationError.REGISTRATION_FAILED,
+                null
+            );
+            case UNAVAILABLE -> registrationFailure(
+                ConfigRegistrationError.RUNTIME_UNAVAILABLE,
+                null
+            );
+        };
+    }
+
+    private enum Materialization {
+        DONE,
+        FAILED,
+        UNAVAILABLE
     }
 
     private boolean isActive() {
