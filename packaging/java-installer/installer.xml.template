@@ -81,6 +81,7 @@
             <file src="__STAGE_REL__/uninstall.command" targetdir="$INSTALL_PATH" override="true" os="mac"/>
             <file src="__STAGE_REL__/launch-cubism-turboism.bat" targetdir="$INSTALL_PATH" override="true" os="windows"/>
             <file src="__STAGE_REL__/launch-cubism-turboism.ps1" targetdir="$INSTALL_PATH" override="true" os="windows"/>
+            <file src="__STAGE_REL__/cubism-launch-common.ps1" targetdir="$INSTALL_PATH" override="true" os="windows"/>
             <file src="__STAGE_REL__/configure_turboism.ps1" targetdir="$INSTALL_PATH" override="true" os="windows"/>
         </pack>
 __PLUGIN_PACKS__

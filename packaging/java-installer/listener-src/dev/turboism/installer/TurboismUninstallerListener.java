@@ -64,14 +64,16 @@ public final class TurboismUninstallerListener extends AbstractUninstallerListen
             // layout: no custom deletion of config, runtime dirs or home.
             return;
         }
+        if (isWindows() && !cleanupManagedState(home, currentUserShortcutDirectory())) {
+            // A takeover conflict or malformed state is a hard stop: keep the
+            // state/backups and leave the home for a later retry.
+            return;
+        }
         if (deleteConfig) {
             deleteQuietly(home.resolve(ConfigMerge.CONFIG_FILE));
         }
         for (String name : RUNTIME_DIRS) {
             deleteRecursivelyQuietly(home.resolve(name));
-        }
-        if (isWindows()) {
-            cleanupManagedState(home, currentUserShortcutDirectory());
         }
         removeIfEmpty(home.resolve(ConfigMerge.PLUGIN_DIR));
         removeIfEmpty(home);
