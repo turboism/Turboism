@@ -1,7 +1,8 @@
 ﻿# -*- coding: utf-8 -*-
 [CmdletBinding()]
 param(
-    [string]$Home = "",
+    [Alias("Home")]
+    [string]$HomePath = "",
     [string]$CubismRoot = "",
     [string]$ProjectPath = "",
     [ValidateSet("normal", "d3d")]
@@ -66,7 +67,7 @@ $messages = @{
 if (-not $messages.ContainsKey($uiLang)) { $uiLang = "en" }
 $M = $messages[$uiLang]
 
-if (-not [string]::IsNullOrWhiteSpace($Home)) { $turboismHome = $Home.TrimEnd('\', '/') }
+if (-not [string]::IsNullOrWhiteSpace($HomePath)) { $turboismHome = $HomePath.TrimEnd('\', '/') }
 elseif (-not [string]::IsNullOrWhiteSpace($env:TURBOISM_HOME)) { $turboismHome = $env:TURBOISM_HOME.TrimEnd('\', '/') }
 else { $turboismHome = $scriptDir }
 if (-not (Test-Path -LiteralPath $turboismHome -PathType Container)) { throw ($M.HomeMissing -f $turboismHome) }
@@ -129,5 +130,5 @@ if ($ProbeOnly) {
     exit 0
 }
 
-$exitCode = Invoke-CubismOfficialBat -OfficialBat $officialBat -CubismRoot $cubism.CanonicalRoot -Home $turboismHome -Agent $agent -Arguments $batArguments
+$exitCode = Invoke-CubismOfficialBat -OfficialBat $officialBat -CubismRoot $cubism.CanonicalRoot -TurboismHome $turboismHome -Agent $agent -Arguments $batArguments
 exit $exitCode
