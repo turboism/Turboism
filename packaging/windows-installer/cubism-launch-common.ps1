@@ -618,12 +618,33 @@ function Write-CubismInstallationState {
         if (Test-Path -LiteralPath $StatePath -PathType Leaf) {
             $target = Get-Item -LiteralPath $StatePath -Force -ErrorAction Stop
             if (($target.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) { throw "state file is a reparse point" }
-            [System.IO.File]::Replace($temporary, $StatePath, $null, $true)
+            Invoke-CubismAtomicFileReplace -Source $temporary -Destination $StatePath
         }
         else { [System.IO.File]::Move($temporary, $StatePath) }
     }
     finally {
         if (Test-Path -LiteralPath $temporary -PathType Leaf) { Remove-Item -LiteralPath $temporary -Force -ErrorAction SilentlyContinue }
+    }
+}
+
+function Invoke-CubismAtomicFileReplace {
+    param([string]$Source, [string]$Destination)
+    # Same-volume atomic replacement with an explicit replacement-backup path,
+    # required on PowerShell hosts where a $null backup is rejected.
+    $directory = Split-Path -Parent $Destination
+    $backupName = [System.IO.Path]::GetFileName($Destination) + ".$PID." + [guid]::NewGuid().ToString('N') + ".replacement-backup"
+    $backup = Join-Path $directory $backupName
+    $succeeded = $false
+    try {
+        [System.IO.File]::Replace($Source, $Destination, $backup, $true)
+        $succeeded = $true
+    }
+    finally {
+        # The backup is deleted only after a successful replace; a thrown or
+        # incomplete replace leaves any created backup as recovery bytes.
+        if ($succeeded -and (Test-Path -LiteralPath $backup -PathType Leaf)) {
+            Remove-Item -LiteralPath $backup -Force -ErrorAction SilentlyContinue
+        }
     }
 }
 
@@ -869,7 +890,7 @@ function Publish-CubismStagedShortcut {
     if (-not (Test-CubismNormalFile $Temporary)) { throw "staged shortcut is not a normal file" }
     if (Test-Path -LiteralPath $Path) {
         if (-not (Test-CubismNormalFile $Path)) { throw "shortcut destination is not a normal file" }
-        [System.IO.File]::Replace($Temporary, $Path, $null, $true)
+        Invoke-CubismAtomicFileReplace -Source $Temporary -Destination $Path
     }
     else { [System.IO.File]::Move($Temporary, $Path) }
     if (-not (Test-CubismNormalFile $Path)) { throw "shortcut publication failed" }
