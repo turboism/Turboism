@@ -8,7 +8,7 @@ the frozen acceptance conditions, including the R2 repairs:
       is a repository-root-relative `sha256sum -c` line.
   2.  JAR contains en/zh/ja language resources (built-in langpacks and the
       locale-suffixed CustomLangPack variants), generated uninstaller support,
-      one required common pack and one optional pack per non-core plugin.
+      one required common pack and one optional pack per non-core plugin, plus the complete Windows launch-helper payload.
   3.  Lite install into a path containing spaces installs no plugin JAR and
       writes all bundled ids to disabledPlugins.
   4.  Full install defaults all plugins; deselecting two installs exactly the
@@ -189,9 +189,9 @@ def assert_utf8_contract():
 
 
 def run_java_regression(regression_jar):
-    """Runs the deterministic bounded-config regression (strict numbers,
-    canonical identity, consumed-byte cap with concurrent growth, atomic
-    REPLACE_EXISTING) against the exact classes shipped in the installer."""
+    """Runs the deterministic regression against the exact classes shipped in
+    the installer, including v1 state compatibility, hash-guarded independent
+    cleanup, exact-byte takeover restoration, and conflict preservation."""
     check("regression jar exists", os.path.isfile(regression_jar), regression_jar)
     cmd = java_cmd() + ["-cp", regression_jar, "dev.turboism.installer.ConfigMergeRegression"]
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
@@ -815,7 +815,7 @@ def assert_malformed_identity_safety(jar, payload_plugins):
     shutil.rmtree(base, ignore_errors=True)
 
 
-def assert_jar_layout(jar, payload_plugins):
+def assert_jar_layout(jar, payload):
     with zipfile.ZipFile(jar) as z:
         names = set(z.namelist())
         for lang in ("eng", "chn", "jpn"):
@@ -829,6 +829,18 @@ def assert_jar_layout(jar, payload_plugins):
         check("jar install listener",
               "dev/turboism/installer/TurboismInstallerListener.class" in names)
         check("jar config template resource", "turboism/config.template.json" in names)
+        core_pack_name = "resources/packs/pack-Turboism Core"
+        check("jar Windows core pack", core_pack_name in names)
+        core_pack = z.read(core_pack_name)
+        for helper in ("cubism-launch-common.ps1", "configure_turboism.ps1"):
+            staged = os.path.join(payload, helper)
+            check("staged Windows helper %s is regular" % helper,
+                  os.path.isfile(staged) and not os.path.islink(staged), staged)
+            with open(staged, "rb") as f:
+                helper_bytes = f.read()
+            check("staged Windows helper %s is non-empty" % helper, bool(helper_bytes))
+            check("jar Windows helper %s embedded in core pack" % helper,
+                  helper_bytes in core_pack)
 
 
 def assert_sidecar(jar, sha_path):
@@ -939,7 +951,7 @@ def main():
         run_java_regression(args.regression_jar)
 
         assert_sidecar(jar, args.sha256)
-        assert_jar_layout(jar, payload_plugins)
+        assert_jar_layout(jar, args.payload)
 
         lang_indices = discover_language_indices(jar)
         for iso3 in LOCALES:

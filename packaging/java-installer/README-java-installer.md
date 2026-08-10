@@ -59,7 +59,7 @@ or third-party plugin files are never deleted.
 
 Rerun the installer to change the selected plugin set.
 
-On Windows, the staged payload also includes `configure_turboism.ps1`. Run it later from the installed Turboism home whenever Cubism installations or managed launch entries change; it discovers only supported 5.2.03/5.3.02 roots, preserves the separate installation state, and calls each selected root through its official Cubism BAT. The setup may be canceled with a valid framework-only install and never edits a Cubism installation.
+On Windows, the staged payload also includes `configure_turboism.ps1` and `cubism-launch-common.ps1`. The configurator defaults to independent Turboism-owned shortcuts; the explicit takeover mode replaces only shortcuts whose COM target exactly matches a selected official Cubism BAT, records a same-directory byte backup, and uses a deterministic managed launcher with explicit `-Home`, `-CubismRoot`, and `-Variant`. Unmatched variants get independent fallback shortcuts. Cleanup restores only hash-matching managed entries; user edits or malformed state are conflicts and preserve state/backups for retry. It discovers supported Cubism 5.2 and 5.3 family candidates; it does not establish exact patch identity or host readiness, preserves separate installation state, and never edits a Cubism installation.
 
 ## Uninstall
 
@@ -68,12 +68,15 @@ directory. The uninstaller removes the installed agent, installer-owned
 plugin JARs, installer-owned launch/configuration files, the generated
 uninstaller, and the runtime `logs`, `state` and `cache` directories.
 `config.json` is removed only when selected (en/zh/ja confirmation,
-default delete; closing the dialog without choosing preserves it). Unknown
-files and third-party plugin JARs are preserved; the home directory is
-removed only when empty. Custom cleanup runs only when the uninstaller path
-proves the exact `<home>/Uninstaller/uninstaller.jar` layout; a missing or
-malformed identity performs no custom deletion and never falls back to the
-working directory.
+default delete; closing the dialog without choosing preserves it). Windows
+takeover records are restored from exact backups before those records or
+the home can be removed. A user-edited shortcut, invalid state, or failed
+atomic restoration preserves the shortcut, state, backups, and home for a
+later retry. Unknown files and third-party plugin JARs are preserved; the
+home directory is removed only when empty. Custom cleanup runs only when the
+uninstaller path proves the exact `<home>/Uninstaller/uninstaller.jar`
+layout; a missing or malformed identity performs no custom deletion and
+never falls back to the working directory.
 
 - Windows: `java -jar <home>\Uninstaller\uninstaller.jar`
 - macOS: double-click `uninstall.command` in the home directory (launches

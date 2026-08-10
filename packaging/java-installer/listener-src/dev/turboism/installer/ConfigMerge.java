@@ -165,9 +165,10 @@ final class ConfigMerge {
     }
 
     /**
-     * Bounded Windows managed-launch cleanup shared with the regression jar.
-     * The valid state is the only source of shortcut paths; malformed state
-     * authorizes nothing and remains for a later retry.
+     * Bounded managed-launch cleanup shared with the generated Java uninstaller
+     * and its regression jar. Takeover records are restored from exact byte
+     * backups only when the current shortcut is still the managed bytes (or
+     * already the original bytes). Any conflict fails closed before deletion.
      */
     static boolean cleanupManagedState(Path home, Path shortcutDirectory) {
         Path state = home.resolve(INSTALLATION_STATE_FILE).normalize();
@@ -175,10 +176,8 @@ final class ConfigMerge {
             if (!Files.exists(state, LinkOption.NOFOLLOW_LINKS)) {
                 return true;
             }
-            if (Files.isSymbolicLink(state) || !Files.isRegularFile(state, LinkOption.NOFOLLOW_LINKS)) {
-                return false;
-            }
-            if (shortcutDirectory == null) {
+            if (Files.isSymbolicLink(state) || !Files.isRegularFile(state, LinkOption.NOFOLLOW_LINKS)
+                    || shortcutDirectory == null) {
                 return false;
             }
             Path directory = shortcutDirectory.toAbsolutePath().normalize();
@@ -186,21 +185,99 @@ final class ConfigMerge {
                     && (Files.isSymbolicLink(directory) || !Files.isDirectory(directory, LinkOption.NOFOLLOW_LINKS))) {
                 return false;
             }
-            List<String> shortcuts = readOwnedShortcuts(state, directory);
-            for (String raw : shortcuts) {
-                Path shortcut = Paths.get(raw).toAbsolutePath().normalize();
-                if (Files.isSymbolicLink(shortcut)
-                        || (Files.exists(shortcut, LinkOption.NOFOLLOW_LINKS)
-                        && !Files.isRegularFile(shortcut, LinkOption.NOFOLLOW_LINKS))) {
+            ManagedState managed = readManagedState(state, home, directory);
+            List<RestorePlan> plans = new ArrayList<>();
+            long backupBytes = 0L;
+            for (Takeover takeover : managed.takeovers) {
+                Path target = Paths.get(takeover.shortcutPath).toAbsolutePath().normalize();
+                if (!isTakeoverShortcut(target, directory)) {
+                    return false;
+                }
+                Path backup = confinedBackup(home, takeover.backupPath);
+                if (Files.exists(backup, LinkOption.NOFOLLOW_LINKS)) {
+                    if (Files.isSymbolicLink(backup) || !Files.isRegularFile(backup, LinkOption.NOFOLLOW_LINKS)) {
+                        return false;
+                    }
+                    try {
+                        backupBytes = Math.addExact(backupBytes, Files.size(backup));
+                    } catch (ArithmeticException overflow) {
+                        return false;
+                    }
+                    if (backupBytes > MAX_BACKUP_BYTES) {
+                        return false;
+                    }
+                }
+                boolean targetExists = Files.exists(target, LinkOption.NOFOLLOW_LINKS);
+                if (targetExists && (Files.isSymbolicLink(target)
+                        || !Files.isRegularFile(target, LinkOption.NOFOLLOW_LINKS))) {
+                    return false;
+                }
+                String current = targetExists ? sha256(target) : null;
+                if (current == null || current.equalsIgnoreCase(takeover.managedSha256)) {
+                    if (!Files.isRegularFile(backup, LinkOption.NOFOLLOW_LINKS)
+                            || Files.isSymbolicLink(backup)
+                            || !sha256(backup).equalsIgnoreCase(takeover.originalSha256)) {
+                        return false;
+                    }
+                    plans.add(new RestorePlan(target, backup, true, takeover.originalSha256));
+                } else if (current.equalsIgnoreCase(takeover.originalSha256)) {
+                    if (Files.exists(backup, LinkOption.NOFOLLOW_LINKS)
+                            && (!Files.isRegularFile(backup, LinkOption.NOFOLLOW_LINKS)
+                            || Files.isSymbolicLink(backup)
+                            || !sha256(backup).equalsIgnoreCase(takeover.originalSha256))) {
+                        return false;
+                    }
+                    plans.add(new RestorePlan(target, backup, false, takeover.originalSha256));
+                } else {
+                    // User-edited or foreign shortcut: do not touch state, backup,
+                    // the shortcut, or the install home.
                     return false;
                 }
             }
-            for (String raw : shortcuts) {
-                try {
-                    Files.deleteIfExists(Paths.get(raw).toAbsolutePath().normalize());
-                } catch (IOException failure) {
+
+            Map<String, String> hashes = new java.util.HashMap<>();
+            for (ShortcutHash hash : managed.hashes) {
+                Path shortcut = Paths.get(hash.path).toAbsolutePath().normalize();
+                if (!isOwnedShortcut(hash.path, directory) || hashes.put(shortcut.toString().toUpperCase(Locale.ROOT), hash.sha256) != null) {
                     return false;
                 }
+                if (Files.exists(shortcut, LinkOption.NOFOLLOW_LINKS)
+                        && (Files.isSymbolicLink(shortcut) || !Files.isRegularFile(shortcut, LinkOption.NOFOLLOW_LINKS)
+                        || !sha256(shortcut).equalsIgnoreCase(hash.sha256))) {
+                    return false;
+                }
+            }
+            for (String raw : managed.shortcuts) {
+                Path shortcut = Paths.get(raw).toAbsolutePath().normalize();
+                if (!isOwnedShortcut(raw, directory) || hashes.containsKey(shortcut.toString().toUpperCase(Locale.ROOT))) {
+                    continue;
+                }
+                if (Files.exists(shortcut, LinkOption.NOFOLLOW_LINKS)
+                        && (Files.isSymbolicLink(shortcut) || !Files.isRegularFile(shortcut, LinkOption.NOFOLLOW_LINKS))) {
+                    return false;
+                }
+            }
+
+            for (RestorePlan plan : plans) {
+                if (!plan.restore) {
+                    continue;
+                }
+                publishExactBytes(plan.backup, plan.target);
+                if (!sha256(plan.target).equalsIgnoreCase(plan.expected)) {
+                    return false;
+                }
+            }
+            for (ShortcutHash hash : managed.hashes) {
+                Path shortcut = Paths.get(hash.path).toAbsolutePath().normalize();
+                Files.deleteIfExists(shortcut);
+            }
+            for (String raw : managed.shortcuts) {
+                Path shortcut = Paths.get(raw).toAbsolutePath().normalize();
+                Files.deleteIfExists(shortcut);
+            }
+            for (Takeover takeover : managed.takeovers) {
+                Path backup = confinedBackup(home, takeover.backupPath);
+                Files.deleteIfExists(backup);
             }
             Files.deleteIfExists(state);
             return true;
@@ -209,7 +286,71 @@ final class ConfigMerge {
         }
     }
 
-    private static List<String> readOwnedShortcuts(Path state, Path directory)
+    private static final int MAX_TAKEOVERS = 128;
+    private static final long MAX_BACKUP_BYTES = 8L * 1024L * 1024L;
+
+    private static final class ShortcutHash {
+        final String path;
+        final String sha256;
+
+        ShortcutHash(String path, String sha256) {
+            this.path = path;
+            this.sha256 = sha256;
+        }
+    }
+
+    private static final class Takeover {
+        final String shortcutPath;
+        final String backupPath;
+        final String originalSha256;
+        final String managedSha256;
+        final String root;
+        final String variant;
+        final String status;
+
+        Takeover(Map<?, ?> record) throws ConfigException {
+            requireStateKeys(record, Set.of("shortcutPath", "backupPath", "originalSha256", "managedSha256", "root", "variant", "status"));
+            shortcutPath = stringField(record, "shortcutPath", MAX_STATE_FIELD_LENGTH);
+            backupPath = stringField(record, "backupPath", MAX_STATE_FIELD_LENGTH);
+            originalSha256 = hashField(record, "originalSha256", true);
+            managedSha256 = hashField(record, "managedSha256", false);
+            root = stringField(record, "root", MAX_STATE_FIELD_LENGTH);
+            variant = stringField(record, "variant", 16);
+            status = stringField(record, "status", 16);
+            if (!Set.of("normal", "d3d").contains(variant) || !Set.of("pending", "active", "conflict").contains(status)
+                    || ("active".equals(status) && managedSha256.isEmpty())) {
+                throw new ConfigException("invalid shortcut takeover record");
+            }
+        }
+    }
+
+    private static final class ManagedState {
+        final List<String> shortcuts;
+        final List<ShortcutHash> hashes;
+        final List<Takeover> takeovers;
+
+        ManagedState(List<String> shortcuts, List<ShortcutHash> hashes, List<Takeover> takeovers) {
+            this.shortcuts = shortcuts;
+            this.hashes = hashes;
+            this.takeovers = takeovers;
+        }
+    }
+
+    private static final class RestorePlan {
+        final Path target;
+        final Path backup;
+        final boolean restore;
+        final String expected;
+
+        RestorePlan(Path target, Path backup, boolean restore, String expected) {
+            this.target = target;
+            this.backup = backup;
+            this.restore = restore;
+            this.expected = expected;
+        }
+    }
+
+    private static ManagedState readManagedState(Path state, Path home, Path directory)
             throws IOException, ConfigException {
         Object parsed;
         try {
@@ -221,11 +362,19 @@ final class ConfigMerge {
             throw new ConfigException("managed state root is not an object");
         }
         Map<?, ?> root = (Map<?, ?>) parsed;
-        requireStateKeys(root, Set.of("format", "schemaVersion", "installations", "managedShortcuts"));
+        Set<String> required = Set.of("format", "schemaVersion", "installations", "managedShortcuts");
+        Set<String> allowed = Set.of("format", "schemaVersion", "installations", "managedShortcuts", "launchMode", "shortcutTakeovers", "managedShortcutHashes");
+        if (!root.keySet().containsAll(required) || !allowed.containsAll(root.keySet())) {
+            throw new ConfigException("unknown or missing managed state fields");
+        }
         if (!"turboism.cubism.installation-state".equals(root.get("format"))
                 || !(root.get("schemaVersion") instanceof Long)
                 || ((Long) root.get("schemaVersion")) != 1L) {
             throw new ConfigException("unsupported managed state schema");
+        }
+        Object mode = root.get("launchMode");
+        if (mode != null && (!(mode instanceof String) || !Set.of("independent", "takeover").contains(mode))) {
+            throw new ConfigException("invalid launch mode");
         }
         Object installationsValue = root.get("installations");
         if (!(installationsValue instanceof List) || ((List<?>) installationsValue).size() > MAX_INSTALLATIONS) {
@@ -238,19 +387,15 @@ final class ConfigMerge {
             }
             Map<?, ?> entry = (Map<?, ?>) value;
             requireStateKeys(entry, Set.of("root", "version", "selected"));
-            if (!(entry.get("root") instanceof String)
-                    || !(entry.get("version") instanceof String)
+            if (!(entry.get("root") instanceof String) || !(entry.get("version") instanceof String)
                     || !(entry.get("selected") instanceof Boolean)) {
                 throw new ConfigException("invalid installation entry shape");
             }
             String rawRoot = (String) entry.get("root");
             String version = (String) entry.get("version");
-            if (rawRoot.isEmpty() || rawRoot.length() > MAX_STATE_FIELD_LENGTH || version.length() > 16) {
+            if (rawRoot.isEmpty() || rawRoot.length() > MAX_STATE_FIELD_LENGTH || version.length() > 16
+                    || !roots.add(Paths.get(rawRoot).toAbsolutePath().normalize().toString().toUpperCase(Locale.ROOT))) {
                 throw new ConfigException("invalid installation entry bounds");
-            }
-            Path rootPath = Paths.get(rawRoot).toAbsolutePath().normalize();
-            if (!roots.add(rootPath.toString().toUpperCase(Locale.ROOT))) {
-                throw new ConfigException("duplicate installation root");
             }
         }
         Object shortcutsValue = root.get("managedShortcuts");
@@ -260,20 +405,81 @@ final class ConfigMerge {
         Set<String> seen = new HashSet<>();
         List<String> shortcuts = new ArrayList<>();
         for (Object value : (List<?>) shortcutsValue) {
-            if (!(value instanceof String)) {
-                throw new ConfigException("invalid managed shortcut entry");
-            }
-            String raw = (String) value;
-            if (raw.isEmpty() || raw.length() > MAX_STATE_FIELD_LENGTH || !isOwnedShortcut(raw, directory)) {
+            if (!(value instanceof String) || ((String) value).isEmpty() || ((String) value).length() > MAX_STATE_FIELD_LENGTH
+                    || !isOwnedShortcut((String) value, directory)) {
                 throw new ConfigException("managed shortcut is outside the current-user Turboism directory");
             }
-            Path normalized = Paths.get(raw).toAbsolutePath().normalize();
-            if (!seen.add(normalized.toString().toUpperCase(Locale.ROOT))) {
+            String raw = (String) value;
+            if (!seen.add(Paths.get(raw).toAbsolutePath().normalize().toString().toUpperCase(Locale.ROOT))) {
                 throw new ConfigException("duplicate managed shortcut");
             }
             shortcuts.add(raw);
         }
-        return shortcuts;
+        List<ShortcutHash> hashes = new ArrayList<>();
+        Object hashValue = root.get("managedShortcutHashes");
+        if (hashValue != null) {
+            if (!(hashValue instanceof List) || ((List<?>) hashValue).size() > MAX_SHORTCUTS) {
+                throw new ConfigException("invalid managed shortcut hashes");
+            }
+            for (Object value : (List<?>) hashValue) {
+                if (!(value instanceof Map)) {
+                    throw new ConfigException("invalid managed shortcut hash");
+                }
+                Map<?, ?> record = (Map<?, ?>) value;
+                requireStateKeys(record, Set.of("path", "sha256"));
+                String path = stringField(record, "path", MAX_STATE_FIELD_LENGTH);
+                String hash = hashField(record, "sha256", true);
+                if (!seen.contains(Paths.get(path).toAbsolutePath().normalize().toString().toUpperCase(Locale.ROOT))) {
+                    throw new ConfigException("managed shortcut hash has no owned path");
+                }
+                hashes.add(new ShortcutHash(path, hash));
+            }
+        }
+        List<Takeover> takeovers = new ArrayList<>();
+        Object takeoverValue = root.get("shortcutTakeovers");
+        if (takeoverValue != null) {
+            if (!(takeoverValue instanceof List) || ((List<?>) takeoverValue).size() > MAX_TAKEOVERS) {
+                throw new ConfigException("invalid shortcut takeovers");
+            }
+            Set<String> takeoverPaths = new HashSet<>();
+            for (Object value : (List<?>) takeoverValue) {
+                if (!(value instanceof Map)) {
+                    throw new ConfigException("invalid shortcut takeover record");
+                }
+                Takeover takeover = new Takeover((Map<?, ?>) value);
+                if (!isTakeoverShortcut(Paths.get(takeover.shortcutPath).toAbsolutePath().normalize(), directory)
+                        || !confinedBackup(home, takeover.backupPath).toString().toUpperCase(Locale.ROOT).startsWith(home.toAbsolutePath().normalize().toString().toUpperCase(Locale.ROOT) + java.io.File.separator)) {
+                    throw new ConfigException("shortcut takeover path is outside an allowed boundary");
+                }
+                if (!takeoverPaths.add(takeover.shortcutPath.toUpperCase(Locale.ROOT))) {
+                    throw new ConfigException("duplicate shortcut takeover");
+                }
+                takeovers.add(takeover);
+            }
+        }
+        return new ManagedState(shortcuts, hashes, takeovers);
+    }
+
+    private static String stringField(Map<?, ?> map, String key, int max) throws ConfigException {
+        Object value = map.get(key);
+        if (!(value instanceof String) || ((String) value).isEmpty() || ((String) value).length() > max) {
+            throw new ConfigException("invalid managed state field: " + key);
+        }
+        return (String) value;
+    }
+
+    private static String hashField(Map<?, ?> map, String key, boolean required) throws ConfigException {
+        Object value = map.get(key);
+        if (value == null && !required) {
+            return "";
+        }
+        if (!(value instanceof String) || (!((String) value).isEmpty() && !((String) value).matches("(?i)[0-9a-f]{64}"))) {
+            throw new ConfigException("invalid hash field: " + key);
+        }
+        if (required && ((String) value).isEmpty()) {
+            throw new ConfigException("missing hash field: " + key);
+        }
+        return ((String) value).toUpperCase(Locale.ROOT);
     }
 
     private static void requireStateKeys(Map<?, ?> map, Set<String> expected) throws ConfigException {
@@ -295,6 +501,96 @@ final class ConfigMerge {
                     && MANAGED_SHORTCUT.matcher(normalized.getFileName().toString()).matches();
         } catch (RuntimeException failure) {
             return false;
+        }
+    }
+
+    private static boolean isTakeoverShortcut(Path path, Path directory) {
+        try {
+            if (!path.isAbsolute() || !path.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".lnk")) {
+                return false;
+            }
+            List<Path> roots = new ArrayList<>();
+            roots.add(directory.toAbsolutePath().normalize());
+            if (directory.getParent() != null) {
+                roots.add(directory.getParent().toAbsolutePath().normalize());
+            }
+            String appData = System.getenv("APPDATA");
+            if (appData != null && !appData.isBlank()) {
+                roots.add(Paths.get(appData, "Microsoft", "Windows", "Start Menu", "Programs").toAbsolutePath().normalize());
+            }
+            String userProfile = System.getenv("USERPROFILE");
+            if (userProfile != null && !userProfile.isBlank()) {
+                roots.add(Paths.get(userProfile, "Desktop").toAbsolutePath().normalize());
+            }
+            roots.add(Paths.get(System.getProperty("user.home", ""), "Desktop").toAbsolutePath().normalize());
+            for (Path root : roots) {
+                Path normalizedRoot = root.normalize();
+                if (path.startsWith(normalizedRoot) && !path.equals(normalizedRoot)) {
+                    Path cursor = path.getParent();
+                    boolean safe = true;
+                    while (cursor != null) {
+                        if (Files.isSymbolicLink(cursor) || (Files.exists(cursor, LinkOption.NOFOLLOW_LINKS)
+                                && !Files.isDirectory(cursor, LinkOption.NOFOLLOW_LINKS))) {
+                            safe = false;
+                            break;
+                        }
+                        if (cursor.equals(normalizedRoot)) {
+                            if (safe) return true;
+                            break;
+                        }
+                        cursor = cursor.getParent();
+                    }
+                }
+            }
+        } catch (RuntimeException failure) {
+            return false;
+        }
+        return false;
+    }
+
+    private static Path confinedBackup(Path home, String relative) throws ConfigException {
+        if (relative == null || relative.isBlank() || Paths.get(relative).isAbsolute() || relative.matches(".*(^|[\\\\/])\\.\\.([\\\\/]|$).*")) {
+            throw new ConfigException("invalid shortcut backup path");
+        }
+        Path normalizedHome = home.toAbsolutePath().normalize();
+        Path path = normalizedHome.resolve(relative).normalize();
+        if (!path.startsWith(normalizedHome) || !path.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".lnk")) {
+            throw new ConfigException("shortcut backup escapes Turboism home");
+        }
+        return path;
+    }
+
+    private static String sha256(Path path) throws IOException {
+        try (java.io.InputStream input = Files.newInputStream(path, StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS)) {
+            java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
+            byte[] buffer = new byte[8192];
+            int read;
+            while ((read = input.read(buffer)) >= 0) {
+                if (read > 0) digest.update(buffer, 0, read);
+            }
+            StringBuilder hex = new StringBuilder(64);
+            for (byte value : digest.digest()) hex.append(String.format(Locale.ROOT, "%02X", value));
+            return hex.toString();
+        } catch (java.security.NoSuchAlgorithmException impossible) {
+            throw new IOException("SHA-256 is unavailable", impossible);
+        }
+    }
+
+    private static void publishExactBytes(Path source, Path target) throws IOException {
+        Path parent = target.getParent();
+        if (parent == null || !Files.isDirectory(parent, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(parent)) {
+            throw new IOException("shortcut parent is not a normal directory");
+        }
+        Path temporary = Files.createTempFile(parent, ".turboism-restore-", ".lnk");
+        try {
+            Files.copy(source, temporary, StandardCopyOption.REPLACE_EXISTING, LinkOption.NOFOLLOW_LINKS);
+            try {
+                Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+            } catch (AtomicMoveNotSupportedException unsupported) {
+                throw new IOException("atomic shortcut restoration is unavailable", unsupported);
+            }
+        } finally {
+            Files.deleteIfExists(temporary);
         }
     }
 
