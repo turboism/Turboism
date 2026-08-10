@@ -289,7 +289,7 @@ public final class ConfigMergeRegression {
         }
     }
 
-    /** R5.4: bounded managed shortcut cleanup and fail-closed path ownership. */
+    /** R5.4: dual-mode cleanup, exact takeover restoration, and conflict preservation. */
     private static void managedStateCleanup() throws Exception {
         Path dir = Files.createTempDirectory("cubism-managed-state-");
         Path shortcutDir = dir.resolve("Start Menu/Programs/Turboism");
@@ -303,14 +303,19 @@ public final class ConfigMergeRegression {
         Path managed = shortcutDir.resolve("Turboism Cubism 5.2 [fixture-A1B2C3D4E5F6].lnk");
         Path unrelated = shortcutDir.resolve("Turboism Configurator.lnk");
         Path outside = outsideDir.resolve("Turboism Cubism 5.2 [outside-A1B2C3D4E5F6].lnk");
+        Path takeover = shortcutDir.resolve("Cubism Official.lnk");
+        Path backup = home.resolve("installer/shortcut-backups/official.lnk");
+        Files.createDirectories(backup.getParent());
+        byte[] originalBytes = "original-shortcut-bytes".getBytes(StandardCharsets.UTF_8);
+        byte[] managedBytes = "turboism-managed-shortcut-bytes".getBytes(StandardCharsets.UTF_8);
         Files.writeString(managed, "managed", StandardCharsets.UTF_8);
         Files.writeString(unrelated, "unrelated", StandardCharsets.UTF_8);
         Files.writeString(outside, "outside", StandardCharsets.UTF_8);
         Files.writeString(cubismRoot.resolve("sentinel.txt"), "unchanged", StandardCharsets.UTF_8);
         try {
             String valid = "{\"format\":\"turboism.cubism.installation-state\",\"schemaVersion\":1,"
-                    + "\"installations\":[{\"root\":\"" + cubismRoot + "\",\"version\":\"5.2\",\"selected\":true}],"
-                    + "\"managedShortcuts\":[\"" + managed + "\"]}";
+                    + "\"launchMode\":\"independent\",\"installations\":[{\"root\":\"" + cubismRoot + "\",\"version\":\"5.2\",\"selected\":true}],"
+                    + "\"managedShortcuts\":[\"" + managed + "\"],\"managedShortcutHashes\":[{\"path\":\"" + managed + "\",\"sha256\":\"" + sha256(managed) + "\"}]}";
             Files.writeString(home.resolve(ConfigMerge.INSTALLATION_STATE_FILE), valid, StandardCharsets.UTF_8);
             check("managed state cleanup removes owned shortcut", ConfigMerge.cleanupManagedState(home, shortcutDir));
             check("managed shortcut removed", !Files.exists(managed));
@@ -319,19 +324,43 @@ public final class ConfigMergeRegression {
             check("valid managed state removed", !Files.exists(home.resolve(ConfigMerge.INSTALLATION_STATE_FILE)));
             check("cleanup never writes Cubism root", Files.readString(cubismRoot.resolve("sentinel.txt")).equals("unchanged"));
 
-            Files.writeString(managed, "managed", StandardCharsets.UTF_8);
-            String relocated = shortcutDir.resolve("../outside/Turboism Cubism 5.2 [outside-A1B2C3D4E5F6].lnk").toString();
-            String escapedPath = relocated.replace("/", "\\/");
-            String escaped = "{\"format\":\"turboism.cubism.installation-state\",\"schemaVersion\":1,"
-                    + "\"installations\":[],\"managedShortcuts\":[\"" + escapedPath + "\"]}";
-            Files.writeString(home.resolve(ConfigMerge.INSTALLATION_STATE_FILE), escaped, StandardCharsets.UTF_8);
-            check("relocated shortcut state fails closed", !ConfigMerge.cleanupManagedState(home, shortcutDir));
-            check("malformed ownership preserves managed shortcut", Files.exists(managed));
-            check("malformed state is not deleted", Files.exists(home.resolve(ConfigMerge.INSTALLATION_STATE_FILE)));
-            check("malformed cleanup preserves unrelated shortcut", Files.exists(unrelated));
+            Files.write(takeover, originalBytes);
+            Files.write(backup, originalBytes);
+            Files.write(takeover, managedBytes);
+            String takeoverState = "{\"format\":\"turboism.cubism.installation-state\",\"schemaVersion\":1,"
+                    + "\"launchMode\":\"takeover\",\"installations\":[],\"managedShortcuts\":[],\"shortcutTakeovers\":[{"
+                    + "\"shortcutPath\":\"" + takeover + "\",\"backupPath\":\"installer/shortcut-backups/official.lnk\","
+                    + "\"originalSha256\":\"" + sha256Bytes(originalBytes) + "\",\"managedSha256\":\"" + sha256Bytes(managedBytes) + "\","
+                    + "\"root\":\"C:/Cubism 5.2\",\"variant\":\"normal\",\"status\":\"active\"}]}";
+            Files.writeString(home.resolve(ConfigMerge.INSTALLATION_STATE_FILE), takeoverState, StandardCharsets.UTF_8);
+            check("takeover cleanup restores exact original bytes", ConfigMerge.cleanupManagedState(home, shortcutDir));
+            check("takeover restored bytes match", java.util.Arrays.equals(Files.readAllBytes(takeover), originalBytes));
+            check("takeover backup removed after restore", !Files.exists(backup));
+            check("takeover state removed after restore", !Files.exists(home.resolve(ConfigMerge.INSTALLATION_STATE_FILE)));
+
+            Files.write(takeover, originalBytes);
+            Files.write(backup, originalBytes);
+            Files.write(takeover, "user-edited".getBytes(StandardCharsets.UTF_8));
+            Files.writeString(home.resolve(ConfigMerge.INSTALLATION_STATE_FILE), takeoverState, StandardCharsets.UTF_8);
+            check("takeover user edit is a conflict", !ConfigMerge.cleanupManagedState(home, shortcutDir));
+            check("conflict preserves edited shortcut", Files.readString(takeover).equals("user-edited"));
+            check("conflict preserves backup", Files.exists(backup));
+            check("conflict preserves state", Files.exists(home.resolve(ConfigMerge.INSTALLATION_STATE_FILE)));
         } finally {
             deleteTree(dir);
         }
+    }
+
+    private static String sha256(Path path) throws Exception {
+        return sha256Bytes(Files.readAllBytes(path));
+    }
+
+    private static String sha256Bytes(byte[] bytes) throws Exception {
+        java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
+        byte[] value = digest.digest(bytes);
+        StringBuilder hex = new StringBuilder(64);
+        for (byte b : value) hex.append(String.format(java.util.Locale.ROOT, "%02X", b));
+        return hex.toString();
     }
 
     private static void deleteTree(Path dir) {

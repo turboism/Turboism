@@ -150,6 +150,9 @@ LangString StartMenuUninstallName ${LANG_JAPANESE} "Turboism をアンインス�
 LangString ConfigWriteError ${LANG_ENGLISH} "Cannot write config.json: $INSTDIR\config.json"
 LangString ConfigWriteError ${LANG_SIMPCHINESE} "无法写入 config.json：$INSTDIR\config.json"
 LangString ConfigWriteError ${LANG_JAPANESE} "config.json を書き込めません：$INSTDIR\config.json"
+LangString ShortcutCleanupFailure ${LANG_ENGLISH} "Turboism shortcut restoration/cleanup failed. Nothing else was removed; retry uninstall after resolving the conflict."
+LangString ShortcutCleanupFailure ${LANG_SIMPCHINESE} "Turboism 快捷方式恢复/清理失败。未删除其他内容；解决冲突后请重试卸载。"
+LangString ShortcutCleanupFailure ${LANG_JAPANESE} "Turboism のショートカットの復元/クリーンアップに失敗しました。他の項目は削除していません。競合を解決してからアンインストールを再試行してください。"
 
 ; ---------- 变量 ----------
 Var Mode                 ; 0 = Lite, 1 = Full（默认 Full）
@@ -530,7 +533,11 @@ SectionEnd
 ; 不出现在安装器组件页；须为最后一个 Section）
 Section "Uninstall"
   ; 先由托管配置器按 manifest 清理 Turboism 自己创建的快捷方式和安装状态。
-  ExecWait '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -Cleanup'
+  ExecWait '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -Cleanup' $0
+  ${If} $0 != 0
+    MessageBox MB_ICONEXCLAMATION|MB_OK "$(ShortcutCleanupFailure)"
+    Abort
+  ${EndIf}
   ; 开始菜单目录 + HKCU 卸载注册项（per-user；与安装时注册表视图一致）
   DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Turboism"
   Delete "$SMPROGRAMS\Turboism\$(StartMenuConfigName).lnk"
