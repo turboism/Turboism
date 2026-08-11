@@ -24,4 +24,17 @@ public interface ParameterGroup {
     List<ParameterGroupId> childGroupIds();
 
     List<ParameterId> parameterIds();
+
+    /**
+     * Renames this folder through the Editor undo path.
+     *
+     * @throws IllegalArgumentException when the name is blank
+     */
+    default void rename(final String name) {
+        throw unavailable("ParameterGroup renaming");
+    }
+
+    private static UnsupportedOperationException unavailable(final String feature) {
+        return new UnsupportedOperationException(feature + " is unavailable.");
+    }
 }

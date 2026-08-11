@@ -1,6 +1,7 @@
 package dev.turboism.adapter.host;
 
 import dev.turboism.adapter.RuntimeHostAdapters;
+import dev.turboism.adapter.cubism.backup.AutoBackupAdapter;
 import dev.turboism.adapter.cubism.RecentFileAdapter;
 import dev.turboism.adapter.cubism.RecentPreviewContributionAdapter;
 import dev.turboism.adapter.cubism.ScreenshotCaptureAdapter;
@@ -13,6 +14,7 @@ import dev.turboism.sdk.cubism.screenshot.ScreenshotImage;
 import dev.turboism.sdk.plugin.Registration;
 import org.junit.jupiter.api.Test;
 
+import java.io.File;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -95,7 +97,8 @@ final class DynamicRuntimeHostAdaptersRecentPreviewTest {
                 @Override
                 public void refresh() {
                 }
-            })
+            }),
+            safe.autoBackup()
         );
         dynamic.connect(connected);
 
@@ -115,6 +118,79 @@ final class DynamicRuntimeHostAdaptersRecentPreviewTest {
         assertThrows(UnsupportedOperationException.class,
             () -> dynamic.view().recentPreviews().contribute(summary -> Optional.empty()));
         dynamic.view().recentPreviews().refresh();
+    }
+
+    @Test
+    void autoBackupSlotForwardsToTheConnectedAdapterAndFailsClosedBeforeConnect() {
+        final DynamicRuntimeHostAdapters dynamic = new DynamicRuntimeHostAdapters();
+        assertThrows(UnsupportedOperationException.class,
+            () -> dynamic.view().autoBackup().settings(),
+            "before connect the view must fail closed (safe-mode adapter)");
+
+        dynamic.connect(connectedAutoBackup());
+        final AutoBackupAdapter.Snapshot settings = dynamic.view().autoBackup().settings();
+        assertTrue(settings.enabled());
+        assertEquals(3, settings.intervalMinutes());
+        assertEquals(128, settings.maxMB());
+        assertEquals(new File("backup").getPath(), settings.backupDir().getPath());
+
+        assertEquals(1, dynamic.view().autoBackup().documents().size());
+        dynamic.view().autoBackup().triggerBackupNow();
+        assertEquals(1, triggerCalls.get(), "triggerBackupNow must forward to the connected adapter");
+    }
+
+    @Test
+    void autoBackupSlotFailsClosedAfterDeactivate() throws Exception {
+        final DynamicRuntimeHostAdapters dynamic = new DynamicRuntimeHostAdapters();
+        dynamic.connect(connectedAutoBackup());
+        dynamic.deactivate();
+        assertThrows(UnsupportedOperationException.class,
+            () -> dynamic.view().autoBackup().settings(),
+            "after deactivate the view must fail closed");
+    }
+
+    private static final java.util.concurrent.atomic.AtomicInteger triggerCalls =
+        new java.util.concurrent.atomic.AtomicInteger();
+
+    private static RuntimeHostAdapters connectedAutoBackup() {
+        final RuntimeHostAdapters safe = RuntimeHostAdapters.safeMode();
+        return new RuntimeHostAdapters(
+            safe.themeStatus(), safe.renderStatus(), safe.projectWorkspace(), safe.clipMaskRead(),
+            safe.statusToolbar(), safe.uiSurface(),
+            safe.recentFiles(),
+            safe.screenshots(),
+            safe.recentPreviews(),
+            AutoBackupAdapter.connected(new AutoBackupAdapter.HostOperations() {
+                @Override
+                public AutoBackupAdapter.Snapshot settings() {
+                    return new AutoBackupAdapter.Snapshot(true, 3, 128, new File("backup"));
+                }
+
+                @Override
+                public AutoBackupAdapter.Snapshot applySettings(final AutoBackupAdapter.Snapshot target) {
+                    return target;
+                }
+
+                @Override
+                public List<AutoBackupAdapter.Document> documents() {
+                    return List.of(new AutoBackupAdapter.Document(
+                        "model.cmo3", new File("model.cmo3"), 1_000L, 900L, true));
+                }
+
+                @Override
+                public void triggerBackupNow() {
+                    triggerCalls.incrementAndGet();
+                }
+
+                @Override
+                public File saveDocumentFor(
+                    final File matchFile, final java.util.List<String> documentUids,
+                    final long timestampMillis
+                ) {
+                    return null;
+                }
+            })
+        );
     }
 
     private static RuntimeHostAdapters connected(
@@ -140,7 +216,8 @@ final class DynamicRuntimeHostAdaptersRecentPreviewTest {
                 }
             }),
             ScreenshotCaptureAdapter.connected(capture::apply),
-            safe.recentPreviews()
+            safe.recentPreviews(),
+            safe.autoBackup()
         );
     }
 }

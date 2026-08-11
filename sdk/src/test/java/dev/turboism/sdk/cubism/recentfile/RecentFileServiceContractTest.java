@@ -13,6 +13,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -20,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 final class RecentFileServiceContractTest {
 
     @Test
-    void pluginContextExposesTypedRecentFilesWithoutHostPathEscape() throws Exception {
+    void pluginContextDefaultsToTheTypedUnavailableRecentFileSingleton() throws Exception {
         final Method accessor = Arrays.stream(PluginContext.class.getMethods())
             .filter(method -> method.getName().equals("recentFiles"))
             .findFirst()
@@ -37,11 +38,7 @@ final class RecentFileServiceContractTest {
                 ? invokeDefault(proxy, method, args)
                 : null
         );
-        final UnsupportedOperationException unavailable = assertThrows(
-            UnsupportedOperationException.class,
-            context::recentFiles
-        );
-        assertEquals("recent file service is not available", unavailable.getMessage());
+        assertSame(RecentFileService.unavailable(), context.recentFiles());
 
         assertEquals(
             List.of("list", "unavailable"),

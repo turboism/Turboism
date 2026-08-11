@@ -30,6 +30,7 @@ public record WorkspaceStatus(
         });
     }
 
+    @PreviewApi
     public enum Availability {
         AVAILABLE,
         UNAVAILABLE

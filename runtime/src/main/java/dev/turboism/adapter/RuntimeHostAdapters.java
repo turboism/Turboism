@@ -11,6 +11,8 @@ import dev.turboism.adapter.cubism.VerifiedRecentPreviewPopupHostOperations;
 import dev.turboism.adapter.cubism.RenderStatusAdapter;
 import dev.turboism.adapter.cubism.VerifiedClipMaskHostOperations;
 import dev.turboism.adapter.cubism.VerifiedProjectWorkspaceHostOperations;
+import dev.turboism.adapter.cubism.backup.AutoBackupAdapter;
+import dev.turboism.adapter.cubism.backup.VerifiedAutoBackupHostOperations;
 import dev.turboism.adapter.ui.StatusToolbarAdapter;
 import dev.turboism.adapter.ui.StatusToolbarAdapterImpl;
 import dev.turboism.adapter.ui.ThemeStatusAdapter;
@@ -19,6 +21,7 @@ import dev.turboism.adapter.ui.UiSurfaceAdapter;
 import dev.turboism.adapter.ui.UiSurfaceAdapterImpl;
 import dev.turboism.adapter.ui.VerifiedCxStatusBarHostAccess;
 import dev.turboism.mapping.verification.ClipMaskVerificationManifest;
+import dev.turboism.mapping.verification.AutoBackupVerificationManifest;
 import dev.turboism.mapping.verification.ProjectWorkspaceVerificationManifest;
 import dev.turboism.mapping.verification.RecentPreviewVerificationManifest;
 import dev.turboism.mapping.verification.StatusBarVerificationManifest;
@@ -41,7 +44,8 @@ public record RuntimeHostAdapters(
     UiSurfaceAdapter uiSurface,
     RecentFileAdapter recentFiles,
     ScreenshotCaptureAdapter screenshots,
-    RecentPreviewContributionAdapter recentPreviews
+    RecentPreviewContributionAdapter recentPreviews,
+    AutoBackupAdapter autoBackup
 ) {
 
     public RuntimeHostAdapters {
@@ -54,6 +58,7 @@ public record RuntimeHostAdapters(
         recentFiles = Objects.requireNonNull(recentFiles, "recentFiles");
         screenshots = Objects.requireNonNull(screenshots, "screenshots");
         recentPreviews = Objects.requireNonNull(recentPreviews, "recentPreviews");
+        autoBackup = Objects.requireNonNull(autoBackup, "autoBackup");
     }
 
     /** Compatibility constructor: recent-preview slots stay in safe mode. */
@@ -68,7 +73,7 @@ public record RuntimeHostAdapters(
         this(
             themeStatus, renderStatus, projectWorkspace, clipMaskRead, statusToolbar, uiSurface,
             RecentFileAdapter.safeMode(), ScreenshotCaptureAdapter.safeMode(),
-            RecentPreviewContributionAdapter.safeMode()
+            RecentPreviewContributionAdapter.safeMode(), AutoBackupAdapter.safeMode()
         );
     }
 
@@ -82,7 +87,8 @@ public record RuntimeHostAdapters(
             UiSurfaceAdapterImpl.safeMode(),
             RecentFileAdapter.safeMode(),
             ScreenshotCaptureAdapter.safeMode(),
-            RecentPreviewContributionAdapter.safeMode()
+            RecentPreviewContributionAdapter.safeMode(),
+            AutoBackupAdapter.safeMode()
         );
     }
 
@@ -111,7 +117,8 @@ public record RuntimeHostAdapters(
             UiSurfaceAdapterImpl.safeMode(),
             RecentFileAdapter.safeMode(),
             ScreenshotCaptureAdapter.safeMode(),
-            RecentPreviewContributionAdapter.safeMode()
+            RecentPreviewContributionAdapter.safeMode(),
+            AutoBackupAdapter.safeMode()
         );
     }
 
@@ -143,7 +150,8 @@ public record RuntimeHostAdapters(
             UiSurfaceAdapterImpl.safeMode(),
             RecentFileAdapter.safeMode(),
             ScreenshotCaptureAdapter.safeMode(),
-            RecentPreviewContributionAdapter.safeMode()
+            RecentPreviewContributionAdapter.safeMode(),
+            AutoBackupAdapter.safeMode()
         );
     }
 
@@ -163,13 +171,15 @@ public record RuntimeHostAdapters(
             project.uiSurface(),
             project.recentFiles(),
             project.screenshots(),
-            project.recentPreviews()
+            project.recentPreviews(),
+            project.autoBackup()
         );
     }
 
     /**
      * Replaces only the status-toolbar slot of an existing bundle with the
-     * verified 5.3.02 native status slice; every other adapter is preserved.
+     * verified native status slice (reviewed exact 5.2.03 or 5.3.02); every
+     * other adapter is preserved.
      */
     static RuntimeHostAdapters withVerifiedStatusBar(
         final RuntimeHostAdapters base,
@@ -177,7 +187,8 @@ public record RuntimeHostAdapters(
     ) {
         Objects.requireNonNull(base, "base");
         Objects.requireNonNull(statusBarResolver, "statusBarResolver");
-        if (!statusBarResolver.isExactCubismVersion(StatusBarVerificationManifest.CUBISM_VERSION)
+        final String resolverVersion = statusBarResolver.cubismVersion();
+        if (!StatusBarVerificationManifest.reviewedCubismVersions().contains(resolverVersion)
             || !statusBarResolver.authorizes(
                 StatusBarVerificationManifest.ADAPTER_SLICE_ID,
                 StatusBarVerificationManifest.CAPABILITY_IDS,
@@ -199,7 +210,8 @@ public record RuntimeHostAdapters(
             base.uiSurface(),
             base.recentFiles(),
             base.screenshots(),
-            base.recentPreviews()
+            base.recentPreviews(),
+            base.autoBackup()
         );
     }
 
@@ -213,12 +225,25 @@ public record RuntimeHostAdapters(
         final VerifiedMemberResolver projectResolver,
         final VerifiedMemberResolver panelResolver
     ) {
+        return withVerifiedRecentPreview(
+            base, projectResolver, panelResolver, dev.turboism.i18n.CubismHostLocale.resolve()
+        );
+    }
+
+    /** Connects the verified recent-preview slice with the caller's resolved effective locale. */
+    public static RuntimeHostAdapters withVerifiedRecentPreview(
+        final RuntimeHostAdapters base,
+        final VerifiedMemberResolver projectResolver,
+        final VerifiedMemberResolver panelResolver,
+        final java.util.Locale locale
+    ) {
         Objects.requireNonNull(base, "base");
+        Objects.requireNonNull(locale, "locale");
         RecentPreviewVerificationManifest.requireAuthorized(projectResolver, panelResolver);
         final VerifiedRecentFileListHostOperations files =
             new VerifiedRecentFileListHostOperations(projectResolver, panelResolver);
         final VerifiedRecentPreviewPopupHostOperations popup =
-            new VerifiedRecentPreviewPopupHostOperations(panelResolver);
+            new VerifiedRecentPreviewPopupHostOperations(panelResolver, locale);
         return new RuntimeHostAdapters(
             base.themeStatus(),
             base.renderStatus(),
@@ -232,7 +257,42 @@ public record RuntimeHostAdapters(
                 // temporary diagnostic wiring for host verification; remove after Phase 5
                 System.err::println
             )),
-            RecentPreviewContributionAdapter.connected(popup)
+            RecentPreviewContributionAdapter.connected(popup),
+            base.autoBackup()
+        );
+    }
+
+    /**
+     * Connects only the verified auto-backup slice: the native auto-backup manager
+     * settings/trigger surface for the exact resolved Cubism version. Every other
+     * adapter is preserved.
+     */
+    public static RuntimeHostAdapters withVerifiedAutoBackup(
+        final RuntimeHostAdapters base,
+        final VerifiedMemberResolver autoBackupResolver
+    ) {
+        Objects.requireNonNull(base, "base");
+        Objects.requireNonNull(autoBackupResolver, "autoBackupResolver");
+        if (!autoBackupResolver.authorizes(
+            AutoBackupVerificationManifest.ADAPTER_SLICE_ID,
+            AutoBackupVerificationManifest.CAPABILITY_IDS,
+            AutoBackupVerificationManifest.REQUIRED_ALIASES
+        )) {
+            throw new IllegalArgumentException(
+                "resolver does not authorize the complete auto-backup adapter slice"
+            );
+        }
+        return new RuntimeHostAdapters(
+            base.themeStatus(),
+            base.renderStatus(),
+            base.projectWorkspace(),
+            base.clipMaskRead(),
+            base.statusToolbar(),
+            base.uiSurface(),
+            base.recentFiles(),
+            base.screenshots(),
+            base.recentPreviews(),
+            AutoBackupAdapter.connected(new VerifiedAutoBackupHostOperations(autoBackupResolver))
         );
     }
 }

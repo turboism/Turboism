@@ -23,6 +23,7 @@ public record WorkspaceOperationResult(
         });
     }
 
+    @PreviewApi
     public enum Outcome {
         CHANGED,
         NO_CHANGE,

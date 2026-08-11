@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.core;
 
+import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.core.CoreCapabilities;
 import dev.turboism.sdk.cubism.core.CoreRuntimeInfo;
 import dev.turboism.sdk.cubism.core.CoreVersion;
@@ -7,6 +8,7 @@ import dev.turboism.sdk.cubism.core.MocConsistency;
 import dev.turboism.sdk.cubism.core.MocData;
 import dev.turboism.sdk.cubism.core.MocInfo;
 import dev.turboism.sdk.cubism.core.MocInspector;
+import dev.turboism.sdk.cubism.core.MocLoader;
 import dev.turboism.sdk.cubism.core.MocVersion;
 
 import java.util.Objects;
@@ -17,15 +19,16 @@ final class CoreRuntimeMetadata implements CoreRuntimeInfo {
     static final int DEFAULT_MOC_BYTE_QUOTA = 64 * 1024 * 1024;
 
     private final CorePublicApiProvider provider;
+    private final VerifiedMemberResolver resolver;
     private final Runnable freshness;
     private final int mocByteQuota;
 
     CoreRuntimeMetadata(final CorePublicApiProvider provider) {
-        this(provider, () -> { }, DEFAULT_MOC_BYTE_QUOTA);
+        this(provider, null, () -> { }, DEFAULT_MOC_BYTE_QUOTA);
     }
 
     CoreRuntimeMetadata(final CorePublicApiProvider provider, final Runnable freshness) {
-        this(provider, freshness, DEFAULT_MOC_BYTE_QUOTA);
+        this(provider, null, freshness, DEFAULT_MOC_BYTE_QUOTA);
     }
 
     CoreRuntimeMetadata(
@@ -33,7 +36,17 @@ final class CoreRuntimeMetadata implements CoreRuntimeInfo {
         final Runnable freshness,
         final int mocByteQuota
     ) {
+        this(provider, null, freshness, mocByteQuota);
+    }
+
+    CoreRuntimeMetadata(
+        final CorePublicApiProvider provider,
+        final VerifiedMemberResolver resolver,
+        final Runnable freshness,
+        final int mocByteQuota
+    ) {
         this.provider = Objects.requireNonNull(provider, "provider");
+        this.resolver = resolver;
         this.freshness = Objects.requireNonNull(freshness, "freshness");
         if (mocByteQuota < 1) throw new IllegalArgumentException("mocByteQuota must be positive");
         this.mocByteQuota = mocByteQuota;
@@ -94,6 +107,28 @@ final class CoreRuntimeMetadata implements CoreRuntimeInfo {
                 );
             }
         };
+    }
+
+    @Override
+    public MocLoader mocLoader() {
+        if (resolver == null || !capabilities().mocInspection()) {
+            throw unavailable("Owned MOC loading");
+        }
+        final CoreProviderResult<OwnedMocRuntime> admitted = OwnedMocRuntime.admit(
+            provider,
+            resolver,
+            freshness,
+            mocByteQuota
+        );
+        final CoreProviderFailure failure = admitted.failure().orElse(null);
+        if (failure != null) {
+            if (failure.code() == CoreProviderFailure.Code.ADAPTER_UNAVAILABLE
+                || failure.code() == CoreProviderFailure.Code.EVIDENCE_REJECTED) {
+                throw unavailable("Owned MOC loading");
+            }
+            throw new IllegalStateException("Owned MOC loading failed: " + failure.code());
+        }
+        return admitted.value().orElseThrow();
     }
 
     private static <T> T requireValue(

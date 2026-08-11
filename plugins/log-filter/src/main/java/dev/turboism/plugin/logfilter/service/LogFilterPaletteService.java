@@ -1,6 +1,7 @@
 package dev.turboism.plugin.logfilter.service;
 
 import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.ui.StatusNotification;
 import dev.turboism.sdk.ui.UiHostCapabilityService;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
@@ -20,10 +21,19 @@ public final class LogFilterPaletteService {
     private static final String PALETTE_TOOLBAR_UNAVAILABLE_NOTIFICATION_ID = "log-filter.palette-toolbar.unavailable";
 
     private final UiHostCapabilityService uiHost;
+    private final PluginLocalization localization;
     private FilterLevel currentLevel = FilterLevel.INFO;
 
     public LogFilterPaletteService(final UiHostCapabilityService uiHost) {
+        this(uiHost, new LegacyLocalization());
+    }
+
+    public LogFilterPaletteService(
+        final UiHostCapabilityService uiHost,
+        final PluginLocalization localization
+    ) {
         this.uiHost = Objects.requireNonNull(uiHost, "uiHost");
+        this.localization = Objects.requireNonNull(localization, "localization");
     }
 
     public Registration registerPaletteToolbar() {
@@ -41,7 +51,7 @@ public final class LogFilterPaletteService {
             uiHost.notifyStatus(new StatusNotification(
                 PALETTE_TOOLBAR_UNAVAILABLE_NOTIFICATION_ID,
                 "WARNING",
-                "Log filter palette toolbar is unavailable; use the fallback toggle action."
+                localization.text("log-filter.palette-toolbar.unavailable")
             ));
             return () -> { };
         }
@@ -52,7 +62,7 @@ public final class LogFilterPaletteService {
         uiHost.notifyStatus(new StatusNotification(
             LEVEL_CHANGED_NOTIFICATION_ID,
             "INFO",
-            "Log filter level changed to " + currentLevel.label()
+            localization.format("log-filter.level.changed", currentLevel.label())
         ));
     }
 
@@ -78,5 +88,19 @@ public final class LogFilterPaletteService {
                 case ERROR -> INFO;
             };
         }
+    }
+
+    private static final class LegacyLocalization implements PluginLocalization {
+        @Override public java.util.Locale locale() { return java.util.Locale.ENGLISH; }
+        @Override public String text(final String key) {
+            return "log-filter.palette-toolbar.unavailable".equals(key)
+                ? "Log filter palette toolbar is unavailable; use the fallback toggle action."
+                : key;
+        }
+        @Override public String format(final String key, final Object... args) {
+            return "log-filter.level.changed".equals(key)
+                ? "Log filter level changed to " + args[0] : text(key);
+        }
+        @Override public boolean contains(final String key) { return true; }
     }
 }

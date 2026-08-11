@@ -15,6 +15,8 @@ mode.table.mask
 mode.table.user
 node.inverted
 node.mask.count
+plugin.description
+plugin.name
 section.title
 stats.order.conflicts
 stats.summary

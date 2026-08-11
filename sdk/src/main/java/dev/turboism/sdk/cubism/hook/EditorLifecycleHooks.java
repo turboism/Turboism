@@ -1,9 +1,11 @@
 package dev.turboism.sdk.cubism.hook;
 
+import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.EditorExitResult;
 import dev.turboism.sdk.cubism.EditorLifecycleSnapshot;
 
 /** Override-based hooks around the Turboism-visible Cubism editor lifetime. */
+@PreviewApi
 public interface EditorLifecycleHooks {
 
     /** Runs after the host exists but before Turboism publishes editor-started. */

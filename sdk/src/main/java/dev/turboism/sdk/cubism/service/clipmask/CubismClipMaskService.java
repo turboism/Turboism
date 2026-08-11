@@ -34,6 +34,7 @@ public interface CubismClipMaskService {
      * @param orderedMaskGuids ordered GUID list of ArtMeshes used as this ArtMesh's
      *        clip masks; immutable, elements non-blank
      */
+    @PreviewApi
     record ClipMaskRecord(
         String guid,
         String id,
