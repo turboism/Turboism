@@ -44,14 +44,46 @@ val payloadDir = layout.buildDirectory.dir("windows-installer/staging")
 val distDir = layout.buildDirectory.dir("windows-installer/dist")
 val izpackBaseDir = layout.buildDirectory.dir("java-installer/izpack")
 
-// Authoritative plugin inventory: the Gradle project hierarchy declared in
-// settings.gradle.kts (":plugins:*"), excluding the runtime-owned core.
-val pluginModuleNames: List<String> = rootProject.subprojects
-    .map { it.path }
-    .filter { it.startsWith(":plugins:") }
+// Sole release-plugin allowlist authority: packaging/release-plugins.txt (shared
+// with the Windows NSIS/ZIP staging; no independent blocklist anywhere — the
+// four placeholder projects are simply absent from the manifest). Parsing is
+// fail-closed: missing file, blank/comment lines, non-plugin entries,
+// duplicates, unsorted order or unknown projects abort the build. The runtime-
+// owned :plugins:core stays allowlisted as a project but is never packaged as
+// a plugin JAR.
+val releasePluginsFile: File = rootProject.file("packaging/release-plugins.txt")
+
+fun parseReleasePluginManifest(file: File): List<String> {
+    if (!file.isFile) throw GradleException("release-plugins.txt missing: ${file.path}")
+    val lines = file.readLines().map { it.trim() }
+    val invalid = lines.filter { it.isEmpty() || it.startsWith("#") }
+    if (invalid.isNotEmpty()) {
+        throw GradleException("release-plugins.txt forbids blank/comment lines: '${invalid.first()}'")
+    }
+    val entryPattern = Regex("^:plugins:[a-z0-9-]+$")
+    val malformed = lines.filterNot { entryPattern.matches(it) }
+    if (malformed.isNotEmpty()) {
+        throw GradleException("release-plugins.txt contains a non-plugin entry: '${malformed.first()}'")
+    }
+    val duplicates = lines.groupingBy { it }.eachCount().filterValues { it > 1 }.keys
+    if (duplicates.isNotEmpty()) {
+        throw GradleException("release-plugins.txt contains duplicates: '${duplicates.first()}'")
+    }
+    if (lines != lines.sorted()) {
+        throw GradleException("release-plugins.txt entries are not ASCII-sorted")
+    }
+    val knownProjects = rootProject.subprojects.map { it.path }.toSet()
+    val unknown = lines.filterNot { it in knownProjects }
+    if (unknown.isNotEmpty()) {
+        throw GradleException("release-plugins.txt references unknown project: '${unknown.first()}'")
+    }
+    return lines
+}
+
+val allowedPluginModules: List<String> = parseReleasePluginManifest(releasePluginsFile)
+val pluginModuleNames: List<String> = allowedPluginModules
     .map { it.removePrefix(":plugins:") }
     .filter { it != "core" }
-    .sorted()
 
 val installerTemplateFiles = listOf(
     "LICENSE",
@@ -82,6 +114,9 @@ val stageInstallerPayload by tasks.registering {
     group = "packaging"
     description = "Stages the shared Turboism payload (agent, plugins, docs, launchers) for NSIS, ZIP and Java installer."
     inputs.property("installerVersion", installerVersion)
+    // The release-plugin allowlist is an incremental task input: editing it
+    // invalidates the staged payload.
+    inputs.file(releasePluginsFile)
     // Task providers as inputs: the built bootstrap/plugin JARs (their outputs
     // are tracked without realizing them at configuration time).
     inputs.files(project(":bootstrap").tasks.named("jar"))
@@ -369,7 +404,8 @@ val checkJavaInstaller by tasks.registering(Exec::class) {
             "--installer", distDir.get().file("TurboismInstaller-${requireInstallerVersion()}.jar").asFile.absolutePath,
             "--sha256", distDir.get().file("TurboismInstaller-${requireInstallerVersion()}.jar.sha256").asFile.absolutePath,
             "--payload", payloadDir.get().asFile.absolutePath,
-            "--regression-jar", installerRegressionJarTask.get().archiveFile.get().asFile.absolutePath
+            "--regression-jar", installerRegressionJarTask.get().archiveFile.get().asFile.absolutePath,
+            "--manifest", releasePluginsFile.absolutePath
         )
     }
 }
