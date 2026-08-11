@@ -11,6 +11,10 @@ RemoveItemFromList 的 NSIS 实现（';' 分隔列表 + 逐 id 移除 + 插入�
   - Lite 不安装任何插件 JAR；disabledPlugins 写入全部捆绑 id（Full→Lite 后
     陈旧 JAR 无法加载）
   - NSIS JSON 数组：前后缀无多余引号，项恰好一次引号、以 "," 分隔
+  - 卸载失败关闭后置：托管清理返回 0 后状态文件仍存在则中止，顺序为
+    清理调用/$0 非零守卫 -> cubism-installations.json 失败关闭守卫 ->
+    DeleteRegKey/载荷删除；LICENSE 删除使用精确安装基线名 LICENSE
+    （见 Uninstall Section 镜像检查，行号级断言）
   - worktreeId / pluginDirs 固定覆盖；空列表不写出 disabledPlugins 字段
   - 输出可被 json.load 解析且符合 RuntimeConfigValidator 约束
 
@@ -31,6 +35,7 @@ import sys
 from pathlib import Path
 
 MANIFEST_PATH = Path(__file__).resolve().parent.parent / "release-plugins.txt"
+INSTALLER_NSI = Path(__file__).resolve().parent / "installer.nsi"
 
 # 冻结的 16 项目批准清单 —— 回归 oracle：清单增删/改序/公开排除模块回归即失败。
 EXPECTED_PATHS = [
@@ -204,6 +209,58 @@ def nsis_jars_after(mode, prev_jars):
     return sorted(prev_jars)
 
 
+def uninstall_statements():
+    """按出现顺序返回 Uninstall Section 的非空/非注释语句（行号, 文本）。"""
+    lines = INSTALLER_NSI.read_text(encoding="utf-8").splitlines()
+    start = next(i for i, l in enumerate(lines) if l.strip() == 'Section "Uninstall"')
+    end = next(i for i in range(start + 1, len(lines)) if lines[i].strip() == "SectionEnd")
+    return [(i + 1, l.strip()) for i, l in enumerate(lines[start + 1:end])
+            if l.strip() and not l.strip().startswith(";")]
+
+
+def find_stmt(texts, pred):
+    for i, t in enumerate(texts):
+        if pred(t):
+            return i
+    return None
+
+
+def check_uninstall_postcondition():
+    """卸载失败关闭顺序回归：清理调用/$0 非零守卫 -> 状态文件仍存在则失败关闭
+    -> 之后才允许 DeleteRegKey 与载荷删除（Wine 内置 PowerShell 返回 0 而未执行
+    清理的复现：NSIS 曾仅信任 $0 导致残留）；LICENSE 删除必须使用精确基线名。"""
+    stmts = uninstall_statements()
+    texts = [t for _, t in stmts]
+    cleanup = find_stmt(texts, lambda t: "ExecWait" in t and "-Cleanup" in t)
+    check("U1 托管清理调用存在", cleanup is not None)
+    if cleanup is None:
+        return
+    guard0 = find_stmt(texts, lambda t: t == "${If} $0 != 0")
+    check("U1 清理调用先于 $0 非零守卫", guard0 is not None and guard0 > cleanup)
+    check("U1 $0 守卫失败关闭（ShortcutCleanupFailure + Abort）",
+          guard0 is not None
+          and any("ShortcutCleanupFailure" in t for t in texts[guard0:guard0 + 3])
+          and "Abort" in texts[guard0:guard0 + 3])
+    if guard0 is None:
+        return
+    state = find_stmt(texts, lambda t: "${FileExists}" in t and "cubism-installations.json" in t)
+    check("U2 状态文件失败关闭守卫存在", state is not None)
+    if state is None:
+        return
+    check("U2 状态守卫位于 $0 守卫之后", state > guard0)
+    check("U2 状态守卫失败关闭（ShortcutCleanupFailure + Abort）",
+          any("ShortcutCleanupFailure" in t for t in texts[state:state + 3])
+          and "Abort" in texts[state:state + 3])
+    regkey = find_stmt(texts, lambda t: t.startswith("DeleteRegKey"))
+    payload = find_stmt(texts, lambda t: t.startswith('Delete "$INSTDIR\\'))
+    check("U3 状态守卫先于 DeleteRegKey", regkey is not None and state < regkey)
+    check("U3 状态守卫先于载荷删除", payload is not None and state < payload)
+    lic = find_stmt(texts, lambda t: 'Delete "$INSTDIR\\LICENSE' in t)
+    check("U4 删除精确安装基线名 LICENSE",
+          lic is not None and texts[lic] == 'Delete "$INSTDIR\\LICENSE"')
+    check("U4 无 LICENSE.txt 删除残留", not any("LICENSE.txt" in t for t in texts))
+
+
 def main():
     a, b, c = BUNDLED_IDS
 
@@ -330,7 +387,8 @@ def main():
         doc = json.loads(out)
         assert doc["format"] == "turboism.runtime.config" and doc["schemaVersion"] == 1
 
-    print("config merge + payload 模拟验证通过：15 个用例全部 ok")
+    check_uninstall_postcondition()
+    print("config merge + payload 模拟 + uninstall 后置验证通过：全部用例 ok")
 
 
 if __name__ == "__main__":
