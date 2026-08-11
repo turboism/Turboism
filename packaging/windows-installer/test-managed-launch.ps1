@@ -413,9 +413,10 @@ try {
         if (Test-Path -LiteralPath $fixtureManagedShortcutDir) {
             throw "managed shortcut directory already exists; fixture refuses to use it: $fixtureManagedShortcutDir"
         }
+        New-Item -ItemType Directory -Path $fixtureManagedShortcutDir | Out-Null
         $fixtureManagedShortcutDirOwned = $true
         $fixtureShortcutRoot = Join-Path $userRoots[0] ("Turboism dual-mode fixture " + [guid]::NewGuid().ToString("N"))
-        New-Item -ItemType Directory -Path $fixtureShortcutRoot -Force | Out-Null
+        New-Item -ItemType Directory -Path $fixtureShortcutRoot | Out-Null
         $fixtureShortcutRootOwned = $true
         $normalShortcut = Join-Path $fixtureShortcutRoot "Cubism Normal.lnk"
         $d3dShortcut = Join-Path $fixtureShortcutRoot "Cubism D3D.lnk"
