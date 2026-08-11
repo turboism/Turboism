@@ -11,8 +11,8 @@
 ;     README.txt / README.zh.txt / README.ja.txt、plugins/*.jar）；LICENSE 由 ${LICENSE_FILE} 指定。
 ;
 ; 插件 Section 通过 ${SEC_<id>} 编译期常量（Section 索引）访问，与声明顺序无关；
-; 生成文件内含 SetPluginSectionsSelected / CollectUncheckedPluginIds 两个函数。
-; Lite 模式在 ModeLeave 中取消全部插件 Section，其代码体不会执行。
+; 生成文件内含隐藏载荷 Section（$Mode==1 时安装全部插件 JAR）与
+; SetPluginSectionsSelected / CollectUncheckedPluginIds / RemoveBundledFromExistingDisabled 三个函数。
 
 Unicode true
 
@@ -265,11 +265,10 @@ SectionEnd
 !include "plugin-sections.nsh"
 
 Section "-写入配置" SecConfig
-  ; 收集本次未勾选的插件 id（Full 模式）
+  ; 收集本次未勾选的插件 id（两种模式都收集：Lite 下 ModeLeave 已取消全部
+  ; 插件 Section，因此收集到全部捆绑 id —— 防止 Full→Lite 后陈旧 JAR 加载）
   StrCpy $uncheckedPluginIds ""
-  ${If} $Mode == 1
-    Call CollectUncheckedPluginIds
-  ${EndIf}
+  Call CollectUncheckedPluginIds
   ; 读取既有 config.json 的 disabledPlugins（合并时保留）
   StrCpy $existingDisabled ""
   Call ReadExistingDisabledPlugins
@@ -278,13 +277,15 @@ Section "-写入配置" SecConfig
 SectionEnd
 
 ; ---------- 配置合并 ----------
-; 语义（与 SPEC.md 一致）：保留既有 disabledPlugins 并合并本次未勾选插件，
-; worktreeId 覆盖为 turboism-runtime，pluginDirs 覆盖为 ["plugins"]。
+; 语义（与 SPEC.md 一致）：先从既有 disabledPlugins 移除全部当前捆绑插件 id
+; （重选已捆绑插件即启用），再合并本次未勾选插件（Lite 下为全部捆绑 id）；
+; 无关 id 保留；worktreeId 覆盖为 turboism-runtime，pluginDirs 覆盖为 ["plugins"]。
 ; 其它字段（logLevel/hooks 等）不保留，由运行时默认值补全；
 ; 需要完整保留既有配置的字段时请使用 configure_turboism.ps1。
 ; 注意：config.json 内容为纯 ASCII，FileWrite（Unicode 安装器下按 ACP 转换）安全。
 
-; 输入: $0 = ';' 分隔列表；输出: $0 = 首段, $1 = 剩余
+; 输入: $0 = ';' 分隔列表；输出: $0 = 首段, $1 = 剩余（无 ';' 时 $0 保持整表、$1 为空）
+; 仅使用 scratch 寄存器 $pos/$len/$ch/$next，不改写其它共享寄存器。
 Function SplitFirst
   StrCpy $1 ""
   StrCpy $pos 0
@@ -295,13 +296,37 @@ Function SplitFirst
     ${EndIf}
     StrCpy $ch "$0" 1 $pos
     ${If} $ch == ";"
-      StrCpy $1 "$0" $pos
       IntOp $next $pos + 1
-      StrCpy $0 "$0" "" $next
+      StrCpy $1 "$0" "" $next
+      StrCpy $0 "$0" $pos
       ${ExitDo}
     ${EndIf}
     IntOp $pos $pos + 1
   ${Loop}
+FunctionEnd
+
+; 通用列表项删除：$0 = ';' 分隔列表，$1 = 要删除的项（删除全部精确匹配）
+; 输出：$0 = 删除后的列表（其余项保持原序）；$1 = 要删除的项（原样返回）。
+; 调用方通过 SplitFirst 约定共享 $0/$1，本函数仅使用 $3/$5。
+Function RemoveItemFromList
+  StrCpy $5 "$1"          ; 备份待删除项（SplitFirst 会改写 $0/$1）
+  StrCpy $3 ""            ; 结果
+  ${Do}
+    ${If} $0 == ""
+      ${ExitDo}
+    ${EndIf}
+    Call SplitFirst         ; $0 = 首段, $1 = 剩余
+    ${If} $0 != $5
+      ${If} $3 == ""
+        StrCpy $3 "$0"
+      ${Else}
+        StrCpy $3 "$3;$0"
+      ${EndIf}
+    ${EndIf}
+    StrCpy $0 "$1"          ; 继续处理剩余列表
+  ${Loop}
+  StrCpy $0 "$3"
+  StrCpy $1 "$5"
 FunctionEnd
 
 ; 读取 $INSTDIR\config.json 的 disabledPlugins 到 $existingDisabled（';' 分隔）
@@ -401,8 +426,11 @@ Function ReadExistingDisabledPlugins
 FunctionEnd
 
 ; $uncheckedPluginIds + $existingDisabled → $disabledFinal（合并、去重、升序）
-; 输出 JSON 写入 $INSTDIR\config.json
+; 先由生成函数 RemoveBundledFromExistingDisabled 逐 id 移除 $existingDisabled 中的
+; 当前捆绑 id（通用 RemoveItemFromList 辅助，无长度受限的合并 id 字符串），
+; 再合并本次未勾选插件。
 Function MergeAndWriteConfig
+  Call RemoveBundledFromExistingDisabled
   StrCpy $disabledFinal "$uncheckedPluginIds"
   ${If} $existingDisabled != ""
     ${If} $disabledFinal != ""
@@ -477,7 +505,7 @@ Function MergeAndWriteConfig
   ; 组 JSON（模板 + 可选 disabledPlugins；空列表不写出该字段）
   StrCpy $json '{"format":"turboism.runtime.config","schemaVersion":1,"worktreeId":"turboism-runtime","pluginDirs":["plugins"]'
   ${If} $disabledFinal != ""
-    StrCpy $json '$json,"disabledPlugins":["'
+    StrCpy $json '$json,"disabledPlugins":['
     StrCpy $head ""
     StrCpy $walk "$disabledFinal"
     ${Do}
@@ -493,7 +521,7 @@ Function MergeAndWriteConfig
       StrCpy $head '$head"$0"'
     ${Loop}
     StrCpy $json "$json$head"
-    StrCpy $json '$json"]'
+    StrCpy $json '$json]'
   ${EndIf}
   StrCpy $json '$json}$\r$\n'
   ; 写入

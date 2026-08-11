@@ -8,12 +8,14 @@ the frozen acceptance conditions, including the R2 repairs:
       is a repository-root-relative `sha256sum -c` line.
   2.  JAR contains en/zh/ja language resources (built-in langpacks and the
       locale-suffixed CustomLangPack variants), generated uninstaller support,
-      one required common pack and one optional pack per non-core plugin, plus the complete Windows launch-helper payload.
-  3.  Lite install into a path containing spaces installs no plugin JAR and
+      one required common pack, one required Full-only plugin-payload pack
+      (every bundled plugin JAR) and one optional metadata-only selection pack
+      per non-core plugin, plus the complete Windows launch-helper payload.
       writes all bundled ids to disabledPlugins.
-  4.  Full install defaults all plugins; deselecting two installs exactly the
-      selected JARs; reselecting a previously disabled bundled plugin enables
-      it while unrelated disabled ids remain; result is sorted.
+  4.  Full install defaults all plugins; deselecting two still installs every
+      bundled JAR (payload pack) while disabledPlugins reflects the deselected
+      ids; reselecting a previously disabled bundled plugin enables it while
+      unrelated disabled ids remain; result is sorted.
   5.  Existing config merge preserves unrelated valid fields (including large
       integer and exponent numbers, without emitting non-finite JSON) and
       never damages the source on malformed, strict-number, oversized
@@ -320,9 +322,9 @@ def assert_full_install(jar, payload_plugins):
     rc, out = run_console(jar, install_answers("full", target, deselect=deselect, payload_plugins=payload_plugins))
     check("full install exit 0", rc == 0, "rc=%s" % rc)
     installed = sorted(os.listdir(os.path.join(target, "plugins")))
-    expected_modules = sorted(
-        p["module"] + ".jar" for p in payload_plugins if p["id"] not in deselect)
-    check("full installs exactly selected jars", installed == expected_modules, str(installed))
+    # r6: 载荷 pack 安装全部捆绑 JAR；勾选只控制 disabledPlugins
+    expected_modules = sorted(p["module"] + ".jar" for p in payload_plugins)
+    check("full installs every bundled jar (payload pack)", installed == expected_modules, str(installed))
     config = json.load(open(os.path.join(target, "config.json")))
     check("full disabledPlugins == deselected", config.get("disabledPlugins") == sorted(deselect),
           str(config.get("disabledPlugins")))

@@ -8,10 +8,12 @@
   __STAGE_REL__ points at the shared staged payload
   (build/windows-installer/staging). Do not edit the generated file.
 
-  Every plugin pack carries the XML id attribute equal to its plugin id;
-  IzPack exposes it at runtime as Pack.getLangPackId(), which is the stable
+  Every plugin SELECTION pack carries the XML id attribute equal to its plugin
+  id; IzPack exposes it at runtime as Pack.getLangPackId(), which is the stable
   selection identity used by the install-side listener (no display-name
-  mapping).
+  mapping). The required turboism-plugin-payload pack carries a
+  Turboism-owned id and is not a selection identity: it installs every bundled
+  plugin JAR and is never recognized as a plugin by the listener.
 -->
 <izpack:installation version="5.0" xmlns:izpack="http://izpack.org/schema/installation"
                      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"

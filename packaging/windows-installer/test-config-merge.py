@@ -1,12 +1,17 @@
 #!/usr/bin/env python3
-"""config.json 合并逻辑的单元验证。
+"""config.json 合并逻辑 + Full/Lite 插件载荷语义的单元验证。
 
-本脚本逐条镜像 installer.nsi 中 MergeAndWriteConfig / ReadExistingDisabledPlugins
-的 NSIS 实现（';' 分隔列表 + 插入排序去重 + 从模板重建 JSON），验证：
-  - 旧 disabledPlugins 保留并与新选择合并（升序、去重）
-  - worktreeId / pluginDirs 固定覆盖
-  - Lite 模式不收集未勾选插件
-  - 空列表不写出 disabledPlugins 字段
+本脚本逐条镜像 installer.nsi 中 MergeAndWriteConfig / ReadExistingDisabledPlugins /
+RemoveItemFromList 的 NSIS 实现（';' 分隔列表 + 逐 id 移除 + 插入排序去重 + 从模板
+重建 JSON），并镜像 assemble-release.sh 生成的隐藏载荷 Section（$Mode==1 时安装
+全部插件 JAR，Lite 不写任何 JAR），验证 r6 契约：
+  - Full 安装始终携带全部捆绑插件 JAR；勾选只控制 disabledPlugins
+  - 重选已捆绑插件 → 从既有 disabledPlugins 移除该捆绑 id（通用逐 id 删除，
+    不使用长度受限的合并 id 字符串）；无关 id 保留
+  - Lite 不安装任何插件 JAR；disabledPlugins 写入全部捆绑 id（Full→Lite 后
+    陈旧 JAR 无法加载）
+  - NSIS JSON 数组：前后缀无多余引号，项恰好一次引号、以 "," 分隔
+  - worktreeId / pluginDirs 固定覆盖；空列表不写出 disabledPlugins 字段
   - 输出可被 json.load 解析且符合 RuntimeConfigValidator 约束
 
 注意：与 NSIS 一致，既有 config 的其它字段（logLevel/hooks 等）不保留，
@@ -15,6 +20,16 @@
 
 import json
 import sys
+
+# 当前捆绑插件清单（fixture：与生成器从 plugin.json 读到的 id/模块对应）
+BUNDLED = [
+    ("dev.turboism.plugin.alpha", "plugin-alpha"),
+    ("dev.turboism.plugin.beta", "plugin-beta"),
+    ("dev.turboism.plugin.gamma", "plugin-gamma"),
+]
+BUNDLED_IDS = [i for i, _ in BUNDLED]
+BUNDLED_MODULES = sorted(m for _, m in BUNDLED)
+UNRELATED = "dev.turboism.plugin.not-bundled"
 
 
 def split_first(lst: str):
@@ -62,6 +77,11 @@ def extract_existing_disabled(text: str):
     return ids
 
 
+def remove_item(lst, item):
+    """镜像 NSIS RemoveItemFromList：删除全部匹配项，其余保持原序（逐 id 调用）。"""
+    return [x for x in lst if x != item]
+
+
 def nsis_merge(unchecked, existing):
     """镜像 NSIS MergeAndWriteConfig：拼接 → 逐项插入排序（升序、去重）。"""
     combined = list(unchecked) + list(existing)   # NSIS: $unchecked;$existing
@@ -97,11 +117,24 @@ def build_config_json(disabled):
     return "".join(parts)
 
 
-def installer_write_config(mode, unchecked, existing_text):
+def installer_write_config(mode, unchecked, existing_text, bundled_ids=BUNDLED_IDS):
+    """镜像 SecConfig → MergeAndWriteConfig：
+    - 先由 RemoveBundledFromExistingDisabled 从既有列表逐 id 移除全部捆绑 id；
+    - 再合并本次未勾选插件（Lite 下 ModeLeave 已取消全部 Section → 全部捆绑 id）。"""
     existing = extract_existing_disabled(existing_text) if existing_text is not None else []
+    for bid in bundled_ids:
+        existing = remove_item(existing, bid)
     if mode == "lite":
-        unchecked = []                            # Lite 模式不收集未勾选插件
+        unchecked = list(bundled_ids)             # Lite 模式收集全部捆绑 id
     return build_config_json(nsis_merge(unchecked, existing))
+
+
+def nsis_jars_after(mode, prev_jars):
+    """镜像隐藏载荷 Section：Full($Mode==1) 安装全部插件 JAR；Lite 不写任何 JAR
+    （此前安装的 JAR 保留，但被 disabledPlugins=全部捆绑 id 禁用）。"""
+    if mode == "full":
+        return sorted(BUNDLED_MODULES)
+    return sorted(prev_jars)
 
 
 def check(name, cond, detail=""):
@@ -112,9 +145,7 @@ def check(name, cond, detail=""):
 
 
 def main():
-    a = "dev.turboism.plugin.demo"
-    b = "dev.turboism.plugin.logfilter"
-    c = "dev.turboism.plugin.ui-theme"
+    a, b, c = BUNDLED_IDS
 
     # T1: Full、全选、无既有配置 → 模板（无 disabledPlugins）
     out = installer_write_config("full", [], None)
@@ -127,39 +158,55 @@ def main():
     out = installer_write_config("full", [c, a], None)
     doc = json.loads(out)
     check("T2 升序", doc["disabledPlugins"] == [a, c], str(doc.get("disabledPlugins")))
+    # T2b: JSON 数组形状 —— 前后缀无多余引号，项恰好一次引号、以 "," 分隔
+    expected_fragment = '"disabledPlugins":["' + a + '","' + c + '"]'
+    check('T2b JSON 数组形状（无多余引号、"," 分隔）', expected_fragment in out,
+          "fragment=%s" % expected_fragment + " out=%s" % out[:160])
 
-    # T3: Full、未勾选 {c}、既有 {b,a} → 合并升序
+    # T3: Full、未勾选 {b}、既有 {u2, a, u1}（u1/u2 无关、a 为捆绑）
+    #     → 捆绑 a 被移除（重选启用），无关 id 保留，合并升序
     existing = json.dumps({"format": "turboism.runtime.config", "schemaVersion": 1,
                            "worktreeId": "old-wt", "pluginDirs": ["plugins"],
-                           "disabledPlugins": [b, a]}, indent=2)
-    out = installer_write_config("full", [c], existing)
+                           "disabledPlugins": [UNRELATED + ".2", a, UNRELATED + ".1"]}, indent=2)
+    out = installer_write_config("full", [b], existing)
     doc = json.loads(out)
-    check("T3 合并升序", doc["disabledPlugins"] == [a, b, c], str(doc.get("disabledPlugins")))
+    check("T3 合并升序且无关保留", doc["disabledPlugins"] == sorted([b, UNRELATED + ".1", UNRELATED + ".2"]),
+          str(doc.get("disabledPlugins")))
+    check("T3 已捆绑被移除（重选启用）", a not in doc.get("disabledPlugins", []))
     check("T3 worktreeId 覆盖", doc["worktreeId"] == "turboism-runtime")
 
-    # T4: Full、全选、既有 {a} → 保留既有
-    existing = '{"disabledPlugins": ["' + a + '"]}'
+    # T4: Full、全选、既有 {a, u} → 捆绑 a 移除，无关 u 保留
+    existing = '{"disabledPlugins": ["' + a + '","' + UNRELATED + '"]}'
     out = installer_write_config("full", [], existing)
     doc = json.loads(out)
-    check("T4 保留既有", doc["disabledPlugins"] == [a])
+    check("T4 全选后捆绑启用、无关保留", doc["disabledPlugins"] == [UNRELATED], str(doc.get("disabledPlugins")))
 
-    # T5: Lite、无既有配置 → 模板（无 disabledPlugins）
+    # T4b: 回归 —— 既有配置含重复的捆绑 id（同一 id 多次出现），后续 Full 重选
+    #       必须移除全部副本，无关 id 保留
+    existing = '{"disabledPlugins": ["' + a + '","' + UNRELATED + '","' + a + '"]}'
+    out = installer_write_config("full", [b], existing)
+    doc = json.loads(out)
+    check("T4b 重复捆绑 id 全部移除、无关保留", doc["disabledPlugins"] == [b, UNRELATED],
+          str(doc.get("disabledPlugins")))
+
+    # T5: Lite、无既有配置 → 全部捆绑 id 写入 disabledPlugins（无插件 JAR）
     out = installer_write_config("lite", [a, b], None)
     doc = json.loads(out)
-    check("T5 lite 无 disabledPlugins", "disabledPlugins" not in doc)
+    check("T5 lite 禁用全部捆绑 id", doc["disabledPlugins"] == BUNDLED_IDS, str(doc.get("disabledPlugins")))
 
-    # T6: Lite、既有 {a,b} → 保留既有
-    existing = '{"disabledPlugins": ["' + b + '","' + a + '"]}'
+    # T6: Lite、既有 {b, u} → 捆绑 b 移除后并入全部捆绑 id，无关 u 保留
+    existing = '{"disabledPlugins": ["' + b + '","' + UNRELATED + '"]}'
     out = installer_write_config("lite", [c], existing)
     doc = json.loads(out)
-    check("T6 lite 保留既有", doc["disabledPlugins"] == [a, b], str(doc.get("disabledPlugins")))
+    check("T6 lite 全部捆绑 + 无关保留", doc["disabledPlugins"] == sorted(BUNDLED_IDS + [UNRELATED]),
+          str(doc.get("disabledPlugins")))
 
-    # T7: 去重 —— 未勾选 {a}、既有 {a,b}
-    out = installer_write_config("full", [a], '{"disabledPlugins": ["' + a + '","' + b + '"]}')
+    # T7: 去重 —— 未勾选 {a}、既有 {a, u}
+    out = installer_write_config("full", [a], '{"disabledPlugins": ["' + a + '","' + UNRELATED + '"]}')
     doc = json.loads(out)
-    check("T7 去重", doc["disabledPlugins"] == [a, b], str(doc.get("disabledPlugins")))
+    check("T7 去重", doc["disabledPlugins"] == [a, UNRELATED], str(doc.get("disabledPlugins")))
 
-    # T8: 既有无 disabledPlugins + 未勾选 {z} → 新写出
+    # T8: 既有无 disabledPlugins + 未勾选 {a} → 新写出
     out = installer_write_config("full", [a], '{"worktreeId": "x"}')
     doc = json.loads(out)
     check("T8 无既有时新写出", doc["disabledPlugins"] == [a])
@@ -170,22 +217,60 @@ def main():
                 '  "disabledPlugins": ["' + c + '", "' + a + '"],\n  "logLevel": "DEBUG"\n}')
     out = installer_write_config("full", [b], existing)
     doc = json.loads(out)
-    check("T9 既有样式兼容", doc["disabledPlugins"] == [a, b, c], str(doc.get("disabledPlugins")))
+    check("T9 既有样式兼容（捆绑移除、无关无）", doc["disabledPlugins"] == [b], str(doc.get("disabledPlugins")))
     check("T9 其它字段按文档不保留", "logLevel" not in doc)
 
-    # T10: 全部 22 插件全禁场景（排序规模）
+    # T10: 全量场景 —— 既有全部 22 个捆绑 id（逆序）+ 无关，未勾选 {p00}
     all_ids = ["dev.turboism.plugin.p%02d" % i for i in range(22)]
-    existing = '{"disabledPlugins": ["%s"]}' % '","'.join(reversed(all_ids))
-    out = installer_write_config("full", [all_ids[0]], existing)
+    existing = '{"disabledPlugins": ["%s"]}' % '","'.join(list(reversed(all_ids)) + [UNRELATED])
+    out = installer_write_config("full", [all_ids[0]], existing, bundled_ids=all_ids)
     doc = json.loads(out)
-    check("T10 全量排序", doc["disabledPlugins"] == sorted(all_ids))
+    check("T10 全量捆绑移除 + 无关保留", doc["disabledPlugins"] == sorted([all_ids[0], UNRELATED]),
+          str(doc.get("disabledPlugins")))
+
+    # ---- 插件载荷库存模拟（隐藏载荷 Section + 勾选语义）----
+    # TI1: 全新部分 Full（未勾选 {a, c}）→ JAR 全量安装；disabledPlugins=[a,c]
+    jars = nsis_jars_after("full", [])
+    check("TI1 Full 安装全部 JAR", jars == BUNDLED_MODULES, str(jars))
+    out = installer_write_config("full", [a, c], None)
+    doc = json.loads(out)
+    check("TI1 disabledPlugins == 未勾选", doc["disabledPlugins"] == [a, c], str(doc.get("disabledPlugins")))
+
+    # TI2: 后续重选 Full（未勾选 {b}，既有 TI1 配置）→ JAR 库存完整；
+    #     配置 = (既有 - 捆绑) ∪ 本次未勾选
+    out = installer_write_config("full", [b], out)
+    doc = json.loads(out)
+    jars = nsis_jars_after("full", jars)
+    check("TI2 重选后 JAR 库存完整", jars == BUNDLED_MODULES, str(jars))
+    check("TI2 重选后配置跟随当前选择", doc["disabledPlugins"] == [b], str(doc.get("disabledPlugins")))
+
+    # TI2b: 既有包含无关 id 的重选 → 无关保留
+    existing = '{"disabledPlugins": ["' + a + '","' + UNRELATED + '"]}'
+    out = installer_write_config("full", [b], existing)
+    doc = json.loads(out)
+    check("TI2b 重选保留无关 id", doc["disabledPlugins"] == [b, UNRELATED], str(doc.get("disabledPlugins")))
+
+    # TI3: 全新 Lite → 无插件 JAR；禁用全部捆绑 id
+    jars = nsis_jars_after("lite", [])
+    check("TI3 Lite 全新无插件 JAR", jars == [], str(jars))
+    out = installer_write_config("lite", [], None)
+    doc = json.loads(out)
+    check("TI3 Lite 禁用全部捆绑 id", doc["disabledPlugins"] == BUNDLED_IDS, str(doc.get("disabledPlugins")))
+
+    # TI4: Full→Lite → 不写新 JAR（旧 JAR 留盘但被禁用）
+    jars = nsis_jars_after("lite", BUNDLED_MODULES)
+    check("TI4 Full→Lite 不写新 JAR（旧 JAR 留盘）", jars == BUNDLED_MODULES, str(jars))
+    existing = '{"disabledPlugins": ["' + a + '"]}'
+    out = installer_write_config("lite", [], existing)
+    doc = json.loads(out)
+    check("TI4 Full→Lite 禁用全部捆绑 id", doc["disabledPlugins"] == BUNDLED_IDS, str(doc.get("disabledPlugins")))
 
     # 输出有效性：schemaVersion/format 完整
     for label, out in [("T3", out)]:
         doc = json.loads(out)
         assert doc["format"] == "turboism.runtime.config" and doc["schemaVersion"] == 1
 
-    print("config merge 模拟验证通过：10 个用例全部 ok")
+    print("config merge + payload 模拟验证通过：15 个用例全部 ok")
 
 
 if __name__ == "__main__":
