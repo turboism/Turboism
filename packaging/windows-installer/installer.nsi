@@ -566,6 +566,12 @@ Section "Uninstall"
     MessageBox MB_ICONEXCLAMATION|MB_OK "$(ShortcutCleanupFailure)"
     Abort
   ${EndIf}
+  ; 清理返回 0 不代表托管状态已清除（如 Wine 内置 PowerShell 返回 0 而未执行脚本）：
+  ; 安装状态文件仍存在时失败关闭，不得继续删除注册表或任何载荷。
+  ${If} ${FileExists} "$INSTDIR\cubism-installations.json"
+    MessageBox MB_ICONEXCLAMATION|MB_OK "$(ShortcutCleanupFailure)"
+    Abort
+  ${EndIf}
   ; 开始菜单目录 + HKCU 卸载注册项（per-user；与安装时注册表视图一致）
   DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Turboism"
   Delete "$SMPROGRAMS\Turboism\$(StartMenuConfigName).lnk"
@@ -579,7 +585,7 @@ Section "Uninstall"
   Delete "$INSTDIR\configure_turboism.ps1"
   ; The configurator removes managed state only after validated shortcut cleanup.
   Delete "$INSTDIR\README*.txt"
-  Delete "$INSTDIR\LICENSE.txt"
+  Delete "$INSTDIR\LICENSE"
   Delete "$INSTDIR\uninstall.exe"
   ; 运行时数据目录
   RMDir /r "$INSTDIR\plugins"
