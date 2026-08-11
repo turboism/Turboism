@@ -46,6 +46,11 @@ the frozen acceptance conditions, including the R2 repairs:
       UTF-8 console contract (JVM `-Dfile.encoding=UTF-8` and explicit
       Python `encoding="utf-8"`). macOS additionally checks that the
       installed uninstall.command is a regular non-symlink executable file.
+  8.  The plugin payload matches the sole release-plugin allowlist
+      `packaging/release-plugins.txt` exactly (the frozen 18 approved
+      projects; runtime-owned core is never a payload plugin), and the four
+      excluded placeholder IDs/JARs are absent from the payload, packs, and
+      selection surface — the shared manifest is the regression oracle.
 
 Runnable on Linux/macOS/Windows with Java 17. stdlib-only.
 """
@@ -117,6 +122,38 @@ LOCALIZED_MODE = {
     },
 }
 UNINSTALL_DELETE_CONFIG_PROP = "turboism.uninstall.deleteConfig"
+
+# Frozen release-plugin allowlist — sole authority is packaging/release-plugins.txt.
+# This exact list plus the excluded placeholder ids is the regression oracle:
+# production drift from the shared manifest fails verification.
+MANIFEST_EXPECTED = [
+    ":plugins:atlas-maxrects-bssf",
+    ":plugins:clip-mask",
+    ":plugins:clipmask-viewer",
+    ":plugins:core",
+    ":plugins:cubism-tab-filter",
+    ":plugins:demo",
+    ":plugins:log-filter",
+    ":plugins:mesh",
+    ":plugins:palette-label-style",
+    ":plugins:parameter",
+    ":plugins:perf-opt",
+    ":plugins:physics-editor",
+    ":plugins:project-inspector",
+    ":plugins:recent-preview",
+    ":plugins:render-opt",
+    ":plugins:scene-palette-enhancer",
+    ":plugins:texture-atlas-stats",
+    ":plugins:ui-theme",
+]
+# The four pure placeholder projects: absent from the manifest and therefore
+# from every release payload, pack, section, and selection surface.
+EXCLUDED_PLACEHOLDER_IDS = (
+    "dev.turboism.plugin.bounding-box",
+    "dev.turboism.plugin.context-menu",
+    "dev.turboism.plugin.project-panel",
+    "dev.turboism.plugin.psd-import",
+)
 
 
 def fail(msg):
@@ -222,6 +259,29 @@ def load_plugin_inventory(payload):
         })
     plugins.sort(key=lambda p: p["id"])
     return plugins
+
+
+def load_release_manifest(path):
+    """Parses the sole release-plugin allowlist (packaging/release-plugins.txt)
+    fail-closed: blank/comment lines, malformed or non-plugin entries,
+    duplicates, unsorted order, or drift from the frozen 18-project allowlist
+    are fatal. Returns the allowlisted plugin module names (manifest entries
+    minus the runtime-owned core)."""
+    check("release manifest exists", os.path.isfile(path), path)
+    raw = open(path, encoding="utf-8").read().splitlines()
+    invalid = [l for l in raw if not l.strip() or l.strip().startswith("#")]
+    check("release manifest forbids blank/comment lines", not invalid,
+          "found=%s" % invalid[:3])
+    lines = [l.strip() for l in raw if l.strip() and not l.strip().startswith("#")]
+    entry = re.compile(r"^:plugins:[a-z0-9-]+$")
+    malformed = [l for l in lines if not entry.match(l)]
+    check("release manifest entries are plugin paths", not malformed,
+          "bad=%s" % malformed[:3])
+    check("release manifest has no duplicates", len(set(lines)) == len(lines))
+    check("release manifest is ASCII-sorted", lines == sorted(lines))
+    check("release manifest matches the frozen 18-project allowlist",
+          lines == MANIFEST_EXPECTED, "n=%d" % len(lines))
+    return [l[len(":plugins:"):] for l in lines if l != ":plugins:core"]
 
 
 def install_answers(mode, target, lang_index=0, deselect=(), payload_plugins=None):
@@ -922,6 +982,8 @@ def main():
     parser.add_argument("--payload", required=True, help="shared staged payload directory")
     parser.add_argument("--regression-jar", required=True,
                         help="path to the config-merge regression jar")
+    parser.add_argument("--manifest", required=True,
+                        help="path to packaging/release-plugins.txt")
     args = parser.parse_args()
 
     jar = os.path.abspath(args.installer)
@@ -933,6 +995,20 @@ def main():
     global ALL_BUNDLED_IDS
     ALL_BUNDLED_IDS = [p["id"] for p in payload_plugins]
     print("verifying installer: %s (%d bundled plugins)" % (jar, len(payload_plugins)))
+
+    # Shared-manifest regression oracle: the staged payload must equal the
+    # allowlisted plugin modules (core excluded) and never carry one of the
+    # four excluded placeholder ids.
+    manifest_modules = load_release_manifest(args.manifest)
+    payload_modules = sorted(p["module"] for p in payload_plugins)
+    check("payload plugin modules equal manifest allowlist (core excluded)",
+          payload_modules == sorted(manifest_modules),
+          "payload=%s manifest=%s" % (payload_modules, sorted(manifest_modules)))
+    payload_ids = set(p["id"] for p in payload_plugins)
+    check("excluded placeholder ids absent from payload",
+          not (payload_ids & set(EXCLUDED_PLACEHOLDER_IDS)),
+          "found=%s" % sorted(payload_ids & set(EXCLUDED_PLACEHOLDER_IDS)))
+    check("runtime-owned core absent from payload", "turboism.core" not in payload_ids)
 
     # Verification-owned isolation root: every JVM (installer, uninstaller,
     # and SelfModifier child phases via TMPDIR/TEMP/TMP) uses this tmpdir.
