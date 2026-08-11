@@ -277,18 +277,29 @@ val generateInstallerXml by tasks.registering {
 
         fun titleOf(p: PluginMeta): String = if (p.version.isBlank()) p.name else "${p.name} ${p.version}"
 
-        val pluginPacks = plugins.joinToString("\n") { p ->
+        // r6: JAR 拷贝与插件勾选分离 —— 一个 required Full-only 载荷 pack 携带全部
+        // 插件 JAR（勾选无法阻止安装）；每个插件一个 metadata-only 选择 pack，
+        // 其 id == 插件 id，是监听器识别 disabledPlugins 的唯一选择身份。
+        val payloadPack = buildString {
+            append("        <pack id=\"turboism-plugin-payload\" name=\"Turboism Plugins\" required=\"true\" installGroups=\"full\">\n")
+            append("            <description>All bundled first-party plugin JARs. Plugin selection packs control disabledPlugins only.</description>\n")
+            plugins.forEach { p ->
+                append("            <file src=\"").append(stageRel).append("/plugins/").append(xmlEscape(p.module))
+                append(".jar\" targetdir=\"\$INSTALL_PATH/plugins\" override=\"true\"/>\n")
+            }
+            append("        </pack>")
+        }
+        val selectionPacks = plugins.joinToString("\n") { p ->
             val title = titleOf(p)
             buildString {
                 append("        <pack id=\"").append(xmlEscape(p.id))
                 append("\" name=\"").append(xmlEscape(title))
                 append("\" required=\"no\" preselected=\"true\" installGroups=\"full\">\n")
                 append("            <description>").append(xmlEscape(p.description)).append("</description>\n")
-                append("            <file src=\"").append(stageRel).append("/plugins/").append(xmlEscape(p.module))
-                append(".jar\" targetdir=\"\$INSTALL_PATH/plugins\" override=\"true\"/>\n")
                 append("        </pack>")
             }
         }
+        val pluginPacks = payloadPack + "\n" + selectionPacks
         val bundled = plugins.joinToString(",") { it.id }
 
         val xml = file("packaging/java-installer/installer.xml.template").readText()
@@ -305,7 +316,7 @@ val generateInstallerXml by tasks.registering {
             from("packaging/java-installer/CustomLangPack.xml_jpn")
             into(izpackDir)
         }
-        logger.lifecycle("installer.xml: ${plugins.size} plugin packs (ids stable by plugin id)")
+        logger.lifecycle("installer.xml: ${plugins.size} plugin selection packs + 1 required payload pack (ids stable by plugin id)")
     }
 }
 

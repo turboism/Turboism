@@ -82,18 +82,29 @@ plugins.sort(key=lambda p: p["id"])
 
 lines = []
 lines.append("; 由 assemble-release.sh 从插件 jar 的 META-INF/turboism/plugin.json 生成，勿手改。")
-lines.append("; 每个插件一个 Section；Lite 模式由 ModeLeave 取消选中，Section 体不执行。")
+lines.append("; Full($Mode==1) 由隐藏载荷 Section 安装全部插件 JAR；可见 Section 只承载")
+lines.append("; 勾选状态（disabledPlugins 元数据）；Lite 模式由 ModeLeave 取消全部可见 Section。")
+lines.append("")
+
+# 隐藏载荷 Section：Full 模式安装全部插件 JAR；Lite 模式不写任何 JAR（$Mode 守卫）。
+# 隐藏 Section 不出现在组件页，用户无法取消选中；勾选只控制 disabledPlugins。
+lines.append('Section "-插件载荷" SecPluginPayload')
+lines.append("  ${If} $Mode == 1")
+lines.append('    SetOutPath "$INSTDIR\\plugins"')
+for p in plugins:
+    lines.append(f'    File "/oname={p["module"]}.jar" "${{STAGING_DIR}}/plugins/{p["module"]}.jar"')
+lines.append("  ${EndIf}")
+lines.append("SectionEnd")
 lines.append("")
 
 def sanitize(s: str) -> str:
     return re.sub(r"[^A-Za-z0-9_]", "_", s)
 
+# 可见插件 Section：仅保留勾选元数据（组件页），不携带 File 指令。
 for p in plugins:
     sec = "SEC_" + sanitize(p["id"])
     title = p["name"] + (" " + p["version"] if p["version"] else "")
     lines.append(f'Section "{nsis_escape(title)}" {sec}')
-    lines.append('  SetOutPath "$INSTDIR\\plugins"')
-    lines.append(f'  File "/oname={p["module"]}.jar" "${{STAGING_DIR}}/plugins/{p["module"]}.jar"')
     lines.append("SectionEnd")
     lines.append("")
 
@@ -131,6 +142,16 @@ for p in plugins:
     lines.append(f'      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;{p["id"]}"')
     lines.append("    ${EndIf}")
     lines.append("  ${EndIf}")
+lines.append("FunctionEnd")
+lines.append("")
+lines.append("; 从 $existingDisabled 中逐 id 移除全部当前捆绑插件 id（重选已捆绑插件即启用）。")
+lines.append("; 每个 id 通过通用 RemoveItemFromList 辅助删除，避免长度受限的合并 id 字符串。")
+lines.append("Function RemoveBundledFromExistingDisabled")
+for p in plugins:
+    lines.append('  StrCpy $0 "$existingDisabled"')
+    lines.append(f'  StrCpy $1 "{p["id"]}"')
+    lines.append("  Call RemoveItemFromList")
+    lines.append('  StrCpy $existingDisabled "$0"')
 lines.append("FunctionEnd")
 lines.append("")
 
