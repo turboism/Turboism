@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism;
 
+import dev.turboism.core.reflect.MethodHandleCache;
 import dev.turboism.mapping.verification.RecentPreviewVerificationManifest;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.recentfile.RecentFileId;
@@ -34,6 +35,8 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
@@ -86,6 +89,16 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
      */
     private static volatile Consumer<String> diagnostics = reason -> { };
 
+    /**
+     * Daemon executor for pixel post-processing (solidity, crop, scale, PNG encode) so the EDT
+     * never blocks on it. Captures are debounced upstream; a single thread is sufficient.
+     */
+    private static final ExecutorService POST_PROCESS_EXECUTOR = Executors.newSingleThreadExecutor(runnable -> {
+        final Thread thread = new Thread(runnable, "turboism-capture-postprocess");
+        thread.setDaemon(true);
+        return thread;
+    });
+
     private final Object debounceGate = new Object();
     private RecentFileId debouncedId;
     private long debouncedAtMillis;
@@ -128,7 +141,7 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
         final CompletableFuture<ScreenshotCaptureResult> result = new CompletableFuture<>();
         final Runnable capture = () -> {
             try {
-                result.complete(captureNow(request));
+                captureNow(request, result);
             } catch (Throwable failure) {
                 diagnose("capture:failed " + failure.getClass().getName());
                 result.completeExceptionally(failure);
@@ -138,7 +151,14 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
         return result;
     }
 
-    private ScreenshotCaptureResult captureNow(final ScreenshotCaptureRequest request) throws Exception {
+    /**
+     * Async capture pipeline (EDT): guards, debounce and tier capture run on the EDT; only the
+     * JOGL readback retry may defer to a later EDT event (invokeLater), and the pixel
+     * post-processing (solidity check, crop, scale, PNG encode) runs on a background executor so
+     * the EDT never blocks on it. The future completes with the same value/exception/diagnostic
+     * semantics as the legacy synchronous pipeline.
+     */
+    private void captureNow(final ScreenshotCaptureRequest request, final CompletableFuture<ScreenshotCaptureResult> result) throws Exception {
         final Path current = RecentMenuChain.currentProjectPath(files.projectResolver());
         final Path expected = files.pathFor(request.id());
         if (current == null
@@ -150,7 +170,8 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
         }
         final ScreenshotImage cached = debounced(request);
         if (cached != null) {
-            return new ScreenshotCaptureResult(request.id(), cached);
+            result.complete(new ScreenshotCaptureResult(request.id(), cached));
+            return;
         }
         final Component root = captureRoot();
         final Component target = resolveCaptureComponent();
@@ -160,48 +181,90 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
         }
         final List<Object> suppressed = suppressOverlays(root);
         popupSuppression.hide();
-        BufferedImage captured = null;
-        String tier = "none";
-        try {
-            final CapturedImage fromTarget = target == null ? null : captureComponentImage(target);
-            if (fromTarget != null) {
-                captured = fromTarget.image();
-                tier = fromTarget.tier();
-            } else if (root != null) {
-                final CapturedImage fromRoot = captureComponentImage(root);
-                if (fromRoot != null) {
-                    captured = fromRoot.image();
-                    tier = fromRoot.tier();
-                }
+        captureComponentImage(target, fromTarget -> {
+            if (fromTarget == null && root != null) {
+                captureComponentImage(root,
+                    fromRoot -> settleCapture(request, result, root, target, suppressed, fromRoot),
+                    failure -> failCapture(result, suppressed, failure));
+            } else {
+                settleCapture(request, result, root, target, suppressed, fromTarget);
             }
-        } finally {
-            restoreOverlays(suppressed);
-            popupSuppression.restore();
-        }
+        }, failure -> failCapture(result, suppressed, failure));
+    }
+
+    /** EDT continuation after the tier chain: restore overlays, then complete or post-process. */
+    private void settleCapture(
+        final ScreenshotCaptureRequest request,
+        final CompletableFuture<ScreenshotCaptureResult> result,
+        final Component root,
+        final Component target,
+        final List<Object> suppressed,
+        final CapturedImage captured
+    ) {
+        restoreOverlays(suppressed);
+        popupSuppression.restore();
         if (captured == null) {
             diagnose("captureNow:all-tiers-null target=" + className(target) + " root=" + className(root));
-            throw new IllegalStateException("Cubism preview capture surface is unavailable");
+            final IllegalStateException failure = new IllegalStateException("Cubism preview capture surface is unavailable");
+            diagnose("capture:failed " + failure.getClass().getName());
+            result.completeExceptionally(failure);
+            return;
         }
-        if (isSolidContent(captured)) {
-            // Every tier produced a solid/empty buffer; keep the best (first non-null)
-            // result — an empty scene is a legitimate capture — but record the health line.
-            diagnose("captureNow:solid-content tier=" + tier
-                + " size=" + captured.getWidth() + "x" + captured.getHeight());
-        }
-        final BufferedImage scaled = scale(cropMargins(captured), request.maxWidth(), request.maxHeight());
-        diagnose("captureNow:ok root=" + className(root)
-            + " target=" + className(target)
-            + " tier=" + tier
-            + " pre-scale=" + captured.getWidth() + "x" + captured.getHeight()
-            + " png=" + scaled.getWidth() + "x" + scaled.getHeight());
-        final ByteArrayOutputStream png = new ByteArrayOutputStream();
-        if (!ImageIO.write(scaled, "png", png)) {
-            diagnose("captureNow:png-writer-unavailable");
-            throw new IllegalStateException("PNG writer is unavailable");
-        }
-        final ScreenshotImage image = new ScreenshotImage(scaled.getWidth(), scaled.getHeight(), png.toByteArray());
-        rememberDebounced(request.id(), image);
-        return new ScreenshotCaptureResult(request.id(), image);
+        postProcess(request, result, root, target, captured.image(), captured.tier());
+    }
+
+    /** Failure continuation (EDT): restore overlays and fail the capture future as the sync path did. */
+    private void failCapture(
+        final CompletableFuture<ScreenshotCaptureResult> result,
+        final List<Object> suppressed,
+        final Throwable failure
+    ) {
+        restoreOverlays(suppressed);
+        popupSuppression.restore();
+        diagnose("capture:failed " + failure.getClass().getName());
+        result.completeExceptionally(failure);
+    }
+
+    /**
+     * Pixel post-processing off the EDT: solidity diagnostic, crop, scale, PNG encode, debounce
+     * memo and future completion all run on a dedicated daemon executor. The image buffer is a
+     * completed readback owned solely by this call, so no Swing/GL state is touched here.
+     */
+    private void postProcess(
+        final ScreenshotCaptureRequest request,
+        final CompletableFuture<ScreenshotCaptureResult> result,
+        final Component root,
+        final Component target,
+        final BufferedImage captured,
+        final String tier
+    ) {
+        POST_PROCESS_EXECUTOR.execute(() -> {
+            try {
+                if (isSolidContent(captured)) {
+                    // Every tier produced a solid/empty buffer; keep the best result — an empty
+                    // scene is a legitimate capture — but record the health line.
+                    diagnose("captureNow:solid-content tier=" + tier
+                        + " size=" + captured.getWidth() + "x" + captured.getHeight());
+                }
+                final BufferedImage scaled = scale(cropMargins(captured), request.maxWidth(), request.maxHeight());
+                diagnose("captureNow:ok root=" + className(root)
+                    + " target=" + className(target)
+                    + " tier=" + tier
+                    + " pre-scale=" + captured.getWidth() + "x" + captured.getHeight()
+                    + " png=" + scaled.getWidth() + "x" + scaled.getHeight());
+                final ByteArrayOutputStream png = new ByteArrayOutputStream();
+                if (!ImageIO.write(scaled, "png", png)) {
+                    diagnose("captureNow:png-writer-unavailable");
+                    throw new IllegalStateException("PNG writer is unavailable");
+                }
+                final ScreenshotImage image = new ScreenshotImage(scaled.getWidth(), scaled.getHeight(), png.toByteArray());
+                rememberDebounced(request.id(), image);
+                result.complete(new ScreenshotCaptureResult(request.id(), image));
+            } catch (Throwable failure) {
+                diagnose("capture:failed " + failure.getClass().getName());
+                result.completeExceptionally(failure);
+            }
+        });
     }
 
     /** One-entry debounce cache: identical requests within the legacy window reuse the last image. */
@@ -258,7 +321,7 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
             return null;
         }
         try {
-            final Object result = target.getClass().getMethod(name).invoke(target);
+            final Object result = MethodHandleCache.method(target.getClass(), name).invoke(target);
             if (result == null) {
                 diagnose("resolveCaptureComponent:" + step + "→null");
             }
@@ -351,14 +414,26 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
      * Robot on-screen fallback. Null on any failure (fail closed); the returned
      * {@link CapturedImage} records which tier produced the image.
      */
-    static CapturedImage captureComponentImage(final Component component) throws Exception {
+    /**
+     * Legacy three-tier capture: JOGL drawable readback (async, invokeLater retries) → offscreen
+     * Swing paint → Robot on-screen fallback. The result (or null) is delivered to {@code onImage}
+     * on the EDT; only the robot-failure-without-alternative case reports through {@code onFailure}.
+     * The tier-fallthrough solidity checks stay on the EDT: they decide which tier wins and the
+     * sample count is bounded by {@link #MAX_SOLIDITY_SAMPLES} (kept from the legacy pipeline).
+     */
+    static void captureComponentImage(
+        final Component component,
+        final Consumer<CapturedImage> onImage,
+        final Consumer<Throwable> onFailure
+    ) {
         if (component == null || !component.isShowing()
             || component.getWidth() <= 0 || component.getHeight() <= 0) {
             diagnose("captureComponentImage:not-capturable class=" + className(component)
                 + " showing=" + (component != null && component.isShowing())
                 + " size=" + (component == null ? 0 : component.getWidth())
                 + "x" + (component == null ? 0 : component.getHeight()));
-            return null;
+            onImage.accept(null);
+            return;
         }
         // JOGL readback and offscreen paint need no active window; only the Robot tier does,
         // and captureOnScreen already enforces its own active/focused check. A Window
@@ -370,36 +445,62 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
             diagnose("captureComponentImage:ancestor-unavailable class=" + className(component)
                 + " ancestor-null=" + (ancestor == null)
                 + " ancestor-showing=" + (ancestor != null && ancestor.isShowing()));
-            return null;
+            onImage.accept(null);
+            return;
         }
         final String signature = signature(component);
         final boolean glSurface = signature.contains("glcanvas") || signature.contains("gljpanel")
             || signature.contains("jogamp");
-        final BufferedImage jogl = glSurface ? captureJogl(component) : null;
-        if (jogl != null && !isSolidContent(jogl)) return new CapturedImage(jogl, "jogl");
-        diagnose("captureComponentImage:tier-jogl=" + (glSurface ? (jogl == null ? "failed" : "solid") : "skipped")
-            + " class=" + className(component));
+        if (glSurface) {
+            captureJogl(component, jogl -> {
+                if (jogl != null && !isSolidContent(jogl)) {
+                    onImage.accept(new CapturedImage(jogl, "jogl"));
+                    return;
+                }
+                diagnose("captureComponentImage:tier-jogl=" + (jogl == null ? "failed" : "solid")
+                    + " class=" + className(component));
+                paintAndRobotTier(component, jogl, onImage, onFailure);
+            });
+        } else {
+            diagnose("captureComponentImage:tier-jogl=skipped class=" + className(component));
+            paintAndRobotTier(component, null, onImage, onFailure);
+        }
+    }
+
+    /** Paint then Robot tiers, run synchronously on the EDT after the JOGL tier is exhausted. */
+    private static void paintAndRobotTier(
+        final Component component,
+        final BufferedImage jogl,
+        final Consumer<CapturedImage> onImage,
+        final Consumer<Throwable> onFailure
+    ) {
         final BufferedImage painted = paintToImage(component);
-        if (painted != null && !isSolidContent(painted)) return new CapturedImage(painted, "paint");
+        if (painted != null && !isSolidContent(painted)) {
+            onImage.accept(new CapturedImage(painted, "paint"));
+            return;
+        }
         diagnose("captureComponentImage:tier-paint=" + (painted == null ? "failed" : "solid")
             + " class=" + className(component));
         try {
             final BufferedImage robot = captureOnScreen(component);
-            if (robot != null && !isSolidContent(robot)) return new CapturedImage(robot, "robot");
+            if (robot != null && !isSolidContent(robot)) {
+                onImage.accept(new CapturedImage(robot, "robot"));
+                return;
+            }
             if (robot != null) {
                 diagnose("captureComponentImage:tier-robot=solid class=" + className(component));
             }
             // Every tier produced a solid/empty buffer: still return the best (first
             // non-null) result; the caller records a captureNow:solid-content line.
-            if (jogl != null) return new CapturedImage(jogl, "jogl");
-            if (painted != null) return new CapturedImage(painted, "paint");
-            return robot == null ? null : new CapturedImage(robot, "robot");
+            if (jogl != null) onImage.accept(new CapturedImage(jogl, "jogl"));
+            else if (painted != null) onImage.accept(new CapturedImage(painted, "paint"));
+            else onImage.accept(robot == null ? null : new CapturedImage(robot, "robot"));
         } catch (Exception robotFailure) {
             diagnose("captureComponentImage:tier-robot " + robotFailure.getClass().getName()
                 + " class=" + className(component));
-            if (jogl != null) return new CapturedImage(jogl, "jogl");
-            if (painted != null) return new CapturedImage(painted, "paint");
-            throw robotFailure;
+            if (jogl != null) onImage.accept(new CapturedImage(jogl, "jogl"));
+            else if (painted != null) onImage.accept(new CapturedImage(painted, "paint"));
+            else onFailure.accept(robotFailure);
         }
     }
 
@@ -482,8 +583,19 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
         return new Robot(device).createScreenCapture(bounds);
     }
 
-    /** JOGL GL readback inside the drawable context; null on any reflection/GL failure (fail closed). */
-    private static BufferedImage captureDrawable(final Object drawable, final int width, final int height) {
+    /**
+     * JOGL GL readback inside the drawable context. One attempt per EDT event: when the readback
+     * is still empty the next attempt is scheduled with {@link SwingUtilities#invokeLater} instead
+     * of sleeping on the EDT, keeping the legacy up-to-{@link #READBACK_ATTEMPTS} retry semantics.
+     * The result (or null on any reflection/GL failure, fail closed) is delivered to
+     * {@code onResult} on the EDT.
+     */
+    private static void captureDrawable(
+        final Object drawable,
+        final int width,
+        final int height,
+        final Consumer<BufferedImage> onResult
+    ) {
         try {
             final ClassLoader loader = drawable.getClass().getClassLoader();
             final Class<?> drawableType = Class.forName("com.jogamp.opengl.GLAutoDrawable", false, loader);
@@ -491,12 +603,13 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
             final Class<?> listenerType = Class.forName("com.jogamp.opengl.GLEventListener", false, loader);
             if (!drawableType.isInstance(drawable)) {
                 diagnose("captureDrawable:not-auto-drawable class=" + className(drawable));
-                return null;
+                onResult.accept(null);
+                return;
             }
-            final Method add = drawableType.getMethod("addGLEventListener", listenerType);
-            final Method remove = drawableType.getMethod("removeGLEventListener", listenerType);
-            final Method display = drawableType.getMethod("display");
-            final Method invoke = drawableType.getMethod("invoke", boolean.class, runnableType);
+            final Method add = MethodHandleCache.method(drawableType, "addGLEventListener", listenerType);
+            final Method remove = MethodHandleCache.method(drawableType, "removeGLEventListener", listenerType);
+            final Method display = MethodHandleCache.method(drawableType, "display");
+            final Method invoke = MethodHandleCache.method(drawableType, "invoke", boolean.class, runnableType);
             final AtomicReference<BufferedImage> image = new AtomicReference<>();
             final Object listener = Proxy.newProxyInstance(loader, new Class<?>[]{listenerType}, (proxy, method, args) -> {
                 final String name = method.getName();
@@ -521,44 +634,119 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
                 return null;
             });
             add.invoke(drawable, listener);
-            try {
-                for (int attempt = 0; attempt < 3 && image.get() == null; attempt++) {
-                    try {
-                        drainGlErrors(drawable);
-                        display.invoke(drawable);
-                    } catch (java.lang.reflect.InvocationTargetException failure) {
-                    }
-                    if (image.get() != null) break;
-                    try {
-                        invoke.invoke(drawable, true, renderPass);
-                    } catch (java.lang.reflect.InvocationTargetException failure) {
-                    }
-                    if (image.get() == null) Thread.sleep(300L);
-                }
-                if (image.get() == null) {
-                    diagnose("captureDrawable:readback-null-after-3 class=" + className(drawable));
-                }
-                return image.get();
-            } finally {
-                remove.invoke(drawable, listener);
-            }
+            new ReadbackAttempt(drawable, width, height, image, remove, display, invoke, renderPass, listener, onResult).attempt();
         } catch (Throwable failure) {
             diagnose("captureDrawable:" + failure.getClass().getName());
-            return null;
+            onResult.accept(null);
         }
     }
 
-    private static BufferedImage captureJogl(final Component component) {
+    /**
+     * One readback attempt per run; failures schedule the next attempt with invokeLater. Runs
+     * entirely on the EDT (the listener/readback are host-restricted to the render thread).
+     */
+    private static final class ReadbackAttempt {
+        private static final int MAX_ATTEMPTS = 3;
+
+        private final Object drawable;
+        private final int width;
+        private final int height;
+        private final AtomicReference<BufferedImage> image;
+        private final Method remove;
+        private final Method display;
+        private final Method invoke;
+        private final Object renderPass;
+        private final Object listener;
+        private final Consumer<BufferedImage> onResult;
+        private int attemptsLeft = MAX_ATTEMPTS;
+        private ReadbackAttempt(
+            final Object drawable,
+            final int width,
+            final int height,
+            final AtomicReference<BufferedImage> image,
+            final Method remove,
+            final Method display,
+            final Method invoke,
+            final Object renderPass,
+            final Object listener,
+            final Consumer<BufferedImage> onResult
+        ) {
+            this.drawable = drawable;
+            this.width = width;
+            this.height = height;
+            this.image = image;
+            this.remove = remove;
+            this.display = display;
+            this.invoke = invoke;
+            this.renderPass = renderPass;
+            this.listener = listener;
+            this.onResult = onResult;
+        }
+
+        private void attempt() {
+            try {
+                drainGlErrors(drawable);
+                display.invoke(drawable);
+            } catch (java.lang.reflect.InvocationTargetException ignored) {
+                // the render pass reported an exception; the forced pass below still runs
+            } catch (Throwable failure) {
+                finish(failure);
+                return;
+            }
+            if (image.get() == null) {
+                try {
+                    invoke.invoke(drawable, true, renderPass);
+                } catch (java.lang.reflect.InvocationTargetException ignored) {
+                    // try the next attempt
+                } catch (Throwable failure) {
+                    finish(failure);
+                    return;
+                }
+            }
+            if (image.get() != null) {
+                finish(null);
+                return;
+            }
+            if (--attemptsLeft > 0) {
+                // No sleep on the EDT: the next attempt runs on a later event-dispatch cycle.
+                SwingUtilities.invokeLater(this::attempt);
+            } else {
+                diagnose("captureDrawable:readback-null-after-3 class=" + className(drawable));
+                finish(null);
+            }
+        }
+
+        private void finish(final Throwable failure) {
+            try {
+                remove.invoke(drawable, listener);
+            } catch (Throwable ignored) {
+                // listener removal is best-effort
+            }
+            if (failure != null) {
+                diagnose("captureDrawable:" + failure.getClass().getName());
+            }
+            onResult.accept(image.get());
+        }
+    }
+
+    /** JOGL tier: shared drawable first, then the component itself; result delivered on the EDT. */
+    private static void captureJogl(final Component component, final Consumer<BufferedImage> onResult) {
         try {
             final Object shared = sharedDrawable(component);
             if (shared != null) {
-                final BufferedImage image = captureDrawable(shared, component.getWidth(), component.getHeight());
-                if (image != null) return image;
+                captureDrawable(shared, component.getWidth(), component.getHeight(), image -> {
+                    if (image != null) {
+                        onResult.accept(image);
+                    } else {
+                        captureDrawable(component, component.getWidth(), component.getHeight(), onResult);
+                    }
+                });
+            } else {
+                captureDrawable(component, component.getWidth(), component.getHeight(), onResult);
             }
-            return captureDrawable(component, component.getWidth(), component.getHeight());
         } catch (Throwable failure) {
             diagnose("captureJogl:" + failure.getClass().getName());
-            return null;
+            onResult.accept(null);
         }
     }
 
@@ -570,7 +758,7 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
                     final java.lang.reflect.Field wrapper = current.getClass().getDeclaredField("b");
                     wrapper.setAccessible(true);
                     final Object host = wrapper.get(current);
-                    return host.getClass().getMethod("getSharedDrawable").invoke(host);
+                    return MethodHandleCache.method(host.getClass(), "getSharedDrawable").invoke(host);
                 }
             }
         } catch (Throwable failure) {
@@ -582,7 +770,7 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
 
     private static void drainGlErrors(final Object gl, final Class<?> glType) {
         try {
-            final Method glGetError = glType.getMethod("glGetError");
+            final Method glGetError = MethodHandleCache.method(glType, "glGetError");
             for (int guard = 0; guard < 16; guard++) {
                 if ((Integer) glGetError.invoke(gl) == 0x0500) return;
             }
@@ -595,7 +783,7 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
         try {
             final ClassLoader loader = drawable.getClass().getClassLoader();
             final Class<?> glType = Class.forName("com.jogamp.opengl.GL", false, loader);
-            final Object gl = drawable.getClass().getMethod("getGL").invoke(drawable);
+            final Object gl = MethodHandleCache.method(drawable.getClass(), "getGL").invoke(drawable);
             if (gl != null) drainGlErrors(gl, glType);
         } catch (Throwable ignored) {
             // diagnostics only
@@ -612,7 +800,7 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
             }
             final ClassLoader loader = drawable.getClass().getClassLoader();
             final Class<?> glType = Class.forName("com.jogamp.opengl.GL", false, loader);
-            final Object gl = drawable.getClass().getMethod("getGL").invoke(drawable);
+            final Object gl = MethodHandleCache.method(drawable.getClass(), "getGL").invoke(drawable);
             if (gl == null) {
                 diagnose("readJogl:getGL-null class=" + className(drawable));
                 return null;
@@ -624,10 +812,10 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
             final int rgba = constant(glType, "GL_RGBA", 0x1908);
             final int unsignedByte = constant(glType, "GL_UNSIGNED_BYTE", 0x1401);
             final int[] binding = new int[1];
-            glType.getMethod("glGetIntegerv", int.class, int[].class, int.class).invoke(gl, framebufferBinding, binding, 0);
+            MethodHandleCache.method(glType, "glGetIntegerv", int.class, int[].class, int.class).invoke(gl, framebufferBinding, binding, 0);
             final ByteBuffer pixels = ByteBuffer.allocateDirect(width * height * 4).order(ByteOrder.LITTLE_ENDIAN);
-            final Method glReadPixels = glType.getMethod(
-                "glReadPixels", int.class, int.class, int.class, int.class, int.class, int.class, java.nio.Buffer.class
+            final Method glReadPixels = MethodHandleCache.method(
+                glType, "glReadPixels", int.class, int.class, int.class, int.class, int.class, int.class, java.nio.Buffer.class
             );
             if (binding[0] == 0) {
                 readBufferMethod(glType, loader).invoke(gl, back);
@@ -643,23 +831,24 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
                 final int colorBufferBit = constant(glType, "GL_COLOR_BUFFER_BIT", 0x4000);
                 final int nearest = constant(glType, "GL_NEAREST", 0x2600);
                 final int complete = constant(glType, "GL_FRAMEBUFFER_COMPLETE", 0x8CD5);
-                final Method glGenFramebuffers = glType.getMethod("glGenFramebuffers", int.class, int[].class, int.class);
-                final Method glBindFramebuffer = glType.getMethod("glBindFramebuffer", int.class, int.class);
-                final Method glGenTextures = glType.getMethod("glGenTextures", int.class, int[].class, int.class);
-                final Method glBindTexture = glType.getMethod("glBindTexture", int.class, int.class);
-                final Method glTexImage2D = glType.getMethod(
-                    "glTexImage2D", int.class, int.class, int.class, int.class, int.class,
+                final Method glGenFramebuffers = MethodHandleCache.method(glType, "glGenFramebuffers", int.class, int[].class, int.class);
+                final Method glBindFramebuffer = MethodHandleCache.method(glType, "glBindFramebuffer", int.class, int.class);
+                final Method glGenTextures = MethodHandleCache.method(glType, "glGenTextures", int.class, int[].class, int.class);
+                final Method glBindTexture = MethodHandleCache.method(glType, "glBindTexture", int.class, int.class);
+                final Method glTexImage2D = MethodHandleCache.method(
+                    glType, "glTexImage2D", int.class, int.class, int.class, int.class, int.class,
                     int.class, int.class, int.class, java.nio.Buffer.class
                 );
-                final Method glFramebufferTexture2D = glType.getMethod(
-                    "glFramebufferTexture2D", int.class, int.class, int.class, int.class, int.class
+                final Method glFramebufferTexture2D = MethodHandleCache.method(
+                    glType, "glFramebufferTexture2D", int.class, int.class, int.class, int.class, int.class
                 );
-                final Method glBlitFramebuffer = Class.forName("com.jogamp.opengl.GL2ES3", false, loader)
-                    .getMethod("glBlitFramebuffer", int.class, int.class, int.class, int.class, int.class,
-                        int.class, int.class, int.class, int.class, int.class);
-                final Method glCheckFramebufferStatus = glType.getMethod("glCheckFramebufferStatus", int.class);
-                final Method glDeleteFramebuffers = glType.getMethod("glDeleteFramebuffers", int.class, int[].class, int.class);
-                final Method glDeleteTextures = glType.getMethod("glDeleteTextures", int.class, int[].class, int.class);
+                final Method glBlitFramebuffer = MethodHandleCache.method(
+                    Class.forName("com.jogamp.opengl.GL2ES3", false, loader),
+                    "glBlitFramebuffer", int.class, int.class, int.class, int.class, int.class,
+                    int.class, int.class, int.class, int.class, int.class);
+                final Method glCheckFramebufferStatus = MethodHandleCache.method(glType, "glCheckFramebufferStatus", int.class);
+                final Method glDeleteFramebuffers = MethodHandleCache.method(glType, "glDeleteFramebuffers", int.class, int[].class, int.class);
+                final Method glDeleteTextures = MethodHandleCache.method(glType, "glDeleteTextures", int.class, int[].class, int.class);
                 final int[] resolveFramebuffer = new int[1];
                 final int[] resolveTexture = new int[1];
                 glGenFramebuffers.invoke(gl, 1, resolveFramebuffer, 0);
@@ -709,7 +898,7 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
         for (String name : new String[]{"com.jogamp.opengl.GL2ES3", "com.jogamp.opengl.GL2", "com.jogamp.opengl.GL"}) {
             try {
                 final Class<?> type = Class.forName(name, false, loader);
-                return type.getMethod("glReadBuffer", int.class);
+                return MethodHandleCache.method(type, "glReadBuffer", int.class);
             } catch (ClassNotFoundException | NoSuchMethodException ignored) {
                 // try next interface
             }
@@ -834,7 +1023,7 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
 
     private static void invokeQuietly(final Object target, final String name, final Object value) {
         try {
-            target.getClass().getMethod(name, value.getClass()).invoke(target, value);
+            MethodHandleCache.method(target.getClass(), name, value.getClass()).invoke(target, value);
         } catch (Throwable ignored) {
             // diagnostics only
         }
@@ -843,7 +1032,7 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
     private static Object tryInvoke(final Object target, final String name) {
         if (target == null) return null;
         try {
-            return target.getClass().getMethod(name).invoke(target);
+            return MethodHandleCache.method(target.getClass(), name).invoke(target);
         } catch (Throwable ignored) {
             return null;
         }

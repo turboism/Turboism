@@ -2,7 +2,12 @@ package dev.turboism.core.plugin.context;
 
 import dev.turboism.adapter.RuntimeHostAdapters;
 import dev.turboism.adapter.cubism.HostSnapshotSource;
+import dev.turboism.adapter.cubism.mesh.AuthorizedMeshEditUiService;
+import dev.turboism.adapter.cubism.mesh.AuthorizedMeshMirrorAxisService;
+import dev.turboism.adapter.cubism.mesh.RuntimeMeshMirrorAxisService;
+import dev.turboism.adapter.cubism.mesh.RuntimeMeshEditUiService;
 import dev.turboism.adapter.host.RuntimeHostAdapterAccess;
+import dev.turboism.adapter.host.HostSessionSnapshotSource;
 import dev.turboism.adapter.cubism.service.read.M12ReadSnapshotSource;
 import dev.turboism.config.RuntimePluginConfigRegistry;
 import dev.turboism.failure.RuntimeFailureSink;
@@ -20,13 +25,17 @@ import dev.turboism.screenshot.RuntimeScreenshotCaptureService;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.appearance.AppearanceService;
 import dev.turboism.sdk.cubism.CubismFacade;
+import dev.turboism.sdk.cubism.backup.EditorAutoBackupService;
 import dev.turboism.sdk.cubism.recentfile.RecentFileService;
+import dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService;
 import dev.turboism.sdk.cubism.recentpreview.RecentPreviewContributionService;
 import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureService;
 import dev.turboism.sdk.cubism.service.query.ModelHierarchyQueryService;
 import dev.turboism.sdk.cubism.service.query.ParameterQueryService;
 import dev.turboism.sdk.cubism.service.query.SelectionQueryService;
 import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
+import dev.turboism.sdk.cubism.mesh.MeshMirrorAxisService;
+import dev.turboism.sdk.cubism.mesh.MeshEditUiService;
 import dev.turboism.sdk.config.PluginConfigRegistry;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
 import dev.turboism.sdk.event.EventBus;
@@ -80,7 +89,10 @@ public final class CorePluginContext implements PluginContext {
     private final PluginStorage pluginStorage;
     private final UserFileAccessService userFileAccessService;
     private final AsyncHostReadService asyncHostReadService;
+    private final MeshMirrorAxisService meshMirrorAxisService;
+    private final MeshEditUiService meshEditUiService;
     private final dev.turboism.sdk.ui.workspace.WorkspaceService workspaceService;
+    private final dev.turboism.sdk.ui.workspace.layout.WorkspaceLayoutService workspaceLayoutService;
 
     private final SceneTableService sceneTableService;
     private final dev.turboism.sdk.runtime.CubismLogService cubismLogService;
@@ -88,6 +100,9 @@ public final class CorePluginContext implements PluginContext {
     private final ScreenshotCaptureService screenshotCaptureService;
     private final RecentPreviewContributionService recentPreviewContributionService;
     private dev.turboism.sdk.runtime.RuntimeSettingsService runtimeSettings;
+
+    private volatile dev.turboism.performance.RuntimePerformanceProbeService performanceStatsService;
+    private dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistory;
     public CorePluginContext(final Dependencies dependencies) {
         this(dependencies, RuntimeHostAdapters.safeMode(), null, null, null, null, null);
     }
@@ -210,6 +225,34 @@ public final class CorePluginContext implements PluginContext {
         );
     }
 
+    public CorePluginContext(
+        final Dependencies dependencies,
+        final RuntimeHostAdapterAccess hostAccess,
+        final PluginLocalization localization,
+        final PluginTaskScheduler taskScheduler,
+        final PluginStorage pluginStorage,
+        final UserFileAccessService userFileAccessService,
+        final AsyncHostReadService asyncHostReadService,
+        final dev.turboism.sdk.runtime.RuntimeSettingsService runtimeSettings,
+        final dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistory
+    ) {
+        this(
+            dependencies,
+            servicesFactory(
+                Objects.requireNonNull(hostAccess, "hostAccess"),
+                Objects.requireNonNull(userFileAccessService, "userFileAccessService")
+            ),
+            hostAccess,
+            Objects.requireNonNull(localization, "localization"),
+            Objects.requireNonNull(taskScheduler, "taskScheduler"),
+            Objects.requireNonNull(pluginStorage, "pluginStorage"),
+            Objects.requireNonNull(userFileAccessService, "userFileAccessService"),
+            Objects.requireNonNull(asyncHostReadService, "asyncHostReadService"),
+            runtimeSettings,
+            fileChooserHistory
+        );
+    }
+
     private static DefaultCubismServicesFactory servicesFactory(
         final RuntimeHostAdapterAccess hostAccess
     ) {
@@ -238,7 +281,8 @@ public final class CorePluginContext implements PluginContext {
             hostAccess.editorCommands(),
             userFiles instanceof dev.turboism.adapter.cubism.command.EditorFileCommandResolver resolver
                 ? resolver
-                : dev.turboism.adapter.cubism.command.EditorFileCommandResolver.unavailable()
+                : dev.turboism.adapter.cubism.command.EditorFileCommandResolver.unavailable(),
+            hostAccess.adapters().autoBackup()
         );
     }
 
@@ -324,6 +368,30 @@ public final class CorePluginContext implements PluginContext {
         );
     }
 
+    /** Test composition seam: package-private {@link RuntimeHostAdapters} view with an injected file-chooser history service. */
+    CorePluginContext(
+        final Dependencies dependencies,
+        final RuntimeHostAdapters hostAdapters,
+        final PluginLocalization localization,
+        final PluginTaskScheduler taskScheduler,
+        final PluginStorage pluginStorage,
+        final UserFileAccessService userFileAccessService,
+        final AsyncHostReadService asyncHostReadService,
+        final dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistory
+    ) {
+        this(
+            dependencies,
+            new DefaultCubismServicesFactory(hostAdapters),
+            hostAdapters,
+            localization,
+            taskScheduler,
+            pluginStorage,
+            userFileAccessService,
+            asyncHostReadService
+        );
+        this.fileChooserHistory = fileChooserHistory;
+    }
+
     CorePluginContext(final Dependencies dependencies, final CubismServicesFactory cubismServicesFactory) {
         this(
             dependencies,
@@ -391,6 +459,32 @@ public final class CorePluginContext implements PluginContext {
             dependencies,
             cubismServicesFactory,
             hostAccess,
+            localization,
+            taskScheduler,
+            pluginStorage,
+            userFileAccessService,
+            asyncHostReadService,
+            runtimeSettings,
+            null
+        );
+    }
+
+    private CorePluginContext(
+        final Dependencies dependencies,
+        final CubismServicesFactory cubismServicesFactory,
+        final RuntimeHostAdapterAccess hostAccess,
+        final PluginLocalization localization,
+        final PluginTaskScheduler taskScheduler,
+        final PluginStorage pluginStorage,
+        final UserFileAccessService userFileAccessService,
+        final AsyncHostReadService asyncHostReadService,
+        final dev.turboism.sdk.runtime.RuntimeSettingsService runtimeSettings,
+        final dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistory
+    ) {
+        this(
+            dependencies,
+            cubismServicesFactory,
+            hostAccess,
             Objects.requireNonNull(hostAccess, "hostAccess").adapters(),
             localization,
             taskScheduler,
@@ -399,6 +493,7 @@ public final class CorePluginContext implements PluginContext {
             asyncHostReadService
         );
         this.runtimeSettings = runtimeSettings;
+        this.fileChooserHistory = fileChooserHistory;
     }
 
     private CorePluginContext(
@@ -412,7 +507,11 @@ public final class CorePluginContext implements PluginContext {
         final UserFileAccessService userFileAccessService,
         final AsyncHostReadService asyncHostReadService
     ) {
-        this.dependencies = Objects.requireNonNull(dependencies, "dependencies");
+        this.dependencies = hostAccess == null
+            ? Objects.requireNonNull(dependencies, "dependencies")
+            : dependencies.withHostSnapshotSource(HostSessionSnapshotSource.forSession(
+                hostAccess.adapters().projectWorkspace()
+            ));
         final RuntimeHostAdapters adapters = Objects.requireNonNull(hostAdapters, "hostAdapters");
         this.cubismServices = Objects.requireNonNull(cubismServicesFactory, "cubismServicesFactory")
             .create(this.dependencies);
@@ -432,6 +531,27 @@ public final class CorePluginContext implements PluginContext {
         this.pluginStorage = pluginStorage;
         this.userFileAccessService = userFileAccessService;
         this.asyncHostReadService = asyncHostReadService;
+        final RuntimeMeshMirrorAxisService sharedMeshMirrorAxis = hostAccess == null
+            ? new RuntimeMeshMirrorAxisService()
+            : hostAccess.meshMirrorAxisService();
+        final RuntimeMeshEditUiService sharedMeshEditUi = hostAccess == null
+            ? new RuntimeMeshEditUiService()
+            : hostAccess.meshEditUiService();
+        final PermissionChecker meshPermissionChecker = PermissionChecker.from(new CubismPermissionGate(
+            this.dependencies.descriptor().id(),
+            this.dependencies.permissions(),
+            this.dependencies.cubismAuditSink(),
+            this.dependencies.clock()
+        ));
+        this.meshMirrorAxisService = new AuthorizedMeshMirrorAxisService(
+            sharedMeshMirrorAxis,
+            meshPermissionChecker
+        );
+        this.meshEditUiService = new AuthorizedMeshEditUiService(
+            sharedMeshEditUi,
+            meshPermissionChecker,
+            this.dependencies.disposableScope()
+        );
         this.sceneTableService = hostAccess == null
             ? SceneTableService.unavailable()
             : hostAccess.sceneTable();
@@ -486,6 +606,19 @@ public final class CorePluginContext implements PluginContext {
         if (hostAccess != null) {
             this.dependencies.disposableScope().register(
                 (dev.turboism.ui.workspace.RuntimeWorkspaceService) this.workspaceService
+            );
+        }
+        final dev.turboism.ui.workspace.layout.WorkspaceLayoutCoordinator layoutCoordinator =
+            hostAccess == null ? null : hostAccess.workspaceLayoutCoordinator();
+        this.workspaceLayoutService = hostAccess == null || layoutCoordinator == null
+            ? dev.turboism.sdk.ui.workspace.layout.WorkspaceLayoutService.unavailable()
+            : new dev.turboism.ui.workspace.layout.RuntimeWorkspaceLayoutService(
+                uiPermissionChecker,
+                layoutCoordinator
+            );
+        if (layoutCoordinator != null) {
+            this.dependencies.disposableScope().register(
+                (dev.turboism.ui.workspace.layout.RuntimeWorkspaceLayoutService) this.workspaceLayoutService
             );
         }
         this.uiHostCapabilityService = hostAccess == null
@@ -642,13 +775,33 @@ public final class CorePluginContext implements PluginContext {
     }
 
     @Override
+    public dev.turboism.sdk.cubism.model.ModelObjectService modelObjects() {
+        return cubismServices.modelObjectService();
+    }
+
+    @Override
     public dev.turboism.sdk.cubism.physics.PhysicsEditorService physicsEditor() {
         return cubismServices.physicsEditorService();
     }
 
     @Override
+    public MeshMirrorAxisService meshMirrorAxis() {
+        return meshMirrorAxisService;
+    }
+
+    @Override
+    public MeshEditUiService meshEditUi() {
+        return meshEditUiService;
+    }
+
+    @Override
     public dev.turboism.sdk.cubism.command.EditorCommandService editorCommands() {
         return cubismServices.editorCommandService();
+    }
+
+    @Override
+    public dev.turboism.sdk.cubism.backup.EditorAutoBackupService backup() {
+        return cubismServices.backupService();
     }
 
     @Override
@@ -728,6 +881,11 @@ public final class CorePluginContext implements PluginContext {
     }
 
     @Override
+    public dev.turboism.sdk.ui.workspace.layout.WorkspaceLayoutService workspaceLayout() {
+        return workspaceLayoutService;
+    }
+
+    @Override
     public ContextMenuRegistry contextMenu() {
         return contextMenuRegistry;
     }
@@ -749,8 +907,27 @@ public final class CorePluginContext implements PluginContext {
     }
 
     @Override
+    public dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistory() {
+        return fileChooserHistory == null ? PluginContext.super.fileChooserHistory() : fileChooserHistory;
+    }
+
+    @Override
     public UiScheduler uiScheduler() {
         return dependencies.uiScheduler();
+    }
+
+    @Override
+    public dev.turboism.sdk.performance.PerformanceProbeService performanceStats() {
+        synchronized (this) {
+            if (performanceStatsService == null) {
+                performanceStatsService = new dev.turboism.performance.RuntimePerformanceProbeService(
+                    dependencies.descriptor().id(),
+                    dev.turboism.permissions.PermissionChecker.from(dependencies.permissions()),
+                    dependencies.clock()
+                );
+            }
+            return performanceStatsService;
+        }
     }
 
     @Override
@@ -1016,6 +1193,32 @@ public final class CorePluginContext implements PluginContext {
                 diagnostics,
                 disposableScope,
                 hostSnapshotSource,
+                m12ReadSnapshotSource,
+                uiHostStateSource,
+                cubismAuditSink,
+                clock
+            );
+        }
+
+        public Dependencies withHostSnapshotSource(final HostSnapshotSource replacement) {
+            return new Dependencies(
+                descriptor,
+                logger,
+                paths,
+                permissions,
+                eventBus,
+                actions,
+                menus,
+                mainToolbar,
+                paletteToolbar,
+                paletteFilter,
+                contextMenu,
+                config,
+                uiScheduler,
+                runtimeScheduler,
+                diagnostics,
+                disposableScope,
+                Objects.requireNonNull(replacement, "replacement"),
                 m12ReadSnapshotSource,
                 uiHostStateSource,
                 cubismAuditSink,

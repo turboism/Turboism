@@ -8,6 +8,7 @@ import java.util.EnumSet;
 import java.util.Objects;
 import java.util.Set;
 import java.util.List;
+import java.util.function.Predicate;
 
 @PreviewApi
 @RequiresPermission("turboism.ui.context-menu.contribute")
@@ -186,7 +187,8 @@ public interface ContextMenuRegistry {
         Target target,
         Operation operation,
         ContextMenuEntry entry,
-        Placement placement
+        Placement placement,
+        Predicate<ContextMenuSelection> visibleWhen
     ) {
         public ContextMenuContribution {
             id = requireText(id, "id");
@@ -224,7 +226,24 @@ public interface ContextMenuRegistry {
             this(
                 id, actionId, label, icon, location.context(), location, objectKinds, priority,
                 Target.SELECTION, Operation.ACTION,
-                ContextMenuEntry.item(id, label, actionId), Placement.last()
+                ContextMenuEntry.item(id, label, actionId), Placement.last(), null
+            );
+        }
+
+        public ContextMenuContribution(
+            final String id,
+            final String actionId,
+            final String label,
+            final String icon,
+            final Location location,
+            final Set<ObjectKind> objectKinds,
+            final int priority,
+            final Predicate<ContextMenuSelection> visibleWhen
+        ) {
+            this(
+                id, actionId, label, icon, location.context(), location, objectKinds, priority,
+                Target.SELECTION, Operation.ACTION,
+                ContextMenuEntry.item(id, label, actionId), Placement.last(), visibleWhen
             );
         }
 
@@ -247,7 +266,28 @@ public interface ContextMenuRegistry {
                 Target.SELECTION,
                 Operation.ACTION,
                 entry,
-                entry.placement()
+                entry.placement(),
+                null
+            );
+        }
+
+        public ContextMenuContribution(
+            final String id,
+            final String actionId,
+            final String label,
+            final String icon,
+            final String context,
+            final Location location,
+            final Set<ObjectKind> objectKinds,
+            final int priority,
+            final Target target,
+            final Operation operation,
+            final ContextMenuEntry entry,
+            final Placement placement
+        ) {
+            this(
+                id, actionId, label, icon, context, location, objectKinds, priority,
+                target, operation, entry, placement, null
             );
         }
 
@@ -286,7 +326,8 @@ public interface ContextMenuRegistry {
                 target,
                 operation,
                 ContextMenuEntry.item(id, label, id),
-                Placement.last()
+                Placement.last(),
+                null
             );
         }
 

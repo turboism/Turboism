@@ -1,0 +1,4 @@
+plugin.description
+plugin.name
+texture-atlas-stats.line
+texture-atlas-stats.unavailable

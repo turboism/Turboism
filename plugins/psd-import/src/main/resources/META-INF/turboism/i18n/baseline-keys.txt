@@ -1,3 +1,4 @@
+plugin.description
 plugin.name
 psd.action.expand-canvas.label
 psd.action.import-clip-masks.label

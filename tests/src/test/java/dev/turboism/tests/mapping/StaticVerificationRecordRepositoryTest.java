@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.turboism.adapter.cubism.VerifiedClipMaskHostOperations;
 import dev.turboism.adapter.cubism.VerifiedProjectWorkspaceHostOperations;
+import dev.turboism.mapping.verification.AutoBackupVerificationManifest;
 import dev.turboism.mapping.verification.ClipMaskVerificationManifest;
 import dev.turboism.mapping.verification.CorePublicApiSelectorContract;
 import dev.turboism.mapping.verification.ControlAppearanceVerificationManifest;
@@ -46,7 +47,7 @@ class StaticVerificationRecordRepositoryTest {
     );
     private static final Path RECORDS = PROJECT_ROOT.resolve("cubism-ref/verification");
 
-    private static final Map<String, SliceExpectation> EXPECTATIONS = withStatusBar(withWorkspaceControl(withControlAppearance53(withBoundingBoxOverlays(withTopMenus(withEmbeddedPanels(Map.of(
+    private static final Map<String, SliceExpectation> EXPECTATIONS = withAutoBackup(withStatusBar(withWorkspaceControl(withControlAppearance53(withBoundingBoxOverlays(withTopMenus(withEmbeddedPanels(Map.of(
         "cubism-ref/verification/cubism-5.2-project-workspace.json",
         new SliceExpectation(
             "m15.cubism-5.2.project-workspace.static",
@@ -227,7 +228,7 @@ class StaticVerificationRecordRepositoryTest {
             "98f4dac9a9508a6e255f6f3862608409a83e29c9009a7f0fcf517e06658164e4",
             "b68770af94b43bafa92bbe06a3cb2017f89ed5d561c3bb08447d3eeca89d06d0",
             74, "[5.3.02,5.3.03)")
-    )))))));
+    ))))))));
 
     private static Map<String, SliceExpectation> withWorkspaceControl(
         final Map<String, SliceExpectation> existing
@@ -288,8 +289,8 @@ class StaticVerificationRecordRepositoryTest {
                 "Live2D_Cubism.jar",
                 40_805_584L,
                 "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
-                "b54253d0d37b3e6ed97ef3e316256b85a7b026c13390105a726cc20c03d85f6f",
-                73,
+                "cd3238ac79ece01dbac0ca9b83c428d49c05f11d48ba1b213253362d37807ec4",
+                78,
                 EmbeddedPanelVerificationManifest.REQUIRED_ALIASES,
                 EmbeddedPanelVerificationManifest.REQUIRED_ALIASES,
                 embeddedPanelMethodAliases(),
@@ -313,7 +314,7 @@ class StaticVerificationRecordRepositoryTest {
                 EmbeddedPanelVerificationManifest.ARTIFACT_SIZE,
                 EmbeddedPanelVerificationManifest.ARTIFACT_SHA256,
                 EmbeddedPanelVerificationManifest.RECORD_SHA256,
-                73,
+                78,
                 EmbeddedPanelVerificationManifest.REQUIRED_ALIASES,
                 EmbeddedPanelVerificationManifest.REQUIRED_ALIASES,
                 embeddedPanelMethodAliases(),
@@ -328,10 +329,108 @@ class StaticVerificationRecordRepositoryTest {
         return Map.copyOf(expectations);
     }
 
+    private static Map<String, SliceExpectation> withAutoBackup(
+        final Map<String, SliceExpectation> existing
+    ) {
+        final LinkedHashMap<String, SliceExpectation> expectations = new LinkedHashMap<>(existing);
+        expectations.put(
+            "cubism-ref/verification/cubism-5.3.02-autobackup.json",
+            autoBackupExpectation(
+                AutoBackupVerificationManifest.VERIFICATION_ID_53,
+                AutoBackupVerificationManifest.CUBISM_VERSION_53,
+                AutoBackupVerificationManifest.PROFILE_ID_53,
+                AutoBackupVerificationManifest.ARTIFACT_SIZE_53,
+                AutoBackupVerificationManifest.ARTIFACT_SHA256_53,
+                AutoBackupVerificationManifest.RECORD_SHA256_53,
+                "cubism-5.3.02-autobackup",
+                "cubism-ref/profiles/draft/cubism-5.3.02.json",
+                "[5.3.02,5.3.03)"
+            )
+        );
+        expectations.put(
+            "cubism-ref/verification/cubism-5.2.03-autobackup.json",
+            autoBackupExpectation(
+                AutoBackupVerificationManifest.VERIFICATION_ID_52,
+                AutoBackupVerificationManifest.CUBISM_VERSION_52,
+                AutoBackupVerificationManifest.PROFILE_ID_52,
+                AutoBackupVerificationManifest.ARTIFACT_SIZE_52,
+                AutoBackupVerificationManifest.ARTIFACT_SHA256_52,
+                AutoBackupVerificationManifest.RECORD_SHA256_52,
+                "cubism-5.2.03-autobackup",
+                "cubism-ref/profiles/draft/cubism-5.2.json",
+                "[5.2.0,5.3.0)"
+            )
+        );
+        return Map.copyOf(expectations);
+    }
+
+    private static SliceExpectation autoBackupExpectation(
+        final String verificationId,
+        final String cubismVersion,
+        final String profileId,
+        final long artifactSize,
+        final String artifactSha256,
+        final String recordSha256,
+        final String packId,
+        final String profilePath,
+        final String expectedVersionRange
+    ) {
+        final Set<String> aliases = AutoBackupVerificationManifest.REQUIRED_ALIASES;
+        return new SliceExpectation(
+            verificationId,
+            AutoBackupVerificationManifest.ADAPTER_SLICE_ID,
+            cubismVersion,
+            profileId,
+            AutoBackupVerificationManifest.CAPABILITY_IDS,
+            "Live2D_Cubism.jar",
+            artifactSize,
+            artifactSha256,
+            recordSha256,
+            aliases.size(),
+            aliases,
+            aliases,
+            difference(aliases, Set.of("cubism.auto-backup.manager.class",
+                "cubism.auto-backup.app-controller.class",
+                "cubism.auto-backup.complete-pack.class",
+                "cubism.auto-backup.file-content.class")),
+            Set.of("cubism.auto-backup.manager.class", "cubism.auto-backup.app-controller.class",
+                "cubism.auto-backup.complete-pack.class", "cubism.auto-backup.file-content.class"),
+            packId,
+            Path.of("cubism-ref/mapping-packs/draft/" + packId + ".json"),
+            Path.of(profilePath),
+            expectedVersionRange,
+            SliceKind.EDITOR_UI
+        );
+    }
+
     private static Map<String, SliceExpectation> withStatusBar(
         final Map<String, SliceExpectation> existing
     ) {
         final LinkedHashMap<String, SliceExpectation> expectations = new LinkedHashMap<>(existing);
+        expectations.put(
+            "cubism-ref/verification/cubism-5.2-ui-status-bar.json",
+            new SliceExpectation(
+                "cubism-5.2.03.ui-status-bar.static",
+                StatusBarVerificationManifest.ADAPTER_SLICE_ID,
+                "5.2.03",
+                "cubism-5.2",
+                StatusBarVerificationManifest.CAPABILITY_IDS,
+                "Live2D_Cubism.jar",
+                40_805_584L,
+                "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
+                "94ef52c898cffe9b5837dd3e34e53ba150fc2d616f1269362e5151ec602fe4c0",
+                21,
+                StatusBarVerificationManifest.REQUIRED_ALIASES,
+                StatusBarVerificationManifest.REQUIRED_ALIASES,
+                statusBarMethodAliases(),
+                difference(StatusBarVerificationManifest.REQUIRED_ALIASES, statusBarMethodAliases()),
+                "cubism-5.2-ui-status-bar",
+                Path.of("cubism-ref/mapping-packs/draft/cubism-5.2-ui-status-bar.json"),
+                Path.of("cubism-ref/profiles/draft/cubism-5.2.json"),
+                "[5.2.0,5.3.0)",
+                SliceKind.EDITOR_UI
+            )
+        );
         expectations.put(
             "cubism-ref/verification/cubism-5.3.02-ui-status-bar.json",
             new SliceExpectation(
@@ -708,7 +807,11 @@ class StaticVerificationRecordRepositoryTest {
             "cubism.ui-panel.menu.add",
             "cubism.ui-panel.menu.swing",
             "cubism.ui-panel.menu-item.create",
+            "cubism.ui-panel.menu-item.check.create",
             "cubism.ui-panel.menu-item.swing",
+            "cubism.ui-panel.menu-item.is-selected",
+            "cubism.ui-panel.dock.main-frame-ctrl",
+            "cubism.ui-panel.main-frame.palette-menu-map",
             "cubism.ui-panel.palette.id",
             "cubism.ui-panel.dock-tab-popup.operation",
             "cubism.ui-panel.dock-tab-popup.palette-field",

@@ -48,7 +48,7 @@ public final class PluginMetaValidator extends AbstractJsonValidator {
         "turboism.ui.file-chooser.request", "turboism.ui.status.notify",
         "turboism.ui.appearance.modify", "turboism.ui.toolbar.contribute", "turboism.config.plugin.read",
         "turboism.config.plugin.write", "turboism.event.subscribe", "turboism.event.publish",
-        "turboism.host.unsafe"
+        "turboism.performance.stats.read", "turboism.host.unsafe"
     );
 
     public PluginMetaValidator() {
@@ -538,7 +538,7 @@ public final class PluginMetaValidator extends AbstractJsonValidator {
     }
 
     private boolean isLocaleId(final String value) {
-        return "base".equals(value) || (value != null && value.matches("^[a-z]{2,3}(?:_[A-Za-z0-9]{2,8})*$"));
+        return "base".equals(value) || (value != null && value.matches("^[A-Za-z]{2,8}(?:[-_][A-Za-z0-9]{1,8})*$"));
     }
 
     private boolean isValidPluginId(final String id) {

@@ -22,10 +22,16 @@ class HostSessionCompositionApiTest {
     @Test
     void publicCompositionCannotInjectArbitraryConnectorOrAdapterBundle() throws ReflectiveOperationException {
         assertEquals(
-            Set.of(signature(HostInstanceSource.class)),
+            Set.of(
+                signature(HostInstanceSource.class),
+                signature(HostInstanceSource.class, java.util.Locale.class)
+            ),
             publicConstructorSignatures(HostSession.class)
         );
-        assertEquals(Set.of(signature()), publicConstructorSignatures(HostRuntimeIngress.class));
+        assertEquals(
+            Set.of(signature(), signature(java.util.Locale.class)),
+            publicConstructorSignatures(HostRuntimeIngress.class)
+        );
         assertConstructorIsNonPublic(
             HostSession.class.getDeclaredConstructor(HostInstanceSource.class, HostAdapterConnector.class)
         );
@@ -68,6 +74,8 @@ class HostSessionCompositionApiTest {
                 "projectFileLifecycle():dev.turboism.adapter.cubism.lifecycle.ProjectFileLifecycleCoordinator",
                 "editorLifecycleEvents():dev.turboism.adapter.cubism.lifecycle.EditorLifecycleCoordinator",
                 "physicsEditorCoordinator():dev.turboism.adapter.cubism.physics.PhysicsEditorCoordinator",
+                "meshMirrorAxisService():dev.turboism.adapter.cubism.mesh.RuntimeMeshMirrorAxisService",
+                "meshEditUiService():dev.turboism.adapter.cubism.mesh.RuntimeMeshEditUiService",
                 "paletteAppearanceCoordinator():dev.turboism.ui.appearance.control.PaletteAppearanceCoordinator",
                 "editorUiLifecycle():dev.turboism.ui.host.EditorUiHostLifecycle",
                 "editorUiContributions():dev.turboism.ui.contribution.EditorUiContributionAuthority",
@@ -81,6 +89,7 @@ class HostSessionCompositionApiTest {
                 "paletteFilterSink():dev.turboism.ui.filter.PaletteFilterVisibilitySink",
                 "cubismLog():dev.turboism.sdk.runtime.CubismLogService",
                 "workspaceCoordinator():dev.turboism.ui.workspace.WorkspaceCoordinator",
+                "workspaceLayoutCoordinator():dev.turboism.ui.workspace.layout.WorkspaceLayoutCoordinator",
                 "editorModelResolver():dev.turboism.mapping.verification.VerifiedMemberResolver",
                 "textureAtlasDataModelCapture():dev.turboism.adapter.cubism.textureatlas.TextureAtlasDataModelCapture",
                 "textureAtlasEditorUi():dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi",

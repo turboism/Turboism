@@ -126,6 +126,37 @@ class EditorBackedCubismModelAccessTest {
     }
 
     @Test
+    void duplicateParameterIdsArePreservedInStableOrder() {
+        // Verified host evidence: CParameterSet stores CParameter entries in a plain CArrayList
+        // without any id-uniqueness constraint and real Editor models can contain duplicate ids.
+        // all() must include every entry, find() returns the first match, and nothing throws.
+        final ParameterSet set = new ParameterSet(new java.util.ArrayList<>(List.of(
+            new Parameter("ParamAngleX", 12.0F), new Parameter("ParamAngleX", 5.0F))));
+        final Model model = new Model(set);
+        final ModelSource source = new ModelSource("model-a", model);
+        model.source = source;
+        Host.currentDocument = new Document(source);
+        final EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
+            resolver(), "session-a");
+        final var active = access.active();
+
+        assertEquals(
+            List.of("ParamAngleX", "ParamAngleX"),
+            active.parameters().all().stream().map(value -> value.id().value()).toList()
+        );
+        assertEquals(
+            new ParameterId("ParamAngleX"),
+            active.parameters().find(new ParameterId("ParamAngleX")).id()
+        );
+        assertTrue(active.parameters().findById(new ParameterId("ParamAngleX")).isPresent());
+        assertEquals(2, active.parameterDefinitions().all().size());
+        assertEquals(
+            new ParameterId("ParamAngleX"),
+            active.parameterDefinitions().find(new ParameterId("ParamAngleX")).id()
+        );
+    }
+
+    @Test
     void parameterBindingProjectionCollectsAllThreeObjectFamiliesAndGoesStaleWithTheModel() {
         Fixture host = new Fixture("model-a", 12.0F);
         Host.install(host);

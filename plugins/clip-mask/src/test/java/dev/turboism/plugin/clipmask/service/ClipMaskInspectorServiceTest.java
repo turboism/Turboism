@@ -167,6 +167,10 @@ class ClipMaskInspectorServiceTest {
         @Override
         public Registration contributeOverlay(OverlayContribution contribution) { throw unsupported(); }
 
+        public Registration contributeBoundingBoxOverlayButton(
+            final dev.turboism.sdk.ui.BoundingBoxOverlayButton contribution
+        ) { throw unsupported(); }
+
         @Override public ContextSourceSnapshot contextSource() { throw unsupported(); }
         @Override public ViewportSnapshot viewport() { throw unsupported(); }
 
