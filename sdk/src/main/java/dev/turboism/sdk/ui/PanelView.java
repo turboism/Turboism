@@ -18,6 +18,7 @@ public sealed interface PanelView permits
     PanelView.TextInput,
     PanelView.Select,
     PanelView.Toggle,
+    PanelView.Chart,
     PanelView.CollapsibleSection,
     PanelView.Separator {
 
@@ -75,6 +76,19 @@ public sealed interface PanelView permits
 
     static Separator separator() {
         return new Separator();
+    }
+
+    /**
+     * Declarative real-time line chart. Series display configuration (name,
+     * window size, unit, format) is declared here; the numeric values are
+     * injected by the runtime, which resolves live data by chart id.
+     */
+    static Chart chart(final String id, final String title, final SeriesSpec... series) {
+        return new Chart(id, title, List.of(series));
+    }
+
+    static SeriesSpec series(final String name, final int maxPoints, final String unit, final String format) {
+        return new SeriesSpec(name, maxPoints, unit, format);
     }
 
     static CollapsibleSection collapsibleSection(
@@ -222,6 +236,35 @@ public sealed interface PanelView permits
     }
 
     record Separator() implements PanelView { }
+
+    record Chart(String id, String title, List<SeriesSpec> series) implements PanelView {
+        public Chart {
+            id = requireText(id, "id");
+            title = requireText(title, "title");
+            series = List.copyOf(Objects.requireNonNull(series, "series"));
+            if (series.isEmpty()) {
+                throw new IllegalArgumentException("series must not be empty");
+            }
+            final HashSet<String> names = new HashSet<>();
+            for (SeriesSpec spec : series) {
+                Objects.requireNonNull(spec, "series entry");
+                if (!names.add(spec.name())) {
+                    throw new IllegalArgumentException("series names must be unique");
+                }
+            }
+        }
+    }
+
+    record SeriesSpec(String name, int maxPoints, String unit, String format) {
+        public SeriesSpec {
+            name = requireText(name, "name");
+            if (maxPoints < 2) {
+                throw new IllegalArgumentException("maxPoints must be at least 2");
+            }
+            unit = Objects.requireNonNull(unit, "unit");
+            format = Objects.requireNonNull(format, "format");
+        }
+    }
 
     private static List<PanelView> immutableChildren(final List<PanelView> children) {
         final List<PanelView> snapshot = List.copyOf(Objects.requireNonNull(children, "children"));

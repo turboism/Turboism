@@ -15,6 +15,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -43,6 +44,90 @@ class CxStatusBarHostOperationsTest {
         flushEdt();
         assertEquals(1, tree.removeCalls.size());
         assertEquals(List.of("memoryViewer", "cursorPosition", "coordinates"), tree.ids(statusBar));
+    }
+
+    @Test
+    void compactMetricInsertsImmediatelyLeftOfMemoryViewerWithoutSeverityAppearance() throws Exception {
+        FakeTree tree = new FakeTree().ready();
+        FakeWidget statusBar = tree.statusBar(new FakeMemoryViewer("memoryViewer"),
+            new FakeLabel("cursorPosition"), new FakeLabel("coordinates"));
+        CxStatusBarHostOperations host = new CxStatusBarHostOperations("5.3.02", tree);
+
+        Registration registration = host.notifyStatus(compactMetric("perf.cpu", "CPU 12.3%"));
+
+        assertEquals(1, tree.addCalls.size());
+        assertSame(statusBar, tree.addCalls.get(0).parent());
+        assertEquals(0, tree.addCalls.get(0).index(),
+            "compact metric must mount at the memory-viewer child index (left of the memory control)");
+        assertEquals(List.of("perf.cpu", "memoryViewer", "cursorPosition", "coordinates"),
+            tree.ids(statusBar));
+        FakeLabel widget = tree.labels.get("perf.cpu");
+        assertEquals("CPU 12.3%", widget.text, "compact metric shows the raw message");
+        assertNull(widget.severity, "compact metric must not apply severity appearance");
+
+        registration.close();
+        flushEdt();
+        assertEquals(List.of("memoryViewer", "cursorPosition", "coordinates"), tree.ids(statusBar));
+    }
+
+    @Test
+    void compactMetricIgnoresNativeLabelsWhenChoosingMemoryViewerIndex() throws Exception {
+        FakeTree tree = new FakeTree().ready();
+        FakeWidget statusBar = tree.statusBar(new FakeLabel("cursorPosition"),
+            new FakeMemoryViewer("memoryViewer"), new FakeLabel("coordinates"));
+        CxStatusBarHostOperations host = new CxStatusBarHostOperations("5.3.02", tree);
+
+        host.notifyStatus(compactMetric("perf.cpu", "CPU --%"));
+
+        assertEquals(1, tree.addCalls.size());
+        assertEquals(1, tree.addCalls.get(0).index(),
+            "compact metric must use the memory-viewer index even when native labels exist");
+        assertEquals(List.of("cursorPosition", "perf.cpu", "memoryViewer", "coordinates"),
+            tree.ids(statusBar));
+    }
+
+    @Test
+    void compactMetricSameIdUpdatesReuseWidgetAndStaleCloseKeepsLatest() throws Exception {
+        FakeTree tree = new FakeTree().ready();
+        FakeWidget statusBar = tree.statusBar(new FakeMemoryViewer("memoryViewer"),
+            new FakeLabel("coordinates"));
+        CxStatusBarHostOperations host = new CxStatusBarHostOperations("5.3.02", tree);
+
+        Registration first = host.notifyStatus(compactMetric("perf.cpu", "CPU --%"));
+        assertEquals(1, tree.addCalls.size());
+        FakeLabel widget = tree.labels.get("perf.cpu");
+        assertNull(widget.severity);
+
+        Registration second = host.notifyStatus(compactMetric("perf.cpu", "CPU 12.3%"));
+        assertEquals(1, tree.addCalls.size(), "same final ID must not re-add");
+        assertSame(widget, tree.labels.get("perf.cpu"));
+        assertEquals("CPU 12.3%", widget.text);
+        assertNull(widget.severity, "repeated compact updates must never apply severity appearance");
+
+        first.close();
+        flushEdt();
+        assertEquals(0, tree.removeCalls.size(), "stale registration must not remove the newer entry");
+        assertTrue(tree.ids(statusBar).contains("perf.cpu"));
+
+        second.close();
+        flushEdt();
+        assertEquals(1, tree.removeCalls.size());
+        assertFalse(tree.ids(statusBar).contains("perf.cpu"));
+    }
+
+    @Test
+    void compactMetricAndNotificationSameIdApplyLatestPresentationDeterministically() throws Exception {
+        FakeTree tree = new FakeTree().ready();
+        tree.statusBar(new FakeMemoryViewer("memoryViewer"), new FakeLabel("coordinates"));
+        CxStatusBarHostOperations host = new CxStatusBarHostOperations("5.3.02", tree);
+
+        host.notifyStatus(compactMetric("status.mixed", "CPU 12.3%"));
+        assertNull(tree.labels.get("status.mixed").severity);
+
+        host.notifyStatus(new StatusNotification("status.mixed", "WARNING", "Slow"));
+        assertEquals("Slow", tree.labels.get("status.mixed").text);
+        assertEquals("WARNING", tree.labels.get("status.mixed").severity,
+            "a later ordinary notification must apply severity appearance to the shared widget");
     }
 
     @Test
@@ -477,5 +562,14 @@ class CxStatusBarHostOperationsTest {
     }
 
     private record AddCall(Object parent, Object widget, int index) {
+    }
+
+    private static StatusNotification compactMetric(final String id, final String message) {
+        return new StatusNotification(
+            id,
+            "INFO",
+            message,
+            StatusNotification.Presentation.COMPACT_METRIC
+        );
     }
 }

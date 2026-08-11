@@ -67,7 +67,7 @@ class EditorCommandServiceLifecycleCompositionTest {
         DisposableScope scope = new DisposableScope();
         RuntimeScheduler scheduler = scheduler();
         try {
-            DefaultCubismServicesFactory factory = new DefaultCubismServicesFactory(
+            DefaultCubismServicesFactory factory = DefaultCubismServicesFactoryTestSupport.withEditorCommands(
                 RuntimeHostAdapters.safeMode(),
                 () -> { throw new IllegalStateException("no model"); },
                 new ParameterLifecycleCoordinator(),

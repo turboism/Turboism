@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.lifecycle;
 
 import dev.turboism.sdk.cubism.hook.PartHooks;
+import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.TurboismPlugin;
@@ -15,6 +16,7 @@ public final class PartHookRegistry {
     public static final String INTERCEPT_PERMISSION = ParameterHookRegistry.INTERCEPT_PERMISSION;
 
     private final PartLifecycleCoordinator coordinator;
+    private final Object lifecycleLock = new Object();
 
     public PartHookRegistry(final PartLifecycleCoordinator coordinator) {
         this.coordinator = Objects.requireNonNull(coordinator, "coordinator");
@@ -25,25 +27,63 @@ public final class PartHookRegistry {
         final List<? extends TurboismPlugin> entrypoints,
         final PluginLogger logger
     ) {
+        register(descriptor, entrypoints, logger, null);
+    }
+
+    public void register(
+        final PluginDescriptor descriptor,
+        final List<? extends TurboismPlugin> entrypoints,
+        final PluginLogger logger,
+        final DisposableScope scope
+    ) {
         final List<PartHooks> hooks = Objects.requireNonNull(entrypoints, "entrypoints")
             .stream()
             .filter(PartHooks.class::isInstance)
             .map(PartHooks.class::cast)
             .toList();
-        if (!hooks.isEmpty()) {
-            final PluginDescriptor plugin = Objects.requireNonNull(descriptor, "descriptor");
-            coordinator.register(new PartLifecycleCoordinator.PluginHooks(
+        if (scope == null && hooks.isEmpty()) {
+            return;
+        }
+        final PluginDescriptor plugin = Objects.requireNonNull(descriptor, "descriptor");
+        synchronized (lifecycleLock) {
+            if (scope != null) {
+                coordinator.unregister(plugin.id());
+            }
+            if (hooks.isEmpty()) {
+                return;
+            }
+            final PartLifecycleCoordinator.PluginHooks value = new PartLifecycleCoordinator.PluginHooks(
                 plugin,
                 hooks,
                 Objects.requireNonNull(logger, "logger"),
                 hasPermission(plugin, INTERCEPT_PERMISSION),
                 hasPermission(plugin, OBSERVE_PERMISSION)
-            ));
+            );
+            if (scope == null) {
+                coordinator.register(value);
+                return;
+            }
+            final Object token = new Object();
+            try {
+                coordinator.register(token, value);
+                scope.register(() -> unregisterGeneration(plugin.id(), token));
+            } catch (RuntimeException | Error failure) {
+                coordinator.unregister(plugin.id(), token);
+                throw failure;
+            }
         }
     }
 
     public void unregister(final String pluginId) {
-        coordinator.unregister(pluginId);
+        synchronized (lifecycleLock) {
+            coordinator.unregister(pluginId);
+        }
+    }
+
+    private void unregisterGeneration(final String pluginId, final Object token) {
+        synchronized (lifecycleLock) {
+            coordinator.unregister(pluginId, token);
+        }
     }
 
     private static boolean hasPermission(

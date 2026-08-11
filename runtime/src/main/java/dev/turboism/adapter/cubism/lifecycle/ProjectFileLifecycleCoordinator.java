@@ -1,6 +1,5 @@
 package dev.turboism.adapter.cubism.lifecycle;
 
-import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.sdk.cubism.ProjectContentKind;
 import dev.turboism.sdk.cubism.ProjectContentSnapshot;
@@ -13,14 +12,10 @@ import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.PluginLogger;
 
 import java.time.Clock;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 /** Runtime-owned before/on/after coordinator for model and animation file content. */
@@ -28,9 +23,9 @@ public final class ProjectFileLifecycleCoordinator implements AutoCloseable {
 
     public static final String OPERATION_PREFIX = "cubism.project-content.";
 
-    private final CopyOnWriteArrayList<PluginHooks> plugins = new CopyOnWriteArrayList<>();
-    private final PluginWorkExecutorRegistry executors;
-    private final CopyOnWriteArrayList<CompletionStage<?>> pending = new CopyOnWriteArrayList<>();
+    private final CopyOnWriteArrayList<Registration> plugins = new CopyOnWriteArrayList<>();
+    private final LifecycleCallbackExecutor callbacks;
+    private final Object registrationLock = new Object();
     private final CopyOnWriteArrayList<Consumer<ProjectFileOperationResult>> completionListeners =
         new CopyOnWriteArrayList<>();
 
@@ -39,11 +34,26 @@ public final class ProjectFileLifecycleCoordinator implements AutoCloseable {
     }
 
     public ProjectFileLifecycleCoordinator(final PluginWorkExecutorRegistry executors) {
-        this.executors = Objects.requireNonNull(executors, "executors");
+        this.callbacks = new LifecycleCallbackExecutor("Project-file", executors);
     }
 
     public void register(final PluginHooks plugin) {
-        plugins.add(Objects.requireNonNull(plugin, "plugin"));
+        final PluginHooks value = Objects.requireNonNull(plugin, "plugin");
+        final Object token = new Object();
+        synchronized (registrationLock) {
+            plugins.removeIf(registration -> registration.plugin().descriptor().id().equals(value.descriptor().id()));
+            callbacks.shutdown(value.descriptor().id());
+            plugins.add(new Registration(token, value));
+        }
+    }
+
+    void register(final Object token, final PluginHooks plugin) {
+        synchronized (registrationLock) {
+            plugins.add(new Registration(
+                Objects.requireNonNull(token, "token"),
+                Objects.requireNonNull(plugin, "plugin")
+            ));
+        }
     }
 
     /** Registers a runtime-owned synchronous completion listener. */
@@ -52,9 +62,27 @@ public final class ProjectFileLifecycleCoordinator implements AutoCloseable {
     }
 
     public void unregister(final String pluginId) {
-        Objects.requireNonNull(pluginId, "pluginId");
-        plugins.removeIf(plugin -> plugin.descriptor().id().equals(pluginId));
-        executors.shutdown(pluginId);
+        final String id = Objects.requireNonNull(pluginId, "pluginId");
+        synchronized (registrationLock) {
+            plugins.removeIf(registration -> registration.plugin().descriptor().id().equals(id));
+            callbacks.shutdown(id);
+        }
+    }
+
+    void unregister(final String pluginId, final Object token) {
+        final String id = Objects.requireNonNull(pluginId, "pluginId");
+        final Object generation = Objects.requireNonNull(token, "token");
+        synchronized (registrationLock) {
+            final boolean removed = plugins.removeIf(registration ->
+                registration.token() == generation
+                    && registration.plugin().descriptor().id().equals(id)
+            );
+            if (removed && plugins.stream().noneMatch(registration ->
+                registration.plugin().descriptor().id().equals(id)
+            )) {
+                callbacks.shutdown(id);
+            }
+        }
     }
 
     /** Executes the synchronous before phase and returns a correlation object for completion. */
@@ -62,7 +90,8 @@ public final class ProjectFileLifecycleCoordinator implements AutoCloseable {
         final ProjectFileOperation request = Objects.requireNonNull(operation, "operation");
         System.out.println("LIFECYCLE-COORD:method=begin kind=" + request.kind()
             + " op=" + request.operation() + " hooks=" + plugins.size());
-        for (PluginHooks plugin : plugins) {
+        for (Registration registration : plugins) {
+            final PluginHooks plugin = registration.plugin();
             if (!plugin.observeAllowed()) continue;
             if (request.kind() == ProjectContentKind.MODEL) {
                 for (ModelFileHooks hook : plugin.modelHooks()) {
@@ -103,9 +132,10 @@ public final class ProjectFileLifecycleCoordinator implements AutoCloseable {
                 // Runtime cleanup listeners fail open and must not block plugin callbacks.
             }
         }
-        for (PluginHooks plugin : plugins) {
+        for (Registration registration : plugins) {
+            final PluginHooks plugin = registration.plugin();
             if (!plugin.observeAllowed()) continue;
-            submit(plugin, () -> {
+            submit(registration, () -> {
                 if (current.operation().kind() == ProjectContentKind.MODEL) {
                     for (ModelFileHooks hook : plugin.modelHooks()) {
                         if (succeeded) invokeOnModel(plugin, hook, current.operation(), immutableContent);
@@ -124,23 +154,16 @@ public final class ProjectFileLifecycleCoordinator implements AutoCloseable {
     }
 
     public void awaitIdle() {
-        final CompletionStage<?>[] snapshot = pending.toArray(CompletionStage[]::new);
-        try {
-            CompletableFuture.allOf(Arrays.stream(snapshot)
-                .map(CompletionStage::toCompletableFuture)
-                .toArray(CompletableFuture[]::new))
-                .get(2, TimeUnit.SECONDS);
-            pending.removeAll(List.of(snapshot));
-        } catch (Exception failure) {
-            throw new IllegalStateException("Project-file lifecycle callbacks did not quiesce.", failure);
-        }
+        callbacks.awaitIdle();
     }
 
     @Override
     public void close() {
-        plugins.clear();
-        completionListeners.clear();
-        executors.shutdownAll();
+        synchronized (registrationLock) {
+            plugins.clear();
+            completionListeners.clear();
+            callbacks.close();
+        }
     }
 
     private static void invokeBeforeModel(
@@ -249,14 +272,17 @@ public final class ProjectFileLifecycleCoordinator implements AutoCloseable {
         }
     }
 
-    private void submit(final PluginHooks plugin, final Runnable callback) {
-        final var submission = executors.get(plugin.descriptor().id())
-            .submit(task(plugin.descriptor().id()), callback);
-        if (submission.accepted()) pending.add(submission.completion());
-    }
-
-    private static PluginTask task(final String pluginId) {
-        return new PluginTask("event.subscribe", pluginId, OPERATION_PREFIX + "lifecycle", "none");
+    private void submit(final Registration registration, final Runnable callback) {
+        synchronized (registrationLock) {
+            if (!plugins.contains(registration)) {
+                return;
+            }
+            callbacks.submit(
+                registration.plugin().descriptor().id(),
+                OPERATION_PREFIX + "lifecycle",
+                callback
+            );
+        }
     }
 
     private static String phaseName(final ProjectFileOperation operation) {
@@ -284,6 +310,8 @@ public final class ProjectFileLifecycleCoordinator implements AutoCloseable {
             // Hook and diagnostic failures must not escape into Cubism.
         }
     }
+
+    private record Registration(Object token, PluginHooks plugin) { }
 
     public record Invocation(ProjectFileOperation operation) {
         public Invocation {

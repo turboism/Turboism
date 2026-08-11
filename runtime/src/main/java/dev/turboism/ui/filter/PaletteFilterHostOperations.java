@@ -1,5 +1,6 @@
 package dev.turboism.ui.filter;
 
+import dev.turboism.core.reflect.MethodHandleCache;
 import dev.turboism.sdk.ui.filter.PaletteFilterRegistry;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 
@@ -76,6 +77,8 @@ import java.util.function.Function;
 public final class PaletteFilterHostOperations implements PaletteFilterVisibilitySink, AutoCloseable {
 
     private static final int CONNECT_ATTEMPTS = 300;
+    /** Debounce window for deformer-tree filter keystrokes (continuous typing rebuilds once). */
+    private static final int FILTER_DEBOUNCE_MS = 200;
     private static final int CONNECT_DELAY_MS = 250;
     private static final int IDLE_CONNECT_DELAY_MS = 2_000;
 
@@ -130,6 +133,17 @@ public final class PaletteFilterHostOperations implements PaletteFilterVisibilit
     private volatile ClassLoader hostClassLoader;
     private volatile long connectionToken;
     private volatile boolean connected;
+
+    /**
+     * Daemon executor that pre-warms the filtered tree model caches off the EDT; the EDT only
+     * installs the model and expands rows once the (read-only) reflection traversal is done.
+     */
+    private static final java.util.concurrent.ExecutorService TREE_FILTER_EXECUTOR =
+        java.util.concurrent.Executors.newSingleThreadExecutor(runnable -> {
+            final Thread thread = new Thread(runnable, "turboism-palette-tree-filter");
+            thread.setDaemon(true);
+            return thread;
+        });
     private long lastParameterReplayMillis;
 
     /** Test seam: resolves the palette root object for a palette kind. */
@@ -416,6 +430,17 @@ public final class PaletteFilterHostOperations implements PaletteFilterVisibilit
             }
             state.filteredTreeModel.dispose();
             state.filteredTreeModel = null;
+        }
+
+        // A pre-warming model may still be in flight; dispose it and stop the debounce timer so a
+        // detached binding can neither install itself nor fire a stale filter.
+        if (state.pendingFilteredTreeModel != null) {
+            state.pendingFilteredTreeModel.dispose();
+            state.pendingFilteredTreeModel = null;
+        }
+        if (state.treeFilterTimer != null) {
+            state.treeFilterTimer.stop();
+            state.treeFilterTimer = null;
         }
         state.controller = null;
         state.scenePalette = null;
@@ -837,7 +862,12 @@ public final class PaletteFilterHostOperations implements PaletteFilterVisibilit
         if (state.treeModel == null) {
             state.treeModel = tree.getModel();
         }
-        ensureFilterBox(state, toolbar, contribution, text -> applyTreeFilter(state, tree, text));
+        // Keystrokes are debounced so continuous typing rebuilds the tree at most once per window;
+        // the attach-time application below still runs synchronously with the initial keyword.
+        ensureFilterBox(state, toolbar, contribution, text -> {
+            state.filterText = normalize(text);
+            scheduleTreeFilter(state, text);
+        });
         applyTreeFilter(state, tree, state.filterText);
         lastAttachStatus.put(state.kind, "attached table=" + table.getClass().getName()
             + " toolbar=" + toolbar.getClass().getName() + " tree=" + tree.getClass().getName()
@@ -846,6 +876,23 @@ public final class PaletteFilterHostOperations implements PaletteFilterVisibilit
             + " treeRows=" + tree.getRowCount() + " tableRows=" + table.getRowCount()
             + " filterText=[" + state.filterText + "]");
         return true;
+    }
+
+    /**
+     * Debounced deformer-tree filter application (last change wins within the debounce window).
+     * Package-visible for the filter regression tests.
+     */
+    void scheduleTreeFilter(final PaletteFilterState state, final String text) {
+        // Record the keyword synchronously: the debounce timer applies state.filterText when it
+        // fires, so it must always reflect the latest keystroke (last-change-wins semantics).
+        state.filterText = normalize(text);
+        if (state.treeFilterTimer == null) {
+            state.treeFilterTimer = new Timer(FILTER_DEBOUNCE_MS, event -> {
+                applyTreeFilter(state, state.tree, state.filterText);
+            });
+            state.treeFilterTimer.setRepeats(false);
+        }
+        state.treeFilterTimer.restart();
     }
 
     private boolean attachParameter(final PaletteFilterState state, final PaletteFilterRegistry.PaletteFilterContribution contribution) {
@@ -1658,6 +1705,9 @@ public final class PaletteFilterHostOperations implements PaletteFilterVisibilit
 
     private void applyTreeFilter(final PaletteFilterState state, final JTree tree, final String text) {
         try {
+            if (tree == null) {
+                return;
+            }
             final String keyword = normalize(text);
             final TreeModel original = state.treeModel;
             if (original == null) {
@@ -1666,7 +1716,7 @@ public final class PaletteFilterHostOperations implements PaletteFilterVisibilit
             }
             final TreeModel current = tree.getModel();
             if (current != original && current != state.filteredTreeModel) {
-                lastAttachStatus.put(state.kind, "tree-filter:host-model-replaced "
+                lastAttachStatus.put(state.kind, "tree-filter:host-model-replaced \""
                     + current.getClass().getName());
                 if (state.filteredTreeModel != null) {
                     state.filteredTreeModel.dispose();
@@ -1677,7 +1727,7 @@ public final class PaletteFilterHostOperations implements PaletteFilterVisibilit
                 return;
             }
             if (keyword.isEmpty()) {
-                if (current == state.filteredTreeModel) {
+                if (tree.getModel() != original) {
                     tree.setModel(original);
                     refreshTableModel(state.table);
                 }
@@ -1685,23 +1735,63 @@ public final class PaletteFilterHostOperations implements PaletteFilterVisibilit
                     state.filteredTreeModel.dispose();
                     state.filteredTreeModel = null;
                 }
+                if (state.pendingFilteredTreeModel != null) {
+                    state.pendingFilteredTreeModel.dispose();
+                    state.pendingFilteredTreeModel = null;
+                }
                 lastAttachStatus.put(state.kind, "tree-filter keyword= restored");
                 return;
             }
-            if (state.filteredTreeModel == null) {
-                state.filteredTreeModel = new FilteredTreeModel(
-                    original, keyword, PaletteFilterHostOperations::deformerNodeSearchText
-                );
-                tree.setModel(state.filteredTreeModel);
-            } else {
-                state.filteredTreeModel.setKeyword(keyword);
+            // A fresh model per keyword: the old applied model stays installed while the new one
+            // pre-warms its caches on the background executor, so the EDT never performs the full
+            // reflective tree walk. The EDT only swaps the model and expands rows afterwards.
+            final FilteredTreeModel filtered = new FilteredTreeModel(
+                original, keyword, PaletteFilterHostOperations::deformerNodeSearchText);
+            final TreeModel installed = tree.getModel();
+            final FilteredTreeModel applied = installed instanceof FilteredTreeModel model ? model : null;
+            if (state.pendingFilteredTreeModel != null && state.pendingFilteredTreeModel != applied) {
+                state.pendingFilteredTreeModel.dispose();
             }
-            expandFilteredTree(tree);
-            refreshTableModel(state.table);
-            lastAttachStatus.put(state.kind, "tree-filter keyword=" + keyword
-                + " original=" + original.getClass().getSimpleName()
-                + " treeRows=" + tree.getRowCount()
-                + " tableRows=" + (state.table == null ? -1 : state.table.getRowCount()));
+            state.pendingFilteredTreeModel = filtered;
+            TREE_FILTER_EXECUTOR.execute(() -> {
+                try {
+                    filtered.prewarm();
+                } catch (Throwable ignored) {
+                    // Best-effort: on failure the model falls back to lazy EDT traversal (legacy behavior).
+                }
+                onEdt(() -> {
+                    if (state.pendingFilteredTreeModel != filtered) {
+                        filtered.dispose(); // superseded by a newer keyword before install
+                        return;
+                    }
+                    state.pendingFilteredTreeModel = null;
+                    final TreeModel appliedModel = tree.getModel();
+                    if (appliedModel != original && appliedModel != applied) {
+                        // The host replaced the model while pre-warming; keep the host model and let
+                        // the next reconcile/keystroke rebuild against it (legacy re-apply semantics).
+                        lastAttachStatus.put(state.kind, "tree-filter:host-model-replaced \""
+                            + appliedModel.getClass().getName());
+                        state.treeModel = appliedModel;
+                        state.filteredTreeModel = null;
+                        if (applied != null) applied.dispose();
+                        filtered.dispose();
+                        return;
+                    }
+                    state.filteredTreeModel = filtered;
+                    if (appliedModel != filtered) {
+                        tree.setModel(filtered);
+                    }
+                    if (applied != null && applied != filtered) {
+                        applied.dispose();
+                    }
+                    expandFilteredTree(tree);
+                    refreshTableModel(state.table);
+                    lastAttachStatus.put(state.kind, "tree-filter keyword=" + keyword
+                        + " original=" + original.getClass().getSimpleName()
+                        + " treeRows=" + tree.getRowCount()
+                        + " tableRows=" + (state.table == null ? -1 : state.table.getRowCount()));
+                });
+            });
         } catch (Throwable failure) {
             lastAttachStatus.put(state.kind, "tree-filter-failed:"
                 + failure.getClass().getSimpleName() + ":" + failure.getMessage());
@@ -1718,12 +1808,16 @@ public final class PaletteFilterHostOperations implements PaletteFilterVisibilit
         private final TreeModel delegate;
         private final Function<Object, String> searchText;
         private final List<TreeModelListener> listeners = new ArrayList<>();
-        // Host nodes may have colliding equals/hashCode, so cache by identity.
-        private final Map<Object, List<Object>> childrenCache = new java.util.IdentityHashMap<>();
-        private final Map<Object, Boolean> matchCache = new java.util.IdentityHashMap<>();
+        // Host nodes may have colliding equals/hashCode, so cache by identity. The caches are
+        // written by the background pre-warm thread and read by the EDT, hence synchronized maps.
+        private final Map<Object, List<Object>> childrenCache =
+            java.util.Collections.synchronizedMap(new java.util.IdentityHashMap<>());
+        private final Map<Object, Boolean> matchCache =
+            java.util.Collections.synchronizedMap(new java.util.IdentityHashMap<>());
         private final TreeModelListener delegateListener;
-        private String keyword = "";
-        private boolean disposed;
+        private volatile String keyword = "";
+        private volatile boolean disposed;
+        private volatile long generation;
 
 
         FilteredTreeModel(
@@ -1758,6 +1852,36 @@ public final class PaletteFilterHostOperations implements PaletteFilterVisibilit
             fireStructureChanged();
         }
 
+        /** Normalized keyword used to build this model (for apply-time supersession checks). */
+        String keyword() {
+            return keyword;
+        }
+
+        /**
+         * Eagerly walks the whole delegate tree to fill {@link #childrenCache} and
+         * {@link #matchCache}, so the EDT only performs cached lookups once the model is installed.
+         * Runs on the background filter executor; best-effort (any failure leaves the caches
+         * partially warm and the model falls back to lazy traversal on the EDT).
+         */
+        void prewarm() {
+            final long atGeneration = generation;
+            final Object root = delegate.getRoot();
+            if (root != null) {
+                prewarmNode(root);
+            }
+            if (generation != atGeneration) {
+                // The delegate changed mid-walk; drop the stale entries so the EDT re-computes.
+                childrenCache.clear();
+                matchCache.clear();
+            }
+        }
+
+        private void prewarmNode(final Object node) {
+            for (Object child : visibleChildren(node)) {
+                prewarmNode(child);
+            }
+        }
+
         void dispose() {
             if (disposed) {
                 return;
@@ -1767,6 +1891,7 @@ public final class PaletteFilterHostOperations implements PaletteFilterVisibilit
         }
 
         private void invalidate() {
+            generation++;
             childrenCache.clear();
             matchCache.clear();
         }
@@ -2067,17 +2192,12 @@ public final class PaletteFilterHostOperations implements PaletteFilterVisibilit
         if (target == null) {
             return null;
         }
-        Class<?> type = target.getClass();
-        while (type != null) {
-            try {
-                final java.lang.reflect.Method method = type.getDeclaredMethod(methodName);
-                method.setAccessible(true);
-                return method.invoke(target);
-            } catch (ReflectiveOperationException | LinkageError ignored) {
-                type = type.getSuperclass();
-            }
+        try {
+            // Cached hierarchy walk of declared methods; the cache applies the access policy once.
+            return MethodHandleCache.declaredUp(target.getClass(), methodName).invoke(target);
+        } catch (ReflectiveOperationException | LinkageError ignored) {
+            return null;
         }
-        return null;
     }
 
     private static Object field(final Object target, final String name) {
@@ -2113,7 +2233,8 @@ public final class PaletteFilterHostOperations implements PaletteFilterVisibilit
         }
     }
 
-    private static final class PaletteFilterState {
+    /** Package-visible for the filter regression tests (debounce seam). */
+    static final class PaletteFilterState {
         final PaletteKind kind;
         volatile Object controller;
         volatile Object scenePalette;
@@ -2139,6 +2260,8 @@ public final class PaletteFilterHostOperations implements PaletteFilterVisibilit
         volatile JTree tree;
         volatile TreeModel treeModel;
         volatile FilteredTreeModel filteredTreeModel;
+        volatile FilteredTreeModel pendingFilteredTreeModel;
+        volatile Timer treeFilterTimer;
         volatile Object tableModel;
         volatile List<ParameterFilterRow> rows = List.of();
         final Map<JComponent, Boolean> originalRowVisibility = new java.util.IdentityHashMap<>();

@@ -65,4 +65,93 @@ public interface Parameters {
         Objects.requireNonNull(predicate, "predicate");
         return all().stream().filter(predicate).toList();
     }
+
+    /**
+     * Creates a new parameter in the root parameter folder and returns it.
+     *
+     * <p>The write is undoable and generation-bound. The definition ID must be
+     * unique in the active model.</p>
+     *
+     * @throws IllegalArgumentException when the ID is already present or the definition is invalid
+     */
+    default Parameter create(final ParameterDefinition definition) {
+        return create(definition, java.util.Optional.empty());
+    }
+
+    /**
+     * Creates a new parameter in the requested parameter folder and returns it.
+     *
+     * @throws IllegalArgumentException when the ID is already present or the definition is invalid
+     * @throws NoSuchElementException when the folder is absent
+     */
+    default Parameter create(
+        final ParameterDefinition definition,
+        final java.util.Optional<dev.turboism.sdk.cubism.id.ParameterGroupId> folderId
+    ) {
+        Objects.requireNonNull(definition, "definition");
+        Objects.requireNonNull(folderId, "folderId");
+        throw new UnsupportedOperationException("Parameter creation is unavailable.");
+    }
+
+    /**
+     * Duplicates one parameter next to the source parameter and returns the copy.
+     *
+     * <p>The copy receives a fresh unique ID and copies the definition fields of
+     * the source.</p>
+     *
+     * @throws NoSuchElementException when the source parameter is absent
+     */
+    default Parameter copy(final ParameterId id) {
+        Objects.requireNonNull(id, "id");
+        throw new UnsupportedOperationException("Parameter duplication is unavailable.");
+    }
+
+    /**
+     * Deletes one parameter, including its keyform bindings, Morph Targets, and physics references.
+     *
+     * @throws NoSuchElementException when the parameter is absent
+     */
+    default void remove(final ParameterId id) {
+        Objects.requireNonNull(id, "id");
+        throw new UnsupportedOperationException("Parameter deletion is unavailable.");
+    }
+
+    /**
+     * Creates several parameters in the root parameter folder as one undo unit and returns them.
+     *
+     * <p>The whole batch shares a single Undo entry: either every definition is
+     * applied or (on failure) the envelope is rolled back.</p>
+     *
+     * @throws IllegalArgumentException when an ID is already present, duplicated within
+     *                                  the batch, or a definition is invalid
+     */
+    default List<Parameter> createMany(final List<ParameterDefinition> definitions) {
+        return createMany(definitions, java.util.Optional.empty());
+    }
+
+    /**
+     * Creates several parameters in the requested parameter folder as one undo unit and returns them.
+     *
+     * @throws IllegalArgumentException when an ID is already present, duplicated within
+     *                                  the batch, or a definition is invalid
+     * @throws NoSuchElementException   when the folder is absent
+     */
+    default List<Parameter> createMany(
+        final List<ParameterDefinition> definitions,
+        final java.util.Optional<dev.turboism.sdk.cubism.id.ParameterGroupId> folderId
+    ) {
+        Objects.requireNonNull(definitions, "definitions");
+        Objects.requireNonNull(folderId, "folderId");
+        throw new UnsupportedOperationException("Batch parameter creation is unavailable.");
+    }
+
+    /**
+     * Deletes several parameters as one undo unit.
+     *
+     * @throws NoSuchElementException when any parameter is absent
+     */
+    default void removeMany(final List<ParameterId> ids) {
+        Objects.requireNonNull(ids, "ids");
+        throw new UnsupportedOperationException("Batch parameter deletion is unavailable.");
+    }
 }

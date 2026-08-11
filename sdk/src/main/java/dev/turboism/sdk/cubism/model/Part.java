@@ -1,6 +1,7 @@
 package dev.turboism.sdk.cubism.model;
 
 import dev.turboism.sdk.PreviewApi;
+import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.ui.appearance.model.PartAppearance;
 
 import java.util.List;
@@ -22,6 +23,30 @@ public interface Part {
 
     void setName(String name);
 
+    /**
+     * Renames this Part's Cubism ID through the Editor Inspector {@code id} entry.
+     * Mirrors the Inspector sequence (check id rules, undo envelope, model
+     * instance refresh, verify, palette refresh).
+     *
+     * @throws IllegalArgumentException when the requested ID violates Cubism ID rules
+     * @throws IllegalStateException    when the backend rejects the Undo entry
+     */
+    default void setId(final PartId id) {
+        throw unavailable("Part ID editing");
+    }
+
+    /**
+     * Moves this Part under {@code parent} in the Part tree at {@code index} (negative = append).
+     *
+     * <p>The native Cubism Part tree owns the detach/attach semantics (old-parent {@code removeChild},
+     * {@code internal_setParent}) and Undo/Redo.</p>
+     *
+     * @throws IllegalArgumentException when {@code parent} is this Part or one of its descendants
+     */
+    default void setParent(Part parent, int index) {
+        throw unavailable("Part reparenting");
+    }
+
     default Optional<String> shortName() { throw unavailable("Part short name"); }
 
     default void setShortName(final Optional<String> value) {
@@ -31,6 +56,22 @@ public interface Part {
     default Optional<PartId> parentId() { throw unavailable("Part parent"); }
 
     default List<PartId> childIds() { throw unavailable("Part children"); }
+
+    /**
+     * Returns the ArtMesh IDs this Part clips (Inspector {@code clippingMaskId}
+     * entry), in stable host order.
+     */
+    default List<ArtMeshId> maskIds() { throw unavailable("Part clipping masks"); }
+
+    /**
+     * Replaces the Part's clipping mask list (Inspector {@code clippingMaskId}
+     * entry) inside the native Undo envelope.
+     *
+     * @throws IllegalArgumentException when a referenced ArtMesh is absent from the model
+     */
+    default void setMaskIds(final List<ArtMeshId> ids) {
+        throw unavailable("Part clipping-mask editing");
+    }
 
     default boolean visible() { throw unavailable("Part visibility"); }
 
@@ -44,6 +85,15 @@ public interface Part {
 
     default boolean lockedInHierarchy() { throw unavailable("Part effective lock state"); }
 
+    /**
+     * Returns this Part's keyform Morph Targets in stable host order.
+     *
+     * @throws UnsupportedOperationException when the backend does not expose them
+     */
+    default MorphTargets morphTargets() {
+        throw unavailable("Part Morph Targets");
+    }
+
     default Optional<Color> editColor() { throw unavailable("Part edit color"); }
 
     default void setEditColor(final Optional<Color> value) {
@@ -53,6 +103,20 @@ public interface Part {
     default boolean sketch() { throw unavailable("Part sketch state"); }
 
     default void setSketch(final boolean value) { throw unavailable("Part sketch editing"); }
+
+    /**
+     * Returns this Part's alpha-composition mode (Inspector {@code alphaComposition}
+     * entry), or {@link AlphaComposition#UNKNOWN} when the backend does not expose it.
+     */
+    default AlphaComposition alphaComposition() { return AlphaComposition.UNKNOWN; }
+
+    /**
+     * Writes this Part's alpha-composition mode (Inspector {@code alphaComposition}
+     * entry) inside the native Undo envelope. Cubism 5.2 hosts fail closed.
+     */
+    default void setAlphaComposition(final AlphaComposition composition) {
+        throw unavailable("Part alpha-composition editing");
+    }
 
     default int defaultOrder() { throw unavailable("Part default order"); }
 

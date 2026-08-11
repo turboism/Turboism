@@ -104,6 +104,71 @@ val checkPackageLayout by tasks.registering(Exec::class) {
     commandLine("python3", "scripts/test/check_package_layout.py", rootDir.absolutePath)
 }
 
+val checkModuleBoundariesSelfTest by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Runs negative fixtures for fail-closed module-boundary enforcement."
+    workingDir(rootDir)
+    inputs.files("gradle/module-boundaries.gradle.kts", "scripts/test/test_module_boundaries.py")
+    commandLine("python3", "scripts/test/test_module_boundaries.py")
+}
+
+val checkDuplicateJavaImports by tasks.registering {
+    group = "verification"
+    description = "Rejects duplicate Java import declarations within one source file."
+    doLast {
+        val importPattern = Regex("""^\s*import\s+(static\s+)?([\w.${'$'}*]+)\s*;\s*${'$'}""")
+        val duplicates = mutableListOf<String>()
+        fileTree(rootDir) {
+            include("**/src/**/*.java")
+            exclude(".worktrees/**")
+        }.files
+            .sortedBy { it.relativeTo(rootDir).invariantSeparatorsPath }
+            .forEach { source ->
+                val relativePath = source.relativeTo(rootDir).invariantSeparatorsPath
+                val firstImportLines = mutableMapOf<String, Int>()
+                var importsOpen = true
+                var blockComment = false
+                source.useLines { lines ->
+                    lines.forEachIndexed { index, line ->
+                        if (!importsOpen) {
+                            return@forEachIndexed
+                        }
+                        val trimmed = line.trim()
+                        if (blockComment) {
+                            if (trimmed.contains("*/")) {
+                                blockComment = false
+                            }
+                            return@forEachIndexed
+                        }
+                        if (trimmed.isEmpty() || trimmed.startsWith("//")) {
+                            return@forEachIndexed
+                        }
+                        if (trimmed.startsWith("/*")) {
+                            blockComment = !trimmed.contains("*/")
+                            return@forEachIndexed
+                        }
+                        val match = importPattern.matchEntire(line)
+                        if (match == null) {
+                            if (!trimmed.startsWith("package ") && !trimmed.startsWith("@")) {
+                                importsOpen = false
+                            }
+                            return@forEachIndexed
+                        }
+                        val declaration = (match.groupValues[1] + match.groupValues[2]).trim()
+                        val lineNumber = index + 1
+                        val firstLine = firstImportLines.putIfAbsent(declaration, lineNumber)
+                        if (firstLine != null) {
+                            duplicates += "$relativePath:$lineNumber repeats import $declaration; (first at line $firstLine)"
+                        }
+                    }
+                }
+            }
+        if (duplicates.isNotEmpty()) {
+            throw GradleException(duplicates.sorted().joinToString("\n", prefix = "Duplicate Java import declarations:\n"))
+        }
+    }
+}
+
 val productionClasses = subprojects
     .filterNot { it.path == ":tests" }
     .map { "${it.path}:classes" }
@@ -113,9 +178,13 @@ val devCheck by tasks.registering {
     description = "Fast daily production compilation and permanent-boundary verification; no broad test suites."
     dependsOn(
         productionClasses,
+        checkDuplicateJavaImports,
         checkPackageLayout,
         "checkModuleBoundaries",
-        "validatePluginMeta"
+        "checkSdkV4ExactApiCompatibility",
+        "checkSdkV4TierCompatibility",
+        "validatePluginMeta",
+        "checkOfficialPluginI18nCompleteness"
     )
 }
 
@@ -171,6 +240,28 @@ tasks.register<Exec>("validateStatusBarHost5302") {
     environment("TURBOISM_WORKTREE_ID", resolvedHostValidationWorktreeId)
     commandLine("bash", "scripts/preview/run-status-bar-host-validation.sh", "5302")
 }
+
+val buildSeparateSavePathHostProbe by tasks.registering(Exec::class) {
+    group = "host verification"
+    description = "Builds the test-only SDK separate-save-path host exerciser."
+    dependsOn(":sdk:jar")
+    workingDir(rootDir)
+    commandLine("bash", "validation/separate-save-path-host-probe/build.sh")
+}
+
+fun registerSeparateSavePathHostValidation(name: String, version: String, displayVersion: String) {
+    tasks.register<Exec>(name) {
+        group = "host verification"
+        description = "Runs the automated exact-host Cubism $displayVersion separate-save-path matrix."
+        dependsOn("previewBundle", ":sdk:jar", buildSeparateSavePathHostProbe)
+        workingDir(rootDir)
+        environment("TURBOISM_WORKTREE_ID", resolvedHostValidationWorktreeId)
+        commandLine("bash", "scripts/preview/run-separate-save-path-host-validation.sh", version)
+    }
+}
+
+registerSeparateSavePathHostValidation("validateSeparateSavePathHost5302", "5302", "5.3.02")
+registerSeparateSavePathHostValidation("validateSeparateSavePathHost5203", "5203", "5.2.03")
 
 val packageClipMaskViewerHostValidation by tasks.registering(Exec::class) {
     group = "host verification"
@@ -274,6 +365,12 @@ tasks.register("checkRelease") {
     description = "Runs integration, supply-chain, API-tooling, and release-oriented verification."
     dependsOn(
         "checkIntegration",
+        "checkSdkApiBaselineTool",
+        "checkSdkApiReferenceBuilder",
+        "checkModuleBoundariesSelfTest",
+        "checkSdkV2ExactApiCompatibility",
+        "checkSdkV3ExactApiCompatibility",
+        "checkSdkV3TierCompatibility",
         "checkAsmSupplyChainAdmission",
         "checkMappingReviewWrapperArgs"
     )

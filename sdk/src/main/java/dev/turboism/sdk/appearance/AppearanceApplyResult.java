@@ -22,6 +22,7 @@ public record AppearanceApplyResult(
         });
     }
 
+    @PreviewApi
     public enum Outcome {
         APPLIED,
         NO_CHANGE,
