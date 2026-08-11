@@ -16,12 +16,77 @@ RemoveItemFromList 的 NSIS 实现（';' 分隔列表 + 逐 id 移除 + 插入�
 
 注意：与 NSIS 一致，既有 config 的其它字段（logLevel/hooks 等）不保留，
 由运行时默认值补全（见 installer.nsi 注释；configure_turboism.ps1 完整保留）。
+
+packaging/release-plugins.txt 仍是发布载荷的唯一权威清单：本脚本将其作为显式
+18 项目 / 4 占位插件回归 oracle（清单漂移即失败），但下方模拟器的合成
+id/module fixture 与该清单相互独立 —— Gradle 模块名不是插件 id 的通用约定
+（如 atlas-maxrects-bssf、clip-mask 与 id 不同形），真实 id 由
+verify-installer.py 与 assemble-release.sh 从各 JAR 的
+META-INF/turboism/plugin.json 读取并逐一校验（见 SPEC.md）。
 """
 
 import json
+import re
 import sys
+from pathlib import Path
 
-# 当前捆绑插件清单（fixture：与生成器从 plugin.json 读到的 id/模块对应）
+MANIFEST_PATH = Path(__file__).resolve().parent.parent / "release-plugins.txt"
+
+# 冻结的 18 项目批准清单 —— 回归 oracle：清单增删/改序/占位回归即失败。
+EXPECTED_PATHS = [
+    ":plugins:atlas-maxrects-bssf",
+    ":plugins:clip-mask",
+    ":plugins:clipmask-viewer",
+    ":plugins:core",
+    ":plugins:cubism-tab-filter",
+    ":plugins:demo",
+    ":plugins:log-filter",
+    ":plugins:mesh",
+    ":plugins:palette-label-style",
+    ":plugins:parameter",
+    ":plugins:perf-opt",
+    ":plugins:physics-editor",
+    ":plugins:project-inspector",
+    ":plugins:recent-preview",
+    ":plugins:render-opt",
+    ":plugins:scene-palette-enhancer",
+    ":plugins:texture-atlas-stats",
+    ":plugins:ui-theme",
+]
+# 四个纯占位插件：必须从清单及一切发布载荷/选择面缺席（回归 oracle）
+EXCLUDED = {"bounding-box", "context-menu", "project-panel", "psd-import"}
+
+
+def check(name, cond, detail=""):
+    if not cond:
+        print(f"FAIL: {name} {detail}")
+        sys.exit(1)
+    print(f"  ok: {name}")
+
+
+def load_manifest():
+    """回归 oracle：从唯一权威 release-plugins.txt 校验清单 —— 空行/注释/非插件项/
+    重复/未排序/偏离冻结 18 项/含占位插件均失败。返回的模块名仅供 oracle 使用，
+    不用于推导模拟器的插件 id（真实 id 以各 JAR 的 plugin.json 为准）。"""
+    raw = MANIFEST_PATH.read_text(encoding="utf-8").splitlines()
+    invalid = [l for l in raw if not l.strip() or l.strip().startswith("#")]
+    check("清单无空行/注释", not invalid, f"found={invalid[:3]}")
+    lines = [l.strip() for l in raw if l.strip() and not l.strip().startswith("#")]
+    entry = re.compile(r"^:plugins:[a-z0-9-]+$")
+    bad = [l for l in lines if not entry.match(l)]
+    check("清单项均为插件路径", not bad, f"bad={bad[:3]}")
+    check("清单无重复", len(set(lines)) == len(lines))
+    check("清单按 ASCII 升序", lines == sorted(lines))
+    check("清单与冻结 18 项目一致", lines == EXPECTED_PATHS, f"n={len(lines)}")
+    modules = [l[len(":plugins:"):] for l in lines if l != ":plugins:core"]
+    check("占位插件不在清单", not (set(modules) & EXCLUDED),
+          f"found={set(modules) & EXCLUDED}")
+    return modules
+
+
+# 独立合成 fixture：三对 id/module 仅用于镜像 NSIS config 合并与载荷 Section 语义，
+# 不派生自真实插件清单 —— Gradle 模块名不是插件 id 的通用约定。真实捆绑 id 由
+# verify-installer.py 与 assemble-release.sh 从各 JAR 的 plugin.json 读取校验。
 BUNDLED = [
     ("dev.turboism.plugin.alpha", "plugin-alpha"),
     ("dev.turboism.plugin.beta", "plugin-beta"),
@@ -30,6 +95,8 @@ BUNDLED = [
 BUNDLED_IDS = [i for i, _ in BUNDLED]
 BUNDLED_MODULES = sorted(m for _, m in BUNDLED)
 UNRELATED = "dev.turboism.plugin.not-bundled"
+
+load_manifest()  # 回归 oracle：清单漂移（增删/改序/占位回归）即失败
 
 
 def split_first(lst: str):
@@ -135,13 +202,6 @@ def nsis_jars_after(mode, prev_jars):
     if mode == "full":
         return sorted(BUNDLED_MODULES)
     return sorted(prev_jars)
-
-
-def check(name, cond, detail=""):
-    if not cond:
-        print(f"FAIL: {name} {detail}")
-        sys.exit(1)
-    print(f"  ok: {name}")
 
 
 def main():
