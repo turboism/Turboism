@@ -190,6 +190,7 @@ class ParameterLifecycleCoordinatorTest {
         coordinator.close();
     }
 
+
     @Test
     void hookPermissionsSeparateInterceptionFromObservation() {
         final List<String> events = new ArrayList<>();

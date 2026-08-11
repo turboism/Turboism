@@ -1,0 +1,6 @@
+plugin.description
+plugin.name
+tab-filter.placeholder.deformer
+tab-filter.placeholder.log
+tab-filter.placeholder.parameter
+tab-filter.placeholder.scene

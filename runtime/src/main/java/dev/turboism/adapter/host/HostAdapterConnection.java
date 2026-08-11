@@ -45,6 +45,10 @@ interface HostAdapterConnection extends AutoCloseable {
         return null;
     }
 
+    default dev.turboism.ui.workspace.layout.WorkspaceLayoutCoordinator workspaceLayoutCoordinator() {
+        return null;
+    }
+
     default List<EditorUiContributionProvider> editorUiProviders(final long hostGeneration) {
         if (hostGeneration <= 0) {
             throw new IllegalArgumentException("hostGeneration must be positive");

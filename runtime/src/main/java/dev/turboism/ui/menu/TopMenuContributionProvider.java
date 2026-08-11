@@ -61,12 +61,22 @@ public final class TopMenuContributionProvider implements EditorUiContributionPr
             .flatMap(java.util.Optional::stream)
             .sorted(ITEM_ORDER)
             .toList();
-        final LinkedHashMap<String, List<TopMenuItemDescriptor>> grouped = new LinkedHashMap<>();
+        final LinkedHashMap<MenuKey, List<TopMenuItemDescriptor>> grouped = new LinkedHashMap<>();
         for (TopMenuItemDescriptor item : items) {
-            grouped.computeIfAbsent(item.rootLabel(), ignored -> new ArrayList<>()).add(item);
+            final boolean shared = RESERVED_SHARED_ROOT.equals(item.rootLabel());
+            final String owner = shared ? SHARED_ROOT_OWNER : item.pluginId();
+            grouped.computeIfAbsent(
+                new MenuKey(owner, item.rootLabel(), shared),
+                ignored -> new ArrayList<>()
+            ).add(item);
         }
         final List<TopMenuDescriptor> menus = grouped.entrySet().stream()
-            .map(entry -> TopMenuDescriptor.owned(entry.getKey(), entry.getValue()))
+            .map(entry -> entry.getKey().shared()
+                ? TopMenuDescriptor.shared(entry.getKey().rootLabel(), entry.getValue())
+                : TopMenuDescriptor.owned(
+                    entry.getKey().rootLabel(),
+                    entry.getValue()
+                ))
             .toList();
         final Reconciler reconciler = new Reconciler(menus);
         final List<Registration> registrations = new ArrayList<>();
@@ -140,6 +150,19 @@ public final class TopMenuContributionProvider implements EditorUiContributionPr
         }
     }
 
+
+    /** Reserved root label shared by multiple plugin-owned top menus; merged into one visible root. */
+    private static final String RESERVED_SHARED_ROOT = "Turboism";
+
+    /**
+     * Internal placeholder owner for the merged reserved-root group. It is only
+     * a grouping key inside this class; it is never emitted as a plugin id and
+     * the {@code shared} flag, not this string, decides shared aggregation.
+     */
+    private static final String SHARED_ROOT_OWNER = "shared";
+
+    private record MenuKey(String owner, String rootLabel, boolean shared) {
+    }
 
     private static void closeAll(final List<? extends Registration> registrations) {
         RuntimeException first = null;

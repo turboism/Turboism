@@ -5,6 +5,7 @@ import dev.turboism.mapping.verification.VerifiedMemberResolver;
 
 import java.lang.instrument.Instrumentation;
 import java.util.Objects;
+import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BooleanSupplier;
@@ -49,7 +50,8 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
         final TextureAtlasNativeInvocationCoordinator nativeInvocations,
         final BooleanSupplier pluginCallback,
         final RuntimeTextureAtlasEditorUi editorUi,
-        final RuntimeTextureAtlasLayoutAlgorithmRegistry algorithmRegistry
+        final RuntimeTextureAtlasLayoutAlgorithmRegistry algorithmRegistry,
+        final Locale effectiveLocale
     ) {
         this.instrumentation = Objects.requireNonNull(instrumentation, "instrumentation");
         this.targetClassName = entry.ownerInternalName().replace('/', '.');
@@ -76,7 +78,7 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
             DIALOG_INGRESS_KEY
         );
         this.dialogContributor = new TextureAtlasAutoLayoutDialogContributor(
-            algorithmRegistry, java.util.Locale.getDefault()
+            algorithmRegistry, Objects.requireNonNull(effectiveLocale, "effectiveLocale")
         );
         this.dialogIngress = dialogContributor.ingress();
         if (resolverForConstructor.isExactCubismVersion("5.3.02")) {
@@ -120,6 +122,22 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
         final BooleanSupplier pluginCallback,
         final RuntimeTextureAtlasEditorUi editorUi,
         final RuntimeTextureAtlasLayoutAlgorithmRegistry algorithmRegistry
+    ) {
+        return fromVerifiedResolver(
+            instrumentation, resolver, hostClassLoader, nativeInvocations, pluginCallback,
+            editorUi, algorithmRegistry, dev.turboism.i18n.CubismHostLocale.resolve()
+        );
+    }
+
+    public static VerifiedTextureAtlasAutoLayoutHookInstaller fromVerifiedResolver(
+        final Instrumentation instrumentation,
+        final VerifiedMemberResolver resolver,
+        final ClassLoader hostClassLoader,
+        final TextureAtlasNativeInvocationCoordinator nativeInvocations,
+        final BooleanSupplier pluginCallback,
+        final RuntimeTextureAtlasEditorUi editorUi,
+        final RuntimeTextureAtlasLayoutAlgorithmRegistry algorithmRegistry,
+        final Locale effectiveLocale
     ) {
         final VerifiedMemberResolver verified = Objects.requireNonNull(resolver, "resolver");
         final Set<String> aliases;
@@ -165,7 +183,8 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
             nativeInvocations,
             pluginCallback,
             editorUi,
-            algorithmRegistry
+            algorithmRegistry,
+            effectiveLocale
         );
     }
 

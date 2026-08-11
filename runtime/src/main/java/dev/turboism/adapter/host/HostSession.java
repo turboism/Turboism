@@ -9,7 +9,6 @@ import dev.turboism.adapter.cubism.lifecycle.PartLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.ProjectFileLifecycleCoordinator;
 import dev.turboism.sdk.cubism.ProjectFileOperationType;
 import dev.turboism.adapter.cubism.textureatlas.TextureAtlasLayoutCoordinator;
-import dev.turboism.adapter.cubism.lifecycle.EditorObjectLifecycleCoordinator;
 import dev.turboism.adapter.cubism.physics.PhysicsEditorCoordinator;
 import dev.turboism.sdk.event.EventBus;
 import dev.turboism.ui.action.RuntimeEditorUiActionRouter;
@@ -68,6 +67,10 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         new EditorLifecycleCoordinator();
     private final PhysicsEditorCoordinator physicsEditorCoordinator =
         new PhysicsEditorCoordinator();
+    private final dev.turboism.adapter.cubism.mesh.RuntimeMeshMirrorAxisService meshMirrorAxisService =
+        new dev.turboism.adapter.cubism.mesh.RuntimeMeshMirrorAxisService();
+    private final dev.turboism.adapter.cubism.mesh.RuntimeMeshEditUiService meshEditUiService =
+        new dev.turboism.adapter.cubism.mesh.RuntimeMeshEditUiService();
     private final RuntimeEditorUiHostLifecycle editorUiLifecycle =
         new RuntimeEditorUiHostLifecycle();
     private final EditorUiContributionAuthority editorUiContributions =
@@ -108,6 +111,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         new dev.turboism.runtime.log.CubismLogServiceHost();
     private final dev.turboism.ui.workspace.WorkspaceCoordinator workspaceCoordinator =
         new dev.turboism.ui.workspace.WorkspaceCoordinator();
+    private volatile dev.turboism.ui.workspace.layout.WorkspaceLayoutCoordinator workspaceLayoutCoordinator;
     private final Object lifecycleMonitor = new Object();
 
     private State state = State.SAFE_MODE;
@@ -122,13 +126,26 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     private boolean closeRequested;
 
     public HostSession(final HostInstanceSource source) {
+        this(source, dev.turboism.i18n.CubismHostLocale.resolve());
+    }
+
+    public HostSession(
+        final HostInstanceSource source,
+        final java.util.Locale effectiveLocale
+    ) {
         this.source = Objects.requireNonNull(source, "source");
         this.connector = new VerifiedHostAdapterConnector(
-            new dev.turboism.adapter.VerifiedRuntimeHostAdaptersFactory()::create,
+            new dev.turboism.adapter.VerifiedRuntimeHostAdaptersFactory(
+                Objects.requireNonNull(effectiveLocale, "effectiveLocale")
+            )::create,
             slice -> new dev.turboism.mapping.verification.VerifiedEditorModelResolverFactory().create(
                 slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
             ),
-            dev.turboism.adapter.cubism.editor.EditorBackedCubismModelAccess::new,
+            (resolver, sessionId, coreBackend) -> new dev.turboism.adapter.cubism.editor.EditorBackedCubismModelAccess(
+                resolver,
+                sessionId,
+                coreBackend == null ? null : coreBackend.evaluatedJoin()
+            ),
             slice -> new dev.turboism.mapping.verification.VerifiedMainToolbarResolverFactory().create(
                 slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
             ),
@@ -148,7 +165,9 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             VerifiedHostAdapterConnector.productionAppearanceProviderFactory(),
             slice -> new dev.turboism.mapping.verification.VerifiedWorkspaceControlResolverFactory().create(
                 slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
-            )
+            ),
+            VerifiedHostAdapterConnector.productionCoreBackendFactory(),
+            Objects.requireNonNull(effectiveLocale, "effectiveLocale")
         );
         dynamic.onOutermostAdapterCallComplete(this::completeDeferredClose);
         registerProjectContentCleanup();
@@ -280,6 +299,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             dynamicEditorCommands.connect(candidate.editorCommands());
             editorUiLifecycle.connected(editorUiGeneration);
             activeConnection = candidate;
+            workspaceLayoutCoordinator = candidate.workspaceLayoutCoordinator();
             try {
                 paletteFilterHost.bindParameterRowsResolver(candidate.editorModelResolver());
             } catch (IllegalStateException unavailable) {
@@ -408,6 +428,16 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     }
 
     @Override
+    public dev.turboism.adapter.cubism.mesh.RuntimeMeshMirrorAxisService meshMirrorAxisService() {
+        return meshMirrorAxisService;
+    }
+
+    @Override
+    public dev.turboism.adapter.cubism.mesh.RuntimeMeshEditUiService meshEditUiService() {
+        return meshEditUiService;
+    }
+
+    @Override
     public EditorUiHostLifecycle editorUiLifecycle() {
         return editorUiLifecycle;
     }
@@ -475,6 +505,11 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     @Override
     public dev.turboism.ui.workspace.WorkspaceCoordinator workspaceCoordinator() {
         return workspaceCoordinator;
+    }
+
+    @Override
+    public dev.turboism.ui.workspace.layout.WorkspaceLayoutCoordinator workspaceLayoutCoordinator() {
+        return workspaceLayoutCoordinator;
     }
     public dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorithmRegistry textureAtlasAlgorithms() {
         return textureAtlasAlgorithms;
@@ -563,6 +598,8 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             projectFileLifecycle,
             editorLifecycleEvents,
             physicsEditorCoordinator,
+            meshMirrorAxisService,
+            meshEditUiService,
             editorUiLifecycle,
             editorUiContributions,
             embeddedPanelActivation,
@@ -578,6 +615,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             paletteFilterHost,
             paletteAppearanceCoordinator,
             workspaceCoordinator,
+            workspaceLayoutCoordinator,
             textureAtlasEditorUi(),
             textureAtlasEditorSession(),
             textureAtlasAlgorithms()
@@ -615,6 +653,8 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             textureAtlasLayouts.close();
             textureAtlasNativeInvocations.close();
             parameterLifecycle.close();
+            meshEditUiService.resetSession();
+            meshMirrorAxisService.resetSession();
             editorUiPluginResources.close();
             editorUiActionRouter.close();
             embeddedPanelActivation.close();
@@ -663,11 +703,15 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
 
     /** Registration cleanup must succeed before its owning connection can be closed. */
     private CleanupOutcome cleanupOwnedResources() {
+        dev.turboism.adapter.cubism.mesh.NativeMeshMirrorBridge.clearHostContext();
+        meshEditUiService.resetSession();
+        meshMirrorAxisService.resetSession();
         activeConnectionKey = null;
         paletteFilterHost.clearParameterRowsResolver();
         if (activeConnection != null && activeConnection.workspaceProvider() != null) {
             workspaceCoordinator.disconnect(activeConnection.workspaceProvider());
         }
+        workspaceLayoutCoordinator = null;
         dynamicAppearance.deactivate();
         paletteAppearanceCoordinator.invalidate();
         dynamicModelAccess.deactivate();
@@ -872,7 +916,8 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         java.util.Optional<SliceKey> topMenu,
         java.util.Optional<SliceKey> boundingBoxOverlayButton,
         java.util.Optional<SliceKey> workspaceControl,
-        java.util.Optional<SliceKey> statusBar
+        java.util.Optional<SliceKey> statusBar,
+        java.util.Optional<SliceKey> autoBackup
     ) {
         private static ConnectionKey from(final HostInstanceDescriptor descriptor) {
             final HostVerificationEvidence evidence = descriptor.verificationEvidence();
@@ -887,7 +932,8 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
                 evidence.topMenu().map(SliceKey::from),
                 evidence.boundingBoxOverlayButton().map(SliceKey::from),
                 evidence.workspaceControl().map(SliceKey::from),
-                evidence.statusBar().map(SliceKey::from)
+                evidence.statusBar().map(SliceKey::from),
+                evidence.autoBackup().map(SliceKey::from)
             );
         }
 
@@ -911,7 +957,8 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
                 && optionalSliceMatches(topMenu, other.topMenu)
                 && optionalSliceMatches(boundingBoxOverlayButton, other.boundingBoxOverlayButton)
                 && optionalSliceMatches(workspaceControl, other.workspaceControl)
-                && optionalSliceMatches(statusBar, other.statusBar);
+                && optionalSliceMatches(statusBar, other.statusBar)
+                && optionalSliceMatches(autoBackup, other.autoBackup);
         }
 
         private static boolean optionalSliceMatches(

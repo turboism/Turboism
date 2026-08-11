@@ -35,6 +35,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -80,6 +81,46 @@ class LogFilterPluginTest {
             )),
             context.uiHost().notifications()
         );
+    }
+
+    @Test
+    void enableWithoutLocalizationUsesThePreviousEnglishLabelNeverARawKey() throws Exception {
+        RecordingPluginContext context = new RecordingPluginContext();
+        LogFilterPlugin plugin = new LogFilterPlugin();
+
+        plugin.init(context);
+        plugin.enable();
+
+        String label = context.actions().actions().get(0).label();
+        assertEquals("Toggle Log Filter Level", label, "the compatibility fallback is the prior English label");
+        assertFalse(label.startsWith("log-filter."), "a raw resource key must never reach the action label");
+    }
+
+    @Test
+    void enableUsesTheResolvedLocalizationWhenAvailable() throws Exception {
+        RecordingPluginContext context = new RecordingPluginContext(
+            new RecordingUiHost(),
+            new dev.turboism.sdk.i18n.PluginLocalization() {
+                @Override public java.util.Locale locale() { return java.util.Locale.JAPANESE; }
+                @Override public String text(final String key) {
+                    return "log-filter.toggle-level.label".equals(key)
+                        ? "ログフィルターレベル切り替え" : key;
+                }
+                @Override public String format(final String key, final Object... args) { return text(key); }
+                @Override public boolean contains(final String key) { return true; }
+            }
+        );
+        LogFilterPlugin plugin = new LogFilterPlugin();
+
+        plugin.init(context);
+        plugin.enable();
+
+        assertEquals(
+            "ログフィルターレベル切り替え",
+            context.actions().actions().get(0).label(),
+            "the catalog value must reach the action label through the localization service"
+        );
+        assertEquals("log-filter.toggle-level", context.actions().actions().get(0).id());
     }
 
     @Test
@@ -147,7 +188,22 @@ class LogFilterPluginTest {
         }
 
         RecordingPluginContext(final RecordingUiHost uiHost) {
+            this(uiHost, null);
+        }
+
+        RecordingPluginContext(final RecordingUiHost uiHost, final dev.turboism.sdk.i18n.PluginLocalization localization) {
             this.uiHost = uiHost;
+            this.localization = localization;
+        }
+
+        private final dev.turboism.sdk.i18n.PluginLocalization localization;
+
+        @Override
+        public dev.turboism.sdk.i18n.PluginLocalization localization() {
+            if (localization == null) {
+                throw new UnsupportedOperationException("localization service is not available");
+            }
+            return localization;
         }
 
         @Override
@@ -255,6 +311,13 @@ class LogFilterPluginTest {
         @Override
         public Registration contributeOverlay(OverlayContribution contribution) {
             throw new UnsupportedOperationException("overlay contributions are not used by this plugin test");
+        }
+
+        @Override
+        public Registration contributeBoundingBoxOverlayButton(
+            dev.turboism.sdk.ui.BoundingBoxOverlayButton contribution
+        ) {
+            throw new UnsupportedOperationException("bounding-box overlay is not used by this plugin test");
         }
 
         @Override

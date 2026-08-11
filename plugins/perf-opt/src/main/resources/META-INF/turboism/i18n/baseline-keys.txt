@@ -1,0 +1,4 @@
+perf-opt.fps-overlay.label
+perf-opt.performance-menu
+plugin.description
+plugin.name

@@ -11,6 +11,8 @@ import java.util.jar.JarFile
 private val resolvedWorktreeId = rootProject.extra["turboismResolvedWorktreeId"] as String
 private val previewBundleDir = layout.buildDirectory.dir("preview/$resolvedWorktreeId")
 private val previewSmokeDir = layout.buildDirectory.dir("preview-smoke/$resolvedWorktreeId")
+private val performanceProbeValidationDir =
+    layout.buildDirectory.dir("validation/$resolvedWorktreeId/performance-probe")
 
 private fun Project.mainRuntimeClasspath() = extensions.getByType<SourceSetContainer>()
     .named("main").get().runtimeClasspath
@@ -23,6 +25,7 @@ private fun configurePreviewSource(task: Sync, previewDirectory: Provider<org.gr
     task.into(previewDirectory)
     configurePreviewAgentJar(task)
     configurePreviewInspectorJar(task)
+    configurePreviewPerfStatsJar(task)
     configurePreviewThemeJar(task)
     configureScenePaletteEnhancerJar(task)
     task.from("scripts/preview/launch-cubism-turboism.bat")
@@ -32,15 +35,20 @@ private fun configurePreviewSource(task: Sync, previewDirectory: Provider<org.gr
 }
 
 private fun configurePreviewAgentJar(task: Sync) {
-    task.from(project(":bootstrap").tasks.named<Jar>("jar").flatMap { it.archiveFile }) {
-        rename { "turboism-agent.jar" }
-    }
+    task.from(project(":bootstrap").tasks.named<Jar>("jar").flatMap { it.archiveFile })
 }
 
 private fun configurePreviewInspectorJar(task: Sync) {
     task.from(project(":plugins:project-inspector").tasks.named<Jar>("jar").flatMap { it.archiveFile }) {
         into("plugins")
         rename { "project-inspector.jar" }
+    }
+}
+
+private fun configurePreviewPerfStatsJar(task: Sync) {
+    task.from(project(":plugins:perf-stats").tasks.named<Jar>("jar").flatMap { it.archiveFile }) {
+        into("plugins")
+        rename { "perf-stats.jar" }
     }
 }
 
@@ -51,7 +59,7 @@ private fun configurePreviewThemeJar(task: Sync) {
     }
 }
 
-    private fun configureScenePaletteEnhancerJar(task: Sync) {
+private fun configureScenePaletteEnhancerJar(task: Sync) {
     task.from(project(":plugins:scene-palette-enhancer").tasks.named<Jar>("jar").flatMap { it.archiveFile }) {
         into("plugins")
         rename { "scene-palette-enhancer.jar" }
@@ -80,12 +88,31 @@ val previewBundle by tasks.registering(Sync::class) {
     dependsOn(
         ":bootstrap:jar",
         ":plugins:project-inspector:jar",
+        ":plugins:perf-stats:jar",
         ":plugins:ui-theme:jar",
         ":plugins:scene-palette-enhancer:jar"
     )
     configurePreviewSource(this, previewBundleDir)
     doLast {
         listOf("plugin-data", "state", "logs").forEach { previewBundleDir.get().asFile.resolve(it).mkdirs() }
+    }
+}
+
+val performanceProbeValidationBundle by tasks.registering(Sync::class) {
+    group = "distribution"
+    description = "Build the validation-only Cubism performance probe bundle."
+    dependsOn(":bootstrap:performanceProbeAgentJar", ":bootstrap:performanceProbeCarrierJar")
+    into(performanceProbeValidationDir)
+    from(project(":bootstrap").tasks.named<Jar>("performanceProbeAgentJar").flatMap { it.archiveFile }) {
+        rename { "turboism-agent.jar" }
+    }
+    from(project(":bootstrap").tasks.named<Jar>("performanceProbeCarrierJar").flatMap { it.archiveFile }) {
+        into("lib")
+    }
+    doLast {
+        listOf("plugins", "plugin-data", "state", "logs").forEach {
+            performanceProbeValidationDir.get().asFile.resolve(it).mkdirs()
+        }
     }
 }
 
@@ -107,6 +134,19 @@ val previewAgentSmokeTest by tasks.registering(JavaExec::class) {
     }
 }
 
+val previewBootstrapBridgeTest by tasks.registering(JavaExec::class) {
+    group = "verification"
+    description = "Proves the distributed agent exposes the mesh-mirror ingress to bootstrap lookup."
+    dependsOn(previewBundle, ":bootstrap:testClasses")
+    val bootstrapTests = project(":bootstrap").extensions.getByType<SourceSetContainer>().named("test")
+    classpath(bootstrapTests.map { it.output })
+    mainClass.set("dev.turboism.bootstrap.BootstrapBridgeVisibilityMain")
+    doFirst {
+        val agent = previewBundleDir.get().asFile.resolve("turboism-agent.jar")
+        setJvmArgs(listOf("-javaagent:${agent.absolutePath}=hostClass=missing.Host;timeoutSeconds=1"))
+    }
+}
+
 val checkPreviewRuntimeReports by tasks.registering(JavaExec::class) {
     group = "verification"
     description = "Strictly validates the four correlated machine-readable preview reports."
@@ -118,9 +158,12 @@ val checkPreviewRuntimeReports by tasks.registering(JavaExec::class) {
 
 tasks.register("checkPreviewBundleLayout") {
     group = "verification"
-    description = "Build and verify the minimum Turboism 0.1 preview bundle layout."
-    dependsOn(previewBundle)
-    doLast { verifyPreviewBundle(previewBundleDir.get().asFile) }
+    description = "Build and verify the minimum Turboism 0.1 preview bundle layout and probe package isolation."
+    dependsOn(previewBundle, performanceProbeValidationBundle)
+    doLast {
+        verifyPreviewBundle(previewBundleDir.get().asFile)
+        verifyPerformanceProbeValidationBundle(performanceProbeValidationDir.get().asFile)
+    }
 }
 
 private fun copyPreviewBundle(source: File, target: File) {
@@ -134,7 +177,7 @@ private fun copyPreviewBundleInto(source: File, target: File) {
 private fun verifyPreviewBundle(root: File) {
     val required = listOf(
         "turboism-agent.jar", "launch-cubism-turboism.bat", "launch-cubism-turboism.ps1",
-        "run-preview.bat", "README.md", "plugins/project-inspector.jar",
+        "run-preview.bat", "README.md", "plugins/project-inspector.jar", "plugins/perf-stats.jar",
         "plugins/ui-theme.jar", "plugins/scene-palette-enhancer.jar"
     )
     val missing = required.filterNot { root.resolve(it).isFile }
@@ -164,5 +207,49 @@ private fun verifyPreviewAgentJar(agentJar: File) {
         if (jar.getJarEntry(verification) == null) {
             throw GradleException("Preview agent is missing embedded verification record $verification")
         }
+        val required = listOf(
+            "dev/turboism/adapter/cubism/performance/PerformanceProbeRecorder.class",
+            "dev/turboism/adapter/cubism/performance/PerformanceProbeMethodTransformer.class",
+            "dev/turboism/adapter/cubism/performance/PerformanceProbeTargets.class",
+            "dev/turboism/adapter/cubism/performance/NativePerformanceProbeBridge.class",
+            "dev/turboism/adapter/cubism/performance/PerformanceProbeRollbackObserver.class",
+            "dev/turboism/adapter/cubism/performance/PerformanceFpsHook.class",
+            "dev/turboism/adapter/cubism/performance/PerformanceFpsHookRegistry.class",
+            "dev/turboism/bootstrap/PerformanceFpsHookInstaller.class",
+            "dev/turboism/bootstrap/carrier/PerformanceProbeCarrier.class",
+            "dev/turboism/bootstrap/carrier/PerformanceProbeCallback.class",
+            "dev/turboism/bootstrap/VerifiedPerformanceProbeInstaller.class"
+        )
+        val missing = required.filterNot { jar.getJarEntry(it) != null }
+        if (missing.isNotEmpty()) {
+            throw GradleException("Preview agent is missing probe/FPS implementation classes: $missing")
+        }
+    }
+}
+
+private fun verifyPerformanceProbeValidationBundle(root: File) {
+    val agentJar = root.resolve("turboism-agent.jar")
+    if (!agentJar.isFile) {
+        throw GradleException("Performance probe validation bundle is missing turboism-agent.jar")
+    }
+    JarFile(agentJar).use { jar ->
+        val required = listOf(
+            "dev/turboism/adapter/cubism/performance/PerformanceProbeReportWriter.class",
+            "dev/turboism/adapter/cubism/performance/PerformanceProbeMethodTransformer.class",
+            "dev/turboism/adapter/cubism/performance/PerformanceProbeRecorder.class",
+            "dev/turboism/adapter/cubism/performance/PerformanceProbeTargets.class",
+            "dev/turboism/adapter/cubism/performance/PerformanceProbeRollbackObserver.class",
+            "dev/turboism/adapter/cubism/performance/PerformanceProbeRollbackWriter.class",
+            "dev/turboism/adapter/cubism/performance/NativePerformanceProbeBridge.class",
+            "dev/turboism/bootstrap/VerifiedPerformanceProbeInstaller.class",
+            "dev/turboism/bootstrap/carrier/PerformanceProbeCarrier.class"
+        )
+        val missing = required.filterNot { jar.getJarEntry(it) != null }
+        if (missing.isNotEmpty()) {
+            throw GradleException("Validation agent is missing probe implementation classes: $missing")
+        }
+    }
+    if (!root.resolve("lib/performance-probe-carrier.jar").isFile) {
+        throw GradleException("Performance probe validation bundle is missing lib/performance-probe-carrier.jar")
     }
 }
