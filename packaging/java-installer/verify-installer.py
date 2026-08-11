@@ -124,8 +124,10 @@ LOCALIZED_MODE = {
 UNINSTALL_DELETE_CONFIG_PROP = "turboism.uninstall.deleteConfig"
 
 # Frozen release-plugin allowlist — sole authority is packaging/release-plugins.txt.
-# This exact list plus the excluded public module ids is the regression oracle:
-# production drift from the shared manifest fails verification.
+# This exact list plus the ten excluded public module names is the regression
+# oracle; the id/name for every listed module comes from its committed
+# plugin.json descriptor at verification time (see load_plugin_metadata), so
+# production drift from the shared manifest or the source descriptors fails.
 MANIFEST_EXPECTED = [
     ":plugins:atlas-maxrects-bssf",
     ":plugins:backup",
@@ -146,8 +148,9 @@ MANIFEST_EXPECTED = [
 ]
 # The ten public-exclusion modules: absent from the manifest and therefore
 # from every release payload, pack, section, and selection surface. Their
-# ids below are read from the committed plugin.json metadata, not derived
-# from module names (clip-mask/perf-opt/render-opt have non-matching ids).
+# committed ids are read from each module's plugin.json descriptor at
+# verification time, never derived from module names (clip-mask/perf-opt/
+# render-opt have non-matching ids).
 EXCLUDED_PUBLIC_MODULES = (
     "bounding-box",
     "clip-mask",
@@ -160,40 +163,6 @@ EXCLUDED_PUBLIC_MODULES = (
     "psd-import",
     "render-opt",
 )
-EXCLUDED_PUBLIC_IDS = {
-    "bounding-box": "dev.turboism.plugin.bounding-box",
-    "clip-mask": "dev.turboism.plugin.clipmask",
-    "context-menu": "dev.turboism.plugin.context-menu",
-    "demo": "dev.turboism.plugin.demo",
-    "parameter": "dev.turboism.plugin.parameter",
-    "perf-opt": "dev.turboism.plugin.perfopt",
-    "project-inspector": "dev.turboism.plugin.project-inspector",
-    "project-panel": "dev.turboism.plugin.project-panel",
-    "psd-import": "dev.turboism.plugin.psd-import",
-    "render-opt": "dev.turboism.plugin.renderopt",
-}
-
-# Exact included payload identity: module -> committed plugin.json id for the
-# frozen 15 payload modules. Built-JAR metadata is the authority for
-# ids/display names; this committed-metadata regression oracle rejects any
-# anonymous, duplicate, renamed, or substituted payload identity.
-INCLUDED_MODULE_IDS = {
-    "atlas-maxrects-bssf": "dev.turboism.plugin.texture-atlas",
-    "backup": "dev.turboism.plugin.backup",
-    "clipmask-viewer": "dev.turboism.plugin.clipmask-viewer",
-    "cubism-tab-filter": "dev.turboism.plugin.cubism-tab-filter",
-    "log-filter": "dev.turboism.plugin.logfilter",
-    "mcp": "dev.turboism.plugin.mcp",
-    "mesh": "dev.turboism.plugin.mesh",
-    "palette-label-style": "dev.turboism.plugin.palette-label-style",
-    "parameter-batch-transfer": "dev.turboism.plugin.parameter-batch-transfer",
-    "perf-stats": "dev.turboism.plugin.perf-stats",
-    "physics-editor": "dev.turboism.plugin.physics-editor",
-    "recent-preview": "dev.turboism.plugin.recent-preview",
-    "scene-palette-enhancer": "dev.turboism.plugin.scene-palette-enhancer",
-    "texture-atlas-stats": "dev.turboism.plugin.texture-atlas-stats",
-    "ui-theme": "dev.turboism.plugin.uitheme",
-}
 # Renamed algorithm identity: module/JAR atlas-maxrects-bssf carries the
 # MaxRects-BSSF display name and the historical texture-atlas compatibility id.
 ALGORITHM_MODULE = "atlas-maxrects-bssf"
@@ -335,6 +304,48 @@ def load_release_manifest(path):
     check("release manifest matches the frozen 16-project allowlist",
           lines == MANIFEST_EXPECTED, "n=%d" % len(lines))
     return [l[len(":plugins:"):] for l in lines if l != ":plugins:core"]
+
+
+def load_plugin_metadata(manifest_path, modules):
+    """Reads committed plugin.json descriptors for the given modules — the
+    regression oracle for payload identity. The canonical
+    packaging/release-plugins.txt path anchors the repository root; each
+    descriptor is read only at the exact
+    plugins/<module>/src/main/resources/META-INF/turboism/plugin.json path
+    (no scans, no id/name inference). Fail-closed on manifest path shape,
+    missing or non-regular descriptor, non-object JSON, blank/non-string
+    id/name, and duplicate module or id. Returns
+    {module: {"id": id, "name": name}}."""
+    canonical = os.path.normpath(manifest_path)
+    check("release manifest path has canonical packaging shape",
+          os.path.basename(canonical) == "release-plugins.txt"
+          and os.path.basename(os.path.dirname(canonical)) == "packaging",
+          canonical)
+    root = os.path.dirname(os.path.dirname(canonical))
+    metadata = {}
+    seen_ids = set()
+    for module in modules:
+        check("metadata module listed once", module not in metadata, module)
+        descriptor = os.path.join(root, "plugins", module, "src", "main",
+                                  "resources", "META-INF", "turboism",
+                                  "plugin.json")
+        check("plugin descriptor exists and is a regular file",
+              os.path.isfile(descriptor) and not os.path.islink(descriptor), descriptor)
+        with open(descriptor, encoding="utf-8") as f:
+            meta = json.load(f)
+        check("plugin descriptor is a JSON object", isinstance(meta, dict),
+              descriptor)
+        pid = meta.get("id")
+        pname = meta.get("name")
+        check("plugin descriptor has nonblank string id",
+              isinstance(pid, str) and bool(pid.strip()), descriptor)
+        check("plugin descriptor has nonblank string name",
+              isinstance(pname, str) and bool(pname.strip()), descriptor)
+        check("plugin descriptor id unique across metadata",
+              pid.strip() not in seen_ids, pid)
+        seen_ids.add(pid.strip())
+        metadata[module] = {"id": pid.strip(), "name": pname.strip()}
+    return metadata
 
 
 def install_answers(mode, target, lang_index=0, deselect=(), payload_plugins=None):
@@ -1024,20 +1035,24 @@ def assert_global_lock_untouched(before):
               now[0] == "special" and now[1] == before[1], "mode changed")
 
 
-def assert_plugin_identity(payload_plugins):
+def assert_plugin_identity(payload_plugins, included_metadata, excluded_metadata):
     """Built-JAR metadata is the identity authority (never module-name or
-    filename derived). Asserts exact included/excluded module and id
-    membership, the renamed algorithm display identity plus its compatibility
-    id, and the required present/absent plugin facts."""
+    filename derived); committed plugin.json descriptors are the regression
+    oracle. Asserts every included payload module's id/name equals its
+    descriptor, excluded modules and their committed ids are absent, the
+    renamed algorithm display identity plus its compatibility id holds, and
+    the required present/absent plugin facts hold."""
     by_module = {p["module"]: p for p in payload_plugins}
-    actual_ids = {p["module"]: p["id"] for p in payload_plugins}
-    check("included payload identities equal frozen metadata (module+id)",
-          actual_ids == INCLUDED_MODULE_IDS,
-          "actual=%s" % sorted(actual_ids.items()))
+    actual = {module: {"id": p["id"], "name": p["name"]}
+              for module, p in by_module.items()}
+    check("included payload identities equal committed metadata (module+id+name)",
+          actual == included_metadata,
+          "actual=%s expected=%s" % (sorted(actual.items()),
+                                     sorted(included_metadata.items())))
     found_modules = set(by_module) & set(EXCLUDED_PUBLIC_MODULES)
     check("excluded public modules absent from payload", not found_modules,
           "found=%s" % sorted(found_modules))
-    excluded_ids = set(EXCLUDED_PUBLIC_IDS.values())
+    excluded_ids = {m["id"] for m in excluded_metadata.values()}
     found_ids = set(p["id"] for p in payload_plugins) & excluded_ids
     check("excluded public ids absent from payload", not found_ids,
           "found=%s" % sorted(found_ids))
@@ -1054,7 +1069,7 @@ def assert_plugin_identity(payload_plugins):
         p = by_module.get(module)
         check("payload includes %s (%s)" % (expected_name, module),
               p is not None and p["name"] == expected_name
-              and p["id"] == INCLUDED_MODULE_IDS[module],
+              and p["id"] == included_metadata[module]["id"],
               "actual=%s" % (p or "absent"))
     for module, expected_name in (
             ("parameter", "Parameter Tools Plugin"),
@@ -1091,18 +1106,26 @@ def main():
     ALL_BUNDLED_IDS = [p["id"] for p in payload_plugins]
     print("verifying installer: %s (%d bundled plugins)" % (jar, len(payload_plugins)))
 
-    # Shared-manifest regression oracle: the staged payload must equal the
-    # allowlisted plugin modules (core excluded) and never carry one of the
-    # ten excluded public module ids; built-JAR metadata identity is asserted
-    # for every included payload module (see assert_plugin_identity).
+    # Shared-manifest + committed-descriptor regression oracle: the staged
+    # payload must equal the allowlisted plugin modules (core excluded) and
+    # never carry one of the ten excluded public modules or their committed
+    # ids; every included payload module's id/name is compared exactly to its
+    # committed plugin.json descriptor (see assert_plugin_identity).
     manifest_modules = load_release_manifest(args.manifest)
+    included_metadata = load_plugin_metadata(args.manifest, manifest_modules)
+    excluded_metadata = load_plugin_metadata(args.manifest,
+                                             list(EXCLUDED_PUBLIC_MODULES))
+    shared_ids = ({m["id"] for m in included_metadata.values()}
+                  & {m["id"] for m in excluded_metadata.values()})
+    check("included and excluded committed plugin ids are disjoint",
+          not shared_ids, "shared=%s" % sorted(shared_ids))
     payload_modules = sorted(p["module"] for p in payload_plugins)
     check("payload plugin modules equal manifest allowlist (core excluded)",
           payload_modules == sorted(manifest_modules),
           "payload=%s manifest=%s" % (payload_modules, sorted(manifest_modules)))
     payload_ids = set(p["id"] for p in payload_plugins)
     check("runtime-owned core absent from payload", "turboism.core" not in payload_ids)
-    assert_plugin_identity(payload_plugins)
+    assert_plugin_identity(payload_plugins, included_metadata, excluded_metadata)
 
     # Verification-owned isolation root: every JVM (installer, uninstaller,
     # and SelfModifier child phases via TMPDIR/TEMP/TMP) uses this tmpdir.
