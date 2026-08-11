@@ -7,8 +7,8 @@
 #   1. Gradle 组装共享 payload（stageInstallerPayload，与 Java 安装器同源：
 #      turboism-agent.jar、plugins/<module>.jar、config.template.json、
 #      启动器、README.txt / README.zh.txt / README.ja.txt、LICENSE.txt）
-#   2. 从每个插件 jar 的 META-INF/turboism/plugin.json 读取 id/name/version/
-#      description，生成 plugin-sections.nsh
+#   2. 按 packaging/release-plugins.txt（唯一权威）读取获批插件模块，校验
+#      staging 严格一致后生成 plugin-sections.nsh
 #   3. 产出 turboism-<ver>-lite.zip / turboism-<ver>-full.zip + .sha256
 #      （zip 内容与历史版本一致：config.json 由 config.template.json 生成，
 #       Java 安装器专属文件 config.template.json/README.java-installer.txt/
@@ -47,8 +47,13 @@ fi
 mkdir -p "$dist"
 
 # ---------- 3. 生成 plugin-sections.nsh ----------
-python3 - "$stage" "$pkg_dir/plugin-sections.nsh" <<'PYEOF'
-"""从 staging 插件 jar 的 META-INF/turboism/plugin.json 生成 NSIS 插件 Section。"""
+python3 - "$stage" "$pkg_dir/plugin-sections.nsh" "$repo_root/packaging/release-plugins.txt" <<'PYEOF'
+"""按 release-plugins.txt（唯一权威）生成 NSIS 插件 Section，并校验 staging 与清单严格一致。
+
+fail-closed 规则：清单缺失/空行/注释/非插件项/重复/未排序即退出；staging 中的插件
+JAR 必须与清单（不含运行时 core）逐项一致 —— 多出的 JAR（含已排除的占位插件）或
+缺失的 JAR 均使组装失败。
+"""
 import json
 import re
 import sys
@@ -57,12 +62,39 @@ from pathlib import Path
 
 stage = Path(sys.argv[1])
 out = Path(sys.argv[2])
+manifest = Path(sys.argv[3])
+
+if not manifest.is_file():
+    sys.exit(f"error: release plugin manifest missing: {manifest}")
+
+raw = manifest.read_text(encoding="utf-8").splitlines()
+invalid = [l for l in raw if not l.strip() or l.strip().startswith("#")]
+if invalid:
+    sys.exit(f"error: release plugin manifest forbids blank/comment lines: {invalid[:3]}")
+entries = [l.strip() for l in raw if l.strip() and not l.strip().startswith("#")]
+entry = re.compile(r"^:plugins:[a-z0-9-]+$")
+bad = [l for l in entries if not entry.match(l)]
+if bad:
+    sys.exit(f"error: release plugin manifest contains non-plugin entries: {bad[:3]}")
+if len(set(entries)) != len(entries):
+    sys.exit("error: release plugin manifest contains duplicates")
+if entries != sorted(entries):
+    sys.exit("error: release plugin manifest is not ASCII-sorted")
+
+modules = [l[len(":plugins:"):] for l in entries if l != ":plugins:core"]
+staged = sorted(p.stem for p in stage.glob("plugins/*.jar"))
+if staged != sorted(modules):
+    sys.exit(f"error: staged payload JARs do not match the release plugin manifest\n"
+             f"  manifest: {sorted(modules)}\n  staged:   {staged}")
 
 def nsis_escape(s: str) -> str:
     return s.replace("$", "$$").replace('"', '$\\"').replace("\r", " ").replace("\n", " ")
 
 plugins = []
-for jar in sorted(stage.glob("plugins/*.jar")):
+for module in modules:
+    jar = stage / "plugins" / f"{module}.jar"
+    if not jar.is_file():
+        sys.exit(f"error: manifest entry {module}: staged JAR missing: {jar}")
     with zipfile.ZipFile(jar) as z:
         try:
             meta = json.loads(z.read("META-INF/turboism/plugin.json"))
@@ -72,7 +104,7 @@ for jar in sorted(stage.glob("plugins/*.jar")):
     if pid == "turboism.core":
         sys.exit(f"error: {jar}: runtime-owned core ID must not be packaged")
     plugins.append({
-        "module": jar.stem,
+        "module": module,
         "id": pid,
         "name": meta.get("name", pid),
         "version": meta.get("version", ""),
@@ -81,7 +113,7 @@ for jar in sorted(stage.glob("plugins/*.jar")):
 plugins.sort(key=lambda p: p["id"])
 
 lines = []
-lines.append("; 由 assemble-release.sh 从插件 jar 的 META-INF/turboism/plugin.json 生成，勿手改。")
+lines.append("; 由 assemble-release.sh 按 release-plugins.txt 权威清单生成，勿手改。")
 lines.append("; Full($Mode==1) 由隐藏载荷 Section 安装全部插件 JAR；可见 Section 只承载")
 lines.append("; 勾选状态（disabledPlugins 元数据）；Lite 模式由 ModeLeave 取消全部可见 Section。")
 lines.append("")

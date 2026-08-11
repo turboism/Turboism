@@ -1,14 +1,12 @@
-﻿; 由 assemble-release.sh 从插件 jar 的 META-INF/turboism/plugin.json 生成，勿手改。
+﻿; 由 assemble-release.sh 按 release-plugins.txt 权威清单生成，勿手改。
 ; Full($Mode==1) 由隐藏载荷 Section 安装全部插件 JAR；可见 Section 只承载
 ; 勾选状态（disabledPlugins 元数据）；Lite 模式由 ModeLeave 取消全部可见 Section。
 
 Section "-插件载荷" SecPluginPayload
   ${If} $Mode == 1
     SetOutPath "$INSTDIR\plugins"
-    File "/oname=bounding-box.jar" "${STAGING_DIR}/plugins/bounding-box.jar"
     File "/oname=clip-mask.jar" "${STAGING_DIR}/plugins/clip-mask.jar"
     File "/oname=clipmask-viewer.jar" "${STAGING_DIR}/plugins/clipmask-viewer.jar"
-    File "/oname=context-menu.jar" "${STAGING_DIR}/plugins/context-menu.jar"
     File "/oname=cubism-tab-filter.jar" "${STAGING_DIR}/plugins/cubism-tab-filter.jar"
     File "/oname=demo.jar" "${STAGING_DIR}/plugins/demo.jar"
     File "/oname=log-filter.jar" "${STAGING_DIR}/plugins/log-filter.jar"
@@ -18,8 +16,6 @@ Section "-插件载荷" SecPluginPayload
     File "/oname=perf-opt.jar" "${STAGING_DIR}/plugins/perf-opt.jar"
     File "/oname=physics-editor.jar" "${STAGING_DIR}/plugins/physics-editor.jar"
     File "/oname=project-inspector.jar" "${STAGING_DIR}/plugins/project-inspector.jar"
-    File "/oname=project-panel.jar" "${STAGING_DIR}/plugins/project-panel.jar"
-    File "/oname=psd-import.jar" "${STAGING_DIR}/plugins/psd-import.jar"
     File "/oname=recent-preview.jar" "${STAGING_DIR}/plugins/recent-preview.jar"
     File "/oname=render-opt.jar" "${STAGING_DIR}/plugins/render-opt.jar"
     File "/oname=scene-palette-enhancer.jar" "${STAGING_DIR}/plugins/scene-palette-enhancer.jar"
@@ -29,16 +25,10 @@ Section "-插件载荷" SecPluginPayload
   ${EndIf}
 SectionEnd
 
-Section "Bounding Box Plugin 0.1.0" SEC_dev_turboism_plugin_bounding_box
-SectionEnd
-
 Section "Clip Mask Inspector Plugin 0.1.0" SEC_dev_turboism_plugin_clipmask
 SectionEnd
 
 Section "Clip Mask Viewer 0.1.0" SEC_dev_turboism_plugin_clipmask_viewer
-SectionEnd
-
-Section "Context Menu Plugin 0.1.0" SEC_dev_turboism_plugin_context_menu
 SectionEnd
 
 Section "Cubism Tab Filter 0.1.0" SEC_dev_turboism_plugin_cubism_tab_filter
@@ -68,12 +58,6 @@ SectionEnd
 Section "Project Inspector 0.1.0" SEC_dev_turboism_plugin_project_inspector
 SectionEnd
 
-Section "Project Panel Plugin 0.1.0" SEC_dev_turboism_plugin_project_panel
-SectionEnd
-
-Section "PSD Import Plugin 0.1.0" SEC_dev_turboism_plugin_psd_import
-SectionEnd
-
 Section "Recent Preview Plugin 0.1.0" SEC_dev_turboism_plugin_recent_preview
 SectionEnd
 
@@ -94,10 +78,8 @@ SectionEnd
 
 ; 组件页悬停描述
 !insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
-  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_bounding_box} "SDK-only migration shell for the Bounding Box legacy feature."
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_clipmask} "Fake-ready read-only clip-mask inspector using SDK read and UI host capabilities. Writeback and real-host placement remain future work."
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_clipmask_viewer} "Read-only clip-mask duplicate checker and visualizer: Turboism tab entry, graph/table inspector window, editor selection highlight, GUID copy."
-  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_context_menu} "SDK-only migration shell for the Context Menu legacy feature."
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_cubism_tab_filter} "Adds keyword filter boxes to the Parameter, Deformer, Scene and Log palette tabs."
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_demo} "Demo plugin for Turboism framework validation."
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_logfilter} "SDK-only log palette toolbar filtering through Turboism UI host services."
@@ -107,8 +89,6 @@ SectionEnd
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_perfopt} "FPS overlay toggle action/menu and lifecycle provider shell."
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_physics_editor} "Adds Physics Settings group select-all and reopen retention."
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_project_inspector} "Developer Preview window showing the active Cubism project and workspace through the Turboism SDK."
-  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_project_panel} "SDK-only migration shell for the Project Panel legacy feature."
-  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_psd_import} "SDK-only migration shell for the PSD Import legacy feature."
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_recent_preview} "Captures bounded preview thumbnails for recent project files and contributes them to the Recent Files hover popup."
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_renderopt} "Fake-ready render status overlay using SDK read and UI host capabilities. Actual render interception remains adapter/hook work."
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_scene_palette_enhancer} "Sorts and manually reorders items in the Cubism Scene palette."
@@ -119,12 +99,6 @@ SectionEnd
 
 ; 按模式设置全部插件 Section 的选中状态（$0: 1 = 选中, 0 = 取消）
 Function SetPluginSectionsSelected
-  SectionGetFlags ${SEC_dev_turboism_plugin_bounding_box} $1
-  IntOp $1 $1 & ${SECTION_OFF}
-  ${If} $0 == 1
-    IntOp $1 $1 | ${SF_SELECTED}
-  ${EndIf}
-  SectionSetFlags ${SEC_dev_turboism_plugin_bounding_box} $1
   SectionGetFlags ${SEC_dev_turboism_plugin_clipmask} $1
   IntOp $1 $1 & ${SECTION_OFF}
   ${If} $0 == 1
@@ -137,12 +111,6 @@ Function SetPluginSectionsSelected
     IntOp $1 $1 | ${SF_SELECTED}
   ${EndIf}
   SectionSetFlags ${SEC_dev_turboism_plugin_clipmask_viewer} $1
-  SectionGetFlags ${SEC_dev_turboism_plugin_context_menu} $1
-  IntOp $1 $1 & ${SECTION_OFF}
-  ${If} $0 == 1
-    IntOp $1 $1 | ${SF_SELECTED}
-  ${EndIf}
-  SectionSetFlags ${SEC_dev_turboism_plugin_context_menu} $1
   SectionGetFlags ${SEC_dev_turboism_plugin_cubism_tab_filter} $1
   IntOp $1 $1 & ${SECTION_OFF}
   ${If} $0 == 1
@@ -197,18 +165,6 @@ Function SetPluginSectionsSelected
     IntOp $1 $1 | ${SF_SELECTED}
   ${EndIf}
   SectionSetFlags ${SEC_dev_turboism_plugin_project_inspector} $1
-  SectionGetFlags ${SEC_dev_turboism_plugin_project_panel} $1
-  IntOp $1 $1 & ${SECTION_OFF}
-  ${If} $0 == 1
-    IntOp $1 $1 | ${SF_SELECTED}
-  ${EndIf}
-  SectionSetFlags ${SEC_dev_turboism_plugin_project_panel} $1
-  SectionGetFlags ${SEC_dev_turboism_plugin_psd_import} $1
-  IntOp $1 $1 & ${SECTION_OFF}
-  ${If} $0 == 1
-    IntOp $1 $1 | ${SF_SELECTED}
-  ${EndIf}
-  SectionSetFlags ${SEC_dev_turboism_plugin_psd_import} $1
   SectionGetFlags ${SEC_dev_turboism_plugin_recent_preview} $1
   IntOp $1 $1 & ${SECTION_OFF}
   ${If} $0 == 1
@@ -249,15 +205,6 @@ FunctionEnd
 
 ; 收集未勾选插件 id 到 $uncheckedPluginIds（';' 分隔）
 Function CollectUncheckedPluginIds
-  SectionGetFlags ${SEC_dev_turboism_plugin_bounding_box} $1
-  IntOp $2 $1 & ${SF_SELECTED}
-  ${If} $2 == 0
-    ${If} $uncheckedPluginIds == ""
-      StrCpy $uncheckedPluginIds "dev.turboism.plugin.bounding-box"
-    ${Else}
-      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.bounding-box"
-    ${EndIf}
-  ${EndIf}
   SectionGetFlags ${SEC_dev_turboism_plugin_clipmask} $1
   IntOp $2 $1 & ${SF_SELECTED}
   ${If} $2 == 0
@@ -274,15 +221,6 @@ Function CollectUncheckedPluginIds
       StrCpy $uncheckedPluginIds "dev.turboism.plugin.clipmask-viewer"
     ${Else}
       StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.clipmask-viewer"
-    ${EndIf}
-  ${EndIf}
-  SectionGetFlags ${SEC_dev_turboism_plugin_context_menu} $1
-  IntOp $2 $1 & ${SF_SELECTED}
-  ${If} $2 == 0
-    ${If} $uncheckedPluginIds == ""
-      StrCpy $uncheckedPluginIds "dev.turboism.plugin.context-menu"
-    ${Else}
-      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.context-menu"
     ${EndIf}
   ${EndIf}
   SectionGetFlags ${SEC_dev_turboism_plugin_cubism_tab_filter} $1
@@ -366,24 +304,6 @@ Function CollectUncheckedPluginIds
       StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.project-inspector"
     ${EndIf}
   ${EndIf}
-  SectionGetFlags ${SEC_dev_turboism_plugin_project_panel} $1
-  IntOp $2 $1 & ${SF_SELECTED}
-  ${If} $2 == 0
-    ${If} $uncheckedPluginIds == ""
-      StrCpy $uncheckedPluginIds "dev.turboism.plugin.project-panel"
-    ${Else}
-      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.project-panel"
-    ${EndIf}
-  ${EndIf}
-  SectionGetFlags ${SEC_dev_turboism_plugin_psd_import} $1
-  IntOp $2 $1 & ${SF_SELECTED}
-  ${If} $2 == 0
-    ${If} $uncheckedPluginIds == ""
-      StrCpy $uncheckedPluginIds "dev.turboism.plugin.psd-import"
-    ${Else}
-      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.psd-import"
-    ${EndIf}
-  ${EndIf}
   SectionGetFlags ${SEC_dev_turboism_plugin_recent_preview} $1
   IntOp $2 $1 & ${SF_SELECTED}
   ${If} $2 == 0
@@ -444,19 +364,11 @@ FunctionEnd
 ; 每个 id 通过通用 RemoveItemFromList 辅助删除，避免长度受限的合并 id 字符串。
 Function RemoveBundledFromExistingDisabled
   StrCpy $0 "$existingDisabled"
-  StrCpy $1 "dev.turboism.plugin.bounding-box"
-  Call RemoveItemFromList
-  StrCpy $existingDisabled "$0"
-  StrCpy $0 "$existingDisabled"
   StrCpy $1 "dev.turboism.plugin.clipmask"
   Call RemoveItemFromList
   StrCpy $existingDisabled "$0"
   StrCpy $0 "$existingDisabled"
   StrCpy $1 "dev.turboism.plugin.clipmask-viewer"
-  Call RemoveItemFromList
-  StrCpy $existingDisabled "$0"
-  StrCpy $0 "$existingDisabled"
-  StrCpy $1 "dev.turboism.plugin.context-menu"
   Call RemoveItemFromList
   StrCpy $existingDisabled "$0"
   StrCpy $0 "$existingDisabled"
@@ -493,14 +405,6 @@ Function RemoveBundledFromExistingDisabled
   StrCpy $existingDisabled "$0"
   StrCpy $0 "$existingDisabled"
   StrCpy $1 "dev.turboism.plugin.project-inspector"
-  Call RemoveItemFromList
-  StrCpy $existingDisabled "$0"
-  StrCpy $0 "$existingDisabled"
-  StrCpy $1 "dev.turboism.plugin.project-panel"
-  Call RemoveItemFromList
-  StrCpy $existingDisabled "$0"
-  StrCpy $0 "$existingDisabled"
-  StrCpy $1 "dev.turboism.plugin.psd-import"
   Call RemoveItemFromList
   StrCpy $existingDisabled "$0"
   StrCpy $0 "$existingDisabled"
