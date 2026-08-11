@@ -18,6 +18,10 @@ $temp = Join-Path ([System.IO.Path]::GetTempPath()) ("turboism-managed-launch-" 
 $turboismHome = Join-Path $temp "Turboism home 空间"
 $fixtureBase = Join-Path $temp "fixtures"
 $marker = Join-Path $temp "official bat marker.txt"
+$fixtureShortcutRoot = ""
+$fixtureShortcutRootOwned = $false
+$fixtureManagedShortcutDir = ""
+$fixtureManagedShortcutDirOwned = $false
 New-Item -ItemType Directory -Path $turboismHome, $fixtureBase -Force | Out-Null
 
 function New-SyntheticCubism {
@@ -377,9 +381,11 @@ try {
         Remove-Item -LiteralPath $linkedHome, $linkedTarget, $linkedShortcut -Recurse -Force -ErrorAction SilentlyContinue
     }
 
-    # R5 dual-mode fixture: only current-user Desktop/Start Menu roots are used.
-    # The fixture creates real .lnk bytes through WScript.Shell; no Cubism host is
-    # launched and all files remain inside the temporary home/fixture directory.
+    # R5 dual-mode fixture: takeover source .lnk files stay in a unique GUID
+    # fixture directory below a current-user root, while managed shortcuts are
+    # published into the production current-user managed shortcut directory
+    # resolved by the managed launcher. No Cubism host is launched; every
+    # directory the fixture creates is removed in the outer finally when owned.
     if ($env:OS -eq "Windows_NT") {
         function New-TestShortcut {
             param([string]$Path, [string]$Target, [string]$Arguments = "")
@@ -399,8 +405,18 @@ try {
         }
         $userRoots = @(Get-CubismCurrentUserShortcutRoots)
         Assert-ManagedLaunch ($userRoots.Count -gt 0) "current-user Desktop or Start Menu root is available"
+        # The production managed shortcut boundary is exercised: resolve the
+        # ordinary managed shortcut directory and fail closed before any
+        # dual-mode invocation if it already exists, so a preexisting
+        # directory is never modified or deleted by this fixture.
+        $fixtureManagedShortcutDir = Get-CubismShortcutDirectory
+        if (Test-Path -LiteralPath $fixtureManagedShortcutDir) {
+            throw "managed shortcut directory already exists; fixture refuses to use it: $fixtureManagedShortcutDir"
+        }
+        $fixtureManagedShortcutDirOwned = $true
         $fixtureShortcutRoot = Join-Path $userRoots[0] ("Turboism dual-mode fixture " + [guid]::NewGuid().ToString("N"))
         New-Item -ItemType Directory -Path $fixtureShortcutRoot -Force | Out-Null
+        $fixtureShortcutRootOwned = $true
         $normalShortcut = Join-Path $fixtureShortcutRoot "Cubism Normal.lnk"
         $d3dShortcut = Join-Path $fixtureShortcutRoot "Cubism D3D.lnk"
         $wrongShortcut = Join-Path $fixtureShortcutRoot "Cubism Wrong Target.lnk"
@@ -420,7 +436,7 @@ try {
         Assert-ManagedLaunch (@($matches | Where-Object { $_.ShortcutPath -eq $wrongShortcut }).Count -eq 0) "wrong-target shortcut is ignored"
         Assert-ManagedLaunch (-not (Test-CubismTakeoverShortcutPath -Path (Join-Path $temp "not-user.lnk"))) "takeover path cannot escape current-user roots"
 
-        $takeoverResult = Invoke-CubismLaunchConfiguration -TurboismHome $turboismHome -StatePath $statePath -Candidates $takeoverCandidates -LaunchMode "takeover" -ExistingState (Read-CubismInstallationState -StatePath $statePath) -ShortcutDirectory $fixtureShortcutRoot
+        $takeoverResult = Invoke-CubismLaunchConfiguration -TurboismHome $turboismHome -StatePath $statePath -Candidates $takeoverCandidates -LaunchMode "takeover" -ExistingState (Read-CubismInstallationState -StatePath $statePath) -ShortcutDirectory $fixtureManagedShortcutDir
         $takeoverState = Read-CubismInstallationState -StatePath $statePath
         Assert-ManagedLaunch ($takeoverState.Valid -and @($takeoverState.ShortcutTakeovers).Count -eq 2) "takeover mode persists one bounded record per eligible shortcut"
         Assert-ManagedLaunch ((Get-FileHash -LiteralPath $normalShortcut -Algorithm SHA256).Hash -ne $beforeNormal) "normal shortcut is replaced"
@@ -438,31 +454,31 @@ try {
             if ($null -ne $d3dProperties) { [void][Runtime.InteropServices.Marshal]::FinalReleaseComObject($d3dProperties) }
             [void][Runtime.InteropServices.Marshal]::FinalReleaseComObject($shell)
         }
-        $takeoverAgain = Invoke-CubismLaunchConfiguration -TurboismHome $turboismHome -StatePath $statePath -Candidates $takeoverCandidates -LaunchMode "takeover" -ExistingState $takeoverState -ShortcutDirectory $fixtureShortcutRoot
+        $takeoverAgain = Invoke-CubismLaunchConfiguration -TurboismHome $turboismHome -StatePath $statePath -Candidates $takeoverCandidates -LaunchMode "takeover" -ExistingState $takeoverState -ShortcutDirectory $fixtureManagedShortcutDir
         $takeoverAgainState = Read-CubismInstallationState -StatePath $statePath
         Assert-ManagedLaunch (@($takeoverAgainState.ShortcutTakeovers).Count -eq 2) "reapplying takeover is idempotent and does not duplicate records"
         Assert-ManagedLaunch ($takeoverAgainState.ShortcutTakeovers[0].BackupPath -ne "") "takeover backup path remains bounded and recorded"
 
-        $preFallbackResult = Invoke-CubismLaunchConfiguration -TurboismHome $turboismHome -StatePath $statePath -Candidates $takeoverCandidates -LaunchMode "independent" -ExistingState $takeoverAgainState -ShortcutDirectory $fixtureShortcutRoot
+        $preFallbackResult = Invoke-CubismLaunchConfiguration -TurboismHome $turboismHome -StatePath $statePath -Candidates $takeoverCandidates -LaunchMode "independent" -ExistingState $takeoverAgainState -ShortcutDirectory $fixtureManagedShortcutDir
         $preFallbackState = Read-CubismInstallationState -StatePath $statePath
         Remove-Item -LiteralPath $d3dShortcut -Force
-        $fallbackResult = Invoke-CubismLaunchConfiguration -TurboismHome $turboismHome -StatePath $statePath -Candidates $takeoverCandidates -LaunchMode "takeover" -ExistingState $preFallbackState -ShortcutDirectory $fixtureShortcutRoot
+        $fallbackResult = Invoke-CubismLaunchConfiguration -TurboismHome $turboismHome -StatePath $statePath -Candidates $takeoverCandidates -LaunchMode "takeover" -ExistingState $preFallbackState -ShortcutDirectory $fixtureManagedShortcutDir
         $fallbackState = Read-CubismInstallationState -StatePath $statePath
         Assert-ManagedLaunch (@($fallbackState.ShortcutTakeovers).Count -eq 1) "unmatched D3D variant remains out of takeover records"
         Assert-ManagedLaunch (@($fallbackState.ManagedShortcuts).Count -eq 1) "unmatched variant receives an independent fallback shortcut"
         Assert-ManagedLaunch (@($fallbackState.ManagedShortcutHashes).Count -eq 1) "fallback shortcut records its managed hash"
 
-        $independentResult = Invoke-CubismLaunchConfiguration -TurboismHome $turboismHome -StatePath $statePath -Candidates $takeoverCandidates -LaunchMode "independent" -ExistingState $fallbackState -ShortcutDirectory $fixtureShortcutRoot
+        $independentResult = Invoke-CubismLaunchConfiguration -TurboismHome $turboismHome -StatePath $statePath -Candidates $takeoverCandidates -LaunchMode "independent" -ExistingState $fallbackState -ShortcutDirectory $fixtureManagedShortcutDir
         $independentState = Read-CubismInstallationState -StatePath $statePath
         Assert-ManagedLaunch (@($independentState.ShortcutTakeovers).Count -eq 0) "switching to independent mode restores all takeovers"
         Assert-ManagedLaunch ((Get-FileHash -LiteralPath $normalShortcut -Algorithm SHA256).Hash -eq $beforeNormal) "mode switch restores exact normal bytes"
         Assert-ManagedLaunch (-not (Test-Path -LiteralPath $d3dShortcut)) "mode switch does not recreate unmatched D3D original"
 
-        $conflictResult = Invoke-CubismLaunchConfiguration -TurboismHome $turboismHome -StatePath $statePath -Candidates $takeoverCandidates -LaunchMode "takeover" -ExistingState $independentState -ShortcutDirectory $fixtureShortcutRoot
+        $conflictResult = Invoke-CubismLaunchConfiguration -TurboismHome $turboismHome -StatePath $statePath -Candidates $takeoverCandidates -LaunchMode "takeover" -ExistingState $independentState -ShortcutDirectory $fixtureManagedShortcutDir
         $conflictState = Read-CubismInstallationState -StatePath $statePath
         New-TestShortcut -Path $normalShortcut -Target (Join-Path $root52 "CubismEditor5.bat") -Arguments "user-edit"
         $conflictThrew = $false
-        try { [void](Invoke-CubismLaunchConfiguration -TurboismHome $turboismHome -StatePath $statePath -Candidates $takeoverCandidates -LaunchMode "takeover" -ExistingState $conflictState -ShortcutDirectory $fixtureShortcutRoot) } catch { $conflictThrew = $true }
+        try { [void](Invoke-CubismLaunchConfiguration -TurboismHome $turboismHome -StatePath $statePath -Candidates $takeoverCandidates -LaunchMode "takeover" -ExistingState $conflictState -ShortcutDirectory $fixtureManagedShortcutDir) } catch { $conflictThrew = $true }
         Assert-ManagedLaunch $conflictThrew "user-edited takeover shortcut fails closed"
         Assert-ManagedLaunch ((Get-FileHash -LiteralPath $normalShortcut -Algorithm SHA256).Hash -ne $conflictState.ShortcutTakeovers[0].ManagedSha256) "conflicting shortcut bytes are preserved"
         Assert-ManagedLaunch (Test-Path -LiteralPath $statePath) "conflict preserves managed state for retry"
@@ -537,12 +553,17 @@ try {
         }
         Assert-ManagedLaunch ((Get-Item Function:Publish-CubismStagedShortcut).ScriptBlock.ToString() -eq $r12SavedPublish.ToString()) "production publication helper is restored"
         Assert-ManagedLaunch ((-not (Test-Path -LiteralPath $r12ShortcutRoot)) -and (-not (Test-Path -LiteralPath $r12Home))) "R12 fixture and override cleanup is deterministic"
-        Remove-Item -LiteralPath $fixtureShortcutRoot -Recurse -Force -ErrorAction SilentlyContinue
     }
 
     Write-Host "MANAGED_LAUNCH_TEST=PASS"
 }
 finally {
+    if ($fixtureShortcutRootOwned -and -not [string]::IsNullOrWhiteSpace($fixtureShortcutRoot) -and (Test-Path -LiteralPath $fixtureShortcutRoot)) {
+        Remove-Item -LiteralPath $fixtureShortcutRoot -Recurse -Force -ErrorAction SilentlyContinue
+    }
+    if ($fixtureManagedShortcutDirOwned -and -not [string]::IsNullOrWhiteSpace($fixtureManagedShortcutDir) -and (Test-Path -LiteralPath $fixtureManagedShortcutDir)) {
+        Remove-Item -LiteralPath $fixtureManagedShortcutDir -Recurse -Force -ErrorAction SilentlyContinue
+    }
     Remove-Item -LiteralPath $temp -Recurse -Force -ErrorAction SilentlyContinue
     Remove-Item Env:TURBOISM_TEST_OUTPUT -ErrorAction SilentlyContinue
 }
