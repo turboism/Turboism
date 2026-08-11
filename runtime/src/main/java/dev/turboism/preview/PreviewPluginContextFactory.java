@@ -6,6 +6,7 @@ import dev.turboism.core.plugin.context.CorePluginContext;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.failure.RuntimeFailureCollector;
 import dev.turboism.hostread.SharedAsyncHostReadLane;
+import dev.turboism.i18n.CubismHostLocale;
 import dev.turboism.i18n.RuntimePluginLocalization;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginDescriptor;
@@ -13,12 +14,16 @@ import dev.turboism.sdk.plugin.PluginDescriptor;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Objects;
+import java.util.Locale;
 
 /** Assembles the preview-only PluginContext services owned by one plugin scope. */
 final class PreviewPluginContextFactory {
 
     private final RuntimeHostAdapterAccess hostAccess;
+    private final Path home;
     private final PreviewPluginServicesFactory servicesFactory;
+    private final PreviewLog log;
+    private final dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistory;
 
     PreviewPluginContextFactory(
         final Path home,
@@ -26,11 +31,32 @@ final class PreviewPluginContextFactory {
         final RuntimeHostAdapterAccess hostAccess,
         final SharedAsyncHostReadLane hostReadLane,
         final PreviewLog log,
-        final RuntimeFailureCollector failureCollector
+        final RuntimeFailureCollector failureCollector,
+        final dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistory
+    ) {
+        this(
+            home, scheduler, hostAccess, hostReadLane, log, failureCollector,
+            fileChooserHistory, CubismHostLocale.resolve()
+        );
+    }
+
+    PreviewPluginContextFactory(
+        final Path home,
+        final RuntimeScheduler scheduler,
+        final RuntimeHostAdapterAccess hostAccess,
+        final SharedAsyncHostReadLane hostReadLane,
+        final PreviewLog log,
+        final RuntimeFailureCollector failureCollector,
+        final dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistory,
+        final Locale effectiveLocale
     ) {
         this.hostAccess = Objects.requireNonNull(hostAccess, "hostAccess");
+        this.home = Objects.requireNonNull(home, "home");
+        this.log = Objects.requireNonNull(log, "log");
+        this.fileChooserHistory = Objects.requireNonNull(fileChooserHistory, "fileChooserHistory");
         this.servicesFactory = new PreviewPluginServicesFactory(
-            home, scheduler, hostAccess, hostReadLane, log, failureCollector
+            home, scheduler, hostAccess, hostReadLane, log, failureCollector,
+            Objects.requireNonNull(effectiveLocale, "effectiveLocale")
         );
     }
 
@@ -56,7 +82,8 @@ final class PreviewPluginContextFactory {
         final CorePluginContext context = new CorePluginContext(
             services.dependencies().withConfig(services.typedConfig()), hostAccess,
             services.localization(), services.taskScheduler(), services.pluginStorage(),
-            services.userFiles(), services.hostReads()
+            services.userFiles(), services.hostReads(), null,
+            fileChooserHistory
         );
         return new PluginContextBundle(context, services.localization(), services.cleanupEvidence());
     }

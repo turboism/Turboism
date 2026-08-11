@@ -8,8 +8,9 @@ import dev.turboism.adapter.cubism.lifecycle.ParameterLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.PartLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.ProjectFileLifecycleCoordinator;
 import dev.turboism.adapter.cubism.textureatlas.TextureAtlasLayoutCoordinator;
-import dev.turboism.adapter.cubism.lifecycle.EditorObjectLifecycleCoordinator;
 import dev.turboism.adapter.cubism.physics.PhysicsEditorCoordinator;
+import dev.turboism.adapter.cubism.mesh.RuntimeMeshMirrorAxisService;
+import dev.turboism.adapter.cubism.mesh.RuntimeMeshEditUiService;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.ui.action.RuntimeEditorUiActionRouter;
 import dev.turboism.ui.appearance.AppearanceCoordinator;
@@ -50,6 +51,8 @@ public sealed interface RuntimeHostAdapterAccess permits HostSession, SessionRun
     EditorLifecycleCoordinator editorLifecycleEvents();
 
     PhysicsEditorCoordinator physicsEditorCoordinator();
+    RuntimeMeshMirrorAxisService meshMirrorAxisService();
+    RuntimeMeshEditUiService meshEditUiService();
 
     EditorUiHostLifecycle editorUiLifecycle();
 
@@ -80,6 +83,8 @@ public sealed interface RuntimeHostAdapterAccess permits HostSession, SessionRun
     PaletteAppearanceCoordinator paletteAppearanceCoordinator();
 
     dev.turboism.ui.workspace.WorkspaceCoordinator workspaceCoordinator();
+
+    dev.turboism.ui.workspace.layout.WorkspaceLayoutCoordinator workspaceLayoutCoordinator();
 }
 
 /** Non-closeable adapter view used when lifecycle ownership remains with bootstrap ingress. */
@@ -98,6 +103,8 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     private final ProjectFileLifecycleCoordinator projectFileLifecycle;
     private final EditorLifecycleCoordinator editorLifecycleEvents;
     private final PhysicsEditorCoordinator physicsEditorCoordinator;
+    private final RuntimeMeshMirrorAxisService meshMirrorAxisService;
+    private final RuntimeMeshEditUiService meshEditUiService;
     private final EditorUiHostLifecycle editorUiLifecycle;
     private final EditorUiContributionAuthority editorUiContributions;
     private final RuntimeEmbeddedPanelActivationCoordinator embeddedPanelActivation;
@@ -113,6 +120,7 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     private final dev.turboism.ui.filter.PaletteFilterVisibilitySink paletteFilterSink;
     private final PaletteAppearanceCoordinator paletteAppearanceCoordinator;
     private final dev.turboism.ui.workspace.WorkspaceCoordinator workspaceCoordinator;
+    private final dev.turboism.ui.workspace.layout.WorkspaceLayoutCoordinator workspaceLayoutCoordinator;
     private final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi textureAtlasEditorUi;
     private final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorSession textureAtlasEditorSession;
     private final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorithmRegistry textureAtlasAlgorithms;
@@ -131,6 +139,8 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
         final ProjectFileLifecycleCoordinator projectFileLifecycle,
         final EditorLifecycleCoordinator editorLifecycleEvents,
         final PhysicsEditorCoordinator physicsEditorCoordinator,
+        final RuntimeMeshMirrorAxisService meshMirrorAxisService,
+        final RuntimeMeshEditUiService meshEditUiService,
         final EditorUiHostLifecycle editorUiLifecycle,
         final EditorUiContributionAuthority editorUiContributions,
         final RuntimeEmbeddedPanelActivationCoordinator embeddedPanelActivation,
@@ -146,6 +156,7 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
         final dev.turboism.ui.filter.PaletteFilterVisibilitySink paletteFilterSink,
         final PaletteAppearanceCoordinator paletteAppearanceCoordinator,
         final dev.turboism.ui.workspace.WorkspaceCoordinator workspaceCoordinator,
+        final dev.turboism.ui.workspace.layout.WorkspaceLayoutCoordinator workspaceLayoutCoordinator,
         final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi textureAtlasEditorUi,
         final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorSession textureAtlasEditorSession,
         final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorithmRegistry textureAtlasAlgorithms
@@ -186,6 +197,11 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
             physicsEditorCoordinator,
             "physicsEditorCoordinator"
         );
+        this.meshMirrorAxisService = java.util.Objects.requireNonNull(
+            meshMirrorAxisService,
+            "meshMirrorAxisService"
+        );
+        this.meshEditUiService = java.util.Objects.requireNonNull(meshEditUiService, "meshEditUiService");
         this.editorUiLifecycle = java.util.Objects.requireNonNull(
             editorUiLifecycle,
             "editorUiLifecycle"
@@ -228,6 +244,9 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
             workspaceCoordinator,
             "workspaceCoordinator"
         );
+        // The layout coordinator is per-connection and legitimately absent before the first
+        // connection; CorePluginContext falls back to WorkspaceLayoutService.unavailable().
+        this.workspaceLayoutCoordinator = workspaceLayoutCoordinator;
         this.textureAtlasEditorUi = java.util.Objects.requireNonNull(
             textureAtlasEditorUi, "textureAtlasEditorUi");
         this.textureAtlasEditorSession = java.util.Objects.requireNonNull(
@@ -300,6 +319,16 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     @Override
     public PhysicsEditorCoordinator physicsEditorCoordinator() {
         return physicsEditorCoordinator;
+    }
+
+    @Override
+    public RuntimeMeshMirrorAxisService meshMirrorAxisService() {
+        return meshMirrorAxisService;
+    }
+
+    @Override
+    public RuntimeMeshEditUiService meshEditUiService() {
+        return meshEditUiService;
     }
 
     @Override
@@ -376,6 +405,11 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     @Override
     public dev.turboism.ui.workspace.WorkspaceCoordinator workspaceCoordinator() {
         return workspaceCoordinator;
+    }
+
+    @Override
+    public dev.turboism.ui.workspace.layout.WorkspaceLayoutCoordinator workspaceLayoutCoordinator() {
+        return workspaceLayoutCoordinator;
     }
 
     public dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi textureAtlasEditorUi() {

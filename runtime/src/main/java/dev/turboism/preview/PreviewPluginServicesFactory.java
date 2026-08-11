@@ -10,6 +10,7 @@ import dev.turboism.failure.RuntimeFailureCollector;
 import dev.turboism.hostread.ProjectWorkspaceHostReadSource;
 import dev.turboism.hostread.RuntimeAsyncHostReadService;
 import dev.turboism.hostread.SharedAsyncHostReadLane;
+import dev.turboism.i18n.CubismHostLocale;
 import dev.turboism.i18n.RuntimePluginLocalization;
 import dev.turboism.home.PluginHomePaths;
 import dev.turboism.home.TurboismHomeLayout;
@@ -27,6 +28,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -40,6 +42,7 @@ final class PreviewPluginServicesFactory {
     private final SharedAsyncHostReadLane hostReadLane;
     private final PreviewLog log;
     private final RuntimeFailureCollector failureCollector;
+    private final Locale effectiveLocale;
 
     PreviewPluginServicesFactory(
         final Path home,
@@ -49,12 +52,25 @@ final class PreviewPluginServicesFactory {
         final PreviewLog log,
         final RuntimeFailureCollector failureCollector
     ) {
+        this(home, scheduler, hostAccess, hostReadLane, log, failureCollector, CubismHostLocale.resolve());
+    }
+
+    PreviewPluginServicesFactory(
+        final Path home,
+        final RuntimeScheduler scheduler,
+        final RuntimeHostAdapterAccess hostAccess,
+        final SharedAsyncHostReadLane hostReadLane,
+        final PreviewLog log,
+        final RuntimeFailureCollector failureCollector,
+        final Locale effectiveLocale
+    ) {
         this.home = home;
         this.scheduler = scheduler;
         this.hostAccess = hostAccess;
         this.hostReadLane = hostReadLane;
         this.log = log;
         this.failureCollector = failureCollector;
+        this.effectiveLocale = Objects.requireNonNull(effectiveLocale, "effectiveLocale");
     }
 
     PreviewPluginServices create(
@@ -86,7 +102,8 @@ final class PreviewPluginServicesFactory {
     ) {
         return new CorePluginContext.Dependencies(
             descriptor, new PreviewPluginLogger(log, descriptor.id()), paths, uiScheduler, scheduler,
-            new PreviewDiagnosticReport(), scope, EmptyHostSnapshotSource.INSTANCE,
+            new PreviewDiagnosticReport(), scope,
+            EmptyHostSnapshotSource.INSTANCE,
             M12ReadSnapshotSource.EMPTY, new PreviewUiHostStateSource(paths),
             event -> log.debug(descriptor.id(), event.toString()), Clock.systemUTC(), failureCollector
         );
@@ -96,9 +113,8 @@ final class PreviewPluginServicesFactory {
         final PluginDescriptor descriptor,
         final ClassLoader classLoader
     ) {
-        return RuntimePluginLocalization.create(
-            descriptor.id(), classLoader, descriptor.i18n(), System.getProperty("turboism.locale"),
-            Locale.getDefault(Locale.Category.DISPLAY), Locale.getDefault(Locale.Category.DISPLAY),
+        return RuntimePluginLocalization.createResolved(
+            descriptor.id(), classLoader, descriptor.i18n(), effectiveLocale,
             diagnostic -> log.warn(descriptor.id(), diagnostic.code() + ": " + diagnostic.message())
         );
     }

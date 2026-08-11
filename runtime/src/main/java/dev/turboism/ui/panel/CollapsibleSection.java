@@ -41,25 +41,48 @@ public final class CollapsibleSection {
      * @param expandedByDefault 初始是否展开
      */
     public static JPanel create(String title, JPanel content, boolean expandedByDefault) {
-        ResourceBundle bundle = ResourceBundle.getBundle("dev.turboism.ui.panel.messages");
-        String expandLabel = tr(bundle, "collapsible.section.expand", "展开");
-        String collapseLabel = tr(bundle, "collapsible.section.collapse", "收起");
+        return create(title, content, expandedByDefault, dev.turboism.i18n.CubismHostLocale.resolve());
+    }
+
+    /** Uses the caller's already-resolved effective locale; no global locale is changed. */
+    public static JPanel create(
+        String title,
+        JPanel content,
+        boolean expandedByDefault,
+        java.util.Locale locale
+    ) {
+        ResourceBundle bundle = ResourceBundle.getBundle(
+            "dev.turboism.ui.panel.messages",
+            locale == null ? java.util.Locale.ENGLISH : locale
+        );
+        return create(
+            title,
+            content,
+            expandedByDefault,
+            tr(bundle, "collapsible.section.expand", "Expand"),
+            tr(bundle, "collapsible.section.collapse", "Collapse")
+        );
+    }
+
+    private static JPanel create(
+        String title,
+        JPanel content,
+        boolean expandedByDefault,
+        String expandLabel,
+        String collapseLabel
+    ) {
         JPanel panel = new JPanel();
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
         panel.setAlignmentX(Component.LEFT_ALIGNMENT);
         CollapsibleTitledBorder border = new CollapsibleTitledBorder(title, expandLabel, collapseLabel);
         panel.setBorder(border);
-
         content.setOpaque(false);
         content.setBorder(new EmptyBorder(2, 0, 0, 0));
         panel.add(content);
-
         MouseAdapter toggleMouseListener = new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent event) {
-                if (!border.isActionHit(event.getPoint())) {
-                    return;
-                }
+                if (!border.isActionHit(event.getPoint())) return;
                 updateCollapsibleSection(panel, content, border, !content.isVisible());
             }
 
@@ -75,7 +98,6 @@ public final class CollapsibleSection {
         };
         panel.addMouseListener(toggleMouseListener);
         panel.addMouseMotionListener(toggleMouseListener);
-
         updateCollapsibleSection(panel, content, border, expandedByDefault);
         return panel;
     }

@@ -96,6 +96,28 @@ class RuntimeCoreModelBackendTest {
     }
 
     @Test
+    void publishedBorrowedModelBecomesReadableThroughTheEvaluatedJoin() {
+        final RuntimeCoreModelBackend backend = RuntimeCoreModelBackend.admit(
+            TestCoreApiFixture.resolver("5.3.02"),
+            CoreVersionExpectation.exact(11, 12, 13)
+        ).value().orElseThrow();
+        try {
+            backend.publishBorrowedModel(coreModel(new float[]{10.0F}), "session:model");
+            final CoreEvaluatedJoin.CoreEvaluatedSnapshot snapshot =
+                backend.evaluatedJoin().evaluated("session:model:1");
+            assertEquals(1, snapshot.generation());
+            assertTrue(snapshot.drawablesById().isEmpty());
+            // The same identity re-reads the pinned generation without re-tracing.
+            assertEquals(
+                snapshot.generation(),
+                backend.evaluatedJoin().evaluated("session:model:1").generation()
+            );
+        } finally {
+            backend.close();
+        }
+    }
+
+    @Test
     void rejectedProviderDoesNotPublishPartialBackend() {
         final CoreProviderResult<RuntimeCoreModelBackend> result =
             RuntimeCoreModelBackend.admit(

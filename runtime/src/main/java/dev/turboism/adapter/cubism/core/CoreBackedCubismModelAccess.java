@@ -10,8 +10,11 @@ import dev.turboism.sdk.cubism.model.Deformers;
 import dev.turboism.sdk.cubism.model.Drawables;
 import dev.turboism.sdk.cubism.model.Glues;
 import dev.turboism.sdk.cubism.model.Parameter;
+import dev.turboism.sdk.cubism.model.ParameterDefinition;
+import dev.turboism.sdk.cubism.model.ParameterDefinitions;
 import dev.turboism.sdk.cubism.model.ParameterType;
 import dev.turboism.sdk.cubism.model.Parameters;
+import dev.turboism.sdk.cubism.model.WarpDeformers;
 import dev.turboism.sdk.cubism.model.Parts;
 import dev.turboism.sdk.cubism.model.Canvas;
 import dev.turboism.sdk.cubism.model.Part;
@@ -48,6 +51,8 @@ public final class CoreBackedCubismModelAccess implements CubismModelAccess {
     private final CorePublicApiProvider provider;
     private final CoreStructuralTracer tracer;
 
+
+    private final CoreEvaluatedJoin evaluatedJoin;
     CoreBackedCubismModelAccess(
         final ActiveCoreModelSource source,
         final CorePublicApiProvider provider,
@@ -56,6 +61,7 @@ public final class CoreBackedCubismModelAccess implements CubismModelAccess {
         this.source = Objects.requireNonNull(source, "source");
         this.provider = Objects.requireNonNull(provider, "provider");
         this.tracer = Objects.requireNonNull(tracer, "tracer");
+        this.evaluatedJoin = new CoreEvaluatedJoin(source, provider, tracer);
     }
 
     @Override
@@ -214,6 +220,39 @@ public final class CoreBackedCubismModelAccess implements CubismModelAccess {
         public void update() {
             readGeneration(generation);
             throw readOnlyFailure();
+        }
+
+        @Override
+        public dev.turboism.sdk.cubism.core.MocInfo mocInfo() {
+            readGeneration(generation);
+            return evaluatedJoin.mocInfo();
+        }
+
+        @Override
+        public ParameterDefinitions parameterDefinitions() {
+            final CoreStructuralSnapshot snapshot = readGeneration(generation);
+            return new ParameterDefinitions() {
+                @Override public List<ParameterDefinition> all() {
+                    return readGeneration(generation).parameters().stream()
+                        .map(CoreBackedCubismModelAccess.this::parameterDefinition)
+                        .toList();
+                }
+
+                @Override public ParameterDefinition find(final ParameterId id) {
+                    Objects.requireNonNull(id, "id");
+                    return parameterDefinition(definition(readGeneration(generation), id));
+                }
+            };
+        }
+
+        @Override
+        public WarpDeformers warpDeformers() {
+            readGeneration(generation);
+            throw new UnsupportedOperationException(
+                "Cubism Core exposes no Warp/Rotation deformer kind, so a Core-backed "
+                    + "Warp Deformer projection would mislabel Rotation Deformers; use the "
+                    + "Editor-backed model for the verified warp/rotation split."
+            );
         }
     }
 
@@ -493,6 +532,24 @@ public final class CoreBackedCubismModelAccess implements CubismModelAccess {
         return indices.stream()
             .map(index -> new ParameterId(snapshot.parameters().get(index).id()))
             .toList();
+    }
+
+    private ParameterDefinition parameterDefinition(final CoreParameterDefinition definition) {
+        return new ParameterDefinition(
+            new ParameterId(definition.id()),
+            definition.id(),
+            definition.minimumValue(),
+            definition.defaultValue(),
+            definition.maximumValue(),
+            switch (definition.typeNumber()) {
+                case 0 -> ParameterType.NORMAL;
+                case 1 -> ParameterType.BLEND_SHAPE;
+                default -> throw new IllegalStateException(
+                    "Core parameter type is unsupported: " + definition.typeNumber()
+                );
+            },
+            definition.repeat().orElse(false)
+        );
     }
     private static NoSuchElementException absent(final String family, final String id) {
         return new NoSuchElementException("Cubism " + family + " is absent: " + id);

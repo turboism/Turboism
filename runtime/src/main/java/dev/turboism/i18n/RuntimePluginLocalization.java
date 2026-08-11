@@ -67,18 +67,55 @@ public final class RuntimePluginLocalization implements PluginLocalization {
         final Locale jvmDisplayLocale,
         final LocalizationDiagnosticSink diagnostics
     ) {
-        requireText(pluginId, "pluginId");
-        Objects.requireNonNull(pluginClassLoader, "pluginClassLoader");
-        final PluginDescriptor.I18n descriptorI18n = Objects.requireNonNull(i18n, "i18n");
         Objects.requireNonNull(diagnostics, "diagnostics");
-        final PluginLocaleResolver.Resolution resolution =
+        return load(
+            pluginId,
+            pluginClassLoader,
+            i18n,
             PluginLocaleResolver.resolveWithSource(
                 pluginId,
                 explicitLocale,
                 displayLocale,
                 jvmDisplayLocale,
                 diagnostics
-            );
+            ),
+            diagnostics
+        );
+    }
+
+    /** Builds a plugin catalog from the locale resolved once during runtime startup. */
+    public static RuntimePluginLocalization createResolved(
+        final String pluginId,
+        final ClassLoader pluginClassLoader,
+        final PluginDescriptor.I18n i18n,
+        final Locale effectiveLocale,
+        final LocalizationDiagnosticSink diagnostics
+    ) {
+        Objects.requireNonNull(effectiveLocale, "effectiveLocale");
+        Objects.requireNonNull(diagnostics, "diagnostics");
+        return load(
+            pluginId,
+            pluginClassLoader,
+            i18n,
+            new PluginLocaleResolver.Resolution(
+                PluginLocaleResolver.normalize(effectiveLocale),
+                "STARTUP",
+                effectiveLocale.toLanguageTag()
+            ),
+            diagnostics
+        );
+    }
+
+    private static RuntimePluginLocalization load(
+        final String pluginId,
+        final ClassLoader pluginClassLoader,
+        final PluginDescriptor.I18n i18n,
+        final PluginLocaleResolver.Resolution resolution,
+        final LocalizationDiagnosticSink diagnostics
+    ) {
+        requireText(pluginId, "pluginId");
+        Objects.requireNonNull(pluginClassLoader, "pluginClassLoader");
+        final PluginDescriptor.I18n descriptorI18n = Objects.requireNonNull(i18n, "i18n");
         final List<String> catalogOrder = List.copyOf(descriptorI18n.locales());
         final Map<String, Map<String, String>> catalogs = new LinkedHashMap<>();
         final Set<String> invalidCatalogs = new LinkedHashSet<>();
@@ -302,7 +339,8 @@ public final class RuntimePluginLocalization implements PluginLocalization {
         final LinkedHashSet<String> ids = new LinkedHashSet<>();
         exactCatalogId(locale, supported).ifPresent(ids::add);
         if (!locale.getScript().isBlank()) {
-            supportedCatalogId(locale.getLanguage() + "_" + locale.getScript(), supported)
+            supportedCatalogId(locale.getLanguage() + "-" + locale.getScript(), supported)
+                .or(() -> supportedCatalogId(locale.getLanguage() + "_" + locale.getScript(), supported))
                 .ifPresent(ids::add);
         }
         supportedCatalogId(locale.getLanguage(), supported).ifPresent(ids::add);
@@ -320,10 +358,8 @@ public final class RuntimePluginLocalization implements PluginLocalization {
             return Optional.empty();
         }
         if (!locale.getScript().isBlank()) {
-            return supportedCatalogId(
-                locale.getLanguage() + "_" + locale.getScript(),
-                supported
-            );
+            return supportedCatalogId(locale.getLanguage() + "-" + locale.getScript(), supported)
+                .or(() -> supportedCatalogId(locale.getLanguage() + "_" + locale.getScript(), supported));
         }
         return supportedCatalogId(locale.getLanguage(), supported);
     }
@@ -338,7 +374,7 @@ public final class RuntimePluginLocalization implements PluginLocalization {
     private static String catalogPath(final String baseName, final String catalogId) {
         return "base".equals(catalogId)
             ? baseName + ".properties"
-            : baseName + "_" + catalogId + ".properties";
+            : baseName + "_" + catalogId.replace('-', '_') + ".properties";
     }
 
     private static String marker(final String key) {

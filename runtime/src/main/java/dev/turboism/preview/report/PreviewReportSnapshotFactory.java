@@ -31,7 +31,13 @@ public final class PreviewReportSnapshotFactory {
     );
     private static final String UNMAPPED_CAPABILITY_OPERATION = "unmapped.capability";
     private static final Map<String, List<CapabilityBinding>> CAPABILITY_BINDINGS = Map.ofEntries(
-        binding("cubism.project.read", "cubismRead.activeProject", "turboism.cubism.project.read"),
+        bindings(
+            "cubism.project.read",
+            binding("cubismRead.activeProject", "turboism.cubism.project.read"),
+            binding("cubism.activeProject", "turboism.cubism.project.read"),
+            binding("cubismRead.activeProjectContent", "turboism.cubism.project.read"),
+            binding("cubism.activeProjectContent", "turboism.cubism.project.read")
+        ),
         binding("cubism.workspace.read", "cubismRead.workspace", "turboism.cubism.project.read"),
         binding("cubism.mesh.read", "cubismRead.meshes", "turboism.cubism.model.read"),
         binding("cubism.deformer.read", "cubismRead.deformers", "turboism.cubism.model.read"),
@@ -64,6 +70,14 @@ public final class PreviewReportSnapshotFactory {
             "cubism.model-tree.read",
             binding("cubismRead.activeDocument", "turboism.cubism.model.read"),
             binding("cubismRead.activeModel", "turboism.cubism.model.read"),
+            binding("cubismRead.activeAnimation", "turboism.cubism.model.read"),
+            binding("cubismRead.activeImageDocument", "turboism.cubism.model.read"),
+            binding("cubismRead.activeProjectContent", "turboism.cubism.model.read"),
+            binding("cubism.activeDocument", "turboism.cubism.model.read"),
+            binding("cubism.activeModel", "turboism.cubism.model.read"),
+            binding("cubism.activeAnimation", "turboism.cubism.model.read"),
+            binding("cubism.activeImageDocument", "turboism.cubism.model.read"),
+            binding("cubism.activeProjectContent", "turboism.cubism.model.read"),
             binding("cubismRead.modelObjects", "turboism.cubism.model.read"),
             binding("modelHierarchyQuery.currentHierarchy", "turboism.cubism.model.read"),
             binding("modelHierarchyQuery.childrenOf", "turboism.cubism.model.read"),
@@ -81,6 +95,16 @@ public final class PreviewReportSnapshotFactory {
         binding("ui.status.notify", "ui.status.notify", "turboism.ui.status.notify"),
         binding("ui.palette-toolbar.contribute", "ui.palette-toolbar.contribute", "turboism.ui.toolbar.palette.contribute"),
         binding("ui.main-toolbar.contribute", "ui.main-toolbar.contribute", "turboism.ui.toolbar.main.contribute"),
+        binding(
+            "cubism.mesh.mirror-axis-angle",
+            "cubism.mesh.mirror-axis-angle",
+            "turboism.cubism.model.write"
+        ),
+        binding(
+            "ui.mesh-edit.mirror-axis-angle",
+            "ui.mesh-edit.mirror-axis-angle.contribute",
+            "turboism.ui.panel.contribute"
+        ),
         binding("ui.dialog.automate", "ui.dialog.automate.act", "turboism.ui.dialog.automate")
     );
     private static final Set<String> KNOWN_UNMAPPED_CAPABILITIES = Set.of(

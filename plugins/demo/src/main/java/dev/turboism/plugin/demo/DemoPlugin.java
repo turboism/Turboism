@@ -1,6 +1,7 @@
 package dev.turboism.plugin.demo;
 
 import dev.turboism.sdk.action.ActionRegistry;
+import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.plugin.PluginContext;
@@ -17,11 +18,13 @@ public class DemoPlugin implements TurboismPlugin {
 
     private PluginContext context;
     private PluginLogger logger;
+    private PluginLocalization localization;
 
     @Override
     public void init(PluginContext context) throws Exception {
         this.context = context;
         this.logger = context.logger();
+        this.localization = context.localization();
         logger.info("DemoPlugin initialized");
     }
 
@@ -35,7 +38,7 @@ public class DemoPlugin implements TurboismPlugin {
 
             @Override
             public String label() {
-                return "Hello Demo";
+                return localization.text("demo.hello.label");
             }
 
             @Override
@@ -48,7 +51,7 @@ public class DemoPlugin implements TurboismPlugin {
         Registration menuReg = context.menus().contribute(new MenuRegistry.MenuContribution() {
             @Override
             public String menuPath() {
-                return "Tools/Demo";
+                return localization.text("demo.menu");
             }
 
             @Override
@@ -67,7 +70,7 @@ public class DemoPlugin implements TurboismPlugin {
             new MainToolbarRegistry.MainToolbarContribution(
                 "demo.toolbar",
                 "demo.hello",
-                "demo.toolbar.label",
+                localization.text("demo.toolbar.label"),
                 "/demo/icon.png",
                 "end",
                 100
@@ -79,7 +82,7 @@ public class DemoPlugin implements TurboismPlugin {
             new PaletteToolbarRegistry.PaletteToolbarContribution(
                 "demo.palette",
                 "demo.hello",
-                "demo.palette.label",
+                localization.text("demo.palette.label"),
                 "/demo/palette-icon.png",
                 "parameters",
                 "end",
@@ -91,7 +94,7 @@ public class DemoPlugin implements TurboismPlugin {
         Registration contextMenuReg = context.contextMenu().contribute(
             new ContextMenuRegistry.ContextMenuContribution(
                 "demo.context.hello",
-                "Hello",
+                localization.text("demo.context.hello"),
                 null,
                 "parameter",
                 5

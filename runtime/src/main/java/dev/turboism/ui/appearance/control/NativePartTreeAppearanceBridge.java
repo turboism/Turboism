@@ -1,5 +1,7 @@
 package dev.turboism.ui.appearance.control;
 
+import dev.turboism.core.reflect.MethodHandleCache;
+
 import javax.swing.JLabel;
 import java.awt.Component;
 import java.awt.Container;
@@ -123,7 +125,7 @@ public final class NativePartTreeAppearanceBridge {
 
         private static Object invoke(final Object target, final String methodName)
             throws ReflectiveOperationException {
-            final Method method = target.getClass().getMethod(methodName);
+            final Method method = MethodHandleCache.method(target.getClass(), methodName);
             if (!method.canAccess(target) && !method.trySetAccessible()) return null;
             return method.invoke(target);
         }

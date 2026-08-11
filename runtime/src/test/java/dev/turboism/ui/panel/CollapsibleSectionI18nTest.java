@@ -55,7 +55,7 @@ class CollapsibleSectionI18nTest {
     private static void assertToggleLabels(Locale locale, String collapse, String expand) {
         withLocale(locale, () -> {
             JPanel content = newContent();
-            JPanel panel = CollapsibleSection.create("Section", content, true);
+            JPanel panel = CollapsibleSection.create("Section", content, true, locale);
             panel.setSize(400, 200);
             paint(panel);
 
@@ -91,7 +91,17 @@ class CollapsibleSectionI18nTest {
     }
 
     @Test
+    void japaneseLocaleUsesJaBundleLabels() {
+        assertToggleLabels(Locale.JAPANESE, "折りたたみ", "展開");
+    }
+
+    @Test
+    void koreanLocaleUsesKoBundleLabels() {
+        assertToggleLabels(Locale.KOREAN, "접기", "펼치기");
+    }
+
+    @Test
     void unsupportedLocaleFallsBackToDefaultBundleLabels() {
-        assertToggleLabels(Locale.JAPANESE, "Collapse", "Expand");
+        assertToggleLabels(Locale.FRENCH, "Collapse", "Expand");
     }
 }
