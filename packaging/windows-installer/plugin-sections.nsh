@@ -1,109 +1,95 @@
 ﻿; 由 assemble-release.sh 从插件 jar 的 META-INF/turboism/plugin.json 生成，勿手改。
-; 每个插件一个 Section；Lite 模式由 ModeLeave 取消选中，Section 体不执行。
+; Full($Mode==1) 由隐藏载荷 Section 安装全部插件 JAR；可见 Section 只承载
+; 勾选状态（disabledPlugins 元数据）；Lite 模式由 ModeLeave 取消全部可见 Section。
+
+Section "-插件载荷" SecPluginPayload
+  ${If} $Mode == 1
+    SetOutPath "$INSTDIR\plugins"
+    File "/oname=bounding-box.jar" "${STAGING_DIR}/plugins/bounding-box.jar"
+    File "/oname=clip-mask.jar" "${STAGING_DIR}/plugins/clip-mask.jar"
+    File "/oname=clipmask-viewer.jar" "${STAGING_DIR}/plugins/clipmask-viewer.jar"
+    File "/oname=context-menu.jar" "${STAGING_DIR}/plugins/context-menu.jar"
+    File "/oname=cubism-tab-filter.jar" "${STAGING_DIR}/plugins/cubism-tab-filter.jar"
+    File "/oname=demo.jar" "${STAGING_DIR}/plugins/demo.jar"
+    File "/oname=log-filter.jar" "${STAGING_DIR}/plugins/log-filter.jar"
+    File "/oname=mesh.jar" "${STAGING_DIR}/plugins/mesh.jar"
+    File "/oname=palette-label-style.jar" "${STAGING_DIR}/plugins/palette-label-style.jar"
+    File "/oname=parameter.jar" "${STAGING_DIR}/plugins/parameter.jar"
+    File "/oname=perf-opt.jar" "${STAGING_DIR}/plugins/perf-opt.jar"
+    File "/oname=physics-editor.jar" "${STAGING_DIR}/plugins/physics-editor.jar"
+    File "/oname=project-inspector.jar" "${STAGING_DIR}/plugins/project-inspector.jar"
+    File "/oname=project-panel.jar" "${STAGING_DIR}/plugins/project-panel.jar"
+    File "/oname=psd-import.jar" "${STAGING_DIR}/plugins/psd-import.jar"
+    File "/oname=recent-preview.jar" "${STAGING_DIR}/plugins/recent-preview.jar"
+    File "/oname=render-opt.jar" "${STAGING_DIR}/plugins/render-opt.jar"
+    File "/oname=scene-palette-enhancer.jar" "${STAGING_DIR}/plugins/scene-palette-enhancer.jar"
+    File "/oname=atlas-maxrects-bssf.jar" "${STAGING_DIR}/plugins/atlas-maxrects-bssf.jar"
+    File "/oname=texture-atlas-stats.jar" "${STAGING_DIR}/plugins/texture-atlas-stats.jar"
+    File "/oname=ui-theme.jar" "${STAGING_DIR}/plugins/ui-theme.jar"
+  ${EndIf}
+SectionEnd
 
 Section "Bounding Box Plugin 0.1.0" SEC_dev_turboism_plugin_bounding_box
-  SetOutPath "$INSTDIR\plugins"
-  File "/oname=bounding-box.jar" "${STAGING_DIR}/plugins/bounding-box.jar"
 SectionEnd
 
 Section "Clip Mask Inspector Plugin 0.1.0" SEC_dev_turboism_plugin_clipmask
-  SetOutPath "$INSTDIR\plugins"
-  File "/oname=clip-mask.jar" "${STAGING_DIR}/plugins/clip-mask.jar"
 SectionEnd
 
 Section "Clip Mask Viewer 0.1.0" SEC_dev_turboism_plugin_clipmask_viewer
-  SetOutPath "$INSTDIR\plugins"
-  File "/oname=clipmask-viewer.jar" "${STAGING_DIR}/plugins/clipmask-viewer.jar"
 SectionEnd
 
 Section "Context Menu Plugin 0.1.0" SEC_dev_turboism_plugin_context_menu
-  SetOutPath "$INSTDIR\plugins"
-  File "/oname=context-menu.jar" "${STAGING_DIR}/plugins/context-menu.jar"
 SectionEnd
 
 Section "Cubism Tab Filter 0.1.0" SEC_dev_turboism_plugin_cubism_tab_filter
-  SetOutPath "$INSTDIR\plugins"
-  File "/oname=cubism-tab-filter.jar" "${STAGING_DIR}/plugins/cubism-tab-filter.jar"
 SectionEnd
 
 Section "Demo Plugin 0.1.0" SEC_dev_turboism_plugin_demo
-  SetOutPath "$INSTDIR\plugins"
-  File "/oname=demo.jar" "${STAGING_DIR}/plugins/demo.jar"
 SectionEnd
 
 Section "Log Filter Plugin 0.1.0" SEC_dev_turboism_plugin_logfilter
-  SetOutPath "$INSTDIR\plugins"
-  File "/oname=log-filter.jar" "${STAGING_DIR}/plugins/log-filter.jar"
 SectionEnd
 
 Section "Mesh Read-Only Inspector Plugin 0.1.0" SEC_dev_turboism_plugin_mesh
-  SetOutPath "$INSTDIR\plugins"
-  File "/oname=mesh.jar" "${STAGING_DIR}/plugins/mesh.jar"
 SectionEnd
 
 Section "Palette Label Style Plugin 0.1.0" SEC_dev_turboism_plugin_palette_label_style
-  SetOutPath "$INSTDIR\plugins"
-  File "/oname=palette-label-style.jar" "${STAGING_DIR}/plugins/palette-label-style.jar"
 SectionEnd
 
 Section "Parameter Tools Plugin 0.1.0" SEC_dev_turboism_plugin_parameter
-  SetOutPath "$INSTDIR\plugins"
-  File "/oname=parameter.jar" "${STAGING_DIR}/plugins/parameter.jar"
 SectionEnd
 
 Section "Performance Overlay Plugin 0.1.0" SEC_dev_turboism_plugin_perfopt
-  SetOutPath "$INSTDIR\plugins"
-  File "/oname=perf-opt.jar" "${STAGING_DIR}/plugins/perf-opt.jar"
 SectionEnd
 
 Section "Physics Editor 0.1.0" SEC_dev_turboism_plugin_physics_editor
-  SetOutPath "$INSTDIR\plugins"
-  File "/oname=physics-editor.jar" "${STAGING_DIR}/plugins/physics-editor.jar"
 SectionEnd
 
 Section "Project Inspector 0.1.0" SEC_dev_turboism_plugin_project_inspector
-  SetOutPath "$INSTDIR\plugins"
-  File "/oname=project-inspector.jar" "${STAGING_DIR}/plugins/project-inspector.jar"
 SectionEnd
 
 Section "Project Panel Plugin 0.1.0" SEC_dev_turboism_plugin_project_panel
-  SetOutPath "$INSTDIR\plugins"
-  File "/oname=project-panel.jar" "${STAGING_DIR}/plugins/project-panel.jar"
 SectionEnd
 
 Section "PSD Import Plugin 0.1.0" SEC_dev_turboism_plugin_psd_import
-  SetOutPath "$INSTDIR\plugins"
-  File "/oname=psd-import.jar" "${STAGING_DIR}/plugins/psd-import.jar"
 SectionEnd
 
 Section "Recent Preview Plugin 0.1.0" SEC_dev_turboism_plugin_recent_preview
-  SetOutPath "$INSTDIR\plugins"
-  File "/oname=recent-preview.jar" "${STAGING_DIR}/plugins/recent-preview.jar"
 SectionEnd
 
 Section "Render Optimization Plugin 0.1.0" SEC_dev_turboism_plugin_renderopt
-  SetOutPath "$INSTDIR\plugins"
-  File "/oname=render-opt.jar" "${STAGING_DIR}/plugins/render-opt.jar"
 SectionEnd
 
 Section "Scene Palette Enhancer 0.1.0" SEC_dev_turboism_plugin_scene_palette_enhancer
-  SetOutPath "$INSTDIR\plugins"
-  File "/oname=scene-palette-enhancer.jar" "${STAGING_DIR}/plugins/scene-palette-enhancer.jar"
 SectionEnd
 
 Section "MaxRects-BSSF Layout Algorithm 0.1.0" SEC_dev_turboism_plugin_texture_atlas
-  SetOutPath "$INSTDIR\plugins"
-  File "/oname=atlas-maxrects-bssf.jar" "${STAGING_DIR}/plugins/atlas-maxrects-bssf.jar"
 SectionEnd
 
 Section "Texture Atlas Statistics 0.1.0" SEC_dev_turboism_plugin_texture_atlas_stats
-  SetOutPath "$INSTDIR\plugins"
-  File "/oname=texture-atlas-stats.jar" "${STAGING_DIR}/plugins/texture-atlas-stats.jar"
 SectionEnd
 
 Section "UI Theme Plugin 0.1.0" SEC_dev_turboism_plugin_uitheme
-  SetOutPath "$INSTDIR\plugins"
-  File "/oname=ui-theme.jar" "${STAGING_DIR}/plugins/ui-theme.jar"
 SectionEnd
 
 ; 组件页悬停描述
@@ -452,5 +438,94 @@ Function CollectUncheckedPluginIds
       StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.uitheme"
     ${EndIf}
   ${EndIf}
+FunctionEnd
+
+; 从 $existingDisabled 中逐 id 移除全部当前捆绑插件 id（重选已捆绑插件即启用）。
+; 每个 id 通过通用 RemoveItemFromList 辅助删除，避免长度受限的合并 id 字符串。
+Function RemoveBundledFromExistingDisabled
+  StrCpy $0 "$existingDisabled"
+  StrCpy $1 "dev.turboism.plugin.bounding-box"
+  Call RemoveItemFromList
+  StrCpy $existingDisabled "$0"
+  StrCpy $0 "$existingDisabled"
+  StrCpy $1 "dev.turboism.plugin.clipmask"
+  Call RemoveItemFromList
+  StrCpy $existingDisabled "$0"
+  StrCpy $0 "$existingDisabled"
+  StrCpy $1 "dev.turboism.plugin.clipmask-viewer"
+  Call RemoveItemFromList
+  StrCpy $existingDisabled "$0"
+  StrCpy $0 "$existingDisabled"
+  StrCpy $1 "dev.turboism.plugin.context-menu"
+  Call RemoveItemFromList
+  StrCpy $existingDisabled "$0"
+  StrCpy $0 "$existingDisabled"
+  StrCpy $1 "dev.turboism.plugin.cubism-tab-filter"
+  Call RemoveItemFromList
+  StrCpy $existingDisabled "$0"
+  StrCpy $0 "$existingDisabled"
+  StrCpy $1 "dev.turboism.plugin.demo"
+  Call RemoveItemFromList
+  StrCpy $existingDisabled "$0"
+  StrCpy $0 "$existingDisabled"
+  StrCpy $1 "dev.turboism.plugin.logfilter"
+  Call RemoveItemFromList
+  StrCpy $existingDisabled "$0"
+  StrCpy $0 "$existingDisabled"
+  StrCpy $1 "dev.turboism.plugin.mesh"
+  Call RemoveItemFromList
+  StrCpy $existingDisabled "$0"
+  StrCpy $0 "$existingDisabled"
+  StrCpy $1 "dev.turboism.plugin.palette-label-style"
+  Call RemoveItemFromList
+  StrCpy $existingDisabled "$0"
+  StrCpy $0 "$existingDisabled"
+  StrCpy $1 "dev.turboism.plugin.parameter"
+  Call RemoveItemFromList
+  StrCpy $existingDisabled "$0"
+  StrCpy $0 "$existingDisabled"
+  StrCpy $1 "dev.turboism.plugin.perfopt"
+  Call RemoveItemFromList
+  StrCpy $existingDisabled "$0"
+  StrCpy $0 "$existingDisabled"
+  StrCpy $1 "dev.turboism.plugin.physics-editor"
+  Call RemoveItemFromList
+  StrCpy $existingDisabled "$0"
+  StrCpy $0 "$existingDisabled"
+  StrCpy $1 "dev.turboism.plugin.project-inspector"
+  Call RemoveItemFromList
+  StrCpy $existingDisabled "$0"
+  StrCpy $0 "$existingDisabled"
+  StrCpy $1 "dev.turboism.plugin.project-panel"
+  Call RemoveItemFromList
+  StrCpy $existingDisabled "$0"
+  StrCpy $0 "$existingDisabled"
+  StrCpy $1 "dev.turboism.plugin.psd-import"
+  Call RemoveItemFromList
+  StrCpy $existingDisabled "$0"
+  StrCpy $0 "$existingDisabled"
+  StrCpy $1 "dev.turboism.plugin.recent-preview"
+  Call RemoveItemFromList
+  StrCpy $existingDisabled "$0"
+  StrCpy $0 "$existingDisabled"
+  StrCpy $1 "dev.turboism.plugin.renderopt"
+  Call RemoveItemFromList
+  StrCpy $existingDisabled "$0"
+  StrCpy $0 "$existingDisabled"
+  StrCpy $1 "dev.turboism.plugin.scene-palette-enhancer"
+  Call RemoveItemFromList
+  StrCpy $existingDisabled "$0"
+  StrCpy $0 "$existingDisabled"
+  StrCpy $1 "dev.turboism.plugin.texture-atlas"
+  Call RemoveItemFromList
+  StrCpy $existingDisabled "$0"
+  StrCpy $0 "$existingDisabled"
+  StrCpy $1 "dev.turboism.plugin.texture-atlas-stats"
+  Call RemoveItemFromList
+  StrCpy $existingDisabled "$0"
+  StrCpy $0 "$existingDisabled"
+  StrCpy $1 "dev.turboism.plugin.uitheme"
+  Call RemoveItemFromList
+  StrCpy $existingDisabled "$0"
 FunctionEnd
 
