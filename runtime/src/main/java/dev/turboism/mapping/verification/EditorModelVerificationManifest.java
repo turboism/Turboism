@@ -7,7 +7,7 @@ public final class EditorModelVerificationManifest {
 
     public static final String VERIFICATION_ID = "cubism-5.3.02.editor-model.static";
     public static final String RECORD_SHA256 =
-        "f63bdbd8b356f8caec4a2cb19f790dce52106769164ab26ac8918edb2037c139";
+        "8dca78856c9113f361606c8c032fdd1861a0abfbf317bb1aa61ad3cbcf2ac76e";
     public static final String CUBISM_VERSION = "5.3.02";
     public static final String PROFILE_ID = "cubism-5.3.02";
     public static final long ARTIFACT_SIZE = 41_922_739L;
@@ -35,6 +35,9 @@ public final class EditorModelVerificationManifest {
         EditorObjectWriteSelectorContract.ART_MESH_CAPABILITY_ID,
         EditorObjectWriteSelectorContract.WARP_CAPABILITY_ID,
         EditorObjectWriteSelectorContract.ROTATION_CAPABILITY_ID,
+        EditorObjectHierarchyEditSelectorContract.CAPABILITY_ID,
+        EditorObjectHierarchyEditSelectorContract.RENAME_CAPABILITY_ID,
+        EditorObjectHierarchyEditSelectorContract.ART_MESH_CREATE_CAPABILITY_ID,
         ObjectContextMenuVerificationManifest.CAPABILITY_ID,
         EditorParameterBindingReadSelectorContract.CAPABILITY_ID,
         EditorParameterBindingWriteSelectorContract.ART_MESH_CAPABILITY_ID,
@@ -42,31 +45,115 @@ public final class EditorModelVerificationManifest {
         EditorParameterBindingWriteSelectorContract.ROTATION_CAPABILITY_ID,
         EditorParameterBindingBatchWriteSelectorContract.INVERT_CAPABILITY_ID,
         EditorParameterBindingBatchWriteSelectorContract.TRANSFER_CAPABILITY_ID,
+        EditorInspectorDrawableWriteSelectorContract.CAPABILITY_ID,
         EditorModelEditLevelReadSelectorContract.CAPABILITY_ID,
         EditorModelEditLevelWriteSelectorContract.CAPABILITY_ID,
+        EditorPhysicsReadSelectorContract.CAPABILITY_ID,
+        EditorAutoYureReadSelectorContract.CAPABILITY_ID,
+        EditorAnimationReadSelectorContract.CAPABILITY_ID,
+        EditorModelInstanceReadSelectorContract.CAPABILITY_ID,
         "cubism.texture-atlas.layout.write",
         "cubism.texture-atlas.data-model-hook",
         "cubism.texture-atlas.auto-layout-hook",
         "cubism.texture-atlas.native-layout-invocation",
-        "cubism.texture-atlas.dialog-injection"
+        "cubism.texture-atlas.dialog-injection",
+        "cubism.editor-model.model-name.write",
+        "cubism.editor-model.model-profile.read",
+        "cubism.editor-model.morph-target.read",
+        "cubism.editor-model.morph-target.write",
+        "cubism.editor-model.parameter-structure.write",
+        "cubism.editor-model.part-structure.write",
+        EditorTextureSelectorContract.READ_CAPABILITY_ID,
+        EditorTextureSelectorContract.WRITE_CAPABILITY_ID,
+        "cubism.editor-model.part-inspector.write",
+        "cubism.editor-model.deformer-inspector.write",
+        "cubism.editor-model.glue-inspector.write"
     );
+    private static final Set<String> STRUCTURE_ALIASES = Set.of(
+        "cubism.editor-model.copy-helper.copy",
+        "cubism.editor-model.form-guid.value",
+        "cubism.editor-model.image-canvas.class",
+        "cubism.editor-model.image-canvas.height",
+        "cubism.editor-model.image-canvas.width",
+        "cubism.editor-model.model-handler.class",
+        "cubism.editor-model.model-handler.create-free-id-default",
+        "cubism.editor-model.model-handler.move-parameter",
+        "cubism.editor-model.model-handler.remove-objects",
+        "cubism.editor-model.model-handler.remove-parameter",
+        "cubism.editor-model.model-info.class",
+        "cubism.editor-model.model-info.origin",
+        "cubism.editor-model.model-info.pixels-per-unit",
+        "cubism.editor-model.model-source.canvas",
+        "cubism.editor-model.model-source.handler",
+        "cubism.editor-model.model-source.model-info",
+        "cubism.editor-model.model-source.parameter-source-set",
+        "cubism.editor-model.model-source.root-part",
+        "cubism.editor-model.model-source.set-name",
+        "cubism.editor-model.morph-target-set.create-undo",
+        "cubism.editor-model.morph-target-set.morph-targets",
+        "cubism.editor-model.morph-target-set.remove",
+        "cubism.editor-model.morph-target-utils.instance",
+        "cubism.editor-model.morph-target.change-parameter",
+        "cubism.editor-model.morph-target.class",
+        "cubism.editor-model.morph-target.key-value",
+        "cubism.editor-model.morph-target.keyform-guid",
+        "cubism.editor-model.morph-target.parameter-guid",
+        "cubism.editor-model.morph-target.set-parameter",
+        "cubism.editor-model.morph-target.set-parameter-and-key-value",
+        "cubism.editor-model.parameter-group-handler.add-group-child",
+        "cubism.editor-model.parameter-group-handler.add-parameter-child",
+        "cubism.editor-model.parameter-group-handler.class",
+        "cubism.editor-model.parameter-group-handler.remove-descendant",
+        "cubism.editor-model.parameter-group-guid.create",
+        "cubism.editor-model.parameter-group-id.create",
+        "cubism.editor-model.parameter-group.create",
+        "cubism.editor-model.parameter-group.guid",
+        "cubism.editor-model.parameter-group.handler",
+        "cubism.editor-model.parameter-group.set-folder-opened",
+        "cubism.editor-model.parameter-group.set-name",
+        "cubism.editor-model.parameter-id.class",
+        "cubism.editor-model.parameter-id.create",
+        "cubism.editor-model.parameter-source-set.class",
+        "cubism.editor-model.parameter-source-set.get",
+        "cubism.editor-model.parameter-source-set.get-by-id",
+        "cubism.editor-model.parameter-source.create",
+        "cubism.editor-model.parameter-source.param-type",
+        "cubism.editor-model.parameter-source.set-repeat",
+        "cubism.editor-model.parameter-source.type-morph-target",
+        "cubism.editor-model.parameter-source.type-normal",
+        "cubism.editor-model.part-guid.create",
+        "cubism.editor-model.part-handler.add-part-child",
+        "cubism.editor-model.part-id.create",
+        "cubism.editor-model.part-source.children",
+        "cubism.editor-model.part-source.create",
+        "cubism.editor-model.part-source.set-guid",
+        "cubism.editor-model.part-source.set-id",
+        "cubism.editor-model.point.class",
+        "cubism.editor-model.point.x",
+        "cubism.editor-model.point.y"
+    );
+
     private static final Set<String> TEXTURE_ATLAS_ALIASES =
         union(
-            dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.REQUIRED_ALIASES,
             union(
+                dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.REQUIRED_ALIASES,
                 union(
                     union(
-                        dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.HOOK_ALIASES,
                         union(
-                            dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.AUTO_LAYOUT_HOOK_ALIASES,
-                            dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.NATIVE_INVOCATION_ALIASES
-                        )
+                            dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.HOOK_ALIASES,
+                            union(
+                                dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.AUTO_LAYOUT_HOOK_ALIASES,
+                                dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.NATIVE_INVOCATION_ALIASES
+                            )
+                        ),
+                        dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.DIALOG_INJECTION_ALIASES
                     ),
-                    dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.DIALOG_INJECTION_ALIASES
-                ),
-                dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.STATISTICS_ALIASES
-            )
+                    dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.STATISTICS_ALIASES
+                )
+            ),
+            STRUCTURE_ALIASES
         );
+
     private static final Set<String> TEXTURE_ATLAS_ALIASES_52 =
         union(
             dev.turboism.adapter.cubism.textureatlas.VerifiedCubism520TextureAtlasSelectorContract.REQUIRED_ALIASES,
@@ -80,8 +167,18 @@ public final class EditorModelVerificationManifest {
                 ),
                 dev.turboism.adapter.cubism.textureatlas.VerifiedCubism520TextureAtlasSelectorContract.DIALOG_INJECTION_ALIASES
             )
-        );
-    public static final Set<String> REQUIRED_ALIASES = union(Set.of(
+        )
+    ;
+
+    private static final Set<String> INSPECTOR_WRITE_ALIASES = union(
+        union(
+            EditorDeformerInspectorSelectorContract.REQUIRED_ALIASES,
+            EditorPartInspectorSelectorContract.REQUIRED_ALIASES
+        ),
+        EditorGlueInspectorSelectorContract.REQUIRED_ALIASES
+    );
+
+    public static final Set<String> REQUIRED_ALIASES = union(union(Set.of(
         "cubism.editor-model.app-controller.class",
         "cubism.editor-model.app-controller.instance",
         "cubism.editor-model.app-controller.current-document",
@@ -349,7 +446,64 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.keyform-grid.remove-key",
         "cubism.editor-model.keyform-grid.remove-all-key",
         "cubism.editor-model.keyform-grid.rearrange-keys"
-    ), TEXTURE_ATLAS_ALIASES);
+    ), union(
+
+            union(
+                union(
+                    EditorPhysicsReadSelectorContract.REQUIRED_ALIASES,
+                    EditorAutoYureReadSelectorContract.REQUIRED_ALIASES
+                ),
+                EditorAnimationReadSelectorContract.REQUIRED_ALIASES
+            ),
+            EditorModelInstanceReadSelectorContract.REQUIRED_ALIASES
+        )), union(
+            union(
+                INSPECTOR_WRITE_ALIASES,
+                union(
+                    TEXTURE_ATLAS_ALIASES,
+                    union(
+                        union(
+                            EditorTextureSelectorContract.WRITE_REQUIRED_ALIASES,
+                            EditorTextureSelectorContract.REMOVE_RAW_IMAGE_ALIASES
+                        ),
+                        EditorInspectorDrawableWriteSelectorContract.REQUIRED_ALIASES
+                    )
+                )
+            ),
+            union(
+                EditorObjectHierarchyEditSelectorContract.REQUIRED_ALIASES,
+                union(
+                    EditorObjectHierarchyEditSelectorContract.RENAME_REQUIRED_ALIASES,
+                    union(
+                        EditorObjectHierarchyEditSelectorContract.ART_MESH_CREATE_REQUIRED_ALIASES,
+                        TEXTURE_ATLAS_ALIASES
+                    )
+                )
+            )
+        )
+    );
+
+
+    /**
+     * Aliases exclusive to the Cubism 5.3.02 Part Inspector entries (clip
+     * mask / alpha composition / instance-level part access); absent from the
+     * 5.2 record, so they are removed from the 5.2 manifest alias set while
+     * shared aliases (including the Glue drawable ArtMesh resolution aliases)
+     * are preserved.
+     */
+    private static final Set<String> PART_INSPECTOR_5302_ONLY_ALIASES = Set.of(
+        "cubism.editor-model.part.id",
+        "cubism.editor-model.part.current-keyform",
+        "cubism.editor-model.part-source.clip-guid-list",
+        "cubism.editor-model.part-source.alpha-composition",
+        "cubism.editor-model.part-source.set-alpha-composition",
+        "cubism.editor-model.alpha-composition.class",
+        "cubism.editor-model.alpha-composition.over",
+        "cubism.editor-model.alpha-composition.atop",
+        "cubism.editor-model.alpha-composition.out",
+        "cubism.editor-model.alpha-composition.conjoint",
+        "cubism.editor-model.alpha-composition.disjoint"
+    );
     private static final Set<String> PART_OPACITY_ADDITIVE_ALIASES = Set.of(
         "cubism.editor-model.model-source.parts",
         "cubism.editor-model.model-source.update-instances",
@@ -459,6 +613,10 @@ public final class EditorModelVerificationManifest {
         final java.util.HashSet<String> values = new java.util.HashSet<>(CAPABILITY_IDS);
         values.remove(EditorPartOpacitySelectorContract.CAPABILITY_ID);
         values.add(EditorPartOpacity52SelectorContract.CAPABILITY_ID);
+        values.remove(EditorInspectorDrawableWriteSelectorContract.CAPABILITY_ID);
+        values.add(EditorInspectorDrawableWrite52SelectorContract.CAPABILITY_ID);
+        values.remove(EditorPartInspectorSelectorContract.CAPABILITY_ID);
+        values.add(EditorPartInspector52SelectorContract.CAPABILITY_ID);
         return Set.copyOf(values);
     }
 
@@ -478,10 +636,13 @@ public final class EditorModelVerificationManifest {
 
     private static Set<String> cubism52Aliases() {
         final java.util.HashSet<String> values = new java.util.HashSet<>(REQUIRED_ALIASES);
+        values.removeAll(EditorModelInstanceReadSelectorContract.ONION_SKIN_ALIASES);
         values.removeAll(dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.STATISTICS_ALIASES);
         values.removeAll(PART_OPACITY_ADDITIVE_ALIASES);
         values.removeAll(EditorObjectReadSelectorContract.OFFSCREEN_STATISTICS_ALIASES);
         values.addAll(EditorPartOpacity52SelectorContract.REQUIRED_ALIASES);
+        values.removeAll(PART_INSPECTOR_5302_ONLY_ALIASES);
+        values.addAll(EditorPartInspector52SelectorContract.REQUIRED_ALIASES);
         values.addAll(PART_NAME_ADDITIVE_ALIASES);
         values.addAll(Set.of(
             "cubism.editor-model.model-source.update-instances",
@@ -491,6 +652,10 @@ public final class EditorModelVerificationManifest {
             "cubism.editor-model.complete-pack.update-part-palette"
         ));
         values.addAll(TEXTURE_ATLAS_ALIASES_52);
+        values.addAll(EditorTextureSelectorContract.WRITE_REQUIRED_ALIASES);
+        values.removeAll(EditorTextureSelectorContract.REMOVE_RAW_IMAGE_ALIASES);
+        values.removeAll(EditorInspectorDrawableWriteSelectorContract.ALPHA_COMPOSITION_ALIASES);
+        values.addAll(EditorInspectorDrawableWrite52SelectorContract.REQUIRED_ALIASES);
         return Set.copyOf(values);
     }
 

@@ -45,6 +45,8 @@ import dev.turboism.ui.appearance.SwingFlatLafHostOperations;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Locale;
+import java.util.Optional;
 
 /** Production connector pinned to the reviewed project/workspace verification trust root. */
 final class VerifiedHostAdapterConnector implements HostAdapterConnector {
@@ -63,6 +65,8 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
     private final dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator dockMaintenance;
     private final AppearanceProviderFactory appearanceProviderFactory;
     private final WorkspaceResolverFactory workspaceResolverFactory;
+    private final CoreBackendFactory coreBackendFactory;
+    private final Locale effectiveLocale;
 
     VerifiedHostAdapterConnector() {
         this(
@@ -70,7 +74,9 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             slice -> new VerifiedEditorModelResolverFactory().create(
                 slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
             ),
-            EditorBackedCubismModelAccess::new,
+            (resolver, sessionId, coreBackend) -> new EditorBackedCubismModelAccess(
+                resolver, sessionId, coreBackend == null ? null : coreBackend.evaluatedJoin()
+            ),
             slice -> new VerifiedMainToolbarResolverFactory().create(
                 slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
             ),
@@ -86,7 +92,8 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             VerifiedHostAdapterConnector::productionAppearanceProvider,
             slice -> new VerifiedWorkspaceControlResolverFactory().create(
                 slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
-            )
+            ),
+            VerifiedHostAdapterConnector::coreMaterial
         );
     }
 
@@ -96,7 +103,9 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             slice -> new VerifiedEditorModelResolverFactory().create(
                 slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
             ),
-            EditorBackedCubismModelAccess::new,
+            (resolver, sessionId, coreBackend) -> new EditorBackedCubismModelAccess(
+                resolver, sessionId, coreBackend == null ? null : coreBackend.evaluatedJoin()
+            ),
             slice -> new VerifiedMainToolbarResolverFactory().create(
                 slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
             ),
@@ -112,7 +121,8 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             ignored -> unavailableAppearanceProvider(),
             slice -> new VerifiedWorkspaceControlResolverFactory().create(
                 slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
-            )
+            ),
+            VerifiedHostAdapterConnector::coreMaterial
         );
     }
 
@@ -128,7 +138,26 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             ignored -> unavailableAppearanceProvider(),
             slice -> new VerifiedWorkspaceControlResolverFactory().create(
                 slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
-            )
+            ),
+            VerifiedHostAdapterConnector::coreMaterial
+        );
+    }
+
+    VerifiedHostAdapterConnector(
+        final VerifiedAdapterFactory factory,
+        final EditorResolverFactory editorResolverFactory,
+        final EditorAccessFactory editorAccessFactory,
+        final CoreBackendFactory coreBackendFactory
+    ) {
+        this(
+            factory, editorResolverFactory, editorAccessFactory,
+            null, null, null, null, null, null, null,
+            new dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator(),
+            ignored -> unavailableAppearanceProvider(),
+            slice -> new VerifiedWorkspaceControlResolverFactory().create(
+                slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
+            ),
+            coreBackendFactory
         );
     }
 
@@ -147,7 +176,8 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             new dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator(), appearanceProviderFactory,
             slice -> new VerifiedWorkspaceControlResolverFactory().create(
                 slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
-            )
+            ),
+            VerifiedHostAdapterConnector::coreMaterial
         );
     }
 
@@ -166,7 +196,8 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             ignored -> unavailableAppearanceProvider(),
             slice -> new VerifiedWorkspaceControlResolverFactory().create(
                 slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
-            )
+            ),
+            VerifiedHostAdapterConnector::coreMaterial
         );
     }
 
@@ -191,7 +222,8 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             ignored -> unavailableAppearanceProvider(),
             slice -> new VerifiedWorkspaceControlResolverFactory().create(
                 slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
-            )
+            ),
+            VerifiedHostAdapterConnector::coreMaterial
         );
     }
 
@@ -214,7 +246,8 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             ignored -> unavailableAppearanceProvider(),
             slice -> new VerifiedWorkspaceControlResolverFactory().create(
                 slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
-            )
+            ),
+            VerifiedHostAdapterConnector::coreMaterial
         );
     }
 
@@ -237,7 +270,8 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             ignored -> unavailableAppearanceProvider(),
             slice -> new VerifiedWorkspaceControlResolverFactory().create(
                 slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
-            )
+            ),
+            VerifiedHostAdapterConnector::coreMaterial
         );
     }
 
@@ -262,7 +296,8 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             appearanceProviderFactory,
             slice -> new VerifiedWorkspaceControlResolverFactory().create(
                 slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
-            )
+            ),
+            VerifiedHostAdapterConnector::coreMaterial
         );
     }
 
@@ -279,7 +314,34 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         final TopMenuResolverFactory topMenuResolverFactory,
         final dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator dockMaintenance,
         final AppearanceProviderFactory appearanceProviderFactory,
-        final WorkspaceResolverFactory workspaceResolverFactory
+        final WorkspaceResolverFactory workspaceResolverFactory,
+        final CoreBackendFactory coreBackendFactory
+    ) {
+        this(
+            factory, editorResolverFactory, editorAccessFactory, mainToolbarResolverFactory,
+            embeddedPanelResolverFactory, boundingBoxOverlayResolverFactory, editorUiPluginResources,
+            editorUiActionRouter, embeddedPanelActivation, topMenuResolverFactory, dockMaintenance,
+            appearanceProviderFactory, workspaceResolverFactory, coreBackendFactory,
+            dev.turboism.i18n.CubismHostLocale.resolve()
+        );
+    }
+
+    VerifiedHostAdapterConnector(
+        final VerifiedAdapterFactory factory,
+        final EditorResolverFactory editorResolverFactory,
+        final EditorAccessFactory editorAccessFactory,
+        final MainToolbarResolverFactory mainToolbarResolverFactory,
+        final EmbeddedPanelResolverFactory embeddedPanelResolverFactory,
+        final BoundingBoxOverlayResolverFactory boundingBoxOverlayResolverFactory,
+        final EditorUiPluginResourceRegistry editorUiPluginResources,
+        final dev.turboism.ui.action.RuntimeEditorUiActionRouter editorUiActionRouter,
+        final RuntimeEmbeddedPanelActivationCoordinator embeddedPanelActivation,
+        final TopMenuResolverFactory topMenuResolverFactory,
+        final dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator dockMaintenance,
+        final AppearanceProviderFactory appearanceProviderFactory,
+        final WorkspaceResolverFactory workspaceResolverFactory,
+        final CoreBackendFactory coreBackendFactory,
+        final Locale effectiveLocale
     ) {
         this.factory = Objects.requireNonNull(factory, "factory");
         this.editorResolverFactory = Objects.requireNonNull(editorResolverFactory, "editorResolverFactory");
@@ -295,6 +357,8 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         this.dockMaintenance = Objects.requireNonNull(dockMaintenance, "dockMaintenance");
         this.appearanceProviderFactory = Objects.requireNonNull(appearanceProviderFactory, "appearanceProviderFactory");
         this.workspaceResolverFactory = Objects.requireNonNull(workspaceResolverFactory, "workspaceResolverFactory");
+        this.coreBackendFactory = Objects.requireNonNull(coreBackendFactory, "coreBackendFactory");
+        this.effectiveLocale = Objects.requireNonNull(effectiveLocale, "effectiveLocale");
     }
 
     @Override
@@ -310,7 +374,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                 )
                 : null;
         if (evidence.editorModel().isEmpty()) {
-            final RuntimeCoreModelBackend core = coreMaterial(evidence);
+            final RuntimeCoreModelBackend core = coreBackendFactory.create(evidence);
             final HostAdapterConnection base = HostAdapterConnection.of(
                 adapters,
                 UnavailableCubismModelAccess.INSTANCE,
@@ -351,14 +415,21 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                 }
             };
         }
+        final RuntimeCoreModelBackend core = coreBackendFactory.create(evidence);
         final VerifiedMemberResolver resolver = editorResolverFactory.create(
             evidence.editorModel().orElseThrow()
         );
+        if (core != null) {
+            resolveBorrowedModel(resolver, descriptor.sessionId()).ifPresent(binding ->
+                core.publishBorrowedModel(binding.model(), binding.identity())
+            );
+        }
         final dev.turboism.mapping.verification.EditorModelAdmissionEvidence editorAdmission =
             editorAdmission(evidence.editorModel().orElseThrow(), resolver);
         final CubismModelAccess modelAccess = editorAccessFactory.create(
             resolver,
-            descriptor.sessionId()
+            descriptor.sessionId(),
+            core
         );
         final TextureAtlasDataModelCapture textureAtlasCapture =
             new TextureAtlasDataModelCapture();
@@ -371,7 +442,6 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         final PanelMaterial panel = panelMaterial(evidence);
         final TopMenuMaterial topMenu = topMenuMaterial(evidence);
         final OverlayMaterial overlay = optionalOverlayMaterial(evidence);
-        final RuntimeCoreModelBackend core = coreMaterial(evidence);
         if (toolbar == null && panel == null && topMenu == null && overlay == null && workspace == null) {
             return HostAdapterConnection.of(
                 adapters,
@@ -455,6 +525,50 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         }
         return admission.value().orElseThrow();
     }
+
+    /**
+     * Best-effort resolution of the current Editor document model through existing verified
+     * selectors. Any missing value or failed resolution (including a resolver without the
+     * publish-chain aliases) silently yields {@link Optional#empty()} so connect() never rejects
+     * a host because no current document could be published.
+     */
+    static Optional<BorrowedModel> resolveBorrowedModel(
+        final VerifiedMemberResolver resolver,
+        final String sessionId
+    ) {
+        try {
+            final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
+            if (app == null) return Optional.empty();
+            final Object document = resolver.invoke(
+                "cubism.editor-model.app-controller.current-document", app
+            );
+            if (!resolver.isInstance("cubism.editor-model.modeling-document.class", document)) {
+                return Optional.empty();
+            }
+            final Object source = resolver.invoke(
+                "cubism.editor-model.modeling-document.model-source", document
+            );
+            if (source == null) return Optional.empty();
+            final Object model = resolver.invoke(
+                "cubism.editor-model.model-source.current-instance", source
+            );
+            if (!resolver.isInstance("cubism.editor-model.model.class", model)) {
+                return Optional.empty();
+            }
+            final Object guid = resolver.invoke("cubism.editor-model.model-source.guid", source);
+            if (guid == null) return Optional.empty();
+            final Object rawModelId = resolver.invoke("cubism.editor-model.guid.value", guid);
+            if (!(rawModelId instanceof String modelId) || modelId.isBlank()) {
+                return Optional.empty();
+            }
+            return Optional.of(new BorrowedModel(model, sessionId + ":" + modelId));
+        } catch (RuntimeException unavailable) {
+            return Optional.empty();
+        }
+    }
+
+    /** Resolved Editor document model paired with its stable borrowed-model identity. */
+    record BorrowedModel(Object model, String identity) { }
 
 
     private OverlayMaterial optionalOverlayMaterial(final HostVerificationEvidence evidence) {
@@ -542,11 +656,20 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         final TextureAtlasDataModelCapture textureAtlasCapture,
         final TextureAtlasLayoutProvider textureAtlasProvider
     ) {
+        final dev.turboism.ui.workspace.layout.WorkspaceLayoutCoordinator layoutCoordinator =
+            new dev.turboism.ui.workspace.layout.WorkspaceLayoutCoordinator();
+        final dev.turboism.ui.workspace.layout.WorkspaceLayoutHostProvider layoutProvider = panel == null
+            ? null
+            : new dev.turboism.ui.workspace.layout.VerifiedWorkspaceLayoutHostProvider(panel.resolver());
+        if (layoutProvider != null) {
+            layoutCoordinator.connect(layoutProvider);
+        }
         final dev.turboism.ui.panel.VerifiedEmbeddedPanelHostOperations panelOperations = panel == null
             ? null
             : new dev.turboism.ui.panel.VerifiedEmbeddedPanelHostOperations(
                 panel.resolver(),
-                editorUiActionRouter
+                editorUiActionRouter,
+                effectiveLocale
             );
         final dev.turboism.ui.panel.NativePanelTabFloatingBridge.Handler floatingToggle =
             panelOperations == null ? null : panelOperations::togglePanelFloating;
@@ -744,6 +867,11 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
 
 
             @Override
+            public dev.turboism.ui.workspace.layout.WorkspaceLayoutCoordinator workspaceLayoutCoordinator() {
+                return layoutCoordinator;
+            }
+
+            @Override
             public void close() {
                 try {
                     if (panelOperations != null) {
@@ -751,6 +879,9 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                         dev.turboism.ui.panel.NativePanelTabFloatingBridge.uninstall(floatingToggle);
                         dev.turboism.ui.panel.NativeFloatingFrameDisposeBridge.uninstall(floatingDispose);
                         dev.turboism.ui.panel.NativeFloatingTabCloseBridge.uninstall(floatingTabClose);
+                    }
+                    if (layoutProvider != null) {
+                        layoutCoordinator.disconnect(layoutProvider);
                     }
                 } finally {
                     if (core != null) core.close();
@@ -834,9 +965,37 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
 
     @FunctionalInterface
     interface EditorAccessFactory {
-        CubismModelAccess create(VerifiedMemberResolver resolver, String sessionId);
+        /**
+         * Creates the Editor model access with the optional Core evaluated join.
+         *
+         * <p>The Core backend may be null; the production wiring installs it so
+         * Editor-backed objects can join Core evaluated fields.</p>
+         */
+        CubismModelAccess create(
+            VerifiedMemberResolver resolver,
+            String sessionId,
+            RuntimeCoreModelBackend coreBackend
+        );
+
+        /** Creates the Editor model access without a Core evaluated join. */
+        default CubismModelAccess create(
+            final VerifiedMemberResolver resolver,
+            final String sessionId
+        ) {
+            return create(resolver, sessionId, null);
+        }
     }
 
+    /**
+     * Creates the Core model backend for the host evidence.
+     *
+     * <p>The production default is the real reviewed admission path
+     * ({@link #coreMaterial}); tests inject a fixture-backed backend through this seam.</p>
+     */
+    @FunctionalInterface
+    interface CoreBackendFactory {
+        RuntimeCoreModelBackend create(HostVerificationEvidence evidence) throws Exception;
+    }
     @FunctionalInterface
     interface MainToolbarResolverFactory {
         VerifiedMemberResolver create(HostVerificationEvidence.Slice slice) throws Exception;
@@ -853,6 +1012,10 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
 
     static AppearanceProviderFactory productionAppearanceProviderFactory() {
         return VerifiedHostAdapterConnector::productionAppearanceProvider;
+    }
+
+    static CoreBackendFactory productionCoreBackendFactory() {
+        return VerifiedHostAdapterConnector::coreMaterial;
     }
 
     private static AppearanceHostProvider unavailableAppearanceProvider() {

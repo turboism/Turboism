@@ -14,21 +14,21 @@ import java.util.Optional;
 public record DocumentSnapshot(
     String documentId,
     String name,
-    DocumentKind kind,
     String relativePath,
     Optional<Path> filePath,
-    Optional<String> contentId,
     Optional<ModelSnapshot> model,
+    DocumentKind kind,
+    Optional<String> contentId,
     Optional<AnimationSnapshot> animation
 ) {
     public DocumentSnapshot {
         documentId = requireText(documentId, "documentId");
         name = requireText(name, "name");
-        kind = Objects.requireNonNull(kind, "kind");
         relativePath = requireText(relativePath, "relativePath");
         filePath = Objects.requireNonNull(filePath, "filePath");
-        contentId = Objects.requireNonNull(contentId, "contentId");
         model = Objects.requireNonNull(model, "model");
+        kind = Objects.requireNonNull(kind, "kind");
+        contentId = Objects.requireNonNull(contentId, "contentId");
         animation = Objects.requireNonNull(animation, "animation");
         if (relativePath.startsWith("/") || relativePath.contains("..")) {
             throw new IllegalArgumentException("relativePath must be a relative path string");
@@ -57,11 +57,11 @@ public record DocumentSnapshot(
         this(
             documentId,
             name,
-            model.isPresent() ? DocumentKind.MODEL : DocumentKind.OTHER,
             relativePath,
             filePath,
-            Optional.empty(),
             model,
+            model.isPresent() ? DocumentKind.MODEL : DocumentKind.OTHER,
+            Optional.empty(),
             Optional.empty()
         );
     }

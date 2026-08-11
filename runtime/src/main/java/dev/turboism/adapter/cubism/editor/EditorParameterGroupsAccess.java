@@ -24,13 +24,16 @@ final class EditorParameterGroupsAccess {
 
     private final VerifiedMemberResolver resolver;
     private final BiConsumer<String, Object> modelGuard;
+    private final EditorParameterStructureAccess structureAccess;
 
     EditorParameterGroupsAccess(
         final VerifiedMemberResolver resolver,
-        final BiConsumer<String, Object> modelGuard
+        final BiConsumer<String, Object> modelGuard,
+        final EditorParameterStructureAccess structureAccess
     ) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.modelGuard = Objects.requireNonNull(modelGuard, "modelGuard");
+        this.structureAccess = Objects.requireNonNull(structureAccess, "structureAccess");
     }
 
     ParameterGroups groups(
@@ -172,6 +175,38 @@ final class EditorParameterGroupsAccess {
                     "Cubism parameter group is absent: " + id.value()
                 ));
         }
+        public ParameterGroup addGroup(final String name) {
+            current();
+            final ParameterGroupId created = structureAccess.addGroup(identity, source, model, name);
+            return new EditorParameterGroup(identity, source, model, requireGroupById(created));
+        }
+
+        @Override
+        public void removeGroup(final ParameterGroupId id) {
+            current();
+            structureAccess.removeGroup(identity, source, model, id);
+        }
+
+        @Override
+        public void moveParameter(final ParameterId parameterId, final ParameterGroupId targetGroupId) {
+            current();
+            structureAccess.moveParameter(identity, source, model, parameterId, targetGroupId);
+        }
+
+        private Object requireGroupById(final ParameterGroupId id) {
+            final java.util.ArrayDeque<Object> pending = new java.util.ArrayDeque<>();
+            pending.add(rootGroup(source));
+            while (!pending.isEmpty()) {
+                final Object candidate = pending.removeFirst();
+                if (groupId(candidate).equals(id)) return candidate;
+                for (Object child : children(candidate)) {
+                    if (resolver.isInstance("cubism.editor-model.parameter-group.class", child)) {
+                        pending.addLast(child);
+                    }
+                }
+            }
+            throw new NoSuchElementException("Cubism parameter group is absent: " + id.value());
+        }
     }
 
     private final class EditorParameterGroup implements ParameterGroup {
@@ -257,6 +292,12 @@ final class EditorParameterGroupsAccess {
                     resolver.invoke("cubism.editor-model.parameter-source.id", child)
                 ))))
                 .toList();
+        }
+
+        @Override
+        public void rename(final String name) {
+            current();
+            structureAccess.renameGroup(identity, source, model, id(), name);
         }
     }
 

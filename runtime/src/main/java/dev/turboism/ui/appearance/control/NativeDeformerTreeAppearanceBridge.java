@@ -1,5 +1,7 @@
 package dev.turboism.ui.appearance.control;
 
+import dev.turboism.core.reflect.MethodHandleCache;
+
 import javax.swing.JLabel;
 import java.awt.Component;
 import java.awt.Container;
@@ -111,7 +113,7 @@ public final class NativeDeformerTreeAppearanceBridge {
         String deformerId(final Object row) throws ReflectiveOperationException {
             if (row == null || row.getClass().getClassLoader() != hostClassLoader
                 || !row.getClass().getName().equals(rowSourceOwner.replace('/', '.'))) return null;
-            final java.lang.reflect.Method rowSource = row.getClass().getDeclaredMethod(rowSourceMethod);
+            final java.lang.reflect.Method rowSource = MethodHandleCache.declared(row.getClass(), rowSourceMethod);
             if (!rowSource.canAccess(row) && !rowSource.trySetAccessible()) return null;
             final Object source = rowSource.invoke(row);
             if (source == null || source.getClass().getClassLoader() != hostClassLoader) return null;
@@ -129,8 +131,10 @@ public final class NativeDeformerTreeAppearanceBridge {
             final String idMethod,
             final String idStringMethod
         ) throws ReflectiveOperationException {
-            final Object id = source.getClass().getMethod(idMethod).invoke(source);
-            final Object value = id == null ? null : id.getClass().getMethod(idStringMethod).invoke(id);
+            final Object id = MethodHandleCache.method(source.getClass(), idMethod).invoke(source);
+            final Object value = id == null
+                ? null
+                : MethodHandleCache.method(id.getClass(), idStringMethod).invoke(id);
             return value instanceof String text && !text.isBlank() ? text : null;
         }
 

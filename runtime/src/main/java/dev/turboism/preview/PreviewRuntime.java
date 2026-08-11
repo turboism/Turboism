@@ -43,8 +43,10 @@ public final class PreviewRuntime implements AutoCloseable {
     private final String runtimeId;
     private final Path verificationRecord;
     private final Path hostArtifact;
+    private final java.util.Locale effectiveLocale;
     private final ShutdownLifecycle shutdownLifecycle;
     private final AtomicBoolean closed = new AtomicBoolean(false);
+    private volatile dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistoryService;
     private volatile List<ShutdownFailure> shutdownFailures = List.of();
 
     /** Package-private test composition seam; production startup uses {@link #start}. */
@@ -60,6 +62,25 @@ public final class PreviewRuntime implements AutoCloseable {
         final Path verificationRecord,
         final Path hostArtifact
     ) {
+        this(
+            home, log, scheduler, hostIngress, pluginRuntime, loadReport, reportWriter,
+            runtimeId, verificationRecord, hostArtifact, java.util.Locale.getDefault()
+        );
+    }
+
+    PreviewRuntime(
+        final Path home,
+        final PreviewLog log,
+        final RuntimeScheduler scheduler,
+        final HostRuntimeIngress hostIngress,
+        final LocalPluginRuntime pluginRuntime,
+        final LocalPluginRuntime.LoadReport loadReport,
+        final PreviewReportWriter reportWriter,
+        final String runtimeId,
+        final Path verificationRecord,
+        final Path hostArtifact,
+        final java.util.Locale effectiveLocale
+    ) {
         this.home = home;
         this.log = log;
         this.scheduler = scheduler;
@@ -70,6 +91,7 @@ public final class PreviewRuntime implements AutoCloseable {
         this.runtimeId = runtimeId;
         this.verificationRecord = verificationRecord;
         this.hostArtifact = hostArtifact;
+        this.effectiveLocale = Objects.requireNonNull(effectiveLocale, "effectiveLocale");
         this.shutdownLifecycle = new ShutdownLifecycle() {
             @Override
             public void logStopping() {
@@ -131,6 +153,7 @@ public final class PreviewRuntime implements AutoCloseable {
         this.runtimeId = null;
         this.verificationRecord = null;
         this.hostArtifact = null;
+        this.effectiveLocale = java.util.Locale.getDefault();
         this.shutdownLifecycle = Objects.requireNonNull(shutdownLifecycle, "shutdownLifecycle");
     }
 
@@ -156,6 +179,7 @@ public final class PreviewRuntime implements AutoCloseable {
             boundingBoxOverlayVerificationRecord,
             Optional.empty(),
             Optional.empty(),
+            null,
             hostArtifact,
             null,
             hostClassLoader
@@ -177,12 +201,14 @@ public final class PreviewRuntime implements AutoCloseable {
         final Path boundingBoxOverlayVerificationRecord,
         final Optional<Path> statusBarVerificationRecord,
         final Optional<Path> clipMaskVerificationRecord,
+        final Path autoBackupVerificationRecord,
         final Path hostArtifact,
         final Path coreArtifact,
         final ClassLoader hostClassLoader
     ) throws IOException {
         Objects.requireNonNull(statusBarVerificationRecord, "statusBarVerificationRecord");
         Objects.requireNonNull(clipMaskVerificationRecord, "clipMaskVerificationRecord");
+        Objects.requireNonNull(autoBackupVerificationRecord, "autoBackupVerificationRecord");
         final TurboismHomeLayout layout = TurboismHomeLayout.create(requestedHome);
         final Path home = layout.home();
         LegacyHomeMigration.migrate(home);
@@ -224,6 +250,14 @@ public final class PreviewRuntime implements AutoCloseable {
                 home,
                 diagnostic -> log.warn("config", diagnostic)
             ).read();
+            final java.util.Locale effectiveLocale =
+                dev.turboism.i18n.PluginLocaleResolver.resolveStartup(
+                    runtimeConfig.path("locale").asText(""),
+                    dev.turboism.i18n.CubismHostLocale.resolve(),
+                    java.util.Locale.getDefault(java.util.Locale.Category.DISPLAY),
+                    message -> log.warn("i18n", message)
+                );
+            log.info("i18n", "Using startup locale " + effectiveLocale.toLanguageTag());
             log.setMinimumLevel(runtimeConfig.path("logLevel").asText("INFO"));
             log.setMaxStorageMiB(runtimeConfig.path("maxLogStorageMiB").asInt(
                 dev.turboism.sdk.runtime.RuntimeSettings.DEFAULT_MAX_LOG_STORAGE_MIB
@@ -241,7 +275,7 @@ public final class PreviewRuntime implements AutoCloseable {
                 () -> log.info("runtime", "Early theme appearance injected from persisted selection")
             ).start();
             scheduler = createScheduler(log);
-            ingress = new HostRuntimeIngress();
+            ingress = new HostRuntimeIngress(effectiveLocale);
 
             final Path normalizedVerificationRecord = Objects.requireNonNull(
                 verificationRecord,
@@ -325,9 +359,16 @@ public final class PreviewRuntime implements AutoCloseable {
                     verifiedHostClassLoader
                 )))
                 .orElse(evidenceWithStatus);
+            final HostVerificationEvidence evidenceWithAutoBackup = evidenceWithClipMask.addingAutoBackup(
+                new HostVerificationEvidence.Slice(
+                    autoBackupVerificationRecord.toAbsolutePath().normalize(),
+                    normalizedHostArtifact,
+                    verifiedHostClassLoader
+                )
+            );
             final HostSession.State hostState = ingress.publish(new HostInstanceDescriptor(
                 "cubism-" + ProcessHandle.current().pid(),
-                evidenceWithClipMask
+                evidenceWithAutoBackup
             ));
             if (hostState == HostSession.State.ACTIVE) {
                 log.info("host", "Verified Cubism project/workspace adapter connected");
@@ -337,13 +378,20 @@ public final class PreviewRuntime implements AutoCloseable {
                     .orElse("No detailed failure");
                 log.warn("host", "Host adapter entered " + hostState + ": " + failure);
             }
+            if (hostState != HostSession.State.ACTIVE) {
+                throw new IllegalStateException("Cubism host admission failed before plugin loading");
+            }
 
+            final dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistory =
+                createFileChooserHistoryService(home, log);
             plugins = new LocalPluginRuntime(
                 home,
                 scheduler,
                 ingress.adapterAccess(),
                 log,
-                ingress.adapterAccess().parameterLifecycle()
+                ingress.adapterAccess().parameterLifecycle(),
+                fileChooserHistory,
+                effectiveLocale
             );
             final LocalPluginRuntime.LoadReport report = plugins.loadAll();
             ingress.adapterAccess().editorLifecycleEvents().publishStartup(
@@ -372,8 +420,10 @@ public final class PreviewRuntime implements AutoCloseable {
                 reportWriter,
                 "runtime-" + UUID.randomUUID(),
                 normalizedVerificationRecord,
-                normalizedHostArtifact
+                normalizedHostArtifact,
+                effectiveLocale
             );
+            runtime.bindFileChooserHistoryService(fileChooserHistory);
             runtime.writeInitialReports(hostState);
             return runtime;
         } catch (RuntimeException | Error failure) {
@@ -384,6 +434,10 @@ public final class PreviewRuntime implements AutoCloseable {
 
     public Path home() {
         return home;
+    }
+
+    public java.util.Locale effectiveLocale() {
+        return effectiveLocale;
     }
 
     public HostSession.State hostState() {
@@ -408,6 +462,45 @@ public final class PreviewRuntime implements AutoCloseable {
 
     public dev.turboism.adapter.host.RuntimeHostAdapterAccess hostAccess() {
         return hostIngress.adapterAccess();
+    }
+
+    /** Runtime file-chooser history service (lazily bound; persistence via plugin provider). */
+    public dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistoryService() {
+        dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService service = fileChooserHistoryService;
+        if (service == null) {
+            synchronized (this) {
+                service = fileChooserHistoryService;
+                if (service == null) {
+                    service = createFileChooserHistoryService(home, log);
+                    fileChooserHistoryService = service;
+                }
+            }
+        }
+        return service;
+    }
+
+    /** Binds the shared singleton created during {@link #start}; a no-op when already bound. */
+    void bindFileChooserHistoryService(
+        final dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService service
+    ) {
+        synchronized (this) {
+            if (fileChooserHistoryService == null) {
+                fileChooserHistoryService = java.util.Objects.requireNonNull(service, "service");
+            }
+        }
+    }
+
+    private static dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService
+        createFileChooserHistoryService(final Path home, final PreviewLog log) {
+        final dev.turboism.config.RuntimeConfigRepository config =
+            new dev.turboism.config.RuntimeConfigRepository(
+                home,
+                diagnostic -> log.warn("config", diagnostic)
+            );
+        return new dev.turboism.filechooser.RuntimeFileChooserHistoryService(
+            () -> config.read().path("hooks").path("startup")
+                .path("separateExportSaveDirectory").asBoolean(false)
+        );
     }
 
     public dev.turboism.mapping.verification.VerifiedMemberResolver editorModelResolver() {
