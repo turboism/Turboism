@@ -1,27 +1,30 @@
 package dev.turboism.plugin.mcp;
 
+import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.model.ModelObjectService;
-import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
 import dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService;
 import dev.turboism.sdk.cubism.service.query.ModelHierarchyQueryService;
 import dev.turboism.sdk.cubism.service.query.ParameterQueryService;
 import dev.turboism.sdk.cubism.service.query.SelectionQueryService;
+import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
-import dev.turboism.sdk.action.ActionRegistry;
-import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.menu.MenuRegistry;
+import dev.turboism.sdk.permission.PluginPermission;
+import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.PluginPaths;
-import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.UiScheduler;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.ServerSocket;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -37,7 +40,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Diagnostic-only regression: a failed MCP startup surfaces the last
  * deterministic stage, the original Throwable's top stack frame, and the
- * exact original Throwable as cause; cleanup failures never replace it.
+ * exact original Throwable as cause; cleanup failures are recorded as
+ * suppressed without ever replacing the cause.
  */
 final class McpStartupDiagnosticTest {
 
@@ -62,44 +66,79 @@ final class McpStartupDiagnosticTest {
     }
 
     @Test
-    void failedConnectionFilePublicationReportsStageTopFrameCauseAndCleanup() {
-        final ThrowingLogger logger = new ThrowingLogger(false);
-        final McpHttpServerIntegrationTest.FakeReadServices reads = new McpHttpServerIntegrationTest.FakeReadServices();
+    void connectionPublicationFailureReleasesPortAndConnectionFile() throws Exception {
+        final int port;
+        try (ServerSocket probe = new ServerSocket()) {
+            probe.bind(new InetSocketAddress("127.0.0.1", 0));
+            port = probe.getLocalPort();
+        }
+        final ThrowingLogger logger = new ThrowingLogger(false, false);
+        final McpHttpServerIntegrationTest.FakeReadServices reads =
+            new McpHttpServerIntegrationTest.FakeReadServices();
 
         final McpHttpServer.McpStartupFailure failure = assertThrows(
             McpHttpServer.McpStartupFailure.class,
-            () -> McpHttpServer.start(dependencies(logger, reads))
+            () -> McpHttpServer.start(dependencies(logger, reads, port))
         );
 
         assertEquals("connection-file publication", failure.stage());
         assertTrue(failure.getMessage().contains("connection-file publication"));
         assertTrue(failure.getMessage().contains("ThrowingLogger.record"));
         assertSame(logger.captured, failure.getCause());
-        // The published connection file is removed by the failure cleanup
+        // No connection file remains after the failure cleanup
         assertFalse(Files.exists(temporaryDirectory.resolve("mcp-connection.json")));
+        // Direct synchronous same-port rebind proves the loopback server and
+        // transport were released (no sleep/retry loop)
+        try (ServerSocket rebound = new ServerSocket(port, 0, InetAddress.getByName("127.0.0.1"))) {
+            assertEquals(port, rebound.getLocalPort());
+        }
         // Transport close ran and observed shutdown cleanup is visible
-        assertTrue(logger.messages.contains("Turboism MCP server stopped"), "messages=" + logger.messages);
+        assertTrue(logger.messages.contains("Turboism MCP server stopped"));
     }
 
     @Test
-    void cleanupFailureIsSuppressedAndOriginalCauseIsPreserved() {
-        final ThrowingLogger logger = new ThrowingLogger(true);
-        final McpHttpServerIntegrationTest.FakeReadServices reads = new McpHttpServerIntegrationTest.FakeReadServices();
+    void sameObjectCleanupFailureIsNotSelfSuppressedAndCauseIsPreserved() {
+        final ThrowingLogger logger = new ThrowingLogger(true, false);
+        final McpHttpServerIntegrationTest.FakeReadServices reads =
+            new McpHttpServerIntegrationTest.FakeReadServices();
 
         final McpHttpServer.McpStartupFailure failure = assertThrows(
             McpHttpServer.McpStartupFailure.class,
-            () -> McpHttpServer.start(dependencies(logger, reads))
+            () -> McpHttpServer.start(dependencies(logger, reads, 0))
         );
 
         assertEquals("connection-file publication", failure.stage());
-        // The close-path logger failure must not replace the original cause
+        // The close-path logger failure rethrows the same object; it must not
+        // be self-suppressed and must not replace the original cause
         assertSame(logger.captured, failure.getCause());
-        assertTrue(logger.messages.contains("Turboism MCP server stopped"), "messages=" + logger.messages);
+        assertEquals(0, failure.getCause().getSuppressed().length);
+        assertTrue(logger.messages.contains("Turboism MCP server stopped"));
+    }
+
+    @Test
+    void distinctCleanupThrowableIsAddedAsSuppressedWithCauseIdentity() {
+        final ThrowingLogger logger = new ThrowingLogger(true, true);
+        final McpHttpServerIntegrationTest.FakeReadServices reads =
+            new McpHttpServerIntegrationTest.FakeReadServices();
+
+        final McpHttpServer.McpStartupFailure failure = assertThrows(
+            McpHttpServer.McpStartupFailure.class,
+            () -> McpHttpServer.start(dependencies(logger, reads, 0))
+        );
+
+        assertEquals("connection-file publication", failure.stage());
+        // Startup throwable is the first logger failure and stays the cause
+        assertSame(logger.firstThrown, failure.getCause());
+        // The distinct close-path throwable is recorded as suppressed
+        final Throwable[] suppressed = failure.getCause().getSuppressed();
+        assertEquals(1, suppressed.length);
+        assertSame(logger.lastThrown, suppressed[0]);
     }
 
     private McpHttpServer.Dependencies dependencies(
         final PluginLogger logger,
-        final McpHttpServerIntegrationTest.FakeReadServices reads
+        final McpHttpServerIntegrationTest.FakeReadServices reads,
+        final int port
     ) {
         return new McpHttpServer.Dependencies(
             logger,
@@ -111,7 +150,7 @@ final class McpStartupDiagnosticTest {
             reads.clipMasks,
             immediateUi(),
             temporaryDirectory,
-            0,
+            port,
             TOKEN,
             120
         );
@@ -135,18 +174,23 @@ final class McpStartupDiagnosticTest {
     }
 
     /**
-     * Logger that records every message and throws a deterministic exception
-     * created inside {@link #info(String)} so the original top stack frame is
-     * this class. With {@code throwOnEveryMessage} the cleanup-path log call
-     * fails too, proving cleanup failures are suppressed.
+     * Logger that records every message and throws deterministic exceptions
+     * created inside {@link #record(String)} so the original top stack frame
+     * is this class. With {@code throwOnEveryMessage} the cleanup-path log
+     * call fails too; {@code distinctPerMessage} creates a new Throwable per
+     * call (cleanup identity differs from startup identity).
      */
     private static final class ThrowingLogger implements PluginLogger {
         private final boolean throwOnEveryMessage;
+        private final boolean distinctPerMessage;
         private final List<String> messages = new ArrayList<>();
         private IllegalStateException captured;
+        private IllegalStateException firstThrown;
+        private IllegalStateException lastThrown;
 
-        private ThrowingLogger(final boolean throwOnEveryMessage) {
+        private ThrowingLogger(final boolean throwOnEveryMessage, final boolean distinctPerMessage) {
             this.throwOnEveryMessage = throwOnEveryMessage;
+            this.distinctPerMessage = distinctPerMessage;
         }
 
         @Override public void debug(final String message) { record(message); }
@@ -159,12 +203,20 @@ final class McpStartupDiagnosticTest {
 
         private void record(final String message) {
             messages.add(message);
+            if (!throwOnEveryMessage && !message.contains("listening")) {
+                return;
+            }
+            if (distinctPerMessage) {
+                lastThrown = new IllegalStateException("deterministic logger failure");
+                if (firstThrown == null) {
+                    firstThrown = lastThrown;
+                }
+                throw lastThrown;
+            }
             if (captured == null) {
                 captured = new IllegalStateException("deterministic logger failure");
             }
-            if (throwOnEveryMessage || message.contains("listening")) {
-                throw captured;
-            }
+            throw captured;
         }
     }
 
