@@ -126,7 +126,7 @@ final class McpHttpServer implements AutoCloseable {
             ), stage);
         } catch (McpStartupFailure failure) {
             throw failure;
-        } catch (IOException | RuntimeException failure) {
+        } catch (Throwable failure) {
             throw stage.failure(failure);
         }
     }
@@ -189,11 +189,38 @@ final class McpHttpServer implements AutoCloseable {
             transport.writeConnectionFile();
             logger.info("Turboism MCP server listening at " + endpoint);
             return transport;
-        } catch (IOException | RuntimeException failure) {
-            if (transport != null) {
-                transport.close();
-            }
+        } catch (Throwable failure) {
+            closeAfterStartupFailure(transport, server, executor);
             throw stage.failure(failure);
+        }
+    }
+
+    /**
+     * Best-effort cleanup of every allocated resource after a failed startup.
+     * Cleanup failures are suppressed so they can never replace the original
+     * startup failure as the wrapper cause.
+     */
+    private static void closeAfterStartupFailure(
+        final McpHttpServer transport,
+        final HttpServer server,
+        final ExecutorService executor
+    ) {
+        if (transport != null) {
+            try {
+                transport.close();
+            } catch (Throwable ignored) {
+                // Suppressed; direct cleanup below still runs.
+            }
+        }
+        if (server != null) {
+            try {
+                server.stop(0);
+            } catch (Throwable ignored) {
+                // Suppressed; the original startup failure remains the cause.
+            }
+        }
+        if (executor != null) {
+            executor.shutdownNow();
         }
     }
 
