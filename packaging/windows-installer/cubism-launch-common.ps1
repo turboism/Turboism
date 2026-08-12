@@ -1240,10 +1240,19 @@ function Remove-TurboismJdkOptions {
         $probe = $value.Replace('"', '')
         if ($probe -match '(?i)^-Dturboism\.home=' -or
             $probe -match '(?i)^-javaagent:.*turboism-agent\.jar(?:[=].*)?$' -or
-            $probe -match '(?i)^--add-exports=java\.base\.jdk\.internal\.org\.objectweb\.asm(?:\.commons)?=ALL-UNNAMED$') { continue }
+            $probe -match '(?i)^--add-exports=java\.base[./]jdk\.internal\.org\.objectweb\.asm(?:[.]commons)?=ALL-UNNAMED$') { continue }
         [void]$kept.Add($token)
     }
     return ($kept -join " ").Trim()
+}
+
+function Get-CubismManagedJdkExportTokens {
+    # Legal JDK 17 --add-exports syntax is module/package; the legacy
+    # malformed java.base.jdk... dot spelling is never emitted.
+    return @(
+        "--add-exports=java.base/jdk.internal.org.objectweb.asm=ALL-UNNAMED",
+        "--add-exports=java.base/jdk.internal.org.objectweb.asm.commons=ALL-UNNAMED"
+    )
 }
 
 function ConvertTo-JdkOptionToken {
@@ -1278,10 +1287,8 @@ function Invoke-CubismOfficialBat {
     try {
         $managed = @(
             "-Dturboism.home=$TurboismHome",
-            "-javaagent:$Agent=home=$TurboismHome;timeoutSeconds=120",
-            "--add-exports=java.base.jdk.internal.org.objectweb.asm=ALL-UNNAMED",
-            "--add-exports=java.base.jdk.internal.org.objectweb.asm.commons=ALL-UNNAMED"
-        ) | ForEach-Object { ConvertTo-JdkOptionToken $_ }
+            "-javaagent:$Agent=home=$TurboismHome;timeoutSeconds=120"
+        ) + @(Get-CubismManagedJdkExportTokens) | ForEach-Object { ConvertTo-JdkOptionToken $_ }
         $unrelatedJdk = Remove-TurboismJdkOptions $oldJdk
         $env:JDK_JAVA_OPTIONS = ((@($unrelatedJdk) + $managed) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }) -join " "
         if ($null -ne $oldTool) { $env:JAVA_TOOL_OPTIONS = Remove-TurboismJdkOptions $oldTool }
