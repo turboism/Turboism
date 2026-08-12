@@ -101,4 +101,69 @@ class PluginJarContractTest {
         assertEquals("PLUGIN_I18N_CATALOG_UNDECLARED", exception.code());
         assertTrue(exception.path().endsWith(BASE_NAME + "_zh-Hans.properties"));
     }
+
+    @Test
+    void implicitBaseCatalogIsRequiredWithoutExplicitBaseLocale() throws Exception {
+        // Given a descriptor in the current official form: locales omit base
+        PluginDescriptor descriptor = descriptorWithLocales(List.of("en", "zh-Hans"));
+        List<String> content = List.of(
+            ENTRYPOINT_CLASS,
+            BASE_NAME + ".properties",
+            BASE_NAME + "_en.properties",
+            BASE_NAME + "_zh_Hans.properties"
+        );
+        // Then the implicit base catalog plus normalized localized catalogs validate
+        PluginJarContract.validate(descriptor, content, "plugins/test-i18n.jar");
+    }
+
+    @Test
+    void missingImplicitBaseFailsClosedWithExactBasePath() {
+        // Given a descriptor without base and a JAR missing the base catalog
+        PluginDescriptor descriptor = descriptorWithLocales(List.of("en"));
+        List<String> content = List.of(
+            ENTRYPOINT_CLASS,
+            BASE_NAME + "_en.properties"
+        );
+        // When validated
+        PluginJarContract.PluginJarContractException exception = assertThrows(
+            PluginJarContract.PluginJarContractException.class,
+            () -> PluginJarContract.validate(descriptor, content, "plugins/test-i18n.jar")
+        );
+        // Then the implicit base is required with its exact path
+        assertEquals("PLUGIN_I18N_CATALOG_MISSING", exception.code());
+        assertEquals("plugins/test-i18n.jar!/" + BASE_NAME + ".properties", exception.path());
+    }
+
+    @Test
+    void undeclaredLocalizedCatalogRemainsRejected() {
+        // Given a descriptor declaring only en
+        PluginDescriptor descriptor = descriptorWithLocales(List.of("en"));
+        List<String> content = List.of(
+            ENTRYPOINT_CLASS,
+            BASE_NAME + ".properties",
+            BASE_NAME + "_en.properties",
+            BASE_NAME + "_ja.properties"
+        );
+        // When the JAR carries an undeclared localized catalog
+        PluginJarContract.PluginJarContractException exception = assertThrows(
+            PluginJarContract.PluginJarContractException.class,
+            () -> PluginJarContract.validate(descriptor, content, "plugins/test-i18n.jar")
+        );
+        // Then it is rejected as undeclared
+        assertEquals("PLUGIN_I18N_CATALOG_UNDECLARED", exception.code());
+        assertTrue(exception.path().endsWith(BASE_NAME + "_ja.properties"));
+    }
+
+    @Test
+    void legacyExplicitBaseDedupesNaturally() throws Exception {
+        // Given a legacy descriptor that explicitly declares base
+        PluginDescriptor descriptor = descriptorWithLocales(List.of("base", "en"));
+        List<String> content = List.of(
+            ENTRYPOINT_CLASS,
+            BASE_NAME + ".properties",
+            BASE_NAME + "_en.properties"
+        );
+        // Then the single base resource satisfies both the implicit and explicit forms
+        PluginJarContract.validate(descriptor, content, "plugins/test-i18n.jar");
+    }
 }
