@@ -216,12 +216,17 @@ class RuntimePluginLocalizationTest {
             );
             assertEquals("english", localization.text("shared"));
             assertEquals("base", localization.text("baseOnly"));
-            // Explicit legacy base and implicit base resolve to one loaded catalog
+            // Explicit legacy base resolves to one loaded catalog at the final
+            // fallback position; localized catalog order is otherwise preserved
             final List<RuntimePluginLocalization.CatalogSnapshot> catalogs =
                 localization.reportSnapshot().catalogs();
             assertEquals(
                 1,
                 catalogs.stream().filter(catalog -> catalog.locale().equals("base")).count()
+            );
+            assertEquals(
+                List.of("en", "zh_Hans", "zh_Hant", "ja", "ko", "base"),
+                catalogs.stream().map(RuntimePluginLocalization.CatalogSnapshot::locale).toList()
             );
         }
     }
