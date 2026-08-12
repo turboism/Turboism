@@ -3,7 +3,7 @@ package dev.turboism.core.plugin;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 
 import java.util.Collection;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.Set;
 
 /** Shared descriptor-to-JAR content contract used by all plugin loaders. */
@@ -61,10 +61,14 @@ public final class PluginJarContract {
         final Set<String> content,
         final String logicalPath
     ) throws PluginJarContractException {
-        final Set<String> expected = new HashSet<>();
+        // baseName() implicitly declares exactly one required base catalog;
+        // a legacy explicit "base" locale maps to the same path and dedupes.
+        final Set<String> expected = new LinkedHashSet<>();
+        expected.add(descriptor.i18n().baseName() + ".properties");
         for (String locale : descriptor.i18n().locales()) {
-            final String catalog = catalogPath(descriptor.i18n().baseName(), locale);
-            expected.add(catalog);
+            expected.add(catalogPath(descriptor.i18n().baseName(), locale));
+        }
+        for (String catalog : expected) {
             require(
                 content.contains(catalog),
                 "PLUGIN_I18N_CATALOG_MISSING",
