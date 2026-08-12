@@ -153,10 +153,7 @@ final class McpHttpServer implements AutoCloseable {
             server = HttpServer.create(address, 0);
 
             stage.enter("executor/transport construction");
-            executor = Executors.newFixedThreadPool(
-                4,
-                new DaemonThreadFactory("turboism-mcp-http-")
-            );
+            executor = createExecutor();
             server.setExecutor(executor);
             final int actualPort = server.getAddress().getPort();
             final URI endpoint = URI.create("http://127.0.0.1:" + actualPort + "/mcp");
@@ -227,8 +224,27 @@ final class McpHttpServer implements AutoCloseable {
             }
         }
         if (executor != null) {
-            executor.shutdownNow();
+            try {
+                executor.shutdownNow();
+            } catch (Throwable cleanup) {
+                if (cleanup != original) {
+                    original.addSuppressed(cleanup);
+                }
+            }
         }
+    }
+
+    /** Package-private test seam for deterministic executor failure evidence; null in production. */
+    static ExecutorService executorOverride;
+
+    private static ExecutorService createExecutor() {
+        if (executorOverride != null) {
+            return executorOverride;
+        }
+        return Executors.newFixedThreadPool(
+            4,
+            new DaemonThreadFactory("turboism-mcp-http-")
+        );
     }
 
     URI endpoint() {
