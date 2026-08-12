@@ -548,8 +548,8 @@ final class McpHttpServer implements AutoCloseable {
 
     /**
      * Diagnostic-only wrapper: reports the startup stage where the original
-     * failure surfaced and the original Throwable's top stack frame, keeping
-     * the exact original Throwable as cause.
+     * failure surfaced and a bounded, ordered frame chain of at most six
+     * original frames, keeping the exact original Throwable as cause.
      */
     static final class McpStartupFailure extends IOException {
         private final String stage;

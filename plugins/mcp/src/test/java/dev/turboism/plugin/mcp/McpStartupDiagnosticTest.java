@@ -161,7 +161,7 @@ final class McpStartupDiagnosticTest {
             frames[index] = new StackTraceElement(
                 "dev.turboism.plugin.mcp.SyntheticOrigin",
                 "frame" + index,
-                "SyntheticOrigin.java",
+                "/private/secret/abs/SyntheticOrigin.java",
                 100 + index
             );
         }
@@ -192,6 +192,7 @@ final class McpStartupDiagnosticTest {
         // The seventh frame is absent and the message is one line without paths
         assertFalse(message.contains("SyntheticOrigin.frame6"));
         assertEquals(1, message.lines().count());
+        assertFalse(message.contains("/private/secret/abs/SyntheticOrigin.java"));
         assertFalse(message.contains("SyntheticOrigin.java"));
     }
     private McpHttpServer.Dependencies dependencies(
