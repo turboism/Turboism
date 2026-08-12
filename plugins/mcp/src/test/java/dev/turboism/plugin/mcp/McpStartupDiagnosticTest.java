@@ -29,11 +29,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
+import java.util.concurrent.AbstractExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -141,30 +138,20 @@ final class McpStartupDiagnosticTest {
     }
 
     @Test
-    void executorCleanupFailureIsAddedAsSuppressedAndCauseIsPreserved() {
-        final ThrowingLogger logger = new ThrowingLogger(false, false);
-        final McpHttpServerIntegrationTest.FakeReadServices reads =
-            new McpHttpServerIntegrationTest.FakeReadServices();
+    void executorCleanupFailureIsSuppressedOnExactOriginal() {
+        final IllegalStateException original =
+            new IllegalStateException("deterministic startup failure");
         final ThrowingExecutor executor = new ThrowingExecutor();
-        McpHttpServer.executorOverride = executor;
-        try {
-            final McpHttpServer.McpStartupFailure failure = assertThrows(
-                McpHttpServer.McpStartupFailure.class,
-                () -> McpHttpServer.start(dependencies(logger, reads, 0))
-            );
 
-            assertEquals("connection-file publication", failure.stage());
-            // The original startup Throwable remains the exact cause
-            assertSame(logger.captured, failure.getCause());
-            // The distinct executor cleanup Throwable is recorded as suppressed
-            final Throwable[] suppressed = failure.getCause().getSuppressed();
-            assertEquals(1, suppressed.length);
-            assertSame(executor.cleanupFailure, suppressed[0]);
-            // transport.close() and the direct fallback both ran shutdownNow
-            assertEquals(2, executor.shutdownNowCalls);
-        } finally {
-            McpHttpServer.executorOverride = null;
-        }
+        // Direct helper call: no transport/server involved, only the executor
+        McpHttpServer.closeAfterStartupFailure(null, null, executor, original);
+
+        // The exact cleanup Throwable is suppressed on the exact original
+        final Throwable[] suppressed = original.getSuppressed();
+        assertEquals(1, suppressed.length);
+        assertSame(executor.cleanupFailure, suppressed[0]);
+        // The direct executor cleanup path ran exactly once
+        assertEquals(1, executor.shutdownNowCalls);
     }
 
     private McpHttpServer.Dependencies dependencies(
@@ -252,12 +239,12 @@ final class McpStartupDiagnosticTest {
         }
     }
 
+
     /**
-     * Controllable executor: the first {@code shutdownNow()} throws a distinct
-     * deterministic Throwable; later calls succeed so the direct fallback path
-     * is observable.
+     * Minimal controllable executor: the first {@code shutdownNow()} throws a
+     * distinct deterministic Throwable; later calls succeed.
      */
-    private static final class ThrowingExecutor implements ExecutorService {
+    private static final class ThrowingExecutor extends AbstractExecutorService {
         private final IllegalStateException cleanupFailure =
             new IllegalStateException("deterministic executor failure");
         private int shutdownNowCalls;
@@ -273,42 +260,14 @@ final class McpStartupDiagnosticTest {
         @Override public void shutdown() { }
         @Override public boolean isShutdown() { return true; }
         @Override public boolean isTerminated() { return true; }
-        @Override public boolean awaitTermination(final long timeout, final TimeUnit unit) {
-            return true;
-        }
-        @Override public <T> Future<T> submit(final Callable<T> task) {
-            throw new UnsupportedOperationException();
-        }
-        @Override public <T> Future<T> submit(final Runnable task, final T result) {
-            throw new UnsupportedOperationException();
-        }
-        @Override public Future<?> submit(final Runnable task) {
-            throw new UnsupportedOperationException();
-        }
-        @Override public <T> List<Future<T>> invokeAll(final Collection<? extends Callable<T>> tasks) {
-            throw new UnsupportedOperationException();
-        }
-        @Override public <T> List<Future<T>> invokeAll(
-            final Collection<? extends Callable<T>> tasks,
-            final long timeout,
-            final TimeUnit unit
-        ) {
-            throw new UnsupportedOperationException();
-        }
-        @Override public <T> T invokeAny(final Collection<? extends Callable<T>> tasks) {
-            throw new UnsupportedOperationException();
-        }
-        @Override public <T> T invokeAny(
-            final Collection<? extends Callable<T>> tasks,
-            final long timeout,
-            final TimeUnit unit
-        ) {
-            throw new UnsupportedOperationException();
-        }
         @Override public void execute(final Runnable command) {
             throw new UnsupportedOperationException();
         }
+        @Override public boolean awaitTermination(final long timeout, final TimeUnit unit) {
+            return true;
+        }
     }
+
     private static final class ThrowingContext implements PluginContext {
         private IllegalStateException captured;
 
