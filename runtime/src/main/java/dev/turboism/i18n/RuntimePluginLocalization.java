@@ -120,6 +120,9 @@ public final class RuntimePluginLocalization implements PluginLocalization {
         // loaded exactly once as the final fallback, even when locales()
         // omits it (current official form). Legacy explicit "base" dedupes.
         final LinkedHashSet<String> catalogIds = new LinkedHashSet<>(descriptorI18n.locales());
+        // A legacy explicit "base" is moved to the final position so the
+        // implicit base remains the single final fallback for both forms.
+        catalogIds.remove("base");
         catalogIds.add("base");
         final List<String> catalogOrder = List.copyOf(catalogIds);
         final Map<String, Map<String, String>> catalogs = new LinkedHashMap<>();
