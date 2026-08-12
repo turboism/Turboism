@@ -2,7 +2,7 @@
 # It creates only temporary Cubism-shaped fixtures; it never discovers or starts
 # an installed Cubism host.
 [CmdletBinding()]
-param()
+param([switch]$JdkParserOnly)
 $ErrorActionPreference = "Stop"
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 . (Join-Path $scriptDir "cubism-launch-common.ps1")
@@ -12,6 +12,88 @@ function Assert-ManagedLaunch {
     param([bool]$Condition, [string]$Message)
     if (-not $Condition) { throw "FAIL: $Message" }
     Write-Host "ok: $Message"
+}
+
+function Test-CubismJdk17Runnable {
+    param([string]$Java)
+    if ([string]::IsNullOrWhiteSpace($Java)) { return $false }
+    try {
+        $output = & $Java -version 2>&1
+        if ($LASTEXITCODE -ne 0) { return $false }
+        $text = ($output | ForEach-Object { [string]$_ }) -join [Environment]::NewLine
+        return $text -match 'version "17\.'
+    }
+    catch { return $false }
+}
+
+function Find-CubismRunnableJdk17 {
+    param([string]$BundledJava)
+    # Preferred source is the selected candidate's bundled JRE; JAVA_HOME and
+    # PATH java are fallbacks so the synthetic fixture can still run a real
+    # JDK 17 parser regression on hosts that have a Java 17 installed.
+    $candidates = New-Object System.Collections.Generic.List[string]
+    if (-not [string]::IsNullOrWhiteSpace($BundledJava)) { [void]$candidates.Add($BundledJava) }
+    if (-not [string]::IsNullOrWhiteSpace($env:JAVA_HOME)) {
+        foreach ($name in @("java.exe", "java")) {
+            $path = Join-Path (Join-Path $env:JAVA_HOME "bin") $name
+            if (Test-Path -LiteralPath $path -PathType Leaf) { [void]$candidates.Add($path); break }
+        }
+    }
+    $pathJava = Get-Command java -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($null -ne $pathJava -and -not [string]::IsNullOrWhiteSpace($pathJava.Source)) { [void]$candidates.Add($pathJava.Source) }
+    foreach ($java in $candidates) {
+        if (Test-CubismJdk17Runnable $java) { return $java }
+    }
+    return $null
+}
+
+function Invoke-CubismJdkParserRegression {
+    param([string]$Java)
+    # Real-JVM proof that the legacy malformed java.base.jdk... dot spelling is
+    # rejected while the corrected java.base/jdk... slash spelling parses.
+    $malformed = '--add-exports=java.base.jdk.internal.org.objectweb.asm=ALL-UNNAMED --add-exports=java.base.jdk.internal.org.objectweb.asm.commons=ALL-UNNAMED'
+    $valid = @(Get-CubismManagedJdkExportTokens) -join ' '
+    $previous = $env:JDK_JAVA_OPTIONS
+    $malformedExit = -1
+    $validExit = -1
+    $malformedRun = @()
+    $validRun = @()
+    try {
+        $env:JDK_JAVA_OPTIONS = $malformed
+        $malformedRun = @(& $Java -version 2>&1)
+        $malformedExit = $LASTEXITCODE
+        $env:JDK_JAVA_OPTIONS = $valid
+        $validRun = @(& $Java -version 2>&1)
+        $validExit = $LASTEXITCODE
+    }
+    finally {
+        if ($null -eq $previous) { Remove-Item Env:JDK_JAVA_OPTIONS -ErrorAction SilentlyContinue }
+        else { $env:JDK_JAVA_OPTIONS = $previous }
+    }
+    return [pscustomobject]@{
+        MalformedExit = [int]$malformedExit
+        ValidExit = [int]$validExit
+        MalformedOutput = ($malformedRun | ForEach-Object { [string]$_ }) -join [Environment]::NewLine
+        ValidOutput = ($validRun | ForEach-Object { [string]$_ }) -join [Environment]::NewLine
+    }
+}
+
+if ($JdkParserOnly) {
+    # Focused cross-platform gate: real JDK 17 parser proof only. No BAT/COM
+    # fixtures are constructed or executed; the process exits 0 on success.
+    $cleanupProbe = Remove-TurboismJdkOptions '--add-exports=java.base/jdk.internal.org.objectweb.asm=ALL-UNNAMED --add-exports=java.base/jdk.internal.org.objectweb.asm.commons=ALL-UNNAMED --add-exports=java.base.jdk.internal.org.objectweb.asm=ALL-UNNAMED --add-exports=java.base.jdk.internal.org.objectweb.asm.commons=ALL-UNNAMED -Xmx256m -Dcustom=1'
+    Assert-ManagedLaunch (([regex]::Matches($cleanupProbe, 'add-exports=')).Count -eq 0) "cleanup removes both valid slash and legacy malformed dot export forms"
+    Assert-ManagedLaunch ($cleanupProbe -eq '-Xmx256m -Dcustom=1') "cleanup preserves unrelated JVM options"
+    $jdk17 = Find-CubismRunnableJdk17
+    if ($null -eq $jdk17) { throw "JDK 17 parser regression cannot run: no runnable Java 17 (JAVA_HOME, PATH)" }
+    Write-Host "ok: JDK 17 parser regression uses runnable Java 17 at $jdk17"
+    $regression = Invoke-CubismJdkParserRegression -Java $jdk17
+    Assert-ManagedLaunch ($regression.MalformedExit -ne 0) "real Java 17 parser rejects legacy malformed dot-form exports (exit $($regression.MalformedExit))"
+    Assert-ManagedLaunch ($regression.MalformedOutput -match 'JDK_JAVA_OPTIONS') "malformed rejection proves the launcher consumed JDK_JAVA_OPTIONS"
+    Assert-ManagedLaunch ($regression.ValidExit -eq 0) "real Java 17 parser accepts the corrected slash-form exports (exit $($regression.ValidExit))"
+    Assert-ManagedLaunch ($regression.ValidOutput -match 'version "17\.') "valid run proves a real Java 17 JVM executed"
+    Write-Host "MANAGED_LAUNCH_PARSER_ONLY=PASS"
+    exit 0
 }
 
 $temp = Join-Path ([System.IO.Path]::GetTempPath()) ("turboism-managed-launch-" + [guid]::NewGuid().ToString("N"))
@@ -253,8 +335,24 @@ try {
     $oldTool = $env:JAVA_TOOL_OPTIONS
     $tokenizerOutput = @(Get-JdkOptionTokens 'alpha beta')
     Assert-ManagedLaunch ($tokenizerOutput.Count -eq 2 -and @($tokenizerOutput | Where-Object { $_ -isnot [string] }).Count -eq 0 -and $tokenizerOutput[0] -eq 'alpha' -and $tokenizerOutput[1] -eq 'beta') "tokenizer emits exactly two string tokens and no non-string pipeline object"
-    $env:JDK_JAVA_OPTIONS = '-Xmx192m -javaagent:old-turboism-agent.jar -Dturboism.home=old-home --add-exports=java.base.jdk.internal.org.objectweb.asm=ALL-UNNAMED --add-exports=java.base.jdk.internal.org.objectweb.asm.commons=ALL-UNNAMED'
-    $env:JAVA_TOOL_OPTIONS = '-Dfile.encoding=UTF-8 -javaagent:old-turboism-agent.jar -Dturboism.home=old-home --add-exports=java.base.jdk.internal.org.objectweb.asm=ALL-UNNAMED'
+    $cleanupProbe = Remove-TurboismJdkOptions '--add-exports=java.base/jdk.internal.org.objectweb.asm=ALL-UNNAMED --add-exports=java.base/jdk.internal.org.objectweb.asm.commons=ALL-UNNAMED --add-exports=java.base.jdk.internal.org.objectweb.asm=ALL-UNNAMED --add-exports=java.base.jdk.internal.org.objectweb.asm.commons=ALL-UNNAMED -Xmx256m -Dcustom=1'
+    Assert-ManagedLaunch (([regex]::Matches($cleanupProbe, 'add-exports=')).Count -eq 0) "cleanup removes both valid slash and legacy malformed dot export forms"
+    Assert-ManagedLaunch ($cleanupProbe -eq '-Xmx256m -Dcustom=1') "cleanup preserves unrelated JVM options"
+    $jdk17 = Find-CubismRunnableJdk17 -BundledJava (Join-Path $root53 "app\jre\bin\java.exe")
+    if ($null -eq $jdk17) {
+        if ($env:OS -eq "Windows_NT") { throw "JDK 17 parser regression cannot run: no runnable Java 17 (bundled JRE, JAVA_HOME, PATH)" }
+        Write-Host "ok: JDK 17 parser regression skipped on this non-Windows host (no runnable Java 17 found)"
+    }
+    else {
+        Write-Host "ok: JDK 17 parser regression uses runnable Java 17 at $jdk17"
+        $regression = Invoke-CubismJdkParserRegression -Java $jdk17
+        Assert-ManagedLaunch ($regression.MalformedExit -ne 0) "real Java 17 parser rejects legacy malformed dot-form exports (exit $($regression.MalformedExit))"
+        Assert-ManagedLaunch ($regression.MalformedOutput -match 'JDK_JAVA_OPTIONS') "malformed rejection proves the launcher consumed JDK_JAVA_OPTIONS"
+        Assert-ManagedLaunch ($regression.ValidExit -eq 0) "real Java 17 parser accepts the corrected slash-form exports (exit $($regression.ValidExit))"
+        Assert-ManagedLaunch ($regression.ValidOutput -match 'version "17\.') "valid run proves a real Java 17 JVM executed"
+    }
+    $env:JDK_JAVA_OPTIONS = '-Xmx192m -javaagent:old-turboism-agent.jar -Dturboism.home=old-home --add-exports=java.base/jdk.internal.org.objectweb.asm=ALL-UNNAMED --add-exports=java.base/jdk.internal.org.objectweb.asm.commons=ALL-UNNAMED --add-exports=java.base.jdk.internal.org.objectweb.asm=ALL-UNNAMED --add-exports=java.base.jdk.internal.org.objectweb.asm.commons=ALL-UNNAMED'
+    $env:JAVA_TOOL_OPTIONS = '-Dfile.encoding=UTF-8 -javaagent:old-turboism-agent.jar -Dturboism.home=old-home --add-exports=java.base.jdk.internal.org.objectweb.asm=ALL-UNNAMED --add-exports=java.base/jdk.internal.org.objectweb.asm.commons=ALL-UNNAMED'
     try {
         $exitCode = Invoke-CubismOfficialBat -OfficialBat $bat -CubismRoot $root53 -TurboismHome $turboismHome -Agent $agent -Arguments @("fixture argument")
         Assert-ManagedLaunch ($exitCode -eq 23) "official normal BAT exit code is propagated"
@@ -263,8 +361,9 @@ try {
         Assert-ManagedLaunch (([regex]::Matches($markerText, '-javaagent:')).Count -eq 1) "Turboism agent is attached exactly once"
         Assert-ManagedLaunch ($markerText -match '-javaagent:.*turboism-agent\.jar') "current Turboism agent is inherited"
         Assert-ManagedLaunch ($markerText -notmatch 'old-turboism-agent\.jar') "stale Turboism agent is removed"
-        Assert-ManagedLaunch (([regex]::Matches($markerText, '--add-exports=java.base.jdk.internal.org.objectweb.asm=ALL-UNNAMED')).Count -eq 1) "base ASM export is attached exactly once"
-        Assert-ManagedLaunch (([regex]::Matches($markerText, '--add-exports=java.base.jdk.internal.org.objectweb.asm.commons=ALL-UNNAMED')).Count -eq 1) "commons ASM export is attached exactly once"
+        Assert-ManagedLaunch (([regex]::Matches($markerText, '--add-exports=java\.base/jdk\.internal\.org\.objectweb\.asm=ALL-UNNAMED')).Count -eq 1) "base ASM export is attached exactly once"
+        Assert-ManagedLaunch (([regex]::Matches($markerText, '--add-exports=java\.base/jdk\.internal\.org\.objectweb\.asm\.commons=ALL-UNNAMED')).Count -eq 1) "commons ASM export is attached exactly once"
+        Assert-ManagedLaunch (([regex]::Matches($markerText, '--add-exports=java\.base\.jdk\.internal\.org\.objectweb\.asm')).Count -eq 0) "legacy malformed dot-form exports are never emitted"
         Assert-ManagedLaunch ($markerText -notmatch 'old-home') "stale Turboism home option is removed"
         Assert-ManagedLaunch ((Get-Content -LiteralPath $marker -Raw) -match '-Xmx192m') "unrelated pre-existing JVM option is preserved"
         Assert-ManagedLaunch ($markerText -match 'TOOL=-Dfile.encoding=UTF-8' -and $markerText -notmatch 'TOOL=.*old-turboism-agent') "unrelated tool JVM option is preserved and stale attachment is removed"
