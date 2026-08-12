@@ -145,11 +145,14 @@ final class McpHttpServer implements AutoCloseable {
         ExecutorService executor = null;
         McpHttpServer transport = null;
         try {
-            stage.enter("loopback bind / HttpServer creation");
+            stage.enter("numeric loopback resolution");
+            final InetAddress loopback = InetAddress.getByName("127.0.0.1");
+            stage.enter("socket-address construction");
             final InetSocketAddress address = new InetSocketAddress(
-                InetAddress.getByName("127.0.0.1"),
+                loopback,
                 checked.port()
             );
+            stage.enter("HTTP server create/bind");
             server = HttpServer.create(address, 0);
 
             stage.enter("executor/transport construction");
@@ -517,9 +520,29 @@ final class McpHttpServer implements AutoCloseable {
         }
 
         private McpStartupFailure failure(final Throwable original) {
+            return new McpStartupFailure(current, frameChain(original), original);
+        }
+
+        private static String frameChain(final Throwable original) {
+            // Bounded diagnostic frame chain: at most the first six frames in
+            // original order, one line, class.method[:line] only, no file paths.
             final StackTraceElement[] trace = original.getStackTrace();
-            final StackTraceElement top = trace.length == 0 ? null : trace[0];
-            return new McpStartupFailure(current, top, original);
+            if (trace.length == 0) {
+                return "<empty stack>";
+            }
+            final StringBuilder chain = new StringBuilder();
+            final int limit = Math.min(trace.length, 6);
+            for (int index = 0; index < limit; index++) {
+                if (index > 0) {
+                    chain.append(", ");
+                }
+                final StackTraceElement frame = trace[index];
+                chain.append(frame.getClassName()).append('.').append(frame.getMethodName());
+                if (frame.getLineNumber() >= 0) {
+                    chain.append(':').append(frame.getLineNumber());
+                }
+            }
+            return chain.toString();
         }
     }
 
@@ -533,17 +556,17 @@ final class McpHttpServer implements AutoCloseable {
 
         private McpStartupFailure(
             final String stage,
-            final StackTraceElement topFrame,
+            final String frameChain,
             final Throwable cause
         ) {
             super(
                 "Turboism MCP startup failed at stage '" + stage + "'"
-                    + (topFrame == null ? "" : " (original failure at " + topFrame + ")"),
+                    + " (original failure at " + frameChain + ")",
                 cause
             );
             this.stage = stage;
-        }
 
+        }
         String stage() {
             return stage;
         }
