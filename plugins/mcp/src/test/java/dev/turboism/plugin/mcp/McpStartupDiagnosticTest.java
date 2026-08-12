@@ -154,6 +154,46 @@ final class McpStartupDiagnosticTest {
         assertEquals(1, executor.shutdownNowCalls);
     }
 
+    @Test
+    void diagnosticMessageCarriesBoundedFrameChainFromOriginal() {
+        final StackTraceElement[] frames = new StackTraceElement[7];
+        for (int index = 0; index < frames.length; index++) {
+            frames[index] = new StackTraceElement(
+                "dev.turboism.plugin.mcp.SyntheticOrigin",
+                "frame" + index,
+                "SyntheticOrigin.java",
+                100 + index
+            );
+        }
+        final IllegalStateException original = new IllegalStateException("synthetic");
+        original.setStackTrace(frames);
+        final ThrowingLogger logger = new ThrowingLogger(original);
+        final McpHttpServerIntegrationTest.FakeReadServices reads =
+            new McpHttpServerIntegrationTest.FakeReadServices();
+
+        final McpHttpServer.McpStartupFailure failure = assertThrows(
+            McpHttpServer.McpStartupFailure.class,
+            () -> McpHttpServer.start(dependencies(logger, reads, 0))
+        );
+
+        // Exact stage and exact original cause identity
+        assertEquals("connection-file publication", failure.stage());
+        assertSame(original, failure.getCause());
+        final String message = failure.getMessage();
+        // First six frames appear in original order
+        int previous = -1;
+        for (int index = 0; index < 6; index++) {
+            final String frame = "SyntheticOrigin.frame" + index + ":" + (100 + index);
+            assertTrue(message.contains(frame));
+            final int position = message.indexOf(frame);
+            assertTrue(position > previous);
+            previous = position;
+        }
+        // The seventh frame is absent and the message is one line without paths
+        assertFalse(message.contains("SyntheticOrigin.frame6"));
+        assertEquals(1, message.lines().count());
+        assertFalse(message.contains("SyntheticOrigin.java"));
+    }
     private McpHttpServer.Dependencies dependencies(
         final PluginLogger logger,
         final McpHttpServerIntegrationTest.FakeReadServices reads,
@@ -202,6 +242,7 @@ final class McpStartupDiagnosticTest {
     private static final class ThrowingLogger implements PluginLogger {
         private final boolean throwOnEveryMessage;
         private final boolean distinctPerMessage;
+        private final Throwable injected;
         private final List<String> messages = new ArrayList<>();
         private IllegalStateException captured;
         private IllegalStateException firstThrown;
@@ -210,6 +251,13 @@ final class McpStartupDiagnosticTest {
         private ThrowingLogger(final boolean throwOnEveryMessage, final boolean distinctPerMessage) {
             this.throwOnEveryMessage = throwOnEveryMessage;
             this.distinctPerMessage = distinctPerMessage;
+            this.injected = null;
+        }
+
+        private ThrowingLogger(final Throwable injected) {
+            this.throwOnEveryMessage = false;
+            this.distinctPerMessage = false;
+            this.injected = injected;
         }
 
         @Override public void debug(final String message) { record(message); }
@@ -225,6 +273,9 @@ final class McpStartupDiagnosticTest {
             if (!throwOnEveryMessage && !message.contains("listening")) {
                 return;
             }
+            if (injected != null) {
+                throw rethrow(injected);
+            }
             if (distinctPerMessage) {
                 lastThrown = new IllegalStateException("deterministic logger failure");
                 if (firstThrown == null) {
@@ -239,6 +290,10 @@ final class McpStartupDiagnosticTest {
         }
     }
 
+    @SuppressWarnings("unchecked")
+    private static <T extends Throwable> RuntimeException rethrow(final Throwable throwable) throws T {
+        throw (T) throwable;
+    }
 
     /**
      * Minimal controllable executor: the first {@code shutdownNow()} throws a
