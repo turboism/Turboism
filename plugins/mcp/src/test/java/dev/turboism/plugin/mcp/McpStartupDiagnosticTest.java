@@ -29,7 +29,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -135,6 +140,33 @@ final class McpStartupDiagnosticTest {
         assertSame(logger.lastThrown, suppressed[0]);
     }
 
+    @Test
+    void executorCleanupFailureIsAddedAsSuppressedAndCauseIsPreserved() {
+        final ThrowingLogger logger = new ThrowingLogger(false, false);
+        final McpHttpServerIntegrationTest.FakeReadServices reads =
+            new McpHttpServerIntegrationTest.FakeReadServices();
+        final ThrowingExecutor executor = new ThrowingExecutor();
+        McpHttpServer.executorOverride = executor;
+        try {
+            final McpHttpServer.McpStartupFailure failure = assertThrows(
+                McpHttpServer.McpStartupFailure.class,
+                () -> McpHttpServer.start(dependencies(logger, reads, 0))
+            );
+
+            assertEquals("connection-file publication", failure.stage());
+            // The original startup Throwable remains the exact cause
+            assertSame(logger.captured, failure.getCause());
+            // The distinct executor cleanup Throwable is recorded as suppressed
+            final Throwable[] suppressed = failure.getCause().getSuppressed();
+            assertEquals(1, suppressed.length);
+            assertSame(executor.cleanupFailure, suppressed[0]);
+            // transport.close() and the direct fallback both ran shutdownNow
+            assertEquals(2, executor.shutdownNowCalls);
+        } finally {
+            McpHttpServer.executorOverride = null;
+        }
+    }
+
     private McpHttpServer.Dependencies dependencies(
         final PluginLogger logger,
         final McpHttpServerIntegrationTest.FakeReadServices reads,
@@ -220,6 +252,63 @@ final class McpStartupDiagnosticTest {
         }
     }
 
+    /**
+     * Controllable executor: the first {@code shutdownNow()} throws a distinct
+     * deterministic Throwable; later calls succeed so the direct fallback path
+     * is observable.
+     */
+    private static final class ThrowingExecutor implements ExecutorService {
+        private final IllegalStateException cleanupFailure =
+            new IllegalStateException("deterministic executor failure");
+        private int shutdownNowCalls;
+
+        @Override public List<Runnable> shutdownNow() {
+            shutdownNowCalls++;
+            if (shutdownNowCalls == 1) {
+                throw cleanupFailure;
+            }
+            return List.of();
+        }
+
+        @Override public void shutdown() { }
+        @Override public boolean isShutdown() { return true; }
+        @Override public boolean isTerminated() { return true; }
+        @Override public boolean awaitTermination(final long timeout, final TimeUnit unit) {
+            return true;
+        }
+        @Override public <T> Future<T> submit(final Callable<T> task) {
+            throw new UnsupportedOperationException();
+        }
+        @Override public <T> Future<T> submit(final Runnable task, final T result) {
+            throw new UnsupportedOperationException();
+        }
+        @Override public Future<?> submit(final Runnable task) {
+            throw new UnsupportedOperationException();
+        }
+        @Override public <T> List<Future<T>> invokeAll(final Collection<? extends Callable<T>> tasks) {
+            throw new UnsupportedOperationException();
+        }
+        @Override public <T> List<Future<T>> invokeAll(
+            final Collection<? extends Callable<T>> tasks,
+            final long timeout,
+            final TimeUnit unit
+        ) {
+            throw new UnsupportedOperationException();
+        }
+        @Override public <T> T invokeAny(final Collection<? extends Callable<T>> tasks) {
+            throw new UnsupportedOperationException();
+        }
+        @Override public <T> T invokeAny(
+            final Collection<? extends Callable<T>> tasks,
+            final long timeout,
+            final TimeUnit unit
+        ) {
+            throw new UnsupportedOperationException();
+        }
+        @Override public void execute(final Runnable command) {
+            throw new UnsupportedOperationException();
+        }
+    }
     private static final class ThrowingContext implements PluginContext {
         private IllegalStateException captured;
 
