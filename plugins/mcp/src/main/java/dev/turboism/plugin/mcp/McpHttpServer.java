@@ -190,33 +190,40 @@ final class McpHttpServer implements AutoCloseable {
             logger.info("Turboism MCP server listening at " + endpoint);
             return transport;
         } catch (Throwable failure) {
-            closeAfterStartupFailure(transport, server, executor);
+            closeAfterStartupFailure(transport, server, executor, failure);
             throw stage.failure(failure);
         }
     }
 
     /**
      * Best-effort cleanup of every allocated resource after a failed startup.
-     * Cleanup failures are suppressed so they can never replace the original
-     * startup failure as the wrapper cause.
+     * Every independent cleanup Throwable is added as suppressed to the exact
+     * original startup Throwable; the wrapper cause is never replaced. A
+     * cleanup that rethrows the original object itself is not self-suppressed
+     * (addSuppressed rejects self-suppression).
      */
     private static void closeAfterStartupFailure(
         final McpHttpServer transport,
         final HttpServer server,
-        final ExecutorService executor
+        final ExecutorService executor,
+        final Throwable original
     ) {
         if (transport != null) {
             try {
                 transport.close();
-            } catch (Throwable ignored) {
-                // Suppressed; direct cleanup below still runs.
+            } catch (Throwable cleanup) {
+                if (cleanup != original) {
+                    original.addSuppressed(cleanup);
+                }
             }
         }
         if (server != null) {
             try {
                 server.stop(0);
-            } catch (Throwable ignored) {
-                // Suppressed; the original startup failure remains the cause.
+            } catch (Throwable cleanup) {
+                if (cleanup != original) {
+                    original.addSuppressed(cleanup);
+                }
             }
         }
         if (executor != null) {
