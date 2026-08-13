@@ -7,7 +7,7 @@ public final class EditorModelVerificationManifest {
 
     public static final String VERIFICATION_ID = "cubism-5.3.02.editor-model.static";
     public static final String RECORD_SHA256 =
-        "794a0cff373432e3d3eee4167b1be50a9d17181598c651e82496e1f2fbb92028";
+        "5c68daa945977f3a1d43476c3f0ac3858f9cacbe50c10e4dc2bcb76ab2947ea7";
     public static final String CUBISM_VERSION = "5.3.02";
     public static final String PROFILE_ID = "cubism-5.3.02";
     public static final long ARTIFACT_SIZE = 41_922_739L;
@@ -36,6 +36,7 @@ public final class EditorModelVerificationManifest {
         EditorObjectWriteSelectorContract.WARP_CAPABILITY_ID,
         EditorObjectWriteSelectorContract.ROTATION_CAPABILITY_ID,
         EditorHistoryReadSelectorContract.CAPABILITY_ID,
+            EditorHistoryMoveSelectorContract.CAPABILITY_ID,
         EditorObjectHierarchyEditSelectorContract.CAPABILITY_ID,
         EditorObjectHierarchyEditSelectorContract.RENAME_CAPABILITY_ID,
         EditorObjectHierarchyEditSelectorContract.ART_MESH_CREATE_CAPABILITY_ID,
@@ -417,6 +418,7 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-history.entry.class",
         "cubism.editor-history.entry.presentation-name",
         "cubism.editor-history.entry.significant",
+        "cubism.editor-history.manager.move-to",
         "object-context-menu.parameter.group-row.class",
         "object-context-menu.parameter.group-row.source",
         "object-context-menu.parameter.row-parameters",
