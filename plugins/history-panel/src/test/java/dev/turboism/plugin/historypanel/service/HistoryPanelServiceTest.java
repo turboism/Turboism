@@ -27,7 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class HistoryPanelServiceTest {
 
     @Test
-    void rendersEntriesWithCursorMarkerAndDetails() {
+    void rendersEntriesInsideScrollWithCheckboxPerRowAndNoTopButtons() {
         final HistorySnapshot snapshot = available(
             1,
             2,
@@ -42,11 +42,24 @@ class HistoryPanelServiceTest {
 
         final PanelView view = service(new FakeHistory(snapshot), new RecordingUiHost()).render(snapshot);
 
+        // The whole undo/redo list is wrapped in a scroll view.
+        assertTrue(view instanceof PanelView.Scroll, "list must be inside a scroll view");
         final String text = flatten(view);
         assertTrue(text.contains("History: 2 entries · cursor 1 · undo ✓ · redo —"), text);
-        assertTrue(text.contains("▶ 2 Set Parameter Value"), text);
+        assertTrue(text.contains("2 Set Parameter Value"), text);
         assertTrue(text.contains("ParamAngleX value: -4.199999 → 12.599998 (SET_PARAMETER_VALUE, FULL)"), text);
         assertTrue(text.contains("jump to that state"), text);
+
+        // Top level carries no undo/redo buttons.
+        assertFalse(hasButton(view, "history.panel.undo"), "top undo button removed");
+        assertFalse(hasButton(view, "history.panel.redo"), "top redo button removed");
+
+        // Each row leads with a checkbox: applied (index < cursor) checked,
+        // undone (index >= cursor) unchecked.
+        final List<PanelView.Toggle> toggles = toggles(view);
+        assertEquals(2, toggles.size());
+        assertTrue(toggles.get(0).selected(), "applied entry is checked");
+        assertFalse(toggles.get(1).selected(), "undone entry is unchecked");
     }
 
     @Test
@@ -55,7 +68,7 @@ class HistoryPanelServiceTest {
 
         final String text = flatten(view);
         assertTrue(text.contains("History unavailable"), text);
-        assertFalse(text.contains("▶"), text);
+        assertFalse(text.contains("[toggle:"), "unavailable state renders no checkboxes");
     }
 
     @Test
@@ -154,8 +167,44 @@ class HistoryPanelServiceTest {
             flatten(scroll.child(), builder);
         } else if (view instanceof PanelView.Button button) {
             builder.append("[button:").append(button.label()).append("]\n");
+        } else if (view instanceof PanelView.Toggle toggle) {
+            builder.append("[toggle:").append(toggle.selected() ? "1" : "0").append(":").append(toggle.id()).append(":").append(toggle.label()).append("]\n");
         } else if (view instanceof PanelView.Text text) {
             builder.append(text.value()).append('\n');
+        }
+    }
+
+    private static boolean hasButton(final PanelView view, final String id) {
+        if (view instanceof PanelView.Button button) {
+            return button.id().equals(id);
+        }
+        if (view instanceof PanelView.Column column) {
+            return column.children().stream().anyMatch(child -> hasButton(child, id));
+        }
+        if (view instanceof PanelView.Row row) {
+            return row.children().stream().anyMatch(child -> hasButton(child, id));
+        }
+        if (view instanceof PanelView.Scroll scroll) {
+            return hasButton(scroll.child(), id);
+        }
+        return false;
+    }
+
+    private static List<PanelView.Toggle> toggles(final PanelView view) {
+        final List<PanelView.Toggle> result = new ArrayList<>();
+        collectToggles(view, result);
+        return result;
+    }
+
+    private static void collectToggles(final PanelView view, final List<PanelView.Toggle> result) {
+        if (view instanceof PanelView.Toggle toggle) {
+            result.add(toggle);
+        } else if (view instanceof PanelView.Column column) {
+            column.children().forEach(child -> collectToggles(child, result));
+        } else if (view instanceof PanelView.Row row) {
+            row.children().forEach(child -> collectToggles(child, result));
+        } else if (view instanceof PanelView.Scroll scroll) {
+            collectToggles(scroll.child(), result);
         }
     }
 
