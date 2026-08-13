@@ -1,0 +1,40 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 2,
+  "id": "dev.turboism.validation.fps",
+  "name": "FPS Counting Host Validation Exerciser",
+  "version": "0.0.0",
+  "description": "Task-local exerciser that mounts the FPS counting hook through the public SDK and records renderSceneCalls evidence on an exact Cubism host.",
+  "entrypoints": [
+    "dev.turboism.validation.fps.FpsHostValidationPlugin"
+  ],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    { "name": "Turboism Validation" }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": []
+  },
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.performance.stats.read",
+      "scope": "application",
+      "reason": "Subscribes to real-time performance statistics so the runtime mounts the FPS counting hook and the exerciser can record renderSceneCalls evidence."
+    },
+    {
+      "id": "turboism.cubism.model.read",
+      "scope": "application",
+      "reason": "Gates the exerciser on the active modeling document (id only; no authoring mutation) before sampling render calls."
+    }
+  ],
+  "capabilities": [],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "swing"
+  }
+}

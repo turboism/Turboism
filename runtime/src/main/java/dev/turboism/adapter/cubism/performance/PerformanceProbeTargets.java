@@ -6,6 +6,24 @@ public final class PerformanceProbeTargets {
 
     private PerformanceProbeTargets() { }
 
+    /**
+     * Cubism 5.2.03 RENDER_SCENE target. Verified against the exact reviewed
+     * 5.2.03 JAR (size 40,805,584 / sha256 bcc6e34f...) with {@code javap -p -s}
+     * on {@code com/live2d/cubism/view/context/CEViewContext}; see
+     * {@code cubism-ref/verification/cubism-5.2.03-performance-render-scene.json}.
+     * The FPS hook counts render calls only, so this slice carries no other metric.
+     */
+    public static List<PerformanceProbeMethodTransformer.Target> cubism5203() {
+        return List.of(
+            target(
+                "com/live2d/cubism/view/context/CEViewContext",
+                "renderScene_exe",
+                "(Lcom/live2d/graphics3d/a;Lcom/live2d/type/CRect;Lcom/live2d/type/CRect;)V",
+                PerformanceProbeMetric.RENDER_SCENE
+            )
+        );
+    }
+
     public static List<PerformanceProbeMethodTransformer.Target> cubism5302() {
         return List.of(
             target(
