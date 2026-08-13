@@ -3,6 +3,7 @@ package dev.turboism.bootstrap;
 import dev.turboism.adapter.cubism.performance.PerformanceFpsHook;
 import dev.turboism.adapter.cubism.performance.PerformanceFpsHookRegistry;
 import dev.turboism.adapter.cubism.startup.StartupSuppressionInstaller;
+import dev.turboism.adapter.jdk.PipeImplLoopbackInstaller;
 import dev.turboism.adapter.cubism.filechooser.FileChooserHistoryHostProfile;
 import dev.turboism.adapter.cubism.physics.PhysicsEditorHostProfile;
 import dev.turboism.mapping.verification.EditorModelVerificationManifest;
@@ -62,6 +63,8 @@ public final class TurboismAgent {
     private static final AtomicReference<VerifiedControlAppearanceHookInstaller>
         CONTROL_APPEARANCE_HOOK = new AtomicReference<>();
     private static final AtomicReference<StartupSuppressionInstaller.Installation> STARTUP_SUPPRESSION =
+        new AtomicReference<>();
+    private static final AtomicReference<PipeImplLoopbackInstaller.Installation> PIPE_IMPL_SHIM =
         new AtomicReference<>();
     private static final AtomicReference<dev.turboism.sdk.plugin.Registration> OVERLAY_HOOK =
         new AtomicReference<>();
@@ -170,6 +173,18 @@ public final class TurboismAgent {
                 + ", requestedInformation="
                 + startupSuppression.policy().requestedSkipStartupInformation()
                 + ", effectiveInformation=" + startupSuppression.policy().skipStartupInformation()
+        );
+        final PipeImplLoopbackInstaller.Installation pipeImplShim =
+            PipeImplLoopbackInstaller.install(
+                instrumentation,
+                code -> System.out.println("Turboism pipe shim: " + code)
+            );
+        if (!PIPE_IMPL_SHIM.compareAndSet(null, pipeImplShim)) {
+            pipeImplShim.close();
+        }
+        System.out.println(
+            "Turboism pipe shim status=" + pipeImplShim.status()
+                + ", transformOutcome=" + pipeImplShim.transformOutcome()
         );
         final Thread bootstrap = new Thread(
             () -> start(options, instrumentation),
@@ -826,6 +841,15 @@ public final class TurboismAgent {
             } catch (Throwable failure) {
                 runtimeWarn("Turboism startup suppression cleanup failed safely");
 
+            }
+        }
+        final PipeImplLoopbackInstaller.Installation pipeImplShim =
+            PIPE_IMPL_SHIM.getAndSet(null);
+        if (pipeImplShim != null) {
+            try {
+                pipeImplShim.close();
+            } catch (Throwable failure) {
+                runtimeWarn("Turboism pipe shim cleanup failed safely");
             }
         }
         final VerifiedObjectContextMenuHookInstaller objectContextMenuHook =
