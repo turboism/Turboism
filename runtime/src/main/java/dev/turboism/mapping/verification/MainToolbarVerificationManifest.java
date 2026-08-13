@@ -8,7 +8,7 @@ public final class MainToolbarVerificationManifest {
     public static final String VERIFICATION_ID =
         "cubism-5.3.02.ui-main-toolbar.static";
     public static final String RECORD_SHA256 =
-        "bd0eed7d67cf3bbed0ca3a2367c74c010d47384ae20cac5cf236379bad379d30";
+        "fa95beaca4ba59509f59d817e6411629f82aec1a2b0e7f8b8ec4dc36846cf9a5";
     public static final String CUBISM_VERSION = "5.3.02";
     public static final String PROFILE_ID = "cubism-5.3.02";
     public static final long ARTIFACT_SIZE = 41_922_739L;
