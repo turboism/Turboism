@@ -32,6 +32,9 @@ public final class AppearanceCoordinator implements AutoCloseable {
 
     public AppearanceStatus current() {
         synchronized (monitor) {
+            if (activeOwner == null) {
+                status = provider.readStatus();
+            }
             return status;
         }
     }
@@ -89,7 +92,9 @@ public final class AppearanceCoordinator implements AutoCloseable {
     ) {
         final Owner requester = new Owner(pluginId, pluginGeneration);
         synchronized (monitor) {
-            requireOpen();
+            if (closed) {
+                return restoreResult(AppearanceRestoreResult.Outcome.NO_OWNED_OVERRIDE, null);
+            }
             if (activeOwner == null || !activeOwner.equals(requester)) {
                 return restoreResult(AppearanceRestoreResult.Outcome.NO_OWNED_OVERRIDE, null);
             }

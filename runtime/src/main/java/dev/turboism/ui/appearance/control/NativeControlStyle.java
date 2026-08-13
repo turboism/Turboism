@@ -1,7 +1,7 @@
 package dev.turboism.ui.appearance.control;
 
-import dev.turboism.sdk.ui.appearance.ControlAppearanceStyle;
-import dev.turboism.sdk.ui.appearance.UiFont;
+import dev.turboism.sdk.ui.appearance.PaletteEntryState;
+import dev.turboism.sdk.ui.appearance.UiColor;
 
 import java.awt.Color;
 import java.awt.Font;
@@ -15,17 +15,21 @@ record NativeControlStyle(Font font, Color foreground, Color background, boolean
         final Color nativeForeground,
         final Color nativeBackground,
         final boolean nativeOpaque,
-        final ControlAppearanceStyle style
+        final PaletteEntryState state
     ) {
-        Objects.requireNonNull(style, "style");
+        Objects.requireNonNull(state, "state");
+        final Font font = font(nativeFont, state);
         return new NativeControlStyle(
-            style.font().map(value -> font(nativeFont, value)).orElse(nativeFont),
-            style.foreground().map(value -> new Color(value.argb(), true)).orElse(nativeForeground),
-            style.background().map(value -> new Color(value.argb(), true)).orElse(nativeBackground),
-            style.background().isPresent() || nativeOpaque
+            font,
+            state.textColor().map(NativeControlStyle::swing).orElse(nativeForeground),
+            state.backgroundColor().map(NativeControlStyle::swing).orElse(nativeBackground),
+            state.backgroundColor().isPresent() || nativeOpaque
         );
     }
 
+    private static Color swing(final UiColor color) {
+        return new Color(color.red(), color.green(), color.blue(), color.alpha());
+    }
 
     void restore(final java.awt.Component component) {
         component.setFont(font);
@@ -35,20 +39,21 @@ record NativeControlStyle(Font font, Color foreground, Color background, boolean
         component.repaint();
     }
 
-    private static Font font(final Font nativeFont, final UiFont overlay) {
+    private static Font font(
+        final Font nativeFont,
+        final PaletteEntryState state
+    ) {
         final Font base = Objects.requireNonNull(nativeFont, "nativeFont");
-        final String family = overlay.family().orElse(base.getFamily());
-        final float size = overlay.size().orElse(base.getSize2D());
-        final int weight = switch (overlay.weight()) {
-            case INHERIT -> base.isBold() ? Font.BOLD : Font.PLAIN;
-            case REGULAR -> Font.PLAIN;
-            case BOLD -> Font.BOLD;
-        };
-        final int posture = switch (overlay.posture()) {
-            case INHERIT -> base.isItalic() ? Font.ITALIC : Font.PLAIN;
-            case NORMAL -> Font.PLAIN;
-            case ITALIC -> Font.ITALIC;
-        };
-        return new Font(family, weight | posture, Math.round(size)).deriveFont(size);
+        if (state.fontSize().isEmpty() && state.bold().isEmpty() && state.italic().isEmpty()) return base;
+
+        int style = base.getStyle();
+        if (state.bold().isPresent()) {
+            style = state.bold().orElseThrow() ? style | Font.BOLD : style & ~Font.BOLD;
+        }
+        if (state.italic().isPresent()) {
+            style = state.italic().orElseThrow() ? style | Font.ITALIC : style & ~Font.ITALIC;
+        }
+        final float size = state.fontSize().orElse(base.getSize2D());
+        return base.deriveFont(style, size);
     }
 }

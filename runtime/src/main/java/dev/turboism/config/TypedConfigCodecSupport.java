@@ -16,6 +16,7 @@ final class TypedConfigCodecSupport {
     private static final Pattern INTEGER = Pattern.compile("0|-?[1-9][0-9]*");
     private static final Pattern INTEGER_CODEC = Pattern.compile("int:(-?[0-9]+):(-?[0-9]+)");
     private static final Pattern LIST_CODEC = Pattern.compile("string-list:([0-9]+):([1-9][0-9]*)");
+    private static final Pattern STRING_CODEC = Pattern.compile("string:([1-9][0-9]*)");
 
     private TypedConfigCodecSupport() {
     }
@@ -28,7 +29,8 @@ final class TypedConfigCodecSupport {
         return id.equals("boolean")
             || INTEGER_CODEC.matcher(id).matches()
             || id.startsWith("enum:") && id.length() > "enum:".length()
-            || LIST_CODEC.matcher(id).matches();
+            || LIST_CODEC.matcher(id).matches()
+            || STRING_CODEC.matcher(id).matches();
     }
 
     static boolean isValidDefault(final ConfigKey<?> key) {
@@ -42,6 +44,13 @@ final class TypedConfigCodecSupport {
             return value instanceof Boolean booleanValue
                 ? Optional.of(booleanValue.toString())
                 : Optional.empty();
+        }
+        final Matcher stringCodec = STRING_CODEC.matcher(id);
+        if (stringCodec.matches()) {
+            if (!(value instanceof String text) || text.length() > Integer.parseInt(stringCodec.group(1))) {
+                return Optional.empty();
+            }
+            return Optional.of(text);
         }
         final Matcher integerCodec = INTEGER_CODEC.matcher(id);
         if (integerCodec.matches()) {
@@ -90,6 +99,13 @@ final class TypedConfigCodecSupport {
                 case "false" -> Optional.of(Boolean.FALSE);
                 default -> Optional.empty();
             };
+        }
+        final Matcher stringCodec = STRING_CODEC.matcher(id);
+        if (stringCodec.matches()) {
+            if (encoded.length() > Integer.parseInt(stringCodec.group(1))) {
+                return Optional.empty();
+            }
+            return Optional.of(encoded);
         }
         final Matcher integerCodec = INTEGER_CODEC.matcher(id);
         if (integerCodec.matches()) {

@@ -17,7 +17,7 @@
   "resources": [],
   "i18n": {
     "baseName": "META-INF/turboism/i18n/messages",
-    "locales": []
+    "locales": ["en", "ja", "ko", "zh-Hans", "zh-Hant"]
   },
   "dependencies": [],
   "permissions": [
@@ -50,6 +50,11 @@
       "id": "turboism.ui.menu.contribute",
       "scope": "application",
       "reason": "Expose parameter binding inversion and transfer through the Parameter Tools menu."
+    },
+    {
+      "id": "turboism.ui.context-menu.contribute",
+      "scope": "application",
+      "reason": "Expose typed parameter binding inversion and transfer in supported Editor context menus."
     }
   ],
   "capabilities": [
@@ -57,6 +62,7 @@
     "cubism.parameter.write",
     "cubism.parameter.bindings.invert",
     "cubism.parameter.bindings.transfer",
+    "ui.context-menu.contribute",
     "ui.file-chooser.request",
     "ui.status.notify"
   ],

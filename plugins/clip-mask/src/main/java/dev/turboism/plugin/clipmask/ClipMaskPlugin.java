@@ -1,6 +1,7 @@
 package dev.turboism.plugin.clipmask;
 
 import dev.turboism.plugin.clipmask.service.ClipMaskInspectorService;
+import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
@@ -16,24 +17,31 @@ import java.util.function.Consumer;
 public final class ClipMaskPlugin implements TurboismPlugin {
 
     private static final String INSPECT_ACTION_ID = "clip-mask.inspector.inspect";
-    private static final String INSPECT_ACTION_LABEL = "Inspect Clip Masks";
+    private static final String INSPECT_ACTION_LABEL_KEY = "clip-mask.inspect";
 
     private PluginContext context;
     private PluginLogger logger;
     private ClipMaskInspectorService inspectorService;
+    private PluginLocalization localization;
 
     @Override
     public void init(final PluginContext context) {
         this.context = context;
         this.logger = context.logger();
-        this.inspectorService = new ClipMaskInspectorService(context.cubismRead(), context.uiHost());
+        try {
+            this.localization = context.localization();
+            this.inspectorService = new ClipMaskInspectorService(context.cubismRead(), context.uiHost(), localization);
+        } catch (UnsupportedOperationException unavailable) {
+            this.localization = null;
+            this.inspectorService = new ClipMaskInspectorService(context.cubismRead(), context.uiHost());
+        }
         logger.info("ClipMaskPlugin initialized");
     }
 
     @Override
     public void enable() {
         try {
-            registerAction(INSPECT_ACTION_ID, INSPECT_ACTION_LABEL, ignored -> inspectorService.inspect());
+            registerAction(INSPECT_ACTION_ID, localization == null ? "Inspect Clip Masks" : localization.text(INSPECT_ACTION_LABEL_KEY), ignored -> inspectorService.inspect());
             context.disposableScope().register(inspectorService.registerPanel());
             context.disposableScope().register(inspectorService.openInspectorDialog());
         } catch (RuntimeException failure) {

@@ -23,8 +23,8 @@ from sdk_api_tiers_common import (
     valid_internal_name,
 )
 
-INITIAL_PREVIEW_LEDGER_SHA256 = "04cbe2fcd43ea4e31e20fe9c8febe4af4c22ba7ea6575f25c655f15d5e232103"
-INITIAL_PREVIEW_LEDGER_LINE_COUNT = 128
+INITIAL_PREVIEW_LEDGER_SHA256 = "21d2d371881bf46201e1e028272909f99ea86cfe1e1cf3f0d147806db83c7f95"
+INITIAL_PREVIEW_LEDGER_LINE_COUNT = 1158
 _LEDGER_KEYS = {"format", "schemaVersion", "generatorVersion", "reviewedBaseline", "roots"}
 _POLICY_KEYS = {
     "format", "schemaVersion", "generatorVersion", "reviewedBaseline",
@@ -37,20 +37,22 @@ def load_initial_preview_ledger(path: Path) -> tuple[dict[str, Any], set[str]]:
     return _load_initial_preview_ledger(path, Digest(INITIAL_PREVIEW_LEDGER_LINE_COUNT, INITIAL_PREVIEW_LEDGER_SHA256))
 
 
-def load_initial_preview_ledger_for_test(path: Path, *, ledger_trust: Digest) -> tuple[dict[str, Any], set[str]]:
+def load_initial_preview_ledger_for_test(
+    path: Path, *, ledger_trust: Digest, expected_root_count: int = 28
+) -> tuple[dict[str, Any], set[str]]:
     if not isinstance(ledger_trust, Digest):
         raise BaselineError("test initial preview ledger trust must be a Digest")
-    return _load_initial_preview_ledger(path, ledger_trust)
+    return _load_initial_preview_ledger(path, ledger_trust, expected_root_count=expected_root_count)
 
 
-def _load_initial_preview_ledger(path: Path, ledger_trust: Digest) -> tuple[dict[str, Any], set[str]]:
+def _load_initial_preview_ledger(path: Path, ledger_trust: Digest, *, expected_root_count: int = 274) -> tuple[dict[str, Any], set[str]]:
     value = strict_json(path, "initial preview ledger")
     _verify_file_trust(path, "initial preview ledger", ledger_trust)
     value = closed_object(value, _LEDGER_KEYS, "initial preview ledger")
     _verify_ledger_metadata(value)
     roots = unique_list(value["roots"], "initial preview ledger roots", target_identity)
-    if len(roots) != 28:
-        raise BaselineError("initial preview ledger must contain exactly 28 roots")
+    if len(roots) != expected_root_count:
+        raise BaselineError(f"initial preview ledger must contain exactly {expected_root_count} roots")
     return value, {target_identity(root) for root in roots}
 
 
@@ -82,12 +84,22 @@ def _verify_ledger_metadata(value: dict[str, Any]) -> None:
     digest(binding["canonicalDump"], "initial preview ledger reviewed canonical dump")
 
 
-def load_tier_policy(path: Path, baseline: dict[str, Any], initial_ledger_path: Path, *, policy_trust: Digest, initial_ledger_trust: Digest | None = None) -> tuple[dict[str, Any], set[str], list[NewPreviewAdmission], set[str]]:
+def load_tier_policy(
+    path: Path,
+    baseline: dict[str, Any],
+    initial_ledger_path: Path,
+    *,
+    policy_trust: Digest,
+    initial_ledger_trust: Digest | None = None,
+    initial_ledger_root_count: int = 274,
+) -> tuple[dict[str, Any], set[str], list[NewPreviewAdmission], set[str]]:
     _verify_file_trust(path, "tier policy", policy_trust)
-    ledger, initial_roots = _load_ledger(initial_ledger_path, initial_ledger_trust)
+    ledger, initial_roots = _load_ledger(
+        initial_ledger_path, initial_ledger_trust, expected_root_count=initial_ledger_root_count
+    )
     value = strict_json(path, "tier policy")
     value = closed_object(value, _POLICY_KEYS, "tier policy")
-    _verify_policy_metadata(value, baseline)
+    _verify_policy_metadata(value, baseline, initial_ledger_trust)
     promotions = _promotions(value)
     admissions = _admissions(value)
     _verify_policy_relationships(value, initial_roots, admissions, promotions)
@@ -95,11 +107,17 @@ def load_tier_policy(path: Path, baseline: dict[str, Any], initial_ledger_path: 
     return value, initial_roots, admissions, promotions
 
 
-def _load_ledger(path: Path, trust: Digest | None):
-    return load_initial_preview_ledger(path) if trust is None else load_initial_preview_ledger_for_test(path, ledger_trust=trust)
+def _load_ledger(path: Path, trust: Digest | None, *, expected_root_count: int):
+    return (
+        load_initial_preview_ledger(path)
+        if trust is None
+        else load_initial_preview_ledger_for_test(
+            path, ledger_trust=trust, expected_root_count=expected_root_count
+        )
+    )
 
 
-def _verify_policy_metadata(value, baseline):
+def _verify_policy_metadata(value, baseline, initial_ledger_trust: Digest | None = None):
     if value["format"] != TIER_POLICY_FORMAT or value["schemaVersion"] != SCHEMA_VERSION or type(value["schemaVersion"]) is not int:
         raise BaselineError("tier policy format/schema is unsupported")
     if type(value["generatorVersion"]) is not int or value["generatorVersion"] != GENERATOR_VERSION:
@@ -107,7 +125,7 @@ def _verify_policy_metadata(value, baseline):
     binding = closed_object(value["reviewedBaseline"], {"commit", "canonicalDump"}, "tier policy reviewedBaseline")
     if binding != {"commit": baseline["commit"], "canonicalDump": baseline["canonicalDump"]}:
         raise BaselineError("tier policy reviewed baseline binding mismatch")
-    expected = Digest(INITIAL_PREVIEW_LEDGER_LINE_COUNT, INITIAL_PREVIEW_LEDGER_SHA256).as_json()
+    expected = (initial_ledger_trust or Digest(INITIAL_PREVIEW_LEDGER_LINE_COUNT, INITIAL_PREVIEW_LEDGER_SHA256)).as_json()
     if value["initialPreviewLedger"] != expected:
         raise BaselineError("tier policy initial preview ledger binding mismatch")
     digest(value["stableAdditions"], "tier policy stableAdditions")
@@ -179,4 +197,3 @@ def _prefix_identity(item: Any, label: str) -> str:
     if not valid:
         raise BaselineError(f"{label} must be a non-empty internal package prefix ending in '/'")
     return item
-

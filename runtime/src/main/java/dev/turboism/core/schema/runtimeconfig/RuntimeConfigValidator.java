@@ -3,6 +3,7 @@ package dev.turboism.core.schema.runtimeconfig;
 import com.fasterxml.jackson.databind.JsonNode;
 import dev.turboism.core.schema.AbstractJsonValidator;
 import dev.turboism.core.schema.SchemaValidationError;
+import dev.turboism.sdk.runtime.RuntimeSettings;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -14,15 +15,22 @@ import java.util.Set;
 public final class RuntimeConfigValidator extends AbstractJsonValidator {
 
     private static final Set<String> ALLOWED_FIELDS = Set.of(
-        "worktreeId", "pluginDirs", "disabledPlugins", "logLevel", "safeMode", "diagnostics", "hooks"
+        "worktreeId", "pluginDirs", "disabledPlugins", "logLevel", "maxLogStorageMiB", "locale",
+        "safeMode", "diagnostics", "hooks"
     );
-    private static final Set<String> ALLOWED_LOG_LEVELS = Set.of("DEBUG", "INFO", "WARN", "ERROR");
+    private static final Set<String> ALLOWED_LOG_LEVELS = Set.of("TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL");
+    private static final Set<String> ALLOWED_LOCALES = Set.of("system", "en", "ja", "ko", "zh-Hans", "zh-Hant");
+
+    /** True when the value is one of the accepted persisted/configured locale choices. */
+    public static boolean isAllowedLocale(final String value) {
+        return ALLOWED_LOCALES.contains(value);
+    }
 
     private static final Set<String> ALLOWED_HOOK_FIELDS = Set.of(
         "disabledIds", "denylistedClasses", "startup"
     );
     private static final Set<String> ALLOWED_STARTUP_FIELDS = Set.of(
-        "skipUpdateCheck", "skipSplash", "skipInformation"
+        "skipUpdateCheck", "skipSplash", "skipInformation", "separateExportSaveDirectory"
     );
 
     public RuntimeConfigValidator() {
@@ -34,8 +42,25 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
         return validate(node, "");
     }
 
+    /**
+     * Read-mode validation: an unsupported persisted {@code locale} is tolerated (the caller
+     * treats that one field as absent and emits a structured diagnostic) while every other
+     * malformed/unsafe config failure stays fail-closed. Writes keep {@link #validate} strict.
+     */
+    public List<SchemaValidationError> validateForRead(JsonNode node, String source) {
+        return validate(node, source, true);
+    }
+
     @Override
     public List<SchemaValidationError> validate(JsonNode node, String source) {
+        return validate(node, source, false);
+    }
+
+    private List<SchemaValidationError> validate(
+        final JsonNode node,
+        final String source,
+        final boolean tolerateLocale
+    ) {
         List<SchemaValidationError> errors = new ArrayList<>(validateRoot(node, source));
         requireStringField(node, "worktreeId", "RUNTIME_CONFIG_MISSING", errors, source);
 
@@ -50,6 +75,41 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
             String level = node.get("logLevel").asText("");
             if (!ALLOWED_LOG_LEVELS.contains(level)) {
                 errors.add(error("RUNTIME_CONFIG_BAD_LOG_LEVEL", "logLevel must be one of " + ALLOWED_LOG_LEVELS + ": " + level, "logLevel", source));
+            }
+        }
+
+        if (node.has("maxLogStorageMiB")) {
+            final JsonNode value = node.get("maxLogStorageMiB");
+            if (value == null || !value.isIntegralNumber()) {
+                errors.add(error(
+                    "RUNTIME_CONFIG_BAD_TYPE",
+                    "maxLogStorageMiB must be an integer",
+                    "maxLogStorageMiB",
+                    source
+                ));
+            } else if (!value.canConvertToInt()
+                || value.intValue() < RuntimeSettings.MIN_MAX_LOG_STORAGE_MIB
+                || value.intValue() > RuntimeSettings.MAX_MAX_LOG_STORAGE_MIB) {
+                errors.add(error(
+                    "RUNTIME_CONFIG_BAD_LOG_STORAGE_LIMIT",
+                    "maxLogStorageMiB must be between "
+                        + RuntimeSettings.MIN_MAX_LOG_STORAGE_MIB + " and "
+                        + RuntimeSettings.MAX_MAX_LOG_STORAGE_MIB,
+                    "maxLogStorageMiB",
+                    source
+                ));
+            }
+        }
+
+        if (node.has("locale") && (!node.get("locale").isTextual()
+            || !ALLOWED_LOCALES.contains(node.get("locale").asText()))) {
+            if (!tolerateLocale) {
+                errors.add(error(
+                    "RUNTIME_CONFIG_BAD_LOCALE",
+                    "locale must be one of " + ALLOWED_LOCALES,
+                    "locale",
+                    source
+                ));
             }
         }
 

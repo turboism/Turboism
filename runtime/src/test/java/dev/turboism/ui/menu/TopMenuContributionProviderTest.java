@@ -109,6 +109,72 @@ class TopMenuContributionProviderTest {
         assertEquals(List.of(), host.installed);
     }
 
+    @Test
+    void reservedTurboismRootMergesAcrossPluginsIntoOneMenuWhileItemsRouteToTheirOwners() {
+        final RecordingHost host = new RecordingHost();
+        final List<String> actions = new ArrayList<>();
+        final TopMenuContributionProvider provider = new TopMenuContributionProvider(
+            admission(7),
+            host,
+            (pluginId, actionId) -> actions.add(pluginId + ":" + actionId)
+        );
+
+        final Registration registration = provider.apply(7, List.of(
+            contribution("plugin-a", "settings", "Turboism/Settings", 10),
+            contribution("plugin-b", "monitor", "Turboism/Performance Monitor", 20)
+        ));
+
+        assertEquals(
+            List.of("Turboism"),
+            host.installed.stream().map(TopMenuDescriptor::label).toList(),
+            "the reserved Turboism root must materialize as ONE top-level menu"
+        );
+        final TopMenuDescriptor turboism = host.installed.get(0);
+        assertTrue(turboism.menuId().contains("shared"),
+            "the merged root must use the shared menu-id owner");
+        assertEquals(
+            List.of("Settings", "Performance Monitor"),
+            turboism.items().stream().map(TopMenuItemDescriptor::label).toList()
+        );
+
+        host.actions.get(0).accept(turboism.items().get(0));
+        host.actions.get(0).accept(turboism.items().get(1));
+        assertEquals(
+            List.of("plugin-a:action.settings", "plugin-b:action.monitor"),
+            actions,
+            "merged items must route with their originating plugin id"
+        );
+
+        registration.close();
+        assertEquals(1, host.closeCount);
+    }
+
+    @Test
+    void sameLabelRootsFromUnrelatedPluginsRemainPluginOwned() {
+        final RecordingHost host = new RecordingHost();
+        final TopMenuContributionProvider provider = new TopMenuContributionProvider(
+            admission(7),
+            host,
+            (pluginId, actionId) -> { }
+        );
+
+        final Registration registration = provider.apply(7, List.of(
+            contribution("plugin-a", "export", "File/Export", 0),
+            contribution("plugin-b", "import", "File/Import", 0)
+        ));
+
+        assertEquals(
+            List.of("File", "File"),
+            host.installed.stream().map(TopMenuDescriptor::label).toList(),
+            "non-reserved roots must stay plugin-owned even when labels collide"
+        );
+        assertTrue(host.installed.get(0).menuId().contains("plugin-a"));
+        assertTrue(host.installed.get(1).menuId().contains("plugin-b"));
+
+        registration.close();
+        assertEquals(2, host.closeCount);
+    }
+
     private static EditorUiContribution<MenuRegistry.MenuContribution> contribution(
         final String pluginId,
         final String contributionId,
