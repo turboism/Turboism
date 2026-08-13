@@ -5,7 +5,7 @@ final class EditorModelVerificationManifest52 {
 
     static final String VERIFICATION_ID = "cubism-5.2.editor-model.static";
     static final String RECORD_SHA256 =
-        "24034408bd0fc3b28dde3c5b1b775ead168a0b4994fef508be35098cb048a498";
+        "88fdf1d97b6dad02dbd988719cbb3797cb2947861ad47ca74d81ec22f6c65527";
     static final String CUBISM_VERSION = "5.2.0";
     static final String PROFILE_ID = "cubism-5.2";
     static final long ARTIFACT_SIZE = 40_805_584L;
