@@ -62,6 +62,8 @@ public final class PluginJarContract {
         final String logicalPath
     ) throws PluginJarContractException {
         final Set<String> expected = new HashSet<>();
+        // The base catalog is always a legal part of the i18n surface.
+        expected.add(descriptor.i18n().baseName() + ".properties");
         for (String locale : descriptor.i18n().locales()) {
             final String catalog = catalogPath(descriptor.i18n().baseName(), locale);
             expected.add(catalog);
@@ -93,6 +95,7 @@ public final class PluginJarContract {
             if (path.equals(DESCRIPTOR)
                 || path.equalsIgnoreCase("META-INF/MANIFEST.MF")
                 || path.endsWith(".class")
+                || path.endsWith("/")
                 || path.startsWith("META-INF/")) {
                 continue;
             }
