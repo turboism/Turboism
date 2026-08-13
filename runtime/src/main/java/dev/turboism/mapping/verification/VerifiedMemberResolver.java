@@ -206,6 +206,9 @@ public final class VerifiedMemberResolver {
                 || !matchesAccess(field.getModifiers(), selector)) {
                 throw resolutionFailure(alias, "Verified host field no longer matches.");
             }
+            if (!field.canAccess(target) && !field.trySetAccessible()) {
+                throw resolutionFailure(alias, "Verified host field is not accessible.");
+            }
             return field.get(target);
         } catch (VerifiedAccessException exception) {
             throw exception;
