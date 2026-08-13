@@ -77,7 +77,17 @@ public sealed interface PanelView permits
         final boolean selected,
         final String actionId
     ) {
-        return new Toggle(id, label, selected, actionId);
+        return new Toggle(id, label, selected, false, actionId);
+    }
+
+    static Toggle toggle(
+        final String id,
+        final String label,
+        final boolean selected,
+        final boolean grayed,
+        final String actionId
+    ) {
+        return new Toggle(id, label, selected, grayed, actionId);
     }
 
     static Separator separator() {
@@ -231,11 +241,22 @@ public sealed interface PanelView permits
         }
     }
 
-    record Toggle(String id, String label, boolean selected, String actionId) implements PanelView {
+    record Toggle(
+        String id,
+        String label,
+        boolean selected,
+        boolean grayed,
+        String actionId
+    ) implements PanelView {
         public Toggle {
             id = requireText(id, "id");
             label = requireText(label, "label");
             actionId = requireText(actionId, "actionId");
+        }
+
+        /** Backwards-compatible construction for callers without a grayed flag. */
+        public Toggle(final String id, final String label, final boolean selected, final String actionId) {
+            this(id, label, selected, false, actionId);
         }
     }
 

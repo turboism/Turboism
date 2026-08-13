@@ -236,6 +236,21 @@ public final class EmbeddedPanelContributionProvider implements EditorUiContribu
                         next.put(entry.getKey(), current);
                         continue;
                     }
+                    if (current != null
+                        && current.descriptor().pluginId().equals(entry.getValue().pluginId())
+                        && current.descriptor().contributionId().equals(entry.getValue().contributionId())) {
+                        // Same contribution identity: update the content in place so the
+                        // installed palette and its floating window survive the refresh.
+                        final EmbeddedPanelHostOperations.PanelHandle handle = current.handle();
+                        try {
+                            handle.updateContent(entry.getValue());
+                        } catch (RuntimeException | Error updateFailure) {
+                            closePanelsSuppressing(java.util.List.of(handle), updateFailure);
+                            throw updateFailure;
+                        }
+                        next.put(entry.getKey(), current.withDescriptor(entry.getValue()));
+                        continue;
+                    }
                     final EmbeddedPanelHostOperations.PanelHandle handle = install(entry.getValue());
                     added.add(handle);
                     next.put(entry.getKey(), new InstalledPanel(entry.getValue(), handle));
@@ -386,6 +401,10 @@ public final class EmbeddedPanelContributionProvider implements EditorUiContribu
         private InstalledPanel {
             descriptor = Objects.requireNonNull(descriptor, "descriptor");
             handle = Objects.requireNonNull(handle, "handle");
+        }
+
+        private InstalledPanel withDescriptor(final EmbeddedPanelContributionDescriptor next) {
+            return new InstalledPanel(next, handle);
         }
     }
 

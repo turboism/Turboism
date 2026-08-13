@@ -33,5 +33,13 @@ public interface EmbeddedPanelHostOperations {
         /** Hosts that support it float the panel into a small window. */
         default void floatPanel() {
         }
+
+        /**
+         * Replaces the panel content in place, keeping the installed palette
+         * (and any floating window) alive. No-op on hosts without in-place
+         * content updates; the provider then rebuilds the panel instead.
+         */
+        default void updateContent(final EmbeddedPanelContributionDescriptor descriptor) {
+        }
     }
 }

@@ -45,21 +45,25 @@ class HistoryPanelServiceTest {
         // The whole undo/redo list is wrapped in a scroll view.
         assertTrue(view instanceof PanelView.Scroll, "list must be inside a scroll view");
         final String text = flatten(view);
-        assertTrue(text.contains("History: 2 entries · cursor 1 · undo ✓ · redo —"), text);
+        // Top bar shows only the entry count; no cursor/availability stats.
+        assertTrue(text.contains("History: 2 entries"), text);
+        assertFalse(text.contains("cursor"), "no cursor statistics");
         assertTrue(text.contains("2 Set Parameter Value"), text);
         assertTrue(text.contains("ParamAngleX value: -4.199999 → 12.599998 (SET_PARAMETER_VALUE, FULL)"), text);
-        assertTrue(text.contains("jump to that state"), text);
+        assertFalse(text.contains("jump to that state"), "no bottom click hint");
 
         // Top level carries no undo/redo buttons.
         assertFalse(hasButton(view, "history.panel.undo"), "top undo button removed");
         assertFalse(hasButton(view, "history.panel.redo"), "top redo button removed");
 
-        // Each row leads with a checkbox: applied (index < cursor) checked,
-        // undone (index >= cursor) unchecked.
+        // Each row leads with a checkbox: applied (index < cursor) checked and
+        // full color; undone (index >= cursor) unchecked and grayed.
         final List<PanelView.Toggle> toggles = toggles(view);
         assertEquals(2, toggles.size());
         assertTrue(toggles.get(0).selected(), "applied entry is checked");
+        assertFalse(toggles.get(0).grayed(), "applied entry keeps its color");
         assertFalse(toggles.get(1).selected(), "undone entry is unchecked");
+        assertTrue(toggles.get(1).grayed(), "undone entry label is grayed");
     }
 
     @Test
@@ -83,6 +87,7 @@ class HistoryPanelServiceTest {
         );
 
         final String text = flatten(service(new FakeHistory(snapshot), new RecordingUiHost()).render(snapshot));
+        assertTrue(text.contains("History: 1 entries"), text);
         assertTrue(text.contains("1 Native Action"), text);
         assertTrue(text.contains("no structured detail"), text);
     }
@@ -96,13 +101,13 @@ class HistoryPanelServiceTest {
         final Registration registration = service.enable();
 
         assertEquals(1, uiHost.panels().size());
-        assertTrue(flatten(uiHost.panels().get(0).content()).contains("History: 0 entries · cursor 0"));
+        assertTrue(flatten(uiHost.panels().get(0).content()).contains("History: 0 entries"));
 
         // A snapshot change is picked up by the poller thread.
         history.push(available(2, 1, 1, List.of(new HistoryEntry(0, "Write", true, Optional.empty())), true, false));
         awaitPoll();
         assertEquals(1, uiHost.panels().size());
-        assertTrue(flatten(uiHost.panels().get(0).content()).contains("History: 1 entries · cursor 1"));
+        assertTrue(flatten(uiHost.panels().get(0).content()).contains("History: 1 entries"));
 
         registration.close();
         assertEquals(0, uiHost.panels().size());
@@ -350,22 +355,15 @@ class HistoryPanelServiceTest {
         public String text(final String key) {
             return switch (key) {
                 case "history.panel.unavailable" -> "History unavailable";
-                case "history.panel.undo-available" -> "undo ✓";
-                case "history.panel.undo-unavailable" -> "undo —";
-                case "history.panel.redo-available" -> "redo ✓";
-                case "history.panel.redo-unavailable" -> "redo —";
-                case "history.entry.cursor-marker" -> "▶";
                 case "history.entry.no-detail" -> "no structured detail";
-                case "history.panel.click-hint" -> "Click an entry to jump to that state.";
                 default -> key;
             };
         }
 
         @Override
         public String format(final String key, final Object... arguments) {
-            if (key.equals("history.panel.status")) {
-                return "History: " + arguments[0] + " entries · cursor " + arguments[1]
-                    + " · " + arguments[2] + " · " + arguments[3];
+            if (key.equals("history.panel.count")) {
+                return "History: " + arguments[0] + " entries";
             }
             return text(key);
         }

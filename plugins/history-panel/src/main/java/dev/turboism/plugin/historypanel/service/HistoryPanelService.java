@@ -135,31 +135,23 @@ public final class HistoryPanelService {
             ));
         }
         final List<PanelView> children = new ArrayList<>();
-        // Top bar carries the status line only; no undo/redo buttons.
-        children.add(PanelView.text(statusLine(snapshot)));
+        // Top bar carries only the entry count; no undo/redo buttons, no
+        // cursor/availability statistics.
+        children.add(PanelView.text(countLine(snapshot)));
         children.add(PanelView.separator());
         for (final HistoryEntry entry : snapshot.entries()) {
+            // Forked entries (neither undoable nor redoable) never appear in
+            // the snapshot's reachable set (SDK contract: contiguous from zero),
+            // so they are removed from the list by construction.
             children.add(renderEntry(snapshot.position(), entry));
-            children.add(PanelView.separator());
         }
-        children.add(PanelView.text(localization.text("history.panel.click-hint")));
+        // The whole undo/redo list lives inside a scroll view; rows are
+        // compact with no vertical padding between them.
         return PanelView.scroll(PanelView.column(children.toArray(PanelView[]::new)));
     }
 
-    private String statusLine(final HistorySnapshot snapshot) {
-        final String undo = snapshot.canUndo()
-            ? localization.text("history.panel.undo-available")
-            : localization.text("history.panel.undo-unavailable");
-        final String redo = snapshot.canRedo()
-            ? localization.text("history.panel.redo-available")
-            : localization.text("history.panel.redo-unavailable");
-        return localization.format(
-            "history.panel.status",
-            snapshot.entries().size(),
-            snapshot.position(),
-            undo,
-            redo
-        );
+    private String countLine(final HistorySnapshot snapshot) {
+        return localization.format("history.panel.count", snapshot.entries().size());
     }
 
     private PanelView renderEntry(final int cursor, final HistoryEntry entry) {
@@ -168,14 +160,16 @@ public final class HistoryPanelService {
         // Checkbox on the left: checked when the action is applied (undoable),
         // unchecked when it was undone and can be redone.
         final boolean applied = entry.index() < cursor;
+        final boolean grayed = !applied;
         return PanelView.row(
             PanelView.toggle(
                 "history.entry.toggle." + entry.index(),
                 label,
                 applied,
+                grayed,
                 "history.entry.move." + entry.index()
             ),
-            PanelView.text("    " + detail, !applied)
+            PanelView.text("    " + detail, grayed)
         );
     }
 
