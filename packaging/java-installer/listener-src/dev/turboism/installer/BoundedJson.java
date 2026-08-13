@@ -35,8 +35,18 @@ final class BoundedJson {
         this.text = text;
     }
 
-    /** Parses the whole document; throws JsonException on any violation. */
+    /**
+     * Parses the whole document; throws JsonException on any violation.
+     *
+     * A single leading UTF-8 BOM (U+FEFF, written by Windows PowerShell 5.1
+     * {@code Set-Content -Encoding UTF8}) is stripped before parsing so every
+     * config read path tolerates it; serialization never re-emits the BOM.
+     * Exactly one leading BOM is tolerated: a second BOM still fails closed.
+     */
     static Object parse(String text) {
+        if (!text.isEmpty() && text.charAt(0) == '\uFEFF') {
+            text = text.substring(1);
+        }
         BoundedJson parser = new BoundedJson(text);
         Object value = parser.parseValue(0);
         parser.skipWhitespace();

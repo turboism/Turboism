@@ -324,13 +324,20 @@ val generateInstallerXml by tasks.registering {
             }
             append("        </pack>")
         }
+        // r1: 选择 pack 是 metadata-only（全部插件 JAR 由 required 的 payload pack 安装，
+        // 勾选只控制 disabledPlugins），IzPack 按无文件计算 0 KB 会让用户误以为异常。
+        // 说明中追加多语言备注（installer.xml 内联三语为兜底；en/zh/ja 经 CustomLangPack
+        // <pluginId>.description 覆盖为单语言文案，见下方 langpack 注入）。
+        val noteEn = "The plugin JAR is installed with the Turboism Plugins payload; the checkbox only controls the enabled list."
+        val noteZh = "插件 JAR 已随 Turboism Plugins 载荷一并安装；勾选仅控制启用列表。"
+        val noteJa = "プラグイン JAR は Turboism Plugins ペイロードに含めてインストールされます。チェックボックスは有効化リストの制御のみです。"
         val selectionPacks = plugins.joinToString("\n") { p ->
             val title = titleOf(p)
             buildString {
                 append("        <pack id=\"").append(xmlEscape(p.id))
                 append("\" name=\"").append(xmlEscape(title))
                 append("\" required=\"no\" preselected=\"true\" installGroups=\"full\">\n")
-                append("            <description>").append(xmlEscape(p.description)).append("</description>\n")
+                append("            <description>").append(xmlEscape(p.description + " " + noteEn + " / " + noteZh + " / " + noteJa)).append("</description>\n")
                 append("        </pack>")
             }
         }
@@ -350,6 +357,23 @@ val generateInstallerXml by tasks.registering {
             from("packaging/java-installer/CustomLangPack.xml_chn")
             from("packaging/java-installer/CustomLangPack.xml_jpn")
             into(izpackDir)
+        }
+        // r1: 为每个插件选择 pack 注入本地化描述。IzPack 5.2.6 的
+        // PackHelper.getPackDescription 优先查 langpack 的 "<packId>.description" 键
+        // （<pack id> 即 langPackId），缺失时才回退 installer.xml 内联 <description>。
+        // 仅在生成的副本上追加，仓库内的 CustomLangPack 源文件保持原样。
+        listOf(
+            "CustomLangPack.xml" to noteEn,
+            "CustomLangPack.xml_eng" to noteEn,
+            "CustomLangPack.xml_chn" to noteZh,
+            "CustomLangPack.xml_jpn" to noteJa
+        ).forEach { (file, localeNote) ->
+            val target = izpackDir.resolve(file)
+            val entries = plugins.joinToString("\n") { p ->
+                "    <str id=\"" + xmlEscape(p.id) + ".description\" txt=\"" +
+                    xmlEscape(p.description + " — " + localeNote) + "\"/>"
+            }
+            target.writeText(target.readText().replace("</izpack:langpack>", entries + "\n</izpack:langpack>"))
         }
         logger.lifecycle("installer.xml: ${plugins.size} plugin selection packs + 1 required payload pack (ids stable by plugin id)")
     }
