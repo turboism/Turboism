@@ -66,10 +66,6 @@ public final class CubismFacadeImpl implements CubismFacade {
     private final CubismModelAccess modelAccess;
     private CubismHistory history = CubismHistory.unavailable();
     private final dev.turboism.sdk.cubism.core.CoreRuntimeInfo coreRuntime;
-    private CubismHistory history = CubismHistory.unavailable();
-=======
-    private final dev.turboism.sdk.cubism.core.CoreRuntimeInfo coreRuntime;
->>>>>>> local-main
     private final ParameterLifecycleCoordinator parameterLifecycle;
     private final PartLifecycleCoordinator partLifecycle;
     private final TextureAtlasLayoutService textureAtlasLayouts;

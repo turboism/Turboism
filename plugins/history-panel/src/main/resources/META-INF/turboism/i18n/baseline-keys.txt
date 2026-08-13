@@ -1,0 +1,16 @@
+history.button.tooltip
+history.entry.cursor-marker
+history.entry.no-detail
+history.panel.click-hint
+history.panel.redo
+history.panel.redo-available
+history.panel.redo-unavailable
+history.panel.status
+history.panel.title
+history.panel.unavailable
+history.panel.unavailable.detail
+history.panel.undo
+history.panel.undo-available
+history.panel.undo-unavailable
+history.undo.action
+plugin.name
