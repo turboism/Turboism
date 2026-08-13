@@ -32,12 +32,17 @@ public sealed interface PanelView permits
     }
 
     static Text text(final String value) {
-        return new Text(value, false);
+        return new Text(value, false, false);
     }
 
     /** Text rendered in a grayed (disabled-looking) style, e.g. redo entries. */
     static Text text(final String value, final boolean grayed) {
-        return new Text(value, grayed);
+        return new Text(value, grayed, false);
+    }
+
+    /** Text rendered centered in its region, e.g. a panel header statistic. */
+    static Text textCentered(final String value) {
+        return new Text(value, false, true);
     }
 
     static Image image(final byte[] pngBytes, final String altText) {
@@ -132,13 +137,17 @@ public sealed interface PanelView permits
         }
     }
 
-    record Text(String value, boolean grayed) implements PanelView {
+    record Text(String value, boolean grayed, boolean centered) implements PanelView {
         public Text {
             value = Objects.requireNonNull(value, "value");
         }
 
+        public Text(final String value, final boolean grayed) {
+            this(value, grayed, false);
+        }
+
         public Text(final String value) {
-            this(value, false);
+            this(value, false, false);
         }
     }
 

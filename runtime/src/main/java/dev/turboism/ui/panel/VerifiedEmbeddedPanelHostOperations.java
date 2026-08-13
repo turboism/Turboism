@@ -210,7 +210,8 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
         panels.put(palette, new NativePanel(dock, palette, paletteId));
 
         final EmbeddedPanelId panelId = new EmbeddedPanelId(descriptor.contributionId());
-        final Object content = buildContent(descriptor);
+        final JComponent contentRoot = buildContentRoot(descriptor);
+        final Object content = resolver.construct(SWING_CONTAINER_CREATE, contentRoot);
         resolver.invoke(PALETTE_SET_PANEL, palette, content, 340, 300);
         final AtomicBoolean closed = new AtomicBoolean();
         WindowMenuItem windowMenuItem = null;
@@ -286,7 +287,13 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
                     throw new IllegalStateException("embedded panel is closed");
                 }
                 onEdt(() -> {
-                    updatePanelContent(nativePanel(palette), descriptor);
+                    // Swap the children of the already-attached content root so the
+                    // native palette (and its floating window) is never rebuilt.
+                    final JComponent next = buildContentRoot(descriptor);
+                    contentRoot.removeAll();
+                    contentRoot.add(next);
+                    contentRoot.revalidate();
+                    contentRoot.repaint();
                     return null;
                 });
             }
@@ -441,25 +448,22 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
         });
     }
 
-    private Object buildContent(final EmbeddedPanelContributionDescriptor descriptor) {
-        final EmbeddedPanelId panelId = new EmbeddedPanelId(descriptor.contributionId());
-        final PanelView viewContent = PanelCollapsibleContentCoordinator.shared()
-            .merge(panelId, descriptor.content());
-        final Map<String, String> actionOwners =
-            PanelCollapsibleContentCoordinator.shared().actionOwners(panelId);
-        final JComponent panel = SwingPanelViewRenderer.render(
-            viewContent, routedAction(actionRouter, actionOwners, descriptor.pluginId()), locale);
-        final String nativeId = "turboism:" + descriptor.pluginId() + ":" + descriptor.contributionId();
-        panel.setName(nativeId);
-        return resolver.construct(SWING_CONTAINER_CREATE, panel);
-    }
-
-    private void updatePanelContent(
-        final NativePanel nativePanel,
-        final EmbeddedPanelContributionDescriptor descriptor
-    ) {
-        final Object content = buildContent(descriptor);
-        resolver.invoke(PALETTE_SET_PANEL, nativePanel.palette(), content, 340, 300);
+    private JComponent buildContentRoot(final EmbeddedPanelContributionDescriptor descriptor) {
+        final JComponent[] holder = new JComponent[1];
+        onEdt(() -> {
+            final EmbeddedPanelId panelId = new EmbeddedPanelId(descriptor.contributionId());
+            final PanelView viewContent = PanelCollapsibleContentCoordinator.shared()
+                .merge(panelId, descriptor.content());
+            final Map<String, String> actionOwners =
+                PanelCollapsibleContentCoordinator.shared().actionOwners(panelId);
+            final JComponent panel = SwingPanelViewRenderer.render(
+                viewContent, routedAction(actionRouter, actionOwners, descriptor.pluginId()), locale);
+            final String nativeId = "turboism:" + descriptor.pluginId() + ":" + descriptor.contributionId();
+            panel.setName(nativeId);
+            holder[0] = panel;
+            return null;
+        });
+        return holder[0];
     }
 
     private void floatPanel(final NativePanel panel) {
