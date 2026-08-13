@@ -1,0 +1,16 @@
+:plugins:atlas-maxrects-bssf
+:plugins:backup
+:plugins:clipmask-viewer
+:plugins:core
+:plugins:cubism-tab-filter
+:plugins:log-filter
+:plugins:mcp
+:plugins:mesh
+:plugins:palette-label-style
+:plugins:parameter-batch-transfer
+:plugins:perf-stats
+:plugins:physics-editor
+:plugins:recent-preview
+:plugins:scene-palette-enhancer
+:plugins:texture-atlas-stats
+:plugins:ui-theme

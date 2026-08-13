@@ -116,7 +116,15 @@ public final class RuntimePluginLocalization implements PluginLocalization {
         requireText(pluginId, "pluginId");
         Objects.requireNonNull(pluginClassLoader, "pluginClassLoader");
         final PluginDescriptor.I18n descriptorI18n = Objects.requireNonNull(i18n, "i18n");
-        final List<String> catalogOrder = List.copyOf(descriptorI18n.locales());
+        // baseName() implicitly declares the base catalog: it is always
+        // loaded exactly once as the final fallback, even when locales()
+        // omits it (current official form). Legacy explicit "base" dedupes.
+        final LinkedHashSet<String> catalogIds = new LinkedHashSet<>(descriptorI18n.locales());
+        // A legacy explicit "base" is moved to the final position so the
+        // implicit base remains the single final fallback for both forms.
+        catalogIds.remove("base");
+        catalogIds.add("base");
+        final List<String> catalogOrder = List.copyOf(catalogIds);
         final Map<String, Map<String, String>> catalogs = new LinkedHashMap<>();
         final Set<String> invalidCatalogs = new LinkedHashSet<>();
         for (String catalogId : catalogOrder) {

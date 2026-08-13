@@ -82,66 +82,161 @@ final class McpHttpServer implements AutoCloseable {
 
     static McpHttpServer start(final PluginContext context) throws IOException {
         Objects.requireNonNull(context, "context");
-        return start(new Dependencies(
-            context.logger(),
-            context.modelObjects(),
-            context.parameterQuery(),
-            context.modelHierarchyQuery(),
-            context.selectionQuery(),
-            context.cubismRead(),
-            context.cubismClipMasks(),
-            context.uiScheduler(),
-            context.paths().stateDir(),
-            integerProperty("turboism.mcp.port", 0, 0, 65535),
-            configuredToken(),
-            integerProperty("turboism.mcp.requestsPerMinute", 120, 10, 6000)
-        ));
+        final StartupStage stage = new StartupStage();
+        try {
+            stage.enter("context.logger()");
+            final PluginLogger logger = context.logger();
+            stage.enter("context.modelObjects()");
+            final ModelObjectService modelObjects = context.modelObjects();
+            stage.enter("context.parameterQuery()");
+            final ParameterQueryService parameterQuery = context.parameterQuery();
+            stage.enter("context.modelHierarchyQuery()");
+            final ModelHierarchyQueryService hierarchyQuery = context.modelHierarchyQuery();
+            stage.enter("context.selectionQuery()");
+            final SelectionQueryService selectionQuery = context.selectionQuery();
+            stage.enter("context.cubismRead()");
+            final CubismReadCapabilityService read = context.cubismRead();
+            stage.enter("context.cubismClipMasks()");
+            final CubismClipMaskService clipMasks = context.cubismClipMasks();
+            stage.enter("context.uiScheduler()");
+            final UiScheduler uiScheduler = context.uiScheduler();
+            stage.enter("context.paths().stateDir()");
+            final Path stateDir = context.paths().stateDir();
+            stage.enter("port property");
+            final int port = integerProperty("turboism.mcp.port", 0, 0, 65535);
+            stage.enter("configured token");
+            final String token = configuredToken();
+            stage.enter("requests-per-minute property");
+            final int requestsPerMinute =
+                integerProperty("turboism.mcp.requestsPerMinute", 120, 10, 6000);
+            stage.enter("context dependency extraction");
+            return start(new Dependencies(
+                logger,
+                modelObjects,
+                parameterQuery,
+                hierarchyQuery,
+                selectionQuery,
+                read,
+                clipMasks,
+                uiScheduler,
+                stateDir,
+                port,
+                token,
+                requestsPerMinute
+            ), stage);
+        } catch (McpStartupFailure failure) {
+            throw failure;
+        } catch (Throwable failure) {
+            throw stage.failure(failure);
+        }
     }
 
     static McpHttpServer start(final Dependencies dependencies) throws IOException {
+        return start(dependencies, new StartupStage());
+    }
+
+    private static McpHttpServer start(
+        final Dependencies dependencies,
+        final StartupStage stage
+    ) throws IOException {
         final Dependencies checked = Objects.requireNonNull(dependencies, "dependencies");
         final PluginLogger logger = checked.logger();
-        final InetSocketAddress address = new InetSocketAddress(
-            InetAddress.getByName("127.0.0.1"),
-            checked.port()
-        );
-        final HttpServer server = HttpServer.create(address, 0);
-        final ExecutorService executor = Executors.newFixedThreadPool(
-            4,
-            new DaemonThreadFactory("turboism-mcp-http-")
-        );
-        server.setExecutor(executor);
-        final int actualPort = server.getAddress().getPort();
-        final URI endpoint = URI.create("http://127.0.0.1:" + actualPort + "/mcp");
-        final Path connectionFile = checked.stateDir().resolve("mcp-connection.json");
-        final McpHttpServer transport = new McpHttpServer(
-            server,
-            executor,
-            logger,
-            new McpProtocol(new McpTools(
-                checked.modelObjects(),
-                checked.parameterQuery(),
-                checked.hierarchyQuery(),
-                checked.selectionQuery(),
-                checked.read(),
-                checked.clipMasks(),
-                logger,
-                checked.uiScheduler()
-            )),
-            checked.token(),
-            connectionFile,
-            endpoint,
-            new WindowRateLimiter(checked.requestsPerMinute())
-        );
-        server.createContext("/mcp", transport::handle);
+        HttpServer server = null;
+        ExecutorService executor = null;
+        McpHttpServer transport = null;
         try {
+            stage.enter("numeric loopback resolution");
+            final InetAddress loopback = InetAddress.getByName("127.0.0.1");
+            stage.enter("socket-address construction");
+            final InetSocketAddress address = new InetSocketAddress(
+                loopback,
+                checked.port()
+            );
+            stage.enter("HTTP server create/bind");
+            server = HttpServer.create(address, 0);
+
+            stage.enter("executor/transport construction");
+            executor = Executors.newFixedThreadPool(
+                4,
+                new DaemonThreadFactory("turboism-mcp-http-")
+            );
+            server.setExecutor(executor);
+            final int actualPort = server.getAddress().getPort();
+            final URI endpoint = URI.create("http://127.0.0.1:" + actualPort + "/mcp");
+            final Path connectionFile = checked.stateDir().resolve("mcp-connection.json");
+            transport = new McpHttpServer(
+                server,
+                executor,
+                logger,
+                new McpProtocol(new McpTools(
+                    checked.modelObjects(),
+                    checked.parameterQuery(),
+                    checked.hierarchyQuery(),
+                    checked.selectionQuery(),
+                    checked.read(),
+                    checked.clipMasks(),
+                    logger,
+                    checked.uiScheduler()
+                )),
+                checked.token(),
+                connectionFile,
+                endpoint,
+                new WindowRateLimiter(checked.requestsPerMinute())
+            );
+            server.createContext("/mcp", transport::handle);
+
+            stage.enter("server start");
             server.start();
+
+            stage.enter("connection-file publication");
             transport.writeConnectionFile();
             logger.info("Turboism MCP server listening at " + endpoint);
             return transport;
-        } catch (IOException | RuntimeException failure) {
-            transport.close();
-            throw failure;
+        } catch (Throwable failure) {
+            closeAfterStartupFailure(transport, server, executor, failure);
+            throw stage.failure(failure);
+        }
+    }
+
+    /**
+     * Best-effort cleanup of every allocated resource after a failed startup.
+     * Every independent cleanup Throwable is added as suppressed to the exact
+     * original startup Throwable; the wrapper cause is never replaced. A
+     * cleanup that rethrows the original object itself is not self-suppressed
+     * (addSuppressed rejects self-suppression).
+     */
+    static void closeAfterStartupFailure(
+        final McpHttpServer transport,
+        final HttpServer server,
+        final ExecutorService executor,
+        final Throwable original
+    ) {
+        if (transport != null) {
+            try {
+                transport.close();
+            } catch (Throwable cleanup) {
+                if (cleanup != original) {
+                    original.addSuppressed(cleanup);
+                }
+            }
+        }
+        if (server != null) {
+            try {
+                server.stop(0);
+            } catch (Throwable cleanup) {
+                if (cleanup != original) {
+                    original.addSuppressed(cleanup);
+                }
+            }
+        }
+        if (executor != null) {
+            try {
+                executor.shutdownNow();
+            } catch (Throwable cleanup) {
+                if (cleanup != original) {
+                    original.addSuppressed(cleanup);
+                }
+            }
         }
     }
 
@@ -414,6 +509,68 @@ final class McpHttpServer implements AutoCloseable {
         logger.info("Turboism MCP server stopped");
     }
 
+    /**
+     * Last-entered deterministic startup stage, advanced before every step.
+     */
+    private static final class StartupStage {
+        private String current = "context dependency extraction";
+
+        private void enter(final String name) {
+            this.current = name;
+        }
+
+        private McpStartupFailure failure(final Throwable original) {
+            return new McpStartupFailure(current, frameChain(original), original);
+        }
+
+        private static String frameChain(final Throwable original) {
+            // Bounded diagnostic frame chain: at most the first six frames in
+            // original order, one line, class.method[:line] only, no file paths.
+            final StackTraceElement[] trace = original.getStackTrace();
+            if (trace.length == 0) {
+                return "<empty stack>";
+            }
+            final StringBuilder chain = new StringBuilder();
+            final int limit = Math.min(trace.length, 6);
+            for (int index = 0; index < limit; index++) {
+                if (index > 0) {
+                    chain.append(", ");
+                }
+                final StackTraceElement frame = trace[index];
+                chain.append(frame.getClassName()).append('.').append(frame.getMethodName());
+                if (frame.getLineNumber() >= 0) {
+                    chain.append(':').append(frame.getLineNumber());
+                }
+            }
+            return chain.toString();
+        }
+    }
+
+    /**
+     * Diagnostic-only wrapper: reports the startup stage where the original
+     * failure surfaced and a bounded, ordered frame chain of at most six
+     * original frames, keeping the exact original Throwable as cause.
+     */
+    static final class McpStartupFailure extends IOException {
+        private final String stage;
+
+        private McpStartupFailure(
+            final String stage,
+            final String frameChain,
+            final Throwable cause
+        ) {
+            super(
+                "Turboism MCP startup failed at stage '" + stage + "'"
+                    + " (original failure at " + frameChain + ")",
+                cause
+            );
+            this.stage = stage;
+
+        }
+        String stage() {
+            return stage;
+        }
+    }
     record Dependencies(
         PluginLogger logger,
         ModelObjectService modelObjects,
