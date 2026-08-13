@@ -1,0 +1,139 @@
+package dev.turboism.mapping.verification;
+
+import java.util.Set;
+
+/**
+ * Runtime trust root for the reviewed native bottom status bar: this main
+ * manifest pins exact Cubism 5.3.02 and the companion
+ * {@link StatusBarVerificationManifest52} pins exact 5.2.03; every other
+ * artifact keeps failing closed.
+ *
+ * <p>Exact-version admission: the 5.2.03 artifact is served by the reviewed
+ * 5.2.03 record ({@link StatusBarVerificationManifest52}) and the 5.3.02
+ * artifact by this manifest's own record; every other artifact keeps
+ * failing closed.</p>
+ */
+public final class StatusBarVerificationManifest {
+
+    public static final String VERIFICATION_ID = "cubism-5.3.02.ui-status-bar.static";
+    public static final String RECORD_SHA256 =
+        "afdc21fa80c62f3359d998aac8f8afbe6b6d8ebbbae2a1c24c9754225b53f8d2";
+    public static final String CUBISM_VERSION = "5.3.02";
+    public static final String PROFILE_ID = "cubism-5.3.02";
+    public static final long ARTIFACT_SIZE = 41_922_739L;
+    public static final String ARTIFACT_SHA256 =
+        "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21";
+    public static final String ADAPTER_SLICE_ID = "adapter.editor-ui.status-bar";
+    public static final String CAPABILITY_ID = "ui.status.notify";
+    public static final Set<String> CAPABILITY_IDS = Set.of(CAPABILITY_ID);
+
+    /** Reviewed exact Cubism versions this status-bar trust root can serve. */
+    public static Set<String> reviewedCubismVersions() {
+        return Set.of(StatusBarVerificationManifest52.CUBISM_VERSION, CUBISM_VERSION);
+    }
+    public static final Set<String> REQUIRED_ALIASES = Set.of(
+        "cubism.ui-status-bar.app-controller.class",
+        "cubism.ui-status-bar.app-controller.instance",
+        "cubism.ui-status-bar.app-controller.main-frame",
+        "cubism.ui-status-bar.main-frame-controller.class",
+        "cubism.ui-status-bar.main-frame-controller.frame",
+        "cubism.ui-status-bar.frame.class",
+        "cubism.ui-status-bar.frame.content-pane",
+        "cubism.ui-status-bar.widget.class",
+        "cubism.ui-status-bar.widget.set-name",
+        "cubism.ui-status-bar.widget.set-tooltip",
+        "cubism.ui-status-bar.widget.revalidate",
+        "cubism.ui-status-bar.widget.repaint",
+        "cubism.ui-status-bar.container.class",
+        "cubism.ui-status-bar.container.children",
+        "cubism.ui-status-bar.container.add",
+        "cubism.ui-status-bar.container.remove",
+        "cubism.ui-status-bar.label.class",
+        "cubism.ui-status-bar.label.create",
+        "cubism.ui-status-bar.label.text",
+        "cubism.ui-status-bar.label.set-text",
+        "cubism.ui-status-bar.memory-viewer.class"
+    );
+
+    static PinnedVerifiedResolverWorkflow.Manifest forArtifact(final HostArtifactDigest artifact) {
+        if (artifact.size() == StatusBarVerificationManifest52.ARTIFACT_SIZE
+            && artifact.sha256().equals(StatusBarVerificationManifest52.ARTIFACT_SHA256)) {
+            return manifest(
+                StatusBarVerificationManifest52.VERIFICATION_ID,
+                StatusBarVerificationManifest52.RECORD_SHA256,
+                StatusBarVerificationManifest52.CUBISM_VERSION,
+                StatusBarVerificationManifest52.PROFILE_ID,
+                StatusBarVerificationManifest52.ARTIFACT_SIZE,
+                StatusBarVerificationManifest52.ARTIFACT_SHA256
+            );
+        }
+        if (artifact.size() == ARTIFACT_SIZE && artifact.sha256().equals(ARTIFACT_SHA256)) {
+            return manifest(
+                VERIFICATION_ID,
+                RECORD_SHA256,
+                CUBISM_VERSION,
+                PROFILE_ID,
+                ARTIFACT_SIZE,
+                ARTIFACT_SHA256
+            );
+        }
+        throw new IllegalArgumentException(
+            "host artifact is not a reviewed Cubism status-bar artifact"
+        );
+    }
+
+    public static AdmissionEvidence admissionForArtifact(final HostArtifactDigest artifact) {
+        final PinnedVerifiedResolverWorkflow.Manifest manifest = forArtifact(artifact);
+        return new AdmissionEvidence(
+            manifest.cubismVersion(),
+            manifest.artifactSize(),
+            manifest.artifactSha256(),
+            manifest.adapterSliceId(),
+            manifest.recordSha256()
+        );
+    }
+
+    public record AdmissionEvidence(
+        String cubismVersion,
+        long artifactSize,
+        String artifactSha256,
+        String adapterSliceId,
+        String recordSha256
+    ) {
+    }
+
+    private static PinnedVerifiedResolverWorkflow.Manifest manifest() {
+        return manifest(
+            VERIFICATION_ID,
+            RECORD_SHA256,
+            CUBISM_VERSION,
+            PROFILE_ID,
+            ARTIFACT_SIZE,
+            ARTIFACT_SHA256
+        );
+    }
+
+    private static PinnedVerifiedResolverWorkflow.Manifest manifest(
+        final String verificationId,
+        final String recordSha256,
+        final String cubismVersion,
+        final String profileId,
+        final long artifactSize,
+        final String artifactSha256
+    ) {
+        return new PinnedVerifiedResolverWorkflow.Manifest(
+            verificationId,
+            recordSha256,
+            cubismVersion,
+            profileId,
+            artifactSize,
+            artifactSha256,
+            ADAPTER_SLICE_ID,
+            CAPABILITY_IDS,
+            REQUIRED_ALIASES
+        );
+    }
+
+    private StatusBarVerificationManifest() {
+    }
+}

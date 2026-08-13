@@ -5,6 +5,9 @@ import dev.turboism.adapter.cubism.ClipMaskReadAdapter;
 import dev.turboism.adapter.cubism.HostSnapshotSource;
 import dev.turboism.adapter.cubism.ProjectWorkspaceAdapter;
 import dev.turboism.adapter.cubism.RenderStatusAdapter;
+import dev.turboism.sdk.cubism.DocumentKind;
+import dev.turboism.sdk.cubism.DocumentSnapshot;
+import dev.turboism.sdk.cubism.ModelSnapshot;
 import dev.turboism.adapter.ui.StatusToolbarAdapter;
 import dev.turboism.adapter.ui.StatusToolbarAdapterImpl;
 import dev.turboism.adapter.ui.ThemeStatusAdapterImpl;
@@ -18,6 +21,12 @@ import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.diagnostics.CubismFacadeAuditEvent;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.cubism.ClipMaskSnapshot;
+import dev.turboism.sdk.cubism.id.ModelId;
+import dev.turboism.sdk.cubism.id.ParameterId;
+import dev.turboism.sdk.cubism.model.CubismModel;
+import dev.turboism.sdk.cubism.model.CubismModelAccess;
+import dev.turboism.sdk.cubism.model.Parameter;
+import dev.turboism.sdk.cubism.model.Parameters;
 import dev.turboism.sdk.cubism.ProjectSnapshot;
 import dev.turboism.sdk.cubism.RenderStatusSnapshot;
 import dev.turboism.sdk.cubism.WorkspaceSnapshot;
@@ -25,6 +34,7 @@ import dev.turboism.sdk.event.EventBus.TurboismEvent;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.permission.CubismPermissionException;
+import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.PluginLogger;
@@ -77,6 +87,65 @@ class CorePluginContextDescriptorPermissionsTest {
     private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-07-08T00:00:00Z"), ZoneOffset.UTC);
 
     record TestEvent(String payload) implements TurboismEvent {
+    }
+
+    @Test
+    void productionFactoryBindsModelUiToItsVerifiedProjectWorkspaceSource(@TempDir Path dataDir) throws Exception {
+        final ModelSnapshot modelSnapshot = new ModelSnapshot(
+            "model-a", "Model A", List.of(), List.of(), List.of(), List.of()
+        );
+        final DocumentSnapshot document = new DocumentSnapshot(
+            "document-a", "Model A", "models/model-a.cmo3", Optional.empty(),
+            Optional.of(modelSnapshot), DocumentKind.MODEL, Optional.of("content-a"), Optional.empty()
+        );
+        final ProjectWorkspaceAdapter projectWorkspace = ProjectWorkspaceAdapter.Impl.connected(
+            new ProjectWorkspaceAdapter.HostOperations() {
+                @Override public String hostVersion() { return "5.3.02"; }
+                @Override public boolean supportsProjectWorkspaceRead() { return true; }
+                @Override public Optional<ProjectSnapshot> activeProject() {
+                    return Optional.of(new ProjectSnapshot(
+                        "project-a", "Project A", Optional.empty(), List.of(document), List.of()
+                    ));
+                }
+                @Override public Optional<DocumentSnapshot> activeDocument() {
+                    return Optional.of(document);
+                }
+                @Override public Optional<WorkspaceSnapshot> workspace() {
+                    return Optional.of(new WorkspaceSnapshot("workspace-a", "Workspace A", List.of()));
+                }
+            }
+        );
+        final RuntimeHostAdapters safe = RuntimeHostAdapters.safeMode();
+        final RuntimeHostAdapters adapters = new RuntimeHostAdapters(
+            safe.themeStatus(), safe.renderStatus(), projectWorkspace, safe.clipMaskRead(),
+            safe.statusToolbar(), safe.uiSurface()
+        );
+        final DefaultCubismServicesFactory factory = DefaultCubismServicesFactoryTestSupport.withModelAccess(
+            adapters, fixedModelAccess()
+        );
+        final List<String> permissions = List.of(
+            PermissionIds.TURBOISM_CUBISM_MODEL_READ,
+            PermissionIds.TURBOISM_UI_APPEARANCE_MODIFY
+        );
+        final CorePluginContext.Dependencies firstDependencies = dependencies(
+            dataDir.resolve("first"), descriptorWithPermissions("plugin.first", permissions), ignored -> { }
+        );
+        final CorePluginContext.Dependencies secondDependencies = dependencies(
+            dataDir.resolve("second"), descriptorWithPermissions("plugin.second", permissions), ignored -> { }
+        );
+        final CorePluginContext first = new CorePluginContext(firstDependencies, factory);
+        final CorePluginContext second = new CorePluginContext(secondDependencies, factory);
+
+        final var firstEntry = first.cubism().model().active().parameters().all().get(0)
+            .ui().parameterPaletteEntry().orElseThrow();
+        firstEntry.overrideBold(true);
+        final var secondEntry = second.cubism().model().active().parameters().all().get(0)
+            .ui().parameterPaletteEntry().orElseThrow();
+
+        assertEquals(Optional.of(true), firstEntry.resolved().bold());
+        assertEquals(Optional.of(true), secondEntry.resolved().bold());
+        firstDependencies.disposableScope().close();
+        secondDependencies.disposableScope().close();
     }
 
     @Test
@@ -331,6 +400,53 @@ class CorePluginContextDescriptorPermissionsTest {
         assertEquals(1, host.dialogCount);
     }
 
+    @Test
+    void exposesTheRuntimeOwnedMeshMirrorAxisService(@TempDir Path dataDir) {
+        CorePluginContext context = context(
+            dataDir,
+            descriptorWithPermissions(List.of(
+                "turboism.cubism.model.read",
+                "turboism.cubism.model.write",
+                "turboism.ui.panel.contribute"
+            )),
+            ignored -> { },
+            RuntimeHostAdapters.safeMode()
+        );
+
+        context.meshMirrorAxis().setCurrentAngleDegrees(225.0f);
+
+        assertEquals(-135.0f, context.meshMirrorAxis().currentAngleDegrees());
+    }
+
+    private static CubismModelAccess fixedModelAccess() {
+        return () -> {
+            final Parameter parameter = new Parameter() {
+                @Override public ParameterId id() { return new ParameterId("ParamA"); }
+                @Override public float getValue() { return 1.0F; }
+                @Override public float getMinimumValue() { return 0.0F; }
+                @Override public float getMaximumValue() { return 2.0F; }
+                @Override public float getDefaultValue() { return 1.0F; }
+                @Override public void setValue(final float value) { throw new UnsupportedOperationException(); }
+            };
+            final Parameters parameters = new Parameters() {
+                @Override public List<Parameter> all() { return List.of(parameter); }
+                @Override public Parameter find(final ParameterId id) { return parameter; }
+            };
+            return new CubismModel() {
+                @Override public ModelId id() { return new ModelId("model-a"); }
+                @Override public Parameters parameters() { return parameters; }
+                @Override public dev.turboism.sdk.cubism.model.Parts parts() { throw unsupported(); }
+                @Override public dev.turboism.sdk.cubism.model.Drawables drawables() { throw unsupported(); }
+                @Override public dev.turboism.sdk.cubism.model.Deformers deformers() { throw unsupported(); }
+                @Override public dev.turboism.sdk.cubism.model.Glues glues() { throw unsupported(); }
+                @Override public void update() { throw unsupported(); }
+                private UnsupportedOperationException unsupported() {
+                    return new UnsupportedOperationException();
+                }
+            };
+        };
+    }
+
     private static CorePluginContext context(Path dataDir, PluginDescriptor descriptor, Consumer<CubismFacadeAuditEvent> auditSink) {
         return context(dataDir, descriptor, auditSink, RuntimeHostAdapters.safeMode());
     }
@@ -341,7 +457,7 @@ class CorePluginContextDescriptorPermissionsTest {
         Consumer<CubismFacadeAuditEvent> auditSink,
         RuntimeHostAdapters adapters
     ) {
-        return new CorePluginContext(dependencies(dataDir, descriptor, auditSink), adapters);
+        return new CorePluginContext(dependencies(dataDir, descriptor, auditSink, facadeSource(adapters)), adapters);
     }
 
     private static CorePluginContext context(
@@ -355,7 +471,7 @@ class CorePluginContextDescriptorPermissionsTest {
         UserFileAccessService userFiles
     ) {
         return new CorePluginContext(
-            dependencies(dataDir, descriptor, auditSink),
+            dependencies(dataDir, descriptor, auditSink, facadeSource(adapters)),
             adapters,
             localization,
             tasks,
@@ -369,6 +485,15 @@ class CorePluginContextDescriptorPermissionsTest {
         PluginDescriptor descriptor,
         Consumer<CubismFacadeAuditEvent> auditSink
     ) {
+        return dependencies(dataDir, descriptor, auditSink, noopHostSnapshotSource());
+    }
+
+    private static CorePluginContext.Dependencies dependencies(
+        Path dataDir,
+        PluginDescriptor descriptor,
+        Consumer<CubismFacadeAuditEvent> auditSink,
+        HostSnapshotSource hostSnapshotSource
+    ) {
         return new CorePluginContext.Dependencies(
             descriptor,
             logger(),
@@ -377,7 +502,7 @@ class CorePluginContextDescriptorPermissionsTest {
             scheduler(),
             diagnostics(),
             new DisposableScope(),
-            noopHostSnapshotSource(),
+            hostSnapshotSource,
             auditSink,
             CLOCK
         );
@@ -402,6 +527,7 @@ class CorePluginContextDescriptorPermissionsTest {
             defaults.menus(),
             mainToolbar,
             paletteToolbar,
+            defaults.paletteFilter(),
             defaults.contextMenu(),
             defaults.config(),
             defaults.uiScheduler(),
@@ -491,8 +617,15 @@ class CorePluginContextDescriptorPermissionsTest {
     }
 
     private static PluginDescriptor descriptorWithPermissions(List<String> ids) {
+        return descriptorWithPermissions(PLUGIN_ID, ids);
+    }
+
+    private static PluginDescriptor descriptorWithPermissions(
+        final String pluginId,
+        final List<String> ids
+    ) {
         return new PluginDescriptor() {
-            @Override public String id() { return PLUGIN_ID; }
+            @Override public String id() { return pluginId; }
             @Override public String name() { return "Descriptor Permission Test"; }
             @Override public String version() { return "0.1.0"; }
             @Override public String description() { return "Test"; }
@@ -569,6 +702,31 @@ class CorePluginContextDescriptorPermissionsTest {
             @Override public HostSelection selection() { return new HostSelection(List.of(), Optional.empty(), Optional.empty(), Optional.empty()); }
             @Override public boolean isHostPresent() { return false; }
             @Override public long invalidationToken() { return 0; }
+        };
+    }
+
+    private static HostSnapshotSource facadeSource(final RuntimeHostAdapters adapters) {
+        return new HostSnapshotSource() {
+            @Override public Optional<HostSnapshotSource.HostProject> activeProject() {
+                final ProjectWorkspaceAdapter.AdapterResult<Optional<ProjectSnapshot>> result =
+                    adapters.projectWorkspace().activeProject();
+                if (!result.isAvailable()) return Optional.empty();
+                return result.value().orElse(Optional.empty()).map(project -> new HostSnapshotSource.HostProject(
+                    project.projectId(),
+                    project.name(),
+                    project.projectDirectory(),
+                    List.of(),
+                    List.of()
+                ));
+            }
+
+            @Override public Optional<HostSnapshotSource.HostDocument> activeDocument() { return Optional.empty(); }
+            @Override public Optional<HostSnapshotSource.HostModel> activeModel() { return Optional.empty(); }
+            @Override public HostSnapshotSource.HostSelection selection() {
+                return new HostSnapshotSource.HostSelection(List.of(), Optional.empty(), Optional.empty(), Optional.empty());
+            }
+            @Override public boolean isHostPresent() { return activeProject().isPresent(); }
+            @Override public long invalidationToken() { return 0L; }
         };
     }
 

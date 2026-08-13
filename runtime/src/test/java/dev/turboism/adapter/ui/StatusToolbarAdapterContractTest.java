@@ -77,6 +77,89 @@ class StatusToolbarAdapterContractTest {
         assertTrue(service.uiDiagnostics().isEmpty());
     }
 
+    @Test
+    void runtimeUiServiceScopesAdapterVisibleStatusIdByPluginId() throws Exception {
+        RecordingHost first = new RecordingHost("5.3.2");
+        RecordingHost second = new RecordingHost("5.3.2");
+        RuntimeUiHostCapabilityService serviceA = service("plugin.a", first);
+        RuntimeUiHostCapabilityService serviceB = service("plugin.b", second);
+
+        serviceA.notifyStatus(new StatusNotification("build", "INFO", "a-1"));
+        serviceA.notifyStatus(new StatusNotification("build", "WARNING", "a-2"));
+        serviceB.notifyStatus(new StatusNotification("build", "INFO", "b"));
+
+        assertEquals("8:plugin.a:build", first.notification.id());
+        assertEquals("8:plugin.b:build", second.notification.id());
+        assertFalse(first.notification.id().equals(second.notification.id()));
+        assertEquals("a-2", first.notification.message(), "message must pass through unchanged");
+        assertEquals("WARNING", first.notification.severity(), "severity must pass through unchanged");
+    }
+
+    @Test
+    void runtimeUiServiceScopedStatusIdsCannotCollideAcrossPlugins() throws Exception {
+        RecordingHost first = new RecordingHost("5.3.2");
+        RecordingHost second = new RecordingHost("5.3.2");
+
+        service("a", first).notifyStatus(new StatusNotification("b:c", "INFO", "one"));
+        service("a:b", second).notifyStatus(new StatusNotification("c", "INFO", "two"));
+
+        assertEquals("1:a:b:c", first.notification.id());
+        assertEquals("3:a:b:c", second.notification.id());
+        assertFalse(first.notification.id().equals(second.notification.id()));
+    }
+
+    @Test
+    void runtimeUiServiceFallbackKeepsOriginalNotificationIdentity() throws Exception {
+        RuntimeUiHostCapabilityService service = new RuntimeUiHostCapabilityService(
+            PermissionChecker.allowAll(),
+            "plugin.fallback",
+            dev.turboism.ui.UiHostStateSource.DEFAULT,
+            new DisposableScope()
+        );
+
+        service.notifyStatus(new StatusNotification("build", "ERROR", "failed"));
+
+        assertEquals(1, service.notifications().size());
+        assertEquals("build", service.notifications().get(0).id(),
+            "fallback memory state must keep the plugin's original notification");
+        assertEquals("ERROR", service.notifications().get(0).severity());
+        assertEquals("failed", service.notifications().get(0).message());
+    }
+
+    @Test
+    void runtimeUiServiceScopingPreservesCompactMetricPresentation() throws Exception {
+        RecordingHost host = new RecordingHost("5.3.2");
+        RuntimeUiHostCapabilityService service = service("plugin.cpu", host);
+
+        service.notifyStatus(new StatusNotification(
+            "perf.cpu",
+            "INFO",
+            "CPU 12.3%",
+            StatusNotification.Presentation.COMPACT_METRIC
+        ));
+
+        assertEquals("10:plugin.cpu:perf.cpu", host.notification.id(), "scoped id must be unchanged");
+        assertEquals("CPU 12.3%", host.notification.message(), "message must pass through unchanged");
+        assertEquals(
+            StatusNotification.Presentation.COMPACT_METRIC,
+            host.notification.presentation(),
+            "presentation must survive plugin-ID scoping and reconstruction"
+        );
+    }
+
+    private static RuntimeUiHostCapabilityService service(
+        final String pluginId,
+        final RecordingHost host
+    ) {
+        return new RuntimeUiHostCapabilityService(
+            PermissionChecker.allowAll(),
+            pluginId,
+            dev.turboism.ui.UiHostStateSource.DEFAULT,
+            new DisposableScope(),
+            StatusToolbarAdapterImpl.connected(host)
+        );
+    }
+
     private static StatusNotification notification(final String id) {
         return new StatusNotification(id, "INFO", "Ready");
     }

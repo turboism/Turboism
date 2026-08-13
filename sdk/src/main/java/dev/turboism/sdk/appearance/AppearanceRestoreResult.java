@@ -22,6 +22,7 @@ public record AppearanceRestoreResult(
         });
     }
 
+    @PreviewApi
     public enum Outcome {
         RESTORED,
         NO_OWNED_OVERRIDE,

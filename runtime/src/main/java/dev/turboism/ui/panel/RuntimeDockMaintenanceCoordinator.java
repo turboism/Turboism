@@ -18,11 +18,15 @@ public final class RuntimeDockMaintenanceCoordinator {
         return () -> unbind(hostGeneration, requested);
     }
 
-    public synchronized void cleanEmptyDocks() {
-        if (cleaner == null) {
+    public void cleanEmptyDocks() {
+        final EmptyDockCleaner current;
+        synchronized (this) {
+            current = cleaner;
+        }
+        if (current == null) {
             throw new IllegalStateException("dock maintenance is unavailable");
         }
-        cleaner.clean();
+        current.clean();
     }
 
     private synchronized void unbind(final long hostGeneration, final EmptyDockCleaner target) {

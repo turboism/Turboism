@@ -8,6 +8,7 @@ import dev.turboism.adapter.host.HostSessionFailure;
 import dev.turboism.adapter.host.RuntimeHostAdapterAccess;
 
 import java.util.Objects;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -26,6 +27,11 @@ public final class HostRuntimeIngress implements AutoCloseable {
     /** Production path: always uses the pinned verified project/workspace connector. */
     public HostRuntimeIngress() {
         this(HostSession::new);
+    }
+
+    /** Production composition with the locale fixed for this runtime startup. */
+    public HostRuntimeIngress(final Locale effectiveLocale) {
+        this(source -> new HostSession(source, Objects.requireNonNull(effectiveLocale, "effectiveLocale")));
     }
 
     HostRuntimeIngress(final Function<HostInstanceSource, HostSession> sessionFactory) {
@@ -81,6 +87,11 @@ public final class HostRuntimeIngress implements AutoCloseable {
 
     public dev.turboism.mapping.verification.VerifiedMemberResolver editorModelResolver() {
         return session.editorModelResolver();
+    }
+
+    public dev.turboism.adapter.cubism.textureatlas.TextureAtlasDataModelCapture
+        textureAtlasDataModelCapture() {
+        return session.textureAtlasDataModelCapture();
     }
 
     /** Trusted non-closeable view for plugin-context composition. */

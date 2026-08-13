@@ -1,20 +1,17 @@
 package dev.turboism.ui.appearance.control;
 
-import dev.turboism.sdk.ui.appearance.ControlAppearanceStyle;
-
 import java.awt.Component;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
-/** Owns long-lived parameter-row bindings and transient native styles. */
+/** Owns long-lived parameter-row bindings and transient native palette entries. */
 public final class ParameterControlAppearanceProvider implements AutoCloseable {
     public enum Kind { PARAMETER, FOLDER }
 
-    private final ControlAppearanceCoordinator coordinator;
+    private final PaletteAppearanceCoordinator coordinator;
     private final NativeStyleTracker styles = new NativeStyleTracker();
     private final List<Binding> bindings = new ArrayList<>();
     private final AutoCloseable changeSubscription;
@@ -22,7 +19,7 @@ public final class ParameterControlAppearanceProvider implements AutoCloseable {
 
     public ParameterControlAppearanceProvider(
         final long hostGeneration,
-        final ControlAppearanceCoordinator coordinator
+        final PaletteAppearanceCoordinator coordinator
     ) {
         if (hostGeneration <= 0) throw new IllegalArgumentException("hostGeneration must be positive");
         this.hostGeneration = hostGeneration;
@@ -37,6 +34,7 @@ public final class ParameterControlAppearanceProvider implements AutoCloseable {
         if (!javax.swing.SwingUtilities.isEventDispatchThread()) return;
         bindings.removeIf(binding -> binding.component().get() == component);
         bindings.add(new Binding(kind, id, new WeakReference<>(component)));
+        coordinator.bindParameterControl(kind == Kind.FOLDER, id, component);
         apply(kind, id, component);
     }
 
@@ -56,10 +54,12 @@ public final class ParameterControlAppearanceProvider implements AutoCloseable {
     }
 
     private void apply(final Kind kind, final String id, final Component component) {
-        final Optional<ControlAppearanceStyle> style = hostGeneration == coordinator.hostGeneration()
-            ? (kind == Kind.PARAMETER ? coordinator.parameterLabel(id) : coordinator.parameterFolder(id))
-            : Optional.empty();
-        styles.apply(component, style);
+        styles.apply(
+            component,
+            coordinator.resolveCurrent(hostGeneration, kind == Kind.FOLDER
+                ? PaletteAppearanceCoordinator.Palette.PARAMETER_GROUP
+                : PaletteAppearanceCoordinator.Palette.PARAMETER, id)
+        );
     }
 
     @Override
@@ -68,6 +68,12 @@ public final class ParameterControlAppearanceProvider implements AutoCloseable {
         try { changeSubscription.close(); } catch (Exception ignored) { }
         final Runnable action = () -> {
             styles.restoreAll();
+            for (Binding binding : bindings) {
+                final Component component = binding.component().get();
+                if (component != null) {
+                    coordinator.unbindParameterControl(component);
+                }
+            }
             bindings.clear();
         };
         if (javax.swing.SwingUtilities.isEventDispatchThread()) action.run();

@@ -10,7 +10,7 @@ final class CorePublicApiVerificationManifest {
         "5.2",
         manifest(
             CorePublicApiTrustRoots.verificationId("5.2"),
-            "a32d871209c7449e4adfa84a3a25e928c759f118e36e2bb5349ad5deeff28382",
+            "067b6dc666ba8419d973ae88b7f3a5829083b54644f2a28abff4ac258521815d",
             "5.2.0",
             "5.2",
             36_237L,
@@ -19,7 +19,7 @@ final class CorePublicApiVerificationManifest {
         "5.3.02",
         manifest(
             CorePublicApiTrustRoots.verificationId("5.3.02"),
-            "986bcddca88c35dc09b848ccb6737d0a70a12b2fd030a52be838ce533c687073",
+            "b68770af94b43bafa92bbe06a3cb2017f89ed5d561c3bb08447d3eeca89d06d0",
             "5.3.2",
             "5.3.02",
             42_471L,
@@ -37,6 +37,18 @@ final class CorePublicApiVerificationManifest {
             throw new IllegalArgumentException("unsupported Cubism Core profile: " + profile);
         }
         return manifest;
+    }
+
+    static String profileFor(final HostArtifactDigest artifact) {
+        Objects.requireNonNull(artifact, "artifact");
+        return MANIFESTS.entrySet().stream()
+            .filter(entry -> entry.getValue().artifactSize() == artifact.size()
+                && entry.getValue().artifactSha256().equals(artifact.sha256()))
+            .map(Map.Entry::getKey)
+            .findFirst()
+            .orElseThrow(() -> new IllegalArgumentException(
+                "unsupported Cubism Core artifact identity"
+            ));
     }
 
     private static PinnedVerifiedResolverWorkflow.Manifest manifest(

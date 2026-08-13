@@ -1,6 +1,6 @@
 package dev.turboism.ui.appearance.control;
 
-import dev.turboism.sdk.ui.appearance.ControlAppearanceStyle;
+import dev.turboism.sdk.ui.appearance.PaletteEntryState;
 
 import javax.swing.JComponent;
 import java.awt.Color;
@@ -15,7 +15,7 @@ import java.util.WeakHashMap;
 final class NativeStyleTracker {
     private final Map<Component, AppliedStyle> applied = Collections.synchronizedMap(new WeakHashMap<>());
 
-    void apply(final Component component, final Optional<ControlAppearanceStyle> style) {
+    void apply(final Component component, final Optional<PaletteEntryState> style) {
         final AppliedStyle previous = applied.get(component);
         final ComponentState observed = ComponentState.capture(component);
         final ComponentState nativeState = previous == null || !observed.equals(previous.applied())

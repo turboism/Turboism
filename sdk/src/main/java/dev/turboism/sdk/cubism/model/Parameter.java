@@ -1,6 +1,7 @@
 package dev.turboism.sdk.cubism.model;
 
 import dev.turboism.sdk.PreviewApi;
+import dev.turboism.sdk.ui.appearance.model.ParameterAppearance;
 import dev.turboism.sdk.cubism.id.ParameterId;
 import java.util.Objects;
 import java.util.Optional;
@@ -11,6 +12,17 @@ import java.util.List;
 public interface Parameter {
 
     ParameterId id();
+
+    /** Returns this Parameter's Cubism parameter-palette UI projection. */
+    default ParameterAppearance ui() { return ParameterAppearance.unavailable(); }
+
+    default int index() {
+        throw new UnsupportedOperationException("Cubism parameter index is unavailable.");
+    }
+
+    default FloatSequence keyValues() {
+        throw new UnsupportedOperationException("Cubism parameter key values are unavailable.");
+    }
 
     /**
      * Returns the user-facing parameter name when the active backend exposes it.

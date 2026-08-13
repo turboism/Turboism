@@ -1,0 +1,10 @@
+parameter.bindings.invert
+parameter.bindings.transfer
+parameter.bindings.transfer.confirm
+parameter.bindings.transfer.invert.confirm
+parameter.csv.export
+parameter.csv.import
+parameter.enable.rollback-failed
+parameter.menu
+plugin.description
+plugin.name

@@ -35,6 +35,17 @@ public record ArtMeshGeometry(
         }
     }
 
+    /**
+     * Returns a copy of this geometry with vertex {@code index} moved to {@code (x, y)}
+     * (Inspector {@code PointInfo} single-vertex move projection).
+     *
+     * <p>The Inspector PointInfo widget moves selected vertices of the current keyform — absolute
+     * (set X/Y) or relative (delta) — one coordinate or one vertex at a time. This immutable
+     * builder is the matching per-vertex primitive; combine several calls before one
+     * {@code Drawable#replaceGeometry(ArtMeshGeometry)} to project a multi-selection move.</p>
+     *
+     * @throws IndexOutOfBoundsException when {@code index} is outside the vertex range
+     */
     public ArtMeshGeometry withVertexPosition(final int index, final float x, final float y) {
         final ArrayList<Point2> changed = new ArrayList<>(positions);
         changed.set(index, new Point2(x, y));

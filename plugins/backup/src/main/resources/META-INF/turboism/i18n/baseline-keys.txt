@@ -1,0 +1,5 @@
+backup.dialog.remote-trigger-label
+backup.remote-trigger.auto-backup-sync
+backup.remote-trigger.save-triggered
+plugin.description
+plugin.name
