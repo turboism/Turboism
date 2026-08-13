@@ -1,0 +1,71 @@
+﻿Turboism __VERSION__ Windows パッケージ利用ガイド
+=================================================
+
+Turboism は Live2D Cubism エディター用の Java agent ランタイムです。本パッケージ
+は Cubism のインストール先にあるファイルを変更、コピー、置換しません。
+
+1. ディレクトリ構成
+-------------------
+  turboism-agent.jar             ランタイム（Java agent）
+  config.json                    ランタイム設定（turboism.runtime.config v1）
+  cubism-installations.json      Turboism が管理するインストール状態
+  configure_turboism.ps1         WinForms プラグイン/Cubism 設定ツール
+  launch-cubism-turboism.bat     管理対象ランチャー入口
+  launch-cubism-turboism.ps1     PowerShell ランチャー実装
+  cubism-launch-common.ps1       インベントリ/起動の共通ヘルパー
+  plugins/                       プラグイン jar（full のみ。lite には無し）
+  README.txt / README.zh.txt / README.ja.txt / LICENSE.txt
+
+2. 使い方
+---------
+1. フォルダーごと任意の場所に配置します（例: %LOCALAPPDATA%\Turboism）。
+2. configure_turboism.ps1 を実行します。CUBISM_ROOT、Windows のインストール
+   情報、既知のプログラム先、上限付き固定ドライブ走査から標準の Cubism 5.2/5.3
+   系列候補（パッチ付きディレクトリ名を含む）を検出します。フォルダー選択で追加
+   することもできます。公式 CubismEditor5.bat、同梱 Java ランチャー、想定アプリ
+   JAR 構造が揃う場合だけ選択できます。系列候補は正確なパッチ版の証明ではなく、
+   実行時の identity/入場判定は fail-closed のままです。
+3. 管理対象とプラグインを選んで保存します。新しく見つかった対応インストール
+   は選択済みになり、次回以降は選択状態を保持します。不正/未対応項目は表示
+   され、削除できます。0 件で保存しても framework-only の有効なインストール
+   で、曖昧な起動入口は作りません。NSIS インストール後は自動で設定ツールが
+   開き、キャンセルしてもフレームワークのインストールは有効です。
+4. 選択した各ルートに、バージョンとパス識別子を含む Start Menu 入口を作ります。
+   公式 D3D BAT があれば独立した - D3D 入口も作ります。複数選択時の共通
+   ランチャーは選択画面を表示し、最初のバージョンを勝手に起動しません。
+5. コマンドラインから明示的に起動する場合は、正規のルートを指定します:
+       launch-cubism-turboism.bat -CubismRoot "%ProgramFiles%\Live2D\Cubism 5.3.02"
+   管理対象ランチャーは指定インストールの公式 CubismEditor5.bat（または独立した
+   D3D BAT）を呼び出し、プロセス限定の Turboism JVM オプションだけを追加します。
+   呼び出し元の環境は終了後に復元され、既存の非 Turboism JVM オプションは保持されます。
+6. ランチャーがこのフォルダー以外にある場合だけ TURBOISM_HOME を設定します。
+   プラグインの選択は config.json、インストールの選択は別の
+   cubism-installations.json に保存されます。
+
+3. config.json
+--------------
+  worktreeId:       "turboism-runtime"
+  pluginDirs:       ["plugins"]
+  disabledPlugins:  無効化するプラグイン id のリスト（未選択、昇順。任意）
+
+4. アンインストール
+-------------------
+- NSIS インストーラー（TurboismInstaller-<ver>.exe）の場合は Turboism home の
+  uninstall.exe を実行します。Turboism が記録した管理対象ショートカット/状態と
+  所有するファイルだけを削除します。確認ページの「config.json（ユーザー設定）も
+  削除」チェックは既定でオンです。オフにすると config.json を保持します。
+- ZIP 手動インストールにはアンインストーラーがありません。Cubism を閉じて
+  Turboism フォルダーを削除してください。Cubism 自体は変更されません。
+
+5. よくある質問
+---------------
+- 選択できない場合: 5.2/5.3 系列ルートに CubismEditor5.bat、
+  app\jre\bin\java.exe、app\lib\Live2D_Cubism.jar があることを確認してください。
+  正確なパッチ版の入場は実行時の identity チェックで決定されます。
+- 複数バージョンがある場合: 対応する Start Menu 入口または -CubismRoot を使い、
+  最初の結果を暗黙に選ばないようにします。
+- bat の画面がすぐ閉じる場合: コマンドラインから launch-cubism-turboism.ps1 を
+  実行して診断を確認してください。
+- プラグインが動かない場合: plugins/ 配下の jar と config.json の disabledPlugins
+  を確認してください。
+- ログ: <Turboism home>\logs\runtime\YYYY-MM-DD\turboism-*.log
