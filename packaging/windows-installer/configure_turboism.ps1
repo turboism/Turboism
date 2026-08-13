@@ -241,7 +241,9 @@ $saveButton.Add_Click({
         if ($unchecked.Count -gt 0) { $config.disabledPlugins = $unchecked } else { $config.Remove("disabledPlugins") }
         $json = $config | ConvertTo-Json -Depth 8
         $json = $json -replace '"disabledPlugins":\s*"([^"]+)"', '"disabledPlugins": ["$1"]'
-        Set-Content -LiteralPath $configPath -Value $json -Encoding UTF8
+        # 无 BOM UTF-8 写入（PowerShell 5.1 的 Set-Content -Encoding UTF8 会写 BOM，
+        # 导致 Java 安装器 BoundedJson.parse 拒绝 config.json）。UTF8Encoding(false) 为 PS 5.1 兼容。
+        [System.IO.File]::WriteAllText($configPath, $json, [System.Text.UTF8Encoding]::new($false))
         $state = Read-CubismInstallationState -StatePath $statePath
         $selectedCount = @($candidates | Where-Object { $_.Selected -and $_.Selectable }).Count
         if ($mode -eq "takeover") {

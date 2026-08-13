@@ -147,6 +147,10 @@ LangString StartMenuUninstallName ${LANG_ENGLISH} "Uninstall Turboism"
 LangString StartMenuUninstallName ${LANG_SIMPCHINESE} "卸载 Turboism"
 LangString StartMenuUninstallName ${LANG_JAPANESE} "Turboism をアンインストール"
 
+LangString StartMenuLaunchName ${LANG_ENGLISH} "Launch Cubism"
+LangString StartMenuLaunchName ${LANG_SIMPCHINESE} "启动 Cubism"
+LangString StartMenuLaunchName ${LANG_JAPANESE} "Cubism を起動"
+
 LangString ConfigWriteError ${LANG_ENGLISH} "Cannot write config.json: $INSTDIR\config.json"
 LangString ConfigWriteError ${LANG_SIMPCHINESE} "无法写入 config.json：$INSTDIR\config.json"
 LangString ConfigWriteError ${LANG_JAPANESE} "config.json を書き込めません：$INSTDIR\config.json"
@@ -549,6 +553,9 @@ Section -"开始菜单与注册" SecStartMenuReg
   CreateDirectory "$SMPROGRAMS\Turboism"
   CreateShortCut "$SMPROGRAMS\Turboism\$(StartMenuConfigName).lnk" "$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" "-NoProfile -ExecutionPolicy Bypass -File $\"$INSTDIR\configure_turboism.ps1$\""
   CreateShortCut "$SMPROGRAMS\Turboism\$(StartMenuUninstallName).lnk" "$INSTDIR\uninstall.exe"
+  ; r1: 启动 Cubism 快捷方式（目标 launch-cubism-turboism.bat 由 SecCore 先行写入
+  ; $INSTDIR；Start In 取创建时 $OUTDIR，上面已 SetOutPath "$INSTDIR"）
+  CreateShortCut "$SMPROGRAMS\Turboism\$(StartMenuLaunchName).lnk" "$INSTDIR\launch-cubism-turboism.bat" "" "$INSTDIR\launch-cubism-turboism.bat" 0 SW_SHOWNORMAL "" "$INSTDIR"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Turboism" "DisplayName" "Turboism"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Turboism" "DisplayVersion" "${VER}"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Turboism" "Publisher" "Turboism"
@@ -576,6 +583,7 @@ Section "Uninstall"
   DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Turboism"
   Delete "$SMPROGRAMS\Turboism\$(StartMenuConfigName).lnk"
   Delete "$SMPROGRAMS\Turboism\$(StartMenuUninstallName).lnk"
+  Delete "$SMPROGRAMS\Turboism\$(StartMenuLaunchName).lnk"
   RMDir "$SMPROGRAMS\Turboism"
   ; 安装文件
   Delete "$INSTDIR\turboism-agent.jar"
