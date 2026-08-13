@@ -125,39 +125,6 @@ public final class VerifiedMemberResolver {
         }
     }
 
-    /** Reads one exact verified instance field without exposing the reflective member. */
-    public Object readField(final String alias, final Object target) {
-        final StaticSelector selector = fieldSelector(alias);
-        if ((selector.requiredAccessFlags() & StaticSelector.ACCESS_STATIC) != 0) {
-            throw resolutionFailure(alias, "Verified alias is not an instance field.");
-        }
-        if (target == null) {
-            throw resolutionFailure(alias, "Verified instance field target is unavailable.");
-        }
-        try {
-            final Class<?> owner = Class.forName(
-                selector.ownerInternalName().replace('/', '.'), false, hostClassLoader
-            );
-            final Class<?> fieldType = MethodType.fromMethodDescriptorString(
-                "()" + selector.descriptor(), hostClassLoader
-            ).returnType();
-            final Field field = owner.getDeclaredField(selector.memberName());
-            if (owner.getClassLoader() != hostClassLoader
-                || !owner.isInstance(target)
-                || !field.getDeclaringClass().equals(owner)
-                || !field.getType().equals(fieldType)
-                || !matchesAccess(field.getModifiers(), selector)
-                || (!field.canAccess(target) && !field.trySetAccessible())) {
-                throw resolutionFailure(alias, "Verified host field no longer matches.");
-            }
-            return field.get(target);
-        } catch (VerifiedAccessException exception) {
-            throw exception;
-        } catch (ClassNotFoundException | NoSuchFieldException | IllegalAccessException
-                 | IllegalArgumentException | LinkageError | SecurityException exception) {
-            throw resolutionFailure(alias, "Verified host field resolution failed safely.");
-        }
-    }
 
     public Object construct(final String alias, final Object... arguments) {
         final StaticSelector selector = constructorSelector(alias);
@@ -207,10 +174,6 @@ public final class VerifiedMemberResolver {
             throw resolutionFailure(alias, "Verified host constructor resolution failed safely.");
         }
     }
-
-    /**
-     * Creates a host-classloader proxy for one exact parameter type in a verified method.
-     */
 
     /** Reads a verified instance field from the given target object. */
     public Object readField(final String alias, final Object target) {
