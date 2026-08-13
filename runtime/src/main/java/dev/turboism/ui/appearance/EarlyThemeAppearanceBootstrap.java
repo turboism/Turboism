@@ -61,11 +61,15 @@ public final class EarlyThemeAppearanceBootstrap {
             if (!waitForFlatLaf()) {
                 return;
             }
-            SwingFlatLafHostOperations.captureNativeOffCanvasBackground();
             final Optional<Map<String, String>> colors = loadPersistedThemeColors();
             if (colors.isEmpty()) {
+                // No persisted ui-theme selection: leave the host look and feel
+                // completely untouched. Probing the native off-canvas singleton
+                // here (before the GL scene exists) races Cubism's FlatLaf
+                // installation and corrupts the host UI (no ComponentUI errors).
                 return;
             }
+            SwingFlatLafHostOperations.captureNativeOffCanvasBackground();
             inject(colors.orElseThrow());
             injected.run();
         } catch (RuntimeException failure) {
