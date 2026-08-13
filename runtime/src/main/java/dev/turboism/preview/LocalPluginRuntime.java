@@ -1,9 +1,11 @@
 package dev.turboism.preview;
 
 import dev.turboism.adapter.host.RuntimeHostAdapterAccess;
+import dev.turboism.adapter.cubism.lifecycle.EditorLifecycleCoordinator;
+import dev.turboism.adapter.cubism.lifecycle.EditorObjectLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.ParameterLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.PartLifecycleCoordinator;
-import dev.turboism.adapter.cubism.lifecycle.EditorObjectLifecycleCoordinator;
+import dev.turboism.adapter.cubism.lifecycle.ProjectFileLifecycleCoordinator;
 import dev.turboism.cleanup.CleanupEvidenceCollector;
 import dev.turboism.core.lifecycle.PluginLifecycleState;
 import dev.turboism.core.plugin.PluginRuntime;
@@ -11,6 +13,7 @@ import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.failure.RuntimeFailureCollector;
 import dev.turboism.hostread.SharedAsyncHostReadLane;
 import dev.turboism.i18n.RuntimePluginLocalization;
+import dev.turboism.i18n.CubismHostLocale;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.TurboismPlugin;
 
@@ -19,6 +22,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Locale;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /** Minimal real plugin loading and lifecycle path for Turboism 0.1. */
@@ -31,6 +35,8 @@ public final class LocalPluginRuntime implements AutoCloseable {
     private final ParameterLifecycleCoordinator parameterLifecycle;
     private final PartLifecycleCoordinator partLifecycle;
     private final EditorObjectLifecycleCoordinator editorObjectLifecycle;
+    private final ProjectFileLifecycleCoordinator projectFileLifecycle;
+    private final EditorLifecycleCoordinator editorLifecycleEvents;
     private final List<LoadedPlugin> loaded = new ArrayList<>();
     private final dev.turboism.pluginmanagement.RuntimePluginManagementService pluginManagement;
     private final PreviewPluginContextFactory contextFactory;
@@ -55,7 +61,10 @@ public final class LocalPluginRuntime implements AutoCloseable {
             (pluginId, phase) -> { },
             hostAccess.parameterLifecycle(),
             hostAccess.partLifecycle(),
-            hostAccess.editorObjectLifecycle()
+            hostAccess.editorObjectLifecycle(),
+            hostAccess.projectFileLifecycle(),
+            hostAccess.editorLifecycleEvents(),
+            null
         );
     }
 
@@ -76,7 +85,53 @@ public final class LocalPluginRuntime implements AutoCloseable {
             (pluginId, phase) -> { },
             parameterLifecycle,
             hostAccess.partLifecycle(),
-            hostAccess.editorObjectLifecycle()
+            hostAccess.editorObjectLifecycle(),
+            hostAccess.projectFileLifecycle(),
+            hostAccess.editorLifecycleEvents(),
+            null
+        );
+    }
+
+    /** Production seam: preview runtime passes the shared file-chooser history singleton. */
+    LocalPluginRuntime(
+        final Path home,
+        final RuntimeScheduler scheduler,
+        final RuntimeHostAdapterAccess hostAccess,
+        final PreviewLog log,
+        final ParameterLifecycleCoordinator parameterLifecycle,
+        final dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistory
+    ) {
+        this(
+            home,
+            scheduler,
+            hostAccess,
+            log,
+            new RuntimeFailureCollector(),
+            (pluginId, phase) -> { },
+            parameterLifecycle,
+            hostAccess.partLifecycle(),
+            hostAccess.editorObjectLifecycle(),
+            hostAccess.projectFileLifecycle(),
+            hostAccess.editorLifecycleEvents(),
+            fileChooserHistory
+        );
+    }
+
+    /** Production composition seam with the locale resolved once at startup. */
+    LocalPluginRuntime(
+        final Path home,
+        final RuntimeScheduler scheduler,
+        final RuntimeHostAdapterAccess hostAccess,
+        final PreviewLog log,
+        final ParameterLifecycleCoordinator parameterLifecycle,
+        final dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistory,
+        final Locale effectiveLocale
+    ) {
+        this(
+            home, scheduler, hostAccess, log, new RuntimeFailureCollector(),
+            (pluginId, phase) -> { }, parameterLifecycle, hostAccess.partLifecycle(),
+            hostAccess.editorObjectLifecycle(), hostAccess.projectFileLifecycle(),
+            hostAccess.editorLifecycleEvents(), fileChooserHistory, effectiveLocale
         );
     }
 
@@ -97,7 +152,10 @@ public final class LocalPluginRuntime implements AutoCloseable {
             pluginCloseHook,
             hostAccess.parameterLifecycle(),
             hostAccess.partLifecycle(),
-            hostAccess.editorObjectLifecycle()
+            hostAccess.editorObjectLifecycle(),
+            hostAccess.projectFileLifecycle(),
+            hostAccess.editorLifecycleEvents(),
+            null
         );
     }
 
@@ -118,7 +176,10 @@ public final class LocalPluginRuntime implements AutoCloseable {
             (pluginId, phase) -> { },
             hostAccess.parameterLifecycle(),
             hostAccess.partLifecycle(),
-            hostAccess.editorObjectLifecycle()
+            hostAccess.editorObjectLifecycle(),
+            hostAccess.projectFileLifecycle(),
+            hostAccess.editorLifecycleEvents(),
+            null
         );
     }
 
@@ -131,11 +192,51 @@ public final class LocalPluginRuntime implements AutoCloseable {
         final PluginCloseHook pluginCloseHook,
         final ParameterLifecycleCoordinator parameterLifecycle,
         final PartLifecycleCoordinator partLifecycle,
-        final EditorObjectLifecycleCoordinator editorObjectLifecycle
+        final EditorObjectLifecycleCoordinator editorObjectLifecycle,
+        final ProjectFileLifecycleCoordinator projectFileLifecycle,
+        final EditorLifecycleCoordinator editorLifecycleEvents,
+        final dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistory
     ) {
+        this(
+            home, scheduler, hostAccess, log, failureCollector, pluginCloseHook,
+            parameterLifecycle, partLifecycle, editorObjectLifecycle, projectFileLifecycle,
+            editorLifecycleEvents, fileChooserHistory, CubismHostLocale.resolve()
+        );
+    }
+
+    private LocalPluginRuntime(
+        final Path home,
+        final RuntimeScheduler scheduler,
+        final RuntimeHostAdapterAccess hostAccess,
+        final PreviewLog log,
+        final RuntimeFailureCollector failureCollector,
+        final PluginCloseHook pluginCloseHook,
+        final ParameterLifecycleCoordinator parameterLifecycle,
+        final PartLifecycleCoordinator partLifecycle,
+        final EditorObjectLifecycleCoordinator editorObjectLifecycle,
+        final ProjectFileLifecycleCoordinator projectFileLifecycle,
+        final EditorLifecycleCoordinator editorLifecycleEvents,
+        final dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistory,
+        final Locale effectiveLocale
+    ) {
+        final dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService resolvedFileChooserHistory =
+            fileChooserHistory != null
+                ? fileChooserHistory
+                : new dev.turboism.filechooser.RuntimeFileChooserHistoryService(
+                    () -> {
+                        final dev.turboism.config.RuntimeConfigRepository config =
+                            new dev.turboism.config.RuntimeConfigRepository(
+                                home, diagnostic -> log.warn("config", diagnostic)
+                            );
+                        return config.read().path("hooks").path("startup")
+                            .path("separateExportSaveDirectory").asBoolean(false);
+                    }
+                );
         final PreviewPluginRuntimeResources resources = PreviewPluginRuntimeResources.create(
             home, scheduler, hostAccess, log, failureCollector, pluginCloseHook, loaded,
-            parameterLifecycle, partLifecycle, editorObjectLifecycle
+            parameterLifecycle, partLifecycle, editorObjectLifecycle,
+            projectFileLifecycle, editorLifecycleEvents, resolvedFileChooserHistory,
+            effectiveLocale
         );
         this.hostReadLane = resources.hostReadLane();
         this.failureCollector = resources.failureCollector();
@@ -154,6 +255,14 @@ public final class LocalPluginRuntime implements AutoCloseable {
             editorObjectLifecycle,
             "editorObjectLifecycle"
         );
+        this.projectFileLifecycle = java.util.Objects.requireNonNull(
+            projectFileLifecycle,
+            "projectFileLifecycle"
+        );
+        this.editorLifecycleEvents = java.util.Objects.requireNonNull(
+            editorLifecycleEvents,
+            "editorLifecycleEvents"
+        );
     }
 
     public synchronized LoadReport loadAll() {
@@ -162,7 +271,12 @@ public final class LocalPluginRuntime implements AutoCloseable {
         try {
             loaded.add(BuiltinCorePlugin.load(
                 contextFactory,
-                new dev.turboism.plugin.core.CorePluginServices(runtimeSettings, pluginManagement),
+                new dev.turboism.plugin.core.CorePluginServices(
+                    runtimeSettings,
+                    pluginManagement,
+                    dev.turboism.ui.panel.NativePanelTabFloatingBridge::toggle,
+                    log
+                ),
                 log
             ));
         } catch (Exception failure) {
@@ -199,6 +313,8 @@ public final class LocalPluginRuntime implements AutoCloseable {
         try {
             summaries.addAll(shutdown.closeAll(loaded));
         } finally {
+            editorLifecycleEvents.close();
+            projectFileLifecycle.close();
             editorObjectLifecycle.close();
             partLifecycle.close();
             parameterLifecycle.close();

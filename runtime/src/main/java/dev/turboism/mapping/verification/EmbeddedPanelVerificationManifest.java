@@ -8,7 +8,7 @@ public final class EmbeddedPanelVerificationManifest {
     public static final String VERIFICATION_ID =
         "cubism-5.3.02.ui-embedded-panel.static";
     public static final String RECORD_SHA256 =
-        "08f4581ddd564c24702a365db2a8d198817e5945a7e9da2c067ab4b032bf93b2";
+        "6f8514a907b77b93f1eef36f2e4226455a6eceec820efae736868ee81ee45a2a";
     public static final String CUBISM_VERSION = "5.3.02";
     public static final String PROFILE_ID = "cubism-5.3.02";
     public static final long ARTIFACT_SIZE = 41_922_739L;
@@ -58,6 +58,15 @@ public final class EmbeddedPanelVerificationManifest {
         "cubism.ui-panel.palette-frame.root",
         "cubism.ui-panel.palette-frame.window",
         "cubism.ui-panel.palette-frame.dispose",
+        "cubism.ui-panel.palette-frame.raw-disposed",
+        "cubism.ui-panel.floating-tab-close.operation",
+        "cubism.ui-panel.floating-tab-close.palette-field",
+        "cubism.ui-panel.workspace.root-container",
+        "cubism.ui-panel.root.component",
+        "cubism.ui-panel.split.class",
+        "cubism.ui-panel.split.contents",
+        "cubism.ui-panel.split.remove",
+        "cubism.ui-panel.component.palette-count",
         "cubism.ui-panel.root.set-component",
         "cubism.ui-panel.window.set-visible",
         "cubism.ui-panel.palette-id.class",
@@ -82,7 +91,11 @@ public final class EmbeddedPanelVerificationManifest {
         "cubism.ui-panel.menu.add",
         "cubism.ui-panel.menu.swing",
         "cubism.ui-panel.menu-item.create",
-        "cubism.ui-panel.menu-item.swing"
+        "cubism.ui-panel.menu-item.check.create",
+        "cubism.ui-panel.menu-item.is-selected",
+        "cubism.ui-panel.menu-item.swing",
+        "cubism.ui-panel.dock.main-frame-ctrl",
+        "cubism.ui-panel.main-frame.palette-menu-map"
     );
 
     static PinnedVerifiedResolverWorkflow.Manifest forArtifact(

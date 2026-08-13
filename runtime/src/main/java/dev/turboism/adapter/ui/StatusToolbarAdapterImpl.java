@@ -20,6 +20,19 @@ public final class StatusToolbarAdapterImpl implements StatusToolbarAdapter {
         return new StatusToolbarAdapterImpl(Optional.of(Objects.requireNonNull(host, "host")));
     }
 
+    /**
+     * Verified-CX composition seam for the reviewed exact-version (5.2.03 or
+     * 5.3.02) status slice: wraps the
+     * package-private native operations over a resolver-backed access. Per-call
+     * version and capability gating still applies through {@link #notifyStatus}.
+     */
+    public static StatusToolbarAdapter connectedVerifiedCx(
+        final String hostVersion,
+        final CxStatusBarHostAccess access
+    ) {
+        return connected(new CxStatusBarHostOperations(hostVersion, access));
+    }
+
     public static StatusToolbarAdapter safeMode() {
         return new StatusToolbarAdapterImpl(Optional.empty());
     }

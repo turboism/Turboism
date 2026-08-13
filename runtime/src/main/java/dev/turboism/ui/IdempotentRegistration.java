@@ -5,6 +5,9 @@ import dev.turboism.sdk.plugin.Registration;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /**
  * Ensures a host or contribution registration is closed once after a successful delegate close.
@@ -19,6 +22,8 @@ final class IdempotentRegistration implements Registration {
     private State state = State.OPEN;
     private CompletableFuture<Void> inFlight;
     private Thread closeOwner;
+    /** Bounded wait for a concurrent close owner; the EDT must never block indefinitely. */
+    private static final long CLOSE_JOIN_TIMEOUT_MILLIS = 5_000L;
 
     private IdempotentRegistration(final Registration delegate) {
         this.delegate = Objects.requireNonNull(delegate, "delegate");
@@ -80,12 +85,23 @@ final class IdempotentRegistration implements Registration {
         }
     }
 
+    /**
+     * Waits for a concurrent close attempt with a bounded timeout (fail closed): a delegate close
+     * that does not finish within {@link #CLOSE_JOIN_TIMEOUT_MILLIS} raises {@link IllegalStateException}
+     * instead of blocking the caller (potentially the EDT) indefinitely.
+     */
     private static void await(final CompletableFuture<Void> completion) {
         try {
-            completion.join();
-        } catch (CompletionException exception) {
+            completion.get(CLOSE_JOIN_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+        } catch (TimeoutException timeout) {
+            throw new IllegalStateException(
+                "registration close did not finish within " + CLOSE_JOIN_TIMEOUT_MILLIS + "ms", timeout);
+        } catch (ExecutionException exception) {
             final Throwable cause = exception.getCause();
             rethrow(cause);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("interrupted while awaiting registration close", interrupted);
         }
     }
 

@@ -7,6 +7,14 @@ public final class EditorObjectReadSelectorContract {
 
     public static final String ADAPTER_SLICE_ID = "adapter.editor-model.readwrite";
     public static final String CAPABILITY_ID = "cubism.editor-model.objects.read";
+    public static final String STATISTICS_CAPABILITY_ID = "cubism.editor-model.statistics.read";
+    public static final Set<String> STATISTICS_ALIASES = Set.of(
+        "cubism.editor-model.art-mesh-source.texture",
+        "cubism.editor-model.texture.guid"
+    );
+    public static final Set<String> OFFSCREEN_STATISTICS_ALIASES = Set.of(
+        "cubism.editor-model.part-source.use-offscreen"
+    );
 
     public static final Set<String> REQUIRED_ALIASES = Set.of(
         "cubism.editor-model.app-controller.instance",
@@ -16,6 +24,15 @@ public final class EditorObjectReadSelectorContract {
         "cubism.editor-model.model-source.current-instance",
         "cubism.editor-model.guid.value",
         "cubism.editor-model.id.value",
+        "cubism.editor-model.part-id.value",
+        "cubism.editor-model.model-source.parts",
+        "cubism.editor-model.part-source.class",
+        "cubism.editor-model.part-source.id",
+        "cubism.editor-model.part-source.parent",
+        "cubism.editor-model.model.parameter-set",
+        "cubism.editor-model.parameter-set.parameters",
+        "cubism.editor-model.parameter.class",
+        "cubism.editor-model.parameter.id",
         "cubism.editor-model.model-source.all-art-meshes",
         "cubism.editor-model.model.all-art-meshes",
         "cubism.editor-model.art-mesh-source.class",
@@ -26,11 +43,14 @@ public final class EditorObjectReadSelectorContract {
         "cubism.editor-model.parameter-controllable-source.locked",
         "cubism.editor-model.parameter-controllable-source.visible-in-hierarchy",
         "cubism.editor-model.parameter-controllable-source.locked-in-hierarchy",
+        "cubism.editor-model.parameter-controllable-source.target-deformer-source",
         "cubism.editor-model.art-mesh.source",
         "cubism.editor-model.art-mesh.current-keyform",
         "cubism.editor-model.drawable-form.opacity",
         "cubism.editor-model.drawable-form.draw-order",
         "cubism.editor-model.art-mesh-form.positions",
+        "cubism.editor-model.art-mesh-source.guid",
+        "cubism.editor-model.art-mesh-source.clip-guid-list",
         "cubism.editor-model.art-mesh-source.positions",
         "cubism.editor-model.art-mesh-source.uvs",
         "cubism.editor-model.art-mesh-source.indices",
@@ -56,7 +76,11 @@ public final class EditorObjectReadSelectorContract {
         "cubism.editor-model.rotation-form.origin-y",
         "cubism.editor-model.rotation-form.scale",
         "cubism.editor-model.rotation-form.reflect-x",
-        "cubism.editor-model.rotation-form.reflect-y"
+        "cubism.editor-model.rotation-form.reflect-y",
+        "cubism.editor-model.model-source.all-glues",
+        "cubism.editor-model.glue-source.class",
+        "cubism.editor-model.glue-source.target-art-mesh-a",
+        "cubism.editor-model.glue-source.target-art-mesh-b"
     );
 
     private EditorObjectReadSelectorContract() {

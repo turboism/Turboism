@@ -6,7 +6,15 @@ import dev.turboism.sdk.cubism.id.ParameterId;
 import java.util.List;
 import java.util.Objects;
 
-/** Immutable model-level plan for transferring selected object bindings between parameters. */
+/**
+ * Immutable model-level plan for transferring selected object bindings between parameters.
+ * When consumed by {@link ParameterBindingBatchOperations#transferClamped(ParameterBindingTransferPlan)},
+ * {@code invertAfterTransfer} means negate each source keyform coordinate before linearly remapping
+ * it from the source parameter range into the destination range (clamped), preserving keyform
+ * association. {@code transferMorphClamped} consumers move every Morph Target setting unchanged,
+ * negating each key value when inversion is requested. Ordinary {@code transfer}
+ * consumers retain their existing native reversal semantics.
+ */
 @PreviewApi
 public record ParameterBindingTransferPlan(
     ParameterId sourceParameterId,

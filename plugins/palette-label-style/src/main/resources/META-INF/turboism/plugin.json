@@ -1,0 +1,86 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 2,
+  "id": "dev.turboism.plugin.palette-label-style",
+  "name": "Palette Label Style Plugin",
+  "version": "0.1.0",
+  "description": "Label text and background colors for Deformer, Part, and Parameter palette entries via context menus.",
+  "entrypoints": [
+    "dev.turboism.plugin.palettelabelstyle.PaletteLabelStylePlugin"
+  ],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    {
+      "name": "Turboism Contributors"
+    }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": ["en", "ja", "ko", "zh-Hans", "zh-Hant"]
+  },
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.action.register",
+      "scope": "application",
+      "reason": "Register label text/background color actions invoked from palette context menus."
+    },
+    {
+      "id": "turboism.ui.context-menu.contribute",
+      "scope": "application",
+      "reason": "Contribute text-color and background-color submenus to Deformer, Part, and Parameter palette context menus."
+    },
+    {
+      "id": "turboism.ui.appearance.modify",
+      "scope": "application",
+      "reason": "Override palette entry text and background colors and set native deformer label colors."
+    },
+    {
+      "id": "turboism.ui.dialog.contribute",
+      "scope": "application",
+      "reason": "Open the custom-color form dialog."
+    },
+    {
+      "id": "turboism.cubism.model.write",
+      "scope": "application",
+      "reason": "Write native deformer label colors for the Deformer tab background menu."
+    },
+    {
+      "id": "turboism.cubism.model.read",
+      "scope": "application",
+      "reason": "Resolve selected palette objects and replay persisted colors on model open."
+    },
+    {
+      "id": "turboism.cubism.project.read",
+      "scope": "application",
+      "reason": "Resolve the active project id for per-project label color persistence."
+    },
+    {
+      "id": "turboism.file.read",
+      "scope": "application",
+      "reason": "Read persisted per-project label colors for replay."
+    },
+    {
+      "id": "turboism.file.write",
+      "scope": "application",
+      "reason": "Persist per-project label text/background colors after each apply or clear."
+    }
+  ],
+  "capabilities": [
+    "ui.context-menu.contribute",
+    "ui.appearance.modify",
+    "ui.dialog.contribute",
+    "cubism.model.read",
+    "cubism.model.write",
+    "cubism.project.read",
+    "file.read",
+    "file.write"
+  ],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "embedded"
+  }
+}

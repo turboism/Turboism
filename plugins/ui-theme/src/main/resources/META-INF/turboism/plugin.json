@@ -4,7 +4,7 @@
   "id": "dev.turboism.plugin.uitheme",
   "name": "UI Theme Plugin",
   "version": "0.1.0",
-  "description": "SDK-only theme package workflows and semantic appearance requests. Production host mutation remains fail-closed until a verified appearance provider is installed.",
+  "description": "Legacy-compatible theme packages, built-in themes, theme manager workflow, and exact-version Cubism appearance application.",
   "entrypoints": [
     "dev.turboism.plugin.uitheme.UiThemePlugin"
   ],
@@ -17,14 +17,29 @@
   "resources": ["themes/"],
   "i18n": {
     "baseName": "META-INF/turboism/i18n/messages",
-    "locales": []
+    "locales": ["en", "ja", "ko", "zh-Hans", "zh-Hant"]
   },
   "dependencies": [],
   "permissions": [
     {
       "id": "turboism.action.register",
       "scope": "application",
-      "reason": "Registers theme package status and import actions."
+      "reason": "Registers theme manager, package import/export, delete, and status actions."
+    },
+    {
+      "id": "turboism.ui.menu.contribute",
+      "scope": "application",
+      "reason": "Adds theme management commands under the Turboism top-level menu."
+    },
+    {
+      "id": "turboism.config.plugin.read",
+      "scope": "application",
+      "reason": "Reads the selected theme package from plugin-owned typed configuration."
+    },
+    {
+      "id": "turboism.config.plugin.write",
+      "scope": "application",
+      "reason": "Persists the selected theme package after a successful host appearance apply."
     },
     {
       "id": "turboism.ui.context-menu.contribute",
@@ -39,12 +54,22 @@
     {
       "id": "turboism.ui.dialog.contribute",
       "scope": "application",
-      "reason": "Shows the fake-host theme package import confirmation dialog."
+      "reason": "Shows the unified theme selection window and bounded package workflow dialogs."
     },
     {
       "id": "turboism.ui.file-chooser.request",
       "scope": "application",
-      "reason": "Requests a ZIP theme package path for the fake-host import workflow."
+      "reason": "Requests opaque ZIP theme package handles for import and export."
+    },
+    {
+      "id": "turboism.file.read",
+      "scope": "application",
+      "reason": "Reads bounded theme archives from plugin storage and granted import handles."
+    },
+    {
+      "id": "turboism.file.write",
+      "scope": "application",
+      "reason": "Atomically stores, deletes, and exports bounded theme archives."
     },
     {
       "id": "turboism.ui.status.notify",

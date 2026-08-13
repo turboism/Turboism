@@ -32,6 +32,7 @@ public final class EditorPartNameSelectorContract {
         "cubism.editor-model.undo-listener.class",
         "cubism.editor-model.model-source.parts",
         "cubism.editor-model.model-source.update-instances",
+        "cubism.editor-model.model-source.update-visible-lock-hierarchy",
         "cubism.editor-model.model.parts",
         "cubism.editor-model.part.class",
         "cubism.editor-model.part.source",
@@ -39,9 +40,7 @@ public final class EditorPartNameSelectorContract {
         "cubism.editor-model.part-source.id",
         "cubism.editor-model.part-source.local-name",
         "cubism.editor-model.part-source.set-local-name",
-        "cubism.editor-model.part-source.handler",
-        "cubism.editor-model.part-handler.class",
-        "cubism.editor-model.part-handler.create-undo-for-all-edit",
+        "cubism.editor-model.part-source.create-undo-for-basic-settings",
         "cubism.editor-model.part-id.value",
         "cubism.editor-model.complete-pack.update-part-palette",
         "cubism.editor-model.complete-pack.repaint-canvas"

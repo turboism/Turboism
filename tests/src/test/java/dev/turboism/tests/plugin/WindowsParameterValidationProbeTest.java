@@ -3,14 +3,18 @@ package dev.turboism.tests.plugin;
 import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.cubism.id.ParameterGroupId;
 import dev.turboism.sdk.cubism.id.ParameterId;
-import dev.turboism.sdk.cubism.model.Color;
 import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.Parameter;
 import dev.turboism.sdk.cubism.model.ParameterDefinition;
 import dev.turboism.sdk.cubism.model.ParameterGroup;
-import dev.turboism.sdk.cubism.model.ParameterGroups;
 import dev.turboism.sdk.cubism.model.ParameterType;
 import dev.turboism.sdk.cubism.model.Parameters;
+import dev.turboism.sdk.ui.appearance.NativeLabelColor;
+import dev.turboism.sdk.ui.appearance.NativeLabelColorState;
+import dev.turboism.sdk.ui.appearance.PresetColor;
+import dev.turboism.sdk.ui.appearance.UiColor;
+import dev.turboism.sdk.ui.appearance.model.ParameterGroupAppearance;
+import java.nio.file.Files;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -19,7 +23,9 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class WindowsParameterValidationProbeTest {
 
@@ -333,48 +339,422 @@ class WindowsParameterValidationProbeTest {
     }
 
     @Test
-    void groupColorAndDefaultLockWritersReturnAuthoritativeState() {
-        final ParameterGroupId groupId = new ParameterGroupId("GroupFace");
-        final Color[] color = {new Color(0.25F, 0.5F, 0.75F, 1.0F)};
-        final ParameterGroup group = new ParameterGroup() {
-            @Override public ParameterGroupId id() { return groupId; }
-            @Override public Optional<String> name() { return Optional.of("Face"); }
-            @Override public Color labelColor() { return color[0]; }
-            @Override public void setLabelColor(final Color next) { color[0] = next; }
-            @Override public Optional<ParameterGroupId> parentId() { return Optional.empty(); }
-            @Override public List<ParameterGroupId> childGroupIds() { return List.of(); }
-            @Override public List<ParameterId> parameterIds() { return List.of(); }
+    void folderLabelColorWriterReturnsAuthoritativeNativeStateThroughModelUi() {
+        final UiColor[] color = {new UiColor(0.25F, 0.5F, 0.75F, 1.0F)};
+        final ParameterGroup group = parameterGroup("GroupFace", color, true);
+        final UiColor requested = WindowsParameterValidationProbe.parseColor(
+            "0.1", "0.2", "0.3", "0.4"
+        );
+
+        final NativeLabelColorState authoritative =
+            WindowsParameterValidationProbe.setParameterFolderLabelColor(group, requested);
+
+        assertEquals(requested, color[0]);
+        assertEquals(new NativeLabelColor.Custom(requested), authoritative.labelColor());
+        assertEquals(Optional.of(requested), authoritative.actualColor());
+    }
+
+    @Test
+    void folderLabelColorWriterRejectsMissingModelUiTargetsAndValues() {
+        final UiColor requested = new UiColor(1.0F, 0.0F, 0.0F, 1.0F);
+        final ParameterGroup unavailable = parameterGroup(
+            "GroupFace", new UiColor[] {requested}, false
+        );
+
+        assertThrows(NullPointerException.class, () ->
+            WindowsParameterValidationProbe.setParameterFolderLabelColor(null, requested));
+        assertThrows(NullPointerException.class, () ->
+            WindowsParameterValidationProbe.setParameterFolderLabelColor(unavailable, null));
+        assertThrows(UnsupportedOperationException.class, () ->
+            WindowsParameterValidationProbe.setParameterFolderLabelColor(unavailable, requested));
+    }
+
+    @Test
+    void customCandidateNeverEqualsTheSemanticBeforeState() {
+        // The failing case: semantic is Custom(red) while the effective color differs.
+        final NativeLabelColorState before = new NativeLabelColorState(
+            new NativeLabelColor.Custom(new UiColor(1.0F, 0.0F, 0.0F, 1.0F)),
+            Optional.of(new UiColor(0.9F, 0.1F, 0.1F, 1.0F))
+        );
+
+        final NativeLabelColor chosen =
+            WindowsParameterValidationProbe.chooseCustomCandidate(before);
+
+        assertFalse(
+            chosen.equals(before.labelColor()),
+            "the chosen Custom request must differ from the semantic before-state"
+        );
+        assertEquals(
+            new NativeLabelColor.Custom(new UiColor(0.0F, 1.0F, 0.0F, 1.0F)),
+            chosen
+        );
+    }
+
+    @Test
+    void storedBackgroundPropertiesRoundTripEverySemanticKind() {
+        final java.util.Properties properties = new java.util.Properties();
+        final NativeLabelColor[] samples = {
+            new NativeLabelColor.Default(),
+            new NativeLabelColor.Preset(PresetColor.GRAY),
+            new NativeLabelColor.Custom(new UiColor(0.1F, 0.2F, 0.3F, 0.4F))
         };
-        final ParameterGroups groups = new ParameterGroups() {
-            @Override public List<ParameterGroup> all() { return List.of(group); }
-            @Override public ParameterGroup root() { return group; }
-            @Override public ParameterGroup find(final ParameterGroupId id) { return group; }
-        };
+        final String[] prefixes = {"folder.original", "part.requested", "deformer.original"};
+        for (int index = 0; index < samples.length; index++) {
+            WindowsParameterValidationProbe.storeStoredBackground(
+                properties, prefixes[index], samples[index]
+            );
+        }
+
+        for (int index = 0; index < samples.length; index++) {
+            assertEquals(
+                samples[index],
+                WindowsParameterValidationProbe.parseStoredBackground(properties, prefixes[index])
+            );
+        }
+    }
+
+    @Test
+    void primaryPeerResponseBudgetIsAtMostSixtySeconds() {
+        assertEquals(600, WindowsParameterValidationProbe.PEER_RESPONSE_MAX_ATTEMPTS);
+        assertEquals(100L, WindowsParameterValidationProbe.PEER_RESPONSE_POLL_MILLIS);
+        assertTrue(
+            WindowsParameterValidationProbe.PEER_RESPONSE_MAX_ATTEMPTS
+                * WindowsParameterValidationProbe.PEER_RESPONSE_POLL_MILLIS <= 60_000L
+        );
+    }
+
+    @Test
+    void peerPluginStartupBudgetAllowsRealisticExactHostStartup() {
+        assertEquals(2400, WindowsEditorObjectPeerValidationProbe.PEER_STARTUP_MAX_ATTEMPTS);
+        assertEquals(100L, WindowsEditorObjectPeerValidationProbe.PEER_STARTUP_POLL_MILLIS);
+        assertEquals(
+            240_000L,
+            WindowsEditorObjectPeerValidationProbe.PEER_STARTUP_MAX_ATTEMPTS
+                * WindowsEditorObjectPeerValidationProbe.PEER_STARTUP_POLL_MILLIS
+        );
+        assertTrue(
+            WindowsEditorObjectPeerValidationProbe.PEER_STARTUP_MAX_ATTEMPTS
+                * WindowsEditorObjectPeerValidationProbe.PEER_STARTUP_POLL_MILLIS <= 240_000L
+        );
+    }
+
+    @Test
+    void scopeCloseRunningPhaseIsWrittenFromThePassedValues() throws Exception {
+        final java.nio.file.Path artifact = saveTemp.resolve("native-control-background-validation.txt");
+        WindowsParameterValidationProbe.writeRunningScopeClosePhase(
+            artifact, "model-a", "AWT-EventQueue-0"
+        );
+        final String content = Files.readString(artifact);
+        assertTrue(content.contains("status=RUNNING"), content);
+        assertTrue(content.contains("phase=plugin-scope-close"), content);
+        assertTrue(content.contains("modelId=model-a"), content);
+        assertTrue(content.contains("hostThread=AWT-EventQueue-0"), content);
+    }
+
+    @Test
+    void scopeCloseRunningPhaseReportsProgressContext() {
+        final String phase = WindowsParameterValidationProbe.scopeCloseRunningPhase(
+            "model-a", "AWT-EventQueue-0"
+        );
+        assertTrue(phase.contains("status=RUNNING"), phase);
+        assertTrue(phase.contains("phase=plugin-scope-close"), phase);
+        assertTrue(phase.contains("modelId=model-a"), phase);
+        assertTrue(phase.contains("hostThread=AWT-EventQueue-0"), phase);
+    }
+
+    @Test
+    void awaitPeerEvidenceReturnsTerminalContentAndTimesOutBounded() throws Exception {
+        final java.nio.file.Path peerArtifact = saveTemp.resolve("peer-scope-close.txt");
+        assertEquals(
+            "",
+            WindowsParameterValidationProbe.awaitPeerEvidence(peerArtifact, 5, 10L),
+            "a missing peer artifact must time out within the bounded attempts"
+        );
+        final Thread writer = new Thread(() -> {
+            try {
+                Thread.sleep(150L);
+                Files.writeString(peerArtifact, "status=PASS\nsecondPluginUsable=true\n");
+            } catch (Exception failure) {
+                throw new RuntimeException(failure);
+            }
+        });
+        writer.start();
+        final String evidence =
+            WindowsParameterValidationProbe.awaitPeerEvidence(peerArtifact, 200, 10L);
+        writer.join(5_000L);
+        assertTrue(evidence.contains("status=PASS"), evidence);
+        assertTrue(evidence.contains("secondPluginUsable=true"), evidence);
+    }
+
+    @Test
+    void peerProbeMarkerWaitIsBoundedAndDetectsTheMarker() throws Exception {
+        final java.nio.file.Path request = saveTemp.resolve("editor-object-peer-request.txt");
+        assertFalse(WindowsEditorObjectPeerValidationProbe.awaitMarker(request, 5, 10L));
+        final Thread writer = new Thread(() -> {
+            try {
+                Thread.sleep(150L);
+                Files.writeString(request, "primaryScopeClosed=true\n");
+            } catch (Exception failure) {
+                throw new RuntimeException(failure);
+            }
+        });
+        writer.start();
+        assertTrue(WindowsEditorObjectPeerValidationProbe.awaitMarker(request, 200, 10L));
+        writer.join(5_000L);
+    }
+
+    @Test
+    void autoNativeLabelColorModesNeverShowTheValidationWindow() {
+        assertFalse(WindowsParameterValidationProbe.showsValidationWindow("native-control-background"));
+        assertFalse(WindowsParameterValidationProbe.showsValidationWindow("native-control-background-document-close"));
+        assertFalse(WindowsParameterValidationProbe.showsValidationWindow("native-control-background-persist-write"));
+        assertFalse(WindowsParameterValidationProbe.showsValidationWindow("native-control-background-persist-reopen"));
+        assertFalse(WindowsParameterValidationProbe.showsValidationWindow("native-control-background-persist-final"));
+        assertFalse(WindowsParameterValidationProbe.showsValidationWindow("fixed-api"));
+        assertFalse(WindowsParameterValidationProbe.showsValidationWindow("fixed-api-document-close"));
+        assertTrue(WindowsParameterValidationProbe.showsValidationWindow("matrix"));
+        assertTrue(WindowsParameterValidationProbe.showsValidationWindow("binding-matrix"));
+        assertTrue(WindowsParameterValidationProbe.showsValidationWindow("document-close"));
+        assertTrue(WindowsParameterValidationProbe.showsValidationWindow("plugin-scope-close"));
+        assertThrows(NullPointerException.class, () ->
+            WindowsParameterValidationProbe.showsValidationWindow(null));
+    }
+
+    @Test
+    void automatedHostCloseTreatsMissingConfirmationAsCleanClose() {
+        assertEquals(
+            WindowsParameterValidationProbe.HostCloseDecision.CLEAN_CLOSE,
+            WindowsParameterValidationProbe.hostCloseDecision(
+                false, javax.swing.JOptionPane.DEFAULT_OPTION, 0
+            )
+        );
+    }
+
+    @Test
+    void automatedHostCloseChoosesDiscardWithoutLocalizedButtonText() {
+        assertEquals(
+            WindowsParameterValidationProbe.HostCloseDecision.DISCARD,
+            WindowsParameterValidationProbe.hostCloseDecision(
+                true, javax.swing.JOptionPane.YES_NO_CANCEL_OPTION, 3
+            )
+        );
+        assertEquals(
+            WindowsParameterValidationProbe.HostCloseDecision.DISCARD,
+            WindowsParameterValidationProbe.hostCloseDecision(
+                true, javax.swing.JOptionPane.DEFAULT_OPTION, 3
+            )
+        );
+        assertEquals(
+            WindowsParameterValidationProbe.HostCloseDecision.UNSUPPORTED_CONFIRMATION,
+            WindowsParameterValidationProbe.hostCloseDecision(
+                true, javax.swing.JOptionPane.OK_CANCEL_OPTION, 2
+            )
+        );
+    }
+
+    @Test
+    void automatedHostCloseUsesExactHostVersionRoute() {
+        assertEquals(
+            WindowsParameterValidationProbe.HostCloseRoute.SYNTHETIC_WINDOW_CLOSING,
+            WindowsParameterValidationProbe.hostCloseRoute("5203")
+        );
+        assertEquals(
+            WindowsParameterValidationProbe.HostCloseRoute.ROBOT_ALT_F4,
+            WindowsParameterValidationProbe.hostCloseRoute("5302")
+        );
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> WindowsParameterValidationProbe.hostCloseRoute("unknown")
+        );
+    }
+
+    @Test
+    void automatedHostCloseRequiresAVisibleDisplayableNonDialogWindow() {
+        assertThrows(
+            IllegalStateException.class,
+            () -> WindowsParameterValidationProbe.selectHostWindow(new java.awt.Window[0])
+        );
+    }
+
+    @Test
+    void automatedHostCloseSelectsDiscardActionInsteadOfCancel() {
+        final javax.swing.JButton save = new javax.swing.JButton();
+        save.setActionCommand("save");
+        final javax.swing.JButton cancel = new javax.swing.JButton();
+        cancel.setActionCommand("cancel");
+        final javax.swing.JButton discard = new javax.swing.JButton();
+        discard.setActionCommand("button");
+        discard.setText("不保存");
+        final javax.swing.JButton unknown = new javax.swing.JButton();
+        unknown.setActionCommand("unknown");
+
+        assertEquals(
+            discard,
+            WindowsParameterValidationProbe.selectDiscardButton(List.of(save, cancel, discard))
+        );
+        assertEquals(
+            null,
+            WindowsParameterValidationProbe.selectDiscardButton(List.of(save, cancel, unknown))
+        );
+    }
+
+    @Test
+    void automatedHostCloseClicksObservedNoMnemonicButton() {
+        final javax.swing.JButton yes = new javax.swing.JButton("Yes(Y)");
+        yes.setActionCommand("Yes(Y)");
+        yes.getAccessibleContext().setAccessibleName("Yes(Y)");
+        final javax.swing.JButton no = new javax.swing.JButton("No(N)");
+        no.setActionCommand("No(N)");
+        no.getAccessibleContext().setAccessibleName("No(N)");
+        final javax.swing.JButton cancel = new javax.swing.JButton("Cancel(C)");
+        cancel.setActionCommand("Cancel(C)");
+        cancel.getAccessibleContext().setAccessibleName("Cancel(C)");
+        final javax.swing.JButton close = new javax.swing.JButton("Close");
+        close.setActionCommand("Close");
+        close.getAccessibleContext().setAccessibleName("Close");
+        final AtomicInteger clicks = new AtomicInteger();
+        no.addActionListener(event -> clicks.incrementAndGet());
+
+        assertEquals(
+            no,
+            WindowsParameterValidationProbe.selectDiscardButton(List.of(yes, no, cancel, close))
+        );
+        no.doClick();
+        assertEquals(1, clicks.get());
+    }
+
+    @org.junit.jupiter.api.io.TempDir
+    java.nio.file.Path saveTemp;
+
+    @org.junit.jupiter.api.AfterEach
+    void clearFixtureProperty() {
+        System.clearProperty("turboism.validation.fixture");
+    }
+
+    @Test
+    void saveConfirmationDetectsACommittedFixtureWrite() throws Exception {
+        final java.nio.file.Path fixture = saveTemp.resolve("fixture.cmo3");
+        Files.writeString(fixture, "before");
+        final java.nio.file.attribute.FileTime before =
+            Files.getLastModifiedTime(fixture);
+        final long beforeSize = Files.size(fixture);
+        // Cross a coarse mtime boundary deterministically with a background one-time write.
+        final Thread writer = new Thread(() -> {
+            try {
+                Thread.sleep(1_200L);
+                Files.writeString(fixture, "after-save-content");
+            } catch (Exception failure) {
+                throw new RuntimeException(failure);
+            }
+        });
+        writer.start();
+
+        final WindowsParameterValidationProbe.SaveConfirmation confirmed =
+            WindowsParameterValidationProbe.awaitSaveConfirmation(
+                fixture, before, beforeSize, 10_000L, 50L
+            );
+        writer.join(15_000L);
+
+        assertTrue(confirmed.confirmed(), "the committed write must be confirmed");
+        assertEquals(beforeSize, confirmed.beforeSize());
+        assertEquals(
+            "after-save-content".getBytes(java.nio.charset.StandardCharsets.UTF_8).length,
+            confirmed.afterSize()
+        );
+        assertTrue(confirmed.afterMtimeMillis() >= confirmed.beforeMtimeMillis());
+    }
+
+    @Test
+    void saveConfirmationFailsClosedWhenTheFixtureNeverChanges() throws Exception {
+        final java.nio.file.Path fixture = saveTemp.resolve("static.cmo3");
+        Files.writeString(fixture, "unchanged");
+        final java.nio.file.attribute.FileTime before = Files.getLastModifiedTime(fixture);
+
+        final WindowsParameterValidationProbe.SaveConfirmation confirmation =
+            WindowsParameterValidationProbe.awaitSaveConfirmation(
+                fixture, before, Files.size(fixture), 400L, 40L
+            );
+
+        assertFalse(confirmation.confirmed(), "a never-changing fixture must fail closed");
+    }
+
+    @Test
+    void saveConfirmationRejectsMissingFixturePaths() {
+        assertThrows(IllegalArgumentException.class, () ->
+            WindowsParameterValidationProbe.awaitSaveConfirmation(
+                saveTemp.resolve("missing.cmo3"),
+                java.nio.file.attribute.FileTime.fromMillis(0L),
+                0L,
+                100L,
+                10L
+            ));
+        System.clearProperty("turboism.validation.fixture");
+        assertThrows(IllegalArgumentException.class, () ->
+            WindowsParameterValidationProbe.fixturePath());
+        System.setProperty("turboism.validation.fixture", saveTemp.toString());
+        assertEquals(saveTemp, WindowsParameterValidationProbe.fixturePath());
+    }
+
+    @Test
+    void storedBackgroundParsingFailsClosedOnMalformedProperties() {
+        final java.util.Properties properties = new java.util.Properties();
+        assertThrows(IllegalArgumentException.class, () ->
+            WindowsParameterValidationProbe.parseStoredBackground(properties, "missing"));
+        properties.setProperty("bad.type", "rainbow");
+        assertThrows(IllegalArgumentException.class, () ->
+            WindowsParameterValidationProbe.parseStoredBackground(properties, "bad"));
+        properties.setProperty("bad2.type", "custom");
+        properties.setProperty("bad2.red", "not-a-number");
+        properties.setProperty("bad2.green", "0");
+        properties.setProperty("bad2.blue", "0");
+        properties.setProperty("bad2.alpha", "1");
+        assertThrows(IllegalArgumentException.class, () ->
+            WindowsParameterValidationProbe.parseStoredBackground(properties, "bad2"));
+        properties.setProperty("bad3.type", "preset");
+        assertThrows(IllegalArgumentException.class, () ->
+            WindowsParameterValidationProbe.parseStoredBackground(properties, "bad3"));
+    }
+
+    @Test
+    void matrixRejectsSameSemanticRequestBeforeAnyWrite() {
+        final NativeLabelColor request =
+            new NativeLabelColor.Custom(new UiColor(0.1F, 0.2F, 0.3F, 0.4F));
+
+        assertThrows(IllegalStateException.class, () ->
+            WindowsParameterValidationProbe.requireDistinctBackgroundRequest(request, request));
+        assertThrows(IllegalStateException.class, () ->
+            WindowsParameterValidationProbe.requireDistinctBackgroundRequest(
+                new NativeLabelColor.Default(),
+                new NativeLabelColor.Default()
+            ));
+        WindowsParameterValidationProbe.requireDistinctBackgroundRequest(
+            request,
+            new NativeLabelColor.Default()
+        );
+        WindowsParameterValidationProbe.requireDistinctBackgroundRequest(
+            new NativeLabelColor.Preset(PresetColor.BLUE),
+            new NativeLabelColor.Preset(PresetColor.RED)
+        );
+    }
+
+    @Test
+    void defaultKeyformLockWriterReturnsAuthoritativeState() {
         final boolean[] locked = {false};
         final CubismModel model = new CubismModel() {
             @Override public ModelId id() { return new ModelId("model-a"); }
             @Override public boolean defaultKeyformLocked() { return locked[0]; }
             @Override public void setDefaultKeyformLocked(final boolean value) { locked[0] = value; }
             @Override public Parameters parameters() { throw unsupported(); }
-            @Override public ParameterGroups parameterGroups() { return groups; }
+            @Override public dev.turboism.sdk.cubism.model.ParameterGroups parameterGroups() {
+                throw unsupported();
+            }
             @Override public dev.turboism.sdk.cubism.model.Parts parts() { throw unsupported(); }
             @Override public dev.turboism.sdk.cubism.model.Drawables drawables() { throw unsupported(); }
             @Override public dev.turboism.sdk.cubism.model.Deformers deformers() { throw unsupported(); }
             @Override public dev.turboism.sdk.cubism.model.Glues glues() { throw unsupported(); }
             @Override public void update() { throw unsupported(); }
         };
-        final Color requested = WindowsParameterValidationProbe.parseColor(
-            "0.1", "0.2", "0.3", "0.4"
-        );
 
-        assertEquals(
-            requested,
-            WindowsParameterValidationProbe.setParameterGroupLabelColor(
-                groups,
-                groupId,
-                requested
-            )
-        );
         assertEquals(true, WindowsParameterValidationProbe.setDefaultKeyformLock(model, true));
         assertEquals(false, WindowsParameterValidationProbe.setDefaultKeyformLock(model, false));
     }
@@ -485,6 +865,43 @@ class WindowsParameterValidationProbeTest {
 
     private static UnsupportedOperationException unsupported() {
         return new UnsupportedOperationException();
+    }
+
+    private static ParameterGroup parameterGroup(
+        final String id,
+        final UiColor[] color,
+        final boolean available
+    ) {
+        final ParameterGroupId groupId = new ParameterGroupId(id);
+        return new ParameterGroup() {
+            @Override public ParameterGroupId id() { return groupId; }
+            @Override public Optional<String> name() { return Optional.of(id); }
+            @Override public Optional<ParameterGroupId> parentId() { return Optional.empty(); }
+            @Override public List<ParameterGroupId> childGroupIds() { return List.of(); }
+            @Override public List<ParameterId> parameterIds() { return List.of(); }
+            @Override public ParameterGroupAppearance ui() {
+                if (!available) return ParameterGroupAppearance.unavailable();
+                return new ParameterGroupAppearance() {
+                    @Override public Optional<dev.turboism.sdk.ui.appearance.PaletteEntry>
+                    parameterPaletteEntry() {
+                        return Optional.empty();
+                    }
+
+                    @Override public Optional<NativeLabelColorState> nativeLabelColor() {
+                        return Optional.of(new NativeLabelColorState(
+                            new NativeLabelColor.Custom(color[0]), Optional.of(color[0])
+                        ));
+                    }
+
+                    @Override public void setNativeLabelColor(final NativeLabelColor value) {
+                        if (!(value instanceof NativeLabelColor.Custom custom)) {
+                            throw new IllegalArgumentException("test fixture expects Custom");
+                        }
+                        color[0] = custom.color();
+                    }
+                };
+            }
+        };
     }
 
     private static List<String> ids(
