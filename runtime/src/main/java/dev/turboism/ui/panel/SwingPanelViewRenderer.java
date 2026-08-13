@@ -69,19 +69,14 @@ public final class SwingPanelViewRenderer {
             return component;
         }
         if (view instanceof PanelView.Text text) {
-            final javax.swing.JTextArea area = new javax.swing.JTextArea(text.value());
-            area.setEditable(false);
-            area.setFocusable(false);
-            area.setOpaque(false);
-            area.setBorder(null);
-            area.setLineWrap(true);
-            area.setWrapStyleWord(true);
-            area.setFont(javax.swing.UIManager.getFont("Label.font"));
+            // JLabel rendering (main baseline) with grayed support for the
+            // history-panel redo entries; word wrap stays a future enhancement.
+            final JLabel label = new JLabel(text.value());
             if (text.grayed()) {
                 final java.awt.Color grayed = javax.swing.UIManager.getColor("Label.disabledForeground");
-                area.setForeground(grayed == null ? new java.awt.Color(0x999999) : grayed);
+                label.setForeground(grayed == null ? new java.awt.Color(0x999999) : grayed);
             }
-            return area;
+            return label;
         }
         if (view instanceof PanelView.Image image) {
             final JLabel label = new JLabel();
