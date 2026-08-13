@@ -46,6 +46,7 @@ public final class ConfigMergeRegression {
         atomicReplacement();
         managedStateCleanup();
         managedStateBackupConfinement();
+        bomHandling();
         System.out.println("ConfigMergeRegression: all checks passed");
     }
 
@@ -171,6 +172,62 @@ public final class ConfigMergeRegression {
             Map<String, Object> m = ConfigMerge.loadExisting(dir);
             check("valid UTF-8 loads and preserves field",
                     m != null && "ab".equals(m.get("note")));
+        } finally {
+            deleteTree(dir);
+        }
+    }
+
+    /**
+     * Installer manual-review r1: a single leading UTF-8 BOM (PowerShell 5.1
+     * Set-Content -Encoding UTF8) is tolerated on every parse/read path and is
+     * never serialized back; a second BOM, BOM-only documents and malformed
+     * UTF-8 still fail closed. Rewriting a BOM-prefixed config produces a
+     * BOM-less file.
+     */
+    private static void bomHandling() throws Exception {
+        String doc = "{\"format\":\"turboism.runtime.config\",\"schemaVersion\":1,\"logLevel\":\"DEBUG\"}";
+        Object v = BoundedJson.parse("\uFEFF" + doc);
+        check("BOM-prefixed document parses", v instanceof Map);
+        String s = BoundedJson.serialize(v);
+        check("serialization has no BOM",
+                !s.startsWith("\uFEFF") && s.contains("\"logLevel\":\"DEBUG\""));
+        check("non-BOM behavior unchanged",
+                "{\"a\":1}".equals(BoundedJson.serialize(BoundedJson.parse("{\"a\":1}"))));
+        try {
+            BoundedJson.parse("\uFEFF\uFEFF{}");
+            check("double BOM fails closed", false);
+        } catch (BoundedJson.JsonException expected) {
+            check("double BOM fails closed", true);
+        }
+        try {
+            BoundedJson.parse("\uFEFF");
+            check("BOM-only document fails closed", false);
+        } catch (BoundedJson.JsonException expected) {
+            check("BOM-only document fails closed", true);
+        }
+        String decoded = ConfigMerge.decodeUtf8Strict(new byte[]{(byte) 0xEF, (byte) 0xBB, (byte) 0xBF});
+        check("decodeUtf8Strict accepts BOM bytes", decoded.startsWith("\uFEFF"));
+
+        Path dir = Files.createTempDirectory("cfg-merge-bom-");
+        Path cfg = dir.resolve("config.json");
+        try {
+            byte[] body = doc.getBytes(StandardCharsets.UTF_8);
+            byte[] withBom = new byte[3 + body.length];
+            withBom[0] = (byte) 0xEF;
+            withBom[1] = (byte) 0xBB;
+            withBom[2] = (byte) 0xBF;
+            System.arraycopy(body, 0, withBom, 3, body.length);
+            Files.write(cfg, withBom);
+            Map<String, Object> m = ConfigMerge.loadExisting(dir);
+            check("config merge with BOM input loads",
+                    m != null && "DEBUG".equals(m.get("logLevel")));
+            ConfigMerge.write(dir, ConfigMerge.applyPolicy(m, List.of()));
+            byte[] rewritten = Files.readAllBytes(cfg);
+            check("rewritten config has no BOM",
+                    rewritten.length >= 3
+                            && !(rewritten[0] == (byte) 0xEF && rewritten[1] == (byte) 0xBB && rewritten[2] == (byte) 0xBF)
+                            && new String(rewritten, StandardCharsets.UTF_8).startsWith("{"));
+            check("rewritten config reloads", ConfigMerge.loadExisting(dir) != null);
         } finally {
             deleteTree(dir);
         }
