@@ -119,7 +119,7 @@ class MainToolbarPluginTest {
     }
 
     @Test
-    void homeActionRequestsTypedTurboismPanelActivation_whenInvoked() throws Exception {
+    void homeActionRoutesToSettingsWindow_whenInvoked() throws Exception {
         RecordingPluginContext context = new RecordingPluginContext();
         MainToolbarPlugin plugin = plugin();
 
@@ -127,10 +127,10 @@ class MainToolbarPluginTest {
         plugin.enable();
         context.actions().execute("turboism.core.open");
 
-        assertEquals(
-            List.of(EmbeddedPanelId.of("turboism.panel.main")),
-            context.uiHost().activatedPanels()
-        );
+        // The toolbar home action routes to the settings window (CoreDialogs
+        // dispatches window construction to the EDT), never activating the
+        // blank Turboism panel tab, and never emitting a status notification.
+        assertTrue(context.uiHost().activatedPanels().isEmpty());
         assertTrue(context.uiHost().notifications().isEmpty());
     }
 
@@ -254,10 +254,7 @@ class MainToolbarPluginTest {
         plugin.enable();
         context.actions().execute("turboism.core.open");
 
-        assertEquals(
-            List.of(EmbeddedPanelId.of("turboism.panel.main")),
-            context.uiHost().activatedPanels()
-        );
+        assertTrue(context.uiHost().activatedPanels().isEmpty());
         assertEquals(List.of(), context.uiHost().notifications());
     }
 
