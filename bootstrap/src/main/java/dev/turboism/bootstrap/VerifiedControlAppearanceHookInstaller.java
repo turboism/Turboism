@@ -2,7 +2,7 @@ package dev.turboism.bootstrap;
 
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
-import dev.turboism.ui.appearance.control.ControlAppearanceCoordinator;
+import dev.turboism.ui.appearance.control.PaletteAppearanceCoordinator;
 import dev.turboism.ui.appearance.control.DeformerControlRowAppearanceProvider;
 import dev.turboism.ui.appearance.control.DeformerControlRowRendererMethodTransformer;
 import dev.turboism.ui.appearance.control.DeformerTreeControlAppearanceProvider;
@@ -38,7 +38,7 @@ final class VerifiedControlAppearanceHookInstaller implements AutoCloseable {
     private final NativeDeformerControlRowAppearanceBridge.Selectors deformerControlSelectors;
     private final NativeParameterAppearanceBridge.Selectors parameterSelectors;
     private final NativePartTreeAppearanceBridge.Selectors partSelectors;
-    private final ControlAppearanceCoordinator coordinator;
+    private final PaletteAppearanceCoordinator coordinator;
     private final AtomicBoolean installed = new AtomicBoolean();
 
     private VerifiedControlAppearanceHookInstaller(
@@ -51,7 +51,7 @@ final class VerifiedControlAppearanceHookInstaller implements AutoCloseable {
         final NativeDeformerControlRowAppearanceBridge.Selectors deformerControlSelectors,
         final NativeParameterAppearanceBridge.Selectors parameterSelectors,
         final NativePartTreeAppearanceBridge.Selectors partSelectors,
-        final ControlAppearanceCoordinator coordinator
+        final PaletteAppearanceCoordinator coordinator
     ) {
         this.instrumentation = Objects.requireNonNull(instrumentation, "instrumentation");
         this.hostClassLoader = Objects.requireNonNull(hostClassLoader, "hostClassLoader");
@@ -69,7 +69,7 @@ final class VerifiedControlAppearanceHookInstaller implements AutoCloseable {
         final Instrumentation instrumentation,
         final VerifiedMemberResolver resolver,
         final long hostGeneration,
-        final ControlAppearanceCoordinator coordinator
+        final PaletteAppearanceCoordinator coordinator
     ) {
         Objects.requireNonNull(resolver, "resolver");
         if (!(resolver.isExactCubismVersion("5.2.03") || resolver.isExactCubismVersion("5.3.02"))
@@ -81,6 +81,8 @@ final class VerifiedControlAppearanceHookInstaller implements AutoCloseable {
         final StaticSelector deformerRowSource = instanceMethod(resolver, "deformer-row.source");
         final StaticSelector deformerSource = classSelector(resolver, "deformer-source.class");
         final StaticSelector deformerId = instanceMethod(resolver, "deformer-source.id");
+        final StaticSelector artMeshSource = classSelector(resolver, "art-mesh.source-class");
+        final StaticSelector artMeshId = instanceMethod(resolver, "art-mesh.source-id");
         final StaticSelector deformerControlRenderer = instanceMethod(resolver, "deformer-control.renderer");
         final StaticSelector deformerControlOuter = instanceField(resolver, "deformer-control.outer");
         final StaticSelector deformerControlOuterClass = classSelector(resolver, "deformer-control.outer-class");
@@ -161,7 +163,8 @@ final class VerifiedControlAppearanceHookInstaller implements AutoCloseable {
             targetClassNames,
             new NativeDeformerTreeAppearanceBridge.Selectors(
                 deformerRowSource.ownerInternalName(), deformerRowSource.memberName(),
-                deformerSource.ownerInternalName(), deformerId.memberName(), idValue.memberName(), loader
+                deformerSource.ownerInternalName(), deformerId.memberName(),
+                artMeshSource.ownerInternalName(), artMeshId.memberName(), idValue.memberName(), loader
             ),
             new NativeDeformerControlRowAppearanceBridge.Selectors(
                 deformerControlRenderer.ownerInternalName(), deformerControlOuter.memberName(),
@@ -180,6 +183,7 @@ final class VerifiedControlAppearanceHookInstaller implements AutoCloseable {
             ),
             new NativePartTreeAppearanceBridge.Selectors(
                 partNode.ownerInternalName(), partNodeSource.memberName(), partSource.ownerInternalName(),
+                deformerSource.ownerInternalName(), artMeshSource.ownerInternalName(),
                 partSourceId.memberName(), idValue.memberName(), partChildren.memberName(), loader
             ),
             coordinator

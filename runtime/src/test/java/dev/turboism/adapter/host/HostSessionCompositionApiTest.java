@@ -22,10 +22,16 @@ class HostSessionCompositionApiTest {
     @Test
     void publicCompositionCannotInjectArbitraryConnectorOrAdapterBundle() throws ReflectiveOperationException {
         assertEquals(
-            Set.of(signature(HostInstanceSource.class)),
+            Set.of(
+                signature(HostInstanceSource.class),
+                signature(HostInstanceSource.class, java.util.Locale.class)
+            ),
             publicConstructorSignatures(HostSession.class)
         );
-        assertEquals(Set.of(signature()), publicConstructorSignatures(HostRuntimeIngress.class));
+        assertEquals(
+            Set.of(signature(), signature(java.util.Locale.class)),
+            publicConstructorSignatures(HostRuntimeIngress.class)
+        );
         assertConstructorIsNonPublic(
             HostSession.class.getDeclaredConstructor(HostInstanceSource.class, HostAdapterConnector.class)
         );
@@ -59,22 +65,41 @@ class HostSessionCompositionApiTest {
                 "adapters():dev.turboism.adapter.RuntimeHostAdapters",
                 "modelAccess():dev.turboism.sdk.cubism.model.CubismModelAccess",
                 "history():dev.turboism.sdk.cubism.history.CubismHistory",
+                "coreRuntimeInfo():dev.turboism.sdk.cubism.core.CoreRuntimeInfo",
+                "modelAppearanceSource():dev.turboism.adapter.cubism.HostSnapshotSource",
                 "parameterLifecycle():dev.turboism.adapter.cubism.lifecycle.ParameterLifecycleCoordinator",
                 "partLifecycle():dev.turboism.adapter.cubism.lifecycle.PartLifecycleCoordinator",
+                "textureAtlasLayouts():dev.turboism.adapter.cubism.textureatlas.TextureAtlasLayoutCoordinator",
+                "textureAtlasNativeInvocations():dev.turboism.adapter.cubism.textureatlas.TextureAtlasNativeInvocationCoordinator",
                 "editorObjectLifecycle():dev.turboism.adapter.cubism.lifecycle.EditorObjectLifecycleCoordinator",
+                "projectFileLifecycle():dev.turboism.adapter.cubism.lifecycle.ProjectFileLifecycleCoordinator",
+                "editorLifecycleEvents():dev.turboism.adapter.cubism.lifecycle.EditorLifecycleCoordinator",
                 "physicsEditorCoordinator():dev.turboism.adapter.cubism.physics.PhysicsEditorCoordinator",
-                "controlAppearanceCoordinator():dev.turboism.ui.appearance.control.ControlAppearanceCoordinator",
+                "meshMirrorAxisService():dev.turboism.adapter.cubism.mesh.RuntimeMeshMirrorAxisService",
+                "meshEditUiService():dev.turboism.adapter.cubism.mesh.RuntimeMeshEditUiService",
+                "paletteAppearanceCoordinator():dev.turboism.ui.appearance.control.PaletteAppearanceCoordinator",
                 "editorUiLifecycle():dev.turboism.ui.host.EditorUiHostLifecycle",
                 "editorUiContributions():dev.turboism.ui.contribution.EditorUiContributionAuthority",
                 "embeddedPanelActivation():dev.turboism.ui.panel.RuntimeEmbeddedPanelActivationCoordinator",
                 "editorUiActionRouter():dev.turboism.ui.action.RuntimeEditorUiActionRouter",
                 "editorUiPluginResources():dev.turboism.ui.toolbar.EditorUiPluginResourceRegistry",
+                "editorCommands():dev.turboism.adapter.cubism.command.EditorCommandAdapter",
                 "dockMaintenance():dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator",
                 "appearanceCoordinator():dev.turboism.ui.appearance.AppearanceCoordinator",
                 "sceneTable():dev.turboism.sdk.ui.table.SceneTableService",
+                "paletteFilterSink():dev.turboism.ui.filter.PaletteFilterVisibilitySink",
+                "cubismLog():dev.turboism.sdk.runtime.CubismLogService",
+                "workspaceCoordinator():dev.turboism.ui.workspace.WorkspaceCoordinator",
+                "workspaceLayoutCoordinator():dev.turboism.ui.workspace.layout.WorkspaceLayoutCoordinator",
                 "editorModelResolver():dev.turboism.mapping.verification.VerifiedMemberResolver",
+                "textureAtlasDataModelCapture():dev.turboism.adapter.cubism.textureatlas.TextureAtlasDataModelCapture",
+                "textureAtlasEditorUi():dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi",
+                "textureAtlasEditorSession():dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorSession",
+                "textureAtlasAlgorithms():dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorithmRegistry",
                 "boundingBoxOverlayResolver():java.util.Optional",
                 "adapterAccess():dev.turboism.adapter.host.RuntimeHostAdapterAccess",
+                "objectContextMenuHandler():dev.turboism.ui.context.NativeObjectContextMenuBridge$Handler",
+                "parameterPointMenuHandler():dev.turboism.ui.context.NativeParameterPointContextMenuBridge$Handler",
                 "close():void"
             ),
             publicMethodSignatures(HostSession.class)
@@ -88,6 +113,7 @@ class HostSessionCompositionApiTest {
                 "adapters():dev.turboism.adapter.RuntimeHostAdapters",
                 "modelAccess():dev.turboism.sdk.cubism.model.CubismModelAccess",
                 "editorModelResolver():dev.turboism.mapping.verification.VerifiedMemberResolver",
+                "textureAtlasDataModelCapture():dev.turboism.adapter.cubism.textureatlas.TextureAtlasDataModelCapture",
                 "adapterAccess():dev.turboism.adapter.host.RuntimeHostAdapterAccess",
                 "close():void"
             ),

@@ -144,6 +144,50 @@ class IdempotentRegistrationTest {
         assertNull(capture(registration::close, new AtomicReference<>()));
     }
 
+    @Test
+    void waiterFailsClosedWhenOwnerCloseBlocksBeyondTimeout() throws Exception {
+        final CountDownLatch ownerEntered = new CountDownLatch(1);
+        final CountDownLatch releaseOwner = new CountDownLatch(1);
+        final AtomicInteger closes = new AtomicInteger();
+        final AtomicReference<Throwable> waiterFailure = new AtomicReference<>();
+        final Registration registration = IdempotentRegistration.of(() -> {
+            closes.incrementAndGet();
+            ownerEntered.countDown();
+            try {
+                if (!releaseOwner.await(10, TimeUnit.SECONDS)) {
+                    throw new IllegalStateException("owner release latch timed out");
+                }
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException(interrupted);
+            }
+        });
+
+        final Thread owner = new Thread(registration::close, "registration-blocked-owner");
+        final Thread waiter = new Thread(
+            () -> capture(registration::close, waiterFailure), "registration-timeout-waiter");
+
+        owner.start();
+        assertTrue(ownerEntered.await(5, TimeUnit.SECONDS));
+        final long startedAt = System.nanoTime();
+        waiter.start();
+        joinWaiter(waiter);
+        final long elapsedMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedAt);
+
+        // Fail closed: the waiter must not wait forever; it throws IllegalStateException on timeout.
+        assertTrue(waiterFailure.get() instanceof IllegalStateException,
+            "waiter must fail closed with IllegalStateException, got: " + waiterFailure.get());
+        assertTrue(waiterFailure.get().getCause() instanceof java.util.concurrent.TimeoutException);
+        assertTrue(elapsedMillis >= 4_500,
+            "waiter returned too early (" + elapsedMillis + "ms) — join timeout not honoured");
+        assertTrue(elapsedMillis <= 8_000,
+            "waiter blocked too long (" + elapsedMillis + "ms) — expected the bounded join");
+
+        releaseOwner.countDown();
+        join(owner);
+        assertEquals(1, closes.get(), "the delegate close must still run exactly once");
+    }
+
     private static Throwable capture(final Runnable runnable, final AtomicReference<Throwable> target) {
         try {
             runnable.run();
@@ -180,6 +224,17 @@ class IdempotentRegistrationTest {
     private static void join(final Thread thread) {
         try {
             thread.join(5_000);
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            fail(exception);
+        }
+        assertFalse(thread.isAlive());
+    }
+
+    /** The timeout waiter needs up to ~5s to fail closed, so join it with generous slack. */
+    private static void joinWaiter(final Thread thread) {
+        try {
+            thread.join(15_000);
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
             fail(exception);

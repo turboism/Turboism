@@ -72,5 +72,6 @@ def verify_with_test_seam(current: Path, historical: Path, baseline_path: Path, 
         reference_records=reference_records, current_records=current_records,
         current_markers=current_facts.direct_markers, invalid_marker_usages=current_facts.invalid_usages,
         policy_trust=test_policy_digest(policy_path),
+        initial_ledger_trust=test_policy_digest(LEDGER),
     )
     return tiers, current_records

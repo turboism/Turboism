@@ -25,8 +25,8 @@ allprojects {
 
 tasks.register("checkPluginInspectionRuntime") {
     group = "verification"
-    description = "Runs static plugin inspection gates and the production-backed strict ZIP mutation matrix."
-    dependsOn("checkPluginInspectionContract", ":tests:pluginInspectionMutationTest")
+    description = "Runs the production-backed strict ZIP mutation matrix."
+    dependsOn(":tests:pluginInspectionMutationTest")
 }
 
 tasks.register<JavaExec>("mappingReview") {

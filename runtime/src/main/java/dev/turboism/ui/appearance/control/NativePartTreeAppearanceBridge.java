@@ -1,5 +1,7 @@
 package dev.turboism.ui.appearance.control;
 
+import dev.turboism.core.reflect.MethodHandleCache;
+
 import javax.swing.JLabel;
 import java.awt.Component;
 import java.awt.Container;
@@ -37,7 +39,7 @@ public final class NativePartTreeAppearanceBridge {
             try {
                 final Selectors.Part part = selectors.part(value);
                 if (part == null) provider.restore();
-                else provider.apply(hostGeneration, part.id(), part.folder(), label);
+                else provider.apply(hostGeneration, part.id(), part.folder(), part.kind(), label);
             } catch (ReflectiveOperationException ignored) {
                 provider.restore();
             }
@@ -73,6 +75,8 @@ public final class NativePartTreeAppearanceBridge {
         String nodeOwner,
         String nodeSourceMethod,
         String partSourceOwner,
+        String deformerSourceOwner,
+        String artMeshSourceOwner,
         String partIdMethod,
         String idStringMethod,
         String childrenMethod,
@@ -82,29 +86,46 @@ public final class NativePartTreeAppearanceBridge {
             requireText(nodeOwner, "nodeOwner");
             requireText(nodeSourceMethod, "nodeSourceMethod");
             requireText(partSourceOwner, "partSourceOwner");
+            requireText(deformerSourceOwner, "deformerSourceOwner");
+            requireText(artMeshSourceOwner, "artMeshSourceOwner");
             requireText(partIdMethod, "partIdMethod");
             requireText(idStringMethod, "idStringMethod");
             requireText(childrenMethod, "childrenMethod");
             Objects.requireNonNull(hostClassLoader, "hostClassLoader");
         }
 
+        /** Row source kind: parts resolve the PART palette; deformers and art meshes share DEFORMER_PART. */
+        public enum SourceKind { PART, DEFORMER, ART_MESH }
+
         Part part(final Object node) throws ReflectiveOperationException {
             if (node == null || node.getClass().getClassLoader() != hostClassLoader
                 || !isTypeOrSuper(node.getClass(), nodeOwner.replace('/', '.'))) return null;
             final Object source = invoke(node, nodeSourceMethod);
-            if (source == null || source.getClass().getClassLoader() != hostClassLoader
-                || !isTypeOrSuper(source.getClass(), partSourceOwner.replace('/', '.'))) return null;
+            if (source == null || source.getClass().getClassLoader() != hostClassLoader) return null;
+            final SourceKind kind;
+            if (isTypeOrSuper(source.getClass(), partSourceOwner.replace('/', '.'))) {
+                kind = SourceKind.PART;
+            } else if (isTypeOrSuper(source.getClass(), deformerSourceOwner.replace('/', '.'))) {
+                kind = SourceKind.DEFORMER;
+            } else if (isTypeOrSuper(source.getClass(), artMeshSourceOwner.replace('/', '.'))) {
+                kind = SourceKind.ART_MESH;
+            } else {
+                return null;
+            }
             final Object id = invoke(source, partIdMethod);
             final Object value = id == null ? null : invoke(id, idStringMethod);
             if (!(value instanceof String text) || text.isBlank()) return null;
+            if (kind != SourceKind.PART) {
+                return new Part(text, false, kind);
+            }
             final Object children = invoke(source, childrenMethod);
             if (!(children instanceof Collection<?> values)) return null;
-            return new Part(text, !values.isEmpty());
+            return new Part(text, !values.isEmpty(), kind);
         }
 
         private static Object invoke(final Object target, final String methodName)
             throws ReflectiveOperationException {
-            final Method method = target.getClass().getMethod(methodName);
+            final Method method = MethodHandleCache.method(target.getClass(), methodName);
             if (!method.canAccess(target) && !method.trySetAccessible()) return null;
             return method.invoke(target);
         }
@@ -122,6 +143,6 @@ public final class NativePartTreeAppearanceBridge {
             return value;
         }
 
-        record Part(String id, boolean folder) { }
+        record Part(String id, boolean folder, SourceKind kind) { }
     }
 }

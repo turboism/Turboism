@@ -1,6 +1,7 @@
 package dev.turboism.sdk.cubism.model;
 
 import dev.turboism.sdk.PreviewApi;
+import dev.turboism.sdk.ui.appearance.model.ParameterGroupAppearance;
 import dev.turboism.sdk.cubism.id.ParameterGroupId;
 import dev.turboism.sdk.cubism.id.ParameterId;
 
@@ -13,25 +14,27 @@ public interface ParameterGroup {
 
     ParameterGroupId id();
 
+    /** Returns this ParameterGroup's Cubism parameter-palette UI projection. */
+    default ParameterGroupAppearance ui() { return ParameterGroupAppearance.unavailable(); }
+
     Optional<String> name();
-
-    /** Returns the effective Editor label color. */
-    default Color labelColor() {
-        throw new UnsupportedOperationException(
-            "Parameter-group label color access is unavailable for this backend."
-        );
-    }
-
-    /** Changes the Editor label color to a custom RGBA value. */
-    default void setLabelColor(final Color color) {
-        throw new UnsupportedOperationException(
-            "Parameter-group label color editing is unavailable for this backend."
-        );
-    }
 
     Optional<ParameterGroupId> parentId();
 
     List<ParameterGroupId> childGroupIds();
 
     List<ParameterId> parameterIds();
+
+    /**
+     * Renames this folder through the Editor undo path.
+     *
+     * @throws IllegalArgumentException when the name is blank
+     */
+    default void rename(final String name) {
+        throw unavailable("ParameterGroup renaming");
+    }
+
+    private static UnsupportedOperationException unavailable(final String feature) {
+        return new UnsupportedOperationException(feature + " is unavailable.");
+    }
 }

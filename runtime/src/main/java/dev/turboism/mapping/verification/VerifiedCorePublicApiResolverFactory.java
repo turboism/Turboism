@@ -9,6 +9,21 @@ public final class VerifiedCorePublicApiResolverFactory {
     private final PinnedVerifiedResolverWorkflow workflow = new PinnedVerifiedResolverWorkflow();
 
     public VerifiedMemberResolver create(
+        final Path reviewedRecord,
+        final Path verifiedArtifact,
+        final ClassLoader hostClassLoader
+    ) throws IOException {
+        return create(
+            CorePublicApiVerificationManifest.profileFor(
+                HostArtifactDigest.from(verifiedArtifact)
+            ),
+            reviewedRecord,
+            verifiedArtifact,
+            hostClassLoader
+        );
+    }
+
+    public VerifiedMemberResolver create(
         final String profile,
         final Path reviewedRecord,
         final Path verifiedArtifact,

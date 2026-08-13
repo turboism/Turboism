@@ -131,6 +131,13 @@ class LogFilterPaletteServiceTest {
         }
 
         @Override
+        public Registration contributeBoundingBoxOverlayButton(
+            dev.turboism.sdk.ui.BoundingBoxOverlayButton contribution
+        ) {
+            throw new UnsupportedOperationException("bounding-box overlay is not used by this service");
+        }
+
+        @Override
         public ContextSourceSnapshot contextSource() {
             throw new UnsupportedOperationException("context source is not used by this service");
         }

@@ -1,15 +1,21 @@
 package dev.turboism.adapter.host;
 
 import dev.turboism.adapter.RuntimeHostAdapters;
+import dev.turboism.adapter.cubism.HostSnapshotSource;
+import dev.turboism.adapter.cubism.lifecycle.EditorLifecycleCoordinator;
+import dev.turboism.adapter.cubism.lifecycle.EditorObjectLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.ParameterLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.PartLifecycleCoordinator;
-import dev.turboism.adapter.cubism.lifecycle.EditorObjectLifecycleCoordinator;
+import dev.turboism.adapter.cubism.lifecycle.ProjectFileLifecycleCoordinator;
+import dev.turboism.adapter.cubism.textureatlas.TextureAtlasLayoutCoordinator;
 import dev.turboism.adapter.cubism.physics.PhysicsEditorCoordinator;
+import dev.turboism.adapter.cubism.mesh.RuntimeMeshMirrorAxisService;
+import dev.turboism.adapter.cubism.mesh.RuntimeMeshEditUiService;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.sdk.cubism.history.CubismHistory;
 import dev.turboism.ui.action.RuntimeEditorUiActionRouter;
 import dev.turboism.ui.appearance.AppearanceCoordinator;
-import dev.turboism.ui.appearance.control.ControlAppearanceCoordinator;
+import dev.turboism.ui.appearance.control.PaletteAppearanceCoordinator;
 import dev.turboism.ui.contribution.EditorUiContributionAuthority;
 import dev.turboism.ui.host.EditorUiHostLifecycle;
 import dev.turboism.ui.toolbar.EditorUiPluginResourceRegistry;
@@ -23,14 +29,32 @@ public sealed interface RuntimeHostAdapterAccess permits HostSession, SessionRun
     CubismModelAccess modelAccess();
 
     CubismHistory history();
+    HostSnapshotSource modelAppearanceSource();
+
+    dev.turboism.sdk.cubism.core.CoreRuntimeInfo coreRuntimeInfo();
+    dev.turboism.adapter.cubism.command.EditorCommandAdapter editorCommands();
 
     ParameterLifecycleCoordinator parameterLifecycle();
 
     PartLifecycleCoordinator partLifecycle();
 
+    TextureAtlasLayoutCoordinator textureAtlasLayouts();
+    dev.turboism.adapter.cubism.textureatlas.TextureAtlasNativeInvocationCoordinator textureAtlasNativeInvocations();
+
+    dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi textureAtlasEditorUi();
+
+    dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorSession textureAtlasEditorSession();
+
+    dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorithmRegistry textureAtlasAlgorithms();
     EditorObjectLifecycleCoordinator editorObjectLifecycle();
 
+    ProjectFileLifecycleCoordinator projectFileLifecycle();
+
+    EditorLifecycleCoordinator editorLifecycleEvents();
+
     PhysicsEditorCoordinator physicsEditorCoordinator();
+    RuntimeMeshMirrorAxisService meshMirrorAxisService();
+    RuntimeMeshEditUiService meshEditUiService();
 
     EditorUiHostLifecycle editorUiLifecycle();
 
@@ -42,6 +66,10 @@ public sealed interface RuntimeHostAdapterAccess permits HostSession, SessionRun
 
     EditorUiPluginResourceRegistry editorUiPluginResources();
 
+    dev.turboism.ui.context.NativeObjectContextMenuBridge.Handler objectContextMenuHandler();
+
+    dev.turboism.ui.context.NativeParameterPointContextMenuBridge.Handler parameterPointMenuHandler();
+
     dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator dockMaintenance();
 
     java.util.Optional<dev.turboism.mapping.verification.VerifiedMemberResolver> boundingBoxOverlayResolver();
@@ -50,7 +78,15 @@ public sealed interface RuntimeHostAdapterAccess permits HostSession, SessionRun
 
     dev.turboism.sdk.ui.table.SceneTableService sceneTable();
 
-    ControlAppearanceCoordinator controlAppearanceCoordinator();
+    dev.turboism.sdk.runtime.CubismLogService cubismLog();
+
+    dev.turboism.ui.filter.PaletteFilterVisibilitySink paletteFilterSink();
+
+    PaletteAppearanceCoordinator paletteAppearanceCoordinator();
+
+    dev.turboism.ui.workspace.WorkspaceCoordinator workspaceCoordinator();
+
+    dev.turboism.ui.workspace.layout.WorkspaceLayoutCoordinator workspaceLayoutCoordinator();
 }
 
 /** Non-closeable adapter view used when lifecycle ownership remains with bootstrap ingress. */
@@ -59,56 +95,118 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     private final RuntimeHostAdapters adapters;
     private final CubismModelAccess modelAccess;
     private final CubismHistory history;
+    private final HostSnapshotSource modelAppearanceSource;
+    private final dev.turboism.sdk.cubism.core.CoreRuntimeInfo coreRuntimeInfo;
+    private final dev.turboism.adapter.cubism.command.EditorCommandAdapter editorCommands;
     private final ParameterLifecycleCoordinator parameterLifecycle;
     private final PartLifecycleCoordinator partLifecycle;
+    private final TextureAtlasLayoutCoordinator textureAtlasLayouts;
+    private final dev.turboism.adapter.cubism.textureatlas.TextureAtlasNativeInvocationCoordinator textureAtlasNativeInvocations;
     private final EditorObjectLifecycleCoordinator editorObjectLifecycle;
+    private final ProjectFileLifecycleCoordinator projectFileLifecycle;
+    private final EditorLifecycleCoordinator editorLifecycleEvents;
     private final PhysicsEditorCoordinator physicsEditorCoordinator;
+    private final RuntimeMeshMirrorAxisService meshMirrorAxisService;
+    private final RuntimeMeshEditUiService meshEditUiService;
     private final EditorUiHostLifecycle editorUiLifecycle;
     private final EditorUiContributionAuthority editorUiContributions;
     private final RuntimeEmbeddedPanelActivationCoordinator embeddedPanelActivation;
     private final RuntimeEditorUiActionRouter editorUiActionRouter;
     private final EditorUiPluginResourceRegistry editorUiPluginResources;
+    private final dev.turboism.ui.context.NativeObjectContextMenuBridge.Handler objectContextMenuHandler;
+    private final dev.turboism.ui.context.NativeParameterPointContextMenuBridge.Handler parameterPointMenuHandler;
     private final dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator dockMaintenance;
     private final java.util.Optional<dev.turboism.mapping.verification.VerifiedMemberResolver> boundingBoxOverlayResolver;
     private final AppearanceCoordinator appearanceCoordinator;
     private final dev.turboism.sdk.ui.table.SceneTableService sceneTable;
-    private final ControlAppearanceCoordinator controlAppearanceCoordinator;
+    private final dev.turboism.sdk.runtime.CubismLogService cubismLog;
+    private final dev.turboism.ui.filter.PaletteFilterVisibilitySink paletteFilterSink;
+    private final PaletteAppearanceCoordinator paletteAppearanceCoordinator;
+    private final dev.turboism.ui.workspace.WorkspaceCoordinator workspaceCoordinator;
+    private final dev.turboism.ui.workspace.layout.WorkspaceLayoutCoordinator workspaceLayoutCoordinator;
+    private final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi textureAtlasEditorUi;
+    private final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorSession textureAtlasEditorSession;
+    private final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorithmRegistry textureAtlasAlgorithms;
 
     SessionRuntimeHostAdapterAccess(
         final RuntimeHostAdapters adapters,
         final CubismModelAccess modelAccess,
         final CubismHistory history,
+        final HostSnapshotSource modelAppearanceSource,
+        final dev.turboism.sdk.cubism.core.CoreRuntimeInfo coreRuntimeInfo,
+        final dev.turboism.adapter.cubism.command.EditorCommandAdapter editorCommands,
         final ParameterLifecycleCoordinator parameterLifecycle,
         final PartLifecycleCoordinator partLifecycle,
+        final TextureAtlasLayoutCoordinator textureAtlasLayouts,
+        final dev.turboism.adapter.cubism.textureatlas.TextureAtlasNativeInvocationCoordinator textureAtlasNativeInvocations,
         final EditorObjectLifecycleCoordinator editorObjectLifecycle,
+        final ProjectFileLifecycleCoordinator projectFileLifecycle,
+        final EditorLifecycleCoordinator editorLifecycleEvents,
         final PhysicsEditorCoordinator physicsEditorCoordinator,
+        final RuntimeMeshMirrorAxisService meshMirrorAxisService,
+        final RuntimeMeshEditUiService meshEditUiService,
         final EditorUiHostLifecycle editorUiLifecycle,
         final EditorUiContributionAuthority editorUiContributions,
         final RuntimeEmbeddedPanelActivationCoordinator embeddedPanelActivation,
         final RuntimeEditorUiActionRouter editorUiActionRouter,
         final EditorUiPluginResourceRegistry editorUiPluginResources,
+        final dev.turboism.ui.context.NativeObjectContextMenuBridge.Handler objectContextMenuHandler,
+        final dev.turboism.ui.context.NativeParameterPointContextMenuBridge.Handler parameterPointMenuHandler,
         final dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator dockMaintenance,
         final java.util.Optional<dev.turboism.mapping.verification.VerifiedMemberResolver> boundingBoxOverlayResolver,
         final AppearanceCoordinator appearanceCoordinator,
         final dev.turboism.sdk.ui.table.SceneTableService sceneTable,
-        final ControlAppearanceCoordinator controlAppearanceCoordinator
+        final dev.turboism.sdk.runtime.CubismLogService cubismLog,
+        final dev.turboism.ui.filter.PaletteFilterVisibilitySink paletteFilterSink,
+        final PaletteAppearanceCoordinator paletteAppearanceCoordinator,
+        final dev.turboism.ui.workspace.WorkspaceCoordinator workspaceCoordinator,
+        final dev.turboism.ui.workspace.layout.WorkspaceLayoutCoordinator workspaceLayoutCoordinator,
+        final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi textureAtlasEditorUi,
+        final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorSession textureAtlasEditorSession,
+        final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorithmRegistry textureAtlasAlgorithms
     ) {
         this.adapters = java.util.Objects.requireNonNull(adapters, "adapters");
         this.modelAccess = java.util.Objects.requireNonNull(modelAccess, "modelAccess");
         this.history = java.util.Objects.requireNonNull(history, "history");
+        this.modelAppearanceSource = java.util.Objects.requireNonNull(
+            modelAppearanceSource, "modelAppearanceSource"
+        );
+        this.coreRuntimeInfo = java.util.Objects.requireNonNull(coreRuntimeInfo, "coreRuntimeInfo");
+        this.editorCommands = java.util.Objects.requireNonNull(editorCommands, "editorCommands");
         this.parameterLifecycle = java.util.Objects.requireNonNull(
             parameterLifecycle,
             "parameterLifecycle"
         );
         this.partLifecycle = java.util.Objects.requireNonNull(partLifecycle, "partLifecycle");
+        this.textureAtlasLayouts = java.util.Objects.requireNonNull(
+            textureAtlasLayouts,
+            "textureAtlasLayouts"
+        );
+        this.textureAtlasNativeInvocations = java.util.Objects.requireNonNull(
+            textureAtlasNativeInvocations,
+            "textureAtlasNativeInvocations"
+        );
         this.editorObjectLifecycle = java.util.Objects.requireNonNull(
             editorObjectLifecycle,
             "editorObjectLifecycle"
+        );
+        this.projectFileLifecycle = java.util.Objects.requireNonNull(
+            projectFileLifecycle,
+            "projectFileLifecycle"
+        );
+        this.editorLifecycleEvents = java.util.Objects.requireNonNull(
+            editorLifecycleEvents,
+            "editorLifecycleEvents"
         );
         this.physicsEditorCoordinator = java.util.Objects.requireNonNull(
             physicsEditorCoordinator,
             "physicsEditorCoordinator"
         );
+        this.meshMirrorAxisService = java.util.Objects.requireNonNull(
+            meshMirrorAxisService,
+            "meshMirrorAxisService"
+        );
+        this.meshEditUiService = java.util.Objects.requireNonNull(meshEditUiService, "meshEditUiService");
         this.editorUiLifecycle = java.util.Objects.requireNonNull(
             editorUiLifecycle,
             "editorUiLifecycle"
@@ -129,6 +227,8 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
             editorUiPluginResources,
             "editorUiPluginResources"
         );
+        this.objectContextMenuHandler = objectContextMenuHandler;
+        this.parameterPointMenuHandler = parameterPointMenuHandler;
         this.dockMaintenance = java.util.Objects.requireNonNull(dockMaintenance, "dockMaintenance");
         this.boundingBoxOverlayResolver = java.util.Objects.requireNonNull(
             boundingBoxOverlayResolver,
@@ -139,10 +239,25 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
             "appearanceCoordinator"
         );
         this.sceneTable = java.util.Objects.requireNonNull(sceneTable, "sceneTable");
-        this.controlAppearanceCoordinator = java.util.Objects.requireNonNull(
-            controlAppearanceCoordinator,
-            "controlAppearanceCoordinator"
+        this.cubismLog = java.util.Objects.requireNonNull(cubismLog, "cubismLog");
+        this.paletteFilterSink = java.util.Objects.requireNonNull(paletteFilterSink, "paletteFilterSink");
+        this.paletteAppearanceCoordinator = java.util.Objects.requireNonNull(
+            paletteAppearanceCoordinator,
+            "paletteAppearanceCoordinator"
         );
+        this.workspaceCoordinator = java.util.Objects.requireNonNull(
+            workspaceCoordinator,
+            "workspaceCoordinator"
+        );
+        // The layout coordinator is per-connection and legitimately absent before the first
+        // connection; CorePluginContext falls back to WorkspaceLayoutService.unavailable().
+        this.workspaceLayoutCoordinator = workspaceLayoutCoordinator;
+        this.textureAtlasEditorUi = java.util.Objects.requireNonNull(
+            textureAtlasEditorUi, "textureAtlasEditorUi");
+        this.textureAtlasEditorSession = java.util.Objects.requireNonNull(
+            textureAtlasEditorSession, "textureAtlasEditorSession");
+        this.textureAtlasAlgorithms = java.util.Objects.requireNonNull(
+            textureAtlasAlgorithms, "textureAtlasAlgorithms");
     }
 
     @Override
@@ -158,6 +273,18 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     @Override
     public CubismHistory history() {
         return history;
+    public HostSnapshotSource modelAppearanceSource() {
+        return modelAppearanceSource;
+    }
+
+    @Override
+    public dev.turboism.sdk.cubism.core.CoreRuntimeInfo coreRuntimeInfo() {
+        return coreRuntimeInfo;
+    }
+
+    @Override
+    public dev.turboism.adapter.cubism.command.EditorCommandAdapter editorCommands() {
+        return editorCommands;
     }
 
     @Override
@@ -171,13 +298,44 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     }
 
     @Override
+    public TextureAtlasLayoutCoordinator textureAtlasLayouts() {
+        return textureAtlasLayouts;
+    }
+
+    @Override
+    public dev.turboism.adapter.cubism.textureatlas.TextureAtlasNativeInvocationCoordinator
+        textureAtlasNativeInvocations() {
+        return textureAtlasNativeInvocations;
+    }
+
+    @Override
     public EditorObjectLifecycleCoordinator editorObjectLifecycle() {
         return editorObjectLifecycle;
     }
 
     @Override
+    public ProjectFileLifecycleCoordinator projectFileLifecycle() {
+        return projectFileLifecycle;
+    }
+
+    @Override
+    public EditorLifecycleCoordinator editorLifecycleEvents() {
+        return editorLifecycleEvents;
+    }
+
+    @Override
     public PhysicsEditorCoordinator physicsEditorCoordinator() {
         return physicsEditorCoordinator;
+    }
+
+    @Override
+    public RuntimeMeshMirrorAxisService meshMirrorAxisService() {
+        return meshMirrorAxisService;
+    }
+
+    @Override
+    public RuntimeMeshEditUiService meshEditUiService() {
+        return meshEditUiService;
     }
 
     @Override
@@ -205,6 +363,16 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
         return editorUiPluginResources;
     }
 
+    @Override
+    public dev.turboism.ui.context.NativeObjectContextMenuBridge.Handler objectContextMenuHandler() {
+        return objectContextMenuHandler;
+    }
+
+    @Override
+    public dev.turboism.ui.context.NativeParameterPointContextMenuBridge.Handler parameterPointMenuHandler() {
+        return parameterPointMenuHandler;
+    }
+
 
     @Override
     public dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator dockMaintenance() {
@@ -227,7 +395,39 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     }
 
     @Override
-    public ControlAppearanceCoordinator controlAppearanceCoordinator() {
-        return controlAppearanceCoordinator;
+    public dev.turboism.sdk.runtime.CubismLogService cubismLog() {
+        return cubismLog;
+    }
+
+    @Override
+    public dev.turboism.ui.filter.PaletteFilterVisibilitySink paletteFilterSink() {
+        return paletteFilterSink;
+    }
+
+    @Override
+    public PaletteAppearanceCoordinator paletteAppearanceCoordinator() {
+        return paletteAppearanceCoordinator;
+    }
+
+    @Override
+    public dev.turboism.ui.workspace.WorkspaceCoordinator workspaceCoordinator() {
+        return workspaceCoordinator;
+    }
+
+    @Override
+    public dev.turboism.ui.workspace.layout.WorkspaceLayoutCoordinator workspaceLayoutCoordinator() {
+        return workspaceLayoutCoordinator;
+    }
+
+    public dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi textureAtlasEditorUi() {
+        return textureAtlasEditorUi;
+    }
+
+    public dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorSession textureAtlasEditorSession() {
+        return textureAtlasEditorSession;
+    }
+
+    public dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorithmRegistry textureAtlasAlgorithms() {
+        return textureAtlasAlgorithms;
     }
 }

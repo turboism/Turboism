@@ -2,15 +2,14 @@ package dev.turboism.ui.appearance.control;
 
 import java.awt.Component;
 import java.util.Objects;
-import java.util.Optional;
 
-/** Applies and restores bounded styles on native deformer-tree labels. */
+/** Applies and restores bounded palette entries on native deformer-tree labels. */
 public final class DeformerTreeControlAppearanceProvider implements AutoCloseable {
-    private final ControlAppearanceCoordinator coordinator;
+    private final PaletteAppearanceCoordinator coordinator;
     private final NativeStyleTracker styles = new NativeStyleTracker();
     private final AutoCloseable changeSubscription;
 
-    public DeformerTreeControlAppearanceProvider(final ControlAppearanceCoordinator coordinator) {
+    public DeformerTreeControlAppearanceProvider(final PaletteAppearanceCoordinator coordinator) {
         this.coordinator = Objects.requireNonNull(coordinator, "coordinator");
         this.changeSubscription = coordinator.onChange(this::restore);
     }
@@ -25,12 +24,9 @@ public final class DeformerTreeControlAppearanceProvider implements AutoCloseabl
         Objects.requireNonNull(deformerId, "deformerId");
         final Component target = Objects.requireNonNull(component, "component");
         if (!javax.swing.SwingUtilities.isEventDispatchThread()) return target;
-        styles.apply(
-            target,
-            hostGeneration == coordinator.hostGeneration()
-                ? coordinator.deformerLabel(deformerId)
-                : Optional.empty()
-        );
+        styles.apply(target, coordinator.resolveCurrent(
+            hostGeneration, PaletteAppearanceCoordinator.Palette.DEFORMER_PART, deformerId
+        ));
         return target;
     }
 

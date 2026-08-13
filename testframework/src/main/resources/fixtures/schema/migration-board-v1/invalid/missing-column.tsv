@@ -1,2 +1,0 @@
-id	phase	feature	legacyPath	reuseLevel	target	status	notes
-m2-board-001	M2_SCHEMA_CONFIG_DIAGNOSTICS	Plugin meta schema v1	none	L4	runtime/core/schema	READY	Missing salvageTypes column.
