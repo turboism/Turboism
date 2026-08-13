@@ -1,0 +1,76 @@
+﻿Turboism __VERSION__ Windows Package - User Guide
+=================================================
+
+Turboism is a Java agent runtime for the Live2D Cubism editor. This package
+never modifies, copies, or replaces files inside a Cubism installation.
+
+1. Directory layout
+-------------------
+  turboism-agent.jar             Runtime (Java agent)
+  config.json                    Runtime configuration (turboism.runtime.config v1)
+  cubism-installations.json      Turboism-owned managed-installation state
+  configure_turboism.ps1         WinForms plugin and Cubism setup
+  launch-cubism-turboism.bat     Managed launcher entry point
+  launch-cubism-turboism.ps1     PowerShell launcher implementation
+  cubism-launch-common.ps1       Shared inventory/launch helpers
+  plugins/                       Plugin jars (full package only; absent in lite)
+  README.txt / README.zh.txt / README.ja.txt / LICENSE.txt
+
+2. Usage
+--------
+1. Place the whole folder anywhere, for example %LOCALAPPDATA%\Turboism.
+2. Run configure_turboism.ps1. It discovers standard Cubism 5.2 and 5.3
+   family candidates (including patch-suffixed names) from CUBISM_ROOT, Windows
+   install records, known program locations, and bounded fixed-drive checks.
+   You can also add a folder with the file picker. It checks the official
+   CubismEditor5.bat, bundled Java launcher, and expected application JAR shape
+   before a root is selectable. A family candidate is not exact patch-version
+   proof; runtime identity/admission remains fail closed.
+3. Select zero or more installations and plugins, then Save. New supported
+   installations start selected; later runs preserve your choices. Invalid or
+   unsupported entries are visible and removable. Saving zero installations
+   leaves a valid framework-only install and creates no ambiguous launch entry.
+   NSIS installs open this setup automatically after payload installation;
+   canceling that window is safe.
+4. The configurator creates one clearly named Start Menu entry per selected
+   root, plus a separate - D3D entry when that official D3D BAT exists. Each
+   entry carries its exact root and version. The generic launcher never picks
+   an arbitrary version: with multiple selected roots it shows a picker.
+5. To launch explicitly from a command line, use a canonical root:
+       launch-cubism-turboism.bat -CubismRoot "%ProgramFiles%\Live2D\Cubism 5.3.02"
+   The managed launcher calls that installation's official CubismEditor5.bat
+   (or its separately named D3D BAT), inherits only process-scoped Turboism
+   JVM options, and restores the caller's environment afterward. Unrelated
+   pre-existing JVM options are preserved.
+6. Set TURBOISM_HOME to this folder only when the folder is not the launcher
+   folder. Plugin choices are stored in config.json; installation choices are
+   stored separately in cubism-installations.json.
+
+3. config.json
+--------------
+  worktreeId:       "turboism-runtime"
+  pluginDirs:       ["plugins"]
+  disabledPlugins:  ids of disabled plugins (unchecked ones, ascending; optional)
+
+4. Uninstall
+------------
+- If you installed with the NSIS installer (TurboismInstaller-<ver>.exe),
+  run uninstall.exe in the Turboism home directory. It removes only Turboism's
+  recorded managed shortcuts/state and owned payload files. The confirmation
+  page has a check box "Also delete config.json (user configuration)" - checked
+  by default; uncheck it to keep config.json.
+- ZIP manual installs have no uninstaller: close Cubism and delete the Turboism
+  folder. No Cubism installation file is changed.
+
+5. FAQ
+------
+- No installation is selectable: confirm a 5.2/5.3 family root contains
+  CubismEditor5.bat, app\jre\bin\java.exe, and app\lib\Live2D_Cubism.jar;
+  exact patch admission is still decided by runtime identity checks.
+- Multiple versions are listed: use the per-root Start Menu entry or pass
+  -CubismRoot explicitly; Turboism never silently chooses the first result.
+- The bat window closes immediately: run launch-cubism-turboism.ps1 from a
+  command line to see the localized diagnostic.
+- Plugins not working: make sure plugin jars are under plugins/ and the plugin id
+  is not listed in disabledPlugins in config.json.
+- Logs: <Turboism home>\logs\runtime\YYYY-MM-DD\turboism-*.log
