@@ -45,7 +45,7 @@ def load_initial_preview_ledger_for_test(
     return _load_initial_preview_ledger(path, ledger_trust, expected_root_count=expected_root_count)
 
 
-def _load_initial_preview_ledger(path: Path, ledger_trust: Digest, *, expected_root_count: int = 274) -> tuple[dict[str, Any], set[str]]:
+def _load_initial_preview_ledger(path: Path, ledger_trust: Digest, *, expected_root_count: int = 280) -> tuple[dict[str, Any], set[str]]:
     value = strict_json(path, "initial preview ledger")
     _verify_file_trust(path, "initial preview ledger", ledger_trust)
     value = closed_object(value, _LEDGER_KEYS, "initial preview ledger")
