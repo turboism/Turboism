@@ -824,7 +824,7 @@ final class McpHttpServerIntegrationTest {
         );
     }
 
-    private static final class FakeReadServices {
+    static final class FakeReadServices {
         final FakeParameterQuery parameters = new FakeParameterQuery();
         final FakeHierarchyQuery hierarchy = new FakeHierarchyQuery();
         final FakeSelectionQuery selection = new FakeSelectionQuery();
@@ -832,7 +832,7 @@ final class McpHttpServerIntegrationTest {
         final FakeClipMasks clipMasks = new FakeClipMasks();
     }
 
-    private static final class FakeParameterQuery implements ParameterQueryService {
+    static final class FakeParameterQuery implements ParameterQueryService {
         private final LinkedHashMap<String, ParameterSummary> values = new LinkedHashMap<>();
 
         void put(final ParameterSummary value) {
@@ -852,7 +852,7 @@ final class McpHttpServerIntegrationTest {
         }
     }
 
-    private static final class FakeHierarchyQuery implements ModelHierarchyQueryService {
+    static final class FakeHierarchyQuery implements ModelHierarchyQueryService {
         private final LinkedHashMap<String, HierarchyNode> nodes = new LinkedHashMap<>();
 
         void put(final HierarchyNode node) {
@@ -882,7 +882,7 @@ final class McpHttpServerIntegrationTest {
         }
     }
 
-    private static final class FakeSelectionQuery implements SelectionQueryService {
+    static final class FakeSelectionQuery implements SelectionQueryService {
         private SelectionSummary current = SelectionSummary.empty();
 
         void set(final SelectionSummary value) {
@@ -902,7 +902,7 @@ final class McpHttpServerIntegrationTest {
         }
     }
 
-    private static final class FakeRead implements CubismReadCapabilityService {
+    static final class FakeRead implements CubismReadCapabilityService {
         private Optional<ProjectSnapshot> project = Optional.empty();
         private Optional<DocumentSnapshot> document = Optional.empty();
         private Optional<ModelSnapshot> model = Optional.empty();
@@ -950,7 +950,7 @@ final class McpHttpServerIntegrationTest {
         @Override public Optional<ThemeStatusSnapshot> themeStatus() { return themeStatus; }
     }
 
-    private static final class FakeClipMasks implements CubismClipMaskService {
+    static final class FakeClipMasks implements CubismClipMaskService {
         private final ArrayList<ClipMaskRecord> records = new ArrayList<>();
 
         void add(final ClipMaskRecord record) {

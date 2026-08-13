@@ -176,6 +176,60 @@ class RuntimePluginLocalizationTest {
         }
     }
 
+    @Test
+    void implicitBaseIsLoadedOnceAsFinalFallbackWhenLocalesOmitsBase() throws Exception {
+        try (URLClassLoader loader = pluginLoader("implicit-base", Map.of(
+            path(null), utf8("shared=base\nbaseOnly=base\n"),
+            path("en"), utf8("shared=english\n")
+        ))) {
+            final RuntimePluginLocalization localization = RuntimePluginLocalization.create(
+                "plugin.implicit", loader, metadataWithoutBase(), "en", null, Locale.ENGLISH,
+                diagnostic -> { }
+            );
+            // A locale-specific key overrides base; a missing key falls back to base
+            assertEquals("english", localization.text("shared"));
+            assertEquals("base", localization.text("baseOnly"));
+            // The implicit base is loaded exactly once
+            final List<RuntimePluginLocalization.CatalogSnapshot> catalogs =
+                localization.reportSnapshot().catalogs();
+            assertEquals(
+                1,
+                catalogs.stream().filter(catalog -> catalog.locale().equals("base")).count()
+            );
+            assertEquals(
+                "AVAILABLE",
+                catalogs.stream().filter(catalog -> catalog.locale().equals("base"))
+                    .findFirst().orElseThrow().state()
+            );
+        }
+    }
+
+    @Test
+    void legacyExplicitBaseIsDeduplicatedAndLoadedOnce() throws Exception {
+        try (URLClassLoader loader = pluginLoader("legacy-base", Map.of(
+            path(null), utf8("shared=base\nbaseOnly=base\n"),
+            path("en"), utf8("shared=english\n")
+        ))) {
+            final RuntimePluginLocalization localization = RuntimePluginLocalization.create(
+                "plugin.legacy", loader, metadata(), "en", null, Locale.ENGLISH,
+                diagnostic -> { }
+            );
+            assertEquals("english", localization.text("shared"));
+            assertEquals("base", localization.text("baseOnly"));
+            // Explicit legacy base resolves to one loaded catalog at the final
+            // fallback position; localized catalog order is otherwise preserved
+            final List<RuntimePluginLocalization.CatalogSnapshot> catalogs =
+                localization.reportSnapshot().catalogs();
+            assertEquals(
+                1,
+                catalogs.stream().filter(catalog -> catalog.locale().equals("base")).count()
+            );
+            assertEquals(
+                List.of("en", "zh_Hans", "zh_Hant", "ja", "ko", "base"),
+                catalogs.stream().map(RuntimePluginLocalization.CatalogSnapshot::locale).toList()
+            );
+        }
+    }
     private RuntimePluginLocalization localization(
         final ClassLoader loader,
         final String explicitLocale
@@ -194,6 +248,20 @@ class RuntimePluginLocalizationTest {
 
             @Override public List<String> locales() {
                 return List.of("base", "en", "zh_Hans", "zh_Hant", "ja", "ko");
+            }
+        };
+    }
+
+    private static PluginDescriptor.I18n metadataWithoutBase() {
+        // Current official descriptor form: baseName() implicitly declares the
+        // base catalog and locales() lists only localized catalogs.
+        return new PluginDescriptor.I18n() {
+            @Override public String baseName() {
+                return "META-INF/turboism/i18n/messages";
+            }
+
+            @Override public List<String> locales() {
+                return List.of("en");
             }
         };
     }

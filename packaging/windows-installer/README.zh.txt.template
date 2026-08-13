@@ -1,0 +1,66 @@
+﻿Turboism __VERSION__ Windows 安装包使用说明
+=============================================
+
+Turboism 是为 Live2D Cubism 编辑器提供增强能力的 Java agent 运行时。本安装包
+不会修改、复制或替换 Cubism 安装目录中的任何文件。
+
+一、目录结构
+------------
+  turboism-agent.jar             运行时（Java agent）
+  config.json                    运行时配置（turboism.runtime.config v1）
+  cubism-installations.json      Turboism 自有的托管安装状态
+  configure_turboism.ps1         WinForms 插件与 Cubism 配置器
+  launch-cubism-turboism.bat     托管启动入口
+  launch-cubism-turboism.ps1     PowerShell 启动实现
+  cubism-launch-common.ps1       共享的清单/启动辅助代码
+  plugins/                       插件 jar（full 包才有；lite 包无此目录）
+  README.txt / README.zh.txt / README.ja.txt / LICENSE.txt
+
+二、使用方法
+------------
+1. 将整个目录放到任意位置，例如 %LOCALAPPDATA%\Turboism。
+2. 运行 configure_turboism.ps1。它从 CUBISM_ROOT、Windows 安装记录、已知
+   程序目录以及有界的固定磁盘扫描中发现标准 Cubism 5.2/5.3 系列候选（包括
+   带补丁后缀的目录名）。也可用文件夹选择器添加目录。只有同时包含官方
+   CubismEditor5.bat、内置 Java 启动器和预期应用 JAR 结构的根目录才可选择。
+   系列候选不等于精确补丁版本证明；运行时身份/准入仍保持 fail-closed。
+3. 选择要管理的安装和插件后点击保存。新发现的受支持安装默认选中，之后会
+   保留你的选择。无效/不支持的条目会显示并可移除。保存零个安装仍是有效的
+   framework-only 安装，不会创建含糊的启动入口。NSIS 安装完成后会自动打开
+   配置器；取消不会阻止框架安装。
+4. 配置器为每个选中的根目录创建带版本和路径身份的开始菜单入口；若存在
+   官方 D3D BAT，还会创建独立的 - D3D 入口。多个安装时，通用启动器显示
+   选择器，绝不会静默启动第一个版本。
+5. 命令行可显式指定规范根目录：
+       launch-cubism-turboism.bat -CubismRoot "%ProgramFiles%\Live2D\Cubism 5.3.02"
+   托管启动器调用所选安装的官方 CubismEditor5.bat（或独立的 D3D BAT），
+   只注入当前进程的 Turboism JVM 选项，并在结束后恢复调用方环境；已有的
+   非 Turboism JVM 选项会保留。
+6. 仅当启动器不在本目录时才需要设置 TURBOISM_HOME。插件选择保存到
+   config.json，安装选择单独保存到 cubism-installations.json。
+
+三、config.json
+---------------
+  worktreeId:       "turboism-runtime"
+  pluginDirs:       ["plugins"]
+  disabledPlugins:  被禁用的插件 id 列表（未勾选的插件，升序；可选字段）
+
+四、卸载
+--------
+- 通过 NSIS 安装器（TurboismInstaller-<ver>.exe）安装时：运行 Turboism home
+  目录中的 uninstall.exe。它只清理 Turboism 记录的托管快捷方式/状态与自有
+  文件。卸载确认页含「同时删除 config.json（用户配置）」复选框，默认勾选；
+  取消勾选可保留 config.json。
+- ZIP 手动安装包无卸载器：关闭 Cubism 后删除 Turboism 目录，不会修改 Cubism。
+
+五、常见问题
+------------
+- 没有可选安装：确认 5.2/5.3 系列根目录包含 CubismEditor5.bat、
+  app\jre\bin\java.exe 和 app\lib\Live2D_Cubism.jar；精确补丁版本仍由运行时
+  身份检查决定。
+- 列出了多个版本：使用对应的开始菜单入口或显式传入 -CubismRoot；Turboism
+  不会静默选择第一个结果。
+- 双击 bat 后窗口闪退：在命令行运行 launch-cubism-turboism.ps1 查看本地化报错。
+- 插件不生效：确认插件 jar 在 plugins/ 下，且 config.json 的 disabledPlugins
+  中没有该插件 id。
+- 日志位置：<Turboism home>\logs\runtime\YYYY-MM-DD\turboism-*.log

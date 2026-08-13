@@ -1,0 +1,45 @@
+# macOS packaging verification for the Turboism Java installer
+#
+# workflow_dispatch only: this lane must not consume private-repository macOS
+# minutes automatically. Every external Action is pinned to an immutable
+# commit SHA.
+#
+# The lane runs the same deterministic non-GUI installer verification
+# (checkJavaInstaller) on Apple Silicon (macos-15) and Intel (macos-15-intel)
+# runners. It does not download or launch Cubism, does not touch licensing,
+# and publishes no host-readiness markers: macOS Cubism host readiness
+# remains a separate exact-host task.
+#
+# Run: GitHub UI -> Actions -> "macOS packaging verification" -> Run workflow
+
+name: macOS packaging verification
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-java-installer:
+    name: checkJavaInstaller (${{ matrix.runner }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            label: arm64
+          - runner: macos-15-intel
+            label: x64
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
+      - name: Set up Java 17
+        uses: actions/setup-java@d2bb5a81bf6132351ee9adcc0bba8261a8d34d48
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+      - name: Deterministic non-GUI installer verification
+        run: ./gradlew checkJavaInstaller -PinstallerVersion=0.1.0-test --console=plain
