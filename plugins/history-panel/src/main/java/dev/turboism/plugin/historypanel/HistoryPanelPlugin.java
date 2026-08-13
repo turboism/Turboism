@@ -51,10 +51,6 @@ public final class HistoryPanelPlugin implements TurboismPlugin {
     public void enable() {
         try {
             context.disposableScope().register(registerAction(TOGGLE_ACTION_ID, "History", ignored -> toggle()));
-        context.disposableScope().register(registerAction("history.undo", "Undo", ignored ->
-            context.cubism().history().undo(1)));
-        context.disposableScope().register(registerAction("history.redo", "Redo", ignored ->
-            context.cubism().history().redo(1)));
             context.disposableScope().register(context.uiHost().contributeVerticalToolbar(
                 new VerticalToolbarContribution(
                     STRIP_ID,
