@@ -109,7 +109,7 @@ public final class PluginJarContract {
     private static String catalogPath(final String baseName, final String locale) {
         return "base".equals(locale)
             ? baseName + ".properties"
-            : baseName + "_" + locale + ".properties";
+            : baseName + "_" + locale.replace('-', '_') + ".properties";
     }
 
     private static void require(
