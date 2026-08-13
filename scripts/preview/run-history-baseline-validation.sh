@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Thin wrapper: launch Cubism 5.3.02 with ALL production plugins plus the
-# history probes, via the generic host-validation runner (official BAT only).
+# Thin wrapper: launch Cubism 5.3.02 with the production history-panel
+# plugin plus the test-only history probes, via the generic host-validation
+# runner (official BAT only). Probes live outside the formal bundle.
 set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$repo_root"
@@ -32,5 +33,10 @@ args=(--name history-baseline --version 5302
 )
 for plugin in "$bundle"/plugins/*.jar; do
   args+=(--plugin "$plugin")
+done
+# Test-only validation probes are injected at run time; they are not part
+# of the formal bundle (never shipped with production plugins).
+for probe in "$repo_root/build/manual-test/$worktree_id/validation-probes"/*.jar; do
+  args+=(--plugin "$probe")
 done
 exec bash scripts/preview/run-cubism-host-validation.sh "${args[@]}" "${extra_flags[@]}"
