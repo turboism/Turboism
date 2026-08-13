@@ -4,6 +4,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 import javax.swing.UIManager;
+import javax.swing.plaf.ColorUIResource;
 import java.awt.Color;
 import java.util.Map;
 
@@ -21,6 +22,38 @@ class SwingFlatLafHostOperationsTest {
         UIManager.getDefaults().remove("Turboism.native.CubismCommon.gl.viewArea.background");
         ThemeRuntimeProperties.delete();
         UIManager.getDefaults().remove("Panel.background");
+    }
+
+    @Test
+    void constructorDoesNotFillTheNativeKeyUntilCapture() {
+        final Color nativeBackground = new Color(222, 223, 224);
+        UIManager.put("CubismCommon.gl.viewArea.background", nativeBackground);
+        assertFalse(UIManager.getDefaults().containsKey("Turboism.native.CubismCommon.gl.viewArea.background"));
+
+        final SwingFlatLafHostOperations host = new SwingFlatLafHostOperations(getClass().getClassLoader());
+        assertFalse(UIManager.getDefaults().containsKey("Turboism.native.CubismCommon.gl.viewArea.background"),
+            "the constructor must not capture the native off-canvas value");
+
+        host.capture();
+        final Object captured = UIManager.get("Turboism.native.CubismCommon.gl.viewArea.background");
+        assertEquals(nativeBackground, captured);
+        assertInstanceOf(ColorUIResource.class, captured, "capture must wrap the source value in a ColorUIResource");
+    }
+
+    @Test
+    void captureDoesNotOverwriteAnAlreadyCapturedNativeValue() {
+        final Color nativeBackground = new Color(222, 223, 224);
+        UIManager.put("CubismCommon.gl.viewArea.background", nativeBackground);
+        SwingFlatLafHostOperations.captureNativeOffCanvasBackground();
+
+        // The source moves after the early-theme bootstrap captured it; a later
+        // restore-point capture must keep the captured value, not re-read it.
+        UIManager.put("CubismCommon.gl.viewArea.background", new Color(1, 2, 3));
+        final SwingFlatLafHostOperations host = new SwingFlatLafHostOperations(getClass().getClassLoader());
+        host.capture();
+
+        assertEquals(new ColorUIResource(nativeBackground),
+            UIManager.get("Turboism.native.CubismCommon.gl.viewArea.background"));
     }
 
     @Test
