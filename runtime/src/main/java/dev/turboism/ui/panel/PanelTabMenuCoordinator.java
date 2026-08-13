@@ -11,7 +11,7 @@ public final class PanelTabMenuCoordinator implements AutoCloseable {
 
     private final Object monitor = new Object();
     private Host host;
-    private List<ContextMenuRegistry.ContextMenuContribution> contributions = List.of();
+    private List<PanelTabMenuContribution> contributions = List.of();
     private Registration nativeRegistration;
     private boolean closed;
 
@@ -29,10 +29,18 @@ public final class PanelTabMenuCoordinator implements AutoCloseable {
         return () -> unbindHost(requested);
     }
 
-    public void update(final List<ContextMenuRegistry.ContextMenuContribution> values) {
+    public void update(final long hostGeneration, final List<PanelTabMenuContribution> values) {
         synchronized (monitor) {
             requireOpen();
-            contributions = List.copyOf(Objects.requireNonNull(values, "contributions"));
+            final List<PanelTabMenuContribution> requested = List.copyOf(
+                Objects.requireNonNull(values, "contributions")
+            );
+            requested.forEach(value -> {
+                if (value.hostGeneration() != hostGeneration) {
+                    throw new IllegalArgumentException("panel-tab menu contribution generation mismatch");
+                }
+            });
+            contributions = requested;
             reconcile();
         }
     }
@@ -88,6 +96,6 @@ public final class PanelTabMenuCoordinator implements AutoCloseable {
 
     @FunctionalInterface
     public interface Host {
-        Registration install(List<ContextMenuRegistry.ContextMenuContribution> contributions);
+        Registration install(List<PanelTabMenuContribution> contributions);
     }
 }

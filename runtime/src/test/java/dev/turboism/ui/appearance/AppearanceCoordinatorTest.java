@@ -96,6 +96,19 @@ class AppearanceCoordinatorTest {
         assertEquals(0, provider.applyCount);
     }
 
+    @Test
+    void restoreAfterCoordinatorCloseIsIdempotentCleanup() {
+        RecordingProvider provider = new RecordingProvider();
+        AppearanceCoordinator coordinator = new AppearanceCoordinator(provider, new RecordingEventBus());
+        coordinator.apply("plugin.one", 1, request("theme", 0));
+
+        coordinator.close();
+        AppearanceRestoreResult restored = coordinator.restore("plugin.one", 1);
+
+        assertEquals(AppearanceRestoreResult.Outcome.NO_OWNED_OVERRIDE, restored.outcome());
+        assertEquals(1, provider.restoreCount);
+    }
+
     private static AppearanceRequest request(final String id, final long revision) {
         return new AppearanceRequest(id, AppearanceBase.DARK, palette(), revision);
     }

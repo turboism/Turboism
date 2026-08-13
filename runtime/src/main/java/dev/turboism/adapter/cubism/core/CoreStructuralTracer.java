@@ -74,12 +74,14 @@ final class CoreStructuralTracer implements AutoCloseable {
                      | IllegalArgumentException exception) {
                 return failed(
                     CoreProviderFailure.Code.INVALID_STRUCTURE,
-                    "Core structural data could not be normalized safely."
+                    "Core structural data could not be normalized safely: "
+                        + exception
                 );
             } catch (RuntimeException exception) {
                 return failed(
                     CoreProviderFailure.Code.INVALID_STRUCTURE,
-                    "Core structural read failed during safe normalization."
+                    "Core structural read failed during safe normalization: "
+                        + exception
                 );
             }
         } finally {

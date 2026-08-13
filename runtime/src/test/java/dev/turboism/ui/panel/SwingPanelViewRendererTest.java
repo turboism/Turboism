@@ -7,16 +7,24 @@ import org.junit.jupiter.api.Test;
 import javax.swing.AbstractButton;
 import javax.swing.JComboBox;
 import javax.swing.JComponent;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
 import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
 import java.awt.Component;
 import java.awt.Container;
+import java.awt.Graphics2D;
+import java.awt.Point;
+import java.awt.event.MouseEvent;
+import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SwingPanelViewRendererTest {
 
@@ -74,6 +82,113 @@ class SwingPanelViewRendererTest {
             true,
             assertInstanceOf(UiActionEvent.ToggleValue.class, events.get(3).orElseThrow().value()).value()
         );
+    }
+
+    @Test
+    void rendersCollapsibleSectionWithBorderChildrenAndToggleClick() throws Exception {
+        SwingUtilities.invokeAndWait(() -> {
+            JComponent rendered = SwingPanelViewRenderer.render(
+                PanelView.collapsibleSection(
+                    "标题",
+                    true,
+                    PanelView.button("run", "Run", "profile.run"),
+                    PanelView.text("note")
+                ),
+                (action, event) -> { }
+            );
+
+            JPanel section = assertInstanceOf(JPanel.class, rendered);
+            CollapsibleSection.CollapsibleTitledBorder border = assertInstanceOf(
+                CollapsibleSection.CollapsibleTitledBorder.class, section.getBorder());
+
+            JPanel content = (JPanel) section.getComponent(0);
+            assertInstanceOf(AbstractButton.class, content.getComponent(0));
+            assertEquals("run", content.getComponent(0).getName());
+            assertEquals("note", assertInstanceOf(JLabel.class, content.getComponent(2)).getText());
+            assertTrue(CollapsibleSection.isExpanded(section));
+
+            section.setSize(400, 200);
+            paint(section);
+            Point hotspot = centerOf(border.actionBounds());
+            section.dispatchEvent(click(section, hotspot));
+            assertFalse(CollapsibleSection.isExpanded(section));
+
+            section.dispatchEvent(click(section, hotspot));
+            assertTrue(CollapsibleSection.isExpanded(section));
+        });
+    }
+
+    @Test
+    void rendersCollapsibleSectionCollapsedByDefault() throws Exception {
+        SwingUtilities.invokeAndWait(() -> {
+            JComponent rendered = SwingPanelViewRenderer.render(
+                PanelView.collapsibleSection("标题", false, PanelView.text("x")),
+                (action, event) -> { }
+            );
+            JPanel section = assertInstanceOf(JPanel.class, rendered);
+            assertInstanceOf(
+                CollapsibleSection.CollapsibleTitledBorder.class, section.getBorder());
+            assertFalse(CollapsibleSection.isExpanded(section));
+        });
+    }
+
+    @Test
+    void singleChartSectionSuppressesTheDuplicatedInnerTitle() throws Exception {
+        SwingUtilities.invokeAndWait(() -> {
+            JComponent rendered = SwingPanelViewRenderer.render(
+                PanelView.collapsibleSection(
+                    "CPU",
+                    true,
+                    PanelView.chart("cpu", "CPU",
+                        PanelView.series("CPU %", 120, "%", "0.0"))
+                ),
+                (action, event) -> { }
+            );
+            JPanel section = assertInstanceOf(JPanel.class, rendered);
+            assertTrue(CollapsibleSection.isExpanded(section));
+            JPanel content = (JPanel) section.getComponent(0);
+            ChartComponent chart = assertInstanceOf(ChartComponent.class, content.getComponent(0));
+            assertEquals("cpu", chart.getName());
+            assertTrue(!chart.showsTitle(),
+                "the section border title replaces the chart's own title");
+        });
+    }
+
+    @Test
+    void bareChartKeepsItsOwnTitleEvenInsideAMultiChildSection() throws Exception {
+        SwingUtilities.invokeAndWait(() -> {
+            JComponent rendered = SwingPanelViewRenderer.render(
+                PanelView.collapsibleSection(
+                    "Stats",
+                    true,
+                    PanelView.chart("fps", "Viewport Render FPS",
+                        PanelView.series("FPS", 120, "fps", "0.0")),
+                    PanelView.text("note")
+                ),
+                (action, event) -> { }
+            );
+            JPanel section = assertInstanceOf(JPanel.class, rendered);
+            JPanel content = (JPanel) section.getComponent(0);
+            ChartComponent chart = assertInstanceOf(ChartComponent.class, content.getComponent(0));
+            assertTrue(chart.showsTitle(),
+                "only a single-chart section defers the chart title to the border");
+        });
+    }
+
+    private static void paint(JPanel panel) {
+        BufferedImage image = new BufferedImage(400, 200, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D graphics = image.createGraphics();
+        panel.paint(graphics);
+        graphics.dispose();
+    }
+
+    private static MouseEvent click(JPanel panel, Point point) {
+        return new MouseEvent(panel, MouseEvent.MOUSE_CLICKED, System.currentTimeMillis(), 0,
+            point.x, point.y, 1, false, MouseEvent.BUTTON1);
+    }
+
+    private static Point centerOf(java.awt.Rectangle bounds) {
+        return new Point(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
     }
 
     private static Component named(final Component component, final String name) {

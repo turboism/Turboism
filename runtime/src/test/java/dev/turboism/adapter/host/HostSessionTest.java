@@ -1,14 +1,29 @@
 package dev.turboism.adapter.host;
 
 import dev.turboism.adapter.RuntimeHostAdapters;
+import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.adapter.cubism.ProjectWorkspaceAdapter;
+import dev.turboism.adapter.cubism.HostSnapshotSource;
 import dev.turboism.adapter.ui.StatusToolbarAdapter;
 import dev.turboism.sdk.cubism.ClipMaskSnapshot;
 import dev.turboism.sdk.cubism.ProjectSnapshot;
 import dev.turboism.sdk.cubism.WorkspaceSnapshot;
+import dev.turboism.sdk.cubism.DocumentKind;
+import dev.turboism.sdk.cubism.ProjectContentKind;
+import dev.turboism.sdk.cubism.ProjectContentSnapshot;
+import dev.turboism.sdk.cubism.ProjectFileOperation;
+import dev.turboism.sdk.cubism.ProjectFileOperationType;
 import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.ui.appearance.control.RuntimeModelAppearanceAccess;
+import dev.turboism.adapter.cubism.NativeLabelColorAuthoring;
 import dev.turboism.sdk.ui.StatusNotification;
+import dev.turboism.sdk.ui.workspace.WorkspaceId;
+import dev.turboism.sdk.ui.workspace.WorkspaceOperationResult;
+import dev.turboism.sdk.ui.workspace.WorkspaceStatus;
+import dev.turboism.ui.contribution.EditorUiContributionProvider;
+import dev.turboism.ui.workspace.WorkspaceHostProvider;
 import org.junit.jupiter.api.Test;
+import dev.turboism.sdk.ui.appearance.PaletteEntry;
 
 import java.io.File;
 import java.net.URI;
@@ -51,6 +66,114 @@ class HostSessionTest {
     }
 
     @Test
+    void adapterAccessViewsShareHostOwnedModelAppearanceSource() {
+        final HostSession session = new HostSession(() -> Optional.empty());
+
+        final RuntimeHostAdapterAccess firstView = session.adapterAccess();
+        final RuntimeHostAdapterAccess secondView = session.adapterAccess();
+
+        assertSame(session.modelAppearanceSource(), firstView.modelAppearanceSource());
+        assertSame(firstView.modelAppearanceSource(), secondView.modelAppearanceSource());
+        session.close();
+    }
+
+    @Test
+    void projectCloseListenerRemovesOnlySuccessfulContentAndInvalidateStillClearsAll() {
+        final HostSession session = new HostSession(() -> Optional.empty());
+        final String[] contentId = {"content-a"};
+        final String[] modelId = {"model-a"};
+        final long[] token = {1L};
+        final HostSnapshotSource source = new HostSnapshotSource() {
+            @Override public Optional<HostProject> activeProject() { return Optional.empty(); }
+            @Override public Optional<HostDocument> activeDocument() {
+                return Optional.of(new HostDocument(
+                    "document-" + contentId[0], "Model", DocumentKind.MODEL,
+                    "models/" + contentId[0] + ".cmo3", Optional.empty(), Optional.of(contentId[0]),
+                    Optional.of(new HostModel(modelId[0], "Model", List.of(), List.of(), List.of())),
+                    Optional.empty()
+                ));
+            }
+            @Override public Optional<HostModel> activeModel() {
+                return Optional.of(new HostModel(modelId[0], "Model", List.of(), List.of(), List.of()));
+            }
+            @Override public HostSelection selection() {
+                return new HostSelection(List.of(), Optional.empty(), Optional.empty(), Optional.empty());
+            }
+            @Override public boolean isHostPresent() { return true; }
+            @Override public long invalidationToken() { return token[0]; }
+        };
+        final RuntimeModelAppearanceAccess accessA = RuntimeModelAppearanceAccess.create(
+            "plugin-a", 1L, PermissionChecker.allowAll(), source,
+            session.paletteAppearanceCoordinator(), () -> 0L, () -> 0L, () -> 0L,
+            NativeLabelColorAuthoring.unavailable()
+        );
+        final PaletteEntry aEntry = accessA.part("model-a", "PartA", 0L)
+            .partPaletteEntry().orElseThrow();
+        aEntry.overrideBold(true);
+
+        contentId[0] = "content-b";
+        modelId[0] = "model-b";
+        token[0] = 2L;
+        final RuntimeModelAppearanceAccess accessB = RuntimeModelAppearanceAccess.create(
+            "plugin-b", 1L, PermissionChecker.allowAll(), source,
+            session.paletteAppearanceCoordinator(), () -> 0L, () -> 0L, () -> 0L,
+            NativeLabelColorAuthoring.unavailable()
+        );
+        final PaletteEntry bEntry = accessB.part("model-b", "PartA", 0L)
+            .partPaletteEntry().orElseThrow();
+        bEntry.overrideBold(false);
+
+        final ProjectFileOperation closeA = new ProjectFileOperation(
+            ProjectContentKind.MODEL, ProjectFileOperationType.CLOSE,
+            Optional.of("content-a"), "Model A", Optional.empty()
+        );
+        final ProjectContentSnapshot contentA = new ProjectContentSnapshot(
+            "content-a", "Model A", ProjectContentKind.MODEL, Optional.empty(), List.of(), List.of()
+        );
+        session.projectFileLifecycle().complete(
+            session.projectFileLifecycle().begin(closeA), contentA, true, null
+        );
+        session.projectFileLifecycle().awaitIdle();
+        assertEquals(Optional.of(false), bEntry.resolved().bold());
+
+        contentId[0] = "content-a";
+        modelId[0] = "model-a";
+        token[0] = 3L;
+        final RuntimeModelAppearanceAccess afterCloseAccess = RuntimeModelAppearanceAccess.create(
+            "plugin-closed", 1L, PermissionChecker.allowAll(), source,
+            session.paletteAppearanceCoordinator(), () -> 0L, () -> 0L, () -> 0L,
+            NativeLabelColorAuthoring.unavailable()
+        );
+        final PaletteEntry afterCloseEntry = afterCloseAccess.part("model-a", "PartA", 0L)
+            .partPaletteEntry().orElseThrow();
+        assertTrue(afterCloseEntry.resolved().bold().isEmpty());
+        final RuntimeModelAppearanceAccess rejectedAccess = RuntimeModelAppearanceAccess.create(
+            "plugin-c", 1L, PermissionChecker.allowAll(), source,
+            session.paletteAppearanceCoordinator(), () -> 0L, () -> 0L, () -> 0L,
+            NativeLabelColorAuthoring.unavailable()
+        );
+        final PaletteEntry rejectedEntry = rejectedAccess.part("model-a", "PartA", 0L)
+            .partPaletteEntry().orElseThrow();
+        rejectedEntry.overrideBold(true);
+        final ProjectFileOperation closeRejected = new ProjectFileOperation(
+            ProjectContentKind.MODEL, ProjectFileOperationType.CLOSE,
+            Optional.of("content-a"), "Model A", Optional.empty()
+        );
+        session.projectFileLifecycle().complete(
+            session.projectFileLifecycle().begin(closeRejected), contentA, false, null
+        );
+        session.projectFileLifecycle().complete(
+            session.projectFileLifecycle().begin(closeRejected), contentA, false,
+            new IllegalStateException("native close failed")
+        );
+        assertEquals(Optional.of(true), rejectedEntry.resolved().bold());
+
+        assertEquals(HostSession.State.SAFE_MODE, session.refresh());
+        assertTrue(rejectedEntry.resolved().bold().isEmpty());
+        session.close();
+    }
+
+    @Test
     void dynamicAdaptersFollowConnectDisconnectAndCloseWithoutLeakingOldDelegate() {
         AtomicReference<HostInstanceDescriptor> current = new AtomicReference<>();
         HostInstanceSource source = () -> Optional.ofNullable(current.get());
@@ -65,17 +188,25 @@ class HostSessionTest {
 
         current.set(descriptor("session-a"));
         assertEquals(HostSession.State.ACTIVE, session.refresh());
+        final long editorUiGeneration = session.editorUiLifecycle().snapshot().generation();
+        assertTrue(editorUiGeneration > 0);
+        assertEquals(editorUiGeneration, session.paletteAppearanceCoordinator().hostGeneration());
         assertEquals("session-a", dynamic.projectWorkspace().activeProject()
             .value().orElseThrow().orElseThrow().projectId());
+        session.meshMirrorAxisService().setCurrentAngleDegrees(45.0f);
 
         current.set(descriptor("session-b"));
         assertEquals(HostSession.State.ACTIVE, session.refresh());
         assertEquals("session-b", dynamic.projectWorkspace().activeProject()
             .value().orElseThrow().orElseThrow().projectId());
+        assertEquals(0.0f, session.meshMirrorAxisService().currentAngleDegrees());
+        session.meshMirrorAxisService().setCurrentAngleDegrees(30.0f);
 
         current.set(null);
         assertEquals(HostSession.State.SAFE_MODE, session.refresh());
+        assertEquals(0L, session.paletteAppearanceCoordinator().hostGeneration());
         assertFalse(dynamic.projectWorkspace().activeProject().isAvailable());
+        assertEquals(0.0f, session.meshMirrorAxisService().currentAngleDegrees());
 
         session.close();
         session.close();
@@ -178,6 +309,222 @@ class HostSessionTest {
 
         session.close();
         assertEquals(5, closes.get(), "the final active connection must close exactly once");
+    }
+    @Test
+    void sameSessionReconnectsForStatusEvidencePresenceAndRecordChanges() {
+        ClassLoader hostClassLoader = HostSessionTest.class.getClassLoader();
+        Path artifact = Path.of("host/Live2D_Cubism.jar");
+        AtomicReference<HostInstanceDescriptor> current = new AtomicReference<>(descriptor(
+            "session-a", clipEvidence("project-record.json", "clip-record.json", artifact, hostClassLoader)
+        ));
+        AtomicInteger connections = new AtomicInteger();
+        AtomicInteger closes = new AtomicInteger();
+        HostSession session = new HostSession(
+            () -> Optional.of(current.get()),
+            ignored -> {
+                int marker = connections.incrementAndGet();
+                return connection(adapters("connection-" + marker), closes);
+            }
+        );
+
+        assertEquals(HostSession.State.ACTIVE, session.refresh());
+        assertEquals(1, connections.get());
+
+        current.set(descriptor(
+            "session-a",
+            clipEvidence("project-record.json", "clip-record.json", artifact, hostClassLoader)
+                .addingStatusBar(statusBarEvidence("status-record-a.json", artifact, hostClassLoader))
+        ));
+        assertEquals(HostSession.State.ACTIVE, session.refresh());
+        assertEquals(2, connections.get(), "adding status evidence must replace the connection");
+        assertEquals(1, closes.get());
+
+        current.set(descriptor(
+            "session-a",
+            clipEvidence("project-record.json", "clip-record.json", artifact, hostClassLoader)
+                .addingStatusBar(statusBarEvidence("status-record-b.json", artifact, hostClassLoader))
+        ));
+        assertEquals(HostSession.State.ACTIVE, session.refresh());
+        assertEquals(3, connections.get(), "changing the status record must reconnect");
+        assertEquals(2, closes.get());
+
+        current.set(descriptor(
+            "session-a", clipEvidence("project-record.json", "clip-record.json", artifact, hostClassLoader)
+        ));
+        assertEquals(HostSession.State.ACTIVE, session.refresh());
+        assertEquals(4, connections.get(), "removing status evidence must reconnect");
+        assertEquals(3, closes.get());
+
+        session.close();
+        assertEquals(4, closes.get(), "the final active connection must close exactly once");
+    }
+
+    private static HostVerificationEvidence.Slice statusBarEvidence(
+        final String statusRecord,
+        final Path artifact,
+        final ClassLoader classLoader
+    ) {
+        return new HostVerificationEvidence.Slice(
+            Path.of("records").resolve(statusRecord), artifact, classLoader
+        );
+    }
+
+    @Test
+    void sameSessionReconnectsForWorkspaceOverlayAndPanelSlicePresenceAndRecordChanges() {
+        ClassLoader hostClassLoader = HostSessionTest.class.getClassLoader();
+        Path artifact = Path.of("host/Live2D_Cubism.jar");
+        AtomicReference<HostInstanceDescriptor> current = new AtomicReference<>(descriptor(
+            "session-a", projectOnlyEvidence("project-record-a.json", artifact, hostClassLoader)
+        ));
+        AtomicInteger connections = new AtomicInteger();
+        AtomicInteger closes = new AtomicInteger();
+        HostSession session = new HostSession(
+            () -> Optional.of(current.get()),
+            ignored -> {
+                connections.incrementAndGet();
+                return connection(adapters("connection-" + connections.get()), closes);
+            }
+        );
+
+        assertEquals(HostSession.State.ACTIVE, session.refresh());
+        assertEquals(1, connections.get());
+
+        current.set(descriptor(
+            "session-a",
+            projectOnlyEvidence("project-record-a.json", artifact, hostClassLoader)
+                .addingWorkspaceControl(slice("workspace-a.json", artifact, hostClassLoader))
+        ));
+        assertEquals(HostSession.State.ACTIVE, session.refresh());
+        assertEquals(2, connections.get(), "adding workspace-control evidence must replace the connection");
+        assertEquals(1, closes.get());
+
+        current.set(descriptor(
+            "session-a",
+            projectOnlyEvidence("project-record-a.json", artifact, hostClassLoader)
+                .addingWorkspaceControl(slice("workspace-b.json", artifact, hostClassLoader))
+        ));
+        assertEquals(HostSession.State.ACTIVE, session.refresh());
+        assertEquals(3, connections.get(), "changing the workspace-control record must replace the connection");
+        assertEquals(2, closes.get());
+
+        current.set(descriptor(
+            "session-a",
+            projectOnlyEvidence("project-record-a.json", artifact, hostClassLoader)
+                .addingWorkspaceControl(slice("workspace-b.json", artifact, hostClassLoader))
+                .addingBoundingBoxOverlayButton(slice("overlay-a.json", artifact, hostClassLoader))
+        ));
+        assertEquals(HostSession.State.ACTIVE, session.refresh());
+        assertEquals(4, connections.get(), "adding bounding-box overlay evidence must replace the connection");
+        assertEquals(3, closes.get());
+
+        current.set(descriptor(
+            "session-a",
+            projectOnlyEvidence("project-record-a.json", artifact, hostClassLoader)
+                .addingWorkspaceControl(slice("workspace-b.json", artifact, hostClassLoader))
+                .addingBoundingBoxOverlayButton(slice("overlay-a.json", artifact, hostClassLoader))
+                .addingEmbeddedPanel(slice("panel-a.json", artifact, hostClassLoader))
+        ));
+        assertEquals(HostSession.State.ACTIVE, session.refresh());
+        assertEquals(5, connections.get(), "adding embedded-panel evidence must replace the connection");
+        assertEquals(4, closes.get());
+
+        current.set(descriptor(
+            "session-a",
+            projectOnlyEvidence("project-record-a.json", artifact, hostClassLoader)
+                .addingWorkspaceControl(slice("workspace-b.json", artifact, hostClassLoader))
+                .addingBoundingBoxOverlayButton(slice("overlay-a.json", artifact, hostClassLoader))
+                .addingEmbeddedPanel(slice("panel-a.json", artifact, hostClassLoader))
+                .addingTopMenu(slice("topmenu-a.json", artifact, hostClassLoader))
+        ));
+        assertEquals(HostSession.State.ACTIVE, session.refresh());
+        assertEquals(6, connections.get(), "adding top-menu evidence must replace the connection");
+        assertEquals(5, closes.get());
+
+        current.set(descriptor(
+            "session-a",
+            projectOnlyEvidence("project-record-a.json", artifact, hostClassLoader)
+                .addingBoundingBoxOverlayButton(slice("overlay-a.json", artifact, hostClassLoader))
+                .addingEmbeddedPanel(slice("panel-a.json", artifact, hostClassLoader))
+                .addingTopMenu(slice("topmenu-a.json", artifact, hostClassLoader))
+        ));
+        assertEquals(HostSession.State.ACTIVE, session.refresh());
+        assertEquals(7, connections.get(), "removing workspace-control evidence must replace the connection");
+        assertEquals(6, closes.get(), "removing a slice must close the old connection once");
+
+        session.close();
+        assertEquals(7, closes.get(), "the final active connection must close exactly once");
+    }
+
+    @Test
+    void workspaceProviderStaysUnavailableWhileRefreshIsInProgress() throws Exception {
+        ClassLoader hostClassLoader = HostSessionTest.class.getClassLoader();
+        Path artifact = Path.of("host/Live2D_Cubism.jar");
+        AtomicReference<HostInstanceDescriptor> current = new AtomicReference<>(descriptor(
+            "session-a",
+            projectOnlyEvidence("project-record-a.json", artifact, hostClassLoader)
+                .addingWorkspaceControl(slice("workspace-a.json", artifact, hostClassLoader))
+        ));
+        CountDownLatch installStarted = new CountDownLatch(1);
+        CountDownLatch installRelease = new CountDownLatch(1);
+        HostSession session = new HostSession(
+            () -> Optional.of(current.get()),
+            ignored -> workspaceConnection(installStarted, installRelease)
+        );
+
+        AtomicReference<HostSession.State> refreshResult = new AtomicReference<>();
+        Thread refresher = new Thread(() -> refreshResult.set(session.refresh()), "workspace-refresh");
+        refresher.start();
+        try {
+            assertTrue(installStarted.await(5, TimeUnit.SECONDS),
+                "candidate installation must block inside refresh");
+
+            assertEquals(
+                WorkspaceStatus.Availability.UNAVAILABLE,
+                session.workspaceCoordinator().current().availability(),
+                "workspace must remain UNAVAILABLE while refresh is in progress"
+            );
+
+            installRelease.countDown();
+            refresher.join(TimeUnit.SECONDS.toMillis(5));
+            assertEquals(HostSession.State.ACTIVE, refreshResult.get(),
+                "refresh must commit ACTIVE after the installation is released");
+            assertEquals(
+                WorkspaceStatus.Availability.AVAILABLE,
+                session.workspaceCoordinator().current().availability(),
+                "workspace becomes AVAILABLE only after refresh returned ACTIVE"
+            );
+        } finally {
+            installRelease.countDown();
+            refresher.join(TimeUnit.SECONDS.toMillis(5));
+            session.close();
+        }
+    }
+
+    @Test
+    void failedCandidateInstallationNeverPublishesWorkspaceProvider() throws Exception {
+        ClassLoader hostClassLoader = HostSessionTest.class.getClassLoader();
+        Path artifact = Path.of("host/Live2D_Cubism.jar");
+        AtomicReference<HostInstanceDescriptor> current = new AtomicReference<>(descriptor(
+            "session-a",
+            projectOnlyEvidence("project-record-a.json", artifact, hostClassLoader)
+                .addingWorkspaceControl(slice("workspace-a.json", artifact, hostClassLoader))
+        ));
+        HostSession session = new HostSession(
+            () -> Optional.of(current.get()),
+            ignored -> workspaceConnectionThrowingInstall()
+        );
+
+        assertEquals(HostSession.State.FAILED, session.refresh());
+        assertEquals(
+            HostSessionFailure.Code.CONNECTION_FAILED,
+            session.lastFailure().orElseThrow().code()
+        );
+        assertEquals(
+            WorkspaceStatus.Availability.UNAVAILABLE,
+            session.workspaceCoordinator().current().availability(),
+            "a failed candidate must never leave a workspace provider published"
+        );
+        session.close();
     }
 
     @Test
@@ -482,6 +829,16 @@ class HostSessionTest {
         ));
     }
 
+    static HostVerificationEvidence.Slice slice(
+        final String record,
+        final Path artifact,
+        final ClassLoader classLoader
+    ) {
+        return new HostVerificationEvidence.Slice(
+            Path.of("records").resolve(record), artifact, classLoader
+        );
+    }
+
     static HostVerificationEvidence clipEvidence(
         final String projectRecord,
         final String clipRecord,
@@ -516,6 +873,85 @@ class HostSessionTest {
                 classLoader
             ))
         );
+    }
+
+    static HostAdapterConnection workspaceConnection(
+        final CountDownLatch installStarted,
+        final CountDownLatch installRelease
+    ) {
+        return new HostAdapterConnection() {
+            private final WorkspaceHostProvider provider = availableWorkspaceProvider();
+
+            @Override
+            public RuntimeHostAdapters adapters() {
+                return RuntimeHostAdapters.safeMode();
+            }
+
+            @Override
+            public WorkspaceHostProvider workspaceProvider() {
+                return provider;
+            }
+
+            @Override
+            public List<EditorUiContributionProvider> editorUiProviders(final long hostGeneration) {
+                installStarted.countDown();
+                try {
+                    installRelease.await();
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                }
+                return List.of();
+            }
+
+            @Override
+            public void close() {
+            }
+        };
+    }
+
+    static HostAdapterConnection workspaceConnectionThrowingInstall() {
+        return new HostAdapterConnection() {
+            @Override
+            public RuntimeHostAdapters adapters() {
+                return RuntimeHostAdapters.safeMode();
+            }
+
+            @Override
+            public WorkspaceHostProvider workspaceProvider() {
+                return availableWorkspaceProvider();
+            }
+
+            @Override
+            public List<EditorUiContributionProvider> editorUiProviders(final long hostGeneration) {
+                throw new IllegalStateException("candidate installation failed");
+            }
+
+            @Override
+            public void close() {
+            }
+        };
+    }
+
+    static WorkspaceHostProvider availableWorkspaceProvider() {
+        return new WorkspaceHostProvider() {
+            @Override public WorkspaceStatus readStatus() {
+                return new WorkspaceStatus(
+                    WorkspaceStatus.Availability.AVAILABLE,
+                    Optional.empty(),
+                    List.of(),
+                    Optional.empty()
+                );
+            }
+            @Override public WorkspaceOperationResult.Outcome switchTo(final WorkspaceId workspaceId) {
+                return WorkspaceOperationResult.Outcome.CHANGED;
+            }
+            @Override public WorkspaceOperationResult.Outcome updateDefault() {
+                return WorkspaceOperationResult.Outcome.CHANGED;
+            }
+            @Override public WorkspaceOperationResult.Outcome resetToDefault() {
+                return WorkspaceOperationResult.Outcome.CHANGED;
+            }
+        };
     }
 
     static HostAdapterConnection connection(

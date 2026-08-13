@@ -192,8 +192,8 @@ resolved_graph_mutation 'Byte Buddy' 'net.bytebuddy' 'byte-buddy' '1.15.0' 'Byte
 fake_cache_mutation() {
   local name="$1" setup="$2" sandbox fake log source_cache
   sandbox="$(mktemp -d)"; fake="$(mktemp -d)"; log="$(mktemp)"
-  mkdir -p "$sandbox/docs/migration" "$fake/caches/modules-2/files-2.1/org.ow2.asm/asm/9.7.1"
-  cp "$ROOT/docs/migration/asm-9.7.1-supply-chain-admission.tsv" "$sandbox/docs/migration/"
+  mkdir -p "$sandbox/validation/supply-chain" "$fake/caches/modules-2/files-2.1/org.ow2.asm/asm/9.7.1"
+  cp "$ROOT/validation/supply-chain/asm-9.7.1-supply-chain-admission.tsv" "$sandbox/validation/supply-chain/"
   source_cache="$GRADLE_HOME/caches/modules-2/files-2.1/org.ow2.asm/asm/9.7.1"
   cp -a "$source_cache/." "$fake/caches/modules-2/files-2.1/org.ow2.asm/asm/9.7.1/"
   eval "$setup"
@@ -201,7 +201,7 @@ fake_cache_mutation() {
     mutated_pom="$(find "$fake" -name asm-9.7.1.pom)"
     mutated_sha="$(sha256sum "$mutated_pom" | cut -d' ' -f1)"
     perl -pi -e "s/7229b03b30a73ee91008072d9e4569a51d8547fae8c50f527841aef4c1b0baa8/$mutated_sha/" \
-      "$sandbox/docs/migration/asm-9.7.1-supply-chain-admission.tsv"
+      "$sandbox/validation/supply-chain/asm-9.7.1-supply-chain-admission.tsv"
   fi
   if python3 "$HELPER" evidence --root "$sandbox" --gradle-home "$fake" >"$log" 2>&1; then
     rm -rf "$sandbox" "$fake" "$log"; fail "fake cache mutation unexpectedly passed: $name"

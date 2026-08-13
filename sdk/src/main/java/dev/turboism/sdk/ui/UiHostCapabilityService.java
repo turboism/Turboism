@@ -3,6 +3,7 @@ package dev.turboism.sdk.ui;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 import dev.turboism.sdk.ui.context.ContextSourceSnapshot;
+import dev.turboism.sdk.ui.filter.PaletteFilterRegistry;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
 
@@ -39,9 +40,32 @@ public interface UiHostCapabilityService {
     boolean confirmDialog(DialogRequest request);
 
     /**
+     * Opens a bounded runtime-rendered choice dialog without blocking the caller.
+     *
+     * <p>Returns immediately after scheduling the dialog on the UI thread. The
+     * listener receives the selected option id and the secondary action id (or
+     * {@code null}s for accept/cancel) once the user closes the dialog.</p>
+     */
+    default void openChoiceDialog(
+        final ChoiceDialogRequest request,
+        final ChoiceDialogResultListener listener
+    ) {
+        throw new UnsupportedOperationException("async choice dialogs are not available");
+    }
+
+    /**
      * Contributes a runtime-rendered panel owned by the calling plugin.
      * Control action IDs resolve through that plugin's {@code ActionRegistry}.
      */
+    /**
+     * Contributes a runtime-rendered panel owned by the calling plugin.
+     * Control action IDs resolve through that plugin's {@code ActionRegistry}.
+     */
+
+    /** Opens a bounded runtime-rendered single-choice dialog. */
+    default Optional<String> choose(final ChoiceDialogRequest request) {
+        throw new UnsupportedOperationException("choice dialogs are not available");
+    }
 
     Registration contributeEmbeddedPanel(EmbeddedPanelContribution contribution);
 
@@ -63,7 +87,98 @@ public interface UiHostCapabilityService {
         activateEmbeddedPanel(panelId);
     }
 
+    /**
+     * Injects a collapsible section into an existing embedded panel (including the
+     * Turboism tab {@code turboism.panel.main}).
+     *
+     * <p>Injected sections are appended after the panel's declared content during
+     * render synthesis and ordered by {@code order} then {@code sectionId}.
+     * Hosts that do not provide a verified panel surface fail closed.</p>
+     */
+    default Registration contributeCollapsibleSection(
+        final CollapsibleSectionContribution contribution
+    ) {
+        throw new UnsupportedOperationException("collapsible-section contribution is unavailable");
+    }
+
     Optional<String> requestFile(FileChooserRequest request);
+
+    /**
+     * Reports the host's active color theme mode (Cubism light/dark). Used by
+     * plugins to filter base-compatible options such as theme packages.
+     */
+    default UiHostColorMode currentColorMode() {
+        return UiHostColorMode.LIGHT;
+    }
+
+    /**
+     * Returns the Cubism Editor UI language (host JVM locale), used by plugins
+     * to select localized presentation.
+     *
+     * <p>Returns the <b>effective UI language</b>: zh builds are normalized to
+     * {@code zh-Hans}/{@code zh-Hant} (zh-CN/zh-SG → zh-Hans, zh-TW/zh-HK/zh-MO →
+     * zh-Hant, other script-less zh such as Wine-rewritten zh-US → zh-Hans);
+     * non-zh languages are returned unchanged. The raw host JVM locale may be
+     * rewritten by Proton/Wine (e.g. {@code zh-US}) and does not represent the
+     * actual UI language.</p>
+     *
+     * @return the current effective Cubism UI language, never {@code null}
+     */
+    default java.util.Locale hostLocale() {
+        return java.util.Locale.getDefault(java.util.Locale.Category.DISPLAY);
+    }
+
+    /**
+     * Opens the host file manager at the given plugin storage directory.
+     * Implementations must confine the resolved directory to the plugin's
+     * storage roots and fail closed when the host cannot open directories.
+     */
+    default void openDirectory(final dev.turboism.sdk.storage.StoragePath directory) {
+        throw new UnsupportedOperationException("open-directory is not available");
+    }
+
+    /**
+     * Opens a bounded runtime-rendered form dialog (text and color fields)
+     * without blocking the caller. The listener receives the field values when
+     * the user accepts, a secondary action id when one is pressed, or an empty
+     * map on cancel.
+     */
+    default void openFormDialog(
+        final FormDialogRequest request,
+        final FormDialogResultListener listener
+    ) {
+        throw new UnsupportedOperationException("form dialogs are not available");
+    }
+
+    /**
+     * Opens a bounded runtime-rendered color picker without blocking the caller.
+     * The listener receives {@code true} with a canonical {@code #RRGGBB} value
+     * when the user confirms, or {@code false} with {@code null} on cancel.
+     * {@code initialColorHex} may be {@code null} or a canonical {@code #RRGGBB}
+     * value; invalid values fall back to the picker default.
+     */
+    default void openColorPicker(
+        final String id,
+        final String title,
+        final String initialColorHex,
+        final ColorPickerResultListener listener
+    ) {
+        throw new UnsupportedOperationException("color pickers are not available");
+    }
+
+    /**
+     * Framework capability: pushes the current off-canvas (GL viewport)
+     * background color (read from UIManager by the runtime) onto the host's
+     * background mesh so theme changes take effect immediately instead of only
+     * after a restart. The runtime owns the host navigation; plugins must not
+     * touch host objects directly.
+     *
+     * @return {@code true} when the host scene was refreshed, {@code false}
+     *     when the host structure is unavailable (fail closed).
+     */
+    default boolean refreshOffCanvasAppearance() {
+        throw new UnsupportedOperationException("off-canvas refresh is not available");
+    }
 
     Registration notifyStatus(StatusNotification notification);
 
@@ -90,5 +205,15 @@ public interface UiHostCapabilityService {
     default Registration contributeHorizontalToolbar(final HorizontalToolbarContribution contribution) {
         Objects.requireNonNull(contribution, "contribution");
         throw new UnsupportedOperationException("horizontal-toolbar contribution is unavailable");
+    }
+
+    /**
+     * Contributes a keyword filter box to a palette tab toolbar.
+     *
+     * <p>Hosts that do not provide a verified palette filter surface fail
+     * closed with {@link UnsupportedOperationException}.</p>
+     */
+    default Registration contributePaletteFilter(PaletteFilterRegistry.PaletteFilterContribution contribution) {
+        throw new UnsupportedOperationException("palette filter contribution is unavailable");
     }
 }

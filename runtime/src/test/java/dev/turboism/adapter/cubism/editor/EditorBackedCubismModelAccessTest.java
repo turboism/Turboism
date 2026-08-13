@@ -74,6 +74,88 @@ class EditorBackedCubismModelAccessTest {
         );
     }
 
+
+    @Test
+    void documentReplacementWithTheSameSourceAndModelInvalidatesOldReferences() {
+        final Fixture host = new Fixture("model-a", 12.0F);
+        final EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
+            resolver(), "session-a"
+        );
+        Host.install(host);
+        final var parameter = access.active().parameters().find(new ParameterId("ParamAngleX"));
+
+        Host.currentDocument = new Document(host.source);
+
+        assertThrows(IllegalStateException.class, parameter::getValue);
+    }
+
+    @Test
+    void exposesParameterDefinitionsAndIndexWhileEditorKeyValuesFailClosed() {
+        Fixture host = new Fixture("model-a", 12.0F);
+        Host.install(host);
+        EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
+            resolver(), "session-a"
+        );
+
+        var model = access.active();
+        var parameter = model.parameters().find(new ParameterId("ParamAngleX"));
+
+        assertEquals(0, parameter.index());
+        assertThrows(UnsupportedOperationException.class, parameter::keyValues);
+        assertEquals(
+            List.of(new ParameterId("ParamAngleX")),
+            model.parameterDefinitions().all().stream()
+                .map(value -> value.id())
+                .toList()
+        );
+        assertEquals(
+            new dev.turboism.sdk.cubism.model.ParameterDefinition(
+                new ParameterId("ParamAngleX"),
+                "Angle X",
+                -30.0F,
+                0.0F,
+                30.0F,
+                ParameterType.BLEND_SHAPE,
+                true
+            ),
+            model.parameterDefinitions().find(new ParameterId("ParamAngleX"))
+        );
+
+        Host.install(new Fixture("model-b", -5.0F));
+        assertThrows(IllegalStateException.class, parameter::keyValues);
+    }
+
+    @Test
+    void duplicateParameterIdsArePreservedInStableOrder() {
+        // Verified host evidence: CParameterSet stores CParameter entries in a plain CArrayList
+        // without any id-uniqueness constraint and real Editor models can contain duplicate ids.
+        // all() must include every entry, find() returns the first match, and nothing throws.
+        final ParameterSet set = new ParameterSet(new java.util.ArrayList<>(List.of(
+            new Parameter("ParamAngleX", 12.0F), new Parameter("ParamAngleX", 5.0F))));
+        final Model model = new Model(set);
+        final ModelSource source = new ModelSource("model-a", model);
+        model.source = source;
+        Host.currentDocument = new Document(source);
+        final EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
+            resolver(), "session-a");
+        final var active = access.active();
+
+        assertEquals(
+            List.of("ParamAngleX", "ParamAngleX"),
+            active.parameters().all().stream().map(value -> value.id().value()).toList()
+        );
+        assertEquals(
+            new ParameterId("ParamAngleX"),
+            active.parameters().find(new ParameterId("ParamAngleX")).id()
+        );
+        assertTrue(active.parameters().findById(new ParameterId("ParamAngleX")).isPresent());
+        assertEquals(2, active.parameterDefinitions().all().size());
+        assertEquals(
+            new ParameterId("ParamAngleX"),
+            active.parameterDefinitions().find(new ParameterId("ParamAngleX")).id()
+        );
+    }
+
     @Test
     void parameterBindingProjectionCollectsAllThreeObjectFamiliesAndGoesStaleWithTheModel() {
         Fixture host = new Fixture("model-a", 12.0F);
@@ -116,7 +198,6 @@ class EditorBackedCubismModelAccessTest {
         );
         assertEquals(List.of(), root.parameterIds());
         assertEquals(Optional.of("Face"), face.name());
-        assertEquals(new Color(0.25F, 0.5F, 0.75F, 1.0F), face.labelColor());
         assertEquals(Optional.of(root.id()), face.parentId());
         assertEquals(List.of(), face.childGroupIds());
         assertEquals(List.of(new ParameterId("ParamAngleX")), face.parameterIds());
@@ -160,25 +241,10 @@ class EditorBackedCubismModelAccessTest {
     }
 
     @Test
-    void parameterGroupLabelColorsRequireTheirSeparateVerifiedCapability() {
-        Host.install(new Fixture("model-a", 12.0F));
-        EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
-            resolver(false), "session-a"
-        );
-
-        var face = access.active().parameterGroups().find(
-            new dev.turboism.sdk.cubism.id.ParameterGroupId("GroupFace")
-        );
-
-        assertEquals(Optional.of("Face"), face.name());
-        assertThrows(UnsupportedOperationException.class, face::labelColor);
-    }
-
-    @Test
     void defaultKeyformLockReadsRequireTheirSeparateVerifiedCapability() {
         Host.install(new Fixture("model-a", 12.0F));
         EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
-            resolver(false), "session-a"
+            resolverWithoutDefaultKeyformLock(), "session-a"
         );
 
         assertEquals("model-a", access.active().id().value());
@@ -217,11 +283,26 @@ class EditorBackedCubismModelAccessTest {
             .getMessage().contains("active model"));
     }
 
-    private static VerifiedMemberResolver resolver() {
-        return resolver(true);
+    private static VerifiedMemberResolver resolverWithoutDefaultKeyformLock() {
+        return resolver(java.util.Set.of(
+            "cubism.editor-model.read",
+            dev.turboism.mapping.verification.EditorParameterGroupsReadSelectorContract.CAPABILITY_ID,
+            dev.turboism.mapping.verification.EditorObjectReadSelectorContract.CAPABILITY_ID,
+            dev.turboism.mapping.verification.EditorParameterBindingReadSelectorContract.CAPABILITY_ID
+        ));
     }
 
-    private static VerifiedMemberResolver resolver(final boolean includeLabelColorCapability) {
+    private static VerifiedMemberResolver resolver() {
+        return resolver(java.util.Set.of(
+            "cubism.editor-model.read",
+            dev.turboism.mapping.verification.EditorParameterGroupsReadSelectorContract.CAPABILITY_ID,
+            dev.turboism.mapping.verification.EditorDefaultKeyformLockReadSelectorContract.CAPABILITY_ID,
+            dev.turboism.mapping.verification.EditorObjectReadSelectorContract.CAPABILITY_ID,
+            dev.turboism.mapping.verification.EditorParameterBindingReadSelectorContract.CAPABILITY_ID
+        ));
+    }
+
+    private static VerifiedMemberResolver resolver(final java.util.Set<String> capabilities) {
         String host = internal(Host.class);
         String document = internal(Document.class);
         String source = internal(ModelSource.class);
@@ -236,19 +317,7 @@ class EditorBackedCubismModelAccessTest {
         return TestVerifiedResolvers.create(
             "5.3.02",
             "adapter.editor-model.readwrite",
-            includeLabelColorCapability
-                ? java.util.Set.of(
-                    "cubism.editor-model.read",
-                    dev.turboism.mapping.verification.EditorParameterGroupsReadSelectorContract.CAPABILITY_ID,
-                    dev.turboism.mapping.verification.EditorParameterGroupLabelColorReadSelectorContract.CAPABILITY_ID,
-                    dev.turboism.mapping.verification.EditorDefaultKeyformLockReadSelectorContract.CAPABILITY_ID,
-                    dev.turboism.mapping.verification.EditorObjectReadSelectorContract.CAPABILITY_ID,
-                    dev.turboism.mapping.verification.EditorParameterBindingReadSelectorContract.CAPABILITY_ID
-                )
-                : java.util.Set.of(
-                    "cubism.editor-model.read",
-                    dev.turboism.mapping.verification.EditorParameterGroupsReadSelectorContract.CAPABILITY_ID
-                ),
+            capabilities,
             List.of(
                 StaticSelector.classSelector("cubism.editor-model.app-controller.class", host),
                 StaticSelector.staticMethod("cubism.editor-model.app-controller.instance", host, "instance", desc(Host.class), StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC),
@@ -386,6 +455,12 @@ class EditorBackedCubismModelAccessTest {
     private static String internal(Class<?> type) { return type.getName().replace('.', '/'); }
     private static String desc(Class<?> type) { return "()L" + internal(type) + ";"; }
 
+    private static List<Float> sequence(final dev.turboism.sdk.cubism.model.FloatSequence values) {
+        final java.util.ArrayList<Float> result = new java.util.ArrayList<>();
+        for (int index = 0; index < values.size(); index++) result.add(values.get(index));
+        return result;
+    }
+
     public static final class Host {
         static final Host INSTANCE = new Host();
         static Object currentDocument;
@@ -453,13 +528,13 @@ class EditorBackedCubismModelAccessTest {
         public float value() { return value; }
         public ParameterSource source() { return source; }
     }
-    public static final class ParameterSource {
-        final Id id = new Id("ParamAngleX");
+    public static final class ParameterSource extends ObjectSource {
         String name = "Angle X";
+        ParameterSource() { super("ParamAngleX"); }
+        @Override public Id id() { return super.id(); }
         public float minimum() { return -30.0F; }
         public float maximum() { return 30.0F; }
         public float defaultValue() { return 0.0F; }
-        public Id id() { return id; }
         public String name() { return name; }
         public boolean repeat() { return true; }
         public boolean morphTarget() { return true; }

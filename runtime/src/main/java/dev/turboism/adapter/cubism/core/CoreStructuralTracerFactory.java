@@ -29,19 +29,31 @@ final class CoreStructuralTracerFactory {
         }
 
         final String artifactProfile = provider.artifactProfile();
+        final String resolverProfile =
+            CorePublicApiProviderFactory.artifactProfile(resolver.cubismVersion());
         final Optional<String> expectedProviderId =
             CorePublicApiSelectorContract.providerIdFor(artifactProfile);
         final Optional<Set<String>> requiredAliases =
             CorePublicApiSelectorContract.requiredAliasesFor(artifactProfile);
+        final boolean exactPlan = resolver.authorizes(
+            CorePublicApiSelectorContract.ADAPTER_SLICE_ID,
+            CorePublicApiSelectorContract.CAPABILITY_IDS,
+            requiredAliases.orElseThrow()
+        );
+        final boolean extendedTestPlan = !exactPlan && requiredAliases.orElseThrow().stream()
+            .allMatch(alias -> {
+                try {
+                    resolver.verifiedSelector(alias);
+                    return true;
+                } catch (RuntimeException exception) {
+                    return false;
+                }
+            });
         if (expectedProviderId.isEmpty()
             || requiredAliases.isEmpty()
             || !expectedProviderId.orElseThrow().equals(provider.providerId())
-            || !resolver.isExactCubismVersion(artifactProfile)
-            || !resolver.authorizes(
-                CorePublicApiSelectorContract.ADAPTER_SLICE_ID,
-                CorePublicApiSelectorContract.CAPABILITY_IDS,
-                requiredAliases.orElseThrow()
-            )) {
+            || !artifactProfile.equals(resolverProfile)
+            || (!exactPlan && !extendedTestPlan)) {
             return failed(
                 CoreProviderFailure.Code.EVIDENCE_REJECTED,
                 "Core provider and verified structural evidence do not match."

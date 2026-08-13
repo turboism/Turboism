@@ -4,6 +4,8 @@ import dev.turboism.adapter.RuntimeHostAdapters;
 import dev.turboism.adapter.cubism.ClipMaskReadAdapter;
 import dev.turboism.adapter.cubism.HostSnapshotSource;
 import dev.turboism.adapter.cubism.ProjectWorkspaceAdapter;
+import dev.turboism.adapter.cubism.textureatlas.TextureAtlasAuthoringState;
+import dev.turboism.adapter.cubism.textureatlas.TextureAtlasLayoutProvider;
 import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
 import dev.turboism.core.plugin.context.CorePluginContext;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
@@ -13,12 +15,28 @@ import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.diagnostics.CubismFacadeAuditEvent;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.cubism.ClipMaskSnapshot;
+import dev.turboism.sdk.cubism.ArtMeshSnapshot;
+import dev.turboism.sdk.cubism.DeformerSnapshot;
+import dev.turboism.sdk.cubism.DeformerType;
+import dev.turboism.sdk.cubism.DocumentKind;
+import dev.turboism.sdk.cubism.DocumentSnapshot;
+import dev.turboism.sdk.cubism.ModelSnapshot;
 import dev.turboism.sdk.cubism.ProjectSnapshot;
+import dev.turboism.sdk.cubism.ParameterSnapshot;
+import dev.turboism.sdk.cubism.ProjectContentKind;
+import dev.turboism.sdk.cubism.ProjectContentSnapshot;
+import dev.turboism.sdk.cubism.ProjectResourceSnapshot;
+import dev.turboism.sdk.cubism.ResourceKind;
 import dev.turboism.sdk.cubism.WorkspaceSnapshot;
 import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutApplyStatus;
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutConstraints;
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutItem;
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutPlan;
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasPlacement;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginDescriptor;
@@ -149,7 +167,9 @@ class HostSessionPluginContextIntegrationTest {
         AtomicInteger clipOperations = new AtomicInteger();
         HostSession session = new HostSession(
             () -> Optional.ofNullable(current.get()),
-            descriptor -> HostAdapterConnection.of(adapters(descriptor.sessionId(), clipOperations))
+            descriptor -> HostAdapterConnection.of(
+                adapters(descriptor.sessionId(), clipOperations), fixedModelAccess(descriptor.sessionId() + "-model")
+            )
         );
         RuntimeScheduler scheduler = scheduler();
         CorePluginContext context = new CorePluginContext(
@@ -161,20 +181,33 @@ class HostSessionPluginContextIntegrationTest {
         );
 
         try {
+            assertTrue(context.cubism().activeProject().isEmpty());
             assertTrue(context.cubismRead().activeProject().isEmpty());
             assertTrue(context.cubismRead().workspace().isEmpty());
             assertTrue(context.cubismRead().clipMasks().isEmpty());
 
             current.set(dualDescriptor("session-project", "reviewed"));
             assertEquals(HostSession.State.ACTIVE, session.refresh());
-            assertEquals(
-                "session-project",
-                context.cubismRead().activeProject().orElseThrow().projectId()
-            );
-            assertEquals(
-                "session-project-workspace",
-                context.cubismRead().workspace().orElseThrow().workspaceId()
-            );
+            final ProjectSnapshot facadeProject = context.cubism().activeProject().orElseThrow();
+            final ProjectSnapshot legacyProject = context.cubismRead().activeProject().orElseThrow();
+            assertEquals(facadeProject, legacyProject);
+            assertEquals("session-project", facadeProject.projectId());
+            assertEquals(1, facadeProject.documents().size());
+            assertEquals(1, facadeProject.contents().size());
+
+            final DocumentSnapshot facadeDocument = context.cubism().activeDocument().orElseThrow();
+            final DocumentSnapshot legacyDocument = context.cubismRead().activeDocument().orElseThrow();
+            assertEquals(facadeDocument, legacyDocument);
+            assertEquals(DocumentKind.MODEL, facadeDocument.kind());
+            final ModelSnapshot facadeModel = context.cubism().activeModel().orElseThrow();
+            final ModelSnapshot legacyModel = context.cubismRead().activeModel().orElseThrow();
+            assertEquals(facadeModel, legacyModel);
+            assertEquals("session-project-model", facadeModel.modelId());
+            assertEquals(1, facadeModel.parameters().size());
+            assertEquals(1, facadeModel.artMeshes().size());
+            assertEquals(1, facadeModel.deformers().size());
+
+            assertEquals("session-project-workspace", context.cubismRead().workspace().orElseThrow().workspaceId());
             assertEquals(
                 new ClipMaskSnapshot("session-project-mesh", List.of("session-project-mask"), false),
                 context.cubismRead().clipMasks().get(0)
@@ -183,6 +216,7 @@ class HostSessionPluginContextIntegrationTest {
 
             current.set(null);
             assertEquals(HostSession.State.SAFE_MODE, session.refresh());
+            assertTrue(context.cubism().activeProject().isEmpty());
             assertTrue(context.cubismRead().activeProject().isEmpty());
             assertTrue(context.cubismRead().workspace().isEmpty());
             assertTrue(context.cubismRead().clipMasks().isEmpty());
@@ -330,7 +364,9 @@ class HostSessionPluginContextIntegrationTest {
                 if (descriptor.sessionId().equals("replacement-session")) {
                     throw new IllegalStateException("private-host-path=C:/Users/secret/Cubism.jar");
                 }
-                return HostAdapterConnection.of(adapters(descriptor.sessionId(), clipOperations));
+                return HostAdapterConnection.of(
+                    adapters(descriptor.sessionId(), clipOperations), fixedModelAccess(descriptor.sessionId())
+                );
             }
         );
         RuntimeScheduler scheduler = scheduler();
@@ -363,6 +399,108 @@ class HostSessionPluginContextIntegrationTest {
         } finally {
             session.close();
             scheduler.shutdown();
+        }
+    }
+
+    @Test
+    void textureAtlasProviderFlowsThroughProductionContextAndInvalidatesOnReplacementAndClose() {
+        final AtomicReference<HostInstanceDescriptor> current = new AtomicReference<>();
+        final java.util.Map<String, RecordingAtlasProvider> providers = new java.util.HashMap<>();
+        final HostSession session = new HostSession(
+            () -> Optional.ofNullable(current.get()),
+            descriptor -> {
+                final RecordingAtlasProvider provider = new RecordingAtlasProvider(descriptor.sessionId());
+                providers.put(descriptor.sessionId(), provider);
+                return connectionWithAtlasProvider(provider);
+            }
+        );
+        final RuntimeScheduler scheduler = scheduler();
+        final CorePluginContext context = new CorePluginContext(
+            dependencies(tempDir, scheduler, descriptor(List.of(
+                "turboism.cubism.model.read", "turboism.cubism.model.write"
+            )), ignored -> { }),
+            session
+        );
+
+        try {
+            assertTrue(context.cubism().textureAtlasLayouts().current().isEmpty());
+            current.set(dualDescriptor("atlas-a", "atlas-a"));
+            assertEquals(HostSession.State.ACTIVE, session.refresh());
+            final var first = context.cubism().textureAtlasLayouts().current().orElseThrow();
+            assertEquals(
+                Optional.of(TextureAtlasLayoutApplyStatus.APPLIED),
+                context.cubism().textureAtlasLayouts().apply(first.target(), movedPlan()).status()
+            );
+            assertEquals(1, providers.get("atlas-a").applyCount.get());
+
+            current.set(dualDescriptor("atlas-b", "atlas-b"));
+            assertEquals(HostSession.State.ACTIVE, session.refresh());
+            assertEquals(
+                Optional.of(dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutFailureCode.TARGET_STALE),
+                context.cubism().textureAtlasLayouts().apply(first.target(), movedPlan()).failureCode()
+            );
+            assertEquals("atlas-b", context.cubism().textureAtlasLayouts().current().orElseThrow().atlasId());
+
+            current.set(null);
+            assertEquals(HostSession.State.SAFE_MODE, session.refresh());
+            assertTrue(context.cubism().textureAtlasLayouts().current().isEmpty());
+            session.close();
+            assertTrue(context.cubism().textureAtlasLayouts().current().isEmpty());
+        } finally {
+            session.close();
+            scheduler.shutdown();
+        }
+    }
+
+    private static HostAdapterConnection connectionWithAtlasProvider(
+        final TextureAtlasLayoutProvider provider
+    ) {
+        return new HostAdapterConnection() {
+            @Override public RuntimeHostAdapters adapters() { return RuntimeHostAdapters.safeMode(); }
+            @Override public Optional<TextureAtlasLayoutProvider> textureAtlasLayoutProvider() {
+                return Optional.of(provider);
+            }
+            @Override public void close() { }
+        };
+    }
+
+    private static TextureAtlasLayoutPlan movedPlan() {
+        return new TextureAtlasLayoutPlan(16, 8, 1, List.of(
+            new TextureAtlasPlacement("texture-a", 0, 1, 1, 4, 3, false),
+            new TextureAtlasPlacement("texture-b", 0, 7, 1, 2, 2, false)
+        ));
+    }
+
+    private static final class RecordingAtlasProvider implements TextureAtlasLayoutProvider {
+        private final String id;
+        private final AtomicInteger applyCount = new AtomicInteger();
+        private TextureAtlasAuthoringState state;
+        private RecordingAtlasProvider(final String id) {
+            this.id = id;
+            this.state = new TextureAtlasAuthoringState(
+                "document-" + id, "model-" + id, id, 1,
+                new TextureAtlasLayoutConstraints(16, 8, 1, 1, 1, false, false),
+                List.of(
+                    new TextureAtlasLayoutItem("texture-a", 4, 3),
+                    new TextureAtlasLayoutItem("texture-b", 2, 2)
+                ),
+                new TextureAtlasLayoutPlan(16, 8, 1, List.of(
+                    new TextureAtlasPlacement("texture-a", 0, 1, 1, 4, 3, false),
+                    new TextureAtlasPlacement("texture-b", 0, 6, 1, 2, 2, false)
+                ))
+            );
+        }
+        @Override public Optional<TextureAtlasAuthoringState> current() { return Optional.of(state); }
+        @Override public ApplyOutcome apply(
+            final TextureAtlasAuthoringState expected,
+            final TextureAtlasLayoutPlan plan
+        ) {
+            applyCount.incrementAndGet();
+            state = new TextureAtlasAuthoringState(
+                expected.documentId(), expected.modelId(), id, expected.revision() + 1,
+                expected.constraints(), expected.items(), plan
+            );
+            return ApplyOutcome.APPLIED;
         }
     }
 
@@ -424,6 +562,7 @@ class HostSessionPluginContextIntegrationTest {
             }
         };
     }
+
 
     private static CorePluginContext.Dependencies dependencies(
         final Path dataDir,
@@ -551,6 +690,59 @@ class HostSessionPluginContextIntegrationTest {
         };
     }
 
+    private static ProjectSnapshot projectSnapshot(final String projectId) {
+        final DocumentSnapshot document = modelDocument(projectId);
+        return new ProjectSnapshot(
+            projectId,
+            "Demo",
+            Optional.empty(),
+            List.of(document),
+            List.of(new ProjectContentSnapshot(
+                projectId + "-content",
+                "Model content",
+                ProjectContentKind.MODEL,
+                Optional.of(Path.of("models/" + projectId + ".cmo3")),
+                List.of(document.documentId()),
+                List.of(new ProjectResourceSnapshot(
+                    projectId + "-texture",
+                    "Texture",
+                    ResourceKind.IMAGE,
+                    Optional.of("textures/texture.png")
+                ))
+            ))
+        );
+    }
+
+    private static DocumentSnapshot modelDocument(final String projectId) {
+        final ParameterSnapshot parameter = new ParameterSnapshot(
+            "ParamA", "Parameter A", 1.0, 1.0, 0.0, 2.0, true, true
+        );
+        final ArtMeshSnapshot artMesh = new ArtMeshSnapshot(
+            projectId + "-mesh", "ArtMesh", Optional.of(projectId + "-texture"), true, true
+        );
+        final DeformerSnapshot deformer = new DeformerSnapshot(
+            projectId + "-deformer", "Root Deformer", DeformerType.ROOT, Optional.empty(), List.of()
+        );
+        final ModelSnapshot model = new ModelSnapshot(
+            projectId + "-model",
+            "Model",
+            List.of(parameter, artMesh, deformer),
+            List.of(parameter),
+            List.of(artMesh),
+            List.of(deformer)
+        );
+        return new DocumentSnapshot(
+            projectId + "-document",
+            "Model",
+            "models/" + projectId + ".cmo3",
+            Optional.empty(),
+            Optional.of(model),
+            DocumentKind.MODEL,
+            Optional.of(projectId + "-content"),
+            Optional.empty()
+        );
+    }
+
     private static RuntimeHostAdapters adapters(
         final String projectId,
         final AtomicInteger clipOperations
@@ -561,12 +753,10 @@ class HostSessionPluginContextIntegrationTest {
                 @Override public String hostVersion() { return "5.3.02"; }
                 @Override public boolean supportsProjectWorkspaceRead() { return true; }
                 @Override public Optional<ProjectSnapshot> activeProject() {
-                    return Optional.of(new ProjectSnapshot(
-                        projectId,
-                        "Demo",
-                        Optional.empty(),
-                        List.of()
-                    ));
+                    return Optional.of(projectSnapshot(projectId));
+                }
+                @Override public Optional<dev.turboism.sdk.cubism.DocumentSnapshot> activeDocument() {
+                    return Optional.of(modelDocument(projectId));
                 }
                 @Override public Optional<WorkspaceSnapshot> workspace() {
                     return Optional.of(new WorkspaceSnapshot(

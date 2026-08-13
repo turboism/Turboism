@@ -33,7 +33,7 @@ class VerifiedHostAdapterConnectorEditorModelTest {
                 observed.set(slice);
                 return resolver;
             },
-            (verified, sessionId) -> () -> {
+            (verified, sessionId, core) -> () -> {
                 throw new IllegalStateException(sessionId);
             }
         );
@@ -59,6 +59,40 @@ class VerifiedHostAdapterConnectorEditorModelTest {
     }
 
     @Test
+    void leavesTextureAtlasProviderUnavailableUntilExact52SelectorsAreAdmitted() throws Exception {
+        final RuntimeHostAdapters adapters = RuntimeHostAdapters.safeMode();
+        final VerifiedMemberResolver resolver =
+            dev.turboism.mapping.verification.TestVerifiedResolvers.create(
+                "5.2.0",
+                EditorModelVerificationManifest.ADAPTER_SLICE_ID,
+                java.util.Set.of("cubism.editor-model.read"),
+                java.util.List.of(dev.turboism.mapping.verification.StaticSelector.classSelector(
+                    "fixture.class", getClass().getName().replace('.', '/')
+                )),
+                getClass().getClassLoader()
+            );
+        final VerifiedHostAdapterConnector connector = new VerifiedHostAdapterConnector(
+            ignored -> adapters,
+            ignored -> resolver,
+            (verified, sessionId, core) -> () -> { throw new IllegalStateException(sessionId); }
+        );
+        final HostVerificationEvidence.Slice project = slice("project");
+        final HostVerificationEvidence.Slice editor = slice("editor");
+
+        final HostAdapterConnection connection = connector.connect(new HostInstanceDescriptor(
+            "session-52",
+            new HostVerificationEvidence(
+                project,
+                Optional.empty(),
+                Optional.of(editor),
+                Optional.empty()
+            )
+        ));
+
+        assertEquals(Optional.empty(), connection.textureAtlasLayoutProvider());
+    }
+
+    @Test
     void optionalOverlayVerificationFailureDoesNotRejectVerifiedCoreHost() throws Exception {
         RuntimeHostAdapters adapters = RuntimeHostAdapters.safeMode();
         VerifiedMemberResolver resolver = dev.turboism.mapping.verification.TestVerifiedResolvers.create(
@@ -73,7 +107,7 @@ class VerifiedHostAdapterConnectorEditorModelTest {
         VerifiedHostAdapterConnector connector = new VerifiedHostAdapterConnector(
             ignored -> adapters,
             ignored -> resolver,
-            (verified, sessionId) -> () -> { throw new IllegalStateException(sessionId); },
+            (verified, sessionId, core) -> () -> { throw new IllegalStateException(sessionId); },
             null,
             null,
             ignored -> { throw new IllegalArgumentException("optional overlay selector missing"); },
@@ -81,7 +115,8 @@ class VerifiedHostAdapterConnectorEditorModelTest {
             new dev.turboism.ui.action.RuntimeEditorUiActionRouter(),
             new dev.turboism.ui.panel.RuntimeEmbeddedPanelActivationCoordinator(),
             null,
-            new dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator()
+            new dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator(),
+            ignored -> new dev.turboism.ui.appearance.UnavailableAppearanceHostProvider()
         );
         HostVerificationEvidence.Slice project = slice("project");
         HostVerificationEvidence.Slice editor = slice("editor");
