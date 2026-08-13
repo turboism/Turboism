@@ -241,6 +241,28 @@ tasks.register<Exec>("validateStatusBarHost5302") {
     commandLine("bash", "scripts/preview/run-status-bar-host-validation.sh", "5302")
 }
 
+val buildFpsHostProbe by tasks.registering(Exec::class) {
+    group = "host verification"
+    description = "Builds the test-only SDK FPS counting host exerciser."
+    dependsOn(":sdk:jar")
+    workingDir(rootDir)
+    commandLine("bash", "validation/fps-host-probe/build.sh")
+}
+
+fun registerFpsHostValidation(name: String, version: String) {
+    tasks.register<Exec>(name) {
+        group = "host verification"
+        description = "Runs the automated exact-host Cubism $version FPS counting session."
+        dependsOn("previewBundle", ":sdk:jar", buildFpsHostProbe)
+        workingDir(rootDir)
+        environment("TURBOISM_WORKTREE_ID", resolvedHostValidationWorktreeId)
+        commandLine("bash", "scripts/preview/run-fps-host-validation.sh", version)
+    }
+}
+
+registerFpsHostValidation("validateFpsHost5203", "5203")
+registerFpsHostValidation("validateFpsHost5302", "5302")
+
 val buildSeparateSavePathHostProbe by tasks.registering(Exec::class) {
     group = "host verification"
     description = "Builds the test-only SDK separate-save-path host exerciser."
