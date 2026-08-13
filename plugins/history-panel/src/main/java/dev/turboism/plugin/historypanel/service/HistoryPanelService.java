@@ -135,19 +135,8 @@ public final class HistoryPanelService {
             ));
         }
         final List<PanelView> children = new ArrayList<>();
-        children.add(PanelView.row(
-            PanelView.button(
-                "history.panel.undo",
-                localization.text("history.panel.undo"),
-                "history.undo"
-            ),
-            PanelView.button(
-                "history.panel.redo",
-                localization.text("history.panel.redo"),
-                "history.redo"
-            ),
-            PanelView.text(statusLine(snapshot))
-        ));
+        // Top bar carries the status line only; no undo/redo buttons.
+        children.add(PanelView.text(statusLine(snapshot)));
         children.add(PanelView.separator());
         for (final HistoryEntry entry : snapshot.entries()) {
             children.add(renderEntry(snapshot.position(), entry));
@@ -174,21 +163,19 @@ public final class HistoryPanelService {
     }
 
     private PanelView renderEntry(final int cursor, final HistoryEntry entry) {
-        final String marker = entry.index() == cursor
-            ? localization.text("history.entry.cursor-marker") + " "
-            : "  ";
         final String label = (entry.index() + 1) + " " + entry.label();
         final String detail = detail(entry);
-        // PS-style: the row is clickable and jumps to that history state.
-        // Entries beyond the cursor are undone/redo entries -> grayed.
-        final boolean grayed = entry.index() >= cursor;
-        return PanelView.column(
-            PanelView.button(
-                "history.entry.move." + entry.index(),
-                marker + label,
+        // Checkbox on the left: checked when the action is applied (undoable),
+        // unchecked when it was undone and can be redone.
+        final boolean applied = entry.index() < cursor;
+        return PanelView.row(
+            PanelView.toggle(
+                "history.entry.toggle." + entry.index(),
+                label,
+                applied,
                 "history.entry.move." + entry.index()
             ),
-            PanelView.text("    " + detail, grayed)
+            PanelView.text("    " + detail, !applied)
         );
     }
 
