@@ -133,14 +133,24 @@ public final class HistoryPanelPlugin implements TurboismPlugin {
         if (snapshot.availability() != dev.turboism.sdk.cubism.history.HistorySnapshot.Availability.AVAILABLE) {
             return;
         }
-        final long generation = snapshot.generation();
-        final long revision = snapshot.revision();
         for (final dev.turboism.sdk.cubism.history.HistoryEntry entry : snapshot.entries()) {
             final String actionId = "history.entry.move." + entry.index();
-            final int target = entry.index();
-            moveActions.add(registerAction(actionId, entry.label(), ignored ->
-                context.cubism().history().moveTo(generation, revision, target)
-            ));
+            final int index = entry.index();
+            moveActions.add(registerAction(actionId, entry.label(), ignored -> {
+                // Checkbox interaction: unchecking an applied entry undoes back
+                // to it; re-checking an undone entry redoes forward past it.
+                final dev.turboism.sdk.cubism.history.HistorySnapshot current =
+                    context.cubism().history().snapshot();
+                if (current.availability()
+                    != dev.turboism.sdk.cubism.history.HistorySnapshot.Availability.AVAILABLE) {
+                    return;
+                }
+                if (index < current.position()) {
+                    context.cubism().history().undo(current.position() - index);
+                } else {
+                    context.cubism().history().redo(index - current.position() + 1);
+                }
+            }));
         }
     }
 

@@ -63,8 +63,9 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
             HistorySnapshot history = context.cubism().history().snapshot();
             Thread.sleep(5_000L);
 
-            // Production move is fail-closed by design: assert it reports UNAVAILABLE
-            // and never mutates the document on the exact host.
+            // Production move is authorized on the exact host: moving to
+            // position 1 must restore the first write's value and keep the
+            // redo tail available.
             final HistoryMoveResult attempted = context.cubism().history().moveTo(
                 history.generation(), history.revision(), 1
             );
@@ -88,9 +89,9 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
 
             final boolean passed = history.availability() == HistorySnapshot.Availability.AVAILABLE
                 && history.position() == 3 && history.entries().size() == 3
-                && attempted.outcome() == HistoryMoveResult.Outcome.UNAVAILABLE
+                && attempted.outcome() == HistoryMoveResult.Outcome.MOVED
                 && attempted.snapshot().availability() == HistorySnapshot.Availability.AVAILABLE
-                && same(afterAttempt, third) && same(restored, before)
+                && same(afterAttempt, first) && same(restored, before)
                 && detailsPassed;
             write(artifact,
                 "status=" + (passed ? "PASS" : "FAIL") + "\n"
