@@ -69,9 +69,13 @@ public final class SwingPanelViewRenderer {
             return component;
         }
         if (view instanceof PanelView.Text text) {
-            // JLabel rendering (main baseline) with grayed support for the
-            // history-panel redo entries; word wrap stays a future enhancement.
-            final JLabel label = new JLabel(text.value());
+            // JLabel with HTML so long values wrap; centered variant aligns
+            // the text in the middle of its region (e.g. the panel header).
+            final String escaped = htmlEscape(text.value());
+            final String html = text.centered()
+                ? "<html><div style='text-align:center'>" + escaped + "</div></html>"
+                : "<html>" + escaped + "</html>";
+            final JLabel label = new JLabel(html);
             if (text.grayed()) {
                 final java.awt.Color grayed = javax.swing.UIManager.getColor("Label.disabledForeground");
                 label.setForeground(grayed == null ? new java.awt.Color(0x999999) : grayed);
@@ -188,11 +192,15 @@ public final class SwingPanelViewRenderer {
             panel.add(child);
             if (index + 1 < children.size()) {
                 panel.add(axis == BoxLayout.X_AXIS
-                    ? Box.createHorizontalStrut(8)
-                    : Box.createVerticalStrut(8));
+                    ? Box.createHorizontalStrut(2)
+                    : Box.createVerticalStrut(2));
             }
         }
         return panel;
+    }
+
+    private static String htmlEscape(final String value) {
+        return value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
     }
 
     private static JPanel labelled(final String label, final JComponent control) {
