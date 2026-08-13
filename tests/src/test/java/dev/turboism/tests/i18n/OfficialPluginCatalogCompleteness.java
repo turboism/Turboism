@@ -57,6 +57,7 @@ final class OfficialPluginCatalogCompleteness {
         "theme.detail.url",
         "texture-atlas.algorithm.maxrects",
         "chart.cpu.title",
+        "history.entry.cursor-marker",
         "chart.cpu.series",
         "series.cpu",
         "status.cpu.label",

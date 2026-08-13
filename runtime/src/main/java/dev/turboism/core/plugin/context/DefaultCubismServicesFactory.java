@@ -84,7 +84,8 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
             new dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorithmRegistry(),
             dev.turboism.adapter.cubism.command.EditorCommandAdapter.unavailable(),
             dev.turboism.adapter.cubism.command.EditorFileCommandResolver.unavailable(),
-            hostAdapters.autoBackup()
+            hostAdapters.autoBackup(),
+            CubismHistory.unavailable()
         );
     }
 
@@ -105,7 +106,8 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
         final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorithmRegistry textureAtlasAlgorithms,
         final dev.turboism.adapter.cubism.command.EditorCommandAdapter editorCommands,
         final dev.turboism.adapter.cubism.command.EditorFileCommandResolver editorFiles,
-        final AutoBackupAdapter autoBackup
+        final AutoBackupAdapter autoBackup,
+        final CubismHistory history
     ) {
         this.hostAdapters = java.util.Objects.requireNonNull(hostAdapters, "hostAdapters");
         this.modelAccess = java.util.Objects.requireNonNull(modelAccess, "modelAccess");
@@ -138,6 +140,7 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
         this.editorCommands = java.util.Objects.requireNonNull(editorCommands, "editorCommands");
         this.editorFiles = java.util.Objects.requireNonNull(editorFiles, "editorFiles");
         this.autoBackup = java.util.Objects.requireNonNull(autoBackup, "autoBackup");
+        this.history = java.util.Objects.requireNonNull(history, "history");
     }
 
     /** Wiring seam for tests: the adapter this factory forwards to the backup coordinator. */
@@ -154,8 +157,26 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
         final PhysicsEditorCoordinator physicsEditorCoordinator,
         final CubismHistory history
     ) {
-        this(hostAdapters, modelAccess, parameterLifecycle, partLifecycle, editorObjectLifecycle, physicsEditorCoordinator);
-        this.history = java.util.Objects.requireNonNull(history, "history");
+        this(
+            hostAdapters,
+            modelAccess,
+            UNAVAILABLE_CORE_RUNTIME,
+            parameterLifecycle,
+            partLifecycle,
+            editorObjectLifecycle,
+            physicsEditorCoordinator,
+            PluginScopedCubismModelAccess.appearanceSource(hostAdapters.projectWorkspace(), UNAVAILABLE_MODEL_ACCESS),
+            new PaletteAppearanceCoordinator(),
+            new TextureAtlasLayoutCoordinator(),
+            new dev.turboism.adapter.cubism.textureatlas.TextureAtlasNativeInvocationCoordinator(),
+            new dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi(),
+            dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorSession.unavailable(),
+            new dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorithmRegistry(),
+            dev.turboism.adapter.cubism.command.EditorCommandAdapter.unavailable(),
+            dev.turboism.adapter.cubism.command.EditorFileCommandResolver.unavailable(),
+            hostAdapters.autoBackup(),
+            history
+        );
     }
 
     @Override

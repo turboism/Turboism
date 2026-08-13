@@ -271,7 +271,6 @@ public final class CorePluginContext implements PluginContext {
             hostAccess.partLifecycle(),
             hostAccess.editorObjectLifecycle(),
             hostAccess.physicsEditorCoordinator(),
-            hostAccess.history(),
             hostAccess.modelAppearanceSource(),
             hostAccess.paletteAppearanceCoordinator(),
             hostAccess.textureAtlasLayouts(),
@@ -283,7 +282,8 @@ public final class CorePluginContext implements PluginContext {
             userFiles instanceof dev.turboism.adapter.cubism.command.EditorFileCommandResolver resolver
                 ? resolver
                 : dev.turboism.adapter.cubism.command.EditorFileCommandResolver.unavailable(),
-            hostAccess.adapters().autoBackup()
+            hostAccess.adapters().autoBackup(),
+            hostAccess.history()
         );
     }
 

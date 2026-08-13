@@ -379,6 +379,8 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     @Override
     public dev.turboism.sdk.cubism.history.CubismHistory history() {
         return history;
+    }
+
     public HostSnapshotSource modelAppearanceSource() {
         return modelAppearanceSource;
     }
@@ -574,6 +576,9 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             } catch (IllegalStateException unavailable) {
                 return java.util.Optional.empty();
             }
+        }
+    }
+
     public dev.turboism.adapter.cubism.textureatlas.TextureAtlasDataModelCapture
         textureAtlasDataModelCapture() {
         synchronized (lifecycleMonitor) {
