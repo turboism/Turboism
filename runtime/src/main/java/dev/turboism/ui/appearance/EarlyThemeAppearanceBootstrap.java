@@ -58,14 +58,18 @@ public final class EarlyThemeAppearanceBootstrap {
 
     private void run() {
         try {
-            if (!waitForFlatLaf()) {
-                return;
-            }
-            SwingFlatLafHostOperations.captureNativeOffCanvasBackground();
+            // Validate the persisted selection before any Swing/EDT/UIManager
+            // dependency: an empty, stale, invalid or missing selection must
+            // return without waiting for FlatLaf or touching the native
+            // off-canvas background.
             final Optional<Map<String, String>> colors = loadPersistedThemeColors();
             if (colors.isEmpty()) {
                 return;
             }
+            if (!waitForFlatLaf()) {
+                return;
+            }
+            SwingFlatLafHostOperations.captureNativeOffCanvasBackground();
             inject(colors.orElseThrow());
             injected.run();
         } catch (RuntimeException failure) {
@@ -73,12 +77,14 @@ public final class EarlyThemeAppearanceBootstrap {
         }
     }
 
-    private boolean waitForFlatLaf() {
+    boolean waitForFlatLaf() {
         final long deadline = System.currentTimeMillis() + LOOK_AND_FEEL_TIMEOUT_MILLIS;
         while (System.currentTimeMillis() < deadline) {
             try {
-                final Object lookAndFeel = UIManager.getLookAndFeel();
-                if (lookAndFeel != null && isFlatLaf(lookAndFeel.getClass().getName())) {
+                if (SwingFlatLafHostOperations.onEdt(() -> {
+                    final Object lookAndFeel = UIManager.getLookAndFeel();
+                    return lookAndFeel != null && isFlatLaf(lookAndFeel.getClass().getName());
+                })) {
                     return true;
                 }
             } catch (RuntimeException ignored) {

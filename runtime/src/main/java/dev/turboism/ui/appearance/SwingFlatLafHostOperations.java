@@ -23,12 +23,16 @@ public final class SwingFlatLafHostOperations implements FlatLafAppearanceHostPr
     public SwingFlatLafHostOperations(final ClassLoader hostClassLoader) {
         this.hostClassLoader = Objects.requireNonNull(hostClassLoader, "hostClassLoader");
         this.ownedKeys = FlatLafAppearanceHostProvider.ownedKeys();
-        captureNativeOffCanvasBackgroundNow();
     }
 
     @Override
     public Map<String, String> capture() {
+        // Deferred native off-canvas capture: the constructor stays free of
+        // Swing/EDT/UIManager access, so the one-shot capture runs at the first
+        // restore-point capture (where Cubism has settled) instead of during
+        // provider connection.
         return onEdt(() -> {
+            captureNativeOffCanvasBackgroundNow();
             final LinkedHashMap<String, String> captured = new LinkedHashMap<>();
             for (String key : ownedKeys) {
                 final Object value = UIManager.getDefaults().get(key);
@@ -56,21 +60,36 @@ public final class SwingFlatLafHostOperations implements FlatLafAppearanceHostPr
         captureNativeOffCanvasBackground(true);
     }
 
-    /** One-shot capture for the runtime provider path, where Cubism has settled. */
+    /**
+     * One-shot capture for the runtime provider path, where Cubism has settled:
+     * exactly one source read (unless the native value is already captured),
+     * stored as a {@code ColorUIResource} without overwriting an existing value.
+     */
     static void captureNativeOffCanvasBackgroundNow() {
         captureNativeOffCanvasBackground(false);
     }
 
     private static void captureNativeOffCanvasBackground(final boolean poll) {
-        if (UIManager.get(NATIVE_OFF_CANVAS_BACKGROUND) != null) {
+        // Never overwrite a native value the early-theme bootstrap already captured.
+        if (onEdt(() -> UIManager.get(NATIVE_OFF_CANVAS_BACKGROUND) != null)) {
             return;
         }
-        final long deadline = System.currentTimeMillis()
-            + (poll ? NATIVE_CAPTURE_TIMEOUT_MILLIS : 0L);
-        while (System.currentTimeMillis() < deadline) {
+        final java.util.function.Supplier<Boolean> readOnce = () -> onEdt(() -> {
             final Object value = UIManager.get(OFF_CANVAS_BACKGROUND);
             if (value instanceof Color color) {
                 UIManager.put(NATIVE_OFF_CANVAS_BACKGROUND, new ColorUIResource(color));
+                return true;
+            }
+            return false;
+        });
+        if (!poll) {
+            // One-shot capture: exactly one source read, no sleeping.
+            readOnce.get();
+            return;
+        }
+        final long deadline = System.currentTimeMillis() + NATIVE_CAPTURE_TIMEOUT_MILLIS;
+        while (System.currentTimeMillis() < deadline) {
+            if (readOnce.get()) {
                 return;
             }
             try {
@@ -182,7 +201,7 @@ public final class SwingFlatLafHostOperations implements FlatLafAppearanceHostPr
         return String.format("#%02X%02X%02X", color.getRed(), color.getGreen(), color.getBlue());
     }
 
-    private static <T> T onEdt(final java.util.concurrent.Callable<T> task) {
+    static <T> T onEdt(final java.util.concurrent.Callable<T> task) {
         if (SwingUtilities.isEventDispatchThread()) {
             return call(task);
         }
