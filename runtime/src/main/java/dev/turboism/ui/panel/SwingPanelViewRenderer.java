@@ -137,9 +137,11 @@ public final class SwingPanelViewRenderer {
         }
         if (view instanceof PanelView.Scroll scroll) {
             return new JScrollPane(
-                renderNode(scroll.child(), action),
+                renderNode(scroll.child(), action, false, locale),
                 JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,
                 JScrollPane.HORIZONTAL_SCROLLBAR_NEVER
+            );
+        }
 
         if (view instanceof PanelView.CollapsibleSection section) {
             // A section holding exactly one chart already carries the chart
