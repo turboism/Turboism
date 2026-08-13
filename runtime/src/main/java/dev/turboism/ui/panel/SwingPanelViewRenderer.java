@@ -124,6 +124,10 @@ public final class SwingPanelViewRenderer {
         if (view instanceof PanelView.Toggle toggle) {
             final JCheckBox component = new JCheckBox(toggle.label(), toggle.selected());
             component.setName(toggle.id());
+            if (toggle.grayed()) {
+                final java.awt.Color grayed = javax.swing.UIManager.getColor("Label.disabledForeground");
+                component.setForeground(grayed == null ? new java.awt.Color(0x999999) : grayed);
+            }
             component.addActionListener(ignored -> action.accept(
                 toggle.actionId(),
                 Optional.of(UiActionEvent.toggle(toggle.id(), component.isSelected()))
