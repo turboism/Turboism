@@ -273,6 +273,8 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     @Override
     public CubismHistory history() {
         return history;
+    }
+
     public HostSnapshotSource modelAppearanceSource() {
         return modelAppearanceSource;
     }
