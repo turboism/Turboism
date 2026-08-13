@@ -29,7 +29,6 @@ import java.util.Optional;
 public final class HistoryPanelService {
 
     public static final String PANEL_ID = "history.panel";
-    public static final String PANEL_TITLE = "History";
     public static final String PANEL_PLACEMENT = "side";
     public static final int PANEL_PRIORITY = 50;
     public static final Duration POLL_DELAY = Duration.ofSeconds(1);
@@ -116,7 +115,13 @@ public final class HistoryPanelService {
             previous.close();
         }
         panel = uiHost.contributeEmbeddedPanel(
-            new EmbeddedPanelContribution(PANEL_ID, PANEL_TITLE, PANEL_PLACEMENT, PANEL_PRIORITY, content)
+            new EmbeddedPanelContribution(
+                PANEL_ID,
+                localization.text("history.panel.title"),
+                PANEL_PLACEMENT,
+                PANEL_PRIORITY,
+                content
+            )
         );
     }
 
@@ -135,9 +140,9 @@ public final class HistoryPanelService {
             ));
         }
         final List<PanelView> children = new ArrayList<>();
-        // Top bar carries only the entry count; no undo/redo buttons, no
-        // cursor/availability statistics.
-        children.add(PanelView.text(countLine(snapshot)));
+        // Top bar carries only the entry count (centered); no undo/redo
+        // buttons, no cursor/availability statistics.
+        children.add(PanelView.textCentered(countLine(snapshot)));
         children.add(PanelView.separator());
         for (final HistoryEntry entry : snapshot.entries()) {
             // Forked entries (neither undoable nor redoable) never appear in
