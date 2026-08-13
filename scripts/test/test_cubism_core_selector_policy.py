@@ -55,17 +55,17 @@ def main() -> int:
     packs = load_packs([PACK_52, PACK_53])
     validated, roster = validate_policy(policy, packs)
 
-    require(len(roster) == 71, "selector count drifted")
+    require(len(roster) == 75, "selector count drifted")
     require(
         validated["summary"]["selectorRosterSha256"]
-        == "c78708fe6953a9ce32928b95678d4abbeeb3e2aff2d42fafc5fce8ad02cd1579",
+        == "a0f14a73201282f50e6970181d2277ad2ce8fa9c121e7b45fc525bcaa474e699",
         "selector roster digest drifted",
     )
     require(
         validated["summary"]["versions"]
         == {
-            "5.2": {"entryCount": 69},
-            "5.3.02": {"entryCount": 70},
+            "5.2": {"entryCount": 72},
+            "5.3.02": {"entryCount": 74},
         },
         "selector profile counts drifted",
     )
@@ -77,6 +77,13 @@ def main() -> int:
         and repeat["descriptor"] == "()[Z",
         "5.3-only repeat selector drifted",
     )
+    render_orders = selector(roster, "MODEL_GET_RENDER_ORDERS")
+    require(
+        render_orders["alias"] == "cubism.core.model.get-render-orders"
+        and render_orders["profiles"] == ["5.3.02"]
+        and render_orders["descriptor"] == "()[I",
+        "5.3-only model render-order selector drifted",
+    )
     version = selector(roster, "GET_VERSION")
     require(
         version["role"] == "VERSION_PROBE"
@@ -84,7 +91,7 @@ def main() -> int:
         "version probe selector drifted",
     )
     require(
-        sum(entry["role"] == "VERSION_PROBE" for entry in roster) == 6,
+        sum(entry["role"] == "VERSION_PROBE" for entry in roster) == 9,
         "version probe selector count drifted",
     )
 
@@ -172,7 +179,7 @@ def main() -> int:
 
     print(
         "PASS: Cubism Core selector policy "
-        "(71 selectors, 69/70 profile entries, roster c78708fe)"
+        "(75 selectors, 72/74 profile entries, roster a0f14a73)"
     )
     return 0
 

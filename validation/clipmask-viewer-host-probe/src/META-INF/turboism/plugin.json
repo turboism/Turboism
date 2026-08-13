@@ -1,0 +1,60 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 2,
+  "id": "dev.turboism.validation.clipmask-viewer",
+  "name": "Clip Mask Viewer Host Validation Exerciser",
+  "version": "0.0.0",
+  "description": "Task-local exerciser for the clip-mask viewer's exact-host read path: clip-mask record matrix, selection bridge, plugin registration lifecycle, and status notification.",
+  "entrypoints": [
+    "dev.turboism.validation.clipmaskviewer.ClipMaskViewerHostValidationPlugin"
+  ],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    { "name": "Turboism Validation" }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": []
+  },
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.cubism.model.read",
+      "scope": "application",
+      "reason": "Reads clip-mask records, ArtMesh snapshots, and the editor selection on the exact host for validation evidence."
+    },
+    {
+      "id": "turboism.ui.panel.contribute",
+      "scope": "application",
+      "reason": "Contributes and closes a task-local collapsible section in the Turboism panel to validate the registration lifecycle."
+    },
+    {
+      "id": "turboism.action.register",
+      "scope": "application",
+      "reason": "Registers and closes a task-local action twice to validate the action registry lifecycle."
+    },
+    {
+      "id": "turboism.ui.menu.contribute",
+      "scope": "application",
+      "reason": "Registers and closes a task-local Turboism menu item to validate the menu registry lifecycle."
+    },
+    {
+      "id": "turboism.ui.status.notify",
+      "scope": "application",
+      "reason": "Reports probe completion through the status surface (best effort)."
+    }
+  ],
+  "capabilities": [
+    "cubism.clipmask.read",
+    "cubism.mesh.read",
+    "ui.embedded-panel.contribute",
+    "ui.status.notify"
+  ],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "embedded"
+  }
+}

@@ -1,5 +1,9 @@
 package dev.turboism.sdk.ui;
 
+import javax.imageio.ImageIO;
+
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
@@ -9,10 +13,13 @@ public sealed interface PanelView permits
     PanelView.Column,
     PanelView.Row,
     PanelView.Text,
+    PanelView.Image,
     PanelView.Button,
     PanelView.TextInput,
     PanelView.Select,
     PanelView.Toggle,
+    PanelView.Chart,
+    PanelView.CollapsibleSection,
     PanelView.Separator,
     PanelView.Scroll {
 
@@ -31,6 +38,10 @@ public sealed interface PanelView permits
     /** Text rendered in a grayed (disabled-looking) style, e.g. redo entries. */
     static Text text(final String value, final boolean grayed) {
         return new Text(value, grayed);
+    }
+
+    static Image image(final byte[] pngBytes, final String altText) {
+        return new Image(pngBytes, altText);
     }
 
     static Button button(final String id, final String label, final String actionId) {
@@ -78,6 +89,27 @@ public sealed interface PanelView permits
         return new Scroll(child);
     }
 
+    /**
+     * Declarative real-time line chart. Series display configuration (name,
+     * window size, unit, format) is declared here; the numeric values are
+     * injected by the runtime, which resolves live data by chart id.
+     */
+    static Chart chart(final String id, final String title, final SeriesSpec... series) {
+        return new Chart(id, title, List.of(series));
+    }
+
+    static SeriesSpec series(final String name, final int maxPoints, final String unit, final String format) {
+        return new SeriesSpec(name, maxPoints, unit, format);
+    }
+
+    static CollapsibleSection collapsibleSection(
+        final String title,
+        final boolean expandedByDefault,
+        final PanelView... children
+    ) {
+        return new CollapsibleSection(title, expandedByDefault, List.of(children));
+    }
+
     record Column(List<PanelView> children) implements PanelView {
         public Column {
             children = immutableChildren(children);
@@ -97,6 +129,47 @@ public sealed interface PanelView permits
 
         public Text(final String value) {
             this(value, false);
+        }
+    }
+
+    /**
+     * PNG image node (for example a recent-file preview thumbnail) with accessibility
+     * alt text. The runtime renders it as an image label sized to the decoded pixels.
+     */
+    record Image(byte[] pngBytes, String altText) implements PanelView {
+        private static final int MAX_PNG_BYTES = 1024 * 1024;
+        private static final byte[] PNG_SIGNATURE = {(byte) 137, 80, 78, 71, 13, 10, 26, 10};
+
+        public Image {
+            pngBytes = Objects.requireNonNull(pngBytes, "pngBytes").clone();
+            if (pngBytes.length == 0 || pngBytes.length > MAX_PNG_BYTES) {
+                throw new IllegalArgumentException("pngBytes must contain between 1 and 1048576 bytes");
+            }
+            if (!startsWithPngSignature(pngBytes)) {
+                throw new IllegalArgumentException("pngBytes must start with the PNG signature");
+            }
+            try {
+                final var decoded = ImageIO.read(new ByteArrayInputStream(pngBytes));
+                if (decoded == null || decoded.getWidth() < 1 || decoded.getHeight() < 1) {
+                    throw new IllegalArgumentException("pngBytes must be a readable PNG");
+                }
+            } catch (IOException failure) {
+                throw new IllegalArgumentException("pngBytes must be a readable PNG", failure);
+            }
+            altText = Objects.requireNonNull(altText, "altText");
+        }
+
+        @Override
+        public byte[] pngBytes() {
+            return pngBytes.clone();
+        }
+
+        private static boolean startsWithPngSignature(final byte[] value) {
+            if (value.length < PNG_SIGNATURE.length) return false;
+            for (int index = 0; index < PNG_SIGNATURE.length; index++) {
+                if (value[index] != PNG_SIGNATURE[index]) return false;
+            }
+            return true;
         }
     }
 
@@ -166,11 +239,51 @@ public sealed interface PanelView permits
         }
     }
 
+    record CollapsibleSection(
+        String title,
+        boolean expandedByDefault,
+        List<PanelView> children
+    ) implements PanelView {
+        public CollapsibleSection {
+            title = requireText(title, "title");
+            children = immutableChildren(children);
+        }
+    }
+
     record Separator() implements PanelView { }
 
     record Scroll(PanelView child) implements PanelView {
         public Scroll {
             child = Objects.requireNonNull(child, "child");
+        }
+    }
+
+    record Chart(String id, String title, List<SeriesSpec> series) implements PanelView {
+        public Chart {
+            id = requireText(id, "id");
+            title = requireText(title, "title");
+            series = List.copyOf(Objects.requireNonNull(series, "series"));
+            if (series.isEmpty()) {
+                throw new IllegalArgumentException("series must not be empty");
+            }
+            final HashSet<String> names = new HashSet<>();
+            for (SeriesSpec spec : series) {
+                Objects.requireNonNull(spec, "series entry");
+                if (!names.add(spec.name())) {
+                    throw new IllegalArgumentException("series names must be unique");
+                }
+            }
+        }
+    }
+
+    record SeriesSpec(String name, int maxPoints, String unit, String format) {
+        public SeriesSpec {
+            name = requireText(name, "name");
+            if (maxPoints < 2) {
+                throw new IllegalArgumentException("maxPoints must be at least 2");
+            }
+            unit = Objects.requireNonNull(unit, "unit");
+            format = Objects.requireNonNull(format, "format");
         }
     }
 

@@ -3,9 +3,13 @@ package dev.turboism.ui.panel;
 import dev.turboism.sdk.action.UiActionEvent;
 import dev.turboism.sdk.ui.PanelView;
 
+import javax.imageio.ImageIO;
+
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
+import javax.swing.Icon;
+import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
@@ -17,33 +21,52 @@ import javax.swing.JSeparator;
 import javax.swing.JTextField;
 import java.awt.BorderLayout;
 import java.awt.Component;
+import java.awt.Dimension;
+import java.io.ByteArrayInputStream;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.BiConsumer;
 
 /** Renders immutable SDK panel values into runtime-owned Swing components. */
-final class SwingPanelViewRenderer {
+public final class SwingPanelViewRenderer {
 
     private SwingPanelViewRenderer() { }
 
-    static JComponent render(
+    public static JComponent render(
         final PanelView view,
         final BiConsumer<String, Optional<UiActionEvent>> action
     ) {
         Objects.requireNonNull(view, "view");
         Objects.requireNonNull(action, "action");
-        return renderNode(view, action);
+        return renderNode(view, action, false, dev.turboism.i18n.CubismHostLocale.resolve());
+    }
+    public static JComponent render(
+        final PanelView view,
+        final BiConsumer<String, Optional<UiActionEvent>> action,
+        final java.util.Locale locale
+    ) {
+        Objects.requireNonNull(view, "view");
+        Objects.requireNonNull(action, "action");
+        return renderNode(view, action, false, locale);
     }
 
     private static JComponent renderNode(
         final PanelView view,
-        final BiConsumer<String, Optional<UiActionEvent>> action
+        final BiConsumer<String, Optional<UiActionEvent>> action,
+        final boolean chartTitleSuppressed,
+        final java.util.Locale locale
     ) {
         if (view instanceof PanelView.Column column) {
-            return container(column.children(), BoxLayout.Y_AXIS, action);
+            return container(column.children(), BoxLayout.Y_AXIS, action, chartTitleSuppressed, locale);
         }
         if (view instanceof PanelView.Row row) {
-            return container(row.children(), BoxLayout.X_AXIS, action);
+            return container(row.children(), BoxLayout.X_AXIS, action, chartTitleSuppressed, locale);
+        }
+
+        if (view instanceof PanelView.Chart chart) {
+            final ChartComponent component = new ChartComponent(chart, !chartTitleSuppressed);
+            component.setName(chart.id());
+            return component;
         }
         if (view instanceof PanelView.Text text) {
             final javax.swing.JTextArea area = new javax.swing.JTextArea(text.value());
@@ -59,6 +82,14 @@ final class SwingPanelViewRenderer {
                 area.setForeground(grayed == null ? new java.awt.Color(0x999999) : grayed);
             }
             return area;
+        }
+        if (view instanceof PanelView.Image image) {
+            final JLabel label = new JLabel();
+            label.setName("panel-image");
+            label.setIcon(icon(image.pngBytes()));
+            label.setToolTipText(image.altText());
+            label.setPreferredSize(new Dimension(label.getIcon().getIconWidth(), label.getIcon().getIconHeight()));
+            return label;
         }
         if (view instanceof PanelView.Button button) {
             final JButton component = new JButton(button.label());
@@ -109,6 +140,18 @@ final class SwingPanelViewRenderer {
                 renderNode(scroll.child(), action),
                 JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,
                 JScrollPane.HORIZONTAL_SCROLLBAR_NEVER
+
+        if (view instanceof PanelView.CollapsibleSection section) {
+            // A section holding exactly one chart already carries the chart
+            // label as its border title; suppress the duplicated inner title
+            // (runtime-private single-chart optimization, no SDK change).
+            final boolean singleChart = section.children().size() == 1
+                && section.children().get(0) instanceof PanelView.Chart;
+            return CollapsibleSection.create(
+                section.title(),
+                container(section.children(), BoxLayout.Y_AXIS, action, singleChart, locale),
+                section.expandedByDefault(),
+                locale
             );
         }
         if (view instanceof PanelView.Separator) {
@@ -117,15 +160,25 @@ final class SwingPanelViewRenderer {
         throw new IllegalArgumentException("unsupported panel view: " + view.getClass().getName());
     }
 
+    private static Icon icon(final byte[] pngBytes) {
+        try {
+            return new ImageIcon(ImageIO.read(new ByteArrayInputStream(pngBytes)));
+        } catch (Exception failure) {
+            throw new IllegalArgumentException("pngBytes must be a readable PNG", failure);
+        }
+    }
+
     private static JPanel container(
         final java.util.List<PanelView> children,
         final int axis,
-        final BiConsumer<String, Optional<UiActionEvent>> action
+        final BiConsumer<String, Optional<UiActionEvent>> action,
+        final boolean chartTitleSuppressed,
+        final java.util.Locale locale
     ) {
         final JPanel panel = new JPanel();
         panel.setLayout(new BoxLayout(panel, axis));
         for (int index = 0; index < children.size(); index++) {
-            final JComponent child = renderNode(children.get(index), action);
+            final JComponent child = renderNode(children.get(index), action, chartTitleSuppressed, locale);
             if (axis == BoxLayout.X_AXIS) {
                 child.setAlignmentY(Component.CENTER_ALIGNMENT);
             } else {

@@ -1,0 +1,43 @@
+@echo off
+setlocal EnableExtensions
+REM ============================================================================
+REM Disposable outer launcher for the exact-host Workspace validation run.
+REM
+REM Edit ONLY the five SET lines below. This launcher never modifies the Cubism
+REM installation, its BAT, its classpath, or its working directory: it sets the
+REM validation-specific JAVA_TOOL_OPTIONS and then CALLs the official
+REM CubismEditor5.bat with an isolated fixture copy. Do not start the JVM
+REM directly and do not point JAVA_TOOL_OPTIONS at anything outside this
+REM validation bundle.
+REM
+REM The official BAT is required to preserve the licensed classpath, native
+REM paths, working directory, and licensing flow of the exact version.
+REM ============================================================================
+
+REM Absolute path to the official launcher of the exact version under test.
+set "CUBISM_BAT=C:\Program Files\Live2D Cubism 5.2\CubismEditor5.bat"
+REM Change to "C:\Program Files\Live2D Cubism 5.3\CubismEditor5.bat" for 5.3.02.
+
+REM Absolute validation home (this bundle copied to a task-scoped directory).
+set "TURBOISM_HOME=Z:\path\to\workspace-validation"
+
+REM Absolute paths inside the validation home; keep these file names.
+set "PRODUCTION_AGENT=%TURBOISM_HOME%\turboism-agent.jar"
+set "VALIDATION_AGENT=%TURBOISM_HOME%\workspace-validation-agent.jar"
+
+REM Absolute path to the ISOLATED COPY of the fixture model opened for this run.
+set "FIXTURE=%TURBOISM_HOME%\fixture.cmo3"
+
+set "JAVA_TOOL_OPTIONS=--add-exports=java.base/jdk.internal.org.objectweb.asm=ALL-UNNAMED --add-exports=java.base/jdk.internal.org.objectweb.asm.commons=ALL-UNNAMED -Dturboism.home=%TURBOISM_HOME% -javaagent:%PRODUCTION_AGENT%=home=%TURBOISM_HOME%;timeoutSeconds=180 -javaagent:%VALIDATION_AGENT%=home=%TURBOISM_HOME%;timeoutSeconds=180"
+
+call "%CUBISM_BAT%" "%FIXTURE%"
+set "EXIT_CODE=%ERRORLEVEL%"
+
+if not "%EXIT_CODE%"=="0" (
+  echo.
+  echo [Turboism] Validation run ended with exit code %EXIT_CODE%.
+  echo [Turboism] Check %TURBOISM_HOME%\logs\turboism.log and
+  echo [Turboism] %TURBOISM_HOME%\state\validation-agent.txt.
+)
+
+exit /b %EXIT_CODE%

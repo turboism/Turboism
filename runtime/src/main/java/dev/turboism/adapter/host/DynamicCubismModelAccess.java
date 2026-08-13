@@ -2,6 +2,7 @@ package dev.turboism.adapter.host;
 
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.DeformerId;
+import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.sdk.cubism.model.Canvas;
@@ -28,27 +29,76 @@ import dev.turboism.sdk.cubism.model.Parameters;
 import dev.turboism.sdk.cubism.model.Part;
 import dev.turboism.sdk.cubism.model.PartId;
 import dev.turboism.sdk.cubism.model.Parts;
+import dev.turboism.adapter.cubism.NativeLabelColorAuthoring;
+import dev.turboism.adapter.cubism.NativeLabelColorTarget;
+import dev.turboism.sdk.ui.appearance.model.DeformerAppearance;
+import dev.turboism.sdk.ui.appearance.model.DrawableAppearance;
+import dev.turboism.sdk.ui.appearance.model.ParameterAppearance;
+import dev.turboism.sdk.ui.appearance.model.ParameterGroupAppearance;
+import dev.turboism.sdk.ui.appearance.model.PartAppearance;
+import dev.turboism.sdk.ui.appearance.NativeLabelColor;
+import dev.turboism.sdk.ui.appearance.NativeLabelColorState;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Function;
 
 /** Stable plugin-facing model access whose delegate follows one HostSession connection. */
-final class DynamicCubismModelAccess implements CubismModelAccess {
+final class DynamicCubismModelAccess implements CubismModelAccess,
+    NativeLabelColorAuthoring {
 
     private final Object callGate = new Object();
     private CubismModelAccess current = UnavailableCubismModelAccess.INSTANCE;
     private boolean acceptingCalls;
     private long generation;
     private int inFlight;
+    private dev.turboism.ui.appearance.control.RuntimeModelAppearanceAccess appearanceAccess;
+
+    void attachAppearanceAccess(
+        final dev.turboism.ui.appearance.control.RuntimeModelAppearanceAccess appearanceAccess
+    ) {
+        synchronized (callGate) {
+            if (this.appearanceAccess != null || acceptingCalls || generation != 0) {
+                throw new IllegalStateException("Model appearance access is already bound.");
+            }
+            this.appearanceAccess = Objects.requireNonNull(appearanceAccess, "appearanceAccess");
+        }
+    }
+
+    long generation() {
+        synchronized (callGate) {
+            return generation;
+        }
+    }
+
+    long modelGeneration() {
+        synchronized (callGate) {
+            if (current instanceof DynamicCubismModelAccess nested && nested != this) {
+                return nested.generation();
+            }
+            return generation;
+        }
+    }
+
+    private static long modelGeneration(
+        final CubismModelAccess modelAccess,
+        final long fallback
+    ) {
+        return modelAccess instanceof DynamicCubismModelAccess nested
+            ? nested.generation()
+            : fallback;
+    }
 
     @Override
     public CubismModel active() {
         final AccessLease lease = acquireActiveLease();
         try {
+            final CubismModel model = Objects.requireNonNull(lease.modelAccess().active(), "active model");
             return new SessionModel(
                 lease.generation(),
-                Objects.requireNonNull(lease.modelAccess().active(), "active model")
+                modelGeneration(lease.modelAccess(), lease.generation()),
+                Objects.requireNonNull(model.id(), "active model id"),
+                model
             );
         } finally {
             release(lease);
@@ -145,16 +195,76 @@ final class DynamicCubismModelAccess implements CubismModelAccess {
     private final class SessionModel implements CubismModel {
 
         private final long generation;
+        private final long modelGeneration;
+        private final ModelId modelId;
         private final CubismModel delegate;
 
-        private SessionModel(final long generation, final CubismModel delegate) {
+        private SessionModel(
+            final long generation,
+            final long modelGeneration,
+            final ModelId modelId,
+            final CubismModel delegate
+        ) {
             this.generation = generation;
+            this.modelGeneration = modelGeneration;
+            this.modelId = Objects.requireNonNull(modelId, "modelId");
             this.delegate = Objects.requireNonNull(delegate, "delegate");
         }
 
         @Override
         public dev.turboism.sdk.cubism.id.ModelId id() {
             return current(generation, CubismModel::id, delegate);
+        }
+
+        @Override public String name() {
+            return current(generation, CubismModel::name, delegate);
+        }
+        @Override public void setName(final String name) {
+            guardedVoid(generation, () -> delegate.setName(name));
+        }
+        @Override public List<dev.turboism.sdk.cubism.model.ModelInstance> modelInstances() {
+            return current(generation, CubismModel::modelInstances, delegate);
+        }
+        @Override public java.util.Optional<dev.turboism.sdk.cubism.model.ModelInstance> currentModelInstance() {
+            return current(generation, CubismModel::currentModelInstance, delegate);
+        }
+        @Override public boolean modelEditing() {
+            return current(generation, CubismModel::modelEditing, delegate);
+        }
+        @Override public dev.turboism.sdk.cubism.core.MocInfo mocInfo() {
+            return current(generation, CubismModel::mocInfo, delegate);
+        }
+        @Override public dev.turboism.sdk.cubism.model.ParameterDefinitions parameterDefinitions() {
+            return new SessionParameterDefinitions(
+                generation,
+                current(generation, CubismModel::parameterDefinitions, delegate)
+            );
+        }
+        @Override public dev.turboism.sdk.cubism.model.ModelStatistics statistics() {
+            return current(generation, CubismModel::statistics, delegate);
+        }
+
+        @Override public dev.turboism.sdk.cubism.model.ModelProfile profile() {
+            return current(generation, CubismModel::profile, delegate);
+        }
+
+        @Override public dev.turboism.sdk.cubism.model.PhysicsSettings physicsSettings() {
+            return current(generation, CubismModel::physicsSettings, delegate);
+        }
+
+        @Override public dev.turboism.sdk.cubism.model.AutoYure autoYure() {
+            return current(generation, CubismModel::autoYure, delegate);
+        }
+
+        @Override public List<dev.turboism.sdk.cubism.model.AnimationDocument> animationDocuments() {
+            return current(generation, CubismModel::animationDocuments, delegate);
+        }
+
+        @Override public dev.turboism.sdk.cubism.model.ModelTextures textures() {
+            return new SessionModelTextures(
+                generation,
+                current(generation, CubismModel::textures, delegate)
+            );
         }
 
         @Override
@@ -168,18 +278,31 @@ final class DynamicCubismModelAccess implements CubismModelAccess {
         }
 
         @Override
+        public dev.turboism.sdk.cubism.model.ModelEditLevel editLevel() {
+            return current(generation, CubismModel::editLevel, delegate);
+        }
+
+        @Override
+        public void setEditLevel(final dev.turboism.sdk.cubism.model.ModelEditLevel level) {
+            guardedVoid(generation, () -> delegate.setEditLevel(level));
+        }
+
+        @Override
         public Parameters parameters() {
-            return new SessionParameters(generation, current(
+            return new SessionParameters(
                 generation,
-                CubismModel::parameters,
-                delegate
-            ));
+                modelGeneration,
+                modelId,
+                current(generation, CubismModel::parameters, delegate)
+            );
         }
 
         @Override
         public ParameterGroups parameterGroups() {
             return new SessionParameterGroups(
                 generation,
+                modelGeneration,
+                modelId,
                 current(generation, CubismModel::parameterGroups, delegate)
             );
         }
@@ -245,6 +368,16 @@ final class DynamicCubismModelAccess implements CubismModelAccess {
                 ) {
                     guardedVoid(generation, () -> operations.transfer(plan));
                 }
+                @Override public void transferClamped(
+                    final dev.turboism.sdk.cubism.model.ParameterBindingTransferPlan plan
+                ) {
+                    guardedVoid(generation, () -> operations.transferClamped(plan));
+                }
+                @Override public void transferMorphClamped(
+                    final dev.turboism.sdk.cubism.model.ParameterBindingTransferPlan plan
+                ) {
+                    guardedVoid(generation, () -> operations.transferMorphClamped(plan));
+                }
             };
         }
 
@@ -255,13 +388,20 @@ final class DynamicCubismModelAccess implements CubismModelAccess {
 
         @Override
         public Parts parts() {
-            return new SessionParts(generation, current(generation, CubismModel::parts, delegate));
+            return new SessionParts(
+                generation,
+                modelGeneration,
+                modelId,
+                current(generation, CubismModel::parts, delegate)
+            );
         }
 
         @Override
         public Drawables drawables() {
             return new SessionDrawables(
                 generation,
+                modelGeneration,
+                modelId,
                 current(generation, CubismModel::drawables, delegate)
             );
         }
@@ -270,6 +410,8 @@ final class DynamicCubismModelAccess implements CubismModelAccess {
         public Deformers deformers() {
             return new SessionDeformers(
                 generation,
+                modelGeneration,
+                modelId,
                 current(generation, CubismModel::deformers, delegate)
             );
         }
@@ -301,6 +443,47 @@ final class DynamicCubismModelAccess implements CubismModelAccess {
         }
     }
 
+    private final class SessionModelTextures
+        implements dev.turboism.sdk.cubism.model.ModelTextures {
+        private final long generation;
+        private final dev.turboism.sdk.cubism.model.ModelTextures delegate;
+        private SessionModelTextures(
+            final long generation,
+            final dev.turboism.sdk.cubism.model.ModelTextures delegate
+        ) {
+            this.generation = generation;
+            this.delegate = Objects.requireNonNull(delegate, "delegate");
+        }
+        @Override public List<dev.turboism.sdk.cubism.model.RawTexture> rawImages() {
+            return guarded(generation, delegate::rawImages);
+        }
+        @Override public List<dev.turboism.sdk.cubism.model.ModelImageGroup> modelImageGroups() {
+            return guarded(generation, delegate::modelImageGroups);
+        }
+        @Override public List<dev.turboism.sdk.cubism.model.AtlasTexture> textureAtlases() {
+            return guarded(generation, delegate::textureAtlases);
+        }
+        @Override public void addModelImageGroup(final String name) {
+            guardedVoid(generation, () -> delegate.addModelImageGroup(name));
+        }
+        @Override public void removeModelImage(final dev.turboism.sdk.cubism.id.ModelImageId id) {
+            guardedVoid(generation, () -> delegate.removeModelImage(id));
+        }
+        @Override public dev.turboism.sdk.cubism.id.TextureAtlasId addTextureAtlas(
+            final String name,
+            final int widthPixels,
+            final int heightPixels
+        ) {
+            return guarded(generation, () -> delegate.addTextureAtlas(name, widthPixels, heightPixels));
+        }
+        @Override public void removeTextureAtlas(final dev.turboism.sdk.cubism.id.TextureAtlasId id) {
+            guardedVoid(generation, () -> delegate.removeTextureAtlas(id));
+        }
+        @Override public void removeRawImage(final dev.turboism.sdk.cubism.id.RawImageId id) {
+            guardedVoid(generation, () -> delegate.removeRawImage(id));
+        }
+    }
+
     private final class SessionCanvas implements Canvas {
         private final long generation;
         private final Canvas delegate;
@@ -315,19 +498,52 @@ final class DynamicCubismModelAccess implements CubismModelAccess {
         @Override public float pixelsPerUnit() { return guarded(generation, delegate::pixelsPerUnit); }
     }
 
+
+    private final class SessionParameterDefinitions
+        implements dev.turboism.sdk.cubism.model.ParameterDefinitions {
+        private final long generation;
+        private final dev.turboism.sdk.cubism.model.ParameterDefinitions delegate;
+        private SessionParameterDefinitions(
+            final long generation,
+            final dev.turboism.sdk.cubism.model.ParameterDefinitions delegate
+        ) {
+            this.generation = generation;
+            this.delegate = Objects.requireNonNull(delegate, "delegate");
+        }
+        @Override public List<dev.turboism.sdk.cubism.model.ParameterDefinition> all() {
+            return guarded(generation, delegate::all);
+        }
+        @Override public dev.turboism.sdk.cubism.model.ParameterDefinition find(
+            final dev.turboism.sdk.cubism.id.ParameterId id
+        ) {
+            return guarded(generation, () -> delegate.find(id));
+        }
+    }
+
     private final class SessionParameters implements Parameters {
         private final long generation;
+        private final long modelGeneration;
+        private final ModelId modelId;
         private final Parameters delegate;
 
-        private SessionParameters(final long generation, final Parameters delegate) {
+        private SessionParameters(
+            final long generation,
+            final long modelGeneration,
+            final ModelId modelId,
+            final Parameters delegate
+        ) {
             this.generation = generation;
+            this.modelGeneration = modelGeneration;
+            this.modelId = Objects.requireNonNull(modelId, "modelId");
             this.delegate = Objects.requireNonNull(delegate, "delegate");
         }
 
         @Override
         public List<Parameter> all() {
             return guarded(generation, () -> delegate.all().stream()
-                .map(value -> (Parameter) new SessionParameter(generation, value))
+                .map(value -> (Parameter) new SessionParameter(
+                    generation, modelGeneration, modelId, value
+                ))
                 .toList());
         }
 
@@ -335,59 +551,209 @@ final class DynamicCubismModelAccess implements CubismModelAccess {
         public Parameter find(final dev.turboism.sdk.cubism.id.ParameterId id) {
             return guarded(
                 generation,
-                () -> new SessionParameter(generation, delegate.find(id))
+                () -> new SessionParameter(
+                    generation, modelGeneration, modelId, delegate.find(id)
+                )
             );
+        }
+
+        @Override public Parameter create(
+            final dev.turboism.sdk.cubism.model.ParameterDefinition definition
+        ) {
+            return guarded(
+                generation,
+                () -> new SessionParameter(
+                    generation, modelGeneration, modelId, delegate.create(definition)
+                )
+            );
+        }
+
+        @Override public Parameter create(
+            final dev.turboism.sdk.cubism.model.ParameterDefinition definition,
+            final java.util.Optional<dev.turboism.sdk.cubism.id.ParameterGroupId> folderId
+        ) {
+            return guarded(
+                generation,
+                () -> new SessionParameter(
+                    generation, modelGeneration, modelId, delegate.create(definition, folderId)
+                )
+            );
+        }
+
+        @Override public Parameter copy(final dev.turboism.sdk.cubism.id.ParameterId id) {
+            return guarded(
+                generation,
+                () -> new SessionParameter(
+                    generation, modelGeneration, modelId, delegate.copy(id)
+                )
+            );
+        }
+
+        @Override public void remove(final dev.turboism.sdk.cubism.id.ParameterId id) {
+            guardedVoid(generation, () -> delegate.remove(id));
+        }
+
+        @Override public java.util.Optional<Parameter> findById(
+            final dev.turboism.sdk.cubism.id.ParameterId id
+        ) {
+            return guarded(
+                generation,
+                () -> delegate.findById(Objects.requireNonNull(id, "id"))
+                    .map(value -> (Parameter) new SessionParameter(
+                        generation, modelGeneration, modelId, value
+                    ))
+            );
+        }
+
+        @Override public java.util.Optional<Parameter> findById(final String id) {
+            return findById(new dev.turboism.sdk.cubism.id.ParameterId(
+                Objects.requireNonNull(id, "id")
+            ));
+        }
+
+        @Override public List<Parameter> findByName(final String name) {
+            Objects.requireNonNull(name, "name");
+            return filter(parameter -> parameter.name().filter(name::equals).isPresent());
+        }
+
+        @Override public List<Parameter> search(final String text) {
+            Objects.requireNonNull(text, "text");
+            final String query = text.toLowerCase(java.util.Locale.ROOT);
+            return filter(parameter ->
+                parameter.id().value().toLowerCase(java.util.Locale.ROOT).contains(query)
+                    || parameter.name()
+                        .map(value -> value.toLowerCase(java.util.Locale.ROOT).contains(query))
+                        .orElse(false)
+            );
+        }
+
+        @Override public List<Parameter> filter(
+            final java.util.function.Predicate<Parameter> predicate
+        ) {
+            Objects.requireNonNull(predicate, "predicate");
+            return guarded(generation, () -> all().stream().filter(predicate).toList());
+        }
+
+        @Override public List<Parameter> createMany(
+            final List<dev.turboism.sdk.cubism.model.ParameterDefinition> definitions
+        ) {
+            return createMany(definitions, java.util.Optional.empty());
+        }
+
+        @Override public List<Parameter> createMany(
+            final List<dev.turboism.sdk.cubism.model.ParameterDefinition> definitions,
+            final java.util.Optional<dev.turboism.sdk.cubism.id.ParameterGroupId> folderId
+        ) {
+            return guarded(
+                generation,
+                () -> delegate.createMany(definitions, folderId).stream()
+                    .map(value -> (Parameter) new SessionParameter(
+                        generation, modelGeneration, modelId, value
+                    ))
+                    .toList()
+            );
+        }
+
+        @Override public void removeMany(final List<dev.turboism.sdk.cubism.id.ParameterId> ids) {
+            guardedVoid(generation, () -> delegate.removeMany(ids));
         }
     }
 
     private final class SessionParameterGroups implements ParameterGroups {
         private final long generation;
+        private final long modelGeneration;
+        private final ModelId modelId;
         private final ParameterGroups delegate;
-        private SessionParameterGroups(final long generation, final ParameterGroups delegate) {
+
+        private SessionParameterGroups(
+            final long generation,
+            final long modelGeneration,
+            final ModelId modelId,
+            final ParameterGroups delegate
+        ) {
             this.generation = generation;
+            this.modelGeneration = modelGeneration;
+            this.modelId = Objects.requireNonNull(modelId, "modelId");
             this.delegate = Objects.requireNonNull(delegate, "delegate");
         }
         @Override public List<ParameterGroup> all() {
             return guarded(generation, () -> delegate.all().stream()
-                .map(value -> (ParameterGroup) new SessionParameterGroup(generation, value))
+                .map(value -> (ParameterGroup) new SessionParameterGroup(
+                    generation, modelGeneration, modelId, value
+                ))
                 .toList());
         }
+
         @Override public ParameterGroup root() {
             return guarded(
                 generation,
-                () -> new SessionParameterGroup(generation, delegate.root())
+                () -> new SessionParameterGroup(
+                    generation, modelGeneration, modelId, delegate.root()
+                )
             );
         }
+
         @Override public ParameterGroup find(
             final dev.turboism.sdk.cubism.id.ParameterGroupId id
         ) {
             return guarded(
                 generation,
-                () -> new SessionParameterGroup(generation, delegate.find(id))
+                () -> new SessionParameterGroup(
+                    generation, modelGeneration, modelId, delegate.find(id)
+                )
             );
+        }
+
+        @Override public ParameterGroup addGroup(final String name) {
+            return guarded(
+                generation,
+                () -> new SessionParameterGroup(
+                    generation, modelGeneration, modelId, delegate.addGroup(name)
+                )
+            );
+        }
+
+        @Override public void removeGroup(
+            final dev.turboism.sdk.cubism.id.ParameterGroupId id
+        ) {
+            guardedVoid(generation, () -> delegate.removeGroup(id));
+        }
+
+        @Override public void moveParameter(
+            final dev.turboism.sdk.cubism.id.ParameterId parameterId,
+            final dev.turboism.sdk.cubism.id.ParameterGroupId targetGroupId
+        ) {
+            guardedVoid(generation, () -> delegate.moveParameter(parameterId, targetGroupId));
         }
     }
 
     private final class SessionParameterGroup implements ParameterGroup {
         private final long generation;
+        private final long modelGeneration;
+        private final ModelId modelId;
         private final ParameterGroup delegate;
-        private SessionParameterGroup(final long generation, final ParameterGroup delegate) {
+
+        private SessionParameterGroup(
+            final long generation,
+            final long modelGeneration,
+            final ModelId modelId,
+            final ParameterGroup delegate
+        ) {
             this.generation = generation;
+            this.modelGeneration = modelGeneration;
+            this.modelId = Objects.requireNonNull(modelId, "modelId");
             this.delegate = Objects.requireNonNull(delegate, "delegate");
         }
         @Override public dev.turboism.sdk.cubism.id.ParameterGroupId id() {
             return guarded(generation, delegate::id);
         }
+
+        @Override public ParameterGroupAppearance ui() {
+            final dev.turboism.sdk.cubism.id.ParameterGroupId id = id();
+            return appearanceParameterGroup(modelId, id, modelGeneration);
+        }
         @Override public java.util.Optional<String> name() {
             return guarded(generation, delegate::name);
-        }
-        @Override public dev.turboism.sdk.cubism.model.Color labelColor() {
-            return guarded(generation, delegate::labelColor);
-        }
-        @Override public void setLabelColor(
-            final dev.turboism.sdk.cubism.model.Color color
-        ) {
-            guardedVoid(generation, () -> delegate.setLabelColor(color));
         }
         @Override public java.util.Optional<dev.turboism.sdk.cubism.id.ParameterGroupId> parentId() {
             return guarded(generation, delegate::parentId);
@@ -398,25 +764,51 @@ final class DynamicCubismModelAccess implements CubismModelAccess {
         @Override public List<dev.turboism.sdk.cubism.id.ParameterId> parameterIds() {
             return guarded(generation, delegate::parameterIds);
         }
+
+        @Override public void rename(final String name) {
+            guardedVoid(generation, () -> delegate.rename(name));
+        }
     }
 
     private final class SessionParameter implements Parameter {
         private final long generation;
+        private final long modelGeneration;
+        private final ModelId modelId;
         private final Parameter delegate;
 
-        private SessionParameter(final long generation, final Parameter delegate) {
+        private SessionParameter(
+            final long generation,
+            final long modelGeneration,
+            final ModelId modelId,
+            final Parameter delegate
+        ) {
             this.generation = generation;
+            this.modelGeneration = modelGeneration;
+            this.modelId = Objects.requireNonNull(modelId, "modelId");
             this.delegate = Objects.requireNonNull(delegate, "delegate");
         }
 
         @Override public dev.turboism.sdk.cubism.id.ParameterId id() {
             return guarded(generation, delegate::id);
         }
+
+        @Override public ParameterAppearance ui() {
+            final dev.turboism.sdk.cubism.id.ParameterId id = id();
+            return appearanceParameter(modelId, id, modelGeneration);
+        }
+
+        @Override public int index() { return guarded(generation, delegate::index); }
+        @Override public dev.turboism.sdk.cubism.model.FloatSequence keyValues() {
+            return new SessionFloatSequence(generation, guarded(generation, delegate::keyValues));
+        }
         @Override public java.util.Optional<String> name() {
             return guarded(generation, delegate::name);
         }
         @Override public dev.turboism.sdk.cubism.model.ParameterType type() {
             return guarded(generation, delegate::type);
+        }
+        @Override public boolean isBlendShape() {
+            return guarded(generation, delegate::isBlendShape);
         }
         @Override public java.util.Optional<Boolean> repeat() {
             return guarded(generation, delegate::repeat);
@@ -445,40 +837,247 @@ final class DynamicCubismModelAccess implements CubismModelAccess {
         @Override public void setValue(final float value) {
             guardedVoid(generation, () -> delegate.setValue(value));
         }
+        @Override public void resetToDefault() {
+            guardedVoid(generation, () -> delegate.resetToDefault());
+        }
         @Override public void updateDefinition(
             final dev.turboism.sdk.cubism.model.ParameterDefinition definition
         ) {
             guardedVoid(generation, () -> delegate.updateDefinition(definition));
         }
+
+    }
+    private Part unwrapPart(final long expectedGeneration, final Part value) {
+        if (value == null) return null;
+        if (!(value instanceof SessionPart wrapped)
+            || wrapped.generation != expectedGeneration) {
+            throw staleFailure();
+        }
+        return wrapped.delegate;
+    }
+
+    private Drawable unwrapDrawable(
+        final long expectedGeneration,
+        final Drawable value
+    ) {
+        if (!(value instanceof SessionDrawable wrapped)
+            || wrapped.generation != expectedGeneration) {
+            throw staleFailure();
+        }
+        return wrapped.delegate;
+    }
+
+    private Deformer unwrapDeformer(
+        final long expectedGeneration,
+        final Deformer value
+    ) {
+        if (value instanceof SessionDeformer wrapped
+            && wrapped.generation == expectedGeneration) {
+            return wrapped.delegate;
+        }
+        if (value instanceof SessionWarpDeformer wrapped
+            && wrapped.generation == expectedGeneration) {
+            return wrapped.delegate;
+        }
+        if (value instanceof SessionRotationDeformer wrapped
+            && wrapped.generation == expectedGeneration) {
+            return wrapped.delegate;
+        }
+        throw staleFailure();
     }
 
     private final class SessionParts implements Parts {
         private final long generation;
+        private final long modelGeneration;
+        private final ModelId modelId;
         private final Parts delegate;
-        private SessionParts(final long generation, final Parts delegate) {
+
+        private SessionParts(
+            final long generation,
+            final long modelGeneration,
+            final ModelId modelId,
+            final Parts delegate
+        ) {
             this.generation = generation;
+            this.modelGeneration = modelGeneration;
+            this.modelId = Objects.requireNonNull(modelId, "modelId");
             this.delegate = Objects.requireNonNull(delegate, "delegate");
         }
+
         @Override public List<Part> all() {
             return guarded(generation, () -> delegate.all().stream()
-                .map(value -> (Part) new SessionPart(generation, value)).toList());
+                .map(value -> (Part) new SessionPart(
+                    generation, modelGeneration, modelId, value
+                )).toList());
         }
+
         @Override public Part find(final PartId id) {
-            return guarded(generation, () -> new SessionPart(generation, delegate.find(id)));
+            return guarded(
+                generation,
+                () -> new SessionPart(
+                    generation, modelGeneration, modelId, delegate.find(id)
+                )
+            );
+        }
+
+        @Override public Part add(final PartId id) {
+            return guarded(
+                generation,
+                () -> new SessionPart(
+                    generation, modelGeneration, modelId, delegate.add(id)
+                )
+            );
+        }
+
+        @Override public Part add(final PartId id, final PartId parentId) {
+            return guarded(
+                generation,
+                () -> new SessionPart(
+                    generation, modelGeneration, modelId, delegate.add(id, parentId)
+                )
+            );
+        }
+
+        @Override public Part copy(final PartId id) {
+            return guarded(
+                generation,
+                () -> new SessionPart(
+                    generation, modelGeneration, modelId, delegate.copy(id)
+                )
+            );
+        }
+
+        @Override public void remove(final PartId id) {
+            guardedVoid(generation, () -> delegate.remove(id));
+        }
+
+        @Override public Part create(
+            final String name,
+            final Part parent,
+            final int index
+        ) {
+            return guarded(generation, () -> new SessionPart(
+                generation,
+                modelGeneration,
+                modelId,
+                delegate.create(name, unwrapPart(generation, parent), index)
+            ));
+        }
+
+        @Override public void remove(final Part part) {
+            guardedVoid(generation, () ->
+                delegate.remove(unwrapPart(generation, part))
+            );
+        }
+
+        @Override public Part create(final String name) {
+            return create(name, null, -1);
+        }
+
+        @Override public Part add(final String id) {
+            return add(new PartId(id));
+        }
+
+        @Override public Part add(final String id, final PartId parentId) {
+            return add(new PartId(id), parentId);
         }
     }
 
     private final class SessionPart implements Part {
         private final long generation;
+        private final long modelGeneration;
+        private final ModelId modelId;
         private final Part delegate;
-        private SessionPart(final long generation, final Part delegate) {
+
+        private SessionPart(
+            final long generation,
+            final long modelGeneration,
+            final ModelId modelId,
+            final Part delegate
+        ) {
             this.generation = generation;
+            this.modelGeneration = modelGeneration;
+            this.modelId = Objects.requireNonNull(modelId, "modelId");
             this.delegate = Objects.requireNonNull(delegate, "delegate");
         }
+
         @Override public PartId id() { return guarded(generation, delegate::id); }
+
+        @Override public dev.turboism.sdk.cubism.model.MorphTargets morphTargets() {
+            return guarded(generation, delegate::morphTargets);
+        }
+
+        @Override public PartAppearance ui() {
+            final PartId id = id();
+            return appearancePart(modelId, id, modelGeneration);
+        }
+
+        @Override public int index() { return guarded(generation, delegate::index); }
         @Override public String name() { return guarded(generation, delegate::name); }
         @Override public void setName(final String name) {
             guardedVoid(generation, () -> delegate.setName(name));
+        }
+        @Override public dev.turboism.sdk.cubism.model.AlphaComposition alphaComposition() {
+            return guarded(generation, delegate::alphaComposition);
+        }
+        @Override public List<ArtMeshId> maskIds() {
+            return guarded(generation, delegate::maskIds);
+        }
+        @Override public void setId(final dev.turboism.sdk.cubism.model.PartId id) {
+            guardedVoid(generation, () -> delegate.setId(id));
+        }
+        @Override public void setMaskIds(final List<ArtMeshId> maskIds) {
+            guardedVoid(generation, () -> delegate.setMaskIds(maskIds));
+        }
+        @Override public void setAlphaComposition(
+            final dev.turboism.sdk.cubism.model.AlphaComposition composition
+        ) {
+            guardedVoid(generation, () -> delegate.setAlphaComposition(composition));
+        }
+        @Override public void setParent(final Part parent, final int index) {
+            guardedVoid(generation, () ->
+                delegate.setParent(unwrapPart(generation, parent), index)
+            );
+        }
+        @Override public java.util.Optional<String> shortName() {
+            return guarded(generation, delegate::shortName);
+        }
+        @Override public void setShortName(final java.util.Optional<String> value) {
+            guardedVoid(generation, () -> delegate.setShortName(value));
+        }
+        @Override public java.util.Optional<PartId> parentId() {
+            return guarded(generation, delegate::parentId);
+        }
+        @Override public List<PartId> childIds() {
+            return guarded(generation, delegate::childIds);
+        }
+        @Override public boolean visible() { return guarded(generation, delegate::visible); }
+        @Override public void setVisible(final boolean value) {
+            guardedVoid(generation, () -> delegate.setVisible(value));
+        }
+        @Override public boolean visibleInHierarchy() {
+            return guarded(generation, delegate::visibleInHierarchy);
+        }
+        @Override public boolean locked() { return guarded(generation, delegate::locked); }
+        @Override public void setLocked(final boolean value) {
+            guardedVoid(generation, () -> delegate.setLocked(value));
+        }
+        @Override public boolean lockedInHierarchy() {
+            return guarded(generation, delegate::lockedInHierarchy);
+        }
+        @Override public java.util.Optional<Color> editColor() {
+            return guarded(generation, delegate::editColor);
+        }
+        @Override public void setEditColor(final java.util.Optional<Color> value) {
+            guardedVoid(generation, () -> delegate.setEditColor(value));
+        }
+        @Override public boolean sketch() { return guarded(generation, delegate::sketch); }
+        @Override public void setSketch(final boolean value) {
+            guardedVoid(generation, () -> delegate.setSketch(value));
+        }
+        @Override public int defaultOrder() { return guarded(generation, delegate::defaultOrder); }
+        @Override public void setDefaultOrder(final int value) {
+            guardedVoid(generation, () -> delegate.setDefaultOrder(value));
         }
         @Override public float getOpacity() { return guarded(generation, delegate::getOpacity); }
         @Override public int parentIndex() { return guarded(generation, delegate::parentIndex); }
@@ -489,29 +1088,166 @@ final class DynamicCubismModelAccess implements CubismModelAccess {
 
     private final class SessionDrawables implements Drawables {
         private final long generation;
+        private final long modelGeneration;
+        private final ModelId modelId;
         private final Drawables delegate;
-        private SessionDrawables(final long generation, final Drawables delegate) {
+
+        private SessionDrawables(
+            final long generation,
+            final long modelGeneration,
+            final ModelId modelId,
+            final Drawables delegate
+        ) {
             this.generation = generation;
+            this.modelGeneration = modelGeneration;
+            this.modelId = Objects.requireNonNull(modelId, "modelId");
             this.delegate = Objects.requireNonNull(delegate, "delegate");
         }
+
         @Override public List<Drawable> all() {
             return guarded(generation, () -> delegate.all().stream()
-                .map(value -> (Drawable) new SessionDrawable(generation, value)).toList());
+                .map(value -> (Drawable) new SessionDrawable(
+                    generation, modelGeneration, modelId, value
+                )).toList());
         }
+
         @Override public Drawable find(final ArtMeshId id) {
-            return guarded(generation, () -> new SessionDrawable(generation, delegate.find(id)));
+            return guarded(
+                generation,
+                () -> new SessionDrawable(
+                    generation, modelGeneration, modelId, delegate.find(id)
+                )
+            );
+        }
+
+        @Override public Drawable create(
+            final String name,
+            final Part parent,
+            final int index,
+            final ArtMeshGeometry geometry
+        ) {
+            return guarded(generation, () -> new SessionDrawable(
+                generation,
+                modelGeneration,
+                modelId,
+                delegate.create(
+                    name,
+                    unwrapPart(generation, parent),
+                    index,
+                    geometry
+                )
+            ));
+        }
+
+        @Override public void remove(final Drawable drawable) {
+            guardedVoid(generation, () ->
+                delegate.remove(unwrapDrawable(generation, drawable))
+            );
         }
     }
 
     private final class SessionDrawable implements Drawable {
         private final long generation;
+        private final long modelGeneration;
+        private final ModelId modelId;
         private final Drawable delegate;
-        private SessionDrawable(final long generation, final Drawable delegate) {
+
+        private SessionDrawable(
+            final long generation,
+            final long modelGeneration,
+            final ModelId modelId,
+            final Drawable delegate
+        ) {
             this.generation = generation;
+            this.modelGeneration = modelGeneration;
+            this.modelId = Objects.requireNonNull(modelId, "modelId");
             this.delegate = Objects.requireNonNull(delegate, "delegate");
         }
+
         @Override public ArtMeshId id() { return guarded(generation, delegate::id); }
+
+        @Override public dev.turboism.sdk.cubism.model.MorphTargets morphTargets() {
+            return guarded(generation, delegate::morphTargets);
+        }
+
+        @Override public DrawableAppearance ui() {
+            final ArtMeshId id = id();
+            return appearanceDrawable(modelId, id, modelGeneration);
+        }
+
+        @Override public int index() { return guarded(generation, delegate::index); }
+        @Override public boolean doubleSided() {
+            return guarded(generation, delegate::doubleSided);
+        }
+        @Override public dev.turboism.sdk.cubism.model.DrawableEvaluationState evaluationState() {
+            return guarded(generation, delegate::evaluationState);
+        }
+        @Override public java.util.Optional<PartId> parentPartId() {
+            return guarded(generation, delegate::parentPartId);
+        }
+        @Override public java.util.Optional<DeformerId> parentDeformerId() {
+            return guarded(generation, delegate::parentDeformerId);
+        }
+        @Override public List<dev.turboism.sdk.cubism.id.ParameterId> parameterIds() {
+            return guarded(generation, delegate::parameterIds);
+        }
+        @Override public List<ArtMeshId> maskIds() {
+            return guarded(generation, delegate::maskIds);
+        }
         @Override public String name() { return guarded(generation, delegate::name); }
+        @Override public String guid() { return guarded(generation, delegate::guid); }
+        @Override public void setName(final String name) {
+            guardedVoid(generation, () -> delegate.setName(name));
+        }
+        @Override public void setId(final String id) {
+            guardedVoid(generation, () -> delegate.setId(id));
+        }
+        @Override public void setTargetDeformer(
+            final java.util.Optional<DeformerId> targetDeformer
+        ) {
+            guardedVoid(generation, () -> delegate.setTargetDeformer(targetDeformer));
+        }
+        @Override public void setClippingMaskIds(final List<ArtMeshId> maskIds) {
+            guardedVoid(generation, () -> delegate.setClippingMaskIds(maskIds));
+        }
+        @Override public void setInvertedMask(final boolean inverted) {
+            guardedVoid(generation, () -> delegate.setInvertedMask(inverted));
+        }
+        @Override public void setDrawOrder(final int drawOrder) {
+            guardedVoid(generation, () -> delegate.setDrawOrder(drawOrder));
+        }
+        @Override public void setMultiplyColor(final Color color) {
+            guardedVoid(generation, () -> delegate.setMultiplyColor(color));
+        }
+        @Override public void setScreenColor(final Color color) {
+            guardedVoid(generation, () -> delegate.setScreenColor(color));
+        }
+        @Override public void setColorComposition(
+            final dev.turboism.sdk.cubism.model.ColorComposition composition
+        ) {
+            guardedVoid(generation, () -> delegate.setColorComposition(composition));
+        }
+        @Override public void setAlphaComposition(
+            final dev.turboism.sdk.cubism.model.AlphaComposition composition
+        ) {
+            guardedVoid(generation, () -> delegate.setAlphaComposition(composition));
+        }
+        @Override public void setCulling(final boolean culling) {
+            guardedVoid(generation, () -> delegate.setCulling(culling));
+        }
+        @Override public void setUserData(final String userData) {
+            guardedVoid(generation, () -> delegate.setUserData(userData));
+        }
+        @Override public void setParent(final Part parent, final int index) {
+            guardedVoid(generation, () ->
+                delegate.setParent(unwrapPart(generation, parent), index)
+            );
+        }
+        @Override public void setParent(final Deformer parent, final int index) {
+            guardedVoid(generation, () ->
+                delegate.setParent(unwrapDeformer(generation, parent), index)
+            );
+        }
         @Override public boolean visible() { return guarded(generation, delegate::visible); }
         @Override public void setVisible(final boolean visible) {
             guardedVoid(generation, () -> delegate.setVisible(visible));
@@ -575,6 +1311,12 @@ final class DynamicCubismModelAccess implements CubismModelAccess {
         @Override public List<dev.turboism.sdk.cubism.model.ParameterBinding> getParameterBindings() {
             return guarded(generation, delegate::getParameterBindings);
         }
+        @Override public List<dev.turboism.sdk.cubism.model.ParameterBinding> getNormalParameterBindings() {
+            return guarded(generation, delegate::getNormalParameterBindings);
+        }
+        @Override public List<dev.turboism.sdk.cubism.model.ParameterBinding> getCombinedParameterBindings() {
+            return guarded(generation, delegate::getCombinedParameterBindings);
+        }
     }
 
     private final class SessionFloatSequence
@@ -613,29 +1355,128 @@ final class DynamicCubismModelAccess implements CubismModelAccess {
 
     private final class SessionDeformers implements Deformers {
         private final long generation;
+        private final long modelGeneration;
+        private final ModelId modelId;
         private final Deformers delegate;
-        private SessionDeformers(final long generation, final Deformers delegate) {
+
+        private SessionDeformers(
+            final long generation,
+            final long modelGeneration,
+            final ModelId modelId,
+            final Deformers delegate
+        ) {
             this.generation = generation;
+            this.modelGeneration = modelGeneration;
+            this.modelId = Objects.requireNonNull(modelId, "modelId");
             this.delegate = Objects.requireNonNull(delegate, "delegate");
         }
+
         @Override public List<Deformer> all() {
             return guarded(generation, () -> delegate.all().stream()
-                .map(value -> (Deformer) new SessionDeformer(generation, value)).toList());
+                .map(value -> (Deformer) new SessionDeformer(
+                    generation, modelGeneration, modelId, value
+                )).toList());
         }
+
         @Override public Deformer find(final DeformerId id) {
-            return guarded(generation, () -> new SessionDeformer(generation, delegate.find(id)));
+            return guarded(
+                generation,
+                () -> new SessionDeformer(
+                    generation, modelGeneration, modelId, delegate.find(id)
+                )
+            );
+        }
+
+        @Override public WarpDeformer createWarp(
+            final String name,
+            final Part parent,
+            final int index,
+            final int rows,
+            final int columns
+        ) {
+            return guarded(generation, () -> new SessionWarpDeformer(
+                generation,
+                delegate.createWarp(
+                    name,
+                    unwrapPart(generation, parent),
+                    index,
+                    rows,
+                    columns
+                )
+            ));
+        }
+
+        @Override public RotationDeformer createRotation(
+            final String name,
+            final Part parent,
+            final int index
+        ) {
+            return guarded(generation, () -> new SessionRotationDeformer(
+                generation,
+                delegate.createRotation(
+                    name,
+                    unwrapPart(generation, parent),
+                    index
+                )
+            ));
+        }
+
+        @Override public void remove(final Deformer deformer) {
+            guardedVoid(generation, () ->
+                delegate.remove(unwrapDeformer(generation, deformer))
+            );
         }
     }
 
     private final class SessionDeformer implements Deformer {
         private final long generation;
+        private final long modelGeneration;
+        private final ModelId modelId;
         private final Deformer delegate;
-        private SessionDeformer(final long generation, final Deformer delegate) {
+
+        private SessionDeformer(
+            final long generation,
+            final long modelGeneration,
+            final ModelId modelId,
+            final Deformer delegate
+        ) {
             this.generation = generation;
+            this.modelGeneration = modelGeneration;
+            this.modelId = Objects.requireNonNull(modelId, "modelId");
             this.delegate = Objects.requireNonNull(delegate, "delegate");
         }
+
         @Override public DeformerId id() { return guarded(generation, delegate::id); }
+
+        @Override public DeformerAppearance ui() {
+            final DeformerId id = id();
+            return appearanceDeformer(modelId, id, modelGeneration);
+        }
+
+        @Override public int index() { return guarded(generation, delegate::index); }
+        @Override public java.util.Optional<PartId> parentPartId() {
+            return guarded(generation, delegate::parentPartId);
+        }
+        @Override public java.util.Optional<DeformerId> parentDeformerId() {
+            return guarded(generation, delegate::parentDeformerId);
+        }
+        @Override public List<dev.turboism.sdk.cubism.id.ParameterId> parameterIds() {
+            return guarded(generation, delegate::parameterIds);
+        }
         @Override public String name() { return guarded(generation, delegate::name); }
+        @Override public void setName(final String name) {
+            guardedVoid(generation, () -> delegate.setName(name));
+        }
+        @Override public void setParent(final Part parent, final int index) {
+            guardedVoid(generation, () ->
+                delegate.setParent(unwrapPart(generation, parent), index)
+            );
+        }
+        @Override public void setParent(final Deformer parent, final int index) {
+            guardedVoid(generation, () ->
+                delegate.setParent(unwrapDeformer(generation, parent), index)
+            );
+        }
         @Override public boolean visible() { return guarded(generation, delegate::visible); }
         @Override public void setVisible(final boolean visible) {
             guardedVoid(generation, () -> delegate.setVisible(visible));
@@ -657,12 +1498,32 @@ final class DynamicCubismModelAccess implements CubismModelAccess {
         @Override public Color multiplyColor() { return guarded(generation, delegate::multiplyColor); }
         @Override public Color screenColor() { return guarded(generation, delegate::screenColor); }
         @Override public int parentPartIndex() { return guarded(generation, delegate::parentPartIndex); }
+        @Override public void setId(final DeformerId id) {
+            guardedVoid(generation, () -> delegate.setId(id));
+        }
+        @Override public void setMultiplyColor(final Color color) {
+            guardedVoid(generation, () -> delegate.setMultiplyColor(color));
+        }
+        @Override public void setScreenColor(final Color color) {
+            guardedVoid(generation, () -> delegate.setScreenColor(color));
+        }
+        @Override public void setTargetDeformer(
+            final java.util.Optional<DeformerId> targetDeformer
+        ) {
+            guardedVoid(generation, () -> delegate.setTargetDeformer(targetDeformer));
+        }
         @Override public int parentDeformerIndex() { return guarded(generation, delegate::parentDeformerIndex); }
         @Override public dev.turboism.sdk.cubism.model.IntSequence parameters() {
             return new SessionIntSequence(generation, guarded(generation, delegate::parameters));
         }
         @Override public List<dev.turboism.sdk.cubism.model.ParameterBinding> getParameterBindings() {
             return guarded(generation, delegate::getParameterBindings);
+        }
+        @Override public List<dev.turboism.sdk.cubism.model.ParameterBinding> getNormalParameterBindings() {
+            return guarded(generation, delegate::getNormalParameterBindings);
+        }
+        @Override public List<dev.turboism.sdk.cubism.model.ParameterBinding> getCombinedParameterBindings() {
+            return guarded(generation, delegate::getCombinedParameterBindings);
         }
     }
 
@@ -694,7 +1555,31 @@ final class DynamicCubismModelAccess implements CubismModelAccess {
             this.delegate = Objects.requireNonNull(delegate, "delegate");
         }
         @Override public DeformerId id() { return guarded(generation, delegate::id); }
+
+        @Override public int index() { return guarded(generation, delegate::index); }
+        @Override public java.util.Optional<PartId> parentPartId() {
+            return guarded(generation, delegate::parentPartId);
+        }
+        @Override public java.util.Optional<DeformerId> parentDeformerId() {
+            return guarded(generation, delegate::parentDeformerId);
+        }
+        @Override public List<dev.turboism.sdk.cubism.id.ParameterId> parameterIds() {
+            return guarded(generation, delegate::parameterIds);
+        }
         @Override public String name() { return guarded(generation, delegate::name); }
+        @Override public void setName(final String name) {
+            guardedVoid(generation, () -> delegate.setName(name));
+        }
+        @Override public void setParent(final Part parent, final int index) {
+            guardedVoid(generation, () ->
+                delegate.setParent(unwrapPart(generation, parent), index)
+            );
+        }
+        @Override public void setParent(final Deformer parent, final int index) {
+            guardedVoid(generation, () ->
+                delegate.setParent(unwrapDeformer(generation, parent), index)
+            );
+        }
         @Override public boolean visible() { return guarded(generation, delegate::visible); }
         @Override public void setVisible(final boolean visible) {
             guardedVoid(generation, () -> delegate.setVisible(visible));
@@ -716,12 +1601,32 @@ final class DynamicCubismModelAccess implements CubismModelAccess {
         @Override public Color multiplyColor() { return guarded(generation, delegate::multiplyColor); }
         @Override public Color screenColor() { return guarded(generation, delegate::screenColor); }
         @Override public int parentPartIndex() { return guarded(generation, delegate::parentPartIndex); }
+        @Override public void setId(final DeformerId id) {
+            guardedVoid(generation, () -> delegate.setId(id));
+        }
+        @Override public void setMultiplyColor(final Color color) {
+            guardedVoid(generation, () -> delegate.setMultiplyColor(color));
+        }
+        @Override public void setScreenColor(final Color color) {
+            guardedVoid(generation, () -> delegate.setScreenColor(color));
+        }
+        @Override public void setTargetDeformer(
+            final java.util.Optional<DeformerId> targetDeformer
+        ) {
+            guardedVoid(generation, () -> delegate.setTargetDeformer(targetDeformer));
+        }
         @Override public int parentDeformerIndex() { return guarded(generation, delegate::parentDeformerIndex); }
         @Override public dev.turboism.sdk.cubism.model.IntSequence parameters() {
             return new SessionIntSequence(generation, guarded(generation, delegate::parameters));
         }
         @Override public List<dev.turboism.sdk.cubism.model.ParameterBinding> getParameterBindings() {
             return guarded(generation, delegate::getParameterBindings);
+        }
+        @Override public List<dev.turboism.sdk.cubism.model.ParameterBinding> getNormalParameterBindings() {
+            return guarded(generation, delegate::getNormalParameterBindings);
+        }
+        @Override public List<dev.turboism.sdk.cubism.model.ParameterBinding> getCombinedParameterBindings() {
+            return guarded(generation, delegate::getCombinedParameterBindings);
         }
         @Override public WarpGrid grid() { return guarded(generation, delegate::grid); }
         @Override public void replaceGrid(final WarpGrid grid) {
@@ -763,7 +1668,31 @@ final class DynamicCubismModelAccess implements CubismModelAccess {
             this.delegate = Objects.requireNonNull(delegate, "delegate");
         }
         @Override public DeformerId id() { return guarded(generation, delegate::id); }
+
+        @Override public int index() { return guarded(generation, delegate::index); }
+        @Override public java.util.Optional<PartId> parentPartId() {
+            return guarded(generation, delegate::parentPartId);
+        }
+        @Override public java.util.Optional<DeformerId> parentDeformerId() {
+            return guarded(generation, delegate::parentDeformerId);
+        }
+        @Override public List<dev.turboism.sdk.cubism.id.ParameterId> parameterIds() {
+            return guarded(generation, delegate::parameterIds);
+        }
         @Override public String name() { return guarded(generation, delegate::name); }
+        @Override public void setName(final String name) {
+            guardedVoid(generation, () -> delegate.setName(name));
+        }
+        @Override public void setParent(final Part parent, final int index) {
+            guardedVoid(generation, () ->
+                delegate.setParent(unwrapPart(generation, parent), index)
+            );
+        }
+        @Override public void setParent(final Deformer parent, final int index) {
+            guardedVoid(generation, () ->
+                delegate.setParent(unwrapDeformer(generation, parent), index)
+            );
+        }
         @Override public boolean visible() { return guarded(generation, delegate::visible); }
         @Override public void setVisible(final boolean visible) {
             guardedVoid(generation, () -> delegate.setVisible(visible));
@@ -785,12 +1714,32 @@ final class DynamicCubismModelAccess implements CubismModelAccess {
         @Override public Color multiplyColor() { return guarded(generation, delegate::multiplyColor); }
         @Override public Color screenColor() { return guarded(generation, delegate::screenColor); }
         @Override public int parentPartIndex() { return guarded(generation, delegate::parentPartIndex); }
+        @Override public void setId(final DeformerId id) {
+            guardedVoid(generation, () -> delegate.setId(id));
+        }
+        @Override public void setMultiplyColor(final Color color) {
+            guardedVoid(generation, () -> delegate.setMultiplyColor(color));
+        }
+        @Override public void setScreenColor(final Color color) {
+            guardedVoid(generation, () -> delegate.setScreenColor(color));
+        }
+        @Override public void setTargetDeformer(
+            final java.util.Optional<DeformerId> targetDeformer
+        ) {
+            guardedVoid(generation, () -> delegate.setTargetDeformer(targetDeformer));
+        }
         @Override public int parentDeformerIndex() { return guarded(generation, delegate::parentDeformerIndex); }
         @Override public dev.turboism.sdk.cubism.model.IntSequence parameters() {
             return new SessionIntSequence(generation, guarded(generation, delegate::parameters));
         }
         @Override public List<dev.turboism.sdk.cubism.model.ParameterBinding> getParameterBindings() {
             return guarded(generation, delegate::getParameterBindings);
+        }
+        @Override public List<dev.turboism.sdk.cubism.model.ParameterBinding> getNormalParameterBindings() {
+            return guarded(generation, delegate::getNormalParameterBindings);
+        }
+        @Override public List<dev.turboism.sdk.cubism.model.ParameterBinding> getCombinedParameterBindings() {
+            return guarded(generation, delegate::getCombinedParameterBindings);
         }
         @Override public float baseAngle() { return guarded(generation, delegate::baseAngle); }
         @Override public void setBaseAngle(final float angle) {
@@ -828,11 +1777,100 @@ final class DynamicCubismModelAccess implements CubismModelAccess {
             this.delegate = Objects.requireNonNull(delegate, "delegate");
         }
         @Override public GlueId id() { return guarded(generation, delegate::id); }
+
+        @Override public int index() { return guarded(generation, delegate::index); }
+        @Override public ArtMeshId drawableAId() {
+            return guarded(generation, delegate::drawableAId);
+        }
+        @Override public ArtMeshId drawableBId() {
+            return guarded(generation, delegate::drawableBId);
+        }
+        @Override public List<dev.turboism.sdk.cubism.id.ParameterId> parameterIds() {
+            return guarded(generation, delegate::parameterIds);
+        }
         @Override public int drawableA() { return guarded(generation, delegate::drawableA); }
         @Override public int drawableB() { return guarded(generation, delegate::drawableB); }
         @Override public dev.turboism.sdk.cubism.model.IntSequence parameters() {
             return new SessionIntSequence(generation, guarded(generation, delegate::parameters));
         }
+        @Override public String name() { return guarded(generation, delegate::name); }
+        @Override public float intensity() { return guarded(generation, delegate::intensity); }
+        @Override public void setName(final String name) {
+            guardedVoid(generation, () -> delegate.setName(name));
+        }
+        @Override public void setId(final GlueId id) {
+            guardedVoid(generation, () -> delegate.setId(id));
+        }
+        @Override public void setIntensity(final float intensity) {
+            guardedVoid(generation, () -> delegate.setIntensity(intensity));
+        }
+        @Override public void setDrawableA(final ArtMeshId id) {
+            guardedVoid(generation, () -> delegate.setDrawableA(id));
+        }
+        @Override public void setDrawableB(final ArtMeshId id) {
+            guardedVoid(generation, () -> delegate.setDrawableB(id));
+        }
+    }
+
+    private dev.turboism.ui.appearance.control.RuntimeModelAppearanceAccess appearanceAccess() {
+        synchronized (callGate) {
+            return appearanceAccess;
+        }
+    }
+
+    private PartAppearance appearancePart(
+        final ModelId modelId,
+        final PartId partId,
+        final long modelGeneration
+    ) {
+        final dev.turboism.ui.appearance.control.RuntimeModelAppearanceAccess access = appearanceAccess();
+        return access == null
+            ? PartAppearance.unavailable()
+            : access.part(modelId.value(), partId.value(), modelGeneration);
+    }
+
+    private DeformerAppearance appearanceDeformer(
+        final ModelId modelId,
+        final DeformerId deformerId,
+        final long modelGeneration
+    ) {
+        final dev.turboism.ui.appearance.control.RuntimeModelAppearanceAccess access = appearanceAccess();
+        return access == null
+            ? DeformerAppearance.unavailable()
+            : access.deformer(modelId.value(), deformerId.value(), modelGeneration);
+    }
+
+    private DrawableAppearance appearanceDrawable(
+        final ModelId modelId,
+        final ArtMeshId drawableId,
+        final long modelGeneration
+    ) {
+        final dev.turboism.ui.appearance.control.RuntimeModelAppearanceAccess access = appearanceAccess();
+        return access == null
+            ? DrawableAppearance.unavailable()
+            : access.drawable(modelId.value(), drawableId.value(), modelGeneration);
+    }
+
+    private ParameterAppearance appearanceParameter(
+        final ModelId modelId,
+        final dev.turboism.sdk.cubism.id.ParameterId parameterId,
+        final long modelGeneration
+    ) {
+        final dev.turboism.ui.appearance.control.RuntimeModelAppearanceAccess access = appearanceAccess();
+        return access == null
+            ? ParameterAppearance.unavailable()
+            : access.parameter(modelId.value(), parameterId.value(), modelGeneration);
+    }
+
+    private ParameterGroupAppearance appearanceParameterGroup(
+        final ModelId modelId,
+        final dev.turboism.sdk.cubism.id.ParameterGroupId groupId,
+        final long modelGeneration
+    ) {
+        final dev.turboism.ui.appearance.control.RuntimeModelAppearanceAccess access = appearanceAccess();
+        return access == null
+            ? ParameterGroupAppearance.unavailable()
+            : access.parameterGroup(modelId.value(), groupId.value(), modelGeneration);
     }
 
     private <T> T guarded(final long expectedGeneration, final java.util.function.Supplier<T> call) {
@@ -851,6 +1889,39 @@ final class DynamicCubismModelAccess implements CubismModelAccess {
         } finally {
             release(lease);
         }
+    }
+
+    @Override
+    public NativeLabelColorState readNativeLabelColor(final NativeLabelColorTarget target) {
+        final AccessLease lease = acquireActiveLease();
+        try {
+            return labelAuthoring(lease).readNativeLabelColor(target);
+        } finally {
+            release(lease);
+        }
+    }
+
+    @Override
+    public void setNativeLabelColor(
+        final NativeLabelColorTarget target,
+        final NativeLabelColor color
+    ) {
+        final AccessLease lease = acquireActiveLease();
+        try {
+            labelAuthoring(lease).setNativeLabelColor(target, color);
+        } finally {
+            release(lease);
+        }
+    }
+
+
+    private static NativeLabelColorAuthoring labelAuthoring(final AccessLease lease) {
+        if (!(lease.modelAccess() instanceof NativeLabelColorAuthoring authoring)) {
+            throw new UnsupportedOperationException(
+                "Native label-color authoring is unavailable for the active host session."
+            );
+        }
+        return authoring;
     }
 
     private record AccessLease(CubismModelAccess modelAccess, long generation) {

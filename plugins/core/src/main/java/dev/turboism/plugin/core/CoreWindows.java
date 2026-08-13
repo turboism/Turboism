@@ -1,6 +1,7 @@
 package dev.turboism.plugin.core;
 
 import dev.turboism.sdk.i18n.PluginLocalization;
+import dev.turboism.sdk.runtime.RuntimeLogReader;
 import dev.turboism.sdk.runtime.RuntimeSettings;
 import dev.turboism.sdk.runtime.RuntimeSettingsService;
 
@@ -9,21 +10,35 @@ import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
 import javax.swing.JDialog;
+import javax.swing.JEditorPane;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTabbedPane;
 import javax.swing.JTable;
 import javax.swing.JTextField;
+import javax.swing.JSpinner;
+import javax.swing.SpinnerNumberModel;
 import javax.swing.ListSelectionModel;
 import javax.swing.RowFilter;
 import javax.swing.table.AbstractTableModel;
 import javax.swing.table.TableRowSorter;
+import javax.imageio.ImageIO;
 import java.awt.BorderLayout;
+import java.awt.Color;
 import java.awt.FlowLayout;
+import java.awt.Font;
+import java.awt.FontMetrics;
+import java.awt.Graphics2D;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
+import java.awt.LinearGradientPaint;
+import java.awt.RenderingHints;
+import java.awt.image.BufferedImage;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
 
@@ -32,8 +47,13 @@ final class CoreWindows implements AutoCloseable {
     private final PluginLocalization i18n;
     private final RuntimeSettingsService settings;
     private final CorePluginManagement plugins;
+    private final CoreLogWindow logWindow;
     private JDialog settingsDialog;
     private JDialog pluginsDialog;
+    private JDialog aboutDialog;
+    static final String ABOUT_LOGO_TEXT = "Turboism";
+    private static final Object ABOUT_LOGO_LOCK = new Object();
+    private static volatile Path aboutLogoPng;
     private PluginTableModel pluginTableModel;
     private JTable pluginTable;
     private TableRowSorter<PluginTableModel> pluginSorter;
@@ -42,11 +62,13 @@ final class CoreWindows implements AutoCloseable {
     CoreWindows(
         final PluginLocalization i18n,
         final RuntimeSettingsService settings,
-        final CorePluginManagement plugins
+        final CorePluginManagement plugins,
+        final RuntimeLogReader logs
     ) {
         this.i18n = Objects.requireNonNull(i18n, "i18n");
         this.settings = Objects.requireNonNull(settings, "settings");
         this.plugins = Objects.requireNonNull(plugins, "plugins");
+        this.logWindow = new CoreLogWindow(i18n, logs);
     }
 
     void showSettings() {
@@ -64,14 +86,37 @@ final class CoreWindows implements AutoCloseable {
         });
     }
 
+    void showLogs() {
+        logWindow.show();
+    }
+
+    void showAbout() {
+        CoreDialogs.onEdt(() -> {
+            if (aboutDialog == null) aboutDialog = createAboutDialog();
+            CoreDialogs.show(aboutDialog);
+        });
+    }
+
     @Override
     public void close() {
         CoreDialogs.onEdt(() -> {
+            logWindow.close();
             if (settingsDialog != null) settingsDialog.dispose();
             if (pluginsDialog != null) pluginsDialog.dispose();
+            if (aboutDialog != null) aboutDialog.dispose();
             settingsDialog = null;
             pluginsDialog = null;
+            aboutDialog = null;
         });
+        final Path logo = aboutLogoPng;
+        if (logo != null) {
+            aboutLogoPng = null;
+            try {
+                Files.deleteIfExists(logo);
+            } catch (IOException ignored) {
+                // best-effort temp file cleanup
+            }
+        }
     }
 
     private JDialog createSettingsDialog() {
@@ -80,22 +125,35 @@ final class CoreWindows implements AutoCloseable {
         dialog.setLayout(new BorderLayout());
 
         final JCheckBox safeMode = new JCheckBox(text("settings.safe-mode"), value.safeMode());
-        final JComboBox<String> logLevel = new JComboBox<>(new String[]{"DEBUG", "INFO", "WARN", "ERROR"});
+        final JComboBox<String> logLevel = new JComboBox<>(new String[]{"TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL"});
+        final JComboBox<String> locale = new JComboBox<>(RuntimeSettings.LOCALE_OPTIONS.toArray(String[]::new));
+        locale.setSelectedItem(value.locale());
         logLevel.setSelectedItem(value.logLevel());
+        final JSpinner maxLogStorage = new JSpinner(new SpinnerNumberModel(
+            value.maxLogStorageMiB(),
+            RuntimeSettings.MIN_MAX_LOG_STORAGE_MIB,
+            RuntimeSettings.MAX_MAX_LOG_STORAGE_MIB,
+            10
+        ));
         final JCheckBox skipUpdate = new JCheckBox(text("settings.skip-update"), value.skipStartupUpdateCheck());
         final JCheckBox skipSplash = new JCheckBox(text("settings.skip-splash"), value.skipStartupSplash());
         final JCheckBox skipInformation = new JCheckBox(text("settings.skip-information"), value.skipStartupInformation());
+        final JCheckBox separateExportSaveDirectory =
+            new JCheckBox(text("settings.separate-export-save-directory"), value.separateExportSaveDirectory());
 
         final JTabbedPane tabs = new JTabbedPane();
         final JPanel runtime = form();
         add(runtime, 0, new JLabel(text("settings.log-level")), logLevel);
-        add(runtime, 1, safeMode, new JLabel());
+        add(runtime, 1, new JLabel(text("settings.max-log-storage-mib")), maxLogStorage);
+        add(runtime, 2, new JLabel(text("settings.locale") + " (" + text("settings.locale.restart-required") + ")"), locale);
+        add(runtime, 3, safeMode, new JLabel());
         tabs.addTab(text("settings.tab.runtime"), runtime);
 
         final JPanel startup = form();
         add(startup, 0, skipUpdate, new JLabel());
         add(startup, 1, skipSplash, new JLabel());
         add(startup, 2, skipInformation, new JLabel());
+        add(startup, 3, separateExportSaveDirectory, new JLabel());
         tabs.addTab(text("settings.tab.startup"), startup);
 
         final JPanel maintenance = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 12));
@@ -112,7 +170,9 @@ final class CoreWindows implements AutoCloseable {
         final Runnable save = () -> {
             settings.save(new RuntimeSettings(
                 safeMode.isSelected(), (String) logLevel.getSelectedItem(),
-                skipUpdate.isSelected(), skipSplash.isSelected(), skipInformation.isSelected()
+                ((Number) maxLogStorage.getValue()).intValue(),
+                skipUpdate.isSelected(), skipSplash.isSelected(), skipInformation.isSelected(),
+                separateExportSaveDirectory.isSelected(), (String) locale.getSelectedItem()
             ));
             CoreDialogs.message(dialog, text("common.turboism"), text("settings.saved"));
         };
@@ -188,6 +248,121 @@ final class CoreWindows implements AutoCloseable {
         return dialog;
     }
 
+    private JDialog createAboutDialog() {
+        ensureSwingUis();
+        final JDialog dialog = CoreDialogs.create(text("window.about.title"), 380, 278);
+        dialog.setLayout(new BorderLayout(0, 8));
+
+        final JEditorPane content = new JEditorPane("text/html", aboutHtml(i18n, frameworkVersion()));
+        content.setEditable(false);
+        content.setOpaque(true);
+        content.setBackground(Color.WHITE);
+
+        final JButton close = new JButton(text("common.close"));
+        close.addActionListener(ignored -> dialog.setVisible(false));
+        final JPanel buttons = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        buttons.add(close);
+
+        dialog.add(content, BorderLayout.CENTER);
+        dialog.add(buttons, BorderLayout.SOUTH);
+        return dialog;
+    }
+
+    /**
+     * Host sessions occasionally boot with a broken Swing look-and-feel (every
+     * component reports "no ComponentUI class" and paints nothing). Register the
+     * JDK Basic UIs for the components this dialog uses as a fallback so the
+     * About dialog still renders when the host L&F is unhealthy.
+     */
+    private static void ensureSwingUis() {
+        final javax.swing.UIDefaults defaults = javax.swing.UIManager.getDefaults();
+        defaults.putIfAbsent("EditorPaneUI", "javax.swing.plaf.basic.BasicEditorPaneUI");
+        defaults.putIfAbsent("PanelUI", "javax.swing.plaf.basic.BasicPanelUI");
+        defaults.putIfAbsent("ButtonUI", "javax.swing.plaf.basic.BasicButtonUI");
+        defaults.putIfAbsent("LabelUI", "javax.swing.plaf.basic.BasicLabelUI");
+    }
+
+    /**
+     * Rendering follows the Turboism website style: a 42px bold gradient logo,
+     * the framework version, the product tagline, and the thanks line. Swing's
+     * HTML engine cannot paint {@code linear-gradient} text, so the logo is a
+     * runtime-rendered gradient PNG embedded through {@code <img>}.
+     */
+    static String aboutHtml(final PluginLocalization i18n, final String version) {
+        final String logo = logoImageTag();
+        return "<html><head><meta charset=\"UTF-8\"><style>"
+            + "body{margin:0;width:360px;height:220px;"
+            + "font-family:Inter,\"Segoe UI\",\"Microsoft YaHei\",sans-serif;"
+            + "background:#ffffff;color:#1f2937;}"
+            + ".subtitle{margin-top:8px;font-size:13px;color:#6b7280;}"
+            + ".thanks{margin-top:18px;font-size:12px;color:#9ca3af;text-align:center;line-height:1.7;}"
+            + "</style></head><body>"
+            + "<table width=\"360\" height=\"220\" cellpadding=\"0\" cellspacing=\"0\">"
+            + "<tr><td align=\"center\" valign=\"middle\">"
+            + "<div>" + logo + " <span class=\"subtitle\">" + version + "</span></div>"
+            + "<div class=\"subtitle\">Live2D Cubism Extension Framework</div>"
+            + "<div class=\"thanks\">" + i18n.text("about.thanks") + "</div>"
+            + "</td></tr></table>"
+            + "</body></html>";
+    }
+
+    private static String logoImageTag() {
+        try {
+            return "<img src=\"" + gradientLogoPng().toUri().toURL().toExternalForm()
+                + "\" alt=\"Turboism\">";
+        } catch (IOException unavailable) {
+            return "<span style=\"font-size:42px;font-weight:bold;color:#155dfc;\">Turboism</span>";
+        }
+    }
+
+    static Path gradientLogoPng() throws IOException {
+        final Path cached = aboutLogoPng;
+        if (cached != null) return cached;
+        synchronized (ABOUT_LOGO_LOCK) {
+            if (aboutLogoPng != null) return aboutLogoPng;
+            final Path file = Files.createTempFile("turboism-about-logo-", ".png");
+            try {
+                ImageIO.write(renderGradientLogo(), "png", file.toFile());
+            } catch (IOException failure) {
+                Files.deleteIfExists(file);
+                throw failure;
+            }
+            aboutLogoPng = file;
+            return file;
+        }
+    }
+
+    private static BufferedImage renderGradientLogo() {
+        final Font font = new Font(Font.SANS_SERIF, Font.BOLD, 42);
+        final BufferedImage measure = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB);
+        final FontMetrics metrics = measure.createGraphics().getFontMetrics(font);
+        final int width = metrics.stringWidth(ABOUT_LOGO_TEXT) + 6;
+        final int height = metrics.getHeight() + 4;
+        final BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+        final Graphics2D graphics = image.createGraphics();
+        graphics.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+        graphics.setFont(font);
+        graphics.setPaint(new LinearGradientPaint(
+            0f, 0f, width, 0f, new float[]{0f, 1f}, new Color[]{new Color(0x155DFC), new Color(0xFCBB00)}
+        ));
+        graphics.drawString(ABOUT_LOGO_TEXT, 3, metrics.getAscent() + 2);
+        graphics.dispose();
+        return image;
+    }
+
+    static String frameworkVersion() {
+        try (java.io.InputStream stream = CoreWindows.class.getResourceAsStream(
+            "/META-INF/turboism/framework-version.properties"
+        )) {
+            if (stream == null) return "unknown";
+            final java.util.Properties properties = new java.util.Properties();
+            properties.load(stream);
+            return properties.getProperty("version", "unknown");
+        } catch (java.io.IOException unavailable) {
+            return "unknown";
+        }
+    }
+
     private void setSelectedEnabled(final boolean enabled) {
         final CorePluginManagement.PluginInfo plugin = selectedPlugin();
         if (plugin == null || plugin.core()) return;
@@ -236,6 +411,7 @@ final class CoreWindows implements AutoCloseable {
         constraints.fill = GridBagConstraints.HORIZONTAL;
         panel.add(right, constraints);
     }
+
 
     private String text(final String key) { return i18n.text(key); }
 

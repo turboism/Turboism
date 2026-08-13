@@ -1,0 +1,60 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 2,
+  "id": "dev.turboism.plugin.clipmask-viewer",
+  "name": "Clip Mask Viewer",
+  "version": "0.1.0",
+  "description": "Read-only clip-mask duplicate checker and visualizer: Turboism tab entry, graph/table inspector window, editor selection highlight, GUID copy.",
+  "entrypoints": [
+    "dev.turboism.plugin.clipmaskviewer.ClipMaskViewerPlugin"
+  ],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    { "name": "Turboism Contributors" }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": ["en", "ja", "ko", "zh-Hans", "zh-Hant"]
+  },
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.cubism.model.read",
+      "scope": "application",
+      "reason": "Read clip-mask and ArtMesh snapshots plus the editor selection for the duplicate checker and viewer."
+    },
+    {
+      "id": "turboism.ui.panel.contribute",
+      "scope": "application",
+      "reason": "Inject the Clip Mask Viewer collapsible section into the Turboism panel."
+    },
+    {
+      "id": "turboism.action.register",
+      "scope": "application",
+      "reason": "Register the clipmask-viewer.open.viewer action behind the Turboism tab button and menu item."
+    },
+    {
+      "id": "turboism.ui.menu.contribute",
+      "scope": "application",
+      "reason": "Expose the clip-mask duplicate checker through the Turboism menu."
+    },
+    {
+      "id": "turboism.ui.status.notify",
+      "scope": "application",
+      "reason": "Notify GUID copy results."
+    }
+  ],
+  "capabilities": [
+    "cubism.clipmask.read",
+    "ui.embedded-panel.contribute",
+    "ui.menu.contribute",
+    "ui.status.notify"
+  ],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "swing"
+  }
+}

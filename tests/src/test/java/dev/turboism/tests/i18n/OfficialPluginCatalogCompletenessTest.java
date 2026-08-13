@@ -30,6 +30,13 @@ class OfficialPluginCatalogCompletenessTest {
         assertDoesNotThrow(() -> OfficialPluginCatalogCompleteness.verify(PLUGIN_ID, i18n));
     }
 
+    @Test void rejectsCopiedEnglishValuesOutsideTheTechnicalAllowlist() throws Exception {
+        Path i18n = completeSandbox();
+        Files.writeString(i18n.resolve("messages_ja.properties"), COMPLETE_CATALOG, StandardCharsets.UTF_8);
+
+        assertFailureContains(i18n, "copied English value for action.refresh in messages_ja.properties");
+    }
+
     @Test void acceptsRuntimeCompatibleLogicalLinesEscapesAndUntrimmedValues() throws Exception {
         Path i18n = completeSandbox();
         String escapedCatalog = """
@@ -195,10 +202,52 @@ class OfficialPluginCatalogCompletenessTest {
             "unknown production localization key unknown.json.message in contribution.json");
     }
 
+    @Test void rejectsDeclaredLocaleThatIsNotBackedByTheOfficialCatalogMatrix() throws Exception {
+        Path plugins = Files.createDirectories(tempDir.resolve("declared-locale-plugins"));
+        Path pluginRoot = createPlugin(plugins, "declared-locale", BASELINE, COMPLETE_CATALOG);
+        Files.writeString(
+            pluginRoot.resolve("src/main/resources/META-INF/turboism/plugin.json"),
+            "{\"i18n\":{\"baseName\":\"META-INF/turboism/i18n/messages\",\"locales\":[\"en\",\"fr\"]}}",
+            StandardCharsets.UTF_8
+        );
+
+        IllegalStateException failure = assertThrows(
+            IllegalStateException.class,
+            () -> OfficialPluginCatalogCompleteness.verifyAll(plugins)
+        );
+        assertTrue(failure.getMessage().contains("descriptor locales"), failure.getMessage());
+    }
+
     @Test void verifiesAllParticipatingOfficialPluginResourcesAndProductionReferences() {
         Path projectRoot = Path.of(System.getProperty("projectRoot"));
 
         assertDoesNotThrow(() -> OfficialPluginCatalogCompleteness.verifyAll(projectRoot.resolve("plugins")));
+    }
+
+    @Test void reportsAPluginWhoseDescriptorLacksAnI18nBlock() throws Exception {
+        Path plugins = Files.createDirectories(tempDir.resolve("plugins-sandbox-" + sandboxSequence++));
+        Path pluginRoot = plugins.resolve("no-i18n-plugin");
+        Path descriptorDir = Files.createDirectories(
+            pluginRoot.resolve("src/main/resources/META-INF/turboism"));
+        // Official descriptor without an i18n block and without a baseline: previously
+        // skipped silently, now a completeness problem.
+        Files.writeString(descriptorDir.resolve("plugin.json"), """
+            {
+              "format": "turboism.plugin.meta",
+              "schemaVersion": 2,
+              "id": "dev.turboism.plugin.no-i18n",
+              "name": "No I18n",
+              "version": "1.0.0",
+              "entrypoints": ["dev.turboism.plugin.noi18n.Plugin"],
+              "turboismApi": "[0.1.0,0.2.0)"
+            }
+            """, StandardCharsets.UTF_8);
+
+        IllegalStateException failure = assertThrows(
+            IllegalStateException.class,
+            () -> OfficialPluginCatalogCompleteness.verifyAll(plugins)
+        );
+        assertTrue(failure.getMessage().contains("no-i18n-plugin: plugin descriptor has no i18n block"));
     }
 
     private Path createPlugin(Path plugins, String pluginId, String baseline, String catalog)
@@ -230,8 +279,47 @@ class OfficialPluginCatalogCompletenessTest {
 
     private static void writeAllCatalogs(Path i18n, String catalog) throws IOException {
         for (String name : OfficialPluginCatalogCompleteness.CATALOG_FILES) {
-            Files.writeString(i18n.resolve(name), catalog, StandardCharsets.UTF_8);
+            String value = name.equals("messages.properties") || name.equals("messages_en.properties")
+                ? catalog
+                : localizedFixture(catalog, name);
+            Files.writeString(i18n.resolve(name), value, StandardCharsets.UTF_8);
         }
+    }
+
+    private static String localizedFixture(String catalog, String catalogName) {
+        String marker = switch (catalogName) {
+            case "messages_zh_Hans.properties" -> " [简]";
+            case "messages_zh_Hant.properties" -> " [繁]";
+            case "messages_ja.properties" -> " [日]";
+            case "messages_ko.properties" -> " [한]";
+            default -> "";
+        };
+        StringBuilder result = new StringBuilder(catalog.length() + marker.length() * 8);
+        boolean continuation = false;
+        String[] lines = catalog.split("\\n", -1);
+        for (int index = 0; index < lines.length; index++) {
+            String line = lines[index];
+            boolean blankOrComment = line.isBlank() || line.stripLeading().startsWith("#")
+                || line.stripLeading().startsWith("!");
+            boolean continues = trailingBackslashes(line) % 2 == 1;
+            if (!blankOrComment && !continues && (continuation || line.contains("=") || line.contains(":"))) {
+                line += marker;
+            }
+            result.append(line);
+            if (index < lines.length - 1) {
+                result.append('\n');
+            }
+            continuation = continues;
+        }
+        return result.toString();
+    }
+
+    private static int trailingBackslashes(String value) {
+        int count = 0;
+        for (int index = value.length() - 1; index >= 0 && value.charAt(index) == '\\'; index--) {
+            count++;
+        }
+        return count;
     }
 
     private void assertFailureContains(Path i18n, String expected) {

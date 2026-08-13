@@ -17,6 +17,8 @@ public final class ControlAppearanceVerificationManifest {
         "cubism.ui-control-appearance.deformer-label.renderer",
         "cubism.ui-control-appearance.deformer-row.source",
         "cubism.ui-control-appearance.deformer-source.class",
+        "cubism.ui-control-appearance.art-mesh.source-class",
+        "cubism.ui-control-appearance.art-mesh.source-id",
         "cubism.ui-control-appearance.deformer-source.id",
         "cubism.ui-control-appearance.deformer-control.renderer",
         "cubism.ui-control-appearance.deformer-control.outer",
@@ -59,7 +61,7 @@ public final class ControlAppearanceVerificationManifest {
             && artifact.sha256().equals("bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd")) {
             return manifest(
                 "cubism-5.2.03.ui-control-appearance.static",
-                "2396ca604bc71017f31334a28ae0d5dfc210abb6274cffd6c86b0cb14cfbfecf",
+                "bc272ba4263012d2776c40871f6ff5260fc8f92f02d76b764925439b13c7d57a",
                 "5.2.03",
                 "cubism-5.2",
                 40_805_584L,
@@ -70,7 +72,7 @@ public final class ControlAppearanceVerificationManifest {
             && artifact.sha256().equals("988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21")) {
             return manifest(
                 "cubism-5.3.02.ui-control-appearance.static",
-                "a694e70788aaac1a860b731706be50509949b0cd05974567a22254bcc0e4d47a",
+                "cfba3d12584eb9ca7d601a95ca9e5a227112573b8abe7043b5961b2a0c87c82f",
                 "5.3.02",
                 "cubism-5.3.02",
                 41_922_739L,

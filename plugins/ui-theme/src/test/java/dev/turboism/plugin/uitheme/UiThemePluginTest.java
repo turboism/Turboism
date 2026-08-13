@@ -6,6 +6,12 @@ import dev.turboism.sdk.appearance.AppearanceBase;
 import dev.turboism.sdk.appearance.AppearanceRequest;
 import dev.turboism.sdk.appearance.AppearanceRestoreResult;
 import dev.turboism.sdk.appearance.AppearanceService;
+import dev.turboism.sdk.config.ConfigKey;
+import dev.turboism.sdk.config.ConfigReadResult;
+import dev.turboism.sdk.config.ConfigSchema;
+import dev.turboism.sdk.config.ConfigValue;
+import dev.turboism.sdk.config.ConfigValueSource;
+import dev.turboism.sdk.config.ConfigWriteResult;
 import dev.turboism.sdk.appearance.AppearanceStatus;
 import dev.turboism.sdk.config.PluginConfigRegistry;
 import dev.turboism.sdk.cubism.ArtMeshSnapshot;
@@ -35,8 +41,25 @@ import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.PluginPaths;
 import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.sdk.storage.PluginStorage;
+import dev.turboism.sdk.storage.StorageError;
+import dev.turboism.sdk.storage.StorageErrorCode;
+import dev.turboism.sdk.storage.StorageListResult;
+import dev.turboism.sdk.storage.StorageMutationResult;
+import dev.turboism.sdk.storage.StoragePath;
+import dev.turboism.sdk.storage.StorageReadResult;
+import dev.turboism.sdk.storage.StorageWriteResult;
 import dev.turboism.sdk.theme.ThemeStatusSnapshot;
+import dev.turboism.sdk.ui.ChoiceDialogRequest;
+import dev.turboism.sdk.ui.UserFileAccessService;
+import dev.turboism.sdk.ui.UserFileHandle;
+import dev.turboism.sdk.ui.UserFileReadResult;
+import dev.turboism.sdk.ui.UserFileRequest;
+import dev.turboism.sdk.ui.UserFileRequestResult;
+import dev.turboism.sdk.ui.UserFileRequestStatus;
+import dev.turboism.sdk.ui.UserFileWriteResult;
 import dev.turboism.sdk.ui.DialogRequest;
+import dev.turboism.sdk.ui.BoundingBoxOverlayButton;
 import dev.turboism.sdk.ui.EmbeddedPanelContribution;
 import dev.turboism.sdk.ui.FileChooserRequest;
 import dev.turboism.sdk.ui.OverlayContribution;
@@ -53,8 +76,12 @@ import org.junit.jupiter.api.Test;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -69,7 +96,7 @@ class UiThemePluginTest {
         plugin.enable();
 
         assertEquals(
-            List.of("ui-theme.toggle", "ui-theme.apply"),
+            List.of("ui-theme.manager.open"),
             context.contextMenus().contributions().stream()
                 .map(ContextMenuRegistry.ContextMenuContribution::id)
                 .toList()
@@ -77,11 +104,17 @@ class UiThemePluginTest {
         assertEquals(
             List.of(
                 "ui-theme.package.status.check",
-                "ui-theme.package.import",
+                "ui-theme.manager.open",
                 "ui-theme.appearance.apply-builtin"
             ),
             context.actions().actions().stream()
                 .map(ActionRegistry.Action::id)
+                .toList()
+        );
+        assertEquals(
+            List.of("Turboism/menu.themeManager"),
+            context.menus().contributions().stream()
+                .map(MenuRegistry.MenuContribution::menuPath)
                 .toList()
         );
     }
@@ -119,39 +152,123 @@ class UiThemePluginTest {
     }
 
     @Test
-    void importActionDoesNotNotify_whenHostConfirmationDeclines() throws Exception {
-        RecordingPluginContext context = new RecordingPluginContext(
-            new RecordingUiHost(Optional.of("themes/aurora.zip"), false)
-        );
+    void managerWindowImportActionReportsCanceledWhenNoOpaqueUserFileGrantIsMade() throws Exception {
+        RecordingPluginContext context = new RecordingPluginContext();
         UiThemePlugin plugin = new UiThemePlugin();
 
         plugin.init(context);
         plugin.enable();
-        context.actions().execute("ui-theme.package.import");
+        context.actions().execute("ui-theme.manager.open");
 
-        assertEquals(1, context.uiHost().dialogs().size());
-        assertEquals(List.of(), context.uiHost().notifications());
+        dev.turboism.sdk.ui.ChoiceDialogRequest request = context.uiHost().lastChoiceRequest();
+        assertNotNull(request);
+        assertTrue(request.actions().stream()
+            .map(dev.turboism.sdk.ui.ChoiceDialogAction::id)
+            .anyMatch("import"::equals));
+        context.uiHost().lastChoiceListener().onResult(request.options().get(0).id(), "import");
+
+        final List<StatusNotification> notifications =
+            awaitNotifications(context.uiHost(), 5);
+        assertEquals(
+            List.of(new StatusNotification(
+                "ui-theme.package.import.canceled",
+                "INFO",
+                "theme.package.importCanceled"
+            )),
+            notifications
+        );
+    }
+
+    private static List<StatusNotification> awaitNotifications(
+        final RecordingUiHost host,
+        final int seconds
+    ) throws Exception {
+        final long deadline = System.nanoTime() + seconds * 1_000_000_000L;
+        while (System.nanoTime() < deadline) {
+            if (!host.notifications().isEmpty()) {
+                return host.notifications();
+            }
+            Thread.sleep(50);
+        }
+        return host.notifications();
     }
 
     @Test
-    void importActionEmitsStarted_whenHostConfirmationAccepts() throws Exception {
-        RecordingPluginContext context = new RecordingPluginContext(
-            new RecordingUiHost(Optional.of("themes/aurora.zip"), true)
-        );
+    void managerWindowApplyWithBlankActionAppliesSelectedTheme() throws Exception {
+        RecordingPluginContext context = new RecordingPluginContext();
         UiThemePlugin plugin = new UiThemePlugin();
 
         plugin.init(context);
         plugin.enable();
-        context.actions().execute("ui-theme.package.import");
+        context.actions().execute("ui-theme.manager.open");
 
+        dev.turboism.sdk.ui.ChoiceDialogRequest request = context.uiHost().lastChoiceRequest();
+        assertNotNull(request);
+        // Accepting the dialog reports the selected option with a blank (not null) action id.
+        // The first option is the native entry; apply a real theme option instead.
+        final String themeId = request.options().stream()
+            .filter(option -> !"__native__".equals(option.id()))
+            .findFirst()
+            .orElseThrow().id();
+        context.uiHost().lastChoiceListener().onResult(themeId, "");
+
+        final dev.turboism.sdk.appearance.AppearanceRequest applied =
+            awaitAppearanceRequest(context.appearanceService(), 5);
+        assertNotNull(applied);
+        assertEquals(themeId, applied.appearanceId());
+    }
+
+    @org.junit.jupiter.api.Test
+    void managerWindowNativeOptionRestoresAppearance() throws Exception {
+        RecordingPluginContext context = new RecordingPluginContext();
+        UiThemePlugin plugin = new UiThemePlugin();
+
+        plugin.init(context);
+        plugin.enable();
+        context.actions().execute("ui-theme.manager.open");
+
+        final dev.turboism.sdk.ui.ChoiceDialogRequest request = context.uiHost().lastChoiceRequest();
+        assertNotNull(request);
+        assertEquals("__native__", request.options().get(0).id());
+        assertEquals("__native__", request.selectedOptionId().orElseThrow());
+
+        context.uiHost().lastChoiceListener().onResult("__native__", "");
+
+        final dev.turboism.sdk.appearance.AppearanceRestoreResult restored =
+            awaitAppearanceRestore(context.appearanceService(), 5);
+        assertNotNull(restored);
         assertEquals(
-            List.of(new StatusNotification(
-                "ui-theme.package.import.started",
-                "INFO",
-                "Theme package import started: themes/aurora.zip"
-            )),
-            context.uiHost().notifications()
+            dev.turboism.sdk.appearance.AppearanceRestoreResult.Outcome.NO_OWNED_OVERRIDE,
+            restored.outcome()
         );
+    }
+
+    private static dev.turboism.sdk.appearance.AppearanceRestoreResult awaitAppearanceRestore(
+        final RecordingAppearanceService service,
+        final int seconds
+    ) throws Exception {
+        final long deadline = System.nanoTime() + seconds * 1_000_000_000L;
+        while (System.nanoTime() < deadline) {
+            if (service.lastRestore() != null) {
+                return service.lastRestore();
+            }
+            Thread.sleep(50);
+        }
+        return service.lastRestore();
+    }
+
+    private static dev.turboism.sdk.appearance.AppearanceRequest awaitAppearanceRequest(
+        final RecordingAppearanceService service,
+        final int seconds
+    ) throws Exception {
+        final long deadline = System.nanoTime() + seconds * 1_000_000_000L;
+        while (System.nanoTime() < deadline) {
+            if (service.lastRequest() != null) {
+                return service.lastRequest();
+            }
+            Thread.sleep(50);
+        }
+        return service.lastRequest();
     }
 
     @Test
@@ -209,6 +326,10 @@ class UiThemePluginTest {
     private static final class RecordingPluginContext implements PluginContext {
         private final RecordingActionRegistry actions = new RecordingActionRegistry();
         private final RecordingContextMenuRegistry contextMenus = new RecordingContextMenuRegistry();
+        private final RecordingMenuRegistry menus = new RecordingMenuRegistry();
+        private final DefaultPluginConfigRegistry config = new DefaultPluginConfigRegistry();
+        private final EmptyPluginStorage storage = new EmptyPluginStorage();
+        private final CanceledUserFiles userFiles = new CanceledUserFiles();
         private final RecordingUiHost uiHost;
         private final DisposableScope disposableScope = new DisposableScope();
         private final PluginLogger logger = new NoopPluginLogger();
@@ -237,6 +358,15 @@ class UiThemePluginTest {
         }
 
         @Override
+        public dev.turboism.sdk.i18n.PluginLocalization localization() {
+            return new dev.turboism.sdk.i18n.PluginLocalization() {
+                @Override public java.util.Locale locale() { return java.util.Locale.ENGLISH; }
+                @Override public String text(final String key) { return key; }
+                @Override public String format(final String key, final Object... arguments) { return key; }
+                @Override public boolean contains(final String key) { return true; }
+            };
+        }
+
         public PluginLogger logger() {
             return logger;
         }
@@ -272,8 +402,8 @@ class UiThemePluginTest {
         }
 
         @Override
-        public MenuRegistry menus() {
-            return null;
+        public RecordingMenuRegistry menus() {
+            return menus;
         }
 
         @Override
@@ -293,7 +423,17 @@ class UiThemePluginTest {
 
         @Override
         public PluginConfigRegistry config() {
-            return null;
+            return config;
+        }
+
+        @Override
+        public PluginStorage storage() {
+            return storage;
+        }
+
+        @Override
+        public UserFileAccessService userFiles() {
+            return userFiles;
         }
 
         @Override
@@ -336,6 +476,49 @@ class UiThemePluginTest {
         }
     }
 
+    private static final class RecordingMenuRegistry implements MenuRegistry {
+        private final List<MenuContribution> contributions = new ArrayList<>();
+
+        List<MenuContribution> contributions() {
+            return contributions;
+        }
+
+        @Override
+        public Registration contribute(final MenuContribution contribution) {
+            contributions.add(contribution);
+            return () -> contributions.remove(contribution);
+        }
+    }
+
+    private static final class DefaultPluginConfigRegistry implements PluginConfigRegistry {
+        @Override public CompletionStage<Void> registerSchema(ConfigSchema schema, List<dev.turboism.sdk.config.ConfigMigration> migrations) { return CompletableFuture.completedFuture(null); }
+        @Override public <T> CompletionStage<ConfigReadResult<T>> read(ConfigKey<T> key) { return CompletableFuture.completedFuture(new ConfigReadResult<>(new ConfigValue<>(key.defaultValue(), ConfigValueSource.DEFAULT_MISSING, 0), Optional.empty())); }
+        @Override public <T> CompletionStage<ConfigWriteResult> write(ConfigKey<T> key, T value, long expectedRevision) { return CompletableFuture.completedFuture(new ConfigWriteResult(true, expectedRevision + 1, Optional.empty())); }
+        @Override public Registration readScope(String relativePath) { return () -> { }; }
+        @Override public Registration writeScope(String relativePath) { return () -> { }; }
+        @Override public Optional<String> readString(String relativePath, String key) { return Optional.empty(); }
+        @Override public void writeString(String relativePath, String key, String value) { }
+    }
+
+    private static final class EmptyPluginStorage implements PluginStorage {
+        @Override public CompletionStage<StorageReadResult<String>> readUtf8(StoragePath path, int maxBytes) { throw new UnsupportedOperationException(); }
+        @Override public CompletionStage<StorageReadResult<byte[]>> readBytes(StoragePath path, int maxBytes) { return CompletableFuture.completedFuture(new StorageReadResult<>(Optional.empty(), Optional.of(new StorageError(StorageErrorCode.NOT_FOUND, "not found", path)), false)); }
+        @Override public CompletionStage<StorageWriteResult> writeUtf8Atomic(StoragePath path, String content) { throw new UnsupportedOperationException(); }
+        @Override public CompletionStage<StorageWriteResult> writeBytesAtomic(StoragePath path, byte[] content) { return CompletableFuture.completedFuture(new StorageWriteResult(true, Optional.empty())); }
+        @Override public CompletionStage<StorageListResult> list(StoragePath directory, int maxEntries) { return CompletableFuture.completedFuture(new StorageListResult(List.of(), Optional.empty(), false)); }
+        @Override public CompletionStage<StorageMutationResult> copy(StoragePath source, StoragePath target, boolean replaceExisting) { throw new UnsupportedOperationException(); }
+        @Override public CompletionStage<StorageMutationResult> moveAtomic(StoragePath source, StoragePath target, boolean replaceExisting) { throw new UnsupportedOperationException(); }
+        @Override public CompletionStage<StorageMutationResult> delete(StoragePath path, boolean recursive) { return CompletableFuture.completedFuture(new StorageMutationResult(false, Optional.of(new StorageError(StorageErrorCode.NOT_FOUND, "not found", path)))); }
+    }
+
+    private static final class CanceledUserFiles implements UserFileAccessService {
+        @Override public CompletionStage<UserFileRequestResult> request(UserFileRequest request) { return CompletableFuture.completedFuture(new UserFileRequestResult(UserFileRequestStatus.CANCELED, Optional.empty(), Optional.empty())); }
+        @Override public CompletionStage<UserFileReadResult<String>> readUtf8(UserFileHandle handle, int maxBytes) { throw new UnsupportedOperationException(); }
+        @Override public CompletionStage<UserFileReadResult<byte[]>> readBytes(UserFileHandle handle, int maxBytes) { throw new UnsupportedOperationException(); }
+        @Override public CompletionStage<UserFileWriteResult> writeUtf8Atomic(UserFileHandle handle, String content) { throw new UnsupportedOperationException(); }
+        @Override public CompletionStage<UserFileWriteResult> writeBytesAtomic(UserFileHandle handle, byte[] content) { throw new UnsupportedOperationException(); }
+    }
+
     private static final class RecordingContextMenuRegistry implements ContextMenuRegistry {
         private final List<ContextMenuContribution> contributions = new ArrayList<>();
 
@@ -365,6 +548,31 @@ class UiThemePluginTest {
             this.confirmResult = confirmResult;
         }
 
+        @Override
+        public Optional<String> choose(final ChoiceDialogRequest request) {
+            return Optional.empty();
+        }
+
+        private ChoiceDialogRequest lastChoiceRequest;
+        private dev.turboism.sdk.ui.ChoiceDialogResultListener lastChoiceListener;
+
+        @Override
+        public void openChoiceDialog(
+            final ChoiceDialogRequest request,
+            final dev.turboism.sdk.ui.ChoiceDialogResultListener listener
+        ) {
+            this.lastChoiceRequest = request;
+            this.lastChoiceListener = listener;
+        }
+
+        ChoiceDialogRequest lastChoiceRequest() {
+            return lastChoiceRequest;
+        }
+
+        dev.turboism.sdk.ui.ChoiceDialogResultListener lastChoiceListener() {
+            return lastChoiceListener;
+        }
+
         List<DialogRequest> dialogs() {
             return dialogs;
         }
@@ -378,6 +586,10 @@ class UiThemePluginTest {
             throw new UnsupportedOperationException("overlay contributions are not used by this plugin test");
         }
 
+        @Override
+        public Registration contributeBoundingBoxOverlayButton(BoundingBoxOverlayButton contribution) {
+            throw new UnsupportedOperationException("bounding-box overlay buttons are not used by this plugin test");
+        }
         @Override
         public ContextSourceSnapshot contextSource() {
             throw new UnsupportedOperationException("context source is not used by this plugin test");
@@ -452,6 +664,7 @@ class UiThemePluginTest {
 
     private static final class RecordingAppearanceService implements AppearanceService {
         private AppearanceRequest lastRequest;
+        private AppearanceRestoreResult lastRestore;
         private final AppearanceStatus status = new AppearanceStatus(
             AppearanceStatus.Availability.UNAVAILABLE,
             AppearanceStatus.Source.NATIVE,
@@ -463,6 +676,10 @@ class UiThemePluginTest {
 
         AppearanceRequest lastRequest() {
             return lastRequest;
+        }
+
+        AppearanceRestoreResult lastRestore() {
+            return lastRestore;
         }
 
         @Override
@@ -486,13 +703,13 @@ class UiThemePluginTest {
 
         @Override
         public java.util.concurrent.CompletionStage<AppearanceRestoreResult> restoreOwnedAppearance() {
-            return java.util.concurrent.CompletableFuture.completedFuture(
-                new AppearanceRestoreResult(
-                    AppearanceRestoreResult.Outcome.NO_OWNED_OVERRIDE,
-                    status,
-                    Optional.empty()
-                )
+            final AppearanceRestoreResult result = new AppearanceRestoreResult(
+                AppearanceRestoreResult.Outcome.NO_OWNED_OVERRIDE,
+                status,
+                Optional.empty()
             );
+            lastRestore = result;
+            return java.util.concurrent.CompletableFuture.completedFuture(result);
         }
     }
 

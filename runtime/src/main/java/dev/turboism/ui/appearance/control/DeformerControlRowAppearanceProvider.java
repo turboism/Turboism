@@ -2,25 +2,25 @@ package dev.turboism.ui.appearance.control;
 
 import java.awt.Component;
 import java.util.Objects;
-import java.util.Optional;
 
-/** Applies and restores bounded styles on native deformer control-row renderers. */
+/** Applies and restores bounded palette entries on native deformer control rows. */
 public final class DeformerControlRowAppearanceProvider implements AutoCloseable {
-    private final ControlAppearanceCoordinator coordinator;
+    private final PaletteAppearanceCoordinator coordinator;
     private final NativeStyleTracker styles = new NativeStyleTracker();
     private final AutoCloseable changeSubscription;
 
-    public DeformerControlRowAppearanceProvider(final ControlAppearanceCoordinator coordinator) {
+    public DeformerControlRowAppearanceProvider(final PaletteAppearanceCoordinator coordinator) {
         this.coordinator = Objects.requireNonNull(coordinator, "coordinator");
         this.changeSubscription = coordinator.onChange(this::restore);
     }
 
-    public Component apply(final long generation, final String id, final Component component) {
+    public Component apply(final long hostGeneration, final String id, final Component component) {
         Objects.requireNonNull(id, "id");
         final Component target = Objects.requireNonNull(component, "component");
         if (!javax.swing.SwingUtilities.isEventDispatchThread()) return target;
-        styles.apply(target, generation == coordinator.hostGeneration()
-            ? coordinator.deformerControlRow(id) : Optional.empty());
+        styles.apply(target, coordinator.resolveCurrent(
+            hostGeneration, PaletteAppearanceCoordinator.Palette.DEFORMER, id
+        ));
         return target;
     }
 
@@ -30,7 +30,8 @@ public final class DeformerControlRowAppearanceProvider implements AutoCloseable
         else javax.swing.SwingUtilities.invokeLater(action);
     }
 
-    @Override public void close() {
+    @Override
+    public void close() {
         try { changeSubscription.close(); } catch (Exception ignored) { }
         restore();
     }

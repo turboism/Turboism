@@ -32,6 +32,9 @@ class MappingPackDraftImportTest {
             files.filter(p -> p.toString().endsWith(".json")).forEach(path -> {
                 try {
                     JsonNode root = mapper.readTree(path.toFile());
+                    if (!"turboism.mapping.pack".equals(root.path("format").asText())) {
+                        return;
+                    }
                     var errors = validator.validate(root, path.toString());
                     assertTrue(errors.isEmpty(),
                         path.getFileName() + " validation failed: " + errors);
@@ -86,6 +89,9 @@ class MappingPackDraftImportTest {
             files.filter(p -> p.toString().endsWith(".json")).forEach(path -> {
                 try {
                     JsonNode root = mapper.readTree(path.toFile());
+                    if (!"turboism.mapping.pack".equals(root.path("format").asText())) {
+                        return;
+                    }
                     JsonNode entries = root.get("entries");
                     assertNotNull(entries, path.getFileName() + " must have entries");
                     for (JsonNode entry : entries) {
@@ -130,6 +136,9 @@ class MappingPackDraftImportTest {
             files.filter(p -> p.toString().endsWith(".json")).forEach(path -> {
                 try {
                     JsonNode root = mapper.readTree(path.toFile());
+                    if (!"turboism.mapping.pack".equals(root.path("format").asText())) {
+                        return;
+                    }
                     for (JsonNode entry : root.get("entries")) {
                         String confidence = entry.get("confidence").asText();
                         assertTrue(Set.of("high", "medium").contains(confidence),
@@ -214,7 +223,23 @@ class MappingPackDraftImportTest {
     }
 
     @Test
+    void editorModel52PackUsesExactEditorProvenance() throws Exception {
+        JsonNode metadata = mapper.readTree(
+            DRAFT_DIR.resolve("cubism-5.2-editor-model-read.json").toFile()
+        ).path("metadata");
+        assertEquals(
+            "cubism-ref/verification/cubism-5.2-editor-model.json",
+            metadata.path("inventoryRef").asText()
+        );
+        assertEquals(
+            "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
+            metadata.path("artifactSha256").asText()
+        );
+    }
+
+    @Test
     void draftPacksAreNotInRuntimeEnabledResources() throws Exception {
+
         Path runtimeMapping = Paths.get(System.getProperty("projectRoot", System.getProperty("user.dir")))
             .resolve("runtime/src/main/resources/turboism/mapping");
         if (!Files.exists(runtimeMapping)) {

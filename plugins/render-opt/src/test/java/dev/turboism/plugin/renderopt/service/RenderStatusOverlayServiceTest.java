@@ -136,6 +136,10 @@ class RenderStatusOverlayServiceTest {
             overlays.add(contribution);
             return () -> overlays.remove(contribution);
         }
+        @Override
+        public Registration contributeBoundingBoxOverlayButton(dev.turboism.sdk.ui.BoundingBoxOverlayButton contribution) {
+            throw unsupported();
+        }
 
         @Override public ContextSourceSnapshot contextSource() { throw unsupported(); }
         @Override public ViewportSnapshot viewport() { throw unsupported(); }

@@ -1,0 +1,20 @@
+{
+  "format": "turboism.runtime.config",
+  "schemaVersion": 1,
+  "worktreeId": "startup-host-validation",
+  "pluginDirs": [
+    "plugins/"
+  ],
+  "logLevel": "INFO",
+  "maxLogStorageMiB": 100,
+  "safeMode": false,
+  "hooks": {
+    "disabledIds": [],
+    "denylistedClasses": [],
+    "startup": {
+      "skipUpdateCheck": true,
+      "skipSplash": true,
+      "skipInformation": true
+    }
+  }
+}

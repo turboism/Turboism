@@ -1,0 +1,49 @@
+package dev.turboism.ui.panel;
+
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+
+/**
+ * Runtime chart-value registry. The performance sampling service publishes the
+ * rolling series values for its canonical chart ids here; embedded-panel
+ * {@code PanelView.Chart} rendering resolves live values by chart id. Series
+ * values are immutable snapshots, so publishing is safe from any thread.
+ */
+public final class ChartDataRegistry {
+
+    private static final ConcurrentHashMap<String, ChartData> DATA = new ConcurrentHashMap<>();
+
+    private ChartDataRegistry() { }
+
+    public static void publish(final String chartId, final ChartData data) {
+        DATA.put(Objects.requireNonNull(chartId, "chartId"), Objects.requireNonNull(data, "data"));
+    }
+
+    public static void unpublish(final String chartId) {
+        DATA.remove(chartId);
+    }
+
+    public static Optional<ChartData> find(final String chartId) {
+        return Optional.ofNullable(DATA.get(chartId));
+    }
+
+    /** One series of rolling values in display units. */
+    public record ChartSeriesData(String name, List<Double> values) {
+        public ChartSeriesData {
+            Objects.requireNonNull(name, "name");
+            if (name.isBlank()) {
+                throw new IllegalArgumentException("name must not be blank");
+            }
+            values = List.copyOf(Objects.requireNonNull(values, "values"));
+        }
+    }
+
+    /** Immutable snapshot of all series published for one chart id. */
+    public record ChartData(List<ChartSeriesData> series) {
+        public ChartData {
+            series = List.copyOf(Objects.requireNonNull(series, "series"));
+        }
+    }
+}

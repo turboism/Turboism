@@ -1,9 +1,12 @@
 package dev.turboism.adapter.host;
 
 import dev.turboism.adapter.RuntimeHostAdapters;
+import dev.turboism.adapter.cubism.textureatlas.TextureAtlasLayoutProvider;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.ui.contribution.EditorUiContributionProvider;
+import dev.turboism.ui.appearance.AppearanceHostProvider;
+import dev.turboism.ui.appearance.UnavailableAppearanceHostProvider;
 
 import java.util.List;
 import java.util.Objects;
@@ -17,12 +20,33 @@ interface HostAdapterConnection extends AutoCloseable {
         return UnavailableCubismModelAccess.INSTANCE;
     }
 
+    default dev.turboism.sdk.cubism.core.CoreRuntimeInfo coreRuntimeInfo() {
+        return DynamicCoreRuntimeInfo.unavailableRuntime();
+    }
+
+    default dev.turboism.adapter.cubism.command.EditorCommandAdapter editorCommands() {
+        return dev.turboism.adapter.cubism.command.EditorCommandAdapter.unavailable();
+    }
+
     default VerifiedMemberResolver editorModelResolver() {
         throw new IllegalStateException("Verified Editor model resolver is unavailable.");
     }
 
+    default dev.turboism.adapter.cubism.textureatlas.TextureAtlasDataModelCapture
+        textureAtlasDataModelCapture() {
+        throw new IllegalStateException("Verified texture-atlas capture is unavailable.");
+    }
+
     default VerifiedMemberResolver boundingBoxOverlayResolver() {
         throw new IllegalStateException("Verified bounding-box overlay resolver is unavailable.");
+    }
+
+    default dev.turboism.ui.workspace.WorkspaceHostProvider workspaceProvider() {
+        return null;
+    }
+
+    default dev.turboism.ui.workspace.layout.WorkspaceLayoutCoordinator workspaceLayoutCoordinator() {
+        return null;
     }
 
     default List<EditorUiContributionProvider> editorUiProviders(final long hostGeneration) {
@@ -30,6 +54,30 @@ interface HostAdapterConnection extends AutoCloseable {
             throw new IllegalArgumentException("hostGeneration must be positive");
         }
         return List.of();
+    }
+
+    default AppearanceHostProvider appearanceProvider() {
+        return new UnavailableAppearanceHostProvider();
+    }
+
+    default java.util.Optional<TextureAtlasLayoutProvider> textureAtlasLayoutProvider() {
+        return java.util.Optional.empty();
+    }
+
+    default dev.turboism.ui.context.NativeObjectContextMenuBridge.Handler objectContextMenuHandler(
+        final long hostGeneration
+    ) {
+        if (hostGeneration <= 0) {
+            throw new IllegalArgumentException("hostGeneration must be positive");
+        }
+        return null;
+    }
+
+    default dev.turboism.ui.context.NativeParameterPointContextMenuBridge.Handler parameterPointMenuHandler(
+        final long hostGeneration
+    ) {
+        if (hostGeneration <= 0) throw new IllegalArgumentException("hostGeneration must be positive");
+        return null;
     }
 
 
@@ -56,8 +104,38 @@ interface HostAdapterConnection extends AutoCloseable {
         final CubismModelAccess modelAccess,
         final VerifiedMemberResolver editorModelResolver
     ) {
+        return of(adapters, modelAccess, editorModelResolver, new UnavailableAppearanceHostProvider());
+    }
+
+    static HostAdapterConnection of(
+        final RuntimeHostAdapters adapters,
+        final CubismModelAccess modelAccess,
+        final VerifiedMemberResolver editorModelResolver,
+        final AppearanceHostProvider appearanceProvider
+    ) {
+        return of(
+            adapters,
+            modelAccess,
+            editorModelResolver,
+            appearanceProvider,
+            DynamicCoreRuntimeInfo.unavailableRuntime(),
+            null
+        );
+    }
+
+    static HostAdapterConnection of(
+        final RuntimeHostAdapters adapters,
+        final CubismModelAccess modelAccess,
+        final VerifiedMemberResolver editorModelResolver,
+        final AppearanceHostProvider appearanceProvider,
+        final dev.turboism.sdk.cubism.core.CoreRuntimeInfo coreRuntimeInfo,
+        final AutoCloseable coreOwner
+    ) {
         final RuntimeHostAdapters ownedAdapters = Objects.requireNonNull(adapters, "adapters");
         final CubismModelAccess ownedModelAccess = Objects.requireNonNull(modelAccess, "modelAccess");
+        final AppearanceHostProvider ownedAppearance = Objects.requireNonNull(appearanceProvider, "appearanceProvider");
+        final dev.turboism.sdk.cubism.core.CoreRuntimeInfo ownedCoreRuntime =
+            Objects.requireNonNull(coreRuntimeInfo, "coreRuntimeInfo");
         return new HostAdapterConnection() {
             @Override
             public RuntimeHostAdapters adapters() {
@@ -70,6 +148,11 @@ interface HostAdapterConnection extends AutoCloseable {
             }
 
             @Override
+            public dev.turboism.sdk.cubism.core.CoreRuntimeInfo coreRuntimeInfo() {
+                return ownedCoreRuntime;
+            }
+
+            @Override
             public VerifiedMemberResolver editorModelResolver() {
                 if (editorModelResolver == null) {
                     return HostAdapterConnection.super.editorModelResolver();
@@ -78,7 +161,13 @@ interface HostAdapterConnection extends AutoCloseable {
             }
 
             @Override
-            public void close() {
+            public AppearanceHostProvider appearanceProvider() {
+                return ownedAppearance;
+            }
+
+            @Override
+            public void close() throws Exception {
+                if (coreOwner != null) coreOwner.close();
             }
         };
     }

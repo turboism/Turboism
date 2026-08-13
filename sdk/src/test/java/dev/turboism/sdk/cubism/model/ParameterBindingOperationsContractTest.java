@@ -29,6 +29,39 @@ class ParameterBindingOperationsContractTest {
         );
     }
 
+
+    @Test
+    void clampedBatchTransferRemainsFailClosedByDefault() {
+        final ParameterBindingBatchOperations operations = new ParameterBindingBatchOperations() {
+            @Override public void invert(final List<ParameterBindingTarget> targets) { }
+            @Override public void transfer(final ParameterBindingTransferPlan plan) { }
+        };
+        final ParameterBindingTransferPlan plan = new ParameterBindingTransferPlan(
+            new ParameterId("from"),
+            new ParameterId("to"),
+            List.of(ParameterBindingTarget.artMesh(new ArtMeshId("ArtMeshFace"))),
+            true
+        );
+
+        assertThrows(UnsupportedOperationException.class, () -> operations.transferClamped(plan));
+    }
+
+    @Test
+    void morphTransferRemainsFailClosedByDefault() {
+        final ParameterBindingBatchOperations operations = new ParameterBindingBatchOperations() {
+            @Override public void invert(final List<ParameterBindingTarget> targets) { }
+            @Override public void transfer(final ParameterBindingTransferPlan plan) { }
+        };
+        final ParameterBindingTransferPlan plan = new ParameterBindingTransferPlan(
+            new ParameterId("from"),
+            new ParameterId("to"),
+            List.of(ParameterBindingTarget.artMesh(new ArtMeshId("ArtMeshFace"))),
+            false
+        );
+
+        assertThrows(UnsupportedOperationException.class, () -> operations.transferMorphClamped(plan));
+    }
+
     @Test
     void pointIdentityAndTargetAreRequiredForEveryMutation() {
         final RecordingOperations operations = new RecordingOperations();

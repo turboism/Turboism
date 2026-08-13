@@ -1124,7 +1124,7 @@ class MappingReviewPipelineTest {
         Path root = temp.resolve("worktree-" + System.nanoTime());
         TestWorkspace workspace = new TestWorkspace(root);
         workspace.writePack(OLD_RUNTIME);
-        Files.createDirectories(root.resolve("docs/migration/verification/static"));
+        Files.createDirectories(root.resolve("cubism-ref/verification"));
         return workspace;
     }
 
@@ -1494,7 +1494,7 @@ class MappingReviewPipelineTest {
         }
         Path root() { return root; }
         Path pack() { return root.resolve(PACK); }
-        Path verificationRecord() { return root.resolve("docs/migration/verification/static/fixture.json"); }
+        Path verificationRecord() { return root.resolve("cubism-ref/verification/fixture.json"); }
         MappingReviewService service() {
             return new MappingReviewService(
                 root,
