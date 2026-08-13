@@ -90,7 +90,7 @@ final class PreviewPluginLoader {
     ) throws Exception {
         resources.classLoader = new URLClassLoader(
             new URL[]{candidate.jar().toUri().toURL()},
-            TurboismPlugin.class.getClassLoader()
+            resolvePluginParent(TurboismPlugin.class.getClassLoader())
         );
         runtime.transitionTo(PluginLifecycleState.CLASSLOADER_CREATED);
 
@@ -154,6 +154,18 @@ final class PreviewPluginLoader {
             contextBundle.localization(),
             contextBundle.cleanupEvidence()
         );
+    }
+
+    /**
+     * Package-private parent-selection seam. When the SDK is bootstrap-loaded
+     * by the agent Boot-Class-Path, {@code TurboismPlugin.class.getClassLoader()}
+     * is null and the platform loader is required so plugin JARs stay visible to
+     * JDK platform modules (for example {@code jdk.httpserver}).
+     */
+    static ClassLoader resolvePluginParent(final ClassLoader sdkClassLoader) {
+        return sdkClassLoader != null
+            ? sdkClassLoader
+            : ClassLoader.getPlatformClassLoader();
     }
 
     private List<TurboismPlugin> instantiateAll(
