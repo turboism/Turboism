@@ -104,7 +104,8 @@ class SwingPanelViewRendererTest {
             JPanel content = (JPanel) section.getComponent(0);
             assertInstanceOf(AbstractButton.class, content.getComponent(0));
             assertEquals("run", content.getComponent(0).getName());
-            assertEquals("note", assertInstanceOf(JLabel.class, content.getComponent(2)).getText());
+            final JLabel note = assertInstanceOf(JLabel.class, content.getComponent(2));
+            assertTrue(note.getText().startsWith("<html>") && note.getText().endsWith("</html>"), note.getText());
             assertTrue(CollapsibleSection.isExpanded(section));
 
             section.setSize(400, 200);

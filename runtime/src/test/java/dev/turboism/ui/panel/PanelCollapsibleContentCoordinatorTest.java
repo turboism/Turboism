@@ -254,7 +254,8 @@ class PanelCollapsibleContentCoordinatorTest {
     }
 
     private static JLabel findLabel(final Component root, final String text) {
-        if (root instanceof JLabel label && text.equals(label.getText())) {
+        if (root instanceof JLabel label
+            && (text.equals(label.getText()) || text.equals(labelText(label)))) {
             return label;
         }
         if (root instanceof java.awt.Container container) {
@@ -268,6 +269,13 @@ class PanelCollapsibleContentCoordinatorTest {
         return null;
     }
 
+
+    private static String labelText(final JLabel label) {
+        final String text = label.getText();
+        return text.startsWith("<html>") && text.endsWith("</html>")
+            ? text.substring("<html>".length(), text.length() - "</html>".length())
+            : text;
+    }
     private static void paint(JPanel panel) {
         BufferedImage image = new BufferedImage(400, 200, BufferedImage.TYPE_INT_ARGB);
         Graphics2D graphics = image.createGraphics();
