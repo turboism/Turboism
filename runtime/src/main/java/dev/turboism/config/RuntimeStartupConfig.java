@@ -81,7 +81,15 @@ public record RuntimeStartupConfig(
                 return DISABLED;
             }
             final JsonNode root = JSON.readTree(Files.readAllBytes(configPath));
-            if (!new RuntimeConfigValidator().validate(root, configPath.toString()).isEmpty()) {
+            final java.util.List<dev.turboism.core.schema.SchemaValidationError> configErrors =
+                new RuntimeConfigValidator().validate(root, configPath.toString());
+            if (!configErrors.isEmpty()) {
+                // Temporary host diagnosis: detailed validation errors on stderr
+                // (visible in cubism-console.txt) without changing the diagnostic code.
+                System.err.println("TURBOISM_CONFIG_DIAGNOSTIC path=" + configPath
+                    + " exists=" + Files.exists(configPath)
+                    + " size=" + Files.size(configPath)
+                    + " errors=" + configErrors);
                 report(diagnostic, "RUNTIME_STARTUP_CONFIG_INVALID");
                 return DISABLED;
             }

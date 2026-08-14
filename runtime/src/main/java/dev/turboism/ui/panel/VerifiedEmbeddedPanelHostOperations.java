@@ -8,6 +8,9 @@ import dev.turboism.sdk.ui.PanelView;
 import dev.turboism.ui.action.EditorUiActionRouter;
 import dev.turboism.sdk.ui.context.PanelTabSelection;
 
+import java.awt.BorderLayout;
+import javax.swing.JPanel;
+
 import javax.swing.JComponent;
 import javax.swing.JMenu;
 import javax.swing.JMenuItem;
@@ -104,6 +107,7 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
     private final dev.turboism.ui.action.EditorUiActionRouter actionRouter;
     private final Map<Object, NativePanel> panels = new IdentityHashMap<>();
     private final Map<Object, FloatingPanel> floatingPanels = new IdentityHashMap<>();
+    private final Map<Object, Long> lastFloatMillis = new IdentityHashMap<>();
     private final FloatingFrameLifecycle floatingFrameLifecycle = new FloatingFrameLifecycle();
     private volatile long hostGeneration = Long.MIN_VALUE;
     private final java.util.Locale locale;
@@ -210,14 +214,14 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
         panels.put(palette, new NativePanel(dock, palette, paletteId));
 
         final EmbeddedPanelId panelId = new EmbeddedPanelId(descriptor.contributionId());
-        final PanelView viewContent = PanelCollapsibleContentCoordinator.shared()
-            .merge(panelId, descriptor.content());
-        final Map<String, String> actionOwners =
-            PanelCollapsibleContentCoordinator.shared().actionOwners(panelId);
-        final JComponent panel = SwingPanelViewRenderer.render(
-            viewContent, routedAction(actionRouter, actionOwners, descriptor.pluginId()), locale);
-        panel.setName(nativeId);
-        final Object content = resolver.construct(SWING_CONTAINER_CREATE, panel);
+        final JComponent contentRoot = buildContentRoot(descriptor);
+        // The native palette keeps one stable layout-neutral wrapper for its whole
+        // lifetime; refresh swaps the wrapper's single child, so the host container
+        // and any floating window are never rebuilt and layout-specific renderer
+        // roots are never nested inside one another.
+        final JPanel stableContentRoot = new JPanel(new BorderLayout());
+        stableContentRoot.add(contentRoot, BorderLayout.CENTER);
+        final Object content = resolver.construct(SWING_CONTAINER_CREATE, stableContentRoot);
         resolver.invoke(PALETTE_SET_PANEL, palette, content, 340, 300);
         final AtomicBoolean closed = new AtomicBoolean();
         WindowMenuItem windowMenuItem = null;
@@ -242,6 +246,14 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
             // semantics) so a custom tab reuses the current dock column instead of opening a
             // new one; only a workspace without any box runs the native new-column path.
             showPaletteInWorkspace(dock, palette, paletteId);
+            if (descriptor.floatingByDefault()) {
+                // Present the pane as a floating window in the same EDT batch as the
+                // install, so the user never sees a docked intermediate state. Runs
+                // only after the synchronous workspace attachment: floatPanel resolves
+                // the palette's source box, which exists only once showPaletteInWorkspace
+                // attached the palette to the workspace.
+                floatPanel(nativePanel(palette));
+            }
             // Runs native updateWindowMenuItem after the palette is shown so the host
             // derives the initial check state (visible palette => checked menu item).
             refresh(dock);
@@ -274,6 +286,37 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
                     throw new IllegalStateException("embedded panel is closed");
                 }
                 requestActivation(dock, palette, paletteId, closed);
+            }
+
+            @Override
+            public void floatPanel() {
+                if (closed.get()) {
+                    throw new IllegalStateException("embedded panel is closed");
+                }
+                onEdt(() -> {
+                    VerifiedEmbeddedPanelHostOperations.this.floatPanel(nativePanel(palette));
+                    return null;
+                });
+            }
+
+            @Override
+            public void updateContent(final EmbeddedPanelContributionDescriptor descriptor) {
+                if (closed.get()) {
+                    throw new IllegalStateException("embedded panel is closed");
+                }
+                onEdt(() -> {
+                    // Add the fresh root before removing the previous one so the
+                    // stable wrapper is never observed empty (no blank flash) and
+                    // still ends with exactly one child; the native palette (and its
+                    // floating window) is never rebuilt.
+                    final JComponent next = buildContentRoot(descriptor);
+                    final java.awt.Component previous = stableContentRoot.getComponent(0);
+                    stableContentRoot.add(next, BorderLayout.CENTER);
+                    stableContentRoot.remove(previous);
+                    stableContentRoot.revalidate();
+                    stableContentRoot.repaint();
+                    return null;
+                });
             }
 
             @Override
@@ -426,6 +469,24 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
         });
     }
 
+    private JComponent buildContentRoot(final EmbeddedPanelContributionDescriptor descriptor) {
+        final JComponent[] holder = new JComponent[1];
+        onEdt(() -> {
+            final EmbeddedPanelId panelId = new EmbeddedPanelId(descriptor.contributionId());
+            final PanelView viewContent = PanelCollapsibleContentCoordinator.shared()
+                .merge(panelId, descriptor.content());
+            final Map<String, String> actionOwners =
+                PanelCollapsibleContentCoordinator.shared().actionOwners(panelId);
+            final JComponent panel = SwingPanelViewRenderer.render(
+                viewContent, routedAction(actionRouter, actionOwners, descriptor.pluginId()), locale);
+            final String nativeId = "turboism:" + descriptor.pluginId() + ":" + descriptor.contributionId();
+            panel.setName(nativeId);
+            holder[0] = panel;
+            return null;
+        });
+        return holder[0];
+    }
+
     private void floatPanel(final NativePanel panel) {
         final Object sourceBox = resolver.invoke(
             WORKSPACE_PALETTE_BOX_FOR,
@@ -477,6 +538,7 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
         resolver.invoke(PALETTE_MANAGER_FIRE_STATE, panel.dock().paletteManager(), panel.palette());
         resolver.invoke(WINDOW_SET_VISIBLE, resolver.invoke(PALETTE_FRAME_WINDOW, frame), true);
         floatingPanels.put(panel.palette(), new FloatingPanel(panel, siblingAnchor, sourceBox, frame, floatingBox));
+        lastFloatMillis.put(panel.palette(), System.currentTimeMillis());
         floatingFrameLifecycle.remember(frame, panel.palette(), siblingAnchor, sourceBox);
     }
 
@@ -630,8 +692,17 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
             return;
         }
         final long disposedGeneration = hostGeneration;
+        // The host resets (dispose + rebuild) the floating frame while creating a
+        // new floating window for the same palette. Within a short window after
+        // floatPanel this dispose is that reset, not a user close; merging the
+        // panel back into the dock then would drop the floating window right
+        // after it appeared. Only merge when the dispose happens outside the
+        // window (a real user close).
+        final long now = System.currentTimeMillis();
+        final boolean recentFloat = lastFloatMillis.values().stream()
+            .anyMatch(at -> now - at < 1_500L);
         final List<FloatingFrameLifecycle.Entry> entries = floatingFrameLifecycle.beginClose(frame);
-        if (entries.isEmpty() || !hostActive) {
+        if (entries.isEmpty() || !hostActive || recentFloat) {
             return;
         }
         // The dispose transformer fires before the host method returns. Defer the
@@ -907,8 +978,25 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
         if (!(rawItems instanceof List<?> items)) {
             throw new IllegalStateException("Cubism Window-menu items are unavailable");
         }
-        if (items.stream().anyMatch(item -> nativeItemId.equals(resolver.invoke(WIDGET_NAME, item)))) {
-            throw new IllegalStateException("embedded-panel Window-menu item is already materialized");
+        // Idempotent materialization: a previous panel teardown may have failed
+        // before detaching the menu item (e.g. the palette was already closed).
+        // Detach any stale item with the same id instead of failing, so a rebuild
+        // after a host-side panel close can always re-install cleanly.
+        final List<?> staleItems = items.stream()
+            .filter(item -> nativeItemId.equals(resolver.invoke(WIDGET_NAME, item)))
+            .toList();
+        if (!staleItems.isEmpty()) {
+            for (Object stale : staleItems) {
+                items.remove(stale);
+                final Object stalePeer = resolver.invoke(MENU_ITEM_SWING, stale);
+                if (stalePeer instanceof JMenuItem staleItem) {
+                    final Object menuPeer = resolver.invoke(MENU_SWING, windowMenu);
+                    if (menuPeer instanceof JMenu menu) {
+                        menu.remove(staleItem);
+                    }
+                }
+            }
+            refreshMenu(menuBar);
         }
 
         // CCheckMenuItem (Swing peer JCheckBoxMenuItem) carries the selected state that the

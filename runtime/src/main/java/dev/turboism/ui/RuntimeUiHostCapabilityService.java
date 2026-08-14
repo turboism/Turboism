@@ -21,6 +21,8 @@ import dev.turboism.sdk.ui.FileChooserRequest;
 import dev.turboism.sdk.ui.OverlayContribution;
 import dev.turboism.sdk.ui.StatusNotification;
 import dev.turboism.sdk.ui.UiHostCapabilityService;
+import dev.turboism.sdk.ui.HorizontalToolbarContribution;
+import dev.turboism.sdk.ui.VerticalToolbarContribution;
 import dev.turboism.sdk.ui.ViewportSnapshot;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 import dev.turboism.sdk.ui.context.ContextSourceSnapshot;
@@ -81,6 +83,8 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         new BoundedKeyedStore<>(MAX_TRANSIENT_ENTRIES);
     private final CopyOnWriteArrayList<ContextMenuRegistry.ContextMenuContribution> contextMenus = new CopyOnWriteArrayList<>();
     private final CopyOnWriteArrayList<MainToolbarRegistry.MainToolbarContribution> mainToolbars = new CopyOnWriteArrayList<>();
+    private final CopyOnWriteArrayList<VerticalToolbarContribution> verticalToolbars = new CopyOnWriteArrayList<>();
+    private final CopyOnWriteArrayList<HorizontalToolbarContribution> horizontalToolbars = new CopyOnWriteArrayList<>();
     private final CopyOnWriteArrayList<PaletteToolbarRegistry.PaletteToolbarContribution> paletteToolbars = new CopyOnWriteArrayList<>();
     private final CopyOnWriteArrayList<PaletteFilterRegistry.PaletteFilterContribution> paletteFilters = new CopyOnWriteArrayList<>();
     private final BoundedKeyedStore<String, SafeModeDiagnostic> statusToolbarDiagnostics =
@@ -427,6 +431,11 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
     }
 
     @Override
+    public void activateEmbeddedPanelFloating(final EmbeddedPanelId panelId) {
+        panelActivationCoordinator.activateFloating(pluginId, Objects.requireNonNull(panelId, "panelId"));
+    }
+
+    @Override
     public Optional<String> requestFile(final FileChooserRequest request) {
         Objects.requireNonNull(request, "request");
         permissionChecker.check(UI_FILE_CHOOSER_REQUEST, "ui.file-chooser.request");
@@ -475,6 +484,32 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
             resolved.order(),
             resolved,
             mainToolbars
+        );
+    }
+
+    @Override
+    public Registration contributeHorizontalToolbar(final HorizontalToolbarContribution contribution) {
+        Objects.requireNonNull(contribution, "contribution");
+        permissionChecker.check(UI_TOOLBAR_MAIN_CONTRIBUTE, "ui.horizontal-toolbar.contribute");
+        return authoritativeRegistration(
+            EditorUiFamily.HORIZONTAL_TOOLBAR,
+            contribution.contributionId(),
+            0,
+            contribution,
+            horizontalToolbars
+        );
+    }
+
+    @Override
+    public Registration contributeVerticalToolbar(final VerticalToolbarContribution contribution) {
+        Objects.requireNonNull(contribution, "contribution");
+        permissionChecker.check(UI_TOOLBAR_MAIN_CONTRIBUTE, "ui.vertical-toolbar.contribute");
+        return authoritativeRegistration(
+            EditorUiFamily.VERTICAL_TOOLBAR,
+            contribution.contributionId(),
+            0,
+            contribution,
+            verticalToolbars
         );
     }
 
@@ -543,6 +578,14 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
 
     public List<MainToolbarRegistry.MainToolbarContribution> mainToolbars() {
         return List.copyOf(mainToolbars);
+    }
+
+    public List<VerticalToolbarContribution> verticalToolbars() {
+        return List.copyOf(verticalToolbars);
+    }
+
+    public List<HorizontalToolbarContribution> horizontalToolbars() {
+        return List.copyOf(horizontalToolbars);
     }
 
     public List<PaletteToolbarRegistry.PaletteToolbarContribution> paletteToolbars() {
