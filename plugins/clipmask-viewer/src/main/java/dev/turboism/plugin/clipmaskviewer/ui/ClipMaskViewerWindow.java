@@ -10,6 +10,7 @@ import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.StatusNotification;
+import dev.turboism.sdk.ui.window.TurboismWindowFactory;
 
 import javax.swing.BorderFactory;
 import javax.swing.Box;
@@ -86,6 +87,7 @@ public final class ClipMaskViewerWindow extends JDialog implements WindowView {
         final Runnable onClosed
     ) {
         super((java.awt.Frame) null, localization.text("window.title"), false);
+        TurboismWindowFactory.style(this);
         this.localization = Objects.requireNonNull(localization, "localization");
         this.context = Objects.requireNonNull(context, "context");
         this.logger = context.logger();
