@@ -5,6 +5,7 @@ import dev.turboism.plugin.backup.webdav.WebDavSyncTarget;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.plugin.PluginLogger;
+import dev.turboism.sdk.ui.window.TurboismWindowFactory;
 
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
@@ -159,9 +160,7 @@ public final class WebDavSettingsDialog {
         final PluginLogger logger = context.logger();
         final PluginLocalization localization = context.localization();
         final Window owner = null; // modeless top-level dialog; the host owns the frame hierarchy
-        final JDialog dialog = new JDialog();
-        dialog.setTitle("WebDAV 备份设置");
-        dialog.setModal(false);
+        final JDialog dialog = TurboismWindowFactory.dialog(null, "WebDAV 备份设置", false);
         final JCheckBox enabled = new JCheckBox("启用同步");
         final JTextField url = new JTextField(WebDavSettingsBinding.DEFAULT_URL, 32);
         final JTextField username = new JTextField(24);

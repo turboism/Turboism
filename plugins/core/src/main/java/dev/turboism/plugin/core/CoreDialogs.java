@@ -1,10 +1,10 @@
 package dev.turboism.plugin.core;
 
+import dev.turboism.sdk.ui.window.TurboismWindowFactory;
 import javax.swing.JDialog;
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 import javax.swing.WindowConstants;
-import java.awt.Dialog;
 import java.awt.Frame;
 import java.awt.Window;
 
@@ -13,7 +13,7 @@ final class CoreDialogs {
     private CoreDialogs() { }
 
     static JDialog create(final String title, final int width, final int height) {
-        final JDialog dialog = new JDialog(owner(), title, Dialog.ModalityType.MODELESS);
+        final JDialog dialog = TurboismWindowFactory.dialog(owner(), title, false);
         dialog.setDefaultCloseOperation(WindowConstants.HIDE_ON_CLOSE);
         dialog.setSize(width, height);
         dialog.setLocationRelativeTo(dialog.getOwner());
