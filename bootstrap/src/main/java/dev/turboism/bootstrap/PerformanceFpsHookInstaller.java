@@ -32,6 +32,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public final class PerformanceFpsHookInstaller implements PerformanceFpsHook {
 
+    private static final long CUBISM_5203_SIZE = 40_805_584L;
+    private static final String CUBISM_5203_SHA256 =
+        "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd";
+
     private static final long CUBISM_5302_SIZE = 41_922_739L;
     private static final String CUBISM_5302_SHA256 =
         "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21";
@@ -55,14 +59,33 @@ public final class PerformanceFpsHookInstaller implements PerformanceFpsHook {
         this.instrumentation = Objects.requireNonNull(instrumentation, "instrumentation");
         this.hostClassLoader = Objects.requireNonNull(hostClassLoader, "hostClassLoader");
         final HostArtifactDigest digest = HostArtifactDigest.from(hostArtifact);
-        if (digest.size() != CUBISM_5302_SIZE || !CUBISM_5302_SHA256.equals(digest.sha256())) {
-            throw new IllegalArgumentException("unsupported Cubism artifact for FPS counting");
-        }
-        this.targets = PerformanceProbeTargets.cubism5302().stream()
-            .filter(target -> target.metric() == PerformanceProbeMetric.RENDER_SCENE)
-            .toList();
+        this.targets = fpsTargetsFor(digest);
         this.transformer = new PerformanceProbeMethodTransformer(hostClassLoader, hostArtifact, targets);
         this.rollbackObserver = new PerformanceProbeRollbackObserver(hostClassLoader, hostArtifact, targets);
+    }
+
+    /**
+     * FPS counting targets for one reviewed host artifact. Each exact version
+     * routes through its own target list; the 5.2.03 entry is verified against
+     * the exact 5.2.03 bytecode and is never inferred from 5.3.02. Unreviewed
+     * artifacts fail closed.
+     */
+    static List<PerformanceProbeMethodTransformer.Target> fpsTargetsFor(
+        final HostArtifactDigest digest
+    ) {
+        if (digest.size() == CUBISM_5203_SIZE && CUBISM_5203_SHA256.equals(digest.sha256())) {
+            return PerformanceProbeTargets.cubism5203();
+        }
+        if (digest.size() == CUBISM_5302_SIZE && CUBISM_5302_SHA256.equals(digest.sha256())) {
+            return PerformanceProbeTargets.cubism5302().stream()
+                .filter(target -> target.metric() == PerformanceProbeMetric.RENDER_SCENE)
+                .toList();
+        }
+        throw new IllegalArgumentException(
+            "unsupported Cubism artifact for FPS counting"
+                + " (expected Cubism 5.2.03 or 5.3.02; got size=" + digest.size()
+                + " sha256=" + digest.sha256() + ")"
+        );
     }
 
     @Override
