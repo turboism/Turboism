@@ -255,8 +255,12 @@ class HistoryPanelServiceTest {
 
         @Override
         public Registration contributeEmbeddedPanel(final EmbeddedPanelContribution contribution) {
+            // Mirrors the runtime authority: same identity replaces the previous
+            // contribution (content refresh) instead of adding a second panel.
+            panels.removeIf(existing -> existing.id().equals(contribution.id()));
             panels.add(contribution);
-            final Registration registration = () -> panels.remove(contribution);
+            final Registration registration =
+                () -> panels.removeIf(existing -> existing.id().equals(contribution.id()));
             registrations.add(registration);
             return registration;
         }
