@@ -114,8 +114,16 @@ public final class EmbeddedPanelContributionProvider implements EditorUiContribu
             throw new IllegalStateException("embedded-panel provider admission is stale");
         }
         if (existing instanceof Session session && session.hostGeneration == hostGeneration) {
-            session.reconcile(descriptors(contributions));
-            return session;
+            try {
+                session.reconcile(descriptors(contributions));
+                return session;
+            } catch (RuntimeException | Error failure) {
+                // A host lifecycle event (e.g. the floating frame being disposed)
+                // can close a panel behind the provider's back. Rebuild the whole
+                // panel set instead of letting every refresh fail permanently.
+                session.closeSuppressing(failure);
+                return apply(hostGeneration, contributions);
+            }
         }
         if (existing != null) {
             existing.close();
@@ -131,7 +139,8 @@ public final class EmbeddedPanelContributionProvider implements EditorUiContribu
             .toList();
     }
 
-    private final class Session implements Registration {
+    private final class Session implements Registration,
+        dev.turboism.ui.panel.RuntimeEmbeddedPanelActivationCoordinator.ActivationTarget {
         private final long hostGeneration;
         private Map<EditorUiContributionIdentity, InstalledPanel> panels = Map.of();
         private List<Registration> bindings = List.of();
@@ -152,7 +161,7 @@ public final class EmbeddedPanelContributionProvider implements EditorUiContribu
             final List<Registration> installedBindings = new ArrayList<>();
             RuntimeDockMaintenanceCoordinator.EmptyDockCleaner startupDockCleaner = null;
             try {
-                installedBindings.add(activationCoordinator.bind(hostGeneration, this::activate));
+                installedBindings.add(activationCoordinator.bind(hostGeneration, this));
                 installedBindings.add(host.onRebuild(this::rebuild));
                 if (host instanceof VerifiedEmbeddedPanelHostOperations verified) {
                     verified.bindHostGeneration(hostGeneration);
@@ -235,6 +244,21 @@ public final class EmbeddedPanelContributionProvider implements EditorUiContribu
                         next.put(entry.getKey(), current);
                         continue;
                     }
+                    if (current != null
+                        && current.descriptor().pluginId().equals(entry.getValue().pluginId())
+                        && current.descriptor().contributionId().equals(entry.getValue().contributionId())) {
+                        // Same contribution identity: update the content in place so the
+                        // installed palette and its floating window survive the refresh.
+                        final EmbeddedPanelHostOperations.PanelHandle handle = current.handle();
+                        try {
+                            handle.updateContent(entry.getValue());
+                        } catch (RuntimeException | Error updateFailure) {
+                            closePanelsSuppressing(java.util.List.of(handle), updateFailure);
+                            throw updateFailure;
+                        }
+                        next.put(entry.getKey(), current.withDescriptor(entry.getValue()));
+                        continue;
+                    }
                     final EmbeddedPanelHostOperations.PanelHandle handle = install(entry.getValue());
                     added.add(handle);
                     next.put(entry.getKey(), new InstalledPanel(entry.getValue(), handle));
@@ -246,7 +270,12 @@ public final class EmbeddedPanelContributionProvider implements EditorUiContribu
 
             final List<EmbeddedPanelHostOperations.PanelHandle> removed = new ArrayList<>();
             for (Map.Entry<EditorUiContributionIdentity, InstalledPanel> entry : panels.entrySet()) {
-                if (next.get(entry.getKey()) != entry.getValue()) {
+                final InstalledPanel retained = next.get(entry.getKey());
+                // Decide removal from the retained PanelHandle identity, not the
+                // InstalledPanel wrapper identity: an in-place content update
+                // stores a fresh wrapper around the SAME handle, and closing
+                // that handle would drop the live palette/floating window.
+                if (retained == null || retained.handle() != entry.getValue().handle()) {
                     removed.add(entry.getValue().handle());
                 }
             }
@@ -285,7 +314,8 @@ public final class EmbeddedPanelContributionProvider implements EditorUiContribu
             reconcile(descriptors);
         }
 
-        private synchronized void activate(
+        @Override
+        public synchronized void activate(
             final String pluginId,
             final EmbeddedPanelId panelId
         ) {
@@ -301,6 +331,26 @@ public final class EmbeddedPanelContributionProvider implements EditorUiContribu
                 throw new IllegalStateException("embedded panel is unavailable for the calling plugin");
             }
             panel.handle().activate();
+        }
+
+        @Override
+        public synchronized void activateFloating(
+            final String pluginId,
+            final EmbeddedPanelId panelId
+        ) {
+            if (closed) {
+                throw new IllegalStateException("embedded-panel provider is closed");
+            }
+            final InstalledPanel panel = panels.get(new EditorUiContributionIdentity(
+                pluginId,
+                EditorUiFamily.PANEL,
+                panelId.value()
+            ));
+            if (panel == null) {
+                throw new IllegalStateException("embedded panel is unavailable for the calling plugin");
+            }
+            panel.handle().activate();
+            panel.handle().floatPanel();
         }
 
         @Override
@@ -364,6 +414,10 @@ public final class EmbeddedPanelContributionProvider implements EditorUiContribu
         private InstalledPanel {
             descriptor = Objects.requireNonNull(descriptor, "descriptor");
             handle = Objects.requireNonNull(handle, "handle");
+        }
+
+        private InstalledPanel withDescriptor(final EmbeddedPanelContributionDescriptor next) {
+            return new InstalledPanel(next, handle);
         }
     }
 

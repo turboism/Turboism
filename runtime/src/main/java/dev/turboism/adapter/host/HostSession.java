@@ -73,6 +73,11 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         new dev.turboism.adapter.cubism.mesh.RuntimeMeshEditUiService();
     private final RuntimeEditorUiHostLifecycle editorUiLifecycle =
         new RuntimeEditorUiHostLifecycle();
+    private final dev.turboism.sdk.cubism.history.CubismHistory history =
+        new dev.turboism.adapter.cubism.editor.history.EditorHistorySnapshotProvider(
+            this::optionalEditorModelResolver,
+            () -> editorUiLifecycle.snapshot().generation()
+        );
     private final EditorUiContributionAuthority editorUiContributions =
         new EditorUiContributionAuthority(editorUiLifecycle);
     private final RuntimeEmbeddedPanelActivationCoordinator embeddedPanelActivation =
@@ -372,6 +377,10 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     }
 
     @Override
+    public dev.turboism.sdk.cubism.history.CubismHistory history() {
+        return history;
+    }
+
     public HostSnapshotSource modelAppearanceSource() {
         return modelAppearanceSource;
     }
@@ -559,6 +568,17 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         }
     }
 
+    private java.util.Optional<dev.turboism.mapping.verification.VerifiedMemberResolver> optionalEditorModelResolver() {
+        synchronized (lifecycleMonitor) {
+            if (activeConnection == null) return java.util.Optional.empty();
+            try {
+                return java.util.Optional.of(activeConnection.editorModelResolver());
+            } catch (IllegalStateException unavailable) {
+                return java.util.Optional.empty();
+            }
+        }
+    }
+
     public dev.turboism.adapter.cubism.textureatlas.TextureAtlasDataModelCapture
         textureAtlasDataModelCapture() {
         synchronized (lifecycleMonitor) {
@@ -587,6 +607,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         return new SessionRuntimeHostAdapterAccess(
             dynamic.view(),
             dynamicModelAccess,
+            history,
             modelAppearanceSource,
             dynamicCoreRuntime,
             dynamicEditorCommands,
