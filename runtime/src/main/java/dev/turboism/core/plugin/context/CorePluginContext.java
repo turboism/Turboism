@@ -282,7 +282,8 @@ public final class CorePluginContext implements PluginContext {
             userFiles instanceof dev.turboism.adapter.cubism.command.EditorFileCommandResolver resolver
                 ? resolver
                 : dev.turboism.adapter.cubism.command.EditorFileCommandResolver.unavailable(),
-            hostAccess.adapters().autoBackup()
+            hostAccess.adapters().autoBackup(),
+            hostAccess.history()
         );
     }
 

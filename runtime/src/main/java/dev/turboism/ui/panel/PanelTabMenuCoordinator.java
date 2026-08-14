@@ -19,8 +19,9 @@ public final class PanelTabMenuCoordinator implements AutoCloseable {
         final Host requested = Objects.requireNonNull(value, "host");
         synchronized (monitor) {
             requireOpen();
-            if (host != null) {
-                throw new IllegalStateException("panel-tab menu host is already bound");
+            // A later panel provider batch replaces the previous host binding.
+            if (host != null && host != requested) {
+                closeNative();
             }
             host = requested;
             reconcile();

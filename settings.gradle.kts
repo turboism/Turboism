@@ -27,6 +27,7 @@ include(
     "plugins:atlas-maxrects-bssf",
     "plugins:texture-atlas-stats",
     "plugins:physics-editor",
+    "plugins:history-panel",
     "plugins:perf-stats",
     "plugins:palette-label-style",
     "plugins:parameter-batch-transfer",

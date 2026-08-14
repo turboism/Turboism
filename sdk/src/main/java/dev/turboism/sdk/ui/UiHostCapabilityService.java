@@ -7,6 +7,7 @@ import dev.turboism.sdk.ui.filter.PaletteFilterRegistry;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
 
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -75,6 +76,15 @@ public interface UiHostCapabilityService {
      */
     default void activateEmbeddedPanel(final EmbeddedPanelId panelId) {
         throw new UnsupportedOperationException("embedded-panel activation is unavailable");
+    }
+
+    /**
+     * Activates an embedded panel owned by the calling plugin as a floating
+     * window (Photoshop-style popup). Hosts that do not provide a verified
+     * floating surface fail closed to plain activation.
+     */
+    default void activateEmbeddedPanelFloating(final EmbeddedPanelId panelId) {
+        activateEmbeddedPanel(panelId);
     }
 
     /**
@@ -177,6 +187,25 @@ public interface UiHostCapabilityService {
     Registration contributeMainToolbar(MainToolbarRegistry.MainToolbarContribution contribution);
 
     Registration contributePaletteToolbar(PaletteToolbarRegistry.PaletteToolbarContribution contribution);
+
+    /**
+     * Contributes a vertical icon tool strip to the left or right of the
+     * modeling canvas. Hosts that do not provide a verified surface fail
+     * closed.
+     */
+    default Registration contributeVerticalToolbar(final VerticalToolbarContribution contribution) {
+        Objects.requireNonNull(contribution, "contribution");
+        throw new UnsupportedOperationException("vertical-toolbar contribution is unavailable");
+    }
+
+    /**
+     * Contributes a horizontal icon tool strip above or below the modeling
+     * canvas. Hosts that do not provide a verified surface fail closed.
+     */
+    default Registration contributeHorizontalToolbar(final HorizontalToolbarContribution contribution) {
+        Objects.requireNonNull(contribution, "contribution");
+        throw new UnsupportedOperationException("horizontal-toolbar contribution is unavailable");
+    }
 
     /**
      * Contributes a keyword filter box to a palette tab toolbar.

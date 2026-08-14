@@ -38,6 +38,10 @@ import dev.turboism.ui.panel.VerifiedEmbeddedPanelHostOperations;
 import dev.turboism.ui.toolbar.EditorUiPluginResourceRegistry;
 import dev.turboism.ui.toolbar.MainToolbarContributionProvider;
 import dev.turboism.ui.toolbar.VerifiedMainToolbarHostOperations;
+import dev.turboism.ui.toolbar.HorizontalToolbarContributionProvider;
+import dev.turboism.ui.toolbar.VerifiedHorizontalToolbarHostOperations;
+import dev.turboism.ui.toolbar.VerifiedVerticalToolbarHostOperations;
+import dev.turboism.ui.toolbar.VerticalToolbarContributionProvider;
 import dev.turboism.ui.appearance.AppearanceHostProvider;
 import dev.turboism.ui.appearance.FlatLafAppearanceHostProvider;
 import dev.turboism.ui.appearance.SwingFlatLafHostOperations;
@@ -579,11 +583,30 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         }
     }
 
+    private static void diag(final String message) {
+        final String line = "TURBOISM_TOOLBAR_DIAG " + message + "\n";
+        System.err.print(line);
+        try {
+            java.nio.file.Files.write(
+                java.nio.file.Path.of("Z:\\tmp\\turboism-toolbar-diag.txt"),
+                line.getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                java.nio.file.StandardOpenOption.CREATE,
+                java.nio.file.StandardOpenOption.APPEND
+            );
+        } catch (Exception ignored) {
+        }
+    }
+
     private ToolbarMaterial toolbarMaterial(final HostVerificationEvidence evidence) throws Exception {
         if (evidence.mainToolbar().isEmpty()
             || mainToolbarResolverFactory == null
             || editorUiPluginResources == null
             || editorUiActionRouter == null) {
+            System.err.println("TURBOISM_TOOLBAR_DIAG toolbarMaterial=null mainToolbarEmpty="
+                + evidence.mainToolbar().isEmpty()
+                + " factory=" + (mainToolbarResolverFactory != null)
+                + " resources=" + (editorUiPluginResources != null)
+                + " router=" + (editorUiActionRouter != null));
             return null;
         }
         final HostVerificationEvidence.Slice slice = evidence.mainToolbar().orElseThrow();
@@ -805,6 +828,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                     panelTabMenus
                 ));
                 if (toolbar != null) {
+                    diag("installing MAIN/VERTICAL/HORIZONTAL toolbar providers");
                     providers.add(new MainToolbarContributionProvider(
                         EditorUiProviderAdmission.admitted(
                             EditorUiFamily.MAIN_TOOLBAR,
@@ -812,6 +836,30 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                             verificationEvidence(toolbar.admission())
                         ),
                         new VerifiedMainToolbarHostOperations(
+                            toolbar.resolver(),
+                            editorUiPluginResources
+                        ),
+                        editorUiActionRouter
+                    ));
+                    providers.add(new VerticalToolbarContributionProvider(
+                        EditorUiProviderAdmission.admitted(
+                            EditorUiFamily.VERTICAL_TOOLBAR,
+                            hostGeneration,
+                            verificationEvidence(toolbar.admission())
+                        ),
+                        new VerifiedVerticalToolbarHostOperations(
+                            toolbar.resolver(),
+                            editorUiPluginResources
+                        ),
+                        editorUiActionRouter
+                    ));
+                    providers.add(new HorizontalToolbarContributionProvider(
+                        EditorUiProviderAdmission.admitted(
+                            EditorUiFamily.HORIZONTAL_TOOLBAR,
+                            hostGeneration,
+                            verificationEvidence(toolbar.admission())
+                        ),
+                        new VerifiedHorizontalToolbarHostOperations(
                             toolbar.resolver(),
                             editorUiPluginResources
                         ),

@@ -158,7 +158,7 @@ class StaticVerificationRecordRepositoryTest {
             MainToolbarVerificationManifest.ARTIFACT_SIZE,
             MainToolbarVerificationManifest.ARTIFACT_SHA256,
             MainToolbarVerificationManifest.RECORD_SHA256,
-            25,
+            28,
             MainToolbarVerificationManifest.REQUIRED_ALIASES,
             MainToolbarVerificationManifest.REQUIRED_ALIASES,
             mainToolbarMethodAliases(),
@@ -838,7 +838,10 @@ class StaticVerificationRecordRepositoryTest {
             "cubism.ui-main-toolbar.container.remove",
             "cubism.ui-main-toolbar.icon-button.create",
             "cubism.ui-main-toolbar.icon-button.set-rollover-icon",
-            "cubism.ui-main-toolbar.icon.create"
+            "cubism.ui-main-toolbar.icon.create",
+            "cubism.ui-main-toolbar.main-frame-view.main-container",
+            "cubism.ui-main-toolbar.vbox.create",
+            "cubism.ui-main-toolbar.widget.jcomponent"
         );
     }
 
@@ -1091,6 +1094,14 @@ class StaticVerificationRecordRepositoryTest {
             "cubism.editor-model.rotation-form.set-reflect-x",
             "cubism.editor-model.rotation-form.set-reflect-y",
             "cubism.editor-model.complete-pack.update-deformer-palette",
+            "cubism.editor-history.document.undo-manager",
+            "cubism.editor-history.manager.entries",
+            "cubism.editor-history.manager.position",
+            "cubism.editor-history.manager.can-undo",
+            "cubism.editor-history.manager.can-redo",
+            "cubism.editor-history.entry.presentation-name",
+            "cubism.editor-history.entry.significant",
+            "cubism.editor-history.manager.move-to",
             "object-context-menu.parameter.group-row.source",
             "object-context-menu.parameter.row-parameters",
             "object-context-menu.workspace.selector",

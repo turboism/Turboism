@@ -1,0 +1,7 @@
+history.button.tooltip
+history.entry.no-detail
+history.panel.count
+history.panel.title
+history.panel.unavailable
+history.panel.unavailable.detail
+plugin.name

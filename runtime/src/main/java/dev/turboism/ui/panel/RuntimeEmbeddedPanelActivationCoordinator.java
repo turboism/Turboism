@@ -22,9 +22,8 @@ public final class RuntimeEmbeddedPanelActivationCoordinator implements AutoClos
         );
         synchronized (monitor) {
             requireOpen();
-            if (binding != null) {
-                throw new IllegalStateException("embedded-panel activation target is already bound");
-            }
+            // A new contribution batch replaces the previous activation target
+            // (e.g. a second panel plugin enabling after the first).
             binding = requested;
         }
         return () -> unbind(requested);
@@ -42,6 +41,20 @@ public final class RuntimeEmbeddedPanelActivationCoordinator implements AutoClos
             target = binding.target();
         }
         target.activate(owner, requested);
+    }
+
+    public void activateFloating(final String pluginId, final EmbeddedPanelId panelId) {
+        final String owner = requireText(pluginId, "pluginId");
+        final EmbeddedPanelId requested = Objects.requireNonNull(panelId, "panelId");
+        final ActivationTarget target;
+        synchronized (monitor) {
+            requireOpen();
+            if (binding == null) {
+                throw new IllegalStateException("embedded-panel activation is unavailable");
+            }
+            target = binding.target();
+        }
+        target.activateFloating(owner, requested);
     }
 
     @Override
@@ -83,5 +96,9 @@ public final class RuntimeEmbeddedPanelActivationCoordinator implements AutoClos
     @FunctionalInterface
     public interface ActivationTarget {
         void activate(String pluginId, EmbeddedPanelId panelId);
+
+        default void activateFloating(final String pluginId, final EmbeddedPanelId panelId) {
+            activate(pluginId, panelId);
+        }
     }
 }
