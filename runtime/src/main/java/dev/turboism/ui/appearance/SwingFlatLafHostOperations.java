@@ -138,6 +138,28 @@ public final class SwingFlatLafHostOperations implements FlatLafAppearanceHostPr
         }
     }
 
+    /**
+     * True once the host FlatLaf look-and-feel is installed and its UI
+     * defaults are populated. All reads are EDT-dispatched (S1 pattern);
+     * startup paths that must not touch {@code UIManager} while FlatLaf
+     * installs poll this from a daemon thread.
+     */
+    public static boolean isHostLafReady() {
+        return onEdt(() -> {
+            final Object lookAndFeel = javax.swing.UIManager.getLookAndFeel();
+            return lookAndFeel != null
+                && isFlatLaf(lookAndFeel.getClass().getName())
+                && javax.swing.UIManager.get("PanelUI") != null;
+        });
+    }
+
+    private static boolean isFlatLaf(final String className) {
+        return className != null
+            && (className.startsWith("com.formdev.flatlaf.")
+                || className.contains("CubismLightTheme")
+                || className.contains("CubismDarkTheme"));
+    }
+
     private static void restoreNativeOffCanvasBackground() {
         final Object value = UIManager.get(NATIVE_OFF_CANVAS_BACKGROUND);
         if (value instanceof Color color) {
