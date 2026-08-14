@@ -10,6 +10,7 @@ import dev.turboism.adapter.cubism.performance.PerformanceProbeTargets;
 import dev.turboism.bootstrap.carrier.PerformanceProbeCallback;
 import dev.turboism.bootstrap.carrier.PerformanceProbeCarrier;
 import dev.turboism.mapping.verification.HostArtifactDigest;
+import dev.turboism.ui.appearance.SwingFlatLafHostOperations;
 
 import java.lang.instrument.Instrumentation;
 import java.nio.file.Path;
@@ -40,6 +41,15 @@ public final class PerformanceFpsHookInstaller implements PerformanceFpsHook {
     private static final String CUBISM_5302_SHA256 =
         "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21";
 
+    /**
+     * How long the deferred loaded-target retransform waits for the host
+     * FlatLaf look-and-feel before it runs anyway: the startup race window
+     * only exists early, so a late pass is safe and a timeout must not drop
+     * counts.
+     */
+    static final long LAF_READY_TIMEOUT_MILLIS = 30_000L;
+    private static final long LAF_POLL_MILLIS = 100L;
+
     private final Instrumentation instrumentation;
     private final ClassLoader hostClassLoader;
     private final List<PerformanceProbeMethodTransformer.Target> targets;
@@ -50,18 +60,41 @@ public final class PerformanceFpsHookInstaller implements PerformanceFpsHook {
     private final Object lifecycleLock = new Object();
     private PerformanceProbeCallback callback;
     private boolean carrierOwned;
+    private final long lafReadyTimeoutMillis;
 
     public PerformanceFpsHookInstaller(
         final Instrumentation instrumentation,
         final Path hostArtifact,
         final ClassLoader hostClassLoader
     ) throws Exception {
+        this(
+            instrumentation,
+            hostArtifact,
+            hostClassLoader,
+            fpsTargetsFor(HostArtifactDigest.from(hostArtifact)),
+            LAF_READY_TIMEOUT_MILLIS
+        );
+    }
+
+    /**
+     * Wiring seam shared with the reviewed-artifact constructor: binds exact
+     * targets and a bounded L&F-readiness timeout. The artifact parameter is
+     * only used for protection-domain filtering and may be {@code null} in
+     * tests.
+     */
+    PerformanceFpsHookInstaller(
+        final Instrumentation instrumentation,
+        final Path hostArtifact,
+        final ClassLoader hostClassLoader,
+        final List<PerformanceProbeMethodTransformer.Target> targets,
+        final long lafReadyTimeoutMillis
+    ) {
         this.instrumentation = Objects.requireNonNull(instrumentation, "instrumentation");
         this.hostClassLoader = Objects.requireNonNull(hostClassLoader, "hostClassLoader");
-        final HostArtifactDigest digest = HostArtifactDigest.from(hostArtifact);
-        this.targets = fpsTargetsFor(digest);
+        this.targets = List.copyOf(targets);
         this.transformer = new PerformanceProbeMethodTransformer(hostClassLoader, hostArtifact, targets);
         this.rollbackObserver = new PerformanceProbeRollbackObserver(hostClassLoader, hostArtifact, targets);
+        this.lafReadyTimeoutMillis = lafReadyTimeoutMillis;
     }
 
     /**
@@ -108,19 +141,82 @@ public final class PerformanceFpsHookInstaller implements PerformanceFpsHook {
             carrierOwned = true;
             PerformanceProbeCarrier.enable(PerformanceProbeMetric.RENDER_SCENE.mask());
             instrumentation.addTransformer(transformer, true);
-            try {
-                retransformLoadedTargets();
-            } catch (Throwable failure) {
-                close();
-                throw failure;
-            }
+            deferLoadedTargetRetransform();
         }
     }
 
-    /** Retransforms already-loaded target classes; classes loaded later are handled on load. */
+    /**
+     * Defers the loaded-target retransform until the host FlatLaf
+     * look-and-feel is installed: the S3 synchronous pass ran during early
+     * startup (getAllLoadedClasses scan + retransform) and disturbed Cubism
+     * 5.2.03 EDT window construction (279 "no ComponentUI class" errors).
+     * The transformer stays registered immediately, so classes loaded after
+     * {@code install()} are instrumented on load and counts are never lost;
+     * the deferred pass only covers classes that were already loaded before
+     * registration. It runs exactly once on a daemon thread (EDT-dispatched
+     * readiness reads, sleeps on the daemon thread) and still runs after the
+     * timeout — the startup race window is gone by then, and a late pass is
+     * preferable to a lost count.
+     */
+    private void deferLoadedTargetRetransform() {
+        final Thread thread = new Thread(() -> {
+            waitForHostLafReady(lafReadyTimeoutMillis);
+            synchronized (lifecycleLock) {
+                if (!installed.get()) return; // closed before the deferred pass ran
+                try {
+                    retransformLoadedTargets();
+                } catch (Throwable failure) {
+                    // Fail-open diagnostic: on-load instrumentation keeps
+                    // counting; only pre-install loaded classes are missed.
+                    System.err.println(
+                        "Turboism FPS counting hook deferred retransform failed safely: " + failure
+                    );
+                }
+            }
+        }, "turboism-fps-laf-ready");
+        thread.setDaemon(true);
+        thread.start();
+    }
+
+    /**
+     * Polls host FlatLaf readiness (EDT-dispatched reads, S1 pattern) with
+     * sleeps on the calling daemon thread; returns when ready or the timeout
+     * elapses. Package-private for focused tests.
+     */
+    boolean waitForHostLafReady(final long timeoutMillis) {
+        final long deadline = System.currentTimeMillis() + timeoutMillis;
+        while (System.currentTimeMillis() < deadline) {
+            try {
+                if (SwingFlatLafHostOperations.isHostLafReady()) {
+                    return true;
+                }
+            } catch (RuntimeException ignored) {
+                // UIManager may not be ready while the host boots.
+            }
+            try {
+                Thread.sleep(LAF_POLL_MILLIS);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                return false;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Retransforms already-loaded target classes that were not instrumented
+     * on load; classes loaded later are handled on load. Owners the
+     * transformer already instrumented (loaded after registration) are
+     * skipped so the deferred pass can never double-instrument and double
+     * count.
+     */
     private void retransformLoadedTargets() {
         try {
             for (Class<?> loaded : loadedTargetClasses()) {
+                final String owner = loaded.getName().replace('.', '/');
+                if (transformer.instrumentedSha256().containsKey(owner)) {
+                    continue; // already instrumented on load; retransform would double-count
+                }
                 instrumentation.retransformClasses(loaded);
             }
         } catch (java.lang.instrument.UnmodifiableClassException failure) {
