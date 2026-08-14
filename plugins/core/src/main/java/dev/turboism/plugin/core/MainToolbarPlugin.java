@@ -47,7 +47,7 @@ public final class MainToolbarPlugin implements TurboismPlugin {
     @Override
     public void enable() {
         registerAction(MainToolbarHomeEntryService.ACTION_ID, localization(context).text(MainToolbarHomeEntryService.ACTION_LABEL_KEY),
-            ignored -> homeEntryService.openTurboismPanel());
+            ignored -> windows.showSettings());
         registerAction(MainToolbarHomeEntryService.SETTINGS_ACTION_ID,
             localization(context).text("main-toolbar.settings-menu.label"), ignored -> windows.showSettings());
         registerAction(MainToolbarHomeEntryService.PLUGINS_ACTION_ID,
