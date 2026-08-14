@@ -9,6 +9,7 @@ import dev.turboism.sdk.hostread.AsyncHostReadSubmission;
 import dev.turboism.sdk.hostread.AsyncHostReadSubmissionStatus;
 import dev.turboism.sdk.hostread.ProjectWorkspaceSnapshot;
 import dev.turboism.sdk.i18n.PluginLocalization;
+import dev.turboism.sdk.ui.window.TurboismWindowFactory;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.TurboismPlugin;
 
@@ -321,7 +322,7 @@ public final class ProjectInspectorPlugin implements TurboismPlugin {
             final Runnable refreshAction
         ) {
             this.localization = localization;
-            frame = new JFrame(localization.text("window.title"));
+            frame = TurboismWindowFactory.frame(localization.text("window.title"));
             frame.setDefaultCloseOperation(windowCloseOperation());
             frame.setLayout(new BorderLayout(8, 8));
 

@@ -1,5 +1,6 @@
 package dev.turboism.plugin.perfstats;
 
+import dev.turboism.sdk.ui.window.TurboismWindowFactory;
 import javax.swing.AbstractButton;
 import javax.swing.BoxLayout;
 import javax.swing.JComponent;
@@ -77,7 +78,7 @@ final class PerfStatsWindow {
     ) {
         this.store = store;
         this.titles = Objects.requireNonNull(titles, "titles");
-        frame = new JFrame(title);
+        frame = TurboismWindowFactory.frame(title);
         frame.setDefaultCloseOperation(WindowConstants.HIDE_ON_CLOSE);
         final JPanel rows = new JPanel();
         rows.setLayout(new BoxLayout(rows, BoxLayout.Y_AXIS));
