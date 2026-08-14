@@ -40,6 +40,7 @@ Common options:
   --jvm-option <JVM option>                  repeatable
   --run-label <label, default r1>
   --agent-timeout <seconds, default 180>
+  --agent-host-class <host class to wait for, default com.live2d.cubism.CEAppCtrl>
   --ready-timeout <seconds, default 240>
   --result-timeout <seconds, default 300>
   --exit-timeout <seconds, default 120>
@@ -127,6 +128,7 @@ trigger_path=''
 jvm_options=()
 run_label='r1'
 agent_timeout=180
+agent_host_class="com.live2d.cubism.CEAppCtrl"
 ready_timeout=240
 result_timeout=300
 exit_timeout=120
@@ -166,6 +168,7 @@ while [ "$#" -gt 0 ]; do
     --jvm-option) require_value "$@"; jvm_options+=("$2"); shift 2 ;;
     --run-label) require_value "$@"; run_label="$2"; shift 2 ;;
     --agent-timeout) require_value "$@"; agent_timeout="$2"; shift 2 ;;
+    --agent-host-class) require_value "$@"; agent_host_class="$2"; shift 2 ;;
     --ready-timeout) require_value "$@"; ready_timeout="$2"; shift 2 ;;
     --result-timeout) require_value "$@"; result_timeout="$2"; shift 2 ;;
     --exit-timeout) require_value "$@"; exit_timeout="$2"; shift 2 ;;
@@ -673,7 +676,7 @@ all_jvm_options=(
   "-Dturboism.validation.runId=$task_id"
   "-Dturboism.validation.hostVersion=$version"
 )
-all_jvm_options+=("-javaagent:$win_agent=home=$win_home;timeoutSeconds=$agent_timeout")
+all_jvm_options+=("-javaagent:$win_agent=home=$win_home;timeoutSeconds=$agent_timeout;hostClass=$agent_host_class")
 for spec in "${resolved_aux_agents[@]}"; do
   remote_name="${spec#*:}"
   win_aux_agent="$(z_path "$task_dir/agents/$remote_name")"

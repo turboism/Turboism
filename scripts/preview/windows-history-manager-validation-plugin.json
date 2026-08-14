@@ -1,0 +1,29 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 2,
+  "id": "dev.turboism.validation.history-manager",
+  "name": "Windows History Manager Validation Probe",
+  "version": "0.1.0",
+  "description": "Manual-test-only exact-host probe for Cubism Undo manager identity, history snapshots, listeners, and controlled navigation.",
+  "entrypoints": [
+    "dev.turboism.tests.plugin.WindowsHistoryManagerValidationProbe"
+  ],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    { "name": "Turboism Contributors" }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": []
+  },
+  "dependencies": [],
+  "permissions": [],
+  "capabilities": [],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "swing"
+  }
+}

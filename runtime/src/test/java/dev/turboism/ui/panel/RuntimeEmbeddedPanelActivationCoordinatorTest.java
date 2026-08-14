@@ -27,19 +27,14 @@ class RuntimeEmbeddedPanelActivationCoordinatorTest {
             (pluginId, panelId) -> activations.add("3:" + pluginId + ":" + panelId.value())
         );
         coordinator.activate("plugin-a", PANEL_ID);
-        assertThrows(
-            IllegalStateException.class,
-            () -> coordinator.bind(4, (pluginId, panelId) -> { })
-        );
-
-        first.close();
+        // A later panel provider batch replaces the previous target.
         Registration second = coordinator.bind(
             4,
             (pluginId, panelId) -> activations.add("4:" + pluginId + ":" + panelId.value())
         );
-        first.close();
         coordinator.activate("plugin-a", PANEL_ID);
         second.close();
+        first.close();
 
         assertEquals(
             List.of(
