@@ -30,6 +30,7 @@ args=(--name history-baseline --version 5302
   --run-label "$run_label"
   --local-evidence-dir "$local_evidence"
   --result-timeout 420
+  --agent-host-class com.live2d.cubism.view.CEMainFrameCtrl
 )
 for plugin in "$bundle"/plugins/*.jar; do
   args+=(--plugin "$plugin")
