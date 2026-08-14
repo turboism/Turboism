@@ -64,7 +64,7 @@ final class PreviewReportVariantValidator {
         "NOT_APPLICABLE", "NONE", "ACTIVE", "PARTIAL", "CLEANED", "LEAKED", "UNKNOWN"
     );
     private static final Set<String> LOCALE_SOURCES = Set.of(
-        "PREVIEW_OPTION", "DISPLAY_LOCALE", "JVM_DISPLAY_DEFAULT"
+        "PREVIEW_OPTION", "STARTUP", "DISPLAY_LOCALE", "JVM_DISPLAY_DEFAULT"
     );
     private static final Set<String> CATALOG_STATES = Set.of(
         "AVAILABLE", "MISSING", "INVALID"
