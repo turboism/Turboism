@@ -1,0 +1,38 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 2,
+  "id": "dev.turboism.validation.selection-lag",
+  "name": "Selection Lag Host Diagnostic Probe",
+  "version": "0.0.0",
+  "description": "Task-local diagnostic probe for the user-reported select-and-drag stall on the exact Cubism host: EDT mouse-event dispatch timing (event-gap + heartbeat latency), ThreadMXBean top-stack capture above a threshold, Robot press-drag-release interaction, and structured JSON evidence. Observation-only: never saves, never writes the model, never creates Undo.",
+  "entrypoints": [
+    "dev.turboism.validation.selectionlag.SelectionLagProbePlugin"
+  ],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    { "name": "Turboism Validation" }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": []
+  },
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.cubism.model.read",
+      "scope": "application",
+      "reason": "Reads the active model identity and the SDK selection snapshot on the exact host for diagnostic evidence."
+    }
+  ],
+  "capabilities": [
+    "cubism.model.read",
+    "cubism.mesh.read"
+  ],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "embedded"
+  }
+}
