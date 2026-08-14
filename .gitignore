@@ -37,9 +37,17 @@ turboism.*.config.json
 .artifacts/
 .research-artifacts/
 
+# Spec Kit / spec artifacts — local workflow, not repo contract
+.specify/
+.pi/
+specs/
+
 # 当前本地-only 文件，不进入远端
 00_MASTER_PROMPT_v2.md
 CONTEXT.md
 FILE_MANIFEST.md
 INITIALIZE.md
 README.md
+
+# 验证 artifact 目录（本机工作流产物，不入库）
+.agent-artifacts/
