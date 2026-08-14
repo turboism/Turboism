@@ -10,7 +10,6 @@ import dev.turboism.sdk.cubism.history.CubismHistory;
 import dev.turboism.sdk.cubism.history.HistoryMoveResult;
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
 import dev.turboism.sdk.ui.EmbeddedPanelContribution;
-import dev.turboism.sdk.ui.EmbeddedPanelId;
 import dev.turboism.sdk.ui.HorizontalToolbarContribution;
 import dev.turboism.sdk.ui.StatusNotification;
 import dev.turboism.sdk.ui.VerticalToolbarContribution;
@@ -89,7 +88,8 @@ public final class HistoryPanelPlugin implements TurboismPlugin {
                     context.cubism().history(),
                     context.uiHost(),
                     logger,
-                    localization
+                    localization,
+                    this::registerMoveActions
                 );
                 panelRegistration = service.enable();
             } catch (RuntimeException failure) {
@@ -99,8 +99,8 @@ public final class HistoryPanelPlugin implements TurboismPlugin {
             }
         }
         registerMoveActions();
-        // Present the pane as a floating window next to the strip.
-        context.uiHost().activateEmbeddedPanelFloating(EmbeddedPanelId.of(PANEL_ID));
+        // The contribution installs already floating (floatingByDefault), so no
+        // separate activation is needed and the pane never shows a docked state.
         logger.info("History panel toggled on (floating)");
     }
 

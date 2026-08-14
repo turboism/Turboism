@@ -37,6 +37,7 @@ public final class HistoryPanelService {
     private final UiHostCapabilityService uiHost;
     private final PluginLogger logger;
     private final PluginLocalization localization;
+    private final Runnable onRefresh;
 
     private final AtomicBoolean closed = new AtomicBoolean();
     private volatile Thread poller;
@@ -49,10 +50,26 @@ public final class HistoryPanelService {
         final PluginLogger logger,
         final PluginLocalization localization
     ) {
+        this(history, uiHost, logger, localization, () -> { });
+    }
+
+    /**
+     * @param onRefresh invoked after every successful refresh so the owner can
+     *                  keep row actions (undo/redo entry moves) in sync with the
+     *                  latest entry set.
+     */
+    public HistoryPanelService(
+        final CubismHistory history,
+        final UiHostCapabilityService uiHost,
+        final PluginLogger logger,
+        final PluginLocalization localization,
+        final Runnable onRefresh
+    ) {
         this.history = Objects.requireNonNull(history, "history");
         this.uiHost = Objects.requireNonNull(uiHost, "uiHost");
         this.logger = Objects.requireNonNull(logger, "logger");
         this.localization = Objects.requireNonNull(localization, "localization");
+        this.onRefresh = Objects.requireNonNull(onRefresh, "onRefresh");
     }
 
     /** Starts the pane and its polling; the returned handle stops both. */
@@ -101,6 +118,7 @@ public final class HistoryPanelService {
             // Only advance the fingerprint after the panel was re-contributed
             // successfully, so a transient EDT failure retries next poll.
             fingerprint = nextFingerprint;
+            onRefresh.run();
             logger.info("History panel refreshed: " + nextFingerprint
                 + " entries=" + snapshot.entries().size()
                 + " position=" + snapshot.position());
@@ -119,7 +137,8 @@ public final class HistoryPanelService {
                 localization.text("history.panel.title"),
                 PANEL_PLACEMENT,
                 PANEL_PRIORITY,
-                content
+                content,
+                true
             )
         );
     }
@@ -143,7 +162,14 @@ public final class HistoryPanelService {
         // buttons, no cursor/availability statistics.
         children.add(PanelView.textCentered(countLine(snapshot)));
         children.add(PanelView.separator());
+        boolean first = true;
         for (final HistoryEntry entry : snapshot.entries()) {
+            // Two-pixel row separator between adjacent entries only; the last
+            // entry gets no trailing separator.
+            if (!first) {
+                children.add(PanelView.separator());
+            }
+            first = false;
             // Forked entries (neither undoable nor redoable) never appear in
             // the snapshot's reachable set (SDK contract: contiguous from zero),
             // so they are removed from the list by construction.
@@ -161,19 +187,19 @@ public final class HistoryPanelService {
     private PanelView renderEntry(final int cursor, final HistoryEntry entry) {
         final String label = (entry.index() + 1) + " " + entry.label();
         final String detail = detail(entry);
-        // Checkbox on the left: checked when the action is applied (undoable),
-        // unchecked when it was undone and can be redone.
+        // Checkbox with the full label + detail text: checked when the action
+        // is applied (undoable), unchecked when it was undone and can be
+        // redone. One wrapping toggle per entry keeps long text inside the
+        // viewport width (no horizontal scrolling) and one functional
+        // checkbox per row.
         final boolean applied = entry.index() < cursor;
         final boolean grayed = !applied;
-        return PanelView.row(
-            PanelView.toggle(
-                "history.entry.toggle." + entry.index(),
-                label,
-                applied,
-                grayed,
-                "history.entry.move." + entry.index()
-            ),
-            PanelView.text("    " + detail, grayed)
+        return PanelView.toggle(
+            "history.entry.toggle." + entry.index(),
+            label + "  —  " + detail,
+            applied,
+            grayed,
+            "history.entry.move." + entry.index()
         );
     }
 
