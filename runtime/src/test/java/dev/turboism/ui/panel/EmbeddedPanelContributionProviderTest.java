@@ -104,6 +104,46 @@ class EmbeddedPanelContributionProviderTest {
     }
 
     @Test
+    void changedContentUnderSameIdentityUpdatesInPlaceWithoutClosingTheHandle() {
+        RuntimeEmbeddedPanelActivationCoordinator coordinator =
+            new RuntimeEmbeddedPanelActivationCoordinator();
+        RecordingHost host = new RecordingHost();
+        EmbeddedPanelContributionProvider provider = new EmbeddedPanelContributionProvider(
+            admission(7),
+            host,
+            coordinator,
+            EditorUiActionRouter.unavailable()
+        );
+
+        Registration registration = provider.apply(
+            7,
+            List.of(contribution("plugin-a", "shared", 0))
+        );
+        assertEquals(List.of("plugin-a:shared"), host.installed);
+        assertEquals(List.of(), host.closed);
+        assertEquals(List.of(), host.updated);
+
+        // Same plugin + contribution identity but changed descriptor/content:
+        // the installed handle must be updated in place and must NOT be closed
+        // (closing it would drop the live palette and the floating window).
+        registration = provider.reconcile(
+            7,
+            List.of(contribution("plugin-a", "shared", 1)),
+            registration
+        );
+
+        assertEquals(List.of("plugin-a:shared"), host.installed, "no second native install");
+        assertEquals(List.of("plugin-a:shared@1"), host.updated, "one in-place update carrying the changed descriptor");
+        assertEquals(List.of(), host.closed, "retained handle must stay open after reconcile");
+        coordinator.activate("plugin-a", EmbeddedPanelId.of("shared"));
+        assertEquals(List.of("plugin-a:shared"), host.activated, "retained handle stays functional");
+
+        // The single close happens only when the registration is closed.
+        registration.close();
+        assertEquals(List.of("plugin-a:shared"), host.closed);
+    }
+
+    @Test
     void failsClosedForMissingPanelAndStaleGeneration() {
         RuntimeEmbeddedPanelActivationCoordinator coordinator =
             new RuntimeEmbeddedPanelActivationCoordinator();
@@ -200,6 +240,7 @@ class EmbeddedPanelContributionProviderTest {
         private final List<String> installed = new ArrayList<>();
         private final List<String> activated = new ArrayList<>();
         private final List<String> closed = new ArrayList<>();
+        private final List<String> updated = new ArrayList<>();
         private final List<BiConsumer<String, Optional<UiActionEvent>>> actions = new ArrayList<>();
         private Runnable rebuild = () -> { };
 
@@ -220,6 +261,14 @@ class EmbeddedPanelContributionProviderTest {
                         throw new IllegalStateException("panel handle is closed");
                     }
                     activated.add(key);
+                }
+
+                @Override
+                public void updateContent(final EmbeddedPanelContributionDescriptor descriptor) {
+                    if (handleClosed) {
+                        throw new IllegalStateException("panel handle is closed");
+                    }
+                    updated.add(key + "@" + descriptor.priority());
                 }
 
                 @Override

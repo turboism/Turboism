@@ -44,9 +44,24 @@ class HistoryPanelServiceTest {
 
         // The whole undo/redo list is wrapped in a scroll view.
         assertTrue(view instanceof PanelView.Scroll, "list must be inside a scroll view");
+
+        // The top Scroll -> Column children form the exact node-type sequence for
+        // two entries: centered count text, header separator, entry toggle, row
+        // separator, entry toggle. The last entry has no trailing separator.
+        final PanelView.Column column = (PanelView.Column) ((PanelView.Scroll) view).child();
+        final List<PanelView> children = column.children();
+        assertEquals(5, children.size(), "children=" + children);
+        assertTrue(children.get(0) instanceof PanelView.Text, "first child is the count text");
+        final PanelView.Text countText = (PanelView.Text) children.get(0);
+        assertTrue(countText.centered(), "count text is centered");
+        assertEquals("Current records: 2", countText.value());
+        assertTrue(children.get(1) instanceof PanelView.Separator, "header separator");
+        assertTrue(children.get(2) instanceof PanelView.Toggle, "first entry toggle");
+        assertTrue(children.get(3) instanceof PanelView.Separator, "row separator between entries");
+        assertTrue(children.get(4) instanceof PanelView.Toggle, "second entry toggle");
         final String text = flatten(view);
         // Top bar shows only the entry count; no cursor/availability stats.
-        assertTrue(text.contains("History: 2 entries"), text);
+        assertTrue(text.contains("Current records: 2"), text);
         assertFalse(text.contains("cursor"), "no cursor statistics");
         assertTrue(text.contains("2 Set Parameter Value"), text);
         assertTrue(text.contains("ParamAngleX value: -4.199999 → 12.599998 (SET_PARAMETER_VALUE, FULL)"), text);
@@ -64,6 +79,43 @@ class HistoryPanelServiceTest {
         assertFalse(toggles.get(0).grayed(), "applied entry keeps its color");
         assertFalse(toggles.get(1).selected(), "undone entry is unchecked");
         assertTrue(toggles.get(1).grayed(), "undone entry label is grayed");
+    }
+
+    @Test
+    void eachEntryIsOneWrappingToggleWithRetainedIdentityAndDetail() {
+        final HistorySnapshot snapshot = available(
+            1,
+            2,
+            1,
+            List.of(
+                new HistoryEntry(0, "Set Parameter Value", true, Optional.of(action("ParamAngleX", "-19.8", "-4.199999"))),
+                new HistoryEntry(1, "Set Parameter Value", true, Optional.of(action("ParamAngleX", "-4.199999", "12.599998")))
+            ),
+            true,
+            false
+        );
+
+        final PanelView view = service(new FakeHistory(snapshot), new RecordingUiHost()).render(snapshot);
+        final List<PanelView.Toggle> toggles = toggles(view);
+        assertEquals(2, toggles.size(), "exactly one functional Toggle per entry");
+
+        // The wrapping toggle carries the full label plus the structured
+        // detail in one label, so long entries wrap inside the viewport.
+        final PanelView.Toggle first = toggles.get(0);
+        assertEquals("history.entry.toggle.0", first.id());
+        assertEquals("history.entry.move.0", first.actionId());
+        assertTrue(first.label().contains("1 Set Parameter Value"), first.label());
+        assertTrue(first.label().contains("ParamAngleX value: -19.8 → -4.199999 (SET_PARAMETER_VALUE, FULL)"), first.label());
+        assertTrue(first.selected(), "applied entry is checked");
+        assertFalse(first.grayed(), "applied entry keeps its color");
+
+        final PanelView.Toggle second = toggles.get(1);
+        assertEquals("history.entry.toggle.1", second.id());
+        assertEquals("history.entry.move.1", second.actionId());
+        assertTrue(second.label().contains("2 Set Parameter Value"), second.label());
+        assertTrue(second.label().contains("ParamAngleX value: -4.199999 → 12.599998 (SET_PARAMETER_VALUE, FULL)"), second.label());
+        assertFalse(second.selected(), "undone entry is unchecked");
+        assertTrue(second.grayed(), "undone entry label is grayed");
     }
 
     @Test
@@ -87,7 +139,7 @@ class HistoryPanelServiceTest {
         );
 
         final String text = flatten(service(new FakeHistory(snapshot), new RecordingUiHost()).render(snapshot));
-        assertTrue(text.contains("History: 1 entries"), text);
+        assertTrue(text.contains("Current records: 1"), text);
         assertTrue(text.contains("1 Native Action"), text);
         assertTrue(text.contains("no structured detail"), text);
     }
@@ -101,13 +153,13 @@ class HistoryPanelServiceTest {
         final Registration registration = service.enable();
 
         assertEquals(1, uiHost.panels().size());
-        assertTrue(flatten(uiHost.panels().get(0).content()).contains("History: 0 entries"));
+        assertTrue(flatten(uiHost.panels().get(0).content()).contains("Current records: 0"));
 
         // A snapshot change is picked up by the poller thread.
         history.push(available(2, 1, 1, List.of(new HistoryEntry(0, "Write", true, Optional.empty())), true, false));
         awaitPoll();
         assertEquals(1, uiHost.panels().size());
-        assertTrue(flatten(uiHost.panels().get(0).content()).contains("History: 1 entries"));
+        assertTrue(flatten(uiHost.panels().get(0).content()).contains("Current records: 1"));
 
         registration.close();
         assertEquals(0, uiHost.panels().size());
@@ -367,7 +419,7 @@ class HistoryPanelServiceTest {
         @Override
         public String format(final String key, final Object... arguments) {
             if (key.equals("history.panel.count")) {
-                return "History: " + arguments[0] + " entries";
+                return "Current records: " + arguments[0];
             }
             return text(key);
         }
