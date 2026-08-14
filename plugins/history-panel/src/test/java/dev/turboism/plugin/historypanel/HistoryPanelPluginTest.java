@@ -22,6 +22,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class HistoryPanelPluginTest {
 
@@ -38,12 +39,14 @@ class HistoryPanelPluginTest {
         assertEquals(0, context.uiHost().horizontalToolbars().size());
         assertEquals(0, context.uiHost().panels().size());
 
-        // Toggle action shows the panel as a floating window.
+        // Toggle action shows the panel; it installs already floating so no
+        // separate activation round-trip is needed (no docked intermediate state).
         context.actions().execute(HistoryPanelPlugin.TOGGLE_ACTION_ID);
         assertEquals(1, context.uiHost().panels().size());
-        assertEquals(List.of("history.panel"), context.uiHost().floatingActivations());
+        assertTrue(context.uiHost().floatingActivations().isEmpty());
         final EmbeddedPanelContribution panel = context.uiHost().panels().get(0);
         assertEquals("history.panel", panel.id());
+        assertTrue(panel.floatingByDefault());
         assertNotNull(panel.content());
 
         // Toggle again hides it.
