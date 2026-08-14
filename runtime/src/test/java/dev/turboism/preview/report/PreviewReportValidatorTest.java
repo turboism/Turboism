@@ -110,6 +110,26 @@ class PreviewReportValidatorTest {
     }
 
     @Test
+    void acceptsStartupLocaleSourceAndKeepsSourceSetClosed() {
+        // createResolved (PreviewPluginServicesFactory path) emits localeSource=STARTUP.
+        final String startup = i18n().replace(
+            "\"localeSource\":\"JVM_DISPLAY_DEFAULT\"",
+            "\"localeSource\":\"STARTUP\""
+        );
+        final Map<PreviewReportType, byte[]> reports = new EnumMap<>(PreviewReportType.class);
+        reports.put(PreviewReportType.PREVIEW_RUNTIME, bytes(previewRuntime()));
+        reports.put(PreviewReportType.PLUGIN_LOAD, bytes(pluginLoad()));
+        reports.put(PreviewReportType.CAPABILITY, bytes(capability()));
+        reports.put(PreviewReportType.I18N, bytes(startup));
+        assertEquals(4, PreviewReportValidator.validateSet(reports).size());
+
+        assertCode("BAD_I18N_ENTRY", startup.replace(
+            "\"localeSource\":\"STARTUP\"",
+            "\"localeSource\":\"UNKNOWN_SOURCE\""
+        ));
+    }
+
+    @Test
     void rejectsWrongDiscriminatorPayloadAndDomainAlgebra() {
         assertCode("REPORT_TYPE_MISMATCH", pluginLoad().replace(
             "\"reportType\":\"PLUGIN_LOAD\"",
