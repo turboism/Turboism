@@ -84,6 +84,8 @@ SDK APIs use Turboism-owned types only. They must not expose:
 
 New SDK APIs are Preview by default. Stable compatibility is reserved for reviewed public contracts, security boundaries, metadata formats, and APIs with real external consumers.
 
+Sole documented exception to the no-UI-type surface rule: `dev.turboism.sdk.ui.window.TurboismWindowFactory` (Preview) constructs plugin-owned JDK Swing windows and applies the Turboism window icon; it is not part of the `UiHostCapabilityService` host contract and is admitted via the reviewed v4 baseline re-issue (window-icon-baseline-v5-1786689632, Oracle review APPROVED). No other package may expose JDK UI types.
+
 Ordinary Preview additions do not require a new capability row, permission, schema, ADR, or migration report.
 
 ## 4. Unified Cubism object API
