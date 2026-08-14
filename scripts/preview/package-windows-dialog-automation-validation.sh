@@ -43,6 +43,8 @@ find "$test_classes/$probe_class_dir_rel" -maxdepth 1 -type f \
      -o -name 'WindowsParameterValidationProbe$*.class' \) \
   -exec cp {} "$probe_tmp/$probe_class_dir_rel/" \;
 cp "$probe_descriptor" "$probe_tmp/META-INF/turboism/plugin.json"
+mkdir -p "$probe_tmp/META-INF/turboism/i18n"
+: > "$probe_tmp/META-INF/turboism/i18n/messages.properties"
 (
   cd "$probe_tmp"
   mapfile -t probe_classes < <(
@@ -59,7 +61,8 @@ cp "$probe_descriptor" "$probe_tmp/META-INF/turboism/plugin.json"
   }
   jar --create --file "$bundle_root/plugins/validation-probe.jar" \
     "${probe_classes[@]}" \
-    META-INF/turboism/plugin.json
+    META-INF/turboism/plugin.json \
+    META-INF/turboism/i18n/messages.properties
 )
 if jar tf "$bundle_root/plugins/validation-probe.jar" \
   | grep -Eq 'HostDialogAutomationValidationProbeTest|\.java$'; then
