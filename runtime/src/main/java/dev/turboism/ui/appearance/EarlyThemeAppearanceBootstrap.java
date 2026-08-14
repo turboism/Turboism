@@ -51,6 +51,14 @@ public final class EarlyThemeAppearanceBootstrap {
 
     /** Starts the wait-and-inject loop on a daemon thread; never blocks startup. */
     public void start() {
+        if (readSelectionThemeId().isEmpty()) {
+            // No persisted ui-theme selection: do not even start the
+            // look-and-feel polling thread. Touching UIManager from the
+            // bootstrap thread before Cubism's own FlatLaf installation
+            // races the host UI bootstrap and corrupts the whole look and
+            // feel (no ComponentUI class errors across the editor).
+            return;
+        }
         final Thread thread = new Thread(this::run, "turboism-early-theme");
         thread.setDaemon(true);
         thread.start();
