@@ -5,7 +5,8 @@ public record EmbeddedPanelContribution(
     String title,
     String placement,
     int priority,
-    PanelView content
+    PanelView content,
+    boolean floatingByDefault
 ) {
     public EmbeddedPanelContribution(
         final String id,
@@ -13,13 +14,20 @@ public record EmbeddedPanelContribution(
         final String placement,
         final int priority
     ) {
-        this(
-            id,
-            title,
-            placement,
-            priority,
-            PanelView.column(PanelView.text("Content is not available yet."))
+        this(id, title, placement, priority,
+            PanelView.column(PanelView.text("Content is not available yet.")),
+            false
         );
+    }
+
+    public EmbeddedPanelContribution(
+        final String id,
+        final String title,
+        final String placement,
+        final int priority,
+        final PanelView content
+    ) {
+        this(id, title, placement, priority, content, false);
     }
 
     public EmbeddedPanelContribution {
