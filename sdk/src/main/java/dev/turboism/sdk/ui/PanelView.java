@@ -20,7 +20,8 @@ public sealed interface PanelView permits
     PanelView.Toggle,
     PanelView.Chart,
     PanelView.CollapsibleSection,
-    PanelView.Separator {
+    PanelView.Separator,
+    PanelView.Scroll {
 
     static Column column(final PanelView... children) {
         return new Column(List.of(children));
@@ -31,7 +32,17 @@ public sealed interface PanelView permits
     }
 
     static Text text(final String value) {
-        return new Text(value);
+        return new Text(value, false, false);
+    }
+
+    /** Text rendered in a grayed (disabled-looking) style, e.g. redo entries. */
+    static Text text(final String value, final boolean grayed) {
+        return new Text(value, grayed, false);
+    }
+
+    /** Text rendered centered in its region, e.g. a panel header statistic. */
+    static Text textCentered(final String value) {
+        return new Text(value, false, true);
     }
 
     static Image image(final byte[] pngBytes, final String altText) {
@@ -71,11 +82,26 @@ public sealed interface PanelView permits
         final boolean selected,
         final String actionId
     ) {
-        return new Toggle(id, label, selected, actionId);
+        return new Toggle(id, label, selected, false, actionId);
+    }
+
+    static Toggle toggle(
+        final String id,
+        final String label,
+        final boolean selected,
+        final boolean grayed,
+        final String actionId
+    ) {
+        return new Toggle(id, label, selected, grayed, actionId);
     }
 
     static Separator separator() {
         return new Separator();
+    }
+
+    /** Wraps a single child in a scrollable viewport. */
+    static Scroll scroll(final PanelView child) {
+        return new Scroll(child);
     }
 
     /**
@@ -111,9 +137,17 @@ public sealed interface PanelView permits
         }
     }
 
-    record Text(String value) implements PanelView {
+    record Text(String value, boolean grayed, boolean centered) implements PanelView {
         public Text {
             value = Objects.requireNonNull(value, "value");
+        }
+
+        public Text(final String value, final boolean grayed) {
+            this(value, grayed, false);
+        }
+
+        public Text(final String value) {
+            this(value, false, false);
         }
     }
 
@@ -216,11 +250,22 @@ public sealed interface PanelView permits
         }
     }
 
-    record Toggle(String id, String label, boolean selected, String actionId) implements PanelView {
+    record Toggle(
+        String id,
+        String label,
+        boolean selected,
+        boolean grayed,
+        String actionId
+    ) implements PanelView {
         public Toggle {
             id = requireText(id, "id");
             label = requireText(label, "label");
             actionId = requireText(actionId, "actionId");
+        }
+
+        /** Backwards-compatible construction for callers without a grayed flag. */
+        public Toggle(final String id, final String label, final boolean selected, final String actionId) {
+            this(id, label, selected, false, actionId);
         }
     }
 
@@ -236,6 +281,12 @@ public sealed interface PanelView permits
     }
 
     record Separator() implements PanelView { }
+
+    record Scroll(PanelView child) implements PanelView {
+        public Scroll {
+            child = Objects.requireNonNull(child, "child");
+        }
+    }
 
     record Chart(String id, String title, List<SeriesSpec> series) implements PanelView {
         public Chart {

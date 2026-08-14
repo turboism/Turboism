@@ -115,16 +115,23 @@ class EditorUiContributionAuthorityTest {
     }
 
     @Test
-    void duplicateIdentityIsRejectedWithoutReplacingOriginal() {
+    void duplicateIdentityReplacesOriginalAndReconciles() {
         RuntimeEditorUiHostLifecycle lifecycle = new RuntimeEditorUiHostLifecycle();
+        long generation = lifecycle.connecting().generation();
+        lifecycle.ready(generation, Set.of(EditorUiFamily.MENU));
+        RecordingProvider provider = new RecordingProvider(EditorUiFamily.MENU);
+        provider.admit(generation);
         EditorUiContributionAuthority authority = new EditorUiContributionAuthority(lifecycle);
+        authority.installProvider(provider);
         authority.contribute(contribution("plugin-a", "same", 0));
+        int reconciledBefore = provider.generations.size();
 
-        assertThrows(
-            IllegalStateException.class,
-            () -> authority.contribute(contribution("plugin-a", "same", 1))
-        );
+        // Same identity refreshes the contribution (content update) instead of
+        // being rejected, so the host content can be updated in place.
+        authority.contribute(contribution("plugin-a", "same", 1));
         assertEquals(1, authority.contributions(EditorUiFamily.MENU).size());
+        assertEquals("same", authority.contributions(EditorUiFamily.MENU).get(0).identity().contributionId());
+        assertTrue(provider.generations.size() > reconciledBefore);
     }
 
     @Test
