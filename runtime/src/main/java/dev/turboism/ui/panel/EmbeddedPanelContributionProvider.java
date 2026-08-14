@@ -114,8 +114,16 @@ public final class EmbeddedPanelContributionProvider implements EditorUiContribu
             throw new IllegalStateException("embedded-panel provider admission is stale");
         }
         if (existing instanceof Session session && session.hostGeneration == hostGeneration) {
-            session.reconcile(descriptors(contributions));
-            return session;
+            try {
+                session.reconcile(descriptors(contributions));
+                return session;
+            } catch (RuntimeException | Error failure) {
+                // A host lifecycle event (e.g. the floating frame being disposed)
+                // can close a panel behind the provider's back. Rebuild the whole
+                // panel set instead of letting every refresh fail permanently.
+                session.closeSuppressing(failure);
+                return apply(hostGeneration, contributions);
+            }
         }
         if (existing != null) {
             existing.close();
@@ -262,7 +270,12 @@ public final class EmbeddedPanelContributionProvider implements EditorUiContribu
 
             final List<EmbeddedPanelHostOperations.PanelHandle> removed = new ArrayList<>();
             for (Map.Entry<EditorUiContributionIdentity, InstalledPanel> entry : panels.entrySet()) {
-                if (next.get(entry.getKey()) != entry.getValue()) {
+                final InstalledPanel retained = next.get(entry.getKey());
+                // Decide removal from the retained PanelHandle identity, not the
+                // InstalledPanel wrapper identity: an in-place content update
+                // stores a fresh wrapper around the SAME handle, and closing
+                // that handle would drop the live palette/floating window.
+                if (retained == null || retained.handle() != entry.getValue().handle()) {
                     removed.add(entry.getValue().handle());
                 }
             }

@@ -126,7 +126,13 @@ public final class SwingPanelViewRenderer {
             return labelled(select.label(), component);
         }
         if (view instanceof PanelView.Toggle toggle) {
-            final JCheckBox component = new JCheckBox(toggle.label(), toggle.selected());
+            // HTML label so long text wraps at the available width instead of
+            // clipping; the enclosing layout hands the checkbox the viewport
+            // width and the wrapped height follows the content.
+            final JCheckBox component = new JCheckBox(
+                "<html>" + htmlEscape(toggle.label()) + "</html>",
+                toggle.selected()
+            );
             component.setName(toggle.id());
             if (toggle.grayed()) {
                 final java.awt.Color grayed = javax.swing.UIManager.getColor("Label.disabledForeground");
@@ -139,11 +145,16 @@ public final class SwingPanelViewRenderer {
             return component;
         }
         if (view instanceof PanelView.Scroll scroll) {
-            return new JScrollPane(
+            final JScrollPane pane = new JScrollPane(
                 renderNode(scroll.child(), action, false, locale),
                 JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,
                 JScrollPane.HORIZONTAL_SCROLLBAR_NEVER
             );
+            // Let the enclosing Y-axis layout hand the pane the available height
+            // instead of growing to the child's preferred height, so long lists
+            // scroll inside the panel instead of being clipped.
+            pane.setMaximumSize(new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE));
+            return pane;
         }
 
         if (view instanceof PanelView.CollapsibleSection section) {
@@ -180,14 +191,28 @@ public final class SwingPanelViewRenderer {
         final boolean chartTitleSuppressed,
         final java.util.Locale locale
     ) {
-        final JPanel panel = new JPanel();
-        panel.setLayout(new BoxLayout(panel, axis));
+        final JPanel panel = axis == BoxLayout.X_AXIS
+            ? new JPanel()
+            : new ScrollableFillPanel();
+        // A vertical stack must stretch children to the panel width (so HTML
+        // labels wrap) and hand a trailing JScrollPane the remaining height;
+        // BoxLayout does neither for the cross axis. ScrollableFillPanel also
+        // tracks the viewport width when it is a JScrollPane's view.
+        if (axis == BoxLayout.X_AXIS) {
+            panel.setLayout(new BoxLayout(panel, axis));
+        }
         for (int index = 0; index < children.size(); index++) {
             final JComponent child = renderNode(children.get(index), action, chartTitleSuppressed, locale);
             if (axis == BoxLayout.X_AXIS) {
                 child.setAlignmentY(Component.CENTER_ALIGNMENT);
             } else {
                 child.setAlignmentX(Component.LEFT_ALIGNMENT);
+                // Stretch to the panel width so JLabels with HTML wrap at the
+                // available width instead of growing to their preferred width.
+                child.setMaximumSize(new Dimension(
+                    Integer.MAX_VALUE,
+                    child.getMaximumSize().height
+                ));
             }
             panel.add(child);
             if (index + 1 < children.size()) {
