@@ -5,7 +5,7 @@ final class MainToolbarVerificationManifest52 {
 
     static final String VERIFICATION_ID = "cubism-5.2.ui-main-toolbar.static";
     static final String RECORD_SHA256 =
-        "2c6b0989633c8cd2f41eb742f29ce5bcfa74b62ed48647900cb46e4fca607bb8";
+        "c491ef7ef871fae1a30220eec16e7134ebd66af3c5e7edf766ca5277663657b6";
     static final String CUBISM_VERSION = "5.2.0";
     static final String PROFILE_ID = "cubism-5.2";
     static final long ARTIFACT_SIZE = 40_805_584L;

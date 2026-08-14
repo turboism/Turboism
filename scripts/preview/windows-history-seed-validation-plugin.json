@@ -1,0 +1,40 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 2,
+  "id": "dev.turboism.validation.history-seed",
+  "name": "Windows History Seed Validation Probe",
+  "version": "0.1.0",
+  "description": "Manual-test-only SDK writer that creates and restores one native Parameter Undo item.",
+  "entrypoints": [
+    "dev.turboism.tests.plugin.WindowsHistorySeedValidationProbe"
+  ],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    { "name": "Turboism Contributors" }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": []
+  },
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.cubism.model.read",
+      "scope": "application",
+      "reason": "Select one finite-range Parameter and verify its authoritative value during isolated exact-host validation."
+    },
+    {
+      "id": "turboism.cubism.model.write",
+      "scope": "application",
+      "reason": "Create one native Parameter Undo item and restore the copied fixture through native Undo/Redo."
+    }
+  ],
+  "capabilities": [],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "swing"
+  }
+}

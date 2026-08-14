@@ -530,7 +530,12 @@ public final class PreviewRuntime implements AutoCloseable {
             );
         return new RuntimeScheduler(
             new DefaultWorkBudgetPolicy(),
-            new PluginWorkExecutorRegistry(1, 64, diagnosticSink, clock),
+            // Plugin actions are dispatched asynchronously and commonly invoke
+            // host operations (undo/redo, menu work) that legitimately take longer
+            // than the 500ms registry default; a too-tight timeout timed the
+            // history panel's undo/redo actions out and tripped the circuit
+            // breaker (CIRCUIT_OPEN rejected every later action).
+            new PluginWorkExecutorRegistry(5_000L, 1, 64, diagnosticSink, clock),
             SidecarDispatcher.noop(),
             diagnosticSink
         );

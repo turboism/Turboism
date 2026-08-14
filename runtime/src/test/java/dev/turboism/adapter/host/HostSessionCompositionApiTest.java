@@ -64,6 +64,7 @@ class HostSessionCompositionApiTest {
                 "lastFailure():java.util.Optional",
                 "adapters():dev.turboism.adapter.RuntimeHostAdapters",
                 "modelAccess():dev.turboism.sdk.cubism.model.CubismModelAccess",
+                "history():dev.turboism.sdk.cubism.history.CubismHistory",
                 "coreRuntimeInfo():dev.turboism.sdk.cubism.core.CoreRuntimeInfo",
                 "modelAppearanceSource():dev.turboism.adapter.cubism.HostSnapshotSource",
                 "parameterLifecycle():dev.turboism.adapter.cubism.lifecycle.ParameterLifecycleCoordinator",

@@ -54,7 +54,8 @@ final class DefaultCubismServicesFactoryTestSupport {
             new RuntimeTextureAtlasLayoutAlgorithmRegistry(),
             editorCommands,
             editorFiles,
-            hostAdapters.autoBackup()
+            hostAdapters.autoBackup(),
+            dev.turboism.sdk.cubism.history.CubismHistory.unavailable()
         );
     }
 

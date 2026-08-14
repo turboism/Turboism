@@ -14,7 +14,8 @@ public record EmbeddedPanelContributionDescriptor(
     String title,
     String placement,
     int priority,
-    PanelView content
+    PanelView content,
+    boolean floatingByDefault
 ) {
 
     public EmbeddedPanelContributionDescriptor {
@@ -45,7 +46,8 @@ public record EmbeddedPanelContributionDescriptor(
             panel.title(),
             panel.placement(),
             panel.priority(),
-            panel.content()
+            panel.content(),
+            panel.floatingByDefault()
         );
     }
 
