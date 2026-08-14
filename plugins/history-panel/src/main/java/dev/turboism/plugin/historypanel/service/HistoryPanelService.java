@@ -110,10 +110,9 @@ public final class HistoryPanelService {
     }
 
     private void replacePanel(final PanelView content) {
-        final Registration previous = panel;
-        if (previous != null) {
-            previous.close();
-        }
+        // Same panel identity refreshes the existing contribution; the runtime
+        // replaces it and updates the attached native content in place, so the
+        // floating window stays floating and never drops back to the dock.
         panel = uiHost.contributeEmbeddedPanel(
             new EmbeddedPanelContribution(
                 PANEL_ID,

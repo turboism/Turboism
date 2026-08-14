@@ -45,12 +45,11 @@ public final class EditorUiContributionAuthority implements AutoCloseable {
         final StoredContribution stored = new StoredContribution(requested);
         synchronized (monitor) {
             requireOpen();
-            final StoredContribution previous = contributions.putIfAbsent(requested.identity(), stored);
-            if (previous != null) {
-                throw new IllegalStateException(
-                    "Editor UI contribution is already registered: " + requested.identity()
-                );
-            }
+            // Same identity replaces the previous contribution (content refresh).
+            // The provider's incremental reconcile path then updates the attached
+            // native content in place, so the host palette and its floating
+            // window are never rebuilt and never drop back to the dock.
+            contributions.put(requested.identity(), stored);
         }
         try {
             reconcile(requested.identity().family());
