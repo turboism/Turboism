@@ -5,6 +5,7 @@ import dev.turboism.plugin.parameterbatchtransfer.b1.domain.BoundParameterSnapsh
 import dev.turboism.plugin.parameterbatchtransfer.service.ParameterBatchTransferService;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.cubism.id.ParameterId;
+import dev.turboism.sdk.ui.window.TurboismWindowFactory;
 
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
@@ -57,6 +58,7 @@ public final class BatchTransferDialog extends JDialog {
         final ParameterBatchTransferService.Session session
     ) {
         super((Frame) null, localization.text("dialog.title"), true);
+        TurboismWindowFactory.style(this);
         this.localization = localization;
         this.service = service;
         this.session = session;

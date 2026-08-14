@@ -38,6 +38,16 @@ FORBIDDEN_API_TOKENS = (
     "com/google/common/", "lombok/", "javax/swing/", "java/awt/",
 )
 
+# Package-scoped exception to FORBIDDEN_API_TOKENS, authorized by
+# specs/window-icon-port-v1.md section 4a (formal review path A) and the
+# window-icon-port-v1 baseline v5 Oracle review record: only records owned by
+# the packages in EXCEPTED_API_TOKEN_PACKAGES may expose the tokens in
+# EXCEPTED_API_TOKENS (the plugin-owned JDK window factory Preview API is the
+# sole documented consumer). The exception is strictly limited to this
+# package; no other package or token may be added here without a new review.
+EXCEPTED_API_TOKEN_PACKAGES = ("dev/turboism/sdk/ui/window/",)
+EXCEPTED_API_TOKENS = ("java/awt/", "javax/swing/")
+
 
 class BaselineError(RuntimeError):
     pass
