@@ -11,8 +11,13 @@ import dev.turboism.sdk.ui.context.PanelTabSelection;
 import dev.turboism.ui.action.EditorUiActionRouter;
 
 import java.util.function.BiConsumer;
+import java.awt.BorderLayout;
+import java.awt.event.ContainerEvent;
+import java.awt.event.ContainerListener;
 import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JComponent;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
 import javax.swing.JMenu;
 import javax.swing.JMenuItem;
 import javax.swing.SwingUtilities;
@@ -35,6 +40,8 @@ import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertSame;
 
 class VerifiedEmbeddedPanelHostOperationsTest {
 
@@ -521,6 +528,91 @@ class VerifiedEmbeddedPanelHostOperationsTest {
         }
     }
     @Test
+    void refreshSwapsTheStableWrappersSingleChildWithoutReinstalling() throws Exception {
+        final InstallHost host = installHost();
+        final AtomicReference<EmbeddedPanelHostOperations.PanelHandle> handleRef = new AtomicReference<>();
+        runOnEdt(() -> handleRef.set(host.operations.addPanel(
+            new EmbeddedPanelContributionDescriptor(
+                "turboism.core",
+                "test-pane",
+                "Test Pane",
+                "window",
+                100,
+                new dev.turboism.sdk.ui.PanelView.Text("first"),
+                false
+            ),
+            (actionId, event) -> { }
+        )));
+        final EmbeddedPanelHostOperations.PanelHandle handle = handleRef.get();
+        final FakePaletteId paletteId = host.paletteId("test-pane");
+
+        final FakeSwingContainer nativeContainer = host.nativeContainer(paletteId);
+        // The host is given a layout-neutral panel wrapper, never the layout-specific
+        // renderer root itself (whose header/scroll children must stay direct children).
+        assertTrue(nativeContainer.component() instanceof JPanel);
+        final JPanel wrapper = (JPanel) nativeContainer.component();
+        assertTrue(wrapper.getLayout() instanceof BorderLayout);
+        assertEquals(1, wrapper.getComponentCount());
+        final java.awt.Component first = wrapper.getComponent(0);
+        assertEquals("turboism:turboism.core:test-pane", first.getName());
+
+        // Observe the wrapper's child counts during the refresh so the host can
+        // never be seen empty (no blank flash).
+        final List<Integer> observedCounts = new ArrayList<>();
+        wrapper.addContainerListener(new ContainerListener() {
+            @Override
+            public void componentAdded(final ContainerEvent event) {
+                observedCounts.add(wrapper.getComponentCount());
+            }
+
+            @Override
+            public void componentRemoved(final ContainerEvent event) {
+                observedCounts.add(wrapper.getComponentCount());
+            }
+        });
+
+        // Refresh rebuilds the renderer root inside the same wrapper: no second
+        // setPanel, no palette close/reinstall, no host interaction at all.
+        host.log.clear();
+        runOnEdt(() -> handle.updateContent(new EmbeddedPanelContributionDescriptor(
+            "turboism.core",
+            "test-pane",
+            "Test Pane",
+            "window",
+            100,
+            new dev.turboism.sdk.ui.PanelView.Text("second"),
+            false
+        )));
+        assertTrue(host.log.isEmpty());
+        assertSame(nativeContainer, host.nativeContainer(paletteId));
+        assertSame(wrapper, nativeContainer.component());
+        assertEquals(1, wrapper.getComponentCount());
+        final java.awt.Component second = wrapper.getComponent(0);
+        assertNotSame(first, second);
+        assertTrue(second instanceof JLabel);
+        assertTrue(((JLabel) second).getText().contains("second"));
+        assertEquals("turboism:turboism.core:test-pane", second.getName());
+
+        // No observed event may see the wrapper with zero children: the fresh root
+        // is attached before the previous one is detached.
+        assertFalse(observedCounts.isEmpty(), "refresh must re-parent the renderer root");
+        assertTrue(
+            observedCounts.stream().noneMatch(count -> count == 0),
+            "wrapper observed with zero children: " + observedCounts
+        );
+
+        // After sizing/layout the BorderLayout CENTER child fills the wrapper.
+        wrapper.setSize(320, 240);
+        wrapper.doLayout();
+        assertEquals(320, second.getWidth());
+        assertEquals(240, second.getHeight());
+
+        // Close the retained handle on the EDT so the content coordinator and the
+        // fake native palette state do not leak into later tests.
+        runOnEdt(handle::close);
+    }
+
+    @Test
     void installRegistersCheckMenuItemInPaletteMenuMapAndCleansBothOnClose() throws Exception {
         final InstallHost host = installHost();
         final AtomicReference<EmbeddedPanelHostOperations.PanelHandle> handleRef = new AtomicReference<>();
@@ -532,7 +624,7 @@ class VerifiedEmbeddedPanelHostOperationsTest {
                 "window",
                 100,
                 new dev.turboism.sdk.ui.PanelView.Text("content")
-            ),
+            , false),
             (actionId, event) -> { }
         )));
         final EmbeddedPanelHostOperations.PanelHandle handle = handleRef.get();
@@ -581,6 +673,53 @@ class VerifiedEmbeddedPanelHostOperationsTest {
     }
 
     @Test
+    void floatingByDefaultInstallFloatsOnlyAfterWorkspaceAttachment() throws Exception {
+        final InstallHost host = installHost();
+        host.firstPaletteBox = new FakePaletteBox(host, "box-a");
+        final AtomicReference<EmbeddedPanelHostOperations.PanelHandle> handleRef = new AtomicReference<>();
+        runOnEdt(() -> handleRef.set(host.operations.addPanel(
+            new EmbeddedPanelContributionDescriptor(
+                "turboism.core",
+                "test-pane",
+                "Test Pane",
+                "window",
+                100,
+                new dev.turboism.sdk.ui.PanelView.Text("content"),
+                true
+            ),
+            (actionId, event) -> { }
+        )));
+        final FakePaletteId paletteId = host.paletteId("test-pane");
+
+        // The float conversion resolves the palette's source box only after the
+        // palette was attached to a workspace box: the workspace attachment
+        // (add-tab) appears before the floating lookup (box-for), and the install
+        // completes instead of failing with "Cubism panel is not docked".
+        assertFalse(host.log.toString().contains("Cubism panel is not docked"));
+        assertTrue(host.log.indexOf("add-tab:box-a:" + paletteId)
+            < host.log.indexOf("box-for:" + paletteId + ":box-a"), "log=" + host.log);
+        assertEquals(List.of(
+            "add:" + paletteId,
+            "add-tab:box-a:" + paletteId,
+            "set-selected:box-a:" + paletteId,
+            "box-for:" + paletteId + ":box-a",
+            "main-frame-window",
+            "palette-box-create",
+            "palette-frame-create",
+            "add-palette-frame",
+            "remove-tab:box-a:" + paletteId,
+            "root-set-component",
+            "remove-update",
+            "verify-cleanup",
+            "fire-state",
+            "window-visible:true",
+            "update-window-menu",
+            "check:" + paletteId + ":true",
+            "repaint"
+        ), host.log);
+    }
+
+    @Test
     void windowMenuClickTogglesPaletteVisibility() throws Exception {
         final InstallHost host = installHost();
         runOnEdt(() -> host.operations.addPanel(
@@ -591,7 +730,7 @@ class VerifiedEmbeddedPanelHostOperationsTest {
                 "window",
                 100,
                 new dev.turboism.sdk.ui.PanelView.Text("content")
-            ),
+            , false),
             (actionId, event) -> { }
         ));
         final FakePaletteId paletteId = host.paletteId("test-pane");
@@ -641,7 +780,7 @@ class VerifiedEmbeddedPanelHostOperationsTest {
                 "window",
                 100,
                 new dev.turboism.sdk.ui.PanelView.Text("content")
-            ),
+            , false),
             (actionId, event) -> { }
         )));
         final FakePaletteId paletteId = host.paletteId("test-pane");
@@ -700,7 +839,7 @@ class VerifiedEmbeddedPanelHostOperationsTest {
                 "window",
                 100,
                 new dev.turboism.sdk.ui.PanelView.Text("content")
-            ),
+            , false),
             (actionId, event) -> { }
         )));
         final FakePaletteId paletteId = host.paletteId("test-pane");
@@ -757,7 +896,7 @@ class VerifiedEmbeddedPanelHostOperationsTest {
                 "window",
                 100,
                 new dev.turboism.sdk.ui.PanelView.Text("content")
-            ),
+            , false),
             (actionId, event) -> { }
         ));
         final FakePaletteId paletteId = host.paletteId("test-pane");
@@ -788,7 +927,7 @@ class VerifiedEmbeddedPanelHostOperationsTest {
                 "window",
                 100,
                 new dev.turboism.sdk.ui.PanelView.Text("content")
-            ),
+            , false),
             (actionId, event) -> { }
         ));
         final FakePaletteId paletteId = host.paletteId("test-pane");
@@ -831,7 +970,7 @@ class VerifiedEmbeddedPanelHostOperationsTest {
                 "window",
                 100,
                 new dev.turboism.sdk.ui.PanelView.Text("content")
-            ),
+            , false),
             (actionId, event) -> { }
         )));
         final FakePaletteId paletteId = host.paletteId("test-pane");
@@ -872,7 +1011,7 @@ class VerifiedEmbeddedPanelHostOperationsTest {
                 "window",
                 100,
                 new dev.turboism.sdk.ui.PanelView.Text("content")
-            ),
+            , false),
             (actionId, event) -> { }
         ));
         final FakePaletteId paletteId = host.paletteId("test-pane");
@@ -925,7 +1064,7 @@ class VerifiedEmbeddedPanelHostOperationsTest {
                     "window",
                     100,
                     new dev.turboism.sdk.ui.PanelView.Text("content")
-                ),
+                , false),
                 (actionId, event) -> { }
             ))
         );
@@ -1229,6 +1368,79 @@ class VerifiedEmbeddedPanelHostOperationsTest {
                     FakeCheckMenuItem.class,
                     "isSelected",
                     "()Z"
+                ),
+                method(
+                    "cubism.ui-panel.palette-manager.main-frame-window",
+                    FakePaletteManager.class,
+                    "getMainFrameWindow",
+                    descriptor(FakeFrame.class)
+                ),
+                StaticSelector.constructor(
+                    "cubism.ui-panel.palette-box.create",
+                    internal(FakePaletteBox.class),
+                    "(L" + internal(FakePaletteManager.class) + ";[L" + internal(FakePalette.class) + ";)V",
+                    StaticSelector.ACCESS_PUBLIC
+                ),
+                StaticSelector.constructor(
+                    "cubism.ui-panel.palette-frame.create",
+                    internal(FakePaletteFrame.class),
+                    "(L" + internal(FakePaletteManager.class) + ";L" + internal(FakeFrame.class) + ";)V",
+                    StaticSelector.ACCESS_PUBLIC
+                ),
+                method(
+                    "cubism.ui-panel.workspace.add-palette-frame",
+                    FakeWorkspace.class,
+                    "addPaletteFrame",
+                    "(L" + internal(FakePaletteFrame.class) + ";)V"
+                ),
+                method(
+                    "cubism.ui-panel.palette-box.remove-tab",
+                    FakePaletteBox.class,
+                    "removeTab",
+                    "(L" + internal(FakePalette.class) + ";)V"
+                ),
+                method(
+                    "cubism.ui-panel.palette-frame.root",
+                    FakePaletteFrame.class,
+                    "getRoot",
+                    descriptor(FakeRootContainer.class)
+                ),
+                method(
+                    "cubism.ui-panel.root.set-component",
+                    FakeRootContainer.class,
+                    "setComponent",
+                    "(L" + internal(FakePaletteBox.class) + ";)V"
+                ),
+                method(
+                    "cubism.ui-panel.palette-manager.remove-update",
+                    FakePaletteManager.class,
+                    "removeUpdate",
+                    "(L" + internal(FakeWorkspace.class) + ";L" + internal(FakePaletteBox.class)
+                        + ";[L" + internal(FakePalette.class) + ";)V"
+                ),
+                method(
+                    "cubism.ui-panel.palette-manager.verify-cleanup",
+                    FakePaletteManager.class,
+                    "verifyCleanup",
+                    "()V"
+                ),
+                method(
+                    "cubism.ui-panel.palette-manager.fire-state",
+                    FakePaletteManager.class,
+                    "fireState",
+                    "(L" + internal(FakePalette.class) + ";)V"
+                ),
+                method(
+                    "cubism.ui-panel.palette-frame.window",
+                    FakePaletteFrame.class,
+                    "getWindow",
+                    descriptor(FakeFrame.class)
+                ),
+                method(
+                    "cubism.ui-panel.window.set-visible",
+                    FakeFrame.class,
+                    "setVisible",
+                    "(Z)V"
                 )
             );
             operations = new VerifiedEmbeddedPanelHostOperations(
@@ -1248,6 +1460,11 @@ class VerifiedEmbeddedPanelHostOperationsTest {
 
         private FakeCheckMenuItem menuItem(final FakePaletteId paletteId) {
             return paletteMenuMap.get(paletteId);
+        }
+
+        /** The native Swing container the palette was given exactly once. */
+        private FakeSwingContainer nativeContainer(final FakePaletteId paletteId) {
+            return (FakeSwingContainer) paletteManager.getPalette(paletteId).getPanelWidget();
         }
     }
 
@@ -1358,6 +1575,10 @@ class VerifiedEmbeddedPanelHostOperationsTest {
 
         public FakeMenuBar getMenuBar() {
             return host.menuBar;
+        }
+
+        public void setVisible(final boolean value) {
+            host.log.add("window-visible:" + value);
         }
     }
 
@@ -1477,6 +1698,27 @@ class VerifiedEmbeddedPanelHostOperationsTest {
         public List<FakePalette> palettes() {
             return List.copyOf(palettes.values());
         }
+
+        public FakeFrame getMainFrameWindow() {
+            host.log.add("main-frame-window");
+            return host.frame;
+        }
+
+        public void removeUpdate(
+            final FakeWorkspace workspace,
+            final FakePaletteBox sourceBox,
+            final FakePalette[] palettes
+        ) {
+            host.log.add("remove-update");
+        }
+
+        public void verifyCleanup() {
+            host.log.add("verify-cleanup");
+        }
+
+        public void fireState(final FakePalette palette) {
+            host.log.add("fire-state");
+        }
     }
 
     public static final class FakeWorkspace {
@@ -1492,7 +1734,32 @@ class VerifiedEmbeddedPanelHostOperationsTest {
         }
 
         public FakePaletteBox getPaletteBoxFor(final FakePalette palette) {
+            final FakePaletteBox box = findPaletteBox(
+                host.workspaceTree != null ? host.workspaceTree : host.firstPaletteBox,
+                palette
+            );
+            host.log.add("box-for:" + palette.getPaletteId() + ":"
+                + (box == null ? "null" : box.label));
+            return box;
+        }
+
+        private static FakePaletteBox findPaletteBox(final Component node, final FakePalette palette) {
+            if (node instanceof FakePaletteBox box) {
+                return box.getPalettes().contains(palette) ? box : null;
+            }
+            if (node instanceof SplitContainer split) {
+                for (Component child : split.contents()) {
+                    final FakePaletteBox found = findPaletteBox(child, palette);
+                    if (found != null) {
+                        return found;
+                    }
+                }
+            }
             return null;
+        }
+
+        public void addPaletteFrame(final FakePaletteFrame frame) {
+            host.log.add("add-palette-frame");
         }
 
         public FakePaletteBox getFirstPaletteBox() {
@@ -1505,6 +1772,39 @@ class VerifiedEmbeddedPanelHostOperationsTest {
             return new RootContainer(
                 host.workspaceTree != null ? host.workspaceTree : host.firstPaletteBox
             );
+        }
+    }
+
+    public static final class FakePaletteFrame {
+        private final InstallHost host;
+        private final FakeFrame window;
+        private final FakeRootContainer root;
+
+        public FakePaletteFrame(final FakePaletteManager manager, final FakeFrame ownerWindow) {
+            this.host = manager.host;
+            this.window = ownerWindow;
+            this.root = new FakeRootContainer(host);
+            host.log.add("palette-frame-create");
+        }
+
+        public FakeRootContainer getRoot() {
+            return root;
+        }
+
+        public FakeFrame getWindow() {
+            return window;
+        }
+    }
+
+    public static final class FakeRootContainer {
+        private final InstallHost host;
+
+        public FakeRootContainer(final InstallHost host) {
+            this.host = host;
+        }
+
+        public void setComponent(final FakePaletteBox component) {
+            host.log.add("root-set-component");
         }
     }
 
@@ -1525,6 +1825,19 @@ class VerifiedEmbeddedPanelHostOperationsTest {
             this.host = host;
             this.label = label;
             this.palettes.addAll(palettes);
+        }
+
+        /** Floating palette box created by the verified palette-box.create operation. */
+        public FakePaletteBox(final FakePaletteManager manager, final FakePalette[] palettes) {
+            this.host = manager.host;
+            this.label = "float";
+            this.palettes.addAll(java.util.Arrays.asList(palettes));
+            host.log.add("palette-box-create");
+        }
+
+        public void removeTab(final FakePalette palette) {
+            palettes.remove(palette);
+            host.log.add("remove-tab:" + label + ":" + palette.getPaletteId());
         }
 
         public void addTab(final FakePalette palette) {
@@ -1575,6 +1888,7 @@ class VerifiedEmbeddedPanelHostOperationsTest {
 
     public static final class FakePalette {
         private final FakePaletteId paletteId;
+        private FakeWidget panelWidget;
 
         public FakePalette(final FakePaletteId paletteId, final String title) {
             this.paletteId = paletteId;
@@ -1585,11 +1899,24 @@ class VerifiedEmbeddedPanelHostOperationsTest {
         }
 
         public void setPanel(final FakeWidget widget, final int width, final int height) {
+            this.panelWidget = widget;
+        }
+
+        public FakeWidget getPanelWidget() {
+            return panelWidget;
         }
     }
 
     public static final class FakeSwingContainer extends FakeWidget {
+        private final JComponent component;
+
         public FakeSwingContainer(final JComponent component) {
+            this.component = component;
+        }
+
+        /** The JComponent handed to the native palette: the stable content wrapper. */
+        public JComponent component() {
+            return component;
         }
     }
 
