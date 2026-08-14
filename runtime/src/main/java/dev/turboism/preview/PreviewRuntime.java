@@ -274,6 +274,15 @@ public final class PreviewRuntime implements AutoCloseable {
                 verifiedHostClassLoader,
                 () -> log.info("runtime", "Early theme appearance injected from persisted selection")
             ).start();
+            // One-shot L&F readiness repair: hosts like Cubism 5.3.02 construct
+            // windows on the EDT before FlatLaf's UI defaults are installed, so
+            // early components get no ComponentUI and stay blank; once FlatLaf is
+            // ready, updateUI() reinstalls every already-built component's UI.
+            // No colors or themes are injected; version-neutral and fail-open.
+            new dev.turboism.ui.appearance.LafReadinessRepair(
+                verifiedHostClassLoader,
+                message -> log.info("appearance", message)
+            ).start();
             scheduler = createScheduler(log);
             ingress = new HostRuntimeIngress(effectiveLocale);
 
