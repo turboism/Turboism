@@ -2,6 +2,8 @@ package dev.turboism.pluginmanagement;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -42,5 +44,33 @@ class PluginCategoryRegistryTest {
     @Test
     void fallbackIsNotAnOfficialCategory() {
         assertFalse(PluginCategoryRegistry.isRegistered(PluginCategoryRegistry.FALLBACK));
+    }
+
+    @Test
+    void unknownWellFormedCategoryEmitsStructuredDiagnosticWithPluginIdAndCategory() {
+        final List<dev.turboism.i18n.LocalizationDiagnostic> recorded = new java.util.ArrayList<>();
+        final dev.turboism.i18n.LocalizationDiagnosticSink sink = recorded::add;
+
+        final String presentation = PluginCategoryRegistry.presentation(
+            "dev.turboism.plugin.local", java.util.Optional.of("custom-tooling"), sink
+        );
+
+        assertEquals("other", presentation);
+        assertEquals(1, recorded.size());
+        final dev.turboism.i18n.LocalizationDiagnostic diagnostic = recorded.get(0);
+        assertEquals("PLUGIN_CATEGORY_UNKNOWN", diagnostic.code());
+        assertEquals("dev.turboism.plugin.local", diagnostic.pluginId());
+        assertTrue(diagnostic.message().contains("custom-tooling"), diagnostic.message());
+    }
+
+    @Test
+    void registeredAndAbsentCategoriesEmitNoDiagnostic() {
+        final List<dev.turboism.i18n.LocalizationDiagnostic> recorded = new java.util.ArrayList<>();
+        final dev.turboism.i18n.LocalizationDiagnosticSink sink = recorded::add;
+
+        PluginCategoryRegistry.presentation("dev.turboism.plugin.a", java.util.Optional.of("modeling"), sink);
+        PluginCategoryRegistry.presentation("dev.turboism.plugin.b", java.util.Optional.empty(), sink);
+
+        assertEquals(java.util.List.of(), recorded);
     }
 }
