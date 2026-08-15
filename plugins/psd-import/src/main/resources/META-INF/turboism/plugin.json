@@ -1,6 +1,6 @@
 {
   "format": "turboism.plugin.meta",
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "id": "dev.turboism.plugin.psd-import",
   "name": "PSD Import Plugin",
   "version": "0.1.0",
@@ -25,5 +25,11 @@
   "environment": {
     "requiresCubism": false,
     "ui": "none"
-  }
+  },
+  "tags": [
+    "psd",
+    "import",
+    "clip-mask"
+  ],
+  "category": "workflow"
 }

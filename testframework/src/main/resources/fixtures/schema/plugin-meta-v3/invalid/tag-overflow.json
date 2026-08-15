@@ -1,0 +1,20 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 3,
+  "id": "dev.turboism.plugin.sample",
+  "name": "Sample Plugin",
+  "version": "1.0.0",
+  "entrypoints": ["dev.turboism.plugin.sample.SamplePlugin"],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [{"name":"Turboism Contributors"}],
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {"baseName":"META-INF/turboism/i18n/messages","locales":[]},
+  "environment": {"requiresCubism":false,"ui":"none"},
+  "category": "modeling",
+  "tags": [
+    "tag-01", "tag-02", "tag-03", "tag-04", "tag-05",
+    "tag-06", "tag-07", "tag-08", "tag-09", "tag-10",
+    "tag-11", "tag-12", "tag-13"
+  ]
+}

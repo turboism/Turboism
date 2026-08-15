@@ -374,6 +374,7 @@ tasks.register("checkIntegration") {
         checkCubismCoreSelectorPolicy,
         ":runtime:corePublicApiProviderTest",
         "checkPluginInspectionRuntime",
+        "verifyFirstPartyPluginMetadata",
         "checkDistributionProtocolContract",
         "checkPreviewBundleLayout",
         "previewAgentSmokeTest",

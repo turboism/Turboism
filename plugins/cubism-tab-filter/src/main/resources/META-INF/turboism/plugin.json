@@ -1,6 +1,6 @@
 {
   "format": "turboism.plugin.meta",
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "id": "dev.turboism.plugin.cubism-tab-filter",
   "name": "Cubism Tab Filter",
   "version": "0.1.0",
@@ -31,5 +31,10 @@
   "environment": {
     "requiresCubism": true,
     "ui": "none"
-  }
+  },
+  "tags": [
+    "tab-filter",
+    "workspace"
+  ],
+  "category": "workflow"
 }

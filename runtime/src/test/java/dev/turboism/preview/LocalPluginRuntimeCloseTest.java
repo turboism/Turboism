@@ -468,7 +468,9 @@ class LocalPluginRuntimeCloseTest {
             List.of(),
             List.of(),
             List.of(),
-            new CorePluginDescriptor.CoreEnvironment(false, "none")
+            new CorePluginDescriptor.CoreEnvironment(false, "none"),
+            Optional.empty(),
+            List.of()
         );
         final PluginRuntime pluginRuntime = new PluginRuntime(id, descriptor);
         pluginRuntime.setEntrypoints(List.of(plugin));

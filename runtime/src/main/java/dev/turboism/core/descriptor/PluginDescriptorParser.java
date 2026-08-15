@@ -12,7 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-/** Parses schema-version-2 plugin.json into the SDK descriptor contract. */
+/** Parses schema-version-2 and schema-version-3 plugin.json into the SDK descriptor contract. */
 public final class PluginDescriptorParser {
 
     private final ObjectMapper mapper = new ObjectMapper();
@@ -49,6 +49,9 @@ public final class PluginDescriptorParser {
 
     private PluginDescriptor parseNode(final JsonNode root, final String source)
         throws DescriptorParseException {
+        final boolean schemaV3 = root.path("schemaVersion").asInt(2) == 3;
+        final PluginMetaValidator validator =
+            schemaV3 ? PluginMetaValidator.v3() : new PluginMetaValidator();
         final List<SchemaValidationError> errors = validator.validate(root, source);
         if (!errors.isEmpty()) {
             final SchemaValidationError first = errors.get(0);
@@ -69,7 +72,9 @@ public final class PluginDescriptorParser {
             parseDependencies(root),
             parsePermissions(root),
             listOrEmpty(root, "capabilities"),
-            parseEnvironment(root)
+            parseEnvironment(root),
+            schemaV3 ? Optional.of(root.get("category").asText()) : Optional.empty(),
+            schemaV3 ? listOrEmpty(root, "tags") : List.of()
         );
     }
 
