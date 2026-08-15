@@ -60,8 +60,8 @@ public final class FirstPartyMetadataVerificationCli {
 
     static void verify(final Path descriptorPath, final Path jarPath) throws FirstPartyRejection {
         final PluginDescriptor source;
-        try {
-            source = new PluginDescriptorParser().parse(Files.newInputStream(descriptorPath));
+        try (InputStream tracked = Files.newInputStream(descriptorPath)) {
+            source = new PluginDescriptorParser().parse(tracked);
         } catch (IOException | DescriptorParseException failure) {
             throw new FirstPartyRejection(descriptorPath, "FIRST_PARTY_TRACKED_DESCRIPTOR_INVALID",
                 "tracked descriptor is not parseable: " + failure.getMessage());

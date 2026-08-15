@@ -125,7 +125,9 @@ record PreviewPluginRuntimeResources(
                         false,
                         java.util.Optional.empty(),
                         dev.turboism.pluginmanagement.PluginCategoryRegistry.presentation(
-                            descriptor.category().orElse(null)
+                            descriptor.id(), descriptor.category(),
+                            diagnostic -> log.warn("plugin-management",
+                                diagnostic.code() + ": " + diagnostic.message())
                         ),
                         java.util.List.copyOf(descriptor.tags())
                     );
