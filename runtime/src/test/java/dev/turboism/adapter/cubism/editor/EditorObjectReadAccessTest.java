@@ -129,17 +129,12 @@ class EditorObjectReadAccessTest {
         ), fixture.failures.setterEvents);
         assertEquals(1, fixture.document.editMode.edits.size());
         // One edit session admits one target-handler Undo snapshot per planned target in
-        // plan order on the exact 5.2 route (host evidence: the 5.2 handler snapshot is
-        // target-scoped); the host-verified 5.3.02 route keeps exactly one entry for the
-        // first target. The single edit session still merges into one Undo step.
+        // plan order on both exact routes (host evidence: the handler snapshot is
+        // target-scoped on 5.2 and 5.3.02); the single edit session still merges into
+        // one Undo step.
+        assertEquals(2, fixture.document.editMode.edits.get(0).undoAddCount);
         assertEquals(
-            version.equals("5.2.0") ? 2 : 1,
-            fixture.document.editMode.edits.get(0).undoAddCount
-        );
-        assertEquals(
-            version.equals("5.2.0")
-                ? List.of("ArtMeshFace", "ArtMeshMask")
-                : List.of("ArtMeshFace"),
+            List.of("ArtMeshFace", "ArtMeshMask"),
             fixture.document.editMode.edits.get(0).undoTargets
         );
         assertEquals(1, fixture.source.updateCount);
@@ -201,12 +196,13 @@ class EditorObjectReadAccessTest {
         assertAbortedWithoutPublishedEffects(fixture);
     }
 
-    @Test
-    void clipMaskRejectedUndoAdmissionAbortsBeforeMutationOn52() {
+    @ParameterizedTest
+    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    void clipMaskRejectedUndoAdmissionAbortsBeforeMutation(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
-        final var model = new EditorBackedCubismModelAccess(resolver("5.2.0", true), "session-a").active();
-        // The 5.2 route admits one snapshot per target; rejection of any admission must
+        final var model = new EditorBackedCubismModelAccess(resolver(version, true), "session-a").active();
+        // Both routes admit one snapshot per target; rejection of any admission must
         // fail before any mutation and abort the single edit session.
         fixture.failures.rejectUndoAdmission(2);
         assertThrows(IllegalStateException.class, () -> model.replaceArtMeshClipMasks(List.of(
