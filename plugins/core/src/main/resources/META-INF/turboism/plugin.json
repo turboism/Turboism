@@ -1,6 +1,6 @@
 {
   "format": "turboism.plugin.meta",
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "id": "turboism.core",
   "name": "Turboism Core",
   "version": "0.1.0",
@@ -56,5 +56,11 @@
   "environment": {
     "requiresCubism": false,
     "ui": "none"
-  }
+  },
+  "tags": [
+    "plugin-management",
+    "settings",
+    "diagnostics"
+  ],
+  "category": "system"
 }

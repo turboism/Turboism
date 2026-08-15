@@ -47,6 +47,9 @@ class SchemaFixtureValidationTest {
         "with-required-dependency.json, plugin-meta-v2, plugin-meta",
         "host-unsafe-permission.json, plugin-meta-v2, plugin-meta",
         "dialog-automate-permission.json, plugin-meta-v2, plugin-meta",
+        "minimal.json, plugin-meta-v3, plugin-meta-v3",
+        "with-tags.json, plugin-meta-v3, plugin-meta-v3",
+        "empty-tags.json, plugin-meta-v3, plugin-meta-v3",
         "required.json, dependency-v1, dependency",
         "half-open.json, version-range-v1, version-range",
         "context-menu-contribute.json, permission-v1, permission",
@@ -77,6 +80,15 @@ class SchemaFixtureValidationTest {
     @ParameterizedTest(name = "invalid fixture: {0} ({1})")
     @CsvSource({
         "unknown-field.json, plugin-meta-v2, plugin-meta, PLUGIN_META_UNKNOWN_FIELD",
+        "v3-fields-in-v2.json, plugin-meta-v2, plugin-meta, PLUGIN_META_UNKNOWN_FIELD",
+        "missing-category.json, plugin-meta-v3, plugin-meta-v3, PLUGIN_META_MISSING",
+        "malformed-category.json, plugin-meta-v3, plugin-meta-v3, PLUGIN_META_BAD_CATEGORY",
+        "short-category.json, plugin-meta-v3, plugin-meta-v3, PLUGIN_META_BAD_CATEGORY",
+        "malformed-tag.json, plugin-meta-v3, plugin-meta-v3, PLUGIN_META_BAD_TAGS",
+        "duplicate-tags.json, plugin-meta-v3, plugin-meta-v3, PLUGIN_META_DUPLICATE_TAG",
+        "tag-overflow.json, plugin-meta-v3, plugin-meta-v3, PLUGIN_META_TOO_MANY_TAGS",
+        "unknown-field.json, plugin-meta-v3, plugin-meta-v3, PLUGIN_META_UNKNOWN_FIELD",
+        "unsupported-schema-version.json, plugin-meta-v3, plugin-meta-v3, PLUGIN_META_BAD_SCHEMA_VERSION",
         "missing-entrypoints.json, plugin-meta-v2, plugin-meta, PLUGIN_META_MISSING",
         "bad-schema-version.json, plugin-meta-v2, plugin-meta, PLUGIN_META_BAD_SCHEMA_VERSION",
         "dependency-missing-version.json, plugin-meta-v2, plugin-meta, DEPENDENCY_MISSING_VERSION",
@@ -191,6 +203,7 @@ class SchemaFixtureValidationTest {
     private JsonSchemaValidator validatorFor(String type) {
         return switch (type) {
             case "plugin-meta" -> new PluginMetaValidator();
+            case "plugin-meta-v3" -> PluginMetaValidator.v3();
             case "dependency" -> new DependencyValidator();
             case "version-range" -> new VersionRangeValidator();
             case "permission" -> new PermissionValidator();

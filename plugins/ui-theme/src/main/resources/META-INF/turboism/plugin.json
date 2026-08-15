@@ -1,6 +1,6 @@
 {
   "format": "turboism.plugin.meta",
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "id": "dev.turboism.plugin.uitheme",
   "name": "UI Theme Plugin",
   "version": "0.1.0",
@@ -86,5 +86,11 @@
   "environment": {
     "requiresCubism": false,
     "ui": "none"
-  }
+  },
+  "tags": [
+    "theme",
+    "colors",
+    "user-interface"
+  ],
+  "category": "appearance"
 }
