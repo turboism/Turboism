@@ -1,6 +1,6 @@
 {
   "format": "turboism.plugin.meta",
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "id": "dev.turboism.plugin.scene-palette-enhancer",
   "name": "Scene Palette Enhancer",
   "version": "0.1.0",
@@ -36,5 +36,11 @@
   "environment": {
     "requiresCubism": true,
     "ui": "none"
-  }
+  },
+  "tags": [
+    "scene",
+    "palette",
+    "enhancement"
+  ],
+  "category": "appearance"
 }

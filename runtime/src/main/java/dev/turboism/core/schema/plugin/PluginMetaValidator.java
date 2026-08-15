@@ -13,14 +13,32 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/** Strict validator for {@code turboism.plugin.meta} schema version 2. */
+/**
+ * Strict validator for {@code turboism.plugin.meta} schema versions 2 and 3.
+ *
+ * <p>The no-argument constructor preserves the reviewed schema v2 contract;
+ * {@link #v3()} selects the schema v3 contract that adds the required
+ * {@code category} and the optional bounded {@code tags} field.</p>
+ */
 public final class PluginMetaValidator extends AbstractJsonValidator {
 
-    private static final Set<String> ALLOWED_FIELDS = Set.of(
+    private static final Set<String> V2_ALLOWED_FIELDS = Set.of(
         "id", "name", "version", "description", "entrypoints", "turboismApi",
         "authors", "license", "website", "resources", "i18n", "dependencies",
         "permissions", "capabilities", "environment"
     );
+    private static final Set<String> V3_ALLOWED_FIELDS;
+    static {
+        final Set<String> v3 = new java.util.HashSet<>(V2_ALLOWED_FIELDS);
+        v3.add("category");
+        v3.add("tags");
+        V3_ALLOWED_FIELDS = Set.copyOf(v3);
+    }
+    private static final int MAX_TAGS = 12;
+    private static final int MIN_TOKEN_LENGTH = 2;
+    private static final int MAX_TOKEN_LENGTH = 32;
+    private static final java.util.regex.Pattern KEBAB_TOKEN =
+        java.util.regex.Pattern.compile("^[a-z0-9]+(?:-[a-z0-9]+)*$");
     private static final Set<String> ALLOWED_AUTHOR_FIELDS = Set.of("name", "email");
     private static final Set<String> ALLOWED_I18N_FIELDS = Set.of("baseName", "locales");
     private static final Set<String> ALLOWED_ENVIRONMENT_FIELDS = Set.of("requiresCubism", "ui");
@@ -51,8 +69,27 @@ public final class PluginMetaValidator extends AbstractJsonValidator {
         "turboism.performance.stats.read", "turboism.host.unsafe"
     );
 
+    /** Schema v2 contract; retained for existing fixture and CLI tooling. */
     public PluginMetaValidator() {
-        super("turboism.plugin.meta", "PLUGIN_META", 2, ALLOWED_FIELDS);
+        this(2);
+    }
+
+    /** Schema v3 contract: v2 fields plus required {@code category} and optional {@code tags}. */
+    public static PluginMetaValidator v3() {
+        return new PluginMetaValidator(3);
+    }
+
+    /** Validator for the declared schema version; versions other than 2 and 3 fail closed. */
+    public static PluginMetaValidator forSchemaVersion(final int schemaVersion) {
+        if (schemaVersion == 3) {
+            return v3();
+        }
+        return new PluginMetaValidator();
+    }
+
+    private PluginMetaValidator(final int schemaVersion) {
+        super("turboism.plugin.meta", "PLUGIN_META", schemaVersion,
+            schemaVersion == 3 ? V3_ALLOWED_FIELDS : V2_ALLOWED_FIELDS);
     }
 
     @Override
@@ -89,7 +126,65 @@ public final class PluginMetaValidator extends AbstractJsonValidator {
         validateDependencies(node, errors, source);
         validatePermissions(node, errors, source);
         validateStringArray(node, "capabilities", "PLUGIN_META_BAD_CAPABILITIES", errors, source, false);
+        if (expectedSchemaVersion == 3) {
+            validateClassification(node, errors, source);
+        }
         return errors;
+    }
+
+    private void validateClassification(
+        final JsonNode node,
+        final List<SchemaValidationError> errors,
+        final String source
+    ) {
+        requireStringField(node, "category", "PLUGIN_META_MISSING", errors, source);
+        if (node.has("category") && node.get("category").isTextual()
+            && !isKebabToken(node.get("category").asText())) {
+            errors.add(error(
+                "PLUGIN_META_BAD_CATEGORY",
+                "category must be a lowercase kebab-case token of 2-32 characters",
+                "category",
+                source
+            ));
+        }
+        if (!node.has("tags")) {
+            return;
+        }
+        final JsonNode tags = node.get("tags");
+        if (!tags.isArray()) {
+            errors.add(error("PLUGIN_META_BAD_TAGS", "tags must be an array", "tags", source));
+            return;
+        }
+        if (tags.size() > MAX_TAGS) {
+            errors.add(error(
+                "PLUGIN_META_TOO_MANY_TAGS",
+                "tags must contain at most " + MAX_TAGS + " values",
+                "tags",
+                source
+            ));
+        }
+        final Set<String> seen = new HashSet<>();
+        for (int index = 0; index < tags.size(); index++) {
+            final JsonNode value = tags.get(index);
+            final String path = "tags[" + index + "]";
+            if (!value.isTextual() || !isKebabToken(value.asText())) {
+                errors.add(error(
+                    "PLUGIN_META_BAD_TAGS",
+                    "tags must contain lowercase kebab-case tokens of 2-32 characters",
+                    path,
+                    source
+                ));
+            } else if (!seen.add(value.asText())) {
+                errors.add(error("PLUGIN_META_DUPLICATE_TAG", "Tags must be unique", path, source));
+            }
+        }
+    }
+
+    private static boolean isKebabToken(final String value) {
+        return value != null
+            && value.length() >= MIN_TOKEN_LENGTH
+            && value.length() <= MAX_TOKEN_LENGTH
+            && KEBAB_TOKEN.matcher(value).matches();
     }
 
     private void requireArrayField(

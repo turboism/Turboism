@@ -41,6 +41,33 @@ public interface PluginDescriptor {
 
     Environment environment();
 
+    /**
+     * Declared primary classification category, or empty for descriptors
+     * without one (schema v2 and legacy descriptors).
+     *
+     * <p>Descriptive metadata only: it grants no permission, capability, or
+     * execution-policy effect. Values are canonical lowercase kebab-case IDs;
+     * display localization is owned by consumers.</p>
+     *
+     * @return the declared category token when the descriptor provides one
+     */
+    default Optional<String> category() {
+        return Optional.empty();
+    }
+
+    /**
+     * Declared canonical classification tags in declaration order.
+     *
+     * <p>Descriptive metadata only: it grants no permission, capability, or
+     * execution-policy effect. The returned list is immutable; descriptors
+     * without tags (schema v2 and legacy descriptors) expose an empty list.</p>
+     *
+     * @return immutable declared tags, never {@code null}
+     */
+    default List<String> tags() {
+        return List.of();
+    }
+
     interface Author {
         String name();
 

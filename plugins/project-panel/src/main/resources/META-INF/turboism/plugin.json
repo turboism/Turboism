@@ -1,6 +1,6 @@
 {
   "format": "turboism.plugin.meta",
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "id": "dev.turboism.plugin.project-panel",
   "name": "Project Panel Plugin",
   "version": "0.1.0",
@@ -36,5 +36,11 @@
   "environment": {
     "requiresCubism": false,
     "ui": "none"
-  }
+  },
+  "tags": [
+    "project",
+    "navigation",
+    "panel"
+  ],
+  "category": "workflow"
 }

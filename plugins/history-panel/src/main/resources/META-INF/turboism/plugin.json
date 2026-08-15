@@ -1,6 +1,6 @@
 {
   "format": "turboism.plugin.meta",
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "id": "dev.turboism.plugin.historypanel",
   "name": "History Panel Plugin",
   "version": "0.1.0",
@@ -71,5 +71,11 @@
   "environment": {
     "requiresCubism": false,
     "ui": "embedded"
-  }
+  },
+  "tags": [
+    "history",
+    "navigation",
+    "floating-window"
+  ],
+  "category": "workflow"
 }

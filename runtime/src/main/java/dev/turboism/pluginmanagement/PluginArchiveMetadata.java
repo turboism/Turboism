@@ -17,7 +17,14 @@ import java.net.URLClassLoader;
 import java.util.Locale;
 import java.util.Objects;
 
-record PluginArchiveMetadata(String id, String name, String version, String description) {
+record PluginArchiveMetadata(
+    String id,
+    String name,
+    String version,
+    String description,
+    java.util.Optional<String> category,
+    java.util.List<String> tags
+) {
     private static final String DESCRIPTOR = "META-INF/turboism/plugin.json";
 
     static Optional<PluginArchiveMetadata> read(final Path path) {
@@ -51,7 +58,8 @@ record PluginArchiveMetadata(String id, String name, String version, String desc
                 );
                 return Optional.of(new PluginArchiveMetadata(
                     descriptor.id(), metadata(localization, "plugin.name", descriptor.name()),
-                    descriptor.version(), metadata(localization, "plugin.description", descriptor.description())
+                    descriptor.version(), metadata(localization, "plugin.description", descriptor.description()),
+                    descriptor.category(), java.util.List.copyOf(descriptor.tags())
                 ));
             }
         } catch (Exception failure) {

@@ -1,6 +1,6 @@
 {
   "format": "turboism.plugin.meta",
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "id": "dev.turboism.plugin.parameter",
   "name": "Parameter Tools Plugin",
   "version": "0.1.0",
@@ -69,5 +69,11 @@
   "environment": {
     "requiresCubism": true,
     "ui": "embedded"
-  }
+  },
+  "tags": [
+    "parameter",
+    "binding",
+    "editing"
+  ],
+  "category": "modeling"
 }

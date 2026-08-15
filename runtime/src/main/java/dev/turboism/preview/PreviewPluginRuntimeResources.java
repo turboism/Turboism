@@ -123,7 +123,11 @@ record PreviewPluginRuntimeResources(
                         plugin.runtime().state() == dev.turboism.core.lifecycle.PluginLifecycleState.ENABLED
                             ? "ENABLED" : "DISABLED",
                         false,
-                        java.util.Optional.empty()
+                        java.util.Optional.empty(),
+                        dev.turboism.pluginmanagement.PluginCategoryRegistry.presentation(
+                            descriptor.category().orElse(null)
+                        ),
+                        java.util.List.copyOf(descriptor.tags())
                     );
                 })
                 .toList(),

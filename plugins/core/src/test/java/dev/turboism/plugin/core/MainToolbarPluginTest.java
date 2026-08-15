@@ -201,7 +201,8 @@ class MainToolbarPluginTest {
         final CorePluginManagement management = new CorePluginManagement() {
             @Override public List<PluginInfo> plugins() {
                 return List.of(new PluginInfo(
-                    "example.plugin", "Example", "1.0.0", "", "ENABLED", "ENABLED", false, Optional.empty()
+                    "example.plugin", "Example", "1.0.0", "", "ENABLED", "ENABLED", false, Optional.empty(),
+                    "other", List.of()
                 ));
             }
             @Override public OperationResult install() { return OperationResult.rejected("Unavailable"); }
@@ -321,7 +322,8 @@ class MainToolbarPluginTest {
             return List.of(new PluginInfo(
                 "example.plugin", "Example", "1.0.0", "", "ENABLED",
                 disabled ? "DISABLED" : "ENABLED", false,
-                disabled ? Optional.of("DISABLE") : Optional.empty()
+                disabled ? Optional.of("DISABLE") : Optional.empty(),
+                "other", List.of()
             ));
         }
         @Override public OperationResult install() { return OperationResult.rejected("Unavailable"); }

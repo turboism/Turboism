@@ -138,7 +138,8 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
             if (existing == null && operation.type().equals("INSTALL")) {
                 catalog.put(operation.pluginId(), new PluginInfo(
                     operation.pluginId(), operation.pluginId(), operation.version(), "Pending plugin installation",
-                    "NOT_INSTALLED", "ENABLED", false, Optional.of("INSTALL")
+                    "NOT_INSTALLED", "ENABLED", false, Optional.of("INSTALL"),
+                    PluginCategoryRegistry.FALLBACK, List.of()
                 ));
             }
         }
@@ -292,7 +293,9 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
                     final var value = metadata.orElseThrow();
                     if (CORE_PLUGIN_ID.equals(value.id())) continue;
                     result.add(new PluginInfo(value.id(), value.name(), value.version(), value.description(),
-                        PluginLifecycleState.DISCOVERED.name(), "ENABLED", false, Optional.empty()));
+                        PluginLifecycleState.DISCOVERED.name(), "ENABLED", false, Optional.empty(),
+                        PluginCategoryRegistry.presentation(value.category().orElse(null)),
+                        value.tags()));
                 }
             }
         } catch (Exception ignored) { return List.of(); }
@@ -321,20 +324,23 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
     ) {
         final String desired = plugin.core() || !disabled.contains(plugin.id()) ? "ENABLED" : "DISABLED";
         return new PluginInfo(plugin.id(), plugin.name(), plugin.version(), plugin.description(),
-            plugin.effectiveState(), desired, plugin.core(), Optional.ofNullable(pendingOperation));
+            plugin.effectiveState(), desired, plugin.core(), Optional.ofNullable(pendingOperation),
+            plugin.category(), plugin.tags());
     }
 
     private static PluginInfo withCoreFlag(final PluginInfo plugin) {
         return new PluginInfo(
             plugin.id(), plugin.name(), plugin.version(), plugin.description(),
-            plugin.effectiveState(), plugin.desiredState(), true, plugin.pendingOperation()
+            plugin.effectiveState(), plugin.desiredState(), true, plugin.pendingOperation(),
+            plugin.category(), plugin.tags()
         );
     }
 
     private static PluginInfo corePlugin() {
         return new PluginInfo(CORE_PLUGIN_ID, "Turboism Core", "0.1.0",
             "Built-in menu, toolbar, settings, tab, and plugin management.",
-            PluginLifecycleState.ENABLED.name(), "ENABLED", true, Optional.empty());
+            PluginLifecycleState.ENABLED.name(), "ENABLED", true, Optional.empty(),
+            "system", List.of());
     }
 
     private static Optional<Path> choosePluginPackage() {

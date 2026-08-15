@@ -26,12 +26,13 @@ public final class PluginMetaValidationCli {
         }
 
         ObjectMapper mapper = new ObjectMapper();
-        PluginMetaValidator validator = new PluginMetaValidator();
         List<SchemaValidationError> allErrors = new ArrayList<>();
 
         for (String arg : args) {
             Path path = Path.of(arg);
             JsonNode root = mapper.readTree(path.toFile());
+            PluginMetaValidator validator =
+                PluginMetaValidator.forSchemaVersion(root.path("schemaVersion").asInt(2));
             List<SchemaValidationError> errors = validator.validate(root, path.toString());
             allErrors.addAll(errors);
         }

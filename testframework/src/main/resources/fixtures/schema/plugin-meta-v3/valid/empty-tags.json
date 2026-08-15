@@ -1,0 +1,31 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 3,
+  "id": "dev.turboism.plugin.sample",
+  "name": "Sample Plugin",
+  "version": "1.0.0",
+  "description": "Sample schema v3 plugin metadata fixture with an explicitly empty tags array.",
+  "entrypoints": [
+    "dev.turboism.plugin.sample.SamplePlugin"
+  ],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    { "name": "Turboism Contributors" }
+  ],
+  "license": "MIT",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": []
+  },
+  "dependencies": [],
+  "permissions": [],
+  "capabilities": [],
+  "environment": {
+    "requiresCubism": false,
+    "ui": "none"
+  },
+  "category": "modeling",
+  "tags": []
+}
