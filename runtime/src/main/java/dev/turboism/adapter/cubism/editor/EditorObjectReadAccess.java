@@ -2862,13 +2862,10 @@ final class EditorObjectReadAccess {
         for (ClipMaskPlan plan : plans) {
             undoSources.add(plan.target().source());
         }
-        // Exact 5.2 evidence: handler Undo snapshots are target-scoped, so the batch admits
-        // one snapshot per planned target in plan order inside the single edit session.
-        // The host-verified 5.3.02 route keeps exactly one entry for the first target.
-        final List<Object> admittedUndoTargets = isCubism52()
-            ? undoSources
-            : List.of(undoSources.get(0));
-        writeBatch(Kind.ART_MESH, modelSource, admittedUndoTargets, "Replace ArtMesh clip masks", () -> {
+        // Exact 5.2 and 5.3.02 evidence: handler Undo snapshots are target-scoped, so the
+        // batch admits one snapshot per planned target in plan order inside the single edit
+        // session; the host groups those snapshots into one Undo step.
+        writeBatch(Kind.ART_MESH, modelSource, undoSources, "Replace ArtMesh clip masks", () -> {
             final ArrayList<ClipMaskPlan> applied = new ArrayList<>(plans.size());
             try {
                 for (ClipMaskPlan plan : plans) {
