@@ -2,6 +2,7 @@ package dev.turboism.adapter.cubism.editor;
 
 import dev.turboism.adapter.cubism.NativeLabelColorAuthoring;
 import dev.turboism.adapter.cubism.NativeLabelColorTarget;
+import dev.turboism.sdk.cubism.clipmask.ClipMaskReplacement;
 import dev.turboism.mapping.verification.EditorParameterDefinitionWriteSelectorContract;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.id.ModelId;
@@ -51,6 +52,7 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
     private final EditorObjectReadAccess objectReadAccess;
     private final EditorObjectHierarchyEditAccess hierarchyEditAccess;
     private final EditorModelStatisticsAccess statisticsAccess;
+    private final EditorPsdSnapshotAccess psdSnapshotAccess;
     private final Object generationLock = new Object();
     private String lazyPublishAttemptedIdentity;
     private Object activeDocument;
@@ -146,6 +148,10 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
             this.hierarchyEditAccess
         );
         this.statisticsAccess = new EditorModelStatisticsAccess(
+            resolver,
+            this::requireCurrent
+        );
+        this.psdSnapshotAccess = new EditorPsdSnapshotAccess(
             resolver,
             this::requireCurrent
         );
@@ -814,6 +820,10 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
             current();
             return statisticsAccess.statistics(identity, source, model);
         }
+        @Override public java.util.List<dev.turboism.sdk.cubism.clipmask.PsdClipMaskDocumentSnapshot> psdDocuments() {
+            current();
+            return psdSnapshotAccess.snapshots(identity, source, model);
+        }
         @Override public boolean defaultKeyformLocked() {
             return defaultKeyformLockAccess.locked(identity, source, model);
         }
@@ -915,6 +925,10 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
             return objectReadAccess.rotationDeformers(identity, source, model);
         }
         @Override public Glues glues() { current(); return objectReadAccess.glues(identity, source, model); }
+        @Override public void replaceArtMeshClipMasks(final List<ClipMaskReplacement> replacements) {
+            current();
+            objectReadAccess.replaceArtMeshClipMasks(identity, source, model, replacements);
+        }
         @Override public void update() {
             current();
             resolver.invoke("cubism.editor-model.model-source.update-instances", source);
