@@ -887,17 +887,31 @@ public final class WindowsPsdClipMaskValidationProbe implements CubismPlugin {
         return result.get();
     }
 
-    private static void pressShortcut(final Robot robot, final int key) throws Exception {
+    private void pressShortcut(final Robot robot, final int key) throws Exception {
         // Prefer the matching enabled Swing menu accelerator directly (avoids Wine/window
         // focus); fall back to Robot only when no enabled accelerator exists.
         if (invokeMenuShortcut(key)) {
+            context.logger().info("psd-probe pressShortcut strategy=menu key=" + key
+                + " name=" + KeyEvent.getKeyText(key));
             Thread.sleep(250L);
             return;
         }
-        robot.keyPress(key);
-        robot.keyPress(KeyEvent.VK_CONTROL);
-        robot.keyRelease(KeyEvent.VK_CONTROL);
-        robot.keyRelease(key);
+        context.logger().info("psd-probe pressShortcut strategy=robot key=" + key
+            + " name=" + KeyEvent.getKeyText(key));
+        // Ctrl+key chord: Ctrl down, key down, key up, Ctrl up. One outer try/finally
+        // wraps both presses; the finally unconditionally releases the key and then
+        // releases Ctrl in a nested finally, so both release attempts run even when
+        // either press or release throws.
+        try {
+            robot.keyPress(KeyEvent.VK_CONTROL);
+            robot.keyPress(key);
+        } finally {
+            try {
+                robot.keyRelease(key);
+            } finally {
+                robot.keyRelease(KeyEvent.VK_CONTROL);
+            }
+        }
         Thread.sleep(250L);
     }
 
