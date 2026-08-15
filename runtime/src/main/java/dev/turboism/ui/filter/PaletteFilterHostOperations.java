@@ -1,8 +1,9 @@
 package dev.turboism.ui.filter;
 
 import dev.turboism.core.reflect.MethodHandleCache;
-import dev.turboism.sdk.ui.filter.PaletteFilterRegistry;
+import dev.turboism.mapping.verification.VerifiedAccessException;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
+import dev.turboism.sdk.ui.filter.PaletteFilterRegistry;
 
 import javax.swing.AbstractButton;
 import javax.swing.BorderFactory;
@@ -39,12 +40,14 @@ import java.awt.LayoutManager;
 import java.awt.RenderingHints;
 import java.awt.Window;
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
@@ -861,6 +864,14 @@ public final class PaletteFilterHostOperations implements PaletteFilterVisibilit
         state.tree = tree;
         if (state.treeModel == null) {
             state.treeModel = tree.getModel();
+        }
+        // Exact-version node→source accessor guard: without a resolvable accessor every search
+        // text would be empty and the whole tree would silently collapse (the 5.2.03 regression
+        // this guard exists for). Fail closed instead of installing a filter that cannot work.
+        final String nodeSourceUnavailable = nodeSourceUnavailableDiagnostic();
+        if (nodeSourceUnavailable != null) {
+            lastAttachStatus.put(state.kind, nodeSourceUnavailable);
+            return false;
         }
         // Keystrokes are debounced so continuous typing rebuilds the tree at most once per window;
         // the attach-time application below still runs synchronously with the initial keyword.
@@ -1727,26 +1738,25 @@ public final class PaletteFilterHostOperations implements PaletteFilterVisibilit
                 return;
             }
             if (keyword.isEmpty()) {
-                if (tree.getModel() != original) {
-                    tree.setModel(original);
-                    refreshTableModel(state.table);
-                }
-                if (state.filteredTreeModel != null) {
-                    state.filteredTreeModel.dispose();
-                    state.filteredTreeModel = null;
-                }
-                if (state.pendingFilteredTreeModel != null) {
-                    state.pendingFilteredTreeModel.dispose();
-                    state.pendingFilteredTreeModel = null;
-                }
+                restoreOriginalDeformerTree(state, tree);
                 lastAttachStatus.put(state.kind, "tree-filter keyword= restored");
+                return;
+            }
+            // Fail closed unless the exact-version node→source accessor binding is available:
+            // with an unresolvable accessor every search text would be empty and the whole tree
+            // would silently collapse (the 5.2.03 regression). Restore the original tree model
+            // and never install a FilteredTreeModel whose matches would all be empty.
+            final String nodeSourceUnavailable = nodeSourceUnavailableDiagnostic();
+            if (nodeSourceUnavailable != null) {
+                restoreOriginalDeformerTree(state, tree);
+                lastAttachStatus.put(state.kind, nodeSourceUnavailable);
                 return;
             }
             // A fresh model per keyword: the old applied model stays installed while the new one
             // pre-warms its caches on the background executor, so the EDT never performs the full
             // reflective tree walk. The EDT only swaps the model and expands rows afterwards.
             final FilteredTreeModel filtered = new FilteredTreeModel(
-                original, keyword, PaletteFilterHostOperations::deformerNodeSearchText);
+                original, keyword, this::deformerNodeSearchText);
             final TreeModel installed = tree.getModel();
             final FilteredTreeModel applied = installed instanceof FilteredTreeModel model ? model : null;
             if (state.pendingFilteredTreeModel != null && state.pendingFilteredTreeModel != applied) {
@@ -2046,23 +2056,135 @@ public final class PaletteFilterHostOperations implements PaletteFilterVisibilit
     }
 
     /** Exact 5.3.02 deformer fields: verified node {@code i()} source ID and local name. */
-    static String deformerNodeSearchText(final Object node) {
-        final Object source = invoke(node, "i");
+    /**
+     * Search text for one deformer-tree node. The node→source accessor is resolved per exact
+     * version (Cubism 5.2.03 → {@code h()}, 5.3.02 → {@code i()} on {@code com.live2d.ui.treeTable.c},
+     * pinned by the ui-control-appearance verification records, alias
+     * {@code cubism.ui-control-appearance.part.node-source}); the id/name chain continues through
+     * the bound Editor-model resolver ({@code parameter-controllable-source.id} → {@code id.value}
+     * plus {@code parameter-controllable-source.local-name}).
+     *
+     * <p>A single-node resolution failure yields an empty search text (that node does not match);
+     * the attach/apply guards fail the whole deformer filter closed when the binding itself is
+     * unavailable, so this method is never asked to filter an unresolvable tree.</p>
+     */
+    String deformerNodeSearchText(final Object node) {
+        final VerifiedMemberResolver resolver = parameterRowsResolver;
+        if (resolver == null) {
+            return "";
+        }
+        final Optional<DeformerNodeSourceProfile> profile = DeformerNodeSourceProfile.forResolver(resolver);
+        if (profile.isEmpty()) {
+            return "";
+        }
+        final Object source = invoke(node, profile.get().accessorName());
         if (source == null || source == node) {
             return "";
         }
         final StringBuilder builder = new StringBuilder();
-        final Object id = invoke(source, "getId");
-        if (id instanceof String value) {
-            appendToken(builder, value);
-        } else {
-            appendToken(builder, text(invoke(id, "getIdString")));
+        try {
+            final Object id = resolver.invoke("cubism.editor-model.parameter-controllable-source.id", source);
+            if (id == null) {
+                return "";
+            }
+            appendToken(builder, text(resolver.invoke("cubism.editor-model.id.value", id)));
+            appendToken(builder, text(resolver.invoke(
+                "cubism.editor-model.parameter-controllable-source.local-name", source)));
+        } catch (VerifiedAccessException perNodeFailure) {
+            // Per-node fail closed: an unresolvable node simply does not match the keyword.
+            return "";
         }
-        appendToken(builder, text(invoke(source, "getLocalName")));
         return builder.toString();
     }
 
+    /** Verified Editor-model aliases of the deformer id/name search-text chain. */
+    private static final List<String> DEORMER_ID_NAME_ALIASES = List.of(
+        "cubism.editor-model.parameter-controllable-source.id",
+        "cubism.editor-model.id.value",
+        "cubism.editor-model.parameter-controllable-source.local-name"
+    );
 
+    /**
+     * Binding-period guard for deformer tree filtering. Returns a fail-closed diagnostic when
+     * filtering must not run, {@code null} when the exact-version node→source accessor binding
+     * and the whole id/name chain are available.
+     *
+     * <p>Fail closed on: unbound Editor-model resolver, unknown Cubism version, unresolvable
+     * accessor in the attested host class loader, or any missing id/name alias in the verified
+     * plan. Callers restore the original tree model and never install a FilteredTreeModel whose
+     * matches would all be empty (the 5.2.03 silent-collapse regression).</p>
+     */
+    private String nodeSourceUnavailableDiagnostic() {
+        final VerifiedMemberResolver resolver = parameterRowsResolver;
+        if (resolver == null) {
+            return "tree-filter:node-source-unavailable resolver=unbound";
+        }
+        final Optional<DeformerNodeSourceProfile> profile = DeformerNodeSourceProfile.forResolver(resolver);
+        if (profile.isEmpty()) {
+            return "tree-filter:node-source-unavailable version=" + resolver.cubismVersion();
+        }
+        if (!nodeSourceAccessorResolvable(resolver, profile.get())) {
+            return "tree-filter:node-source-unavailable accessor=" + profile.get().accessorName()
+                + " class=" + DeformerNodeSourceProfile.OWNER_BINARY_NAME;
+        }
+        // The whole id/name chain must be present in the verified plan; a missing alias would
+        // make every node search text empty and silently collapse the tree.
+        for (String alias : DEORMER_ID_NAME_ALIASES) {
+            try {
+                resolver.verifiedSelector(alias);
+            } catch (VerifiedAccessException missingAlias) {
+                return "tree-filter:node-source-unavailable alias=" + alias;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Binding-period validation in the attested host class loader: the pinned owner class must
+     * load, declare the exact accessor name with no parameters, return {@code Object} (pinned
+     * descriptor {@code ()Ljava/lang/Object;}), and be accessible. Any mismatch disables deformer
+     * filtering (fail closed); no guessing fallback is attempted.
+     */
+    private static boolean nodeSourceAccessorResolvable(
+        final VerifiedMemberResolver resolver,
+        final DeformerNodeSourceProfile profile
+    ) {
+        try {
+            final Class<?> owner = Class.forName(
+                DeformerNodeSourceProfile.OWNER_BINARY_NAME,
+                false,
+                resolver.hostClassLoader()
+            );
+            final Method accessor = owner.getDeclaredMethod(profile.accessorName());
+            if (accessor.getParameterCount() != 0
+                || accessor.getReturnType() != Object.class
+                || !accessor.getDeclaringClass().equals(owner)) {
+                return false;
+            }
+            // No-arg instance accessor: reflective access is granted once trySetAccessible
+            // succeeds (canAccess(null) would throw for instance methods and is not usable here).
+            return accessor.trySetAccessible();
+        } catch (ClassNotFoundException | NoSuchMethodException | LinkageError | SecurityException unavailable) {
+            return false;
+        }
+    }
+
+    /** Restores the original tree model and disposes any installed or pending filtered model. */
+    private static void restoreOriginalDeformerTree(final PaletteFilterState state, final JTree tree) {
+        final TreeModel original = state.treeModel;
+        if (original != null && tree.getModel() != original) {
+            tree.setModel(original);
+            refreshTableModel(state.table);
+        }
+        if (state.filteredTreeModel != null) {
+            state.filteredTreeModel.dispose();
+            state.filteredTreeModel = null;
+        }
+        if (state.pendingFilteredTreeModel != null) {
+            state.pendingFilteredTreeModel.dispose();
+            state.pendingFilteredTreeModel = null;
+        }
+    }
     private static void appendToken(final StringBuilder builder, final String value) {
         if (value == null || value.isBlank()) {
             return;
