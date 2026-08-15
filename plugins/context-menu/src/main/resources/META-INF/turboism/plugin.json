@@ -1,6 +1,6 @@
 {
   "format": "turboism.plugin.meta",
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "id": "dev.turboism.plugin.context-menu",
   "name": "Context Menu Plugin",
   "version": "0.1.0",
@@ -25,5 +25,10 @@
   "environment": {
     "requiresCubism": true,
     "ui": "swing"
-  }
+  },
+  "tags": [
+    "context-menu",
+    "productivity"
+  ],
+  "category": "workflow"
 }

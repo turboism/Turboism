@@ -1,6 +1,6 @@
 {
   "format": "turboism.plugin.meta",
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "id": "dev.turboism.plugin.perf-stats",
   "name": "Performance Statistics",
   "version": "0.1.0",
@@ -57,5 +57,11 @@
   "environment": {
     "requiresCubism": true,
     "ui": "swing"
-  }
+  },
+  "tags": [
+    "metrics",
+    "diagnostics",
+    "fps"
+  ],
+  "category": "performance"
 }

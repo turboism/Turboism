@@ -1,6 +1,6 @@
 {
   "format": "turboism.plugin.meta",
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "id": "dev.turboism.plugin.parameter-batch-transfer",
   "name": "Parameter Batch Transfer",
   "version": "0.1.0",
@@ -57,5 +57,11 @@
   "environment": {
     "requiresCubism": true,
     "ui": "swing"
-  }
+  },
+  "tags": [
+    "parameter",
+    "batch-edit",
+    "transfer"
+  ],
+  "category": "modeling"
 }
