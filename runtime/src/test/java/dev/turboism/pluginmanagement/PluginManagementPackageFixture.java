@@ -95,6 +95,9 @@ final class PluginManagementPackageFixture {
         final ByteArrayOutputStream output = new ByteArrayOutputStream();
         try (JarOutputStream jar = new JarOutputStream(output)) {
             add(jar, "META-INF/turboism/plugin.json", descriptor.getBytes(StandardCharsets.UTF_8));
+            // The descriptor declares the base catalog; PluginJarContract requires it.
+            add(jar, "META-INF/turboism/i18n/messages.properties",
+                "plugin.name=Example\nplugin.description=Example\n".getBytes(StandardCharsets.UTF_8));
             add(jar, entrypointPath, new byte[]{0});
         }
         return output.toByteArray();
