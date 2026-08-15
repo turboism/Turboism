@@ -11,7 +11,9 @@ import dev.turboism.mapping.verification.ControlAppearanceVerificationManifest;
 import dev.turboism.mapping.verification.CorePublicApiTrustRoots;
 import dev.turboism.mapping.verification.EditorModelVerificationManifest;
 import dev.turboism.mapping.verification.EditorObjectReadSelectorContract;
+import dev.turboism.mapping.verification.EditorClipMaskReadSelectorContract;
 import dev.turboism.mapping.verification.EditorObjectWriteSelectorContract;
+import dev.turboism.mapping.verification.EditorPsdSnapshotSelectorContract;
 import dev.turboism.mapping.verification.EditorPartNameSelectorContract;
 import dev.turboism.mapping.verification.EditorPartOpacitySelectorContract;
 import dev.turboism.mapping.verification.EditorPartOpacity52SelectorContract;
@@ -189,8 +191,8 @@ class StaticVerificationRecordRepositoryTest {
             "Live2D_Cubism.jar",
             40_805_584L,
             "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
-            "f68c9ccdbafa0d30fb56526eeec0d8896f5d662fdbb81ac7432bf2b0bc071f00",
-            326,
+            "d3b55e0ea62a1dbdcbd09c6a985c8503e07a6e345958cf9702fe52ae58e28ac8",
+            589,
             editorModel52Aliases(),
             editorModel52Aliases(),
             editorModel52MethodAliases(),
@@ -212,7 +214,7 @@ class StaticVerificationRecordRepositoryTest {
             EditorModelVerificationManifest.ARTIFACT_SIZE,
             EditorModelVerificationManifest.ARTIFACT_SHA256,
             EditorModelVerificationManifest.RECORD_SHA256,
-            335,
+            611,
             EditorModelVerificationManifest.REQUIRED_ALIASES,
             EditorModelVerificationManifest.REQUIRED_ALIASES,
             editorModelMethodAliases(),
@@ -1130,7 +1132,26 @@ class StaticVerificationRecordRepositoryTest {
             "cubism.editor-model.keyform-grid.add-key",
             "cubism.editor-model.keyform-grid.remove-key",
             "cubism.editor-model.keyform-grid.remove-all-key",
-            "cubism.editor-model.keyform-grid.rearrange-keys"
+            "cubism.editor-model.keyform-grid.rearrange-keys",
+            "cubism.editor-model.model-source.texture-manager",
+            "cubism.editor-model.texture-manager.raw-images",
+            "cubism.editor-model.layered-image-wrapper.image",
+            "cubism.editor-model.layered-image.guid",
+            "cubism.editor-model.layered-image.psd-file",
+            "cubism.editor-model.layered-image.children",
+            "cubism.editor-model.layer-entry.guid",
+            "cubism.editor-model.layer-entry.name",
+            "cubism.editor-model.layer-entry.visible",
+            "cubism.editor-model.layer-entry.clipping",
+            "cubism.editor-model.layer-group.children",
+            "cubism.editor-model.art-mesh-source.texture-input-extension",
+            "cubism.editor-model.texture-input-extension.model-image-input",
+            "cubism.editor-model.texture-input-model-image.model-image",
+            "cubism.editor-model.model-image.current-layer-input-data",
+            "cubism.editor-model.layer-input-data.layer",
+            "cubism.editor-model.art-mesh-source.set-clip-guid-list",
+            "cubism.editor-model.art-mesh-source.set-inverted-mask",
+            "cubism.editor-model.c-array-list.create"
         );
     }
 

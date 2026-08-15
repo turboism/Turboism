@@ -1,4 +1,5 @@
 import org.gradle.api.tasks.Exec
+import org.gradle.api.tasks.bundling.Jar
 
 /*
  * Verification is deliberately layered by cost:
@@ -326,6 +327,69 @@ fun registerThemeHostValidation(name: String, version: String, displayVersion: S
     }
 }
 
+val packagePsdClipMaskHostValidation by tasks.registering(Exec::class) {
+    group = "host verification"
+    description = "Packages the PSD clip-mask import plugin and its test-only SDK probe for exact-host validation."
+    dependsOn("previewBundle", ":plugins:psd-clip-mask-import:jar", ":tests:testClasses")
+    workingDir(rootDir)
+    environment("TURBOISM_WORKTREE_ID", resolvedHostValidationWorktreeId)
+    // Bind the bundle to the exact artifact of the current Gradle jar task;
+    // no directory scanning or version heuristics may substitute for it.
+    doFirst {
+        environment(
+            "PSD_CLIP_MASK_PLUGIN_JAR",
+            project(":plugins:psd-clip-mask-import").tasks.named<Jar>("jar")
+                .flatMap { it.archiveFile }
+                .map { it.asFile.absolutePath }
+                .get()
+        )
+    }
+    commandLine("bash", "scripts/preview/package-windows-psd-clip-mask-validation.sh")
+}
+
+val checkPsdClipMaskHostValidationBundle by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Asserts the PSD clip-mask host-validation bundle jars carry descriptor-declared i18n catalogs."
+    dependsOn(packagePsdClipMaskHostValidation)
+    workingDir(rootDir)
+    environment("TURBOISM_WORKTREE_ID", resolvedHostValidationWorktreeId)
+    commandLine("bash", "scripts/preview/check-psd-clip-mask-validation-bundle.sh")
+}
+
+tasks.register<Exec>("validatePsdClipMaskHost5302") {
+    group = "host verification"
+    description = "Runs the automated exact-host Cubism 5.3.02 PSD clip-mask read/write/Undo/Redo matrix."
+    dependsOn(packagePsdClipMaskHostValidation)
+    workingDir(rootDir)
+    environment("TURBOISM_WORKTREE_ID", resolvedHostValidationWorktreeId)
+    val mode = providers.gradleProperty("turboismPsdClipMaskValidationMode").orElse("matrix")
+    doFirst {
+        commandLine(
+            "bash",
+            "scripts/preview/run-psd-clip-mask-host-validation.sh",
+            "5302",
+            mode.get()
+        )
+    }
+}
+
+tasks.register<Exec>("validatePsdClipMaskHost5203") {
+    group = "host verification"
+    description = "Runs the automated exact-host Cubism 5.2.03 PSD clip-mask read/write/Undo/Redo matrix."
+    dependsOn(packagePsdClipMaskHostValidation)
+    workingDir(rootDir)
+    environment("TURBOISM_WORKTREE_ID", resolvedHostValidationWorktreeId)
+    val mode = providers.gradleProperty("turboismPsdClipMaskValidationMode").orElse("matrix")
+    doFirst {
+        commandLine(
+            "bash",
+            "scripts/preview/run-psd-clip-mask-host-validation.sh",
+            "5203",
+            mode.get()
+        )
+    }
+}
+
 fun registerParameterHostValidation(name: String, version: String, displayVersion: String) {
     tasks.register<Exec>(name) {
         group = "host verification"
@@ -377,6 +441,7 @@ tasks.register("checkIntegration") {
         "verifyFirstPartyPluginMetadata",
         "checkDistributionProtocolContract",
         "checkPreviewBundleLayout",
+        "checkPsdClipMaskHostValidationBundle",
         "previewAgentSmokeTest",
         "checkPreviewRuntimeReports",
         ":tests:previewPluginRuntimeTest"

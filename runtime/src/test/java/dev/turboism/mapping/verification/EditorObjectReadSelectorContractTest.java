@@ -79,6 +79,13 @@ class EditorObjectReadSelectorContractTest {
             EditorObjectHierarchyEditSelectorContract.ART_MESH_CREATE_CAPABILITY_ID,
             EditorObjectHierarchyEditSelectorContract.ART_MESH_CREATE_REQUIRED_ALIASES
         ));
+        if (evidenceDirectory.equals("Cubism-5.3.02")) {
+            assertTrue(resolver.authorizesFeature(
+                EditorObjectWriteSelectorContract.ADAPTER_SLICE_ID,
+                EditorObjectWriteSelectorContract.CLIP_MASK_CAPABILITY_ID,
+                EditorObjectWriteSelectorContract.CLIP_MASK_REQUIRED_ALIASES
+            ));
+        }
     }
 
     private static Path locateProjectRoot() {
