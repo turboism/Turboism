@@ -49,7 +49,7 @@ val pluginMetaFiles = files(
 
 tasks.register<JavaExec>("validatePluginMeta") {
     group = "verification"
-    description = "Validate source plugin.json files against v2 schema using the runtime validator."
+    description = "Validate source plugin.json files against their declared plugin-meta schema version using the runtime validator."
     inputs.files(pluginMetaFiles)
     configureRuntimeJavaExec(project, "dev.turboism.core.schema.plugin.PluginMetaValidationCli")
     doFirst {

@@ -137,9 +137,15 @@ public final class PluginMetaValidator extends AbstractJsonValidator {
         final List<SchemaValidationError> errors,
         final String source
     ) {
-        requireStringField(node, "category", "PLUGIN_META_MISSING", errors, source);
-        if (node.has("category") && node.get("category").isTextual()
-            && !isKebabToken(node.get("category").asText())) {
+        if (!node.has("category") || node.get("category").isNull()) {
+            errors.add(error(
+                "PLUGIN_META_MISSING",
+                "Missing required string field: category",
+                "category",
+                source
+            ));
+        } else if (!node.get("category").isTextual()
+            || !isKebabToken(node.get("category").asText())) {
             errors.add(error(
                 "PLUGIN_META_BAD_CATEGORY",
                 "category must be a lowercase kebab-case token of 2-32 characters",
@@ -157,7 +163,7 @@ public final class PluginMetaValidator extends AbstractJsonValidator {
         }
         if (tags.size() > MAX_TAGS) {
             errors.add(error(
-                "PLUGIN_META_TOO_MANY_TAGS",
+                "PLUGIN_META_BAD_TAGS",
                 "tags must contain at most " + MAX_TAGS + " values",
                 "tags",
                 source
@@ -175,7 +181,7 @@ public final class PluginMetaValidator extends AbstractJsonValidator {
                     source
                 ));
             } else if (!seen.add(value.asText())) {
-                errors.add(error("PLUGIN_META_DUPLICATE_TAG", "Tags must be unique", path, source));
+                errors.add(error("PLUGIN_META_BAD_TAGS", "Tags must be unique", path, source));
             }
         }
     }
