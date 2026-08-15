@@ -1,5 +1,8 @@
 package dev.turboism.ui.filter;
 
+import dev.turboism.mapping.verification.StaticSelector;
+import dev.turboism.mapping.verification.TestVerifiedResolvers;
+import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.ui.filter.PaletteFilterRegistry;
 import org.junit.jupiter.api.Test;
 
@@ -20,6 +23,7 @@ import java.awt.Container;
 import java.awt.Dimension;
 import java.lang.reflect.InvocationTargetException;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -244,18 +248,61 @@ class PaletteFilterHostOperationsTest {
 
     @Test
     void deformerSearchTextUsesOnlyVerifiedSourceEditableIdAndLocalName() {
-        final DeformerSource source = new DeformerSource(
+        // The two accessors model the two exact-version node shapes: the 5.2.03 node exposes
+        // {@code h()} and the 5.3.02 node exposes {@code i()}, each returning its own source.
+        final DeformerSource hSource = new DeformerSource(
             new EditableId("Warp4"), "矩形变形器", "wrong-name-1", 1.0f
         );
-
-        assertEquals(
-            "warp4 矩形变形器",
-            PaletteFilterHostOperations.deformerNodeSearchText(new DeformerNode(source))
+        final DeformerSource iSource = new DeformerSource(
+            new EditableId("ArtMesh16"), "矩形 16", "wrong-name-2", 2.0f
         );
+        final ClassLoader loader = PaletteFilterHostOperationsTest.class.getClassLoader();
+
+        // 5.2.03 profile: node→source accessor h() (the fixed routing; would yield the 5.3
+        // text if the accessor were still hard-coded to i()).
+        final PaletteFilterHostOperations host52 = hostWithResolver("5.2.0", loader);
+        assertEquals("warp4 矩形变形器", host52.deformerNodeSearchText(new DeformerNode(hSource, iSource)));
+
+        // 5.3.02 profile: node→source accessor i().
+        final PaletteFilterHostOperations host53 = hostWithResolver("5.3.02", loader);
+        assertEquals("artmesh16 矩形 16", host53.deformerNodeSearchText(new DeformerNode(hSource, iSource)));
+    }
+
+    @Test
+    void nodeSourceProfileRoutesExactVersionsToPinnedAccessors() {
+        // Runtime resolver spelling (EditorModelVerificationManifest52) and record spelling.
+        assertEquals("h", DeformerNodeSourceProfile.forVersion("5.2.0").orElseThrow().accessorName());
+        assertEquals("h", DeformerNodeSourceProfile.forVersion("5.2.03").orElseThrow().accessorName());
+        assertEquals("i", DeformerNodeSourceProfile.forVersion("5.3.02").orElseThrow().accessorName());
+        assertTrue(DeformerNodeSourceProfile.forVersion("5.4.0").isEmpty());
+        assertTrue(DeformerNodeSourceProfile.forVersion("").isEmpty());
+        assertTrue(DeformerNodeSourceProfile.forVersion(null).isEmpty());
+        assertEquals("com.live2d.ui.treeTable.c", DeformerNodeSourceProfile.OWNER_BINARY_NAME);
+        assertEquals("()Ljava/lang/Object;", DeformerNodeSourceProfile.ACCESSOR_DESCRIPTOR);
+    }
+
+    @Test
+    void nonMatchingSourceTypeYieldsEmptySearchText() {
+        // A node whose accessor returns an object that is not the verified source type: the
+        // id/name chain cannot resolve (owner isInstance check) → per-node fail closed.
+        final PaletteFilterHostOperations host = hostWithResolver(
+            "5.3.02", PaletteFilterHostOperationsTest.class.getClassLoader());
+        final javax.swing.tree.DefaultMutableTreeNode node = new javax.swing.tree.DefaultMutableTreeNode() {
+            Object h() {
+                return "not-a-source";
+            }
+
+            Object i() {
+                return "not-a-source";
+            }
+        };
+        assertEquals("", host.deformerNodeSearchText(node));
     }
 
     @Test
     void filteredDeformerTreeExpandsAncestorsToRevealMatchingDescendant() {
+        final PaletteFilterHostOperations host = hostWithResolver(
+            "5.3.02", PaletteFilterHostOperationsTest.class.getClassLoader());
         final javax.swing.tree.DefaultMutableTreeNode root = new javax.swing.tree.DefaultMutableTreeNode("root");
         final DeformerNode parent = new DeformerNode(
             new DeformerSource(new EditableId("Warp4"), "父变形器", "ignored", 4.0f)
@@ -267,11 +314,7 @@ class PaletteFilterHostOperationsTest {
         parent.add(child);
         final javax.swing.tree.DefaultTreeModel delegate = new javax.swing.tree.DefaultTreeModel(root);
         final PaletteFilterHostOperations.FilteredTreeModel filtered =
-            new PaletteFilterHostOperations.FilteredTreeModel(
-                delegate,
-                "artmesh16",
-                PaletteFilterHostOperations::deformerNodeSearchText
-            );
+            new PaletteFilterHostOperations.FilteredTreeModel(delegate, "artmesh16", host::deformerNodeSearchText);
         final javax.swing.JTree tree = onEdt(() -> new javax.swing.JTree(filtered));
 
         assertEquals(2, onEdt(tree::getRowCount));
@@ -298,7 +341,8 @@ class PaletteFilterHostOperationsTest {
      */
     @Test
     void debouncedTreeFilterAppliesLatestKeystrokeNotInitialText() throws Exception {
-        final PaletteFilterHostOperations host = new PaletteFilterHostOperations();
+        final PaletteFilterHostOperations host = hostWithResolver(
+            "5.3.02", PaletteFilterHostOperationsTest.class.getClassLoader());
         final PaletteFilterHostOperations.PaletteFilterState state =
             new PaletteFilterHostOperations.PaletteFilterState(PaletteFilterHostOperations.PaletteKind.DEFORMER);
         final javax.swing.tree.DefaultMutableTreeNode root = new javax.swing.tree.DefaultMutableTreeNode("root");
@@ -330,41 +374,89 @@ class PaletteFilterHostOperationsTest {
     /** End-to-end: real DocumentListener text change → debounce timer → filtered tree model keyword. */
     @Test
     void deformerPaletteTypingAppliesLatestKeywordEndToEnd() throws Exception {
-        final javax.swing.tree.DefaultMutableTreeNode root = new javax.swing.tree.DefaultMutableTreeNode("root");
-        final javax.swing.tree.DefaultMutableTreeNode folder = new javax.swing.tree.DefaultMutableTreeNode("Folder");
-        final DeformerNode node = new DeformerNode(
-            new DeformerSource(new EditableId("Warp4"), "矩形变形器", "ignored", 4.0f));
-        root.add(folder);
-        folder.add(node);
-        final javax.swing.tree.DefaultTreeModel treeModel = new javax.swing.tree.DefaultTreeModel(root);
-        final JTable table = new JTable();
-        final JTree[] embedded = new JTree[1];
-        onEdt(() -> {
-            final JTree tree = new JTree(treeModel); // embedded tree-table seam for extractTree
-            embedded[0] = tree;
-            table.add(tree);
-        });
-        final JPanel parent = new JPanel(new BorderLayout());
-        final JPanel toolbar = new JPanel();
-        toolbar.add(new JButton("native"));
-        parent.add(new JScrollPane(table), BorderLayout.CENTER);
-        parent.add(toolbar, BorderLayout.NORTH);
-        final JPanel paletteRoot = new JPanel(new BorderLayout());
-        paletteRoot.add(parent, BorderLayout.CENTER);
-
+        final DeformerPaletteFixture fixture = DeformerPaletteFixture.create();
         final PaletteFilterHostOperations host = new PaletteFilterHostOperations(
-            kind -> kind == PaletteFilterHostOperations.PaletteKind.DEFORMER ? paletteRoot : null);
+            kind -> kind == PaletteFilterHostOperations.PaletteKind.DEFORMER ? fixture.paletteRoot : null);
+        host.bindParameterRowsResolver(editorModelResolver(
+            "5.3.02", PaletteFilterHostOperationsTest.class.getClassLoader()));
         host.onPaletteFilterVisibilityChanged("probe", List.of(contribution("def", "DEFORMER")));
         SwingUtilities.invokeAndWait(() -> { });
 
-        final JTextField field = findFilterField(paletteRoot);
+        final JTextField field = findFilterField(fixture.paletteRoot);
         assertNotNull(field, "filter field must be installed");
         onEdt(() -> field.setText("warp4")); // keystroke
         awaitUntil(() -> {
-            final javax.swing.tree.TreeModel current = onEdt(embedded[0]::getModel);
+            final javax.swing.tree.TreeModel current = onEdt(fixture.tree::getModel);
             return current instanceof PaletteFilterHostOperations.FilteredTreeModel filtered
                 && "warp4".equals(filtered.keyword());
         });
+    }
+
+    @Test
+    void unboundEditorModelResolverFailsClosedAndKeepsOriginalTreeModel() throws Exception {
+        final DeformerPaletteFixture fixture = DeformerPaletteFixture.create();
+        final PaletteFilterHostOperations host = new PaletteFilterHostOperations(
+            kind -> kind == PaletteFilterHostOperations.PaletteKind.DEFORMER ? fixture.paletteRoot : null);
+        // No bindParameterRowsResolver: deformer filtering must fail closed, never silently
+        // collapse the tree with an empty search text for every node.
+        host.onPaletteFilterVisibilityChanged("probe", List.of(contribution("def", "DEFORMER")));
+        SwingUtilities.invokeAndWait(() -> { });
+
+        assertNull(findFilterField(fixture.paletteRoot), "no filter box when deformer filtering fails closed");
+        assertSame(fixture.treeModel, onEdt(fixture.tree::getModel), "original tree model must stay installed");
+        final String status = host.attachStatus().get(PaletteFilterHostOperations.PaletteKind.DEFORMER);
+        assertTrue(status.startsWith("tree-filter:node-source-unavailable resolver=unbound"), status);
+    }
+
+    @Test
+    void unknownVersionFailsClosedAndKeepsOriginalTreeModel() throws Exception {
+        final DeformerPaletteFixture fixture = DeformerPaletteFixture.create();
+        final PaletteFilterHostOperations host = new PaletteFilterHostOperations(
+            kind -> kind == PaletteFilterHostOperations.PaletteKind.DEFORMER ? fixture.paletteRoot : null);
+        host.bindParameterRowsResolver(editorModelResolver(
+            "5.4.0", PaletteFilterHostOperationsTest.class.getClassLoader()));
+        host.onPaletteFilterVisibilityChanged("probe", List.of(contribution("def", "DEFORMER")));
+        SwingUtilities.invokeAndWait(() -> { });
+
+        assertNull(findFilterField(fixture.paletteRoot));
+        assertSame(fixture.treeModel, onEdt(fixture.tree::getModel));
+        final String status = host.attachStatus().get(PaletteFilterHostOperations.PaletteKind.DEFORMER);
+        assertTrue(status.startsWith("tree-filter:node-source-unavailable version=5.4.0"), status);
+    }
+
+    @Test
+    void unresolvableNodeSourceAccessorFailsClosedAndKeepsOriginalTreeModel() throws Exception {
+        // A loader that cannot see the pinned treeTable/c owner class: the binding check must
+        // fail closed instead of guessing a fallback accessor.
+        final ClassLoader blindLoader =
+            new java.net.URLClassLoader(new java.net.URL[0], ClassLoader.getPlatformClassLoader());
+        final DeformerPaletteFixture fixture = DeformerPaletteFixture.create();
+        final PaletteFilterHostOperations host = new PaletteFilterHostOperations(
+            kind -> kind == PaletteFilterHostOperations.PaletteKind.DEFORMER ? fixture.paletteRoot : null);
+        host.bindParameterRowsResolver(editorModelResolver("5.3.02", blindLoader));
+        host.onPaletteFilterVisibilityChanged("probe", List.of(contribution("def", "DEFORMER")));
+        SwingUtilities.invokeAndWait(() -> { });
+
+        assertNull(findFilterField(fixture.paletteRoot));
+        assertSame(fixture.treeModel, onEdt(fixture.tree::getModel));
+        final String status = host.attachStatus().get(PaletteFilterHostOperations.PaletteKind.DEFORMER);
+        assertTrue(status.startsWith("tree-filter:node-source-unavailable accessor="), status);
+    }
+
+    @Test
+    void missingIdNameChainAliasFailsClosedAndKeepsOriginalTreeModel() throws Exception {
+        final DeformerPaletteFixture fixture = DeformerPaletteFixture.create();
+        final PaletteFilterHostOperations host = new PaletteFilterHostOperations(
+            kind -> kind == PaletteFilterHostOperations.PaletteKind.DEFORMER ? fixture.paletteRoot : null);
+        host.bindParameterRowsResolver(editorModelResolverWithoutLocalName(
+            "5.3.02", PaletteFilterHostOperationsTest.class.getClassLoader()));
+        host.onPaletteFilterVisibilityChanged("probe", List.of(contribution("def", "DEFORMER")));
+        SwingUtilities.invokeAndWait(() -> { });
+
+        assertNull(findFilterField(fixture.paletteRoot));
+        assertSame(fixture.treeModel, onEdt(fixture.tree::getModel));
+        final String status = host.attachStatus().get(PaletteFilterHostOperations.PaletteKind.DEFORMER);
+        assertTrue(status.startsWith("tree-filter:node-source-unavailable alias="), status);
     }
 
     /** Polls while pumping the EDT (Swing timers and the prewarm apply run on it). */
@@ -414,15 +506,27 @@ class PaletteFilterHostOperationsTest {
     }
 
     private static final class DeformerNode extends javax.swing.tree.DefaultMutableTreeNode {
-        private final DeformerSource source;
+        private final DeformerSource hSource;
+        private final DeformerSource iSource;
 
         private DeformerNode(final DeformerSource source) {
-            super(source);
-            this.source = source;
+            this(source, source);
         }
 
+        private DeformerNode(final DeformerSource hSource, final DeformerSource iSource) {
+            super(hSource);
+            this.hSource = hSource;
+            this.iSource = iSource;
+        }
+
+        /** 5.2.03 node→source accessor (pinned by the ui-control-appearance records). */
+        Object h() {
+            return hSource;
+        }
+
+        /** 5.3.02 node→source accessor (pinned by the ui-control-appearance records). */
         Object i() {
-            return source;
+            return iSource;
         }
 
         EditableId getId() {
@@ -441,7 +545,6 @@ class PaletteFilterHostOperationsTest {
             return new DeformerSource(new EditableId("WrongSource1"), "错误来源 1", "ignored", 1.0f);
         }
     }
-
     private static final class DeformerSource {
         private final EditableId id;
         private final String localName;
@@ -460,11 +563,11 @@ class PaletteFilterHostOperationsTest {
             this.wrongValue = wrongValue;
         }
 
-        EditableId getId() {
+        public EditableId getId() {
             return id;
         }
 
-        String getLocalName() {
+        public String getLocalName() {
             return localName;
         }
 
@@ -478,13 +581,95 @@ class PaletteFilterHostOperationsTest {
     }
 
     private record EditableId(String value) {
-        String getIdString() {
+        public String getIdString() {
             return value;
         }
     }
 
     // ------------------------------------------------------------- helpers
 
+
+    /** Verified Editor-model id/name chain selectors shaped after the real fixture classes. */
+    private static List<StaticSelector> idNameSelectors() {
+        final String sourceOwner = "dev/turboism/ui/filter/PaletteFilterHostOperationsTest$DeformerSource";
+        final String idOwner = "dev/turboism/ui/filter/PaletteFilterHostOperationsTest$EditableId";
+        return List.of(
+            StaticSelector.method("fixture", "cubism.editor-model.parameter-controllable-source.id",
+                sourceOwner, "getId", "()L" + idOwner + ";", 0),
+            StaticSelector.method("fixture", "cubism.editor-model.id.value",
+                idOwner, "getIdString", "()Ljava/lang/String;", 0),
+            StaticSelector.method("fixture", "cubism.editor-model.parameter-controllable-source.local-name",
+                sourceOwner, "getLocalName", "()Ljava/lang/String;", 0)
+        );
+    }
+
+    /** Test resolver for one exact Cubism version with the full id/name chain. */
+    private static VerifiedMemberResolver editorModelResolver(
+        final String version,
+        final ClassLoader classLoader
+    ) {
+        return TestVerifiedResolvers.create(
+            version,
+            "adapter.editor-model.readwrite",
+            Set.of("cubism.editor-model.read"),
+            idNameSelectors(),
+            classLoader
+        );
+    }
+
+    /** Test resolver whose verified plan lacks the local-name alias (whole-chain fail closed). */
+    private static VerifiedMemberResolver editorModelResolverWithoutLocalName(
+        final String version,
+        final ClassLoader classLoader
+    ) {
+        return TestVerifiedResolvers.create(
+            version,
+            "adapter.editor-model.readwrite",
+            Set.of("cubism.editor-model.read"),
+            idNameSelectors().subList(0, 2),
+            classLoader
+        );
+    }
+
+    /** Host with the exact-version Editor-model resolver bound. */
+    private static PaletteFilterHostOperations hostWithResolver(
+        final String version,
+        final ClassLoader classLoader
+    ) {
+        final PaletteFilterHostOperations host = new PaletteFilterHostOperations();
+        host.bindParameterRowsResolver(editorModelResolver(version, classLoader));
+        return host;
+    }
+
+    /** Deformer palette attachment fixture: embedded tree-table seam, toolbar and palette root. */
+    private record DeformerPaletteFixture(JPanel paletteRoot, JTree tree, javax.swing.tree.TreeModel treeModel) {
+
+        static DeformerPaletteFixture create() {
+            final javax.swing.tree.DefaultMutableTreeNode root =
+                new javax.swing.tree.DefaultMutableTreeNode("root");
+            final javax.swing.tree.DefaultMutableTreeNode folder =
+                new javax.swing.tree.DefaultMutableTreeNode("Folder");
+            root.add(folder);
+            folder.add(new DeformerNode(new DeformerSource(
+                new EditableId("Warp4"), "矩形变形器", "ignored", 4.0f)));
+            final javax.swing.tree.DefaultTreeModel treeModel = new javax.swing.tree.DefaultTreeModel(root);
+            final JTable table = new JTable();
+            final JTree[] embedded = new JTree[1];
+            onEdt(() -> {
+                final JTree tree = new JTree(treeModel); // embedded tree-table seam for extractTree
+                embedded[0] = tree;
+                table.add(tree);
+            });
+            final JPanel parent = new JPanel(new BorderLayout());
+            final JPanel toolbar = new JPanel();
+            toolbar.add(new JButton("native"));
+            parent.add(new JScrollPane(table), BorderLayout.CENTER);
+            parent.add(toolbar, BorderLayout.NORTH);
+            final JPanel paletteRoot = new JPanel(new BorderLayout());
+            paletteRoot.add(parent, BorderLayout.CENTER);
+            return new DeformerPaletteFixture(paletteRoot, embedded[0], treeModel);
+        }
+    }
     private static PaletteFilterRegistry.PaletteFilterContribution contribution(String id, String paletteId) {
         return new PaletteFilterRegistry.PaletteFilterContribution(id, paletteId, "placeholder", 10);
     }
