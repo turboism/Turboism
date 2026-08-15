@@ -16,7 +16,7 @@ class CompleteCubismModelReadApiContractTest {
     @Test
     void modelAndChildrenExposeTheCompleteSupportedReadShapeWithoutRawHostTypes() throws Exception {
         assertMethods(CubismModel.class,
-            "animationDocuments", "autoYure", "canvas", "currentModelInstance", "defaultKeyformLocked", "deformers", "drawables", "editLevel", "glues", "id", "mocInfo", "modelEditing", "modelInstances", "name", "parameterBindingBatch", "parameterBindings", "parameterDefinitions", "parameterGroups", "parameters", "parts", "physicsSettings", "profile", "rotationDeformers", "setDefaultKeyformLocked", "setEditLevel", "setName", "statistics", "textures", "update", "warpDeformers");
+            "animationDocuments", "autoYure", "canvas", "currentModelInstance", "defaultKeyformLocked", "deformers", "drawables", "editLevel", "glues", "id", "mocInfo", "modelEditing", "modelInstances", "name", "parameterBindingBatch", "parameterBindings", "parameterDefinitions", "parameterGroups", "parameters", "parts", "physicsSettings", "profile", "psdDocuments", "replaceArtMeshClipMasks", "rotationDeformers", "setDefaultKeyformLocked", "setEditLevel", "setName", "statistics", "textures", "update", "warpDeformers");
         assertMethods(Canvas.class,
             "heightPixels", "originXPixels", "originYPixels", "pixelsPerUnit", "widthPixels");
         assertMethods(Part.class,

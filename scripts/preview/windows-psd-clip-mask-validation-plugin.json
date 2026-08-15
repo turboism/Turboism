@@ -1,0 +1,45 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 2,
+  "id": "dev.turboism.validation.psd-clip-mask",
+  "name": "Windows PSD Clip Mask Validation Probe",
+  "version": "0.1.0",
+  "description": "Manual-test-only SDK probe for PSD layer-relationship reads and conditional ordered ArtMesh clip-mask authoring (batch write, fail-closed expected state, single-step Undo/Redo).",
+  "entrypoints": [
+    "dev.turboism.tests.plugin.WindowsPsdClipMaskValidationProbe"
+  ],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    { "name": "Turboism Contributors" }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": []
+  },
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.cubism.model.read",
+      "scope": "application",
+      "reason": "Read PSD documents, ArtMesh identities, ordered clip-mask lists and inversion during exact-host validation."
+    },
+    {
+      "id": "turboism.cubism.model.write",
+      "scope": "application",
+      "reason": "Apply one conditional clip-mask replacement batch and verify fail-closed behavior during exact-host validation."
+    }
+  ],
+  "capabilities": [
+    "cubism.psd.layer-relationship.read",
+    "cubism.clipmask.read",
+    "cubism.clipmask.replace-ordered-sources",
+    "cubism.transaction.real-write-undo"
+  ],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "swing"
+  }
+}

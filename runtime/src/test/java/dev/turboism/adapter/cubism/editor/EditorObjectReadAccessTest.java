@@ -1,8 +1,10 @@
 package dev.turboism.adapter.cubism.editor;
 
 import dev.turboism.mapping.verification.EditorObjectReadSelectorContract;
+import dev.turboism.mapping.verification.EditorObjectWriteSelectorContract;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
+import dev.turboism.sdk.cubism.clipmask.ClipMaskReplacement;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.DeformerId;
@@ -11,6 +13,7 @@ import dev.turboism.sdk.cubism.model.Point2;
 import dev.turboism.sdk.cubism.model.ArtMeshGeometry;
 import dev.turboism.sdk.cubism.model.RotationDeformerForm;
 import dev.turboism.sdk.cubism.model.WarpGrid;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -89,6 +92,161 @@ class EditorObjectReadAccessTest {
         assertEquals(1, glue.drawableB());
         assertEquals(List.of("ParamAngleX"), glue.parameterIds().stream().map(value -> value.value()).toList());
         assertEquals(0, glue.parameters().get(0));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    void replacesClipMasksAfterCompletePreflightInOneTransaction(final String version) {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        final var model = new EditorBackedCubismModelAccess(resolver(version, true), "session-a").active();
+        final List<ClipMaskReplacement> replacements = List.of(
+            new ClipMaskReplacement(
+                new ArtMeshId("ArtMeshFace"),
+                List.of(new ArtMeshId("ArtMeshMask")),
+                true,
+                List.of(new ArtMeshId("ArtMeshMask")),
+                false
+            ),
+            new ClipMaskReplacement(
+                new ArtMeshId("ArtMeshMask"),
+                List.of(),
+                false,
+                List.of(new ArtMeshId("ArtMeshFace")),
+                true
+            )
+        );
+
+        model.replaceArtMeshClipMasks(replacements);
+
+        assertEquals(List.of(fixture.maskSource().guid), fixture.meshSource().clipGuids());
+        assertFalse(fixture.meshSource().invertedMask());
+        assertEquals(List.of(fixture.meshSource().guid), fixture.maskSource().clipGuids());
+        assertTrue(fixture.maskSource().invertedMask());
+        assertEquals(List.of(
+            "clip:ArtMeshFace", "invert:ArtMeshFace",
+            "clip:ArtMeshMask", "invert:ArtMeshMask"
+        ), fixture.failures.setterEvents);
+        assertEquals(1, fixture.document.editMode.edits.size());
+        // One edit session admits one target-handler Undo snapshot per planned target in
+        // plan order on the exact 5.2 route (host evidence: the 5.2 handler snapshot is
+        // target-scoped); the host-verified 5.3.02 route keeps exactly one entry for the
+        // first target. The single edit session still merges into one Undo step.
+        assertEquals(
+            version.equals("5.2.0") ? 2 : 1,
+            fixture.document.editMode.edits.get(0).undoAddCount
+        );
+        assertEquals(
+            version.equals("5.2.0")
+                ? List.of("ArtMeshFace", "ArtMeshMask")
+                : List.of("ArtMeshFace"),
+            fixture.document.editMode.edits.get(0).undoTargets
+        );
+        assertEquals(1, fixture.source.updateCount);
+        assertEquals(1, fixture.document.pack.partRefreshCount);
+        assertEquals(1, fixture.document.pack.repaintCount);
+        assertTrue(fixture.document.dirty);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    void clipMaskExpectedMismatchDoesNotOpenAnEdit(final String version) {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        final var model = new EditorBackedCubismModelAccess(resolver(version, true), "session-a").active();
+
+        assertThrows(IllegalStateException.class, () -> model.replaceArtMeshClipMasks(List.of(
+            new ClipMaskReplacement(
+                new ArtMeshId("ArtMeshFace"),
+                List.of(new ArtMeshId("ArtMeshMask")),
+                false,
+                List.of(new ArtMeshId("ArtMeshMask")),
+                false
+            )
+        )));
+
+        assertAbortedWithoutPublishedEffects(fixture);
+        assertEquals(List.of(), fixture.failures.setterEvents);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    void clipMaskSetterFailureRestoresTheWholeBatch(final String version) {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        final var model = new EditorBackedCubismModelAccess(resolver(version, true), "session-a").active();
+        fixture.failures.failOn(4);
+
+        assertThrows(RuntimeException.class, () -> model.replaceArtMeshClipMasks(List.of(
+            new ClipMaskReplacement(
+                new ArtMeshId("ArtMeshFace"),
+                List.of(new ArtMeshId("ArtMeshMask")),
+                true,
+                List.of(new ArtMeshId("ArtMeshMask")),
+                false
+            ),
+            new ClipMaskReplacement(
+                new ArtMeshId("ArtMeshMask"),
+                List.of(),
+                false,
+                List.of(new ArtMeshId("ArtMeshFace")),
+                true
+            )
+        )));
+
+        assertEquals(List.of(fixture.maskSource().guid), fixture.meshSource().clipGuids());
+        assertTrue(fixture.meshSource().invertedMask());
+        assertEquals(List.of(), fixture.maskSource().clipGuids());
+        assertFalse(fixture.maskSource().invertedMask());
+        assertAbortedWithoutPublishedEffects(fixture);
+    }
+
+    @Test
+    void clipMaskRejectedUndoAdmissionAbortsBeforeMutationOn52() {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        final var model = new EditorBackedCubismModelAccess(resolver("5.2.0", true), "session-a").active();
+        // The 5.2 route admits one snapshot per target; rejection of any admission must
+        // fail before any mutation and abort the single edit session.
+        fixture.failures.rejectUndoAdmission(2);
+        assertThrows(IllegalStateException.class, () -> model.replaceArtMeshClipMasks(List.of(
+            new ClipMaskReplacement(
+                new ArtMeshId("ArtMeshFace"),
+                List.of(new ArtMeshId("ArtMeshMask")),
+                true,
+                List.of(new ArtMeshId("ArtMeshMask")),
+                false
+            ),
+            new ClipMaskReplacement(
+                new ArtMeshId("ArtMeshMask"),
+                List.of(),
+                false,
+                List.of(new ArtMeshId("ArtMeshFace")),
+                true
+            )
+        )));
+        assertAbortedWithoutPublishedEffects(fixture);
+        assertEquals(List.of(), fixture.failures.setterEvents);
+    }
+
+    @Test
+    void clipMaskWriteFailsClosedWithoutDedicatedVerifiedCapability() {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        final var model = new EditorBackedCubismModelAccess(resolver("5.3.02"), "session-a").active();
+
+        assertThrows(UnsupportedOperationException.class, () -> model.replaceArtMeshClipMasks(List.of(
+            new ClipMaskReplacement(
+                new ArtMeshId("ArtMeshFace"),
+                List.of(new ArtMeshId("ArtMeshMask")),
+                true,
+                List.of(new ArtMeshId("ArtMeshMask")),
+                false
+            )
+        )));
+
+        assertAbortedWithoutPublishedEffects(fixture);
+        assertEquals(List.of(), fixture.failures.setterEvents);
     }
 
 
@@ -641,6 +799,7 @@ class EditorObjectReadAccessTest {
             capabilities.add(dev.turboism.mapping.verification.EditorParameterBindingWriteSelectorContract.ROTATION_CAPABILITY_ID);
             capabilities.add(dev.turboism.mapping.verification.EditorParameterBindingBatchWriteSelectorContract.INVERT_CAPABILITY_ID);
             capabilities.add(dev.turboism.mapping.verification.EditorParameterBindingBatchWriteSelectorContract.TRANSFER_CAPABILITY_ID);
+            capabilities.add(EditorObjectWriteSelectorContract.CLIP_MASK_CAPABILITY_ID);
         }
         if (includeMorph) {
             capabilities.add(dev.turboism.mapping.verification.EditorMorphTargetSelectorContract.READ_CAPABILITY_ID);
@@ -706,7 +865,10 @@ class EditorObjectReadAccessTest {
             method("cubism.editor-model.part-source.id", PartSource.class, "id", desc(Id.class)),
             method("cubism.editor-model.art-mesh.source", ArtMesh.class, "source", desc(ArtMeshSource.class)),
             method("cubism.editor-model.art-mesh-source.guid", ArtMeshSource.class, "guid", desc(Id.class)),
-            method("cubism.editor-model.art-mesh-source.clip-guid-list", ArtMeshSource.class, "clipGuids", "()Ljava/util/List;"),
+            method("cubism.editor-model.art-mesh-source.clip-guid-list", ArtMeshSource.class, "clipGuids", desc(ClipGuidList.class)),
+            method("cubism.editor-model.art-mesh-source.set-clip-guid-list", ArtMeshSource.class, "setClipGuidList", "(" + type(ClipGuidList.class) + ")V"),
+            StaticSelector.classSelector("cubism.editor-model.c-array-list.class", internal(ClipGuidList.class)),
+            StaticSelector.constructor("cubism.editor-model.c-array-list.create", internal(ClipGuidList.class), "(" + type(java.util.Collection.class) + ")V", StaticSelector.ACCESS_PUBLIC),
             method("cubism.editor-model.art-mesh.current-keyform", ArtMesh.class, "currentForm", desc(ArtMeshForm.class)),
             method("cubism.editor-model.drawable-form.opacity", Form.class, "opacity", "()F"),
             method("cubism.editor-model.drawable-form.set-opacity", Form.class, "setOpacity", "(F)V"),
@@ -722,6 +884,7 @@ class EditorObjectReadAccessTest {
             method("cubism.editor-model.art-mesh-source.culling", ArtMeshSource.class, "culling", "()Z"),
             method("cubism.editor-model.art-mesh-source.user-data", ArtMeshSource.class, "userData", "()Ljava/lang/String;"),
             method("cubism.editor-model.art-mesh-source.inverted-mask", ArtMeshSource.class, "invertedMask", "()Z"),
+            method("cubism.editor-model.art-mesh-source.set-inverted-mask", ArtMeshSource.class, "setInvertClippingMask", "(Z)V"),
             method("cubism.editor-model.model-source.all-deformers", ModelSource.class, "allDeformers", "()Ljava/util/List;"),
             method("cubism.editor-model.model.all-deformers", Model.class, "allDeformers", "()Ljava/util/List;"),
             StaticSelector.classSelector("cubism.editor-model.glue-source.class", internal(GlueSource.class)),
@@ -813,10 +976,19 @@ class EditorObjectReadAccessTest {
     }
     public interface Listener { void changed(Object ignored); }
     public static class Undo {
+        final String target;
+        Undo(final ObjectSource source) { target = source.id.value; }
         public boolean addListener(final Listener listener) { return true; }
     }
     public static final class GroupUndo {
-        public boolean add(final Undo undo, final boolean merge) { return undo != null; }
+        final List<String> undoTargets = new java.util.ArrayList<>();
+        int undoAddCount;
+        public boolean add(final Undo undo, final boolean merge) {
+            if (undo == null) return false;
+            undoAddCount++;
+            undoTargets.add(undo.target);
+            return true;
+        }
     }
     public static final class EditMode {
         final java.util.List<GroupUndo> edits = new java.util.ArrayList<>();
@@ -836,7 +1008,9 @@ class EditorObjectReadAccessTest {
         public void repaint(final boolean force) { repaintCount++; }
     }
     public static final class Handler {
-        public Undo undo(final String action) { return new Undo(); }
+        private final ObjectSource source;
+        Handler(final ObjectSource source) { this.source = source; }
+        public Undo undo(final String action) { return source.failures.rejectUndo() ? null : new Undo(source); }
     }
     public static final class Document {
         final ModelSource source;
@@ -857,14 +1031,30 @@ class EditorObjectReadAccessTest {
     public static final class Failures {
         private int call;
         private int failAt = Integer.MAX_VALUE;
+        final List<String> setterEvents = new java.util.ArrayList<>();
         void failOn(final int value) { call = 0; failAt = value; }
-        void reset() { call = 0; failAt = Integer.MAX_VALUE; }
-        void setter() {
+        void reset() { call = 0; failAt = Integer.MAX_VALUE; setterEvents.clear();
+            undoAdmissionCount = 0; rejectUndoAt = Integer.MAX_VALUE; }
+        void setter() { setter("generic"); }
+        void setter(final String event) {
+            setterEvents.add(event);
             call++;
             if (call == failAt) {
                 failAt = Integer.MAX_VALUE;
                 throw new IllegalStateException("injected host setter failure");
             }
+        }
+
+        private int undoAdmissionCount;
+        private int rejectUndoAt = Integer.MAX_VALUE;
+        void rejectUndoAdmission(final int value) { undoAdmissionCount = 0; rejectUndoAt = value; }
+        boolean rejectUndo() {
+            undoAdmissionCount++;
+            if (undoAdmissionCount == rejectUndoAt) {
+                rejectUndoAt = Integer.MAX_VALUE;
+                return true;
+            }
+            return false;
         }
     }
 
@@ -951,7 +1141,7 @@ class EditorObjectReadAccessTest {
     public static class ObjectSource {
         final Id id;
         final String localName;
-        final Handler handler = new Handler();
+        final Handler handler;
         final Failures failures;
         final KeyformGrid keyformGrid = new KeyformGrid();
         final MorphTargetSet morphTargetSet = new MorphTargetSet();
@@ -963,6 +1153,7 @@ class EditorObjectReadAccessTest {
             this.id = new Id(id);
             this.localName = localName;
             this.failures = failures;
+            this.handler = new Handler(this);
         }
         public Id id() { return id; }
         public String localName() { return localName; }
@@ -988,7 +1179,8 @@ class EditorObjectReadAccessTest {
     public static final class ArtMeshSource extends ObjectSource {
         final Id guid;
         final boolean culling;
-        final List<Id> clipGuids = new java.util.ArrayList<>();
+        ClipGuidList clipGuids = new ClipGuidList();
+        boolean invertedMask;
         float[] sourcePositions = new float[] {0, 0, 1, 0, 0, 1};
         float[] sourceUvs = new float[] {0, 0, 1, 0, 0, 1};
         int[] sourceIndices = new int[] {0, 1, 2};
@@ -996,9 +1188,14 @@ class EditorObjectReadAccessTest {
             super(id, name, failures);
             this.guid = new Id("guid:" + id);
             this.culling = culling;
+            this.invertedMask = "ArtMeshFace".equals(id);
         }
         public Id guid() { return guid; }
-        public List<Id> clipGuids() { return List.copyOf(clipGuids); }
+        public ClipGuidList clipGuids() { return clipGuids; }
+        public void setClipGuidList(final ClipGuidList values) {
+            failures.setter("clip:" + id.value);
+            clipGuids = new ClipGuidList(values);
+        }
         public float[] positions() { return sourcePositions.clone(); }
         public void setPositions(final float[] values) { failures.setter(); sourcePositions = values.clone(); }
         public float[] uvs() { return sourceUvs.clone(); }
@@ -1007,7 +1204,16 @@ class EditorObjectReadAccessTest {
         public void setIndices(final int[] values) { failures.setter(); sourceIndices = values.clone(); }
         public boolean culling() { return culling; }
         public String userData() { return "ArtMeshFace".equals(id.value) ? "face" : ""; }
-        public boolean invertedMask() { return "ArtMeshFace".equals(id.value); }
+        public boolean invertedMask() { return invertedMask; }
+        public void setInvertClippingMask(final boolean value) {
+            failures.setter("invert:" + id.value);
+            invertedMask = value;
+        }
+    }
+
+    public static final class ClipGuidList extends java.util.ArrayList<Id> {
+        public ClipGuidList() { }
+        public ClipGuidList(final java.util.Collection<? extends Id> values) { super(values); }
     }
 
     public static final class PartSource {
@@ -1204,6 +1410,7 @@ class EditorObjectReadAccessTest {
             document.pack.repaintCount = 0;
         }
         ArtMeshSource meshSource() { return source.artMeshSources.get(0); }
+        ArtMeshSource maskSource() { return source.artMeshSources.get(1); }
 
         void addParameter(final String id) {
             final Parameter parameter = new Parameter(id);

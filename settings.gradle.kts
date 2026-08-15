@@ -24,6 +24,7 @@ include(
     "plugins:recent-preview",
     "plugins:scene-palette-enhancer",
     "plugins:psd-import",
+    "plugins:psd-clip-mask-import",
     "plugins:atlas-maxrects-bssf",
     "plugins:texture-atlas-stats",
     "plugins:physics-editor",

@@ -7,7 +7,7 @@ public final class EditorModelVerificationManifest {
 
     public static final String VERIFICATION_ID = "cubism-5.3.02.editor-model.static";
     public static final String RECORD_SHA256 =
-        "5c68daa945977f3a1d43476c3f0ac3858f9cacbe50c10e4dc2bcb76ab2947ea7";
+"9170b2df5758a5378a197b9798ac7fb370a35e57e38019808d3a4bccf1e3720c";
     public static final String CUBISM_VERSION = "5.3.02";
     public static final String PROFILE_ID = "cubism-5.3.02";
     public static final long ARTIFACT_SIZE = 41_922_739L;
@@ -32,7 +32,10 @@ public final class EditorModelVerificationManifest {
         EditorPartBasicSettingsSelectorContract.WRITE_CAPABILITY_ID,
         EditorObjectReadSelectorContract.CAPABILITY_ID,
         EditorObjectReadSelectorContract.STATISTICS_CAPABILITY_ID,
+        EditorPsdSnapshotSelectorContract.CAPABILITY_ID,
         EditorObjectWriteSelectorContract.ART_MESH_CAPABILITY_ID,
+        EditorObjectWriteSelectorContract.CLIP_MASK_CAPABILITY_ID,
+        EditorClipMaskReadSelectorContract.CAPABILITY_ID,
         EditorObjectWriteSelectorContract.WARP_CAPABILITY_ID,
         EditorObjectWriteSelectorContract.ROTATION_CAPABILITY_ID,
         EditorHistoryReadSelectorContract.CAPABILITY_ID,
@@ -362,6 +365,33 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.art-mesh-source.clip-guid-list",
         "cubism.editor-model.art-mesh-source.texture",
         "cubism.editor-model.texture.guid",
+        "cubism.editor-model.art-mesh-source.set-clip-guid-list",
+        "cubism.editor-model.art-mesh-source.set-inverted-mask",
+        "cubism.editor-model.c-array-list.class",
+        "cubism.editor-model.c-array-list.create",
+        "cubism.editor-model.model-source.texture-manager",
+        "cubism.editor-model.texture-manager.raw-images",
+        "cubism.editor-model.layered-image-wrapper.image",
+        "cubism.editor-model.layered-image.class",
+        "cubism.editor-model.layered-image.guid",
+        "cubism.editor-model.layered-image.psd-file",
+        "cubism.editor-model.layered-image.children",
+        "cubism.editor-model.layer-entry.class",
+        "cubism.editor-model.layer-entry.guid",
+        "cubism.editor-model.layer-entry.name",
+        "cubism.editor-model.layer-entry.visible",
+        "cubism.editor-model.layer-entry.clipping",
+        "cubism.editor-model.layer-group.class",
+        "cubism.editor-model.layer-group.children",
+        "cubism.editor-model.art-mesh-source.texture-input-extension",
+        "cubism.editor-model.texture-input-extension.class",
+        "cubism.editor-model.texture-input-extension.model-image-input",
+        "cubism.editor-model.texture-input-model-image.class",
+        "cubism.editor-model.texture-input-model-image.model-image",
+        "cubism.editor-model.model-image.class",
+        "cubism.editor-model.model-image.current-layer-input-data",
+        "cubism.editor-model.layer-input-data.class",
+        "cubism.editor-model.layer-input-data.layer",
         "cubism.editor-model.model-source.all-glues",
         "cubism.editor-model.glue-source.class",
         "cubism.editor-model.glue-source.target-art-mesh-a",
