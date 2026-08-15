@@ -347,7 +347,12 @@ public final class WindowsPsdClipMaskValidationProbe implements CubismPlugin {
             onHostThread(() -> {
                 final StringBuilder diagnostics = new StringBuilder();
                 int modalJDialogCount = 0;
-                JButton defaultButton = null;
+                int focusedCandidateCount = 0;
+                javax.swing.JDialog selectedDialog = null;
+                final java.awt.KeyboardFocusManager keyboardFocus =
+                    java.awt.KeyboardFocusManager.getCurrentKeyboardFocusManager();
+                final java.awt.Window focusedWindow = keyboardFocus.getFocusedWindow();
+                final java.awt.Window activeWindow = keyboardFocus.getActiveWindow();
                 for (final java.awt.Window window : java.awt.Window.getWindows()) {
                     if (!window.isVisible()) continue;
                     final String title = window instanceof java.awt.Frame frame
@@ -365,27 +370,36 @@ public final class WindowsPsdClipMaskValidationProbe implements CubismPlugin {
                     if (window instanceof javax.swing.JDialog dialog
                         && dialog.isModal() && dialog.isShowing()) {
                         modalJDialogCount++;
-                        if (defaultButton == null && dialog.getRootPane() != null) {
-                            defaultButton = dialog.getRootPane().getDefaultButton();
+                        if (dialog.isFocused() || dialog == focusedWindow || dialog == activeWindow) {
+                            focusedCandidateCount++;
+                            selectedDialog = dialog;
                         }
                     }
                 }
                 context.logger().info("await-model windows attempt=" + attempt
-                    + " modalJDialogCount=" + modalJDialogCount + " windows=" + diagnostics);
-                if (modalJDialogCount != 1) {
-                    context.logger().info("await-model fail-closed: " + modalJDialogCount
+                    + " modalJDialogCount=" + modalJDialogCount
+                    + " focusedCandidateCount=" + focusedCandidateCount
+                    + " windows=" + diagnostics);
+                if (focusedCandidateCount != 1 || selectedDialog == null) {
+                    context.logger().info("await-model fail-closed: " + focusedCandidateCount
+                        + " focused modal JDialog candidate(s) of " + modalJDialogCount
                         + " visible modal JDialog(s), no input sent attempt=" + attempt);
                     return null;
                 }
+                final javax.swing.JRootPane rootPane = selectedDialog.getRootPane();
+                final JButton defaultButton = rootPane == null ? null : rootPane.getDefaultButton();
                 if (defaultButton == null || !defaultButton.isEnabled()
                     || !defaultButton.isVisible() || !defaultButton.isShowing()) {
-                    context.logger().info("await-model no safe default button, no input sent attempt="
-                        + attempt);
+                    context.logger().info("await-model no safe default button on "
+                        + selectedDialog.getClass().getName() + " title="
+                        + (selectedDialog == null ? null : selectedDialog.getTitle())
+                        + ", no input sent attempt=" + attempt);
                     return null;
                 }
                 defaultButton.doClick(0);
                 context.logger().info("await-model modal JDialog default button invoked attempt="
-                    + attempt);
+                    + attempt + " dialog=" + selectedDialog.getClass().getName()
+                    + " title=" + selectedDialog.getTitle());
                 return null;
             });
         } catch (Exception failure) {
