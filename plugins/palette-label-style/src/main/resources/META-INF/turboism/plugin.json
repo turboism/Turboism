@@ -1,6 +1,6 @@
 {
   "format": "turboism.plugin.meta",
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "id": "dev.turboism.plugin.palette-label-style",
   "name": "Palette Label Style Plugin",
   "version": "0.1.0",
@@ -82,5 +82,11 @@
   "environment": {
     "requiresCubism": true,
     "ui": "embedded"
-  }
+  },
+  "tags": [
+    "palette",
+    "labels",
+    "typography"
+  ],
+  "category": "appearance"
 }

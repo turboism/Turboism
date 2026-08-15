@@ -56,3 +56,42 @@ tasks.register<JavaExec>("validatePluginMeta") {
         setArgs(filesToValidate(pluginMetaFiles).map { it.absolutePath })
     }
 }
+
+val firstPartyPluginProjects = rootProject.subprojects.filter { it.path.startsWith(":plugins:") }
+val firstPartyDescriptorFiles = files(
+    firstPartyPluginProjects.map { it.file("src/main/resources/META-INF/turboism/plugin.json") }
+)
+val firstPartyJarFiles = provider {
+    firstPartyPluginProjects.sortedBy { it.name }.map { plugin ->
+        plugin.tasks.named<Jar>("jar").get().archiveFile.get().asFile
+    }
+}
+
+tasks.register<JavaExec>("verifyFirstPartyPluginMetadata") {
+    group = "verification"
+    description = "Inspect every built first-party plugin JAR through the production PluginJarContract and bind its embedded v3 classification to the tracked descriptor."
+    dependsOn(firstPartyPluginProjects.map { "${it.path}:jar" })
+    inputs.files(firstPartyDescriptorFiles)
+    inputs.files(firstPartyJarFiles)
+    configureRuntimeJavaExec(project, "dev.turboism.pluginmanagement.FirstPartyMetadataVerificationCli")
+    doFirst {
+        val pairs = firstPartyPluginProjects.sortedBy { it.name }.flatMap { plugin ->
+            val descriptor = plugin.file("src/main/resources/META-INF/turboism/plugin.json")
+            if (!descriptor.isFile) {
+                throw GradleException(
+                    "Tracked first-party descriptor missing: " +
+                        descriptor.relativeTo(rootProject.projectDir).invariantSeparatorsPath
+                )
+            }
+            val jar = plugin.tasks.named<Jar>("jar").get().archiveFile.get().asFile
+            if (!jar.isFile) {
+                throw GradleException(
+                    "Built first-party JAR missing: " +
+                        jar.relativeTo(rootProject.projectDir).invariantSeparatorsPath
+                )
+            }
+            listOf(descriptor.absolutePath, jar.absolutePath)
+        }
+        setArgs(pairs)
+    }
+}

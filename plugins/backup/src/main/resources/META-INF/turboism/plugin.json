@@ -1,6 +1,6 @@
 {
   "format": "turboism.plugin.meta",
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "id": "dev.turboism.plugin.backup",
   "name": "WebDAV Auto-Backup Sync Plugin",
   "version": "0.1.0",
@@ -61,5 +61,11 @@
   "environment": {
     "requiresCubism": true,
     "ui": "swing"
-  }
+  },
+  "tags": [
+    "backup",
+    "webdav",
+    "automation"
+  ],
+  "category": "workflow"
 }

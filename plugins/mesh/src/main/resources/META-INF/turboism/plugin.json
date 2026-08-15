@@ -1,6 +1,6 @@
 {
   "format": "turboism.plugin.meta",
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "id": "dev.turboism.plugin.mesh",
   "name": "Mesh Inspector and Mirror-Axis Tools",
   "version": "0.1.0",
@@ -63,5 +63,11 @@
   "environment": {
     "requiresCubism": true,
     "ui": "embedded"
-  }
+  },
+  "tags": [
+    "mesh",
+    "artmesh",
+    "editing"
+  ],
+  "category": "modeling"
 }

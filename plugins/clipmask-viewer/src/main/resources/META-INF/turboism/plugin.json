@@ -1,6 +1,6 @@
 {
   "format": "turboism.plugin.meta",
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "id": "dev.turboism.plugin.clipmask-viewer",
   "name": "Clip Mask Viewer",
   "version": "0.1.0",
@@ -56,5 +56,11 @@
   "environment": {
     "requiresCubism": true,
     "ui": "swing"
-  }
+  },
+  "tags": [
+    "clip-mask",
+    "viewer",
+    "graph"
+  ],
+  "category": "analysis"
 }

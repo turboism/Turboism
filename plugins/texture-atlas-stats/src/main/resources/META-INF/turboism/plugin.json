@@ -1,6 +1,6 @@
 {
   "format": "turboism.plugin.meta",
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "id": "dev.turboism.plugin.texture-atlas-stats",
   "name": "Texture Atlas Statistics",
   "version": "0.1.0",
@@ -31,5 +31,11 @@
   "environment": {
     "requiresCubism": true,
     "ui": "swing"
-  }
+  },
+  "tags": [
+    "texture-atlas",
+    "metrics",
+    "inspection"
+  ],
+  "category": "analysis"
 }
