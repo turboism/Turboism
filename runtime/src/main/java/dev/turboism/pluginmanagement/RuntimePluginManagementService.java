@@ -294,7 +294,7 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
                     if (CORE_PLUGIN_ID.equals(value.id())) continue;
                     result.add(new PluginInfo(value.id(), value.name(), value.version(), value.description(),
                         PluginLifecycleState.DISCOVERED.name(), "ENABLED", false, Optional.empty(),
-                        PluginCategoryRegistry.presentation(value.category().orElse(null)),
+                        PluginCategoryRegistry.presentation(value.id(), value.category(), metadataDiagnostics),
                         value.tags()));
                 }
             }

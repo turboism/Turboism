@@ -163,7 +163,7 @@ class PluginDescriptorParserTest {
         final DescriptorParseException failure = assertThrows(
             DescriptorParseException.class, () -> parser.parse(toStream(json))
         );
-        assertEquals("PLUGIN_META_DUPLICATE_TAG", failure.code());
+        assertEquals("PLUGIN_META_BAD_TAGS", failure.code());
     }
 
     @Test
@@ -187,7 +187,7 @@ class PluginDescriptorParserTest {
         final DescriptorParseException failure = assertThrows(
             DescriptorParseException.class, () -> parser.parse(toStream(json))
         );
-        assertEquals("PLUGIN_META_TOO_MANY_TAGS", failure.code());
+        assertEquals("PLUGIN_META_BAD_TAGS", failure.code());
     }
 
     @Test
@@ -201,6 +201,36 @@ class PluginDescriptorParserTest {
             DescriptorParseException.class, () -> parser.parse(toStream(json))
         );
         assertEquals("PLUGIN_META_UNKNOWN_FIELD", failure.code());
+    }
+
+    @Test
+    void rejectsV3DescriptorWithWrongTypeCategory() {
+        final String json = v3Descriptor("\"category\": 42,");
+
+        final DescriptorParseException failure = assertThrows(
+            DescriptorParseException.class, () -> parser.parse(toStream(json))
+        );
+        assertEquals("PLUGIN_META_BAD_CATEGORY", failure.code());
+    }
+
+    @Test
+    void rejectsV3DescriptorWithNullCategoryAsMissing() {
+        final String json = v3Descriptor("\"category\": null,");
+
+        final DescriptorParseException failure = assertThrows(
+            DescriptorParseException.class, () -> parser.parse(toStream(json))
+        );
+        assertEquals("PLUGIN_META_MISSING", failure.code());
+    }
+
+    @Test
+    void rejectsV3DescriptorWithNonArrayTags() {
+        final String json = v3Descriptor("\"category\": \"modeling\",\n              \"tags\": \"parameter\",");
+
+        final DescriptorParseException failure = assertThrows(
+            DescriptorParseException.class, () -> parser.parse(toStream(json))
+        );
+        assertEquals("PLUGIN_META_BAD_TAGS", failure.code());
     }
 
     @Test
