@@ -25,7 +25,7 @@ class CompleteCubismApiContractTest {
     @Test
     void approvedInterfaceAdditionsRemainDefaultAndSourceCompatible() throws Exception {
         assertDefault(CubismFacade.class, "coreRuntime");
-        for (String method : List.of("name", "setName", "mocInfo", "parameterDefinitions", "statistics")) {
+        for (String method : List.of("name", "setName", "mocInfo", "parameterDefinitions", "statistics", "replaceArtMeshClipMasks")) {
             assertDefault(CubismModel.class, method);
         }
         for (String method : List.of("index", "keyValues")) assertDefault(Parameter.class, method);

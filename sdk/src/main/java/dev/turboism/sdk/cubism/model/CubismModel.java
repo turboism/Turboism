@@ -1,6 +1,8 @@
 package dev.turboism.sdk.cubism.model;
 
 import dev.turboism.sdk.PreviewApi;
+import dev.turboism.sdk.cubism.clipmask.ClipMaskReplacement;
+import dev.turboism.sdk.cubism.clipmask.PsdClipMaskDocumentSnapshot;
 import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.cubism.core.MocInfo;
 
@@ -104,6 +106,11 @@ public interface CubismModel {
         return ModelStatisticsCalculator.calculate(this);
     }
 
+    /** Immutable PSD resource snapshots associated with this Editor model. */
+    default List<PsdClipMaskDocumentSnapshot> psdDocuments() {
+        throw new UnsupportedOperationException("Cubism PSD snapshot access is unavailable.");
+    }
+
     /** Returns whether the Editor's default keyform is locked. */
     default boolean defaultKeyformLocked() {
         throw new UnsupportedOperationException(
@@ -162,6 +169,13 @@ public interface CubismModel {
     Parts parts();
 
     Drawables drawables();
+
+    /** Applies one conditional clip-mask replacement batch as one Editor edit. */
+    default void replaceArtMeshClipMasks(final java.util.List<ClipMaskReplacement> replacements) {
+        throw new UnsupportedOperationException(
+            "Cubism clip-mask authoring replacement is unavailable."
+        );
+    }
 
     Deformers deformers();
 
