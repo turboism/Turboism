@@ -430,8 +430,67 @@ public final class WindowsPsdClipMaskValidationProbe implements CubismPlugin {
                         + " title=" + selectedDialog.getTitle());
                     return null;
                 }
-                context.logger().info("await-model fail-closed: no root default button and"
-                    + " no safe focused AbstractButton; focusOwner="
+                // Final fallback: the unique modal JDialog may hold focus on a custom
+                // component that is not an AbstractButton (observed as
+                // com.live2d.ui.swingImpl.q). Only when the focus owner is
+                // enabled+visible+showing and its window ancestor is identity-equal to
+                // the selected dialog, and the selected dialog is re-read immediately
+                // before dispatch as still showing and still the unique focused/active
+                // modal candidate, dispatch exactly one KEY_PRESSED + KEY_RELEASED
+                // VK_ENTER to that exact focus owner. No Robot, no Toolkit event
+                // queue, no redispatch/global input, no title/class matching, no
+                // component-tree search.
+                String fallbackRejection = null;
+                if (focusOwner == null) {
+                    fallbackRejection = "focusOwner is null";
+                } else if (!focusOwner.isEnabled() || !focusOwner.isVisible()
+                    || !focusOwner.isShowing()) {
+                    fallbackRejection = "focusOwner not enabled+visible+showing";
+                } else if (SwingUtilities.getWindowAncestor(focusOwner) != selectedDialog) {
+                    fallbackRejection = "focusOwner window ancestor != selected dialog";
+                }
+                if (fallbackRejection == null) {
+                    final java.awt.Window reFocusedWindow = keyboardFocus.getFocusedWindow();
+                    final java.awt.Window reActiveWindow = keyboardFocus.getActiveWindow();
+                    boolean dialogStillUnique = selectedDialog.isShowing()
+                        && (selectedDialog.isFocused()
+                            || reFocusedWindow == selectedDialog
+                            || reActiveWindow == selectedDialog);
+                    if (dialogStillUnique) {
+                        for (final java.awt.Window window : java.awt.Window.getWindows()) {
+                            if (window instanceof javax.swing.JDialog dialog
+                                && dialog.isModal() && dialog.isVisible()
+                                && dialog != selectedDialog
+                                && (dialog.isFocused()
+                                    || reFocusedWindow == dialog
+                                    || reActiveWindow == dialog)) {
+                                dialogStillUnique = false;
+                                break;
+                            }
+                        }
+                    }
+                    if (dialogStillUnique) {
+                        final long now = System.currentTimeMillis();
+                        focusOwner.dispatchEvent(new java.awt.event.KeyEvent(
+                            focusOwner, java.awt.event.KeyEvent.KEY_PRESSED, now,
+                            0, java.awt.event.KeyEvent.VK_ENTER,
+                            java.awt.event.KeyEvent.CHAR_UNDEFINED));
+                        focusOwner.dispatchEvent(new java.awt.event.KeyEvent(
+                            focusOwner, java.awt.event.KeyEvent.KEY_RELEASED, now,
+                            0, java.awt.event.KeyEvent.VK_ENTER,
+                            java.awt.event.KeyEvent.CHAR_UNDEFINED));
+                        context.logger().info("await-model strategy=focused-component-enter"
+                            + " focusOwner=" + focusOwner.getClass().getName()
+                            + " modal JDialog Enter dispatched attempt=" + attempt
+                            + " dialog=" + selectedDialog.getClass().getName());
+                        return null;
+                    }
+                    fallbackRejection = "selected dialog not showing or not the unique"
+                        + " focused/active modal candidate before dispatch";
+                }
+                context.logger().info("await-model fail-closed: no root default button,"
+                    + " no safe focused AbstractButton, focused-component enter rejected"
+                    + " (" + fallbackRejection + "); focusOwner="
                     + (focusOwner == null ? null : focusOwner.getClass().getName())
                     + " focusedButton=" + (focusedButton == null
                         ? null : focusedButton.getClass().getName())
