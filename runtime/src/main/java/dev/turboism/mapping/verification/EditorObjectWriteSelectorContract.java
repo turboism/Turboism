@@ -9,6 +9,7 @@ public final class EditorObjectWriteSelectorContract {
     public static final String ART_MESH_CAPABILITY_ID = "cubism.editor-model.art-mesh.write";
     public static final String WARP_CAPABILITY_ID = "cubism.editor-model.warp-deformer.write";
     public static final String ROTATION_CAPABILITY_ID = "cubism.editor-model.rotation-deformer.write";
+    public static final String CLIP_MASK_CAPABILITY_ID = "cubism.editor-model.clip-mask.write";
 
     private static final Set<String> COMMON_ALIASES = Set.of(
         "cubism.editor-model.app-controller.instance",
@@ -40,6 +41,27 @@ public final class EditorObjectWriteSelectorContract {
             "cubism.editor-model.art-mesh-source.set-positions",
             "cubism.editor-model.art-mesh-source.set-uvs",
             "cubism.editor-model.art-mesh-source.set-indices"
+        )
+    );
+
+    public static final Set<String> CLIP_MASK_REQUIRED_ALIASES = union(
+        COMMON_ALIASES,
+        Set.of(
+            "cubism.editor-model.complete-pack.update-part-palette",
+            "cubism.editor-model.model-source.all-art-meshes",
+            "cubism.editor-model.model.all-art-meshes",
+            "cubism.editor-model.art-mesh-source.class",
+            "cubism.editor-model.art-mesh.class",
+            "cubism.editor-model.art-mesh.source",
+            "cubism.editor-model.parameter-controllable-source.id",
+            "cubism.editor-model.art-mesh-source.guid",
+            "cubism.editor-model.art-mesh-source.clip-guid-list",
+            "cubism.editor-model.art-mesh-source.inverted-mask",
+            "cubism.editor-model.guid.value",
+            "cubism.editor-model.art-mesh-source.set-clip-guid-list",
+            "cubism.editor-model.art-mesh-source.set-inverted-mask",
+            "cubism.editor-model.c-array-list.class",
+            "cubism.editor-model.c-array-list.create"
         )
     );
 

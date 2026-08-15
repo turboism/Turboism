@@ -18,6 +18,7 @@ dependencies {
     testImplementation(project(":plugins:context-menu"))
     testImplementation(project(":plugins:project-panel"))
     testImplementation(project(":plugins:psd-import"))
+    testImplementation(project(":plugins:psd-clip-mask-import"))
     testImplementation(project(":plugins:atlas-maxrects-bssf"))
     testImplementation(project(":testframework"))
     testImplementation("com.fasterxml.jackson.core:jackson-databind:2.17.2")

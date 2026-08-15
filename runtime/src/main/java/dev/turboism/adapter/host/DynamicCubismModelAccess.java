@@ -1,4 +1,5 @@
 package dev.turboism.adapter.host;
+import dev.turboism.sdk.cubism.clipmask.ClipMaskReplacement;
 
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.DeformerId;
@@ -244,6 +245,10 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
             return current(generation, CubismModel::statistics, delegate);
         }
 
+        @Override public java.util.List<dev.turboism.sdk.cubism.clipmask.PsdClipMaskDocumentSnapshot> psdDocuments() {
+            return current(generation, CubismModel::psdDocuments, delegate);
+        }
+
         @Override public dev.turboism.sdk.cubism.model.ModelProfile profile() {
             return current(generation, CubismModel::profile, delegate);
         }
@@ -440,6 +445,11 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
         @Override
         public void update() {
             guardedVoid(generation, delegate::update);
+        }
+
+        @Override
+        public void replaceArtMeshClipMasks(final List<ClipMaskReplacement> replacements) {
+            guardedVoid(generation, () -> delegate.replaceArtMeshClipMasks(replacements));
         }
     }
 
@@ -1194,6 +1204,7 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
         @Override public List<ArtMeshId> maskIds() {
             return guarded(generation, delegate::maskIds);
         }
+
         @Override public String name() { return guarded(generation, delegate::name); }
         @Override public String guid() { return guarded(generation, delegate::guid); }
         @Override public void setName(final String name) {

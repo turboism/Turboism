@@ -4,6 +4,7 @@ import dev.turboism.diagnostics.CubismFacadeAuditEvent;
 import dev.turboism.adapter.cubism.lifecycle.ParameterLifecycleCoordinator;
 import dev.turboism.permissions.CubismPermissionGate;
 import dev.turboism.sdk.cubism.CubismRuntimeSnapshot;
+import dev.turboism.sdk.cubism.clipmask.ClipMaskReplacement;
 import dev.turboism.sdk.cubism.DeformerType;
 import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.cubism.id.ParameterGroupId;
@@ -378,6 +379,47 @@ class CubismFacadeImplTest {
 
         assertEquals(new ModelId("core-model"), facade.model().active().id());
         assertTrue(auditEvents.isEmpty());
+    }
+
+    @Test
+    void clipMaskReplacementRequiresModelWritePermissionBeforeDelegation() {
+        final List<List<ClipMaskReplacement>> calls = new ArrayList<>();
+        final CubismModelAccess backend = () -> emptyModel("model-a", calls::add);
+        final ClipMaskReplacement replacement = new ClipMaskReplacement(
+            new ArtMeshId("target"), List.of(), false, List.of(new ArtMeshId("mask")), false
+        );
+        final CubismFacadeImpl denied = new CubismFacadeImpl(
+            sampleSource(),
+            new CubismPermissionGate(
+                "plugin.demo",
+                List.of(permission(CubismFacadeImpl.MODEL_READ_PERMISSION)),
+                ignored -> { },
+                FIXED_CLOCK
+            ),
+            backend
+        );
+
+        assertThrows(
+            CubismPermissionException.class,
+            () -> denied.model().active().replaceArtMeshClipMasks(List.of(replacement))
+        );
+        assertEquals(List.of(), calls);
+
+        final CubismFacadeImpl allowed = new CubismFacadeImpl(
+            sampleSource(),
+            new CubismPermissionGate(
+                "plugin.demo",
+                List.of(
+                    permission(CubismFacadeImpl.MODEL_READ_PERMISSION),
+                    permission(CubismFacadeImpl.MODEL_WRITE_PERMISSION)
+                ),
+                ignored -> { },
+                FIXED_CLOCK
+            ),
+            backend
+        );
+        allowed.model().active().replaceArtMeshClipMasks(List.of(replacement));
+        assertEquals(List.of(List.of(replacement)), calls);
     }
 
     @Test
@@ -1493,6 +1535,13 @@ class CubismFacadeImplTest {
     }
 
     private static CubismModel emptyModel(final String id) {
+        return emptyModel(id, ignored -> { });
+    }
+
+    private static CubismModel emptyModel(
+        final String id,
+        final java.util.function.Consumer<List<ClipMaskReplacement>> clipMaskWriter
+    ) {
         return new CubismModel() {
             @Override public ModelId id() { return new ModelId(id); }
             @Override public dev.turboism.sdk.cubism.model.Parameters parameters() { throw unsupported(); }
@@ -1501,6 +1550,9 @@ class CubismFacadeImplTest {
             @Override public dev.turboism.sdk.cubism.model.Deformers deformers() { throw unsupported(); }
             @Override public dev.turboism.sdk.cubism.model.Glues glues() { throw unsupported(); }
             @Override public void update() { throw unsupported(); }
+            @Override public void replaceArtMeshClipMasks(final List<ClipMaskReplacement> replacements) {
+                clipMaskWriter.accept(List.copyOf(replacements));
+            }
 
             private UnsupportedOperationException unsupported() {
                 return new UnsupportedOperationException();
