@@ -12,6 +12,8 @@ import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.Drawable;
 import dev.turboism.sdk.plugin.PluginContext;
 
+import javax.swing.AbstractButton;
+
 import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JMenuBar;
@@ -388,18 +390,52 @@ public final class WindowsPsdClipMaskValidationProbe implements CubismPlugin {
                 }
                 final javax.swing.JRootPane rootPane = selectedDialog.getRootPane();
                 final JButton defaultButton = rootPane == null ? null : rootPane.getDefaultButton();
-                if (defaultButton == null || !defaultButton.isEnabled()
-                    || !defaultButton.isVisible() || !defaultButton.isShowing()) {
-                    context.logger().info("await-model no safe default button on "
-                        + selectedDialog.getClass().getName() + " title="
-                        + (selectedDialog == null ? null : selectedDialog.getTitle())
-                        + ", no input sent attempt=" + attempt);
+                if (defaultButton != null && defaultButton.isEnabled()
+                    && defaultButton.isVisible() && defaultButton.isShowing()) {
+                    defaultButton.doClick(0);
+                    context.logger().info("await-model strategy=root-default"
+                        + " modal JDialog default button invoked attempt=" + attempt
+                        + " dialog=" + selectedDialog.getClass().getName()
+                        + " title=" + selectedDialog.getTitle());
                     return null;
                 }
-                defaultButton.doClick(0);
-                context.logger().info("await-model modal JDialog default button invoked attempt="
-                    + attempt + " dialog=" + selectedDialog.getClass().getName()
-                    + " title=" + selectedDialog.getTitle());
+                // The focused dialog may designate no root default button. Fall back to
+                // the current KeyboardFocusManager focus owner captured on the EDT: only
+                // an enabled+visible+showing AbstractButton that is the focus owner
+                // itself or its nearest AbstractButton ancestor, and whose window
+                // ancestor is identity-equal to the selected unique modal JDialog, may
+                // be clicked. No title/class matching, no component-tree search, no
+                // Robot or other global input.
+                final java.awt.Component focusOwner = keyboardFocus.getFocusOwner();
+                AbstractButton focusedButton = null;
+                for (java.awt.Component component = focusOwner; component != null;
+                     component = component.getParent()) {
+                    if (component instanceof AbstractButton button) {
+                        focusedButton = button;
+                        break;
+                    }
+                }
+                final boolean safeFocusedButton = focusedButton != null
+                    && focusedButton.isEnabled() && focusedButton.isVisible()
+                    && focusedButton.isShowing()
+                    && SwingUtilities.getWindowAncestor(focusedButton) == selectedDialog;
+                if (safeFocusedButton) {
+                    focusedButton.doClick(0);
+                    context.logger().info("await-model strategy=focused-button"
+                        + " focusOwner=" + (focusOwner == null
+                            ? null : focusOwner.getClass().getName())
+                        + " button=" + focusedButton.getClass().getName()
+                        + " modal JDialog invoked attempt=" + attempt
+                        + " dialog=" + selectedDialog.getClass().getName()
+                        + " title=" + selectedDialog.getTitle());
+                    return null;
+                }
+                context.logger().info("await-model fail-closed: no root default button and"
+                    + " no safe focused AbstractButton; focusOwner="
+                    + (focusOwner == null ? null : focusOwner.getClass().getName())
+                    + " focusedButton=" + (focusedButton == null
+                        ? null : focusedButton.getClass().getName())
+                    + ", no input sent attempt=" + attempt);
                 return null;
             });
         } catch (Exception failure) {
