@@ -8,6 +8,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -110,6 +111,40 @@ class PluginMetadataPropagationTest {
         } else {
             Files.write(target, PluginManagementPackageFixture.pluginJarBytesV3(id, version, category, tags));
         }
+    }
+
+    @Test
+    void unknownInstalledCategoryEmitsStructuredDiagnosticThroughServiceSink() throws Exception {
+        installJar("unknown.plugin", "1.0.0", "custom-tooling", List.of("local"));
+        final List<String> diagnostics = new ArrayList<>();
+        final RuntimePluginManagementService service = RuntimePluginManagementService.withMetadataLocale(
+            home, List::of, () -> Locale.ENGLISH, diagnostics::add
+        );
+
+        final CorePluginManagement.PluginInfo row = service.plugins().stream()
+            .filter(plugin -> plugin.id().equals("unknown.plugin"))
+            .findFirst().orElseThrow();
+
+        assertEquals("other", row.category());
+        assertEquals(List.of("local"), row.tags());
+        assertEquals(1, diagnostics.size(), diagnostics.toString());
+        assertTrue(diagnostics.get(0).startsWith("PLUGIN_CATEGORY_UNKNOWN: "), diagnostics.get(0));
+        assertTrue(diagnostics.get(0).contains("unknown.plugin"), diagnostics.get(0));
+        assertTrue(diagnostics.get(0).contains("custom-tooling"), diagnostics.get(0));
+    }
+
+    @Test
+    void registeredAndV2InstalledCategoriesEmitNoCategoryDiagnostic() throws Exception {
+        installJar("v3.plugin", "1.0.0", "modeling", List.of("parameter"));
+        installJar("v2.plugin", "1.0.0", null, List.of());
+        final List<String> diagnostics = new ArrayList<>();
+        final RuntimePluginManagementService service = RuntimePluginManagementService.withMetadataLocale(
+            home, List::of, () -> Locale.ENGLISH, diagnostics::add
+        );
+
+        service.plugins();
+
+        assertEquals(List.of(), diagnostics, diagnostics.toString());
     }
 
     private void writePendingInstall(final String pluginId, final String version) throws Exception {

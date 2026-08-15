@@ -16,7 +16,6 @@ import java.util.Optional;
 public final class PluginDescriptorParser {
 
     private final ObjectMapper mapper = new ObjectMapper();
-    private final PluginMetaValidator validator = new PluginMetaValidator();
 
     public PluginDescriptor parse(final InputStream source) throws DescriptorParseException {
         try {
