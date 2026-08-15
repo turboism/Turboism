@@ -47,6 +47,7 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
+import dev.turboism.sdk.cubism.clipmask.ClipMaskReplacement;
 
 /** Exact-version Editor projection for ArtMesh, Deformer, and Glue authoring reads. */
 final class EditorObjectReadAccess {
@@ -255,6 +256,18 @@ final class EditorObjectReadAccess {
         if (!authorized) {
             throw new UnsupportedOperationException(
                 "Editor ArtMesh Inspector writes require exact verified host evidence."
+            );
+        }
+    }
+
+    private void requireClipMaskWriteAuthorized() {
+        if (!resolver.authorizesFeature(
+            EditorObjectWriteSelectorContract.ADAPTER_SLICE_ID,
+            EditorObjectWriteSelectorContract.CLIP_MASK_CAPABILITY_ID,
+            EditorObjectWriteSelectorContract.CLIP_MASK_REQUIRED_ALIASES
+        )) {
+            throw new UnsupportedOperationException(
+                "Editor clip-mask writes require exact verified host evidence."
             );
         }
     }
@@ -883,7 +896,19 @@ final class EditorObjectReadAccess {
         final Runnable mutation
     ) {
         requireWriteAuthorized(kind);
-        writeEnvelope(UndoKind.ALL_EDIT, kind, modelSource, objectSource, action, mutation, false);
+        writeEnvelope(UndoKind.ALL_EDIT, kind, modelSource, List.of(objectSource), action, mutation, false);
+    }
+
+    /** Batch envelope: admits one target-handler Undo snapshot per ordered source into one edit session. */
+    private void writeBatch(
+        final Kind kind,
+        final Object modelSource,
+        final List<Object> undoSources,
+        final String action,
+        final Runnable mutation
+    ) {
+        requireWriteAuthorized(kind);
+        writeEnvelope(UndoKind.ALL_EDIT, kind, modelSource, undoSources, action, mutation, false);
     }
 
     /** Inspector-write envelope: requires the dedicated inspector capability and mirrors the Inspector undo kinds. */
@@ -895,14 +920,14 @@ final class EditorObjectReadAccess {
         final Runnable mutation
     ) {
         requireInspectorWriteAuthorized();
-        writeEnvelope(undoKind, Kind.ART_MESH, modelSource, objectSource, action, mutation, true);
+        writeEnvelope(undoKind, Kind.ART_MESH, modelSource, List.of(objectSource), action, mutation, true);
     }
 
     private void writeEnvelope(
         final UndoKind undoKind,
         final Kind kind,
         final Object modelSource,
-        final Object objectSource,
+        final List<Object> undoObjectSources,
         final String action,
         final Runnable mutation,
         final boolean inspectorRefresh
@@ -911,7 +936,7 @@ final class EditorObjectReadAccess {
         final Object document = resolver.invoke(
             "cubism.editor-model.app-controller.current-document", app
         );
-        final String sourceId = objectId(objectSource);
+        final String sourceId = objectId(undoObjectSources.get(0));
         final long trace = EditorObjectValidationTrace.begin(
             kind.label,
             action,
@@ -928,24 +953,29 @@ final class EditorObjectReadAccess {
         EditorObjectValidationTrace.event(trace, "edit-begin", kind.label, action, sourceId, document, modelSource, "");
         boolean completed = false;
         try {
-            final Object handler = resolver.invoke(
-                "cubism.editor-model.parameter-controllable-source.handler", objectSource
-            );
-            if (!resolver.isInstance("cubism.editor-model.parameter-controllable-handler.class", handler)) {
-                throw unavailable("Editor object Undo handler is unavailable.");
+            Object objectUndo = null;
+            for (Object undoObjectSource : undoObjectSources) {
+                final Object handler = resolver.invoke(
+                    "cubism.editor-model.parameter-controllable-source.handler", undoObjectSource
+                );
+                if (!resolver.isInstance("cubism.editor-model.parameter-controllable-handler.class", handler)) {
+                    throw unavailable("Editor object Undo handler is unavailable.");
+                }
+                objectUndo = resolver.invoke(
+                    undoAlias(undoKind),
+                    handler,
+                    action
+                );
+                final Object accepted = resolver.invoke(
+                    "cubism.editor-model.undo.add", edit, objectUndo, Boolean.TRUE
+                );
+                if (!(accepted instanceof Boolean value) || !value) {
+                    throw new IllegalStateException("Cubism rejected the Editor object Undo entry.");
+                }
+                EditorObjectValidationTrace.event(trace, "undo-admitted", kind.label, action,
+                    objectId(undoObjectSource), document, modelSource,
+                    "accepted=true kind=" + undoKind.name());
             }
-            final Object objectUndo = resolver.invoke(
-                undoAlias(undoKind),
-                handler,
-                action
-            );
-            final Object accepted = resolver.invoke(
-                "cubism.editor-model.undo.add", edit, objectUndo, Boolean.TRUE
-            );
-            if (!(accepted instanceof Boolean value) || !value) {
-                throw new IllegalStateException("Cubism rejected the Editor object Undo entry.");
-            }
-            EditorObjectValidationTrace.event(trace, "undo-admitted", kind.label, action, sourceId, document, modelSource, "accepted=true kind=" + undoKind.name());
             final java.util.concurrent.atomic.AtomicInteger listenerCount = new java.util.concurrent.atomic.AtomicInteger();
             final Object listener = resolver.createFunctionalProxy(
                 "cubism.editor-model.undo-listener.class",
@@ -965,6 +995,7 @@ final class EditorObjectReadAccess {
                     return null;
                 }
             );
+            // The refresh listener rides the last admitted snapshot; the whole edit session undoes as one step.
             resolver.invoke("cubism.editor-model.undo.add-listener", objectUndo, listener);
             mutation.run();
             EditorObjectValidationTrace.event(trace, "mutation", kind.label, action, sourceId, document, modelSource, "completed=true");
@@ -2750,4 +2781,203 @@ final class EditorObjectReadAccess {
     private record ObjectRef(String id, Object source, Object instance) { }
     private record DeformerRef(String id, Object source, Object instance, Kind kind) { }
     private record GlueRef(String id, Object source) { }
+    void replaceArtMeshClipMasks(
+        final String identity,
+        final Object modelSource,
+        final Object model,
+        final List<ClipMaskReplacement> replacements
+    ) {
+        final List<ClipMaskReplacement> batch = List.copyOf(
+            Objects.requireNonNull(replacements, "replacements")
+        );
+        if (batch.isEmpty()) {
+            throw new IllegalArgumentException("replacements must not be empty");
+        }
+        currentGuard.requireCurrent(identity, model);
+        requireClipMaskWriteAuthorized();
+
+        final List<ObjectRef> meshes = artMeshes(identity, modelSource, model);
+        final java.util.Map<String, ObjectRef> byId = new java.util.HashMap<>();
+        for (ObjectRef mesh : meshes) {
+            byId.put(mesh.id(), mesh);
+        }
+
+        final java.util.HashSet<String> targetIds = new java.util.HashSet<>();
+        final ArrayList<ClipMaskPlan> plans = new ArrayList<>(batch.size());
+        for (ClipMaskReplacement replacement : batch) {
+            final String targetId = replacement.targetArtMeshId().value();
+            if (!targetIds.add(targetId)) {
+                throw new IllegalArgumentException("replacement targets must be unique");
+            }
+            final ObjectRef target = byId.get(targetId);
+            if (target == null) {
+                throw unavailable("Clip-mask target ArtMesh is outside the active model.");
+            }
+            final List<ArtMeshId> actualMasks = maskIds(identity, modelSource, model, target.source());
+            final boolean actualInverted = sourceFlag(
+                "cubism.editor-model.art-mesh-source.inverted-mask",
+                target.source(),
+                "ArtMesh inverted-mask state"
+            );
+            if (!actualMasks.equals(replacement.expectedMaskArtMeshIds())
+                || actualInverted != replacement.expectedInverted()) {
+                throw new IllegalStateException(
+                    "Clip-mask expected state does not match ArtMesh " + targetId
+                );
+            }
+
+            final ArrayList<Object> replacementGuids = new ArrayList<>(
+                replacement.replacementMaskArtMeshIds().size()
+            );
+            for (ArtMeshId maskId : replacement.replacementMaskArtMeshIds()) {
+                final ObjectRef mask = byId.get(maskId.value());
+                if (mask == null) {
+                    throw unavailable("Clip-mask source ArtMesh is outside the active model.");
+                }
+                replacementGuids.add(resolver.invoke(
+                    "cubism.editor-model.art-mesh-source.guid",
+                    mask.source()
+                ));
+            }
+            final Object replacementClipGuidList = newClipGuidList(replacementGuids);
+            final List<?> originalGuids = iterable(
+                resolver.invoke(
+                    "cubism.editor-model.art-mesh-source.clip-guid-list",
+                    target.source()
+                ),
+                "Editor ArtMesh clipping masks"
+            );
+            final Object originalClipGuidList = newClipGuidList(originalGuids);
+            plans.add(new ClipMaskPlan(
+                target,
+                actualMasks,
+                actualInverted,
+                replacement.replacementInverted(),
+                originalClipGuidList,
+                replacementClipGuidList
+            ));
+        }
+
+        final ArrayList<Object> undoSources = new ArrayList<>(plans.size());
+        for (ClipMaskPlan plan : plans) {
+            undoSources.add(plan.target().source());
+        }
+        // Exact 5.2 evidence: handler Undo snapshots are target-scoped, so the batch admits
+        // one snapshot per planned target in plan order inside the single edit session.
+        // The host-verified 5.3.02 route keeps exactly one entry for the first target.
+        final List<Object> admittedUndoTargets = isCubism52()
+            ? undoSources
+            : List.of(undoSources.get(0));
+        writeBatch(Kind.ART_MESH, modelSource, admittedUndoTargets, "Replace ArtMesh clip masks", () -> {
+            final ArrayList<ClipMaskPlan> applied = new ArrayList<>(plans.size());
+            try {
+                for (ClipMaskPlan plan : plans) {
+                    applied.add(plan);
+                    resolver.invoke(
+                        "cubism.editor-model.art-mesh-source.set-clip-guid-list",
+                        plan.target().source(),
+                        plan.replacementClipGuidList()
+                    );
+                    resolver.invoke(
+                        "cubism.editor-model.art-mesh-source.set-inverted-mask",
+                        plan.target().source(),
+                        Boolean.valueOf(plan.replacementInverted())
+                    );
+                }
+            } catch (RuntimeException failure) {
+                try {
+                    restoreClipMaskBatch(identity, modelSource, model, applied);
+                } catch (RuntimeException rollbackFailure) {
+                    final IllegalStateException combined = new IllegalStateException(
+                        "Clip-mask batch mutation failed and rollback did not complete.",
+                        failure
+                    );
+                    combined.addSuppressed(rollbackFailure);
+                    throw combined;
+                }
+                throw failure;
+            }
+        });
+    }
+
+    private Object newClipGuidList(final List<?> values) {
+        final Object result = resolver.construct(
+            "cubism.editor-model.c-array-list.create",
+            values
+        );
+        if (!resolver.isInstance("cubism.editor-model.c-array-list.class", result)) {
+            throw unavailable("Editor clip-mask list type is invalid.");
+        }
+        return result;
+    }
+
+    private void restoreClipMaskBatch(
+        final String identity,
+        final Object modelSource,
+        final Object model,
+        final List<ClipMaskPlan> applied
+    ) {
+        RuntimeException failure = null;
+        for (int index = applied.size() - 1; index >= 0; index--) {
+            final ClipMaskPlan plan = applied.get(index);
+            try {
+                resolver.invoke(
+                    "cubism.editor-model.art-mesh-source.set-clip-guid-list",
+                    plan.target().source(),
+                    plan.originalClipGuidList()
+                );
+            } catch (RuntimeException exception) {
+                failure = appendFailure(failure, exception);
+            }
+            try {
+                resolver.invoke(
+                    "cubism.editor-model.art-mesh-source.set-inverted-mask",
+                    plan.target().source(),
+                    Boolean.valueOf(plan.originalInverted())
+                );
+            } catch (RuntimeException exception) {
+                failure = appendFailure(failure, exception);
+            }
+        }
+        for (ClipMaskPlan plan : applied) {
+            try {
+                if (!plan.originalMaskIds().equals(
+                        maskIds(identity, modelSource, model, plan.target().source()))
+                    || sourceFlag(
+                        "cubism.editor-model.art-mesh-source.inverted-mask",
+                        plan.target().source(),
+                        "ArtMesh inverted-mask state"
+                    ) != plan.originalInverted()) {
+                    failure = appendFailure(
+                        failure,
+                        new IllegalStateException("Clip-mask rollback verification failed.")
+                    );
+                }
+            } catch (RuntimeException exception) {
+                failure = appendFailure(failure, exception);
+            }
+        }
+        if (failure != null) throw failure;
+    }
+
+
+    private static RuntimeException appendFailure(
+        final RuntimeException current,
+        final RuntimeException next
+    ) {
+        if (current == null) return next;
+        current.addSuppressed(next);
+        return current;
+    }
+
+    private record ClipMaskPlan(
+        ObjectRef target,
+        List<ArtMeshId> originalMaskIds,
+        boolean originalInverted,
+        boolean replacementInverted,
+        Object originalClipGuidList,
+        Object replacementClipGuidList
+    ) {
+    }
+
 }

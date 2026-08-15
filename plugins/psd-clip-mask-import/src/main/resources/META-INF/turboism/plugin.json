@@ -1,0 +1,82 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 3,
+  "id": "dev.turboism.plugin.psd-clip-mask-import",
+  "name": "PSD Clip Mask Import Plugin",
+  "version": "0.1.0",
+  "description": "Imports ordered PSD clipping relationships into ArtMesh clip-mask assignments with an explicit overwrite policy.",
+  "entrypoints": [
+    "dev.turboism.plugin.psdclipmaskimport.PsdClipMaskImportPlugin"
+  ],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    {
+      "name": "Turboism Contributors"
+    }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": [
+      "en",
+      "ja",
+      "ko",
+      "zh-Hans",
+      "zh-Hant"
+    ]
+  },
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.cubism.model.read",
+      "scope": "application",
+      "reason": "Read ordered PSD layer relationships and resolve them against existing model Drawable identities."
+    },
+    {
+      "id": "turboism.cubism.model.write",
+      "scope": "application",
+      "reason": "Commit confirmed clip-mask assignments atomically through one conditional model batch."
+    },
+    {
+      "id": "turboism.action.register",
+      "scope": "application",
+      "reason": "Register the PSD clip-mask import action."
+    },
+    {
+      "id": "turboism.ui.panel.contribute",
+      "scope": "application",
+      "reason": "Contribute the PSD clip-mask import button to the Turboism UI."
+    },
+    {
+      "id": "turboism.ui.dialog.contribute",
+      "scope": "application",
+      "reason": "Show the import preview dialog that lists targets, ordered masks, conflicts and skips before any write."
+    },
+    {
+      "id": "turboism.ui.status.notify",
+      "scope": "application",
+      "reason": "Report imported/skipped/failure counts and fail-closed diagnostics."
+    }
+  ],
+  "capabilities": [
+    "cubism.psd.layer-relationship.read",
+    "cubism.clipmask.read",
+    "ui.dialog.contribute",
+    "ui.status.notify",
+    "cubism.clipmask.replace-ordered-sources",
+    "cubism.transaction.real-write-undo",
+    "ui.embedded-panel.contribute"
+  ],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "embedded"
+  },
+  "tags": [
+    "psd",
+    "import",
+    "clip-mask"
+  ],
+  "category": "workflow"
+}

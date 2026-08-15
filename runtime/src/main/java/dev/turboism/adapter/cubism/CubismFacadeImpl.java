@@ -1008,6 +1008,11 @@ public final class CubismFacadeImpl implements CubismFacade {
             requireModelRead("model.statistics");
             return delegate.statistics();
         }
+
+        @Override public java.util.List<dev.turboism.sdk.cubism.clipmask.PsdClipMaskDocumentSnapshot> psdDocuments() {
+            requireModelRead("model.psdDocuments");
+            return delegate.psdDocuments();
+        }
         @Override public boolean defaultKeyformLocked() {
             requireModelRead("model.defaultKeyformLocked");
             return delegate.defaultKeyformLocked();
@@ -1593,6 +1598,14 @@ public final class CubismFacadeImpl implements CubismFacade {
                 .flatMap(parameter -> parameter.getParameterBindings().stream())
                 .toList();
         }
+
+        @Override
+        public void replaceArtMeshClipMasks(
+            final List<dev.turboism.sdk.cubism.clipmask.ClipMaskReplacement> replacements
+        ) {
+            requireModelWrite("model.replaceArtMeshClipMasks");
+            delegate.replaceArtMeshClipMasks(List.copyOf(Objects.requireNonNull(replacements, "replacements")));
+        }
     }
 
     private dev.turboism.sdk.cubism.model.Part unwrapPart(
@@ -1677,6 +1690,7 @@ public final class CubismFacadeImpl implements CubismFacade {
             requireModelRead("artMesh.maskIds");
             return delegate.maskIds();
         }
+
         @Override public String name() {
             requireModelRead("artMesh.name");
             return delegate.name();

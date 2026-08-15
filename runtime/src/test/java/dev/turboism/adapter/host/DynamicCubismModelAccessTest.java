@@ -1,4 +1,5 @@
 package dev.turboism.adapter.host;
+import dev.turboism.sdk.cubism.clipmask.ClipMaskReplacement;
 
 import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.adapter.cubism.NativeLabelColorAuthoring;
@@ -43,6 +44,7 @@ import dev.turboism.sdk.cubism.model.WarpGrid;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.ArrayList;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -85,6 +87,36 @@ class DynamicCubismModelAccessTest {
         assertThrows(IllegalStateException.class, staleParameters::all);
         assertThrows(IllegalStateException.class, staleParameter::getValue);
         assertEquals(new ModelId("model-b"), access.active().id());
+    }
+
+    @Test
+    void clipMaskReplacementIsForwardedOnlyForTheCurrentSession() {
+        final DynamicCubismModelAccess access = new DynamicCubismModelAccess();
+        final List<List<ClipMaskReplacement>> calls = new ArrayList<>();
+        final CubismModel base = model("model-a", parameter(1.0F));
+        final CubismModel delegate = new CubismModel() {
+            @Override public ModelId id() { return base.id(); }
+            @Override public Parameters parameters() { return base.parameters(); }
+            @Override public Parts parts() { return base.parts(); }
+            @Override public Drawables drawables() { return base.drawables(); }
+            @Override public Deformers deformers() { return base.deformers(); }
+            @Override public Glues glues() { return base.glues(); }
+            @Override public void update() { base.update(); }
+            @Override public void replaceArtMeshClipMasks(final List<ClipMaskReplacement> replacements) {
+                calls.add(List.copyOf(replacements));
+            }
+        };
+        final ClipMaskReplacement replacement = new ClipMaskReplacement(
+            new ArtMeshId("target"), List.of(), false, List.of(new ArtMeshId("mask")), false
+        );
+
+        access.connect(() -> delegate);
+        final CubismModel session = access.active();
+        session.replaceArtMeshClipMasks(List.of(replacement));
+        assertEquals(List.of(replacement), calls.get(0));
+
+        access.deactivate();
+        assertThrows(IllegalStateException.class, () -> session.replaceArtMeshClipMasks(List.of(replacement)));
     }
 
     @Test
