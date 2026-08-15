@@ -48,6 +48,39 @@ final class PluginManagementPackageFixture {
         return jar(descriptor(id, version, entrypoint), entrypoint.replace('.', '/') + ".class");
     }
 
+    /** Schema v3 plugin JAR with a declared classification, for installed-row tests. */
+    static byte[] pluginJarBytesV3(
+        final String id,
+        final String version,
+        final String category,
+        final List<String> tags
+    ) throws Exception {
+        final String entrypoint = "example.Plugin";
+        return jar(descriptorV3(id, version, category, tags, entrypoint), entrypoint.replace('.', '/') + ".class");
+    }
+
+    private static String descriptorV3(
+        final String id,
+        final String version,
+        final String category,
+        final List<String> tags,
+        final String entrypoint
+    ) {
+        final StringBuilder tagsJson = new StringBuilder();
+        for (int index = 0; index < tags.size(); index++) {
+            if (index > 0) tagsJson.append(',');
+            tagsJson.append('\"').append(tags.get(index)).append('\"');
+        }
+        return "{\"format\":\"turboism.plugin.meta\",\"schemaVersion\":3,\"id\":\"" + id
+            + "\",\"name\":\"Example\",\"version\":\"" + version + "\",\"description\":\"Example\","
+            + "\"entrypoints\":[\"" + entrypoint + "\"],\"turboismApi\":\"[0.1.0,0.2.0)\","
+            + "\"authors\":[{\"name\":\"Test\"}],\"license\":\"Test\",\"website\":\"https://example.test\",\"resources\":[],"
+            + "\"i18n\":{\"baseName\":\"META-INF/turboism/i18n/messages\",\"locales\":[]},"
+            + "\"dependencies\":[],\"permissions\":[],\"capabilities\":[],"
+            + "\"environment\":{\"requiresCubism\":false,\"ui\":\"none\"},"
+            + "\"category\":\"" + category + "\",\"tags\":[" + tagsJson + "]}";
+    }
+
     private static String descriptor(final String id, final String version, final String entrypoint) {
         return "{\"format\":\"turboism.plugin.meta\",\"schemaVersion\":2,\"id\":\"" + id
             + "\",\"name\":\"Example\",\"version\":\"" + version + "\",\"description\":\"Example\","

@@ -22,6 +22,8 @@ public final class PluginDescriptorSnapshot {
     private final List<Permission> permissions;
     private final List<String> capabilities;
     private final Environment environment;
+    private final Optional<String> category;
+    private final List<String> tags;
 
     static PluginDescriptorSnapshot copyOf(final PluginDescriptor source) {
         return new PluginDescriptorSnapshot(source);
@@ -54,6 +56,8 @@ public final class PluginDescriptorSnapshot {
             source.environment().requiresCubism(),
             source.environment().ui()
         );
+        category = source.category();
+        tags = List.copyOf(source.tags());
     }
 
     public String id() { return id; }
@@ -71,6 +75,8 @@ public final class PluginDescriptorSnapshot {
     public List<Permission> permissions() { return permissions; }
     public List<String> capabilities() { return capabilities; }
     public Environment environment() { return environment; }
+    public Optional<String> category() { return category; }
+    public List<String> tags() { return tags; }
 
     public record Author(String name, Optional<String> email) {
     }

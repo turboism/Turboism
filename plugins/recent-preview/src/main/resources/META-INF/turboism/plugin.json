@@ -1,6 +1,6 @@
 {
   "format": "turboism.plugin.meta",
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "id": "dev.turboism.plugin.recent-preview",
   "name": "Recent Preview Plugin",
   "version": "0.1.0",
@@ -51,5 +51,11 @@
   "environment": {
     "requiresCubism": true,
     "ui": "swing"
-  }
+  },
+  "tags": [
+    "recent-files",
+    "preview",
+    "navigation"
+  ],
+  "category": "workflow"
 }

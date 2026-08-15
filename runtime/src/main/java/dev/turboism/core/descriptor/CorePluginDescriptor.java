@@ -20,7 +20,9 @@ public record CorePluginDescriptor(
     List<DependencyRef> dependencies,
     List<PermissionRef> permissions,
     List<String> capabilities,
-    Environment environment
+    Environment environment,
+    Optional<String> category,
+    List<String> tags
 ) implements PluginDescriptor {
 
     public CorePluginDescriptor {
@@ -30,6 +32,8 @@ public record CorePluginDescriptor(
         dependencies = List.copyOf(dependencies);
         permissions = List.copyOf(permissions);
         capabilities = List.copyOf(capabilities);
+        category = category == null ? Optional.empty() : category;
+        tags = tags == null ? List.of() : List.copyOf(tags);
     }
 
     public record CoreAuthor(String name, Optional<String> email) implements Author {

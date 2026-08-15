@@ -1,6 +1,6 @@
 {
   "format": "turboism.plugin.meta",
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "id": "dev.turboism.plugin.renderopt",
   "name": "Render Optimization Plugin",
   "version": "0.1.0",
@@ -60,5 +60,11 @@
   "environment": {
     "requiresCubism": false,
     "ui": "embedded"
-  }
+  },
+  "tags": [
+    "rendering",
+    "optimization",
+    "fps"
+  ],
+  "category": "performance"
 }

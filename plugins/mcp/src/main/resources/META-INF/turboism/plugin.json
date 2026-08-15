@@ -1,6 +1,6 @@
 {
   "format": "turboism.plugin.meta",
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "id": "dev.turboism.plugin.mcp",
   "name": "Turboism MCP Server",
   "version": "0.1.0",
@@ -52,5 +52,11 @@
   "environment": {
     "requiresCubism": true,
     "ui": "none"
-  }
+  },
+  "tags": [
+    "mcp",
+    "automation",
+    "external-tools"
+  ],
+  "category": "integration"
 }

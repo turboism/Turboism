@@ -191,7 +191,7 @@ final class CoreWindows implements AutoCloseable {
     private JDialog createPluginsDialog() {
         final JDialog dialog = CoreDialogs.create(text("window.plugins.title"), 900, 560);
         dialog.setLayout(new BorderLayout(8, 8));
-        pluginTableModel = new PluginTableModel();
+        pluginTableModel = new PluginTableModel(i18n);
         pluginTable = new JTable(pluginTableModel);
         pluginTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         pluginSorter = new TableRowSorter<>(pluginTableModel);
@@ -415,12 +415,18 @@ final class CoreWindows implements AutoCloseable {
 
     private String text(final String key) { return i18n.text(key); }
 
-    private final class PluginTableModel extends AbstractTableModel {
+    static final class PluginTableModel extends AbstractTableModel {
+        private final PluginLocalization i18n;
         private List<CorePluginManagement.PluginInfo> rows = List.of();
-        private final String[] columns = {
-            text("plugins.column.name"), text("plugins.column.version"), text("plugins.column.state"),
-            text("plugins.column.desired"), text("plugins.column.pending"), text("plugins.column.id")
-        };
+        private final String[] columns;
+        PluginTableModel(final PluginLocalization i18n) {
+            this.i18n = i18n;
+            columns = new String[]{
+                i18n.text("plugins.column.name"), i18n.text("plugins.column.version"), i18n.text("plugins.column.state"),
+                i18n.text("plugins.column.desired"), i18n.text("plugins.column.pending"), i18n.text("plugins.column.id"),
+                i18n.text("plugins.column.category"), i18n.text("plugins.column.tags")
+            };
+        }
         void setPlugins(final List<CorePluginManagement.PluginInfo> values) { rows = List.copyOf(values); fireTableDataChanged(); }
         CorePluginManagement.PluginInfo plugin(final int row) { return rows.get(row); }
         @Override public int getRowCount() { return rows.size(); }
@@ -429,12 +435,14 @@ final class CoreWindows implements AutoCloseable {
         @Override public Object getValueAt(final int row, final int column) {
             final CorePluginManagement.PluginInfo plugin = rows.get(row);
             return switch (column) {
-                case 0 -> plugin.name() + (plugin.core() ? " (" + text("plugins.core") + ")" : "");
+                case 0 -> plugin.name() + (plugin.core() ? " (" + i18n.text("plugins.core") + ")" : "");
                 case 1 -> plugin.version();
                 case 2 -> plugin.effectiveState();
                 case 3 -> plugin.desiredState();
                 case 4 -> plugin.pendingOperation().orElse("");
-                default -> plugin.id();
+                case 5 -> plugin.id();
+                case 6 -> i18n.text("plugin.category." + plugin.category());
+                default -> String.join(", ", plugin.tags());
             };
         }
     }
