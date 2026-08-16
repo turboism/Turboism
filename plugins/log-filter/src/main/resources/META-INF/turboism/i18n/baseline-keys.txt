@@ -1,5 +1,0 @@
-log-filter.level.changed
-log-filter.palette-toolbar.unavailable
-log-filter.toggle-level.label
-plugin.description
-plugin.name

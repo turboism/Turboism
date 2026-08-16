@@ -1,8 +1,0 @@
-clip-mask.inspect
-clip-mask.inspector.dialog.title
-clip-mask.inspector.ready
-clip-mask.inspector.refreshed
-clip-mask.inspector.title
-clip-mask.inspector.unavailable
-plugin.description
-plugin.name

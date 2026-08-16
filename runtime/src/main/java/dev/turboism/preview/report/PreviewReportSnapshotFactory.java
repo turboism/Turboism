@@ -144,7 +144,6 @@ public final class PreviewReportSnapshotFactory {
         "cubism.recent-preview.manage",
         "ui.file-chooser.history-policy",
         "ui.host-settings.open",
-        "ui.log-filter.control",
         "ui.theme.apply",
         "cubism.theme.restore",
         "cubism.render.modify",

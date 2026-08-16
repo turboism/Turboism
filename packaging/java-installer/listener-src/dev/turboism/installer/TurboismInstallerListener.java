@@ -122,6 +122,10 @@ public final class TurboismInstallerListener extends AbstractInstallerListener {
             seed = ConfigMerge.loadTemplate();
         }
         List<String> disabled = ConfigMerge.mergeDisabled(seed, bundled, selected, lite);
+        // Managed-upgrade retirement: remove proven retired official JARs and
+        // prune their ids before the atomic config write, so any abort leaves
+        // both the JARs and their disabled ids untouched (fail closed).
+        ConfigMerge.retireManagedPlugins(home);
         ConfigMerge.write(home, ConfigMerge.applyPolicy(seed, disabled));
     }
 
