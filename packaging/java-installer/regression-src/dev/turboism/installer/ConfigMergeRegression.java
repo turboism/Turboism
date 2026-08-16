@@ -496,6 +496,9 @@ public final class ConfigMergeRegression {
      * their embedded plugin.json id to own a retired id (canonical and renamed
      * filenames alike); every unverifiable or foreign entry is preserved, and
      * mergeDisabled prunes only the four retired ids from disabledPlugins.
+     * Preserved or leftover retired descriptors are additionally denied by the
+     * runtime PluginJarContract boundary (PLUGIN_RETIRED_ID); config alone
+     * does not keep stale retired JARs inactive.
      */
     private static void retiredPluginCleanup() throws Exception {
         Path dir = Files.createTempDirectory("retired-plugins-");
