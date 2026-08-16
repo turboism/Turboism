@@ -25,12 +25,11 @@ the frozen acceptance conditions, including the R2 repairs:
       covers strict number lexing, canonical v1 identity, the consumed-byte
       cap with deterministic concurrent growth, and atomic
       REPLACE_EXISTING replacement.
-      REPLACE_EXISTING replacement. A managed upgrade over an existing
-      install carrying retired official JARs removes only JARs whose embedded
-      plugin.json id is retired (canonical and renamed filenames), preserves
-      unreadable/foreign/non-JAR entries and everything outside the managed
-      plugins directory with actionable diagnostics, and prunes only the four
-      retired ids from disabledPlugins.
+      retired ids from disabledPlugins. Preserved or leftover retired
+      descriptors (NSIS/manual/renamed) are denied by the runtime's shared
+      PluginJarContract boundary (PLUGIN_RETIRED_ID) before entrypoint
+      loading; the installer itself never deletes unverifiable entries and
+      the NSIS installer deletes no plugin JARs.
   6.  Locale probes (eng/chn/jpn) observe the translated Turboism-owned
       common-pack label, the localized wizard headline, and the localized
       Full and Lite mode names/descriptions emitted live by the installer.
