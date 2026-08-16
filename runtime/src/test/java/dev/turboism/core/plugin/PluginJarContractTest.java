@@ -17,8 +17,12 @@ class PluginJarContractTest {
     private static final String ENTRYPOINT_CLASS = "dev/turboism/plugin/TestI18nPlugin.class";
 
     private static PluginDescriptor descriptorWithLocales(final List<String> locales) {
+        return descriptorWithIdAndLocales("test.i18n", locales);
+    }
+
+    private static PluginDescriptor descriptorWithIdAndLocales(final String id, final List<String> locales) {
         return new PluginDescriptor() {
-            @Override public String id() { return "test.i18n"; }
+            @Override public String id() { return id; }
             @Override public String name() { return "Test I18n"; }
             @Override public String version() { return "0.1.0"; }
             @Override public String description() { return "Test i18n plugin"; }
@@ -165,5 +169,39 @@ class PluginJarContractTest {
         );
         // Then the single base resource satisfies both the implicit and explicit forms
         PluginJarContract.validate(descriptor, content, "plugins/test-i18n.jar");
+    }
+
+    @Test
+    void everyRetiredFakePluginIdIsRejectedBeforeContentChecks() {
+        // Given any valid descriptor carrying one of the four retired ids and a
+        // JAR whose content would otherwise satisfy the full contract
+        List<String> content = List.of(ENTRYPOINT_CLASS, BASE_NAME + ".properties");
+        for (String retiredId : List.of(
+            "dev.turboism.plugin.logfilter",
+            "dev.turboism.plugin.clipmask",
+            "dev.turboism.plugin.perfopt",
+            "dev.turboism.plugin.renderopt")) {
+            PluginDescriptor descriptor = descriptorWithIdAndLocales(retiredId, List.of("base"));
+            // When validated under a renamed filename alike
+            PluginJarContract.PluginJarContractException exception = assertThrows(
+                PluginJarContract.PluginJarContractException.class,
+                () -> PluginJarContract.validate(
+                    descriptor, content, "plugins/renamed-archive.jar")
+            );
+            // Then the retired id is rejected with the typed diagnostic, filename-independent
+            assertEquals("PLUGIN_RETIRED_ID", exception.code());
+            assertTrue(exception.path().contains(retiredId));
+        }
+    }
+
+    @Test
+    void retainedSuccessorIdsRemainAdmitted() throws Exception {
+        // Given the retained clipmask-viewer successor id (not retired)
+        PluginDescriptor descriptor = descriptorWithIdAndLocales(
+            "dev.turboism.plugin.clipmask-viewer", List.of("base"));
+        // Then a valid JAR carrying it still validates
+        PluginJarContract.validate(
+            descriptor, List.of(ENTRYPOINT_CLASS, BASE_NAME + ".properties"),
+            "plugins/clipmask-viewer.jar");
     }
 }

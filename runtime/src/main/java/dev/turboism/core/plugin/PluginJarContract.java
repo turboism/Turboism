@@ -11,6 +11,20 @@ public final class PluginJarContract {
 
     private static final String DESCRIPTOR = "META-INF/turboism/plugin.json";
 
+    /**
+     * Retired fake plugin ids (retirement slice): every valid JAR descriptor
+     * carrying one of these ids is rejected before entrypoint loading or
+     * staging, on every distribution path (installer payloads, preview
+     * discovery, manual/NSIS leftovers, renamed JARs). The installer's managed
+     * cleanup deletes identity-proven retired JARs; this boundary denies the
+     * remainder.
+     */
+    public static final Set<String> RETIRED_PLUGIN_IDS = Set.of(
+        "dev.turboism.plugin.logfilter",
+        "dev.turboism.plugin.clipmask",
+        "dev.turboism.plugin.perfopt",
+        "dev.turboism.plugin.renderopt");
+
     private PluginJarContract() {
     }
 
@@ -19,11 +33,24 @@ public final class PluginJarContract {
         final Collection<String> entryNames,
         final String logicalPath
     ) throws PluginJarContractException {
+        rejectRetiredId(descriptor, logicalPath);
         final Set<String> content = Set.copyOf(entryNames);
         validateEntrypoints(descriptor, content, logicalPath);
         validateResourceRoots(descriptor, content, logicalPath);
         validateI18n(descriptor, content, logicalPath);
         rejectUndeclaredResources(descriptor, content, logicalPath);
+    }
+
+    private static void rejectRetiredId(
+        final PluginDescriptor descriptor,
+        final String logicalPath
+    ) throws PluginJarContractException {
+        if (RETIRED_PLUGIN_IDS.contains(descriptor.id())) {
+            throw problem(
+                "PLUGIN_RETIRED_ID",
+                logicalPath + " (plugin id " + descriptor.id() + " is retired and must not load)"
+            );
+        }
     }
 
     private static void validateEntrypoints(
