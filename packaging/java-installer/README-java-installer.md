@@ -52,7 +52,10 @@ the existing disabled ids, remove every current bundled id (so reselecting
 a previously disabled bundled plugin enables it), then add the sorted
 bundled-but-unselected ids; unrelated disabled ids remain. Lite treats every
 bundled plugin id as unselected so stale official JARs from a prior Full
-install stay inactive. Invalid, oversized (> 64 KiB), symlinked, escaping,
+install stay inactive (retired ids are additionally pruned here; any leftover
+retired JAR is denied by the runtime PluginJarContract boundary, since the
+installer deletes only identity-proven retired JARs and never deletes
+unverifiable entries). Invalid, oversized (> 64 KiB), symlinked, escaping,
 or non-regular config targets fail closed without truncating the original;
 reads are bounded and never follow symlinks, writes are atomic-only. Unknown
 or third-party plugin files are never deleted.
