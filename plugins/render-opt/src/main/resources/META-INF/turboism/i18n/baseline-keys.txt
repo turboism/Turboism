@@ -1,5 +1,0 @@
-plugin.description
-plugin.name
-render-opt.refresh.label
-render-opt.status.refreshed
-render-opt.status.unavailable

@@ -8,7 +8,6 @@ Section "-插件载荷" SecPluginPayload
     File "/oname=backup.jar" "${STAGING_DIR}/plugins/backup.jar"
     File "/oname=clipmask-viewer.jar" "${STAGING_DIR}/plugins/clipmask-viewer.jar"
     File "/oname=cubism-tab-filter.jar" "${STAGING_DIR}/plugins/cubism-tab-filter.jar"
-    File "/oname=log-filter.jar" "${STAGING_DIR}/plugins/log-filter.jar"
     File "/oname=mcp.jar" "${STAGING_DIR}/plugins/mcp.jar"
     File "/oname=mesh.jar" "${STAGING_DIR}/plugins/mesh.jar"
     File "/oname=palette-label-style.jar" "${STAGING_DIR}/plugins/palette-label-style.jar"
@@ -30,9 +29,6 @@ Section "Clip Mask Viewer 0.1.0" SEC_dev_turboism_plugin_clipmask_viewer
 SectionEnd
 
 Section "Cubism Tab Filter 0.1.0" SEC_dev_turboism_plugin_cubism_tab_filter
-SectionEnd
-
-Section "Log Filter Plugin 0.1.0" SEC_dev_turboism_plugin_logfilter
 SectionEnd
 
 Section "Turboism MCP Server 0.1.0" SEC_dev_turboism_plugin_mcp
@@ -73,7 +69,6 @@ SectionEnd
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_backup} "Uploads Cubism auto-backup artifacts to a WebDAV endpoint (JDK HttpClient only)."
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_clipmask_viewer} "Read-only clip-mask duplicate checker and visualizer: Turboism tab entry, graph/table inspector window, editor selection highlight, GUID copy."
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_cubism_tab_filter} "Adds keyword filter boxes to the Parameter, Deformer, Scene and Log palette tabs."
-  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_logfilter} "SDK-only log palette toolbar filtering through Turboism UI host services."
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_mcp} "Loopback Model Context Protocol server exposing typed Turboism model-object operations."
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_mesh} "Inspects mesh/deformer state and contributes the bounded mirror-axis rotation control for verified Cubism hosts."
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_palette_label_style} "Label text and background colors for Deformer, Part, and Parameter palette entries via context menus."
@@ -107,12 +102,6 @@ Function SetPluginSectionsSelected
     IntOp $1 $1 | ${SF_SELECTED}
   ${EndIf}
   SectionSetFlags ${SEC_dev_turboism_plugin_cubism_tab_filter} $1
-  SectionGetFlags ${SEC_dev_turboism_plugin_logfilter} $1
-  IntOp $1 $1 & ${SECTION_OFF}
-  ${If} $0 == 1
-    IntOp $1 $1 | ${SF_SELECTED}
-  ${EndIf}
-  SectionSetFlags ${SEC_dev_turboism_plugin_logfilter} $1
   SectionGetFlags ${SEC_dev_turboism_plugin_mcp} $1
   IntOp $1 $1 & ${SECTION_OFF}
   ${If} $0 == 1
@@ -208,15 +197,6 @@ Function CollectUncheckedPluginIds
       StrCpy $uncheckedPluginIds "dev.turboism.plugin.cubism-tab-filter"
     ${Else}
       StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.cubism-tab-filter"
-    ${EndIf}
-  ${EndIf}
-  SectionGetFlags ${SEC_dev_turboism_plugin_logfilter} $1
-  IntOp $2 $1 & ${SF_SELECTED}
-  ${If} $2 == 0
-    ${If} $uncheckedPluginIds == ""
-      StrCpy $uncheckedPluginIds "dev.turboism.plugin.logfilter"
-    ${Else}
-      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.logfilter"
     ${EndIf}
   ${EndIf}
   SectionGetFlags ${SEC_dev_turboism_plugin_mcp} $1
@@ -333,10 +313,6 @@ Function RemoveBundledFromExistingDisabled
   StrCpy $existingDisabled "$0"
   StrCpy $0 "$existingDisabled"
   StrCpy $1 "dev.turboism.plugin.cubism-tab-filter"
-  Call RemoveItemFromList
-  StrCpy $existingDisabled "$0"
-  StrCpy $0 "$existingDisabled"
-  StrCpy $1 "dev.turboism.plugin.logfilter"
   Call RemoveItemFromList
   StrCpy $existingDisabled "$0"
   StrCpy $0 "$existingDisabled"

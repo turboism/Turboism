@@ -3,7 +3,6 @@
 :plugins:clipmask-viewer
 :plugins:core
 :plugins:cubism-tab-filter
-:plugins:log-filter
 :plugins:mcp
 :plugins:mesh
 :plugins:palette-label-style

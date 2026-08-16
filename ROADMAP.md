@@ -171,7 +171,7 @@ Priority families:
 
 1. parameter CSV import/export and parameter batch tools;
 2. context menu, project panel and workspace helpers;
-3. color picker, theme and log-filter UI semantics;
+3. color picker and theme UI semantics;
 4. clip-mask and bounding-box inspection;
 5. mesh and ArtMesh mirror;
 6. deformer fit/mirror/apply-to-children;

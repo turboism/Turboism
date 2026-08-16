@@ -1,6 +1,7 @@
 package dev.turboism.installer;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.charset.CharacterCodingException;
@@ -50,6 +51,18 @@ final class ConfigMerge {
     static final String WORKTREE_ID = "turboism-runtime";
     static final String PLUGIN_DIR = "plugins";
     static final String CONFIG_FILE = "config.json";
+    static final String PLUGIN_JSON_ENTRY = "META-INF/turboism/plugin.json";
+    /**
+     * Retired official plugin ids (retirement slice): during a managed
+     * upgrade, a JAR below the canonical plugins directory is removed only
+     * when its embedded plugin.json id is one of these exact ids; filename
+     * alone is never authorization.
+     */
+    static final Set<String> RETIRED_PLUGIN_IDS = Set.of(
+            "dev.turboism.plugin.logfilter",
+            "dev.turboism.plugin.clipmask",
+            "dev.turboism.plugin.perfopt",
+            "dev.turboism.plugin.renderopt");
     static final String INSTALLATION_STATE_FILE = "cubism-installations.json";
     static final String TEMPLATE_RESOURCE = "/turboism/config.template.json";
     private static final int MAX_INSTALLATIONS = 256;
@@ -163,6 +176,122 @@ final class ConfigMerge {
             buffer.flip();
             buffer.get(bytes);
             return bytes;
+        }
+    }
+
+    /**
+     * Retires previously installed official plugin JARs below the canonical
+     * managed plugins directory ({@code home}/plugins). Deletion is authorized
+     * only by the embedded plugin.json id: an entry is removed exactly when it
+     * is a regular non-symlink .jar file whose embedded id is retired, no
+     * matter what the filename is. Every other entry (symlink, directory,
+     * non-JAR file, unreadable JAR, missing/unparsable descriptor, or a
+     * different plugin id) is preserved with an actionable stdout diagnostic.
+     * Nothing outside {@code home}/plugins is ever inspected or changed.
+     *
+     * A proven retired JAR that cannot be deleted fails closed through
+     * {@link ConfigException} so the install aborts before any config write
+     * instead of reporting success with a retired artifact left behind.
+     */
+    static void retireManagedPlugins(Path home) throws ConfigException {
+        Path plugins = home.resolve(PLUGIN_DIR);
+        if (!Files.exists(plugins, LinkOption.NOFOLLOW_LINKS)) {
+            return;
+        }
+        if (Files.isSymbolicLink(plugins) || !Files.isDirectory(plugins, LinkOption.NOFOLLOW_LINKS)) {
+            System.out.println("Turboism: preserved plugin directory " + plugins
+                    + " (not a plain directory; nothing was deleted)");
+            return;
+        }
+        List<Path> entries;
+        try (java.util.stream.Stream<Path> stream = Files.list(plugins)) {
+            entries = stream.sorted().toList();
+        } catch (IOException e) {
+            System.out.println("Turboism: preserved plugin directory " + plugins
+                    + " (unreadable: " + e.getMessage() + "; nothing was deleted)");
+            return;
+        }
+        for (Path entry : entries) {
+            if (Files.isSymbolicLink(entry)) {
+                System.out.println("Turboism: preserved " + entry + " (symbolic link; not verified)");
+                continue;
+            }
+            if (Files.isDirectory(entry, LinkOption.NOFOLLOW_LINKS)) {
+                System.out.println("Turboism: preserved " + entry + " (directory; not a managed plugin JAR)");
+                continue;
+            }
+            if (!Files.isRegularFile(entry, LinkOption.NOFOLLOW_LINKS)) {
+                System.out.println("Turboism: preserved " + entry + " (not a regular file; not verified)");
+                continue;
+            }
+            String name = entry.getFileName().toString();
+            if (!name.endsWith(".jar")) {
+                System.out.println("Turboism: preserved " + entry + " (not a .jar; not verified)");
+                continue;
+            }
+            String id = embeddedPluginId(entry);
+            if (id == null) {
+                System.out.println("Turboism: preserved " + entry
+                        + " (no readable retired plugin id in " + PLUGIN_JSON_ENTRY + ")");
+                continue;
+            }
+            if (!RETIRED_PLUGIN_IDS.contains(id)) {
+                System.out.println("Turboism: preserved " + entry + " (plugin id " + id + " is not retired)");
+                continue;
+            }
+            try {
+                Files.delete(entry);
+                System.out.println("Turboism: removed retired plugin " + entry + " (id=" + id + ")");
+            } catch (IOException e) {
+                throw new ConfigException("cannot delete retired plugin " + entry + ": " + e.getMessage(), e);
+            }
+        }
+    }
+
+    /**
+     * Reads the embedded plugin id from a JAR's canonical plugin.json entry.
+     * Returns {@code null} (preserve, never delete) for any unreadable,
+     * oversized, or non-canonical descriptor.
+     */
+    static String embeddedPluginId(Path jar) {
+        try (java.util.zip.ZipFile zip = new java.util.zip.ZipFile(jar.toFile())) {
+            java.util.zip.ZipEntry entry = zip.getEntry(PLUGIN_JSON_ENTRY);
+            if (entry == null || entry.isDirectory()) {
+                return null;
+            }
+            byte[] bytes;
+            try (InputStream in = zip.getInputStream(entry)) {
+                ByteBuffer buffer = ByteBuffer.allocate((int) MAX_CONFIG_BYTES + 1);
+                byte[] chunk = new byte[4096];
+                int total = 0;
+                int n;
+                while (total <= MAX_CONFIG_BYTES && (n = in.read(chunk)) >= 0) {
+                    if ((long) total + n > MAX_CONFIG_BYTES) {
+                        return null; // descriptor entry larger than the bound
+                    }
+                    buffer.put(chunk, 0, n);
+                    total += n;
+                }
+                if (total > MAX_CONFIG_BYTES) {
+                    return null;
+                }
+                bytes = new byte[buffer.position()];
+                buffer.flip();
+                buffer.get(bytes);
+            }
+            String text = StandardCharsets.UTF_8.newDecoder()
+                    .onMalformedInput(CodingErrorAction.REPORT)
+                    .onUnmappableCharacter(CodingErrorAction.REPORT)
+                    .decode(ByteBuffer.wrap(bytes))
+                    .toString();
+            Object parsed = BoundedJson.parse(text);
+            if (!(parsed instanceof Map)) {
+                return null;
+            }
+            Object id = ((Map<?, ?>) parsed).get("id");
+            return (id instanceof String && !((String) id).isBlank()) ? (String) id : null;
+        } catch (IOException | RuntimeException e) {
+            return null;
         }
     }
 
@@ -751,6 +880,10 @@ final class ConfigMerge {
                 disabled.add(id);
             }
         }
+        // Retired ids are pruned even when no current bundle carries them: a
+        // previously installed official JAR of a retired plugin must stay
+        // inactive whether or not the upgrade deleted it.
+        disabled.removeAll(RETIRED_PLUGIN_IDS);
         return new ArrayList<>(disabled);
     }
 

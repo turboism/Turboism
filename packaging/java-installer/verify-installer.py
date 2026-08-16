@@ -25,6 +25,12 @@ the frozen acceptance conditions, including the R2 repairs:
       covers strict number lexing, canonical v1 identity, the consumed-byte
       cap with deterministic concurrent growth, and atomic
       REPLACE_EXISTING replacement.
+      REPLACE_EXISTING replacement. A managed upgrade over an existing
+      install carrying retired official JARs removes only JARs whose embedded
+      plugin.json id is retired (canonical and renamed filenames), preserves
+      unreadable/foreign/non-JAR entries and everything outside the managed
+      plugins directory with actionable diagnostics, and prunes only the four
+      retired ids from disabledPlugins.
   6.  Locale probes (eng/chn/jpn) observe the translated Turboism-owned
       common-pack label, the localized wizard headline, and the localized
       Full and Lite mode names/descriptions emitted live by the installer.
@@ -47,8 +53,8 @@ the frozen acceptance conditions, including the R2 repairs:
       Python `encoding="utf-8"`). macOS additionally checks that the
       installed uninstall.command is a regular non-symlink executable file.
   8.  The plugin payload matches the sole release-plugin allowlist
-      `packaging/release-plugins.txt` exactly (the frozen 16 approved
-      projects; runtime-owned core is never a payload plugin), and the ten
+      `packaging/release-plugins.txt` exactly (the frozen 15 approved
+      projects; runtime-owned core is never a payload plugin), and the seven
       excluded public modules' IDs/JARs are absent from the payload, packs, and
       selection surface — the shared manifest is the regression oracle.
 
@@ -124,7 +130,7 @@ LOCALIZED_MODE = {
 UNINSTALL_DELETE_CONFIG_PROP = "turboism.uninstall.deleteConfig"
 
 # Frozen release-plugin allowlist — sole authority is packaging/release-plugins.txt.
-# This exact list plus the ten excluded public module names is the regression
+# This exact list plus the seven excluded public module names is the regression
 # oracle; the id/name for every listed module comes from its committed
 # plugin.json descriptor at verification time (see load_plugin_metadata), so
 # production drift from the shared manifest or the source descriptors fails.
@@ -134,7 +140,6 @@ MANIFEST_EXPECTED = [
     ":plugins:clipmask-viewer",
     ":plugins:core",
     ":plugins:cubism-tab-filter",
-    ":plugins:log-filter",
     ":plugins:mcp",
     ":plugins:mesh",
     ":plugins:palette-label-style",
@@ -146,28 +151,33 @@ MANIFEST_EXPECTED = [
     ":plugins:texture-atlas-stats",
     ":plugins:ui-theme",
 ]
-# The ten public-exclusion modules: absent from the manifest and therefore
+# The seven public-exclusion modules: absent from the manifest and therefore
 # from every release payload, pack, section, and selection surface. Their
 # committed ids are read from each module's plugin.json descriptor at
-# verification time, never derived from module names (clip-mask/perf-opt/
-# render-opt have non-matching ids).
+# verification time, never derived from module names.
 EXCLUDED_PUBLIC_MODULES = (
     "bounding-box",
-    "clip-mask",
     "context-menu",
     "demo",
     "parameter",
-    "perf-opt",
     "project-inspector",
     "project-panel",
     "psd-import",
-    "render-opt",
 )
 # Renamed algorithm identity: module/JAR atlas-maxrects-bssf carries the
 # MaxRects-BSSF display name and the historical texture-atlas compatibility id.
 ALGORITHM_MODULE = "atlas-maxrects-bssf"
 ALGORITHM_NAME = "MaxRects-BSSF Layout Algorithm"
 ALGORITHM_COMPAT_ID = "dev.turboism.plugin.texture-atlas"
+# Retired fake plugin modules and their embedded ids (retirement slice):
+# neither the manifest nor any payload may ever produce them again.
+RETIRED_MODULES = ("log-filter", "clip-mask", "perf-opt", "render-opt")
+RETIRED_PLUGIN_IDS = [
+    "dev.turboism.plugin.logfilter",
+    "dev.turboism.plugin.clipmask",
+    "dev.turboism.plugin.perfopt",
+    "dev.turboism.plugin.renderopt",
+]
 
 
 def fail(msg):
@@ -286,7 +296,7 @@ def load_plugin_inventory(payload):
 def load_release_manifest(path):
     """Parses the sole release-plugin allowlist (packaging/release-plugins.txt)
     fail-closed: blank/comment lines, malformed or non-plugin entries,
-    duplicates, unsorted order, or drift from the frozen 16-project allowlist
+    duplicates, unsorted order, or drift from the frozen 15-project allowlist
     are fatal. Returns the allowlisted plugin module names (manifest entries
     minus the runtime-owned core)."""
     check("release manifest exists", os.path.isfile(path), path)
@@ -301,7 +311,7 @@ def load_release_manifest(path):
           "bad=%s" % malformed[:3])
     check("release manifest has no duplicates", len(set(lines)) == len(lines))
     check("release manifest is ASCII-sorted", lines == sorted(lines))
-    check("release manifest matches the frozen 16-project allowlist",
+    check("release manifest matches the frozen 15-project allowlist",
           lines == MANIFEST_EXPECTED, "n=%d" % len(lines))
     return [l[len(":plugins:"):] for l in lines if l != ":plugins:core"]
 
@@ -537,6 +547,84 @@ def assert_config_merge(jar):
           all(bundled_id in disabled for bundled_id in ALL_BUNDLED_IDS))
     check("merge preserves unrelated disabled id", "dev.turboism.plugin.other" in disabled)
     check("merge union is sorted", disabled == sorted(disabled))
+    shutil.rmtree(base, ignore_errors=True)
+
+
+
+def write_fixture_jar(path, plugin_id):
+    """Synthesizes a minimal plugin JAR whose embedded plugin.json carries the
+    given id (the same identity authority the installer cleanup uses)."""
+    with zipfile.ZipFile(path, "w") as z:
+        z.writestr("META-INF/turboism/plugin.json", json.dumps({
+            "format": "turboism.plugin.meta",
+            "schemaVersion": 3,
+            "id": plugin_id,
+            "name": "Fixture " + plugin_id,
+        }))
+
+
+def assert_retired_upgrade(jar, payload_plugins):
+    """Managed upgrade over an existing install carrying retired official JARs
+    and retired disabledPlugins ids (retirement slice): JARs whose embedded id
+    is retired are removed even under a renamed filename; unreadable JARs,
+    foreign-id JARs, non-JAR files and everything outside the managed plugins
+    directory are preserved with actionable diagnostics; only the four retired
+    ids are pruned from disabledPlugins; unrelated config fields survive."""
+    unrelated = "dev.turboism.plugin.not-bundled"
+    base = tempfile.mkdtemp(prefix="turboism-retire ")
+    target = os.path.join(base, "home")
+    plugins = os.path.join(target, "plugins")
+    os.makedirs(plugins)
+    existing = {
+        "format": "turboism.runtime.config",
+        "schemaVersion": 1,
+        "worktreeId": "old-worktree",
+        "pluginDirs": ["plugins"],
+        "disabledPlugins": RETIRED_PLUGIN_IDS + [unrelated],
+        "logLevel": "DEBUG",
+    }
+    with open(os.path.join(target, "config.json"), "w") as f:
+        json.dump(existing, f, indent=2)
+    # retired embedded ids: canonical and renamed filenames
+    write_fixture_jar(os.path.join(plugins, "log-filter.jar"), "dev.turboism.plugin.logfilter")
+    write_fixture_jar(os.path.join(plugins, "renamed-archive.jar"), "dev.turboism.plugin.renderopt")
+    # known retired filename with a foreign id -> preserved
+    write_fixture_jar(os.path.join(plugins, "clip-mask.jar"), "dev.turboism.plugin.someone-else")
+    # retained successor id under a non-payload name -> preserved
+    write_fixture_jar(os.path.join(plugins, "successor-copy.jar"), "dev.turboism.plugin.clipmask-viewer")
+    # unreadable entries -> preserved
+    with open(os.path.join(plugins, "perf-opt.jar"), "wb") as f:
+        f.write(b"not a zip archive")
+    with open(os.path.join(plugins, "notes.txt"), "w") as f:
+        f.write("not a jar")
+    # outside the managed plugins directory -> never inspected or changed
+    outside_jar = os.path.join(base, "outside-log-filter.jar")
+    write_fixture_jar(outside_jar, "dev.turboism.plugin.logfilter")
+    clear_task_lock()
+    rc, out = run_console(jar, install_answers("full", target, deselect=(), payload_plugins=payload_plugins))
+    check("retired upgrade install exit 0", rc == 0, "rc=%s" % rc)
+    check("retired canonical jar removed",
+          not os.path.exists(os.path.join(plugins, "log-filter.jar")))
+    check("retired renamed jar removed",
+          not os.path.exists(os.path.join(plugins, "renamed-archive.jar")))
+    check("foreign-id jar preserved",
+          os.path.exists(os.path.join(plugins, "clip-mask.jar")))
+    check("retained successor jar preserved",
+          os.path.exists(os.path.join(plugins, "successor-copy.jar")))
+    check("unreadable jar preserved",
+          os.path.exists(os.path.join(plugins, "perf-opt.jar")))
+    check("non-jar file preserved", os.path.exists(os.path.join(plugins, "notes.txt")))
+    check("outside-home retired jar untouched", os.path.exists(outside_jar))
+    check("removal diagnostics emitted", "removed retired plugin" in out,
+          "console:%s" % [l for l in out.splitlines() if "retired" in l][:4])
+    check("preservation diagnostics emitted", "is not retired" in out,
+          "console:%s" % [l for l in out.splitlines() if "retired" in l][:4])
+    config = json.load(open(os.path.join(target, "config.json")))
+    disabled = config.get("disabledPlugins", [])
+    check("retired ids pruned from disabledPlugins",
+          not any(d in RETIRED_PLUGIN_IDS for d in disabled), str(disabled))
+    check("unrelated disabled id preserved", unrelated in disabled, str(disabled))
+    check("retired upgrade preserves other fields", config.get("logLevel") == "DEBUG")
     shutil.rmtree(base, ignore_errors=True)
 
 
@@ -1056,6 +1144,13 @@ def assert_plugin_identity(payload_plugins, included_metadata, excluded_metadata
     found_ids = set(p["id"] for p in payload_plugins) & excluded_ids
     check("excluded public ids absent from payload", not found_ids,
           "found=%s" % sorted(found_ids))
+    found_retired_modules = sorted(set(by_module) & set(RETIRED_MODULES))
+    check("retired fake modules absent from payload", not found_retired_modules,
+          "found=%s" % found_retired_modules)
+    found_retired_ids = sorted(
+        p["id"] for p in payload_plugins if p["id"] in RETIRED_PLUGIN_IDS)
+    check("retired fake ids absent from payload", not found_retired_ids,
+          "found=%s" % found_retired_ids)
     alg = by_module.get(ALGORITHM_MODULE)
     check("algorithm module carries renamed display identity + compatibility id",
           alg is not None and alg["name"] == ALGORITHM_NAME
@@ -1073,9 +1168,7 @@ def assert_plugin_identity(payload_plugins, included_metadata, excluded_metadata
               "actual=%s" % (p or "absent"))
     for module, expected_name in (
             ("parameter", "Parameter Tools Plugin"),
-            ("project-inspector", "Project Inspector"),
-            ("perf-opt", "Performance Overlay Plugin"),
-            ("render-opt", "Render Optimization Plugin")):
+            ("project-inspector", "Project Inspector")):
         check("payload excludes %s (%s)" % (expected_name, module),
               module not in by_module,
               "found=%s" % (by_module.get(module) or "absent"))
@@ -1157,6 +1250,7 @@ def main():
         assert_full_install(jar, payload_plugins)
         assert_reselection(jar, payload_plugins)
         assert_config_merge(jar)
+        assert_retired_upgrade(jar, payload_plugins)
         assert_number_preservation(jar)
         assert_size_boundary(jar)
 

@@ -46,7 +46,7 @@ val izpackBaseDir = layout.buildDirectory.dir("java-installer/izpack")
 
 // Sole release-plugin allowlist authority: packaging/release-plugins.txt (shared
 // with the Windows NSIS/ZIP staging; no independent blocklist anywhere — the
-// ten public-exclusion modules are simply absent from the manifest). Parsing is
+// seven public-exclusion modules are simply absent from the manifest). Parsing is
 // fail-closed: missing file, blank/comment lines, non-plugin entries,
 // duplicates, unsorted order or unknown projects abort the build. The runtime-
 // owned :plugins:core stays allowlisted as a project but is never packaged as
