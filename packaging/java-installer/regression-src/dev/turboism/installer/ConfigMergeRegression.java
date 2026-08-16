@@ -47,6 +47,7 @@ public final class ConfigMergeRegression {
         managedStateCleanup();
         managedStateBackupConfinement();
         bomHandling();
+        retiredPluginCleanup();
         System.out.println("ConfigMergeRegression: all checks passed");
     }
 
@@ -488,6 +489,113 @@ public final class ConfigMergeRegression {
         StringBuilder hex = new StringBuilder(64);
         for (byte b : value) hex.append(String.format(java.util.Locale.ROOT, "%02X", b));
         return hex.toString();
+    }
+
+    /**
+     * Retirement slice: managed-upgrade cleanup deletes only JARs proven by
+     * their embedded plugin.json id to own a retired id (canonical and renamed
+     * filenames alike); every unverifiable or foreign entry is preserved, and
+     * mergeDisabled prunes only the four retired ids from disabledPlugins.
+     */
+    private static void retiredPluginCleanup() throws Exception {
+        Path dir = Files.createTempDirectory("retired-plugins-");
+        Path home = dir.resolve("home");
+        Path plugins = home.resolve(ConfigMerge.PLUGIN_DIR);
+        Path outside = dir.resolve("outside");
+        Files.createDirectories(plugins);
+        Files.createDirectories(outside);
+        try {
+            // matching embedded id -> deleted under canonical and renamed names
+            Path canonical = plugins.resolve("log-filter.jar");
+            writePluginJar(canonical, "dev.turboism.plugin.logfilter");
+            Path renamed = plugins.resolve("renamed-archive.jar");
+            writePluginJar(renamed, "dev.turboism.plugin.renderopt");
+            // known filename with another plugin id -> preserved
+            Path foreign = plugins.resolve("clip-mask.jar");
+            writePluginJar(foreign, "dev.turboism.plugin.someone-else");
+            // retained successor id must never be deleted
+            Path successor = plugins.resolve("clipmask-viewer.jar");
+            writePluginJar(successor, "dev.turboism.plugin.clipmask-viewer");
+            // unreadable entries -> preserved
+            Files.writeString(plugins.resolve("perf-opt.jar"), "not a zip archive");
+            Files.writeString(plugins.resolve("notes.txt"), "not a jar");
+            Files.createDirectories(plugins.resolve("subdir"));
+            // valid zip without the canonical descriptor -> preserved
+            Path noDescriptor = plugins.resolve("render-opt.jar");
+            try (java.util.zip.ZipOutputStream zip = new java.util.zip.ZipOutputStream(
+                    Files.newOutputStream(noDescriptor))) {
+                zip.putNextEntry(new java.util.zip.ZipEntry("META-INF/MANIFEST.MF"));
+                zip.write("Manifest-Version: 1.0\n".getBytes(StandardCharsets.UTF_8));
+                zip.closeEntry();
+            }
+            // outside the managed plugins dir -> never inspected or changed
+            Path outsideJar = outside.resolve("log-filter.jar");
+            writePluginJar(outsideJar, "dev.turboism.plugin.logfilter");
+
+            ConfigMerge.retireManagedPlugins(home);
+
+            check("retired canonical jar removed", !Files.exists(canonical));
+            check("retired renamed jar removed", !Files.exists(renamed));
+            check("foreign-id jar preserved", Files.exists(foreign));
+            check("retained successor jar preserved", Files.exists(successor));
+            check("unreadable jar preserved", Files.exists(plugins.resolve("perf-opt.jar")));
+            check("non-jar file preserved", Files.exists(plugins.resolve("notes.txt")));
+            check("directory entry preserved", Files.isDirectory(plugins.resolve("subdir")));
+            check("descriptor-less jar preserved", Files.exists(noDescriptor));
+            check("outside-home jar untouched", Files.exists(outsideJar));
+
+            // symlinked retired jar entry fails closed (link and target kept)
+            try {
+                Path linkTarget = dir.resolve("linked-target.jar");
+                writePluginJar(linkTarget, "dev.turboism.plugin.logfilter");
+                Path link = plugins.resolve("linked-retired.jar");
+                Files.createSymbolicLink(link, linkTarget);
+                ConfigMerge.retireManagedPlugins(home);
+                check("symlinked retired jar preserved (link itself)", Files.isSymbolicLink(link));
+                check("symlink target untouched", Files.exists(linkTarget));
+                Files.delete(link);
+            } catch (IOException | UnsupportedOperationException | SecurityException unavailable) {
+                System.out.println("  skip: symbolic-link plugin fixture unavailable");
+            }
+
+            // disabledPlugins pruning: only the four retired ids are pruned
+            Map<String, Object> seed = seedConfig();
+            seed.put("disabledPlugins", List.of(
+                    "dev.turboism.plugin.logfilter",
+                    "dev.turboism.plugin.clipmask",
+                    "dev.turboism.plugin.perfopt",
+                    "dev.turboism.plugin.renderopt",
+                    "dev.turboism.plugin.mesh",
+                    "dev.turboism.plugin.other"));
+            List<String> disabled = ConfigMerge.mergeDisabled(
+                    seed, java.util.Set.of("dev.turboism.plugin.mesh"),
+                    java.util.Set.of("dev.turboism.plugin.mesh"), false);
+            check("retired ids pruned from disabledPlugins",
+                    !disabled.contains("dev.turboism.plugin.logfilter")
+                            && !disabled.contains("dev.turboism.plugin.clipmask")
+                            && !disabled.contains("dev.turboism.plugin.perfopt")
+                            && !disabled.contains("dev.turboism.plugin.renderopt")
+                            && !disabled.contains("dev.turboism.plugin.mesh")
+                            && disabled.contains("dev.turboism.plugin.other")
+                            && disabled.equals(disabled.stream().sorted().toList()));
+
+            // absent plugins directory and empty home are a no-op
+            ConfigMerge.retireManagedPlugins(dir.resolve("empty"));
+            check("absent plugins directory is a no-op", true);
+        } finally {
+            deleteTree(dir);
+        }
+    }
+
+    private static void writePluginJar(Path jar, String id) throws Exception {
+        try (java.util.zip.ZipOutputStream zip = new java.util.zip.ZipOutputStream(
+                Files.newOutputStream(jar))) {
+            zip.putNextEntry(new java.util.zip.ZipEntry(ConfigMerge.PLUGIN_JSON_ENTRY));
+            String meta = "{\"format\":\"turboism.plugin.meta\",\"schemaVersion\":3,"
+                    + "\"id\":\"" + id + "\",\"name\":\"Fixture " + id + "\"}";
+            zip.write(meta.getBytes(StandardCharsets.UTF_8));
+            zip.closeEntry();
+        }
     }
 
     private static void deleteTree(Path dir) {

@@ -34,7 +34,7 @@ class PreviewCapabilityCatalogRegistryTest {
         final List<String> capabilityIds = PreviewReportSnapshotFactory.canonicalCapabilityIds().stream()
             .sorted()
             .toList();
-        assertEquals(69, capabilityIds.size(), "canonical catalog size changed; update this closure test deliberately");
+        assertEquals(68, capabilityIds.size(), "canonical catalog size changed; update this closure test deliberately");
 
         final JsonNode capabilities = capabilityReport(capabilityIds)
             .path("payload")
@@ -50,7 +50,7 @@ class PreviewCapabilityCatalogRegistryTest {
             .map(Map.Entry::getKey)
             .collect(Collectors.toUnmodifiableSet());
 
-        assertEquals(69, canonicalCapabilities.size());
+        assertEquals(68, canonicalCapabilities.size());
         assertEquals(canonicalCapabilities, entriesByCapability.keySet());
         assertTrue(
             java.util.Collections.disjoint(mappedCapabilities, knownUnmappedCapabilities),
