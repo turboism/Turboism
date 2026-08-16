@@ -190,8 +190,11 @@ final class ConfigMerge {
      * Nothing outside {@code home}/plugins is ever inspected or changed.
      *
      * A proven retired JAR that cannot be deleted fails closed through
-     * {@link ConfigException} so the install aborts before any config write
-     * instead of reporting success with a retired artifact left behind.
+     * {@link ConfigException} so the install aborts before any config write.
+     * Preserved unverifiable entries are not left to config: every valid JAR
+     * descriptor carrying a retired id is additionally denied by the runtime's
+     * shared PluginJarContract boundary (PLUGIN_RETIRED_ID) before entrypoint
+     * loading, on every distribution path.
      */
     static void retireManagedPlugins(Path home) throws ConfigException {
         Path plugins = home.resolve(PLUGIN_DIR);
@@ -880,9 +883,13 @@ final class ConfigMerge {
                 disabled.add(id);
             }
         }
-        // Retired ids are pruned even when no current bundle carries them: a
-        // previously installed official JAR of a retired plugin must stay
-        // inactive whether or not the upgrade deleted it.
+        // Retired ids are pruned even when no current bundle carries them. This
+        // is safe because the runtime's shared PluginJarContract boundary denies
+        // every valid JAR descriptor carrying a retired id (PLUGIN_RETIRED_ID)
+        // before entrypoint loading on every distribution path, including
+        // NSIS/manual/renamed leftovers this installer cannot verify or delete.
+        // Config alone does not keep stale retired JARs inactive; the runtime
+        // admission boundary does.
         disabled.removeAll(RETIRED_PLUGIN_IDS);
         return new ArrayList<>(disabled);
     }

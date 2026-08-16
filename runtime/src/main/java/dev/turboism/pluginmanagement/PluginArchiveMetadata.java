@@ -50,6 +50,13 @@ record PluginArchiveMetadata(
                 try (InputStream input = jar.getInputStream(entry)) {
                     descriptor = new PluginDescriptorParser().parse(input);
                 }
+                // Retired fake ids must not surface in management listings,
+                // pending-install matching, or any metadata read: the same
+                // shared boundary set the loader contract denies.
+                if (dev.turboism.core.plugin.PluginJarContract.RETIRED_PLUGIN_IDS
+                        .contains(descriptor.id())) {
+                    return Optional.empty();
+                }
                 loader = new URLClassLoader(
                     new URL[]{path.toUri().toURL()}, PluginArchiveMetadata.class.getClassLoader()
                 );
