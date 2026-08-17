@@ -1,0 +1,35 @@
+# Remote hygiene: fail-closed guardrail over history (secondary defense)
+#
+# Primary line of defense: local pre-commit/pre-push hooks installed via
+# `python3 scripts/check_remote_hygiene.py --install-hooks`. This workflow is
+# the secondary, server-side net: every push and pull_request gets the full
+# reachable history scanned by the same stdlib checker.
+#
+# No secrets and no third-party actions: every action below is an immutable
+# first-party SHA already pinned elsewhere in this repo.
+
+name: Remote hygiene
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: remote-hygiene-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: scan reachable history
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository (full history)
+        uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Scan all reachable history
+        run: python3 scripts/check_remote_hygiene.py --all
