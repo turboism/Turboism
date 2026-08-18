@@ -2,6 +2,8 @@ plugins {
     `java-library`
 }
 
+import java.util.jar.JarFile
+
 dependencies {
     implementation(project(":runtime"))
     implementation(project(":sdk"))
@@ -55,7 +57,9 @@ val performanceProbeCarrierJar by tasks.registering(Jar::class) {
 }
 
 val performanceProbeAgentJar by tasks.registering(Jar::class) {
-    dependsOn(":runtime:jar", ":sdk:jar", performanceProbeCarrierJar)
+    // Declare all runtimeClasspath producers (incl. :plugins:core:jar) so the
+    // probe agent fat JAR can coexist with previewBundle in one task graph.
+    dependsOn(configurations.runtimeClasspath, performanceProbeCarrierJar)
     archiveBaseName.set("turboism-performance-probe-agent")
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     manifest {
@@ -99,4 +103,45 @@ tasks.jar {
         }
     })
     exclude("META-INF/*.SF", "META-INF/*.RSA", "META-INF/*.DSA", "module-info.class")
+}
+
+// Executable gate on the built bootstrap fat JAR: every component in the
+// license/notice matrix must be present under stable META-INF/licenses/ paths.
+val checkBootstrapJarLicenses by tasks.registering {
+    group = "verification"
+    description = "Asserts the built bootstrap fat JAR bundles all required license/notice entries."
+    dependsOn(tasks.jar)
+    doLast {
+        val jar = tasks.jar.get().archiveFile.get().asFile
+        val required = listOf(
+            "META-INF/licenses/THIRD-PARTY-NOTICES.md",
+            "META-INF/licenses/turboism/LICENSE",
+            "META-INF/licenses/turboism/NOTICE",
+            "META-INF/licenses/jackson/LICENSE",
+            "META-INF/licenses/jackson/NOTICE",
+            "META-INF/licenses/asm/LICENSE",
+            "META-INF/licenses/asm/NOTICE",
+            "META-INF/licenses/slf4j/LICENSE",
+            "META-INF/licenses/slf4j/NOTICE",
+            "META-INF/licenses/resilience4j/LICENSE",
+            "META-INF/licenses/resilience4j/NOTICE",
+            "META-INF/licenses/vavr/LICENSE",
+            "META-INF/licenses/vavr/NOTICE"
+        )
+        val missing = mutableListOf<String>()
+        JarFile(jar).use { archive ->
+            for (entry in required) {
+                if (archive.getJarEntry(entry) == null) {
+                    missing += entry
+                }
+            }
+        }
+        if (missing.isNotEmpty()) {
+            throw GradleException("Bootstrap fat JAR is missing license/notice entries: $missing")
+        }
+    }
+}
+
+tasks.jar {
+    finalizedBy(checkBootstrapJarLicenses)
 }

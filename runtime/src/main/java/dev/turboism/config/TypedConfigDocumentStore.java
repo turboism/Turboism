@@ -9,18 +9,28 @@ import java.nio.ByteBuffer;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
+import java.nio.file.attribute.AclEntry;
+import java.nio.file.attribute.AclEntryPermission;
+import java.nio.file.attribute.AclEntryType;
+import java.nio.file.attribute.AclFileAttributeView;
+import java.nio.file.attribute.PosixFileAttributeView;
+import java.nio.file.attribute.PosixFilePermission;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.Collections;
+import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 /** Deterministic atomic persistence for one plugin's typed config documents. */
@@ -37,6 +47,7 @@ final class TypedConfigDocumentStore {
         if (Files.isSymbolicLink(this.root)) {
             throw new IOException("typed config root must not be a symbolic link");
         }
+        enforceOwnerOnly(this.root, true);
     }
 
     Optional<StoredDocument> read(final String relativePath) throws IOException {
@@ -51,6 +62,7 @@ final class TypedConfigDocumentStore {
         if (size > MAX_DOCUMENT_BYTES) {
             throw new IOException("typed config document exceeds size limit");
         }
+        tightenTree(path);
         final byte[] bytes = Files.readAllBytes(path);
         if (bytes.length >= 3 && bytes[0] == (byte) 0xEF
             && bytes[1] == (byte) 0xBB && bytes[2] == (byte) 0xBF) {
@@ -81,9 +93,11 @@ final class TypedConfigDocumentStore {
             "." + target.getFileName() + ".turboism-config-" + UUID.randomUUID() + ".tmp"
         );
         try {
+            // Secure the empty temporary path (owner-only) before any document
+            // bytes are written to it; the file is only then opened for writing.
+            createSecuredTemporary(temporary);
             try (FileChannel channel = FileChannel.open(
                 temporary,
-                StandardOpenOption.CREATE_NEW,
                 StandardOpenOption.WRITE
             )) {
                 final ByteBuffer buffer = ByteBuffer.wrap(bytes);
@@ -99,6 +113,7 @@ final class TypedConfigDocumentStore {
                 StandardCopyOption.ATOMIC_MOVE,
                 StandardCopyOption.REPLACE_EXISTING
             );
+            tightenTree(target);
         } catch (AtomicMoveNotSupportedException exception) {
             throw new IOException("typed config atomic replacement unavailable", exception);
         } finally {
@@ -129,6 +144,7 @@ final class TypedConfigDocumentStore {
                 }
             } else if (!last && createParents) {
                 Files.createDirectory(current);
+                enforceOwnerOnly(current, true);
                 verifyExisting(current, rootReal);
             } else if (!last) {
                 return current.resolve(String.join("/", java.util.Arrays.copyOfRange(
@@ -158,6 +174,138 @@ final class TypedConfigDocumentStore {
             throw new IOException("typed config path traverses a link");
         }
     }
+
+    /** Tightens the given document leaf and every parent up to and including the root. */
+    private void tightenTree(final Path leaf) throws IOException {
+        final Path rootAbs = root.toAbsolutePath().normalize();
+        final List<Path> directories = new ArrayList<>();
+        Path cursor = leaf.toAbsolutePath().getParent();
+        while (cursor != null && cursor.startsWith(rootAbs) && !cursor.equals(rootAbs)) {
+            directories.add(cursor);
+            cursor = cursor.getParent();
+        }
+        directories.add(rootAbs);
+        Collections.reverse(directories);
+        for (final Path directory : directories) {
+            if (Files.exists(directory, LinkOption.NOFOLLOW_LINKS)) {
+                enforceOwnerOnly(directory, true);
+            }
+        }
+        if (Files.exists(leaf, LinkOption.NOFOLLOW_LINKS)) {
+            enforceOwnerOnly(leaf, false);
+        }
+    }
+
+    /**
+     * Creates an empty temporary config file that is owner-only before the first
+     * document byte is written. On POSIX file systems the owner read/write (0600)
+     * permission is requested atomically at creation; on ACL file systems the
+     * empty file is created, tightened to a single owner-only ACE, and only then
+     * opened for writing. A file system exposing neither model fails closed and
+     * deletes the still-empty temporary path.
+     */
+    private static void createSecuredTemporary(final Path temporary) throws IOException {
+        try {
+            Files.createFile(temporary, PosixFilePermissions.asFileAttribute(FILE_OWNER_ONLY));
+            return;
+        } catch (UnsupportedOperationException noPosix) {
+            // Non-POSIX file system; fall through to the ACL model below.
+        } catch (java.nio.file.FileAlreadyExistsException collision) {
+            throw new IOException("typed config temporary already exists", collision);
+        }
+        boolean created = false;
+        try {
+            Files.createFile(temporary);
+            created = true;
+            final AclFileAttributeView acl = Files.getFileAttributeView(
+                temporary,
+                AclFileAttributeView.class,
+                LinkOption.NOFOLLOW_LINKS
+            );
+            if (acl == null) {
+                throw new IOException("typed config ACL view is unavailable");
+            }
+            acl.setAcl(List.of(ownerOnlyEntry(acl.getOwner(), false)));
+        } catch (IOException | UnsupportedOperationException failure) {
+            if (created) {
+                try {
+                    Files.deleteIfExists(temporary);
+                } catch (IOException ignored) {
+                    // Best-effort cleanup of an empty temporary path.
+                }
+            }
+            throw new IOException(
+                "typed config cannot create an owner-only temporary file",
+                failure
+            );
+        }
+    }
+
+    /**
+     * Enforces owner-only access on a typed config path using the platform model.
+     * POSIX targets are directory 0700 and file 0600; the ACL model replaces
+     * inherited ACEs with one owner-only entry. A file system exposing neither
+     * model fails closed for persistence rather than pretending to be secure.
+     */
+    private static void enforceOwnerOnly(final Path path, final boolean directory)
+        throws IOException {
+        try {
+            final PosixFileAttributeView posix = Files.getFileAttributeView(
+                path,
+                PosixFileAttributeView.class,
+                LinkOption.NOFOLLOW_LINKS
+            );
+            if (posix != null) {
+                posix.setPermissions(directory ? DIR_OWNER_ONLY : FILE_OWNER_ONLY);
+                return;
+            }
+            final AclFileAttributeView acl = Files.getFileAttributeView(
+                path,
+                AclFileAttributeView.class,
+                LinkOption.NOFOLLOW_LINKS
+            );
+            if (acl != null) {
+                acl.setAcl(List.of(ownerOnlyEntry(acl.getOwner(), directory)));
+                return;
+            }
+        } catch (UnsupportedOperationException unsupported) {
+            throw new IOException(
+                "typed config owner-only permissions unavailable: " + path,
+                unsupported
+            );
+        }
+        throw new IOException(
+            "typed config cannot enforce owner-only permissions on this file system: " + path
+        );
+    }
+
+    private static AclEntry ownerOnlyEntry(
+        final java.nio.file.attribute.UserPrincipal owner,
+        final boolean directory
+    ) {
+        final Set<AclEntryPermission> permissions = EnumSet.noneOf(AclEntryPermission.class);
+        permissions.add(AclEntryPermission.READ_DATA);
+        permissions.add(AclEntryPermission.WRITE_DATA);
+        permissions.add(AclEntryPermission.APPEND_DATA);
+        permissions.add(AclEntryPermission.READ_ATTRIBUTES);
+        permissions.add(AclEntryPermission.WRITE_ATTRIBUTES);
+        permissions.add(AclEntryPermission.READ_NAMED_ATTRS);
+        permissions.add(AclEntryPermission.WRITE_NAMED_ATTRS);
+        if (directory) {
+            permissions.add(AclEntryPermission.EXECUTE);
+            permissions.add(AclEntryPermission.DELETE_CHILD);
+        }
+        return AclEntry.newBuilder()
+            .setType(AclEntryType.ALLOW)
+            .setPrincipal(owner)
+            .setPermissions(permissions)
+            .build();
+    }
+
+    private static final Set<PosixFilePermission> FILE_OWNER_ONLY =
+        PosixFilePermissions.fromString("rw-------");
+    private static final Set<PosixFilePermission> DIR_OWNER_ONLY =
+        PosixFilePermissions.fromString("rwx------");
 
     private static String encode(final StoredDocument document) {
         final List<String> keys = new ArrayList<>(document.encodedValues().keySet());

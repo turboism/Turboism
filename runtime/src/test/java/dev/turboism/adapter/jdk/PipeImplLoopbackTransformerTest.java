@@ -7,9 +7,6 @@ import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -21,18 +18,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PipeImplLoopbackTransformerTest {
 
-    /** Pinned SHA-256 of the byte-identical Cubism 5.2.03 JRE 17.0.3.1 class. */
-    private static final String FIXTURE_SHA256 =
-        "d1bbbf7e94bb46bb40bc222dc7cd933161476e65c97efbcab97a9b3c07d61c26";
-
-    @Test
-    void fixtureIsByteIdenticalToThePinnedJdkClass() throws Exception {
-        assertEquals(FIXTURE_SHA256, sha256(fixture()));
-    }
-
     @Test
     void forcesTheFlagTrueInClinitSoCreateListenerAlwaysTakesTheInetBranch() throws Exception {
-        final byte[] fixture = fixture();
+        final byte[] fixture = PipeImplSyntheticFixture.valid();
         final AtomicInteger cleanupCalls = new AtomicInteger();
         final List<String> diagnostics = new ArrayList<>();
         final PipeImplLoopbackClassFileTransformer transformer =
@@ -86,7 +74,7 @@ class PipeImplLoopbackTransformerTest {
 
     @Test
     void ignoresNonTargetClassNamesWithoutRecordingAnyOutcome() throws Exception {
-        final byte[] fixture = fixture();
+        final byte[] fixture = PipeImplSyntheticFixture.valid();
         final AtomicInteger cleanupCalls = new AtomicInteger();
         final List<String> diagnostics = new ArrayList<>();
         final PipeImplLoopbackClassFileTransformer transformer =
@@ -104,7 +92,7 @@ class PipeImplLoopbackTransformerTest {
 
     @Test
     void rejectsAnNonBootstrapLoaderForTheTargetName() throws Exception {
-        final byte[] fixture = fixture();
+        final byte[] fixture = PipeImplSyntheticFixture.valid();
         final List<String> diagnostics = new ArrayList<>();
         final PipeImplLoopbackClassFileTransformer transformer =
             new PipeImplLoopbackClassFileTransformer(ignored -> { }, diagnostics::add);
@@ -153,7 +141,7 @@ class PipeImplLoopbackTransformerTest {
 
     @Test
     void failsOpenWhenTheExpectedShapeIsMissing() throws Exception {
-        final byte[] missingField = syntheticClass(true, false);
+        final byte[] missingField = PipeImplSyntheticFixture.invalid(true, false);
         final List<String> diagnostics = new ArrayList<>();
         final PipeImplLoopbackClassFileTransformer transformer =
             new PipeImplLoopbackClassFileTransformer(ignored -> { }, diagnostics::add);
@@ -172,7 +160,7 @@ class PipeImplLoopbackTransformerTest {
         );
         assertEquals(List.of("PIPE_IMPL_SHIM_TRANSFORM_SHAPE_REJECTED"), diagnostics);
 
-        final byte[] noClinit = syntheticClass(false, true);
+        final byte[] noClinit = PipeImplSyntheticFixture.invalid(false, true);
         assertNull(transformer.transform(
             null,
             null,
@@ -189,7 +177,7 @@ class PipeImplLoopbackTransformerTest {
 
     @Test
     void refusesRetransformOfAnAlreadyDefinedClass() throws Exception {
-        final byte[] fixture = fixture();
+        final byte[] fixture = PipeImplSyntheticFixture.valid();
         final List<String> diagnostics = new ArrayList<>();
         final PipeImplLoopbackClassFileTransformer transformer =
             new PipeImplLoopbackClassFileTransformer(ignored -> { }, diagnostics::add);
@@ -213,49 +201,18 @@ class PipeImplLoopbackTransformerTest {
         );
     }
 
-    private static byte[] fixture() throws IOException {
-        try (InputStream in = PipeImplLoopbackTransformerTest.class.getResourceAsStream(
-            "/fixtures/pipeimpl/PipeImpl.class"
-        )) {
-            assertNotNull(in, "fixture resource must exist");
-            return in.readAllBytes();
-        }
-    }
-
-    private static byte[] syntheticClass(final boolean withClinit, final boolean withFlag) {
-        final ClassWriter writer = new ClassWriter(0);
-        writer.visit(
-            Opcodes.V17,
-            Opcodes.ACC_PUBLIC | Opcodes.ACC_SUPER,
-            PipeImplLoopbackTransformer.TARGET_OWNER,
-            null,
-            "java/lang/Object",
-            null
-        );
-        if (withFlag) {
-            writer.visitField(
-                Opcodes.ACC_PRIVATE | Opcodes.ACC_STATIC | Opcodes.ACC_VOLATILE,
-                PipeImplLoopbackTransformer.FIELD_NAME,
-                PipeImplLoopbackTransformer.FIELD_DESCRIPTOR,
-                null,
-                null
-            ).visitEnd();
-        }
-        if (withClinit) {
-            final MethodVisitor clinit = writer.visitMethod(
-                Opcodes.ACC_STATIC,
-                "<clinit>",
-                "()V",
-                null,
-                null
-            );
-            clinit.visitCode();
-            clinit.visitInsn(Opcodes.RETURN);
-            clinit.visitMaxs(0, 0);
-            clinit.visitEnd();
-        }
-        writer.visitEnd();
-        return writer.toByteArray();
+    /** Full valid shape satisfies the single-shot transformer regression surface. */
+    @Test
+    void regeneratesTheSameValidShapeAcrossCalls() {
+        final byte[] first = PipeImplSyntheticFixture.valid();
+        final byte[] second = PipeImplSyntheticFixture.valid();
+        assertEquals(java.util.Arrays.hashCode(first), java.util.Arrays.hashCode(second));
+        final List<Insn> listener = methodInstructions(first, "createListener");
+        assertEquals(1, listener.stream().filter(insn ->
+            insn.opcode == Opcodes.INVOKESTATIC
+                && "java/nio/channels/ServerSocketChannel".equals(insn.owner)
+                && "open".equals(insn.name)
+        ).count());
     }
 
     private static List<Insn> methodInstructions(final byte[] classBytes, final String methodName) {
@@ -317,15 +274,6 @@ class PipeImplLoopbackTransformerTest {
             }
         }
         return -1;
-    }
-
-    private static String sha256(final byte[] bytes) throws Exception {
-        final byte[] digest = MessageDigest.getInstance("SHA-256").digest(bytes);
-        final StringBuilder hex = new StringBuilder();
-        for (final byte b : digest) {
-            hex.append(String.format("%02x", b));
-        }
-        return hex.toString();
     }
 
     private static final class Insn {

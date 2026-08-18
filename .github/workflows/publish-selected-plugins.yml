@@ -40,6 +40,10 @@ on:
       - "settings.gradle.kts"
       - "gradle/**"
 
+concurrency:
+  group: selected-plugin-publication-${{ github.ref }}
+  cancel-in-progress: false
+
 permissions:
   contents: read
 
@@ -51,6 +55,7 @@ jobs:
         uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
         with:
           ref: ${{ github.sha }}
+          persist-credentials: false
 
       - name: Plan selected plugin publication
         id: plan
