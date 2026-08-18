@@ -166,9 +166,9 @@ dependencies {
     implementation(project(":plugins:core"))
 
     // JSON parsing implementation stays in runtime, not in SDK
-    implementation("com.fasterxml.jackson.core:jackson-databind:2.17.2")
-    implementation("com.fasterxml.jackson.core:jackson-core:2.17.2")
-    implementation("com.fasterxml.jackson.core:jackson-annotations:2.17.2")
+    implementation("com.fasterxml.jackson.core:jackson-databind:2.18.9")
+    implementation("com.fasterxml.jackson.core:jackson-core:2.18.9")
+    implementation("com.fasterxml.jackson.core:jackson-annotations:2.18.9")
 
     // Runtime-only bytecode metadata scanning for the local draft mapping review pipeline.
     implementation("org.ow2.asm:asm:9.7.1")
