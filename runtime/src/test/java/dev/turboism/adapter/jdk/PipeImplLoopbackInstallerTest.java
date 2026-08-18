@@ -90,13 +90,7 @@ class PipeImplLoopbackInstallerTest {
         assertEquals(PipeImplLoopbackInstaller.Status.INSTALLED, installation.status());
         assertEquals(1, installed.size());
 
-        final byte[] fixture;
-        try (java.io.InputStream in = PipeImplLoopbackInstallerTest.class.getResourceAsStream(
-            "/fixtures/pipeimpl/PipeImpl.class"
-        )) {
-            assertNotNull(in);
-            fixture = in.readAllBytes();
-        }
+        final byte[] fixture = PipeImplSyntheticFixture.valid();
         final byte[] transformed = installed.get(0).transform(
             null,
             null,

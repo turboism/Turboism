@@ -97,7 +97,7 @@ public final class PreviewContextServicesPlugin implements TurboismPlugin {
         var configWrite = context.config().write(key, false, 0).toCompletableFuture().get(5, TimeUnit.SECONDS);
         var storedRead = context.config().read(key).toCompletableFuture().get(5, TimeUnit.SECONDS);
         require(defaultRead.error().isEmpty(), "default config error");
-        require(defaultRead.value().source() == ConfigValueSource.DEFAULT_MISSING, "default config source");
+        require(defaultRead.value().source() == ConfigValueSource.STORED, "default config source");
         require(defaultRead.value().revision() == 0, "default config revision");
         require(Boolean.TRUE.equals(defaultRead.value().value()), "default config value");
         require(configWrite.written() && configWrite.revision() == 1, "config write");

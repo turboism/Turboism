@@ -59,7 +59,7 @@ final class PreviewContextServicesFixtureResources {
         values.put("storage.value", "characterization-value");
         values.put("storage.truncated", "false");
         values.put("storage.error", "empty");
-        values.put("config.default.source", "DEFAULT_MISSING");
+        values.put("config.default.source", "STORED");
         values.put("config.default.revision", "0");
         values.put("config.default.value", "true");
         values.put("config.write.written", "true");

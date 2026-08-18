@@ -17,8 +17,8 @@ dependencies {
     testImplementation(project(":plugins:psd-clip-mask-import"))
     testImplementation(project(":plugins:atlas-maxrects-bssf"))
     testImplementation(project(":testframework"))
-    testImplementation("com.fasterxml.jackson.core:jackson-databind:2.17.2")
-    testImplementation("com.fasterxml.jackson.core:jackson-core:2.17.2")
+    testImplementation("com.fasterxml.jackson.core:jackson-databind:2.18.9")
+    testImplementation("com.fasterxml.jackson.core:jackson-core:2.18.9")
 }
 
 tasks.test {

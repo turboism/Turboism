@@ -17,6 +17,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
+        with:
+          persist-credentials: false
       - name: Run synthetic managed-launch gate
         shell: powershell
         run: .\packaging\windows-installer\test-managed-launch.ps1

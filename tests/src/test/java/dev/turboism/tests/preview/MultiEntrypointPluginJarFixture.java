@@ -49,6 +49,7 @@ final class MultiEntrypointPluginJarFixture {
                 }
             }
             add(output, "META-INF/turboism/plugin.json", descriptor());
+            add(output, "META-INF/turboism/i18n/messages.properties", "plugin.name=Multi Entrypoint Fixture".getBytes(StandardCharsets.UTF_8));
         }
         return jar;
     }

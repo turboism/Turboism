@@ -612,6 +612,22 @@ class StagingTest(unittest.TestCase):
 
 
 class WorkflowStaticTest(unittest.TestCase):
+    def test_all_checkouts_drop_persisted_credentials(self):
+        for name in ("publish-selected-plugins.yml",
+                     "macos-packaging-verification.yml",
+                     "windows-managed-launch-verification.yml"):
+            text = (REPO_ROOT / ".github/workflows" / name).read_text()
+            self.assertIn("persist-credentials: false", text, name)
+            self.assertNotIn("persist-credentials: true", text, name)
+
+    def test_publication_serialization_is_non_cancelling(self):
+        text = WORKFLOW.read_text()
+        self.assertIn("concurrency:", text)
+        # Stable branch/ref group so repeated main pushes serialize on the
+        # same release lane instead of running in parallel.
+        self.assertIn("${{ github.ref }}", text)
+        self.assertNotIn("cancel-in-progress: true", text)
+        self.assertIn("cancel-in-progress: false", text)
     def test_workflow_contract(self):
         text = WORKFLOW.read_text()
         # Trigger: push to main with relevant paths only

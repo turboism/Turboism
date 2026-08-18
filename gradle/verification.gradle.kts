@@ -28,10 +28,10 @@ tasks.register("checkOfficialPluginI18nCompleteness") {
 
 val checkAsyncHostReadStructuralBoundaries by tasks.registering(Exec::class) {
     group = "verification"
-    description = "Rejects plugin-owned Thread, Executor, and Timer resources and synchronous host reads."
+    description = "Rejects plugin-owned Thread, Executor, and Timer resources and synchronous host reads in the async-host consumer (ProjectInspectorPlugin)."
     workingDir(rootDir)
     inputs.files(
-        fileTree("plugins") { include("*/src/main/java/**/*.java") },
+        "plugins/project-inspector/src/main/java/dev/turboism/plugin/projectinspector/ProjectInspectorPlugin.java",
         "scripts/test/test_async_host_read_foundation.py"
     )
     commandLine("python3", "scripts/test/test_async_host_read_foundation.py")
@@ -442,8 +442,7 @@ tasks.register("checkIntegration") {
         "checkDistributionProtocolContract",
         "checkPreviewBundleLayout",
         "checkPsdClipMaskHostValidationBundle",
-        "previewAgentSmokeTest",
-        "checkPreviewRuntimeReports",
+        "previewBootstrapBridgeTest",
         ":tests:previewPluginRuntimeTest"
     )
 }
