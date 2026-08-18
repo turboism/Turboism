@@ -97,3 +97,20 @@ For an Editor-attached model, the Editor authoring model remains the only write 
 ## Compliance
 
 Turboism does not distribute Cubism Editor, replace its licensing, or authorize copying private Cubism source, resources, binaries, decompiled method bodies, or authorization-bypass logic.
+
+## Prerequisites
+
+- A JDK 17 toolchain (the agent and runtime are compiled with `-release 17`).
+- A separately installed, licensed copy of Live2D Cubism Editor for exact-host
+  validation. Turboism does not bundle or install Cubism.
+
+## Documentation
+
+Public documentation lives at <https://docs.turboism.dev>. `ARCHITECTURE.md`
+and `ROADMAP.md` in this repository describe the current design and direction.
+
+## Non-affiliation
+
+Turboism is an independent project. It is not affiliated with, endorsed by, or
+sponsored by Live2D Inc. "Live2D" and "Cubism" are trademarks of Live2D Inc.;
+Turboism uses those names only to describe interoperability.

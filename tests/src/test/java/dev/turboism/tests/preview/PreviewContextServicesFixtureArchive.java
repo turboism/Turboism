@@ -69,6 +69,7 @@ final class PreviewContextServicesFixtureArchive {
         try (JarOutputStream output = new JarOutputStream(Files.newOutputStream(jar))) {
             addClasses(output, classes);
             add(output, "META-INF/turboism/plugin.json", PreviewContextServicesFixtureResources.descriptor());
+            add(output, "META-INF/turboism/i18n/messages.properties", "plugin.name=Preview Context Services Fixture".getBytes(StandardCharsets.UTF_8));
         }
         if (!Files.isRegularFile(jar)) {
             throw new IOException("Context services fixture plugin JAR was not created");
