@@ -39,6 +39,7 @@ final class PreviewFailurePluginJarFixture {
         try (JarOutputStream output = new JarOutputStream(Files.newOutputStream(jar))) {
             addClasses(output, classRoot);
             add(output, "META-INF/turboism/plugin.json", descriptor());
+            add(output, "META-INF/turboism/i18n/messages.properties", "plugin.name=Preview Failure Fixture");
         }
         if (!Files.isRegularFile(jar)) {
             throw new IOException("Fixture plugin JAR was not created");

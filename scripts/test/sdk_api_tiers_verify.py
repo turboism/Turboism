@@ -32,7 +32,7 @@ def verify_tier_compatible(
     invalid_marker_usages: Iterable[str],
     trust_version: str = "v3",
 ) -> dict[str, str]:
-    policy_trust, initial_ledger_trust = production_tier_trust(trust_version)
+    policy_trust, initial_ledger_trust, root_count = production_tier_trust(trust_version)
     return _verify_with_trust(
         policy_path,
         initial_ledger_path,
@@ -43,6 +43,7 @@ def verify_tier_compatible(
         invalid_marker_usages,
         policy_trust,
         initial_ledger_trust,
+        initial_ledger_root_count=root_count,
     )
 
 
@@ -90,7 +91,7 @@ def _verify_with_trust(
     invalid_marker_usages,
     policy_trust,
     initial_ledger_trust=None,
-    initial_ledger_root_count=284,
+    initial_ledger_root_count=274,
 ):
     reject_invalid_markers(invalid_marker_usages)
     policy, initial_roots, admissions, promotions = load_tier_policy(

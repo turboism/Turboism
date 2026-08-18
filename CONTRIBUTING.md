@@ -41,3 +41,30 @@ push is refused.
 ```sh
 python3 scripts/test/test_check_remote_hygiene.py
 ```
+
+## Build and test
+
+- **Java**: a JDK 17 toolchain is required (`java` and `javac` on `PATH`).
+- **Build from source**:
+
+  ```sh
+  ./gradlew devCheck
+  ```
+
+- **Runtime and packaged integration**:
+
+  ```sh
+  ./gradlew checkIntegration
+  ```
+
+- **Release-oriented verification**:
+
+  ```sh
+  ./gradlew checkRelease
+  ```
+
+- **Exact-host validation** is opt-in and requires a separately installed,
+  licensed Live2D Cubism Editor; it is not part of any default gate.
+
+See the project documentation at https://docs.turboism.dev for the current
+architecture and contributor guidance.

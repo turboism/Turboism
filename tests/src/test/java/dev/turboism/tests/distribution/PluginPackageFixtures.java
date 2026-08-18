@@ -68,6 +68,10 @@ final class PluginPackageFixtures {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         try (JarOutputStream jar = new JarOutputStream(output)) {
             add(jar, "META-INF/turboism/plugin.json", descriptor.getBytes(StandardCharsets.UTF_8));
+            // Declared i18n.baseName requires its implicit base catalog; every
+            // success-path fixture JAR carries the minimal base catalog.
+            add(jar, "META-INF/turboism/i18n/messages.properties",
+                "plugin.name=Sample".getBytes(StandardCharsets.UTF_8));
             for (int i = 0; i < nameContentPairs.length; i += 2) {
                 add(jar, nameContentPairs[i], nameContentPairs[i + 1].getBytes(StandardCharsets.UTF_8));
             }

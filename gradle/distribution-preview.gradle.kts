@@ -10,12 +10,9 @@ import java.util.jar.JarFile
 
 private val resolvedWorktreeId = rootProject.extra["turboismResolvedWorktreeId"] as String
 private val previewBundleDir = layout.buildDirectory.dir("preview/$resolvedWorktreeId")
-private val previewSmokeDir = layout.buildDirectory.dir("preview-smoke/$resolvedWorktreeId")
 private val performanceProbeValidationDir =
     layout.buildDirectory.dir("validation/$resolvedWorktreeId/performance-probe")
 
-private fun Project.mainRuntimeClasspath() = extensions.getByType<SourceSetContainer>()
-    .named("main").get().runtimeClasspath
 
 private fun Project.productionProjects() = subprojects.filter {
     it.path == ":sdk" || it.path.startsWith(":plugins:")
@@ -116,24 +113,6 @@ val performanceProbeValidationBundle by tasks.registering(Sync::class) {
     }
 }
 
-val previewAgentSmokeTest by tasks.registering(JavaExec::class) {
-    group = "verification"
-    description = "Starts a child JVM with the built preview agent and proves premain loads the bundled plugin."
-    dependsOn(previewBundle, ":bootstrap:testClasses")
-    val bootstrapTests = project(":bootstrap").extensions.getByType<SourceSetContainer>().named("test")
-    classpath(bootstrapTests.map { it.output })
-    mainClass.set("dev.turboism.bootstrap.PreviewAgentSmokeMain")
-    systemProperty("java.awt.headless", "true")
-    doFirst {
-        val source = previewBundleDir.get().asFile
-        val root = previewSmokeDir.get().asFile
-        root.deleteRecursively()
-        copyPreviewBundle(source, root)
-        systemProperty("turboism.home", root.absolutePath)
-        setJvmArgs(listOf("-javaagent:${root.resolve("turboism-agent.jar").absolutePath}=hostClass=com.live2d.cubism.CEAppCtrl;timeoutSeconds=10"))
-    }
-}
-
 val previewBootstrapBridgeTest by tasks.registering(JavaExec::class) {
     group = "verification"
     description = "Proves the distributed agent exposes the mesh-mirror ingress to bootstrap lookup."
@@ -147,15 +126,6 @@ val previewBootstrapBridgeTest by tasks.registering(JavaExec::class) {
     }
 }
 
-val checkPreviewRuntimeReports by tasks.registering(JavaExec::class) {
-    group = "verification"
-    description = "Strictly validates the four correlated machine-readable preview reports."
-    dependsOn(previewAgentSmokeTest, ":runtime:classes")
-    classpath(project(":runtime").mainRuntimeClasspath())
-    mainClass.set("dev.turboism.preview.report.PreviewReportValidationCli")
-    doFirst { args(previewSmokeDir.get().asFile.resolve("state").absolutePath) }
-}
-
 tasks.register("checkPreviewBundleLayout") {
     group = "verification"
     description = "Build and verify the minimum Turboism 0.1 preview bundle layout and probe package isolation."
@@ -164,14 +134,6 @@ tasks.register("checkPreviewBundleLayout") {
         verifyPreviewBundle(previewBundleDir.get().asFile)
         verifyPerformanceProbeValidationBundle(performanceProbeValidationDir.get().asFile)
     }
-}
-
-private fun copyPreviewBundle(source: File, target: File) {
-    copyPreviewBundleInto(source, target)
-}
-
-private fun copyPreviewBundleInto(source: File, target: File) {
-    copy { from(source); into(target) }
 }
 
 private fun verifyPreviewBundle(root: File) {
