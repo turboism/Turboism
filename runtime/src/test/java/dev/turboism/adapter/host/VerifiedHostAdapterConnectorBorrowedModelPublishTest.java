@@ -1,5 +1,6 @@
 package dev.turboism.adapter.host;
 
+import dev.turboism.mapping.verification.selector.CoreMocInfoSelectorContract;
 import dev.turboism.adapter.RuntimeHostAdapters;
 import dev.turboism.adapter.cubism.core.CoreEvaluatedJoin;
 import dev.turboism.adapter.cubism.core.CoreProviderResult;
@@ -7,7 +8,6 @@ import dev.turboism.adapter.cubism.core.CoreVersionExpectation;
 import dev.turboism.adapter.cubism.core.RuntimeCoreModelBackend;
 import dev.turboism.adapter.cubism.core.TestCoreApiFixture;
 import dev.turboism.adapter.cubism.editor.EditorBackedCubismModelAccess;
-import dev.turboism.mapping.verification.CoreMocInfoSelectorContract;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
