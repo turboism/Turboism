@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.editor;
 
-import dev.turboism.mapping.verification.EditorParameterStructureSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorParameterGroupsReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorParameterStructureSelectorContract;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
@@ -339,7 +340,7 @@ class EditorParameterStructureAccessTest {
             "5.3.02", "adapter.editor-model.readwrite",
             includeCapability
                 ? java.util.Set.of("cubism.editor-model.read", EditorParameterStructureSelectorContract.CAPABILITY_ID,
-                    dev.turboism.mapping.verification.EditorParameterGroupsReadSelectorContract.CAPABILITY_ID)
+                    dev.turboism.mapping.verification.selector.EditorParameterGroupsReadSelectorContract.CAPABILITY_ID)
                 : java.util.Set.of("cubism.editor-model.read"),
             selectors, Host.class.getClassLoader());
     }

@@ -1,5 +1,9 @@
 package dev.turboism.mapping.verification;
 
+import dev.turboism.mapping.verification.selector.EditorDeformerInspectorSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorGlueInspectorSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorPartInspector52SelectorContract;
+import dev.turboism.mapping.verification.selector.EditorPartInspectorSelectorContract;
 import org.junit.jupiter.api.Test;
 
 import java.net.URL;

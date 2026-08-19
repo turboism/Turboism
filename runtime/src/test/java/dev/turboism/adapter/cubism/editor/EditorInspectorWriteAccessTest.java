@@ -1,12 +1,12 @@
 package dev.turboism.adapter.cubism.editor;
 
-import dev.turboism.mapping.verification.EditorDeformerInspectorSelectorContract;
-import dev.turboism.mapping.verification.EditorGlueInspectorSelectorContract;
-import dev.turboism.mapping.verification.EditorObjectReadSelectorContract;
-import dev.turboism.mapping.verification.EditorPartInspector52SelectorContract;
-import dev.turboism.mapping.verification.EditorPartInspectorSelectorContract;
-import dev.turboism.mapping.verification.EditorPartOpacitySelectorContract;
-import dev.turboism.mapping.verification.EditorPartTreeSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorDeformerInspectorSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorGlueInspectorSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorObjectReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorPartInspector52SelectorContract;
+import dev.turboism.mapping.verification.selector.EditorPartInspectorSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorPartOpacitySelectorContract;
+import dev.turboism.mapping.verification.selector.EditorPartTreeSelectorContract;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;

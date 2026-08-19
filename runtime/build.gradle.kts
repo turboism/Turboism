@@ -14,7 +14,7 @@ val generatedCoreCatalogFile = generatedCoreCatalogRoot.map {
 }
 val generatedCoreSelectorContractFile = generatedCoreCatalogRoot.map {
     it.file(
-        "dev/turboism/mapping/verification/CorePublicApiSelectorContract.java"
+        "dev/turboism/mapping/verification/selector/CorePublicApiSelectorContract.java"
     )
 }
 

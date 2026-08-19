@@ -123,7 +123,7 @@ class RuntimeCoreModelBackendTest {
             RuntimeCoreModelBackend.admit(
                 TestCoreApiFixture.resolver(
                     "5.3.02",
-                    dev.turboism.mapping.verification.CorePublicApiSelectorContract.PARAMETERS_GET_REPEATS
+                    dev.turboism.mapping.verification.selector.CorePublicApiSelectorContract.PARAMETERS_GET_REPEATS
                 ),
                 CoreVersionExpectation.exact(11, 12, 13)
             );
