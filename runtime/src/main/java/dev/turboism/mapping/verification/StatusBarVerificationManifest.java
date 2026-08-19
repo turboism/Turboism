@@ -1,35 +1,52 @@
 package dev.turboism.mapping.verification;
 
+import java.util.List;
 import java.util.Set;
 
 /**
- * Runtime trust root for the reviewed native bottom status bar: this main
- * manifest pins exact Cubism 5.3.02 and the companion
- * {@link StatusBarVerificationManifest52} pins exact 5.2.03; every other
- * artifact keeps failing closed.
+ * Runtime trust root for the reviewed native bottom status bar.
  *
- * <p>Exact-version admission: the 5.2.03 artifact is served by the reviewed
- * 5.2.03 record ({@link StatusBarVerificationManifest52}) and the 5.3.02
- * artifact by this manifest's own record; every other artifact keeps
- * failing closed.</p>
+ * <p>Both supported Cubism versions are declared symmetrically as {@link ReviewedSliceRecord}
+ * data. Every other artifact fails closed; no record stands in for a version it was not reviewed
+ * against.</p>
  */
 public final class StatusBarVerificationManifest {
 
-    public static final String VERIFICATION_ID = "cubism-5.3.02.ui-status-bar.static";
-    public static final String RECORD_SHA256 =
-        "afdc21fa80c62f3359d998aac8f8afbe6b6d8ebbbae2a1c24c9754225b53f8d2";
-    public static final String CUBISM_VERSION = "5.3.02";
-    public static final String PROFILE_ID = "cubism-5.3.02";
-    public static final long ARTIFACT_SIZE = ReviewedHostArtifacts.CUBISM_5_3_02.size();
-    public static final String ARTIFACT_SHA256 = ReviewedHostArtifacts.CUBISM_5_3_02.sha256();
+    /** Cubism version reported for the reviewed 5.2.03 artifact. */
+    public static final String CUBISM_VERSION_5_2_03 = "5.2.03";
+
+    /** Cubism version reported for the reviewed 5.3.02 artifact. */
+    public static final String CUBISM_VERSION_5_3_02 = "5.3.02";
+
+    /** Reviewed status-bar record admitted for exact Cubism 5.2.03. */
+    public static final ReviewedSliceRecord RECORD_5_2_03 = new ReviewedSliceRecord(
+        ReviewedHostArtifacts.CUBISM_5_2_03,
+        "cubism-5.2.03.ui-status-bar.static",
+        "94ef52c898cffe9b5837dd3e34e53ba150fc2d616f1269362e5151ec602fe4c0",
+        CUBISM_VERSION_5_2_03,
+        "cubism-5.2"
+    );
+
+    /** Reviewed status-bar record admitted for exact Cubism 5.3.02. */
+    public static final ReviewedSliceRecord RECORD_5_3_02 = new ReviewedSliceRecord(
+        ReviewedHostArtifacts.CUBISM_5_3_02,
+        "cubism-5.3.02.ui-status-bar.static",
+        "afdc21fa80c62f3359d998aac8f8afbe6b6d8ebbbae2a1c24c9754225b53f8d2",
+        CUBISM_VERSION_5_3_02,
+        "cubism-5.3.02"
+    );
+
+    private static final List<ReviewedSliceRecord> RECORDS = List.of(RECORD_5_2_03, RECORD_5_3_02);
+
     public static final String ADAPTER_SLICE_ID = "adapter.editor-ui.status-bar";
     public static final String CAPABILITY_ID = "ui.status.notify";
     public static final Set<String> CAPABILITY_IDS = Set.of(CAPABILITY_ID);
 
     /** Reviewed exact Cubism versions this status-bar trust root can serve. */
     public static Set<String> reviewedCubismVersions() {
-        return Set.of(StatusBarVerificationManifest52.CUBISM_VERSION, CUBISM_VERSION);
+        return Set.of(CUBISM_VERSION_5_2_03, CUBISM_VERSION_5_3_02);
     }
+
     public static final Set<String> REQUIRED_ALIASES = Set.of(
         "cubism.ui-status-bar.app-controller.class",
         "cubism.ui-status-bar.app-controller.instance",
@@ -55,32 +72,17 @@ public final class StatusBarVerificationManifest {
     );
 
     static PinnedVerifiedResolverWorkflow.Manifest forArtifact(final HostArtifactDigest artifact) {
-        if (artifact.size() == StatusBarVerificationManifest52.ARTIFACT_SIZE
-            && artifact.sha256().equals(StatusBarVerificationManifest52.ARTIFACT_SHA256)) {
-            return manifest(
-                StatusBarVerificationManifest52.VERIFICATION_ID,
-                StatusBarVerificationManifest52.RECORD_SHA256,
-                StatusBarVerificationManifest52.CUBISM_VERSION,
-                StatusBarVerificationManifest52.PROFILE_ID,
-                StatusBarVerificationManifest52.ARTIFACT_SIZE,
-                StatusBarVerificationManifest52.ARTIFACT_SHA256
-            );
-        }
-        if (artifact.size() == ARTIFACT_SIZE && artifact.sha256().equals(ARTIFACT_SHA256)) {
-            return manifest(
-                VERIFICATION_ID,
-                RECORD_SHA256,
-                CUBISM_VERSION,
-                PROFILE_ID,
-                ARTIFACT_SIZE,
-                ARTIFACT_SHA256
-            );
-        }
-        throw new IllegalArgumentException(
-            "host artifact is not a reviewed Cubism status-bar artifact"
-        );
+        return ReviewedSliceRecord.requireReviewed(RECORDS, artifact, "status-bar")
+            .toManifest(ADAPTER_SLICE_ID, CAPABILITY_IDS, REQUIRED_ALIASES);
     }
 
+    /**
+     * Returns the reviewed admission evidence for an artifact.
+     *
+     * @param artifact the observed host artifact identity
+     * @return evidence carrying the reviewed version, artifact binding, slice and record digest
+     * @throws IllegalArgumentException when the artifact is not reviewed for this family
+     */
     public static AdmissionEvidence admissionForArtifact(final HostArtifactDigest artifact) {
         final PinnedVerifiedResolverWorkflow.Manifest manifest = forArtifact(artifact);
         return new AdmissionEvidence(
@@ -92,6 +94,15 @@ public final class StatusBarVerificationManifest {
         );
     }
 
+    /**
+     * Reviewed status-bar admission evidence for one exact artifact.
+     *
+     * @param cubismVersion the reviewed Cubism version
+     * @param artifactSize the reviewed artifact byte size
+     * @param artifactSha256 the reviewed artifact SHA-256
+     * @param adapterSliceId the adapter slice identity
+     * @param recordSha256 SHA-256 of the reviewed record bytes
+     */
     public record AdmissionEvidence(
         String cubismVersion,
         long artifactSize,
@@ -99,38 +110,6 @@ public final class StatusBarVerificationManifest {
         String adapterSliceId,
         String recordSha256
     ) {
-    }
-
-    private static PinnedVerifiedResolverWorkflow.Manifest manifest() {
-        return manifest(
-            VERIFICATION_ID,
-            RECORD_SHA256,
-            CUBISM_VERSION,
-            PROFILE_ID,
-            ARTIFACT_SIZE,
-            ARTIFACT_SHA256
-        );
-    }
-
-    private static PinnedVerifiedResolverWorkflow.Manifest manifest(
-        final String verificationId,
-        final String recordSha256,
-        final String cubismVersion,
-        final String profileId,
-        final long artifactSize,
-        final String artifactSha256
-    ) {
-        return new PinnedVerifiedResolverWorkflow.Manifest(
-            verificationId,
-            recordSha256,
-            cubismVersion,
-            profileId,
-            artifactSize,
-            artifactSha256,
-            ADAPTER_SLICE_ID,
-            CAPABILITY_IDS,
-            REQUIRED_ALIASES
-        );
     }
 
     private StatusBarVerificationManifest() {
