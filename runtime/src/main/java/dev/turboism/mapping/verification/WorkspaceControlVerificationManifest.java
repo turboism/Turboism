@@ -14,21 +14,21 @@ public final class WorkspaceControlVerificationManifest {
     );
 
     static PinnedVerifiedResolverWorkflow.Manifest forArtifact(final HostArtifactDigest artifact) {
-        if (artifact.size() == 40_805_584L && artifact.sha256().equals(
-            "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd")) {
+        if (ReviewedHostArtifacts.CUBISM_5_2_03.equals(artifact)) {
             return manifest(
                 "m.workspace-5.2.03.control.static",
                 "8b001802fa672ce2f053ab516af9c38b2a2a08296fc663e9adf352e88c7dbf36",
-                "5.2.03", "cubism-5.2", 40_805_584L, artifact.sha256(),
+                ReviewedHostArtifacts.CUBISM_5_2_03_VERSION, "cubism-5.2",
+                ReviewedHostArtifacts.CUBISM_5_2_03.size(), artifact.sha256(),
                 "adapter.workspace.control.v5_2"
             );
         }
-        if (artifact.size() == 41_922_739L && artifact.sha256().equals(
-            "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21")) {
+        if (ReviewedHostArtifacts.CUBISM_5_3_02.equals(artifact)) {
             return manifest(
                 "m.workspace-5.3.02.control.static",
                 "7c675de8b23e63e6de14ae6c67403717d3b64fc8eefab54ac4124fffb3633f16",
-                "5.3.02", "cubism-5.3.02", 41_922_739L, artifact.sha256(),
+                ReviewedHostArtifacts.CUBISM_5_3_02_VERSION, "cubism-5.3.02",
+                ReviewedHostArtifacts.CUBISM_5_3_02.size(), artifact.sha256(),
                 "adapter.workspace.control.v5_3"
             );
         }

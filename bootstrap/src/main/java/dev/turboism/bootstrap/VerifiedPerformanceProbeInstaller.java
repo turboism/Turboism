@@ -11,6 +11,7 @@ import dev.turboism.adapter.cubism.performance.PerformanceProbeMetric;
 import dev.turboism.bootstrap.carrier.PerformanceProbeCallback;
 import dev.turboism.bootstrap.carrier.PerformanceProbeCarrier;
 import dev.turboism.mapping.verification.HostArtifactDigest;
+import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 
 import java.io.IOException;
 import java.lang.instrument.Instrumentation;
@@ -35,12 +36,11 @@ import java.util.jar.JarFile;
 /** Owns the exact Cubism 5.3.02 validation-only timing transformer. */
 final class VerifiedPerformanceProbeInstaller implements AutoCloseable {
 
-    private static final long CUBISM_5302_SIZE = 41_922_739L;
+    private static final long CUBISM_5302_SIZE = ReviewedHostArtifacts.CUBISM_5_3_02.size();
     private static final Duration ADMISSION_TIMEOUT = Duration.ofSeconds(120);
     private static final Duration ADMISSION_POLL_INTERVAL = Duration.ofMillis(500);
     private static final Duration TRIGGER_POLL_INTERVAL = Duration.ofMillis(500);
-    private static final String CUBISM_5302_SHA256 =
-        "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21";
+    private static final String CUBISM_5302_SHA256 = ReviewedHostArtifacts.CUBISM_5_3_02.sha256();
 
     private final Instrumentation instrumentation;
     private final ClassLoader hostClassLoader;

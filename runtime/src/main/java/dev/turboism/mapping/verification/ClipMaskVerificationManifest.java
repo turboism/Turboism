@@ -10,9 +10,8 @@ public final class ClipMaskVerificationManifest {
         "8e4f5a5d9ea7896700a2b40293ba720b7a7df549216bfb6efdedb3d73c951232";
     public static final String CUBISM_VERSION = "5.3.02";
     public static final String PROFILE_ID = "cubism-5.3.02";
-    public static final long ARTIFACT_SIZE = 41922739L;
-    public static final String ARTIFACT_SHA256 =
-        "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21";
+    public static final long ARTIFACT_SIZE = ReviewedHostArtifacts.CUBISM_5_3_02.size();
+    public static final String ARTIFACT_SHA256 = ReviewedHostArtifacts.CUBISM_5_3_02.sha256();
     public static final String ADAPTER_SLICE_ID = "adapter.clipmask.readonly";
     public static final Set<String> CAPABILITY_IDS = Set.of("cubism.clipmask.read");
     public static final Set<String> REQUIRED_ALIASES = Set.of(

@@ -1,6 +1,7 @@
 package dev.turboism.bootstrap;
 
 import dev.turboism.mapping.verification.HostArtifactDigest;
+import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry.Location;
 import org.junit.jupiter.api.Test;
 
@@ -13,14 +14,8 @@ class ObjectContextMenuHostProfileTest {
 
     @Test
     void pinsIndependent52And53OwnersAndAppendCardinality() {
-        final ObjectContextMenuHostProfile v52 = ObjectContextMenuHostProfile.forArtifact(new HostArtifactDigest(
-            40_805_584L,
-            "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd"
-        )).orElseThrow();
-        final ObjectContextMenuHostProfile v53 = ObjectContextMenuHostProfile.forArtifact(new HostArtifactDigest(
-            41_922_739L,
-            "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21"
-        )).orElseThrow();
+        final ObjectContextMenuHostProfile v52 = ObjectContextMenuHostProfile.forArtifact(ReviewedHostArtifacts.CUBISM_5_2_03).orElseThrow();
+        final ObjectContextMenuHostProfile v53 = ObjectContextMenuHostProfile.forArtifact(ReviewedHostArtifacts.CUBISM_5_3_02).orElseThrow();
 
         assertProfile(v52, "com/live2d/cubism/view/palette/parts/R", 21, 23, List.of(3, 3, 2, 1));
         assertProfile(v53, "com/live2d/cubism/view/palette/parts/T", 22, 22, List.of(1, 3, 1, 1));
