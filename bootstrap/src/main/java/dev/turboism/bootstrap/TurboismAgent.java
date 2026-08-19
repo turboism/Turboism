@@ -273,6 +273,11 @@ public final class TurboismAgent {
                 options.home(),
                 "cubism-" + profile + "-ui-control-appearance.json"
             );
+            final boolean meshMirrorPolicyEnabled = STARTUP_SUPPRESSION.get() != null
+                && STARTUP_SUPPRESSION.get().policy().hookEnabled("cubism.mesh.mirror-axis");
+            if (meshMirrorPolicyEnabled) {
+                installMeshMirrorHook(instrumentation, host);
+            }
             final PreviewRuntime runtime = PreviewRuntime.start(
                 options.home(),
                 verificationRecord,
@@ -317,14 +322,11 @@ public final class TurboismAgent {
             );
             installObjectContextMenuHook(runtime, instrumentation, host);
             installPhysicsEditorHook(runtime, instrumentation, host);
-            installMeshMirrorHook(
+            bindMeshMirrorHook(
                 runtime,
-                instrumentation,
-                host,
                 dev.turboism.adapter.cubism.mesh.MeshMirrorHookAdmission.admitted(
                     runtime.loadReport().loaded()
-                ) && STARTUP_SUPPRESSION.get() != null
-                    && STARTUP_SUPPRESSION.get().policy().hookEnabled("cubism.mesh.mirror-axis")
+                )
             );
             installBoundingBoxOverlayHook(runtime, instrumentation);
             installControlAppearanceHook(
@@ -699,15 +701,9 @@ public final class TurboismAgent {
     }
 
     private static void installMeshMirrorHook(
-        final PreviewRuntime runtime,
         final Instrumentation instrumentation,
-        final HostClassLocator.LocatedHost host,
-        final boolean enabled
+        final HostClassLocator.LocatedHost host
     ) {
-        if (!enabled) {
-            System.err.println("Turboism mesh mirror hook disabled by policy or missing authorized consumer");
-            return;
-        }
         VerifiedMeshMirrorHookInstaller installer = null;
         try {
             final var profile = dev.turboism.adapter.cubism.mesh.MeshMirrorHostProfile.forArtifact(
@@ -716,8 +712,6 @@ public final class TurboismAgent {
             installer = new VerifiedMeshMirrorHookInstaller(
                 instrumentation,
                 host.classLoader(),
-                runtime.hostAccess().meshMirrorAxisService(),
-                runtime.hostAccess().meshEditUiService(),
                 profile
             );
             installer.install();
@@ -726,6 +720,36 @@ public final class TurboismAgent {
             if (installer != null) installer.close();
             System.err.println(
                 "Turboism mesh mirror hook disabled safely: " + failure.getClass().getName()
+            );
+        }
+    }
+
+    private static void bindMeshMirrorHook(
+        final PreviewRuntime runtime,
+        final boolean authorized
+    ) {
+        final VerifiedMeshMirrorHookInstaller installer = MESH_MIRROR_HOOK.get();
+        if (installer == null) {
+            if (!authorized) {
+                System.err.println("Turboism mesh mirror hook disabled by policy or missing authorized consumer");
+            }
+            return;
+        }
+        if (!authorized) {
+            installer.close();
+            MESH_MIRROR_HOOK.compareAndSet(installer, null);
+            return;
+        }
+        try {
+            installer.bind(
+                runtime.hostAccess().meshMirrorAxisService(),
+                runtime.hostAccess().meshEditUiService()
+            );
+        } catch (Throwable failure) {
+            installer.close();
+            MESH_MIRROR_HOOK.compareAndSet(installer, null);
+            System.err.println(
+                "Turboism mesh mirror runtime binding disabled safely: " + failure.getClass().getName()
             );
         }
     }

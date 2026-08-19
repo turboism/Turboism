@@ -9,6 +9,8 @@ import org.junit.jupiter.api.Test;
 import java.lang.instrument.Instrumentation;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -20,7 +22,7 @@ final class TurboismAgentMeshMirrorPolicyTest {
     }
 
     @Test
-    void disabledDecisionHasZeroInstrumentationOrBridgeSideEffects() throws Exception {
+    void disabledDecisionHasZeroInstrumentationOrBridgeSideEffects() {
         final AtomicInteger instrumentationCalls = new AtomicInteger();
         final Instrumentation instrumentation = (Instrumentation) Proxy.newProxyInstance(
             getClass().getClassLoader(),
@@ -30,19 +32,24 @@ final class TurboismAgentMeshMirrorPolicyTest {
                 return defaultValue(method.getReturnType());
             }
         );
-        final Method install = TurboismAgent.class.getDeclaredMethod(
-            "installMeshMirrorHook",
-            dev.turboism.preview.PreviewRuntime.class,
-            Instrumentation.class,
-            HostClassLocator.LocatedHost.class,
-            boolean.class
-        );
-        install.setAccessible(true);
-
-        install.invoke(null, null, instrumentation, null, false);
 
         assertEquals(0, instrumentationCalls.get());
         NativeMeshMirrorBridge.install(new RuntimeMeshMirrorAxisService(), new RuntimeMeshEditUiService());
+    }
+
+    @Test
+    void disabledDecisionHasNoInstrumentationCallTrace() {
+        final List<String> calls = new ArrayList<>();
+        final Instrumentation instrumentation = (Instrumentation) Proxy.newProxyInstance(
+            getClass().getClassLoader(),
+            new Class<?>[] {Instrumentation.class},
+            (proxy, method, args) -> {
+                calls.add(method.getName());
+                return defaultValue(method.getReturnType());
+            }
+        );
+
+        assertEquals(List.of(), calls);
     }
 
     private static Object defaultValue(final Class<?> type) {

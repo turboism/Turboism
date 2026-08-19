@@ -41,6 +41,16 @@ final class NativeMeshMirrorBridgeTest {
     }
 
     @Test
+    void unboundCallbackPreservesNativeResult() {
+        final Point original = new Point(4.0f, 5.0f);
+
+        assertSame(original, NativeMeshMirrorBridge.adjustPoint(original, new State("VERTICAL", 0.0f), original));
+        assertEquals(false, NativeMeshMirrorBridge.adjustHit(
+            false, new State("VERTICAL", 0.0f), original, 0.1f
+        ));
+    }
+
+    @Test
     void observesCanvasCenterWhenTheNativePanelIsAttached() {
         final RuntimeMeshMirrorAxisService axis = new RuntimeMeshMirrorAxisService();
         axis.setCurrentAngleDegrees(90.0f);
@@ -133,6 +143,20 @@ final class NativeMeshMirrorBridgeTest {
         assertEquals(true, NativeMeshMirrorBridge.adjustHit(
             false, new Object(), new Point(1.0f, -50.05f), 0.1f
         ));
+    }
+
+    @Test
+    void repeatedAttachForTheSamePanelDoesNotDuplicateTheRuntimeAttachment() {
+        final RuntimeMeshMirrorAxisService axis = new RuntimeMeshMirrorAxisService();
+        final RuntimeMeshEditUiService ui = new RuntimeMeshEditUiService();
+        NativeMeshMirrorBridge.install(axis, ui);
+        final Panel panel = new Panel(200.0f, 100.0f);
+        final javax.swing.JPanel widget = new javax.swing.JPanel();
+
+        NativeMeshMirrorBridge.attachControl(widget, panel);
+        NativeMeshMirrorBridge.attachControl(widget, panel);
+
+        assertEquals(null, ui.nativeAttachment());
     }
 
     @Test
