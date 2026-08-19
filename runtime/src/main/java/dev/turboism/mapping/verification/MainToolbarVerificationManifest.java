@@ -1,18 +1,42 @@
 package dev.turboism.mapping.verification;
 
+import java.util.List;
 import java.util.Set;
 
-/** Runtime trust root for the Cubism 5.3.02 native main-toolbar provider. */
+/**
+ * Runtime trust root for exact-version Cubism native main-toolbar providers.
+ *
+ * <p>Both supported Cubism versions are declared symmetrically as {@link ReviewedSliceRecord}
+ * data; every other artifact fails closed.</p>
+ */
 public final class MainToolbarVerificationManifest {
 
-    public static final String VERIFICATION_ID =
-        "cubism-5.3.02.ui-main-toolbar.static";
-    public static final String RECORD_SHA256 =
-        "fa95beaca4ba59509f59d817e6411629f82aec1a2b0e7f8b8ec4dc36846cf9a5";
-    public static final String CUBISM_VERSION = "5.3.02";
-    public static final String PROFILE_ID = "cubism-5.3.02";
-    public static final long ARTIFACT_SIZE = ReviewedHostArtifacts.CUBISM_5_3_02.size();
-    public static final String ARTIFACT_SHA256 = ReviewedHostArtifacts.CUBISM_5_3_02.sha256();
+    /** Cubism version reported for the reviewed 5.2.03 artifact. */
+    public static final String CUBISM_VERSION_5_2_03 = "5.2.0";
+
+    /** Cubism version reported for the reviewed 5.3.02 artifact. */
+    public static final String CUBISM_VERSION_5_3_02 = "5.3.02";
+
+    /** Reviewed main-toolbar record admitted for exact Cubism 5.2.03. */
+    public static final ReviewedSliceRecord RECORD_5_2_03 = new ReviewedSliceRecord(
+        ReviewedHostArtifacts.CUBISM_5_2_03,
+        "cubism-5.2.ui-main-toolbar.static",
+        "c491ef7ef871fae1a30220eec16e7134ebd66af3c5e7edf766ca5277663657b6",
+        CUBISM_VERSION_5_2_03,
+        "cubism-5.2"
+    );
+
+    /** Reviewed main-toolbar record admitted for exact Cubism 5.3.02. */
+    public static final ReviewedSliceRecord RECORD_5_3_02 = new ReviewedSliceRecord(
+        ReviewedHostArtifacts.CUBISM_5_3_02,
+        "cubism-5.3.02.ui-main-toolbar.static",
+        "fa95beaca4ba59509f59d817e6411629f82aec1a2b0e7f8b8ec4dc36846cf9a5",
+        CUBISM_VERSION_5_3_02,
+        "cubism-5.3.02"
+    );
+
+    private static final List<ReviewedSliceRecord> RECORDS = List.of(RECORD_5_2_03, RECORD_5_3_02);
+
     public static final String ADAPTER_SLICE_ID = "adapter.editor-ui.main-toolbar";
     public static final String CAPABILITY_ID = "cubism.editor-ui.main-toolbar";
     public static final Set<String> CAPABILITY_IDS = Set.of(CAPABILITY_ID);
@@ -50,32 +74,17 @@ public final class MainToolbarVerificationManifest {
     static PinnedVerifiedResolverWorkflow.Manifest forArtifact(
         final HostArtifactDigest artifact
     ) {
-        if (artifact.size() == MainToolbarVerificationManifest52.ARTIFACT_SIZE
-            && artifact.sha256().equals(MainToolbarVerificationManifest52.ARTIFACT_SHA256)) {
-            return manifest(
-                MainToolbarVerificationManifest52.VERIFICATION_ID,
-                MainToolbarVerificationManifest52.RECORD_SHA256,
-                MainToolbarVerificationManifest52.CUBISM_VERSION,
-                MainToolbarVerificationManifest52.PROFILE_ID,
-                MainToolbarVerificationManifest52.ARTIFACT_SIZE,
-                MainToolbarVerificationManifest52.ARTIFACT_SHA256
-            );
-        }
-        if (artifact.size() == ARTIFACT_SIZE && artifact.sha256().equals(ARTIFACT_SHA256)) {
-            return manifest(
-                VERIFICATION_ID,
-                RECORD_SHA256,
-                CUBISM_VERSION,
-                PROFILE_ID,
-                ARTIFACT_SIZE,
-                ARTIFACT_SHA256
-            );
-        }
-        throw new IllegalArgumentException(
-            "host artifact is not a reviewed Cubism main-toolbar artifact"
-        );
+        return ReviewedSliceRecord.requireReviewed(RECORDS, artifact, "main-toolbar")
+            .toManifest(ADAPTER_SLICE_ID, CAPABILITY_IDS, REQUIRED_ALIASES);
     }
 
+    /**
+     * Returns the reviewed admission evidence for an artifact.
+     *
+     * @param artifact the observed host artifact identity
+     * @return evidence carrying the reviewed version, artifact binding, slice and record digest
+     * @throws IllegalArgumentException when the artifact is not reviewed for this family
+     */
     public static AdmissionEvidence admissionForArtifact(
         final HostArtifactDigest artifact
     ) {
@@ -89,6 +98,15 @@ public final class MainToolbarVerificationManifest {
         );
     }
 
+    /**
+     * Reviewed main-toolbar admission evidence for one exact artifact.
+     *
+     * @param cubismVersion the reviewed Cubism version
+     * @param artifactSize the reviewed artifact byte size
+     * @param artifactSha256 the reviewed artifact SHA-256
+     * @param adapterSliceId the adapter slice identity
+     * @param recordSha256 SHA-256 of the reviewed record bytes
+     */
     public record AdmissionEvidence(
         String cubismVersion,
         long artifactSize,
@@ -96,27 +114,6 @@ public final class MainToolbarVerificationManifest {
         String adapterSliceId,
         String recordSha256
     ) {
-    }
-
-    private static PinnedVerifiedResolverWorkflow.Manifest manifest(
-        final String verificationId,
-        final String recordSha256,
-        final String cubismVersion,
-        final String profileId,
-        final long artifactSize,
-        final String artifactSha256
-    ) {
-        return new PinnedVerifiedResolverWorkflow.Manifest(
-            verificationId,
-            recordSha256,
-            cubismVersion,
-            profileId,
-            artifactSize,
-            artifactSha256,
-            ADAPTER_SLICE_ID,
-            CAPABILITY_IDS,
-            REQUIRED_ALIASES
-        );
     }
 
     private MainToolbarVerificationManifest() {

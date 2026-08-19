@@ -1,17 +1,43 @@
 package dev.turboism.mapping.verification;
 
+import java.util.List;
 import java.util.Set;
 
-/** Runtime trust root for the Cubism 5.3.02 Editor model read/write binding. */
+/**
+ * Runtime trust root for the Cubism Editor model read/write binding.
+ *
+ * <p>Both supported Cubism versions are declared symmetrically as {@link ReviewedSliceRecord}
+ * data. The two versions deliberately authorise different capability and alias sets: 5.2.03
+ * exposes a strict subset, and the family supplies that scope per record.</p>
+ */
 public final class EditorModelVerificationManifest {
 
-    public static final String VERIFICATION_ID = "cubism-5.3.02.editor-model.static";
-    public static final String RECORD_SHA256 =
-"9170b2df5758a5378a197b9798ac7fb370a35e57e38019808d3a4bccf1e3720c";
-    public static final String CUBISM_VERSION = "5.3.02";
-    public static final String PROFILE_ID = "cubism-5.3.02";
-    public static final long ARTIFACT_SIZE = ReviewedHostArtifacts.CUBISM_5_3_02.size();
-    public static final String ARTIFACT_SHA256 = ReviewedHostArtifacts.CUBISM_5_3_02.sha256();
+    /** Cubism version reported for the reviewed 5.2.03 artifact. */
+    public static final String CUBISM_VERSION_5_2_03 = "5.2.0";
+
+    /** Cubism version reported for the reviewed 5.3.02 artifact. */
+    public static final String CUBISM_VERSION_5_3_02 = "5.3.02";
+
+    /** Reviewed Editor-model record admitted for exact Cubism 5.2.03. */
+    public static final ReviewedSliceRecord RECORD_5_2_03 = new ReviewedSliceRecord(
+        ReviewedHostArtifacts.CUBISM_5_2_03,
+        "cubism-5.2.editor-model.static",
+        "d3b55e0ea62a1dbdcbd09c6a985c8503e07a6e345958cf9702fe52ae58e28ac8",
+        CUBISM_VERSION_5_2_03,
+        "cubism-5.2"
+    );
+
+    /** Reviewed Editor-model record admitted for exact Cubism 5.3.02. */
+    public static final ReviewedSliceRecord RECORD_5_3_02 = new ReviewedSliceRecord(
+        ReviewedHostArtifacts.CUBISM_5_3_02,
+        "cubism-5.3.02.editor-model.static",
+        "9170b2df5758a5378a197b9798ac7fb370a35e57e38019808d3a4bccf1e3720c",
+        CUBISM_VERSION_5_3_02,
+        "cubism-5.3.02"
+    );
+
+    private static final List<ReviewedSliceRecord> RECORDS = List.of(RECORD_5_2_03, RECORD_5_3_02);
+
     public static final String ADAPTER_SLICE_ID = "adapter.editor-model.readwrite";
     public static final Set<String> CAPABILITY_IDS = Set.of(
         "cubism.editor-model.read",
@@ -585,56 +611,21 @@ public final class EditorModelVerificationManifest {
     static PinnedVerifiedResolverWorkflow.Manifest forArtifact(
         final HostArtifactDigest artifact
     ) {
-        if (artifact.size() == EditorModelVerificationManifest52.ARTIFACT_SIZE
-            && artifact.sha256().equals(EditorModelVerificationManifest52.ARTIFACT_SHA256)) {
-            return manifest(
-                EditorModelVerificationManifest52.VERIFICATION_ID,
-                EditorModelVerificationManifest52.RECORD_SHA256,
-                EditorModelVerificationManifest52.CUBISM_VERSION,
-                EditorModelVerificationManifest52.PROFILE_ID,
-                EditorModelVerificationManifest52.ARTIFACT_SIZE,
-                EditorModelVerificationManifest52.ARTIFACT_SHA256,
+        final ReviewedSliceRecord record =
+            ReviewedSliceRecord.requireReviewed(RECORDS, artifact, "Editor model");
+        // The two reviewed versions authorise different capability and alias sets: 5.2.03 exposes
+        // a strict subset. The record carries identity; the family supplies the per-version scope.
+        if (RECORD_5_2_03.equals(record)) {
+            return record.toManifest(
+                ADAPTER_SLICE_ID,
                 ObjectContextMenuVerificationManifest.capabilities(cubism52Capabilities()),
                 ObjectContextMenuVerificationManifest.aliases(cubism52Aliases())
             );
         }
-        if (artifact.size() == ARTIFACT_SIZE && artifact.sha256().equals(ARTIFACT_SHA256)) {
-            return manifest(
-                VERIFICATION_ID,
-                RECORD_SHA256,
-                CUBISM_VERSION,
-                PROFILE_ID,
-                ARTIFACT_SIZE,
-                ARTIFACT_SHA256,
-                ObjectContextMenuVerificationManifest.capabilities(CAPABILITY_IDS),
-                ObjectContextMenuVerificationManifest.aliases(REQUIRED_ALIASES)
-            );
-        }
-        throw new IllegalArgumentException(
-            "host artifact is not a reviewed Cubism Editor model artifact"
-        );
-    }
-
-    private static PinnedVerifiedResolverWorkflow.Manifest manifest(
-        final String verificationId,
-        final String recordSha256,
-        final String cubismVersion,
-        final String profileId,
-        final long artifactSize,
-        final String artifactSha256,
-        final Set<String> capabilityIds,
-        final Set<String> requiredAliases
-    ) {
-        return new PinnedVerifiedResolverWorkflow.Manifest(
-            verificationId,
-            recordSha256,
-            cubismVersion,
-            profileId,
-            artifactSize,
-            artifactSha256,
+        return record.toManifest(
             ADAPTER_SLICE_ID,
-            capabilityIds,
-            requiredAliases
+            ObjectContextMenuVerificationManifest.capabilities(CAPABILITY_IDS),
+            ObjectContextMenuVerificationManifest.aliases(REQUIRED_ALIASES)
         );
     }
 
