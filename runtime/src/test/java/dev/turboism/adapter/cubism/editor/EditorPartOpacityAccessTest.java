@@ -1,7 +1,8 @@
 package dev.turboism.adapter.cubism.editor;
 
-import dev.turboism.mapping.verification.EditorPartOpacitySelectorContract;
-import dev.turboism.mapping.verification.EditorPartTreeSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorPartOpacity52SelectorContract;
+import dev.turboism.mapping.verification.selector.EditorPartOpacitySelectorContract;
+import dev.turboism.mapping.verification.selector.EditorPartTreeSelectorContract;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
@@ -191,7 +192,7 @@ class EditorPartOpacityAccessTest {
 
     private static String opacityCapability(final String cubismVersion) {
         return "5.2.0".equals(cubismVersion)
-            ? dev.turboism.mapping.verification.EditorPartOpacity52SelectorContract.CAPABILITY_ID
+            ? dev.turboism.mapping.verification.selector.EditorPartOpacity52SelectorContract.CAPABILITY_ID
             : EditorPartOpacitySelectorContract.CAPABILITY_ID;
     }
 

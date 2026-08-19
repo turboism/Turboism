@@ -1,5 +1,10 @@
 package dev.turboism.mapping.verification;
 
+import dev.turboism.mapping.verification.selector.CoreMocInfoSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorAnimationReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorAutoYureReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorModelNameWriteSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorPhysicsReadSelectorContract;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;

@@ -209,7 +209,6 @@ final class RuntimeMeshEditUiServiceNativeTest {
                 """),
             new FakeSource("com/live2d/ui/control/CButton.java", """
                 package com.live2d.ui.control;
-                import kotlin.jvm.functions.Function1;
                 public final class CButton {
                     private Function1 onAction;
                     private String toolTipText;
@@ -230,8 +229,6 @@ final class RuntimeMeshEditUiServiceNativeTest {
                 """),
             new FakeSource("com/live2d/ui/container/CVBox.java", """
                 package com.live2d.ui.container;
-                import java.util.ArrayList;
-                import java.util.List;
                 public class CVBox {
                     private final List<Object> children = new ArrayList<>();
                     public void add(Object child, int index) { children.add(index, child); }

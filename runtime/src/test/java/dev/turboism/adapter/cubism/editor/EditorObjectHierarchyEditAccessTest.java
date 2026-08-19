@@ -1,9 +1,9 @@
 package dev.turboism.adapter.cubism.editor;
 
-import dev.turboism.mapping.verification.EditorObjectHierarchyEditSelectorContract;
-import dev.turboism.mapping.verification.EditorObjectReadSelectorContract;
-import dev.turboism.mapping.verification.EditorPartTreeSelectorContract;
-import dev.turboism.mapping.verification.EditorPartNameSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorObjectHierarchyEditSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorObjectReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorPartNameSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorPartTreeSelectorContract;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
@@ -354,7 +354,7 @@ class EditorObjectHierarchyEditAccessTest {
         final java.util.HashSet<String> capabilities = new java.util.HashSet<>();
         capabilities.add(EditorPartNameSelectorContract.CAPABILITY_ID);
         capabilities.add(EditorObjectReadSelectorContract.CAPABILITY_ID);
-        capabilities.add(dev.turboism.mapping.verification.EditorPartTreeSelectorContract.CAPABILITY_ID);
+        capabilities.add(dev.turboism.mapping.verification.selector.EditorPartTreeSelectorContract.CAPABILITY_ID);
         capabilities.add(EditorObjectHierarchyEditSelectorContract.CAPABILITY_ID);
         capabilities.add(EditorObjectHierarchyEditSelectorContract.RENAME_CAPABILITY_ID);
         capabilities.add(EditorObjectHierarchyEditSelectorContract.ART_MESH_CREATE_CAPABILITY_ID);
