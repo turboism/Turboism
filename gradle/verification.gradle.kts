@@ -105,13 +105,15 @@ val checkCodeQualitySelfTest by tasks.registering(Exec::class) {
 }
 
 /*
- * Opt-in while the Javadoc backlog is being closed; wired into devCheck once green.
- * -PturboismCodeQualityRules selects a subset, e.g. "digests,naming,assets".
+ * Wired into devCheck as a ratchet: the digest, naming and asset rules are enforced absolutely,
+ * and Javadoc is enforced as a non-increasing maximum so new undocumented public API is blocked
+ * immediately while the existing backlog burns down.
+ * -PturboismCodeQualityRules selects a subset; -PturboismCodeQualityStrict=true demands zero.
  */
 tasks.register<Exec>("checkCodeQuality") {
     group = "verification"
     description =
-        "Rejects undocumented public API, duplicated reviewed host digests, version-encoding " +
+        "Rejects new undocumented public API, duplicated reviewed host digests, version-encoding " +
             "type names, and retired governance tokens in machine assets."
     dependsOn(checkCodeQualitySelfTest)
     workingDir(rootDir)
@@ -124,12 +126,17 @@ tasks.register<Exec>("checkCodeQuality") {
         fileTree("cubism-ref") { include("**/*.json") }
     )
     val selectedRules = providers.gradleProperty("turboismCodeQualityRules")
+    val strict = providers.gradleProperty("turboismCodeQualityStrict")
     doFirst {
         val rules = selectedRules.getOrElse("javadoc,digests,naming,assets")
-        commandLine(
+        val command = mutableListOf(
             "python3", "scripts/test/check_code_quality.py", rootDir.absolutePath,
             "--rules", rules
         )
+        if (strict.getOrElse("false") != "true") {
+            command += "--ratchet"
+        }
+        commandLine(command)
     }
 }
 
@@ -222,6 +229,7 @@ val devCheck by tasks.registering {
         checkDuplicateJavaImports,
         checkPackageLayout,
         "checkModuleBoundaries",
+        "checkCodeQuality",
         "checkSdkV4ExactApiCompatibility",
         "checkSdkV4TierCompatibility",
         "validatePluginMeta",
