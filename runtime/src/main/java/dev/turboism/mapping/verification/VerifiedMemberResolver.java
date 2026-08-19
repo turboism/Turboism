@@ -25,6 +25,18 @@ public final class VerifiedMemberResolver {
         this.hostClassLoader = Objects.requireNonNull(hostClassLoader, "hostClassLoader");
     }
 
+    /**
+     * Returns whether this resolver authorises a complete adapter slice.
+     *
+     * <p>Authorisation is all-or-nothing: the slice id, every capability and every alias must be
+     * present in the verified access plan. A partially matching plan is not authorised, so an
+     * adapter can never come up with a subset of the members it declared.</p>
+     *
+     * @param adapterSliceId the adapter slice being claimed
+     * @param capabilityIds the capabilities the slice exposes
+     * @param aliases every selector alias the slice needs
+     * @return {@code true} only when the plan covers all three completely
+     */
     public boolean authorizes(
         final String adapterSliceId,
         final java.util.Set<String> capabilityIds,
@@ -47,10 +59,21 @@ public final class VerifiedMemberResolver {
         );
     }
 
+    /**
+     * Returns whether the admitted artifact is exactly one Cubism version.
+     *
+     * @param expectedVersion the version string to compare against
+     * @return {@code true} only on exact equality; no range or prefix matching
+     */
     public boolean isExactCubismVersion(final String expectedVersion) {
         return accessPlan.cubismVersion().equals(expectedVersion);
     }
 
+    /**
+     * Returns the exact Cubism version of the admitted artifact.
+     *
+     * @return the reviewed version string
+     */
     public String cubismVersion() {
         return accessPlan.cubismVersion();
     }
@@ -65,6 +88,13 @@ public final class VerifiedMemberResolver {
         return selector(alias);
     }
 
+    /**
+     * Binds a verified static method for repeated invocation.
+     *
+     * @param alias the verified selector alias
+     * @return a call site bound to the resolved static method
+     * @throws VerifiedAccessException when the alias is unknown, or is not a static method
+     */
     public VerifiedMethodCallSite bindStatic(final String alias) {
         final StaticSelector selector = methodSelector(alias);
         if ((selector.requiredAccessFlags() & StaticSelector.ACCESS_STATIC) == 0) {
@@ -73,6 +103,13 @@ public final class VerifiedMemberResolver {
         return bindResolved(selector);
     }
 
+    /**
+     * Binds a verified instance method for repeated invocation.
+     *
+     * @param alias the verified selector alias
+     * @return a call site bound to the resolved instance method
+     * @throws VerifiedAccessException when the alias is unknown, or is not an instance method
+     */
     public VerifiedMethodCallSite bind(final String alias) {
         final StaticSelector selector = methodSelector(alias);
         if ((selector.forbiddenAccessFlags() & StaticSelector.ACCESS_STATIC) == 0) {
@@ -81,6 +118,14 @@ public final class VerifiedMemberResolver {
         return bindResolved(selector);
     }
 
+    /**
+     * Invokes a verified static method once.
+     *
+     * @param alias the verified selector alias
+     * @param arguments arguments matching the verified descriptor
+     * @return the call's result, or null for a void method
+     * @throws VerifiedAccessException when the alias is unknown, is not static, or the call fails
+     */
     public Object invokeStatic(final String alias, final Object... arguments) {
         final StaticSelector selector = methodSelector(alias);
         if ((selector.requiredAccessFlags() & StaticSelector.ACCESS_STATIC) == 0) {
@@ -89,6 +134,14 @@ public final class VerifiedMemberResolver {
         return invokeResolved(selector, null, arguments);
     }
 
+    /**
+     * Reads a verified static field once.
+     *
+     * @param alias the verified selector alias
+     * @return the field's current value
+     * @throws VerifiedAccessException when the alias is unknown, is not a static field, or the
+     *     read fails
+     */
     public Object readStaticField(final String alias) {
         final StaticSelector selector = fieldSelector(alias);
         if ((selector.requiredAccessFlags() & StaticSelector.ACCESS_STATIC) == 0) {
@@ -126,6 +179,14 @@ public final class VerifiedMemberResolver {
     }
 
 
+    /**
+     * Invokes a verified constructor.
+     *
+     * @param alias the verified selector alias
+     * @param arguments arguments matching the verified descriptor
+     * @return the constructed instance
+     * @throws VerifiedAccessException when the alias is unknown or construction fails
+     */
     public Object construct(final String alias, final Object... arguments) {
         final StaticSelector selector = constructorSelector(alias);
         try {
@@ -218,6 +279,17 @@ public final class VerifiedMemberResolver {
         }
     }
 
+    /**
+     * Creates a proxy for a verified functional host interface.
+     *
+     * <p>Used where a host method takes a callback: the proxy is created against the verified
+     * interface rather than a guessed one, so an unverified shape cannot reach host code.</p>
+     *
+     * @param alias the verified selector alias naming the interface
+     * @param handler the invocation handler backing the proxy
+     * @return a proxy implementing the verified interface
+     * @throws VerifiedAccessException when the alias is unknown or the proxy cannot be created
+     */
     public Object createFunctionalArgumentProxy(
         final String methodAlias,
         final int parameterIndex,
@@ -402,6 +474,16 @@ public final class VerifiedMemberResolver {
         }
     }
 
+    /**
+     * Invokes a verified instance method once.
+     *
+     * @param alias the verified selector alias
+     * @param receiver the instance to invoke on
+     * @param arguments arguments matching the verified descriptor
+     * @return the call's result, or null for a void method
+     * @throws VerifiedAccessException when the alias is unknown, is not an instance method, or
+     *     the call fails
+     */
     public Object invoke(final String alias, final Object target, final Object... arguments) {
         final StaticSelector selector = methodSelector(alias);
         if ((selector.forbiddenAccessFlags() & StaticSelector.ACCESS_STATIC) == 0) {
