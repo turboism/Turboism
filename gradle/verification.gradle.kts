@@ -93,6 +93,46 @@ val checkCubismCoreSelectorPolicy by tasks.registering(Exec::class) {
     commandLine("python3", "scripts/test/test_cubism_core_selector_policy.py")
 }
 
+val checkCodeQualitySelfTest by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Runs negative fixtures proving each code-quality rule fails closed."
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/test/check_code_quality.py",
+        "scripts/test/test_check_code_quality.py"
+    )
+    commandLine("python3", "scripts/test/test_check_code_quality.py")
+}
+
+/*
+ * Opt-in while the Javadoc backlog is being closed; wired into devCheck once green.
+ * -PturboismCodeQualityRules selects a subset, e.g. "digests,naming,assets".
+ */
+tasks.register<Exec>("checkCodeQuality") {
+    group = "verification"
+    description =
+        "Rejects undocumented public API, duplicated reviewed host digests, version-encoding " +
+            "type names, and retired governance tokens in machine assets."
+    dependsOn(checkCodeQualitySelfTest)
+    workingDir(rootDir)
+    inputs.files("scripts/test/check_code_quality.py")
+    inputs.files(
+        fileTree("sdk/src/main/java") { include("**/*.java") },
+        fileTree("runtime/src/main/java") { include("**/*.java") },
+        fileTree("bootstrap/src/main/java") { include("**/*.java") },
+        fileTree("plugins") { include("**/src/main/java/**/*.java") },
+        fileTree("cubism-ref") { include("**/*.json") }
+    )
+    val selectedRules = providers.gradleProperty("turboismCodeQualityRules")
+    doFirst {
+        val rules = selectedRules.getOrElse("javadoc,digests,naming,assets")
+        commandLine(
+            "python3", "scripts/test/check_code_quality.py", rootDir.absolutePath,
+            "--rules", rules
+        )
+    }
+}
+
 val checkPackageLayout by tasks.registering(Exec::class) {
     group = "verification"
     description = "Rejects deprecated SDK/runtime packages and package-only production Java shells."
