@@ -23,7 +23,7 @@ import java.util.Optional;
  *
  * <p>The version is taken from the bound {@link VerifiedMemberResolver#cubismVersion()}.
  * The production Editor-model resolver reports {@code 5.2.0} for the exact 5.2.03 patch
- * artifact ({@code EditorModelVerificationManifest52.CUBISM_VERSION}) and {@code 5.3.02} for
+ * artifact ({@code EditorModelVerificationManifest.CUBISM_VERSION_5_2_03}) and {@code 5.3.02} for
  * the 5.3.02 artifact; the 5.2 control-appearance record spells the same artifact
  * {@code 5.2.03}. Both spellings route to accessor {@code h}; every other version fails
  * closed (no profile, deformer filtering disabled).</p>

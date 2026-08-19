@@ -26,14 +26,14 @@ class StatusBarVerificationManifestTest {
     void manifestMatchesTheReviewedRecordBytesAndAllTwentyOneAliases() throws Exception {
         final Path record = repositoryPath("cubism-ref/verification/" + RECORD_NAME);
         final String recordSha = sha256(record);
-        assertEquals(StatusBarVerificationManifest.RECORD_SHA256, recordSha,
+        assertEquals(StatusBarVerificationManifest.RECORD_5_3_02.recordSha256(), recordSha,
             "manifest record digest must match the reviewed record bytes");
 
         final JsonNode root = mapper.readTree(record.toFile());
-        assertEquals(StatusBarVerificationManifest.VERIFICATION_ID, root.get("verificationId").asText());
+        assertEquals(StatusBarVerificationManifest.RECORD_5_3_02.verificationId(), root.get("verificationId").asText());
         assertEquals(StatusBarVerificationManifest.ADAPTER_SLICE_ID, root.get("adapterSliceId").asText());
-        assertEquals(StatusBarVerificationManifest.CUBISM_VERSION, root.get("cubismVersion").asText());
-        assertEquals(StatusBarVerificationManifest.PROFILE_ID, root.get("profileId").asText());
+        assertEquals(StatusBarVerificationManifest.RECORD_5_3_02.cubismVersion(), root.get("cubismVersion").asText());
+        assertEquals(StatusBarVerificationManifest.RECORD_5_3_02.profileId(), root.get("profileId").asText());
         assertEquals(
             StatusBarVerificationManifest.CAPABILITY_IDS,
             Set.copyOf(new HashSet<>(mapper.convertValue(
@@ -42,11 +42,11 @@ class StatusBarVerificationManifestTest {
             )))
         );
         assertEquals(
-            StatusBarVerificationManifest.ARTIFACT_SIZE,
+            StatusBarVerificationManifest.RECORD_5_3_02.artifact().size(),
             root.get("artifact").get("size").asLong()
         );
         assertEquals(
-            StatusBarVerificationManifest.ARTIFACT_SHA256,
+            StatusBarVerificationManifest.RECORD_5_3_02.artifact().sha256(),
             root.get("artifact").get("sha256").asText()
         );
         assertRecordAliases(root, StatusBarVerificationManifest.REQUIRED_ALIASES);
@@ -56,14 +56,14 @@ class StatusBarVerificationManifestTest {
     void manifest52MatchesTheReviewedRecordBytesAndAllTwentyOneAliases() throws Exception {
         final Path record = repositoryPath("cubism-ref/verification/" + RECORD_NAME_52);
         final String recordSha = sha256(record);
-        assertEquals(StatusBarVerificationManifest52.RECORD_SHA256, recordSha,
+        assertEquals(StatusBarVerificationManifest.RECORD_5_2_03.recordSha256(), recordSha,
             "the 5.2 manifest record digest must match the reviewed 5.2 record bytes");
 
         final JsonNode root = mapper.readTree(record.toFile());
-        assertEquals(StatusBarVerificationManifest52.VERIFICATION_ID, root.get("verificationId").asText());
+        assertEquals(StatusBarVerificationManifest.RECORD_5_2_03.verificationId(), root.get("verificationId").asText());
         assertEquals(StatusBarVerificationManifest.ADAPTER_SLICE_ID, root.get("adapterSliceId").asText());
-        assertEquals(StatusBarVerificationManifest52.CUBISM_VERSION, root.get("cubismVersion").asText());
-        assertEquals(StatusBarVerificationManifest52.PROFILE_ID, root.get("profileId").asText());
+        assertEquals(StatusBarVerificationManifest.RECORD_5_2_03.cubismVersion(), root.get("cubismVersion").asText());
+        assertEquals(StatusBarVerificationManifest.RECORD_5_2_03.profileId(), root.get("profileId").asText());
         assertEquals(
             StatusBarVerificationManifest.CAPABILITY_IDS,
             Set.copyOf(new HashSet<>(mapper.convertValue(
@@ -72,11 +72,11 @@ class StatusBarVerificationManifestTest {
             )))
         );
         assertEquals(
-            StatusBarVerificationManifest52.ARTIFACT_SIZE,
+            StatusBarVerificationManifest.RECORD_5_2_03.artifact().size(),
             root.get("artifact").get("size").asLong()
         );
         assertEquals(
-            StatusBarVerificationManifest52.ARTIFACT_SHA256,
+            StatusBarVerificationManifest.RECORD_5_2_03.artifact().sha256(),
             root.get("artifact").get("sha256").asText()
         );
         assertRecordAliases(root, StatusBarVerificationManifest.REQUIRED_ALIASES);
@@ -131,15 +131,15 @@ class StatusBarVerificationManifestTest {
     @Test
     void forArtifactServesBothReviewedVersionsAndFailsClosedForAnythingElse() {
         assertEquals(
-            StatusBarVerificationManifest.CUBISM_VERSION,
+            StatusBarVerificationManifest.RECORD_5_3_02.cubismVersion(),
             StatusBarVerificationManifest.forArtifact(REVIEWED_5302).cubismVersion()
         );
         assertEquals(
-            StatusBarVerificationManifest52.CUBISM_VERSION,
+            StatusBarVerificationManifest.RECORD_5_2_03.cubismVersion(),
             StatusBarVerificationManifest.forArtifact(REVIEWED_52).cubismVersion()
         );
         assertEquals(
-            StatusBarVerificationManifest52.RECORD_SHA256,
+            StatusBarVerificationManifest.RECORD_5_2_03.recordSha256(),
             StatusBarVerificationManifest.forArtifact(REVIEWED_52).recordSha256()
         );
         assertThrows(
@@ -160,7 +160,7 @@ class StatusBarVerificationManifestTest {
         assertEquals(ReviewedHostArtifacts.CUBISM_5_3_02.size(), admission.artifactSize());
         assertEquals(REVIEWED_5302.sha256(), admission.artifactSha256());
         assertEquals("adapter.editor-ui.status-bar", admission.adapterSliceId());
-        assertEquals(StatusBarVerificationManifest.RECORD_SHA256, admission.recordSha256());
+        assertEquals(StatusBarVerificationManifest.RECORD_5_3_02.recordSha256(), admission.recordSha256());
 
         final StatusBarVerificationManifest.AdmissionEvidence admission52 = StatusBarVerificationManifest
             .admissionForArtifact(REVIEWED_52);
@@ -168,7 +168,7 @@ class StatusBarVerificationManifestTest {
         assertEquals(ReviewedHostArtifacts.CUBISM_5_2_03.size(), admission52.artifactSize());
         assertEquals(REVIEWED_52.sha256(), admission52.artifactSha256());
         assertEquals("adapter.editor-ui.status-bar", admission52.adapterSliceId());
-        assertEquals(StatusBarVerificationManifest52.RECORD_SHA256, admission52.recordSha256());
+        assertEquals(StatusBarVerificationManifest.RECORD_5_2_03.recordSha256(), admission52.recordSha256());
     }
 
     @Test
