@@ -1,5 +1,6 @@
 package dev.turboism.mapping.verification;
 
+import dev.turboism.mapping.verification.selector.EditorTextureSelectorContract;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 

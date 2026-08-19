@@ -72,8 +72,6 @@ final class MultiEntrypointPluginJarFixture {
 
             import dev.turboism.sdk.plugin.PluginContext;
             import dev.turboism.sdk.plugin.TurboismPlugin;
-            import java.nio.file.Files;
-            import java.nio.file.Path;
             import java.nio.file.StandardOpenOption;
 
             public final class %s implements TurboismPlugin {

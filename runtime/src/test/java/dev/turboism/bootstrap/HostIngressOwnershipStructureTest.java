@@ -83,7 +83,6 @@ class HostIngressOwnershipStructureTest {
                     """),
                 source("other.GenericOwner", """
                     package other;
-                    import dev.turboism.adapter.host.HostSession;
                     final class GenericOwner {
                         private java.util.List<HostSession> retained;
                         private HostSession[] array;
@@ -247,7 +246,6 @@ class HostIngressOwnershipStructureTest {
                     """),
                 source("dev.turboism.bootstrap.HostRuntimeIngress", """
                     package dev.turboism.bootstrap;
-                    import dev.turboism.adapter.host.*;
                     import dev.turboism.sdk.plugin.Registration;
                     import java.util.concurrent.atomic.*;
                     final class HostRuntimeIngress {
@@ -302,8 +300,6 @@ class HostIngressOwnershipStructureTest {
                     """),
                 source("dev.turboism.bootstrap.HostRuntimeIngress", """
                     package dev.turboism.bootstrap;
-                    import dev.turboism.adapter.host.*;
-                    import java.util.concurrent.atomic.*;
                     final class HostRuntimeIngress {
                         private final AtomicReference<HostInstanceDescriptor> current = new AtomicReference<>();
                         private final AtomicBoolean closeRequested = new AtomicBoolean();
@@ -363,8 +359,6 @@ class HostIngressOwnershipStructureTest {
                     """),
                 source("dev.turboism.bootstrap.HostRuntimeIngress", """
                     package dev.turboism.bootstrap;
-                    import dev.turboism.adapter.host.*;
-                    import java.util.function.Function;
                     final class HostRuntimeIngress {
                         public HostRuntimeIngress(Function<HostInstanceSource, HostSession> sessionFactory) {}
                     }
@@ -407,9 +401,6 @@ class HostIngressOwnershipStructureTest {
             source("dev.turboism.bootstrap.HostRuntimeIngress", """
                 package dev.turboism.bootstrap;
                 import dev.turboism.adapter.RuntimeHostAdapters;
-                import dev.turboism.adapter.host.*;
-                import dev.turboism.sdk.plugin.Registration;
-                import java.util.concurrent.atomic.*;
                 final class HostRuntimeIngress {
                 %s
                 }

@@ -1,7 +1,8 @@
 package dev.turboism.adapter.cubism.core;
 
-import dev.turboism.mapping.verification.CorePublicApiSelectorContract;
-import dev.turboism.mapping.verification.OwnedMocSelectorContract;
+import dev.turboism.mapping.verification.selector.CoreMocInfoSelectorContract;
+import dev.turboism.mapping.verification.selector.OwnedMocSelectorContract;
+import dev.turboism.mapping.verification.selector.CorePublicApiSelectorContract;
 import dev.turboism.mapping.verification.VerifiedAccessException;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 
@@ -254,9 +255,9 @@ public final class CorePublicApiProviderFactory {
         public CoreProviderResult<Integer> mocVersionOfModel(final Object model) {
             Objects.requireNonNull(model, "model");
             if (!resolver.authorizesFeature(
-                dev.turboism.mapping.verification.CoreMocInfoSelectorContract.ADAPTER_SLICE_ID,
-                dev.turboism.mapping.verification.CoreMocInfoSelectorContract.CAPABILITY_ID,
-                dev.turboism.mapping.verification.CoreMocInfoSelectorContract.REQUIRED_ALIASES
+                dev.turboism.mapping.verification.selector.CoreMocInfoSelectorContract.ADAPTER_SLICE_ID,
+                dev.turboism.mapping.verification.selector.CoreMocInfoSelectorContract.CAPABILITY_ID,
+                dev.turboism.mapping.verification.selector.CoreMocInfoSelectorContract.REQUIRED_ALIASES
             )) {
                 return failed(
                     CoreProviderFailure.Code.ADAPTER_UNAVAILABLE,
@@ -265,11 +266,11 @@ public final class CorePublicApiProviderFactory {
             }
             try {
                 final Object moc = resolver.invoke(
-                    dev.turboism.mapping.verification.CoreMocInfoSelectorContract.MODEL_GET_MOC,
+                    dev.turboism.mapping.verification.selector.CoreMocInfoSelectorContract.MODEL_GET_MOC,
                     model
                 );
                 if (!resolver.isInstance(
-                    dev.turboism.mapping.verification.CoreMocInfoSelectorContract.MOC_CLASS,
+                    dev.turboism.mapping.verification.selector.CoreMocInfoSelectorContract.MOC_CLASS,
                     moc
                 )) {
                     return failed(
@@ -278,7 +279,7 @@ public final class CorePublicApiProviderFactory {
                     );
                 }
                 final Object version = resolver.invoke(
-                    dev.turboism.mapping.verification.CoreMocInfoSelectorContract.MOC_GET_MOC_VERSION,
+                    dev.turboism.mapping.verification.selector.CoreMocInfoSelectorContract.MOC_GET_MOC_VERSION,
                     moc
                 );
                 if (!(version instanceof Integer value)) {

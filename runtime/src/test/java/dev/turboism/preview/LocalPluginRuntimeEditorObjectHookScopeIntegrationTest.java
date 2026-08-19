@@ -159,7 +159,6 @@ class LocalPluginRuntimeEditorObjectHookScopeIntegrationTest {
                 package dev.example.hooks;
 
                 import dev.turboism.sdk.cubism.CubismPlugin;
-                import dev.turboism.sdk.cubism.model.Drawable;
                 import dev.turboism.sdk.plugin.PluginContext;
 
                 public final class ScopeHookPlugin implements CubismPlugin {

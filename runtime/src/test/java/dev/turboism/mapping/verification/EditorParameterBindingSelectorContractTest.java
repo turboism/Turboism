@@ -1,5 +1,8 @@
 package dev.turboism.mapping.verification;
 
+import dev.turboism.mapping.verification.selector.EditorParameterBindingBatchWriteSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorParameterBindingReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorParameterBindingWriteSelectorContract;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 

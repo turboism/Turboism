@@ -1,5 +1,7 @@
 package dev.turboism.mapping.verification;
 
+import dev.turboism.mapping.verification.selector.EditorPartOpacity52SelectorContract;
+import dev.turboism.mapping.verification.selector.EditorPartOpacitySelectorContract;
 import org.junit.jupiter.api.Test;
 
 import java.net.URL;

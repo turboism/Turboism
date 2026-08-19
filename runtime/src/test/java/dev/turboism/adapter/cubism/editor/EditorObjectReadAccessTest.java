@@ -1,7 +1,11 @@
 package dev.turboism.adapter.cubism.editor;
 
-import dev.turboism.mapping.verification.EditorObjectReadSelectorContract;
-import dev.turboism.mapping.verification.EditorObjectWriteSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorMorphTargetSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorObjectReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorObjectWriteSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorParameterBindingBatchWriteSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorParameterBindingReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorParameterBindingWriteSelectorContract;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.sdk.cubism.clipmask.ClipMaskReplacement;
@@ -785,20 +789,20 @@ class EditorObjectReadAccessTest {
     ) {
         final java.util.HashSet<String> capabilities = new java.util.HashSet<>();
         capabilities.add(EditorObjectReadSelectorContract.CAPABILITY_ID);
-        capabilities.add(dev.turboism.mapping.verification.EditorParameterBindingReadSelectorContract.CAPABILITY_ID);
+        capabilities.add(dev.turboism.mapping.verification.selector.EditorParameterBindingReadSelectorContract.CAPABILITY_ID);
         if (includeWrite) {
-            capabilities.add(dev.turboism.mapping.verification.EditorObjectWriteSelectorContract.ART_MESH_CAPABILITY_ID);
-            capabilities.add(dev.turboism.mapping.verification.EditorObjectWriteSelectorContract.WARP_CAPABILITY_ID);
-            capabilities.add(dev.turboism.mapping.verification.EditorObjectWriteSelectorContract.ROTATION_CAPABILITY_ID);
-            capabilities.add(dev.turboism.mapping.verification.EditorParameterBindingWriteSelectorContract.ART_MESH_CAPABILITY_ID);
-            capabilities.add(dev.turboism.mapping.verification.EditorParameterBindingWriteSelectorContract.WARP_CAPABILITY_ID);
-            capabilities.add(dev.turboism.mapping.verification.EditorParameterBindingWriteSelectorContract.ROTATION_CAPABILITY_ID);
-            capabilities.add(dev.turboism.mapping.verification.EditorParameterBindingBatchWriteSelectorContract.INVERT_CAPABILITY_ID);
-            capabilities.add(dev.turboism.mapping.verification.EditorParameterBindingBatchWriteSelectorContract.TRANSFER_CAPABILITY_ID);
+            capabilities.add(dev.turboism.mapping.verification.selector.EditorObjectWriteSelectorContract.ART_MESH_CAPABILITY_ID);
+            capabilities.add(dev.turboism.mapping.verification.selector.EditorObjectWriteSelectorContract.WARP_CAPABILITY_ID);
+            capabilities.add(dev.turboism.mapping.verification.selector.EditorObjectWriteSelectorContract.ROTATION_CAPABILITY_ID);
+            capabilities.add(dev.turboism.mapping.verification.selector.EditorParameterBindingWriteSelectorContract.ART_MESH_CAPABILITY_ID);
+            capabilities.add(dev.turboism.mapping.verification.selector.EditorParameterBindingWriteSelectorContract.WARP_CAPABILITY_ID);
+            capabilities.add(dev.turboism.mapping.verification.selector.EditorParameterBindingWriteSelectorContract.ROTATION_CAPABILITY_ID);
+            capabilities.add(dev.turboism.mapping.verification.selector.EditorParameterBindingBatchWriteSelectorContract.INVERT_CAPABILITY_ID);
+            capabilities.add(dev.turboism.mapping.verification.selector.EditorParameterBindingBatchWriteSelectorContract.TRANSFER_CAPABILITY_ID);
             capabilities.add(EditorObjectWriteSelectorContract.CLIP_MASK_CAPABILITY_ID);
         }
         if (includeMorph) {
-            capabilities.add(dev.turboism.mapping.verification.EditorMorphTargetSelectorContract.READ_CAPABILITY_ID);
+            capabilities.add(dev.turboism.mapping.verification.selector.EditorMorphTargetSelectorContract.READ_CAPABILITY_ID);
         }
         return TestVerifiedResolvers.create(
             version,
