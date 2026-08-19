@@ -84,6 +84,15 @@ public final class TurboismAgent {
     private TurboismAgent() {
     }
 
+    /**
+     * Java agent entry point used when Turboism is attached at JVM startup.
+     *
+     * <p>This is the supported attachment mode: it runs before Cubism's own classes load, so the
+     * startup-suppression transformer can still see them.</p>
+     *
+     * @param options the raw agent option string, may be null
+     * @param instrumentation the JVM instrumentation handle
+     */
     public static void premain(final String options, final Instrumentation instrumentation) {
         requestStart(
             StartupSuppressionInstaller.AttachmentMode.PREMAIN,
@@ -92,6 +101,15 @@ public final class TurboismAgent {
         );
     }
 
+    /**
+     * Java agent entry point used when Turboism is attached to an already-running JVM.
+     *
+     * <p>Classes Cubism has already loaded are past the transformer, so this mode starts the
+     * runtime with a reduced set of hooks rather than pretending it matched premain.</p>
+     *
+     * @param options the raw agent option string, may be null
+     * @param instrumentation the JVM instrumentation handle
+     */
     public static void agentmain(final String options, final Instrumentation instrumentation) {
         requestStart(
             StartupSuppressionInstaller.AttachmentMode.AGENTMAIN,
