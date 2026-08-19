@@ -65,6 +65,12 @@ VERSION_SUFFIXED_TYPE = re.compile(r"^\w+(?:52|53|5203|5302)$")
 
 ALL_RULES = ("javadoc", "digests", "naming", "assets")
 
+# Ratchet for the Javadoc backlog. The other three rules are already at zero and are enforced
+# absolutely. Javadoc is enforced as a maximum instead: new undocumented public API is blocked
+# immediately, while the existing backlog burns down. Lower this number as batches land; the
+# checker refuses to let it drift upward, and tells you to lower it when you go below.
+JAVADOC_BACKLOG_MAXIMUM = 1132
+
 
 def java_sources(root: Path, relative: str) -> list[Path]:
     base = root / relative
@@ -188,6 +194,14 @@ def main() -> int:
         action="store_true",
         help="print per-rule counts and exit 0 (use while a rule is still being closed)",
     )
+    parser.add_argument(
+        "--ratchet",
+        action="store_true",
+        help=(
+            "enforce javadoc as a maximum instead of zero, so new undocumented public API fails "
+            "while the existing backlog burns down"
+        ),
+    )
     args = parser.parse_args()
 
     root = Path(args.root).resolve()
@@ -204,6 +218,9 @@ def main() -> int:
             print(f"{rule}: {len(failures)} finding(s)")
         return 0
 
+    if args.ratchet and "javadoc" in results:
+        return _ratchet(results, selected)
+
     failures = [failure for rule in selected for failure in results[rule]]
     if failures:
         for failure in failures:
@@ -212,6 +229,42 @@ def main() -> int:
         return 1
 
     print(f"PASS: code quality clean for rules: {', '.join(selected)}")
+    return 0
+
+
+def _ratchet(results: dict[str, list[str]], selected: list[str]) -> int:
+    """Enforces javadoc as a non-increasing maximum and the other rules absolutely."""
+    javadoc = results["javadoc"]
+    strict = [failure for rule in selected if rule != "javadoc" for failure in results[rule]]
+
+    for failure in strict:
+        print(f"FAIL: {failure}")
+
+    if len(javadoc) > JAVADOC_BACKLOG_MAXIMUM:
+        added = len(javadoc) - JAVADOC_BACKLOG_MAXIMUM
+        print(
+            f"FAIL: {added} new undocumented public API item(s): "
+            f"{len(javadoc)} findings exceeds the recorded backlog of {JAVADOC_BACKLOG_MAXIMUM}"
+        )
+        for failure in javadoc[:20]:
+            print(f"  {failure}")
+        return 1
+
+    if strict:
+        print(f"\n{len(strict)} code-quality finding(s)")
+        return 1
+
+    if len(javadoc) < JAVADOC_BACKLOG_MAXIMUM:
+        print(
+            f"FAIL: javadoc backlog is down to {len(javadoc)}; lower "
+            f"JAVADOC_BACKLOG_MAXIMUM to {len(javadoc)} so the ratchet keeps holding"
+        )
+        return 1
+
+    print(
+        f"PASS: code quality clean; javadoc backlog holding at {JAVADOC_BACKLOG_MAXIMUM} "
+        "with no new undocumented public API"
+    )
     return 0
 
 
