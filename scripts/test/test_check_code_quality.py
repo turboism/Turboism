@@ -120,6 +120,47 @@ def case_unknown_rule(root: Path) -> None:
     assert result.returncode == 2, "unknown rule must fail closed"
 
 
+def run_ratchet(root: Path) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [sys.executable, str(CHECKER), str(root), "--ratchet"],
+        capture_output=True,
+        text=True,
+    )
+
+
+def case_ratchet_blocks_new_undocumented_api(root: Path) -> None:
+    """A tree with more findings than the recorded maximum must fail."""
+    for index in range(2000):
+        write(
+            root,
+            f"sdk/src/main/java/dev/turboism/sample/Gap{index}.java",
+            f"package dev.turboism.sample;\n\npublic final class Gap{index} {{ }}\n",
+        )
+    result = run_ratchet(root)
+    assert result.returncode == 1, "exceeding the recorded backlog must fail"
+    assert "new undocumented public API" in result.stdout
+
+
+def case_ratchet_demands_lowering_when_backlog_shrinks(root: Path) -> None:
+    """A fully documented tree is below the recorded maximum and must demand it be lowered."""
+    result = run_ratchet(root)
+    assert result.returncode == 1, "a shrunken backlog must demand the maximum be lowered"
+    assert "lower" in result.stdout.lower()
+
+
+def case_ratchet_still_enforces_other_rules(root: Path) -> None:
+    """Ratchet mode relaxes javadoc only; the other rules stay absolute."""
+    write(
+        root,
+        "runtime/src/main/java/dev/turboism/sample/Copy.java",
+        f'package dev.turboism.sample;\n\n/** Doc. */\npublic final class Copy {{\n'
+        f'    static final String X = "{DIGEST}";\n}}\n',
+    )
+    result = run_ratchet(root)
+    assert result.returncode == 1, "a digest violation must fail even in ratchet mode"
+    assert "reviewed host digest restated" in result.stdout
+
+
 CASES = (
     case_clean_baseline,
     case_undocumented_type,
@@ -128,6 +169,9 @@ CASES = (
     case_version_suffixed_type,
     case_retired_asset_token,
     case_unknown_rule,
+    case_ratchet_blocks_new_undocumented_api,
+    case_ratchet_demands_lowering_when_backlog_shrinks,
+    case_ratchet_still_enforces_other_rules,
 )
 
 
