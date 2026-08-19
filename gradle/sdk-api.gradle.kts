@@ -18,7 +18,11 @@ val sdkV3ExactReferenceArtifact = layout.buildDirectory.file("sdk-api-baseline/v
 val sdkV4ExactBaseline = layout.projectDirectory.file("docs/sdk/baselines/sdk-api-v4-exact.json")
 val sdkV4TierPolicy = layout.projectDirectory.file("docs/sdk/baselines/sdk-api-tier-policy-v4.json")
 val sdkV4DirectPreviewLedger = layout.projectDirectory.file("docs/sdk/baselines/sdk-api-direct-preview-v4.json")
-val sdkV4ExactCommit = "fefb81e4ce03d06750daa170a1973760934ba4f5"
+// Re-issued on bd93702a (SDK Javadoc only). The reviewed API record set is unchanged: the
+// baseline's canonicalDump stays b5f12e74.../5105 lines across the re-issue, so only the
+// artifact binding moved. Javadoc shifts LineNumberTable offsets, which changes JAR bytes
+// without changing a single API record.
+val sdkV4ExactCommit = "bd93702a104cd45e3a7af038bc9862ad8b5fe838"
 val sdkJarArtifact = project(":sdk").tasks.named<Jar>("jar").flatMap { it.archiveFile }
 val sdkApiHelperFiles = fileTree("scripts/test") {
     include("sdk_api_baseline*.py")
