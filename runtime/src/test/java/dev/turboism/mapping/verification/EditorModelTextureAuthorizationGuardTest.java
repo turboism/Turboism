@@ -114,11 +114,11 @@ class EditorModelTextureAuthorizationGuardTest {
             "cubism-ref/verification/cubism-5.3.02-editor-model.json"
         );
         org.junit.jupiter.api.Assertions.assertEquals(
-            EditorModelVerificationManifest52.RECORD_SHA256,
+            EditorModelVerificationManifest.RECORD_5_2_03.recordSha256(),
             sha256(record52)
         );
         org.junit.jupiter.api.Assertions.assertEquals(
-            EditorModelVerificationManifest.RECORD_SHA256,
+            EditorModelVerificationManifest.RECORD_5_3_02.recordSha256(),
             sha256(record5302)
         );
     }

@@ -22,7 +22,7 @@ class VerifiedHostAdapterConnectorAppearanceTest {
             null,
             null,
             slice -> new FlatLafAppearanceHostProvider(
-                ProjectWorkspaceVerificationManifest.CUBISM_VERSION,
+                ProjectWorkspaceVerificationManifest.RECORD_5_3_02.cubismVersion(),
                 new NoOpHost()
             )
         );
