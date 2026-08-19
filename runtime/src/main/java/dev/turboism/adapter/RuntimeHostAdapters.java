@@ -128,7 +128,7 @@ public record RuntimeHostAdapters(
      */
     static RuntimeHostAdapters withVerifiedClipMask(final VerifiedMemberResolver resolver) {
         Objects.requireNonNull(resolver, "resolver");
-        if (!resolver.isExactCubismVersion(ClipMaskVerificationManifest.CUBISM_VERSION)
+        if (!ClipMaskVerificationManifest.reviewedCubismVersions().contains(resolver.cubismVersion())
             || !resolver.authorizes(
                 ClipMaskVerificationManifest.ADAPTER_SLICE_ID,
                 ClipMaskVerificationManifest.CAPABILITY_IDS,
