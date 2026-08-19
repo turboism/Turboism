@@ -18,7 +18,7 @@ class VerifiedHostAdapterConnectorEditorModelTest {
     void createsOneConnectionOwnedEditorModelAccessFromTheOptionalVerifiedSlice() throws Exception {
         RuntimeHostAdapters adapters = RuntimeHostAdapters.safeMode();
         VerifiedMemberResolver resolver = dev.turboism.mapping.verification.TestVerifiedResolvers.create(
-            EditorModelVerificationManifest.CUBISM_VERSION,
+            EditorModelVerificationManifest.RECORD_5_3_02.cubismVersion(),
             EditorModelVerificationManifest.ADAPTER_SLICE_ID,
             EditorModelVerificationManifest.CAPABILITY_IDS,
             java.util.List.of(dev.turboism.mapping.verification.StaticSelector.classSelector(
@@ -96,7 +96,7 @@ class VerifiedHostAdapterConnectorEditorModelTest {
     void optionalOverlayVerificationFailureDoesNotRejectVerifiedCoreHost() throws Exception {
         RuntimeHostAdapters adapters = RuntimeHostAdapters.safeMode();
         VerifiedMemberResolver resolver = dev.turboism.mapping.verification.TestVerifiedResolvers.create(
-            EditorModelVerificationManifest.CUBISM_VERSION,
+            EditorModelVerificationManifest.RECORD_5_3_02.cubismVersion(),
             EditorModelVerificationManifest.ADAPTER_SLICE_ID,
             EditorModelVerificationManifest.CAPABILITY_IDS,
             java.util.List.of(dev.turboism.mapping.verification.StaticSelector.classSelector(
