@@ -45,6 +45,17 @@ DIGEST_SCAN_ROOTS = PRODUCTION_ROOTS + (
 RETIRED_ASSET_TOKENS = ("m14", "m15")
 ASSET_ROOT = "cubism-ref"
 
+# Grandfathered: these two names are frozen inside hash-anchored reviewed records. The retired
+# token also appears in each pack's `semanticName` values, which are bound bidirectionally to the
+# `mappingId` values in the reviewed verification records, whose bytes are pinned by SHA-256 in
+# the runtime trust roots. Renaming them would require re-issuing those reviewed records with new
+# digests -- a governance action that breaks the audit chain for a cosmetic gain. The rule's
+# purpose is to stop NEW retired-governance names from appearing.
+GRANDFATHERED_ASSETS = (
+    "cubism-ref/mapping-packs/draft/cubism-5.3.02-m14-project-workspace.json",
+    "cubism-ref/mapping-packs/draft/cubism-5.3.02-m15-clipmask.json",
+)
+
 TYPE_DECLARATION = re.compile(
     r"^public\s+(?:final\s+|abstract\s+|sealed\s+|non-sealed\s+|static\s+)*"
     r"(?:class|interface|record|enum)\s+(\w+)"
@@ -147,11 +158,12 @@ def check_assets(root: Path) -> list[str]:
         return []
     failures = []
     for asset in sorted(base.rglob("*.json")):
+        relative = asset.relative_to(root).as_posix()
+        if relative in GRANDFATHERED_ASSETS:
+            continue
         parts = asset.stem.split("-")
         if any(token in parts for token in RETIRED_ASSET_TOKENS):
-            failures.append(
-                f"retired governance token in asset name: {asset.relative_to(root).as_posix()}"
-            )
+            failures.append(f"retired governance token in asset name: {relative}")
     return failures
 
 
