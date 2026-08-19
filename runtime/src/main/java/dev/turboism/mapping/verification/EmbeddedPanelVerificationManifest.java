@@ -11,9 +11,8 @@ public final class EmbeddedPanelVerificationManifest {
         "6f8514a907b77b93f1eef36f2e4226455a6eceec820efae736868ee81ee45a2a";
     public static final String CUBISM_VERSION = "5.3.02";
     public static final String PROFILE_ID = "cubism-5.3.02";
-    public static final long ARTIFACT_SIZE = 41_922_739L;
-    public static final String ARTIFACT_SHA256 =
-        "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21";
+    public static final long ARTIFACT_SIZE = ReviewedHostArtifacts.CUBISM_5_3_02.size();
+    public static final String ARTIFACT_SHA256 = ReviewedHostArtifacts.CUBISM_5_3_02.sha256();
     public static final String ADAPTER_SLICE_ID = "adapter.editor-ui.embedded-panel";
     public static final String CAPABILITY_ID = "cubism.editor-ui.embedded-panel";
     public static final Set<String> CAPABILITY_IDS = Set.of(CAPABILITY_ID);

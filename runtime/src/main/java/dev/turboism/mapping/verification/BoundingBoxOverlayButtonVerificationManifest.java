@@ -55,17 +55,15 @@ public final class BoundingBoxOverlayButtonVerificationManifest {
     }
 
     public static AdmissionEvidence admissionForArtifact(final HostArtifactDigest artifact) {
-        if (artifact.size() == 40_805_584L
-            && artifact.sha256().equals(
-                "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd"
-            )) {
+        if (ReviewedHostArtifacts.CUBISM_5_2_03.equals(artifact)) {
+            // Reported as "5.2.0" rather than "5.2.03"; kept byte-for-byte to preserve the
+            // existing admission evidence value. Normalising it is a behaviour change.
             return new AdmissionEvidence("5.2.0", artifact.size(), artifact.sha256());
         }
-        if (artifact.size() == 41_922_739L
-            && artifact.sha256().equals(
-                "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21"
-            )) {
-            return new AdmissionEvidence("5.3.02", artifact.size(), artifact.sha256());
+        if (ReviewedHostArtifacts.CUBISM_5_3_02.equals(artifact)) {
+            return new AdmissionEvidence(
+                ReviewedHostArtifacts.CUBISM_5_3_02_VERSION, artifact.size(), artifact.sha256()
+            );
         }
         throw new IllegalArgumentException("Unsupported Cubism artifact for overlay buttons");
     }

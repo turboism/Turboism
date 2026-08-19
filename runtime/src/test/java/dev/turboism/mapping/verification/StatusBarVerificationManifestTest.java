@@ -17,14 +17,8 @@ class StatusBarVerificationManifestTest {
 
     private static final String RECORD_NAME = "cubism-5.3.02-ui-status-bar.json";
     private static final String RECORD_NAME_52 = "cubism-5.2-ui-status-bar.json";
-    private static final HostArtifactDigest REVIEWED_5302 = new HostArtifactDigest(
-        41_922_739L,
-        "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21"
-    );
-    private static final HostArtifactDigest REVIEWED_52 = new HostArtifactDigest(
-        40_805_584L,
-        "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd"
-    );
+    private static final HostArtifactDigest REVIEWED_5302 = ReviewedHostArtifacts.CUBISM_5_3_02;
+    private static final HostArtifactDigest REVIEWED_52 = ReviewedHostArtifacts.CUBISM_5_2_03;
 
     private final ObjectMapper mapper = new ObjectMapper();
 
@@ -163,7 +157,7 @@ class StatusBarVerificationManifestTest {
         final StatusBarVerificationManifest.AdmissionEvidence admission = StatusBarVerificationManifest
             .admissionForArtifact(REVIEWED_5302);
         assertEquals("5.3.02", admission.cubismVersion());
-        assertEquals(41_922_739L, admission.artifactSize());
+        assertEquals(ReviewedHostArtifacts.CUBISM_5_3_02.size(), admission.artifactSize());
         assertEquals(REVIEWED_5302.sha256(), admission.artifactSha256());
         assertEquals("adapter.editor-ui.status-bar", admission.adapterSliceId());
         assertEquals(StatusBarVerificationManifest.RECORD_SHA256, admission.recordSha256());
@@ -171,7 +165,7 @@ class StatusBarVerificationManifestTest {
         final StatusBarVerificationManifest.AdmissionEvidence admission52 = StatusBarVerificationManifest
             .admissionForArtifact(REVIEWED_52);
         assertEquals("5.2.03", admission52.cubismVersion());
-        assertEquals(40_805_584L, admission52.artifactSize());
+        assertEquals(ReviewedHostArtifacts.CUBISM_5_2_03.size(), admission52.artifactSize());
         assertEquals(REVIEWED_52.sha256(), admission52.artifactSha256());
         assertEquals("adapter.editor-ui.status-bar", admission52.adapterSliceId());
         assertEquals(StatusBarVerificationManifest52.RECORD_SHA256, admission52.recordSha256());

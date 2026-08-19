@@ -8,9 +8,8 @@ final class EmbeddedPanelVerificationManifest52 {
         "cd3238ac79ece01dbac0ca9b83c428d49c05f11d48ba1b213253362d37807ec4";
     static final String CUBISM_VERSION = "5.2.03";
     static final String PROFILE_ID = "cubism-5.2";
-    static final long ARTIFACT_SIZE = 40_805_584L;
-    static final String ARTIFACT_SHA256 =
-        "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd";
+    static final long ARTIFACT_SIZE = ReviewedHostArtifacts.CUBISM_5_2_03.size();
+    static final String ARTIFACT_SHA256 = ReviewedHostArtifacts.CUBISM_5_2_03.sha256();
 
     private EmbeddedPanelVerificationManifest52() {
     }

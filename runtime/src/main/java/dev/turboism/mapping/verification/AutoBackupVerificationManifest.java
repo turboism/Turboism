@@ -19,18 +19,16 @@ public final class AutoBackupVerificationManifest {
         "94eae6454eca81643c68b019c31768b6bbdc34e70bbcce976c6d99af5ad282af";
     public static final String CUBISM_VERSION_53 = "5.3.02";
     public static final String PROFILE_ID_53 = "cubism-5.3.02";
-    public static final long ARTIFACT_SIZE_53 = 41_922_739L;
-    public static final String ARTIFACT_SHA256_53 =
-        "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21";
+    public static final long ARTIFACT_SIZE_53 = ReviewedHostArtifacts.CUBISM_5_3_02.size();
+    public static final String ARTIFACT_SHA256_53 = ReviewedHostArtifacts.CUBISM_5_3_02.sha256();
 
     public static final String VERIFICATION_ID_52 = "cubism-5.2.03.autobackup.static";
     public static final String RECORD_SHA256_52 =
         "6782048487b17e032cd3068e34baa1ea484a4cc438aee9c6847c2a66e6346cf7";
     public static final String CUBISM_VERSION_52 = "5.2.03";
     public static final String PROFILE_ID_52 = "cubism-5.2";
-    public static final long ARTIFACT_SIZE_52 = 40_805_584L;
-    public static final String ARTIFACT_SHA256_52 =
-        "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd";
+    public static final long ARTIFACT_SIZE_52 = ReviewedHostArtifacts.CUBISM_5_2_03.size();
+    public static final String ARTIFACT_SHA256_52 = ReviewedHostArtifacts.CUBISM_5_2_03.sha256();
 
     public static final Set<String> REQUIRED_ALIASES = Set.of(
         "cubism.auto-backup.manager.class",
