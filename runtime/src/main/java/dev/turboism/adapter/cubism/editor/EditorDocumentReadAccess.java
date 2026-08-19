@@ -1,8 +1,8 @@
 package dev.turboism.adapter.cubism.editor;
 
-import dev.turboism.mapping.verification.EditorAnimationReadSelectorContract;
-import dev.turboism.mapping.verification.EditorAutoYureReadSelectorContract;
-import dev.turboism.mapping.verification.EditorPhysicsReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorAnimationReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorAutoYureReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorPhysicsReadSelectorContract;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.id.ParameterId;
