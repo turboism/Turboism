@@ -13,9 +13,8 @@ final class StatusBarVerificationManifest52 {
         "94ef52c898cffe9b5837dd3e34e53ba150fc2d616f1269362e5151ec602fe4c0";
     static final String CUBISM_VERSION = "5.2.03";
     static final String PROFILE_ID = "cubism-5.2";
-    static final long ARTIFACT_SIZE = 40_805_584L;
-    static final String ARTIFACT_SHA256 =
-        "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd";
+    static final long ARTIFACT_SIZE = ReviewedHostArtifacts.CUBISM_5_2_03.size();
+    static final String ARTIFACT_SHA256 = ReviewedHostArtifacts.CUBISM_5_2_03.sha256();
 
     private StatusBarVerificationManifest52() {
     }

@@ -8,9 +8,8 @@ final class ProjectWorkspaceVerificationManifest52 {
         "661be268ad68726eecfdad7ca385f0c52c0105f1180c72813547504b23f81003";
     static final String CUBISM_VERSION = "5.2.0";
     static final String PROFILE_ID = "cubism-5.2";
-    static final long ARTIFACT_SIZE = 40_805_584L;
-    static final String ARTIFACT_SHA256 =
-        "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd";
+    static final long ARTIFACT_SIZE = ReviewedHostArtifacts.CUBISM_5_2_03.size();
+    static final String ARTIFACT_SHA256 = ReviewedHostArtifacts.CUBISM_5_2_03.sha256();
 
     private ProjectWorkspaceVerificationManifest52() {
     }

@@ -2,6 +2,7 @@ package dev.turboism.adapter.cubism.startup;
 
 import dev.turboism.config.RuntimeStartupConfig;
 import dev.turboism.mapping.verification.HostArtifactDigest;
+import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -27,10 +28,7 @@ class StartupSuppressionClassFileTransformerTest {
     void transformsOnlyThePinnedCodeSourceAndBecomesInertAfterTheTargetAttempt() throws Exception {
         final Path artifact = Files.write(temporaryDirectory.resolve("Live2D_Cubism.jar"), new byte[]{1});
         final StartupSuppressionProfile profile = StartupSuppressionProfile.forArtifact(
-            new HostArtifactDigest(
-                41_922_739L,
-                "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21"
-            )
+            ReviewedHostArtifacts.CUBISM_5_3_02
         ).orElseThrow();
         final byte[] original = StartupSuppressionTransformerTest.fixtureApplicationForInstaller();
         final AtomicInteger cleanupCalls = new AtomicInteger();
@@ -74,10 +72,7 @@ class StartupSuppressionClassFileTransformerTest {
         final Path artifact = Files.write(temporaryDirectory.resolve("Live2D_Cubism.jar"), new byte[]{1});
         final Path other = Files.write(temporaryDirectory.resolve("other.jar"), new byte[]{2});
         final StartupSuppressionProfile profile = StartupSuppressionProfile.forArtifact(
-            new HostArtifactDigest(
-                41_922_739L,
-                "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21"
-            )
+            ReviewedHostArtifacts.CUBISM_5_3_02
         ).orElseThrow();
         final byte[] original = StartupSuppressionTransformerTest.fixtureApplicationForInstaller();
         final AtomicInteger cleanupCalls = new AtomicInteger();
