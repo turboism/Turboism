@@ -27,7 +27,7 @@ class VerifiedHostAdapterConnectorTextureAtlasTest {
     void keepsTheProviderUninstalledUntilExactTextureAtlasSelectorsAreAdmitted() throws Exception {
         final RuntimeHostAdapters adapters = RuntimeHostAdapters.safeMode();
         final VerifiedMemberResolver resolver = TestVerifiedResolvers.create(
-            EditorModelVerificationManifest.CUBISM_VERSION,
+            EditorModelVerificationManifest.RECORD_5_3_02.cubismVersion(),
             EditorModelVerificationManifest.ADAPTER_SLICE_ID,
             Set.of("cubism.editor-model.read"),
             List.of(dev.turboism.mapping.verification.StaticSelector.classSelector(
