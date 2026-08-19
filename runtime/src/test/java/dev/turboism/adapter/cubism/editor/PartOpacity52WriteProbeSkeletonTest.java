@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.editor;
 
+import dev.turboism.mapping.verification.selector.EditorPartOpacity52SelectorContract;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
@@ -94,10 +95,10 @@ class PartOpacity52WriteProbeSkeletonTest {
 
     private static VerifiedMemberResolver resolver(final String version) {
         final java.util.HashSet<String> capabilities = new java.util.HashSet<>();
-        capabilities.add(dev.turboism.mapping.verification.EditorPartOpacity52SelectorContract.CAPABILITY_ID);
+        capabilities.add(dev.turboism.mapping.verification.selector.EditorPartOpacity52SelectorContract.CAPABILITY_ID);
         return TestVerifiedResolvers.create(
             version,
-            dev.turboism.mapping.verification.EditorPartOpacity52SelectorContract.ADAPTER_SLICE_ID,
+            dev.turboism.mapping.verification.selector.EditorPartOpacity52SelectorContract.ADAPTER_SLICE_ID,
             capabilities,
             selectors(),
             Host.class.getClassLoader()

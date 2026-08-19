@@ -1,8 +1,9 @@
 package dev.turboism.adapter.cubism.editor;
 
-import dev.turboism.mapping.verification.EditorAnimationReadSelectorContract;
-import dev.turboism.mapping.verification.EditorAutoYureReadSelectorContract;
-import dev.turboism.mapping.verification.EditorPhysicsReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorAnimationReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorAutoYureReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorObjectReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorPhysicsReadSelectorContract;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
@@ -118,7 +119,7 @@ class EditorDocumentReadAccessTest {
             capabilities.add(EditorAutoYureReadSelectorContract.CAPABILITY_ID);
             capabilities.add(EditorAnimationReadSelectorContract.CAPABILITY_ID);
         } else {
-            capabilities.add(dev.turboism.mapping.verification.EditorObjectReadSelectorContract.CAPABILITY_ID);
+            capabilities.add(dev.turboism.mapping.verification.selector.EditorObjectReadSelectorContract.CAPABILITY_ID);
         }
         return TestVerifiedResolvers.create(
             version,

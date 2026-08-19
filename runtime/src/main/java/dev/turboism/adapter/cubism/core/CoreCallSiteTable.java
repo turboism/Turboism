@@ -1,6 +1,6 @@
 package dev.turboism.adapter.cubism.core;
 
-import dev.turboism.mapping.verification.CorePublicApiSelectorContract;
+import dev.turboism.mapping.verification.selector.CorePublicApiSelectorContract;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.mapping.verification.VerifiedMethodCallSite;
 import dev.turboism.sdk.cubism.model.BlendMode;

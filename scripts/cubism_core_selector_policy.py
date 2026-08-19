@@ -334,7 +334,7 @@ def render_java(policy: dict[str, Any], roster: Sequence[dict[str, Any]]) -> str
     }
 
     lines = [
-        "package dev.turboism.mapping.verification;",
+        "package dev.turboism.mapping.verification.selector;",
         "",
         "import java.util.Objects;",
         "import java.util.Optional;",

@@ -98,7 +98,6 @@ class LocalPluginRuntimeParameterHookIntegrationTest {
                 package dev.example.hooks;
 
                 import dev.turboism.sdk.cubism.CubismPlugin;
-                import dev.turboism.sdk.cubism.model.Parameter;
 
                 public final class HookPlugin implements CubismPlugin {
                     private static void record(String value) {

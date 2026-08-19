@@ -69,7 +69,7 @@ class VerifiedCorePublicApiResolverFactoryTest {
             assertTrue(resolver.authorizes(
                 "adapter.core-model.readonly",
                 java.util.Set.of("cubism.geometry.read"),
-                dev.turboism.mapping.verification.CorePublicApiSelectorContract
+                dev.turboism.mapping.verification.selector.CorePublicApiSelectorContract
                     .requiredAliasesFor(profile)
                     .orElseThrow()
             ));
