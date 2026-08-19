@@ -25,6 +25,7 @@ private fun configurePreviewSource(task: Sync, previewDirectory: Provider<org.gr
     configurePreviewPerfStatsJar(task)
     configurePreviewThemeJar(task)
     configureScenePaletteEnhancerJar(task)
+    configurePreviewMeshJar(task)
     task.from("scripts/preview/launch-cubism-turboism.bat")
     task.from("scripts/preview/launch-cubism-turboism.ps1")
     task.from("scripts/preview/run-preview.bat")
@@ -63,6 +64,13 @@ private fun configureScenePaletteEnhancerJar(task: Sync) {
     }
 }
 
+private fun configurePreviewMeshJar(task: Sync) {
+    task.from(project(":plugins:mesh").tasks.named<Jar>("jar").flatMap { it.archiveFile }) {
+        into("plugins")
+        rename { "mesh.jar" }
+    }
+}
+
 tasks.register<Exec>("checkDistributionProtocolContract") {
     group = "verification"
     description = "Verifies protocol fixtures, package privacy, source boundaries, and compiled module boundaries."
@@ -87,7 +95,8 @@ val previewBundle by tasks.registering(Sync::class) {
         ":plugins:project-inspector:jar",
         ":plugins:perf-stats:jar",
         ":plugins:ui-theme:jar",
-        ":plugins:scene-palette-enhancer:jar"
+        ":plugins:scene-palette-enhancer:jar",
+        ":plugins:mesh:jar"
     )
     configurePreviewSource(this, previewBundleDir)
     doLast {
@@ -140,7 +149,7 @@ private fun verifyPreviewBundle(root: File) {
     val required = listOf(
         "turboism-agent.jar", "launch-cubism-turboism.bat", "launch-cubism-turboism.ps1",
         "run-preview.bat", "README.md", "plugins/project-inspector.jar", "plugins/perf-stats.jar",
-        "plugins/ui-theme.jar", "plugins/scene-palette-enhancer.jar"
+        "plugins/ui-theme.jar", "plugins/scene-palette-enhancer.jar", "plugins/mesh.jar"
     )
     val missing = required.filterNot { root.resolve(it).isFile }
     if (missing.isNotEmpty()) throw GradleException("Preview bundle is missing: $missing")
