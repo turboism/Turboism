@@ -50,7 +50,7 @@ class StaticVerificationRecordRepositoryTest {
     );
     private static final Path RECORDS = PROJECT_ROOT.resolve("cubism-ref/verification");
 
-    private static final Map<String, SliceExpectation> EXPECTATIONS = withAutoBackup(withStatusBar(withWorkspaceControl(withControlAppearance53(withBoundingBoxOverlays(withTopMenus(withEmbeddedPanels(Map.of(
+    private static final Map<String, SliceExpectation> EXPECTATIONS = withClipMask52(withAutoBackup(withStatusBar(withWorkspaceControl(withControlAppearance53(withBoundingBoxOverlays(withTopMenus(withEmbeddedPanels(Map.of(
         "cubism-ref/verification/cubism-5.2-project-workspace.json",
         new SliceExpectation(
             "m15.cubism-5.2.project-workspace.static",
@@ -108,15 +108,15 @@ class StaticVerificationRecordRepositoryTest {
             72, "[5.2.0,5.3.0)"),
         "cubism-ref/verification/cubism-5.3.02-clipmask.json",
         new SliceExpectation(
-            ClipMaskVerificationManifest.VERIFICATION_ID,
+            ClipMaskVerificationManifest.RECORD_5_3_02.verificationId(),
             ClipMaskVerificationManifest.ADAPTER_SLICE_ID,
-            ClipMaskVerificationManifest.CUBISM_VERSION,
-            ClipMaskVerificationManifest.PROFILE_ID,
+            ClipMaskVerificationManifest.RECORD_5_3_02.cubismVersion(),
+            ClipMaskVerificationManifest.RECORD_5_3_02.profileId(),
             ClipMaskVerificationManifest.CAPABILITY_IDS,
             "Live2D_Cubism.jar",
-            ClipMaskVerificationManifest.ARTIFACT_SIZE,
-            ClipMaskVerificationManifest.ARTIFACT_SHA256,
-            ClipMaskVerificationManifest.RECORD_SHA256,
+            ClipMaskVerificationManifest.RECORD_5_3_02.artifact().size(),
+            ClipMaskVerificationManifest.RECORD_5_3_02.artifact().sha256(),
+            ClipMaskVerificationManifest.RECORD_5_3_02.recordSha256(),
             16,
             ClipMaskVerificationManifest.REQUIRED_ALIASES,
             VerifiedClipMaskHostOperations.REQUIRED_ALIASES,
@@ -231,7 +231,7 @@ class StaticVerificationRecordRepositoryTest {
             "98f4dac9a9508a6e255f6f3862608409a83e29c9009a7f0fcf517e06658164e4",
             "b68770af94b43bafa92bbe06a3cb2017f89ed5d561c3bb08447d3eeca89d06d0",
             74, "[5.3.02,5.3.03)")
-    ))))))));
+    )))))))));
 
     private static Map<String, SliceExpectation> withWorkspaceControl(
         final Map<String, SliceExpectation> existing
@@ -327,6 +327,37 @@ class StaticVerificationRecordRepositoryTest {
                 Path.of("cubism-ref/profiles/draft/cubism-5.3.02.json"),
                 "[5.3.02,5.3.03)",
                 SliceKind.EDITOR_UI
+            )
+        );
+        return Map.copyOf(expectations);
+    }
+
+    private static Map<String, SliceExpectation> withClipMask52(
+        final Map<String, SliceExpectation> existing
+    ) {
+        final LinkedHashMap<String, SliceExpectation> expectations = new LinkedHashMap<>(existing);
+        expectations.put(
+            "cubism-ref/verification/cubism-5.2.03-clipmask.json",
+            new SliceExpectation(
+                ClipMaskVerificationManifest.RECORD_5_2_03.verificationId(),
+                ClipMaskVerificationManifest.ADAPTER_SLICE_ID,
+                ClipMaskVerificationManifest.RECORD_5_2_03.cubismVersion(),
+                ClipMaskVerificationManifest.RECORD_5_2_03.profileId(),
+                ClipMaskVerificationManifest.CAPABILITY_IDS,
+                "Live2D_Cubism.jar",
+                ClipMaskVerificationManifest.RECORD_5_2_03.artifact().size(),
+                ClipMaskVerificationManifest.RECORD_5_2_03.artifact().sha256(),
+                ClipMaskVerificationManifest.RECORD_5_2_03.recordSha256(),
+                16,
+                ClipMaskVerificationManifest.REQUIRED_ALIASES,
+                VerifiedClipMaskHostOperations.REQUIRED_ALIASES,
+                VerifiedClipMaskHostOperations.methodAliasesUsed(),
+                VerifiedClipMaskHostOperations.classAliasesUsed(),
+                "cubism-5.2-clipmask",
+                Path.of("cubism-ref/mapping-packs/draft/cubism-5.2-clipmask.json"),
+                Path.of("cubism-ref/profiles/draft/cubism-5.2.json"),
+                "[5.2.0,5.3.0)",
+                SliceKind.CLIP_MASK
             )
         );
         return Map.copyOf(expectations);
