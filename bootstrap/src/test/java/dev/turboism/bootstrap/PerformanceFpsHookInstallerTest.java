@@ -4,6 +4,7 @@ import dev.turboism.adapter.cubism.performance.PerformanceProbeMetric;
 import dev.turboism.adapter.cubism.performance.PerformanceProbeMethodTransformer;
 import dev.turboism.adapter.cubism.performance.PerformanceProbeTargets;
 import dev.turboism.mapping.verification.HostArtifactDigest;
+import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -49,12 +50,12 @@ import static org.junit.jupiter.api.Assertions.fail;
  */
 final class PerformanceFpsHookInstallerTest {
 
-    private static final long CUBISM_5203_SIZE = 40_805_584L;
+    private static final long CUBISM_5203_SIZE = ReviewedHostArtifacts.CUBISM_5_2_03.size();
     private static final String CUBISM_5203_SHA256 =
-        "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd";
-    private static final long CUBISM_5302_SIZE = 41_922_739L;
+        ReviewedHostArtifacts.CUBISM_5_2_03.sha256();
+    private static final long CUBISM_5302_SIZE = ReviewedHostArtifacts.CUBISM_5_3_02.size();
     private static final String CUBISM_5302_SHA256 =
-        "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21";
+        ReviewedHostArtifacts.CUBISM_5_3_02.sha256();
 
     @TempDir
     Path temporary;

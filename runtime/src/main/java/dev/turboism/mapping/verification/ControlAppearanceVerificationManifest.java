@@ -57,26 +57,24 @@ public final class ControlAppearanceVerificationManifest {
     );
 
     static PinnedVerifiedResolverWorkflow.Manifest forArtifact(final HostArtifactDigest artifact) {
-        if (artifact.size() == 40_805_584L
-            && artifact.sha256().equals("bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd")) {
+        if (ReviewedHostArtifacts.CUBISM_5_2_03.equals(artifact)) {
             return manifest(
                 "cubism-5.2.03.ui-control-appearance.static",
                 "bc272ba4263012d2776c40871f6ff5260fc8f92f02d76b764925439b13c7d57a",
-                "5.2.03",
+                ReviewedHostArtifacts.CUBISM_5_2_03_VERSION,
                 "cubism-5.2",
-                40_805_584L,
-                "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd"
+                ReviewedHostArtifacts.CUBISM_5_2_03.size(),
+                ReviewedHostArtifacts.CUBISM_5_2_03.sha256()
             );
         }
-        if (artifact.size() == 41_922_739L
-            && artifact.sha256().equals("988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21")) {
+        if (ReviewedHostArtifacts.CUBISM_5_3_02.equals(artifact)) {
             return manifest(
                 "cubism-5.3.02.ui-control-appearance.static",
                 "cfba3d12584eb9ca7d601a95ca9e5a227112573b8abe7043b5961b2a0c87c82f",
-                "5.3.02",
+                ReviewedHostArtifacts.CUBISM_5_3_02_VERSION,
                 "cubism-5.3.02",
-                41_922_739L,
-                "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21"
+                ReviewedHostArtifacts.CUBISM_5_3_02.size(),
+                ReviewedHostArtifacts.CUBISM_5_3_02.sha256()
             );
         }
         throw new IllegalArgumentException("host artifact is not a reviewed Cubism control-appearance artifact");

@@ -22,14 +22,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class EditorModelTextureAuthorizationGuardTest {
 
-    private static final HostArtifactDigest REVIEWED_5302 = new HostArtifactDigest(
-        41_922_739L,
-        "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21"
-    );
-    private static final HostArtifactDigest REVIEWED_52 = new HostArtifactDigest(
-        40_805_584L,
-        "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd"
-    );
+    private static final HostArtifactDigest REVIEWED_5302 = ReviewedHostArtifacts.CUBISM_5_3_02;
+    private static final HostArtifactDigest REVIEWED_52 = ReviewedHostArtifacts.CUBISM_5_2_03;
 
     @Test
     void cubism5302ManifestPinsBothTextureCapabilitiesAndAllRequiredAliases() {
