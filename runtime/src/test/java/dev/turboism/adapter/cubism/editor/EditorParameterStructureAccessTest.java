@@ -314,7 +314,6 @@ class EditorParameterStructureAccessTest {
         selectors.add(StaticSelector.constructor("cubism.editor-model.parameter-group-id.create", internal(Id.class), "(Ljava/lang/String;)V", StaticSelector.ACCESS_PUBLIC));
         selectors.add(StaticSelector.constructor("cubism.editor-model.parameter-group-guid.create", internal(CParameterGroupGuid.class), "()V", StaticSelector.ACCESS_PUBLIC));
         selectors.add(method("cubism.editor-model.parameter-group.handler", ParameterGroup.class, "handler", desc(ParameterGroupHandler.class)));
-        selectors.add(method("cubism.editor-model.parameter-group.guid", ParameterGroup.class, "guid", desc(Id.class)));
         selectors.add(method("cubism.editor-model.parameter-group.set-name", ParameterGroup.class, "setName", "(Ljava/lang/String;)V"));
         selectors.add(method("cubism.editor-model.parameter-group.set-folder-opened", ParameterGroup.class, "setFolderOpened", "(Z)V"));
         selectors.add(method("cubism.editor-model.parameter-group.children", ParameterGroup.class, "children", "()Ljava/util/List;"));

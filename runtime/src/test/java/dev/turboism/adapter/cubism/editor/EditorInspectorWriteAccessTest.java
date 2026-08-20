@@ -291,7 +291,6 @@ class EditorInspectorWriteAccessTest {
         selectors.add(method("cubism.editor-model.model.all-deformers", Model.class, "allDeformers", "()Ljava/util/List;"));
         selectors.add(method("cubism.editor-model.model.get-object", Model.class, "getObject", "(" + type(Id.class) + ")" + type(Object.class)));
         selectors.add(StaticSelector.classSelector("cubism.editor-model.part.class", internal(HostPart.class)));
-        selectors.add(method("cubism.editor-model.part.id", HostPart.class, "id", desc(Id.class)));
         selectors.add(method("cubism.editor-model.part.source", HostPart.class, "source", desc(PartSource.class)));
         selectors.add(method("cubism.editor-model.art-mesh.source", HostArtMesh.class, "source", desc(ArtMeshSource.class)));
         selectors.add(method("cubism.editor-model.part.current-keyform", HostPart.class, "currentForm", desc(PartForm.class)));
@@ -423,7 +422,6 @@ class EditorInspectorWriteAccessTest {
             // The 5.2 host record has no Part mask/alpha evidence; drop those
             // aliases so the fixture record mirrors the reviewed 5.2 record.
             final java.util.Set<String> excluded = java.util.Set.of(
-                "cubism.editor-model.part.id",
                 "cubism.editor-model.part.current-keyform",
                 "cubism.editor-model.part-source.clip-guid-list",
                 "cubism.editor-model.part-source.alpha-composition",

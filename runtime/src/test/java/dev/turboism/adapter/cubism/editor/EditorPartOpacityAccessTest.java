@@ -151,7 +151,6 @@ class EditorPartOpacityAccessTest {
             selectors.add(method("cubism.editor-model.model-source.update-instances", ModelSource.class, "updateInstances", "()V"));
             selectors.add(method("cubism.editor-model.model.parts", Model.class, "parts", "()Ljava/util/List;"));
             selectors.add(StaticSelector.classSelector("cubism.editor-model.part.class", internal(HostPart.class)));
-            selectors.add(method("cubism.editor-model.part.id", HostPart.class, "id", desc(Id.class)));
             selectors.add(method("cubism.editor-model.part.source", HostPart.class, "source", desc(PartSource.class)));
             if ("5.2.03".equals(cubismVersion)) {
                 selectors.add(method("cubism.editor-model.part.parts-opacity", HostPart.class, "partsOpacity", "()F"));
