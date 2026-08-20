@@ -62,7 +62,7 @@ final class CubismApiAvailabilityInterceptor {
     }
 
     private Object wrapInterface(final Object value, final Class<?> sdkInterface) {
-        if (value == null || !isSdkInterface(sdkInterface)) {
+        if (value == null || !isInterceptableSdkInterface(sdkInterface)) {
             return value;
         }
         if (Proxy.isProxyClass(value.getClass())
@@ -121,7 +121,7 @@ final class CubismApiAvailabilityInterceptor {
     private void enforce(final Method method) {
         final Cubism declaration = method.getAnnotation(Cubism.class) != null
             ? method.getAnnotation(Cubism.class)
-            : method.getDeclaringClass().getAnnotation(Cubism.class);
+            : effectiveTypeAvailability(method.getDeclaringClass());
         if (declaration == null) {
             return;
         }
@@ -149,7 +149,7 @@ final class CubismApiAvailabilityInterceptor {
             return null;
         }
         if (declaredType instanceof Class<?> declaredClass) {
-            if (declaredClass.isInterface() && isSdkInterface(declaredClass)) {
+            if (declaredClass.isInterface() && isInterceptableSdkInterface(declaredClass)) {
                 return wrapInterface(value, declaredClass);
             }
             if (declaredClass.isArray()) {
@@ -188,7 +188,7 @@ final class CubismApiAvailabilityInterceptor {
         if (CompletionStage.class.isAssignableFrom(raw)) {
             return ((CompletionStage<?>) value).thenApply(item -> wrapValue(item, types[0]));
         }
-        if (raw.isInterface() && isSdkInterface(raw)) {
+        if (raw.isInterface() && isInterceptableSdkInterface(raw)) {
             return wrapInterface(value, raw);
         }
         return value;
@@ -251,10 +251,27 @@ final class CubismApiAvailabilityInterceptor {
         return mapped;
     }
 
-    private static boolean isSdkInterface(final Class<?> type) {
+    private static boolean isInterceptableSdkInterface(final Class<?> type) {
         return type.isInterface()
-            && (type.getName().startsWith("dev.turboism.sdk.")
-                || type.isAnnotationPresent(Cubism.class));
+            && (effectiveTypeAvailability(type) != null
+                || declaresAnnotatedMethod(type));
+    }
+
+    private static boolean declaresAnnotatedMethod(final Class<?> type) {
+        for (Method method : type.getMethods()) {
+            if (method.isAnnotationPresent(Cubism.class)) return true;
+        }
+        return false;
+    }
+
+    private static Cubism effectiveTypeAvailability(final Class<?> type) {
+        final Cubism direct = type.getAnnotation(Cubism.class);
+        if (direct != null) return direct;
+        for (Class<?> parent : type.getInterfaces()) {
+            final Cubism inherited = effectiveTypeAvailability(parent);
+            if (inherited != null) return inherited;
+        }
+        return null;
     }
 
     private static Class<?> rawClass(final Type type) {
