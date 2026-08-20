@@ -60,7 +60,7 @@ class CompleteCubismApiContractTest {
 
     @Test
     void coreValuesAreNormalizedAndDefensivelyCopied() {
-        assertEquals("5.3.02", new CoreVersion(5, 3, 2).toString());
+        assertEquals("5.3.2", new CoreVersion(5, 3, 2).toString());
         assertThrows(IllegalArgumentException.class, () -> new CoreVersion(-1, 0, 0));
         assertEquals(new CoreCapabilities(true, true, true), new CoreCapabilities(true, true, true));
         assertEquals(MocVersion.V5_3, new MocInfo(MocVersion.V5_3, MocConsistency.CONSISTENT).version());
