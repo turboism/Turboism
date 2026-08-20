@@ -63,7 +63,7 @@ class VerifiedHostAdapterConnectorEditorModelTest {
         final RuntimeHostAdapters adapters = RuntimeHostAdapters.safeMode();
         final VerifiedMemberResolver resolver =
             dev.turboism.mapping.verification.TestVerifiedResolvers.create(
-                "5.2.0",
+                "5.2.03",
                 EditorModelVerificationManifest.ADAPTER_SLICE_ID,
                 java.util.Set.of("cubism.editor-model.read"),
                 java.util.List.of(dev.turboism.mapping.verification.StaticSelector.classSelector(

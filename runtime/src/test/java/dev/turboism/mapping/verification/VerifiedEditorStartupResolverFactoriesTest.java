@@ -18,7 +18,7 @@ class VerifiedEditorStartupResolverFactoriesTest {
 
     @Test
     void createsEveryStartupResolverForBothExactEditorProfiles() throws Exception {
-        assertAdmitted("5.2", "5.2.0");
+        assertAdmitted("5.2.03", "5.2.03");
         assertAdmitted("5.3.02", "5.3.02");
     }
 
@@ -28,32 +28,32 @@ class VerifiedEditorStartupResolverFactoriesTest {
         try (URLClassLoader loader = loader(artifact)) {
             assertThrows(IllegalArgumentException.class, () ->
                 new VerifiedProjectWorkspaceResolverFactory().create(
-                    record("5.2", "project-workspace"), artifact, loader
+                    record("5.2.03", "project-workspace"), artifact, loader
                 )
             );
             assertThrows(IllegalArgumentException.class, () ->
                 new VerifiedEditorModelResolverFactory().create(
-                    record("5.2", "editor-model"), artifact, loader
+                    record("5.2.03", "editor-model"), artifact, loader
                 )
             );
             assertThrows(IllegalArgumentException.class, () ->
                 new VerifiedMainToolbarResolverFactory().create(
-                    record("5.2", "ui-main-toolbar"), artifact, loader
+                    record("5.2.03", "ui-main-toolbar"), artifact, loader
                 )
             );
             assertThrows(IllegalArgumentException.class, () ->
                 new VerifiedEmbeddedPanelResolverFactory().create(
-                    record("5.2", "ui-embedded-panel"), artifact, loader
+                    record("5.2.03", "ui-embedded-panel"), artifact, loader
                 )
             );
             assertThrows(IllegalArgumentException.class, () ->
                 new VerifiedTopMenuResolverFactory().create(
-                    record("5.2", "ui-top-menu"), artifact, loader
+                    record("5.2.03", "ui-top-menu"), artifact, loader
                 )
             );
             assertThrows(IllegalArgumentException.class, () ->
                 new VerifiedBoundingBoxOverlayButtonResolverFactory().create(
-                    record("5.2", "ui-bounding-box-overlay"), artifact, loader
+                    record("5.2.03", "ui-bounding-box-overlay"), artifact, loader
                 )
             );
         }
@@ -84,7 +84,7 @@ class VerifiedEditorStartupResolverFactoriesTest {
                 ).cubismVersion()
             );
             assertEquals(
-                profile.equals("5.2") ? "5.2.03" : exactVersion,
+                profile.equals("5.2.03") ? "5.2.03" : exactVersion,
                 new VerifiedEmbeddedPanelResolverFactory().create(
                     record(profile, "ui-embedded-panel"), artifact, loader
                 ).cubismVersion()
@@ -99,7 +99,7 @@ class VerifiedEditorStartupResolverFactoriesTest {
                 () -> topMenuReport.results().toString()
             );
             assertEquals(
-                profile.equals("5.2") ? "5.2.03" : exactVersion,
+                profile.equals("5.2.03") ? "5.2.03" : exactVersion,
                 new VerifiedTopMenuResolverFactory().create(
                     record(profile, "ui-top-menu"), artifact, loader
                 ).cubismVersion()
@@ -114,7 +114,7 @@ class VerifiedEditorStartupResolverFactoriesTest {
                 () -> overlayReport.results().toString()
             );
             assertEquals(
-                profile.equals("5.2") ? "5.2.0" : exactVersion,
+                profile.equals("5.2.03") ? "5.2.03" : exactVersion,
                 new VerifiedBoundingBoxOverlayButtonResolverFactory().create(
                     record(profile, "ui-bounding-box-overlay"), artifact, loader
                 ).cubismVersion()
@@ -130,8 +130,12 @@ class VerifiedEditorStartupResolverFactoriesTest {
     }
 
     private static Path editorArtifact(final String profile) {
+        // The legacy evidence repository is an external checkout whose directory names predate
+        // this project's exact-version naming: it still ships Cubism-5.2, not Cubism-5.2.03.
+        // Map the profile onto the directory rather than renaming someone else's tree.
+        final String directory = "5.2.03".equals(profile) ? "5.2" : profile;
         return LEGACY_EVIDENCE.resolve(
-            "Cubism-" + profile + "/jars/Live2D_Cubism.jar"
+            "Cubism-" + directory + "/jars/Live2D_Cubism.jar"
         );
     }
 

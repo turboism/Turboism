@@ -5,7 +5,7 @@ import java.util.Set;
 /** Exact additive selector contract for Cubism 5.2 Part evaluation-opacity reads. */
 public final class EditorPartOpacity52SelectorContract {
 
-    public static final String CUBISM_VERSION = "5.2.0";
+    public static final String CUBISM_VERSION = "5.2.03";
     public static final String ADAPTER_SLICE_ID = EditorPartOpacitySelectorContract.ADAPTER_SLICE_ID;
     public static final String CAPABILITY_ID = "cubism.editor-model.part-opacity.read";
     public static final Set<String> REQUIRED_ALIASES = Set.of(

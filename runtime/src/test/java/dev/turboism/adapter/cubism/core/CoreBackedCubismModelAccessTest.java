@@ -263,7 +263,7 @@ class CoreBackedCubismModelAccessTest {
             TestCoreApiFixture.Glues.empty()
         );
 
-        try (Harness harness = harness("5.2", coreModel)) {
+        try (Harness harness = harness("5.2.03", coreModel)) {
             assertEquals(
                 List.of(BlendMode.ADDITIVE, BlendMode.MULTIPLICATIVE, BlendMode.NORMAL),
                 harness.access.active().drawables().all().stream()
@@ -276,7 +276,7 @@ class CoreBackedCubismModelAccessTest {
     @Test
     void failsClosedForUnknownOrContradictoryFiveTwoBlendFlags() {
         for (byte constantFlag : new byte[]{0x10, 0x03}) {
-            try (Harness harness = harness("5.2", model(
+            try (Harness harness = harness("5.2.03", model(
                 new String[0],
                 new float[0],
                 TestCoreApiFixture.Parts.empty(),
@@ -311,7 +311,7 @@ class CoreBackedCubismModelAccessTest {
 
     @Test
     void unavailableProviderAndMissingModelFailExplicitly() {
-        final VerifiedMemberResolver resolver = TestCoreApiFixture.resolver("5.2");
+        final VerifiedMemberResolver resolver = TestCoreApiFixture.resolver("5.2.03");
         final CorePublicApiProvider provider = CorePublicApiProviderFactory.admit(
             resolver,
             CoreVersionExpectation.exact(11, 12, 13)
@@ -361,7 +361,7 @@ class CoreBackedCubismModelAccessTest {
     @Test
     void parameterReadsObserveCurrentCoreStateWithoutLeakingRawArrays() {
         final float[] values = {20.0F};
-        try (Harness harness = harness("5.2", model(
+        try (Harness harness = harness("5.2.03", model(
             new String[]{"ParamAngleX"},
             values
         ))) {
@@ -408,7 +408,7 @@ class CoreBackedCubismModelAccessTest {
 
     @Test
     void editorAttachedSettersAndUnsupportedCollectionsFailExplicitly() {
-        try (Harness harness = harness("5.2", model(
+        try (Harness harness = harness("5.2.03", model(
             new String[]{"ParamAngleX"},
             new float[]{20.0F}
         ))) {

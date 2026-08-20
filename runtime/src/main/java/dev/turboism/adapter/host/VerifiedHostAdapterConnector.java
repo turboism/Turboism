@@ -485,7 +485,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                 VerifiedCubism5302TextureAtlasSelectorContract.REQUIRED_ALIASES
             ) ? new VerifiedCubism5302TextureAtlasLayoutProvider(resolver, sessionId, capture) : null;
         }
-        if (resolver.isExactCubismVersion("5.2.0")) {
+        if (resolver.isExactCubismVersion("5.2.03")) {
             return resolver.authorizesFeature(
                 VerifiedCubism520TextureAtlasSelectorContract.ADAPTER_SLICE_ID,
                 VerifiedCubism520TextureAtlasSelectorContract.CAPABILITY_ID,

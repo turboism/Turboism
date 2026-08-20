@@ -107,7 +107,7 @@ class SimulatedReadonlyAdaptersContractTest {
 
     @Test
     void clipMaskDelegatesWhenConnected() {
-        ClipMaskReadAdapter adapter = ClipMaskReadAdapter.Impl.connected(new ClipMaskHost("5.3.2", true));
+        ClipMaskReadAdapter adapter = ClipMaskReadAdapter.Impl.connected(new ClipMaskHost("5.3.02", true));
         assertTrue(adapter.clipMasks().isAvailable());
         assertEquals(1, adapter.clipMasks().value().orElseThrow().size());
         assertEquals("mesh-1", adapter.clipMasks().value().orElseThrow().get(0).targetMeshId());
@@ -116,7 +116,7 @@ class SimulatedReadonlyAdaptersContractTest {
     @Test
     void clipMaskUnexpectedFailureBecomesValidationDiagnostic() {
         ClipMaskReadAdapter adapter = ClipMaskReadAdapter.Impl.connected(new ClipMaskReadAdapter.HostOperations() {
-            @Override public String hostVersion() { return "5.3.2"; }
+            @Override public String hostVersion() { return "5.3.02"; }
             @Override public boolean supportsClipMaskRead() { return true; }
             @Override public List<ClipMaskSnapshot> clipMasks() {
                 throw new IllegalStateException("private-mask-object");

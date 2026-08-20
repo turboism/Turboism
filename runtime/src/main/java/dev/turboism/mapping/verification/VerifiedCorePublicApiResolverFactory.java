@@ -42,7 +42,7 @@ public final class VerifiedCorePublicApiResolverFactory {
      * any check, so naming the wrong profile for an artifact fails rather than
      * admitting it.
      *
-     * @param profile Cubism Core profile, {@code "5.2"} or {@code "5.3.02"}
+     * @param profile Cubism Core profile, {@code "5.2.03"} or {@code "5.3.02"}
      * @param reviewedRecord path to the reviewed verification record JSON
      * @param verifiedArtifact path to the host jar being admitted
      * @param hostClassLoader loader the verified members will be resolved

@@ -60,9 +60,9 @@ public final class ControlAppearanceVerificationManifest {
         if (ReviewedHostArtifacts.CUBISM_5_2_03.equals(artifact)) {
             return manifest(
                 "cubism-5.2.03.ui-control-appearance.static",
-                "bc272ba4263012d2776c40871f6ff5260fc8f92f02d76b764925439b13c7d57a",
+                "2e39d4d2a35560a160b86ee4081b0db763291d42c2ac089c045b28d382e6a334",
                 ReviewedHostArtifacts.CUBISM_5_2_03_VERSION,
-                "cubism-5.2",
+                "cubism-5.2.03",
                 ReviewedHostArtifacts.CUBISM_5_2_03.size(),
                 ReviewedHostArtifacts.CUBISM_5_2_03.sha256()
             );

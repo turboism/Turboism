@@ -732,7 +732,7 @@ class CorePluginContextDescriptorPermissionsTest {
 
     private static RuntimeHostAdapters adapters(final RecordingUiSurfaceHost uiSurfaceHost) {
         RenderStatusAdapter renderStatus = RenderStatusAdapter.Impl.connected(new RenderStatusAdapter.HostOperations() {
-            @Override public String hostVersion() { return "5.3.2"; }
+            @Override public String hostVersion() { return "5.3.02"; }
             @Override public boolean supportsRenderStatusRead() { return true; }
             @Override public Optional<RenderStatusSnapshot> renderStatus() {
                 return Optional.of(new RenderStatusSnapshot(true, 60.0, "fake-renderer"));
@@ -740,7 +740,7 @@ class CorePluginContextDescriptorPermissionsTest {
         });
         ProjectWorkspaceAdapter projectWorkspace = ProjectWorkspaceAdapter.Impl.connected(
             new ProjectWorkspaceAdapter.HostOperations() {
-                @Override public String hostVersion() { return "5.3.2"; }
+                @Override public String hostVersion() { return "5.3.02"; }
                 @Override public boolean supportsProjectWorkspaceRead() { return true; }
                 @Override public Optional<ProjectSnapshot> activeProject() {
                     return Optional.of(new ProjectSnapshot("project-1", "Project", Optional.empty(), List.of()));
@@ -751,7 +751,7 @@ class CorePluginContextDescriptorPermissionsTest {
             }
         );
         ClipMaskReadAdapter clipMask = ClipMaskReadAdapter.Impl.connected(new ClipMaskReadAdapter.HostOperations() {
-            @Override public String hostVersion() { return "5.3.2"; }
+            @Override public String hostVersion() { return "5.3.02"; }
             @Override public boolean supportsClipMaskRead() { return true; }
             @Override public List<ClipMaskSnapshot> clipMasks() {
                 return List.of(new ClipMaskSnapshot("mesh-1", List.of("source"), true));
@@ -802,7 +802,7 @@ class CorePluginContextDescriptorPermissionsTest {
     private static final class RecordingUiSurfaceHost implements UiSurfaceAdapter.HostOperations {
         private int dialogCount;
 
-        @Override public String hostVersion() { return "5.3.2"; }
+        @Override public String hostVersion() { return "5.3.02"; }
         @Override public boolean supports(UiSurfaceAdapter.Capability capability) { return true; }
 
         @Override

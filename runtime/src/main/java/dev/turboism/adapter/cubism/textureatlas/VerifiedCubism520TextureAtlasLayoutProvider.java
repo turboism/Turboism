@@ -20,7 +20,7 @@ public final class VerifiedCubism520TextureAtlasLayoutProvider implements Textur
             resolver,
             sessionIdentity,
             capture,
-            "5.2.0",
+            "5.2.03",
             VerifiedCubism520TextureAtlasSelectorContract.ADAPTER_SLICE_ID,
             VerifiedCubism520TextureAtlasSelectorContract.CAPABILITY_ID,
             VerifiedCubism520TextureAtlasSelectorContract.REQUIRED_ALIASES

@@ -21,9 +21,9 @@ public final class TopMenuVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_2_03 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_2_03,
         "cubism-5.2.03.ui-top-menu.static",
-        "11ab76e5924faf92bf45b1922945a47b910886a66f364b1f85e3e49f5de3d382",
+        "05bbafb1504b809842f21419a6eda08dc5cf96ed022ee7d3bfdd7adb633c5fb9",
         CUBISM_VERSION_5_2_03,
-        "cubism-5.2"
+        "cubism-5.2.03"
     );
 
     /** Reviewed top-menu record admitted for exact Cubism 5.3.02. */
