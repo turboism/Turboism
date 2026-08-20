@@ -28,6 +28,22 @@ public final class LegacyThemePaletteResolver {
     private LegacyThemePaletteResolver() {
     }
 
+    /**
+     * Projects a legacy theme package's free-form color map onto the bounded semantic palette the
+     * SDK accepts.
+     *
+     * <p>Each semantic slot has an ordered list of legacy keys; the first non-blank value found
+     * wins, and slots with no match keep the base-appropriate default, so the result is always a
+     * complete palette. Values are then normalized through {@link ThemePaletteGenerator}. A
+     * package's {@code ANY} base maps to the host's native appearance rather than to a fixed
+     * light or dark.
+     *
+     * @param data the decoded legacy package; must not be null
+     * @param expectedRevision the appearance revision the caller expects to still be current,
+     *                         carried through for the host's optimistic-concurrency check
+     * @return a complete appearance request for this theme
+     * @throws NullPointerException if {@code data} is null
+     */
     public static AppearanceRequest resolve(
         final ThemePackageData data,
         final long expectedRevision

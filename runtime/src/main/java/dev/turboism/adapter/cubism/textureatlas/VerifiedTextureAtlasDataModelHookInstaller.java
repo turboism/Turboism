@@ -46,6 +46,25 @@ public final class VerifiedTextureAtlasDataModelHookInstaller implements AutoClo
         );
     }
 
+    /**
+     * Builds an installer after verifying that this host is one the data-model hook is authorized
+     * for.
+     *
+     * <p>Admits exactly Cubism 5.3.02 and 5.2.0, checks the version's hook aliases against the
+     * authorization contract, and requires both verified selectors to be instance methods sharing
+     * a single owning class. Nothing is instrumented until {@link #install()} is called.
+     *
+     * @param instrumentation the JVM instrumentation used to retransform the host class
+     * @param resolver the verified member resolver for the running Cubism version; must not be null
+     * @param hostClassLoader the loader that owns the host class to transform
+     * @param capture the destination the injected bytecode publishes the data model into; must
+     *                not be null
+     * @return a configured, not-yet-installed hook installer
+     * @throws IllegalArgumentException if the host version is unsupported, the capability is not
+     *                                  authorized, the selectors are not instance methods, or
+     *                                  they do not share one owner
+     * @throws NullPointerException if {@code resolver} or {@code capture} is null
+     */
     public static VerifiedTextureAtlasDataModelHookInstaller fromVerifiedResolver(
         final Instrumentation instrumentation,
         final VerifiedMemberResolver resolver,
@@ -84,6 +103,18 @@ public final class VerifiedTextureAtlasDataModelHookInstaller implements AutoClo
         );
     }
 
+    /**
+     * Installs the transformer and retransforms the already-loaded target class, after which the
+     * capture starts receiving data models.
+     *
+     * <p>Idempotent: a second call while installed returns without doing anything. If
+     * retransformation fails the installer closes itself - removing the transformer and undoing
+     * any transformation - before rethrowing, so a failed install leaves no partial hook.
+     *
+     * @throws IllegalStateException if the JVM does not support class retransformation, in which
+     *                               case the installer stays uninstalled
+     * @throws Exception if retransforming the target class fails
+     */
     public void install() throws Exception {
         if (!installed.compareAndSet(false, true)) return;
         if (!instrumentation.isRetransformClassesSupported()) {

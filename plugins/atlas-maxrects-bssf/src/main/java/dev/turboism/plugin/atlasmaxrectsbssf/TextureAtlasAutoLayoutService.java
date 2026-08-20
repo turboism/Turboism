@@ -53,6 +53,17 @@ public final class TextureAtlasAutoLayoutService {
         this.log = Objects.requireNonNull(log, "log");
     }
 
+    /**
+     * Reads the active texture atlas, asks the planner for a packing, and applies it.
+     *
+     * <p>Reports every failure as a result rather than an exception, so a packing problem cannot
+     * escape into the host: {@code RUNTIME_CLOSED} when the plugin is not active,
+     * {@code CAPABILITY_UNAVAILABLE} when no atlas is currently open, and {@code PLAN_INVALID}
+     * when the planner cannot produce a usable plan. Any other outcome is whatever the underlying
+     * layout service returns from applying the plan.
+     *
+     * @return the apply result, successful or failed; never {@code null}
+     */
     public TextureAtlasLayoutApplyResult applyAutomaticLayout() {
         if (!lifecycle.isActive()) {
             return TextureAtlasLayoutApplyResult.failed(

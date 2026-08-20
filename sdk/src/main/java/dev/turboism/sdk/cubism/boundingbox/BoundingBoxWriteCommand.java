@@ -6,6 +6,19 @@ import dev.turboism.sdk.cubism.id.ModelObjectId;
 import dev.turboism.sdk.cubism.write.CubismWriteCommand;
 
 @PreviewApi
+/**
+ * Validated intent to perform a bounding-box write on one model object. Like every
+ * {@link CubismWriteCommand} it is a DTO: it names its target by id and exposes no host object,
+ * hook, or reflection handle. All components are validated at construction, so an instance always
+ * identifies a complete request.
+ *
+ * @param commandId identifier correlating this command with its transaction result; never blank
+ * @param modelId the model owning the target object
+ * @param objectId the model object whose bounding box is written
+ * @param action the bounding-box action requested; never blank
+ * @throws IllegalArgumentException when any component is null, or when {@code commandId} or
+ *     {@code action} is blank
+ */
 public record BoundingBoxWriteCommand(
     String commandId,
     ModelId modelId,

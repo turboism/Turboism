@@ -66,14 +66,23 @@ public record DocumentSnapshot(
         );
     }
 
+    /** @return true when this document is a model document and may therefore expose {@link #model()} */
     public boolean isModelDocument() {
         return kind == DocumentKind.MODEL;
     }
 
+    /**
+     * @return true when this document is an animation scene and may therefore expose
+     *     {@link #animation()}; false for the animation file's other views
+     */
     public boolean isAnimationDocument() {
         return kind == DocumentKind.ANIMATION_SCENE;
     }
 
+    /**
+     * @return true when this document is a layered image/PSD view, for which the host's generic
+     *     file-content path is not implemented
+     */
     public boolean isImageDocument() {
         return kind == DocumentKind.IMAGE;
     }

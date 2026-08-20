@@ -23,6 +23,16 @@ public record ProjectLifecycleHostProfile(
         if (bindings.isEmpty()) throw new IllegalArgumentException("bindings must not be empty");
     }
 
+    /**
+     * Resolves the reviewed lifecycle bindings for a host artifact. Only the two admitted Cubism Editor
+     * builds are recognised — 5.2.03 and 5.3.02 — and both currently share the same reviewed method
+     * selectors for model open, animation open, editor exit, and model/animation save and close.
+     *
+     * @param artifact digest of the host artifact actually loaded
+     * @return the matching profile, or empty when the artifact is not a reviewed Cubism build, in which
+     *     case no lifecycle transformation may be installed
+     * @throws NullPointerException when {@code artifact} is null
+     */
     public static Optional<ProjectLifecycleHostProfile> forArtifact(
         final HostArtifactDigest artifact
     ) {

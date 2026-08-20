@@ -60,6 +60,15 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
             () -> Locale.getDefault(Locale.Category.DISPLAY));
     }
 
+    /**
+     * Factory for callers that want localized plugin metadata but no diagnostics sink: metadata i18n
+     * diagnostics are discarded rather than logged.
+     *
+     * @param home Turboism home directory holding the plugins, staging, and packages trees
+     * @param runtimePlugins supplier of the plugins currently live in the runtime
+     * @param metadataLocale locale used to select localized descriptor metadata
+     * @return a service instance with the Swing package chooser installed
+     */
     public static RuntimePluginManagementService withMetadataLocale(
         final Path home,
         final Supplier<List<PluginInfo>> runtimePlugins,
@@ -259,6 +268,14 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
         }
     }
 
+    /**
+     * Applies any journalled install/uninstall operations for the given home directory. Intended to run
+     * during startup before plugins are loaded, since install and uninstall never take effect in the
+     * running session.
+     *
+     * @param home Turboism home directory whose pending journal should be applied
+     * @return the apply outcome; failures are reported as a status rather than thrown
+     */
     public static PendingPluginOperations.ApplyResult applyPending(final Path home) {
         return new PendingPluginOperations(home).apply();
     }

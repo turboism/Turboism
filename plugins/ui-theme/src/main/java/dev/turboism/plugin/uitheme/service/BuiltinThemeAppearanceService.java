@@ -34,6 +34,17 @@ public final class BuiltinThemeAppearanceService {
         this.uiHost = Objects.requireNonNull(uiHost, "uiHost");
     }
 
+    /**
+     * Applies the shipped default theme ({@value #DEFAULT_THEME_ID}) and posts a status notification
+     * naming the outcome.
+     *
+     * <p>Blocks on the appearance service: it reads the current revision, applies against it, and waits
+     * for both stages. {@code APPLIED} and {@code NO_CHANGE} notify at {@code INFO}; every other
+     * outcome notifies at {@code WARNING} rather than throwing, so a host that refuses the appearance
+     * leaves the plugin running.
+     *
+     * @throws IllegalStateException if the built-in default package is missing or does not decode
+     */
     public void applyDefault() {
         final long revision = appearance.current().toCompletableFuture().join().revision();
         final AppearanceApplyResult result = appearance.apply(
@@ -50,6 +61,18 @@ public final class BuiltinThemeAppearanceService {
         ));
     }
 
+    /**
+     * Loads and decodes one reviewed built-in theme from the plugin's own resources.
+     *
+     * <p>Reads only from the classloader given at construction; it never touches user storage, so the
+     * result is the shipped package and not a user's edited copy.
+     *
+     * @param themeId the built-in catalog id
+     * @return the decoded package
+     * @throws IllegalArgumentException if no built-in theme has that id
+     * @throws IllegalStateException if a resource of the package is missing, unreadable, or the decoded
+     *     package is invalid
+     */
     public ThemePackageData load(final String themeId) {
         final BuiltinThemeCatalog.Entry entry = BuiltinThemeCatalog.entries().stream()
             .filter(candidate -> candidate.id().equals(themeId))

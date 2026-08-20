@@ -63,10 +63,22 @@ public final class ParameterCsvService {
         this.logger = Objects.requireNonNull(pluginContext.logger(), "pluginContext.logger()");
     }
 
+    /**
+     * @return the CSV text produced by the most recent {@link #exportCsv()} call, or the empty
+     *         string when export has never run or the last attempt found no parameters to export
+     */
     public String lastExportCsv() {
         return lastExportCsv;
     }
 
+    /**
+     * Renders the active model's parameters to CSV and keeps the text in {@link #lastExportCsv()}.
+     *
+     * <p>Writes no file; it only produces the text and reports the outcome as a status notification.
+     * An unavailable model and an empty parameter list are both treated as nothing to export: the
+     * stored CSV is reset to empty and a {@code WARNING} notification is raised rather than an
+     * exception being propagated.
+     */
     public void exportCsv() {
         final List<Parameter> parameters;
         try {
@@ -97,6 +109,14 @@ public final class ParameterCsvService {
         ));
     }
 
+    /**
+     * Asks the host for a CSV file and applies its rows to the active model's parameters.
+     *
+     * <p>Reports every outcome as a status notification and never throws for the expected paths: the
+     * user cancelling the chooser, unreadable or blank content, and a CSV that fails strict parsing
+     * each raise a {@code WARNING} and leave the model untouched. Parsing is bounded, so an oversized
+     * file is rejected rather than consumed.
+     */
     public void importCsv() {
         final Optional<String> chosen = uiHost.requestFile(new FileChooserRequest(
             "parameter.csv.import.file",

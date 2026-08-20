@@ -1,5 +1,13 @@
 package dev.turboism.adapter.cubism.performance;
 
+/**
+ * The Cubism render-path phases the probe times, each with its own sampling rate.
+ *
+ * <p>Hot inner phases are sampled rather than measured on every call - traversal every
+ * 16th call and renderer dispatch every 64th - so the probe own cost stays small on
+ * the render thread; the outer phases are timed on every call. Ordinals are the wire
+ * ids the woven bytecode passes, so reordering constants changes instrumented code.</p>
+ */
 public enum PerformanceProbeMetric {
     RENDER_SCENE(1),
     MODELING_PRE_RENDER_UPDATE(1),
@@ -25,6 +33,10 @@ public enum PerformanceProbeMetric {
         return ordinal();
     }
 
+    /**
+     * @return a single-bit mask identifying this metric ({@code 1L << ordinal}), for
+     *     packing a set of metrics into one long
+     */
     public long mask() {
         return 1L << id();
     }

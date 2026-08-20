@@ -28,6 +28,20 @@ public final class PluginJarContract {
     private PluginJarContract() {
     }
 
+    /**
+     * Checks a plugin descriptor against the actual contents of its JAR.
+     *
+     * <p>Enforced in order: the id is not one of {@link #RETIRED_PLUGIN_IDS}; every declared
+     * entrypoint class is present; declared resource roots exist; declared i18n bundles exist; and
+     * the JAR carries no resources the descriptor did not declare. Returning normally means all five
+     * hold.
+     *
+     * @param descriptor the descriptor read from the JAR
+     * @param entryNames every entry name in the JAR; copied before inspection
+     * @param logicalPath path used to identify the JAR in problem messages
+     * @throws PluginJarContractException on the first violation, carrying a stable
+     *         {@link PluginJarContractException#code()} and the offending path
+     */
     public static void validate(
         final PluginDescriptor descriptor,
         final Collection<String> entryNames,
@@ -178,10 +192,12 @@ public final class PluginJarContract {
             this.path = path;
         }
 
+        /** @return the stable machine-readable violation code, for example {@code PLUGIN_RETIRED_ID} */
         public String code() {
             return code;
         }
 
+        /** @return the JAR path or entry name the violation is attributed to */
         public String path() {
             return path;
         }

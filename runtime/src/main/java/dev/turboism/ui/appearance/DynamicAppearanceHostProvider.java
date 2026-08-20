@@ -12,6 +12,16 @@ public final class DynamicAppearanceHostProvider implements AppearanceHostProvid
     private AppearanceHostProvider delegate = new UnavailableAppearanceHostProvider();
     private long generation;
 
+    /**
+     * Swaps in the exact-host delegate for the detected Cubism build.
+     *
+     * <p>Bumps the generation, which invalidates every restore point captured through
+     * the previous delegate: restoring one afterwards fails rather than applying a
+     * baseline to the wrong host.</p>
+     *
+     * @param provider the delegate to route all further calls to
+     * @throws NullPointerException when {@code provider} is {@code null}
+     */
     public void connect(final AppearanceHostProvider provider) {
         synchronized (monitor) {
             delegate = Objects.requireNonNull(provider, "provider");
@@ -19,6 +29,10 @@ public final class DynamicAppearanceHostProvider implements AppearanceHostProvid
         }
     }
 
+    /**
+     * Drops the current delegate back to the fail-closed unavailable provider and bumps
+     * the generation, invalidating outstanding restore points.
+     */
     public void deactivate() {
         synchronized (monitor) {
             delegate = new UnavailableAppearanceHostProvider();

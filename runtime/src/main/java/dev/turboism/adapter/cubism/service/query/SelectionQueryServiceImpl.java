@@ -32,6 +32,21 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
+/**
+ * Runtime implementation of the selection query service: reports what the user has selected and
+ * notifies subscribers when that changes.
+ *
+ * <p>Every entry point requires the model-read permission. Selection is derived on each call from
+ * the current snapshot rather than cached — the host's raw selected-object ids are classified into
+ * parameters, art meshes and deformers by looking each one up in the snapshot, and any id that
+ * matches none of those remains only in the generic model-object list.
+ *
+ * <p>There is no background polling: change notifications are published as a side effect of a
+ * query, so subscribers only hear about a change once someone asks. Listener dispatch is handed to
+ * the runtime scheduler rather than run on the caller's thread. Subscriptions live in a
+ * copy-on-write list, so registering and unregistering are safe from any thread, and the
+ * {@code Registration} returned by the subscribe call is the only way to detach.
+ */
 public final class SelectionQueryServiceImpl implements SelectionQueryService {
 
     public static final String SELECTION_READ_CAPABILITY = "cubism.selection.read";

@@ -23,6 +23,10 @@ public record RotationDeformerForm(
         }
     }
 
+    /**
+     * @return the pivot the deformer rotates and scales about, as a point;
+     *     both coordinates are finite
+     */
     public Point2 origin() {
         return new Point2(originX, originY);
     }
