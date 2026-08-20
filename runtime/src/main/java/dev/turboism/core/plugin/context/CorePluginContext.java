@@ -49,6 +49,7 @@ import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.PluginPaths;
 import dev.turboism.sdk.storage.PluginStorage;
+import dev.turboism.sdk.script.ScriptService;
 import dev.turboism.sdk.task.PluginTaskScheduler;
 import dev.turboism.sdk.ui.UiHostCapabilityService;
 import dev.turboism.sdk.ui.UiScheduler;
@@ -87,6 +88,7 @@ public final class CorePluginContext implements PluginContext {
     private final PluginLocalization localization;
     private final PluginTaskScheduler taskScheduler;
     private final PluginStorage pluginStorage;
+    private volatile ScriptService scriptService = ScriptService.unavailable();
     private final UserFileAccessService userFileAccessService;
     private final AsyncHostReadService asyncHostReadService;
     private final MeshMirrorAxisService meshMirrorAxisService;
@@ -737,6 +739,16 @@ public final class CorePluginContext implements PluginContext {
     @Override
     public PluginStorage storage() {
         return pluginStorage == null ? PluginContext.super.storage() : pluginStorage;
+    }
+
+    @Override
+    public ScriptService scripts() {
+        return scriptService;
+    }
+
+    /** Runtime composition seam; plugins cannot link to this implementation type. */
+    public void installScriptService(final ScriptService service) {
+        this.scriptService = Objects.requireNonNull(service, "service");
     }
 
     @Override

@@ -81,7 +81,13 @@ def publish(source: Path, output: Path) -> None:
     finally:
         temporary.unlink(missing_ok=True)
 
-def build(root_value: Path, commit: str, gradle_value: Path, output_value: Path) -> Path:
+def build(
+    root_value: Path,
+    commit: str,
+    gradle_value: Path,
+    output_value: Path,
+    reuse_gradle_user_home: Path | None = None,
+) -> Path:
     root = root_value.resolve()
     validate_commit(root, commit)
     gradle = gradle_value.resolve()
@@ -89,8 +95,15 @@ def build(root_value: Path, commit: str, gradle_value: Path, output_value: Path)
     with tempfile.TemporaryDirectory(prefix="turboism-sdk-v2-history-") as directory:
         isolated = Path(directory)
         source = extract_commit(root, commit, isolated)
-        gradle_home = isolated / "gradle-user-home"
-        gradle_home.mkdir()
+        gradle_home = (
+            reuse_gradle_user_home.resolve()
+            if reuse_gradle_user_home is not None
+            else isolated / "gradle-user-home"
+        )
+        if reuse_gradle_user_home is None:
+            gradle_home.mkdir()
+        elif not gradle_home.is_dir():
+            raise ReconstructionError(f"reused Gradle user home is not a directory: {gradle_home}")
         environment = os.environ.copy()
         environment["GRADLE_USER_HOME"] = str(gradle_home)
         environment["GRADLE_OPTS"] = ""
@@ -127,9 +140,20 @@ def main() -> None:
     parser.add_argument("--commit", required=True)
     parser.add_argument("--gradle", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--reuse-gradle-user-home",
+        type=Path,
+        help="Reuse an existing dependency/plugin cache while keeping the historical build offline.",
+    )
     args = parser.parse_args()
     try:
-        build(args.root, args.commit, args.gradle, args.output)
+        build(
+            args.root,
+            args.commit,
+            args.gradle,
+            args.output,
+            args.reuse_gradle_user_home,
+        )
     except ReconstructionError as exc:
         raise SystemExit(f"SDK Gradle historical reconstruction: {exc}") from exc
 

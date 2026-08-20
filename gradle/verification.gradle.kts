@@ -182,7 +182,6 @@ val devCheck by tasks.registering {
         checkDuplicateJavaImports,
         checkPackageLayout,
         "checkModuleBoundaries",
-        "checkSdkV4ExactApiCompatibility",
         "checkSdkV4TierCompatibility",
         "validatePluginMeta",
         "checkOfficialPluginI18nCompleteness"

@@ -104,9 +104,11 @@ def _verify_with_trust(
     )
     reference_by_id, current_by_id = record_indexes(reference_records, current_records)
     verify_history_roots(initial_roots, reference_by_id, admissions, current_by_id)
-    verify_current_marker_authority(current_markers, initial_roots, admissions)
+    verify_current_marker_authority(current_markers, initial_roots, admissions, reference_by_id)
     verify_admission_shapes(current_records, admissions, promotions)
-    active_roots = verify_marker_state(current_markers, initial_roots, admissions, promotions, current_by_id)
+    active_roots = verify_marker_state(
+        current_markers, initial_roots, admissions, promotions, current_by_id, reference_by_id
+    )
     tiers = record_tiers(current_records, current_markers, active_roots)
     verify_historical_records(reference_by_id, current_by_id, reference_records, initial_roots, promotions, tiers)
     verify_new_records(current_by_id, reference_by_id, tiers, admissions, active_roots, promotions)
