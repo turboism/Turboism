@@ -31,15 +31,21 @@ def verify_history_roots(initial_roots, reference_by_id, admissions, current_by_
         raise BaselineError("newPreview history root is absent from current API: " + ", ".join(missing))
 
 
-def verify_current_marker_authority(markers, initial_roots, admissions) -> None:
+def verify_current_marker_authority(markers, initial_roots, admissions, reference_by_id) -> None:
     admission_ids = {entry.identity for entry in admissions}
     orphaned = {
         identity
         for identity, marked in markers.items()
-        if marked and identity not in initial_roots and identity not in admission_ids
+        if marked
+        and identity in reference_by_id
+        and identity not in initial_roots
+        and identity not in admission_ids
     }
     if orphaned:
-        raise BaselineError("current PreviewApi root lacks retained newPreview authority: " + ", ".join(sorted(orphaned)))
+        raise BaselineError(
+            "historical stable API cannot become Preview without retained authority: "
+            + ", ".join(sorted(orphaned))
+        )
 
 
 def verify_admission_shapes(records, admissions, promotions) -> None:
@@ -55,15 +61,28 @@ def verify_admission_shapes(records, admissions, promotions) -> None:
             raise digest_mismatch(label, admission.admitted_owned_records, actual, owned)
 
 
-def verify_marker_state(markers, initial_roots, admissions, promotions, current_by_id):
+def verify_marker_state(
+    markers, initial_roots, admissions, promotions, current_by_id, reference_by_id
+):
     admission_ids = {entry.identity for entry in admissions}
     if not promotions <= initial_roots | admission_ids:
         raise BaselineError("tier policy promotion target is not an admitted preview root")
-    active = ((initial_roots & set(current_by_id)) | (admission_ids & set(current_by_id))) - promotions
+    new_direct_roots = {
+        identity
+        for identity, marked in markers.items()
+        if marked and identity not in reference_by_id
+    }
+    active = (
+        (initial_roots & set(current_by_id))
+        | (admission_ids & set(current_by_id))
+        | new_direct_roots
+    ) - promotions
     actual = {identity for identity, marked in markers.items() if marked}
     if actual != active:
         missing, extra = sorted(active - actual), sorted(actual - active)
-        raise BaselineError(f"current direct PreviewApi marker roots mismatch: missing={missing[:10]} extra={extra[:10]}")
+        raise BaselineError(
+            f"current direct PreviewApi marker roots mismatch: missing={missing[:10]} extra={extra[:10]}"
+        )
     verify_promoted_markers(promotions, current_by_id, markers)
     return active
 

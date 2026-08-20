@@ -33,7 +33,12 @@ def new_preview_allowed(identity, admissions, active_roots, current_by_id) -> bo
         return bool(roots) and roots <= admission_ids | active_roots
     owner = owner_from_identity(identity)
     owner_root = f"class:{owner}" if owner else None
-    return identity in admission_ids or owner_root in admission_ids or owner_root in active_roots
+    return (
+        identity in admission_ids
+        or identity in active_roots
+        or owner_root in admission_ids
+        or owner_root in active_roots
+    )
 
 
 def package_roots(identity, current_by_id) -> set[str]:
