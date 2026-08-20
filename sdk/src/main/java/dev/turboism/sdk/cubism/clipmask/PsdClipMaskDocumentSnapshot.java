@@ -46,8 +46,6 @@ public record PsdClipMaskDocumentSnapshot(
      *     not be {@code null}, must not hold a blank value, and must be empty when
      *     {@code clipping} is {@code false}
      * @param children the layers nested inside this one, possibly empty; must not be {@code null}
-     * @throws IllegalArgumentException if a required string is blank, or if a non-clipping layer
-     *     declares a clipping base layer
      */
     @PreviewApi
     public record PsdLayerSnapshot(
@@ -59,6 +57,12 @@ public record PsdClipMaskDocumentSnapshot(
         Optional<String> clippingBaseLayerId,
         List<PsdLayerSnapshot> children
     ) {
+        /**
+         * Validates the record components.
+         *
+         * @throws IllegalArgumentException if a required string is blank, or if a non-clipping layer
+         *     declares a clipping base layer
+         */
         public PsdLayerSnapshot {
             if (layerId == null || layerId.isBlank()) {
                 throw new IllegalArgumentException("layerId must not be null or blank");

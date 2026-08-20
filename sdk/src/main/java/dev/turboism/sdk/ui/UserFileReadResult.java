@@ -13,15 +13,19 @@ import java.util.Optional;
  * @param truncated {@code true} when the file was longer than the caller’s byte
  *                  budget and only a prefix was returned; always {@code false}
  *                  on failure
- * @throws IllegalArgumentException when both or neither of {@code value} and
- *     {@code error} are present, or a failed read is marked truncated
- * @throws NullPointerException when {@code value} or {@code error} is {@code null}
  */
 public record UserFileReadResult<T>(
     Optional<T> value,
     Optional<UserFileError> error,
     boolean truncated
 ) {
+    /**
+     * Validates the record components.
+     *
+     * @throws IllegalArgumentException when both or neither of {@code value} and
+     *     {@code error} are present, or a failed read is marked truncated
+     * @throws NullPointerException when {@code value} or {@code error} is {@code null}
+     */
     public UserFileReadResult {
         value = UserFileContracts.optional(value, "value");
         error = UserFileContracts.optional(error, "error");

@@ -18,9 +18,6 @@ import java.util.Objects;
  * @param initialDelay wait before the first run; may be {@link java.time.Duration#ZERO}
  * @param delay wait between the end of one run and the start of the next; must be positive
  * @param action the work to run on each repetition
- * @throws NullPointerException if any component is {@code null}
- * @throws IllegalArgumentException if {@code initialDelay} is negative or {@code delay} is not
- *     positive
  */
 public record FixedDelayTaskRequest(
     TaskId id,
@@ -30,6 +27,13 @@ public record FixedDelayTaskRequest(
     Duration delay,
     PluginTaskAction action
 ) {
+    /**
+     * Validates the record components.
+     *
+     * @throws NullPointerException if any component is {@code null}
+     * @throws IllegalArgumentException if {@code initialDelay} is negative or {@code delay} is not
+     *     positive
+     */
     public FixedDelayTaskRequest {
         id = Objects.requireNonNull(id, "id");
         kind = Objects.requireNonNull(kind, "kind");

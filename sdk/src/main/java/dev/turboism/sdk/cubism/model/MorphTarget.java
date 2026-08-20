@@ -41,7 +41,7 @@ public interface MorphTarget {
     /**
      * Rebinds this Morph Target to another parameter while preserving the key value.
      *
-     * @throws NoSuchElementException when the target parameter is absent
+     * @throws java.util.NoSuchElementException when the target parameter is absent
      */
     default void setParameter(final ParameterId id) {
         Objects.requireNonNull(id, "id");

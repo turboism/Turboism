@@ -16,14 +16,18 @@ import java.util.Optional;
  * @param handle the granted capability, present only for {@code GRANTED}
  * @param error  the failure detail, present only for {@code DENIED} and
  *               {@code UNAVAILABLE}
- * @throws IllegalArgumentException when the combination violates the rules above
- * @throws NullPointerException when any component is {@code null}
  */
 public record UserFileRequestResult(
     UserFileRequestStatus status,
     Optional<UserFileHandle> handle,
     Optional<UserFileError> error
 ) {
+    /**
+     * Validates the record components.
+     *
+     * @throws IllegalArgumentException when the combination violates the rules above
+     * @throws NullPointerException when any component is {@code null}
+     */
     public UserFileRequestResult {
         status = java.util.Objects.requireNonNull(status, "status");
         handle = UserFileContracts.optional(handle, "handle");
