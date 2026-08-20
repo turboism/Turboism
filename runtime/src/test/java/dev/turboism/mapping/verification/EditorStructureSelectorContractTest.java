@@ -16,8 +16,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class EditorStructureSelectorContractTest {
 
-    private static final Path PROJECT_ROOT = locateProjectRoot();
-    private static final Path LEGACY_EVIDENCE = PROJECT_ROOT.resolve("../turboism-legacy/cubism-ref");
+    private static final Path PROJECT_ROOT = EditorSelectorContractTestPaths.projectRoot();
+    private static final Path LEGACY_EVIDENCE = EditorSelectorContractTestPaths.legacyEvidence();
 
     @Test
     void exact5302RecordVerifiesPartStructureContract() throws Exception {
@@ -127,15 +127,6 @@ class EditorStructureSelectorContractTest {
             EditorModelProfileSelectorContract.PROFILE_READ_CAPABILITY_ID,
             EditorModelProfileSelectorContract.PROFILE_READ_REQUIRED_ALIASES
         ));
-    }
-
-    private static Path locateProjectRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null && !java.nio.file.Files.isRegularFile(current.resolve("settings.gradle.kts"))) {
-            current = current.getParent();
-        }
-        if (current == null) throw new IllegalStateException("project root is unavailable");
-        return current;
     }
 
     private static URLClassLoader loader(final Path artifact) throws Exception {

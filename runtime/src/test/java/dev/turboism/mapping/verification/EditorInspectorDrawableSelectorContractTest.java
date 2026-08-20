@@ -16,8 +16,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** Reviewed-record trust-root tests for the Inspector Drawable write contracts. */
 class EditorInspectorDrawableSelectorContractTest {
 
-    private static final Path PROJECT_ROOT = locateProjectRoot();
-    private static final Path LEGACY_EVIDENCE = PROJECT_ROOT.resolve("../turboism-legacy/cubism-ref");
+    private static final Path PROJECT_ROOT = EditorSelectorContractTestPaths.projectRoot();
+    private static final Path LEGACY_EVIDENCE = EditorSelectorContractTestPaths.legacyEvidence();
 
     @Test
     void exact5302RecordVerifiesTheCompleteInspectorDrawableWriteContract() throws Exception {
@@ -99,15 +99,6 @@ class EditorInspectorDrawableSelectorContractTest {
         for (final String alias : staticAliases) {
             assertTrue(resolver.bindStatic(alias) != null, alias + " must bind as a static method");
         }
-    }
-
-    private static Path locateProjectRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null && !java.nio.file.Files.isRegularFile(current.resolve("settings.gradle.kts"))) {
-            current = current.getParent();
-        }
-        if (current == null) throw new IllegalStateException("project root is unavailable");
-        return current;
     }
 
     private static URLClassLoader loader(final Path artifact) throws Exception {
