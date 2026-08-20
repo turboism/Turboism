@@ -58,7 +58,6 @@ public final class EditorParameterStructureSelectorContract {
             "cubism.editor-model.parameter-group-guid.create",
             "cubism.editor-model.parameter-group-id.create",
             "cubism.editor-model.parameter-group.handler",
-            "cubism.editor-model.parameter-group.guid",
             "cubism.editor-model.parameter-group.set-name",
             "cubism.editor-model.parameter-group.set-folder-opened",
             "cubism.editor-model.parameter-group.children",

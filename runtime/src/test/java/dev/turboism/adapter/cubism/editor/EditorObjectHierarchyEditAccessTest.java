@@ -457,7 +457,6 @@ class EditorObjectHierarchyEditAccessTest {
         selectors.add(method("cubism.editor-model.part-source.local-name", ObjectSource.class, "localName", "()Ljava/lang/String;"));
         selectors.add(method("cubism.editor-model.part-source.parent", ObjectSource.class, "parent", desc(PartSource.class)));
         selectors.add(method("cubism.editor-model.part-source.add-child", PartSource.class, "addChild", "(" + type(ObjectSource.class) + "I)V"));
-        selectors.add(method("cubism.editor-model.part-source.remove-child", PartSource.class, "removeChild", "(" + type(ObjectSource.class) + ")V"));
         selectors.add(StaticSelector.classSelector("cubism.editor-model.part.class", internal(HostPart.class)));
         selectors.add(method("cubism.editor-model.part.source", HostPart.class, "source", desc(PartSource.class)));
         selectors.add(method("cubism.editor-model.model.parts", Model.class, "allParts", "()Ljava/util/List;"));
@@ -527,7 +526,6 @@ class EditorObjectHierarchyEditAccessTest {
         selectors.add(method("cubism.editor-model.parameter-controllable-source.set-local-name", ObjectSource.class, "setLocalName", "(Ljava/lang/String;)V"));
         selectors.add(method("cubism.editor-model.parameter-controllable-source.guid", ObjectSource.class, "guid", desc(Guid.class)));
         selectors.add(method("cubism.editor-model.parameter-controllable-source.handler", ObjectSource.class, "handler", desc(ACParameterControllableHandler.class)));
-        selectors.add(method("cubism.editor-model.parameter-controllable-source.internal-set-parent", ObjectSource.class, "internalSetParent", "(" + type(PartSource.class) + ")V"));
         selectors.add(method("cubism.editor-model.parameter-controllable-source.target-deformer-guid", ObjectSource.class, "targetDeformerGuid", desc(Guid.class)));
         selectors.add(method("cubism.editor-model.parameter-controllable-source.set-target-deformer-guid", ObjectSource.class, "setTargetDeformerGuid", "(" + type(Guid.class) + ")V"));
         selectors.add(method("cubism.editor-model.parameter-controllable-source.all-parent-deformers", ObjectSource.class, "allParentDeformers", "()Ljava/lang/Iterable;"));

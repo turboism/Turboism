@@ -142,7 +142,6 @@ class EditorDocumentReadAccessTest {
         values.add(method("cubism.editor-model.model-source.guid", ModelSource.class, "guid", "()L" + internal(Id.class) + ";"));
         values.add(method("cubism.editor-model.model-source.current-instance", ModelSource.class, "currentInstance", "()L" + internal(Model.class) + ";"));
         values.add(method("cubism.editor-model.model-source.all-deformers", ModelSource.class, "allDeformers", "()Ljava/util/List;"));
-        values.add(method("cubism.editor-model.model-source.all-parameters", ModelSource.class, "allParameters", "()Ljava/util/List;"));
         values.add(method("cubism.editor-model.model-source.physics-settings-source-set", ModelSource.class, "physicsSettingsSourceSet", "()L" + internal(PhysicsSettingsSourceSet.class) + ";"));
         values.add(StaticSelector.classSelector("cubism.editor-model.model.class", internal(Model.class)));
         values.add(method("cubism.editor-model.model.parameter-set", Model.class, "parameterSet", "()L" + internal(ParameterSet.class) + ";"));
