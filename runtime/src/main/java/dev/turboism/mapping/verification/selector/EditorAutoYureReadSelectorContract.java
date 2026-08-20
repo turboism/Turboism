@@ -53,7 +53,6 @@ public final class EditorAutoYureReadSelectorContract {
         "cubism.editor-model.model-source.all-deformers",
         "cubism.editor-model.parameter-source.guid",
         "cubism.editor-model.guid.value",
-        "cubism.editor-model.model-source.all-parameters",
         "cubism.editor-model.parameter.class",
         "cubism.editor-model.parameter.id",
         "cubism.editor-model.parameter-controllable-source.id",
