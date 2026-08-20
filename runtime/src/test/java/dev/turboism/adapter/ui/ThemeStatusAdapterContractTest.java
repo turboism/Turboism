@@ -40,7 +40,7 @@ class ThemeStatusAdapterContractTest {
 
     @Test
     void themeStatusReadReturnsCapabilityUnavailableWhenHostOmitsCapability() {
-        RecordingHost host = new RecordingHost("5.3.1", false);
+        RecordingHost host = new RecordingHost("5.3.02", false);
         ThemeStatusAdapter adapter = ThemeStatusAdapterImpl.connected(host);
 
         ThemeStatusAdapter.AdapterResult<Optional<ThemeStatusSnapshot>> result = adapter.themeStatus();
@@ -52,7 +52,7 @@ class ThemeStatusAdapterContractTest {
 
     @Test
     void themeStatusReadDelegatesWhenCapabilityIsAvailable() {
-        RecordingHost host = new RecordingHost("5.3.0", true);
+        RecordingHost host = new RecordingHost("5.3.02", true);
         ThemeStatusAdapter adapter = ThemeStatusAdapterImpl.connected(host);
 
         ThemeStatusAdapter.AdapterResult<Optional<ThemeStatusSnapshot>> result = adapter.themeStatus();
