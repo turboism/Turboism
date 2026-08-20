@@ -15,9 +15,6 @@ import java.util.Objects;
  *                          and be at most 32 characters. Empty means no filter.
  * @param mode              the single access direction being requested
  * @param lifetime          how long a resulting grant should remain usable
- * @throws IllegalArgumentException when text bounds are violated or an extension
- *     is malformed
- * @throws NullPointerException when any component is {@code null}
  */
 public record UserFileRequest(
     String id,
@@ -26,6 +23,13 @@ public record UserFileRequest(
     UserFileMode mode,
     UserFileLifetime lifetime
 ) {
+    /**
+     * Validates the record components.
+     *
+     * @throws IllegalArgumentException when text bounds are violated or an extension
+     *     is malformed
+     * @throws NullPointerException when any component is {@code null}
+     */
     public UserFileRequest {
         id = UserFileContracts.requireId(id);
         title = UserFileContracts.requireTitle(title);

@@ -19,8 +19,6 @@ import dev.turboism.sdk.cubism.write.CubismWriteCommand;
  * @param meshId the art mesh to operate on; must not be {@code null}
  * @param operation the operation name to perform, passed through verbatim to the executor; must
  *     not be {@code null} or blank
- * @throws IllegalArgumentException if any component is {@code null}, or if {@code commandId} or
- *     {@code operation} is blank
  */
 @PreviewApi
 public record MeshWriteCommand(
@@ -30,6 +28,12 @@ public record MeshWriteCommand(
     String operation
 ) implements CubismWriteCommand {
 
+    /**
+     * Validates the record components.
+     *
+     * @throws IllegalArgumentException if any component is {@code null}, or if {@code commandId} or
+     *     {@code operation} is blank
+     */
     public MeshWriteCommand {
         if (commandId == null || commandId.isBlank()) {
             throw new IllegalArgumentException("commandId must not be null or blank");

@@ -9,8 +9,6 @@ package dev.turboism.sdk.ui;
  * @param priority           ordering weight among panels competing for the same placement
  * @param content            toolkit-neutral view tree the runtime renders
  * @param floatingByDefault  {@code true} to open the panel as a floating window rather than docked
- * @throws IllegalArgumentException when {@code id}, {@code title}, or
- *     {@code placement} is null or blank, or {@code content} is {@code null}
  */
 public record EmbeddedPanelContribution(
     String id,
@@ -42,6 +40,12 @@ public record EmbeddedPanelContribution(
         this(id, title, placement, priority, content, false);
     }
 
+    /**
+     * Validates the record components.
+     *
+     * @throws IllegalArgumentException when {@code id}, {@code title}, or
+     *     {@code placement} is null or blank, or {@code content} is {@code null}
+     */
     public EmbeddedPanelContribution {
         if (id == null || id.isBlank()) {
             throw new IllegalArgumentException("id must not be null or blank");

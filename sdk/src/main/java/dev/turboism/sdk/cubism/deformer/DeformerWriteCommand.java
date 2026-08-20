@@ -18,8 +18,6 @@ import dev.turboism.sdk.cubism.write.CubismWriteCommand;
  * @param deformerId the deformer to modify; must not be null
  * @param operation the deformer operation to perform, interpreted by the executing adapter;
  *                  must not be null or blank
- * @throws IllegalArgumentException if any component is null, or if {@code commandId} or
- *                                  {@code operation} is blank
  */
 @PreviewApi
 public record DeformerWriteCommand(
@@ -29,6 +27,12 @@ public record DeformerWriteCommand(
     String operation
 ) implements CubismWriteCommand {
 
+    /**
+     * Validates the record components.
+     *
+     * @throws IllegalArgumentException if any component is null, or if {@code commandId} or
+     *                                  {@code operation} is blank
+     */
     public DeformerWriteCommand {
         if (commandId == null || commandId.isBlank()) {
             throw new IllegalArgumentException("commandId must not be null or blank");
