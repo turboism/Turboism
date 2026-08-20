@@ -86,6 +86,7 @@ public final class MeshMirrorNativeMethodTransformer implements ClassFileTransfo
         if (!admit(loader, protectionDomain)) return null;
 
         final boolean[] transformed = {false};
+        final boolean[] linkedInjected = {false};
         try {
             final ClassReader reader = new ClassReader(classfileBuffer);
             final ClassWriter writer = new ClassWriter(
@@ -182,6 +183,7 @@ public final class MeshMirrorNativeMethodTransformer implements ClassFileTransfo
                                     "(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)V",
                                     false
                                 );
+                                linkedInjected[0] = true;
                             } else if (kind == Kind.EDGE_DELETE
                                 && callOwner.equals(linked.edgeRemoveOwner())
                                 && callName.equals(linked.edgeRemoveMethod())
@@ -196,6 +198,7 @@ public final class MeshMirrorNativeMethodTransformer implements ClassFileTransfo
                                     "(Ljava/lang/Object;Ljava/lang/Object;)V",
                                     false
                                 );
+                                linkedInjected[0] = true;
                             }
                             super.visitMethodInsn(callOpcode, callOwner, callName, callDescriptor, isInterface);
                             if (kind == Kind.EDGE_DELETE
@@ -278,6 +281,15 @@ public final class MeshMirrorNativeMethodTransformer implements ClassFileTransfo
             }, ClassReader.EXPAND_FRAMES);
             if (!transformed[0]) {
                 outcome(Outcome.TARGET_UNCHANGED, "MESH_MIRROR_TARGET_UNCHANGED owner=" + className);
+                return null;
+            }
+            // Matching the enclosing action method is not enough: if the deletion call we
+            // intercept is absent, the rewrite would be a no-op reported as success. Refuse it.
+            if (isLinkedDeletionOwner(className) && !linkedInjected[0]) {
+                reject(
+                    Outcome.LINKED_DELETION_NOT_INJECTED,
+                    "MESH_MIRROR_LINKED_DELETION_NOT_INJECTED owner=" + className
+                );
                 return null;
             }
             final byte[] transformedBytes = writer.toByteArray();
@@ -377,6 +389,12 @@ public final class MeshMirrorNativeMethodTransformer implements ClassFileTransfo
         return null;
     }
 
+    private boolean isLinkedDeletionOwner(final String owner) {
+        final MeshMirrorHostProfile.LinkedDeletion linked = profile.linkedDeletion();
+        return linked != null
+            && (linked.pointActionOwner().equals(owner) || linked.edgeActionOwner().equals(owner));
+    }
+
     private boolean isTargetOwner(final String owner) {
         if (profile.meshEditorOwner().equals(owner)
             || profile.mirrorWidgetOwner().equals(owner)
@@ -404,6 +422,7 @@ public final class MeshMirrorNativeMethodTransformer implements ClassFileTransfo
         NONE,
         TARGET_TRANSFORMED,
         TARGET_UNCHANGED,
+        LINKED_DELETION_NOT_INJECTED,
         LOADER_MISMATCH,
         ARTIFACT_MISMATCH,
         BOOTSTRAP_LOADER_REJECTED,
