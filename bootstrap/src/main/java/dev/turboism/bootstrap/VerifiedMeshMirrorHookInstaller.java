@@ -99,11 +99,19 @@ final class VerifiedMeshMirrorHookInstaller implements AutoCloseable {
             instrumentation,
             this::report
         );
-        this.targetClassNames = new String[] {
+        // Every owner the transformer may rewrite must be listed here, or a preloaded
+        // target would go undetected and cleanup would leave it rewritten.
+        final List<String> targets = new ArrayList<>(List.of(
             profile.meshEditorOwner().replace('/', '.'),
             profile.mirrorWidgetOwner().replace('/', '.'),
             profile.mirrorAxisDrawOwner().replace('/', '.')
-        };
+        ));
+        final MeshMirrorHostProfile.LinkedDeletion linked = profile.linkedDeletion();
+        if (linked != null) {
+            targets.add(linked.pointActionOwner().replace('/', '.'));
+            targets.add(linked.edgeActionOwner().replace('/', '.'));
+        }
+        this.targetClassNames = targets.toArray(new String[0]);
     }
 
     /** Installs the transformer before runtime/plugin startup; it intentionally stays unbound. */
@@ -190,6 +198,10 @@ final class VerifiedMeshMirrorHookInstaller implements AutoCloseable {
 
     MeshMirrorNativeMethodTransformer.Outcome transformerOutcome() {
         return transformer.outcome();
+    }
+
+    int ownedTargetCount() {
+        return targetClassNames.length;
     }
 
     boolean targetTransformed() {
