@@ -76,7 +76,7 @@ class ThemeStatusAdapterContractTest {
 
     @Test
     void cubismReadServiceUsesThemeStatusAdapterAndDoesNotDependOnStatusToolbarAdapter() {
-        RecordingHost host = new RecordingHost("5.3.2", true);
+        RecordingHost host = new RecordingHost("5.3.02", true);
         CubismReadCapabilityServiceImpl service = CubismReadCapabilityServiceTestSupport.withThemeAdapter(
             new CubismFacadeImpl(projectOnlySource(), projectReadGate()),
             M12ReadSnapshotSource.EMPTY,

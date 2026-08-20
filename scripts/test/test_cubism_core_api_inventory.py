@@ -21,7 +21,7 @@ from cubism_core_api import (  # noqa: E402
     validate_document,
 )
 
-API_52 = ROOT / "cubism-ref/core-api/observed/cubism-core-5.2.json"
+API_52 = ROOT / "cubism-ref/core-api/observed/cubism-core-5.2.03.json"
 API_53 = ROOT / "cubism-ref/core-api/observed/cubism-core-5.3.02.json"
 CORE_PREFIX = "com.live2d.sdk.cubism.core."
 CORE_MODEL_READ_PACKS = {

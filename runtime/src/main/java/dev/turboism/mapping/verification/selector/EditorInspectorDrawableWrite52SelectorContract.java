@@ -12,7 +12,7 @@ import java.util.Set;
  */
 public final class EditorInspectorDrawableWrite52SelectorContract {
 
-    public static final String CUBISM_VERSION = "5.2.0";
+    public static final String CUBISM_VERSION = "5.2.03";
     public static final String ADAPTER_SLICE_ID = EditorInspectorDrawableWriteSelectorContract.ADAPTER_SLICE_ID;
     public static final String CAPABILITY_ID = EditorInspectorDrawableWriteSelectorContract.CAPABILITY_ID;
 

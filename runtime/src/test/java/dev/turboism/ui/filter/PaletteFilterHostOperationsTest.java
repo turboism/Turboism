@@ -260,7 +260,7 @@ class PaletteFilterHostOperationsTest {
 
         // 5.2.03 profile: node→source accessor h() (the fixed routing; would yield the 5.3
         // text if the accessor were still hard-coded to i()).
-        final PaletteFilterHostOperations host52 = hostWithResolver("5.2.0", loader);
+        final PaletteFilterHostOperations host52 = hostWithResolver("5.2.03", loader);
         assertEquals("warp4 矩形变形器", host52.deformerNodeSearchText(new DeformerNode(hSource, iSource)));
 
         // 5.3.02 profile: node→source accessor i().
@@ -271,7 +271,7 @@ class PaletteFilterHostOperationsTest {
     @Test
     void nodeSourceProfileRoutesExactVersionsToPinnedAccessors() {
         // Runtime resolver spelling (EditorModelVerificationManifest52) and record spelling.
-        assertEquals("h", DeformerNodeSourceProfile.forVersion("5.2.0").orElseThrow().accessorName());
+        assertEquals("h", DeformerNodeSourceProfile.forVersion("5.2.03").orElseThrow().accessorName());
         assertEquals("h", DeformerNodeSourceProfile.forVersion("5.2.03").orElseThrow().accessorName());
         assertEquals("i", DeformerNodeSourceProfile.forVersion("5.3.02").orElseThrow().accessorName());
         assertTrue(DeformerNodeSourceProfile.forVersion("5.4.0").isEmpty());

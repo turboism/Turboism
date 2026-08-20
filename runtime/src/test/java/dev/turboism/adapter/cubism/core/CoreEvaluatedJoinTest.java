@@ -208,7 +208,7 @@ class CoreEvaluatedJoinTest {
             new TestCoreApiFixture.Moc(6),
             canvasReads::incrementAndGet
         );
-        try (Harness harness = harness("5.2", withMoc)) {
+        try (Harness harness = harness("5.2.03", withMoc)) {
             final IllegalStateException failure = assertThrows(
                 IllegalStateException.class,
                 () -> harness.join().mocInfo()
