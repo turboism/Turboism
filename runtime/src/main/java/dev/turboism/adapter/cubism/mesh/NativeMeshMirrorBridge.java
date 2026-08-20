@@ -77,6 +77,7 @@ public final class NativeMeshMirrorBridge {
         PENDING.set(null);
         CONTROL_ATTACHED.set(false);
         MIRROR_OVERRIDE.set(null);
+        EDGE_UNDO_GROUP.remove();
         DIAGNOSTIC.set(DEFAULT_DIAGNOSTIC);
     }
 
@@ -514,12 +515,16 @@ public final class NativeMeshMirrorBridge {
     private static final String MIRROR_OWNER =
         "com.live2d.cubism.view.palette.tool.toolMode.meshEditor.g";
     private static final AtomicReference<Object> MIRROR_OVERRIDE = new AtomicReference<>();
+    private static final ThreadLocal<Object> EDGE_UNDO_GROUP = new ThreadLocal<>();
 
-    /** Called just before the host's own point deletion, with that call's operands. */
+    /**
+     * Called just before the host's own point deletion. The argument order mirrors the
+     * operands already on the stack at that call, so no local slots have to be allocated.
+     */
     public static void mirrorDeletePoints(
-        final Object pack,
         final Object sources,
-        final Object groupUndo
+        final Object groupUndo,
+        final Object pack
     ) {
         try {
             final Binding binding = INSTALLED.get();
@@ -529,7 +534,10 @@ public final class NativeMeshMirrorBridge {
             if (mirror == null || !hostMirrorEnabled(mirror, pack)) return;
 
             final List<Object> sourcePoints = flatten(sources);
-            if (sourcePoints.isEmpty()) return;
+            if (sourcePoints.isEmpty()) {
+                diagnostic("MIRROR_DELETE_POINTS_SKIPPED reason=NO_SOURCES");
+                return;
+            }
             final Set<Integer> sourceIds = new HashSet<>();
             for (Object source : sourcePoints) sourceIds.add(pointId(source));
 
@@ -565,12 +573,20 @@ public final class NativeMeshMirrorBridge {
         }
     }
 
-    /** Called just before the host's own edge removal, with that edge. */
-    public static void mirrorDeleteEdge(
-        final Object pack,
-        final Object edge,
-        final Object groupUndo
-    ) {
+    /** Records the edge action's undo group as the host creates it, for the removal site below. */
+    public static void rememberEdgeUndoGroup(final Object groupUndo) {
+        EDGE_UNDO_GROUP.set(groupUndo);
+    }
+
+    /**
+     * Called just before the host's own edge removal. The undo group lives in a local of the
+     * host method rather than on the stack here, so it is captured at the point the host
+     * creates it and consumed once. Capture happens after the host registers its own snapshot
+     * undo, so a single Undo still restores both sides.
+     */
+    public static void mirrorDeleteEdge(final Object edge, final Object pack) {
+        final Object groupUndo = EDGE_UNDO_GROUP.get();
+        EDGE_UNDO_GROUP.remove();
         try {
             final Binding binding = INSTALLED.get();
             if (binding == null || !binding.enabled
