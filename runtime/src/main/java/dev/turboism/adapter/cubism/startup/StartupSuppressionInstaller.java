@@ -17,6 +17,16 @@ public final class StartupSuppressionInstaller {
 
     private StartupSuppressionInstaller() {
     }
+    public static java.util.Optional<Path> locateHostArtifact(
+        final String classPath,
+        final Path workingDirectory
+    ) {
+        final StartupHostArtifactLocator.Result located =
+            StartupHostArtifactLocator.locate(classPath, workingDirectory);
+        return located.status() == StartupHostArtifactLocator.Status.FOUND
+            ? java.util.Optional.of(located.artifact())
+            : java.util.Optional.empty();
+    }
 
     public static Installation install(
         final AttachmentMode mode,
