@@ -29,6 +29,9 @@ public final class PreviewLog implements AutoCloseable, RuntimeLogReader {
 
     private static final int RECENT_LINE_LIMIT = 5_000;
     private static final int PRUNE_INTERVAL_WRITES = 256;
+
+    /** Stack frames written per throwable in a cause chain, bounded so a log cannot run away. */
+    private static final int MAX_LOGGED_FRAMES = 24;
     private static final DateTimeFormatter SESSION_DATE = DateTimeFormatter
         .ofPattern("yyyy-MM-dd")
         .withZone(ZoneOffset.UTC);
@@ -270,6 +273,23 @@ public final class PreviewLog implements AutoCloseable, RuntimeLogReader {
             remember(line.toString());
             writer.write(line.toString());
             writer.newLine();
+            // Frames, bounded. Without them a failure that carries no message -- a
+            // NoSuchElementException out of a static initializer, say -- reduces to two lines
+            // that name the exception type and nothing about where it came from, which is not
+            // enough to diagnose an exact-host run.
+            final StackTraceElement[] frames = current.getStackTrace();
+            for (int index = 0; index < Math.min(frames.length, MAX_LOGGED_FRAMES); index++) {
+                final String frame = "\tat " + safe(frames[index].toString());
+                remember(frame);
+                writer.write(frame);
+                writer.newLine();
+            }
+            if (frames.length > MAX_LOGGED_FRAMES) {
+                final String elided = "\t... " + (frames.length - MAX_LOGGED_FRAMES) + " more";
+                remember(elided);
+                writer.write(elided);
+                writer.newLine();
+            }
             current = current.getCause();
             depth++;
         }

@@ -83,6 +83,18 @@ final class PreviewPluginLoadCoordinator {
             loadResolvedPlugin(resolved, candidates, disabled, runtimeFailed, failures, summaries);
         }
         log.info("plugin-loader", "Plugin load complete: loaded=" + summaries.size() + ", failed=" + failures.size());
+        // A bare count is not diagnosable. An exact-host run reported failed=1 with nothing
+        // naming the plugin or the reason, which cost several host sessions to narrow down by
+        // hand; every failure now says which plugin, which code, and why.
+        for (LocalPluginRuntime.PluginFailure failure : failures) {
+            log.warn(
+                "plugin-loader",
+                "Plugin failed: id=" + failure.pluginId()
+                    + " code=" + failure.code()
+                    + " jar=" + failure.jar()
+                    + " reason=" + failure.message()
+            );
+        }
         return new LocalPluginRuntime.LoadReport(
             List.copyOf(summaries), List.copyOf(failures), List.copyOf(resolution.cycles())
         );
