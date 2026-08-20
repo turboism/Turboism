@@ -57,7 +57,7 @@ public final class EditorModelVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_2_03 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_2_03,
         "cubism-5.2.03.editor-model.static",
-        "94daceb567216c3b4f97ccf2272f329e9b4e94b9d6bdd87a648da2e5efb6f050",
+        "4224231c56683f855a8e8c0ffe3c0be1d1035192f908de3f4d80fbd66d4f4b96",
         CUBISM_VERSION_5_2_03,
         "cubism-5.2.03"
     );
@@ -66,7 +66,7 @@ public final class EditorModelVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_3_02 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_3_02,
         "cubism-5.3.02.editor-model.static",
-        "9170b2df5758a5378a197b9798ac7fb370a35e57e38019808d3a4bccf1e3720c",
+        "6546f7ec4a7d125febfcf1edabcbd580e65a91bb89700d45d8b5ed5236577711",
         CUBISM_VERSION_5_3_02,
         "cubism-5.3.02"
     );
