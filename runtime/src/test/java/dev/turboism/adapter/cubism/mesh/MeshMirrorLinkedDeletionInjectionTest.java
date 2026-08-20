@@ -128,6 +128,34 @@ final class MeshMirrorLinkedDeletionInjectionTest {
         }
     }
 
+    /**
+     * If the host moved the deletion call we intercept, matching the enclosing method alone
+     * would produce a rewrite that does nothing while reporting success. That must fail closed.
+     */
+    @Test
+    void refusesToRewriteAnActionWhoseDeletionCallIsAbsent() {
+        final ClassWriter writer = newClass(POINT_FIXTURE);
+        final MethodVisitor method = writer.visitMethod(
+            Opcodes.ACC_PUBLIC, "b", "(Ljava/lang/Object;)V", null, null
+        );
+        method.visitCode();
+        method.visitInsn(Opcodes.RETURN);
+        method.visitMaxs(0, 0);
+        method.visitEnd();
+        writer.visitEnd();
+
+        final MeshMirrorNativeMethodTransformer transformer =
+            new MeshMirrorNativeMethodTransformer(profile(), null);
+
+        assertEquals(null, transformer.transform(
+            null, null, POINT_FIXTURE, null, null, writer.toByteArray()
+        ));
+        assertEquals(
+            MeshMirrorNativeMethodTransformer.Outcome.LINKED_DELETION_NOT_INJECTED,
+            transformer.outcome()
+        );
+    }
+
     private static dev.turboism.mapping.verification.HostArtifactDigest digest(
         final long size,
         final String hash
