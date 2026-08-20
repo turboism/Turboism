@@ -8,9 +8,10 @@ import java.util.Objects;
 /**
  * What the host is about to delete, handed to participants before the deletion happens.
  *
- * <p>{@code mesh} is present only when the plugin has registered a custom counterpart resolver;
- * otherwise it is empty, because materialising it would cost a full copy the default path does
- * not need.</p>
+ * <p>{@code mesh} is empty on the participation callback's synchronous fast path. A custom
+ * counterpart resolver receives the materialised live snapshot through its own {@code mesh}
+ * argument; keeping it out of this shared event avoids copying geometry for participants that
+ * never request override resolution.</p>
  */
 @PreviewApi
 public record MeshDeletion(

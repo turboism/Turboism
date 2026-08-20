@@ -44,7 +44,11 @@ public final class AuthorizedMeshMirrorCounterparts implements MeshMirrorCounter
             throw new IllegalStateException("this plugin already registered a mirror counterpart resolver");
         }
         final Registration registration = () -> resolver.compareAndSet(replacement, null);
-        scope.register(registration);
-        return registration;
+        try {
+            return scope.register(registration);
+        } catch (RuntimeException | Error failure) {
+            registration.close();
+            throw failure;
+        }
     }
 }

@@ -88,6 +88,7 @@ public final class NativeMeshMirrorBridge {
         DEFAULT_COUNTERPART_POINTS.remove();
         DEFAULT_COUNTERPART_EDGES.remove();
         DEFAULT_CONTRIBUTIONS.remove();
+        COLLECTED_CONTRIBUTIONS.remove();
         PARTICIPATION.resetSession();
         COUNTERPARTS.resetSession();
         DIAGNOSTIC.set(DEFAULT_DIAGNOSTIC);
@@ -549,6 +550,8 @@ public final class NativeMeshMirrorBridge {
     private static final ThreadLocal<List<Object>> DEFAULT_COUNTERPART_POINTS = new ThreadLocal<>();
     /** Contribution objects produced by the default resolver, tracked by identity for provenance. */
     private static final ThreadLocal<List<MeshEditContribution>> DEFAULT_CONTRIBUTIONS = new ThreadLocal<>();
+    /** Successful participant outputs in callback order, before the collector flattens their values. */
+    private static final ThreadLocal<List<MeshEditContribution>> COLLECTED_CONTRIBUTIONS = new ThreadLocal<>();
 
     /** The host handles backing the edit a participant is being asked about. */
     record LiveEdit(
@@ -556,6 +559,16 @@ public final class NativeMeshMirrorBridge {
         Object mirror,
         List<Object> sourcePoints,
         List<Object> sourceEdges
+    ) { }
+
+    record ProvenanceMark(int points, int edges, int defaults, int collected) { }
+
+    private record DispatchState(
+        LiveEdit liveEdit,
+        List<Object> points,
+        List<Object> edges,
+        List<MeshEditContribution> defaults,
+        List<MeshEditContribution> collected
     ) { }
 
     static void rememberDefaultCounterpart(final Object point) {
@@ -567,10 +580,21 @@ public final class NativeMeshMirrorBridge {
     }
 
     static void rememberDefaultContribution(final MeshEditContribution contribution) {
-        List<MeshEditContribution> contributions = DEFAULT_CONTRIBUTIONS.get();
+        rememberContribution(DEFAULT_CONTRIBUTIONS, contribution);
+    }
+
+    static void rememberCollectedContribution(final MeshEditContribution contribution) {
+        rememberContribution(COLLECTED_CONTRIBUTIONS, contribution);
+    }
+
+    private static void rememberContribution(
+        final ThreadLocal<List<MeshEditContribution>> target,
+        final MeshEditContribution contribution
+    ) {
+        List<MeshEditContribution> contributions = target.get();
         if (contributions == null) {
             contributions = new ArrayList<>();
-            DEFAULT_CONTRIBUTIONS.set(contributions);
+            target.set(contributions);
         }
         contributions.add(contribution);
     }
@@ -589,6 +613,62 @@ public final class NativeMeshMirrorBridge {
 
     static LiveEdit liveEdit() {
         return LIVE_EDIT.get();
+    }
+
+    static boolean participationDispatchActive() {
+        return LIVE_EDIT.get() != null;
+    }
+
+    static ProvenanceMark markDefaultProvenance() {
+        return new ProvenanceMark(
+            size(DEFAULT_COUNTERPART_POINTS.get()),
+            size(DEFAULT_COUNTERPART_EDGES.get()),
+            size(DEFAULT_CONTRIBUTIONS.get()),
+            size(COLLECTED_CONTRIBUTIONS.get())
+        );
+    }
+
+    static void restoreDefaultProvenance(final ProvenanceMark mark) {
+        truncate(DEFAULT_COUNTERPART_POINTS.get(), mark.points());
+        truncate(DEFAULT_COUNTERPART_EDGES.get(), mark.edges());
+        truncate(DEFAULT_CONTRIBUTIONS.get(), mark.defaults());
+        truncate(COLLECTED_CONTRIBUTIONS.get(), mark.collected());
+    }
+
+    private static int size(final List<?> values) {
+        return values == null ? 0 : values.size();
+    }
+
+    private static void truncate(final List<?> values, final int size) {
+        if (values != null && values.size() > size) values.subList(size, values.size()).clear();
+    }
+
+    private static DispatchState pushDispatchState() {
+        final DispatchState previous = new DispatchState(
+            LIVE_EDIT.get(),
+            DEFAULT_COUNTERPART_POINTS.get(),
+            DEFAULT_COUNTERPART_EDGES.get(),
+            DEFAULT_CONTRIBUTIONS.get(),
+            COLLECTED_CONTRIBUTIONS.get()
+        );
+        LIVE_EDIT.remove();
+        DEFAULT_COUNTERPART_POINTS.remove();
+        DEFAULT_COUNTERPART_EDGES.remove();
+        DEFAULT_CONTRIBUTIONS.remove();
+        COLLECTED_CONTRIBUTIONS.remove();
+        return previous;
+    }
+
+    private static void restoreDispatchState(final DispatchState previous) {
+        restoreThreadLocal(LIVE_EDIT, previous.liveEdit());
+        restoreThreadLocal(DEFAULT_COUNTERPART_POINTS, previous.points());
+        restoreThreadLocal(DEFAULT_COUNTERPART_EDGES, previous.edges());
+        restoreThreadLocal(DEFAULT_CONTRIBUTIONS, previous.defaults());
+        restoreThreadLocal(COLLECTED_CONTRIBUTIONS, previous.collected());
+    }
+
+    private static <T> void restoreThreadLocal(final ThreadLocal<T> local, final T value) {
+        if (value == null) local.remove(); else local.set(value);
     }
 
     /**
@@ -617,6 +697,7 @@ public final class NativeMeshMirrorBridge {
                 return;
             }
             final List<MeshPointRef> sourceRefs = pointRefs(pack, sourcePoints);
+            final DispatchState previous = pushDispatchState();
             try {
                 final MeshEditContribution contribution = dispatch(
                     binding, mirror, pack, sourcePoints, List.of(), sourceRefs, List.of()
@@ -630,8 +711,7 @@ public final class NativeMeshMirrorBridge {
                     ? "PARTICIPATION_REJECTED kind=POINTS reason=NO_LIVE_MATCH"
                     : "PARTICIPATION_APPLIED kind=POINTS count=" + deleted);
             } finally {
-                DEFAULT_COUNTERPART_POINTS.remove();
-                DEFAULT_CONTRIBUTIONS.remove();
+                restoreDispatchState(previous);
             }
         } catch (Throwable failure) {
             diagnostic("PARTICIPATION_FAILED kind=POINTS reason=" + failure.getClass().getName());
@@ -655,6 +735,7 @@ public final class NativeMeshMirrorBridge {
         final LiveEdit live = new LiveEdit(
             pack, mirror, List.copyOf(sourcePoints), List.copyOf(sourceEdges)
         );
+        final LiveEdit previous = LIVE_EDIT.get();
         LIVE_EDIT.set(live);
         try {
             final MirrorAxisState axis = new MirrorAxisState(
@@ -664,7 +745,7 @@ public final class NativeMeshMirrorBridge {
                 new MeshDeletion(points, edges, axis, MeshSnapshot.empty())
             );
         } finally {
-            LIVE_EDIT.remove();
+            restoreThreadLocal(LIVE_EDIT, previous);
         }
     }
 
@@ -679,14 +760,8 @@ public final class NativeMeshMirrorBridge {
         final List<Object> resolved = DEFAULT_COUNTERPART_POINTS.get();
         if (resolved != null) live.addAll(resolved);
         final List<MeshPointRef> custom = customPointContributions(contribution);
-        for (Object context : contexts(pack)) {
-            final Object mesh = call(context, "b", new Class<?>[0]);
-            if (mesh == null) continue;
-            for (MeshPointRef ref : custom) {
-                final Object point = pointById(mesh, ref.id());
-                if (point != null && !containsSame(sources, point) && !containsSame(live, point)) live.add(point);
-            }
-        }
+        final List<Object> customMatches = uniqueCustomPointMatches(pack, custom, sources);
+        live.addAll(customMatches);
         if (live.isEmpty()) return 0;
         final Object editMode = call(pack, "aP", new Class<?>[0]);
         final Method delete = declaredMethod(
@@ -749,6 +824,7 @@ public final class NativeMeshMirrorBridge {
                 start.intValue(), end.intValue(), dev.turboism.sdk.cubism.mesh.MeshEdgeKind.UNKNOWN
             );
 
+            final DispatchState previous = pushDispatchState();
             try {
                 final MeshEditContribution contribution = dispatch(
                     binding, mirror, pack, List.of(), List.of(edge), List.of(), List.of(source)
@@ -762,8 +838,7 @@ public final class NativeMeshMirrorBridge {
                     ? "PARTICIPATION_REJECTED kind=EDGES reason=NO_LIVE_MATCH"
                     : "PARTICIPATION_APPLIED kind=EDGES count=" + removed);
             } finally {
-                DEFAULT_COUNTERPART_EDGES.remove();
-                DEFAULT_CONTRIBUTIONS.remove();
+                restoreDispatchState(previous);
             }
         } catch (Throwable failure) {
             diagnostic("PARTICIPATION_FAILED kind=EDGES reason=" + failure.getClass().getName());
@@ -780,6 +855,7 @@ public final class NativeMeshMirrorBridge {
         int removed = 0;
         final List<Object> resolved = DEFAULT_COUNTERPART_EDGES.get();
         final List<MeshEdgeRef> custom = customEdgeContributions(contribution);
+        final List<Object> customMatches = uniqueCustomEdgeMatches(pack, custom, source);
         for (Object context : contexts(pack)) {
             final Object mesh = call(context, "b", new Class<?>[0]);
             if (mesh == null) continue;
@@ -789,31 +865,89 @@ public final class NativeMeshMirrorBridge {
             if (resolved != null) {
                 for (Object edge : resolved) if (containsIdentity(iterable, edge)) live.add(edge);
             }
-            for (Object candidate : iterable) {
-                final Object first = call(candidate, "getIndex1", new Class<?>[0]);
-                final Object second = call(candidate, "getIndex2", new Class<?>[0]);
-                if (!(first instanceof Number start) || !(second instanceof Number end)) continue;
-                for (MeshEdgeRef ref : custom) {
-                    if (candidate == source) continue;
-                    if (ref.startPointId() == Math.min(start.intValue(), end.intValue())
-                        && ref.endPointId() == Math.max(start.intValue(), end.intValue())) {
-                        if (!containsSame(live, candidate)) live.add(candidate);
-                    }
-                }
+            for (Object edge : customMatches) {
+                if (containsIdentity(iterable, edge) && !containsSame(live, edge)) live.add(edge);
             }
             if (live.isEmpty()) continue;
             final Object handler = call(mesh, "getHandler", new Class<?>[0]);
             if (handler == null) continue;
             final Method remove = declaredMethod(handler.getClass(), "a", List.class);
-            if (remove == null) continue;
+            if (remove == null || !hasUndoAttachmentMethod(groupUndo)) continue;
             final Object undo = remove.invoke(handler, live);
             if (undo == null) continue;
             final Method plusAssign = declaredMethod(groupUndo.getClass(), "plusAssign", undo.getClass());
-            if (plusAssign == null) continue;
+            if (plusAssign == null) throw new NoSuchMethodException("mesh edge undo attachment");
             plusAssign.invoke(groupUndo, undo);
             removed += live.size();
         }
         return removed;
+    }
+
+    /**
+     * Resolves a host-neutral point reference only when it names one distinct live non-source
+     * object across the whole edit. Point ids are mesh-local, so multiple matches are ambiguous
+     * and must fail closed rather than widening a plugin contribution.
+     */
+    private static List<Object> uniqueCustomPointMatches(
+        final Object pack,
+        final List<MeshPointRef> refs,
+        final List<Object> sources
+    ) throws ReflectiveOperationException {
+        final List<Object> unique = new ArrayList<>();
+        for (MeshPointRef ref : refs) {
+            Object match = null;
+            boolean ambiguous = false;
+            for (Object context : contexts(pack)) {
+                final Object mesh = call(context, "b", new Class<?>[0]);
+                if (mesh == null) continue;
+                final Object candidate = pointById(mesh, ref.id());
+                if (candidate == null || containsSame(sources, candidate)) continue;
+                if (match != null && match != candidate) {
+                    ambiguous = true;
+                    break;
+                }
+                match = candidate;
+            }
+            if (!ambiguous && match != null && !containsSame(unique, match)) unique.add(match);
+        }
+        return unique;
+    }
+
+    /** Same fail-closed rule as points, using the endpoint pair as the mesh-local edge key. */
+    private static List<Object> uniqueCustomEdgeMatches(
+        final Object pack,
+        final List<MeshEdgeRef> refs,
+        final Object source
+    ) throws ReflectiveOperationException {
+        final List<Object> unique = new ArrayList<>();
+        for (MeshEdgeRef ref : refs) {
+            Object match = null;
+            boolean ambiguous = false;
+            for (Object context : contexts(pack)) {
+                final Object mesh = call(context, "b", new Class<?>[0]);
+                if (mesh == null) continue;
+                for (Object candidate : edges(mesh)) {
+                    if (candidate == source || !edgeMatches(candidate, ref)) continue;
+                    if (match != null && match != candidate) {
+                        ambiguous = true;
+                        break;
+                    }
+                    match = candidate;
+                }
+                if (ambiguous) break;
+            }
+            if (!ambiguous && match != null && !containsSame(unique, match)) unique.add(match);
+        }
+        return unique;
+    }
+
+    private static boolean edgeMatches(final Object candidate, final MeshEdgeRef ref)
+        throws ReflectiveOperationException {
+        final Object first = call(candidate, "getIndex1", new Class<?>[0]);
+        final Object second = call(candidate, "getIndex2", new Class<?>[0]);
+        if (!(first instanceof Number start) || !(second instanceof Number end)) return false;
+        return ref.startPointId() == Math.min(start.intValue(), end.intValue())
+            && ref.endPointId() == Math.max(start.intValue(), end.intValue());
     }
 
     /**
@@ -932,6 +1066,16 @@ public final class NativeMeshMirrorBridge {
             return invoke(viewContext, "getLastActionPack");
         } catch (ReflectiveOperationException | RuntimeException failure) {
             return null;
+        }
+    }
+
+    /** Refuses a cached action pack unless it still owns the exact current mesh edit mode. */
+    static boolean actionPackOwnsEditMode(final Object actionPack, final Object editMode) {
+        if (actionPack == null || editMode == null) return false;
+        try {
+            return call(actionPack, "aP", new Class<?>[0]) == editMode;
+        } catch (ReflectiveOperationException | RuntimeException failure) {
+            return false;
         }
     }
 
@@ -1200,13 +1344,27 @@ public final class NativeMeshMirrorBridge {
         final Object handler = call(mesh, "getHandler", new Class<?>[0]);
         if (handler == null) return 0;
         final Method remove = declaredMethod(handler.getClass(), "a", List.class);
-        if (remove == null) return 0;
+        if (remove == null || !hasUndoAttachmentMethod(groupUndo)) return 0;
         final Object undo = remove.invoke(handler, live);
         if (undo == null) return 0;
         final Method plusAssign = declaredMethod(groupUndo.getClass(), "plusAssign", undo.getClass());
-        if (plusAssign == null) return 0;
+        if (plusAssign == null) throw new NoSuchMethodException("mesh edge undo attachment");
         plusAssign.invoke(groupUndo, undo);
         return live.size();
+    }
+
+    private static boolean hasUndoAttachmentMethod(final Object groupUndo) {
+        for (Method method : groupUndo.getClass().getMethods()) {
+            if (method.getName().equals("plusAssign") && method.getParameterCount() == 1) return true;
+        }
+        Class<?> type = groupUndo.getClass();
+        while (type != null) {
+            for (Method method : type.getDeclaredMethods()) {
+                if (method.getName().equals("plusAssign") && method.getParameterCount() == 1) return true;
+            }
+            type = type.getSuperclass();
+        }
+        return false;
     }
 
     /** Test seam: the exact host mirror class cannot exist on an offline classpath. */
@@ -1264,11 +1422,13 @@ public final class NativeMeshMirrorBridge {
     private static List<MeshPointRef> customPointContributions(
         final MeshEditContribution aggregate
     ) {
-        final List<MeshPointRef> custom = new ArrayList<>(aggregate.points());
+        final List<MeshEditContribution> collected = COLLECTED_CONTRIBUTIONS.get();
+        if (collected == null) return aggregate.points();
         final List<MeshEditContribution> defaults = DEFAULT_CONTRIBUTIONS.get();
-        if (defaults != null) {
-            for (MeshEditContribution contribution : defaults) {
-                removeOccurrences(custom, contribution.points());
+        final List<MeshPointRef> custom = new ArrayList<>();
+        for (MeshEditContribution contribution : collected) {
+            if (!containsContributionIdentity(defaults, contribution)) {
+                custom.addAll(contribution.points());
             }
         }
         return custom;
@@ -1277,18 +1437,27 @@ public final class NativeMeshMirrorBridge {
     private static List<MeshEdgeRef> customEdgeContributions(
         final MeshEditContribution aggregate
     ) {
-        final List<MeshEdgeRef> custom = new ArrayList<>(aggregate.edges());
+        final List<MeshEditContribution> collected = COLLECTED_CONTRIBUTIONS.get();
+        if (collected == null) return aggregate.edges();
         final List<MeshEditContribution> defaults = DEFAULT_CONTRIBUTIONS.get();
-        if (defaults != null) {
-            for (MeshEditContribution contribution : defaults) {
-                removeOccurrences(custom, contribution.edges());
+        final List<MeshEdgeRef> custom = new ArrayList<>();
+        for (MeshEditContribution contribution : collected) {
+            if (!containsContributionIdentity(defaults, contribution)) {
+                custom.addAll(contribution.edges());
             }
         }
         return custom;
     }
 
-    private static <T> void removeOccurrences(final List<T> target, final List<T> values) {
-        for (T value : values) target.remove(value);
+    private static boolean containsContributionIdentity(
+        final List<MeshEditContribution> contributions,
+        final MeshEditContribution candidate
+    ) {
+        if (contributions == null) return false;
+        for (MeshEditContribution contribution : contributions) {
+            if (contribution == candidate) return true;
+        }
+        return false;
     }
 
     static boolean containsIdentity(final Iterable<?> collected, final Object candidate) {
