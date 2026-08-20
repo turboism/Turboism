@@ -1,63 +1,47 @@
 package dev.turboism.adapter.ui;
 
-import dev.turboism.core.version.PluginVersion;
-import dev.turboism.core.version.VersionRange;
-
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Decides whether the running Cubism host version is inside the scope a {@code ui.*} capability
  * has been reviewed against.
  *
- * <p>Most UI capabilities are admitted only on the 5.3 line; {@code ui.status.notify} is the one
- * capability with exact-version evidence on both admitted hosts (5.2.03 and 5.3.02) and so uses a
- * wider scope. This is a static utility and cannot be instantiated.</p>
+ * <p>Admission is exact rather than range-based: the running version must name a reviewed host
+ * artifact for the capability. This is a static utility and cannot be instantiated.</p>
  */
 public final class HostUiVersionCheck {
 
-    public static final String HOST_VERSION_SCOPE = "[5.3.0,5.4.0)";
+    /** Exact Cubism versions whose host artifacts have been reviewed. */
+    public static final Set<String> REVIEWED_HOST_VERSIONS = Set.of("5.2.03", "5.3.02");
 
-    /**
-     * Reviewed exact-version status slice: 5.2.03 and 5.3.02 both live in
-     * [5.2.0,5.4.0). Every other ui.* capability stays on the 5.3 scope until
-     * its own exact-version record exists.
-     */
-    public static final String STATUS_NOTIFY_VERSION_SCOPE = "[5.2.0,5.4.0)";
     public static final String STATUS_NOTIFY_CAPABILITY_ID = "ui.status.notify";
 
     /**
-     * Capabilities that carry a reviewed record for <em>both</em> admitted Cubism versions and are
-     * therefore checked against the wider scope.
+     * Capability-specific exceptions to the default exact-version admission policy.
      *
-     * <p>The default scope only covers the 5.3 line, so a capability that gains 5.2.03 evidence
-     * but is not listed here fails this gate before its adapter is ever called and returns an
-     * empty result that is indistinguishable from "the model has none". Exact-host validation
-     * caught clip mask in exactly that state: its 5.2.03 record was admitted and its selectors
-     * verified, yet the read never ran.</p>
+     * <p>The default admits both reviewed artifacts. A capability belongs here only when its
+     * reviewed records support a strict subset of those hosts. This structure intentionally cannot
+     * admit a patch version merely because it falls inside the same minor-version line.</p>
      */
-    private static final java.util.Set<String> BOTH_VERSION_CAPABILITY_IDS = java.util.Set.of(
-        STATUS_NOTIFY_CAPABILITY_ID,
-        "cubism.clipmask.read"
-    );
-
-    private static final VersionRange SUPPORTED_RANGE = VersionRange.parse(HOST_VERSION_SCOPE);
-    private static final VersionRange STATUS_NOTIFY_RANGE =
-        VersionRange.parse(STATUS_NOTIFY_VERSION_SCOPE);
+    private static final Map<String, Set<String>> CAPABILITY_VERSION_OVERRIDES = Map.of();
 
     private HostUiVersionCheck() {
     }
 
     /**
-     * Checks {@code hostVersion} against the scope reviewed for {@code capabilityId}.
+     * Checks {@code hostVersion} against the exact versions reviewed for {@code capabilityId}.
      *
-     * <p>An unparsable version string is treated exactly like an out-of-scope one: no exception
-     * escapes, the caller simply receives the unsupported diagnostic.</p>
+     * <p>Unknown capability IDs use the default reviewed-host set; capability-specific evidence can
+     * narrow that set through {@link #CAPABILITY_VERSION_OVERRIDES}. Version ranges are deliberately
+     * not parsed here: an unreviewed patch such as 5.3.03 must fail closed rather than inherit the
+     * evidence for 5.3.02.</p>
      *
-     * @param capabilityId capability being guarded; selects the wider status-notify scope when it
-     *     equals {@link #STATUS_NOTIFY_CAPABILITY_ID}
-     * @param hostVersion version string reported by the host
-     * @return empty when the host is in scope, otherwise a
+     * @param capabilityId capability being guarded
+     * @param hostVersion exact version string reported by the host
+     * @return empty when the exact host version is reviewed, otherwise a
      *     {@link SafeModeDiagnostic.Code#HOST_VERSION_UNSUPPORTED} diagnostic
      * @throws NullPointerException if either argument is null
      */
@@ -67,16 +51,12 @@ public final class HostUiVersionCheck {
     ) {
         Objects.requireNonNull(capabilityId, "capabilityId");
         Objects.requireNonNull(hostVersion, "hostVersion");
-        try {
-            final PluginVersion version = PluginVersion.parse(hostVersion);
-            final VersionRange range = BOTH_VERSION_CAPABILITY_IDS.contains(capabilityId)
-                ? STATUS_NOTIFY_RANGE
-                : SUPPORTED_RANGE;
-            if (range.contains(version)) {
-                return Optional.empty();
-            }
-        } catch (IllegalArgumentException ignored) {
-            return Optional.of(SafeModeDiagnostic.hostVersionUnsupported(capabilityId, hostVersion));
+        final Set<String> reviewedVersions = CAPABILITY_VERSION_OVERRIDES.getOrDefault(
+            capabilityId,
+            REVIEWED_HOST_VERSIONS
+        );
+        if (reviewedVersions.contains(hostVersion)) {
+            return Optional.empty();
         }
         return Optional.of(SafeModeDiagnostic.hostVersionUnsupported(capabilityId, hostVersion));
     }
