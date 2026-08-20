@@ -18,12 +18,10 @@ val sdkV3ExactReferenceArtifact = layout.buildDirectory.file("sdk-api-baseline/v
 val sdkV4ExactBaseline = layout.projectDirectory.file("docs/sdk/baselines/sdk-api-v4-exact.json")
 val sdkV4TierPolicy = layout.projectDirectory.file("docs/sdk/baselines/sdk-api-tier-policy-v4.json")
 val sdkV4DirectPreviewLedger = layout.projectDirectory.file("docs/sdk/baselines/sdk-api-direct-preview-v4.json")
-// Re-issued on dae700cf. Every re-issue on this branch is SDK Javadoc only: the baseline's
-// canonicalDump stays b5f12e74.../5105 lines across all of them, so only the artifact binding
-// moves. Javadoc shifts LineNumberTable offsets, which changes JAR bytes without changing a
-// single API record. Adding SDK Javadoc therefore requires re-issuing this trio -- baseline,
-// tier policy, and the tier policy's own anchor in sdk_api_tiers_trust.py.
-val sdkV4ExactCommit = "bf7bf0d1f9d3eca8665d5a7533f621125043979f"
+// Re-issued after exact Cubism Editor availability became public SDK metadata. The reviewed
+// canonical delta is the @Cubism annotation, its structured unavailability exception, and
+// runtime-visible exact-version annotations on the reviewed model declarations.
+val sdkV4ExactCommit = "ba8a740dc3af9441735db6388897b5d21e6946fc"
 val sdkJarArtifact = project(":sdk").tasks.named<Jar>("jar").flatMap { it.archiveFile }
 val sdkApiHelperFiles = fileTree("scripts/test") {
     include("sdk_api_baseline*.py")
