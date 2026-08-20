@@ -69,7 +69,7 @@ ALL_RULES = ("javadoc", "digests", "naming", "assets")
 # absolutely. Javadoc is enforced as a maximum instead: new undocumented public API is blocked
 # immediately, while the existing backlog burns down. Lower this number as batches land; the
 # checker refuses to let it drift upward, and tells you to lower it when you go below.
-JAVADOC_BACKLOG_MAXIMUM = 1122
+JAVADOC_BACKLOG_MAXIMUM = 1112
 
 
 def java_sources(root: Path, relative: str) -> list[Path]:
