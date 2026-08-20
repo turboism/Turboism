@@ -25,6 +25,10 @@ final class MeshMirrorLinkedDeletionInjectionTest {
     private static final String RECORDER = "dev/turboism/adapter/cubism/mesh/MeshMirrorLinkedDeletionInjectionTest$Recorder";
     private static final String EDIT_MODE = RECORDER + "$EditMode";
     private static final String MESH = RECORDER + "$Mesh";
+    private static final String REAL_POINT_ACTION =
+        "com/live2d/cubism/view/context/action/action_meshEditor/d$g";
+    private static final String REAL_EDGE_ACTION =
+        "com/live2d/cubism/view/context/action/action_meshEditor/d$f";
 
     @AfterEach
     void reset() {
@@ -71,6 +75,71 @@ final class MeshMirrorLinkedDeletionInjectionTest {
         assertEquals(null, transformer.transform(
             null, null, POINT_FIXTURE, null, null, pointFixture()
         ));
+    }
+
+    /** The backport is selected by artifact identity, never by anything softer. */
+    @Test
+    void linkedDeletionSelectorsAreAdmittedOnlyForTheExact5203Artifact() {
+        assertTrue(MeshMirrorHostProfile.forArtifact(digest(
+            40_805_584L, "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd"
+        )).orElseThrow().linkedDeletion() != null);
+
+        assertEquals(null, MeshMirrorHostProfile.forArtifact(digest(
+            41_922_739L, "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21"
+        )).orElseThrow().linkedDeletion());
+
+        // Right size, wrong hash, and vice versa: neither is admitted at all.
+        assertTrue(MeshMirrorHostProfile.forArtifact(digest(
+            40_805_584L, "0000000000000000000000000000000000000000000000000000000000000000"
+        )).isEmpty());
+        assertTrue(MeshMirrorHostProfile.forArtifact(digest(
+            1L, "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd"
+        )).isEmpty());
+    }
+
+    /**
+     * On the host that already deletes mirror counterparts, the real action classes must not
+     * even be targets, so there is no path by which the behaviour could be applied twice.
+     */
+    @Test
+    void theRealActionClassesAreNotTargetsOnTheNativeHost() {
+        final MeshMirrorNativeMethodTransformer transformer = new MeshMirrorNativeMethodTransformer(
+            MeshMirrorHostProfile.reviewed52And53(), null
+        );
+
+        for (String owner : List.of(REAL_POINT_ACTION, REAL_EDGE_ACTION)) {
+            assertEquals(null, transformer.transform(null, null, owner, null, null, stub(owner)));
+        }
+        assertEquals(MeshMirrorNativeMethodTransformer.Outcome.NONE, transformer.outcome());
+    }
+
+    /** On the backported host the same classes are owned, so they are inspected. */
+    @Test
+    void theRealActionClassesAreTargetsOnTheBackportedHost() {
+        for (String owner : List.of(REAL_POINT_ACTION, REAL_EDGE_ACTION)) {
+            final MeshMirrorNativeMethodTransformer transformer =
+                new MeshMirrorNativeMethodTransformer(MeshMirrorHostProfile.reviewed52(), null);
+            transformer.transform(null, null, owner, null, null, stub(owner));
+            assertEquals(
+                MeshMirrorNativeMethodTransformer.Outcome.TARGET_UNCHANGED,
+                transformer.outcome(),
+                owner + " must be inspected on the backported host"
+            );
+        }
+    }
+
+    private static dev.turboism.mapping.verification.HostArtifactDigest digest(
+        final long size,
+        final String hash
+    ) {
+        return new dev.turboism.mapping.verification.HostArtifactDigest(size, hash);
+    }
+
+    /** A well-formed class with the given name and no method the profile selects. */
+    private static byte[] stub(final String owner) {
+        final ClassWriter writer = newClass(owner);
+        writer.visitEnd();
+        return writer.toByteArray();
     }
 
     private static List<String> installBridge() {
