@@ -380,6 +380,13 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     }
 
     @Override
+    public java.util.Optional<String> cubismEditorVersion() {
+        return optionalEditorModelResolver().map(
+            dev.turboism.mapping.verification.VerifiedMemberResolver::cubismVersion
+        );
+    }
+
+    @Override
     public dev.turboism.sdk.cubism.model.CubismModelAccess modelAccess() {
         return dynamicModelAccess;
     }
@@ -644,6 +651,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     public RuntimeHostAdapterAccess adapterAccess() {
         return new SessionRuntimeHostAdapterAccess(
             dynamic.view(),
+            this::cubismEditorVersion,
             dynamicModelAccess,
             history,
             modelAppearanceSource,
