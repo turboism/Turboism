@@ -1,6 +1,6 @@
 {
   "format": "turboism.plugin.meta",
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "id": "dev.turboism.validation.clipmask-viewer",
   "name": "Clip Mask Viewer Host Validation Exerciser",
   "version": "0.0.0",
@@ -10,7 +10,9 @@
   ],
   "turboismApi": "[0.1.0,0.2.0)",
   "authors": [
-    { "name": "Turboism Validation" }
+    {
+      "name": "Turboism Validation"
+    }
   ],
   "license": "Project License",
   "website": "https://turboism.dev",
@@ -56,5 +58,10 @@
   "environment": {
     "requiresCubism": true,
     "ui": "embedded"
-  }
+  },
+  "category": "analysis",
+  "tags": [
+    "validation",
+    "clipmask"
+  ]
 }

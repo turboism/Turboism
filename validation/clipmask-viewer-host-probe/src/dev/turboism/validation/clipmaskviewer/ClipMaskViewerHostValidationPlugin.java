@@ -224,9 +224,26 @@ public final class ClipMaskViewerHostValidationPlugin implements TurboismPlugin 
                 final List<Drawable> all = model.drawables().all();
                 drawableCount = all.size();
                 drawableMaskCount = 0;
+                int sampled = 0;
                 for (Drawable drawable : all) {
-                    if (!drawable.maskIds().isEmpty()) {
-                        drawableMaskCount++;
+                    final List<?> masks = drawable.maskIds();
+                    if (masks.isEmpty()) {
+                        continue;
+                    }
+                    drawableMaskCount++;
+                    // Identify which drawables carry masks, so a disagreement with the
+                    // clip-mask slice can be traced to specific objects instead of a count.
+                    if (sampled < 8) {
+                        final int index = sampled;
+                        sampleValue("maskedDrawable." + index + ".id",
+                            () -> String.valueOf(drawable.id()));
+                        sampleValue("maskedDrawable." + index + ".name",
+                            () -> String.valueOf(drawable.name()));
+                        sampleValue("maskedDrawable." + index + ".maskCount",
+                            () -> String.valueOf(masks.size()));
+                        sampleValue("maskedDrawable." + index + ".masks",
+                            () -> String.valueOf(masks));
+                        sampled++;
                     }
                 }
                 return null;

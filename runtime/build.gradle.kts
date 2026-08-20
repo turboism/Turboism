@@ -80,6 +80,18 @@ val generateCorePublicApiSelectorContract by tasks.registering(Exec::class) {
     doFirst {
         val output = generatedCoreSelectorContractFile.get().asFile
         output.parentFile.mkdirs()
+        // The task declares one output file, so Gradle will not remove a copy this generator
+        // emitted under a previous package. An exact-host run found exactly that: a stale
+        // CorePublicApiSelectorContract from the pre-`selector` package was still compiled into
+        // the agent jar alongside the current one, and the classloader reached the stale
+        // constants first. Sweep any same-named generated source outside the current package.
+        val root = generatedCoreCatalogRoot.get().asFile
+        root.walkTopDown()
+            .filter { it.isFile && it.name == output.name && it != output }
+            .forEach {
+                logger.lifecycle("removing stale generated ${it.relativeTo(root)}")
+                it.delete()
+            }
         commandLine(
             "python3",
             rootProject.file("scripts/cubism_core_selector_policy.py"),
