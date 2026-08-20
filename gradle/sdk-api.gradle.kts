@@ -18,7 +18,7 @@ val sdkV3ExactReferenceArtifact = layout.buildDirectory.file("sdk-api-baseline/v
 val sdkV4ExactBaseline = layout.projectDirectory.file("docs/sdk/baselines/sdk-api-v4-exact.json")
 val sdkV4TierPolicy = layout.projectDirectory.file("docs/sdk/baselines/sdk-api-tier-policy-v4.json")
 val sdkV4DirectPreviewLedger = layout.projectDirectory.file("docs/sdk/baselines/sdk-api-direct-preview-v4.json")
-val sdkV4ExactCommit = "530b3b57d1a85afe48c38d628ae323a4301fd2a2"
+val sdkV4ExactCommit = "266705bdf6f2e5d21c720694c8b5c4a94995a88a"
 val sdkJarArtifact = project(":sdk").tasks.named<Jar>("jar").flatMap { it.archiveFile }
 val sdkApiHelperFiles = fileTree("scripts/test") {
     include("sdk_api_baseline*.py")
