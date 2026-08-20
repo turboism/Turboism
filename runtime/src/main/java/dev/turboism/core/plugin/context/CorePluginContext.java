@@ -91,6 +91,8 @@ public final class CorePluginContext implements PluginContext {
     private final AsyncHostReadService asyncHostReadService;
     private final MeshMirrorAxisService meshMirrorAxisService;
     private final MeshEditUiService meshEditUiService;
+    private final dev.turboism.sdk.cubism.mesh.MeshEditParticipation meshEditParticipationService;
+    private final dev.turboism.sdk.cubism.mesh.MeshMirrorCounterparts meshMirrorCounterpartsService;
     private final dev.turboism.sdk.ui.workspace.WorkspaceService workspaceService;
     private final dev.turboism.sdk.ui.workspace.layout.WorkspaceLayoutService workspaceLayoutService;
 
@@ -553,6 +555,16 @@ public final class CorePluginContext implements PluginContext {
             meshPermissionChecker,
             this.dependencies.disposableScope()
         );
+        // Participation and counterpart resolution are owned by the mirror bridge, because both
+        // only mean anything while it holds live host handles for an edit in progress.
+        this.meshEditParticipationService =
+            new dev.turboism.adapter.cubism.mesh.AuthorizedMeshEditParticipation(
+                dev.turboism.adapter.cubism.mesh.NativeMeshMirrorBridge.participation(),
+                meshPermissionChecker,
+                this.dependencies.disposableScope()
+            );
+        this.meshMirrorCounterpartsService =
+            dev.turboism.adapter.cubism.mesh.NativeMeshMirrorBridge.counterparts();
         this.sceneTableService = hostAccess == null
             ? SceneTableService.unavailable()
             : hostAccess.sceneTable();
@@ -793,6 +805,16 @@ public final class CorePluginContext implements PluginContext {
     @Override
     public MeshEditUiService meshEditUi() {
         return meshEditUiService;
+    }
+
+    @Override
+    public dev.turboism.sdk.cubism.mesh.MeshEditParticipation meshEditParticipation() {
+        return meshEditParticipationService;
+    }
+
+    @Override
+    public dev.turboism.sdk.cubism.mesh.MeshMirrorCounterparts meshMirrorCounterparts() {
+        return meshMirrorCounterpartsService;
     }
 
     @Override
