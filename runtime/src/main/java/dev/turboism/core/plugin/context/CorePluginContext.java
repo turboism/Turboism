@@ -91,6 +91,7 @@ public final class CorePluginContext implements PluginContext {
     private final AsyncHostReadService asyncHostReadService;
     private final MeshMirrorAxisService meshMirrorAxisService;
     private final MeshEditUiService meshEditUiService;
+    private final dev.turboism.sdk.cubism.mesh.MeshEditService meshEditService;
     private final dev.turboism.sdk.cubism.mesh.MeshEditParticipation meshEditParticipationService;
     private final dev.turboism.sdk.cubism.mesh.MeshMirrorCounterparts meshMirrorCounterpartsService;
     private final dev.turboism.sdk.ui.workspace.WorkspaceService workspaceService;
@@ -557,6 +558,10 @@ public final class CorePluginContext implements PluginContext {
         );
         // Participation and counterpart resolution are owned by the mirror bridge, because both
         // only mean anything while it holds live host handles for an edit in progress.
+        this.meshEditService = new dev.turboism.adapter.cubism.mesh.AuthorizedMeshEditService(
+            new dev.turboism.adapter.cubism.mesh.RuntimeMeshEditService(),
+            meshPermissionChecker
+        );
         this.meshEditParticipationService =
             new dev.turboism.adapter.cubism.mesh.AuthorizedMeshEditParticipation(
                 dev.turboism.adapter.cubism.mesh.NativeMeshMirrorBridge.participation(),
@@ -805,6 +810,11 @@ public final class CorePluginContext implements PluginContext {
     @Override
     public MeshEditUiService meshEditUi() {
         return meshEditUiService;
+    }
+
+    @Override
+    public dev.turboism.sdk.cubism.mesh.MeshEditService meshEdit() {
+        return meshEditService;
     }
 
     @Override
