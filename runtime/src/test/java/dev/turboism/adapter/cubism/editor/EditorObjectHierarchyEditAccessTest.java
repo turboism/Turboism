@@ -41,7 +41,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class EditorObjectHierarchyEditAccessTest {
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void createsPartWithParentIndexUndoAndRefreshCounts(final String cubismVersion) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -71,7 +71,7 @@ class EditorObjectHierarchyEditAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void createsWarpWithGridAndRotationDeformerUnderPart(final String cubismVersion) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -100,7 +100,7 @@ class EditorObjectHierarchyEditAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void createsArtMeshWithExplicitGeometryAndUndo(final String cubismVersion) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -136,7 +136,7 @@ class EditorObjectHierarchyEditAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void deletesPartDeformerDrawableThroughNativeSelectionAndDeleteCommand(final String cubismVersion) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -170,7 +170,7 @@ class EditorObjectHierarchyEditAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void renamesDeformerAndDrawableThroughSharedLocalNameSelector(final String cubismVersion) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -204,7 +204,7 @@ class EditorObjectHierarchyEditAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void reparentsPartToPartThroughNativeAddChildDetach(final String cubismVersion) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -228,7 +228,7 @@ class EditorObjectHierarchyEditAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void reparentsDeformerToPartAndToDeformer(final String cubismVersion) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -258,7 +258,7 @@ class EditorObjectHierarchyEditAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void reparentsDrawableToPartAndToDeformer(final String cubismVersion) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -281,7 +281,7 @@ class EditorObjectHierarchyEditAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void rejectsCyclesBeforeNativeInvocation(final String cubismVersion) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;

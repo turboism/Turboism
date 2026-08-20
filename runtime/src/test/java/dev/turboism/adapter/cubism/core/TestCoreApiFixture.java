@@ -312,7 +312,7 @@ public final class TestCoreApiFixture {
         final java.util.List<StaticSelector> extraSelectors,
         final java.util.Set<String> extraCapabilities
     ) {
-        final String reviewedVersion = "5.2".equals(artifactProfile) ? "5.2.0" : "5.3.2";
+        final String reviewedVersion = "5.2.03".equals(artifactProfile) ? "5.2.03" : "5.3.02";
         return resolver(
             reviewedVersion,
             artifactProfile,
@@ -437,7 +437,7 @@ public final class TestCoreApiFixture {
             {CorePublicApiSelectorContract.DRAWABLES_PARAMETER_COUNTS, "getParameterCounts", "()[I"},
             {CorePublicApiSelectorContract.DRAWABLES_PARAMETERS, "getParameters", "()[[I"}
         });
-        if (CorePublicApiSelectorContract.ARTIFACT_PROFILE_5_2.equals(profile)) {
+        if (CorePublicApiSelectorContract.ARTIFACT_PROFILE_5_2_03.equals(profile)) {
             selectors.add(instanceMethod(CorePublicApiSelectorContract.DRAWABLES_RENDER_ORDERS, Drawables.class, "getRenderOrders", "()[I"));
         } else {
             selectors.add(instanceMethod(CorePublicApiSelectorContract.DRAWABLES_BLEND_MODES, Drawables.class, "getBlendModes", "()[I"));

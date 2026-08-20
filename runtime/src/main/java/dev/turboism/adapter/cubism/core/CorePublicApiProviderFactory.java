@@ -102,10 +102,20 @@ public final class CorePublicApiProviderFactory {
     }
 
 
+    /**
+     * Returns the mapping-profile label for a reviewed Cubism version.
+     *
+     * <p>Profile ids and reviewed versions are now the same exact string, so this is an identity
+     * for every admitted version. It is kept as the single place that would carry a divergence if
+     * one were ever reintroduced, rather than scattering the assumption across call sites.</p>
+     *
+     * @param reviewedVersion the exact reviewed Cubism version
+     * @return the profile label for that version
+     */
     static String artifactProfile(final String reviewedVersion) {
         return switch (reviewedVersion) {
-            case "5.2.0" -> "5.2";
-            case "5.3.2" -> "5.3.02";
+            case "5.2.03" -> "5.2.03";
+            case "5.3.02" -> "5.3.02";
             default -> reviewedVersion;
         };
     }

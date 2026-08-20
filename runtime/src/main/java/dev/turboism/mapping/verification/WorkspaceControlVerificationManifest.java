@@ -17,8 +17,8 @@ public final class WorkspaceControlVerificationManifest {
         if (ReviewedHostArtifacts.CUBISM_5_2_03.equals(artifact)) {
             return manifest(
                 "m.workspace-5.2.03.control.static",
-                "8b001802fa672ce2f053ab516af9c38b2a2a08296fc663e9adf352e88c7dbf36",
-                ReviewedHostArtifacts.CUBISM_5_2_03_VERSION, "cubism-5.2",
+                "f42efb4d878ac4dfb9398dfc978705217d1c55a21d9521690d77fede9af32fed",
+                ReviewedHostArtifacts.CUBISM_5_2_03_VERSION, "cubism-5.2.03",
                 ReviewedHostArtifacts.CUBISM_5_2_03.size(), artifact.sha256(),
                 "adapter.workspace.control.v5_2"
             );

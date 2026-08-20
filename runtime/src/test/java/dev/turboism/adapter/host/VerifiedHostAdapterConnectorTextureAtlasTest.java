@@ -83,7 +83,7 @@ class VerifiedHostAdapterConnectorTextureAtlasTest {
             VerifiedCubism520TextureAtlasLayoutProvider.class,
             VerifiedHostAdapterConnector.textureAtlasProvider(
                 TestVerifiedResolvers.create(
-                    "5.2.0",
+                    "5.2.03",
                     VerifiedCubism520TextureAtlasSelectorContract.ADAPTER_SLICE_ID,
                     capability,
                     selectors520,
@@ -117,7 +117,7 @@ class VerifiedHostAdapterConnectorTextureAtlasTest {
         ));
         assertNull(VerifiedHostAdapterConnector.textureAtlasProvider(
             TestVerifiedResolvers.create(
-                "5.2.0",
+                "5.2.03",
                 VerifiedCubism520TextureAtlasSelectorContract.ADAPTER_SLICE_ID,
                 capability,
                 selectors520.subList(1, selectors520.size()),

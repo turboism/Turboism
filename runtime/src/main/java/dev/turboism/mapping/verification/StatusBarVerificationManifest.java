@@ -22,9 +22,9 @@ public final class StatusBarVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_2_03 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_2_03,
         "cubism-5.2.03.ui-status-bar.static",
-        "94ef52c898cffe9b5837dd3e34e53ba150fc2d616f1269362e5151ec602fe4c0",
+        "45e529ae8771adfd00500100214afa9fa14fa463e967a227806e4e3a9f3e66a5",
         CUBISM_VERSION_5_2_03,
-        "cubism-5.2"
+        "cubism-5.2.03"
     );
 
     /** Reviewed status-bar record admitted for exact Cubism 5.3.02. */

@@ -24,9 +24,9 @@ public final class AutoBackupVerificationManifest {
 
     public static final String VERIFICATION_ID_52 = "cubism-5.2.03.autobackup.static";
     public static final String RECORD_SHA256_52 =
-        "6782048487b17e032cd3068e34baa1ea484a4cc438aee9c6847c2a66e6346cf7";
+        "d8fc0ca3606538831164aa8c8fc32bc956b4c1f8b599930d5dc3baed8e25b008";
     public static final String CUBISM_VERSION_52 = "5.2.03";
-    public static final String PROFILE_ID_52 = "cubism-5.2";
+    public static final String PROFILE_ID_52 = "cubism-5.2.03";
     public static final long ARTIFACT_SIZE_52 = ReviewedHostArtifacts.CUBISM_5_2_03.size();
     public static final String ARTIFACT_SHA256_52 = ReviewedHostArtifacts.CUBISM_5_2_03.sha256();
 

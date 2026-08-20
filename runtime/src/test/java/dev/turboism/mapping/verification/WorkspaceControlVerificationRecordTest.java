@@ -16,10 +16,10 @@ class WorkspaceControlVerificationRecordTest {
 
     @Test
     void exactRecordsMatchPinnedWorkspaceControlManifests() throws Exception {
-        verify("cubism-5.2-workspace-control.json", "m.workspace-5.2.03.control.static",
-            "adapter.workspace.control.v5_2", "5.2.03", "cubism-5.2", ReviewedHostArtifacts.CUBISM_5_2_03.size(),
+        verify("cubism-5.2.03-workspace-control.json", "m.workspace-5.2.03.control.static",
+            "adapter.workspace.control.v5_2", "5.2.03", "cubism-5.2.03", ReviewedHostArtifacts.CUBISM_5_2_03.size(),
             ReviewedHostArtifacts.CUBISM_5_2_03.sha256(),
-            "8b001802fa672ce2f053ab516af9c38b2a2a08296fc663e9adf352e88c7dbf36");
+            "f42efb4d878ac4dfb9398dfc978705217d1c55a21d9521690d77fede9af32fed");
         verify("cubism-5.3.02-workspace-control.json", "m.workspace-5.3.02.control.static",
             "adapter.workspace.control.v5_3", "5.3.02", "cubism-5.3.02", ReviewedHostArtifacts.CUBISM_5_3_02.size(),
             ReviewedHostArtifacts.CUBISM_5_3_02.sha256(),

@@ -9,7 +9,7 @@ public final class BoundingBoxOverlayButtonVerificationManifest {
     public static final String ADAPTER_SLICE_ID = "adapter.editor-ui.bounding-box-overlay-button";
     public static final String CAPABILITY_ID = "cubism.editor-ui.bounding-box-overlay-button";
     public static final Set<String> CAPABILITY_IDS = Set.of(CAPABILITY_ID);
-    private static final String RECORD_SHA_52 = "4eb89fba8a44cf15e4f0be6818a57ba2c0a7847cc73a7c97855d595c913aa81f";
+    private static final String RECORD_SHA_52 = "88f59bf5e4fd8e24635f03362e8b1ff05a99a32329ebbd712258f22d0159bc86";
     private static final String RECORD_SHA_53 = "606a1837c03b00c62c8711dcb5eb53fe04eb7025f78736281a2e2afacd21ce54";
     public static final Set<String> REQUIRED_ALIASES = Set.of(
         "cubism.ui-bounding-box-overlay.bounding-box.update",
@@ -75,14 +75,14 @@ public final class BoundingBoxOverlayButtonVerificationManifest {
      *
      * @param artifact digest of the host jar
      * @return evidence naming the admitted version; note that 5.2.03 is
-     *     reported as {@code "5.2.0"}, kept byte-for-byte deliberately
+     *     reported as {@code "5.2.03"}, kept byte-for-byte deliberately
      * @throws IllegalArgumentException if the artifact is not reviewed
      */
     public static AdmissionEvidence admissionForArtifact(final HostArtifactDigest artifact) {
         if (ReviewedHostArtifacts.CUBISM_5_2_03.equals(artifact)) {
-            // Reported as "5.2.0" rather than "5.2.03"; kept byte-for-byte to preserve the
+            // Reported as "5.2.03" rather than "5.2.03"; kept byte-for-byte to preserve the
             // existing admission evidence value. Normalising it is a behaviour change.
-            return new AdmissionEvidence("5.2.0", artifact.size(), artifact.sha256());
+            return new AdmissionEvidence("5.2.03", artifact.size(), artifact.sha256());
         }
         if (ReviewedHostArtifacts.CUBISM_5_3_02.equals(artifact)) {
             return new AdmissionEvidence(
@@ -97,10 +97,10 @@ public final class BoundingBoxOverlayButtonVerificationManifest {
         return new PinnedVerifiedResolverWorkflow.Manifest(
             admission.cubismVersion().equals("5.3.02")
                 ? "cubism-5.3.02.ui-bounding-box-overlay.static"
-                : "cubism-5.2.ui-bounding-box-overlay.static",
+                : "cubism-5.2.03.ui-bounding-box-overlay.static",
             admission.cubismVersion().equals("5.3.02") ? RECORD_SHA_53 : RECORD_SHA_52,
             admission.cubismVersion(),
-            admission.cubismVersion().equals("5.3.02") ? "cubism-5.3.02" : "cubism-5.2",
+            admission.cubismVersion().equals("5.3.02") ? "cubism-5.3.02" : "cubism-5.2.03",
             admission.artifactSize(),
             admission.artifactSha256(),
             ADAPTER_SLICE_ID,
@@ -121,7 +121,7 @@ public final class BoundingBoxOverlayButtonVerificationManifest {
         final Path directory
     ) {
         final AdmissionEvidence admission = admissionForArtifact(artifact);
-        final String profile = admission.cubismVersion().equals("5.3.02") ? "5.3.02" : "5.2";
+        final String profile = admission.cubismVersion().equals("5.3.02") ? "5.3.02" : "5.2.03";
         return directory.resolve("cubism-" + profile + "-ui-bounding-box-overlay.json");
     }
 

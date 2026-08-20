@@ -72,7 +72,7 @@ public record FileChooserHistoryHostProfile(
         final String version;
         final List<String> contextClasses;
         if (artifact.equals(CUBISM_52)) {
-            version = "5.2.0";
+            version = "5.2.03";
             contextClasses = List.of(EXPORTER_CONTEXT_CLASS, APP_CTRL_EXPORT_CONTEXT_CLASS_52);
         } else if (artifact.equals(CUBISM_53)) {
             version = "5.3.02";
