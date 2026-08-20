@@ -66,6 +66,37 @@ final class VerifiedMeshMirrorHookInstallerTest {
         installer.close();
     }
 
+    /**
+     * The 5.2.03 linked-deletion action classes are rewritten too, so they must be owned for
+     * preload rejection and cleanup restoration exactly like the original mirror targets.
+     */
+    @Test
+    void ownsTheLinkedDeletionActionClassesOnTheBackportedHost() throws Exception {
+        final List<String> calls = new ArrayList<>();
+        final MeshMirrorHostProfile backported = MeshMirrorHostProfile.forArtifact(
+            new dev.turboism.mapping.verification.HostArtifactDigest(
+                40_805_584L, "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd"
+            )
+        ).orElseThrow();
+        assertNotNull(backported.linkedDeletion());
+        final VerifiedMeshMirrorHookInstaller installer = new VerifiedMeshMirrorHookInstaller(
+            instrumentation(calls), getClass().getClassLoader(), null, null, backported, calls::add
+        );
+
+        installer.install();
+        assertTrue(installer.isInstalled());
+        installer.close();
+
+        // Restoration enumerates loaded classes; the owned set must span all five targets.
+        assertEquals(5, installer.ownedTargetCount());
+        // 5.3.02 already deletes mirror counterparts natively and must stay untargeted.
+        assertNull(MeshMirrorHostProfile.forArtifact(
+            new dev.turboism.mapping.verification.HostArtifactDigest(
+                41_922_739L, "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21"
+            )
+        ).orElseThrow().linkedDeletion());
+    }
+
     /** Registration, target transformation, and control attachment are three separate facts. */
     @Test
     void registrationAndBindingNeverReportControlAttachment() throws Exception {
