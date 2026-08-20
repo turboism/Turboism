@@ -16,7 +16,10 @@ import dev.turboism.sdk.cubism.service.query.ParameterQueryService;
 import dev.turboism.sdk.cubism.service.query.SelectionQueryService;
 import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
 import dev.turboism.sdk.cubism.mesh.MeshMirrorAxisService;
+import dev.turboism.sdk.cubism.mesh.MeshEditParticipation;
+import dev.turboism.sdk.cubism.mesh.MeshEditService;
 import dev.turboism.sdk.cubism.mesh.MeshEditUiService;
+import dev.turboism.sdk.cubism.mesh.MeshMirrorCounterparts;
 import dev.turboism.sdk.cubism.model.ModelObjectService;
 import dev.turboism.sdk.cubism.physics.PhysicsEditorService;
 import dev.turboism.sdk.cubism.command.EditorCommandService;
@@ -137,6 +140,18 @@ public interface PluginContext {
     }
 
     @PreviewApi
+    default MeshEditService meshEdit() {
+        throw new UnsupportedOperationException("meshEdit service is not available");
+    }
+
+    default MeshEditParticipation meshEditParticipation() {
+        throw new UnsupportedOperationException("meshEditParticipation service is not available");
+    }
+
+    default MeshMirrorCounterparts meshMirrorCounterparts() {
+        throw new UnsupportedOperationException("meshMirrorCounterparts service is not available");
+    }
+
     default MeshEditUiService meshEditUi() {
         throw new UnsupportedOperationException("meshEditUi service is not available");
     }
