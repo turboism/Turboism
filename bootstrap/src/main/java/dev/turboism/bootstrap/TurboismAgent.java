@@ -277,15 +277,17 @@ public final class TurboismAgent {
                 options.home(),
                 "cubism-" + profile + "-ui-status-bar.json"
             ));
-            final Optional<Path> clipMaskVerificationRecord = "5.3.02".equals(profile)
-                ? Optional.of(extractVerificationRecord(
+            // Clip mask is admitted on both reviewed versions; the record name follows the
+            // resolved profile like every other slice rather than pinning one version.
+            final Optional<Path> clipMaskVerificationRecord = Optional.of(
+                extractVerificationRecord(
                     options.home(),
-                    "cubism-5.3.02-clipmask.json"
-                ))
-                : Optional.empty();
+                    "cubism-" + profile + "-clipmask.json"
+                )
+            );
             final Path autoBackupVerificationRecord = extractVerificationRecord(
                 options.home(),
-                "cubism-" + ("5.3.02".equals(profile) ? "5.3.02" : "5.2.03") + "-autobackup.json"
+                "cubism-" + profile + "-autobackup.json"
             );
             final Path controlAppearanceVerificationRecord = extractVerificationRecord(
                 options.home(),

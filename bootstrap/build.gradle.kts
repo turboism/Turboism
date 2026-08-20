@@ -29,6 +29,8 @@ tasks.processResources {
         "cubism-5.3.02-ui-status-bar.json",
         "cubism-5.2.03-clipmask.json",
         "cubism-5.3.02-clipmask.json",
+        "cubism-5.2.03-performance-render-scene.json",
+        "cubism-5.3.02-performance-render-scene.json",
         "cubism-5.2.03-ui-control-appearance.json",
         "cubism-5.3.02-ui-control-appearance.json",
         "cubism-5.2.03-workspace-control.json",
