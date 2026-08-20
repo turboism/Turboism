@@ -4,6 +4,7 @@ import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.cubism.mesh.MeshEdgeRef;
 import dev.turboism.sdk.cubism.mesh.MeshEditResult;
 import dev.turboism.sdk.cubism.mesh.MeshEditService;
+import dev.turboism.sdk.cubism.mesh.MeshPointPosition;
 import dev.turboism.sdk.cubism.mesh.MeshPointRef;
 import dev.turboism.sdk.cubism.mesh.MeshSnapshot;
 import dev.turboism.sdk.permission.PermissionIds;
@@ -32,9 +33,27 @@ public final class AuthorizedMeshEditService implements MeshEditService {
     }
 
     @Override
+    public MeshEditResult addPoints(final List<MeshPointPosition> points) {
+        permissions.check(PermissionIds.TURBOISM_CUBISM_MODEL_WRITE, "cubism.mesh.edit.add-points");
+        return delegate.addPoints(points);
+    }
+
+    @Override
     public MeshEditResult deletePoints(final List<MeshPointRef> points) {
         permissions.check(PermissionIds.TURBOISM_CUBISM_MODEL_WRITE, "cubism.mesh.edit.delete-points");
         return delegate.deletePoints(points);
+    }
+
+    @Override
+    public MeshEditResult movePoints(final List<MeshPointRef> points) {
+        permissions.check(PermissionIds.TURBOISM_CUBISM_MODEL_WRITE, "cubism.mesh.edit.move-points");
+        return delegate.movePoints(points);
+    }
+
+    @Override
+    public MeshEditResult addEdges(final List<MeshEdgeRef> edges) {
+        permissions.check(PermissionIds.TURBOISM_CUBISM_MODEL_WRITE, "cubism.mesh.edit.add-edges");
+        return delegate.addEdges(edges);
     }
 
     @Override

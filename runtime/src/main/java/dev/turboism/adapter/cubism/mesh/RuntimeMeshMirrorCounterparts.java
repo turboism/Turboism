@@ -13,47 +13,37 @@ import dev.turboism.sdk.plugin.Registration;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicReference;
 
-/**
- * Mirror counterpart resolution over the live host edit.
- *
- * <p>The default path resolves against host objects directly, so nothing is copied across the
- * plugin boundary per point. Registering an override reverses that: a {@link MeshSnapshot} is
- * materialised and the plugin is called once per source point.</p>
- */
+/** Mirror counterpart resolution over the live host edit. */
 public final class RuntimeMeshMirrorCounterparts implements MeshMirrorCounterparts {
-
-    private final AtomicReference<MeshMirrorCounterpartResolver> override = new AtomicReference<>();
 
     @Override
     public Registration overrideResolver(final MeshMirrorCounterpartResolver resolver) {
-        Objects.requireNonNull(resolver, "resolver");
-        if (!override.compareAndSet(null, resolver)) {
-            throw new IllegalStateException("a mirror counterpart resolver is already registered");
-        }
-        return () -> override.compareAndSet(resolver, null);
-    }
-
-    public boolean hasOverride() {
-        return override.get() != null;
-    }
-
-    public void resetSession() {
-        override.set(null);
+        throw new UnsupportedOperationException("resolver overrides require a per-plugin counterpart service");
     }
 
     @Override
     public MeshEditContribution mirrorOf(final MeshDeletion deletion) {
+        return mirrorOf(deletion, null);
+    }
+
+    MeshEditContribution mirrorOf(
+        final MeshDeletion deletion,
+        final MeshMirrorCounterpartResolver resolver
+    ) {
         if (deletion == null) return MeshEditContribution.none();
         final NativeMeshMirrorBridge.LiveEdit live = NativeMeshMirrorBridge.liveEdit();
         if (live == null || !deletion.mirrorAxis().enabled()) return MeshEditContribution.none();
         try {
-            final MeshMirrorCounterpartResolver resolver = override.get();
-            return resolver == null ? resolveInProcess(deletion, live) : resolveThrough(resolver, deletion, live);
+            final MeshEditContribution contribution = resolver == null
+                ? resolveInProcess(deletion, live)
+                : resolveThrough(resolver, deletion, live);
+            if (resolver == null && !contribution.isEmpty()) {
+                NativeMeshMirrorBridge.rememberDefaultContribution(contribution);
+            }
+            return contribution;
         } catch (Throwable failure) {
             NativeMeshMirrorBridge.diagnostic(
                 "COUNTERPART_RESOLUTION_FAILED reason=" + failure.getClass().getName()
@@ -67,35 +57,46 @@ public final class RuntimeMeshMirrorCounterparts implements MeshMirrorCounterpar
         final MeshDeletion deletion,
         final NativeMeshMirrorBridge.LiveEdit live
     ) throws ReflectiveOperationException {
-        final Set<Integer> sourceIds = new LinkedHashSet<>();
-        for (MeshPointRef point : deletion.points()) sourceIds.add(point.id());
-
         final List<MeshPointRef> points = new ArrayList<>();
         final List<MeshEdgeRef> edges = new ArrayList<>();
-        final Set<Integer> seenPoints = new LinkedHashSet<>();
+        final List<Object> seenPoints = new ArrayList<>();
         for (Object context : NativeMeshMirrorBridge.contexts(live.pack())) {
             final Object mesh = NativeMeshMirrorBridge.call(context, "b", new Class<?>[0]);
             if (mesh == null) continue;
-            for (MeshPointRef source : deletion.points()) {
-                final Object resolved = NativeMeshMirrorBridge.pointById(mesh, source.id());
-                if (resolved == null) continue;
+            for (Object source : live.sourcePoints()) {
+                final Object sourceMesh = NativeMeshMirrorBridge.pointMesh(source);
+                if (sourceMesh != null && sourceMesh != mesh) continue;
+                if (sourceMesh == null && !NativeMeshMirrorBridge.containsIdentity(
+                    NativeMeshMirrorBridge.points(mesh), source
+                )) continue;
                 final Object counterpart = NativeMeshMirrorBridge.counterpartPoint(
-                    live.mirror(), resolved, mesh, live.pack(), context
+                    live.mirror(), source, mesh, live.pack(), context
                 );
-                if (counterpart == null) continue;
+                if (counterpart == null || NativeMeshMirrorBridge.containsIdentity(live.sourcePoints(), counterpart)
+                    || NativeMeshMirrorBridge.containsIdentity(seenPoints, counterpart)) continue;
                 final int id = NativeMeshMirrorBridge.pointId(counterpart);
-                if (sourceIds.contains(id) || !seenPoints.add(id)) continue;
-                points.add(toRef(counterpart, id));
+                final MeshPointRef ref = toRef(counterpart, id);
+                if (ref != null) {
+                    seenPoints.add(counterpart);
+                    NativeMeshMirrorBridge.rememberDefaultCounterpart(counterpart);
+                    points.add(ref);
+                }
             }
-            for (MeshEdgeRef source : deletion.edges()) {
-                final Object liveEdge = liveEdge(mesh, source);
-                if (liveEdge == null) continue;
+            for (Object source : live.sourceEdges()) {
+                if (!NativeMeshMirrorBridge.containsIdentity(
+                    NativeMeshMirrorBridge.edges(mesh), source
+                )) continue;
                 final Object counterpart = NativeMeshMirrorBridge.counterpartEdge(
-                    live.mirror(), liveEdge, mesh, live.pack(), context
+                    live.mirror(), source, mesh, live.pack(), context
                 );
-                if (counterpart == null) continue;
+                if (counterpart == null || NativeMeshMirrorBridge.containsIdentity(
+                    live.sourceEdges(), counterpart
+                )) continue;
                 final MeshEdgeRef ref = toEdgeRef(counterpart);
-                if (ref != null && !ref.equals(source) && !edges.contains(ref)) edges.add(ref);
+                if (ref != null) {
+                    NativeMeshMirrorBridge.rememberDefaultCounterpartEdge(counterpart);
+                    if (!edges.contains(ref)) edges.add(ref);
+                }
             }
         }
         return points.isEmpty() && edges.isEmpty()
@@ -109,9 +110,7 @@ public final class RuntimeMeshMirrorCounterparts implements MeshMirrorCounterpar
         final MeshDeletion deletion,
         final NativeMeshMirrorBridge.LiveEdit live
     ) throws ReflectiveOperationException {
-        final MeshSnapshot snapshot = deletion.mesh().points().isEmpty()
-            ? snapshot(live)
-            : deletion.mesh();
+        final MeshSnapshot snapshot = deletion.mesh().points().isEmpty() ? snapshot(live) : deletion.mesh();
         final Set<Integer> sourceIds = new LinkedHashSet<>();
         for (MeshPointRef point : deletion.points()) sourceIds.add(point.id());
 
@@ -180,11 +179,17 @@ public final class RuntimeMeshMirrorCounterparts implements MeshMirrorCounterpar
         final Object hostEdges = NativeMeshMirrorBridge.call(mesh, "getEdges", new Class<?>[0]);
         if (!(hostEdges instanceof Iterable<?> iterable)) return null;
         for (Object edge : iterable) {
-            final MeshEdgeRef candidate = toEdgeRef(edge);
-            if (candidate != null
-                && candidate.startPointId() == ref.startPointId()
-                && candidate.endPointId() == ref.endPointId()) return edge;
+            final Object first = NativeMeshMirrorBridge.call(edge, "getIndex1", new Class<?>[0]);
+            final Object second = NativeMeshMirrorBridge.call(edge, "getIndex2", new Class<?>[0]);
+            if (!(first instanceof Number start) || !(second instanceof Number end)) continue;
+            final int low = Math.min(start.intValue(), end.intValue());
+            final int high = Math.max(start.intValue(), end.intValue());
+            if (ref.startPointId() == low && ref.endPointId() == high) return edge;
         }
         return null;
+    }
+
+    void resetSession() {
+        // Resolver ownership lives in each per-plugin facade, whose disposable scope closes it.
     }
 }
