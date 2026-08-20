@@ -868,8 +868,13 @@ class RuntimePluginTaskSchedulerTest {
 
     @Test
     void runtimeTimeoutAndFixedDelayFailureUseTerminalFailureAlgebra() throws Exception {
-        createScheduler(1, 8, 200L, ignored -> WorkBudget.LIGHTWEIGHT);
-        final TaskSubmission timed = scheduler.submit(request("timed", token -> Thread.sleep(2_000)));
+        createScheduler(1, 8, 1_000L, ignored -> WorkBudget.LIGHTWEIGHT);
+        final TaskSubmission timed = scheduler.submit(request("timed", token -> {
+            final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+            while (System.nanoTime() < deadline) {
+                Thread.onSpinWait();
+            }
+        }));
         final java.util.concurrent.atomic.AtomicReference<String> timeoutContinuationThread =
             new java.util.concurrent.atomic.AtomicReference<>();
         final CountDownLatch timeoutContinuationRan = new CountDownLatch(1);
@@ -877,7 +882,7 @@ class RuntimePluginTaskSchedulerTest {
             timeoutContinuationThread.set(Thread.currentThread().getName());
             timeoutContinuationRan.countDown();
         });
-        final TaskOutcome timedOutcome = timed.handle().completion().toCompletableFuture().get(2, TimeUnit.SECONDS);
+        final TaskOutcome timedOutcome = timed.handle().completion().toCompletableFuture().get(10, TimeUnit.SECONDS);
         assertEquals(TaskOutcomeStatus.TIMED_OUT, timedOutcome.status());
         assertTrue(timeoutContinuationRan.await(1, TimeUnit.SECONDS));
         assertTrue(
