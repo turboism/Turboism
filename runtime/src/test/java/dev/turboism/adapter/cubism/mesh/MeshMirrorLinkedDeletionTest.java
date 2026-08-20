@@ -76,6 +76,64 @@ final class MeshMirrorLinkedDeletionTest {
     }
 
     @Test
+    void defaultCounterpartDoesNotDeleteTheSameNumericIdFromAnotherMesh() {
+        final List<String> diagnostics = install();
+        final Mesh first = new Mesh(
+            point(0, -1.0f, 0.0f), point(1, 1.0f, 0.0f)
+        );
+        final Mesh second = new Mesh(
+            point(0, -10.0f, 0.0f), point(1, 10.0f, 0.0f)
+        );
+        final Pack pack = new Pack(first, second);
+
+        NativeMeshMirrorBridge.mirrorDeletePoints(List.of(List.of(first.point(0))), pack.undo, pack);
+
+        assertEquals(List.of(first.point(1)), pack.editMode.deleted);
+        assertTrue(diagnostics.contains(stage("PARTICIPATION_APPLIED kind=POINTS count=1")));
+    }
+
+    @Test
+    void defaultAndCustomSameIdContributionsBothSurviveAggregation() {
+        final List<String> diagnostics = install();
+        final Mesh first = new Mesh(
+            point(0, -1.0f, 0.0f), point(1, 1.0f, 0.0f)
+        );
+        final Mesh second = new Mesh(
+            point(0, -10.0f, 0.0f), point(1, 10.0f, 0.0f)
+        );
+        final Pack pack = new Pack(first, second);
+        NativeMeshMirrorBridge.participation().participate(deletion ->
+            dev.turboism.sdk.cubism.mesh.MeshEditContribution.ofPoints(List.of(
+                new dev.turboism.sdk.cubism.mesh.MeshPointRef(1, 10.0f, 0.0f)
+            ))
+        );
+
+        NativeMeshMirrorBridge.mirrorDeletePoints(List.of(List.of(first.point(0))), pack.undo, pack);
+
+        assertEquals(List.of(first.point(1), second.point(1)), pack.editMode.deleted);
+        assertTrue(diagnostics.contains(stage("PARTICIPATION_APPLIED kind=POINTS count=2")));
+    }
+
+    @Test
+    void sourceIdentityDoesNotHideTheSameNumericIdInAnotherMesh() {
+        final List<String> diagnostics = install();
+        final Mesh first = new Mesh(point(0, -1.0f, 0.0f));
+        final Mesh second = new Mesh(point(0, 1.0f, 0.0f));
+        final Pack pack = new Pack(first, second);
+        NativeMeshMirrorBridge.participation().resetSession();
+        NativeMeshMirrorBridge.participation().participate(deletion ->
+            dev.turboism.sdk.cubism.mesh.MeshEditContribution.ofPoints(List.of(
+                new dev.turboism.sdk.cubism.mesh.MeshPointRef(0, 1.0f, 0.0f)
+            ))
+        );
+
+        NativeMeshMirrorBridge.mirrorDeletePoints(List.of(List.of(first.point(0))), pack.undo, pack);
+
+        assertEquals(List.of(second.point(0)), pack.editMode.deleted);
+        assertTrue(diagnostics.contains(stage("PARTICIPATION_APPLIED kind=POINTS count=1")));
+    }
+
+    @Test
     void leavesTheHostDeletionAloneWhenNoCounterpartIsInsideTheTolerance() {
         install();
         // The mirror of x = -1 is x = 1; the only other point sits far outside aL().
@@ -133,9 +191,126 @@ final class MeshMirrorLinkedDeletionTest {
         NativeMeshMirrorBridge.rememberEdgeUndoGroup(pack.undo);
         NativeMeshMirrorBridge.mirrorDeleteEdge(source, pack);
 
-        assertEquals(List.of(counterpart), mesh.handler.removed);
+        assertEquals(List.of(counterpart), mesh.handler.removed, diagnostics.toString());
         assertEquals(1, pack.undo.added.size());
         assertTrue(diagnostics.contains(stage("PARTICIPATION_APPLIED kind=EDGES count=1")));
+    }
+
+    @Test
+    void exactSourceEdgeIdentitySelectsTheCorrectMesh() {
+        final List<String> diagnostics = install();
+        final Mesh first = new Mesh(
+            point(0, -20.0f, 0.0f), point(1, -10.0f, 0.0f),
+            point(2, 10.0f, 0.0f), point(3, 20.0f, 0.0f)
+        );
+        final Edge firstSource = new Edge(0, 1, "SOFT");
+        final Edge firstCounterpart = new Edge(2, 3, "SOFT");
+        first.edges.add(firstSource);
+        first.edges.add(firstCounterpart);
+        final Mesh second = new Mesh(
+            point(0, -2.0f, 0.0f), point(1, -1.0f, 0.0f),
+            point(2, 1.0f, 0.0f), point(3, 2.0f, 0.0f)
+        );
+        final Edge source = new Edge(0, 1, "SOFT");
+        final Edge counterpart = new Edge(2, 3, "SOFT");
+        second.edges.add(source);
+        second.edges.add(counterpart);
+        final Pack pack = new Pack(first, second);
+
+        NativeMeshMirrorBridge.rememberEdgeUndoGroup(pack.undo);
+        NativeMeshMirrorBridge.mirrorDeleteEdge(source, pack);
+
+        assertTrue(first.handler.removed.isEmpty());
+        assertEquals(List.of(counterpart), second.handler.removed, diagnostics.toString());
+        assertTrue(diagnostics.contains(stage("PARTICIPATION_APPLIED kind=EDGES count=1")));
+    }
+
+    @Test
+    void customSourceEndpointContributionExcludesOnlyTheExactSourceEdge() {
+        final List<String> diagnostics = install();
+        final Mesh first = new Mesh(point(0, -2.0f, 0.0f), point(1, -1.0f, 0.0f));
+        final Edge source = new Edge(0, 1, "SOFT");
+        first.edges.add(source);
+        final Mesh second = new Mesh(point(0, -20.0f, 0.0f), point(1, -10.0f, 0.0f));
+        final Edge custom = new Edge(0, 1, "SOFT");
+        second.edges.add(custom);
+        final Pack pack = new Pack(first, second);
+        NativeMeshMirrorBridge.participation().resetSession();
+        NativeMeshMirrorBridge.participation().participate(deletion ->
+            dev.turboism.sdk.cubism.mesh.MeshEditContribution.ofEdges(List.of(
+                new dev.turboism.sdk.cubism.mesh.MeshEdgeRef(
+                    0, 1, dev.turboism.sdk.cubism.mesh.MeshEdgeKind.UNKNOWN
+                )
+            ))
+        );
+
+        NativeMeshMirrorBridge.rememberEdgeUndoGroup(pack.undo);
+        NativeMeshMirrorBridge.mirrorDeleteEdge(source, pack);
+
+        assertTrue(first.handler.removed.isEmpty());
+        assertEquals(List.of(custom), second.handler.removed, diagnostics.toString());
+        assertTrue(diagnostics.contains(stage("PARTICIPATION_APPLIED kind=EDGES count=1")));
+    }
+
+    @Test
+    void defaultCounterpartEdgeDoesNotDeleteTheSameEndpointsFromAnotherMesh() {
+        final List<String> diagnostics = install();
+        final Mesh first = new Mesh(
+            point(0, -2.0f, 0.0f), point(1, -1.0f, 0.0f),
+            point(2, 1.0f, 0.0f), point(3, 2.0f, 0.0f)
+        );
+        final Edge source = new Edge(0, 1, "SOFT");
+        final Edge counterpart = new Edge(2, 3, "SOFT");
+        first.edges.add(source);
+        first.edges.add(counterpart);
+        final Mesh second = new Mesh(
+            point(0, -20.0f, 0.0f), point(1, -10.0f, 0.0f),
+            point(2, 10.0f, 0.0f), point(3, 20.0f, 0.0f)
+        );
+        final Edge unrelated = new Edge(2, 3, "SOFT");
+        second.edges.add(unrelated);
+        final Pack pack = new Pack(first, second);
+
+        NativeMeshMirrorBridge.rememberEdgeUndoGroup(pack.undo);
+        NativeMeshMirrorBridge.mirrorDeleteEdge(source, pack);
+
+        assertEquals(List.of(counterpart), first.handler.removed, diagnostics.toString());
+        assertTrue(second.handler.removed.isEmpty());
+        assertTrue(diagnostics.contains(stage("PARTICIPATION_APPLIED kind=EDGES count=1")));
+    }
+
+    @Test
+    void defaultAndCustomSameEndpointContributionsBothSurviveAggregation() {
+        final List<String> diagnostics = install();
+        final Mesh first = new Mesh(
+            point(0, -2.0f, 0.0f), point(1, -1.0f, 0.0f),
+            point(2, 1.0f, 0.0f), point(3, 2.0f, 0.0f)
+        );
+        final Edge source = new Edge(0, 1, "SOFT");
+        final Edge counterpart = new Edge(2, 3, "SOFT");
+        first.edges.add(source);
+        first.edges.add(counterpart);
+        final Mesh second = new Mesh(
+            point(0, -20.0f, 0.0f), point(1, -10.0f, 0.0f),
+            point(2, 10.0f, 0.0f), point(3, 20.0f, 0.0f)
+        );
+        final Edge custom = new Edge(2, 3, "SOFT");
+        second.edges.add(custom);
+        final Pack pack = new Pack(first, second);
+        NativeMeshMirrorBridge.participation().participate(deletion ->
+            dev.turboism.sdk.cubism.mesh.MeshEditContribution.ofEdges(List.of(
+                new dev.turboism.sdk.cubism.mesh.MeshEdgeRef(
+                    2, 3, dev.turboism.sdk.cubism.mesh.MeshEdgeKind.UNKNOWN
+                )
+            ))
+        );
+
+        NativeMeshMirrorBridge.rememberEdgeUndoGroup(pack.undo);
+        NativeMeshMirrorBridge.mirrorDeleteEdge(source, pack);
+
+        assertEquals(List.of(counterpart), first.handler.removed);
+        assertEquals(List.of(custom), second.handler.removed);
+        assertTrue(diagnostics.contains(stage("PARTICIPATION_APPLIED kind=EDGES count=2")));
     }
 
     @Test
@@ -365,13 +540,15 @@ final class MeshMirrorLinkedDeletionTest {
     public static final class Pack {
         final EditMode editMode = new EditMode();
         final GroupUndo undo = new GroupUndo();
-        private final Context context;
-        Pack(final Mesh mesh) {
-            this.context = new Context(mesh);
+        private final List<Context> contexts;
+        Pack(final Mesh... meshes) {
+            final List<Context> collected = new ArrayList<>();
+            for (Mesh mesh : meshes) collected.add(new Context(mesh));
+            this.contexts = List.copyOf(collected);
         }
 
         public List<Context> aT() {
-            return List.of(context);
+            return contexts;
         }
 
         public EditMode aP() {

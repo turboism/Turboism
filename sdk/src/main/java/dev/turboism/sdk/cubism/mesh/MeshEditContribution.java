@@ -8,8 +8,9 @@ import java.util.Objects;
 /**
  * Extra deletions a plugin wants folded into a host edit.
  *
- * <p>This is a description, not a callback. The runtime validates it against the live mesh and
- * applies it itself, so a plugin can never stall the host thread from inside a mutation.</p>
+ * <p>This is a description, not executable write logic. The runtime validates it against the live
+ * mesh and applies it itself, so plugin code cannot directly mutate host geometry. The participant
+ * that produces this value still runs synchronously; see {@link MeshEditParticipant}.</p>
  */
 @PreviewApi
 public record MeshEditContribution(List<MeshPointRef> points, List<MeshEdgeRef> edges) {
