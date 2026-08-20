@@ -26,6 +26,21 @@ public final class HostUiVersionCheck {
     public static final String STATUS_NOTIFY_VERSION_SCOPE = "[5.2.0,5.4.0)";
     public static final String STATUS_NOTIFY_CAPABILITY_ID = "ui.status.notify";
 
+    /**
+     * Capabilities that carry a reviewed record for <em>both</em> admitted Cubism versions and are
+     * therefore checked against the wider scope.
+     *
+     * <p>The default scope only covers the 5.3 line, so a capability that gains 5.2.03 evidence
+     * but is not listed here fails this gate before its adapter is ever called and returns an
+     * empty result that is indistinguishable from "the model has none". Exact-host validation
+     * caught clip mask in exactly that state: its 5.2.03 record was admitted and its selectors
+     * verified, yet the read never ran.</p>
+     */
+    private static final java.util.Set<String> BOTH_VERSION_CAPABILITY_IDS = java.util.Set.of(
+        STATUS_NOTIFY_CAPABILITY_ID,
+        "cubism.clipmask.read"
+    );
+
     private static final VersionRange SUPPORTED_RANGE = VersionRange.parse(HOST_VERSION_SCOPE);
     private static final VersionRange STATUS_NOTIFY_RANGE =
         VersionRange.parse(STATUS_NOTIFY_VERSION_SCOPE);
@@ -54,7 +69,7 @@ public final class HostUiVersionCheck {
         Objects.requireNonNull(hostVersion, "hostVersion");
         try {
             final PluginVersion version = PluginVersion.parse(hostVersion);
-            final VersionRange range = STATUS_NOTIFY_CAPABILITY_ID.equals(capabilityId)
+            final VersionRange range = BOTH_VERSION_CAPABILITY_IDS.contains(capabilityId)
                 ? STATUS_NOTIFY_RANGE
                 : SUPPORTED_RANGE;
             if (range.contains(version)) {
