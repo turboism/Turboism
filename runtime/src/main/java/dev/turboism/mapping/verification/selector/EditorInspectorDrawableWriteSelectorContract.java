@@ -12,8 +12,20 @@ public final class EditorInspectorDrawableWriteSelectorContract {
     public static final String ADAPTER_SLICE_ID = EditorObjectReadSelectorContract.ADAPTER_SLICE_ID;
     public static final String CAPABILITY_ID = "cubism.editor-model.art-mesh.inspector-write";
 
-    /** Aliases that only exist on Cubism 5.3 hosts (removed for the 5.2 profile). */
+    /**
+     * Alpha-composition aliases that exist only on Cubism 5.3.02.
+     *
+     * <p>This is the single definition of what the 5.2.03 Editor-model scope must subtract for
+     * this family. It previously listed two of the eight, which left the 5.2.03 manifest claiming
+     * six aliases its reviewed record does not carry.</p>
+     */
     public static final Set<String> ALPHA_COMPOSITION_ALIASES = Set.of(
+        "cubism.editor-model.alpha-composition.atop",
+        "cubism.editor-model.alpha-composition.class",
+        "cubism.editor-model.alpha-composition.conjoint",
+        "cubism.editor-model.alpha-composition.disjoint",
+        "cubism.editor-model.alpha-composition.out",
+        "cubism.editor-model.alpha-composition.over",
         "cubism.editor-model.alpha-composition.values",
         "cubism.editor-model.art-mesh-source.set-alpha-composition"
     );

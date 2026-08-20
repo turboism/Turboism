@@ -194,10 +194,10 @@ class StaticVerificationRecordRepositoryTest {
             ReviewedHostArtifacts.CUBISM_5_2_03.sha256(),
             "4224231c56683f855a8e8c0ffe3c0be1d1035192f908de3f4d80fbd66d4f4b96",
             589,
-            editorModel52Aliases(),
-            editorModel52Aliases(),
+            EditorModelVerificationManifest.cubism52Aliases(),
+            EditorModelVerificationManifest.cubism52Aliases(),
             editorModel52MethodAliases(),
-            difference(editorModel52Aliases(), editorModel52MethodAliases()),
+            difference(EditorModelVerificationManifest.cubism52Aliases(), editorModel52MethodAliases()),
             "cubism-5.2.03-editor-model-read",
             Path.of("cubism-ref/mapping-packs/draft/cubism-5.2.03-editor-model-read.json"),
             Path.of("cubism-ref/profiles/draft/cubism-5.2.03.json"),
@@ -676,7 +676,11 @@ class StaticVerificationRecordRepositoryTest {
         final String packId,
         final String expectedCubismVersion
     ) {
+        // Every alias the reviewed record declares with kind=class, listed rather than derived
+        // so the expectation can disagree with the record.  was missing
+        // while the record has always carried it.
         final Set<String> classAliases = Set.of(
+            "cubism.ui-control-appearance.art-mesh.source-class",
             "cubism.ui-control-appearance.deformer-source.class",
             "cubism.ui-control-appearance.deformer-control.outer-class",
             "cubism.ui-control-appearance.deformer-control.tree-class",
@@ -1269,27 +1273,6 @@ class StaticVerificationRecordRepositoryTest {
         );
     }
 
-    private static Set<String> editorModel52Aliases() {
-        final java.util.HashSet<String> aliases = new java.util.HashSet<>(
-            EditorModelVerificationManifest.REQUIRED_ALIASES
-        );
-        aliases.removeAll(dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.STATISTICS_ALIASES);
-        aliases.removeAll(EditorPartOpacitySelectorContract.REQUIRED_ALIASES);
-        aliases.addAll(EditorPartOpacity52SelectorContract.REQUIRED_ALIASES);
-        aliases.addAll(EditorPartNameSelectorContract.REQUIRED_ALIASES);
-        aliases.addAll(EditorPartNameSelectorContract.WRITE_REQUIRED_ALIASES);
-        aliases.addAll(EditorObjectReadSelectorContract.REQUIRED_ALIASES);
-        aliases.removeAll(EditorObjectReadSelectorContract.OFFSCREEN_STATISTICS_ALIASES);
-        aliases.addAll(EditorObjectWriteSelectorContract.ART_MESH_REQUIRED_ALIASES);
-        aliases.addAll(EditorObjectWriteSelectorContract.WARP_REQUIRED_ALIASES);
-        aliases.addAll(EditorObjectWriteSelectorContract.ROTATION_REQUIRED_ALIASES);
-        aliases.addAll(Set.of(
-            "cubism.editor-model.part-source.handler",
-            "cubism.editor-model.part-handler.class",
-            "cubism.editor-model.part-handler.create-undo-for-all-edit"
-        ));
-        return Set.copyOf(aliases);
-    }
 
     private static Set<String> editorModel52MethodAliases() {
         final java.util.HashSet<String> aliases = new java.util.HashSet<>(editorModelMethodAliases());
