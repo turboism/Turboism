@@ -27,14 +27,29 @@ public record TextureAtlasLayoutApplyResult(
         }
     }
 
+    /** @return a successful result recording that the host layout was changed */
     public static TextureAtlasLayoutApplyResult applied() {
         return success(TextureAtlasLayoutApplyStatus.APPLIED);
     }
 
+    /**
+     * @return a successful result recording that the requested layout already matched the host's,
+     *     so nothing was written; this is a success, not a rejection
+     */
     public static TextureAtlasLayoutApplyResult noChange() {
         return success(TextureAtlasLayoutApplyStatus.NO_CHANGE);
     }
 
+    /**
+     * Builds a failed result. The message is operator-facing diagnostic text and is mandatory:
+     * the canonical constructor rejects a failure whose message is absent or blank.
+     *
+     * @param code machine-readable reason the apply did not go through
+     * @param message non-blank explanation of the failure
+     * @return a result carrying the failure code and message and no status
+     * @throws NullPointerException if {@code code} or {@code message} is null
+     * @throws IllegalArgumentException if {@code message} is blank
+     */
     public static TextureAtlasLayoutApplyResult failed(
         final TextureAtlasLayoutFailureCode code,
         final String message

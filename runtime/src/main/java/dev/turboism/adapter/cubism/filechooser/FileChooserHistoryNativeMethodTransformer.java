@@ -105,6 +105,13 @@ public final class FileChooserHistoryNativeMethodTransformer implements ClassFil
                 );
             }
 
+            /**
+             * Emits the capture callback immediately before each {@code ARETURN}, so
+             * {@code onSaveDialogFinished} observes the chooser once the dialog has produced its
+             * result. Every other opcode is passed straight through unchanged.
+             *
+             * @param opcode the ASM opcode being visited
+             */
             public void visitInsn(final int opcode) {
                 if (opcode == Opcodes.ARETURN) {
                     this.visitVarInsn(Opcodes.ALOAD, 0);

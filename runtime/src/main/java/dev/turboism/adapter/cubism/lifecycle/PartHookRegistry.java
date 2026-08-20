@@ -22,6 +22,16 @@ public final class PartHookRegistry {
         this.coordinator = Objects.requireNonNull(coordinator, "coordinator");
     }
 
+    /**
+     * Registers a plugin's Part hooks for the lifetime of the host session, with no scope-bound
+     * detachment. A plugin whose entrypoints implement no Part hooks installs nothing.
+     *
+     * @param descriptor identity and permissions of the registering plugin
+     * @param entrypoints the plugin's entrypoint instances, in invocation order
+     * @param logger sink for hook failures raised by this plugin
+     * @throws NullPointerException when {@code entrypoints} is null, or when {@code descriptor} or
+     *     {@code logger} is null and Part hooks were found
+     */
     public void register(
         final PluginDescriptor descriptor,
         final List<? extends TurboismPlugin> entrypoints,
@@ -30,6 +40,20 @@ public final class PartHookRegistry {
         register(descriptor, entrypoints, logger, null);
     }
 
+    /**
+     * Registers a plugin's Part hooks, deriving intercept and observe capability from the descriptor's
+     * declared permissions. When {@code scope} is non-null any earlier registration for this plugin id
+     * is dropped first and the new generation is detached when the scope is disposed; a failure to arm
+     * the scope rolls the registration back. When {@code scope} is null the registration lasts for the
+     * session.
+     *
+     * @param descriptor identity and permissions of the registering plugin
+     * @param entrypoints the plugin's entrypoint instances, in invocation order
+     * @param logger sink for hook failures raised by this plugin
+     * @param scope plugin scope whose disposal unregisters this generation, or null for session scope
+     * @throws NullPointerException when {@code entrypoints} is null, or when {@code descriptor} or
+     *     {@code logger} is null and Part hooks were found
+     */
     public void register(
         final PluginDescriptor descriptor,
         final List<? extends TurboismPlugin> entrypoints,
@@ -74,6 +98,12 @@ public final class PartHookRegistry {
         }
     }
 
+    /**
+     * Detaches every Part hook registration held under the given plugin id, regardless of generation.
+     * Unknown ids are ignored.
+     *
+     * @param pluginId id of the plugin to detach
+     */
     public void unregister(final String pluginId) {
         synchronized (lifecycleLock) {
             coordinator.unregister(pluginId);

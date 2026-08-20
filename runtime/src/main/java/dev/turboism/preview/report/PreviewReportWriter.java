@@ -35,6 +35,16 @@ public final class PreviewReportWriter {
         this.diagnosticSink = Objects.requireNonNull(diagnosticSink, "diagnosticSink");
     }
 
+    /**
+     * Attempts to write every report type, so one bad document does not suppress the others.
+     *
+     * <p>A type absent from the map is recorded as {@code false} rather than skipped: the result
+     * always has an entry for all four types.
+     *
+     * @param documents the documents to persist, keyed by type; may be partial
+     * @return an unmodifiable map from every report type to whether its file was written
+     * @throws NullPointerException if {@code documents} is {@code null}
+     */
     public Map<PreviewReportType, Boolean> writeAll(
         final Map<PreviewReportType, ObjectNode> documents
     ) {
@@ -48,6 +58,27 @@ public final class PreviewReportWriter {
         return Map.copyOf(results);
     }
 
+    /**
+     * Sanitizes, truncates, validates, and atomically publishes one report file.
+     *
+     * <p>The caller's node is never mutated — it is deep-copied first. The bytes are validated
+     * against the full v1 contract and their declared type is checked against
+     * {@code expectedType} before anything touches the filesystem, so an invalid document never
+     * replaces a previously good file. Publication goes through a uniquely named temporary file
+     * that is force-synced and then atomically moved over the target; the temporary is deleted on
+     * every failure path. The state directory is created if needed and rejected if it is a
+     * symbolic link.
+     *
+     * <p>This method does not throw for expected failures: rejection and I/O problems are reported
+     * to the diagnostic sink as a {@link Diagnostic} and reduced to a {@code false} return, so a
+     * reporting problem cannot take down the run.
+     *
+     * @param expectedType the report type this file must contain, and whose fixed file name is the
+     *     write target
+     * @param document the report document; copied, not retained
+     * @return whether the file was published
+     * @throws NullPointerException if either argument is {@code null}
+     */
     public boolean write(
         final PreviewReportType expectedType,
         final ObjectNode document
@@ -159,6 +190,17 @@ public final class PreviewReportWriter {
         }
     }
 
+    /**
+     * A report-write problem handed to the writer's diagnostic sink instead of being thrown.
+     *
+     * <p>Emitted with code {@code PREVIEW_REPORT_WRITE_REJECTED} when strict validation refused
+     * the document, or {@code PREVIEW_REPORT_WRITE_FAILED} when persistence failed. The message
+     * embeds only a sanitized upper-case code, so a raw exception detail never reaches the sink.
+     *
+     * @param code which of the two write-problem classes this is
+     * @param reportType the report whose write was abandoned
+     * @param message human-readable detail ending in the sanitized cause code
+     */
     public record Diagnostic(
         String code,
         PreviewReportType reportType,

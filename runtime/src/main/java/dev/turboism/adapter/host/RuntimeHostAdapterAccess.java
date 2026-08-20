@@ -275,6 +275,7 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
         return history;
     }
 
+    /** @return the snapshot source used only by model-appearance projections. */
     public HostSnapshotSource modelAppearanceSource() {
         return modelAppearanceSource;
     }
@@ -421,14 +422,17 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
         return workspaceLayoutCoordinator;
     }
 
+    /** @return the texture-atlas editor UI this access was composed with. */
     public dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi textureAtlasEditorUi() {
         return textureAtlasEditorUi;
     }
 
+    /** @return the texture-atlas editor session this access was composed with. */
     public dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorSession textureAtlasEditorSession() {
         return textureAtlasEditorSession;
     }
 
+    /** @return the registry of texture-atlas layout algorithms available to plugins. */
     public dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorithmRegistry textureAtlasAlgorithms() {
         return textureAtlasAlgorithms;
     }

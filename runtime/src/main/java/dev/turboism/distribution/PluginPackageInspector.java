@@ -3,6 +3,13 @@ package dev.turboism.distribution;
 import java.nio.file.Path;
 import java.util.List;
 
+/**
+ * Inspects a plugin distribution package and decides whether it may be installed.
+ *
+ * <p>Implementations are total: {@code inspect} reports every failure as {@link Rejected} carrying
+ * {@link DistributionProblem}s rather than throwing. Inspection is read-only and produces a plan
+ * whose recorded bytes must still be revalidated before publication.
+ */
 public interface PluginPackageInspector {
     Result inspect(Path packagePath);
 
@@ -15,6 +22,7 @@ public interface PluginPackageInspector {
             this.plan = java.util.Objects.requireNonNull(plan, "plan");
         }
 
+        /** @return the validated install plan; never {@code null} */
         public PluginInstallPlan plan() { return plan; }
     }
 

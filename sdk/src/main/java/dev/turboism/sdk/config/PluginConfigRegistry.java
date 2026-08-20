@@ -6,6 +6,14 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletionStage;
 
+/**
+ * A plugin's access to its own configuration, both the untyped string API and the typed schema API.
+ *
+ * <p>Reads and writes are permission-scoped: {@link #readScope} and {@link #writeScope} declare the
+ * paths a plugin intends to touch. The typed methods ({@link #registerSchema}, {@link #read},
+ * {@link #write}) are optional and default to throwing {@link UnsupportedOperationException}, so an
+ * implementation that predates the typed config feature remains valid.
+ */
 public interface PluginConfigRegistry {
 
     Registration readScope(String relativePath);

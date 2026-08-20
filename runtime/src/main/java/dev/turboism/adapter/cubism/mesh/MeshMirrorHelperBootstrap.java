@@ -8,6 +8,22 @@ public final class MeshMirrorHelperBootstrap {
 
     private MeshMirrorHelperBootstrap() { }
 
+    /**
+     * Fails fast unless the host class loader resolves the mesh-mirror bridge to the very same
+     * class object this runtime loaded.
+     *
+     * <p>Transformed host methods call into {@link NativeMeshMirrorBridge} by name; if the host
+     * loader would resolve that name to a different class, the transformation would link against a
+     * stranger. This check is therefore a precondition for installing any transformation, not a
+     * diagnostic.
+     *
+     * @param instrumentation  the agent's instrumentation handle, non-null; presence is required but
+     *                         it is not otherwise used by this check
+     * @param hostClassLoader  the loader the transformed host classes will resolve against, non-null
+     * @throws NullPointerException  if either argument is null
+     * @throws IllegalStateException if the bridge class is invisible to the host loader, or visible
+     *                               as a different class identity
+     */
     public static void ensureAvailable(
         final Instrumentation instrumentation,
         final ClassLoader hostClassLoader

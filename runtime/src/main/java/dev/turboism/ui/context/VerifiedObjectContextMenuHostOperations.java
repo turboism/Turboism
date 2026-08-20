@@ -102,6 +102,14 @@ public final class VerifiedObjectContextMenuHostOperations
         }
     }
 
+    /**
+     * Adapts these host operations into a parameter-point menu handler, when the configured
+     * selection resolver is one that can read native parameter points.
+     *
+     * @return a handler for {@link NativeParameterPointContextMenuBridge#install}, or null when
+     *         the selection resolver has no native access and parameter-point menus therefore
+     *         cannot be contributed to
+     */
     public NativeParameterPointContextMenuBridge.Handler parameterPointHandler() {
         if (!(selectionResolver instanceof VerifiedObjectContextMenuNativeAccess nativeAccess)) return null;
         return NativeParameterPointContextMenuBridge.handler(this, nativeAccess);

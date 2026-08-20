@@ -165,6 +165,14 @@ public final class ThemeManagerService {
         thread.start();
     }
 
+    /**
+     * Imports a theme archive the user picks and saves it as a new user package.
+     *
+     * <p>Never overwrites: the save is attempted with replace disabled, so an id that already exists is
+     * reported as a conflict and the stored package is left alone. Cancellation and every failure are
+     * reported as status notifications rather than thrown. The in-memory theme cache is refreshed after
+     * the attempt.
+     */
     public void importPackage() {
         final ThemePackageTransferService.ImportResult imported = transfer.importPackage();
         if (imported.outcome() != ThemePackageTransferService.ImportOutcome.IMPORTED) {
@@ -189,6 +197,13 @@ public final class ThemeManagerService {
         );
     }
 
+    /**
+     * Exports one theme to a file the user picks.
+     *
+     * @param windowOptionId the theme id chosen in the manager window; when {@code null} or unknown,
+     *     the persisted selection is used instead, and having neither is reported as a warning
+     *     notification rather than thrown
+     */
     public void exportSelected(final String windowOptionId) {
         final Optional<ThemePackageData> selected =
             Optional.ofNullable(windowOptionId)
@@ -206,6 +221,16 @@ public final class ThemeManagerService {
         );
     }
 
+    /**
+     * Deletes one user theme package, first restoring the native appearance when the package being
+     * deleted is the one currently applied.
+     *
+     * <p>Reviewed built-in themes are refused: they ship with the plugin and cannot be deleted. Having
+     * nothing selected is a warning notification, not a failure.
+     *
+     * @param windowOptionId the theme id chosen in the manager window; when {@code null} the persisted
+     *     selection is used instead
+     */
     public void deleteSelected(final String windowOptionId) {
         final Optional<String> selected =
             Optional.ofNullable(windowOptionId)
@@ -237,6 +262,13 @@ public final class ThemeManagerService {
         );
     }
 
+    /**
+     * Re-applies the theme persisted from the last session, at plugin start.
+     *
+     * <p>Fails closed: a selection naming a package that no longer exists is cleared and the native
+     * appearance restored, and if even that restore fails the method logs and returns without applying
+     * anything. Nothing is applied when no selection was persisted.
+     */
     public void restorePersistedSelection() {
         final ThemeSelectionService.SelectionResult validity = selection.restoreIfSelectionIsMissing(this::find);
         if (validity.outcome() == ThemeSelectionService.SelectionOutcome.RESTORE_FAILED) {

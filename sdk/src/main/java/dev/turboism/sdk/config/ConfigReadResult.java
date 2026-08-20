@@ -4,6 +4,18 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
+/**
+ * Outcome of a typed config read: always a usable value, plus the error that explains a fallback.
+ *
+ * <p>The compact constructor enforces the source/error matrix. {@code STORED} and
+ * {@code DEFAULT_MISSING} must carry no error; every other {@link ConfigValueSource} must carry
+ * exactly one error whose code is legal for that source. A mismatch throws
+ * {@link IllegalArgumentException}.
+ *
+ * @param value the value to use, defaulted when the stored value was unusable
+ * @param error empty for a clean read, otherwise the reason the default was substituted
+ * @param <T> the config value type
+ */
 public record ConfigReadResult<T>(
     ConfigValue<T> value,
     Optional<ConfigError> error

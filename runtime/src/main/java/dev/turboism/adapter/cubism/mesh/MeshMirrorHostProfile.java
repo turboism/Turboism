@@ -23,6 +23,16 @@ public record MeshMirrorHostProfile(
     private static final HostArtifactDigest CUBISM_52 = ReviewedHostArtifacts.CUBISM_5_2_03;
     private static final HostArtifactDigest CUBISM_53 = ReviewedHostArtifacts.CUBISM_5_3_02;
 
+    /**
+     * Looks up the mesh-mirror selectors for a host build.
+     *
+     * <p>Only the two reviewed Cubism artifacts, 5.2.03 and 5.3.02, are admitted, and they share one
+     * selector tuple. Any other artifact — including a newer Cubism release — yields an empty result
+     * rather than a guess, so an unreviewed host is never patched.
+     *
+     * @param artifact the digest of the host jar in use
+     * @return the reviewed profile, or empty when the artifact is not one of the two admitted builds
+     */
     public static Optional<MeshMirrorHostProfile> forArtifact(final HostArtifactDigest artifact) {
         if (!CUBISM_52.equals(artifact) && !CUBISM_53.equals(artifact)) return Optional.empty();
         return Optional.of(reviewed52And53());

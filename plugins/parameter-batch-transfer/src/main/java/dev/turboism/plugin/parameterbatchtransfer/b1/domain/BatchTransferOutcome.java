@@ -18,6 +18,17 @@ public record BatchTransferOutcome(
         status = Objects.requireNonNull(status, "status");
     }
 
+    /**
+     * Derives the outcome status from the counts, so status and counts can never disagree.
+     *
+     * <p>Nothing attempted is {@code NO_CHANGES}; any failure at all is {@code PARTIAL}, even when
+     * nothing succeeded; otherwise {@code APPLIED}.
+     *
+     * @param applied number of transfers that took effect; must not be negative
+     * @param failed number of transfers that did not; must not be negative
+     * @return the outcome carrying both counts and the derived status
+     * @throws IllegalArgumentException if either count is negative
+     */
     public static BatchTransferOutcome of(final int applied, final int failed) {
         final BatchTransferStatus status;
         if (applied == 0 && failed == 0) {

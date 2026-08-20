@@ -25,6 +25,14 @@ public final class WorkspaceLayoutCoordinator implements AutoCloseable {
     private WorkspaceLayoutHostProvider provider;
     private boolean closed;
 
+    /**
+     * Installs the provider that subsequent reads resolve against, replacing any previous one.
+     *
+     * @param value the host provider to read layout through
+     * @throws NullPointerException if {@code value} is null
+     * @throws IllegalStateException if the coordinator has been closed; a closed coordinator never
+     *     accepts a provider again
+     */
     public void connect(final WorkspaceLayoutHostProvider value) {
         synchronized (monitor) {
             requireOpen();
@@ -32,6 +40,13 @@ public final class WorkspaceLayoutCoordinator implements AutoCloseable {
         }
     }
 
+    /**
+     * Removes the provider, but only if it is still the installed one — a disconnect from a
+     * superseded provider is ignored rather than clearing its replacement. Safe to call after
+     * close, and safe to call for a provider that was never connected: both are no-ops.
+     *
+     * @param value the provider being withdrawn
+     */
     public void disconnect(final WorkspaceLayoutHostProvider value) {
         synchronized (monitor) {
             if (provider == value) {

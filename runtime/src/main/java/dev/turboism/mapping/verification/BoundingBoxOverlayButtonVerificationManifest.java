@@ -44,16 +44,40 @@ public final class BoundingBoxOverlayButtonVerificationManifest {
     private BoundingBoxOverlayButtonVerificationManifest() {
     }
 
+    /**
+     * @param artifact digest of the host jar in hand
+     * @return the SHA-256 of the reviewed verification record that governs that
+     *     artifact
+     * @throws IllegalArgumentException if the artifact is neither reviewed
+     *     Cubism build
+     */
     public static String recordSha256ForArtifact(final HostArtifactDigest artifact) {
         return admissionForArtifact(artifact).cubismVersion().equals("5.3.02")
             ? RECORD_SHA_53
             : RECORD_SHA_52;
     }
 
+    /**
+     * @param cubismVersion version string to select by
+     * @return the reviewed record hash for 5.3.02, otherwise the 5.2 hash; an
+     *     unrecognized version falls back to 5.2 rather than failing, so prefer
+     *     {@link #recordSha256ForArtifact} where the artifact is available
+     */
     public static String recordSha256ForVersion(final String cubismVersion) {
         return "5.3.02".equals(cubismVersion) ? RECORD_SHA_53 : RECORD_SHA_52;
     }
 
+    /**
+     * Admits a host artifact for overlay-button work by exact identity: only
+     * the two reviewed Cubism builds are recognized, and the evidence returned
+     * repeats the artifact's own size and hash so downstream checks cannot
+     * drift from what was measured.
+     *
+     * @param artifact digest of the host jar
+     * @return evidence naming the admitted version; note that 5.2.03 is
+     *     reported as {@code "5.2.0"}, kept byte-for-byte deliberately
+     * @throws IllegalArgumentException if the artifact is not reviewed
+     */
     public static AdmissionEvidence admissionForArtifact(final HostArtifactDigest artifact) {
         if (ReviewedHostArtifacts.CUBISM_5_2_03.equals(artifact)) {
             // Reported as "5.2.0" rather than "5.2.03"; kept byte-for-byte to preserve the
@@ -85,6 +109,13 @@ public final class BoundingBoxOverlayButtonVerificationManifest {
         );
     }
 
+    /**
+     * @param artifact digest of the host jar, which selects the profile
+     * @param directory directory the reviewed records live in
+     * @return the record file for that artifact's profile; the file is not
+     *     checked for existence here
+     * @throws IllegalArgumentException if the artifact is not reviewed
+     */
     public static Path verifiedRecordForArtifact(
         final HostArtifactDigest artifact,
         final Path directory
@@ -94,11 +125,22 @@ public final class BoundingBoxOverlayButtonVerificationManifest {
         return directory.resolve("cubism-" + profile + "-ui-bounding-box-overlay.json");
     }
 
+    /**
+     * What was actually measured when the artifact was admitted.
+     *
+     * @param cubismVersion admitted version, as this manifest reports it
+     * @param artifactSize size in bytes of the admitted jar
+     * @param artifactSha256 SHA-256 of the admitted jar
+     */
     public record AdmissionEvidence(
         String cubismVersion,
         long artifactSize,
         String artifactSha256
     ) {
+        /**
+         * @return the adapter slice this evidence admits, always
+         *     {@code adapter.editor-ui.bounding-box-overlay-button}
+         */
         public String adapterSliceId() {
             return ADAPTER_SLICE_ID;
         }

@@ -13,6 +13,17 @@ public final class CandidateJson {
 
     private CandidateJson() { }
 
+    /**
+     * Serializes a node to its canonical byte form: strict pretty-printed JSON with alphabetically
+     * ordered properties and map entries, followed by exactly one trailing newline.
+     *
+     * <p>Byte-for-byte stability is the point — these bytes are what candidate hashes are computed
+     * over and what a reviewer diffs, so the same node must always produce the same bytes.
+     *
+     * @param node the tree to serialize
+     * @return the canonical UTF-8 bytes, newline-terminated
+     * @throws DraftMappingException with code {@code JSON_WRITE_FAILED} if serialization fails
+     */
     public static byte[] write(final JsonNode node) {
         try {
             final byte[] json = MAPPER.writerWithDefaultPrettyPrinter().writeValueAsBytes(node);
