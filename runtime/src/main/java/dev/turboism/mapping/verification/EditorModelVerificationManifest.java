@@ -676,7 +676,17 @@ public final class EditorModelVerificationManifest {
         return Set.copyOf(values);
     }
 
-    private static Set<String> cubism52Capabilities() {
+    /**
+     * Returns the capability set the reviewed 5.2.03 Editor-model record authorises.
+     *
+     * <p>5.2.03 is not simply a subset of 5.3.02: three capabilities are <em>substituted</em>
+     * rather than dropped, because part opacity, inspector drawable write and part inspector all
+     * bind different members on that version. This is the single definition of that difference;
+     * callers and tests must not restate it.</p>
+     *
+     * @return an immutable capability set for exact Cubism 5.2.03
+     */
+    public static Set<String> cubism52Capabilities() {
         final java.util.HashSet<String> values = new java.util.HashSet<>(CAPABILITY_IDS);
         values.remove(EditorPartOpacitySelectorContract.CAPABILITY_ID);
         values.add(EditorPartOpacity52SelectorContract.CAPABILITY_ID);
@@ -701,7 +711,15 @@ public final class EditorModelVerificationManifest {
         return Set.copyOf(values);
     }
 
-    private static Set<String> cubism52Aliases() {
+    /**
+     * Returns the selector aliases the reviewed 5.2.03 Editor-model record authorises.
+     *
+     * <p>Like {@link #cubism52Capabilities()}, this substitutes rather than merely subtracts, and
+     * is the single definition of the 5.2.03 alias scope.</p>
+     *
+     * @return an immutable alias set for exact Cubism 5.2.03
+     */
+    public static Set<String> cubism52Aliases() {
         final java.util.HashSet<String> values = new java.util.HashSet<>(REQUIRED_ALIASES);
         values.removeAll(EditorModelInstanceReadSelectorContract.ONION_SKIN_ALIASES);
         values.removeAll(dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.STATISTICS_ALIASES);

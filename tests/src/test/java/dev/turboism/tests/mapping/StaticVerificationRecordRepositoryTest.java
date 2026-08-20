@@ -188,7 +188,7 @@ class StaticVerificationRecordRepositoryTest {
             EditorModelVerificationManifest.ADAPTER_SLICE_ID,
             "5.2.0",
             "cubism-5.2",
-            editorModel52Capabilities(),
+            EditorModelVerificationManifest.cubism52Capabilities(),
             "Live2D_Cubism.jar",
             ReviewedHostArtifacts.CUBISM_5_2_03.size(),
             ReviewedHostArtifacts.CUBISM_5_2_03.sha256(),
@@ -1267,15 +1267,6 @@ class StaticVerificationRecordRepositoryTest {
             "cubism.editor-model.art-mesh-source.set-inverted-mask",
             "cubism.editor-model.c-array-list.create"
         );
-    }
-
-    private static Set<String> editorModel52Capabilities() {
-        final java.util.HashSet<String> capabilities = new java.util.HashSet<>(
-            EditorModelVerificationManifest.CAPABILITY_IDS
-        );
-        capabilities.remove(EditorPartOpacitySelectorContract.CAPABILITY_ID);
-        capabilities.add(EditorPartOpacity52SelectorContract.CAPABILITY_ID);
-        return Set.copyOf(capabilities);
     }
 
     private static Set<String> editorModel52Aliases() {
