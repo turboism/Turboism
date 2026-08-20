@@ -31,7 +31,7 @@ def _baseline_value(args, dump, artifact_sha, artifact_size):
 def verify(args: argparse.Namespace, exact: bool) -> None:
     baseline = load_baseline(args.baseline)
     _verify_expected_commit(args, baseline)
-    reference_dump = _verify_reference_binding(args, baseline)
+    reference_dump = _verify_reference_binding(args, baseline, exact)
     _verify_tier_options(args, exact)
     if not exact and args.tier_policy:
         _verify_tiers(args, baseline)
@@ -44,10 +44,13 @@ def _verify_expected_commit(args, baseline):
         raise BaselineError(f"baseline is bound to {baseline['commit']}, expected {args.expected_commit}")
 
 
-def _verify_reference_binding(args, baseline):
+def _verify_reference_binding(args, baseline, exact: bool):
     dump, artifact_sha, artifact_size = canonical_dump(args.reference_input, args.package_prefix)
     artifact = baseline["artifact"]
-    if artifact_sha != artifact["sha256"] or artifact_size != artifact["size"]:
+    # Exact audits bind both the archive bytes and its canonical API. Compatible/tier
+    # audits intentionally bind only the canonical API so a reproducibly rebuilt
+    # historical JAR is usable even when ZIP container metadata differs byte-for-byte.
+    if exact and (artifact_sha != artifact["sha256"] or artifact_size != artifact["size"]):
         raise BaselineError(_artifact_binding_mismatch(artifact, artifact_sha, artifact_size))
     canonical = baseline["canonicalDump"]
     if sha256_bytes(dump) != canonical["sha256"] or len(dump.decode("utf-8").splitlines()) != canonical["lineCount"]:
