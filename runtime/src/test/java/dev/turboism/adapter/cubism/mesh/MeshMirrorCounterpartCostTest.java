@@ -39,7 +39,7 @@ final class MeshMirrorCounterpartCostTest {
         );
 
         assertTrue(deletion.mesh().points().isEmpty(), "the default path must carry no mesh copy");
-        assertEquals(false, counterparts.hasOverride());
+        assertEquals(dev.turboism.sdk.cubism.mesh.MeshEditContribution.none(), counterparts.mirrorOf(deletion));
     }
 
     @Test
@@ -47,12 +47,11 @@ final class MeshMirrorCounterpartCostTest {
         final RuntimeMeshMirrorCounterparts counterparts = new RuntimeMeshMirrorCounterparts();
         final AtomicInteger calls = new AtomicInteger();
         final List<Integer> snapshotSizes = new ArrayList<>();
-        counterparts.overrideResolver((source, mesh, axis) -> {
+        final dev.turboism.sdk.cubism.mesh.MeshMirrorCounterpartResolver resolver = (source, mesh, axis) -> {
             calls.incrementAndGet();
             snapshotSizes.add(mesh.points().size());
             return Optional.empty();
-        });
-        assertTrue(counterparts.hasOverride());
+        };
 
         final List<MeshPointRef> sources = List.of(
             new MeshPointRef(0, -1.0f, 0.0f),
@@ -65,7 +64,7 @@ final class MeshMirrorCounterpartCostTest {
         counterparts.mirrorOf(new MeshDeletion(
             sources, List.of(), new MirrorAxisState(true, 0.0f),
             new dev.turboism.sdk.cubism.mesh.MeshSnapshot(copied, List.of())
-        ));
+        ), resolver);
 
         // No live host edit is published here, so resolution stops before dispatching; that is
         // itself the guard the runtime relies on outside a dispatch.

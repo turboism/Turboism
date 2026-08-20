@@ -569,7 +569,11 @@ public final class CorePluginContext implements PluginContext {
                 this.dependencies.disposableScope()
             );
         this.meshMirrorCounterpartsService =
-            dev.turboism.adapter.cubism.mesh.NativeMeshMirrorBridge.counterparts();
+            new dev.turboism.adapter.cubism.mesh.AuthorizedMeshMirrorCounterparts(
+                dev.turboism.adapter.cubism.mesh.NativeMeshMirrorBridge.counterparts(),
+                meshPermissionChecker,
+                this.dependencies.disposableScope()
+            );
         this.sceneTableService = hostAccess == null
             ? SceneTableService.unavailable()
             : hostAccess.sceneTable();
