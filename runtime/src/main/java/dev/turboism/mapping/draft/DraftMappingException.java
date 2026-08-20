@@ -14,6 +14,11 @@ public final class DraftMappingException extends RuntimeException {
         this.code = code;
     }
 
+    /**
+     * @return the stable failure code the pipeline reports and the CLI prints ahead of the
+     *     message, such as {@code WORKTREE_ID_INVALID} or {@code JSON_WRITE_FAILED}; branch on this
+     *     rather than on the message text
+     */
     public String code() {
         return code;
     }

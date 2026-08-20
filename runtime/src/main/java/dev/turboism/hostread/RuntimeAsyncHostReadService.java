@@ -111,6 +111,16 @@ public final class RuntimeAsyncHostReadService implements AsyncHostReadService, 
         }
     }
 
+    /**
+     * Cancels a read this service issued. Cancellation is best effort: a read
+     * already delivering its result is not undone.
+     *
+     * @param handle handle returned by a submission to this service
+     * @return {@code true} if this call moved the read into a cancelled state
+     * @throws IllegalArgumentException if the handle was issued by a different
+     *     service, or by something other than this runtime
+     * @throws NullPointerException if {@code handle} is {@code null}
+     */
     public boolean cancel(final AsyncHostReadHandle handle) {
         Objects.requireNonNull(handle, "handle");
         if (!(handle instanceof RuntimeAsyncHostReadHandle runtimeHandle)) {

@@ -98,10 +98,18 @@ public final class SharedAsyncHostReadLane implements AutoCloseable {
         }
     }
 
+    /**
+     * @return the name of the single lane worker thread, or the empty string
+     *     until that thread has run its first task
+     */
     public String workerThreadName() {
         return workerThreadName.get();
     }
 
+    /**
+     * @return whether the lane has been closed; a closed lane admits nothing
+     *     further and reports {@code RUNTIME_UNAVAILABLE} to new submissions
+     */
     public boolean isClosed() {
         return closed.get();
     }

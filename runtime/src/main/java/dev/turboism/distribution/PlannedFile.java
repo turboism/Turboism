@@ -2,6 +2,13 @@ package dev.turboism.distribution;
 
 import java.util.Objects;
 
+/**
+ * One file an install plan would extract, with the digest and length observed inside the archive.
+ *
+ * <p>Immutable. Construction rejects blank fields, a {@code sha256} that is not 64 lowercase hex
+ * characters, and a negative size. The recorded digest is what a preflight check re-verifies before
+ * the file is published - see {@link PluginJarPreflight}.
+ */
 public final class PlannedFile {
     private final String role;
     private final String archivePath;
@@ -19,10 +26,19 @@ public final class PlannedFile {
         this.size = size;
     }
 
+    /** @return the part this file plays in the package, for example {@code PLUGIN_JAR}; never blank */
     public String role() { return role; }
+
+    /** @return the entry name this file occupies inside the archive; never blank */
     public String archivePath() { return archivePath; }
+
+    /** @return the relative destination the file would be written to on install; never blank */
     public String installPath() { return installPath; }
+
+    /** @return SHA-256 of the file's uncompressed contents, 64 lowercase hex characters */
     public String sha256() { return sha256; }
+
+    /** @return uncompressed byte length of the file; never negative */
     public long size() { return size; }
 
     @Override public boolean equals(Object other) {

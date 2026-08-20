@@ -175,6 +175,21 @@ final class EditorParameterGroupsAccess {
                     "Cubism parameter group is absent: " + id.value()
                 ));
         }
+        /**
+         * Creates a new parameter folder as the last child of the root group, through the host's own
+         * undoable command ("Turboism: Create Parameter Folder").
+         *
+         * <p>The model is checked for currency before and after the write, so the call fails rather
+         * than mutating a model the Editor has since replaced. Runs on the Cubism host thread.
+         *
+         * @param name the folder name, non-null and non-blank
+         * @return a live handle to the newly created group
+         * @throws NullPointerException          if {@code name} is null
+         * @throws IllegalArgumentException      if {@code name} is blank
+         * @throws UnsupportedOperationException if the host lacks the exact verified evidence this
+         *                                       slice requires
+         * @throws NoSuchElementException        if the created group cannot be found afterwards
+         */
         public ParameterGroup addGroup(final String name) {
             current();
             final ParameterGroupId created = structureAccess.addGroup(identity, source, model, name);

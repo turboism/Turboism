@@ -21,6 +21,20 @@ import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
+/**
+ * Weaves probe enter/exit calls into a fixed list of Cubism methods at class-load time.
+ *
+ * <p>Transformation is deliberately narrow and fails closed: a class is only rewritten
+ * when it is loaded by the expected classloader, its code source is the expected
+ * artifact on disk, and its name matches a declared {@link Target}. Anything else
+ * returns {@code null}, leaving the host bytes untouched. Each instrumented method is
+ * wrapped in a try/catch that re-throws, so the exit probe runs on both normal and
+ * exceptional paths.</p>
+ *
+ * <p>SHA-256 digests of the bytes received and produced are recorded per class so a
+ * report can prove exactly what was modified. The transformer is called concurrently by
+ * the JVM and keeps its counters and digests in concurrent maps.</p>
+ */
 public final class PerformanceProbeMethodTransformer implements ClassFileTransformer {
 
     private static final String CARRIER =
@@ -87,6 +101,11 @@ public final class PerformanceProbeMethodTransformer implements ClassFileTransfo
         return output;
     }
 
+    /**
+     * @return an immutable snapshot of how many methods each declared target actually
+     *     matched. Every declared target is present; a count of zero means the method was
+     *     never instrumented, which is how a version mismatch shows up.
+     */
     public Map<Target, Integer> matchCounts() {
         final Map<Target, Integer> copy = new HashMap<>();
         matches.forEach((target, count) -> copy.put(target, count.get()));
@@ -200,6 +219,20 @@ public final class PerformanceProbeMethodTransformer implements ClassFileTransfo
         };
     }
 
+    /**
+     * One Cubism method to instrument, identified exactly.
+     *
+     * <p>Obfuscated names differ between host builds, so a target is only valid for the
+     * Cubism version it was verified against.</p>
+     *
+     * @param ownerInternalName JVM internal name of the declaring class, e.g.
+     *                          {@code com/live2d/cubism/view/context/CEViewContext}
+     * @param methodName        exact method name in that class
+     * @param descriptor        JVM method descriptor; must return void
+     * @param metric            the metric this method timings are recorded under
+     * @throws NullPointerException when any component is {@code null}
+     * @throws IllegalArgumentException when the descriptor does not end in {@code )V}
+     */
     public record Target(
         String ownerInternalName,
         String methodName,

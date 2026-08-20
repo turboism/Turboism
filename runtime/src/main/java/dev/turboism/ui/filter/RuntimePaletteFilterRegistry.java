@@ -66,6 +66,18 @@ public final class RuntimePaletteFilterRegistry implements PaletteFilterRegistry
         this.contributionAuthority = Objects.requireNonNull(contributionAuthority, "contributionAuthority");
     }
 
+    /**
+     * Replaces the authority that this registry routes host UI contributions through.
+     *
+     * <p>Rebinding is only permitted while no contribution is live; rebinding to the authority
+     * already in use is always allowed and is a no-op. This prevents an in-flight contribution from
+     * being orphaned under an authority that no longer owns it.
+     *
+     * @param authority the authority to route contributions through
+     * @throws IllegalStateException if contributions exist and {@code authority} differs from the
+     *         current one
+     * @throws NullPointerException if {@code authority} is {@code null}
+     */
     public synchronized void bindContributionAuthority(final EditorUiContributionAuthority authority) {
         final EditorUiContributionAuthority requested = Objects.requireNonNull(authority, "authority");
         if (!contributions.isEmpty() && contributionAuthority != requested) {

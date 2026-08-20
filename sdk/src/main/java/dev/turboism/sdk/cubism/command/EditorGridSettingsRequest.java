@@ -27,8 +27,10 @@ public record EditorGridSettingsRequest(int spacingPixels, Color color) implemen
         }
     }
 
+    /** @return the parameterized command this request drives: the grid setting dialog */
     public EditorParameterizedCommand command() { return EditorParameterizedCommand.GRID_SETTING; }
 
+    /** @return the host command identifier of {@link #command()}, for logging and dispatch */
     public String commandId() { return command().id(); }
 
     private static void requireUnit(float value, String name) {

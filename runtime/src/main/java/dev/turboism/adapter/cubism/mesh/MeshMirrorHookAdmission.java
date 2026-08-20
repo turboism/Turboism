@@ -12,6 +12,17 @@ public final class MeshMirrorHookAdmission {
 
     private MeshMirrorHookAdmission() { }
 
+    /**
+     * Decides whether the mesh-mirror host hooks may be installed at all.
+     *
+     * <p>Admission is deliberately narrow: exactly one plugin id ({@link #PLUGIN_ID}) is eligible,
+     * and only while it is enabled, holds both the model-write and panel-contribute permissions, and
+     * declares the {@code cubism.mesh.mirror-axis-angle} capability. Any other plugin, however
+     * permissioned, is never admitted.
+     *
+     * @param plugins the currently loaded plugin summaries to search
+     * @return {@code true} only when a summary satisfies every one of those conditions
+     */
     public static boolean admitted(final List<LocalPluginRuntime.LoadedPluginSummary> plugins) {
         return plugins.stream().anyMatch(plugin ->
             plugin.id().equals(PLUGIN_ID)

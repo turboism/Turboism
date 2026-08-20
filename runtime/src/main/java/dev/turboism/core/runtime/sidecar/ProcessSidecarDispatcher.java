@@ -21,6 +21,20 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+/**
+ * Runs plugin work in a separate JVM process, so a task that hangs or crashes
+ * cannot take the Cubism host down with it.
+ *
+ * <p>Each dispatch serializes a {@link SidecarEnvelope} to JSON, has it screened
+ * by {@link SidecarEnvelopeValidator}, then launches the configured java binary
+ * and feeds the envelope to its stdin. The process is forcibly destroyed once the
+ * configured timeout elapses. Launches are serialized onto a single daemon
+ * dispatch thread, so calls never run on the host thread and never overlap.</p>
+ *
+ * <p>Failures are reported as {@link SidecarResult} error or timeout values rather
+ * than thrown; the only exceptional completion is a {@link SidecarDispatchException}
+ * when the dispatcher is configured as disabled.</p>
+ */
 public final class ProcessSidecarDispatcher implements SidecarDispatcher {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
@@ -147,6 +161,18 @@ public final class ProcessSidecarDispatcher implements SidecarDispatcher {
         }
     }
 
+    /**
+     * What one sidecar process run produced.
+     *
+     * @param exitCode the process exit status, or {@code -1} when it was destroyed
+     *                 after the timeout
+     * @param stdout   whatever the process wrote to standard output; {@code null} is
+     *                 normalized to the empty string
+     * @param stderr   whatever the process wrote to standard error; {@code null} is
+     *                 normalized to the empty string
+     * @param timedOut {@code true} when the process outlived the configured timeout
+     *                 and was forcibly destroyed
+     */
     public record LaunchResult(int exitCode, String stdout, String stderr, boolean timedOut) {
 
         public LaunchResult(final int exitCode, final String stdout, final String stderr) {

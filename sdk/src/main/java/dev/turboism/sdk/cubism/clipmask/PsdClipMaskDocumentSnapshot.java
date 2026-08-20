@@ -27,6 +27,28 @@ public record PsdClipMaskDocumentSnapshot(
         layers = List.copyOf(Objects.requireNonNull(layers, "layers"));
     }
 
+    /**
+     * One PSD layer in the snapshot, including the layers nested beneath it.
+     *
+     * <p>Immutable and defensively copied: both list components are taken through
+     * {@code List.copyOf}, so they are unmodifiable and reject {@code null} elements, and the
+     * children form the layer tree recursively. {@code clipping} is the layer's own explicit
+     * clipping flag and may be {@code true} even with no base layer recorded, but the reverse is
+     * rejected — a non-clipping layer must not name a clipping base.
+     *
+     * @param layerId the PSD's own identifier for this layer; must not be {@code null} or blank
+     * @param name the layer's user-visible name; must not be {@code null} or blank
+     * @param visible whether the layer is visible in the PSD
+     * @param clipping whether this layer clips to the layer below it
+     * @param artMeshIds the art meshes in the Editor model bound to this layer, possibly empty;
+     *     must not be {@code null}
+     * @param clippingBaseLayerId the layer id this one clips to, empty when none is recorded; must
+     *     not be {@code null}, must not hold a blank value, and must be empty when
+     *     {@code clipping} is {@code false}
+     * @param children the layers nested inside this one, possibly empty; must not be {@code null}
+     * @throws IllegalArgumentException if a required string is blank, or if a non-clipping layer
+     *     declares a clipping base layer
+     */
     @PreviewApi
     public record PsdLayerSnapshot(
         String layerId,
@@ -71,6 +93,13 @@ public record PsdClipMaskDocumentSnapshot(
             this(layerId, name, visible, clippingBaseLayerId.isPresent(), artMeshIds, clippingBaseLayerId, children);
         }
 
+        /**
+         * Convenience constructor for a leaf layer that neither clips nor binds to any art mesh.
+         *
+         * @param layerId the PSD's own identifier for this layer; must not be {@code null} or blank
+         * @param name the layer's user-visible name; must not be {@code null} or blank
+         * @param visible whether the layer is visible in the PSD
+         */
         public PsdLayerSnapshot(final String layerId, final String name, final boolean visible) {
             this(layerId, name, visible, false, List.of(), Optional.empty(), List.of());
         }

@@ -39,6 +39,12 @@ public final class HostSessionSnapshotSource implements HostSnapshotSource {
         this.projectWorkspace = Objects.requireNonNull(projectWorkspace, "projectWorkspace");
     }
 
+    /**
+     * @param projectWorkspace adapter whose immutable project and document snapshots are projected;
+     *     it is read on every query rather than cached, so the source follows the live workspace
+     * @return a snapshot source for this session
+     * @throws NullPointerException if {@code projectWorkspace} is null
+     */
     public static HostSnapshotSource forSession(final ProjectWorkspaceAdapter projectWorkspace) {
         return new HostSessionSnapshotSource(projectWorkspace);
     }

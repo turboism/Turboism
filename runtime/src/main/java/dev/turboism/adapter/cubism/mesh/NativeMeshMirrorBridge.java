@@ -13,6 +13,16 @@ public final class NativeMeshMirrorBridge {
 
     private NativeMeshMirrorBridge() { }
 
+    /**
+     * Binds the bridge in the enabled state.
+     *
+     * <p>Equivalent to {@link #install(RuntimeMeshMirrorAxisService, RuntimeMeshEditUiService,
+     * boolean)} with {@code enabled} true.
+     *
+     * @param axis the axis service the transformed host methods will consult
+     * @param ui   the mesh-edit UI service used to attach native controls
+     * @throws IllegalStateException if a binding is already installed
+     */
     public static void install(
         final RuntimeMeshMirrorAxisService axis,
         final RuntimeMeshEditUiService ui
@@ -20,6 +30,19 @@ public final class NativeMeshMirrorBridge {
         install(axis, ui, true);
     }
 
+    /**
+     * Binds the services the transformed host methods call back into.
+     *
+     * <p>At most one binding exists at a time; installation is a compare-and-set, so a second
+     * install without an intervening {@link #uninstall()} is rejected rather than silently replacing
+     * the first. While {@code enabled} is false the binding exists but the point, hit and pivot
+     * hooks behave as if absent; {@link #attachControl} and {@link #drawAxis} still act.
+     *
+     * @param axis    the axis service the transformed host methods will consult
+     * @param ui      the mesh-edit UI service used to attach native controls
+     * @param enabled whether the geometry hooks take effect
+     * @throws IllegalStateException if a binding is already installed
+     */
     public static void install(
         final RuntimeMeshMirrorAxisService axis,
         final RuntimeMeshEditUiService ui,
@@ -30,12 +53,32 @@ public final class NativeMeshMirrorBridge {
         }
     }
 
+    /**
+     * Drops the binding and every remembered host object, returning the bridge to its fail-closed
+     * state where all hooks pass their host value through untouched.
+     *
+     * <p>Idempotent, and safe to call when nothing was installed. It does not undo any bytecode
+     * transformation; it only makes the transformed calls inert.
+     */
     public static void uninstall() {
         INSTALLED.set(null);
         CURRENT_PANEL.set(null);
         CURRENT_CONTEXT.set(null);
     }
 
+    /**
+     * Host hook: replaces a mirrored point with one reflected across the rotated mirror axis.
+     *
+     * <p>Fail-closed. The host's own {@code original} value is returned unchanged whenever nothing is
+     * installed, the binding is disabled, the mirror angle is zero, {@code source} is null, the axis
+     * line cannot be resolved, or any reflective access fails. The result is a new instance of
+     * {@code source}'s own class, built through its {@code (float, float)} constructor.
+     *
+     * @param original    the value the host computed, returned unchanged on any refusal
+     * @param mirrorState the host's mirror state object; accepted for call-site shape and not read
+     * @param source      the point being mirrored; read through its {@code getX}/{@code getY}
+     * @return the reflected point, or {@code original}
+     */
     public static Object adjustPoint(
         final Object original,
         final Object mirrorState,
@@ -44,6 +87,17 @@ public final class NativeMeshMirrorBridge {
         return adjust(original, mirrorState, source, false);
     }
 
+    /**
+     * Host hook: replaces an on-axis point with its projection onto the rotated mirror axis.
+     *
+     * <p>Identical contract to {@link #adjustPoint}, except that the point is projected onto the axis
+     * rather than reflected across it; equally fail-closed.
+     *
+     * @param original    the value the host computed, returned unchanged on any refusal
+     * @param mirrorState the host's mirror state object; accepted for call-site shape and not read
+     * @param source      the point being adjusted; read through its {@code getX}/{@code getY}
+     * @return the projected point, or {@code original}
+     */
     public static Object adjustAxisPoint(
         final Object original,
         final Object mirrorState,
@@ -52,6 +106,19 @@ public final class NativeMeshMirrorBridge {
         return adjust(original, mirrorState, source, true);
     }
 
+    /**
+     * Host hook: re-answers a mirror-axis pick test against the rotated axis.
+     *
+     * <p>Fail-closed: returns the host's own {@code original} verdict when nothing is installed, the
+     * binding is disabled, the angle is zero, {@code source} is null, the line cannot be resolved, or
+     * reflection fails.
+     *
+     * @param original    the host's own hit verdict, returned unchanged on any refusal
+     * @param mirrorState the host's mirror state object; accepted for call-site shape and not read
+     * @param source      the picked point, read through its {@code getX}/{@code getY}
+     * @param threshold   the host's pick radius, applied as a strict upper bound
+     * @return whether the point is within {@code threshold} of the rotated axis
+     */
     public static boolean adjustHit(
         final boolean original,
         final Object mirrorState,
@@ -70,6 +137,19 @@ public final class NativeMeshMirrorBridge {
         }
     }
 
+    /**
+     * Host hook: injects the angle control into the freshly built mesh-edit mirror widget.
+     *
+     * <p>Always returns the widget unchanged; the return value exists so the hook can sit inside the
+     * host's expression, not to substitute a different widget. Switching to a different panel resets
+     * the UI session and clears the remembered pivot first. Runs on the Cubism host UI thread, since
+     * the host builds the widget there. Failures while attaching are swallowed, leaving the native UI
+     * exactly as the host built it.
+     *
+     * @param widget the widget the host just created; returned as-is, including when null
+     * @param panel  the owning mesh-edit tool panel, used to locate the canvas pivot
+     * @return the same widget instance that was passed in
+     */
     public static Object attachControl(final Object widget, final Object panel) {
         final Binding binding = INSTALLED.get();
         if (binding == null || widget == null || panel == null) return widget;
@@ -87,16 +167,47 @@ public final class NativeMeshMirrorBridge {
         return widget;
     }
 
+    /**
+     * Host hook: records the rotation pivot the host is currently mirroring about.
+     *
+     * <p>No-op when nothing is installed or the binding is disabled.
+     *
+     * @param pivotX pivot x in host document coordinates
+     * @param pivotY pivot y in host document coordinates
+     */
     public static void observePivot(final float pivotX, final float pivotY) {
         final Binding binding = INSTALLED.get();
         if (binding != null && binding.enabled) binding.axis.observePivot(pivotX, pivotY);
     }
 
+    /**
+     * Host hook: forgets the recorded pivot, so the axis falls back until a pivot is observed again.
+     *
+     * <p>Applies even to a disabled binding, and is a no-op when nothing is installed.
+     */
     public static void clearPivot() {
         final Binding binding = INSTALLED.get();
         if (binding != null) binding.axis.clearPivot();
     }
 
+    /**
+     * Host hook: draws the mirror axis rotated, in place of the host's axis-aligned line.
+     *
+     * <p>Returns {@code false} to tell the host to draw the line itself; that happens whenever nothing
+     * is installed, the angle is zero, {@code drawImpl} is null, the native draw chain cannot be
+     * resolved reflectively, or the axis line degenerates. The rotation pivot is the canvas centre,
+     * falling back to the native segment's midpoint when the canvas cannot be reached. The rotated
+     * line is drawn with the same half-length as the segment the host would have drawn.
+     *
+     * <p>Must run on the host's render thread, since it calls straight into the host renderer.
+     *
+     * @param drawImpl  the host draw context, source of the renderer and view geometry
+     * @param axisValue the axis position the host asked for, in document coordinates
+     * @param vertical  whether the host axis is vertical
+     * @param lineWidth the stroke width passed to the host renderer
+     * @param color     the host colour object, passed through unmodified
+     * @return {@code true} when this method drew the axis, {@code false} to let the host draw it
+     */
     public static boolean drawAxis(
         final Object drawImpl,
         final float axisValue,
@@ -164,6 +275,13 @@ public final class NativeMeshMirrorBridge {
     }
 
 
+    /**
+     * Forgets the remembered panel and canvas identity and clears the pivot, without dropping the
+     * binding.
+     *
+     * <p>Use when the host tears down or swaps the mesh-edit context, so stale host objects are not
+     * retained and the next attach re-derives the pivot. Safe when no binding is installed.
+     */
     public static void clearHostContext() {
         CURRENT_PANEL.set(null);
         CURRENT_CONTEXT.set(null);

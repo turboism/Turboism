@@ -12,6 +12,12 @@ public record EmbeddedPanelId(String value) {
         }
     }
 
+    /**
+     * @param value the panel identity string, non-blank
+     * @return the wrapped panel id
+     * @throws NullPointerException when {@code value} is {@code null}
+     * @throws IllegalArgumentException when {@code value} is blank
+     */
     public static EmbeddedPanelId of(final String value) {
         return new EmbeddedPanelId(value);
     }

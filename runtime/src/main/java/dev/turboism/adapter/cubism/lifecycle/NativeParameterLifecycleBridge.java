@@ -39,10 +39,23 @@ public final class NativeParameterLifecycleBridge {
         this.modelAccess = Objects.requireNonNull(modelAccess, "modelAccess");
     }
 
+    /**
+     * Publishes the bridge instance the injected native instrumentation calls into, replacing any
+     * previously installed one.
+     *
+     * @param bridge the bridge to make current
+     * @throws NullPointerException when {@code bridge} is null
+     */
     public static void install(final NativeParameterLifecycleBridge bridge) {
         INSTALLED.set(Objects.requireNonNull(bridge, "bridge"));
     }
 
+    /**
+     * Clears the installed bridge only if {@code bridge} is still the current one, so a later
+     * installation is never removed by a stale uninstall. Instrumented call sites then fail open.
+     *
+     * @param bridge the bridge expected to be current
+     */
     public static void uninstall(final NativeParameterLifecycleBridge bridge) {
         INSTALLED.compareAndSet(bridge, null);
     }
@@ -93,6 +106,15 @@ public final class NativeParameterLifecycleBridge {
         }
     }
 
+    /**
+     * Token-based entry for instrumented parameter writes: opens a lifecycle invocation for the write
+     * and returns the token that identifies it.
+     *
+     * @param parameter the parameter being written
+     * @param requestedValue value requested before interception
+     * @return an invocation token to pass to {@code effectiveValue} and {@code after}/{@code failed},
+     *     or {@code 0} when no bridge is installed, meaning the write proceeds unobserved
+     */
     public static long before(final Parameter parameter, final float requestedValue) {
         final NativeParameterLifecycleBridge bridge = INSTALLED.get();
         if (bridge == null) {
@@ -101,6 +123,14 @@ public final class NativeParameterLifecycleBridge {
         return bridge.begin(parameter, requestedValue);
     }
 
+    /**
+     * Reads back the value the interceptors settled on for an open invocation.
+     *
+     * @param token token returned by {@code before}
+     * @return the effective value the host should actually write
+     * @throws IllegalStateException when the token is {@code 0}, no bridge is installed, or the
+     *     invocation has already been completed
+     */
     public static float effectiveValue(final long token) {
         if (token == 0L) {
             throw new IllegalStateException("Native parameter lifecycle bridge is unavailable.");
@@ -112,10 +142,22 @@ public final class NativeParameterLifecycleBridge {
         return bridge.invocation(token).effectiveValue();
     }
 
+    /**
+     * Normal-return completion for a token-based invocation: publishes success and releases the token.
+     * A {@code 0} token, an unknown token, or an absent bridge is a no-op.
+     *
+     * @param token token returned by {@code before}
+     */
     public static void after(final long token) {
         complete(token, true);
     }
 
+    /**
+     * Exceptional-return completion for a token-based invocation: publishes failure and releases the
+     * token. A {@code 0} token, an unknown token, or an absent bridge is a no-op.
+     *
+     * @param token token returned by {@code before}
+     */
     public static void failed(final long token) {
         complete(token, false);
     }

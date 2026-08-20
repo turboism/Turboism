@@ -43,6 +43,19 @@ public final class RuntimeMeshEditUiService implements MeshEditUiService {
         return () -> clear(requested);
     }
 
+    /**
+     * Watches whether a plugin currently contributes the mirror-angle control.
+     *
+     * <p>At most one observer may be registered at a time. The observer is invoked immediately with
+     * the present state, so a late registrant is not left waiting for the next change.
+     *
+     * @param observer receives {@code true} while a control is contributed, {@code false} once it is
+     *                 withdrawn; non-null
+     * @return a registration that removes this observer; closing it after another observer replaced
+     *         it is a no-op
+     * @throws IllegalStateException if an observer is already registered
+     * @throws NullPointerException  if {@code observer} is null
+     */
     public Registration observeContribution(final java.util.function.Consumer<Boolean> observer) {
         Objects.requireNonNull(observer, "observer");
         if (!contributionObserver.compareAndSet(null, observer)) {
@@ -52,6 +65,10 @@ public final class RuntimeMeshEditUiService implements MeshEditUiService {
         return () -> contributionObserver.compareAndSet(observer, null);
     }
 
+    /**
+     * @return the contributed mirror-angle control, or {@code null} when no plugin has contributed
+     *         one or its registration has been closed
+     */
     public MirrorAxisAngleControl contribution() {
         return contribution.get();
     }
@@ -62,6 +79,14 @@ public final class RuntimeMeshEditUiService implements MeshEditUiService {
         }
     }
 
+    /**
+     * Detaches every injected control and invalidates the current attachment epoch, so in-flight
+     * attach work for the old session is discarded.
+     *
+     * <p>Called when the host swaps mesh-edit panels. The contributed control itself is kept — only
+     * its native mounts are torn down, on the Swing event thread. The registry bookkeeping happens
+     * synchronously; the actual removal is scheduled onto the EDT.
+     */
     public void resetSession() {
         epoch.incrementAndGet();
         final List<Attachment> stale;

@@ -34,14 +34,25 @@ public interface ThemeStatusAdapter {
             diagnostic = Objects.requireNonNull(diagnostic, "diagnostic");
         }
 
+        /**
+         * @param <T> carried value type
+         * @param value the host-produced result, never null
+         * @return a result carrying the value with no diagnostic
+         */
         public static <T> AdapterResult<T> available(final T value) {
             return new AdapterResult<>(Optional.of(value), Optional.empty());
         }
 
+        /**
+         * @param <T> carried value type
+         * @param diagnostic why the capability degraded to safe mode
+         * @return a result carrying only the diagnostic and no value
+         */
         public static <T> AdapterResult<T> unavailable(final SafeModeDiagnostic diagnostic) {
             return new AdapterResult<>(Optional.empty(), Optional.of(diagnostic));
         }
 
+        /** @return true only when a value is present and no diagnostic was recorded. */
         public boolean isAvailable() {
             return value.isPresent() && diagnostic.isEmpty();
         }

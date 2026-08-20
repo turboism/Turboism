@@ -44,10 +44,19 @@ public interface CubismLogService {
             keyword = keyword == null ? "" : keyword;
         }
 
+        /** @return a filter that hides nothing: every level visible and no keyword restriction. */
         public static LogFilter all() {
             return new LogFilter(true, true, true, "");
         }
 
+        /**
+         * Applies this filter to one entry. DEBUG and TRACE are folded into the INFO toggle and FATAL
+         * into the ERROR toggle; the keyword is trimmed and matched case-insensitively as a substring
+         * of the message.
+         *
+         * @param entry log entry to test
+         * @return true when the entry's level is visible and the keyword (if any) occurs in its message
+         */
         public boolean matches(final LogEntry entry) {
             final boolean levelVisible = switch (entry.level()) {
                 case INFO, DEBUG, TRACE -> showInfo;
