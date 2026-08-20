@@ -27,7 +27,11 @@ class BuiltinCorePluginCatalogTest {
                 diagnostic -> { throw new AssertionError(diagnostic.code() + ": " + diagnostic.message()); }
             );
 
-            assertEquals(descriptor.i18n().locales(), localization.reportSnapshot().catalogs().stream()
+            final java.util.ArrayList<String> expectedCatalogs = new java.util.ArrayList<>(
+                descriptor.i18n().locales()
+            );
+            expectedCatalogs.add("base");
+            assertEquals(expectedCatalogs, localization.reportSnapshot().catalogs().stream()
                 .map(RuntimePluginLocalization.CatalogSnapshot::locale).toList());
             assertTrue(localization.reportSnapshot().catalogs().stream()
                 .allMatch(catalog -> catalog.state().equals("AVAILABLE")));
