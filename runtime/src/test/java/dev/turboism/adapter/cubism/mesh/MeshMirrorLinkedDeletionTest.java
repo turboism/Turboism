@@ -29,7 +29,7 @@ final class MeshMirrorLinkedDeletionTest {
         final Mesh mesh = new Mesh(point(0, -1.0f, 0.0f), point(1, 1.0f, 0.0f));
         final Pack pack = new Pack(mesh);
 
-        NativeMeshMirrorBridge.mirrorDeletePoints(pack, List.of(List.of(mesh.point(0))), pack.undo);
+        NativeMeshMirrorBridge.mirrorDeletePoints(List.of(List.of(mesh.point(0))), pack.undo, pack);
 
         assertEquals(List.of(mesh.point(1)), pack.editMode.deleted);
         assertTrue(diagnostics.contains(stage("MIRROR_DELETE_POINTS_OK count=1 type=Point")));
@@ -43,7 +43,7 @@ final class MeshMirrorLinkedDeletionTest {
 
         // Both sides selected: each is the other's counterpart, so nothing extra may be deleted.
         NativeMeshMirrorBridge.mirrorDeletePoints(
-            pack, List.of(List.of(mesh.point(0), mesh.point(1))), pack.undo
+            List.of(List.of(mesh.point(0), mesh.point(1))), pack.undo, pack
         );
 
         assertTrue(pack.editMode.deleted.isEmpty());
@@ -57,7 +57,7 @@ final class MeshMirrorLinkedDeletionTest {
         final Mesh mesh = new Mesh(point(0, -1.0f, 0.0f), point(1, 40.0f, 0.0f));
         final Pack pack = new Pack(mesh);
 
-        NativeMeshMirrorBridge.mirrorDeletePoints(pack, List.of(List.of(mesh.point(0))), pack.undo);
+        NativeMeshMirrorBridge.mirrorDeletePoints(List.of(List.of(mesh.point(0))), pack.undo, pack);
 
         assertTrue(pack.editMode.deleted.isEmpty());
     }
@@ -68,7 +68,7 @@ final class MeshMirrorLinkedDeletionTest {
         final Mesh mesh = new Mesh(point(0, -1.0f, 0.0f), point(1, 1.0f, 0.0f));
         final Pack pack = new Pack(mesh);
 
-        NativeMeshMirrorBridge.mirrorDeletePoints(pack, List.of(List.of(mesh.point(0))), pack.undo);
+        NativeMeshMirrorBridge.mirrorDeletePoints(List.of(List.of(mesh.point(0))), pack.undo, pack);
 
         assertTrue(pack.editMode.deleted.isEmpty());
     }
@@ -78,7 +78,7 @@ final class MeshMirrorLinkedDeletionTest {
         final Mesh mesh = new Mesh(point(0, -1.0f, 0.0f), point(1, 1.0f, 0.0f));
         final Pack pack = new Pack(mesh);
 
-        NativeMeshMirrorBridge.mirrorDeletePoints(pack, List.of(List.of(mesh.point(0))), pack.undo);
+        NativeMeshMirrorBridge.mirrorDeletePoints(List.of(List.of(mesh.point(0))), pack.undo, pack);
 
         assertTrue(pack.editMode.deleted.isEmpty());
     }
@@ -87,7 +87,7 @@ final class MeshMirrorLinkedDeletionTest {
     void failsOpenAndReportsWhenTheHostShapeIsUnexpected() {
         final List<String> diagnostics = install();
 
-        NativeMeshMirrorBridge.mirrorDeletePoints(new Object(), List.of(List.of()), new Object());
+        NativeMeshMirrorBridge.mirrorDeletePoints(List.of(List.of()), new Object(), new Object());
 
         assertFalse(diagnostics.stream().anyMatch(value -> value.contains("MIRROR_DELETE_POINTS_OK")));
     }
@@ -105,7 +105,8 @@ final class MeshMirrorLinkedDeletionTest {
         mesh.edges.add(counterpart);
         final Pack pack = new Pack(mesh);
 
-        NativeMeshMirrorBridge.mirrorDeleteEdge(pack, source, pack.undo);
+        NativeMeshMirrorBridge.rememberEdgeUndoGroup(pack.undo);
+        NativeMeshMirrorBridge.mirrorDeleteEdge(source, pack);
 
         assertEquals(List.of(counterpart), mesh.handler.removed);
         assertEquals(1, pack.undo.added.size());
@@ -123,7 +124,8 @@ final class MeshMirrorLinkedDeletionTest {
         mesh.edges.add(source);
         final Pack pack = new Pack(mesh);
 
-        NativeMeshMirrorBridge.mirrorDeleteEdge(pack, source, pack.undo);
+        NativeMeshMirrorBridge.rememberEdgeUndoGroup(pack.undo);
+        NativeMeshMirrorBridge.mirrorDeleteEdge(source, pack);
 
         assertTrue(mesh.handler.removed.isEmpty());
         assertTrue(pack.undo.added.isEmpty());
