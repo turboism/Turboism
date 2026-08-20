@@ -218,6 +218,7 @@ class LocalPluginRuntimeEditorObjectHookScopeIntegrationTest {
                     }
                 }
                 add(output, "META-INF/turboism/plugin.json", descriptor().getBytes(StandardCharsets.UTF_8));
+                add(output, "META-INF/turboism/i18n/messages.properties", new byte[0]);
             }
         }
 
