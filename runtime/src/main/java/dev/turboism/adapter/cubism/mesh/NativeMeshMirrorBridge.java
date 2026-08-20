@@ -843,6 +843,94 @@ public final class NativeMeshMirrorBridge {
         }
     }
 
+    /**
+     * The mesh edit mode behind the panel the host last handed us, or null when no mesh edit is
+     * open. Navigated through the same property chain the pivot resolution already uses.
+     */
+    static Object activeMeshEditMode() {
+        try {
+            final Object panel = CURRENT_PANEL.get();
+            if (panel == null) return null;
+            final Object toolMode = property(panel, "toolMode");
+            final Object controller = invoke(toolMode, "getCtrl$cubism");
+            final Object completePack = property(controller, "completePack");
+            final Object viewContext = property(completePack, "currentViewContext");
+            return property(viewContext, "currentEditMode");
+        } catch (ReflectiveOperationException | RuntimeException failure) {
+            return null;
+        }
+    }
+
+    /** Starts one undoable step through the host's own mechanism; never invents an undo group. */
+    static Object beginUndoGroup(final Object editMode, final String label) {
+        try {
+            return call(editMode, "beginEdit", new Class<?>[] {String.class}, label);
+        } catch (ReflectiveOperationException | RuntimeException failure) {
+            return null;
+        }
+    }
+
+    static void collectSnapshot(
+        final Object mesh,
+        final List<MeshPointRef> points,
+        final List<MeshEdgeRef> edges
+    ) throws ReflectiveOperationException {
+        for (Object point : points(mesh)) {
+            final int id = pointId(point);
+            if (id < 0) continue;
+            final Object position = call(point, "getPos", new Class<?>[0]);
+            final Object x = position == null ? null : call(position, "getX", new Class<?>[0]);
+            final Object y = position == null ? null : call(position, "getY", new Class<?>[0]);
+            if (x instanceof Number first && y instanceof Number second) {
+                points.add(new MeshPointRef(id, first.floatValue(), second.floatValue()));
+            }
+        }
+        final Object hostEdges = call(mesh, "getEdges", new Class<?>[0]);
+        if (!(hostEdges instanceof Iterable<?> iterable)) return;
+        for (Object edge : iterable) {
+            final Object first = call(edge, "getIndex1", new Class<?>[0]);
+            final Object second = call(edge, "getIndex2", new Class<?>[0]);
+            if (first instanceof Number start && second instanceof Number end
+                && start.intValue() != end.intValue()) {
+                edges.add(new MeshEdgeRef(
+                    start.intValue(), end.intValue(), dev.turboism.sdk.cubism.mesh.MeshEdgeKind.UNKNOWN
+                ));
+            }
+        }
+    }
+
+    /** Removes the referenced edges through the host's undo-aware handler; returns how many. */
+    static int removeEdgesInto(
+        final Object mesh,
+        final List<MeshEdgeRef> refs,
+        final Object groupUndo
+    ) throws ReflectiveOperationException {
+        final Object hostEdges = call(mesh, "getEdges", new Class<?>[0]);
+        if (!(hostEdges instanceof Iterable<?> iterable)) return 0;
+        final List<Object> live = new ArrayList<>();
+        for (Object candidate : iterable) {
+            final Object first = call(candidate, "getIndex1", new Class<?>[0]);
+            final Object second = call(candidate, "getIndex2", new Class<?>[0]);
+            if (!(first instanceof Number start) || !(second instanceof Number end)) continue;
+            final int low = Math.min(start.intValue(), end.intValue());
+            final int high = Math.max(start.intValue(), end.intValue());
+            for (MeshEdgeRef ref : refs) {
+                if (ref.startPointId() == low && ref.endPointId() == high) live.add(candidate);
+            }
+        }
+        if (live.isEmpty()) return 0;
+        final Object handler = call(mesh, "getHandler", new Class<?>[0]);
+        if (handler == null) return 0;
+        final Method remove = declaredMethod(handler.getClass(), "a", List.class);
+        if (remove == null) return 0;
+        final Object undo = remove.invoke(handler, live);
+        if (undo == null) return 0;
+        final Method plusAssign = declaredMethod(groupUndo.getClass(), "plusAssign", undo.getClass());
+        if (plusAssign == null) return 0;
+        plusAssign.invoke(groupUndo, undo);
+        return live.size();
+    }
+
     /** Test seam: the exact host mirror class cannot exist on an offline classpath. */
     static void mirrorForTesting(final Object mirror) {
         MIRROR_OVERRIDE.set(mirror);
