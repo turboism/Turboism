@@ -53,6 +53,41 @@ final class VerifiedMeshMirrorHookInstallerTest {
     }
 
     @Test
+    void registrationDoesNotClaimTargetTransformationReadiness() throws Exception {
+        final List<String> calls = new ArrayList<>();
+        final VerifiedMeshMirrorHookInstaller installer = new VerifiedMeshMirrorHookInstaller(
+            instrumentation(calls), getClass().getClassLoader(), null, null, profile(), calls::add
+        );
+        installer.install();
+        assertTrue(installer.isInstalled());
+        assertFalse(installer.targetTransformed());
+        assertTrue(calls.contains("MESH_MIRROR_DIAG stage=TRANSFORMER_REGISTERED"));
+        assertFalse(calls.contains("MESH_MIRROR_DIAG stage=HOOK_INSTALLED"));
+        installer.close();
+    }
+
+    /** Registration, target transformation, and control attachment are three separate facts. */
+    @Test
+    void registrationAndBindingNeverReportControlAttachment() throws Exception {
+        final List<String> calls = new ArrayList<>();
+        final VerifiedMeshMirrorHookInstaller installer = new VerifiedMeshMirrorHookInstaller(
+            instrumentation(calls), getClass().getClassLoader(),
+            new RuntimeMeshMirrorAxisService(), new RuntimeMeshEditUiService(), profile(), calls::add
+        );
+
+        installer.install();
+        assertTrue(installer.isInstalled());
+        assertFalse(installer.targetTransformed());
+        assertFalse(installer.controlAttached());
+
+        installer.bind();
+        assertTrue(installer.isBound());
+        assertFalse(installer.controlAttached());
+
+        installer.close();
+    }
+
+    @Test
     void unboundWidgetCallbackPreservesNativeResultAndDoesNotAttach() {
         final Object original = new Object();
         assertSame(original, NativeMeshMirrorBridge.attachControl(original, new Object()));

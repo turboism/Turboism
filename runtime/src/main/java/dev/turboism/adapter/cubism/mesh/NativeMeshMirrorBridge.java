@@ -3,15 +3,49 @@ package dev.turboism.adapter.cubism.mesh;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 
 /** Fail-closed static entrypoint used only by the exact mesh-mirror transformer. */
 public final class NativeMeshMirrorBridge {
     private static final AtomicReference<Binding> INSTALLED = new AtomicReference<>();
     private static final AtomicReference<Object> CURRENT_PANEL = new AtomicReference<>();
     private static final AtomicReference<Object> CURRENT_CONTEXT = new AtomicReference<>();
+    /**
+     * The host builds the mirror widget exactly once, from a static initializer, well before
+     * the runtime can bind. One slot is therefore enough: it holds the references that single
+     * callback delivered so binding can attach without ever searching the host UI.
+     */
+    private static final AtomicReference<PendingAttach> PENDING = new AtomicReference<>();
+    private static final AtomicBoolean CONTROL_ATTACHED = new AtomicBoolean();
+    private static final Consumer<String> DEFAULT_DIAGNOSTIC = System.err::println;
+    private static final AtomicReference<Consumer<String>> DIAGNOSTIC =
+        new AtomicReference<>(DEFAULT_DIAGNOSTIC);
 
     private NativeMeshMirrorBridge() { }
+
+    /** Routes host-path markers into the installer log; resets to stderr on uninstall. */
+    public static void diagnostics(final Consumer<String> sink) {
+        DIAGNOSTIC.set(sink == null ? DEFAULT_DIAGNOSTIC : sink);
+    }
+
+    /** True once a control was actually inserted since installation, not merely registered. */
+    public static boolean controlAttached() {
+        return CONTROL_ATTACHED.get();
+    }
+
+    static void markControlAttached() {
+        CONTROL_ATTACHED.set(true);
+    }
+
+    static void diagnostic(final String stage) {
+        try {
+            DIAGNOSTIC.get().accept("MESH_MIRROR_DIAG stage=" + stage);
+        } catch (Throwable ignored) {
+            // Diagnostics must never reach the host call site.
+        }
+    }
 
     public static void install(
         final RuntimeMeshMirrorAxisService axis,
@@ -28,12 +62,35 @@ public final class NativeMeshMirrorBridge {
         if (!INSTALLED.compareAndSet(null, new Binding(axis, ui, enabled))) {
             throw new IllegalStateException("mesh mirror bridge is already installed");
         }
+        replayPendingAttach();
     }
 
     public static void uninstall() {
         INSTALLED.set(null);
         CURRENT_PANEL.set(null);
         CURRENT_CONTEXT.set(null);
+        PENDING.set(null);
+        CONTROL_ATTACHED.set(false);
+        DIAGNOSTIC.set(DEFAULT_DIAGNOSTIC);
+    }
+
+    /**
+     * Attaches a widget the host built before binding. Idempotent and safe to call again:
+     * the contribution may still be missing at bind time, in which case the recording is kept
+     * and the installer's contribution observer calls back here once it arrives.
+     */
+    public static void replayPendingAttach() {
+        final Binding binding = INSTALLED.get();
+        if (binding == null) return;
+        final PendingAttach pending = PENDING.get();
+        if (pending == null) return;
+        if (binding.ui.contribution() == null) {
+            diagnostic("DEFERRED_ATTACH_WAITING reason=NO_CONTRIBUTION");
+            return;
+        }
+        if (!PENDING.compareAndSet(pending, null)) return;
+        diagnostic("DEFERRED_ATTACH_REPLAY");
+        attachNow(binding, pending.widget(), pending.panel());
     }
 
     public static Object adjustPoint(
@@ -72,7 +129,20 @@ public final class NativeMeshMirrorBridge {
 
     public static Object attachControl(final Object widget, final Object panel) {
         final Binding binding = INSTALLED.get();
-        if (binding == null || widget == null || panel == null) return widget;
+        diagnostic("WIDGET_CALLBACK_ENTER bound=" + (binding != null));
+        if (widget == null || panel == null) {
+            diagnostic("ATTACH_SKIPPED reason=NULL_HOST_ARGUMENT");
+            return widget;
+        }
+        if (binding == null) {
+            PENDING.set(new PendingAttach(panel, widget));
+            diagnostic("DEFERRED_ATTACH_PENDING");
+            return widget;
+        }
+        return attachNow(binding, widget, panel);
+    }
+
+    private static Object attachNow(final Binding binding, final Object widget, final Object panel) {
         final Object previousPanel = CURRENT_PANEL.getAndSet(panel);
         if (previousPanel != null && previousPanel != panel) {
             binding.ui.resetSession();
@@ -81,8 +151,9 @@ public final class NativeMeshMirrorBridge {
         try {
             binding.ui.attachNative(panel, widget, binding.axis);
             observePanelPivot(binding, panel);
-        } catch (RuntimeException ignored) {
+        } catch (RuntimeException failure) {
             // Native UI remains unchanged.
+            diagnostic("ATTACH_FAILED reason=" + failure.getClass().getName());
         }
         return widget;
     }
@@ -422,4 +493,7 @@ public final class NativeMeshMirrorBridge {
         RuntimeMeshEditUiService ui,
         boolean enabled
     ) { }
+
+    /** Exact references delivered by the accepted public callback; never resolved by search. */
+    private record PendingAttach(Object panel, Object widget) { }
 }

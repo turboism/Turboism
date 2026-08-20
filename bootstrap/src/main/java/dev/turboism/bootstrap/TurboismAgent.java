@@ -735,6 +735,7 @@ public final class TurboismAgent {
             final VerifiedMeshMirrorHookInstaller installer = new VerifiedMeshMirrorHookInstaller(
                 instrumentation,
                 null,
+                artifact.orElseThrow().toAbsolutePath().normalize(),
                 profile
             );
             installer.install();
