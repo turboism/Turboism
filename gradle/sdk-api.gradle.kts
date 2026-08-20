@@ -23,7 +23,7 @@ val sdkV4DirectPreviewLedger = layout.projectDirectory.file("docs/sdk/baselines/
 // moves. Javadoc shifts LineNumberTable offsets, which changes JAR bytes without changing a
 // single API record. Adding SDK Javadoc therefore requires re-issuing this trio -- baseline,
 // tier policy, and the tier policy's own anchor in sdk_api_tiers_trust.py.
-val sdkV4ExactCommit = "dae700cf4adc5d9485a0b2a2f4e79f76758c7d25"
+val sdkV4ExactCommit = "bf7bf0d1f9d3eca8665d5a7533f621125043979f"
 val sdkJarArtifact = project(":sdk").tasks.named<Jar>("jar").flatMap { it.archiveFile }
 val sdkApiHelperFiles = fileTree("scripts/test") {
     include("sdk_api_baseline*.py")
