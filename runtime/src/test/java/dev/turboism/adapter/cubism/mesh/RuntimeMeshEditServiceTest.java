@@ -94,6 +94,45 @@ final class RuntimeMeshEditServiceTest {
     }
 
     @Test
+    void staleActionPackIsRefusedBeforeOpeningUndo() {
+        final Fixture fixture = new Fixture(new Mesh());
+        fixture.pack.reportedEditMode = new EditMode(new Mesh());
+
+        final MeshEditResult result = fixture.service().addPoints(List.of(new MeshPointPosition(1.0f, 2.0f)));
+
+        assertFalse(result.accepted());
+        assertEquals(0, fixture.pack.beginCalls);
+        assertEquals(0, fixture.pack.snapshotCalls);
+        assertTrue(fixture.mesh.points.isEmpty());
+    }
+
+    @Test
+    void directWritesAreRefusedWhileParticipationDispatchOwnsTheHostEdit() {
+        final Fixture fixture = new Fixture(new Mesh());
+        final MeshEditResult[] nested = new MeshEditResult[1];
+        NativeMeshMirrorBridge.participation().participate(deletion -> {
+            nested[0] = fixture.service().addPoints(List.of(new MeshPointPosition(1.0f, 2.0f)));
+            return dev.turboism.sdk.cubism.mesh.MeshEditContribution.none();
+        });
+        NativeMeshMirrorBridge.mirrorForTesting(new MeshMirrorLinkedDeletionTest.Mirror(true));
+        final MeshMirrorLinkedDeletionTest.Mesh sourceMesh = new MeshMirrorLinkedDeletionTest.Mesh(
+            new MeshMirrorLinkedDeletionTest.Point(
+                0, new MeshMirrorLinkedDeletionTest.Vector(-1.0f, 0.0f)
+            )
+        );
+        final MeshMirrorLinkedDeletionTest.Pack sourcePack =
+            new MeshMirrorLinkedDeletionTest.Pack(sourceMesh);
+
+        NativeMeshMirrorBridge.mirrorDeletePoints(
+            List.of(List.of(sourceMesh.point(0))), sourcePack.undo, sourcePack
+        );
+
+        assertFalse(nested[0].accepted());
+        assertEquals(0, fixture.pack.beginCalls);
+        assertTrue(fixture.mesh.points.isEmpty());
+    }
+
+    @Test
     void failureAfterFirstMutationRestoresMeshAndRemovesUndoEntry() {
         final Mesh mesh = new Mesh();
         mesh.failAddPointCall = 2;
@@ -204,6 +243,7 @@ final class RuntimeMeshEditServiceTest {
 
     public static final class ActionPack {
         private final EditMode editMode;
+        EditMode reportedEditMode;
         int beginCalls;
         int snapshotCalls;
         int commitCalls;
@@ -213,6 +253,7 @@ final class RuntimeMeshEditServiceTest {
 
         ActionPack(final EditMode editMode) {
             this.editMode = editMode;
+            this.reportedEditMode = editMode;
         }
 
         public Group a(final String label) {
@@ -220,6 +261,8 @@ final class RuntimeMeshEditServiceTest {
             current = new Group(label, editMode.meshes());
             return current;
         }
+
+        public EditMode aP() { return reportedEditMode; }
 
         public void d(final String label) {
             snapshotCalls++;

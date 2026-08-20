@@ -50,6 +50,9 @@ public final class RuntimeMeshEditService implements MeshEditService {
 
     @Override
     public MeshEditResult addPoints(final List<MeshPointPosition> points) {
+        if (NativeMeshMirrorBridge.participationDispatchActive()) {
+            return MeshEditResult.refused("direct mutation is unavailable during mesh edit participation");
+        }
         if (points == null || points.isEmpty()) return MeshEditResult.applied();
         return mutate("Add Points", "MESH_EDIT_ADD_POINTS_FAILED", mesh -> {
             final List<String> rejected = new ArrayList<>();
@@ -72,6 +75,9 @@ public final class RuntimeMeshEditService implements MeshEditService {
 
     @Override
     public MeshEditResult deletePoints(final List<MeshPointRef> points) {
+        if (NativeMeshMirrorBridge.participationDispatchActive()) {
+            return MeshEditResult.refused("direct mutation is unavailable during mesh edit participation");
+        }
         if (points == null || points.isEmpty()) return MeshEditResult.applied();
         return onEdt(() -> {
             Object editMode = null;
@@ -129,6 +135,9 @@ public final class RuntimeMeshEditService implements MeshEditService {
 
     @Override
     public MeshEditResult movePoints(final List<MeshPointRef> points) {
+        if (NativeMeshMirrorBridge.participationDispatchActive()) {
+            return MeshEditResult.refused("direct mutation is unavailable during mesh edit participation");
+        }
         if (points == null || points.isEmpty()) return MeshEditResult.applied();
         return mutate("Move Points", "MESH_EDIT_MOVE_POINTS_FAILED", mesh -> {
             final Map<Integer, Integer> counts = new HashMap<>();
@@ -165,6 +174,9 @@ public final class RuntimeMeshEditService implements MeshEditService {
 
     @Override
     public MeshEditResult addEdges(final List<MeshEdgeRef> edges) {
+        if (NativeMeshMirrorBridge.participationDispatchActive()) {
+            return MeshEditResult.refused("direct mutation is unavailable during mesh edit participation");
+        }
         if (edges == null || edges.isEmpty()) return MeshEditResult.applied();
         return mutate("Add Edges", "MESH_EDIT_ADD_EDGES_FAILED", mesh -> {
             final Map<EdgeKey, Integer> counts = new HashMap<>();
@@ -204,6 +216,9 @@ public final class RuntimeMeshEditService implements MeshEditService {
 
     @Override
     public MeshEditResult deleteEdges(final List<MeshEdgeRef> edges) {
+        if (NativeMeshMirrorBridge.participationDispatchActive()) {
+            return MeshEditResult.refused("direct mutation is unavailable during mesh edit participation");
+        }
         if (edges == null || edges.isEmpty()) return MeshEditResult.applied();
         return onEdt(() -> {
             Object editMode = null;
@@ -279,6 +294,9 @@ public final class RuntimeMeshEditService implements MeshEditService {
                 if (prepared.refusal != null) return MeshEditResult.refused(prepared.refusal);
                 actionPack = NativeMeshMirrorBridge.activeMeshActionPack();
                 if (actionPack == null) return MeshEditResult.refused("the host exposes no mesh action pack");
+                if (!NativeMeshMirrorBridge.actionPackOwnsEditMode(actionPack, editMode)) {
+                    return MeshEditResult.refused("the host mesh action pack is stale");
+                }
                 if (NativeMeshMirrorBridge.beginUndoGroup(actionPack, label) == null) {
                     return MeshEditResult.refused("the host refused an undo group");
                 }
