@@ -93,7 +93,7 @@ final class MeshMirrorLinkedDeletionTest {
     }
 
     @Test
-    void defaultAndCustomSameIdContributionsBothSurviveAggregation() {
+    void ambiguousCustomPointIdFailsClosedWithoutHidingTheDefaultCounterpart() {
         final List<String> diagnostics = install();
         final Mesh first = new Mesh(
             point(0, -1.0f, 0.0f), point(1, 1.0f, 0.0f)
@@ -110,8 +110,8 @@ final class MeshMirrorLinkedDeletionTest {
 
         NativeMeshMirrorBridge.mirrorDeletePoints(List.of(List.of(first.point(0))), pack.undo, pack);
 
-        assertEquals(List.of(first.point(1), second.point(1)), pack.editMode.deleted);
-        assertTrue(diagnostics.contains(stage("PARTICIPATION_APPLIED kind=POINTS count=2")));
+        assertEquals(List.of(first.point(1)), pack.editMode.deleted);
+        assertTrue(diagnostics.contains(stage("PARTICIPATION_APPLIED kind=POINTS count=1")));
     }
 
     @Test
@@ -280,7 +280,7 @@ final class MeshMirrorLinkedDeletionTest {
     }
 
     @Test
-    void defaultAndCustomSameEndpointContributionsBothSurviveAggregation() {
+    void ambiguousCustomEdgeEndpointsFailClosedWithoutHidingTheDefaultCounterpart() {
         final List<String> diagnostics = install();
         final Mesh first = new Mesh(
             point(0, -2.0f, 0.0f), point(1, -1.0f, 0.0f),
@@ -309,8 +309,8 @@ final class MeshMirrorLinkedDeletionTest {
         NativeMeshMirrorBridge.mirrorDeleteEdge(source, pack);
 
         assertEquals(List.of(counterpart), first.handler.removed);
-        assertEquals(List.of(custom), second.handler.removed);
-        assertTrue(diagnostics.contains(stage("PARTICIPATION_APPLIED kind=EDGES count=2")));
+        assertTrue(second.handler.removed.isEmpty());
+        assertTrue(diagnostics.contains(stage("PARTICIPATION_APPLIED kind=EDGES count=1")));
     }
 
     @Test

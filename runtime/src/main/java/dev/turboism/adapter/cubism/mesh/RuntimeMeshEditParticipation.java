@@ -44,10 +44,13 @@ public final class RuntimeMeshEditParticipation implements MeshEditParticipation
         final List<dev.turboism.sdk.cubism.mesh.MeshEdgeRef> edges = new ArrayList<>();
         for (MeshEditParticipant participant : participants) {
             final MeshEditContribution contribution;
+            final NativeMeshMirrorBridge.ProvenanceMark provenance =
+                NativeMeshMirrorBridge.markDefaultProvenance();
             final long startedAt = System.nanoTime();
             try {
                 contribution = participant.onDeleting(deletion);
             } catch (Throwable failure) {
+                NativeMeshMirrorBridge.restoreDefaultProvenance(provenance);
                 NativeMeshMirrorBridge.diagnostic(
                     "PARTICIPANT_FAILED reason=" + failure.getClass().getName()
                 );
@@ -61,6 +64,7 @@ public final class RuntimeMeshEditParticipation implements MeshEditParticipation
                 }
             }
             if (contribution == null || contribution.isEmpty()) continue;
+            NativeMeshMirrorBridge.rememberCollectedContribution(contribution);
             points.addAll(contribution.points());
             edges.addAll(contribution.edges());
         }

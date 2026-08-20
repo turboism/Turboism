@@ -11,10 +11,8 @@ import dev.turboism.sdk.cubism.mesh.MeshSnapshot;
 import dev.turboism.sdk.plugin.Registration;
 
 import java.util.ArrayList;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 
 /** Mirror counterpart resolution over the live host edit. */
 public final class RuntimeMeshMirrorCounterparts implements MeshMirrorCounterparts {
@@ -37,7 +35,7 @@ public final class RuntimeMeshMirrorCounterparts implements MeshMirrorCounterpar
         final NativeMeshMirrorBridge.LiveEdit live = NativeMeshMirrorBridge.liveEdit();
         if (live == null || !deletion.mirrorAxis().enabled()) return MeshEditContribution.none();
         try {
-            final MeshEditContribution contribution = resolver == null
+            final MeshEditContribution contribution = resolver == null || deletion.points().isEmpty()
                 ? resolveInProcess(deletion, live)
                 : resolveThrough(resolver, deletion, live);
             if (resolver == null && !contribution.isEmpty()) {
@@ -111,9 +109,6 @@ public final class RuntimeMeshMirrorCounterparts implements MeshMirrorCounterpar
         final NativeMeshMirrorBridge.LiveEdit live
     ) throws ReflectiveOperationException {
         final MeshSnapshot snapshot = deletion.mesh().points().isEmpty() ? snapshot(live) : deletion.mesh();
-        final Set<Integer> sourceIds = new LinkedHashSet<>();
-        for (MeshPointRef point : deletion.points()) sourceIds.add(point.id());
-
         final List<MeshPointRef> points = new ArrayList<>();
         for (MeshPointRef source : deletion.points()) {
             final Optional<MeshPointRef> counterpart;
@@ -127,7 +122,7 @@ public final class RuntimeMeshMirrorCounterparts implements MeshMirrorCounterpar
             }
             if (counterpart == null || counterpart.isEmpty()) continue;
             final MeshPointRef found = counterpart.orElseThrow();
-            if (sourceIds.contains(found.id()) || points.contains(found)) continue;
+            if (points.contains(found)) continue;
             points.add(found);
         }
         return points.isEmpty() ? MeshEditContribution.none() : MeshEditContribution.ofPoints(points);

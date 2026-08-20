@@ -34,7 +34,11 @@ public final class AuthorizedMeshEditParticipation implements MeshEditParticipat
             "cubism.mesh.edit.participate"
         );
         final Registration registration = delegate.participate(participant);
-        scope.register(registration);
-        return registration;
+        try {
+            return scope.register(registration);
+        } catch (RuntimeException | Error failure) {
+            registration.close();
+            throw failure;
+        }
     }
 }

@@ -14,6 +14,28 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 final class AuthorizedMeshMirrorCounterpartsTest {
 
     @Test
+    void closedScopeDoesNotRetainRejectedResolver() throws Exception {
+        final RuntimeMeshMirrorCounterparts delegate = new RuntimeMeshMirrorCounterparts();
+        final DisposableScope scope = new DisposableScope();
+        scope.close();
+        final AuthorizedMeshMirrorCounterparts service = new AuthorizedMeshMirrorCounterparts(
+            delegate, PermissionChecker.allowAll(), scope
+        );
+        final MeshMirrorCounterpartResolver resolver = (source, mesh, axis) -> Optional.empty();
+
+        final IllegalStateException first = assertThrows(
+            IllegalStateException.class, () -> service.overrideResolver(resolver)
+        );
+        final IllegalStateException second = assertThrows(
+            IllegalStateException.class, () -> service.overrideResolver(resolver)
+        );
+        org.junit.jupiter.api.Assertions.assertEquals(
+            "DisposableScope is already closed", first.getMessage()
+        );
+        org.junit.jupiter.api.Assertions.assertEquals(first.getMessage(), second.getMessage());
+    }
+
+    @Test
     void resolverOwnershipIsPerPluginFacade() throws Exception {
         final RuntimeMeshMirrorCounterparts delegate = new RuntimeMeshMirrorCounterparts();
         final DisposableScope firstScope = new DisposableScope();
