@@ -89,6 +89,13 @@ public final class NativeMeshMirrorBridge {
             return;
         }
         if (!PENDING.compareAndSet(pending, null)) return;
+        // The contribution observer calls this from the plugin thread, so cleanup can revoke the
+        // bridge while we hold a captured binding. Attaching then would put a control into the
+        // host UI after the hook was closed; re-check before touching anything native.
+        if (INSTALLED.get() != binding) {
+            diagnostic("DEFERRED_ATTACH_ABANDONED reason=BRIDGE_REVOKED");
+            return;
+        }
         diagnostic("DEFERRED_ATTACH_REPLAY");
         attachNow(binding, pending.widget(), pending.panel());
     }
