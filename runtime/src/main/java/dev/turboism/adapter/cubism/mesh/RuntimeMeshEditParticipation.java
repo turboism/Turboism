@@ -20,6 +20,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
  */
 public final class RuntimeMeshEditParticipation implements MeshEditParticipation {
 
+    private static final long CALLBACK_BUDGET_NANOS = 10_000_000L;
     private final List<MeshEditParticipant> participants = new CopyOnWriteArrayList<>();
 
     @Override
@@ -43,6 +44,7 @@ public final class RuntimeMeshEditParticipation implements MeshEditParticipation
         final List<dev.turboism.sdk.cubism.mesh.MeshEdgeRef> edges = new ArrayList<>();
         for (MeshEditParticipant participant : participants) {
             final MeshEditContribution contribution;
+            final long startedAt = System.nanoTime();
             try {
                 contribution = participant.onDeleting(deletion);
             } catch (Throwable failure) {
@@ -50,6 +52,13 @@ public final class RuntimeMeshEditParticipation implements MeshEditParticipation
                     "PARTICIPANT_FAILED reason=" + failure.getClass().getName()
                 );
                 continue;
+            } finally {
+                final long elapsed = System.nanoTime() - startedAt;
+                if (elapsed > CALLBACK_BUDGET_NANOS) {
+                    NativeMeshMirrorBridge.diagnostic(
+                        "PARTICIPANT_BUDGET_EXCEEDED elapsedNanos=" + elapsed
+                    );
+                }
             }
             if (contribution == null || contribution.isEmpty()) continue;
             points.addAll(contribution.points());
