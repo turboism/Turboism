@@ -5,6 +5,22 @@ import dev.turboism.sdk.PreviewApi;
 import java.util.Objects;
 import java.util.Optional;
 
+/**
+ * The appearance state currently in force, as observed from the host.
+ *
+ * <p>{@code revision} is the optimistic-concurrency token: pass the value seen here as
+ * {@link AppearanceRequest#expectedRevision()} so a request built against a stale view is rejected
+ * rather than silently overwriting another plugin's change. The compact constructor rejects
+ * {@code null} components, a negative revision, and blank (as opposed to absent) optional text.
+ *
+ * @param availability whether appearance control is usable at all on this host
+ * @param source whether the Editor's own appearance or a plugin overlay is in force
+ * @param appearanceId the overlay's identity, empty while {@code source} is {@code NATIVE}
+ * @param base the light/dark foundation currently in force
+ * @param revision monotonic change counter, {@code 0} when nothing has been applied
+ * @param diagnosticId host diagnostic reference explaining a non-available state, never blank when
+ *     present
+ */
 @PreviewApi
 public record AppearanceStatus(
     Availability availability,

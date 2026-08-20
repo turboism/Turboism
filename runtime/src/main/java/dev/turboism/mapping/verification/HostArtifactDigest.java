@@ -20,6 +20,16 @@ public record HostArtifactDigest(long size, String sha256) {
         sha256 = requireSha256(sha256);
     }
 
+    /**
+     * Measures a file on disk, streaming it so artifact size does not bound
+     * memory.
+     *
+     * @param artifact file to digest
+     * @return its byte length and lowercase hex SHA-256
+     * @throws IOException if the file cannot be read
+     * @throws IllegalStateException if SHA-256 is unavailable in this JVM
+     * @throws NullPointerException if {@code artifact} is {@code null}
+     */
     public static HostArtifactDigest from(final Path artifact) throws IOException {
         Objects.requireNonNull(artifact, "artifact");
         final MessageDigest digest = sha256Digest();

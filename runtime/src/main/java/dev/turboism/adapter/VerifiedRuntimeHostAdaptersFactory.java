@@ -83,6 +83,19 @@ public final class VerifiedRuntimeHostAdaptersFactory {
         this.locale = Objects.requireNonNull(locale, "locale");
     }
 
+    /**
+     * Builds the host adapter bundle from verification evidence, connecting only the slices that
+     * actually carry evidence and leaving every other adapter in safe mode. The project/workspace slice
+     * is always required; clip-mask, auto-backup, status-bar, and embedded-panel slices are optional and
+     * layered on when present. The recent-preview surface additionally requires the project and panel
+     * resolvers to satisfy the recent-preview verification manifest, and fails closed to the base bundle
+     * when they do not.
+     *
+     * @param evidence reviewed records, verified artifacts, and host class loaders per slice
+     * @return the composed adapter bundle
+     * @throws NullPointerException when {@code evidence} is null
+     * @throws IOException when a reviewed record or verified artifact cannot be read
+     */
     public RuntimeHostAdapters create(final HostVerificationEvidence evidence) throws IOException {
         Objects.requireNonNull(evidence, "evidence");
         final HostVerificationEvidence.Slice project = evidence.projectWorkspace();
@@ -151,6 +164,16 @@ public final class VerifiedRuntimeHostAdaptersFactory {
         return composed;
     }
 
+    /**
+     * Builds a bundle with only the project/workspace slice connected; every other adapter stays in
+     * safe mode until it receives its own evidence.
+     *
+     * @param reviewedRecord path to the reviewed member record for this slice
+     * @param hostArtifact path to the host artifact whose digest was verified
+     * @param hostClassLoader loader through which the verified host members are resolved
+     * @return a bundle with the verified project/workspace adapter installed
+     * @throws IOException when the reviewed record or host artifact cannot be read
+     */
     public RuntimeHostAdapters projectWorkspace(
         final Path reviewedRecord,
         final Path hostArtifact,

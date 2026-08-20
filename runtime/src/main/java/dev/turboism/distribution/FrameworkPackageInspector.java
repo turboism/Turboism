@@ -3,6 +3,13 @@ package dev.turboism.distribution;
 import java.nio.file.Path;
 import java.util.List;
 
+/**
+ * Inspects a framework distribution package and decides whether it may be installed.
+ *
+ * <p>Implementations are total: {@code inspect} never propagates an exception, reporting every
+ * failure as {@link Rejected} carrying {@link DistributionProblem}s instead. Inspection is
+ * read-only - it produces a plan, it never installs anything.
+ */
 public interface FrameworkPackageInspector {
     Result inspect(Path packagePath);
 
@@ -16,6 +23,7 @@ public interface FrameworkPackageInspector {
             this.plan = java.util.Objects.requireNonNull(plan, "plan");
         }
 
+        /** @return the validated install plan; never {@code null} */
         public FrameworkInstallPlan plan() { return plan; }
 
         @Override public boolean equals(Object other) {

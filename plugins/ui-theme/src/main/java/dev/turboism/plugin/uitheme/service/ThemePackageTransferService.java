@@ -24,6 +24,18 @@ public final class ThemePackageTransferService {
         this.files = Objects.requireNonNull(files, "files");
     }
 
+    /**
+     * Encodes the package and writes it atomically to a file the user picks.
+     *
+     * <p>Blocks on the file request and the write. The handle is granted for one operation only and is
+     * closed before returning, so no path or lasting file access is retained. The user cancelling is
+     * {@code CANCELED}, a host that refuses the request is {@code UNAVAILABLE}, and a failed write is
+     * {@code FAILED}; none of them throw.
+     *
+     * @param theme the package to write
+     * @return the outcome and, when the host supplied one, its error code as a diagnostic id
+     * @throws NullPointerException if {@code theme} is {@code null}
+     */
     public ExportResult exportPackage(final ThemePackageData theme) {
         Objects.requireNonNull(theme, "theme");
         final UserFileRequestResult requested = files.request(new UserFileRequest(
@@ -57,6 +69,16 @@ public final class ThemePackageTransferService {
         }
     }
 
+    /**
+     * Reads and decodes a theme archive from a file the user picks.
+     *
+     * <p>Bounded read: an archive over the maximum size is reported as {@code FAILED} with the
+     * {@code ARCHIVE_TOO_LARGE} diagnostic rather than partially decoded. A readable but malformed
+     * archive is {@code INVALID}. Nothing is stored — the decoded package is returned to the caller to
+     * persist. The one-operation handle is closed before returning.
+     *
+     * @return the outcome, the decoded package on {@code IMPORTED} only, and a diagnostic id on failure
+     */
     public ImportResult importPackage() {
         final UserFileRequestResult requested = files.request(new UserFileRequest(
             "ui-theme.package.import",
@@ -111,6 +133,13 @@ public final class ThemePackageTransferService {
         FAILED
     }
 
+    /**
+     * Outcome of an export attempt.
+     *
+     * @param outcome whether the archive was written, cancelled by the user, refused by the host, or
+     *     failed to write
+     * @param diagnosticId the host's error code when it supplied one, otherwise empty
+     */
     public record ExportResult(ExportOutcome outcome, Optional<String> diagnosticId) {
         public ExportResult {
             outcome = Objects.requireNonNull(outcome, "outcome");
@@ -118,6 +147,16 @@ public final class ThemePackageTransferService {
         }
     }
 
+    /**
+     * Outcome of an import attempt.
+     *
+     * <p>The compact constructor enforces that a package is present exactly when the outcome is
+     * {@code IMPORTED}; any other pairing throws {@link IllegalArgumentException}.
+     *
+     * @param outcome whether the archive was imported, cancelled, refused, malformed, or unreadable
+     * @param theme the decoded package, present only on {@code IMPORTED}
+     * @param diagnosticId the host error code or archive issue code on failure, otherwise empty
+     */
     public record ImportResult(
         ImportOutcome outcome,
         Optional<ThemePackageData> theme,

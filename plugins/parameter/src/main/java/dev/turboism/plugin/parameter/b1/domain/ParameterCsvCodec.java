@@ -9,6 +9,15 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
+/**
+ * Reads and writes the {@code id,value} parameter CSV exchange format.
+ *
+ * <p>Parsing fails closed on the first defect and reports it as a value rather than an exception,
+ * so a malformed file never reaches the Editor half-applied. Hard limits are enforced before any
+ * work: at most 1,000,000 input characters and 10,000 data records. Quoting follows RFC 4180 (a
+ * doubled {@code ""} is a literal quote); a lone {@code CR} not followed by {@code LF} is rejected
+ * as a forbidden control character. Stateless and safe to call from any thread.
+ */
 public final class ParameterCsvCodec {
     private static final int MAX_INPUT = 1_000_000;
     private static final int MAX_ROWS = 10_000;
@@ -17,6 +26,20 @@ public final class ParameterCsvCodec {
     private ParameterCsvCodec() {
     }
 
+    /**
+     * Parses the full document, validating the header, every field and every id.
+     *
+     * <p>Requires the exact header {@code id,value}. Each data record must have two fields; the id must
+     * be non-empty, at most 256 code points, free of control characters, and unique across the document
+     * (a repeat reports the record where the id was first seen). The value must match a plain decimal
+     * with no leading zeros or exponent, and {@code -0} is rejected explicitly so that negative zero
+     * cannot round-trip.
+     *
+     * @param input the whole CSV document; {@code null} is treated as an input-limit failure rather
+     *     than throwing
+     * @return the parsed rows in document order with no error, or an empty row list and the single
+     *     first error, located by 1-based record and column
+     */
     public static ParameterCsvParseResult parse(final String input) {
         if (input == null || input.length() > MAX_INPUT) return failure(ParameterCsvError.at(ParameterCsvErrorCode.INPUT_LIMIT, 1, 1));
         final ParseRecords parsed = records(input);
@@ -46,6 +69,20 @@ public final class ParameterCsvCodec {
         return new ParameterCsvParseResult(rows, Optional.empty());
     }
 
+    /**
+     * Renders rows as a CSV document, sorted by id so output is deterministic regardless of input
+     * order.
+     *
+     * <p>Always emits the {@code id,value} header and terminates every record with {@code LF}. Values
+     * are written in plain notation with trailing zeros stripped, and zero is normalised to {@code 0}.
+     * Ids are quoted only when they contain a comma, quote or line break. The caller's list is copied
+     * before sorting, so it is not reordered.
+     *
+     * @param input the rows to write; {@code null} produces a header-only document
+     * @return the CSV text, always ending in a newline
+     * @throws IllegalArgumentException if a row's id is empty, longer than 256 code points, or contains
+     *     a forbidden control character — a programming error, since {@link #parse} cannot produce one
+     */
     public static String serialize(final List<ParameterCsvRow> input) {
         final List<ParameterCsvRow> rows = new ArrayList<>(input == null ? List.of() : input);
         rows.sort(Comparator.comparing(ParameterCsvRow::id));

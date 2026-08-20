@@ -28,6 +28,15 @@ public final class MeshMirrorGeometry {
         return new Line(anchor, vertical ? new Point(-sin, cos) : new Point(cos, sin));
     }
 
+    /**
+     * Mirrors a point across the axis line.
+     *
+     * @param line the mirror axis; its direction is assumed to be a unit vector, as produced by
+     *             {@link #rotatedAxis}
+     * @param x    the point's x coordinate in the same space as the line
+     * @param y    the point's y coordinate in the same space as the line
+     * @return the reflected point; a point on the line is returned unchanged
+     */
     public static Point reflect(final Line line, final float x, final float y) {
         final float distance = signedDistance(line, x, y);
         final float normalX = -line.direction().y();
@@ -35,6 +44,14 @@ public final class MeshMirrorGeometry {
         return new Point(x - 2.0f * distance * normalX, y - 2.0f * distance * normalY);
     }
 
+    /**
+     * Drops a point onto the axis line along the line's normal.
+     *
+     * @param line the mirror axis; its direction is assumed to be a unit vector
+     * @param x    the point's x coordinate
+     * @param y    the point's y coordinate
+     * @return the closest point on the line, which lies on the line by construction
+     */
     public static Point project(final Line line, final float x, final float y) {
         final float distance = signedDistance(line, x, y);
         final float normalX = -line.direction().y();
@@ -42,10 +59,28 @@ public final class MeshMirrorGeometry {
         return new Point(x - distance * normalX, y - distance * normalY);
     }
 
+    /**
+     * Perpendicular distance from a point to the axis line.
+     *
+     * @param line the mirror axis; its direction is assumed to be a unit vector
+     * @param x    the point's x coordinate
+     * @param y    the point's y coordinate
+     * @return the unsigned distance; which side of the line the point lies on is not reported
+     */
     public static float distance(final Line line, final float x, final float y) {
         return Math.abs(signedDistance(line, x, y));
     }
 
+    /**
+     * Whether a point is close enough to the axis to count as grabbing it.
+     *
+     * @param line      the mirror axis; its direction is assumed to be a unit vector
+     * @param x         the point's x coordinate
+     * @param y         the point's y coordinate
+     * @param threshold the pick radius, in the same units as the coordinates
+     * @return {@code true} when the perpendicular distance is strictly less than {@code threshold};
+     *         a zero or negative threshold therefore never hits
+     */
     public static boolean hit(
         final Line line,
         final float x,
@@ -61,7 +96,22 @@ public final class MeshMirrorGeometry {
         return deltaX * -line.direction().y() + deltaY * line.direction().x();
     }
 
+    /**
+     * A 2D coordinate pair, also used to carry a direction vector.
+     *
+     * @param x the horizontal component
+     * @param y the vertical component
+     */
     public record Point(float x, float y) { }
 
+    /**
+     * An infinite line given by a point on it and a direction.
+     *
+     * <p>The geometry helpers assume {@code direction} has unit length; lines built by
+     * {@link MeshMirrorGeometry#rotatedAxis} satisfy this. Neither component is validated.
+     *
+     * @param anchor    a point lying on the line
+     * @param direction the line's direction, expected to be normalised
+     */
     public record Line(Point anchor, Point direction) { }
 }

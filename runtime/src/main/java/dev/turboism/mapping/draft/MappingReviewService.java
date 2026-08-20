@@ -102,6 +102,22 @@ public final class MappingReviewService {
         this.clock = Objects.requireNonNull(clock, "clock");
     }
 
+    /**
+     * Produces the reviewable bundle for one class-runtime update: a candidate, a pending review, a
+     * presentation-only diff, and a diagnostic record.
+     *
+     * <p>Nothing in the mapping pack is modified. The target pack must be a git-tracked draft pack
+     * inside the worktree; the artifact is scanned under {@link JarScanPolicy} limits and the
+     * recipe must select exactly one runtime target. Every produced document is validated against
+     * its schema before being written, and the four files are published together under a
+     * worktree-scoped output directory.
+     *
+     * @param request the update recipe, target pack, artifact, and output location
+     * @return the four generated paths together with their exact bytes
+     * @throws DraftMappingException for any rejection, carrying a code such as
+     *     {@code PACK_NOT_TRACKED}, {@code PACK_TARGET_NOT_CLASS}, {@code PACK_BEFORE_MISMATCH},
+     *     {@code SCAN_EDGE_NOT_UNIQUE}, or a validation failure code
+     */
     public GeneratedBundle generate(final GenerateRequest request) {
         ForbiddenSelectorTerms.requireAllowed(
             request.semanticName(), request.expectedOldRuntime(), request.callerOwner(), request.callerName(),
@@ -191,6 +207,24 @@ public final class MappingReviewService {
             diagnosticPath, diagnosticBytes);
     }
 
+    /**
+     * Re-verifies an approved candidate and, only when explicitly asked to write, replaces the
+     * mapping pack atomically under a lock.
+     *
+     * <p>Every check is repeated at apply time rather than trusted from generation: the review must
+     * carry decision {@code APPROVED}, its recorded hash must match these exact candidate bytes,
+     * and the artifact's file name must match the one the candidate was generated against. The
+     * generated {@code diff.json} is never consulted — it is presentation only.
+     *
+     * <p>When {@code request.write()} is {@code false} the pack is left untouched and the result
+     * reports the hash the write would have produced, so a dry run is a genuine no-op.
+     *
+     * @param request the candidate, review, artifact, and whether to actually write
+     * @return whether the pack was written, plus the resulting pack digest
+     * @throws DraftMappingException for any rejection, carrying a code such as
+     *     {@code REVIEW_NOT_APPROVED}, {@code REVIEW_CANDIDATE_HASH_MISMATCH}, or
+     *     {@code ARTIFACT_MISMATCH}
+     */
     public ApplyResult apply(final ApplyRequest request) {
         final byte[] candidateBytes = readBytes(request.candidate(), "CANDIDATE_READ_FAILED");
         final JsonNode candidate = parse(candidateBytes, "CANDIDATE_JSON_INVALID");

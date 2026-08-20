@@ -15,6 +15,18 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletionStage;
 
+/**
+ * Binds the project panel's state model to plugin configuration storage.
+ *
+ * <p>Holds the last confirmed state together with the revision it was read or written at, and
+ * uses that revision for optimistic concurrency on every write. Because the five keys are
+ * written one at a time, a mid-sequence failure can leave storage partially updated; the
+ * binding then re-reads without adopting the result and reports
+ * {@code PARTIAL_PERSISTENCE} rather than claiming success. An epoch counter, bumped on each
+ * enable and disable, causes any operation still in flight across a lifecycle change to
+ * resolve to {@code DISABLED} instead of overwriting newer state. Nothing here throws for
+ * storage problems - every failure becomes a {@link ConfigBindingResult}.
+ */
 public final class ProjectPanelStateBinding {
 
     public static final String CONFIG_ID = "project-panel.state";
@@ -38,6 +50,19 @@ public final class ProjectPanelStateBinding {
     private boolean initialized;
     private boolean enabled;
 
+    /**
+     * Registers the panel's configuration schema, the prerequisite for every other operation.
+     *
+     * <p>Does not enable the binding or read anything; {@link #enable()} does that. A failure
+     * leaves the binding uninitialized, so a later {@code enable()} reports
+     * {@code RUNTIME_UNAVAILABLE}. Both synchronous and asynchronous registration failures are
+     * mapped to a result rather than propagated.
+     *
+     * @param value the plugin's configuration registry; must not be null
+     * @return {@code APPLIED} on successful registration, {@code PERMISSION_DENIED} when the
+     *         plugin may not register this schema, otherwise {@code RUNTIME_UNAVAILABLE}
+     * @throws NullPointerException if {@code value} is null
+     */
     public CompletionStage<ConfigBindingResult> init(final PluginConfigRegistry value) {
         registry = Objects.requireNonNull(value, "value");
         try {
@@ -53,6 +78,19 @@ public final class ProjectPanelStateBinding {
         }
     }
 
+    /**
+     * Enables the binding and hydrates the confirmed state from storage.
+     *
+     * <p>Reads all five keys and requires them to share one revision; if they do not, the read is
+     * retried once before reporting a conflict, since a concurrent write can be observed
+     * mid-flight. Confirmed state and revision are adopted only on a clean, consistent read.
+     *
+     * @return {@code APPLIED} when the state was hydrated, {@code RUNTIME_UNAVAILABLE} when the
+     *         schema was never registered, {@code DISABLED} if the binding was disabled or
+     *         re-enabled while reading, {@code REVISION_CONFLICT} if the keys still disagreed
+     *         after the retry, {@code INVALID_VALUE} if the stored values do not form a valid
+     *         state model, or the mapped read error
+     */
     public CompletionStage<ConfigBindingResult> enable() {
         if (!initialized || registry == null) {
             return completed(ConfigBindingResult.RUNTIME_UNAVAILABLE);
@@ -62,21 +100,50 @@ public final class ProjectPanelStateBinding {
         return readAll(activeEpoch, false);
     }
 
+    /**
+     * Disables the binding and bumps the epoch, so any read or write already in flight resolves
+     * to {@code DISABLED} rather than mutating confirmed state. The last confirmed state is
+     * retained and the schema stays registered, so {@link #enable()} can resume.
+     */
     public void disable() {
         enabled = false;
         epoch++;
     }
 
+    /**
+     * Disables the binding and drops the registry reference, returning to the uninitialized
+     * state. {@link #init} must be called again before the binding can be enabled; the last
+     * confirmed state is left in place.
+     */
     public void shutdown() {
         disable();
         initialized = false;
         registry = null;
     }
 
+    /**
+     * @return the state model last known to match storage - the defaults until a successful
+     *         hydrate or write, and unchanged by any operation that did not report
+     *         {@code APPLIED}
+     */
     public ProjectPanelStateModel confirmed() {
         return confirmed;
     }
 
+    /**
+     * Persists a new state model, writing each key against the tracked revision.
+     *
+     * <p>Short-circuits to {@code UNCHANGED} when the persisted fields already match, so
+     * non-persisted differences never cause a write. Writes stop at the first failing key.
+     * Confirmed state and revision are adopted only when every key was written.
+     *
+     * @param value the state to persist; must not be null
+     * @return {@code APPLIED} when all keys were written, {@code UNCHANGED} when nothing needed
+     *         writing, {@code DISABLED} when the binding is not enabled or its lifecycle changed
+     *         mid-write, {@code PARTIAL_PERSISTENCE} when some keys were written before a later
+     *         one failed, or the mapped write error when the first key itself failed
+     * @throws NullPointerException if {@code value} is null
+     */
     public CompletionStage<ConfigBindingResult> update(final ProjectPanelStateModel value) {
         Objects.requireNonNull(value, "value");
         if (!enabled || registry == null) {

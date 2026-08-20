@@ -23,6 +23,16 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
+/**
+ * Runs one plugin's off-thread work under a per-plugin budget: a bounded thread-pool bulkhead, a
+ * time limiter, and a circuit breaker.
+ *
+ * <p>Misbehaving plugin work is contained rather than propagated. Nothing thrown by the submitted
+ * {@link Runnable} escapes to the caller: overruns, admission refusals and failures are converted
+ * into a {@link PluginWorkResult} and reported to the diagnostic sink as a
+ * {@link dev.turboism.core.diagnostics.PluginWorkBudgetEvent}. One instance serves one plugin id
+ * and is safe for concurrent submission.
+ */
 public final class PluginWorkExecutor {
 
     private static final long SHUTDOWN_TIMEOUT_SECONDS = 5L;
@@ -90,14 +100,49 @@ public final class PluginWorkExecutor {
         );
     }
 
+    /**
+     * Submits work through the full budget and discards the submission handle.
+     *
+     * <p>Fire-and-forget: a rejection is still recorded as a diagnostic event but is invisible here.
+     * Use {@link #submit} when the caller needs to observe admission or completion.
+     *
+     * @param task the task being run, used to attribute diagnostics
+     * @param work the body to run on a bulkhead thread
+     * @throws NullPointerException if either argument is {@code null}
+     */
     public void execute(PluginTask task, Runnable work) {
         submit(task, work);
     }
 
+    /**
+     * Submits work under the full budget, including the circuit breaker.
+     *
+     * <p>Never throws for a budget outcome: a full queue, an open circuit, or a shut-down executor come
+     * back as a non-accepted {@link PluginWorkSubmission} whose completion is already finished with the
+     * matching {@link PluginWorkStatus}. A timeout interrupts the running thread and completes the
+     * submission with {@link PluginWorkStatus#TIMED_OUT}.
+     *
+     * @param task the task being run, used to attribute diagnostics
+     * @param work the body to run on a bulkhead thread
+     * @return the admission decision plus a stage completing with the work's terminal result
+     * @throws NullPointerException if either argument is {@code null}
+     */
     public PluginWorkSubmission submit(PluginTask task, Runnable work) {
         return submitDecorated(task, work, true);
     }
 
+    /**
+     * Submits work under the bulkhead and time limiter but outside the circuit breaker, so repeated
+     * failures of this work neither trip the breaker nor are refused by it.
+     *
+     * <p>Intended for work that must still be attempted while the plugin's breaker is open, such as
+     * completion and teardown paths. Bulkhead and timeout containment still apply.
+     *
+     * @param task the task being run, used to attribute diagnostics
+     * @param work the body to run on a bulkhead thread
+     * @return the admission decision plus a stage completing with the work's terminal result
+     * @throws NullPointerException if either argument is {@code null}
+     */
     public PluginWorkSubmission submitCompletion(PluginTask task, Runnable work) {
         return submitDecorated(task, work, false);
     }
@@ -152,6 +197,16 @@ public final class PluginWorkExecutor {
         }
     }
 
+    /**
+     * Closes the bulkhead and drains the timeout scheduler, waiting up to five seconds, then a further
+     * five after a forced shutdown.
+     *
+     * <p>Idempotent: only the first call does work. After it, every submission is refused with
+     * {@link PluginWorkStatus#RUNTIME_UNAVAILABLE}. An interrupt during the wait forces shutdown and
+     * restores the thread's interrupt flag rather than throwing.
+     *
+     * @throws IllegalStateException if the bulkhead itself fails to close
+     */
     public void shutdown() {
         if (!closed.compareAndSet(false, true)) {
             return;

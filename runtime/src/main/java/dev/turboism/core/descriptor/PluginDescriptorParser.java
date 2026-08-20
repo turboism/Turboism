@@ -17,6 +17,14 @@ public final class PluginDescriptorParser {
 
     private final ObjectMapper mapper = new ObjectMapper();
 
+    /**
+     * Parses and validates a manifest read from a stream. The stream is consumed but not closed.
+     *
+     * @param source stream containing the {@code plugin.json} bytes
+     * @return the validated descriptor
+     * @throws DescriptorParseException with code {@code PLUGIN_META_INVALID_JSON} if the bytes are
+     *     not well-formed JSON, or with the first schema error's code if validation fails
+     */
     public PluginDescriptor parse(final InputStream source) throws DescriptorParseException {
         try {
             return parseNode(mapper.readTree(source), "<input stream>");
@@ -29,6 +37,14 @@ public final class PluginDescriptorParser {
         }
     }
 
+    /**
+     * Parses and validates a manifest held as a string.
+     *
+     * @param json the {@code plugin.json} document text
+     * @return the validated descriptor
+     * @throws DescriptorParseException with code {@code PLUGIN_META_INVALID_JSON} if the text is
+     *     not well-formed JSON, or with the first schema error's code if validation fails
+     */
     public PluginDescriptor parse(final String json) throws DescriptorParseException {
         try {
             return parseNode(mapper.readTree(json), "<input string>");
@@ -41,6 +57,19 @@ public final class PluginDescriptorParser {
         }
     }
 
+    /**
+     * Validates an already-parsed manifest tree.
+     *
+     * <p>The schema is chosen from the document itself: {@code schemaVersion} 3 selects the v3
+     * validator and enables the {@code category} and {@code tags} fields; anything else, including
+     * an absent field, is treated as version 2, for which those two components are empty.</p>
+     *
+     * @param root the manifest as a JSON tree
+     * @param source label used in validation error paths, for diagnostics only
+     * @return the validated descriptor
+     * @throws DescriptorParseException carrying the code, message and path of the first schema
+     *     violation found
+     */
     public PluginDescriptor parse(final JsonNode root, final String source)
         throws DescriptorParseException {
         return parseNode(root, source);

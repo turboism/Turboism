@@ -21,8 +21,20 @@ public final class FrameworkInstallPlan {
         this.requirement = Objects.requireNonNull(requirement, "requirement");
     }
 
+    /** @return identity of the inspected framework package, including its raw archive digest and size */
     public PackageIdentity packageIdentity() { return packageIdentity; }
+
+    /**
+     * @return the files the package would install, in inspection order; never empty and
+     *         unmodifiable (copied at construction, so the plan cannot be mutated afterwards)
+     */
     public List<PlannedFile> files() { return files; }
+
+    /**
+     * @return the obligation an installer must honour before acting on this plan; always
+     *         {@link Requirement#PREFLIGHT_REVALIDATION_REQUIRED}, meaning the bytes recorded here
+     *         are an observation and must be re-hashed at install time
+     */
     public Requirement requirement() { return requirement; }
 
     @Override public boolean equals(Object other) {

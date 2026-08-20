@@ -180,18 +180,38 @@ public final class CubismReadCapabilityServiceImpl implements CubismReadCapabili
         return m12Source.themeStatus();
     }
 
+    /**
+     * @return an immutable snapshot of the safe-mode diagnostics recorded while the theme-status
+     *     adapter was unavailable and reads fell back to the minimum snapshot source; capped at 64
+     *     entries and empty when the adapter has always answered
+     */
     public List<SafeModeDiagnostic> themeStatusDiagnostics() {
         return themeStatusDiagnostics.snapshot();
     }
 
+    /**
+     * @return an immutable snapshot of the safe-mode diagnostics recorded while the render-status
+     *     adapter was unavailable and reads fell back to the minimum snapshot source; capped at 64
+     *     entries
+     */
     public List<SafeModeDiagnostic> renderStatusDiagnostics() {
         return renderStatusDiagnostics.snapshot();
     }
 
+    /**
+     * @return an immutable snapshot of the safe-mode diagnostics recorded while the project-workspace
+     *     adapter was unavailable and reads fell back to the minimum snapshot source; capped at 64
+     *     entries
+     */
     public List<SafeModeDiagnostic> projectWorkspaceDiagnostics() {
         return projectWorkspaceDiagnostics.snapshot();
     }
 
+    /**
+     * @return an immutable snapshot of the safe-mode diagnostics recorded while the clip-mask read
+     *     adapter was unavailable and reads fell back to the minimum snapshot source; capped at 64
+     *     entries
+     */
     public List<SafeModeDiagnostic> clipMaskDiagnostics() {
         return clipMaskDiagnostics.snapshot();
     }

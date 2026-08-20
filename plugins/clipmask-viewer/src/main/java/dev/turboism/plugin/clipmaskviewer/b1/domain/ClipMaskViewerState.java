@@ -22,18 +22,34 @@ public final class ClipMaskViewerState {
     private Map<String, List<ClipMaskRecord>> maskUsers = Collections.emptyMap();
     private Map<String, List<ClipMaskRecord>> dupeBuckets = Collections.emptyMap();
 
+    /**
+     * @return 上一次 {@link #refreshData} 收集到的全部 clip-mask 记录，按服务返回的顺序；
+     *     未刷新或已 {@link #clear} 时为空列表，绝不为 {@code null}
+     */
     public List<ClipMaskRecord> records() {
         return records;
     }
 
+    /**
+     * @return 以 GUID 为键的记录索引，用于把蒙版引用解析回它所指向的 ArtMesh；
+     *     未刷新或已 {@link #clear} 时为空映射，绝不为 {@code null}
+     */
     public Map<String, ClipMaskRecord> byGuid() {
         return byGuid;
     }
 
+    /**
+     * @return 反向索引：蒙版 ArtMesh 的 GUID 映射到所有把它当作蒙版使用的记录；
+     *     键集合即“被用作蒙版”的节点集合。未刷新或已 {@link #clear} 时为空映射，绝不为 {@code null}
+     */
     public Map<String, List<ClipMaskRecord>> maskUsers() {
         return maskUsers;
     }
 
+    /**
+     * @return 按“无序蒙版集合”分组的桶，用于发现蒙版集合相同（可能仅顺序不同）的疑似重复节点；
+     *     未刷新或已 {@link #clear} 时为空映射，绝不为 {@code null}
+     */
     public Map<String, List<ClipMaskRecord>> dupeBuckets() {
         return dupeBuckets;
     }

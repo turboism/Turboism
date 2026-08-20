@@ -1,5 +1,17 @@
 package dev.turboism.sdk.ui;
 
+/**
+ * Declares a runtime-rendered panel to embed in the host UI.
+ *
+ * @param id                 contribution identity used to activate the panel later, non-blank
+ * @param title              panel tab or window title, non-blank
+ * @param placement          host-surface placement hint, non-blank
+ * @param priority           ordering weight among panels competing for the same placement
+ * @param content            toolkit-neutral view tree the runtime renders
+ * @param floatingByDefault  {@code true} to open the panel as a floating window rather than docked
+ * @throws IllegalArgumentException when {@code id}, {@code title}, or
+ *     {@code placement} is null or blank, or {@code content} is {@code null}
+ */
 public record EmbeddedPanelContribution(
     String id,
     String title,

@@ -16,6 +16,17 @@ public final class RuntimeEditorUiActionRouter implements EditorUiActionRouter, 
         new ConcurrentHashMap<>();
     private volatile boolean closed;
 
+    /**
+     * Adds an action registry under the contributing plugin's ID. Several registries may be held
+     * for one plugin; they are kept in registration order and all are consulted on invoke.
+     *
+     * @param pluginId owner of the contribution; must not be blank
+     * @param registry registry to consult for this owner's actions
+     * @return a registration that removes exactly this registry, dropping the owner's entry once
+     *     its last registry is gone; safe to call after the router is closed
+     * @throws IllegalStateException if the router is already closed
+     * @throws NullPointerException if {@code registry} is null
+     */
     public Registration register(final String pluginId, final ActionRegistry registry) {
         final String owner = requireText(pluginId, "pluginId");
         final ActionRegistry requested = Objects.requireNonNull(registry, "registry");

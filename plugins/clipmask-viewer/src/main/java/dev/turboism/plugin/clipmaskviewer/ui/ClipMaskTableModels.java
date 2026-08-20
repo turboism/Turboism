@@ -35,6 +35,10 @@ public final class ClipMaskTableModels {
             fireRefresh();
         }
 
+        /**
+         * 从 state 重新读取蒙版行集合并通知表刷新。行顺序即 {@code maskUsers()} 的键序；
+         * state 尚未加载时清空为零行。必须在 EDT 上调用。
+         */
         public void fireRefresh() {
             maskGuids.clear();
             if (state.maskUsers() != null) {
@@ -43,6 +47,11 @@ public final class ClipMaskTableModels {
             fireTableDataChanged();
         }
 
+        /**
+         * @param row 视图行号
+         * @return 该行蒙版自身的 clip-mask 记录；行号越界，或该蒙版本身不持有蒙版（无记录）时为
+         *     {@code null}——此时仍可用 {@link #getMaskGuidAt(int)} 取到 GUID
+         */
         public ClipMaskRecord getMaskAt(final int row) {
             if (row < 0 || row >= maskGuids.size()) {
                 return null;
@@ -58,11 +67,21 @@ public final class ClipMaskTableModels {
             return maskGuids.get(row);
         }
 
+        /**
+         * 替换整个高亮 GUID 集合并刷新表。传入集合会被防御性拷贝，调用方之后修改它不影响本模型；
+         * {@code null} 等同于清空高亮。必须在 EDT 上调用。
+         *
+         * @param guids 需要高亮的 GUID 集合，可为 {@code null}
+         */
         public void setHighlightedGuids(final Set<String> guids) {
             this.highlightedGuids = guids == null ? Set.of() : Set.copyOf(guids);
             fireTableDataChanged();
         }
 
+        /**
+         * @param row 视图行号
+         * @return 该行的蒙版 GUID 是否在当前高亮集合中；行号越界时为 {@code false}
+         */
         public boolean isRowHighlighted(final int row) {
             final String guid = getMaskGuidAt(row);
             return guid != null && highlightedGuids.contains(guid);
@@ -131,6 +150,10 @@ public final class ClipMaskTableModels {
             fireRefresh();
         }
 
+        /**
+         * 从 state 重新读取使用者行集合并通知表刷新：仅保留持有蒙版的记录，疑似重复桶内的记录
+         * 排在前面，其余按显示名字典序。必须在 EDT 上调用。
+         */
         public void fireRefresh() {
             users.clear();
             if (state.records() != null) {
@@ -157,6 +180,10 @@ public final class ClipMaskTableModels {
             fireTableDataChanged();
         }
 
+        /**
+         * @param row 视图行号
+         * @return 该行的使用者记录，行号越界时为 {@code null}
+         */
         public ClipMaskRecord getUserAt(final int row) {
             if (row < 0 || row >= users.size()) {
                 return null;
@@ -164,11 +191,21 @@ public final class ClipMaskTableModels {
             return users.get(row);
         }
 
+        /**
+         * 替换整个高亮 GUID 集合并刷新表。传入集合会被防御性拷贝，调用方之后修改它不影响本模型；
+         * {@code null} 等同于清空高亮。必须在 EDT 上调用。
+         *
+         * @param guids 需要高亮的 GUID 集合，可为 {@code null}
+         */
         public void setHighlightedGuids(final Set<String> guids) {
             this.highlightedGuids = guids == null ? Set.of() : Set.copyOf(guids);
             fireTableDataChanged();
         }
 
+        /**
+         * @param row 视图行号
+         * @return 该行使用者的 GUID 是否在当前高亮集合中；行号越界时为 {@code false}
+         */
         public boolean isRowHighlighted(final int row) {
             final ClipMaskRecord record = getUserAt(row);
             return record != null && highlightedGuids.contains(record.guid());

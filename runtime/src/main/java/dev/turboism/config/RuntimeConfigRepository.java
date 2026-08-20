@@ -39,6 +39,19 @@ public final class RuntimeConfigRepository {
         this.diagnostic = Objects.requireNonNull(diagnostic, "diagnostic");
     }
 
+    /**
+     * Reads the canonical config document, materializing the defaults on first use.
+     *
+     * <p>When {@code config.json} does not exist it is created from {@link #defaults()} through the
+     * same bounded, symlink-rejecting atomic write path as {@link #update}; there is deliberately
+     * no in-memory fallback, so a creation failure surfaces rather than being papered over. A
+     * persisted locale the validator does not allow is dropped from the returned document and
+     * reported as {@code RUNTIME_CONFIG_BAD_LOCALE}, leaving the file on disk untouched.</p>
+     *
+     * @return a detached document; mutating it does not affect the file or other readers
+     * @throws IllegalStateException if the file is a symlink, not a regular file, larger than 64
+     *     KiB, unparseable, schema-invalid, or could not be created
+     */
     public ObjectNode read() {
         synchronized (lock) {
             if (!Files.exists(configPath, LinkOption.NOFOLLOW_LINKS)) {
@@ -54,6 +67,11 @@ public final class RuntimeConfigRepository {
         }
     }
 
+    /**
+     * @return an immutable set of the plugin IDs the operator has switched off; empty when none
+     *     are disabled. Reflects the file as of this call — it is not a live view.
+     * @throws IllegalStateException under the same conditions as {@link #read()}
+     */
     public Set<String> disabledPlugins() {
         final JsonNode values = read().path("disabledPlugins");
         final Set<String> result = new HashSet<>();
@@ -61,6 +79,16 @@ public final class RuntimeConfigRepository {
         return Set.copyOf(result);
     }
 
+    /**
+     * Adds or removes a plugin ID from the persisted disable list, rewriting the list in sorted
+     * order so the file stays stable across edits. Enabling a plugin that was never disabled and
+     * disabling one already disabled are both no-op writes rather than errors.
+     *
+     * @param pluginId dotted lowercase plugin ID, validated before anything is written
+     * @param enabled true to remove the ID from the disable list, false to add it
+     * @throws IllegalArgumentException if {@code pluginId} is null or not a well-formed plugin ID
+     * @throws IllegalStateException if the resulting document fails validation or cannot be written
+     */
     public void setPluginEnabled(final String pluginId, final boolean enabled) {
         update(root -> {
             final Set<String> ids = new HashSet<>();
@@ -73,6 +101,21 @@ public final class RuntimeConfigRepository {
         });
     }
 
+    /**
+     * Applies a change to the config document under the per-path lock, so concurrent updaters in
+     * this JVM serialize rather than clobber one another.
+     *
+     * <p>The operator is handed a deep copy of the current document and may mutate it freely. The
+     * result is validated in strict write mode before any bytes are written, and the write itself
+     * is a temp-file-plus-atomic-move, so the file is never left partially written. Writes are
+     * strict where {@link #read()} is tolerant: an unsupported locale fails here.</p>
+     *
+     * @param change transformation of the current document; must not return null
+     * @return a detached copy of the document as persisted
+     * @throws NullPointerException if {@code change} returns null
+     * @throws IllegalStateException if the updated document is schema-invalid
+     *     ({@code RUNTIME_CONFIG_WRITE_INVALID}), exceeds 64 KiB, or cannot be written
+     */
     public ObjectNode update(final UnaryOperator<ObjectNode> change) {
         synchronized (lock) {
             final ObjectNode updated = Objects.requireNonNull(change.apply(readLocked().deepCopy()), "updated");
@@ -180,6 +223,13 @@ public final class RuntimeConfigRepository {
         }
     }
 
+    /**
+     * Builds the factory-default config document: schema version 1, a single {@code plugins}
+     * directory, nothing disabled, {@code INFO} logging, safe mode off, and empty hook lists.
+     *
+     * @return a fresh mutable document each call; callers may modify it without affecting defaults
+     *     handed to anyone else
+     */
     public static ObjectNode defaults() {
         final ObjectNode root = JSON.createObjectNode();
         root.put("format", "turboism.runtime.config");

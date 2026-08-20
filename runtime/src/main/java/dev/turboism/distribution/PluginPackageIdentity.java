@@ -20,10 +20,23 @@ public final class PluginPackageIdentity {
         this.rawArchiveSize = rawArchiveSize;
     }
 
+    /**
+     * @return the package hash the archive's own manifest declares, 64 lowercase hex characters.
+     *         This is the package's claim about itself and is deliberately kept distinct from
+     *         {@link #rawArchiveSha256()}, which is what the inspector actually read.
+     */
     public String packageHash() { return packageHash; }
+
+    /** @return the package identifier declared in the manifest, cross-checked against the plugin descriptor id */
     public String packageId() { return packageId; }
+
+    /** @return the version declared in the manifest, cross-checked against the plugin descriptor version */
     public String version() { return version; }
+
+    /** @return SHA-256 of the raw archive bytes as observed by the inspector, 64 lowercase hex characters */
     public String rawArchiveSha256() { return rawArchiveSha256; }
+
+    /** @return byte length of the raw archive as observed by the inspector; never negative */
     public long rawArchiveSize() { return rawArchiveSize; }
 
     private static String hash(String value, String name) {

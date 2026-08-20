@@ -65,6 +65,16 @@ public final class WebDavSettingsBinding {
     private boolean enabled;
     private volatile WebDavConfig confirmed;
 
+    /**
+     * Binds this plugin to the runtime config registry and registers the WebDAV settings schema. The
+     * binding only becomes readable once registration succeeds; a registration failure is mapped to a
+     * binding result rather than propagated, so a runtime without config support leaves the plugin
+     * inert instead of failing to load. Reads stay disabled until {@link #enable()} is called.
+     *
+     * @param value the runtime-supplied config registry
+     * @return the registration outcome — {@code APPLIED} on success, otherwise the mapped failure
+     * @throws NullPointerException when {@code value} is null
+     */
     public CompletionStage<ConfigBindingResult> init(final PluginConfigRegistry value) {
         registry = Objects.requireNonNull(value, "value");
         try {
@@ -211,14 +221,21 @@ public final class WebDavSettingsBinding {
         }
     }
 
+    /** Permits configuration reads. Until this is called {@code read()} fails closed with no config. */
     public void enable() {
         enabled = true;
     }
 
+    /** Suspends configuration reads without discarding the registry binding; re-enabling resumes it. */
     public void disable() {
         enabled = false;
     }
 
+    /**
+     * Releases the registry reference and returns the binding to its uninitialised, disabled state.
+     * A later {@code init} is required before configuration can be read again. The last confirmed
+     * configuration is deliberately retained.
+     */
     public void shutdown() {
         disable();
         initialized = false;
