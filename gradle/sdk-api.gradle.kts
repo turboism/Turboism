@@ -20,8 +20,9 @@ val sdkV4TierPolicy = layout.projectDirectory.file("docs/sdk/baselines/sdk-api-t
 val sdkV4DirectPreviewLedger = layout.projectDirectory.file("docs/sdk/baselines/sdk-api-direct-preview-v4.json")
 // Re-issued after exact Cubism Editor availability became public SDK metadata. The reviewed
 // canonical delta is the @Cubism annotation, its structured unavailability exception, and
-// runtime-visible exact-version annotations on the reviewed model declarations.
-val sdkV4ExactCommit = "ba8a740dc3af9441735db6388897b5d21e6946fc"
+// runtime-visible exact-version annotations on the reviewed model declarations. The final
+// artifact binding includes the standard-Javadoc doclint cleanup; its canonical API is unchanged.
+val sdkV4ExactCommit = "73e1da92fa959e92ea88981cf8c1f75a0b147152"
 val sdkJarArtifact = project(":sdk").tasks.named<Jar>("jar").flatMap { it.archiveFile }
 val sdkApiHelperFiles = fileTree("scripts/test") {
     include("sdk_api_baseline*.py")
