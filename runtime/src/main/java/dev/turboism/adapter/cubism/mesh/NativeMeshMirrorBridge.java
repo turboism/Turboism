@@ -3,6 +3,11 @@ package dev.turboism.adapter.cubism.mesh;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -71,6 +76,7 @@ public final class NativeMeshMirrorBridge {
         CURRENT_CONTEXT.set(null);
         PENDING.set(null);
         CONTROL_ATTACHED.set(false);
+        MIRROR_OVERRIDE.set(null);
         DIAGNOSTIC.set(DEFAULT_DIAGNOSTIC);
     }
 
@@ -493,6 +499,311 @@ public final class NativeMeshMirrorBridge {
         public int hashCode() {
             return System.identityHashCode(viewContext);
         }
+    }
+
+    // ------------------------------------------------------------------
+    // Mirror-linked deletion (exact 5.2.03 only).
+    //
+    // 5.3.02 ships this natively: deleting mesh points or edges also deletes
+    // their mirror counterparts into the caller's own undo group. 5.2.03 has
+    // the mirror math but not the plumbing, so we reproduce exactly what the
+    // 5.3.02 bytecode does and nothing more. Every path fails open: the host's
+    // own deletion must proceed unchanged even if the mirror step cannot run.
+    // ------------------------------------------------------------------
+
+    private static final String MIRROR_OWNER =
+        "com.live2d.cubism.view.palette.tool.toolMode.meshEditor.g";
+    private static final AtomicReference<Object> MIRROR_OVERRIDE = new AtomicReference<>();
+
+    /** Called just before the host's own point deletion, with that call's operands. */
+    public static void mirrorDeletePoints(
+        final Object pack,
+        final Object sources,
+        final Object groupUndo
+    ) {
+        try {
+            final Binding binding = INSTALLED.get();
+            if (binding == null || !binding.enabled
+                || pack == null || sources == null || groupUndo == null) return;
+            final Object mirror = hostMirror(pack);
+            if (mirror == null || !hostMirrorEnabled(mirror, pack)) return;
+
+            final List<Object> sourcePoints = flatten(sources);
+            if (sourcePoints.isEmpty()) return;
+            final Set<Integer> sourceIds = new HashSet<>();
+            for (Object source : sourcePoints) sourceIds.add(pointId(source));
+
+            final List<Object> counterparts = new ArrayList<>();
+            for (Object context : contexts(pack)) {
+                final Object mesh = call(context, "b", new Class<?>[0]);
+                if (mesh == null) continue;
+                for (Object source : sourcePoints) {
+                    final Object resolved = pointById(mesh, pointId(source));
+                    if (resolved == null) continue;
+                    final Object counterpart = counterpartPoint(mirror, resolved, mesh, pack, context);
+                    if (counterpart == null || sourceIds.contains(pointId(counterpart))) continue;
+                    if (!containsSame(counterparts, counterpart)) counterparts.add(counterpart);
+                }
+            }
+            if (counterparts.isEmpty()) {
+                diagnostic("MIRROR_DELETE_POINTS_SKIPPED reason=NO_COUNTERPART");
+                return;
+            }
+            final Object editMode = call(pack, "aP", new Class<?>[0]);
+            final Class<?> pointType = counterparts.get(0).getClass();
+            final Method delete = declaredMethod(
+                editMode.getClass(), "delete_exe", List.class, groupUndo.getClass()
+            );
+            if (delete == null) {
+                diagnostic("MIRROR_DELETE_POINTS_SKIPPED reason=NO_DELETE_EXE");
+                return;
+            }
+            delete.invoke(editMode, List.of(counterparts), groupUndo);
+            diagnostic("MIRROR_DELETE_POINTS_OK count=" + counterparts.size() + " type=" + pointType.getSimpleName());
+        } catch (Throwable failure) {
+            diagnostic("MIRROR_DELETE_POINTS_FAILED reason=" + failure.getClass().getName());
+        }
+    }
+
+    /** Called just before the host's own edge removal, with that edge. */
+    public static void mirrorDeleteEdge(
+        final Object pack,
+        final Object edge,
+        final Object groupUndo
+    ) {
+        try {
+            final Binding binding = INSTALLED.get();
+            if (binding == null || !binding.enabled
+                || pack == null || edge == null || groupUndo == null) return;
+            final Object mirror = hostMirror(pack);
+            if (mirror == null || !hostMirrorEnabled(mirror, pack)) return;
+
+            int removed = 0;
+            for (Object context : contexts(pack)) {
+                final Object mesh = call(context, "b", new Class<?>[0]);
+                if (mesh == null) continue;
+                final Object counterpart = counterpartEdge(mirror, edge, mesh, pack, context);
+                if (counterpart == null || counterpart.equals(edge)) continue;
+                final Object handler = call(mesh, "getHandler", new Class<?>[0]);
+                if (handler == null) continue;
+                final Method remove = declaredMethod(handler.getClass(), "a", List.class);
+                if (remove == null) continue;
+                final Object undo = remove.invoke(handler, List.of(counterpart));
+                if (undo == null) continue;
+                final Method plusAssign = declaredMethod(groupUndo.getClass(), "plusAssign", undo.getClass());
+                if (plusAssign == null) continue;
+                plusAssign.invoke(groupUndo, undo);
+                removed++;
+            }
+            diagnostic(removed == 0
+                ? "MIRROR_DELETE_EDGE_SKIPPED reason=NO_COUNTERPART"
+                : "MIRROR_DELETE_EDGE_OK count=" + removed);
+        } catch (Throwable failure) {
+            diagnostic("MIRROR_DELETE_EDGE_FAILED reason=" + failure.getClass().getName());
+        }
+    }
+
+    /**
+     * The counterpart rule copied from 5.3.02: take the source position into the
+     * context's mirror space, mirror it with the host's own axis, bring it back,
+     * then accept the nearest existing point only inside the host's tolerance.
+     */
+    private static Object counterpartPoint(
+        final Object mirror,
+        final Object source,
+        final Object mesh,
+        final Object pack,
+        final Object context
+    ) throws ReflectiveOperationException {
+        final Object position = call(source, "getPos", new Class<?>[0]);
+        if (position == null) return null;
+        final Class<?> vector = position.getClass();
+        final Object local = call(context, "b", new Class<?>[] {vector}, position);
+        final Object mirrored = local == null ? null : call(mirror, "a", new Class<?>[] {vector}, local);
+        final Object target = mirrored == null ? null : call(context, "a", new Class<?>[] {vector}, mirrored);
+        if (target == null) return null;
+
+        Object nearest = null;
+        float best = Float.MAX_VALUE;
+        for (Object candidate : points(mesh)) {
+            final Object candidatePosition = call(candidate, "getPos", new Class<?>[0]);
+            if (candidatePosition == null) continue;
+            final Object distance = call(candidatePosition, "distance", new Class<?>[] {vector}, target);
+            if (!(distance instanceof Number number)) continue;
+            final float value = number.floatValue();
+            if (value < best) {
+                best = value;
+                nearest = candidate;
+            }
+        }
+        if (nearest == null) return null;
+        final Object scale = call(pack, "aL", new Class<?>[0]);
+        if (!(scale instanceof Number number)) return null;
+        return best < number.floatValue() ? nearest : null;
+    }
+
+    /** Edge counterpart: mirror both endpoints, rebuild the edge id-ordered, keep it only if it exists. */
+    private static Object counterpartEdge(
+        final Object mirror,
+        final Object edge,
+        final Object mesh,
+        final Object pack,
+        final Object context
+    ) throws ReflectiveOperationException {
+        final Object firstIndex = call(edge, "getIndex1", new Class<?>[0]);
+        final Object secondIndex = call(edge, "getIndex2", new Class<?>[0]);
+        if (!(firstIndex instanceof Number first) || !(secondIndex instanceof Number second)) return null;
+        final Object start = pointById(mesh, first.intValue());
+        final Object end = pointById(mesh, second.intValue());
+        if (start == null || end == null) return null;
+        final Object mirroredStart = counterpartPoint(mirror, start, mesh, pack, context);
+        final Object mirroredEnd = counterpartPoint(mirror, end, mesh, pack, context);
+        if (mirroredStart == null || mirroredEnd == null) return null;
+        final int startId = pointId(mirroredStart);
+        final int endId = pointId(mirroredEnd);
+        if (startId == endId) return null;
+
+        final Object type = call(edge, "getType", new Class<?>[0]);
+        Constructor<?> constructor = null;
+        for (Constructor<?> candidate : edge.getClass().getConstructors()) {
+            final Class<?>[] parameters = candidate.getParameterTypes();
+            if (parameters.length == 3 && parameters[0] == int.class && parameters[1] == int.class) {
+                constructor = candidate;
+                break;
+            }
+        }
+        if (constructor == null) return null;
+        final Object rebuilt = startId < endId
+            ? constructor.newInstance(startId, endId, type)
+            : constructor.newInstance(endId, startId, type);
+        final Object edges = call(mesh, "getEdges", new Class<?>[0]);
+        return edges instanceof Collection<?> collection && collection.contains(rebuilt) ? rebuilt : null;
+    }
+
+    /**
+     * The host's mirror singleton. Note this is the same object whose {@code a(GVector2)}
+     * the mirror transformer already rewrites, so the counterpart positions we compute here
+     * automatically follow the rotated axis rather than the host's unrotated one.
+     */
+    private static Object hostMirror(final Object pack) {
+        final Object override = MIRROR_OVERRIDE.get();
+        if (override != null) return override;
+        try {
+            return Class.forName(MIRROR_OWNER, false, pack.getClass().getClassLoader())
+                .getField("a").get(null);
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
+    /** Test seam: the exact host mirror class cannot exist on an offline classpath. */
+    static void mirrorForTesting(final Object mirror) {
+        MIRROR_OVERRIDE.set(mirror);
+    }
+
+    /** Uses the host's own enable predicate; we never invent one. */
+    private static boolean hostMirrorEnabled(final Object mirror, final Object pack) {
+        try {
+            final Object editMode = call(pack, "aP", new Class<?>[0]);
+            if (editMode != null) {
+                for (Method method : mirror.getClass().getMethods()) {
+                    if (!method.getName().equals("a") || method.getParameterCount() != 1) continue;
+                    if (method.getReturnType() != boolean.class) continue;
+                    if (!method.getParameterTypes()[0].isInstance(editMode)) continue;
+                    return Boolean.TRUE.equals(method.invoke(mirror, editMode));
+                }
+            }
+            final Method noArg = declaredMethod(mirror.getClass(), "a");
+            return noArg != null && noArg.getReturnType() == boolean.class
+                && Boolean.TRUE.equals(noArg.invoke(mirror));
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    private static List<?> contexts(final Object pack) throws ReflectiveOperationException {
+        final Object value = call(pack, "aT", new Class<?>[0]);
+        return value instanceof List<?> list ? list : List.of();
+    }
+
+    private static List<?> points(final Object mesh) throws ReflectiveOperationException {
+        final Object value = call(mesh, "getAllPointRef", new Class<?>[0]);
+        return value instanceof List<?> list ? list : List.of();
+    }
+
+    private static Object pointById(final Object mesh, final int id) throws ReflectiveOperationException {
+        for (Object candidate : points(mesh)) {
+            if (pointId(candidate) == id) return candidate;
+        }
+        return null;
+    }
+
+    private static int pointId(final Object point) throws ReflectiveOperationException {
+        final Object value = call(point, "b", new Class<?>[0]);
+        return value instanceof Number number ? number.intValue() : Integer.MIN_VALUE;
+    }
+
+    private static boolean containsSame(final List<Object> collected, final Object candidate) {
+        for (Object existing : collected) if (existing == candidate) return true;
+        return false;
+    }
+
+    /** Flattens the host's list-of-lists deletion argument, and tolerates a plain list. */
+    private static List<Object> flatten(final Object sources) {
+        final List<Object> flattened = new ArrayList<>();
+        if (!(sources instanceof Collection<?> outer)) return flattened;
+        for (Object element : outer) {
+            if (element instanceof Collection<?> inner) flattened.addAll(inner);
+            else if (element != null) flattened.add(element);
+        }
+        return flattened;
+    }
+
+    /**
+     * Strict lookup by exact parameter types. The host mirror class overloads the
+     * name {@code a} many times over unrelated types, so matching on argument count
+     * alone could invoke the wrong one against user mesh data.
+     */
+    private static Method declaredMethod(
+        final Class<?> owner,
+        final String name,
+        final Class<?>... parameters
+    ) {
+        Class<?> type = owner;
+        while (type != null) {
+            try {
+                final Method method = type.getDeclaredMethod(name, parameters);
+                method.setAccessible(true);
+                return method;
+            } catch (NoSuchMethodException ignored) {
+                type = type.getSuperclass();
+            }
+        }
+        for (Method method : owner.getMethods()) {
+            if (!method.getName().equals(name)) continue;
+            final Class<?>[] actual = method.getParameterTypes();
+            if (actual.length != parameters.length) continue;
+            boolean matches = true;
+            for (int index = 0; index < actual.length; index++) {
+                if (!actual[index].isAssignableFrom(parameters[index])) {
+                    matches = false;
+                    break;
+                }
+            }
+            if (matches) return method;
+        }
+        return null;
+    }
+
+    private static Object call(
+        final Object target,
+        final String name,
+        final Class<?>[] parameters,
+        final Object... arguments
+    ) throws ReflectiveOperationException {
+        if (target == null) return null;
+        final Method method = declaredMethod(target.getClass(), name, parameters);
+        return method == null ? null : method.invoke(target, arguments);
     }
 
     private record Binding(
