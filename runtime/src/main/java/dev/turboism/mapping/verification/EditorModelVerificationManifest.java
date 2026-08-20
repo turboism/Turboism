@@ -48,7 +48,7 @@ import java.util.Set;
 public final class EditorModelVerificationManifest {
 
     /** Cubism version reported for the reviewed 5.2.03 artifact. */
-    public static final String CUBISM_VERSION_5_2_03 = "5.2.0";
+    public static final String CUBISM_VERSION_5_2_03 = "5.2.03";
 
     /** Cubism version reported for the reviewed 5.3.02 artifact. */
     public static final String CUBISM_VERSION_5_3_02 = "5.3.02";
@@ -56,10 +56,10 @@ public final class EditorModelVerificationManifest {
     /** Reviewed Editor-model record admitted for exact Cubism 5.2.03. */
     public static final ReviewedSliceRecord RECORD_5_2_03 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_2_03,
-        "cubism-5.2.editor-model.static",
-        "d3b55e0ea62a1dbdcbd09c6a985c8503e07a6e345958cf9702fe52ae58e28ac8",
+        "cubism-5.2.03.editor-model.static",
+        "94daceb567216c3b4f97ccf2272f329e9b4e94b9d6bdd87a648da2e5efb6f050",
         CUBISM_VERSION_5_2_03,
-        "cubism-5.2"
+        "cubism-5.2.03"
     );
 
     /** Reviewed Editor-model record admitted for exact Cubism 5.3.02. */

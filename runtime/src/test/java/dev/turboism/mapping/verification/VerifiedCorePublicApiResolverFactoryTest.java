@@ -22,8 +22,8 @@ class VerifiedCorePublicApiResolverFactoryTest {
 
     @Test
     void admitsPinnedCoreArtifactsForBothSupportedProfiles() throws Exception {
-        assertAdmitted("5.2", "5.2.0");
-        assertAdmitted("5.3.02", "5.3.2");
+        assertAdmitted("5.2.03", "5.2.03");
+        assertAdmitted("5.3.02", "5.3.02");
     }
 
     @Test
@@ -31,7 +31,7 @@ class VerifiedCorePublicApiResolverFactoryTest {
         Path artifact = coreArtifact("5.3.02");
         try (URLClassLoader loader = loader(artifact)) {
             assertThrows(IllegalArgumentException.class, () -> factory.create(
-                "5.2", record("5.2"), artifact, loader
+                "5.2.03", record("5.2.03"), artifact, loader
             ));
         }
     }
@@ -39,7 +39,7 @@ class VerifiedCorePublicApiResolverFactoryTest {
     @Test
     void rejectsRuntimeClassesFromAnotherCoreArtifact() throws Exception {
         Path reviewed = coreArtifact("5.3.02");
-        try (URLClassLoader wrongLoader = loader(coreArtifact("5.2"))) {
+        try (URLClassLoader wrongLoader = loader(coreArtifact("5.2.03"))) {
             assertThrows(IllegalArgumentException.class, () -> factory.create(
                 "5.3.02", record("5.3.02"), reviewed, wrongLoader
             ));

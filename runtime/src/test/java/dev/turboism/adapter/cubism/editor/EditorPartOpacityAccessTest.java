@@ -59,7 +59,7 @@ class EditorPartOpacityAccessTest {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
         final EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
-            resolver(true, "5.2.0"), "session-a"
+            resolver(true, "5.2.03"), "session-a"
         );
         final var part = access.active().parts().find(new PartId("PartClip"));
 
@@ -153,7 +153,7 @@ class EditorPartOpacityAccessTest {
             selectors.add(StaticSelector.classSelector("cubism.editor-model.part.class", internal(HostPart.class)));
             selectors.add(method("cubism.editor-model.part.id", HostPart.class, "id", desc(Id.class)));
             selectors.add(method("cubism.editor-model.part.source", HostPart.class, "source", desc(PartSource.class)));
-            if ("5.2.0".equals(cubismVersion)) {
+            if ("5.2.03".equals(cubismVersion)) {
                 selectors.add(method("cubism.editor-model.part.parts-opacity", HostPart.class, "partsOpacity", "()F"));
                 selectors.add(method("cubism.editor-model.part.set-parts-opacity", HostPart.class, "setPartsOpacity", "(F)V"));
             } else {
@@ -165,7 +165,7 @@ class EditorPartOpacityAccessTest {
             selectors.add(method("cubism.editor-model.part-source.handler", PartSource.class, "handler", desc(PartHandler.class)));
             selectors.add(StaticSelector.classSelector("cubism.editor-model.part-handler.class", internal(PartHandler.class)));
             selectors.add(method("cubism.editor-model.part-handler.create-undo-for-all-edit", PartHandler.class, "undo", "(Ljava/lang/String;)" + type(Undo.class)));
-            if (!"5.2.0".equals(cubismVersion)) {
+            if (!"5.2.03".equals(cubismVersion)) {
                 selectors.add(StaticSelector.classSelector("cubism.editor-model.part-form.class", internal(PartForm.class)));
                 selectors.add(method("cubism.editor-model.part-form.opacity", PartForm.class, "opacity", "()F"));
                 selectors.add(method("cubism.editor-model.part-form.set-opacity", PartForm.class, "setOpacity", "(F)V"));
@@ -191,7 +191,7 @@ class EditorPartOpacityAccessTest {
     }
 
     private static String opacityCapability(final String cubismVersion) {
-        return "5.2.0".equals(cubismVersion)
+        return "5.2.03".equals(cubismVersion)
             ? dev.turboism.mapping.verification.selector.EditorPartOpacity52SelectorContract.CAPABILITY_ID
             : EditorPartOpacitySelectorContract.CAPABILITY_ID;
     }
@@ -248,7 +248,7 @@ class EditorPartOpacityAccessTest {
         public float partsOpacity() { return partsOpacity; }
         public void setPartsOpacity(final float value) { partsOpacity = value; }
         float opacityFor(final String cubismVersion) {
-            return "5.2.0".equals(cubismVersion) ? partsOpacity : form.opacity;
+            return "5.2.03".equals(cubismVersion) ? partsOpacity : form.opacity;
         }
     }
     public static final class PartSource {

@@ -40,7 +40,7 @@ class PartOpacity52WriteProbeSkeletonTest {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
         final var access = new EditorBackedCubismModelAccess(
-            resolver("5.2.0"), "session-a"
+            resolver("5.2.03"), "session-a"
         );
         final var part = access.active().parts().find(new PartId("PartClip"));
 

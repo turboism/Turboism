@@ -208,7 +208,7 @@ public interface ProjectWorkspaceAdapter {
         }
 
         private static boolean isReviewedProjectWorkspaceVersion(final String hostVersion) {
-            return "5.2.0".equals(hostVersion)
+            return "5.2.03".equals(hostVersion)
                 || HostUiVersionCheck.diagnosticFor(PROJECT_CAPABILITY_ID, hostVersion).isEmpty();
         }
 

@@ -19,7 +19,7 @@ class EditorTextureSelectorContractTest {
 
     @ParameterizedTest
     @CsvSource({
-        "Cubism-5.2, cubism-5.2-editor-model.json",
+        "Cubism-5.2, cubism-5.2.03-editor-model.json",
         "Cubism-5.3.02, cubism-5.3.02-editor-model.json"
     })
     void exactRecordVerifiesTheTextureReadContract(

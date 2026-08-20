@@ -28,7 +28,7 @@ val generateCorePublicApiCatalog by tasks.registering(Exec::class) {
             "cubism-ref/core-api/policy/cubism-core-member-policy.json"
         ),
         rootProject.file(
-            "cubism-ref/core-api/observed/cubism-core-5.2.json"
+            "cubism-ref/core-api/observed/cubism-core-5.2.03.json"
         ),
         rootProject.file(
             "cubism-ref/core-api/observed/cubism-core-5.3.02.json"
@@ -50,7 +50,7 @@ val generateCorePublicApiCatalog by tasks.registering(Exec::class) {
             output,
             "--inventory",
             rootProject.file(
-                "cubism-ref/core-api/observed/cubism-core-5.2.json"
+                "cubism-ref/core-api/observed/cubism-core-5.2.03.json"
             ),
             "--inventory",
             rootProject.file(
@@ -70,7 +70,7 @@ val generateCorePublicApiSelectorContract by tasks.registering(Exec::class) {
             "cubism-ref/core-api/policy/cubism-core-selector-policy.json"
         ),
         rootProject.file(
-            "cubism-ref/mapping-packs/draft/cubism-5.2-core-model-read.json"
+            "cubism-ref/mapping-packs/draft/cubism-5.2.03-core-model-read.json"
         ),
         rootProject.file(
             "cubism-ref/mapping-packs/draft/cubism-5.3.02-core-model-read.json"
@@ -92,7 +92,7 @@ val generateCorePublicApiSelectorContract by tasks.registering(Exec::class) {
             output,
             "--pack",
             rootProject.file(
-                "cubism-ref/mapping-packs/draft/cubism-5.2-core-model-read.json"
+                "cubism-ref/mapping-packs/draft/cubism-5.2.03-core-model-read.json"
             ),
             "--pack",
             rootProject.file(

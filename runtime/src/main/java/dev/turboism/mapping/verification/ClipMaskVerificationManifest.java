@@ -28,9 +28,9 @@ public final class ClipMaskVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_2_03 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_2_03,
         "cubism-5.2.03.clipmask.static",
-        "a610911e1a3ee86192707b641d9e4925e143e84b37a6adeb46f553ba389a63c6",
+        "5133c670e5c6742a5a43eb60ec6c60581196c35534b37085ca18d441797d47b3",
         CUBISM_VERSION_5_2_03,
-        "cubism-5.2"
+        "cubism-5.2.03"
     );
 
     /** Reviewed clip-mask record admitted for exact Cubism 5.3.02. */

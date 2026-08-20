@@ -44,7 +44,7 @@ class RuntimeHostAdaptersVerifiedProjectWorkspaceTest {
     @Test
     void connectsExactCubism52ProjectWorkspaceResolver() {
         VerifiedMemberResolver resolver = TestVerifiedResolvers.create(
-            "5.2.0",
+            "5.2.03",
             ProjectWorkspaceAdapter.ADAPTER_SLICE_ID,
             Set.of(
                 ProjectWorkspaceAdapter.PROJECT_CAPABILITY_ID,

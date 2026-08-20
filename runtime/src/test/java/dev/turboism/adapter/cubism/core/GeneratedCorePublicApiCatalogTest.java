@@ -25,14 +25,14 @@ class GeneratedCorePublicApiCatalogTest {
         assertEquals(240, members.size());
         assertEquals(
             177L,
-            members.stream().filter(member -> member.supports("5.2")).count()
+            members.stream().filter(member -> member.supports("5.2.03")).count()
         );
         assertEquals(
             237L,
             members.stream().filter(member -> member.supports("5.3.02")).count()
         );
         assertEquals(
-            "74c87aa70690d33a1179877e9342005d0256196b88d4967c1b591a9891d835e2",
+            "622ecdbf2d2776beb1130c02d0d3394385394928cfa3fd3d5a33c03e74a91a1c",
             GeneratedCorePublicApiCatalog.CLASSIFIED_ROSTER_SHA256
         );
 
@@ -53,7 +53,7 @@ class GeneratedCorePublicApiCatalogTest {
     void lookupNormalizesVersionClassificationAndLifecycle() {
         final GeneratedCorePublicApiCatalog.Member setValue =
             GeneratedCorePublicApiCatalog.find(
-                "5.2",
+                "5.2.03",
                 PARAMETER,
                 "setValue",
                 "(F)V"
@@ -95,7 +95,7 @@ class GeneratedCorePublicApiCatalogTest {
             "()Lcom/live2d/sdk/cubism/core/CubismOffscreenRendering;";
 
         assertFalse(GeneratedCorePublicApiCatalog.find(
-            "5.2",
+            "5.2.03",
             MODEL,
             "getOffscreenRendering",
             descriptor

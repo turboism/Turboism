@@ -32,7 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class EditorObjectReadAccessTest {
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void readsArtMeshWarpAndRotationAuthoringState(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -99,7 +99,7 @@ class EditorObjectReadAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void replacesClipMasksAfterCompletePreflightInOneTransaction(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -148,7 +148,7 @@ class EditorObjectReadAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void clipMaskExpectedMismatchDoesNotOpenAnEdit(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -169,7 +169,7 @@ class EditorObjectReadAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void clipMaskSetterFailureRestoresTheWholeBatch(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -201,7 +201,7 @@ class EditorObjectReadAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void clipMaskRejectedUndoAdmissionAbortsBeforeMutation(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -251,7 +251,7 @@ class EditorObjectReadAccessTest {
 
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void readsOrderedKeyformBindingsForArtMeshWarpAndRotation(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -267,7 +267,7 @@ class EditorObjectReadAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void mergesMorphTargetBindingsAfterKeyformForDrawableAndDeformer(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -307,7 +307,7 @@ class EditorObjectReadAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void deduplicatesKeyformAndMorphBindingsByParameterPreferringMorph(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -364,7 +364,7 @@ class EditorObjectReadAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void morphMergeFailsSoftWhenTheMorphCapabilityIsAbsent(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -384,7 +384,7 @@ class EditorObjectReadAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void parameterSideReverseScanIncludesMorphBindings(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -415,7 +415,7 @@ class EditorObjectReadAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void combinedParameterBindingsDeriveFromTheParameterCombinedFlag(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -455,7 +455,7 @@ class EditorObjectReadAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void editsParameterBindingsWithStrictConflictsAndExplicitUnbind(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -558,7 +558,7 @@ class EditorObjectReadAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void sameIdSourceReplacementMakesReferencesStale(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -577,7 +577,7 @@ class EditorObjectReadAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void staleParameterBindingBatchOperationsFailBeforeOpeningAnEdit(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -594,7 +594,7 @@ class EditorObjectReadAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void writesScalarAuthoringStateWithOneUndoDirtyAndRefresh(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -623,7 +623,7 @@ class EditorObjectReadAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void writeCapabilityIsIndependentFromReadAndNoChangeSkipsMutation(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -639,7 +639,7 @@ class EditorObjectReadAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void replacesCompleteAuthoringSnapshotsAtomically(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -679,7 +679,7 @@ class EditorObjectReadAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void rollsBackCompleteSnapshotsWhenALaterHostSetterFails(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -724,7 +724,7 @@ class EditorObjectReadAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void pointInfoVertexMoveProjectsOntoGeometryReplacement(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;

@@ -58,9 +58,9 @@ val checkCubismCoreApiInventory by tasks.registering(Exec::class) {
         "scripts/test/test_cubism_core_api_inventory.py",
         "cubism-ref/index.md",
         fileTree("cubism-ref/core-api/observed") { include("*.json") },
-        "cubism-ref/mapping-packs/draft/cubism-5.2-core-model-read.json",
+        "cubism-ref/mapping-packs/draft/cubism-5.2.03-core-model-read.json",
         "cubism-ref/mapping-packs/draft/cubism-5.3.02-core-model-read.json",
-        "cubism-ref/profiles/draft/cubism-5.2.json",
+        "cubism-ref/profiles/draft/cubism-5.2.03.json",
         "cubism-ref/profiles/draft/cubism-5.3.02.json"
     )
     commandLine("python3", "scripts/test/test_cubism_core_api_inventory.py")
@@ -87,7 +87,7 @@ val checkCubismCoreSelectorPolicy by tasks.registering(Exec::class) {
         "scripts/cubism_core_selector_policy.py",
         "scripts/test/test_cubism_core_selector_policy.py",
         "cubism-ref/core-api/policy/cubism-core-selector-policy.json",
-        "cubism-ref/mapping-packs/draft/cubism-5.2-core-model-read.json",
+        "cubism-ref/mapping-packs/draft/cubism-5.2.03-core-model-read.json",
         "cubism-ref/mapping-packs/draft/cubism-5.3.02-core-model-read.json"
     )
     commandLine("python3", "scripts/test/test_cubism_core_selector_policy.py")

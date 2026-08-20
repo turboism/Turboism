@@ -51,17 +51,17 @@ class StaticVerificationRecordRepositoryTest {
     private static final Path RECORDS = PROJECT_ROOT.resolve("cubism-ref/verification");
 
     private static final Map<String, SliceExpectation> EXPECTATIONS = withPerformance(withClipMask52(withAutoBackup(withStatusBar(withWorkspaceControl(withControlAppearance53(withBoundingBoxOverlays(withTopMenus(withEmbeddedPanels(Map.of(
-        "cubism-ref/verification/cubism-5.2-project-workspace.json",
+        "cubism-ref/verification/cubism-5.2.03-project-workspace.json",
         new SliceExpectation(
-            "m15.cubism-5.2.project-workspace.static",
+            "m15.cubism-5.2.03.project-workspace.static",
             ProjectWorkspaceVerificationManifest.ADAPTER_SLICE_ID,
-            "5.2.0",
-            "cubism-5.2",
+            "5.2.03",
+            "cubism-5.2.03",
             ProjectWorkspaceVerificationManifest.CAPABILITY_IDS,
             "Live2D_Cubism.jar",
             ReviewedHostArtifacts.CUBISM_5_2_03.size(),
             ReviewedHostArtifacts.CUBISM_5_2_03.sha256(),
-            "661be268ad68726eecfdad7ca385f0c52c0105f1180c72813547504b23f81003",
+            "843afabdc017b699db50c0424ca326a3a0f55a213d54f35ba6b5ed9c11e074ac",
             23,
             ProjectWorkspaceVerificationManifest.REQUIRED_ALIASES,
             VerifiedProjectWorkspaceHostOperations.REQUIRED_ALIASES,
@@ -70,10 +70,10 @@ class StaticVerificationRecordRepositoryTest {
                 VerifiedProjectWorkspaceHostOperations.REQUIRED_ALIASES,
                 VerifiedProjectWorkspaceHostOperations.methodAliasesUsed()
             ),
-            "cubism-5.2-project-workspace",
-            Path.of("cubism-ref/mapping-packs/draft/cubism-5.2-project-workspace.json"),
-            Path.of("cubism-ref/profiles/draft/cubism-5.2.json"),
-            "[5.2.0,5.3.0)",
+            "cubism-5.2.03-project-workspace",
+            Path.of("cubism-ref/mapping-packs/draft/cubism-5.2.03-project-workspace.json"),
+            Path.of("cubism-ref/profiles/draft/cubism-5.2.03.json"),
+            "5.2.03",
             SliceKind.PROJECT_WORKSPACE
         ),
         "cubism-ref/verification/cubism-5.3.02-project-workspace.json",
@@ -98,14 +98,14 @@ class StaticVerificationRecordRepositoryTest {
             "cubism-5.3.02-m14-project-workspace",
             Path.of("cubism-ref/mapping-packs/draft/cubism-5.3.02-m14-project-workspace.json"),
             Path.of("cubism-ref/profiles/draft/cubism-5.3.02.json"),
-            "[5.3.02,5.3.03)",
+            "5.3.02",
             SliceKind.PROJECT_WORKSPACE
         ),
-        "cubism-ref/verification/cubism-5.2-core-model-read.json",
-        coreExpectation("5.2", "5.2.0", 36_237L,
-            "85959a0572be02ee45d128cfdaf9046631241310b741d6b149d295a0dec7451e",
-            "067b6dc666ba8419d973ae88b7f3a5829083b54644f2a28abff4ac258521815d",
-            72, "[5.2.0,5.3.0)"),
+        "cubism-ref/verification/cubism-5.2.03-core-model-read.json",
+        coreExpectation("5.2.03", "5.2.03", 36_237L,
+            "9f8e270e26cb71b3d531eb81b22d3688e6fb51676d0f07face7bb01753fe81de",
+            "02c9afbd69ab06c57a13c4cb18699215c4463ba9b323dfa80959297e9b10d35d",
+            72, "5.2.03"),
         "cubism-ref/verification/cubism-5.3.02-clipmask.json",
         new SliceExpectation(
             ClipMaskVerificationManifest.RECORD_5_3_02.verificationId(),
@@ -125,10 +125,10 @@ class StaticVerificationRecordRepositoryTest {
             "cubism-5.3.02-m15-clipmask",
             Path.of("cubism-ref/mapping-packs/draft/cubism-5.3.02-m15-clipmask.json"),
             Path.of("cubism-ref/profiles/draft/cubism-5.3.02.json"),
-            "[5.3.02,5.3.03)",
+            "5.3.02",
             SliceKind.CLIP_MASK
         ),
-        "cubism-ref/verification/cubism-5.2-ui-main-toolbar.json",
+        "cubism-ref/verification/cubism-5.2.03-ui-main-toolbar.json",
         new SliceExpectation(
             MainToolbarVerificationManifest.RECORD_5_2_03.verificationId(),
             MainToolbarVerificationManifest.ADAPTER_SLICE_ID,
@@ -139,15 +139,15 @@ class StaticVerificationRecordRepositoryTest {
             ReviewedHostArtifacts.CUBISM_5_2_03.size(),
             ReviewedHostArtifacts.CUBISM_5_2_03.sha256(),
             MainToolbarVerificationManifest.RECORD_5_2_03.recordSha256(),
-            25,
+            28,
             MainToolbarVerificationManifest.REQUIRED_ALIASES,
             MainToolbarVerificationManifest.REQUIRED_ALIASES,
             mainToolbarMethodAliases(),
             difference(MainToolbarVerificationManifest.REQUIRED_ALIASES, mainToolbarMethodAliases()),
-            "cubism-5.2-ui-main-toolbar",
-            Path.of("cubism-ref/mapping-packs/draft/cubism-5.2-ui-main-toolbar.json"),
-            Path.of("cubism-ref/profiles/draft/cubism-5.2.json"),
-            "[5.2.0,5.3.0)",
+            "cubism-5.2.03-ui-main-toolbar",
+            Path.of("cubism-ref/mapping-packs/draft/cubism-5.2.03-ui-main-toolbar.json"),
+            Path.of("cubism-ref/profiles/draft/cubism-5.2.03.json"),
+            "5.2.03",
             SliceKind.EDITOR_UI
         ),
         "cubism-ref/verification/cubism-5.3.02-ui-main-toolbar.json",
@@ -169,39 +169,39 @@ class StaticVerificationRecordRepositoryTest {
             "cubism-5.3.02-ui-main-toolbar",
             Path.of("cubism-ref/mapping-packs/draft/cubism-5.3.02-ui-main-toolbar.json"),
             Path.of("cubism-ref/profiles/draft/cubism-5.3.02.json"),
-            "[5.3.02,5.3.03)",
+            "5.3.02",
             SliceKind.EDITOR_UI
         ),
-        "cubism-ref/verification/cubism-5.2-ui-control-appearance.json",
+        "cubism-ref/verification/cubism-5.2.03-ui-control-appearance.json",
         controlAppearanceExpectation(
             "5.2.03",
-            "cubism-5.2",
+            "cubism-5.2.03",
             ReviewedHostArtifacts.CUBISM_5_2_03.size(),
             ReviewedHostArtifacts.CUBISM_5_2_03.sha256(),
-            "bc272ba4263012d2776c40871f6ff5260fc8f92f02d76b764925439b13c7d57a",
-            "cubism-5.2-ui-control-appearance",
-            "[5.2.0,5.3.0)"
+            "2e39d4d2a35560a160b86ee4081b0db763291d42c2ac089c045b28d382e6a334",
+            "cubism-5.2.03-ui-control-appearance",
+            "5.2.03"
         ),
-        "cubism-ref/verification/cubism-5.2-editor-model.json",
+        "cubism-ref/verification/cubism-5.2.03-editor-model.json",
         new SliceExpectation(
-            "cubism-5.2.editor-model.static",
+            "cubism-5.2.03.editor-model.static",
             EditorModelVerificationManifest.ADAPTER_SLICE_ID,
-            "5.2.0",
-            "cubism-5.2",
+            "5.2.03",
+            "cubism-5.2.03",
             EditorModelVerificationManifest.cubism52Capabilities(),
             "Live2D_Cubism.jar",
             ReviewedHostArtifacts.CUBISM_5_2_03.size(),
             ReviewedHostArtifacts.CUBISM_5_2_03.sha256(),
-            "d3b55e0ea62a1dbdcbd09c6a985c8503e07a6e345958cf9702fe52ae58e28ac8",
+            "94daceb567216c3b4f97ccf2272f329e9b4e94b9d6bdd87a648da2e5efb6f050",
             589,
             editorModel52Aliases(),
             editorModel52Aliases(),
             editorModel52MethodAliases(),
             difference(editorModel52Aliases(), editorModel52MethodAliases()),
-            "cubism-5.2-editor-model-read",
-            Path.of("cubism-ref/mapping-packs/draft/cubism-5.2-editor-model-read.json"),
-            Path.of("cubism-ref/profiles/draft/cubism-5.2.json"),
-            "[5.2.0,5.3.0)",
+            "cubism-5.2.03-editor-model-read",
+            Path.of("cubism-ref/mapping-packs/draft/cubism-5.2.03-editor-model-read.json"),
+            Path.of("cubism-ref/profiles/draft/cubism-5.2.03.json"),
+            "5.2.03",
             SliceKind.EDITOR_MODEL
         ),
         "cubism-ref/verification/cubism-5.3.02-editor-model.json",
@@ -223,14 +223,14 @@ class StaticVerificationRecordRepositoryTest {
             "cubism-5.3.02-editor-model-read",
             Path.of("cubism-ref/mapping-packs/draft/cubism-5.3.02-editor-model-read.json"),
             Path.of("cubism-ref/profiles/draft/cubism-5.3.02.json"),
-            "[5.3.02,5.3.03)",
+            "5.3.02",
             SliceKind.EDITOR_MODEL
         ),
         "cubism-ref/verification/cubism-5.3.02-core-model-read.json",
-        coreExpectation("5.3.02", "5.3.2", 42_471L,
-            "98f4dac9a9508a6e255f6f3862608409a83e29c9009a7f0fcf517e06658164e4",
-            "b68770af94b43bafa92bbe06a3cb2017f89ed5d561c3bb08447d3eeca89d06d0",
-            74, "[5.3.02,5.3.03)")
+        coreExpectation("5.3.02", "5.3.02", 42_471L,
+            "96ad896a86ed2fd1543c8ac6099adcf8cd7750483000b0ca4b13014ffe04a86d",
+            "96ad896a86ed2fd1543c8ac6099adcf8cd7750483000b0ca4b13014ffe04a86d",
+            74, "5.3.02")
     ))))))))));
 
     private static Map<String, SliceExpectation> withWorkspaceControl(
@@ -238,13 +238,13 @@ class StaticVerificationRecordRepositoryTest {
     ) {
         final LinkedHashMap<String, SliceExpectation> expectations = new LinkedHashMap<>(existing);
         expectations.put(
-            "cubism-ref/verification/cubism-5.2-workspace-control.json",
+            "cubism-ref/verification/cubism-5.2.03-workspace-control.json",
             workspaceControlExpectation(
-                "5.2", "5.2.03", ReviewedHostArtifacts.CUBISM_5_2_03.size(),
+                "5.2.03", "5.2.03", ReviewedHostArtifacts.CUBISM_5_2_03.size(),
                 ReviewedHostArtifacts.CUBISM_5_2_03.sha256(),
-                "8b001802fa672ce2f053ab516af9c38b2a2a08296fc663e9adf352e88c7dbf36",
+                "f42efb4d878ac4dfb9398dfc978705217d1c55a21d9521690d77fede9af32fed",
                 "m.workspace-5.2.03.control.static", "adapter.workspace.control.v5_2",
-                "[5.2.0,5.3.0)"
+                "5.2.03"
             )
         );
         expectations.put(
@@ -254,7 +254,7 @@ class StaticVerificationRecordRepositoryTest {
                 ReviewedHostArtifacts.CUBISM_5_3_02.sha256(),
                 "7c675de8b23e63e6de14ae6c67403717d3b64fc8eefab54ac4124fffb3633f16",
                 "m.workspace-5.3.02.control.static", "adapter.workspace.control.v5_3",
-                "[5.3.02,5.3.03)"
+                "5.3.02"
             )
         );
         return Map.copyOf(expectations);
@@ -282,26 +282,26 @@ class StaticVerificationRecordRepositoryTest {
     ) {
         final LinkedHashMap<String, SliceExpectation> expectations = new LinkedHashMap<>(existing);
         expectations.put(
-            "cubism-ref/verification/cubism-5.2-ui-embedded-panel.json",
+            "cubism-ref/verification/cubism-5.2.03-ui-embedded-panel.json",
             new SliceExpectation(
                 "cubism-5.2.03.ui-embedded-panel.static",
                 EmbeddedPanelVerificationManifest.ADAPTER_SLICE_ID,
                 "5.2.03",
-                "cubism-5.2",
+                "cubism-5.2.03",
                 EmbeddedPanelVerificationManifest.CAPABILITY_IDS,
                 "Live2D_Cubism.jar",
                 ReviewedHostArtifacts.CUBISM_5_2_03.size(),
                 ReviewedHostArtifacts.CUBISM_5_2_03.sha256(),
-                "cd3238ac79ece01dbac0ca9b83c428d49c05f11d48ba1b213253362d37807ec4",
+                "5ec9331ab80b79f6eff6777f282738bfbe26400620b2e27e23715963a23b7d89",
                 78,
                 EmbeddedPanelVerificationManifest.REQUIRED_ALIASES,
                 EmbeddedPanelVerificationManifest.REQUIRED_ALIASES,
                 embeddedPanelMethodAliases(),
                 difference(EmbeddedPanelVerificationManifest.REQUIRED_ALIASES, embeddedPanelMethodAliases()),
-                "cubism-5.2-ui-embedded-panel",
-                Path.of("cubism-ref/mapping-packs/draft/cubism-5.2-ui-embedded-panel.json"),
-                Path.of("cubism-ref/profiles/draft/cubism-5.2.json"),
-                "[5.2.0,5.3.0)",
+                "cubism-5.2.03-ui-embedded-panel",
+                Path.of("cubism-ref/mapping-packs/draft/cubism-5.2.03-ui-embedded-panel.json"),
+                Path.of("cubism-ref/profiles/draft/cubism-5.2.03.json"),
+                "5.2.03",
                 SliceKind.EDITOR_UI
             )
         );
@@ -325,7 +325,7 @@ class StaticVerificationRecordRepositoryTest {
                 "cubism-5.3.02-ui-embedded-panel",
                 Path.of("cubism-ref/mapping-packs/draft/cubism-5.3.02-ui-embedded-panel.json"),
                 Path.of("cubism-ref/profiles/draft/cubism-5.3.02.json"),
-                "[5.3.02,5.3.03)",
+                "5.3.02",
                 SliceKind.EDITOR_UI
             )
         );
@@ -346,13 +346,13 @@ class StaticVerificationRecordRepositoryTest {
             performanceExpectation(
                 "cubism-5.2.03.performance.render-scene.static",
                 "5.2.03",
-                "cubism-5.2",
+                "cubism-5.2.03",
                 ReviewedHostArtifacts.CUBISM_5_2_03.size(),
                 ReviewedHostArtifacts.CUBISM_5_2_03.sha256(),
-                "1259db254cb690cc61ddea48272fb6d3616b1cef321caa17aff16d1c8b6fe5d1",
+                "7eb2ec2755b20f1dccbe97057b448d438655dc29ad4d4a1aaadb661c3bdef6c7",
                 Set.of("cubism.performance.render-scene"),
-                "cubism-5.2-performance-render-scene",
-                "[5.2.0,5.3.0)"
+                "cubism-5.2.03-performance-render-scene",
+                "5.2.03"
             )
         );
         expectations.put(
@@ -374,7 +374,7 @@ class StaticVerificationRecordRepositoryTest {
                     "cubism.performance.reinit-model-instance"
                 ),
                 "cubism-5.3.02-performance-render-scene",
-                "[5.3.02,5.3.03)"
+                "5.3.02"
             )
         );
         return Map.copyOf(expectations);
@@ -389,7 +389,7 @@ class StaticVerificationRecordRepositoryTest {
         final String recordSha256,
         final Set<String> aliases,
         final String packId,
-        final String versionRange
+        final String expectedCubismVersion
     ) {
         return new SliceExpectation(
             verificationId,
@@ -409,7 +409,7 @@ class StaticVerificationRecordRepositoryTest {
             packId,
             Path.of("cubism-ref/mapping-packs/draft/" + packId + ".json"),
             Path.of("cubism-ref/profiles/draft/" + profileId + ".json"),
-            versionRange,
+            expectedCubismVersion,
             SliceKind.PERFORMANCE
         );
     }
@@ -435,10 +435,10 @@ class StaticVerificationRecordRepositoryTest {
                 VerifiedClipMaskHostOperations.REQUIRED_ALIASES,
                 VerifiedClipMaskHostOperations.methodAliasesUsed(),
                 VerifiedClipMaskHostOperations.classAliasesUsed(),
-                "cubism-5.2-clipmask",
-                Path.of("cubism-ref/mapping-packs/draft/cubism-5.2-clipmask.json"),
-                Path.of("cubism-ref/profiles/draft/cubism-5.2.json"),
-                "[5.2.0,5.3.0)",
+                "cubism-5.2.03-clipmask",
+                Path.of("cubism-ref/mapping-packs/draft/cubism-5.2.03-clipmask.json"),
+                Path.of("cubism-ref/profiles/draft/cubism-5.2.03.json"),
+                "5.2.03",
                 SliceKind.CLIP_MASK
             )
         );
@@ -460,7 +460,7 @@ class StaticVerificationRecordRepositoryTest {
                 AutoBackupVerificationManifest.RECORD_SHA256_53,
                 "cubism-5.3.02-autobackup",
                 "cubism-ref/profiles/draft/cubism-5.3.02.json",
-                "[5.3.02,5.3.03)"
+                "5.3.02"
             )
         );
         expectations.put(
@@ -473,8 +473,8 @@ class StaticVerificationRecordRepositoryTest {
                 AutoBackupVerificationManifest.ARTIFACT_SHA256_52,
                 AutoBackupVerificationManifest.RECORD_SHA256_52,
                 "cubism-5.2.03-autobackup",
-                "cubism-ref/profiles/draft/cubism-5.2.json",
-                "[5.2.0,5.3.0)"
+                "cubism-ref/profiles/draft/cubism-5.2.03.json",
+                "5.2.03"
             )
         );
         return Map.copyOf(expectations);
@@ -489,7 +489,7 @@ class StaticVerificationRecordRepositoryTest {
         final String recordSha256,
         final String packId,
         final String profilePath,
-        final String expectedVersionRange
+        final String expectedCubismVersion
     ) {
         final Set<String> aliases = AutoBackupVerificationManifest.REQUIRED_ALIASES;
         return new SliceExpectation(
@@ -514,7 +514,7 @@ class StaticVerificationRecordRepositoryTest {
             packId,
             Path.of("cubism-ref/mapping-packs/draft/" + packId + ".json"),
             Path.of(profilePath),
-            expectedVersionRange,
+            expectedCubismVersion,
             SliceKind.EDITOR_UI
         );
     }
@@ -524,26 +524,26 @@ class StaticVerificationRecordRepositoryTest {
     ) {
         final LinkedHashMap<String, SliceExpectation> expectations = new LinkedHashMap<>(existing);
         expectations.put(
-            "cubism-ref/verification/cubism-5.2-ui-status-bar.json",
+            "cubism-ref/verification/cubism-5.2.03-ui-status-bar.json",
             new SliceExpectation(
                 "cubism-5.2.03.ui-status-bar.static",
                 StatusBarVerificationManifest.ADAPTER_SLICE_ID,
                 "5.2.03",
-                "cubism-5.2",
+                "cubism-5.2.03",
                 StatusBarVerificationManifest.CAPABILITY_IDS,
                 "Live2D_Cubism.jar",
                 ReviewedHostArtifacts.CUBISM_5_2_03.size(),
                 ReviewedHostArtifacts.CUBISM_5_2_03.sha256(),
-                "94ef52c898cffe9b5837dd3e34e53ba150fc2d616f1269362e5151ec602fe4c0",
+                "45e529ae8771adfd00500100214afa9fa14fa463e967a227806e4e3a9f3e66a5",
                 21,
                 StatusBarVerificationManifest.REQUIRED_ALIASES,
                 StatusBarVerificationManifest.REQUIRED_ALIASES,
                 statusBarMethodAliases(),
                 difference(StatusBarVerificationManifest.REQUIRED_ALIASES, statusBarMethodAliases()),
-                "cubism-5.2-ui-status-bar",
-                Path.of("cubism-ref/mapping-packs/draft/cubism-5.2-ui-status-bar.json"),
-                Path.of("cubism-ref/profiles/draft/cubism-5.2.json"),
-                "[5.2.0,5.3.0)",
+                "cubism-5.2.03-ui-status-bar",
+                Path.of("cubism-ref/mapping-packs/draft/cubism-5.2.03-ui-status-bar.json"),
+                Path.of("cubism-ref/profiles/draft/cubism-5.2.03.json"),
+                "5.2.03",
                 SliceKind.EDITOR_UI
             )
         );
@@ -567,7 +567,7 @@ class StaticVerificationRecordRepositoryTest {
                 "cubism-5.3.02-ui-status-bar",
                 Path.of("cubism-ref/mapping-packs/draft/cubism-5.3.02-ui-status-bar.json"),
                 Path.of("cubism-ref/profiles/draft/cubism-5.3.02.json"),
-                "[5.3.02,5.3.03)",
+                "5.3.02",
                 SliceKind.EDITOR_UI
             )
         );
@@ -598,26 +598,26 @@ class StaticVerificationRecordRepositoryTest {
     ) {
         final LinkedHashMap<String, SliceExpectation> expectations = new LinkedHashMap<>(existing);
         expectations.put(
-            "cubism-ref/verification/cubism-5.2-ui-top-menu.json",
+            "cubism-ref/verification/cubism-5.2.03-ui-top-menu.json",
             new SliceExpectation(
                 "cubism-5.2.03.ui-top-menu.static",
                 TopMenuVerificationManifest.ADAPTER_SLICE_ID,
                 "5.2.03",
-                "cubism-5.2",
+                "cubism-5.2.03",
                 TopMenuVerificationManifest.CAPABILITY_IDS,
                 "Live2D_Cubism.jar",
                 ReviewedHostArtifacts.CUBISM_5_2_03.size(),
                 ReviewedHostArtifacts.CUBISM_5_2_03.sha256(),
-                "11ab76e5924faf92bf45b1922945a47b910886a66f364b1f85e3e49f5de3d382",
+                "05bbafb1504b809842f21419a6eda08dc5cf96ed022ee7d3bfdd7adb633c5fb9",
                 82,
                 TopMenuVerificationManifest.REQUIRED_ALIASES,
                 TopMenuVerificationManifest.REQUIRED_ALIASES,
                 topMenuMethodAliases(),
                 difference(TopMenuVerificationManifest.REQUIRED_ALIASES, topMenuMethodAliases()),
-                "cubism-5.2-ui-top-menu",
-                Path.of("cubism-ref/mapping-packs/draft/cubism-5.2-ui-top-menu.json"),
-                Path.of("cubism-ref/profiles/draft/cubism-5.2.json"),
-                "[5.2.0,5.3.0)",
+                "cubism-5.2.03-ui-top-menu",
+                Path.of("cubism-ref/mapping-packs/draft/cubism-5.2.03-ui-top-menu.json"),
+                Path.of("cubism-ref/profiles/draft/cubism-5.2.03.json"),
+                "5.2.03",
                 SliceKind.EDITOR_UI
             )
         );
@@ -641,7 +641,7 @@ class StaticVerificationRecordRepositoryTest {
                 "cubism-5.3.02-ui-top-menu",
                 Path.of("cubism-ref/mapping-packs/draft/cubism-5.3.02-ui-top-menu.json"),
                 Path.of("cubism-ref/profiles/draft/cubism-5.3.02.json"),
-                "[5.3.02,5.3.03)",
+                "5.3.02",
                 SliceKind.EDITOR_UI
             )
         );
@@ -661,7 +661,7 @@ class StaticVerificationRecordRepositoryTest {
                 ReviewedHostArtifacts.CUBISM_5_3_02.sha256(),
                 "cfba3d12584eb9ca7d601a95ca9e5a227112573b8abe7043b5961b2a0c87c82f",
                 "cubism-5.3.02-ui-control-appearance",
-                "[5.3.02,5.3.03)"
+                "5.3.02"
             )
         );
         return Map.copyOf(expectations);
@@ -674,7 +674,7 @@ class StaticVerificationRecordRepositoryTest {
         final String artifactSha256,
         final String recordSha256,
         final String packId,
-        final String versionRange
+        final String expectedCubismVersion
     ) {
         final Set<String> classAliases = Set.of(
             "cubism.ui-control-appearance.deformer-source.class",
@@ -707,7 +707,7 @@ class StaticVerificationRecordRepositoryTest {
             packId,
             Path.of("cubism-ref/mapping-packs/draft/" + packId + ".json"),
             Path.of("cubism-ref/profiles/draft/" + profile + ".json"),
-            versionRange,
+            expectedCubismVersion,
             SliceKind.EDITOR_UI
         );
     }
@@ -717,16 +717,16 @@ class StaticVerificationRecordRepositoryTest {
     ) {
         final LinkedHashMap<String, SliceExpectation> expectations = new LinkedHashMap<>(existing);
         expectations.put(
-            "cubism-ref/verification/cubism-5.2-ui-bounding-box-overlay.json",
+            "cubism-ref/verification/cubism-5.2.03-ui-bounding-box-overlay.json",
             boundingBoxOverlayExpectation(
-                "cubism-5.2.ui-bounding-box-overlay.static",
-                "5.2.0",
-                "cubism-5.2",
+                "cubism-5.2.03.ui-bounding-box-overlay.static",
+                "5.2.03",
+                "cubism-5.2.03",
                 ReviewedHostArtifacts.CUBISM_5_2_03.size(),
                 ReviewedHostArtifacts.CUBISM_5_2_03.sha256(),
-                "4eb89fba8a44cf15e4f0be6818a57ba2c0a7847cc73a7c97855d595c913aa81f",
-                "cubism-5.2-ui-bounding-box-overlay",
-                "[5.2.0,5.3.0)"
+                "88f59bf5e4fd8e24635f03362e8b1ff05a99a32329ebbd712258f22d0159bc86",
+                "cubism-5.2.03-ui-bounding-box-overlay",
+                "5.2.03"
             )
         );
         expectations.put(
@@ -739,7 +739,7 @@ class StaticVerificationRecordRepositoryTest {
                 ReviewedHostArtifacts.CUBISM_5_3_02.sha256(),
                 "606a1837c03b00c62c8711dcb5eb53fe04eb7025f78736281a2e2afacd21ce54",
                 "cubism-5.3.02-ui-bounding-box-overlay",
-                "[5.3.02,5.3.03)"
+                "5.3.02"
             )
         );
         return Map.copyOf(expectations);
@@ -753,7 +753,7 @@ class StaticVerificationRecordRepositoryTest {
         final String artifactSha256,
         final String recordSha256,
         final String packId,
-        final String versionRange
+        final String expectedCubismVersion
     ) {
         return new SliceExpectation(
             verificationId,
@@ -773,7 +773,7 @@ class StaticVerificationRecordRepositoryTest {
             packId,
             Path.of("cubism-ref/mapping-packs/draft/" + packId + ".json"),
             Path.of("cubism-ref/profiles/draft/" + profileId + ".json"),
-            versionRange,
+            expectedCubismVersion,
             SliceKind.EDITOR_UI
         );
     }
@@ -1313,7 +1313,7 @@ class StaticVerificationRecordRepositoryTest {
         final String artifactSha256,
         final String recordSha256,
         final int selectorCount,
-        final String versionRange
+        final String expectedCubismVersion
     ) {
         final Set<String> aliases = CorePublicApiSelectorContract
             .requiredAliasesFor(profile)
@@ -1344,7 +1344,7 @@ class StaticVerificationRecordRepositoryTest {
             "cubism-" + profile + "-core-model-read",
             Path.of("cubism-ref/mapping-packs/draft/cubism-" + profile + "-core-model-read.json"),
             Path.of("cubism-ref/profiles/draft/cubism-" + profile + ".json"),
-            versionRange,
+            expectedCubismVersion,
             SliceKind.CORE
         );
     }
@@ -1526,7 +1526,7 @@ class StaticVerificationRecordRepositoryTest {
         assertEquals(expectation.profileId(), profile.get("profileId").asText());
         assertTrue(asStringSet(profile.get("mappingPacks")).contains(expectation.packId()),
             "profile must reference " + expectation.packId());
-        assertEquals(expectation.expectedVersionRange(), profile.get("versionRange").asText(),
+        assertEquals(expectation.expectedCubismVersion(), profile.get("cubismVersion").asText(),
             "profile version range drifted");
         if (expectation.kind() == SliceKind.CLIP_MASK) {
             assertFalse(asStringSet(profile.get("mappingPacks"))
@@ -1598,7 +1598,7 @@ class StaticVerificationRecordRepositoryTest {
         String packId,
         Path packPath,
         Path profilePath,
-        String expectedVersionRange,
+        String expectedCubismVersion,
         SliceKind kind
     ) {
     }
