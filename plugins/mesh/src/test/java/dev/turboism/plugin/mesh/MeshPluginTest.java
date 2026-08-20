@@ -50,6 +50,7 @@ import java.util.Locale;
 import java.util.List;
 import java.util.Optional;
 
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -120,6 +121,48 @@ class MeshPluginTest {
         assertTrue(context.meshEditUi().control == null);
     }
 
+    /** Records the participant the plugin registers, so the policy's presence is assertable. */
+    static final class RecordingMeshEditParticipation
+        implements dev.turboism.sdk.cubism.mesh.MeshEditParticipation {
+
+        dev.turboism.sdk.cubism.mesh.MeshEditParticipant participant;
+
+        @Override
+        public dev.turboism.sdk.plugin.Registration participate(
+            final dev.turboism.sdk.cubism.mesh.MeshEditParticipant registered
+        ) {
+            this.participant = registered;
+            return () -> this.participant = null;
+        }
+    }
+
+    /**
+     * The mirror-linked deletion policy lives here, not in the framework. Enabling the plugin
+     * must register it, and the policy must defer to the host's own mirror toggle.
+     */
+    @org.junit.jupiter.api.Test
+    void enableRegistersTheMirrorLinkedDeletionPolicy() {
+        final RecordingPluginContext context = new RecordingPluginContext(new TestPluginLogger());
+        final MeshPlugin plugin = new MeshPlugin();
+        plugin.init(context);
+        plugin.enable();
+
+        final var participant = context.meshEditParticipation.participant;
+        assertNotNull(participant);
+
+        final var off = participant.onDeleting(new dev.turboism.sdk.cubism.mesh.MeshDeletion(
+            java.util.List.of(), java.util.List.of(),
+            new dev.turboism.sdk.cubism.mesh.MirrorAxisState(false, 0.0f), null
+        ));
+        assertTrue(off.isEmpty(), "a disabled mirror axis must contribute nothing");
+
+        final var on = participant.onDeleting(new dev.turboism.sdk.cubism.mesh.MeshDeletion(
+            java.util.List.of(), java.util.List.of(),
+            new dev.turboism.sdk.cubism.mesh.MirrorAxisState(true, 90.0f), null
+        ));
+        assertNotNull(on, "an enabled mirror axis must consult the counterpart service");
+    }
+
     private static final class RecordingPluginContext implements PluginContext {
         private final DisposableScope disposableScope = new DisposableScope();
         private final RecordingActionRegistry actions = new RecordingActionRegistry();
@@ -138,6 +181,32 @@ class MeshPluginTest {
         @Override public CubismFacade cubism() { throw new UnsupportedOperationException(); }
         @Override public CubismReadCapabilityService cubismRead() { return new FixedCubismRead(); }
         @Override public MeshMirrorAxisService meshMirrorAxis() { return meshMirrorAxis; }
+
+        final RecordingMeshEditParticipation meshEditParticipation = new RecordingMeshEditParticipation();
+
+        @Override
+        public dev.turboism.sdk.cubism.mesh.MeshEditParticipation meshEditParticipation() {
+            return meshEditParticipation;
+        }
+
+        @Override
+        public dev.turboism.sdk.cubism.mesh.MeshMirrorCounterparts meshMirrorCounterparts() {
+            return new dev.turboism.sdk.cubism.mesh.MeshMirrorCounterparts() {
+                @Override
+                public dev.turboism.sdk.cubism.mesh.MeshEditContribution mirrorOf(
+                    final dev.turboism.sdk.cubism.mesh.MeshDeletion deletion
+                ) {
+                    return dev.turboism.sdk.cubism.mesh.MeshEditContribution.none();
+                }
+
+                @Override
+                public dev.turboism.sdk.plugin.Registration overrideResolver(
+                    final dev.turboism.sdk.cubism.mesh.MeshMirrorCounterpartResolver resolver
+                ) {
+                    return () -> { };
+                }
+            };
+        }
         @Override public RecordingMeshEditUiService meshEditUi() { return meshEditUi; }
         @Override public List<PluginPermission> permissions() { return List.of(); }
         @Override public EventBus eventBus() { throw new UnsupportedOperationException(); }
