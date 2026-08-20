@@ -9,14 +9,18 @@ import java.util.Optional;
  * @param runCount number of completed runs; never negative
  * @param lastRunOutcome outcome of the most recent completed run, empty before the first one
  *     completes; its run number may not exceed {@code runCount}
- * @throws NullPointerException if {@code lastRunOutcome} is {@code null}
- * @throws IllegalArgumentException if {@code runCount} is negative or inconsistent with
- *     {@code lastRunOutcome}
  */
 public record TaskProgress(
     long runCount,
     Optional<TaskRunOutcome> lastRunOutcome
 ) {
+    /**
+     * Validates the record components.
+     *
+     * @throws NullPointerException if {@code lastRunOutcome} is {@code null}
+     * @throws IllegalArgumentException if {@code runCount} is negative or inconsistent with
+     *     {@code lastRunOutcome}
+     */
     public TaskProgress {
         if (runCount < 0) {
             throw new IllegalArgumentException("runCount must not be negative");

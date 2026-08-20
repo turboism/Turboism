@@ -51,8 +51,6 @@ public record BoundingBoxOverlayButton(
      *                 reuse {@code normal}
      * @param disabled resource path used when the button is not actionable, empty
      *                 to reuse {@code normal}
-     * @throws IllegalArgumentException when any supplied path is blank or not a
-     *     normalized classpath resource
      */
     public record IconVariants(
         String normal,
@@ -60,6 +58,12 @@ public record BoundingBoxOverlayButton(
         Optional<String> pressed,
         Optional<String> disabled
     ) {
+        /**
+         * Validates the record components.
+         *
+         * @throws IllegalArgumentException when any supplied path is blank or not a
+         *     normalized classpath resource
+         */
         public IconVariants {
             normal = requireResourcePath(normal, "normal");
             hover = normalizeResourcePath(hover, "hover");

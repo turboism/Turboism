@@ -8,10 +8,14 @@ package dev.turboism.sdk.task;
  *
  * @param code stable, machine-comparable failure identifier; non-blank, at most 128 characters
  * @param message human-readable explanation; non-blank, at most 1024 characters
- * @throws NullPointerException if a component is {@code null}
- * @throws IllegalArgumentException if a component is blank or over its length limit
  */
 public record TaskFailure(String code, String message) {
+    /**
+     * Validates the record components.
+     *
+     * @throws NullPointerException if a component is {@code null}
+     * @throws IllegalArgumentException if a component is blank or over its length limit
+     */
     public TaskFailure {
         code = TaskContracts.requireText(code, "code", 128);
         message = TaskContracts.requireText(message, "message", 1024);
