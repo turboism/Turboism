@@ -50,7 +50,7 @@ class StaticVerificationRecordRepositoryTest {
     );
     private static final Path RECORDS = PROJECT_ROOT.resolve("cubism-ref/verification");
 
-    private static final Map<String, SliceExpectation> EXPECTATIONS = withClipMask52(withAutoBackup(withStatusBar(withWorkspaceControl(withControlAppearance53(withBoundingBoxOverlays(withTopMenus(withEmbeddedPanels(Map.of(
+    private static final Map<String, SliceExpectation> EXPECTATIONS = withPerformance(withClipMask52(withAutoBackup(withStatusBar(withWorkspaceControl(withControlAppearance53(withBoundingBoxOverlays(withTopMenus(withEmbeddedPanels(Map.of(
         "cubism-ref/verification/cubism-5.2-project-workspace.json",
         new SliceExpectation(
             "m15.cubism-5.2.project-workspace.static",
@@ -130,15 +130,15 @@ class StaticVerificationRecordRepositoryTest {
         ),
         "cubism-ref/verification/cubism-5.2-ui-main-toolbar.json",
         new SliceExpectation(
-            "cubism-5.2.ui-main-toolbar.static",
+            MainToolbarVerificationManifest.RECORD_5_2_03.verificationId(),
             MainToolbarVerificationManifest.ADAPTER_SLICE_ID,
-            "5.2.0",
-            "cubism-5.2",
+            MainToolbarVerificationManifest.RECORD_5_2_03.cubismVersion(),
+            MainToolbarVerificationManifest.RECORD_5_2_03.profileId(),
             MainToolbarVerificationManifest.CAPABILITY_IDS,
             "Live2D_Cubism.jar",
             ReviewedHostArtifacts.CUBISM_5_2_03.size(),
             ReviewedHostArtifacts.CUBISM_5_2_03.sha256(),
-            "2c6b0989633c8cd2f41eb742f29ce5bcfa74b62ed48647900cb46e4fca607bb8",
+            MainToolbarVerificationManifest.RECORD_5_2_03.recordSha256(),
             25,
             MainToolbarVerificationManifest.REQUIRED_ALIASES,
             MainToolbarVerificationManifest.REQUIRED_ALIASES,
@@ -231,7 +231,7 @@ class StaticVerificationRecordRepositoryTest {
             "98f4dac9a9508a6e255f6f3862608409a83e29c9009a7f0fcf517e06658164e4",
             "b68770af94b43bafa92bbe06a3cb2017f89ed5d561c3bb08447d3eeca89d06d0",
             74, "[5.3.02,5.3.03)")
-    )))))))));
+    ))))))))));
 
     private static Map<String, SliceExpectation> withWorkspaceControl(
         final Map<String, SliceExpectation> existing
@@ -330,6 +330,88 @@ class StaticVerificationRecordRepositoryTest {
             )
         );
         return Map.copyOf(expectations);
+    }
+
+    /**
+     * The FPS-hook performance slice is bootstrap-owned rather than an adapter with a
+     * {@code Verified*HostOperations} class, so its alias sets come straight from the reviewed
+     * record: every selector is a method, and nothing is attested as a class.
+     */
+    private static Map<String, SliceExpectation> withPerformance(
+        final Map<String, SliceExpectation> existing
+    ) {
+        final LinkedHashMap<String, SliceExpectation> expectations = new LinkedHashMap<>(existing);
+        expectations.put(
+            "cubism-ref/verification/cubism-5.2.03-performance-render-scene.json",
+            performanceExpectation(
+                "cubism-5.2.03.performance.render-scene.static",
+                "5.2.03",
+                "cubism-5.2",
+                ReviewedHostArtifacts.CUBISM_5_2_03.size(),
+                ReviewedHostArtifacts.CUBISM_5_2_03.sha256(),
+                "1259db254cb690cc61ddea48272fb6d3616b1cef321caa17aff16d1c8b6fe5d1",
+                Set.of("cubism.performance.render-scene"),
+                "cubism-5.2-performance-render-scene",
+                "[5.2.0,5.3.0)"
+            )
+        );
+        expectations.put(
+            "cubism-ref/verification/cubism-5.3.02-performance-render-scene.json",
+            performanceExpectation(
+                "cubism-5.3.02.performance.render-scene.static",
+                "5.3.02",
+                "cubism-5.3.02",
+                ReviewedHostArtifacts.CUBISM_5_3_02.size(),
+                ReviewedHostArtifacts.CUBISM_5_3_02.sha256(),
+                "d1f858150f5ec2cf2be012a40d8f60dfc8639be7cfd87acd036d9ed735f86107",
+                Set.of(
+                    "cubism.performance.render-scene",
+                    "cubism.performance.modeling-pre-render-update",
+                    "cubism.performance.render-system",
+                    "cubism.performance.scene-traversal",
+                    "cubism.performance.renderer-dispatch",
+                    "cubism.performance.update-model-instances",
+                    "cubism.performance.reinit-model-instance"
+                ),
+                "cubism-5.3.02-performance-render-scene",
+                "[5.3.02,5.3.03)"
+            )
+        );
+        return Map.copyOf(expectations);
+    }
+
+    private static SliceExpectation performanceExpectation(
+        final String verificationId,
+        final String cubismVersion,
+        final String profileId,
+        final long artifactSize,
+        final String artifactSha256,
+        final String recordSha256,
+        final Set<String> aliases,
+        final String packId,
+        final String versionRange
+    ) {
+        return new SliceExpectation(
+            verificationId,
+            "adapter.cubism.performance.fps-hook",
+            cubismVersion,
+            profileId,
+            Set.of("turboism.performance.stats.read"),
+            "Live2D_Cubism.jar",
+            artifactSize,
+            artifactSha256,
+            recordSha256,
+            aliases.size(),
+            aliases,
+            aliases,
+            aliases,
+            Set.of(),
+            packId,
+            Path.of("cubism-ref/mapping-packs/draft/" + packId + ".json"),
+            Path.of("cubism-ref/profiles/draft/" + profileId + ".json"),
+            versionRange,
+            SliceKind.PERFORMANCE
+        );
     }
 
     private static Map<String, SliceExpectation> withClipMask52(
@@ -617,7 +699,7 @@ class StaticVerificationRecordRepositoryTest {
             artifactSize,
             artifactSha256,
             recordSha256,
-            38,
+            40,
             ControlAppearanceVerificationManifest.REQUIRED_ALIASES,
             ControlAppearanceVerificationManifest.REQUIRED_ALIASES,
             difference(ControlAppearanceVerificationManifest.REQUIRED_ALIASES, classAliases),
@@ -1503,7 +1585,8 @@ class StaticVerificationRecordRepositoryTest {
         CLIP_MASK,
         CORE,
         EDITOR_MODEL,
-        EDITOR_UI
+        EDITOR_UI,
+        PERFORMANCE
     }
 
     private record SliceExpectation(
