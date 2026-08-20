@@ -140,6 +140,27 @@ tasks.register<Exec>("checkCodeQuality") {
     }
 }
 
+/*
+ * Editor-model is the one capability family whose aliases are inline literals rather than
+ * constants, so it has no Verified*HostOperations.methodAliasesUsed() for a test to compare
+ * against. The repository test used a hand-maintained list instead, which drifted until it
+ * matched neither the implementation nor the record. This derives both sides.
+ */
+val checkEditorModelAliases by tasks.registering(Exec::class) {
+    group = "verification"
+    description =
+        "Rejects Editor-model selector aliases the implementation invokes without a reviewed " +
+            "record, and holds the unused-alias count non-increasing."
+    workingDir(rootDir)
+    inputs.files("scripts/test/check_editor_model_aliases.py")
+    inputs.files(
+        fileTree("runtime/src/main/java/dev/turboism/adapter/cubism") { include("**/*.java") },
+        "cubism-ref/verification/cubism-5.2.03-editor-model.json",
+        "cubism-ref/verification/cubism-5.3.02-editor-model.json"
+    )
+    commandLine("python3", "scripts/test/check_editor_model_aliases.py", rootDir.absolutePath)
+}
+
 val checkPackageLayout by tasks.registering(Exec::class) {
     group = "verification"
     description = "Rejects deprecated SDK/runtime packages and package-only production Java shells."
@@ -230,6 +251,7 @@ val devCheck by tasks.registering {
         checkPackageLayout,
         "checkModuleBoundaries",
         "checkCodeQuality",
+        checkEditorModelAliases,
         "checkSdkV4ExactApiCompatibility",
         "checkSdkV4TierCompatibility",
         "validatePluginMeta",
