@@ -13,10 +13,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class VerifiedCorePublicApiResolverFactoryTest {
 
-    private static final Path PROJECT_ROOT = locateProjectRoot();
-    private static final Path LEGACY_EVIDENCE = PROJECT_ROOT.resolveSibling(
-        "turboism-legacy"
-    ).resolve("cubism-ref");
+    private static final Path PROJECT_ROOT = EditorSelectorContractTestPaths.projectRoot();
+    private static final Path LEGACY_EVIDENCE = EditorSelectorContractTestPaths.legacyEvidence();
     private final VerifiedCorePublicApiResolverFactory factory =
         new VerifiedCorePublicApiResolverFactory();
 
@@ -84,8 +82,9 @@ class VerifiedCorePublicApiResolverFactoryTest {
     }
 
     private static Path coreArtifact(final String profile) {
+        final String evidenceDirectory = "5.2.03".equals(profile) ? "5.2" : profile;
         return LEGACY_EVIDENCE.resolve(
-            "Cubism-" + profile + "/jars/Live2DCubismCore.jar"
+            "Cubism-" + evidenceDirectory + "/jars/Live2DCubismCore.jar"
         );
     }
 
@@ -96,14 +95,4 @@ class VerifiedCorePublicApiResolverFactoryTest {
         );
     }
 
-    private static Path locateProjectRoot() {
-        Path current = Path.of(System.getProperty("user.dir")).toAbsolutePath().normalize();
-        while (current != null && !Files.isRegularFile(current.resolve("settings.gradle.kts"))) {
-            current = current.getParent();
-        }
-        if (current == null) {
-            throw new IllegalStateException("could not locate Turboism project root");
-        }
-        return current;
-    }
 }
