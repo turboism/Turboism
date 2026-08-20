@@ -16,8 +16,6 @@ import dev.turboism.sdk.cubism.write.CubismWriteCommand;
  * @param modelId the model owning the target object
  * @param objectId the model object whose bounding box is written
  * @param action the bounding-box action requested; never blank
- * @throws IllegalArgumentException when any component is null, or when {@code commandId} or
- *     {@code action} is blank
  */
 public record BoundingBoxWriteCommand(
     String commandId,
@@ -26,6 +24,12 @@ public record BoundingBoxWriteCommand(
     String action
 ) implements CubismWriteCommand {
 
+    /**
+     * Validates the record components.
+     *
+     * @throws IllegalArgumentException when any component is null, or when {@code commandId} or
+     *     {@code action} is blank
+     */
     public BoundingBoxWriteCommand {
         if (commandId == null || commandId.isBlank()) {
             throw new IllegalArgumentException("commandId must not be null or blank");

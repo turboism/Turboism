@@ -9,14 +9,18 @@ import java.util.Objects;
  * @param code    machine-readable failure classification
  * @param message human-readable detail, non-blank, at most 1024 characters and
  *                free of control characters
- * @throws NullPointerException when {@code code} is {@code null}
- * @throws IllegalArgumentException when {@code message} is blank, too long, or
- *     contains a control character
  */
 public record UserFileError(
     UserFileErrorCode code,
     String message
 ) {
+    /**
+     * Validates the record components.
+     *
+     * @throws NullPointerException when {@code code} is {@code null}
+     * @throws IllegalArgumentException when {@code message} is blank, too long, or
+     *     contains a control character
+     */
     public UserFileError {
         code = Objects.requireNonNull(code, "code");
         message = UserFileContracts.requireText(message, "message", 1024);

@@ -10,9 +10,6 @@ import java.util.List;
  * @param height atlas height in pixels; must be at least 1
  * @param textureIds unmodifiable copy of the identifiers of the textures packed into this atlas;
  *     carries no placement information, only membership
- * @throws IllegalArgumentException if {@code atlasId} is null or blank, or either dimension is
- *     less than 1
- * @throws NullPointerException if {@code textureIds} is null
  */
 public record TextureAtlasSnapshot(
     String atlasId,
@@ -20,6 +17,13 @@ public record TextureAtlasSnapshot(
     int height,
     List<String> textureIds
 ) {
+    /**
+     * Validates the record components.
+     *
+     * @throws IllegalArgumentException if {@code atlasId} is null or blank, or either dimension is
+     *     less than 1
+     * @throws NullPointerException if {@code textureIds} is null
+     */
     public TextureAtlasSnapshot {
         if (atlasId == null || atlasId.isBlank()) {
             throw new IllegalArgumentException("atlasId must not be null or blank");

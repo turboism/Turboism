@@ -9,10 +9,14 @@ import java.util.List;
  * @param title             chooser window title, non-blank
  * @param allowedExtensions defensively copied, immutable list of acceptable
  *                          file extensions; empty means no extension filter
- * @throws IllegalArgumentException when {@code id} or {@code title} is null or blank
- * @throws NullPointerException when {@code allowedExtensions} is {@code null}
  */
 public record FileChooserRequest(String id, String title, List<String> allowedExtensions) {
+    /**
+     * Validates the record components.
+     *
+     * @throws IllegalArgumentException when {@code id} or {@code title} is null or blank
+     * @throws NullPointerException when {@code allowedExtensions} is {@code null}
+     */
     public FileChooserRequest {
         if (id == null || id.isBlank()) {
             throw new IllegalArgumentException("id must not be null or blank");
