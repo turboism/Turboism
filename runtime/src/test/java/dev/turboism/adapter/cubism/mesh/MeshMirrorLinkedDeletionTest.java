@@ -19,7 +19,32 @@ final class MeshMirrorLinkedDeletionTest {
 
     @AfterEach
     void clearBridge() {
+        NativeMeshMirrorBridge.participation().resetSession();
+        NativeMeshMirrorBridge.counterparts().resetSession();
         NativeMeshMirrorBridge.uninstall();
+    }
+
+    /**
+     * The framework carries no mirror policy of its own: with nothing registered, a host
+     * deletion is untouched. This is what stops the backport being two implementations.
+     */
+    @Test
+    void deletesNothingWhenNoPluginHasRegisteredThePolicy() {
+        final List<String> diagnostics = new ArrayList<>();
+        final RuntimeMeshEditUiService ui = new RuntimeMeshEditUiService();
+        ui.contributeMirrorAxisAngleControl(new MeshEditUiService.MirrorAxisAngleControl(
+            "mesh.mirror-axis.angle", "Angle", "Reset", -180.0f, 180.0f, 0.1f, ignored -> { }
+        ));
+        NativeMeshMirrorBridge.install(new RuntimeMeshMirrorAxisService(), ui);
+        NativeMeshMirrorBridge.mirrorForTesting(new Mirror(true));
+        NativeMeshMirrorBridge.diagnostics(diagnostics::add);
+        final Mesh mesh = new Mesh(point(0, -1.0f, 0.0f), point(1, 1.0f, 0.0f));
+        final Pack pack = new Pack(mesh);
+
+        NativeMeshMirrorBridge.mirrorDeletePoints(List.of(List.of(mesh.point(0))), pack.undo, pack);
+
+        assertTrue(pack.editMode.deleted.isEmpty());
+        assertTrue(diagnostics.contains(stage("PARTICIPATION_SKIPPED reason=NO_PARTICIPANT")));
     }
 
     @Test
@@ -32,7 +57,7 @@ final class MeshMirrorLinkedDeletionTest {
         NativeMeshMirrorBridge.mirrorDeletePoints(List.of(List.of(mesh.point(0))), pack.undo, pack);
 
         assertEquals(List.of(mesh.point(1)), pack.editMode.deleted);
-        assertTrue(diagnostics.contains(stage("MIRROR_DELETE_POINTS_OK count=1 type=Point")));
+        assertTrue(diagnostics.contains(stage("PARTICIPATION_APPLIED kind=POINTS count=1")));
     }
 
     @Test
@@ -47,7 +72,7 @@ final class MeshMirrorLinkedDeletionTest {
         );
 
         assertTrue(pack.editMode.deleted.isEmpty());
-        assertTrue(diagnostics.contains(stage("MIRROR_DELETE_POINTS_SKIPPED reason=NO_COUNTERPART")));
+        assertTrue(diagnostics.contains(stage("PARTICIPATION_EMPTY kind=POINTS")));
     }
 
     @Test
@@ -89,7 +114,7 @@ final class MeshMirrorLinkedDeletionTest {
 
         NativeMeshMirrorBridge.mirrorDeletePoints(List.of(List.of()), new Object(), new Object());
 
-        assertFalse(diagnostics.stream().anyMatch(value -> value.contains("MIRROR_DELETE_POINTS_OK")));
+        assertFalse(diagnostics.stream().anyMatch(value -> value.contains("PARTICIPATION_APPLIED")));
     }
 
     @Test
@@ -110,7 +135,7 @@ final class MeshMirrorLinkedDeletionTest {
 
         assertEquals(List.of(counterpart), mesh.handler.removed);
         assertEquals(1, pack.undo.added.size());
-        assertTrue(diagnostics.contains(stage("MIRROR_DELETE_EDGE_OK count=1")));
+        assertTrue(diagnostics.contains(stage("PARTICIPATION_APPLIED kind=EDGES count=1")));
     }
 
     @Test
@@ -129,7 +154,7 @@ final class MeshMirrorLinkedDeletionTest {
 
         assertTrue(mesh.handler.removed.isEmpty());
         assertTrue(pack.undo.added.isEmpty());
-        assertTrue(diagnostics.contains(stage("MIRROR_DELETE_EDGE_SKIPPED reason=NO_COUNTERPART")));
+        assertTrue(diagnostics.contains(stage("PARTICIPATION_EMPTY kind=EDGES")));
     }
 
     private static List<String> install() {
@@ -145,7 +170,17 @@ final class MeshMirrorLinkedDeletionTest {
         NativeMeshMirrorBridge.install(new RuntimeMeshMirrorAxisService(), ui);
         NativeMeshMirrorBridge.mirrorForTesting(new Mirror(mirrorEnabled));
         NativeMeshMirrorBridge.diagnostics(diagnostics::add);
+        registerMirrorPolicy();
         return diagnostics;
+    }
+
+    /** The same policy MeshPlugin registers; the framework holds none of its own. */
+    private static void registerMirrorPolicy() {
+        NativeMeshMirrorBridge.participation().participate(deletion ->
+            deletion.mirrorAxis().enabled()
+                ? NativeMeshMirrorBridge.counterparts().mirrorOf(deletion)
+                : dev.turboism.sdk.cubism.mesh.MeshEditContribution.none()
+        );
     }
 
     /** Stands in for the host mirror singleton; reflects across a vertical axis at x = 0. */
@@ -182,6 +217,14 @@ final class MeshMirrorLinkedDeletionTest {
         public Vector(final float x, final float y) {
             this.x = x;
             this.y = y;
+        }
+
+        public float getX() {
+            return x;
+        }
+
+        public float getY() {
+            return y;
         }
 
         public float distance(final Vector other) {
