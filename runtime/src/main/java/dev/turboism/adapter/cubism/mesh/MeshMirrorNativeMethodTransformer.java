@@ -213,7 +213,7 @@ public final class MeshMirrorNativeMethodTransformer implements ClassFileTransfo
                 return null;
             }
             final byte[] transformedBytes = writer.toByteArray();
-            outcome(Outcome.HOST_OBSERVED, "MESH_MIRROR_HOST_OBSERVED owner=" + className);
+            outcome(Outcome.TARGET_TRANSFORMED, "MESH_MIRROR_TARGET_TRANSFORMED owner=" + className);
             return transformedBytes;
         } catch (RuntimeException failure) {
             reject(Outcome.TRANSFORMATION_FAILED, "MESH_MIRROR_TRANSFORMATION_FAILED owner=" + className);
@@ -229,8 +229,16 @@ public final class MeshMirrorNativeMethodTransformer implements ClassFileTransfo
         return outcome.get();
     }
 
+    public boolean targetTransformed() {
+        return outcome.get() == Outcome.TARGET_TRANSFORMED;
+    }
+
+    /**
+     * Each expectation is enforced on its own: gating one behind another would let a target
+     * pass a check its owner declared, which this fail-closed boundary must never allow.
+     */
     private boolean admit(final ClassLoader loader, final ProtectionDomain protectionDomain) {
-        if (loader == null && expectedClassLoader != null) {
+        if (loader == null && (expectedClassLoader != null || expectedArtifact != null)) {
             reject(Outcome.BOOTSTRAP_LOADER_REJECTED, "MESH_MIRROR_BOOTSTRAP_LOADER_REJECTED");
             return false;
         }
@@ -247,7 +255,7 @@ public final class MeshMirrorNativeMethodTransformer implements ClassFileTransfo
             reject(Outcome.LOADER_MISMATCH, "MESH_MIRROR_LOADER_MISMATCH");
             return false;
         }
-        if (helperInstrumentation != null && loader != null) {
+        if (helperInstrumentation != null) {
             try {
                 MeshMirrorHelperBootstrap.ensureAvailable(helperInstrumentation, loader);
             } catch (RuntimeException failure) {
@@ -255,13 +263,9 @@ public final class MeshMirrorNativeMethodTransformer implements ClassFileTransfo
                 return false;
             }
         }
-        if (loader != null
-            && !admittedClassLoader.compareAndSet(null, loader)
-            && admittedClassLoader.get() != loader) {
-            reject(Outcome.LOADER_MISMATCH, "MESH_MIRROR_LOADER_MISMATCH");
-            return false;
-        }
-        return true;
+        if (admittedClassLoader.compareAndSet(null, loader) || admittedClassLoader.get() == loader) return true;
+        reject(Outcome.LOADER_MISMATCH, "MESH_MIRROR_LOADER_MISMATCH");
+        return false;
     }
 
     private void outcome(final Outcome next, final String message) {
@@ -318,7 +322,6 @@ public final class MeshMirrorNativeMethodTransformer implements ClassFileTransfo
 
     public enum Outcome {
         NONE,
-        HOST_OBSERVED,
         TARGET_TRANSFORMED,
         TARGET_UNCHANGED,
         LOADER_MISMATCH,
