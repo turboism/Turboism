@@ -15,7 +15,7 @@ import java.util.Optional;
  * {@code cubism.ui-control-appearance.part.node-source}:</p>
  *
  * <ul>
- *   <li>Cubism 5.2.03 → {@code h()} — {@code cubism-ref/verification/cubism-5.2-ui-control-appearance.json},
+ *   <li>Cubism 5.2.03 → {@code h()} — {@code cubism-ref/verification/cubism-5.2.03-ui-control-appearance.json},
  *       mappingId {@code cubism.mapping.5_2.ui_control_appearance.method.node_source};</li>
  *   <li>Cubism 5.3.02 → {@code i()} — {@code cubism-ref/verification/cubism-5.3.02-ui-control-appearance.json},
  *       mappingId {@code cubism.mapping.5_3_02.ui_control_appearance.method.node_source}.</li>
@@ -51,7 +51,7 @@ record DeformerNodeSourceProfile(String cubismVersion, String accessorName) {
 
     /** Exact-version routing; unknown versions yield no profile (fail closed). */
     static Optional<DeformerNodeSourceProfile> forVersion(final String cubismVersion) {
-        if ("5.2.0".equals(cubismVersion) || "5.2.03".equals(cubismVersion)) {
+        if ("5.2.03".equals(cubismVersion) || "5.2.03".equals(cubismVersion)) {
             return Optional.of(new DeformerNodeSourceProfile(cubismVersion, ACCESSOR_52));
         }
         if ("5.3.02".equals(cubismVersion)) {

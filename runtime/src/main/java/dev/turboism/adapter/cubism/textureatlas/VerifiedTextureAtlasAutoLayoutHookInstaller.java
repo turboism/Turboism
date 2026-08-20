@@ -211,7 +211,7 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
                 VerifiedCubism5302TextureAtlasSelectorContract.STATISTICS_ALIASES
             );
             adapterSliceId = VerifiedCubism5302TextureAtlasSelectorContract.ADAPTER_SLICE_ID;
-        } else if (verified.isExactCubismVersion("5.2.0")) {
+        } else if (verified.isExactCubismVersion("5.2.03")) {
             aliases = union(
                 union(
                     VerifiedCubism520TextureAtlasSelectorContract.AUTO_LAYOUT_HOOK_ALIASES,

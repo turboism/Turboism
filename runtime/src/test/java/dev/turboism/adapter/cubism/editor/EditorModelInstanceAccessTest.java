@@ -25,7 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class EditorModelInstanceAccessTest {
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void readsInstancesCurrentInstanceAndEditingFlag(final String version) {
         Host.instances.clear();
         Host.instances.add(new Instance(RenderType.NORMAL));
@@ -60,7 +60,7 @@ class EditorModelInstanceAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void failsClosedWithoutExactCapabilityEvidence(final String version) {
         Host.instances.clear();
         Host.instances.add(new Instance(RenderType.NORMAL));

@@ -43,7 +43,7 @@ class EditorInspectorDrawableSelectorContractTest {
     void exact5203RecordVerifiesThe52InspectorDrawableWriteContractWithoutAlpha() throws Exception {
         final Path artifact = LEGACY_EVIDENCE.resolve("Cubism-5.2/jars/Live2D_Cubism.jar");
         final var resolver = new VerifiedEditorModelResolverFactory().create(
-            PROJECT_ROOT.resolve("cubism-ref/verification/cubism-5.2-editor-model.json"),
+            PROJECT_ROOT.resolve("cubism-ref/verification/cubism-5.2.03-editor-model.json"),
             artifact,
             loader(artifact)
         );
@@ -67,7 +67,7 @@ class EditorInspectorDrawableSelectorContractTest {
         // inspector write family must declare static access as forbidden so the
         // instance-method call site resolves instead of failing closed.
         assertInstanceBindings("Cubism-5.3.02", "cubism-5.3.02-editor-model.json");
-        assertInstanceBindings("Cubism-5.2", "cubism-5.2-editor-model.json");
+        assertInstanceBindings("Cubism-5.2", "cubism-5.2.03-editor-model.json");
     }
 
     private static void assertInstanceBindings(

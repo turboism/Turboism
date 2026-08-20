@@ -23,13 +23,13 @@ class BorrowedCoreModelSourceTest {
         final SyntheticModel model = new SyntheticModel("model-a");
         source.publishBorrowedModel(model, "model-a");
 
-        final CoreModelLease lease = source.acquire(provider("5.2"))
+        final CoreModelLease lease = source.acquire(provider("5.2.03"))
             .lease().orElseThrow();
 
         assertEquals(1L, lease.generation());
         assertEquals("model-a", lease.modelIdentity());
-        assertEquals("cubism-core-public-5.2", lease.providerId());
-        assertEquals("5.2", lease.artifactProfile());
+        assertEquals("cubism-core-public-5.2.03", lease.providerId());
+        assertEquals("5.2.03", lease.artifactProfile());
         assertEquals(
             "model-a",
             lease.readForProvider(raw -> ((SyntheticModel) raw).identity())
@@ -68,7 +68,7 @@ class BorrowedCoreModelSourceTest {
         final SyntheticModel first = new SyntheticModel("model-a");
         final SyntheticModel second = new SyntheticModel("model-b");
         source.publishBorrowedModel(first, "model-a");
-        final CoreModelLease firstLease = source.acquire(provider("5.2"))
+        final CoreModelLease firstLease = source.acquire(provider("5.2.03"))
             .lease().orElseThrow();
 
         final AtomicReference<Throwable> replacementFailure = new AtomicReference<>();
@@ -84,7 +84,7 @@ class BorrowedCoreModelSourceTest {
 
         assertEquals(
             CoreModelFailure.Code.TRANSITION_IN_PROGRESS,
-            failureCode(source.acquire(provider("5.2")))
+            failureCode(source.acquire(provider("5.2.03")))
         );
         assertEquals("model-a", firstLease.readForProvider(
             raw -> ((SyntheticModel) raw).identity()
@@ -114,7 +114,7 @@ class BorrowedCoreModelSourceTest {
         final BorrowedCoreModelSource source = new BorrowedCoreModelSource();
         final SyntheticModel model = new SyntheticModel("model-a");
         source.publishBorrowedModel(model, "model-a");
-        final CoreModelLease lease = source.acquire(provider("5.2"))
+        final CoreModelLease lease = source.acquire(provider("5.2.03"))
             .lease().orElseThrow();
 
         final AtomicReference<Throwable> closeFailure = new AtomicReference<>();
@@ -126,7 +126,7 @@ class BorrowedCoreModelSourceTest {
         awaitWaiting(closing);
         assertEquals(
             CoreModelFailure.Code.TRANSITION_IN_PROGRESS,
-            failureCode(source.acquire(provider("5.2")))
+            failureCode(source.acquire(provider("5.2.03")))
         );
 
         lease.close();
@@ -134,7 +134,7 @@ class BorrowedCoreModelSourceTest {
         assertNull(closeFailure.get());
         assertEquals(
             CoreModelFailure.Code.SOURCE_CLOSED,
-            failureCode(source.acquire(provider("5.2")))
+            failureCode(source.acquire(provider("5.2.03")))
         );
         source.close();
         assertNoLifecycleCalls(model);
@@ -178,7 +178,7 @@ class BorrowedCoreModelSourceTest {
     void leaseCloseWaitsForInFlightScopedRead() {
         final BorrowedCoreModelSource source = new BorrowedCoreModelSource();
         source.publishBorrowedModel(new SyntheticModel("model-a"), "model-a");
-        final CoreModelLease lease = source.acquire(provider("5.2"))
+        final CoreModelLease lease = source.acquire(provider("5.2.03"))
             .lease().orElseThrow();
         final java.util.concurrent.CountDownLatch readEntered =
             new java.util.concurrent.CountDownLatch(1);

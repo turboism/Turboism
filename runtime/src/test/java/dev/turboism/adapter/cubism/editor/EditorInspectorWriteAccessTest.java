@@ -255,7 +255,7 @@ class EditorInspectorWriteAccessTest {
     // ------------------------------------------------------------------
 
     private static VerifiedMemberResolver resolver(final boolean cubism52) {
-        final String version = cubism52 ? "5.2.0" : "5.3.02";
+        final String version = cubism52 ? "5.2.03" : "5.3.02";
         final List<StaticSelector> selectors = new ArrayList<>();
         selectors.add(StaticSelector.classSelector("cubism.editor-model.app-controller.class", internal(Host.class)));
         selectors.add(StaticSelector.staticMethod(

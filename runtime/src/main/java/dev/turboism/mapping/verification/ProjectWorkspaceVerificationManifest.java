@@ -12,7 +12,7 @@ import java.util.Set;
 public final class ProjectWorkspaceVerificationManifest {
 
     /** Cubism version reported for the reviewed 5.2.03 artifact. */
-    public static final String CUBISM_VERSION_5_2_03 = "5.2.0";
+    public static final String CUBISM_VERSION_5_2_03 = "5.2.03";
 
     /** Cubism version reported for the reviewed 5.3.02 artifact. */
     public static final String CUBISM_VERSION_5_3_02 = "5.3.02";
@@ -20,10 +20,10 @@ public final class ProjectWorkspaceVerificationManifest {
     /** Reviewed project/workspace record admitted for exact Cubism 5.2.03. */
     public static final ReviewedSliceRecord RECORD_5_2_03 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_2_03,
-        "m15.cubism-5.2.project-workspace.static",
-        "661be268ad68726eecfdad7ca385f0c52c0105f1180c72813547504b23f81003",
+        "m15.cubism-5.2.03.project-workspace.static",
+        "843afabdc017b699db50c0424ca326a3a0f55a213d54f35ba6b5ed9c11e074ac",
         CUBISM_VERSION_5_2_03,
-        "cubism-5.2"
+        "cubism-5.2.03"
     );
 
     /** Reviewed project/workspace record admitted for exact Cubism 5.3.02. */

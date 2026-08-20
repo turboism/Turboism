@@ -35,7 +35,7 @@ class CoreStructuralTracerTest {
         final CoreStructuralSnapshot snapshot53;
 
         try (
-            Harness harness52 = harness("5.2", data.model);
+            Harness harness52 = harness("5.2.03", data.model);
             Harness harness53 = harness("5.3.02", data.model)
         ) {
             snapshot52 = harness52.tracer.trace(harness52.lease)
@@ -46,8 +46,8 @@ class CoreStructuralTracerTest {
 
         assertEquals(1L, snapshot52.generation());
         assertEquals("model-a", snapshot52.modelIdentity());
-        assertEquals("cubism-core-public-5.2", snapshot52.providerId());
-        assertEquals("5.2", snapshot52.artifactProfile());
+        assertEquals("cubism-core-public-5.2.03", snapshot52.providerId());
+        assertEquals("5.2.03", snapshot52.artifactProfile());
         assertEquals(
             new CoreCanvasSnapshot(1000.0F, 500.0F, 500.0F, 250.0F, 100.0F),
             snapshot52.canvas()
@@ -132,7 +132,7 @@ class CoreStructuralTracerTest {
     void rejectsIncompleteProfileSpecificEvidenceBeforeBinding() {
         assertEquals(
             72,
-            CorePublicApiSelectorContract.requiredAliasesFor("5.2")
+            CorePublicApiSelectorContract.requiredAliasesFor("5.2.03")
                 .orElseThrow().size()
         );
         assertEquals(
@@ -144,7 +144,7 @@ class CoreStructuralTracerTest {
         final CoreProviderResult<CorePublicApiProvider> missingCommon =
             CorePublicApiProviderFactory.admit(
                 TestCoreApiFixture.resolver(
-                    "5.2",
+                    "5.2.03",
                     CorePublicApiSelectorContract.MODEL_GET_PARAMETERS
                 ),
                 CoreVersionExpectation.exact(11, 12, 13)
@@ -171,7 +171,7 @@ class CoreStructuralTracerTest {
     @Test
     void rejectsProviderResolverAndLeaseProfileMismatches() {
         final VerifiedMemberResolver resolver52 =
-            TestCoreApiFixture.resolver("5.2");
+            TestCoreApiFixture.resolver("5.2.03");
         final CorePublicApiProvider provider52 = admittedProvider(resolver52);
         final CoreProviderResult<CoreStructuralTracer> mismatchedResolver =
             CoreStructuralTracerFactory.admit(
@@ -249,7 +249,7 @@ class CoreStructuralTracerTest {
     @Test
     void closedAndStaleLeasesHaveDistinctSanitizedFailures() {
         final VerifiedMemberResolver resolver =
-            TestCoreApiFixture.resolver("5.2");
+            TestCoreApiFixture.resolver("5.2.03");
         final CorePublicApiProvider provider = admittedProvider(resolver);
         final CoreStructuralTracer tracer = CoreStructuralTracerFactory.admit(
             provider,
@@ -294,7 +294,7 @@ class CoreStructuralTracerTest {
     @Test
     void generationChangeDuringProjectionDiscardsTheCompletedSnapshot() {
         final VerifiedMemberResolver resolver =
-            TestCoreApiFixture.resolver("5.2");
+            TestCoreApiFixture.resolver("5.2.03");
         final CorePublicApiProvider provider = admittedProvider(resolver);
         final CoreStructuralTracer tracer = CoreStructuralTracerFactory.admit(
             provider,
@@ -337,7 +337,7 @@ class CoreStructuralTracerTest {
     @Test
     void tracerCloseReleasesCallSitesAndFutureReadsFailClosed() {
         final ModelData data = validModelData();
-        final Harness harness = harness("5.2", data.model);
+        final Harness harness = harness("5.2.03", data.model);
         harness.tracer.close();
         harness.tracer.close();
 
@@ -366,7 +366,7 @@ class CoreStructuralTracerTest {
                     await(releaseRead);
                 }
             );
-        final Harness harness = harness("5.2", blockingModel);
+        final Harness harness = harness("5.2.03", blockingModel);
         final AtomicReference<CoreProviderResult<CoreStructuralSnapshot>> result =
             new AtomicReference<>();
         final AtomicReference<Throwable> readFailure = new AtomicReference<>();

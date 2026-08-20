@@ -16,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class StatusBarVerificationManifestTest {
 
     private static final String RECORD_NAME = "cubism-5.3.02-ui-status-bar.json";
-    private static final String RECORD_NAME_52 = "cubism-5.2-ui-status-bar.json";
+    private static final String RECORD_NAME_52 = "cubism-5.2.03-ui-status-bar.json";
     private static final HostArtifactDigest REVIEWED_5302 = ReviewedHostArtifacts.CUBISM_5_3_02;
     private static final HostArtifactDigest REVIEWED_52 = ReviewedHostArtifacts.CUBISM_5_2_03;
 
@@ -104,7 +104,7 @@ class StatusBarVerificationManifestTest {
         assertEquals(21, recordMappingIds.size());
 
         final JsonNode pack = mapper.readTree(repositoryPath(
-            "cubism-ref/mapping-packs/draft/cubism-5.2-ui-status-bar.json").toFile());
+            "cubism-ref/mapping-packs/draft/cubism-5.2.03-ui-status-bar.json").toFile());
         assertEquals("DRAFT", pack.get("status").asText(),
             "the 5.2 status-bar mapping pack must stay DRAFT");
         assertEquals("5.2.03", pack.get("cubismVersion").asText());
@@ -112,18 +112,18 @@ class StatusBarVerificationManifestTest {
         final Set<String> packSemanticNames = new HashSet<>();
         for (JsonNode entry : pack.get("entries")) {
             packSemanticNames.add(entry.get("semanticName").asText());
-            assertEquals("cubism-5.2", entry.get("profile").asText());
+            assertEquals("cubism-5.2.03", entry.get("profile").asText());
             assertEquals("DRAFT", entry.get("status").asText());
         }
         assertEquals(recordMappingIds, packSemanticNames,
             "record selectors and mapping entries must match bidirectionally");
 
         final JsonNode profile = mapper.readTree(repositoryPath(
-            "cubism-ref/profiles/draft/cubism-5.2.json").toFile());
-        assertEquals("[5.2.0,5.3.0)", profile.get("versionRange").asText());
+            "cubism-ref/profiles/draft/cubism-5.2.03.json").toFile());
+        assertEquals("5.2.03", profile.get("cubismVersion").asText());
         boolean listed = false;
         for (JsonNode packId : profile.get("mappingPacks")) {
-            listed |= "cubism-5.2-ui-status-bar".equals(packId.asText());
+            listed |= "cubism-5.2.03-ui-status-bar".equals(packId.asText());
         }
         assertTrue(listed, "the 5.2 profile must list the status-bar mapping pack");
     }

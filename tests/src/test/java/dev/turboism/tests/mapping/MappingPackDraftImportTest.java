@@ -226,10 +226,10 @@ class MappingPackDraftImportTest {
     @Test
     void editorModel52PackUsesExactEditorProvenance() throws Exception {
         JsonNode metadata = mapper.readTree(
-            DRAFT_DIR.resolve("cubism-5.2-editor-model-read.json").toFile()
+            DRAFT_DIR.resolve("cubism-5.2.03-editor-model-read.json").toFile()
         ).path("metadata");
         assertEquals(
-            "cubism-ref/verification/cubism-5.2-editor-model.json",
+            "cubism-ref/verification/cubism-5.2.03-editor-model.json",
             metadata.path("inventoryRef").asText()
         );
         assertEquals(

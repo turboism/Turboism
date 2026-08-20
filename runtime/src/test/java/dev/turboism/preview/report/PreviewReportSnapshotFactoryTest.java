@@ -30,7 +30,7 @@ class PreviewReportSnapshotFactoryTest {
     void previewRuntimeReportUsesTheExactVerificationRecordVersionForActiveHosts() throws Exception {
         assertEquals(
             "5.2.03",
-            hostVersion(temporary.resolve("record-52.json"), "5.2.0", HostSession.State.ACTIVE),
+            hostVersion(temporary.resolve("record-52.json"), "5.2.03", HostSession.State.ACTIVE),
             "the 5.2 verification record must report the reviewed product version 5.2.03"
         );
         assertEquals(

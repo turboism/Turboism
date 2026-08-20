@@ -61,7 +61,7 @@ class EditorModelTextureAuthorizationGuardTest {
     @Test
     void cubism52RecordContainsEveryTextureContractAlias() throws Exception {
         assertRecordCoversContract(
-            projectRoot().resolve("cubism-ref/verification/cubism-5.2-editor-model.json"),
+            projectRoot().resolve("cubism-ref/verification/cubism-5.2.03-editor-model.json"),
             EditorTextureSelectorContract.READ_REQUIRED_ALIASES,
             EditorTextureSelectorContract.WRITE_REQUIRED_ALIASES
         );
@@ -109,7 +109,7 @@ class EditorModelTextureAuthorizationGuardTest {
     @Test
     void pinnedRecordSha256sMatchTheReviewedRecordFiles() throws Exception {
         final Path record52 = projectRoot().resolve(
-            "cubism-ref/verification/cubism-5.2-editor-model.json"
+            "cubism-ref/verification/cubism-5.2.03-editor-model.json"
         );
         final Path record5302 = projectRoot().resolve(
             "cubism-ref/verification/cubism-5.3.02-editor-model.json"

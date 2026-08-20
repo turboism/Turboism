@@ -38,7 +38,7 @@ public record ProjectLifecycleHostProfile(
     ) {
         Objects.requireNonNull(artifact, "artifact");
         final String version;
-        if (artifact.equals(CUBISM_52)) version = "5.2.0";
+        if (artifact.equals(CUBISM_52)) version = "5.2.03";
         else if (artifact.equals(CUBISM_53)) version = "5.3.02";
         else return Optional.empty();
 

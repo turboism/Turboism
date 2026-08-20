@@ -21,9 +21,9 @@ public final class EmbeddedPanelVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_2_03 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_2_03,
         "cubism-5.2.03.ui-embedded-panel.static",
-        "cd3238ac79ece01dbac0ca9b83c428d49c05f11d48ba1b213253362d37807ec4",
+        "5ec9331ab80b79f6eff6777f282738bfbe26400620b2e27e23715963a23b7d89",
         CUBISM_VERSION_5_2_03,
-        "cubism-5.2"
+        "cubism-5.2.03"
     );
 
     /** Reviewed embedded-panel record admitted for exact Cubism 5.3.02. */

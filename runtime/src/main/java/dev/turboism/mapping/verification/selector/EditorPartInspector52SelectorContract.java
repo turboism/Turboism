@@ -10,7 +10,7 @@ import java.util.Set;
  */
 public final class EditorPartInspector52SelectorContract {
 
-    public static final String CUBISM_VERSION = "5.2.0";
+    public static final String CUBISM_VERSION = "5.2.03";
     public static final String ADAPTER_SLICE_ID = EditorPartInspectorSelectorContract.ADAPTER_SLICE_ID;
     public static final String CAPABILITY_ID = "cubism.editor-model.part-inspector.id-write";
     public static final Set<String> REQUIRED_ALIASES = Set.of(
