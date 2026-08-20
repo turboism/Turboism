@@ -17,8 +17,6 @@ import dev.turboism.sdk.cubism.write.CubismWriteCommand;
  * @param modelId the model both meshes belong to; must not be {@code null}
  * @param sourceMeshId the mesh whose geometry is read; must not be {@code null}
  * @param targetMeshId the mesh the mirrored geometry is written to; must not be {@code null}
- * @throws IllegalArgumentException if any component is {@code null}, or if {@code commandId} is
- *     blank
  */
 @PreviewApi
 public record MirrorWritebackCommand(
@@ -28,6 +26,12 @@ public record MirrorWritebackCommand(
     ModelObjectId targetMeshId
 ) implements CubismWriteCommand {
 
+    /**
+     * Validates the record components.
+     *
+     * @throws IllegalArgumentException if any component is {@code null}, or if {@code commandId} is
+     *     blank
+     */
     public MirrorWritebackCommand {
         if (commandId == null || commandId.isBlank()) {
             throw new IllegalArgumentException("commandId must not be null or blank");

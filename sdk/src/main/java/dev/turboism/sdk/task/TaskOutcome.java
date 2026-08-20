@@ -17,9 +17,6 @@ import java.util.Optional;
  * @param lastRunOutcome outcome of the most recent run, empty when no run ever completed; its
  *     run number may not exceed {@code runCount}
  * @param failure failure detail, present exactly for the failing statuses above
- * @throws NullPointerException if {@code id}, {@code status} or either {@link java.util.Optional}
- *     is {@code null}
- * @throws IllegalArgumentException if any of the invariants above is violated
  */
 public record TaskOutcome(
     TaskId id,
@@ -28,6 +25,13 @@ public record TaskOutcome(
     Optional<TaskRunOutcome> lastRunOutcome,
     Optional<TaskFailure> failure
 ) {
+    /**
+     * Validates the record components.
+     *
+     * @throws NullPointerException if {@code id}, {@code status} or either {@link java.util.Optional}
+     *     is {@code null}
+     * @throws IllegalArgumentException if any of the invariants above is violated
+     */
     public TaskOutcome {
         id = Objects.requireNonNull(id, "id");
         status = Objects.requireNonNull(status, "status");

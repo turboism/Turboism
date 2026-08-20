@@ -10,7 +10,6 @@ import java.util.Objects;
  * @param kind workload class the scheduler uses to pick an execution lane
  * @param priority relative ordering hint within that lane
  * @param action the work to run
- * @throws NullPointerException if any component is {@code null}
  */
 public record PluginTaskRequest(
     TaskId id,
@@ -18,6 +17,11 @@ public record PluginTaskRequest(
     PluginTaskPriority priority,
     PluginTaskAction action
 ) {
+    /**
+     * Validates the record components.
+     *
+     * @throws NullPointerException if any component is {@code null}
+     */
     public PluginTaskRequest {
         id = Objects.requireNonNull(id, "id");
         kind = Objects.requireNonNull(kind, "kind");

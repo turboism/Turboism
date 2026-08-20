@@ -7,10 +7,14 @@ package dev.turboism.sdk.ui;
  * @param width      viewport width in pixels, at least 1
  * @param height     viewport height in pixels, at least 1
  * @param zoom       viewport zoom factor, strictly positive
- * @throws IllegalArgumentException when the id is null or blank, a dimension is
- *     below 1, or {@code zoom} is not positive
  */
 public record ViewportSnapshot(String viewportId, int width, int height, double zoom) {
+    /**
+     * Validates the record components.
+     *
+     * @throws IllegalArgumentException when the id is null or blank, a dimension is
+     *     below 1, or {@code zoom} is not positive
+     */
     public ViewportSnapshot {
         if (viewportId == null || viewportId.isBlank()) {
             throw new IllegalArgumentException("viewportId must not be null or blank");

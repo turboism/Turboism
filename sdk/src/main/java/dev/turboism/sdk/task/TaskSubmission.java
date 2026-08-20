@@ -13,15 +13,19 @@ import java.util.Optional;
  * @param handle handle for the submitted task; never {@code null}
  * @param rejectionReason why the task was refused; present exactly when {@code status} is
  *     {@link TaskSubmissionStatus#REJECTED}
- * @throws NullPointerException if any component is {@code null}
- * @throws IllegalArgumentException if the presence of {@code rejectionReason} does not match
- *     {@code status}
  */
 public record TaskSubmission(
     TaskSubmissionStatus status,
     TaskHandle handle,
     Optional<TaskRejectionReason> rejectionReason
 ) {
+    /**
+     * Validates the record components.
+     *
+     * @throws NullPointerException if any component is {@code null}
+     * @throws IllegalArgumentException if the presence of {@code rejectionReason} does not match
+     *     {@code status}
+     */
     public TaskSubmission {
         status = Objects.requireNonNull(status, "status");
         handle = Objects.requireNonNull(handle, "handle");
