@@ -161,6 +161,29 @@ val checkEditorModelAliases by tasks.registering(Exec::class) {
     commandLine("python3", "scripts/test/check_editor_model_aliases.py", rootDir.absolutePath)
 }
 
+val checkCubismApiAvailabilityDocs by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Verifies generated exact Cubism Editor SDK availability documentation."
+    dependsOn(":sdk:jar")
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/test/generate_cubism_api_availability.py",
+        fileTree("sdk/src/main/java/dev/turboism/sdk/cubism") { include("**/*.java") },
+        "sdk/src/main/java/dev/turboism/sdk/Cubism.java"
+    )
+    val report = layout.buildDirectory.file("reports/cubism-api-availability.md")
+    outputs.file(report)
+    val sdkJar = project(":sdk").tasks.named<org.gradle.jvm.tasks.Jar>("jar")
+        .flatMap { it.archiveFile }
+    doFirst {
+        commandLine(
+            "python3", "scripts/test/generate_cubism_api_availability.py",
+            "--sdk-jar", sdkJar.get().asFile.absolutePath,
+            "--output", report.get().asFile.absolutePath
+        )
+    }
+}
+
 val checkPackageLayout by tasks.registering(Exec::class) {
     group = "verification"
     description = "Rejects deprecated SDK/runtime packages and package-only production Java shells."
@@ -252,6 +275,7 @@ val devCheck by tasks.registering {
         "checkModuleBoundaries",
         "checkCodeQuality",
         checkEditorModelAliases,
+        checkCubismApiAvailabilityDocs,
         "checkSdkV4ExactApiCompatibility",
         "checkSdkV4TierCompatibility",
         "validatePluginMeta",
