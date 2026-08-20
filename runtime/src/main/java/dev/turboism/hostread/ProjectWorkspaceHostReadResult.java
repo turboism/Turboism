@@ -19,6 +19,11 @@ public record ProjectWorkspaceHostReadResult(
         }
     }
 
+    /**
+     * @param value snapshot read from the host
+     * @return a successful result carrying the snapshot and no error code
+     * @throws NullPointerException if {@code value} is {@code null}
+     */
     public static ProjectWorkspaceHostReadResult available(
         final ProjectWorkspaceSnapshot value
     ) {
@@ -28,6 +33,12 @@ public record ProjectWorkspaceHostReadResult(
         );
     }
 
+    /**
+     * @param errorCode why the read could not produce a snapshot
+     * @return a failed result carrying only the code; the underlying throwable,
+     *     if any, deliberately does not cross this boundary
+     * @throws NullPointerException if {@code errorCode} is {@code null}
+     */
     public static ProjectWorkspaceHostReadResult failed(
         final AsyncHostReadErrorCode errorCode
     ) {

@@ -16,14 +16,29 @@ public final class CancellationContext {
         // Utility class.
     }
 
+    /**
+     * Binds a token to the calling thread. The runtime calls this immediately before invoking a
+     * plugin work item and must pair it with {@link #clear()} in a {@code finally} block,
+     * otherwise the token leaks onto a pooled thread and a later, unrelated work item observes a
+     * stale cancellation state.
+     *
+     * @param token the token for the work item about to run on this thread
+     */
     public static void set(final RuntimeCancellationToken token) {
         CURRENT.set(token);
     }
 
+    /**
+     * @return the token bound to the calling thread, or {@code null} when this thread is not
+     *     currently executing a plugin work item
+     */
     public static RuntimeCancellationToken get() {
         return CURRENT.get();
     }
 
+    /**
+     * Unbinds the calling thread's token. Safe to call when nothing is bound.
+     */
     public static void clear() {
         CURRENT.remove();
     }

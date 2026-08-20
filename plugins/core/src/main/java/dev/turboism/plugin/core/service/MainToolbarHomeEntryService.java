@@ -17,6 +17,19 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+/**
+ * Builds the core plugin's entry points into the Editor: the Turboism embedded panel, the main
+ * toolbar button, and the Turboism menu items (settings, plugin management, logs, about).
+ *
+ * <p>Each {@code register*} method contributes exactly one item and hands back its
+ * {@link Registration}; the service keeps no list of what it registered, so the caller owns
+ * unregistration. Menu labels are resolved through {@link PluginLocalization} at registration time,
+ * falling back to an English literal when the catalog has no entry for the key, so a missing
+ * translation never surfaces a raw resource key to the user.
+ *
+ * <p>Registration and activation reach into the host UI and are expected to run on the Cubism host
+ * thread.
+ */
 public final class MainToolbarHomeEntryService {
 
     public static final String ACTION_ID = "turboism.core.open";
@@ -91,6 +104,11 @@ public final class MainToolbarHomeEntryService {
         this.plugins = Objects.requireNonNull(plugins, "plugins");
     }
 
+    /**
+     * Contributes the Turboism embedded panel to the right-hand dock, initially empty.
+     *
+     * @return the panel registration; closing it removes the panel from the host
+     */
     public Registration registerTurboismPanel() {
         return uiHost.contributeEmbeddedPanel(new EmbeddedPanelContribution(
             TURBOISM_PANEL_ID.value(), localized(TURBOISM_MENU_ROOT_KEY, "Turboism"), "right", 0,
@@ -98,6 +116,12 @@ public final class MainToolbarHomeEntryService {
         ));
     }
 
+    /**
+     * Contributes the Turboism button to the main toolbar, placed immediately after the host's own
+     * home entry.
+     *
+     * @return the button registration; closing it removes the button from the toolbar
+     */
     public Registration registerHomeEntry() {
         return mainToolbar.contributeButton(new MainToolbarRegistry.MainToolbarButtonContribution(
             CONTRIBUTION_ID, ACTION_ID, LABEL_KEY, TOOLTIP_KEY,
@@ -109,18 +133,38 @@ public final class MainToolbarHomeEntryService {
         ));
     }
 
+    /**
+     * Contributes the Settings item under the Turboism menu.
+     *
+     * @return the menu registration; closing it removes the item
+     */
     public Registration registerSettingsMenu() {
         return menu(localization.text(SETTINGS_MENU_LABEL_KEY), SETTINGS_ACTION_ID, ORDER);
     }
 
+    /**
+     * Contributes the plugin-management item under the Turboism menu, ordered after Settings.
+     *
+     * @return the menu registration; closing it removes the item
+     */
     public Registration registerPluginManagementMenu() {
         return menu(localization.text(PLUGINS_MENU_LABEL_KEY), PLUGINS_ACTION_ID, ORDER + 1);
     }
 
+    /**
+     * Contributes the Logs item under the Turboism menu, ordered after plugin management.
+     *
+     * @return the menu registration; closing it removes the item
+     */
     public Registration registerLogsMenu() {
         return menu(localization.text(LOGS_MENU_LABEL_KEY), LOGS_ACTION_ID, ORDER + 2);
     }
 
+    /**
+     * Contributes the About item under the Turboism menu, last of the four.
+     *
+     * @return the menu registration; closing it removes the item
+     */
     public Registration registerAboutMenu() {
         return menu(localization.text(ABOUT_MENU_LABEL_KEY), ABOUT_ACTION_ID, ORDER + 3);
     }
@@ -139,6 +183,12 @@ public final class MainToolbarHomeEntryService {
         return key.equals(value) ? fallback : value;
     }
 
+    /**
+     * Brings the Turboism panel to the front of its dock.
+     *
+     * <p>Only activates an already-contributed panel; it does not register one, so calling this
+     * before {@link #registerTurboismPanel()} has no panel to show.
+     */
     public void openTurboismPanel() {
         uiHost.activateEmbeddedPanel(TURBOISM_PANEL_ID);
     }

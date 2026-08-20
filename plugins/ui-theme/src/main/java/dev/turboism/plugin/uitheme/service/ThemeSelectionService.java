@@ -23,6 +23,18 @@ public final class ThemeSelectionService {
         this.selections = Objects.requireNonNull(selections, "selections");
     }
 
+    /**
+     * Applies the package's appearance and persists the selection only if the host accepted it.
+     *
+     * <p>Ordering is the guarantee: a rejected apply leaves the persisted selection untouched, so the
+     * store never names a theme that is not actually in force. {@code NO_CHANGE} counts as acceptance.
+     * Blocks on the appearance service.
+     *
+     * @param theme the package to make current
+     * @return {@code SELECTED} with the selection persisted, or {@code APPLY_FAILED} with nothing
+     *     changed, carrying the host's diagnostic id in either case
+     * @throws NullPointerException if {@code theme} is {@code null}
+     */
     public SelectionResult select(final ThemePackageData theme) {
         Objects.requireNonNull(theme, "theme");
         final long revision = appearance.current().toCompletableFuture().join().revision();
@@ -52,6 +64,18 @@ public final class ThemeSelectionService {
         return new SelectionResult(SelectionOutcome.RESTORE_FAILED, restored.diagnosticId());
     }
 
+    /**
+     * Clears a persisted selection that names a package which no longer exists, restoring the native
+     * appearance first.
+     *
+     * <p>Fails closed: if the restore is refused, the selection is deliberately left in place and
+     * {@code RESTORE_FAILED} is returned rather than clearing state the host did not release. A present
+     * or absent-but-valid selection is {@code NO_CHANGE}.
+     *
+     * @param themes lookup used to decide whether the selected id still resolves to a package
+     * @return {@code NO_CHANGE}, {@code INVALID_SELECTION_CLEARED}, or {@code RESTORE_FAILED}
+     * @throws NullPointerException if {@code themes} is {@code null}
+     */
     public SelectionResult restoreIfSelectionIsMissing(final ThemeLookup themes) {
         Objects.requireNonNull(themes, "themes");
         final Optional<String> selectedId = selections.selectedThemeId();
@@ -71,6 +95,21 @@ public final class ThemeSelectionService {
         return new SelectionResult(SelectionOutcome.RESTORE_FAILED, restored.diagnosticId());
     }
 
+    /**
+     * Deletes one package, restoring the native appearance first when that package is the one currently
+     * selected.
+     *
+     * <p>Order matters: when the target is selected, the appearance is released before the delete runs
+     * and the selection is cleared after, so a refused restore ({@code RESTORE_FAILED}) leaves the
+     * package on disk and still applied. Deleting a package that is not selected touches neither the
+     * appearance nor the store.
+     *
+     * @param themeId the package to delete, must not be blank
+     * @param delete the deletion action to run; exceptions it throws propagate to the caller
+     * @return {@code DELETED}, or {@code RESTORE_FAILED} with nothing deleted
+     * @throws IllegalArgumentException if {@code themeId} is null or blank
+     * @throws NullPointerException if {@code delete} is {@code null}
+     */
     public SelectionResult delete(final String themeId, final ThemeDelete delete) {
         if (themeId == null || themeId.isBlank()) {
             throw new IllegalArgumentException("themeId must not be blank");
@@ -101,6 +140,12 @@ public final class ThemeSelectionService {
         DELETED
     }
 
+    /**
+     * Outcome of a selection, restore or delete attempt.
+     *
+     * @param outcome what happened, including the failure modes that changed nothing
+     * @param diagnosticId the appearance host's diagnostic reference when it supplied one
+     */
     public record SelectionResult(
         SelectionOutcome outcome,
         Optional<String> diagnosticId

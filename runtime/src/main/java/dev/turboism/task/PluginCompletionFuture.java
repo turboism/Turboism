@@ -32,14 +32,36 @@ public final class PluginCompletionFuture<T> {
         this.stage = new ControlledFuture<>(dispatcher, continuationAdmission);
     }
 
+    /**
+     * Completes the stage normally, from the runtime side. Plugins cannot do this — the stage view
+     * they hold rejects {@code complete}.
+     *
+     * @param value the result to publish; {@code null} is permitted
+     * @return {@code true} if this call settled the stage, {@code false} if it was already settled
+     */
     public boolean settle(final T value) {
         return stage.runtimeSettle(value);
     }
 
+    /**
+     * Completes the stage exceptionally, from the runtime side. Plugins cannot do this — the stage
+     * view they hold rejects {@code completeExceptionally}.
+     *
+     * @param failure the failure to publish; must not be {@code null}
+     * @return {@code true} if this call settled the stage, {@code false} if it was already settled
+     * @throws NullPointerException if {@code failure} is {@code null}
+     */
     public boolean settleExceptionally(final Throwable failure) {
         return stage.runtimeSettleExceptionally(Objects.requireNonNull(failure, "failure"));
     }
 
+    /**
+     * @return the plugin-facing view of this completion: every continuation it registers is dispatched
+     *     through the runtime's dispatcher rather than a plugin-chosen executor, any attempt to
+     *     complete or obtrude a value throws {@code UnsupportedOperationException}, cancellation is
+     *     silently refused, and registering a continuation once the owning scope is closing throws
+     *     {@code IllegalStateException}
+     */
     public CompletionStage<T> stage() {
         return stage;
     }

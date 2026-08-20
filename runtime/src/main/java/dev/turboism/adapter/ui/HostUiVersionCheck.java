@@ -6,6 +6,14 @@ import dev.turboism.core.version.VersionRange;
 import java.util.Objects;
 import java.util.Optional;
 
+/**
+ * Decides whether the running Cubism host version is inside the scope a {@code ui.*} capability
+ * has been reviewed against.
+ *
+ * <p>Most UI capabilities are admitted only on the 5.3 line; {@code ui.status.notify} is the one
+ * capability with exact-version evidence on both admitted hosts (5.2.03 and 5.3.02) and so uses a
+ * wider scope. This is a static utility and cannot be instantiated.</p>
+ */
 public final class HostUiVersionCheck {
 
     public static final String HOST_VERSION_SCOPE = "[5.3.0,5.4.0)";
@@ -25,6 +33,19 @@ public final class HostUiVersionCheck {
     private HostUiVersionCheck() {
     }
 
+    /**
+     * Checks {@code hostVersion} against the scope reviewed for {@code capabilityId}.
+     *
+     * <p>An unparsable version string is treated exactly like an out-of-scope one: no exception
+     * escapes, the caller simply receives the unsupported diagnostic.</p>
+     *
+     * @param capabilityId capability being guarded; selects the wider status-notify scope when it
+     *     equals {@link #STATUS_NOTIFY_CAPABILITY_ID}
+     * @param hostVersion version string reported by the host
+     * @return empty when the host is in scope, otherwise a
+     *     {@link SafeModeDiagnostic.Code#HOST_VERSION_UNSUPPORTED} diagnostic
+     * @throws NullPointerException if either argument is null
+     */
     public static Optional<SafeModeDiagnostic> diagnosticFor(
         final String capabilityId,
         final String hostVersion

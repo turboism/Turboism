@@ -14,6 +14,12 @@ public record CoreVersionExpectation(CoreRuntimeVersion exactVersion) {
         exactVersion = Objects.requireNonNull(exactVersion, "exactVersion");
     }
 
+    /**
+     * @param major Core runtime major component
+     * @param minor Core runtime minor component
+     * @param patch Core runtime patch component
+     * @return an expectation pinned to exactly that runtime tuple
+     */
     public static CoreVersionExpectation exact(
         final int major,
         final int minor,
@@ -34,6 +40,11 @@ public record CoreVersionExpectation(CoreRuntimeVersion exactVersion) {
         };
     }
 
+    /**
+     * @param actual runtime version probed from the loaded Core
+     * @return true only on an exact tuple equality; no range or compatibility rule is applied
+     * @throws NullPointerException if {@code actual} is null
+     */
     public boolean matches(final CoreRuntimeVersion actual) {
         return exactVersion.equals(Objects.requireNonNull(actual, "actual"));
     }

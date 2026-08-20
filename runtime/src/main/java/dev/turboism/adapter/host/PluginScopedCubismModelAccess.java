@@ -35,6 +35,15 @@ public final class PluginScopedCubismModelAccess {
         );
     }
 
+    /**
+     * Wraps {@code delegate} so that closing {@code scope} deactivates the plugin's view of the
+     * model: after the scope closes the returned access no longer reaches the host.
+     *
+     * @param delegate live host model access to delegate to while the scope is open
+     * @param scope plugin scope whose close deactivates the returned access
+     * @return a model access valid only for the lifetime of the scope
+     * @throws NullPointerException if either argument is null
+     */
     public static CubismModelAccess bind(
         final CubismModelAccess delegate,
         final DisposableScope scope
@@ -45,6 +54,22 @@ public final class PluginScopedCubismModelAccess {
         return access;
     }
 
+    /**
+     * Same scope-bound binding as {@link #bind(CubismModelAccess, DisposableScope)}, additionally
+     * composing permission-checked model-appearance access for the named plugin. The appearance
+     * access is bound to the same scope, so both it and the model access are deactivated together
+     * when the scope closes.
+     *
+     * @param delegate live host model access to delegate to while the scope is open
+     * @param scope plugin scope whose close deactivates the returned access
+     * @param pluginId plugin the appearance access is attributed to for permission checks
+     * @param permissionChecker gate consulted before appearance mutations
+     * @param source host snapshot source the appearance projection reads from
+     * @param coordinator palette appearance coordinator supplying the host generation counter
+     * @param nativeLabelColorAuthoring native seam used to author label colours
+     * @return a model access with appearance support, valid only for the lifetime of the scope
+     * @throws NullPointerException if any argument is null
+     */
     public static CubismModelAccess bind(
         final CubismModelAccess delegate,
         final DisposableScope scope,

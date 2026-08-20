@@ -23,6 +23,19 @@ public final class ThemePackageArchive {
     private ThemePackageArchive() {
     }
 
+    /**
+     * Encodes a theme into a byte-for-byte reproducible ZIP archive.
+     *
+     * <p>Determinism is the point: entries are sorted by name and every timestamp is zeroed, so
+     * the same theme always yields identical bytes and archives can be compared or hashed.
+     *
+     * @param theme the theme to package; must not be null
+     * @return the archive bytes, at most {@link #MAX_ARCHIVE_BYTES}
+     * @throws IllegalArgumentException if the encoded archive would exceed
+     *                                  {@link #MAX_ARCHIVE_BYTES}
+     * @throws IllegalStateException if writing the in-memory archive fails
+     * @throws NullPointerException if {@code theme} is null
+     */
     public static byte[] encode(final ThemePackageData theme) {
         Objects.requireNonNull(theme, "theme");
         try {
@@ -50,6 +63,22 @@ public final class ThemePackageArchive {
         }
     }
 
+    /**
+     * Decodes an archive produced by {@link #encode}, refusing anything outside the transport's
+     * bounds.
+     *
+     * <p>Untrusted input is handled by reporting, not throwing: an oversized archive, a directory
+     * entry, more than five entries, an entry over 512 KiB, malformed ZIP data, or a payload the
+     * package codec rejects all come back as an invalid result with an issue code. The entry
+     * limits are checked while reading, so a zip bomb is refused before it is fully expanded.
+     * Entries are sorted by name before decoding, so archive order does not affect the outcome.
+     *
+     * @param archive the raw archive bytes; must not be null
+     * @return a valid result carrying the theme, or an invalid one carrying one of
+     *         {@code ARCHIVE_TOO_LARGE}, {@code ARCHIVE_ENTRY_LIMIT},
+     *         {@code ARCHIVE_ENTRY_TOO_LARGE}, {@code ARCHIVE_INVALID} or {@code PACKAGE_INVALID}
+     * @throws NullPointerException if {@code archive} is null
+     */
     public static DecodeResult decode(final byte[] archive) {
         Objects.requireNonNull(archive, "archive");
         if (archive.length > MAX_ARCHIVE_BYTES) {
@@ -79,6 +108,13 @@ public final class ThemePackageArchive {
             : DecodeResult.invalid("PACKAGE_INVALID");
     }
 
+    /**
+     * The outcome of decoding one archive: exactly one of a theme or an issue code.
+     *
+     * @param theme the decoded theme, present only on success; must not be null
+     * @param issueCode the reason decoding failed, present only on failure; must not be null
+     * @throws IllegalArgumentException if both or neither are present
+     */
     public record DecodeResult(Optional<ThemePackageData> theme, Optional<String> issueCode) {
         public DecodeResult {
             theme = Objects.requireNonNull(theme, "theme");
@@ -88,6 +124,10 @@ public final class ThemePackageArchive {
             }
         }
 
+        /**
+         * @return whether decoding succeeded, in which case {@link #theme()} is present and
+         *         {@link #issueCode()} is empty
+         */
         public boolean valid() {
             return theme.isPresent();
         }

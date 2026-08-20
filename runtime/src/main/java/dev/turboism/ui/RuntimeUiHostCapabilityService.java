@@ -550,52 +550,104 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         return disposableScope.register(IdempotentRegistration.of(hostRegistration));
     }
 
+    /**
+     * @return the id of the plugin this service instance is scoped to; every contribution it records
+     *         is attributed to and disposed with that plugin
+     */
     public String pluginId() {
         return pluginId;
     }
 
+    /**
+     * @return the overlay descriptors currently registered by this plugin, as an immutable copy taken at call time; later
+     *         registrations are not reflected in the returned list
+     */
     public List<OverlayContribution> overlays() {
         return List.copyOf(overlays);
     }
 
+    /**
+     * @return the dialog requests raised currently registered by this plugin, as an immutable copy taken at call time; later
+     *         registrations are not reflected in the returned list
+     */
     public List<DialogRequest> dialogs() {
         return List.copyOf(dialogs);
     }
 
+    /**
+     * @return the embedded panel descriptors currently registered by this plugin, as an immutable copy taken at call time; later
+     *         registrations are not reflected in the returned list
+     */
     public List<EmbeddedPanelContribution> panels() {
         return List.copyOf(panels);
     }
 
+    /**
+     * @return the status notifications still tracked for this plugin, as a snapshot taken at call
+     *         time with the internal tracking wrapper stripped; dismissed notifications are absent
+     */
     public List<StatusNotification> notifications() {
         return notifications.snapshot().stream()
             .map(TrackedNotification::notification)
             .toList();
     }
 
+    /**
+     * @return the context-menu contributions currently registered by this plugin, as an immutable copy taken at call time; later
+     *         registrations are not reflected in the returned list
+     */
     public List<ContextMenuRegistry.ContextMenuContribution> contextMenus() {
         return List.copyOf(contextMenus);
     }
 
+    /**
+     * @return the main-toolbar contributions currently registered by this plugin, as an immutable copy taken at call time; later
+     *         registrations are not reflected in the returned list
+     */
     public List<MainToolbarRegistry.MainToolbarContribution> mainToolbars() {
         return List.copyOf(mainToolbars);
     }
 
+    /**
+     * @return the vertical-toolbar contributions currently registered by this plugin, as an immutable copy taken at call time; later
+     *         registrations are not reflected in the returned list
+     */
     public List<VerticalToolbarContribution> verticalToolbars() {
         return List.copyOf(verticalToolbars);
     }
 
+    /**
+     * @return the horizontal-toolbar contributions currently registered by this plugin, as an immutable copy taken at call time; later
+     *         registrations are not reflected in the returned list
+     */
     public List<HorizontalToolbarContribution> horizontalToolbars() {
         return List.copyOf(horizontalToolbars);
     }
 
+    /**
+     * @return the palette-toolbar contributions currently registered by this plugin, as an immutable copy taken at call time; later
+     *         registrations are not reflected in the returned list
+     */
     public List<PaletteToolbarRegistry.PaletteToolbarContribution> paletteToolbars() {
         return List.copyOf(paletteToolbars);
     }
 
+    /**
+     * @return the palette-filter contributions currently registered by this plugin, as an immutable copy taken at call time; later
+     *         registrations are not reflected in the returned list
+     */
     public List<PaletteFilterRegistry.PaletteFilterContribution> paletteFilters() {
         return List.copyOf(paletteFilters);
     }
 
+    /**
+     * Safe-mode diagnostics accumulated while placing this plugin's UI contributions.
+     *
+     * <p>A non-empty result means some contribution could not reach the real host and was recorded
+     * as a descriptor only; the registration itself still succeeded.
+     *
+     * @return a snapshot of the diagnostics across all UI adapter families
+     */
     public List<SafeModeDiagnostic> uiDiagnostics() {
         return statusToolbarDiagnostics.snapshot();
     }

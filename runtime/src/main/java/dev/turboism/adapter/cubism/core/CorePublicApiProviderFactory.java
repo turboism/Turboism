@@ -20,6 +20,19 @@ public final class CorePublicApiProviderFactory {
     private CorePublicApiProviderFactory() {
     }
 
+    /**
+     * Admits a Core provider only when the resolver already carries verified evidence for the whole
+     * Core selector contract and the runtime version matches the reviewed expectation exactly.
+     *
+     * <p>No evidence is created here: an unsupported artifact profile, a resolver that does not
+     * authorize the full slice, or a version probe that disagrees with {@code expectation} all yield
+     * a failed result rather than an exception.</p>
+     *
+     * @param resolver verified member resolver for the running Editor/Core artifact
+     * @param expectation exact Core runtime tuple pinned by reviewed profile evidence
+     * @return the admitted provider, or a failure carrying the reason admission was refused
+     * @throws NullPointerException if either argument is null
+     */
     public static CoreProviderResult<CorePublicApiProvider> admit(
         final VerifiedMemberResolver resolver,
         final CoreVersionExpectation expectation

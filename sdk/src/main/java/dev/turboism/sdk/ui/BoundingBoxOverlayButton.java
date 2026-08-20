@@ -18,6 +18,15 @@ public record BoundingBoxOverlayButton(
         onClick = Objects.requireNonNull(onClick, "onClick");
     }
 
+    /**
+     * Returns a copy of this button whose click handler is {@code callback},
+     * leaving id, tooltip, icons, and order untouched. Used by the runtime to
+     * re-target a declared button at a live handler.
+     *
+     * @param callback the replacement click handler
+     * @return a new button sharing every other component with this one
+     * @throws NullPointerException when {@code callback} is {@code null}
+     */
     public BoundingBoxOverlayButton withOnClick(final Runnable callback) {
         return new BoundingBoxOverlayButton(
             id,
@@ -28,6 +37,23 @@ public record BoundingBoxOverlayButton(
         );
     }
 
+    /**
+     * The four icon states of a bounding-box overlay button.
+     *
+     * <p>Every path is validated as a normalized classpath resource: it must be
+     * non-blank, must not start with {@code /}, and must contain neither
+     * {@code ..} nor a backslash.</p>
+     *
+     * @param normal   resource path of the resting icon, always present
+     * @param hover    resource path used while the pointer is over the button,
+     *                 empty to reuse {@code normal}
+     * @param pressed  resource path used while the button is held down, empty to
+     *                 reuse {@code normal}
+     * @param disabled resource path used when the button is not actionable, empty
+     *                 to reuse {@code normal}
+     * @throws IllegalArgumentException when any supplied path is blank or not a
+     *     normalized classpath resource
+     */
     public record IconVariants(
         String normal,
         Optional<String> hover,
@@ -41,6 +67,14 @@ public record BoundingBoxOverlayButton(
             disabled = normalizeResourcePath(disabled, "disabled");
         }
 
+        /**
+         * Builds an icon set with only the resting icon; the runtime reuses it for
+         * the hover, pressed, and disabled states.
+         *
+         * @param resourcePath normalized classpath resource path of the icon
+         * @return icon variants carrying {@code resourcePath} and no state overrides
+         * @throws IllegalArgumentException when the path is blank or not normalized
+         */
         public static IconVariants normal(final String resourcePath) {
             return new IconVariants(
                 resourcePath,

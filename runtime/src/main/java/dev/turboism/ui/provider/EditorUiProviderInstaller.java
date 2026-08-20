@@ -17,6 +17,25 @@ public final class EditorUiProviderInstaller {
     private EditorUiProviderInstaller() {
     }
 
+    /**
+     * Installs the subset of providers that are admitted for this exact host generation.
+     *
+     * <p>Providers are considered independently: one whose admission is missing or bound to a
+     * different generation is skipped silently rather than failing the batch. Inconsistent input is
+     * a different matter — a provider disagreeing with its own admission's family, or two providers
+     * claiming the same family, is rejected outright. If any installation throws, everything
+     * already installed by this call is removed in reverse order before the failure propagates, so
+     * the call is all-or-nothing.
+     *
+     * @param hostGeneration the current host generation; must be positive
+     * @param authority the authority to install into
+     * @param providers the candidate providers; copied defensively, no element may be {@code null}
+     * @return a closeable installation naming the families that were actually installed
+     * @throws IllegalArgumentException if {@code hostGeneration} is not positive, a family is
+     *     duplicated, or an admission family does not match its provider
+     * @throws NullPointerException if the authority, the list, an element, or an admission is
+     *     {@code null}
+     */
     public static Installation install(
         final long hostGeneration,
         final EditorUiContributionAuthority authority,
@@ -101,6 +120,11 @@ public final class EditorUiProviderInstaller {
                 : Set.copyOf(EnumSet.copyOf(readyFamilies));
         }
 
+        /**
+         * @return the immutable set of families whose provider was admitted and installed by this
+         *     call; families that were skipped for a stale or missing admission are absent, and the
+         *     set does not change when the installation is closed
+         */
         public Set<EditorUiFamily> readyFamilies() {
             return readyFamilies;
         }

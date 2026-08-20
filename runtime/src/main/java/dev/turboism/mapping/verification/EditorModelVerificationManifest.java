@@ -639,6 +639,14 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.part-id.value"
     );
 
+    /**
+     * @param artifact digest of the host jar
+     * @return the profile suffix used to name this slice's bundled resources
+     *     (for example {@code 5.3.02}), derived from the reviewed record rather
+     *     than from any version the host reports
+     * @throws IllegalArgumentException if the artifact is not a reviewed Editor
+     *     model build
+     */
     public static String resourceProfileForArtifact(final HostArtifactDigest artifact) {
         return forArtifact(artifact).profileId().substring("cubism-".length());
     }

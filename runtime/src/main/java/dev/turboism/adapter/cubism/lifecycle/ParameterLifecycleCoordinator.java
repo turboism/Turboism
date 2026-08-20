@@ -31,6 +31,13 @@ public final class ParameterLifecycleCoordinator implements AutoCloseable {
         this.callbacks = new LifecycleCallbackExecutor("Parameter", executors);
     }
 
+    /**
+     * Registers a plugin's parameter hooks, replacing any earlier registration under the same plugin id
+     * and shutting down that plugin's pending callback queue first.
+     *
+     * @param plugin descriptor, entrypoints and logger for the registering plugin
+     * @throws NullPointerException when {@code plugin} is null
+     */
     public void register(final PluginHooks plugin) {
         final PluginHooks value = Objects.requireNonNull(plugin, "plugin");
         final Object token = new Object();
@@ -50,6 +57,14 @@ public final class ParameterLifecycleCoordinator implements AutoCloseable {
         }
     }
 
+    /**
+     * Removes every registration owned by the given plugin id and shuts down its callback queue.
+     * Unknown ids are ignored.
+     *
+     * @param pluginId id of the plugin to detach
+     * @throws NullPointerException when {@code pluginId} is null
+     * @throws IllegalArgumentException when {@code pluginId} is blank
+     */
     public void unregister(final String pluginId) {
         final String id = requireText(pluginId, "pluginId");
         synchronized (registrationLock) {
@@ -74,6 +89,21 @@ public final class ParameterLifecycleCoordinator implements AutoCloseable {
         }
     }
 
+    /**
+     * Runs the parameter value write pipeline: intercept-capable hooks may rewrite the requested value
+     * in registration order, the surviving value is passed to {@code nativeOperation}, and the
+     * before/after values read back from the parameter are published to observers asynchronously.
+     *
+     * <p>Non-finite interceptor results are ignored and logged; hook failures are logged and never
+     * propagate. Runs on the calling host thread and refuses re-entry, so a hook must not write the
+     * parameter again from inside its own callback.
+     *
+     * @param parameter the parameter being written
+     * @param requestedValue value requested by the caller, before interception
+     * @param nativeOperation performs the actual Editor-side write with the effective value
+     * @throws NullPointerException when {@code parameter} or {@code nativeOperation} is null
+     * @throws IllegalStateException when invoked from within another parameter write on this thread
+     */
     public void setValue(
         final Parameter parameter,
         final float requestedValue,
@@ -265,6 +295,15 @@ public final class ParameterLifecycleCoordinator implements AutoCloseable {
         return value;
     }
 
+    /**
+     * One plugin's participation in the parameter lifecycle.
+     *
+     * @param descriptor identity of the owning plugin, used as the registration key
+     * @param entrypoints the plugin's parameter hooks, defensively copied and immutable
+     * @param logger sink for hook failures raised by this plugin
+     * @param interceptAllowed whether this plugin's {@code before*} hooks may rewrite requested values
+     * @param observeAllowed whether this plugin receives asynchronous {@code after*}/{@code on*} callbacks
+     */
     public record PluginHooks(
         PluginDescriptor descriptor,
         List<? extends ParameterHooks> entrypoints,
@@ -272,6 +311,13 @@ public final class ParameterLifecycleCoordinator implements AutoCloseable {
         boolean interceptAllowed,
         boolean observeAllowed
     ) {
+        /**
+         * Registers a plugin with both interception and observation permitted.
+         *
+         * @param descriptor identity of the owning plugin
+         * @param entrypoints the plugin's parameter hooks
+         * @param logger sink for hook failures raised by this plugin
+         */
         public PluginHooks(
             final PluginDescriptor descriptor,
             final List<? extends ParameterHooks> entrypoints,

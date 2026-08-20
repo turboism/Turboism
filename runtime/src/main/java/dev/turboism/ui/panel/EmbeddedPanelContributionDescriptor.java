@@ -26,6 +26,17 @@ public record EmbeddedPanelContributionDescriptor(
         content = Objects.requireNonNull(content, "content");
     }
 
+    /**
+     * Projects a validated UI contribution into the host-neutral descriptor the embedded-panel
+     * provider consumes, dropping the SDK payload type.
+     *
+     * @param contribution a contribution whose family is {@code PANEL} and whose descriptor is an
+     *     {@link EmbeddedPanelContribution}
+     * @return the descriptor carrying the contribution's plugin id and panel payload
+     * @throws NullPointerException if {@code contribution} is {@code null}
+     * @throws IllegalArgumentException if the contribution is not a panel contribution, or if its
+     *     identity's contribution id disagrees with the payload's own id
+     */
     public static EmbeddedPanelContributionDescriptor from(
         final EditorUiContribution<?> contribution
     ) {

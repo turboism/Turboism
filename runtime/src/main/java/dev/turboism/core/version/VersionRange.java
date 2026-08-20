@@ -20,6 +20,13 @@ public final class VersionRange {
         this.exact = exact;
     }
 
+    /**
+     * @param value either an exact {@code MAJOR.MINOR.PATCH} version, or a half-open interval written
+     *     {@code [lower,upper)}; components must not carry leading zeros
+     * @return the parsed range
+     * @throws IllegalArgumentException if the value is null or empty, matches neither form, or names an
+     *     interval whose lower bound is not strictly below its upper bound
+     */
     public static VersionRange parse(String value) {
         if (value == null || value.isEmpty()) throw new IllegalArgumentException("version range must not be empty");
         if (EXACT.matcher(value).matches()) {
@@ -34,6 +41,12 @@ public final class VersionRange {
         return new VersionRange(lower, upper, false);
     }
 
+    /**
+     * @param version the version to test
+     * @return whether the version is admitted: equality for an exact range, otherwise
+     *     {@code lower <= version < upper} with the upper bound excluded
+     * @throws NullPointerException if {@code version} is {@code null}
+     */
     public boolean contains(PluginVersion version) {
         Objects.requireNonNull(version);
         if (exact) return lower.equals(version);

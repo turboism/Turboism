@@ -227,6 +227,20 @@ public final class ProjectLifecycleNativeMethodTransformer implements ClassFileT
         EDITOR_EXIT
     }
 
+    /**
+     * One reviewed host method selector and the ingress shape to weave into it. Only methods named here
+     * are transformed, so an unreviewed host build simply produces no bindings.
+     *
+     * @param ownerInternalName JVM internal name of the declaring host class
+     * @param methodName exact host method name
+     * @param descriptor exact JVM method descriptor, which pins the overload
+     * @param shape which bridge entry and completion pair is woven in
+     * @param kind content kind reported to the bridge; required for {@code CONTENT_BOOLEAN}
+     * @param operation operation type reported to the bridge; required for {@code CONTENT_BOOLEAN}
+     * @throws NullPointerException when {@code shape} is null, or when {@code kind} or
+     *     {@code operation} is null for a {@code CONTENT_BOOLEAN} shape
+     * @throws IllegalArgumentException when any of the selector strings is blank
+     */
     public record Binding(
         String ownerInternalName,
         String methodName,
@@ -246,6 +260,14 @@ public final class ProjectLifecycleNativeMethodTransformer implements ClassFileT
             }
         }
 
+        /**
+         * Binding for the host's model open method, reported as {@code MODEL}/{@code OPEN}.
+         *
+         * @param owner JVM internal name of the declaring host class
+         * @param name host method name
+         * @param descriptor JVM method descriptor pinning the overload
+         * @return the binding
+         */
         public static Binding modelOpen(
             final String owner,
             final String name,
@@ -261,6 +283,14 @@ public final class ProjectLifecycleNativeMethodTransformer implements ClassFileT
             );
         }
 
+        /**
+         * Binding for the host's animation open method, reported as {@code ANIMATION}/{@code OPEN}.
+         *
+         * @param owner JVM internal name of the declaring host class
+         * @param name host method name
+         * @param descriptor JVM method descriptor pinning the overload
+         * @return the binding
+         */
         public static Binding animationOpen(
             final String owner,
             final String name,
@@ -276,6 +306,18 @@ public final class ProjectLifecycleNativeMethodTransformer implements ClassFileT
             );
         }
 
+        /**
+         * Binding for a boolean-returning operation on already-open content, such as save or close, where
+         * the returned boolean is the success signal.
+         *
+         * @param owner JVM internal name of the declaring host class
+         * @param name host method name
+         * @param descriptor JVM method descriptor pinning the overload
+         * @param kind content kind reported to the bridge
+         * @param operation operation type reported to the bridge
+         * @return the binding
+         * @throws NullPointerException when {@code kind} or {@code operation} is null
+         */
         public static Binding content(
             final String owner,
             final String name,
@@ -293,6 +335,15 @@ public final class ProjectLifecycleNativeMethodTransformer implements ClassFileT
             );
         }
 
+        /**
+         * Binding for the host's exit command. Carries no content kind or operation, because editor exit is
+         * not a project-file operation.
+         *
+         * @param owner JVM internal name of the declaring host class
+         * @param name host method name
+         * @param descriptor JVM method descriptor pinning the overload
+         * @return the binding
+         */
         public static Binding editorExit(
             final String owner,
             final String name,

@@ -17,6 +17,11 @@ public record ParameterBindingTarget(ParameterBindingTargetType type, String id)
         }
     }
 
+    /**
+     * @param id ArtMesh that owns the binding
+     * @return a target naming that ArtMesh
+     * @throws NullPointerException if {@code id} is {@code null}
+     */
     public static ParameterBindingTarget artMesh(final ArtMeshId id) {
         return new ParameterBindingTarget(
             ParameterBindingTargetType.ART_MESH,
@@ -24,6 +29,12 @@ public record ParameterBindingTarget(ParameterBindingTargetType type, String id)
         );
     }
 
+    /**
+     * @param id deformer that owns the binding; the caller is responsible for
+     *     it actually being a warp deformer, which is not checked here
+     * @return a target naming that warp deformer
+     * @throws NullPointerException if {@code id} is {@code null}
+     */
     public static ParameterBindingTarget warpDeformer(final DeformerId id) {
         return new ParameterBindingTarget(
             ParameterBindingTargetType.WARP_DEFORMER,
@@ -31,6 +42,12 @@ public record ParameterBindingTarget(ParameterBindingTargetType type, String id)
         );
     }
 
+    /**
+     * @param id deformer that owns the binding; the caller is responsible for
+     *     it actually being a rotation deformer, which is not checked here
+     * @return a target naming that rotation deformer
+     * @throws NullPointerException if {@code id} is {@code null}
+     */
     public static ParameterBindingTarget rotationDeformer(final DeformerId id) {
         return new ParameterBindingTarget(
             ParameterBindingTargetType.ROTATION_DEFORMER,

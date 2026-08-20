@@ -16,6 +16,16 @@ public final class TextureAtlasNativeInvocationCoordinator implements AutoClosea
     private long generation;
     private boolean closed;
 
+    /**
+     * Attaches the verified resolver used to open native packing sessions.
+     *
+     * <p>Bumps the generation, so any invocation still in flight from a previous connection is
+     * no longer recognised as current.
+     *
+     * @param resolver the verified member resolver backing the native adapter; must not be null
+     * @throws NullPointerException if {@code resolver} is null
+     * @throws IllegalStateException if this coordinator has been closed
+     */
     public synchronized void connect(final VerifiedMemberResolver resolver) {
         requireOpen();
         adapter = new VerifiedTextureAtlasNativeInvocationAdapter(
@@ -24,6 +34,22 @@ public final class TextureAtlasNativeInvocationCoordinator implements AutoClosea
         generation++;
     }
 
+    /**
+     * Wraps a callback as a native ingress predicate that runs it inside a single-threaded
+     * invocation scope bound to the receiver.
+     *
+     * <p>The returned predicate answers {@code false} without running the callback when the
+     * coordinator is closed or unconnected, when the receiver is null, or when this thread is
+     * already inside an invocation - invocations never nest. It answers {@code true} only when
+     * the callback returns true and the invocation was marked handled; in every other case,
+     * including a callback that throws, the native session is restored and {@code false} is
+     * returned so the host proceeds with its own behaviour. Exceptions from the callback do not
+     * propagate to the host.
+     *
+     * @param callback the work to run inside the invocation scope; must not be null
+     * @return a predicate the native hook can call with the packing receiver
+     * @throws NullPointerException if {@code callback} is null
+     */
     public Predicate<Object> ingress(final BooleanSupplier callback) {
         Objects.requireNonNull(callback, "callback");
         return receiver -> invoke(receiver, callback);
@@ -63,6 +89,11 @@ public final class TextureAtlasNativeInvocationCoordinator implements AutoClosea
         }
     }
 
+    /**
+     * Detaches the native adapter and bumps the generation, so in-flight invocations stop being
+     * recognised as current and later ingress calls decline rather than reach the host. Leaves
+     * the coordinator open for a subsequent {@link #connect}; a no-op once closed.
+     */
     public synchronized void deactivate() {
         if (closed) return;
         adapter = null;

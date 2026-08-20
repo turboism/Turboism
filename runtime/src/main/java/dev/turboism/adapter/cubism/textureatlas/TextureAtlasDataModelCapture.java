@@ -19,6 +19,16 @@ public final class TextureAtlasDataModelCapture implements AutoCloseable {
         }
     }
 
+    /**
+     * Reads the most recently captured data model.
+     *
+     * <p>The value lives in a system property under a per-instance random key, so it survives
+     * across classloaders but is removed on {@link #close()}; a closed capture reports empty
+     * permanently, even if a capture was recorded before closing.
+     *
+     * @return the captured native data-model object, or empty if nothing has been captured yet
+     *         or this capture is closed
+     */
     public Optional<Object> current() {
         return closed ? Optional.empty() : Optional.ofNullable(System.getProperties().get(key));
     }

@@ -6,6 +6,16 @@ import dev.turboism.sdk.appearance.AppearanceStatus;
 
 import java.util.Optional;
 
+/**
+ * Fail-closed appearance provider used when no supported Cubism host surface was
+ * detected.
+ *
+ * <p>Reports itself unavailable and always returns the same {@code UNAVAILABLE}
+ * status carrying the diagnostic id {@code appearance.provider.unavailable}. Capture,
+ * apply, and restore throw {@link IllegalStateException} rather than silently doing
+ * nothing, so a caller that skips the availability check cannot believe an override
+ * took effect.</p>
+ */
 public final class UnavailableAppearanceHostProvider implements AppearanceHostProvider {
 
     private static final AppearanceStatus STATUS = new AppearanceStatus(

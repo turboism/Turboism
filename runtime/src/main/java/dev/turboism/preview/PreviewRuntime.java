@@ -157,6 +157,23 @@ public final class PreviewRuntime implements AutoCloseable {
         this.shutdownLifecycle = Objects.requireNonNull(shutdownLifecycle, "shutdownLifecycle");
     }
 
+    /**
+     * Starts the preview runtime without a status-bar verification record, leaving the status
+     * slice unconnected. Convenience overload that delegates to the full {@code start}.
+     *
+     * @param requestedHome Turboism home directory; normalized before use
+     * @param verificationRecord exact-version verification record for the host mapping
+     * @param editorModelVerificationRecord verification record for the editor-model slice
+     * @param mainToolbarVerificationRecord verification record for the main-toolbar slice
+     * @param embeddedPanelVerificationRecord verification record for the embedded-panel slice
+     * @param topMenuVerificationRecord verification record for the top-menu slice
+     * @param boundingBoxOverlayVerificationRecord verification record for the bounding-box overlay
+     * @param hostArtifact the Cubism host artifact the records were verified against; only
+     *     Cubism 5.2.03 and 5.3.02 are admitted
+     * @param hostClassLoader classloader through which host classes are resolved
+     * @return a started runtime with plugins loaded and initial reports written
+     * @throws IOException if the home directory or its log and report files cannot be prepared
+     */
     public static PreviewRuntime start(
         final Path requestedHome,
         final Path verificationRecord,
@@ -441,34 +458,67 @@ public final class PreviewRuntime implements AutoCloseable {
         }
     }
 
+    /** @return the normalized absolute Turboism home directory this runtime reads and writes under */
     public Path home() {
         return home;
     }
 
+    /**
+     * @return the locale the runtime resolved at startup and uses for plugin message bundles; this
+     *     is the configured locale, which need not equal the JVM default
+     */
     public java.util.Locale effectiveLocale() {
         return effectiveLocale;
     }
 
+    /**
+     * @return the host session's state as of this call, read through the ingress; reflects whether
+     *     a real Cubism host is attached
+     */
     public HostSession.State hostState() {
         return hostIngress.state();
     }
 
+    /**
+     * Writes an INFO line to the runtime log.
+     *
+     * @param component short subsystem tag
+     * @param message the text to record
+     */
     public void info(final String component, final String message) {
         log.info(component, message);
     }
 
+    /**
+     * Writes a WARN line to the runtime log.
+     *
+     * @param component short subsystem tag
+     * @param message the text to record
+     */
     public void warn(final String component, final String message) {
         log.warn(component, message);
     }
 
+    /**
+     * Writes an ERROR line to the runtime log, attaching the throwable's cause chain.
+     *
+     * @param component short subsystem tag
+     * @param message the text to record
+     * @param failure throwable to attach, or null to write the line alone
+     */
     public void error(final String component, final String message, final Throwable failure) {
         log.error(component, message, failure);
     }
 
+    /**
+     * @return the plugin load outcome captured during {@link #start}; fixed for the runtime's
+     *     lifetime, so it describes the initial load and not any later state
+     */
     public LocalPluginRuntime.LoadReport loadReport() {
         return loadReport;
     }
 
+    /** @return the gateway through which runtime code reaches verified host members */
     public dev.turboism.adapter.host.RuntimeHostAdapterAccess hostAccess() {
         return hostIngress.adapterAccess();
     }
@@ -512,6 +562,10 @@ public final class PreviewRuntime implements AutoCloseable {
         );
     }
 
+    /**
+     * @return the resolver for verified editor-model members, through which mapped host fields and
+     *     methods are reached; access it only for members the verification record admits
+     */
     public dev.turboism.mapping.verification.VerifiedMemberResolver editorModelResolver() {
         return hostIngress.editorModelResolver();
     }
@@ -637,6 +691,11 @@ public final class PreviewRuntime implements AutoCloseable {
         );
     }
 
+    /**
+     * @return the failures recorded while shutting the runtime down; empty until {@link #close()}
+     *     or {@link #closeForProcessExit()} has run. The list is an immutable copy published
+     *     through a volatile field, so it is safe to read from any thread.
+     */
     public List<ShutdownFailure> shutdownFailures() {
         return shutdownFailures;
     }
@@ -740,6 +799,15 @@ public final class PreviewRuntime implements AutoCloseable {
     ) {
     }
 
+    /**
+     * One shutdown stage that did not complete. Shutdown is best-effort: a stage failure is
+     * recorded here and the remaining stages still run.
+     *
+     * @param code stable diagnostic code identifying the stage that failed
+     * @param phase the shutdown phase the stage belongs to
+     * @param message fixed, report-safe description; deliberately not derived from the underlying
+     *     throwable, so host detail cannot leak into a report
+     */
     public record ShutdownFailure(String code, String phase, String message) {
     }
 

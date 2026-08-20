@@ -37,6 +37,17 @@ public record PhysicsEditorHostProfile(
         rollbackMethod = text(rollbackMethod, "rollbackMethod");
     }
 
+    /**
+     * Resolves the reviewed selector tuple for a host artifact.
+     *
+     * <p>Only the two admitted Cubism builds are recognised, 5.2.03 and 5.3.02, and both map to the
+     * identical selector tuple. Any other artifact yields empty, which is the fail-closed signal that
+     * the physics editor hook must not be installed against an unreviewed host.
+     *
+     * @param artifact digest of the host jar actually loaded
+     * @return the matching profile, or empty when the artifact is not a reviewed build
+     * @throws NullPointerException if {@code artifact} is {@code null}
+     */
     public static Optional<PhysicsEditorHostProfile> forArtifact(final HostArtifactDigest artifact) {
         Objects.requireNonNull(artifact, "artifact");
         if (!artifact.equals(CUBISM_52) && !artifact.equals(CUBISM_53)) return Optional.empty();

@@ -5,6 +5,23 @@ import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.cubism.id.ModelObjectId;
 import dev.turboism.sdk.cubism.write.CubismWriteCommand;
 
+/**
+ * A request to perform one named mesh operation on a single art mesh, queued through the write
+ * pipeline rather than executed here.
+ *
+ * <p>Describes intent only: constructing one does not touch the model, and the operation string is
+ * interpreted by whichever executor consumes the command — this record does not validate it
+ * against any known vocabulary, only that it is present.
+ *
+ * @param commandId caller-supplied identity for this request, used to correlate it with its
+ *     result; must not be {@code null} or blank
+ * @param modelId the model the mesh belongs to; must not be {@code null}
+ * @param meshId the art mesh to operate on; must not be {@code null}
+ * @param operation the operation name to perform, passed through verbatim to the executor; must
+ *     not be {@code null} or blank
+ * @throws IllegalArgumentException if any component is {@code null}, or if {@code commandId} or
+ *     {@code operation} is blank
+ */
 @PreviewApi
 public record MeshWriteCommand(
     String commandId,

@@ -24,10 +24,23 @@ public final class ThemeRuntimeProperties {
     private ThemeRuntimeProperties() {
     }
 
+    /**
+     * @return the fixed location of the shared FlatLaf custom-defaults file in the JVM
+     *     temp directory; the file need not exist. Wine gives each Cubism prefix its own
+     *     temp directory, so 5.2 and 5.3 sessions resolve to separate files.
+     */
     public static Path path() {
         return Path.of(System.getProperty("java.io.tmpdir"), FILE_NAME);
     }
 
+    /**
+     * Replaces the shared properties file with one {@code key=value} line per entry, in
+     * iteration order, UTF-8 encoded. Any previous content is discarded; the write is not
+     * atomic.
+     *
+     * @param values the FlatLaf defaults to publish
+     * @throws IOException when the file cannot be written
+     */
     public static void write(final Map<String, String> values) throws IOException {
         final StringBuilder content = new StringBuilder();
         for (Map.Entry<String, String> entry : values.entrySet()) {
@@ -36,6 +49,11 @@ public final class ThemeRuntimeProperties {
         Files.writeString(path(), content.toString(), StandardCharsets.UTF_8);
     }
 
+    /**
+     * Removes the shared properties file so FlatLaf falls back to the native look.
+     *
+     * <p>Best effort: an I/O failure is swallowed, and a missing file is not an error.</p>
+     */
     public static void delete() {
         try {
             Files.deleteIfExists(path());

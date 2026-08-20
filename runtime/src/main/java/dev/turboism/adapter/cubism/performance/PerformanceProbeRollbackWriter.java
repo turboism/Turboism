@@ -32,6 +32,36 @@ public final class PerformanceProbeRollbackWriter {
 
     private final ObjectMapper mapper = new ObjectMapper();
 
+    /**
+     * Validates a complete rollback evidence set and, only if every check holds, publishes
+     * it as a JSON manifest.
+     *
+     * <p>Validation is all-or-nothing and happens before any bytes are written, so a
+     * partial or contradictory evidence set produces no file at all. It requires: owner
+     * evidence covering exactly the target owners and nothing else; every digest a
+     * lowercase 64-character SHA-256; instrumented bytes differing from the baseline (proof
+     * the probe was really installed); restored bytes equal to the baseline (proof it was
+     * really removed); and exactly one selector match and one restoration observation per
+     * target and owner.</p>
+     *
+     * <p>The manifest is fixed at {@code cubismVersion} 5.3.02, capped at 256 KiB, and
+     * published through a sibling {@code .tmp} file moved into place, atomically where the
+     * filesystem supports it.</p>
+     *
+     * @param output             destination path, resolved to an absolute normalized path
+     * @param artifactSha256     digest of the Cubism artifact the probe was installed into
+     * @param runId              identity of the validation run
+     * @param variant            which build variant was exercised
+     * @param scenario           name of the scenario that was run
+     * @param agentSha256        digest of the probe agent
+     * @param fixtureSha256      digest of the model fixture
+     * @param targets            the instrumentation targets whose rollback is being evidenced
+     * @param owners             per-owner before/instrumented/after digests, keyed by binary class name
+     * @param selectorMatches    how many methods each target matched; each must be exactly 1
+     * @param restorationMatches how many restorations were observed per owner; each must be exactly 1
+     * @throws IllegalArgumentException when any coverage, digest-format, or count rule above is violated
+     * @throws IOException when the manifest exceeds 256 KiB, or it cannot be written or moved into place
+     */
     public void write(
         final Path output,
         final String artifactSha256,
@@ -163,5 +193,15 @@ public final class PerformanceProbeRollbackWriter {
         }
     }
 
+    /**
+     * The three observed class-byte digests proving one class was instrumented and then
+     * fully restored.
+     *
+     * <p>The record itself validates nothing; {@code write} enforces the relationships.</p>
+     *
+     * @param beforeSha256       digest of the bytes as loaded from the host artifact
+     * @param instrumentedSha256 digest of the bytes the transformer produced; must differ from the baseline
+     * @param afterSha256        digest of the bytes observed after rollback; must equal the baseline
+     */
     public record OwnerEvidence(String beforeSha256, String instrumentedSha256, String afterSha256) { }
 }

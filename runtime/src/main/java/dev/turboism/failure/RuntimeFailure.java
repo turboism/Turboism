@@ -39,6 +39,14 @@ public record RuntimeFailure(
         }
     }
 
+    /**
+     * Returns this failure with a different occurrence count, leaving the aggregation key
+     * untouched. Used by the collector to fold repeats of one failure into a single entry.
+     *
+     * @param replacement the new count
+     * @return a new record; this one is unchanged
+     * @throws IllegalArgumentException if {@code replacement} is less than 1
+     */
     public RuntimeFailure withCount(final long replacement) {
         return new RuntimeFailure(
             code,

@@ -20,6 +20,16 @@ public final class PreviewReportDocuments {
     private PreviewReportDocuments() {
     }
 
+    /**
+     * Builds one empty document per report type, so a preview run always emits the full closed set
+     * even when nothing was observed.
+     *
+     * @param runtimeId identifier of the runtime instance the reports describe; must not be blank
+     * @param createdAt the timestamp stamped into every envelope, rendered in ISO-8601
+     * @return an unmodifiable map keyed by every {@link PreviewReportType} constant
+     * @throws NullPointerException if {@code runtimeId} or {@code createdAt} is {@code null}
+     * @throws IllegalArgumentException if {@code runtimeId} is blank
+     */
     public static Map<PreviewReportType, ObjectNode> emptyReportSet(
         final String runtimeId,
         final Instant createdAt
@@ -32,6 +42,17 @@ public final class PreviewReportDocuments {
         return Map.copyOf(reports);
     }
 
+    /**
+     * Builds a single report document with a valid envelope and an empty payload shaped for its
+     * type: an unknown-host runtime payload, or an object holding one empty collection array.
+     *
+     * @param type the report to build; determines the payload shape
+     * @param runtimeId identifier of the runtime instance; must not be blank
+     * @param createdAt the envelope timestamp
+     * @return a freshly created mutable node the caller may populate
+     * @throws NullPointerException if any argument is {@code null}
+     * @throws IllegalArgumentException if {@code runtimeId} is blank
+     */
     public static ObjectNode emptyReport(
         final PreviewReportType type,
         final String runtimeId,
@@ -50,6 +71,22 @@ public final class PreviewReportDocuments {
         );
     }
 
+    /**
+     * Wraps a payload in the common report envelope: fixed {@code format} marker,
+     * {@code schemaVersion} 1, report type, runtime id, ISO-8601 creation timestamp, and a
+     * not-truncated marker.
+     *
+     * <p>The payload is stored as a deep copy, so later mutation of the caller's node does not
+     * leak into the returned document.
+     *
+     * @param type the report type recorded in the envelope
+     * @param runtimeId identifier of the runtime instance; must not be blank
+     * @param createdAt the envelope timestamp
+     * @param payload the type-specific body; copied defensively
+     * @return the assembled report document
+     * @throws NullPointerException if any argument is {@code null}
+     * @throws IllegalArgumentException if {@code runtimeId} is blank
+     */
     public static ObjectNode envelope(
         final PreviewReportType type,
         final String runtimeId,
@@ -67,6 +104,28 @@ public final class PreviewReportDocuments {
         return report;
     }
 
+    /**
+     * Builds one plugin entry for the plugin-load report, recording the states observed up to and
+     * including lifecycle start.
+     *
+     * <p>The teardown fields ({@code disableState}, {@code shutdownState}, {@code unloadState},
+     * {@code scopeCleanupState}, {@code classloaderCleanupState}) are seeded to
+     * {@code NOT_STARTED} and the registration counts to zero — the caller overwrites them as the
+     * run progresses. The optional artifact fields are omitted entirely when {@code null} rather
+     * than written as JSON null.
+     *
+     * @param pluginId the plugin's identifier; must not be blank
+     * @param artifactRelativePath path of the plugin artifact relative to the scanned root, or
+     *     {@code null} to omit the field (no absolute path is ever recorded)
+     * @param artifactSha256 digest of the artifact, or {@code null} to omit the field
+     * @param discoveryState how discovery classified the artifact; must not be blank
+     * @param dependencyState how dependency resolution classified it; must not be blank
+     * @param lifecycleState how far the plugin got through its lifecycle; must not be blank
+     * @param badNeighbor whether this plugin was implicated in disrupting other plugins
+     * @return a mutable entry node
+     * @throws NullPointerException if a required argument is {@code null}
+     * @throws IllegalArgumentException if a required argument is blank
+     */
     public static ObjectNode pluginLoadEntry(
         final String pluginId,
         final String artifactRelativePath,
@@ -99,6 +158,26 @@ public final class PreviewReportDocuments {
         return entry;
     }
 
+    /**
+     * Builds one entry for the capability report, pairing a capability operation with the
+     * permission it requires and how each was resolved.
+     *
+     * <p>Registration counts start at zero and the {@code evidence} and {@code failures} arrays
+     * start empty; callers append to them with {@link #evidence} and {@link #failure}. Optional
+     * fields are omitted when {@code null} rather than written as JSON null.
+     *
+     * @param pluginId the plugin the capability was resolved for, or {@code null} for a
+     *     runtime-level entry with no owning plugin
+     * @param capabilityId identifier of the capability; must not be blank
+     * @param operationId identifier of the operation within the capability; must not be blank
+     * @param permissionId the permission gating the operation, or {@code null} when none applies
+     * @param capabilityAvailability whether the capability was resolvable; must not be blank
+     * @param permissionAvailability whether the permission was resolvable; must not be blank
+     * @param registrationState how the runtime registered the operation; must not be blank
+     * @return a mutable entry node
+     * @throws NullPointerException if a required argument is {@code null}
+     * @throws IllegalArgumentException if a required argument is blank
+     */
     public static ObjectNode capabilityEntry(
         final String pluginId,
         final String capabilityId,
@@ -132,6 +211,22 @@ public final class PreviewReportDocuments {
         return entry;
     }
 
+    /**
+     * Builds one evidence record supporting a capability entry's stated availability.
+     *
+     * <p>The record path is deliberately relative: preview reports must never carry an absolute
+     * filesystem path. Both the path and the digest are omitted when {@code null}.
+     *
+     * @param kind what sort of evidence this is; must not be blank
+     * @param state the evidence's verdict; must not be blank
+     * @param summary short human-readable explanation; must not be blank
+     * @param relativeRecordPath location of the backing record relative to the report root, or
+     *     {@code null} when the evidence has no stored record
+     * @param digestSha256 digest of that record, or {@code null} when not computed
+     * @return a mutable evidence node
+     * @throws NullPointerException if a required argument is {@code null}
+     * @throws IllegalArgumentException if a required argument is blank
+     */
     public static ObjectNode evidence(
         final String kind,
         final String state,
@@ -152,6 +247,26 @@ public final class PreviewReportDocuments {
         return evidence;
     }
 
+    /**
+     * Builds one failure record for a plugin-load, capability, or runtime report.
+     *
+     * <p>Carries a {@code count} so repeated identical failures are folded into a single record
+     * instead of flooding the document. The optional attribution fields and the path are omitted
+     * when {@code null}; the path is relative by contract, never absolute.
+     *
+     * @param code stable machine-readable failure code; must not be blank
+     * @param severity how serious the failure is; must not be blank
+     * @param phase the run phase in which it occurred; must not be blank
+     * @param pluginId the plugin at fault, or {@code null} when not attributable to one
+     * @param operationId the operation involved, or {@code null}
+     * @param permissionId the permission involved, or {@code null}
+     * @param message human-readable detail; must not be blank
+     * @param relativePath the file involved, relative to the report root, or {@code null}
+     * @param count how many occurrences this record folds together
+     * @return a mutable failure node
+     * @throws NullPointerException if a required argument is {@code null}
+     * @throws IllegalArgumentException if a required argument is blank
+     */
     public static ObjectNode failure(
         final String code,
         final String severity,
@@ -184,6 +299,25 @@ public final class PreviewReportDocuments {
         return failure;
     }
 
+    /**
+     * Builds one plugin entry for the i18n report, recording how the plugin's locale was chosen
+     * and which locales it would fall back through.
+     *
+     * <p>The {@code catalogs}, {@code missingKeys}, and {@code malformedPatterns} arrays start
+     * empty and the four suppression counters start at zero; the caller fills them in as catalogs
+     * are loaded and warnings are emitted or suppressed. The fallback chain is copied into the
+     * node in iteration order, so the caller's iterable is not retained.
+     *
+     * @param pluginId the plugin's identifier; must not be blank
+     * @param localeSource where the requested locale came from; must not be blank
+     * @param requestedLocale the locale as requested; must not be blank
+     * @param normalizedLocale the locale after normalization; must not be blank
+     * @param fallbackChain locales to consult in order after the normalized one; every element
+     *     must be non-blank
+     * @return a mutable entry node
+     * @throws NullPointerException if a required argument is {@code null}
+     * @throws IllegalArgumentException if a required argument or any fallback locale is blank
+     */
     public static ObjectNode i18nPluginEntry(
         final String pluginId,
         final String localeSource,
@@ -211,6 +345,16 @@ public final class PreviewReportDocuments {
         return entry;
     }
 
+    /**
+     * Builds one message-catalog record for an i18n plugin entry.
+     *
+     * @param locale the catalog's locale tag; must not be blank
+     * @param state how the catalog resolved (loaded, missing, and so on); must not be blank
+     * @param keyCount number of message keys the catalog contributed
+     * @return a mutable catalog node
+     * @throws NullPointerException if {@code locale} or {@code state} is {@code null}
+     * @throws IllegalArgumentException if either is blank
+     */
     public static ObjectNode catalogEntry(
         final String locale,
         final String state,
@@ -223,6 +367,11 @@ public final class PreviewReportDocuments {
         return entry;
     }
 
+    /**
+     * @return a fresh registration-count node with every extension-point counter and the
+     *     {@code total} set to zero; the field set is fixed so before/after cleanup counts are
+     *     directly comparable
+     */
     public static ObjectNode emptyRegistrationCounts() {
         final ObjectNode counts = JSON.createObjectNode();
         counts.put("actions", 0);
@@ -241,6 +390,10 @@ public final class PreviewReportDocuments {
         return counts;
     }
 
+    /**
+     * @return a fresh cleanup-count node with every teardown counter, including {@code failures},
+     *     set to zero; callers increment these as scopes, handles, and classloaders are released
+     */
     public static ObjectNode emptyCleanupCounts() {
         final ObjectNode counts = JSON.createObjectNode();
         counts.put("taskHandlesCanceled", 0);
@@ -255,6 +408,16 @@ public final class PreviewReportDocuments {
         return counts;
     }
 
+    /**
+     * Records how plugin shutdown went in aggregate. The values are written verbatim; this builder
+     * does not check that the three outcomes add up to {@code attempted}.
+     *
+     * @param attempted plugins whose shutdown was started
+     * @param succeeded plugins that shut down cleanly
+     * @param failed plugins whose shutdown raised
+     * @param timedOut plugins that did not finish within the shutdown budget
+     * @return a mutable counts node
+     */
     public static ObjectNode shutdownCounts(
         final long attempted,
         final long succeeded,
@@ -269,6 +432,10 @@ public final class PreviewReportDocuments {
         return counts;
     }
 
+    /**
+     * @return the truncation marker every envelope starts with: not truncated, no dropped entries,
+     *     reason {@code NONE}; a writer that has to shed entries replaces it
+     */
     public static ObjectNode noTruncation() {
         final ObjectNode truncation = JSON.createObjectNode();
         truncation.put("truncated", false);

@@ -72,6 +72,14 @@ import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
 
+/**
+ * The runtime's implementation of the SDK {@link PluginContext} — the single object through which
+ * one loaded plugin reaches every service it is allowed to use.
+ *
+ * <p>Construction is driven by a {@code Dependencies} record, so a plugin never wires up its own
+ * services and never gets a reference to anything the runtime did not hand it. The context holds
+ * only SDK-facing types; native Editor objects stay behind the runtime services it exposes.
+ */
 public final class CorePluginContext implements PluginContext {
 
     private final Dependencies dependencies;
@@ -1175,6 +1183,12 @@ public final class CorePluginContext implements PluginContext {
         ) {
         }
 
+        /**
+         * @param replacement the config registry to use instead of the current one
+         * @return a new dependencies record identical to this one except for the config registry;
+         *     this record is left unchanged
+         * @throws NullPointerException if {@code replacement} is {@code null}
+         */
         public Dependencies withConfig(final PluginConfigRegistry replacement) {
             return new Dependencies(
                 descriptor,
@@ -1201,6 +1215,12 @@ public final class CorePluginContext implements PluginContext {
             );
         }
 
+        /**
+         * @param replacement the host snapshot source to use instead of the current one
+         * @return a new dependencies record identical to this one except for the host snapshot
+         *     source; this record is left unchanged
+         * @throws NullPointerException if {@code replacement} is {@code null}
+         */
         public Dependencies withHostSnapshotSource(final HostSnapshotSource replacement) {
             return new Dependencies(
                 descriptor,

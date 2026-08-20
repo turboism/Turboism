@@ -38,6 +38,17 @@ public record EditorUiProviderAdmission(
         }
     }
 
+    /**
+     * Builds a refusal for one family, naming both the failure class and a diagnostic to look up.
+     *
+     * @param family the family the provider would have served
+     * @param failureCode why the provider is not admitted
+     * @param diagnosticId stable lower-cased identifier of the diagnostic explaining the refusal;
+     *     at most 128 characters matching {@code [a-z0-9][a-z0-9._-]*}
+     * @return a safe-mode admission carrying no host generation and no verification evidence
+     * @throws NullPointerException if any argument is {@code null}
+     * @throws IllegalArgumentException if {@code diagnosticId} is blank or malformed
+     */
     public static EditorUiProviderAdmission safeMode(
         final EditorUiFamily family,
         final EditorUiContributionFailure.Code failureCode,
@@ -53,6 +64,17 @@ public record EditorUiProviderAdmission(
         );
     }
 
+    /**
+     * Builds a refusal for the default reason: the host mapping this provider needs was not
+     * verified.
+     *
+     * @param family the family the provider would have served
+     * @param diagnosticId stable lower-cased diagnostic identifier, bounded as described on
+     *     {@link #safeMode(EditorUiFamily, EditorUiContributionFailure.Code, String)}
+     * @return a safe-mode admission with failure code {@code MAPPING_NOT_VERIFIED}
+     * @throws NullPointerException if any argument is {@code null}
+     * @throws IllegalArgumentException if {@code diagnosticId} is blank or malformed
+     */
     public static EditorUiProviderAdmission safeMode(
         final EditorUiFamily family,
         final String diagnosticId
@@ -64,6 +86,20 @@ public record EditorUiProviderAdmission(
         );
     }
 
+    /**
+     * Admits a provider for one specific host generation, backed by verification evidence.
+     *
+     * <p>The admission is deliberately not open-ended: it is valid only while the host snapshot
+     * still reports {@code hostGeneration}, so a host restart or reload invalidates it rather than
+     * silently carrying over.
+     *
+     * @param family the family the provider serves
+     * @param hostGeneration the host generation this admission is bound to; must be positive
+     * @param verificationEvidence the reviewed, hash-anchored material justifying admission
+     * @return an admitted admission carrying no failure code and no diagnostic
+     * @throws NullPointerException if {@code family} or {@code verificationEvidence} is {@code null}
+     * @throws IllegalArgumentException if {@code hostGeneration} is not positive
+     */
     public static EditorUiProviderAdmission admitted(
         final EditorUiFamily family,
         final long hostGeneration,
@@ -79,10 +115,19 @@ public record EditorUiProviderAdmission(
         );
     }
 
+    /**
+     * @return whether the provider may touch the host at all; {@code false} means safe mode, in
+     *     which case {@code failureCode()} and {@code diagnosticId()} are both present
+     */
     public boolean isAdmitted() {
         return status == Status.ADMITTED;
     }
 
+    /**
+     * @param generation the host generation currently reported by the host snapshot
+     * @return whether this admission is both admitted and still bound to that exact generation; a
+     *     stale admission must be refused rather than reused across host generations
+     */
     public boolean isAdmittedTo(final long generation) {
         return isAdmitted() && hostGeneration == generation;
     }

@@ -5,6 +5,22 @@ import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.cubism.id.ModelObjectId;
 import dev.turboism.sdk.cubism.write.CubismWriteCommand;
 
+/**
+ * A write command targeting a single deformer within a model.
+ *
+ * <p>The compact constructor rejects incomplete commands eagerly, so any instance that
+ * exists is fully addressed. The command only names the intended change; it neither
+ * performs nor validates the edit against the live model.
+ *
+ * @param commandId caller-supplied identity for correlating this command with its outcome;
+ *                  must not be null or blank
+ * @param modelId the model the deformer belongs to; must not be null
+ * @param deformerId the deformer to modify; must not be null
+ * @param operation the deformer operation to perform, interpreted by the executing adapter;
+ *                  must not be null or blank
+ * @throws IllegalArgumentException if any component is null, or if {@code commandId} or
+ *                                  {@code operation} is blank
+ */
 @PreviewApi
 public record DeformerWriteCommand(
     String commandId,

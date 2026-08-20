@@ -2,6 +2,21 @@ package dev.turboism.sdk.ui;
 
 import java.util.Optional;
 
+/**
+ * Outcome of a user-file read, carrying either content or a failure but never
+ * both.
+ *
+ * @param <T>       the decoded content type ({@code String} for UTF-8 reads,
+ *                  {@code byte[]} for raw reads)
+ * @param value     the content read, empty exactly when {@code error} is present
+ * @param error     the failure, empty exactly when {@code value} is present
+ * @param truncated {@code true} when the file was longer than the caller’s byte
+ *                  budget and only a prefix was returned; always {@code false}
+ *                  on failure
+ * @throws IllegalArgumentException when both or neither of {@code value} and
+ *     {@code error} are present, or a failed read is marked truncated
+ * @throws NullPointerException when {@code value} or {@code error} is {@code null}
+ */
 public record UserFileReadResult<T>(
     Optional<T> value,
     Optional<UserFileError> error,

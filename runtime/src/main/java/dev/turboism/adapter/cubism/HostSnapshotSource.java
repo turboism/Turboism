@@ -10,6 +10,18 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+/**
+ * The runtime's read seam onto live Editor state.
+ *
+ * <p>Implementations project the host's mutable object graph into the immutable {@code Host*} records
+ * declared here; those records copy their collections defensively at construction, so a returned
+ * snapshot never changes underneath a caller. Reads are expected to run on the Cubism host thread,
+ * and a value read here is only a snapshot of the moment it was taken.
+ *
+ * <p>When no host is attached, implementations report {@link #isHostPresent()} false and answer the
+ * accessors with empty values rather than throwing. {@link #invalidationToken()} lets callers detect
+ * that anything observable through this source may have changed.
+ */
 public interface HostSnapshotSource {
 
     Optional<HostProject> activeProject();

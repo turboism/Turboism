@@ -30,6 +30,15 @@ public final class MeshInspectorService {
         this.uiHost = Objects.requireNonNull(uiHost, "uiHost");
     }
 
+    /**
+     * Reads the host's meshes, deformers, and context source and reports the
+     * counts as a status notification. Read-only: nothing in the model is
+     * modified.
+     *
+     * <p>When the host exposes neither meshes nor deformers, a WARNING status
+     * is posted instead and no counts are reported; the absence is not treated
+     * as an error.</p>
+     */
     public void inspect() {
         final List<ArtMeshSnapshot> meshes = cubismRead.meshes();
         final List<DeformerSnapshot> deformers = cubismRead.deformers();

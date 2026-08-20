@@ -58,6 +58,29 @@ public final class RuntimePluginLocalization implements PluginLocalization {
         this.diagnostics = Objects.requireNonNull(diagnostics, "diagnostics");
     }
 
+    /**
+     * Loads one plugin's catalogs, resolving the locale afresh from the operator property, the host
+     * display locale and the JVM display locale.
+     *
+     * <p>Prefer {@code createResolved} for plugins loaded after startup, so that every plugin shares
+     * the single locale the runtime already settled on. Loading never fails on a bad catalog: an
+     * unreadable or malformed catalog is recorded as {@code INVALID} through {@code diagnostics} and
+     * the fallback chain is used instead. The base catalog named by {@code i18n.baseName()} is always
+     * loaded as the last resort.
+     *
+     * @param pluginId the plugin whose catalogs are loaded; must not be {@code null} or blank
+     * @param pluginClassLoader the loader the catalog resources are read from, isolating this
+     *     plugin's resources from every other plugin's; must not be {@code null}
+     * @param i18n the plugin's declared base name and locale list; must not be {@code null}
+     * @param explicitLocale the configured locale tag, or {@code null}/{@code system} to defer to the
+     *     host and JVM locales
+     * @param displayLocale the Cubism host's display locale, consulted after the explicit choice
+     * @param jvmDisplayLocale the JVM display locale, consulted last before the base catalog
+     * @param diagnostics sink for every rejected locale and unusable catalog; must not be
+     *     {@code null}
+     * @return a usable catalog even when every declared locale failed to load, never {@code null}
+     * @throws IllegalArgumentException if {@code pluginId} is blank
+     */
     public static RuntimePluginLocalization create(
         final String pluginId,
         final ClassLoader pluginClassLoader,
@@ -239,6 +262,20 @@ public final class RuntimePluginLocalization implements PluginLocalization {
         }
     }
 
+    /**
+     * Captures the current state of this catalog and everything it has complained about so far.
+     *
+     * <p>A point-in-time copy with all lists defensively copied: the counters keep advancing on the
+     * live instance afterwards. Missing keys and malformed patterns are listed sorted by their
+     * locale-and-key composite, each carrying the total number of occurrences even though only the
+     * first of each was reported to the diagnostic sink. The reported fallback chain has the
+     * {@code marker} pseudo-entry appended to show what a fully unresolved key degrades to. Safe to
+     * call from any thread; the counters it reads are atomic, but the snapshot is not an atomic view
+     * of all of them together.
+     *
+     * @return the locale resolution, per-catalog load state, and accumulated warning counts, never
+     *     {@code null}
+     */
     public ReportSnapshot reportSnapshot() {
         final List<CatalogSnapshot> catalogSnapshots = catalogOrder.stream()
             .map(catalogId -> {
@@ -297,9 +334,27 @@ public final class RuntimePluginLocalization implements PluginLocalization {
         );
     }
 
+    /**
+     * Load outcome of one catalog in the fallback chain.
+     *
+     * @param locale the catalog id, a language tag or {@code base} for the final fallback catalog
+     * @param state {@code AVAILABLE} if the catalog loaded, {@code INVALID} if it was found but could
+     *     not be read, {@code MISSING} if the declared resource was absent
+     * @param keyCount the number of keys the catalog contributed, zero unless {@code AVAILABLE}
+     */
     public record CatalogSnapshot(String locale, String state, long keyCount) {
     }
 
+    /**
+     * One key that could not be resolved anywhere in the fallback chain, with how often it was asked
+     * for.
+     *
+     * @param key the localization key that was requested
+     * @param locale the language tag active when the lookup failed
+     * @param marker the placeholder text returned to the caller in place of a translation
+     * @param count total lookups that failed for this key and locale; only the first emitted a
+     *     diagnostic, the rest were suppressed
+     */
     public record MissingKeySnapshot(
         String key,
         String locale,
@@ -308,6 +363,16 @@ public final class RuntimePluginLocalization implements PluginLocalization {
     ) {
     }
 
+    /**
+     * One catalog entry that was found but could not be formatted as a message pattern.
+     *
+     * @param key the localization key whose pattern is invalid
+     * @param locale the language tag active when formatting failed
+     * @param code the diagnostic code reported for this failure, {@code I18N_FORMAT_INVALID}
+     * @param marker the placeholder text returned to the caller in place of the formatted message
+     * @param count total formatting attempts that failed for this key and locale; only the first
+     *     emitted a diagnostic, the rest were suppressed
+     */
     public record MalformedPatternSnapshot(
         String key,
         String locale,
@@ -317,6 +382,29 @@ public final class RuntimePluginLocalization implements PluginLocalization {
     ) {
     }
 
+    /**
+     * Full localization report for one plugin: which locale was chosen and why, which catalogs
+     * backed it, and everything that failed to resolve.
+     *
+     * <p>Immutable — the compact constructor copies every list, so the report does not change as the
+     * live catalog keeps serving lookups.
+     *
+     * @param pluginId the plugin this report describes
+     * @param localeSource which input the effective locale came from, for example {@code STARTUP}
+     * @param requestedLocale the locale tag originally asked for, which may differ from the one used
+     * @param normalizedLocale the language tag of the locale actually in effect
+     * @param fallbackChain catalog ids in consultation order, with {@code marker} appended to show
+     *     the final degradation step; defensively copied
+     * @param catalogs load state of each catalog in the chain; defensively copied
+     * @param missingKeys keys that resolved nowhere, sorted by locale and key; defensively copied
+     * @param malformedPatterns entries whose pattern would not format, sorted by locale and key;
+     *     defensively copied
+     * @param missingWarningsEmitted distinct missing keys that produced a diagnostic
+     * @param missingWarningsSuppressed repeat missing-key lookups that were deliberately not reported
+     * @param malformedWarningsEmitted distinct malformed patterns that produced a diagnostic
+     * @param malformedWarningsSuppressed repeat malformed-pattern failures that were deliberately not
+     *     reported
+     */
     public record ReportSnapshot(
         String pluginId,
         String localeSource,
