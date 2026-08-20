@@ -144,14 +144,17 @@ public interface PluginContext {
         throw new UnsupportedOperationException("meshEdit service is not available");
     }
 
+    @PreviewApi
     default MeshEditParticipation meshEditParticipation() {
         throw new UnsupportedOperationException("meshEditParticipation service is not available");
     }
 
+    @PreviewApi
     default MeshMirrorCounterparts meshMirrorCounterparts() {
         throw new UnsupportedOperationException("meshMirrorCounterparts service is not available");
     }
 
+    @PreviewApi
     default MeshEditUiService meshEditUi() {
         throw new UnsupportedOperationException("meshEditUi service is not available");
     }
