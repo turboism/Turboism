@@ -27,6 +27,7 @@ import dev.turboism.sdk.hostread.AsyncHostReadService;
 import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.sdk.storage.PluginStorage;
+import dev.turboism.sdk.script.ScriptService;
 import dev.turboism.sdk.task.PluginTaskScheduler;
 import dev.turboism.sdk.runtime.CubismLogService;
 import dev.turboism.sdk.runtime.RuntimeSettingsService;
@@ -73,6 +74,11 @@ public interface PluginContext {
 
     default PluginStorage storage() {
         throw new UnsupportedOperationException("storage service is not available");
+    }
+
+    @PreviewApi
+    default ScriptService scripts() {
+        return ScriptService.unavailable();
     }
 
     default UserFileAccessService userFiles() {
