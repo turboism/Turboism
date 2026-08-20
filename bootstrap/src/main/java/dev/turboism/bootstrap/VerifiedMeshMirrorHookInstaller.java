@@ -2,7 +2,6 @@ package dev.turboism.bootstrap;
 
 import dev.turboism.adapter.cubism.mesh.MeshMirrorHostProfile;
 import dev.turboism.adapter.cubism.mesh.MeshMirrorNativeMethodTransformer;
-import dev.turboism.adapter.cubism.mesh.MeshMirrorHelperBootstrap;
 import dev.turboism.adapter.cubism.mesh.NativeMeshMirrorBridge;
 import dev.turboism.adapter.cubism.mesh.RuntimeMeshEditUiService;
 import dev.turboism.adapter.cubism.mesh.RuntimeMeshMirrorAxisService;
@@ -22,6 +21,7 @@ final class VerifiedMeshMirrorHookInstaller implements AutoCloseable {
     private final MeshMirrorNativeMethodTransformer transformer;
     private final String[] targetClassNames;
     private final Consumer<String> diagnostic;
+    private final List<String> diagnostics = new ArrayList<>();
     private dev.turboism.sdk.plugin.Registration contributionObserver;
     private final Object lifecycleLock = new Object();
     private boolean installed;
@@ -55,12 +55,18 @@ final class VerifiedMeshMirrorHookInstaller implements AutoCloseable {
         final Consumer<String> diagnostic
     ) {
         this.instrumentation = Objects.requireNonNull(instrumentation, "instrumentation");
-        this.hostClassLoader = Objects.requireNonNull(hostClassLoader, "hostClassLoader");
+        this.hostClassLoader = hostClassLoader;
         this.axis = axis;
         this.ui = ui;
         this.diagnostic = Objects.requireNonNull(diagnostic, "diagnostic");
-        MeshMirrorHelperBootstrap.ensureAvailable(instrumentation, hostClassLoader);
-        this.transformer = new MeshMirrorNativeMethodTransformer(profile, hostClassLoader);
+        this.transformer = new MeshMirrorNativeMethodTransformer(
+            profile,
+            hostClassLoader,
+            null,
+            null,
+            instrumentation,
+            this::report
+        );
         this.targetClassNames = new String[] {
             profile.meshEditorOwner().replace('/', '.'),
             profile.mirrorWidgetOwner().replace('/', '.'),
@@ -79,13 +85,6 @@ final class VerifiedMeshMirrorHookInstaller implements AutoCloseable {
                 }
                 instrumentation.addTransformer(transformer, true);
                 installed = true;
-                for (Class<?> type : instrumentation.getAllLoadedClasses()) {
-                    if (type.getClassLoader() != hostClassLoader || !isTarget(safeName(type))) continue;
-                    final boolean modifiable = instrumentation.isModifiableClass(type);
-                    report("MESH_MIRROR_DIAG stage=TARGET_FOUND owner=" + safeName(type)
-                        + " modifiable=" + modifiable);
-                    if (modifiable) instrumentation.retransformClasses(type);
-                }
                 report("MESH_MIRROR_DIAG stage=HOOK_INSTALLED");
             } catch (Throwable failure) {
                 rollback();
@@ -146,6 +145,18 @@ final class VerifiedMeshMirrorHookInstaller implements AutoCloseable {
         }
     }
 
+    ClassLoader transformerClassLoader() {
+        return transformer.admittedClassLoader();
+    }
+
+    List<String> diagnostics() {
+        return List.copyOf(diagnostics);
+    }
+
+    MeshMirrorNativeMethodTransformer.Outcome transformerOutcome() {
+        return transformer.outcome();
+    }
+
     @Override
     public void close() {
         synchronized (lifecycleLock) {
@@ -173,23 +184,7 @@ final class VerifiedMeshMirrorHookInstaller implements AutoCloseable {
             } catch (Throwable failure) {
                 failures.add("MESH_MIRROR_TRANSFORMER_REMOVE_FAILED");
             }
-            try {
-                for (Class<?> type : instrumentation.getAllLoadedClasses()) {
-                    try {
-                        if (type.getClassLoader() == hostClassLoader
-                            && isTarget(safeName(type))
-                            && instrumentation.isModifiableClass(type)) {
-                            instrumentation.retransformClasses(type);
-                        }
-                    } catch (Throwable failure) {
-                        failures.add("MESH_MIRROR_RESTORE_FAILED owner=" + safeName(type));
-                        failures.add("MESH_MIRROR_DIAG stage=RESTORE_FAILED owner=" + safeName(type));
-                    }
-                }
-            } catch (Throwable failure) {
-                failures.add("MESH_MIRROR_RESTORE_ENUMERATION_FAILED");
-                failures.add("MESH_MIRROR_DIAG stage=RESTORE_FAILED owner=ENUMERATION");
-            }
+            restoreLoadedTargets(failures);
         }
         if (contributionObserver != null) {
             try {
@@ -218,15 +213,32 @@ final class VerifiedMeshMirrorHookInstaller implements AutoCloseable {
         report("MESH_MIRROR_DIAG stage=HOOK_CLOSED");
     }
 
+    private void restoreLoadedTargets(final List<String> failures) {
+        try {
+            for (Class<?> type : instrumentation.getAllLoadedClasses()) {
+                try {
+                    if ((hostClassLoader == null || type.getClassLoader() == hostClassLoader)
+                        && isTarget(safeName(type))
+                        && instrumentation.isModifiableClass(type)) {
+                        instrumentation.retransformClasses(type);
+                    }
+                } catch (Throwable failure) {
+                    failures.add("MESH_MIRROR_RESTORE_FAILED owner=" + safeName(type));
+                    failures.add("MESH_MIRROR_DIAG stage=RESTORE_FAILED owner=" + safeName(type));
+                }
+            }
+        } catch (Throwable failure) {
+            failures.add("MESH_MIRROR_RESTORE_ENUMERATION_FAILED");
+            failures.add("MESH_MIRROR_DIAG stage=RESTORE_FAILED owner=ENUMERATION");
+        }
+    }
+
     private void report(final String message) {
+        diagnostics.add(message);
         try {
             diagnostic.accept(message);
         } catch (Throwable ignored) {
-            try {
-                System.err.println(message);
-            } catch (Throwable ignoredFallback) {
-                // Diagnostics must not reopen a closed host boundary.
-            }
+            // Diagnostics must not reopen a closed host boundary.
         }
     }
 
