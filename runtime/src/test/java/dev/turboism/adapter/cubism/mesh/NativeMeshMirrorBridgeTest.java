@@ -1,16 +1,115 @@
 package dev.turboism.adapter.cubism.mesh;
 
+import dev.turboism.sdk.cubism.mesh.MeshEditUiService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class NativeMeshMirrorBridgeTest {
 
     @AfterEach
     void clearBridge() {
         NativeMeshMirrorBridge.uninstall();
+    }
+
+    /**
+     * The exact 5.3.02 host builds the mirror widget once, from
+     * {@code ToolMode_MeshEdit_Manual.<clinit>}, before the runtime can bind. The unbound
+     * callback must therefore keep the references it was handed and binding must replay them.
+     */
+    @Test
+    void unboundWidgetCallbackDefersAndBindingReplaysItExactlyOnce() {
+        final List<String> diagnostics = new ArrayList<>();
+        NativeMeshMirrorBridge.diagnostics(diagnostics::add);
+        final Object widget = new javax.swing.JPanel();
+
+        assertSame(widget, NativeMeshMirrorBridge.attachControl(widget, new Panel(200.0f, 100.0f)));
+
+        assertTrue(diagnostics.contains(stage("WIDGET_CALLBACK_ENTER bound=false")));
+        assertTrue(diagnostics.contains(stage("DEFERRED_ATTACH_PENDING")));
+        assertFalse(NativeMeshMirrorBridge.controlAttached());
+
+        final RuntimeMeshEditUiService ui = new RuntimeMeshEditUiService();
+        ui.contributeMirrorAxisAngleControl(angleControl());
+        NativeMeshMirrorBridge.install(new RuntimeMeshMirrorAxisService(), ui);
+
+        assertEquals(1, count(diagnostics, stage("DEFERRED_ATTACH_REPLAY")));
+        assertTrue(diagnostics.contains(stage("ATTACH_BEGIN")));
+
+        NativeMeshMirrorBridge.replayPendingAttach();
+        assertEquals(1, count(diagnostics, stage("DEFERRED_ATTACH_REPLAY")));
+    }
+
+    @Test
+    void deferredAttachWaitsForTheAuthorizedContributionAndReplaysWhenItArrives() {
+        final List<String> diagnostics = new ArrayList<>();
+        NativeMeshMirrorBridge.diagnostics(diagnostics::add);
+        NativeMeshMirrorBridge.attachControl(new javax.swing.JPanel(), new Panel(200.0f, 100.0f));
+
+        final RuntimeMeshEditUiService ui = new RuntimeMeshEditUiService();
+        NativeMeshMirrorBridge.install(new RuntimeMeshMirrorAxisService(), ui);
+
+        assertTrue(diagnostics.contains(stage("DEFERRED_ATTACH_WAITING reason=NO_CONTRIBUTION")));
+        assertEquals(0, count(diagnostics, stage("DEFERRED_ATTACH_REPLAY")));
+
+        ui.contributeMirrorAxisAngleControl(angleControl());
+        NativeMeshMirrorBridge.replayPendingAttach();
+
+        assertEquals(1, count(diagnostics, stage("DEFERRED_ATTACH_REPLAY")));
+    }
+
+    @Test
+    void boundWidgetCallbackAttachesDirectlyAndRecordsNothingDeferred() {
+        final List<String> diagnostics = new ArrayList<>();
+        final RuntimeMeshEditUiService ui = new RuntimeMeshEditUiService();
+        ui.contributeMirrorAxisAngleControl(angleControl());
+        NativeMeshMirrorBridge.install(new RuntimeMeshMirrorAxisService(), ui);
+        NativeMeshMirrorBridge.diagnostics(diagnostics::add);
+
+        NativeMeshMirrorBridge.attachControl(new javax.swing.JPanel(), new Panel(200.0f, 100.0f));
+
+        assertTrue(diagnostics.contains(stage("WIDGET_CALLBACK_ENTER bound=true")));
+        assertFalse(diagnostics.contains(stage("DEFERRED_ATTACH_PENDING")));
+        assertEquals(0, count(diagnostics, stage("DEFERRED_ATTACH_REPLAY")));
+    }
+
+    @Test
+    void uninstallClearsDeferredAttachAndAttachmentEvidence() {
+        NativeMeshMirrorBridge.markControlAttached();
+        assertTrue(NativeMeshMirrorBridge.controlAttached());
+        NativeMeshMirrorBridge.attachControl(new javax.swing.JPanel(), new Panel(200.0f, 100.0f));
+
+        NativeMeshMirrorBridge.uninstall();
+
+        assertFalse(NativeMeshMirrorBridge.controlAttached());
+        final List<String> diagnostics = new ArrayList<>();
+        NativeMeshMirrorBridge.diagnostics(diagnostics::add);
+        final RuntimeMeshEditUiService ui = new RuntimeMeshEditUiService();
+        ui.contributeMirrorAxisAngleControl(angleControl());
+        NativeMeshMirrorBridge.install(new RuntimeMeshMirrorAxisService(), ui);
+
+        assertEquals(0, count(diagnostics, stage("DEFERRED_ATTACH_REPLAY")));
+    }
+
+    private static String stage(final String value) {
+        return "MESH_MIRROR_DIAG stage=" + value;
+    }
+
+    private static int count(final List<String> diagnostics, final String value) {
+        return (int) diagnostics.stream().filter(value::equals).count();
+    }
+
+    private static MeshEditUiService.MirrorAxisAngleControl angleControl() {
+        return new MeshEditUiService.MirrorAxisAngleControl(
+            "mesh.mirror-axis.angle", "Angle", "Reset", -180.0f, 180.0f, 0.1f, ignored -> { }
+        );
     }
 
     @Test
@@ -38,6 +137,16 @@ final class NativeMeshMirrorBridgeTest {
         );
         assertEquals(2.0f, recomputed.getX(), 0.0001f);
         assertEquals(2.0f, recomputed.getY(), 0.0001f);
+    }
+
+    @Test
+    void unboundCallbackPreservesNativeResult() {
+        final Point original = new Point(4.0f, 5.0f);
+
+        assertSame(original, NativeMeshMirrorBridge.adjustPoint(original, new State("VERTICAL", 0.0f), original));
+        assertEquals(false, NativeMeshMirrorBridge.adjustHit(
+            false, new State("VERTICAL", 0.0f), original, 0.1f
+        ));
     }
 
     @Test
@@ -134,6 +243,7 @@ final class NativeMeshMirrorBridgeTest {
             false, new Object(), new Point(1.0f, -50.05f), 0.1f
         ));
     }
+
 
     @Test
     void explicitHostContextClearMakesOperationsFailClosed() {
