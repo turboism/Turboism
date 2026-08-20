@@ -10,7 +10,7 @@ final class CorePublicApiVerificationManifest {
         "5.2.03",
         manifest(
             CorePublicApiTrustRoots.verificationId("5.2.03"),
-            "02c9afbd69ab06c57a13c4cb18699215c4463ba9b323dfa80959297e9b10d35d",
+            "7e5dd498d46b654671f80639bcc74c01ed5d7ab10a1d4b36914956b1567ffceb",
             "5.2.03",
             "5.2.03",
             36_237L,

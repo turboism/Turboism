@@ -21,7 +21,7 @@ public final class ProjectWorkspaceVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_2_03 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_2_03,
         "m15.cubism-5.2.03.project-workspace.static",
-        "843afabdc017b699db50c0424ca326a3a0f55a213d54f35ba6b5ed9c11e074ac",
+        "59ac1ee40d386aed22b6f3f8c6eb0fe876c5af69190affd7f0c00209d1f12de4",
         CUBISM_VERSION_5_2_03,
         "cubism-5.2.03"
     );
