@@ -9,6 +9,15 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.regex.Pattern;
 
+/**
+ * Expands the ten semantic palette slots into the many legacy color keys a Cubism theme file
+ * needs, and records which keys it owns.
+ *
+ * <p>The managed-key set is what makes regeneration safe: keys the generator wrote last time
+ * are dropped before the new expansion, so hand-written colors in the same file survive while
+ * generated ones are replaced rather than accumulated. Output ordering is deterministic -
+ * slots in a fixed order, retained keys sorted by name. Not instantiable.
+ */
 public final class ThemePaletteGenerator {
 
     private static final String GENERATOR_ID = "turboism-theme-gen";
@@ -31,6 +40,26 @@ public final class ThemePaletteGenerator {
     private ThemePaletteGenerator() {
     }
 
+    /**
+     * Expands a complete set of slot values into legacy color keys, preserving unmanaged colors.
+     *
+     * <p>Requires every slot to be present: this is the full-generation entry point, so a partial
+     * map is a caller error rather than a partial update - use {@link #edit} for that. Colors
+     * from {@code existingColors} are kept unless {@code previousManagedKeys} says the generator
+     * wrote them, which is how a regeneration replaces its own output without disturbing anything
+     * else.
+     *
+     * @param slots every slot in {@link #slotOrder()} mapped to a {@code #RRGGBB} value; must not
+     *              be null
+     * @param existingColors the color keys already in the theme file; must not be null
+     * @param previousManagedKeys the keys a previous generation owned and may now overwrite; must
+     *                            not be null
+     * @return the normalized slots, the resulting color map, the newly managed keys, and
+     *         generator metadata recording all three
+     * @throws IllegalArgumentException if a slot name is unknown, a slot is missing, or a value is
+     *                                  not a six-digit hex color
+     * @throws NullPointerException if any argument is null, or any supplied slot value is null
+     */
     public static Result generate(
         final Map<String, String> slots,
         final Map<String, String> existingColors,
@@ -60,6 +89,17 @@ public final class ThemePaletteGenerator {
         return result(normalizedSlots, colors, managedKeys);
     }
 
+    /**
+     * Re-generates a palette with some slots changed, carrying over the previous result's colors
+     * and managed keys so unmanaged colors survive the edit.
+     *
+     * @param original the palette to edit; must not be null
+     * @param updates only the slots to change, which may be empty; must not be null
+     * @return the regenerated palette
+     * @throws IllegalArgumentException if an update names an unknown slot or supplies a value that
+     *                                  is not a six-digit hex color
+     * @throws NullPointerException if either argument is null, or any update value is null
+     */
     public static Result edit(final Result original, final Map<String, String> updates) {
         Objects.requireNonNull(original, "original");
         final LinkedHashMap<String, String> slots = new LinkedHashMap<>(original.slotValues());
@@ -69,6 +109,14 @@ public final class ThemePaletteGenerator {
         return generate(slots, original.colors(), original.managedKeys());
     }
 
+    /**
+     * The palette to start from when a theme supplies no value for a slot - a Cubism-like light
+     * or dark scheme, with a couple of slots deliberately shared between the two.
+     *
+     * @param base the appearance to match; anything other than {@link ThemeBase#DARK}, including
+     *             {@link ThemeBase#ANY}, yields the light defaults
+     * @return an unmodifiable, complete slot map in {@link #slotOrder()} order
+     */
     public static Map<String, String> fallbackDefaults(final ThemeBase base) {
         final boolean dark = base == ThemeBase.DARK;
         final LinkedHashMap<String, String> defaults = new LinkedHashMap<>();
@@ -85,6 +133,10 @@ public final class ThemePaletteGenerator {
         return Collections.unmodifiableMap(defaults);
     }
 
+    /**
+     * @return the ten semantic slot names, in the fixed order generation and metadata use;
+     *         immutable and identical on every call
+     */
     public static List<String> slotOrder() {
         return SLOT_ORDER;
     }
@@ -163,6 +215,21 @@ public final class ThemePaletteGenerator {
         return Collections.unmodifiableMap(values);
     }
 
+    /**
+     * One generated palette: what was asked for, what it produced, and what it now owns.
+     *
+     * <p>All four collections are defensively copied into unmodifiable, insertion-ordered forms,
+     * so the result is immutable and its iteration order is the deterministic generation order.
+     *
+     * @param slotValues the normalized slot values this palette was generated from
+     * @param colors the resulting legacy color map - generated keys plus the unmanaged keys
+     *               carried over
+     * @param managedKeys the color keys this generation owns, to be passed back as
+     *                    {@code previousManagedKeys} next time so they are replaced rather than
+     *                    duplicated
+     * @param metadata the generator id and version, each slot value, and the managed keys as a
+     *                 comma-separated list, for embedding in the package
+     */
     public record Result(
         Map<String, String> slotValues,
         Map<String, String> colors,

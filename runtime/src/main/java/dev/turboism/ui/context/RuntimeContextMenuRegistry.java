@@ -14,6 +14,16 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
 
+/**
+ * The runtime {@link ContextMenuRegistry} handed to one plugin.
+ *
+ * <p>Every contribution is permission-checked against
+ * {@link PermissionIds#TURBOISM_UI_CONTEXT_MENU_CONTRIBUTE} before it reaches the shared
+ * contribution authority, and is tagged with this registry's plugin id so contributions stay
+ * attributable. Registrations are idempotent: closing one twice releases the authority
+ * registration only once. The contribution list is copy-on-write, so reads are safe while
+ * other threads contribute.
+ */
 public final class RuntimeContextMenuRegistry implements ContextMenuRegistry {
 
     private final PermissionChecker permissionChecker;
@@ -42,6 +52,18 @@ public final class RuntimeContextMenuRegistry implements ContextMenuRegistry {
         );
     }
 
+    /**
+     * Rebinds the authority that contributions are forwarded to.
+     *
+     * <p>Permitted only while nothing is registered through this registry, since already-live
+     * contributions belong to the previous authority and cannot be migrated; rebinding to the
+     * authority already in use is always allowed.
+     *
+     * @param authority the contribution authority to use from now on; must not be null
+     * @throws IllegalStateException if contributions are live and {@code authority} differs from
+     *                               the current one
+     * @throws NullPointerException if {@code authority} is null
+     */
     public synchronized void bindContributionAuthority(
         final EditorUiContributionAuthority authority
     ) {
@@ -76,10 +98,17 @@ public final class RuntimeContextMenuRegistry implements ContextMenuRegistry {
         };
     }
 
+    /**
+     * @return a snapshot of the contributions currently live through this registry, in
+     *         registration order; later registrations and closures do not affect the returned list
+     */
     public List<ContextMenuContribution> contributions() {
         return contributions.stream().map(StoredContribution::contribution).toList();
     }
 
+    /**
+     * @return the id of the plugin every contribution made through this registry is attributed to
+     */
     public String pluginId() {
         return pluginId;
     }

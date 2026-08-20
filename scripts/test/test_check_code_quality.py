@@ -120,30 +120,40 @@ def case_unknown_rule(root: Path) -> None:
     assert result.returncode == 2, "unknown rule must fail closed"
 
 
-def run_ratchet(root: Path) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        [sys.executable, str(CHECKER), str(root), "--ratchet"],
-        capture_output=True,
-        text=True,
-    )
+def run_ratchet(root: Path, maximum: int | None = None) -> subprocess.CompletedProcess[str]:
+    command = [sys.executable, str(CHECKER), str(root), "--ratchet"]
+    if maximum is not None:
+        command += ["--backlog-maximum", str(maximum)]
+    return subprocess.run(command, capture_output=True, text=True)
 
 
 def case_ratchet_blocks_new_undocumented_api(root: Path) -> None:
-    """A tree with more findings than the recorded maximum must fail."""
-    for index in range(2000):
+    """A tree with more findings than the maximum must fail."""
+    for index in range(3):
         write(
             root,
             f"sdk/src/main/java/dev/turboism/sample/Gap{index}.java",
             f"package dev.turboism.sample;\n\npublic final class Gap{index} {{ }}\n",
         )
-    result = run_ratchet(root)
-    assert result.returncode == 1, "exceeding the recorded backlog must fail"
+    result = run_ratchet(root, maximum=2)
+    assert result.returncode == 1, "exceeding the maximum must fail"
     assert "new undocumented public API" in result.stdout
 
 
+def case_ratchet_holds_when_backlog_matches(root: Path) -> None:
+    """Sitting exactly at the maximum passes."""
+    write(
+        root,
+        "sdk/src/main/java/dev/turboism/sample/Gap.java",
+        "package dev.turboism.sample;\n\npublic final class Gap { }\n",
+    )
+    result = run_ratchet(root, maximum=1)
+    assert result.returncode == 0, f"holding at the maximum must pass, got:\n{result.stdout}"
+
+
 def case_ratchet_demands_lowering_when_backlog_shrinks(root: Path) -> None:
-    """A fully documented tree is below the recorded maximum and must demand it be lowered."""
-    result = run_ratchet(root)
+    """Dropping below the maximum must demand it be lowered, so the ratchet keeps holding."""
+    result = run_ratchet(root, maximum=5)
     assert result.returncode == 1, "a shrunken backlog must demand the maximum be lowered"
     assert "lower" in result.stdout.lower()
 
@@ -170,6 +180,7 @@ CASES = (
     case_retired_asset_token,
     case_unknown_rule,
     case_ratchet_blocks_new_undocumented_api,
+    case_ratchet_holds_when_backlog_matches,
     case_ratchet_demands_lowering_when_backlog_shrinks,
     case_ratchet_still_enforces_other_rules,
 )

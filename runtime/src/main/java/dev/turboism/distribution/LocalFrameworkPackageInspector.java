@@ -16,6 +16,15 @@ import java.util.Objects;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
+/**
+ * Filesystem-backed {@link FrameworkPackageInspector} for framework packages held on local disk.
+ *
+ * <p>Inspection copies the package into a private temporary snapshot (owner-only permissions where
+ * the platform supports them) and works exclusively from that copy, so a concurrently mutated source
+ * file cannot change what was validated. The source file's attributes are re-checked after hashing
+ * and again after archive inspection; any change rejects the package. Packages larger than
+ * {@code ArchivePolicy.PACKAGE_MAX} are rejected before being read. The snapshot is always deleted.
+ */
 public final class LocalFrameworkPackageInspector implements FrameworkPackageInspector {
     private final PackageAccess access;
 

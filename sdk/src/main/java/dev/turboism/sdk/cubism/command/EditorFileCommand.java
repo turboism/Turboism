@@ -31,14 +31,27 @@ public enum EditorFileCommand {
         this.supportedVersions = Set.copyOf(supportedVersions);
     }
 
+    /**
+     * @return the host command identifier: the constant name lowercased and dot-separated,
+     *     computed with {@code Locale.ROOT} so it is locale-independent
+     */
     public String id() {
         return name().toLowerCase(java.util.Locale.ROOT).replace('_', '.');
     }
 
+    /**
+     * @return whether this command consumes a file or produces one; a request is rejected unless
+     *     the user's file grant was issued in this same mode, so a read grant can never be spent
+     *     on an export
+     */
     public UserFileMode mode() {
         return mode;
     }
 
+    /**
+     * @param cubismVersion an exact Editor version string; compared for equality, not range-matched
+     * @return whether this command was observed on that version
+     */
     public boolean supports(final String cubismVersion) {
         return supportedVersions.contains(cubismVersion);
     }

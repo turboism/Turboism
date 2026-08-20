@@ -35,6 +35,18 @@ public final class MaxRectsBssfTextureAtlasPlanner {
         .thenComparingInt(TextureAtlasPlacement::x)
         .thenComparing(TextureAtlasPlacement::textureId);
 
+    /**
+     * Plans a layout sequentially. Equivalent to {@link #plan(List, TextureAtlasLayoutConstraints,
+     * boolean)} with {@code parallel} false.
+     *
+     * @param items textures to place; the list is copied, so the caller's list is not mutated
+     * @param constraints page size, page budget, and item padding to respect
+     * @return the resulting plan; a plan with no placements and one page when {@code items} is empty
+     * @throws TextureAtlasPackingException if a texture cannot fit one page, the page budget is
+     *     exhausted, or a texture plus padding overflows the supported integer geometry
+     * @throws IllegalArgumentException if two items share a texture ID
+     * @throws NullPointerException if either argument is null
+     */
     public TextureAtlasLayoutPlan plan(
         final List<TextureAtlasLayoutItem> items,
         final TextureAtlasLayoutConstraints constraints
@@ -42,6 +54,20 @@ public final class MaxRectsBssfTextureAtlasPlanner {
         return plan(items, constraints, false);
     }
 
+    /**
+     * Plans a layout with Best Short Side Fit over several candidate item orderings, keeping the
+     * best result. The outcome is deterministic and independent of {@code parallel}: placements are
+     * ordered by page, then y, then x, then texture ID.
+     *
+     * @param items textures to place; the list is copied, so the caller's list is not mutated
+     * @param constraints page size, page budget, and item padding to respect
+     * @param parallel whether candidate orderings may be evaluated concurrently; affects speed only
+     * @return the resulting plan; a plan with no placements and one page when {@code items} is empty
+     * @throws TextureAtlasPackingException if a texture cannot fit one page, the page budget is
+     *     exhausted, or a texture plus padding overflows the supported integer geometry
+     * @throws IllegalArgumentException if two items share a texture ID
+     * @throws NullPointerException if either argument is null
+     */
     public TextureAtlasLayoutPlan plan(
         final List<TextureAtlasLayoutItem> items,
         final TextureAtlasLayoutConstraints constraints,

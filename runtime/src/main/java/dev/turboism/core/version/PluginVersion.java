@@ -17,6 +17,12 @@ public final class PluginVersion implements Comparable<PluginVersion> {
         this.patch = patch;
     }
 
+    /**
+     * @param value a {@code MAJOR.MINOR.PATCH} string; no pre-release or build metadata is accepted
+     * @return the parsed version
+     * @throws IllegalArgumentException if the value is null, blank, does not have exactly three
+     *     dot-separated components, or has a component that is not an integer
+     */
     public static PluginVersion parse(String value) {
         if (value == null || value.isBlank()) {
             throw new IllegalArgumentException("version must not be empty");
@@ -32,14 +38,17 @@ public final class PluginVersion implements Comparable<PluginVersion> {
         }
     }
 
+    /** @return the major component, whose change signals an incompatible plugin API break. */
     public int major() {
         return major;
     }
 
+    /** @return the minor component, whose change signals backwards-compatible additions. */
     public int minor() {
         return minor;
     }
 
+    /** @return the patch component, whose change signals a fix with no API movement. */
     public int patch() {
         return patch;
     }

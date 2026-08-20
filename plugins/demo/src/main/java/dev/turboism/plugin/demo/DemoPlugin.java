@@ -14,6 +14,14 @@ import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
 
 import java.util.function.Consumer;
 
+/**
+ * Reference plugin exercising one contribution of each supported kind.
+ *
+ * <p>It exists to demonstrate and smoke-test the SDK surface, not to do anything useful: the action
+ * it registers has an empty handler. Every registration made in {@code enable()} is enrolled in the
+ * plugin's disposable scope, so disabling the plugin withdraws all of them without this class
+ * tracking any handles itself.
+ */
 public class DemoPlugin implements TurboismPlugin {
 
     private PluginContext context;
@@ -124,5 +132,11 @@ public class DemoPlugin implements TurboismPlugin {
         logger.info("DemoPlugin shutdown");
     }
 
+    /**
+     * Demonstration event published on the bus when the plugin is enabled, and logged by the
+     * plugin's own subscriber.
+     *
+     * @param message human-readable text describing why the event was published
+     */
     public record DemoEvent(String message) implements EventBus.TurboismEvent {}
 }

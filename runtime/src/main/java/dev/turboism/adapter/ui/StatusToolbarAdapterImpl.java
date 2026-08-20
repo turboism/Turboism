@@ -8,6 +8,15 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Supplier;
 
+/**
+ * Default {@link StatusToolbarAdapter} that either wraps live host operations or serves a
+ * permanently-degraded safe mode.
+ *
+ * <p>Every call is gated twice: the host version must sit inside the scope reviewed for the
+ * capability, and the host must report the capability as supported. Host failures never escape --
+ * an {@link AdapterHostException} becomes its own diagnostic and any other {@link RuntimeException}
+ * becomes a validation-failure diagnostic with runtime-authored text.</p>
+ */
 public final class StatusToolbarAdapterImpl implements StatusToolbarAdapter {
 
     private final Optional<HostOperations> host;
@@ -16,6 +25,12 @@ public final class StatusToolbarAdapterImpl implements StatusToolbarAdapter {
         this.host = Objects.requireNonNull(host, "host");
     }
 
+    /**
+     * @param host live host operations to delegate to; per-call version and capability gating still
+     *     applies, so a connected adapter can still return diagnostics
+     * @return an adapter bound to the given host
+     * @throws NullPointerException if {@code host} is null
+     */
     public static StatusToolbarAdapter connected(final HostOperations host) {
         return new StatusToolbarAdapterImpl(Optional.of(Objects.requireNonNull(host, "host")));
     }
@@ -33,6 +48,10 @@ public final class StatusToolbarAdapterImpl implements StatusToolbarAdapter {
         return connected(new CxStatusBarHostOperations(hostVersion, access));
     }
 
+    /**
+     * @return an adapter with no host behind it; every call returns an
+     *     {@link SafeModeDiagnostic.Code#ADAPTER_UNAVAILABLE} diagnostic
+     */
     public static StatusToolbarAdapter safeMode() {
         return new StatusToolbarAdapterImpl(Optional.empty());
     }

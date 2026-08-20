@@ -29,6 +29,22 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 
+/**
+ * Runtime implementation of the plugin-facing config registry, backed by Java properties files
+ * under one plugin's own data directory.
+ *
+ * <p>Every operation is gated twice: the caller must hold the corresponding
+ * {@code turboism.config.plugin.*} permission, and must have opened a read or write scope for the
+ * path first, so a permission alone does not grant access to arbitrary files. Actual file I/O is
+ * never done on the caller's thread — it is dispatched to the {@link RuntimeScheduler} and awaited
+ * for at most one second, so a wedged scheduler degrades to an empty read or a
+ * {@link PluginConfigException} rather than blocking the host.</p>
+ *
+ * <p>Reads fail soft: rejection, interruption, failure and timeout all return an empty value after
+ * emitting a diagnostic. Writes fail loud, throwing {@code PluginConfigException} in the same
+ * cases. Diagnostics deliberately report the location as {@code config://<redacted>} so host paths
+ * never reach a report. Instances are thread-safe; the open scope sets are concurrent.</p>
+ */
 public final class RuntimePluginConfigRegistry implements PluginConfigRegistry {
 
     private static final String READ_TASK_TYPE = "config.read";

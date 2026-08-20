@@ -65,11 +65,10 @@ VERSION_SUFFIXED_TYPE = re.compile(r"^\w+(?:52|53|5203|5302)$")
 
 ALL_RULES = ("javadoc", "digests", "naming", "assets")
 
-# Ratchet for the Javadoc backlog. The other three rules are already at zero and are enforced
-# absolutely. Javadoc is enforced as a maximum instead: new undocumented public API is blocked
-# immediately, while the existing backlog burns down. Lower this number as batches land; the
-# checker refuses to let it drift upward, and tells you to lower it when you go below.
-JAVADOC_BACKLOG_MAXIMUM = 1112
+# The Javadoc backlog is closed. The ratchet that carried it down from 1253 is kept because it is
+# the mechanism that got here and is cheap to re-arm, but the maximum is now zero, so every rule
+# is enforced absolutely: any undocumented public type or non-@Override public method fails.
+JAVADOC_BACKLOG_MAXIMUM = 0
 
 
 def java_sources(root: Path, relative: str) -> list[Path]:
@@ -202,6 +201,15 @@ def main() -> int:
             "while the existing backlog burns down"
         ),
     )
+    parser.add_argument(
+        "--backlog-maximum",
+        type=int,
+        default=JAVADOC_BACKLOG_MAXIMUM,
+        help=(
+            "override the recorded javadoc maximum; exists so the self-test can exercise both "
+            "ratchet branches without depending on the production constant's current value"
+        ),
+    )
     args = parser.parse_args()
 
     root = Path(args.root).resolve()
@@ -219,7 +227,7 @@ def main() -> int:
         return 0
 
     if args.ratchet and "javadoc" in results:
-        return _ratchet(results, selected)
+        return _ratchet(results, selected, args.backlog_maximum)
 
     failures = [failure for rule in selected for failure in results[rule]]
     if failures:
@@ -232,7 +240,7 @@ def main() -> int:
     return 0
 
 
-def _ratchet(results: dict[str, list[str]], selected: list[str]) -> int:
+def _ratchet(results: dict[str, list[str]], selected: list[str], maximum: int) -> int:
     """Enforces javadoc as a non-increasing maximum and the other rules absolutely."""
     javadoc = results["javadoc"]
     strict = [failure for rule in selected if rule != "javadoc" for failure in results[rule]]
@@ -240,11 +248,11 @@ def _ratchet(results: dict[str, list[str]], selected: list[str]) -> int:
     for failure in strict:
         print(f"FAIL: {failure}")
 
-    if len(javadoc) > JAVADOC_BACKLOG_MAXIMUM:
-        added = len(javadoc) - JAVADOC_BACKLOG_MAXIMUM
+    if len(javadoc) > maximum:
+        added = len(javadoc) - maximum
         print(
             f"FAIL: {added} new undocumented public API item(s): "
-            f"{len(javadoc)} findings exceeds the recorded backlog of {JAVADOC_BACKLOG_MAXIMUM}"
+            f"{len(javadoc)} findings exceeds the recorded backlog of {maximum}"
         )
         for failure in javadoc[:20]:
             print(f"  {failure}")
@@ -254,7 +262,7 @@ def _ratchet(results: dict[str, list[str]], selected: list[str]) -> int:
         print(f"\n{len(strict)} code-quality finding(s)")
         return 1
 
-    if len(javadoc) < JAVADOC_BACKLOG_MAXIMUM:
+    if len(javadoc) < maximum:
         print(
             f"FAIL: javadoc backlog is down to {len(javadoc)}; lower "
             f"JAVADOC_BACKLOG_MAXIMUM to {len(javadoc)} so the ratchet keeps holding"
@@ -262,7 +270,7 @@ def _ratchet(results: dict[str, list[str]], selected: list[str]) -> int:
         return 1
 
     print(
-        f"PASS: code quality clean; javadoc backlog holding at {JAVADOC_BACKLOG_MAXIMUM} "
+        f"PASS: code quality clean; javadoc backlog holding at {maximum} "
         "with no new undocumented public API"
     )
     return 0

@@ -41,6 +41,15 @@ public final class ThemeSelectionConfig implements ThemeSelectionService.Selecti
         this.registry = Objects.requireNonNull(registry, "registry");
     }
 
+    /**
+     * Registers the selection schema and loads the persisted selection, making this store usable.
+     *
+     * <p>Must complete before any other method: reading or writing the selection beforehand throws
+     * {@link IllegalStateException}. The sentinel {@value #NATIVE_ID} is read back as no selection.
+     *
+     * @return a stage completing once the selection has been loaded; it completes exceptionally with
+     *     {@link IllegalStateException} if the config is unavailable or holds more than one value
+     */
     public CompletionStage<Void> initialize() {
         return registry.registerSchema(SCHEMA, List.of())
             .thenCompose(ignored -> registry.read(SELECTED_THEME))

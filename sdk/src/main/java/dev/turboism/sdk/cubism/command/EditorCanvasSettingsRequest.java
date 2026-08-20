@@ -12,7 +12,9 @@ public record EditorCanvasSettingsRequest(int widthPixels, int heightPixels) imp
         }
     }
 
+    /** @return the parameterized command this request drives: the model setting dialog */
     public EditorParameterizedCommand command() { return EditorParameterizedCommand.MODEL_SETTING; }
 
+    /** @return the host command identifier of {@link #command()}, for logging and dispatch */
     public String commandId() { return command().id(); }
 }

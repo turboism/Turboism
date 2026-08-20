@@ -37,6 +37,13 @@ public final class ProjectFileLifecycleCoordinator implements AutoCloseable {
         this.callbacks = new LifecycleCallbackExecutor("Project-file", executors);
     }
 
+    /**
+     * Registers a plugin's model and animation file hooks, replacing any earlier registration under the
+     * same plugin id and shutting down that plugin's pending callback queue first.
+     *
+     * @param plugin descriptor, hook lists and logger for the registering plugin
+     * @throws NullPointerException when {@code plugin} is null
+     */
     public void register(final PluginHooks plugin) {
         final PluginHooks value = Objects.requireNonNull(plugin, "plugin");
         final Object token = new Object();
@@ -61,6 +68,13 @@ public final class ProjectFileLifecycleCoordinator implements AutoCloseable {
         completionListeners.add(Objects.requireNonNull(listener, "listener"));
     }
 
+    /**
+     * Removes every registration owned by the given plugin id and shuts down its callback queue.
+     * Runtime completion listeners are unaffected. Unknown ids are ignored.
+     *
+     * @param pluginId id of the plugin to detach
+     * @throws NullPointerException when {@code pluginId} is null
+     */
     public void unregister(final String pluginId) {
         final String id = Objects.requireNonNull(pluginId, "pluginId");
         synchronized (registrationLock) {
@@ -153,6 +167,10 @@ public final class ProjectFileLifecycleCoordinator implements AutoCloseable {
         }
     }
 
+    /**
+     * Blocks until every observer callback queued so far has finished. The before phase and the runtime
+     * completion listeners are synchronous and so are already complete when their calls return.
+     */
     public void awaitIdle() {
         callbacks.awaitIdle();
     }
@@ -313,12 +331,28 @@ public final class ProjectFileLifecycleCoordinator implements AutoCloseable {
 
     private record Registration(Object token, PluginHooks plugin) { }
 
+    /**
+     * Correlation token linking a {@code begin} call to its {@code complete}, so the completion phase
+     * reports the same operation the before phase saw.
+     *
+     * @param operation the requested project-file operation; never null
+     */
     public record Invocation(ProjectFileOperation operation) {
         public Invocation {
             operation = Objects.requireNonNull(operation, "operation");
         }
     }
 
+    /**
+     * One plugin's participation in the project-file lifecycle. Model and animation hooks are held
+     * separately because a content kind only dispatches to its own list.
+     *
+     * @param descriptor identity of the owning plugin, used as the registration key
+     * @param modelHooks the plugin's model file hooks, defensively copied and immutable
+     * @param animationHooks the plugin's animation file hooks, defensively copied and immutable
+     * @param logger sink for hook failures raised by this plugin
+     * @param observeAllowed whether this plugin receives project-file callbacks at all
+     */
     public record PluginHooks(
         PluginDescriptor descriptor,
         List<? extends ModelFileHooks> modelHooks,

@@ -265,6 +265,18 @@ public final class LocalPluginRuntime implements AutoCloseable {
         );
     }
 
+    /**
+     * Loads every discovered plugin, then the runtime-owned core plugin, exactly once per runtime
+     * instance.
+     *
+     * <p>External plugin failures are reported in the returned {@link LoadReport} and do not stop
+     * the load. A failure of the runtime-owned core is different in kind: the whole runtime is
+     * closed before the exception propagates, so no half-initialized runtime is left behind.</p>
+     *
+     * @return the load outcome, with the core plugin appended to the loaded summaries
+     * @throws IllegalStateException if the runtime has already been started or is closed, or if
+     *     the runtime-owned core plugin failed to load
+     */
     public synchronized LoadReport loadAll() {
         ensureCanStart();
         final LoadReport external = loadCoordinator.loadAll();
@@ -288,6 +300,11 @@ public final class LocalPluginRuntime implements AutoCloseable {
         return new LoadReport(summaries, external.failures(), external.dependencyCycles());
     }
 
+    /**
+     * @return summaries of the plugins currently held live by this runtime, in load order and
+     *     unsorted; empty after {@link #close()} has cleared them. For report output prefer
+     *     {@link #reportSummaries()}, which survives shutdown and is sorted.
+     */
     public synchronized List<LoadedPluginSummary> loadedPlugins() {
         return loaded.stream().map(PreviewPluginSummaryFactory::active).toList();
     }
@@ -300,6 +317,11 @@ public final class LocalPluginRuntime implements AutoCloseable {
         );
     }
 
+    /**
+     * @return sorted plugin summaries suitable for a report. Before shutdown these describe the
+     *     live plugins; once closed, the summaries captured during shutdown are returned instead,
+     *     so shutdown evidence remains readable after the plugins themselves are gone.
+     */
     public synchronized List<LoadedPluginSummary> reportSummaries() {
         return closed.get() ? closedSummaries : currentSummaries();
     }
@@ -366,9 +388,42 @@ public final class LocalPluginRuntime implements AutoCloseable {
         }
     }
 
+    /**
+     * One thing that went wrong for a plugin, recorded against its summary.
+     *
+     * @param code stable diagnostic code; the part callers should branch on
+     * @param phase lifecycle phase during which it happened, such as disable or unload
+     * @param message human-readable detail, for reports only
+     */
     public record PluginSummaryFailure(String code, String phase, String message) {
     }
 
+    /**
+     * Report-safe description of one plugin: its identity, its lifecycle outcome, and the evidence
+     * gathered while shutting it down.
+     *
+     * <p>Carries scalars and copied lists only — never a live plugin object or classloader — so a
+     * summary can outlive the plugin it describes, which is exactly what {@link #reportSummaries()}
+     * relies on after {@link #close()}. The four {@code *State} components record how far each
+     * shutdown step got.</p>
+     *
+     * @param id plugin identifier
+     * @param name plugin display name
+     * @param version plugin version string
+     * @param state lifecycle state at the time the summary was taken
+     * @param jar path of the plugin JAR this instance was loaded from
+     * @param capabilities unmodifiable copy of the capabilities the plugin declared
+     * @param permissionIds unmodifiable copy of the permission IDs the plugin declared
+     * @param localization report view of the plugin's localization bundles
+     * @param disableState outcome of the disable step
+     * @param shutdownState outcome of the shutdown step
+     * @param unloadState outcome of the unload step
+     * @param scopeCleanupState outcome of releasing the plugin's disposable scope
+     * @param classloaderCleanupState outcome of releasing the plugin's classloader
+     * @param failures unmodifiable copy of the failures recorded for this plugin
+     * @param cleanupEvidence evidence collected about what the plugin left behind
+     * @throws NullPointerException if {@code cleanupEvidence} is null
+     */
     public record LoadedPluginSummary(
         String id,
         String name,
@@ -394,9 +449,29 @@ public final class LocalPluginRuntime implements AutoCloseable {
         }
     }
 
+    /**
+     * A plugin that could not be loaded at all, and therefore has no summary.
+     *
+     * @param pluginId identifier of the plugin, as far as it could be determined
+     * @param jar path of the JAR that failed to load
+     * @param code stable diagnostic code for the failure
+     * @param message human-readable detail, for reports only
+     */
     public record PluginFailure(String pluginId, Path jar, String code, String message) {
     }
 
+    /**
+     * Outcome of a whole load pass: what came up, what did not, and what could not be ordered.
+     *
+     * <p>All three components are defensively copied. A non-empty {@code failures} or
+     * {@code dependencyCycles} does not mean the runtime is unusable — the plugins in
+     * {@code loaded} are live regardless.</p>
+     *
+     * @param loaded unmodifiable copy of the summaries of successfully loaded plugins
+     * @param failures unmodifiable copy of the plugins that failed to load
+     * @param dependencyCycles unmodifiable copy of the dependency cycles detected while ordering
+     *     the load, whose members could not be loaded
+     */
     public record LoadReport(
         List<LoadedPluginSummary> loaded,
         List<PluginFailure> failures,

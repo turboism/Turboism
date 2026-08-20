@@ -47,10 +47,20 @@ public final class RecentPreviewController {
         this.cache = Objects.requireNonNull(cache, "cache");
     }
 
+    /**
+     * Allows capture and serving of previews. Does not itself read the host recent-file
+     * list or populate the memory cache; call {@code refresh()} for that.
+     */
     public void enable() {
         enabled = true;
     }
 
+    /**
+     * Stops preview activity and drops all in-memory state: cached images, the recent-file
+     * projection, in-flight capture tracking, and capture dedupe marks.
+     *
+     * <p>The on-disk cache is left untouched, so previews survive to the next session.</p>
+     */
     public void disable() {
         enabled = false;
         images.clear();
@@ -61,6 +71,10 @@ public final class RecentPreviewController {
         files = List.of();
     }
 
+    /**
+     * @return whether previews are currently being served and captured; read from a
+     *     volatile field, so it is safe to call from the host UI thread
+     */
     public boolean isEnabled() {
         return enabled;
     }

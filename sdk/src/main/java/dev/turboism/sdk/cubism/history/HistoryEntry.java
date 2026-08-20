@@ -24,6 +24,10 @@ public record HistoryEntry(
         action = Objects.requireNonNull(action, "action");
     }
 
+    /**
+     * @return how much is known about this entry: the structured action's detail level when one was
+     *     resolved, otherwise {@code LABEL_ONLY}, meaning only the host's display label is trustworthy
+     */
     public HistoryAction.DetailLevel detailLevel() {
         return action.map(HistoryAction::detailLevel)
             .orElse(HistoryAction.DetailLevel.LABEL_ONLY);

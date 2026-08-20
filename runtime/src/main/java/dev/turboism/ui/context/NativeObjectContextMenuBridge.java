@@ -19,6 +19,21 @@ public final class NativeObjectContextMenuBridge {
     private NativeObjectContextMenuBridge() {
     }
 
+    /**
+     * Installs the single process-wide handler and publishes one native callback per menu
+     * location as a system property.
+     *
+     * <p>Exactly one handler may be installed at a time, and the property keys must be free -
+     * both collisions are refused rather than overwritten, and a refusal leaves no handler and
+     * no properties behind. Closing the returned registration removes only the callbacks this
+     * call published and clears only this handler, so a later installer's state is untouched.
+     *
+     * @param handler the runtime policy invoked for each native menu; must not be null
+     * @return a registration that uninstalls this handler and its callbacks
+     * @throws IllegalStateException if a handler is already installed, or if any location's
+     *                               callback property is already present
+     * @throws NullPointerException if {@code handler} is null
+     */
     public static Registration install(final Handler handler) {
         final Handler requested = Objects.requireNonNull(handler, "handler");
         if (!HANDLER.compareAndSet(null, requested)) {
@@ -54,6 +69,20 @@ public final class NativeObjectContextMenuBridge {
         return PROPERTY_PREFIX + Objects.requireNonNull(location, "location").name();
     }
 
+    /**
+     * The native entry point: gives the installed handler a chance to augment a host menu.
+     *
+     * <p>Fail-closed - if no handler is installed, any argument is null, the location name is
+     * not a known {@code Location}, or the handler throws anything at all, the host's original
+     * menu is returned unchanged and the failure is reported to {@code System.err} without
+     * propagating into host code. A handler returning null is treated the same way.
+     *
+     * @param menu the host menu object being built
+     * @param locationName the {@code Location} constant name the host is building the menu for
+     * @param source the host-side selection source the menu was raised on
+     * @return the augmented menu, or {@code menu} unchanged whenever augmentation is unavailable
+     *         or fails
+     */
     public static Object augment(
         final Object menu,
         final String locationName,

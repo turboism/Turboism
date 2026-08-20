@@ -120,10 +120,27 @@ public final class PreviewLog implements AutoCloseable, RuntimeLogReader {
         return new PreviewLog(directory, file, clock, sink);
     }
 
+    /**
+     * Raises or lowers the threshold below which messages are dropped. Takes effect immediately
+     * for all threads; the field is volatile and this call needs no lock.
+     *
+     * @param level name of a {@code Level} constant, case-sensitive
+     * @throws NullPointerException if {@code level} is null
+     * @throws IllegalArgumentException if {@code level} does not name a known level
+     */
     public void setMinimumLevel(final String level) {
         minimumLevel = Level.valueOf(Objects.requireNonNull(level, "level"));
     }
 
+    /**
+     * Sets the total budget for retained session log files and immediately prunes older sessions
+     * down to it. The current session's file is never what the budget forces away first — pruning
+     * works from the oldest sessions.
+     *
+     * @param value budget in MiB, within {@code RuntimeSettings}' supported min/max
+     * @throws IllegalArgumentException if {@code value} is outside the supported range; the budget
+     *     is left unchanged and nothing is pruned
+     */
     public synchronized void setMaxStorageMiB(final int value) {
         if (value < RuntimeSettings.MIN_MAX_LOG_STORAGE_MIB
             || value > RuntimeSettings.MAX_MAX_LOG_STORAGE_MIB) {
@@ -142,26 +159,69 @@ public final class PreviewLog implements AutoCloseable, RuntimeLogReader {
         );
     }
 
+    /**
+     * Records a TRACE-level line. Dropped without reaching the file when the minimum level is
+     * above TRACE.
+     *
+     * @param component short subsystem tag included in the line
+     * @param message the text; sanitized before it reaches the file, the sink and stdout
+     */
     public void trace(final String component, final String message) {
         write(Level.TRACE, component, message, null);
     }
 
+    /**
+     * Records a DEBUG-level line. Dropped when the minimum level is above DEBUG.
+     *
+     * @param component short subsystem tag included in the line
+     * @param message the text; sanitized before it reaches the file, the sink and stdout
+     */
     public void debug(final String component, final String message) {
         write(Level.DEBUG, component, message, null);
     }
 
+    /**
+     * Records an INFO-level line, which is the default threshold.
+     *
+     * @param component short subsystem tag included in the line
+     * @param message the text; sanitized before it reaches the file, the sink and stdout
+     */
     public void info(final String component, final String message) {
         write(Level.INFO, component, message, null);
     }
 
+    /**
+     * Records a WARN-level line.
+     *
+     * @param component short subsystem tag included in the line
+     * @param message the text; sanitized before it reaches the file, the sink and stdout
+     */
     public void warn(final String component, final String message) {
         write(Level.WARN, component, message, null);
     }
 
+    /**
+     * Records an ERROR-level line together with a throwable. The cause chain is written to the log
+     * file up to eight levels deep as class name plus sanitized message; a stack trace is never
+     * written. A failing sink or a failing file write is swallowed — logging never propagates an
+     * exception to its caller.
+     *
+     * @param component short subsystem tag included in the line
+     * @param message the text; sanitized before it reaches the file, the sink and stdout
+     * @param failure throwable to attach, or null to write the line alone
+     */
     public void error(final String component, final String message, final Throwable failure) {
         write(Level.ERROR, component, message, failure);
     }
 
+    /**
+     * Records a FATAL-level line, the highest level, which no minimum-level setting suppresses.
+     * The cause chain is handled exactly as in {@link #error}.
+     *
+     * @param component short subsystem tag included in the line
+     * @param message the text; sanitized before it reaches the file, the sink and stdout
+     * @param failure throwable to attach, or null to write the line alone
+     */
     public void fatal(final String component, final String message, final Throwable failure) {
         write(Level.FATAL, component, message, failure);
     }

@@ -17,6 +17,22 @@ public final class BoundingBoxOverlayButtonHookInstaller {
         this.instrumentation = Objects.requireNonNull(instrumentation, "instrumentation");
     }
 
+    /**
+     * Retransforms exactly the one verified host method that draws the
+     * bounding-box overlay, so plugin buttons can be painted into it.
+     *
+     * <p>Installation is all-or-nothing: if the retransform fails, the
+     * transformer is removed again before the failure is reported, leaving the
+     * host untouched. The returned {@link Registration} removes the
+     * transformer and retransforms the class back to its original form.</p>
+     *
+     * @param resolver verified resolver supplying the host class loader and the
+     *     verified selector for the overlay update method
+     * @return a registration that retracts the hook when closed
+     * @throws IllegalStateException if class retransformation is unavailable,
+     *     if installation fails, or, from the returned registration, if the
+     *     hook was already absent or could not be cleaned up
+     */
     public Registration install(final VerifiedMemberResolver resolver) {
         if (!instrumentation.isRetransformClassesSupported()) {
             throw new IllegalStateException("class retransformation is unavailable");

@@ -55,6 +55,18 @@ public record FileChooserHistoryHostProfile(
         return FILE_CHOOSER_CLASS;
     }
 
+    /**
+     * Resolves the reviewed selector set for a host artifact.
+     *
+     * <p>Only the two admitted Cubism builds are recognised: 5.2.03 and 5.3.02. They share the
+     * save-dialog method bindings and differ only in the app-controller export-context class name.
+     * Any other artifact yields empty, which is the fail-closed signal that the file-chooser hook
+     * must not be installed against an unreviewed host.
+     *
+     * @param artifact digest of the host jar actually loaded
+     * @return the matching profile, or empty when the artifact is not a reviewed build
+     * @throws NullPointerException if {@code artifact} is {@code null}
+     */
     public static Optional<FileChooserHistoryHostProfile> forArtifact(final HostArtifactDigest artifact) {
         Objects.requireNonNull(artifact, "artifact");
         final String version;

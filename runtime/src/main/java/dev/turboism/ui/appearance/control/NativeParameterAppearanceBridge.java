@@ -12,7 +12,27 @@ public final class NativeParameterAppearanceBridge {
 
     private NativeParameterAppearanceBridge() { }
 
+    /**
+     * Entry point the instrumented host parameter-row constructor calls once the row is built, binding
+     * that row's label so it can be styled.
+     *
+     * <p>Fail-open: does nothing when no bridge is installed or the row is {@code null}, and swallows
+     * any {@code Throwable} raised while reading the row. Calls arriving off the Swing event dispatch
+     * thread are re-posted with {@code invokeLater} — and dropped if the bridge is replaced in the
+     * meantime — rather than touching Swing from the wrong thread.
+     *
+     * @param row the newly constructed host parameter row
+     */
     public static void afterParameterRow(final Object row) { after(row, false); }
+    /**
+     * Entry point the instrumented host parameter-folder constructor calls once the folder row is
+     * built, binding its label so it can be styled.
+     *
+     * <p>Behaves exactly like the parameter-row entry point — fail-open, thread-hopping onto the
+     * Swing event dispatch thread when needed — but binds against the parameter-group palette.
+     *
+     * @param row the newly constructed host parameter folder row
+     */
     public static void afterParameterFolder(final Object row) { after(row, true); }
 
     private static void after(final Object row, final boolean folder) {
@@ -32,6 +52,19 @@ public final class NativeParameterAppearanceBridge {
         }
     }
 
+    /**
+     * Installs the single process-wide bridge, wiring the host row hooks to a provider.
+     *
+     * <p>Exactly one installation may be live at a time; a second attempt is refused rather than
+     * silently replacing the first.
+     *
+     * @param selectors reflective coordinates of the host row, label and id accessors; must not be
+     *     {@code null}
+     * @param provider the provider that owns the row bindings, closed on uninstall; must not be
+     *     {@code null}
+     * @throws IllegalStateException if a bridge is already installed
+     * @throws NullPointerException if {@code selectors} or {@code provider} is {@code null}
+     */
     public static void install(
         final Selectors selectors,
         final ParameterControlAppearanceProvider provider
@@ -45,6 +78,12 @@ public final class NativeParameterAppearanceBridge {
         }
     }
 
+    /**
+     * Removes the installed bridge and closes its provider, which unbinds and restores every row the
+     * provider had styled.
+     *
+     * <p>Idempotent — uninstalling when nothing is installed does nothing.
+     */
     public static void uninstall() {
         final Installed installed = INSTALLED.getAndSet(null);
         if (installed != null) installed.provider().close();
@@ -97,6 +136,38 @@ public final class NativeParameterAppearanceBridge {
         }
     }
 
+    /**
+     * Reflective coordinates of the host's parameter-palette row internals: which classes are rows,
+     * how to reach their label widgets, and how to read the parameter or folder id behind them.
+     *
+     * <p>Rows are matched by exact class name, not by assignability, so an unexpected host subclass is
+     * ignored rather than mis-bound. The double row carries a second parameter and label, which is why
+     * the secondary accessors exist. *
+     * <p>All owner and member names are internal/binary names of host classes, and are validated only
+     * for being non-blank — a name that does not match the running Editor build simply makes lookup
+     * fail, which the bridge treats as "no id" rather than an error.
+     *
+     * @param singleRowOwner internal name of the host row class holding one parameter
+     * @param doubleRowOwner internal name of the host row class holding two parameters
+     * @param folderRowOwner internal name of the host parameter-folder row class
+     * @param parameterSourceMethod method on a row returning its (first) parameter object
+     * @param secondaryParameterSourceMethod method on a double row returning its second parameter
+     * @param folderSourceMethod method on a folder row returning its group object
+     * @param parameterLabelField field on a row holding its (first) label widget
+     * @param secondaryParameterLabelField field on a double row holding its second label widget
+     * @param folderLabelMethod method on a folder row returning its label widget
+     * @param parameterSourceOwner internal name of the host parameter class
+     * @param folderSourceOwner internal name of the host parameter-group class
+     * @param parameterIdMethod method on a parameter returning its id object
+     * @param folderIdMethod method on a group returning its id object
+     * @param idStringMethod method on an id object returning the id as a string
+     * @param cLabelOwner internal name of the host's own label wrapper class
+     * @param cLabelSwingMethod method on that wrapper returning the underlying Swing component
+     * @param hostClassLoader the loader host classes must come from, so foreign look-alike classes are
+     *     ignored; must not be {@code null}
+     * @throws IllegalArgumentException if any name is blank
+     * @throws NullPointerException if any component is {@code null}
+     */
     public record Selectors(
         String singleRowOwner,
         String doubleRowOwner,

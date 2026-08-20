@@ -16,6 +16,16 @@ import java.util.regex.Pattern;
 public final class MappingReviewCli {
     private MappingReviewCli() { }
 
+    /**
+     * Runs the CLI and terminates the JVM with the resulting status code.
+     *
+     * <p>Exit codes: {@code 0} on success or {@code --help}, {@code 1} for a pipeline failure
+     * (printed as {@code mapping-review: CODE: message} on standard error), {@code 2} for a usage
+     * error or no arguments at all. This method never returns normally.
+     *
+     * @param args {@code generate} or {@code apply} followed by that command's options; note that
+     *     {@code apply} is a dry run unless {@code --write} is passed
+     */
     public static void main(final String[] args) {
         System.exit(run(args, System.out, System.err));
     }

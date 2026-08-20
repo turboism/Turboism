@@ -12,6 +12,11 @@ public record EditorCommandResult(Status status, String commandId) {
         commandId = requireText(commandId, "commandId");
     }
 
+    /**
+     * @return whether the host actually performed the command; every other status means nothing was
+     *     applied to the document, so callers must not treat a non-executed result as a partial
+     *     success
+     */
     public boolean executed() {
         return status == Status.EXECUTED;
     }

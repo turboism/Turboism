@@ -73,6 +73,10 @@ public final class FlatLafAppearanceHostProvider implements AppearanceHostProvid
         status = nativeStatus(status.revision() + 1);
     }
 
+    /**
+     * @return the admitted Cubism host version this provider was built for, one of the
+     *     exactly two supported builds ({@code 5.2.03} or {@code 5.3.02})
+     */
     public String hostVersion() {
         return hostVersion;
     }
