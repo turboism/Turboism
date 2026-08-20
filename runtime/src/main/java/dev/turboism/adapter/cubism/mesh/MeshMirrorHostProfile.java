@@ -17,8 +17,58 @@ public record MeshMirrorHostProfile(
     String mirrorWidgetDescriptor,
     String mirrorAxisDrawOwner,
     String mirrorAxisDrawMethod,
-    String mirrorAxisDrawDescriptor
+    String mirrorAxisDrawDescriptor,
+    LinkedDeletion linkedDeletion
 ) {
+    /**
+     * Selectors for mirror-linked deletion, which Cubism ships natively from 5.3.02.
+     * Null on hosts that already have it, so the transformer never double-applies.
+     *
+     * <p>Each action names the enclosing method to transform plus the inner call to
+     * intercept inside it. Interception is used rather than a fixed offset so the
+     * injected step lands exactly where the host is about to delete.
+     */
+    public record LinkedDeletion(
+        String pointActionOwner,
+        String pointActionMethod,
+        String pointActionDescriptor,
+        String pointDeleteOwner,
+        String pointDeleteMethod,
+        String pointDeleteDescriptor,
+        String edgeActionOwner,
+        String edgeActionMethod,
+        String edgeActionDescriptor,
+        String edgeUndoOwner,
+        String edgeUndoMethod,
+        String edgeUndoDescriptor,
+        String edgeRemoveOwner,
+        String edgeRemoveMethod,
+        String edgeRemoveDescriptor
+    ) { }
+
+    /** Keeps the twelve-argument shape used by hosts that need no linked-deletion backport. */
+    public MeshMirrorHostProfile(
+        final String meshEditorOwner,
+        final String mirrorPointMethod,
+        final String mirrorAxisPointMethod,
+        final String mirrorPointDescriptor,
+        final String mirrorHitMethod,
+        final String mirrorHitDescriptor,
+        final String mirrorWidgetOwner,
+        final String mirrorWidgetMethod,
+        final String mirrorWidgetDescriptor,
+        final String mirrorAxisDrawOwner,
+        final String mirrorAxisDrawMethod,
+        final String mirrorAxisDrawDescriptor
+    ) {
+        this(
+            meshEditorOwner, mirrorPointMethod, mirrorAxisPointMethod, mirrorPointDescriptor,
+            mirrorHitMethod, mirrorHitDescriptor, mirrorWidgetOwner, mirrorWidgetMethod,
+            mirrorWidgetDescriptor, mirrorAxisDrawOwner, mirrorAxisDrawMethod,
+            mirrorAxisDrawDescriptor, null
+        );
+    }
+
     private static final HostArtifactDigest CUBISM_52 = new HostArtifactDigest(
         40_805_584L,
         "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd"
@@ -29,8 +79,35 @@ public record MeshMirrorHostProfile(
     );
 
     public static Optional<MeshMirrorHostProfile> forArtifact(final HostArtifactDigest artifact) {
-        if (!CUBISM_52.equals(artifact) && !CUBISM_53.equals(artifact)) return Optional.empty();
-        return Optional.of(reviewed52And53());
+        if (CUBISM_52.equals(artifact)) return Optional.of(reviewed52());
+        if (CUBISM_53.equals(artifact)) return Optional.of(reviewed52And53());
+        return Optional.empty();
+    }
+
+    /**
+     * 5.2.03 adds the linked-deletion selectors; 5.3.02 must not receive them because it
+     * already deletes mirror counterparts natively.
+     */
+    static MeshMirrorHostProfile reviewed52() {
+        final MeshMirrorHostProfile shared = reviewed52And53();
+        return new MeshMirrorHostProfile(
+            shared.meshEditorOwner(), shared.mirrorPointMethod(), shared.mirrorAxisPointMethod(),
+            shared.mirrorPointDescriptor(), shared.mirrorHitMethod(), shared.mirrorHitDescriptor(),
+            shared.mirrorWidgetOwner(), shared.mirrorWidgetMethod(), shared.mirrorWidgetDescriptor(),
+            shared.mirrorAxisDrawOwner(), shared.mirrorAxisDrawMethod(), shared.mirrorAxisDrawDescriptor(),
+            new LinkedDeletion(
+                "com/live2d/cubism/view/context/action/action_meshEditor/d$g",
+                "b", "(Lcom/live2d/cubism/view/context/actionManager/N;)V",
+                "com/live2d/cubism/doc/modeling/CModelingEditMode_MeshEditor",
+                "delete_exe", "(Ljava/util/List;Lcom/live2d/undo/GroupUndo;)V",
+                "com/live2d/cubism/view/context/action/action_meshEditor/d$f",
+                "b", "(Lcom/live2d/cubism/view/context/actionManager/N;)V",
+                "com/live2d/cubism/view/context/actionManager/N",
+                "a", "(Ljava/lang/String;)Lcom/live2d/undo/GroupUndo;",
+                "com/live2d/graphics3d/editableMesh/GEditableMesh2",
+                "removeEdge", "(Lcom/live2d/graphics3d/editableMesh/MEdge;)V"
+            )
+        );
     }
 
     static MeshMirrorHostProfile reviewed52And53() {
