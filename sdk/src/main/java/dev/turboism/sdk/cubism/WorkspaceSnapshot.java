@@ -16,9 +16,6 @@ import java.util.List;
  *     contain parent segments
  * @param recentProjectIds unmodifiable copy of recently opened project identifiers, most-recent
  *     ordering as supplied by the host
- * @throws IllegalArgumentException if any text component is null or blank, or
- *     {@code rootRelativePath} escapes the host root
- * @throws NullPointerException if {@code recentProjectIds} is null
  */
 public record WorkspaceSnapshot(
     String workspaceId,
@@ -35,6 +32,13 @@ public record WorkspaceSnapshot(
         this(workspaceId, workspaceId, rootRelativePath, recentProjectIds);
     }
 
+    /**
+     * Validates the record components.
+     *
+     * @throws IllegalArgumentException if any text component is null or blank, or
+     *     {@code rootRelativePath} escapes the host root
+     * @throws NullPointerException if {@code recentProjectIds} is null
+     */
     public WorkspaceSnapshot {
         if (workspaceId == null || workspaceId.isBlank()) {
             throw new IllegalArgumentException("workspaceId must not be null or blank");

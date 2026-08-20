@@ -6,9 +6,13 @@ package dev.turboism.sdk.ui;
  * @param id       contribution identity, non-blank
  * @param anchor   host anchor the overlay attaches to, non-blank
  * @param priority ordering weight among overlays sharing the same anchor
- * @throws IllegalArgumentException when {@code id} or {@code anchor} is null or blank
  */
 public record OverlayContribution(String id, String anchor, int priority) {
+    /**
+     * Validates the record components.
+     *
+     * @throws IllegalArgumentException when {@code id} or {@code anchor} is null or blank
+     */
     public OverlayContribution {
         if (id == null || id.isBlank()) {
             throw new IllegalArgumentException("id must not be null or blank");

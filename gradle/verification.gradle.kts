@@ -270,6 +270,7 @@ val devCheck by tasks.registering {
     description = "Fast daily production compilation and permanent-boundary verification; no broad test suites."
     dependsOn(
         productionClasses,
+        ":sdk:javadoc",
         checkDuplicateJavaImports,
         checkPackageLayout,
         "checkModuleBoundaries",

@@ -13,15 +13,19 @@ import java.util.List;
  * @param relativePath path of the PSD file relative to the project directory; must be relative and
  *     free of parent segments
  * @param layers unmodifiable copy of the document's layers, in host order
- * @throws IllegalArgumentException if {@code documentId} is null or blank, or {@code relativePath}
- *     is null, blank, absolute, or contains {@code ..}
- * @throws NullPointerException if {@code layers} is null
  */
 public record PsdDocumentSnapshot(
     String documentId,
     String relativePath,
     List<PsdLayerSnapshot> layers
 ) {
+    /**
+     * Validates the record components.
+     *
+     * @throws IllegalArgumentException if {@code documentId} is null or blank, or {@code relativePath}
+     *     is null, blank, absolute, or contains {@code ..}
+     * @throws NullPointerException if {@code layers} is null
+     */
     public PsdDocumentSnapshot {
         if (documentId == null || documentId.isBlank()) {
             throw new IllegalArgumentException("documentId must not be null or blank");
@@ -38,9 +42,13 @@ public record PsdDocumentSnapshot(
      * @param layerId stable identifier of the layer; must not be null or blank
      * @param name layer name as authored in the source PSD; must not be null or blank
      * @param visible whether the layer's visibility flag is set in the source document
-     * @throws IllegalArgumentException if {@code layerId} or {@code name} is null or blank
      */
     public record PsdLayerSnapshot(String layerId, String name, boolean visible) {
+        /**
+         * Validates the record components.
+         *
+         * @throws IllegalArgumentException if {@code layerId} or {@code name} is null or blank
+         */
         public PsdLayerSnapshot {
             if (layerId == null || layerId.isBlank()) {
                 throw new IllegalArgumentException("layerId must not be null or blank");

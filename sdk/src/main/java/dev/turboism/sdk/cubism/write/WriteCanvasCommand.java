@@ -11,11 +11,15 @@ import dev.turboism.sdk.cubism.id.ModelId;
  * @param modelId model whose canvas is being resized
  * @param width new canvas width in pixels; at least one
  * @param height new canvas height in pixels; at least one
- * @throws IllegalArgumentException if {@code commandId} is null or blank, {@code modelId} is
- *     null, or either dimension is below one
  */
 @PreviewApi
 public record WriteCanvasCommand(String commandId, ModelId modelId, int width, int height) implements CubismWriteCommand {
+    /**
+     * Validates the record components.
+     *
+     * @throws IllegalArgumentException if {@code commandId} is null or blank, {@code modelId} is
+     *     null, or either dimension is below one
+     */
     public WriteCanvasCommand {
         if (commandId == null || commandId.isBlank()) {
             throw new IllegalArgumentException("commandId must not be null or blank");

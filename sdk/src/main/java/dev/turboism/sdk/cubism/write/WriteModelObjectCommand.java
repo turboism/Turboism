@@ -14,11 +14,15 @@ import dev.turboism.sdk.cubism.id.ModelObjectId;
  * @param modelId model owning the target object
  * @param objectId the object to operate on
  * @param operation non-blank operation name, validated for shape only
- * @throws IllegalArgumentException if {@code commandId} or {@code operation} is null or blank, or
- *     {@code modelId} or {@code objectId} is null
  */
 @PreviewApi
 public record WriteModelObjectCommand(String commandId, ModelId modelId, ModelObjectId objectId, String operation) implements CubismWriteCommand {
+    /**
+     * Validates the record components.
+     *
+     * @throws IllegalArgumentException if {@code commandId} or {@code operation} is null or blank, or
+     *     {@code modelId} or {@code objectId} is null
+     */
     public WriteModelObjectCommand {
         if (commandId == null || commandId.isBlank()) {
             throw new IllegalArgumentException("commandId must not be null or blank");
