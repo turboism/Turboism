@@ -868,7 +868,7 @@ class RuntimePluginTaskSchedulerTest {
 
     @Test
     void runtimeTimeoutAndFixedDelayFailureUseTerminalFailureAlgebra() throws Exception {
-        createScheduler(1, 8);
+        createScheduler(1, 8, 200L, ignored -> WorkBudget.LIGHTWEIGHT);
         final TaskSubmission timed = scheduler.submit(request("timed", token -> Thread.sleep(2_000)));
         final java.util.concurrent.atomic.AtomicReference<String> timeoutContinuationThread =
             new java.util.concurrent.atomic.AtomicReference<>();
