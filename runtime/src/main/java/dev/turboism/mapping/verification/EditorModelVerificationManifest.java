@@ -57,7 +57,7 @@ public final class EditorModelVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_2_03 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_2_03,
         "cubism-5.2.03.editor-model.static",
-        "4224231c56683f855a8e8c0ffe3c0be1d1035192f908de3f4d80fbd66d4f4b96",
+        "76b55c9d04a2e834a652a7d96d3b79a840d354bc532dd95bf72278f6f4524e24",
         CUBISM_VERSION_5_2_03,
         "cubism-5.2.03"
     );
@@ -66,7 +66,7 @@ public final class EditorModelVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_3_02 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_3_02,
         "cubism-5.3.02.editor-model.static",
-        "6546f7ec4a7d125febfcf1edabcbd580e65a91bb89700d45d8b5ed5236577711",
+        "36d7b70b6892d171aeb8a2f3ca869641bb4998598516858436f777c0ca74cd46",
         CUBISM_VERSION_5_3_02,
         "cubism-5.3.02"
     );
@@ -154,17 +154,13 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.model-source.parameter-source-set",
         "cubism.editor-model.model-source.root-part",
         "cubism.editor-model.model-source.set-name",
-        "cubism.editor-model.morph-target-set.create-undo",
         "cubism.editor-model.morph-target-set.morph-targets",
-        "cubism.editor-model.morph-target-set.remove",
         "cubism.editor-model.morph-target-utils.instance",
         "cubism.editor-model.morph-target.change-parameter",
         "cubism.editor-model.morph-target.class",
         "cubism.editor-model.morph-target.key-value",
         "cubism.editor-model.morph-target.keyform-guid",
         "cubism.editor-model.morph-target.parameter-guid",
-        "cubism.editor-model.morph-target.set-parameter",
-        "cubism.editor-model.morph-target.set-parameter-and-key-value",
         "cubism.editor-model.parameter-group-handler.add-group-child",
         "cubism.editor-model.parameter-group-handler.add-parameter-child",
         "cubism.editor-model.parameter-group-handler.class",
@@ -172,7 +168,6 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.parameter-group-guid.create",
         "cubism.editor-model.parameter-group-id.create",
         "cubism.editor-model.parameter-group.create",
-        "cubism.editor-model.parameter-group.guid",
         "cubism.editor-model.parameter-group.handler",
         "cubism.editor-model.parameter-group.set-folder-opened",
         "cubism.editor-model.parameter-group.set-name",
@@ -249,9 +244,7 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.app-controller.current-document",
         "cubism.editor-model.modeling-document.class",
         "cubism.editor-model.modeling-document.model-source",
-        "cubism.editor-model.modeling-document.last-active-view",
         "cubism.editor-model.modeling-view.class",
-        "cubism.editor-model.modeling-view.model",
         "cubism.editor-model.model-source.class",
         "cubism.editor-model.model-source.name",
         "cubism.editor-model.model-source.guid",
@@ -260,7 +253,6 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.model-source.set-default-keyform-locked",
         "cubism.editor-model.app-controller.edit-level",
         "cubism.editor-model.app-controller.set-edit-level",
-        "cubism.editor-model.model-source.all-parameters",
         "cubism.editor-model.model-source.root-parameter-group",
         "cubism.editor-model.model.class",
         "cubism.editor-model.model.parameter-set",
@@ -374,7 +366,6 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.model-source.update-visible-lock-hierarchy",
         "cubism.editor-model.model.parts",
         "cubism.editor-model.part.class",
-        "cubism.editor-model.part.id",
         "cubism.editor-model.part.source",
         "cubism.editor-model.part.current-keyform",
         "cubism.editor-model.part-source.class",
@@ -594,7 +585,6 @@ public final class EditorModelVerificationManifest {
      * are preserved.
      */
     private static final Set<String> PART_INSPECTOR_5302_ONLY_ALIASES = Set.of(
-        "cubism.editor-model.part.id",
         "cubism.editor-model.part.current-keyform",
         "cubism.editor-model.part-source.clip-guid-list",
         "cubism.editor-model.part-source.alpha-composition",
@@ -611,7 +601,6 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.model-source.update-instances",
         "cubism.editor-model.model.parts",
         "cubism.editor-model.part.class",
-        "cubism.editor-model.part.id",
         "cubism.editor-model.part.source",
         "cubism.editor-model.part.current-keyform",
         "cubism.editor-model.part-source.class",

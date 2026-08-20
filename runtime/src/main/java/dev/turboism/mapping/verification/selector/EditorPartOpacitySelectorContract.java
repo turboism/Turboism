@@ -22,7 +22,6 @@ public final class EditorPartOpacitySelectorContract {
         "cubism.editor-model.model-source.update-instances",
         "cubism.editor-model.model.parts",
         "cubism.editor-model.part.class",
-        "cubism.editor-model.part.id",
         "cubism.editor-model.part.source",
         "cubism.editor-model.part.current-keyform",
         "cubism.editor-model.part-source.class",
