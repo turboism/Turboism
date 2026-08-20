@@ -28,7 +28,7 @@ class SimulatedReadonlyAdaptersContractTest {
 
     @Test
     void renderStatusDelegatesWhenConnected() {
-        RenderStatusAdapter adapter = RenderStatusAdapter.Impl.connected(new RenderHost("5.3.0", true));
+        RenderStatusAdapter adapter = RenderStatusAdapter.Impl.connected(new RenderHost("5.3.02", true));
         RenderStatusAdapter.AdapterResult<Optional<RenderStatusSnapshot>> result = adapter.renderStatus();
         assertTrue(result.isAvailable());
         assertEquals(
@@ -75,7 +75,7 @@ class SimulatedReadonlyAdaptersContractTest {
 
     @Test
     void projectWorkspaceDelegatesWhenConnected() {
-        ProjectWorkspaceAdapter adapter = ProjectWorkspaceAdapter.Impl.connected(new ProjectHost("5.3.1", true));
+        ProjectWorkspaceAdapter adapter = ProjectWorkspaceAdapter.Impl.connected(new ProjectHost("5.3.02", true));
         assertTrue(adapter.activeProject().isAvailable());
         assertTrue(adapter.workspace().isAvailable());
         assertEquals("project-1", adapter.activeProject().value().orElseThrow().orElseThrow().projectId());
@@ -85,7 +85,7 @@ class SimulatedReadonlyAdaptersContractTest {
     @Test
     void projectWorkspaceUnexpectedFailureDoesNotLeakHostDetails() {
         ProjectWorkspaceAdapter adapter = ProjectWorkspaceAdapter.Impl.connected(new ProjectWorkspaceAdapter.HostOperations() {
-            @Override public String hostVersion() { return "5.3.1"; }
+            @Override public String hostVersion() { return "5.3.02"; }
             @Override public boolean supportsProjectWorkspaceRead() { return true; }
             @Override public Optional<ProjectSnapshot> activeProject() {
                 throw new IllegalStateException("private-project-object");
@@ -130,7 +130,7 @@ class SimulatedReadonlyAdaptersContractTest {
 
     @Test
     void clipMaskCapabilityUnavailableWhenHostOmitsSupport() {
-        ClipMaskReadAdapter adapter = ClipMaskReadAdapter.Impl.connected(new ClipMaskHost("5.3.0", false));
+        ClipMaskReadAdapter adapter = ClipMaskReadAdapter.Impl.connected(new ClipMaskHost("5.3.02", false));
         assertEquals(
             SafeModeDiagnostic.Code.CAPABILITY_UNAVAILABLE,
             adapter.clipMasks().diagnostic().orElseThrow().code()
