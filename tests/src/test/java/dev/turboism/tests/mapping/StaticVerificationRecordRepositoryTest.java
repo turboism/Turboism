@@ -61,7 +61,7 @@ class StaticVerificationRecordRepositoryTest {
             "Live2D_Cubism.jar",
             ReviewedHostArtifacts.CUBISM_5_2_03.size(),
             ReviewedHostArtifacts.CUBISM_5_2_03.sha256(),
-            "843afabdc017b699db50c0424ca326a3a0f55a213d54f35ba6b5ed9c11e074ac",
+            "59ac1ee40d386aed22b6f3f8c6eb0fe876c5af69190affd7f0c00209d1f12de4",
             23,
             ProjectWorkspaceVerificationManifest.REQUIRED_ALIASES,
             VerifiedProjectWorkspaceHostOperations.REQUIRED_ALIASES,
@@ -103,8 +103,8 @@ class StaticVerificationRecordRepositoryTest {
         ),
         "cubism-ref/verification/cubism-5.2.03-core-model-read.json",
         coreExpectation("5.2.03", "5.2.03", 36_237L,
-            "9f8e270e26cb71b3d531eb81b22d3688e6fb51676d0f07face7bb01753fe81de",
-            "02c9afbd69ab06c57a13c4cb18699215c4463ba9b323dfa80959297e9b10d35d",
+            "85959a0572be02ee45d128cfdaf9046631241310b741d6b149d295a0dec7451e",
+            "7e5dd498d46b654671f80639bcc74c01ed5d7ab10a1d4b36914956b1567ffceb",
             72, "5.2.03"),
         "cubism-ref/verification/cubism-5.3.02-clipmask.json",
         new SliceExpectation(
@@ -178,7 +178,7 @@ class StaticVerificationRecordRepositoryTest {
             "cubism-5.2.03",
             ReviewedHostArtifacts.CUBISM_5_2_03.size(),
             ReviewedHostArtifacts.CUBISM_5_2_03.sha256(),
-            "2e39d4d2a35560a160b86ee4081b0db763291d42c2ac089c045b28d382e6a334",
+            "429a9bc1f4ae9fe6d38cbdfd5d418d14a236860a0a9db0771a443b4cdb28ae5c",
             "cubism-5.2.03-ui-control-appearance",
             "5.2.03"
         ),
@@ -192,7 +192,7 @@ class StaticVerificationRecordRepositoryTest {
             "Live2D_Cubism.jar",
             ReviewedHostArtifacts.CUBISM_5_2_03.size(),
             ReviewedHostArtifacts.CUBISM_5_2_03.sha256(),
-            "94daceb567216c3b4f97ccf2272f329e9b4e94b9d6bdd87a648da2e5efb6f050",
+            "4224231c56683f855a8e8c0ffe3c0be1d1035192f908de3f4d80fbd66d4f4b96",
             589,
             editorModel52Aliases(),
             editorModel52Aliases(),
@@ -228,7 +228,7 @@ class StaticVerificationRecordRepositoryTest {
         ),
         "cubism-ref/verification/cubism-5.3.02-core-model-read.json",
         coreExpectation("5.3.02", "5.3.02", 42_471L,
-            "96ad896a86ed2fd1543c8ac6099adcf8cd7750483000b0ca4b13014ffe04a86d",
+            "98f4dac9a9508a6e255f6f3862608409a83e29c9009a7f0fcf517e06658164e4",
             "96ad896a86ed2fd1543c8ac6099adcf8cd7750483000b0ca4b13014ffe04a86d",
             74, "5.3.02")
     ))))))))));
@@ -608,7 +608,7 @@ class StaticVerificationRecordRepositoryTest {
                 "Live2D_Cubism.jar",
                 ReviewedHostArtifacts.CUBISM_5_2_03.size(),
                 ReviewedHostArtifacts.CUBISM_5_2_03.sha256(),
-                "05bbafb1504b809842f21419a6eda08dc5cf96ed022ee7d3bfdd7adb633c5fb9",
+                "a704c04bad828734044d5167cde0dabc3e1f91314dd46e74c1fc008278f2c12e",
                 82,
                 TopMenuVerificationManifest.REQUIRED_ALIASES,
                 TopMenuVerificationManifest.REQUIRED_ALIASES,
@@ -659,7 +659,7 @@ class StaticVerificationRecordRepositoryTest {
                 "cubism-5.3.02",
                 ReviewedHostArtifacts.CUBISM_5_3_02.size(),
                 ReviewedHostArtifacts.CUBISM_5_3_02.sha256(),
-                "cfba3d12584eb9ca7d601a95ca9e5a227112573b8abe7043b5961b2a0c87c82f",
+                "44c3e370bd4488fa86f231b37235547969f67b3eb35a41e3c4306d18e2879927",
                 "cubism-5.3.02-ui-control-appearance",
                 "5.3.02"
             )

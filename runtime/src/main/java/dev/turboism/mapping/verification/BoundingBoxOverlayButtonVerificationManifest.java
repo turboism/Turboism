@@ -9,7 +9,7 @@ public final class BoundingBoxOverlayButtonVerificationManifest {
     public static final String ADAPTER_SLICE_ID = "adapter.editor-ui.bounding-box-overlay-button";
     public static final String CAPABILITY_ID = "cubism.editor-ui.bounding-box-overlay-button";
     public static final Set<String> CAPABILITY_IDS = Set.of(CAPABILITY_ID);
-    private static final String RECORD_SHA_52 = "88f59bf5e4fd8e24635f03362e8b1ff05a99a32329ebbd712258f22d0159bc86";
+    private static final String RECORD_SHA_52 = "f2e39e94f199f54833413965a7d510b7b34b20b7c3cd20adde53b44353d7c291";
     private static final String RECORD_SHA_53 = "606a1837c03b00c62c8711dcb5eb53fe04eb7025f78736281a2e2afacd21ce54";
     public static final Set<String> REQUIRED_ALIASES = Set.of(
         "cubism.ui-bounding-box-overlay.bounding-box.update",

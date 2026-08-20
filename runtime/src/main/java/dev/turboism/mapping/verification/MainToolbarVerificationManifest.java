@@ -21,7 +21,7 @@ public final class MainToolbarVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_2_03 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_2_03,
         "cubism-5.2.03.ui-main-toolbar.static",
-        "addc62e24d818f556c8d895dc5b48c100b7fc9a76ed12c6c4c31efa48dececd4",
+        "b8e6de878db814fa58fcdceb8213fe9f147a9a4bebdf54a9033ca211ff8dd7d8",
         CUBISM_VERSION_5_2_03,
         "cubism-5.2.03"
     );
