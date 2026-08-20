@@ -2,6 +2,7 @@ package dev.turboism.plugin.mesh;
 
 import dev.turboism.plugin.mesh.service.MeshInspectorService;
 import dev.turboism.sdk.action.ActionRegistry;
+import dev.turboism.sdk.cubism.mesh.MeshEditContribution;
 import dev.turboism.sdk.cubism.mesh.MeshEditUiService;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
@@ -35,6 +36,7 @@ public final class MeshPlugin implements TurboismPlugin {
                 "Inspect Meshes",
                 ignored -> inspectorService.inspect()
             );
+            registerMirrorLinkedDeletion();
             context.disposableScope().register(
                 context.meshEditUi().contributeMirrorAxisAngleControl(
                     new MeshEditUiService.MirrorAxisAngleControl(
@@ -68,6 +70,26 @@ public final class MeshPlugin implements TurboismPlugin {
     /** Called by the native-position mesh-edit control. */
     public void setMirrorAxisAngleDegrees(final float angleDegrees) {
         context.meshMirrorAxis().setCurrentAngleDegrees(angleDegrees);
+    }
+
+    /**
+     * Deletes the mirror counterparts alongside whatever the host is deleting.
+     *
+     * <p>Cubism does this natively from 5.3.02. On hosts that do not, the framework intercepts
+     * the deletion and asks here; on hosts that do, it never intercepts, so this is simply never
+     * called and the behaviour cannot be applied twice.</p>
+     *
+     * <p>The enable condition is the host's own mirror toggle, reported through the deletion,
+     * rather than anything this plugin invents.</p>
+     */
+    private void registerMirrorLinkedDeletion() {
+        context.disposableScope().register(
+            context.meshEditParticipation().participate(deletion ->
+                deletion.mirrorAxis().enabled()
+                    ? context.meshMirrorCounterparts().mirrorOf(deletion)
+                    : MeshEditContribution.none()
+            )
+        );
     }
 
     private void registerAction(

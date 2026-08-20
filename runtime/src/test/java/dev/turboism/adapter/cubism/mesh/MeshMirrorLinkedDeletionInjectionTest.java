@@ -32,6 +32,8 @@ final class MeshMirrorLinkedDeletionInjectionTest {
 
     @AfterEach
     void reset() {
+        NativeMeshMirrorBridge.participation().resetSession();
+        NativeMeshMirrorBridge.counterparts().resetSession();
         NativeMeshMirrorBridge.uninstall();
         Recorder.reset();
     }
@@ -48,7 +50,7 @@ final class MeshMirrorLinkedDeletionInjectionTest {
         assertEquals(List.of(Recorder.UNDO), Recorder.deletedUndo);
         // ...and the bridge must have been entered with those same non-null operands.
         assertTrue(diagnostics.contains(
-            "MESH_MIRROR_DIAG stage=MIRROR_DELETE_POINTS_SKIPPED reason=NO_COUNTERPART"
+            "MESH_MIRROR_DIAG stage=PARTICIPATION_SKIPPED reason=NO_PARTICIPANT"
         ));
     }
 
@@ -61,7 +63,7 @@ final class MeshMirrorLinkedDeletionInjectionTest {
 
         assertEquals(List.of(Recorder.EDGE), Recorder.removedEdges);
         assertTrue(diagnostics.contains(
-            "MESH_MIRROR_DIAG stage=MIRROR_DELETE_EDGE_SKIPPED reason=NO_COUNTERPART"
+            "MESH_MIRROR_DIAG stage=PARTICIPATION_SKIPPED reason=NO_PARTICIPANT"
         ));
     }
 
