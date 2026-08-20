@@ -11,60 +11,29 @@ import dev.turboism.test.fake.FakeCubismModel;
 import dev.turboism.test.fake.FakeCubismProject;
 import org.junit.jupiter.api.Test;
 
-import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TransactionStubIntegrationTest {
 
     private static final Clock FIXED_CLOCK = Clock.fixed(Instant.parse("2026-07-07T00:00:00Z"), ZoneOffset.UTC);
-    private static final String WRITE_DISABLED_MESSAGE = "M6 read-only boundary: Cubism transaction writes are disabled";
-
     @Test
-    void transactionStubThrowsUnsupportedOperationWhenFacadeAndHostExist() throws Exception {
+    void removedReadOnlyTransactionStubIsNotShippedWithTheRuntime() throws Exception {
         final FakeCubismHost host = sampleHost();
         final CubismFacade facade = facadeFor(host);
 
         assertTrue(facade.isHostPresent());
         assertTrue(facade.activeModel().isPresent());
-
-        final Class<?> stubClass = Class.forName("dev.turboism.adapter.cubism.CubismTransactionStub");
-        final Constructor<?> constructor = stubClass.getDeclaredConstructor();
-        constructor.setAccessible(true);
-        final Object stub = constructor.newInstance();
-        final Method setParameterValue = stubClass.getDeclaredMethod(
-            "setParameterValue",
-            String.class,
-            String.class,
-            double.class
+        assertThrows(
+            ClassNotFoundException.class,
+            () -> Class.forName("dev.turboism.adapter.cubism.CubismTransactionStub")
         );
-        setParameterValue.setAccessible(true);
-
-        final InvocationTargetException reflectiveError = assertThrowsReflectiveWrite(stub, setParameterValue);
-        final Throwable writeError = reflectiveError.getCause();
-
-        assertInstanceOf(UnsupportedOperationException.class, writeError);
-        assertEquals(WRITE_DISABLED_MESSAGE, writeError.getMessage());
-    }
-
-    private static InvocationTargetException assertThrowsReflectiveWrite(final Object stub, final Method method) {
-        try {
-            method.invoke(stub, "model-1", "parameter-1", 0.25D);
-        } catch (InvocationTargetException error) {
-            return error;
-        } catch (IllegalAccessException error) {
-            throw new AssertionError("CubismTransactionStub write method should be reflectively accessible", error);
-        }
-        throw new AssertionError("CubismTransactionStub write method should throw UnsupportedOperationException");
     }
 
     private static CubismFacade facadeFor(final FakeCubismHost host) {
