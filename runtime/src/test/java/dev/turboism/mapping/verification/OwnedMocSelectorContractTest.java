@@ -1,5 +1,6 @@
 package dev.turboism.mapping.verification;
 
+import dev.turboism.mapping.verification.selector.CorePublicApiSelectorContract;
 import dev.turboism.mapping.verification.selector.OwnedMocSelectorContract;
 import org.junit.jupiter.api.Test;
 
@@ -55,7 +56,7 @@ class OwnedMocSelectorContractTest {
 
     @Test
     void ownedMocSliceIsNotPartOfTheGeneratedRoster() {
-        final Set<String> generated = CorePublicApiSelectorContract.REQUIRED_ALIASES_5_2;
+        final Set<String> generated = CorePublicApiSelectorContract.REQUIRED_ALIASES_5_2_03;
         final Set<String> generated53 = CorePublicApiSelectorContract.REQUIRED_ALIASES_5_3_02;
         assertTrue(java.util.Collections.disjoint(
             OwnedMocSelectorContract.REQUIRED_ALIASES,

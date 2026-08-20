@@ -17,7 +17,7 @@ class StatusToolbarAdapterContractTest {
 
     @Test
     void notifyStatusDelegatesWhenHostVersionAndCapabilityAreAvailable() {
-        RecordingHost host = new RecordingHost("5.3.2");
+        RecordingHost host = new RecordingHost("5.3.02");
         StatusToolbarAdapter adapter = StatusToolbarAdapterImpl.connected(host);
         StatusNotification notification = notification("status.ready");
 
@@ -79,8 +79,8 @@ class StatusToolbarAdapterContractTest {
 
     @Test
     void runtimeUiServiceScopesAdapterVisibleStatusIdByPluginId() throws Exception {
-        RecordingHost first = new RecordingHost("5.3.2");
-        RecordingHost second = new RecordingHost("5.3.2");
+        RecordingHost first = new RecordingHost("5.3.02");
+        RecordingHost second = new RecordingHost("5.3.02");
         RuntimeUiHostCapabilityService serviceA = service("plugin.a", first);
         RuntimeUiHostCapabilityService serviceB = service("plugin.b", second);
 
@@ -97,8 +97,8 @@ class StatusToolbarAdapterContractTest {
 
     @Test
     void runtimeUiServiceScopedStatusIdsCannotCollideAcrossPlugins() throws Exception {
-        RecordingHost first = new RecordingHost("5.3.2");
-        RecordingHost second = new RecordingHost("5.3.2");
+        RecordingHost first = new RecordingHost("5.3.02");
+        RecordingHost second = new RecordingHost("5.3.02");
 
         service("a", first).notifyStatus(new StatusNotification("b:c", "INFO", "one"));
         service("a:b", second).notifyStatus(new StatusNotification("c", "INFO", "two"));
@@ -128,7 +128,7 @@ class StatusToolbarAdapterContractTest {
 
     @Test
     void runtimeUiServiceScopingPreservesCompactMetricPresentation() throws Exception {
-        RecordingHost host = new RecordingHost("5.3.2");
+        RecordingHost host = new RecordingHost("5.3.02");
         RuntimeUiHostCapabilityService service = service("plugin.cpu", host);
 
         service.notifyStatus(new StatusNotification(
@@ -185,7 +185,7 @@ class StatusToolbarAdapterContractTest {
         private int closeCount;
 
         private CountingHost() {
-            super("5.3.2");
+            super("5.3.02");
         }
 
         @Override public Registration notifyStatus(final StatusNotification notification) {
@@ -197,7 +197,7 @@ class StatusToolbarAdapterContractTest {
         private final AdapterHostException failure;
 
         private FailingHost(final AdapterHostException failure) {
-            super("5.3.2");
+            super("5.3.02");
             this.failure = failure;
         }
 

@@ -32,7 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class EditorDocumentReadAccessTest {
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void readsPhysicsSettingsDocumentProjection(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -54,7 +54,7 @@ class EditorDocumentReadAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void readsAutoYureEvaluationsPerWarpDeformerAndParameter(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -76,7 +76,7 @@ class EditorDocumentReadAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void readsAnimationFileContentDocuments(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -92,7 +92,7 @@ class EditorDocumentReadAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void documentReadsFailClosedWithoutExactCapabilityEvidence(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;

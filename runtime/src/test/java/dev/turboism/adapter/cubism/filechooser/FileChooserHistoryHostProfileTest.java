@@ -21,7 +21,7 @@ class FileChooserHistoryHostProfileTest {
         final FileChooserHistoryHostProfile profile =
             FileChooserHistoryHostProfile.forArtifact(CUBISM_52).orElseThrow();
 
-        assertEquals("5.2.0", profile.hostVersion());
+        assertEquals("5.2.03", profile.hostVersion());
         assertEquals("com/live2d/ui/window/n", profile.fileChooserClassInternalName());
         assertEquals(
             List.of(

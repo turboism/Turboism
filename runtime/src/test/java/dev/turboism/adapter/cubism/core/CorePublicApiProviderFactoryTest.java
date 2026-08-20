@@ -43,7 +43,7 @@ class CorePublicApiProviderFactoryTest {
         final CoreVersionExpectation expectation = CoreVersionExpectation.exact(11, 12, 13);
 
         final CorePublicApiProvider provider52 = CorePublicApiProviderFactory.admit(
-            resolver("5.2"),
+            resolver("5.2.03"),
             expectation
         ).value().orElseThrow();
         final CorePublicApiProvider provider53 = CorePublicApiProviderFactory.admit(
@@ -51,8 +51,8 @@ class CorePublicApiProviderFactoryTest {
             expectation
         ).value().orElseThrow();
 
-        assertEquals("cubism-core-public-5.2", provider52.providerId());
-        assertEquals("5.2", provider52.artifactProfile());
+        assertEquals("cubism-core-public-5.2.03", provider52.providerId());
+        assertEquals("5.2.03", provider52.artifactProfile());
         assertEquals("cubism-core-public-5.3.02", provider53.providerId());
         assertEquals("5.3.02", provider53.artifactProfile());
         assertEquals(new CoreRuntimeVersion(11, 12, 13),
@@ -64,11 +64,11 @@ class CorePublicApiProviderFactoryTest {
     void mapsReviewedRecordVersionsToExactCoreRuntimeTuples() {
         assertEquals(
             new CoreRuntimeVersion(5, 0, 256),
-            CoreVersionExpectation.reviewedProfile("5.2.0").exactVersion()
+            CoreVersionExpectation.reviewedProfile("5.2.03").exactVersion()
         );
         assertEquals(
             new CoreRuntimeVersion(6, 0, 257),
-            CoreVersionExpectation.reviewedProfile("5.3.2").exactVersion()
+            CoreVersionExpectation.reviewedProfile("5.3.02").exactVersion()
         );
     }
 
@@ -77,15 +77,15 @@ class CorePublicApiProviderFactoryTest {
     void admitsReviewedRecordVersionsThroughCanonicalArtifactProfiles() {
         final CoreVersionExpectation expectation = CoreVersionExpectation.exact(11, 12, 13);
         final CorePublicApiProvider provider52 = CorePublicApiProviderFactory.admit(
-            TestCoreApiFixture.resolverForReviewedVersion("5.2.0", "5.2"),
+            TestCoreApiFixture.resolverForReviewedVersion("5.2.03", "5.2.03"),
             expectation
         ).value().orElseThrow();
         final CorePublicApiProvider provider53 = CorePublicApiProviderFactory.admit(
-            TestCoreApiFixture.resolverForReviewedVersion("5.3.2", "5.3.02"),
+            TestCoreApiFixture.resolverForReviewedVersion("5.3.02", "5.3.02"),
             expectation
         ).value().orElseThrow();
 
-        assertEquals("5.2", provider52.artifactProfile());
+        assertEquals("5.2.03", provider52.artifactProfile());
         assertEquals("5.3.02", provider53.artifactProfile());
     }
 
@@ -107,7 +107,7 @@ class CorePublicApiProviderFactoryTest {
     void rejectsIncompleteOrUnsupportedEvidenceBeforeInvokingCore() {
         final CoreProviderResult<CorePublicApiProvider> missingAlias =
             CorePublicApiProviderFactory.admit(
-                resolver("5.2", CorePublicApiSelectorContract.GET_PATCH),
+                resolver("5.2.03", CorePublicApiSelectorContract.GET_PATCH),
                 CoreVersionExpectation.exact(11, 12, 13)
             );
         final CoreProviderResult<CorePublicApiProvider> unsupportedProfile =
@@ -140,7 +140,7 @@ class CorePublicApiProviderFactoryTest {
         final CoreProviderResult<CorePublicApiProvider> nullResult =
             CorePublicApiProviderFactory.admit(
                 resolver(
-                    "5.2",
+                    "5.2.03",
                     NullCore.class,
                     SyntheticVersion.class,
                     descriptor(SyntheticVersion.class),
@@ -153,7 +153,7 @@ class CorePublicApiProviderFactoryTest {
         final CoreProviderResult<CorePublicApiProvider> invalidScalarResult =
             CorePublicApiProviderFactory.admit(
                 resolver(
-                    "5.2",
+                    "5.2.03",
                     WrongScalarCore.class,
                     WrongScalarVersion.class,
                     descriptor(WrongScalarVersion.class),
@@ -178,7 +178,7 @@ class CorePublicApiProviderFactoryTest {
         final CoreProviderResult<CorePublicApiProvider> wrongDescriptor =
             CorePublicApiProviderFactory.admit(
                 resolver(
-                    "5.2",
+                    "5.2.03",
                     SyntheticCore.class,
                     SyntheticVersion.class,
                     "()Ljava/lang/Object;",
@@ -191,7 +191,7 @@ class CorePublicApiProviderFactoryTest {
         final CoreProviderResult<CorePublicApiProvider> wrongClassloader =
             CorePublicApiProviderFactory.admit(
                 resolver(
-                    "5.2",
+                    "5.2.03",
                     SyntheticCore.class,
                     SyntheticVersion.class,
                     descriptor(SyntheticVersion.class),

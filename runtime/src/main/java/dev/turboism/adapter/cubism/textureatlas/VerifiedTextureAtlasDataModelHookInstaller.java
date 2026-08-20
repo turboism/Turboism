@@ -77,7 +77,7 @@ public final class VerifiedTextureAtlasDataModelHookInstaller implements AutoClo
         if (verified.isExactCubismVersion("5.3.02")) {
             hookAliases = VerifiedCubism5302TextureAtlasSelectorContract.HOOK_ALIASES;
             adapterSliceId = VerifiedCubism5302TextureAtlasSelectorContract.ADAPTER_SLICE_ID;
-        } else if (verified.isExactCubismVersion("5.2.0")) {
+        } else if (verified.isExactCubismVersion("5.2.03")) {
             hookAliases = VerifiedCubism520TextureAtlasSelectorContract.HOOK_ALIASES;
             adapterSliceId = VerifiedCubism520TextureAtlasSelectorContract.ADAPTER_SLICE_ID;
         } else {
