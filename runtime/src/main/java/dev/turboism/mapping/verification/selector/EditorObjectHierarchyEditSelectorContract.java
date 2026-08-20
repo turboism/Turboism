@@ -107,8 +107,6 @@ public final class EditorObjectHierarchyEditSelectorContract {
 
     private static final Set<String> REPARENT_ALIASES = Set.of(
         "cubism.editor-model.part-source.add-child",
-        "cubism.editor-model.part-source.remove-child",
-        "cubism.editor-model.parameter-controllable-source.internal-set-parent",
         "cubism.editor-model.parameter-controllable-source.set-target-deformer-guid",
         "cubism.editor-model.parameter-controllable-source.all-parent-deformers",
         "cubism.editor-model.part-source.parent"

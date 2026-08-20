@@ -35,7 +35,6 @@ public final class EditorPartInspectorSelectorContract {
         "cubism.editor-model.model-source.all-glues",
         "cubism.editor-model.model.parts",
         "cubism.editor-model.part.class",
-        "cubism.editor-model.part.id",
         "cubism.editor-model.part.source",
         "cubism.editor-model.part.current-keyform",
         "cubism.editor-model.part-source.class",
