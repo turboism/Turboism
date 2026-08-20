@@ -5,6 +5,8 @@ import dev.turboism.cleanup.CleanupEvidenceCollector;
 import dev.turboism.core.plugin.context.CorePluginContext;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.failure.RuntimeFailureCollector;
+import dev.turboism.graal.GraalHostConfiguration;
+import dev.turboism.graal.GraalHostManager;
 import dev.turboism.hostread.SharedAsyncHostReadLane;
 import dev.turboism.i18n.CubismHostLocale;
 import dev.turboism.i18n.RuntimePluginLocalization;
@@ -17,12 +19,13 @@ import java.util.Objects;
 import java.util.Locale;
 
 /** Assembles the preview-only PluginContext services owned by one plugin scope. */
-final class PreviewPluginContextFactory {
+final class PreviewPluginContextFactory implements AutoCloseable {
 
     private final RuntimeHostAdapterAccess hostAccess;
     private final Path home;
     private final PreviewPluginServicesFactory servicesFactory;
     private final PreviewLog log;
+    private final GraalHostManager graalHost;
     private final dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistory;
 
     PreviewPluginContextFactory(
@@ -54,6 +57,10 @@ final class PreviewPluginContextFactory {
         this.home = Objects.requireNonNull(home, "home");
         this.log = Objects.requireNonNull(log, "log");
         this.fileChooserHistory = Objects.requireNonNull(fileChooserHistory, "fileChooserHistory");
+        this.graalHost = new GraalHostManager(
+            GraalHostConfiguration.resolve(home),
+            diagnostic -> log.warn("graal", diagnostic)
+        );
         this.servicesFactory = new PreviewPluginServicesFactory(
             home, scheduler, hostAccess, hostReadLane, log, failureCollector,
             Objects.requireNonNull(effectiveLocale, "effectiveLocale")
@@ -85,7 +92,19 @@ final class PreviewPluginContextFactory {
             services.userFiles(), services.hostReads(), null,
             fileChooserHistory
         );
+        context.installScriptService(new dev.turboism.script.RuntimeScriptService(
+            home,
+            context,
+            requestedScope,
+            graalHost,
+            diagnostic -> log.warn(requestedDescriptor.id(), diagnostic)
+        ));
         return new PluginContextBundle(context, services.localization(), services.cleanupEvidence());
+    }
+
+    @Override
+    public void close() {
+        graalHost.close();
     }
 }
 
