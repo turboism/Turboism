@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 final class MeshMirrorPremainLifecycleTest {
 
@@ -49,16 +50,17 @@ final class MeshMirrorPremainLifecycleTest {
         final Path artifact = Files.createFile(tempDir.resolve("live2d_cubism.jar"));
         final List<String> calls = new ArrayList<>();
         final AtomicReference<ClassFileTransformer> registered = new AtomicReference<>();
-        final Instrumentation instrumentation = instrumentation(calls, registered);
+        final Instrumentation instrumentation = instrumentation(calls, registered, TargetMesh.class);
         final VerifiedMeshMirrorHookInstaller installer = new VerifiedMeshMirrorHookInstaller(
-            instrumentation, getClass().getClassLoader(), new RuntimeMeshMirrorAxisService(),
-            new RuntimeMeshEditUiService(), profileFor(TargetMesh.class), calls::add
+            instrumentation, getClass().getClassLoader(), artifact,
+            new RuntimeMeshMirrorAxisService(), new RuntimeMeshEditUiService(), profileFor(TargetMesh.class), calls::add
         );
 
-        installer.install();
+        assertThrows(IllegalStateException.class, installer::install);
 
-        assertTrue(installer.isInstalled());
-        assertFalse(calls.contains("MESH_MIRROR_UNAVAILABLE_TARGET_ALREADY_LOADED owner=" + TargetMesh.class.getName()));
+        assertFalse(installer.isInstalled());
+        assertTrue(calls.contains("MESH_MIRROR_UNAVAILABLE_TARGET_ALREADY_LOADED owner=" + TargetMesh.class.getName()));
+        assertFalse(calls.stream().anyMatch(value -> value.startsWith("add:")));
         assertFalse(calls.stream().anyMatch(value -> value.startsWith("retransform:")));
     }
 
