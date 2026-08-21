@@ -61,6 +61,7 @@ final class RuntimeMeshEditUiServiceNativeTest {
             invoke(widget, "add", "angle-row", 0);
             invoke(widget, "add", "position-row", 1);
             service.attachNative(panel, widget, axis);
+            service.attachNative(panel, widget, axis);
             SwingUtilities.invokeAndWait(() -> { });
 
             assertNotNull(service.nativeAttachment());

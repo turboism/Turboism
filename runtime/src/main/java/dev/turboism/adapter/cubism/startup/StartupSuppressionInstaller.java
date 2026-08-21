@@ -19,6 +19,24 @@ public final class StartupSuppressionInstaller {
     }
 
     /**
+     * Locates the single host artifact admitted from the startup class path.
+     *
+     * @param classPath process class path to inspect
+     * @param workingDirectory directory used to resolve relative entries
+     * @return the located host artifact, or empty when admission is ambiguous or unavailable
+     */
+    public static java.util.Optional<Path> locateHostArtifact(
+        final String classPath,
+        final Path workingDirectory
+    ) {
+        final StartupHostArtifactLocator.Result located =
+            StartupHostArtifactLocator.locate(classPath, workingDirectory);
+        return located.status() == StartupHostArtifactLocator.Status.FOUND
+            ? java.util.Optional.of(located.artifact())
+            : java.util.Optional.empty();
+    }
+
+    /**
      * Admits or refuses bounded Cubism startup suppression, and installs the class-file
      * transformer when every admission gate passes.
      *
