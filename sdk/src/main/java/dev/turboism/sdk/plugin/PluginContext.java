@@ -20,6 +20,8 @@ import dev.turboism.sdk.cubism.mesh.MeshEditParticipation;
 import dev.turboism.sdk.cubism.mesh.MeshEditService;
 import dev.turboism.sdk.cubism.mesh.MeshEditUiService;
 import dev.turboism.sdk.cubism.mesh.MeshMirrorCounterparts;
+import dev.turboism.sdk.cubism.mesh.MeshMirrorMoveParticipation;
+import dev.turboism.sdk.cubism.mesh.MeshMirrorToolEligibility;
 import dev.turboism.sdk.cubism.model.ModelObjectService;
 import dev.turboism.sdk.cubism.physics.PhysicsEditorService;
 import dev.turboism.sdk.cubism.command.EditorCommandService;
@@ -152,6 +154,16 @@ public interface PluginContext {
     @PreviewApi
     default MeshMirrorCounterparts meshMirrorCounterparts() {
         throw new UnsupportedOperationException("meshMirrorCounterparts service is not available");
+    }
+
+    @PreviewApi
+    default MeshMirrorToolEligibility meshMirrorToolEligibility() {
+        throw new UnsupportedOperationException("meshMirrorToolEligibility service is not available");
+    }
+
+    @PreviewApi
+    default MeshMirrorMoveParticipation meshMirrorMoveParticipation() {
+        throw new UnsupportedOperationException("meshMirrorMoveParticipation service is not available");
     }
 
     @PreviewApi
