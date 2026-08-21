@@ -1,11 +1,11 @@
 package dev.turboism.sdk.cubism.model;
 
-import dev.turboism.sdk.Cubism;
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.PreviewApi;
 
 /** Cubism alpha-composition mode for drawable and Part Inspector surfaces. */
 @PreviewApi
-@Cubism("5.3.02")
+@CubismEditor("5.3.02")
 public enum AlphaComposition {
     OVER,
     ATOP,

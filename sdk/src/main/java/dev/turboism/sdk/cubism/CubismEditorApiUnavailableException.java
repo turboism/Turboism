@@ -14,7 +14,7 @@ import java.util.Optional;
  * message is intended for humans and must not be parsed.</p>
  */
 @PreviewApi
-public final class CubismApiUnavailableException extends UnsupportedOperationException {
+public final class CubismEditorApiUnavailableException extends UnsupportedOperationException {
 
     private final String apiId;
     private final Optional<String> activeVersion;
@@ -27,7 +27,7 @@ public final class CubismApiUnavailableException extends UnsupportedOperationExc
      * @param activeVersion exact active Editor version, or empty when no verified Editor is active
      * @param supportedVersions exact reviewed versions declared by the SDK method
      */
-    public CubismApiUnavailableException(
+    public CubismEditorApiUnavailableException(
         final String apiId,
         final Optional<String> activeVersion,
         final List<String> supportedVersions

@@ -1,7 +1,7 @@
 package dev.turboism.core.plugin.context;
 
-import dev.turboism.sdk.Cubism;
-import dev.turboism.sdk.cubism.CubismApiUnavailableException;
+import dev.turboism.sdk.CubismEditor;
+import dev.turboism.sdk.cubism.CubismEditorApiUnavailableException;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -16,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-class CubismApiAvailabilityInterceptorTest {
+class CubismEditorApiAvailabilityInterceptorTest {
 
     @Test
     void rejectsNarrowMethodBeforeDelegateOnUnsupportedHost() {
@@ -24,8 +24,8 @@ class CubismApiAvailabilityInterceptorTest {
         final Example delegate = new ExampleImpl(calls);
         final Example proxy = proxy(delegate, Optional.of("5.2.03"));
 
-        final CubismApiUnavailableException failure = assertThrows(
-            CubismApiUnavailableException.class,
+        final CubismEditorApiUnavailableException failure = assertThrows(
+            CubismEditorApiUnavailableException.class,
             proxy::only5302
         );
 
@@ -38,8 +38,8 @@ class CubismApiAvailabilityInterceptorTest {
     void failsClosedWithoutVerifiedEditorVersion() {
         final Example proxy = proxy(new ExampleImpl(new AtomicInteger()), Optional.empty());
 
-        final CubismApiUnavailableException failure = assertThrows(
-            CubismApiUnavailableException.class,
+        final CubismEditorApiUnavailableException failure = assertThrows(
+            CubismEditorApiUnavailableException.class,
             proxy::shared
         );
 
@@ -50,10 +50,10 @@ class CubismApiAvailabilityInterceptorTest {
     void recursivelyWrapsOptionalListAndCompletionStageResults() {
         final Example proxy = proxy(new ExampleImpl(new AtomicInteger()), Optional.of("5.2.03"));
 
-        assertThrows(CubismApiUnavailableException.class, () -> proxy.optional().orElseThrow().only5302());
-        assertThrows(CubismApiUnavailableException.class, () -> proxy.list().get(0).only5302());
+        assertThrows(CubismEditorApiUnavailableException.class, () -> proxy.optional().orElseThrow().only5302());
+        assertThrows(CubismEditorApiUnavailableException.class, () -> proxy.list().get(0).only5302());
         assertThrows(
-            CubismApiUnavailableException.class,
+            CubismEditorApiUnavailableException.class,
             () -> proxy.stage().toCompletableFuture().join().only5302()
         );
     }
@@ -74,15 +74,15 @@ class CubismApiAvailabilityInterceptorTest {
     }
 
     private static Example proxy(final Example delegate, final Optional<String> version) {
-        return (Example) new CubismApiAvailabilityInterceptor(() -> version)
+        return (Example) new CubismEditorApiAvailabilityInterceptor(() -> version)
             .wrapForTesting(delegate, Example.class);
     }
 
-    @Cubism({"5.2.03", "5.3.02"})
+    @CubismEditor({"5.2.03", "5.3.02"})
     interface Example {
         void shared();
 
-        @Cubism("5.3.02")
+        @CubismEditor("5.3.02")
         void only5302();
 
         Optional<Example> optional();

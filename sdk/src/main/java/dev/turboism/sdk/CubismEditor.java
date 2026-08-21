@@ -18,7 +18,7 @@ import java.lang.annotation.Target;
 @Documented
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.TYPE, ElementType.METHOD})
-public @interface Cubism {
+public @interface CubismEditor {
 
     /**
      * @return exact reviewed Cubism Editor versions such as {@code "5.2.03"}
