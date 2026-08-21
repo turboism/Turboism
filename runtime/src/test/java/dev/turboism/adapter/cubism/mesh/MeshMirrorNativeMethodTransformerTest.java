@@ -12,9 +12,95 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 final class MeshMirrorNativeMethodTransformerTest {
+
+    @Test
+    void rejectsWrongProtectionDomainAndLoaderAfterExactFirstAdmission() throws Exception {
+        final MeshMirrorHostProfile profile = MeshMirrorHostProfile.reviewed52And53();
+        final PathHolder paths = new PathHolder();
+        final ClassLoader first = new ClassLoader() { };
+        final ClassLoader second = new ClassLoader() { };
+        final MeshMirrorNativeMethodTransformer transformer = new MeshMirrorNativeMethodTransformer(
+            profile, null, paths.expected, null, null, ignored -> { }
+        );
+        assertNotNull(transformer.transform(
+            null, first, profile.meshEditorOwner(), null, paths.domain(paths.expected), fixture(profile.meshEditorOwner(), profile)
+        ));
+        assertNull(transformer.transform(
+            null, second, profile.mirrorWidgetOwner(), null, paths.domain(paths.expected), fixture(profile.mirrorWidgetOwner(), profile)
+        ));
+        assertEquals(MeshMirrorNativeMethodTransformer.Outcome.LOADER_MISMATCH, transformer.outcome());
+    }
+
+    /**
+     * Regression: the loader expectation must not be gated behind the artifact expectation.
+     * Nesting them let a target skip a check its owner had declared.
+     */
+    @Test
+    void enforcesTheExpectedLoaderEvenWithoutAnExpectedArtifact() throws Exception {
+        final MeshMirrorHostProfile profile = MeshMirrorHostProfile.reviewed52And53();
+        final List<String> diagnostics = new ArrayList<>();
+        final ClassLoader expected = new ClassLoader() { };
+        final MeshMirrorNativeMethodTransformer transformer = new MeshMirrorNativeMethodTransformer(
+            profile, expected, null, null, null, diagnostics::add
+        );
+
+        assertNull(transformer.transform(
+            null, new ClassLoader() { }, profile.mirrorWidgetOwner(), null, null, new byte[] {0}
+        ));
+        assertEquals(MeshMirrorNativeMethodTransformer.Outcome.LOADER_MISMATCH, transformer.outcome());
+        assertTrue(diagnostics.contains("MESH_MIRROR_LOADER_MISMATCH"));
+        assertNull(transformer.admittedClassLoader());
+    }
+
+    /** The bootstrap loader can satisfy no exact expectation, so it is rejected outright. */
+    @Test
+    void rejectsTheBootstrapLoaderWheneverAnExactExpectationExists() throws Exception {
+        final MeshMirrorHostProfile profile = MeshMirrorHostProfile.reviewed52And53();
+        final List<String> diagnostics = new ArrayList<>();
+        final MeshMirrorNativeMethodTransformer transformer = new MeshMirrorNativeMethodTransformer(
+            profile, null, java.nio.file.Path.of("/tmp/mesh-mirror-expected.jar"), null, null, diagnostics::add
+        );
+
+        assertNull(transformer.transform(
+            null, null, profile.mirrorWidgetOwner(), null, null, new byte[] {0}
+        ));
+        assertEquals(
+            MeshMirrorNativeMethodTransformer.Outcome.BOOTSTRAP_LOADER_REJECTED, transformer.outcome()
+        );
+        assertTrue(diagnostics.contains("MESH_MIRROR_BOOTSTRAP_LOADER_REJECTED"));
+    }
+
+    @Test
+    void rejectsWrongArtifactBeforeLoaderAdmission() throws Exception {
+        final MeshMirrorHostProfile profile = MeshMirrorHostProfile.reviewed52And53();
+        final PathHolder paths = new PathHolder();
+        final List<String> diagnostics = new ArrayList<>();
+        final MeshMirrorNativeMethodTransformer transformer = new MeshMirrorNativeMethodTransformer(
+            profile, null, paths.expected, null, null, diagnostics::add
+        );
+
+        assertNull(transformer.transform(
+            null, getClass().getClassLoader(), profile.meshEditorOwner(), null,
+            paths.domain(java.nio.file.Path.of("/tmp/mesh-mirror-other.jar")), fixture(profile.meshEditorOwner(), profile)
+        ));
+        assertEquals(MeshMirrorNativeMethodTransformer.Outcome.ARTIFACT_MISMATCH, transformer.outcome());
+        assertNull(transformer.admittedClassLoader());
+        assertTrue(diagnostics.contains("MESH_MIRROR_ARTIFACT_MISMATCH"));
+    }
+
+    private static final class PathHolder {
+        final java.nio.file.Path expected = java.nio.file.Path.of("/tmp/mesh-mirror-expected.jar");
+
+        java.security.ProtectionDomain domain(final java.nio.file.Path path) throws Exception {
+            return new java.security.ProtectionDomain(
+                new java.security.CodeSource(path.toUri().toURL(), (java.security.cert.Certificate[]) null), null
+            );
+        }
+    }
 
     @Test
     void instrumentsOnlyTheExactVerifiedMethods() {
