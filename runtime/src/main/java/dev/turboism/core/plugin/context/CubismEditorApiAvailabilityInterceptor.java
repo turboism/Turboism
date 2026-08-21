@@ -11,6 +11,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Proxy;
 import java.lang.reflect.Type;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -28,7 +29,8 @@ import java.util.function.Supplier;
 /** Applies exact Cubism Editor availability policy to one plugin's SDK object graph. */
 final class CubismEditorApiAvailabilityInterceptor {
 
-    private static final Set<String> REVIEWED_VERSIONS = Set.of("5.2.03", "5.3.02");
+    private static final List<String> REVIEWED_VERSIONS = List.of("5.2.03", "5.3.02");
+    private static final Set<String> REVIEWED_VERSION_SET = Set.copyOf(REVIEWED_VERSIONS);
 
     private final Supplier<Optional<String>> activeVersion;
     private final Map<Object, Map<Class<?>, Object>> proxies = new IdentityHashMap<>();
@@ -119,13 +121,11 @@ final class CubismEditorApiAvailabilityInterceptor {
     }
 
     private void enforce(final Method method) {
-        final CubismEditor declaration = method.getAnnotation(CubismEditor.class) != null
-            ? method.getAnnotation(CubismEditor.class)
-            : effectiveTypeAvailability(method.getDeclaringClass());
-        if (declaration == null) {
+        final List<CubismEditor> declarations = availabilityDeclarations(method);
+        if (declarations.isEmpty()) {
             return;
         }
-        final List<String> supported = normalizedVersions(declaration, method);
+        final List<String> supported = resolvedVersions(declarations, apiId(method));
         final Optional<String> current = Objects.requireNonNull(
             activeVersion.get(), "activeVersion.get()"
         );
@@ -135,13 +135,99 @@ final class CubismEditorApiAvailabilityInterceptor {
         throw new CubismEditorApiUnavailableException(apiId(method), current, supported);
     }
 
-    private static List<String> normalizedVersions(final CubismEditor declaration, final Method method) {
-        final List<String> versions = List.of(declaration.value());
-        if (versions.isEmpty() || versions.stream().anyMatch(version -> !REVIEWED_VERSIONS.contains(version))
-            || new LinkedHashSet<>(versions).size() != versions.size()) {
-            throw new IllegalStateException("Invalid @CubismEditor declaration on " + apiId(method));
+    private static List<CubismEditor> availabilityDeclarations(final Method method) {
+        final ArrayList<CubismEditor> declarations = new ArrayList<>();
+        collectTypeAvailability(method.getDeclaringClass(), declarations, new LinkedHashSet<>());
+        final CubismEditor methodDeclaration = method.getAnnotation(CubismEditor.class);
+        if (methodDeclaration != null) {
+            declarations.add(methodDeclaration);
         }
-        return versions;
+        return List.copyOf(declarations);
+    }
+
+    private static void collectTypeAvailability(
+        final Class<?> type,
+        final List<CubismEditor> declarations,
+        final Set<Class<?>> visited
+    ) {
+        if (!visited.add(type)) return;
+        for (Class<?> parent : type.getInterfaces()) {
+            collectTypeAvailability(parent, declarations, visited);
+        }
+        final CubismEditor direct = type.getAnnotation(CubismEditor.class);
+        if (direct != null) declarations.add(direct);
+    }
+
+    private static List<String> resolvedVersions(
+        final List<CubismEditor> declarations,
+        final String apiId
+    ) {
+        final LinkedHashSet<String> supported = new LinkedHashSet<>(REVIEWED_VERSIONS);
+        for (CubismEditor declaration : declarations) {
+            supported.retainAll(expand(declaration, apiId));
+        }
+        return REVIEWED_VERSIONS.stream().filter(supported::contains).toList();
+    }
+
+    private static Set<String> expand(final CubismEditor declaration, final String apiId) {
+        final List<String> exact = List.of(declaration.value());
+        final List<String> excluded = List.of(declaration.exclude());
+        final String from = declaration.from();
+        final String to = declaration.to();
+        final boolean hasRange = !from.isEmpty() || !to.isEmpty();
+        if ((!exact.isEmpty() && hasRange)
+            || hasDuplicates(exact)
+            || hasDuplicates(excluded)
+            || exact.stream().anyMatch(version -> !REVIEWED_VERSION_SET.contains(version))
+            || exact.stream().anyMatch(version -> !isExactVersion(version))
+            || excluded.stream().anyMatch(version -> !isExactVersion(version))
+            || (!from.isEmpty() && !isExactVersion(from))
+            || (!to.isEmpty() && !isExactVersion(to))
+            || (!from.isEmpty() && !to.isEmpty() && compareVersions(from, to) > 0)) {
+            throw invalidDeclaration(apiId);
+        }
+        final LinkedHashSet<String> expanded = exact.isEmpty()
+            ? new LinkedHashSet<>(REVIEWED_VERSIONS)
+            : new LinkedHashSet<>(exact);
+        if (hasRange) {
+            expanded.removeIf(version -> (!from.isEmpty() && compareVersions(version, from) < 0)
+                || (!to.isEmpty() && compareVersions(version, to) > 0));
+        }
+        expanded.removeAll(excluded);
+        return Set.copyOf(expanded);
+    }
+
+    private static boolean hasDuplicates(final List<String> versions) {
+        return new LinkedHashSet<>(versions).size() != versions.size();
+    }
+
+    private static boolean isExactVersion(final String version) {
+        if (version == null || version.isEmpty()) return false;
+        final String[] components = version.split("\\.", -1);
+        if (components.length != 3) return false;
+        for (String component : components) {
+            if (component.isEmpty()) return false;
+            for (int index = 0; index < component.length(); index++) {
+                if (!Character.isDigit(component.charAt(index))) return false;
+            }
+        }
+        return true;
+    }
+
+    private static int compareVersions(final String left, final String right) {
+        final String[] leftComponents = left.split("\\.", -1);
+        final String[] rightComponents = right.split("\\.", -1);
+        for (int index = 0; index < 3; index++) {
+            final int compared = new BigInteger(leftComponents[index]).compareTo(
+                new BigInteger(rightComponents[index])
+            );
+            if (compared != 0) return compared;
+        }
+        return 0;
+    }
+
+    private static IllegalStateException invalidDeclaration(final String apiId) {
+        return new IllegalStateException("Invalid @CubismEditor declaration on " + apiId);
     }
 
     private Object wrapValue(final Object value, final Type declaredType) {
@@ -253,7 +339,7 @@ final class CubismEditorApiAvailabilityInterceptor {
 
     private static boolean isInterceptableSdkInterface(final Class<?> type) {
         return type.isInterface()
-            && (effectiveTypeAvailability(type) != null
+            && (hasTypeAvailability(type, new LinkedHashSet<>())
                 || declaresAnnotatedMethod(type));
     }
 
@@ -264,14 +350,13 @@ final class CubismEditorApiAvailabilityInterceptor {
         return false;
     }
 
-    private static CubismEditor effectiveTypeAvailability(final Class<?> type) {
-        final CubismEditor direct = type.getAnnotation(CubismEditor.class);
-        if (direct != null) return direct;
+    private static boolean hasTypeAvailability(final Class<?> type, final Set<Class<?>> visited) {
+        if (!visited.add(type)) return false;
+        if (type.isAnnotationPresent(CubismEditor.class)) return true;
         for (Class<?> parent : type.getInterfaces()) {
-            final CubismEditor inherited = effectiveTypeAvailability(parent);
-            if (inherited != null) return inherited;
+            if (hasTypeAvailability(parent, visited)) return true;
         }
-        return null;
+        return false;
     }
 
     private static Class<?> rawClass(final Type type) {
