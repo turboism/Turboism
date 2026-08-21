@@ -99,6 +99,11 @@ public final class CorePluginContext implements PluginContext {
     private final AsyncHostReadService asyncHostReadService;
     private final MeshMirrorAxisService meshMirrorAxisService;
     private final MeshEditUiService meshEditUiService;
+    private final dev.turboism.sdk.cubism.mesh.MeshEditService meshEditService;
+    private final dev.turboism.sdk.cubism.mesh.MeshEditParticipation meshEditParticipationService;
+    private final dev.turboism.sdk.cubism.mesh.MeshMirrorCounterparts meshMirrorCounterpartsService;
+    private final dev.turboism.sdk.cubism.mesh.MeshMirrorToolEligibility meshMirrorToolEligibilityService;
+    private final dev.turboism.sdk.cubism.mesh.MeshMirrorMoveParticipation meshMirrorMoveParticipationService;
     private final dev.turboism.sdk.ui.workspace.WorkspaceService workspaceService;
     private final dev.turboism.sdk.ui.workspace.layout.WorkspaceLayoutService workspaceLayoutService;
 
@@ -562,6 +567,36 @@ public final class CorePluginContext implements PluginContext {
             meshPermissionChecker,
             this.dependencies.disposableScope()
         );
+        // Participation and counterpart resolution are owned by the mirror bridge, because both
+        // only mean anything while it holds live host handles for an edit in progress.
+        this.meshEditService = new dev.turboism.adapter.cubism.mesh.AuthorizedMeshEditService(
+            new dev.turboism.adapter.cubism.mesh.RuntimeMeshEditService(),
+            meshPermissionChecker
+        );
+        this.meshEditParticipationService =
+            new dev.turboism.adapter.cubism.mesh.AuthorizedMeshEditParticipation(
+                dev.turboism.adapter.cubism.mesh.NativeMeshMirrorBridge.participation(),
+                meshPermissionChecker,
+                this.dependencies.disposableScope()
+            );
+        this.meshMirrorCounterpartsService =
+            new dev.turboism.adapter.cubism.mesh.AuthorizedMeshMirrorCounterparts(
+                dev.turboism.adapter.cubism.mesh.NativeMeshMirrorBridge.counterparts(),
+                meshPermissionChecker,
+                this.dependencies.disposableScope()
+            );
+        this.meshMirrorToolEligibilityService =
+            new dev.turboism.adapter.cubism.mesh.AuthorizedMeshMirrorToolEligibility(
+                dev.turboism.adapter.cubism.mesh.NativeMeshMirrorBridge.toolEligibility(),
+                meshPermissionChecker,
+                this.dependencies.disposableScope()
+            );
+        this.meshMirrorMoveParticipationService =
+            new dev.turboism.adapter.cubism.mesh.AuthorizedMeshMirrorMoveParticipation(
+                dev.turboism.adapter.cubism.mesh.NativeMeshMirrorBridge.moveParticipation(),
+                meshPermissionChecker,
+                this.dependencies.disposableScope()
+            );
         this.sceneTableService = hostAccess == null
             ? SceneTableService.unavailable()
             : hostAccess.sceneTable();
@@ -802,6 +837,31 @@ public final class CorePluginContext implements PluginContext {
     @Override
     public MeshEditUiService meshEditUi() {
         return meshEditUiService;
+    }
+
+    @Override
+    public dev.turboism.sdk.cubism.mesh.MeshEditService meshEdit() {
+        return meshEditService;
+    }
+
+    @Override
+    public dev.turboism.sdk.cubism.mesh.MeshEditParticipation meshEditParticipation() {
+        return meshEditParticipationService;
+    }
+
+    @Override
+    public dev.turboism.sdk.cubism.mesh.MeshMirrorCounterparts meshMirrorCounterparts() {
+        return meshMirrorCounterpartsService;
+    }
+
+    @Override
+    public dev.turboism.sdk.cubism.mesh.MeshMirrorToolEligibility meshMirrorToolEligibility() {
+        return meshMirrorToolEligibilityService;
+    }
+
+    @Override
+    public dev.turboism.sdk.cubism.mesh.MeshMirrorMoveParticipation meshMirrorMoveParticipation() {
+        return meshMirrorMoveParticipationService;
     }
 
     @Override

@@ -57,7 +57,8 @@ final class RuntimeMeshEditUiServiceNativeTest {
             // after that method returns, so it is not available at hook time.
             // The host CVBox already holds the angle row (index 0) and the position
             // row (index 1); the reviewed hook inserts our root after them (index 2).
-            final Object widget = invoke(invoke(panel, "getMirrorEditFoldingPane"), "getChild");
+            final Object foldingPane = invoke(panel, "foldingPaneForTesting");
+            final Object widget = invoke(panel, "widgetForTesting");
             invoke(widget, "add", "angle-row", 0);
             invoke(widget, "add", "position-row", 1);
             service.attachNative(panel, widget, axis);
@@ -65,6 +66,9 @@ final class RuntimeMeshEditUiServiceNativeTest {
             SwingUtilities.invokeAndWait(() -> { });
 
             assertNotNull(service.nativeAttachment());
+            assertEquals(1, invoke(foldingPane, "getSetChildCount"));
+            assertEquals(3, invoke(foldingPane, "getWhiteBackgroundRows"));
+            assertEquals("INNER", invoke(widget, "getBackgroundColor"));
             final Object mount = widget;
             final List<?> mountChildren = children(mount);
             assertEquals(3, mountChildren.size());
@@ -92,7 +96,9 @@ final class RuntimeMeshEditUiServiceNativeTest {
 
             registration.close();
             SwingUtilities.invokeAndWait(() -> { });
-            assertEquals(2, mountChildren.size());
+            assertEquals(2, children(mount).size());
+            assertEquals(2, invoke(foldingPane, "getSetChildCount"));
+            assertEquals(2, invoke(foldingPane, "getWhiteBackgroundRows"));
         }
     }
 
@@ -114,7 +120,7 @@ final class RuntimeMeshEditUiServiceNativeTest {
                     -180.0f, 180.0f, 0.1f, ignored -> { }
                 )
             );
-            final Object widget = invoke(invoke(panel, "getMirrorEditFoldingPane"), "getChild");
+            final Object widget = invoke(panel, "widgetForTesting");
             service.attachNative(panel, widget, axis);
             SwingUtilities.invokeAndWait(() -> { });
 
@@ -182,9 +188,21 @@ final class RuntimeMeshEditUiServiceNativeTest {
                 package kotlin.jvm.functions;
                 public interface Function1<P, R> { R invoke(P p); }
                 """),
+            new FakeSource("com/live2d/ui/CWidget.java", """
+                package com.live2d.ui;
+                public class CWidget {
+                    private Object backgroundColor;
+                    private boolean opaque = true;
+                    public Object getBackgroundColor() { return backgroundColor; }
+                    public void setBackgroundColor(Object color) { backgroundColor = color; }
+                    public boolean getOpaque() { return opaque; }
+                    public void setOpaque(boolean value) { opaque = value; }
+                }
+                """),
             new FakeSource("com/live2d/ui/control/CLabel.java", """
                 package com.live2d.ui.control;
-                public final class CLabel {
+                import com.live2d.ui.CWidget;
+                public final class CLabel extends CWidget {
                     private final String text;
                     public CLabel(String text) { this.text = text; }
                     public String getText() { return text; }
@@ -193,7 +211,8 @@ final class RuntimeMeshEditUiServiceNativeTest {
             new FakeSource("com/live2d/ui/control/CSlidableFloat.java", """
                 package com.live2d.ui.control;
                 import kotlin.jvm.functions.Function1;
-                public final class CSlidableFloat {
+                import com.live2d.ui.CWidget;
+                public final class CSlidableFloat extends CWidget {
                     private float value;
                     private Function1 onChanged;
                     public void setMin(float min) { }
@@ -211,7 +230,8 @@ final class RuntimeMeshEditUiServiceNativeTest {
             new FakeSource("com/live2d/ui/control/CButton.java", """
                 package com.live2d.ui.control;
                 import kotlin.jvm.functions.Function1;
-                public final class CButton {
+                import com.live2d.ui.CWidget;
+                public final class CButton extends CWidget {
                     private Function1 onAction;
                     private String toolTipText;
                     public void setText(String text) { }
@@ -225,19 +245,22 @@ final class RuntimeMeshEditUiServiceNativeTest {
                 """),
             new FakeSource("com/live2d/ui/container/CSpacer.java", """
                 package com.live2d.ui.container;
-                public final class CSpacer {
+                import com.live2d.ui.CWidget;
+                public final class CSpacer extends CWidget {
                     public CSpacer(int width, int height, int gap, Object parent) { }
                 }
                 """),
             new FakeSource("com/live2d/ui/container/CVBox.java", """
                 package com.live2d.ui.container;
+                import com.live2d.ui.CWidget;
                 import java.util.ArrayList;
                 import java.util.List;
-                public class CVBox {
+                public class CVBox extends CWidget {
                     private final List<Object> children = new ArrayList<>();
                     public void add(Object child, int index) { children.add(index, child); }
                     public void unaryPlus(Object child) { children.add(child); }
-                    public List<Object> getChildren() { return children; }
+                    public void remove(Object child) { children.remove(child); }
+                    public List<Object> getChildren() { return List.copyOf(children); }
                     public void revalidate() { }
                     public void repaint() { }
                 }
@@ -248,9 +271,35 @@ final class RuntimeMeshEditUiServiceNativeTest {
                 """),
             new FakeSource("com/live2d/ui/container/CFoldingPane.java", """
                 package com.live2d.ui.container;
+                import com.live2d.ui.CWidget;
                 public final class CFoldingPane {
-                    private final CVBox child = new CVBox();
-                    public CVBox getChild() { return child; }
+                    public static final CompanionType Companion = new CompanionType();
+                    private CWidget child;
+                    private int setChildCount;
+                    private int whiteBackgroundRows;
+                    public CWidget getChild() { throw new IllegalStateException("Not impl :"); }
+                    public void setChild(CWidget child) {
+                        this.child = child;
+                        setChildCount++;
+                        whiteBackgroundRows = ((CVBox) child).getChildren().size();
+                    }
+                    public int getSetChildCount() { return setChildCount; }
+                    public int getWhiteBackgroundRows() { return whiteBackgroundRows; }
+                    public void revalidate() { }
+                    public void repaint() { }
+                    public static final class CompanionType {
+                        private static void a(CFoldingPane pane, CWidget child) {
+                            normalize(child);
+                            child.setBackgroundColor("INNER");
+                            pane.setChild(child);
+                        }
+                        private static void normalize(Object value) {
+                            if (value instanceof CWidget widget) widget.setOpaque(false);
+                            if (value instanceof CVBox box) {
+                                for (Object child : box.getChildren()) normalize(child);
+                            }
+                        }
+                    }
                 }
                 """),
             new FakeSource("com/live2d/cubism/view/palette/tool/toolMode/meshEditor/ToolPanel_MeshEdit.java", """
@@ -260,10 +309,12 @@ final class RuntimeMeshEditUiServiceNativeTest {
                 import com.live2d.ui.container.CHBox;
                 import com.live2d.ui.container.CVBox;
                 public final class ToolPanel_MeshEdit {
+                    private final CVBox widget = new CVBox();
                     private final CFoldingPane mirrorEditFoldingPane = new CFoldingPane();
-                    public CFoldingPane getMirrorEditFoldingPane() { return mirrorEditFoldingPane; }
-                    public static CVBox createWidgetMirrorEditForMeshEdit$createComp(CLabel label, CHBox row) {
-                        CVBox box = new CVBox();
+                    public Object widgetForTesting() { return widget; }
+                    public Object foldingPaneForTesting() { return mirrorEditFoldingPane; }
+                    public static CHBox createWidgetMirrorEditForMeshEdit$createComp(CLabel label, CHBox row) {
+                        CHBox box = new CHBox();
                         box.add(label, 0);
                         box.add(row, 1);
                         return box;
