@@ -1,6 +1,6 @@
 package dev.turboism.sdk.cubism.model;
 
-import dev.turboism.sdk.Cubism;
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.id.ModelImageId;
 import dev.turboism.sdk.cubism.id.RawImageId;
@@ -17,7 +17,7 @@ import java.util.List;
  * undoable through the Editor's Undo history.</p>
  */
 @PreviewApi
-@Cubism({"5.2.03", "5.3.02"})
+@CubismEditor({"5.2.03", "5.3.02"})
 public interface ModelTextures {
 
     /** Raw layered images registered on the model. */
@@ -47,6 +47,6 @@ public interface ModelTextures {
     void removeTextureAtlas(TextureAtlasId id);
 
     /** Removes one raw layered image and its layer inputs by id. */
-    @Cubism("5.3.02")
+    @CubismEditor("5.3.02")
     void removeRawImage(RawImageId id);
 }

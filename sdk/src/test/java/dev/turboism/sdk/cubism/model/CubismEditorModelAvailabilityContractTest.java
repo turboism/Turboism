@@ -1,6 +1,6 @@
 package dev.turboism.sdk.cubism.model;
 
-import dev.turboism.sdk.Cubism;
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.id.RawImageId;
 import org.junit.jupiter.api.Test;
 
@@ -9,17 +9,17 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 
-class CubismModelAvailabilityContractTest {
+class CubismEditorModelAvailabilityContractTest {
 
     private static final String[] BOTH = {"5.2.03", "5.3.02"};
     private static final String[] ONLY_5_3_02 = {"5.3.02"};
 
     @Test
     void reviewedModelTypesDeclareExactDefaults() {
-        assertArrayEquals(BOTH, Part.class.getAnnotation(Cubism.class).value());
-        assertArrayEquals(BOTH, Drawable.class.getAnnotation(Cubism.class).value());
-        assertArrayEquals(BOTH, ModelTextures.class.getAnnotation(Cubism.class).value());
-        assertArrayEquals(ONLY_5_3_02, AlphaComposition.class.getAnnotation(Cubism.class).value());
+        assertArrayEquals(BOTH, Part.class.getAnnotation(CubismEditor.class).value());
+        assertArrayEquals(BOTH, Drawable.class.getAnnotation(CubismEditor.class).value());
+        assertArrayEquals(BOTH, ModelTextures.class.getAnnotation(CubismEditor.class).value());
+        assertArrayEquals(ONLY_5_3_02, AlphaComposition.class.getAnnotation(CubismEditor.class).value());
     }
 
     @Test
@@ -38,6 +38,6 @@ class CubismModelAvailabilityContractTest {
     }
 
     private static void assertOnly5302(final Method method) {
-        assertArrayEquals(ONLY_5_3_02, method.getAnnotation(Cubism.class).value());
+        assertArrayEquals(ONLY_5_3_02, method.getAnnotation(CubismEditor.class).value());
     }
 }
