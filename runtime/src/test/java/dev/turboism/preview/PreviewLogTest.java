@@ -26,7 +26,7 @@ class PreviewLogTest {
     void createsOneLogFilePerSessionUnderTheUtcDate() throws Exception {
         final Clock clock = Clock.fixed(Instant.parse("2026-01-02T03:04:05.006Z"), ZoneOffset.UTC);
 
-        try (PreviewLog log = PreviewLog.openSession(temporary, clock, 42L, (level, line, failure) -> {})) {
+        try (PreviewLog log = PreviewLog.openSession(temporary, clock, 42L, (level, component, message, failure) -> {})) {
             final Path file = log.snapshot().currentFile().orElseThrow();
             assertEquals(temporary.resolve("2026-01-02"), file.getParent());
             assertTrue(file.getFileName().toString().matches(
@@ -51,7 +51,7 @@ class PreviewLogTest {
             temporary,
             Clock.fixed(Instant.parse("2026-01-02T03:04:05.006Z"), ZoneOffset.UTC),
             42L,
-            (level, line, failure) -> {}
+            (level, component, message, failure) -> {}
         )) {
             final Path current = log.snapshot().currentFile().orElseThrow();
             log.setMaxStorageMiB(1);
@@ -63,9 +63,13 @@ class PreviewLogTest {
     }
 
     @Test
-    void forwardsEveryCubismLevelWithoutCollapsingToError() throws Exception {
+    void forwardsStructuredCubismRecordsWithoutSessionFilePrefixes() throws Exception {
         final List<PreviewLog.Level> levels = new ArrayList<>();
-        final PreviewLog.Sink sink = (level, line, failure) -> levels.add(level);
+        final List<String> hostRecords = new ArrayList<>();
+        final PreviewLog.Sink sink = (level, component, message, failure) -> {
+            levels.add(level);
+            hostRecords.add("[" + component + "] " + message);
+        };
 
         try (PreviewLog log = new PreviewLog(
             temporary.resolve("levels.log"),
@@ -89,6 +93,14 @@ class PreviewLogTest {
             PreviewLog.Level.ERROR,
             PreviewLog.Level.FATAL
         ), levels);
+        assertEquals(List.of(
+            "[probe] trace",
+            "[probe] debug",
+            "[probe] info",
+            "[probe] warn",
+            "[probe] error",
+            "[probe] fatal"
+        ), hostRecords);
     }
 
     @Test
@@ -99,7 +111,7 @@ class PreviewLogTest {
         try (PreviewLog log = new PreviewLog(
             path,
             Clock.fixed(Instant.EPOCH, ZoneOffset.UTC),
-            (level, line, failure) -> levels.add(level)
+            (level, component, message, failure) -> levels.add(level)
         )) {
             log.setMinimumLevel("WARN");
             log.debug("probe", "hidden");
@@ -115,7 +127,7 @@ class PreviewLogTest {
         try (PreviewLog log = new PreviewLog(
             temporary.resolve("recent.log"),
             Clock.fixed(Instant.EPOCH, ZoneOffset.UTC),
-            (level, line, failure) -> {}
+            (level, component, message, failure) -> {}
         )) {
             for (int index = 0; index <= 5_000; index++) {
                 log.info("probe", Integer.toString(index));

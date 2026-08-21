@@ -60,7 +60,11 @@ final class PreviewPluginLoadCoordinator {
             ));
             return new LocalPluginRuntime.LoadReport(List.of(), List.copyOf(failures), List.of());
         }
-        configuredDisabled.forEach(candidates::remove);
+        for (String disabledId : configuredDisabled) {
+            if (candidates.remove(disabledId) != null) {
+                log.info(disabledId, "Plugin lifecycle: load skipped because plugin is configured disabled");
+            }
+        }
         if (candidates.isEmpty()) {
             log.warn("plugin-loader", "No valid plugin JARs found in " + pluginDirectory);
             return new LocalPluginRuntime.LoadReport(List.of(), List.copyOf(failures), List.of());
@@ -111,6 +115,11 @@ final class PreviewPluginLoadCoordinator {
                 disabledId, candidate == null ? pluginDirectory : candidate.jar(),
                 "DEPENDENCY_FAILED", "Required plugin dependency is missing, incompatible, or cyclic."
             ));
+            log.warn(
+                disabledId,
+                "Plugin lifecycle: load skipped because a required dependency "
+                    + "is missing, incompatible, or cyclic"
+            );
         }
     }
 
@@ -133,6 +142,11 @@ final class PreviewPluginLoadCoordinator {
                 resolved.id(), candidate.jar(), "DEPENDENCY_LOAD_FAILED",
                 "Required dependency failed to load: " + String.join(", ", failedDependencies)
             ));
+            log.warn(
+                resolved.id(),
+                "Plugin lifecycle: load skipped because required dependencies failed: "
+                    + String.join(", ", failedDependencies)
+            );
             return;
         }
         final LocalPluginRuntime.LoadedPluginSummary summary = loader.load(candidate, failures);

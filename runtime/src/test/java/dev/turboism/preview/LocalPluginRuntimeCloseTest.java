@@ -161,6 +161,11 @@ class LocalPluginRuntimeCloseTest {
         }
 
         final String log = Files.readString(logFile);
+        assertTrue(log.contains("[dev.example.healthy] Plugin lifecycle: disable started"));
+        assertTrue(log.contains("[dev.example.healthy] Plugin lifecycle: disable succeeded"));
+        assertTrue(log.contains("[dev.example.healthy] Plugin lifecycle: shutdown started"));
+        assertTrue(log.contains("[dev.example.healthy] Plugin lifecycle: shutdown succeeded"));
+        assertTrue(log.contains("[dev.example.healthy] Plugin lifecycle: unload succeeded"));
         assertFalse(log.contains("private-disable-detail"));
         assertFalse(log.contains("private-shutdown-detail"));
         assertFalse(log.contains("C:/Users/private/scope"));
