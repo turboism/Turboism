@@ -103,14 +103,29 @@ public final class RuntimeMeshEditUiService implements MeshEditUiService {
         final RuntimeMeshMirrorAxisService axis
     ) {
         final MirrorAxisAngleControl active = contribution.get();
-        if (active == null || panel == null || widget == null) return;
+        if (active == null || panel == null || widget == null) {
+            diag("ATTACH_SKIPPED reason=" + (active == null ? "NO_CONTRIBUTION" : "NULL_HOST_ARGUMENT"));
+            return;
+        }
         final long attachmentEpoch = epoch.get();
+        diag("ATTACH_BEGIN");
         runOnEdt(() -> {
-            if (epoch.get() != attachmentEpoch || contribution.get() != active || find(panel) != null) return;
+            if (epoch.get() != attachmentEpoch) {
+                diag("ATTACH_SKIPPED reason=STALE_SESSION");
+                return;
+            }
+            if (contribution.get() != active) {
+                diag("ATTACH_SKIPPED reason=CONTRIBUTION_CHANGED");
+                return;
+            }
+            if (find(panel) != null) {
+                diag("ATTACH_SKIPPED reason=ALREADY_ATTACHED");
+                return;
+            }
             try {
                 final Object mount = mountTarget(panel, widget);
                 if (mount == null) {
-                    System.err.println("[mesh-ui] mountTarget returned null for " + panel.getClass().getName());
+                    diag("ATTACH_FAILED reason=NO_MOUNT_TARGET owner=" + panel.getClass().getName());
                     return;
                 }
                 final Object root = build(active, axis, panel);
@@ -119,16 +134,24 @@ public final class RuntimeMeshEditUiService implements MeshEditUiService {
                     if (contribution.get() == active) attachments.add(new Attachment(panel, mount, root));
                     else {
                         remove(mount, root);
+                        diag("ATTACH_SKIPPED reason=CONTRIBUTION_CHANGED");
                         return;
                     }
                 }
                 tryInvoke(mount, "revalidate");
                 tryInvoke(mount, "repaint");
+                NativeMeshMirrorBridge.markControlAttached();
+                diag("ATTACH_OK");
             } catch (ReflectiveOperationException | RuntimeException failure) {
                 // Fail closed: the native UI remains unchanged.
-                failure.printStackTrace(System.err);
+                diag("ATTACH_FAILED reason=" + failure.getClass().getName());
             }
         });
+    }
+
+    /** Attachment evidence shares the mesh-mirror host diagnostic channel. */
+    private static void diag(final String stage) {
+        NativeMeshMirrorBridge.diagnostic(stage);
     }
 
     /**
