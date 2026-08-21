@@ -47,7 +47,7 @@ specs/
 CONTEXT.md
 FILE_MANIFEST.md
 INITIALIZE.md
-README.md
+/README.md
 
 # 验证 artifact 目录（本机工作流产物，不入库）
 .agent-artifacts/
