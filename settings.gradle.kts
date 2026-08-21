@@ -9,7 +9,7 @@ include(
     "plugins:cubism-tab-filter",
     "plugins:core",
     "plugins:parameter",
-    "plugins:mesh",
+    "plugins:mesh-edit-mirror-axis-enhance",
     "plugins:mcp",
     "plugins:project-inspector",
     "plugins:clipmask-viewer",
