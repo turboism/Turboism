@@ -3,6 +3,7 @@ set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 driver="$root/scripts/preview/fps-resize-driver.sh"
+wrapper="$root/scripts/preview/run-fps-host-validation.sh"
 # shellcheck source=../preview/fps-resize-driver.sh
 source "$driver"
 
@@ -42,5 +43,27 @@ mapfile -t candidates < <(PATH="$stub_dir:$PATH" fps_cubism_java_pids)
 if grep -Fq 'pgrep -f -- "$selector"' "$driver"; then
   fail "driver still enumerates candidates by selector alone"
 fi
+
+[ "$(fps_parse_geometry $'WINDOW=42\nWIDTH=1280\nHEIGHT=720')" = $'1280\t720' ] \
+  || fail "valid window geometry was rejected"
+if fps_parse_geometry $'WINDOW=42\nHEIGHT=720' >/dev/null; then
+  fail "geometry without WIDTH was accepted"
+fi
+if fps_parse_geometry $'WINDOW=42\nWIDTH=invalid\nHEIGHT=720' >/dev/null; then
+  fail "non-numeric window geometry was accepted"
+fi
+if fps_parse_geometry $'WINDOW=42\nWIDTH=40\nHEIGHT=720' >/dev/null; then
+  fail "geometry too narrow for the resize burst was accepted"
+fi
+
+wrapper_source=$(<"$wrapper")
+[[ "$wrapper_source" == *'ssh_host="${runner_args[index + 1]}"'* ]] \
+  || fail "FPS wrapper does not reuse the runner SSH host"
+[[ "$wrapper_source" == *'ssh_key="${runner_args[index + 1]}"'* ]] \
+  || fail "FPS wrapper does not reuse the runner SSH key"
+[[ "$wrapper_source" == *'nohup ssh -i "$ssh_key"'* ]] \
+  || fail "FPS resize driver does not use the resolved SSH key"
+[[ "$wrapper_source" == *'"$ssh_host" "bash -s --'* ]] \
+  || fail "FPS resize driver does not use the resolved SSH host"
 
 echo "fps resize driver test: PASS"
